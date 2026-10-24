@@ -33,6 +33,7 @@ export const SHORTCUTS: Shortcut[] = [
     category: 'general',
   },
   { keys: '⌥⌘1–9', descriptionKey: 'shortcuts.items.switchProject', category: 'general' },
+  { keys: '⌘Z', descriptionKey: 'shortcuts.items.undoLast', category: 'general' },
   { keys: '⌘[ ⌘]', descriptionKey: 'shortcuts.items.historyBackForward', category: 'general' },
   { keys: 'Alt+← Alt+→', descriptionKey: 'shortcuts.items.historyBackForward', category: 'general', platform: 'other' },
 

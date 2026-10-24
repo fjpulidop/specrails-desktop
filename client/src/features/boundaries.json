@@ -376,8 +376,10 @@
       "integrations",
       "jobs",
       "loops",
+      "missions",
       "projects",
       "providers",
+      "specs",
       "subscription-usage"
     ]
   },
@@ -402,6 +404,7 @@
       "lib/spec-status-filter.ts",
       "lib/spec-triage.ts",
       "lib/specs-view-tier.ts",
+      "lib/trash-api.ts",
       "types/spec-sort.ts"
     ],
     "dependencies": [

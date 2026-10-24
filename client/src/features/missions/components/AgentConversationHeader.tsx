@@ -80,7 +80,7 @@ export function safeTranscriptFilename(title: string | null | undefined, id: str
 export function AgentConversationHeader() {
   const closePane = useMissionPaneClose()
   const { t } = useTranslation('agent')
-  const { active, messages, renameConversation, deleteConversation, startNewConversation, favoriteConversationIds, toggleFavoriteConversation } = useAgentChat()
+  const { active, messages, renameConversation, deleteConversation, startNewConversation, favoriteConversationIds, toggleFavoriteConversation, streamingConversationIds } = useAgentChat()
   const { projects } = useDesktop()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -347,7 +347,9 @@ export function AgentConversationHeader() {
               type="button"
               role="menuitem"
               data-testid="agent-conv-delete"
-              onClick={() => setConfirmingDelete(true)}
+              // Idle missions delete at once (Undo restores them); a mission with a
+              // turn in flight still asks first, because stopping that turn can't be undone.
+              onClick={() => { if (active && streamingConversationIds.has(active.id)) setConfirmingDelete(true); else void doDelete() }}
               className="group/del flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2 className="h-3.5 w-3.5 shrink-0 text-foreground/50 group-hover/del:text-destructive" />

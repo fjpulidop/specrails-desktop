@@ -106,6 +106,8 @@ import { createFlowService, type FlowService } from './modules/flow'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/flow/adapters/sqlite'
 import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/flow/adapters/bindings'
 import { SpecTriageService } from './modules/specs/runtime/triage'
+import { startProjectTrashPurge } from './modules/specs/runtime/ticket-trash-service'
+import { attachmentManager } from './attachment-manager'
 import { rulesInventoryRuns } from './modules/project-rules/runtime/rules-inventory-runs'
 import { corePhase3Capabilities } from './modules/agent-runtime/runtime/core-capabilities'
 import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
@@ -196,6 +198,8 @@ export interface ProjectContext {
   flowSettlement?: { stop(): void }
   /** Spec triage (launch-triage): tapped from the bound broadcast; absent in bare test contexts. */
   specTriage?: SpecTriageService
+  /** Recently-deleted specs: purges entries older than 30 days (stopped on teardown). */
+  trashPurge?: { stop(): void }
 }
 
 /** Rehydrate both authoritative PR-decision surfaces after startup recovery.
@@ -472,6 +476,7 @@ export class ProjectRegistry {
       // db.close() so a completing generation can't write to the closed handle.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
       try { ctx.specTriage?.dispose() } catch { /* ignore */ }
+      try { ctx.trashPurge?.stop() } catch { /* ignore */ }
       // Drop the app-managed Explore Spec cwd (CLAUDE.md + symlink to project)
       try { removeExploreCwd(ctx.project.slug) } catch { /* ignore — non-fatal */ }
       // Drop this project's per-project phase-tracking scope (avoid a leak).
@@ -674,6 +679,7 @@ export class ProjectRegistry {
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
       try { ctx.specTriage?.dispose() } catch { /* ignore */ }
+      try { ctx.trashPurge?.stop() } catch { /* ignore */ }
       try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
       try { ctx.agentAudit?.dispose() } catch { /* ignore */ }
       ctx.ticketWatcher.close().catch(() => { /* ignore */ })
@@ -1601,6 +1607,16 @@ export class ProjectRegistry {
     })
     specTriage.start()
     ctx.specTriage = specTriage
+    // Recently deleted specs: purge past the 30-day window at startup and on a timer.
+    ctx.trashPurge = startProjectTrashPurge({
+      ticketStorePath,
+      db,
+      deleteAttachments: (ticketKey) => attachmentManager.deleteAll(project.slug, ticketKey),
+      forgetExploreConversation: (conversationId) => {
+        chatManager?.forgetSpecDraft(conversationId)
+        chatManager?.forgetExploreLifecycle(conversationId)
+      },
+    })
     // Flow mode: use cases bound to THIS project's connection; the mission host
     // is app-global and late-bound (agent chat starts after the registry).
     const flowRepository = createSqliteFlowRepository(db)

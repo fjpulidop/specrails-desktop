@@ -44,6 +44,7 @@ import {
   countOutboxByState,
   deleteConnection,
   enqueueMany,
+  enqueueHeldUpdate,
   enqueueOutbox,
   getConnection,
   getDecryptedToken,
@@ -901,6 +902,7 @@ export class JiraSyncManager {
   onSpecEdited(
     localId: number,
     changes: { title?: string; description?: string; priority?: string | null; labels?: string[] },
+    opts: { holdMs?: number } = {},
   ): void {
     if (!this.isActive()) return
     const link = getLinkByLocalId(this.db, localId)
@@ -916,6 +918,20 @@ export class JiraSyncManager {
     // INSERT OR IGNORE silently drops the second edit while the local cache shows
     // it (local↔Jira divergence). randomUUID() guarantees uniqueness per op.
     const nonce = `${Date.now().toString(36)}:${randomUUID()}`
+    if (opts.holdMs && opts.holdMs > 0) {
+      // Undo window: the write waits, and an edit undone inside the window
+      // collapses with it so Jira never sees the transient value.
+      enqueueHeldUpdate(this.db, {
+        jiraIssueId: link.jiraIssueId,
+        idempotencyKey: `update:${localId}:${nonce}`,
+        fields,
+        holdMs: opts.holdMs,
+      })
+      this.broadcastOutboxState()
+      const timer = setTimeout(() => { void this.drainOnce().catch(() => undefined) }, opts.holdMs + 250)
+      timer.unref?.()
+      return
+    }
     enqueueMany(this.db, [
       {
         jiraIssueId: link.jiraIssueId,

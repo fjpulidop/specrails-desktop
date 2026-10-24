@@ -99,7 +99,8 @@
       "runStripBack": "Esci dalla striscia delle esecuzioni e torna dov'eri",
       "flowPause": "Sospendi o riprendi il Flow (striscia delle esecuzioni attiva)",
       "flowHandOff": "Affida il Flow (striscia delle esecuzioni attiva)",
-      "historyBackForward": "Torna indietro / vai avanti al luogo precedente o successivo"
+      "historyBackForward": "Torna indietro / vai avanti al luogo precedente o successivo",
+      "undoLast": "Annulla l'ultima modifica"
     }
   },
   "update": {

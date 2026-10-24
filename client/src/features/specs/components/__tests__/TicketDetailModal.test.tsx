@@ -234,36 +234,16 @@ describe('TicketDetailModal', () => {
   })
 
   describe('delete behavior', () => {
-    it('shows delete confirmation dialog when Delete button is clicked', async () => {
-      render(<TicketDetailModal {...makeDefaultProps()} />)
-
-      // Footer has a "Delete" button
-      const deleteBtn = screen.getByRole('button', { name: /delete/i })
-      fireEvent.click(deleteBtn)
-
-      await waitFor(() => {
-        // Dialog title: "Delete ticket"
-        expect(screen.getByText('Delete ticket', { selector: '[data-slot="dialog-title"], h2, [role="heading"]' })).toBeDefined()
-      })
-    })
-
-    it('calls onDelete when delete is confirmed', async () => {
+    it('deletes at once when Delete is clicked: no confirmation dialog (Undo is the safety net)', async () => {
       const onDelete = vi.fn(async () => true)
-      render(<TicketDetailModal {...makeDefaultProps({ onDelete })} />)
+      const onClose = vi.fn()
+      render(<TicketDetailModal {...makeDefaultProps({ onDelete, onClose })} />)
 
-      // Open delete dialog
       fireEvent.click(screen.getByRole('button', { name: /delete/i }))
 
-      await waitFor(() => {
-        // Two "Delete" buttons now: footer button + dialog confirm button
-        const deleteBtns = screen.getAllByRole('button', { name: /delete/i })
-        // The last one in the DOM is the confirmation button
-        fireEvent.click(deleteBtns[deleteBtns.length - 1])
-      })
-
-      await waitFor(() => {
-        expect(onDelete).toHaveBeenCalledWith(1)
-      })
+      await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1))
+      expect(screen.queryByTestId('ticket-delete-confirm')).toBeNull()
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
     })
 
     it('stays busy and closes only after a successful delete resolves', async () => {
@@ -271,27 +251,24 @@ describe('TicketDetailModal', () => {
       const onDelete = vi.fn(() => new Promise<boolean>((resolve) => { resolveDelete = resolve }))
       const onClose = vi.fn()
       render(<TicketDetailModal {...makeDefaultProps({ onDelete, onClose })} />)
-      fireEvent.click(screen.getByRole('button', { name: /delete/i }))
-      const confirm = screen.getAllByRole('button', { name: /delete/i }).at(-1)!
-      fireEvent.click(confirm)
+      const deleteBtn = screen.getByRole('button', { name: /delete/i })
+      fireEvent.click(deleteBtn)
 
-      expect(confirm).toBeDisabled()
+      expect(deleteBtn).toBeDisabled()
       expect(onClose).not.toHaveBeenCalled()
       await act(async () => { resolveDelete(true) })
       await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
     })
 
-    it('keeps the confirmation open and reports an error when delete fails', async () => {
+    it('stays open and reports an error when delete fails', async () => {
       const { toast } = await import('sonner')
       const onDelete = vi.fn(async () => false)
       const onClose = vi.fn()
       render(<TicketDetailModal {...makeDefaultProps({ onDelete, onClose })} />)
       fireEvent.click(screen.getByRole('button', { name: /delete/i }))
-      fireEvent.click(screen.getAllByRole('button', { name: /delete/i }).at(-1)!)
 
       await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1))
       expect(onClose).not.toHaveBeenCalled()
-      expect(screen.getByText('Delete ticket')).toBeInTheDocument()
       expect(toast.error).toHaveBeenCalled()
     })
   })
@@ -697,18 +674,11 @@ describe('TicketDetailModal — modal standard', () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger))
   })
 
-  it('Escape closes only the top layer (delete confirm first, then the spec)', async () => {
+  it('Escape closes the spec modal (there is no delete confirm layer any more)', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
     render(<FocusHarness onClose={onClose} />)
     await user.click(screen.getByRole('button', { name: 'open spec' }))
-    await user.click(screen.getByRole('button', { name: /delete/i }))
-    const confirm = await screen.findByTestId('ticket-delete-confirm')
-    // Nested confirm climbs above the entity layer.
-    expect(confirm).toHaveAttribute('data-dialog-layer', 'stacked')
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByTestId('ticket-delete-confirm')).toBeNull())
-    expect(onClose).not.toHaveBeenCalled()
     expect(screen.getByTestId('ticket-detail-modal')).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))

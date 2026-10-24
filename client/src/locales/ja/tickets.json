@@ -35,10 +35,6 @@
     "updatedAgo": "{{time}}に更新"
   },
   "untitled": "無題",
-  "deleteDialog": {
-    "title": "チケットを削除",
-    "body": "<strong>#{{id}} {{title}}</strong> を削除してもよろしいですか？この操作は元に戻せません。"
-  },
   "detailModal": {
     "moreActions": "その他の操作",
     "openReview": "レビューを開く",

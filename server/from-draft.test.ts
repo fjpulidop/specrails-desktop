@@ -709,14 +709,18 @@ describe('cascade: conversation delete clears origin_conversation_id', () => {
     expect(get.body.ticket.origin_conversation_id).toBeNull()
   })
 
-  it('deleting a draft ticket cascades to its orphan Explore conversation', async () => {
+  it('deleting a draft ticket keeps its Explore conversation until the delete is permanent', async () => {
     createConversation(db, { id: 'c-orphan', model: 'sonnet', kind: 'explore' })
     addMessage(db, { conversation_id: 'c-orphan', role: 'user', content: 'idea' })
     const app = createApp(ctx)
     const save = await request(app).post('/api/projects/proj-1/tickets/save-as-draft').send({ conversationId: 'c-orphan' })
     const ticketId = save.body.ticket.id
     await request(app).delete(`/api/projects/proj-1/tickets/${ticketId}`)
-    // Conversation should be gone — re-fetching returns 404
+    // Soft delete: Undo must be lossless, so the draft's conversation survives.
+    expect((await request(app).get('/api/projects/proj-1/chat/conversations/c-orphan')).status).toBe(200)
+    const gone = await request(app).delete(`/api/projects/proj-1/tickets/trash/${ticketId}`)
+    expect(gone.status).toBe(200)
+    // Permanent delete runs the cascade: the conversation is gone — re-fetching returns 404
     const conv = await request(app).get('/api/projects/proj-1/chat/conversations/c-orphan')
     expect(conv.status).toBe(404)
   })

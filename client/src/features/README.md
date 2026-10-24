@@ -70,3 +70,21 @@ Rules:
 - Shortcuts live in `hooks/useKeyboardShortcuts.ts` (`⌘[` `⌘]`; `Ctrl+[` `Ctrl+]` / `Alt+←` `Alt+→`
   off macOS), mouse buttons 4/5 in `PlaceHistoryProvider`, the title-bar buttons in
   `components/PlaceNavButtons.tsx`.
+
+## Undo instead of confirm
+
+Reversible actions (delete a spec or mission, remove a spec from a rail, move a
+spec to another status, change its labels) apply immediately and call
+`useUndo().pushUndo({ projectId, label, undo })` from [`hooks/useUndo.tsx`](../hooks/useUndo.tsx).
+It shows an 8 s toast with **Undo** and registers **⌘Z / Ctrl+Z** (ignored in
+text fields, code editors and terminals). The stack is per project: ⌘Z only
+reaches entries of the active project and a project switch dismisses the
+previous project's toasts, so `undo` must address its project explicitly. Without
+a provider `pushUndo` is a no-op that returns `false`. Throw `UndoBlockedError`
+from `undo` to refuse with a specific reason.
+
+Deletes are soft (specs and missions stay restorable for 30 days under project
+settings → Recently deleted, `settings/components/RecentlyDeletedSection.tsx`).
+Keep a confirm only for what cannot be reversed: discarding unpushed work,
+force-closing a PR, removing a project, deleting permanently, and deleting a
+mission whose agent turn is still running.

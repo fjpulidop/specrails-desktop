@@ -93,20 +93,7 @@ describe('TicketContextMenu', () => {
     expect(screen.getByText('Set priority')).toBeDefined()
   })
 
-  it('clicking "Delete ticket" shows confirmation dialog', () => {
-    render(
-      <TicketContextMenu {...makeDefaultProps()}>
-        <span>Target</span>
-      </TicketContextMenu>
-    )
-    fireEvent.contextMenu(screen.getByText('Target'))
-    fireEvent.click(screen.getByText('Delete ticket'))
-    // Confirmation dialog should appear — multiple "Delete" buttons exist now (menu + dialog confirm)
-    // The dialog adds a second Delete button; if count > 1, dialog is shown
-    expect(screen.getAllByText('Delete ticket').length).toBeGreaterThan(0)
-  })
-
-  it('confirming delete calls onDelete with ticket id', () => {
+  it('clicking "Delete ticket" deletes at once, without a confirmation dialog', () => {
     const onDelete = vi.fn()
     render(
       <TicketContextMenu {...makeDefaultProps({ onDelete })}>
@@ -115,10 +102,8 @@ describe('TicketContextMenu', () => {
     )
     fireEvent.contextMenu(screen.getByText('Target'))
     fireEvent.click(screen.getByText('Delete ticket'))
-    // Click the destructive "Delete" button in the dialog
-    const deleteButtons = screen.getAllByText('Delete')
-    // The last "Delete" button in the dialog footer is the confirm button
-    fireEvent.click(deleteButtons[deleteButtons.length - 1])
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(onDelete).toHaveBeenCalledTimes(1)
     expect(onDelete).toHaveBeenCalledWith(1)
   })
 

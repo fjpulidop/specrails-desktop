@@ -24,6 +24,7 @@ import {
   getAgentConversation,
   patchAgentConversation,
   deleteAgentConversation,
+  restoreAgentConversation,
   sendAgentMessage,
   abortAgentTurn,
   editQueuedAgentMessage,
@@ -48,6 +49,7 @@ import { AgentBubble } from '../components/AgentBubble'
 import { useBuilderSession, type BuilderSession } from '../../builder/hooks/useBuilderSession'
 import { useUiMode } from '../../../context/UiModeContext'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { useUndo } from '../../../hooks/useUndo'
 import { comparePrSnapshotUpdatedAt } from '../../delivery/lib/pr-delivery'
 import { markUserPlaceIntent } from '../../../lib/places'
 import { migrateNewMissionComposerDrafts } from '../lib/agent-composer-drafts'
@@ -532,6 +534,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { uiMode } = useUiMode()
   const { setActiveProjectId, activeProjectId } = useDesktop()
+  const { pushUndo } = useUndo()
   const missionWindows = useMissionWindows()
   const windowsRef = useRef(missionWindows)
   windowsRef.current = missionWindows
@@ -540,6 +543,8 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const [visibility, setVisibility] = useState<AgentVisibility>('hidden')
   const [conversations, setConversations] = useState<AgentConversation[]>([])
+  const conversationsRef = useRef(conversations)
+  conversationsRef.current = conversations
   const [active, setActive] = useState<AgentConversation | null>(null)
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const metadataVersion = useRef(new Map<string, number>())
@@ -1670,7 +1675,17 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const deleteConversation = useCallback(async (id: string) => {
     if (!editable(id)) return
+    const deleted = conversationsRef.current.find((c) => c.id === id) ?? (activeIdRef.current === id ? active : null)
     await deleteAgentConversation(id)
+    // Applied at once, no confirm: Undo restores the mission with its history.
+    pushUndo({
+      projectId: deleted?.pinned_project_id ?? activeProjectId,
+      label: i18n.t('undo:missionDeleted', { title: deleted?.title?.trim() || i18n.t('undo:missionUntitled') }),
+      undo: async () => {
+        await restoreAgentConversation(id)
+        await refreshConversations()
+      },
+    })
     await windowsRef.current.discard(id)
     setConversations((c) => c.filter((x) => x.id !== id))
     setFavoriteConversationIds((prev) => {
@@ -1685,7 +1700,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       setActive(null)
       setMessages([])
     }
-  }, [patchLive])
+  }, [patchLive, pushUndo, activeProjectId, active, refreshConversations])
 
   /** Rename a conversation. Optimistic: the title updates locally immediately and
    *  reverts on failure. A blank/whitespace title clears back to auto-title. */

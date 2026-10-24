@@ -19,6 +19,11 @@ import {
   getAgentConversation,
   updateAgentConversation,
   deleteAgentConversation,
+  softDeleteAgentConversation,
+  restoreAgentConversation,
+  listDeletedAgentConversations,
+  listExpiredAgentConversationIds,
+  AGENT_TRASH_RETENTION_MS,
   listAgentMessages,
   setAgentMessageIntent,
   isAgentMessageIntentKind,
@@ -233,9 +238,22 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     res.status(201).json({ conversation })
   })
 
+  // "Recently deleted" missions (soft-deleted, restorable for 30 days). Registered
+  // before `/conversations/:id` so `trash` is not read as a conversation id.
+  router.get('/conversations/trash', (req: Request, res: Response) => {
+    purgeExpired()
+    const projectId = typeof req.query.projectId === 'string' && req.query.projectId ? req.query.projectId : undefined
+    const items = listDeletedAgentConversations(desktopDb, projectId).map((conversation) => ({
+      conversation,
+      deletedAt: conversation.deleted_at ?? null,
+      purgeAt: conversation.deleted_at ? new Date(Date.parse(`${conversation.deleted_at}`) + AGENT_TRASH_RETENTION_MS).toISOString() : null,
+    }))
+    res.json({ items, retentionDays: Math.round(AGENT_TRASH_RETENTION_MS / 86_400_000) })
+  })
+
   router.get('/conversations/:id', (req: Request, res: Response) => {
     const conversation = getAgentConversation(desktopDb, String(req.params.id))
-    if (!conversation) {
+    if (!conversation || conversation.deleted_at) {
       res.status(404).json({ error: 'Unknown conversation' })
       return
     }
@@ -365,19 +383,69 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     res.json({ conversation: updateAgentConversation(desktopDb, conversation.id, patch) })
   })
 
-  router.delete('/conversations/:id', (req: Request, res: Response) => {
-    const id = String(req.params.id)
+  // Stop everything live in a mission (turn, Core session, background processes).
+  // Shared by the soft and the permanent delete; idempotent.
+  function stopMission(id: string): void {
     manager.abort(id)
     // Must run before the row is deleted: it reads the conversation's scope.
     void manager.closeCoreSession(id).catch((e) => console.error('[agent-chat] Core session close failed:', e))
     killBackgroundProcessesForChat(id)
+  }
+
+  // Permanent removal: the row, its history and its attachment directory.
+  function hardDeleteMission(id: string): void {
+    stopMission(id)
     purgeBackgroundProcessHistory({ chatId: id })
     deleteAgentConversation(desktopDb, id)
     // Cascade-remove the conversation's attachment directory (best-effort).
     void attachmentManager.deleteAllAgent(id).catch((e) =>
       console.error('[agent-chat] attachment cleanup failed:', e),
     )
-    res.json({ ok: true })
+  }
+
+  // Drop missions deleted longer ago than the retention window. Idempotent.
+  function purgeExpired(): number {
+    try {
+      const ids = listExpiredAgentConversationIds(desktopDb)
+      for (const id of ids) hardDeleteMission(id)
+      return ids.length
+    } catch (err) {
+      console.error('[agent-chat] trash purge failed:', err)
+      return 0
+    }
+  }
+  const purgeFirst = setTimeout(purgeExpired, 5_000)
+  const purgeTimer = setInterval(purgeExpired, 6 * 60 * 60 * 1000)
+  purgeFirst.unref?.()
+  purgeTimer.unref?.()
+
+  // DELETE /conversations/:id — soft delete: the live turn stops and the mission
+  // moves to "Recently deleted" (Undo = restore). `?permanent=1` removes it for good.
+  router.delete('/conversations/:id', (req: Request, res: Response) => {
+    const id = String(req.params.id)
+    if (req.query.permanent === '1' || req.query.permanent === 'true') {
+      if (!getAgentConversation(desktopDb, id)) {
+        res.status(404).json({ error: 'Unknown conversation' })
+        return
+      }
+      hardDeleteMission(id)
+      res.json({ ok: true })
+      return
+    }
+    // Unknown id keeps the historical idempotent success of a repeat DELETE.
+    stopMission(id)
+    softDeleteAgentConversation(desktopDb, id)
+    res.json({ ok: true, restorable: true })
+  })
+
+  // POST /conversations/:id/restore — Undo a delete. Idempotent.
+  router.post('/conversations/:id/restore', (req: Request, res: Response) => {
+    const conversation = restoreAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) {
+      res.status(404).json({ error: 'Unknown conversation' })
+      return
+    }
+    res.json({ ok: true, conversation })
   })
 
   // ── Attachments (conversation-keyed; mirror the ticket attachment routes) ──
@@ -486,7 +554,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
 
   router.post('/conversations/:id/send', (req: Request, res: Response) => {
     const conversation = getAgentConversation(desktopDb, String(req.params.id))
-    if (!conversation) {
+    if (!conversation || conversation.deleted_at) {
       res.status(404).json({ error: 'Unknown conversation' })
       return
     }

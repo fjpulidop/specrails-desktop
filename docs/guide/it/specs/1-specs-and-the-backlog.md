@@ -54,6 +54,12 @@ Quando una spec ha già del lavoro alle spalle — una PR in revisione, una funz
 
 Quando un'esecuzione termina, il suo pacchetto di revisione si apre con **Cosa guardare**: la breve nota del revisore IA che elenca prima i punti più rischiosi (alto, poi medio, poi basso, ciascuno con file e riga), il comportamento che cambia, le regole su cui la modifica si appoggia, i percorsi di codice che nessun test esercita e i controlli che solo una persona può fare. Gli stessi rischi, percorsi senza test e controlli compaiono in un breve blocco in cima alla pull request, e la scheda della missione mostra il rischio principale in una riga. La nota aiuta la revisione, non è un risultato di verifica: non blocca mai Accetta. Le esecuzioni fatte con uno Specrails Core precedente non hanno la nota e il loro pacchetto resta come prima.
 
+## Annulla e Eliminati di recente
+
+Eliminare una spec, spostarla in un altro stato, cambiarne le etichette o toglierla da un rail avviene subito: nessun "Sei sicuro?" prima. Al suo posto, una notifica offre **Annulla** per circa otto secondi, e **⌘Z** (**Ctrl+Z** su Windows e Linux) fa lo stesso finché non stai scrivendo in un campo. Annulla vale per progetto: cambiando progetto la finestra si chiude.
+
+Una spec eliminata (e una missione eliminata) non sparisce. Va in **Impostazioni → Eliminati di recente**, nelle impostazioni del progetto, dove puoi **Ripristinarla** per 30 giorni o **Eliminarla definitivamente**, che chiede prima conferma. Dopo 30 giorni viene rimossa per sempre. Scartare lavoro non pushato, chiudere con la forza una pull request e rimuovere un progetto chiedono ancora conferma, perché non si possono annullare. Una spec collegata a Jira si sposta ancora con **Sposta in** invece di essere eliminata.
+
 ## Dove andare adesso
 
 - [Aggiungi spec — Modalità Quick](add-spec-quick-mode.md) — il modo più rapido per trasformare un'idea in una spec.

@@ -297,7 +297,8 @@
       "terminal": "ターミナル",
       "agentRuntime": "検証コマンド",
       "subagents": "サブエージェント",
-      "rules": "ルール"
+      "rules": "ルール",
+      "recentlyDeleted": "最近削除した項目"
     },
     "navLabel": "プロジェクト設定セクション"
   },

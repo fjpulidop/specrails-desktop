@@ -54,6 +54,12 @@ Wenn hinter einer Spec bereits Arbeit steckt – ein PR im Review, ein gemergtes
 
 Wenn ein Lauf endet, beginnt sein Review-Paket mit **Worauf achten**: den kurzen Hinweisen des KI-Reviewers, die die riskantesten Stellen zuerst nennen (hoch, dann mittel, dann niedrig, jeweils mit Datei und Zeile), das Verhalten, das sich ändert, die Regeln, auf die sich die Änderung stützt, die Codepfade, die kein Test ausführt, und die Prüfungen, die nur ein Mensch machen kann. Dieselben Risiken, ungetesteten Pfade und Prüfungen stehen in einem kurzen Block oben im Pull Request, und die Missionskarte zeigt das größte Risiko in einer Zeile. Die Hinweise unterstützen Ihr Review, sie sind kein Prüfergebnis und blockieren Annehmen nie. Läufe mit einem älteren Specrails Core haben keine Hinweise; ihr Paket sieht aus wie bisher.
 
+## Rückgängig und Zuletzt gelöscht
+
+Eine Spec löschen, ihren Status ändern, ihre Labels ändern oder sie von einer Rail nehmen geschieht sofort — ohne vorherige Rückfrage. Stattdessen bietet ein Hinweis etwa acht Sekunden lang **Rückgängig** an, und **⌘Z** (**Strg+Z** unter Windows und Linux) tut dasselbe, solange du nicht in einem Feld tippst. Rückgängig gilt pro Projekt: Ein Projektwechsel beendet das Zeitfenster.
+
+Eine gelöschte Spec (und eine gelöschte Mission) ist nicht weg. Sie landet unter **Einstellungen → Zuletzt gelöscht** in den Projekteinstellungen, wo du sie 30 Tage lang **Wiederherstellen** oder **Endgültig löschen** kannst — Letzteres fragt nach. Nach 30 Tagen wird sie endgültig entfernt. Nicht gepushte Arbeit verwerfen, einen Pull Request erzwungen schließen und ein Projekt entfernen fragen weiterhin nach, weil sie sich nicht rückgängig machen lassen. Eine Jira-gestützte Spec wird weiterhin mit **Verschieben nach** statt durch Löschen bearbeitet.
+
 ## Wie es weitergeht
 
 - [Spec hinzufügen – Quick-Modus](add-spec-quick-mode.md) – der schnellste Weg, eine Idee in eine Spec zu verwandeln.

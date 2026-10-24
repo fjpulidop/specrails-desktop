@@ -4,7 +4,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { formatDistanceToNow } from 'date-fns'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink, MoreHorizontal, Split } from 'lucide-react'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
 import { openExternalUrl } from '../../../lib/tauri-shell'
@@ -181,7 +181,6 @@ export function TicketDetailModal({
   const [showLabelInput, setShowLabelInput] = useState(false)
 
   // Confirmation dialog
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDiscard, setShowDiscard] = useState(false)
   const [showJiraSaveConfirm, setShowJiraSaveConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -350,7 +349,6 @@ export function TicketDetailModal({
       toast.error(t('detailModal.toast.deleteFailed'))
       return
     }
-    setShowDeleteConfirm(false)
     onClose()
   }, [deleting, ticket.id, onDelete, onClose, t])
 
@@ -975,7 +973,8 @@ export function TicketDetailModal({
               <Button
                 variant="ghost"
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => setShowDeleteConfirm(true)}
+                onClick={() => { void handleDelete() }}
+                disabled={deleting}
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1" />
                 {t('common:actions.delete')}
@@ -1005,25 +1004,6 @@ export function TicketDetailModal({
 
   const dialogs = (
     <>
-      {/* Delete confirmation */}
-      <ConfirmDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        title={t('deleteDialog.title')}
-        description={
-          <Trans
-            t={t}
-            i18nKey="deleteDialog.body"
-            values={{ id: ticket.id, title: ticket.title }}
-            components={{ strong: <span className="font-semibold text-foreground" /> }}
-          />
-        }
-        confirmLabel={t('common:actions.delete')}
-        busy={deleting}
-        onConfirm={handleDelete}
-        testId="ticket-delete-confirm"
-      />
-
       {/* Jira "Move to <status>" — replaces delete for Jira-backed specs */}
       {canDiscard && jira.discardStatus && (
         <DiscardSpecDialog

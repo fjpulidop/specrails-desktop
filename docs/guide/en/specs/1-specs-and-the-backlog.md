@@ -54,6 +54,12 @@ When a spec already has work behind it — a PR under review, a merged feature �
 
 When a run finishes, its review packet opens with **What to look at**: the AI reviewer's short brief listing the riskiest spots first (high, then medium, then low, each with a file and line), the behaviour that changes, the rules the change leans on, the code paths no test exercises and the checks only a person can do. The same risks, untested paths and checks appear in a short block at the top of the pull request, and the mission card shows the top risk in one line. The brief is advice for your review, not a verification result: it never blocks Accept. Runs made with an older Specrails Core have no brief, and their packet looks as before.
 
+## Undo, and Recently deleted
+
+Deleting a spec, moving it to another status, changing its labels or taking it off a rail all happen at once — there is no "Are you sure?" first. Instead a toast offers **Undo** for about eight seconds, and **⌘Z** (**Ctrl+Z** on Windows and Linux) does the same while you are not typing in a field. Undo is per project: switching project closes the window.
+
+A deleted spec (and a deleted mission) is not gone. It moves to **Settings → Recently deleted** in the project settings, where you can **Restore** it for 30 days or **Delete permanently**, which does ask first. After 30 days it is removed for good. Discarding unpushed work, force-closing a pull request and removing a project are the actions that still ask first, because they cannot be reversed. A Jira-backed spec is still moved with **Move to** rather than deleted.
+
 ## Where to go next
 
 - [Add Spec — Quick mode](add-spec-quick-mode.md) — the fastest way to turn an idea into a spec.

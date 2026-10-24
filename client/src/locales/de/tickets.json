@@ -35,10 +35,6 @@
     "updatedAgo": "Aktualisiert {{time}}"
   },
   "untitled": "Unbenannt",
-  "deleteDialog": {
-    "title": "Ticket löschen",
-    "body": "Möchtest du <strong>#{{id}} {{title}}</strong> wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
-  },
   "detailModal": {
     "moreActions": "Weitere Aktionen",
     "openReview": "Review öffnen",

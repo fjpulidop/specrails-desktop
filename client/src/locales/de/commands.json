@@ -99,7 +99,8 @@
       "runStripBack": "Laufstreifen verlassen und dorthin zurückkehren, wo du warst",
       "flowPause": "Flow pausieren oder fortsetzen (Laufstreifen fokussiert)",
       "flowHandOff": "Flow übergeben (Laufstreifen fokussiert)",
-      "historyBackForward": "Zum vorherigen / nächsten Ort zurück- bzw. vorgehen"
+      "historyBackForward": "Zum vorherigen / nächsten Ort zurück- bzw. vorgehen",
+      "undoLast": "Letzte Änderung rückgängig machen"
     }
   },
   "update": {

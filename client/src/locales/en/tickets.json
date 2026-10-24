@@ -35,10 +35,6 @@
     "updatedAgo": "Updated {{time}}"
   },
   "untitled": "Untitled",
-  "deleteDialog": {
-    "title": "Delete ticket",
-    "body": "Are you sure you want to delete <strong>#{{id}} {{title}}</strong>? This action cannot be undone."
-  },
   "detailModal": {
     "moreActions": "More actions",
     "openReview": "Open review",

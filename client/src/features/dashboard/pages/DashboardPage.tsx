@@ -50,6 +50,7 @@ import {
 import { isSafeCustomModelAlias } from '../../providers/lib/model-alias'
 import { railIdFromIndex, railIndexFromId, MAX_RAILS } from '../../rails/lib/rail-id'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
+import { useUndo, UndoBlockedError } from '../../../hooks/useUndo'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useSpecGenTracker } from '../../specs/hooks/useSpecGenTracker'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
@@ -63,7 +64,7 @@ import {
   saveSpecsViewTier,
   type SpecsViewTier,
 } from '../../specs/lib/specs-view-tier'
-import { insertAt, resolveDestContainer } from '../lib/dashboard-dnd'
+import { insertAt, resolveDestContainer, restoreTicketToRail } from '../lib/dashboard-dnd'
 import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
 import { createInitialCommit, initialCommitErrorMessage } from '../../../lib/initial-commit'
 import { pendingReviewFromDecisions, railLaunchAddsReviewWip, readReviewWipRejection, reviewWipActionMessage, reviewWipCapacity, reviewWipRejectionMessage, useReviewWipLimit } from '../../../lib/review-wip'
@@ -164,6 +165,8 @@ function saveRails(projectId: string | null, rails: RailState[]) {
 
 export default function DashboardPage() {
   const { t } = useTranslation('dashboard')
+  const { t: tUndo } = useTranslation('undo')
+  const { pushUndo } = useUndo()
   const { activeProjectId, projects } = useDesktop()
   const isGalaxy = useActiveTheme().id === 'galaxy'
   const railProviders = (() => {
@@ -486,6 +489,9 @@ export default function DashboardPage() {
       return next
     })
   }, [activeProjectId])
+
+  const railsRef = useRef(rails)
+  railsRef.current = rails
 
   // Persist-aware rails updater
   const updateRails = useCallback((updater: (prev: RailState[]) => RailState[]) => {
@@ -931,8 +937,25 @@ export default function DashboardPage() {
       const current = prev ?? specTickets.map((t) => t.id)
       return current.includes(ticketId) ? current : [...current, ticketId]
     })
-    toast.success(t('toasts.removedFromRail', { rail: sourceRail.label }))
-  }, [rails, specTickets, updateRails, updateSpecOrder, t])
+    const wasAt = sourceRail.ticketIds.indexOf(ticketId)
+    const shown = pushUndo({
+      projectId: activeProjectId,
+      label: tUndo('removedFromRail', { id: ticketId, rail: sourceRail.label }),
+      undo: () => {
+        // The rail may have started since: a running rail never takes a spec back.
+        const restored = restoreTicketToRail(railsRef.current, sourceRail.id, ticketId, wasAt)
+        if (!restored.ok) {
+          throw new UndoBlockedError(tUndo(restored.reason === 'rail_running' ? 'railRunning' : 'failed', { id: ticketId }))
+        }
+        updateRails((prev) => {
+          const next = restoreTicketToRail(prev, sourceRail.id, ticketId, wasAt)
+          return next.ok ? next.rails : prev
+        })
+        updateSpecOrder((prev) => (prev ?? specTickets.map((tk) => tk.id)).filter((id) => id !== ticketId))
+      },
+    })
+    if (!shown) toast.success(t('toasts.removedFromRail', { rail: sourceRail.label }))
+  }, [rails, specTickets, updateRails, updateSpecOrder, t, tUndo, pushUndo, activeProjectId])
 
   // ── DnD helpers ──────────────────────────────────────────────────────────────
   const findContainer = useCallback(

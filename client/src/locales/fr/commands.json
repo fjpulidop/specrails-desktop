@@ -99,7 +99,8 @@
       "runStripBack": "Quitter le bandeau des exécutions et revenir où vous étiez",
       "flowPause": "Suspendre ou reprendre le Flow (bandeau des exécutions actif)",
       "flowHandOff": "Remettre le Flow (bandeau des exécutions actif)",
-      "historyBackForward": "Revenir / avancer vers le lieu précédent ou suivant"
+      "historyBackForward": "Revenir / avancer vers le lieu précédent ou suivant",
+      "undoLast": "Annuler la dernière modification"
     }
   },
   "update": {

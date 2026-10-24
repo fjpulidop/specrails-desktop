@@ -1,7 +1,8 @@
 import type { ComponentType } from 'react'
-import { SlidersHorizontal, Wallet, Activity, TerminalSquare, KeyRound, GitBranch, Bot, Network, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { SlidersHorizontal, Wallet, Activity, TerminalSquare, KeyRound, GitBranch, Bot, Network, ShieldCheck, Trash2, type LucideIcon } from 'lucide-react'
 import { ProjectSubagentsSection } from './SubagentsSettingsSection'
 import { TerminalSettingsSection } from './TerminalSettingsSection'
+import { RecentlyDeletedSection } from './RecentlyDeletedSection'
 import { ProjectRepositoriesSection } from './ProjectRepositoriesSection'
 import { AgentRuntimeSettingsSection } from './AgentRuntimeSettingsSection'
 import { ProjectAgentEnvModeSection } from './AgentEnvModeSection'
@@ -45,6 +46,7 @@ export const PROJECT_SETTINGS_SECTIONS = [
   { id: 'telemetry', icon: Activity, labelKey: 'projectDialog.nav.telemetry', panes: [ProjectTelemetrySection, ProjectAgentAuditSection] },
   { id: 'rules', icon: ShieldCheck, labelKey: 'projectDialog.nav.rules', panes: [ProjectAnchoringSection, ProjectRulesSection] },
   { id: 'terminal', icon: TerminalSquare, labelKey: 'projectDialog.nav.terminal', panes: [ProjectTerminalSection] },
+  { id: 'recentlyDeleted', icon: Trash2, labelKey: 'projectDialog.nav.recentlyDeleted', panes: [RecentlyDeletedSection] },
 ] as const satisfies readonly ProjectSettingsSection[]
 
 export type ProjectSettingsSectionId = (typeof PROJECT_SETTINGS_SECTIONS)[number]['id']

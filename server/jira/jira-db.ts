@@ -408,6 +408,52 @@ export function enqueueOutbox(db: DbInstance, input: EnqueueOutboxInput): number
   return existing?.id ?? 0
 }
 
+/**
+ * Enqueue a field `update` that waits `holdMs` before it may drain (the undo
+ * window of a label change). While an earlier held update for the same issue is
+ * still waiting, it is folded into this one and marked `superseded`, so an edit
+ * undone inside the window collapses to the value Jira already has — Jira never
+ * sees the transient change. Idempotent on `idempotencyKey`.
+ */
+export function enqueueHeldUpdate(
+  db: DbInstance,
+  input: { jiraIssueId: string; idempotencyKey: string; fields: Record<string, unknown>; holdMs: number; now?: Date }
+): number {
+  const now = input.now ?? new Date()
+  const nowIso = now.toISOString()
+  const dueIso = new Date(now.getTime() + input.holdMs).toISOString()
+  const tx = db.transaction((): number => {
+    const existing = db.prepare('SELECT id FROM jira_outbox WHERE idempotency_key = ?').get(input.idempotencyKey) as { id: number } | undefined
+    if (existing) return existing.id
+    const held = db
+      .prepare(
+        `SELECT id, payload FROM jira_outbox
+          WHERE jira_issue_id = ? AND op_type = 'update' AND state = 'pending'
+            AND next_attempt_at IS NOT NULL AND next_attempt_at > ?
+          ORDER BY id ASC`
+      )
+      .all(input.jiraIssueId, nowIso) as Array<{ id: number; payload: string }>
+    let merged: Record<string, unknown> = {}
+    for (const row of held) {
+      try {
+        const payload = JSON.parse(row.payload) as { fields?: Record<string, unknown> }
+        merged = { ...merged, ...(payload.fields ?? {}) }
+      } catch { /* an unreadable held payload carries nothing to merge */ }
+      db.prepare("UPDATE jira_outbox SET state = 'superseded', next_attempt_at = NULL, updated_at = ? WHERE id = ?").run(nowIso, row.id)
+    }
+    merged = { ...merged, ...input.fields }
+    const info = db
+      .prepare(
+        `INSERT INTO jira_outbox
+          (jira_issue_id, op_type, idempotency_key, payload, state, attempts, next_attempt_at, created_at, updated_at)
+         VALUES (?, 'update', ?, ?, 'pending', 0, ?, ?, ?)`
+      )
+      .run(input.jiraIssueId, input.idempotencyKey, JSON.stringify({ jiraIssueId: input.jiraIssueId, fields: merged }), dueIso, nowIso, nowIso)
+    return Number(info.lastInsertRowid)
+  })
+  return tx()
+}
+
 /** Enqueue several ops atomically (one SQLite transaction). */
 export function enqueueMany(db: DbInstance, ops: EnqueueOutboxInput[]): void {
   const tx = db.transaction((items: EnqueueOutboxInput[]) => {

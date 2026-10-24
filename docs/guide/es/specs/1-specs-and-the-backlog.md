@@ -54,6 +54,12 @@ Cuando una spec ya tiene trabajo detrás (una PR en revisión, una funcionalidad
 
 Cuando termina una ejecución, su paquete de revisión empieza por **Qué mirar**: el breve resumen del revisor de IA con los puntos más arriesgados primero (alto, luego medio y luego bajo, cada uno con fichero y línea), el comportamiento que cambia, las reglas en las que se apoya el cambio, las rutas de código que ningún test ejercita y las comprobaciones que solo puede hacer una persona. Los mismos riesgos, rutas sin test y comprobaciones aparecen en un bloque corto al principio de la pull request, y la tarjeta de la misión muestra el riesgo principal en una línea. El resumen es una ayuda para revisar, no un resultado de verificación: nunca bloquea Aceptar. Las ejecuciones hechas con un Specrails Core anterior no tienen resumen y su paquete se ve como antes.
 
+## Deshacer y Eliminado recientemente
+
+Eliminar una spec, moverla a otro estado, cambiar sus etiquetas o sacarla de un rail ocurre al instante: no hay un "¿Seguro?" previo. En su lugar, un aviso ofrece **Deshacer** durante unos ocho segundos, y **⌘Z** (**Ctrl+Z** en Windows y Linux) hace lo mismo mientras no estés escribiendo en un campo. Deshacer es por proyecto: al cambiar de proyecto se cierra la ventana.
+
+Una spec eliminada (y una misión eliminada) no desaparece. Pasa a **Ajustes → Eliminado recientemente** en los ajustes del proyecto, donde puedes **Restaurarla** durante 30 días o **Eliminarla definitivamente**, que sí pregunta antes. Pasados 30 días se borra para siempre. Descartar trabajo sin enviar, cerrar a la fuerza una pull request y quitar un proyecto siguen preguntando antes, porque no se pueden revertir. Una spec respaldada por Jira se sigue moviendo con **Mover a** en lugar de eliminarse.
+
 ## Adónde ir después
 
 - [Añadir spec — Modo Quick](add-spec-quick-mode.md): la forma más rápida de convertir una idea en una spec.

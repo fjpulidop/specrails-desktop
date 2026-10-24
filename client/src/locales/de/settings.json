@@ -297,7 +297,8 @@
       "terminal": "Terminal",
       "agentRuntime": "Verifikationsbefehle",
       "subagents": "Sub-Agenten",
-      "rules": "Regeln"
+      "rules": "Regeln",
+      "recentlyDeleted": "Zuletzt gelöscht"
     },
     "navLabel": "Bereiche der Projekteinstellungen"
   },

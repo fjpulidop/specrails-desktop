@@ -297,7 +297,8 @@
       "terminal": "Terminal",
       "agentRuntime": "Commandes de vérification",
       "subagents": "Sous-agents",
-      "rules": "Règles"
+      "rules": "Règles",
+      "recentlyDeleted": "Supprimés récemment"
     },
     "navLabel": "Sections des réglages du projet"
   },

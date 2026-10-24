@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
+import { UndoProvider } from './hooks/useUndo'
 import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import { OPEN_APP_SETTINGS_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
@@ -917,6 +918,7 @@ function AppRoutes() {
               <PlaceHistoryOwner enabled={!secondary}>
               {!secondary && <MainDesktopUpdateNotifier />}
               {/* Custom frameless titlebar inside DesktopProvider so it can read active project */}
+              <UndoProvider>
               <SpecGenTrackerProvider>
                 <ContractRefineTrackerProvider>
                 <SmashTrackerProvider>
@@ -961,6 +963,7 @@ function AppRoutes() {
                 </SmashTrackerProvider>
                 </ContractRefineTrackerProvider>
               </SpecGenTrackerProvider>
+              </UndoProvider>
               </PlaceHistoryOwner>
               </UiModeProvider>
             </DesktopProvider>

@@ -811,6 +811,15 @@ function applyDesktopMigrations(db: DbInstance): void {
         );
       `)
     },
+    // 37: undo-instead-of-confirm — a deleted mission is SOFT-deleted: `deleted_at`
+    // hides it from every list/search and starts its 30-day "Recently deleted"
+    // window (restore clears it; the purge hard-deletes expired rows). NULL =
+    // live, which is every pre-existing row.
+    () => {
+      const cols = new Set((db.prepare('PRAGMA table_info(agent_conversations)').all() as Array<{ name: string }>).map((c) => c.name))
+      if (!cols.has('deleted_at')) db.exec(`ALTER TABLE agent_conversations ADD COLUMN deleted_at TEXT;`)
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_conversations_deleted_at ON agent_conversations(deleted_at) WHERE deleted_at IS NOT NULL;`)
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

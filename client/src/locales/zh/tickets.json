@@ -35,10 +35,6 @@
     "updatedAgo": "更新于 {{time}}"
   },
   "untitled": "未命名",
-  "deleteDialog": {
-    "title": "删除工单",
-    "body": "确定要删除 <strong>#{{id}} {{title}}</strong> 吗？此操作无法撤销。"
-  },
   "detailModal": {
     "moreActions": "更多操作",
     "openReview": "打开评审",

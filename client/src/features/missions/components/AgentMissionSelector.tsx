@@ -103,6 +103,12 @@ export function AgentMissionSelector() {
   }
 
   const armDelete = (id: string) => {
+    // Idle missions delete at once (Undo restores them). A mission with a turn
+    // in flight still asks first: stopping that turn can't be undone.
+    if (!streamingConversationIds.has(id) && !backgroundConversationIds.has(id)) {
+      void confirmDelete(id)
+      return
+    }
     if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
     setConfirmingId(id)
     confirmTimerRef.current = setTimeout(() => {

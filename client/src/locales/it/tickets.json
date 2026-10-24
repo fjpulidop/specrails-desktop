@@ -35,10 +35,6 @@
     "updatedAgo": "Aggiornato {{time}}"
   },
   "untitled": "Senza titolo",
-  "deleteDialog": {
-    "title": "Elimina ticket",
-    "body": "Vuoi davvero eliminare <strong>#{{id}} {{title}}</strong>? Questa azione è irreversibile."
-  },
   "detailModal": {
     "moreActions": "Altre azioni",
     "openReview": "Apri revisione",

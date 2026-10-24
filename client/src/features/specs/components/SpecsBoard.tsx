@@ -1,11 +1,10 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { FileText, Plus, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
-import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { SpecCard } from './SpecCard'
 import { TicketPostitCard } from './TicketPostitCard'
 import { TicketContextMenu } from './TicketContextMenu'
@@ -211,16 +210,11 @@ export function SpecsBoard({
     if (jiggleMode) setJiggleMode(false)
   }, [jiggleMode])
   const enterJiggle = useCallback(() => setJiggleMode(true), [])
-  const { t: tTickets } = useTranslation('tickets')
-  // Jiggle-mode delete asks first, reusing the context-menu delete copy.
-  const [pendingDelete, setPendingDelete] = useState<LocalTicket | null>(null)
+  // Jiggle-mode delete applies at once; the Undo toast (and the Recently deleted
+  // list) is the safety net, so there is no confirm step.
   const handleCardDelete = useCallback((ticket: LocalTicket) => {
-    if (onTicketDelete) setPendingDelete(ticket)
+    onTicketDelete?.(ticket.id)
   }, [onTicketDelete])
-  const confirmCardDelete = useCallback(() => {
-    if (pendingDelete && onTicketDelete) onTicketDelete(pendingDelete.id)
-    setPendingDelete(null)
-  }, [pendingDelete, onTicketDelete])
   const [proposeOpen, setProposeOpen] = useState(false)
   const [explore, setExplore] = useState<ExploreState | null>(null)
   const { activeProjectId } = useDesktop()
@@ -954,25 +948,6 @@ export function SpecsBoard({
             )}
           </div>
         )}
-      </div>
-
-      {/* Portal clicks bubble through the React tree: keep them from
-          reaching the board's background handler (which exits jiggle mode). */}
-      <div className="contents" onClick={(e) => e.stopPropagation()}>
-        <ConfirmDialog
-          open={pendingDelete !== null}
-          onOpenChange={(open) => { if (!open) setPendingDelete(null) }}
-          title={tTickets('deleteDialog.title')}
-          description={pendingDelete ? (
-            <Trans
-              t={tTickets}
-              i18nKey="deleteDialog.body"
-              values={{ id: pendingDelete.id, title: pendingDelete.title }}
-              components={{ strong: <span className="font-semibold text-foreground" /> }}
-            />
-          ) : null}
-          onConfirm={confirmCardDelete}
-        />
       </div>
 
       <ProposeSpecModal

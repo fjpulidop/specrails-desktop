@@ -358,6 +358,9 @@ function releaseLock(filePath: string): void {
   }
 }
 
+/** The same advisory lock, for sibling files that must serialise like the store (the trash). */
+export { acquireLock as acquireFileLock, releaseLock as releaseFileLock }
+
 // âââ Store operations ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function emptyStore(): TicketStore {

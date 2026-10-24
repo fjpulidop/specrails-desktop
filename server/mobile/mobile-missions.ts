@@ -102,7 +102,7 @@ export function createMobileMissionsRouter({ db, upstream }: { db: DbInstance; u
     const pid = segment(req.params.pid), cid = segment(req.params.cid)
     if (!ID.test(pid) || !ID.test(cid)) { res.status(400).json({ error: 'Invalid mission identity' }); return null }
     const conversation = getAgentConversation(db, cid)
-    if (!conversation || conversation.pinned_project_id !== pid) { res.status(404).json({ error: 'Mission not found in this project' }); return null }
+    if (!conversation || conversation.deleted_at || conversation.pinned_project_id !== pid) { res.status(404).json({ error: 'Mission not found in this project' }); return null }
     return { pid, cid, base: `/api/agent/conversations/${encodeURIComponent(cid)}` }
   }
   router.get('/projects/:pid/missions', async (req, res) => {
@@ -111,7 +111,7 @@ export function createMobileMissionsRouter({ db, upstream }: { db: DbInstance; u
     if (!Number.isSafeInteger(rawLimit) || rawLimit < 1 || rawLimit > 200) { res.status(400).json({ error: 'limit must be 1–200' }); return }
     // Query the project before applying the limit: active projects must not
     // disappear behind another project's most recent conversations.
-    const rows = db.prepare('SELECT id FROM agent_conversations WHERE pinned_project_id = ? ORDER BY updated_at DESC, id DESC LIMIT ?').all(pid, rawLimit + 1) as Array<{ id: string }>
+    const rows = db.prepare('SELECT id FROM agent_conversations WHERE pinned_project_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC, id DESC LIMIT ?').all(pid, rawLimit + 1) as Array<{ id: string }>
     try {
       const active = await upstream('GET', '/api/agent/active-turns')
       if (active.status !== 200) { res.status(active.status).json(redact(active.json)); return }

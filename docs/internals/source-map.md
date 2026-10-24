@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1214 source/build files. Nearby tests are linked where names
+Includes 1219 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -692,6 +692,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [ProjectSettingsDialog.tsx](../../client/src/features/settings/components/ProjectSettingsDialog.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectSettingsDialog.test.tsx)
 - [ProjectSettingsSections.tsx](../../client/src/features/settings/components/ProjectSettingsSections.tsx)
 - [ProviderTabs.tsx](../../client/src/features/settings/components/ProviderTabs.tsx)
+- [RecentlyDeletedSection.tsx](../../client/src/features/settings/components/RecentlyDeletedSection.tsx) · [test](../../client/src/features/settings/components/__tests__/RecentlyDeletedSection.test.tsx)
 - [RuntimeEfficiencyControls.tsx](../../client/src/features/settings/components/RuntimeEfficiencyControls.tsx)
 - [RuntimeExecutionEvidence.tsx](../../client/src/features/settings/components/RuntimeExecutionEvidence.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeExecutionEvidence.test.tsx)
 - [RuntimeGuardrails.tsx](../../client/src/features/settings/components/RuntimeGuardrails.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeGuardrails.test.tsx)
@@ -829,6 +830,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-triage.ts](../../client/src/features/specs/lib/spec-triage.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-triage.test.ts)
 - [specs-view-tier.ts](../../client/src/features/specs/lib/specs-view-tier.ts) · [test](../../client/src/features/specs/lib/__tests__/specs-view-tier.test.ts)
 - [ticket-refine.ts](../../client/src/features/specs/lib/ticket-refine.ts) · [test](../../client/src/features/specs/lib/__tests__/ticket-refine.test.ts)
+- [trash-api.ts](../../client/src/features/specs/lib/trash-api.ts)
 
 ## client/src/features/specs/types
 
@@ -891,6 +893,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useSidebarHoverIntent.ts](../../client/src/hooks/useSidebarHoverIntent.ts)
 - [useSuppressNativeContextMenu.ts](../../client/src/hooks/useSuppressNativeContextMenu.ts) · [test](../../client/src/hooks/__tests__/useSuppressNativeContextMenu.test.ts)
 - [useTrayLabels.tsx](../../client/src/hooks/useTrayLabels.tsx) · [test](../../client/src/hooks/__tests__/useTrayLabels.test.tsx)
+- [useUndo.tsx](../../client/src/hooks/useUndo.tsx) · [test](../../client/src/hooks/__tests__/useUndo.test.tsx)
 - [useWebSocket.ts](../../client/src/hooks/useWebSocket.ts) · [test](../../client/src/hooks/__tests__/useWebSocket.test.ts)
 
 ## client/src/lib
@@ -1586,6 +1589,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-launcher-manager.ts](../../server/modules/specs/runtime/spec-launcher-manager.ts) · [test](../../server/modules/specs/runtime/spec-launcher-manager.test.ts)
 - [spec-models.ts](../../server/modules/specs/runtime/spec-models.ts) · [test](../../server/modules/specs/runtime/spec-models.test.ts)
 - [ticket-store.ts](../../server/modules/specs/runtime/ticket-store.ts) · [test](../../server/modules/specs/runtime/ticket-store.test.ts)
+- [ticket-trash-service.ts](../../server/modules/specs/runtime/ticket-trash-service.ts)
+- [ticket-trash.ts](../../server/modules/specs/runtime/ticket-trash.ts) · [test](../../server/modules/specs/runtime/ticket-trash.test.ts)
 - [ticket-watcher.ts](../../server/modules/specs/runtime/ticket-watcher.ts) · [test](../../server/modules/specs/runtime/ticket-watcher.test.ts)
 - [triage-runner.ts](../../server/modules/specs/runtime/triage-runner.ts) · [test](../../server/modules/specs/runtime/triage-runner.test.ts)
 - [triage.ts](../../server/modules/specs/runtime/triage.ts) · [test](../../server/modules/specs/runtime/triage.test.ts)

@@ -204,7 +204,7 @@ Priority itself is set per spec from the right-click menu (below), not from a to
 
 Right-click any spec card (in any view mode):
 
-- **Delete ticket** — with confirmation.
+- **Delete ticket** — applies at once and offers **Undo** (also **⌘Z** / **Ctrl+Z**) for about eight seconds. The spec moves to **Settings → Recently deleted** for 30 days, where it can be restored or deleted permanently.
 - **Change status → Todo / Done**
 - **Set priority → Critical / High / Medium / Low**
 

@@ -265,7 +265,7 @@ describe('SpecsBoard', () => {
     expect(screen.getByText('Done · 1')).toBeInTheDocument()
   })
 
-  it('asks before deleting from jiggle mode', () => {
+  it('deletes at once from jiggle mode: no confirm (Undo is the safety net)', () => {
     vi.useFakeTimers()
     try {
       const onTicketDelete = vi.fn()
@@ -281,10 +281,7 @@ describe('SpecsBoard', () => {
       fireEvent.pointerDown(card)
       act(() => { vi.advanceTimersByTime(800) })
       fireEvent.click(screen.getByTestId('spec-card-delete-1'))
-      expect(onTicketDelete).not.toHaveBeenCalled()
-      const dialog = screen.getByRole('dialog')
-      expect(dialog).toHaveTextContent('Doomed')
-      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
       expect(onTicketDelete).toHaveBeenCalledWith(1)
     } finally {
       vi.useRealTimers()

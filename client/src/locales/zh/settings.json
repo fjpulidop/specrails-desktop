@@ -297,7 +297,8 @@
       "terminal": "终端",
       "agentRuntime": "验证命令",
       "subagents": "子代理",
-      "rules": "规则"
+      "rules": "规则",
+      "recentlyDeleted": "最近删除"
     },
     "navLabel": "项目设置分区"
   },

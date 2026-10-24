@@ -306,8 +306,30 @@ export async function patchAgentConversation(
   return (await json<{ conversation: AgentConversation }>(res)).conversation
 }
 
+/** Soft delete: the mission moves to "Recently deleted" (restorable for 30 days). */
 export async function deleteAgentConversation(id: string): Promise<void> {
   await json(await fetch(`${base}/conversations/${id}`, { method: 'DELETE' }))
+}
+
+/** Undo a delete: the mission comes back with its whole history. */
+export async function restoreAgentConversation(id: string): Promise<AgentConversation> {
+  return (await json<{ conversation: AgentConversation }>(await fetch(`${base}/conversations/${encodeURIComponent(id)}/restore`, { method: 'POST' }))).conversation
+}
+
+/** "Delete permanently": removes the mission, its messages and attachments for good. */
+export async function purgeAgentConversation(id: string): Promise<void> {
+  await json(await fetch(`${base}/conversations/${encodeURIComponent(id)}?permanent=1`, { method: 'DELETE' }))
+}
+
+export interface DeletedAgentConversation {
+  conversation: AgentConversation
+  deletedAt: string | null
+  purgeAt: string | null
+}
+
+/** Missions of one project deleted within the retention window, newest deletion first. */
+export async function listDeletedAgentConversations(projectId: string, signal?: AbortSignal): Promise<{ items: DeletedAgentConversation[]; retentionDays: number }> {
+  return json(await fetch(`${base}/conversations/trash?projectId=${encodeURIComponent(projectId)}`, { signal }))
 }
 
 export async function sendAgentMessage(

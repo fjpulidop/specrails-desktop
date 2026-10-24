@@ -99,7 +99,8 @@
       "runStripBack": "Salir de la franja de ejecuciones y volver a donde estabas",
       "flowPause": "Pausar o reanudar el Flow (con la franja de ejecuciones enfocada)",
       "flowHandOff": "Pasar el Flow a un rail (con la franja de ejecuciones enfocada)",
-      "historyBackForward": "Ir atrás / adelante al lugar anterior o siguiente"
+      "historyBackForward": "Ir atrás / adelante al lugar anterior o siguiente",
+      "undoLast": "Deshacer el último cambio"
     }
   },
   "update": {

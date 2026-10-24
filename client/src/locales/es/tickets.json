@@ -35,10 +35,6 @@
     "updatedAgo": "Actualizado {{time}}"
   },
   "untitled": "Sin título",
-  "deleteDialog": {
-    "title": "Eliminar ticket",
-    "body": "¿Seguro que quieres eliminar <strong>#{{id}} {{title}}</strong>? Esta acción no se puede deshacer."
-  },
   "detailModal": {
     "moreActions": "Más acciones",
     "openReview": "Abrir revisión",

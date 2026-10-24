@@ -54,6 +54,12 @@ Quand une spec a déjà du travail derrière elle — une PR en revue, une fonct
 
 À la fin d'une exécution, son dossier de revue s'ouvre sur **Points à examiner** : la courte note du relecteur IA qui liste d'abord les endroits les plus risqués (élevé, puis moyen, puis faible, chacun avec un fichier et une ligne), le comportement qui change, les règles sur lesquelles le changement s'appuie, les chemins de code qu'aucun test n'exerce et les vérifications que seul un humain peut faire. Les mêmes risques, chemins non testés et vérifications figurent dans un court bloc en haut de la pull request, et la carte de mission affiche le risque principal sur une ligne. La note guide votre relecture, ce n'est pas un résultat de vérification : elle ne bloque jamais Accepter. Les exécutions faites avec un Specrails Core plus ancien n'ont pas de note et leur dossier reste identique.
 
+## Annuler, et Supprimés récemment
+
+Supprimer une spec, la déplacer vers un autre statut, modifier ses étiquettes ou la retirer d'un rail se fait aussitôt : pas de « Êtes-vous sûr ? » au préalable. À la place, une notification propose **Annuler** pendant environ huit secondes, et **⌘Z** (**Ctrl+Z** sous Windows et Linux) fait de même tant que vous ne tapez pas dans un champ. L'annulation est propre à chaque projet : changer de projet ferme la fenêtre.
+
+Une spec supprimée (comme une mission supprimée) n'est pas perdue. Elle passe dans **Réglages → Supprimés récemment**, dans les paramètres du projet, où vous pouvez la **Restaurer** pendant 30 jours ou la **Supprimer définitivement**, ce qui demande confirmation. Après 30 jours, elle est supprimée pour de bon. Abandonner un travail non poussé, fermer de force une pull request et retirer un projet demandent toujours confirmation, car ils sont irréversibles. Une spec liée à Jira se déplace toujours avec **Déplacer vers** au lieu d'être supprimée.
+
 ## Pour aller plus loin
 
 - [Ajouter une spec — mode Quick](add-spec-quick-mode.md) — la façon la plus rapide de transformer une idée en spec.

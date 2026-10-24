@@ -40,8 +40,10 @@ load every UI component. Changes to this surface require updating the boundary m
 - [integrations](../integrations/README.md)
 - [jobs](../jobs/README.md)
 - [loops](../loops/README.md)
+- [missions](../missions/README.md)
 - [projects](../projects/README.md)
 - [providers](../providers/README.md)
+- [specs](../specs/README.md)
 - [subscription-usage](../subscription-usage/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is

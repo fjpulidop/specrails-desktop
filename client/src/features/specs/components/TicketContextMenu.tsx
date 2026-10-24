@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { Trash2, ChevronRight, Circle, CheckCircle2, AlertCircle, Flag, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react'
 import { cn } from '../../../lib/utils'
-import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { useJiraDiscard } from '../../integrations/context/JiraDiscardContext'
 import { DiscardSpecDialog } from '../../integrations/components/jira/DiscardSpecDialog'
 import type { TicketStatus, TicketPriority, LocalTicket } from '../../../types'
@@ -283,12 +282,10 @@ export function TicketContextMenu({
   className,
   extraItems,
 }: TicketContextMenuProps) {
-  const { t } = useTranslation('tickets')
   const { t: tj } = useTranslation('jira')
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<MenuPosition>({ x: 0, y: 0 })
   const [activeSubmenu, setActiveSubmenu] = useState<ActiveSubmenu>(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDiscard, setShowDiscard] = useState(false)
 
   // Jira-synced project + Jira-backed spec + configured status → "Move to <status>"
@@ -325,11 +322,6 @@ export function TicketContextMenu({
     setMenuOpen(true)
   }
 
-  function handleDeleteConfirmed() {
-    onDelete(ticket.id)
-    setShowDeleteConfirm(false)
-  }
-
   return (
     <>
       <div
@@ -349,7 +341,7 @@ export function TicketContextMenu({
             onSetSubmenu={setActiveSubmenu}
             onStatusChange={(status) => onStatusChange(ticket.id, status)}
             onPriorityChange={(priority) => onPriorityChange(ticket.id, priority)}
-            onDeleteRequest={() => setShowDeleteConfirm(true)}
+            onDeleteRequest={() => onDelete(ticket.id)}
             discardLabel={canDiscard ? tj('discard.moveButton', { status: discardStatus }) : undefined}
             onDiscardRequest={canDiscard ? () => setShowDiscard(true) : undefined}
             extraItems={extraItems}
@@ -366,23 +358,6 @@ export function TicketContextMenu({
           discardStatus={discardStatus}
         />
       )}
-
-      <ConfirmDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        title={t('deleteDialog.title')}
-        description={
-          <Trans
-            t={t}
-            i18nKey="deleteDialog.body"
-            values={{ id: ticket.id, title: ticket.title }}
-            components={{ strong: <span className="font-semibold text-foreground" /> }}
-          />
-        }
-        confirmLabel={t('common:actions.delete')}
-        onConfirm={handleDeleteConfirmed}
-        testId="ticket-delete-confirm"
-      />
     </>
   )
 }

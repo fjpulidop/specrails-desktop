@@ -2237,6 +2237,8 @@
       "runtime/spec-launcher-manager.ts",
       "runtime/spec-models.ts",
       "runtime/ticket-store.ts",
+      "runtime/ticket-trash-service.ts",
+      "runtime/ticket-trash.ts",
       "runtime/ticket-watcher.ts",
       "runtime/triage.ts"
     ],
@@ -2362,6 +2364,16 @@
         "../domain/non-goals",
         "../domain/triage",
         "./spec-addenda-core",
+        "fs",
+        "path"
+      ],
+      "runtime/ticket-trash-service.ts": [
+        "../../../db",
+        "./ticket-store",
+        "./ticket-trash"
+      ],
+      "runtime/ticket-trash.ts": [
+        "./ticket-store",
         "fs",
         "path"
       ],

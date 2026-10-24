@@ -54,6 +54,12 @@ Quando uma spec já tem trabalho por trás — uma PR em revisão, uma funcional
 
 Quando uma execução termina, o pacote de revisão abre com **O que olhar**: o resumo curto do revisor de IA com os pontos mais arriscados primeiro (alto, depois médio, depois baixo, cada um com arquivo e linha), o comportamento que muda, as regras em que a mudança se apoia, os caminhos de código que nenhum teste exercita e as verificações que só uma pessoa pode fazer. Os mesmos riscos, caminhos sem teste e verificações aparecem num bloco curto no topo da pull request, e o card da missão mostra o principal risco em uma linha. O resumo orienta a revisão, não é um resultado de verificação: nunca bloqueia Aceitar. Execuções feitas com um Specrails Core anterior não têm resumo e o pacote continua igual.
 
+## Desfazer e Excluídos recentemente
+
+Excluir uma spec, movê-la para outro estado, mudar suas etiquetas ou tirá-la de um rail acontece na hora — sem um "Tem certeza?" antes. Em vez disso, um aviso oferece **Desfazer** por cerca de oito segundos, e **⌘Z** (**Ctrl+Z** no Windows e no Linux) faz o mesmo enquanto você não estiver digitando em um campo. Desfazer é por projeto: trocar de projeto encerra a janela.
+
+Uma spec excluída (e uma missão excluída) não desaparece. Ela vai para **Configurações → Excluídos recentemente**, nas configurações do projeto, onde você pode **Restaurá-la** por 30 dias ou **Excluí-la definitivamente**, o que pergunta antes. Depois de 30 dias ela é removida de vez. Descartar trabalho não enviado, fechar à força uma pull request e remover um projeto continuam perguntando antes, porque não podem ser revertidos. Uma spec ligada ao Jira continua sendo movida com **Mover para**, em vez de excluída.
+
 ## Para onde ir a seguir
 
 - [Adicionar Spec — modo Quick](add-spec-quick-mode.md) — a forma mais rápida de transformar uma ideia numa spec.

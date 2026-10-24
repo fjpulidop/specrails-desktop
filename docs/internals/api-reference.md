@@ -197,6 +197,9 @@ These routes are available when a mission ran in a Core agent session (`SPECRAIL
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/agent/active-turns` | Reconnect snapshot. Besides `turns`, the response includes `sessions[]`: `{ conversationId, residentPhase, processAlive, liveSubagents, subagents }` for missions with background work. |
+| `DELETE` | `/agent/conversations/:id` | Soft delete: stops the live turn, closes the Core session and hides the mission (`deleted_at`); `{ ok, restorable: true }`. `?permanent=1` removes the row, history and attachments for good (`404` unknown id). Deleted missions are `404` on `GET /agent/conversations/:id` and `/send`, and absent from the list, search and mobile listings |
+| `GET` | `/agent/conversations/trash?projectId=` | Deleted missions pinned to the project (all when omitted), newest deletion first: `{ items: [{ conversation, deletedAt, purgeAt }], retentionDays: 30 }`. Purges missions deleted more than 30 days ago first |
+| `POST` | `/agent/conversations/:id/restore` | Undo a delete; idempotent. `{ ok, conversation }`, `404` when the mission no longer exists |
 | `GET` | `/agent/conversations/:id` | Includes `session`: `{ residentPhase, processAlive, liveSubagents, subagents }`, or `null` when the mission never ran in Core. |
 | `GET` | `/agent/conversations/:id/subagents` | `{ subagents, session }`. Each sub-agent has id, parent, kind, agent type, description, phase (`running`/`idle`/`failed`/`stopped`/`killed`/`interrupted`), reason, restarts, launching Core turn, timestamps, usage, tool uses, duration and result summary. Sub-agents Specrails launched on another provider carry `delegated: { driver, model }`; their usage is recorded as separate `subagent` invocations. |
 | `GET` | `/agent/conversations/:id/subagents/:subagentId/events?after=&limit=` | Paged sub-agent transcript `{ events: [{ seq, channel, delta?, tool?, createdAt }], hasMore }`. `limit` is 1–1000. |
@@ -361,7 +364,10 @@ provides no authoritative token/USD envelope, so those values remain null.
 | `GET` | `/tickets/:id` | One ticket |
 | `POST` | `/tickets` | Create. Optional `nonGoals: string[]` ("Out of scope"; `400 nonGoals must be an array of strings` otherwise) |
 | `PATCH` | `/tickets/:id` | Update any subset of fields. `metadata` merges keys; `metadata.regressionOf` (delivery id string ≤ 200 chars, escaped-defect link) is validated on create/update/commit-draft (400 otherwise) and `null` removes it. `nonGoals` (string array; `[]` or `null` removes the field) is cleaned (list markers, blanks, duplicates; at most 20 items of 300 characters) and never written back to Jira |
-| `DELETE` | `/tickets/:id` | Delete (cascades the draft conversation if it is the last reference) |
+| `DELETE` | `/tickets/:id` | Soft delete: the spec moves to the trash sidecar `<store>.trash.json` (hidden from every list, search and Core read; `{ ok, revision, restorable: true }`, `404` unknown id, repeat deletes are idempotent). A deleted epic orphans its children. Attachments, the Explore draft conversation and the Jira link are kept until the entry is purged or deleted permanently. Broadcasts `ticket_deleted` |
+| `GET` | `/tickets/trash` | Recently deleted specs, newest deletion first: `{ items: [{ ticket, deletedAt, purgeAt }], retentionDays: 30 }`. Purges entries older than 30 days first |
+| `POST` | `/tickets/:id/restore` | Undo a delete: the spec returns under the same id (and re-adopts the children it orphaned). Idempotent (`alreadyLive: true`), `404` when it is in neither the board nor the trash. Broadcasts `ticket_created` |
+| `DELETE` | `/tickets/trash/:id` | Delete permanently: removes the entry plus the cascade a hard delete used to run (attachments, the draft's orphan Explore conversation). `404` when not in the trash |
 | `POST` | `/tickets/generate-spec` | Quick-mode generation. Body `{ idea, model?, contractRefine?, aiEngine?, attachmentIds?, pendingSpecId?, contextScope? }` (the spec text is `idea`, not `title`). Streams progress over WS |
 | `POST` | `/tickets/save-as-draft` | Persist an Explore conversation as a draft (idempotent on `conversationId`) |
 | `POST` | `/tickets/from-draft` | Commit a draft (flip-in-place) or insert a new ticket. An explicit `nonGoals` list wins; otherwise a `## Out of Scope` section of the description moves into `nonGoals` |
@@ -387,7 +393,7 @@ provides no authoritative token/USD envelope, so those values remain null.
 | `POST` | `/chat/conversations` | Create. Body `{ kind?, model?, aiEngine? (alias provider), contextScope? }`. `contextScope` is only allowed for `kind=explore` |
 | `GET` | `/chat/conversations/:id` | One conversation (with messages) |
 | `PATCH` | `/chat/conversations/:id` | Update metadata (title, contextScope, etc.) |
-| `DELETE` | `/chat/conversations/:id` | Delete (clears `origin_conversation_id` on linked draft tickets) |
+| `DELETE` | `/chat/conversations/:id` | Delete (clears `origin_conversation_id` on linked draft tickets). Sidebar/Explore chats keep their hard delete; the soft delete applies to specs and agent missions |
 | `GET` | `/chat/conversations/:id/messages` | List messages |
 | `POST` | `/chat/conversations/:id/messages` | Send a turn; streams over WS |
 | `DELETE` | `/chat/conversations/:id/messages/stream` | Cancel an in-progress turn |

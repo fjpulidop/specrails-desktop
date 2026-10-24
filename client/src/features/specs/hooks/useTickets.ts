@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { API_ORIGIN } from '../../../lib/origin'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { useUndo } from '../../../hooks/useUndo'
 import { readProjectCache, writeProjectCache } from '../../../hooks/useProjectCache'
 import { isSpecGenInFlight } from '../lib/spec-gen-suppression'
 import type { LocalTicket } from '../../../types'
@@ -57,6 +58,8 @@ export function reconcileTickets(prev: LocalTicket[], fetched: LocalTicket[]): L
 
 export function useTickets() {
   const { t } = useTranslation('tickets')
+  const { t: tUndo } = useTranslation('undo')
+  const { pushUndo } = useUndo()
   const { activeProjectId } = useDesktop()
   // Seed from the per-project cache so a remount / project switch shows the
   // last known board instantly while the network revalidates.
@@ -322,39 +325,71 @@ export function useTickets() {
 
   // ── CRUD mutations ────────────────────────────────────────────────────────
 
+  // Reversible edits (delete, status move, labels) apply at once and offer Undo
+  // instead of asking first. Undo addresses its own project explicitly, so a
+  // project switch can never redirect it.
+  const ticketsRef = useRef(tickets)
+  ticketsRef.current = tickets
+
+  const patchTicketIn = useCallback(async (projectId: string, ticketId: number, fields: Record<string, unknown>): Promise<boolean> => {
+    const res = await fetch(`${ticketsApiBase(projectId)}/tickets/${ticketId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields),
+    })
+    if (res.ok && activeProjectIdRef.current === projectId) await loadTickets(projectId, 'merge')
+    return res.ok
+  }, [loadTickets])
+
   const deleteTicket = useCallback(async (ticketId: number): Promise<boolean> => {
     const ownerProjectId = activeProjectId
     if (!ownerProjectId) return false
+    const title = ticketsRef.current.find((tk) => tk.id === ticketId)?.title ?? `#${ticketId}`
     try {
       const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}`, { method: 'DELETE' })
       if (res.ok && activeProjectIdRef.current === ownerProjectId) {
         await loadTickets(ownerProjectId, 'merge')
       }
+      if (res.ok) {
+        pushUndo({
+          projectId: ownerProjectId,
+          label: tUndo('specDeleted', { title }),
+          undo: async () => {
+            const back = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}/restore`, { method: 'POST' })
+            if (!back.ok) throw new Error(`restore failed: ${back.status}`)
+            if (activeProjectIdRef.current === ownerProjectId) await loadTickets(ownerProjectId, 'merge')
+          },
+        })
+      }
       return res.ok
     } catch {
       return false
     }
-  }, [activeProjectId, loadTickets])
+  }, [activeProjectId, loadTickets, pushUndo, tUndo])
 
   const updateTicketStatus = useCallback(
     async (ticketId: number, status: LocalTicket['status']): Promise<boolean> => {
       const ownerProjectId = activeProjectId
       if (!ownerProjectId) return false
+      const before = ticketsRef.current.find((tk) => tk.id === ticketId)
       try {
-        const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status }),
-        })
-        if (res.ok && activeProjectIdRef.current === ownerProjectId) {
-          await loadTickets(ownerProjectId, 'merge')
+        const ok = await patchTicketIn(ownerProjectId, ticketId, { status })
+        if (ok && before && before.status !== status) {
+          const previous = before.status
+          pushUndo({
+            projectId: ownerProjectId,
+            label: tUndo('statusMoved', { id: ticketId, status: t(`ticketStatus.${status}`) }),
+            undo: async () => {
+              if (!(await patchTicketIn(ownerProjectId, ticketId, { status: previous }))) throw new Error('status undo failed')
+            },
+          })
         }
-        return res.ok
+        return ok
       } catch {
         return false
       }
     },
-    [activeProjectId, loadTickets]
+    [activeProjectId, patchTicketIn, pushUndo, t, tUndo]
   )
 
   const updateTicketPriority = useCallback(
@@ -403,21 +438,26 @@ export function useTickets() {
     async (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'prerequisites' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf?: string | null } }): Promise<boolean> => {
       const ownerProjectId = activeProjectId
       if (!ownerProjectId) return false
+      const before = ticketsRef.current.find((tk) => tk.id === ticketId)
       try {
-        const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(fields),
-        })
-        if (res.ok && activeProjectIdRef.current === ownerProjectId) {
-          await loadTickets(ownerProjectId, 'merge')
+        const ok = await patchTicketIn(ownerProjectId, ticketId, fields)
+        // A label change is undoable: restore the labels the spec had.
+        if (ok && before && fields.labels !== undefined && JSON.stringify(fields.labels) !== JSON.stringify(before.labels)) {
+          const previousLabels = before.labels ?? []
+          pushUndo({
+            projectId: ownerProjectId,
+            label: tUndo('labelsUpdated', { id: ticketId }),
+            undo: async () => {
+              if (!(await patchTicketIn(ownerProjectId, ticketId, { labels: previousLabels }))) throw new Error('labels undo failed')
+            },
+          })
         }
-        return res.ok
+        return ok
       } catch {
         return false
       }
     },
-    [activeProjectId, loadTickets]
+    [activeProjectId, patchTicketIn, pushUndo, tUndo]
   )
 
   return {

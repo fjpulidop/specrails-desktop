@@ -99,7 +99,8 @@
       "runStripBack": "Leave the run strip, back to where you were",
       "flowPause": "Pause or resume the Flow (run strip focused)",
       "flowHandOff": "Hand off the Flow (run strip focused)",
-      "historyBackForward": "Go back / forward to the previous place"
+      "historyBackForward": "Go back / forward to the previous place",
+      "undoLast": "Undo the last change"
     }
   },
   "update": {

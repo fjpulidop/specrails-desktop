@@ -29,6 +29,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [lib/spec-status-filter.ts](lib/spec-status-filter.ts)
 - [lib/spec-triage.ts](lib/spec-triage.ts)
 - [lib/specs-view-tier.ts](lib/specs-view-tier.ts)
+- [lib/trash-api.ts](lib/trash-api.ts)
 - [types/spec-sort.ts](types/spec-sort.ts)
 
 ## Feature dependencies
