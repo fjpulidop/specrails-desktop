@@ -757,7 +757,7 @@ describe('thinking halo on the composer dock', () => {
     expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'false')
     // The ring follows the single visible input surface and its new radius.
     const inputBox = within(dockCard).getByTestId('agent-composer-box')
-    expect(inputBox).toHaveClass('rounded-3xl')
+    expect(inputBox).toHaveClass('rounded-panel')
     expect(dockCard.querySelector('[data-testid="agent-thinking-halo"]')?.parentElement).toBe(inputBox)
     await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Thinking' }) })
     expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'true')
