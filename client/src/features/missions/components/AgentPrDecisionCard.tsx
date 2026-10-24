@@ -47,6 +47,7 @@ import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusScroll
 import type { MissionRunCardSummary, MissionRunVitalsSnapshot } from './mission-run-strip'
 import { PRIMARY_ACTION, RunPrimaryButton } from './run-primary'
 import { formatUsd } from '../../analytics/lib/format'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
@@ -245,7 +246,7 @@ function MissionRunStatusPill({ status }: { status: MissionRunStatus }) {
       className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-caption font-medium uppercase tracking-wide', RUN_STATUS_TONE[status])}
     >
       {(status === 'running' || status === 'paused') && (
-        <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', status === 'running' ? 'animate-pulse bg-accent-info' : 'bg-accent-warning')} />
+        <LiveDot size="xs" tone={status === 'running' ? 'info' : 'warning'} pulsing={status === 'running'} aria-hidden />
       )}
       {t(`runCard.status.${status}`)}
     </span>
@@ -373,10 +374,7 @@ function RunLogChip({
       )}
     >
       {(vitals.paused || (vitals.running && live)) && (
-        <span
-          aria-hidden
-          className={cn('h-1.5 w-1.5 shrink-0 animate-pulse rounded-full', vitals.paused ? 'bg-accent-warning' : 'bg-accent-info')}
-        />
+        <LiveDot size="xs" tone={vitals.paused ? 'warning' : 'info'} pulsing={!vitals.paused} aria-hidden />
       )}
       <span className="max-w-[160px] truncate">{label}</span>
       {dot}
@@ -960,7 +958,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             : existingPrContinuation
               ? <GitPullRequest className="h-3.5 w-3.5 text-accent-info" />
               : <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-primary/70" />}
-          <span className={cn('min-w-0 flex-1 truncate', !existingPrContinuation && !buildingPaused && 'animate-pulse', buildingPaused && 'text-accent-warning')}>
+          <span className={cn('min-w-0 flex-1 truncate', !existingPrContinuation && !buildingPaused && 'motion-safe:animate-pulse', buildingPaused && 'text-accent-warning')}>
             {buildingPaused
               ? t('prCard.title.paused')
               : existingPrContinuation

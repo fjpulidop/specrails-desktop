@@ -628,14 +628,6 @@ select {
   .animate-rail-arrive { animation: none; transform: translateX(var(--rail-distance, 100%)); }
 }
 
-/* Glow effects — theme-aware via CSS-var-driven box-shadow */
-@utility glow-primary    { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-primary) 22%, transparent); }
-@utility glow-secondary  { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-secondary) 22%, transparent); }
-@utility glow-info       { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-info) 22%, transparent); }
-@utility glow-success    { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-success) 22%, transparent); }
-@utility glow-warning    { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-warning) 22%, transparent); }
-@utility glow-highlight  { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-highlight) 22%, transparent); }
-
 /* ── Highlight.js — theme-aware syntax colours (drive from CSS vars) ─────── */
 .hljs                       { background: transparent; color: var(--color-foreground); }
 .hljs-keyword,

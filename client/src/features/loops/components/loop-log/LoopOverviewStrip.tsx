@@ -4,6 +4,7 @@ import { ChevronRight, Check, X, RotateCw, ArrowRight, Repeat } from 'lucide-rea
 import { cn } from '../../../../lib/utils'
 import type { NodeChip } from './loop-log-model'
 import { loopNodeIcon, LOOP_NODE_TEXT_ACCENT, LOOP_NODE_BORDER_ACCENT } from './loop-node-visuals'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 export interface LoopOverviewStripProps {
   chips: NodeChip[]
@@ -56,10 +57,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
               )}
             >
               {chip.state === 'running' && (
-                <span
-                  aria-hidden
-                  className="absolute -inset-px rounded-full ring-2 ring-accent-primary/50 motion-safe:animate-pulse pointer-events-none"
-                />
+                <LiveDot tone="primary" size="xs" className="absolute -right-0.5 -top-0.5" aria-hidden />
               )}
               <Icon className={cn('w-3 h-3 shrink-0', textAccent)} />
               <span

@@ -8,6 +8,7 @@ import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 /** Running SUM of every completed turn's REAL usage (from job.turn_done /
  *  job.finalized — never an estimate). */
@@ -287,7 +288,7 @@ export function InteractiveJobComposer({
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent-success motion-safe:animate-pulse" />
+              <LiveDot tone="success" size="xs" aria-hidden />
               {t('detail.interactive.ready')}
             </span>
           )}

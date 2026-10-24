@@ -185,7 +185,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
           title={isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')}
         >
-          {isRunning && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-info motion-safe:animate-pulse" aria-hidden />}
+          {isRunning && <LiveDot tone="info" size="xs" aria-hidden />}
           {elapsed}
         </span>
         )}

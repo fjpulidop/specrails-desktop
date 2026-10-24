@@ -25,6 +25,7 @@ import {
   toolbarButtonClass,
 } from '../../../components/ui/board-toolbar'
 import { useElementWidth } from '../../../hooks/useElementWidth'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 export const RAIL_SORT_PREFIX = '__rail:'
 export function railSortId(railId: string) { return `${RAIL_SORT_PREFIX}${railId}` }
@@ -165,7 +166,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 function SummaryItem({ dot, label, testId, pulse = false }: { dot: string; label: string; testId: string; pulse?: boolean }) {
   return (
     <span data-testid={testId} className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground/90">
-      <span aria-hidden className={cn('w-1.5 h-1.5 rounded-full shrink-0', dot, pulse && 'motion-safe:animate-pulse')} />
+      <LiveDot size="xs" dotClassName={dot} pulsing={pulse} aria-hidden />
       {label}
     </span>
   )

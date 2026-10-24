@@ -180,8 +180,8 @@ describe('ChatPanel', () => {
       ]
       const chat = makeChat({ isPanelOpen: true, conversations, activeTabIndex: 0 })
       render(<ChatPanel chat={chat} project={mockProject} />)
-      // The streaming dot is an animate-pulse span
-      const pulse = document.querySelector('.animate-pulse')
+      // The streaming dot is a LiveDot lamp ring
+      const pulse = document.querySelector('[data-live-ring]')
       expect(pulse).toBeTruthy()
     })
   })

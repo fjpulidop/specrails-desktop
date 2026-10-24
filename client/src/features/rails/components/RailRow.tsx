@@ -351,7 +351,7 @@ export function RailRow({
         style={railJiggleStyle}
         className={`group relative flex flex-col gap-1.5 rounded-xl border bg-card p-2.5 transition-all ${
           isOver
-            ? 'border-accent-info/60 shadow-[0_0_0_1px_hsl(var(--accent-info)/0.35),0_0_14px_hsl(var(--accent-info)/0.18)]'
+            ? 'border-accent-info/60 shadow-2'
             : ticketDragActive
               ? 'border-dashed border-accent-info/35'
               : isRunning
@@ -603,7 +603,7 @@ export function RailRow({
           jiggleMode && canDelete ? 'motion-safe:animate-jiggle' : ''
         } ${
           isOver
-            ? 'border-primary/50 shadow-[0_0_0_1px_hsl(var(--primary)/0.25),0_0_12px_hsl(var(--primary)/0.08)]'
+            ? 'border-primary/50 shadow-2'
             : 'border-border/40 hover:border-border/60'
         }`}
         style={{

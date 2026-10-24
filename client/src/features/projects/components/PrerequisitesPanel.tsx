@@ -5,6 +5,7 @@ import { CheckCircle2, AlertTriangle, RefreshCw, XCircle, Package } from 'lucide
 import { Button } from '../../../components/ui/button'
 import { cn } from '../../../lib/utils'
 import type { SetupPrerequisite, SetupPrerequisitesStatus } from '../hooks/usePrerequisites'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   status: SetupPrerequisitesStatus | null
@@ -50,8 +51,8 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
         className="rounded-lg border border-border/30 bg-background/30 px-3 py-2"
       >
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-muted-foreground/20 animate-pulse" />
-          <div className="h-3 w-32 rounded bg-muted-foreground/15 animate-pulse" />
+          <Skeleton className="h-4 w-4 rounded-full" />
+          <Skeleton className="h-3 w-32 rounded" />
         </div>
       </div>
     )

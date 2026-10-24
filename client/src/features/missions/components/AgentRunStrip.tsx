@@ -53,6 +53,7 @@ import {
 import { bestRunPrimary, PRIMARY_ACTION, RunPrimaryScope, type RunPrimaryAction, type RunPrimaryRegistry } from './run-primary'
 import { isTextEntry, registerRunStrip, RUN_STRIP_ARIA_KEYS, RUN_STRIP_KEYS, stripKeyCode } from './run-strip-keys'
 import type { PinnedRailProposal } from './useRailLaunchProposals'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 /** The strip's primary action style (the shared primary recipe) — extensions reuse it. */
 export const RUN_STRIP_PRIMARY = PRIMARY_ACTION
@@ -99,7 +100,7 @@ function StateGlyph({ tone, quiet, className }: { tone: MissionRunTone; quiet: b
   if (tone === 'info') return <Info className={cn(className, 'text-foreground/70')} aria-hidden />
   return (
     <span className={cn('inline-flex shrink-0 items-center justify-center', className)} aria-hidden>
-      <span className={cn('h-2 w-2 rounded-full bg-accent-info', !quiet && 'motion-safe:animate-pulse')} />
+      <LiveDot tone="info" pulsing={!quiet} />
     </span>
   )
 }

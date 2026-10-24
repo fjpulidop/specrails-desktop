@@ -477,7 +477,7 @@ function StreamingPanel({ streamingText }: { streamingText?: string }) {
       {streamingText ? (
         <div className="text-xs font-mono whitespace-pre-wrap break-words text-foreground/80 max-h-64 overflow-y-auto leading-relaxed">
           {stripMarkers(streamingText)}
-          <span className="inline-block w-1.5 h-3 bg-accent-primary animate-pulse align-middle ml-0.5" />
+          <span className="inline-block w-1.5 h-3 bg-accent-primary motion-safe:animate-pulse align-middle ml-0.5" />
         </div>
       ) : (
         <div className="text-xs text-muted-foreground italic flex items-center gap-1.5">

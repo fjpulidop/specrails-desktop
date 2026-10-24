@@ -7,6 +7,7 @@ import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import type { UseChatReturn } from '../hooks/useChat'
 import type { DesktopProject } from '../../../hooks/useDesktop'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 const MIN_WIDTH = 240
 const MAX_WIDTH = 720
@@ -128,7 +129,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
                 {conv.title ?? t('panel.tabTitle', { n: i + 1 })}
               </span>
               {conv.isStreaming && (
-                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent-primary" />
+                <LiveDot tone="primary" size="xs" aria-hidden />
               )}
               <button
                 className="ml-auto shrink-0 hidden group-hover:block text-muted-foreground hover:text-foreground"

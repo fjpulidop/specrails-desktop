@@ -29,6 +29,7 @@ import {
   type PaneBounds,
 } from '../../lib/native-browser'
 import { openExternalUrl } from '../../../../lib/tauri-shell'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 // A supplied owner survives renderer handoff. Effect cleanup must not close a
 // newer StrictMode/re-mounted lease of that same native webview.
@@ -466,10 +467,7 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
 
         {/* Status line */}
         <div className="px-3 py-1 text-xs text-muted-foreground truncate shrink-0 flex items-center gap-2">
-          <span
-            className={`inline-block w-2 h-2 rounded-full shrink-0 ${loading ? 'bg-accent-warning animate-pulse' : 'bg-accent-success'}`}
-            aria-hidden
-          />
+          <LiveDot tone={loading ? 'warning' : 'success'} pulsing={loading} aria-hidden />
           <span className="truncate">{title || currentUrl}</span>
           <span data-chip="" className="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-accent-success/30 bg-accent-success/10 text-accent-success px-2 text-caption font-medium">
             {t('native.badge')}
