@@ -54,7 +54,7 @@ export function MissionAttentionMark({ kind = 'decision' }: { kind?: 'decision' 
   const { t } = useTranslation('agent')
   const words = kind === 'failed' ? t('runStrip.attention.failed') : t('runStrip.decision.generic')
   return (
-    <span className="inline-flex shrink-0 items-center" title={words} data-testid="mission-attention-mark" data-kind={kind}>
+    <span className="inline-flex shrink-0 items-center leading-none" title={words} data-testid="mission-attention-mark" data-kind={kind}>
       {kind === 'failed'
         ? <AlertTriangle aria-hidden className="h-3 w-3 text-destructive" />
         : <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-primary ring-2 ring-accent-primary/20" />}

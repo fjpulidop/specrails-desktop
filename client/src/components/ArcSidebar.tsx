@@ -61,6 +61,13 @@ function openCommandPalette(): void {
 /** A collapsed-rail project tile: the initials of its first two words
  *  ("specrails-desktop" → "SD"), or its first two letters/digits for a single
  *  word, so neighbouring projects stay distinguishable at 44px. */
+/**
+ * Attention badge on a collapsed rail icon: pinned to the tile's top-right
+ * corner, with a background-coloured cut-out so it reads as a badge instead
+ * of a dot sitting on the monogram's letters.
+ */
+const COLLAPSED_BADGE = 'pointer-events-none absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full bg-background p-[2px] leading-none'
+
 export function projectMonogram(name: string): string {
   const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
   if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
@@ -429,7 +436,7 @@ function ProjectItem({
     </span>
   )
   const collapsedBadge = !expanded && rollup.needsAttention && (
-    <span className="absolute -top-0.5 -right-0.5" data-testid="project-attention-badge">
+    <span className={COLLAPSED_BADGE} data-testid="project-attention-badge">
       <MissionAttentionMark kind={rollup.hasFailed ? 'failed' : 'decision'} />
     </span>
   )
@@ -615,7 +622,7 @@ function GroupHeader({
             )
           : icon(cn('w-4 h-4 flex-shrink-0', rollup.isLive && 'text-accent-primary'))}
         {!expanded && rollup.needsAttention && (
-          <span className="absolute -top-0.5 -right-0.5">
+          <span className={COLLAPSED_BADGE}>
             <MissionAttentionMark kind={rollup.hasFailed ? 'failed' : 'decision'} />
           </span>
         )}
