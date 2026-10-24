@@ -185,7 +185,7 @@ function TabButton({
       tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={
-        'h-8 px-3 text-xs font-medium border-b-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
+        'h-8 px-3 text-label border-b-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
         (active
           ? 'text-foreground border-foreground'
           : 'text-muted-foreground border-transparent hover:text-foreground hover:border-border')

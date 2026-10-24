@@ -187,7 +187,7 @@ export function CoreUpdateSection() {
                   <p className="text-xs text-muted-foreground">{t('coreUpdate.bundled', { version: status.bundledVersion })}</p>
                 )}
                 {status.updateAvailable && status.latestVersion ? (
-                  <p className="text-xs font-medium text-accent-primary truncate">
+                  <p className="text-label text-accent-primary truncate">
                     {t('coreUpdate.updateAvailable', { version: status.latestVersion })}
                   </p>
                 ) : (

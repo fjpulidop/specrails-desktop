@@ -241,7 +241,7 @@ export function NarratedProgress({
               ))}
               <span className="min-w-0 flex-1 break-words">
                 {typeof milestone.values.repository === 'string' && milestone.values.repository && (
-                  <span className="mr-2 inline-block rounded border border-border px-1.5 py-0.5 text-xs font-medium text-foreground">{milestone.values.repository}</span>
+                  <span className="mr-2 inline-block rounded border border-border px-1.5 py-0.5 text-label text-foreground">{milestone.values.repository}</span>
                 )}
                 {/* A step the engine named by role reads as its role; anything
                     else keeps the real title rather than a guessed label. */}

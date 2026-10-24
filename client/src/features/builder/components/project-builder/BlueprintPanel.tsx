@@ -138,7 +138,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                 <div className="flex items-start gap-2">
                   <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium leading-tight">{spec.title}</p>
+                    <p className="text-label leading-tight">{spec.title}</p>
                     {spec.shortSummary.trim() && (
                       <p
                         className="mt-1 line-clamp-2 text-caption leading-4 text-muted-foreground"

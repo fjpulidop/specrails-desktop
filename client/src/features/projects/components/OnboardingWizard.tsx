@@ -747,7 +747,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                         >
                           {isDone ? <Check className="w-3 h-3" /> : i + 1}
                         </span>
-                        <span className="text-xs font-medium truncate">{s.navLabel}</span>
+                        <span className="text-label truncate">{s.navLabel}</span>
                       </button>
                     </li>
                   )

@@ -62,7 +62,7 @@ export function MessageList({
           {project ? (
             <>
               <div className="flex flex-col gap-0.5">
-                <p className="text-xs font-medium text-foreground">{project.name}</p>
+                <p className="text-label text-foreground">{project.name}</p>
                 <p className="text-caption text-muted-foreground">{t('messageList.contextLoaded')}</p>
               </div>
               <div className="flex flex-col gap-1.5 w-full">
@@ -82,7 +82,7 @@ export function MessageList({
             </>
           ) : (
             <>
-              <p className="text-xs font-medium text-muted-foreground">{t('messageList.noMessages')}</p>
+              <p className="text-label text-muted-foreground">{t('messageList.noMessages')}</p>
               <p className="text-caption text-muted-foreground max-w-[180px]">
                 {t('messageList.askAnything')}
               </p>

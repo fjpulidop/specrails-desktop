@@ -339,7 +339,7 @@ function Metric({ label, value, valueClass, naCaption, naTooltip }: {
   return (
     <div className="bg-muted/20 rounded-lg px-2.5 py-1.5" title={value == null ? naTooltip : undefined}>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn('text-sm font-semibold num', value != null ? valueClass : 'text-muted-foreground')}>{value ?? '—'}</p>
+      <p className={cn('text-strong num', value != null ? valueClass : 'text-muted-foreground')}>{value ?? '—'}</p>
       {value == null && naCaption && <p className="text-xs text-muted-foreground">{naCaption}</p>}
     </div>
   )

@@ -250,7 +250,7 @@ export function DesktopUpdateToast({
         >
           <StateIcon state={state} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight text-foreground">
+        <span className="min-w-0 flex-1 truncate text-strong leading-tight text-foreground">
           {title}
         </span>
         {pill != null && (

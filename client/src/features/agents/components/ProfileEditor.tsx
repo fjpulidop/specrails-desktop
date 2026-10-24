@@ -342,11 +342,11 @@ export function ProfileEditor({
       {/* Metadata */}
       <section className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">{t('profileEditor.nameLabel')}</label>
+          <label className="block text-label text-muted-foreground mb-1">{t('profileEditor.nameLabel')}</label>
           <Input value={profile.name} disabled className="text-sm" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">{t('profileEditor.descriptionLabel')}</label>
+          <label className="block text-label text-muted-foreground mb-1">{t('profileEditor.descriptionLabel')}</label>
           <Input
             value={profile.description ?? ''}
             onChange={(e) =>
@@ -363,7 +363,7 @@ export function ProfileEditor({
       {/* Orchestrator */}
       <section>
         <p className="text-xs text-muted-foreground mb-3">{t('profileEditor.legacyWorkflowNotice')}</p>
-        <h2 className="text-xs font-medium text-muted-foreground mb-2">
+        <h2 className="text-label text-muted-foreground mb-2">
           {t('profileEditor.orchestrator.heading')}
         </h2>
         <div className="flex items-center gap-3 p-3 rounded-md border border-border">
@@ -392,7 +392,7 @@ export function ProfileEditor({
       {/* Agent chain */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-medium text-muted-foreground">
+          <h2 className="text-label text-muted-foreground">
             {t('profileEditor.agentChain.heading', { n: profile.agents.length })}
           </h2>
           <Button
@@ -477,7 +477,7 @@ export function ProfileEditor({
       {/* Routing */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-medium text-muted-foreground">
+          <h2 className="text-label text-muted-foreground">
             {t('profileEditor.routing.heading', { n: profile.routing.length })}
           </h2>
           <div className="flex items-center gap-1">

@@ -84,7 +84,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold leading-snug text-foreground">
+          <span className="block text-strong leading-snug text-foreground">
             {t(settled ? `decisionCard.${kind}.settledTitle` : `decisionCard.${kind}.title`)}
           </span>
           <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">

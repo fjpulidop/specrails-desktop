@@ -360,7 +360,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
           {compareSelection.length === 2 && (
             <button
               type="button"
-              className="text-xs font-medium text-foreground hover:underline"
+              className="text-label text-foreground hover:underline"
               onClick={() => setCompareJobIds(compareSelection as [string, string])}
             >
               {t('recent.compareAction')}

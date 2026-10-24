@@ -63,7 +63,7 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-success/15 text-accent-success">
         <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
       </span>
-      <span className="text-xs font-medium">{t('guardrails.title')}</span>
+      <span className="text-label">{t('guardrails.title')}</span>
       <span className="ml-auto flex items-center gap-2">
         {state.status === 'ready' && supported && <span data-testid="guardrails-active" data-chip className={cn('inline-flex h-5 items-center rounded-md border px-1.5 text-caption leading-4', offCount ? 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning' : 'border-accent-success/30 bg-accent-success/10 text-accent-success')}>
           {t('guardrails.active', { on: total - offCount, total })}
@@ -85,7 +85,7 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
           if (!items.length) return null
           const Icon = PHASE_ICONS[phase]
           return <div key={phase} className="space-y-2" data-testid={`guardrails-phase-${phase}`}>
-            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-label text-muted-foreground">
               <Icon className="h-3.5 w-3.5" aria-hidden />{t(`guardrails.phases.${phase}`)}
             </p>
             <ul className="divide-y divide-border/60 rounded-md border border-border/60">
@@ -104,7 +104,7 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
                     className="mt-0.5"
                   />
                   <div className="min-w-0 flex-1">
-                    <p id={labelId} className={cn('text-xs font-medium', !enabled && 'text-muted-foreground line-through decoration-muted-foreground/50')}>{title}</p>
+                    <p id={labelId} className={cn('text-label', !enabled && 'text-muted-foreground line-through decoration-muted-foreground/50')}>{title}</p>
                     <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{description}</p>
                     {why && <p className="mt-0.5 text-xs italic leading-4 text-muted-foreground/70">{why}</p>}
                   </div>

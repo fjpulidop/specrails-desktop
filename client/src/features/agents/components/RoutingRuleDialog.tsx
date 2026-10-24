@@ -74,7 +74,7 @@ export function RoutingRuleDialog({
         </DialogHeader>
         <DialogBody className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label className="block text-label text-muted-foreground mb-1">
               {t('routingRule.tagsLabel')}
             </label>
             <Input
@@ -98,7 +98,7 @@ export function RoutingRuleDialog({
             )}
           </div>
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label className="block text-label text-muted-foreground mb-1">
               {t('routingRule.routeToLabel')}
             </label>
             <select

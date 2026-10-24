@@ -172,7 +172,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
           {project && (
             <div className="flex flex-col items-center gap-1 text-center">
-              <p className="text-xs font-medium text-foreground">{project.name}</p>
+              <p className="text-label text-foreground">{project.name}</p>
               <p className="text-caption text-muted-foreground max-w-[180px] truncate">{project.path}</p>
             </div>
           )}

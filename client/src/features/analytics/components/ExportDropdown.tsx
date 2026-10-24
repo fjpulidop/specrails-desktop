@@ -89,7 +89,7 @@ export function ExportDropdown({ baseUrl, params, label, disabled }: ExportDropd
         disabled={downloading || disabled}
         onClick={() => setOpen((o) => !o)}
         title={disabled ? t('export.noData') : undefined}
-        className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium border border-border/60 bg-card/50 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+        className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-label border border-border/60 bg-card/50 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors disabled:opacity-50 disabled:pointer-events-none"
       >
         <Download className="w-3 h-3" />
         {downloading ? t('export.downloading') : (label ?? t('common:actions.export'))}

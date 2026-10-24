@@ -102,7 +102,7 @@ export function ProjectAnchoringSection() {
         {rows.map(({ key, supported }) => (
           <div key={key} className="flex items-start justify-between gap-4">
             <div className="space-y-0.5">
-              <p className="text-xs font-medium">{t(`anchoring.${key}.label`)}</p>
+              <p className="text-label">{t(`anchoring.${key}.label`)}</p>
               <p className="text-xs text-muted-foreground">{t(`anchoring.${key}.description`)}</p>
               {!supported ? <p className="text-xs text-accent-warning" data-testid={`anchoring-${key}-unsupported`}>{t('anchoring.coreRequired')}</p> : null}
             </div>
@@ -264,7 +264,7 @@ export function ProjectRulesSection() {
             ) : null}
             {data.inventory.gates.length > 0 ? (
               <div>
-                <h3 className="mb-1 text-xs font-medium text-muted-foreground">{t('rules.gates', { count: data.inventory.gates.length })}</h3>
+                <h3 className="mb-1 text-label text-muted-foreground">{t('rules.gates', { count: data.inventory.gates.length })}</h3>
                 <ul className="space-y-1" data-testid="rules-gates">
                   {data.inventory.gates.map((gate) => (
                     <li key={gate.id} className="flex items-center gap-2 text-xs">
@@ -281,7 +281,7 @@ export function ProjectRulesSection() {
               const Icon = STATUS_ICON[status]
               return (
                 <div key={status}>
-                  <h3 className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <h3 className="mb-1 flex items-center gap-1.5 text-label text-muted-foreground">
                     <Icon className={`h-3.5 w-3.5 ${STATUS_TONE[status]}`} aria-hidden />
                     {t(`rules.status.${status}`)} · {rules.length}
                   </h3>

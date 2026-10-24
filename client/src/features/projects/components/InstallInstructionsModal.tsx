@@ -154,7 +154,7 @@ function PlatformSection({ platform, primary }: { platform: Platform; primary: b
         primary ? 'border-border/40 bg-background/40' : 'border-border/20 bg-background/20',
       )}
     >
-      <h3 className="text-sm font-semibold text-foreground">{instr.title}</h3>
+      <h3 className="text-strong text-foreground">{instr.title}</h3>
       {instr.intro && (
         <p className="mt-1 text-xs text-muted-foreground">{instr.intro}</p>
       )}

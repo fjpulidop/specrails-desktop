@@ -53,7 +53,7 @@ export function PeriodSelector({ period, from, to, onChange }: PeriodSelectorPro
             key={preset.value}
             onClick={() => handlePreset(preset.value)}
             className={cn(
-              'h-7 px-3 rounded-md text-xs font-medium transition-colors',
+              'h-7 px-3 rounded-md text-label transition-colors',
               period === preset.value
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent'

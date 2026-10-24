@@ -122,7 +122,7 @@ export function ProjectAgentEnvModeSection() {
               >
                 <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${selected ? 'text-primary' : 'text-muted-foreground'}`} aria-hidden />
                 <span className="space-y-0.5">
-                  <span className="block text-xs font-medium">{t(`agentEnv.modes.${id}.label`)}</span>
+                  <span className="block text-label">{t(`agentEnv.modes.${id}.label`)}</span>
                   <span className="block text-xs leading-relaxed text-muted-foreground">{t(`agentEnv.modes.${id}.description`)}</span>
                 </span>
               </button>
@@ -131,24 +131,24 @@ export function ProjectAgentEnvModeSection() {
         </div>
 
         <div className="space-y-2.5 rounded-lg border border-border/40 bg-muted/20 p-3" data-testid="agent-env-names">
-          <p className="text-xs font-medium text-foreground">{t('agentEnv.namesTitle')}</p>
+          <p className="text-label text-foreground">{t('agentEnv.namesTitle')}</p>
           {statusError ? (
             <p className="text-xs text-muted-foreground">{t('agentEnv.statusUnavailable')}</p>
           ) : report ? (
             <>
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">{t('agentEnv.shared')}</p>
+                <p className="text-label text-muted-foreground">{t('agentEnv.shared')}</p>
                 <NameChips names={report.names} testId="agent-env-shared" />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">{t('agentEnv.passthrough')}</p>
+                <p className="text-label text-muted-foreground">{t('agentEnv.passthrough')}</p>
                 {report.passthrough.length > 0
                   ? <NameChips names={report.passthrough} testId="agent-env-passthrough" />
                   : <p className="text-xs text-muted-foreground">{t('agentEnv.noPassthrough')}</p>}
               </div>
               {report.providers.map((provider) => (
                 <div key={provider.id} className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t('agentEnv.provider', { provider: provider.displayName })}
                   </p>
                   {provider.names.length > 0

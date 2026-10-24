@@ -143,7 +143,7 @@ export function SpendingHero({ data, loading, period }: Props) {
               <CostValue usd={displayedTotal} estimated={hasEstimatedCost} unavailable={costUnavailable} />
             </div>
             {delta !== null && (
-              <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${
+              <span className={`inline-flex items-center gap-0.5 text-label ${
                 delta >= 0 ? 'text-accent-warning' : 'text-accent-success'
               }`}>
                 {delta >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}

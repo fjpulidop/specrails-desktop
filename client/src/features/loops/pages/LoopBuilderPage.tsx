@@ -132,7 +132,7 @@ function LoopNodeBox({ id, data, selected }: NodeProps<Node<LoopNodeData>>) {
           {/* Two named, colour-coded outputs at the bottom (layout-agnostic): the
               continue branch loops back, the stop branch exits. The edges route
               orthogonally (smoothstep) to whichever node the layout places them. */}
-          <div className="mt-1.5 flex items-center justify-between gap-2 text-xs font-medium">
+          <div className="mt-1.5 flex items-center justify-between gap-2 text-label">
             <span className="text-accent-highlight">{t('builder.branch.continue')}</span>
             <span className="text-accent-success">{t('builder.branch.stop')}</span>
           </div>
@@ -514,7 +514,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
           <input
             value={name}
             onChange={(e) => { setName(e.target.value); markDirty() }}
-            className="text-sm font-semibold bg-transparent text-foreground border-b border-transparent focus:border-border focus:outline-none min-w-0"
+            className="text-strong bg-transparent text-foreground border-b border-transparent focus:border-border focus:outline-none min-w-0"
             aria-label={t('builder.nameLabel')}
           />
         </div>
@@ -597,10 +597,10 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       <div className="flex-1 flex min-h-0">
         {/* Palette */}
         <div className="w-44 border-r border-border p-2 space-y-1 flex-shrink-0 overflow-y-auto">
-          <p className="text-xs font-medium text-muted-foreground px-1 mb-1">{t('builder.addNode')}</p>
+          <p className="text-label text-muted-foreground px-1 mb-1">{t('builder.addNode')}</p>
           {coreMode && catalogUnavailable && <p role="status" className="text-xs text-muted-foreground px-1">{t('builder.core.unavailable')}</p>}
           {coreMode && catalog.length > 0 && (['ai', 'verification', 'openspec', 'control'] as const).map(group => <div key={group} className="pt-2">
-            <p className="text-xs font-medium text-muted-foreground px-1">{t(`builder.core.groups.${group}`)}</p>
+            <p className="text-label text-muted-foreground px-1">{t(`builder.core.groups.${group}`)}</p>
             {catalog.filter(piece => !['implementation', 'implementation-step'].includes(piece.kind) && pieceGroup(piece.kind) === group).map(piece => <button key={piece.kind} type="button" draggable onDragStart={event => { event.dataTransfer.setData('application/specrails-core-piece', piece.kind); event.dataTransfer.effectAllowed = 'copy' }} onClick={() => addPiece(piece)} className="flex items-center gap-2 w-full min-h-8 px-2 rounded text-left text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-accent-primary"><Plus className="h-3 w-3 flex-shrink-0" />{t(`builder.core.pieces.${piece.kind}`)}</button>)}
           </div>)}
           {(coreMode ? ['start'] as LoopNodeType[] : NODE_KINDS).map((kind) => {
@@ -783,7 +783,7 @@ function LoopLimitsSection({ maxIterations, timeoutMinutes, maxCostUsd, onMaxIte
   const row = (id: string, label: string, hint: string, control: React.ReactNode) => (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-xs font-medium text-foreground">{label}</label>
+        <label htmlFor={id} className="text-label text-foreground">{label}</label>
         {control}
       </div>
       <p className="text-xs text-muted-foreground leading-relaxed">{hint}</p>
@@ -862,7 +862,7 @@ function TokenPalette({ t, onInsert }: { t: (key: string) => string; onInsert: (
     <div className="mb-2 space-y-1.5">
       {TOKEN_GROUPS.map((group) => (
         <div key={group.labelKey}>
-          <span className="block text-xs font-medium text-muted-foreground mb-0.5">{t(group.labelKey)}</span>
+          <span className="block text-label text-muted-foreground mb-0.5">{t(group.labelKey)}</span>
           <div className="flex flex-wrap gap-1">
             {group.tokens.map((tok) => (
               <TokenChip key={tok.token} token={tok.token} label={tok.label} onInsert={onInsert} />
@@ -872,7 +872,7 @@ function TokenPalette({ t, onInsert }: { t: (key: string) => string; onInsert: (
       ))}
       {commands.length > 0 && (
         <div>
-          <span className="block text-xs font-medium text-muted-foreground mb-0.5">{t('builder.inspector.tokensCommands')}</span>
+          <span className="block text-label text-muted-foreground mb-0.5">{t('builder.inspector.tokensCommands')}</span>
           <div className="flex flex-wrap gap-1">
             {commands.map((c) => (
               <TokenChip key={c.name} token={`{{cmd:${c.name}}}`} label={c.label} icon={Zap} description={c.description} onInsert={onInsert} />
@@ -895,7 +895,7 @@ function ConstantPalette({ t, constants, onInsert, onManage }: {
   return (
     <div className="mb-2">
       <div className="flex items-center justify-between mb-0.5">
-        <span className="text-xs font-medium text-muted-foreground">{t('builder.constants.label')}</span>
+        <span className="text-label text-muted-foreground">{t('builder.constants.label')}</span>
         <button type="button" onClick={onManage} title={t('builder.constants.manage')} aria-label={t('builder.constants.manage')} className="text-muted-foreground hover:text-foreground">
           <Settings className="w-3 h-3" />
         </button>
@@ -992,7 +992,7 @@ function LoopConstantsManager({ open, onClose, constants, onChanged }: {
           {/* Built-ins (read-only) */}
           {builtins.length > 0 && (
             <div className="border-t border-border pt-2 space-y-1">
-              <span className="block text-xs font-medium text-muted-foreground">{t('builder.constants.builtinBadge')}</span>
+              <span className="block text-label text-muted-foreground">{t('builder.constants.builtinBadge')}</span>
               {builtins.map((c) => (
                 <div key={c.id} className="flex items-center gap-1.5 text-xs">
                   <code className="font-mono text-accent-primary w-28 truncate" title={c.name}>{c.name}</code>
@@ -1069,7 +1069,7 @@ function NodeInspector({
   const { activeProjectId, projects } = useDesktop()
   const repositories = projectRepositories(projects.find((project) => project.id === activeProjectId))
   const kind = data.kind
-  const field = 'block text-xs font-medium text-muted-foreground mb-1'
+  const field = 'block text-label text-muted-foreground mb-1'
   const input = 'w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40'
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const goalRef = useRef<HTMLTextAreaElement>(null)

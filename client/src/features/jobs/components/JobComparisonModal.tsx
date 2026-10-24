@@ -76,7 +76,7 @@ export function JobComparisonModal({ jobIds, onClose, estimatedCost }: JobCompar
   function header(job: JobCompareEntry, idx: number) {
     return (
       <div className="text-center space-y-1">
-        <p className="text-xs font-medium text-muted-foreground">{t('comparison.jobN', { n: idx + 1 })}</p>
+        <p className="text-label text-muted-foreground">{t('comparison.jobN', { n: idx + 1 })}</p>
         <code className="text-xs text-foreground block truncate max-w-[160px] mx-auto">
           {job.command}
         </code>

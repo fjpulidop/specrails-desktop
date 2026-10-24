@@ -84,7 +84,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <CheckCircle2 className="w-4 h-4 text-accent-success flex-shrink-0" />
-            <p className="text-xs font-medium text-foreground">{t('prerequisites.allDetected')}</p>
+            <p className="text-label text-foreground">{t('prerequisites.allDetected')}</p>
           </div>
           {onRefresh && (
             <Button
@@ -130,7 +130,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
         <div className="flex items-center gap-2 min-w-0">
           <AlertTriangle className={cn('w-4 h-4 flex-shrink-0', hasCorruptedBundle ? 'text-destructive' : 'text-accent-warning')} aria-hidden />
           <div className="min-w-0">
-            <p className="text-xs font-medium text-foreground">
+            <p className="text-label text-foreground">
               {allMissingAreCorrupted
                 ? t('prerequisites.bundleCorruptedTitle')
                 : t('prerequisites.toolsRequired', { count: missingCount })}

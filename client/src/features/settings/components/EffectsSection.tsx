@@ -25,7 +25,7 @@ export function EffectsSection() {
             data-testid="effects-thinking-halo-toggle"
           />
           <div className="min-w-0 flex-1">
-            <p id="effects-thinking-halo-label" className="flex items-center gap-1.5 text-xs font-medium">
+            <p id="effects-thinking-halo-label" className="flex items-center gap-1.5 text-label">
               <Sparkles className="h-3.5 w-3.5 text-accent-primary" aria-hidden />
               {t('effects.thinkingHalo.label')}
             </p>
@@ -34,7 +34,7 @@ export function EffectsSection() {
 
             {/* Live preview: a composer-shaped box wearing the halo. */}
             <div className="mt-3">
-              <p className="mb-1.5 text-xs font-medium text-muted-foreground">{t('effects.preview')}</p>
+              <p className="mb-1.5 text-label text-muted-foreground">{t('effects.preview')}</p>
               <div className="relative max-w-sm rounded-xl border border-border/60 bg-background/60 px-3 py-2" data-testid="effects-thinking-halo-preview" data-active={prefs.agentThinkingHalo}>
                 <BuilderHalo active={prefs.agentThinkingHalo} radius="0.75rem" inset={-3} fadeInMs={450} fadeOutMs={800} />
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">

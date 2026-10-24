@@ -28,7 +28,7 @@ function ErrorFallback({
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
       <div className="text-center space-y-2">
-        <h2 className="text-base font-semibold">{t('errorBoundary.title')}</h2>
+        <h2 className="text-title">{t('errorBoundary.title')}</h2>
         {projectName && (
           <p className="text-sm text-muted-foreground">
             <Trans

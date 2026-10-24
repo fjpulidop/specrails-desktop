@@ -193,7 +193,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label htmlFor="add-project-path" className="text-xs font-medium">
+            <label htmlFor="add-project-path" className="text-label">
               {t('addProject.pathLabel')} <span className="text-destructive">*</span>
             </label>
             <div className="flex gap-2">
@@ -239,7 +239,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="add-project-name" className="text-xs font-medium">
+            <label htmlFor="add-project-name" className="text-label">
               {t('addProject.nameLabel')} <span className="text-muted-foreground">{t('addProject.optional')}</span>
             </label>
             <Input
@@ -256,16 +256,16 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
 
           {/* Multi-repository fields are progressive: most projects are one repo. */}
           <details className="group rounded-md border border-border/40 px-3 py-2" data-testid="add-project-advanced">
-            <summary className="cursor-pointer select-none text-xs font-medium text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <summary className="cursor-pointer select-none text-label text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {t('common:repositories.advanced')}
             </summary>
             <div className="mt-3 space-y-4">
-              <label className="block space-y-1.5 text-xs font-medium">{t('common:repositories.workspacePath')}
+              <label className="block space-y-1.5 text-label">{t('common:repositories.workspacePath')}
                 <textarea className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={workspacePaths} disabled={isAdding} onChange={(event) => setWorkspacePaths(event.target.value)} placeholder={projectPath} />
                 <span className="block font-normal text-muted-foreground">{t('common:repositories.workspaceHint')}</span>
               </label>
               <fieldset className="space-y-2" disabled={isAdding}>
-                <legend className="text-xs font-medium">{t('common:repositories.additional')}</legend>
+                <legend className="text-label">{t('common:repositories.additional')}</legend>
                 <p className="text-xs text-muted-foreground">{t('common:repositories.sharedBacklog')}</p>
                 {additionalPaths.map((path, index) => (
                   <div key={index} className="flex gap-2">

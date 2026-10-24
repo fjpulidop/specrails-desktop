@@ -302,7 +302,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
               <button
                 type="button"
                 onClick={() => downloadLoops(loops.filter((l) => selectedIds.has(l.id)))}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-border text-foreground hover:bg-muted"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-label border border-border text-foreground hover:bg-muted"
               >
                 <FileDown className="w-3.5 h-3.5" />
                 {t('actions.export')} ({selectedIds.size})
@@ -311,7 +311,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
             <button
               type="button"
               onClick={() => importInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-border text-foreground hover:bg-muted"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-label border border-border text-foreground hover:bg-muted"
             >
               <FileUp className="w-3.5 h-3.5" />
               {t('actions.import')}
@@ -330,7 +330,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
             <button
               type="button"
               onClick={handleNew}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-label bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="w-3.5 h-3.5" />
               {t('newLoop')}

@@ -76,7 +76,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
     </>
   return <Dialog open={fullscreen} onOpenChange={setFullscreen}>
     <details className="shrink-0 border-b border-border p-2" onToggle={event => setOpen(event.currentTarget.open)}>
-      <summary className="cursor-pointer text-xs font-medium">{t('loopExplorer.runtimeGraph')}</summary>
+      <summary className="cursor-pointer text-label">{t('loopExplorer.runtimeGraph')}</summary>
       {open && content(false)}
     </details>
     {/*

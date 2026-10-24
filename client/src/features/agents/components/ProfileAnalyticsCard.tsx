@@ -54,7 +54,7 @@ export function ProfileAnalyticsCard() {
       <div className="mx-6 my-4 rounded-md border border-border bg-muted/20">
         <div className="flex items-center justify-between px-4 py-2 border-b border-border">
           <div>
-            <div className="text-xs font-medium text-foreground">{t('usage.title')}</div>
+            <div className="text-label text-foreground">{t('usage.title')}</div>
             <div className="text-caption text-muted-foreground">
               {t('usage.subtitleEmpty')}
             </div>
@@ -90,7 +90,7 @@ export function ProfileAnalyticsCard() {
     <div className="mx-6 my-4 rounded-md border border-border bg-muted/20">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border">
         <div>
-          <div className="text-xs font-medium text-foreground">{t('usage.title')}</div>
+          <div className="text-label text-foreground">{t('usage.title')}</div>
           <div className="text-caption text-muted-foreground">
             {t('usage.subtitle', { count: data.windowDays })}
           </div>

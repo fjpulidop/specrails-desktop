@@ -121,7 +121,7 @@ function DocsIndex({ categories }: { categories: DocCategory[] }) {
                     className="flex items-center gap-3 p-2.5 rounded-md border border-border transition-colors hover:bg-muted/40 group"
                   >
                     <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className="text-xs font-medium text-foreground truncate">{doc.title}</span>
+                    <span className="text-label text-foreground truncate">{doc.title}</span>
                     <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                   </Link>
                 </li>

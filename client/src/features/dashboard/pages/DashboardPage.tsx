@@ -1676,7 +1676,7 @@ export default function DashboardPage() {
           )
         ) : activeRailDragLabel ? (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/40 bg-card shadow-xl shadow-black/20 rotate-[0.5deg] scale-[1.02] pointer-events-none">
-            <span className="text-xs font-medium">{activeRailDragLabel}</span>
+            <span className="text-label">{activeRailDragLabel}</span>
           </div>
         ) : null}
       </DragOverlay>

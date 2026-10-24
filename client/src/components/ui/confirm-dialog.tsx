@@ -87,7 +87,7 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
-        {children ? <DialogBody className="space-y-3 text-[13px]">{children}</DialogBody> : null}
+        {children ? <DialogBody className="space-y-3 text-body">{children}</DialogBody> : null}
         <DialogFooter>
           <Button
             type="button"

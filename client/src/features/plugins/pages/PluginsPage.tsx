@@ -499,7 +499,7 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
 
       <div className="flex-1 overflow-auto px-6 py-5">
         <section className="mb-6">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-3 flex items-center gap-2 text-strong">
             <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             {t('plugins.sections.installed')}
           </h2>
@@ -514,7 +514,7 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
         </section>
 
         <section>
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <h2 className="mb-3 flex items-center gap-2 text-strong">
             <Puzzle className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             {t('plugins.sections.available')}
           </h2>
@@ -659,7 +659,7 @@ function PluginGroupHeader({
         scope === 'global' ? 'bg-accent-primary/30' : 'bg-accent-info/30',
       )} />
       <div className="flex items-center gap-2 rounded-md border border-border bg-card/70 px-2 py-1">
-        <span className="text-xs font-medium">{title}</span>
+        <span className="text-label">{title}</span>
         <span className="hidden text-xs text-muted-foreground sm:inline">{detail}</span>
       </div>
       <div className={cn(
@@ -709,7 +709,7 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <h3 className="truncate text-sm font-semibold leading-5">{plugin.title}</h3>
+        <h3 className="truncate text-strong leading-5">{plugin.title}</h3>
         <p className="mt-1 truncate text-xs leading-4 text-muted-foreground">{plugin.description}</p>
         <div className="mt-1.5 flex items-center gap-1.5">
           <span data-chip="" className={statusClassName}>{plugin.statusLabel}</span>
@@ -719,7 +719,7 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         type="button"
         disabled={plugin.busy}
         onClick={plugin.action}
-        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-label transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
         <ActionIcon className={cn('h-3.5 w-3.5', plugin.busy && 'motion-safe:animate-spin')} aria-hidden />
         {plugin.busy ? t(BUSY_LABEL_KEY[plugin.actionKind]) : plugin.actionLabel}
@@ -768,7 +768,7 @@ function HeadroomPanel({
           <PlugZap className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold">{t('plugins.headroom.title')}</h2>
+          <h2 className="text-strong">{t('plugins.headroom.title')}</h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {t('plugins.headroom.panelDescription')}
           </p>
@@ -800,7 +800,7 @@ function HeadroomPanel({
           type="button"
           disabled={!!busy}
           onClick={onInstall}
-          className="mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          className="mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-label text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
           {busy === 'install' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           {t('plugins.headroom.actions.installWithUv')}
@@ -840,7 +840,7 @@ function HeadroomPanel({
       {state.installed && <HeadroomMetricsPanel state={state} />}
 
       <div className="mb-4 rounded-lg border border-border bg-background/45 p-3">
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">{t('plugins.headroom.port.label')}</label>
+        <label className="mb-1 block text-label text-muted-foreground">{t('plugins.headroom.port.label')}</label>
         <div className="flex gap-2">
           <input
             value={portDraft}
@@ -880,7 +880,7 @@ function HeadroomPanel({
               type="button"
               disabled={!!busy}
               onClick={() => setConfirmUninstall(true)}
-              className="flex h-8 w-full items-center justify-center gap-2 rounded-md text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              className="flex h-8 w-full items-center justify-center gap-2 rounded-md text-label text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
               {externalInstall ? t('plugins.headroom.actions.detachHeadroom') : t('plugins.headroom.actions.uninstallHeadroom')}
@@ -905,7 +905,7 @@ function HeadroomPanel({
                   type="button"
                   disabled={!!busy}
                   onClick={onUninstall}
-                  className="flex h-8 items-center justify-center gap-2 rounded-md bg-destructive px-2 text-xs font-medium text-destructive-foreground disabled:opacity-50"
+                  className="flex h-8 items-center justify-center gap-2 rounded-md bg-destructive px-2 text-label text-destructive-foreground disabled:opacity-50"
                 >
                   {busy === 'uninstall' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   {externalInstall ? t('plugins.headroom.actions.detach') : t('plugins.headroom.actions.uninstall')}
@@ -939,7 +939,7 @@ function IssueBox({ issue }: { issue: HeadroomIssue }) {
       <div className="flex items-start gap-2">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" />
         <div className="min-w-0">
-          <div className="text-xs font-medium">{title}</div>
+          <div className="text-label">{title}</div>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{guidance}</p>
           <div className="mt-1 text-xs text-muted-foreground">{t('plugins.headroom.issueCode', { code: issue.code })}</div>
         </div>
@@ -983,7 +983,7 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <BarChart3 className="h-3.5 w-3.5 text-accent-primary" />
-          <div className="truncate text-xs font-medium">{t('plugins.headroom.savings.title')}</div>
+          <div className="truncate text-label">{t('plugins.headroom.savings.title')}</div>
         </div>
         <span data-chip="" className={cn(
           'inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-caption',
@@ -998,7 +998,7 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
       </div>
 
       <div className="mb-2 rounded-md bg-muted/35 px-2.5 py-2">
-        <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('plugins.headroom.savings.totals')}</div>
+        <div className="mb-1.5 text-label text-muted-foreground">{t('plugins.headroom.savings.totals')}</div>
         <div className="grid grid-cols-2 gap-3">
           <TokenStatsColumn
             label={t('plugins.headroom.savings.input')}
@@ -1049,7 +1049,7 @@ function TokenStatsColumn({
   const { t } = useTranslation('integrations')
   return (
     <div className={cn('min-w-0', align === 'right' && 'text-right')}>
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="text-label text-muted-foreground">{label}</div>
       <div className="mt-1 space-y-0.5 text-xs">
         <div className="flex min-w-0 items-baseline justify-between gap-2">
           <span className="shrink-0 text-muted-foreground">{t('plugins.headroom.savings.processed')}</span>
@@ -1100,7 +1100,7 @@ function ProviderMetricRow({
       muted && 'opacity-70',
     )}>
       <div className="flex min-w-0 items-center gap-1.5">
-          <span className="text-xs font-medium">{metric.label}</span>
+          <span className="text-label">{metric.label}</span>
           {metric.detectedRoute && (
             <span data-chip="" className="inline-flex h-5 items-center rounded bg-accent-primary/10 px-1.5 text-caption font-medium text-accent-primary">
               {t('plugins.headroom.savings.detected')}
@@ -1164,7 +1164,7 @@ function ProviderToggle({
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe2 className="h-3.5 w-3.5" />}
       </div>
       <div className="min-w-0 flex-1">
-        <div id={labelId} className="text-xs font-medium capitalize">{provider}</div>
+        <div id={labelId} className="text-label capitalize">{provider}</div>
         <div id={statusId} className="text-xs text-muted-foreground">
           {statusText}
         </div>
@@ -1208,7 +1208,7 @@ function ProjectPluginWizard({
         <DialogBody className="overflow-x-hidden">
         <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
           <div className="rounded-lg border border-border bg-card/70 p-3">
-            <div className="mb-2 text-xs font-medium text-muted-foreground">{t('plugins.projectWizard.chooseProject')}</div>
+            <div className="mb-2 text-label text-muted-foreground">{t('plugins.projectWizard.chooseProject')}</div>
             <div className="max-h-[52vh] space-y-1 overflow-auto">
               {projects.map((project) => {
                 const disabled = plugin === 'serena' &&
@@ -1225,7 +1225,7 @@ function ProjectPluginWizard({
                       disabled && 'cursor-not-allowed opacity-45',
                     )}
                   >
-                    <div className="truncate text-xs font-medium">{project.name}</div>
+                    <div className="truncate text-label">{project.name}</div>
                     <div className="truncate text-xs">
                       {disabled
                         ? t('plugins.projectWizard.requiresSupportedProvider')
@@ -1292,7 +1292,7 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
     return (
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name })}</h3>
+          <h3 className="text-strong">{t('plugins.jira.titleForProject', { name: project.name })}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {t('plugins.jira.configuredDescription')}
           </p>
@@ -1309,7 +1309,7 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name })}</h3>
+        <h3 className="text-strong">{t('plugins.jira.titleForProject', { name: project.name })}</h3>
         <p className="mt-1 text-xs text-muted-foreground">
           {error
             ? t('plugins.jira.loadFailed', { message: error })
@@ -1405,11 +1405,11 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold">{t('plugins.serena.titleForProject', { name: project.name })}</h3>
+        <h3 className="text-strong">{t('plugins.serena.titleForProject', { name: project.name })}</h3>
         <p className="mt-1 text-xs text-muted-foreground">{t('plugins.serena.description')}</p>
       </div>
       <label className="block space-y-1">
-        <span className="text-xs font-medium">
+        <span className="text-label">
           {t('plugins.serena.provider')}
         </span>
         <select
@@ -1430,14 +1430,14 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
       </label>
       {plugin && (
         <div className="rounded-lg border border-border bg-background/45 p-3">
-          <div className="text-xs font-medium">{t('plugins.serena.status', { status: pluginStatusLabel })}</div>
+          <div className="text-label">{t('plugins.serena.status', { status: pluginStatusLabel })}</div>
           {pluginDescription && <p className="mt-1 text-xs text-muted-foreground">{pluginDescription}</p>}
         </div>
       )}
       {preview && (
         <div className="space-y-3">
           <div>
-            <div className="mb-1 text-xs font-medium">{t('plugins.serena.files')}</div>
+            <div className="mb-1 text-label">{t('plugins.serena.files')}</div>
             <ul className="space-y-1 text-xs font-mono">
               {preview.files.map((file) => (
                 <li key={file.path} className={file.op === 'create' ? 'text-accent-success' : 'text-accent-info'}>
@@ -1447,7 +1447,7 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
             </ul>
           </div>
           <div>
-            <div className="mb-1 text-xs font-medium">{t('plugins.serena.prerequisites')}</div>
+            <div className="mb-1 text-label">{t('plugins.serena.prerequisites')}</div>
             <ul className="space-y-1 text-xs">
               {preview.requirements.map((req) => {
                 const ok = req.installed && req.executable && req.meetsMinimum

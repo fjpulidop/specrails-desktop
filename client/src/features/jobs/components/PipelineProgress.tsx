@@ -29,7 +29,7 @@ export function PipelineProgress({ phases, phaseDefinitions }: PipelineProgressP
                   <PhaseNode state={state} />
                   <span
                     className={cn(
-                      'text-xs font-medium transition-colors',
+                      'text-label transition-colors',
                       state === 'running'
                         ? 'text-accent-info'
                         : state === 'done'

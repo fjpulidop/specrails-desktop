@@ -213,7 +213,7 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
 
       {session.phase === 'progress' && (
         <div className="mx-auto mt-10 w-full max-w-md p-6" data-testid="commit-progress">
-          <h2 className="text-sm font-semibold">{t('progress.title')}</h2>
+          <h2 className="text-strong">{t('progress.title')}</h2>
           <ul className="mt-4 space-y-2">
             {COMMIT_STEP_ORDER.map((step) => {
               const state = session.commitSteps.find((s) => s.step === step)
@@ -243,7 +243,7 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
       {session.phase === 'done' && (
         <div className="mx-auto mt-12 w-full max-w-md p-6 text-center" data-testid="commit-done">
           <Check className="mx-auto h-10 w-10 rounded-full bg-accent-success/15 p-2 text-accent-success" />
-          <h2 className="mt-3 text-sm font-semibold">{t('done.title')}</h2>
+          <h2 className="mt-3 text-strong">{t('done.title')}</h2>
           <p className="mt-1 text-xs text-muted-foreground">{t('done.description')}</p>
           {/* After Launch: the LIVE milestone card (server-derived progress,
               rails, chain) replaces the button — never a fire-and-forget exit. */}

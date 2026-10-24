@@ -143,7 +143,7 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
   return (
     <div className="space-y-3 rounded-lg border border-border/40 p-3" data-testid="subagent-runtime">
       <div className="space-y-0.5">
-        <p className="text-xs font-medium">{t('subagents.runtime.label')}</p>
+        <p className="text-label">{t('subagents.runtime.label')}</p>
         <p className="text-xs text-muted-foreground">
           {runtime ? t('subagents.runtime.chosenHint', { provider: providerLabel(runtime.provider) }) : t('subagents.runtime.sameHint')}
         </p>
@@ -222,7 +222,7 @@ function SubagentsCard({ scope, state }: { scope: 'project' | 'global'; state: S
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-0.5">
-            <p className="text-xs font-medium">{label}</p>
+            <p className="text-label">{label}</p>
             <p className="text-xs text-muted-foreground">{enabled ? t('subagents.stateOn') : t('subagents.stateOff')}</p>
           </div>
           <Switch

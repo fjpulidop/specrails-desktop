@@ -64,7 +64,7 @@ function DocsSidebar({
                 {cat.name}
               </h2>
               {cat.docs.length > 0 && (
-                <span className="text-xs font-medium tabular-nums text-muted-foreground bg-muted/40 rounded px-1 py-0.5 leading-none">
+                <span className="text-label tabular-nums text-muted-foreground bg-muted/40 rounded px-1 py-0.5 leading-none">
                   {cat.docs.length}
                 </span>
               )}
@@ -252,7 +252,7 @@ function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
                 className="py-2 px-1"
               />
             ) : indexLoading ? null : total === 0 ? (
-              <p className="mx-auto max-w-2xl text-[13px] text-muted-foreground">{t('docs.indexEmpty')}</p>
+              <p className="mx-auto max-w-2xl text-body text-muted-foreground">{t('docs.indexEmpty')}</p>
             ) : (
               <p role="alert" className="mx-auto max-w-2xl text-sm text-destructive">{t('docs.loadError')}</p>
             )}

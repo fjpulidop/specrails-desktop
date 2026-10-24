@@ -251,7 +251,7 @@ export function McpSettingsSection() {
             <label className="flex items-start gap-2 opacity-70">
               <input type="checkbox" checked disabled className="mt-0.5 h-4 w-4" aria-label={t('tiers.read')} />
               <span className="min-w-0">
-                <span className="text-xs font-medium">{t('tiers.read')}</span>
+                <span className="text-label">{t('tiers.read')}</span>
                 <span className="block text-xs text-muted-foreground">{t('tiers.readHelp')}</span>
               </span>
             </label>
@@ -267,7 +267,7 @@ export function McpSettingsSection() {
                   aria-label={row.label}
                 />
                 <span className="min-w-0">
-                  <span className="text-xs font-medium">{row.label}</span>
+                  <span className="text-label">{row.label}</span>
                   <span className="block text-xs text-muted-foreground">{row.help}</span>
                 </span>
               </label>

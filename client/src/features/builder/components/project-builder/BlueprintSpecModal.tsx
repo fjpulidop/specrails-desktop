@@ -22,7 +22,7 @@ const MD = cn(
   'text-sm leading-7 text-foreground',
   '[&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
   '[&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold',
-  '[&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2]:text-[15px] [&_h2]:font-semibold',
+  '[&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2]:text-strong',
   '[&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold',
   '[&_strong]:font-semibold [&_strong]:text-foreground',
   '[&_em]:italic',

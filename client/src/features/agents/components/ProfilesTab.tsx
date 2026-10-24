@@ -413,7 +413,7 @@ export function ProfilesTab() {
       <aside className="w-64 flex-shrink-0 border-r border-border flex flex-col">
         <div className="p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-medium text-muted-foreground">
+            <div className="text-label text-muted-foreground">
               {t('profiles.sidebar.title')}
             </div>
             <Button size="sm" variant="ghost" onClick={createNew} disabled={saving} aria-label={t('profiles.sidebar.new')} title={t('profiles.sidebar.new')}>

@@ -185,7 +185,7 @@ function LoopStepSectionInner({
           {status === 'ok' && <Check className="w-3.5 h-3.5 text-accent-success shrink-0" />}
           {status === 'failed' && end?.reason === 'provider_limit' && (
             <span
-              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-xs font-medium text-destructive"
+              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-label text-destructive"
               title={t('loopExplorer.providerLimitHint')}
               data-testid="loop-step-provider-limit"
             >
@@ -195,14 +195,14 @@ function LoopStepSectionInner({
           {status === 'failed' && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
           {status === 'stalled' && (
             <span
-              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-xs font-medium text-destructive"
+              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-label text-destructive"
               title={end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined}
             >
               {t('loopExplorer.stalled')}
             </span>
           )}
           {status === 'interrupted' && (
-            <span className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-xs font-medium text-accent-warning">
+            <span className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-label text-accent-warning">
               {t('loopExplorer.interrupted')}
             </span>
           )}

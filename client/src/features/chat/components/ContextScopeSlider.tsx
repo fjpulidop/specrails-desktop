@@ -224,9 +224,9 @@ export function ContextScopeSlider({
             </span>
           ) : null}
         </div>
-        <span className="text-xs font-medium text-foreground" data-testid="context-awareness-tier">{t('contextScope.costTier', { tier })}</span>
+        <span className="text-label text-foreground" data-testid="context-awareness-tier">{t('contextScope.costTier', { tier })}</span>
       </div>
-      <div className="flex justify-between text-xs font-medium text-muted-foreground">
+      <div className="flex justify-between text-label text-muted-foreground">
         {visiblePresets.map((p, i) => (
           <button
             key={p.id}

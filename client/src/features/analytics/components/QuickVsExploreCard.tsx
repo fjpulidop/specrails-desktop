@@ -49,7 +49,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
     <div className="flex-1 p-4 first:pr-2 last:pl-2">
       <div className="flex items-center gap-2 mb-2">
         <span className={`w-1.5 h-1.5 rounded-full ${accentClass}`} />
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="text-label text-muted-foreground">{label}</span>
       </div>
       {sparseExplore ? (
         <div className="py-3">

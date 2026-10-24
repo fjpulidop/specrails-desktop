@@ -97,7 +97,7 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-6" data-testid="commit-form">
       <div>
-        <h2 className="text-sm font-semibold">{t('commit.title')}</h2>
+        <h2 className="text-strong">{t('commit.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('commit.description')}</p>
       </div>
 
@@ -109,12 +109,12 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
       )}
 
       <div className="space-y-1.5">
-        <label className="text-xs font-medium">{t('commit.nameLabel')} <span className="text-destructive">*</span></label>
+        <label className="text-label">{t('commit.nameLabel')} <span className="text-destructive">*</span></label>
         <Input value={name} onChange={(e) => setName(e.target.value)} data-testid="commit-name" />
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-xs font-medium">{t('commit.locationLabel')} <span className="text-destructive">*</span></label>
+        <label className="text-label">{t('commit.locationLabel')} <span className="text-destructive">*</span></label>
         <Input
           value={effectiveLocation}
           onChange={(e) => { setLocationTouched(true); setLocation(e.target.value) }}
@@ -124,7 +124,7 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-muted-foreground">{t('commit.providersLabel')}</label>
+        <label className="text-label text-muted-foreground">{t('commit.providersLabel')}</label>
         <div className="flex gap-2">
           {Object.keys(available).map((id) => {
             const { icon: ProviderIcon, label } = PROVIDER_META[id] ?? { icon: Circle, label: id }

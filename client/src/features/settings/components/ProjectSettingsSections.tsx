@@ -84,7 +84,7 @@ export function ProjectTelemetrySection() {
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <p className="text-xs font-medium">{t('telemetry.toggleLabel')}</p>
+            <p className="text-label">{t('telemetry.toggleLabel')}</p>
             <p className="text-xs text-muted-foreground">
               <Trans
                 ns="settings"
@@ -400,7 +400,7 @@ export function ProjectWorktreeEnvSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <label htmlFor="worktree-env-name" className="text-xs font-medium">
+          <label htmlFor="worktree-env-name" className="text-label">
             {t('worktreeEnv.label')}
           </label>
           <div className="flex gap-2">
@@ -554,7 +554,7 @@ function PrePromptCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-2">
-          <label htmlFor={fieldId} className="text-xs font-medium">
+          <label htmlFor={fieldId} className="text-label">
             {t(`${i18nRoot}.label`)}
           </label>
           <textarea
@@ -758,7 +758,7 @@ export function ProjectBudgetSection() {
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
             <div>
-              <label className="text-xs font-medium">{t('budget.dailyLabel')}</label>
+              <label className="text-label">{t('budget.dailyLabel')}</label>
               <p className="text-xs text-muted-foreground">{t('budget.dailyHelper')}</p>
             </div>
             <Input
@@ -779,7 +779,7 @@ export function ProjectBudgetSection() {
 
           <div className="space-y-2">
             <div>
-              <label className="text-xs font-medium">{t('budget.perJobLabel')}</label>
+              <label className="text-label">{t('budget.perJobLabel')}</label>
               <p className="text-xs text-muted-foreground">{t('budget.perJobHelper')}</p>
             </div>
             <Input
@@ -871,7 +871,7 @@ export function ProjectReviewWipSection() {
         <CardDescription>{t('reviewWip.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        <label htmlFor="review-wip-limit" className="text-xs font-medium">{t('reviewWip.label')}</label>
+        <label htmlFor="review-wip-limit" className="text-label">{t('reviewWip.label')}</label>
         <p className="text-xs text-muted-foreground">{t('reviewWip.help', { suggested: SUGGESTED_REVIEW_WIP_LIMIT })}</p>
         <div className="flex items-center gap-2">
           <Input

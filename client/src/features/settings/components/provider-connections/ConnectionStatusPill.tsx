@@ -39,7 +39,7 @@ export function ConnectionStatusPill({ state, latencyMs, className }: Props) {
       data-testid="connection-status-pill"
       data-state={state}
       role="status"
-      className={cn('inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors', style.pill, className)}
+      className={cn('inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-label transition-colors', style.pill, className)}
     >
       <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
       {t(`providers.status.${state}`)}

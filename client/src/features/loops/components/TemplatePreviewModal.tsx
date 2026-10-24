@@ -88,7 +88,7 @@ export function TemplatePreviewModal({
             </p>
 
             <div className="space-y-1.5">
-              <span className="block text-xs font-medium text-muted-foreground">
+              <span className="block text-label text-muted-foreground">
                 {t('preview.steps')}
               </span>
               {template.graph.nodes.map((node, i) => {
@@ -96,7 +96,7 @@ export function TemplatePreviewModal({
                 const detail = nodeDetail(node)
                 return (
                   <div key={node.id} className="rounded border border-border bg-surface/30 p-2">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                    <div className="flex items-center gap-1.5 text-label text-foreground">
                       <span className="text-xs text-muted-foreground tabular-nums">{i + 1}.</span>
                       <Icon className="w-3.5 h-3.5 text-accent-primary" />
                       {t(node.type === 'core' ? `builder.core.pieces.${node.data?.kind}` : `builder.nodes.${node.type}`)}

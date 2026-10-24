@@ -61,7 +61,7 @@ interface Row {
 
 /** Shared look for the provider toggle pills (matrix rows + the custom form). */
 function providerPillClass(active: boolean): string {
-  return `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-all duration-150 disabled:opacity-50 ${
+  return `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-label transition-all duration-150 disabled:opacity-50 ${
     active
       ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
       : 'border-border/60 bg-transparent text-muted-foreground/70 hover:border-border hover:text-foreground hover:bg-muted/30'
@@ -288,7 +288,7 @@ export function ExternalMcpServersCard() {
   return (
     <div className="space-y-2 rounded-lg border border-border p-3" data-testid="external-mcp-card">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+        <h3 className="text-strong text-foreground flex items-center gap-1.5">
           <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> {t('external.heading')}
         </h3>
         <Button
@@ -312,7 +312,7 @@ export function ExternalMcpServersCard() {
         <div className="space-y-2.5 rounded-md border border-border/70 bg-muted/20 p-3" data-testid="external-mcp-form">
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label htmlFor="ext-mcp-name" className="block text-xs font-medium text-muted-foreground">
+              <label htmlFor="ext-mcp-name" className="block text-label text-muted-foreground">
                 {t('external.form.nameLabel')}
               </label>
               <input
@@ -332,7 +332,7 @@ export function ExternalMcpServersCard() {
               )}
             </div>
             <div className="space-y-1">
-              <label htmlFor="ext-mcp-command" className="block text-xs font-medium text-muted-foreground">
+              <label htmlFor="ext-mcp-command" className="block text-label text-muted-foreground">
                 {t('external.form.commandLabel')}
               </label>
               <input
@@ -346,7 +346,7 @@ export function ExternalMcpServersCard() {
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="ext-mcp-args" className="block text-xs font-medium text-muted-foreground">
+            <label htmlFor="ext-mcp-args" className="block text-label text-muted-foreground">
               {t('external.form.argsLabel')}
             </label>
             <input
@@ -360,13 +360,13 @@ export function ExternalMcpServersCard() {
 
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {t('external.form.envLabel')}
               </span>
               <button
                 type="button"
                 onClick={() => setFormEnvPairs((p) => [...p, { key: '', value: '' }])}
-                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-1 text-label text-muted-foreground hover:text-foreground transition-colors"
                 data-testid="external-mcp-env-add"
               >
                 <Plus className="h-2.5 w-2.5" /> {t('external.form.addVar')}
@@ -406,7 +406,7 @@ export function ExternalMcpServersCard() {
           </div>
 
           <div className="space-y-1">
-            <span className="block text-xs font-medium text-muted-foreground">
+            <span className="block text-label text-muted-foreground">
               {t('external.form.enableFor')}
             </span>
             <div className="flex items-center gap-1">
@@ -458,7 +458,7 @@ export function ExternalMcpServersCard() {
               className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border/60 px-2 py-1.5"
               data-testid={`external-mcp-row-${row.id}`}
             >
-              <span className="text-xs font-medium text-foreground min-w-0 truncate">{row.name}</span>
+              <span className="text-label text-foreground min-w-0 truncate">{row.name}</span>
               <span className="rounded-full bg-muted/60 px-1.5 py-px text-xs text-muted-foreground">
                 {row.source === 'custom'
                   ? t('external.sourceCustom')
@@ -524,7 +524,7 @@ export function ExternalMcpServersCard() {
               className="flex items-center gap-3 rounded-md border border-border/40 px-2 py-1.5 opacity-70"
               data-testid={`external-mcp-codex-${name}`}
             >
-              <span className="text-xs font-medium text-foreground min-w-0 truncate">{name}</span>
+              <span className="text-label text-foreground min-w-0 truncate">{name}</span>
               <span className="rounded-full bg-muted/60 px-1.5 py-px text-xs text-muted-foreground">
                 {t('external.codexNative')}
               </span>

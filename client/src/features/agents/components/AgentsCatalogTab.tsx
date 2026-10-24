@@ -403,7 +403,7 @@ export function AgentsCatalogTab() {
                           closeTemplates()
                           setStudio({ kind: 'create', initialBody: tpl.body, initialName: tpl.nameHint })
                         }}
-                        className="block w-full text-left text-sm font-semibold text-foreground group-hover:text-accent-primary truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring after:absolute after:inset-0 after:rounded-lg after:content-['']"
+                        className="block w-full text-left text-strong text-foreground group-hover:text-accent-primary truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring after:absolute after:inset-0 after:rounded-lg after:content-['']"
                       >
                         {templateLabel(tpl)}
                       </button>
@@ -470,7 +470,7 @@ export function AgentsCatalogTab() {
         </DialogHeader>
         <DialogBody className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label className="block text-label text-muted-foreground mb-1">
               {t('catalog.generate.agentIdLabel')}
             </label>
             <Input
@@ -485,7 +485,7 @@ export function AgentsCatalogTab() {
             </p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label className="block text-label text-muted-foreground mb-1">
               {t('catalog.generate.descriptionLabel')}
             </label>
             <textarea
@@ -615,7 +615,7 @@ export function AgentsCatalogTab() {
       {/* Left: list grouped by kind */}
       <aside className="w-72 flex-shrink-0 border-r border-border flex flex-col">
         <div className="px-3 py-2 border-b border-border">
-          <div className="text-xs font-medium text-muted-foreground mb-1.5">
+          <div className="text-label text-muted-foreground mb-1.5">
             {t('catalog.sidebar.title')}
           </div>
           <div className="text-caption text-muted-foreground/70 mb-2">
@@ -822,7 +822,7 @@ function Section({
   return (
     <div className="mb-4">
       <div className="px-2 pb-1">
-        <div className="text-xs font-medium text-muted-foreground">
+        <div className="text-label text-muted-foreground">
           {title}
         </div>
         {description && (

@@ -81,7 +81,7 @@ function ProjectListItem({
   return (
     <div className="flex items-center gap-3 p-2.5 rounded-md border border-border">
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate">{project.name}</p>
+        <p className="text-label truncate">{project.name}</p>
         <p className="text-xs text-muted-foreground truncate">{project.path}</p>
       </div>
       <Button
@@ -391,7 +391,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 <p
                   id={`settings-nav-group-${group.id}`}
                   data-testid={`settings-nav-group-label-${group.id}`}
-                  className={cn('mb-1 px-2.5 text-xs font-medium text-muted-foreground', groupIndex === 0 ? 'mt-0' : 'mt-4')}
+                  className={cn('mb-1 px-2.5 text-label text-muted-foreground', groupIndex === 0 ? 'mt-0' : 'mt-4')}
                 >
                   {t(group.labelKey)}
                 </p>
@@ -431,7 +431,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 <SettingsCard title={t('desktop.onboardingHeading')}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="space-y-0.5">
-                      <p className="text-xs font-medium">{t('desktop.platformTour')}</p>
+                      <p className="text-label">{t('desktop.platformTour')}</p>
                       <p className="text-xs text-muted-foreground">{t('desktop.platformTourDescription')}</p>
                     </div>
                     <Button
@@ -499,7 +499,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             <div className={paneCls('advanced')}>
               <SettingsCard title={t('desktop.budgetAlertsHeading')} contentClassName="space-y-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="settings-daily-budget" className="text-xs font-medium">{t('desktop.dailyBudgetLabel')}</label>
+                  <label htmlFor="settings-daily-budget" className="text-label">{t('desktop.dailyBudgetLabel')}</label>
                   <p className="text-xs text-muted-foreground">{t('desktop.dailyBudgetHelper')}</p>
                   <Input
                     id="settings-daily-budget"
@@ -513,7 +513,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                   />
                 </div>
                 <div className="space-y-1.5 border-t border-border pt-3">
-                  <label htmlFor="settings-cost-alert" className="text-xs font-medium">{t('budget.perJobLabel')}</label>
+                  <label htmlFor="settings-cost-alert" className="text-label">{t('budget.perJobLabel')}</label>
                   <p className="text-xs text-muted-foreground">{t('desktop.perJobHelper')}</p>
                   <Input
                     id="settings-cost-alert"
@@ -575,7 +575,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 data-sticky={advancedDirty}
               >
                 {advancedDirty && (
-                  <span className="mr-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-accent-warning/30 bg-accent-warning/10 px-2.5 text-xs font-medium text-accent-warning" role="status">
+                  <span className="mr-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-accent-warning/30 bg-accent-warning/10 px-2.5 text-label text-accent-warning" role="status">
                     <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-warning" />
                     {t('desktop.unsavedChanges')}
                   </span>
@@ -644,7 +644,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 )}
 
                 <div className="space-y-2 border-t border-border pt-2">
-                  <p className="text-xs font-medium text-muted-foreground">{t('webhooks.addHeading')}</p>
+                  <p className="text-label text-muted-foreground">{t('webhooks.addHeading')}</p>
                   <Input
                     value={newWebhookUrl}
                     onChange={(e) => setNewWebhookUrl(e.target.value)}

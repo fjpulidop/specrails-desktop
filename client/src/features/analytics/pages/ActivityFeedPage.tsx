@@ -100,7 +100,7 @@ export default function ActivityFeedPage() {
                     {item.jobCommand}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-xs font-medium ${typeLabelClass(item.type)}`}>
+                    <span className={`text-label ${typeLabelClass(item.type)}`}>
                       {typeLabel(item.type, t)}
                     </span>
                     {item.costUsd != null && (

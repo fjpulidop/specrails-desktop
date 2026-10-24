@@ -215,7 +215,7 @@ function CodeProvenanceToolbar({
   return (
     <div className="border-b border-border bg-background/80 px-4 py-2" data-testid="code-provenance-toolbar">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5 text-label text-muted-foreground">
           <Filter className="h-3.5 w-3.5" />
           {t('toolbar.scope')}
         </span>
@@ -351,7 +351,7 @@ function ProvenanceResultPanel({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold truncate">{title}</h2>
+            <h2 className="text-strong truncate">{title}</h2>
             <span className="text-caption text-muted-foreground">{rows ? t('provenancePanel.touchedFiles', { count: total }) : '—'}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">

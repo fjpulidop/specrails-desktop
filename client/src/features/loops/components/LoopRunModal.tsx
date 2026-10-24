@@ -88,7 +88,7 @@ export function LoopRunModal({
             </DialogHeader>
 
             <DialogBody className="space-y-2">
-            <label className="block text-xs font-medium text-muted-foreground">{t('run.project')}</label>
+            <label className="block text-label text-muted-foreground">{t('run.project')}</label>
             {projects.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t('run.noProjects')}</p>
             ) : (
@@ -109,7 +109,7 @@ export function LoopRunModal({
 
             {providerList.length > 1 && (
               <>
-                <label className="block text-xs font-medium text-muted-foreground">{t('run.provider')}</label>
+                <label className="block text-label text-muted-foreground">{t('run.provider')}</label>
                 <select
                   aria-label={t('run.provider')}
                   value={effectiveProvider}
@@ -125,7 +125,7 @@ export function LoopRunModal({
 
             {modelOptions.length > 0 && (
               <>
-                <label className="block text-xs font-medium text-muted-foreground">{t('run.model')}</label>
+                <label className="block text-label text-muted-foreground">{t('run.model')}</label>
                 {customModelAliases ? (
                   <CustomModelAliasInput
                     value={effectiveModel}
@@ -160,7 +160,7 @@ export function LoopRunModal({
 
             {showEffort && (
               <>
-                <label className="block text-xs font-medium text-muted-foreground">{t('run.effort')}</label>
+                <label className="block text-label text-muted-foreground">{t('run.effort')}</label>
                 <select
                   aria-label={t('run.effort')}
                   value={effectiveEffort}

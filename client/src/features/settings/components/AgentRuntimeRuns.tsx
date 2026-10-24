@@ -26,7 +26,7 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     {!runs.length && !error && <p className="text-xs text-muted-foreground">{t('runs.empty')}</p>}
     {runs.map((run) => <div key={run.runId} className="space-y-2 rounded-lg border border-border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">{!contextual && <code className="break-all text-xs">{run.runId}</code>}<span className="text-xs font-medium">{t(`runs.status.${run.active ? 'running' : run.status}`, { defaultValue: run.status })}</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-2">{!contextual && <code className="break-all text-xs">{run.runId}</code>}<span className="text-label">{t(`runs.status.${run.active ? 'running' : run.status}`, { defaultValue: run.status })}</span></div>
       {run.historical && <p className="text-xs text-muted-foreground">{t('evidence.historical')}</p>}
       {run.forkSuccessor && <p className="text-xs">{t('jobs:loopExplorer.openFork')}: <code>{run.forkSuccessor}</code></p>}
       {run.nextStep && <p className="text-xs">{t('runs.phase', { phase: t(`roles.${run.nextStep}`, { defaultValue: run.nextStep }) })}</p>}
@@ -39,7 +39,7 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
       <RuntimeSteering projectId={projectId} run={run} onAccepted={refresh} />
       {run.pendingApproval?.reason && <p className="text-xs text-muted-foreground">{run.pendingApproval.reason}</p>}
       {run.pendingQuestion && <div className="space-y-2">
-        <p className="text-xs font-medium">{t('runs.question')}</p>
+        <p className="text-label">{t('runs.question')}</p>
         <p className="whitespace-pre-wrap text-xs">{run.pendingQuestion.question}</p>
         {run.canResume && !run.recoverableSteps.length && <label className="block space-y-1 text-xs">{t('runs.answerLabel')}
           <textarea className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-sm" maxLength={20000} placeholder={t('runs.answerPlaceholder')} value={answers[run.runId] ?? ''} onChange={(event) => setAnswer(run.runId, event.target.value)} />

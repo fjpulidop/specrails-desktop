@@ -361,7 +361,7 @@ export function AgentStudio({
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-sm font-semibold font-mono">{isCreate ? t('studio.modeCreate') : agentId}</h1>
+          <h1 className="text-strong font-mono">{isCreate ? t('studio.modeCreate') : agentId}</h1>
           {isCreate ? (
             <Input
               value={id}
@@ -495,7 +495,7 @@ export function AgentStudio({
 
         {automationEnabled && testPaneOpen && (
           <aside className="w-96 flex-shrink-0 border-l border-border flex flex-col min-h-0">
-            <div className="px-3 py-2 border-b border-border text-xs font-medium text-muted-foreground flex items-center gap-2">
+            <div className="px-3 py-2 border-b border-border text-label text-muted-foreground flex items-center gap-2">
               <FlaskConical className="w-3.5 h-3.5" /> {t('studio.testPane.header')}
             </div>
             <div className="p-3 border-b border-border">
@@ -591,7 +591,7 @@ export function AgentStudio({
         )}
         {showVersions && !isCreate && (
           <aside className="w-72 flex-shrink-0 border-l border-border flex flex-col">
-            <div className="px-3 py-2 border-b border-border text-xs font-medium text-muted-foreground">
+            <div className="px-3 py-2 border-b border-border text-label text-muted-foreground">
               {t('studio.versions.header')}
             </div>
             <div className="flex-1 overflow-auto p-2 space-y-1">

@@ -236,7 +236,7 @@ export function MilestoneGenerateShell({
       <div className="fixed inset-0 z-50 flex flex-col bg-background" data-testid="milestone-shell">
         <header className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
           <Hammer className="h-4 w-4 text-accent-primary" />
-          <h1 className="text-sm font-semibold">{t('milestone.title', { label })}</h1>
+          <h1 className="text-strong">{t('milestone.title', { label })}</h1>
           <button
             type="button"
             onClick={onClose}
@@ -261,7 +261,7 @@ export function MilestoneGenerateShell({
     <div className="fixed inset-0 z-50 flex flex-col bg-background" data-testid="milestone-shell">
       <header className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
         <Hammer className="h-4 w-4 text-accent-primary" />
-        <h1 className="text-sm font-semibold">{t('milestone.title', { label })}</h1>
+        <h1 className="text-strong">{t('milestone.title', { label })}</h1>
         {milestone && <span className="text-xs text-muted-foreground">{milestone.title}</span>}
         <button
           type="button"
