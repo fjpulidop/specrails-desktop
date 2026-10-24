@@ -21,7 +21,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
   const hidden = review.issues.length - visible.length
   return (
     <div
-      className="mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/[0.06] px-2.5 py-2 text-[11px]"
+      className="mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/[0.06] px-2.5 py-2 text-caption"
       data-testid="mission-flow-review"
       data-reason={review.reason}
     >
@@ -29,7 +29,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
         <MessageSquareWarning className="h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />
         <span className="font-medium text-foreground/90">{t(`runCard.review.title.${review.reason}`)}</span>
         {review.score !== null && (
-          <span className="rounded-full border border-accent-warning/40 bg-accent-warning/10 px-2 py-px font-mono text-[11px] text-accent-warning" data-testid="mission-flow-review-score">
+          <span className="rounded-full border border-accent-warning/40 bg-accent-warning/10 px-2 py-px font-mono text-caption text-accent-warning" data-testid="mission-flow-review-score">
             {t('runCard.review.score', { score: Math.round(review.score) })}
           </span>
         )}
@@ -39,7 +39,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
       )}
       {review.issues.length > 0 && (
         <div className="mt-1.5">
-          <p className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-foreground/70">
+          <p className="flex items-center gap-1 text-caption font-medium uppercase tracking-wide text-foreground/70">
             <ListChecks className="h-3 w-3" aria-hidden />
             {t('runCard.review.issues', { count: review.issues.length + review.issuesOmitted })}
           </p>
@@ -53,22 +53,22 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
               type="button"
               data-agent-interactive
               onClick={() => setExpanded((open) => !open)}
-              className="mt-1 text-[11px] font-medium text-accent-info hover:underline"
+              className="mt-1 text-caption font-medium text-accent-info hover:underline"
               data-testid="mission-flow-review-toggle"
             >
               {expanded ? t('runCard.review.showLess') : t('runCard.review.showAll', { count: review.issues.length })}
             </button>
           )}
           {review.issuesOmitted > 0 && (
-            <p className="mt-0.5 text-[11px] text-foreground/70">{t('runCard.review.omitted', { count: review.issuesOmitted })}</p>
+            <p className="mt-0.5 text-caption text-foreground/70">{t('runCard.review.omitted', { count: review.issuesOmitted })}</p>
           )}
         </div>
       )}
       {review.failingChecks.length > 0 && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1" data-testid="mission-flow-review-checks">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/70">{t('runCard.review.failingChecks')}</span>
+          <span className="text-caption font-medium uppercase tracking-wide text-foreground/70">{t('runCard.review.failingChecks')}</span>
           {review.failingChecks.map((check, index) => (
-            <span key={index} className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-px font-mono text-[11px] text-destructive">
+            <span key={index} className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-px font-mono text-caption text-destructive">
               <SquareTerminal className="h-2.5 w-2.5" aria-hidden />
               {check.exitCode !== null ? t('runCard.review.check', { command: check.command, code: check.exitCode }) : check.command}
             </span>
@@ -85,7 +85,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
 export function AgentFlowReturnedNote({ className }: { className?: string }) {
   const { t } = useTranslation('agent')
   return (
-    <p className={cn('mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-info', className)} data-testid="mission-flow-returned">
+    <p className={cn('mt-2 flex items-start gap-1.5 text-caption leading-4 text-accent-info', className)} data-testid="mission-flow-returned">
       <Undo2 className="mt-px h-3 w-3 shrink-0" aria-hidden />
       <span>{t('runCard.review.returned')}</span>
     </p>

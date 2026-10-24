@@ -47,7 +47,7 @@ export function TerminalTopBar({
         'flex items-center justify-between h-7 px-2 shrink-0',
         'bg-background',
         'border-b border-border/40',
-        'text-[11px] uppercase tracking-wide text-muted-foreground select-none',
+        'text-caption uppercase tracking-wide text-muted-foreground select-none',
       )}
     >
       <div className="flex items-center gap-2 pl-1">

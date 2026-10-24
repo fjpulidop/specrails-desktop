@@ -231,7 +231,7 @@ function DiffText({ parts }: { parts: DiffSegment[] }) {
 
 function DiffChip<T extends string>({ entry }: { entry: ArrayDiffEntry<T> }) {
   const { t } = useTranslation('explore')
-  const base = 'inline-flex h-5 items-center gap-1 rounded-full px-2 text-[11px]'
+  const base = 'inline-flex h-5 items-center gap-1 rounded-full px-2 text-caption'
   if (entry.status === 'added') {
     return <span data-chip="" className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>+ {entry.value}</span>
   }
@@ -286,7 +286,7 @@ function PriorityPill({
   if (!value) {
     return <span className="text-xs text-muted-foreground italic">{t('reviewOverlay.noPriority')}</span>
   }
-  const base = 'inline-flex h-5 items-center gap-1 rounded-full px-2 text-[11px] capitalize border'
+  const base = 'inline-flex h-5 items-center gap-1 rounded-full px-2 text-caption capitalize border'
   if (added) {
     return <span data-chip="" className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>{t(`priority.${value}`)}</span>
   }

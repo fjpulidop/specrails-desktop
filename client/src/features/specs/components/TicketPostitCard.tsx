@@ -225,7 +225,7 @@ export function TicketPostitCard({
         {/* Header: id + parent-epic chip (left) · priority pills (right) */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[11px] font-mono num text-muted-foreground shrink-0">#{ticket.id}</span>
+            <span className="text-caption font-mono num text-muted-foreground shrink-0">#{ticket.id}</span>
             {isChildOfEpic && parentEpicTitle && ticket.parent_epic_id != null && (
               <button
                 type="button"
@@ -244,7 +244,7 @@ export function TicketPostitCard({
                 disabled={!onOpenParentEpic}
                 title={t('badges.openParentEpicTitle', { id: ticket.parent_epic_id, title: parentEpicTitle })}
                 data-testid={`postit-epic-child-pill-${ticket.id}`}
-                className="inline-flex items-center gap-1 rounded-md border border-accent-secondary/40 text-accent-secondary bg-accent-secondary/5 hover:bg-accent-secondary/15 hover:border-accent-secondary/60 disabled:hover:bg-accent-secondary/5 disabled:hover:border-accent-secondary/40 disabled:cursor-default px-1.5 py-0.5 text-[11px] font-medium max-w-[160px] truncate transition-colors"
+                className="inline-flex items-center gap-1 rounded-md border border-accent-secondary/40 text-accent-secondary bg-accent-secondary/5 hover:bg-accent-secondary/15 hover:border-accent-secondary/60 disabled:hover:bg-accent-secondary/5 disabled:hover:border-accent-secondary/40 disabled:cursor-default px-1.5 py-0.5 text-caption font-medium max-w-[160px] truncate transition-colors"
               >
                 <Crown className="w-2.5 h-2.5 shrink-0" aria-hidden />
                 <ArrowUp className="w-2.5 h-2.5 shrink-0" aria-hidden />
@@ -256,7 +256,7 @@ export function TicketPostitCard({
             {ticket.needs_review && (
               <Badge
                 variant="outline"
-                className="h-5 gap-1 px-1.5 text-[11px] border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+                className="h-5 gap-1 px-1.5 text-caption border-accent-warning/60 text-accent-warning bg-accent-warning/10"
                 title={t('badges.needsReviewTitle')}
                 data-testid={`needs-review-badge-${ticket.id}`}
               >
@@ -265,7 +265,7 @@ export function TicketPostitCard({
               </Badge>
             )}
             {isEpic && (
-              <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[11px] border-accent-highlight/40 text-accent-highlight">
+              <Badge variant="outline" className="h-5 gap-1 px-1.5 text-caption border-accent-highlight/40 text-accent-highlight">
                 <Crown className="w-2.5 h-2.5" aria-hidden />
                 {epicChildrenCount
                   ? t('badges.epicWithCount', { count: epicChildrenCount })
@@ -275,7 +275,7 @@ export function TicketPostitCard({
             {ticket.source === 'free-prompt' && (
               <Badge
                 variant="outline"
-                className="h-5 px-1.5 text-[11px] border-accent-info/50 text-accent-info"
+                className="h-5 px-1.5 text-caption border-accent-info/50 text-accent-info"
                 title={t('badges.rawTitle')}
                 data-testid={`raw-badge-${ticket.id}`}
               >
@@ -285,7 +285,7 @@ export function TicketPostitCard({
             {ticket.jira_key && (
               <Badge
                 variant="outline"
-                className="h-5 px-1.5 text-[11px] font-mono border-accent-info/50 text-accent-info"
+                className="h-5 px-1.5 text-caption font-mono border-accent-info/50 text-accent-info"
                 title={ticket.jira_key}
                 data-testid={`jira-badge-${ticket.id}`}
               >
@@ -293,19 +293,19 @@ export function TicketPostitCard({
               </Badge>
             )}
             {ticket.priority && !isDraft && !isOnReview && (
-              <Badge variant={PRIORITY_VARIANT[ticket.priority]} className="h-5 px-1.5 text-[11px]">
+              <Badge variant={PRIORITY_VARIANT[ticket.priority]} className="h-5 px-1.5 text-caption">
                 {t(`priority.${ticket.priority}`)}
               </Badge>
             )}
             {isDraft && (
-              <Badge variant="outline" className="h-5 px-1.5 text-[11px] border-accent-secondary/50 text-accent-secondary">
+              <Badge variant="outline" className="h-5 px-1.5 text-caption border-accent-secondary/50 text-accent-secondary">
                 {t('common:status.draft')}
               </Badge>
             )}
             {isOnReview && (
               <Badge
                 variant="outline"
-                className="h-5 px-1.5 text-[11px] border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+                className="h-5 px-1.5 text-caption border-accent-warning/60 text-accent-warning bg-accent-warning/10"
                 title={t('status.onReviewHint')}
                 data-testid={`on-review-badge-postit-${ticket.id}`}
               >

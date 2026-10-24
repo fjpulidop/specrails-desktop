@@ -14,7 +14,7 @@ import type { BlueprintM1Spec, BlueprintSpecPriority } from '../../lib/blueprint
 // layer: it must sit ABOVE the floating agent panel (floating-chat 60/61) and
 // below the minimized chats dock (see lib/layers).
 
-const CHIP = 'inline-flex h-5 items-center rounded px-1.5 text-[11px]'
+const CHIP = 'inline-flex h-5 items-center rounded px-1.5 text-caption'
 
 // Token-based markdown prose (mirrors AgentMessage's MD — theme-safe, no
 // prose-invert). Renders the spec's five-section description cleanly.
@@ -76,7 +76,7 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
             <span
               data-chip=""
               className={cn(
-                'inline-flex h-5 items-center rounded-full border px-1.5 text-[11px] font-medium uppercase tracking-wide',
+                'inline-flex h-5 items-center rounded-full border px-1.5 text-caption font-medium uppercase tracking-wide',
                 PRIORITY_PILL[spec.priority],
               )}
               data-testid="blueprint-spec-priority"
@@ -114,7 +114,7 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
               className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-foreground/80"
             >
               <span>{t('specModal.acceptanceCriteria')}</span>
-              <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-surface px-2 text-[11px] tabular-nums text-muted-foreground">
+              <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-surface px-2 text-caption tabular-nums text-muted-foreground">
                 {spec.acceptanceCriteria.length}
               </span>
             </h3>

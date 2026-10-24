@@ -298,7 +298,7 @@ export function LogViewer({ events, isLoading, projectId }: LogViewerProps) {
         >
           <Copy className="w-3.5 h-3.5" />
         </Button>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-caption text-muted-foreground">
           {t('logViewer.lineCount', { filtered: filteredCount, total: totalLines })}
         </span>
       </div>
@@ -392,11 +392,11 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
             !collapsed && 'rotate-90',
           )}
         />
-        <span className="flex-1 text-[12px] font-semibold text-foreground leading-none">
+        <span className="flex-1 text-label font-semibold text-foreground leading-none">
           {phaseContent}
         </span>
         {group.header.timestamp && (
-          <span className="text-[11px] text-muted-foreground font-mono num shrink-0">
+          <span className="text-caption text-muted-foreground font-mono num shrink-0">
             {new Date(group.header.timestamp).toLocaleTimeString(i18n.language, {
               hour: '2-digit',
               minute: '2-digit',
@@ -405,7 +405,7 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
             })}
           </span>
         )}
-        <span className="text-[11px] text-muted-foreground shrink-0">
+        <span className="text-caption text-muted-foreground shrink-0">
           {t('logViewer.phaseLines', { count: group.lines.length })}
         </span>
       </button>
@@ -414,7 +414,7 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
       {!collapsed && (
         <div className="bg-muted/5">
           {visibleLines.length === 0 ? (
-            <p className="px-4 py-2 text-[11px] text-muted-foreground italic">
+            <p className="px-4 py-2 text-caption text-muted-foreground italic">
               {filter ? t('logViewer.noMatchingLines') : t('logViewer.noOutput')}
             </p>
           ) : (
@@ -505,7 +505,7 @@ export const LogLine = memo(function LogLine({
       )}
     >
       {line.timestamp && (
-        <span className="text-[11px] text-muted-foreground shrink-0 mt-0.5 w-[52px] font-mono num">
+        <span className="text-caption text-muted-foreground shrink-0 mt-0.5 w-[52px] font-mono num">
           {new Date(line.timestamp).toLocaleTimeString(i18n.language, {
             hour: '2-digit',
             minute: '2-digit',
@@ -521,11 +521,11 @@ export const LogLine = memo(function LogLine({
             prose-p:my-1 prose-p:leading-relaxed
             prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold
             prose-ul:my-1 prose-ol:my-1 prose-li:my-0
-            prose-code:text-accent-info prose-code:text-[11px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-            prose-pre:my-1 prose-pre:bg-muted/30 prose-pre:rounded-md prose-pre:p-2 prose-pre:text-[11px]
+            prose-code:text-accent-info prose-code:text-caption prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+            prose-pre:my-1 prose-pre:bg-muted/30 prose-pre:rounded-md prose-pre:p-2 prose-pre:text-caption
             prose-strong:text-foreground prose-em:text-foreground/70
             prose-a:text-accent-primary prose-a:no-underline hover:prose-a:underline
-            prose-table:my-2 prose-table:text-[11px]
+            prose-table:my-2 prose-table:text-caption
             prose-thead:border-border prose-thead:bg-muted/30
             prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:font-semibold prose-th:text-foreground/90
             prose-td:px-3 prose-td:py-1.5 prose-td:border-border
@@ -556,7 +556,7 @@ export const LogLine = memo(function LogLine({
         <span
           className={cn(
             'flex-1 break-all leading-relaxed whitespace-pre-wrap font-mono',
-            line.type === 'tool-use'    && 'text-accent-info text-[11px]',
+            line.type === 'tool-use'    && 'text-accent-info text-caption',
             line.type === 'stderr'      && 'text-accent-warning',
             line.type === 'result'      && 'text-accent-success font-medium',
             line.type === 'log'         && 'text-foreground/60',

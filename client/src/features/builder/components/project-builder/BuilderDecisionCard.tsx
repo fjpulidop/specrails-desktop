@@ -68,7 +68,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
           {settled ? <Check className="h-3 w-3" aria-hidden /> : <Sparkles className="h-3 w-3" aria-hidden />}
           {settled ? t('decisionCard.settledLabel') : t(`decisionCard.${kind}.label`)}
         </span>
-        <span className="text-[11px] text-muted-foreground" data-testid="builder-decision-card-meta">
+        <span className="text-caption text-muted-foreground" data-testid="builder-decision-card-meta">
           {settled ? time : t(`decisionCard.${kind}.hint`)}
         </span>
       </div>
@@ -92,7 +92,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
           </span>
         </span>
         {!settled && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-primary/15 px-2.5 py-1 text-[11px] font-medium text-accent-primary transition-colors group-hover:bg-accent-primary/25">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-primary/15 px-2.5 py-1 text-caption font-medium text-accent-primary transition-colors group-hover:bg-accent-primary/25">
             {t(`decisionCard.${kind}.cta`)}
             <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
           </span>

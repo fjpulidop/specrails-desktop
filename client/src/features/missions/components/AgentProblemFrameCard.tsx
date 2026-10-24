@@ -53,7 +53,7 @@ function Reading({ label, value, testId, onSelect, disabled }: ReadingProps) {
             {value.touches.map((path, i) => (
               <span
                 key={`${i}-${path}`}
-                className="inline-flex max-w-full items-center gap-1 rounded border border-border/50 bg-background-deep/40 px-1.5 py-0.5 font-mono text-[11px] text-foreground/65"
+                className="inline-flex max-w-full items-center gap-1 rounded border border-border/50 bg-background-deep/40 px-1.5 py-0.5 font-mono text-caption text-foreground/65"
               >
                 <FileCode2 className="h-2.5 w-2.5 shrink-0 text-accent-info/70" />
                 <span className="truncate">{path}</span>

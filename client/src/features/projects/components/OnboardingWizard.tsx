@@ -108,7 +108,7 @@ const ACCENTS = {
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd data-chip="" className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded border border-border/60 bg-card/80 font-mono text-[11px] text-foreground shadow-sm">
+    <kbd data-chip="" className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded border border-border/60 bg-card/80 font-mono text-caption text-foreground shadow-sm">
       {children}
     </kbd>
   )
@@ -740,7 +740,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                         <span
                           data-chip=""
                           className={cn(
-                            'grid place-items-center w-5 h-5 shrink-0 rounded-full text-[11px] font-bold border',
+                            'grid place-items-center w-5 h-5 shrink-0 rounded-full text-caption font-bold border',
                             isActive
                               ? cn(ACCENTS.primary.bar, 'text-primary-foreground border-transparent')
                               : isDone

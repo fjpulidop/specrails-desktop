@@ -14,14 +14,14 @@ export function NeedsHumanEyes({ rules }: { rules: Array<{ text: string; source:
         <Eye className="size-4 text-accent-highlight" aria-hidden />
         {t('humanEyes.title', { count: rules.length })}
       </h2>
-      <p className="mb-2 text-[11px] text-muted-foreground">{t('humanEyes.caveat')}</p>
+      <p className="mb-2 text-caption text-muted-foreground">{t('humanEyes.caveat')}</p>
       <ul className="space-y-1">
         {rules.map((rule, index) => (
           <li key={`${index}:${rule.text}`} className="flex items-start gap-2 text-xs text-foreground">
             <span aria-hidden className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-accent-highlight" />
             <span className="min-w-0 break-words">
               {rule.text}
-              {rule.source ? <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{rule.source}</span> : null}
+              {rule.source ? <span className="ml-1.5 font-mono text-caption text-muted-foreground">{rule.source}</span> : null}
             </span>
           </li>
         ))}

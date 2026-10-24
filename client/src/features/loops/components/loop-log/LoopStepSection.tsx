@@ -34,7 +34,7 @@ function sectionBody(
 ) {
   if (visible.length === 0) {
     return (
-      <p className="px-4 py-2 text-[11px] text-muted-foreground italic">
+      <p className="px-4 py-2 text-caption text-muted-foreground italic">
         {filter ? t('logViewer.noMatchingLines') : t('logViewer.noOutput')}
       </p>
     )
@@ -77,7 +77,7 @@ function DetailField({ label, value, copyLabel }: { label: string; value: string
           )}
         </button>
       </div>
-      <pre className="mt-0.5 text-[11px] font-mono leading-relaxed text-foreground/75 whitespace-pre-wrap break-words">
+      <pre className="mt-0.5 text-caption font-mono leading-relaxed text-foreground/75 whitespace-pre-wrap break-words">
         {value}
       </pre>
     </div>
@@ -154,17 +154,17 @@ function LoopStepSectionInner({
               !collapsed && 'rotate-90',
             )}
           />
-          <span className="text-[11px] font-mono tabular-nums text-muted-foreground shrink-0 w-5 text-right">
+          <span className="text-caption font-mono tabular-nums text-muted-foreground shrink-0 w-5 text-right">
             {meta.index}
           </span>
           <Icon className={cn('w-3.5 h-3.5 shrink-0', accent)} />
-          <span className="text-[12px] font-semibold text-foreground leading-none truncate">
+          <span className="text-label font-semibold text-foreground leading-none truncate">
             {stepDisplayTitle(meta)}
           </span>
-          {meta.branch && <span className="max-w-40 truncate font-mono text-[11px] text-muted-foreground" title={meta.scopeId}>{meta.branch}</span>}
-          {status === 'paused' && <span className="text-[11px] text-accent-warning">{t('loopExplorer.paused', { defaultValue: 'Paused' })}</span>}
+          {meta.branch && <span className="max-w-40 truncate font-mono text-caption text-muted-foreground" title={meta.scopeId}>{meta.branch}</span>}
+          {status === 'paused' && <span className="text-caption text-accent-warning">{t('loopExplorer.paused', { defaultValue: 'Paused' })}</span>}
           {meta.iteration != null && meta.iteration >= 1 && (
-            <span className="shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
+            <span className="shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 text-caption font-medium text-muted-foreground tabular-nums">
               {t('loopExplorer.iterationBadge', { count: meta.iteration })}
             </span>
           )}
@@ -174,7 +174,7 @@ function LoopStepSectionInner({
             <span className="flex items-center gap-1.5 min-w-0 shrink-0 max-w-[40%]">
               <PulseDot />
               {lastActivity && (
-                <span className="title-shimmer text-[11px] truncate">
+                <span className="title-shimmer text-caption truncate">
                   {t(`statusPanel.activity.${lastActivity.actionKey}`, {
                     arg: lastActivity.actionArg ?? '',
                   })}
@@ -210,16 +210,16 @@ function LoopStepSectionInner({
           <span className="flex-1" />
 
           {end?.durationMs != null && (
-            <span className="text-[11px] text-muted-foreground font-mono tabular-nums shrink-0">
+            <span className="text-caption text-muted-foreground font-mono tabular-nums shrink-0">
               {formatStepDuration(end.durationMs)}
             </span>
           )}
           {status === 'failed' && end?.exitCode != null && end.exitCode !== 0 && (
-            <span className="text-[11px] text-destructive/70 font-mono shrink-0">
+            <span className="text-caption text-destructive/70 font-mono shrink-0">
               {t('activeJob.exitCode', { code: end.exitCode })}
             </span>
           )}
-          <span className="text-[11px] text-muted-foreground shrink-0">
+          <span className="text-caption text-muted-foreground shrink-0">
             {t('logViewer.phaseLines', { count: lines.length })}
           </span>
         </button>
@@ -350,11 +350,11 @@ function LoopSetupSectionInner({ lines, collapsed, filter, onToggle, setRef, onO
           )}
         />
         <Play className="w-3.5 h-3.5 text-accent-success/70 shrink-0" />
-        <span className="text-[11px] font-semibold text-muted-foreground leading-none">
+        <span className="text-caption font-semibold text-muted-foreground leading-none">
           {t('loopExplorer.setup')}
         </span>
         <span className="flex-1" />
-        <span className="text-[11px] text-muted-foreground shrink-0">
+        <span className="text-caption text-muted-foreground shrink-0">
           {t('logViewer.phaseLines', { count: lines.length })}
         </span>
       </button>

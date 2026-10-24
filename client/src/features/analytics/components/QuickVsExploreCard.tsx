@@ -74,7 +74,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
             {isEstimated && mode.avgCostPerSpec != null ? '~' : ''}
             {fmtUsd(mode.avgCostPerSpec)}
           </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">
+          <div className="text-caption text-muted-foreground mt-0.5">
             {costUnavailable ? t('quickVsExplore.costUnavailable') : t('quickVsExplore.perSpec')}
           </div>
           <div className="mt-3"><Sparkline values={mode.sparkline.length > 0 ? mode.sparkline : [0]} /></div>
@@ -127,14 +127,14 @@ export function QuickVsExploreCard({ data, loading }: Props) {
       </div>
       {showRatio && (
         <div className="px-4 pb-3 -mt-1">
-          <div className="text-center text-[11px] text-muted-foreground num">
+          <div className="text-center text-caption text-muted-foreground num">
             <span className="px-2">━━━━━━ {t('quickVsExplore.ratio', { ratio: ratio!.toFixed(1) })} ━━━━━━</span>
           </div>
         </div>
       )}
       {hasEstimated && (
         <div className="px-4 pb-3 -mt-1" data-testid="quick-vs-explore-estimated-footnote">
-          <p className="text-[11px] text-muted-foreground">{t('quickVsExplore.estimatedFootnote')}</p>
+          <p className="text-caption text-muted-foreground">{t('quickVsExplore.estimatedFootnote')}</p>
         </div>
       )}
     </div>

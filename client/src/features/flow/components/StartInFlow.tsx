@@ -174,7 +174,7 @@ export function StartInFlowMenuItem({ spec, rail, onDone }: StartInFlowProps & {
       {busy ? <Loader2 className="mt-px h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden /> : <Waves className="mt-px h-3.5 w-3.5 shrink-0 text-accent-flow" aria-hidden />}
       <span className="min-w-0">
         <span className="block">{busy ? t('flow.startFromSpec.starting') : t('flow.startFromSpec.action')}</span>
-        {reason ? <span className="block text-[11px] text-muted-foreground">{reason}</span> : null}
+        {reason ? <span className="block text-caption text-muted-foreground">{reason}</span> : null}
       </span>
     </button>
   )

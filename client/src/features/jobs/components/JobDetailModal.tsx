@@ -400,7 +400,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
                         onClick={() => setNarrationMode(mode)}
                         aria-pressed={narrationMode === mode}
                         data-testid={`modal-narration-mode-${mode}`}
-                        className={`inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium transition-colors ${
+                        className={`inline-flex h-5 items-center rounded-md px-2 text-caption font-medium transition-colors ${
                           narrationMode === mode
                             ? 'bg-accent-primary/15 text-accent-primary'
                             : 'text-muted-foreground hover:bg-surface/60'

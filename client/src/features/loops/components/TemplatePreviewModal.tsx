@@ -56,21 +56,21 @@ export function TemplatePreviewModal({
             <DialogBody className="space-y-3">
             <div className="flex flex-wrap gap-1.5">
               {loopNeedsTicket(template.graph) ? (
-                <span title={t('gallery.needsSpecHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-accent-secondary/15 text-accent-secondary">
+                <span title={t('gallery.needsSpecHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-accent-secondary/15 text-accent-secondary">
                   {t('gallery.needsSpec')}
                 </span>
               ) : (
-                <span title={t('gallery.standaloneHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-accent-success/15 text-accent-success">
+                <span title={t('gallery.standaloneHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-accent-success/15 text-accent-success">
                   {t('gallery.standalone')}
                 </span>
               )}
               {template.category && (
-                <span data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-accent-info/15 text-accent-info">
+                <span data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-accent-info/15 text-accent-info">
                   {t(`categories.${template.category}`, { defaultValue: template.category })}
                 </span>
               )}
               {template.tags.map((tag) => (
-                <span key={tag} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-muted text-muted-foreground">
+                <span key={tag} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-muted text-muted-foreground">
                   {tag}
                 </span>
               ))}

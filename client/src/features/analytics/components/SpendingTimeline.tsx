@@ -69,7 +69,7 @@ export function SpendingTimeline({ data, loading }: Props) {
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-strong">{t('timeline.title')}</h2>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-caption text-muted-foreground">
           {costPartiallyUnavailable
             ? t('timeline.costPartiallyUnavailable', { count: unpricedCount })
             : t('timeline.subtitle')}

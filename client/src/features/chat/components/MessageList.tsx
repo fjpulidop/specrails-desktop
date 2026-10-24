@@ -63,7 +63,7 @@ export function MessageList({
             <>
               <div className="flex flex-col gap-0.5">
                 <p className="text-xs font-medium text-foreground">{project.name}</p>
-                <p className="text-[11px] text-muted-foreground">{t('messageList.contextLoaded')}</p>
+                <p className="text-caption text-muted-foreground">{t('messageList.contextLoaded')}</p>
               </div>
               <div className="flex flex-col gap-1.5 w-full">
                 {SUGGESTION_KEYS.map((key) => {
@@ -71,7 +71,7 @@ export function MessageList({
                   return (
                     <button
                       key={key}
-                      className="rounded border border-border/30 px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:border-accent-primary/40 hover:text-foreground transition-colors"
+                      className="rounded border border-border/30 px-2.5 py-1.5 text-left text-caption text-muted-foreground hover:border-accent-primary/40 hover:text-foreground transition-colors"
                       onClick={() => onSuggestion?.(s)}
                     >
                       {s}
@@ -83,7 +83,7 @@ export function MessageList({
           ) : (
             <>
               <p className="text-xs font-medium text-muted-foreground">{t('messageList.noMessages')}</p>
-              <p className="text-[11px] text-muted-foreground max-w-[180px]">
+              <p className="text-caption text-muted-foreground max-w-[180px]">
                 {t('messageList.askAnything')}
               </p>
             </>

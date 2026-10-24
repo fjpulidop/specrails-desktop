@@ -33,12 +33,12 @@ export function PacketBaseline({ entries, multiTicket }: { entries: Baseline[]; 
             <li key={`${entry.ticketId}:${entry.change ?? ''}`} className="space-y-1" data-testid={`packet-baseline-${entry.status}`}>
               <p className={`text-sm ${blocked ? 'text-accent-warning' : 'text-foreground'}`}>
                 {t(`baseline.status.${entry.status}`, { requirements, tests: entry.tests.length })}
-                {multiTicket ? <span className="ml-1 text-[11px] text-muted-foreground">#{entry.ticketId}</span> : null}
+                {multiTicket ? <span className="ml-1 text-caption text-muted-foreground">#{entry.ticketId}</span> : null}
               </p>
               {module.length > 0 ? (
                 <p className="text-xs text-muted-foreground">
                   {t('baseline.module')}{' '}
-                  <span className="font-mono text-[11px] text-foreground/80">{module.join(', ')}</span>
+                  <span className="font-mono text-caption text-foreground/80">{module.join(', ')}</span>
                   {entry.uncovered.length > module.length ? ` ${t('baseline.more', { count: entry.uncovered.length - module.length })}` : ''}
                 </p>
               ) : null}
@@ -46,21 +46,21 @@ export function PacketBaseline({ entries, multiTicket }: { entries: Baseline[]; 
                 <p className="text-xs text-muted-foreground">
                   {t('baseline.spec')}{' '}
                   {entry.capabilities.map((item) => (
-                    <span key={item.capability} className="mr-2 font-mono text-[11px] text-foreground/80">
+                    <span key={item.capability} className="mr-2 font-mono text-caption text-foreground/80">
                       {t('baseline.capability', { capability: item.capability, requirements: item.requirements, demonstrated: item.demonstrated })}
                     </span>
                   ))}
                 </p>
               ) : null}
               {blocked && entry.reason ? <p className="text-xs text-accent-warning" data-testid="packet-baseline-reason">{entry.reason}</p> : null}
-              <p className="text-[11px] text-muted-foreground" data-testid="packet-baseline-cost">
+              <p className="text-caption text-muted-foreground" data-testid="packet-baseline-cost">
                 {cost ? t('baseline.cost', { amount: cost, turns: entry.cost?.invocations ?? 0 }) : t('baseline.costUnknown')}
               </p>
             </li>
           )
         })}
       </ul>
-      <p className="mt-2 text-[11px] text-muted-foreground">{t('baseline.caveat')}</p>
+      <p className="mt-2 text-caption text-muted-foreground">{t('baseline.caveat')}</p>
     </section>
   )
 }

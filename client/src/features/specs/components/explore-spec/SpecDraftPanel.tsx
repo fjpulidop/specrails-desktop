@@ -44,7 +44,7 @@ export function SpecDraftPanel({
           <span
             role="status"
             aria-live="polite"
-            className="text-[11px] text-primary/80 bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"
+            className="text-caption text-primary/80 bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"
           >
             <Sparkles className="w-3 h-3" />
             {t('draftPanel.ready')}
@@ -130,7 +130,7 @@ export function SpecDraftPanel({
             <span className="text-xs font-medium text-muted-foreground">
               {t('draftPanel.attachmentsHeading', { count: attachments.length })}
             </span>
-            <span className="text-[11px] text-muted-foreground">{t('draftPanel.linkedOnCreate')}</span>
+            <span className="text-caption text-muted-foreground">{t('draftPanel.linkedOnCreate')}</span>
           </div>
           <AttachmentsList items={attachments} onRemove={onRemoveAttachment} />
         </div>
@@ -183,7 +183,7 @@ function LabelsEditor({ labels, onChange }: { labels: string[]; onChange: (label
       {labels.map((label) => (
         <span
           key={label}
-          className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary/90"
+          className="flex items-center gap-1 text-caption px-2 py-0.5 rounded-full bg-primary/10 text-primary/90"
         >
           {label}
           <button
@@ -232,7 +232,7 @@ function AttachmentsList({ items, onRemove }: { items: Attachment[]; onRemove?: 
             <span className="flex-1 truncate" title={`${att.filename} · ${formatBytes(att.size)}`}>
               {att.filename}
             </span>
-            <span className="text-[11px] text-muted-foreground flex-shrink-0">{formatBytes(att.size)}</span>
+            <span className="text-caption text-muted-foreground flex-shrink-0">{formatBytes(att.size)}</span>
             {onRemove && (
               <button
                 type="button"

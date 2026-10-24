@@ -910,7 +910,7 @@ export function AgentComposer({
               <ListTree className="h-4 w-4 shrink-0" aria-hidden />
               <span className="hidden @min-[640px]:inline">{t('backgroundProcess.history.button')}</span>
               {backgroundProcesses.length > 0 && (
-                <span aria-hidden className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-info/15 px-1 text-[11px] font-medium tabular-nums text-accent-info">
+                <span aria-hidden className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-info/15 px-1 text-caption font-medium tabular-nums text-accent-info">
                   {backgroundProcesses.length}
                 </span>
               )}

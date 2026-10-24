@@ -43,7 +43,7 @@ export function AgentMissionsCard({ data, loading }: Props) {
       <div className="mb-3 flex items-center gap-2">
         <Bot className="h-4 w-4 text-accent-highlight" />
         <h3 className="text-strong">{t('agentMissions.title')}</h3>
-        <span className="text-[11px] text-muted-foreground">{t('agentMissions.subtitle')}</span>
+        <span className="text-caption text-muted-foreground">{t('agentMissions.subtitle')}</span>
       </div>
 
       <div className="flex items-baseline gap-3">
@@ -80,7 +80,7 @@ export function AgentMissionsCard({ data, loading }: Props) {
               <span className="min-w-0 flex-1 truncate text-foreground/85">
                 {c.title?.trim() || t('agentMissions.untitled')}
               </span>
-              <span className="shrink-0 text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-caption text-muted-foreground">
                 {c.turns} · {c.lastAt
                   ? formatDistanceToNow(new Date(c.lastAt), { addSuffix: true, locale: getDateFnsLocale() })
                   : '—'}

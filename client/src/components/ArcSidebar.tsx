@@ -297,7 +297,7 @@ function ConversationRow({
               'flex flex-shrink-0 items-center justify-center rounded-sm transition-[color,background-color,opacity] hover:bg-muted',
               ROW_FOCUS,
               confirming
-                ? 'px-1.5 h-5 text-[11px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/20'
+                ? 'px-1.5 h-5 text-caption font-medium text-destructive bg-destructive/10 hover:bg-destructive/20'
                 : 'w-5 h-5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-foreground',
             )}
             aria-label={confirming ? t('confirmDeleteConversation', { title: label }) : t('deleteConversation', { title: label })}
@@ -426,7 +426,7 @@ function ProjectItem({
       aria-hidden
       data-testid="project-monogram"
       className={cn(
-        'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-[11px] font-semibold leading-none',
+        'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-caption font-semibold leading-none',
         isActive ? 'text-foreground' : 'bg-muted text-foreground/85',
         liveCue && 'text-accent-primary',
       )}
@@ -513,7 +513,7 @@ function ProjectItem({
             className={cn(
               'flex flex-shrink-0 items-center justify-center gap-1 rounded text-accent-warning bg-accent-warning/10 hover:bg-accent-warning/20 transition-colors',
               ROW_FOCUS,
-              expanded ? 'h-5 px-1.5 text-[11px] font-medium' : 'absolute -bottom-0.5 right-0 h-4 w-4',
+              expanded ? 'h-5 px-1.5 text-caption font-medium' : 'absolute -bottom-0.5 right-0 h-4 w-4',
             )}
             title={t('projects.assembleFailed')}
             data-testid="assemble-retry"
@@ -547,7 +547,7 @@ function ProjectItem({
                 'flex-shrink-0 flex items-center justify-center rounded-sm transition-all',
                 ROW_FOCUS,
                 confirming
-                  ? 'opacity-100 px-1.5 h-5 text-[11px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/20'
+                  ? 'opacity-100 px-1.5 h-5 text-caption font-medium text-destructive bg-destructive/10 hover:bg-destructive/20'
                   : 'w-5 h-5 opacity-0 group-hover:opacity-50 group-focus-within:opacity-60 focus-visible:!opacity-100 hover:!opacity-100 hover:bg-muted'
               )}
               aria-label={confirming ? t('projects.confirmRemove', { name: project.name }) : t('projects.remove', { name: project.name })}

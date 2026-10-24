@@ -42,7 +42,7 @@ export function RailEffortSelector({
         aria-label={t('railControls.effortTitle')}
         data-testid="rail-effort-selector"
         onChange={(e) => onChange(e.target.value as ReasoningEffort)}
-        className="h-6 text-[11px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
+        className="h-6 text-caption rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
       >
         {efforts.map((e) => (
           <option key={e} value={e}>{e}</option>

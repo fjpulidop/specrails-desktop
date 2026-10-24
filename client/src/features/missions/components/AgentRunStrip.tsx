@@ -60,7 +60,7 @@ export const RUN_STRIP_PRIMARY = PRIMARY_ACTION
 /** A quiet control inside the strip (switcher, overflow). Type rule: strip
  *  text and controls are 12px; only compact chips/pills may stay 11px (≥/70). */
 const QUIET_CONTROL =
-  'inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
+  'inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-label text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
 
 interface StripEntry {
   key: string
@@ -757,12 +757,12 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       <span className="sr-only">{t(`runStrip.state.${selected.tone}`)} </span>
       <span
         data-testid="mission-run-strip-headline"
-        className={cn('min-w-0 truncate text-[12px] font-medium', selected.tone === 'failed' ? 'text-destructive' : 'text-foreground/85')}
+        className={cn('min-w-0 truncate text-label font-medium', selected.tone === 'failed' ? 'text-destructive' : 'text-foreground/85')}
       >
         {selected.headline}
       </span>
       {selected.meta && (
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] tabular-nums text-foreground/75" data-testid="mission-run-strip-meta">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-label tabular-nums text-foreground/75" data-testid="mission-run-strip-meta">
           {selected.meta}
         </span>
       )}
@@ -871,7 +871,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           {entries.length > 0 && (
             <div role="group" aria-label={t('runStrip.switcher')} className="relative flex shrink-0 items-center gap-0.5 border-l border-border/50 pl-1.5" data-testid="mission-run-strip-switcher">
               {entries.length === 1 ? (
-                <span className="max-w-[11rem] truncate px-1 text-[12px] text-foreground/75" title={selected.label} data-testid="mission-run-strip-label">{selected.label}</span>
+                <span className="max-w-[11rem] truncate px-1 text-label text-foreground/75" title={selected.label} data-testid="mission-run-strip-label">{selected.label}</span>
               ) : (
                 <>
                   {[selected, ...inlineOthers].map((entry) => (
@@ -926,7 +926,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
                               data-run-key={entry.key}
                               onClick={() => switchTo(entry.key)}
                               title={`${entry.label} · ${entry.headlineText}`}
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] text-foreground/85 hover:bg-surface focus:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-label text-foreground/85 hover:bg-surface focus:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                             >
                               <ToneDot tone={entry.tone} />
                               <span className="min-w-0 flex-1 truncate">{entry.label}</span>

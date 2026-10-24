@@ -66,7 +66,7 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
       <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
         <TicketIcon className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="text-xs font-semibold text-foreground">{t('comparePicker.title')}</span>
-        <span className="text-[11px] text-muted-foreground">{t('comparePicker.count', { n: filtered.length })}</span>
+        <span className="text-caption text-muted-foreground">{t('comparePicker.count', { n: filtered.length })}</span>
       </div>
 
       {/* Search */}
@@ -78,7 +78,7 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('comparePicker.searchPlaceholder')}
-            className="w-full h-7 rounded border border-border bg-input pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:border-accent-primary/60"
+            className="w-full h-7 rounded border border-border bg-input pl-7 pr-2 text-caption text-foreground placeholder:text-muted-foreground outline-none focus:border-accent-primary/60"
           />
         </div>
       </div>
@@ -105,10 +105,10 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
                   <TicketStatusDot status={tk.status} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono text-muted-foreground">#{tk.id}</span>
+                      <span className="text-caption font-mono text-muted-foreground">#{tk.id}</span>
                       {tk.priority && PRIORITY_STYLES[tk.priority] && (
                         <span
-                          className={`inline-flex items-center rounded px-1 py-0.5 text-[11px] font-medium border ${PRIORITY_STYLES[tk.priority]}`}
+                          className={`inline-flex items-center rounded px-1 py-0.5 text-caption font-medium border ${PRIORITY_STYLES[tk.priority]}`}
                         >
                           {t(`priority.${tk.priority}`)}
                         </span>
@@ -118,7 +118,7 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
                       {tk.title || t('untitled')}
                     </p>
                     {tk.description && (
-                      <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-1">
+                      <p className="mt-0.5 text-caption text-muted-foreground line-clamp-1">
                         {tk.description.slice(0, 120)}
                       </p>
                     )}
@@ -127,17 +127,17 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
                         {tk.labels.slice(0, 3).map((label) => (
                           <span
                             key={label}
-                            className="inline-flex items-center rounded px-1 py-0.5 text-[11px] bg-accent/40 text-foreground/60"
+                            className="inline-flex items-center rounded px-1 py-0.5 text-caption bg-accent/40 text-foreground/60"
                           >
                             {label}
                           </span>
                         ))}
                         {tk.labels.length > 3 && (
-                          <span className="text-[11px] text-muted-foreground">+{tk.labels.length - 3}</span>
+                          <span className="text-caption text-muted-foreground">+{tk.labels.length - 3}</span>
                         )}
                       </div>
                     )}
-                    <p className="mt-1 text-[11px] text-muted-foreground">
+                    <p className="mt-1 text-caption text-muted-foreground">
                       {t('meta.updatedAgo', { time: formatRelTime(tk.updated_at) })}
                     </p>
                   </div>

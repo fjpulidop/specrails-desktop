@@ -36,7 +36,7 @@ export function RailControls({ status, activeJobId, ticketCount, onToggle, launc
         <Button
           size="sm"
           variant="ghost"
-          className="group h-6 px-2 gap-1 rounded-md border border-accent-info/20 bg-accent-info/5 text-[11px] font-semibold text-accent-info transition-colors duration-150 hover:border-accent-info/50 hover:bg-accent-info/15 hover:text-accent-info"
+          className="group h-6 px-2 gap-1 rounded-md border border-accent-info/20 bg-accent-info/5 text-caption font-semibold text-accent-info transition-colors duration-150 hover:border-accent-info/50 hover:bg-accent-info/15 hover:text-accent-info"
           onClick={() => navigate(`/jobs/${activeJobId}`)}
           title={t('railControls.viewJobLog')}
         >

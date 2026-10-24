@@ -706,7 +706,7 @@ function ThemedToaster() {
           actionButton:
             'text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 whitespace-nowrap shrink-0 self-start',
           cancelButton:
-            'text-[11px] px-2.5 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 whitespace-nowrap shrink-0 self-start',
+            'text-caption px-2.5 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 whitespace-nowrap shrink-0 self-start',
           closeButton:
             'text-muted-foreground hover:text-foreground rounded-md p-0.5',
           // Full 1px tinted border (no coloured side stripe on alerts).

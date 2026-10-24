@@ -682,7 +682,7 @@ export function TicketDetailModal({
                       <span
                         key={id}
                         data-chip=""
-                        className="inline-flex h-5 items-center rounded px-1.5 text-[11px] font-mono bg-accent/60 text-foreground/70"
+                        className="inline-flex h-5 items-center rounded px-1.5 text-caption font-mono bg-accent/60 text-foreground/70"
                       >
                         #{id}
                       </span>
@@ -814,7 +814,7 @@ export function TicketDetailModal({
                     <span
                       key={label}
                       data-chip=""
-                      className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-[11px] font-medium bg-accent/60 text-foreground/70 group"
+                      className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-caption font-medium bg-accent/60 text-foreground/70 group"
                     >
                       {label}
                       <button
@@ -1320,7 +1320,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
         >
           <summary className="cursor-pointer text-xs font-medium text-foreground/80 select-none flex items-center gap-2">
             {t('contractLayer.title')}
-            <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-[11px] text-foreground/60">
+            <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-caption text-foreground/60">
               {t('contractLayer.populated', { n: countContractSubsections(contract) })}
             </span>
           </summary>

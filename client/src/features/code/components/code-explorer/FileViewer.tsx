@@ -443,7 +443,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
           <button
             type="button"
             onClick={toggleSummaryCollapsed}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           >
             <ChevronDown className="h-3.5 w-3.5" />
             {t('viewer.showSummary')}
@@ -464,7 +464,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
           <button aria-pressed={viewMode === 'source'} onClick={() => setViewMode('source')} className="rounded px-2 py-1 text-xs hover:bg-muted">{t('reader.currentFile', { defaultValue: 'Current file' })}</button>
           {recordedJobId && <button aria-pressed={viewMode === 'recorded'} onClick={() => setViewMode('recorded')} className="rounded px-2 py-1 text-xs hover:bg-muted">{t('reader.recordedChange', { defaultValue: 'Recorded change' })}</button>}
           {viewMode === 'source' && markdown && file?.content !== undefined && !file.binary && !file.tooLarge && (
-            <div className="flex items-center gap-1 text-[11px]" role="group" aria-label={t('viewer.markdownViewMode')}>
+            <div className="flex items-center gap-1 text-caption" role="group" aria-label={t('viewer.markdownViewMode')}>
               <button
                 type="button"
                 onClick={() => setMarkdownMode('preview')}
@@ -492,7 +492,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-caption text-muted-foreground">
           {file?.language && <span>{file.language}</span>}
           {typeof file?.sizeBytes === 'number' && <span>{(file.sizeBytes / 1024).toFixed(1)} KB</span>}
           <button disabled={loading} onClick={() => { void fetchFile() }} className="rounded px-2 py-1 hover:bg-muted disabled:opacity-50">{t('reader.refresh', { defaultValue: 'Refresh source' })}</button>
@@ -548,7 +548,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
             title={historyCollapsed ? undefined : t('resizer.hint')}
             data-testid="code-history-resizer"
           >
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-caption font-medium uppercase tracking-wider text-muted-foreground">
               {historyMode === 'story'
                 ? t('story.title', { count: provenance.length })
                 : t('history.title', { count: provenance.length })}
@@ -566,8 +566,8 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
                     onClick={() => changeHistoryMode('story')}
                     aria-pressed={historyMode === 'story'}
                     className={historyMode === 'story'
-                      ? 'rounded px-2 py-0.5 text-[11px] bg-accent-primary/20 text-accent-primary'
-                      : 'rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground'}
+                      ? 'rounded px-2 py-0.5 text-caption bg-accent-primary/20 text-accent-primary'
+                      : 'rounded px-2 py-0.5 text-caption text-muted-foreground hover:text-foreground'}
                   >
                     {t('story.modeStory')}
                   </button>
@@ -576,8 +576,8 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
                     onClick={() => changeHistoryMode('log')}
                     aria-pressed={historyMode === 'log'}
                     className={historyMode === 'log'
-                      ? 'rounded px-2 py-0.5 text-[11px] bg-accent-primary/20 text-accent-primary'
-                      : 'rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground'}
+                      ? 'rounded px-2 py-0.5 text-caption bg-accent-primary/20 text-accent-primary'
+                      : 'rounded px-2 py-0.5 text-caption text-muted-foreground hover:text-foreground'}
                   >
                     {t('story.modeLog')}
                   </button>
@@ -587,7 +587,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={toggleHistoryCollapsed}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               >
                 {historyCollapsed ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 {historyCollapsed ? t('history.show') : t('history.hide')}
@@ -681,7 +681,7 @@ function ProvenanceTimeline({
                     <button
                       type="button"
                       onClick={() => toggleDiff(row, diffKey)}
-                      className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                      className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-caption text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       {t('history.diff')}
                     </button>
@@ -690,14 +690,14 @@ function ProvenanceTimeline({
                     <button
                       type="button"
                       onClick={() => onOpenTicket(row.ticketId!)}
-                      className="shrink-0 rounded bg-accent-primary/15 px-1.5 py-0.5 text-[11px] text-accent-primary hover:bg-accent-primary/25"
+                      className="shrink-0 rounded bg-accent-primary/15 px-1.5 py-0.5 text-caption text-accent-primary hover:bg-accent-primary/25"
                       title={t('history.openSpec', { ticketId: row.ticketId })}
                     >
                       {t('history.specChip', { ticketId: row.ticketId })}
                     </button>
                   )}
                 </span>
-                <time className="text-[11px] text-muted-foreground" dateTime={new Date(row.at).toISOString()}>
+                <time className="text-caption text-muted-foreground" dateTime={new Date(row.at).toISOString()}>
                   {new Date(row.at).toLocaleString()}
                 </time>
               </div>

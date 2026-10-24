@@ -120,7 +120,7 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
           onChange={(e) => { setLocationTouched(true); setLocation(e.target.value) }}
           data-testid="commit-location"
         />
-        <p className="text-[11px] text-muted-foreground">{t('commit.locationHint')}</p>
+        <p className="text-caption text-muted-foreground">{t('commit.locationHint')}</p>
       </div>
 
       <div className="space-y-1.5">
@@ -180,7 +180,7 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
           />
           <Github className="h-3.5 w-3.5" />
           <span>{t('commit.githubLabel')}</span>
-          {!ghReady && <span className="ml-auto text-[11px] text-muted-foreground">{t('commit.githubAuthHint')}</span>}
+          {!ghReady && <span className="ml-auto text-caption text-muted-foreground">{t('commit.githubAuthHint')}</span>}
         </label>
       )}
 

@@ -27,18 +27,18 @@ const INVARIANT_TONE: Record<'kept' | 'changed' | 'at-risk', string> = {
 export function SeverityChip({ severity }: { severity: ReviewRiskSeverity }) {
   const { t } = useTranslation('packet')
   return (
-    <span className={`shrink-0 rounded-full border px-1.5 py-px text-[11px] font-medium ${SEVERITY_TONE[severity]}`} data-testid="brief-severity">
+    <span className={`shrink-0 rounded-full border px-1.5 py-px text-caption font-medium ${SEVERITY_TONE[severity]}`} data-testid="brief-severity">
       {t(`brief.severity.${severity}`)}
     </span>
   )
 }
 
 function Ref({ value }: { value: string | null }) {
-  return value ? <code className="break-all rounded bg-background-deep/60 px-1 font-mono text-[11px] text-accent-info">{value}</code> : null
+  return value ? <code className="break-all rounded bg-background-deep/60 px-1 font-mono text-caption text-accent-info">{value}</code> : null
 }
 
 function TicketTag({ ticketId, show }: { ticketId: number; show: boolean }) {
-  return show ? <span className="shrink-0 font-mono text-[11px] text-muted-foreground">#{ticketId}</span> : null
+  return show ? <span className="shrink-0 font-mono text-caption text-muted-foreground">#{ticketId}</span> : null
 }
 
 function Group({ title, testId, children }: { title: string; testId: string; children: React.ReactNode }) {
@@ -58,14 +58,14 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
         <Compass className="size-4 text-accent-primary" aria-hidden />
         {t('brief.title')}
       </h2>
-      <p className="mb-3 mt-0.5 text-[11px] text-muted-foreground">{t('brief.caveat')}</p>
+      <p className="mb-3 mt-0.5 text-caption text-muted-foreground">{t('brief.caveat')}</p>
       <div className="space-y-3 text-sm">
         {brief.risks.length > 0 ? (
           <Group title={t('brief.sections.risks')} testId="brief-risks">
             {brief.risks.map((risk, index) => (
               <li key={`risk-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="brief-risk">
                 <SeverityChip severity={risk.severity} />
-                {risk.area ? <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t(`brief.area.${risk.area}`, { defaultValue: risk.area })}</span> : null}
+                {risk.area ? <span className="text-caption uppercase tracking-wide text-muted-foreground">{t(`brief.area.${risk.area}`, { defaultValue: risk.area })}</span> : null}
                 <span className="min-w-0 flex-1 text-foreground">{risk.whatToLookAt}</span>
                 <Ref value={risk.ref} />
                 <TicketTag ticketId={risk.ticketId} show={multiTicket} />
@@ -79,7 +79,7 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
               <li key={`behaviour-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="min-w-0 flex-1 text-foreground">{change.what}</span>
                 {change.userVisible ? (
-                  <span className="rounded-full border border-accent-info/40 bg-accent-info/10 px-1.5 py-px text-[11px] text-accent-info">{t('brief.userVisible')}</span>
+                  <span className="rounded-full border border-accent-info/40 bg-accent-info/10 px-1.5 py-px text-caption text-accent-info">{t('brief.userVisible')}</span>
                 ) : null}
                 <Ref value={change.where} />
                 <TicketTag ticketId={change.ticketId} show={multiTicket} />
@@ -91,7 +91,7 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
           <Group title={t('brief.sections.invariantsTouched')} testId="brief-invariants">
             {brief.invariantsTouched.map((entry, index) => (
               <li key={`invariant-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                {entry.status ? <span className={`shrink-0 text-[11px] font-medium ${INVARIANT_TONE[entry.status]}`}>{t(`brief.invariantStatus.${entry.status}`)}</span> : null}
+                {entry.status ? <span className={`shrink-0 text-caption font-medium ${INVARIANT_TONE[entry.status]}`}>{t(`brief.invariantStatus.${entry.status}`)}</span> : null}
                 <span className="min-w-0 flex-1 text-foreground">{entry.invariant}</span>
                 <Ref value={entry.evidence} />
                 <TicketTag ticketId={entry.ticketId} show={multiTicket} />
@@ -125,7 +125,7 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
           <Group title={t('brief.sections.divergences')} testId="brief-divergences">
             {brief.divergences.map((entry, index) => (
               <li key={`divergence-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <code className="font-mono text-[11px] text-accent-info">{entry.requirement}</code>
+                <code className="font-mono text-caption text-accent-info">{entry.requirement}</code>
                 <span className="min-w-0 flex-1 text-foreground">{entry.observed}</span>
                 <TicketTag ticketId={entry.ticketId} show={multiTicket} />
               </li>
@@ -136,14 +136,14 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
           <div className="rounded-md border border-border/60 bg-background-deep/40 px-3 py-2 text-xs text-muted-foreground" data-testid="brief-diagnostic">
             <p>{t('brief.diagnostic')}</p>
             {brief.diagnostics.map((entry, index) => (
-              <p key={`diagnostic-${index}`} className="mt-1 font-mono text-[11px]">
+              <p key={`diagnostic-${index}`} className="mt-1 font-mono text-caption">
                 {multiTicket ? `#${entry.ticketId} · ` : ''}{entry.message}
               </p>
             ))}
           </div>
         ) : null}
         {brief.droppedEntries > 0 ? (
-          <p className="text-[11px] text-muted-foreground" data-testid="brief-dropped">{t('brief.dropped', { count: brief.droppedEntries })}</p>
+          <p className="text-caption text-muted-foreground" data-testid="brief-dropped">{t('brief.dropped', { count: brief.droppedEntries })}</p>
         ) : null}
       </div>
     </section>

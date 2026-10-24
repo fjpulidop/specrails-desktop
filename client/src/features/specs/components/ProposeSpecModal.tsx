@@ -666,7 +666,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                         <span
                           key={label}
                           data-chip=""
-                          className="inline-flex h-5 items-center gap-1 px-1.5 rounded bg-accent-info/15 text-accent-info text-[11px] font-medium"
+                          className="inline-flex h-5 items-center gap-1 px-1.5 rounded bg-accent-info/15 text-accent-info text-caption font-medium"
                         >
                           {label}
                           <button

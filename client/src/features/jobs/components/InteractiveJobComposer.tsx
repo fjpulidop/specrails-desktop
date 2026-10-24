@@ -268,7 +268,7 @@ export function InteractiveJobComposer({
       )}
     >
       {/* Status row: state pill · queued indicator · live totals · settle action */}
-      <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-between gap-3 text-caption text-muted-foreground">
         <span className="flex min-w-0 items-center gap-2">
           {waiting ? (
             <span className="inline-flex items-center gap-1.5">
@@ -292,7 +292,7 @@ export function InteractiveJobComposer({
             </span>
           )}
           {state.queued > 0 && (
-            <span className="rounded-full border border-accent-info/30 bg-accent-info/10 px-1.5 py-px text-[11px] num text-accent-info u-fade">
+            <span className="rounded-full border border-accent-info/30 bg-accent-info/10 px-1.5 py-px text-caption num text-accent-info u-fade">
               {t('detail.interactive.queued', { count: state.queued })}
             </span>
           )}
@@ -330,7 +330,7 @@ export function InteractiveJobComposer({
                   onClick={() => void handleFinalize()}
                   disabled={state.finalizing || waiting}
                   className={cn(
-                    'text-[11px] underline-offset-2 transition-colors',
+                    'text-caption underline-offset-2 transition-colors',
                     waiting
                       ? 'cursor-not-allowed text-muted-foreground'
                       : 'text-muted-foreground hover:text-accent-success hover:underline',
@@ -369,7 +369,7 @@ export function InteractiveJobComposer({
         </div>
       )}
       {mode === 'auto' && !pending.length && (
-        <p className="text-[11px] leading-snug text-muted-foreground">
+        <p className="text-caption leading-snug text-muted-foreground">
           {waiting ? t('detail.interactive.waitingForStep') : t('detail.interactive.autoHint')}
         </p>
       )}

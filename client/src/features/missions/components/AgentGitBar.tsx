@@ -49,7 +49,7 @@ function AgentGitBranchOverride({ branch, label }: { branch: string; label: stri
   return (
     <div data-testid="agent-git-bar-override" className="mt-1.5 flex min-w-0 items-center gap-1.5 px-2 text-xs text-foreground/70">
       <GitBranch className="h-3 w-3 shrink-0 text-accent-info" aria-hidden />
-      <span className="shrink-0 rounded-full border border-accent-info/35 bg-accent-info/10 px-1.5 py-px text-[11px] font-medium text-accent-info">{label}</span>
+      <span className="shrink-0 rounded-full border border-accent-info/35 bg-accent-info/10 px-1.5 py-px text-caption font-medium text-accent-info">{label}</span>
       <span className="min-w-0 truncate font-mono text-foreground/75" title={branch}>{branch}</span>
       <button type="button" onClick={copy} aria-label={t('git.copyBranch')} title={t('git.copyBranch')} className="shrink-0 rounded p-0.5 text-foreground/60 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
         <Copy className="h-3 w-3" />

@@ -319,7 +319,7 @@ export default function AnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setFilters((f) => ({ ...f, ticketId: undefined }))}
-                className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] font-medium bg-accent-highlight/15 text-accent-highlight ring-1 ring-accent-highlight/30 hover:bg-accent-highlight/25"
+                className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-caption font-medium bg-accent-highlight/15 text-accent-highlight ring-1 ring-accent-highlight/30 hover:bg-accent-highlight/25"
               >
                 {t('page.ticketChip', { id: filters.ticketId })}
               </button>
@@ -330,7 +330,7 @@ export default function AnalyticsPage() {
                 data-testid="analytics-model-chip"
                 onClick={clearModel}
                 title={t('page.clearModelFilter')}
-                className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] font-medium bg-accent-highlight/15 text-accent-highlight ring-1 ring-accent-highlight/30 hover:bg-accent-highlight/25"
+                className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-caption font-medium bg-accent-highlight/15 text-accent-highlight ring-1 ring-accent-highlight/30 hover:bg-accent-highlight/25"
               >
                 {t('page.modelChip', { model: filters.model[0] })}
                 <span aria-hidden className="opacity-70">×</span>
@@ -345,7 +345,7 @@ export default function AnalyticsPage() {
                   type="button"
                   aria-pressed={filters.period === p.value}
                   onClick={() => setFilters((f) => ({ ...f, period: p.value }))}
-                  className={`px-2.5 h-6 rounded text-[11px] font-medium transition-colors ${
+                  className={`px-2.5 h-6 rounded text-caption font-medium transition-colors ${
                     filters.period === p.value ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >{t(p.labelKey)}</button>
@@ -375,7 +375,7 @@ export default function AnalyticsPage() {
                 type="button"
                 aria-pressed={active}
                 onClick={() => toggleSurface(c.value)}
-                className={`h-7 px-3 rounded-full text-[11px] font-medium transition-all ${
+                className={`h-7 px-3 rounded-full text-caption font-medium transition-all ${
                   active
                     ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
@@ -392,7 +392,7 @@ export default function AnalyticsPage() {
               type="button"
               aria-pressed={isAllProviders}
               onClick={() => toggleProvider('all')}
-              className={`h-7 px-3 rounded-full text-[11px] font-medium transition-all ${
+              className={`h-7 px-3 rounded-full text-caption font-medium transition-all ${
                 isAllProviders
                   ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
                   : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
@@ -406,7 +406,7 @@ export default function AnalyticsPage() {
                   type="button"
                   aria-pressed={active}
                   onClick={() => toggleProvider(p)}
-                  className={`h-7 px-3 rounded-full text-[11px] font-medium transition-all ${
+                  className={`h-7 px-3 rounded-full text-caption font-medium transition-all ${
                     active
                       ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
@@ -471,7 +471,7 @@ export default function AnalyticsPage() {
               data-testid={`analytics-table-sort-${s}`}
               aria-pressed={tableSort === s}
               onClick={() => setTableSort(s)}
-              className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-all ${
+              className={`h-6 px-2.5 rounded-full text-caption font-medium transition-all ${
                 tableSort === s
                   ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
                   : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'

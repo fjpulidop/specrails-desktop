@@ -371,7 +371,7 @@ export function ProfileEditor({
             <div className="text-sm font-mono text-foreground truncate">
               {formatCommandForProvider('/specrails:implement', provider)}
             </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">
+            <div className="text-caption text-muted-foreground mt-0.5">
               {t('profileEditor.orchestrator.description')}
             </div>
           </div>
@@ -409,7 +409,7 @@ export function ProfileEditor({
         {pickingAgent && (
           <div className="mb-2 p-2 rounded-md border border-border bg-muted/30">
             <div className="flex items-center justify-between mb-1.5 px-1">
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-caption text-muted-foreground">
                 {t('profileEditor.agentChain.pickFromCatalog', { n: availableToAdd.length })}
               </span>
               <button
@@ -438,7 +438,7 @@ export function ProfileEditor({
                     <span className="text-sm font-mono">{a.id}</span>
                     <span
                       className={
-                        'text-[11px] px-1.5 py-0.5 rounded ' +
+                        'text-caption px-1.5 py-0.5 rounded ' +
                         (a.kind === 'custom'
                           ? 'bg-accent-secondary/15 text-accent-secondary'
                           : 'bg-muted text-muted-foreground')
@@ -503,7 +503,7 @@ export function ProfileEditor({
             </Button>
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground mb-2">
+        <p className="text-caption text-muted-foreground mb-2">
           {t('profileEditor.routing.explainer')}
         </p>
         {agentsMissingRouting.length > 0 && (
@@ -605,7 +605,7 @@ function AgentRow({
       <span className="text-sm font-mono flex-1 truncate">{agent.id}</span>
       {pinnedFirst && (
         <span
-          className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-accent-primary/15 text-accent-primary"
+          className="inline-flex items-center gap-1 text-caption px-1.5 py-0.5 rounded bg-accent-primary/15 text-accent-primary"
           title={t('profileEditor.agentRow.pinnedFirstTitle')}
         >
           <Pin className="w-2.5 h-2.5 rotate-[135deg]" /> {t('profileEditor.agentRow.pinnedFirst')}
@@ -613,14 +613,14 @@ function AgentRow({
       )}
       {pinnedLast && (
         <span
-          className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-accent-primary/15 text-accent-primary"
+          className="inline-flex items-center gap-1 text-caption px-1.5 py-0.5 rounded bg-accent-primary/15 text-accent-primary"
           title={t('profileEditor.agentRow.pinnedLastTitle')}
         >
           <Pin className="w-2.5 h-2.5 rotate-45" /> {t('profileEditor.agentRow.pinnedLast')}
         </span>
       )}
       {isRequired && !pinnedFirst && !pinnedLast && (
-        <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+        <span className="text-caption px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
           {t('profileEditor.agentRow.required')}
         </span>
       )}
@@ -679,7 +679,7 @@ function RoutingRow({
   const isDefault = 'default' in rule && rule.default === true
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border group hover:bg-accent/30 transition-colors">
-      <span className="text-[11px] font-mono text-muted-foreground w-5 text-center flex-shrink-0">
+      <span className="text-caption font-mono text-muted-foreground w-5 text-center flex-shrink-0">
         {ordinal}.
       </span>
       {isDefault ? (
@@ -687,7 +687,7 @@ function RoutingRow({
       ) : (
         <span className="text-xs flex-1 flex gap-1 flex-wrap items-center">
           {(rule as RoutingTagRule).tags.map((t) => (
-            <span key={t} className="px-1.5 py-0.5 rounded bg-muted font-mono text-[11px]">
+            <span key={t} className="px-1.5 py-0.5 rounded bg-muted font-mono text-caption">
               {t}
             </span>
           ))}
@@ -752,7 +752,7 @@ function RoutingRow({
       </div>
       {isDefault && (
         <span
-          className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+          className="text-caption px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
           title={t('profileEditor.routingRow.coreDefaultTitle')}
         >
           {t('profileEditor.routingRow.coreDefaultBadge')}

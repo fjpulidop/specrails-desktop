@@ -45,7 +45,7 @@ export function LoopPreviewModal({
             <span
               data-chip=""
               className={cn(
-                'inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-1.5 text-[11px] font-medium',
+                'inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-1.5 text-caption font-medium',
                 loop.builtin
                   ? 'border-accent-info/40 bg-accent-info/10 text-accent-info'
                   : loop.status === 'published'

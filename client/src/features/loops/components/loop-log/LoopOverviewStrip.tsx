@@ -48,7 +48,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
               disabled={!clickable}
               onClick={() => chip.latestSegmentKey && onChipClick(chip.latestSegmentKey)}
               className={cn(
-                'relative flex items-center gap-1.5 shrink-0 rounded-full border bg-surface/40 px-2.5 py-1 text-[11px] transition-colors',
+                'relative flex items-center gap-1.5 shrink-0 rounded-full border bg-surface/40 px-2.5 py-1 text-caption transition-colors',
                 borderAccent,
                 chip.state === 'pending' && 'opacity-45 border-border/40',
                 (chip.state === 'interrupted' || chip.state === 'paused') && 'border-dashed border-accent-warning/50',
@@ -87,7 +87,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
       {iteration && (
         <span
           data-testid="loop-iteration-chip"
-          className="ml-auto flex items-center gap-1.5 shrink-0 rounded-full border border-accent-highlight/40 bg-accent-highlight/10 px-2.5 py-1 text-[11px] font-medium text-accent-highlight tabular-nums"
+          className="ml-auto flex items-center gap-1.5 shrink-0 rounded-full border border-accent-highlight/40 bg-accent-highlight/10 px-2.5 py-1 text-caption font-medium text-accent-highlight tabular-nums"
         >
           <Repeat className="w-3 h-3" />
           {iteration.limit != null

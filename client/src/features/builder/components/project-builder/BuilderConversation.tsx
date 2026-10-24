@@ -227,11 +227,11 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
                   {state?.status === 'failed' && <X className="h-3.5 w-3.5 text-destructive" />}
                   <span className={cn(!state && 'text-muted-foreground')}>{t(`progress.steps.${step}`)}</span>
                   {state?.status === 'warning' && step === 'github' ? (
-                    <span className="truncate text-[11px] text-accent-warning" title={state.detail}>
+                    <span className="truncate text-caption text-accent-warning" title={state.detail}>
                       {t(githubErrorKey(state.code))}
                     </span>
                   ) : (
-                    state?.detail && <span className="truncate text-[11px] text-muted-foreground" title={state.detail}>{state.detail}</span>
+                    state?.detail && <span className="truncate text-caption text-muted-foreground" title={state.detail}>{state.detail}</span>
                   )}
                 </li>
               )

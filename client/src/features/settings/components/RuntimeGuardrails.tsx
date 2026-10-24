@@ -65,7 +65,7 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
       </span>
       <span className="text-xs font-medium">{t('guardrails.title')}</span>
       <span className="ml-auto flex items-center gap-2">
-        {state.status === 'ready' && supported && <span data-testid="guardrails-active" data-chip className={cn('inline-flex h-5 items-center rounded-md border px-1.5 text-[11px] leading-4', offCount ? 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning' : 'border-accent-success/30 bg-accent-success/10 text-accent-success')}>
+        {state.status === 'ready' && supported && <span data-testid="guardrails-active" data-chip className={cn('inline-flex h-5 items-center rounded-md border px-1.5 text-caption leading-4', offCount ? 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning' : 'border-accent-success/30 bg-accent-success/10 text-accent-success')}>
           {t('guardrails.active', { on: total - offCount, total })}
         </span>}
         <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? '' : '-rotate-90'}`} aria-hidden />

@@ -391,7 +391,7 @@ export function ProfilesTab() {
               <Plus className="w-3.5 h-3.5 mr-1.5" /> {t('profiles.empty.blankButton')}
             </Button>
           </div>
-          <div className="text-[11px] text-muted-foreground/70 mt-3">
+          <div className="text-caption text-muted-foreground/70 mt-3">
             <Trans
               t={t}
               i18nKey="profiles.empty.migrateExplainer"
@@ -459,7 +459,7 @@ export function ProfilesTab() {
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="truncate font-medium">{p.name}</span>
                   {p.isDefault && (
-                    <span className="text-[11px] text-muted-foreground">{t('profiles.sidebar.teamDefault')}</span>
+                    <span className="text-caption text-muted-foreground">{t('profiles.sidebar.teamDefault')}</span>
                   )}
                 </div>
                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">

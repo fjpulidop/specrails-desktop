@@ -96,7 +96,7 @@ export function RailTargetPrSelector({ railIndex, value, onChange }: Props) {
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className={`inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 ${
+        className={`inline-flex h-6 items-center gap-1 rounded border px-1.5 text-caption transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 ${
           value
             ? 'border-accent-info/50 text-accent-info hover:text-accent-info'
             : 'border-border/50 bg-transparent text-muted-foreground hover:text-foreground'
@@ -162,7 +162,7 @@ export function RailTargetPrSelector({ railIndex, value, onChange }: Props) {
                 : <GitPullRequest className="mt-0.5 h-3 w-3 shrink-0 text-accent-info" aria-hidden />}
               <span className="min-w-0">
                 <span className="block truncate font-medium">#{c.number} · {c.title}</span>
-                <span className="block truncate text-[11px] text-muted-foreground">
+                <span className="block truncate text-caption text-muted-foreground">
                   {c.headRefName}
                   {c.isCrossRepository && ` — ${t('targetPr.fork')}`}
                 </span>
@@ -188,7 +188,7 @@ export function RailTargetPrSelector({ railIndex, value, onChange }: Props) {
             <button
               type="submit"
               disabled={!manualNumber}
-              className="h-6 shrink-0 rounded border border-border/60 px-2 text-[11px] text-muted-foreground enabled:hover:text-foreground disabled:opacity-40"
+              className="h-6 shrink-0 rounded border border-border/60 px-2 text-caption text-muted-foreground enabled:hover:text-foreground disabled:opacity-40"
             >
               {t('targetPr.manualUse')}
             </button>

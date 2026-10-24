@@ -835,7 +835,7 @@ export function ExploreSpecShell({
               data-testid="explore-context-pill"
               title={t('shell.contextPillTitle')}
               data-chip
-              className="hidden md:inline-flex h-5 items-center gap-1 px-2 rounded-full border border-border/50 bg-card/60 text-[11px] text-muted-foreground"
+              className="hidden md:inline-flex h-5 items-center gap-1 px-2 rounded-full border border-border/50 bg-card/60 text-caption text-muted-foreground"
             >
               {t('shell.contextPill', {
                 scopes: [
@@ -1078,7 +1078,7 @@ export function ExploreSpecShell({
                   data-testid="explore-stop-button"
                 >
                   {t('shell.stop')}
-                  <span data-chip className="inline-flex h-5 items-center text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+                  <span data-chip className="inline-flex h-5 items-center text-caption opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               ) : (
                 <Button
@@ -1089,7 +1089,7 @@ export function ExploreSpecShell({
                 >
                   <Send className="w-3.5 h-3.5" />
                   {t('shell.send')}
-                  <span data-chip className="inline-flex h-5 items-center text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+                  <span data-chip className="inline-flex h-5 items-center text-caption opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               )}
             </div>
@@ -1262,7 +1262,7 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
             // Bolded prose gets the accent colour — keeps Claude's emphasis
             // visible and on-brand across themes.
             '[&_strong]:text-accent-primary [&_strong]:font-semibold',
-            '[&_code]:rounded [&_code]:bg-background/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-accent-primary [&_code]:text-[12px]',
+            '[&_code]:rounded [&_code]:bg-background/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-accent-primary [&_code]:text-label',
             '[&_pre]:rounded [&_pre]:bg-background/60 [&_pre]:p-2 [&_pre]:my-2',
             '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
             '[&_a]:text-accent-primary [&_a]:underline',

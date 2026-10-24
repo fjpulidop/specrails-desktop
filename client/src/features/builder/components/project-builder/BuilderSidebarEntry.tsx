@@ -223,7 +223,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
         type="button"
         onClick={handleLaunchM1}
         disabled={launching}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent-primary/15 px-2 py-1.5 text-[11px] font-medium text-accent-primary transition-colors hover:bg-accent-primary/25 disabled:opacity-50"
+        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent-primary/15 px-2 py-1.5 text-caption font-medium text-accent-primary transition-colors hover:bg-accent-primary/25 disabled:opacity-50"
         data-testid="sidebar-launch-m1"
       >
         {launching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
@@ -300,7 +300,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
                   setPanelOpen(false)
                 }}
                 disabled={!milestoneGenerationAvailable}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-accent-highlight/40 px-2 py-1.5 text-[11px] font-medium text-accent-highlight transition-colors hover:bg-accent-highlight/10 disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground disabled:hover:bg-transparent"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-accent-highlight/40 px-2 py-1.5 text-caption font-medium text-accent-highlight transition-colors hover:bg-accent-highlight/10 disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground disabled:hover:bg-transparent"
                 title={milestoneGenerationAvailable
                   ? t('sidebar.generateHint')
                   : t('sidebar.generateUnavailable')}

@@ -73,7 +73,7 @@ export function AgentFlowDeliveredCard({ row }: { row: FlowDeliveredRow }) {
         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
         {t('flowDelivered.title')}
       </p>
-      <ul className="mt-1.5 space-y-1 text-[11px]">
+      <ul className="mt-1.5 space-y-1 text-caption">
         {row.prUrl && (
           <Line icon={GitPullRequest} testId="agent-flow-delivered-pr">
             <a href={row.prUrl} target="_blank" rel="noreferrer" data-agent-interactive

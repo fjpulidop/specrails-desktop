@@ -98,7 +98,7 @@ export function InvocationsTable({
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <h2 className="text-strong">{t('table.title')}</h2>
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        <div className="flex flex-wrap items-center gap-2 text-caption">
           <select
             value={tableFilters.status ?? ''}
             onChange={(e) => onTableFiltersChange({ ...tableFilters, status: (e.target.value || undefined) as TableFilters['status'] })}
@@ -132,7 +132,7 @@ export function InvocationsTable({
         <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">{t('table.empty')}</div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px] num">
+          <table className="w-full text-label num">
             <thead className="text-xs text-muted-foreground">
               <tr className="text-left">
                 <th className="font-medium px-2 py-2">{t('table.colSurface')}</th>
@@ -171,7 +171,7 @@ export function InvocationsTable({
                         onClick={(e) => { e.stopPropagation(); setOpenId(openId === r.id ? null : r.id) }}
                         className="text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        <span className={`inline-flex items-center gap-1.5 px-2 h-5 rounded-full text-[11px] font-medium ${accent.bg} ${accent.text}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-2 h-5 rounded-full text-caption font-medium ${accent.bg} ${accent.text}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
                           {surfaceLabel}
                         </span>
@@ -207,7 +207,7 @@ export function InvocationsTable({
                     <td className="px-2 py-2 text-right">{totalTokens > 0 ? fmtNum(totalTokens) : '—'}</td>
                     <td className="px-2 py-2 max-w-[180px] truncate">
                       {model ?? '—'}
-                      {model && !r.model ? <span className="ml-1 text-[11px] text-muted-foreground">{t('table.inferred')}</span> : null}
+                      {model && !r.model ? <span className="ml-1 text-caption text-muted-foreground">{t('table.inferred')}</span> : null}
                     </td>
                     {multiProvider && (
                       <td className="px-2 py-2 text-muted-foreground">{providerLabel(r.provider ?? 'claude')}</td>
@@ -233,7 +233,7 @@ export function InvocationsTable({
       )}
 
       {showTruncation && rows.length > 0 && (
-        <div className="mt-2 text-[11px] text-muted-foreground">
+        <div className="mt-2 text-caption text-muted-foreground">
           {t('table.truncated', { shown: rows.length, total: totalAvailable.toLocaleString(i18n.language) })}
         </div>
       )}

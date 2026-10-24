@@ -838,7 +838,7 @@ function TokenChip({ token, label, description, icon: Icon, onInsert }: { token:
       onClick={() => onInsert(token)}
       title={description ? `${token} — ${description}` : token}
       data-chip=""
-      className="inline-flex h-5 items-center gap-1 px-1.5 rounded border border-border bg-surface/40 text-[11px] font-mono text-accent-primary hover:bg-accent-primary/10 cursor-grab active:cursor-grabbing"
+      className="inline-flex h-5 items-center gap-1 px-1.5 rounded border border-border bg-surface/40 text-caption font-mono text-accent-primary hover:bg-accent-primary/10 cursor-grab active:cursor-grabbing"
     >
       {Icon && <Icon className="w-3 h-3 flex-shrink-0" aria-hidden />}
       {label}

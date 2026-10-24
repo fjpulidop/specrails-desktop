@@ -391,14 +391,14 @@ export function AgentStudio({
                       onResumeRefine(draftFromRefine, agentId, data.body)
                     } catch { /* ignore */ }
                   }}
-                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border border-accent-primary/40 bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+                  className="inline-flex items-center gap-1 text-caption px-2 py-0.5 rounded-full border border-accent-primary/40 bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
                   title={t('studio.resumeAiEditTitle')}
                 >
                   <Wand2 className="w-3 h-3" /> {t('studio.resumeAiEdit')}
                 </button>
               )}
               {refineDraftLoading && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1 text-caption text-muted-foreground">
                   <Loader2 className="w-3 h-3 animate-spin" /> {t('studio.loadingAiDraft')}
                 </span>
               )}
@@ -463,12 +463,12 @@ export function AgentStudio({
 
       {/* Validation hints */}
       {isCreate && id.length > 0 && !nameValid && (
-        <div className="px-4 py-1.5 text-[11px] border-b border-accent-warning/30 bg-accent-warning/10 text-accent-warning">
+        <div className="px-4 py-1.5 text-caption border-b border-accent-warning/30 bg-accent-warning/10 text-accent-warning">
           <Trans t={t} i18nKey="studio.validation.namePattern" components={{ code: <code /> }} />
         </div>
       )}
       {!hasFrontmatter && (
-        <div className="px-4 py-1.5 text-[11px] border-b border-accent-warning/30 bg-accent-warning/10 text-accent-warning">
+        <div className="px-4 py-1.5 text-caption border-b border-accent-warning/30 bg-accent-warning/10 text-accent-warning">
           <Trans t={t} i18nKey="studio.validation.missingFrontmatter" components={{ code: <code /> }} />
         </div>
       )}
@@ -478,7 +478,7 @@ export function AgentStudio({
       {/* Body + versions */}
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="px-4 py-1.5 border-b border-border text-[11px] font-mono text-muted-foreground flex items-center justify-between">
+          <div className="px-4 py-1.5 border-b border-border text-caption font-mono text-muted-foreground flex items-center justify-between">
             <span>{customRoleDisplayPath(provider, isCreate ? id || 'custom-…' : agentId!)}</span>
             {dirty && <span className="text-accent-warning">{t('studio.unsaved')}</span>}
           </div>
@@ -500,9 +500,9 @@ export function AgentStudio({
             </div>
             <div className="p-3 border-b border-border">
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] text-muted-foreground">{t('studio.testPane.sampleTaskLabel')}</label>
+                <label className="text-caption text-muted-foreground">{t('studio.testPane.sampleTaskLabel')}</label>
                 <select
-                  className="h-6 text-[11px] rounded border border-border bg-background px-1"
+                  className="h-6 text-caption rounded border border-border bg-background px-1"
                   value=""
                   onChange={(e) => {
                     const idx = parseInt(e.target.value, 10)
@@ -538,7 +538,7 @@ export function AgentStudio({
                     </>
                   )}
                 </Button>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-caption text-muted-foreground">
                   {t('studio.testPane.sandboxNote')}
                 </span>
               </div>
@@ -551,7 +551,7 @@ export function AgentStudio({
               )}
               {testResult && (
                 <>
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground mb-2">
+                  <div className="flex items-center gap-3 text-caption text-muted-foreground mb-2">
                     <span>
                       {testResult.tokens === null ? (
                         <span
@@ -582,7 +582,7 @@ export function AgentStudio({
                 </>
               )}
               {!testing && !testResult && !testError && (
-                <p className="text-[11px] text-muted-foreground italic">
+                <p className="text-caption text-muted-foreground italic">
                   {t('studio.testPane.emptyHint')}
                 </p>
               )}
@@ -596,7 +596,7 @@ export function AgentStudio({
             </div>
             <div className="flex-1 overflow-auto p-2 space-y-1">
               {versions.length === 0 ? (
-                <div className="text-[11px] text-muted-foreground italic px-2 py-2">
+                <div className="text-caption text-muted-foreground italic px-2 py-2">
                   {t('studio.versions.empty')}
                 </div>
               ) : (
@@ -608,14 +608,14 @@ export function AgentStudio({
                     className="w-full text-left px-2 py-1.5 rounded hover:bg-accent/50 transition-colors"
                   >
                     <div className="text-xs font-mono text-foreground">v{v.version}</div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-caption text-muted-foreground">
                       {new Date(v.createdAt).toLocaleString()}
                     </div>
                   </button>
                 ))
               )}
             </div>
-            <div className="px-3 py-2 border-t border-border text-[11px] text-muted-foreground">
+            <div className="px-3 py-2 border-t border-border text-caption text-muted-foreground">
               {t('studio.versions.restoreHint')}
             </div>
           </aside>

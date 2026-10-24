@@ -15,7 +15,7 @@ export function AgentBackgroundTurn({ turn }: { turn: BackgroundTurnView }) {
       <AgentTurnOriginLabel origin={turn.origin} />
       {turn.text
         ? <AgentMessage role="assistant" content={turn.text} streaming />
-        : <p className="title-shimmer px-1 text-[12px] text-foreground/55">{t('subagents.backgroundTurn')}</p>}
+        : <p className="title-shimmer px-1 text-label text-foreground/55">{t('subagents.backgroundTurn')}</p>}
     </div>
   )
 }
@@ -40,7 +40,7 @@ export function AgentDeferredChangeNotice({ onApplyNow }: { onApplyNow: () => Pr
       <Settings2 className="h-3.5 w-3.5 shrink-0 text-accent-highlight" aria-hidden />
       <span className="min-w-0 flex-1">{t('subagents.deferred')}</span>
       <button type="button" disabled={busy} onClick={() => { setBusy(true); void onApplyNow().finally(() => setBusy(false)) }}
-        className="shrink-0 rounded-md border border-border/50 px-2 py-0.5 text-[11px] text-foreground/70 transition-colors hover:border-destructive/50 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50">
+        className="shrink-0 rounded-md border border-border/50 px-2 py-0.5 text-caption text-foreground/70 transition-colors hover:border-destructive/50 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50">
         {t('subagents.applyNow')}
       </button>
     </div>
@@ -85,7 +85,7 @@ export function AgentSessionNotices({ notices, onDismiss }: { notices: SessionNo
             </div>
             {host && notice.scope && (
               <button type="button" disabled={retrying === notice.id} onClick={() => void retry(notice)}
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 px-2 py-0.5 text-[11px] text-foreground/70 transition-colors hover:border-accent-primary/50 hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:opacity-50">
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 px-2 py-0.5 text-caption text-foreground/70 transition-colors hover:border-accent-primary/50 hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:opacity-50">
                 {retrying === notice.id ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <RotateCcw className="h-3 w-3" aria-hidden />}
                 {t('sessionNotice.retry')}
               </button>

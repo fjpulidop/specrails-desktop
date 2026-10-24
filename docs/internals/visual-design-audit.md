@@ -91,7 +91,7 @@ Prereq (fix #1): `npm i tw-animate-css` + `@import "tw-animate-css";` in `global
 | Send | `Send w-3.5` | — |
 | Provider | `Cpu` (kill the `🤖⚡✨` emoji) | neutral |
 
-**Regression guards (CI grep-deny, extends the existing `dracula-*` guard):** `aurora-light:` outside globals.css · `#50fa7b|#ff5555|#f1fa8c|#6272a4|#44475a|rgba\(139,233|rgba\(189,147` · `text-white` on `bg-accent`/`bg-emerald`/`bg-green` lines · `hsl\(var\(--` · `border-border/(10|20|25|70)` · `shadow-black/` · `text-\[9px\]` · bare `rounded[" ]` (post-codemod).
+**Regression guards (CI grep-deny, extends the existing `dracula-*` guard):** `aurora-light:` outside globals.css · `#50fa7b|#ff5555|#f1fa8c|#6272a4|#44475a|rgba\(139,233|rgba\(189,147` · `text-white` on `bg-accent`/`bg-emerald`/`bg-green` lines · `hsl\(var\(--` · `border-border/(10|20|25|70)` · `shadow-black/` · `text-\[9px\]` · `text-\[(11|12)px\]` (use `text-caption` / `text-label`) · bare `rounded[" ]` (post-codemod).
 
 ---
 

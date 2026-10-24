@@ -689,7 +689,7 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         ? AlertTriangle
         : Settings2
   const statusClassName = cn(
-    'inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-[11px] leading-none',
+    'inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-caption leading-none',
     isAttention
       ? 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
       : plugin.installed
@@ -985,7 +985,7 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
           <div className="truncate text-xs font-medium">{t('plugins.headroom.savings.title')}</div>
         </div>
         <span data-chip="" className={cn(
-          'inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-[11px]',
+          'inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-caption',
           statusEmphasis
             ? 'border-accent-success/25 bg-accent-success/10 text-accent-success'
             : hasActiveProvider
@@ -1101,7 +1101,7 @@ function ProviderMetricRow({
       <div className="flex min-w-0 items-center gap-1.5">
           <span className="text-xs font-medium">{metric.label}</span>
           {metric.detectedRoute && (
-            <span data-chip="" className="inline-flex h-5 items-center rounded bg-accent-primary/10 px-1.5 text-[11px] font-medium text-accent-primary">
+            <span data-chip="" className="inline-flex h-5 items-center rounded bg-accent-primary/10 px-1.5 text-caption font-medium text-accent-primary">
               {t('plugins.headroom.savings.detected')}
             </span>
           )}

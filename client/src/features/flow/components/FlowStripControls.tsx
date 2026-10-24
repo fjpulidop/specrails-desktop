@@ -108,7 +108,7 @@ function ControlButton({ control, compact, flowId }: { control: FlowBarControl; 
       className={cn(
         control.tone === 'primary'
           ? RUN_STRIP_PRIMARY
-          : 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-50',
+          : 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-label font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-50',
         control.tone === 'danger' && 'text-foreground/75 hover:bg-destructive/10 hover:text-destructive',
         (!control.tone || control.tone === 'default') && 'text-foreground/80 hover:bg-surface hover:text-foreground',
       )}
@@ -204,14 +204,14 @@ export function FlowPanel({ projectId, flow, stats }: { projectId: string; flow:
   }
   // A missing worktree measures nothing: needs-review shows its changes only when some survived.
   const showChanges = !needsReview || (totals?.files ?? 0) > 0
-  const row = 'flex min-w-0 items-center gap-2 text-[12px]'
+  const row = 'flex min-w-0 items-center gap-2 text-label'
   const label = 'w-20 shrink-0 text-foreground/70'
   return (
     <div data-testid="flow-panel" className="space-y-2 px-0.5">
       {flow.branch && (
         <div className={row}>
           <span className={label}>{t('flow.panel.branch')}</span>
-          <button type="button" onClick={copyBranch} title={t('git.copyBranch')} aria-label={`${t('git.copyBranch')}: ${flow.branch}`} data-agent-interactive data-testid="flow-bar-branch" className="inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 font-mono text-[12px] text-foreground/85 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+          <button type="button" onClick={copyBranch} title={t('git.copyBranch')} aria-label={`${t('git.copyBranch')}: ${flow.branch}`} data-agent-interactive data-testid="flow-bar-branch" className="inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 font-mono text-label text-foreground/85 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
             <GitBranch className="h-3 w-3 shrink-0" aria-hidden />
             <span className="truncate">{flow.branch}</span>
             <Copy className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
@@ -259,7 +259,7 @@ export function FlowPanel({ projectId, flow, stats }: { projectId: string; flow:
         )}
       </div>
       {(paused || needsReview) && (
-        <p className="text-[12px] leading-4 text-foreground/75" data-testid="flow-bar-note">
+        <p className="text-label leading-4 text-foreground/75" data-testid="flow-bar-note">
           {needsReview ? t('flow.bar.needsReview') : t('flow.bar.pausedNote')}
         </p>
       )}

@@ -156,7 +156,7 @@ function CodeWorkspace({ embedded = false, initialPath = null, initialRepository
           {invalid && <option value={location.repositoryId}>{tc('repositories.unavailable')}</option>}
           {repositories.map(item => <option key={item.id} value={item.id}>{item.name}{item.isPrimary ? ` · ${tc('repositories.primary')}` : ''}</option>)}
         </select>}
-        <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={repository?.path}>{repository?.path}</span>
+        <span className="min-w-0 flex-1 truncate text-caption text-muted-foreground" title={repository?.path}>{repository?.path}</span>
       </header>
       {invalid ? <p role="alert" className="p-4 text-sm text-destructive">{tc('repositories.invalidSelection')}</p> : <div className="flex min-h-0 flex-1 overflow-hidden">
         {<aside hidden={!showSidebar} className={`${showSidebar ? 'flex' : 'hidden'} min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-card/15`} style={{ width: compact ? '100%' : treeWidth }} aria-label={t('explore.navigation')}>
@@ -169,7 +169,7 @@ function CodeWorkspace({ embedded = false, initialPath = null, initialRepository
         </aside>}
         {showSidebar && !compact && <div role="separator" aria-orientation="vertical" aria-label={t('page.resizeFileTree')} onPointerDown={beginResize} onDoubleClick={() => { const next = clampTreeWidth(DEFAULT_TREE_WIDTH, containerRef.current?.clientWidth || window.innerWidth); setTreeWidth(next); saveTreeWidth(activeProjectId, next) }} className="w-1.5 shrink-0 cursor-col-resize touch-none select-none border-x border-border/40 hover:bg-accent-primary/20" title={t('resizer.hint')} data-testid="code-tree-resizer" />}
         {<div hidden={!showReader} className={`${showReader ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}>
-          {location.path && <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/60 px-3 py-2 text-[11px]" aria-label={t('explore.breadcrumb')}>
+          {location.path && <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/60 px-3 py-2 text-caption" aria-label={t('explore.breadcrumb')}>
             <FileText className="mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             {breadcrumb.map((part, index) => <span key={index} className={`flex shrink-0 items-center gap-1 ${index === breadcrumb.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>{index > 0 && <ChevronRight className="h-3 w-3" />}{part}</span>)}
             {location.line && <span className="ml-1 shrink-0 text-accent-primary">:{location.line}</span>}
@@ -181,7 +181,7 @@ function CodeWorkspace({ embedded = false, initialPath = null, initialRepository
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-primary/20 bg-accent-primary/10 text-accent-primary"><FolderSearch className="h-7 w-7" /></div>
               <div><h1 className="text-headline">{t('explore.welcome')}</h1><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t('explore.description')}</p></div>
               <div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setMode('search'); setSidebarOpen(true) }} className="rounded-lg bg-accent-primary/15 px-3 py-2 text-xs text-accent-primary">{t('explore.findCode')}</button><button type="button" onClick={() => { setMode('activity'); setSidebarOpen(true) }} className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">{t('explore.viewActivity')}</button></div>
-              <p className="text-[11px] leading-relaxed text-muted-foreground/80">{t('explore.sourceHint')}</p>
+              <p className="text-caption leading-relaxed text-muted-foreground/80">{t('explore.sourceHint')}</p>
             </div>
           </div>}
         </div>}
@@ -352,7 +352,7 @@ function ProvenanceResultPanel({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold truncate">{title}</h2>
-            <span className="text-[11px] text-muted-foreground">{rows ? t('provenancePanel.touchedFiles', { count: total }) : '—'}</span>
+            <span className="text-caption text-muted-foreground">{rows ? t('provenancePanel.touchedFiles', { count: total }) : '—'}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <ResultGroup label={t('action.added')} rows={grouped.created} icon="created" onOpenFile={onOpenFile} />
@@ -402,7 +402,7 @@ function ResultGroup({
               key={`${row.path}-${row.jobId ?? 'job'}-${row.at}-${index}`}
               type="button"
               onClick={() => onOpenFile(row.path)}
-              className="block w-full truncate rounded px-1.5 py-1 text-left font-mono text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="block w-full truncate rounded px-1.5 py-1 text-left font-mono text-caption text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               title={row.path}
             >
               {row.path}

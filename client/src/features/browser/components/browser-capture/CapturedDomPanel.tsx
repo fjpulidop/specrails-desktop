@@ -84,7 +84,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
           <Code2 className="w-3.5 h-3.5 shrink-0 text-accent-secondary" />
           <span className="truncate font-medium">{t('domPanel.header', { title: dom.title || host })}</span>
         </button>
-        <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+        <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
           {t('domPanel.badge.elements', { count: summary.nodeCount })}{dom.css ? ' · CSS' : ''}{hasTokens ? ` · ${t('domPanel.badge.tokens')}` : ''}{hasNetwork ? ` · ${t('domPanel.badge.requests', { count: requests.length })}` : ''}{summary.truncated ? ` · ${t('domPanel.badge.truncated')}` : ''}
         </span>
         {onRemove && (
@@ -100,11 +100,11 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
       </div>
       {openPanel && (
         <div className="border-t border-accent-secondary/30">
-          <div className="px-3 py-1.5 text-[11px] text-muted-foreground truncate" title={dom.url}>
+          <div className="px-3 py-1.5 text-caption text-muted-foreground truncate" title={dom.url}>
             {dom.url}
           </div>
           <pre
-            className="max-h-64 overflow-auto px-3 pb-3 text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono"
+            className="max-h-64 overflow-auto px-3 pb-3 text-caption leading-relaxed whitespace-pre-wrap break-words font-mono"
             data-testid="captured-dom-html"
           >
             {dom.html ? <HighlightedHtml html={dom.html} /> : t('domPanel.noMarkup')}
@@ -123,7 +123,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
               </button>
               {openCss && (
                 <pre
-                  className="max-h-64 overflow-auto px-3 pb-3 text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono text-accent-success/90"
+                  className="max-h-64 overflow-auto px-3 pb-3 text-caption leading-relaxed whitespace-pre-wrap break-words font-mono text-accent-success/90"
                   data-testid="captured-dom-css"
                 >
                   {dom.css}
@@ -150,7 +150,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                       {tokens.palette.map((c, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 font-mono text-[11px] text-foreground/80"
+                          className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 font-mono text-caption text-foreground/80"
                         >
                           {/* Swatch colour is captured data (not a layout/brand token) → inline style is intentional. */}
                           <span className="inline-block w-3 h-3 rounded-sm border border-border/40" style={{ background: c }} aria-hidden />
@@ -160,7 +160,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                     </div>
                   )}
                   {anchorRows.length > 0 && (
-                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px]">
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-caption">
                       {anchorRows.map(([k, v]) => (
                         <Fragment key={k}>
                           <dt className="text-muted-foreground">{k}</dt>
@@ -170,14 +170,14 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                     </dl>
                   )}
                   {tokens.fonts.length > 0 && (
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-caption text-muted-foreground">
                       {t('domPanel.fonts')} <span className="font-mono text-foreground/80 break-all">{tokens.fonts.join(', ')}</span>
                     </div>
                   )}
                   <button
                     type="button"
                     onClick={copyTokens}
-                    className="text-[11px] text-accent-info hover:underline"
+                    className="text-caption text-accent-info hover:underline"
                   >
                     {copied ? t('domPanel.copied') : t('domPanel.copyJson')}
                   </button>
@@ -200,7 +200,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
               {openNet && (
                 <div className="max-h-64 overflow-auto px-3 pb-3 space-y-1.5" data-testid="captured-dom-network">
                   {requests.map((r, i) => (
-                    <div key={i} className="font-mono text-[11px] leading-snug">
+                    <div key={i} className="font-mono text-caption leading-snug">
                       <div className="flex items-baseline gap-2">
                         <span className="text-accent-highlight shrink-0">{r.method}</span>
                         <span className={`shrink-0 tabular-nums ${r.failed ? 'text-destructive' : (r.status ?? 0) >= 400 ? 'text-accent-warning' : 'text-accent-success/90'}`}>

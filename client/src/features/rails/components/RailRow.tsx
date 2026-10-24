@@ -168,7 +168,7 @@ export function RailRow({
     <span
       data-testid="rail-roles-chip"
       title={t('agents:railSelectors.rolesChipTitle')}
-      className="inline-flex items-center gap-1 h-5 px-1.5 text-[11px] rounded border border-accent-primary/40 bg-accent-primary/10 text-accent-primary whitespace-nowrap"
+      className="inline-flex items-center gap-1 h-5 px-1.5 text-caption rounded border border-accent-primary/40 bg-accent-primary/10 text-accent-primary whitespace-nowrap"
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
@@ -450,7 +450,7 @@ export function RailRow({
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 title={`#${ticket.id} ${ticket.title}`}
-                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-mono font-medium border border-accent-info/30 bg-accent-info/10 text-accent-info hover:bg-accent-info/20 hover:border-accent-info/60 transition-colors"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-caption font-mono font-medium border border-accent-info/30 bg-accent-info/10 text-accent-info hover:bg-accent-info/20 hover:border-accent-info/60 transition-colors"
               >
                 #{ticket.id}
               </button>
@@ -537,7 +537,7 @@ export function RailRow({
 
         {/* Parallel/isolated merge-back progress */}
         {worktreeSummary && (worktreeSummary.merged > 0 || worktreeSummary.needsReview > 0) && (
-          <div className="mt-1 flex items-center gap-2 text-[11px]" data-testid="rail-worktree-summary">
+          <div className="mt-1 flex items-center gap-2 text-caption" data-testid="rail-worktree-summary">
             {worktreeSummary.merged > 0 && (
               <span className="text-accent-success">{t('railControls.worktreesMerged', { count: worktreeSummary.merged })}</span>
             )}
@@ -591,7 +591,7 @@ export function RailRow({
             className="flex flex-col items-center gap-1 text-destructive-foreground"
           >
             <Trash2 className="w-5 h-5" />
-            <span className="text-[11px] font-medium">{t('common:actions.delete')}</span>
+            <span className="text-caption font-medium">{t('common:actions.delete')}</span>
           </button>
         </div>
       )}
@@ -677,7 +677,7 @@ export function RailRow({
               </button>
             )}
             {tickets.length > 0 && (
-              <span className="text-[11px] tabular-nums text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="text-caption tabular-nums text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5 leading-none">
                 {tickets.length}
               </span>
             )}
@@ -709,7 +709,7 @@ export function RailRow({
           )}
           {/* Parallel/isolated merge-back progress */}
           {worktreeSummary && (worktreeSummary.merged > 0 || worktreeSummary.needsReview > 0) && (
-            <div className="px-3 pb-1 flex items-center gap-2 text-[11px]">
+            <div className="px-3 pb-1 flex items-center gap-2 text-caption">
               {worktreeSummary.merged > 0 && (
                 <span className="text-accent-success">{t('railControls.worktreesMerged', { count: worktreeSummary.merged })}</span>
               )}

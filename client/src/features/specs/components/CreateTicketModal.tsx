@@ -194,7 +194,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
                 <span
                   key={label}
                   data-chip=""
-                  className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-[11px] font-medium bg-accent/60 text-foreground/70"
+                  className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-caption font-medium bg-accent/60 text-foreground/70"
                 >
                   {label}
                   <button

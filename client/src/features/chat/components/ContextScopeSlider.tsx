@@ -216,7 +216,7 @@ export function ContextScopeSlider({
           </span>
           {isCustom ? (
             <span
-              className="inline-flex h-5 items-center rounded-full bg-accent-warning/15 px-2 text-[11px] font-semibold text-accent-warning"
+              className="inline-flex h-5 items-center rounded-full bg-accent-warning/15 px-2 text-caption font-semibold text-accent-warning"
               data-chip
               data-testid="scope-custom-pill"
             >

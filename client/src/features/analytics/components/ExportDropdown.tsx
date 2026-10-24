@@ -110,7 +110,7 @@ export function ExportDropdown({ baseUrl, params, label, disabled }: ExportDropd
             >
               <Download className="w-3 h-3 shrink-0" />
               <span className="flex-1">{t(entry.labelKey)}</span>
-              {entry.mode === 'raw' && <span className="text-[11px] text-muted-foreground">≤10k</span>}
+              {entry.mode === 'raw' && <span className="text-caption text-muted-foreground">≤10k</span>}
             </button>
           ))}
         </div>

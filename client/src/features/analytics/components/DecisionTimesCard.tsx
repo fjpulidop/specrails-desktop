@@ -108,7 +108,7 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
 
   const tile = (label: string, stats: DurationStats, testId: string) => (
     <div className="rounded-lg border border-border/40 bg-background/40 p-3" data-testid={testId}>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-caption text-muted-foreground">{label}</p>
       <div className="mt-1 flex items-baseline gap-3">
         <span className="text-2xl font-semibold num tracking-tight">{fmt(stats.medianMs)}</span>
         <span className="text-xs text-muted-foreground">{t('decisionTimes.median')}</span>
@@ -116,7 +116,7 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
       <p className="text-xs text-muted-foreground num">
         {t('decisionTimes.p90')} <span className="text-foreground">{fmt(stats.p90Ms)}</span>
       </p>
-      <p className="mt-2 text-[11px] text-muted-foreground num">
+      <p className="mt-2 text-caption text-muted-foreground num">
         {t('decisionTimes.counts', { measured: stats.measured, pending: stats.pending, unknown: stats.unknown })}
       </p>
     </div>
@@ -127,7 +127,7 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
       <div className="flex items-center gap-2">
         <Timer className="h-4 w-4 text-accent-highlight" aria-hidden="true" />
         <h3 className="text-strong">{t('decisionTimes.title')}</h3>
-        <span className="text-[11px] text-muted-foreground">{t('decisionTimes.subtitle')}</span>
+        <span className="text-caption text-muted-foreground">{t('decisionTimes.subtitle')}</span>
       </div>
       {failed && <p role="status" className="text-xs text-destructive">{t('decisionTimes.unavailable')}</p>}
       {!data && loading && <p role="status" className="text-xs text-muted-foreground">{t('decisionTimes.loading')}</p>}
@@ -164,7 +164,7 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
             </table>
           </div>
         )}
-        <p className="text-[11px] text-muted-foreground">{t('decisionTimes.note')}</p>
+        <p className="text-caption text-muted-foreground">{t('decisionTimes.note')}</p>
       </>}
     </section>
   )

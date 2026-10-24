@@ -198,7 +198,7 @@ export function SpendingHero({ data, loading, period }: Props) {
             )}
             {hasEstimatedCost && (
               <span
-                className="text-[11px] text-muted-foreground italic"
+                className="text-caption text-muted-foreground italic"
                 title={t('hero.includesEstimatedTooltip', { amount: fmtUsd(totalEstimated) })}
               >
                 {t('hero.includesEstimated', { amount: fmtUsd(totalEstimated) })}

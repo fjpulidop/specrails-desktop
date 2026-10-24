@@ -87,7 +87,7 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
   const showConnection = !minimal || connectionStatus !== 'connected' || isSyncing
 
   return (
-    <footer className="h-7 shrink-0 flex items-center justify-between px-4 border-t border-border/30 bg-background text-[11px] text-muted-foreground">
+    <footer className="h-7 shrink-0 flex items-center justify-between px-4 border-t border-border/30 bg-background text-caption text-muted-foreground">
       {/* Connection status */}
       <div className={cn('flex items-center gap-1.5 transition-opacity duration-200', !showConnection && 'opacity-0')} aria-hidden={!showConnection || undefined}>
         <span

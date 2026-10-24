@@ -246,7 +246,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
             type="button"
             onClick={() => setStatusFilter(null)}
             aria-pressed={statusFilter === null}
-            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+            className={`px-2 py-0.5 rounded text-caption font-medium transition-colors ${
               statusFilter === null
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -263,7 +263,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                 type="button"
                 onClick={() => setStatusFilter(statusFilter === s ? null : s)}
                 aria-pressed={statusFilter === s}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                className={`px-2 py-0.5 rounded text-caption font-medium transition-colors ${
                   statusFilter === s
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -280,7 +280,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-6 rounded border border-border bg-input px-1.5 text-[11px] text-foreground"
+            className="h-6 rounded border border-border bg-input px-1.5 text-caption text-foreground"
             title={t('recent.fromDate')}
             aria-label={t('recent.fromDate')}
           />
@@ -288,7 +288,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-6 rounded border border-border bg-input px-1.5 text-[11px] text-foreground"
+            className="h-6 rounded border border-border bg-input px-1.5 text-caption text-foreground"
             title={t('recent.toDate')}
             aria-label={t('recent.toDate')}
           />
@@ -296,7 +296,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
             <button
               type="button"
               onClick={() => { setDateFrom(''); setDateTo('') }}
-              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              className="text-caption text-muted-foreground hover:text-foreground transition-colors"
             >
               {t('recent.clear')}
             </button>
@@ -354,7 +354,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
       )}
 
       {/* Column headers */}
-      <div className="flex items-center gap-3 px-3 py-1 text-[11px] font-medium text-muted-foreground">
+      <div className="flex items-center gap-3 px-3 py-1 text-caption font-medium text-muted-foreground">
         <span className="w-14">{t('recent.colStatus')}</span>
         <span className="flex-1 min-w-0">{t('recent.colCommand')}</span>
         <div className="flex items-center gap-3 shrink-0">
@@ -427,7 +427,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
 
               {/* Priority badge (only for non-normal) */}
               {job.priority && job.priority !== 'normal' && (
-                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium border ${PRIORITY_STYLES[job.priority].className}`}>
+                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-caption font-medium border ${PRIORITY_STYLES[job.priority].className}`}>
                   {t(PRIORITY_STYLES[job.priority].labelKey)}
                 </span>
               )}
@@ -436,7 +436,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
               {job.profile_name && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium border border-accent-primary/40 bg-accent-primary/10 text-accent-primary">
+                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-caption font-medium border border-accent-primary/40 bg-accent-primary/10 text-accent-primary">
                       {job.profile_name}
                     </span>
                   </TooltipTrigger>
@@ -464,7 +464,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
               </div>
 
               {/* Meta */}
-              <div className="flex items-center gap-3 text-[11px] num text-muted-foreground shrink-0">
+              <div className="flex items-center gap-3 text-caption num text-muted-foreground shrink-0">
                 <span className="w-14 text-right" title={t('recent.colDuration')}>{duration ?? '—'}</span>
                 <span className="w-12 text-right" title={t('recent.colTokens')}>{tokens ? `${tokens}` : '—'}</span>
                 <span className="w-12 text-right" title={t('recent.colCost')}>

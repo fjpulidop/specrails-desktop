@@ -55,7 +55,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
         </span>
         <span
           className={cn(
-            'rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide',
+            'rounded-full border px-2 py-0.5 text-caption font-medium uppercase tracking-wide',
             PRIORITY_PILL[draft.priority],
           )}
         >
@@ -73,7 +73,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
             {draft.labels.map((label, i) => (
               <span
                 key={`${i}-${label}`}
-                className="rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-[11px] text-foreground/70"
+                className="rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-caption text-foreground/70"
               >
                 {label}
               </span>

@@ -13,7 +13,7 @@ export function TopRiskLine({ summary, className = '' }: { summary: PrDeliveryRi
   if (!summary || !top) return null
   const total = summary.highCount + summary.mediumCount + summary.lowCount
   return (
-    <div className={`flex min-w-0 items-center gap-1.5 text-[11px] ${className}`} data-testid="top-risk-line" title={top.ref ?? undefined}>
+    <div className={`flex min-w-0 items-center gap-1.5 text-caption ${className}`} data-testid="top-risk-line" title={top.ref ?? undefined}>
       <span className="shrink-0 text-muted-foreground">{t('brief.topRisk')}</span>
       <SeverityChip severity={top.severity} />
       <span className="min-w-0 truncate text-foreground/90">{top.whatToLookAt}</span>

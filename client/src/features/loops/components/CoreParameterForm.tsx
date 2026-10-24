@@ -383,7 +383,7 @@ export function CoreParameterForm({
         </datalist>
       ) : null}
       {typeof schema.description === 'string' && (
-        <span className="text-[11px] text-muted-foreground">{schema.description}</span>
+        <span className="text-caption text-muted-foreground">{schema.description}</span>
       )}
     </label>
   )

@@ -26,7 +26,7 @@ export function MissionModeBadge({ badge, variant, testId }: { badge: Badge; var
       className={cn(
         'inline-flex shrink-0 select-none items-center gap-1.5 rounded-md border font-medium text-foreground/85',
         // A compact pill may stay 11px (strong contrast); text elsewhere is 12px.
-        variant === 'composer' ? 'h-8 px-2 text-xs' : 'h-5 px-1.5 text-[11px]',
+        variant === 'composer' ? 'h-8 px-2 text-xs' : 'h-5 px-1.5 text-caption',
       )}
     >
       {Icon && <Icon className={cn('shrink-0 text-[color:var(--mode-accent)]', variant === 'composer' ? 'h-3.5 w-3.5' : 'h-3 w-3')} aria-hidden />}
@@ -41,7 +41,7 @@ export function MissionModeRowMark({ badge }: { badge: Badge }) {
   const Icon = badge.icon
   return (
     <span className="inline-flex shrink-0 items-center" style={{ color: modeAccent(badge) }} title={badge.description ?? badge.label} data-testid="mission-mode-row-mark">
-      {Icon ? <Icon className="h-3 w-3" aria-hidden /> : <span aria-hidden className="text-[11px] font-medium">{badge.label}</span>}
+      {Icon ? <Icon className="h-3 w-3" aria-hidden /> : <span aria-hidden className="text-caption font-medium">{badge.label}</span>}
       <span className="sr-only">{badge.label}</span>
     </span>
   )

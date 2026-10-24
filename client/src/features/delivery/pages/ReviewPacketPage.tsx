@@ -628,7 +628,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                     {t('versions.label', { version: version.version })}
                   </span>
                   {version.current ? (
-                    <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 text-[11px] text-accent-primary">
+                    <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 text-caption text-accent-primary">
                       {t('versions.current')}
                     </span>
                   ) : null}
@@ -698,9 +698,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               return (
                 <li key={comment.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span data-chip="" className="inline-flex h-5 items-center rounded bg-surface/70 px-1 font-mono text-[11px] text-muted-foreground">{comment.id}</span>
+                    <span data-chip="" className="inline-flex h-5 items-center rounded bg-surface/70 px-1 font-mono text-caption text-muted-foreground">{comment.id}</span>
                     {comment.path ? <span className="font-mono text-xs text-accent-info">{comment.path}{comment.line ? `:${comment.line}` : ''}</span> : null}
-                    <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium ${FOLLOW_UP_PILL[verdictKey]}`} data-testid="packet-follow-up-verdict">
+                    <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-caption font-medium ${FOLLOW_UP_PILL[verdictKey]}`} data-testid="packet-follow-up-verdict">
                       {t(`followUp.verdict.${verdictKey}`)}
                     </span>
                     <span className="text-xs text-muted-foreground">{t(`followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}{comment.author ? ` · ${comment.author}` : ''}</span>
@@ -737,9 +737,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 <li key={entry.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-accent-primary">#{entry.ticketId}</span>
-                    <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border/50 px-1.5 text-[11px] text-muted-foreground">{t(`addenda.kind.${entry.kind}`)}</span>
+                    <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border/50 px-1.5 text-caption text-muted-foreground">{t(`addenda.kind.${entry.kind}`)}</span>
                     <span className="font-medium">{entry.title}</span>
-                    <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium ${pill}`} data-testid="packet-addenda-verdict">
+                    <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-caption font-medium ${pill}`} data-testid="packet-addenda-verdict">
                       {t(`addenda.verdict.${verdictKey}`)}
                     </span>
                   </div>
@@ -770,7 +770,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 <span className="font-medium text-foreground">#{section.ticketId}</span>
                 {section.title ? <span className="text-foreground/80">{section.title}</span> : null}
                 {(() => { const key = outcomeKey(section); return (
-                  <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
+                  <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-caption font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
                     {t(`outcome.${key}`)}
                   </span>
                 ) })()}
@@ -810,7 +810,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         <Section
           title={t('sections.whatTheAgentDid')}
           badge={(
-            <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border bg-background-deep/50 px-2 text-[11px] tabular-nums text-muted-foreground">
+            <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border bg-background-deep/50 px-2 text-caption tabular-nums text-muted-foreground">
               {t('agentActions.total', { count: packet.agentActions.total })}
             </span>
           )}
@@ -822,7 +822,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       <Section
         title={t('sections.howItWasChecked')}
         badge={packet.evidenceUnavailable ? (
-          <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border bg-background-deep/50 px-2 text-[11px] text-muted-foreground">
+          <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border bg-background-deep/50 px-2 text-caption text-muted-foreground">
             {t('proof.evidenceUnavailable')}
           </span>
         ) : undefined}

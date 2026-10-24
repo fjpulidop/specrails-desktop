@@ -167,7 +167,7 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {onBack && <button type="button" onClick={onBack} aria-label={t('backgroundProcess.history.back')} title={t('backgroundProcess.history.back')} className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"><ArrowLeft className="h-4 w-4" aria-hidden /></button>}
           <DialogTitle>{t('backgroundProcess.logsTitle')}</DialogTitle>
-          <span data-testid="background-process-status" data-chip="" className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] ${displayedProcess.status === 'failed' ? 'bg-destructive/10 text-destructive' : finished ? 'bg-muted text-muted-foreground' : 'bg-accent-info/10 text-accent-info'}`}>
+          <span data-testid="background-process-status" data-chip="" className={`inline-flex h-5 items-center rounded-full px-2 text-caption ${displayedProcess.status === 'failed' ? 'bg-destructive/10 text-destructive' : finished ? 'bg-muted text-muted-foreground' : 'bg-accent-info/10 text-accent-info'}`}>
             {t(`backgroundProcess.status.${busy ? 'stopping' : displayedProcess.status}`)}
           </span>
           <span className="font-mono text-xs text-muted-foreground">{elapsed}</span>

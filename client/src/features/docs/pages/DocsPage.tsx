@@ -41,7 +41,7 @@ function DocsSidebar({
               {cat.name}
             </h2>
             {cat.docs.length > 0 && (
-              <span className="text-[11px] font-medium tabular-nums text-muted-foreground bg-muted/40 rounded px-1 py-0.5 leading-none">
+              <span className="text-caption font-medium tabular-nums text-muted-foreground bg-muted/40 rounded px-1 py-0.5 leading-none">
                 {cat.docs.length}
               </span>
             )}

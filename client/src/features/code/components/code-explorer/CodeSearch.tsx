@@ -103,7 +103,7 @@ export function CodeSearch({ projectId, repositoryName, multipleRepositories, ac
       {loading && <p role="status" className="flex items-center gap-2 p-4 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('search.loading')}</p>}
       {failed && <div role="alert" className="space-y-2 p-4 text-xs"><p>{t('search.failed')}</p><button type="button" className="text-accent-primary underline" onClick={() => setRetry(value => value + 1)}>{t('explore.retry')}</button></div>}
       {results && <>
-        <div role="status" className="space-y-1 border-b border-border/50 px-3 py-2 text-[11px] text-muted-foreground">
+        <div role="status" className="space-y-1 border-b border-border/50 px-3 py-2 text-caption text-muted-foreground">
           <p>{t('search.results', { count: results.matches.length })}</p>
           {results.truncated && <p className="text-accent-warning">{t('search.partial')}</p>}
           {results.repositories?.filter(repo => !['ok', 'partial'].includes(repo.status)).map(repo => <p key={repo.repositoryId}>{t('search.repositoryIncomplete', { name: repo.repositoryName })}</p>)}
@@ -111,9 +111,9 @@ export function CodeSearch({ projectId, repositoryName, multipleRepositories, ac
         {results.matches.length === 0 && <p className="p-4 text-xs text-muted-foreground">{t(results.truncated ? 'search.noMatchesPartial' : 'search.noMatches')}</p>}
         <ul className="divide-y divide-border/40">{results.matches.map((match, index) => <li key={`${match.repositoryId}:${match.path}:${match.lineNumber ?? 0}:${index}`}>
           <button type="button" onClick={() => onOpen({ repositoryId: match.repositoryId, path: match.path, line: match.lineNumber })} className="w-full space-y-1 px-3 py-3 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary" title={`${match.repositoryName ?? ''} / ${match.path}`}>
-            {multipleRepositories && <span className="block text-[11px] font-medium text-accent-primary">{match.repositoryName}</span>}
+            {multipleRepositories && <span className="block text-caption font-medium text-accent-primary">{match.repositoryName}</span>}
             <span className="block break-all font-mono text-xs text-foreground">{match.path}{match.lineNumber ? <span className="text-accent-primary">:{match.lineNumber}</span> : null}</span>
-            {match.snippet !== undefined && <span className="block overflow-hidden text-ellipsis whitespace-pre font-mono text-[11px] text-muted-foreground">{match.snippetTruncated ? '… ' : ''}{match.snippet}</span>}
+            {match.snippet !== undefined && <span className="block overflow-hidden text-ellipsis whitespace-pre font-mono text-caption text-muted-foreground">{match.snippetTruncated ? '… ' : ''}{match.snippet}</span>}
           </button>
         </li>)}</ul>
       </>}

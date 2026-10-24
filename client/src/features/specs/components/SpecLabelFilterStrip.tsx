@@ -138,7 +138,7 @@ export function SpecLabelFilterStrip({ tickets, active, onToggle, onClear }: Spe
           type="button"
           onClick={onClear}
           data-testid="spec-label-filter-clear"
-          className="shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-full text-[11px] font-medium border border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+          className="shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-full text-caption font-medium border border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
         >
           <X className="w-2.5 h-2.5" />
           <span>{active.size}</span>
@@ -157,7 +157,7 @@ export function SpecLabelFilterStrip({ tickets, active, onToggle, onClear }: Spe
             aria-pressed={isActive}
             onClick={() => onToggle(label)}
             className={[
-              'shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-full text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1',
+              'shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-full text-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-1',
               cls.base,
               isActive ? cls.active : `${cls.idle} ${cls.hover}`,
               cls.ring,

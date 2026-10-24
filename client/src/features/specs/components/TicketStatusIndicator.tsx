@@ -123,7 +123,7 @@ export function TicketStatusBadge({ status, className }: TicketStatusBadgeProps)
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border',
+        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-medium border',
         status === 'todo' && 'bg-muted border-border text-muted-foreground',
         status === 'in_progress' && 'bg-accent-info/10 border-accent-info/30 text-accent-info',
         status === 'on_review' && 'bg-accent-warning/10 border-accent-warning/30 text-accent-warning',

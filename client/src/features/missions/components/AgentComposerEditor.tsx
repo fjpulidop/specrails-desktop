@@ -218,7 +218,7 @@ function renderContents(document: Document, value: string, references: AgentInli
     pill.setAttribute('contenteditable', 'false')
     pill.dataset.inlineReference = reference.key
     pill.dataset.token = reference.chip.token
-    pill.className = `mx-0.5 inline-flex max-w-[240px] items-center gap-1 align-middle rounded-full border px-2 py-0.5 text-[11px] select-none ${chipTone(reference.chip.kind)}`
+    pill.className = `mx-0.5 inline-flex max-w-[240px] items-center gap-1 align-middle rounded-full border px-2 py-0.5 text-caption select-none ${chipTone(reference.chip.kind)}`
     pill.title = [reference.chip.label, reference.chip.detail, reference.chip.projectName, reference.chip.status].filter(Boolean).join(' · ')
     const glyph = document.createElement('span')
     glyph.textContent = /^[#@/]/.test(reference.chip.token) ? reference.chip.token[0] : '@'

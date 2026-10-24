@@ -30,7 +30,7 @@ function NameChips({ names, testId }: { names: string[]; testId: string }) {
   return (
     <div className="flex flex-wrap gap-1" data-testid={testId}>
       {names.map((name) => (
-        <span key={name} data-chip className="inline-flex h-5 items-center rounded border border-border bg-background px-1.5 font-mono text-[11px] text-muted-foreground">
+        <span key={name} data-chip className="inline-flex h-5 items-center rounded border border-border bg-background px-1.5 font-mono text-caption text-muted-foreground">
           {name}
         </span>
       ))}

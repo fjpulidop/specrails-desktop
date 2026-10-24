@@ -33,7 +33,7 @@ export function FlowRunFailure({
       data-testid="flow-run-failure"
       data-step={step}
       data-returned={returned ? 'true' : 'false'}
-      className={cn('text-[12px]', !embedded && 'mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/[0.06] px-2.5 py-2')}
+      className={cn('text-label', !embedded && 'mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/[0.06] px-2.5 py-2')}
     >
       <p className="flex items-start gap-1.5 font-medium leading-4 text-foreground/90">
         <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />
@@ -62,7 +62,7 @@ export function FlowRunFailure({
         )
       )}
       {technical.length > 0 && (
-        <details className="group mt-1.5 pl-5 text-[12px] leading-4 text-foreground/75" data-testid="flow-run-failure-technical">
+        <details className="group mt-1.5 pl-5 text-label leading-4 text-foreground/75" data-testid="flow-run-failure-technical">
           <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded font-medium text-foreground/75 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 [&::-webkit-details-marker]:hidden">
             <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
             {t('flow.failure.technical.title')}

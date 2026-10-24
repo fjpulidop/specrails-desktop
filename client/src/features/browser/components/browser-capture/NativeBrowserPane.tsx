@@ -471,7 +471,7 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
             aria-hidden
           />
           <span className="truncate">{title || currentUrl}</span>
-          <span data-chip="" className="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-accent-success/30 bg-accent-success/10 text-accent-success px-2 text-[11px] font-medium">
+          <span data-chip="" className="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-accent-success/30 bg-accent-success/10 text-accent-success px-2 text-caption font-medium">
             {t('native.badge')}
           </span>
         </div>

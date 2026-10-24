@@ -363,7 +363,7 @@ function MissionRow({
           data-testid={`mission-queued-${conversation.id}`}
           aria-label={t('mission.queuedBadge', { n: queuedCount })}
           title={t('mission.queuedBadge', { n: queuedCount })}
-          className="shrink-0 rounded-full border border-border/60 bg-surface px-1.5 text-[11px] font-semibold leading-4 text-foreground/60"
+          className="shrink-0 rounded-full border border-border/60 bg-surface px-1.5 text-caption font-semibold leading-4 text-foreground/60"
         >
           {queuedCount}
         </span>

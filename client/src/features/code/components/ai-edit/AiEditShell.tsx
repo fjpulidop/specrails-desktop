@@ -921,9 +921,9 @@ export function PlainComposer({
       </div>
       <div className="flex items-center justify-end text-xs text-muted-foreground/70">
         <span>
-          <kbd data-chip="" className="inline-flex h-5 items-center px-1.5 rounded bg-muted/60 text-[11px] font-mono">{keyboardLabel('⌘⏎')}</kbd> {t('shell.composer.kbdSubmit')}
+          <kbd data-chip="" className="inline-flex h-5 items-center px-1.5 rounded bg-muted/60 text-caption font-mono">{keyboardLabel('⌘⏎')}</kbd> {t('shell.composer.kbdSubmit')}
           <span className="mx-1.5">·</span>
-          <kbd data-chip="" className="inline-flex h-5 items-center px-1.5 rounded bg-muted/60 text-[11px] font-mono">Esc</kbd> {t('shell.composer.kbdCancel')}
+          <kbd data-chip="" className="inline-flex h-5 items-center px-1.5 rounded bg-muted/60 text-caption font-mono">Esc</kbd> {t('shell.composer.kbdCancel')}
         </span>
       </div>
     </div>

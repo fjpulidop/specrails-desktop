@@ -227,7 +227,7 @@ export function AgentConversationHeader() {
       <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
         {project && (
           <>
-            <span className="max-w-[42%] shrink-0 truncate font-mono text-[12px] text-foreground/35" title={project.path}>
+            <span className="max-w-[42%] shrink-0 truncate font-mono text-label text-foreground/35" title={project.path}>
               {project.path}
             </span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/25" aria-hidden />

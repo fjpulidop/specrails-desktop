@@ -76,7 +76,7 @@ export function AgentActivityLogModal({
         >
           <div className="flex items-center gap-2">
             <DialogTitle>{t('activity.title')}</DialogTitle>
-            <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-[11px] text-muted-foreground">
+            <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-caption text-muted-foreground">
               {tools.length}
             </span>
             {streaming && (

@@ -51,7 +51,7 @@ export function AgentRunEventLine({
       )}
     </>
   )
-  const base = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] leading-4'
+  const base = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-label leading-4'
   if (!onActivate) {
     return <div data-testid={testId} {...attributes} className={base}>{body}</div>
   }

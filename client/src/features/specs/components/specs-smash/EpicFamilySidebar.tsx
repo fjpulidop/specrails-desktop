@@ -128,7 +128,7 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
                   {isEpicRow ? (
                     <ArrowUp className="w-3 h-3 text-accent-highlight flex-shrink-0" aria-hidden />
                   ) : (
-                    <span className="text-[11px] tabular-nums text-foreground/70 w-3 text-center flex-shrink-0">
+                    <span className="text-caption tabular-nums text-foreground/70 w-3 text-center flex-shrink-0">
                       {row.execution_order ?? '–'}
                     </span>
                   )}
@@ -138,7 +138,7 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
                   />
                   {row.priority && <span className="sr-only">{t('family.priority', { p: row.priority })}</span>}
                   <span
-                    className={`text-[11px] truncate ${
+                    className={`text-caption truncate ${
                       isCurrent ? 'text-foreground font-medium' : 'text-foreground/80'
                     }`}
                     title={row.title}

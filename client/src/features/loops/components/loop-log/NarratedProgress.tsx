@@ -64,7 +64,7 @@ export function NarratedProgress({
   return (
     <div className={variant === 'glass' ? 'flex h-full flex-col overflow-hidden' : 'flex flex-col'}>
       {/* Honest waiting line: a measured band or nothing at all. */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-border/50 px-3 py-2 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border/50 px-3 py-2 text-caption text-muted-foreground">
         {typeof elapsedMs === 'number' && elapsedMs > 0 ? (
           <span className="inline-flex items-center gap-1">
             <Clock className="size-3" aria-hidden />
@@ -120,7 +120,7 @@ export function NarratedProgress({
                     })
                   : t(milestone.code, { ...milestone.values, defaultValue: milestone.code })}
                 {repeats > 1 ? (
-                  <span className="ml-1.5 text-[11px] opacity-70">{t('repeats', { count: repeats })}</span>
+                  <span className="ml-1.5 text-caption opacity-70">{t('repeats', { count: repeats })}</span>
                 ) : null}
               </span>
             </li>

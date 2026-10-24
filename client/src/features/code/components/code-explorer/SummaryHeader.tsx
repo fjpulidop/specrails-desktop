@@ -55,7 +55,7 @@ export function SummaryHeader({ path, summary, stale, regenerating, generateDisa
             <button
               type="button"
               onClick={onCollapse}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             >
               <ChevronUp className="h-3.5 w-3.5" />
               {t('summary.hide')}
@@ -81,7 +81,7 @@ export function SummaryHeader({ path, summary, stale, regenerating, generateDisa
             {stale && (
               <span
                 className={cn(
-                  'text-[11px] px-1.5 py-0.5 rounded bg-accent-warning/20 text-accent-warning font-medium',
+                  'text-caption px-1.5 py-0.5 rounded bg-accent-warning/20 text-accent-warning font-medium',
                 )}
                 data-testid="summary-stale-badge"
               >
@@ -95,12 +95,12 @@ export function SummaryHeader({ path, summary, stale, regenerating, generateDisa
           <p className="text-sm text-foreground mt-1 whitespace-pre-wrap break-words">{summary.summary}</p>
           {summary.generatedBy?.truncated && <p className="mt-2 text-xs text-accent-warning">{t('reader.summaryPartial', { defaultValue: 'Generated from a partial source snapshot. This summary may not cover the entire file.' })}</p>}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {model && <span className="text-[11px] text-muted-foreground">{t('story.explainedBy', { model })}</span>}
+            {model && <span className="text-caption text-muted-foreground">{t('story.explainedBy', { model })}</span>}
             {typeof triggered === 'number' && (
               <button
                 type="button"
                 onClick={() => openTicketDetail(triggered)}
-                className="text-[11px] px-1.5 py-0.5 rounded bg-accent-success/20 text-accent-success"
+                className="text-caption px-1.5 py-0.5 rounded bg-accent-success/20 text-accent-success"
               >
                 #{triggered}
               </button>
@@ -110,19 +110,19 @@ export function SummaryHeader({ path, summary, stale, regenerating, generateDisa
                 type="button"
                 key={tid}
                 onClick={() => openTicketDetail(tid)}
-                className="text-[11px] px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info"
+                className="text-caption px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info"
               >
                 #{tid}
               </button>
             ))}
-            {ts && <time className="text-[11px] text-muted-foreground" dateTime={summary.generatedAt} title={absoluteDate}>{ts}</time>}
+            {ts && <time className="text-caption text-muted-foreground" dateTime={summary.generatedAt} title={absoluteDate}>{ts}</time>}
           </div>
         </div>
         {onCollapse && (
           <button
             type="button"
             onClick={onCollapse}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           >
             <ChevronUp className="h-3.5 w-3.5" />
             {t('summary.hide')}

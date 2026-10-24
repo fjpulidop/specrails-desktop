@@ -64,7 +64,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
         data-state="error"
         className="rounded-lg border border-border/40 bg-background/40 px-3 py-2"
       >
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-caption text-muted-foreground">
           {t('prerequisites.verifyError')}
         </p>
       </div>
@@ -92,7 +92,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
               size="sm"
               onClick={onRefresh}
               disabled={isLoading}
-              className="h-7 px-2 gap-1.5 text-[11px] flex-shrink-0"
+              className="h-7 px-2 gap-1.5 text-caption flex-shrink-0"
             >
               <RefreshCw className={cn('w-3 h-3', isLoading && 'animate-spin')} />
               {t('common:actions.refresh')}
@@ -134,7 +134,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
                 ? t('prerequisites.bundleCorruptedTitle')
                 : t('prerequisites.toolsRequired', { count: missingCount })}
             </p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-caption text-muted-foreground">
               {allMissingAreCorrupted
                 ? t('prerequisites.reinstallHint')
                 : t('prerequisites.installMissingHint')}
@@ -148,7 +148,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
               variant="ghost"
               size="sm"
               onClick={onMoreInfo}
-              className="h-7 px-2 gap-1.5 text-[11px]"
+              className="h-7 px-2 gap-1.5 text-caption"
               data-testid="prerequisites-more-info"
             >
               {t('prerequisites.moreInfo')}
@@ -161,7 +161,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
               size="sm"
               onClick={onRefresh}
               disabled={isLoading}
-              className="h-7 px-2 gap-1.5 text-[11px]"
+              className="h-7 px-2 gap-1.5 text-caption"
             >
               <RefreshCw className={cn('w-3 h-3', isLoading && 'animate-spin')} />
               {t('common:actions.refresh')}
@@ -191,7 +191,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
               data-bundled={item.bundled ? 'true' : undefined}
               data-corrupted={isCorrupted ? 'true' : undefined}
               className={cn(
-                'flex items-center gap-2 rounded-md border px-2 py-1.5 text-[11px]',
+                'flex items-center gap-2 rounded-md border px-2 py-1.5 text-caption',
                 isCorrupted
                   ? 'border-destructive/40 bg-destructive/10 text-foreground'
                   : ok
@@ -214,14 +214,14 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
               )}
               <span className="font-medium">{item.label}</span>
               {isOptionalTool && (
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-caption text-muted-foreground">
                   {t('prerequisites.optional')}
                 </span>
               )}
               {item.key === 'gh' && item.executable && item.authenticated === false && (
                 <span
                   data-testid="prereq-gh-noauth"
-                  className="inline-flex items-center rounded px-1 py-0.5 text-[11px] font-medium bg-accent-warning/15 text-accent-warning border border-accent-warning/30"
+                  className="inline-flex items-center rounded px-1 py-0.5 text-caption font-medium bg-accent-warning/15 text-accent-warning border border-accent-warning/30"
                 >
                   {t('prerequisites.ghNoAuth')}
                 </span>
@@ -229,7 +229,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
               {isBundledOk && (
                 <span
                   data-testid={`prereq-bundled-badge-${item.key}`}
-                  className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-medium bg-accent-secondary/20 text-accent-secondary border border-accent-secondary/30"
+                  className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-caption font-medium bg-accent-secondary/20 text-accent-secondary border border-accent-secondary/30"
                 >
                   <Package className="w-2.5 h-2.5" />
                   {t('prerequisites.bundledBadge')}

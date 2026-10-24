@@ -1652,9 +1652,9 @@ export default function DashboardPage() {
           viewTier === 'postit' ? (
             <div className="flex flex-col gap-2 rounded-xl border border-accent-info/40 bg-card shadow-xl shadow-black/30 p-3 rotate-1 scale-[1.02] pointer-events-none w-[260px] min-h-[180px]">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[11px] font-mono text-muted-foreground">#{activeTicket.id}</span>
+                <span className="text-caption font-mono text-muted-foreground">#{activeTicket.id}</span>
                 {activeTicket.priority && (
-                  <span className="h-5 px-1.5 rounded-full text-[11px] font-medium bg-muted/40 text-foreground">
+                  <span className="h-5 px-1.5 rounded-full text-caption font-medium bg-muted/40 text-foreground">
                     {activeTicket.priority}
                   </span>
                 )}
@@ -1670,7 +1670,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary/40 bg-card shadow-xl shadow-black/20 rotate-1 scale-[1.03] pointer-events-none">
-              <span className="text-[11px] font-mono text-muted-foreground shrink-0">#{activeTicket.id}</span>
+              <span className="text-caption font-mono text-muted-foreground shrink-0">#{activeTicket.id}</span>
               <span className="flex-1 text-sm truncate max-w-[240px]">{activeTicket.title}</span>
             </div>
           )

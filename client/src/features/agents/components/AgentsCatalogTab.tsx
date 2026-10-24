@@ -618,14 +618,14 @@ export function AgentsCatalogTab() {
           <div className="text-xs font-medium text-muted-foreground mb-1.5">
             {t('catalog.sidebar.title')}
           </div>
-          <div className="text-[11px] text-muted-foreground/70 mb-2">
+          <div className="text-caption text-muted-foreground/70 mb-2">
             {t('catalog.sidebar.createLabel')}
           </div>
           <div className="flex gap-1">
             <Button
               size="sm"
               variant="ghost"
-              className="flex-1 h-7 text-[11px] px-2"
+              className="flex-1 h-7 text-caption px-2"
               onClick={() => setTemplatesOpen(true)}
               title={t('catalog.actions.templateTitle')}
             >
@@ -635,7 +635,7 @@ export function AgentsCatalogTab() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="flex-1 h-7 text-[11px] px-2"
+                className="flex-1 h-7 text-caption px-2"
                 onClick={() => setGenerateOpen(true)}
                 title={t('catalog.actions.generateWithAi')}
               >
@@ -645,7 +645,7 @@ export function AgentsCatalogTab() {
             <Button
               size="sm"
               variant="ghost"
-              className="flex-1 h-7 text-[11px] px-2"
+              className="flex-1 h-7 text-caption px-2"
               onClick={() => setStudio({ kind: 'create' })}
               title={t('catalog.actions.blankTitle')}
             >
@@ -672,7 +672,7 @@ export function AgentsCatalogTab() {
             description={t('catalog.sections.customDescription')}
           >
             {custom.length === 0 ? (
-              <div className="text-[11px] text-muted-foreground px-2 py-2 italic">
+              <div className="text-caption text-muted-foreground px-2 py-2 italic">
                 {t('catalog.sections.noCustomAgents')}
               </div>
             ) : (
@@ -704,7 +704,7 @@ export function AgentsCatalogTab() {
                   <h2 className="text-base font-mono font-semibold">{selected.id}</h2>
                   <KindBadge kind={selected.kind} />
                   {selected.model && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    <span className="text-caption px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                       {t('catalog.detail.defaultModel', { model: selected.model })}
                     </span>
                   )}
@@ -752,12 +752,12 @@ export function AgentsCatalogTab() {
             </div>
             <div className="rounded-md border border-border bg-muted/30 mt-4 min-w-0 overflow-hidden">
               <div className="flex items-center justify-between px-3 py-1.5 border-b border-border">
-                <span className="text-[11px] font-mono text-muted-foreground truncate">
+                <span className="text-caption font-mono text-muted-foreground truncate">
                   {selected.kind === 'upstream'
                     ? t('catalog.detail.runtimeDefinition')
                     : customRoleDisplayPath(activeProvider, selected.id)}
                 </span>
-                <span className="text-[11px] text-muted-foreground flex-shrink-0 ml-2">
+                <span className="text-caption text-muted-foreground flex-shrink-0 ml-2">
                   {selected.kind === 'upstream'
                     ? t('catalog.detail.readOnly')
                     : t('catalog.detail.editableHint')}
@@ -826,7 +826,7 @@ function Section({
           {title}
         </div>
         {description && (
-          <div className="text-[11px] text-muted-foreground/70 mt-0.5">{description}</div>
+          <div className="text-caption text-muted-foreground/70 mt-0.5">{description}</div>
         )}
       </div>
       <div className="space-y-0.5">{children}</div>
@@ -865,7 +865,7 @@ function KindBadge({ kind }: { kind: 'upstream' | 'custom' }) {
   return (
     <span
       className={
-        'text-[11px] px-1.5 py-0.5 rounded flex-shrink-0 ' +
+        'text-caption px-1.5 py-0.5 rounded flex-shrink-0 ' +
         (kind === 'custom'
           ? 'bg-accent-secondary/15 text-accent-secondary'
           : 'bg-muted text-muted-foreground')

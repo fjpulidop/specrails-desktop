@@ -53,7 +53,7 @@ function RecordedDiffInner({ path, jobId }: { path: string; jobId: string }) {
     {state === 'ready' && snapshot && <>
       {snapshot.truncated && <p className="text-accent-warning">{t('reader.patchIncomplete', { defaultValue: 'The stored patch is incomplete. Missing content cannot be reconstructed from this record.' })}</p>}
       {displayTruncated && <p className="text-accent-warning">{t('reader.displayLimited', { defaultValue: 'Preview limited to {{count}} lines or {{chars}} characters. The remaining patch is not shown.', count: MAX_DISPLAY_LINES, chars: MAX_DISPLAY_CHARS })}</p>}
-      <div className="max-h-[32rem] overflow-auto rounded-md border border-border bg-background font-mono text-[11px] leading-5" tabIndex={0} aria-label={t('reader.patch', { defaultValue: 'Recorded patch' })}>
+      <div className="max-h-[32rem] overflow-auto rounded-md border border-border bg-background font-mono text-caption leading-5" tabIndex={0} aria-label={t('reader.patch', { defaultValue: 'Recorded patch' })}>
         {lines.slice(0, MAX_DISPLAY_LINES).map((line, index) => {
           const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line)
           let old: number | null = null; let next: number | null = null

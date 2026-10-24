@@ -42,7 +42,7 @@ export function BackgroundProcessChip({
   }
   return (
     <TooltipProvider delayDuration={150}>
-      <span data-testid="background-process-chip" className={`inline-flex max-w-full items-center rounded-lg border text-[11px] ${accentClass[accentVariant]}`}>
+      <span data-testid="background-process-chip" className={`inline-flex max-w-full items-center rounded-lg border text-caption ${accentClass[accentVariant]}`}>
         <Tooltip>
           <TooltipTrigger asChild>
             <button type="button" onClick={() => onOpen(process)} aria-label={t('backgroundProcess.open', { command: process.command })}

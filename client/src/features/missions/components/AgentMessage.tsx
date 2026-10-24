@@ -338,7 +338,7 @@ function AgentContextInlineChip({ refItem }: { refItem: AgentContextReference })
     <span
       title={title || refItem.token}
       className={cn(
-        'mx-0.5 inline-flex max-w-[16rem] translate-y-[2px] items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4 shadow-sm shadow-black/5',
+        'mx-0.5 inline-flex max-w-[16rem] translate-y-[2px] items-center gap-1 rounded-full border px-2 py-0.5 text-caption font-medium leading-4 shadow-sm shadow-black/5',
         contextTone(refItem.kind),
       )}
       data-agent-context-token={refItem.kind}
@@ -650,7 +650,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
           {body.trim() && <CopyButton text={body} timestampIso={createdAt} />}
           {createdAt && <MessageTime iso={createdAt} />}
           {modeMark && (
-            <span className="inline-flex shrink-0 select-none items-center gap-1 text-[11px] leading-none text-foreground/70" data-testid="agent-message-mode-mark" title={modeMark.description} style={{ '--turn-mode-accent': modeAccent(modeMark) } as CSSProperties}>
+            <span className="inline-flex shrink-0 select-none items-center gap-1 text-caption leading-none text-foreground/70" data-testid="agent-message-mode-mark" title={modeMark.description} style={{ '--turn-mode-accent': modeAccent(modeMark) } as CSSProperties}>
               {modeMark.icon && <modeMark.icon className="h-3 w-3 shrink-0 text-[color:var(--turn-mode-accent)]" aria-hidden />}
               {modeMark.label}
             </span>

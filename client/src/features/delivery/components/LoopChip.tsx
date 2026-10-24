@@ -43,7 +43,7 @@ export function LoopChip({ loopId, loopName, className = '' }: { loopId?: string
       data-loop-id={loopId ?? ''}
       title={t('loopChip.title', { name: label })}
       aria-label={t('loopChip.title', { name: label })}
-      className={`inline-flex min-w-0 max-w-[180px] items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-[11px] text-foreground/70 ${className}`}
+      className={`inline-flex min-w-0 max-w-[180px] items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption text-foreground/70 ${className}`}
     >
       <Icon className="h-3 w-3 shrink-0 text-accent-primary/70" aria-hidden />
       <span className="min-w-0 truncate">{label}</span>

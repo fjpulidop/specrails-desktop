@@ -50,7 +50,7 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-sm truncate">{label}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">{breakdown || '—'}</div>
+                    <div className="text-caption text-muted-foreground truncate">{breakdown || '—'}</div>
                   </div>
                   <div className="text-right num">
                     <div
@@ -68,11 +68,11 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                         : formatUsd(tk.totalCostUsd)}
                     </div>
                     {costPartiallyUnavailable && (
-                      <div className="text-[11px] text-muted-foreground italic">
+                      <div className="text-caption text-muted-foreground italic">
                         {t('topTickets.costPartiallyUnavailable', { count: unpricedCount })}
                       </div>
                     )}
-                    <div className="text-[11px] text-muted-foreground">{t('runs', { count: tk.totalRuns })}</div>
+                    <div className="text-caption text-muted-foreground">{t('runs', { count: tk.totalRuns })}</div>
                   </div>
                 </button>
               </li>

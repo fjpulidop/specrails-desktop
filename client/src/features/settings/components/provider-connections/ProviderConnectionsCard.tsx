@@ -210,7 +210,7 @@ function GroupHeading({ icon, title, hint, count, action }: { icon: ReactNode; t
       <div>
         <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <span className="text-muted-foreground">{icon}</span>{title}
-          <span data-chip className="inline-flex h-5 items-center rounded-full border border-border bg-muted/40 px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">{count}</span>
+          <span data-chip className="inline-flex h-5 items-center rounded-full border border-border bg-muted/40 px-1.5 text-caption font-medium tabular-nums text-muted-foreground">{count}</span>
         </h3>
         <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
       </div>

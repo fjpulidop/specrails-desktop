@@ -297,16 +297,16 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
 
   // ── shared bits ─────────────────────────────────────────────────────────────
   const pillBase = `inline-flex items-center gap-1 rounded-full font-medium border ${
-    compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
+    compact ? 'px-2 py-1 text-caption' : 'px-2.5 py-1 text-xs'
   }`
   const primaryBtn = `inline-flex items-center gap-1 rounded-md font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-    compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
+    compact ? 'px-2 py-1 text-caption' : 'px-2.5 py-1 text-xs'
   }`
   const secondaryBtn = `inline-flex items-center gap-1 rounded-md font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-    compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
+    compact ? 'px-2 py-1 text-caption' : 'px-2.5 py-1 text-xs'
   }`
   const ghostBtn = `inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-    compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
+    compact ? 'px-2 py-1 text-caption' : 'px-2.5 py-1 text-xs'
   }`
   const iconCls = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
   const spinner = <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
@@ -325,7 +325,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       title={t('railPr.openPrTitle')}
       onClick={(e) => e.stopPropagation()}
       className={`inline-flex items-center gap-1 rounded-md font-mono border border-accent-info/30 bg-accent-info/10 text-accent-info hover:bg-accent-info/20 hover:border-accent-info/60 transition-colors ${
-        compact ? 'px-1 py-0.5 text-[11px]' : 'px-1.5 py-0.5 text-[11px]'
+        compact ? 'px-1 py-0.5 text-caption' : 'px-1.5 py-0.5 text-caption'
       }`}
     >
       {decision.prNumber != null ? `#${decision.prNumber}` : t('railPr.prLinkFallback')}
@@ -336,7 +336,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     <span
       data-testid="rail-pr-branch"
       className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-md font-mono border border-border/60 bg-surface/60 text-foreground/70 ${
-        compact ? 'px-1 py-0.5 text-[11px]' : 'px-1.5 py-0.5 text-[11px]'
+        compact ? 'px-1 py-0.5 text-caption' : 'px-1.5 py-0.5 text-caption'
       }`}
     >
       <span className="truncate">{decision.branch}</span>
@@ -368,7 +368,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       title={t('railPr.mergeLocalTooltip', { base: decision.baseBranch })}
       onClick={(e) => { e.stopPropagation(); openConfirmation('merge-local') }}
       className={`inline-flex items-center gap-1 rounded-md font-medium border border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-        compact ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-0.5 text-[11px]'
+        compact ? 'px-1.5 py-0.5 text-caption' : 'px-2 py-0.5 text-caption'
       }`}
     >
       {inFlight === 'merge-local' ? spinner : <GitMerge className={iconCls} aria-hidden />}
@@ -407,7 +407,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       title={t('railPr.openReviewTooltip')}
       onClick={(e) => { e.stopPropagation(); navigate(`/review/${decision.prDeliveryId}`) }}
       className={`inline-flex items-center gap-1 rounded-md font-medium border border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors ${
-        compact ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-0.5 text-[11px]'
+        compact ? 'px-1.5 py-0.5 text-caption' : 'px-2 py-0.5 text-caption'
       }`}
     >
       <Eye className={iconCls} aria-hidden />
@@ -424,7 +424,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       title={t('railPr.checkoutTooltip', { branch: checkoutBranch })}
       onClick={(e) => { e.stopPropagation(); void runCheckout() }}
       className={`inline-flex items-center gap-1 rounded-md font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-        compact ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-0.5 text-[11px]'
+        compact ? 'px-1.5 py-0.5 text-caption' : 'px-2 py-0.5 text-caption'
       }`}
     >
       {checkingOut ? spinner : <GitBranch className={iconCls} aria-hidden />}
@@ -469,7 +469,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       aria-label={t('railPr.viewRunLog', { ref: decision.ticketIds[index] != null ? `#${decision.ticketIds[index]}` : runId.slice(0, 8) })}
       onClick={(event) => { event.stopPropagation(); navigate(`/jobs/${runId}`) }}
       className={`inline-flex items-center gap-1 rounded-md border border-accent-info/30 bg-accent-info/10 font-medium text-accent-info transition-colors hover:border-accent-info/55 hover:bg-accent-info/15 ${
-        compact ? 'px-1 py-0.5 text-[11px]' : 'px-1.5 py-0.5 text-[11px]'
+        compact ? 'px-1 py-0.5 text-caption' : 'px-1.5 py-0.5 text-caption'
       }`}
     >
       <ScrollText className={iconCls} aria-hidden />
@@ -822,7 +822,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       {(recoveredInterruptedOperation || presentation.recoveryUnavailable ||
         (!interruptedOperationDetail && decision.statusDetail && !presentation.recoveryUnavailable) ||
         presentation.cleanupWarnings.length > 0) && (
-        <div className={`basis-full rounded-md border border-accent-warning/30 bg-accent-warning/10 text-accent-warning ${compact ? 'px-1.5 py-1 text-[11px]' : 'px-2 py-1.5 text-[11px]'}`} data-testid="rail-pr-delivery-detail">
+        <div className={`basis-full rounded-md border border-accent-warning/30 bg-accent-warning/10 text-accent-warning ${compact ? 'px-1.5 py-1 text-caption' : 'px-2 py-1.5 text-caption'}`} data-testid="rail-pr-delivery-detail">
           {recoveredInterruptedOperation && (
             <p className="flex items-start gap-1.5" data-testid="rail-pr-recovery-interrupted">
               <RotateCcw className={`${iconCls} mt-px shrink-0`} aria-hidden />
@@ -852,7 +852,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
 
       {presentation.safetyArchives.length > 0 && (
         <details
-          className={`basis-full rounded-md border border-accent-info/25 bg-accent-info/5 text-foreground/65 ${compact ? 'px-1.5 py-1 text-[11px]' : 'px-2 py-1.5 text-[11px]'}`}
+          className={`basis-full rounded-md border border-accent-info/25 bg-accent-info/5 text-foreground/65 ${compact ? 'px-1.5 py-1 text-caption' : 'px-2 py-1.5 text-caption'}`}
           data-testid="rail-pr-safety-archives"
         >
           <summary className="cursor-pointer font-medium text-accent-info">

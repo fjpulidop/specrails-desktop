@@ -290,7 +290,7 @@ export function LoopStepExplorer({
           <ChevronsDownUp className="w-3.5 h-3.5" />
         </Button>
         {mode === 'follow' && isJobRunning && (
-          <span className="flex items-center gap-1.5 text-[11px] text-accent-primary shrink-0">
+          <span className="flex items-center gap-1.5 text-caption text-accent-primary shrink-0">
             <PulseDot />
             {t('loopExplorer.follow')}
           </span>
@@ -305,7 +305,7 @@ export function LoopStepExplorer({
         >
           <Copy className="w-3.5 h-3.5" />
         </Button>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-caption text-muted-foreground">
           {t('logViewer.lineCount', { filtered: filteredCount, total: model.totalLines })}
         </span>
       </div>
@@ -360,7 +360,7 @@ export function LoopStepExplorer({
         {waiting && (
           <div
             data-testid="loop-waiting-row"
-            className="mt-3 flex items-center gap-2 px-3 py-2 text-[11px] text-muted-foreground italic"
+            className="mt-3 flex items-center gap-2 px-3 py-2 text-caption text-muted-foreground italic"
           >
             <PulseDot />
             {t('loopExplorer.waiting')}
@@ -374,7 +374,7 @@ export function LoopStepExplorer({
           type="button"
           data-testid="resume-follow-pill"
           onClick={resumeFollow}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full glass-card border border-accent-primary/30 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-lg hover:border-accent-primary/60 transition-colors cursor-pointer u-enter"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full glass-card border border-accent-primary/30 px-3 py-1.5 text-caption font-medium text-foreground shadow-lg hover:border-accent-primary/60 transition-colors cursor-pointer u-enter"
         >
           <PulseDot />
           {t('loopExplorer.resumeFollow')}

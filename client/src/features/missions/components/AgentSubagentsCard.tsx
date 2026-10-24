@@ -134,11 +134,11 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
           <span className={cn('min-w-0 flex-1 truncate text-[12.5px]', live ? 'text-foreground' : 'text-foreground/75')}>{node.description}</span>
           <span className="sr-only">{phaseLabel}{reason ? ` — ${reason}` : ''}</span>
           {node.delegated ? (
-            <span className="shrink-0 rounded-full border border-accent-primary/30 bg-accent-primary/[0.06] px-1.5 py-0.5 text-[11px] text-accent-primary/80"
+            <span className="shrink-0 rounded-full border border-accent-primary/30 bg-accent-primary/[0.06] px-1.5 py-0.5 text-caption text-accent-primary/80"
               title={t('subagents.delegatedHint', { provider: providerLabel(node.delegated.driver), model: node.delegated.model })} data-testid="agent-subagent-delegated">
               {providerLabel(node.delegated.driver)} · {node.delegated.model}
             </span>
-          ) : node.agentType && !shell && <span className="hidden shrink-0 rounded-full border border-border/50 px-1.5 py-0.5 text-[11px] text-foreground/70 sm:inline">{node.agentType}</span>}
+          ) : node.agentType && !shell && <span className="hidden shrink-0 rounded-full border border-border/50 px-1.5 py-0.5 text-caption text-foreground/70 sm:inline">{node.agentType}</span>}
           <span className="shrink-0 font-mono text-xs tabular-nums text-foreground/65" aria-label={t('subagents.elapsedAria', { elapsed })}>{elapsed}</span>
         </button>
         {live && (
@@ -149,7 +149,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
         )}
         {isInterruptedSubagent(node) && !shell && (
           <button type="button" onClick={() => onRelaunch(node)} title={t('subagents.relaunchHint')}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 px-1.5 py-0.5 text-[11px] text-foreground/70 transition-colors hover:border-accent-primary/50 hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 px-1.5 py-0.5 text-caption text-foreground/70 transition-colors hover:border-accent-primary/50 hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
             <RotateCcw className="h-3 w-3" aria-hidden />{t('subagents.relaunch')}
           </button>
         )}
@@ -202,7 +202,7 @@ const RESULT_MARKDOWN_COMPONENTS = {
 function SubagentResultMarkdown({ text }: { text: string }) {
   return (
     <div className={cn(
-      'prose prose-invert prose-sm max-w-none text-[12px] leading-relaxed text-foreground/80',
+      'prose prose-invert prose-sm max-w-none text-label leading-relaxed text-foreground/80',
       'prose-p:my-1 prose-headings:mb-1 prose-headings:mt-2 prose-headings:text-[12.5px] prose-headings:font-semibold',
       'prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-li:marker:text-accent-primary/70',
       'prose-pre:my-1.5 prose-pre:rounded-md prose-pre:border prose-pre:border-border/50 prose-pre:bg-background-deep/60 prose-pre:text-xs',

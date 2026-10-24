@@ -99,7 +99,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
           </h4>
           <ul className="space-y-0.5">
             {blueprint.assumptions.map((a, i) => (
-              <li key={i} className="text-[11px] text-muted-foreground before:mr-1.5 before:content-['·']">
+              <li key={i} className="text-caption text-muted-foreground before:mr-1.5 before:content-['·']">
                 {a}
               </li>
             ))}
@@ -114,7 +114,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
             {t('panel.m1Specs', { count: blueprint.m1Specs.length })}
             <span
               className={cn(
-                'ml-auto rounded-full border px-1.5 py-px text-[11px] font-medium',
+                'ml-auto rounded-full border px-1.5 py-px text-caption font-medium',
                 blueprint.specsComplete
                   ? 'border-accent-success/35 bg-accent-success/10 text-accent-success'
                   : 'border-accent-warning/35 bg-accent-warning/10 text-accent-warning',
@@ -141,7 +141,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                     <p className="text-xs font-medium leading-tight">{spec.title}</p>
                     {spec.shortSummary.trim() && (
                       <p
-                        className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground"
+                        className="mt-1 line-clamp-2 text-caption leading-4 text-muted-foreground"
                         data-testid={`m1-spec-summary-${i}`}
                       >
                         {spec.shortSummary}
@@ -150,7 +150,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
                       <span
                         className={cn(
-                          'rounded-full border px-1.5 py-px text-[11px] font-medium uppercase tracking-wide',
+                          'rounded-full border px-1.5 py-px text-caption font-medium uppercase tracking-wide',
                           PRIORITY_PILL[spec.priority],
                         )}
                         data-testid={`m1-spec-priority-${i}`}
@@ -162,7 +162,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                         // spec yet — never "0 acceptance criteria" (that reads as a defect).
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[11px]',
+                            'inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-caption',
                             snapshot?.status === 'generating'
                               ? 'border-accent-info/35 bg-accent-info/10 text-accent-info'
                               : 'border-border/50 bg-surface/70 text-muted-foreground',
@@ -176,7 +176,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                         </span>
                       ) : (
                         <span
-                          className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-surface/70 px-1.5 py-px text-[11px] text-muted-foreground"
+                          className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-surface/70 px-1.5 py-px text-caption text-muted-foreground"
                           data-testid={`m1-spec-criteria-count-${i}`}
                         >
                           <ListChecks className="h-2.5 w-2.5" aria-hidden />
@@ -184,12 +184,12 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                         </span>
                       )}
                       {spec.labels.map((label) => (
-                        <span key={label} className="rounded bg-accent-primary/10 px-1.5 py-px text-[11px] text-accent-primary">
+                        <span key={label} className="rounded bg-accent-primary/10 px-1.5 py-px text-caption text-accent-primary">
                           {label}
                         </span>
                       ))}
                       {spec.dependsOnIndex !== undefined && (
-                        <span className="rounded bg-muted px-1.5 py-px text-[11px] text-muted-foreground">
+                        <span className="rounded bg-muted px-1.5 py-px text-caption text-muted-foreground">
                           {t('panel.dependsOn', { index: spec.dependsOnIndex + 1 })}
                         </span>
                       )}
@@ -209,9 +209,9 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
           </h4>
           {blueprint.milestones.slice(1).map((m) => (
             <div key={m.id || m.title} className="rounded-md border border-border/20 px-2.5 py-1.5">
-              <p className="text-[11px] font-medium">{m.title}</p>
+              <p className="text-caption font-medium">{m.title}</p>
               {m.plannedSpecs.length > 0 && (
-                <p className="text-[11px] text-muted-foreground">{m.plannedSpecs.join(' · ')}</p>
+                <p className="text-caption text-muted-foreground">{m.plannedSpecs.join(' · ')}</p>
               )}
             </div>
           ))}
@@ -219,7 +219,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
       )}
 
       {!blueprint && (
-        <p className="text-[11px] italic text-muted-foreground">{t('panel.empty')}</p>
+        <p className="text-caption italic text-muted-foreground">{t('panel.empty')}</p>
       )}
 
       {blueprint && selectedSpec !== null && blueprint.m1Specs[selectedSpec] && (

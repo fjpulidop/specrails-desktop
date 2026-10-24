@@ -557,7 +557,7 @@ export const RichAttachmentEditor = forwardRef<RichAttachmentEditorHandle, RichA
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between mt-2 text-caption text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <button
               type="button"

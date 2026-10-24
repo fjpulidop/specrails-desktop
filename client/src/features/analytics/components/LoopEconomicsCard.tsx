@@ -126,10 +126,10 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
       <span className="inline-flex flex-col items-end leading-tight">
         <CostValue usd={group.cost.avgCostUsd} estimated={share !== null && share > 0} />
         {share !== null && share > 0 && (
-          <span className="text-[11px] text-accent-warning">{t('loopEconomics.estimatedShare', { share: fmtPercent(share) })}</span>
+          <span className="text-caption text-accent-warning">{t('loopEconomics.estimatedShare', { share: fmtPercent(share) })}</span>
         )}
         {group.cost.unpricedDeliveries > 0 && (
-          <span className="text-[11px] text-muted-foreground">{t('loopEconomics.unpriced', { count: group.cost.unpricedDeliveries })}</span>
+          <span className="text-caption text-muted-foreground">{t('loopEconomics.unpriced', { count: group.cost.unpricedDeliveries })}</span>
         )}
       </span>
     )
@@ -166,7 +166,7 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
       <div className="flex items-center gap-2">
         <Scale className="h-4 w-4 text-accent-highlight" aria-hidden="true" />
         <h3 className="text-strong">{t('loopEconomics.title')}</h3>
-        <span className="text-[11px] text-muted-foreground">{t('loopEconomics.subtitle')}</span>
+        <span className="text-caption text-muted-foreground">{t('loopEconomics.subtitle')}</span>
       </div>
       {failed && <p role="status" className="text-xs text-destructive">{t('loopEconomics.unavailable')}</p>}
       {!data && loading && <p role="status" className="text-xs text-muted-foreground">{t('loopEconomics.loading')}</p>}

@@ -544,7 +544,7 @@ export default function JobDetailPage() {
                   onClick={() => setNarrationMode(mode)}
                   aria-pressed={narrationMode === mode}
                   data-testid={`job-narration-mode-${mode}`}
-                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                  className={`rounded-md px-2 py-0.5 text-caption font-medium transition-colors ${
                     narrationMode === mode
                       ? 'bg-accent-primary/15 text-accent-primary'
                       : 'text-muted-foreground hover:bg-surface'

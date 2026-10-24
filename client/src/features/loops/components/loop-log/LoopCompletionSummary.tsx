@@ -30,9 +30,9 @@ function HostBlockerBlock({ blocker }: { blocker: LoopHostBlocker }) {
         <button type="button" onClick={() => void copy()} aria-label={t('core.copyCommand')} title={t('core.copyCommand')} className="p-0.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
           {copied ? <Check className="h-2.5 w-2.5 text-accent-success" /> : <Copy className="h-2.5 w-2.5" />}
         </button>
-        {copied && <span className="text-[11px] text-accent-success">{t('core.copiedCommand')}</span>}
+        {copied && <span className="text-caption text-accent-success">{t('core.copiedCommand')}</span>}
       </div>
-      <pre className="mt-0.5 font-mono text-[11px] leading-relaxed text-foreground/80 whitespace-pre-wrap break-words">{command}{blocker.cwd ? `  # ${t('core.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
+      <pre className="mt-0.5 font-mono text-caption leading-relaxed text-foreground/80 whitespace-pre-wrap break-words">{command}{blocker.cwd ? `  # ${t('core.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
     </div>}
     <p><span className="font-medium">{t('core.requiredAction')}:</span> {blocker.requiredAction}</p>
   </div>

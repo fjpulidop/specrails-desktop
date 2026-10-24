@@ -99,7 +99,7 @@ export function AttachmentsSection({ ticketKey, attachments, onChange, className
     <section className={cn('mt-4', className)} aria-label={t('section.ariaLabel')}>
       <header className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('section.title')}</h3>
-        <span className="text-[11px] text-muted-foreground">{t('section.fileCount', { count: sorted.length })}</span>
+        <span className="text-caption text-muted-foreground">{t('section.fileCount', { count: sorted.length })}</span>
       </header>
       <ul className="flex flex-col gap-1">
         {sorted.map((a) => {
@@ -119,14 +119,14 @@ export function AttachmentsSection({ ticketKey, attachments, onChange, className
                 className="flex-1 min-w-0 flex flex-col text-sm text-left hover:text-primary transition-colors"
               >
                 <span className="font-medium truncate text-foreground">{a.filename}</span>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-caption text-muted-foreground">
                   {formatBytes(a.size)} · {formatDate(a.addedAt)}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => setPreviewing(a)}
-                className="text-[11px] text-primary hover:underline shrink-0"
+                className="text-caption text-primary hover:underline shrink-0"
               >
                 {t('common:actions.open')}
               </button>

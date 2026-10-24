@@ -64,7 +64,7 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-baseline justify-between mb-3">
         <div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-caption text-muted-foreground">
             {t('providerCard.title')}
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">
@@ -129,7 +129,7 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
     <div className="flex items-center gap-2.5 rounded-md border border-border/30 px-2.5 py-1.5">
       <span className={`w-2 h-2 rounded-full shrink-0 ${providerAccent(entry.provider)}`} />
       <span className="text-xs font-medium">{providerLabel(entry.provider)}</span>
-      <span className="text-[11px] text-muted-foreground num">
+      <span className="text-caption text-muted-foreground num">
         {t('runs', { count: entry.count })}
       </span>
       {costUnavailable ? (

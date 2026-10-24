@@ -112,7 +112,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-strong">{t('scatter.title')}</h2>
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        <div className="flex flex-wrap items-center gap-2 text-caption">
           {datasets.filter((d) => d.points.length > 0).map((d) => (
             <span key={d.surface} className="inline-flex items-center gap-1">
               <LegendGlyph surface={d.surface} />
@@ -124,7 +124,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
       {truncated && !isEmpty && (
         <div
           data-testid="scatter-truncation-notice"
-          className="mb-2 text-[11px] text-accent-warning"
+          className="mb-2 text-caption text-accent-warning"
         >
           {t('scatter.truncated', { shown: data.scatter.length, total: scatterTotal })}
         </div>
@@ -132,7 +132,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
       {costPartiallyUnavailable && (
         <div
           data-testid="scatter-cost-partial-notice"
-          className="mb-2 text-[11px] text-muted-foreground/80 italic"
+          className="mb-2 text-caption text-muted-foreground/80 italic"
         >
           {t('scatter.costPartiallyUnavailable', { count: unpricedRuns })}
         </div>

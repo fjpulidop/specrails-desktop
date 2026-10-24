@@ -76,7 +76,7 @@ export function MinimizedChatsDock({
         </div>
       ))}
       {ordered.length > 1 && (
-        <div className="pointer-events-auto self-end inline-flex items-center gap-1 rounded-full bg-card/80 border border-border/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+        <div className="pointer-events-auto self-end inline-flex items-center gap-1 rounded-full bg-card/80 border border-border/40 px-2 py-0.5 text-caption text-muted-foreground">
           <ChevronUp className="w-3 h-3" />
           {t('dock.minimizedCount', { count: ordered.length })}
         </div>

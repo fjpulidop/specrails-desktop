@@ -60,7 +60,7 @@ export function AgentSystemBriefing({ content, contextRefs }: { content: string;
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-surface/50 px-2.5 py-1 text-[11px] text-foreground/60 transition-colors hover:border-accent-primary/40 hover:text-foreground/80',
+          'inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-surface/50 px-2.5 py-1 text-caption text-foreground/60 transition-colors hover:border-accent-primary/40 hover:text-foreground/80',
         )}
       >
         <Sparkles className="h-3 w-3 text-accent-primary/70" aria-hidden />

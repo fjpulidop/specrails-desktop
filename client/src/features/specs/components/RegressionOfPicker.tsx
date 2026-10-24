@@ -75,7 +75,7 @@ export function RegressionOfPicker({ value, onChange, disabled }: Props) {
           <option key={delivery.id} value={delivery.id}>{optionLabel(delivery)}</option>
         ))}
       </select>
-      <span className="text-[11px] text-muted-foreground mt-0.5 block">
+      <span className="text-caption text-muted-foreground mt-0.5 block">
         {state.error ? t('regressionOf.unavailable') : !state.loading && state.deliveries.length === 0 ? t('regressionOf.empty') : t('regressionOf.hint')}
       </span>
     </div>
