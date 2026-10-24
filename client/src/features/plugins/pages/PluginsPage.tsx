@@ -252,7 +252,7 @@ function formatTokenCount(value: number, locale: string, tokenLabel: string): st
   return `${formatCompactNumber(value, locale)} ${tokenLabel}`
 }
 
-export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () => void } = {}) {
+export default function PluginsPage({ onWindowOpened, inDialog = false }: { onWindowOpened?: () => void; inDialog?: boolean } = {}) {
   const { t } = useTranslation('integrations')
   const { projects } = useDesktop()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
@@ -434,9 +434,9 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <div className="border-b border-border px-6 py-4">
+      <div className="border-b border-border px-4 py-4">
         <PageHeader
-          icon={<Puzzle />}
+          titleHidden={inDialog}
           title={t('plugins.page.title')}
           description={t('plugins.page.subtitle')}
           actions={<>
@@ -503,7 +503,7 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto px-6 py-5">
+      <div className="flex-1 overflow-auto px-4 py-5">
         <section className="mb-6">
           <h2 className="mb-3 flex items-center gap-2 text-strong">
             <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />

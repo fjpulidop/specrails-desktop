@@ -11,6 +11,7 @@ import { Switch } from '../../../components/ui/switch'
 import { Input } from '../../../components/ui/input'
 import { Badge, type BadgeProps } from '../../../components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 // ─── Project settings sections ────────────────────────────────────────────────
 // Self-contained cards (own fetch + save against the ACTIVE project's API base)
@@ -28,7 +29,7 @@ interface ProjectSettingsPayload {
 /** Skeleton shown until a section's GET settles — fields never flash empty and
  *  a late response can never clobber what the user already typed. */
 function SectionSkeleton() {
-  return <div className="h-32 animate-pulse rounded-lg bg-muted/30" data-testid="section-skeleton" />
+  return <Skeleton className="h-32 rounded-lg" data-testid="section-skeleton" />
 }
 
 /** Pipeline telemetry toggle (Super mode only — enforced by callers). */

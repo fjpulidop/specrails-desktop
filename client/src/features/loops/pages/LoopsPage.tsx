@@ -50,9 +50,11 @@ export interface LoopsPageProps {
    *  the main application. */
   onOpenBuilder?: (id: string) => void
   onWindowOpened?: () => void
+  /** Shown inside a dialog that already titles itself. */
+  inDialog?: boolean
 }
 
-export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPageProps = {}) {
+export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = false }: LoopsPageProps = {}) {
   const { t } = useTranslation('loops')
   const navigate = useNavigate()
   // Template / built-in name+description are authored in English on the server;
@@ -285,11 +287,11 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Header */}
         <PageHeader
           className="mb-6"
-          icon={<Workflow />}
+          titleHidden={inDialog}
           title={t('title')}
           description={t('subtitle')}
           actions={<>

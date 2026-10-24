@@ -12,6 +12,7 @@ import { Switch } from '../../../components/ui/switch'
 import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
 import { providerLabel, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
 import { modelsForProvider, defaultModelForProvider } from '../../loops/lib/loop-run-models'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 // ─── "Allow sub-agents" ───────────────────────────────────────────────────────
 // Off by default. A project's setting applies to its conversational agents
@@ -208,7 +209,7 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
 function SubagentsCard({ scope, state }: { scope: 'project' | 'global'; state: SubagentSettingsState }) {
   const { t } = useTranslation('settings')
   const { enabled, runtime, loaded, saving } = state
-  if (!loaded) return <div className="h-40 animate-pulse rounded-lg bg-muted/30" data-testid="section-skeleton" />
+  if (!loaded) return <Skeleton className="h-40 rounded-lg" data-testid="section-skeleton" />
   const label = t(`subagents.${scope}.toggleLabel`)
   return (
     <Card data-testid={`subagents-settings-${scope}`}>

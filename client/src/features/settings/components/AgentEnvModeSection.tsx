@@ -5,6 +5,7 @@ import { ShieldCheck, Unplug } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 // ─── Agent environment mode (inherit | minimal) ───────────────────────────────
 // `inherit` (default) forwards the Desktop environment to agents unchanged.
@@ -97,7 +98,7 @@ export function ProjectAgentEnvModeSection() {
     }
   }
 
-  if (!loaded) return <div className="h-32 animate-pulse rounded-lg bg-muted/30" data-testid="section-skeleton" />
+  if (!loaded) return <Skeleton className="h-32 rounded-lg" data-testid="section-skeleton" />
 
   return (
     <Card>

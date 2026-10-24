@@ -7,6 +7,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
 import { Switch as UiSwitch } from '../../../components/ui/switch'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 // ─── Anchoring in existing projects (feedback-2026-10 phase 3 / task 4.4) ────
 // Each surface gates on the active Core's capability: without it the toggle is
@@ -86,7 +87,7 @@ export function ProjectAnchoringSection() {
     }
   }
 
-  if (!loaded || !capabilities) return <div className="h-32 animate-pulse rounded-lg bg-muted/30" data-testid="section-skeleton" />
+  if (!loaded || !capabilities) return <Skeleton className="h-32 rounded-lg" data-testid="section-skeleton" />
 
   const rows: Array<{ key: AnchoringKey; supported: boolean }> = [
     { key: 'jiraPostClarifications', supported: capabilities.architectClarifications },
@@ -215,7 +216,7 @@ export function ProjectRulesSection() {
     return STATUS_ORDER.map((status) => ({ status, rules: data.inventory.rules.filter((rule) => rule.status === status) })).filter((group) => group.rules.length > 0)
   }, [data])
 
-  if (!data) return <div className="h-32 animate-pulse rounded-lg bg-muted/30" data-testid="section-skeleton" />
+  if (!data) return <Skeleton className="h-32 rounded-lg" data-testid="section-skeleton" />
 
   const busy = running || data.running
   const generatedAt = data.state === 'ok' && data.inventory.generatedAt ? new Date(data.inventory.generatedAt) : null

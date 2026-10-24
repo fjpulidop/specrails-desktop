@@ -547,7 +547,7 @@ function DesktopApp() {
           <DialogBody className="p-0 overflow-auto">
             <Suspense fallback={null}>
               {loopBuilderId ? <LoopBuilderPage loopId={loopBuilderId} onExit={() => setLoopBuilderId(null)} onWindowOpened={closeLoops} />
-                : <LoopsPage onOpenBuilder={setLoopBuilderId} onWindowOpened={closeLoops} />}
+                : <LoopsPage onOpenBuilder={setLoopBuilderId} onWindowOpened={closeLoops} inDialog />}
             </Suspense>
           </DialogBody>
         </DialogContent>
@@ -556,7 +556,7 @@ function DesktopApp() {
         <DialogContent size="fullscreen" data-testid="plugins-modal">
           <GlobalSurfaceDialogHeader surface="plugins" />
           <DialogBody className="p-0 overflow-auto">
-            <Suspense fallback={null}><PluginsPage onWindowOpened={() => setPluginsOpen(false)} /></Suspense>
+            <Suspense fallback={null}><PluginsPage onWindowOpened={() => setPluginsOpen(false)} inDialog /></Suspense>
           </DialogBody>
         </DialogContent>
       </Dialog>
