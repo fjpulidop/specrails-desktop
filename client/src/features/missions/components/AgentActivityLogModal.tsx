@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Check, Copy, Loader2, ScrollText, TerminalSquare, X } from 'lucide-react'
+import { Check, Copy, Loader2, ScrollText, TerminalSquare } from 'lucide-react'
 import { cn } from '../../../lib/utils'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import type { AgentLiveTool } from '../context/AgentChatContext'
 import { toolChipLabel } from './AgentActivityChip'
 
@@ -12,11 +12,10 @@ import { toolChipLabel } from './AgentActivityChip'
  * the current (or last settled) turn, with bounded input/output previews and
  * job-log-style copy affordances (copy-all + per-entry copy).
  *
- * Hand-rolled portal modal (NOT ui/dialog): it must layer ABOVE the floating
- * agent panel, and Radix `DialogContent` is pinned at z-50 (< the panel's
- * z-[60]). Same pattern + tier as LoopPreviewModal / JobDetailModal: portal to
- * `document.body` at z-[65] — above the panel (z-[60]/z-[61]), below the
- * MinimizedChatsDock (z-[70]).
+ * Modal standard (docs/internals/modal-standard.md): a Radix dialog on the
+ * `entity` layer (65) — above the floating agent panel (60/61) it opens from,
+ * below the minimized chats dock (75). Radix owns Escape stacking, the focus
+ * trap and focus return.
  */
 export function AgentActivityLogModal({
   tools,
@@ -29,14 +28,6 @@ export function AgentActivityLogModal({
 }) {
   const { t } = useTranslation('agent')
   const listRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   // Follow the live turn: keep the newest entry in view while streaming.
   useEffect(() => {
@@ -64,28 +55,12 @@ export function AgentActivityLogModal({
     }
   }
 
-  return createPortal(
-    <div data-testid="agent-activity-log-modal" className="fixed inset-0 z-[65] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('activity.title')}
-        className="relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border/30 bg-popover shadow-xl"
-      >
-        <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3">
-          <ScrollText className="h-4 w-4 text-accent-info" aria-hidden />
-          <span className="text-sm font-semibold">{t('activity.title')}</span>
-          <span className="rounded-full bg-muted/40 px-1.5 py-px text-[11px] leading-4 text-muted-foreground">
-            {tools.length}
-          </span>
-          {streaming && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-accent-info">
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-              {t('activity.live')}
-            </span>
-          )}
-          <div className="ml-auto flex items-center gap-1">
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent size="wide" layer="entity" data-testid="agent-activity-log-modal">
+        <DialogHeader
+          icon={<ScrollText className="text-accent-info" />}
+          actions={
             <button
               type="button"
               onClick={() => void copyAll()}
@@ -93,22 +68,28 @@ export function AgentActivityLogModal({
               title={t('activity.copyAll')}
               aria-label={t('activity.copyAll')}
               data-testid="agent-activity-copy-all"
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Copy className="h-3.5 w-3.5" />
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t('activity.close')}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
+          }
+        >
+          <div className="flex items-center gap-2">
+            <DialogTitle>{t('activity.title')}</DialogTitle>
+            <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-[11px] text-muted-foreground">
+              {tools.length}
+            </span>
+            {streaming && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-accent-info">
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                {t('activity.live')}
+              </span>
+            )}
           </div>
-        </div>
+          <DialogDescription className="sr-only">{t('activity.title')}</DialogDescription>
+        </DialogHeader>
 
-        <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
+        <DialogBody ref={listRef} className="space-y-2">
           {tools.length === 0 ? (
             <p className="py-8 text-center text-xs text-muted-foreground">{t('activity.empty')}</p>
           ) : (
@@ -116,10 +97,9 @@ export function AgentActivityLogModal({
               <ActivityEntry key={entry.id} entry={entry} formatted={formatEntry(entry)} />
             ))
           )}
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -147,9 +127,9 @@ function ActivityEntry({ entry, formatted }: { entry: AgentLiveTool; formatted: 
       <div className="flex items-center gap-2">
         <TerminalSquare className="h-3.5 w-3.5 shrink-0 text-accent-info" aria-hidden />
         <span className="text-xs font-medium">{toolChipLabel(entry.tool)}</span>
-        <span className="truncate text-[11px] font-mono text-muted-foreground">{entry.tool}</span>
+        <span className="truncate text-xs font-mono text-muted-foreground">{entry.tool}</span>
         {entry.at && (
-          <span className="ml-auto shrink-0 text-[11px] font-mono text-muted-foreground">{formatTime(entry.at)}</span>
+          <span className="ml-auto shrink-0 text-xs font-mono text-muted-foreground">{formatTime(entry.at)}</span>
         )}
         <button
           type="button"
@@ -167,18 +147,18 @@ function ActivityEntry({ entry, formatted }: { entry: AgentLiveTool; formatted: 
         </button>
       </div>
       {entry.input && (
-        <pre className="mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-md bg-background-deep/60 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-foreground/80">
+        <pre className="mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-md bg-background-deep/60 px-2 py-1.5 font-mono text-xs leading-relaxed text-foreground/80">
           {entry.input}
         </pre>
       )}
       {entry.output !== undefined && (
         <div className="mt-1.5">
-          <p className={cn('mb-0.5 text-[11px] uppercase tracking-wider', entry.isError ? 'text-destructive' : 'text-muted-foreground')}>
+          <p className={cn('mb-0.5 text-xs uppercase tracking-wider', entry.isError ? 'text-destructive' : 'text-muted-foreground')}>
             {entry.isError ? t('activity.error') : t('activity.output')}
           </p>
           <pre
             className={cn(
-              'max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md px-2 py-1.5 font-mono text-[11px] leading-relaxed',
+              'max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md px-2 py-1.5 font-mono text-xs leading-relaxed',
               entry.isError ? 'bg-destructive/10 text-destructive' : 'bg-background-deep/60 text-foreground/80',
             )}
           >
