@@ -181,7 +181,7 @@ export function SplitViewShell({
       <div
         className="relative flex w-full h-full"
         style={{
-          transition: animating ? 'opacity 280ms cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
+          transition: animating ? 'opacity 280ms cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
         }}
       >
         {/* Left panel */}
@@ -190,7 +190,7 @@ export function SplitViewShell({
           className="relative h-full overflow-hidden"
           style={{
             width: `${leftPct}%`,
-            transition: animating ? 'width 280ms cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
+            transition: animating ? 'width 280ms cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
           }}
         >
           <div className="h-full flex items-center justify-center p-2">
@@ -220,7 +220,7 @@ export function SplitViewShell({
           className="relative h-full overflow-hidden"
           style={{
             width: `${rightPct}%`,
-            transition: animating ? 'width 280ms cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
+            transition: animating ? 'width 280ms cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
           }}
         >
           <div className="h-full flex items-center justify-center p-2">
