@@ -99,7 +99,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
         <DialogLayerProvider layer="stacked">
         <header className="flex items-center justify-between px-6 py-4 border-b border-border/30">
           <div>
-            <DialogPrimitive.Title className="text-base font-semibold">{t('reviewOverlay.heading')}</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="text-title">{t('reviewOverlay.heading')}</DialogPrimitive.Title>
           </div>
         </header>
 
@@ -197,7 +197,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
 
 function FieldHeader({ label }: { label: string }) {
   return (
-    <div className="text-xs font-medium text-muted-foreground">
+    <div className="text-label text-muted-foreground">
       {label}
     </div>
   )

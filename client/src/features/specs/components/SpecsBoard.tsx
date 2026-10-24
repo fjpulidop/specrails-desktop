@@ -875,7 +875,7 @@ export function SpecsBoard({
                 it carries a small count header; the Done-only view is labelled
                 by its chip. */}
             {statusFilter === 'all' && (
-              <p className="text-xs font-medium text-muted-foreground px-1 pb-1">
+              <p className="text-label text-muted-foreground px-1 pb-1">
                 {t('board.doneHeading', { count: visibleDoneTickets.length })}
               </p>
             )}

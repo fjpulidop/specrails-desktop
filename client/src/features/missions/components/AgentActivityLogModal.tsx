@@ -126,7 +126,7 @@ function ActivityEntry({ entry, formatted }: { entry: AgentLiveTool; formatted: 
     <div className="rounded-lg border border-border/50 bg-surface/40 px-3 py-2">
       <div className="flex items-center gap-2">
         <TerminalSquare className="h-3.5 w-3.5 shrink-0 text-accent-info" aria-hidden />
-        <span className="text-xs font-medium">{toolChipLabel(entry.tool, t)}</span>
+        <span className="text-label">{toolChipLabel(entry.tool, t)}</span>
         <span className="truncate text-xs font-mono text-muted-foreground">{entry.tool}</span>
         {entry.at && (
           <span className="ml-auto shrink-0 text-xs font-mono text-muted-foreground">{formatTime(entry.at)}</span>

@@ -95,7 +95,7 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
     <div data-testid="epic-family-sidebar">
       <div className="flex items-center gap-1.5 mb-1.5">
         <Split className="w-3 h-3 text-accent-highlight" aria-hidden />
-        <span className="text-xs font-medium text-muted-foreground">
+        <span className="text-label text-muted-foreground">
           {header}
         </span>
       </div>

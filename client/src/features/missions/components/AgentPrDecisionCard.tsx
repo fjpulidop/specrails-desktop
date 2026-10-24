@@ -1558,7 +1558,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       >
           {presentation.noChanges && !terminal && (
             <div className="space-y-2">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-accent-success">
+              <p className="flex items-center gap-1.5 text-label text-accent-success">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 {presentation.continuation ? t('prCard.noChangesExisting') : t('prCard.noChangesNote')}
               </p>
@@ -1578,7 +1578,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
                   title={t('prCard.retryDeliveryHint')}
                   data-testid="agent-pr-retry-delivery"
                   data-agent-interactive
-                  className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2 py-1 text-xs font-medium text-accent-primary transition-colors hover:bg-accent-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2 py-1 text-label text-accent-primary transition-colors hover:bg-accent-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none disabled:opacity-50"
                 >
                   {retryingDelivery ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
                   {t('prCard.retryDelivery')}
@@ -1678,7 +1678,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             </div>
           )}
           {decision === 'merged' && (
-            <p className="flex items-center gap-1.5 text-xs font-medium text-accent-success">
+            <p className="flex items-center gap-1.5 text-label text-accent-success">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {t('prCard.mergedNote')}
             </p>
@@ -1690,7 +1690,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             </p>
           )}
           {decision === 'completed' && (
-            <p className="flex items-center gap-1.5 text-xs font-medium text-accent-success">
+            <p className="flex items-center gap-1.5 text-label text-accent-success">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {t('prCard.completedNote')}
             </p>

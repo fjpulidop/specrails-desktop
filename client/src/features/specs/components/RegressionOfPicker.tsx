@@ -59,7 +59,7 @@ export function RegressionOfPicker({ value, onChange, disabled }: Props) {
 
   return (
     <div data-testid="regression-of-picker">
-      <label htmlFor="regression-of-select" className="text-xs font-medium text-muted-foreground block mb-1">
+      <label htmlFor="regression-of-select" className="text-label text-muted-foreground block mb-1">
         {t('regressionOf.label')}
       </label>
       <select

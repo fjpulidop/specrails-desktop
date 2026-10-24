@@ -115,7 +115,7 @@ export function SpecJiraStatusFilterOptions({ tickets, active, onChange }: SpecJ
         const other = g === 'other'
         return (
           <div key={g} role="group" aria-label={other ? t('jiraStatusFilter.other') : t(GROUP_LABEL_KEYS[g])} data-testid={`spec-jira-status-group-${g}`}>
-            <div className="flex items-center gap-1.5 px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground" aria-hidden>
+            <div className="flex items-center gap-1.5 px-2 pt-2 pb-1 text-label text-muted-foreground" aria-hidden>
               {!other && <TicketStatusDot status={g} className="w-2 h-2" />}
               <span>{other ? t('jiraStatusFilter.other') : t(GROUP_LABEL_KEYS[g])}</span>
             </div>

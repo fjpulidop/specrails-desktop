@@ -52,7 +52,7 @@ export function PacketDerivation({ derivation, settlement }: { derivation: Deriv
       <p className="mt-1 text-caption text-muted-foreground">{t('derivation.caveat')}</p>
       {unexplained > 0 ? (
         <div className="mt-3">
-          <h3 className="text-xs font-medium text-accent-warning">{t('derivation.unexplainedTitle', { count: unexplained })}</h3>
+          <h3 className="text-label text-accent-warning">{t('derivation.unexplainedTitle', { count: unexplained })}</h3>
           <ul className="mt-1 space-y-0.5" data-testid="packet-derivation-unexplained">
             {listed.map((file) => <li key={file} className="font-mono text-caption text-foreground/80">{file}</li>)}
           </ul>

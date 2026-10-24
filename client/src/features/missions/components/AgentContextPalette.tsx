@@ -172,7 +172,7 @@ export function AgentContextPalette({
           <ModeIcon className="h-3.5 w-3.5" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-foreground">{modeGlyph(mode)} {t(`palette.mode.${mode}.title`)}</div>
+          <div className="text-label text-foreground">{modeGlyph(mode)} {t(`palette.mode.${mode}.title`)}</div>
           <div className="truncate text-xs text-foreground/65">
             {query ? t('palette.filtering', { query }) : t(`palette.mode.${mode}.hint`)}
           </div>
@@ -200,7 +200,7 @@ export function AgentContextPalette({
             return (
               <div key={item.id} role="presentation">
                 {showGroup && (
-                  <div role="presentation" className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-foreground/60">
+                  <div role="presentation" className="px-3 pb-1 pt-2 text-label uppercase tracking-wide text-foreground/60">
                     {item.group}
                   </div>
                 )}

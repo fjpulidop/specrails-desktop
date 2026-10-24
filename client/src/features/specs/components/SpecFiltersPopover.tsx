@@ -197,7 +197,7 @@ export const SpecFiltersPopover = forwardRef<SpecFiltersPopoverHandle, SpecFilte
             onClick={onClearAll}
             disabled={count === 0}
             data-testid="specs-filters-clear-all"
-            className="h-8 rounded-md px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-8 rounded-md px-2.5 text-label text-muted-foreground hover:text-foreground hover:bg-muted/40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {t('filters.clearAll')}
           </button>

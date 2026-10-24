@@ -80,7 +80,7 @@ export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }
         <div className="flex items-center justify-end gap-1 border-t border-border/40 px-2 py-1.5">
           <div className="mr-auto pl-1.5"><AgentDeliveryReceipt receipt={item.deliveryReceipt ?? 'sent'} /></div>
           <button type="button" disabled={locked} onClick={() => void perform('steer')} title={t('queue.steerHint')}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium hover:bg-foreground/5 disabled:opacity-40">
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-label hover:bg-foreground/5 disabled:opacity-40">
             <CornerUpRight className="h-3.5 w-3.5" />{t('queue.steer')}
           </button>
           <button type="button" disabled={locked} onClick={() => void perform('remove')} aria-label={t('queue.remove')} title={t('queue.remove')}

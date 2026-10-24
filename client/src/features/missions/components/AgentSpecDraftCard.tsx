@@ -64,7 +64,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
       </div>
 
       <div className="flex flex-col gap-2.5 px-3.5 py-3">
-        <div className="text-sm font-semibold leading-snug text-foreground">
+        <div className="text-strong leading-snug text-foreground">
           {draft.title.trim() || t('specDraft.untitled')}
         </div>
 

@@ -127,7 +127,7 @@ export function SpecLabelFilterOptions({ tickets, active, onChange }: SpecLabelF
             className={FILTER_OPTION_CLASS}
           >
             <FilterOptionCheck selected={selected} />
-            <span className={cn('inline-flex min-w-0 items-center px-1.5 py-0.5 rounded-full text-xs font-medium truncate', tone)}>
+            <span className={cn('inline-flex min-w-0 items-center px-1.5 py-0.5 rounded-full text-label truncate', tone)}>
               {label}
             </span>
             <span className="ml-auto tabular-nums text-muted-foreground">{count}</span>

@@ -56,7 +56,7 @@ const LABEL_KEYS: Record<SpecStatusFilterValue, string> = {
 const isStatus = (v: SpecStatusFilterValue): v is TicketStatus => v !== 'active' && v !== 'all'
 
 const SEGMENT_BASE =
-  'inline-flex items-center gap-1.5 h-7 px-2.5 shrink-0 rounded-md text-xs font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  'inline-flex items-center gap-1.5 h-7 px-2.5 shrink-0 rounded-md text-label whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const SEGMENT_SELECTED = 'bg-background text-foreground shadow-sm ring-1 ring-border/70'
 const SEGMENT_IDLE = 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
 

@@ -61,7 +61,7 @@ export function SmashConfirmModal({
       <DialogContent size="form" layer="stacked" showCloseButton={false} data-testid="smash-confirm-modal">
         <DialogHeader icon={<Split />}>
           <DialogTitle>{t('smashModal.title')}</DialogTitle>
-          <p className="truncate text-xs font-medium text-foreground/80" title={ticketTitle} data-testid="smash-confirm-modal-ticket">
+          <p className="truncate text-label text-foreground/80" title={ticketTitle} data-testid="smash-confirm-modal-ticket">
             {ticketTitle}
           </p>
           <DialogDescription>{t('smashModal.description')}</DialogDescription>
@@ -77,7 +77,7 @@ export function SmashConfirmModal({
 
         {/* Mode picker */}
         <div className="space-y-3">
-          <p className="text-xs font-medium text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             {t('smashModal.modePickerLabel')}
           </p>
           {(['simple', 'full'] as SmashMode[]).map((m) => {
@@ -107,7 +107,7 @@ export function SmashConfirmModal({
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                      <span className="flex items-center gap-1.5 text-strong text-foreground">
                         {m === 'full' && <Zap className="w-3.5 h-3.5 text-accent-highlight" aria-hidden />}
                         {t(meta.titleKey)}
                       </span>

@@ -514,7 +514,7 @@ export function TicketDetailModal({
                   if (e.key === 'Enter') setEditingTitle(false)
                   if (e.key === 'Escape') { setTitle(ticket.title); setEditingTitle(false) }
                 }}
-                className="w-full bg-transparent border-b border-accent-primary/50 text-base font-semibold text-foreground outline-none pb-0.5"
+                className="w-full bg-transparent border-b border-accent-primary/50 text-title text-foreground outline-none pb-0.5"
               />
             ) : (
               <button
@@ -636,7 +636,7 @@ export function TicketDetailModal({
 
               <div className="flex-1 flex flex-col">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <span className="text-label text-muted-foreground flex items-center gap-1.5">
                     {t('fields.description')}
                   </span>
                   {!editingDescription && (
@@ -707,7 +707,7 @@ export function TicketDetailModal({
               {/* Prerequisites */}
               {ticket.prerequisites && ticket.prerequisites.length > 0 && (
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground block mb-1.5">
+                  <span className="text-label text-muted-foreground block mb-1.5">
                     {t('detailModal.prerequisites')}
                   </span>
                   <div className="flex flex-wrap gap-1">
@@ -733,7 +733,7 @@ export function TicketDetailModal({
                   type="button"
                   onClick={() => { void openExternalUrl(ticket.jira_url!) }}
                   data-testid="jira-go-to-ticket"
-                  className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded border border-accent-info/50 bg-accent-info/10 px-2 text-xs font-medium text-accent-info hover:bg-accent-info/20 transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded border border-accent-info/50 bg-accent-info/10 px-2 text-label text-accent-info hover:bg-accent-info/20 transition-colors"
                 >
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                   {tj('detail.goToTicket', { key: ticket.jira_key })}
@@ -742,7 +742,7 @@ export function TicketDetailModal({
               {/* Parent Jira epic — only when the issue has one */}
               {ticket.jira_epic_key && (
                 <div data-testid="jira-epic">
-                  <span className="text-xs font-medium text-muted-foreground block mb-1.5">
+                  <span className="text-label text-muted-foreground block mb-1.5">
                     {tj('detail.epic')}
                   </span>
                   <button
@@ -761,7 +761,7 @@ export function TicketDetailModal({
                   (transition rides the outbox); local specs offer the manual
                   targets (never INTO on_review/draft — pipeline-owned). */}
               <div>
-                <span className="text-xs font-medium text-muted-foreground block mb-1.5">
+                <span className="text-label text-muted-foreground block mb-1.5">
                   {t('fields.status')}
                 </span>
                 {isJiraBacked ? (
@@ -816,7 +816,7 @@ export function TicketDetailModal({
 
               {/* Priority selector */}
               <div>
-                <span className="text-xs font-medium text-muted-foreground block mb-1.5">
+                <span className="text-label text-muted-foreground block mb-1.5">
                   {t('fields.priority')}
                 </span>
                 <Select value={priority} onValueChange={(v) => setPriority(v as TicketPriority)}>
@@ -839,7 +839,7 @@ export function TicketDetailModal({
 
               {/* Labels */}
               <div>
-                <span className="text-xs font-medium text-muted-foreground block mb-1.5">
+                <span className="text-label text-muted-foreground block mb-1.5">
                   {t('fields.labels')}
                 </span>
                 <div className="flex flex-wrap gap-1 mb-1.5">
@@ -937,7 +937,7 @@ export function TicketDetailModal({
               {/* Metadata */}
               {ticket.metadata?.effort_level && (
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground block mb-0.5">
+                  <span className="text-label text-muted-foreground block mb-0.5">
                     {t('detailModal.effort')}
                   </span>
                   <span className="text-xs text-foreground/70">{ticket.metadata.effort_level}</span>
@@ -946,7 +946,7 @@ export function TicketDetailModal({
 
               {ticket.assignee && (
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground block mb-0.5">
+                  <span className="text-label text-muted-foreground block mb-0.5">
                     {t('detailModal.assignee')}
                   </span>
                   <span className="text-xs text-foreground/70">{ticket.assignee}</span>
@@ -1393,7 +1393,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
           className="mt-3 rounded-md border border-border/40 bg-muted/10 px-2 py-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <summary className="cursor-pointer text-xs font-medium text-foreground/80 select-none flex items-center gap-2">
+          <summary className="cursor-pointer text-label text-foreground/80 select-none flex items-center gap-2">
             {t('contractLayer.title')}
             <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-caption text-foreground/60">
               {t('contractLayer.populated', { n: countContractSubsections(contract) })}

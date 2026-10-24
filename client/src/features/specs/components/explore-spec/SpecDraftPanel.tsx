@@ -38,7 +38,7 @@ export function SpecDraftPanel({
       <div className="flex-shrink-0 px-5 py-3 border-b border-border/40 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary/70" />
-          <h3 className="text-sm font-semibold">{t('common:status.draft')}</h3>
+          <h3 className="text-strong">{t('common:status.draft')}</h3>
         </div>
         {ready && (
           <span
@@ -127,7 +127,7 @@ export function SpecDraftPanel({
       {attachments.length > 0 && (
         <div className="flex-shrink-0 px-5 py-3 border-t border-border/40 bg-card/40">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               {t('draftPanel.attachmentsHeading', { count: attachments.length })}
             </span>
             <span className="text-caption text-muted-foreground">{t('draftPanel.linkedOnCreate')}</span>
@@ -155,7 +155,7 @@ function Field({ label, flash, children }: { label: string; flash: boolean; chil
   }, [flash])
   return (
     <div className={`space-y-1.5 transition-colors duration-200 ${active ? 'bg-primary/[0.06] -mx-2 px-2 py-1 rounded' : ''}`}>
-      <label className="text-xs font-medium text-muted-foreground">
+      <label className="text-label text-muted-foreground">
         {label}
       </label>
       {children}

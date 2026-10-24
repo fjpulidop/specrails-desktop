@@ -106,7 +106,7 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
     >
       <div className="flex items-center gap-2 border-b border-border/40 bg-surface/40 px-3.5 py-2">
         <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />
-        <span id={labelId} className="text-[13px] font-semibold text-foreground">{t('flow.offer.heading')}</span>
+        <span id={labelId} className="text-strong text-foreground">{t('flow.offer.heading')}</span>
       </div>
       <div className="space-y-3 px-3.5 py-3">
         {offer.ticketId ? (
@@ -230,7 +230,7 @@ function FlowOfferStub({ intent, handOff, flow, conversationId }: { intent: Agen
           data-agent-interactive
           data-testid="flow-offer-stub-view-run"
           onClick={() => focusPrCard({ prDeliveryId: runTarget.prDeliveryId, runIds: runTarget.runIds, conversationId })}
-          className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-xs font-medium text-accent-flow hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50"
+          className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-label text-accent-flow hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50"
         >
           {t('flow.offer.stub.viewRun')}
           <ArrowUpRight className="h-3 w-3" aria-hidden />

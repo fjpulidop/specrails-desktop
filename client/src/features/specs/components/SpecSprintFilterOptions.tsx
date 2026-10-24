@@ -80,7 +80,7 @@ export function SpecSprintFilterOptions({ tickets, active, onChange }: SpecSprin
             {e.active && (
               <span
                 data-testid="spec-sprint-current-badge"
-                className="shrink-0 rounded-full bg-accent-success/15 px-1.5 py-0.5 text-xs font-medium text-accent-success"
+                className="shrink-0 rounded-full bg-accent-success/15 px-1.5 py-0.5 text-label text-accent-success"
               >
                 {t('sprintFilter.current')}
               </span>

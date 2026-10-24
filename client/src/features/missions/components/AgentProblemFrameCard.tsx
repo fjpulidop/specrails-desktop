@@ -96,7 +96,7 @@ function Reading({ label, value, testId, onSelect, disabled }: ReadingProps) {
       <span
         aria-hidden
         className={cn(
-          'mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-accent-primary/80 transition-opacity',
+          'mt-0.5 inline-flex items-center gap-1 text-label text-accent-primary/80 transition-opacity',
           disabled
             ? 'opacity-0'
             : 'opacity-0 group-hover/reading:opacity-100 group-focus-visible/reading:opacity-100',

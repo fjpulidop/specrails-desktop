@@ -154,7 +154,7 @@ export function SpecTriageChip({ ticket, onRecalculate }: Props) {
               </div>
               {triage.filesLikely.length > 0 && (
                 <div className="pt-0.5">
-                  <div className="text-xs font-medium text-muted-foreground">{t('triage.filesLikely')}</div>
+                  <div className="text-label text-muted-foreground">{t('triage.filesLikely')}</div>
                   <ul className="font-mono text-caption text-foreground/70">
                     {triage.filesLikely.slice(0, 5).map((f) => <li key={f} className="truncate">{f}</li>)}
                     {triage.filesLikely.length > 5 && <li>{t('triage.moreFiles', { count: triage.filesLikely.length - 5 })}</li>}

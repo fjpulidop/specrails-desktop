@@ -197,7 +197,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
   return (
     <section data-testid="spec-addenda-section" className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground" title={t('addenda.hint')}>
+        <span className="flex items-center gap-1.5 text-label text-muted-foreground" title={t('addenda.hint')}>
           <Layers className="h-3 w-3" />
           {t('addenda.title')}
           {addenda.length > 0 && (
@@ -256,7 +256,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
                         aria-expanded={isOpen}
                       >
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className={`text-xs font-medium text-foreground/90 ${a.status === 'dismissed' ? 'line-through' : ''}`}>{a.title}</span>
+                          <span className={`text-label text-foreground/90 ${a.status === 'dismissed' ? 'line-through' : ''}`}>{a.title}</span>
                           <span className="rounded-full border border-border/50 px-1.5 py-px text-caption text-muted-foreground">{t(`addenda.kind.${a.kind}`)}</span>
                           <span className={`rounded-full border px-1.5 py-px text-caption font-medium ${STATUS_PILL[a.status]}`} title={t(`addenda.statusHint.${a.status}`)} data-testid="spec-addendum-status">
                             {t(`addenda.status.${a.status}`)}

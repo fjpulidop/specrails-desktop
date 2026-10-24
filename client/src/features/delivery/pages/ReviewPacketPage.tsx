@@ -552,7 +552,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
 
         {askingChanges ? (
           <div className="mt-4 flex flex-col gap-2 rounded-md border border-border/70 bg-background-deep/40 p-3">
-            <label htmlFor="packet-revision-note" className="text-xs font-medium text-foreground">
+            <label htmlFor="packet-revision-note" className="text-label text-foreground">
               {t('requestChanges.prompt')}
             </label>
             <textarea
@@ -792,7 +792,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               )}
               {section.solution ? (
                 <details className="group mt-2 rounded-md border border-border/50 bg-background-deep/30 px-3 py-2">
-                  <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground group-open:text-foreground/80">
+                  <summary className="cursor-pointer select-none text-label text-muted-foreground group-open:text-foreground/80">
                     {t('planned.title')}
                   </summary>
                   <p className="mt-1 text-xs italic text-muted-foreground/80">{t('planned.caveat')}</p>
@@ -832,7 +832,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
             const Icon = TIER_ICON[tier]
             return (
               <div key={tier} className={`rounded-md border px-3 py-2 ${TIER_ACCENT[tier]}`}>
-                <h3 className="mb-1 flex items-center gap-1.5 text-xs font-medium">
+                <h3 className="mb-1 flex items-center gap-1.5 text-label">
                   <Icon className="size-3.5" aria-hidden />
                   {t(`tier.${tier}.title`)}
                 </h3>

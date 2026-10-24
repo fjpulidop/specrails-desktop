@@ -303,17 +303,17 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   }
 
   // ── shared bits ─────────────────────────────────────────────────────────────
-  const pillBase = `inline-flex items-center gap-1 rounded-full font-medium border ${
-    compact ? 'px-2 py-1 text-caption' : 'px-2.5 py-1 text-xs'
+  const pillBase = `inline-flex items-center gap-1 rounded-pill font-medium border text-micro ${
+    compact ? 'px-2 py-1' : 'px-2.5 py-1'
   }`
-  const primaryBtn = `inline-flex items-center gap-1 rounded-md font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-    compact ? 'px-2 py-1 text-caption' : 'px-2.5 py-1 text-xs'
+  const primaryBtn = `inline-flex items-center gap-1 rounded-control font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+    compact ? 'px-2 py-1 text-label' : 'px-2.5 py-1 text-label'
   }`
-  const secondaryBtn = `inline-flex items-center gap-1 rounded-md font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-    compact ? 'px-2 py-1 text-caption' : 'px-2.5 py-1 text-xs'
+  const secondaryBtn = `inline-flex items-center gap-1 rounded-control font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+    compact ? 'px-2 py-1 text-label' : 'px-2.5 py-1 text-label'
   }`
-  const ghostBtn = `inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-    compact ? 'px-2 py-1 text-caption' : 'px-2.5 py-1 text-xs'
+  const ghostBtn = `inline-flex items-center gap-1 rounded-control text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+    compact ? 'px-2 py-1 text-label' : 'px-2.5 py-1 text-label'
   }`
   const iconCls = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
   const spinner = <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
@@ -385,8 +385,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       disabled={busy}
       title={t('railPr.mergeLocalTooltip', { base: decision.baseBranch })}
       onClick={(e) => { e.stopPropagation(); openConfirmation('merge-local') }}
-      className={`inline-flex items-center gap-1 rounded-md font-medium border border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-        compact ? 'px-1.5 py-0.5 text-caption' : 'px-2 py-0.5 text-caption'
+      className={`inline-flex items-center gap-1 rounded-control font-medium border border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+        compact ? 'px-1.5 py-0.5 text-label' : 'px-2 py-0.5 text-label'
       }`}
     >
       {inFlight === 'merge-local' ? spinner : <GitMerge className={iconCls} aria-hidden />}
@@ -441,8 +441,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       disabled={busy}
       title={t('railPr.checkoutTooltip', { branch: checkoutBranch })}
       onClick={(e) => { e.stopPropagation(); void runCheckout() }}
-      className={`inline-flex items-center gap-1 rounded-md font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-        compact ? 'px-1.5 py-0.5 text-caption' : 'px-2 py-0.5 text-caption'
+      className={`inline-flex items-center gap-1 rounded-control font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+        compact ? 'px-1.5 py-0.5 text-label' : 'px-2 py-0.5 text-label'
       }`}
     >
       {checkingOut ? spinner : <GitBranch className={iconCls} aria-hidden />}

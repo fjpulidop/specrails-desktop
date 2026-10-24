@@ -118,7 +118,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
         <DialogBody className="space-y-3">
           {/* Title */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1">
+            <label className="text-label text-muted-foreground block mb-1">
               {t('fields.title')} <span className="text-destructive">*</span>
             </label>
             <input
@@ -135,7 +135,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
 
           {/* Description */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1">
+            <label className="text-label text-muted-foreground block mb-1">
               {t('fields.description')}
             </label>
             <textarea
@@ -151,7 +151,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
           {/* Status + Priority row */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs font-medium text-muted-foreground block mb-1">
+              <label className="text-label text-muted-foreground block mb-1">
                 {t('fields.status')}
               </label>
               <select
@@ -166,7 +166,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
               </select>
             </div>
             <div className="flex-1">
-              <label className="text-xs font-medium text-muted-foreground block mb-1">
+              <label className="text-label text-muted-foreground block mb-1">
                 {t('fields.priority')}
               </label>
               <select
@@ -186,7 +186,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
 
           {/* Labels */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1">
+            <label className="text-label text-muted-foreground block mb-1">
               {t('fields.labels')}
             </label>
             <div className="flex flex-wrap gap-1 mb-1.5">

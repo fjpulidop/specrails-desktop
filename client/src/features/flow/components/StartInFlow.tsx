@@ -142,7 +142,7 @@ export function StartInFlowButton({ spec, rail, className }: StartInFlowProps & 
         aria-label={reason ? `${t('flow.startFromSpec.action')} — ${reason}` : t('flow.startFromSpec.action')}
         onClick={() => void start()}
         className={cn(
-          'inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-xs font-medium transition-colors',
+          'inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-label transition-colors',
           'hover:border-accent-flow/50 hover:bg-accent-flow/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50',
           'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-input disabled:hover:bg-background',
           className,
@@ -225,7 +225,7 @@ export function FlowRailLaunchAlternative({ projectId, conversationId, ticketId,
         title={reason ?? t('flow.startFromSpec.hint')}
         aria-describedby={error ? `rail-card-flow-error-${ticketId}` : undefined}
         onClick={() => void start()}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-foreground/85 transition-colors hover:border-accent-flow/50 hover:bg-accent-flow/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-label text-foreground/85 transition-colors hover:border-accent-flow/50 hover:bg-accent-flow/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />}
         {busy ? t('flow.startFromSpec.starting') : t('flow.startFromSpec.action')}

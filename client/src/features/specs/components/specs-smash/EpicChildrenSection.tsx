@@ -46,7 +46,7 @@ export function EpicChildrenSection({ epicId, allTickets, onOpenChild }: EpicChi
 
   return (
     <div className="rounded-md border border-accent-highlight/40 bg-accent-highlight/5 px-3 py-2" data-testid="epic-children-section">
-      <div className="flex items-center gap-2 text-xs font-medium text-foreground mb-2">
+      <div className="flex items-center gap-2 text-label text-foreground mb-2">
         <Split className="w-3.5 h-3.5 text-accent-highlight" aria-hidden />
         <span>{t('epicChildren.header', { count: children.length })}</span>
       </div>

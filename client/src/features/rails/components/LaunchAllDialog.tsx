@@ -109,7 +109,7 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
             onClick={onConfirm}
           >
             {t('launchAllDialog.launch', { count: railCount })}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-xs font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
+            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-label leading-4">{keyboardLabel('⌘↵')}</kbd>
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -40,7 +40,7 @@ export function RequirementsDemonstrated({ section, multiTicket }: { section: Pa
       </p>
       {missing.length > 0 ? (
         <div className="mt-3">
-          <h3 className="text-xs font-medium text-foreground">{t('requirements.undemonstratedTitle', { count: section.undemonstratedList.length })}</h3>
+          <h3 className="text-label text-foreground">{t('requirements.undemonstratedTitle', { count: section.undemonstratedList.length })}</h3>
           <ul className="mt-1 space-y-1" data-testid="packet-requirements-undemonstrated">
             {missing.map((item) => (
               <li key={`${item.ticketId}:${item.id}`} className="flex flex-wrap items-baseline gap-x-1.5 text-xs">
@@ -55,7 +55,7 @@ export function RequirementsDemonstrated({ section, multiTicket }: { section: Pa
       ) : null}
       {shown.length > 0 ? (
         <div className="mt-3">
-          <h3 className="text-xs font-medium text-foreground">{t('requirements.demonstratedTitle', { count: section.demonstratedList.length })}</h3>
+          <h3 className="text-label text-foreground">{t('requirements.demonstratedTitle', { count: section.demonstratedList.length })}</h3>
           <ul className="mt-1 space-y-1" data-testid="packet-requirements-demonstrated">
             {shown.map((item) => (
               <li key={`${item.ticketId}:${item.id}`} className="text-xs">

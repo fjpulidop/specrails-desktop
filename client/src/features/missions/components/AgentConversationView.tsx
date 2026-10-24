@@ -327,7 +327,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
         <div className="flex items-center gap-2 border-b border-border/50 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
           <ShieldAlert className="h-4 w-4 shrink-0 text-accent-warning" />
           <span className="flex-1">{t('degraded.body')}</span>
-          <button type="button" onClick={() => void enableMcpServer()} disabled={enablingMcp} className="rounded-md bg-accent-primary px-2 py-1 text-xs font-medium text-background hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={() => void enableMcpServer()} disabled={enablingMcp} className="rounded-md bg-accent-primary px-2 py-1 text-label text-background hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-60">
             {enablingMcp ? t('degraded.enabling') : t('degraded.enable')}
           </button>
         </div>
@@ -505,7 +505,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute bottom-2 left-1/2 z-10 inline-flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 text-xs font-medium text-foreground shadow-md shadow-black/10 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+              className="absolute bottom-2 left-1/2 z-10 inline-flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 text-label text-foreground shadow-md shadow-black/10 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
             >
               <ArrowDown className="h-3.5 w-3.5" aria-hidden />
               {t('conversation.newMessages')}

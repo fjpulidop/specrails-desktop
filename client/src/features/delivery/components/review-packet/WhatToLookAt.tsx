@@ -44,7 +44,7 @@ function TicketTag({ ticketId, show }: { ticketId: number; show: boolean }) {
 function Group({ title, testId, children }: { title: string; testId: string; children: React.ReactNode }) {
   return (
     <div data-testid={testId}>
-      <h3 className="mb-1 text-xs font-medium text-foreground/80">{title}</h3>
+      <h3 className="mb-1 text-label text-foreground/80">{title}</h3>
       <ul className="space-y-1.5">{children}</ul>
     </div>
   )

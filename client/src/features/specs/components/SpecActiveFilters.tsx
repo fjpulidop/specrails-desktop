@@ -78,7 +78,7 @@ export function SpecActiveFilters({ chips, shown, total, onClearAll, onOverflowC
           onClearAll()
         }}
         data-testid="specs-active-filters-clear"
-        className="h-6 shrink-0 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-6 shrink-0 rounded-md px-2 text-label text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {t('filters.clearAll')}
       </button>

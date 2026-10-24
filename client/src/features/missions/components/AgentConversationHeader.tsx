@@ -302,7 +302,7 @@ export function AgentConversationHeader() {
                     type="button"
                     data-testid="agent-conv-delete-confirm-btn"
                     onClick={() => void doDelete()}
-                    className="flex-1 rounded-lg bg-destructive px-2.5 py-1.5 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
+                    className="flex-1 rounded-lg bg-destructive px-2.5 py-1.5 text-label text-destructive-foreground transition-colors hover:bg-destructive/90"
                   >
                     {t('header.delete')}
                   </button>

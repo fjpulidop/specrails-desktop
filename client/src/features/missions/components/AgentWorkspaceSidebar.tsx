@@ -138,7 +138,7 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
         expanded ? 'px-3 justify-between' : 'justify-center',
       )}>
         {expanded && (
-          <span className="text-xs font-medium whitespace-nowrap overflow-hidden text-muted-foreground">
+          <span className="text-label whitespace-nowrap overflow-hidden text-muted-foreground">
             {t('workspace.title')}
           </span>
         )}

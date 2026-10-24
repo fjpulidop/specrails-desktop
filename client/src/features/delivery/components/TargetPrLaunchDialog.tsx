@@ -86,7 +86,7 @@ export function TargetPrLaunchDialog({ open, target, onConfirm, onCancel }: Prop
             onClick={onConfirm}
           >
             {t('targetPr.confirmLaunch', { number: target.number })}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-xs font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
+            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-label leading-4">{keyboardLabel('⌘↵')}</kbd>
           </Button>
         </DialogFooter>
       </DialogContent>

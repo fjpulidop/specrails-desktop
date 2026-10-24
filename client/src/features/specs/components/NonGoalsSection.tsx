@@ -45,7 +45,7 @@ export function NonGoalsSection({ value, onChange, disabled }: NonGoalsSectionPr
   return (
     <section data-testid="ticket-non-goals" aria-labelledby="ticket-non-goals-heading">
       <div className="flex items-center justify-between mb-1.5">
-        <span id="ticket-non-goals-heading" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+        <span id="ticket-non-goals-heading" className="text-label text-muted-foreground flex items-center gap-1.5">
           <Ban className="w-3 h-3" aria-hidden="true" />
           {t('nonGoals.title')}
         </span>

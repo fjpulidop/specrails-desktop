@@ -47,7 +47,7 @@ export function FlowRepositoryPicker({ candidates, selectedId, suggestedId = nul
 
   return (
     <div data-testid={idPrefix} className="space-y-1.5">
-      <p id={labelId} className="flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+      <p id={labelId} className="flex items-center gap-1.5 text-label text-foreground/80">
         <FolderGit2 className="h-3 w-3 shrink-0" aria-hidden />
         {t('flow.entry.repository.label')}
       </p>
@@ -77,9 +77,9 @@ export function FlowRepositoryPicker({ candidates, selectedId, suggestedId = nul
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
-                  <span className={cn('truncate text-xs font-medium', checked ? 'text-foreground' : 'text-foreground/80')}>{candidate.name}</span>
+                  <span className={cn('truncate text-label', checked ? 'text-foreground' : 'text-foreground/80')}>{candidate.name}</span>
                   {candidate.id === suggestedId && (
-                    <span className="shrink-0 rounded-full bg-accent-flow/15 px-1.5 py-px text-xs font-medium text-accent-flow">{suggestedLabel ?? t('flow.entry.repository.suggested')}</span>
+                    <span className="shrink-0 rounded-full bg-accent-flow/15 px-1.5 py-px text-label text-accent-flow">{suggestedLabel ?? t('flow.entry.repository.suggested')}</span>
                   )}
                 </span>
                 <span className="block truncate font-mono text-xs text-foreground/70" title={candidate.path}>{candidate.path}</span>

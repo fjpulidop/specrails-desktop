@@ -62,7 +62,7 @@ export function AgentModeAnalyticsPane() {
         )}
       </div>
       <div className="flex items-center gap-2 border-b border-border/60 bg-surface/40 px-3 py-1.5">
-        <span className="text-xs font-medium text-foreground/70">{t('workspace.analytics')}</span>
+        <span className="text-label text-foreground/70">{t('workspace.analytics')}</span>
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"

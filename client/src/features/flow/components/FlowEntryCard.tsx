@@ -124,7 +124,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
     >
       <div className="flex items-center gap-2 border-b border-border/40 bg-accent-flow/[0.07] px-3.5 py-2">
         <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />
-        <span id="flow-entry-title" className="text-[13px] font-semibold text-foreground">{t('flow.entry.heading')}</span>
+        <span id="flow-entry-title" className="text-strong text-foreground">{t('flow.entry.heading')}</span>
       </div>
       <div className="space-y-3 px-3.5 py-3">
         <p className="flex items-start gap-2 text-xs leading-5 text-foreground/80">
@@ -166,7 +166,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
             <p id={blockReasonId} className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />{blockReason}</p>
             {blockedByOpenFlow && openFlowId && (
               <button type="button" data-agent-interactive data-testid="flow-entry-open-flow" onClick={() => focusFlowBar(openFlowId)}
-                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-xs font-medium text-foreground/80 underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50">
+                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-label text-foreground/80 underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50">
                 {t('flow.entry.blocked.goToFlow')}
               </button>
             )}

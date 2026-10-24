@@ -1029,7 +1029,7 @@ export function ExploreSpecShell({
                     <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/5 p-2 space-y-1.5">
                       {c.breakpoints ? (
                         <div className="space-y-1.5" data-testid="explore-capture-breakpoints">
-                          <div className="flex items-center gap-1 text-xs font-medium text-accent-highlight">
+                          <div className="flex items-center gap-1 text-label text-accent-highlight">
                             <Ratio className="w-3 h-3 shrink-0" />
                             {t('shell.captureResponsiveSizes', { count: c.breakpoints.length })}
                           </div>
@@ -1235,7 +1235,7 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${isUser ? 'bg-primary/10 text-foreground' : 'bg-card/60 border border-border/40'}`}>
         <div className="flex items-baseline justify-between gap-3 mb-1">
-          <div className="text-xs font-medium text-muted-foreground">
+          <div className="text-label text-muted-foreground">
             {isUser ? t('shell.you') : providerLabel(provider)}
           </div>
           {timeLabel && (

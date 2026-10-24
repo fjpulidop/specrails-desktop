@@ -95,7 +95,7 @@ export function MoveToRailPopover({ rails, onMoveToRail, onClose, anchorRect }: 
         style={{ top: -5, left: caretLeft - 4 }}
       />
 
-      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+      <div className="px-2 py-1.5 text-label text-muted-foreground">
         {t('rail.popoverTitle')}
       </div>
       {rails.length === 0 ? (

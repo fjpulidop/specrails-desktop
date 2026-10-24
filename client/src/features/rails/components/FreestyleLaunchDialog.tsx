@@ -63,7 +63,7 @@ export function FreestyleLaunchDialog({ open, railLabel, specCount, provider = '
         </DialogHeader>
 
         <DialogBody className="space-y-4">
-          <p className="text-xs font-medium text-foreground/80" data-testid="freestyle-launch-context">
+          <p className="text-label text-foreground/80" data-testid="freestyle-launch-context">
             {t('freestyleDialog.context', { rail: railLabel, count: specCount })}
             {model ? ` · ${model}` : ''}
           </p>
@@ -93,7 +93,7 @@ export function FreestyleLaunchDialog({ open, railLabel, specCount, provider = '
             onClick={onConfirm}
           >
             {t('freestyleDialog.continue')}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-xs font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
+            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-label leading-4">{keyboardLabel('⌘↵')}</kbd>
           </Button>
         </DialogFooter>
       </DialogContent>

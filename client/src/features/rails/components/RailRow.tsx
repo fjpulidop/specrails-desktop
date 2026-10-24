@@ -399,7 +399,7 @@ export function RailRow({
                   setEditing(false)
                 }}
                 onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
-                className="flex-1 min-w-0 text-xs font-medium bg-transparent border-b border-accent-info/60 outline-none text-foreground/90 px-0.5"
+                className="flex-1 min-w-0 text-label bg-transparent border-b border-accent-info/60 outline-none text-foreground/90 px-0.5"
                 autoFocus
               />
             </form>
@@ -413,7 +413,7 @@ export function RailRow({
                 setEditing(true)
                 setTimeout(() => inputRef.current?.select(), 0)
               }}
-              className="flex-1 min-w-0 text-left text-xs font-medium text-foreground/90 hover:text-foreground truncate"
+              className="flex-1 min-w-0 text-left text-label text-foreground/90 hover:text-foreground truncate"
               title={label}
             >
               {label}
@@ -644,7 +644,7 @@ export function RailRow({
                   setEditing(false)
                 }}
               >
-                <span className="text-xs font-medium text-muted-foreground">Rail </span>
+                <span className="text-label text-muted-foreground">Rail </span>
                 <input
                   ref={inputRef}
                   type="text"
@@ -656,7 +656,7 @@ export function RailRow({
                     setEditing(false)
                   }}
                   onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false) } }}
-                  className="w-24 text-xs font-medium bg-transparent border-b border-primary/50 outline-none text-foreground/80 px-0.5"
+                  className="w-24 text-label bg-transparent border-b border-primary/50 outline-none text-foreground/80 px-0.5"
                   autoFocus
                 />
               </form>
@@ -671,7 +671,7 @@ export function RailRow({
                   setEditing(true)
                   setTimeout(() => inputRef.current?.select(), 0)
                 }}
-                className="text-xs font-medium text-foreground/80 hover:text-foreground hover:underline decoration-dotted underline-offset-2 cursor-text transition-colors"
+                className="text-label text-foreground/80 hover:text-foreground hover:underline decoration-dotted underline-offset-2 cursor-text transition-colors"
               >
                 {label}
               </button>

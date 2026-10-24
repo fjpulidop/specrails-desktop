@@ -347,7 +347,7 @@ export function TicketPostitCard({
                 onPointerDown={(e) => e.stopPropagation()}
                 data-testid="postit-continue-editing"
                 title={t('card.continueEditingTitle')}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-accent-primary/90 hover:bg-accent-primary/10 hover:text-accent-primary transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-label text-accent-primary/90 hover:bg-accent-primary/10 hover:text-accent-primary transition-colors"
               >
                 <MessageSquare className="w-2.5 h-2.5" aria-hidden />
                 {t('card.continueEditing')}
@@ -361,7 +361,7 @@ export function TicketPostitCard({
                 type="button"
                 onClick={handleMoveClick}
                 data-testid="move-to-rail-button"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-accent-info/90 hover:bg-accent-info/10 hover:text-accent-info transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-label text-accent-info/90 hover:bg-accent-info/10 hover:text-accent-info transition-colors"
               >
                 {t('card.moveToRail')}
                 <ArrowRight className="w-2.5 h-2.5" aria-hidden />
