@@ -47,9 +47,9 @@ function RecentlyDeleted({ projectId }: { projectId: string }) {
     try {
       const [s, m] = await Promise.all([listDeletedSpecs(projectId, signal), listDeletedAgentConversations(projectId, signal)])
       if (signal?.aborted || !alive.current) return
-      setSpecs(s.items)
-      setMissions(m.items)
-      setDays(s.retentionDays || m.retentionDays || 30)
+      setSpecs(Array.isArray(s?.items) ? s.items : [])
+      setMissions(Array.isArray(m?.items) ? m.items : [])
+      setDays(s?.retentionDays || m?.retentionDays || 30)
       setState('ready')
     } catch {
       if (signal?.aborted || !alive.current) return
