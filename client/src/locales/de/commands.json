@@ -35,7 +35,8 @@
       "navigate": "navigieren",
       "select": "auswählen",
       "close": "schließen",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "back": "zurück"
     },
     "missions": {
       "home": "Start"
@@ -69,7 +70,7 @@
       "goBack": "Zurück gehen",
       "goForward": "Vorwärts gehen",
       "undoLast": "Rückgängig: {{label}}",
-      "recentlyDeleted": "Kürzlich gelöscht",
+      "recentlyDeleted": "Zuletzt gelöscht",
       "pages": {
         "railTitle": "Rail für #{{id}}",
         "railPlaceholder": "Rail wählen...",
@@ -99,8 +100,9 @@
         "loading": "Wird geladen...",
         "loadFailed": "Die Optionen konnten nicht geladen werden."
       },
-      "openInbox": "Posteingang öffnen",
-      "openInboxCount": "Posteingang öffnen ({{count}} offen)"
+      "openInbox": "Offen öffnen",
+      "openInboxCount": "Offen öffnen ({{count}})",
+      "opensOptions": "öffnet Optionen"
     }
   },
   "toasts": {
@@ -165,7 +167,7 @@
       "flowHandOff": "Flow übergeben (Laufstreifen fokussiert)",
       "historyBackForward": "Zum vorherigen / nächsten Ort zurück- bzw. vorgehen",
       "undoLast": "Letzte Änderung rückgängig machen",
-      "openInbox": "Posteingang „Braucht dich“ öffnen"
+      "openInbox": "Offen öffnen"
     },
     "searchLabel": "Tastaturkürzel und Anleitungen durchsuchen",
     "searchPlaceholder": "Tastaturkürzel und Anleitungen durchsuchen…",

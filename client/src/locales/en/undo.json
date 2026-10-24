@@ -31,5 +31,6 @@
     "deleteFailed": "Couldn't delete it",
     "loadFailed": "Couldn't load the recently deleted items",
     "retry": "Retry"
-  }
+  },
+  "hintRecoverable": "or press {{keys}} · kept {{days}} days in Recently deleted"
 }

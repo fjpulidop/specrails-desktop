@@ -103,7 +103,7 @@ Prima di premere Avvia, un rail può mostrare quanto durano di solito le esecuzi
 
 L’intervallo è la metà centrale della tua cronologia: dal 25º al 75º percentile delle esecuzioni completate in questo progetto con lo stesso loop o comando e lo stesso motore. Servono almeno 5 esecuzioni confrontabili. Fino ad allora la riga dice *Cronologia ancora insufficiente* invece di tirare a indovinare. Contano solo i costi comunicati dal provider; i costi stimati restano fuori. È una stima, mai un addebito.
 
-Con un piano in abbonamento l’importo in dollari è nascosto e compare solo il tempo. Se la spesa di oggi più il limite alto dell’intervallo potesse raggiungere il tuo budget giornaliero, la riga aggiunge *Potrebbe fermarsi al budget* con un link alle impostazioni del budget.
+L’importo in dollari compare solo quando si sa che il motore fattura a consumo (per esempio con una chiave API). Con un piano in abbonamento, o finché la modalità di fatturazione non è nota, compare solo il tempo. Se il rail contiene più spec, l’intervallo vale per una spec e lo dice con *(per spec)*. Se la spesa di oggi più il limite alto dell’intervallo potesse raggiungere il tuo budget giornaliero, la riga aggiunge *Potrebbe fermarsi al budget* con un link alle impostazioni del budget. Se il budget di oggi è già esaurito, Avvia chiede prima una conferma, perché l’esecuzione resterebbe in pausa fino al ripristino.
 
 
 ## Dove andare ora

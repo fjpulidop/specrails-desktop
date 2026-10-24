@@ -35,7 +35,8 @@
       "navigate": "导航",
       "select": "选择",
       "close": "关闭",
-      "actions": "操作"
+      "actions": "操作",
+      "back": "返回"
     },
     "missions": {
       "home": "主页"
@@ -99,8 +100,9 @@
         "loading": "加载中...",
         "loadFailed": "无法加载选项。"
       },
-      "openInbox": "打开收件箱",
-      "openInboxCount": "打开收件箱（{{count}} 项待处理）"
+      "openInbox": "打开待处理",
+      "openInboxCount": "打开待处理（{{count}}）",
+      "opensOptions": "打开选项"
     }
   },
   "toasts": {
@@ -165,7 +167,7 @@
       "flowHandOff": "将 Flow 交给 Rail（运行条获得焦点时）",
       "historyBackForward": "后退 / 前进到上一个或下一个位置",
       "undoLast": "撤销上一次更改",
-      "openInbox": "打开“待你处理”收件箱"
+      "openInbox": "打开待处理"
     },
     "searchLabel": "搜索快捷键和指南",
     "searchPlaceholder": "搜索快捷键和指南…",

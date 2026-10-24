@@ -659,10 +659,8 @@ select {
    classes in CommandPalette.tsx (shared scrim token + base layer). */
 [cmdk-group-heading] {
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: var(--text-label);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--color-muted-foreground);
 }
 

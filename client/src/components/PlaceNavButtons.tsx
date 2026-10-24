@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { usePlaceHistory, type PlaceHistoryValue, type PlaceTarget } from '../hooks/usePlaceHistory'
-import { keyboardLabel } from '../lib/keyboard-label'
+import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
 import { cn } from '../lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 
@@ -35,12 +35,16 @@ function PlaceNavButton({ direction, places }: { direction: 'back' | 'forward'; 
     ? t(direction === 'back' ? 'titleBar.backTo' : 'titleBar.forwardTo', { place: target.label })
     : t(direction === 'back' ? 'titleBar.back' : 'titleBar.forward')
   const shortcut = keyboardLabel(direction === 'back' ? '⌘[' : '⌘]')
+  const bracket = direction === 'back' ? 'BracketLeft' : 'BracketRight'
+  const arrow = direction === 'back' ? 'ArrowLeft' : 'ArrowRight'
+  const ariaShortcuts = isMacKeyboard() ? `Meta+${bracket}` : `Control+${bracket} Alt+${arrow}`
 
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger
         aria-label={label}
         title={t('sidebarPin.withShortcut', { label, shortcut })}
+        aria-keyshortcuts={ariaShortcuts}
         disabled={!enabled}
         data-testid={`place-nav-${direction}`}
         onClick={(e) => {
@@ -70,7 +74,7 @@ function PlaceNavButton({ direction, places }: { direction: 'back' | 'forward'; 
           if (enabled) openMenu()
         }}
         className={cn(
-          'flex h-6 w-7 shrink-0 items-center justify-center rounded text-muted-foreground',
+          'flex h-6 w-7 shrink-0 items-center justify-center rounded text-muted-foreground focus-visible:outline focus-visible:outline-ring',
           'hover:bg-muted/50 hover:text-foreground',
           'disabled:pointer-events-none disabled:opacity-40',
         )}

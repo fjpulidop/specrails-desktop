@@ -5,6 +5,7 @@ import {
   fetchUsageSnapshot,
   forecastMinutes,
   formatUsdBand,
+  isMeteredBilled,
   isPlanBilled,
   parseLaunchForecast,
   resetLaunchForecastCache,
@@ -86,6 +87,24 @@ describe('isPlanBilled', () => {
     expect(isPlanBilled(row({ plan: null, windows: [{ usedPercent: null }] }), 'claude')).toBe(false)
     expect(isPlanBilled(null, 'claude')).toBe(false)
     expect(isPlanBilled({ providers: 'x' }, 'claude')).toBe(false)
+  })
+})
+
+describe('isMeteredBilled', () => {
+  const row = (over: Record<string, unknown>) => ({ providers: [{ providerId: 'claude', availability: 'available', plan: null, windows: [], spend: null, ...over }] })
+  it('is metered only when the provider is positively API-key or on-demand billed', () => {
+    expect(isMeteredBilled(row({ availability: 'unsupported-auth' }), 'claude')).toBe(true)
+    expect(isMeteredBilled(row({ plan: 'enterprise', spend: { kind: 'enterprise-on-demand' } }), 'claude')).toBe(true)
+  })
+  it('is not metered when it is a plan, signed out, missing from the snapshot or the snapshot is unreadable (unknown shows time only)', () => {
+    expect(isMeteredBilled(row({ plan: 'max' }), 'claude')).toBe(false)
+    expect(isMeteredBilled(row({ windows: [{ usedPercent: 12 }] }), 'claude')).toBe(false)
+    expect(isMeteredBilled(row({ availability: 'signed-out' }), 'claude')).toBe(false)
+    expect(isMeteredBilled(row({ availability: 'unavailable' }), 'claude')).toBe(false)
+    expect(isMeteredBilled(row({}), 'claude')).toBe(false)
+    expect(isMeteredBilled(row({ availability: 'unsupported-auth' }), 'gemini')).toBe(false)
+    expect(isMeteredBilled(null, 'claude')).toBe(false)
+    expect(isMeteredBilled({ providers: 'x' }, 'claude')).toBe(false)
   })
 })
 

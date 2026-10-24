@@ -47,7 +47,7 @@
   "remedy": {
     "resume": "继续",
     "resumeFrom": "从{{phase}}继续",
-    "retry": "再试一次",
+    "retry": "再次运行",
     "editSpec": "编辑规格并重新启动",
     "fixEnvironment": "修复环境",
     "openLogs": "在失败处打开日志"

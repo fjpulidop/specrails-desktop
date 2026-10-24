@@ -4,6 +4,7 @@ import { CircleCheck, ClipboardCheck, Inbox, MessageCircleQuestion, OctagonAlert
 import { Button } from '../../../components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { EmptyState } from '../../../components/ui/empty-state'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { compactRelativeTime } from '../../../lib/relative-time'
 import { cn } from '../../../lib/utils'
 import { useInbox, type InboxValue } from '../context/InboxContext'
@@ -40,6 +41,9 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   // A failed or blocked run says WHY in plain words (the same sentence as its diagnosis card); an unknown cause keeps the raw outcome.
   const diagnosis = useDiagnosisText(item.diagnosis ?? { kind: 'unknown', confidence: 'low', phase: null, rounds: null, resetAt: null, detail: null, resumablePhase: null, blocker: null, source: 'desktop', remedies: [] })
   const cause = item.diagnosis && item.diagnosis.kind !== 'unknown' ? diagnosis.headline : null
+  // A failure with no known cause says so in the app's language; the raw outcome (often English) stays on hover.
+  const rawNoCause = !cause && item.kind === 'failed'
+  const detailText = cause ?? (rawNoCause ? t('kinds.failedNoCause') : item.detail)
   return (
     <li className="flex flex-col gap-2 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id} data-cause={item.diagnosis?.kind}>
       <div className="flex items-start gap-2.5">
@@ -48,7 +52,7 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
           <p className="truncate text-body text-foreground" title={item.title}>{item.title}</p>
           <p className="truncate text-caption text-muted-foreground">
             <span className={look.tone}>{kindLabel}</span>
-            {cause ? ` · ${cause}` : item.detail ? ` · ${item.detail}` : ''}
+            {detailText && <span title={rawNoCause && item.detail ? item.detail : undefined}>{` · ${detailText}`}</span>}
             {age ? ` · ${age === 'now' ? t('age.now') : t('age.ago', { age })}` : ''}
           </p>
         </div>
@@ -56,6 +60,8 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
       <div className="flex flex-wrap items-center gap-1.5 pl-[1.625rem]">
         <Button
           size="sm"
+          variant="outline"
+          className="focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground"
           disabled={working}
           data-inbox-primary=""
           data-testid="inbox-primary"
@@ -103,17 +109,53 @@ export function InboxDialog() {
     targets[next]?.focus()
   }
 
+  // Done / Snooze remove the row under the person's finger: hand the focus to the next row (or the previous when it was the
+  // last one) instead of dropping it on <body>.
+  const keepFocus = (itemId: string): void => {
+    const root = listRef.current
+    if (!root) return
+    const rows = Array.from(root.querySelectorAll<HTMLElement>('[data-testid="inbox-row"]'))
+    const index = rows.findIndex((row) => row.dataset.itemId === itemId)
+    const heir = rows[index + 1] ?? rows[index - 1]
+    const heirId = heir?.dataset.itemId
+    requestAnimationFrame(() => {
+      const target = heirId
+        ? Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-testid="inbox-row"]') ?? []).find((row) => row.dataset.itemId === heirId)?.querySelector<HTMLElement>('[data-inbox-primary]')
+        : null
+      if (target) target.focus()
+      else listRef.current?.closest<HTMLElement>('[role="dialog"]')?.focus()
+    })
+  }
+  const withFocus: InboxValue = {
+    ...inbox,
+    done: (item) => { keepFocus(item.id); inbox.done(item) },
+    snooze: (item, choice) => { keepFocus(item.id); inbox.snooze(item, choice) },
+  }
+
   const empty = inbox.items.length === 0
   return (
     <Dialog open={inbox.isOpen} onOpenChange={(open) => { if (!open) inbox.closeInbox() }}>
-      <DialogContent size="form" data-testid="inbox-dialog">
+      <DialogContent
+        size="form"
+        data-testid="inbox-dialog"
+        onOpenAutoFocus={(event) => {
+          // Land on the first thing to act on, not on the close button.
+          const first = listRef.current?.querySelector<HTMLElement>('[data-inbox-primary]:not(:disabled)')
+          if (first) { event.preventDefault(); first.focus() }
+        }}
+      >
         <DialogHeader icon={<Inbox />}>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{empty ? t('subtitleEmpty') : t('subtitle', { count: inbox.count })}</DialogDescription>
         </DialogHeader>
         <DialogBody>
           <div ref={listRef} onKeyDown={onKeyDown} className="flex flex-col gap-4">
-            {empty && inbox.status === 'loading' && <p className="text-body text-muted-foreground" role="status">{t('loading')}</p>}
+            {empty && inbox.status === 'loading' && (
+              <div className="space-y-2" data-testid="inbox-loading">
+                <RailTrack running aria-label={t('loading')} />
+                <p className="text-body text-muted-foreground">{t('loading')}</p>
+              </div>
+            )}
             {empty && inbox.status === 'error' && (
               <EmptyState
                 icon={<OctagonAlert className="h-4 w-4" />}
@@ -130,10 +172,10 @@ export function InboxDialog() {
               <section key={group.projectId} aria-labelledby={`inbox-group-${group.projectId}`} data-testid="inbox-group" data-project-id={group.projectId}>
                 <h3 id={`inbox-group-${group.projectId}`} className="mb-1.5 flex items-center justify-between text-label text-muted-foreground">
                   <span className="truncate">{group.projectName}</span>
-                  <span className="shrink-0 pl-2">{group.items.length}</span>
+                  <span className="shrink-0 pl-2 tabular-nums">{group.items.length}</span>
                 </h3>
                 <ul role="list" className="flex flex-col gap-1.5">
-                  {group.items.map((item) => <InboxRow key={item.id} item={item} inbox={inbox} />)}
+                  {group.items.map((item) => <InboxRow key={item.id} item={item} inbox={withFocus} />)}
                 </ul>
               </section>
             ))}

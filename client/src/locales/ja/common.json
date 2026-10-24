@@ -213,7 +213,7 @@
       "launchForecast": "起動時の見込み",
       "loopBuilder": "Loop Builder",
       "shortcuts": "キーボードショートカット",
-      "inbox": "「対応が必要」受信箱",
+      "inbox": "「対応待ち」リスト",
       "specsBoard": "スペックとバックログ"
     }
   },
@@ -230,6 +230,9 @@
     "budgetCaution": "予算で一時停止する可能性があります",
     "budgetReached": "1 日の予算に達しました",
     "budgetCautionHint": "今日の支出にこの見込みの上限を足すと、1 日の予算に達する可能性があります。予算設定を開く。",
-    "budgetReachedHint": "今日の支出が 1 日の予算に達したため、リセットまたは引き上げまで起動は拒否されます。予算設定を開く。"
+    "budgetReachedHint": "今日の支出が 1 日の予算に達したため、リセットまたは引き上げまで起動は拒否されます。予算設定を開く。",
+    "launchOverBudget": "今日の予算を使い切りました。リセットされるまで実行は一時停止します。それでも起動しますか？",
+    "launchAnyway": "それでも起動",
+    "perSpec": "スペックごと"
   }
 }

@@ -362,10 +362,26 @@ describe('JobRunHeader failure diagnosis', () => {
     const card = screen.getByTestId('failure-diagnosis-card')
     await user.click(within(card).getByRole('button', { name: 'Edit spec and relaunch' }))
     await user.click(within(card).getByRole('button', { name: 'Open logs at the failure' }))
-    await user.click(within(card).getByRole('button', { name: 'Try again' }))
+    await user.click(within(card).getByRole('button', { name: 'Run again' }))
     expect(onEditSpec).toHaveBeenCalledTimes(1)
     expect(onOpenLogs).toHaveBeenCalledTimes(1)
     expect(onRerun).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells the surface when the card already offers the retry, so it can drop its own duplicate button', () => {
+    const seen: boolean[] = []
+    const actions = ({ diagnosisOffersRetry }: { diagnosisOffersRetry: boolean }) => { seen.push(diagnosisOffersRetry); return null }
+    // retry is a ranked remedy and the surface can rerun -> offered by the card
+    renderHeader(diagnosed({ ...tests, resumablePhase: null, remedies: ['retry', 'open-logs'] }), [], { onRerun: vi.fn(), onOpenLogs: vi.fn(), actions })
+    expect(seen[seen.length - 1]).toBe(true)
+    // the surface cannot rerun (the modal): the card does not offer it, so the surface keeps nothing to hide
+    seen.length = 0
+    renderHeader(diagnosed({ ...tests, resumablePhase: null, remedies: ['retry', 'open-logs'] }), [], { onOpenLogs: vi.fn(), actions })
+    expect(seen[seen.length - 1]).toBe(false)
+    // no diagnosis at all
+    seen.length = 0
+    renderHeader(diagnosed(null), [], { onRerun: vi.fn(), actions })
+    expect(seen[seen.length - 1]).toBe(false)
   })
 
   it('resumes through the runtime route only when the run can resume', async () => {

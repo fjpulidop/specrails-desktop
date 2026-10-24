@@ -213,7 +213,7 @@
       "launchForecast": "die Startprognose",
       "loopBuilder": "den Loop Builder",
       "shortcuts": "Tastaturkürzel",
-      "inbox": "den Eingang „Braucht dich“",
+      "inbox": "die Liste „Offen“",
       "specsBoard": "Specs und das Backlog"
     }
   },
@@ -230,6 +230,9 @@
     "budgetCaution": "Könnte am Budget pausieren",
     "budgetReached": "Tagesbudget erreicht",
     "budgetCautionHint": "Die heutigen Ausgaben plus das obere Ende dieser Schätzung könnten dein Tagesbudget erreichen. Budgeteinstellungen öffnen.",
-    "budgetReachedHint": "Die heutigen Ausgaben haben dein Tagesbudget erreicht; ein Start wird abgelehnt, bis es zurückgesetzt oder erhöht wird. Budgeteinstellungen öffnen."
+    "budgetReachedHint": "Die heutigen Ausgaben haben dein Tagesbudget erreicht; ein Start wird abgelehnt, bis es zurückgesetzt oder erhöht wird. Budgeteinstellungen öffnen.",
+    "launchOverBudget": "Das heutige Budget ist aufgebraucht. Der Lauf pausiert, bis es zurückgesetzt wird. Trotzdem starten?",
+    "launchAnyway": "Trotzdem starten",
+    "perSpec": "pro Spec"
   }
 }

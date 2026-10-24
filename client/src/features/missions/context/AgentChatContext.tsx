@@ -49,7 +49,7 @@ import { AgentBubble } from '../components/AgentBubble'
 import { useBuilderSession, type BuilderSession } from '../../builder/hooks/useBuilderSession'
 import { useUiMode } from '../../../context/UiModeContext'
 import { useDesktop } from '../../../hooks/useDesktop'
-import { useUndo } from '../../../hooks/useUndo'
+import { TRASH_RETENTION_DAYS, useUndo } from '../../../hooks/useUndo'
 import { comparePrSnapshotUpdatedAt } from '../../delivery/lib/pr-delivery'
 import { markUserPlaceIntent } from '../../../lib/places'
 import { migrateNewMissionComposerDrafts } from '../lib/agent-composer-drafts'
@@ -1681,6 +1681,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     pushUndo({
       projectId: deleted?.pinned_project_id ?? activeProjectId,
       label: i18n.t('undo:missionDeleted', { title: deleted?.title?.trim() || i18n.t('undo:missionUntitled') }),
+      recoverableDays: TRASH_RETENTION_DAYS,
       undo: async () => {
         await restoreAgentConversation(id)
         await refreshConversations()

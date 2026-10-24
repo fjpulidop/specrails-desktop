@@ -35,7 +35,8 @@
       "navigate": "navegar",
       "select": "selecionar",
       "close": "fechar",
-      "actions": "ações"
+      "actions": "ações",
+      "back": "voltar"
     },
     "missions": {
       "home": "Início"
@@ -99,8 +100,9 @@
         "loading": "Carregando...",
         "loadFailed": "Não foi possível carregar as opções."
       },
-      "openInbox": "Abrir caixa de entrada",
-      "openInboxCount": "Abrir caixa de entrada ({{count}} pendentes)"
+      "openInbox": "Abrir Pendências",
+      "openInboxCount": "Abrir Pendências ({{count}})",
+      "opensOptions": "abre opções"
     }
   },
   "toasts": {
@@ -165,7 +167,7 @@
       "flowHandOff": "Passar o Flow a um rail (com a faixa de execuções em foco)",
       "historyBackForward": "Voltar / avançar para o lugar anterior ou seguinte",
       "undoLast": "Desfazer a última alteração",
-      "openInbox": "Abrir a caixa «Precisam de você»"
+      "openInbox": "Abrir Pendências"
     },
     "searchLabel": "Pesquisar atalhos e guias",
     "searchPlaceholder": "Pesquisar atalhos e guias…",

@@ -1,5 +1,5 @@
 {
-  "title": "Precisam de você",
+  "title": "Pendências",
   "subtitle_one": "{{count}} item aguarda você",
   "subtitle_other": "{{count}} itens aguardam você",
   "subtitleEmpty": "Nada aguarda você",
@@ -9,7 +9,7 @@
     "description": "Revisões, perguntas e falhas de todos os projetos aparecem aqui assim que acontecem."
   },
   "error": {
-    "title": "Não foi possível carregar a caixa",
+    "title": "Não foi possível carregar as pendências",
     "description": "O app não conseguiu ler seus projetos. Tente novamente em instantes.",
     "retry": "Tentar novamente"
   },
@@ -19,7 +19,8 @@
     "failed": "Falhou",
     "blocked": "Bloqueado",
     "budget": "Pausado por orçamento",
-    "jira": "Falha na sincronização com o Jira"
+    "jira": "Falha na sincronização com o Jira",
+    "failedNoCause": "Parou antes da entrega"
   },
   "actions": {
     "open": "Abrir",
@@ -45,9 +46,9 @@
     "ago": "há {{age}}"
   },
   "button": {
-    "withCount_one": "Caixa, {{count}} item precisa de você",
-    "withCount_other": "Caixa, {{count}} itens precisam de você",
-    "empty": "Caixa, nada precisa de você",
+    "withCount_one": "Pendências: {{count}}",
+    "withCount_other": "Pendências: {{count}}",
+    "empty": "Pendências: nada",
     "title": "{{label}} ({{shortcut}})"
   },
   "toast": {
@@ -55,6 +56,9 @@
     "retried": "Nova tentativa na fila",
     "resumeFailed": "Não foi possível retomar a execução",
     "retryFailed": "Não foi possível tentar de novo a atualização do Jira",
-    "stillOverBudget": "Ainda acima do orçamento diário"
+    "stillOverBudget": "Ainda acima do orçamento diário",
+    "done": "Marcado como concluído",
+    "snoozed": "Adiado até {{when}}",
+    "undo": "Desfazer"
   }
 }

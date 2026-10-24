@@ -31,5 +31,6 @@
     "deleteFailed": "无法删除",
     "loadFailed": "无法加载最近删除的内容",
     "retry": "重试"
-  }
+  },
+  "hintRecoverable": "或按 {{keys}} · 在“最近删除”中保留 {{days}} 天"
 }

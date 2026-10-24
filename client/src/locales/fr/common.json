@@ -213,7 +213,7 @@
       "launchForecast": "la prévision de lancement",
       "loopBuilder": "le Loop Builder",
       "shortcuts": "les raccourcis clavier",
-      "inbox": "la boîte On a besoin de vous",
+      "inbox": "la liste « À traiter »",
       "specsBoard": "les specs et le backlog"
     }
   },
@@ -230,6 +230,9 @@
     "budgetCaution": "Peut se mettre en pause au budget",
     "budgetReached": "Budget quotidien atteint",
     "budgetCautionHint": "La dépense du jour plus le haut de cette estimation pourrait atteindre votre budget quotidien. Ouvrir les réglages du budget.",
-    "budgetReachedHint": "La dépense du jour a atteint votre budget quotidien : aucun lancement n’est accepté avant la réinitialisation ou une hausse du budget. Ouvrir les réglages du budget."
+    "budgetReachedHint": "La dépense du jour a atteint votre budget quotidien : aucun lancement n’est accepté avant la réinitialisation ou une hausse du budget. Ouvrir les réglages du budget.",
+    "launchOverBudget": "Le budget du jour est épuisé. L’exécution sera mise en pause jusqu’à sa réinitialisation. Lancer quand même ?",
+    "launchAnyway": "Lancer quand même",
+    "perSpec": "par spec"
   }
 }

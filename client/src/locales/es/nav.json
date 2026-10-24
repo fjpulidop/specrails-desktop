@@ -83,8 +83,8 @@
     "history": "Historial de navegación",
     "back": "Atrás",
     "forward": "Adelante",
-    "backTo": "Atrás a {{place}}",
-    "forwardTo": "Adelante a {{place}}",
+    "backTo": "Volver a {{place}}",
+    "forwardTo": "Avanzar a {{place}}",
     "backMenu": "Lugares anteriores",
     "forwardMenu": "Lugares siguientes"
   },
@@ -161,7 +161,7 @@
     "missionTitled": "Misión · {{title}}",
     "job": "Trabajo {{id}}",
     "review": "Paquete de revisión",
-    "inbox": "Bandeja",
+    "inbox": "Pendientes",
     "overlays": {
       "loops": "Loops",
       "plugins": "Plugins",

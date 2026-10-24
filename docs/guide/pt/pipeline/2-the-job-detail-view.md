@@ -117,7 +117,7 @@ Quando um job falha, para ou fica bloqueado, o estado final começa com um **car
 - **Bloqueada**, **sem tempo**, **em silêncio** e **parou inesperadamente** nomeiam o limite ou o processo que interrompeu a execução.
 - **Causa desconhecida**: o app não adivinha. Mostra o fim do registro para você mesmo ler.
 
-Sob o diagnóstico há até três remédios ordenados, e só os que podem funcionar aqui: **Retomar a partir de** a fase que parou, **Tentar de novo**, **Editar a spec e relançar** (os adendos da spec levam sua mudança para a próxima execução), **Corrigir o ambiente** e **Abrir o registro na falha**. A mesma causa aparece como um rótulo de uma linha na [caixa de entrada](../getting-started/the-dashboard-tour), e o cartão de execução da missão mostra o mesmo cartão.
+Sob o diagnóstico há até três remédios ordenados, e só os que podem funcionar aqui: **Retomar a partir de** a fase que parou, **Executar novamente**, **Editar a spec e relançar** (os adendos da spec levam sua mudança para a próxima execução), **Corrigir o ambiente** e **Abrir o registro na falha**. A mesma causa aparece como um rótulo de uma linha na [lista de pendências](../getting-started/the-dashboard-tour), e o cartão de execução da missão mostra o mesmo cartão.
 
 ## Para onde ir a seguir
 

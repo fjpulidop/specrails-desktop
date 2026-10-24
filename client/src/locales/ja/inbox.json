@@ -1,5 +1,5 @@
 {
-  "title": "対応が必要",
+  "title": "対応待ち",
   "subtitle_one": "{{count}} 件があなたを待っています",
   "subtitle_other": "{{count}} 件があなたを待っています",
   "subtitleEmpty": "待っている項目はありません",
@@ -9,7 +9,7 @@
     "description": "すべてのプロジェクトのレビュー、質問、失敗が発生するとここに表示されます。"
   },
   "error": {
-    "title": "受信箱を読み込めませんでした",
+    "title": "対応待ちを読み込めませんでした",
     "description": "アプリがプロジェクトを読み取れませんでした。しばらくしてからもう一度お試しください。",
     "retry": "再試行"
   },
@@ -19,7 +19,8 @@
     "failed": "失敗",
     "blocked": "ブロック中",
     "budget": "予算で一時停止",
-    "jira": "Jira 同期に失敗"
+    "jira": "Jira 同期に失敗",
+    "failedNoCause": "納品前に停止しました"
   },
   "actions": {
     "open": "開く",
@@ -45,9 +46,9 @@
     "ago": "{{age}}前"
   },
   "button": {
-    "withCount_one": "受信箱、{{count}} 件が対応待ち",
-    "withCount_other": "受信箱、{{count}} 件が対応待ち",
-    "empty": "受信箱、対応待ちはありません",
+    "withCount_one": "対応待ち：{{count}}",
+    "withCount_other": "対応待ち：{{count}}",
+    "empty": "対応待ち：なし",
     "title": "{{label}}（{{shortcut}}）"
   },
   "toast": {
@@ -55,6 +56,9 @@
     "retried": "再試行をキューに追加しました",
     "resumeFailed": "実行を再開できませんでした",
     "retryFailed": "Jira の更新を再試行できませんでした",
-    "stillOverBudget": "日次予算をまだ超えています"
+    "stillOverBudget": "日次予算をまだ超えています",
+    "done": "完了にしました",
+    "snoozed": "{{when}} まで後回しにしました",
+    "undo": "元に戻す"
   }
 }

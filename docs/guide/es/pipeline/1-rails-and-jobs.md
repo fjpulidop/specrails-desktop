@@ -104,7 +104,7 @@ Antes de pulsar Lanzar, un rail puede mostrar cuánto suelen tardar las ejecucio
 
 El rango es la mitad central de tu propio historial: del percentil 25 al 75 de las ejecuciones completadas en este proyecto con el mismo loop o comando y el mismo motor. Necesita al menos 5 ejecuciones comparables. Hasta entonces la línea dice *Aún no hay suficiente historial* en lugar de adivinar. Solo se usan costes que informó el proveedor; los costes estimados se dejan fuera. Es una estimación, nunca una factura.
 
-Con un plan de suscripción se oculta la cifra en dólares y solo se muestra el tiempo. Si el gasto de hoy más el extremo alto del rango pudiera alcanzar tu presupuesto diario, la línea añade *Puede pausarse por presupuesto* con un enlace a los ajustes de presupuesto.
+La cifra en dólares solo aparece cuando se sabe que el motor factura por uso (por ejemplo, una clave de API). Con un plan de suscripción, o mientras aún no se conoce el modo de facturación, solo se muestra el tiempo. Si el rail tiene varias specs, el rango es para una spec y lo dice con *(por spec)*. Si el gasto de hoy más el extremo alto del rango pudiera alcanzar tu presupuesto diario, la línea añade *Puede pausarse por presupuesto* con un enlace a los ajustes de presupuesto. Si el presupuesto de hoy ya está agotado, Lanzar te pide confirmar antes, porque la ejecución se pausaría hasta que se restablezca.
 
 
 ## A dónde ir después

@@ -1,5 +1,5 @@
 {
-  "title": "On a besoin de vous",
+  "title": "À traiter",
   "subtitle_one": "{{count}} élément vous attend",
   "subtitle_other": "{{count}} éléments vous attendent",
   "subtitleEmpty": "Rien ne vous attend",
@@ -9,7 +9,7 @@
     "description": "Les revues, questions et échecs de tous les projets apparaissent ici dès qu'ils surviennent."
   },
   "error": {
-    "title": "Impossible de charger la boîte",
+    "title": "Impossible de charger la liste À traiter",
     "description": "L'application n'a pas pu lire vos projets. Réessayez dans un instant.",
     "retry": "Réessayer"
   },
@@ -19,7 +19,8 @@
     "failed": "Échec",
     "blocked": "Bloqué",
     "budget": "En pause (budget)",
-    "jira": "Échec de la synchronisation Jira"
+    "jira": "Échec de la synchronisation Jira",
+    "failedNoCause": "Arrêté avant la livraison"
   },
   "actions": {
     "open": "Ouvrir",
@@ -45,9 +46,9 @@
     "ago": "il y a {{age}}"
   },
   "button": {
-    "withCount_one": "Boîte, {{count}} élément a besoin de vous",
-    "withCount_other": "Boîte, {{count}} éléments ont besoin de vous",
-    "empty": "Boîte, rien n'a besoin de vous",
+    "withCount_one": "À traiter : {{count}}",
+    "withCount_other": "À traiter : {{count}}",
+    "empty": "À traiter : rien",
     "title": "{{label}} ({{shortcut}})"
   },
   "toast": {
@@ -55,6 +56,9 @@
     "retried": "Nouvelle tentative en file",
     "resumeFailed": "Impossible de reprendre l'exécution",
     "retryFailed": "Impossible de relancer la mise à jour Jira",
-    "stillOverBudget": "Toujours au-dessus du budget quotidien"
+    "stillOverBudget": "Toujours au-dessus du budget quotidien",
+    "done": "Marqué comme terminé",
+    "snoozed": "Reporté jusqu'à {{when}}",
+    "undo": "Annuler"
   }
 }

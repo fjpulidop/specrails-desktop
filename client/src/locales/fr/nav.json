@@ -161,7 +161,7 @@
     "missionTitled": "Mission · {{title}}",
     "job": "Tâche {{id}}",
     "review": "Paquet de revue",
-    "inbox": "Boîte",
+    "inbox": "À traiter",
     "overlays": {
       "loops": "Loops",
       "plugins": "Plugins",

@@ -31,5 +31,6 @@
     "deleteFailed": "Impossible de supprimer",
     "loadFailed": "Impossible de charger les éléments supprimés récemment",
     "retry": "Réessayer"
-  }
+  },
+  "hintRecoverable": "ou appuyez sur {{keys}} · conservé {{days}} jours dans Supprimés récemment"
 }

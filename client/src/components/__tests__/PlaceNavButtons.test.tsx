@@ -60,6 +60,21 @@ describe('PlaceNavButtons', () => {
     expect(forward()).toBeDisabled()
   })
 
+  it('declares its shortcuts for assistive tech (Ctrl/Alt off macOS, ⌘ on macOS) and shows a focus ring like its neighbours', () => {
+    mount()
+    expect(back()).toHaveAttribute('aria-keyshortcuts', 'Control+BracketLeft Alt+ArrowLeft')
+    expect(forward()).toHaveAttribute('aria-keyshortcuts', 'Control+BracketRight Alt+ArrowRight')
+    expect(back().className).toContain('focus-visible:outline')
+    expect(forward().className).toContain('focus-visible:outline-ring')
+  })
+
+  it('declares ⌘[ / ⌘] on macOS', () => {
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+    mount()
+    expect(back()).toHaveAttribute('aria-keyshortcuts', 'Meta+BracketLeft')
+    expect(forward()).toHaveAttribute('aria-keyshortcuts', 'Meta+BracketRight')
+  })
+
   it('uses the ⌘ shortcut on macOS', () => {
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
     mount()

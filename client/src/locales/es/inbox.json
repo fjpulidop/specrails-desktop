@@ -1,5 +1,5 @@
 {
-  "title": "Te necesitan",
+  "title": "Pendientes",
   "subtitle_one": "{{count}} elemento te espera",
   "subtitle_other": "{{count}} elementos te esperan",
   "subtitleEmpty": "Nada te espera",
@@ -9,7 +9,7 @@
     "description": "Las revisiones, preguntas y fallos de todos los proyectos aparecen aquí en cuanto ocurren."
   },
   "error": {
-    "title": "No se pudo cargar la bandeja",
+    "title": "No se pudieron cargar los pendientes",
     "description": "La app no pudo leer tus proyectos. Inténtalo de nuevo en un momento.",
     "retry": "Reintentar"
   },
@@ -19,7 +19,8 @@
     "failed": "Falló",
     "blocked": "Bloqueado",
     "budget": "Pausado por presupuesto",
-    "jira": "Falló la sincronización con Jira"
+    "jira": "Falló la sincronización con Jira",
+    "failedNoCause": "Se detuvo antes de entregar"
   },
   "actions": {
     "open": "Abrir",
@@ -45,9 +46,9 @@
     "ago": "hace {{age}}"
   },
   "button": {
-    "withCount_one": "Bandeja, {{count}} elemento te necesita",
-    "withCount_other": "Bandeja, {{count}} elementos te necesitan",
-    "empty": "Bandeja, nada te necesita",
+    "withCount_one": "Pendientes: {{count}}",
+    "withCount_other": "Pendientes: {{count}}",
+    "empty": "Pendientes: nada",
     "title": "{{label}} ({{shortcut}})"
   },
   "toast": {
@@ -55,6 +56,9 @@
     "retried": "Reintento en cola",
     "resumeFailed": "No se pudo reanudar la ejecución",
     "retryFailed": "No se pudo reintentar la actualización de Jira",
-    "stillOverBudget": "Sigues por encima del presupuesto diario"
+    "stillOverBudget": "Sigues por encima del presupuesto diario",
+    "done": "Marcado como hecho",
+    "snoozed": "Pospuesto hasta {{when}}",
+    "undo": "Deshacer"
   }
 }

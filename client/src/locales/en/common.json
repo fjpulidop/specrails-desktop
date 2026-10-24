@@ -230,6 +230,9 @@
     "budgetCaution": "May pause at budget",
     "budgetReached": "Daily budget reached",
     "budgetCautionHint": "Today’s spend plus the top of this estimate could reach your daily budget. Open budget settings.",
-    "budgetReachedHint": "Today’s spend has reached your daily budget, so a launch is refused until it resets or you raise it. Open budget settings."
+    "budgetReachedHint": "Today’s spend has reached your daily budget, so a launch is refused until it resets or you raise it. Open budget settings.",
+    "launchOverBudget": "Today’s budget is used up. The run will pause until it resets. Launch anyway?",
+    "launchAnyway": "Launch anyway",
+    "perSpec": "per spec"
   }
 }

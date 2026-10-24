@@ -1,5 +1,5 @@
 {
-  "title": "待你处理",
+  "title": "待处理",
   "subtitle_one": "有 {{count}} 项在等你",
   "subtitle_other": "有 {{count}} 项在等你",
   "subtitleEmpty": "没有等你处理的事项",
@@ -9,7 +9,7 @@
     "description": "所有项目的评审、提问和失败都会在发生时出现在这里。"
   },
   "error": {
-    "title": "无法加载收件箱",
+    "title": "无法加载待处理列表",
     "description": "应用无法读取你的项目，请稍后重试。",
     "retry": "重试"
   },
@@ -19,7 +19,8 @@
     "failed": "失败",
     "blocked": "已阻塞",
     "budget": "因预算暂停",
-    "jira": "Jira 同步失败"
+    "jira": "Jira 同步失败",
+    "failedNoCause": "在交付前停止"
   },
   "actions": {
     "open": "打开",
@@ -45,9 +46,9 @@
     "ago": "{{age}}前"
   },
   "button": {
-    "withCount_one": "收件箱，{{count}} 项待你处理",
-    "withCount_other": "收件箱，{{count}} 项待你处理",
-    "empty": "收件箱，没有待处理事项",
+    "withCount_one": "待处理：{{count}}",
+    "withCount_other": "待处理：{{count}}",
+    "empty": "待处理：无",
     "title": "{{label}}（{{shortcut}}）"
   },
   "toast": {
@@ -55,6 +56,9 @@
     "retried": "已加入重试队列",
     "resumeFailed": "无法继续该运行",
     "retryFailed": "无法重试 Jira 更新",
-    "stillOverBudget": "仍超出每日预算"
+    "stillOverBudget": "仍超出每日预算",
+    "done": "已标记为完成",
+    "snoozed": "已推迟到 {{when}}",
+    "undo": "撤销"
   }
 }

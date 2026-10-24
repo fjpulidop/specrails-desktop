@@ -26,7 +26,7 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 
 ## "Needs you" inbox
 
-A title-bar button (count badge), `⌘⇧I`, the ⌘K action *Open inbox* and the place
+A title-bar button (count badge), `⌘⇧I` on macOS / `Ctrl+Alt+I` on Windows and Linux, the ⌘K action *Open inbox* and the place
 `?inbox=1` open one panel that lists what waits for the person across **every
 project**, grouped by project, newest first.
 
@@ -52,6 +52,14 @@ project**, grouped by project, newest first.
   entry with the place it leads to.
 - **Notifications:** a provider-limit OS notification opens the inbox
   (`lib/inbox-events.ts`); job notifications keep deep-linking to the job itself.
+- **Shortcut.** `Ctrl+Shift+I` opens DevTools in WebView2 and Chromium (development builds and the
+  web view), so off macOS the chord is `Ctrl+Alt+I` (`useKeyboardShortcuts`, `SHORTCUTS` with `platform`,
+  `keyboardLabel`). macOS keeps `⌘⇧I`. The count badge is neutral (it mixes failures, questions and reviews).
+- **Opening an item of another project** closes the inbox, switches project and navigates one frame later
+  (the route memory restores the project's last page in the same commit and would overwrite it).
+- **Done / Snooze** show a toast with Undo (sonner directly: the app undo stack is per project) and move the
+  focus to the next row. The dialog opens with the first row's primary button focused; only the focused
+  primary is filled, the rest are outlined.
 - Panel keyboard: `↑ ↓ Home End` walk the rows' primary buttons, `Esc` closes.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/inbox`.

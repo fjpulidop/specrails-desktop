@@ -110,12 +110,15 @@ cost band and the tightest daily budget's headroom. Rules, all in `lib/launch-fo
 - **Estimate, never a bill.** The tooltip says "Estimate from N past runs — not billed cost". The cost band is
   built server-side from provider-reported costs only (estimated costs and runs without a cost never enter it) and
   is never summed with a billed figure.
-- **Plans show time only.** `isPlanBilled` reads the machine's subscription-usage snapshot (`GET /api/subscription-usage`:
-  signed in with a plan or usage windows, not enterprise on-demand). The dollar figure waits for that answer, so it never
-  flashes for a plan user. Unknown billing (API keys, other providers) is not a plan: the figure shows, as an estimate.
+- **Dollars only when metered.** `isMeteredBilled` reads the machine's subscription-usage snapshot
+  (`GET /api/subscription-usage`): the figure shows only when the provider is positively API-key billed
+  (`unsupported-auth`) or on-demand enterprise. On a plan (`isPlanBilled`), while the snapshot has not answered,
+  or when it does not say, the line shows time only: a plan user never sees a `$`.
 - **Budget caution.** `budgetOutlook` compares, in integer cents, today's spend plus the top of the cost band with the
   daily budget: "May pause at budget" (or "Daily budget reached" when the gate would already refuse). It links to
-  `openProjectSettings('budget')` or `openAppSettings('advanced')` for an app-wide budget.
+  `openProjectSettings('budget')` or `openAppSettings('advanced')` for an app-wide budget. With the budget
+  already reached, `hooks/useLaunchBudgetGuard` makes Play / Run / Launch ask first ("Launch anyway?"); it never blocks.
+- Idle rails pass `hideWhenInsufficient` (no repeated "Not enough history yet") and `perSpec` when they hold several specs.
 - Forecasts are cached 30 s per project/loop/provider (`fetchLaunchForecast`) and shared between rails.
 
 ## Undo instead of confirm

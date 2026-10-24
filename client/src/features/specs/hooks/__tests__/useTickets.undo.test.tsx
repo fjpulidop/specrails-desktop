@@ -64,6 +64,8 @@ describe('useTickets: undo instead of confirm', () => {
     await act(async () => { expect(await result.current.deleteTicket(7)).toBe(true) })
     expect(calls.some((c) => c.method === 'DELETE' && c.url.endsWith('/projects/proj-1/tickets/7'))).toBe(true)
     expect(toastFn.mock.calls.at(-1)![0]).toBe('Deleted “Fix login”')
+    // A deleted spec stays in Recently deleted: the toast says so.
+    expect((toastFn.mock.calls.at(-1)![1] as { description: string }).description).toMatch(/kept 30 days in Recently deleted$/)
     await act(async () => { lastAction().onClick() })
     expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/projects/proj-1/tickets/7/restore'))).toBe(true)
   })

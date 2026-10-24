@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Inbox } from 'lucide-react'
-import { keyboardLabel } from '../../../lib/keyboard-label'
+import { inboxAriaShortcut, inboxShortcutLabel } from '../../../lib/keyboard-label'
 import { cn } from '../../../lib/utils'
 import { useInbox } from '../context/InboxContext'
 
@@ -15,14 +15,14 @@ export function InboxButton() {
   if (!inbox) return null
   const { count, isOpen, toggleInbox } = inbox
   const label = count > 0 ? t('button.withCount', { count }) : t('button.empty')
-  const shortcut = keyboardLabel('⌘⇧I')
+  const shortcut = inboxShortcutLabel()
   return (
     <button
       type="button"
       aria-label={label}
       aria-haspopup="dialog"
       aria-expanded={isOpen}
-      aria-keyshortcuts="Meta+Shift+I"
+      aria-keyshortcuts={inboxAriaShortcut()}
       title={t('button.title', { label, shortcut })}
       data-testid="inbox-button"
       onClick={toggleInbox}
@@ -37,7 +37,7 @@ export function InboxButton() {
         <span
           data-testid="inbox-badge"
           aria-hidden
-          className="absolute -right-0.5 -top-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-pill bg-accent-review px-1 text-micro text-background"
+          className="absolute -right-0.5 -top-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-pill bg-foreground px-1 text-micro tabular-nums text-background"
         >
           {count > 99 ? '99+' : count}
         </span>

@@ -213,7 +213,7 @@
       "launchForecast": "启动预估",
       "loopBuilder": "Loop Builder",
       "shortcuts": "键盘快捷键",
-      "inbox": "“待你处理”收件箱",
+      "inbox": "“待处理”列表",
       "specsBoard": "规格与待办列表"
     }
   },
@@ -230,6 +230,9 @@
     "budgetCaution": "可能因预算而暂停",
     "budgetReached": "已达到每日预算",
     "budgetCautionHint": "今天的花费加上此估算的上限可能达到每日预算。打开预算设置。",
-    "budgetReachedHint": "今天的花费已达到每日预算，在重置或提高预算之前将拒绝启动。打开预算设置。"
+    "budgetReachedHint": "今天的花费已达到每日预算，在重置或提高预算之前将拒绝启动。打开预算设置。",
+    "launchOverBudget": "今日预算已用完。运行会暂停，直到预算重置。仍要启动吗？",
+    "launchAnyway": "仍要启动",
+    "perSpec": "每个规格"
   }
 }

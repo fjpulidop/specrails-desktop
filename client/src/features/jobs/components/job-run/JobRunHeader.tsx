@@ -18,7 +18,7 @@ import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMe
 import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeExecutionEvidence'
 import { RuntimeSteering } from '../../../settings/components/RuntimeSteering'
 import { FailureDiagnosisCard } from '../../../recovery/components/FailureDiagnosisCard'
-import { logTailLines, openLogsAtFailure, readFailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
+import { availableRemedies, logTailLines, openLogsAtFailure, readFailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useRuntimeRuns } from './useRuntimeRuns'
 import {
   extractModifiedFiles,
@@ -58,8 +58,12 @@ export interface JobRunHeaderProps {
   /** Chrome only (border/background) — never content. */
   variant: JobRunSurface
   pipelineTotals?: PipelineTotals | null
-  /** Surface-owned buttons (Cancel / Re-run / Export) rendered on row 1. */
-  actions?: ReactNode
+  /**
+   * Surface-owned buttons (Cancel / Re-run / Export) rendered on row 1. A function receives
+   * `diagnosisOffersRetry`: true while the diagnosis card shows the retry remedy, so the surface
+   * does not repeat the same action next to it.
+   */
+  actions?: ReactNode | ((context: { diagnosisOffersRetry: boolean }) => ReactNode)
   onOpenRun?(runId: string): void
   /** Existing "run again" of the surface; offered as the diagnosis' retry remedy. */
   onRerun?(): void
@@ -177,6 +181,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   if (onRerun) diagnosisHandlers.retry = { run: onRerun, busy: !!rerunBusy }
   if (onEditSpec) diagnosisHandlers['edit-spec'] = { run: onEditSpec }
   diagnosisHandlers['open-logs'] = { run: () => { if (onOpenLogs) onOpenLogs(); else if (!openLogsAtFailure()) toast.info(tRecovery('logs.notFound')) } }
+  const diagnosisOffersRetry = showDiagnosis && !!diagnosis && availableRemedies(diagnosis, diagnosisHandlers).includes('retry')
   const diagnosisTail = useMemo(() => (showDiagnosis && diagnosis?.kind === 'unknown' ? logTailLines(events) : []), [showDiagnosis, diagnosis?.kind, events])
 
   const frameClass = variant === 'glass'
@@ -222,7 +227,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         {stepsLabel && <span className="text-xs text-muted-foreground num shrink-0">{stepsLabel}</span>}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {runtimeActions}
-          {actions}
+          {typeof actions === 'function' ? actions({ diagnosisOffersRetry }) : actions}
           {hasDetails && (
             <button
               type="button"

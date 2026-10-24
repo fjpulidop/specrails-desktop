@@ -35,7 +35,8 @@
       "navigate": "naviga",
       "select": "seleziona",
       "close": "chiudi",
-      "actions": "azioni"
+      "actions": "azioni",
+      "back": "indietro"
     },
     "missions": {
       "home": "Home"
@@ -99,8 +100,9 @@
         "loading": "Caricamento...",
         "loadFailed": "Impossibile caricare le opzioni."
       },
-      "openInbox": "Apri posta in arrivo",
-      "openInboxCount": "Apri posta in arrivo ({{count}} in attesa)"
+      "openInbox": "Apri Da gestire",
+      "openInboxCount": "Apri Da gestire ({{count}})",
+      "opensOptions": "apre le opzioni"
     }
   },
   "toasts": {
@@ -165,7 +167,7 @@
       "flowHandOff": "Affida il Flow (striscia delle esecuzioni attiva)",
       "historyBackForward": "Torna indietro / vai avanti al luogo precedente o successivo",
       "undoLast": "Annulla l'ultima modifica",
-      "openInbox": "Apri la posta «Serve il tuo intervento»"
+      "openInbox": "Apri Da gestire"
     },
     "searchLabel": "Cerca scorciatoie e guide",
     "searchPlaceholder": "Cerca scorciatoie e guide…",

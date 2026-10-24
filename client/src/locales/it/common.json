@@ -213,7 +213,7 @@
       "launchForecast": "la previsione di avvio",
       "loopBuilder": "il Loop Builder",
       "shortcuts": "le scorciatoie da tastiera",
-      "inbox": "la casella Serve il tuo intervento",
+      "inbox": "l’elenco «Da gestire»",
       "specsBoard": "le spec e il backlog"
     }
   },
@@ -230,6 +230,9 @@
     "budgetCaution": "Potrebbe fermarsi al budget",
     "budgetReached": "Budget giornaliero raggiunto",
     "budgetCautionHint": "La spesa di oggi più il limite alto di questa stima potrebbe raggiungere il tuo budget giornaliero. Apri le impostazioni del budget.",
-    "budgetReachedHint": "La spesa di oggi ha raggiunto il tuo budget giornaliero: un avvio viene rifiutato fino al reset o finché non lo aumenti. Apri le impostazioni del budget."
+    "budgetReachedHint": "La spesa di oggi ha raggiunto il tuo budget giornaliero: un avvio viene rifiutato fino al reset o finché non lo aumenti. Apri le impostazioni del budget.",
+    "launchOverBudget": "Il budget di oggi è esaurito. L’esecuzione resterà in pausa finché non viene ripristinato. Avviare comunque?",
+    "launchAnyway": "Avvia comunque",
+    "perSpec": "per spec"
   }
 }

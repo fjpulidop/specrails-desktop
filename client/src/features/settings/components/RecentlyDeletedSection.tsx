@@ -112,7 +112,7 @@ function RecentlyDeleted({ projectId }: { projectId: string }) {
       description={t('recent.description', { days })}
       data-testid="recently-deleted"
     >
-      {state === 'loading' && <div className="h-16 animate-pulse rounded-card bg-muted/30" aria-hidden />}
+      {state === 'loading' && <div className="h-16 motion-safe:animate-pulse rounded-card bg-muted/30" aria-hidden />}
       {state === 'error' && (
         <EmptyState
           icon={<Undo2 className="h-4 w-4" />}

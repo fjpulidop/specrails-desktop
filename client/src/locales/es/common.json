@@ -213,7 +213,7 @@
       "launchForecast": "la previsión de lanzamiento",
       "loopBuilder": "el Loop Builder",
       "shortcuts": "los atajos de teclado",
-      "inbox": "la bandeja Te necesitan",
+      "inbox": "la bandeja de pendientes",
       "specsBoard": "las specs y el backlog"
     }
   },
@@ -225,11 +225,14 @@
     "minutesSingle": "{{value}} min",
     "insufficient": "Aún no hay suficiente historial",
     "insufficientHint": "Necesita al menos {{count}} ejecuciones terminadas como esta en este proyecto y motor.",
-    "estimateHint": "Estimación a partir de {{count}} ejecuciones anteriores — no es coste facturado",
-    "estimateHintCost": "Estimación a partir de {{count}} ejecuciones anteriores (coste de {{costCount}}) — no es coste facturado",
+    "estimateHint": "Estimación basada en {{count}} ejecuciones anteriores; no es coste facturado",
+    "estimateHintCost": "Estimación basada en {{count}} ejecuciones anteriores (coste de {{costCount}}); no es coste facturado",
     "budgetCaution": "Puede pausarse por presupuesto",
     "budgetReached": "Presupuesto diario alcanzado",
     "budgetCautionHint": "El gasto de hoy más el extremo alto de esta estimación podría alcanzar tu presupuesto diario. Abrir ajustes de presupuesto.",
-    "budgetReachedHint": "El gasto de hoy ha alcanzado tu presupuesto diario, así que no se lanzará nada hasta el reinicio o hasta que lo subas. Abrir ajustes de presupuesto."
+    "budgetReachedHint": "El gasto de hoy ha alcanzado tu presupuesto diario, así que no se lanzará nada hasta el reinicio o hasta que lo subas. Abrir ajustes de presupuesto.",
+    "launchOverBudget": "Ya has gastado el presupuesto de hoy. La ejecución se pausará hasta que se restablezca. ¿Lanzar de todos modos?",
+    "launchAnyway": "Lanzar de todos modos",
+    "perSpec": "por spec"
   }
 }

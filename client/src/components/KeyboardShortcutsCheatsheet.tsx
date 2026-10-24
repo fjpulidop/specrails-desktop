@@ -6,6 +6,7 @@ import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
 import { API_ORIGIN } from '../lib/origin'
 import { openDocs } from '../lib/docs-events'
 import { Input } from './ui/input'
+import { Kbd } from './ui/kbd'
 import {
   Dialog,
   DialogBody,
@@ -28,14 +29,6 @@ const CATEGORY_LABEL_KEYS: Record<Shortcut['category'], string> = {
 }
 
 const CATEGORY_ORDER: Shortcut['category'][] = ['general', 'navigation', 'actions', 'missions']
-
-function Kbd({ children }: { children: string }) {
-  return (
-    <kbd className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded border border-border/50 bg-card/80 font-mono text-xs text-foreground">
-      {children}
-    </kbd>
-  )
-}
 
 /** A guide page or section that matches the search (`GET /api/docs/search`). */
 interface GuideMatch {
@@ -95,7 +88,7 @@ function ShortcutRow({ shortcut }: { shortcut: Shortcut }) {
   const keys = keyboardLabel(shortcut.keys).split(' ')
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className="text-sm text-muted-foreground">{t(shortcut.descriptionKey)}</span>
+      <span className="text-body text-muted-foreground">{t(shortcut.descriptionKey)}</span>
       <div className="flex items-center gap-1 ml-4 shrink-0">
         {keys.map((k, i) => (
           <Kbd key={i}>{k}</Kbd>
@@ -158,7 +151,7 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
           )}
           {grouped.map((group) => (
             <div key={group.category}>
-              <h3 className="text-label font-semibold text-accent-primary mb-2">
+              <h3 className="text-label font-semibold text-muted-foreground mb-2">
                 {group.label}
               </h3>
               <div className="divide-y divide-border/30">
@@ -170,7 +163,7 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
           ))}
           {searching && (guide.matches.length > 0 || (guide.settled && grouped.length === 0)) && (
             <div data-testid="shortcuts-guides">
-              <h3 className="text-label font-semibold text-accent-primary mb-2">{t('shortcuts.guidesHeading')}</h3>
+              <h3 className="text-label font-semibold text-muted-foreground mb-2">{t('shortcuts.guidesHeading')}</h3>
               {guide.matches.length === 0 ? (
                 <p role="status" className="text-caption text-muted-foreground">{t('shortcuts.noGuides', { query: query.trim() })}</p>
               ) : (
@@ -181,7 +174,7 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
                         type="button"
                         onClick={() => openGuide(match)}
                         aria-label={t('shortcuts.openGuide', { title: match.heading ? `${match.title} › ${match.heading}` : match.title })}
-                        className="flex w-full items-center gap-2 rounded-control py-1.5 text-left text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex w-full items-center gap-2 rounded-control py-1.5 text-left text-body text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <BookOpen className="size-3.5 shrink-0" aria-hidden />
                         <span className="min-w-0 truncate" aria-hidden>

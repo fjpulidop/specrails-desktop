@@ -102,7 +102,7 @@ Bevor du auf Starten drückst, kann ein Rail zeigen, wie lange vergleichbare Lä
 
 Die Spanne ist die mittlere Hälfte deines eigenen Verlaufs: das 25. bis 75. Perzentil abgeschlossener Läufe in diesem Projekt mit demselben Loop oder Befehl und derselben Engine. Es braucht mindestens 5 vergleichbare Läufe. Bis dahin steht in der Zeile *Noch nicht genug Verlauf* statt einer Vermutung. Es zählen nur vom Anbieter gemeldete Kosten; geschätzte Kosten bleiben außen vor. Es ist eine Schätzung, nie eine Rechnung.
 
-Bei einem Abo-Tarif wird der Dollarbetrag ausgeblendet und nur die Zeit angezeigt. Könnten die heutigen Ausgaben plus das obere Ende der Spanne dein Tagesbudget erreichen, ergänzt die Zeile *Könnte am Budget pausieren* mit einem Link zu den Budgeteinstellungen.
+Der Dollarbetrag erscheint nur, wenn bekannt ist, dass die Engine nach Verbrauch abrechnet (zum Beispiel mit einem API-Schlüssel). Bei einem Abo-Tarif oder solange die Abrechnungsart noch nicht bekannt ist, wird nur die Zeit angezeigt. Enthält die Rail mehrere Specs, gilt die Spanne für eine Spec und sagt das mit *(pro Spec)*. Könnten die heutigen Ausgaben plus das obere Ende der Spanne dein Tagesbudget erreichen, ergänzt die Zeile *Könnte am Budget pausieren* mit einem Link zu den Budgeteinstellungen. Ist das heutige Budget bereits aufgebraucht, bittet Starten zuerst um Bestätigung, weil der Lauf bis zum Zurücksetzen pausieren würde.
 
 
 ## Wie es weitergeht

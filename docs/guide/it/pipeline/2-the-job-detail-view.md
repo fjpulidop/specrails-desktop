@@ -117,7 +117,7 @@ Quando un job fallisce, si ferma o è bloccato, lo stato finale inizia con una *
 - **Bloccata**, **senza tempo**, **in silenzio** e **fermata all'improvviso** indicano il limite o il processo che ha fermato l'esecuzione.
 - **Causa sconosciuta**: l'app non tira a indovinare. Mostra la fine del log perché lo legga tu.
 
-Sotto la diagnosi ci sono fino a tre rimedi in ordine, e solo quelli che qui possono funzionare: **Riprendi da** la fase che si è fermata, **Riprova**, **Modifica la spec e rilancia** (gli addendum della spec portano la tua modifica all'esecuzione successiva), **Sistema l'ambiente** e **Apri il log al punto del guasto**. La stessa causa compare come etichetta di una riga nella [posta in arrivo](../getting-started/the-dashboard-tour), e la scheda di esecuzione della missione mostra la stessa scheda.
+Sotto la diagnosi ci sono fino a tre rimedi in ordine, e solo quelli che qui possono funzionare: **Riprendi da** la fase che si è fermata, **Esegui di nuovo**, **Modifica la spec e rilancia** (gli addendum della spec portano la tua modifica all'esecuzione successiva), **Sistema l'ambiente** e **Apri il log al punto del guasto**. La stessa causa compare come etichetta di una riga nella [elenco Da gestire](../getting-started/the-dashboard-tour), e la scheda di esecuzione della missione mostra la stessa scheda.
 
 ## Dove andare ora
 

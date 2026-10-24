@@ -13,11 +13,14 @@ const handlers = () => ({
 }) satisfies RemedyHandlers
 
 describe('FailureDiagnosisCard', () => {
-  it('says what failed in plain words, in an accessible labelled region with a live status', () => {
+  it('says what failed in plain words, in an accessible labelled region that does not announce itself', () => {
     render(<FailureDiagnosisCard diagnosis={diagnosis()} handlers={handlers()} />)
     const region = screen.getByRole('region', { name: 'Tests failed in the Reviewer phase after 4 fix rounds' })
     expect(region).toHaveAttribute('data-kind', 'tests_failed')
-    expect(within(region).getByRole('status')).toHaveTextContent('Tests failed in the Reviewer phase after 4 fix rounds')
+    // Opening a historical failed job must not read the failure aloud again: the labelled region is enough.
+    expect(within(region).queryByRole('status')).toBeNull()
+    expect(region.querySelector('[aria-live]')).toBeNull()
+    expect(within(region).getByTestId('failure-headline')).toHaveTextContent('Tests failed in the Reviewer phase after 4 fix rounds')
     expect(within(region).getByRole('group', { name: 'Ways to recover' })).toBeInTheDocument()
   })
 

@@ -10,6 +10,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { GripVertical, Trash2, ArrowLeft, Layers } from 'lucide-react'
 import { RailControls, type RailMode, type RailStatus } from './RailControls'
 import { LaunchForecast } from '../../../components/LaunchForecast'
+import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
 import { deriveRailMode, effectiveLoopId, offeredRecommendation } from '../lib/rail-loops'
 import { recommendedLoopForTickets } from '../../specs/lib/spec-triage'
 import { SpecCard } from '../../specs/components/SpecCard'
@@ -198,9 +199,13 @@ export function RailRow({
   const hasSelectorRow = showEngineSel || showModelSel || showLoopModelSel || showLoopSel || showRolesChip
   // Launch forecast ("Usually 6-9 min · $2-4 for runs like this"): only for an idle rail
   // with specs and one engine that will run it (the hybrid roles engine has none).
-  const forecastEl = status !== 'running' && tickets.length > 0 && !rolesEngine && activeProjectId
-    ? <LaunchForecast projectId={activeProjectId} loopId={railLoopId} provider={effectiveProvider} className="px-0.5" />
+  const forecastApplies = status !== 'running' && tickets.length > 0 && !rolesEngine && !!activeProjectId
+  const forecastEl = forecastApplies
+    ? <LaunchForecast projectId={activeProjectId} loopId={railLoopId} provider={effectiveProvider} perSpec={tickets.length > 1} hideWhenInsufficient className="px-0.5" />
     : null
+  // A launch while today's budget is already used up asks first (the run would pause).
+  const launchGuard = useLaunchBudgetGuard(forecastApplies && activeProjectId && effectiveProvider ? { projectId: activeProjectId, loopId: railLoopId, provider: effectiveProvider } : null)
+  const guardedToggle = () => { if (status === 'running') onToggle(); else launchGuard.guard(onToggle) }
   // Compact-tier right-click context menu state. `{ticketId, x, y}` while
   // open, `null` otherwise. Closed by outside-click, Escape, or selection.
   const [ticketCtxMenu, setTicketCtxMenu] = useState<{ ticketId: number; x: number; y: number } | null>(null)
@@ -532,7 +537,7 @@ export function RailRow({
             freestyleAvailable={freestyleAvailable}
             loopAvailable={loopAvailable}
             onModeChange={onModeChange}
-            onToggle={onToggle}
+            onToggle={guardedToggle}
             launchBlockedReason={launchBlockedReason}
           />
           {forecastEl}
@@ -554,6 +559,7 @@ export function RailRow({
         )}
 
         {workspacePicker}
+        {launchGuard.dialog}
         {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
         {/* Ask-first PR decision strip (safe-pr-review-flow) */}
         {prDecision && onPrDecision && (
@@ -695,7 +701,7 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} launchBlockedReason={launchBlockedReason} />
+            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={guardedToggle} launchBlockedReason={launchBlockedReason} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button
@@ -730,6 +736,7 @@ export function RailRow({
           )}
 
           {workspacePicker}
+          {launchGuard.dialog}
           {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
           {/* Ask-first PR decision strip (safe-pr-review-flow) */}
           {prDecision && onPrDecision && (

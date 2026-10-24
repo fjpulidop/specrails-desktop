@@ -55,6 +55,15 @@ describe('useUndo / UndoProvider', () => {
     expect(options.action.label).toBe('Undo')
   })
 
+  it('says how long a deleted thing stays recoverable when the request carries it', () => {
+    render(<Wrapper />)
+    act(() => { api.pushUndo({ label: 'Deleted “A”', undo: vi.fn(), recoverableDays: 30 }) })
+    const description = (lastToast().options as unknown as { description: string }).description
+    expect(description).toMatch(/^or press .+ · kept 30 days in Recently deleted$/)
+    act(() => { api.pushUndo({ label: 'Moved #3', undo: vi.fn() }) })
+    expect((lastToast().options as unknown as { description: string }).description).toMatch(/^or press [^·]+$/)
+  })
+
   it('the Undo button runs the undo once and confirms', async () => {
     render(<Wrapper />)
     const undo = vi.fn(async () => {})

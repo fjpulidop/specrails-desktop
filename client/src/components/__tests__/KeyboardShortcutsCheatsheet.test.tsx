@@ -53,6 +53,33 @@ describe('KeyboardShortcutsCheatsheet', () => {
     expect(screen.getByText('Hand off the Flow (run strip focused)')).toBeInTheDocument()
   })
 
+  it('headings stay neutral (the lamp colour is for state) and keys use the shared Kbd chip', () => {
+    render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />)
+    const heading = screen.getAllByRole('heading', { level: 3 })[0]
+    expect(heading.className).toContain('text-muted-foreground')
+    expect(heading.className).not.toContain('text-accent-primary')
+    const key = screen.getAllByText('?', { selector: 'kbd' })[0]
+    expect(key.className).toContain('rounded-control')
+    expect(key.className).not.toContain('font-mono')
+  })
+
+  it('lists the inbox chord of the keyboard family (Ctrl+Shift+I is DevTools off macOS)', () => {
+    const platform = Object.getOwnPropertyDescriptor(navigator, 'platform')
+    try {
+      Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+      const win = render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />)
+      expect(screen.getByText('Ctrl+Alt+I')).toBeInTheDocument()
+      expect(screen.queryByText('⌘⇧I')).not.toBeInTheDocument()
+      win.unmount()
+      Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+      render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />)
+      expect(screen.getByText('⌘⇧I')).toBeInTheDocument()
+      expect(screen.queryByText('Ctrl+Alt+I')).not.toBeInTheDocument()
+    } finally {
+      if (platform) Object.defineProperty(navigator, 'platform', platform)
+    }
+  })
+
   it('lists Back / Forward with the keyboard family of the platform', () => {
     const platform = Object.getOwnPropertyDescriptor(navigator, 'platform')
     try {

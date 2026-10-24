@@ -102,7 +102,7 @@ Antes de clicar em Iniciar, um rail pode mostrar quanto tempo execuções como e
 
 O intervalo é a metade central do seu próprio histórico: do percentil 25 ao 75 das execuções concluídas neste projeto com o mesmo loop ou comando e o mesmo motor. Precisa de pelo menos 5 execuções comparáveis. Até lá, a linha diz *Ainda sem histórico suficiente* em vez de um palpite. Só entram custos informados pelo provedor; custos estimados ficam de fora. É uma estimativa, nunca uma cobrança.
 
-Em um plano de assinatura, o valor em dólares fica oculto e só o tempo aparece. Se o gasto de hoje mais o topo do intervalo puder atingir o seu orçamento diário, a linha acrescenta *Pode pausar no orçamento* com um link para as configurações de orçamento.
+O valor em dólares só aparece quando se sabe que o motor cobra por uso (por exemplo, uma chave de API). Em um plano de assinatura, ou enquanto o modo de cobrança ainda não é conhecido, só o tempo aparece. Quando o rail tem várias specs, o intervalo vale para uma spec e diz isso com *(por spec)*. Se o gasto de hoje mais o topo do intervalo puder atingir o seu orçamento diário, a linha acrescenta *Pode pausar no orçamento* com um link para as configurações de orçamento. Se o orçamento de hoje já acabou, Iniciar pede confirmação antes, porque a execução ficaria em pausa até ser reiniciado.
 
 
 ## Para onde ir agora

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
@@ -258,18 +258,32 @@ describe('Inbox chord', () => {
     return e
   }
 
-  it('⌘⇧I / Ctrl+Shift+I toggles the inbox, even from a text field', () => {
+  const asPlatform = (platform: string) => vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue(platform)
+  afterEach(() => vi.restoreAllMocks())
+
+  it('⌘⇧I toggles the inbox on macOS, even from a text field', () => {
+    asPlatform('MacIntel')
     const onToggleInbox = vi.fn()
     renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn(), onToggleInbox }), { wrapper })
     expect(chordI({ metaKey: true, shiftKey: true }).defaultPrevented).toBe(true)
-    chordI({ ctrlKey: true, shiftKey: true })
     const input = document.body.appendChild(document.createElement('input'))
-    input.addEventListener('keydown', (e) => e.stopPropagation(), { once: false, capture: false })
+    chordI({ metaKey: true, shiftKey: true }, input)
     expect(onToggleInbox).toHaveBeenCalledTimes(2)
     input.remove()
   })
 
+  it('Ctrl+Alt+I toggles it elsewhere; Ctrl+Shift+I stays free for DevTools', () => {
+    asPlatform('Win32')
+    const onToggleInbox = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn(), onToggleInbox }), { wrapper })
+    expect(chordI({ ctrlKey: true, altKey: true }).defaultPrevented).toBe(true)
+    expect(onToggleInbox).toHaveBeenCalledTimes(1)
+    expect(chordI({ ctrlKey: true, shiftKey: true }).defaultPrevented).toBe(false)
+    expect(onToggleInbox).toHaveBeenCalledTimes(1)
+  })
+
   it('leaves the chord alone without a handler, without Shift, or inside a dialog', () => {
+    asPlatform('MacIntel')
     const onToggleInbox = vi.fn()
     renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn() }), { wrapper })
     expect(chordI({ metaKey: true, shiftKey: true }).defaultPrevented).toBe(false)
@@ -284,7 +298,8 @@ describe('Inbox chord', () => {
   })
 
   it('is listed in the cheatsheet shortcuts', () => {
-    expect(SHORTCUTS.find((s) => s.keys === '⌘⇧I')?.descriptionKey).toBe('shortcuts.items.openInbox')
+    expect(SHORTCUTS.find((s) => s.keys === '⌘⇧I')).toMatchObject({ descriptionKey: 'shortcuts.items.openInbox', platform: 'mac' })
+    expect(SHORTCUTS.find((s) => s.keys === 'Ctrl+Alt+I')).toMatchObject({ descriptionKey: 'shortcuts.items.openInbox', platform: 'other' })
   })
 })
 

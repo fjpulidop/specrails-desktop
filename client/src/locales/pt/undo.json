@@ -31,5 +31,6 @@
     "deleteFailed": "Não foi possível excluir",
     "loadFailed": "Não foi possível carregar os itens excluídos recentemente",
     "retry": "Tentar novamente"
-  }
+  },
+  "hintRecoverable": "ou pressione {{keys}} · guardado por {{days}} dias em Excluídos recentemente"
 }

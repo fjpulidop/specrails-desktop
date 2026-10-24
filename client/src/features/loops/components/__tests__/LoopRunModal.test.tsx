@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { resetLaunchForecastCache } from '../../../../lib/launch-forecast'
 import { LoopRunModal, type RunModalProject } from '../LoopRunModal'
 
 const PROJECTS: RunModalProject[] = [
@@ -162,5 +163,23 @@ describe('LoopRunModal launch forecast', () => {
     expect(calls.find((u) => u.includes('/launch-forecast'))).toMatch(/\/api\/projects\/p1\/launch-forecast\?loopId=l1&provider=claude$/)
     fireEvent.change(screen.getByTestId('run-project-select'), { target: { value: 'p3' } })
     await vi.waitFor(() => expect(calls.some((u) => /\/projects\/p3\/launch-forecast\?loopId=l1&provider=kimi$/.test(u))).toBe(true))
+  })
+})
+
+describe('LoopRunModal with the daily budget reached', () => {
+  beforeEach(() => resetLaunchForecastCache())
+  const forecast = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
+
+  it('asks before executing, and Launch anyway executes', async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string) =>
+      String(url).includes('/launch-forecast') ? { ok: true, json: async () => forecast } : { ok: true, json: async () => ({}) }) as typeof fetch
+    const onExecute = vi.fn()
+    render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
+    await screen.findByRole('button', { name: 'Daily budget reached' })
+    fireEvent.click(screen.getByRole('button', { name: /Execute/i }))
+    const confirm = await screen.findByTestId('launch-over-budget-dialog')
+    expect(onExecute).not.toHaveBeenCalled()
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Launch anyway' }))
+    await waitFor(() => expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p1' })))
   })
 })

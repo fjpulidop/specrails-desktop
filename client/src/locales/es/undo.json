@@ -1,7 +1,7 @@
 {
   "action": "Deshacer",
   "hint": "o pulsa {{keys}}",
-  "undone": "Deshecho · {{label}}",
+  "undone": "Deshecho: {{label}}",
   "failed": "No se pudo deshacer",
   "specDeleted": "Se eliminó «{{title}}»",
   "missionDeleted": "Se eliminó la misión «{{title}}»",
@@ -11,12 +11,12 @@
   "labelsUpdated": "Etiquetas actualizadas en #{{id}}",
   "railRunning": "Ese rail está en marcha, así que #{{id}} no puede volver a él",
   "recent": {
-    "title": "Eliminado recientemente",
+    "title": "Eliminados recientemente",
     "description": "Las specs y misiones que eliminas se quedan aquí {{days}} días; después se borran definitivamente.",
     "specs": "Specs",
     "missions": "Misiones",
     "untitled": "Misión sin título",
-    "deletedOn": "Eliminado {{date}}",
+    "deletedOn": "Eliminada {{date}}",
     "purgesOn": "se borra definitivamente {{date}}",
     "restore": "Restaurar",
     "deleteForever": "Eliminar definitivamente",
@@ -31,5 +31,6 @@
     "deleteFailed": "No se pudo eliminar",
     "loadFailed": "No se pudieron cargar los elementos eliminados recientemente",
     "retry": "Reintentar"
-  }
+  },
+  "hintRecoverable": "o pulsa {{keys}} · se guarda {{days}} días en Eliminados recientemente"
 }

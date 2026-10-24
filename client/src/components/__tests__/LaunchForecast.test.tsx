@@ -82,6 +82,90 @@ describe('LaunchForecast', () => {
     expect(screen.queryByText(/\$/)).toBeNull()
   })
 
+  describe('unknown billing mode shows time only', () => {
+    const stuckUsage = (forecast: unknown) => {
+      global.fetch = vi.fn().mockImplementation(async (url: string) => {
+        const u = String(url)
+        if (u.includes('/launch-forecast')) return { ok: true, json: async () => forecast }
+        return new Promise(() => {}) // the usage snapshot never answers
+      }) as typeof fetch
+    }
+
+    it('shows no dollar figure while the snapshot has not loaded', async () => {
+      stuckUsage({ time, cost, minSamples: 5, budget: null })
+      view()
+      expect(await screen.findByText('Usually 6–9 min for runs like this')).toBeInTheDocument()
+      expect(screen.queryByText(/\$/)).toBeNull()
+    })
+
+    it.each([
+      ['an unreadable snapshot', 'fail'],
+      ['a snapshot without this provider', { providers: [{ providerId: 'codex', availability: 'available', plan: 'plus', windows: [], spend: null }] }],
+      ['a signed-out provider', { providers: [{ providerId: 'claude', availability: 'signed-out', plan: null, windows: [], spend: null }] }],
+      ['an unavailable provider', { providers: [{ providerId: 'claude', availability: 'unavailable', plan: null, windows: [], spend: null }] }],
+    ])('shows time only for %s', async (_name, usage) => {
+      global.fetch = vi.fn().mockImplementation(async (url: string) => {
+        const u = String(url)
+        if (u.includes('/launch-forecast')) return { ok: true, json: async () => ({ time, cost, minSamples: 5, budget: null }) }
+        if (usage === 'fail') return { ok: false, json: async () => ({}) }
+        return { ok: true, json: async () => usage }
+      }) as typeof fetch
+      view()
+      expect(await screen.findByText('Usually 6–9 min for runs like this')).toBeInTheDocument()
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/subscription-usage')))
+      await act(async () => { await Promise.resolve() })
+      expect(screen.queryByText(/\$/)).toBeNull()
+    })
+
+    it('adds the dollar figure once the snapshot confirms API-key billing, and for on-demand enterprise spend', async () => {
+      let release!: (v: unknown) => void
+      const usage = new Promise((resolve) => { release = resolve })
+      global.fetch = vi.fn().mockImplementation(async (url: string) => {
+        const u = String(url)
+        if (u.includes('/launch-forecast')) return { ok: true, json: async () => ({ time, cost, minSamples: 5, budget: null }) }
+        return { ok: true, json: async () => usage }
+      }) as typeof fetch
+      view()
+      expect(await screen.findByText('Usually 6–9 min for runs like this')).toBeInTheDocument()
+      await act(async () => { release(apiKeyUsage); await usage })
+      expect(await screen.findByText('Usually 6–9 min · $2–$4 for runs like this')).toBeInTheDocument()
+    })
+
+    it('shows the cost for enterprise on-demand spend', async () => {
+      mockApi({ time, cost, minSamples: 5, budget: null }, { providers: [{ providerId: 'claude', availability: 'available', plan: 'enterprise', windows: [], spend: { kind: 'enterprise-on-demand' } }] })
+      view()
+      expect(await screen.findByText('Usually 6–9 min · $2–$4 for runs like this')).toBeInTheDocument()
+    })
+  })
+
+  it('labels the band "per spec" for a target holding several specs, and uses tabular numerals', async () => {
+    mockApi({ time, cost: null, minSamples: 5, budget: null })
+    view({ perSpec: true })
+    const line = await screen.findByTestId('launch-forecast-line')
+    expect(line).toHaveTextContent('Usually 6–9 min for runs like this(per spec)')
+    expect(screen.getByTestId('launch-forecast').className).toContain('tabular-nums')
+  })
+
+  it('does not say "per spec" when there is no band to qualify', async () => {
+    mockApi({ time: null, cost: null, minSamples: 5, budget: null })
+    view({ perSpec: true })
+    expect(await screen.findByText('Not enough history yet')).toBeInTheDocument()
+    expect(screen.queryByText('(per spec)')).toBeNull()
+  })
+
+  it('hideWhenInsufficient renders nothing without a band, but still warns about a reached budget', async () => {
+    mockApi({ time: null, cost: null, minSamples: 5, budget: null })
+    const quiet = view({ hideWhenInsufficient: true })
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+    await act(async () => { await Promise.resolve() })
+    expect(quiet.container).toBeEmptyDOMElement()
+    quiet.unmount()
+    resetLaunchForecastCache()
+    mockApi({ time: null, cost: null, minSamples: 5, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } })
+    view({ hideWhenInsufficient: true })
+    expect(await screen.findByRole('button', { name: 'Daily budget reached' })).toBeInTheDocument()
+  })
+
   it('renders nothing when the endpoint is unavailable, without a target, or for the hybrid roles engine', async () => {
     mockApi('fail')
     const first = view()

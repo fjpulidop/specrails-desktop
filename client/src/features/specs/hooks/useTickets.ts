@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { API_ORIGIN } from '../../../lib/origin'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useDesktop } from '../../../hooks/useDesktop'
-import { useUndo } from '../../../hooks/useUndo'
+import { TRASH_RETENTION_DAYS, useUndo } from '../../../hooks/useUndo'
 import { readProjectCache, writeProjectCache } from '../../../hooks/useProjectCache'
 import { isSpecGenInFlight } from '../lib/spec-gen-suppression'
 import type { LocalTicket } from '../../../types'
@@ -354,6 +354,7 @@ export function useTickets() {
         pushUndo({
           projectId: ownerProjectId,
           label: tUndo('specDeleted', { title }),
+          recoverableDays: TRASH_RETENTION_DAYS,
           undo: async () => {
             const back = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}/restore`, { method: 'POST' })
             if (!back.ok) throw new Error(`restore failed: ${back.status}`)

@@ -498,7 +498,7 @@ export default function JobDetailPage() {
         rerunBusy={isRerunning}
         onEditSpec={job.tickets?.length ? () => openTicketDetail(job.tickets![0].id) : undefined}
         onOpenLogs={handleOpenLogs}
-        actions={(
+        actions={({ diagnosisOffersRetry }) => (
           <>
             {job.hasTelemetry && (
               <Tooltip>
@@ -519,7 +519,7 @@ export default function JobDetailPage() {
                 </TooltipContent>
               </Tooltip>
             )}
-            {isFinished && (
+            {isFinished && !diagnosisOffersRetry && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

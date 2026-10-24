@@ -132,7 +132,7 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], classN
       data-confidence={diagnosis.confidence}
       className={cn('space-y-2.5 rounded-card border px-3.5 py-3', tone.box, className)}
     >
-      <div role="status" className="flex items-start gap-2.5">
+      <div className="flex items-start gap-2.5">
         <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', tone.icon)} aria-hidden />
         <div className="min-w-0 flex-1 space-y-0.5">
           <p id={headingId} className="text-strong text-foreground" data-testid="failure-headline">{headline}</p>

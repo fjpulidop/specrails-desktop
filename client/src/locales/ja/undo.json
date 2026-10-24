@@ -31,5 +31,6 @@
     "deleteFailed": "削除できませんでした",
     "loadFailed": "最近削除した項目を読み込めませんでした",
     "retry": "再試行"
-  }
+  },
+  "hintRecoverable": "または {{keys}} を押す · 「最近削除した項目」に {{days}} 日間保管"
 }

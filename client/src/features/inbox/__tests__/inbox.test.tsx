@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, useLocation, type Location } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { MemoryRouter, useLocation, useNavigate, type Location } from 'react-router-dom'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 const h = vi.hoisted(() => ({
   desktop: { projects: [{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }], activeProjectId: 'p1' as string | null, setActiveProjectId: vi.fn() },
   mode: 'agent' as 'agent' | 'kanban',
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }))
 vi.mock('sonner', () => ({ toast: h.toast }))
 vi.mock('../../../hooks/useDesktop', () => ({ useDesktop: () => h.desktop }))
@@ -51,7 +51,7 @@ beforeEach(() => {
   h.mode = 'agent'
   h.desktop.activeProjectId = 'p1'
   h.desktop.setActiveProjectId = vi.fn()
-  h.toast.success.mockClear(); h.toast.error.mockClear()
+  h.toast.mockClear(); h.toast.success.mockClear(); h.toast.error.mockClear()
   items = [
     mk({}),
     mk({ id: 'p2:question:r9', projectId: 'p2', projectName: 'Beta', kind: 'question', title: 'Implement · #4', action: 'open-run', subjectId: 'r9', conversationId: null, version: 'paused::' }),
@@ -78,6 +78,13 @@ describe('Inbox badge and button', () => {
     mount()
     await waitFor(() => expect(screen.getByTestId('inbox-badge')).toHaveTextContent('4'))
     expect(screen.getByTestId('inbox-button')).toHaveAttribute('aria-label', 'Inbox, 4 items need you')
+  })
+
+  it('declares its chord for assistive tech and shows it in the tooltip (Ctrl+Alt+I off macOS)', async () => {
+    mount()
+    const button = await screen.findByTestId('inbox-button')
+    expect(button).toHaveAttribute('aria-keyshortcuts', 'Control+Alt+I')
+    expect(button.getAttribute('title')).toContain('(Ctrl+Alt+I)')
   })
 
   it('has no badge when nothing is waiting', async () => {
@@ -122,7 +129,44 @@ describe('Inbox panel', () => {
     // An unknown cause keeps the raw outcome instead of a made-up reason.
     const unknown = rows.find((r) => r.getAttribute('data-item-id') === 'p1:failed:r2')!
     expect(unknown).not.toHaveTextContent('usage limit')
-    expect(unknown).toHaveTextContent('failed')
+    // No known cause: a calm localized line, with the raw outcome (often English) kept for hover.
+    expect(unknown).toHaveTextContent('Stopped before delivery')
+    expect(unknown).not.toHaveTextContent('failed')
+    expect(within(unknown).getByText(/Stopped before delivery/)).toHaveAttribute('title', 'failed')
+  })
+
+  it('keeps one filled primary: row actions are outlined, the cyan is for the focused one', async () => {
+    mount()
+    const dialog = await openPanel()
+    const primaries = within(dialog).getAllByTestId('inbox-primary')
+    for (const primary of primaries) {
+      expect(primary.className).toContain('border-input')
+      expect(primary.className).not.toMatch(/(^|\s)bg-primary(\s|$)/)
+      expect(primary.className).toContain('focus-visible:bg-primary')
+    }
+  })
+
+  it('lands the focus on the first row\'s primary action, not on the close button', async () => {
+    mount()
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('4'))
+    const dialog = await openPanel()
+    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getAllByTestId('inbox-primary')[0]))
+  })
+
+  it('shows the rail track while the first read is in flight', async () => {
+    fetchMock.mockImplementation(() => new Promise(() => {}))
+    mount('/?inbox=1')
+    const loading = await screen.findByTestId('inbox-loading')
+    expect(within(loading).getByTestId('rail-track')).toBeInTheDocument()
+    expect(loading).toHaveTextContent('Checking your projects')
+  })
+
+  it('counts with a neutral badge (the count mixes failures, questions and reviews)', async () => {
+    mount()
+    const badge = await screen.findByTestId('inbox-badge')
+    expect(badge.className).toContain('bg-foreground')
+    expect(badge.className).toContain('tabular-nums')
+    expect(badge.className).not.toContain('accent-review')
   })
 
   it('is deep-linkable: ?inbox=1 opens it on load, Escape closes it', async () => {
@@ -186,16 +230,44 @@ describe('Primary actions call the real handlers', () => {
     await waitFor(() => expect(url()).toBe('/review/d1'))
   })
 
-  it('switches project first when the item lives in another one, then opens its place', async () => {
+  it('switches project first when the item lives in another one, closes the inbox, then opens its place', async () => {
     const { rerender } = mount('/?inbox=1')
     const row = (await screen.findAllByTestId('inbox-row')).find((r) => r.getAttribute('data-item-id') === 'p2:question:r9')!
     fireEvent.click(within(row).getByTestId('inbox-primary'))
     expect(h.desktop.setActiveProjectId).toHaveBeenCalledWith('p2')
-    expect(url()).toBe('/?inbox=1')
+    // The dialog does not outlive the hand-off.
+    await waitFor(() => expect(screen.queryByTestId('inbox-dialog')).toBeNull())
+    expect(url()).toBe('/')
     h.desktop.activeProjectId = 'p2'
     rerender(<MemoryRouter initialEntries={['/?inbox=1']}><Shell /></MemoryRouter>)
     // MemoryRouter keeps its own history across rerender of the same tree position.
     await waitFor(() => expect(url()).toContain('job=r9'))
+  })
+
+  it('Board mode: opening a job of another project ends on /jobs/:id with the inbox closed, even if route memory navigates first', async () => {
+    h.mode = 'kanban'
+    items = [mk({ id: 'p2:failed:r7', projectId: 'p2', projectName: 'Beta', kind: 'failed', title: 'Implement · #7', action: 'open-run', subjectId: 'r7', conversationId: null, version: 'failed' })]
+    // Stand-in for useProjectRouteMemory: an ancestor's effect (so it runs AFTER the inbox's) that restores the incoming project's page.
+    function RouteMemory({ children }: { children: ReactNode }) {
+      const desktop = h.desktop
+      const nav = useNavigate()
+      const seen = useRef(desktop.activeProjectId)
+      useEffect(() => {
+        if (seen.current === desktop.activeProjectId) return
+        seen.current = desktop.activeProjectId
+        nav('/', { replace: true })
+      }, [desktop.activeProjectId, nav])
+      return <>{children}</>
+    }
+    const tree = () => (<MemoryRouter initialEntries={['/?inbox=1']}><RouteMemory><Shell /></RouteMemory></MemoryRouter>)
+    const { rerender } = render(tree())
+    const row = (await screen.findAllByTestId('inbox-row'))[0]
+    fireEvent.click(within(row).getByTestId('inbox-primary'))
+    h.desktop.activeProjectId = 'p2'
+    rerender(tree())
+    await waitFor(() => expect(loc.pathname).toBe('/jobs/r7'))
+    expect(loc.search).not.toContain('inbox')
+    expect(screen.queryByTestId('inbox-dialog')).toBeNull()
   })
 
   it('Resume posts to the ITEM\'s project (not the active one) and refreshes', async () => {
@@ -254,6 +326,48 @@ describe('Snooze and Done', () => {
     expect(stored.until).toBeGreaterThan(Date.now() + 59 * 60_000)
     // an hour later the stored snooze no longer applies
     localStorage.setItem(DISMISSALS_KEY, JSON.stringify({ 'p1:review:d1': { ...stored, until: Date.now() - 1 } }))
+  })
+
+  it('Done says what happened, offers Undo, and Undo brings the row back', async () => {
+    mount('/?inbox=1')
+    fireEvent.click(within(await rowOf('p1:review:d1')).getByTestId('inbox-done'))
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
+    expect(h.toast).toHaveBeenCalledWith('Marked done', expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
+    const action = h.toast.mock.calls[0][1].action as { onClick: () => void }
+    act(() => action.onClick())
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('4'))
+    expect(JSON.parse(localStorage.getItem(DISMISSALS_KEY)!)['p1:review:d1']).toBeUndefined()
+  })
+
+  it('Snooze says until when, offers Undo, and Undo brings the row back', async () => {
+    mount('/?inbox=1')
+    const row = await rowOf('p1:review:d1')
+    fireEvent.click(within(row).getByTestId('inbox-snooze'))
+    fireEvent.click(within(row).getByTestId('inbox-snooze-tomorrow'))
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'))
+    const [message, options] = h.toast.mock.calls[0]
+    expect(message).toMatch(/^Snoozed until .+/)
+    act(() => (options.action as { onClick: () => void }).onClick())
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('4'))
+  })
+
+  it('moves the focus to the next row when Done removes the one under it (and to the previous at the end)', async () => {
+    mount('/?inbox=1')
+    const dialog = await screen.findByTestId('inbox-dialog')
+    await waitFor(() => expect(within(dialog).getAllByTestId('inbox-primary').length).toBe(4))
+    const before = within(dialog).getAllByTestId('inbox-row').map((r) => r.getAttribute('data-item-id'))
+    const first = (await rowOf('p1:review:d1'))
+    const heirId = before[before.indexOf('p1:review:d1') + 1]
+    within(first).getByTestId('inbox-done').focus()
+    fireEvent.click(within(first).getByTestId('inbox-done'))
+    await waitFor(() => expect(document.activeElement?.closest('[data-testid="inbox-row"]')?.getAttribute('data-item-id')).toBe(heirId))
+    expect(document.activeElement).toHaveAttribute('data-inbox-primary')
+    // the last row hands the focus back to its predecessor
+    const rows = within(dialog).getAllByTestId('inbox-row')
+    const last = rows[rows.length - 1]
+    const previousId = rows[rows.length - 2].getAttribute('data-item-id')
+    fireEvent.click(within(last).getByTestId('inbox-done'))
+    await waitFor(() => expect(document.activeElement?.closest('[data-testid="inbox-row"]')?.getAttribute('data-item-id')).toBe(previousId))
   })
 
   it('a dismissed item comes back when its state changes', async () => {

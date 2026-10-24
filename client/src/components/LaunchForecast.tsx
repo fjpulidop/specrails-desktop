@@ -12,29 +12,36 @@ interface LaunchForecastProps {
   loopId: string | null | undefined
   /** The single engine that will run it; null (hybrid roles, unknown) shows nothing. */
   provider: string | null | undefined
+  /** The band is for ONE spec, but the target holds several: say so, so it is not read as the total. */
+  perSpec?: boolean
+  /** Render nothing (instead of "Not enough history yet") while there is no band. */
+  hideWhenInsufficient?: boolean
   className?: string
 }
 
 /**
  * "Usually 6–9 min · $2–4 for runs like this" next to a Launch action: a
  * measured band of this project's own past runs, labelled an estimate, with
- * "Not enough history yet" instead of a guess and the dollar figure hidden on a
- * subscription plan. When today's spend plus the top of the band would reach
+ * "Not enough history yet" instead of a guess and the dollar figure shown only
+ * when the provider is positively known to be metered (never on a plan or while
+ * the billing mode is unknown). When today's spend plus the top of the band would reach
  * the daily budget it adds a caution that opens the budget settings.
  */
-export function LaunchForecast({ projectId, loopId, provider, className }: LaunchForecastProps) {
+export function LaunchForecast({ projectId, loopId, provider, perSpec = false, hideWhenInsufficient = false, className }: LaunchForecastProps) {
   const { t, i18n } = useTranslation('common')
   const data = useLaunchForecast(projectId && loopId && provider ? { projectId, loopId, provider } : null)
   const billing = useProviderBilling(provider ?? null)
   if (!data) return null
 
   const outlook = budgetOutlook(data)
+  // Nothing measured and nothing to warn about: stay silent rather than repeat "not enough history" on every idle rail.
+  if (hideWhenInsufficient && !data.time && outlook === 'none') return null
   const openBudget = (event: React.MouseEvent) => {
     event.stopPropagation()
     if (data.budget?.scope === 'desktop') openAppSettings('advanced')
     else openProjectSettings('budget')
   }
-  const showCost = billing.ready && !billing.plan && data.cost !== null
+  const showCost = billing.ready && billing.metered && !billing.plan && data.cost !== null
 
   let line: React.ReactNode
   let hint: string
@@ -58,7 +65,7 @@ export function LaunchForecast({ projectId, loopId, provider, className }: Launc
       role="group"
       aria-label={t('forecast.label')}
       data-testid="launch-forecast"
-      className={cn('flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption text-muted-foreground', className)}
+      className={cn('flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption tabular-nums text-muted-foreground', className)}
       onMouseDown={(event) => event.stopPropagation()}
     >
       {/* Own provider: this renders in dialogs and cards that may sit outside the project layout's. */}
@@ -68,6 +75,7 @@ export function LaunchForecast({ projectId, loopId, provider, className }: Launc
             <span tabIndex={0} data-testid="launch-forecast-line" className="inline-flex items-center gap-1 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Clock3 className="size-3 shrink-0" aria-hidden />
               {line}
+              {perSpec && data.time && <span>({t('forecast.perSpec')})</span>}
             </span>
           </TooltipTrigger>
           <TooltipContent data-testid="launch-forecast-hint">{hint}</TooltipContent>

@@ -31,5 +31,6 @@
     "deleteFailed": "Impossibile eliminare",
     "loadFailed": "Impossibile caricare gli elementi eliminati di recente",
     "retry": "Riprova"
-  }
+  },
+  "hintRecoverable": "oppure premi {{keys}} · conservato {{days}} giorni in Eliminati di recente"
 }

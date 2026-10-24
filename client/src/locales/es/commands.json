@@ -1,9 +1,9 @@
 {
   "palette": {
     "label": "Paleta de comandos",
-    "searchPlaceholder": "Buscar proyectos, comandos, jobs...",
-    "searchPlaceholderAgent": "Buscar misiones, proyectos, jobs...",
-    "noResults": "Sin resultados.",
+    "searchPlaceholder": "Buscar proyectos, comandos, jobs…",
+    "searchPlaceholderAgent": "Buscar misiones, proyectos, jobs…",
+    "noResults": "Sin resultados",
     "activeBadge": "activo",
     "groups": {
       "projects": "Proyectos",
@@ -35,7 +35,8 @@
       "navigate": "navegar",
       "select": "seleccionar",
       "close": "cerrar",
-      "actions": "acciones"
+      "actions": "acciones",
+      "back": "volver"
     },
     "missions": {
       "home": "Inicio"
@@ -72,35 +73,36 @@
       "recentlyDeleted": "Eliminados recientemente",
       "pages": {
         "railTitle": "Rail para #{{id}}",
-        "railPlaceholder": "Elige un rail...",
+        "railPlaceholder": "Elige un rail…",
         "railRunning": "en ejecución",
         "railHasSpec": "ya está aquí",
         "noRails": "No hay rails disponibles.",
         "statusTitle": "Mover #{{id}} a",
-        "statusPlaceholder": "Elige un estado...",
+        "statusPlaceholder": "Elige un estado…",
         "noStatuses": "No hay estados disponibles.",
         "current": "actual",
         "specTitle": "Elige una spec",
-        "specPlaceholder": "Buscar specs...",
+        "specPlaceholder": "Buscar specs…",
         "noSpecs": "Ninguna spec coincide.",
         "themeTitle": "Tema",
-        "themePlaceholder": "Elige un tema...",
+        "themePlaceholder": "Elige un tema…",
         "noThemes": "No hay temas disponibles.",
         "appSettingsTitle": "Ajustes de la app",
         "projectSettingsTitle": "Ajustes del proyecto",
-        "sectionPlaceholder": "Elige una sección...",
+        "sectionPlaceholder": "Elige una sección…",
         "noSections": "No hay secciones.",
         "projectTitle": "Proyectos",
-        "projectPlaceholder": "Elige un proyecto...",
+        "projectPlaceholder": "Elige un proyecto…",
         "noProjects": "No hay otros proyectos.",
         "loopTitle": "Loops que puedes ejecutar ahora",
-        "loopPlaceholder": "Elige un loop...",
+        "loopPlaceholder": "Elige un loop…",
         "noLoops": "Ningún loop puede ejecutarse sin una spec.",
-        "loading": "Cargando...",
+        "loading": "Cargando…",
         "loadFailed": "No se pudieron cargar las opciones."
       },
-      "openInbox": "Abrir bandeja",
-      "openInboxCount": "Abrir bandeja ({{count}} pendientes)"
+      "openInbox": "Abrir Pendientes",
+      "openInboxCount": "Abrir Pendientes ({{count}})",
+      "opensOptions": "abre opciones"
     }
   },
   "toasts": {
@@ -163,9 +165,9 @@
       "runStripBack": "Salir de la franja de ejecuciones y volver a donde estabas",
       "flowPause": "Pausar o reanudar el Flow (con la franja de ejecuciones enfocada)",
       "flowHandOff": "Pasar el Flow a un rail (con la franja de ejecuciones enfocada)",
-      "historyBackForward": "Ir atrás / adelante al lugar anterior o siguiente",
+      "historyBackForward": "Volver al lugar anterior o avanzar al siguiente",
       "undoLast": "Deshacer el último cambio",
-      "openInbox": "Abrir la bandeja «Te necesitan»"
+      "openInbox": "Abrir Pendientes"
     },
     "searchLabel": "Buscar atajos y guías",
     "searchPlaceholder": "Buscar atajos y guías…",

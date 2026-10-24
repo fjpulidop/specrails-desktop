@@ -19,6 +19,9 @@ import { isMacKeyboard } from '../lib/keyboard-label'
 /** How long a toast offers Undo (and ⌘Z stays live). Keep in sync with UNDO_WINDOW_HOLD_MS on the server. */
 export const UNDO_WINDOW_MS = 8000
 
+/** How long a deleted spec or mission stays in Recently deleted. Keep in sync with TRASH_RETENTION_DAYS on the server. */
+export const TRASH_RETENTION_DAYS = 30
+
 export interface UndoRequest {
   /** Project the action happened in. Defaults to the active project. */
   projectId?: string | null
@@ -26,6 +29,8 @@ export interface UndoRequest {
   label: string
   /** Reverse the action. Reject to report failure. */
   undo: () => void | Promise<void>
+  /** Days the thing stays recoverable from Recently deleted after the toast is gone; the hint then says so. */
+  recoverableDays?: number
 }
 
 interface UndoEntry {
@@ -116,7 +121,9 @@ export function UndoProvider({ children }: { children: ReactNode }) {
     toast(request.label, {
       id: entry.id,
       duration: UNDO_WINDOW_MS,
-      description: tRef.current('hint', { keys: isMacKeyboard() ? '⌘Z' : 'Ctrl+Z' }),
+      description: request.recoverableDays
+        ? tRef.current('hintRecoverable', { keys: isMacKeyboard() ? '⌘Z' : 'Ctrl+Z', days: request.recoverableDays })
+        : tRef.current('hint', { keys: isMacKeyboard() ? '⌘Z' : 'Ctrl+Z' }),
       action: { label: tRef.current('action'), onClick: () => { void run(entry) } },
       onDismiss: () => drop(entry.id),
       onAutoClose: () => drop(entry.id),

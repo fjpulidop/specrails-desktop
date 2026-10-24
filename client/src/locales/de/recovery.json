@@ -47,7 +47,7 @@
   "remedy": {
     "resume": "Fortsetzen",
     "resumeFrom": "Ab {{phase}} fortsetzen",
-    "retry": "Erneut versuchen",
+    "retry": "Erneut ausführen",
     "editSpec": "Spec bearbeiten und neu starten",
     "fixEnvironment": "Umgebung reparieren",
     "openLogs": "Protokoll am Fehler öffnen"

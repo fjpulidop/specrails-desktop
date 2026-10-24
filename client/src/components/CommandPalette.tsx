@@ -17,8 +17,8 @@ import {
   PieChart,
   MessagesSquare,
   ChevronLeft,
+  ChevronRight,
   History,
-  Loader2,
 } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
 import { usePlaceHistory } from '../hooks/usePlaceHistory'
@@ -69,6 +69,8 @@ import {
 } from '../features/missions/lib/mission-search'
 import { absoluteTime, compactRelativeTime } from '../lib/relative-time'
 import { LiveDot } from './ui/live-dot'
+import { Kbd } from './ui/kbd'
+import { RailTrack } from './brand/RailTrack'
 
 interface PageFrame {
   actionId: string
@@ -109,6 +111,17 @@ function renderSnippet(snippet: MissionSearchSnippet): ReactNode {
 
 const PALETTE_BY_ID = new Map(PALETTE_ACTIONS.map((a) => [a.id, a]))
 
+/** "This row opens a second page of options": a chevron, announced instead of read as a glyph. */
+function OpensOptionsMark() {
+  const { t } = useTranslation('commands')
+  return (
+    <>
+      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      <span className="sr-only">{t('palette.actions.opensOptions')}</span>
+    </>
+  )
+}
+
 /** The second palette page: the options of an action's argument. */
 function ArgPageList({ frame, search, loaded, onSelect, itemClass, loadingLabel, failedLabel }: {
   frame: PageFrame
@@ -123,8 +136,9 @@ function ArgPageList({ frame, search, loaded, onSelect, itemClass, loadingLabel,
   const options = page.load ? loaded?.options ?? null : page.options ?? []
   if (options === null) {
     return (
-      <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground" role="status" data-testid="palette-page-loading">
-        <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> {loadingLabel}
+      <div className="flex flex-col items-center justify-center gap-2 py-8 text-body text-muted-foreground" role="status" data-testid="palette-page-loading">
+        <RailTrack running className="w-24" />
+        {loadingLabel}
       </div>
     )
   }
@@ -132,7 +146,7 @@ function ArgPageList({ frame, search, loaded, onSelect, itemClass, loadingLabel,
   return (
     <Command.Group heading={page.title} data-testid="palette-page">
       {visible.length === 0 && (
-        <div className="py-8 text-center text-sm text-muted-foreground" data-testid="palette-page-empty">
+        <div className="py-8 text-center text-body text-muted-foreground" data-testid="palette-page-empty">
           {loaded?.failed ? failedLabel : page.emptyLabel}
         </div>
       )}
@@ -145,8 +159,9 @@ function ArgPageList({ frame, search, loaded, onSelect, itemClass, loadingLabel,
           className={cn(itemClass, option.disabled && 'opacity-50 cursor-not-allowed')}
           data-testid={`palette-option-${option.id}`}
         >
-          <span className="flex-1 truncate">{option.label}{option.next ? ' ▸' : ''}</span>
-          {option.hint && <span className="shrink-0 text-xs text-muted-foreground">{option.hint}</span>}
+          <span className="flex-1 truncate">{option.label}</span>
+          {option.next && <OpensOptionsMark />}
+          {option.hint && <span className="shrink-0 text-caption text-muted-foreground">{option.hint}</span>}
         </Command.Item>
       ))}
     </Command.Group>
@@ -320,7 +335,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     action()
   }, [])
 
-  const navItemClass = 'flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground'
+  const navItemClass = 'group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground'
 
   // cmdk's own fuzzy filter is OFF (a content hit whose title lacks the query
   // would otherwise be hidden), so every group filters itself (D5).
@@ -453,13 +468,11 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
         className={navItemClass}
         data-testid={`palette-action-${keyPrefix}-${action.id}`}
       >
-        <Icon className="w-4 h-4 text-accent-primary shrink-0" />
-        <span className="flex-1 truncate">{label}{opensPage ? ' ▸' : ''}</span>
-        {action.shortcut && (
-          <kbd className="shrink-0 rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 text-caption text-muted-foreground font-mono">
-            {keyboardLabel(action.shortcut)}
-          </kbd>
-        )}
+        {/* Icons stay quiet; the lamp colour is the selected row's. */}
+        <Icon className="w-4 h-4 shrink-0 text-muted-foreground group-data-[selected=true]:text-accent-primary" />
+        <span className="flex-1 truncate">{label}</span>
+        {opensPage && <OpensOptionsMark />}
+        {action.shortcut && <Kbd className="shrink-0">{keyboardLabel(action.shortcut)}</Kbd>}
       </Command.Item>
     )
   }
@@ -520,13 +533,13 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
                     />
                   )}
                   <span
-                    className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground"
+                    className="ml-auto shrink-0 text-caption tabular-nums text-muted-foreground"
                     title={absoluteTime(conversation.updated_at)}
                   >
                     {compactRelativeTime(conversation.updated_at)}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 min-w-0 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 min-w-0 text-caption text-muted-foreground">
                   <span className="shrink-0">{projectName ?? t('palette.missions.home')}</span>
                   {row.snippet && (
                     <>
@@ -556,7 +569,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="flex-1 truncate">{project.name}</span>
             {project.id === activeProjectId && (
-              <span className="text-xs text-accent-primary font-medium">{t('palette.activeBadge')}</span>
+              <span className="text-caption text-accent-primary font-medium">{t('palette.activeBadge')}</span>
             )}
           </Command.Item>
         ))}
@@ -576,7 +589,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <div className="flex-1 min-w-0">
               <span className="truncate">{cmd.name}</span>
               {cmd.description && (
-                <span className="text-xs text-muted-foreground ml-2 truncate">{cmd.description}</span>
+                <span className="text-caption text-muted-foreground ml-2 truncate">{cmd.description}</span>
               )}
             </div>
           </Command.Item>
@@ -596,7 +609,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="flex-1 truncate">{job.command}</span>
             <span className={cn(
-              'text-xs font-medium',
+              'text-caption font-medium',
               job.status === 'completed' && 'text-accent-success',
               job.status === 'failed' && 'text-destructive',
               job.status === 'running' && 'text-accent-info',
@@ -664,11 +677,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             }
           }}
           placeholder={topPage ? topPage.page.placeholder : uiMode === 'agent' ? t('palette.searchPlaceholderAgent') : t('palette.searchPlaceholder')}
-          className="flex-1 h-11 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="flex-1 h-11 bg-transparent text-body outline-none placeholder:text-muted-foreground"
         />
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 text-xs text-muted-foreground font-mono">
-          esc
-        </kbd>
+        <Kbd className="hidden sm:inline-flex">esc</Kbd>
       </div>
 
       {/* Results list — group order follows the UI mode (D6) */}
@@ -685,7 +696,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           />
         ) : (
           <>
-            <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
+            <Command.Empty className="py-8 text-center text-body text-muted-foreground">
               {t('palette.noResults')}
             </Command.Empty>
             {actionRows.leading && actionsGroup}
@@ -698,12 +709,16 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       </Command.List>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 text-xs text-muted-foreground">
+      <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 text-caption text-muted-foreground">
         <div className="flex items-center gap-3">
-          <span><kbd className="font-mono">↑↓</kbd> {t('palette.footer.navigate')}</span>
-          <span><kbd className="font-mono">↵</kbd> {t('palette.footer.select')}</span>
-          <span><kbd className="font-mono">esc</kbd> {t('palette.footer.close')}</span>
-          <span><kbd className="font-mono">&gt;</kbd> {t('palette.footer.actions')}</span>
+          <span><Kbd>↑↓</Kbd> {t('palette.footer.navigate')}</span>
+          <span><Kbd>↵</Kbd> {t('palette.footer.select')}</span>
+          <span><Kbd>esc</Kbd> {t('palette.footer.close')}</span>
+          {topPage ? (
+            <span data-testid="palette-footer-back"><Kbd>⌫</Kbd> {t('palette.footer.back')}</span>
+          ) : (
+            <span><Kbd>&gt;</Kbd> {t('palette.footer.actions')}</span>
+          )}
         </div>
       </div>
     </Command.Dialog>

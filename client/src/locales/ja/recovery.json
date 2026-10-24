@@ -47,7 +47,7 @@
   "remedy": {
     "resume": "再開",
     "resumeFrom": "{{phase}}から再開",
-    "retry": "もう一度試す",
+    "retry": "もう一度実行",
     "editSpec": "スペックを編集して再起動",
     "fixEnvironment": "環境を修復",
     "openLogs": "失敗箇所のログを開く"

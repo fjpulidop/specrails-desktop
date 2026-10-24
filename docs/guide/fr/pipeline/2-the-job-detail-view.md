@@ -117,7 +117,7 @@ Quand un job échoue, se bloque ou s'arrête, l'état final commence par une **c
 - **Bloquée**, **à court de temps**, **silencieuse** et **arrêtée de façon inattendue** désignent la limite ou le processus qui a arrêté l'exécution.
 - **Cause inconnue** : l'app ne devine pas. Elle affiche la fin du journal pour que vous le lisiez vous-même.
 
-Sous le diagnostic, jusqu'à trois remèdes classés, et seulement ceux qui peuvent fonctionner ici : **Reprendre depuis** la phase arrêtée, **Réessayer**, **Modifier la spec et relancer** (les addenda de la spec portent votre changement à l'exécution suivante), **Réparer l'environnement** et **Ouvrir le journal à l'échec**. La même cause apparaît en une ligne dans la [boîte de réception](../getting-started/the-dashboard-tour), et la carte d'exécution de la mission montre la même carte.
+Sous le diagnostic, jusqu'à trois remèdes classés, et seulement ceux qui peuvent fonctionner ici : **Reprendre depuis** la phase arrêtée, **Relancer**, **Modifier la spec et relancer** (les addenda de la spec portent votre changement à l'exécution suivante), **Réparer l'environnement** et **Ouvrir le journal à l'échec**. La même cause apparaît en une ligne dans la [liste À traiter](../getting-started/the-dashboard-tour), et la carte d'exécution de la mission montre la même carte.
 
 ## Où aller ensuite
 

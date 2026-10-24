@@ -102,7 +102,7 @@ Avant d’appuyer sur Lancer, un rail peut afficher la durée habituelle des ex�
 
 La fourchette correspond à la moitié centrale de votre propre historique : du 25e au 75e centile des exécutions terminées de ce projet avec le même loop ou la même commande et le même moteur. Il faut au moins 5 exécutions comparables. D’ici là, la ligne indique *Pas encore assez d’historique* plutôt que de deviner. Seuls les coûts communiqués par le fournisseur sont utilisés ; les coûts estimés sont exclus. C’est une estimation, jamais une facture.
 
-Avec un abonnement, le montant en dollars est masqué et seule la durée s’affiche. Si la dépense du jour plus le haut de la fourchette pouvait atteindre votre budget quotidien, la ligne ajoute *Peut se mettre en pause au budget* avec un lien vers les réglages du budget.
+Le montant en dollars n’apparaît que lorsque le moteur est connu pour facturer à l’usage (par exemple une clé d’API). Avec un abonnement, ou tant que le mode de facturation n’est pas connu, seule la durée s’affiche. Quand le rail contient plusieurs specs, la fourchette vaut pour une spec et l’indique par *(par spec)*. Si la dépense du jour plus le haut de la fourchette pouvait atteindre votre budget quotidien, la ligne ajoute *Peut se mettre en pause au budget* avec un lien vers les réglages du budget. Si le budget du jour est déjà épuisé, Lancer demande d’abord une confirmation, car l’exécution se mettrait en pause jusqu’à la réinitialisation.
 
 
 ## Où aller ensuite

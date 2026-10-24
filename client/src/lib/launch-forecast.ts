@@ -10,7 +10,9 @@
  *  · it is labelled an estimate and is never shown as, or summed with, a
  *    billed figure (the server builds the cost band from provider-reported
  *    costs only);
- *  · on a subscription plan the dollar figure is hidden and only time shows.
+ *  · the dollar figure shows only when the provider is positively known to be
+ *    metered (API key / on-demand); on a plan, or while the billing mode is
+ *    unknown, only time shows.
  */
 import { API_ORIGIN } from './origin'
 
@@ -94,8 +96,8 @@ export function formatUsdBand(low: number, high: number, lang: string): string {
  * mislead)? Read from the machine's subscription-usage snapshot: the provider
  * must be signed in with a detected plan or usage windows, and must not be an
  * on-demand enterprise account (that one is metered, with its own spend).
- * Anything unknown — other providers, API-key auth, a snapshot that does not
- * say — is NOT a plan: costs then show, flagged as estimates.
+ * Anything unknown is NOT a plan, but it is not metered either: see
+ * {@link isMeteredBilled}.
  */
 export function isPlanBilled(snapshot: unknown, provider: string): boolean {
   const providers = record(snapshot)?.providers
@@ -106,6 +108,21 @@ export function isPlanBilled(snapshot: unknown, provider: string): boolean {
   const windows = Array.isArray(row.windows) ? row.windows : []
   const hasWindow = windows.some((w) => finite(record(w)?.usedPercent))
   return hasPlan || hasWindow
+}
+
+/**
+ * Is `provider` POSITIVELY known to be billed per use (API-key auth, or an
+ * on-demand enterprise account with its own spend)? Only then may the forecast
+ * show a dollar figure. An unreadable snapshot, a provider the snapshot does
+ * not list or a signed-out row is "unknown": a plan user must never see a $.
+ */
+export function isMeteredBilled(snapshot: unknown, provider: string): boolean {
+  const providers = record(snapshot)?.providers
+  if (!Array.isArray(providers)) return false
+  const row = providers.map(record).find((entry) => entry?.providerId === provider)
+  if (!row) return false
+  if (row.availability === 'unsupported-auth') return true
+  return row.availability === 'available' && !!row.spend
 }
 
 // ─── Fetching (small shared cache, in-flight dedupe) ─────────────────────────

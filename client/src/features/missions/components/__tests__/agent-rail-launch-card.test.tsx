@@ -105,6 +105,25 @@ describe('AgentRailLaunchCard launch forecast', () => {
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
   })
 
+  it('asks before Play when today\'s budget is already reached; Launch anyway then launches, Cancel does not', async () => {
+    resetLaunchForecastCache()
+    const reached = { ...forecast, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
+    mockFetch({ '/launch-forecast': () => ({ status: 200, body: reached }) })
+    renderCard({ loopId: 'factory:implement', aiEngine: 'codex' })
+    await screen.findByRole('button', { name: 'Daily budget reached' })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    const dialog = await screen.findByTestId('launch-over-budget-dialog')
+    expect(dialog).toHaveTextContent('Launch anyway?')
+    expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByTestId('launch-over-budget-dialog')).toBeNull())
+    expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    fireEvent.click(within(await screen.findByTestId('launch-over-budget-dialog')).getByRole('button', { name: 'Launch anyway' }))
+    await waitFor(() => expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(true))
+  })
+
   it('says nothing once the launch is decided', async () => {
     resetLaunchForecastCache()
     mockFetch({ '/launch-forecast': () => ({ status: 200, body: forecast }) })

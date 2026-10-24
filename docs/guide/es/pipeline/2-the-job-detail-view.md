@@ -117,7 +117,7 @@ Cuando un job falla, se detiene o queda bloqueado, el estado final empieza con u
 - **Bloqueada**, **sin tiempo**, **en silencio** y **detenida inesperadamente** nombran el límite o el proceso que paró la ejecución.
 - **Causa desconocida**: la app no adivina. Muestra el final del registro para que lo leas tú.
 
-Bajo el diagnóstico hay hasta tres remedios ordenados, y solo los que pueden funcionar aquí: **Reanudar desde** la fase que se detuvo, **Volver a intentarlo**, **Editar la spec y relanzar** (los anexos de la spec llevan tu cambio a la siguiente ejecución), **Arreglar el entorno** y **Abrir el registro en el fallo**. La misma causa aparece como una etiqueta de una línea en la [bandeja](../getting-started/the-dashboard-tour) y la tarjeta de ejecución de la misión muestra la misma tarjeta.
+Bajo el diagnóstico hay hasta tres remedios ordenados, y solo los que pueden funcionar aquí: **Reanudar desde** la fase que se detuvo, **Ejecutar de nuevo**, **Editar la spec y relanzar** (los anexos de la spec llevan tu cambio a la siguiente ejecución), **Arreglar el entorno** y **Abrir el registro en el fallo**. La misma causa aparece como una etiqueta de una línea en la [lista de pendientes](../getting-started/the-dashboard-tour) y la tarjeta de ejecución de la misión muestra la misma tarjeta.
 
 ## A dónde ir después
 

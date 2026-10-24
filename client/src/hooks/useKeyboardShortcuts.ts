@@ -32,7 +32,9 @@ export const SHORTCUTS: Shortcut[] = [
       : 'shortcuts.items.navigateProjectPage',
     category: 'general',
   },
-  { keys: '⌘⇧I', descriptionKey: 'shortcuts.items.openInbox', category: 'general' },
+  { keys: '⌘⇧I', descriptionKey: 'shortcuts.items.openInbox', category: 'general', platform: 'mac' },
+  // Ctrl+Shift+I opens DevTools in WebView2 / Chromium, so Windows and Linux use Ctrl+Alt+I.
+  { keys: 'Ctrl+Alt+I', descriptionKey: 'shortcuts.items.openInbox', category: 'general', platform: 'other' },
   { keys: '⌥⌘1–9', descriptionKey: 'shortcuts.items.switchProject', category: 'general' },
   { keys: '⌘Z', descriptionKey: 'shortcuts.items.undoLast', category: 'general' },
   { keys: '⌘[ ⌘]', descriptionKey: 'shortcuts.items.historyBackForward', category: 'general' },
@@ -131,7 +133,7 @@ interface UseKeyboardShortcutsOptions {
   onToggleTerminalPanel?: () => void
   /** Toggle the global agent chat (Cmd+Shift+A / Ctrl+Shift+A) */
   onToggleAgentChat?: () => void
-  /** Toggle the "Needs you" inbox (Cmd+Shift+I / Ctrl+Shift+I) */
+  /** Toggle the "Needs you" inbox (Cmd+Shift+I on macOS, Ctrl+Alt+I elsewhere) */
   onToggleInbox?: () => void
   /** Back / Forward through places (⌘[ ⌘] · Ctrl+[ ⌘] · Alt+← Alt+→). */
   onNavigateBack?: () => void
@@ -203,9 +205,12 @@ export function useKeyboardShortcuts({
         return
       }
 
-      // ⌘⇧I / Ctrl+Shift+I → the "Needs you" inbox ("I" for Inbox). Opens from anywhere
-      // (even a text field); inside the inbox's own dialog Esc closes it instead.
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.code === 'KeyI') {
+      // ⌘⇧I (macOS) / Ctrl+Alt+I (elsewhere: Ctrl+Shift+I is DevTools) → the "Needs you" inbox
+      // ("I" for Inbox). Opens from anywhere (even a text field); inside the inbox's own dialog Esc closes it instead.
+      const inboxChord = isMacKeyboard()
+        ? e.metaKey && !e.ctrlKey && e.shiftKey && !e.altKey
+        : e.ctrlKey && !e.metaKey && e.altKey && !e.shiftKey
+      if (inboxChord && e.code === 'KeyI') {
         if (isInsideDialog(e) || !onToggleInboxRef.current) return
         e.preventDefault()
         onToggleInboxRef.current()

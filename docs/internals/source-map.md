@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1249 source/build files. Nearby tests are linked where names
+Includes 1251 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -71,6 +71,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [dropdown-menu.tsx](../../client/src/components/ui/dropdown-menu.tsx) · [test](../../client/src/components/ui/__tests__/dropdown-menu.test.tsx)
 - [empty-state.tsx](../../client/src/components/ui/empty-state.tsx)
 - [input.tsx](../../client/src/components/ui/input.tsx)
+- [kbd.tsx](../../client/src/components/ui/kbd.tsx) · [test](../../client/src/components/ui/__tests__/kbd.test.tsx)
 - [live-dot.tsx](../../client/src/components/ui/live-dot.tsx)
 - [page-header.tsx](../../client/src/components/ui/page-header.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
@@ -917,6 +918,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useDesktopUpdateNotifier.tsx](../../client/src/hooks/useDesktopUpdateNotifier.tsx) · [test](../../client/src/hooks/__tests__/useDesktopUpdateNotifier.test.tsx)
 - [useElementWidth.ts](../../client/src/hooks/useElementWidth.ts)
 - [useKeyboardShortcuts.ts](../../client/src/hooks/useKeyboardShortcuts.ts)
+- [useLaunchBudgetGuard.tsx](../../client/src/hooks/useLaunchBudgetGuard.tsx)
 - [useLaunchForecast.ts](../../client/src/hooks/useLaunchForecast.ts)
 - [useMediaQuery.ts](../../client/src/hooks/useMediaQuery.ts)
 - [useMovableResizableModal.tsx](../../client/src/hooks/useMovableResizableModal.tsx) · [test](../../client/src/hooks/__tests__/useMovableResizableModal.test.tsx)
@@ -954,7 +956,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [inbox-events.ts](../../client/src/lib/inbox-events.ts)
 - [initial-commit.ts](../../client/src/lib/initial-commit.ts)
 - [json-tolerant.ts](../../client/src/lib/json-tolerant.ts) · [test](../../client/src/lib/__tests__/json-tolerant.test.ts)
-- [keyboard-label.ts](../../client/src/lib/keyboard-label.ts)
+- [keyboard-label.ts](../../client/src/lib/keyboard-label.ts) · [test](../../client/src/lib/__tests__/keyboard-label.test.ts)
 - [launch-forecast.ts](../../client/src/lib/launch-forecast.ts) · [test](../../client/src/lib/__tests__/launch-forecast.test.ts)
 - [layers.ts](../../client/src/lib/layers.ts)
 - [markdown-detect.ts](../../client/src/lib/markdown-detect.ts) · [test](../../client/src/lib/__tests__/markdown-detect.test.ts)

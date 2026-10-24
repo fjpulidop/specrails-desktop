@@ -52,6 +52,14 @@ describe('RecentlyDeletedSection', () => {
     expect(calls.some((c) => c.url.includes('conversations/trash?projectId=proj-1'))).toBe(true)
   })
 
+  it('its loading placeholder only pulses when the person allows motion', () => {
+    global.fetch = vi.fn(() => new Promise(() => {})) as never
+    const { container } = render(<RecentlyDeletedSection />)
+    const placeholder = container.querySelector('[aria-hidden="true"].rounded-card')!
+    expect(placeholder.className).toContain('motion-safe:animate-pulse')
+    expect(placeholder.className).not.toMatch(/(^|\s)animate-pulse/)
+  })
+
   it('shows the EmptyState when nothing was deleted', async () => {
     specs = []; missions = []
     render(<RecentlyDeletedSection />)

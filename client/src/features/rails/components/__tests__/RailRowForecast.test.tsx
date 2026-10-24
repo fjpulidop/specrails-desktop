@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { DndContext } from '@dnd-kit/core'
 import { render } from '../../../../test-utils'
 import { RailRow } from '../RailRow'
@@ -17,9 +17,9 @@ const props = {
 }
 const body = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: null }
 
-function mockApi() {
+function mockApi(forecast: unknown = body) {
   global.fetch = vi.fn().mockImplementation(async (url: string) =>
-    String(url).includes('/launch-forecast') ? { ok: true, json: async () => body } : { ok: true, json: async () => ({}) }) as typeof fetch
+    String(url).includes('/launch-forecast') ? { ok: true, json: async () => forecast } : { ok: true, json: async () => ({}) }) as typeof fetch
 }
 const renderRow = (over: Partial<typeof props> & Record<string, unknown> = {}) =>
   render(<DndContext><RailRow {...props} {...over} /></DndContext>)
@@ -43,5 +43,68 @@ describe('RailRow launch forecast', () => {
     await waitFor(() => expect(screen.queryByTestId('launch-forecast')).toBeNull())
     const forecastCalls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter((c) => String(c[0]).includes('/launch-forecast'))
     expect(forecastCalls).toHaveLength(0)
+  })
+})
+
+describe('RailRow launch forecast noise', () => {
+  it('stays silent on an idle rail with no history yet, instead of repeating "Not enough history yet"', async () => {
+    mockApi({ time: null, cost: null, minSamples: 5, budget: null })
+    const view = renderRow()
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(screen.queryByText('Not enough history yet')).toBeNull()
+    expect(view.container.querySelector('[data-testid="launch-forecast"]')).toBeNull()
+  })
+
+  it('labels the band per spec when the rail holds several specs', async () => {
+    renderRow({ tickets: [ticket, { ...ticket, id: 8 } as unknown as LocalTicket] })
+    expect(await screen.findByText('(per spec)')).toBeInTheDocument()
+  })
+})
+
+describe('RailRow play with the daily budget reached', () => {
+  const reached = { ...body, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
+  const play = () => screen.getByTitle('Play')
+
+  it.each(['normal', 'compact'] as const)('asks before launching, and Launch anyway runs it (%s)', async (density) => {
+    mockApi(reached)
+    const onToggle = vi.fn()
+    renderRow({ density, onToggle })
+    await screen.findByRole('button', { name: 'Daily budget reached' })
+    fireEvent.click(play())
+    const dialog = await screen.findByTestId('launch-over-budget-dialog')
+    expect(dialog).toHaveTextContent('Today’s budget is used up. The run will pause until it resets. Launch anyway?')
+    expect(onToggle).not.toHaveBeenCalled()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Launch anyway' }))
+    expect(onToggle).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(screen.queryByTestId('launch-over-budget-dialog')).toBeNull())
+  })
+
+  it('Cancel keeps the rail idle', async () => {
+    mockApi(reached)
+    const onToggle = vi.fn()
+    renderRow({ onToggle })
+    await screen.findByRole('button', { name: 'Daily budget reached' })
+    fireEvent.click(play())
+    fireEvent.click(within(await screen.findByTestId('launch-over-budget-dialog')).getByRole('button', { name: 'Cancel' }))
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('launches at once when there is room in the budget, and Stop is never gated', async () => {
+    mockApi({ ...body, budget: { scope: 'project', budgetUsd: 10, spentUsd: 1, exhausted: false, resetsAt: null } })
+    const onToggle = vi.fn()
+    renderRow({ onToggle })
+    await screen.findByText('Usually 6–9 min for runs like this')
+    fireEvent.click(play())
+    expect(onToggle).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('launch-over-budget-dialog')).toBeNull()
+  })
+
+  it('does not gate Stop on a running rail', async () => {
+    mockApi(reached)
+    const onToggle = vi.fn()
+    renderRow({ onToggle, status: 'running' as const })
+    fireEvent.click(screen.getByTitle('Stop'))
+    expect(onToggle).toHaveBeenCalledTimes(1)
   })
 })

@@ -5,6 +5,7 @@ import { Dialog, DialogBody, DialogContent, DialogHeader, DialogFooter, DialogTi
 import { Button } from '../../../components/ui/button'
 import { HelpHint } from '../../../components/HelpHint'
 import { LaunchForecast } from '../../../components/LaunchForecast'
+import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
 import {
   defaultReasoningEffortForProvider,
   providerLabel,
@@ -66,6 +67,9 @@ export function LoopRunModal({
     ? effort
     : defaultReasoningEffortForProvider(effectiveProvider, effectiveModel) ?? ''
   const showEffort = effortOptions.length > 0
+
+  // Executing while today's budget is already used up asks first (the run would pause).
+  const launchGuard = useLaunchBudgetGuard(selected?.id && loop?.id && effectiveProvider ? { projectId: selected.id, loopId: loop.id, provider: effectiveProvider } : null)
 
   const execute = () => {
     const pid = projectId || projects[0]?.id
@@ -179,9 +183,10 @@ export function LoopRunModal({
             <LaunchForecast projectId={selected?.id} loopId={loop.id} provider={effectiveProvider || null} className="pt-1" />
             </DialogBody>
 
+            {launchGuard.dialog}
             <DialogFooter>
               <Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>
-              <Button onClick={execute} disabled={projects.length === 0}>
+              <Button onClick={() => launchGuard.guard(execute)} disabled={projects.length === 0}>
                 <Play className="w-3.5 h-3.5 mr-1.5" />
                 {t('run.execute')}
               </Button>

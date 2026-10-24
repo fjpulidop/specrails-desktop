@@ -10,6 +10,7 @@ import { useUiMode } from '../context/UiModeContext'
 import { hasRightSidebar } from '../lib/sidebar-layout'
 import { cn } from '../lib/utils'
 import { PlaceNavButtons } from './PlaceNavButtons'
+import { Kbd } from './ui/kbd'
 import { InboxButton } from '../features/inbox/components/InboxButton'
 
 // ─── Detect Tauri environment ─────────────────────────────────────────────────
@@ -141,13 +142,9 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
       >
         {projectName ?? t('titleBar.searchPlaceholder')}
       </span>
-      <kbd
-        aria-hidden="true"
-        className="text-micro"
-        style={{ flexShrink: 0, marginLeft: 4, fontFamily: 'inherit', opacity: 0.55 }}
-      >
+      <Kbd aria-hidden="true" className="ml-1 shrink-0 opacity-70">
         {keyboardLabel('⌘K')}
-      </kbd>
+      </Kbd>
     </button>
   )
 }

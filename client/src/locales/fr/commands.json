@@ -35,7 +35,8 @@
       "navigate": "naviguer",
       "select": "sélectionner",
       "close": "fermer",
-      "actions": "actions"
+      "actions": "actions",
+      "back": "retour"
     },
     "missions": {
       "home": "Accueil"
@@ -99,8 +100,9 @@
         "loading": "Chargement...",
         "loadFailed": "Impossible de charger les options."
       },
-      "openInbox": "Ouvrir la boîte",
-      "openInboxCount": "Ouvrir la boîte ({{count}} en attente)"
+      "openInbox": "Ouvrir À traiter",
+      "openInboxCount": "Ouvrir À traiter ({{count}})",
+      "opensOptions": "ouvre des options"
     }
   },
   "toasts": {
@@ -165,7 +167,7 @@
       "flowHandOff": "Remettre le Flow (bandeau des exécutions actif)",
       "historyBackForward": "Revenir / avancer vers le lieu précédent ou suivant",
       "undoLast": "Annuler la dernière modification",
-      "openInbox": "Ouvrir la boîte « On a besoin de vous »"
+      "openInbox": "Ouvrir À traiter"
     },
     "searchLabel": "Rechercher des raccourcis et des guides",
     "searchPlaceholder": "Rechercher des raccourcis et des guides…",

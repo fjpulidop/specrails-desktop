@@ -171,6 +171,56 @@ describe('CommandPalette actions (QW1)', () => {
     expect(launchOnRail).toHaveBeenCalledWith(15, 'r1')
   })
 
+  it('marks rows that open options with a chevron announced as "opens options", never a ▸ glyph', async () => {
+    registerPaletteSurface('board', {
+      specs: () => [{ id: 15, title: 'Add achievements', status: 'todo' }],
+      rails: () => [{ id: 'r1', label: 'Rail 1', running: false, hasSpec: false }],
+      launchBlocker: () => null,
+      launchOnRail: vi.fn(),
+      statusOptions: async () => [],
+      moveStatus: vi.fn(),
+      reviewPath: () => null,
+    })
+    const user = userEvent.setup()
+    render(<CommandPalette />, { route: '/?spec=15' })
+    const input = await openPalette(user)
+    await user.type(input, 'launch')
+    const row = await screen.findByTestId('palette-action-a-spec.launch')
+    expect(row.textContent).not.toContain('▸')
+    expect(row.querySelector('svg.lucide-chevron-right')).not.toBeNull()
+    expect(row.querySelector('.sr-only')).toHaveTextContent('opens options')
+    // Action icons stay quiet unless the row is selected.
+    const icon = row.querySelector('svg')!
+    expect(icon.getAttribute('class')).toContain('text-muted-foreground')
+    expect(icon.getAttribute('class')).toContain('group-data-[selected=true]:text-accent-primary')
+    expect(icon.getAttribute('class')).not.toMatch(/(^|\s)text-accent-primary(\s|$)/)
+  })
+
+  it('on an options page the footer teaches Backspace instead of ">", and the loading state is the rail track, not a spinner', async () => {
+    let resolve!: (options: { id: string; label: string }[]) => void
+    registerPaletteSurface('board', {
+      specs: () => [{ id: 15, title: 'Add achievements', status: 'todo' }],
+      rails: () => [],
+      launchBlocker: () => null,
+      launchOnRail: vi.fn(),
+      statusOptions: () => new Promise((r) => { resolve = r }),
+      moveStatus: vi.fn(),
+      reviewPath: () => null,
+    })
+    const user = userEvent.setup()
+    render(<CommandPalette />, { route: '/?spec=15' })
+    const input = await openPalette(user)
+    expect(screen.queryByTestId('palette-footer-back')).toBeNull()
+    await user.type(input, 'move')
+    await user.click(await screen.findByTestId('palette-action-a-spec.move'))
+    const loading = await screen.findByTestId('palette-page-loading')
+    expect(loading.querySelector('[data-testid="rail-track"]')).not.toBeNull()
+    expect(loading.querySelector('.animate-spin')).toBeNull()
+    expect(screen.getByTestId('palette-footer-back')).toHaveTextContent('back')
+    expect(screen.queryByText('actions')).toBeNull()
+    act(() => resolve([]))
+  })
+
   it('Launch hides when the spec cannot launch (guard honoured)', async () => {
     registerPaletteSurface('board', {
       specs: () => [{ id: 15, title: 'Frozen', status: 'on_review' }],

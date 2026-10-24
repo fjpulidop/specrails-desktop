@@ -117,7 +117,7 @@ Wenn ein Job fehlschlägt, stoppt oder blockiert ist, beginnt der Endzustand mit
 - **Blockiert**, **Zeit überschritten**, **stumm geblieben** und **unerwartet gestoppt** nennen das Limit oder den Prozess, der den Lauf angehalten hat.
 - **Unbekannte Ursache**: Die App rät nicht. Sie zeigt das Ende des Protokolls, damit du es selbst lesen kannst.
 
-Unter der Diagnose stehen bis zu drei gereihte Abhilfen, und nur solche, die hier funktionieren können: **Fortsetzen ab** der angehaltenen Phase, **Erneut versuchen**, **Spec bearbeiten und neu starten** (die Nachträge der Spec tragen deine Änderung in den nächsten Lauf), **Umgebung reparieren** und **Protokoll am Fehler öffnen**. Dieselbe Ursache erscheint als einzeilige Bezeichnung im [Posteingang](../getting-started/the-dashboard-tour), und die Lauf-Karte der Mission zeigt dieselbe Karte.
+Unter der Diagnose stehen bis zu drei gereihte Abhilfen, und nur solche, die hier funktionieren können: **Fortsetzen ab** der angehaltenen Phase, **Erneut ausführen**, **Spec bearbeiten und neu starten** (die Nachträge der Spec tragen deine Änderung in den nächsten Lauf), **Umgebung reparieren** und **Protokoll am Fehler öffnen**. Dieselbe Ursache erscheint als einzeilige Bezeichnung im [Liste „Offen“](../getting-started/the-dashboard-tour), und die Lauf-Karte der Mission zeigt dieselbe Karte.
 
 ## Wie es weitergeht
 

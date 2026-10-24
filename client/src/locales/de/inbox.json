@@ -1,5 +1,5 @@
 {
-  "title": "Braucht dich",
+  "title": "Offen",
   "subtitle_one": "{{count}} Eintrag wartet auf dich",
   "subtitle_other": "{{count}} Einträge warten auf dich",
   "subtitleEmpty": "Nichts wartet auf dich",
@@ -9,7 +9,7 @@
     "description": "Reviews, Rückfragen und Fehler aus allen Projekten erscheinen hier, sobald sie auftreten."
   },
   "error": {
-    "title": "Posteingang konnte nicht geladen werden",
+    "title": "Die Liste „Offen“ konnte nicht geladen werden",
     "description": "Die App konnte deine Projekte nicht lesen. Versuche es gleich noch einmal.",
     "retry": "Erneut versuchen"
   },
@@ -19,7 +19,8 @@
     "failed": "Fehlgeschlagen",
     "blocked": "Blockiert",
     "budget": "Wegen Budget pausiert",
-    "jira": "Jira-Sync fehlgeschlagen"
+    "jira": "Jira-Sync fehlgeschlagen",
+    "failedNoCause": "Vor der Auslieferung gestoppt"
   },
   "actions": {
     "open": "Öffnen",
@@ -45,9 +46,9 @@
     "ago": "vor {{age}}"
   },
   "button": {
-    "withCount_one": "Posteingang, {{count}} Eintrag braucht dich",
-    "withCount_other": "Posteingang, {{count}} Einträge brauchen dich",
-    "empty": "Posteingang, nichts braucht dich",
+    "withCount_one": "Offen: {{count}}",
+    "withCount_other": "Offen: {{count}}",
+    "empty": "Offen: nichts",
     "title": "{{label}} ({{shortcut}})"
   },
   "toast": {
@@ -55,6 +56,9 @@
     "retried": "Wiederholung eingeplant",
     "resumeFailed": "Lauf konnte nicht fortgesetzt werden",
     "retryFailed": "Jira-Update konnte nicht wiederholt werden",
-    "stillOverBudget": "Tagesbudget weiterhin überschritten"
+    "stillOverBudget": "Tagesbudget weiterhin überschritten",
+    "done": "Als erledigt markiert",
+    "snoozed": "Zurückgestellt bis {{when}}",
+    "undo": "Rückgängig"
   }
 }

@@ -19,7 +19,8 @@
     "failed": "Failed",
     "blocked": "Blocked",
     "budget": "Paused at budget",
-    "jira": "Jira sync failed"
+    "jira": "Jira sync failed",
+    "failedNoCause": "Stopped before delivery"
   },
   "actions": {
     "open": "Open",
@@ -55,6 +56,9 @@
     "retried": "Retry queued",
     "resumeFailed": "Couldn't resume the run",
     "retryFailed": "Couldn't retry the Jira update",
-    "stillOverBudget": "Still over the daily budget"
+    "stillOverBudget": "Still over the daily budget",
+    "done": "Marked done",
+    "snoozed": "Snoozed until {{when}}",
+    "undo": "Undo"
   }
 }

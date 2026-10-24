@@ -20,6 +20,17 @@ const NUDGE_TYPES = new Set(['rail.pr_state', 'rail.job_completed', 'rail.job_st
 const NUDGE_DEBOUNCE_MS = 400
 const POLL_MS = 60_000
 
+/** "3:15 PM" when the snooze ends today, "Mon 8:00 AM" otherwise. */
+function formatSnoozeEnd(until: number | null, lang: string): string {
+  if (until === null) return ''
+  const end = new Date(until)
+  const sameDay = end.toDateString() === new Date().toDateString()
+  const options: Intl.DateTimeFormatOptions = sameDay
+    ? { hour: 'numeric', minute: '2-digit' }
+    : { weekday: 'short', hour: 'numeric', minute: '2-digit' }
+  try { return end.toLocaleString(lang || 'en', options) } catch { return end.toLocaleString('en', options) }
+}
+
 export interface InboxValue {
   isOpen: boolean
   openInbox: () => void
@@ -48,7 +59,7 @@ export function useInbox(): InboxValue | null {
 }
 
 export function InboxProvider({ children }: { children: ReactNode }) {
-  const { t } = useTranslation('inbox')
+  const { t, i18n } = useTranslation('inbox')
   const { activeProjectId, setActiveProjectId } = useDesktop()
   const { uiMode } = useUiMode()
   const navigate = useNavigate()
@@ -152,18 +163,25 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   const openItem = useCallback((item: InboxItem) => {
     if (item.projectId !== activeProjectId) {
       pendingOpen.current = item
+      // Leave the inbox before the switch: the item's own place replaces it, and the dialog must not outlive the hand-off.
+      closePlace()
       setActiveProjectId(item.projectId)
       return
     }
     goToItem(item, true)
-  }, [activeProjectId, setActiveProjectId, goToItem])
+  }, [activeProjectId, setActiveProjectId, goToItem, closePlace])
+  // The route memory (a parent effect of this one) restores the incoming project's last page in the same
+  // commit and would overwrite an immediate navigation, so the hand-off waits one frame. It reads the
+  // latest `goToItem`: the router's `navigate` changes identity with every location change.
+  const goToItemRef = useRef(goToItem)
+  goToItemRef.current = goToItem
   useEffect(() => {
     const pending = pendingOpen.current
     if (pending && pending.projectId === activeProjectId) {
       pendingOpen.current = null
-      goToItem(pending, false)
+      requestAnimationFrame(() => { if (alive.current) goToItemRef.current(pending, false) })
     }
-  }, [activeProjectId, goToItem])
+  }, [activeProjectId])
 
   // ── Primary action: the same handlers/routes the existing buttons call
   const runPrimary = useCallback(async (item: InboxItem) => {
@@ -194,12 +212,26 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     })
     setNow(Date.now())
   }, [])
-  const snooze = useCallback((item: InboxItem, choice: SnoozeChoice) => {
-    persist((current) => ({ ...current, [item.id]: snoozeDismissal(item, choice, Date.now()) }))
+  // Both are quiet, so both say what happened and offer the way back (sonner directly: the app-wide undo
+  // stack is per project and the inbox spans all of them).
+  const undoDismissal = useCallback((id: string) => {
+    persist((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
   }, [persist])
+  const snooze = useCallback((item: InboxItem, choice: SnoozeChoice) => {
+    const dismissal = snoozeDismissal(item, choice, Date.now())
+    persist((current) => ({ ...current, [item.id]: dismissal }))
+    toast(t('toast.snoozed', { when: formatSnoozeEnd(dismissal.until, i18n.language) }), {
+      action: { label: t('toast.undo'), onClick: () => undoDismissal(item.id) },
+    })
+  }, [persist, undoDismissal, t, i18n.language])
   const done = useCallback((item: InboxItem) => {
     persist((current) => ({ ...current, [item.id]: doneDismissal(item, Date.now()) }))
-  }, [persist])
+    toast(t('toast.done'), { action: { label: t('toast.undo'), onClick: () => undoDismissal(item.id) } })
+  }, [persist, undoDismissal, t])
 
   const value = useMemo<InboxValue>(() => ({
     isOpen, openInbox, closeInbox, toggleInbox, status, items, groups, count: items.length, busy, refresh, runPrimary, snooze, done,

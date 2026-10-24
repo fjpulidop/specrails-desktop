@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import {
+  budgetOutlook,
   fetchLaunchForecast,
   fetchUsageSnapshot,
+  isMeteredBilled,
   isPlanBilled,
   peekForecast,
   type ForecastQuery,
@@ -34,11 +36,11 @@ export function useLaunchForecast(query: ForecastQuery | null): LaunchForecastDa
 }
 
 /**
- * Whether `provider` is billed through a subscription plan. `ready` is false
- * until the machine's usage snapshot has answered; the dollar figure waits for
- * it, so it never flashes for a plan user.
+ * Whether `provider` is billed through a subscription plan, or positively
+ * metered. `ready` is false until the machine's usage snapshot has answered.
+ * Only `metered` licenses a dollar figure: unknown billing shows time only.
  */
-export function useProviderBilling(provider: string | null): { ready: boolean; plan: boolean } {
+export function useProviderBilling(provider: string | null): { ready: boolean; plan: boolean; metered: boolean } {
   const [state, setState] = useState<{ ready: boolean; snapshot: unknown }>(() => {
     const source = fetchUsageSnapshot()
     return { ready: source.fresh !== null, snapshot: source.fresh }
@@ -48,10 +50,16 @@ export function useProviderBilling(provider: string | null): { ready: boolean; p
     const source = fetchUsageSnapshot()
     if (source.fresh) { setState({ ready: true, snapshot: source.fresh }); return }
     let cancelled = false
-    // An unreadable snapshot is "unknown", which is not a plan: costs may show.
+    // An unreadable snapshot is "unknown": time only, no dollar figure.
     void source.load().then((snapshot) => { if (!cancelled) setState({ ready: true, snapshot }) })
     return () => { cancelled = true }
   }, [])
 
-  return { ready: state.ready, plan: provider ? isPlanBilled(state.snapshot, provider) : false }
+  return { ready: state.ready, plan: provider ? isPlanBilled(state.snapshot, provider) : false, metered: provider ? isMeteredBilled(state.snapshot, provider) : false }
+}
+
+/** Where today's budget stands for this launch target: nothing to say, may pause, or already reached. */
+export function useBudgetOutlook(query: ForecastQuery | null): 'none' | 'may-pause' | 'reached' {
+  const data = useLaunchForecast(query)
+  return data ? budgetOutlook(data) : 'none'
 }

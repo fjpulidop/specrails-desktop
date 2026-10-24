@@ -35,7 +35,8 @@
       "navigate": "navigate",
       "select": "select",
       "close": "close",
-      "actions": "actions"
+      "actions": "actions",
+      "back": "back"
     },
     "missions": {
       "home": "Home"
@@ -100,7 +101,8 @@
         "loadFailed": "Could not load the options."
       },
       "openInbox": "Open inbox",
-      "openInboxCount": "Open inbox ({{count}} waiting)"
+      "openInboxCount": "Open inbox ({{count}} waiting)",
+      "opensOptions": "opens options"
     }
   },
   "toasts": {

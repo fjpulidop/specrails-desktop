@@ -1,5 +1,5 @@
 {
-  "title": "Serve il tuo intervento",
+  "title": "Da gestire",
   "subtitle_one": "{{count}} elemento ti aspetta",
   "subtitle_other": "{{count}} elementi ti aspettano",
   "subtitleEmpty": "Niente ti aspetta",
@@ -9,7 +9,7 @@
     "description": "Revisioni, domande e errori di tutti i progetti compaiono qui appena accadono."
   },
   "error": {
-    "title": "Impossibile caricare la posta",
+    "title": "Impossibile caricare l’elenco Da gestire",
     "description": "L'app non è riuscita a leggere i tuoi progetti. Riprova tra un momento.",
     "retry": "Riprova"
   },
@@ -19,7 +19,8 @@
     "failed": "Fallito",
     "blocked": "Bloccato",
     "budget": "In pausa per budget",
-    "jira": "Sincronizzazione Jira non riuscita"
+    "jira": "Sincronizzazione Jira non riuscita",
+    "failedNoCause": "Interrotto prima della consegna"
   },
   "actions": {
     "open": "Apri",
@@ -45,9 +46,9 @@
     "ago": "{{age}} fa"
   },
   "button": {
-    "withCount_one": "Posta, {{count}} elemento richiede il tuo intervento",
-    "withCount_other": "Posta, {{count}} elementi richiedono il tuo intervento",
-    "empty": "Posta, nulla richiede il tuo intervento",
+    "withCount_one": "Da gestire: {{count}}",
+    "withCount_other": "Da gestire: {{count}}",
+    "empty": "Da gestire: niente",
     "title": "{{label}} ({{shortcut}})"
   },
   "toast": {
@@ -55,6 +56,9 @@
     "retried": "Nuovo tentativo in coda",
     "resumeFailed": "Impossibile riprendere l'esecuzione",
     "retryFailed": "Impossibile ritentare l'aggiornamento Jira",
-    "stillOverBudget": "Ancora oltre il budget giornaliero"
+    "stillOverBudget": "Ancora oltre il budget giornaliero",
+    "done": "Segnato come fatto",
+    "snoozed": "Posticipato a {{when}}",
+    "undo": "Annulla"
   }
 }

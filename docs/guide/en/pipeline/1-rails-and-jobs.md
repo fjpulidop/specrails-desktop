@@ -101,7 +101,7 @@ Before you press Launch, a rail can show how long runs like this usually take an
 
 The range is the middle half of your own history: the 25th to 75th percentile of completed runs in this project that used the same loop or command and the same engine. It needs at least 5 comparable runs. Until then the line reads *Not enough history yet* instead of a guess. Only costs the provider reported are used; estimated costs are left out. It is an estimate, never a bill.
 
-On a subscription plan the dollar figure is hidden and only the time shows. If today's spend plus the top of the range could reach your daily budget, the line adds *May pause at budget* with a link to the budget settings.
+The dollar figure shows only when the engine is known to bill per use (for example an API key). On a subscription plan, or while the billing mode is not known yet, only the time shows. When the rail holds several specs the band is for one spec and says *(per spec)*. If today's spend plus the top of the range could reach your daily budget, the line adds *May pause at budget* with a link to the budget settings. If today's budget is already used up, Launch asks you to confirm first, because the run would pause until it resets.
 
 
 ## Where to go next
