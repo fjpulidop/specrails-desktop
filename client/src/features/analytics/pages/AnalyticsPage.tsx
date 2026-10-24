@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, RefreshCw } from 'lucide-react'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../../components/ui/select'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
 import { isLocalEngineId, providerLabel } from '../../providers/lib/provider-capabilities'
@@ -388,6 +389,23 @@ export default function AnalyticsPage() {
         {multiProvider && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid="analytics-provider-chips">
             <span className="text-xs text-muted-foreground mr-1">{t('page.engine')}</span>
+            {installedProviders.length > 4 ? (
+              <Select
+                value={isAllProviders ? 'all' : providerFilter?.length === 1 ? providerFilter[0] : ''}
+                onValueChange={(v) => (v === 'all' ? toggleProvider('all') : setFilters((f) => ({ ...f, provider: [v] })))}
+              >
+                <SelectTrigger className="h-7 w-auto min-w-[8rem] gap-2" aria-label={t('page.engine')} data-testid="analytics-provider-select">
+                  <SelectValue placeholder={t('page.all')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('page.all')}</SelectItem>
+                  {installedProviders.map((p) => (
+                    <SelectItem key={p} value={p}>{providerLabel(p)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <>
             <button
               type="button"
               aria-pressed={isAllProviders}
@@ -414,6 +432,8 @@ export default function AnalyticsPage() {
                 >{providerLabel(p)}{isLocalEngineId(p) && <span className="ml-1 rounded-full bg-accent-secondary/15 px-1.5 text-xs text-accent-secondary">{t('page.localEngine')}</span>}</button>
               )
             })}
+              </>
+            )}
           </div>
         )}
       </div>

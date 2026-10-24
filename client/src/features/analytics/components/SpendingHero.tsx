@@ -127,7 +127,7 @@ export function SpendingHero({ data, loading, period }: Props) {
   const windowLabel = period ? t(`windowLabels.${period}`) : null
 
   return (
-    <section aria-labelledby="spending-hero-title" className="rounded-xl border border-border/50 bg-card/60 p-5">
+    <section aria-labelledby="spending-hero-title" className="rounded-xl border border-border/50 bg-card p-5">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
           <h2 id="spending-hero-title" className="text-strong text-foreground mb-1">
@@ -136,7 +136,7 @@ export function SpendingHero({ data, loading, period }: Props) {
           </h2>
           <div className="flex items-baseline gap-3">
             <div
-              className="text-4xl font-semibold num tracking-tight"
+              className="text-display-xl num"
               data-testid={costUnavailable ? 'hero-cost-unavailable' : undefined}
               title={costUnavailable ? t('hero.costUnavailableTooltip') : undefined}
             >
@@ -245,6 +245,37 @@ export function SpendingHero({ data, loading, period }: Props) {
               )
             })}
           </div>
+          {hasEstimatedCost && total > 0 && (
+            <div className="mt-2 flex items-center gap-3" data-testid="hero-estimate-split">
+              <div className="h-1.5 flex-1 rounded-full overflow-hidden bg-background-deep flex">
+                <div
+                  className="h-full bg-foreground/50"
+                  style={{ width: `${Math.max(0, 100 - (totalEstimated / total) * 100)}%` }}
+                />
+                <div
+                  className="h-full"
+                  style={{
+                    width: `${Math.min(100, (totalEstimated / total) * 100)}%`,
+                    backgroundImage:
+                      'repeating-linear-gradient(135deg, var(--color-foreground) 0 2px, transparent 2px 5px)',
+                    opacity: 0.5,
+                  }}
+                />
+              </div>
+              <span className="inline-flex items-center gap-3 text-caption text-muted-foreground shrink-0">
+                <span className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="h-2 w-2 rounded-sm bg-foreground/50" />{t('hero.legendBilled')}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="h-2 w-2 rounded-sm"
+                    style={{ backgroundImage: 'repeating-linear-gradient(135deg, var(--color-foreground) 0 1px, transparent 1px 3px)', opacity: 0.6 }}
+                  />{t('hero.legendEstimated')}
+                </span>
+              </span>
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
             {segments.filter((s) => s.costUsd > 0).map((seg) => (
               <span key={seg.surface} className="inline-flex items-center gap-1.5 num">

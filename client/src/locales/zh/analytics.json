@@ -58,7 +58,9 @@
     "trackingStarted": "追踪始于 {{date}}",
     "trackingStartedFallback": "首次调用后开始追踪",
     "emptyState": "当前筛选窗口内暂无调用。",
-    "segmentTitle": "{{label}}：{{value}}"
+    "segmentTitle": "{{label}}：{{value}}",
+    "legendBilled": "已计费",
+    "legendEstimated": "估算"
   },
   "providerCard": {
     "title": "按提供方",

@@ -58,7 +58,9 @@
     "trackingStarted": "Registo iniciado em {{date}}",
     "trackingStartedFallback": "O registo começa na primeira invocação",
     "emptyState": "Ainda não há invocações para esta janela de filtros.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Faturado",
+    "legendEstimated": "Estimado"
   },
   "providerCard": {
     "title": "Por fornecedor",

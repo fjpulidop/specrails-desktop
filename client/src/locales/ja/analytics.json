@@ -58,7 +58,9 @@
     "trackingStarted": "トラッキング開始: {{date}}",
     "trackingStartedFallback": "最初の呼び出しからトラッキングを開始",
     "emptyState": "このフィルター期間の呼び出しはまだありません。",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "請求済み",
+    "legendEstimated": "推定"
   },
   "providerCard": {
     "title": "プロバイダー別",

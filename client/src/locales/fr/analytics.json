@@ -58,7 +58,9 @@
     "trackingStarted": "Suivi démarré le {{date}}",
     "trackingStartedFallback": "Le suivi démarre à la première invocation",
     "emptyState": "Aucune invocation pour cette période de filtrage.",
-    "segmentTitle": "{{label}} : {{value}}"
+    "segmentTitle": "{{label}} : {{value}}",
+    "legendBilled": "Facturé",
+    "legendEstimated": "Estimé"
   },
   "providerCard": {
     "title": "Par fournisseur",

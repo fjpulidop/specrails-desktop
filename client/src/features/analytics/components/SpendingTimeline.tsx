@@ -3,6 +3,8 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 import type { SpendingResponse } from '../types/spending'
 import { formatUsd } from '../lib/format'
 import { Skeleton } from '../../../components/ui/skeleton'
+import { useActiveTheme } from '../../settings/context/ThemeContext'
+import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
   data: SpendingResponse | null
@@ -11,10 +13,16 @@ interface Props {
 
 export function SpendingTimeline({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
+  const theme = useActiveTheme()
   if (loading && !data) {
     return <Skeleton className="h-[220px]" />
   }
   if (!data) return null
+
+  // Series colours come from the theme's chart palette (not the semantic
+  // warning/success tokens, which carry state meaning); two extra hues from
+  // the terminal palette cover the 7 named series.
+  const palette = [...theme.chart, theme.xterm.brightBlue, theme.xterm.brightMagenta]
 
   // Series labels double as recharts dataKeys and tooltip display names.
   const labels = {
@@ -89,23 +97,20 @@ export function SpendingTimeline({ data, loading }: Props) {
       ) : (
         <div className="h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -8, bottom: 0 }}>
+            <BarChart data={chartData} barCategoryGap="28%" margin={{ top: 10, right: 10, left: -8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="2 4" stroke="currentColor" className="text-border/30" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground" />
-              <YAxis tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground" tickFormatter={(v: number) => formatUsd(v)} />
-              <Tooltip
-                contentStyle={{ backgroundColor: 'var(--color-popover)', border: '1px solid var(--color-border)', color: 'var(--color-popover-foreground)', fontSize: 12, borderRadius: 6 }}
-                formatter={(value: unknown, name: unknown) => [typeof value === 'number' ? formatUsd(value) : '—', String(name)]}
-              />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey={labels.jobs} stackId="a" fill="var(--color-accent-info)" />
-              <Bar dataKey={labels.explore} stackId="a" fill="var(--color-accent-highlight)" />
-              <Bar dataKey={labels.quick} stackId="a" fill="var(--color-accent-secondary)" />
-              <Bar dataKey={labels.refine} stackId="a" fill="var(--color-accent-success)" />
-              <Bar dataKey={labels.fileSummaries} stackId="a" fill="var(--color-accent-flow)" />
-              <Bar dataKey={labels.smash} stackId="a" fill="var(--color-accent-warning)" />
-              <Bar dataKey={labels.loop} stackId="a" fill="var(--color-accent-primary)" />
-              <Bar dataKey={labels.others} stackId="a" fill="var(--color-muted-foreground)" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} stroke="currentColor" className="text-muted-foreground num" />
+              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} stroke="currentColor" className="text-muted-foreground num" tickFormatter={(v: number) => formatUsd(v)} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--color-accent)', fillOpacity: 0.25 }} />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey={labels.jobs} stackId="a" fill={palette[0]} />
+              <Bar dataKey={labels.explore} stackId="a" fill={palette[1]} />
+              <Bar dataKey={labels.quick} stackId="a" fill={palette[2]} />
+              <Bar dataKey={labels.refine} stackId="a" fill={palette[3]} />
+              <Bar dataKey={labels.fileSummaries} stackId="a" fill={palette[4]} />
+              <Bar dataKey={labels.smash} stackId="a" fill={palette[5]} />
+              <Bar dataKey={labels.loop} stackId="a" fill={palette[6]} />
+              <Bar dataKey={labels.others} stackId="a" fill="var(--color-muted-foreground)" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

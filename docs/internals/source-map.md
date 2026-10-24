@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1201 source/build files. Nearby tests are linked where names
+Includes 1202 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -123,6 +123,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/analytics/components
 
 - [AgentMissionsCard.tsx](../../client/src/features/analytics/components/AgentMissionsCard.tsx)
+- [ChartTooltip.tsx](../../client/src/features/analytics/components/ChartTooltip.tsx)
 - [CostScatter.tsx](../../client/src/features/analytics/components/CostScatter.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostScatter.test.tsx)
 - [CostValue.tsx](../../client/src/features/analytics/components/CostValue.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostValue.test.tsx)
 - [DecisionTimesCard.tsx](../../client/src/features/analytics/components/DecisionTimesCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/DecisionTimesCard.test.tsx)

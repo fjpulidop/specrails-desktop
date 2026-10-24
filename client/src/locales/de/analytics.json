@@ -58,7 +58,9 @@
     "trackingStarted": "Tracking gestartet am {{date}}",
     "trackingStartedFallback": "Tracking beginnt mit dem ersten Aufruf",
     "emptyState": "Noch keine Aufrufe für diesen Filterzeitraum.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Abgerechnet",
+    "legendEstimated": "Geschätzt"
   },
   "providerCard": {
     "title": "Nach Provider",

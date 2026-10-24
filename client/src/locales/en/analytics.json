@@ -58,7 +58,9 @@
     "trackingStarted": "Tracking started {{date}}",
     "trackingStartedFallback": "Tracking started on first invocation",
     "emptyState": "No invocations yet for this filter window.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Billed",
+    "legendEstimated": "Estimated"
   },
   "providerCard": {
     "title": "By provider",
