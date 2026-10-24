@@ -22,3 +22,20 @@ validate with `--check`. `--write` rewrites only the block between the
 subpaths and feature dependencies, [scripts/client-feature-readme.mjs](../../../scripts/client-feature-readme.mjs));
 hand-written sections outside it are kept. `--check` also fails when a block is
 stale. Run client coverage after changes spanning capabilities.
+
+## Modals
+
+Every modal follows the [modal standard](../../../docs/internals/modal-standard.md):
+`DialogContent` from `components/ui/dialog.tsx` with one of five sizes
+(`confirm`, `form`, `wide`, `workspace`, `fullscreen`), a sticky `DialogHeader`
+(it owns the close button), `DialogBody` as the only scroll region and a sticky
+`DialogFooter` with Cancel (ghost) before the primary action. Confirms use
+`ConfirmDialog`. Stacking uses the named layers in `lib/layers.ts` (`base` 50,
+`entity` 65, `stacked` 70, `capture` 80, `media` 100), never a literal
+`z-[NN]`. Only `workspace` modals are resizable. Text inside a modal is at
+least 12px (11px only on `data-chip` pills). Anything a user consults while
+working (Docs, Analytics, activity log) is a candidate for a side sheet rather
+than a modal. `components/ui/__tests__/modal-standard-guard.test.ts` rejects
+hand-rolled `aria-modal` dialogs outside `components/ui` and sub-12px text in
+modal files.
+

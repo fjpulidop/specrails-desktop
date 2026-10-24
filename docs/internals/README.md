@@ -32,6 +32,7 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [interactive-jobs.md](interactive-jobs.md) | Interactive-by-default jobs: the persistent-stdin session model, `finalize` vs `auto` settle modes, loop-step turn routing, accounting reconciliation, kill-switch matrix |
 | [loop-step-log-explorer.md](loop-step-log-explorer.md) | The step-grouped log surface for loop runs: the `loop_graph` / `loop_step` / `loop_step_end` event contract and seq guarantees, grouping + status model (interrupted rule, legacy fallback), follow mode, perf notes |
 | [gemini-mcp-registration.md](gemini-mcp-registration.md) | How MCP servers actually reach gemini-cli (`.gemini/settings.json` + trust env, FQN tool prefix) and the deferred `.mcp.json` gap on non-agent-chat surfaces |
+| [modal-standard.md](modal-standard.md) | The client modal standard: Radix primitive, five sizes, sticky header/body/footer anatomy, button order, named z-index layers (`client/src/lib/layers.ts`), one scrim and entrance animation, workspace-only resizing, 12px type floor |
 | [browser-capture-performance.md](browser-capture-performance.md) | Embedded-browser fluidity: the CDP screencast → WS → canvas pipeline, the latency levers (non-blocking navigation, input coalescing, latest-frame-wins drawing, frame conflation), tuning knobs, and the OAuth popup design |
 
 **See also:** the app registers Claude Code, Codex CLI, Gemini CLI, and Kimi

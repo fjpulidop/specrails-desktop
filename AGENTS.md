@@ -78,7 +78,9 @@ scoped to the feature and preserve project isolation and recovery semantics.
   distinguishable from billed cost; share [integer allocation](server/util/distribute-int.ts).
 - Append database migrations; never renumber or rewrite shipped migrations.
   Preserve WAL settings, secure file permissions and transaction scope.
-- App settings are a modal; project settings are a route. Follow existing i18n
+- App settings are a modal; project settings are a route (Agent Mode, which has
+  no routed dashboard, opens the same sections in `ProjectSettingsDialog`).
+  Modals follow the [modal standard](docs/internals/modal-standard.md). Follow existing i18n
   and theme conventions when changing visible UI.
 
 ## Verification

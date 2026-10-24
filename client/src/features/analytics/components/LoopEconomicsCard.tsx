@@ -197,9 +197,9 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-muted-foreground">{t('loopEconomics.note')}</p>
+        <p className="text-xs text-muted-foreground">{t('loopEconomics.note')}</p>
         {data.sources.escapedDefects === 'untracked' && (
-          <p className="text-[11px] text-muted-foreground" data-testid="loop-economics-untracked">{t('loopEconomics.escapedUntracked')}</p>
+          <p className="text-xs text-muted-foreground" data-testid="loop-economics-untracked">{t('loopEconomics.escapedUntracked')}</p>
         )}
       </>}
     </section>
