@@ -64,7 +64,7 @@
   },
   "providerCard": {
     "title": "By provider",
-    "description": "How cost splits across the AI CLIs in this project. The <tilde>~</tilde> prefix marks rows where cost is estimated from the local pricing table (the provider does not report it natively).",
+    "description": "<tilde>~</tilde> = estimated from local pricing.",
     "noCost": "No cost recorded yet in this window.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "cost unavailable",

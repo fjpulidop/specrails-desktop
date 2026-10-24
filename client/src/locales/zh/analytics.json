@@ -64,7 +64,7 @@
   },
   "providerCard": {
     "title": "按提供方",
-    "description": "此项目中各 AI CLI 的成本分布。<tilde>~</tilde> 前缀表示该行成本由本地价格表估算（提供方不原生上报）。",
+    "description": "<tilde>~</tilde> = 按本地价格估算。",
     "noCost": "此时间窗口内暂无成本记录。",
     "segmentTitle": "{{label}}：{{value}}（{{count}}）",
     "costUnavailable": "成本不可用",

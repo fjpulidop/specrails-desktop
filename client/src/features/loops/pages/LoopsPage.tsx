@@ -354,7 +354,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
               </div>
             )}
 
-            {loops.length > 0 && <LoopMigrationPanel onConvert={id => { const loop = loops.find(item => item.id === id); if (loop) setConversionLoop(loop) }} />}
+            {loops.some(loop => !loop.graph.nodes.some(node => node.type === 'core')) && <LoopMigrationPanel onConvert={id => { const loop = loops.find(item => item.id === id); if (loop) setConversionLoop(loop) }} />}
 
             {published.length > 0 && (
               <Section title={t('sections.published')}>

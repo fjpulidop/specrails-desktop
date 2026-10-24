@@ -64,7 +64,7 @@
   },
   "providerCard": {
     "title": "Por proveedor",
-    "description": "Cómo se reparte el coste entre las CLI de IA de este proyecto. El prefijo <tilde>~</tilde> marca las filas cuyo coste se estima con la tabla de precios local (el proveedor no lo informa de forma nativa).",
+    "description": "<tilde>~</tilde> = estimado con precios locales.",
     "noCost": "Aún no hay coste registrado en esta ventana.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "coste no disponible",

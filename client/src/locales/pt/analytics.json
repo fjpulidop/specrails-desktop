@@ -64,7 +64,7 @@
   },
   "providerCard": {
     "title": "Por fornecedor",
-    "description": "Como o custo se divide entre as CLIs de IA deste projeto. O prefixo <tilde>~</tilde> assinala as linhas em que o custo é estimado a partir da tabela de preços local (o fornecedor não o reporta nativamente).",
+    "description": "<tilde>~</tilde> = estimado com preços locais.",
     "noCost": "Ainda não há custo registado nesta janela.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "custo indisponível",

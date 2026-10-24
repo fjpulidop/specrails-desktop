@@ -64,7 +64,7 @@
   },
   "providerCard": {
     "title": "Nach Provider",
-    "description": "So verteilen sich die Kosten auf die KI-CLIs in diesem Projekt. Das Präfix <tilde>~</tilde> markiert Zeilen, deren Kosten über die lokale Preistabelle geschätzt sind (der Provider meldet sie nicht nativ).",
+    "description": "<tilde>~</tilde> = geschätzt anhand lokaler Preise.",
     "noCost": "Noch keine Kosten in diesem Zeitraum erfasst.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "Kosten nicht verfügbar",

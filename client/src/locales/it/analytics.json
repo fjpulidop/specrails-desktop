@@ -64,7 +64,7 @@
   },
   "providerCard": {
     "title": "Per provider",
-    "description": "Come si ripartisce il costo tra le CLI AI di questo progetto. Il prefisso <tilde>~</tilde> indica le righe in cui il costo è stimato dalla tabella prezzi locale (il provider non lo riporta nativamente).",
+    "description": "<tilde>~</tilde> = stimato dai prezzi locali.",
     "noCost": "Ancora nessun costo registrato in questa finestra.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "costo non disponibile",

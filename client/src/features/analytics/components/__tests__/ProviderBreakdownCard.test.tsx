@@ -75,7 +75,7 @@ describe('ProviderBreakdownCard', () => {
     expect(screen.getByText('By provider')).toBeInTheDocument()
     // Description with the <tilde>~</tilde> Trans component
     expect(
-      screen.getByText(/How cost splits across the AI CLIs in this project/),
+      screen.getByText(/estimated from local pricing/),
     ).toBeInTheDocument()
 
     // Rows: known providers map to friendly labels

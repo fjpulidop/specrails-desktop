@@ -64,7 +64,7 @@
   },
   "providerCard": {
     "title": "Par fournisseur",
-    "description": "Répartition du coût entre les CLI IA de ce projet. Le préfixe <tilde>~</tilde> marque les lignes dont le coût est estimé à partir de la table de tarifs locale (le fournisseur ne le rapporte pas nativement).",
+    "description": "<tilde>~</tilde> = estimé d’après les tarifs locaux.",
     "noCost": "Aucun coût enregistré sur cette période.",
     "segmentTitle": "{{label}} : {{value}} ({{count}})",
     "costUnavailable": "coût indisponible",

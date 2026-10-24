@@ -64,7 +64,7 @@
   },
   "providerCard": {
     "title": "プロバイダー別",
-    "description": "このプロジェクトの AI CLI 間でのコストの内訳。<tilde>~</tilde> プレフィックスは、コストがローカル料金表からの推定値である行を示します（プロバイダーがネイティブに報告しない場合）。",
+    "description": "<tilde>~</tilde> = ローカル料金表からの推定値。",
     "noCost": "この期間に記録されたコストはまだありません。",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "コスト利用不可",
