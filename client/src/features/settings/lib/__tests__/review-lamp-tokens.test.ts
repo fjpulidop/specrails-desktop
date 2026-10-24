@@ -33,11 +33,12 @@ const dist = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(
 
 describe('review lamp token', () => {
   for (const id of THEME_IDS) {
-    it(`${id}: hue is ≥60° from primary and ≥40° from secondary, text contrast ≥4.5 on card`, () => {
+    it(`${id}: hue is ≥60° from primary and ≥30° from destructive and success, text contrast ≥4.5 on card`, () => {
       const v = vars(id)
       const review = v.get('--color-accent-review')!
       expect(dist(hsl(review)[0], hsl(v.get('--color-primary')!)[0])).toBeGreaterThanOrEqual(60)
-      expect(dist(hsl(review)[0], hsl(v.get('--color-accent-secondary')!)[0])).toBeGreaterThanOrEqual(40)
+      expect(dist(hsl(review)[0], hsl(v.get('--color-destructive')!)[0])).toBeGreaterThanOrEqual(30)
+    expect(dist(hsl(review)[0], hsl(v.get('--color-accent-success')!)[0])).toBeGreaterThanOrEqual(30)
       expect(contrast(review, v.get('--color-card')!)).toBeGreaterThanOrEqual(4.5)
     })
   }

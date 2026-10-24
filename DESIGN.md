@@ -142,7 +142,7 @@ A night-ink neutral base with one cyan signal, a violet rail end, and a closed s
 - **Done Emerald** (hsl(152 78% 48%)): completed, healthy.
 - **Caution Amber** (hsl(42 92% 58%)): caution and cost only. Not review, not priority.
 - **Failed Tomato** (hsl(12 80% 55%)): failures and destructive actions.
-- **Review Orchid** (hsl(322 55% 72%)): the review lamp, so amber stays unambiguous. Themes whose primary is violet (Dracula, Aurora Light, Obsidian Dark) use a teal lamp instead.
+- **Review Orchid** (hsl(322 55% 72%)): the review lamp, so amber stays unambiguous. Themes whose primary is violet (Dracula, Aurora Light, Obsidian Dark) use their own pink for the review lamp instead (it also stays clear of Flow teal).
 - **Flow Teal** (hsl(170 78% 50%)): Flow mode identity.
 
 ### Lamp canon
