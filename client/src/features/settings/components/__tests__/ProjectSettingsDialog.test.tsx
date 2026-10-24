@@ -42,6 +42,19 @@ describe('ProjectSettingsDialog', () => {
     await waitForSelfFetchingSections()
   })
 
+  it('opens on the requested section (⌘K "Open project settings")', async () => {
+    render(<ProjectSettingsDialog open onClose={vi.fn()} initialSection="budget" />)
+    expect(screen.getByRole('button', { name: 'Budget' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'General' })).not.toHaveAttribute('aria-current')
+    await waitForSelfFetchingSections()
+  })
+
+  it('falls back to General for an unknown section', async () => {
+    render(<ProjectSettingsDialog open onClose={vi.fn()} initialSection="nope" />)
+    expect(screen.getByRole('button', { name: 'General' })).toHaveAttribute('aria-current', 'page')
+    await waitForSelfFetchingSections()
+  })
+
   it('marks the active nav entry with aria-current and mentions rules in the description', async () => {
     render(<ProjectSettingsDialog open onClose={vi.fn()} />)
     expect(screen.getByText(/telemetry, rules and terminal/)).toBeInTheDocument()

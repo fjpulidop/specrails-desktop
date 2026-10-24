@@ -255,6 +255,11 @@ describe('ProposeSpecModal', () => {
     })
   })
 
+  it('opens in Explore when asked to (⌘K New spec (Explore))', () => {
+    render(<ProposeSpecModal open={true} initialMode="explore" onClose={onCloseMock} tickets={emptyTickets} />)
+    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument()
+  })
+
   it('renames the action button to Continue in Explore mode', () => {
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const exploreTab = screen.getAllByRole('tab').find((t) => t.textContent?.toLowerCase().includes('explore'))!

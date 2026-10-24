@@ -37,6 +37,7 @@ import type { SpecsViewTier } from '../lib/specs-view-tier'
 import { applySpecSort } from '../lib/spec-sort'
 import { loadSpecFilters, saveSpecFilters } from '../lib/spec-filters'
 import type { SpecSortMode, SpecSortDir } from '../types/spec-sort'
+import { useRegisterPaletteSurface } from '../../../lib/palette-bridge'
 import { ProposeSpecModal, type ExploreLaunchPayload } from './ProposeSpecModal'
 import { ExploreSpecShell } from './explore-spec/ExploreSpecShell'
 import { ShellErrorBoundary } from '../../../components/ShellErrorBoundary'
@@ -216,6 +217,7 @@ export function SpecsBoard({
     onTicketDelete?.(ticket.id)
   }, [onTicketDelete])
   const [proposeOpen, setProposeOpen] = useState(false)
+  const [proposeMode, setProposeMode] = useState<'quick' | 'explore'>('quick')
   const [explore, setExplore] = useState<ExploreState | null>(null)
   const { activeProjectId } = useDesktop()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -569,6 +571,11 @@ export function SpecsBoard({
       seedDraftOverrides: chat.params.draftOverrides,
       editTicket: chat.params.editTicket,
     })
+  })
+
+  // ⌘K "New spec" / "New spec (Explore)" open the same modal the button opens.
+  useRegisterPaletteSurface('specs', {
+    openNewSpec: (mode) => { setProposeMode(mode); setProposeOpen(true) },
   })
 
   useEffect(() => {
@@ -952,7 +959,8 @@ export function SpecsBoard({
 
       <ProposeSpecModal
         open={proposeOpen}
-        onClose={() => setProposeOpen(false)}
+        initialMode={proposeMode}
+        onClose={() => { setProposeOpen(false); setProposeMode('quick') }}
         tickets={allTickets ?? tickets}
         onExploreLaunch={handleExploreLaunch}
       />

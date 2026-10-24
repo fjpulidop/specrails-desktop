@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, within } from '../../../../test-utils'
 import { SpecsBoard } from '../SpecsBoard'
 import type { LocalTicket } from '../../../../types'
+import { getPaletteSurface } from '../../../../lib/palette-bridge'
 
 // Mock DnD kit — SpecsBoard uses useDroppable + SortableContext
 vi.mock('@dnd-kit/core', () => ({
@@ -30,8 +31,8 @@ vi.mock('@dnd-kit/utilities', () => ({
 }))
 
 vi.mock('../ProposeSpecModal', () => ({
-  ProposeSpecModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
-    open ? <div data-testid="propose-spec-modal"><button onClick={onClose}>close modal</button></div> : null,
+  ProposeSpecModal: ({ open, onClose, initialMode }: { open: boolean; onClose: () => void; initialMode?: string }) =>
+    open ? <div data-testid="propose-spec-modal" data-mode={initialMode}><button onClick={onClose}>close modal</button></div> : null,
 }))
 
 function makeTicket(overrides: Partial<LocalTicket> = {}): LocalTicket {
@@ -201,6 +202,23 @@ describe('SpecsBoard', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
     fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
     expect(screen.getByTestId('propose-spec-modal')).toBeInTheDocument()
+  })
+
+  it('⌘K New spec opens the same modal, Explore opens it in Explore, and closing resets to Quick', () => {
+    render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
+    const surface = getPaletteSurface('specs')!
+    act(() => surface.openNewSpec('explore'))
+    expect(screen.getByTestId('propose-spec-modal')).toHaveAttribute('data-mode', 'explore')
+    fireEvent.click(screen.getByText('close modal'))
+    act(() => getPaletteSurface('specs')!.openNewSpec('quick'))
+    expect(screen.getByTestId('propose-spec-modal')).toHaveAttribute('data-mode', 'quick')
+  })
+
+  it('unregisters its ⌘K surface on unmount', () => {
+    const { unmount } = render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
+    expect(getPaletteSurface('specs')).not.toBeNull()
+    unmount()
+    expect(getPaletteSurface('specs')).toBeNull()
   })
 
   it('closes ProposeSpecModal when onClose is called', () => {

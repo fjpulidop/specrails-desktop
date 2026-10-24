@@ -10,7 +10,10 @@
       "missions": "Missioni",
       "spec": "Spec",
       "jobs": "Job",
-      "navigation": "Navigazione"
+      "navigation": "Navigazione",
+      "actions": "Azioni",
+      "recentActions": "Azioni recenti",
+      "recentPlaces": "Luoghi recenti"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -31,13 +34,72 @@
     "footer": {
       "navigate": "naviga",
       "select": "seleziona",
-      "close": "chiudi"
+      "close": "chiudi",
+      "actions": "azioni"
     },
     "missions": {
       "home": "Home"
     },
     "dialogTitle": "Cerca missioni, progetti e job",
-    "dialogDescription": "Digita per filtrare, poi premi Invio per aprire il risultato evidenziato."
+    "dialogDescription": "Digita per filtrare, poi premi Invio per aprire il risultato evidenziato.",
+    "actions": {
+      "verbs": "nuovo,nuova,crea,aggiungi,avvia,esegui,sposta,apri,cambia,attiva,vai,consegna,pausa,riprendi,annulla,mostra,inizia,ripristina,new,launch,move,open,switch,run,toggle,go,undo",
+      "back": "Indietro",
+      "newSpec": "Nuova spec",
+      "newSpecExplore": "Nuova spec (Esplora)",
+      "launchSpec": "Avvia la spec su un rail",
+      "launchSpecN": "Avvia #{{id}} su un rail",
+      "moveSpec": "Sposta la spec in",
+      "moveSpecN": "Sposta #{{id}} in",
+      "openReview": "Apri la revisione",
+      "openReviewN": "Apri la revisione di #{{id}}",
+      "handOffFlow": "Consegna il Flow",
+      "pauseFlow": "Metti in pausa il Flow",
+      "resumeFlow": "Riprendi il Flow",
+      "newMission": "Nuova missione",
+      "switchTheme": "Cambia tema",
+      "switchToMission": "Passa alla modalità Missione",
+      "switchToBoard": "Passa alla modalità Board",
+      "openAppSettings": "Apri le impostazioni dell'app",
+      "openProjectSettings": "Apri le impostazioni del progetto",
+      "switchProject": "Cambia progetto",
+      "runLoop": "Esegui un loop",
+      "toggleLeftSidebar": "Mostra/nascondi barra laterale sinistra",
+      "toggleRightSidebar": "Mostra/nascondi barra laterale destra",
+      "goBack": "Torna indietro",
+      "goForward": "Vai avanti",
+      "undoLast": "Annulla: {{label}}",
+      "recentlyDeleted": "Eliminati di recente",
+      "pages": {
+        "railTitle": "Rail per #{{id}}",
+        "railPlaceholder": "Scegli un rail...",
+        "railRunning": "in esecuzione",
+        "railHasSpec": "già presente",
+        "noRails": "Nessun rail disponibile.",
+        "statusTitle": "Sposta #{{id}} in",
+        "statusPlaceholder": "Scegli uno stato...",
+        "noStatuses": "Nessuno stato disponibile.",
+        "current": "attuale",
+        "specTitle": "Scegli una spec",
+        "specPlaceholder": "Cerca spec...",
+        "noSpecs": "Nessuna spec corrispondente.",
+        "themeTitle": "Tema",
+        "themePlaceholder": "Scegli un tema...",
+        "noThemes": "Nessun tema disponibile.",
+        "appSettingsTitle": "Impostazioni dell'app",
+        "projectSettingsTitle": "Impostazioni del progetto",
+        "sectionPlaceholder": "Scegli una sezione...",
+        "noSections": "Nessuna sezione.",
+        "projectTitle": "Progetti",
+        "projectPlaceholder": "Scegli un progetto...",
+        "noProjects": "Nessun altro progetto.",
+        "loopTitle": "Loop eseguibili ora",
+        "loopPlaceholder": "Scegli un loop...",
+        "noLoops": "Nessun loop può essere eseguito senza una spec.",
+        "loading": "Caricamento...",
+        "loadFailed": "Impossibile caricare le opzioni."
+      }
+    }
   },
   "toasts": {
     "queued": "{{name}} in coda",

@@ -22,11 +22,13 @@ type SectionId = ProjectSettingsSectionId
  * left section nav + scrollable content, all panes mounted and toggled with
  * `hidden` so switching sections never refetches or resizes.
  */
-export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ProjectSettingsDialog({ open, onClose, initialSection }: { open: boolean; onClose: () => void; initialSection?: string }) {
   const { t } = useTranslation('settings')
   const { activeProjectId, projects } = useDesktop()
   const project = projects.find((p) => p.id === activeProjectId)
-  const [activeSection, setActiveSection] = useState<SectionId>('general')
+  const [activeSection, setActiveSection] = useState<SectionId>(
+    () => PROJECT_SETTINGS_SECTIONS.find((s) => s.id === initialSection)?.id ?? 'general',
+  )
   const paneCls = (id: SectionId) => cn('space-y-5', activeSection === id ? '' : 'hidden')
 
   return (

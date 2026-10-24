@@ -429,6 +429,8 @@ describe('CommandPalette', () => {
     render(<CommandPalette />)
 
     await user.keyboard('{Meta>}k{/Meta}')
+    // The sidebar toggles are registry actions now (QW1): find them by query.
+    await user.type(screen.getByPlaceholderText(/search/i), 'sidebar')
     await waitFor(() => {
       // New users start with the left sidebar pinned open.
       expect(screen.getByText('Collapse left sidebar (keep pinned)')).toBeInTheDocument()
@@ -438,6 +440,7 @@ describe('CommandPalette', () => {
 
     // Palette closes; reopen and verify the label advanced one step in the cycle
     await user.keyboard('{Meta>}k{/Meta}')
+    await user.type(screen.getByPlaceholderText(/search/i), 'sidebar')
     await waitFor(() => {
       expect(screen.getByText('Unpin left sidebar')).toBeInTheDocument()
     })

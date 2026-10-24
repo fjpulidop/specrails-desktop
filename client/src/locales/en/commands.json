@@ -10,7 +10,10 @@
       "missions": "Missions",
       "spec": "Spec",
       "jobs": "Jobs",
-      "navigation": "Navigation"
+      "navigation": "Navigation",
+      "actions": "Actions",
+      "recentActions": "Recent actions",
+      "recentPlaces": "Recent places"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -31,13 +34,72 @@
     "footer": {
       "navigate": "navigate",
       "select": "select",
-      "close": "close"
+      "close": "close",
+      "actions": "actions"
     },
     "missions": {
       "home": "Home"
     },
     "dialogTitle": "Search missions, projects and jobs",
-    "dialogDescription": "Type to filter, then press Enter to open the highlighted result."
+    "dialogDescription": "Type to filter, then press Enter to open the highlighted result.",
+    "actions": {
+      "verbs": "new,create,add,launch,run,move,open,switch,change,toggle,go,hand,pause,resume,undo,show,start,restore",
+      "back": "Back",
+      "newSpec": "New spec",
+      "newSpecExplore": "New spec (Explore)",
+      "launchSpec": "Launch spec on rail",
+      "launchSpecN": "Launch #{{id}} on rail",
+      "moveSpec": "Move spec to",
+      "moveSpecN": "Move #{{id}} to",
+      "openReview": "Open review",
+      "openReviewN": "Open review for #{{id}}",
+      "handOffFlow": "Hand off to Flow",
+      "pauseFlow": "Pause Flow",
+      "resumeFlow": "Resume Flow",
+      "newMission": "New mission",
+      "switchTheme": "Switch theme",
+      "switchToMission": "Switch to Mission mode",
+      "switchToBoard": "Switch to Board mode",
+      "openAppSettings": "Open app settings",
+      "openProjectSettings": "Open project settings",
+      "switchProject": "Switch project",
+      "runLoop": "Run loop",
+      "toggleLeftSidebar": "Toggle left sidebar",
+      "toggleRightSidebar": "Toggle right sidebar",
+      "goBack": "Go back",
+      "goForward": "Go forward",
+      "undoLast": "Undo: {{label}}",
+      "recentlyDeleted": "Recently deleted",
+      "pages": {
+        "railTitle": "Rail for #{{id}}",
+        "railPlaceholder": "Pick a rail...",
+        "railRunning": "running",
+        "railHasSpec": "already here",
+        "noRails": "No rails available.",
+        "statusTitle": "Move #{{id}} to",
+        "statusPlaceholder": "Pick a status...",
+        "noStatuses": "No statuses available.",
+        "current": "current",
+        "specTitle": "Pick a spec",
+        "specPlaceholder": "Search specs...",
+        "noSpecs": "No matching specs.",
+        "themeTitle": "Theme",
+        "themePlaceholder": "Pick a theme...",
+        "noThemes": "No themes available.",
+        "appSettingsTitle": "App settings",
+        "projectSettingsTitle": "Project settings",
+        "sectionPlaceholder": "Pick a section...",
+        "noSections": "No sections.",
+        "projectTitle": "Projects",
+        "projectPlaceholder": "Pick a project...",
+        "noProjects": "No other projects.",
+        "loopTitle": "Loops you can run now",
+        "loopPlaceholder": "Pick a loop...",
+        "noLoops": "No loops can run without a spec.",
+        "loading": "Loading...",
+        "loadFailed": "Could not load the options."
+      }
+    }
   },
   "toasts": {
     "queued": "{{name}} queued",

@@ -42,6 +42,15 @@ export interface PlaceTarget {
 /** Resolves a human label for an id inside a place (e.g. a spec's title). Return null when unknown. */
 export type PlaceLabelResolver = (kind: 'spec' | 'mission', id: string, projectId: string | null) => string | null
 
+/** A place visited earlier, as the palette lists it ("Recent places"). */
+export interface RecentPlace {
+  /** Router location to PUSH (project param stripped). */
+  to: { pathname: string; search: string }
+  label: string
+  /** Stable identity of the place (mode-aware), for list keys. */
+  key: string
+}
+
 export interface PlaceHistoryValue {
   canBack: boolean
   canForward: boolean
@@ -51,6 +60,11 @@ export interface PlaceHistoryValue {
   goTo: (idx: number) => void
   backTarget: PlaceTarget | null
   forwardTarget: PlaceTarget | null
+  /**
+   * The last `limit` distinct places of the ACTIVE project that were visited
+   * (most recent first, the current one excluded). Selecting one pushes it.
+   */
+  recent: (limit?: number) => RecentPlace[]
   /** Up to `limit` distinct places in a direction, nearest first. */
   list: (direction: 'back' | 'forward', limit?: number) => PlaceTarget[]
   /**
@@ -275,6 +289,17 @@ export function PlaceHistoryProvider({ children }: { children: ReactNode }) {
   const list = useCallback((direction: 'back' | 'forward', limit = 10): PlaceTarget[] =>
     stack.list(direction === 'back' ? -1 : 1, keyOf, limit).map(toTarget), [stack, keyOf, toTarget])
 
+  const recent = useCallback((limit = 5): RecentPlace[] =>
+    stack.recent(keyOf, limit * 3)
+      .filter(({ entry }) => !entry.projectId || entry.projectId === activeProjectRef.current)
+      .slice(0, limit)
+      .map(({ entry }) => {
+        const params = new URLSearchParams(entry.search)
+        params.delete(PROJECT_PARAM)
+        const search = params.toString()
+        return { to: { pathname: entry.pathname, search: search ? `?${search}` : '' }, label: describe(entry), key: keyOf(entry) ?? entry.key }
+      }), [stack, keyOf, describe])
+
   const consumeProjectRestore = useCallback((projectId: string): boolean => {
     if (projectRestoreRef.current !== projectId) return false
     projectRestoreRef.current = null
@@ -321,12 +346,13 @@ export function PlaceHistoryProvider({ children }: { children: ReactNode }) {
     backTarget,
     forwardTarget,
     list,
+    recent,
     reportMissing,
     registerLabelResolver,
     consumeProjectRestore,
     getCurrentEntryProjectId,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [backTarget?.idx, backTarget?.label, forwardTarget?.idx, forwardTarget?.label, canBack, canForward, getCurrentEntryProjectId, back, forward, goTo, list, reportMissing, registerLabelResolver, consumeProjectRestore, location.key, uiMode])
+  }), [backTarget?.idx, backTarget?.label, forwardTarget?.idx, forwardTarget?.label, canBack, canForward, getCurrentEntryProjectId, back, forward, goTo, list, recent, reportMissing, registerLabelResolver, consumeProjectRestore, location.key, uiMode])
 
   return <PlaceHistoryContext.Provider value={value}>{children}</PlaceHistoryContext.Provider>
 }

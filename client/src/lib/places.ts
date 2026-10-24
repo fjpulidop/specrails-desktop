@@ -245,6 +245,31 @@ export class PlaceStack {
     return null
   }
 
+  /**
+   * The most recently visited distinct places (highest history index first, any
+   * direction), excluding the current place, dead entries and the compose screen.
+   * Feeds the palette's "Recent places".
+   */
+  recent(keyOf: (e: PlaceEntry) => string | null, limit = 5): { idx: number; entry: PlaceEntry }[] {
+    const cur = this.entries.get(this.idx)
+    const seen = new Set<string>()
+    const curKey = cur ? keyOf(cur) : null
+    if (curKey) seen.add(curKey)
+    const out: { idx: number; entry: PlaceEntry }[] = []
+    const idxs = [...this.entries.keys()].sort((a, b) => b - a)
+    for (const i of idxs) {
+      if (i === this.idx || this.dead.has(i)) continue
+      const e = this.entries.get(i)
+      if (!e) continue
+      const k = keyOf(e)
+      if (k === null || seen.has(k) || isComposeKey(k)) continue
+      seen.add(k)
+      out.push({ idx: i, entry: e })
+      if (out.length >= limit) break
+    }
+    return out
+  }
+
   /** Up to `limit` distinct places in `dir`, nearest first (consecutive duplicates collapsed). */
   list(dir: 1 | -1, keyOf: (e: PlaceEntry) => string | null, limit = 10): { idx: number; entry: PlaceEntry }[] {
     const out: { idx: number; entry: PlaceEntry }[] = []

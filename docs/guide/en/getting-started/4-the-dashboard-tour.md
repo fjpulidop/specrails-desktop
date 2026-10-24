@@ -41,7 +41,7 @@ A thin strip runs along the very bottom of the window. It's small but handy:
 
 - **Cmd/Ctrl+B** — pin or collapse the left sidebar; **Option+Cmd+B** (**Ctrl+Alt+B**) does the same for the right sidebar.
 - **Cmd/Ctrl+J** — toggle the terminal panel.
-- **Cmd/Ctrl+K** — open search.
+- **Cmd/Ctrl+K** — the command palette: search missions, projects and jobs, and **run actions**. Type a verb ("new", "launch", "move", "switch") or start with **>** to list actions: New spec (also in Explore), Launch or Move a spec, Open its review, Hand off or Pause a Flow, New mission, Switch theme, Switch between Mission and Board mode, Open app or project settings on a section, Run a loop, toggle the sidebars, Go back or forward, Undo the last change, and Recently deleted. Actions that need a choice (a rail, a status, a theme, a section) open a second page; **Backspace** on an empty search returns. Each action shows its keyboard shortcut, so the palette teaches the keys. It only offers what works where you are, and it respects the same rules as the buttons (a spec that cannot launch is not offered). With an empty search it lists your **Recent actions** and **Recent places**.
 - **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** on Windows/Linux) or the **←  →** buttons in the title bar, or your mouse's back/forward buttons — go back or forward through the places you have been: specs, missions, jobs, projects and full-page panels. Right-click (or long-press) a button to see the last few places.
 
 ## Where to go next

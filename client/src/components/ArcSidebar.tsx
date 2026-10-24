@@ -2,6 +2,7 @@ import { isTauri } from '../lib/tauri-shell'
 import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
 import { useMissionSplitViews } from '../features/missions/context/MissionSplitViewsContext'
 import { keyboardLabel } from '../lib/keyboard-label'
+import { OPEN_PROJECT_SETTINGS_EVENT, type OpenProjectSettingsDetail } from '../lib/app-settings-events'
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -719,6 +720,17 @@ export function ArcSidebar({
   const favoriteTreeOpen = expandedTree.has(FAVORITES_KEY)
   // Per-project settings modal (Agent Mode hover gear on a project folder).
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
+  const [projectSettingsSection, setProjectSettingsSection] = useState<string | undefined>()
+  // ⌘K "Open project settings ▸ <section>" (lib/app-settings-events).
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const section = (event as CustomEvent<OpenProjectSettingsDetail>).detail?.section
+      setProjectSettingsSection(section)
+      setProjectSettingsOpen(true)
+    }
+    window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
+  }, [])
   // Default-expand the active project the first time we enter Agent Mode.
   useEffect(() => {
     if (!agentMode || !activeProjectId) return
@@ -1207,7 +1219,7 @@ export function ArcSidebar({
 
       {projectSettingsOpen && (
         <Suspense fallback={null}>
-          <ProjectSettingsDialog open onClose={() => setProjectSettingsOpen(false)} />
+          <ProjectSettingsDialog open initialSection={projectSettingsSection} onClose={() => { setProjectSettingsOpen(false); setProjectSettingsSection(undefined) }} />
         </Suspense>
       )}
     </div>

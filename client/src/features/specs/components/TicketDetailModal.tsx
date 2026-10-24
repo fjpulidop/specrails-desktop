@@ -27,6 +27,7 @@ import { useMinimizedChats } from '../../missions/context/MinimizedChatsContext'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
 import { useJiraConnection } from '../../integrations/hooks/useJiraConnection'
 import { jiraApi } from '../../integrations/lib/jira-api'
+import { MANUAL_STATUS_TARGETS, STATUS_LABEL_KEY, moveJiraSpecToStatus } from '../lib/ticket-status-moves'
 import { DiscardSpecDialog } from '../../integrations/components/jira/DiscardSpecDialog'
 import { JiraSpecDetailsPanel } from '../../integrations/components/jira/JiraSpecDetailsPanel'
 import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
@@ -53,21 +54,6 @@ const COMPARE_VIEWPORT_MIN = MODAL_FLOAT_VIEWPORT_MIN
 const DRAG_SNAP_THRESHOLD = 0.20 // 20% of viewport width
 
 // ─── Constants ──────────────────────────────────────────────────────────────
-
-// Manual status targets from the detail selector. `draft` (Explore-owned) and
-// `on_review` (pipeline-owned, PR-decision semantics) are never offered as
-// TARGETS — but the CURRENT status always renders so the select stays truthful.
-const MANUAL_STATUS_TARGETS: TicketStatus[] = ['todo', 'in_progress', 'done', 'cancelled']
-
-// tickets:ticketStatus.* uses camelCase keys — map the snake_case status ids.
-const STATUS_LABEL_KEY: Record<TicketStatus, string> = {
-  draft: 'ticketStatus.draft',
-  todo: 'ticketStatus.todo',
-  in_progress: 'ticketStatus.inProgress',
-  on_review: 'ticketStatus.onReview',
-  done: 'ticketStatus.done',
-  cancelled: 'ticketStatus.cancelled',
-}
 
 const PRIORITY_OPTIONS: { value: TicketPriority; labelKey: string; className: string }[] = [
   { value: 'critical', labelKey: 'priority.critical', className: 'text-destructive' },
@@ -227,10 +213,7 @@ export function TicketDetailModal({
     if (!next || next === jiraStatusValue) return
     setStatusMoving(true)
     try {
-      await jiraApi.moveSpecToStatus(ticket.id, next)
-      toast.success(tj('moveToStatus.queued', { status: next }))
-    } catch {
-      toast.error(tj('moveToStatus.failed'))
+      await moveJiraSpecToStatus(ticket.id, next, tj)
     } finally {
       setStatusMoving(false)
     }

@@ -163,4 +163,24 @@ describe('useUndo / UndoProvider', () => {
     expect(bare!.pushUndo(req)).toBe(false)
     expect(toastFn).not.toHaveBeenCalled()
   })
+
+  it('peekUndo names what ⌘Z would undo, and clears when it is done, expired or in another project', () => {
+    vi.useFakeTimers()
+    render(<Wrapper />)
+    expect(api.peekUndo()).toBeNull()
+    act(() => { api.pushUndo({ label: 'First', undo: vi.fn() }) })
+    act(() => { api.pushUndo({ label: 'Second', undo: vi.fn() }) })
+    expect(api.peekUndo()).toBe('Second')
+    act(() => { api.pushUndo({ label: 'Elsewhere', projectId: 'p2', undo: vi.fn() }) })
+    expect(api.peekUndo()).toBe('Second')
+    act(() => { vi.advanceTimersByTime(UNDO_WINDOW_MS + 1) })
+    expect(api.peekUndo()).toBeNull()
+  })
+
+  it('peekUndo is null without a provider', () => {
+    let bare: ReturnType<typeof useUndo> | undefined
+    function Bare() { bare = useUndo(); return null }
+    render(<Bare />)
+    expect(bare!.peekUndo()).toBeNull()
+  })
 })

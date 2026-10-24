@@ -364,6 +364,7 @@
       "context/ThemeContext.tsx",
       "lib/agent-runtime.ts",
       "lib/effects-prefs.ts",
+      "lib/project-settings-section-ids.ts",
       "lib/terminal-settings-events.ts",
       "lib/terminal-settings-types.ts",
       "lib/theme-palette.ts",
@@ -404,6 +405,7 @@
       "lib/spec-status-filter.ts",
       "lib/spec-triage.ts",
       "lib/specs-view-tier.ts",
+      "lib/ticket-status-moves.ts",
       "lib/trash-api.ts",
       "types/spec-sort.ts"
     ],

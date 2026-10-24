@@ -10,7 +10,10 @@
       "missions": "Missions",
       "spec": "Spec",
       "jobs": "Jobs",
-      "navigation": "Navigation"
+      "navigation": "Navigation",
+      "actions": "Actions",
+      "recentActions": "Actions récentes",
+      "recentPlaces": "Lieux récents"
     },
     "nav": {
       "dashboard": "Tableau de bord",
@@ -31,13 +34,72 @@
     "footer": {
       "navigate": "naviguer",
       "select": "sélectionner",
-      "close": "fermer"
+      "close": "fermer",
+      "actions": "actions"
     },
     "missions": {
       "home": "Accueil"
     },
     "dialogTitle": "Rechercher des missions, projets et tâches",
-    "dialogDescription": "Tapez pour filtrer, puis appuyez sur Entrée pour ouvrir le résultat mis en évidence."
+    "dialogDescription": "Tapez pour filtrer, puis appuyez sur Entrée pour ouvrir le résultat mis en évidence.",
+    "actions": {
+      "verbs": "nouveau,nouvelle,créer,ajouter,lancer,exécuter,déplacer,ouvrir,changer,basculer,aller,transmettre,pause,reprendre,annuler,afficher,démarrer,restaurer,new,launch,move,open,switch,run,toggle,go,undo",
+      "back": "Retour",
+      "newSpec": "Nouvelle spec",
+      "newSpecExplore": "Nouvelle spec (Explorer)",
+      "launchSpec": "Lancer la spec sur un rail",
+      "launchSpecN": "Lancer #{{id}} sur un rail",
+      "moveSpec": "Déplacer la spec vers",
+      "moveSpecN": "Déplacer #{{id}} vers",
+      "openReview": "Ouvrir la revue",
+      "openReviewN": "Ouvrir la revue de #{{id}}",
+      "handOffFlow": "Transmettre le Flow",
+      "pauseFlow": "Mettre le Flow en pause",
+      "resumeFlow": "Reprendre le Flow",
+      "newMission": "Nouvelle mission",
+      "switchTheme": "Changer de thème",
+      "switchToMission": "Passer en mode Mission",
+      "switchToBoard": "Passer en mode Tableau",
+      "openAppSettings": "Ouvrir les réglages de l'app",
+      "openProjectSettings": "Ouvrir les réglages du projet",
+      "switchProject": "Changer de projet",
+      "runLoop": "Exécuter un loop",
+      "toggleLeftSidebar": "Afficher/masquer la barre latérale gauche",
+      "toggleRightSidebar": "Afficher/masquer la barre latérale droite",
+      "goBack": "Revenir en arrière",
+      "goForward": "Avancer",
+      "undoLast": "Annuler : {{label}}",
+      "recentlyDeleted": "Supprimés récemment",
+      "pages": {
+        "railTitle": "Rail pour #{{id}}",
+        "railPlaceholder": "Choisissez un rail...",
+        "railRunning": "en cours",
+        "railHasSpec": "déjà présent",
+        "noRails": "Aucun rail disponible.",
+        "statusTitle": "Déplacer #{{id}} vers",
+        "statusPlaceholder": "Choisissez un statut...",
+        "noStatuses": "Aucun statut disponible.",
+        "current": "actuel",
+        "specTitle": "Choisissez une spec",
+        "specPlaceholder": "Rechercher des specs...",
+        "noSpecs": "Aucune spec correspondante.",
+        "themeTitle": "Thème",
+        "themePlaceholder": "Choisissez un thème...",
+        "noThemes": "Aucun thème disponible.",
+        "appSettingsTitle": "Réglages de l'app",
+        "projectSettingsTitle": "Réglages du projet",
+        "sectionPlaceholder": "Choisissez une section...",
+        "noSections": "Aucune section.",
+        "projectTitle": "Projets",
+        "projectPlaceholder": "Choisissez un projet...",
+        "noProjects": "Aucun autre projet.",
+        "loopTitle": "Loops exécutables maintenant",
+        "loopPlaceholder": "Choisissez un loop...",
+        "noLoops": "Aucun loop ne peut s'exécuter sans spec.",
+        "loading": "Chargement...",
+        "loadFailed": "Impossible de charger les options."
+      }
+    }
   },
   "toasts": {
     "queued": "{{name}} ajouté à la file",

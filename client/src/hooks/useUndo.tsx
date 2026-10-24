@@ -42,9 +42,11 @@ export interface UndoApi {
   pushUndo: (request: UndoRequest) => boolean
   /** Undo the latest live entry of the active project. Returns whether one ran. */
   undoLast: () => Promise<boolean>
+  /** Label of the entry `undoLast` would reverse right now (active project, window still open), or null. */
+  peekUndo: () => string | null
 }
 
-const NOOP: UndoApi = { pushUndo: () => false, undoLast: async () => false }
+const NOOP: UndoApi = { pushUndo: () => false, undoLast: async () => false, peekUndo: () => null }
 const UndoContext = createContext<UndoApi>(NOOP)
 
 /** Without a provider (isolated windows, unit tests) every call is a harmless no-op. */
@@ -129,6 +131,12 @@ export function UndoProvider({ children }: { children: ReactNode }) {
     return entry ? run(entry) : false
   }, [run])
 
+  const peekUndo = useCallback((): string | null => {
+    const now = Date.now()
+    const live = stack.current.filter((e) => e.projectId === activeRef.current && e.expiresAt > now)
+    return live.length > 0 ? live[live.length - 1].label : null
+  }, [])
+
   // A project switch ends the previous project's undo window.
   useEffect(() => {
     for (const entry of [...stack.current]) {
@@ -158,6 +166,6 @@ export function UndoProvider({ children }: { children: ReactNode }) {
     timers.current.clear()
   }, [])
 
-  const api = useMemo<UndoApi>(() => ({ pushUndo, undoLast }), [pushUndo, undoLast])
+  const api = useMemo<UndoApi>(() => ({ pushUndo, undoLast, peekUndo }), [pushUndo, undoLast, peekUndo])
   return <UndoContext.Provider value={api}>{children}</UndoContext.Provider>
 }

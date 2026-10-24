@@ -66,6 +66,21 @@ describe('PlaceStack', () => {
     return stack
   }
 
+  it('recent: most recent distinct places first, never the current one, nor the compose screen', () => {
+    const stack = stackOf(['/'], ['/jobs'], ['/analytics'], ['/jobs', '?status=done'], ['/activity'])
+    const labels = stack.recent(kanbanKey, 5).map((r) => r.entry.pathname + r.entry.search)
+    // /jobs and /jobs?status=done are one place in Board mode
+    expect(labels).toEqual(['/jobs?status=done', '/analytics', '/'])
+    expect(stack.recent(kanbanKey, 2)).toHaveLength(2)
+  })
+
+  it('recent: skips dead entries and includes forward ones', () => {
+    const stack = stackOf(['/'], ['/jobs'], ['/analytics'])
+    stack.markDead(1)
+    stack.record('POP', loc('/', '', 'k0'), 'p1')
+    expect(stack.recent(kanbanKey, 5).map((r) => r.entry.pathname)).toEqual(['/analytics'])
+  })
+
   it('finds the nearest distinct place in each direction', () => {
     const stack = stackOf(['/'], ['/jobs'], ['/analytics'])
     expect(stack.idx).toBe(2)

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1219 source/build files. Nearby tests are linked where names
+Includes 1224 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -51,6 +51,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [DeliveryArrival.tsx](../../client/src/components/brand/DeliveryArrival.tsx)
 - [RailMark.tsx](../../client/src/components/brand/RailMark.tsx)
 - [RailTrack.tsx](../../client/src/components/brand/RailTrack.tsx)
+
+## client/src/components/command-palette
+
+- [palette-actions.ts](../../client/src/components/command-palette/palette-actions.ts) · [test](../../client/src/components/command-palette/__tests__/palette-actions.test.ts)
+- [recent-actions.ts](../../client/src/components/command-palette/recent-actions.ts)
 
 ## client/src/components/ui
 
@@ -741,6 +746,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [agent-runtime.ts](../../client/src/features/settings/lib/agent-runtime.ts)
 - [effects-prefs.ts](../../client/src/features/settings/lib/effects-prefs.ts) · [test](../../client/src/features/settings/lib/__tests__/effects-prefs.test.ts)
+- [project-settings-section-ids.ts](../../client/src/features/settings/lib/project-settings-section-ids.ts)
 - [runtime-efficiency.ts](../../client/src/features/settings/lib/runtime-efficiency.ts)
 - [terminal-settings-events.ts](../../client/src/features/settings/lib/terminal-settings-events.ts) · [test](../../client/src/features/settings/lib/__tests__/terminal-settings-events.test.ts)
 - [terminal-settings-types.ts](../../client/src/features/settings/lib/terminal-settings-types.ts) · [test](../../client/src/features/settings/lib/__tests__/terminal-settings-types.test.ts)
@@ -830,6 +836,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-triage.ts](../../client/src/features/specs/lib/spec-triage.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-triage.test.ts)
 - [specs-view-tier.ts](../../client/src/features/specs/lib/specs-view-tier.ts) · [test](../../client/src/features/specs/lib/__tests__/specs-view-tier.test.ts)
 - [ticket-refine.ts](../../client/src/features/specs/lib/ticket-refine.ts) · [test](../../client/src/features/specs/lib/__tests__/ticket-refine.test.ts)
+- [ticket-status-moves.ts](../../client/src/features/specs/lib/ticket-status-moves.ts)
 - [trash-api.ts](../../client/src/features/specs/lib/trash-api.ts)
 
 ## client/src/features/specs/types
@@ -921,6 +928,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
 - [origin.ts](../../client/src/lib/origin.ts)
+- [palette-bridge.ts](../../client/src/lib/palette-bridge.ts)
 - [places.ts](../../client/src/lib/places.ts) · [test](../../client/src/lib/__tests__/places.test.ts)
 - [relative-time.ts](../../client/src/lib/relative-time.ts) · [test](../../client/src/lib/__tests__/relative-time.test.ts)
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)

@@ -41,7 +41,7 @@ Ein schmaler Streifen verläuft ganz unten am Fenster. Klein, aber praktisch:
 
 - **Cmd/Ctrl+B** – linke Seitenleiste anpinnen oder einklappen; **Option+Cmd+B** (**Ctrl+Alt+B**) macht dasselbe mit der rechten.
 - **Cmd/Ctrl+J** – Terminal-Panel ein-/ausblenden.
-- **Cmd/Ctrl+K** – Suche öffnen.
+- **Cmd/Ctrl+K** – die Befehlspalette: Missionen, Projekte und Jobs suchen und **Aktionen ausführen**. Tippen Sie ein Verb („neu“, „starten“, „verschieben“, „wechseln“) oder beginnen Sie mit **>**, um Aktionen aufzulisten: Neue Spec (auch im Erkunden-Modus), Spec starten oder verschieben, ihr Review öffnen, einen Flow übergeben oder pausieren, Neue Mission, Theme wechseln, zwischen Mission- und Board-Modus wechseln, App- oder Projekteinstellungen in einem Bereich öffnen, einen Loop ausführen, Seitenleisten umschalten, Zurück oder Vorwärts, die letzte Änderung rückgängig machen und Kürzlich gelöscht. Aktionen, die eine Auswahl brauchen (Rail, Status, Theme, Bereich), öffnen eine zweite Seite; **Rücktaste** bei leerer Suche geht zurück. Jede Aktion zeigt ihr Tastenkürzel, die Palette bringt Ihnen also die Tasten bei. Sie bietet nur an, was dort funktioniert, wo Sie sind, und befolgt dieselben Regeln wie die Schaltflächen (eine nicht startbare Spec wird nicht angeboten). Bei leerer Suche listet sie Ihre **zuletzt verwendeten Aktionen** und **zuletzt besuchten Orte**.
 - **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** unter Windows/Linux), die Schaltflächen **←  →** in der Titelleiste oder die Zurück-/Vor-Tasten der Maus – gehen durch die besuchten Orte: Specs, Missionen, Jobs, Projekte und Vollbild-Panels. Rechtsklick (oder langes Drücken) auf eine Schaltfläche zeigt die letzten Orte.
 
 ## Wie es weitergeht

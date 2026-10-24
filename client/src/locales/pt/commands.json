@@ -10,7 +10,10 @@
       "missions": "Missões",
       "spec": "Spec",
       "jobs": "Jobs",
-      "navigation": "Navegação"
+      "navigation": "Navegação",
+      "actions": "Ações",
+      "recentActions": "Ações recentes",
+      "recentPlaces": "Lugares recentes"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -31,13 +34,72 @@
     "footer": {
       "navigate": "navegar",
       "select": "selecionar",
-      "close": "fechar"
+      "close": "fechar",
+      "actions": "ações"
     },
     "missions": {
       "home": "Início"
     },
     "dialogTitle": "Pesquisar missões, projetos e jobs",
-    "dialogDescription": "Digite para filtrar e pressione Enter para abrir o resultado destacado."
+    "dialogDescription": "Digite para filtrar e pressione Enter para abrir o resultado destacado.",
+    "actions": {
+      "verbs": "novo,nova,criar,adicionar,lançar,executar,mover,abrir,trocar,alternar,ir,entregar,pausar,retomar,desfazer,mostrar,iniciar,restaurar,new,launch,move,open,switch,run,toggle,go,undo",
+      "back": "Voltar",
+      "newSpec": "Nova spec",
+      "newSpecExplore": "Nova spec (Explorar)",
+      "launchSpec": "Lançar spec em um rail",
+      "launchSpecN": "Lançar #{{id}} em um rail",
+      "moveSpec": "Mover spec para",
+      "moveSpecN": "Mover #{{id}} para",
+      "openReview": "Abrir revisão",
+      "openReviewN": "Abrir revisão de #{{id}}",
+      "handOffFlow": "Entregar o Flow",
+      "pauseFlow": "Pausar o Flow",
+      "resumeFlow": "Retomar o Flow",
+      "newMission": "Nova missão",
+      "switchTheme": "Trocar tema",
+      "switchToMission": "Mudar para o modo Missão",
+      "switchToBoard": "Mudar para o modo Quadro",
+      "openAppSettings": "Abrir configurações do app",
+      "openProjectSettings": "Abrir configurações do projeto",
+      "switchProject": "Trocar de projeto",
+      "runLoop": "Executar loop",
+      "toggleLeftSidebar": "Alternar barra lateral esquerda",
+      "toggleRightSidebar": "Alternar barra lateral direita",
+      "goBack": "Voltar",
+      "goForward": "Avançar",
+      "undoLast": "Desfazer: {{label}}",
+      "recentlyDeleted": "Excluídos recentemente",
+      "pages": {
+        "railTitle": "Rail para #{{id}}",
+        "railPlaceholder": "Escolha um rail...",
+        "railRunning": "em execução",
+        "railHasSpec": "já está aqui",
+        "noRails": "Nenhum rail disponível.",
+        "statusTitle": "Mover #{{id}} para",
+        "statusPlaceholder": "Escolha um status...",
+        "noStatuses": "Nenhum status disponível.",
+        "current": "atual",
+        "specTitle": "Escolha uma spec",
+        "specPlaceholder": "Buscar specs...",
+        "noSpecs": "Nenhuma spec correspondente.",
+        "themeTitle": "Tema",
+        "themePlaceholder": "Escolha um tema...",
+        "noThemes": "Nenhum tema disponível.",
+        "appSettingsTitle": "Configurações do app",
+        "projectSettingsTitle": "Configurações do projeto",
+        "sectionPlaceholder": "Escolha uma seção...",
+        "noSections": "Nenhuma seção.",
+        "projectTitle": "Projetos",
+        "projectPlaceholder": "Escolha um projeto...",
+        "noProjects": "Nenhum outro projeto.",
+        "loopTitle": "Loops que você pode executar agora",
+        "loopPlaceholder": "Escolha um loop...",
+        "noLoops": "Nenhum loop pode rodar sem uma spec.",
+        "loading": "Carregando...",
+        "loadFailed": "Não foi possível carregar as opções."
+      }
+    }
   },
   "toasts": {
     "queued": "{{name}} em fila",

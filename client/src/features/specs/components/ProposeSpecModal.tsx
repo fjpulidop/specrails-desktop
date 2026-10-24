@@ -86,6 +86,8 @@ interface ProposeSpecModalProps {
    *  ExploreSpecShell lifecycle so it can keep the chat alive across
    *  modal close events (used by the minimize-to-dock flow). */
   onExploreLaunch?: (payload: ExploreLaunchPayload) => void
+  /** Mode the modal opens in (default Quick). ⌘K "New spec (Explore)" opens it in Explore. */
+  initialMode?: 'quick' | 'explore'
 }
 
 function genPendingId(): string {
@@ -98,7 +100,7 @@ function genPendingId(): string {
   })
 }
 
-export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: ProposeSpecModalProps) {
+export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, initialMode = 'quick' }: ProposeSpecModalProps) {
   const { t } = useTranslation('addspec')
   const { t: tj } = useTranslation('jira')
   // On a Jira-backed project, new specs are always created in Jira; the indicator
@@ -231,7 +233,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
   useEffect(() => {
     if (open) {
       setPendingSpecId(genPendingId())
-      setMode('quick')
+      setMode(initialMode)
       setIsSubmitting(false)
       setHasText(false)
       setAttachmentCount(0)

@@ -41,7 +41,7 @@ Uma faixa fina percorre o fundo da janela. É pequena, mas prática:
 
 - **Cmd/Ctrl+B** — afixar ou recolher a barra lateral esquerda; **Option+Cmd+B** (**Ctrl+Alt+B**) faz o mesmo com a direita.
 - **Cmd/Ctrl+J** — alternar o painel de terminal.
-- **Cmd/Ctrl+K** — abrir a pesquisa.
+- **Cmd/Ctrl+K** — a paleta de comandos: pesquise missões, projetos e jobs e **execute ações**. Digite um verbo ("nova", "lançar", "mover", "trocar") ou comece com **>** para listar ações: Nova spec (também em Explorar), Lançar ou Mover uma spec, Abrir sua revisão, Entregar ou Pausar um Flow, Nova missão, Trocar tema, Alternar entre os modos Missão e Quadro, Abrir as configurações do app ou do projeto em uma seção, Executar um loop, alternar as barras laterais, Voltar ou Avançar, Desfazer a última alteração e Excluídos recentemente. Ações que precisam de uma escolha (um rail, um status, um tema, uma seção) abrem uma segunda página; **Backspace** com a pesquisa vazia volta. Cada ação mostra seu atalho de teclado, então a paleta ensina as teclas. Ela só oferece o que funciona onde você está e segue as mesmas regras dos botões (uma spec que não pode ser lançada não é oferecida). Com a pesquisa vazia, lista suas **Ações recentes** e **Lugares recentes**.
 - **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** no Windows/Linux), os botões **←  →** da barra de título ou os botões voltar/avançar do mouse — voltam ou avançam pelos lugares onde você esteve: specs, missões, jobs, projetos e painéis em tela cheia. Clique com o botão direito (ou pressione e segure) um botão para ver os últimos lugares.
 
 ## Para onde ir a seguir

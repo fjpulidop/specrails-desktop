@@ -88,3 +88,39 @@ settings → Recently deleted, `settings/components/RecentlyDeletedSection.tsx`)
 Keep a confirm only for what cannot be reversed: discarding unpushed work,
 force-closing a PR, removing a project, deleting permanently, and deleting a
 mission whose agent turn is still running.
+
+## Command palette as an action hub (⌘K)
+
+[`components/CommandPalette.tsx`](../components/CommandPalette.tsx) searches missions, projects
+and jobs and runs **actions**. The registry is
+[`components/command-palette/palette-actions.ts`](../components/command-palette/palette-actions.ts):
+each action has an `id`, i18n label, `group`, icon, `shortcut` (shown through `keyboardLabel`),
+`when(ctx)` availability, `run(ctx, arg)` and an optional `page(ctx)` for an argument.
+
+- **Actions own no business logic.** They call what the buttons call. The surface that owns a
+  handler registers it with `useRegisterPaletteSurface(key, surface)`
+  ([`lib/palette-bridge.ts`](../lib/palette-bridge.ts)): the specs column (`specs`: New spec /
+  Explore), the dashboard (`board`: launch on rail through `handleToggle` and its gates, status
+  move with Undo or the Jira workflow move, review path), the Flow strip (`flow`: the very
+  Pause/Resume/Hand off controls, disabled ones are not offered). A surface that is not mounted is
+  absent, so its actions are hidden. A surface is an object of functions; the registry stores a
+  facade that forwards to the latest render, so lists are read fresh, never snapshotted.
+- **Adding an action:** append to `PALETTE_ACTIONS`, add its label to `commands:palette.actions`
+  in all 8 locales (the locale test fails otherwise), and give it a `when` that mirrors the
+  button's own guard. Need a new handler from a feature? Add a surface key and register it there;
+  never import a feature page into the palette.
+- **Ranking.** The Actions group leads when the query starts with `>` or a verb (the locale's
+  `palette.actions.verbs` list, or 3+ letters of one), otherwise it trails the existing groups.
+  `>` alone shows only actions. Hard caps: `MAX_ACTION_ROWS` leading, `MAX_TRAILING_ACTION_ROWS`
+  trailing. Existing mission/project/spec/job groups and their ranking are untouched.
+- **Argument pages** (cmdk pages): a stack of `ArgPage`s inside the same dialog (never a nested
+  dialog). Backspace on an empty query, or the back chevron, pops one. Options may `load()` async
+  (loops, Jira workflow statuses), may be `disabled` with a hint (running rail, blocked spec), and
+  may lead to a further page (pick a spec, then a rail). The spec an action defaults to is the one
+  open in the detail modal (`?spec=`); the palette sits on the `stacked` layer so it opens over it.
+- **Empty query:** *Recent actions* (last 5 ids, per viewer, `localStorage` in try/catch, only
+  those still available) and *Recent places* (`usePlaceHistory().recent()`: last distinct places of
+  the active project; selecting one *pushes* it). The palette itself is never a place.
+- **Settings sections** are deep links: `openAppSettings(section)` and
+  `openProjectSettings(section)` ([`lib/app-settings-events.ts`](../lib/app-settings-events.ts));
+  Board mode shows project settings on `/settings`.

@@ -18,6 +18,7 @@ import { Check, Copy, FileDiff, GitBranch, Loader2, LogOut, Pause, Play, Trash2,
 import { cn } from '../../../lib/utils'
 import { RUN_STRIP_PRIMARY } from '../../missions/components/AgentRunStrip'
 import { useFlowContext } from '../context/FlowContext'
+import { useRegisterPaletteSurface, type PaletteFlowControl } from '../../../lib/palette-bridge'
 import { flowApi, type Flow, type FlowCost, type FlowDiff } from '../lib/flow-api'
 import { flowErrorMessage } from '../lib/flow-failure'
 import { flowCostDisplay } from '../lib/flow-offer'
@@ -150,7 +151,7 @@ function useFlowAction(projectId: string, flow: Flow) {
 export function FlowStripControls({ projectId, flow, inline }: { projectId: string; flow: Flow; inline: boolean }) {
   const { t } = useTranslation('agent')
   const { busy, run, ctx } = useFlowAction(projectId, flow)
-  if (flow.state === 'needs-review') return null
+  const needsReview = flow.state === 'needs-review'
   const settling = flow.step !== null
   const paused = flow.state === 'paused'
   // Why an action waits, in the person's words (never a silent disabled button).
@@ -162,6 +163,17 @@ export function FlowStripControls({ projectId, flow, inline }: { projectId: stri
       : { id: 'pause', label: t('flow.bar.pause'), icon: Pause, onSelect: () => void run('pause'), busy: busy === 'pause', disabled: settling, disabledReason: waitReason, shortcut: 'p' },
     { id: 'hand-off', label: t('flow.bar.handOff'), icon: Check, onSelect: () => ctx?.setWrappingUp(flow.id, true), tone: paused ? 'default' : 'primary', disabled: !!handOffReason, disabledReason: handOffReason, shortcut: 'h' },
   ]
+  // ⌘K "Pause / Resume / Hand off": the very controls below, one source of truth
+  // (a disabled or busy control is not offered).
+  useRegisterPaletteSurface('flow', needsReview ? null : {
+    controls: () => controls.map((c) => ({
+      id: c.id as PaletteFlowControl['id'],
+      label: c.label,
+      disabled: !!c.disabled || !!c.busy,
+      run: c.onSelect,
+    })),
+  })
+  if (needsReview) return null
   return (
     <div className="flex items-center gap-0.5" role="toolbar" aria-label={t('flow.bar.controls')}>
       {controls.map((control) => <ControlButton key={control.id} control={control} compact={!inline} flowId={flow.id} />)}

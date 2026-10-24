@@ -10,7 +10,10 @@
       "missions": "ミッション",
       "spec": "スペック",
       "jobs": "ジョブ",
-      "navigation": "ナビゲーション"
+      "navigation": "ナビゲーション",
+      "actions": "アクション",
+      "recentActions": "最近のアクション",
+      "recentPlaces": "最近の場所"
     },
     "nav": {
       "dashboard": "ダッシュボード",
@@ -31,13 +34,72 @@
     "footer": {
       "navigate": "移動",
       "select": "選択",
-      "close": "閉じる"
+      "close": "閉じる",
+      "actions": "アクション"
     },
     "missions": {
       "home": "ホーム"
     },
     "dialogTitle": "ミッション、プロジェクト、ジョブを検索",
-    "dialogDescription": "入力して絞り込み、Enter キーで選択中の結果を開きます。"
+    "dialogDescription": "入力して絞り込み、Enter キーで選択中の結果を開きます。",
+    "actions": {
+      "verbs": "新規,作成,追加,起動,実行,移動,開く,切り替え,切替,移る,引き継ぎ,一時停止,再開,元に戻す,表示,開始,復元,new,launch,move,open,switch,run,toggle,go,undo",
+      "back": "戻る",
+      "newSpec": "新しい Spec",
+      "newSpecExplore": "新しい Spec（探索）",
+      "launchSpec": "Rail で Spec を起動",
+      "launchSpecN": "#{{id}} を Rail で起動",
+      "moveSpec": "Spec の移動先",
+      "moveSpecN": "#{{id}} の移動先",
+      "openReview": "レビューを開く",
+      "openReviewN": "#{{id}} のレビューを開く",
+      "handOffFlow": "Flow を引き継ぐ",
+      "pauseFlow": "Flow を一時停止",
+      "resumeFlow": "Flow を再開",
+      "newMission": "新しいミッション",
+      "switchTheme": "テーマを切り替え",
+      "switchToMission": "ミッションモードに切り替え",
+      "switchToBoard": "ボードモードに切り替え",
+      "openAppSettings": "アプリ設定を開く",
+      "openProjectSettings": "プロジェクト設定を開く",
+      "switchProject": "プロジェクトを切り替え",
+      "runLoop": "ループを実行",
+      "toggleLeftSidebar": "左サイドバーを切り替え",
+      "toggleRightSidebar": "右サイドバーを切り替え",
+      "goBack": "戻る",
+      "goForward": "進む",
+      "undoLast": "元に戻す: {{label}}",
+      "recentlyDeleted": "最近削除した項目",
+      "pages": {
+        "railTitle": "#{{id}} の Rail",
+        "railPlaceholder": "Rail を選択...",
+        "railRunning": "実行中",
+        "railHasSpec": "すでに追加済み",
+        "noRails": "利用できる Rail がありません。",
+        "statusTitle": "#{{id}} の移動先",
+        "statusPlaceholder": "ステータスを選択...",
+        "noStatuses": "利用できるステータスがありません。",
+        "current": "現在",
+        "specTitle": "Spec を選択",
+        "specPlaceholder": "Spec を検索...",
+        "noSpecs": "一致する Spec がありません。",
+        "themeTitle": "テーマ",
+        "themePlaceholder": "テーマを選択...",
+        "noThemes": "利用できるテーマがありません。",
+        "appSettingsTitle": "アプリ設定",
+        "projectSettingsTitle": "プロジェクト設定",
+        "sectionPlaceholder": "セクションを選択...",
+        "noSections": "セクションがありません。",
+        "projectTitle": "プロジェクト",
+        "projectPlaceholder": "プロジェクトを選択...",
+        "noProjects": "他のプロジェクトはありません。",
+        "loopTitle": "今すぐ実行できるループ",
+        "loopPlaceholder": "ループを選択...",
+        "noLoops": "Spec なしで実行できるループはありません。",
+        "loading": "読み込み中...",
+        "loadFailed": "オプションを読み込めませんでした。"
+      }
+    }
   },
   "toasts": {
     "queued": "{{name}} をキューに追加しました",
