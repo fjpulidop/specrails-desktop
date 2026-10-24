@@ -4,7 +4,7 @@ A **spec** in specrails-desktop is a description of work you want done — what 
 
 ## Creating a spec
 
-Open the Dashboard and click **Add** (the Plus button on the SpecsBoard toolbar). The **Add Spec** dialog opens with three modes:
+Open the Dashboard and click **New spec** (the Plus button on the SpecsBoard toolbar). The **Add Spec** dialog opens with three modes:
 
 - **Quick** — you describe what you want; the AI writes the full spec.
 - **Explore** — you converse with the AI and shape the spec turn by turn.
@@ -181,21 +181,24 @@ Every spec card shows a status indicator that stays consistent across view modes
 
 ## Filtering and sorting
 
-The SpecsBoard toolbar always shows these four controls plus the Add button:
+The SpecsBoard toolbar has two rows that line up with the Rails toolbar across the splitter.
 
-- **Status filter** — a single-select dropdown with three values: **All**, **ToDo**, **Done**. Defaults to **All**, which shows everything (including drafts and done specs).
-- **Label dropdown** — multi-select across every label used in the project.
-- **Sort** — **Default**, **Ticket #**, or **Priority**, each with an ascending/descending toggle.
-- **View toggle** — switch between List view and Post-it view (see below).
+**Row 1** (left to right):
 
-Two more filters appear **only once your board has the data for them**, so don't be surprised if you see five or six controls. Both are surfaced only on **Jira-linked** projects:
+- **Search** — narrows the board by title, `#number` (or a bare number), label or Jira key, as you type. Press `/` anywhere on the board to jump to it; `Esc` clears it, a second `Esc` leaves the field. Search is not saved: it resets when you switch projects.
+- **Filters** — one button for every filter beyond status. A badge shows how many values are active. It opens a panel with a section per dimension, each with its own **Clear**:
+  - **Labels** — multi-select across every label in the project (a "Find a label" box appears once there are more than eight).
+  - **Epic**, **Sprint** and **Jira status** — shown only on **Jira-linked** projects that carry that data. Jira status lists the board's real workflow statuses (e.g. "Code Review") grouped under the state they map to.
+- **Sort and view** — **Default**, **Ticket #**, **Priority** (plus **Jira key** on Jira-linked projects), the ascending/descending toggle, and the List / Post-it switch. On a narrow column they fold into one menu.
+- **New spec** — the primary action (also `⌘↵`).
 
-- **Epic filter** — appears once at least one spec carries a Jira epic, letting you narrow the board to one epic's children.
-- **Sprint filter** — appears when specs carry Jira sprint data.
+**Row 2** is the **status selector**: **Active** (default: draft, todo, in progress, on review), **All**, then one segment per status, each with a live count. On a narrow column the less-used statuses fold into **More**; the status you picked always stays visible.
 
-On a **Jira-linked** project the Sort dropdown also gains a fourth mode, **Jira key**, so you can order the board by Jira ticket number.
+**Row 3** appears only while a search or filter narrows the board: one removable chip per active value, "x of y" specs, and **Clear all**, which clears search and filters but keeps your status pick.
 
-Priority itself is set per spec from the right-click menu (below), not from a toolbar filter — there is no priority filter and no search box on the board.
+Filters and the status pick are remembered per project; status and Jira status are also mirrored to the URL.
+
+Priority itself is set per spec from the right-click menu (below), not from a toolbar filter — there is no priority filter.
 
 ## Right-click context menu
 

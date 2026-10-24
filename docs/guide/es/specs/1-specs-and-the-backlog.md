@@ -13,7 +13,7 @@ El tablero tiene dos modos de vista, que se cambian con un botón de la barra de
 - **Vista post-it** (la predeterminada): tarjetas con resúmenes breves.
 - **Vista de lista**: filas compactas de una sola línea.
 
-El **selector de estados** de la barra de herramientas muestra cada estado como su propio chip con un contador en vivo — más dos grupos inteligentes: **Activas** (el valor por defecto — todo lo que sigue en movimiento: borradores, por hacer, en curso y en revisión) y **Todos** (todo, con Hecho fijado al final). Tu selección se recuerda por proyecto y se refleja en la URL, así que un refresco o un enlace compartido restaura la vista exacta. En proyectos conectados a Jira aparece además un desplegable de **estado de Jira**, que lista los estados *reales* del flujo de trabajo del tablero (sus nombres tal cual, p. ej. "Code Review", cada uno con su contador en vivo) agrupados bajo el estado al que mapean — se combina con los chips de estado. También puedes filtrar por **etiqueta**, y ordenar por **Por defecto**, **Ticket #** o **Prioridad** (cada uno con un interruptor ascendente/descendente).
+La barra de herramientas de Specs tiene dos filas. La primera reúne un campo de **búsqueda** (pulsa `/` para ir a él; busca por título, `#número`, etiqueta o clave de Jira), un único botón **Filtros**, los controles de orden y vista, y **Nueva spec**. La segunda fila es el **selector de estados**: cada estado como su propio segmento con un contador en vivo, más dos grupos inteligentes, **Activas** (el valor por defecto: todo lo que sigue en movimiento, es decir borradores, por hacer, en curso y en revisión) y **Todos** (todo, con Hecho fijado al final). Cuando la columna es estrecha, los estados menos usados se pliegan en un menú **Más**, y el estado elegido siempre queda visible. Tu selección se recuerda por proyecto y se refleja en la URL, así que un refresco o un enlace compartido restaura la vista exacta. **Filtros** abre un único panel con una sección por dimensión: **etiquetas** (selección múltiple) y, en proyectos conectados a Jira, **épica**, **sprint** y **estado de Jira** (los estados *reales* del flujo del tablero, p. ej. "Code Review", agrupados bajo el estado al que mapean y combinados con el selector de estados). Mientras una búsqueda o un filtro acota el tablero, una tercera fila muestra cada uno como un chip que puedes quitar, indica "x de y" specs y ofrece **Quitar todo** (que conserva el estado elegido). Ordena por **Por defecto**, **Ticket #** o **Prioridad**, cada uno con un interruptor ascendente/descendente.
 
 ## Estados
 
@@ -38,7 +38,7 @@ Los borradores son la única excepción: un borrador puede *no* tener ninguna pr
 
 ## Crear una spec
 
-Para crear una spec, haz clic en **Añadir** (el botón Más de la barra de herramientas del SpecsBoard). Se abre el diálogo **Añadir spec** con varias formas de trabajar:
+Para crear una spec, haz clic en **Nueva spec** (el botón Más de la barra de herramientas del SpecsBoard). Se abre el diálogo **Añadir spec** con varias formas de trabajar:
 
 - **Modo Quick**: describes lo que quieres y la IA escribe la spec completa de una sola vez. Consulta [Añadir spec — Modo Quick](add-spec-quick-mode.md).
 - **Modo Explore**: conversas con la IA y esta te ayuda a dar forma a la spec turno a turno. Consulta [Añadir spec — Modo Explore](add-spec-explore-mode.md).

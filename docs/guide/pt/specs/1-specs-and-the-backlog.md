@@ -13,7 +13,7 @@ O quadro tem dois modos de visualização, alternados a partir de um botão na b
 - **Vista de post-its** (a predefinida) — mosaicos em forma de cartão com resumos curtos.
 - **Vista de lista** — linhas compactas de uma só linha.
 
-O **seletor de estados** da barra de ferramentas mostra cada estado como um chip próprio com contagem em direto — mais dois grupos inteligentes: **Ativas** (a predefinição — tudo o que ainda está em movimento: rascunhos, por fazer, em curso e em revisão) e **Todos** (tudo, com Concluído fixado no fundo). A sua escolha é lembrada por projeto e espelhada no URL, pelo que um refresh ou um link partilhado restaura a vista exata. Em projetos ligados ao Jira aparece ainda um menu de **estado Jira**, que lista os estados *reais* do fluxo de trabalho do quadro (os nomes tal e qual, p. ex. "Code Review", cada um com contagem em direto) agrupados sob o estado a que mapeiam — combina-se com os chips de estado. Também pode filtrar por **etiqueta**, e ordenar por **Predefinida**, **Ticket #** ou **Prioridade** (cada uma com um seletor ascendente/descendente).
+A barra de ferramentas das Specs tem duas linhas. A primeira reúne um campo de **pesquisa** (prima `/` para lá chegar; procura no título, `#número`, etiqueta ou chave do Jira), um único botão **Filtros**, os controlos de ordenação e vista, e **Nova spec**. A segunda linha é o **seletor de estados**: cada estado como um segmento próprio com contagem em direto, mais dois grupos inteligentes, **Ativas** (a predefinição: tudo o que ainda está em movimento, ou seja rascunhos, por fazer, em curso e em revisão) e **Todos** (tudo, com Concluído fixado no fundo). Quando a coluna é estreita, os estados menos usados recolhem-se num menu **Mais**, e o estado escolhido fica sempre visível. A sua escolha é lembrada por projeto e espelhada no URL, pelo que um refresh ou um link partilhado restaura a vista exata. **Filtros** abre um único painel com uma secção por dimensão: **etiquetas** (seleção múltipla) e, em projetos ligados ao Jira, **épico**, **sprint** e **estado Jira** (os estados *reais* do fluxo do quadro, p. ex. "Code Review", agrupados sob o estado a que mapeiam e combinados com o seletor de estados). Enquanto uma pesquisa ou um filtro restringe o quadro, uma terceira linha mostra cada um como um chip removível, indica "x de y" specs e oferece **Limpar tudo** (que mantém o estado escolhido). Ordene por **Predefinida**, **Ticket #** ou **Prioridade**, cada uma com um seletor ascendente/descendente.
 
 ## Estados
 
@@ -38,7 +38,7 @@ Os rascunhos são a única exceção: um rascunho pode *não* ter prioridade nen
 
 ## Criar uma spec
 
-Para criar uma spec, clique em **Adicionar** (o botão Mais na barra de ferramentas da SpecsBoard). Abre-se a janela **Adicionar Spec** com algumas formas de trabalhar:
+Para criar uma spec, clique em **Nova spec** (o botão Mais na barra de ferramentas da SpecsBoard). Abre-se a janela **Adicionar Spec** com algumas formas de trabalhar:
 
 - **Quick** — descreve o que quer e a IA escreve a spec completa de uma só vez. Veja [Adicionar Spec — modo Quick](add-spec-quick-mode.md).
 - **Explore** — conversa com a IA, e ela ajuda-o a dar forma à spec turno a turno. Veja [Adicionar Spec — modo Explore](add-spec-explore-mode.md).

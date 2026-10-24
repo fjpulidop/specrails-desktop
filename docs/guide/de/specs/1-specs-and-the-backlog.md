@@ -13,7 +13,7 @@ Das Board hat zwei Ansichtsmodi, die du über einen Umschalter in der Toolbar we
 - **Post-it-Ansicht** (Standard) – kartenartige Kacheln mit kurzen Zusammenfassungen.
 - **Listenansicht** – kompakte, einzeilige Zeilen.
 
-Der **Status-Selektor** in der Werkzeugleiste zeigt jeden Status als eigenen Chip mit Live-Zähler — plus zwei smarte Gruppen: **Aktiv** (der Standard — alles, was noch in Bewegung ist: Entwürfe, To-dos, in Arbeit und in Prüfung) und **Alle** (alles, mit Fertig unten angeheftet). Deine Auswahl wird pro Projekt gemerkt und in die URL gespiegelt, sodass ein Neuladen oder ein geteilter Link exakt dieselbe Ansicht wiederherstellt. Bei Jira-verbundenen Projekten erscheint zusätzlich ein **Jira-Status**-Dropdown mit den *echten* Workflow-Status des Boards (ihre Rohnamen, z. B. „Code Review", jeweils mit Live-Zähler), gruppiert unter dem Zustand, auf den sie abbilden — es kombiniert sich mit den Status-Chips. Du kannst außerdem nach **Label** filtern sowie nach **Standard**, **Ticket #** oder **Priorität** sortieren (jeweils mit Umschalter für auf- und absteigend).
+Die Specs-Werkzeugleiste hat zwei Zeilen. Die erste enthält ein **Suchfeld** (mit `/` springst du hinein; es findet Titel, `#Nummer`, Label oder Jira-Schlüssel), eine einzige **Filter**-Schaltfläche, die Sortier- und Ansichtssteuerung sowie **Neue Spec**. Die zweite Zeile ist der **Status-Selektor**: jeder Status als eigenes Segment mit Live-Zähler, dazu zwei smarte Gruppen, **Aktiv** (der Standard: alles, was noch in Bewegung ist, also Entwürfe, To-dos, in Arbeit und in Prüfung) und **Alle** (alles, mit Fertig unten angeheftet). Ist die Spalte schmal, wandern die seltener genutzten Status in ein **Mehr**-Menü, und der gewählte Status bleibt immer sichtbar. Deine Auswahl wird pro Projekt gemerkt und in die URL gespiegelt, sodass ein Neuladen oder ein geteilter Link exakt dieselbe Ansicht wiederherstellt. **Filter** öffnet ein Panel mit einem Abschnitt pro Dimension: **Labels** (Mehrfachauswahl) und bei Jira-verbundenen Projekten **Epic**, **Sprint** und **Jira-Status** (die *echten* Workflow-Status des Boards, z. B. „Code Review“, gruppiert unter dem Zustand, auf den sie abbilden, kombiniert mit dem Status-Selektor). Solange eine Suche oder ein Filter das Board eingrenzt, zeigt eine dritte Zeile jeden davon als entfernbaren Chip, nennt „x von y“ Specs und bietet **Alle zurücksetzen** (dein gewählter Status bleibt erhalten). Sortiere nach **Standard**, **Ticket #** oder **Priorität**, jeweils mit Umschalter für auf- und absteigend.
 
 ## Status
 
@@ -38,7 +38,7 @@ Entwürfe sind die einzige Ausnahme: Ein Entwurf darf *gar keine* Priorität hab
 
 ## Eine Spec erstellen
 
-Um eine Spec zu erstellen, klicke auf **Hinzufügen** (die Plus-Schaltfläche in der SpecsBoard-Toolbar). Der Dialog **Spec hinzufügen** öffnet sich mit mehreren Arbeitsweisen:
+Um eine Spec zu erstellen, klicke auf **Neue Spec** (die Plus-Schaltfläche in der SpecsBoard-Toolbar). Der Dialog **Spec hinzufügen** öffnet sich mit mehreren Arbeitsweisen:
 
 - **Quick-Modus** – du beschreibst, was du möchtest, und die KI schreibt die vollständige Spec in einem Rutsch. Siehe [Spec hinzufügen – Quick-Modus](add-spec-quick-mode.md).
 - **Explore-Modus** – du unterhältst dich mit der KI, und sie hilft dir, die Spec Zug um Zug zu formen. Siehe [Spec hinzufügen – Explore-Modus](add-spec-explore-mode.md).

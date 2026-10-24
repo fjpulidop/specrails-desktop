@@ -6,7 +6,7 @@ El modo Quick es para cuando ya sabes lo que quieres. Escribes tu idea, la IA re
 
 Para crear una spec rápidamente:
 
-1. En el Dashboard, haz clic en **Añadir** (el botón Más de la barra de herramientas del SpecsBoard).
+1. En el Dashboard, haz clic en **Nueva spec** (el botón Más de la barra de herramientas del SpecsBoard).
 2. Elige el modo **Quick**.
 3. Escribe tu idea en el campo de texto: una frase o un párrafo, lo que la capture.
 4. Haz clic para generar.

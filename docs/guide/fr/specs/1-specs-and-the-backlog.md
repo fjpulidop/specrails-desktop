@@ -13,7 +13,7 @@ Le tableau propose deux modes d'affichage, basculables depuis un bouton de la ba
 - **Vue post-it** (par défaut) — des tuiles façon cartes avec de courts résumés.
 - **Vue liste** — des lignes compactes sur une seule ligne.
 
-Le **sélecteur de statuts** de la barre d'outils affiche chaque statut sous forme de puce avec un compteur en direct — plus deux groupes intelligents : **Actives** (le défaut — tout ce qui bouge encore : brouillons, à faire, en cours et en révision) et **Tous** (tout, avec Terminé épinglé en bas). Votre choix est mémorisé par projet et reflété dans l'URL : un rafraîchissement ou un lien partagé restaure la vue exacte. Sur les projets connectés à Jira, un menu déroulant **statut Jira** supplémentaire apparaît, listant les *vrais* statuts du workflow du board (leurs noms bruts, p. ex. « Code Review », chacun avec son compteur en direct) regroupés sous l'état auquel ils correspondent — il se combine avec les puces de statut. Vous pouvez aussi filtrer par **label**, et trier par **Par défaut**, **Ticket #** ou **Priorité** (chacun avec un sens croissant/décroissant).
+La barre d'outils des Specs a deux rangées. La première réunit un champ de **recherche** (appuyez sur `/` pour y aller ; il cherche dans le titre, le `#numéro`, les étiquettes ou la clé Jira), un unique bouton **Filtres**, les contrôles de tri et d'affichage, et **Nouvelle spec**. La seconde rangée est le **sélecteur de statuts** : chaque statut sous forme de segment avec un compteur en direct, plus deux groupes intelligents, **Actives** (le défaut : tout ce qui bouge encore, soit brouillons, à faire, en cours et en révision) et **Tous** (tout, avec Terminé épinglé en bas). Quand la colonne est étroite, les statuts les moins utilisés se replient dans un menu **Plus**, et le statut choisi reste toujours visible. Votre choix est mémorisé par projet et reflété dans l'URL : un rafraîchissement ou un lien partagé restaure la vue exacte. **Filtres** ouvre un seul panneau avec une section par dimension : **étiquettes** (sélection multiple) et, sur les projets connectés à Jira, **epic**, **sprint** et **statut Jira** (les *vrais* statuts du workflow du board, p. ex. « Code Review », regroupés sous l'état auquel ils correspondent et combinés avec le sélecteur de statuts). Tant qu'une recherche ou un filtre restreint le board, une troisième rangée affiche chacun sous forme de puce amovible, indique « x sur y » specs et propose **Tout effacer** (qui conserve le statut choisi). Triez par **Par défaut**, **Ticket #** ou **Priorité**, chacun avec un sens croissant/décroissant.
 
 ## Les statuts
 
@@ -38,7 +38,7 @@ Les brouillons sont la seule exception : un brouillon peut n'avoir *aucune* prio
 
 ## Créer une spec
 
-Pour créer une spec, cliquez sur **Ajouter** (le bouton Plus de la barre d'outils du SpecsBoard). La fenêtre **Ajouter une spec** s'ouvre, avec plusieurs façons de travailler :
+Pour créer une spec, cliquez sur **Nouvelle spec** (le bouton Plus de la barre d'outils du SpecsBoard). La fenêtre **Ajouter une spec** s'ouvre, avec plusieurs façons de travailler :
 
 - **Mode Quick** — vous décrivez ce que vous voulez et l'IA écrit la spec complète en un seul coup. Voir [Ajouter une spec — mode Quick](add-spec-quick-mode.md).
 - **Mode Explore** — vous échangez avec l'IA, qui vous aide à façonner la spec tour après tour. Voir [Ajouter une spec — mode Explore](add-spec-explore-mode.md).

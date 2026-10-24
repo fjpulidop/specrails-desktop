@@ -6,7 +6,7 @@ Le mode Quick, c'est pour quand vous savez déjà ce que vous voulez. Vous tapez
 
 Pour créer une spec rapidement :
 
-1. Sur le Dashboard, cliquez sur **Ajouter** (le bouton Plus de la barre d'outils du SpecsBoard).
+1. Sur le Dashboard, cliquez sur **Nouvelle spec** (le bouton Plus de la barre d'outils du SpecsBoard).
 2. Choisissez le mode **Quick**.
 3. Tapez votre idée dans le champ de texte — une phrase ou un paragraphe, ce qui la capture le mieux.
 4. Cliquez pour générer.

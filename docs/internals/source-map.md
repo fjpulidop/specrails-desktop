@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1185 source/build files. Nearby tests are linked where names
+Includes 1193 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -49,6 +49,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [ResizeGrips.tsx](../../client/src/components/ui/ResizeGrips.tsx) · [test](../../client/src/components/ui/__tests__/ResizeGrips.test.tsx)
 - [badge.tsx](../../client/src/components/ui/badge.tsx)
+- [board-toolbar.tsx](../../client/src/components/ui/board-toolbar.tsx) · [test](../../client/src/components/ui/__tests__/board-toolbar.test.tsx)
 - [button.tsx](../../client/src/components/ui/button.tsx)
 - [card.tsx](../../client/src/components/ui/card.tsx)
 - [confirm-dialog.tsx](../../client/src/components/ui/confirm-dialog.tsx)
@@ -568,6 +569,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/missions/hooks
 
 - [useAgentRefActions.ts](../../client/src/features/missions/hooks/useAgentRefActions.ts)
+- [useGuardedTierCycle.ts](../../client/src/features/missions/hooks/useGuardedTierCycle.ts)
 
 ## client/src/features/missions/lib
 
@@ -739,18 +741,22 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [NonGoalsSection.tsx](../../client/src/features/specs/components/NonGoalsSection.tsx) · [test](../../client/src/features/specs/components/__tests__/NonGoalsSection.test.tsx)
 - [ProposeSpecModal.tsx](../../client/src/features/specs/components/ProposeSpecModal.tsx) · [test](../../client/src/features/specs/components/__tests__/ProposeSpecModal.test.tsx)
 - [RegressionOfPicker.tsx](../../client/src/features/specs/components/RegressionOfPicker.tsx) · [test](../../client/src/features/specs/components/__tests__/RegressionOfPicker.test.tsx)
+- [SpecActiveFilters.tsx](../../client/src/features/specs/components/SpecActiveFilters.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecActiveFilters.test.tsx)
 - [SpecAddendaSection.tsx](../../client/src/features/specs/components/SpecAddendaSection.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecAddendaSection.test.tsx)
 - [SpecCard.tsx](../../client/src/features/specs/components/SpecCard.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecCard.test.tsx)
 - [SpecComparePicker.tsx](../../client/src/features/specs/components/SpecComparePicker.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecComparePicker.test.tsx)
-- [SpecEpicFilterDropdown.tsx](../../client/src/features/specs/components/SpecEpicFilterDropdown.tsx)
-- [SpecJiraStatusFilterDropdown.tsx](../../client/src/features/specs/components/SpecJiraStatusFilterDropdown.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecJiraStatusFilterDropdown.test.tsx)
-- [SpecLabelFilterDropdown.tsx](../../client/src/features/specs/components/SpecLabelFilterDropdown.tsx)
+- [SpecEpicFilterOptions.tsx](../../client/src/features/specs/components/SpecEpicFilterOptions.tsx)
+- [SpecFiltersPopover.tsx](../../client/src/features/specs/components/SpecFiltersPopover.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecFiltersPopover.test.tsx)
+- [SpecJiraStatusFilterOptions.tsx](../../client/src/features/specs/components/SpecJiraStatusFilterOptions.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecJiraStatusFilterOptions.test.tsx)
+- [SpecLabelFilterOptions.tsx](../../client/src/features/specs/components/SpecLabelFilterOptions.tsx)
 - [SpecLabelFilterStrip.tsx](../../client/src/features/specs/components/SpecLabelFilterStrip.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecLabelFilterStrip.test.tsx)
+- [SpecSearchField.tsx](../../client/src/features/specs/components/SpecSearchField.tsx)
 - [SpecSortControl.tsx](../../client/src/features/specs/components/SpecSortControl.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecSortControl.test.tsx)
-- [SpecSprintFilterDropdown.tsx](../../client/src/features/specs/components/SpecSprintFilterDropdown.tsx)
-- [SpecStatusFilter.tsx](../../client/src/features/specs/components/SpecStatusFilter.tsx)
+- [SpecSprintFilterOptions.tsx](../../client/src/features/specs/components/SpecSprintFilterOptions.tsx)
+- [SpecStatusFilter.tsx](../../client/src/features/specs/components/SpecStatusFilter.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecStatusFilter.test.tsx)
 - [SpecTriageChip.tsx](../../client/src/features/specs/components/SpecTriageChip.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecTriageChip.test.tsx)
 - [SpecsBoard.tsx](../../client/src/features/specs/components/SpecsBoard.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecsBoard.test.tsx)
+- [SpecsDisplayControls.tsx](../../client/src/features/specs/components/SpecsDisplayControls.tsx)
 - [SpecsViewTierToggle.tsx](../../client/src/features/specs/components/SpecsViewTierToggle.tsx)
 - [TicketContextMenu.tsx](../../client/src/features/specs/components/TicketContextMenu.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketContextMenu.test.tsx)
 - [TicketDetailModal.tsx](../../client/src/features/specs/components/TicketDetailModal.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketDetailModal.test.tsx)
@@ -800,6 +806,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-filters.ts](../../client/src/features/specs/lib/spec-filters.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-filters.test.ts)
 - [spec-flow.ts](../../client/src/features/specs/lib/spec-flow.ts)
 - [spec-gen-suppression.ts](../../client/src/features/specs/lib/spec-gen-suppression.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-gen-suppression.test.ts)
+- [spec-search.ts](../../client/src/features/specs/lib/spec-search.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-search.test.ts)
 - [spec-sort.ts](../../client/src/features/specs/lib/spec-sort.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-sort.test.ts)
 - [spec-status-filter.ts](../../client/src/features/specs/lib/spec-status-filter.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-status-filter.test.ts)
 - [spec-triage.ts](../../client/src/features/specs/lib/spec-triage.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-triage.test.ts)
@@ -854,6 +861,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [useDesktop.tsx](../../client/src/hooks/useDesktop.tsx) · [test](../../client/src/hooks/__tests__/useDesktop.test.tsx)
 - [useDesktopUpdateNotifier.tsx](../../client/src/hooks/useDesktopUpdateNotifier.tsx) · [test](../../client/src/hooks/__tests__/useDesktopUpdateNotifier.test.tsx)
+- [useElementWidth.ts](../../client/src/hooks/useElementWidth.ts)
 - [useKeyboardShortcuts.ts](../../client/src/hooks/useKeyboardShortcuts.ts)
 - [useMediaQuery.ts](../../client/src/hooks/useMediaQuery.ts)
 - [useMovableResizableModal.tsx](../../client/src/hooks/useMovableResizableModal.tsx) · [test](../../client/src/hooks/__tests__/useMovableResizableModal.test.tsx)
