@@ -1,0 +1,60 @@
+{
+  "title": "Precisam de você",
+  "subtitle_one": "{{count}} item aguarda você",
+  "subtitle_other": "{{count}} itens aguardam você",
+  "subtitleEmpty": "Nada aguarda você",
+  "loading": "Verificando seus projetos…",
+  "empty": {
+    "title": "Nada precisa de você",
+    "description": "Revisões, perguntas e falhas de todos os projetos aparecem aqui assim que acontecem."
+  },
+  "error": {
+    "title": "Não foi possível carregar a caixa",
+    "description": "O app não conseguiu ler seus projetos. Tente novamente em instantes.",
+    "retry": "Tentar novamente"
+  },
+  "kinds": {
+    "review": "Revisão pronta",
+    "question": "Aguardando sua resposta",
+    "failed": "Falhou",
+    "blocked": "Bloqueado",
+    "budget": "Pausado por orçamento",
+    "jira": "Falha na sincronização com o Jira"
+  },
+  "actions": {
+    "open": "Abrir",
+    "openReview": "Abrir revisão",
+    "answer": "Responder",
+    "resume": "Retomar",
+    "retry": "Tentar novamente"
+  },
+  "working": "Processando…",
+  "rowLabel": "{{action}}: {{title}}",
+  "snooze": {
+    "label": "Adiar",
+    "hour": "1 hora",
+    "tomorrow": "Até amanhã",
+    "cancel": "Cancelar"
+  },
+  "snoozeItem": "Adiar {{title}}",
+  "snoozeFor": "Adiar {{title}} por",
+  "done": "Concluído",
+  "doneItem": "Marcar {{title}} como concluído",
+  "age": {
+    "now": "agora",
+    "ago": "há {{age}}"
+  },
+  "button": {
+    "withCount_one": "Caixa, {{count}} item precisa de você",
+    "withCount_other": "Caixa, {{count}} itens precisam de você",
+    "empty": "Caixa, nada precisa de você",
+    "title": "{{label}} ({{shortcut}})"
+  },
+  "toast": {
+    "resumed": "Execução retomada",
+    "retried": "Nova tentativa na fila",
+    "resumeFailed": "Não foi possível retomar a execução",
+    "retryFailed": "Não foi possível tentar de novo a atualização do Jira",
+    "stillOverBudget": "Ainda acima do orçamento diário"
+  }
+}

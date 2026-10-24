@@ -5,6 +5,7 @@ import { useSharedWebSocket } from './useSharedWebSocket'
 import i18n from '../lib/i18n'
 import { useUiMode } from '../context/UiModeContext'
 import { requestMissionOpenRun } from '../features/missions/components/agent-run-failure'
+import { requestOpenInbox } from '../lib/inbox-events'
 
 interface WsJob {
   id: string
@@ -169,7 +170,9 @@ export function useOsNotifications({
     if (typeof Notification === 'undefined') return
     const show = (): void => {
       const n = new Notification(title, { body: projectName ? `[${projectName}] ${body}` : body, tag: `specrails-provider-limit:${runId}` })
-      n.onclick = () => { window.focus(); n.close() }
+      // A provider limit has no single job to open: it lands on the inbox, where every
+      // project's blocked runs wait with their Resume / Open action.
+      n.onclick = () => { window.focus(); requestOpenInbox(); n.close() }
     }
     if (Notification.permission === 'granted') show()
   }

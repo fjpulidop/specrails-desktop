@@ -161,6 +161,7 @@
     "missionTitled": "任务 · {{title}}",
     "job": "作业 {{id}}",
     "review": "评审包",
+    "inbox": "收件箱",
     "overlays": {
       "loops": "循环",
       "plugins": "插件",

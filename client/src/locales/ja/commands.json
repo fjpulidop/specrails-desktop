@@ -98,7 +98,9 @@
         "noLoops": "Spec なしで実行できるループはありません。",
         "loading": "読み込み中...",
         "loadFailed": "オプションを読み込めませんでした。"
-      }
+      },
+      "openInbox": "受信箱を開く",
+      "openInboxCount": "受信箱を開く（{{count}} 件待機中）"
     }
   },
   "toasts": {
@@ -162,7 +164,8 @@
       "flowPause": "Flow を一時停止 / 再開（実行ストリップにフォーカス中）",
       "flowHandOff": "Flow を引き渡す（実行ストリップにフォーカス中）",
       "historyBackForward": "前の場所 / 次の場所へ戻る・進む",
-      "undoLast": "直前の変更を元に戻す"
+      "undoLast": "直前の変更を元に戻す",
+      "openInbox": "「対応が必要」受信箱を開く"
     }
   },
   "update": {

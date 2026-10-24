@@ -25,6 +25,7 @@ vi.mock('sonner', () => ({
 }))
 
 import { useOsNotifications, setOsNotificationPrefs } from '../useOsNotifications'
+import { OPEN_INBOX_EVENT } from '../../lib/inbox-events'
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(MemoryRouter, null, children)
@@ -54,6 +55,23 @@ describe('useOsNotifications — loop.provider_limit', () => {
     expect(opts.description).toContain('resets 3am (Europe/Madrid)')
     expect(opts.description).toContain('session limit')
     expect(opts.duration).toBe(60_000)
+  })
+
+  it('clicking the OS notification opens the inbox', () => {
+    const onclick: { current: (() => void) | null } = { current: null }
+    class FakeNotification {
+      static permission = 'granted'
+      close = vi.fn()
+      set onclick(fn: () => void) { onclick.current = fn }
+    }
+    Object.defineProperty(window, 'Notification', { value: FakeNotification, writable: true, configurable: true })
+    const opened = vi.fn()
+    window.addEventListener(OPEN_INBOX_EVENT, opened)
+    renderHook(() => useOsNotifications(), { wrapper })
+    send({ type: 'loop.provider_limit', projectId: 'p1', runId: 'run-2', provider: 'claude', message: 'limit', resetsAt: null })
+    onclick.current?.()
+    window.removeEventListener(OPEN_INBOX_EVENT, opened)
+    expect(opened).toHaveBeenCalledOnce()
   })
 
   it('falls back to the no-reset copy and respects the completed-only filter', () => {

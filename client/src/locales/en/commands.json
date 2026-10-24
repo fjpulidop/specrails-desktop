@@ -98,7 +98,9 @@
         "noLoops": "No loops can run without a spec.",
         "loading": "Loading...",
         "loadFailed": "Could not load the options."
-      }
+      },
+      "openInbox": "Open inbox",
+      "openInboxCount": "Open inbox ({{count}} waiting)"
     }
   },
   "toasts": {
@@ -162,7 +164,8 @@
       "flowPause": "Pause or resume the Flow (run strip focused)",
       "flowHandOff": "Hand off the Flow (run strip focused)",
       "historyBackForward": "Go back / forward to the previous place",
-      "undoLast": "Undo the last change"
+      "undoLast": "Undo the last change",
+      "openInbox": "Open the Needs you inbox"
     }
   },
   "update": {

@@ -90,6 +90,8 @@ import { LanguageProvider } from './features/settings/context/LanguageContext'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT, FEATURE_REVIEW_PACKET } from './lib/feature-flags'
 import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/global-route-mode-transition'
 import { PlaceHistoryProvider, usePlaceHistory } from './hooks/usePlaceHistory'
+import { InboxProvider, useInbox } from './features/inbox/context/InboxContext'
+import { InboxDialog } from './features/inbox/components/InboxDialog'
 import { usePlaceParam } from './hooks/usePlaceParam'
 import { useMissionPlaceSync } from './features/missions/hooks/useMissionPlaceSync'
 import { JOB_PARAM, MISSION_PARAM, OVERLAY_PARAM, PLACE_PUSH_STATE, PROJECT_PARAM, REVIEW_PARAM, jobIdFromPath, type OverlayKind } from './lib/places'
@@ -251,6 +253,7 @@ function DesktopApp() {
   const location = useLocation()
   const terminals = useTerminals()
   const agentChat = useAgentChat()
+  const inbox = useInbox()
   const { uiMode } = useUiMode()
 
   // Two-way sync between split-view comparison state and ?compare=… URL params.
@@ -389,6 +392,7 @@ function DesktopApp() {
     onOpenCheatsheet: openCheatsheet,
     onToggleLeftSidebar: cycleLeftMode,
     onToggleRightSidebar: cycleRightMode,
+    onToggleInbox: inbox?.toggleInbox,
     onSwitchProject: (index) => {
       const project = projects[index - 1]
       if (project) setActiveProjectId(project.id)
@@ -873,6 +877,11 @@ function PlaceHistoryOwner({ enabled, children }: { enabled: boolean; children: 
   return enabled ? <PlaceHistoryProvider>{children}</PlaceHistoryProvider> : <>{children}</>
 }
 
+/** The "Needs you" inbox exists in the main window only (it navigates the main window's places). */
+function InboxOwner({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
+  return enabled ? <InboxProvider>{children}<InboxDialog /></InboxProvider> : <>{children}</>
+}
+
 function AppRoutes() {
   const secondary = isMissionWindowRoute()
   useSuppressNativeContextMenu()
@@ -923,6 +932,7 @@ function AppRoutes() {
                 <ContractRefineTrackerProvider>
                 <SmashTrackerProvider>
                 <SidebarPinProvider>
+                  <InboxOwner enabled={!secondary}>
                   <TitleBar />
                   <TerminalsProviderWithDesktop>
                     <RailMetricsProviderWithDesktop>
@@ -959,6 +969,7 @@ function AppRoutes() {
                     </RailPrDecisionProviderWithDesktop>
                     </RailMetricsProviderWithDesktop>
                   </TerminalsProviderWithDesktop>
+                  </InboxOwner>
                 </SidebarPinProvider>
                 </SmashTrackerProvider>
                 </ContractRefineTrackerProvider>

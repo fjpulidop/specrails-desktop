@@ -52,6 +52,7 @@ navigation history and every place is a link. Do not invent a second history.
 | Review packet over a mission | `?review=<prDeliveryId>` (Board mode: `/review/:id`) | `App.tsx` |
 | Job detail over a mission | `?job=<jobId>` (Board mode: `/jobs/:id`) | `missions/components/AgentModeJobsPane.tsx` |
 | Project switch | `?p=<projectId>` on the pushed entry | `useProjectRouteMemory` in `App.tsx` |
+| "Needs you" inbox | `?inbox=1` | [`features/inbox`](inbox/README.md) (`InboxProvider`; opening a row replaces this entry with the place it leads to) |
 
 Rules:
 

@@ -98,7 +98,9 @@
         "noLoops": "Aucun loop ne peut s'exécuter sans spec.",
         "loading": "Chargement...",
         "loadFailed": "Impossible de charger les options."
-      }
+      },
+      "openInbox": "Ouvrir la boîte",
+      "openInboxCount": "Ouvrir la boîte ({{count}} en attente)"
     }
   },
   "toasts": {
@@ -162,7 +164,8 @@
       "flowPause": "Suspendre ou reprendre le Flow (bandeau des exécutions actif)",
       "flowHandOff": "Remettre le Flow (bandeau des exécutions actif)",
       "historyBackForward": "Revenir / avancer vers le lieu précédent ou suivant",
-      "undoLast": "Annuler la dernière modification"
+      "undoLast": "Annuler la dernière modification",
+      "openInbox": "Ouvrir la boîte « On a besoin de vous »"
     }
   },
   "update": {

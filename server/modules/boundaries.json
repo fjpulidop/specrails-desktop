@@ -1730,6 +1730,39 @@
       ]
     }
   },
+  "inbox": {
+    "publicEntries": [
+      "adapters/http.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../../../project-registry",
+        "../application",
+        "./project-source",
+        "express"
+      ],
+      "adapters/project-source.ts": [
+        "../../../db",
+        "../../../jira/jira-db",
+        "../../delivery/runtime/rail-pr-store",
+        "../domain",
+        "../ports"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
+    }
+  },
   "loops": {
     "publicEntries": [
       "runtime/builtin-loops.ts",

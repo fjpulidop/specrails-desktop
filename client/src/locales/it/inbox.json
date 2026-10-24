@@ -1,0 +1,60 @@
+{
+  "title": "Serve il tuo intervento",
+  "subtitle_one": "{{count}} elemento ti aspetta",
+  "subtitle_other": "{{count}} elementi ti aspettano",
+  "subtitleEmpty": "Niente ti aspetta",
+  "loading": "Controllo dei tuoi progetti…",
+  "empty": {
+    "title": "Nulla richiede il tuo intervento",
+    "description": "Revisioni, domande e errori di tutti i progetti compaiono qui appena accadono."
+  },
+  "error": {
+    "title": "Impossibile caricare la posta",
+    "description": "L'app non è riuscita a leggere i tuoi progetti. Riprova tra un momento.",
+    "retry": "Riprova"
+  },
+  "kinds": {
+    "review": "Revisione pronta",
+    "question": "In attesa della tua risposta",
+    "failed": "Fallito",
+    "blocked": "Bloccato",
+    "budget": "In pausa per budget",
+    "jira": "Sincronizzazione Jira non riuscita"
+  },
+  "actions": {
+    "open": "Apri",
+    "openReview": "Apri revisione",
+    "answer": "Rispondi",
+    "resume": "Riprendi",
+    "retry": "Riprova"
+  },
+  "working": "In corso…",
+  "rowLabel": "{{action}}: {{title}}",
+  "snooze": {
+    "label": "Posticipa",
+    "hour": "1 ora",
+    "tomorrow": "Fino a domani",
+    "cancel": "Annulla"
+  },
+  "snoozeItem": "Posticipa {{title}}",
+  "snoozeFor": "Posticipa {{title}} di",
+  "done": "Fatto",
+  "doneItem": "Segna {{title}} come fatto",
+  "age": {
+    "now": "adesso",
+    "ago": "{{age}} fa"
+  },
+  "button": {
+    "withCount_one": "Posta, {{count}} elemento richiede il tuo intervento",
+    "withCount_other": "Posta, {{count}} elementi richiedono il tuo intervento",
+    "empty": "Posta, nulla richiede il tuo intervento",
+    "title": "{{label}} ({{shortcut}})"
+  },
+  "toast": {
+    "resumed": "Esecuzione ripresa",
+    "retried": "Nuovo tentativo in coda",
+    "resumeFailed": "Impossibile riprendere l'esecuzione",
+    "retryFailed": "Impossibile ritentare l'aggiornamento Jira",
+    "stillOverBudget": "Ancora oltre il budget giornaliero"
+  }
+}

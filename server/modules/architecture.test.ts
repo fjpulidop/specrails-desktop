@@ -58,6 +58,11 @@ const coreDependencies: Record<string, string[]> = {
   'specs/domain/non-goals.ts': [],
   // Project rules inventory (.specrails/rules.json, annex D.5): pure parsing.
   'project-rules/domain.ts': [],
+  // Inbox (needs-you read-model): pure vocabulary; the collector depends only on its own port.
+  'inbox/domain.ts': [],
+  'inbox/ports.ts': ['./domain'],
+  'inbox/application.ts': ['./domain', './ports'],
+  'inbox/index.ts': ['./application', './domain', './ports'],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>

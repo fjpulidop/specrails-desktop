@@ -1,4 +1,5 @@
 import { parseSubagentRuntimeSetting } from './modules/project-settings'
+import { registerInboxRoutes } from './modules/inbox/adapters/http'
 import { registerUsageRoutes } from './modules/subscription-usage/adapters/http'
 import type { UsageService } from './modules/subscription-usage/runtime/usage-service'
 import { registerRuntimeRolePromptRoutes } from './runtime-role-prompts-router'
@@ -370,6 +371,8 @@ export function createDesktopRouter(
 ): Router {
   const router = Router()
   if (usageService) registerUsageRoutes(router, usageService)
+  // "Needs you" inbox: read-only projection across projects (modules/inbox).
+  registerInboxRoutes(router, registry)
 
   // Loops (global, cross-project library) — /api/loops*. Registered here so the
   // routes live on the global `/api` router (loops are NOT project-scoped). The

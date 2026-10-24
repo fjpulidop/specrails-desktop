@@ -17,6 +17,7 @@ import { useUiMode } from '../context/UiModeContext'
 import {
   JOB_PARAM,
   MISSION_PARAM,
+  INBOX_PARAM,
   OVERLAY_PARAM,
   PROJECT_PARAM,
   REVIEW_PARAM,
@@ -251,7 +252,9 @@ export function PlaceHistoryProvider({ children }: { children: ReactNode }) {
     const overlay = parseOverlay(params.get(OVERLAY_PARAM))
     const mission = params.get(MISSION_PARAM)
     const path = entry.pathname
-    if (spec) {
+    if (params.get(INBOX_PARAM) === '1') {
+      label = tt('places.inbox')
+    } else if (spec) {
       const title = resolve('spec', spec)
       resolved = !!title
       label = title ? tt('places.specTitled', { id: spec, title }) : tt('places.spec', { id: spec })

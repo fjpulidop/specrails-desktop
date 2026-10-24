@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { useKeyboardShortcuts, useCheatsheetState, historyDirection } from '../useKeyboardShortcuts'
+import { useKeyboardShortcuts, useCheatsheetState, historyDirection, SHORTCUTS } from '../useKeyboardShortcuts'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -248,6 +248,43 @@ describe('Back / Forward shortcuts', () => {
   it('does nothing (and does not swallow the key) when no history handler is wired', () => {
     renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn() }), { wrapper })
     expect(chord({ ctrlKey: true, code: 'BracketLeft' }).defaultPrevented).toBe(false)
+  })
+})
+
+describe('Inbox chord', () => {
+  const chordI = (opts: KeyboardEventInit, target: EventTarget = window) => {
+    const e = new KeyboardEvent('keydown', { code: 'KeyI', key: 'I', bubbles: true, cancelable: true, ...opts })
+    target.dispatchEvent(e)
+    return e
+  }
+
+  it('⌘⇧I / Ctrl+Shift+I toggles the inbox, even from a text field', () => {
+    const onToggleInbox = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn(), onToggleInbox }), { wrapper })
+    expect(chordI({ metaKey: true, shiftKey: true }).defaultPrevented).toBe(true)
+    chordI({ ctrlKey: true, shiftKey: true })
+    const input = document.body.appendChild(document.createElement('input'))
+    input.addEventListener('keydown', (e) => e.stopPropagation(), { once: false, capture: false })
+    expect(onToggleInbox).toHaveBeenCalledTimes(2)
+    input.remove()
+  })
+
+  it('leaves the chord alone without a handler, without Shift, or inside a dialog', () => {
+    const onToggleInbox = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn() }), { wrapper })
+    expect(chordI({ metaKey: true, shiftKey: true }).defaultPrevented).toBe(false)
+    renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn(), onToggleInbox }), { wrapper })
+    chordI({ metaKey: true })
+    const dialog = document.body.appendChild(document.createElement('div'))
+    dialog.setAttribute('role', 'dialog')
+    const button = dialog.appendChild(document.createElement('button'))
+    chordI({ metaKey: true, shiftKey: true }, button)
+    expect(onToggleInbox).not.toHaveBeenCalled()
+    dialog.remove()
+  })
+
+  it('is listed in the cheatsheet shortcuts', () => {
+    expect(SHORTCUTS.find((s) => s.keys === '⌘⇧I')?.descriptionKey).toBe('shortcuts.items.openInbox')
   })
 })
 

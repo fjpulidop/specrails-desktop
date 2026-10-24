@@ -1,0 +1,60 @@
+{
+  "title": "Braucht dich",
+  "subtitle_one": "{{count}} Eintrag wartet auf dich",
+  "subtitle_other": "{{count}} Einträge warten auf dich",
+  "subtitleEmpty": "Nichts wartet auf dich",
+  "loading": "Projekte werden geprüft …",
+  "empty": {
+    "title": "Nichts braucht dich",
+    "description": "Reviews, Rückfragen und Fehler aus allen Projekten erscheinen hier, sobald sie auftreten."
+  },
+  "error": {
+    "title": "Posteingang konnte nicht geladen werden",
+    "description": "Die App konnte deine Projekte nicht lesen. Versuche es gleich noch einmal.",
+    "retry": "Erneut versuchen"
+  },
+  "kinds": {
+    "review": "Review bereit",
+    "question": "Wartet auf deine Antwort",
+    "failed": "Fehlgeschlagen",
+    "blocked": "Blockiert",
+    "budget": "Wegen Budget pausiert",
+    "jira": "Jira-Sync fehlgeschlagen"
+  },
+  "actions": {
+    "open": "Öffnen",
+    "openReview": "Review öffnen",
+    "answer": "Antworten",
+    "resume": "Fortsetzen",
+    "retry": "Wiederholen"
+  },
+  "working": "Läuft …",
+  "rowLabel": "{{action}}: {{title}}",
+  "snooze": {
+    "label": "Zurückstellen",
+    "hour": "1 Stunde",
+    "tomorrow": "Bis morgen",
+    "cancel": "Abbrechen"
+  },
+  "snoozeItem": "{{title}} zurückstellen",
+  "snoozeFor": "{{title}} zurückstellen für",
+  "done": "Erledigt",
+  "doneItem": "{{title}} als erledigt markieren",
+  "age": {
+    "now": "gerade eben",
+    "ago": "vor {{age}}"
+  },
+  "button": {
+    "withCount_one": "Posteingang, {{count}} Eintrag braucht dich",
+    "withCount_other": "Posteingang, {{count}} Einträge brauchen dich",
+    "empty": "Posteingang, nichts braucht dich",
+    "title": "{{label}} ({{shortcut}})"
+  },
+  "toast": {
+    "resumed": "Lauf fortgesetzt",
+    "retried": "Wiederholung eingeplant",
+    "resumeFailed": "Lauf konnte nicht fortgesetzt werden",
+    "retryFailed": "Jira-Update konnte nicht wiederholt werden",
+    "stillOverBudget": "Tagesbudget weiterhin überschritten"
+  }
+}

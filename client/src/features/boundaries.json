@@ -163,6 +163,16 @@
       "specs"
     ]
   },
+  "inbox": {
+    "publicEntries": [
+      "components/InboxButton.tsx",
+      "components/InboxDialog.tsx",
+      "context/InboxContext.tsx"
+    ],
+    "dependencies": [
+      "integrations"
+    ]
+  },
   "integrations": {
     "publicEntries": [
       "components/jira/DiscardSpecDialog.tsx",

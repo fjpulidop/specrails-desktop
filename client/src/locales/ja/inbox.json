@@ -1,0 +1,60 @@
+{
+  "title": "対応が必要",
+  "subtitle_one": "{{count}} 件があなたを待っています",
+  "subtitle_other": "{{count}} 件があなたを待っています",
+  "subtitleEmpty": "待っている項目はありません",
+  "loading": "プロジェクトを確認しています…",
+  "empty": {
+    "title": "対応が必要な項目はありません",
+    "description": "すべてのプロジェクトのレビュー、質問、失敗が発生するとここに表示されます。"
+  },
+  "error": {
+    "title": "受信箱を読み込めませんでした",
+    "description": "アプリがプロジェクトを読み取れませんでした。しばらくしてからもう一度お試しください。",
+    "retry": "再試行"
+  },
+  "kinds": {
+    "review": "レビュー準備完了",
+    "question": "回答待ち",
+    "failed": "失敗",
+    "blocked": "ブロック中",
+    "budget": "予算で一時停止",
+    "jira": "Jira 同期に失敗"
+  },
+  "actions": {
+    "open": "開く",
+    "openReview": "レビューを開く",
+    "answer": "回答",
+    "resume": "再開",
+    "retry": "再試行"
+  },
+  "working": "処理中…",
+  "rowLabel": "{{action}}：{{title}}",
+  "snooze": {
+    "label": "後で通知",
+    "hour": "1 時間",
+    "tomorrow": "明日まで",
+    "cancel": "キャンセル"
+  },
+  "snoozeItem": "{{title}} を後で通知",
+  "snoozeFor": "{{title}} を保留する期間",
+  "done": "完了",
+  "doneItem": "{{title}} を完了にする",
+  "age": {
+    "now": "たった今",
+    "ago": "{{age}}前"
+  },
+  "button": {
+    "withCount_one": "受信箱、{{count}} 件が対応待ち",
+    "withCount_other": "受信箱、{{count}} 件が対応待ち",
+    "empty": "受信箱、対応待ちはありません",
+    "title": "{{label}}（{{shortcut}}）"
+  },
+  "toast": {
+    "resumed": "実行を再開しました",
+    "retried": "再試行をキューに追加しました",
+    "resumeFailed": "実行を再開できませんでした",
+    "retryFailed": "Jira の更新を再試行できませんでした",
+    "stillOverBudget": "日次予算をまだ超えています"
+  }
+}

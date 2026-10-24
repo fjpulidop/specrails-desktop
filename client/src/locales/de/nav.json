@@ -161,6 +161,7 @@
     "missionTitled": "Mission · {{title}}",
     "job": "Job {{id}}",
     "review": "Review-Paket",
+    "inbox": "Posteingang",
     "overlays": {
       "loops": "Loops",
       "plugins": "Plugins",

@@ -22,6 +22,8 @@ export const REVIEW_PARAM = 'review'
 export const JOB_PARAM = 'job'
 /** `?mission=<conversationId>` — the selected mission (Mission mode). */
 export const MISSION_PARAM = 'mission'
+/** `?inbox=1` — the "Needs you" inbox panel, over whatever place the person is on. */
+export const INBOX_PARAM = 'inbox'
 /** `?overlay=loops|plugins|docs|analytics` — a full-page modal. */
 export const OVERLAY_PARAM = 'overlay'
 /** `?p=<projectId>` — the project a place belongs to (Back across a project switch restores it). */
@@ -87,6 +89,8 @@ export function placeKey(entry: PlaceLocation & { projectId?: string | null }, m
   if (path.startsWith('/loops')) overlay = 'loops'
   else if (path.startsWith('/plugins')) overlay = 'plugins'
   const project = entry.projectId ?? ''
+  // Appended only while open, so the key of every other place keeps its shape.
+  const inbox = params.get(INBOX_PARAM) === '1' ? '|i=1' : ''
 
   if (mode === 'kanban') {
     // Param-form overlays that only exist as modals in Mission mode collapse onto their route.
@@ -96,12 +100,12 @@ export function placeKey(entry: PlaceLocation & { projectId?: string | null }, m
           : overlay === 'plugins' && !path.startsWith('/plugins') ? '/plugins'
             : path
     const kanbanOverlay = overlay === 'docs' || overlay === 'analytics' ? overlay : ''
-    return `k|${project}|${asRoute}|s=${spec}|o=${kanbanOverlay}`
+    return `k|${project}|${asRoute}|s=${spec}|o=${kanbanOverlay}${inbox}`
   }
 
   const mission = params.get(MISSION_PARAM) ?? ''
   const isDocsRoute = path.startsWith('/docs')
-  return `a|${project}|${isDocsRoute ? path : '/'}|m=${mission}|s=${spec}|r=${reviewId}|j=${jobId}|o=${overlay}`
+  return `a|${project}|${isDocsRoute ? path : '/'}|m=${mission}|s=${spec}|r=${reviewId}|j=${jobId}|o=${overlay}${inbox}`
 }
 
 /**

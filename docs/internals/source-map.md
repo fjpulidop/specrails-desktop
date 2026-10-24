@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1224 source/build files. Nearby tests are linked where names
+Includes 1236 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -384,6 +384,20 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [flow-failure.ts](../../client/src/features/flow/lib/flow-failure.ts)
 - [flow-offer.ts](../../client/src/features/flow/lib/flow-offer.ts)
 - [flow-run-tone.ts](../../client/src/features/flow/lib/flow-run-tone.ts)
+
+## client/src/features/inbox/components
+
+- [InboxButton.tsx](../../client/src/features/inbox/components/InboxButton.tsx)
+- [InboxDialog.tsx](../../client/src/features/inbox/components/InboxDialog.tsx)
+
+## client/src/features/inbox/context
+
+- [InboxContext.tsx](../../client/src/features/inbox/context/InboxContext.tsx)
+
+## client/src/features/inbox/lib
+
+- [inbox-api.ts](../../client/src/features/inbox/lib/inbox-api.ts)
+- [inbox-model.ts](../../client/src/features/inbox/lib/inbox-model.ts)
 
 ## client/src/features/integrations/components/jira
 
@@ -920,6 +934,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [global-route-mode-transition.ts](../../client/src/lib/global-route-mode-transition.ts) · [test](../../client/src/lib/__tests__/global-route-mode-transition.test.ts)
 - [html-highlight.ts](../../client/src/lib/html-highlight.ts) · [test](../../client/src/lib/html-highlight.test.ts)
 - [i18n.ts](../../client/src/lib/i18n.ts) · [test](../../client/src/lib/__tests__/i18n.test.ts)
+- [inbox-events.ts](../../client/src/lib/inbox-events.ts)
 - [initial-commit.ts](../../client/src/lib/initial-commit.ts)
 - [json-tolerant.ts](../../client/src/lib/json-tolerant.ts) · [test](../../client/src/lib/__tests__/json-tolerant.test.ts)
 - [keyboard-label.ts](../../client/src/lib/keyboard-label.ts)
@@ -1495,6 +1510,18 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [bindings.ts](../../server/modules/flow/adapters/bindings.ts)
 - [http.ts](../../server/modules/flow/adapters/http.ts)
 - [sqlite.ts](../../server/modules/flow/adapters/sqlite.ts)
+
+## server/modules/inbox
+
+- [application.ts](../../server/modules/inbox/application.ts)
+- [domain.ts](../../server/modules/inbox/domain.ts)
+- [index.ts](../../server/modules/inbox/index.ts)
+- [ports.ts](../../server/modules/inbox/ports.ts)
+
+## server/modules/inbox/adapters
+
+- [http.ts](../../server/modules/inbox/adapters/http.ts)
+- [project-source.ts](../../server/modules/inbox/adapters/project-source.ts)
 
 ## server/modules/loops/runtime
 

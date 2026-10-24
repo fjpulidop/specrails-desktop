@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
 import { usePlaceHistory } from '../hooks/usePlaceHistory'
+import { useInbox } from '../features/inbox/context/InboxContext'
 import { useUndo } from '../hooks/useUndo'
 import { useThemeOptional } from '../features/settings/context/ThemeContext'
 import { loopsApi } from '../features/loops/lib/loops-api'
@@ -179,6 +180,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const places = usePlaceHistory()
+  const inbox = useInbox()
   const { undoLast, peekUndo } = useUndo()
   const theme = useThemeOptional()
   const surfaces = usePaletteSurfaces()
@@ -360,6 +362,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     flags: { agentMode: FEATURE_AGENT_MODE, loops: FEATURE_LOOPS_SECTION },
     theme: theme ? { id: theme.themeId, set: theme.setTheme } : null,
     history: places ? { canBack: places.canBack, canForward: places.canForward, back: places.back, forward: places.forward } : null,
+    inbox: inbox ? { count: inbox.count, open: inbox.openInbox } : null,
     undoLabel: open ? peekUndo() : null,
     sidebarLabels: { left: leftLabel, right: rightLabel },
     go: {

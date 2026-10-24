@@ -7,6 +7,7 @@ import {
   MAX_RECENT_ACTIONS,
   MAX_TRAILING_ACTION_ROWS,
   PALETTE_ACTIONS,
+  actionLabel,
   availableActions,
   filterArgOptions,
   isActionQuery,
@@ -54,6 +55,7 @@ function ctx(overrides: Partial<PaletteContext> = {}): PaletteContext {
     theme: { id: 'specrails', set: vi.fn(async () => {}) },
     history: { canBack: true, canForward: false, back: vi.fn(), forward: vi.fn() },
     undoLabel: null,
+    inbox: null,
     sidebarLabels: { left: 'Collapse left sidebar (keep pinned)', right: 'Pin right sidebar open' },
     go: {
       navigate: vi.fn(), setUiMode: vi.fn(), openAppSettings: vi.fn(), openProjectSettings: vi.fn(), newMission: vi.fn(), setProject: vi.fn(),
@@ -138,6 +140,19 @@ describe('availability per context', () => {
     expect(got).toContain('undo.last')
     expect(got).toContain('history.forward')
     expect(got).not.toContain('history.back')
+  })
+
+  it('offers Open inbox only where an inbox exists, shows how many wait, and opens it', () => {
+    expect(ids(ctx({ inbox: null }))).not.toContain('inbox.open')
+    const open = vi.fn()
+    const c = ctx({ inbox: { count: 3, open } })
+    expect(ids(c)).toContain('inbox.open')
+    const action = PALETTE_ACTIONS.find((a) => a.id === 'inbox.open')!
+    expect(actionLabel(action, c)).toBe('Open inbox (3 waiting)')
+    expect(actionLabel(action, ctx({ inbox: { count: 0, open } }))).toBe('Open inbox')
+    expect(action.shortcut).toBe('⌘⇧I')
+    action.run(c)
+    expect(open).toHaveBeenCalledOnce()
   })
 
   it('every action with a shortcut declares a key string', () => {

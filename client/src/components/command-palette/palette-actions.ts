@@ -20,6 +20,7 @@ import {
   Undo2,
   Trash2,
   FolderOpen,
+  Inbox,
   type LucideIcon,
 } from 'lucide-react'
 import type { PaletteSurfaces } from '../../lib/palette-bridge'
@@ -67,6 +68,8 @@ export interface PaletteContext {
   flags: { agentMode: boolean; loops: boolean }
   theme: { id: ThemeId; set: (id: ThemeId) => Promise<void> } | null
   history: { canBack: boolean; canForward: boolean; back: () => void; forward: () => void } | null
+  /** The "Needs you" inbox (null where no inbox exists, e.g. secondary windows). */
+  inbox: { count: number; open: () => void } | null
   /** Label of what ⌘Z would undo right now. */
   undoLabel: string | null
   /** Labels of the left/right sidebar toggles. */
@@ -402,6 +405,13 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     labelParams: (ctx) => ({ label: ctx.undoLabel ?? '' }),
     when: (ctx) => ctx.undoLabel !== null,
     run: (ctx) => ctx.go.undoLast(),
+  },
+  {
+    id: 'inbox.open', labelKey: 'palette.actions.openInbox', group: 'global', icon: Inbox, shortcut: '⌘⇧I',
+    keywords: ['inbox', 'needs you', 'attention', 'waiting', 'review', 'questions', 'failed'],
+    resolveLabel: (ctx) => (ctx.inbox && ctx.inbox.count > 0 ? ctx.t('palette.actions.openInboxCount', { count: ctx.inbox.count }) : ctx.t('palette.actions.openInbox')),
+    when: (ctx) => ctx.inbox !== null,
+    run: (ctx) => ctx.inbox?.open(),
   },
   {
     id: 'trash.open', labelKey: 'palette.actions.recentlyDeleted', group: 'global', icon: Trash2,

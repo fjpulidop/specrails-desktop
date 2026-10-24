@@ -10,6 +10,7 @@ import { useUiMode } from '../context/UiModeContext'
 import { hasRightSidebar } from '../lib/sidebar-layout'
 import { cn } from '../lib/utils'
 import { PlaceNavButtons } from './PlaceNavButtons'
+import { InboxButton } from '../features/inbox/components/InboxButton'
 
 // ─── Detect Tauri environment ─────────────────────────────────────────────────
 
@@ -236,7 +237,10 @@ function MacTitleBar() {
     >
       <div className="ml-[80px] flex items-center gap-2"><SidebarWindowButton side="left" /><PlaceNavButtons /></div>
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
-      {showRight && <div className="ml-auto mr-2"><SidebarWindowButton side="right" /></div>}
+      <div className="ml-auto mr-2 flex items-center gap-1">
+        <InboxButton />
+        {showRight && <SidebarWindowButton side="right" />}
+      </div>
     </header>
   )
 }
@@ -314,6 +318,7 @@ function DefaultTitleBar() {
           WebkitAppRegion: 'no-drag',
         } as React.CSSProperties}
       >
+        <InboxButton />
         {showRight && <SidebarWindowButton side="right" />}
         <WinButton
           onClick={handleMinimize}

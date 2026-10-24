@@ -98,7 +98,9 @@
         "noLoops": "Nenhum loop pode rodar sem uma spec.",
         "loading": "Carregando...",
         "loadFailed": "Não foi possível carregar as opções."
-      }
+      },
+      "openInbox": "Abrir caixa de entrada",
+      "openInboxCount": "Abrir caixa de entrada ({{count}} pendentes)"
     }
   },
   "toasts": {
@@ -162,7 +164,8 @@
       "flowPause": "Pausar ou retomar o Flow (com a faixa de execuções em foco)",
       "flowHandOff": "Passar o Flow a um rail (com a faixa de execuções em foco)",
       "historyBackForward": "Voltar / avançar para o lugar anterior ou seguinte",
-      "undoLast": "Desfazer a última alteração"
+      "undoLast": "Desfazer a última alteração",
+      "openInbox": "Abrir a caixa «Precisam de você»"
     }
   },
   "update": {

@@ -98,7 +98,9 @@
         "noLoops": "Kein Loop läuft ohne Spec.",
         "loading": "Wird geladen...",
         "loadFailed": "Die Optionen konnten nicht geladen werden."
-      }
+      },
+      "openInbox": "Posteingang öffnen",
+      "openInboxCount": "Posteingang öffnen ({{count}} offen)"
     }
   },
   "toasts": {
@@ -162,7 +164,8 @@
       "flowPause": "Flow pausieren oder fortsetzen (Laufstreifen fokussiert)",
       "flowHandOff": "Flow übergeben (Laufstreifen fokussiert)",
       "historyBackForward": "Zum vorherigen / nächsten Ort zurück- bzw. vorgehen",
-      "undoLast": "Letzte Änderung rückgängig machen"
+      "undoLast": "Letzte Änderung rückgängig machen",
+      "openInbox": "Posteingang „Braucht dich“ öffnen"
     }
   },
   "update": {

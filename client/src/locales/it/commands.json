@@ -98,7 +98,9 @@
         "noLoops": "Nessun loop può essere eseguito senza una spec.",
         "loading": "Caricamento...",
         "loadFailed": "Impossibile caricare le opzioni."
-      }
+      },
+      "openInbox": "Apri posta in arrivo",
+      "openInboxCount": "Apri posta in arrivo ({{count}} in attesa)"
     }
   },
   "toasts": {
@@ -162,7 +164,8 @@
       "flowPause": "Sospendi o riprendi il Flow (striscia delle esecuzioni attiva)",
       "flowHandOff": "Affida il Flow (striscia delle esecuzioni attiva)",
       "historyBackForward": "Torna indietro / vai avanti al luogo precedente o successivo",
-      "undoLast": "Annulla l'ultima modifica"
+      "undoLast": "Annulla l'ultima modifica",
+      "openInbox": "Apri la posta «Serve il tuo intervento»"
     }
   },
   "update": {

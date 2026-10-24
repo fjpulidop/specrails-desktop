@@ -98,7 +98,9 @@
         "noLoops": "Ningún loop puede ejecutarse sin una spec.",
         "loading": "Cargando...",
         "loadFailed": "No se pudieron cargar las opciones."
-      }
+      },
+      "openInbox": "Abrir bandeja",
+      "openInboxCount": "Abrir bandeja ({{count}} pendientes)"
     }
   },
   "toasts": {
@@ -162,7 +164,8 @@
       "flowPause": "Pausar o reanudar el Flow (con la franja de ejecuciones enfocada)",
       "flowHandOff": "Pasar el Flow a un rail (con la franja de ejecuciones enfocada)",
       "historyBackForward": "Ir atrás / adelante al lugar anterior o siguiente",
-      "undoLast": "Deshacer el último cambio"
+      "undoLast": "Deshacer el último cambio",
+      "openInbox": "Abrir la bandeja «Te necesitan»"
     }
   },
   "update": {

@@ -161,6 +161,7 @@
     "missionTitled": "ミッション · {{title}}",
     "job": "ジョブ {{id}}",
     "review": "レビューパッケージ",
+    "inbox": "受信箱",
     "overlays": {
       "loops": "ループ",
       "plugins": "プラグイン",

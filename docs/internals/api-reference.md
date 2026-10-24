@@ -141,6 +141,12 @@ Example — register a project that uses both Claude and Gemini:
 | `GET` | `/analytics?period=&from=&to=` | Cross-project aggregated spending (the Desktop Analytics page; supports a custom `from`/`to` range) |
 | `GET` | `/recent-jobs?limit=` | Recent jobs across all projects (1–50) |
 
+### Needs-you inbox (app-wide)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/inbox` | Read-only projection of what waits for the person, across every registered project: `{ items, projects, generatedAt }`. Each item: `id` (`<projectId>:<kind>:<sourceId>`), `projectId`, `projectName`, `kind` (`review` \| `question` \| `failed` \| `blocked` \| `budget` \| `jira`), `title`, `detail`, `at`, `version` (changes when the state changes), `action` (`open-review` \| `open-run` \| `resume-run` \| `retry-jira`), `subjectId` (delivery id, loop-run id or Jira outbox id), `conversationId`. Newest first, at most 50 per project. Each project is read through its own database and a failing project is skipped; nothing is cached or stored. Snooze and Done are per viewer and never reach the server. Module: [`server/modules/inbox`](../../server/modules/inbox/README.md). |
+
 ### Mobile Gateway admin (`/api/mobile/*`)
 
 Loopback-only admin surface for the Mobile Gateway (the gateway itself is a separate HTTPS listener that tunnels the web companion's RPC over WebRTC). The wire contract the phone consumes intentionally keeps the legacy `hub.*` names — see the frozen mobile wire-compat note in `CLAUDE.md`.

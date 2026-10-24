@@ -53,6 +53,15 @@ describe('placeKey', () => {
   })
 })
 
+describe('placeKey: the inbox place', () => {
+  it('?inbox=1 is its own place in both modes, and other keys keep their shape', () => {
+    expect(placeKey({ pathname: '/', search: '?inbox=1' }, 'kanban')).toBe('k||/|s=|o=|i=1')
+    expect(placeKey({ pathname: '/', search: '' }, 'kanban')).toBe('k||/|s=|o=')
+    expect(placeKey({ pathname: '/', search: '?mission=m1&inbox=1' }, 'agent')).not.toBe(placeKey({ pathname: '/', search: '?mission=m1' }, 'agent'))
+    expect(placeKey({ pathname: '/', search: '?inbox=0' }, 'agent')).toBe(placeKey({ pathname: '/', search: '' }, 'agent'))
+  })
+})
+
 describe('PlaceStack', () => {
   const kanbanKey = (e: PlaceEntry) => placeKey(e, 'kanban')
   const agentKey = (e: PlaceEntry) => placeKey(e, 'agent')
