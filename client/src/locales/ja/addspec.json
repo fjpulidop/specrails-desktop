@@ -60,7 +60,10 @@
       "failedToStart": "{{projectName}} · 開始に失敗しました",
       "unsupportedFileType": "未対応のファイル形式: {{name}}",
       "uploadFailed": "{{name}} のアップロードに失敗しました: {{message}}"
-    }
+    },
+    "contextSummary": "コンテキスト: {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "コンテキスト: {{preset}}",
+    "costEstimateTitle": "選択したモデルとコンテキストでこのスペックを生成する際の推定コスト"
   },
   "featureProposal": {
     "title": "機能を提案",

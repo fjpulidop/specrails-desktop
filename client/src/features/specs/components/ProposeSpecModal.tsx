@@ -1,8 +1,8 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sparkles, Send, Zap, MessagesSquare, Globe, Ratio, PenLine, Plug } from 'lucide-react'
+import { Sparkles, Send, Zap, MessagesSquare, Globe, Ratio, PenLine, Plug, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useSpecGenTracker } from '../hooks/useSpecGenTracker'
@@ -14,7 +14,8 @@ import { AiEngineSelector } from '../../providers/components/AiEngineSelector'
 import type { LocalTicket, TicketPriority } from '../../../types'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
 import { ContextScopeChecks } from '../../chat/components/ContextScopeChecks'
-import { ContextScopeSlider } from '../../chat/components/ContextScopeSlider'
+import { ContextScopeSlider, PRESETS, presetIndexFor } from '../../chat/components/ContextScopeSlider'
+import { formatUsd } from '../../../lib/format-usd'
 import {
   isSmashCapable,
   providerLabel,
@@ -28,7 +29,7 @@ import { useContextScope } from '../../chat/hooks/useContextScope'
 import { useContextBudget } from '../../chat/hooks/useContextBudget'
 import { useQuickContractRefineLast } from '../hooks/useQuickContractRefineLast'
 import { useJiraConnection } from '../../integrations/hooks/useJiraConnection'
-import { quickHintForScope, tierFromScope, submitAccentForTier, type ContextScope, type SpecMode } from '../../chat/types/context-scope'
+import { estimateCostUsd, quickHintForScope, tierFromScope, submitAccentForTier, type ContextScope, type SpecMode } from '../../chat/types/context-scope'
 import { BrowserCaptureModal } from '../../browser/components/browser-capture/BrowserCaptureModal'
 import { CapturedDomPanel } from '../../browser/components/browser-capture/CapturedDomPanel'
 import { isBrowserCaptureEnabled, type CaptureResult, type CapturedDom } from '../../browser/lib/browser-capture'
@@ -459,6 +460,21 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
     }
   }, [mode, tickets, tracker, pendingSpecId, onClose, onExploreLaunch, model, quickRefine, effectiveScope, effectiveProvider, quickAvailable, captures, title, priority, labels, repositoryIds, t])
 
+  // Context disclosure summary ("Context: Light · ~$0.02"): the label is the
+  // selected slider stop (never the cost tier), so summary and slider agree.
+  const presetIndex = presetIndexFor(effectiveScope)
+  const presetLabel = presetIndex >= 0
+    ? t(`contextScope.preset.${PRESETS[presetIndex].id}`)
+    : t('contextScope.custom')
+  const costEstimate = budget && !budgetError
+    ? `~${formatUsd(estimateCostUsd(effectiveScope, budget, model ?? ''))}`
+    : null
+  const modeDescription = mode === 'quick'
+    ? t('proposeModal.modeDescription.quick')
+    : mode === 'explore'
+      ? t('proposeModal.modeDescription.explore')
+      : t('proposeModal.modeDescription.raw')
+
   return (
     <>
       {/* While the browser-capture modal is open we drop the Add Spec dialog to
@@ -468,73 +484,121 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
           canvas). DialogContent stays mounted with state preserved while the
           capture modal is stacked above at a higher z-index. */}
       <Dialog open={open} modal={!browserOpen} onOpenChange={(o) => { if (!o && !browserOpen) onClose() }}>
-        <DialogContent movableResizable className="max-w-4xl flex flex-col gap-0 p-0 overflow-hidden">
-          <DialogHeader className="px-5 py-4 border-b border-border/40 shrink-0">
-            <DialogTitle className="text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary/70" />
-              {t('proposeModal.title')}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              {t('proposeModal.dialogDescription')}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col p-5 gap-4 flex-1 min-h-0 overflow-y-auto">
-            <div className="flex items-center justify-between gap-3">
+        <DialogContent
+          size="workspace"
+          movableResizable
+          persistKey="specrails.modal.add-spec"
+          data-testid="propose-spec-modal"
+          onOpenAutoFocus={(e) => {
+            // The description editor is the primary input: focus it, not the panel.
+            e.preventDefault()
+            editorRef.current?.focus()
+          }}
+        >
+          <DialogHeader
+            icon={<Sparkles />}
+            actions={(
               <ModeSegmented
                 value={mode}
                 onChange={setMode}
                 fullCodebase={effectiveScope.full}
                 quickAvailable={quickAvailable}
               />
-              {mode !== 'free' && (
-                <div className="flex items-center gap-2">
-                  <AiEngineSelector
-                    value={effectiveProvider ?? 'claude'}
-                    providers={providers}
-                    onChange={handleEngineChange}
-                    disabled={modelLoading}
-                    ariaLabel={t('proposeModal.engineAriaLabel')}
-                  />
-                  <SpecModelPicker
-                    value={model}
-                    allowed={allowed}
-                    customModelAliases={customModelAliases}
-                    loading={modelLoading}
-                    onChange={setModel}
-                  />
-                </div>
-              )}
-            </div>
+            )}
+          >
+            <DialogTitle>{t('proposeModal.title')}</DialogTitle>
+            <DialogDescription data-testid="propose-mode-description">{modeDescription}</DialogDescription>
+          </DialogHeader>
 
-            {mode !== 'free' && (
-              <div className="space-y-3">
-                <ContextScopeSlider
-                  value={effectiveScope}
-                  onChange={handleScopeChange}
-                  budget={budget}
-                  budgetError={budgetError}
-                  model={model ?? ''}
-                  maxPresetId={mode === 'quick' ? 'max' : 'desktop'}
-                  smashCapable={smashCapable}
-                />
-                <ContextScopeChecks
-                  scope={effectiveScope}
-                  mode={mode}
-                  onChange={handleScopeChange}
-                  label={t('contextScope.fineTune')}
-                  showSummary={false}
-                  userMcpSupported={userMcpSupported}
-                  contractRefineSupported={contractRefineSupported}
-                  providerLabel={providerLabel(effectiveProvider)}
-                />
+          <DialogBody className="flex flex-col gap-4">
+            <RichAttachmentEditor
+              ref={editorRef}
+              ticketKey={pendingSpecId}
+              placeholder={mode === 'quick'
+                ? t('proposeModal.editorPlaceholder.quick')
+                : mode === 'explore'
+                  ? t('proposeModal.editorPlaceholder.explore')
+                  : t('proposeModal.editorPlaceholder.raw')}
+              minHeight={mode === 'free' ? 220 : 160}
+              autoFocus
+              ariaLabel={mode === 'free' ? t('proposeModal.raw.bodyAriaLabel') : t('proposeModal.ideaAriaLabel')}
+              onChange={() => {
+                const text = editorRef.current?.getPlainText() ?? ''
+                setHasText(text.trim().length > 0)
+                // Raw mode: keep the title in sync with the first non-empty line
+                // until the user takes over the field.
+                if (mode === 'free' && !titleTouchedRef.current) {
+                  const firstLine = text.split('\n').find((l) => l.trim().length > 0)?.trim().slice(0, 120) ?? ''
+                  setTitle(firstLine)
+                }
+              }}
+              onAttachmentAdded={() => setAttachmentCount((c) => c + 1)}
+              onAttachmentRemoved={(a) => {
+                setAttachmentCount((c) => Math.max(0, c - 1))
+                fetch(`${API_ORIGIN}/api/projects/${activeProjectIdRef.current}/tickets/${pendingSpecId}/attachments/${a.id}`, { method: 'DELETE' }).catch(() => {})
+              }}
+              onUnsupportedFile={(f) => toast.error(t('proposeModal.toast.unsupportedFileType', { name: f.name }))}
+              onUploadError={(err, f) => toast.error(t('proposeModal.toast.uploadFailed', { name: f.name, message: err.message }))}
+              onSubmit={handleSubmit}
+              footerExtra={mode !== 'free' && browserCaptureEnabled && activeProjectId ? (
+                <button
+                  type="button"
+                  onClick={() => setBrowserOpen(true)}
+                  data-testid="from-browser-btn"
+                  title={t('proposeModal.fromWebsiteTitle')}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-accent-info/50 text-accent-info hover:bg-accent-info/10 transition-colors font-medium"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>{t('proposeModal.fromWebsite')}</span>
+                </button>
+              ) : undefined}
+            />
+            {mode !== 'free' && captures.length > 0 && (
+              <div className="space-y-3" data-testid="captured-dom-list">
+                {captures.map((c) => (
+                  <div key={c.domAttachmentId} className="space-y-1.5">
+                    <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/5 p-2 space-y-1.5">
+                      {c.breakpoints ? (
+                        <div className="space-y-1.5" data-testid="capture-breakpoints">
+                          <div className="flex items-center gap-1 text-xs font-medium text-accent-highlight">
+                            <Ratio className="w-3 h-3 shrink-0" />
+                            {t('proposeModal.capture.responsiveSizes', { count: c.breakpoints.length })}
+                          </div>
+                          <div className="flex items-end justify-center gap-2 flex-wrap">
+                            {c.breakpoints.map((b) => (
+                              <div key={b.key} className="flex flex-col items-center gap-1">
+                                <img
+                                  src={b.dataUrl}
+                                  alt={`${b.key} (${b.width}px)`}
+                                  className="max-h-36 w-auto max-w-[10rem] object-contain rounded border border-border/60 bg-background-deep block"
+                                />
+                                <span className="text-xs text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={c.screenshotDataUrl}
+                          alt={c.screenshotName}
+                          className="max-h-44 w-auto max-w-full object-contain rounded border border-border/60 bg-background-deep mx-auto block"
+                        />
+                      )}
+                      {c.dom.url && c.dom.url !== 'about:blank' && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={c.dom.url}>
+                          <Globe className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{c.dom.url}</span>
+                        </div>
+                      )}
+                    </div>
+                    <CapturedDomPanel dom={c.dom} onRemove={() => removeCapture(c)} />
+                  </div>
+                ))}
               </div>
             )}
 
-            <RepositoryScopeSelector value={repositoryIds} onChange={setRepositoryIds} disabled={isSubmitting} />
-
             {mode === 'free' && (
-              <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-150">
+              <div className="flex flex-col gap-4">
                 {/* Title — auto-derived from the first line of the body, editable. */}
                 <div className="flex items-center gap-3">
                   <label htmlFor="raw-spec-title" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
@@ -601,7 +665,8 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                       {labels.map((label) => (
                         <span
                           key={label}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info text-[11px] font-medium"
+                          data-chip=""
+                          className="inline-flex h-5 items-center gap-1 px-1.5 rounded bg-accent-info/15 text-accent-info text-[11px] font-medium"
                         >
                           {label}
                           <button
@@ -638,120 +703,100 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
               </div>
             )}
 
-            <p className="text-sm text-muted-foreground">
-              {mode === 'quick'
-                ? t('proposeModal.modeDescription.quick')
-                : mode === 'explore'
-                  ? t('proposeModal.modeDescription.explore')
-                  : t('proposeModal.modeDescription.raw')}
-            </p>
-            <RichAttachmentEditor
-              ref={editorRef}
-              ticketKey={pendingSpecId}
-              placeholder={mode === 'quick'
-                ? t('proposeModal.editorPlaceholder.quick')
-                : mode === 'explore'
-                  ? t('proposeModal.editorPlaceholder.explore')
-                  : t('proposeModal.editorPlaceholder.raw')}
-              minHeight={mode === 'free' ? 220 : 160}
-              autoFocus
-              ariaLabel={mode === 'free' ? t('proposeModal.raw.bodyAriaLabel') : t('proposeModal.ideaAriaLabel')}
-              onChange={() => {
-                const text = editorRef.current?.getPlainText() ?? ''
-                setHasText(text.trim().length > 0)
-                // Raw mode: keep the title in sync with the first non-empty line
-                // until the user takes over the field.
-                if (mode === 'free' && !titleTouchedRef.current) {
-                  const firstLine = text.split('\n').find((l) => l.trim().length > 0)?.trim().slice(0, 120) ?? ''
-                  setTitle(firstLine)
-                }
-              }}
-              onAttachmentAdded={() => setAttachmentCount((c) => c + 1)}
-              onAttachmentRemoved={(a) => {
-                setAttachmentCount((c) => Math.max(0, c - 1))
-                fetch(`${API_ORIGIN}/api/projects/${activeProjectIdRef.current}/tickets/${pendingSpecId}/attachments/${a.id}`, { method: 'DELETE' }).catch(() => {})
-              }}
-              onUnsupportedFile={(f) => toast.error(t('proposeModal.toast.unsupportedFileType', { name: f.name }))}
-              onUploadError={(err, f) => toast.error(t('proposeModal.toast.uploadFailed', { name: f.name, message: err.message }))}
-              onSubmit={handleSubmit}
-              footerExtra={mode !== 'free' && browserCaptureEnabled && activeProjectId ? (
-                <button
-                  type="button"
-                  onClick={() => setBrowserOpen(true)}
-                  data-testid="from-browser-btn"
-                  title={t('proposeModal.fromWebsiteTitle')}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-accent-info/50 text-accent-info hover:bg-accent-info/10 transition-colors font-medium"
+            <RepositoryScopeSelector value={repositoryIds} onChange={setRepositoryIds} disabled={isSubmitting} />
+
+            {/* Context awareness + Fine-tune collapse behind one disclosure; the
+                summary carries the selected stop and the cost estimate. */}
+            {mode !== 'free' && (
+              <details className="group rounded-lg border border-border/40 bg-card/30" data-testid="context-disclosure">
+                <summary
+                  className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-[13px] text-foreground/90 marker:content-none [&::-webkit-details-marker]:hidden"
+                  data-testid="context-disclosure-summary"
                 >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>{t('proposeModal.fromWebsite')}</span>
-                </button>
-              ) : undefined}
-            />
-            {mode !== 'free' && captures.length > 0 && (
-              <div className="space-y-3" data-testid="captured-dom-list">
-                {captures.map((c) => (
-                  <div key={c.domAttachmentId} className="space-y-1.5">
-                    <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/5 p-2 space-y-1.5">
-                      {c.breakpoints ? (
-                        <div className="space-y-1.5" data-testid="capture-breakpoints">
-                          <div className="flex items-center gap-1 text-[11px] font-medium text-accent-highlight">
-                            <Ratio className="w-3 h-3 shrink-0" />
-                            {t('proposeModal.capture.responsiveSizes', { count: c.breakpoints.length })}
-                          </div>
-                          <div className="flex items-end justify-center gap-2 flex-wrap">
-                            {c.breakpoints.map((b) => (
-                              <div key={b.key} className="flex flex-col items-center gap-1">
-                                <img
-                                  src={b.dataUrl}
-                                  alt={`${b.key} (${b.width}px)`}
-                                  className="max-h-36 w-auto max-w-[10rem] object-contain rounded border border-border/60 bg-background-deep block"
-                                />
-                                <span className="text-[11px] text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <img
-                          src={c.screenshotDataUrl}
-                          alt={c.screenshotName}
-                          className="max-h-44 w-auto max-w-full object-contain rounded border border-border/60 bg-background-deep mx-auto block"
-                        />
-                      )}
-                      {c.dom.url && c.dom.url !== 'about:blank' && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground" title={c.dom.url}>
-                          <Globe className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{c.dom.url}</span>
-                        </div>
-                      )}
-                    </div>
-                    <CapturedDomPanel dom={c.dom} onRemove={() => removeCapture(c)} />
-                  </div>
-                ))}
-              </div>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden />
+                  <span>
+                    {costEstimate
+                      ? t('proposeModal.contextSummary', { preset: presetLabel, cost: costEstimate })
+                      : t('proposeModal.contextSummaryNoCost', { preset: presetLabel })}
+                  </span>
+                </summary>
+                <div className="space-y-3 border-t border-border/30 px-3 py-3">
+                  <ContextScopeSlider
+                    value={effectiveScope}
+                    onChange={handleScopeChange}
+                    budget={budget}
+                    budgetError={budgetError}
+                    model={model ?? ''}
+                    maxPresetId={mode === 'quick' ? 'max' : 'desktop'}
+                    smashCapable={smashCapable}
+                  />
+                  <ContextScopeChecks
+                    scope={effectiveScope}
+                    mode={mode}
+                    onChange={handleScopeChange}
+                    label={t('contextScope.fineTune')}
+                    showSummary={false}
+                    userMcpSupported={userMcpSupported}
+                    contractRefineSupported={contractRefineSupported}
+                    providerLabel={providerLabel(effectiveProvider)}
+                  />
+                </div>
+              </details>
             )}
+
             {jira.connected && mode === 'quick' && (
-              <div className="flex items-center justify-end text-[11px]" data-testid="jira-create-indicator">
+              <div className="flex items-center justify-end text-xs" data-testid="jira-create-indicator">
                 <span className="inline-flex items-center gap-1 text-accent-info">
                   <Plug className="w-3 h-3" />
                   {tj('addSpec.willCreate', { key: jira.jiraProjectKey ?? '' })}
                 </span>
               </div>
             )}
-            <div className="flex items-center justify-end">
-              <Button
-                size="sm"
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                title={!canSubmit ? t('proposeModal.submit.disabledTitle') : undefined}
-                className={`gap-1.5 ${mode === 'free' ? 'bg-accent-info text-background hover:bg-accent-info/90' : submitAccentForTier(tier)}`}
-                data-testid="propose-submit"
-              >
-                {mode === 'free' ? <PenLine className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-                {mode === 'quick' ? t('proposeModal.submit.quick') : mode === 'explore' ? t('proposeModal.submit.explore') : t('proposeModal.submit.raw')}
-              </Button>
-            </div>
-          </div>
+          </DialogBody>
+
+          <DialogFooter
+            start={mode !== 'free' ? (
+              <>
+                <AiEngineSelector
+                  value={effectiveProvider ?? 'claude'}
+                  providers={providers}
+                  onChange={handleEngineChange}
+                  disabled={modelLoading}
+                  ariaLabel={t('proposeModal.engineAriaLabel')}
+                />
+                <SpecModelPicker
+                  value={model}
+                  allowed={allowed}
+                  customModelAliases={customModelAliases}
+                  loading={modelLoading}
+                  onChange={setModel}
+                />
+                {costEstimate && (
+                  <span
+                    className="text-xs tabular-nums text-muted-foreground"
+                    title={t('proposeModal.costEstimateTitle')}
+                    data-testid="propose-cost-estimate"
+                  >
+                    {costEstimate}
+                  </span>
+                )}
+              </>
+            ) : undefined}
+          >
+            <Button type="button" variant="ghost" onClick={onClose} data-testid="propose-cancel">
+              {t('common:actions.cancel')}
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              title={!canSubmit ? t('proposeModal.submit.disabledTitle') : undefined}
+              className={`gap-1.5 ${mode === 'free' ? 'bg-accent-info text-background hover:bg-accent-info/90' : submitAccentForTier(tier)}`}
+              data-testid="propose-submit"
+            >
+              {mode === 'free' ? <PenLine className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+              {mode === 'quick' ? t('proposeModal.submit.quick') : mode === 'explore' ? t('proposeModal.submit.explore') : t('proposeModal.submit.raw')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -847,7 +892,7 @@ function ModeOption({
     >
       {icon}
       {label}
-      <span className={`text-[11px] ${active ? 'text-primary/60' : 'text-muted-foreground'}`}>{hint}</span>
+      <span className={`text-xs ${active ? 'text-primary/60' : 'text-muted-foreground'}`}>{hint}</span>
     </button>
   )
 }

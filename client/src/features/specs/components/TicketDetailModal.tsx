@@ -1,17 +1,20 @@
 import { modalOverlayStyle } from '../../../lib/modal-safe-area'
 import { useState, useEffect, useCallback, useRef, useMemo, useId } from 'react'
-import { createPortal } from 'react-dom'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { formatDistanceToNow } from 'date-fns'
 import { Trans, useTranslation } from 'react-i18next'
-import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink, Loader2 } from 'lucide-react'
+import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink } from 'lucide-react'
 import { openExternalUrl } from '../../../lib/tauri-shell'
 import { toast } from 'sonner'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { Button } from '../../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog'
+import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from '../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { DIALOG_LAYER_CLASS } from '../../../lib/layers'
+import { cn } from '../../../lib/utils'
 import { AttachmentsSection } from '../../chat/components/AttachmentsSection'
 import { TicketFilesTouched } from '../../code/components/code-explorer/TicketFilesTouched'
 import { SpecAddendaSection } from './SpecAddendaSection'
@@ -263,16 +266,20 @@ export function TicketDetailModal({
     if (showLabelInput) labelInputRef.current?.focus()
   }, [showLabelInput])
 
-  // Close on Escape (unless editing or AI overlay is open — overlay owns Esc).
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !editingTitle && !editingDescription && !showDeleteConfirm) {
-        onClose()
-      }
+  // Escape (Radix): close the spec unless an inline editor or the Move-to-rail
+  // popover owns it. Nested dialogs (confirms, SMASH, Selects) are their own
+  // Radix layers, so Escape only ever closes the top one.
+  const handleEscapeKeyDown = useCallback((e: KeyboardEvent) => {
+    const target = e.target instanceof HTMLElement ? e.target : null
+    if (
+      editingTitle
+      || editingDescription
+      || target?.closest('input, textarea, select, [contenteditable="true"]')
+      || document.querySelector('[data-testid="move-to-rail-popover"]')
+    ) {
+      e.preventDefault()
     }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [onClose, editingTitle, editingDescription, showDeleteConfirm])
+  }, [editingTitle, editingDescription])
 
   // Label autocomplete suggestions
   const labelSuggestions = useMemo(() => {
@@ -423,30 +430,56 @@ export function TicketDetailModal({
   const { panelRef, panelStyle, resizeHandles, guardBackdrop } = useMovableResizableModal({
     enabled: !embedded,
     allowMove: false,
+    persistKey: 'specrails.modal.spec-detail',
   })
 
+  // Terminal specs (done/cancelled) are finished work: no Move to rail / Flow.
+  const isTerminal = ticket.status === 'done' || ticket.status === 'cancelled'
+  // Compare needs a second spec to compare against (unknown list ⇒ keep it).
+  const hasComparable = allTickets === undefined || allTickets.some((t) => t.id !== ticket.id)
+
+  // Focus return: the board card that opened the modal often re-renders while
+  // it is open; remember its identity so focus lands on its live replacement.
+  const [returnTarget] = useState(() => {
+    if (embedded || typeof document === 'undefined') return null
+    const el = document.activeElement
+    if (!(el instanceof HTMLElement) || el === document.body) return null
+    const testId = el.getAttribute('data-testid')
+    const selector = el.id ? `#${CSS.escape(el.id)}` : testId ? `[data-testid="${CSS.escape(testId)}"]` : null
+    return { el, selector }
+  })
+  const handleCloseAutoFocus = useCallback((e: Event) => {
+    // Radix only refocuses a `DialogTrigger`; this modal is opened from cards,
+    // chips and menus, so return focus to whatever opened it.
+    e.preventDefault()
+    if (!returnTarget) return
+    const next = returnTarget.el.isConnected
+      ? returnTarget.el
+      : returnTarget.selector ? document.querySelector<HTMLElement>(returnTarget.selector) : null
+    next?.focus()
+  }, [returnTarget])
+
   // ─── Layout helpers ────────────────────────────────────────────────────────
-  const panel = (
+  // Spec detail keeps its own workspace geometry (wider than the `workspace`
+  // size token, 90vh tall): it is an entity page with a metadata rail, and its
+  // header doubles as the drag-to-split gesture, so it is built on the raw
+  // Radix primitives instead of `DialogContent`.
+  const panelClassName = embedded
+    ? 'relative w-full h-full rounded-xl bg-card border border-border/40 shadow-xl flex flex-col overflow-hidden'
+    : 'modal-enter relative w-full max-w-[67rem] m-4 rounded-xl bg-card border border-border/40 shadow-xl flex flex-col h-[90vh] max-h-[calc(100%-2rem)] outline-none'
+  const panelInlineStyle: React.CSSProperties = {
+    ...(dragOffset !== 0
+      ? { transform: `translateX(${dragOffset}px)`, transition: 'none' }
+      : { transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)' }),
+    ...panelStyle,
+  }
+  const statusLabel = t(STATUS_LABEL_KEY[ticket.status], { ns: 'tickets' })
+  const titleHeading = (
+    // No `id` key when standalone: Radix's Title (asChild) supplies the id.
+    <h2 {...(embedded ? { id: titleId } : {})} className="text-base font-semibold text-foreground truncate">{title || t('untitled')}</h2>
+  )
+  const panelContent = (
     <>
-      <div
-        ref={panelRef}
-        // Standalone it is the dialog; embedded in the split view the shell is
-        // the dialog and each pane is a labelled region.
-        role={embedded ? 'region' : 'dialog'}
-        aria-modal={embedded ? undefined : 'true'}
-        aria-labelledby={titleId}
-        className={
-          embedded
-            ? 'relative w-full h-full rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col overflow-hidden'
-            : 'relative w-full max-w-[67rem] m-4 rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 duration-200 h-[90vh] max-h-[calc(100%-2rem)]'
-        }
-        style={{
-          ...(dragOffset !== 0
-            ? { transform: `translateX(${dragOffset}px)`, transition: 'none' }
-            : { transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)' }),
-          ...panelStyle,
-        }}
-      >
         {/* Épica breadcrumb (children only) */}
         {epicParent && (
           <div className="px-5 pt-3">
@@ -475,7 +508,7 @@ export function TicketDetailModal({
                   if (e.key === 'Enter') setEditingTitle(false)
                   if (e.key === 'Escape') { setTitle(ticket.title); setEditingTitle(false) }
                 }}
-                className="w-full bg-transparent border-b border-accent-primary/50 text-sm font-semibold text-foreground outline-none pb-0.5"
+                className="w-full bg-transparent border-b border-accent-primary/50 text-base font-semibold text-foreground outline-none pb-0.5"
               />
             ) : (
               <button
@@ -483,12 +516,12 @@ export function TicketDetailModal({
                 onClick={() => setEditingTitle(true)}
                 className="group flex items-center gap-1.5 text-left w-full"
               >
-                <h2 id={titleId} className="text-sm font-semibold text-foreground truncate">{title || t('untitled')}</h2>
+                {embedded ? titleHeading : <DialogPrimitive.Title asChild>{titleHeading}</DialogPrimitive.Title>}
                 <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </button>
             )}
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[11px] text-foreground font-mono">#{ticket.id}</span>
+              <span className="text-xs text-foreground font-mono">#{ticket.id}</span>
               {/* Work delivered as a draft PR — awaiting the human review decision. */}
               {ticket.status === 'on_review' && (
                 <span title={t('specs:status.onReviewHint')} data-testid="ticket-modal-on-review-badge">
@@ -496,7 +529,11 @@ export function TicketDetailModal({
                 </span>
               )}
             </div>
-            <TicketSpendingLine ticketId={ticket.id} />
+            {/* Plain-language gloss for the "~$x · ≥N turns · 1 quick + 3 loops"
+                line; the 12px override lifts its 11px runs to the modal floor. */}
+            <div title={t('detailModal.spendingLineHint')} className="[&>button]:text-xs" data-testid="ticket-spending-line">
+              <TicketSpendingLine ticketId={ticket.id} />
+            </div>
           </div>
 
           {/* A Done spec is finished work — SMASHing it into Sub-Specs makes no sense. */}
@@ -518,13 +555,13 @@ export function TicketDetailModal({
             <RailAssignmentButton
               ticket={ticket}
               rails={rails}
-              onMoveToRail={onMoveToRail}
+              onMoveToRail={isTerminal ? undefined : onMoveToRail}
               onRemoveFromRail={onRemoveFromRail}
             />
           )}
 
           {/* Flow and Implement (Move to Rail) are two equal ways to work on a spec. */}
-          {rails && onMoveToRail && StartAlternative && (
+          {rails && onMoveToRail && StartAlternative && !isTerminal && (
             <StartAlternative
               variant="button"
               className="shrink-0 mr-1"
@@ -533,7 +570,7 @@ export function TicketDetailModal({
             />
           )}
 
-          {canDrag && (
+          {canDrag && hasComparable && (
             <Button
               variant="outline"
               size="sm"
@@ -574,7 +611,7 @@ export function TicketDetailModal({
                     <button
                       type="button"
                       onClick={() => setEditingDescription(true)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                     >
                       <Pencil className="w-2.5 h-2.5" />
                       {t('common:actions.edit')}
@@ -595,12 +632,12 @@ export function TicketDetailModal({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 text-[11px]"
+                        className="h-6 text-xs"
                         onClick={() => setEditingDescription(false)}
                       >
                         {t('detailModal.doneEditing')}
                       </Button>
-                      <span className="text-[11px] text-muted-foreground">{t('fields.supportsMarkdown')}</span>
+                      <span className="text-xs text-muted-foreground">{t('fields.supportsMarkdown')}</span>
                     </div>
                   </div>
                 ) : description ? (
@@ -645,7 +682,8 @@ export function TicketDetailModal({
                     {ticket.prerequisites.map((id) => (
                       <span
                         key={id}
-                        className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-mono bg-accent/60 text-foreground/70"
+                        data-chip=""
+                        className="inline-flex h-5 items-center rounded px-1.5 text-[11px] font-mono bg-accent/60 text-foreground/70"
                       >
                         #{id}
                       </span>
@@ -776,7 +814,8 @@ export function TicketDetailModal({
                   {labels.map((label) => (
                     <span
                       key={label}
-                      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-medium bg-accent/60 text-foreground/70 group"
+                      data-chip=""
+                      className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-[11px] font-medium bg-accent/60 text-foreground/70 group"
                     >
                       {label}
                       <button
@@ -812,7 +851,7 @@ export function TicketDetailModal({
                         setLabelInput('')
                       }}
                       placeholder={t('detailModal.addLabelPlaceholder')}
-                      className="w-full h-6 rounded border border-border bg-input px-2 text-[11px] text-foreground placeholder:text-muted-foreground"
+                      className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground placeholder:text-muted-foreground"
                     />
                     {labelSuggestions.length > 0 && (
                       <div className="absolute left-0 right-0 top-full mt-0.5 rounded border border-border/50 bg-popover shadow-lg z-10 py-0.5">
@@ -824,7 +863,7 @@ export function TicketDetailModal({
                               e.preventDefault()
                               addLabel(suggestion)
                             }}
-                            className="w-full text-left px-2 py-1 text-[11px] hover:bg-accent/50 text-foreground/80"
+                            className="w-full text-left px-2 py-1 text-xs hover:bg-accent/50 text-foreground/80"
                           >
                             {suggestion}
                           </button>
@@ -836,7 +875,7 @@ export function TicketDetailModal({
                   <button
                     type="button"
                     onClick={() => setShowLabelInput(true)}
-                    className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Plus className="w-2.5 h-2.5" />
                     {t('detailModal.addLabel')}
@@ -885,9 +924,29 @@ export function TicketDetailModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-border/30">
-          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        {/* Footer: destructive action + provenance on the left, Save on the right. */}
+        <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-3 border-t border-border/40">
+          <div className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+            {canDiscard ? (
+              <Button
+                variant="ghost"
+                className="text-accent-info hover:bg-accent-info/10"
+                onClick={() => setShowDiscard(true)}
+                data-testid="jira-move-to-button"
+              >
+                <ArrowRight className="w-3.5 h-3.5 mr-1" />
+                {tj('discard.moveButton', { status: jira.discardStatus })}
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                {t('common:actions.delete')}
+              </Button>
+            )}
             <span>{t('meta.createdAgo', { time: formatRelTime(ticket.created_at) })}</span>
             <span>{t('meta.updatedAgo', { time: formatRelTime(ticket.updated_at) })}</span>
             {ticket.source && (
@@ -896,71 +955,40 @@ export function TicketDetailModal({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5">
-            {canDiscard ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-accent-info hover:bg-accent-info/10"
-                onClick={() => setShowDiscard(true)}
-                data-testid="jira-move-to-button"
-              >
-                <ArrowRight className="w-3 h-3 mr-1" />
-                {tj('discard.moveButton', { status: jira.discardStatus })}
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <Trash2 className="w-3 h-3 mr-1" />
-                {t('common:actions.delete')}
-              </Button>
-            )}
-            {isDirty && (
-              <Button
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => { if (isJiraBacked) setShowJiraSaveConfirm(true); else void handleSave() }}
-                disabled={saving || !title.trim()}
-              >
-                <Save className="w-3 h-3 mr-1" />
-                {saving ? t('common:states.saving') : t('common:actions.save')}
-              </Button>
-            )}
-          </div>
+          {isDirty && (
+            <Button
+              onClick={() => { if (isJiraBacked) setShowJiraSaveConfirm(true); else void handleSave() }}
+              disabled={saving || !title.trim()}
+            >
+              <Save className="w-3.5 h-3.5 mr-1" />
+              {saving ? t('common:states.saving') : t('common:actions.save')}
+            </Button>
+          )}
         </div>
-      </div>
+        {!embedded && <ResizeGrips handles={resizeHandles} placement="inset" />}
+    </>
+  )
 
-      {/* Delete confirmation dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={(open) => { if (!deleting) setShowDeleteConfirm(open) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
-            <DialogDescription>
-              <Trans
-                t={t}
-                i18nKey="deleteDialog.body"
-                values={{ id: ticket.id, title: ticket.title }}
-                components={{ strong: <span className="font-semibold text-foreground" /> }}
-              />
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => { void handleDelete() }} disabled={deleting} aria-busy={deleting}>
-              {deleting
-                ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
-              {t('common:actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+  const dialogs = (
+    <>
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title={t('deleteDialog.title')}
+        description={
+          <Trans
+            t={t}
+            i18nKey="deleteDialog.body"
+            values={{ id: ticket.id, title: ticket.title }}
+            components={{ strong: <span className="font-semibold text-foreground" /> }}
+          />
+        }
+        confirmLabel={t('common:actions.delete')}
+        busy={deleting}
+        onConfirm={handleDelete}
+        testId="ticket-delete-confirm"
+      />
 
       {/* Jira "Move to <status>" — replaces delete for Jira-backed specs */}
       {canDiscard && jira.discardStatus && (
@@ -974,41 +1002,73 @@ export function TicketDetailModal({
       )}
 
       {/* Save confirmation — Save on a Jira-backed spec writes back to the issue */}
-      <Dialog open={showJiraSaveConfirm} onOpenChange={setShowJiraSaveConfirm}>
-        <DialogContent className="max-w-md" data-testid="jira-save-confirm">
-          <DialogHeader>
-            <DialogTitle>{tj('detail.saveTitle')}</DialogTitle>
-            <DialogDescription>{tj('detail.saveBody', { key: ticket.jira_key ?? `#${ticket.id}` })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowJiraSaveConfirm(false)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button size="sm" onClick={() => { setShowJiraSaveConfirm(false); void handleSave() }} disabled={saving} data-testid="jira-save-confirm-btn">
-              <Save className="w-3.5 h-3.5 mr-1.5" />
-              {tj('detail.saveConfirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={showJiraSaveConfirm}
+        onOpenChange={setShowJiraSaveConfirm}
+        tone="default"
+        title={tj('detail.saveTitle')}
+        description={tj('detail.saveBody', { key: ticket.jira_key ?? `#${ticket.id}` })}
+        confirmLabel={tj('detail.saveConfirm')}
+        confirmDisabled={saving}
+        onConfirm={() => { setShowJiraSaveConfirm(false); void handleSave() }}
+        testId="jira-save-confirm"
+        confirmTestId="jira-save-confirm-btn"
+      />
     </>
   )
 
-  if (embedded) return panel
-  return createPortal(
-    // z-[68]: above the floating AgentChatPanel (z-[60]/z-[61]) AND above the
-    // JobDetailModal (z-[65]) — a spec chip clicked INSIDE a mission-mode job
-    // modal must open the ticket IN FRONT of it, not behind. The ticket surface
-    // never opens a job modal, so ticket-always-above-job is a consistent rule.
-    // Still below the MinimizedChatsDock (z-[70]) and browser-capture (z-[80]).
-    // Portalled to document.body so it escapes the #root stacking context
-    // (position:relative + z-index:0) and can layer against body-portalled modals.
-    <div style={modalOverlayStyle()} className="fixed inset-0 z-[68] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/70" onClick={guardBackdrop(onClose)} />
-      {panel}
-      <ResizeGrips handles={resizeHandles} />
-    </div>,
-    document.body,
+  if (embedded) {
+    // Embedded in the split view: the shell is the dialog, each pane a region.
+    return (
+      <>
+        <div ref={panelRef} role="region" aria-labelledby={titleId} className={panelClassName} style={panelInlineStyle}>
+          {panelContent}
+        </div>
+        {dialogs}
+      </>
+    )
+  }
+
+  // Standalone: a Radix modal on the `entity` layer (focus trap, hideOthers,
+  // focus return, Escape stacking). Above the floating agent panel and level
+  // with Job detail — a spec opened from inside Job detail mounts later, so it
+  // is the top layer; nested confirms/SMASH climb to `stacked`.
+  return (
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          style={modalOverlayStyle()}
+          className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.entity)}
+          data-testid="ticket-modal-overlay"
+        />
+        <div
+          style={modalOverlayStyle()}
+          className={cn('pointer-events-none fixed inset-0 flex items-center justify-center', DIALOG_LAYER_CLASS.entity)}
+        >
+          <DialogPrimitive.Content
+            ref={panelRef}
+            data-testid="ticket-detail-modal"
+            data-dialog-layer="entity"
+            className={cn(panelClassName, 'pointer-events-auto')}
+            style={panelInlineStyle}
+            onEscapeKeyDown={handleEscapeKeyDown}
+            onPointerDownOutside={(e) => {
+              // A resize drag that ends over the scrim must not dismiss.
+              let dismiss = false
+              guardBackdrop(() => { dismiss = true })()
+              if (!dismiss) e.preventDefault()
+            }}
+            onCloseAutoFocus={handleCloseAutoFocus}
+          >
+            <DialogPrimitive.Description className="sr-only">#{ticket.id} · {statusLabel}</DialogPrimitive.Description>
+            <DialogLayerProvider layer="entity">
+              {panelContent}
+              {dialogs}
+            </DialogLayerProvider>
+          </DialogPrimitive.Content>
+        </div>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
@@ -1250,7 +1310,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
       role="button"
       style={{ cursor: 'pointer' }}
     >
-      <div className="prose prose-invert prose-xs max-w-[75ch] prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[11px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+      <div className="prose prose-invert prose-xs max-w-[75ch] prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-xs [&_code]:!text-xs [&_pre]:!text-xs prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{userPart}</ReactMarkdown>
       </div>
       {contract && (
@@ -1261,11 +1321,11 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
         >
           <summary className="cursor-pointer text-xs font-medium text-foreground/80 select-none flex items-center gap-2">
             {t('contractLayer.title')}
-            <span className="rounded-full bg-muted/40 px-1.5 text-[11px] text-foreground/60">
+            <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-[11px] text-foreground/60">
               {t('contractLayer.populated', { n: countContractSubsections(contract) })}
             </span>
           </summary>
-          <div className="mt-2 prose prose-invert prose-xs max-w-[75ch] prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[11px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+          <div className="mt-2 prose prose-invert prose-xs max-w-[75ch] prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-xs [&_code]:!text-xs [&_pre]:!text-xs prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{contract}</ReactMarkdown>
           </div>
         </details>

@@ -3,8 +3,7 @@ import { createPortal } from 'react-dom'
 import { Trans, useTranslation } from 'react-i18next'
 import { Trash2, ChevronRight, Circle, CheckCircle2, AlertCircle, Flag, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react'
 import { cn } from '../../../lib/utils'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog'
-import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { useJiraDiscard } from '../../integrations/context/JiraDiscardContext'
 import { DiscardSpecDialog } from '../../integrations/components/jira/DiscardSpecDialog'
 import type { TicketStatus, TicketPriority, LocalTicket } from '../../../types'
@@ -368,38 +367,22 @@ export function TicketContextMenu({
         />
       )}
 
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
-            <DialogDescription>
-              <Trans
-                t={t}
-                i18nKey="deleteDialog.body"
-                values={{ id: ticket.id, title: ticket.title }}
-                components={{ strong: <span className="font-semibold text-foreground" /> }}
-              />
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDeleteConfirm(false)}
-            >
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDeleteConfirmed}
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-              {t('common:actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title={t('deleteDialog.title')}
+        description={
+          <Trans
+            t={t}
+            i18nKey="deleteDialog.body"
+            values={{ id: ticket.id, title: ticket.title }}
+            components={{ strong: <span className="font-semibold text-foreground" /> }}
+          />
+        }
+        confirmLabel={t('common:actions.delete')}
+        onConfirm={handleDeleteConfirmed}
+        testId="ticket-delete-confirm"
+      />
     </>
   )
 }

@@ -89,7 +89,8 @@
     },
     "starting": "開始中…",
     "confirmReSmash": "再 SMASH を確認",
-    "smash": "SMASH"
+    "smash": "SMASH",
+    "description": "SMASH はこのスペックを、1 つずつ実装・レビューできる小さなサブスペックに分割します。元のスペックはそれらの Epic になります。"
   },
   "family": {
     "subSpecsHeader": "サブスペック ({{count}})",

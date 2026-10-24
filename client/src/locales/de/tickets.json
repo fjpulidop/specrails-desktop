@@ -55,7 +55,8 @@
     "effort": "Aufwand",
     "assignee": "Zugewiesen an",
     "continueEditing": "Weiter bearbeiten",
-    "ticketFallbackLabel": "Ticket #{{id}}"
+    "ticketFallbackLabel": "Ticket #{{id}}",
+    "spendingLineHint": "Alles, was bisher für diese Spec angefallen ist: Gesamtkosten · Agenten-Turns (≥ bedeutet, dass einige Läufe keine Turns gemeldet haben) · aktive Zeit · Läufe nach Art (z. B. „1 quick + 3 loops“ = eine Quick-Spec-Erstellung und drei Loop-Läufe). Klicken, um es in Analytics zu öffnen."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -90,7 +91,8 @@
     "toast": {
       "created": "Ticket erstellt",
       "createFailed": "Ticket konnte nicht erstellt werden"
-    }
+    },
+    "description": "Füge dem Board manuell eine Spec hinzu. Sie startet im gewählten Status und kann später verfeinert oder auf eine Rail verschoben werden."
   },
   "comparePicker": {
     "title": "Vergleichen mit…",

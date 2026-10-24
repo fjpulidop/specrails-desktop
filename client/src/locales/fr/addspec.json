@@ -60,7 +60,10 @@
       "failedToStart": "{{projectName}} · Échec du démarrage",
       "unsupportedFileType": "Type de fichier non pris en charge : {{name}}",
       "uploadFailed": "Échec de l'upload de {{name}} : {{message}}"
-    }
+    },
+    "contextSummary": "Contexte : {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "Contexte : {{preset}}",
+    "costEstimateTitle": "Coût estimé de la génération de cette spec avec le modèle et le contexte choisis"
   },
   "featureProposal": {
     "title": "Proposer une fonctionnalité",

@@ -55,7 +55,8 @@
     "effort": "Esfuerzo",
     "assignee": "Asignado a",
     "continueEditing": "Seguir editando",
-    "ticketFallbackLabel": "Ticket #{{id}}"
+    "ticketFallbackLabel": "Ticket #{{id}}",
+    "spendingLineHint": "Todo lo gastado en esta spec hasta ahora: coste total · turnos del agente (≥ indica que algunas ejecuciones no informaron turnos) · tiempo activo · ejecuciones por tipo (p. ej. «1 quick + 3 loops» = una generación Quick de la spec y tres ejecuciones de loop). Haz clic para abrirlo en Analíticas."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -90,7 +91,8 @@
     "toast": {
       "created": "Ticket creado",
       "createFailed": "No se pudo crear el ticket"
-    }
+    },
+    "description": "Añade una spec al tablero a mano. Empieza en el estado que elijas y podrás refinarla o moverla a un rail más tarde."
   },
   "comparePicker": {
     "title": "Comparar con…",

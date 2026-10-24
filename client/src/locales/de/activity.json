@@ -89,7 +89,8 @@
     },
     "starting": "Wird gestartet…",
     "confirmReSmash": "Re-SMASH bestätigen",
-    "smash": "SMASH"
+    "smash": "SMASH",
+    "description": "SMASH zerlegt diese Spec in kleinere Sub-Specs, die einzeln umgesetzt und geprüft werden können. Die ursprüngliche Spec wird zu ihrem Epic."
   },
   "family": {
     "subSpecsHeader": "Sub-Specs ({{count}})",

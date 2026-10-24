@@ -1,9 +1,12 @@
 import { modalOverlayStyle } from '../lib/modal-safe-area'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { TicketDetailModal } from '../features/specs/components/TicketDetailModal'
 import { SpecComparePicker } from '../features/specs/components/SpecComparePicker'
+import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from './ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../lib/layers'
+import { cn } from '../lib/utils'
 import type { LocalTicket } from '../types'
 import type { CompareSide, SplitState } from '../features/specs/context/TicketDetailModalContext'
 
@@ -168,36 +171,48 @@ export function SplitViewShell({
     )
   }
 
-  // Escape anywhere in the shell closes both panels — except while typing
-  // (the panels' inline editors own Escape to cancel an edit) and for portal
-  // content such as a nested confirm dialog, which handles its own Escape.
-  const handleShellKey = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
-      const target = e.target as HTMLElement
-      if (!containerRef.current?.contains(target)) return
-      if (target.closest('input, textarea, select, [contenteditable="true"]')) return
-      onCloseAll()
-    },
-    [onCloseAll],
-  )
+  // Escape (Radix) closes both panels — except while typing (the panels'
+  // inline editors own Escape to cancel an edit). Nested dialogs (confirms,
+  // Selects) are their own Radix layers and consume Escape first.
+  const handleEscapeKeyDown = useCallback((e: KeyboardEvent) => {
+    const target = e.target instanceof HTMLElement ? e.target : null
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) e.preventDefault()
+  }, [])
+
+  // Focus return: Radix only refocuses a `DialogTrigger`; the shell is opened
+  // from Spec detail's Compare button / drag gesture, which unmounts with it.
+  const [returnTarget] = useState<HTMLElement | null>(() => {
+    if (typeof document === 'undefined') return null
+    const el = document.activeElement
+    return el instanceof HTMLElement && el !== document.body ? el : null
+  })
+  const handleCloseAutoFocus = useCallback((e: Event) => {
+    e.preventDefault()
+    if (returnTarget?.isConnected) returnTarget.focus()
+  }, [returnTarget])
 
   const leftPct = (state.splitRatio * 100).toFixed(2)
   const rightPct = ((1 - state.splitRatio) * 100).toFixed(2)
 
-  return createPortal(
-    <div
+  // A Radix modal on the `entity` layer (same as standalone Spec detail):
+  // focus trap, hideOthers, focus return, Escape stacking.
+  return (
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onCloseAll() }}>
+    <DialogPrimitive.Portal>
+    <DialogPrimitive.Overlay style={modalOverlayStyle()} className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.entity)} />
+    <DialogPrimitive.Content
       ref={containerRef}
       data-testid="split-view-shell"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('split.label')}
+      data-dialog-layer="entity"
+      aria-describedby={undefined}
       style={modalOverlayStyle()}
-      className="fixed inset-0 z-[68] flex"
+      className={cn('fixed inset-0 flex outline-none', DIALOG_LAYER_CLASS.entity)}
       onClick={handleBackdropClick}
-      onKeyDown={handleShellKey}
+      onEscapeKeyDown={handleEscapeKeyDown}
+      onCloseAutoFocus={handleCloseAutoFocus}
     >
-      <div className="absolute inset-0 bg-black/70 pointer-events-none" aria-hidden />
+      <DialogPrimitive.Title className="sr-only">{t('split.label')}</DialogPrimitive.Title>
+      <DialogLayerProvider layer="entity">
       <div
         className="relative flex w-full h-full"
         style={{
@@ -251,7 +266,9 @@ export function SplitViewShell({
           </div>
         </div>
       </div>
-    </div>,
-    document.body,
+      </DialogLayerProvider>
+    </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }

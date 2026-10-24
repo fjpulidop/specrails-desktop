@@ -55,7 +55,8 @@
     "effort": "工作量",
     "assignee": "负责人",
     "continueEditing": "继续编辑",
-    "ticketFallbackLabel": "工单 #{{id}}"
+    "ticketFallbackLabel": "工单 #{{id}}",
+    "spendingLineHint": "到目前为止在此规格上的全部消耗：总成本 · 智能体轮次（≥ 表示部分运行未报告轮次）· 活跃时间 · 按类型统计的运行（例如“1 quick + 3 loops”= 一次 Quick 规格生成和三次 loop 运行）。点击可在 Analytics 中打开。"
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -90,7 +91,8 @@
     "toast": {
       "created": "工单已创建",
       "createFailed": "创建工单失败"
-    }
+    },
+    "description": "手动向看板添加一个规格。它会以你选择的状态开始，之后可以继续完善或移到 rail。"
   },
   "comparePicker": {
     "title": "选择对比对象…",

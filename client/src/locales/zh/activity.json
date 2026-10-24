@@ -89,7 +89,8 @@
     },
     "starting": "正在启动…",
     "confirmReSmash": "确认重新 SMASH",
-    "smash": "SMASH"
+    "smash": "SMASH",
+    "description": "SMASH 会把此规格拆分成更小的子 Spec，便于逐个实现和评审。原规格将成为它们的 Epic。"
   },
   "family": {
     "subSpecsHeader": "子 Spec（{{count}}）",

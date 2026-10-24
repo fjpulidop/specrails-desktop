@@ -60,7 +60,10 @@
       "failedToStart": "{{projectName}} · Failed to start",
       "unsupportedFileType": "Unsupported file type: {{name}}",
       "uploadFailed": "Upload failed for {{name}}: {{message}}"
-    }
+    },
+    "contextSummary": "Context: {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "Context: {{preset}}",
+    "costEstimateTitle": "Estimated cost of generating this spec with the selected model and context"
   },
   "featureProposal": {
     "title": "Propose a Feature",

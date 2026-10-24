@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import type { TicketStatus, TicketPriority } from '../../../types'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
@@ -102,12 +102,20 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent movableResizable className="max-w-lg glass-card">
+      <DialogContent
+        size="form"
+        onOpenAutoFocus={(e) => {
+          // The first field (title) takes initial focus, not the panel.
+          e.preventDefault()
+          titleRef.current?.focus()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t('createModal.title')}</DialogTitle>
+          <DialogDescription>{t('createModal.description')}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <DialogBody className="space-y-3">
           {/* Title */}
           <div>
             <label className="text-xs font-medium text-muted-foreground block mb-1">
@@ -137,7 +145,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
               placeholder={t('fields.markdownPlaceholder')}
               className="w-full rounded border border-border bg-input px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground resize-y min-h-[80px]"
             />
-            <span className="text-[11px] text-muted-foreground mt-0.5 block">{t('fields.supportsMarkdown')}</span>
+            <span className="text-xs text-muted-foreground mt-0.5 block">{t('fields.supportsMarkdown')}</span>
           </div>
 
           {/* Status + Priority row */}
@@ -185,7 +193,8 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
               {labels.map((label) => (
                 <span
                   key={label}
-                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-medium bg-accent/60 text-foreground/70"
+                  data-chip=""
+                  className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-[11px] font-medium bg-accent/60 text-foreground/70"
                 >
                   {label}
                   <button
@@ -211,7 +220,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
                   }
                 }}
                 placeholder={t('createModal.labelsPlaceholder')}
-                className="w-full h-6 rounded border border-border bg-input px-2 text-[11px] text-foreground placeholder:text-muted-foreground"
+                className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground placeholder:text-muted-foreground"
               />
               {labelSuggestions.length > 0 && (
                 <div className="absolute left-0 right-0 top-full mt-0.5 rounded border border-border/50 bg-popover shadow-lg z-10 py-0.5">
@@ -223,7 +232,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
                         e.preventDefault()
                         addLabel(suggestion)
                       }}
-                      className="w-full text-left px-2 py-1 text-[11px] hover:bg-accent/50 text-foreground/80"
+                      className="w-full text-left px-2 py-1 text-xs hover:bg-accent/50 text-foreground/80"
                     >
                       {suggestion}
                     </button>
@@ -236,14 +245,13 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
           {isBugTicket(labels) && (
             <RegressionOfPicker value={regressionOf} onChange={setRegressionOf} disabled={saving} />
           )}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             {t('common:actions.cancel')}
           </Button>
           <Button
-            size="sm"
             onClick={handleSubmit}
             disabled={saving || !title.trim()}
           >

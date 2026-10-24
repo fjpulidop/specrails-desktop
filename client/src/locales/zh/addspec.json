@@ -60,7 +60,10 @@
       "failedToStart": "{{projectName}} · 启动失败",
       "unsupportedFileType": "不支持的文件类型：{{name}}",
       "uploadFailed": "{{name}} 上传失败：{{message}}"
-    }
+    },
+    "contextSummary": "上下文：{{preset}} · {{cost}}",
+    "contextSummaryNoCost": "上下文：{{preset}}",
+    "costEstimateTitle": "使用所选模型和上下文生成此规格的预估成本"
   },
   "featureProposal": {
     "title": "提议一个功能",

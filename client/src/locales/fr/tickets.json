@@ -55,7 +55,8 @@
     "effort": "Effort",
     "assignee": "Assigné à",
     "continueEditing": "Continuer l'édition",
-    "ticketFallbackLabel": "Ticket #{{id}}"
+    "ticketFallbackLabel": "Ticket #{{id}}",
+    "spendingLineHint": "Tout ce qui a été dépensé pour cette spec jusqu’ici : coût total · tours de l’agent (≥ signifie que certaines exécutions n’ont pas signalé leurs tours) · temps actif · exécutions par type (p. ex. « 1 quick + 3 loops » = une génération Quick de la spec et trois exécutions de loop). Cliquez pour l’ouvrir dans Analytics."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -90,7 +91,8 @@
     "toast": {
       "created": "Ticket créé",
       "createFailed": "Échec de la création du ticket"
-    }
+    },
+    "description": "Ajoutez une spec au tableau à la main. Elle démarre dans le statut choisi et pourra être affinée ou déplacée vers un rail plus tard."
   },
   "comparePicker": {
     "title": "Comparer avec…",

@@ -55,7 +55,8 @@
     "effort": "Effort",
     "assignee": "Assignee",
     "continueEditing": "Continue Editing",
-    "ticketFallbackLabel": "Ticket #{{id}}"
+    "ticketFallbackLabel": "Ticket #{{id}}",
+    "spendingLineHint": "Everything spent on this spec so far: total cost · agent turns (≥ means some runs did not report turns) · active time · runs by kind (e.g. “1 quick + 3 loops” = one Quick spec generation and three loop runs). Click to open it in Analytics."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -90,7 +91,8 @@
     "toast": {
       "created": "Ticket created",
       "createFailed": "Failed to create ticket"
-    }
+    },
+    "description": "Add a spec to the board by hand. It starts in the status you pick and can be refined or moved to a rail later."
   },
   "comparePicker": {
     "title": "Compare with…",

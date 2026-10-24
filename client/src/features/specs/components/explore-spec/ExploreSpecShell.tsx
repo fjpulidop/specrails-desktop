@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Check, Send, Loader2, Minus, Sparkles, X, Plug, Globe, Ratio } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button } from '../../../../components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../../components/ui/dialog'
+import { DialogLayerProvider } from '../../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
+import { DIALOG_LAYER_CLASS } from '../../../../lib/layers'
 import { useChatContext, type ChatConversation } from '../../../chat/hooks/useChat'
 import { providerLabel } from '../../../providers/lib/provider-capabilities'
 import { useSpecDraftStream } from '../../hooks/useSpecDraftStream'
@@ -748,17 +750,9 @@ export function ExploreSpecShell({
     }
   }, [isCreating, draft, activeProjectId, onTicketCreated, onClose, pendingSpecId, editTicket, isRealSpecEdit, conversationId, t])
 
-  // Esc -> request close. (⌘⏎ is handled inside RichAttachmentEditor.)
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        requestClose()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [requestClose])
+  // Esc -> request close (Radix `onEscapeKeyDown` below, so a nested layer —
+  // the close prompt, Review overlay, browser capture — consumes it first).
+  // (⌘⏎ is handled inside RichAttachmentEditor.)
 
   // Push live state up so the parent can auto-minimize this shell when
   // another minimized session is restored (mutual-exclusion rule), and so
@@ -784,19 +778,36 @@ export function ExploreSpecShell({
 
   const macPadLeft = isMacTauriOverlay() ? 'pl-[88px]' : 'pl-4'
 
-  return createPortal(
+  // Full-screen shell with its own geometry and key handling, built on the raw
+  // Radix primitives: FocusScope trap + `hideOthers` + focus return. The
+  // backdrop is decorative — an outside press never closes the shell (it can
+  // hold an unsaved conversation); Esc / Back go through `requestClose`.
+  return (
+    <DialogPrimitive.Root open>
+      <DialogPrimitive.Portal>
     <div
-      className="fixed inset-0 z-50 flex p-3 pt-10 sm:p-6 sm:pt-12 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
+      className={`modal-scrim-enter fixed inset-0 ${DIALOG_LAYER_CLASS.base} flex p-3 pt-10 sm:p-6 sm:pt-12 bg-scrim backdrop-blur-sm`}
       data-testid="explore-spec-backdrop"
     >
-      <div
+      <DialogPrimitive.Content
         ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('shell.dialogAriaLabel')}
-        className="m-auto w-full h-full max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-2xl overflow-hidden"
+        aria-describedby={undefined}
+        data-testid="explore-spec-shell"
+        className="modal-enter relative m-auto w-full h-full max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-xl overflow-hidden outline-none"
         style={panelStyle}
+        onOpenAutoFocus={(e) => {
+          // The composer is the primary input; never land on the Back button.
+          e.preventDefault()
+          composerRef.current?.focus()
+        }}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault()
+          requestClose()
+        }}
       >
+      <DialogPrimitive.Title className="sr-only">{t('shell.dialogAriaLabel')}</DialogPrimitive.Title>
+      <DialogLayerProvider layer="base">
       {/* Header */}
       <div
         {...headerHandleProps}
@@ -1109,38 +1120,28 @@ export function ExploreSpecShell({
       </div>
 
       {/* Close prompt — Save as Draft / Discard / Cancel */}
-      <Dialog open={confirmDiscard} onOpenChange={(o) => !o && setConfirmDiscard(false)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('shell.closePrompt.title')}</DialogTitle>
-            <DialogDescription>
-              {t('shell.closePrompt.description')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button variant="ghost" size="sm" onClick={() => setConfirmDiscard(false)} data-testid="close-prompt-cancel">
-              {t('common:actions.cancel')}
-            </Button>
-            <Button variant="destructive" size="sm" onClick={onClose} data-testid="close-prompt-discard">
-              {t('common:actions.discard')}
-            </Button>
-            <Button
-              size="sm"
-              onClick={async () => {
-                const ok = await handleSaveAsDraft()
-                setConfirmDiscard(false)
-                if (ok) onClose()
-              }}
-              autoFocus
-              data-testid="close-prompt-save-draft"
-            >
-              {t('shell.saveAsDraft')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      </div>
-      <ResizeGrips handles={resizeHandles} />
+      <ConfirmDialog
+        open={confirmDiscard}
+        onOpenChange={(o) => { if (!o) setConfirmDiscard(false) }}
+        tone="default"
+        title={t('shell.closePrompt.title')}
+        description={t('shell.closePrompt.description')}
+        confirmLabel={t('shell.saveAsDraft')}
+        onConfirm={async () => {
+          const ok = await handleSaveAsDraft()
+          setConfirmDiscard(false)
+          if (ok) onClose()
+        }}
+        secondaryAction={(
+          <Button variant="destructive" onClick={onClose} data-testid="close-prompt-discard">
+            {t('common:actions.discard')}
+          </Button>
+        )}
+        testId="explore-close-prompt"
+        cancelTestId="close-prompt-cancel"
+        confirmTestId="close-prompt-save-draft"
+      />
+      <ResizeGrips handles={resizeHandles} placement="inset" />
       {REVIEW_ENABLED && reviewOpen && (
         <ExploreReviewOverlay
           baseline={editTicket
@@ -1179,8 +1180,11 @@ export function ExploreSpecShell({
           confirmLabel={isEditingExisting ? t('shell.updateSpec') : t('shell.createSpec')}
         />
       )}
-    </div>,
-    document.body,
+      </DialogLayerProvider>
+      </DialogPrimitive.Content>
+    </div>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 

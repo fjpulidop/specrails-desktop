@@ -55,7 +55,8 @@
     "effort": "工数",
     "assignee": "担当者",
     "continueEditing": "編集を続ける",
-    "ticketFallbackLabel": "チケット #{{id}}"
+    "ticketFallbackLabel": "チケット #{{id}}",
+    "spendingLineHint": "これまでにこのスペックで使った内容: 合計コスト · エージェントのターン数（≥ は一部の実行がターン数を報告しなかったことを示します）· アクティブ時間 · 種類別の実行数（例:「1 quick + 3 loops」= Quick によるスペック生成 1 回とループ実行 3 回）。クリックすると Analytics で開きます。"
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -90,7 +91,8 @@
     "toast": {
       "created": "チケットを作成しました",
       "createFailed": "チケットの作成に失敗しました"
-    }
+    },
+    "description": "スペックを手動でボードに追加します。選択したステータスから始まり、後で改善したりレールへ移動したりできます。"
   },
   "comparePicker": {
     "title": "比較対象を選択…",

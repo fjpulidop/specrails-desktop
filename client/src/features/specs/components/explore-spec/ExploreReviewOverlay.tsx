@@ -1,10 +1,13 @@
-import { useEffect, useMemo } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useMemo, useState } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Check, ChevronRight } from 'lucide-react'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { projectRepositories } from '../../../projects/lib/project-repositories'
 import { Button } from '../../../../components/ui/button'
+import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from '../../../../components/ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../../../../lib/layers'
+import { cn } from '../../../../lib/utils'
 import { wordDiff, arrayDiff, type DiffSegment, type ArrayDiffEntry } from './diff-utils'
 
 export interface ReviewBaseline {
@@ -64,30 +67,39 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
   const labelsDiff = useMemo(() => arrayDiff(baseline.labels, proposed.labels), [baseline.labels, proposed.labels])
   const criteriaDiff = useMemo(() => arrayDiff(baseline.acceptanceCriteria, proposed.acceptanceCriteria), [baseline.acceptanceCriteria, proposed.acceptanceCriteria])
   const priorityChanged = baseline.priority !== proposed.priority
+  // Focus return to the shell's Review button (Radix only refocuses a DialogTrigger).
+  const [returnTarget] = useState<HTMLElement | null>(() => {
+    if (typeof document === 'undefined') return null
+    const el = document.activeElement
+    return el instanceof HTMLElement && el !== document.body ? el : null
+  })
+  const handleCloseAutoFocus = useCallback((e: Event) => {
+    e.preventDefault()
+    if (returnTarget?.isConnected) returnTarget.focus()
+  }, [returnTarget])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onBack()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onBack])
-
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('reviewOverlay.dialogAriaLabel')}
-      data-testid="explore-review-overlay"
-      className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/70 backdrop-blur-sm"
-    >
-      <div className="flex flex-col w-full max-w-5xl h-full bg-background border-x border-border/30 shadow-2xl">
+  // Opened over the Explore Spec shell, so it sits on the `stacked` layer.
+  // Radix owns Escape (= Back to edit) and stacks it above the shell's own
+  // Esc handling; full-height column geometry is specific to this review.
+  return (
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next && !isCommitting) onBack() }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.stacked)} />
+        <DialogPrimitive.Content
+          aria-label={t('reviewOverlay.dialogAriaLabel')}
+          aria-describedby={undefined}
+          data-testid="explore-review-overlay"
+          data-dialog-layer="stacked"
+          onCloseAutoFocus={handleCloseAutoFocus}
+          className={cn(
+            'modal-panel fixed inset-y-0 left-1/2 flex w-full max-w-5xl -translate-x-1/2 flex-col border-x border-border/30 bg-background shadow-xl outline-none',
+            DIALOG_LAYER_CLASS.stacked,
+          )}
+        >
+        <DialogLayerProvider layer="stacked">
         <header className="flex items-center justify-between px-6 py-4 border-b border-border/30">
           <div>
-            <h2 className="text-base font-semibold">{t('reviewOverlay.heading')}</h2>
+            <DialogPrimitive.Title className="text-base font-semibold">{t('reviewOverlay.heading')}</DialogPrimitive.Title>
           </div>
         </header>
 
@@ -158,7 +170,6 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
           <Button
             type="button"
             variant="ghost"
-            size="sm"
             onClick={onBack}
             disabled={isCommitting}
             data-testid="review-back"
@@ -168,7 +179,6 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
           </Button>
           <Button
             type="button"
-            size="sm"
             onClick={onCommit}
             disabled={isCommitting || !proposed.title.trim()}
             data-testid="review-commit"
@@ -178,9 +188,10 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
             {mode === 'edit' ? t('reviewOverlay.updateSpec') : t('reviewOverlay.createSpec')}
           </Button>
         </footer>
-      </div>
-    </div>,
-    document.body,
+        </DialogLayerProvider>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
