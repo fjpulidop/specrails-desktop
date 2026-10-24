@@ -4,7 +4,7 @@ Every setting you can change, grouped by where you'll find it.
 
 ## Themes
 
-Open **Desktop Settings** (gear icon at the bottom of the Arc sidebar) → **Appearance**.
+Open **App settings** (gear icon at the bottom of the left sidebar) → **Appearance**.
 
 Five built-in themes:
 
@@ -33,16 +33,18 @@ The active theme persists to `desktop_settings.ui_theme` on the server and mirro
 
 Both sidebars cycle through the same three states with their pin icon:
 
-- **Pinned-open** — always wide.
-- **Pinned-collapsed** — always a narrow strip of icons.
-- **Unpinned** *(default)* — collapsed strip that expands on hover.
+- **Pinned-open** — always wide; the content makes room for it. The **left** sidebar starts here.
+- **Pinned-collapsed** — always a narrow strip of icons. On the left strip each project shows a two-letter tile (for example **SD** for *specrails-desktop*), with a badge when one of its missions needs you.
+- **Unpinned** — a narrow strip that opens when you rest the pointer on it (or move keyboard focus into it) and closes shortly after you leave. It opens *over* the content, so nothing underneath jumps. The **right** sidebar starts here.
 
-Keyboard shortcuts:
+In a window 1100px wide or narrower, a pinned-open sidebar behaves as unpinned so the content keeps its room; widen the window and it docks again. Drag a sidebar's inner edge to resize it (or focus the edge and use the arrow keys; **Home** resets).
+
+Keyboard shortcuts (the VS Code / Cursor convention):
 
 | Shortcut | Action |
 |----------|--------|
-| `Cmd+B` / `Ctrl+B` | Cycle the **right** project sidebar (Chat) |
-| `⌥⌘B` / `Ctrl+Alt+B` | Cycle the **left** Arc sidebar |
+| `Cmd+B` / `Ctrl+B` | Cycle the **left** sidebar (projects and missions) |
+| `⌥⌘B` / `Ctrl+Alt+B` | Cycle the **right** sidebar (project sections, or **On workspace** in Mission mode) |
 
 State is per-machine (local UI preference, not synced).
 
@@ -104,7 +106,7 @@ See [terminal.md](terminal.md) for the full reference of keyboard shortcuts and 
 
 ## App-wide settings
 
-Open **Desktop Settings** from the Arc sidebar. These apply across every project.
+Open **App settings** from the bottom of the left sidebar. These apply across every project.
 
 | Section | What it does |
 |---------|--------------|

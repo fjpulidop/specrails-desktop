@@ -39,7 +39,7 @@ Uma faixa fina percorre o fundo da janela. É pequena, mas prática:
 
 ## Alguns atalhos úteis
 
-- **Cmd/Ctrl+B** — afixar ou recolher as barras laterais.
+- **Cmd/Ctrl+B** — afixar ou recolher a barra lateral esquerda; **Option+Cmd+B** (**Ctrl+Alt+B**) faz o mesmo com a direita.
 - **Cmd/Ctrl+J** — alternar o painel de terminal.
 - **Cmd/Ctrl+K** — abrir a pesquisa.
 

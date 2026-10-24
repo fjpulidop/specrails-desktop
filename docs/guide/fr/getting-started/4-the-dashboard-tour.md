@@ -39,7 +39,7 @@ Un fin bandeau court tout en bas de la fenêtre. Discret mais bien pratique :
 
 ## Quelques raccourcis bien pratiques
 
-- **Cmd/Ctrl+B** — épingler ou replier les barres latérales.
+- **Cmd/Ctrl+B** — épingler ou replier la barre latérale gauche ; **Option+Cmd+B** (**Ctrl+Alt+B**) fait de même pour la droite.
 - **Cmd/Ctrl+J** — afficher ou masquer le panneau de terminal.
 - **Cmd/Ctrl+K** — ouvrir la recherche.
 

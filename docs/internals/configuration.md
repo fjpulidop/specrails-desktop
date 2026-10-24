@@ -39,7 +39,7 @@ To rotate the token, stop the app, delete `~/.specrails/desktop.token`, and star
 
 ## App settings
 
-App settings apply across all projects. Open them from the **left sidebar → Settings**, or via the Command Palette (`Cmd/Ctrl+K`) → **Desktop Settings**. They are persisted in `~/.specrails/desktop.sqlite` under the `desktop_settings` key/value table.
+App settings apply across all projects. Open them from the **left sidebar → App settings**, or via the Command Palette (`Cmd/Ctrl+K`) → **Desktop Settings**. They are persisted in `~/.specrails/desktop.sqlite` under the `desktop_settings` key/value table.
 
 The Global Settings page is organised into the sections below (it also surfaces a read-only **Registered Projects** list, an **Onboarding** replay button, and a **Desktop Information** diagnostics block, which carry no stored settings):
 
@@ -65,7 +65,7 @@ The Global Settings page is organised into the sections below (it also surfaces 
 
 ## Project settings
 
-Project settings apply to a single project. Open them from the project's **Settings** entry in the right sidebar (route: `/settings`). The page is titled **Project Settings** and has these sections:
+Project settings apply to a single project. Open them from the project's **Project settings** entry in the right sidebar (route: `/settings`). The page is titled **Project Settings** and has these sections:
 
 | Section | What it controls |
 |---------|------------------|

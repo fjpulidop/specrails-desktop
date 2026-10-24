@@ -39,7 +39,7 @@ Una sottile striscia corre lungo il bordo inferiore della finestra. È piccola m
 
 ## Qualche scorciatoia utile
 
-- **Cmd/Ctrl+B** — fissa o comprimi le barre laterali.
+- **Cmd/Ctrl+B** — fissa o comprimi la barra laterale sinistra; **Option+Cmd+B** (**Ctrl+Alt+B**) fa lo stesso con quella destra.
 - **Cmd/Ctrl+J** — apri o chiudi il pannello del terminale.
 - **Cmd/Ctrl+K** — apri la ricerca.
 

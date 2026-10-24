@@ -39,7 +39,7 @@ Una fina franja recorre la parte inferior de la ventana. Es pequeña, pero útil
 
 ## Algunos atajos prácticos
 
-- **Cmd/Ctrl+B** — ancla o contrae las barras laterales.
+- **Cmd/Ctrl+B** — ancla o contrae la barra lateral izquierda; **Option+Cmd+B** (**Ctrl+Alt+B**) hace lo mismo con la derecha.
 - **Cmd/Ctrl+J** — alterna el panel de terminal.
 - **Cmd/Ctrl+K** — abre la búsqueda.
 

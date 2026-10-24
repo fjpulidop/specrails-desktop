@@ -39,7 +39,7 @@ Ein schmaler Streifen verläuft ganz unten am Fenster. Klein, aber praktisch:
 
 ## Ein paar praktische Tastenkürzel
 
-- **Cmd/Ctrl+B** – Seitenleisten anpinnen oder einklappen.
+- **Cmd/Ctrl+B** – linke Seitenleiste anpinnen oder einklappen; **Option+Cmd+B** (**Ctrl+Alt+B**) macht dasselbe mit der rechten.
 - **Cmd/Ctrl+J** – Terminal-Panel ein-/ausblenden.
 - **Cmd/Ctrl+K** – Suche öffnen.
 

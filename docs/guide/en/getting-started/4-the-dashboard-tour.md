@@ -39,7 +39,7 @@ A thin strip runs along the very bottom of the window. It's small but handy:
 
 ## A few handy shortcuts
 
-- **Cmd/Ctrl+B** — pin or collapse the sidebars.
+- **Cmd/Ctrl+B** — pin or collapse the left sidebar; **Option+Cmd+B** (**Ctrl+Alt+B**) does the same for the right sidebar.
 - **Cmd/Ctrl+J** — toggle the terminal panel.
 - **Cmd/Ctrl+K** — open search.
 
