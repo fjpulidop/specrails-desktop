@@ -1,0 +1,71 @@
+{
+  "headline": {
+    "tests_failed": {
+      "phaseRounds_one": "Tests sind in der Phase {{phase}} nach {{count}} Korrekturrunde fehlgeschlagen",
+      "phaseRounds_other": "Tests sind in der Phase {{phase}} nach {{count}} Korrekturrunden fehlgeschlagen",
+      "rounds_one": "Tests sind nach {{count}} Korrekturrunde fehlgeschlagen",
+      "rounds_other": "Tests sind nach {{count}} Korrekturrunden fehlgeschlagen",
+      "phase": "Tests sind in der Phase {{phase}} fehlgeschlagen",
+      "plain": "Tests sind fehlgeschlagen"
+    },
+    "provider_limit": "Das Nutzungslimit des KI-Anbieters ist erreicht",
+    "environment": "Die Umgebung kann die Prüfungen nicht ausführen",
+    "blocked": {
+      "phase": "Der Lauf ist in der Phase {{phase}} blockiert",
+      "plain": "Der Lauf ist blockiert"
+    },
+    "timeout": {
+      "phase": "Die Phase {{phase}} hat ihre Zeit überschritten",
+      "plain": "Der Lauf hat seine Zeit überschritten"
+    },
+    "tool_inactivity": {
+      "phase": "Der Agent blieb in der Phase {{phase}} stumm",
+      "plain": "Der Agent blieb stumm"
+    },
+    "crash": {
+      "phase": "Der Agent hat in der Phase {{phase}} unerwartet gestoppt",
+      "plain": "Der Agent hat unerwartet gestoppt"
+    },
+    "unknown": "Unbekannte Ursache"
+  },
+  "why": {
+    "provider_limit": {
+      "reset": "Es wird {{resetAt}} zurückgesetzt. Danach fortsetzen.",
+      "noReset": "Warte, bis das Limit zurückgesetzt ist, und setze dann fort."
+    },
+    "environment": "Die Änderung selbst ist nicht das Problem. Der Rechner braucht zuerst etwas.",
+    "tests_failed": "Die Prüfungen schlagen auch nach den Korrekturen fehl.",
+    "blocked": "Ein Limit oder eine Entscheidung hat ihn gestoppt. Er ist nicht abgestürzt.",
+    "timeout": "Er hat sein Zeitlimit erreicht, bevor er fertig war.",
+    "tool_inactivity": "Er hat zu lange keine Werkzeuge benutzt und nicht geantwortet.",
+    "crash": "Der Anbieterprozess oder seine Verbindung ist mitten im Lauf ausgefallen.",
+    "unknown": "Die App weiß nicht, warum er gestoppt hat, und rät nicht."
+  },
+  "remedies": {
+    "label": "Wege zur Wiederherstellung"
+  },
+  "remedy": {
+    "resume": "Fortsetzen",
+    "resumeFrom": "Ab {{phase}} fortsetzen",
+    "retry": "Erneut versuchen",
+    "editSpec": "Spec bearbeiten und neu starten",
+    "fixEnvironment": "Umgebung reparieren",
+    "openLogs": "Protokoll am Fehler öffnen"
+  },
+  "environment": {
+    "command": "Befehl",
+    "copy": "Befehl kopieren",
+    "copied": "Kopiert",
+    "inDirectory": "in {{cwd}}",
+    "requiredAction": "Erforderliche Aktion",
+    "generic": "Die Umgebung braucht Aufmerksamkeit, bevor der Lauf weitergehen kann.",
+    "then": "Wenn das erledigt ist, setze den Lauf fort."
+  },
+  "logTail": {
+    "title": "Ende des Protokolls"
+  },
+  "logs": {
+    "notFound": "Noch kein Protokoll zum Anzeigen"
+  },
+  "technicalDetails": "Technische Details"
+}

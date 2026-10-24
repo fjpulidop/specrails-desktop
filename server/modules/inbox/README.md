@@ -22,6 +22,7 @@ every item is projected from state other capabilities already persist, one proje
   and `version` (see the client README).
 - A broken project or a missing table costs that source only; the others still answer.
 - A run a delivery already represents (`rail_pr_deliveries.run_ids`) is left to the delivery.
+- A failed or blocked run (and a failed delivery, through its last run) carries the [failure diagnosis](../recovery/README.md) read from `loop_runs.failure_diagnosis`; a high-confidence provider limit or environment problem is listed as `blocked`, not `failed`, and the item `version` moves with the cause.
 - `version` changes whenever the underlying state changes, which re-arms a dismissed item.
 
 Run `npx vitest run server/modules/inbox`.

@@ -107,6 +107,18 @@ If [telemetry](../settings/customizing) was enabled for the job, an **Export dia
 
 Handy for sharing a run with a teammate, or filing a precise bug report.
 
+## When a run fails
+
+When a job fails, stalls or is blocked, the terminal state starts with a **diagnosis card** that says what happened in plain words, for example *Tests failed in the Reviewer phase after 4 fix rounds*, and why when the app knows:
+
+- **Tests failed** — the checks still fail after the correction rounds.
+- **Provider limit** — the AI provider's usage limit was reached. The card quotes when it resets, in the provider's own words.
+- **Environment** — the machine cannot run the checks (credentials, a missing toolchain, a failing setup command). *Fix the environment* shows exactly what to run or change.
+- **Blocked**, **ran out of time**, **went quiet** and **stopped unexpectedly** name the limit or the process that stopped the run.
+- **Unknown cause** — the app does not guess. It shows the end of the log so you can read it yourself.
+
+Under the diagnosis you get up to three ranked remedies, and only the ones that can work here: **Resume from** the phase that stopped, **Try again**, **Edit spec and relaunch** (the spec's addenda carry your change into the next run), **Fix the environment** and **Open logs at the failure**. The same cause appears as a one-line label in the [inbox](../getting-started/the-dashboard-tour), and the mission's run card shows the same card.
+
 ## Where to go next
 
 - [Rails & jobs](rails-and-jobs) — launching and queueing.

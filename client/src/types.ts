@@ -75,6 +75,8 @@ export interface JobSummary {
    *  'finalize' = idles until the human Finalizes (freestyle); 'auto' = the job
    *  settles itself on quiescence (implement / loops — steering is optional).
    *  null/absent = no live session (finished, kill-switch off, legacy payload). */
+  /** Why a failed / blocked job stopped, with ranked remedies (GET /jobs/:id only; absent on other jobs). Read with `readFailureDiagnosis`. */
+  failureDiagnosis?: unknown
   interactiveSettleMode?: 'finalize' | 'auto' | null
   /** True when a resident session is accepting turns RIGHT NOW. Loop runs flip
    *  this between ai-steps (no session ⇒ POST /messages would 409); live flips

@@ -52,6 +52,8 @@ export interface LoopRunRow {
   fork_of?: string | null
   fork_cut_json?: string | null
   restart_reason?: string | null
+  /** JSON FailureDiagnosis of a failed / blocked / stalled run (migration 84). */
+  failure_diagnosis?: string | null
 }
 
 export interface DefinitionRunMetadata {
@@ -392,6 +394,8 @@ export function finishLoopRunAndJob(
     job: LoopJobTerminalTotals
     callbackOutcome?: LoopRunOutcome
     outcomeFinalized?: boolean
+    /** Serialized FailureDiagnosis, written in the same commit as the outcome. */
+    failureDiagnosis?: string | null
   },
 ): LoopTerminalRecoveryPayload | undefined {
   const tx = db.transaction(() => {
@@ -400,9 +404,9 @@ export function finishLoopRunAndJob(
     updateLoopRunCounters(db, id, opts.counters)
     db.prepare(`
       UPDATE loop_runs
-         SET status = 'completed', final_outcome = ?, finished_at = ?
+         SET status = 'completed', final_outcome = ?, finished_at = ?, failure_diagnosis = ?
        WHERE id = ?
-    `).run(opts.outcome, opts.finishedAt, id)
+    `).run(opts.outcome, opts.finishedAt, opts.failureDiagnosis ?? null, id)
     db.prepare(`
       UPDATE jobs
          SET exit_code = ?, status = ?, finished_at = ?,
@@ -693,12 +697,12 @@ export function updateLoopRunCounters(db: DbInstance, id: string, counters: Part
 export function finishLoopRun(
   db: DbInstance,
   id: string,
-  opts: { outcome: LoopRunOutcome; finishedAt: string; counters?: Partial<LoopRunCounters> }
+  opts: { outcome: LoopRunOutcome; finishedAt: string; counters?: Partial<LoopRunCounters>; failureDiagnosis?: string | null }
 ): LoopRunRow | undefined {
   if (opts.counters) updateLoopRunCounters(db, id, opts.counters)
   db.prepare(
-    `UPDATE loop_runs SET status = 'completed', final_outcome = ?, finished_at = ? WHERE id = ?`
-  ).run(opts.outcome, opts.finishedAt, id)
+    `UPDATE loop_runs SET status = 'completed', final_outcome = ?, finished_at = ?, failure_diagnosis = ? WHERE id = ?`
+  ).run(opts.outcome, opts.finishedAt, opts.failureDiagnosis ?? null, id)
   return getLoopRun(db, id)
 }
 

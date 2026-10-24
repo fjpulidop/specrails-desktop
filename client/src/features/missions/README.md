@@ -56,6 +56,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [projects](../projects/README.md)
 - [providers](../providers/README.md)
 - [rails](../rails/README.md)
+- [recovery](../recovery/README.md)
 - [settings](../settings/README.md)
 - [specs](../specs/README.md)
 - [terminals](../terminals/README.md)

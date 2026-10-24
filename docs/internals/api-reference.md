@@ -141,11 +141,22 @@ Example — register a project that uses both Claude and Gemini:
 | `GET` | `/analytics?period=&from=&to=` | Cross-project aggregated spending (the Desktop Analytics page; supports a custom `from`/`to` range) |
 | `GET` | `/recent-jobs?limit=` | Recent jobs across all projects (1–50) |
 
+### Failure diagnosis
+
+A run that ended `failed`, `blocked` or `stalled` carries one typed record explaining why. It is persisted in `loop_runs.failure_diagnosis` when the run settles (migration 84) and served read-only by:
+
+- `GET /api/projects/:projectId/jobs/:id` as `job.failureDiagnosis`;
+- `GET /api/projects/:projectId/loop-runs/:id` as `loopRun.failureDiagnosis` (a delivery card reads its last run's);
+- `GET /api/inbox` as `diagnosis` on failed / blocked items.
+
+Shape: `{ kind, confidence, phase, rounds, resetAt, detail, resumablePhase, blocker, source, remedies }`.
+`kind` is `tests_failed`, `provider_limit`, `environment`, `blocked`, `timeout`, `tool_inactivity`, `crash` or `unknown`; `confidence` is `high` or `low` (a low-confidence record is always `unknown`); `source` is `core` (the classification of Core contract 5.8) or `desktop` (derived from the loop's stall reason, the provider-limit signal, Core's fixed blocker sentences or `completion.blocker`); `remedies` are ranked ids from `resume`, `retry`, `edit-spec`, `fix-environment`, `open-logs`. A run finished before the column existed reads as `unknown`/low, and a successful run has none. Module: [`server/modules/recovery`](../../server/modules/recovery/README.md).
+
 ### Needs-you inbox (app-wide)
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/inbox` | Read-only projection of what waits for the person, across every registered project: `{ items, projects, generatedAt }`. Each item: `id` (`<projectId>:<kind>:<sourceId>`), `projectId`, `projectName`, `kind` (`review` \| `question` \| `failed` \| `blocked` \| `budget` \| `jira`), `title`, `detail`, `at`, `version` (changes when the state changes), `action` (`open-review` \| `open-run` \| `resume-run` \| `retry-jira`), `subjectId` (delivery id, loop-run id or Jira outbox id), `conversationId`. Newest first, at most 50 per project. Each project is read through its own database and a failing project is skipped; nothing is cached or stored. Snooze and Done are per viewer and never reach the server. Module: [`server/modules/inbox`](../../server/modules/inbox/README.md). |
+| `GET` | `/inbox` | Read-only projection of what waits for the person, across every registered project: `{ items, projects, generatedAt }`. Each item: `id` (`<projectId>:<kind>:<sourceId>`), `projectId`, `projectName`, `kind` (`review` \| `question` \| `failed` \| `blocked` \| `budget` \| `jira`), `title`, `detail`, `at`, `version` (changes when the state changes), `action` (`open-review` \| `open-run` \| `resume-run` \| `retry-jira`), `subjectId` (delivery id, loop-run id or Jira outbox id), `conversationId`, `diagnosis` (a failed / blocked run's [failure diagnosis](#failure-diagnosis), else `null`; a provider limit or environment problem is listed as `blocked`). Newest first, at most 50 per project. Each project is read through its own database and a failing project is skipped; nothing is cached or stored. Snooze and Done are per viewer and never reach the server. Module: [`server/modules/inbox`](../../server/modules/inbox/README.md). |
 
 ### Mobile Gateway admin (`/api/mobile/*`)
 
@@ -278,7 +289,7 @@ Example — queue a command on a specific provider:
 | `GET` | `/jobs/:runId/audit` | Agent actions of one run (job id or loop run id) as an attachment. `?format=jsonl` (default) or `csv`. Pending batched rows are flushed first; at most 100 000 rows, oldest first; `X-Agent-Actions-Rows` carries the count. `400` invalid format. See [agent actions audit](agent-actions-audit.md) |
 | `GET` | `/agent-actions` | Project-wide agent actions export. `?format=jsonl\|csv&from=&to=` (ISO timestamps, inclusive). `400` for an invalid format, an unparsable timestamp or `from` after `to` |
 | `GET` | `/jobs/compare` | Compare metrics between two jobs |
-| `GET` | `/jobs/:id` | One job. Returns `{ job, events, phaseDefinitions }`; `job` is annotated with `hasTelemetry`, `tickets[]` (resolved from the command, powers the ticket header), `interactiveSettleMode` (`'finalize'` \| `'auto'` \| `null`) and `interactiveAcceptingTurns` (whether a resident session accepts turns right now — a between-steps loop run reports `'auto'`/`false` so the composer can phrase the waiting state) |
+| `GET` | `/jobs/:id` | One job. Returns `{ job, events, phaseDefinitions }`; `job` is annotated with `hasTelemetry`, `tickets[]` (resolved from the command, powers the ticket header), `interactiveSettleMode` (`'finalize'` \| `'auto'` \| `null`) and `interactiveAcceptingTurns` (whether a resident session accepts turns right now — a between-steps loop run reports `'auto'`/`false` so the composer can phrase the waiting state) and `failureDiagnosis` (`null`, or why a failed / stalled / blocked job stopped: see [failure diagnosis](#failure-diagnosis)) |
 | `DELETE` | `/jobs/:id` | Cancel a running or queued job |
 | `DELETE` | `/jobs` | Purge completed jobs (optional `{ from, to }` window) |
 | `PATCH` | `/jobs/:id/priority` | Re-rank a queued job |

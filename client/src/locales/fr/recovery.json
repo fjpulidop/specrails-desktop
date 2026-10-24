@@ -1,0 +1,71 @@
+{
+  "headline": {
+    "tests_failed": {
+      "phaseRounds_one": "Les tests ont échoué en phase {{phase}} après {{count}} tour de correction",
+      "phaseRounds_other": "Les tests ont échoué en phase {{phase}} après {{count}} tours de correction",
+      "rounds_one": "Les tests ont échoué après {{count}} tour de correction",
+      "rounds_other": "Les tests ont échoué après {{count}} tours de correction",
+      "phase": "Les tests ont échoué en phase {{phase}}",
+      "plain": "Les tests ont échoué"
+    },
+    "provider_limit": "La limite d'utilisation du fournisseur d'IA est atteinte",
+    "environment": "L'environnement ne peut pas exécuter les vérifications",
+    "blocked": {
+      "phase": "L'exécution est bloquée en phase {{phase}}",
+      "plain": "L'exécution est bloquée"
+    },
+    "timeout": {
+      "phase": "La phase {{phase}} a manqué de temps",
+      "plain": "L'exécution a manqué de temps"
+    },
+    "tool_inactivity": {
+      "phase": "L'agent est resté silencieux en phase {{phase}}",
+      "plain": "L'agent est resté silencieux"
+    },
+    "crash": {
+      "phase": "L'agent s'est arrêté de façon inattendue en phase {{phase}}",
+      "plain": "L'agent s'est arrêté de façon inattendue"
+    },
+    "unknown": "Cause inconnue"
+  },
+  "why": {
+    "provider_limit": {
+      "reset": "Elle se réinitialise {{resetAt}}. Reprenez ensuite.",
+      "noReset": "Attendez la réinitialisation de la limite, puis reprenez."
+    },
+    "environment": "Le problème n'est pas le changement. La machine a besoin de quelque chose d'abord.",
+    "tests_failed": "Les vérifications échouent encore après les corrections.",
+    "blocked": "Une limite ou une décision l'a arrêtée. Elle n'a pas planté.",
+    "timeout": "Elle a atteint sa limite de temps avant de finir.",
+    "tool_inactivity": "Elle a cessé d'utiliser des outils et de répondre trop longtemps.",
+    "crash": "Le processus du fournisseur ou sa connexion est mort en cours d'exécution.",
+    "unknown": "L'app ne sait pas pourquoi elle s'est arrêtée et ne va pas deviner."
+  },
+  "remedies": {
+    "label": "Pour reprendre"
+  },
+  "remedy": {
+    "resume": "Reprendre",
+    "resumeFrom": "Reprendre depuis {{phase}}",
+    "retry": "Réessayer",
+    "editSpec": "Modifier la spec et relancer",
+    "fixEnvironment": "Réparer l'environnement",
+    "openLogs": "Ouvrir le journal à l'échec"
+  },
+  "environment": {
+    "command": "Commande",
+    "copy": "Copier la commande",
+    "copied": "Copié",
+    "inDirectory": "dans {{cwd}}",
+    "requiredAction": "Action requise",
+    "generic": "L'environnement demande de l'attention avant que l'exécution puisse continuer.",
+    "then": "Une fois fait, reprenez l'exécution."
+  },
+  "logTail": {
+    "title": "Fin du journal"
+  },
+  "logs": {
+    "notFound": "Pas encore de journal à afficher"
+  },
+  "technicalDetails": "Détails techniques"
+}

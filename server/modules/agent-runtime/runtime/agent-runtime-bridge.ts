@@ -155,6 +155,8 @@ interface RuntimeResult {
   status?: string
   engineVersion?: number
   error?: string | { code?: string; message?: string }
+  /** Core contract 5.8+: structured classification of a failed or blocked run. */
+  failure?: unknown
   completion?: DefinitionCompletion
   pendingInterrupts?: DefinitionInterrupt[]
   pendingApproval?: { stepId?: string; reason?: string }
@@ -444,7 +446,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       resolve({
         text: summary || (failed ? errorText ?? '' : definitionEngine ? 'Workflow execution completed.' : 'Programmatic implementation verified and archived.'),
         provider: 'agent-runtime', model: 'per-role', failed, errorText,
-        ...(definitionEngine ? { runtimeStatus, completion: result?.completion, pendingInterrupts: result?.pendingInterrupts, pendingQuestion: result?.pendingQuestion, pendingApproval: result?.pendingApproval, ...(hostPause ? { pause: hostPause } : {}), graph } : {}),
+        ...(definitionEngine ? { runtimeStatus, ...(result?.failure !== undefined ? { failure: result.failure } : {}), completion: result?.completion, pendingInterrupts: result?.pendingInterrupts, pendingQuestion: result?.pendingQuestion, pendingApproval: result?.pendingApproval, ...(hostPause ? { pause: hostPause } : {}), graph } : {}),
         cost, tokensIn, tokensOut, tokens: tokensIn === undefined || tokensOut === undefined ? undefined : tokensIn + tokensOut,
         estimated: cost === undefined, durationMs: definitionEngine ? known(result?.usage?.durationMs) : Date.now() - started,
       })

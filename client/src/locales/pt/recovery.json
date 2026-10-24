@@ -1,0 +1,71 @@
+{
+  "headline": {
+    "tests_failed": {
+      "phaseRounds_one": "Os testes falharam na fase {{phase}} após {{count}} rodada de correção",
+      "phaseRounds_other": "Os testes falharam na fase {{phase}} após {{count}} rodadas de correção",
+      "rounds_one": "Os testes falharam após {{count}} rodada de correção",
+      "rounds_other": "Os testes falharam após {{count}} rodadas de correção",
+      "phase": "Os testes falharam na fase {{phase}}",
+      "plain": "Os testes falharam"
+    },
+    "provider_limit": "O limite de uso do provedor de IA foi atingido",
+    "environment": "O ambiente não consegue executar as verificações",
+    "blocked": {
+      "phase": "A execução está bloqueada na fase {{phase}}",
+      "plain": "A execução está bloqueada"
+    },
+    "timeout": {
+      "phase": "A fase {{phase}} ficou sem tempo",
+      "plain": "A execução ficou sem tempo"
+    },
+    "tool_inactivity": {
+      "phase": "O agente ficou em silêncio na fase {{phase}}",
+      "plain": "O agente ficou em silêncio"
+    },
+    "crash": {
+      "phase": "O agente parou inesperadamente na fase {{phase}}",
+      "plain": "O agente parou inesperadamente"
+    },
+    "unknown": "Causa desconhecida"
+  },
+  "why": {
+    "provider_limit": {
+      "reset": "Ele é redefinido {{resetAt}}. Retome depois.",
+      "noReset": "Espere o limite ser redefinido e depois retome."
+    },
+    "environment": "O problema não é a mudança em si. A máquina precisa de algo antes.",
+    "tests_failed": "As verificações continuam falhando após as correções.",
+    "blocked": "Um limite ou uma decisão a interrompeu. Ela não travou.",
+    "timeout": "Atingiu o limite de tempo antes de terminar.",
+    "tool_inactivity": "Parou de usar ferramentas e de responder por tempo demais.",
+    "crash": "O processo do provedor ou sua conexão morreu no meio da execução.",
+    "unknown": "O app não sabe por que parou e não vai adivinhar."
+  },
+  "remedies": {
+    "label": "Formas de recuperar"
+  },
+  "remedy": {
+    "resume": "Retomar",
+    "resumeFrom": "Retomar a partir de {{phase}}",
+    "retry": "Tentar de novo",
+    "editSpec": "Editar a spec e relançar",
+    "fixEnvironment": "Corrigir o ambiente",
+    "openLogs": "Abrir o registro na falha"
+  },
+  "environment": {
+    "command": "Comando",
+    "copy": "Copiar comando",
+    "copied": "Copiado",
+    "inDirectory": "em {{cwd}}",
+    "requiredAction": "Ação necessária",
+    "generic": "O ambiente precisa de atenção antes de a execução continuar.",
+    "then": "Quando isso estiver feito, retome a execução."
+  },
+  "logTail": {
+    "title": "Fim do registro"
+  },
+  "logs": {
+    "notFound": "Ainda não há registro para mostrar"
+  },
+  "technicalDetails": "Detalhes técnicos"
+}

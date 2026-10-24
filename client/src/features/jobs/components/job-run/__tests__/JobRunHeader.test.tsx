@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act, waitFor } from '../../../../../test-utils'
+import { render, screen, fireEvent, act, waitFor, within } from '../../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { JobRunHeader } from '../JobRunHeader'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../../../types'
@@ -328,5 +328,72 @@ describe('JobRunHeader outcome peak', () => {
   it('has no outcome block while running', () => {
     renderHeader({ ...runningJob, started_at: new Date().toISOString() }, [])
     expect(screen.queryByTestId('job-run-outcome')).toBeNull()
+  })
+})
+
+describe('JobRunHeader failure diagnosis', () => {
+  const diagnosed = (failureDiagnosis: unknown, status: JobSummary['status'] = 'failed'): JobSummary => ({ ...failedJob, status, finished_at: '2024-03-21T11:05:00Z', failureDiagnosis })
+  const tests = { kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: 'fixer', blocker: null, source: 'core', remedies: ['resume', 'edit-spec', 'open-logs', 'retry'] }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [] }))
+  })
+
+  it('starts a failed job\'s terminal state with the diagnosis card, in plain words', () => {
+    renderHeader(diagnosed(tests), [], { onOpenLogs: vi.fn() })
+    expect(screen.getByRole('region', { name: 'Tests failed in the Reviewer phase after 4 fix rounds' })).toBeInTheDocument()
+  })
+
+  it('shows nothing for a job that did not fail or carries no diagnosis', () => {
+    renderHeader({ ...completedJob, failureDiagnosis: tests })
+    expect(screen.queryByTestId('failure-diagnosis-card')).toBeNull()
+    renderHeader(diagnosed(null))
+    expect(screen.queryByTestId('failure-diagnosis-card')).toBeNull()
+    renderHeader({ ...failedJob, started_at: new Date().toISOString(), status: 'running', failureDiagnosis: tests })
+    expect(screen.queryByTestId('failure-diagnosis-card')).toBeNull()
+  })
+
+  it('wires the surface\'s real actions: run again, edit spec and open logs', async () => {
+    const user = userEvent.setup()
+    const onRerun = vi.fn(), onEditSpec = vi.fn(), onOpenLogs = vi.fn()
+    renderHeader(diagnosed({ ...tests, resumablePhase: null, remedies: ['edit-spec', 'open-logs', 'retry'] }), [], { onRerun, onEditSpec, onOpenLogs })
+    const card = screen.getByTestId('failure-diagnosis-card')
+    await user.click(within(card).getByRole('button', { name: 'Edit spec and relaunch' }))
+    await user.click(within(card).getByRole('button', { name: 'Open logs at the failure' }))
+    await user.click(within(card).getByRole('button', { name: 'Try again' }))
+    expect(onEditSpec).toHaveBeenCalledTimes(1)
+    expect(onOpenLogs).toHaveBeenCalledTimes(1)
+    expect(onRerun).toHaveBeenCalledTimes(1)
+  })
+
+  it('resumes through the runtime route only when the run can resume', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'failed', nextStep: 'fixer' })] }))
+    renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
+    const card = await screen.findByTestId('failure-diagnosis-card')
+    await user.click(await within(card).findByRole('button', { name: 'Resume from Fixer' }))
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/job-1/resume', expect.objectContaining({ method: 'POST', body: '{}' }))
+  })
+
+  it('offers no resume when the run cannot resume', async () => {
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'failed', canResume: false })] }))
+    renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
+    const card = await screen.findByTestId('failure-diagnosis-card')
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(within(card).queryByRole('button', { name: /Resume/ })).toBeNull()
+  })
+
+  it('says "Unknown cause" with the raw tail of the log instead of inventing a diagnosis', () => {
+    const events: EventRow[] = [{ id: 1, job_id: 'job-2', seq: 1, event_type: 'log', payload: JSON.stringify({ line: 'boom: segfault in worker\nexit 139' }), timestamp: '' }]
+    renderHeader(diagnosed({ ...tests, kind: 'unknown', confidence: 'low', remedies: ['open-logs', 'retry'] }), events, { onOpenLogs: vi.fn() })
+    expect(screen.getByTestId('failure-headline')).toHaveTextContent('Unknown cause')
+    expect(screen.getByTestId('failure-log-tail')).toHaveTextContent('boom: segfault in worker')
+  })
+
+  it('shows the card for a stalled (canceled) job such as a provider limit', () => {
+    renderHeader(diagnosed({ ...tests, kind: 'provider_limit', phase: null, rounds: null, resetAt: '3am (Europe/Madrid)', remedies: ['resume', 'retry', 'open-logs'] }, 'canceled'), [], { onOpenLogs: vi.fn() })
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('It resets 3am (Europe/Madrid).')
   })
 })

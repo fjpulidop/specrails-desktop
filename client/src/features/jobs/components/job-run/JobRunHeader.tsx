@@ -2,6 +2,7 @@ import { RuntimeRecovery } from '../../../settings/components/RuntimeRecovery'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ChevronDown, Loader2, MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { cn } from '../../../../lib/utils'
 import { isLocalEngineId } from '../../../providers/lib/provider-capabilities'
 import type { EventRow, JobSummary, PhaseDefinition } from '../../../../types'
@@ -16,6 +17,8 @@ import { PipelineProgress } from '../PipelineProgress'
 import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMetrics'
 import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeExecutionEvidence'
 import { RuntimeSteering } from '../../../settings/components/RuntimeSteering'
+import { FailureDiagnosisCard } from '../../../recovery/components/FailureDiagnosisCard'
+import { logTailLines, openLogsAtFailure, readFailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useRuntimeRuns } from './useRuntimeRuns'
 import {
   extractModifiedFiles,
@@ -58,6 +61,13 @@ export interface JobRunHeaderProps {
   /** Surface-owned buttons (Cancel / Re-run / Export) rendered on row 1. */
   actions?: ReactNode
   onOpenRun?(runId: string): void
+  /** Existing "run again" of the surface; offered as the diagnosis' retry remedy. */
+  onRerun?(): void
+  rerunBusy?: boolean
+  /** Opens the job's spec (its addenda iterate on it); offered as "Edit spec and relaunch". */
+  onEditSpec?(): void
+  /** Brings the failure into view in the surface's log; defaults to the loop log's last failed step. */
+  onOpenLogs?(): void
 }
 
 /**
@@ -68,9 +78,10 @@ export interface JobRunHeaderProps {
  * authoritative totals after exit, the runtime continuation when it exists.
  * Nothing is ever a placeholder or an estimate.
  */
-export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun }: JobRunHeaderProps) {
+export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun, onRerun, rerunBusy, onEditSpec, onOpenLogs }: JobRunHeaderProps) {
   const { t } = useTranslation('jobs')
   const { t: tRuntime } = useTranslation('agentRuntime')
+  const { t: tRecovery } = useTranslation('recovery')
   const isRunning = job.status === 'running'
   const isQueued = job.status === 'queued'
   const isLoopJob = job.command.startsWith('loop:')
@@ -156,6 +167,18 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
     </>
   ) : null
 
+  // ── Failure diagnosis: what stopped the run, why, and the remedies this surface can really run ──
+  const diagnosis = useMemo(() => readFailureDiagnosis(job.failureDiagnosis), [job.failureDiagnosis])
+  const showDiagnosis = !!diagnosis && isTerminal && (job.status === 'failed' || job.status === 'canceled')
+  const diagnosisHandlers: RemedyHandlers = {}
+  if (run && projectId && run.canResume && !answerable && run.recoverableSteps.length === 0) {
+    diagnosisHandlers.resume = { run: () => void runtime.act(run, run.pendingApproval ? 'approve' : 'resume'), busy }
+  }
+  if (onRerun) diagnosisHandlers.retry = { run: onRerun, busy: !!rerunBusy }
+  if (onEditSpec) diagnosisHandlers['edit-spec'] = { run: onEditSpec }
+  diagnosisHandlers['open-logs'] = { run: () => { if (onOpenLogs) onOpenLogs(); else if (!openLogsAtFailure()) toast.info(tRecovery('logs.notFound')) } }
+  const diagnosisTail = useMemo(() => (showDiagnosis && diagnosis?.kind === 'unknown' ? logTailLines(events) : []), [showDiagnosis, diagnosis?.kind, events])
+
   const frameClass = variant === 'glass'
     ? 'border-b border-border/30 bg-surface/30'
     : 'border-b border-border bg-background'
@@ -218,6 +241,13 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
       {phaseDefinitions.length > 0 && (
         <div className="px-3 pb-2 overflow-x-auto">
           <PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} />
+        </div>
+      )}
+
+      {/* The terminal state of a failed or blocked run starts with its diagnosis. */}
+      {showDiagnosis && diagnosis && (
+        <div className="px-3 pb-3">
+          <FailureDiagnosisCard diagnosis={diagnosis} handlers={diagnosisHandlers} logTail={diagnosisTail} />
         </div>
       )}
 

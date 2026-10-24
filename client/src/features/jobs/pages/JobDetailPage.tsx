@@ -27,10 +27,12 @@ import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { humaniseCommand, humaniseJobCrumb, ticketTitlesOf } from '../lib/humanise-command'
 import { formatCommandForProvider } from '../../../lib/format-command'
+import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 
 export default function JobDetailPage() {
   const { t } = useTranslation('jobs')
   const { t: tNarration } = useTranslation('narration')
+  const { t: tRecovery } = useTranslation('recovery')
   const { id } = useParams<{ id: string }>()
   const { activeProjectId, projects } = useDesktop()
   const activeProvider = projects.find((p) => p.id === activeProjectId)?.provider
@@ -330,6 +332,14 @@ export default function JobDetailPage() {
     }
   }
 
+  /** "Open logs at the failure": the log view first (the narrated view has no steps to land on), then the failed step. */
+  function handleOpenLogs() {
+    if (narrationMode === 'narrated') setNarrationMode('log')
+    window.requestAnimationFrame(() => {
+      if (!openLogsAtFailure()) toast.info(tRecovery('logs.notFound'))
+    })
+  }
+
   async function handleRerun() {
     if (!job || rerunInFlightRef.current) return
     rerunInFlightRef.current = true
@@ -484,6 +494,10 @@ export default function JobDetailPage() {
         projectId={activeProjectId}
         variant="page"
         pipelineTotals={pipelineTotals}
+        onRerun={isFinished ? handleRerun : undefined}
+        rerunBusy={isRerunning}
+        onEditSpec={job.tickets?.length ? () => openTicketDetail(job.tickets![0].id) : undefined}
+        onOpenLogs={handleOpenLogs}
         actions={(
           <>
             {job.hasTelemetry && (

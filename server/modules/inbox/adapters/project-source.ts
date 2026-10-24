@@ -1,8 +1,10 @@
 import type { DbInstance } from '../../../db'
 import { getLinkByIssueId, listOutbox } from '../../../jira/jira-db'
 import { listActivePrDeliveries, readSpecSnapshot, type RailPrDeliveryRow } from '../../delivery/runtime/rail-pr-store'
+import { readRunDiagnosis } from '../../recovery/adapters/sqlite'
 import { inboxItemId, oneLine, toIso, type InboxItem } from '../domain'
 import type { ProjectInboxSource } from '../ports'
+import type { PresentedFailureDiagnosis } from '../../recovery'
 
 /** Finished runs older than this are history, not something that waits for the person. */
 export const FAILED_RUN_WINDOW_MS = 3 * 24 * 60 * 60 * 1000
@@ -22,6 +24,7 @@ interface RunRow {
   started_at: string
   finished_at: string | null
   ticket_ids_json: string | null
+  failure_diagnosis: string | null
 }
 
 function parseJsonArray(raw: string | null | undefined): unknown[] {
@@ -47,6 +50,19 @@ function ticketLabel(raw: string | null): string {
   return ` · ${ids.slice(0, 3).map((id) => `#${id}`).join(', ')}${ids.length > 3 ? ` +${ids.length - 3}` : ''}`
 }
 
+/** Provider limits and environment problems wait for the person; they are not defects of the change. */
+function needsHost(diagnosis: PresentedFailureDiagnosis | null): boolean {
+  return diagnosis?.confidence === 'high' && (diagnosis.kind === 'provider_limit' || diagnosis.kind === 'environment')
+}
+
+function deliveryDiagnosis(handle: InboxProjectHandle, row: RailPrDeliveryRow): PresentedFailureDiagnosis | null {
+  const runIds = parseJsonArray(row.run_ids).filter((v): v is string => typeof v === 'string')
+  for (const runId of [...runIds].reverse()) {
+    try { const diagnosis = readRunDiagnosis(handle.db, runId); if (diagnosis) return diagnosis } catch { /* the delivery still shows without a diagnosis */ }
+  }
+  return null
+}
+
 /** Deliveries that wait for a decision or ended badly, mirroring the client's `deliveryAttention`. */
 function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], nowIso: string): InboxItem[] {
   const out: InboxItem[] = []
@@ -56,14 +72,17 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
     const waiting = decision === 'on_review' || decision === 'pr_draft' || decision === 'pr_ready' || changesRequested
     const failed = !changesRequested && (decision === 'implementation_failed' || decision === 'pr_failed')
     if (!waiting && !failed) continue
-    const kind = waiting ? 'review' : 'failed'
+    // A failed delivery is explained by its last run's diagnosis.
+    const diagnosis = failed ? deliveryDiagnosis(handle, row) : null
+    const kind = waiting ? 'review' : needsHost(diagnosis) ? 'blocked' : 'failed'
     out.push({
       id: inboxItemId(handle.project.id, kind, row.id),
       projectId: handle.project.id,
       projectName: handle.project.name,
       kind,
       title: deliveryTitle(row),
-      detail: oneLine(row.status_detail) ?? (failed ? row.status_code : null),
+      detail: oneLine(row.status_detail) ?? (failed ? oneLine(diagnosis?.detail) ?? row.status_code : null),
+      diagnosis,
       at: toIso((waiting ? row.on_review_at : null) ?? row.updated_at, nowIso),
       version: `${decision}:${row.status_code ?? ''}:${row.pr_state}`,
       action: 'open-review',
@@ -83,7 +102,7 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
 function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<string>, nowIso: string, nowMs: number): InboxItem[] {
   const since = new Date(nowMs - FAILED_RUN_WINDOW_MS).toISOString()
   const rows = handle.db.prepare(`
-    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json
+    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.failure_diagnosis
     FROM loop_runs r
     WHERE r.project_id = ?
       AND NOT EXISTS (SELECT 1 FROM definition_fork_operations f WHERE f.source_run_id = r.id AND f.adopted = 1)
@@ -111,6 +130,7 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
       version,
       subjectId: run.id,
       conversationId: null,
+      diagnosis: null as PresentedFailureDiagnosis | null,
     }
     if (run.status === 'paused') {
       if (run.restart_reason === 'budget_paused') {
@@ -122,8 +142,14 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
       }
       continue
     }
-    const kind = run.final_outcome === 'blocked' ? 'blocked' : 'failed'
-    out.push({ ...base, id: inboxItemId(handle.project.id, kind, run.id), kind, detail: run.final_outcome, at: toIso(run.finished_at, nowIso), action: 'open-run' })
+    const diagnosis = readRunDiagnosis(handle.db, run.id)
+    const kind = run.final_outcome === 'blocked' || needsHost(diagnosis) ? 'blocked' : 'failed'
+    // The version moves with the cause, so a run re-diagnosed differently comes back.
+    out.push({
+      ...base, id: inboxItemId(handle.project.id, kind, run.id), kind, diagnosis,
+      version: `${version}:${diagnosis?.kind ?? ''}:${diagnosis?.confidence ?? ''}`,
+      detail: oneLine(diagnosis?.detail) ?? run.final_outcome, at: toIso(run.finished_at, nowIso), action: 'open-run',
+    })
   }
   return out
 }
@@ -143,6 +169,7 @@ function jiraItems(handle: InboxProjectHandle, nowIso: string): InboxItem[] {
       action: 'retry-jira' as const,
       subjectId: String(op.id),
       conversationId: null,
+      diagnosis: null,
     }
   })
 }

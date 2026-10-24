@@ -1,0 +1,71 @@
+{
+  "headline": {
+    "tests_failed": {
+      "phaseRounds_one": "Tests failed in the {{phase}} phase after {{count}} fix round",
+      "phaseRounds_other": "Tests failed in the {{phase}} phase after {{count}} fix rounds",
+      "rounds_one": "Tests failed after {{count}} fix round",
+      "rounds_other": "Tests failed after {{count}} fix rounds",
+      "phase": "Tests failed in the {{phase}} phase",
+      "plain": "Tests failed"
+    },
+    "provider_limit": "The AI provider's usage limit was reached",
+    "environment": "The environment can't run the checks",
+    "blocked": {
+      "phase": "The run is blocked in the {{phase}} phase",
+      "plain": "The run is blocked"
+    },
+    "timeout": {
+      "phase": "The {{phase}} phase ran out of time",
+      "plain": "The run ran out of time"
+    },
+    "tool_inactivity": {
+      "phase": "The agent went quiet in the {{phase}} phase",
+      "plain": "The agent went quiet"
+    },
+    "crash": {
+      "phase": "The agent stopped unexpectedly in the {{phase}} phase",
+      "plain": "The agent stopped unexpectedly"
+    },
+    "unknown": "Unknown cause"
+  },
+  "why": {
+    "provider_limit": {
+      "reset": "It resets {{resetAt}}. Resume once it has.",
+      "noReset": "Wait for the limit to reset, then resume."
+    },
+    "environment": "The change itself isn't the problem. The machine needs something first.",
+    "tests_failed": "The checks still fail after the corrections.",
+    "blocked": "A limit or a decision stopped it. It didn't crash.",
+    "timeout": "It reached its time limit before finishing.",
+    "tool_inactivity": "It stopped using tools and replying for too long.",
+    "crash": "The provider process or its connection died mid-run.",
+    "unknown": "The app can't tell why it stopped, so it won't guess."
+  },
+  "remedies": {
+    "label": "Ways to recover"
+  },
+  "remedy": {
+    "resume": "Resume",
+    "resumeFrom": "Resume from {{phase}}",
+    "retry": "Try again",
+    "editSpec": "Edit spec and relaunch",
+    "fixEnvironment": "Fix the environment",
+    "openLogs": "Open logs at the failure"
+  },
+  "environment": {
+    "command": "Command",
+    "copy": "Copy command",
+    "copied": "Copied",
+    "inDirectory": "in {{cwd}}",
+    "requiredAction": "Required action",
+    "generic": "The environment needs attention before the run can continue.",
+    "then": "When that is done, resume the run."
+  },
+  "logTail": {
+    "title": "End of the log"
+  },
+  "logs": {
+    "notFound": "No log to show yet"
+  },
+  "technicalDetails": "Technical details"
+}

@@ -41,6 +41,7 @@ import {
 } from './modules/specs/runtime/ticket-store'
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
 import { createAgentAuditService } from './modules/audit'
+import { readJobDiagnosis } from './modules/recovery/adapters/sqlite'
 import { registerAgentAuditHttp } from './modules/audit/adapters/http'
 import { createSqliteAgentActionStore } from './modules/audit/adapters/sqlite'
 import {
@@ -676,7 +677,7 @@ const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
 interactiveAcceptingTurns = qmMode !== null || loopStepActive || loopPaused
 interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? 'auto' : null)
 }
-const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), pendingInterrupts }
+const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), pendingInterrupts, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
     res.json({ job: annotated, events, phaseDefinitions })
   })
 

@@ -28,6 +28,7 @@ import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from
 import { resolveProjectExecution } from './workspace-resolution'
 import { referencesUnsupportedProviderCommand } from './modules/loops/runtime/loop-command-catalog'
 import { newId } from './ids'
+import { readRunDiagnosis } from './modules/recovery/adapters/sqlite'
 import type { ReasoningEffort } from './providers/types'
 import { getProjectRepositories, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from './project-repositories'
 import { launchMultiRepositoryRail } from './modules/delivery/runtime/multi-repo-execution'
@@ -191,11 +192,14 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       !run.provider
       || !hasAdapter(run.provider)
       || getAdapter(run.provider).capabilities.reportsUsage !== false
+    const { failure_diagnosis: _stored, ...publicRun } = run
+    const failureDiagnosis = (() => { try { return readRunDiagnosis(c.db, run.id) } catch { return null } })()
     res.json({
       loopRun: usageAvailable
-        ? { ...run, usage_available: true }
+        ? { ...publicRun, failureDiagnosis, usage_available: true }
         : {
-            ...run,
+            ...publicRun,
+            failureDiagnosis,
             total_cost_usd: null,
             total_tokens: null,
             usage_available: false,

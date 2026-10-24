@@ -5,6 +5,7 @@
  * Snooze / Done, grouping and where an item leads.
  */
 import { JOB_PARAM, MISSION_PARAM, REVIEW_PARAM } from '../../../lib/places'
+import { readFailureDiagnosis, type FailureDiagnosis } from '../../recovery/lib/failure-diagnosis'
 
 export type InboxKind = 'review' | 'question' | 'failed' | 'blocked' | 'budget' | 'jira'
 export type InboxAction = 'open-review' | 'open-run' | 'resume-run' | 'retry-jira'
@@ -21,6 +22,8 @@ export interface InboxItem {
   action: InboxAction
   subjectId: string
   conversationId: string | null
+  /** Why a failed / blocked run stopped (recovery cockpit); null for every other item. */
+  diagnosis: FailureDiagnosis | null
 }
 
 export interface InboxSnapshot {
@@ -50,6 +53,7 @@ export function readInboxSnapshot(raw: unknown): InboxSnapshot {
       version: str('version') ?? '',
       action: v.action as InboxAction,
       conversationId: str('conversationId'),
+      diagnosis: readFailureDiagnosis(v.diagnosis),
     }]
   })
   const projects = (Array.isArray(body.projects) ? body.projects : []).flatMap((value) => {

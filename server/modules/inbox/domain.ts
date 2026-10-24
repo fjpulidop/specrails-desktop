@@ -5,6 +5,22 @@
  * per-viewer concern of the client and never reaches the server.
  */
 
+/**
+ * Why a failed/blocked run stopped, as the recovery module presents it. Declared
+ * structurally so the inbox vocabulary stays dependency-free.
+ */
+export interface InboxDiagnosis {
+  kind: string
+  confidence: 'high' | 'low'
+  phase: string | null
+  rounds: number | null
+  resetAt: string | null
+  detail: string | null
+  resumablePhase: string | null
+  source: string
+  remedies: string[]
+}
+
 export const INBOX_KINDS = ['review', 'question', 'failed', 'blocked', 'budget', 'jira'] as const
 export type InboxKind = (typeof INBOX_KINDS)[number]
 
@@ -33,6 +49,8 @@ export interface InboxItem {
   subjectId: string
   /** Mission that launched the work, when known (deep link target). */
   conversationId: string | null
+  /** Why a failed/blocked run stopped, with ranked remedies; null for every other item. */
+  diagnosis: InboxDiagnosis | null
 }
 
 export interface ProjectInbox {

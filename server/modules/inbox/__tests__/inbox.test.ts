@@ -7,6 +7,7 @@ import { createLoopRun, finishLoopRun, pauseLoopRun } from '../../loops/runtime/
 import { enqueueOutbox, markOutboxDead } from '../../../jira/jira-db'
 import { collectInbox } from '../application'
 import { compareInboxItems, inboxItemId, oneLine, toIso, type InboxItem } from '../domain'
+import { deriveFailureDiagnosis, serializeDiagnosis } from '../../recovery'
 import { createProjectInboxSource } from '../adapters/project-source'
 import { registerInboxRoutes } from '../adapters/http'
 
@@ -93,6 +94,40 @@ describe('inbox projection: runs', () => {
   })
 })
 
+describe('inbox projection: failure diagnosis', () => {
+  const diagnose = (input: Parameters<typeof deriveFailureDiagnosis>[0]) => serializeDiagnosis(deriveFailureDiagnosis(input))
+
+  it('labels a provider-limit run as blocked, with its reset hint and ranked remedies', () => {
+    run('r-limit', 0)
+    finishLoopRun(db, 'r-limit', { outcome: 'failed', finishedAt: iso(-60_000), failureDiagnosis: diagnose({ outcome: 'stalled', stallReason: 'provider_limit', providerLimit: { kind: 'session_limit', message: "You've hit your session limit", resetsAt: '3am (Europe/Madrid)' } }) })
+    const [item] = source({ id: 'p1', name: 'Alpha', db }).collect()
+    expect(item).toMatchObject({ kind: 'blocked', detail: "You've hit your session limit", diagnosis: { kind: 'provider_limit', confidence: 'high', resetAt: '3am (Europe/Madrid)', remedies: ['resume', 'retry', 'open-logs'] } })
+    expect(item.version).toContain('provider_limit')
+  })
+
+  it('labels an environment blocker as blocked and keeps a plain failure as failed', () => {
+    run('r-env', 0); finishLoopRun(db, 'r-env', { outcome: 'failed', finishedAt: iso(-60_000), failureDiagnosis: diagnose({ outcome: 'failed', errorText: 'Verification cannot run in this environment: the registry rejected the credentials' }) })
+    run('r-tests', 1); finishLoopRun(db, 'r-tests', { outcome: 'failed', finishedAt: iso(-50_000), failureDiagnosis: diagnose({ outcome: 'failed', core: { kind: 'tests_failed', phase: 'fixer', rounds: 4, resumablePhase: 'fixer', confidence: 'high' } }) })
+    const byId = Object.fromEntries(source({ id: 'p1', name: 'Alpha', db }).collect().map((i) => [i.subjectId, i]))
+    expect(byId['r-env']).toMatchObject({ kind: 'blocked', diagnosis: { kind: 'environment', remedies: expect.arrayContaining(['fix-environment']) } })
+    expect(byId['r-tests']).toMatchObject({ kind: 'failed', diagnosis: { kind: 'tests_failed', rounds: 4, remedies: ['resume', 'edit-spec', 'open-logs', 'retry'] } })
+  })
+
+  it('never claims a cause for a run finished before diagnosis existed', () => {
+    run('r-old', 0); finishLoopRun(db, 'r-old', { outcome: 'failed', finishedAt: iso(-60_000) })
+    const [item] = source({ id: 'p1', name: 'Alpha', db }).collect()
+    expect(item).toMatchObject({ kind: 'failed', detail: 'failed', diagnosis: { kind: 'unknown', confidence: 'low', remedies: ['open-logs', 'retry'] } })
+  })
+
+  it('explains a failed delivery through its last run', () => {
+    run('r-del', 0)
+    finishLoopRun(db, 'r-del', { outcome: 'stalled', finishedAt: iso(-60_000), failureDiagnosis: diagnose({ outcome: 'stalled', stallReason: 'idle_timeout' }) })
+    delivery('d1', 0, 'implementation_failed', { runIds: ['r-del'], statusCode: 'implementation_failed' })
+    const [item] = source({ id: 'p1', name: 'Alpha', db }).collect()
+    expect(item).toMatchObject({ subjectId: 'd1', kind: 'failed', diagnosis: { kind: 'tool_inactivity' } })
+  })
+})
+
 describe('inbox projection: jira', () => {
   it('lists dead outbox ops and carries the retry subject', () => {
     const id = enqueueOutbox(db, { jiraIssueId: '10001', opType: 'transition', idempotencyKey: 'k1', payload: {} })
@@ -106,7 +141,7 @@ describe('inbox projection: jira', () => {
 
 describe('collectInbox', () => {
   const item = (projectId: string, id: string, at: string): InboxItem => ({
-    id: inboxItemId(projectId, 'review', id), projectId, projectName: projectId, kind: 'review', title: id, detail: null, at, version: 'v', action: 'open-review', subjectId: id, conversationId: null,
+    id: inboxItemId(projectId, 'review', id), projectId, projectName: projectId, kind: 'review', title: id, detail: null, at, version: 'v', action: 'open-review', subjectId: id, conversationId: null, diagnosis: null,
   })
 
   it('orders newest first across projects and counts per project', () => {

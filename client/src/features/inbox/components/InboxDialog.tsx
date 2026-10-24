@@ -8,6 +8,7 @@ import { compactRelativeTime } from '../../../lib/relative-time'
 import { cn } from '../../../lib/utils'
 import { useInbox, type InboxValue } from '../context/InboxContext'
 import type { InboxItem, InboxKind } from '../lib/inbox-model'
+import { useDiagnosisText } from '../../recovery/components/FailureDiagnosisCard'
 
 /** Kind → icon and lamp colour (the same tokens the review lamp, failures and warnings use elsewhere). */
 const KIND_LOOK: Record<InboxKind, { icon: LucideIcon; tone: string }> = {
@@ -36,15 +37,18 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   const working = inbox.busy.has(item.id)
   const age = compactRelativeTime(item.at)
   const kindLabel = t(`kinds.${item.kind}`)
+  // A failed or blocked run says WHY in plain words (the same sentence as its diagnosis card); an unknown cause keeps the raw outcome.
+  const diagnosis = useDiagnosisText(item.diagnosis ?? { kind: 'unknown', confidence: 'low', phase: null, rounds: null, resetAt: null, detail: null, resumablePhase: null, blocker: null, source: 'desktop', remedies: [] })
+  const cause = item.diagnosis && item.diagnosis.kind !== 'unknown' ? diagnosis.headline : null
   return (
-    <li className="flex flex-col gap-2 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id}>
+    <li className="flex flex-col gap-2 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id} data-cause={item.diagnosis?.kind}>
       <div className="flex items-start gap-2.5">
         <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', look.tone)} aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="truncate text-body text-foreground" title={item.title}>{item.title}</p>
           <p className="truncate text-caption text-muted-foreground">
             <span className={look.tone}>{kindLabel}</span>
-            {item.detail ? ` · ${item.detail}` : ''}
+            {cause ? ` · ${cause}` : item.detail ? ` · ${item.detail}` : ''}
             {age ? ` · ${age === 'now' ? t('age.now') : t('age.ago', { age })}` : ''}
           </p>
         </div>

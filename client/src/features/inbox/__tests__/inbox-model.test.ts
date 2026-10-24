@@ -7,7 +7,7 @@ import {
 const NOW = new Date(2026, 9, 24, 15, 30, 0).getTime()
 const item = (over: Partial<InboxItem> = {}): InboxItem => ({
   id: 'p1:review:d1', projectId: 'p1', projectName: 'Alpha', kind: 'review', title: 'Add login', detail: null, at: '2026-10-24T10:00:00.000Z',
-  version: 'on_review', action: 'open-review', subjectId: 'd1', conversationId: 'c1', ...over,
+  version: 'on_review', action: 'open-review', subjectId: 'd1', conversationId: 'c1', diagnosis: null, ...over,
 })
 
 beforeEach(() => { localStorage.clear() })
@@ -18,6 +18,17 @@ describe('readInboxSnapshot', () => {
     expect(snap.items.map((i) => i.id)).toEqual(['p1:review:d1'])
     expect(snap.projects).toEqual([{ projectId: 'p1', projectName: 'Alpha', count: 1 }])
     expect(readInboxSnapshot(undefined).items).toEqual([])
+  })
+})
+
+describe('readInboxSnapshot: failure diagnosis', () => {
+  it('reads the diagnosis of a failed run and never trusts an uncertain one as a cause', () => {
+    const wire = { ...item({ id: 'p1:blocked:r1', kind: 'blocked', action: 'open-run', subjectId: 'r1' }), diagnosis: { kind: 'provider_limit', confidence: 'high', phase: null, rounds: null, resetAt: '3am', detail: null, resumablePhase: null, blocker: null, source: 'desktop', remedies: ['resume', 'retry', 'open-logs'] } }
+    const [read] = readInboxSnapshot({ items: [wire] }).items
+    expect(read.diagnosis).toMatchObject({ kind: 'provider_limit', resetAt: '3am', remedies: ['resume', 'retry', 'open-logs'] })
+    const [uncertain] = readInboxSnapshot({ items: [{ ...wire, diagnosis: { ...wire.diagnosis, confidence: 'low' } }] }).items
+    expect(uncertain.diagnosis).toMatchObject({ kind: 'unknown', confidence: 'low' })
+    expect(readInboxSnapshot({ items: [{ ...wire, diagnosis: 'nope' }] }).items[0].diagnosis).toBeNull()
   })
 })
 

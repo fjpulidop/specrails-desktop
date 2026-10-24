@@ -20,6 +20,10 @@ import { TopRiskLine } from '../../delivery/components/TopRiskLine'
 import { LocalStashNotice } from '../../delivery/components/LocalStashNotice'
 import { FLOW_SPEC_LOOP_ID, LoopChip } from '../../delivery/components/LoopChip'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { FailureDiagnosisCard } from '../../recovery/components/FailureDiagnosisCard'
+import { useRunDiagnosis } from '../../recovery/hooks/useRunDiagnosis'
+import type { RemedyHandlers } from '../../recovery/lib/failure-diagnosis'
+import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { useWebViewModal } from '../../browser/context/WebViewModalContext'
 import { useAgentRefActions } from '../hooks/useAgentRefActions'
 import { useRunVitals, formatRunElapsed } from '../../jobs/hooks/useRunVitals'
@@ -973,6 +977,31 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {relaunchError && <p role="alert" className="w-full text-xs text-destructive" data-testid="mission-run-relaunch-error">{relaunchError}</p>}
     </>
   )
+  // ── failure recovery cockpit: the run's diagnosis, with the remedies this card really has ──
+  const { openTicketDetailInProject } = useTicketDetailModal()
+  const { t: tRecovery } = useTranslation('recovery')
+  const diagnosisRunIds = envelope.runIds ?? []
+  const diagnosisRunId = diagnosisRunIds[diagnosisRunIds.length - 1] ?? null
+  const failedRunForDiagnosis = FEATURE_MISSION_RAIL_CARDS && !flowSpecRun && (
+    Boolean(runFailure) || decision === 'implementation_failed' || runStatus === 'failed' || runStatus === 'stalled'
+  )
+  const diagnosis = useRunDiagnosis(envelope.projectId, diagnosisRunId, failedRunForDiagnosis && runStatus !== 'running' && runStatus !== 'paused', envelope.updatedAt ?? null)
+  const diagnosisHandlers: RemedyHandlers = {}
+  if (actionableRun?.canResume && actionableRun.recoverableSteps.length === 0) {
+    diagnosisHandlers.resume = { run: () => void runtime.act(actionableRun, 'resume'), busy: runtime.busy !== null, disabled: busy !== null }
+  }
+  if (!relaunchBlocked) diagnosisHandlers.retry = { run: () => void relaunch(), busy: relaunching, disabled: runtimeBusy || busy !== null }
+  if (envelope.ticketIds.length > 0) diagnosisHandlers['edit-spec'] = { run: () => openTicketDetailInProject(envelope.projectId, envelope.ticketIds[0]) }
+  if (diagnosisRunId) diagnosisHandlers['open-logs'] = { run: () => setLogRunId(diagnosisRunId) }
+  const diagnosisCard = diagnosis ? (
+    <div className="mt-2 space-y-1.5" data-testid="mission-run-diagnosis">
+      <FailureDiagnosisCard diagnosis={diagnosis} handlers={diagnosisHandlers} />
+      <details>
+        <summary className="cursor-pointer text-caption text-muted-foreground hover:text-foreground">{tRecovery('technicalDetails')}</summary>
+        <RunFailureBlock envelope={envelope} />
+      </details>
+    </div>
+  ) : null
   const runtimeError = FEATURE_MISSION_RAIL_CARDS && runtime.error && runtimeInterest ? (
     <p className="mt-1 text-label text-destructive" data-testid="mission-run-runtime-error">{runtime.error}</p>
   ) : null
@@ -1147,7 +1176,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         </div>
         {runChips}
         <OutcomeEvidence envelope={envelope} />
-        {(runFailure || runStatus === 'failed' || runStatus === 'stalled') && <RunFailureBlock envelope={envelope} />}
+        {(runFailure || runStatus === 'failed' || runStatus === 'stalled') && (diagnosisCard ?? <RunFailureBlock envelope={envelope} />)}
         <p className="mt-2 flex items-start gap-1.5 text-label leading-4 text-foreground/70" data-testid="mission-run-no-delivery">
           <GitBranch className="mt-px h-3 w-3 shrink-0 opacity-60" aria-hidden />
           <span>{t('runCard.noDeliveryNote')}</span>
@@ -1502,7 +1531,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
 
       <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null} />
 
-      {failureBlockShown && <RunFailureBlock envelope={envelope} />}
+      {failureBlockShown && (diagnosisCard ?? <RunFailureBlock envelope={envelope} />)}
       {flowFailureView}
       {flowOutcome === 'changes' && (
         <AgentFlowReviewBlock review={envelope.flowReview ?? { reason: 'review', summary: envelope.statusDetail ?? null, issues: [], issuesOmitted: 0, score: null, failingChecks: [] }}>

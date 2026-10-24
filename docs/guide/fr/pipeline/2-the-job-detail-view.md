@@ -107,6 +107,18 @@ Si la [télémétrie](../settings/customizing) était activée pour le job, un b
 
 Pratique pour partager une exécution avec un coéquipier, ou pour déposer un rapport de bug précis.
 
+## Quand une exécution échoue
+
+Quand un job échoue, se bloque ou s'arrête, l'état final commence par une **carte de diagnostic** qui dit en langage clair ce qui s'est passé, par exemple *Les tests ont échoué en phase Reviewer après 4 tours de correction*, et pourquoi quand l'app le sait :
+
+- **Tests échoués** : les vérifications échouent encore après les tours de correction.
+- **Limite du fournisseur** : la limite d'utilisation du fournisseur d'IA est atteinte. La carte cite le moment de la réinitialisation, avec les mots du fournisseur.
+- **Environnement** : la machine ne peut pas exécuter les vérifications (identifiants, outil manquant, commande de préparation en échec). *Réparer l'environnement* montre précisément quoi exécuter ou changer.
+- **Bloquée**, **à court de temps**, **silencieuse** et **arrêtée de façon inattendue** désignent la limite ou le processus qui a arrêté l'exécution.
+- **Cause inconnue** : l'app ne devine pas. Elle affiche la fin du journal pour que vous le lisiez vous-même.
+
+Sous le diagnostic, jusqu'à trois remèdes classés, et seulement ceux qui peuvent fonctionner ici : **Reprendre depuis** la phase arrêtée, **Réessayer**, **Modifier la spec et relancer** (les addenda de la spec portent votre changement à l'exécution suivante), **Réparer l'environnement** et **Ouvrir le journal à l'échec**. La même cause apparaît en une ligne dans la [boîte de réception](../getting-started/the-dashboard-tour), et la carte d'exécution de la mission montre la même carte.
+
 ## Où aller ensuite
 
 - [Rails et jobs](rails-and-jobs) — lancement et mise en file.

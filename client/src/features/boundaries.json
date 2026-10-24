@@ -170,7 +170,8 @@
       "context/InboxContext.tsx"
     ],
     "dependencies": [
-      "integrations"
+      "integrations",
+      "recovery"
     ]
   },
   "integrations": {
@@ -210,6 +211,7 @@
       "missions",
       "projects",
       "providers",
+      "recovery",
       "settings",
       "specs"
     ]
@@ -283,6 +285,7 @@
       "projects",
       "providers",
       "rails",
+      "recovery",
       "settings",
       "specs",
       "terminals"
@@ -354,6 +357,14 @@
       "settings",
       "specs"
     ]
+  },
+  "recovery": {
+    "publicEntries": [
+      "components/FailureDiagnosisCard.tsx",
+      "hooks/useRunDiagnosis.ts",
+      "lib/failure-diagnosis.ts"
+    ],
+    "dependencies": []
   },
   "settings": {
     "publicEntries": [

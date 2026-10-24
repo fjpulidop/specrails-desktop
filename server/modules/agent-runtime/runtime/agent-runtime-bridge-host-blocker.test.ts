@@ -33,3 +33,12 @@ it('maps a host-blocked end (Core succeeded exit, completion not ok) to runtimeS
   const outcome = await runAgentRuntimeInvocation({ contextPath, cwd: root, env: { ...process.env, SPECRAILS_GIT_AUTO: 'false' }, configPath: join(root, 'config.json'), change: 'test-change', timeoutMs: 3000, engineVersion: 2, prepareDefinition: definition })
   expect(outcome).toMatchObject({ failed: true, runtimeStatus: 'blocked', errorText: expect.stringContaining('Required action: Run `npx playwright install chromium`'), completion: { ok: false, blocker } })
 })
+
+it('forwards Core\'s structured failure classification (contract 5.8) on a failed result and none on success', async () => {
+  const failure = { kind: 'tests_failed', phase: 'fixer', rounds: 4, resumablePhase: 'fixer', confidence: 'high' }
+  const run = () => runAgentRuntimeInvocation({ contextPath, cwd: root, env: { ...process.env, SPECRAILS_GIT_AUTO: 'false' }, configPath: join(root, 'config.json'), change: 'test-change', timeoutMs: 3000, engineVersion: 2, prepareDefinition: definition })
+  writeFileSync(fixture.cli!, `console.log(JSON.stringify(${JSON.stringify({ type: 'runtime-result', runId: 'run-1', status: 'failed', error: 'Verification failed', failure, completion: { ok: false, verified: false, reasons: ['Verification failed'] } })}));process.exitCode=1;`)
+  expect(await run()).toMatchObject({ failed: true, runtimeStatus: 'failed', failure })
+  writeFileSync(fixture.cli!, `console.log(JSON.stringify(${JSON.stringify({ type: 'runtime-result', runId: 'run-1', status: 'succeeded', completion: { ok: true, verified: true, reasons: [] } })}));`)
+  expect(await run()).not.toHaveProperty('failure')
+})

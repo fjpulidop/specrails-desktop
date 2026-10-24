@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1236 source/build files. Nearby tests are linked where names
+Includes 1242 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -688,6 +688,18 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [rail-launch-intents.ts](../../client/src/features/rails/lib/rail-launch-intents.ts)
 - [rail-loops.ts](../../client/src/features/rails/lib/rail-loops.ts) · [test](../../client/src/features/rails/lib/__tests__/rail-loops.test.ts)
 - [worktree-progress.ts](../../client/src/features/rails/lib/worktree-progress.ts) · [test](../../client/src/features/rails/lib/__tests__/worktree-progress.test.ts)
+
+## client/src/features/recovery/components
+
+- [FailureDiagnosisCard.tsx](../../client/src/features/recovery/components/FailureDiagnosisCard.tsx)
+
+## client/src/features/recovery/hooks
+
+- [useRunDiagnosis.ts](../../client/src/features/recovery/hooks/useRunDiagnosis.ts)
+
+## client/src/features/recovery/lib
+
+- [failure-diagnosis.ts](../../client/src/features/recovery/lib/failure-diagnosis.ts)
 
 ## client/src/features/settings/components
 
@@ -1604,6 +1616,15 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [http.ts](../../server/modules/project-settings/adapters/http.ts)
 - [sqlite.ts](../../server/modules/project-settings/adapters/sqlite.ts)
+
+## server/modules/recovery
+
+- [domain.ts](../../server/modules/recovery/domain.ts)
+- [index.ts](../../server/modules/recovery/index.ts)
+
+## server/modules/recovery/adapters
+
+- [sqlite.ts](../../server/modules/recovery/adapters/sqlite.ts)
 
 ## server/modules/specs/domain
 

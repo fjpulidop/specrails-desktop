@@ -21,7 +21,7 @@ import { DISMISSALS_KEY, type InboxItem } from '../lib/inbox-model'
 
 const mk = (over: Partial<InboxItem>): InboxItem => ({
   id: 'p1:review:d1', projectId: 'p1', projectName: 'Alpha', kind: 'review', title: 'Add login', detail: null,
-  at: new Date(Date.now() - 2 * 3_600_000).toISOString(), version: 'on_review', action: 'open-review', subjectId: 'd1', conversationId: 'c1', ...over,
+  at: new Date(Date.now() - 2 * 3_600_000).toISOString(), version: 'on_review', action: 'open-review', subjectId: 'd1', conversationId: 'c1', diagnosis: null, ...over,
 })
 
 let items: InboxItem[]
@@ -105,6 +105,24 @@ describe('Inbox panel', () => {
     expect(within(groups[0]).getAllByTestId('inbox-row')).toHaveLength(2)
     expect(within(groups[1]).getAllByTestId('inbox-row')).toHaveLength(2)
     expect(within(dialog).getByText('Waiting for your answer')).toBeInTheDocument()
+  })
+
+  it('says why a blocked run stopped, in the diagnosis\' plain words', async () => {
+    const diagnosis = { kind: 'provider_limit' as const, confidence: 'high' as const, phase: null, rounds: null, resetAt: '3am (Europe/Madrid)', detail: null, resumablePhase: null, blocker: null, source: 'desktop' as const, remedies: ['resume' as const, 'retry' as const, 'open-logs' as const] }
+    items = [
+      mk({ id: 'p1:blocked:r1', kind: 'blocked', title: 'Implement · #7', detail: 'failed', action: 'open-run', subjectId: 'r1', conversationId: null, diagnosis }),
+      mk({ id: 'p1:failed:r2', kind: 'failed', title: 'Implement · #8', detail: 'failed', action: 'open-run', subjectId: 'r2', conversationId: null, diagnosis: { ...diagnosis, kind: 'unknown', confidence: 'low', resetAt: null, remedies: ['open-logs', 'retry'] } }),
+    ]
+    mount()
+    const dialog = await openPanel()
+    const rows = within(dialog).getAllByTestId('inbox-row')
+    const limited = rows.find((r) => r.getAttribute('data-item-id') === 'p1:blocked:r1')!
+    expect(limited).toHaveAttribute('data-cause', 'provider_limit')
+    expect(limited).toHaveTextContent("The AI provider's usage limit was reached")
+    // An unknown cause keeps the raw outcome instead of a made-up reason.
+    const unknown = rows.find((r) => r.getAttribute('data-item-id') === 'p1:failed:r2')!
+    expect(unknown).not.toHaveTextContent('usage limit')
+    expect(unknown).toHaveTextContent('failed')
   })
 
   it('is deep-linkable: ?inbox=1 opens it on load, Escape closes it', async () => {

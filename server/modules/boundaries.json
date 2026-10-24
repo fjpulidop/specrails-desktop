@@ -1745,6 +1745,8 @@
         "../../../db",
         "../../../jira/jira-db",
         "../../delivery/runtime/rail-pr-store",
+        "../../recovery",
+        "../../recovery/adapters/sqlite",
         "../domain",
         "../ports"
       ],
@@ -1946,6 +1948,7 @@
         "../../delivery/runtime/rails-store",
         "../../execution/runtime/interactive-job-session",
         "../../execution/runtime/verification-sentinel",
+        "../../recovery",
         "../../specs/runtime/spec-addenda-core",
         "./legacy-launch-telemetry",
         "./loop-command-catalog",
@@ -2250,6 +2253,24 @@
         "./ports"
       ],
       "ports.ts": [
+        "./domain"
+      ]
+    }
+  },
+  "recovery": {
+    "publicEntries": [
+      "adapters/sqlite.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/sqlite.ts": [
+        "../../../db",
+        "../domain"
+      ],
+      "domain.ts": [
+        "../../provider-limit"
+      ],
+      "index.ts": [
         "./domain"
       ]
     }

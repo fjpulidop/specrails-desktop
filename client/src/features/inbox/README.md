@@ -17,6 +17,7 @@ load every UI component. Changes to this surface require updating the boundary m
 ## Feature dependencies
 
 - [integrations](../integrations/README.md)
+- [recovery](../recovery/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
@@ -39,6 +40,7 @@ project**, grouped by project, newest first.
   agent question (a run paused for a human decision), run failed or blocked (a delivery that
   failed, a failed/stalled/blocked run, a run interrupted by a restart), budget paused, and
   a Jira update that exhausted its retries (dead outbox op).
+- **Cause.** A failed or blocked run's row says why in the diagnosis' plain words ("The AI provider's usage limit was reached", "The environment can't run the checks") instead of the raw outcome; an unknown cause keeps the raw outcome ([recovery](../recovery/README.md)).
 - **Primary action** reuses the existing handlers: Open review / Open / Answer navigate
   to the place (`?review=` / `?job=` in Mission mode, `/review/:id` / `/jobs/:id` in Board
   mode) after switching project when needed; Resume calls `POST /loop-runs/:id/resume` of

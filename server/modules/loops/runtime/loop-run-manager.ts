@@ -77,6 +77,7 @@ import {
 } from './loop-runs-store'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import { classifyProviderLimit, describeProviderLimit, type ProviderLimit } from '../../../provider-limit'
+import { deriveFailureDiagnosis, isDiagnosableOutcome, serializeDiagnosis } from '../../recovery'
 import { newId } from '../../../ids'
 import { getAdapter, requireToolPolicy } from '../../../providers'
 import { parseProgrammaticUsage } from '../../agent-runtime/runtime/agent-runtime-accounting'
@@ -86,6 +87,8 @@ import { claimRailTickets, claimTicketOutcomeOwners } from '../../delivery/runti
 import { parseVerificationSentinel } from '../../execution/runtime/verification-sentinel'
 
 export interface AiStepResult {
+  /** Core's structured `failure` record (contract 5.8+), raw; validated by the recovery module. */
+  failure?: unknown
   runtimeStatus?: DefinitionRuntimeResult['runtimeStatus']
   completion?: DefinitionCompletion
   pendingInterrupts?: DefinitionInterrupt[]
@@ -1437,6 +1440,7 @@ export class LoopRunManager {
       idleMs?: number
     }): void => {
       if (!openStep) return
+      if (input.status === 'failed') failedStepId = openStep.nodeId
       const payload: LoopStepEndEventPayload = {
         index: openStep.index,
         nodeId: openStep.nodeId,
@@ -1534,6 +1538,10 @@ export class LoopRunManager {
     let outcome: LoopRunOutcome = 'failed'
     let stallReason: LoopStallReason | undefined
     let providerLimitHit: ProviderLimit | undefined
+    // Failure diagnosis inputs (recovery module): the last failing step, its error text, Core's own record.
+    let failedStepId: string | undefined
+    let failureText: string | undefined
+    let coreFailure: unknown
     let iteration = 0
     let totalCost = 0
     let totalTokens = 0
@@ -1966,6 +1974,8 @@ export class LoopRunManager {
           },
         })
         definitionCompletion = result.completion
+        coreFailure = result.failure
+        if (result.errorText) failureText = result.errorText
         if (result.durationMs !== undefined) totalDuration = result.durationMs
         if (result.errorText) logLine(result.errorText, 'stderr')
         outcome = result.runtimeStatus === 'succeeded' ? 'success' : result.runtimeStatus === 'cancelled' ? 'stopped' : result.runtimeStatus === 'blocked' ? 'blocked' : 'failed'
@@ -2240,6 +2250,7 @@ export class LoopRunManager {
             if (oneShotZeroWork) {
               logLine(`✖ Zero work performed — the command never ran${res.text.trim() ? `: ${res.text.trim()}` : ''}`, 'stderr')
             } else if (stepFailed && stepErrorText) {
+              failureText = stepErrorText
               // Executors can return a structured failure without streaming any
               // text (configuration rejection, missing CLI, provider startup).
               // Persist its reason before the step closes, including early stops.
@@ -2709,6 +2720,10 @@ export class LoopRunManager {
       },
       callbackOutcome: req.deferTerminalOutcome ? 'failed' : outcome,
       outcomeFinalized: !req.deferTerminalOutcome,
+      failureDiagnosis: isDiagnosableOutcome(outcome)
+        ? serializeDiagnosis(deriveFailureDiagnosis({ outcome, stallReason: stallReason ?? null, providerLimit: providerLimitHit ?? null, errorText: failureText ?? null, stepId: failedStepId ?? null, core: coreFailure, hostBlocker: definitionCompletion?.blocker ?? null,
+          blockedReason: definitionCompletion && !definitionCompletion.ok ? definitionCompletion.reasons.join('; ') : coreCompletion && outcome === 'blocked' ? `validation ${coreCompletion.completion.validation}, implementation ${coreCompletion.completion.implementation}` : null }))
+        : null,
     })
     this._emit({
       type: 'job.finalized',

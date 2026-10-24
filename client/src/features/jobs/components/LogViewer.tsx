@@ -268,7 +268,7 @@ export function LogViewer({ events, isLoading, projectId }: LogViewerProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" data-testid="log-viewer">
       {/* Filter bar */}
       <div className="px-4 py-2 border-b border-border flex items-center gap-2">
         <div className="relative flex-1 max-w-xs">

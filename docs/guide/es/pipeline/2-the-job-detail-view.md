@@ -107,6 +107,18 @@ Si la [telemetría](../settings/customizing) estaba activada para el job, aparec
 
 Práctico para compartir una ejecución con un compañero o para abrir un informe de bug preciso.
 
+## Cuando una ejecución falla
+
+Cuando un job falla, se detiene o queda bloqueado, el estado final empieza con una **tarjeta de diagnóstico** que cuenta qué pasó en lenguaje claro, por ejemplo *Las pruebas fallaron en la fase Reviewer tras 4 rondas de correcciones*, y por qué cuando la app lo sabe:
+
+- **Pruebas fallidas**: las comprobaciones siguen fallando tras las rondas de correcciones.
+- **Límite del proveedor**: se alcanzó el límite de uso del proveedor de IA. La tarjeta cita cuándo se restablece, con las palabras del propio proveedor.
+- **Entorno**: la máquina no puede ejecutar las comprobaciones (credenciales, una herramienta que falta, un comando de preparación que falla). *Arreglar el entorno* muestra exactamente qué ejecutar o cambiar.
+- **Bloqueada**, **sin tiempo**, **en silencio** y **detenida inesperadamente** nombran el límite o el proceso que paró la ejecución.
+- **Causa desconocida**: la app no adivina. Muestra el final del registro para que lo leas tú.
+
+Bajo el diagnóstico hay hasta tres remedios ordenados, y solo los que pueden funcionar aquí: **Reanudar desde** la fase que se detuvo, **Volver a intentarlo**, **Editar la spec y relanzar** (los anexos de la spec llevan tu cambio a la siguiente ejecución), **Arreglar el entorno** y **Abrir el registro en el fallo**. La misma causa aparece como una etiqueta de una línea en la [bandeja](../getting-started/the-dashboard-tour) y la tarjeta de ejecución de la misión muestra la misma tarjeta.
+
 ## A dónde ir después
 
 - [Rails y jobs](rails-and-jobs) — lanzamiento y encolado.

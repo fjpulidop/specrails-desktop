@@ -1929,6 +1929,15 @@ const MIGRATIONS: Migration[] = [
     if (!cols.has('local_stash')) db.exec('ALTER TABLE rail_pr_deliveries ADD COLUMN local_stash TEXT')
   },
 
+  // Migration 84: loop_runs.failure_diagnosis — JSON FailureDiagnosis of a run
+  // that ended failed / blocked / stalled (Core's contract 5.8 classification,
+  // or the one Desktop derived from its own signals). NULL for every other run
+  // and for runs that finished before this column; readers re-derive then.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('failure_diagnosis')) db.exec('ALTER TABLE loop_runs ADD COLUMN failure_diagnosis TEXT')
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {
