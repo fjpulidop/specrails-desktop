@@ -1161,6 +1161,11 @@
       "hint": "Construisez cette spec avec l’agent sur sa propre branche Flow, dans une mission",
       "starting": "Démarrage du Flow…",
       "failed": "La spec #{{id}} n’a pas pu démarrer en Flow",
+      "repository": {
+        "title": "Où ce Flow doit-il s'exécuter ?",
+        "body": "Ce projet contient plusieurs dépôts Git. Le Flow travaille sur sa propre branche, dans une copie séparée de celui que vous choisissez.",
+        "fromSpec": "Indiqué dans la spec"
+      },
       "blocked": {
         "noProject": "Ouvrez un projet pour utiliser Flow",
         "unavailable": "Flow n’est pas disponible avec le Specrails Core installé",

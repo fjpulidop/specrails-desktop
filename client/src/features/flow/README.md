@@ -113,6 +113,12 @@ In a workspace (folder primary) or a project with several Git repositories,
 `flowRepositoryChoice`), preselected from the `flow-offer` block's
 `repositoryId`. It sends `repositoryId` only for such projects; a
 single-repository project never shows or sends it.
+The picker is `FlowRepositoryPicker` (Git members only, one tab stop, arrow
+keys / Home / End). "Start in Flow" from the board or the spec detail reuses
+it in `FlowRepositoryPrompt` (a dialog provided by `FlowMissionsBridge`) when
+the project has several Git members and the spec does not name exactly one:
+the spec's repository, else the Git primary, is preselected and the pick is
+sent as `repositoryId`.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/flow`.
 For moves, update imports and mocks together, then run client coverage and typecheck.

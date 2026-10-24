@@ -1161,6 +1161,11 @@
       "hint": "在任务中与代理在独立的 Flow 分支上构建该规格",
       "starting": "正在启动 Flow…",
       "failed": "规格 #{{id}} 无法在 Flow 中开始",
+      "repository": {
+        "title": "这个 Flow 在哪里运行？",
+        "body": "此项目有多个 Git 仓库。Flow 会在你所选仓库的独立副本中、在自己的分支上工作。",
+        "fromSpec": "规格中指定"
+      },
       "blocked": {
         "noProject": "打开一个项目以使用 Flow",
         "unavailable": "已安装的 Specrails Core 不支持 Flow",

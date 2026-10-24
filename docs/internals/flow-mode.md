@@ -98,7 +98,19 @@ already has (Flow and Implement are offered with equal weight for any spec):
   the board the Flow opens in the spec's `origin_conversation_id` mission when
   it can take it (else `flow_already_open` / `conversation_not_pinned` /
   `conversation_not_found` ⇒ a new mission pinned to the project, titled after
-  the spec) and the mission panel opens on it.
+  the spec) and the mission panel opens on it. In a project with several Git
+  repositories (`flowRepositoryChoice` shows a choice and lists two or more Git
+  members) a spec that does not name exactly one Git member first asks where
+  the Flow runs (`chooseSpecRepository` →
+  [`FlowRepositoryPrompt`](../../client/src/features/flow/components/FlowRepositoryPrompt.tsx),
+  a dialog mounted once by `FlowMissionsBridge` so it survives the board menu
+  closing). It uses the entry card's
+  [`FlowRepositoryPicker`](../../client/src/features/flow/components/FlowRepositoryPicker.tsx)
+  (Git members of `GET /repositories`, arrow-key radio group), preselects the
+  spec's first Git member, else the Git primary (a folder primary preselects
+  nothing), and sends the pick as `repositoryId`; Cancel starts nothing.
+  Otherwise (one repository, a spec naming exactly one Git member, the list
+  failing to load) no dialog shows and the server triages as below.
 - **Eligibility** (before any write; `FlowTickets.inspectExisting`, re-checked
   atomically by `adoptExisting`): the spec exists, is not done/cancelled, is
   not held by another Flow and is on no rail (`spec_on_rail`, or
@@ -149,7 +161,8 @@ The mission agent triages it: the `flow-offer` block carries `repositoryId`
 (required when `project.repositories` lists more than one Git repository or the
 primary is a folder; never a folder, never invented). `FlowEntryCard` shows the
 target with a picker of the Git members (`GET /repositories`), preselected from
-the offer, only for such projects.
+the offer, only for such projects. "Start in Flow" from the board or the spec detail uses the same picker
+in a dialog (see [Start from an existing spec](#start-from-an-existing-spec)).
 
 A non-primary choice is persisted on `flow_sessions.repository_id`
 (migration 80; NULL ⇒ primary) and on the placeholder spec

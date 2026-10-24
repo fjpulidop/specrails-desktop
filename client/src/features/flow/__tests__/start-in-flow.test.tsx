@@ -10,26 +10,30 @@ vi.mock('../../missions/context/AgentChatContext', async (importOriginal) => ({ 
 
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { FlowProvider } from '../context/FlowContext'
+import { FlowRepositoryPromptProvider } from '../components/FlowRepositoryPrompt'
 import { FlowRailLaunchAlternative, StartInFlowButton, StartInFlowMenuItem, startInFlowBlock, type StartInFlowSpec } from '../components/StartInFlow'
 
 const ws = { registerHandler: vi.fn(), unregisterHandler: vi.fn(), connectionStatus: 'connected' as const }
 function Providers({ children }: { children: ReactNode }) {
-  return <SharedWebSocketContext.Provider value={ws}><FlowProvider>{children}</FlowProvider></SharedWebSocketContext.Provider>
+  return <SharedWebSocketContext.Provider value={ws}><FlowProvider><FlowRepositoryPromptProvider>{children}</FlowRepositoryPromptProvider></FlowProvider></SharedWebSocketContext.Provider>
 }
 const respond = (status: number, body: unknown) => ({ ok: status < 400, status, headers: new Headers({ 'content-type': 'application/json' }), json: async () => body, text: async () => JSON.stringify(body) }) as unknown as Response
 const spec = (over: Partial<StartInFlowSpec> = {}): StartInFlowSpec => ({ id: 12, title: 'Calmer onboarding', status: 'todo', metadata: {}, origin_conversation_id: 'c-origin', ...over })
 
 let posts: Array<{ url: string; body: Record<string, unknown> }>
 let flowResponses: Array<() => Response>
+let repositories: unknown[]
 
 beforeEach(() => {
   vi.clearAllMocks()
   posts = []
   flowResponses = []
+  repositories = []
   global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}
     if (init?.method === 'POST' || init?.method === 'PATCH') posts.push({ url, body })
+    if (url.endsWith('/api/projects/p1/repositories')) return respond(200, { repositories })
     if (url.endsWith('/flow/availability')) return respond(200, { available: true, reason: 'ok', missing: [] })
     if (url.endsWith('/api/projects/p1/flow') && init?.method === 'POST') {
       const next = flowResponses.shift()
@@ -93,6 +97,85 @@ describe('Start in Flow from the board / spec detail', () => {
     await act(async () => { fireEvent.click(enabled) })
     await waitFor(() => expect(onDone).toHaveBeenCalled())
     expect(toast.error).toHaveBeenCalledWith('Spec #12 could not start in Flow', expect.objectContaining({ description: expect.stringContaining('running on a rail') }))
+  })
+})
+
+describe('Start in Flow in a project with several Git repositories', () => {
+  const several = () => [
+    { id: 'repo-app', name: 'app', path: '/w/app', isPrimary: true, kind: 'git' },
+    { id: 'repo-api', name: 'api', path: '/w/api', isPrimary: false, kind: 'git' },
+    { id: 'repo-docs', name: 'docs', path: '/w/docs', isPrimary: false, kind: 'folder' },
+  ]
+  const flowPosts = () => posts.filter((post) => post.url.endsWith('/flow'))
+
+  it('asks where the Flow runs (Git members only, the primary preselected) and starts there', async () => {
+    repositories = several()
+    render(<Providers><StartInFlowButton spec={spec()} rail={null} /></Providers>)
+    await waitFor(() => expect(screen.getByTestId('spec-start-in-flow')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('spec-start-in-flow')) })
+    const dialog = await screen.findByTestId('flow-start-repository-dialog')
+    expect(dialog).toHaveTextContent('Where should this Flow run?')
+    expect(dialog).toHaveTextContent('Calmer onboarding')
+    const radios = screen.getAllByRole('radio')
+    expect(radios.map((radio) => radio.getAttribute('data-testid'))).toEqual(['flow-start-repository-repo-app', 'flow-start-repository-repo-api'])
+    expect(radios[0]).toHaveAttribute('aria-checked', 'true')
+    expect(radios[0]).toHaveAttribute('tabindex', '0')
+    expect(radios[1]).toHaveAttribute('tabindex', '-1')
+    expect(flowPosts()).toEqual([])
+    fireEvent.keyDown(radios[0]!, { key: 'ArrowDown' })
+    expect(screen.getByTestId('flow-start-repository-repo-api')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('flow-start-repository-repo-api')).toHaveFocus()
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-start-repository-confirm')) })
+    await waitFor(() => expect(chat.open).toHaveBeenCalled())
+    expect(flowPosts()[0]!.body).toEqual({ conversationId: 'c-origin', idea: '', ticketId: 12, repositoryId: 'repo-api' })
+    expect(screen.queryByTestId('flow-start-repository-dialog')).not.toBeInTheDocument()
+  })
+
+  it('preselects the spec\'s repository among several it names, and cancelling starts nothing', async () => {
+    repositories = several()
+    render(<Providers><StartInFlowButton spec={spec({ repositoryIds: ['repo-docs', 'repo-api', 'repo-app'] })} rail={null} /></Providers>)
+    await waitFor(() => expect(screen.getByTestId('spec-start-in-flow')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('spec-start-in-flow')) })
+    await screen.findByTestId('flow-start-repository-dialog')
+    const api = screen.getByTestId('flow-start-repository-repo-api')
+    expect(api).toHaveAttribute('aria-checked', 'true')
+    expect(api).toHaveTextContent('Named in the spec')
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Cancel' })) })
+    await waitFor(() => expect(screen.queryByTestId('flow-start-repository-dialog')).not.toBeInTheDocument())
+    expect(flowPosts()).toEqual([])
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(screen.getByTestId('spec-start-in-flow')).toBeEnabled()
+  })
+
+  it('does not ask when the spec targets exactly one Git repository (the server runs it there)', async () => {
+    repositories = several()
+    render(<Providers><StartInFlowButton spec={spec({ repositoryIds: ['repo-api'] })} rail={null} /></Providers>)
+    await waitFor(() => expect(screen.getByTestId('spec-start-in-flow')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('spec-start-in-flow')) })
+    await waitFor(() => expect(chat.open).toHaveBeenCalled())
+    expect(screen.queryByTestId('flow-start-repository-dialog')).not.toBeInTheDocument()
+    expect(flowPosts()[0]!.body).toEqual({ conversationId: 'c-origin', idea: '', ticketId: 12 })
+  })
+
+  it('asks with nothing preselected in a workspace (folder primary), and the board menu closes as the dialog opens', async () => {
+    repositories = [
+      { id: 'ws', name: 'workspace', path: '/w', isPrimary: true, kind: 'folder' },
+      { id: 'repo-app', name: 'app', path: '/w/app', isPrimary: false, kind: 'git' },
+      { id: 'repo-api', name: 'api', path: '/w/api', isPrimary: false, kind: 'git' },
+    ]
+    const onDone = vi.fn()
+    render(<Providers><StartInFlowMenuItem spec={spec({ origin_conversation_id: null })} rail={null} onDone={onDone} /></Providers>)
+    await waitFor(() => expect(screen.getByTestId('spec-menu-start-in-flow')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('spec-menu-start-in-flow')) })
+    await screen.findByTestId('flow-start-repository-dialog')
+    expect(onDone).toHaveBeenCalled()
+    expect(screen.getAllByRole('radio').every((radio) => radio.getAttribute('aria-checked') === 'false')).toBe(true)
+    expect(screen.getByTestId('flow-start-repository-confirm')).toBeDisabled()
+    expect(screen.getByText('Choose the repository this Flow runs in')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('flow-start-repository-repo-app'))
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-start-repository-confirm')) })
+    await waitFor(() => expect(chat.selectConversation).toHaveBeenCalledWith('c-new'))
+    expect(flowPosts()[0]!.body).toEqual({ conversationId: 'c-new', idea: '', ticketId: 12, repositoryId: 'repo-app' })
   })
 })
 

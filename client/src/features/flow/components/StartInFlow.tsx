@@ -5,8 +5,10 @@
 // mission (`origin_conversation_id`) when it can take a Flow, else a new
 // mission pinned to the project. The Flow opens there, in the mission panel.
 // Unavailable cases stay visible but disabled, with the reason as tooltip.
+// In a project with several Git repositories, a spec that does not target
+// exactly one of them first asks WHERE the Flow runs (FlowRepositoryPrompt).
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Loader2, Waves } from 'lucide-react'
@@ -18,10 +20,11 @@ import type { LocalTicket } from '../../../types'
 import type { MissionRailLaunchAlternativeProps } from '../../missions/context/MissionExtensionsContext'
 import type { SpecExtensions, SpecStartAlternativeProps } from '../../specs/context/SpecExtensionsContext'
 import { useConversationFlow, useFlowAvailability, useFlowContext } from '../context/FlowContext'
-import { FlowApiError, isOpenFlow, type Flow } from '../lib/flow-api'
+import { FlowApiError, flowApi, flowRepositoryChoice, isOpenFlow, type Flow } from '../lib/flow-api'
 import { flowErrorMessage } from '../lib/flow-failure'
+import { useFlowRepositoryPrompt, type FlowRepositoryPrompt } from './FlowRepositoryPrompt'
 
-export type StartInFlowSpec = Pick<LocalTicket, 'id' | 'title' | 'status' | 'metadata' | 'origin_conversation_id'>
+export type StartInFlowSpec = Pick<LocalTicket, 'id' | 'title' | 'status' | 'metadata' | 'origin_conversation_id' | 'repositoryIds'>
 
 export type StartInFlowBlock = 'noProject' | 'loading' | 'unavailable' | 'inFlow' | 'closed' | 'running' | 'onRail' | 'missionInFlow'
 
@@ -44,23 +47,48 @@ export function startInFlowBlock(spec: Pick<StartInFlowSpec, 'status' | 'metadat
   return null
 }
 
+/**
+ * The repository a spec starts its Flow in: `undefined` ⇒ let the server
+ * triage (one repository, a spec that targets exactly one Git member, an
+ * unknown member list, no prompt mounted); a string ⇒ the person's pick;
+ * null ⇒ the person cancelled. Only several Git members ask.
+ */
+export async function chooseSpecRepository(projectId: string, spec: Pick<StartInFlowSpec, 'id' | 'title' | 'repositoryIds'>, prompt: FlowRepositoryPrompt | null, onPrompt?: () => void): Promise<string | null | undefined> {
+  if (!prompt) return undefined
+  const repositories = await flowApi.repositories(projectId).catch(() => null)
+  if (!repositories) return undefined
+  const choice = flowRepositoryChoice(repositories)
+  if (!choice.show || choice.candidates.length < 2) return undefined
+  const named = (spec.repositoryIds ?? []).filter((id) => choice.candidates.some((candidate) => candidate.id === id))
+  if ((spec.repositoryIds?.length ?? 0) === 1 && named.length === 1) return undefined
+  onPrompt?.()
+  return prompt.choose({ spec: { id: spec.id, title: spec.title }, candidates: choice.candidates, specRepositoryId: named[0] ?? null, fallbackId: choice.fallback })
+}
+
 /** Start an existing spec in Flow and open its mission. */
 export function useStartInFlow(spec: StartInFlowSpec, rail: { running: boolean } | null) {
   const { t } = useTranslation('agent')
   const { activeProjectId } = useDesktop()
   const ctx = useFlowContext()
   const chat = useAgentChat()
+  const prompt = useFlowRepositoryPrompt()
   const availability = useFlowAvailability(activeProjectId)
   const [busy, setBusy] = useState(false)
+  // Re-entrancy guard (the repository dialog may be open while `busy` is false).
+  const startingRef = useRef(false)
   useEffect(() => { if (activeProjectId) ctx?.loadAvailability(activeProjectId) }, [ctx, activeProjectId])
   const block = !ctx ? 'unavailable' : startInFlowBlock(spec, { projectId: activeProjectId, available: availability ? availability.available : null, rail })
 
-  const start = useCallback(async (): Promise<Flow | null> => {
-    if (!ctx || !activeProjectId || busy || block) return null
-    setBusy(true)
+  /** `onPrompt`: called as the repository dialog opens (the board's menu closes then). */
+  const start = useCallback(async (options?: { onPrompt?: () => void }): Promise<Flow | null> => {
+    if (!ctx || !activeProjectId || startingRef.current || block) return null
+    startingRef.current = true
     const projectId = activeProjectId
     try {
-      const inMission = async (conversationId: string) => ctx.start(projectId, conversationId, '', null, null, spec.id)
+      const repositoryId = await chooseSpecRepository(projectId, spec, prompt, options?.onPrompt)
+      if (repositoryId === null) return null
+      setBusy(true)
+      const inMission = async (conversationId: string) => ctx.start(projectId, conversationId, '', null, repositoryId ?? null, spec.id)
       let flow: Flow | null = null
       if (spec.origin_conversation_id) {
         try {
@@ -84,9 +112,10 @@ export function useStartInFlow(spec: StartInFlowSpec, rail: { running: boolean }
       if (error instanceof FlowApiError && error.code === 'feature_unavailable') ctx.loadAvailability(projectId, true)
       return null
     } finally {
+      startingRef.current = false
       setBusy(false)
     }
-  }, [ctx, activeProjectId, busy, block, spec.id, spec.title, spec.origin_conversation_id, chat, t])
+  }, [ctx, activeProjectId, block, spec, prompt, chat, t])
 
   const reason = block && block !== 'loading' ? t(`flow.startFromSpec.blocked.${block}`) : null
   return { block, reason, busy, start }
@@ -139,7 +168,7 @@ export function StartInFlowMenuItem({ spec, rail, onDone }: StartInFlowProps & {
       disabled={disabled}
       aria-disabled={disabled}
       title={reason ?? t('flow.startFromSpec.hint')}
-      onClick={() => { void start().finally(onDone) }}
+      onClick={() => { void start({ onPrompt: onDone }).finally(onDone) }}
       className="flex w-full items-start gap-2 px-3 py-2 text-left text-foreground/80 transition-colors hover:bg-accent-flow/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
     >
       {busy ? <Loader2 className="mt-px h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden /> : <Waves className="mt-px h-3.5 w-3.5 shrink-0 text-accent-flow" aria-hidden />}

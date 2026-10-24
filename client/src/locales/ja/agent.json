@@ -1161,6 +1161,11 @@
       "hint": "ミッションの中で、専用の Flow ブランチでエージェントとこのスペックを作ります",
       "starting": "Flow を開始中…",
       "failed": "スペック #{{id}} を Flow で開始できませんでした",
+      "repository": {
+        "title": "この Flow をどこで実行しますか？",
+        "body": "このプロジェクトには複数の Git リポジトリがあります。Flow は選んだリポジトリの別コピー上で、専用のブランチで作業します。",
+        "fromSpec": "スペックで指定"
+      },
       "blocked": {
         "noProject": "Flow を使うにはプロジェクトを開いてください",
         "unavailable": "インストール済みの Specrails Core では Flow を使えません",

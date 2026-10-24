@@ -1161,6 +1161,11 @@
       "hint": "Construa esta spec com o agente em um branch Flow próprio, em uma missão",
       "starting": "Iniciando o Flow…",
       "failed": "A spec #{{id}} não pôde começar em Flow",
+      "repository": {
+        "title": "Onde este Flow deve ser executado?",
+        "body": "Este projeto tem vários repositórios Git. O Flow trabalha no próprio branch, em uma cópia separada do que você escolher.",
+        "fromSpec": "Indicado na spec"
+      },
       "blocked": {
         "noProject": "Abra um projeto para usar o Flow",
         "unavailable": "O Flow não está disponível com o Specrails Core instalado",

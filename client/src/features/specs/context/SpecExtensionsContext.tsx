@@ -14,7 +14,7 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react'
 import type { LocalTicket } from '../../../types'
 
-export type SpecStartTarget = Pick<LocalTicket, 'id' | 'title' | 'status' | 'metadata' | 'origin_conversation_id'>
+export type SpecStartTarget = Pick<LocalTicket, 'id' | 'title' | 'status' | 'metadata' | 'origin_conversation_id' | 'repositoryIds'>
 
 export interface SpecStartAlternativeProps {
   spec: SpecStartTarget

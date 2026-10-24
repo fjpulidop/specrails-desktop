@@ -7,7 +7,7 @@
 // of Flow → Spec, the mission list's "In Flow" mark and attention dot (one
 // app-wide watch per project, live with the mission closed), the polite state announcer, the Back to Flow / Relaunch actions on a Flow → Spec run card that
 // stopped with requested changes, and the Flow-authored explanation of a run
-// that failed outright. Missions never import this feature.
+// that failed outright, and the repository prompt of "Start in Flow". Missions never import this feature.
 
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -22,6 +22,7 @@ import { useFlowConversationMarks, useFlowRunAttention } from './FlowConversatio
 import { FlowDock } from './FlowDock'
 import { describeFlowRun, useFlowLiveRuns } from './FlowLiveRuns'
 import { FlowOfferCard } from './FlowOfferCard'
+import { FlowRepositoryPromptProvider } from './FlowRepositoryPrompt'
 import { FlowRunCardActions } from './FlowRunCardActions'
 import { FlowRunFailure } from './FlowRunFailure'
 import { FlowRailLaunchAlternative } from './StartInFlow'
@@ -71,7 +72,9 @@ export const FLOW_MISSION_EXTENSIONS: MissionExtensions = Object.freeze({
 export function FlowMissionsBridge({ children }: { children: ReactNode }) {
   return (
     <FlowProvider>
-      <MissionExtensionsProvider value={FLOW_MISSION_EXTENSIONS}>{children}</MissionExtensionsProvider>
+      <FlowRepositoryPromptProvider>
+        <MissionExtensionsProvider value={FLOW_MISSION_EXTENSIONS}>{children}</MissionExtensionsProvider>
+      </FlowRepositoryPromptProvider>
     </FlowProvider>
   )
 }
