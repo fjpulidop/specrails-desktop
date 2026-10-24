@@ -59,15 +59,17 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
   // The inline Code pane can accompany BOTH the EMPTY composer and an ACTIVE
   // thread — it only needs an active project (its own store is per-conversation,
   // falling back to a Home key when no conversation is open yet).
-  const showCode = codePaneOpen && !!activeProjectId && !external
+  // At most one side pane at a time (the context keeps them exclusive; this
+  // guards any stale combination in the order jobs → code → analytics).
   const showJobs = jobsPaneOpen && !!activeProjectId && !external
-  const showAnalytics = analyticsPaneOpen && !!activeProjectId && !external
+  const showCode = !showJobs && codePaneOpen && !!activeProjectId && !external
+  const showAnalytics = !showJobs && !showCode && analyticsPaneOpen && !!activeProjectId && !external
 
   return (
     <MotionConfig reducedMotion="user">
     <div data-agent-mode-surface className="relative z-0 flex h-full w-full overflow-hidden bg-background">
       {isGalaxy && <Starfield />}
-      <div className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex h-full min-w-[360px] flex-1 flex-col overflow-hidden">
         {/* Radial glow — always mounted so EMPTY⇄ACTIVE crossfades instead of popping. */}
         <motion.div
           aria-hidden
