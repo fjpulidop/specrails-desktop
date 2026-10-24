@@ -449,11 +449,11 @@
     "retryDeliverySent": "Retrying the delivery…",
     "retryDeliveryFailed": "Could not retry the delivery",
     "mergedLocallyRestored": "Saved your local changes, integrated {{tickets}}, and restored them.",
-    "mergedLocallyStashConflict": "Integrated {{tickets}}. Your local changes are safe in a stash; the agent is resolving the conflicts.",
+    "mergedLocallyStashConflict": "Integrated {{tickets}}. Your local changes are safe in a stash; Specrails is restoring them on a separate branch.",
     "mergedLocallyStashKept": "Integrated {{tickets}}. Your local changes are safe in a stash; restore them when you're ready.",
     "localStash": {
       "title": "Your local changes are saved as a stash",
-      "conflictBody": "Re-applying them on top of the integrated result conflicted, so {{branch}} was left exactly as integrated. The agent is restoring them on {{restoreBranch}}.",
+      "conflictBody": "Re-applying them on top of the integrated result conflicted, so {{branch}} was left exactly as integrated. Restore them to try again on a separate branch.",
       "savedBody": "They have not been restored yet. Restore them while {{branch}} is checked out.",
       "files": "Conflicting files",
       "restore": "Restore my changes",
@@ -465,7 +465,22 @@
       "released": "That stash is no longer there, so there is nothing left to restore.",
       "blockedBranch": "Check out {{base}} first (you are on {{current}}), then restore.",
       "blockedDirty": "Some of those files changed again since they were saved. Commit or move those edits, then restore.",
-      "failed": "Could not restore your local changes"
+      "failed": "Could not restore your local changes",
+      "restoringBody": "Re-applying them on top of the integrated result conflicted, so {{branch}} was left exactly as integrated. Specrails is restoring them on {{restoreBranch}} in a separate worktree and resolving the conflicts there.",
+      "readyBodyClean": "Your changes are restored and committed on {{restoreBranch}}; they applied cleanly there. Review them, then bring them back to {{branch}}.",
+      "readyBodyResolved": "Your changes are restored and committed on {{restoreBranch}}, with the conflicts resolved automatically. Review them, then bring them back to {{branch}}.",
+      "failedBody": "Specrails could not finish restoring them on {{restoreBranch}}. They are still safe in the stash; discard that branch or restore again.",
+      "restoredFiles": "Restored on {{restoreBranch}}",
+      "binary": "binary",
+      "managedNote": "Specrails-managed generated files kept the integrated version: {{files}}",
+      "bringBack": "Bring them back to {{branch}}",
+      "bringingBack": "Bringing back…",
+      "discardBranch": "Discard the restored branch",
+      "discarding": "Discarding…",
+      "broughtBackToast": "Your local changes are back on {{branch}}.",
+      "discardedToast": "Restored branch discarded. Your changes are still safe in the stash.",
+      "blockedBringBack": "Could not bring the changes back to {{branch}} safely.",
+      "notReady": "The restored branch is not ready yet."
     }
   },
   "specDraft": {

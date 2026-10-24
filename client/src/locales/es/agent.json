@@ -449,11 +449,11 @@
     "retryDeliverySent": "Reintentando la entrega…",
     "retryDeliveryFailed": "No se pudo reintentar la entrega",
     "mergedLocallyRestored": "Guardé tus cambios locales, integré {{tickets}} y los restauré.",
-    "mergedLocallyStashConflict": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; el agente está resolviendo los conflictos.",
+    "mergedLocallyStashConflict": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; Specrails los está restaurando en una rama aparte.",
     "mergedLocallyStashKept": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; restáuralos cuando quieras.",
     "localStash": {
       "title": "Tus cambios locales están guardados en un stash",
-      "conflictBody": "Al volver a aplicarlos sobre el resultado integrado hubo conflictos, así que {{branch}} quedó exactamente como se integró. El agente los está restaurando en {{restoreBranch}}.",
+      "conflictBody": "Al volver a aplicarlos sobre el resultado integrado hubo conflictos, así que {{branch}} quedó exactamente como se integró. Restáuralos para intentarlo de nuevo en una rama aparte.",
       "savedBody": "Todavía no se han restaurado. Restáuralos con {{branch}} en tu checkout.",
       "files": "Archivos en conflicto",
       "restore": "Restaurar mis cambios",
@@ -465,7 +465,22 @@
       "released": "Ese stash ya no existe, así que no queda nada por restaurar.",
       "blockedBranch": "Cambia primero a {{base}} (estás en {{current}}) y después restaura.",
       "blockedDirty": "Algunos de esos archivos han vuelto a cambiar desde que se guardaron. Haz commit o mueve esas ediciones y después restaura.",
-      "failed": "No se pudieron restaurar tus cambios locales"
+      "failed": "No se pudieron restaurar tus cambios locales",
+      "restoringBody": "Al volver a aplicarlos sobre el resultado integrado hubo conflictos, así que {{branch}} quedó exactamente como se integró. Specrails los está restaurando en {{restoreBranch}}, en un worktree aparte, y resolviendo allí los conflictos.",
+      "readyBodyClean": "Tus cambios están restaurados y confirmados en {{restoreBranch}}; allí se aplicaron sin conflictos. Revísalos y tráelos de vuelta a {{branch}}.",
+      "readyBodyResolved": "Tus cambios están restaurados y confirmados en {{restoreBranch}}, con los conflictos resueltos automáticamente. Revísalos y tráelos de vuelta a {{branch}}.",
+      "failedBody": "Specrails no pudo terminar de restaurarlos en {{restoreBranch}}. Siguen a salvo en el stash; descarta esa rama o restáuralos de nuevo.",
+      "restoredFiles": "Restaurado en {{restoreBranch}}",
+      "binary": "binario",
+      "managedNote": "Los archivos generados que gestiona Specrails conservaron la versión integrada: {{files}}",
+      "bringBack": "Traerlos de vuelta a {{branch}}",
+      "bringingBack": "Trayendo de vuelta…",
+      "discardBranch": "Descartar la rama restaurada",
+      "discarding": "Descartando…",
+      "broughtBackToast": "Tus cambios locales están de vuelta en {{branch}}.",
+      "discardedToast": "Rama restaurada descartada. Tus cambios siguen a salvo en el stash.",
+      "blockedBringBack": "No se pudieron traer los cambios de vuelta a {{branch}} de forma segura.",
+      "notReady": "La rama restaurada aún no está lista."
     }
   },
   "specDraft": {

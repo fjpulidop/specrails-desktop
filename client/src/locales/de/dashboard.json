@@ -170,7 +170,7 @@
     "reviewChangesRequested": "Änderungen angefordert",
     "reviewChangesRequestedHint": "Die Flow-Übergabe braucht noch Änderungen. Öffne die Missionskarte, um zum Flow zurückzukehren oder neu zu starten.",
     "mergedLocallyRestored": "Deine lokalen Änderungen wurden gesichert, {{tickets}} integriert und anschließend wiederhergestellt.",
-    "mergedLocallyStashConflict": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; der Agent löst die Konflikte.",
+    "mergedLocallyStashConflict": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; Specrails stellt sie auf einem separaten Branch wieder her.",
     "mergedLocallyStashKept": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; stelle sie wieder her, wenn du so weit bist."
   },
   "railsBoard": {

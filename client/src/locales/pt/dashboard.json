@@ -170,7 +170,7 @@
     "reviewChangesRequested": "Alterações solicitadas",
     "reviewChangesRequestedHint": "A passagem do Flow a um rail ainda precisa de alterações. Abra o cartão da missão para voltar ao Flow ou relançar.",
     "mergedLocallyRestored": "Guardei as suas alterações locais, integrei {{tickets}} e restaurei-as.",
-    "mergedLocallyStashConflict": "{{tickets}} integrado. As suas alterações locais estão seguras num stash; o agente está a resolver os conflitos.",
+    "mergedLocallyStashConflict": "{{tickets}} integrado. As suas alterações locais estão seguras num stash; o Specrails está a restaurá-las num branch separado.",
     "mergedLocallyStashKept": "{{tickets}} integrado. As suas alterações locais estão seguras num stash; restaure-as quando quiser."
   },
   "railsBoard": {

@@ -133,12 +133,51 @@ the repository lock and the decision lease, after the isolated assembly and befo
    clean right before the apply are put back to `HEAD`. Other files, including newer edits, are not
    touched, and the stash is **kept** ⇒ `needs_attention`, `restoreBranch =
    specrails/restore-local-<sha8>`, the terminal transition stays `merged` / `delivered` with
-   `status_code = local_changes_attention`, and one automatic turn (`local-changes:<deliveryId>`
-   turn key, the same `startAutomaticTurn` path the Flow return briefing uses) asks the origin
-   mission agent to re-apply the stash in a separate worktree on that new branch, resolve, commit
-   there and report back. It must never touch the target branch or drop the stash.
+   `status_code = local_changes_attention`.
+   **Specrails-managed generated files** (`isSpecrailsManagedPath`: the OpenSpec skills/commands
+   that setup's `openspec init` writes and `openspec init/update` regenerates for every tool dir —
+   `<.tool>/skills/openspec-*/**`, `<.tool>/{commands,prompts,workflows}/opsx…`) are not the
+   person's work. They are still stashed (a fast-forward refuses any dirty tracked file), but when
+   *every* conflict is managed the apply is settled in place — those paths take the integrated
+   (delivered) version, the rest stays applied, the stash is dropped ⇒ `restored`. This was the
+   real-use trigger: 20 `.claude|.codex/skills/openspec-*/SKILL.md` regenerated on both sides.
+   Managed paths are not excluded from the overlap/stash (excluding them would make Git refuse the
+   fast-forward) and partial-file managed blocks (e.g. an instruction-file block) are not covered.
+3b. **Server-side restoration of a conflicting stash**
+   ([local-restore-branch.ts](../../server/modules/delivery/runtime/local-restore-branch.ts)).
+   Mission agents run read-only, so they are never asked to write: the origin mission gets one
+   *report-only* automatic turn (`local-changes:<deliveryId>` turn key — what happened, that
+   Specrails is restoring on the branch, no git/shell instructions). Specrails itself then, in the
+   background (`startLocalRestoreBranch`, tracked by `waitForLocalRestores`):
+   - under the repository lock, `createWorktree` cuts `specrails/restore-local-<sha8>` from the
+     integrated target into `<worktrees root>/restore-local-<sha8>/` and runs
+     `git stash apply <sha>` there. An untracked-vs-now-tracked collision (which makes the apply
+     refuse) is set aside, applied, then written back as a two-sided conflict block; managed files
+     take the integrated version. An existing branch of that name is never borrowed (`failed`).
+   - no conflict left ⇒ committed at once ("Restore local changes from before integrating #N"),
+     `restore.status = ready`, `resolvedBy = clean`. The worktree apply is onto the same tree as
+     the checkout, so this mainly happens for identical untracked collisions and managed files.
+   - otherwise `resolving`: the write-capable resolver runs **outside the lock, confined to that
+     worktree** (cwd/repoDir = the worktree). Default
+     ([local-restore-resolver.ts](../../server/modules/delivery/runtime/local-restore-resolver.ts))
+     is the same AI merge-resolver the parallel merge-back uses (`{{cmd:resolve-merge}}` +
+     MERGE_SAFE, headless rail-job spawn) with a keep-both-intents, nothing-destructive prompt;
+     tests inject `localRestoreResolver`. Specrails then verifies (still on the branch, descends
+     from the target, no marker/unmerged path), stages and commits ⇒ `ready` / `resolvedBy =
+     resolver`, else `failed` with `detail` and the remaining paths. A newer state (discard,
+     restart) always wins over a late resolver result.
+   - `ready` carries `files` (numstat vs the base) for review. Nothing touches the target branch
+     and the stash is kept until the person clicks:
+     `POST /rails/pr-local-changes/bring-back` (target checked out, branch tip unchanged, no
+     overlapping uncommitted edits; a moved target is merged *into* the restore branch first, in
+     its worktree, aborted on conflict; then `git merge --ff-only`; only then the stash is dropped
+     and the worktree/branch removed ⇒ `restored`, `brought_back`) or
+     `POST /rails/pr-local-changes/discard-branch` (force-removes the worktree/branch, the stash is
+     **kept**; refused while `resolving`).
 4. `POST /rails/pr-local-changes/restore` ("Restore my changes") re-attempts the apply under the
-   repository lock and refuses while any decision lease is held (`operation_in_progress`). A wrong
+   repository lock and refuses while any decision lease is held (`operation_in_progress`). Still
+   conflicting ⇒ step 3b (idempotent while a branch is `resolving`/`ready`; a `failed` one is
+   removed and retried). A wrong
    branch or re-dirtied stash paths answer `409 local_restore_blocked` without touching anything.
    An already-applied stash (crash between apply and drop) is only dropped; a stash the person
    dropped is `released`. Leaving the held states moves `local_changes_attention` back to
@@ -146,11 +185,15 @@ the repository lock and the decision lease, after the isolated assembly and befo
 5. Startup recovery (`recoverLocalStashes`, after ticket-effect replay, before admission opens)
    re-applies every `saved` record while the same branch is checked out. It first adopts a
    Specrails stash whose record never landed (crash right after `git stash push`) from its
-   message. Conflicts follow step 3.
+   message. Conflicts follow step 3/3b. A resolver interrupted by the restart is settled `failed`
+   (its worktree kept for Discard / retry); a `needs_attention` record without a restore branch
+   (recorded before 3b existed) starts one.
 
-Response bodies carry `localChanges { state, stashName, stashSha, restoreBranch, conflictPaths }`;
-snapshots/cards carry `localStash` (no filesystem path). The mission card renders
-`LocalStashNotice` (note, conflicting files, Restore, copyable stash name). The dashboard strip
+Response bodies carry `localChanges { state, stashName, stashSha, restoreBranch, conflictPaths,
+restore? }`; snapshots/cards carry `localStash` (with `restore`, no filesystem path). The mission card
+renders `LocalStashNotice`: note, conflicting files, Restore, copyable stash name, and per restore
+status — resolving (spinner), ready (restored files with +/−, managed-files note, **Bring them back
+to <branch>**, **Discard the restored branch**), failed (detail, Discard, Restore again). The dashboard strip
 closes on `merged`, so it only shows the toast. Multi-repo children record the stash on the child
 row; the group card does not surface it yet.
 

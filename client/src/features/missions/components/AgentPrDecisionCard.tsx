@@ -26,7 +26,7 @@ import { useRunVitals, formatRunElapsed } from '../../jobs/hooks/useRunVitals'
 import {
   postRailPrDecision,
   postRailPrCheckout,
-  postRestoreLocalChanges,
+  postLocalChangesAction,
   agentEnvelopeFromSnapshot,
   type AgentPrDecisionAction,
   type AgentPrDecisionEnvelope,
@@ -432,7 +432,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const { openRef } = useAgentRefActions()
   const [busy, setBusy] = useState<AgentPrDecisionAction | null>(null)
   const [checkingOut, setCheckingOut] = useState(false)
-  const [restoringLocal, setRestoringLocal] = useState(false)
+  const [localAction, setLocalAction] = useState<'restore' | 'bring-back' | 'discard-branch' | null>(null)
   // Confirm layer: inside a dialog (e.g. Job detail, entity 65) climb one
   // layer as usual; outside any dialog the card lives in the floating agent
   // chat (60), so a base (50) confirm would paint BEHIND it — use `stacked`.
@@ -709,27 +709,34 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     }
   }
 
-  /** "Restore my changes": re-apply the stash "Integrate locally" saved. */
-  const restoreLocalChanges = async () => {
-    if (restoringLocal || busy || envelope.operation) return
-    setRestoringLocal(true)
+  /** The saved-local-changes actions: "Restore my changes" (re-apply the
+   *  stash), "Bring them back" (fast-forward the target to the reviewed
+   *  restore branch) and "Discard the restored branch" (the stash is kept). */
+  const runLocalChangesAction = async (action: 'restore' | 'bring-back' | 'discard-branch') => {
+    if (localAction || busy || envelope.operation) return
+    setLocalAction(action)
     const branch = envelope.localStash?.branch || envelope.baseBranch
     try {
-      const r = await postRestoreLocalChanges(envelope.projectId, envelope.prDeliveryId)
-      if ((r.kind === 'ok' || r.kind === 'blocked' || r.kind === 'busy') && r.snapshot) {
+      const r = await postLocalChangesAction(envelope.projectId, envelope.prDeliveryId, action)
+      if (r.kind !== 'recovering' && r.kind !== 'failed' && r.snapshot) {
         const next = agentEnvelopeFromSnapshot(envelope, r.snapshot)
         if (applyPrDecisionSnapshot(next) !== 'stale') setLocalEnvelope(next)
       }
       if (r.kind === 'ok') {
         const state = r.localChanges?.state
-        if (state === 'restored') toast.success(t('prCard.localStash.restoredToast', { branch }))
+        if (action === 'discard-branch') toast.info(t('prCard.localStash.discardedToast'))
+        else if (action === 'bring-back') toast.success(t('prCard.localStash.broughtBackToast', { branch }))
+        else if (state === 'restored') toast.success(t('prCard.localStash.restoredToast', { branch }))
         else if (state === 'released') toast.info(t('prCard.localStash.released'))
         else toast.warning(t('prCard.localStash.stillConflicting', { branch }))
-        notifyGitChanged(envelope.projectId)
+        if (action !== 'discard-branch') notifyGitChanged(envelope.projectId)
       } else if (r.kind === 'blocked') {
         if (r.reason === 'wrong_branch') toast.warning(t('prCard.localStash.blockedBranch', { base: r.base || branch, current: r.current ?? '?' }))
         else if (r.reason === 'dirty') toast.warning(t('prCard.localStash.blockedDirty'))
+        else if (r.reason === 'branch_changed' || r.reason === 'target_conflict') toast.warning(t('prCard.localStash.blockedBringBack', { branch }), { description: r.detail || undefined })
         else toast.error(t('prCard.localStash.failed'))
+      } else if (r.kind === 'not_ready' || r.kind === 'in_progress') {
+        toast.info(t('prCard.localStash.notReady'))
       } else if (r.kind === 'busy') {
         toast.info(t('prCard.operation.inProgress'))
       } else if (r.kind === 'recovering') {
@@ -738,7 +745,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         toast.error(t('prCard.localStash.failed'), { description: r.detail })
       }
     } finally {
-      setRestoringLocal(false)
+      setLocalAction(null)
     }
   }
 
@@ -1570,10 +1577,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
 
       <LocalStashNotice
         stash={envelope.localStash}
-        onRestore={() => void restoreLocalChanges()}
-        restoring={restoringLocal}
+        onRestore={() => void runLocalChangesAction('restore')}
+        onBringBack={() => void runLocalChangesAction('bring-back')}
+        onDiscardBranch={() => void runLocalChangesAction('discard-branch')}
+        pendingAction={localAction}
         disabled={anyBusy}
-        agentBriefed
       />
 
       {presentation.safetyArchives.length > 0 && (

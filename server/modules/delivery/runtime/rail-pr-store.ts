@@ -217,12 +217,82 @@ export interface LocalStashRecord {
   restoreBranch: string | null
   /** Bounded list of paths whose restore conflicted. */
   conflictPaths: string[]
+  /** Specrails' own restoration of a conflicting stash on `restoreBranch` in
+   * a separate worktree (absent until a conflict needed one). */
+  restore?: LocalRestoreBranchRecord | null
   savedAt: string
   updatedAt: string
 }
 
+/**
+ * Server-side restoration of a conflicting stash (never delegated to the
+ * read-only mission agent): Specrails applies the stash on a new branch cut
+ * from the integrated target in its own worktree and commits it there.
+ *  - `resolving`: conflicts remain; the write-capable resolver runs, confined
+ *    to that worktree.
+ *  - `ready`: the restored changes are committed on the branch; the person
+ *    reviews them and may bring them back (nothing touched the target yet).
+ *  - `failed`: the branch could not be prepared or resolved; the stash is
+ *    still kept and the branch can be discarded.
+ *  - `brought_back`: fast-forwarded into the target on the person's click.
+ *  - `discarded`: the person discarded the branch; the stash is still kept.
+ */
+export type LocalRestoreBranchStatus = 'resolving' | 'ready' | 'failed' | 'brought_back' | 'discarded'
+
+export interface LocalRestoreFileChange { path: string; added: number | null; removed: number | null }
+
+export interface LocalRestoreBranchRecord {
+  status: LocalRestoreBranchStatus
+  branch: string
+  /** Absolute restore worktree (never on the wire). */
+  worktreePath: string
+  /** The integrated target commit the branch was cut from. */
+  baseSha: string | null
+  /** The restore commit the person reviews / brings back. */
+  commitSha: string | null
+  /** How the conflicts went away: none remained, or the resolver handled them. */
+  resolvedBy: 'clean' | 'resolver' | null
+  /** Specrails-managed generated files that took the integrated version. */
+  managedPaths: string[]
+  /** Conflicts left for the resolver (bounded). */
+  conflictPaths: string[]
+  /** What the restore commit changes against `baseSha` (bounded review). */
+  files: LocalRestoreFileChange[]
+  detail: string | null
+  updatedAt: string
+}
+
 /** The wire shape (no filesystem path). */
-export type LocalStashSnapshot = Omit<LocalStashRecord, 'checkoutPath'>
+export type LocalStashSnapshot = Omit<LocalStashRecord, 'checkoutPath' | 'restore'> & {
+  restore?: Omit<LocalRestoreBranchRecord, 'worktreePath'>
+}
+
+const RESTORE_STATUSES: ReadonlySet<string> = new Set(['resolving', 'ready', 'failed', 'brought_back', 'discarded'])
+const strings = (v: unknown, max: number): string[] => Array.isArray(v) ? v.filter((p): p is string => typeof p === 'string').slice(0, max) : []
+
+function readRestoreBranch(raw: unknown): LocalRestoreBranchRecord | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const v = raw as Partial<LocalRestoreBranchRecord>
+  if (typeof v.status !== 'string' || !RESTORE_STATUSES.has(v.status) || typeof v.branch !== 'string' || !v.branch) return null
+  const sha = (x: unknown) => typeof x === 'string' && /^[0-9a-f]{40,64}$/i.test(x) ? x : null
+  const count = (x: unknown) => typeof x === 'number' && Number.isFinite(x) ? x : null
+  return {
+    status: v.status as LocalRestoreBranchStatus,
+    branch: v.branch,
+    worktreePath: typeof v.worktreePath === 'string' ? v.worktreePath : '',
+    baseSha: sha(v.baseSha),
+    commitSha: sha(v.commitSha),
+    resolvedBy: v.resolvedBy === 'clean' || v.resolvedBy === 'resolver' ? v.resolvedBy : null,
+    managedPaths: strings(v.managedPaths, 50),
+    conflictPaths: strings(v.conflictPaths, 20),
+    files: Array.isArray(v.files)
+      ? v.files.filter((f): f is LocalRestoreFileChange => !!f && typeof (f as LocalRestoreFileChange).path === 'string')
+        .slice(0, 50).map((f) => ({ path: f.path, added: count(f.added), removed: count(f.removed) }))
+      : [],
+    detail: typeof v.detail === 'string' ? v.detail : null,
+    updatedAt: typeof v.updatedAt === 'string' ? v.updatedAt : '',
+  }
+}
 
 const LOCAL_STASH_STATES: ReadonlySet<string> = new Set(['saved', 'restored', 'needs_attention', 'released'])
 
@@ -240,6 +310,7 @@ export function readLocalStash(raw: string | null | undefined): LocalStashRecord
       state: value.state as LocalStashState,
       restoreBranch: typeof value.restoreBranch === 'string' ? value.restoreBranch : null,
       conflictPaths: Array.isArray(value.conflictPaths) ? value.conflictPaths.filter((p): p is string => typeof p === 'string').slice(0, 20) : [],
+      restore: readRestoreBranch(value.restore),
       savedAt: typeof value.savedAt === 'string' ? value.savedAt : '',
       updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : '',
     }
@@ -1138,7 +1209,12 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     ...(() => {
       const stash = readLocalStash(row.local_stash)
       if (!stash) return {}
-      const { checkoutPath: _checkoutPath, ...localStash } = stash
+      const { checkoutPath: _checkoutPath, restore, ...rest } = stash
+      const localStash: LocalStashSnapshot = { ...rest }
+      if (restore) {
+        const { worktreePath: _worktreePath, ...wire } = restore
+        localStash.restore = wire
+      }
       return { localStash }
     })(),
     createdAt: row.created_at,

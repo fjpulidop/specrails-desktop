@@ -83,6 +83,10 @@ const stash = (over: Partial<NonNullable<AgentPrDecisionEnvelope['localStash']>>
   sha: SHA, name: 'specrails: before integrating #4, #7 (d1)', branch: 'main', state: 'needs_attention',
   restoreBranch: 'specrails/restore-local-cccccccc', conflictPaths: ['src/app.ts'], savedAt: '', updatedAt: '', ...over,
 })
+const restore = (over: Partial<NonNullable<NonNullable<AgentPrDecisionEnvelope['localStash']>['restore']>> = {}): NonNullable<NonNullable<AgentPrDecisionEnvelope['localStash']>['restore']> => ({
+  status: 'ready', branch: 'specrails/restore-local-cccccccc', baseSha: 'a'.repeat(40), commitSha: 'b'.repeat(40), resolvedBy: 'resolver',
+  managedPaths: [], conflictPaths: ['src/app.ts'], files: [{ path: 'src/app.ts', added: 3, removed: 1 }], detail: null, updatedAt: '', ...over,
+})
 const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelope => ({
   kind: 'pr_decision', prDeliveryId: 'd1', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [4, 7],
   decision: 'merged', prUrl: null, prNumber: null, prState: 'none', branch: null, runIds: [],
@@ -102,9 +106,15 @@ beforeEach(() => {
 
 describe('AgentPrDecisionCard — saved local changes', () => {
   it('explains a conflicting restore: stash note, conflicting files, restore branch and copyable name', async () => {
-    render(<AgentPrDecisionCard envelope={env({ localStash: stash() })} />)
+    render(<AgentPrDecisionCard envelope={env({ localStash: stash({ restore: restore({ status: 'resolving' }) }) })} />)
     const notice = screen.getByTestId('local-stash-notice')
     expect(notice).toHaveAttribute('data-state', 'needs_attention')
+    expect(notice).toHaveAttribute('data-restore', 'resolving')
+    expect(notice).toHaveTextContent('Specrails is restoring them on specrails/restore-local-cccccccc in a separate worktree')
+    // While resolving: no Restore / Bring back / Discard, only the stash name.
+    expect(screen.queryByTestId('local-stash-restore')).toBeNull()
+    expect(screen.queryByTestId('local-restore-bring-back')).toBeNull()
+    expect(screen.queryByTestId('local-restore-discard')).toBeNull()
     expect(notice).toHaveTextContent('Your local changes are saved as a stash')
     expect(notice).toHaveTextContent('specrails/restore-local-cccccccc')
     expect(screen.getByTestId('local-stash-files')).toHaveTextContent('src/app.ts')
@@ -150,6 +160,63 @@ describe('AgentPrDecisionCard — saved local changes', () => {
   })
 })
 
+describe('AgentPrDecisionCard — server-side restore branch', () => {
+  it('ready: shows the restored files for review with Bring back and Discard, no Restore', () => {
+    render(<AgentPrDecisionCard envelope={env({ localStash: stash({ restore: restore({ managedPaths: ['.claude/skills/openspec-explore/SKILL.md'] }) }) })} />)
+    const notice = screen.getByTestId('local-stash-notice')
+    expect(notice).toHaveAttribute('data-restore', 'ready')
+    expect(notice).toHaveTextContent('with the conflicts resolved automatically')
+    expect(screen.getByTestId('local-restore-files')).toHaveTextContent('src/app.ts')
+    expect(screen.getByTestId('local-restore-files')).toHaveTextContent('+3')
+    expect(screen.getByTestId('local-restore-managed')).toHaveTextContent('.claude/skills/openspec-explore/SKILL.md')
+    expect(screen.queryByTestId('local-stash-files')).toBeNull()
+    expect(screen.queryByTestId('local-stash-restore')).toBeNull()
+    expect(screen.getByTestId('local-restore-bring-back')).toHaveTextContent('Bring them back to main')
+    expect(screen.getByTestId('local-restore-discard')).toHaveTextContent('Discard the restored branch')
+  })
+
+  it('failed: explains, lists what still conflicts and offers Discard and Restore again', () => {
+    render(<AgentPrDecisionCard envelope={env({ localStash: stash({ restore: restore({ status: 'failed', commitSha: null, detail: 'Conflict markers are still present.', files: [] }) }) })} />)
+    expect(screen.getByTestId('local-stash-notice')).toHaveTextContent('could not finish restoring them')
+    expect(screen.getByTestId('local-restore-detail')).toHaveTextContent('Conflict markers are still present.')
+    expect(screen.getByTestId('local-stash-files')).toHaveTextContent('src/app.ts')
+    expect(screen.queryByTestId('local-restore-bring-back')).toBeNull()
+    expect(screen.getByTestId('local-restore-discard')).toBeInTheDocument()
+    expect(screen.getByTestId('local-stash-restore')).toBeEnabled()
+  })
+
+  it('Bring them back posts to the card project and converges on the brought-back snapshot', async () => {
+    const back = { ...stash({ restore: restore({ status: 'brought_back' }) }), state: 'restored' }
+    global.fetch = vi.fn(async () => httpRes(200, { ok: true, localChanges: { state: 'restored', stashName: 'n', stashSha: SHA }, snapshot: snapshot(back) })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({ localStash: stash({ restore: restore() }) })} />)
+    await act(async () => { fireEvent.click(screen.getByTestId('local-restore-bring-back')) })
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/rails/pr-local-changes/bring-back', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ prDeliveryId: 'd1' }),
+    }))
+    await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith('Your local changes are back on main.'))
+    await waitFor(() => expect(screen.queryByTestId('local-stash-notice')).toBeNull())
+  })
+
+  it('Bring them back explains a refusal and keeps the card', async () => {
+    global.fetch = vi.fn(async () => httpRes(409, { error: 'local_restore_blocked', reason: 'dirty', base: 'main' })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({ localStash: stash({ restore: restore() }) })} />)
+    await act(async () => { fireEvent.click(screen.getByTestId('local-restore-bring-back')) })
+    await waitFor(() => expect(vi.mocked(toast.warning)).toHaveBeenCalledWith('Some of those files changed again since they were saved. Commit or move those edits, then restore.'))
+    expect(screen.getByTestId('local-restore-bring-back')).toBeInTheDocument()
+  })
+
+  it('Discard posts discard-branch; the stash note stays with Restore', async () => {
+    const discarded = stash({ restore: restore({ status: 'discarded' }) })
+    global.fetch = vi.fn(async () => httpRes(200, { ok: true, localChanges: { state: 'needs_attention' }, snapshot: snapshot(discarded, 'local_changes_attention') })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({ localStash: stash({ restore: restore() }) })} />)
+    await act(async () => { fireEvent.click(screen.getByTestId('local-restore-discard')) })
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/rails/pr-local-changes/discard-branch', expect.anything())
+    await waitFor(() => expect(vi.mocked(toast.info)).toHaveBeenCalledWith('Restored branch discarded. Your changes are still safe in the stash.'))
+    await waitFor(() => expect(screen.getByTestId('local-stash-notice')).toHaveAttribute('data-restore', 'none'))
+    expect(screen.getByTestId('local-stash-restore')).toBeInTheDocument()
+  })
+})
+
 describe('AgentPrDecisionCard — integrate toasts with local changes', () => {
   const integrate = async (localChanges: unknown) => {
     global.fetch = vi.fn(async () => httpRes(200, { ok: true, decision: 'merged', merged: true, local: true, localChanges })) as unknown as typeof fetch
@@ -163,10 +230,10 @@ describe('AgentPrDecisionCard — integrate toasts with local changes', () => {
     await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith('Saved your local changes, integrated #4, #7, and restored them.'))
   })
 
-  it('conflict → integrated, changes safe in a stash, agent resolving', async () => {
+  it('conflict → integrated, changes safe in a stash, Specrails restoring on a branch', async () => {
     await integrate({ state: 'needs_attention', stashName: 'specrails: before integrating #4, #7 (d1)', stashSha: SHA })
     await waitFor(() => expect(vi.mocked(toast.warning)).toHaveBeenCalledWith(
-      'Integrated #4, #7. Your local changes are safe in a stash; the agent is resolving the conflicts.',
+      'Integrated #4, #7. Your local changes are safe in a stash; Specrails is restoring them on a separate branch.',
       { description: 'specrails: before integrating #4, #7 (d1)' },
     ))
   })

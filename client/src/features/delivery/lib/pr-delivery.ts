@@ -1,6 +1,7 @@
 import type {
   PrDeliveryFlowReview,
   PrDeliveryLocalStash,
+  PrDeliveryLocalRestore,
   PrDeliveryRiskSummary,
   ReviewRiskSeverity,
   RailDeliveryOutcome,
@@ -171,9 +172,46 @@ export function coerceLocalStash(v: unknown): PrDeliveryLocalStash | null {
     state: o.state as PrDeliveryLocalStash['state'],
     restoreBranch: asNullableString(o.restoreBranch),
     conflictPaths: Array.isArray(o.conflictPaths) ? o.conflictPaths.filter((p): p is string => typeof p === 'string' && p.length > 0).slice(0, 20) : [],
+    ...(() => { const restore = coerceLocalRestore(o.restore); return restore ? { restore } : {} })(),
     savedAt: typeof o.savedAt === 'string' ? o.savedAt : '',
     updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : '',
   }
+}
+
+const LOCAL_RESTORE_STATUSES: ReadonlySet<string> = new Set(['resolving', 'ready', 'failed', 'brought_back', 'discarded'])
+const SHA_RE = /^[0-9a-f]{40,64}$/i
+const strList = (v: unknown, max: number): string[] => Array.isArray(v) ? v.filter((p): p is string => typeof p === 'string' && p.length > 0).slice(0, max) : []
+const countOrNull = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null
+
+/** Defensive parse of the server-side restore branch; null when absent or malformed. */
+export function coerceLocalRestore(v: unknown): PrDeliveryLocalRestore | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  if (typeof o.status !== 'string' || !LOCAL_RESTORE_STATUSES.has(o.status) || typeof o.branch !== 'string' || !o.branch) return null
+  return {
+    status: o.status as PrDeliveryLocalRestore['status'],
+    branch: o.branch,
+    baseSha: typeof o.baseSha === 'string' && SHA_RE.test(o.baseSha) ? o.baseSha : null,
+    commitSha: typeof o.commitSha === 'string' && SHA_RE.test(o.commitSha) ? o.commitSha : null,
+    resolvedBy: o.resolvedBy === 'clean' || o.resolvedBy === 'resolver' ? o.resolvedBy : null,
+    managedPaths: strList(o.managedPaths, 50),
+    conflictPaths: strList(o.conflictPaths, 20),
+    files: Array.isArray(o.files)
+      ? o.files.flatMap((f) => {
+        if (!f || typeof f !== 'object') return []
+        const r = f as Record<string, unknown>
+        return typeof r.path === 'string' && r.path ? [{ path: r.path, added: countOrNull(r.added), removed: countOrNull(r.removed) }] : []
+      }).slice(0, 50)
+      : [],
+    detail: typeof o.detail === 'string' ? o.detail : null,
+    updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : '',
+  }
+}
+
+/** The restore branch still needs the person (review / bring back / discard). */
+export function localRestorePending(stash: PrDeliveryLocalStash | null | undefined): boolean {
+  const status = stash?.restore?.status
+  return status === 'resolving' || status === 'ready' || status === 'failed'
 }
 
 /** The saved stash still holds the person's work (Restore / copy name apply). */

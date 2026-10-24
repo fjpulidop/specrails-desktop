@@ -963,9 +963,12 @@
       "adapters/decisions/local-changes.ts": [
         "../../../../repo-lock",
         "../../../missions/runtime/agent-chat-registry",
+        "../../runtime/local-restore-branch",
+        "../../runtime/local-restore-resolver",
         "../../runtime/local-stash",
         "../../runtime/rail-pr-store",
         "./contracts",
+        "./metadata",
         "./transitions"
       ],
       "adapters/decisions/merge-local.ts": [
@@ -1149,6 +1152,20 @@
         "../../code/runtime/file-provenance",
         "./pr-naming",
         "path"
+      ],
+      "runtime/local-restore-branch.ts": [
+        "../../../worktree-manager",
+        "./local-stash",
+        "./rail-pr-store",
+        "fs",
+        "path"
+      ],
+      "runtime/local-restore-resolver.ts": [
+        "../../../provider-selection",
+        "../../loops/runtime/loop-command-catalog",
+        "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-executors",
+        "../../specs/runtime/spec-models"
       ],
       "runtime/local-stash.ts": [
         "../../../worktree-manager",

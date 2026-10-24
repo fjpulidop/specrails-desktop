@@ -9,9 +9,9 @@ import { execFileSync } from 'child_process'
 import express from 'express'
 import request from 'supertest'
 import { initDb, type DbInstance } from '../../../db'
-import { executePrDecision, recoverLocalStashes, runRestoreLocalChanges, type PrDecisionDeps } from './rail-pr-decision'
+import { executePrDecision, recoverLocalStashes, runBringBackLocalChanges, runDiscardRestoreBranch, runRestoreLocalChanges, waitForLocalRestores, type PrDecisionDeps } from './rail-pr-decision'
 import { createPrDelivery, getPrDelivery, readLocalStash, setPrDeliveryLocalStash, toPrDeliverySnapshot, transitionDecision } from './rail-pr-store'
-import { localStashMessage, pathsOverlap, saveLocalChanges } from './local-stash'
+import { isSpecrailsManagedPath, localStashMessage, pathsOverlap, saveLocalChanges } from './local-stash'
 import { buildLocalChangesBriefing } from '../adapters/decisions/local-changes'
 import { createRailsRouter } from './rails-router'
 import { withRepoLock } from '../../../repo-lock'
@@ -66,12 +66,21 @@ function delivery(sha: string) {
   return row
 }
 const startAutomaticTurn = vi.fn(async () => 'started' as const)
+type ResolverInput = Parameters<NonNullable<PrDecisionDeps['localRestoreResolver']>>[0]
+/** Fake write-capable resolver: by default keeps both sides of each conflict block. */
+const resolver = vi.fn(async (input: ResolverInput) => {
+  for (const file of input.conflictPaths) {
+    const abs = path.join(input.worktreePath, file)
+    const text = fs.readFileSync(abs, 'utf8')
+    fs.writeFileSync(abs, text.replace(/^<{7}[^\n]*\n([\s\S]*?)^={7}\n([\s\S]*?)^>{7}[^\n]*\n/m, (_m, ours: string, theirs: string) => `${ours}${theirs}`))
+  }
+})
 function deps(): PrDecisionDeps {
   return {
     db, project: { id: 'local-project', slug: 'local-project', path: repo }, git: realGit,
     exec: { run: vi.fn().mockRejectedValue(new Error('Local integration must never call GitHub')) },
     broadcast: vi.fn(), ticketFile: path.join(root, 'tickets.json'), assemblyRoot: path.join(root, 'assembly'),
-    agentChat: () => null, missionAgent: () => ({ startAutomaticTurn }),
+    agentChat: () => null, missionAgent: () => ({ startAutomaticTurn }), localRestoreResolver: resolver,
   }
 }
 const integrate = (id: string) => executePrDecision(deps(), { prDeliveryId: id, action: 'merge-local', expectedDecision: 'on_review' })
@@ -84,6 +93,7 @@ beforeEach(() => {
   fs.mkdirSync(repo)
   db = initDb(':memory:')
   startAutomaticTurn.mockClear()
+  resolver.mockClear()
   git(['init', '-b', 'main'])
   git(['config', 'user.name', 'Specrails Test'])
   git(['config', 'user.email', 'specrails@example.test'])
@@ -93,7 +103,8 @@ beforeEach(() => {
   git(['commit', '-m', 'base'])
   write('tickets.json', JSON.stringify({ schema_version: '1.3', revision: 1, next_id: 1, tickets: {} }), root)
 })
-afterEach(() => {
+afterEach(async () => {
+  await waitForLocalRestores()
   db.close()
   fs.rmSync(root, { recursive: true, force: true })
 })
@@ -168,9 +179,9 @@ describe('Integrate locally with overlapping local changes (real Git)', () => {
     const [conversationId, text, opts] = startAutomaticTurn.mock.calls[0] as unknown as [string, string, { turnKey: string }]
     expect(conversationId).toBe('conv-1')
     expect(opts.turnKey).toBe(`local-changes:${row.id}`)
-    expect(text).toContain(record.sha)
     expect(text).toContain(record.restoreBranch!)
-    expect(text).toContain('never run `git stash drop`')
+    expect(text).toContain('no action needed from you')
+    expect(text).not.toMatch(/git (worktree add|stash apply)/)
   })
 
   it('keeps an untracked collision in the stash instead of refusing', async () => {
@@ -191,6 +202,7 @@ describe('Integrate locally with overlapping local changes (real Git)', () => {
     const row = delivery(sha)
     write('tracked.txt', LINES.replace('one', 'one (mine)'))
     await integrate(row.id)
+    await waitForLocalRestores()
     const record = readLocalStash(getPrDelivery(db, row.id)!.local_stash)!
     for (let i = 0; i < 2; i++) {
       const retry = await runRestoreLocalChanges(deps(), row.id)
@@ -211,6 +223,7 @@ describe('Integrate locally with overlapping local changes (real Git)', () => {
     const row = delivery(sha)
     write('tracked.txt', LINES.replace('one', 'one (mine)'))
     await integrate(row.id)
+    await waitForLocalRestores()
     db.prepare(`UPDATE rail_pr_deliveries SET operation = 'merge-local', operation_token = 'other' WHERE id = ?`).run(row.id)
     expect(await runRestoreLocalChanges(deps(), row.id)).toMatchObject({ status: 409, body: { error: 'operation_in_progress' } })
     db.prepare(`UPDATE rail_pr_deliveries SET operation = NULL, operation_token = NULL WHERE id = ?`).run(row.id)
@@ -229,6 +242,7 @@ describe('Integrate locally with overlapping local changes (real Git)', () => {
     const row = delivery(sha)
     write('tracked.txt', LINES.replace('one', 'one (mine)'))
     await integrate(row.id)
+    await waitForLocalRestores()
     const order: string[] = []
     let release!: () => void
     const held = withRepoLock(repo, () => new Promise<void>((resolve) => { release = () => { order.push('lock released'); resolve() } }))
@@ -345,14 +359,261 @@ describe('POST /rails/pr-local-changes/restore', () => {
 })
 
 describe('buildLocalChangesBriefing', () => {
-  it('names the stash, the restore branch and forbids dropping', () => {
+  it('only reports status to the read-only mission: no write instructions', () => {
     const text = buildLocalChangesBriefing({
       deliveryId: 'd1', ticketIds: [3, 4], branch: 'main',
       record: { sha: 'a'.repeat(40), name: 'specrails: before integrating #3, #4 (d1)', checkoutPath: '/x', branch: 'main', state: 'needs_attention', restoreBranch: null, conflictPaths: [], savedAt: '', updatedAt: '' },
     })
     expect(text).toContain('#3, #4')
     expect(text).toContain('specrails/restore-local-aaaaaaaa')
-    expect(text).toContain('git stash apply ' + 'a'.repeat(40))
+    expect(text).toContain('Specrails itself is restoring')
+    expect(text).toContain('You are read-only here')
     expect(text).toContain('(git reported no unmerged path)')
+    // Never hands the agent git commands to run.
+    expect(text).not.toMatch(/`git (worktree|stash apply|commit)/)
+  })
+})
+
+describe('isSpecrailsManagedPath', () => {
+  it('matches OpenSpec-generated skills and commands for any tool dir only', () => {
+    expect(isSpecrailsManagedPath('.claude/skills/openspec-explore/SKILL.md')).toBe(true)
+    expect(isSpecrailsManagedPath('.codex/skills/openspec-apply-change/SKILL.md')).toBe(true)
+    expect(isSpecrailsManagedPath('.agents/skills/openspec-propose/SKILL.md')).toBe(true)
+    expect(isSpecrailsManagedPath('.claude/commands/opsx/apply.md')).toBe(true)
+    expect(isSpecrailsManagedPath('.github/prompts/opsx-apply.prompt.md')).toBe(true)
+    expect(isSpecrailsManagedPath('.claude/skills/my-skill/SKILL.md')).toBe(false)
+    expect(isSpecrailsManagedPath('skills/openspec-explore/SKILL.md')).toBe(false)
+    expect(isSpecrailsManagedPath('src/openspec-x.ts')).toBe(false)
+    expect(isSpecrailsManagedPath('CLAUDE.md')).toBe(false)
+  })
+})
+
+describe('server-side restoration of a conflicting stash (real Git)', () => {
+  const SKILL = '.claude/skills/openspec-explore/SKILL.md'
+  const recordOf = (id: string) => readLocalStash(getPrDelivery(db, id)!.local_stash)!
+  const branchExists = (name: string) => {
+    try { git(['rev-parse', '--verify', '--quiet', `refs/heads/${name}`]); return true } catch { return false }
+  }
+
+  it('(a) applies cleanly in its own worktree, commits there and brings it back only on request', async () => {
+    // The delivery adds a file the person also created (identical content):
+    // the checkout apply is refused (untracked would be overwritten), the
+    // worktree apply is not.
+    const sha = feature('shared.txt', 'same\n')
+    const row = delivery(sha)
+    write('shared.txt', 'same\n')
+    write('tracked.txt', LINES.replace('eight', 'eight (my edit)'))
+    const integrated = await integrate(row.id)
+    expect(integrated.body.localChanges).toMatchObject({ state: 'needs_attention' })
+    await waitForLocalRestores()
+    const record = recordOf(row.id)
+    expect(record.restore).toMatchObject({ status: 'ready', resolvedBy: 'clean', branch: `specrails/restore-local-${record.sha.slice(0, 8)}` })
+    expect(resolver).not.toHaveBeenCalled()
+    expect(record.restore!.files.map((f) => f.path)).toEqual(['tracked.txt'])
+    expect(git(['log', '-1', '--format=%s', record.restore!.branch])).toBe('Restore local changes from before integrating #7')
+    // Nothing touched main or the stash yet.
+    const mainBefore = git(['rev-parse', 'main'])
+    expect(read('tracked.txt')).toBe(LINES)
+    expect(stashes()).toEqual([record.sha])
+    expect(toPrDeliverySnapshot(getPrDelivery(db, row.id)!).localStash?.restore).not.toHaveProperty('worktreePath')
+
+    const back = await runBringBackLocalChanges(deps(), row.id)
+    expect(back).toMatchObject({ status: 200, body: { localChanges: { state: 'restored', restore: { status: 'brought_back' } } } })
+    expect(git(['rev-parse', 'main'])).not.toBe(mainBefore)
+    expect(git(['rev-parse', 'main'])).toBe(record.restore!.commitSha)
+    expect(read('tracked.txt')).toBe(LINES.replace('eight', 'eight (my edit)'))
+    expect(userStatus()).toBe('')
+    expect(stashes()).toEqual([])
+    expect(branchExists(record.restore!.branch)).toBe(false)
+    expect(fs.existsSync(record.restore!.worktreePath)).toBe(false)
+    expect(getPrDelivery(db, row.id)!.status_code).toBe('merged')
+    // Idempotent.
+    expect(await runBringBackLocalChanges(deps(), row.id)).toMatchObject({ status: 200 })
+  })
+
+  it('(b) hands remaining conflicts to the write-capable resolver confined to the worktree, then commits', async () => {
+    const sha = feature('tracked.txt', LINES.replace('one', 'ONE (delivery)'))
+    const row = delivery(sha)
+    write('tracked.txt', LINES.replace('one', 'one (mine)'))
+    await integrate(row.id)
+    await waitForLocalRestores()
+    expect(resolver).toHaveBeenCalledTimes(1)
+    const input = resolver.mock.calls[0][0]
+    const record = recordOf(row.id)
+    expect(input).toMatchObject({ branch: record.restore!.branch, targetBranch: 'main', conflictPaths: ['tracked.txt'] })
+    expect(input.worktreePath).toBe(record.restore!.worktreePath)
+    expect(input.worktreePath.startsWith(path.join(root, 'assembly'))).toBe(true)
+    expect(record.restore).toMatchObject({ status: 'ready', resolvedBy: 'resolver', conflictPaths: ['tracked.txt'] })
+    expect(git(['show', `${record.restore!.commitSha}:tracked.txt`])).toBe(LINES.replace('one', 'ONE (delivery)\none (mine)').trimEnd())
+    // The person's checkout stays exactly as integrated; the stash is kept.
+    expect(read('tracked.txt')).toBe(LINES.replace('one', 'ONE (delivery)'))
+    expect(userStatus()).toBe('')
+    expect(stashes()).toEqual([record.sha])
+    // A second Restore click while a branch is ready does not start another.
+    await runRestoreLocalChanges(deps(), row.id)
+    await waitForLocalRestores()
+    expect(resolver).toHaveBeenCalledTimes(1)
+
+    const back = await runBringBackLocalChanges(deps(), row.id)
+    expect(back.status).toBe(200)
+    expect(read('tracked.txt')).toBe(LINES.replace('one', 'ONE (delivery)\none (mine)'))
+    expect(stashes()).toEqual([])
+  })
+
+  it('a resolver that leaves markers fails closed; Discard removes the branch and keeps the stash', async () => {
+    resolver.mockImplementationOnce(async () => { /* resolves nothing */ })
+    const sha = feature('tracked.txt', LINES.replace('one', 'ONE (delivery)'))
+    const row = delivery(sha)
+    write('tracked.txt', LINES.replace('one', 'one (mine)'))
+    await integrate(row.id)
+    await waitForLocalRestores()
+    const record = recordOf(row.id)
+    expect(record.restore).toMatchObject({ status: 'failed', conflictPaths: ['tracked.txt'], commitSha: null })
+    expect(await runBringBackLocalChanges(deps(), row.id)).toMatchObject({ status: 409, body: { error: 'restore_not_ready' } })
+    expect(read('tracked.txt')).toBe(LINES.replace('one', 'ONE (delivery)'))
+
+    const discarded = await runDiscardRestoreBranch(deps(), row.id)
+    expect(discarded).toMatchObject({ status: 200, body: { localChanges: { state: 'needs_attention', restore: { status: 'discarded' } } } })
+    expect(branchExists(record.restore!.branch)).toBe(false)
+    expect(fs.existsSync(record.restore!.worktreePath)).toBe(false)
+    expect(stashes()).toEqual([record.sha])
+    expect(getPrDelivery(db, row.id)!.status_code).toBe('local_changes_attention')
+    // "Restore my changes" afterwards starts a fresh branch restoration.
+    await runRestoreLocalChanges(deps(), row.id)
+    await waitForLocalRestores()
+    expect(recordOf(row.id).restore).toMatchObject({ status: 'ready', resolvedBy: 'resolver' })
+  })
+
+  it('refuses to bring back over overlapping uncommitted edits or onto another branch', async () => {
+    const sha = feature('tracked.txt', LINES.replace('one', 'ONE (delivery)'))
+    const row = delivery(sha)
+    write('tracked.txt', LINES.replace('one', 'one (mine)'))
+    await integrate(row.id)
+    await waitForLocalRestores()
+    write('tracked.txt', LINES.replace('two', 'two (newer)'))
+    expect(await runBringBackLocalChanges(deps(), row.id)).toMatchObject({ status: 409, body: { reason: 'dirty' } })
+    expect(read('tracked.txt')).toBe(LINES.replace('two', 'two (newer)'))
+    git(['checkout', '--', 'tracked.txt'])
+    git(['switch', '-c', 'elsewhere'])
+    expect(await runBringBackLocalChanges(deps(), row.id)).toMatchObject({ status: 409, body: { reason: 'wrong_branch', current: 'elsewhere' } })
+    git(['switch', 'main'])
+    // The target moved meanwhile (non-conflicting): merged into the restore branch first, main only fast-forwards.
+    write('other.txt', 'later\n')
+    git(['add', 'other.txt'])
+    git(['commit', '-m', 'later work'])
+    const back = await runBringBackLocalChanges(deps(), row.id)
+    expect(back.status).toBe(200)
+    expect(read('other.txt')).toBe('later\n')
+    expect(read('tracked.txt')).toContain('one (mine)')
+  })
+
+  it('never discards while the resolver is running and settles an interrupted resolve at startup', async () => {
+    let finish!: () => void
+    resolver.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve }))
+    const sha = feature('tracked.txt', LINES.replace('one', 'ONE (delivery)'))
+    const row = delivery(sha)
+    write('tracked.txt', LINES.replace('one', 'one (mine)'))
+    await integrate(row.id)
+    await vi.waitFor(() => expect(recordOf(row.id).restore?.status).toBe('resolving'))
+    expect(await runDiscardRestoreBranch(deps(), row.id)).toMatchObject({ status: 409, body: { error: 'restore_in_progress' } })
+    // Simulated restart while resolving.
+    expect(await recoverLocalStashes(deps())).toContain(row.id)
+    expect(recordOf(row.id).restore).toMatchObject({ status: 'failed', detail: expect.stringContaining('Interrupted') })
+    finish()
+    await waitForLocalRestores()
+    // The stale resolver result never overrides the newer state.
+    expect(recordOf(row.id).restore?.status).toBe('failed')
+    expect(stashes()).toEqual([recordOf(row.id).sha])
+  })
+
+  it('startup restores a conflicting stash recorded before server-side restoration existed', async () => {
+    const sha = feature('tracked.txt', LINES.replace('one', 'ONE (delivery)'))
+    const row = delivery(sha)
+    write('tracked.txt', LINES.replace('one', 'one (mine)'))
+    resolver.mockImplementationOnce(async () => { /* first run stays unresolved */ })
+    await integrate(row.id)
+    await waitForLocalRestores()
+    const legacy = { ...recordOf(row.id), restore: null }
+    await runDiscardRestoreBranch(deps(), row.id)
+    setPrDeliveryLocalStash(db, row.id, legacy)
+    await recoverLocalStashes(deps())
+    await waitForLocalRestores()
+    expect(recordOf(row.id).restore).toMatchObject({ status: 'ready' })
+  })
+
+  it('Specrails-managed generated files take the integrated version in the checkout (no attention needed)', async () => {
+    write(SKILL, 'generatedBy: 1.13.0\nbody\n')
+    git(['add', '.'])
+    git(['commit', '-m', 'openspec skills'])
+    const sha = feature(SKILL, 'generatedBy: 1.14.3 (delivery)\nbody\n')
+    const row = delivery(sha)
+    write(SKILL, 'generatedBy: 1.14.3 (local regenerate)\nbody\n')
+    write('tracked.txt', LINES.replace('seven', 'seven (mine)'))
+    const result = await integrate(row.id)
+    expect(result.body.localChanges).toMatchObject({ state: 'restored' })
+    expect(read(SKILL)).toBe('generatedBy: 1.14.3 (delivery)\nbody\n')
+    expect(read('tracked.txt')).toBe(LINES.replace('seven', 'seven (mine)'))
+    expect(git(['diff', '--cached', '--name-only'])).toBe('')
+    expect(stashes()).toEqual([])
+    expect(getPrDelivery(db, row.id)!.status_code).toBe('merged')
+    await waitForLocalRestores()
+    expect(resolver).not.toHaveBeenCalled()
+    expect(startAutomaticTurn).not.toHaveBeenCalled()
+  })
+
+  it('managed files are settled in the worktree; only the person\'s conflicts reach the resolver', async () => {
+    write(SKILL, 'generatedBy: 1.13.0\nbody\n')
+    git(['add', '.'])
+    git(['commit', '-m', 'openspec skills'])
+    git(['switch', '-c', 'feat/delivery', 'main'])
+    write(SKILL, 'generatedBy: 1.14.3 (delivery)\nbody\n')
+    write('tracked.txt', LINES.replace('one', 'ONE (delivery)'))
+    git(['commit', '-am', 'feature'])
+    const sha = git(['rev-parse', 'HEAD'])
+    git(['switch', 'main'])
+    const row = delivery(sha)
+    write(SKILL, 'generatedBy: 1.14.3 (local)\nbody\n')
+    write('tracked.txt', LINES.replace('one', 'one (mine)'))
+    await integrate(row.id)
+    await waitForLocalRestores()
+    expect(resolver.mock.calls[0][0].conflictPaths).toEqual(['tracked.txt'])
+    const record = recordOf(row.id)
+    expect(record.conflictPaths).toEqual(expect.arrayContaining(['tracked.txt']))
+    expect(record.restore).toMatchObject({ status: 'ready', managedPaths: [SKILL] })
+    expect(git(['show', `${record.restore!.commitSha}:${SKILL}`])).toBe('generatedBy: 1.14.3 (delivery)\nbody')
+  })
+})
+
+describe('POST /rails/pr-local-changes/{bring-back,discard-branch}', () => {
+  function app() {
+    const a = express(); a.use(express.json())
+    a.use((req, _res, next) => {
+      ;(req as unknown as { projectCtx: unknown }).projectCtx = {
+        db, project: { id: 'local-project', slug: 'local-project', path: repo }, broadcast: vi.fn(),
+        railJobs: new Map(), railLoopRuns: new Map(),
+      }
+      next()
+    })
+    a.use('/rails', createRailsRouter())
+    return a
+  }
+
+  it('validates input and answers restore_not_ready without a restored branch', async () => {
+    for (const action of ['bring-back', 'discard-branch']) {
+      expect((await request(app()).post(`/rails/pr-local-changes/${action}`).send({})).status).toBe(400)
+      expect((await request(app()).post(`/rails/pr-local-changes/${action}`).send({ prDeliveryId: 'nope' })).status).toBe(404)
+    }
+    const sha = feature('feature.txt', 'feature\n')
+    const row = delivery(sha)
+    write('tracked.txt', LINES.replace('six', 'six (mine)'))
+    const saved = await saveLocalChanges({ git: realGit, repo, branch: 'main', deliveryId: row.id, ticketIds: [7] })
+    if (!saved.ok) throw new Error(saved.detail)
+    setPrDeliveryLocalStash(db, row.id, { ...saved.record, state: 'needs_attention' })
+    const res = await request(app()).post('/rails/pr-local-changes/bring-back').send({ prDeliveryId: row.id })
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({ error: 'restore_not_ready' })
+    expect(res.body.snapshot.localStash.state).toBe('needs_attention')
+    const discard = await request(app()).post('/rails/pr-local-changes/discard-branch').send({ prDeliveryId: row.id })
+    expect(discard.status).toBe(200)
   })
 })

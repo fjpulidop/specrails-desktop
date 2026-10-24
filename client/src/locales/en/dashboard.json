@@ -170,7 +170,7 @@
     "reviewChangesRequested": "Changes requested",
     "reviewChangesRequestedHint": "The Flow hand-off still needs changes. Open its mission card to go back to Flow or relaunch.",
     "mergedLocallyRestored": "Saved your local changes, integrated {{tickets}}, and restored them.",
-    "mergedLocallyStashConflict": "Integrated {{tickets}}. Your local changes are safe in a stash; the agent is resolving the conflicts.",
+    "mergedLocallyStashConflict": "Integrated {{tickets}}. Your local changes are safe in a stash; Specrails is restoring them on a separate branch.",
     "mergedLocallyStashKept": "Integrated {{tickets}}. Your local changes are safe in a stash; restore them when you're ready."
   },
   "railsBoard": {

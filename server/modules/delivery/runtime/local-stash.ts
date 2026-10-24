@@ -23,6 +23,27 @@ export const LOCAL_STASH_MESSAGE_PREFIX = 'specrails: before integrating'
 const SHA_RE = /^[0-9a-f]{40,64}$/i
 const PATH_CHUNK = 100
 
+/**
+ * Specrails-managed generated files in the project checkout: the OpenSpec
+ * skills and slash commands that Specrails' setup (`openspec init`, run by
+ * Core) writes for every configured AI tool and that `openspec init/update`
+ * regenerates — `<tool dir>/skills/openspec-<name>/**` and
+ * `<tool dir>/{commands,prompts,workflows}/opsx…`. They are not the person's
+ * work: a conflict on one is resolved by taking the integrated (delivered)
+ * version instead of being handed to anyone. They are still saved in the
+ * stash with everything else, because `git merge --ff-only` refuses to
+ * overwrite any dirty tracked file.
+ */
+const MANAGED_GENERATED_RES: readonly RegExp[] = [
+  /^\.[^/]+\/skills\/openspec-[^/]+(?:\/|$)/,
+  /^\.[^/]+\/(?:commands|prompts|workflows)\/opsx(?:\/|[-.][^/]*$)/,
+]
+
+export function isSpecrailsManagedPath(p: string): boolean {
+  const normalized = p.replace(/\\/g, '/')
+  return MANAGED_GENERATED_RES.some((re) => re.test(normalized))
+}
+
 /** `specrails: before integrating #12, #13 (<deliveryId>)`. */
 export function localStashMessage(ticketIds: readonly number[], deliveryId: string): string {
   const tickets = ticketIds.length > 0 ? ticketIds.map((id) => `#${id}`).join(', ') : 'delivery'
@@ -42,11 +63,11 @@ function literal(p: string): string {
   return `:(top,literal)${p}`
 }
 
-function failureText(r: GitResult): string {
+export function failureText(r: GitResult): string {
   return (r.stderr.trim() || r.stdout.trim()).split('\n')[0] || `exit ${r.code}`
 }
 
-async function safeRun(git: GitRunner, args: string[], cwd: string): Promise<GitResult> {
+export async function safeRun(git: GitRunner, args: string[], cwd: string): Promise<GitResult> {
   try {
     return await git.run(args, cwd)
   } catch (err) {
@@ -54,7 +75,7 @@ async function safeRun(git: GitRunner, args: string[], cwd: string): Promise<Git
   }
 }
 
-function nulList(stdout: string): string[] {
+export function nulList(stdout: string): string[] {
   return stdout.split('\0').filter(Boolean)
 }
 
@@ -206,7 +227,7 @@ async function alreadyApplied(git: GitRunner, repo: string, sha: string, carried
   return true
 }
 
-async function dropBySha(git: GitRunner, repo: string, sha: string): Promise<string | null> {
+export async function dropBySha(git: GitRunner, repo: string, sha: string): Promise<string | null> {
   const list = await listStashes(git, repo)
   const index = list?.findIndex((entry) => entry.sha === sha) ?? -1
   if (index < 0) return null
@@ -215,7 +236,7 @@ async function dropBySha(git: GitRunner, repo: string, sha: string): Promise<str
 }
 
 /** Put the given paths back to HEAD: tracked ones from HEAD, the rest removed. */
-async function resetPathsToHead(git: GitRunner, repo: string, paths: readonly string[]): Promise<string | null> {
+export async function resetPathsToHead(git: GitRunner, repo: string, paths: readonly string[]): Promise<string | null> {
   if (paths.length === 0) return null
   const inHead = new Set<string>()
   for (let i = 0; i < paths.length; i += PATH_CHUNK) {
@@ -239,9 +260,33 @@ async function resetPathsToHead(git: GitRunner, repo: string, paths: readonly st
   return null
 }
 
+export async function unmergedPaths(git: GitRunner, cwd: string): Promise<string[] | null> {
+  const r = await safeRun(git, ['diff', '--name-only', '-z', '--diff-filter=U'], cwd)
+  return r.code === 0 ? nulList(r.stdout) : null
+}
+
+/**
+ * After a conflicting `git stash apply` whose remaining conflicts are all
+ * Specrails-managed: take HEAD's (the integrated) version of those paths and
+ * unstage the rest, which leaves the tree as a clean apply would.
+ */
+export async function settleManagedConflicts(
+  git: GitRunner, cwd: string, managed: readonly string[], carriedTracked: readonly string[],
+): Promise<{ ok: true } | { ok: false; detail: string }> {
+  const reset = await resetPathsToHead(git, cwd, managed)
+  if (reset) return { ok: false, detail: reset }
+  const rest = carriedTracked.filter((p) => !managed.includes(p))
+  const unstaged = await inChunks(rest, (chunk) => safeRun(git, ['reset', '-q', '--', ...chunk.map(literal)], cwd))
+  if (unstaged) return { ok: false, detail: `unstaging restored changes: ${failureText(unstaged)}` }
+  const left = await unmergedPaths(git, cwd)
+  if (!left || left.length > 0) return { ok: false, detail: 'unmerged paths remain after settling managed files' }
+  return { ok: true }
+}
+
 export type RestoreLocalChangesResult =
-  /** Applied cleanly (or found already applied) and dropped. */
-  | { state: 'restored'; warnings: string[] }
+  /** Applied cleanly (or found already applied) and dropped. `managedPaths`:
+   * Specrails-managed generated files whose conflict took the integrated version. */
+  | { state: 'restored'; warnings: string[]; managedPaths?: string[] }
   /** The stash entry is gone — the person applied/dropped it themselves. */
   | { state: 'released'; warnings: string[] }
   /** Conflicted: integrated tree restored on the stash's paths, stash KEPT. */
@@ -294,6 +339,20 @@ export async function restoreLocalChanges(git: GitRunner, record: Pick<LocalStas
     // result). The tree is intact; the stash is kept for a manual resolve.
     const present = carriedPaths.filter((p) => fs.existsSync(path.join(repo, p)))
     return { state: 'needs_attention', conflictPaths: (present.length > 0 ? present : carriedPaths).slice(0, 20), warnings: [] }
+  }
+  if (conflictPaths.length > 0 && conflictPaths.every(isSpecrailsManagedPath)) {
+    // Only Specrails-managed generated files conflicted (e.g. OpenSpec skills
+    // regenerated on both sides): they take the integrated version and the
+    // person's own changes stay applied, so the stash is done.
+    const managed = await settleManagedConflicts(git, repo, conflictPaths, carried.tracked)
+    if (managed.ok) {
+      const warning = await dropBySha(git, repo, record.sha)
+      return {
+        state: 'restored',
+        managedPaths: conflictPaths,
+        warnings: warning ? [warning] : [],
+      }
+    }
   }
   const warnings: string[] = []
   const restoreError = await resetPathsToHead(git, repo, carriedPaths.filter((p) => !preDirtySet.has(p)))

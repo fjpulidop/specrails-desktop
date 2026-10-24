@@ -23,9 +23,19 @@ delivery, integrates, then re-applies it. The stash is identified by commit
 sha, recorded in `rail_pr_deliveries.local_stash` (migration 83), applied
 (never popped) and dropped only after a clean apply. On conflict, only the
 stash's own paths go back to `HEAD`. The stash is kept, the delivery becomes
-`merged` / `local_changes_attention`, and the origin mission agent is briefed.
-Git effects: [`runtime/local-stash.ts`](runtime/local-stash.ts). Body, briefing,
-`POST /rails/pr-local-changes/restore` and startup recovery:
+`merged` / `local_changes_attention`, the origin mission is informed (report
+only — missions are read-only) and Specrails restores the stash itself on
+`specrails/restore-local-<sha8>` in its own worktree: clean ⇒ committed;
+otherwise the write-capable AI merge-resolver runs confined to that worktree
+and Specrails verifies and commits. The person brings it back (fast-forward)
+or discards the branch; the stash is dropped only after bring-back.
+Specrails-managed generated files (OpenSpec skills/commands) take the
+integrated version instead of counting as conflicts.
+Git effects: [`runtime/local-stash.ts`](runtime/local-stash.ts),
+[`runtime/local-restore-branch.ts`](runtime/local-restore-branch.ts); resolver:
+[`runtime/local-restore-resolver.ts`](runtime/local-restore-resolver.ts). Body,
+briefing, `POST /rails/pr-local-changes/{restore,bring-back,discard-branch}`
+and startup recovery:
 [`adapters/decisions/local-changes.ts`](adapters/decisions/local-changes.ts).
 Real-Git tests: [`runtime/local-stash.test.ts`](runtime/local-stash.test.ts). See the
 [safe PR guide](../../../docs/internals/safe-pr-review-flow.md).

@@ -2,5 +2,5 @@
 export { PR_DECISION_ACTIONS, isPrDecisionAction, actionAllowed, type PrDecisionAction } from '..'
 export { executePrDecision } from '../adapters/decisions/dispatch'
 export { sweepMergedChainAncestors } from '../adapters/decisions/chains'
-export { runRestoreLocalChanges, recoverLocalStashes } from '../adapters/decisions/local-changes'
+export { runRestoreLocalChanges, runBringBackLocalChanges, runDiscardRestoreBranch, recoverLocalStashes, waitForLocalRestores } from '../adapters/decisions/local-changes'
 export type { PrDecisionDeps, PrDecisionInput, PrDecisionResult } from '../adapters/decisions/contracts'

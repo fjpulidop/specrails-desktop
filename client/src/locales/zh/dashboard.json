@@ -170,7 +170,7 @@
     "reviewChangesRequested": "需要修改",
     "reviewChangesRequestedHint": "Flow 移交仍需修改。打开其任务卡片以回到 Flow 或重新运行。",
     "mergedLocallyRestored": "已保存你的本地更改，集成了 {{tickets}}，并已恢复这些更改。",
-    "mergedLocallyStashConflict": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；代理正在解决冲突。",
+    "mergedLocallyStashConflict": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；Specrails 正在一个单独的分支上恢复它们。",
     "mergedLocallyStashKept": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；准备好后再恢复。"
   },
   "railsBoard": {

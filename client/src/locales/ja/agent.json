@@ -449,11 +449,11 @@
     "retryDeliverySent": "納品を再試行しています…",
     "retryDeliveryFailed": "納品を再試行できませんでした",
     "mergedLocallyRestored": "ローカル変更を退避し、{{tickets}} を統合してから元に戻しました。",
-    "mergedLocallyStashConflict": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。エージェントが競合を解決しています。",
+    "mergedLocallyStashConflict": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。Specrails が別ブランチで復元しています。",
     "mergedLocallyStashKept": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。準備ができたら復元してください。",
     "localStash": {
       "title": "ローカル変更は stash として保存されています",
-      "conflictBody": "統合結果の上に再適用すると競合したため、{{branch}} は統合したままの状態です。エージェントが {{restoreBranch}} で復元しています。",
+      "conflictBody": "統合結果の上に再適用すると競合したため、{{branch}} は統合したままの状態です。復元すると、別ブランチで再試行します。",
       "savedBody": "まだ復元されていません。{{branch}} をチェックアウトした状態で復元してください。",
       "files": "競合しているファイル",
       "restore": "変更を復元",
@@ -465,7 +465,22 @@
       "released": "その stash はもう存在しないため、復元するものはありません。",
       "blockedBranch": "先に {{base}} をチェックアウトしてください（現在は {{current}}）。その後で復元します。",
       "blockedDirty": "保存後にこれらのファイルの一部が再び変更されました。その編集をコミットするか移動してから復元してください。",
-      "failed": "ローカル変更を復元できませんでした"
+      "failed": "ローカル変更を復元できませんでした",
+      "restoringBody": "統合結果の上に再適用すると競合したため、{{branch}} は統合したままの状態です。Specrails が別の worktree の {{restoreBranch}} で復元し、そこで競合を解決しています。",
+      "readyBodyClean": "変更は {{restoreBranch}} に復元・コミットされました（競合なく適用されました）。確認してから {{branch}} に戻してください。",
+      "readyBodyResolved": "変更は {{restoreBranch}} に復元・コミットされ、競合は自動で解決されました。確認してから {{branch}} に戻してください。",
+      "failedBody": "Specrails は {{restoreBranch}} での復元を完了できませんでした。変更は引き続き stash に安全に保存されています。そのブランチを破棄するか、もう一度復元してください。",
+      "restoredFiles": "{{restoreBranch}} に復元済み",
+      "binary": "バイナリ",
+      "managedNote": "Specrails が管理する生成ファイルは統合版を維持しました: {{files}}",
+      "bringBack": "{{branch}} に戻す",
+      "bringingBack": "戻しています…",
+      "discardBranch": "復元したブランチを破棄",
+      "discarding": "破棄しています…",
+      "broughtBackToast": "ローカル変更が {{branch}} に戻りました。",
+      "discardedToast": "復元したブランチを破棄しました。変更は引き続き stash に安全に保存されています。",
+      "blockedBringBack": "変更を {{branch}} に安全に戻せませんでした。",
+      "notReady": "復元したブランチはまだ準備ができていません。"
     }
   },
   "specDraft": {

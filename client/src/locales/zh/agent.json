@@ -449,11 +449,11 @@
     "retryDeliverySent": "正在重试交付…",
     "retryDeliveryFailed": "无法重试交付",
     "mergedLocallyRestored": "已保存你的本地更改，集成了 {{tickets}}，并已恢复这些更改。",
-    "mergedLocallyStashConflict": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；代理正在解决冲突。",
+    "mergedLocallyStashConflict": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；Specrails 正在一个单独的分支上恢复它们。",
     "mergedLocallyStashKept": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；准备好后再恢复。",
     "localStash": {
       "title": "你的本地更改已保存为 stash",
-      "conflictBody": "在集成结果上重新应用时发生冲突，因此 {{branch}} 保持为集成后的状态。代理正在 {{restoreBranch}} 上恢复它们。",
+      "conflictBody": "在集成结果上重新应用时发生冲突，因此 {{branch}} 保持为集成后的状态。恢复它们即可在单独的分支上重试。",
       "savedBody": "这些更改尚未恢复。请在检出 {{branch}} 时恢复。",
       "files": "冲突的文件",
       "restore": "恢复我的更改",
@@ -465,7 +465,22 @@
       "released": "该 stash 已不存在，没有可恢复的内容。",
       "blockedBranch": "请先检出 {{base}}（当前在 {{current}}），然后再恢复。",
       "blockedDirty": "其中一些文件在保存后又被修改了。请先提交或移走这些编辑，然后再恢复。",
-      "failed": "无法恢复你的本地更改"
+      "failed": "无法恢复你的本地更改",
+      "restoringBody": "在集成结果上重新应用时发生冲突，因此 {{branch}} 保持为集成后的状态。Specrails 正在单独的 worktree 中的 {{restoreBranch}} 上恢复它们，并在那里解决冲突。",
+      "readyBodyClean": "你的更改已在 {{restoreBranch}} 上恢复并提交；在那里应用时没有冲突。请检查后将它们带回 {{branch}}。",
+      "readyBodyResolved": "你的更改已在 {{restoreBranch}} 上恢复并提交，冲突已自动解决。请检查后将它们带回 {{branch}}。",
+      "failedBody": "Specrails 未能在 {{restoreBranch}} 上完成恢复。它们仍安全保存在 stash 中；请丢弃该分支或再次恢复。",
+      "restoredFiles": "已在 {{restoreBranch}} 上恢复",
+      "binary": "二进制",
+      "managedNote": "由 Specrails 管理的生成文件保留了集成版本：{{files}}",
+      "bringBack": "带回 {{branch}}",
+      "bringingBack": "正在带回…",
+      "discardBranch": "丢弃恢复的分支",
+      "discarding": "正在丢弃…",
+      "broughtBackToast": "你的本地更改已回到 {{branch}}。",
+      "discardedToast": "已丢弃恢复的分支。你的更改仍安全保存在 stash 中。",
+      "blockedBringBack": "无法安全地将更改带回 {{branch}}。",
+      "notReady": "恢复的分支尚未就绪。"
     }
   },
   "specDraft": {

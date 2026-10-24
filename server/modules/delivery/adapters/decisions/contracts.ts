@@ -29,6 +29,15 @@ export interface PrDecisionDeps {
   missionAgent?: () => {
     startAutomaticTurn(conversationId: string, text: string, opts: { turnKey: string; label: string }): Promise<'started' | 'skipped'>
   } | null
+  /** Write-capable conflict resolver confined to a stash-restore worktree
+   * (default: the AI merge-resolver, see runtime/local-restore-resolver). */
+  localRestoreResolver?: (input: {
+    worktreePath: string
+    branch: string
+    targetBranch: string
+    conflictPaths: readonly string[]
+    stashName: string
+  }) => Promise<void>
   /** Ticket-store file override (tests) — default resolves via workspace-resolution. */
   ticketFile?: string
   /** Temporary local-integration worktree root override (tests). */

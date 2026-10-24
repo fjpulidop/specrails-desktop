@@ -2,7 +2,7 @@ import * as path from 'path'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from '../../runtime/rail-worktree-release'
 import { getPrDelivery, setPrDeliveryLocalStash, toPrDeliverySnapshot, type LocalStashRecord, type RailPrDeliveryRow } from '../../runtime/rail-pr-store'
 import { changedPathsBetween, listUserDirtyPaths, pathsOverlap, recordAfterRestore, restoreLocalChanges, saveLocalChanges } from '../../runtime/local-stash'
-import { briefAgentOnLocalChanges, localChangesBody } from './local-changes'
+import { handleConflictingRestore, localChangesBody } from './local-changes'
 import { newId } from '../../../../ids'
 import { withRepoLock } from '../../../../repo-lock'
 import { isValidBranchName } from '../../../../integration-branch'
@@ -309,7 +309,8 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
     await removeAssembly()
 
     // Re-apply the saved work onto the integrated tree. A conflict rolls back
-    // only the stash's own paths and KEEPS the stash for the mission agent.
+    // only the stash's own paths and KEEPS the stash; Specrails then restores
+    // it on its own branch + worktree (the mission is only informed).
     let restoredStash: LocalStashRecord | null = null
     const advancedStash = stash as LocalStashRecord | null
     if (advancedStash) {
@@ -354,7 +355,7 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
     applyTerminalTicketEffect(deps, row, 'merged', cleanupWarnings)
     finalizeTransition(deps, row.id)
     await sweepMergedChainAncestors(deps, row)
-    if (restoredStash?.state === 'needs_attention') briefAgentOnLocalChanges(deps, row, restoredStash, integrationTarget)
+    if (restoredStash?.state === 'needs_attention') handleConflictingRestore(deps, row, restoredStash, integrationTarget)
     return { status: 200, body: { ok: true, decision: 'merged', merged: true, local: true, ...(restoredStash ? { localChanges: localChangesBody(restoredStash) } : {}) } }
   } finally {
     // Runner exceptions (spawn failures/timeouts) must release the temporary

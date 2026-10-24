@@ -449,11 +449,11 @@
     "retryDeliverySent": "Auslieferung wird wiederholt…",
     "retryDeliveryFailed": "Die Auslieferung konnte nicht wiederholt werden",
     "mergedLocallyRestored": "Deine lokalen Änderungen wurden gesichert, {{tickets}} integriert und anschließend wiederhergestellt.",
-    "mergedLocallyStashConflict": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; der Agent löst die Konflikte.",
+    "mergedLocallyStashConflict": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; Specrails stellt sie auf einem separaten Branch wieder her.",
     "mergedLocallyStashKept": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; stelle sie wieder her, wenn du so weit bist.",
     "localStash": {
       "title": "Deine lokalen Änderungen sind als Stash gesichert",
-      "conflictBody": "Beim erneuten Anwenden auf das integrierte Ergebnis gab es Konflikte, daher blieb {{branch}} genau wie integriert. Der Agent stellt sie auf {{restoreBranch}} wieder her.",
+      "conflictBody": "Beim erneuten Anwenden auf das integrierte Ergebnis gab es Konflikte, daher blieb {{branch}} genau wie integriert. Stelle sie wieder her, um es auf einem separaten Branch erneut zu versuchen.",
       "savedBody": "Sie wurden noch nicht wiederhergestellt. Stelle sie wieder her, während {{branch}} ausgecheckt ist.",
       "files": "Dateien mit Konflikten",
       "restore": "Meine Änderungen wiederherstellen",
@@ -465,7 +465,22 @@
       "released": "Dieser Stash existiert nicht mehr, es gibt nichts mehr wiederherzustellen.",
       "blockedBranch": "Wechsle zuerst zu {{base}} (du bist auf {{current}}) und stelle dann wieder her.",
       "blockedDirty": "Einige dieser Dateien wurden seit dem Sichern erneut geändert. Committe oder verschiebe diese Änderungen und stelle dann wieder her.",
-      "failed": "Deine lokalen Änderungen konnten nicht wiederhergestellt werden"
+      "failed": "Deine lokalen Änderungen konnten nicht wiederhergestellt werden",
+      "restoringBody": "Beim erneuten Anwenden auf das integrierte Ergebnis gab es Konflikte, daher blieb {{branch}} genau wie integriert. Specrails stellt sie auf {{restoreBranch}} in einem separaten Worktree wieder her und löst dort die Konflikte.",
+      "readyBodyClean": "Deine Änderungen sind auf {{restoreBranch}} wiederhergestellt und committet; dort ließen sie sich konfliktfrei anwenden. Prüfe sie und hole sie dann nach {{branch}} zurück.",
+      "readyBodyResolved": "Deine Änderungen sind auf {{restoreBranch}} wiederhergestellt und committet, die Konflikte wurden automatisch gelöst. Prüfe sie und hole sie dann nach {{branch}} zurück.",
+      "failedBody": "Specrails konnte die Wiederherstellung auf {{restoreBranch}} nicht abschließen. Sie sind weiterhin sicher im Stash; verwirf diesen Branch oder stelle sie erneut wieder her.",
+      "restoredFiles": "Wiederhergestellt auf {{restoreBranch}}",
+      "binary": "binär",
+      "managedNote": "Von Specrails verwaltete generierte Dateien behielten die integrierte Version: {{files}}",
+      "bringBack": "Nach {{branch}} zurückholen",
+      "bringingBack": "Wird zurückgeholt…",
+      "discardBranch": "Wiederhergestellten Branch verwerfen",
+      "discarding": "Wird verworfen…",
+      "broughtBackToast": "Deine lokalen Änderungen sind zurück auf {{branch}}.",
+      "discardedToast": "Wiederhergestellter Branch verworfen. Deine Änderungen sind weiterhin sicher im Stash.",
+      "blockedBringBack": "Die Änderungen konnten nicht sicher nach {{branch}} zurückgeholt werden.",
+      "notReady": "Der wiederhergestellte Branch ist noch nicht bereit."
     }
   },
   "specDraft": {

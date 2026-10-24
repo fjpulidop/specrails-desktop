@@ -630,7 +630,10 @@ export function coerceLocalChanges(v: unknown): LocalChangesOutcome | null {
 
 export type RestoreLocalChangesOutcome =
   | { kind: 'ok'; localChanges: LocalChangesOutcome | null; snapshot: RailPrStateSnapshot | null }
-  | { kind: 'blocked'; reason: 'wrong_branch' | 'dirty' | 'unavailable'; current: string | null; base: string; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'blocked'; reason: 'wrong_branch' | 'dirty' | 'branch_changed' | 'target_conflict' | 'unavailable'; detail: string; current: string | null; base: string; snapshot: RailPrStateSnapshot | null }
+  /** Bring back / discard: the restore branch is not ready, or its resolver is still running. */
+  | { kind: 'not_ready'; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'in_progress'; snapshot: RailPrStateSnapshot | null }
   | { kind: 'busy'; snapshot: RailPrStateSnapshot | null }
   | { kind: 'recovering' }
   | { kind: 'failed'; detail: string }
@@ -641,10 +644,20 @@ export type RestoreLocalChangesOutcome =
  * on HTTP errors.
  */
 export async function postRestoreLocalChanges(projectId: string, prDeliveryId: string): Promise<RestoreLocalChangesOutcome> {
+  return postLocalChangesAction(projectId, prDeliveryId, 'restore')
+}
+
+/** "Bring them back" (fast-forward the target to the reviewed restore branch)
+ *  or "Discard the restored branch" (the stash is kept). Never throws. */
+export async function postLocalChangesAction(
+  projectId: string,
+  prDeliveryId: string,
+  action: 'restore' | 'bring-back' | 'discard-branch',
+): Promise<RestoreLocalChangesOutcome> {
   let res: Response
   let data: Record<string, unknown> | null = null
   try {
-    res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-local-changes/restore`, {
+    res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-local-changes/${action}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ prDeliveryId }),
@@ -658,9 +671,15 @@ export async function postRestoreLocalChanges(projectId: string, prDeliveryId: s
   if (res.status === 409) {
     if (data?.error === 'project_recovery_in_progress') return { kind: 'recovering' }
     if (data?.error === 'operation_in_progress') return { kind: 'busy', snapshot }
+    if (data?.error === 'restore_not_ready') return { kind: 'not_ready', snapshot }
+    if (data?.error === 'restore_in_progress') return { kind: 'in_progress', snapshot }
     if (data?.error === 'local_restore_blocked') {
-      const reason = data.reason === 'wrong_branch' || data.reason === 'dirty' ? data.reason : 'unavailable'
-      return { kind: 'blocked', reason, current: typeof data.current === 'string' ? data.current : null, base: typeof data.base === 'string' ? data.base : '', snapshot }
+      const known = ['wrong_branch', 'dirty', 'branch_changed', 'target_conflict'] as const
+      const reason = known.find((r) => r === data?.reason) ?? 'unavailable'
+      return {
+        kind: 'blocked', reason, detail: typeof data.detail === 'string' ? data.detail : '',
+        current: typeof data.current === 'string' ? data.current : null, base: typeof data.base === 'string' ? data.base : '', snapshot,
+      }
     }
   }
   return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }

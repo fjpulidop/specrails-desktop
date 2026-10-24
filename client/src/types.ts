@@ -600,7 +600,25 @@ export interface PrDeliveryLocalStash {
   state: 'saved' | 'restored' | 'needs_attention' | 'released'
   restoreBranch: string | null
   conflictPaths: string[]
+  /** Specrails' own server-side restoration on `restoreBranch` (absent until a conflict needed it). */
+  restore?: PrDeliveryLocalRestore
   savedAt: string
+  updatedAt: string
+}
+
+/** Server-side restoration of a conflicting stash on its own branch + worktree;
+ *  mirrors server PrDeliveryLocalRestore. Nothing reaches the target branch
+ *  until the person brings it back. */
+export interface PrDeliveryLocalRestore {
+  status: 'resolving' | 'ready' | 'failed' | 'brought_back' | 'discarded'
+  branch: string
+  baseSha: string | null
+  commitSha: string | null
+  resolvedBy: 'clean' | 'resolver' | null
+  managedPaths: string[]
+  conflictPaths: string[]
+  files: Array<{ path: string; added: number | null; removed: number | null }>
+  detail: string | null
   updatedAt: string
 }
 
