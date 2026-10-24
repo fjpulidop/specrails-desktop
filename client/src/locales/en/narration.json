@@ -109,5 +109,6 @@
   },
   "repeats": "×{{count}}",
   "round": "Fix round {{round}} of {{total}}",
-  "checks": "+{{count}} checks"
+  "checks_one": "+1 check",
+  "checks_other": "+{{count}} checks"
 }

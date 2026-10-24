@@ -109,5 +109,6 @@
   },
   "repeats": "×{{count}}",
   "round": "修复轮次 {{round}}/{{total}}",
-  "checks": "+{{count}} 项检查"
+  "checks_one": "+1 项检查",
+  "checks_other": "+{{count}} 项检查"
 }

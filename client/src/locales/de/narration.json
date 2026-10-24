@@ -109,5 +109,6 @@
   },
   "repeats": "×{{count}}",
   "round": "Korrekturrunde {{round}} von {{total}}",
-  "checks": "+{{count}} Prüfungen"
+  "checks_one": "+1 Prüfung",
+  "checks_other": "+{{count}} Prüfungen"
 }

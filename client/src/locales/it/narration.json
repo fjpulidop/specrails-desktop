@@ -109,5 +109,6 @@
   },
   "repeats": "×{{count}}",
   "round": "Ciclo di correzione {{round}} di {{total}}",
-  "checks": "+{{count}} controlli"
+  "checks_one": "+1 controllo",
+  "checks_other": "+{{count}} controlli"
 }
