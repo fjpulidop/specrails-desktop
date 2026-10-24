@@ -145,6 +145,21 @@ A night-ink neutral base with one cyan signal, a violet rail end, and a closed s
 - **Review Orchid** (hsl(282 55% 70%)): the review lamp, so amber stays unambiguous.
 - **Flow Teal** (hsl(170 78% 50%)): Flow mode identity.
 
+### Lamp canon
+One state, one token, on every surface (chips, badges, pills, cards).
+
+| Lamp | Token |
+| --- | --- |
+| running | `accent-info` |
+| done | `accent-success` |
+| caution | `accent-warning` |
+| failed | `destructive` |
+| review | `accent-review` |
+| flow | `accent-flow` |
+| primary | `primary` / `accent-primary` |
+
+`accent-review` must differ in hue from `accent-primary` in every theme.
+
 ### Neutral
 - **Night Ink** (hsl(240 33% 4%)): app background. **Deep Ink** (hsl(240 40% 2%)) for sidebars and code.
 - **Panel** (hsl(240 30% 8%)) cards; **Surface** (hsl(238 28% 11%)) cards-on-card; **Chrome** (hsl(238 22% 16%)) interactive chrome and hover.

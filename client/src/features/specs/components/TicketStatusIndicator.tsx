@@ -34,8 +34,8 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
     pulsing: true,
   },
   on_review: {
-    dotClass: 'bg-accent-warning/80',
-    textClass: 'text-accent-warning',
+    dotClass: 'bg-accent-review',
+    textClass: 'text-accent-review',
     labelKey: 'status.onReview',
     pulsing: false,
   },
@@ -126,7 +126,7 @@ export function TicketStatusBadge({ status, className }: TicketStatusBadgeProps)
         'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-medium border',
         status === 'todo' && 'bg-muted border-border text-muted-foreground',
         status === 'in_progress' && 'bg-accent-info/10 border-accent-info/30 text-accent-info',
-        status === 'on_review' && 'bg-accent-warning/10 border-accent-warning/30 text-accent-warning',
+        status === 'on_review' && 'bg-accent-review/10 border-accent-review/30 text-accent-review',
         status === 'done' && 'bg-accent-success/10 border-accent-success/30 text-accent-success',
         status === 'cancelled' && 'bg-destructive/10 border-destructive/30 text-destructive',
         className

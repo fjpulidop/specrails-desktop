@@ -769,7 +769,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     )
   } else if (d === 'on_review') {
     pill = (
-      <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`}>
+      <span className={`${pillBase} border-accent-review/30 bg-accent-review/10 text-accent-review`}>
         <Eye className={iconCls} aria-hidden />
         {t('railPr.readyForReview')}
       </span>

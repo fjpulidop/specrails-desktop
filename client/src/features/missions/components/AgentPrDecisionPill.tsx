@@ -4,7 +4,7 @@ import type { AgentPrDecisionValue } from '../lib/agent-api'
 
 const PILL_TONE: Record<AgentPrDecisionValue, string> = {
   building: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
-  on_review: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
+  on_review: 'border-accent-review/40 bg-accent-review/10 text-accent-review',
   pr_draft: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
   pr_ready: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
   no_changes: 'border-accent-success/40 bg-accent-success/10 text-accent-success',

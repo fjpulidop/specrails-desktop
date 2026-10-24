@@ -72,7 +72,7 @@
   --color-accent-success:    hsl(135 94% 65%);  /* green */
   --color-accent-secondary:  hsl(326 100% 74%); /* pink */
   --color-accent-warning:    hsl(31 100% 71%);  /* orange */
-  --color-accent-review:     hsl(265 89% 78%);  /* review lamp — violet, keeps amber for caution/cost */
+  --color-accent-review:     hsl(295 70% 74%);  /* review lamp — violet, keeps amber for caution/cost */
   --color-accent-highlight:  hsl(65 92% 76%);   /* yellow */
   --color-surface:           hsl(232 14% 31%);  /* elevated surface (cards-on-card) */
   --color-background-deep:   hsl(234 16% 14%);  /* deep background (sidebars, code blocks) */
@@ -181,7 +181,7 @@
   --color-accent-success:    hsl(150 65% 28%);  /* emerald — deep enough for text on light bg */
   --color-accent-secondary:  hsl(330 72% 45%);  /* magenta-pink, deeper for readability on light */
   --color-accent-warning:    hsl(32 90% 32%);   /* amber — darker so text reads on light bg (≥4.5:1) */
-  --color-accent-review:     hsl(255 70% 50%);  /* review lamp — violet, keeps amber for caution/cost */
+  --color-accent-review:     hsl(290 55% 40%);  /* review lamp — violet, keeps amber for caution/cost */
   --color-accent-highlight:  hsl(40 85% 36%);   /* gold/bronze — readable on light bg */
   --color-surface:            hsl(220 22% 96%);
   --color-background-deep:    hsl(220 18% 94%);

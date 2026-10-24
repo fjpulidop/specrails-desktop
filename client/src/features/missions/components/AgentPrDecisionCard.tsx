@@ -81,7 +81,7 @@ const HEADER_ICON: Record<AgentPrDecisionEnvelope['decision'], typeof GitBranch>
 
 const HEADER_ICON_TONE: Record<AgentPrDecisionEnvelope['decision'], string> = {
   building: 'text-accent-primary/70',
-  on_review: 'text-accent-primary',
+  on_review: 'text-accent-review',
   pr_draft: 'text-accent-info',
   pr_ready: 'text-accent-info',
   no_changes: 'text-accent-success',

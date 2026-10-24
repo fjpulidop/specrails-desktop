@@ -19,17 +19,18 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
   const [expanded, setExpanded] = useState(false)
   const visible = expanded ? review.issues : review.issues.slice(0, FLOW_REVIEW_VISIBLE_ISSUES)
   const hidden = review.issues.length - visible.length
+  const isReview = review.reason === 'review'
   return (
     <div
-      className="mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/[0.06] px-2.5 py-2 text-caption"
+      className={cn('mt-2 rounded-md border px-2.5 py-2 text-caption', isReview ? 'border-accent-review/35 bg-accent-review/[0.06]' : 'border-accent-warning/35 bg-accent-warning/[0.06]')}
       data-testid="mission-flow-review"
       data-reason={review.reason}
     >
       <div className="flex flex-wrap items-center gap-1.5">
-        <MessageSquareWarning className="h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />
+        <MessageSquareWarning className={cn('h-3.5 w-3.5 shrink-0', isReview ? 'text-accent-review' : 'text-accent-warning')} aria-hidden />
         <span className="font-medium text-foreground/90">{t(`runCard.review.title.${review.reason}`)}</span>
         {review.score !== null && (
-          <span className="rounded-full border border-accent-warning/40 bg-accent-warning/10 px-2 py-px font-mono text-caption text-accent-warning" data-testid="mission-flow-review-score">
+          <span className={cn('rounded-full border px-2 py-px font-mono text-caption', isReview ? 'border-accent-review/40 bg-accent-review/10 text-accent-review' : 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning')} data-testid="mission-flow-review-score">
             {t('runCard.review.score', { score: Math.round(review.score) })}
           </span>
         )}

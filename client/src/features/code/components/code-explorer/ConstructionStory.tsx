@@ -42,7 +42,7 @@ interface ConstructionStoryProps {
 const STATUS_STYLES: Record<string, string> = {
   done: 'bg-accent-success/15 text-accent-success',
   in_progress: 'bg-accent-info/15 text-accent-info',
-  on_review: 'bg-accent-warning/15 text-accent-warning',
+  on_review: 'bg-accent-review/15 text-accent-review',
   todo: 'bg-muted/60 text-muted-foreground',
   draft: 'bg-accent-secondary/15 text-accent-secondary',
 }

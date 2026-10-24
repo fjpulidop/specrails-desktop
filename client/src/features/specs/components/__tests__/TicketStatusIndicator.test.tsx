@@ -51,10 +51,22 @@ describe('TicketStatusBadge', () => {
     expect(screen.getByText('Cancelled')).toBeDefined()
   })
 
-  it('renders "On Review" label with the accent-warning variant for on_review status', () => {
+  it('renders "On Review" label with the accent-review variant for on_review status', () => {
     render(<TicketStatusBadge status="on_review" />)
     const badge = screen.getByText('On Review')
     expect(badge).toBeDefined()
-    expect(badge.className).toContain('text-accent-warning')
+    expect(badge.className).toContain('text-accent-review')
+  })
+})
+
+describe('on_review lamp canon', () => {
+  it('draws the dot and the badge with the review token, never amber', () => {
+    const { container, unmount } = render(<TicketStatusDot status="on_review" />)
+    expect(container.innerHTML).toContain('bg-accent-review')
+    expect(container.innerHTML).not.toContain('accent-warning')
+    unmount()
+    const badge = render(<TicketStatusBadge status="on_review" />)
+    expect(badge.container.innerHTML).toContain('text-accent-review')
+    expect(badge.container.innerHTML).not.toContain('accent-warning')
   })
 })
