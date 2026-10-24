@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/button'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { PairWebCompanionModal } from './PairWebCompanionModal'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
+import { SettingsCard } from './SettingsCard'
 
 interface MobileStatus {
   enabled: boolean
@@ -111,16 +112,13 @@ export function MobileAccessSection() {
     }
   }
 
-  if (!status) return <div className="h-20 bg-muted/30 rounded-lg animate-pulse" />
+  if (!status) return <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="h-20 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-        <Smartphone className="h-3.5 w-3.5" /> {t('mobile.heading')}
-      </h3>
-      <p className="text-sm text-muted-foreground">
-        {t('mobile.description')}
-      </p>
+    <SettingsCard
+      title={<span className="flex items-center gap-2"><Smartphone className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> {t('mobile.heading')}</span>}
+      description={t('mobile.description')}
+    >
 
       <div className="flex items-center justify-between rounded-lg border border-border p-3">
         <div>
@@ -139,13 +137,13 @@ export function MobileAccessSection() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Button onClick={() => setWebPairOpen(true)} className="gap-2">
-                <Globe className="h-4 w-4" /> {t('mobile.pairWebDevice')}
+                <Globe className="h-4 w-4" aria-hidden /> {t('mobile.pairWebDevice')}
               </Button>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-accent-success" />
+              <ShieldCheck className="h-3.5 w-3.5 text-accent-success" aria-hidden />
               <span title={status.certFingerprint ?? ''}>{shortFp(status.certFingerprint)}</span>
-              <button type="button" className="underline" onClick={() => setConfirmReset(true)} disabled={busy}>{t('mobile.reset')}</button>
+              <button type="button" className="rounded-sm underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setConfirmReset(true)} disabled={busy}>{t('mobile.reset')}</button>
             </div>
           </div>
 
@@ -168,10 +166,10 @@ export function MobileAccessSection() {
                   <button
                     type="button"
                     aria-label={t('mobile.revokeDevice', { name: d.name })}
-                    className="text-muted-foreground hover:text-destructive"
+                    className="rounded-sm p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => revoke(d.id)}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" aria-hidden />
                   </button>
                 </div>
               ))
@@ -192,6 +190,6 @@ export function MobileAccessSection() {
           void resetIdentity()
         }}
       />
-    </div>
+    </SettingsCard>
   )
 }

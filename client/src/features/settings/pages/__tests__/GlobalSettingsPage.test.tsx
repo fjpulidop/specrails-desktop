@@ -88,22 +88,45 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
   })
 
-  it('renders Manage registered projects description', async () => {
+  it('renders the Desktop-wide preferences description', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText(/Manage registered projects/i)).toBeInTheDocument()
+      expect(screen.getByText('Appearance, AI providers, updates and Desktop-wide preferences.')).toBeInTheDocument()
     })
   })
 
-  it('renders loading skeleton before fetch resolves', async () => {
-    // Delay resolution so we catch the loading state
+  it('groups the section nav under Personal, Agents and System and marks the active item', async () => {
+    const user = userEvent.setup()
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
+    for (const group of ['Personal', 'Agents', 'System']) {
+      expect(within(nav).getByRole('group', { name: group })).toBeInTheDocument()
+    }
+    expect(within(nav).getByRole('button', { name: 'Appearance' })).toHaveAttribute('aria-current', 'page')
+    await user.click(within(nav).getByRole('button', { name: 'Webhooks' }))
+    expect(within(nav).getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('button', { name: 'Appearance' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('shows the replay tour action in the Appearance pane', async () => {
+    const onOpenOnboarding = vi.fn()
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} onOpenOnboarding={onOpenOnboarding} />)
+    fireEvent.click(await screen.findByTestId('replay-onboarding'))
+    expect(onOpenOnboarding).toHaveBeenCalledTimes(1)
+  })
+
+  it('masks the webhook signing secret', async () => {
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    const secret = await screen.findByPlaceholderText('Signing secret (optional)')
+    expect(secret).toHaveAttribute('type', 'password')
+    expect(secret).toHaveAttribute('autocomplete', 'off')
+  })
+
+  it('renders the panes immediately and shows an em dash for the port before settings resolve', async () => {
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    // Dialog renders into portal (document.body), use document.querySelector
-    await waitFor(() => {
-      const skeleton = document.querySelector('.animate-pulse')
-      expect(skeleton).not.toBeNull()
-    })
+    expect(await screen.findByText('Registered Projects')).toBeInTheDocument()
+    expect(screen.getByText('Port').nextElementSibling).toHaveTextContent('—')
   })
 
   it('renders Registered Projects section after load', async () => {
@@ -288,7 +311,8 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
     const input = screen.getByPlaceholderText(/e\.g\. 0\.50/i) as HTMLInputElement
     await user.type(input, '0.50')
-    await user.click(screen.getAllByRole('button', { name: /save/i })[1])
+    expect(screen.getByTestId('advanced-save-bar')).toHaveAttribute('data-sticky', 'true')
+    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Alert set for jobs over $0.5')
     })
@@ -297,16 +321,18 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
   it('disables cost alert when threshold is blank', async () => {
     const user = userEvent.setup()
     const { toast } = await import('sonner')
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => desktopSettings })          // GET settings
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ webhooks: [] }) })   // GET webhooks
-      .mockResolvedValueOnce({ ok: true, json: async () => budgetResponse })       // GET budget
-      .mockResolvedValue({ ok: true, json: async () => defaultTerminalSettings })  // catch-all
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 0\.50/i)).toBeInTheDocument()
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/api/settings')) {
+        return Promise.resolve({ ok: true, json: async () => ({ ...desktopSettings, costAlertThresholdUsd: 2 }) })
+      }
+      return defaultFetchMock(url)
     })
-    await user.click(screen.getAllByRole('button', { name: /save/i })[1])
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    const input = await screen.findByPlaceholderText(/e\.g\. 0\.50/i) as HTMLInputElement
+    await waitFor(() => expect(input.value).toBe('2'))
+    expect(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i })).toBeDisabled()
+    await user.clear(input)
+    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Cost alerts disabled')
     })
@@ -322,7 +348,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
     const input = screen.getByPlaceholderText(/e\.g\. 0\.50/i) as HTMLInputElement
     await user.type(input, '-1')
-    await user.click(screen.getAllByRole('button', { name: /save/i })[1])
+    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Enter a positive number or leave blank to disable')
     })
@@ -359,10 +385,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     // Find the Save buttons — desktop budget save comes before cost alert save
     // Filter out the (disabled) Terminal Panel Save button from the new
     // section so positional indexing matches the original test layout.
-    const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
-      .filter((b) => !(b as HTMLButtonElement).disabled)
-    // Click the desktop budget Save (second save after specrails-tech URL)
-    await user.click(saveButtons[saveButtons.length - 2])
+    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Desktop daily budget set to $10')
     })
@@ -388,10 +411,9 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
       expect(screen.getByPlaceholderText(/e\.g\. 10\.00/i)).toBeInTheDocument()
     })
     const input = screen.getByPlaceholderText(/e\.g\. 10\.00/i) as HTMLInputElement
+    await waitFor(() => expect(input.value).toBe('10'))
     await user.clear(input)
-    const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
-      .filter((b) => !(b as HTMLButtonElement).disabled)
-    await user.click(saveButtons[saveButtons.length - 2])
+    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Desktop daily budget removed')
     })

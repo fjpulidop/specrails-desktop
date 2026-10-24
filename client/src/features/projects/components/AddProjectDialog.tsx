@@ -241,7 +241,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
                 </Button>
               )}
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground">
               {t('addProject.pathHint')}
             </p>
           </div>
@@ -257,7 +257,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
               onChange={(e) => setProjectName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleAdd() }}
             />
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground">
               {t('addProject.nameHint')}
             </p>
           </div>

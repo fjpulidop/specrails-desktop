@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const toastSuccess = vi.fn()
@@ -100,7 +100,9 @@ describe('CoreUpdateSection', () => {
       { ok: true, body: STATUS() },
     ] })
     render(<CoreUpdateSection />)
-    fireEvent.click(await screen.findByText('Could not refresh Core status. Retry'))
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Could not refresh Core status.')
+    fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('4.8.0')).toBeTruthy()
   })
   it('renders unavailable note when no bundled core', async () => {

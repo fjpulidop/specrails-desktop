@@ -74,7 +74,7 @@ export function RailLoopSelector({
         data-testid="rail-loop-selector"
         data-recommended={recommendedId && value === recommendedId ? 'true' : undefined}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-5 text-[10px] rounded border bg-transparent hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-[160px] ${recommendedId && value === recommendedId ? 'border-accent-info/50 text-accent-info' : 'border-border/50 text-muted-foreground'}`}
+        className={`h-6 text-[11px] rounded border bg-transparent hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-[160px] ${recommendedId && value === recommendedId ? 'border-accent-info/50 text-accent-info' : 'border-border/50 text-muted-foreground'}`}
       >
         <option value="" disabled>{t('railControls.pickLoop')}</option>
         <optgroup label={t('railControls.builtInLoops')}>

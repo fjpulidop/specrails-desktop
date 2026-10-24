@@ -66,7 +66,7 @@ export function ProfileAnalyticsCard() {
                 type="button"
                 onClick={() => setWindowDays(opt.days)}
                 className={
-                  'text-[10px] px-2 py-1 rounded transition-colors ' +
+                  'text-[11px] px-2 py-1 rounded transition-colors ' +
                   (windowDays === opt.days
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground')
@@ -102,7 +102,7 @@ export function ProfileAnalyticsCard() {
               type="button"
               onClick={() => setWindowDays(opt.days)}
               className={
-                'text-[10px] px-2 py-1 rounded transition-colors ' +
+                'text-[11px] px-2 py-1 rounded transition-colors ' +
                 (windowDays === opt.days
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground')

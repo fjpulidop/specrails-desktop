@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useThemeOptional } from '../context/ThemeContext'
 import { ThemePickerGrid } from './pickers/ThemePickerGrid'
+import { SettingsCard } from './SettingsCard'
 
 /**
  * Desktop-wide theme picker. Renders the shared `ThemePickerGrid` under the
@@ -15,11 +16,8 @@ export function AppearanceSection() {
   if (!ctx) return null
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        {tr('appearance.heading')}
-      </h3>
+    <SettingsCard title={tr('appearance.heading')}>
       <ThemePickerGrid />
-    </div>
+    </SettingsCard>
   )
 }

@@ -7,6 +7,7 @@ import { Switch } from '../../../../components/ui/switch'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { JiraOutboxPanel } from './JiraOutboxPanel'
 import { jiraApi, type ConnectionState, type JiraStatusOption, type SpecLogicalState } from '../../lib/jira-api'
+import { JiraStatusSelect } from './JiraStatusSelect'
 
 const STATE_KEYS: SpecLogicalState[] = ['todo', 'in_progress', 'on_review', 'done', 'cancelled']
 const STATE_LABEL: Record<SpecLogicalState, string> = {
@@ -188,20 +189,15 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
           {STATE_KEYS.map((s) => (
             <label key={s} className="flex items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">{t(`mapping.${STATE_LABEL[s]}`)}</span>
-              <select
+              <JiraStatusSelect
                 value={statusMap[s] ?? ''}
-                onChange={(e) => void changeStatusMap(s, e.target.value)}
-                className="w-44 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                onChange={(value) => void changeStatusMap(s, value)}
+                statuses={statuses}
+                emptyLabel={t('mapping.auto')}
+                className="w-44"
+                aria-label={t(`mapping.${STATE_LABEL[s]}`)}
                 data-testid={`jira-statusmap-${s}`}
-              >
-                <option value="">{t('mapping.auto')}</option>
-                {statuses.map((st) => (
-                  <option key={st.id} value={st.name}>{st.name}</option>
-                ))}
-                {statusMap[s] && !statuses.some((st) => st.name === statusMap[s]) && (
-                  <option value={statusMap[s]}>{statusMap[s]}</option>
-                )}
-              </select>
+              />
             </label>
           ))}
         </div>
@@ -210,20 +206,14 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
       <div className="rounded-md border border-border p-3">
         <p className="text-sm font-medium">{t('discard.configLabel')}</p>
         <p className="mt-0.5 mb-2 text-xs text-muted-foreground">{t('discard.configHelp')}</p>
-        <select
+        <JiraStatusSelect
           value={discardStatus}
-          onChange={(e) => void changeDiscardStatus(e.target.value)}
-          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+          onChange={(value) => void changeDiscardStatus(value)}
+          statuses={statuses}
+          emptyLabel={t('discard.configNone')}
+          aria-label={t('discard.configLabel')}
           data-testid="jira-discard-status-select"
-        >
-          <option value="">{t('discard.configNone')}</option>
-          {statuses.map((st) => (
-            <option key={st.id} value={st.name}>{st.name}</option>
-          ))}
-          {discardStatus && !statuses.some((s) => s.name === discardStatus) && (
-            <option value={discardStatus}>{discardStatus}</option>
-          )}
-        </select>
+        />
       </div>
 
       <div className="flex items-center gap-2">

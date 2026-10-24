@@ -502,7 +502,7 @@ export function AgentsCatalogTab() {
             />
           </div>
           {genError && (
-            <div className="px-3 py-2 text-xs rounded border border-red-500/30 aurora-light:border-destructive/30 bg-red-500/10 aurora-light:bg-destructive/10 text-red-400 aurora-light:text-destructive">
+            <div className="px-3 py-2 text-xs rounded border border-destructive/30 bg-destructive/10 text-destructive">
               {genError}
             </div>
           )}
@@ -622,10 +622,10 @@ export function AgentsCatalogTab() {
       {/* Left: list grouped by kind */}
       <aside className="w-72 flex-shrink-0 border-r border-border flex flex-col">
         <div className="px-3 py-2 border-b border-border">
-          <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
+          <div className="text-xs font-medium text-muted-foreground mb-1.5">
             {t('catalog.sidebar.title')}
           </div>
-          <div className="text-[10px] text-muted-foreground/70 mb-2">
+          <div className="text-[11px] text-muted-foreground/70 mb-2">
             {t('catalog.sidebar.createLabel')}
           </div>
           <div className="flex gap-1">
@@ -699,7 +699,7 @@ export function AgentsCatalogTab() {
       {/* Right: selected body */}
       <div className="flex-1 min-w-0 overflow-auto">
         {error && (
-          <div className="m-4 px-3 py-2 text-xs rounded border border-red-500/30 aurora-light:border-destructive/30 bg-red-500/10 aurora-light:bg-destructive/10 text-red-400 aurora-light:text-destructive">
+          <div className="m-4 px-3 py-2 text-xs rounded border border-destructive/30 bg-destructive/10 text-destructive">
             {error}
           </div>
         )}
@@ -711,7 +711,7 @@ export function AgentsCatalogTab() {
                   <h2 className="text-base font-mono font-semibold">{selected.id}</h2>
                   <KindBadge kind={selected.kind} />
                   {selected.model && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                       {t('catalog.detail.defaultModel', { model: selected.model })}
                     </span>
                   )}
@@ -720,7 +720,7 @@ export function AgentsCatalogTab() {
                   <p className="text-xs text-muted-foreground mt-1 break-words">{selected.description}</p>
                 )}
                 {selected.runtimeRoleError && (
-                  <p className="text-xs text-red-400 aurora-light:text-destructive mt-1 break-words">{selected.runtimeRoleError}</p>
+                  <p className="text-xs text-destructive mt-1 break-words">{selected.runtimeRoleError}</p>
                 )}
               </div>
               <div className="flex gap-2 flex-shrink-0">
@@ -764,7 +764,7 @@ export function AgentsCatalogTab() {
                     ? t('catalog.detail.runtimeDefinition')
                     : customRoleDisplayPath(activeProvider, selected.id)}
                 </span>
-                <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
+                <span className="text-[11px] text-muted-foreground flex-shrink-0 ml-2">
                   {selected.kind === 'upstream'
                     ? t('catalog.detail.readOnly')
                     : t('catalog.detail.editableHint')}
@@ -807,7 +807,7 @@ function CategoryChip({
       {label}
       <span
         className={
-          'text-[9px] px-1 rounded ' +
+          'text-[11px] px-1 rounded ' +
           (active ? 'bg-accent-primary/30' : 'bg-muted/60')
         }
       >
@@ -829,7 +829,7 @@ function Section({
   return (
     <div className="mb-4">
       <div className="px-2 pb-1">
-        <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+        <div className="text-xs font-medium text-muted-foreground">
           {title}
         </div>
         {description && (
@@ -872,9 +872,9 @@ function KindBadge({ kind }: { kind: 'upstream' | 'custom' }) {
   return (
     <span
       className={
-        'text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ' +
+        'text-[11px] px-1.5 py-0.5 rounded flex-shrink-0 ' +
         (kind === 'custom'
-          ? 'bg-purple-500/15 aurora-light:bg-accent-secondary/15 text-purple-400 aurora-light:text-accent-secondary'
+          ? 'bg-accent-secondary/15 text-accent-secondary'
           : 'bg-muted text-muted-foreground')
       }
     >

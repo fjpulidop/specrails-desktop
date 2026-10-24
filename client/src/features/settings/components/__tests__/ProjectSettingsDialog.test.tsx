@@ -42,6 +42,17 @@ describe('ProjectSettingsDialog', () => {
     await waitForSelfFetchingSections()
   })
 
+  it('marks the active nav entry with aria-current and mentions rules in the description', async () => {
+    render(<ProjectSettingsDialog open onClose={vi.fn()} />)
+    expect(screen.getByText(/telemetry, rules and terminal/)).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Project settings sections' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'General' })).toHaveAttribute('aria-current', 'page')
+    fireEvent.click(screen.getByRole('button', { name: 'Rules' }))
+    expect(screen.getByRole('button', { name: 'Rules' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'General' })).not.toHaveAttribute('aria-current')
+    await waitForSelfFetchingSections()
+  })
+
   it('renders Anchoring and Rules together under the Rules section', async () => {
     render(<ProjectSettingsDialog open onClose={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: 'Rules' }))

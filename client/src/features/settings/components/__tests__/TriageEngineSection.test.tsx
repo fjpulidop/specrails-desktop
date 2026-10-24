@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../../../test-utils'
 import { TriageEngineSection } from '../TriageEngineSection'
@@ -44,12 +45,19 @@ describe('TriageEngineSection', () => {
     expect(puts()[0]!.body.roles).toEqual({ verifier: { provider: 'claude', model: 'sonnet' }, triage: { provider: 'codex' } })
 
     // A model choice is saved with the provider; the default is the cheapest model.
-    const model = await screen.findByLabelText('Model')
-    expect(screen.getByRole('option', { name: 'Cheapest model (default)' })).toBeInTheDocument()
-    const option = model.querySelectorAll('option')[1]!
-    fireEvent.change(model, { target: { value: option.value } })
+    const model = await screen.findByRole('combobox', { name: 'Model' })
+    expect(model).toHaveTextContent('Cheapest model (default)')
+    const user = userEvent.setup()
+    await user.click(model)
+    const options = await screen.findAllByRole('option')
+    expect(options[0]).toHaveTextContent('Cheapest model (default)')
+    const picked = options[1]!
+    const pickedLabel = picked.textContent ?? ''
+    await user.click(picked)
     await waitFor(() => expect(puts()).toHaveLength(2))
-    expect(puts()[1]!.body.roles.triage).toEqual({ provider: 'codex', model: option.value })
+    expect(puts()[1]!.body.roles.triage).toMatchObject({ provider: 'codex' })
+    expect(typeof (puts()[1]!.body.roles.triage as { model?: string }).model).toBe('string')
+    expect(model).toHaveTextContent(pickedLabel)
 
     // Back to the primary removes the triage role only.
     fireEvent.click(screen.getByRole('radio', { name: 'Primary provider' }))

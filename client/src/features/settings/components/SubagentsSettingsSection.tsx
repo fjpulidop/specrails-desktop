@@ -145,7 +145,7 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
     <div className="space-y-3 rounded-lg border border-border/40 p-3" data-testid="subagent-runtime">
       <div className="space-y-0.5">
         <p className="text-xs font-medium">{t('subagents.runtime.label')}</p>
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-[11px] text-muted-foreground">
           {runtime ? t('subagents.runtime.chosenHint', { provider: providerLabel(runtime.provider) }) : t('subagents.runtime.sameHint')}
         </p>
       </div>
@@ -181,7 +181,7 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
         )}
       </div>
       {runtime?.provider === 'claude' && efforts.length > 0 && (
-        <p className="text-[10px] text-muted-foreground">{t('subagents.runtime.claudeEffortHint')}</p>
+        <p className="text-[11px] text-muted-foreground">{t('subagents.runtime.claudeEffortHint')}</p>
       )}
 
       <Dialog open={confirming !== null} onOpenChange={(open) => { if (!open) setConfirming(null) }}>
@@ -191,7 +191,7 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
             <DialogDescription>{t('subagents.runtime.confirm.body', { provider: confirmLabel })}</DialogDescription>
           </DialogHeader>
           <ul className="space-y-2 text-[11px] leading-relaxed text-muted-foreground">
-            <li className="flex gap-2"><Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />{t('subagents.runtime.confirm.cost')}</li>
+            <li className="flex gap-2"><Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />{t('subagents.runtime.confirm.cost')}</li>
             <li className="flex gap-2"><Shuffle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" aria-hidden />{t('subagents.runtime.confirm.control')}</li>
             <li className="flex gap-2"><Zap className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t('subagents.runtime.confirm.native', { provider: confirmLabel })}</li>
           </ul>
@@ -225,7 +225,7 @@ function SubagentsCard({ scope, state }: { scope: 'project' | 'global'; state: S
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-0.5">
             <p className="text-xs font-medium">{label}</p>
-            <p className="text-[10px] text-muted-foreground">{enabled ? t('subagents.stateOn') : t('subagents.stateOff')}</p>
+            <p className="text-[11px] text-muted-foreground">{enabled ? t('subagents.stateOn') : t('subagents.stateOff')}</p>
           </div>
           <Switch
             checked={enabled}

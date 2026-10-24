@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+const openExternalUrl = vi.fn()
+vi.mock('../../../../lib/tauri-shell', () => ({ openExternalUrl: (url: string) => openExternalUrl(url) }))
+
 import { InstallInstructionsModal } from '../InstallInstructionsModal'
 import type { SetupPrerequisitesStatus } from '../../hooks/usePrerequisites'
 
@@ -32,9 +35,18 @@ describe('InstallInstructionsModal', () => {
     expect(section.textContent).toContain('winget install Git.Git')
   })
 
+  it('offers a primary Download latest action for a corrupted bundle', () => {
+    const status: SetupPrerequisitesStatus = { ...statusFor('darwin'), missingRequired: [{ key: 'node', error: 'corrupted-bundle' } as never] }
+    render(<InstallInstructionsModal open={true} onClose={() => {}} status={status} onRecheck={() => {}} />)
+    fireEvent.click(screen.getByTestId('install-corrupted-download-button'))
+    expect(openExternalUrl).toHaveBeenCalledWith('https://github.com/fjpulidop/specrails-desktop/releases/latest')
+  })
+
   it('reveals other platforms via the toggle', () => {
     render(<InstallInstructionsModal open={true} onClose={() => {}} status={statusFor('darwin')} onRecheck={() => {}} />)
+    expect(screen.getByTestId('install-toggle-others')).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(screen.getByTestId('install-toggle-others'))
+    expect(screen.getByTestId('install-toggle-others')).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('install-section-win32')).toBeInTheDocument()
     expect(screen.getByTestId('install-section-linux')).toBeInTheDocument()
   })

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Download, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { UPDATE_CHANNEL_CHANGED_EVENT } from '../../../lib/app-updater'
+import { Button } from '../../../components/ui/button'
+import { SettingsCard } from './SettingsCard'
 
 interface CoreUpdateStatus {
   available: boolean
@@ -89,7 +91,7 @@ export function CoreUpdateSection() {
         if (resetTimer.current) clearTimeout(resetTimer.current)
         resetTimer.current = setTimeout(() => setPhase(null), 2500)
       } else if (p === 'error') {
-        toast.error(t('coreUpdate.toastError', { message: String(msg.message ?? '') }))
+        toast.error(t('coreUpdate.updateFailed'), { description: msg.message ? String(msg.message) : undefined })
         void refreshRef.current()
         if (resetTimer.current) clearTimeout(resetTimer.current)
         resetTimer.current = setTimeout(() => setPhase(null), 4000)
@@ -113,7 +115,7 @@ export function CoreUpdateSection() {
       setStatus(data)
       if (!data.updateAvailable) toast.success(t('coreUpdate.toastUpToDate'))
     } catch (err) {
-      toast.error(t('coreUpdate.toastCheckFailed', { message: (err as Error).message }))
+      toast.error(t('coreUpdate.checkFailed'), { description: err instanceof Error ? err.message : undefined })
     } finally {
       setChecking(false)
     }
@@ -138,26 +140,35 @@ export function CoreUpdateSection() {
       // Success/failure arrives over WS (core_update.progress).
     } catch (err) {
       setPhase(null)
-      toast.error(t('coreUpdate.toastError', { message: (err as Error).message }))
+      toast.error(t('coreUpdate.updateFailed'), { description: err instanceof Error ? err.message : undefined })
     }
   }, [t])
 
+  const loadErrorNotice = (
+    <p role="alert" className="text-xs text-destructive">
+      {t('coreUpdate.loadError')}{' '}
+      <button
+        type="button"
+        onClick={() => { void refresh() }}
+        className="rounded-sm font-medium underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {t('common:actions.retry')}
+      </button>
+    </p>
+  )
+
   if (!status) {
-    if (loadError) return <button type="button" onClick={() => { void refresh() }} className="text-xs text-destructive">{t('coreUpdate.loadFailed')}</button>
-    return <div className="h-20 bg-muted/30 rounded-lg animate-pulse" />
+    if (loadError) return loadErrorNotice
+    return <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="h-20 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
   }
 
   const current = status.currentVersion ?? '—'
   const target = status.pendingVersion ?? status.latestVersion
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        {t('coreUpdate.heading')}
-      </h3>
-      <div className="rounded-md border border-border p-3 space-y-3">
+    <SettingsCard title={t('coreUpdate.heading')}>
         {!status.available ? (
-          <p className="text-[11px] text-muted-foreground">{t('coreUpdate.unavailable')}</p>
+          <p className="text-xs text-muted-foreground">{t('coreUpdate.unavailable')}</p>
         ) : (
           <>
             <div className="flex items-center justify-between gap-3">
@@ -167,62 +178,65 @@ export function CoreUpdateSection() {
                   <span className="font-semibold tabular-nums">{current}</span>
                 </p>
                 {status.runtimeVersion && (
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {t('coreUpdate.runtime', { version: status.runtimeVersion })}
                     {status.runtimeSource ? ` · ${t(`coreUpdate.sources.${status.runtimeSource}`)}` : ''}
                   </p>
                 )}
                 {status.bundledVersion && status.bundledVersion !== status.runtimeVersion && (
-                  <p className="text-[10px] text-muted-foreground">{t('coreUpdate.bundled', { version: status.bundledVersion })}</p>
+                  <p className="text-xs text-muted-foreground">{t('coreUpdate.bundled', { version: status.bundledVersion })}</p>
                 )}
-                <p className="text-[10px] text-muted-foreground/70 truncate">
-                  {status.updateAvailable && status.latestVersion
-                    ? t('coreUpdate.updateAvailable', { version: status.latestVersion })
-                    : status.lastCheckedAt
-                      ? t('coreUpdate.upToDate')
-                      : t('coreUpdate.neverChecked')}
-                </p>
+                {status.updateAvailable && status.latestVersion ? (
+                  <p className="text-xs font-medium text-accent-primary truncate">
+                    {t('coreUpdate.updateAvailable', { version: status.latestVersion })}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {status.lastCheckedAt ? t('coreUpdate.upToDate') : t('coreUpdate.neverChecked')}
+                  </p>
+                )}
               </div>
               {status.updateAvailable && target ? (
-                <button
-                  type="button"
-                  onClick={onUpdate}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void onUpdate()}
                   disabled={busy}
-                  className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-accent-primary/45 bg-accent-primary/15 px-3 text-[11px] font-semibold text-accent-primary disabled:opacity-50"
+                  className="h-7 shrink-0 gap-1.5 border-accent-primary/45 text-accent-primary hover:text-accent-primary"
                 >
-                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                  {busy ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden /> : <Download className="h-3.5 w-3.5" aria-hidden />}
                   {busy
                     ? t(phase === 'materializing' ? 'coreUpdate.materializing' : 'coreUpdate.downloading')
                     : status.pendingVersion ? t('coreUpdate.repair', { version: target }) : t('coreUpdate.update', { version: target })}
-                </button>
+                </Button>
               ) : (
-                <button
-                  type="button"
-                  onClick={onCheck}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void onCheck()}
                   disabled={checking || busy}
-                  className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  className="h-7 shrink-0 gap-1.5"
                 >
                   {checking ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden />
                   ) : phase === 'done' ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-accent-success" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-accent-success" aria-hidden />
                   ) : (
-                    <RefreshCw className="h-3.5 w-3.5" />
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden />
                   )}
                   {checking ? t('coreUpdate.checking') : t('coreUpdate.check')}
-                </button>
+                </Button>
               )}
             </div>
             {status.channel === 'stable' && status.channelFallback && (
-              <p className="text-[11px] text-muted-foreground">{t('coreUpdate.stableFallback')}</p>
+              <p className="text-xs text-muted-foreground">{t('coreUpdate.stableFallback')}</p>
             )}
             {status.runtimeError && <p role="alert" className="text-xs text-destructive">{status.runtimeError}</p>}
             {status.migrationError && <p role="alert" className="text-xs text-destructive">{status.migrationError}</p>}
-            {loadError && <button type="button" className="text-xs text-destructive" onClick={() => { void refresh() }}>{t('coreUpdate.loadFailed')}</button>}
-            <p className="text-[10px] text-muted-foreground/70">{t('coreUpdate.affectsAll')}</p>
+            {loadError && loadErrorNotice}
+            <p className="text-xs text-muted-foreground">{t('coreUpdate.affectsAll')}</p>
           </>
         )}
-      </div>
-    </div>
+    </SettingsCard>
   )
 }

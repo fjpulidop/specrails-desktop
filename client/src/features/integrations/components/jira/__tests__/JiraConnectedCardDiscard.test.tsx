@@ -1,5 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor, within } from '../../../../../test-utils'
+import userEvent from '@testing-library/user-event'
+
+/** Open a Radix select trigger and choose the option with the given name. */
+async function choose(trigger: HTMLElement, name: string) {
+  const user = userEvent.setup()
+  await user.click(trigger)
+  await user.click(await screen.findByRole('option', { name }))
+}
+
+/** Open a Radix select, wait for `expected` to be listed, return all option names, then close. */
+async function optionNames(trigger: HTMLElement, expected: string): Promise<string[]> {
+  const user = userEvent.setup()
+  await user.click(trigger)
+  await screen.findByRole('option', { name: expected })
+  const names = screen.getAllByRole('option').map((o) => o.textContent ?? '')
+  await user.keyboard('{Escape}')
+  return names
+}
 
 const desktop = vi.hoisted(() => ({ activeProjectId: null as string | null }))
 vi.mock('../../../../../hooks/useDesktop', () => ({ useDesktop: () => desktop }))
@@ -71,35 +89,29 @@ describe('JiraConnectedCard — discard status picker', () => {
 
     await waitFor(() => expect(api.listStatuses).toHaveBeenCalled())
 
-    const select = (await screen.findByTestId('jira-discard-status-select')) as HTMLSelectElement
+    const select = await screen.findByTestId('jira-discard-status-select')
     // No discard status configured yet → default empty option selected.
-    expect(select.value).toBe('')
-    await waitFor(() => {
-      for (const st of STATUSES) {
-        expect(within(select).getByRole('option', { name: st.name })).toBeInTheDocument()
-      }
-    })
+    expect(select).toHaveTextContent('None — delete normally')
+    const names = await optionNames(select, STATUSES[STATUSES.length - 1].name)
+    for (const st of STATUSES) expect(names).toContain(st.name)
   })
 
   it('defaults the picker to the connection.discardStatus when set', async () => {
     render(<JiraConnectedCard state={makeState('Cancelled')} onChanged={vi.fn()} />)
 
-    const select = (await screen.findByTestId('jira-discard-status-select')) as HTMLSelectElement
-    expect(select.value).toBe('Cancelled')
+    expect(await screen.findByTestId('jira-discard-status-select')).toHaveTextContent('Cancelled')
   })
 
   it('patches the connection and calls onChanged when the discard status changes', async () => {
     const onChanged = vi.fn()
     render(<JiraConnectedCard state={makeState(null)} onChanged={onChanged} />)
 
-    const select = (await screen.findByTestId('jira-discard-status-select')) as HTMLSelectElement
-    await waitFor(() => expect(within(select).getByRole('option', { name: 'Cancelled' })).toBeInTheDocument())
-
-    fireEvent.change(select, { target: { value: 'Cancelled' } })
+    const select = await screen.findByTestId('jira-discard-status-select')
+    await choose(select, 'Cancelled')
 
     await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ discardStatus: 'Cancelled' }))
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))
-    expect(select.value).toBe('Cancelled')
+    expect(select).toHaveTextContent('Cancelled')
   })
 
   it('threads an explicit apiBase through project-scoped management calls', async () => {
@@ -109,9 +121,7 @@ describe('JiraConnectedCard — discard status picker', () => {
     await waitFor(() => expect(api.listOutbox).toHaveBeenCalledWith('dead', '/api/projects/proj-42'))
     await waitFor(() => expect(api.listStatuses).toHaveBeenCalledWith('/api/projects/proj-42'))
 
-    const select = (await screen.findByTestId('jira-discard-status-select')) as HTMLSelectElement
-    await waitFor(() => expect(within(select).getByRole('option', { name: 'Cancelled' })).toBeInTheDocument())
-    fireEvent.change(select, { target: { value: 'Cancelled' } })
+    await choose(await screen.findByTestId('jira-discard-status-select'), 'Cancelled')
 
     await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ discardStatus: 'Cancelled' }, '/api/projects/proj-42'))
   })
@@ -120,10 +130,10 @@ describe('JiraConnectedCard — discard status picker', () => {
     const onChanged = vi.fn()
     render(<JiraConnectedCard state={makeState('Cancelled')} onChanged={onChanged} />)
 
-    const select = (await screen.findByTestId('jira-discard-status-select')) as HTMLSelectElement
-    expect(select.value).toBe('Cancelled')
+    const select = await screen.findByTestId('jira-discard-status-select')
+    expect(select).toHaveTextContent('Cancelled')
 
-    fireEvent.change(select, { target: { value: '' } })
+    await choose(select, 'None — delete normally')
 
     await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ discardStatus: null }))
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))
@@ -133,10 +143,7 @@ describe('JiraConnectedCard — discard status picker', () => {
     const onChanged = vi.fn()
     render(<JiraConnectedCard state={makeState(null)} onChanged={onChanged} />)
 
-    const todo = (await screen.findByTestId('jira-statusmap-todo')) as HTMLSelectElement
-    await waitFor(() => expect(within(todo).getByRole('option', { name: 'To Do' })).toBeInTheDocument())
-
-    fireEvent.change(todo, { target: { value: 'To Do' } })
+    await choose(await screen.findByTestId('jira-statusmap-todo'), 'To Do')
 
     await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ statusMap: { todo: 'To Do' } }))
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
@@ -146,11 +153,9 @@ describe('JiraConnectedCard — discard status picker', () => {
     const onChanged = vi.fn()
     render(<JiraConnectedCard state={makeState(null)} onChanged={onChanged} />)
 
-    const onReview = (await screen.findByTestId('jira-statusmap-on_review')) as HTMLSelectElement
-    expect(onReview.value).toBe('')
-    await waitFor(() => expect(within(onReview).getByRole('option', { name: 'In Review' })).toBeInTheDocument())
-
-    fireEvent.change(onReview, { target: { value: 'In Review' } })
+    const onReview = await screen.findByTestId('jira-statusmap-on_review')
+    expect(onReview).toHaveTextContent('Automatic (by category)')
+    await choose(onReview, 'In Review')
 
     await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ statusMap: { on_review: 'In Review' } }))
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
@@ -181,10 +186,10 @@ describe('JiraConnectedCard — discard status picker', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load Jira statuses")
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    const todo = screen.getByTestId('jira-statusmap-todo') as HTMLSelectElement
-    await waitFor(() => expect(within(todo).getByRole('option', { name: 'In Progress' })).toBeInTheDocument())
-    expect(todo.value).toBe('To Do')
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    const todo = screen.getByTestId('jira-statusmap-todo')
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(todo).toHaveTextContent('To Do')
+    expect(await optionNames(todo, 'In Progress')).toContain('In Progress')
   })
 
   it('ignores old project rows, statuses and save completion after the active project switches', async () => {
@@ -197,7 +202,7 @@ describe('JiraConnectedCard — discard status picker', () => {
     desktop.activeProjectId = 'p1'
     const onChanged = vi.fn()
     const { rerender } = render(<JiraConnectedCard state={makeState(null, { todo: 'To Do' })} onChanged={onChanged} />)
-    fireEvent.change(screen.getByTestId('jira-statusmap-todo'), { target: { value: '' } })
+    await choose(screen.getByTestId('jira-statusmap-todo'), 'Automatic (by category)')
     await waitFor(() => expect(api.patchConnection).toHaveBeenCalled())
 
     desktop.activeProjectId = 'p2'
@@ -213,8 +218,9 @@ describe('JiraConnectedCard — discard status picker', () => {
       oldSave({ connection: makeState(null).connection })
     })
     expect(screen.queryByRole('link', { name: 'OLD-8' })).not.toBeInTheDocument()
-    expect((screen.getByTestId('jira-statusmap-todo') as HTMLSelectElement).value).toBe('Ready')
-    expect(within(screen.getByTestId('jira-statusmap-todo')).queryByRole('option', { name: 'To Do' })).not.toBeInTheDocument()
+    const todo = screen.getByTestId('jira-statusmap-todo')
+    expect(todo).toHaveTextContent('Ready')
+    expect(await optionNames(todo, 'Ready')).not.toContain('To Do')
     expect(onChanged).not.toHaveBeenCalled()
   })
 
@@ -222,10 +228,10 @@ describe('JiraConnectedCard — discard status picker', () => {
     const onChanged = vi.fn()
     render(<JiraConnectedCard state={makeState(null, { on_review: 'In Review' })} onChanged={onChanged} />)
 
-    const onReview = (await screen.findByTestId('jira-statusmap-on_review')) as HTMLSelectElement
-    expect(onReview.value).toBe('In Review')
+    const onReview = await screen.findByTestId('jira-statusmap-on_review')
+    expect(onReview).toHaveTextContent('In Review')
 
-    fireEvent.change(onReview, { target: { value: '' } })
+    await choose(onReview, 'Automatic (by category)')
 
     await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ statusMap: null }))
     await waitFor(() => expect(onChanged).toHaveBeenCalled())

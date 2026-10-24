@@ -34,7 +34,7 @@ export function CliProviderRow({ provider, status, onRemove }: Props) {
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-sm font-medium text-foreground">{t(`cliNames.${provider.cli as RuntimeCli}`)}</span>
         {status?.version && <span className="font-mono text-[11px] text-muted-foreground tabular-nums">v{status.version}</span>}
-        <span className="font-mono text-[10px] text-muted-foreground/60">{provider.id}</span>
+        <span className="font-mono text-[11px] text-muted-foreground">{provider.id}</span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {detected

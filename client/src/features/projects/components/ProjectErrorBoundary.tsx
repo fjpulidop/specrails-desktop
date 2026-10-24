@@ -1,6 +1,7 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
+import { Button } from '../../../components/ui/button'
 
 interface Props {
   children: ReactNode
@@ -38,18 +39,20 @@ function ErrorFallback({
             />
           </p>
         )}
-        {errorMessage && (
-          <p className="text-xs text-muted-foreground/60 font-mono">{errorMessage}</p>
-        )}
+        <p className="max-w-md text-sm text-muted-foreground">{t('errorBoundary.description')}</p>
       </div>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-      >
-        <RefreshCw className="w-3.5 h-3.5" />
+      {errorMessage && (
+        <details className="w-full max-w-md rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
+          <summary className="cursor-pointer rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {t('errorBoundary.details')}
+          </summary>
+          <p className="mt-2 break-words font-mono text-muted-foreground">{errorMessage}</p>
+        </details>
+      )}
+      <Button onClick={onRetry} className="gap-2">
+        <RefreshCw className="w-3.5 h-3.5" aria-hidden />
         {t('common:actions.retry')}
-      </button>
+      </Button>
     </div>
   )
 }

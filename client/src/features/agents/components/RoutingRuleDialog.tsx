@@ -88,7 +88,7 @@ export function RoutingRuleDialog({
               <Trans t={t} i18nKey="routingRule.tagsHint" components={{ code: <code /> }} />
             </p>
             {invalidTags.length > 0 && (
-              <p className="text-[11px] text-red-400 aurora-light:text-destructive mt-1">
+              <p className="text-[11px] text-destructive mt-1">
                 {t('routingRule.invalidTags', {
                   count: invalidTags.length,
                   tags: invalidTags.join(', '),

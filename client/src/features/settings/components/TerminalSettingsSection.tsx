@@ -15,6 +15,7 @@ import {
   type TerminalRenderMode,
 } from '../lib/terminal-settings-types'
 import { dispatchTerminalSettingsUpdated } from '../lib/terminal-settings-events'
+import { SettingsSelect } from './SettingsSelect'
 
 interface Props {
   /** Desktop mode edits desktop_settings; project mode edits a per-project override layer. */
@@ -160,7 +161,7 @@ export function TerminalSettingsSection({ mode }: Props) {
     return override[field] !== undefined
   }
 
-  if (loading) return <Card><CardContent>{t('common:states.loading')}</CardContent></Card>
+  if (loading) return <Card><CardContent className="p-4 text-xs text-muted-foreground" role="status">{t('common:states.loading')}</CardContent></Card>
 
   return (
     <Card>
@@ -191,13 +192,13 @@ export function TerminalSettingsSection({ mode }: Props) {
         </Field>
 
         <Field label={t('terminal.renderMode')} overridden={isOverridden('renderMode')} onClear={() => clearOverride('renderMode')} mode={mode}>
-          <select
+          <SettingsSelect
+            aria-label={t('terminal.renderMode')}
             value={draft.renderMode}
-            onChange={(e) => setField('renderMode', e.target.value as TerminalRenderMode)}
-            className="border rounded px-2 py-1 bg-transparent"
-          >
-            {RENDER_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
+            onChange={(value) => setField('renderMode', value as TerminalRenderMode)}
+            options={RENDER_MODES.map((m) => ({ value: m, label: m }))}
+            className="w-40"
+          />
         </Field>
 
         <ToggleField

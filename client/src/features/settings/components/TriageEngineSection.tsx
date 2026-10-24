@@ -7,6 +7,7 @@ import { isLocalEngineId, providerLabel } from '../../providers/lib/provider-cap
 import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
 import { Input } from '../../../components/ui/input'
 import { ProviderTabs } from './ProviderTabs'
+import { SettingsSelect } from './SettingsSelect'
 
 /**
  * Spec triage engine (launch-triage): the `triage` entry of the project's
@@ -20,7 +21,6 @@ import { ProviderTabs } from './ProviderTabs'
 export interface RoleEngine { provider: string; model?: string; effort?: string }
 type StoredRoles = Record<string, RoleEngine>
 
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
 
 function readRoles(data: unknown): StoredRoles {
   const roles = (data as { roles?: unknown } | null)?.roles
@@ -113,11 +113,17 @@ export function TriageEngineSection({ projectId, providers }: { projectId: strin
         />
       </fieldset>
       {provider && !local && <label className="space-y-1 text-xs">{t('triageEngine.model')}
-        <select className={selectClass} disabled={saving} value={engine?.model ?? ''} onChange={(event) => setTriage({ provider, ...(event.target.value ? { model: event.target.value } : {}) })}>
-          <option value="">{t('triageEngine.cheapestModel')}</option>
-          {catalog.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
-          {unknownModel && <option value={unknownModel}>{unknownModel}</option>}
-        </select>
+        <SettingsSelect
+          aria-label={t('triageEngine.model')}
+          disabled={saving}
+          value={engine?.model ?? ''}
+          onChange={(value) => setTriage({ provider, ...(value ? { model: value } : {}) })}
+          options={[
+            { value: '', label: t('triageEngine.cheapestModel') },
+            ...catalog.map((model) => ({ value: model.value, label: model.label })),
+            ...(unknownModel ? [{ value: unknownModel, label: unknownModel }] : []),
+          ]}
+        />
       </label>}
       {provider && local && <label className="space-y-1 text-xs">{t('triageEngine.model')}
         <Input key={`${provider}:${engine?.model ?? ''}`} defaultValue={engine?.model ?? ''} disabled={saving} list={`triage-engine-models-${provider}`} placeholder={t('agents.modelPlaceholder')}

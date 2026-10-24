@@ -44,7 +44,7 @@ export function ConnectionStatusPill({ state, latencyMs, className }: Props) {
       <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
       {t(`providers.status.${state}`)}
       {state === 'reachable' && typeof latencyMs === 'number' && (
-        <span className="text-[10px] font-normal opacity-70 tabular-nums">· {latencyMs} ms</span>
+        <span className="text-[11px] font-normal opacity-70 tabular-nums">· {latencyMs} ms</span>
       )}
     </span>
   )

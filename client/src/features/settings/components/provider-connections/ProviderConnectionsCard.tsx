@@ -191,8 +191,8 @@ export function ProviderConnectionsCard() {
       {/* Save bar — sticky at the bottom of the scrolling pane while there is something to save. */}
       {rows && (
         <div className={cn(
-          'flex flex-wrap items-center justify-end gap-3 rounded-xl px-3 py-2 transition-all',
-          dirty && 'sticky bottom-0 z-20 border border-accent-warning/30 bg-card/95 shadow-lg backdrop-blur',
+          'flex flex-wrap items-center justify-end gap-3 rounded-xl px-3 py-2 transition-colors duration-200',
+          dirty && 'sticky bottom-0 z-20 border border-accent-warning/30 bg-popover shadow-lg',
         )} data-testid="provider-save-bar" data-sticky={dirty}>
           {dirty && <span className="mr-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-accent-warning/30 bg-accent-warning/10 px-2.5 text-[11px] font-medium text-accent-warning" role="status"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-warning" />{t('providers.unsaved')}</span>}
           {invalid && <p className="text-xs text-destructive">{t('providers.fixBeforeSave')}</p>}
@@ -208,11 +208,11 @@ function GroupHeading({ icon, title, hint, count, action }: { icon: ReactNode; t
   return (
     <div className="flex flex-wrap items-end justify-between gap-2 px-0.5">
       <div>
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {icon}{title}
-          <span className="rounded-full border border-border bg-muted/40 px-1.5 py-px text-[10px] font-medium tabular-nums">{count}</span>
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <span className="text-muted-foreground">{icon}</span>{title}
+          <span className="rounded-full border border-border bg-muted/40 px-1.5 py-px text-[11px] font-medium tabular-nums text-muted-foreground">{count}</span>
         </h3>
-        <p className="mt-0.5 text-[11px] text-muted-foreground/80">{hint}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
       </div>
       {action}
     </div>

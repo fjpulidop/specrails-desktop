@@ -60,7 +60,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
     <div className="space-y-4" data-testid="jira-details-panel">
       {hasFields && (
         <div>
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+          <span className="text-xs font-medium text-muted-foreground block mb-1.5">
             {t('detail.detailsTitle')}
           </span>
           <div className="space-y-1.5">
@@ -68,7 +68,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
               const d = display(f.value)
               return (
                 <div key={`${f.label}-${i}`} className="text-xs">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide block">{f.label}</span>
+                  <span className="text-xs text-muted-foreground block">{f.label}</span>
                   {f.href ? (
                     <button
                       type="button"
@@ -90,13 +90,13 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
 
       {(hasPRs || hasBranches || hasCommits) && (
         <div>
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+          <span className="text-xs font-medium text-muted-foreground block mb-1.5">
             {t('detail.developmentTitle')}
           </span>
 
           {hasPRs && (
             <div className="mb-2">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">{t('detail.dev.pullRequests')}</span>
+              <span className="text-xs text-muted-foreground block mb-1">{t('detail.dev.pullRequests')}</span>
               <div className="space-y-1">
                 {dev.pullRequests.map((pr) => (
                   <button
@@ -109,7 +109,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
                     <GitPullRequest className="w-3 h-3 mt-0.5 shrink-0 text-accent-info" />
                     <span className="min-w-0 flex-1">
                       <span className="truncate text-foreground/80 block">{pr.title}</span>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-[11px] text-muted-foreground">
                         {pr.status}{pr.sourceBranch ? ` · ${pr.sourceBranch} → ${pr.destBranch ?? ''}` : ''}
                       </span>
                     </span>
@@ -121,7 +121,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
 
           {hasBranches && (
             <div className="mb-2">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">{t('detail.dev.branches')}</span>
+              <span className="text-xs text-muted-foreground block mb-1">{t('detail.dev.branches')}</span>
               <div className="space-y-1">
                 {dev.branches.map((b) => (
                   <button
@@ -133,7 +133,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
                   >
                     <GitBranch className="w-3 h-3 shrink-0 text-accent-info" />
                     <span className="truncate font-mono text-foreground/80">{b.name}</span>
-                    {b.repo && <span className="text-[10px] text-muted-foreground truncate">{b.repo}</span>}
+                    {b.repo && <span className="text-[11px] text-muted-foreground truncate">{b.repo}</span>}
                   </button>
                 ))}
               </div>
@@ -142,7 +142,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
 
           {hasCommits && (
             <div>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">{t('detail.dev.commits')}</span>
+              <span className="text-xs text-muted-foreground block mb-1">{t('detail.dev.commits')}</span>
               <div className="space-y-1">
                 {dev.commits!.map((c) => (
                   <button
@@ -153,7 +153,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
                     data-testid="jira-dev-commit"
                   >
                     <GitCommit className="w-3 h-3 shrink-0 text-accent-info" />
-                    <span className="font-mono text-[10px] text-muted-foreground shrink-0">{c.displayId}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground shrink-0">{c.displayId}</span>
                     <span className="truncate text-foreground/80">{c.message}</span>
                   </button>
                 ))}

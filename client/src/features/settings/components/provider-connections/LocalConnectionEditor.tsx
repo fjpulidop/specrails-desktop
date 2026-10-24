@@ -8,6 +8,7 @@ import type { RuntimeLocalProvider, RuntimeProviderStatus, RuntimeProviderTestRe
 import { registerDynamicModelCatalog } from '../../../loops/lib/loop-run-models'
 import { ConnectionStatusPill, pillStateFor } from './ConnectionStatusPill'
 import { TestConnectionButton } from './TestConnectionButton'
+import { SettingsSelect } from '../SettingsSelect'
 
 /** Recommended settings for 7–14B local models: compact loop, effort forwarded, a 32k window. */
 export const SMALL_MODEL_CONTEXT = 32768
@@ -28,7 +29,6 @@ interface Props {
 }
 
 const CUSTOM = '__custom__'
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
 const labelClass = 'space-y-1 text-xs text-muted-foreground'
 
 function rateText(value: number | undefined): string { return value === undefined ? '' : String(value) }
@@ -120,14 +120,20 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
           </ul>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className={labelClass} htmlFor={`${uid}-default`}>{t('providers.defaultModel')}
-            <select id={`${uid}-default`} className={selectClass} value={showCustom ? CUSTOM : (provider.defaultModel ?? '')} onChange={(e) => {
-              if (e.target.value === CUSTOM) { setCustomModel(true); return }
-              setCustomModel(false); onChange({ ...provider, defaultModel: e.target.value || undefined })
-            }}>
-              <option value="">{t('providers.defaultModelNone')}</option>
-              {models.map((model) => <option key={model} value={model}>{model}</option>)}
-              <option value={CUSTOM}>{t('providers.customModel')}</option>
-            </select>
+            <SettingsSelect
+              id={`${uid}-default`}
+              aria-label={t('providers.defaultModel')}
+              value={showCustom ? CUSTOM : (provider.defaultModel ?? '')}
+              onChange={(value) => {
+                if (value === CUSTOM) { setCustomModel(true); return }
+                setCustomModel(false); onChange({ ...provider, defaultModel: value || undefined })
+              }}
+              options={[
+                { value: '', label: t('providers.defaultModelNone') },
+                ...models.map((model) => ({ value: model, label: model })),
+                { value: CUSTOM, label: t('providers.customModel') },
+              ]}
+            />
           </label>
           {showCustom && <label className={labelClass} htmlFor={`${uid}-custom`}>{t('providers.customModel')}
             <Input id={`${uid}-custom`} value={provider.defaultModel ?? ''} placeholder={t('providers.defaultModelPlaceholder')} onChange={(e) => onChange({ ...provider, defaultModel: e.target.value || undefined })} />
@@ -136,7 +142,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground">{t('providers.rates')} <span className="text-muted-foreground/60">· {t('providers.ratesHint')}</span></p>
+        <p className="text-xs text-muted-foreground">{t('providers.rates')} <span className="text-muted-foreground">· {t('providers.ratesHint')}</span></p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className={labelClass} htmlFor={`${uid}-in`}>{t('providers.inputRate')}
             <Input id={`${uid}-in`} type="number" min="0" step="0.01" inputMode="decimal" value={rates.input} onChange={(e) => setRate('input', e.target.value)} aria-invalid={ratesInvalid} />
@@ -166,7 +172,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
       </div>
 
       <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">
-        <p className="text-xs text-muted-foreground">{t('providers.agentLoop')} <span className="text-muted-foreground/60">· {t('providers.agentLoopHint')}</span></p>
+        <p className="text-xs text-muted-foreground">{t('providers.agentLoop')} <span className="text-muted-foreground">· {t('providers.agentLoopHint')}</span></p>
         <div role="radiogroup" aria-label={t('providers.agentLoop')} className="grid grid-cols-2 gap-1 rounded-md bg-muted/40 p-1">
           {(['compact', 'free'] as const).map((mode) => {
             const active = (provider.agentLoop ?? 'compact') === mode

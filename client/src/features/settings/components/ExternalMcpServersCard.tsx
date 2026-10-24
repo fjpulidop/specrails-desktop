@@ -61,7 +61,7 @@ interface Row {
 
 /** Shared look for the provider toggle pills (matrix rows + the custom form). */
 function providerPillClass(active: boolean): string {
-  return `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all duration-150 disabled:opacity-50 ${
+  return `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all duration-150 disabled:opacity-50 ${
     active
       ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary shadow-[0_0_8px_-2px] shadow-accent-primary/30'
       : 'border-border/60 bg-transparent text-muted-foreground/70 hover:border-border hover:text-foreground hover:bg-muted/30'
@@ -283,14 +283,14 @@ export function ExternalMcpServersCard() {
     if (ok) resetForm()
   }, [payload, formValid, trimmedName, formCommand, formArgs, formEnvPairs, formProviders, editingId, patch, resetForm])
 
-  if (!payload) return <div className="h-16 bg-muted/30 rounded-lg animate-pulse" data-testid="external-mcp-skeleton" />
+  if (!payload) return <div className="h-16 bg-muted/30 rounded-lg motion-safe:animate-pulse" role="status" aria-busy="true" aria-label={t('common:states.loading')} data-testid="external-mcp-skeleton" />
 
   return (
     <div className="space-y-2 rounded-lg border border-border p-3" data-testid="external-mcp-card">
       <div className="flex items-center justify-between">
-        <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-          <Globe className="h-3.5 w-3.5" /> {t('external.heading')}
-        </div>
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+          <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> {t('external.heading')}
+        </h3>
         <Button
           variant="outline"
           size="sm"
@@ -302,7 +302,7 @@ export function ExternalMcpServersCard() {
           <Plus className="h-3 w-3" /> {t('external.addCustom')}
         </Button>
       </div>
-      <p className="text-[11px] text-muted-foreground/80">{t('external.description')}</p>
+      <p className="text-[11px] text-muted-foreground">{t('external.description')}</p>
       <p className="flex items-start gap-1.5 text-[11px] text-accent-warning">
         <TriangleAlert className="h-3.5 w-3.5 shrink-0 mt-px" />
         {t('external.warning')}
@@ -312,7 +312,7 @@ export function ExternalMcpServersCard() {
         <div className="space-y-2.5 rounded-md border border-border/70 bg-muted/20 p-3" data-testid="external-mcp-form">
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label htmlFor="ext-mcp-name" className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <label htmlFor="ext-mcp-name" className="block text-xs font-medium text-muted-foreground">
                 {t('external.form.nameLabel')}
               </label>
               <input
@@ -326,13 +326,13 @@ export function ExternalMcpServersCard() {
                 }`}
               />
               {(nameInvalid || nameTaken) && (
-                <p className="text-[10px] text-destructive" data-testid="external-mcp-name-hint">
+                <p className="text-[11px] text-destructive" data-testid="external-mcp-name-hint">
                   {nameInvalid ? t('external.form.nameInvalid') : t('external.form.nameTaken')}
                 </p>
               )}
             </div>
             <div className="space-y-1">
-              <label htmlFor="ext-mcp-command" className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <label htmlFor="ext-mcp-command" className="block text-xs font-medium text-muted-foreground">
                 {t('external.form.commandLabel')}
               </label>
               <input
@@ -346,7 +346,7 @@ export function ExternalMcpServersCard() {
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="ext-mcp-args" className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <label htmlFor="ext-mcp-args" className="block text-xs font-medium text-muted-foreground">
               {t('external.form.argsLabel')}
             </label>
             <input
@@ -360,13 +360,13 @@ export function ExternalMcpServersCard() {
 
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-medium text-muted-foreground">
                 {t('external.form.envLabel')}
               </span>
               <button
                 type="button"
                 onClick={() => setFormEnvPairs((p) => [...p, { key: '', value: '' }])}
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                 data-testid="external-mcp-env-add"
               >
                 <Plus className="h-2.5 w-2.5" /> {t('external.form.addVar')}
@@ -383,7 +383,7 @@ export function ExternalMcpServersCard() {
                   aria-label={`${t('external.form.envKey')} ${i + 1}`}
                   className="w-2/5 rounded-md border border-border bg-background px-2 py-1 text-xs font-mono"
                 />
-                <span className="text-[10px] text-muted-foreground">=</span>
+                <span className="text-[11px] text-muted-foreground">=</span>
                 <input
                   value={pair.value}
                   onChange={(e) =>
@@ -406,7 +406,7 @@ export function ExternalMcpServersCard() {
           </div>
 
           <div className="space-y-1">
-            <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="block text-xs font-medium text-muted-foreground">
               {t('external.form.enableFor')}
             </span>
             <div className="flex items-center gap-1">
@@ -418,7 +418,7 @@ export function ExternalMcpServersCard() {
                     type="button"
                     role="switch"
                     aria-checked={active}
-                    aria-label={`custom · ${provider}`}
+                    aria-label={t('external.formProviderToggle', { provider })}
                     onClick={() => setFormProviders((p) => ({ ...p, [provider]: !p[provider] }))}
                     className={providerPillClass(active)}
                     data-testid={`external-mcp-form-provider-${provider}`}
@@ -459,13 +459,13 @@ export function ExternalMcpServersCard() {
               data-testid={`external-mcp-row-${row.id}`}
             >
               <span className="text-xs font-medium text-foreground min-w-0 truncate">{row.name}</span>
-              <span className="rounded-full bg-muted/60 px-1.5 py-px text-[10px] text-muted-foreground">
+              <span className="rounded-full bg-muted/60 px-1.5 py-px text-[11px] text-muted-foreground">
                 {row.source === 'custom'
                   ? t('external.sourceCustom')
                   : t('external.sourceDiscovered', { provider: row.sourceProvider })}
               </span>
               {row.orphan && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent-warning/15 px-1.5 py-px text-[10px] text-accent-warning" data-testid="external-mcp-orphan">
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent-warning/15 px-1.5 py-px text-[11px] text-accent-warning" data-testid="external-mcp-orphan">
                   <TriangleAlert className="h-2.5 w-2.5" /> {t('external.orphan')}
                 </span>
               )}
@@ -525,7 +525,7 @@ export function ExternalMcpServersCard() {
               data-testid={`external-mcp-codex-${name}`}
             >
               <span className="text-xs font-medium text-foreground min-w-0 truncate">{name}</span>
-              <span className="rounded-full bg-muted/60 px-1.5 py-px text-[10px] text-muted-foreground">
+              <span className="rounded-full bg-muted/60 px-1.5 py-px text-[11px] text-muted-foreground">
                 {t('external.codexNative')}
               </span>
             </div>

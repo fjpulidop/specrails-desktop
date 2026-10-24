@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../../../../lib/feature-flags', () => ({ FEATURE_CODE_EXPLORER: true }))
@@ -25,7 +26,7 @@ describe('CodeSectionSettings', () => {
     mockFetchSequence([{ ok: true, body: { language: 'es', monthlyBudgetUsd: 7.5 } }])
     render(<CodeSectionSettings />)
     await screen.findByText('Code section')
-    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('es')
+    expect(screen.getByRole('combobox')).toHaveTextContent('Español')
     expect((screen.getByRole('spinbutton') as HTMLInputElement).value).toBe('7.5')
   })
 
@@ -42,9 +43,13 @@ describe('CodeSectionSettings', () => {
       { ok: true, body: { language: 'es', monthlyBudgetUsd: 5 } },
     ])
     render(<CodeSectionSettings />)
-    const select = await screen.findByRole('combobox') as HTMLSelectElement
-    fireEvent.change(select, { target: { value: 'es' } })
-    await waitFor(() => expect(select.value).toBe('es'))
+    const user = userEvent.setup()
+    const select = await screen.findByRole('combobox')
+    expect(select).toHaveTextContent('English')
+    await user.click(select)
+    await user.click(await screen.findByRole('option', { name: 'Español' }))
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Español'))
+    expect(global.fetch).toHaveBeenLastCalledWith('/api/code-explorer-settings', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ language: 'es' }) }))
   })
 
   it('shows toast on PATCH failure and reverts', async () => {

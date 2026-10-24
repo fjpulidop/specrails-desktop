@@ -1,22 +1,27 @@
 import { useTranslation } from 'react-i18next'
 import type { AgentRuntimeConfig, RuntimeAgent } from '../lib/agent-runtime'
 import { Input } from '../../../components/ui/input'
+import { SettingsSelect } from './SettingsSelect'
 
 export interface RoleCapability {
   role: string; tier: 'base' | 'escalation'; provider: string; model: string | null
   transport: string; continuation: 'supported' | 'unsupported' | 'unknown'
   effortSupport: 'supported' | 'unsupported' | 'unknown'; supportedEfforts: string[] | null
 }
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
 function Effort({ value, capability, onChange }: { value?: string; capability?: RoleCapability; onChange(value?: string): void }) {
   const { t } = useTranslation('agentRuntime')
   const levels = capability?.effortSupport === 'supported' ? capability.supportedEfforts ?? [] : []
   return <label className="block space-y-1 text-xs">{t('efficiency.effort')}
-    <select aria-label={t('efficiency.effort')} className={selectClass} value={value ?? ''} onChange={event => onChange(event.target.value || undefined)}>
-      <option value="">{t('efficiency.providerDefault')}</option>
-      {levels.map(level => <option key={level} value={level}>{level}</option>)}
-      {value && !levels.includes(value) && <option value={value}>{value} — {t('efficiency.unconfirmed')}</option>}
-    </select>
+    <SettingsSelect
+      aria-label={t('efficiency.effort')}
+      value={value ?? ''}
+      onChange={next => onChange(next || undefined)}
+      options={[
+        { value: '', label: t('efficiency.providerDefault') },
+        ...levels.map(level => ({ value: level, label: level })),
+        ...(value && !levels.includes(value) ? [{ value, label: `${value} — ${t('efficiency.unconfirmed')}` }] : []),
+      ]}
+    />
     <span className="block text-muted-foreground">{capability?.effortSupport === 'supported' ? capability.transport : t('efficiency.unknownSupport')}</span>
   </label>
 }
@@ -40,9 +45,12 @@ export function RuntimeEfficiencyControls({ config, onChange }: { config: AgentR
     <h3 className="text-sm font-medium">{t('efficiency.title')}</h3>
     <p className="text-xs text-muted-foreground">{t('efficiency.scope')}</p>
     <div className="grid gap-3 sm:grid-cols-3">{(['contextMode', 'reviewMode', 'planning'] as const).map(key => <label key={key} className="block space-y-1 text-xs">{t(`efficiency.${key}`)}
-      <select className={selectClass} value={policy[key] ?? (key === 'planning' ? 'proportional' : 'incremental')} onChange={event => onChange({ ...config, efficiency: { ...policy, [key]: event.target.value } })}>
-        <option value={key === 'planning' ? 'proportional' : 'incremental'}>{t('efficiency.adaptive')}</option><option value="full">{t('efficiency.full')}</option>
-      </select>
+      <SettingsSelect
+        aria-label={t(`efficiency.${key}`)}
+        value={policy[key] ?? (key === 'planning' ? 'proportional' : 'incremental')}
+        onChange={value => onChange({ ...config, efficiency: { ...policy, [key]: value } })}
+        options={[{ value: key === 'planning' ? 'proportional' : 'incremental', label: t('efficiency.adaptive') }, { value: 'full', label: t('efficiency.full') }]}
+      />
     </label>)}</div>
     <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={policy.acceptDeveloperChecks !== false} onChange={event => onChange({ ...config, efficiency: { ...policy, acceptDeveloperChecks: event.target.checked } })} />{t('efficiency.developerChecks')}</label>
     <label className="block space-y-1 text-xs">{t('efficiency.concurrency')}<Input type="number" min="1" max="4" step="1" value={policy.verification?.maxConcurrency ?? 1} onChange={event => onChange({ ...config, efficiency: { ...policy, verification: { ...policy.verification, maxConcurrency: Number(event.target.value) } } })} /></label>

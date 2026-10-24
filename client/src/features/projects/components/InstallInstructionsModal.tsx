@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Check, Copy, RefreshCw, ExternalLink, ClipboardList } from 'lucide-react'
+import { Check, Copy, RefreshCw, ExternalLink, ClipboardList, Download } from 'lucide-react'
 import { API_ORIGIN } from '../../../lib/origin'
 import {
   Dialog,
@@ -12,7 +12,11 @@ import {
 } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { cn } from '../../../lib/utils'
+import { openExternalUrl } from '../../../lib/tauri-shell'
 import type { Platform, SetupPrerequisitesStatus } from '../hooks/usePrerequisites'
+
+/** Same release feed the Tauri updater reads (src-tauri/tauri.conf.json). */
+const DESKTOP_RELEASES_URL = 'https://github.com/fjpulidop/specrails-desktop/releases/latest'
 
 interface Props {
   open: boolean
@@ -256,9 +260,19 @@ export function InstallInstructionsModal({ open, onClose, status, onRecheck, isR
           <p className="text-sm text-foreground">
             {t('instructions.corrupted.body')}
           </p>
-          <div className="flex justify-end mt-2">
+          <div className="flex justify-end gap-2 mt-2">
             <Button type="button" variant="ghost" size="sm" onClick={onClose} data-testid="install-corrupted-close-button">
               {t('common:actions.close')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => void openExternalUrl(DESKTOP_RELEASES_URL)}
+              data-testid="install-corrupted-download-button"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              {t('instructions.corrupted.download')}
             </Button>
           </div>
         </DialogContent>
@@ -282,7 +296,8 @@ export function InstallInstructionsModal({ open, onClose, status, onRecheck, isR
           <button
             type="button"
             onClick={() => setShowOthers((v) => !v)}
-            className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+            aria-expanded={showOthers}
+            className="rounded-sm text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             data-testid="install-toggle-others"
           >
             {showOthers ? t('instructions.hideOtherPlatforms') : t('instructions.showOtherPlatforms')}

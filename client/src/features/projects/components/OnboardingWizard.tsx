@@ -710,7 +710,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                   <span className="text-accent-primary">spec</span>
                   <span className="text-accent-secondary">rails</span>
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{t('onboarding.productTour')}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{t('onboarding.productTour')}</p>
               </div>
               <ol className="space-y-0.5 min-h-0 overflow-y-auto">
                 {steps.map((s, i) => {
@@ -730,7 +730,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                       >
                         <span
                           className={cn(
-                            'grid place-items-center w-5 h-5 shrink-0 rounded-full text-[10px] font-bold border',
+                            'grid place-items-center w-5 h-5 shrink-0 rounded-full text-[11px] font-bold border',
                             isActive
                               ? cn(ACCENTS.primary.bar, 'text-primary-foreground border-transparent')
                               : isDone
@@ -746,7 +746,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                   )
                 })}
               </ol>
-              <div className="mt-auto px-2.5 pt-4 text-[10px] text-muted-foreground">
+              <div className="mt-auto px-2.5 pt-4 text-[11px] text-muted-foreground">
                 {t('onboarding.stepCount', { current: step + 1, total: steps.length })}
               </div>
             </nav>
@@ -770,7 +770,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                 </div>
 
                 {/* Mobile progress (left nav hidden) */}
-                <div className="md:hidden flex items-center gap-1.5 mb-5">
+                <div className="md:hidden flex items-center gap-1.5 px-2 mb-5">
                   {steps.map((s, i) => (
                     <button
                       key={s.navLabel}
@@ -778,7 +778,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                       onClick={() => setStep(i)}
                       aria-label={t('onboarding.stepLabel', { step: i + 1 })}
                       aria-current={i === step ? 'step' : undefined}
-                      className={cn('h-1.5 rounded-full transition-all', i === step ? cn('w-6', ACCENTS.primary.bar) : 'w-1.5 bg-muted-foreground/30')}
+                      className={cn('-m-2 box-content h-1.5 rounded-full bg-clip-content p-2 transition-[width] duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', i === step ? cn('w-6', ACCENTS.primary.bar) : 'w-1.5 bg-muted-foreground/30')}
                     />
                   ))}
                 </div>

@@ -103,8 +103,8 @@ export function ProjectAnchoringSection() {
           <div key={key} className="flex items-start justify-between gap-4">
             <div className="space-y-0.5">
               <p className="text-xs font-medium">{t(`anchoring.${key}.label`)}</p>
-              <p className="text-[10px] text-muted-foreground">{t(`anchoring.${key}.description`)}</p>
-              {!supported ? <p className="text-[10px] text-accent-warning" data-testid={`anchoring-${key}-unsupported`}>{t('anchoring.coreRequired')}</p> : null}
+              <p className="text-[11px] text-muted-foreground">{t(`anchoring.${key}.description`)}</p>
+              {!supported ? <p className="text-[11px] text-accent-warning" data-testid={`anchoring-${key}-unsupported`}>{t('anchoring.coreRequired')}</p> : null}
             </div>
             <Switch
               checked={values[key]}
@@ -200,11 +200,11 @@ export function ProjectRulesSection() {
         body: JSON.stringify({ id: rule.id }),
       })
       const body = await res.json().catch(() => ({})) as { ticket?: { id: number }; message?: string; error?: string }
-      if (!res.ok || !body.ticket) throw new Error(body.message || body.error || 'Failed')
+      if (!res.ok || !body.ticket) throw new Error(body.message || body.error || t('rules.specFailed'))
       setCreated((current) => ({ ...current, [rule.index]: body.ticket!.id }))
       toast.success(t('rules.specCreated', { id: body.ticket.id }))
     } catch (err) {
-      toast.error(t('rules.specFailed'), { description: (err as Error).message })
+      toast.error(t('rules.specFailed'), { description: err instanceof Error && err.message !== t('rules.specFailed') ? err.message : undefined })
     } finally {
       setCreating(null)
     }
@@ -264,7 +264,7 @@ export function ProjectRulesSection() {
             ) : null}
             {data.inventory.gates.length > 0 ? (
               <div>
-                <h3 className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('rules.gates', { count: data.inventory.gates.length })}</h3>
+                <h3 className="mb-1 text-xs font-medium text-muted-foreground">{t('rules.gates', { count: data.inventory.gates.length })}</h3>
                 <ul className="space-y-1" data-testid="rules-gates">
                   {data.inventory.gates.map((gate) => (
                     <li key={gate.id} className="flex items-center gap-2 text-xs">
@@ -274,14 +274,14 @@ export function ProjectRulesSection() {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-1 text-[10px] text-muted-foreground">{t('rules.gatesHint')}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{t('rules.gatesHint')}</p>
               </div>
             ) : null}
             {grouped.map(({ status, rules }) => {
               const Icon = STATUS_ICON[status]
               return (
                 <div key={status}>
-                  <h3 className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <h3 className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                     <Icon className={`h-3.5 w-3.5 ${STATUS_TONE[status]}`} aria-hidden />
                     {t(`rules.status.${status}`)} · {rules.length}
                   </h3>
@@ -289,7 +289,7 @@ export function ProjectRulesSection() {
                     {rules.map((rule) => (
                       <li key={rule.index} className="rounded-md border border-border/40 bg-muted/10 px-3 py-2">
                         <p className="text-xs text-foreground">{rule.text}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                           {rule.source ? <span className="font-mono">{rule.source}</span> : null}
                           {rule.enforcedBy ? <span>{t('rules.enforcedBy', { check: rule.enforcedBy })}</span> : null}
                           {rule.proposedCheck ? <span>{t('rules.proposedCheck', { check: rule.proposedCheck })}</span> : null}
@@ -315,7 +315,7 @@ export function ProjectRulesSection() {
               )
             })}
             {data.inventory.dropped > 0 ? (
-              <p className="flex items-center gap-1 text-[10px] text-muted-foreground"><CircleSlash className="h-3 w-3" aria-hidden />{t('rules.dropped', { count: data.inventory.dropped })}</p>
+              <p className="flex items-center gap-1 text-[11px] text-muted-foreground"><CircleSlash className="h-3 w-3" aria-hidden />{t('rules.dropped', { count: data.inventory.dropped })}</p>
             ) : null}
           </>
         ) : null}

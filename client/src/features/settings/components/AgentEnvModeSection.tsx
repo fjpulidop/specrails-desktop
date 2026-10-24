@@ -30,7 +30,7 @@ function NameChips({ names, testId }: { names: string[]; testId: string }) {
   return (
     <div className="flex flex-wrap gap-1" data-testid={testId}>
       {names.map((name) => (
-        <span key={name} className="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <span key={name} className="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
           {name}
         </span>
       ))}
@@ -137,18 +137,18 @@ export function ProjectAgentEnvModeSection() {
           ) : report ? (
             <>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('agentEnv.shared')}</p>
+                <p className="text-xs font-medium text-muted-foreground">{t('agentEnv.shared')}</p>
                 <NameChips names={report.names} testId="agent-env-shared" />
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('agentEnv.passthrough')}</p>
+                <p className="text-xs font-medium text-muted-foreground">{t('agentEnv.passthrough')}</p>
                 {report.passthrough.length > 0
                   ? <NameChips names={report.passthrough} testId="agent-env-passthrough" />
                   : <p className="text-[11px] text-muted-foreground">{t('agentEnv.noPassthrough')}</p>}
               </div>
               {report.providers.map((provider) => (
                 <div key={provider.id} className="space-y-1">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <p className="text-xs font-medium text-muted-foreground">
                     {t('agentEnv.provider', { provider: provider.displayName })}
                   </p>
                   {provider.names.length > 0
@@ -158,7 +158,7 @@ export function ProjectAgentEnvModeSection() {
               ))}
             </>
           ) : null}
-          <p className="text-[10px] leading-relaxed text-muted-foreground">{t('agentEnv.namesHelp')}</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">{t('agentEnv.namesHelp')}</p>
         </div>
       </CardContent>
     </Card>

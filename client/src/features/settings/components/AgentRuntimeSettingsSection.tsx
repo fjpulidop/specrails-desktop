@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Input } from '../../../components/ui/input'
 import { Button } from '../../../components/ui/button'
 import { TriageEngineSection } from './TriageEngineSection'
+import { SettingsSelect } from './SettingsSelect'
+import { ArrowDown, ArrowUp } from 'lucide-react'
 
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
 interface VerificationRow { label?: string; original?: RuntimeVerificationCommand; repositoryId: string; line: string; reason?: string }
 function rowsFrom(commands: RuntimeVerificationCommand[] | undefined): VerificationRow[] { return (commands ?? []).map(command => ({ original: command, label: command.label, repositoryId: command.repositoryId, line: formatVerificationCommand(command) })) }
 /** Rows → saved entries; the first invalid line is reported through `onInvalid` (null result). */
@@ -41,10 +42,15 @@ export function CommandListEditor({ rows, repositories, onChange, keys, placehol
     {rows.map((row, index) => <div key={index} className="grid gap-2 sm:grid-cols-[minmax(8rem,1fr)_2fr_auto]">
       <label className="space-y-1 text-xs">{t(`${keys}.repository`)}
         {repositories.length
-          ? <select className={selectClass} value={row.repositoryId} onChange={(event) => update(index, { repositoryId: event.target.value })}>
-            {!repositories.some((repository) => repository.id === row.repositoryId) && <option value={row.repositoryId}>{row.repositoryId || '—'}</option>}
-            {repositories.map((repository) => <option key={repository.id} value={repository.id}>{repository.name}</option>)}
-          </select>
+          ? <SettingsSelect
+            aria-label={t(`${keys}.repository`)}
+            value={row.repositoryId}
+            onChange={(value) => update(index, { repositoryId: value })}
+            options={[
+              ...(!repositories.some((repository) => repository.id === row.repositoryId) ? [{ value: row.repositoryId, label: row.repositoryId || '—' }] : []),
+              ...repositories.map((repository) => ({ value: repository.id, label: repository.name })),
+            ]}
+          />
           : <Input value={row.repositoryId} onChange={(event) => update(index, { repositoryId: event.target.value })} />}
       </label>
       <div className="space-y-1 text-xs">
@@ -53,8 +59,8 @@ export function CommandListEditor({ rows, repositories, onChange, keys, placehol
         {row.reason && <span className="block text-[11px] text-muted-foreground">{t('verification.reason', { reason: row.reason })}</span>}
       </div>
       <div className="flex items-end gap-1">
-        <Button size="sm" variant="ghost" aria-label={`${t(`${keys}.moveUp`)} ${index + 1}`} disabled={index === 0} onClick={() => swap(index, index - 1)}>↑</Button>
-        <Button size="sm" variant="ghost" aria-label={`${t(`${keys}.moveDown`)} ${index + 1}`} disabled={index === rows.length - 1} onClick={() => swap(index, index + 1)}>↓</Button>
+        <Button size="sm" variant="ghost" aria-label={`${t(`${keys}.moveUp`)} ${index + 1}`} disabled={index === 0} onClick={() => swap(index, index - 1)}><ArrowUp className="h-3.5 w-3.5" aria-hidden /></Button>
+        <Button size="sm" variant="ghost" aria-label={`${t(`${keys}.moveDown`)} ${index + 1}`} disabled={index === rows.length - 1} onClick={() => swap(index, index + 1)}><ArrowDown className="h-3.5 w-3.5" aria-hidden /></Button>
         <Button size="sm" variant="ghost" onClick={() => onChange(rows.filter((_, i) => i !== index))}>{t(`${keys}.remove`)}</Button></div>
     </div>)}
     <Button size="sm" variant="ghost" onClick={() => onChange([...rows, { repositoryId: repositories[0]?.id ?? '', line: '' }])}>{t(`${keys}.add`)}</Button>

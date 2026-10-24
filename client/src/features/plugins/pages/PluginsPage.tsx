@@ -439,10 +439,10 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
               {t('plugins.page.subtitle')}
             </p>
           </div>
-          {!isPluginWindowRoute() && <button type="button" onClick={() => void openPluginWindow().then(() => onWindowOpened?.()).catch(error => toast.error(String(error)))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs hover:bg-muted">
-            <ExternalLink className="h-3.5 w-3.5" />{t('plugins.page.openWindow')}
+          {!isPluginWindowRoute() && <button type="button" onClick={() => void openPluginWindow().then(() => onWindowOpened?.()).catch((error: unknown) => toast.error(t('plugins.page.openWindowFailed'), { description: error instanceof Error ? error.message : undefined }))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden />{t('plugins.page.openWindow')}
           </button>}
-          <div className="mr-12 flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs">
             <ShieldCheck className="h-3.5 w-3.5 text-accent-success" />
             <span className="text-muted-foreground">{t('plugins.page.readyCount', { count: installedCount })}</span>
           </div>
@@ -459,14 +459,32 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
               className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
-          <div className="inline-flex h-9 rounded-lg border border-border bg-card p-1">
+          <div
+            role="radiogroup"
+            aria-label={t('plugins.filters.label')}
+            className="inline-flex h-9 rounded-lg border border-border bg-card p-1"
+            onKeyDown={(e) => {
+              const order: ScopeFilter[] = ['all', 'global', 'project']
+              const idx = order.indexOf(scope)
+              const delta = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+              if (!delta) return
+              e.preventDefault()
+              const next = order[(idx + delta + order.length) % order.length]
+              setScope(next)
+              document.getElementById(`plugins-scope-${next}`)?.focus()
+            }}
+          >
             {(['all', 'global', 'project'] as ScopeFilter[]).map((value) => (
               <button
                 key={value}
+                id={`plugins-scope-${value}`}
                 type="button"
+                role="radio"
+                aria-checked={scope === value}
+                tabIndex={scope === value ? 0 : -1}
                 onClick={() => setScope(value)}
                 className={cn(
-                  'rounded-md px-3 text-xs capitalize transition-colors',
+                  'rounded-md px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   scope === value ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -479,10 +497,10 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
 
       <div className="flex-1 overflow-auto px-6 py-5">
         <section className="mb-6">
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <SlidersHorizontal className="h-3.5 w-3.5" />
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             {t('plugins.sections.installed')}
-          </div>
+          </h2>
           {hasInstalledMatches ? (
             <PluginSectionGroups
               globalPlugins={installedGlobalCatalog}
@@ -494,10 +512,10 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
         </section>
 
         <section>
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Puzzle className="h-3.5 w-3.5" />
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Puzzle className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             {t('plugins.sections.available')}
-          </div>
+          </h2>
 
           {hasAvailableMatches ? (
             <PluginSectionGroups
@@ -623,18 +641,6 @@ function PluginEmptyState({ text }: { text: string }) {
   )
 }
 
-function ScopeBadge({ scope }: { scope: 'global' | 'project' }) {
-  const { t } = useTranslation('integrations')
-  return (
-    <span className={cn(
-      'rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide',
-      scope === 'global' ? 'bg-accent-primary/10 text-accent-primary' : 'bg-accent-info/10 text-accent-info',
-    )}>
-      {t(`plugins.scope.${scope}`)}
-    </span>
-  )
-}
-
 function PluginGroupHeader({
   title,
   detail,
@@ -651,7 +657,6 @@ function PluginGroupHeader({
         scope === 'global' ? 'bg-accent-primary/30' : 'bg-accent-info/30',
       )} />
       <div className="flex items-center gap-2 rounded-md border border-border bg-card/70 px-2 py-1">
-        <ScopeBadge scope={scope} />
         <span className="text-xs font-medium">{title}</span>
         <span className="hidden text-[11px] text-muted-foreground sm:inline">{detail}</span>
       </div>
@@ -661,6 +666,13 @@ function PluginGroupHeader({
       )} />
     </div>
   )
+}
+
+/** Busy label per card action (the old single "Installing" read wrong for configure/review). */
+const BUSY_LABEL_KEY: Record<CatalogPlugin['actionKind'], string> = {
+  install: 'plugins.actions.installBusy',
+  manage: 'plugins.actions.configureBusy',
+  review: 'plugins.actions.reviewBusy',
 }
 
 function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
@@ -676,7 +688,7 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         ? AlertTriangle
         : Settings2
   const statusClassName = cn(
-    'shrink-0 rounded border px-1.5 py-0.5 text-[10px] leading-none',
+    'shrink-0 rounded border px-1.5 py-0.5 text-[11px] leading-none',
     isAttention
       ? 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
       : plugin.installed
@@ -695,10 +707,9 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <h2 className="truncate text-sm font-semibold leading-5">{plugin.title}</h2>
-        <p className="mt-1 truncate text-[11px] leading-4 text-muted-foreground">{plugin.description}</p>
+        <h3 className="truncate text-sm font-semibold leading-5">{plugin.title}</h3>
+        <p className="mt-1 truncate text-xs leading-4 text-muted-foreground">{plugin.description}</p>
         <div className="mt-1.5 flex items-center gap-1.5">
-          <ScopeBadge scope={plugin.scope} />
           <span className={statusClassName}>{plugin.statusLabel}</span>
         </div>
       </div>
@@ -706,10 +717,10 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         type="button"
         disabled={plugin.busy}
         onClick={plugin.action}
-        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
+        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
-        <ActionIcon className={cn('h-3.5 w-3.5', plugin.busy && 'animate-spin')} />
-        {plugin.busy ? t('plugins.actions.installing') : plugin.actionLabel}
+        <ActionIcon className={cn('h-3.5 w-3.5', plugin.busy && 'motion-safe:animate-spin')} aria-hidden />
+        {plugin.busy ? t(BUSY_LABEL_KEY[plugin.actionKind]) : plugin.actionLabel}
       </button>
     </article>
   )
@@ -846,7 +857,7 @@ function HeadroomPanel({
       </div>
 
       {logs.length > 0 && (
-        <pre className="mb-3 max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background/60 p-2 text-[10px] text-muted-foreground">
+        <pre className="mb-3 max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background/60 p-2 text-[11px] text-muted-foreground">
           {logs.join('\n')}
         </pre>
       )}
@@ -909,7 +920,7 @@ function HeadroomPanel({
 function Metric({ label, value, good }: { label: string; value: string; good: boolean }) {
   return (
     <div className="rounded-lg border border-border bg-background/45 p-2">
-      <div className="text-[10px] text-muted-foreground">{label}</div>
+      <div className="text-[11px] text-muted-foreground">{label}</div>
       <div className={cn('mt-0.5 font-medium', good ? 'text-foreground' : 'text-accent-warning')}>{value}</div>
     </div>
   )
@@ -928,7 +939,7 @@ function IssueBox({ issue }: { issue: HeadroomIssue }) {
         <div className="min-w-0">
           <div className="text-xs font-medium">{title}</div>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{guidance}</p>
-          <div className="mt-1 text-[10px] text-muted-foreground">{t('plugins.headroom.issueCode', { code: issue.code })}</div>
+          <div className="mt-1 text-[11px] text-muted-foreground">{t('plugins.headroom.issueCode', { code: issue.code })}</div>
         </div>
       </div>
     </div>
@@ -973,7 +984,7 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
           <div className="truncate text-xs font-medium">{t('plugins.headroom.savings.title')}</div>
         </div>
         <span className={cn(
-          'shrink-0 rounded border px-1.5 py-0.5 text-[10px]',
+          'shrink-0 rounded border px-1.5 py-0.5 text-[11px]',
           statusEmphasis
             ? 'border-accent-success/25 bg-accent-success/10 text-accent-success'
             : hasActiveProvider
@@ -985,7 +996,7 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
       </div>
 
       <div className="mb-2 rounded-md bg-muted/35 px-2.5 py-2">
-        <div className="mb-1.5 text-[10px] font-medium uppercase text-muted-foreground">{t('plugins.headroom.savings.totals')}</div>
+        <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('plugins.headroom.savings.totals')}</div>
         <div className="grid grid-cols-2 gap-3">
           <TokenStatsColumn
             label={t('plugins.headroom.savings.input')}
@@ -1011,7 +1022,7 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
         ))}
       </div>
 
-      <div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
+      <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
         {metrics.updatedAt
           ? t('plugins.headroom.savings.updatedLive')
           : t('plugins.headroom.savings.baselineSamples', { count: state.learning.baselineSamples })}
@@ -1036,7 +1047,7 @@ function TokenStatsColumn({
   const { t } = useTranslation('integrations')
   return (
     <div className={cn('min-w-0', align === 'right' && 'text-right')}>
-      <div className="text-[10px] font-medium uppercase text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="mt-1 space-y-0.5 text-[11px]">
         <div className="flex min-w-0 items-baseline justify-between gap-2">
           <span className="shrink-0 text-muted-foreground">{t('plugins.headroom.savings.processed')}</span>
@@ -1047,7 +1058,7 @@ function TokenStatsColumn({
           <span className="truncate font-semibold tabular-nums text-foreground">{saved}</span>
         </div>
       </div>
-      {detail && <div className="mt-1 truncate text-[10px] text-muted-foreground">{detail}</div>}
+      {detail && <div className="mt-1 truncate text-[11px] text-muted-foreground">{detail}</div>}
     </div>
   )
 }
@@ -1089,12 +1100,12 @@ function ProviderMetricRow({
       <div className="flex min-w-0 items-center gap-1.5">
           <span className="text-xs font-medium">{metric.label}</span>
           {metric.detectedRoute && (
-            <span className="rounded bg-accent-primary/10 px-1.5 py-0.5 text-[9px] uppercase text-accent-primary">
+            <span className="rounded bg-accent-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-accent-primary">
               {t('plugins.headroom.savings.detected')}
             </span>
           )}
       </div>
-      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{detail}</div>
+      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{detail}</div>
 
       <div className="mt-2 grid grid-cols-2 gap-3">
         <TokenStatsColumn
@@ -1212,7 +1223,7 @@ function ProjectPluginWizard({
                     )}
                   >
                     <div className="truncate text-xs font-medium">{project.name}</div>
-                    <div className="truncate text-[10px]">
+                    <div className="truncate text-[11px]">
                       {disabled
                         ? t('plugins.projectWizard.requiresSupportedProvider')
                         : project.path}

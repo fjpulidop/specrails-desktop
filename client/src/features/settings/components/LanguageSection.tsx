@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useLanguageOptional } from '../context/LanguageContext'
 import { LanguagePickerGrid } from './pickers/LanguagePickerGrid'
+import { SettingsCard } from './SettingsCard'
 
 /**
  * Desktop-wide language picker. Renders the shared `LanguagePickerGrid`
@@ -15,12 +16,8 @@ export function LanguageSection() {
   if (!ctx) return null
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        {t('language.title')}
-      </h3>
-      <p className="text-[11px] text-muted-foreground">{t('language.description')}</p>
+    <SettingsCard title={t('language.title')} description={t('language.description')}>
       <LanguagePickerGrid />
-    </div>
+    </SettingsCard>
   )
 }

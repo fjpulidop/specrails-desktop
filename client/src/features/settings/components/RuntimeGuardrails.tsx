@@ -85,7 +85,7 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
           if (!items.length) return null
           const Icon = PHASE_ICONS[phase]
           return <div key={phase} className="space-y-2" data-testid={`guardrails-phase-${phase}`}>
-            <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Icon className="h-3.5 w-3.5" aria-hidden />{t(`guardrails.phases.${phase}`)}
             </p>
             <ul className="divide-y divide-border/60 rounded-md border border-border/60">
@@ -106,7 +106,7 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
                   <div className="min-w-0 flex-1">
                     <p id={labelId} className={cn('text-xs font-medium', !enabled && 'text-muted-foreground line-through decoration-muted-foreground/50')}>{title}</p>
                     <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{description}</p>
-                    {why && <p className="mt-0.5 text-[10px] italic leading-4 text-muted-foreground/70">{why}</p>}
+                    {why && <p className="mt-0.5 text-[11px] italic leading-4 text-muted-foreground/70">{why}</p>}
                   </div>
                 </li>
               })}

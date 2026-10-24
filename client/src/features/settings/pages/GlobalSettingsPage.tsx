@@ -16,12 +16,13 @@ import { UpdateChannelSection } from '../components/UpdateChannelSection'
 import { MobileAccessSection } from '../components/MobileAccessSection'
 import { McpSettingsSection } from '../components/McpSettingsSection'
 import { FEATURE_MCP } from '../../../lib/feature-flags'
-import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, Cpu, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles } from 'lucide-react'
+import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, Cpu, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles, Gauge, Save } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
 import { Switch } from '../../../components/ui/switch'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { SettingsCard } from '../components/SettingsCard'
 import {
   Dialog,
   DialogContent,
@@ -80,7 +81,7 @@ function ProjectListItem({
     <div className="flex items-center gap-3 p-2.5 rounded-md border border-border">
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium truncate">{project.name}</p>
-        <p className="text-[10px] text-muted-foreground truncate">{project.path}</p>
+        <p className="text-xs text-muted-foreground truncate">{project.path}</p>
       </div>
       <Button
         size="sm"
@@ -94,23 +95,47 @@ function ProjectListItem({
   )
 }
 
-// Left-nav sections for the two-pane settings layout. Each id matches a pane
-// wrapper in the content area; contiguous settings blocks are grouped per tab.
-const SETTINGS_SECTIONS = [
-  { id: 'appearance', icon: Palette, labelKey: 'desktop.nav.appearance' },
-  { id: 'effects', icon: Sparkles, labelKey: 'desktop.nav.effects' },
-  { id: 'specrailsAgents', icon: Cpu, labelKey: 'desktop.nav.specrailsAgents' },
-  { id: 'subscriptionUsage', icon: Cpu, labelKey: 'desktop.nav.subscriptionUsage' },
-  { id: 'code', icon: Code2, labelKey: 'desktop.nav.code' },
-  { id: 'terminal', icon: TerminalSquare, labelKey: 'desktop.nav.terminal' },
-  { id: 'updates', icon: RefreshCw, labelKey: 'desktop.nav.updates' },
-  { id: 'mobile', icon: Smartphone, labelKey: 'desktop.nav.mobile' },
-  { id: 'mcp', icon: Bot, labelKey: 'desktop.nav.mcp' },
-  { id: 'projects', icon: FolderOpen, labelKey: 'desktop.nav.projects' },
-  { id: 'advanced', icon: SlidersHorizontal, labelKey: 'desktop.nav.advanced' },
-  { id: 'webhooks', icon: Webhook, labelKey: 'desktop.nav.webhooks' },
-  { id: 'about', icon: Info, labelKey: 'desktop.nav.about' },
+// Left-nav sections for the two-pane settings layout, grouped under three
+// labels. Each id matches a pane wrapper in the content area; contiguous
+// settings blocks are grouped per tab.
+const SETTINGS_GROUPS = [
+  {
+    id: 'personal',
+    labelKey: 'desktop.navGroups.personal',
+    items: [
+      { id: 'appearance', icon: Palette, labelKey: 'desktop.nav.appearance' },
+      { id: 'effects', icon: Sparkles, labelKey: 'desktop.nav.effects' },
+      { id: 'code', icon: Code2, labelKey: 'desktop.nav.code' },
+      { id: 'terminal', icon: TerminalSquare, labelKey: 'desktop.nav.terminal' },
+    ],
+  },
+  {
+    id: 'agents',
+    labelKey: 'desktop.navGroups.agents',
+    items: [
+      { id: 'specrailsAgents', icon: Cpu, labelKey: 'desktop.nav.specrailsAgents' },
+      { id: 'subscriptionUsage', icon: Gauge, labelKey: 'desktop.nav.subscriptionUsage' },
+      { id: 'mcp', icon: Bot, labelKey: 'desktop.nav.mcp' },
+      { id: 'mobile', icon: Smartphone, labelKey: 'desktop.nav.mobile' },
+    ],
+  },
+  {
+    id: 'system',
+    labelKey: 'desktop.navGroups.system',
+    items: [
+      { id: 'projects', icon: FolderOpen, labelKey: 'desktop.nav.projects' },
+      { id: 'advanced', icon: SlidersHorizontal, labelKey: 'desktop.nav.advanced' },
+      { id: 'webhooks', icon: Webhook, labelKey: 'desktop.nav.webhooks' },
+      { id: 'updates', icon: RefreshCw, labelKey: 'desktop.nav.updates' },
+      { id: 'about', icon: Info, labelKey: 'desktop.nav.about' },
+    ],
+  },
 ] as const
+
+/** Trimmed form value of an optional USD amount ('' when unset). */
+function amountValue(value: number | null | undefined): string {
+  return value != null ? String(value) : ''
+}
 
 export default function SettingsDialog({ open, onClose, onOpenOnboarding, initialSection = 'appearance' }: SettingsDialogProps) {
   const { t } = useTranslation('settings')
@@ -121,11 +146,13 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
   }, [open, initialSection])
   const paneCls = (id: string) => cn('space-y-5', activeSection === id ? '' : 'hidden')
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  // Advanced pane: draft vs last-saved values feed one dirty save bar.
   const [costAlertThreshold, setCostAlertThreshold] = useState('')
-  const [isSavingThreshold, setIsSavingThreshold] = useState(false)
+  const [savedCostAlertThreshold, setSavedCostAlertThreshold] = useState('')
   const [desktopDailyBudget, setDesktopDailyBudget] = useState('')
-  const [isSavingDesktopBudget, setIsSavingDesktopBudget] = useState(false)
+  const [savedDesktopDailyBudget, setSavedDesktopDailyBudget] = useState('')
+  const [isSavingAdvanced, setIsSavingAdvanced] = useState(false)
+  const advancedDirty = costAlertThreshold !== savedCostAlertThreshold || desktopDailyBudget !== savedDesktopDailyBudget
 
   // Destructive-action confirmations
   const [pendingRemoveProject, setPendingRemoveProject] = useState<DesktopProject | null>(null)
@@ -165,19 +192,17 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
 
   useEffect(() => {
     if (!open) return
-    setIsLoading(true)
     async function load() {
       try {
         const res = await fetch('/api/settings')
         if (res.ok) {
           const data = await res.json() as DesktopSettings
           setDesktopSettings(data)
-          setCostAlertThreshold(data.costAlertThresholdUsd != null ? String(data.costAlertThresholdUsd) : '')
+          setCostAlertThreshold(amountValue(data.costAlertThresholdUsd))
+          setSavedCostAlertThreshold(amountValue(data.costAlertThresholdUsd))
         }
       } catch {
-        // ignore
-      } finally {
-        setIsLoading(false)
+        // ignore — the panes render with their defaults
       }
     }
     load()
@@ -189,19 +214,19 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
     fetch('/api/budget')
       .then((r) => r.json())
       .then((data: { desktopDailyBudgetUsd?: number | null }) => {
-        if (data.desktopDailyBudgetUsd != null) setDesktopDailyBudget(String(data.desktopDailyBudgetUsd))
-        else setDesktopDailyBudget('')
+        setDesktopDailyBudget(amountValue(data.desktopDailyBudgetUsd))
+        setSavedDesktopDailyBudget(amountValue(data.desktopDailyBudgetUsd))
       })
       .catch(() => {})
   }, [open])
 
-  async function handleSaveCostAlertThreshold() {
-    setIsSavingThreshold(true)
+  /** Persists the per-job cost alert threshold. Returns true on success. */
+  async function saveCostAlertThreshold(): Promise<boolean> {
     try {
       const parsed = costAlertThreshold.trim() === '' ? null : parseFloat(costAlertThreshold)
       if (parsed !== null && (isNaN(parsed) || parsed <= 0)) {
         toast.error(t('budget.invalidNumber'))
-        return
+        return false
       }
       const res = await fetch('/api/settings', {
         method: 'PUT',
@@ -209,24 +234,24 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         body: JSON.stringify({ costAlertThresholdUsd: parsed }),
       })
       if (res.ok) {
+        setSavedCostAlertThreshold(costAlertThreshold)
         toast.success(parsed == null ? t('desktop.costAlertsDisabled') : t('budget.alertSet', { amount: parsed }))
-      } else {
-        toast.error(t('budget.saveThresholdFailed'))
+        return true
       }
+      toast.error(t('budget.saveThresholdFailed'))
     } catch {
       toast.error(t('budget.saveThresholdFailed'))
-    } finally {
-      setIsSavingThreshold(false)
     }
+    return false
   }
 
-  async function handleSaveDesktopDailyBudget() {
-    setIsSavingDesktopBudget(true)
+  /** Persists the Desktop-wide daily budget. Returns true on success. */
+  async function saveDesktopDailyBudget(): Promise<boolean> {
     try {
       const val = desktopDailyBudget.trim() === '' ? null : parseFloat(desktopDailyBudget)
       if (val !== null && (isNaN(val) || val <= 0)) {
         toast.error(t('budget.invalidNumber'))
-        return
+        return false
       }
       const res = await fetch('/api/budget', {
         method: 'PATCH',
@@ -234,14 +259,25 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         body: JSON.stringify({ desktopDailyBudgetUsd: val }),
       })
       if (res.ok) {
+        setSavedDesktopDailyBudget(desktopDailyBudget)
         toast.success(val == null ? t('desktop.dailyBudgetRemoved') : t('desktop.dailyBudgetSet', { amount: val }))
-      } else {
-        toast.error(t('desktop.dailyBudgetSaveFailed'))
+        return true
       }
+      toast.error(t('desktop.dailyBudgetSaveFailed'))
     } catch {
       toast.error(t('desktop.dailyBudgetSaveFailed'))
+    }
+    return false
+  }
+
+  /** One save for the whole Advanced pane: only the edited fields are sent. */
+  async function handleSaveAdvanced() {
+    setIsSavingAdvanced(true)
+    try {
+      if (desktopDailyBudget !== savedDesktopDailyBudget) await saveDesktopDailyBudget()
+      if (costAlertThreshold !== savedCostAlertThreshold) await saveCostAlertThreshold()
     } finally {
-      setIsSavingDesktopBudget(false)
+      setIsSavingAdvanced(false)
     }
   }
 
@@ -289,11 +325,12 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
 
   async function handleToggleWebhook(id: string, enabled: boolean) {
     try {
-      await fetch(`/api/webhooks/${id}`, {
+      const res = await fetch(`/api/webhooks/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
       })
+      if (!res.ok) toast.error(t('webhooks.updateFailed'))
       await loadWebhooks()
     } catch {
       toast.error(t('webhooks.updateFailed'))
@@ -306,6 +343,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
       if (res.ok) {
         toast.success(t('webhooks.removed'))
         await loadWebhooks()
+      } else {
+        toast.error(t('webhooks.removeFailed'))
       }
     } catch {
       toast.error(t('webhooks.removeFailed'))
@@ -317,6 +356,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
       const res = await fetch(`/api/webhooks/${id}/test`, { method: 'POST' })
       if (res.ok) {
         toast.success(t('webhooks.testPingSent'))
+      } else {
+        toast.error(t('webhooks.testPingFailed'))
       }
     } catch {
       toast.error(t('webhooks.testPingFailed'))
@@ -334,7 +375,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
       <DialogContent movableResizable className="flex max-w-5xl w-[92vw] h-[82vh] flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4" aria-hidden />
             {t('desktop.title')}
           </DialogTitle>
           <DialogDescription>
@@ -342,228 +383,217 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading ? (
-          <div className="space-y-3 py-2">
-            <div className="h-20 bg-muted/30 rounded-lg animate-pulse" />
-            <div className="h-16 bg-muted/30 rounded-lg animate-pulse" />
-          </div>
-        ) : (
-          <div className="flex min-h-0 flex-1 gap-5 py-2">
-            {/* Left section nav */}
-            <nav className="w-40 shrink-0 space-y-0.5 overflow-y-auto border-r border-border pr-2">
-              {SETTINGS_SECTIONS.map((s) => {
-                if (s.id === 'mcp' && !FEATURE_MCP) return null
-                const Icon = s.icon
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setActiveSection(s.id)}
-                    className={cn(
-                      'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
-                      activeSection === s.id
-                        ? 'bg-accent-primary/15 font-medium text-foreground'
-                        : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
-                    )}
-                  >
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{t(s.labelKey)}</span>
-                  </button>
-                )
-              })}
-            </nav>
+        <div className="flex min-h-0 flex-1 gap-5 py-2">
+          {/* Left section nav, grouped Personal · Agents · System */}
+          <nav aria-label={t('desktop.navLabel')} className="w-40 shrink-0 overflow-y-auto border-r border-border pr-2">
+            {SETTINGS_GROUPS.map((group) => (
+              <div key={group.id} role="group" aria-labelledby={`settings-nav-group-${group.id}`} className="space-y-0.5">
+                <p id={`settings-nav-group-${group.id}`} className="px-2.5 pt-3 pb-1 text-[11px] font-medium text-muted-foreground first:pt-0">
+                  {t(group.labelKey)}
+                </p>
+                {group.items.map((s) => {
+                  if (s.id === 'mcp' && !FEATURE_MCP) return null
+                  const Icon = s.icon
+                  const active = activeSection === s.id
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setActiveSection(s.id)}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        active
+                          ? 'bg-accent-primary/15 font-medium text-foreground'
+                          : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+                      )}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                      <span className="truncate">{t(s.labelKey)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </nav>
 
-            {/* Active section content — fills the fixed-height dialog and scrolls,
-                so switching sections never resizes the modal. */}
-            <div className="min-w-0 flex-1 overflow-y-auto pr-1">
+          {/* Active section content — fills the fixed-height dialog and scrolls,
+              so switching sections never resizes the modal. */}
+          <div className="min-w-0 flex-1 overflow-y-auto pr-1 pb-4">
             <div className={paneCls('appearance')}>
-            <AppearanceSection />
-
-            <LanguageSection />
+              <AppearanceSection />
+              <LanguageSection />
+              {onOpenOnboarding && (
+                <SettingsCard title={t('desktop.onboardingHeading')}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-medium">{t('desktop.platformTour')}</p>
+                      <p className="text-xs text-muted-foreground">{t('desktop.platformTourDescription')}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 text-xs shrink-0"
+                      onClick={onOpenOnboarding}
+                      data-testid="replay-onboarding"
+                    >
+                      <GraduationCap className="w-3 h-3 mr-1" aria-hidden />
+                      {t('desktop.replayTour')}
+                    </Button>
+                  </div>
+                </SettingsCard>
+              )}
             </div>
 
             <div className={paneCls('effects')}>
-            <EffectsSection />
+              <EffectsSection />
             </div>
 
             <div className={paneCls('specrailsAgents')}>
-            <ProviderConnectionsCard />
-            <GlobalSubagentsSection />
+              <ProviderConnectionsCard />
+              <GlobalSubagentsSection />
             </div>
 
             {activeSection === 'subscriptionUsage' && <SubscriptionUsagePanel showDataDetails />}
 
             <div className={paneCls('code')}>
-            <CodeSectionSettings />
+              <CodeSectionSettings />
             </div>
 
             <div className={paneCls('updates')}>
-            <UpdateChannelSection />
-
-            <AppUpdateSection />
-
-            <CoreUpdateSection />
+              <UpdateChannelSection />
+              <AppUpdateSection />
+              <CoreUpdateSection />
             </div>
 
             <div className={paneCls('mobile')}>
-            <MobileAccessSection />
+              <MobileAccessSection />
             </div>
 
             {FEATURE_MCP && <div className={paneCls('mcp')}><McpSettingsSection /></div>}
 
-            {/* Projects section */}
             <div className={paneCls('projects')}>
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {t('desktop.registeredProjects')}
-              </h3>
-              {projects.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border p-4 text-center">
-                  <p className="text-xs text-muted-foreground">{t('desktop.noProjects')}</p>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {projects.map((project) => (
-                    <ProjectListItem
-                      key={project.id}
-                      project={project}
-                      onRemove={setPendingRemoveProject}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
+              <SettingsCard title={t('desktop.registeredProjects')}>
+                {projects.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-border p-4 text-center">
+                    <p className="text-xs text-muted-foreground">{t('desktop.noProjects')}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {projects.map((project) => (
+                      <ProjectListItem
+                        key={project.id}
+                        project={project}
+                        onRemove={setPendingRemoveProject}
+                      />
+                    ))}
+                  </div>
+                )}
+              </SettingsCard>
             </div>
 
             <div className={paneCls('advanced')}>
-            {/* Budget & Alerts */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {t('desktop.budgetAlertsHeading')}
-              </h3>
-              <div className="rounded-md border border-border p-3 space-y-4">
-                {/* Desktop daily budget */}
+              <SettingsCard title={t('desktop.budgetAlertsHeading')} contentClassName="space-y-4">
                 <div className="space-y-1.5">
-                  <p className="text-xs font-medium">{t('desktop.dailyBudgetLabel')}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {t('desktop.dailyBudgetHelper')}
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={desktopDailyBudget}
-                      onChange={(e) => setDesktopDailyBudget(e.target.value)}
-                      placeholder={t('desktop.dailyBudgetPlaceholder')}
-                      className="h-7 text-xs font-mono"
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 text-xs shrink-0"
-                      disabled={isSavingDesktopBudget}
-                      onClick={() => void handleSaveDesktopDailyBudget()}
-                    >
-                      {t('common:actions.save')}
-                    </Button>
-                  </div>
+                  <label htmlFor="settings-daily-budget" className="text-xs font-medium">{t('desktop.dailyBudgetLabel')}</label>
+                  <p className="text-xs text-muted-foreground">{t('desktop.dailyBudgetHelper')}</p>
+                  <Input
+                    id="settings-daily-budget"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={desktopDailyBudget}
+                    onChange={(e) => setDesktopDailyBudget(e.target.value)}
+                    placeholder={t('desktop.dailyBudgetPlaceholder')}
+                    className="h-7 text-xs font-mono"
+                  />
                 </div>
-
-                {/* Per-job cost alert threshold */}
                 <div className="space-y-1.5 border-t border-border pt-3">
-                  <p className="text-xs font-medium">{t('budget.perJobLabel')}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {t('desktop.perJobHelper')}
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={costAlertThreshold}
-                      onChange={(e) => setCostAlertThreshold(e.target.value)}
-                      placeholder={t('budget.perJobPlaceholder')}
-                      className="h-7 text-xs font-mono"
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 text-xs shrink-0"
-                      disabled={isSavingThreshold}
-                      onClick={handleSaveCostAlertThreshold}
-                    >
-                      {t('common:actions.save')}
-                    </Button>
-                  </div>
+                  <label htmlFor="settings-cost-alert" className="text-xs font-medium">{t('budget.perJobLabel')}</label>
+                  <p className="text-xs text-muted-foreground">{t('desktop.perJobHelper')}</p>
+                  <Input
+                    id="settings-cost-alert"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={costAlertThreshold}
+                    onChange={(e) => setCostAlertThreshold(e.target.value)}
+                    placeholder={t('budget.perJobPlaceholder')}
+                    className="h-7 text-xs font-mono"
+                  />
                 </div>
-              </div>
-            </div>
+              </SettingsCard>
 
-            {/* OS Notifications */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {t('notifications.heading')}
-              </h3>
-              <div className="rounded-md border border-border p-3 space-y-3">
-                <p className="text-[10px] text-muted-foreground">
-                  {t('notifications.description')}
-                </p>
+              <SettingsCard title={t('notifications.heading')} description={t('notifications.description')}>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={notifEnabled}
                     onChange={(e) => handleToggleNotifications(e.target.checked)}
-                    className="w-3.5 h-3.5"
+                    className="h-4 w-4"
                     data-testid="notif-toggle"
                   />
-                  <Bell className="w-3.5 h-3.5 text-muted-foreground" />
+                  <Bell className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
                   <span className="text-xs">{t('notifications.enableLabel')}</span>
                 </label>
                 {notifEnabled && (
-                  <div className="space-y-1.5 pl-6">
-                    <p className="text-[10px] text-muted-foreground">{t('notifications.notifyOn')}</p>
+                  <fieldset className="space-y-1.5 pl-6">
+                    <legend className="text-xs text-muted-foreground">{t('notifications.notifyOn')}</legend>
                     <div className="flex flex-wrap gap-3">
                       {([
                         { value: 'all' as const, label: t('notifications.filterAll') },
                         { value: 'completed' as const, label: t('notifications.filterCompleted') },
                         { value: 'failed' as const, label: t('notifications.filterFailed') },
                       ]).map(({ value, label }) => (
-                        <label key={value} className="flex items-center gap-1.5 text-[10px] cursor-pointer">
+                        <label key={value} className="flex items-center gap-1.5 text-xs cursor-pointer">
                           <input
                             type="radio"
                             name="notif-filter"
                             checked={notifFilter === value}
                             onChange={() => handleNotifFilterChange(value)}
-                            className="w-3 h-3"
+                            className="h-4 w-4"
                           />
                           {label}
                         </label>
                       ))}
                     </div>
-                  </div>
+                  </fieldset>
                 )}
+              </SettingsCard>
+
+              {/* One save bar for the pane, matching Settings ▸ AI providers. */}
+              <div
+                className={cn(
+                  'flex flex-wrap items-center justify-end gap-3 rounded-xl px-3 py-2 transition-colors duration-200',
+                  advancedDirty && 'sticky bottom-0 z-20 border border-accent-warning/30 bg-popover shadow-lg',
+                )}
+                data-testid="advanced-save-bar"
+                data-sticky={advancedDirty}
+              >
+                {advancedDirty && (
+                  <span className="mr-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-accent-warning/30 bg-accent-warning/10 px-2.5 text-[11px] font-medium text-accent-warning" role="status">
+                    <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-warning" />
+                    {t('desktop.unsavedChanges')}
+                  </span>
+                )}
+                <Button disabled={isSavingAdvanced || !advancedDirty} className="gap-1.5" onClick={() => void handleSaveAdvanced()}>
+                  <Save className="h-3.5 w-3.5" aria-hidden />
+                  {isSavingAdvanced ? t('common:states.saving') : t('common:actions.save')}
+                </Button>
               </div>
             </div>
 
-            </div>
-
             <div className={paneCls('webhooks')}>
-            {/* Webhooks */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {t('webhooks.heading')}
-              </h3>
-              <div className="rounded-md border border-border p-3 space-y-3">
-                <p className="text-[10px] text-muted-foreground">
+              <SettingsCard
+                title={t('webhooks.heading')}
+                description={
                   <Trans
                     ns="settings"
                     i18nKey="webhooks.description"
                     components={{ code: <code className="font-mono" /> }}
                   />
-                </p>
-
+                }
+              >
                 {webhooks.length > 0 && (
                   <div className="space-y-1.5">
                     {webhooks.map((wh) => {
@@ -572,7 +602,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                         <div key={wh.id} className="flex items-start gap-2 rounded-md border border-border p-2">
                           <div className="flex-1 min-w-0 space-y-0.5">
                             <p className="text-xs font-mono truncate">{wh.url}</p>
-                            <p className="text-[10px] text-muted-foreground">{events.join(', ')}</p>
+                            <p className="text-xs text-muted-foreground">{events.join(', ')}</p>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <Switch
@@ -590,7 +620,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                               title={t('webhooks.sendTestPing')}
                               aria-label={t('webhooks.sendTestPing')}
                             >
-                              <Zap className="w-3.5 h-3.5" />
+                              <Zap className="w-3.5 h-3.5" aria-hidden />
                             </Button>
                             <Button
                               size="icon"
@@ -600,7 +630,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                               title={t('common:actions.remove')}
                               aria-label={t('common:actions.remove')}
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3.5 h-3.5" aria-hidden />
                             </Button>
                           </div>
                         </div>
@@ -610,27 +640,31 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 )}
 
                 <div className="space-y-2 border-t border-border pt-2">
-                  <p className="text-[10px] font-medium text-muted-foreground">{t('webhooks.addHeading')}</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t('webhooks.addHeading')}</p>
                   <Input
                     value={newWebhookUrl}
                     onChange={(e) => setNewWebhookUrl(e.target.value)}
                     placeholder="https://hooks.example.com/..."
+                    aria-label={t('webhooks.urlLabel')}
                     className="h-7 text-xs font-mono"
                   />
                   <Input
+                    type="password"
+                    autoComplete="off"
                     value={newWebhookSecret}
                     onChange={(e) => setNewWebhookSecret(e.target.value)}
                     placeholder={t('webhooks.secretPlaceholder')}
+                    aria-label={t('webhooks.secretPlaceholder')}
                     className="h-7 text-xs font-mono"
                   />
                   <div className="flex flex-wrap gap-3">
                     {WEBHOOK_EVENTS.map(({ value, labelKey }) => (
-                      <label key={value} className="flex items-center gap-1.5 text-[10px] cursor-pointer">
+                      <label key={value} className="flex items-center gap-1.5 text-xs cursor-pointer">
                         <input
                           type="checkbox"
                           checked={newWebhookEvents.includes(value)}
                           onChange={() => toggleNewEvent(value)}
-                          className="w-3 h-3"
+                          className="h-4 w-4"
                         />
                         {t(labelKey)}
                       </label>
@@ -643,67 +677,22 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                     disabled={isAddingWebhook || !newWebhookUrl.trim()}
                     onClick={() => void handleAddWebhook()}
                   >
-                    <Plus className="w-3 h-3 mr-1" />
+                    <Plus className="w-3 h-3 mr-1" aria-hidden />
                     {t('webhooks.addButton')}
                   </Button>
                 </div>
-              </div>
-            </div>
-
-            </div>
-
-            <div className={paneCls('about')}>
-            {/* Onboarding */}
-            {onOpenOnboarding && (
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {t('desktop.onboardingHeading')}
-                </h3>
-                <div className="rounded-md border border-border p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-medium">{t('desktop.platformTour')}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {t('desktop.platformTourDescription')}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 text-xs shrink-0"
-                      onClick={onOpenOnboarding}
-                      data-testid="replay-onboarding"
-                    >
-                      <GraduationCap className="w-3 h-3 mr-1" />
-                      {t('desktop.replayTour')}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
+              </SettingsCard>
             </div>
 
             <div className={paneCls('terminal')}>
-            {/* Terminal panel */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {t('desktop.terminalPanelHeading')}
-              </h3>
               <TerminalSettingsSection mode="desktop" />
-            </div>
             </div>
 
             <div className={paneCls('about')}>
-            {/* Desktop info */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {t('desktop.infoHeading')}
-              </h3>
-              <div className="rounded-md border border-border p-3 space-y-2">
+              <SettingsCard title={t('desktop.infoHeading')} contentClassName="space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{t('desktop.infoPort')}</span>
-                  <span className="font-mono">{desktopSettings?.port ?? 4200}</span>
+                  <span className="font-mono">{desktopSettings?.port ?? '—'}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{t('desktop.infoProjects')}</span>
@@ -711,14 +700,12 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{t('desktop.infoDb')}</span>
-                  <span className="font-mono text-[10px] text-muted-foreground">~/.specrails/desktop.sqlite</span>
+                  <span className="font-mono text-muted-foreground">~/.specrails/desktop.sqlite</span>
                 </div>
-              </div>
+              </SettingsCard>
             </div>
-            </div>{/* /pane about */}
-            </div>{/* /section content */}
-          </div>
-        )}
+          </div>{/* /section content */}
+        </div>
         <ConfirmDialog
           open={pendingRemoveProject !== null}
           onOpenChange={(next) => { if (!next) setPendingRemoveProject(null) }}

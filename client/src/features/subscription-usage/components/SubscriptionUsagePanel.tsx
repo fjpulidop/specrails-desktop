@@ -53,7 +53,7 @@ export function SubscriptionUsagePanel({ selectedProvider, showDataDetails = fal
       const stale = isStale(provider, now), issue = usageIssue(provider)
       return <article key={provider.providerId} className="space-y-2 border-b border-border pb-4 last:border-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">{provider.providerId === 'claude' ? 'Claude' : 'Codex'} {provider.plan && <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">{provider.spend ? t('spend.enterprise') : provider.plan}</span>}</h3>
+          <h3 className="text-sm font-semibold">{provider.providerId === 'claude' ? 'Claude' : 'Codex'} {provider.plan && <span className="rounded border border-border px-1.5 py-0.5 text-[11px] font-normal text-muted-foreground">{provider.spend ? t('spend.enterprise') : provider.plan}</span>}</h3>
           {provider.observedAt && <span className="text-[11px] text-muted-foreground" title={absolute(provider.observedAt)}>{stale ? t('stale') : t('updated', { time: relative(provider.observedAt) })}</span>}
         </div>
         {provider.spend && <EnterpriseSpendMeter spend={provider.spend} stale={stale} now={now} />}

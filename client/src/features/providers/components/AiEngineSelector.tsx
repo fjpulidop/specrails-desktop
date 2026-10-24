@@ -61,7 +61,7 @@ export function AiEngineSelector({
                 {providerLabel(p)}
                 {local && (
                   <span
-                    className="rounded-full bg-accent-secondary/15 px-1.5 py-px text-[10px] leading-4 text-accent-secondary"
+                    className="rounded-full bg-accent-secondary/15 px-1.5 py-px text-[11px] leading-4 text-accent-secondary"
                     title={t('aiEngine.localEngine')}
                   >
                     {t('aiEngine.localEngine')}
@@ -69,7 +69,7 @@ export function AiEngineSelector({
                 )}
                 {unauthenticated && (
                   <span
-                    className="rounded-full bg-accent-warning/15 px-1.5 py-px text-[10px] leading-4 text-accent-warning"
+                    className="rounded-full bg-accent-warning/15 px-1.5 py-px text-[11px] leading-4 text-accent-warning"
                     title={t('aiEngine.notSignedIn')}
                   >
                     {t('aiEngine.notSignedIn')}
