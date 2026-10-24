@@ -41,7 +41,16 @@
     "tasks": "Percorrer as tarefas",
     "verify": "Verificar",
     "review": "Revisar",
-    "ship": "Entregar"
+    "ship": "Entregar",
+    "reviewer": "Revisar a alteração",
+    "review-policy": "Aplicar a política de revisão",
+    "correction-context": "Reunir o que precisa de correção",
+    "capture-review": "Registrar a revisão",
+    "correction-budget": "Verificar o limite de novas tentativas",
+    "begin-correction": "Iniciar uma rodada de correção",
+    "fixer": "Corrigir o que foi reportado",
+    "correction-blocker": "Verificar bloqueios",
+    "correction-progress": "Acompanhar o progresso das correções"
   },
   "decision": {
     "another": "Ainda não está — outra volta",
@@ -98,5 +107,7 @@
       "invalidated": "Resultado anterior invalidado: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "Rodada de correção {{round}} de {{total}}",
+  "checks": "+{{count}} verificações"
 }

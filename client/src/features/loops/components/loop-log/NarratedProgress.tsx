@@ -7,9 +7,9 @@
  * interpretation of its own, which is why it can be trusted with a reader who
  * cannot check it against the log.
  */
-import { useMemo } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Clock } from 'lucide-react'
+import { ChevronRight, Clock } from 'lucide-react'
 import { LiveDot } from '../../../../components/ui/live-dot'
 import { cn } from '../../../../lib/utils'
 import { buildNarration, type NarrationMilestone } from './narration-model'
@@ -39,6 +39,12 @@ const QUIET_END = new Set(['step.done', 'step.doneTimed', 'step.doneTimedMin', '
 /** Engine step ids that have plain-language copy under `steps.<id>`. */
 const STEP_ID = /^[a-z][a-z-]*$/
 
+/** Unknown engine step ids are reported once per session (dev only) so new steps get copy. */
+const reportedUnknownSteps = new Set<string>()
+
+/** A settled step that took under 2 s counts as bookkeeping. */
+const QUICK_SECONDS = 2
+
 function isStation(m: NarrationMilestone): boolean {
   return m.kind === 'step-start' || m.kind === 'step-end' || m.kind === 'step-interrupted' || m.values.phaseBoundary === 1
 }
@@ -50,7 +56,8 @@ export function NarratedProgress({
   elapsedMs,
   variant = 'page',
 }: NarratedProgressProps) {
-  const { t } = useTranslation('narration')
+  const { t, i18n } = useTranslation('narration')
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set())
   const model = useMemo(() => buildNarration({ events, settled }), [events, settled])
   const programmatic = useMemo(() => events.some(event => event.event_type === 'workflow-event'), [events])
 
@@ -77,9 +84,68 @@ export function NarratedProgress({
       const duration = end && seconds > 0
         ? (end.code === 'step.doneTimedMin' ? t('step.durationMin', { minutes }) : t('step.durationSec', { seconds }))
         : null
-      return { milestone, station, duration, live: station && !settled && i === lastStation && !end }
+      // Bookkeeping: a clean step that ended in under 2 s with no activity of its own.
+      const next = visible[i + 1]
+      const quick = milestone.kind === 'step-start' && !!end && end.tone !== 'bad' && milestone.tone !== 'bad'
+        && end.code !== 'step.doneTimedMin' && seconds < QUICK_SECONDS
+        && (!next || next.kind === 'step-start')
+        && !(!settled && i === lastStation)
+      return { milestone, station, duration, quick, live: station && !settled && i === lastStation && !end }
     })
   }, [ordered, settled, t])
+
+  // Display list: consecutive bookkeeping steps fold into one "+N checks" line and
+  // retry attempts sit under a "Fix round N of M" header.
+  const items = useMemo(() => {
+    type Row = (typeof rows)[number]
+    type Item =
+      | { type: 'row'; row: Row }
+      | { type: 'round'; key: number; round: number }
+      | { type: 'folded'; key: number; rows: Row[] }
+    const maxRound = rows.reduce((max, r) => (r.milestone.kind === 'step-start' ? Math.max(max, Number(r.milestone.values.iteration ?? 1)) : max), 1)
+    const out: Item[] = []
+    let currentRound = 1
+    for (const row of rows) {
+      const iteration = row.milestone.kind === 'step-start' ? Number(row.milestone.values.iteration ?? 1) : 1
+      if (row.milestone.kind === 'step-start' && iteration > currentRound) {
+        currentRound = iteration
+        out.push({ type: 'round', key: row.milestone.seq, round: iteration })
+      }
+      if (row.quick) {
+        const last = out[out.length - 1]
+        if (last && last.type === 'folded') last.rows.push(row)
+        else out.push({ type: 'folded', key: row.milestone.seq, rows: [row] })
+      } else {
+        out.push({ type: 'row', row })
+      }
+    }
+    return { out, maxRound }
+  }, [rows])
+
+  const toggle = (key: number) =>
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+
+  // Flat list of what is on screen, so the track line knows its first and last stop.
+  const flat = useMemo(() => {
+    type Flat =
+      | { type: 'row'; row: (typeof rows)[number] }
+      | { type: 'round'; key: number; round: number }
+      | { type: 'folded'; key: number; count: number; open: boolean }
+    const list: Flat[] = []
+    for (const item of items.out) {
+      if (item.type === 'folded') {
+        const open = expanded.has(item.key)
+        list.push({ type: 'folded', key: item.key, count: item.rows.length, open })
+        if (open) for (const row of item.rows) list.push({ type: 'row', row })
+      } else list.push(item)
+    }
+    return list
+  }, [items, expanded])
 
   return (
     <div className={variant === 'glass' ? 'flex h-full flex-col overflow-hidden' : 'flex flex-col'}>
@@ -105,11 +171,42 @@ export function NarratedProgress({
       </div>
 
       <ol className={`flex-1 px-3 py-2 ${variant === 'glass' ? 'overflow-y-auto' : ''}`} data-testid="narration-list">
-        {rows.length === 0 ? (
+        {flat.length === 0 ? (
           <li className="py-6 text-center text-xs text-muted-foreground">
             {t(settled ? 'emptySettled' : 'emptyLive')}
           </li>
-        ) : rows.map((row, index) => {
+        ) : flat.map((entry, index) => {
+          const track = (node: ReactNode) => (
+            <span className="relative flex w-4 shrink-0 justify-center self-stretch" aria-hidden>
+              <span className={cn('absolute left-1/2 w-px -translate-x-1/2 bg-border', index === 0 ? 'top-2.5' : 'top-0', index === flat.length - 1 ? 'h-2.5' : 'bottom-0')} />
+              {node}
+            </span>
+          )
+          if (entry.type === 'round') {
+            return (
+              <li key={`round-${entry.key}`} data-testid="narration-round" className="flex items-start gap-2 pt-2 text-label font-semibold text-foreground">
+                {track(<span className="relative mt-1.5 size-2 rounded-full bg-accent-warning ring-2 ring-background" />)}
+                <span className="min-w-0 flex-1">{t('round', { round: entry.round, total: items.maxRound })}</span>
+              </li>
+            )
+          }
+          if (entry.type === 'folded') {
+            return (
+              <li key={`folded-${entry.key}`} data-testid="narration-folded" className="flex items-start gap-2 text-caption text-muted-foreground">
+                {track(<span className="relative mt-2 size-1 rounded-full bg-muted-foreground/40" />)}
+                <button
+                  type="button"
+                  aria-expanded={entry.open}
+                  onClick={() => toggle(entry.key)}
+                  className="inline-flex items-center gap-1 rounded-control py-0.5 text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <ChevronRight className={cn('size-3 transition-transform motion-reduce:transition-none', entry.open && 'rotate-90')} aria-hidden />
+                  {t('checks', { count: entry.count })}
+                </button>
+              </li>
+            )
+          }
+          const row = entry.row
           const { milestone, station, duration, live } = row
           // A folded "N files" line already states its count in the text; the
           // ×N badge is only for the same thing happening repeatedly.
@@ -117,8 +214,14 @@ export function NarratedProgress({
             ? 1
             : Number(milestone.values.repeats ?? 1)
           const failed = milestone.tone === 'bad'
-          const humanTitle = (title: unknown): string =>
-            typeof title === 'string' && STEP_ID.test(title) ? t(`steps.${title}`, { defaultValue: title }) : String(title ?? '')
+          const humanTitle = (title: unknown): string => {
+            if (typeof title !== 'string' || !STEP_ID.test(title)) return String(title ?? '')
+            if (import.meta.env.DEV && !reportedUnknownSteps.has(title) && !i18n.exists(`narration:steps.${title}`)) {
+              reportedUnknownSteps.add(title)
+              console.warn(`[narration] engine step "${title}" has no plain-language copy under narration:steps`)
+            }
+            return t(`steps.${title}`, { defaultValue: title })
+          }
           return (
             <li
               key={`${milestone.seq}-${milestone.code}-${index}`}
@@ -129,17 +232,13 @@ export function NarratedProgress({
                 station && index > 0 && 'pt-1.5',
               )}
             >
-              {/* Track column: a 1px line with a station node or a small sleeper. */}
-              <span className="relative flex w-4 shrink-0 justify-center self-stretch" aria-hidden>
-                <span className={cn('absolute left-1/2 w-px -translate-x-1/2 bg-border', index === 0 ? 'top-2.5' : 'top-0', index === rows.length - 1 ? 'h-2.5' : 'bottom-0')} />
-                {station ? (
-                  live
-                    ? <LiveDot tone="primary" size="sm" className="mt-1.5" />
-                    : <span className={cn('relative mt-1.5 size-2 rounded-full ring-2 ring-background', failed ? 'bg-destructive' : 'bg-accent-success')} />
-                ) : (
-                  <span className={cn('relative mt-2 size-1 rounded-full', failed ? 'bg-destructive' : 'bg-muted-foreground/40')} />
-                )}
-              </span>
+              {track(station ? (
+                live
+                  ? <LiveDot tone="primary" size="sm" className="mt-1.5" />
+                  : <span className={cn('relative mt-1.5 size-2 rounded-full ring-2 ring-background', failed ? 'bg-destructive' : 'bg-accent-success')} />
+              ) : (
+                <span className={cn('relative mt-2 size-1 rounded-full', failed ? 'bg-destructive' : 'bg-muted-foreground/40')} />
+              ))}
               <span className="min-w-0 flex-1 break-words">
                 {typeof milestone.values.repository === 'string' && milestone.values.repository && (
                   <span className="mr-2 inline-block rounded border border-border px-1.5 py-0.5 text-xs font-medium text-foreground">{milestone.values.repository}</span>

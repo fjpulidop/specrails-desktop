@@ -41,7 +41,16 @@
     "tasks": "逐项完成任务",
     "verify": "验证",
     "review": "审查",
-    "ship": "交付"
+    "ship": "交付",
+    "reviewer": "审查变更",
+    "review-policy": "应用审查策略",
+    "correction-context": "收集需要修复的内容",
+    "capture-review": "记录审查结果",
+    "correction-budget": "检查重试额度",
+    "begin-correction": "开始修复轮次",
+    "fixer": "修复已报告的问题",
+    "correction-blocker": "检查阻塞项",
+    "correction-progress": "跟踪修复进度"
   },
   "decision": {
     "another": "还没完成 — 再来一轮",
@@ -98,5 +107,7 @@
       "invalidated": "先前结果已失效：{{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "修复轮次 {{round}}/{{total}}",
+  "checks": "+{{count}} 项检查"
 }

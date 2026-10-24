@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { NarratedProgress } from '../NarratedProgress'
 import { JOB_LOG_MODE_KEY, loadJobLogMode, saveJobLogMode } from '../../../../jobs/lib/job-log-mode'
 import type { EventRow } from '../../../../../types'
@@ -164,5 +164,42 @@ describe('job log mode preference', () => {
   it('ignores a corrupted value', () => {
     localStorage.setItem(JOB_LOG_MODE_KEY, 'sideways')
     expect(loadJobLogMode()).toBe('narrated')
+  })
+
+  describe('three-attempt story', () => {
+    const attempts = () => {
+      const events: EventRow[] = []
+      let idx = 0
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        events.push(step(++idx, 'fixer', { iteration: attempt }))
+        events.push(stepEnd(idx, { durationMs: 60_000 }))
+        for (const id of ['review-policy', 'capture-review']) {
+          events.push(step(++idx, id, { iteration: attempt }))
+          events.push(stepEnd(idx, { durationMs: 1_000 }))
+        }
+      }
+      return events
+    }
+
+    it('folds one-second bookkeeping steps into a collapsed checks line', () => {
+      render(<NarratedProgress events={attempts()} settled />)
+      expect(screen.queryByText(/Apply review policy/)).toBeNull()
+      const folded = screen.getAllByTestId('narration-folded')
+      expect(folded).toHaveLength(3)
+      expect(screen.getAllByRole('button', { name: '+2 checks' })[0]).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('expands a folded line on click', () => {
+      render(<NarratedProgress events={attempts()} settled />)
+      fireEvent.click(screen.getAllByRole('button', { name: '+2 checks' })[0])
+      expect(screen.getByText(/Apply review policy/)).toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: '+2 checks' })[0]).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('groups retries under fix round headers', () => {
+      render(<NarratedProgress events={attempts()} settled />)
+      const rounds = screen.getAllByTestId('narration-round')
+      expect(rounds.map(r => r.textContent)).toEqual(['Fix round 2 of 3', 'Fix round 3 of 3'])
+    })
   })
 })

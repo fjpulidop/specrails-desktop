@@ -41,7 +41,16 @@
     "tasks": "Scorrere le attività",
     "verify": "Verificare",
     "review": "Rivedere",
-    "ship": "Consegnare"
+    "ship": "Consegnare",
+    "reviewer": "Rivedere la modifica",
+    "review-policy": "Applicare la policy di revisione",
+    "correction-context": "Raccogliere cosa va corretto",
+    "capture-review": "Registrare la revisione",
+    "correction-budget": "Controllare il budget di tentativi",
+    "begin-correction": "Avviare un ciclo di correzione",
+    "fixer": "Correggere quanto segnalato",
+    "correction-blocker": "Cercare blocchi",
+    "correction-progress": "Seguire l'avanzamento delle correzioni"
   },
   "decision": {
     "another": "Non ancora — un altro giro",
@@ -98,5 +107,7 @@
       "invalidated": "Risultato precedente invalidato: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "Ciclo di correzione {{round}} di {{total}}",
+  "checks": "+{{count}} controlli"
 }

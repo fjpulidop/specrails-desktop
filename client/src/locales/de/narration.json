@@ -41,7 +41,16 @@
     "tasks": "Aufgaben abarbeiten",
     "verify": "Verifizieren",
     "review": "Prüfen",
-    "ship": "Ausliefern"
+    "ship": "Ausliefern",
+    "reviewer": "Änderung prüfen",
+    "review-policy": "Prüfrichtlinie anwenden",
+    "correction-context": "Zu behebende Punkte sammeln",
+    "capture-review": "Prüfergebnis festhalten",
+    "correction-budget": "Wiederholungsbudget prüfen",
+    "begin-correction": "Korrekturrunde starten",
+    "fixer": "Gemeldete Punkte beheben",
+    "correction-blocker": "Auf Blocker prüfen",
+    "correction-progress": "Fortschritt der Korrekturen verfolgen"
   },
   "decision": {
     "another": "Noch nicht fertig — nächste Runde",
@@ -98,5 +107,7 @@
       "invalidated": "Vorheriges Ergebnis ungültig: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "Korrekturrunde {{round}} von {{total}}",
+  "checks": "+{{count}} Prüfungen"
 }

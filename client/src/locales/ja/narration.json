@@ -41,7 +41,16 @@
     "tasks": "タスクを順に実行",
     "verify": "検証",
     "review": "レビュー",
-    "ship": "提出"
+    "ship": "提出",
+    "reviewer": "変更をレビュー",
+    "review-policy": "レビューポリシーを適用",
+    "correction-context": "修正が必要な点を集約",
+    "capture-review": "レビュー結果を記録",
+    "correction-budget": "再試行の残り回数を確認",
+    "begin-correction": "修正ラウンドを開始",
+    "fixer": "指摘された点を修正",
+    "correction-blocker": "ブロッカーを確認",
+    "correction-progress": "修正の進捗を追跡"
   },
   "decision": {
     "another": "まだ未達 — もう一周",
@@ -98,5 +107,7 @@
       "invalidated": "以前の結果は無効: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "修正ラウンド {{round}} / {{total}}",
+  "checks": "+{{count}} 件の確認"
 }

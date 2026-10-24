@@ -41,7 +41,16 @@
     "tasks": "Work through tasks",
     "verify": "Verify",
     "review": "Review",
-    "ship": "Ship"
+    "ship": "Ship",
+    "reviewer": "Review the change",
+    "review-policy": "Apply review policy",
+    "correction-context": "Gather what needs fixing",
+    "capture-review": "Record the review",
+    "correction-budget": "Check retry budget",
+    "begin-correction": "Start a fix round",
+    "fixer": "Fix what was reported",
+    "correction-blocker": "Check for blockers",
+    "correction-progress": "Track fix progress"
   },
   "decision": {
     "another": "Not done yet — going round again",
@@ -98,5 +107,7 @@
       "invalidated": "Previous result invalidated: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "Fix round {{round}} of {{total}}",
+  "checks": "+{{count}} checks"
 }
