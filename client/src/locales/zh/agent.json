@@ -919,7 +919,13 @@
       "flow_return_busy": "该运行正忙于其他操作，请稍后重试。",
       "flow_return_not_allowed": "只有在交付前停止的移交才能回到其 Flow。",
       "flow_return_not_found": "该运行不是 Flow 移交。",
-      "flow_return_worktree_mismatch": "该运行没有接管此 Flow 的更改。"
+      "flow_return_worktree_mismatch": "该运行没有接管此 Flow 的更改。",
+      "spec_in_flow": "该规格已在 Flow 中。打开其任务以继续。",
+      "spec_on_rail": "该规格在某条轨道上。请先将其移出轨道，再在 Flow 中开始。",
+      "spec_running": "该规格正在轨道上运行。请等待运行结束。",
+      "spec_closed": "该规格已完成或已取消。重新打开后才能在 Flow 中处理。",
+      "spec_not_found": "该规格已不存在。",
+      "invalid_ticket_id": "无法识别该规格。"
     },
     "entry": {
       "heading": "开始 Flow",
@@ -944,7 +950,11 @@
       },
       "cancel": "取消",
       "start": "开始 Flow",
-      "starting": "正在开始…"
+      "starting": "正在开始…",
+      "existingSpec": {
+        "label": "规格 #{{id}}",
+        "note": "Flow 基于该规格工作，代理从它开始。交付时，规格会根据所构建内容重写；当前文本会作为评论保留。"
+      }
     },
     "offer": {
       "heading": "你想怎样构建它？",
@@ -953,11 +963,13 @@
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "在独立的 Flow 分支上一起构建；spec 最后再写。"
+          "hint": "在独立的 Flow 分支上一起构建；spec 最后再写。",
+          "hintExisting": "在独立的 Flow 分支上一起构建该规格；规格会根据所构建的内容重写。"
         },
         "implement": {
           "title": "Spec + Implement",
-          "hint": "先确定 spec，再交给轨道执行。"
+          "hint": "先确定 spec，再交给轨道执行。",
+          "hintExisting": "按现有内容将该规格交给轨道。"
         }
       },
       "stub": {
@@ -977,7 +989,8 @@
         "viewRun": "查看运行"
       },
       "why": "智能体为何询问",
-      "waitForReply": "智能体完成这条回复后即可选择。"
+      "waitForReply": "智能体完成这条回复后即可选择。",
+      "implementExistingReply": "在轨道上实现规格 #{{id}}。"
     },
     "bar": {
       "controls": "Flow 操作",
@@ -1142,6 +1155,21 @@
       "keptSpec": "规格保留在看板上，但不再显示“Flow 中”标签",
       "cancel": "暂不",
       "confirm": "关闭 Flow，保留分支"
+    },
+    "startFromSpec": {
+      "action": "在 Flow 中开始",
+      "hint": "在任务中与代理在独立的 Flow 分支上构建该规格",
+      "starting": "正在启动 Flow…",
+      "failed": "规格 #{{id}} 无法在 Flow 中开始",
+      "blocked": {
+        "noProject": "打开一个项目以使用 Flow",
+        "unavailable": "已安装的 Specrails Core 不支持 Flow",
+        "inFlow": "已在 Flow 中",
+        "closed": "已完成或已取消的规格无法在 Flow 中开始",
+        "running": "正在轨道上运行",
+        "onRail": "在轨道上：请先将其移出",
+        "missionInFlow": "该任务已有 Flow"
+      }
     }
   },
   "flowReturn": {

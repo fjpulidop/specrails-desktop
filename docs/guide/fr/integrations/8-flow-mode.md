@@ -17,6 +17,18 @@ Choisir Flow ouvre une confirmation : Specrails crée une copie séparée du pro
 
 Si votre Specrails Core ne peut pas encore exécuter Flow, Démarrer est désactivé et la carte liste ce qui manque. En général, une mise à jour de Specrails Core suffit.
 
+## Démarrer un Flow depuis une spec existante
+
+Toute spec peut être construite en Flow, pas seulement une nouvelle idée. Flow et Implement restent deux façons égales d’y travailler :
+
+- sur le tableau, faites un clic droit sur une spec et choisissez **Démarrer en Flow** (à côté du glisser vers un rail) ; dans le détail de la spec, **Démarrer en Flow** se trouve à côté de **Déplacer vers un rail** ;
+- dans une mission, quand vous demandez d’implémenter une spec sans nommer de rail, l’agent affiche la même carte à deux chemins pour cette spec : **Flow** y travaille avec vous, **Spec + Implement** la lance sur un rail ;
+- une carte de lancement sur rail pour une seule spec propose aussi **Démarrer en Flow** à côté de son lancement.
+
+La spec elle-même passe **En Flow** : aucune spec provisoire n’est créée et le premier tour de l’agent reçoit la spec (critères d’acceptation, Contract Layer, hors-périmètre et addenda ouverts). Démarré depuis le tableau, le Flow s’ouvre dans la mission de la spec, ou dans une nouvelle mission portant son nom. **Démarrer en Flow** est désactivé, avec la raison au survol, quand la spec est déjà en Flow, terminée ou annulée, sur un rail, ou que Flow n’est pas disponible.
+
+**Abandonner** rend la spec exactement comme elle était, avec son statut précédent : votre spec n’est jamais supprimée. À la livraison du Flow, la spec est réécrite à partir de ce qui a été construit, et son texte d’origine est d’abord conservé en commentaire, **Original spec before Flow**, pour que rien ne se perde. Une spec déjà liée à Jira met à jour ce même ticket et le passe au statut associé à la revue ; aucun second ticket n’est créé.
+
 ## Pendant le Flow
 
 Le mode Flow est nommé là où vous regardez, dans sa propre couleur de Flow : le compositeur affiche une puce **Flow** à côté de celle d’autonomie et l’indication *Dites à l’agent quoi modifier dans ce Flow…* ; le titre de la mission indique **En Flow**, tout comme sa ligne dans la liste des missions. La conversation marque où vous êtes entré dans Flow et où vous en êtes sorti, et les réponses de l’agent écrites en Flow portent une petite marque **Flow** à côté de leur heure.

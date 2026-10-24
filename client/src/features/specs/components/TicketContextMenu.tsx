@@ -62,6 +62,8 @@ export interface TicketContextMenuProps {
   onPriorityChange: (ticketId: number, priority: TicketPriority) => void
   children: React.ReactNode
   className?: string
+  /** Extra actions at the top of the menu (e.g. "Start in Flow"); `close` dismisses the menu. */
+  extraItems?: (close: () => void) => React.ReactNode
 }
 
 interface MenuPosition {
@@ -84,6 +86,7 @@ interface ContextMenuPortalProps {
   /** When set, the first item is "Move to <label>" instead of Delete (Jira). */
   discardLabel?: string
   onDiscardRequest?: () => void
+  extraItems?: (close: () => void) => React.ReactNode
   onClose: () => void
 }
 
@@ -97,6 +100,7 @@ function ContextMenuPortal({
   onDeleteRequest,
   discardLabel,
   onDiscardRequest,
+  extraItems,
   onClose,
 }: ContextMenuPortalProps) {
   const { t } = useTranslation('tickets')
@@ -128,6 +132,8 @@ function ContextMenuPortal({
       style={{ left: adjustedPos.x, top: adjustedPos.y }}
       className="fixed z-[200] min-w-[180px] rounded-lg border border-border/50 bg-popover shadow-xl text-xs py-1"
     >
+      {extraItems && <>{extraItems(onClose)}<div className="my-1 h-px bg-border/40" role="separator" /></>}
+
       {/* Move to <status> (Jira-backed spec) — else Delete */}
       {discardLabel && onDiscardRequest ? (
         <button
@@ -276,6 +282,7 @@ export function TicketContextMenu({
   onPriorityChange,
   children,
   className,
+  extraItems,
 }: TicketContextMenuProps) {
   const { t } = useTranslation('tickets')
   const { t: tj } = useTranslation('jira')
@@ -346,6 +353,7 @@ export function TicketContextMenu({
             onDeleteRequest={() => setShowDeleteConfirm(true)}
             discardLabel={canDiscard ? tj('discard.moveButton', { status: discardStatus }) : undefined}
             onDiscardRequest={canDiscard ? () => setShowDiscard(true) : undefined}
+            extraItems={extraItems}
             onClose={closeMenu}
           />,
           document.body

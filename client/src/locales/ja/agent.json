@@ -919,7 +919,13 @@
       "flow_return_busy": "実行は別の操作で使用中です。少し待ってからもう一度お試しください。",
       "flow_return_not_allowed": "完了前に停止した引き渡しだけが Flow に戻れます。",
       "flow_return_not_found": "その実行は Flow の引き渡しではありません。",
-      "flow_return_worktree_mismatch": "その実行はこの Flow の変更を引き継いでいません。"
+      "flow_return_worktree_mismatch": "その実行はこの Flow の変更を引き継いでいません。",
+      "spec_in_flow": "このスペックはすでに Flow 中です。続けるにはそのミッションを開いてください。",
+      "spec_on_rail": "このスペックはレール上にあります。Flow で始めるにはレールから外してください。",
+      "spec_running": "このスペックはレールで実行中です。実行が終わるまでお待ちください。",
+      "spec_closed": "このスペックは完了またはキャンセル済みです。Flow で作業するには再オープンしてください。",
+      "spec_not_found": "このスペックはもう存在しません。",
+      "invalid_ticket_id": "そのスペックを特定できませんでした。"
     },
     "entry": {
       "heading": "Flow を開始",
@@ -944,7 +950,11 @@
       },
       "cancel": "キャンセル",
       "start": "Flow を開始",
-      "starting": "開始しています…"
+      "starting": "開始しています…",
+      "existingSpec": {
+        "label": "スペック #{{id}}",
+        "note": "Flow はこのスペックで作業し、エージェントはここから始めます。納品時にスペックは作ったものから書き直され、現在の本文はコメントとして残ります。"
+      }
     },
     "offer": {
       "heading": "どのように作りますか?",
@@ -953,11 +963,13 @@
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "別の Flow ブランチで一緒に作り、spec は最後に作成します。"
+          "hint": "別の Flow ブランチで一緒に作り、spec は最後に作成します。",
+          "hintExisting": "別の Flow ブランチで一緒にこのスペックを作ります。スペックは作ったものから書き直されます。"
         },
         "implement": {
           "title": "Spec + Implement",
-          "hint": "まず spec を合意し、それからレールに任せます。"
+          "hint": "まず spec を合意し、それからレールに任せます。",
+          "hintExisting": "このスペックを書かれたとおりにレールへ任せます。"
         }
       },
       "stub": {
@@ -977,7 +989,8 @@
         "viewRun": "実行を表示"
       },
       "why": "エージェントが尋ねた理由",
-      "waitForReply": "エージェントがこの返信を終えると選べます。"
+      "waitForReply": "エージェントがこの返信を終えると選べます。",
+      "implementExistingReply": "スペック #{{id}} をレールで実装しましょう。"
     },
     "bar": {
       "controls": "Flow のアクション",
@@ -1142,6 +1155,21 @@
       "keptSpec": "スペックはボードに残り、「Flow 中」ラベルは外れます",
       "cancel": "今はしない",
       "confirm": "Flow を閉じてブランチを残す"
+    },
+    "startFromSpec": {
+      "action": "Flow で開始",
+      "hint": "ミッションの中で、専用の Flow ブランチでエージェントとこのスペックを作ります",
+      "starting": "Flow を開始中…",
+      "failed": "スペック #{{id}} を Flow で開始できませんでした",
+      "blocked": {
+        "noProject": "Flow を使うにはプロジェクトを開いてください",
+        "unavailable": "インストール済みの Specrails Core では Flow を使えません",
+        "inFlow": "すでに Flow 中",
+        "closed": "完了またはキャンセル済みのスペックは Flow で開始できません",
+        "running": "レールで実行中",
+        "onRail": "レール上にあります。先にレールから外してください",
+        "missionInFlow": "このミッションにはすでに Flow があります"
+      }
     }
   },
   "flowReturn": {

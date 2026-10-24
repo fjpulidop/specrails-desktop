@@ -17,6 +17,18 @@ Choosing Flow opens a confirmation: Specrails makes a separate copy of the proje
 
 If your Specrails Core cannot run Flow yet, Start is disabled and the card lists what is missing. Usually an update of Specrails Core fixes it.
 
+## Start a Flow from a spec you already have
+
+Any spec can be built in Flow, not only a new idea. Flow and Implement stay two equal ways to work on it:
+
+- on the board, right-click a spec and choose **Start in Flow** (next to dragging it onto a rail); in the spec detail, **Start in Flow** sits next to **Move to Rail**;
+- in a mission, when you ask to implement a spec without naming a rail, the agent shows the same two-path card for that spec: **Flow** works on it with you, **Spec + Implement** launches it on a rail;
+- a rail-launch card for one spec also offers **Start in Flow** next to its launch.
+
+The spec itself goes **In Flow**: no placeholder is created, and the agent's first turn receives the spec (its acceptance criteria, Contract Layer, out-of-scope list and open addenda). Started from the board, the Flow opens in the spec's own mission, or in a new mission named after the spec. **Start in Flow** is disabled, with the reason on hover, when the spec is already in Flow, done or cancelled, sits on a rail, or Flow is not available.
+
+**Discard** gives the spec back exactly as it was, with its previous status: your spec is never deleted. When the Flow is delivered, the spec is rewritten from what was built, and its original text is first kept as a comment, **Original spec before Flow**, so nothing is lost. A spec already linked to Jira updates that same issue and moves it to the status mapped for review; no second issue is created.
+
 ## While you are in Flow
 
 Flow mode is named where you look, in its own Flow color: the composer shows a **Flow** chip next to the autonomy chip and the hint *Tell the agent what to change in this Flow…*; the mission title reads **In Flow**, and so does its row in the mission list. The conversation marks where you entered and left Flow, and the agent's replies written in Flow carry a small **Flow** mark next to their time.

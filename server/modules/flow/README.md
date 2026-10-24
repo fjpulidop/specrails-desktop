@@ -14,7 +14,7 @@ ports-and-adapters slice.
 | Settlement plan (effect keys, order, backoff), conversation summary (message window, reply first lines), Back to Flow briefing and spec-rewrite text builders | [domain.ts](domain.ts) (pure) |
 | Use cases: start, pause, resume, discard, hand-off, Back to Flow / Relaunch (by delivery), return-briefing delivery, delivered, settlement (run, replay, observe delivery), reconcile, read models | [application.ts](application.ts) |
 | Outbound contracts (repository, tickets, worktree, agent session, background processes, rail launch, usage, notifier, clock) | [ports.ts](ports.ts) |
-| `flow_sessions` SQL (migration 74; `return_briefing` migration 78; `closed` state migration 81) and `flow_effects` (migration 75), project database | [adapters/sqlite.ts](adapters/sqlite.ts) |
+| `flow_sessions` SQL (migration 74; `return_briefing` migration 78; `closed` state migration 81; `spec_origin` migration 82) and `flow_effects` (migration 75), project database | [adapters/sqlite.ts](adapters/sqlite.ts) |
 | `/api/projects/:projectId/flow/*` routes and error mapping | [adapters/http.ts](adapters/http.ts) |
 | Port implementations over delivery, specs, missions/Core, accounting, WebSocket (the background-process stop is injected by the registry); the hand-off authority (with the conversation summary), the settlement publication (derived change, spec rewrite, Jira) and its retry scheduler; the missions `FlowTurnContext` | [adapters/bindings.ts](adapters/bindings.ts) |
 | Public imports | [index.ts](index.ts) |
@@ -74,6 +74,13 @@ removed or handed to a rail. Best effort, like closing the session.
   route answers `409 feature_unavailable` and missions behave as before.
 - The placeholder spec is `source: 'flow'`, `in_progress`, with
   `metadata.flow`; Jira never receives it while `active`/`paused`.
+- A Flow from an EXISTING spec (`startFlow({ ticketId })`, `specOrigin:
+  'existing'`, migration 82) creates no placeholder: `adoptTicket` labels the
+  spec (`metadata.flow.origin = 'existing'`, `previousStatus`), the spec seeds
+  the first turn, discard/compensation `restoreTicket` (never delete), and the
+  settlement keeps the original as a comment before the rewrite and updates
+  an already linked Jira issue instead of creating one
+  ([flow mode](../../../docs/internals/flow-mode.md#start-from-an-existing-spec)).
 - Cost is the sum of provider-billed Flow turns (`surface = 'flow'`), never
   estimates.
 - A Flow runs in ONE Git repository. `resolveFlowRepository` (domain) picks it

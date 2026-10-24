@@ -17,6 +17,18 @@ Wählst du Flow, öffnet sich eine Bestätigung: Specrails legt eine separate Ko
 
 Kann dein Specrails Core Flow noch nicht ausführen, ist Starten deaktiviert und die Karte nennt, was fehlt. Meist hilft ein Update von Specrails Core.
 
+## Einen Flow aus einer vorhandenen Spec starten
+
+Jede Spec lässt sich in Flow bauen, nicht nur eine neue Idee. Flow und Implement bleiben zwei gleichwertige Wege, daran zu arbeiten:
+
+- auf dem Board: Rechtsklick auf eine Spec und **In Flow starten** (neben dem Ziehen auf eine Rail); in der Spec-Detailansicht steht **In Flow starten** neben **Auf Rail verschieben**;
+- in einer Mission: Wenn du eine Spec umsetzen lassen willst, ohne eine Rail zu nennen, zeigt der Agent dieselbe Karte mit zwei Wegen für diese Spec: **Flow** arbeitet mit dir daran, **Spec + Implement** startet sie auf einer Rail;
+- eine Rail-Startkarte für eine einzelne Spec bietet ebenfalls **In Flow starten** neben ihrem Start an.
+
+Die Spec selbst ist dann **In Flow**: Es entsteht keine Platzhalter-Spec, und der erste Zug des Agenten erhält die Spec (Akzeptanzkriterien, Contract Layer, Nicht-Ziele und offene Addenda). Vom Board aus gestartet, öffnet sich der Flow in der Mission der Spec oder in einer neuen Mission mit dem Namen der Spec. **In Flow starten** ist deaktiviert, mit dem Grund im Tooltip, wenn die Spec schon in Flow ist, erledigt oder abgebrochen ist, auf einer Rail liegt oder Flow nicht verfügbar ist.
+
+**Verwerfen** gibt die Spec genau so zurück, wie sie war, mit ihrem vorherigen Status: Deine Spec wird nie gelöscht. Wird der Flow geliefert, wird die Spec aus dem Gebauten neu geschrieben; vorher bleibt ihr ursprünglicher Text als Kommentar **Original spec before Flow** erhalten, damit nichts verloren geht. Eine bereits mit Jira verknüpfte Spec aktualisiert genau dieses Issue und verschiebt es in den für Review zugeordneten Status; es entsteht kein zweites Issue.
+
 ## Während des Flows
 
 Der Flow-Modus wird dort benannt, wo du hinschaust, in seiner eigenen Flow-Farbe: Der Composer zeigt einen **Flow**-Chip neben dem Autonomie-Chip und den Hinweis *Sag dem Agenten, was er in diesem Flow ändern soll…*; der Missionstitel zeigt **Im Flow**, ebenso ihre Zeile in der Missionsliste. Das Gespräch markiert, wo du Flow betreten und verlassen hast, und die im Flow geschriebenen Antworten des Agenten tragen neben ihrer Uhrzeit eine kleine **Flow**-Marke.

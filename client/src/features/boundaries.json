@@ -148,13 +148,15 @@
   },
   "flow": {
     "publicEntries": [
-      "components/FlowMissionsBridge.tsx"
+      "components/FlowMissionsBridge.tsx",
+      "components/StartInFlow.tsx"
     ],
     "dependencies": [
       "background",
       "missions",
       "providers",
-      "rails"
+      "rails",
+      "specs"
     ]
   },
   "integrations": {
@@ -383,6 +385,7 @@
       "components/TicketDetailModal.tsx",
       "components/explore-spec/useSmoothStream.ts",
       "context/SmashTrackerContext.tsx",
+      "context/SpecExtensionsContext.tsx",
       "context/TicketDetailModalContext.tsx",
       "hooks/useContractRefineTracker.tsx",
       "hooks/useSpecGenTracker.tsx",

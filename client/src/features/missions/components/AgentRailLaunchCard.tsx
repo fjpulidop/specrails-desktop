@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
 import { repositoryApiBase, type ProjectRepository } from '../../projects/lib/project-repositories'
+import { useMissionExtensions } from '../context/MissionExtensionsContext'
 import { cn } from '../../../lib/utils'
 import { FEATURE_LOOPS_SECTION } from '../../../lib/feature-flags'
 import type { RailLaunchProposal } from '../../rails/lib/rail-launch-draft'
@@ -207,6 +208,7 @@ interface Props {
 }
 
 export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conversationId, projectId, intent, compact = false, handOff }: Props) {
+  const { RailLaunchAlternative } = useMissionExtensions()
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
   const detection = useProviderDetection()
@@ -1084,6 +1086,10 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           >
             {t('railCard.dismiss')}
           </button>
+          {/* One existing spec: the extension's other way to work on it (Flow), equal weight. */}
+          {RailLaunchAlternative && projectId && conversationId && validTicketIds.length === 1 && (
+            <RailLaunchAlternative projectId={projectId} conversationId={conversationId} ticketId={validTicketIds[0]!} disabled={!!busy} onChosen={() => void dismiss()} />
+          )}
           {/* Launching starts a delivery: outward, the strip only points at it. */}
           <RunPrimaryButton
             primary={{ id: 'launch', label: t('railCard.play'), kind: 'outward' }}

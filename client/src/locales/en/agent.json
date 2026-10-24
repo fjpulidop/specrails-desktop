@@ -919,7 +919,13 @@
       "flow_return_busy": "The run is busy with another action. Try again in a moment.",
       "flow_return_not_allowed": "Only a hand-off that stopped before delivery can go back to its Flow.",
       "flow_return_not_found": "That run is not a Flow hand-off.",
-      "flow_return_worktree_mismatch": "That run did not take over this Flow's changes."
+      "flow_return_worktree_mismatch": "That run did not take over this Flow's changes.",
+      "spec_in_flow": "This spec is already in Flow. Open its mission to continue.",
+      "spec_on_rail": "This spec is on a rail. Take it off the rail to start it in Flow.",
+      "spec_running": "This spec is running on a rail. Wait for the run to finish.",
+      "spec_closed": "This spec is done or cancelled. Reopen it to work on it in Flow.",
+      "spec_not_found": "This spec no longer exists.",
+      "invalid_ticket_id": "That spec could not be identified."
     },
     "entry": {
       "heading": "Start a Flow",
@@ -944,7 +950,11 @@
       },
       "cancel": "Cancel",
       "start": "Start Flow",
-      "starting": "Starting…"
+      "starting": "Starting…",
+      "existingSpec": {
+        "label": "Spec #{{id}}",
+        "note": "The Flow works on this spec and the agent starts from it. When it is delivered, the spec is rewritten from what was built; its current text is kept as a comment."
+      }
     },
     "offer": {
       "heading": "How do you want to build it?",
@@ -953,11 +963,13 @@
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "Build it together on a separate Flow branch; the spec comes at the end."
+          "hint": "Build it together on a separate Flow branch; the spec comes at the end.",
+          "hintExisting": "Build this spec together on a separate Flow branch; the spec is rewritten from what you build."
         },
         "implement": {
           "title": "Spec + Implement",
-          "hint": "Agree on a spec first, then delegate it to a rail."
+          "hint": "Agree on a spec first, then delegate it to a rail.",
+          "hintExisting": "Delegate this spec, as written, to a rail."
         }
       },
       "stub": {
@@ -977,7 +989,8 @@
         "viewRun": "View run"
       },
       "why": "Why the agent asked",
-      "waitForReply": "You can choose once the agent finishes this reply."
+      "waitForReply": "You can choose once the agent finishes this reply.",
+      "implementExistingReply": "Let's implement spec #{{id}} on a rail."
     },
     "bar": {
       "controls": "Flow actions",
@@ -1142,6 +1155,21 @@
       "keptSpec": "The spec stays on the board, without the In Flow label",
       "cancel": "Not now",
       "confirm": "Close Flow, keep branch"
+    },
+    "startFromSpec": {
+      "action": "Start in Flow",
+      "hint": "Build this spec with the agent on its own Flow branch, in a mission",
+      "starting": "Starting Flow…",
+      "failed": "Spec #{{id}} could not start in Flow",
+      "blocked": {
+        "noProject": "Open a project to use Flow",
+        "unavailable": "Flow is not available with the installed Specrails Core",
+        "inFlow": "Already in Flow",
+        "closed": "Done or cancelled specs can't start in Flow",
+        "running": "Running on a rail",
+        "onRail": "On a rail: take it off the rail first",
+        "missionInFlow": "This mission already has a Flow"
+      }
     }
   },
   "flowReturn": {

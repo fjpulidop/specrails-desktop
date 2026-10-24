@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1165 source/build files. Nearby tests are linked where names
+Includes 1167 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -340,6 +340,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [FlowRunCardActions.tsx](../../client/src/features/flow/components/FlowRunCardActions.tsx)
 - [FlowRunFailure.tsx](../../client/src/features/flow/components/FlowRunFailure.tsx)
 - [FlowStripControls.tsx](../../client/src/features/flow/components/FlowStripControls.tsx)
+- [StartInFlow.tsx](../../client/src/features/flow/components/StartInFlow.tsx)
 
 ## client/src/features/flow/context
 
@@ -763,6 +764,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/specs/context
 
 - [SmashTrackerContext.tsx](../../client/src/features/specs/context/SmashTrackerContext.tsx) · [test](../../client/src/features/specs/context/__tests__/SmashTrackerContext.test.tsx)
+- [SpecExtensionsContext.tsx](../../client/src/features/specs/context/SpecExtensionsContext.tsx)
 - [TicketDetailModalContext.tsx](../../client/src/features/specs/context/TicketDetailModalContext.tsx) · [test](../../client/src/features/specs/context/__tests__/TicketDetailModalContext.test.tsx)
 
 ## client/src/features/specs/hooks

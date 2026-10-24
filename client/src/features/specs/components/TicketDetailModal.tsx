@@ -34,6 +34,7 @@ import { SmashActions } from './specs-smash/SmashActions'
 import { EpicBreadcrumb } from './specs-smash/EpicChildrenSection'
 import { EpicFamilySidebar } from './specs-smash/EpicFamilySidebar'
 import { MoveToRailPopover } from '../../rails/components/MoveToRailPopover'
+import { useSpecExtensions } from '../context/SpecExtensionsContext'
 import { isSmashCapable } from '../../providers/lib/provider-capabilities'
 import type { RailState } from '../../rails/components/RailsBoard'
 import type { Attachment, LocalTicket, TicketPriority, TicketStatus } from '../../../types'
@@ -126,6 +127,8 @@ export function TicketDetailModal({
 }: TicketDetailModalProps) {
   const { t } = useTranslation('tickets')
   const { t: tj } = useTranslation('jira')
+  // Another way to work on the spec next to Move to Rail (Flow), from the composition root.
+  const { StartAlternative } = useSpecExtensions()
   const { activeProjectId, projects } = useDesktop()
   const { enterSplit, state: splitState } = useTicketDetailModal()
   const inSplit = splitState.originSide !== null
@@ -508,6 +511,16 @@ export function TicketDetailModal({
               rails={rails}
               onMoveToRail={onMoveToRail}
               onRemoveFromRail={onRemoveFromRail}
+            />
+          )}
+
+          {/* Flow and Implement (Move to Rail) are two equal ways to work on a spec. */}
+          {rails && onMoveToRail && StartAlternative && (
+            <StartAlternative
+              variant="button"
+              className="shrink-0 mr-1"
+              spec={ticket}
+              rail={(() => { const rail = rails.find((r) => r.ticketIds.includes(ticket.id)); return rail ? { running: rail.status === 'running' } : null })()}
             />
           )}
 

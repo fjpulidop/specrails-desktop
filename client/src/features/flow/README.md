@@ -11,6 +11,7 @@ features. Keep imports focused on a subpath so importing a model does not eagerl
 load every UI component. Changes to this surface require updating the boundary manifest.
 
 - [components/FlowMissionsBridge.tsx](components/FlowMissionsBridge.tsx)
+- [components/StartInFlow.tsx](components/StartInFlow.tsx)
 
 ## Feature dependencies
 
@@ -18,6 +19,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [missions](../missions/README.md)
 - [providers](../providers/README.md)
 - [rails](../rails/README.md)
+- [specs](../specs/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
@@ -49,6 +51,24 @@ is explained in the person's words — a localized headline per failing step
 runtime's error as the cause, what happens next, the actions or "Returned to
 Flow", and the codes only under **Technical details**. Flow API refusals read
 by code (`flowErrorMessage`); the server detail is never the headline.
+
+## Flow from an existing spec
+
+[`StartInFlow`](components/StartInFlow.tsx) is the door for a spec that
+already exists, always next to the Implement door, never instead of it.
+Specs never import Flow: App.tsx provides `FLOW_SPEC_EXTENSIONS` through the
+specs seam ([SpecExtensionsContext](../specs/context/SpecExtensionsContext.tsx)
+`StartAlternative`): `StartInFlowMenuItem` in the board's spec context menu
+(`extraItems` of `TicketContextMenu`) and `StartInFlowButton` in the spec
+detail header (next to **Move to Rail**). `FlowRailLaunchAlternative` fills
+missions' `RailLaunchAlternative` slot on a rail-launch card of one spec. `startInFlowBlock` mirrors
+the server's checks (in Flow, done/cancelled, on a rail or running, Flow
+unavailable) and the disabled action says why. `useStartInFlow` starts the
+Flow in the spec's own mission, else in a new mission pinned to the project
+and titled after the spec, then opens it. A `flow-offer` block with
+`ticketId` shows the spec ("Spec #N · title") and spec-specific hints;
+`FlowEntryCard` with `ticketId` names the spec and explains that it is
+rewritten from what was built (its text kept as a comment).
 
 ## Flow in the run strip and the hand-off
 

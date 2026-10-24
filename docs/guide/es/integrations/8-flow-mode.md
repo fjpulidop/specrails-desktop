@@ -17,6 +17,18 @@ Al elegir Flow se abre una confirmación: Specrails crea una copia aparte del pr
 
 Si tu Specrails Core todavía no puede ejecutar Flow, el botón está desactivado y la tarjeta lista lo que falta. Normalmente se arregla actualizando Specrails Core.
 
+## Empezar un Flow desde una spec que ya tienes
+
+Cualquier spec se puede construir en Flow, no solo una idea nueva. Flow e Implement siguen siendo dos formas iguales de trabajarla:
+
+- en el tablero, haz clic derecho en una spec y elige **Empezar en Flow** (junto a arrastrarla a un rail); en el detalle de la spec, **Empezar en Flow** está junto a **Mover a rail**;
+- en una misión, cuando pides implementar una spec sin nombrar un rail, el agente muestra la misma tarjeta de dos caminos para esa spec: **Flow** la trabaja contigo y **Spec + Implement** la lanza en un rail;
+- una tarjeta de lanzamiento en rail de una sola spec también ofrece **Empezar en Flow** junto a su lanzamiento.
+
+La propia spec pasa a **En Flow**: no se crea ninguna spec provisional y el primer turno del agente recibe la spec (sus criterios de aceptación, la Contract Layer, lo que queda fuera de alcance y los addenda abiertos). Si la empiezas desde el tablero, el Flow se abre en la misión de la propia spec o en una misión nueva con el nombre de la spec. **Empezar en Flow** aparece desactivado, con el motivo al pasar el ratón, cuando la spec ya está en Flow, está hecha o cancelada, está en un rail o Flow no está disponible.
+
+**Descartar** devuelve la spec tal como estaba, con su estado anterior: tu spec nunca se borra. Cuando el Flow se entrega, la spec se reescribe a partir de lo construido y antes se guarda su texto original como comentario, **Original spec before Flow**, para que no se pierda nada. Una spec ya enlazada con Jira actualiza esa misma incidencia y la mueve al estado asignado a revisión; no se crea una segunda.
+
 ## Mientras estás en Flow
 
 El modo Flow se nombra allí donde miras, con su propio color de Flow: el compositor muestra un chip **Flow** junto al de autonomía y la pista *Dile al agente qué cambiar en este Flow…*; el título de la misión indica **En Flow**, igual que su fila en la lista de misiones. La conversación marca dónde entraste y saliste de Flow, y las respuestas del agente escritas en Flow llevan una pequeña marca **Flow** junto a su hora.

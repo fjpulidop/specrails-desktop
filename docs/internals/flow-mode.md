@@ -79,6 +79,56 @@ A failure compensates in reverse order (release the worktree, delete the
 spec) and marks the Flow `discarded`; when compensation itself fails the row
 stays `needs-review`.
 
+### Start from an existing spec
+
+`POST /flow { conversationId, ticketId }` starts a Flow on a spec the person
+already has (Flow and Implement are offered with equal weight for any spec):
+
+- **Doors.** The board's spec context menu and the spec detail header
+  (**Start in Flow**, next to drag-to-rail / **Move to Rail**,
+  [`StartInFlow`](../../client/src/features/flow/components/StartInFlow.tsx),
+  provided by App.tsx through the specs seam `SpecExtensionsContext`: specs
+  never import Flow),
+  the mission's `flow-offer` card when the block carries `ticketId` (the agent
+  emits it when the person asks to implement an existing spec without naming a
+  rail; the card shows "Spec #N · title" and spec-specific hints; Implement
+  replies "Let's implement spec #N on a rail." so the agent continues with the
+  rail-launch card) and the rail-launch card of ONE spec (missions'
+  `RailLaunchAlternative` slot; starting the Flow dismisses the card). From
+  the board the Flow opens in the spec's `origin_conversation_id` mission when
+  it can take it (else `flow_already_open` / `conversation_not_pinned` /
+  `conversation_not_found` ⇒ a new mission pinned to the project, titled after
+  the spec) and the mission panel opens on it.
+- **Eligibility** (before any write; `FlowTickets.inspectExisting`, re-checked
+  atomically by `adoptExisting`): the spec exists, is not done/cancelled, is
+  not held by another Flow and is on no rail (`spec_on_rail`, or
+  `spec_running` when that rail has a live delivery). The client mirrors it
+  (`startInFlowBlock`) and disables the action with the reason as tooltip;
+  it also needs Flow availability.
+- **Saga.** `start` carries `ticketId`: `specOrigin = 'existing'`
+  (`flow_sessions.spec_origin`, migration 82) and the first effect is
+  `adoptTicket` instead of `createPlaceholderTicket`. The spec keeps its
+  `source` and gets `metadata.flow = { …, origin: 'existing', previousStatus }`
+  and status `in_progress` (the same "In Flow" label). A spec that targets
+  exactly one repository runs there.
+- **First turn.** `ticket-created` carries `buildSpecSeedBriefing` (title,
+  body with acceptance criteria and Contract Layer, non-goals, open addenda;
+  ≤ 24 KB) in the pending briefing, delivered once on the user turn like a
+  Back to Flow briefing.
+- **Discard / failed start / restart compensation** emit `restoreTicket`
+  instead of `deletePlaceholderTicket`: the label goes and `previousStatus`
+  comes back (unless the spec moved on). An existing spec is never deleted;
+  `deletePlaceholder` also refuses any spec with `origin: 'existing'`.
+- **Settlement.** `rewrite-spec` first keeps the spec's current content as
+  ONE comment "Original spec before Flow" (`preserveOriginal`, idempotent via
+  `metadata.flow.originalCommentId`), then rewrites the spec ENTIRELY from what
+  was built (current format + awaited Contract Layer), quoting the original as
+  context only. `jira-create` of a spec already linked to an issue enqueues an
+  idempotent outbox `update` of THAT issue (`flow:<flowId>:update`,
+  `JiraSyncManager.enqueueSpecUpdate`: summary, description, labels,
+  priority; note `updated`), never a create; `jira-review` then moves it to the
+  status mapped for `on_review`. An unlinked spec keeps create-at-settlement.
+
 ### Workspaces and multi-repository projects
 
 A project can be a workspace (a plain folder primary holding several Git
@@ -470,8 +520,8 @@ ones after it, and a failure never reverts the delivery.
 
 | Effect | Does | Gives up |
 | --- | --- | --- |
-| `rewrite-spec` | Reads the derived change from the delivered commit (`proposal.md`, `design.md` of the archived change, diffstat), sets `metadata.flow.state = 'delivered'`, `metadata.openspecChangeName` and status `on_review`, then rewrites the spec in place with `generateSpecFromText({ ticketId })` (current format, surface `flow`) and an awaited Contract Layer | 3 attempts → `failed`: the spec keeps its Flow draft and the packet says so |
-| `jira-create` | Projects with an active Jira connection only: `enqueuePromote(ticketId, 'flow:<flowId>:create')` (durable outbox create with marker recovery) | 8 attempts; `skipped` when not connected |
+| `rewrite-spec` | (Flow from an existing spec: first keeps the original as an "Original spec before Flow" comment.) Reads the derived change from the delivered commit (`proposal.md`, `design.md` of the archived change, diffstat), sets `metadata.flow.state = 'delivered'`, `metadata.openspecChangeName` and status `on_review`, then rewrites the spec in place with `generateSpecFromText({ ticketId })` (current format, surface `flow`) and an awaited Contract Layer | 3 attempts → `failed`: the spec keeps its Flow draft and the packet says so |
+| `jira-create` | Projects with an active Jira connection only: `enqueuePromote(ticketId, 'flow:<flowId>:create')` (durable outbox create with marker recovery); a Flow from an existing spec already linked to an issue enqueues `enqueueSpecUpdate(ticketId, 'flow:<flowId>:update')` instead (note `updated`) | 8 attempts; `skipped` when not connected |
 | `jira-review` | Once the issue link exists: `onRailReview([ticketId], deliveryId)` → the status mapped for `on_review` | 60 polls while the outbox creates the issue; `skipped` when no issue was created |
 
 Why a dedicated table instead of the Jira outbox or `rail_pr_ticket_effects`:

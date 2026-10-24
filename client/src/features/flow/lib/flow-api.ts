@@ -27,6 +27,8 @@ export interface Flow {
   returnBriefing?: string | null
   /** The non-primary repository the Flow runs in (absent ⇒ the primary). */
   repositoryId?: string | null
+  /** `existing`: started from the person's own spec (absent ⇒ its placeholder spec). */
+  specOrigin?: 'placeholder' | 'existing'
   createdAt?: string
   updatedAt?: string
 }
@@ -152,7 +154,8 @@ export const flowApi = {
   async byConversation(projectId: string, conversationId: string): Promise<Flow | null> {
     return (await call<{ flow: Flow | null }>(`${flowBase(projectId)}/by-conversation/${encodeURIComponent(conversationId)}`)).flow
   },
-  async start(projectId: string, input: { conversationId: string; idea: string; title?: string; repositoryId?: string }): Promise<Flow> {
+  /** `ticketId`: start from that existing spec (the idea is then optional). */
+  async start(projectId: string, input: { conversationId: string; idea: string; title?: string; repositoryId?: string; ticketId?: number }): Promise<Flow> {
     return (await call<{ flow: Flow }>(flowBase(projectId), post(input))).flow
   },
   /** The project's repositories (the entry card's target picker). */

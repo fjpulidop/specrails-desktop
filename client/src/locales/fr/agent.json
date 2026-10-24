@@ -919,7 +919,13 @@
       "flow_return_busy": "L’exécution est occupée par une autre action. Réessayez dans un instant.",
       "flow_return_not_allowed": "Seule une remise arrêtée avant la livraison peut revenir à son Flow.",
       "flow_return_not_found": "Cette exécution n’est pas une remise de Flow.",
-      "flow_return_worktree_mismatch": "Cette exécution n’a pas repris les modifications de ce Flow."
+      "flow_return_worktree_mismatch": "Cette exécution n’a pas repris les modifications de ce Flow.",
+      "spec_in_flow": "Cette spec est déjà en Flow. Ouvrez sa mission pour continuer.",
+      "spec_on_rail": "Cette spec est sur un rail. Retirez-la du rail pour la démarrer en Flow.",
+      "spec_running": "Cette spec est en cours d’exécution sur un rail. Attendez la fin de l’exécution.",
+      "spec_closed": "Cette spec est terminée ou annulée. Rouvrez-la pour y travailler en Flow.",
+      "spec_not_found": "Cette spec n’existe plus.",
+      "invalid_ticket_id": "Impossible d’identifier cette spec."
     },
     "entry": {
       "heading": "Démarrer un Flow",
@@ -944,7 +950,11 @@
       },
       "cancel": "Annuler",
       "start": "Démarrer le Flow",
-      "starting": "Démarrage…"
+      "starting": "Démarrage…",
+      "existingSpec": {
+        "label": "Spec #{{id}}",
+        "note": "Le Flow travaille sur cette spec et l’agent part d’elle. À la livraison, la spec est réécrite à partir de ce qui a été construit ; son texte actuel est conservé en commentaire."
+      }
     },
     "offer": {
       "heading": "Comment voulez-vous le construire ?",
@@ -953,11 +963,13 @@
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "Construisez-le ensemble sur une branche de Flow séparée ; la spec vient à la fin."
+          "hint": "Construisez-le ensemble sur une branche de Flow séparée ; la spec vient à la fin.",
+          "hintExisting": "Construisez cette spec ensemble sur une branche Flow à part ; la spec est réécrite à partir de ce qui est construit."
         },
         "implement": {
           "title": "Spec + Implement",
-          "hint": "Validez d’abord une spec, puis confiez-la à un rail."
+          "hint": "Validez d’abord une spec, puis confiez-la à un rail.",
+          "hintExisting": "Confiez cette spec, telle qu’elle est écrite, à un rail."
         }
       },
       "stub": {
@@ -977,7 +989,8 @@
         "viewRun": "Voir l’exécution"
       },
       "why": "Pourquoi l’agent pose la question",
-      "waitForReply": "Vous pourrez choisir quand l’agent aura terminé cette réponse."
+      "waitForReply": "Vous pourrez choisir quand l’agent aura terminé cette réponse.",
+      "implementExistingReply": "Implémentons la spec #{{id}} sur un rail."
     },
     "bar": {
       "controls": "Actions du Flow",
@@ -1142,6 +1155,21 @@
       "keptSpec": "La spec reste sur le tableau, sans le libellé En Flow",
       "cancel": "Pas maintenant",
       "confirm": "Fermer le Flow, garder la branche"
+    },
+    "startFromSpec": {
+      "action": "Démarrer en Flow",
+      "hint": "Construisez cette spec avec l’agent sur sa propre branche Flow, dans une mission",
+      "starting": "Démarrage du Flow…",
+      "failed": "La spec #{{id}} n’a pas pu démarrer en Flow",
+      "blocked": {
+        "noProject": "Ouvrez un projet pour utiliser Flow",
+        "unavailable": "Flow n’est pas disponible avec le Specrails Core installé",
+        "inFlow": "Déjà en Flow",
+        "closed": "Une spec terminée ou annulée ne peut pas démarrer en Flow",
+        "running": "En cours sur un rail",
+        "onRail": "Sur un rail : retirez-la d’abord",
+        "missionInFlow": "Cette mission a déjà un Flow"
+      }
     }
   },
   "flowReturn": {

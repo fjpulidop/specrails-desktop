@@ -55,8 +55,9 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
     if (mode === 'flow') { setView('entry'); return }
     setBusy(true)
     try {
-      await record({ status: 'accepted', chosenMode: 'implement' })
-      onSend?.(t('flow.offer.implementReply'))
+      await record({ status: 'accepted', chosenMode: 'implement', ...(offer.ticketId ? { config: { ticketId: offer.ticketId } } : {}) })
+      // An existing spec goes straight to its launch; a new idea gets its spec first.
+      onSend?.(offer.ticketId ? t('flow.offer.implementExistingReply', { id: offer.ticketId }) : t('flow.offer.implementReply'))
     } finally {
       setBusy(false)
     }
@@ -67,7 +68,7 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
     try { await record({ status: 'dismissed', chosenMode: null }) } finally { setBusy(false) }
   }
   const onStarted = (started: Flow) => {
-    void record({ status: 'accepted', chosenMode: 'flow', config: { flowId: started.id } })
+    void record({ status: 'accepted', chosenMode: 'flow', config: { flowId: started.id, ...(offer.ticketId ? { ticketId: offer.ticketId } : {}) } })
   }
 
   if (view === 'entry') {
@@ -76,6 +77,7 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
         idea={offer.idea}
         title={offer.title}
         repositoryId={offer.repositoryId}
+        ticketId={offer.ticketId}
         projectId={projectId}
         conversationId={conversationId}
         provider={active?.id === conversationId ? active?.provider : null}
@@ -107,7 +109,14 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
         <span id={labelId} className="text-[13px] font-semibold text-foreground">{t('flow.offer.heading')}</span>
       </div>
       <div className="space-y-3 px-3.5 py-3">
-        <p className="text-sm text-foreground/90">{offer.idea}</p>
+        {offer.ticketId ? (
+          <p data-testid="flow-offer-spec" className="flex min-w-0 items-baseline gap-1.5 text-sm text-foreground/90">
+            <span className="shrink-0 font-mono text-xs text-foreground/70">{t('flow.entry.existingSpec.label', { id: offer.ticketId })}</span>
+            <span className="min-w-0 truncate" title={offer.title ?? offer.idea}>{offer.title ?? offer.idea}</span>
+          </p>
+        ) : (
+          <p className="text-sm text-foreground/90">{offer.idea}</p>
+        )}
         {offer.reason && (
           <div data-testid="flow-offer-reason" className="text-xs leading-5">
             <p className="font-medium text-foreground/75">{t('flow.offer.why')}</p>
@@ -137,7 +146,7 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
                   <Icon className={cn('h-3.5 w-3.5', mode === 'flow' ? 'text-accent-flow' : 'text-accent-primary')} aria-hidden />
                   {t(`flow.offer.mode.${mode}.title`)}
                 </span>
-                <span className="text-xs leading-4 text-foreground/70">{t(`flow.offer.mode.${mode}.hint`)}</span>
+                <span className="text-xs leading-4 text-foreground/70">{t(`flow.offer.mode.${mode}.${offer.ticketId ? 'hintExisting' : 'hint'}`)}</span>
               </button>
             )
           })}

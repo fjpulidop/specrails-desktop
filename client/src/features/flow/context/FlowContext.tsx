@@ -58,7 +58,8 @@ export interface FlowContextValue {
   /** Keep a project's in-Flow conversations current (fetch + flow.state events). */
   watchOpen: (projectId: string) => () => void
   loadAvailability: (projectId: string, force?: boolean) => void
-  start: (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null) => Promise<Flow>
+  /** `ticketId`: start from that existing spec instead of a free idea. */
+  start: (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null, ticketId?: number | null) => Promise<Flow>
   pause: (projectId: string, flow: Flow) => Promise<Flow>
   resume: (projectId: string, flow: Flow) => Promise<Flow>
   discard: (projectId: string, flow: Flow) => Promise<Flow>
@@ -224,8 +225,8 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     return flow
   }, [upsert])
 
-  const start = useCallback(async (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null) =>
-    apply(projectId, await flowApi.start(projectId, { conversationId, idea, ...(title ? { title } : {}), ...(repositoryId ? { repositoryId } : {}) })), [apply])
+  const start = useCallback(async (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null, ticketId?: number | null) =>
+    apply(projectId, await flowApi.start(projectId, { conversationId, idea, ...(title ? { title } : {}), ...(repositoryId ? { repositoryId } : {}), ...(ticketId ? { ticketId } : {}) })), [apply])
   const pause = useCallback(async (projectId: string, flow: Flow) => apply(projectId, await flowApi.pause(projectId, flow.id)), [apply])
   const resume = useCallback(async (projectId: string, flow: Flow) => {
     setWrappingUp(flow.id, false)

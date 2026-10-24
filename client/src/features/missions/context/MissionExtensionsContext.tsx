@@ -28,6 +28,9 @@
 //     stopped with requested changes). Returns null when it has nothing.
 //   - useTurnMark: the mark (icon, color, words) on agent turns written in
 //     the extension's mode; missions never hard-codes the mode's icon.
+//   - RailLaunchAlternative: the other way to work on the ONE existing spec a
+//     rail-launch card proposes (Flow: "Start in Flow"), shown with equal
+//     weight next to the card's own launch. Never shown for several specs.
 //   - RunFailureOutcome: the whole explanation of a run that failed outright
 //     when the extension owns its outcome (Flow → Spec: what failed in plain
 //     words, what happens next, its actions and the technical details). It
@@ -204,7 +207,20 @@ export interface MissionRunDescription {
   failure: string | null
 }
 
+export interface MissionRailLaunchAlternativeProps {
+  projectId: string
+  conversationId: string
+  /** The one existing spec the card would launch. */
+  ticketId: number
+  /** Disabled while the card itself is busy or decided. */
+  disabled: boolean
+  /** The person took this path: the card records itself as dismissed. */
+  onChosen: () => void
+}
+
 export interface MissionExtensions {
+  /** Another way to work on the one spec of a rail-launch card (Flow). */
+  RailLaunchAlternative?: ComponentType<MissionRailLaunchAlternativeProps>
   fenceCards?: Readonly<Record<string, ComponentType<MissionFenceCardProps>>>
   useConversationMode?: (conversationId: string | null, projectId: string | null) => MissionConversationMode | null
   ConversationDock?: ComponentType<MissionConversationDockProps>

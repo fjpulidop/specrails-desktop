@@ -1,8 +1,9 @@
 // ─── flow-offer protocol + display helpers (pure) ─────────────────────────────
 // The operator emits ONE fenced ```flow-offer block (see
 // server/modules/missions/runtime/agent-operator-prompt.ts FLOW_OFFER_SECTION):
-// { idea, reason, title?, repositoryId? }. Flow and Implement never compete:
-// older offers carried `recommended: 'flow' | 'implement'`, which still parses
+// { idea, reason, title?, repositoryId?, ticketId? }. `ticketId`: the offer is
+// about an EXISTING spec (idea = its title); Flow then works on that spec.
+// Flow and Implement never compete: older offers carried `recommended: 'flow' | 'implement'`, which still parses
 // but is ignored. `repositoryId`: the Git repository the agent triaged the idea
 // into (workspace and multi-repository projects); the entry card preselects it.
 
@@ -17,6 +18,8 @@ export interface FlowOffer {
   title: string | null
   /** The agent's triage of the target repository (null ⇒ none named). */
   repositoryId: string | null
+  /** An EXISTING spec the offer is about (Flow works on it; Implement launches it). */
+  ticketId: number | null
 }
 
 export const FLOW_OFFER_TAG = 'flow-offer'
@@ -35,7 +38,8 @@ export function parseFlowOffer(payload: unknown): FlowOffer | null {
   const reason = typeof o.reason === 'string' && o.reason.trim() ? o.reason.trim() : null
   const title = typeof o.title === 'string' && o.title.trim() ? o.title.trim().slice(0, 200) : null
   const repositoryId = typeof o.repositoryId === 'string' && o.repositoryId.trim() && o.repositoryId.length <= 200 ? o.repositoryId.trim() : null
-  return { idea, reason, title, repositoryId }
+  const ticketId = typeof o.ticketId === 'number' && Number.isSafeInteger(o.ticketId) && o.ticketId > 0 ? o.ticketId : null
+  return { idea, reason, title, repositoryId, ticketId }
 }
 
 /** The two paths, always in this order and with equal weight. */

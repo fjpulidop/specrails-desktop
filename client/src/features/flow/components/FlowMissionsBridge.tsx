@@ -24,6 +24,7 @@ import { describeFlowRun, useFlowLiveRuns } from './FlowLiveRuns'
 import { FlowOfferCard } from './FlowOfferCard'
 import { FlowRunCardActions } from './FlowRunCardActions'
 import { FlowRunFailure } from './FlowRunFailure'
+import { FlowRailLaunchAlternative } from './StartInFlow'
 
 /**
  * The missions mode of a conversation while it is in Flow (open, paused or
@@ -64,6 +65,7 @@ export const FLOW_MISSION_EXTENSIONS: MissionExtensions = Object.freeze({
   describeRun: describeFlowRun,
   RunCardActions: FlowRunCardActions,
   RunFailureOutcome: FlowRunFailure,
+  RailLaunchAlternative: FlowRailLaunchAlternative,
 })
 
 export function FlowMissionsBridge({ children }: { children: ReactNode }) {

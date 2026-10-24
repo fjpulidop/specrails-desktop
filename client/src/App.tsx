@@ -72,6 +72,8 @@ import { RailMetricsProvider } from './features/rails/context/RailMetricsContext
 import { RailPrDecisionProvider } from './features/delivery/context/RailPrDecisionContext'
 import { MinimizedChatsProvider, } from './features/missions/context/MinimizedChatsContext'
 import { FlowMissionsBridge } from './features/flow/components/FlowMissionsBridge'
+import { FLOW_SPEC_EXTENSIONS } from './features/flow/components/StartInFlow'
+import { SpecExtensionsProvider } from './features/specs/context/SpecExtensionsContext'
 import { AgentChatProvider, useAgentChat } from './features/missions/context/AgentChatContext'
 import { BackgroundProcessesProvider } from './features/background/context/BackgroundProcessesContext'
 import { TicketDetailModalProvider } from './features/specs/context/TicketDetailModalContext'
@@ -742,6 +744,8 @@ export default function App() {
                       <MissionWindowsProvider secondary={secondary}>
                       {/* Flow mode plugs into missions through their extension seam. */}
                       <FlowMissionsBridge>
+                      {/* Flow also plugs into specs ("Start in Flow") through their seam. */}
+                      <SpecExtensionsProvider value={FLOW_SPEC_EXTENSIONS}>
                       <AgentChatProvider>
                         <BackgroundProcessesProvider>
                         <TicketDetailModalProvider>
@@ -755,6 +759,7 @@ export default function App() {
                         </TicketDetailModalProvider>
                         </BackgroundProcessesProvider>
                       </AgentChatProvider>
+                      </SpecExtensionsProvider>
                       </FlowMissionsBridge>
                       </MissionWindowsProvider>
                       </AgentWorkspaceProvider>

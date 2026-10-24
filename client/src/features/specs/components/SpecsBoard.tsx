@@ -10,6 +10,7 @@ import { TicketPostitCard } from './TicketPostitCard'
 import { TicketContextMenu } from './TicketContextMenu'
 import type { TicketStatus, TicketPriority } from '../../../types'
 import type { RailState } from '../../rails/components/RailsBoard'
+import { useSpecExtensions } from '../context/SpecExtensionsContext'
 import { SpecLabelFilterDropdown } from './SpecLabelFilterDropdown'
 import { SpecEpicFilterDropdown } from './SpecEpicFilterDropdown'
 import { SpecSprintFilterDropdown } from './SpecSprintFilterDropdown'
@@ -711,6 +712,7 @@ export function SpecsBoard({
                       onTicketDelete={onTicketDelete}
                       onTicketStatusChange={onTicketStatusChange}
                       onTicketPriorityChange={onTicketPriorityChange}
+                      rails={rails}
                     >
                       <TicketPostitCard
                         ticket={ticket}
@@ -744,6 +746,7 @@ export function SpecsBoard({
                       onTicketDelete={onTicketDelete}
                       onTicketStatusChange={onTicketStatusChange}
                       onTicketPriorityChange={onTicketPriorityChange}
+                      rails={rails}
                     >
                       <SpecCard
                         ticket={ticket}
@@ -804,6 +807,7 @@ export function SpecsBoard({
                       onTicketDelete={onTicketDelete}
                       onTicketStatusChange={onTicketStatusChange}
                       onTicketPriorityChange={onTicketPriorityChange}
+                      rails={rails}
                     >
                       <TicketPostitCard
                         ticket={ticket}
@@ -831,6 +835,7 @@ export function SpecsBoard({
                     onTicketDelete={onTicketDelete}
                     onTicketStatusChange={onTicketStatusChange}
                     onTicketPriorityChange={onTicketPriorityChange}
+                    rails={rails}
                   >
                     <SpecCard
                       ticket={ticket}
@@ -923,6 +928,8 @@ interface MaybeContextMenuProps {
   onTicketDelete?: (ticketId: number) => void
   onTicketStatusChange?: (ticketId: number, status: TicketStatus) => void
   onTicketPriorityChange?: (ticketId: number, priority: TicketPriority) => void
+  /** The project's rails: a spec on one cannot start in Flow (the item says why). */
+  rails?: RailState[]
   children: React.ReactNode
 }
 
@@ -931,8 +938,10 @@ function MaybeContextMenu({
   onTicketDelete,
   onTicketStatusChange,
   onTicketPriorityChange,
+  rails = [],
   children,
 }: MaybeContextMenuProps) {
+  const { StartAlternative } = useSpecExtensions()
   if (!onTicketDelete || !onTicketStatusChange || !onTicketPriorityChange) {
     return <>{children}</>
   }
@@ -942,6 +951,12 @@ function MaybeContextMenu({
       onDelete={onTicketDelete}
       onStatusChange={onTicketStatusChange}
       onPriorityChange={onTicketPriorityChange}
+      // Another way to work on the spec (Flow: "Start in Flow"), equal to the
+      // rails (drag / Move to Rail); provided by the composition root.
+      extraItems={StartAlternative ? (close) => {
+        const rail = rails.find((candidate) => candidate.ticketIds.includes(ticket.id))
+        return <StartAlternative variant="menu" spec={ticket} rail={rail ? { running: rail.status === 'running' } : null} onDone={close} />
+      } : undefined}
     >
       {children}
     </TicketContextMenu>

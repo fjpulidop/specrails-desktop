@@ -18,6 +18,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/TicketDetailModal.tsx](components/TicketDetailModal.tsx)
 - [components/explore-spec/useSmoothStream.ts](components/explore-spec/useSmoothStream.ts)
 - [context/SmashTrackerContext.tsx](context/SmashTrackerContext.tsx)
+- [context/SpecExtensionsContext.tsx](context/SpecExtensionsContext.tsx)
 - [context/TicketDetailModalContext.tsx](context/TicketDetailModalContext.tsx)
 - [hooks/useContractRefineTracker.tsx](hooks/useContractRefineTracker.tsx)
 - [hooks/useSpecGenTracker.tsx](hooks/useSpecGenTracker.tsx)
@@ -46,6 +47,15 @@ Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
 <!-- audit-client-features:end -->
+
+## Extension seam
+
+[`SpecExtensionsContext`](context/SpecExtensionsContext.tsx) lets a feature
+built on top of specs add another way to start work on an existing spec,
+next to the Implement door, without specs importing it: `StartAlternative`
+renders in the board's spec context menu and the spec detail header. The
+composition root (App.tsx) provides Flow's "Start in Flow". Without a
+provider the slot is inert.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/specs`.
 For moves, update imports and mocks together, then run client coverage and typecheck.

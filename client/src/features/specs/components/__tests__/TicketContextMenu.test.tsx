@@ -181,4 +181,18 @@ describe('TicketContextMenu', () => {
       expect(onStatusChange).toHaveBeenCalledWith(1, 'done')
     })
   })
+
+  it('shows extra actions (Start in Flow) first, and they can close the menu', () => {
+    const extra = vi.fn((close: () => void) => <button role="menuitem" type="button" onClick={close}>Start in Flow</button>)
+    render(
+      <TicketContextMenu {...makeDefaultProps()} extraItems={extra}>
+        <span>Target</span>
+      </TicketContextMenu>,
+    )
+    fireEvent.contextMenu(screen.getByText('Target'))
+    const items = screen.getAllByRole('menuitem')
+    expect(items[0]).toHaveTextContent('Start in Flow')
+    fireEvent.click(items[0]!)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
 })

@@ -803,3 +803,32 @@ describe('Flow state announcements', () => {
     expect(i18n.t('flow.announce.closed', { ns: 'agent' })).toBe('Flow closed. Its branch was kept.')
   })
 })
+
+describe('Flow from an existing spec (offer with ticketId)', () => {
+  it('names the spec, explains both paths for it, and starts the Flow on THAT spec', async () => {
+    current = null
+    render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'Calmer onboarding', reason: 'The spec exists.', ticketId: 12 }} index={0} messageId="m1" conversationId="c1" projectId="p1" intents={null} isLatest isStreaming={false} /></Providers>)
+    expect(screen.getByTestId('flow-offer-spec')).toHaveTextContent('Spec #12')
+    expect(screen.getByTestId('flow-offer-spec')).toHaveTextContent('Calmer onboarding')
+    expect(screen.getByTestId('flow-offer-choose-flow')).toHaveTextContent('the spec is rewritten from what you build')
+    expect(screen.getByTestId('flow-offer-choose-implement')).toHaveTextContent('Delegate this spec, as written, to a rail.')
+    fireEvent.click(screen.getByTestId('flow-offer-choose-flow'))
+    // The entry card shows the spec instead of an idea.
+    expect(await screen.findByTestId('flow-entry-spec')).toHaveTextContent('Spec #12')
+    expect(screen.queryByTestId('flow-entry-idea')).toBeNull()
+    expect(screen.getByTestId('flow-entry-spec')).toHaveTextContent('its current text is kept as a comment')
+    await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/api/projects/p1/flow') && c.method === 'POST')).toBe(true))
+    expect(calls.find((c) => c.url.endsWith('/api/projects/p1/flow') && c.method === 'POST')!.body).toMatchObject({ conversationId: 'c1', ticketId: 12 })
+    await waitFor(() => expect(calls.some((c) => c.url.includes('/intent') && (c.body?.config as Record<string, unknown> | undefined)?.ticketId === 12)).toBe(true))
+  })
+
+  it('Implement for an existing spec asks the agent to launch that spec', async () => {
+    current = null
+    const onSend = vi.fn()
+    render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'Calmer onboarding', ticketId: 12 }} index={0} messageId="m1" conversationId="c1" projectId="p1" intents={null} isLatest isStreaming={false} onSend={onSend} /></Providers>)
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-offer-choose-implement')) })
+    await waitFor(() => expect(onSend).toHaveBeenCalledWith("Let's implement spec #12 on a rail."))
+  })
+})

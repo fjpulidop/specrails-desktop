@@ -471,6 +471,8 @@ export interface LocalTicket {
       state?: 'active' | 'paused' | 'delivered' | 'closed'
       startedAt?: string
       chosenMode?: 'flow' | 'implement'
+      /** `existing`: the person's own spec started in Flow (restored on discard). */
+      origin?: 'existing'
     }
     /** Spec triage (launch-triage, schema 1.5): see features/specs/lib/spec-triage. */
     triage?: import('./features/specs/lib/spec-triage').SpecTriage

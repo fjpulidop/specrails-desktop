@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
-import { AlertTriangle, Check, FolderGit2, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
+import { AlertTriangle, Check, FileText, FolderGit2, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { useFlowAvailability, useFlowContext } from '../context/FlowContext'
@@ -24,6 +24,8 @@ interface Props {
   title?: string | null
   /** The repository the agent triaged the idea into (preselected when offered). */
   repositoryId?: string | null
+  /** Start from this EXISTING spec (the card shows the spec, not an idea). */
+  ticketId?: number | null
   projectId: string | null
   conversationId: string | null
   provider?: string | null
@@ -47,7 +49,7 @@ export function focusFlowBar(flowId: string): boolean {
   return true
 }
 
-export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, onStarted, onCancel }: Props) {
+export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, ticketId = null, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, onStarted, onCancel }: Props) {
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
   const ctx = useFlowContext()
@@ -118,7 +120,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
     setError(null)
     setErrorCode(null)
     try {
-      onStarted(await ctx.start(projectId, conversationId, idea, title, targetRepositoryId))
+      onStarted(await ctx.start(projectId, conversationId, idea, title, targetRepositoryId, ticketId))
     } catch (err) {
       if (err instanceof FlowApiError && err.code === 'feature_unavailable') ctx.loadAvailability(projectId, true)
       setErrorCode(err instanceof FlowApiError ? err.code : null)
@@ -147,10 +149,22 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
           <span>{t('flow.entry.body')}</span>
         </p>
-        <blockquote data-testid="flow-entry-idea" className="line-clamp-4 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs italic text-foreground/80">
-          {title ? <span className="mb-0.5 block not-italic font-medium text-foreground/90">{title}</span> : null}
-          {idea}
-        </blockquote>
+        {ticketId ? (
+          // An existing spec: the Flow works on it, so the card names the spec, not an idea.
+          <div data-testid="flow-entry-spec" className="space-y-1 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs">
+            <p className="flex min-w-0 items-center gap-1.5 text-foreground/90">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-foreground/70" aria-hidden />
+              <span className="shrink-0 font-mono text-foreground/70">{t('flow.entry.existingSpec.label', { id: ticketId })}</span>
+              <span className="min-w-0 truncate font-medium" title={title ?? idea}>{title ?? idea}</span>
+            </p>
+            <p className="leading-5 text-foreground/70">{t('flow.entry.existingSpec.note')}</p>
+          </div>
+        ) : (
+          <blockquote data-testid="flow-entry-idea" className="line-clamp-4 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs italic text-foreground/80">
+            {title ? <span className="mb-0.5 block not-italic font-medium text-foreground/90">{title}</span> : null}
+            {idea}
+          </blockquote>
+        )}
         <p className="flex items-center gap-1.5 text-xs text-foreground/70">
           <GitBranch className="h-3 w-3 shrink-0" aria-hidden />
           {provider ? t('flow.entry.provider', { provider: providerLabel(provider) }) : t('flow.entry.providerUnknown')}

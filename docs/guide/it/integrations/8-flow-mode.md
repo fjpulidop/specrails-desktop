@@ -17,6 +17,18 @@ Scegliendo Flow si apre una conferma: Specrails crea una copia separata del prog
 
 Se il tuo Specrails Core non può ancora eseguire Flow, Avvia è disattivato e la scheda elenca cosa manca. Di solito basta aggiornare Specrails Core.
 
+## Avviare un Flow da una spec esistente
+
+Qualsiasi spec si può costruire in Flow, non solo una nuova idea. Flow e Implement restano due modi equivalenti di lavorarci:
+
+- nella board, fai clic destro su una spec e scegli **Avvia in Flow** (accanto al trascinarla su un rail); nel dettaglio della spec, **Avvia in Flow** è accanto a **Sposta su rail**;
+- in una missione, quando chiedi di implementare una spec senza nominare un rail, l’agente mostra la stessa scheda a due percorsi per quella spec: **Flow** ci lavora con te, **Spec + Implement** la avvia su un rail;
+- una scheda di avvio su rail per una sola spec offre anche **Avvia in Flow** accanto al suo avvio.
+
+La spec stessa diventa **In Flow**: non viene creata nessuna spec segnaposto e il primo turno dell’agente riceve la spec (criteri di accettazione, Contract Layer, esclusioni e addenda aperti). Avviato dalla board, il Flow si apre nella missione della spec oppure in una nuova missione con il nome della spec. **Avvia in Flow** è disattivato, con il motivo al passaggio del mouse, quando la spec è già in Flow, completata o annullata, si trova su un rail o Flow non è disponibile.
+
+**Scarta** restituisce la spec esattamente com’era, con il suo stato precedente: la tua spec non viene mai eliminata. Alla consegna del Flow, la spec viene riscritta da ciò che è stato costruito e prima il suo testo originale resta come commento, **Original spec before Flow**, così non si perde nulla. Una spec già collegata a Jira aggiorna lo stesso issue e lo porta allo stato associato alla revisione; non viene creato un secondo issue.
+
 ## Durante il Flow
 
 La modalità Flow è nominata dove guardi, con il suo colore di Flow: il compositore mostra un chip **Flow** accanto a quello dell’autonomia e il suggerimento *Di’ all’agente cosa cambiare in questo Flow…*; il titolo della missione indica **In Flow**, così come la sua riga nell’elenco delle missioni. La conversazione segna dove sei entrato e uscito da Flow, e le risposte dell’agente scritte in Flow hanno un piccolo segno **Flow** accanto all’ora.
