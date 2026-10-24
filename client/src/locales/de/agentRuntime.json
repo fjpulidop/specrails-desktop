@@ -337,9 +337,9 @@
   "loopRoles": {
     "title": "Loop-Rollen",
     "hint": "Engines für die Loop-Rollen, wenn ein Rail mit der Engine „Rollen“ gestartet wird. Die Pipeline-Rollen oben (Architect, Developer, Reviewer) stammen bereits aus dieser Runtime-Konfiguration.",
-    "verifier": "Verifier",
+    "verifier": "Prüfer",
     "verifierHint": "Jeder KI-Schritt des Loops außerhalb des Cores: verify, fix und eigene KI-Schritte.",
-    "decider": "Decider",
+    "decider": "Entscheider",
     "deciderHint": "Der Loop Decider, der das Urteil liest und den nächsten Schritt bestimmt – ein günstiges, schnelles Modell ist die natürliche Wahl.",
     "inherit": "Primären übernehmen",
     "model": "Modell",

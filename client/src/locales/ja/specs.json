@@ -11,10 +11,11 @@
     "emptyNoCompleted": "完了したスペックはまだありません",
     "emptyNoStatusMatch": "選択したステータスに一致するスペックはありません",
     "untitledSpec": "無題のスペック",
-    "doneHeading": "完了 · {{count}}"
+    "doneHeading": "完了 · {{count}}",
+    "clearFilters": "フィルターをクリア"
   },
   "status": {
-    "todo": "Todo",
+    "todo": "未着手",
     "inProgress": "進行中",
     "onReview": "レビュー中",
     "onReviewHint": "実装済み — ドラフト PR があなたのレビュー判断を待っています",
@@ -46,7 +47,6 @@
   },
   "card": {
     "deleteSpec": "スペック #{{id}} を削除",
-    "deleteTicket": "チケット #{{id}} を削除",
     "ticketFallbackLabel": "チケット #{{id}}",
     "dependsOn": "{{count}} 件に依存",
     "continueEditing": "編集を続ける",
@@ -64,7 +64,7 @@
   "listView": {
     "status": {
       "draft": "下書き",
-      "todo": "Todo",
+      "todo": "未着手",
       "inProgress": "進行中",
       "onReview": "レビュー中",
       "done": "完了",

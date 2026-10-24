@@ -34,7 +34,9 @@
     "railWorktreesError": "Worktree-Isolation fehlgeschlagen — dieser Lauf läuft OHNE den PR-Review-Flow weiter (keine Implementierungskarte). Siehe Fehlerdetail unten.",
     "onReviewCannotMoveToRail": "Diese Spec wartet auf die PR-Prüfung — löse zuerst die PR-Entscheidung",
     "onReviewNotLaunchable": "Eine Spec auf diesem Rail wartet auf die PR-Prüfung. Triff die PR-Entscheidung vor dem Start.",
-    "launchRepositoryHasNoCommits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails eine isolierte Kopie des Projekts anlegen kann."
+    "launchRepositoryHasNoCommits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails eine isolierte Kopie des Projekts anlegen kann.",
+    "railDeletePrPending": "{{rail}} hat eine ausstehende PR-Entscheidung – triff sie, bevor du die Rail entfernst",
+    "railDeleteLastRail": "Ein Projekt braucht mindestens eine Rail – diese kann nicht entfernt werden"
   },
   "railPr": {
     "operation": {
@@ -242,7 +244,12 @@
     "dropHere": "Hier ablegen",
     "dropOnThisRail": "Auf diesem Rail ablegen",
     "dragSpecsHere": "Specs hierher ziehen",
-    "dragHandle": "{{label}} verschieben"
+    "dragHandle": "{{label}} verschieben",
+    "status": {
+      "idle": "Inaktiv",
+      "running": "Läuft",
+      "failed": "Fehlgeschlagen"
+    }
   },
   "freestyleDialog": {
     "title": "Im Freestyle-Modus starten",

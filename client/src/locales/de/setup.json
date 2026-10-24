@@ -87,7 +87,8 @@
     "corrupted": {
       "title": "App-Bundle beschädigt",
       "description": "Mindestens ein mitgeliefertes Tool (Node.js, Git) konnte nicht verifiziert werden.",
-      "body": "Dieses Tool ist in der Specrails-App enthalten und kann nicht separat installiert werden. Wenn Sie diese Meldung sehen, ist das App-Bundle möglicherweise beschädigt. Bitte installieren Sie Specrails neu."
+      "body": "Dieses Tool ist in der Specrails-App enthalten und kann nicht separat installiert werden. Wenn Sie diese Meldung sehen, ist das App-Bundle möglicherweise beschädigt. Bitte installieren Sie Specrails neu.",
+      "download": "Neueste Version herunterladen"
     }
   },
   "welcome": {
@@ -97,14 +98,14 @@
     "jiraHint": "Verbinde jedes Projekt mit seinem eigenen Jira-Board — Specs bleiben in beide Richtungen synchron.",
     "mcpHint": "Verbinde externe KI-Tools über einen sicheren lokalen MCP-Server mit Specrails: standardmäßig an, verwalte ihn unter Einstellungen → MCP.",
     "agentChatHint": "Steuere Specrails per Chat — ein integrierter Agent verwaltet Specs, Rails und Analysen für dich über den lokalen MCP. Öffne ihn über die Blase oder mit ⌘⇧A.",
-    "localEnginesHint": "Nur ein lokales Modell? Füge unter Einstellungen → Specrails Agents einen OpenAI-kompatiblen Endpoint hinzu — Rails, Chat und Missionen laufen dann standardmäßig darauf."
+    "localEnginesHint": "Nur ein lokales Modell? Füge unter Einstellungen → Specrails Agents einen OpenAI-kompatiblen Endpoint hinzu — Rails, Chat und Missionen laufen dann standardmäßig darauf.",
+    "replayTour": "Tour erneut abspielen"
   },
   "onboarding": {
     "productTour": "Produkttour",
     "stepCount": "Schritt {{current}} von {{total}}",
     "goToStep": "Zu Schritt {{step}}: {{label}}",
     "stepLabel": "Schritt {{step}}",
-    "dontShowAgain": "Nicht mehr anzeigen",
     "skipTour": "Tour überspringen",
     "getStarted": "Loslegen",
     "flow": {
@@ -288,9 +289,6 @@
       "pairBody": "Öffnen Sie auf Ihrem Smartphone specrails.dev/companion-app und gehen Sie dann hier zu Einstellungen → Mobiler Companion → Web-Companion koppeln und folgen Sie den Schritten am Bildschirm."
     },
     "moveFast": {
-      "nav": "Schnell sein",
-      "title": "Bewege dich in Gedankengeschwindigkeit",
-      "subtitle": "Tastatur zuerst, überall",
       "paletteLabel": "Befehlspalette",
       "paletteShortcut": "<f>Drücke</f> <mod>{{mod}}</mod> <m>+</m> <k>K</k> <m>überall</m>",
       "paletteBody": "Projekte wechseln, Spec-Befehle ausführen, zu jeder Seite springen und aktuelle Jobs finden, alles mit unscharfer Suche.",

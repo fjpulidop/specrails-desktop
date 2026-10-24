@@ -80,7 +80,7 @@
     "sections": {
       "upstream": "Upstream ({{count}})",
       "upstreamDescription": "Basisrollen, definiert von der specrails-core-Laufzeit; schreibgeschützt.",
-      "custom": "Custom ({{count}})",
+      "custom": "Benutzerdefiniert ({{count}})",
       "customDescription": "Die custom-*.md-Dateien deines Projekts. Nutze Vorlage / Generieren / Leer oben, um einen zu erstellen.",
       "noCustomAgents": "Noch keine Custom-Agents."
     },
@@ -94,7 +94,7 @@
     },
     "kind": {
       "upstream": "upstream",
-      "custom": "custom"
+      "custom": "benutzerdefiniert"
     }
   },
   "profiles": {

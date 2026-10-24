@@ -60,7 +60,8 @@
     "select": "Select {{name}}",
     "exportLegacy": "Export original graph",
     "originalCopyName": "Original: {{name}}",
-    "convert": "Convert to Core"
+    "convert": "Convert to Core",
+    "more": "More actions"
   },
   "card": {
     "nodes_one": "{{count}} node",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Hard cap on Loop Decider iterations — the loop stops when it's reached even if the goal isn't met. Prevents runaway loops.",
       "timeoutHint": "Wall-clock limit for the whole run, in minutes. If exceeded, the run is stopped and marked failed — a safety net alongside max iterations. 0 disables this time limit; other budgets and cancellation still apply.",
       "maxCost": "Max cost ($)",
-      "maxCostHint": "Optional USD budget for the whole run. Checked BETWEEN steps (a step’s cost is only known once it finishes), so the loop stops before the next step once the total crosses it — may overshoot by one step. For non-Claude providers the cost is an estimate. Empty = no cap."
+      "maxCostHint": "Optional USD budget for the whole run. Checked BETWEEN steps (a step’s cost is only known once it finishes), so the loop stops before the next step once the total crosses it — may overshoot by one step. For non-Claude providers the cost is an estimate. Empty = no cap.",
+      "title": "Run limits"
     },
     "nodes": {
       "start": "Start",
@@ -168,7 +170,11 @@
       "DEAD_END": "This step has no outgoing connection.",
       "MIXED_ENGINES": "Core workflows cannot mix legacy steps.",
       "CORE_OUTCOMES": "Connect distinct valid outcomes.",
-      "CORE_PIECE": "Select a piece and its parameters."
+      "CORE_PIECE": "Select a piece and its parameters.",
+      "severity": {
+        "error": "Error",
+        "warning": "Warning"
+      }
     },
     "preview": {
       "label": "Preview",
@@ -373,6 +379,7 @@
     }
   },
   "window": {
-    "open": "Open in window"
+    "open": "Open in window",
+    "openFailed": "Couldn’t open the loop window"
   }
 }

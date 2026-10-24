@@ -34,7 +34,9 @@
     "railWorktreesError": "O isolamento por worktrees falhou — esta execução continua SEM o fluxo de revisão por PR (sem cartão de implementação). Veja o detalhe do erro abaixo.",
     "onReviewCannotMoveToRail": "Esta spec aguarda revisão da PR — resolva primeiro a decisão da PR",
     "onReviewNotLaunchable": "Uma spec deste rail aguarda revisão da PR. Decida sobre a PR antes de lançar.",
-    "launchRepositoryHasNoCommits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar uma cópia isolada do projeto."
+    "launchRepositoryHasNoCommits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar uma cópia isolada do projeto.",
+    "railDeletePrPending": "{{rail}} tem uma decisão de PR pendente — resolva-a antes de remover o rail",
+    "railDeleteLastRail": "Um projeto precisa de pelo menos um rail — este não pode ser removido"
   },
   "railPr": {
     "operation": {
@@ -242,7 +244,12 @@
     "dropHere": "Largar aqui",
     "dropOnThisRail": "Largar neste rail",
     "dragSpecsHere": "Arraste specs para aqui",
-    "dragHandle": "Reordenar {{label}}"
+    "dragHandle": "Reordenar {{label}}",
+    "status": {
+      "idle": "Inativo",
+      "running": "Em execução",
+      "failed": "Falhou"
+    }
   },
   "freestyleDialog": {
     "title": "Lançar em modo Freestyle",

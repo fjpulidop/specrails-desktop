@@ -2,7 +2,6 @@
   "studio": {
     "loadingAgent": "Loading agent…",
     "modeCreate": "New custom agent",
-    "modeEdit": "Edit custom agent",
     "create": "Create",
     "unsaved": "● unsaved",
     "resumeAiEdit": "Resume AI Edit",
@@ -60,7 +59,8 @@
       "empty": "No prior versions recorded for this agent.",
       "restoreHint": "Click a version to restore its body into the editor (you still need to Save)."
     },
-    "idLabel": "Agent ID"
+    "idLabel": "Agent ID",
+    "defaultDescription": "Short description of when to use this agent."
   },
   "refine": {
     "eyebrow": "AI Edit",

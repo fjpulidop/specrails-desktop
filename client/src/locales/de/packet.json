@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} von {{total}} Änderungen sind fertig",
     "noChanges": "Es musste nichts geändert werden",
     "failed": "Das konnte nicht abgeschlossen werden",
-    "failedPartial": "Nur ein Teil konnte abgeschlossen werden"
+    "failedPartial": "Nur ein Teil konnte abgeschlossen werden",
+    "generic": "Prüfe die gelieferte Änderung"
   },
   "confidence": {
     "pill": "Sicherheit des KI-Reviewers {{overall}}/100",

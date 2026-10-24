@@ -65,7 +65,7 @@
       "body": "Les rôles de base (architect, developer, reviewer) sont définis par le runtime specrails-core et ne nécessitent aucune installation. Créez un agent personnalisé pour étendre votre équipe."
     },
     "actions": {
-      "template": "Template",
+      "template": "Modèle",
       "templateTitle": "Partir d'un template",
       "generate": "Générer",
       "generateWithClaude": "Générer avec Claude",

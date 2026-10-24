@@ -34,7 +34,9 @@
     "railWorktreesError": "Worktree isolation failed — this run continues WITHOUT the PR review flow (no implementation card). See the error detail below.",
     "onReviewCannotMoveToRail": "This spec is awaiting PR review — resolve the PR decision first",
     "onReviewNotLaunchable": "A spec on this rail is awaiting PR review. Resolve the PR decision before launching.",
-    "launchRepositoryHasNoCommits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project."
+    "launchRepositoryHasNoCommits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.",
+    "railDeletePrPending": "{{rail}} has a pending PR decision — resolve it before removing the rail",
+    "railDeleteLastRail": "A project needs at least one rail — this one can't be removed"
   },
   "railPr": {
     "operation": {
@@ -242,7 +244,12 @@
     "dropHere": "Drop here",
     "dropOnThisRail": "Drop on this rail",
     "dragSpecsHere": "Drag specs here",
-    "dragHandle": "Reorder {{label}}"
+    "dragHandle": "Reorder {{label}}",
+    "status": {
+      "idle": "Idle",
+      "running": "Running",
+      "failed": "Failed"
+    }
   },
   "freestyleDialog": {
     "title": "Launch in Freestyle mode",

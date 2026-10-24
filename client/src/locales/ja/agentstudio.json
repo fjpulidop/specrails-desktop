@@ -2,7 +2,6 @@
   "studio": {
     "loadingAgent": "エージェントを読み込み中…",
     "modeCreate": "新規カスタムエージェント",
-    "modeEdit": "カスタムエージェントを編集",
     "create": "作成",
     "unsaved": "● 未保存",
     "resumeAiEdit": "AI編集を再開",
@@ -60,7 +59,8 @@
       "empty": "このエージェントの過去のバージョンはありません。",
       "restoreHint": "バージョンをクリックすると本文がエディタに復元されます（保存は別途必要です）。"
     },
-    "idLabel": "エージェント ID"
+    "idLabel": "エージェント ID",
+    "defaultDescription": "このエージェントを使う場面の短い説明。"
   },
   "refine": {
     "eyebrow": "AI編集",

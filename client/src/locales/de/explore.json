@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · interaktiv",
     "backAriaLabel": "Zurück (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · interaktiv",
-    "editingEyebrow": "SPEC BEARBEITEN · #{{id}}",
     "newSpecPlaceholder": "Neue Spec…",
     "contextPill": "Kontext: {{scopes}}",
     "contextPillTitle": "Aktiver Kontextumfang für diese Explore-Session",
@@ -89,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "Änderungen prüfen",
-    "eyebrow": "Änderungen prüfen · explore-spec",
     "heading": "Vor dem Commit bestätigen",
     "titleLabel": "Titel",
     "priorityLabel": "Priorität",

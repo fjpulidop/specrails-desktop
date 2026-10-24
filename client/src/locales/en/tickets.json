@@ -62,8 +62,8 @@
     "populated": "{{n}}/5 populated"
   },
   "rail": {
-    "moveToRail": "Move to Rail",
-    "removeFromRail": "Remove from Rail",
+    "moveToRail": "Move to rail",
+    "removeFromRail": "Remove from rail",
     "currentlyOn": "Currently on {{rail}}",
     "popoverTitle": "Move to rail",
     "noRails": "No rails available."

@@ -11,7 +11,8 @@
     "emptyNoCompleted": "Aucune spec terminée pour l'instant",
     "emptyNoStatusMatch": "Aucune spec ne correspond au statut sélectionné",
     "untitledSpec": "Spec sans titre",
-    "doneHeading": "Terminées · {{count}}"
+    "doneHeading": "Terminées · {{count}}",
+    "clearFilters": "Effacer les filtres"
   },
   "status": {
     "todo": "À faire",
@@ -46,7 +47,6 @@
   },
   "card": {
     "deleteSpec": "Supprimer la spec #{{id}}",
-    "deleteTicket": "Supprimer le ticket #{{id}}",
     "ticketFallbackLabel": "Ticket #{{id}}",
     "dependsOn": "Dépend de {{count}}",
     "continueEditing": "Continuer l'édition",

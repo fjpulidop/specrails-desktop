@@ -96,6 +96,7 @@
       "invalid_body": "Richiesta malformata"
     },
     "removeConfirmTitle": "Rimuovere {{name}}?",
-    "removeConfirmBody": "L’agente di missione smette di caricare questo server per tutti i provider. Un server rilevato resta nella configurazione del tuo provider IA e può essere riattivato."
+    "removeConfirmBody": "L’agente di missione smette di caricare questo server per tutti i provider. Un server rilevato resta nella configurazione del tuo provider IA e può essere riattivato.",
+    "formProviderToggle": "Attiva per {{provider}}"
   }
 }

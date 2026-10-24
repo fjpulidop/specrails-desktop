@@ -93,7 +93,9 @@
   },
   "errorBoundary": {
     "title": "Une erreur est survenue",
-    "occurredIn": "Une erreur s'est produite dans <strong>{{name}}</strong>"
+    "occurredIn": "Une erreur s'est produite dans <strong>{{name}}</strong>",
+    "description": "Cette vue a cessé de fonctionner. Réessayez pour la recharger ; le reste de votre travail n’est pas affecté.",
+    "details": "Détails techniques"
   },
   "healthWidget": {
     "healthLabel": "santé",
@@ -130,5 +132,6 @@
     "active": "Empêche la veille automatique. L’écran peut s’éteindre.",
     "inactive": "Veille normale autorisée.",
     "failed": "Impossible de modifier la veille."
-  }
+  },
+  "skipToContent": "Aller au contenu principal"
 }

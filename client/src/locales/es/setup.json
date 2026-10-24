@@ -87,7 +87,8 @@
     "corrupted": {
       "title": "Bundle de la app dañado",
       "description": "No se pudieron verificar una o más herramientas incluidas (Node.js, Git).",
-      "body": "Esta herramienta viene incluida con la app Specrails y no puede instalarse por separado. Si ves este mensaje, el bundle de la app puede estar dañado. Reinstala Specrails."
+      "body": "Esta herramienta viene incluida con la app Specrails y no puede instalarse por separado. Si ves este mensaje, el bundle de la app puede estar dañado. Reinstala Specrails.",
+      "download": "Descargar la última versión"
     }
   },
   "welcome": {
@@ -97,14 +98,14 @@
     "jiraHint": "Conecta cada proyecto a su propio tablero de Jira — las specs se sincronizan en ambos sentidos.",
     "mcpHint": "Conecta herramientas de IA externas a Specrails mediante un servidor MCP local seguro: activado por defecto, gestiónalo en Ajustes → MCP.",
     "agentChatHint": "Opera Specrails conversando — un agente integrado gestiona specs, rails y analíticas por ti a través del MCP local. Ábrelo desde la burbuja o con ⌘⇧A.",
-    "localEnginesHint": "¿Solo un modelo local? Añade un endpoint compatible con OpenAI en Ajustes → Specrails Agents y todas las superficies — rails, chat, misiones — lo usarán por defecto."
+    "localEnginesHint": "¿Solo un modelo local? Añade un endpoint compatible con OpenAI en Ajustes → Specrails Agents y todas las superficies — rails, chat, misiones — lo usarán por defecto.",
+    "replayTour": "Repetir tour"
   },
   "onboarding": {
     "productTour": "Tour del producto",
     "stepCount": "Paso {{current}} de {{total}}",
     "goToStep": "Ir al paso {{step}}: {{label}}",
     "stepLabel": "Paso {{step}}",
-    "dontShowAgain": "No volver a mostrar",
     "skipTour": "Saltar el tour",
     "getStarted": "Empezar",
     "flow": {
@@ -254,7 +255,7 @@
       "budgetsBody": "Define un presupuesto diario y una alerta de coste por job; la aplicación pausa la cola automáticamente cuando cruzas la línea. Exporta lo que quieras a CSV o JSON."
     },
     "workspace": {
-      "nav": "Workspace",
+      "nav": "Espacio de trabajo",
       "title": "Hazlo tu workspace",
       "subtitle": "Todo lo que necesitas sin salir de la ventana",
       "terminalLabel": "Panel de terminal",
@@ -288,9 +289,6 @@
       "pairBody": "En tu teléfono abre specrails.dev/companion-app y luego, aquí, ve a Ajustes → Compañera móvil → Emparejar compañera web y sigue los pasos en pantalla."
     },
     "moveFast": {
-      "nav": "Ve rápido",
-      "title": "Muévete a la velocidad del pensamiento",
-      "subtitle": "Teclado primero, en todas partes",
       "paletteLabel": "Paleta de comandos",
       "paletteShortcut": "<f>Pulsa</f> <mod>{{mod}}</mod> <m>+</m> <k>K</k> <m>en cualquier sitio</m>",
       "paletteBody": "Cambia de proyecto, ejecuta comandos de spec, salta a cualquier página y encuentra jobs recientes, todo con búsqueda difusa.",

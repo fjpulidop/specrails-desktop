@@ -93,7 +93,9 @@
   },
   "errorBoundary": {
     "title": "Something went wrong",
-    "occurredIn": "An error occurred in <strong>{{name}}</strong>"
+    "occurredIn": "An error occurred in <strong>{{name}}</strong>",
+    "description": "This view stopped working. Retry to reload it; your other work is unaffected.",
+    "details": "Technical details"
   },
   "healthWidget": {
     "healthLabel": "health",
@@ -130,5 +132,6 @@
     "active": "Prevents idle sleep. The display can turn off.",
     "inactive": "Normal sleep allowed.",
     "failed": "Could not change sleep prevention."
-  }
+  },
+  "skipToContent": "Skip to main content"
 }

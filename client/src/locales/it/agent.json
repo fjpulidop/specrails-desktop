@@ -75,7 +75,7 @@
   },
   "git": {
     "branch": "Branch",
-    "detached": "(detached)",
+    "detached": "(scollegato)",
     "dirty": "Modifiche non committate",
     "switched": "Passato a {{branch}}",
     "switchFailed": "Impossibile cambiare branch",
@@ -597,10 +597,10 @@
     "heading": "Lancio del rail",
     "rail": "Rail {{index}}",
     "newRail": "Nuovo rail",
-    "play": "Play",
+    "play": "Avvia",
     "launching": "Avvio in corso…",
     "dismiss": "Ignora",
-    "playHint": "Modifica ciò che vuoi, poi premi Play per lanciare sotto la tua responsabilità.",
+    "playHint": "Modifica ciò che vuoi, poi premi Avvia per lanciare sotto la tua responsabilità.",
     "pending": "Preparazione di una proposta di lancio…",
     "unreadable_one": "Impossibile leggere la proposta di lancio dell’agente.",
     "unreadable_other": "Impossibile leggere {{count}} proposte di lancio.",
@@ -967,7 +967,7 @@
           "hintExisting": "Costruite insieme questa spec su un branch Flow separato; la spec viene riscritta da ciò che costruite."
         },
         "implement": {
-          "title": "Spec + Implement",
+          "title": "Spec + implementa",
           "hint": "Concordate prima una spec, poi delegala a un rail.",
           "hintExisting": "Affida questa spec, così com’è scritta, a un rail."
         }
@@ -1301,5 +1301,11 @@
     "mission": "Missione",
     "board": "Board",
     "current": "Modalità attuale: {{mode}}. Clicca per cambiare."
+  },
+  "errors": {
+    "sendFailed": "Impossibile inviare il messaggio.",
+    "stopFailed": "Impossibile fermare l’agente.",
+    "mcpEnableFailed": "Impossibile attivare MCP.",
+    "removeAttachmentFailed": "Impossibile rimuovere l’allegato."
   }
 }

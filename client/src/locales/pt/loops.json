@@ -60,7 +60,8 @@
     "select": "Selecionar {{name}}",
     "exportLegacy": "Exportar grafo original",
     "originalCopyName": "Original: {{name}}",
-    "convert": "Converter para Core"
+    "convert": "Converter para Core",
+    "more": "Mais ações"
   },
   "card": {
     "nodes_one": "{{count}} nó",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Limite de iterações do Loop Decider — o loop para ao atingi-lo mesmo que o objetivo não seja cumprido. Evita loops infinitos.",
       "timeoutHint": "Limite de tempo real de toda a execução, em minutos. Se excedido, a execução é interrompida e marcada como falha — uma rede de segurança junto com as iterações máximas. 0 desativa este limite de tempo; os outros orçamentos e o cancelamento continuam ativos.",
       "maxCost": "Custo máx ($)",
-      "maxCostHint": "Orçamento opcional em USD para toda a execução. Verificado ENTRE passos (o custo de um passo só é conhecido ao terminá-lo), o loop para antes do próximo passo quando o total freestylepassa — pode passar um passo. Em provedores não-Claude o custo é estimado. Vazio = sem limite."
+      "maxCostHint": "Orçamento opcional em USD para toda a execução. Verificado ENTRE passos (o custo de um passo só é conhecido ao terminá-lo), o loop para antes do próximo passo quando o total freestylepassa — pode passar um passo. Em provedores não-Claude o custo é estimado. Vazio = sem limite.",
+      "title": "Limites de execução"
     },
     "nodes": {
       "start": "Início",
@@ -168,7 +170,11 @@
       "DEAD_END": "Este passo não tem conexão de saída.",
       "MIXED_ENGINES": "Não misture etapas antigas com etapas Core.",
       "CORE_OUTCOMES": "Ligue resultados distintos e válidos.",
-      "CORE_PIECE": "Selecione uma etapa e os seus parâmetros."
+      "CORE_PIECE": "Selecione uma etapa e os seus parâmetros.",
+      "severity": {
+        "error": "Erro",
+        "warning": "Aviso"
+      }
     },
     "preview": {
       "label": "Pré-visualizar",
@@ -373,6 +379,7 @@
     }
   },
   "window": {
-    "open": "Abrir numa janela"
+    "open": "Abrir numa janela",
+    "openFailed": "Não foi possível abrir a janela do loop"
   }
 }

@@ -102,7 +102,9 @@
       "sendFailed": "Failed to send message",
       "wrapUpScheduled": "Wrapping up the job…",
       "wrapUpStepScheduled": "Settling the step — the loop advances with what it produced"
-    }
+    },
+    "actionFailed": "The action couldn’t be completed",
+    "breadcrumbAria": "Breadcrumb"
   },
   "statusPanel": {
     "inProgress": "Job in progress",
@@ -178,7 +180,7 @@
   "comparison": {
     "title": "Job Comparison",
     "jobN": "Job {{n}}",
-    "loadFailed": "Failed to load comparison: {{error}}",
+    "loadFailed": "Failed to load comparison. Try again.",
     "duration": "Duration",
     "cost": "Cost",
     "tokensOut": "Tokens out",
@@ -186,7 +188,8 @@
     "cacheRead": "Cache read",
     "model": "Model",
     "phasesDone": "Phases done",
-    "betterValueHint": "Green highlights indicate better value"
+    "betterValueHint": "Green highlights indicate better value",
+    "loading": "Loading comparison…"
   },
   "recent": {
     "emptyTitle": "No jobs yet",
@@ -243,7 +246,9 @@
       "cleared_other": "Cleared {{count}} jobs",
       "clearFailed": "Failed to clear jobs",
       "networkError": "Network error"
-    }
+    },
+    "emptyCta": "Open specs board",
+    "loading": "Loading jobs…"
   },
   "activeJob": {
     "none": "No active job",

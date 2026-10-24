@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} modifiche su {{total}} sono pronte",
     "noChanges": "Non c'era nulla da cambiare",
     "failed": "Non è stato possibile completarlo",
-    "failedPartial": "È stato completato solo in parte"
+    "failedPartial": "È stato completato solo in parte",
+    "generic": "Rivedi la modifica consegnata"
   },
   "confidence": {
     "pill": "Fiducia del revisore IA {{overall}}/100",

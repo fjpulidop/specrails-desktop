@@ -37,7 +37,8 @@
     "manualPlaceholder": "PROJ",
     "selected": "{{key}} — {{name}}",
     "none": "Nenhum projeto encontrado",
-    "loading": "A carregar projetos…"
+    "loading": "A carregar projetos…",
+    "search": "Pesquisar"
   },
   "mapping": {
     "intro": "Os estados são associados automaticamente por categoria (A fazer / Em curso / Concluído). Substitua um estado se o seu fluxo de trabalho usar nomes personalizados.",

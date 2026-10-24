@@ -37,7 +37,8 @@
     "manualPlaceholder": "PROJ",
     "selected": "{{key}} — {{name}}",
     "none": "Aucun projet trouvé",
-    "loading": "Chargement des projets…"
+    "loading": "Chargement des projets…",
+    "search": "Rechercher"
   },
   "mapping": {
     "intro": "Les statuts sont associés automatiquement par catégorie (À faire / En cours / Terminé). Remplacez un état si votre workflow utilise des noms personnalisés.",

@@ -87,7 +87,8 @@
     "corrupted": {
       "title": "应用包已损坏",
       "description": "一个或多个内置工具（Node.js、Git）无法通过验证。",
-      "body": "此工具随 Specrails 应用内置，无法单独安装。如果你看到此消息，说明应用包可能已损坏，请重新安装 Specrails。"
+      "body": "此工具随 Specrails 应用内置，无法单独安装。如果你看到此消息，说明应用包可能已损坏，请重新安装 Specrails。",
+      "download": "下载最新版本"
     }
   },
   "welcome": {
@@ -97,14 +98,14 @@
     "jiraHint": "将每个项目连接到各自的 Jira 看板——规格在两个方向保持同步。",
     "mcpHint": "通过安全的本地 MCP 服务器把外部 AI 工具接入 Specrails：默认开启，在设置 → MCP 中管理。",
     "agentChatHint": "通过聊天操作 Specrails——内置 agent 通过本地 MCP 为你处理 specs、rails 和分析。可从气泡或按 ⌘⇧A 打开。",
-    "localEnginesHint": "只有本地模型？在 设置 → Specrails Agents 中添加一个兼容 OpenAI 的端点，rails、聊天、任务等所有界面都会默认使用它。"
+    "localEnginesHint": "只有本地模型？在 设置 → Specrails Agents 中添加一个兼容 OpenAI 的端点，rails、聊天、任务等所有界面都会默认使用它。",
+    "replayTour": "重播导览"
   },
   "onboarding": {
     "productTour": "产品导览",
     "stepCount": "第 {{current}} 步，共 {{total}} 步",
     "goToStep": "前往第 {{step}} 步：{{label}}",
     "stepLabel": "第 {{step}} 步",
-    "dontShowAgain": "不再显示",
     "skipTour": "跳过导览",
     "getStarted": "开始使用",
     "flow": {
@@ -288,9 +289,6 @@
       "pairBody": "在手机上打开 specrails.dev/companion-app，然后在这里前往设置 → 移动伴侣 → 配对网页伴侣，按照屏幕提示操作。"
     },
     "moveFast": {
-      "nav": "快速上手",
-      "title": "以思考的速度移动",
-      "subtitle": "键盘优先，处处可用",
       "paletteLabel": "命令面板",
       "paletteShortcut": "<f>在任意位置按</f> <mod>{{mod}}</mod> <m>+</m> <k>K</k>",
       "paletteBody": "切换项目、运行规格命令、跳转任意页面并查找最近任务，全部支持模糊搜索。",

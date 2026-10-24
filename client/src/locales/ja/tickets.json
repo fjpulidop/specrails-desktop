@@ -6,7 +6,7 @@
     "low": "低"
   },
   "ticketStatus": {
-    "todo": "Todo",
+    "todo": "未着手",
     "inProgress": "進行中",
     "done": "完了",
     "cancelled": "キャンセル",

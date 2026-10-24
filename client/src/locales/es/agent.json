@@ -75,7 +75,7 @@
   },
   "git": {
     "branch": "Rama",
-    "detached": "(detached)",
+    "detached": "(desacoplado)",
     "dirty": "Cambios sin commitear",
     "switched": "Cambiado a {{branch}}",
     "switchFailed": "No se pudo cambiar de rama",
@@ -597,10 +597,10 @@
     "heading": "Lanzamiento de rail",
     "rail": "Rail {{index}}",
     "newRail": "Nuevo rail",
-    "play": "Play",
+    "play": "Lanzar",
     "launching": "Lanzando…",
     "dismiss": "Descartar",
-    "playHint": "Ajusta lo que quieras y pulsa Play para lanzar bajo tu propia autoridad.",
+    "playHint": "Ajusta lo que quieras y pulsa Lanzar para lanzar bajo tu propia autoridad.",
     "pending": "Preparando una propuesta de lanzamiento…",
     "unreadable_one": "No se pudo leer la propuesta de lanzamiento del agente.",
     "unreadable_other": "No se pudieron leer {{count}} propuestas de lanzamiento.",
@@ -775,7 +775,7 @@
     }
   },
   "split": {
-    "open": "Split view",
+    "open": "Vista dividida",
     "menu": "Acciones de conversación",
     "add": "Añadir conversación en vista dividida",
     "close": "Cerrar vista dividida",
@@ -967,7 +967,7 @@
           "hintExisting": "Constrúyela juntos en una rama Flow aparte; la spec se reescribe a partir de lo construido."
         },
         "implement": {
-          "title": "Spec + Implement",
+          "title": "Spec + implementar",
           "hint": "Acuerda primero una spec y luego delégala a un rail.",
           "hintExisting": "Delega esta spec, tal como está escrita, a un rail."
         }
@@ -1301,5 +1301,11 @@
     "mission": "Misión",
     "board": "Tablero",
     "current": "Modo actual: {{mode}}. Haz clic para cambiar."
+  },
+  "errors": {
+    "sendFailed": "No se ha podido enviar el mensaje.",
+    "stopFailed": "No se ha podido detener el agente.",
+    "mcpEnableFailed": "No se ha podido activar MCP.",
+    "removeAttachmentFailed": "No se ha podido quitar el adjunto."
   }
 }

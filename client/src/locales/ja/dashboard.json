@@ -34,7 +34,9 @@
     "railWorktreesError": "ワークツリー分離に失敗しました — この実行は PR レビューフローなし（実装カードなし）で続行されます。下のエラー詳細を確認してください。",
     "onReviewCannotMoveToRail": "このスペックは PR レビュー待ちです — まず PR の決定を処理してください",
     "onReviewNotLaunchable": "このレールのスペックが PR レビュー待ちです。起動する前に PR の決定を処理してください。",
-    "launchRepositoryHasNoCommits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。"
+    "launchRepositoryHasNoCommits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。",
+    "railDeletePrPending": "{{rail}} には保留中の PR 判断があります。レールを削除する前に解決してください",
+    "railDeleteLastRail": "プロジェクトには少なくとも 1 つのレールが必要なため、このレールは削除できません"
   },
   "railPr": {
     "operation": {
@@ -242,7 +244,12 @@
     "dropHere": "ここにドロップ",
     "dropOnThisRail": "このレールにドロップ",
     "dragSpecsHere": "ここにスペックをドラッグ",
-    "dragHandle": "{{label}} を並べ替え"
+    "dragHandle": "{{label}} を並べ替え",
+    "status": {
+      "idle": "待機中",
+      "running": "実行中",
+      "failed": "失敗"
+    }
   },
   "freestyleDialog": {
     "title": "Freestyle モードで起動",

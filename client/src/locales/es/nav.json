@@ -93,7 +93,9 @@
   },
   "errorBoundary": {
     "title": "Algo ha salido mal",
-    "occurredIn": "Se ha producido un error en <strong>{{name}}</strong>"
+    "occurredIn": "Se ha producido un error en <strong>{{name}}</strong>",
+    "description": "Esta vista ha dejado de funcionar. Reinténtalo para recargarla; el resto de tu trabajo no se ve afectado.",
+    "details": "Detalles técnicos"
   },
   "healthWidget": {
     "healthLabel": "salud",
@@ -130,5 +132,6 @@
     "active": "Evita el reposo automático. La pantalla puede apagarse.",
     "inactive": "Reposo normal permitido.",
     "failed": "No se pudo cambiar el estado de reposo."
-  }
+  },
+  "skipToContent": "Saltar al contenido principal"
 }

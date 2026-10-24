@@ -93,7 +93,9 @@
   },
   "errorBoundary": {
     "title": "出错了",
-    "occurredIn": "<strong>{{name}}</strong> 中发生了错误"
+    "occurredIn": "<strong>{{name}}</strong> 中发生了错误",
+    "description": "此视图已停止工作。重试即可重新加载；你的其他工作不受影响。",
+    "details": "技术详情"
   },
   "healthWidget": {
     "healthLabel": "健康度",
@@ -130,5 +132,6 @@
     "active": "防止自动睡眠，屏幕仍可关闭。",
     "inactive": "允许正常睡眠。",
     "failed": "无法更改睡眠状态。"
-  }
+  },
+  "skipToContent": "跳到主要内容"
 }

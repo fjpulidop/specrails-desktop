@@ -93,7 +93,9 @@
   },
   "errorBoundary": {
     "title": "Ocorreu um erro",
-    "occurredIn": "Ocorreu um erro em <strong>{{name}}</strong>"
+    "occurredIn": "Ocorreu um erro em <strong>{{name}}</strong>",
+    "description": "Esta visualização parou de funcionar. Tente novamente para recarregá-la; o restante do seu trabalho não é afetado.",
+    "details": "Detalhes técnicos"
   },
   "healthWidget": {
     "healthLabel": "saúde",
@@ -130,5 +132,6 @@
     "active": "Impede a suspensão automática. O ecrã pode apagar-se.",
     "inactive": "Suspensão normal permitida.",
     "failed": "Não foi possível alterar a suspensão."
-  }
+  },
+  "skipToContent": "Pular para o conteúdo principal"
 }

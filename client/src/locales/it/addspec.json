@@ -115,7 +115,7 @@
     },
     "smashCapable": "Compatibile con SMASH",
     "smashHint": "Il Contract Layer è attivo, quindi questa spec potrà poi essere scomposta in Sub-Spec.",
-    "fineTune": "Fine-tune",
+    "fineTune": "Affina",
     "defaultLabel": "Ambito del contesto",
     "summaryMinimal": "minimo",
     "tags": {
@@ -164,7 +164,7 @@
     },
     "overridesHeading": "Override del modello per agente",
     "overriddenCount": "{{count}} sovrascritti",
-    "customBadge": "custom",
+    "customBadge": "personalizzato",
     "resetToDefault": "Ripristina il default del preset"
   },
   "modelCombobox": {

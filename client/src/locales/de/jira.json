@@ -37,7 +37,8 @@
     "manualPlaceholder": "PROJ",
     "selected": "{{key}} — {{name}}",
     "none": "Keine Projekte gefunden",
-    "loading": "Projekte werden geladen…"
+    "loading": "Projekte werden geladen…",
+    "search": "Suchen"
   },
   "mapping": {
     "intro": "Status werden automatisch nach Kategorie zugeordnet (To Do / In Arbeit / Fertig). Überschreibe einen Status, wenn dein Workflow eigene Namen verwendet.",

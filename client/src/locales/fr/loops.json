@@ -60,7 +60,8 @@
     "select": "Sélectionner {{name}}",
     "exportLegacy": "Exporter le graphe d’origine",
     "originalCopyName": "Original : {{name}}",
-    "convert": "Convertir vers Core"
+    "convert": "Convertir vers Core",
+    "more": "Plus d’actions"
   },
   "card": {
     "nodes_one": "{{count}} nœud",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Plafond d'itérations du Loop Decider — la boucle s'arrête une fois atteint, même si l'objectif n'est pas rempli. Évite les boucles infinies.",
       "timeoutHint": "Limite de temps réel pour toute l'exécution, en minutes. Si dépassée, l'exécution est arrêtée et marquée échouée — un filet de sécurité avec le nombre max d'itérations. 0 désactive cette limite de temps ; les autres budgets et l’annulation restent actifs.",
       "maxCost": "Coût max ($)",
-      "maxCostHint": "Budget USD optionnel pour toute l’exécution. Vérifié ENTRE les étapes (le coût d’une étape n’est connu qu’à sa fin), la boucle s’arrête avant l’étape suivante une fois le total dépassé — peut dépasser d’une étape. Pour les fournisseurs non-Claude, le coût est estimé. Vide = aucune limite."
+      "maxCostHint": "Budget USD optionnel pour toute l’exécution. Vérifié ENTRE les étapes (le coût d’une étape n’est connu qu’à sa fin), la boucle s’arrête avant l’étape suivante une fois le total dépassé — peut dépasser d’une étape. Pour les fournisseurs non-Claude, le coût est estimé. Vide = aucune limite.",
+      "title": "Limites d’exécution"
     },
     "nodes": {
       "start": "Début",
@@ -168,7 +170,11 @@
       "DEAD_END": "Cette étape n'a aucune connexion sortante.",
       "MIXED_ENGINES": "Ne mélangez pas les anciennes étapes et les étapes Core.",
       "CORE_OUTCOMES": "Reliez des résultats distincts et valides.",
-      "CORE_PIECE": "Sélectionnez une étape et ses paramètres."
+      "CORE_PIECE": "Sélectionnez une étape et ses paramètres.",
+      "severity": {
+        "error": "Erreur",
+        "warning": "Avertissement"
+      }
     },
     "preview": {
       "label": "Aperçu",
@@ -373,6 +379,7 @@
     }
   },
   "window": {
-    "open": "Ouvrir dans une fenêtre"
+    "open": "Ouvrir dans une fenêtre",
+    "openFailed": "Impossible d’ouvrir la fenêtre de la boucle"
   }
 }

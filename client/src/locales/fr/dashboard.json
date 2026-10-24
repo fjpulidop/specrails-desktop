@@ -34,7 +34,9 @@
     "railWorktreesError": "L'isolation par worktrees a échoué — cette exécution continue SANS le flux de revue par PR (pas de carte d'implémentation). Voir le détail de l'erreur ci-dessous.",
     "onReviewCannotMoveToRail": "Cette spec attend une revue de PR — résolvez d'abord la décision de la PR",
     "onReviewNotLaunchable": "Une spec de ce rail attend une revue de PR. Prenez la décision sur la PR avant de lancer.",
-    "launchRepositoryHasNoCommits": "Ce dépôt n’a encore aucun commit. Faites un premier commit pour que Specrails puisse créer une copie isolée du projet."
+    "launchRepositoryHasNoCommits": "Ce dépôt n’a encore aucun commit. Faites un premier commit pour que Specrails puisse créer une copie isolée du projet.",
+    "railDeletePrPending": "{{rail}} a une décision de PR en attente — tranchez-la avant de retirer le rail",
+    "railDeleteLastRail": "Un projet a besoin d'au moins un rail — celui-ci ne peut pas être retiré"
   },
   "railPr": {
     "operation": {
@@ -242,7 +244,12 @@
     "dropHere": "Déposer ici",
     "dropOnThisRail": "Déposer sur ce rail",
     "dragSpecsHere": "Glissez des specs ici",
-    "dragHandle": "Réordonner {{label}}"
+    "dragHandle": "Réordonner {{label}}",
+    "status": {
+      "idle": "Inactif",
+      "running": "En cours",
+      "failed": "Échec"
+    }
   },
   "freestyleDialog": {
     "title": "Lancer en mode Freestyle",

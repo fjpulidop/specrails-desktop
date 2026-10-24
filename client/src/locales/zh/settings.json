@@ -76,7 +76,7 @@
       "subscriptionUsage": "订阅用量"
     },
     "title": "Desktop 设置",
-    "description": "管理已注册的项目并查看 Desktop 信息。",
+    "description": "外观、AI 提供商、更新以及 Desktop 全局偏好设置。",
     "registeredProjects": "已注册项目",
     "noProjects": "尚未注册任何项目",
     "techUrlDescription": "specrails-tech API 的基础 URL（默认：http://localhost:3000）",
@@ -97,13 +97,19 @@
     "platformTour": "平台导览",
     "platformTourDescription": "重播欢迎向导，回顾核心功能。",
     "replayTour": "重播导览",
-    "terminalPanelHeading": "终端面板",
     "infoHeading": "Desktop 信息",
     "infoPort": "端口",
     "infoProjects": "项目",
     "infoDb": "Desktop 数据库",
     "removeProjectConfirmTitle": "移除 {{name}}？",
-    "removeProjectConfirmBody": "{{name}} 将从 Specrails 中取消注册，正在运行的工作会停止。磁盘上的仓库文件不会被删除，之后可以重新添加该文件夹。"
+    "removeProjectConfirmBody": "{{name}} 将从 Specrails 中取消注册，正在运行的工作会停止。磁盘上的仓库文件不会被删除，之后可以重新添加该文件夹。",
+    "navLabel": "设置分区",
+    "navGroups": {
+      "personal": "个人",
+      "agents": "智能体",
+      "system": "系统"
+    },
+    "unsavedChanges": "未保存的更改"
   },
   "notifications": {
     "heading": "系统通知",
@@ -122,8 +128,6 @@
     "eventJobCompleted": "任务完成",
     "eventJobFailed": "任务失败",
     "eventDailyBudgetExceeded": "超出每日预算",
-    "statusOn": "开",
-    "statusOff": "关",
     "disable": "禁用",
     "enable": "启用",
     "sendTestPing": "发送测试 ping",
@@ -140,7 +144,8 @@
     "testPingSent": "测试 ping 已发送",
     "testPingFailed": "发送测试 ping 失败",
     "removeConfirmTitle": "移除 Webhook？",
-    "removeConfirmBody": "{{url}} 将不再接收 Desktop 事件。"
+    "removeConfirmBody": "{{url}} 将不再接收 Desktop 事件。",
+    "urlLabel": "Webhook URL"
   },
   "terminal": {
     "title": "终端面板",
@@ -236,10 +241,7 @@
     "affectsAll": "适用于所有项目 — 无需重启。",
     "unavailable": "此版本不支持核心更新。",
     "toastDone": "Specrails Core 已更新到 {{version}}",
-    "toastError": "核心更新失败：{{message}}",
     "toastUpToDate": "Specrails Core 已是最新",
-    "toastCheckFailed": "检查更新失败：{{message}}",
-    "loadFailed": "无法刷新 Core 状态。重试",
     "runtime": "运行时：{{version}}",
     "bundled": "Desktop 内置：{{version}}",
     "sources": {
@@ -250,7 +252,10 @@
       "global": "外部 CLI"
     },
     "repair": "完成 {{version}} 更新",
-    "stableFallback": "specrails-core 尚无稳定版本，因此 Core 暂时跟随最新。"
+    "stableFallback": "specrails-core 尚无稳定版本，因此 Core 暂时跟随最新。",
+    "updateFailed": "Core 更新失败",
+    "checkFailed": "检查更新失败",
+    "loadError": "无法刷新 Core 状态。"
   },
   "updateChannel": {
     "heading": "更新通道",
@@ -282,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — 设置",
-    "description": "项目级配置：提示词、分支、环境、预算、遥测和终端。",
+    "description": "项目级配置：提示词、分支、环境、预算、遥测、规则和终端。",
     "nav": {
       "general": "常规",
       "branch": "分支",
@@ -293,7 +298,8 @@
       "agentRuntime": "验证命令",
       "subagents": "子代理",
       "rules": "规则"
-    }
+    },
+    "navLabel": "项目设置分区"
   },
   "integrationBranch": {
     "title": "集成分支",

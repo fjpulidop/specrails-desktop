@@ -597,10 +597,10 @@
     "heading": "レールの起動",
     "rail": "レール {{index}}",
     "newRail": "新しいレール",
-    "play": "Play",
+    "play": "起動",
     "launching": "起動中…",
     "dismiss": "閉じる",
-    "playHint": "必要に応じて調整し、Play を押して自分の権限で起動します。",
+    "playHint": "必要に応じて調整し、「起動」を押して自分の権限で起動します。",
     "pending": "起動の提案を準備しています…",
     "unreadable_one": "エージェントの起動提案を読み取れませんでした。",
     "unreadable_other": "{{count}} 件の起動提案を読み取れませんでした。",
@@ -967,7 +967,7 @@
           "hintExisting": "別の Flow ブランチで一緒にこのスペックを作ります。スペックは作ったものから書き直されます。"
         },
         "implement": {
-          "title": "Spec + Implement",
+          "title": "Spec + 実装",
           "hint": "まず spec を合意し、それからレールに任せます。",
           "hintExisting": "このスペックを書かれたとおりにレールへ任せます。"
         }
@@ -1301,5 +1301,11 @@
     "mission": "ミッション",
     "board": "ボード",
     "current": "現在のモード: {{mode}}。クリックで切り替え。"
+  },
+  "errors": {
+    "sendFailed": "メッセージを送信できませんでした。",
+    "stopFailed": "エージェントを停止できませんでした。",
+    "mcpEnableFailed": "MCP を有効にできませんでした。",
+    "removeAttachmentFailed": "添付ファイルを削除できませんでした。"
   }
 }

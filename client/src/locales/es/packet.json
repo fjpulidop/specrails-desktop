@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} de {{total}} cambios están listos",
     "noChanges": "No hacía falta cambiar nada",
     "failed": "Esto no se pudo completar",
-    "failedPartial": "Solo se pudo completar una parte"
+    "failedPartial": "Solo se pudo completar una parte",
+    "generic": "Revisa el cambio entregado"
   },
   "confidence": {
     "pill": "Confianza del revisor IA {{overall}}/100",
@@ -242,7 +243,7 @@
       "network": "peticiones web"
     },
     "caveat": "Registrado a partir de los propios streams de los agentes: las lecturas son tan completas como las informe cada proveedor. Nunca se guardan contenidos ni valores de entorno.",
-    "run": "Run {{id}}",
+    "run": "Ejecución {{id}}",
     "download": "{{format}}",
     "downloadFailed": "No se pudieron descargar las acciones del agente"
   },

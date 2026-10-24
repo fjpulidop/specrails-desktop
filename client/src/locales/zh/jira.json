@@ -37,7 +37,8 @@
     "manualPlaceholder": "PROJ",
     "selected": "{{key}} — {{name}}",
     "none": "未找到项目",
-    "loading": "正在加载项目…"
+    "loading": "正在加载项目…",
+    "search": "搜索"
   },
   "mapping": {
     "intro": "状态会按类别自动匹配（待办 / 进行中 / 完成）。如果你的工作流使用自定义名称，可覆盖任一状态。",

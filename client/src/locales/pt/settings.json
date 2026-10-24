@@ -76,7 +76,7 @@
       "subscriptionUsage": "Uso de assinaturas"
     },
     "title": "Definições do Desktop",
-    "description": "Faça a gestão dos projetos registados e consulte informações do Desktop.",
+    "description": "Aparência, fornecedores de IA, atualizações e preferências gerais do Desktop.",
     "registeredProjects": "Projetos registados",
     "noProjects": "Ainda não há projetos registados",
     "techUrlDescription": "URL base para a API specrails-tech (predefinição: http://localhost:3000)",
@@ -97,13 +97,19 @@
     "platformTour": "Tour da plataforma",
     "platformTourDescription": "Repita o assistente de boas-vindas para rever as funcionalidades principais.",
     "replayTour": "Repetir tour",
-    "terminalPanelHeading": "Painel de terminal",
     "infoHeading": "Informações do Desktop",
     "infoPort": "Porta",
     "infoProjects": "Projetos",
     "infoDb": "BD do Desktop",
     "removeProjectConfirmTitle": "Remover {{name}}?",
-    "removeProjectConfirmBody": "{{name}} deixa de estar registado no Specrails e o trabalho em curso para. Os ficheiros do repositório no disco não são apagados; pode voltar a adicionar a pasta mais tarde."
+    "removeProjectConfirmBody": "{{name}} deixa de estar registado no Specrails e o trabalho em curso para. Os ficheiros do repositório no disco não são apagados; pode voltar a adicionar a pasta mais tarde.",
+    "navLabel": "Secções das definições",
+    "navGroups": {
+      "personal": "Pessoal",
+      "agents": "Agentes",
+      "system": "Sistema"
+    },
+    "unsavedChanges": "Alterações não guardadas"
   },
   "notifications": {
     "heading": "Notificações do SO",
@@ -122,8 +128,6 @@
     "eventJobCompleted": "Job concluído",
     "eventJobFailed": "Job falhado",
     "eventDailyBudgetExceeded": "Orçamento diário excedido",
-    "statusOn": "ligado",
-    "statusOff": "desligado",
     "disable": "Desativar",
     "enable": "Ativar",
     "sendTestPing": "Enviar ping de teste",
@@ -140,7 +144,8 @@
     "testPingSent": "Ping de teste enviado",
     "testPingFailed": "Falha ao enviar o ping de teste",
     "removeConfirmTitle": "Remover o webhook?",
-    "removeConfirmBody": "{{url}} deixará de receber eventos do Desktop."
+    "removeConfirmBody": "{{url}} deixará de receber eventos do Desktop.",
+    "urlLabel": "URL do webhook"
   },
   "terminal": {
     "title": "Painel de terminal",
@@ -236,10 +241,7 @@
     "affectsAll": "Aplica-se a todos os projetos — sem reiniciar.",
     "unavailable": "As atualizações do core não estão disponíveis nesta versão.",
     "toastDone": "Specrails Core atualizado para {{version}}",
-    "toastError": "Falha na atualização do core: {{message}}",
     "toastUpToDate": "O Specrails Core está atualizado",
-    "toastCheckFailed": "Falha ao verificar atualizações: {{message}}",
-    "loadFailed": "Não foi possível atualizar o estado do Core. Tentar novamente",
     "runtime": "Motor: {{version}}",
     "bundled": "Incluído no Desktop: {{version}}",
     "sources": {
@@ -250,7 +252,10 @@
       "global": "CLI externa"
     },
     "repair": "Concluir atualização {{version}}",
-    "stableFallback": "O specrails-core ainda não tem versão estável, então o Core segue Mais recente por enquanto."
+    "stableFallback": "O specrails-core ainda não tem versão estável, então o Core segue Mais recente por enquanto.",
+    "updateFailed": "Falha ao atualizar o Core",
+    "checkFailed": "Falha ao procurar atualizações",
+    "loadError": "Não foi possível atualizar o estado do Core."
   },
   "updateChannel": {
     "heading": "Canal de atualização",
@@ -282,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — Configurações",
-    "description": "Configuração do projeto: prompts, branch, ambiente, orçamento, telemetria e terminal.",
+    "description": "Configuração do projeto: prompts, branch, ambiente, orçamento, telemetria, regras e terminal.",
     "nav": {
       "general": "Geral",
       "branch": "Branch",
@@ -293,7 +298,8 @@
       "agentRuntime": "Comandos de verificação",
       "subagents": "Subagentes",
       "rules": "Regras"
-    }
+    },
+    "navLabel": "Secções das definições do projeto"
   },
   "integrationBranch": {
     "title": "Ramo de integração",

@@ -96,6 +96,7 @@
       "invalid_body": "Petición malformada"
     },
     "removeConfirmTitle": "¿Eliminar {{name}}?",
-    "removeConfirmBody": "El agente de misión deja de cargar este servidor para todos los proveedores. Un servidor detectado sigue en la configuración de tu proveedor de IA y puede volver a activarse."
+    "removeConfirmBody": "El agente de misión deja de cargar este servidor para todos los proveedores. Un servidor detectado sigue en la configuración de tu proveedor de IA y puede volver a activarse.",
+    "formProviderToggle": "Activar para {{provider}}"
   }
 }

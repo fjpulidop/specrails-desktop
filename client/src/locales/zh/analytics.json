@@ -32,10 +32,11 @@
     "all": "全部",
     "engine": "引擎",
     "ticketChip": "工单 #{{id}} ·  ✕",
-    "failedToLoad": "加载失败：{{error}}",
+    "failedToLoad": "无法加载分析数据，请重试。",
     "modelChip": "模型：{{model}}",
     "clearModelFilter": "清除模型筛选",
-    "localEngine": "本地"
+    "localEngine": "本地",
+    "moreBreakdowns": "更多细分"
   },
   "hero": {
     "spending": "支出",
@@ -170,7 +171,7 @@
   "desktop": {
     "title": "Desktop 分析",
     "refreshAria": "刷新分析数据",
-    "failedToLoad": "加载分析数据失败：{{error}}",
+    "failedToLoad": "无法加载 Desktop 分析数据，请尝试刷新。",
     "totalCost": "总成本",
     "costToday": "今日 {{value}}",
     "costTodayUnavailable": "今日成本不可用",
@@ -193,8 +194,6 @@
     "includesEstimatedTooltip": "包含 {{amount}} 的价格表估算成本（codex/gemini），非提供商计费。",
     "includesEstimatedShort": "含估算",
     "timelineEstimatedTooltip": "某些天包含以 ~ 标记的价格表估算成本（codex/gemini）。",
-    "estimatedBadge": "估算",
-    "projectEstimatedTooltip": "此项目成本中的 {{amount}} 为价格表估算（codex/gemini），非提供商计费。",
     "statusBarEstimatedTooltip": "包含价格表估算成本（codex/gemini），非提供商计费。",
     "costUnavailable": "已记录调用，但成本遥测数据不可用。",
     "costUnavailableShort": "不可用",

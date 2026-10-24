@@ -1301,5 +1301,11 @@
     "mission": "Mission",
     "board": "Board",
     "current": "Current mode: {{mode}}. Click to switch."
+  },
+  "errors": {
+    "sendFailed": "The message could not be sent.",
+    "stopFailed": "The agent could not be stopped.",
+    "mcpEnableFailed": "MCP could not be enabled.",
+    "removeAttachmentFailed": "The attachment could not be removed."
   }
 }

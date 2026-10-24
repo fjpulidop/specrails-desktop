@@ -96,6 +96,7 @@
       "invalid_body": "Requête malformée"
     },
     "removeConfirmTitle": "Supprimer {{name}} ?",
-    "removeConfirmBody": "L’agent de mission ne charge plus ce serveur pour aucun fournisseur. Un serveur détecté reste dans la configuration de votre fournisseur d’IA et peut être réactivé."
+    "removeConfirmBody": "L’agent de mission ne charge plus ce serveur pour aucun fournisseur. Un serveur détecté reste dans la configuration de votre fournisseur d’IA et peut être réactivé.",
+    "formProviderToggle": "Activer pour {{provider}}"
   }
 }

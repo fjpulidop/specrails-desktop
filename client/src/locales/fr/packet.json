@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} changements sur {{total}} sont prêts",
     "noChanges": "Rien n'avait besoin d'être changé",
     "failed": "Cela n'a pas pu être terminé",
-    "failedPartial": "Seule une partie a pu être terminée"
+    "failedPartial": "Seule une partie a pu être terminée",
+    "generic": "Examinez la modification livrée"
   },
   "confidence": {
     "pill": "Confiance du relecteur IA {{overall}}/100",

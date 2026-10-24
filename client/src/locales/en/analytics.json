@@ -32,10 +32,11 @@
     "all": "All",
     "engine": "Engine",
     "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Failed to load: {{error}}",
+    "failedToLoad": "Analytics couldn’t be loaded. Try again.",
     "modelChip": "Model: {{model}}",
     "clearModelFilter": "Clear model filter",
-    "localEngine": "local"
+    "localEngine": "local",
+    "moreBreakdowns": "More breakdowns"
   },
   "hero": {
     "spending": "Spending",
@@ -170,7 +171,7 @@
   "desktop": {
     "title": "Desktop Analytics",
     "refreshAria": "Refresh analytics",
-    "failedToLoad": "Failed to load analytics: {{error}}",
+    "failedToLoad": "Desktop analytics couldn’t be loaded. Try refreshing.",
     "totalCost": "Total Cost",
     "costToday": "{{value}} today",
     "costTodayUnavailable": "cost unavailable today",
@@ -193,8 +194,6 @@
     "includesEstimatedTooltip": "Includes {{amount}} of rate-card estimated cost (codex/gemini), not provider-billed.",
     "includesEstimatedShort": "incl. estimated",
     "timelineEstimatedTooltip": "Some days include rate-card estimated cost (codex/gemini) marked with ~.",
-    "estimatedBadge": "est.",
-    "projectEstimatedTooltip": "{{amount}} of this project's cost is a rate-card estimate (codex/gemini), not provider-billed.",
     "statusBarEstimatedTooltip": "Includes rate-card estimated cost (codex/gemini), not provider-billed.",
     "costUnavailable": "Invocations were recorded, but cost telemetry is unavailable.",
     "costUnavailableShort": "unavailable",

@@ -32,10 +32,11 @@
     "all": "すべて",
     "engine": "エンジン",
     "ticketChip": "チケット #{{id}} ·  ✕",
-    "failedToLoad": "読み込みに失敗しました: {{error}}",
+    "failedToLoad": "分析を読み込めませんでした。もう一度お試しください。",
     "modelChip": "モデル：{{model}}",
     "clearModelFilter": "モデルフィルターをクリア",
-    "localEngine": "ローカル"
+    "localEngine": "ローカル",
+    "moreBreakdowns": "その他の内訳"
   },
   "hero": {
     "spending": "支出",
@@ -170,7 +171,7 @@
   "desktop": {
     "title": "Desktop アナリティクス",
     "refreshAria": "アナリティクスを更新",
-    "failedToLoad": "アナリティクスの読み込みに失敗しました: {{error}}",
+    "failedToLoad": "Desktop の分析を読み込めませんでした。更新してください。",
     "totalCost": "合計コスト",
     "costToday": "本日 {{value}}",
     "costTodayUnavailable": "本日のコストは利用不可",
@@ -193,8 +194,6 @@
     "includesEstimatedTooltip": "料金表による推定コスト {{amount}} を含みます（codex/gemini）。プロバイダー請求ではありません。",
     "includesEstimatedShort": "推定含む",
     "timelineEstimatedTooltip": "一部の日には ~ で示された料金表による推定コスト（codex/gemini）が含まれます。",
-    "estimatedBadge": "推定",
-    "projectEstimatedTooltip": "このプロジェクトのコストのうち {{amount}} は料金表による推定値です（codex/gemini）。プロバイダー請求ではありません。",
     "statusBarEstimatedTooltip": "料金表による推定コスト（codex/gemini）を含みます。プロバイダー請求ではありません。",
     "costUnavailable": "呼び出しは記録されていますが、コストのテレメトリは利用できません。",
     "costUnavailableShort": "利用不可",

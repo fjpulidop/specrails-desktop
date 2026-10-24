@@ -60,7 +60,8 @@
     "select": "Seleziona {{name}}",
     "exportLegacy": "Esporta il grafo originale",
     "originalCopyName": "Originale: {{name}}",
-    "convert": "Converti in Core"
+    "convert": "Converti in Core",
+    "more": "Altre azioni"
   },
   "card": {
     "nodes_one": "{{count}} nodo",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Limite massimo di iterazioni del Loop Decider — il loop si ferma al raggiungimento anche se l'obiettivo non è soddisfatto. Evita loop infiniti.",
       "timeoutHint": "Limite di tempo reale per l'intera esecuzione, in minuti. Se superato, l'esecuzione viene interrotta e segnata come fallita — una rete di sicurezza insieme alle iterazioni massime. 0 disattiva questo limite di tempo; gli altri budget e l’annullamento restano attivi.",
       "maxCost": "Costo max ($)",
-      "maxCostHint": "Budget USD opzionale per l’intera esecuzione. Controllato TRA i passi (il costo di un passo si conosce solo al termine), il loop si ferma prima del passo successivo quando il totale lo supera — può sforare di un passo. Per i provider non-Claude il costo è stimato. Vuoto = nessun limite."
+      "maxCostHint": "Budget USD opzionale per l’intera esecuzione. Controllato TRA i passi (il costo di un passo si conosce solo al termine), il loop si ferma prima del passo successivo quando il totale lo supera — può sforare di un passo. Per i provider non-Claude il costo è stimato. Vuoto = nessun limite.",
+      "title": "Limiti di esecuzione"
     },
     "nodes": {
       "start": "Inizio",
@@ -168,7 +170,11 @@
       "DEAD_END": "Questo passo non ha connessioni in uscita.",
       "MIXED_ENGINES": "Non mescolare passaggi precedenti con passaggi Core.",
       "CORE_OUTCOMES": "Collega risultati distinti e validi.",
-      "CORE_PIECE": "Seleziona un passaggio e i relativi parametri."
+      "CORE_PIECE": "Seleziona un passaggio e i relativi parametri.",
+      "severity": {
+        "error": "Errore",
+        "warning": "Avviso"
+      }
     },
     "preview": {
       "label": "Anteprima",
@@ -373,6 +379,7 @@
     }
   },
   "window": {
-    "open": "Apri in una finestra"
+    "open": "Apri in una finestra",
+    "openFailed": "Impossibile aprire la finestra del loop"
   }
 }

@@ -62,7 +62,10 @@
     "categoryCount_one": "{{count}} カテゴリ",
     "categoryCount_other": "{{count}} カテゴリ",
     "summary": "{{categories}}にわたって{{documents}}。",
-    "loadError": "ドキュメントの読み込みに失敗しました"
+    "loadError": "このドキュメントを読み込めませんでした。",
+    "loading": "ドキュメントを読み込み中…",
+    "errorDetails": "詳細",
+    "navLabel": "ドキュメントのセクション"
   },
   "jiraCard": {
     "title": "Jira",
@@ -85,7 +88,8 @@
       "subtitle": "グローバルツールとプロジェクト連携を 1 か所で管理します。",
       "readyCount_one": "{{count}} 件準備完了",
       "readyCount_other": "{{count}} 件準備完了",
-      "openWindow": "ウィンドウで開く"
+      "openWindow": "ウィンドウで開く",
+      "openWindowFailed": "プラグインウィンドウを開けませんでした"
     },
     "search": {
       "placeholder": "プラグインを検索"
@@ -93,7 +97,8 @@
     "filters": {
       "all": "すべて",
       "global": "グローバル",
-      "project": "プロジェクト"
+      "project": "プロジェクト",
+      "label": "スコープ"
     },
     "sections": {
       "installed": "インストール済み",
@@ -121,10 +126,12 @@
     },
     "actions": {
       "install": "インストール",
-      "installing": "インストール中",
       "manage": "管理",
       "review": "確認",
-      "cancel": "キャンセル"
+      "cancel": "キャンセル",
+      "installBusy": "インストール中…",
+      "configureBusy": "設定中…",
+      "reviewBusy": "確認中…"
     },
     "status": {
       "attention": "要確認",

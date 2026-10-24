@@ -11,7 +11,8 @@
     "emptyNoCompleted": "No completed specs yet",
     "emptyNoStatusMatch": "No specs match the selected status",
     "untitledSpec": "Untitled spec",
-    "doneHeading": "Done · {{count}}"
+    "doneHeading": "Done · {{count}}",
+    "clearFilters": "Clear filters"
   },
   "status": {
     "todo": "Todo",
@@ -46,12 +47,11 @@
   },
   "card": {
     "deleteSpec": "Delete spec #{{id}}",
-    "deleteTicket": "Delete ticket #{{id}}",
     "ticketFallbackLabel": "Ticket #{{id}}",
     "dependsOn": "Depends on {{count}}",
     "continueEditing": "Continue Editing",
     "continueEditingTitle": "Continue editing this spec",
-    "moveToRail": "Move to Rail"
+    "moveToRail": "Move to rail"
   },
   "emptyState": {
     "noTickets": "No tickets yet",

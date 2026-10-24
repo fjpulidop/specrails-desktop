@@ -37,7 +37,8 @@
     "manualPlaceholder": "PROJ",
     "selected": "{{key}} — {{name}}",
     "none": "No se encontraron proyectos",
-    "loading": "Cargando proyectos…"
+    "loading": "Cargando proyectos…",
+    "search": "Buscar"
   },
   "mapping": {
     "intro": "Los estados se emparejan automáticamente por categoría (Por hacer / En progreso / Hecho). Anula cualquier estado si tu flujo usa nombres personalizados.",

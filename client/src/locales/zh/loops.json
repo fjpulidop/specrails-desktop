@@ -60,7 +60,8 @@
     "select": "选择 {{name}}",
     "exportLegacy": "导出原始图",
     "originalCopyName": "原始图：{{name}}",
-    "convert": "转换为Core"
+    "convert": "转换为Core",
+    "more": "更多操作"
   },
   "card": {
     "nodes_one": "{{count}} 个节点",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Loop Decider 迭代次数上限——达到后即使目标未达成也会停止循环。防止无限循环。",
       "timeoutHint": "整个运行的实际时间上限（分钟）。超过后运行将停止并标记为失败——与最大迭代次数一起作为安全网。 0 表示禁用此时间限制；其他预算和取消功能仍然有效。",
       "maxCost": "最大费用 ($)",
-      "maxCostHint": "整个运行的可选美元预算。在步骤之间检查（每步费用只有在该步结束后才知道），因此当总额超过时循环会在下一步之前停止——可能超出一步。非 Claude 提供方的费用为估算。留空 = 不限制。"
+      "maxCostHint": "整个运行的可选美元预算。在步骤之间检查（每步费用只有在该步结束后才知道），因此当总额超过时循环会在下一步之前停止——可能超出一步。非 Claude 提供方的费用为估算。留空 = 不限制。",
+      "title": "运行限制"
     },
     "nodes": {
       "start": "开始",
@@ -168,7 +170,11 @@
       "DEAD_END": "该步骤没有出向连接。",
       "MIXED_ENGINES": "不能混合旧版步骤与 Core 步骤。",
       "CORE_OUTCOMES": "请连接不同的有效结果。",
-      "CORE_PIECE": "请选择步骤及其参数。"
+      "CORE_PIECE": "请选择步骤及其参数。",
+      "severity": {
+        "error": "错误",
+        "warning": "警告"
+      }
     },
     "preview": {
       "label": "预览",
@@ -373,6 +379,7 @@
     }
   },
   "window": {
-    "open": "在窗口中打开"
+    "open": "在窗口中打开",
+    "openFailed": "无法打开循环窗口"
   }
 }

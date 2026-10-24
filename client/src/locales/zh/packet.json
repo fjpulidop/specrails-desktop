@@ -11,7 +11,8 @@
     "partial": "{{total}} 项更改中有 {{succeeded}} 项已就绪",
     "noChanges": "无需改动",
     "failed": "未能完成",
-    "failedPartial": "仅完成了一部分"
+    "failedPartial": "仅完成了一部分",
+    "generic": "审查已交付的更改"
   },
   "confidence": {
     "pill": "AI 审阅者信心 {{overall}}/100",

@@ -62,7 +62,10 @@
     "categoryCount_one": "{{count}} 个分类",
     "categoryCount_other": "{{count}} 个分类",
     "summary": "共 {{documents}}，分布在 {{categories}}中。",
-    "loadError": "加载文档失败"
+    "loadError": "无法加载此文档。",
+    "loading": "正在加载文档…",
+    "errorDetails": "详细信息",
+    "navLabel": "文档章节"
   },
   "jiraCard": {
     "title": "Jira",
@@ -85,7 +88,8 @@
       "subtitle": "在一个位置管理全局工具和项目集成。",
       "readyCount_one": "{{count}} 个就绪",
       "readyCount_other": "{{count}} 个就绪",
-      "openWindow": "在窗口中打开"
+      "openWindow": "在窗口中打开",
+      "openWindowFailed": "无法打开插件窗口"
     },
     "search": {
       "placeholder": "搜索插件"
@@ -93,7 +97,8 @@
     "filters": {
       "all": "全部",
       "global": "全局",
-      "project": "项目"
+      "project": "项目",
+      "label": "范围"
     },
     "sections": {
       "installed": "已安装",
@@ -121,10 +126,12 @@
     },
     "actions": {
       "install": "安装",
-      "installing": "安装中",
       "manage": "管理",
       "review": "检查",
-      "cancel": "取消"
+      "cancel": "取消",
+      "installBusy": "正在安装…",
+      "configureBusy": "正在配置…",
+      "reviewBusy": "正在检查…"
     },
     "status": {
       "attention": "需要注意",

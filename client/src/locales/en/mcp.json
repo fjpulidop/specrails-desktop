@@ -96,6 +96,7 @@
       "invalid_body": "Malformed request"
     },
     "removeConfirmTitle": "Remove {{name}}?",
-    "removeConfirmBody": "The mission agent stops loading this server for every provider. A discovered server stays in your AI provider config and can be enabled again."
+    "removeConfirmBody": "The mission agent stops loading this server for every provider. A discovered server stays in your AI provider config and can be enabled again.",
+    "formProviderToggle": "Enable for {{provider}}"
   }
 }

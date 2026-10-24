@@ -11,7 +11,8 @@
     "emptyNoCompleted": "暂无已完成的 spec",
     "emptyNoStatusMatch": "没有符合所选状态的 spec",
     "untitledSpec": "未命名 spec",
-    "doneHeading": "已完成 · {{count}}"
+    "doneHeading": "已完成 · {{count}}",
+    "clearFilters": "清除筛选"
   },
   "status": {
     "todo": "待办",
@@ -46,12 +47,11 @@
   },
   "card": {
     "deleteSpec": "删除 spec #{{id}}",
-    "deleteTicket": "删除工单 #{{id}}",
     "ticketFallbackLabel": "工单 #{{id}}",
     "dependsOn": "依赖 {{count}} 项",
     "continueEditing": "继续编辑",
     "continueEditingTitle": "继续编辑此 spec",
-    "moveToRail": "放入 Rail"
+    "moveToRail": "放入 rail"
   },
   "emptyState": {
     "noTickets": "暂无工单",

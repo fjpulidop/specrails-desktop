@@ -60,7 +60,8 @@
     "select": "{{name}} auswählen",
     "exportLegacy": "Ursprünglichen Graphen exportieren",
     "originalCopyName": "Original: {{name}}",
-    "convert": "In Core umwandeln"
+    "convert": "In Core umwandeln",
+    "more": "Weitere Aktionen"
   },
   "card": {
     "nodes_one": "{{count}} Knoten",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Obergrenze für Loop-Decider-Iterationen — der Loop stoppt beim Erreichen, auch wenn das Ziel nicht erfüllt ist. Verhindert Endlosschleifen.",
       "timeoutHint": "Echtzeit-Limit für den gesamten Lauf, in Minuten. Bei Überschreitung wird der Lauf gestoppt und als fehlgeschlagen markiert — ein Sicherheitsnetz neben den max. Iterationen. 0 deaktiviert dieses Zeitlimit; andere Budgets und der Abbruch bleiben wirksam.",
       "maxCost": "Max. Kosten ($)",
-      "maxCostHint": "Optionales USD-Budget für den gesamten Lauf. Wird ZWISCHEN Schritten geprüft (die Kosten eines Schritts stehen erst nach dessen Ende fest), der Loop stoppt vor dem nächsten Schritt, sobald die Summe es überschreitet — kann um einen Schritt überschreiten. Bei Nicht-Claude-Anbietern sind die Kosten geschätzt. Leer = kein Limit."
+      "maxCostHint": "Optionales USD-Budget für den gesamten Lauf. Wird ZWISCHEN Schritten geprüft (die Kosten eines Schritts stehen erst nach dessen Ende fest), der Loop stoppt vor dem nächsten Schritt, sobald die Summe es überschreitet — kann um einen Schritt überschreiten. Bei Nicht-Claude-Anbietern sind die Kosten geschätzt. Leer = kein Limit.",
+      "title": "Ausführungslimits"
     },
     "nodes": {
       "start": "Start",
@@ -168,7 +170,11 @@
       "DEAD_END": "Dieser Schritt hat keine ausgehende Verbindung.",
       "MIXED_ENGINES": "Core-Workflows dürfen keine alten Schritte enthalten.",
       "CORE_OUTCOMES": "Verbinde unterschiedliche gültige Ergebnisse.",
-      "CORE_PIECE": "Wähle einen Schritt und seine Parameter."
+      "CORE_PIECE": "Wähle einen Schritt und seine Parameter.",
+      "severity": {
+        "error": "Fehler",
+        "warning": "Warnung"
+      }
     },
     "preview": {
       "label": "Vorschau",
@@ -373,6 +379,7 @@
     }
   },
   "window": {
-    "open": "In Fenster öffnen"
+    "open": "In Fenster öffnen",
+    "openFailed": "Das Loop-Fenster konnte nicht geöffnet werden"
   }
 }

@@ -76,7 +76,7 @@
       "subscriptionUsage": "Subscription usage"
     },
     "title": "Desktop Settings",
-    "description": "Manage registered projects and view Desktop information.",
+    "description": "Appearance, AI providers, updates and Desktop-wide preferences.",
     "registeredProjects": "Registered Projects",
     "noProjects": "No projects registered yet",
     "techUrlDescription": "Base URL for the specrails-tech API (default: http://localhost:3000)",
@@ -97,13 +97,19 @@
     "platformTour": "Platform Tour",
     "platformTourDescription": "Replay the welcome wizard to review key features.",
     "replayTour": "Replay Tour",
-    "terminalPanelHeading": "Terminal Panel",
     "infoHeading": "Desktop Information",
     "infoPort": "Port",
     "infoProjects": "Projects",
     "infoDb": "Desktop DB",
     "removeProjectConfirmTitle": "Remove {{name}}?",
-    "removeProjectConfirmBody": "{{name}} is unregistered from Specrails and its running work stops. The repository files on disk are not deleted; you can add the folder again later."
+    "removeProjectConfirmBody": "{{name}} is unregistered from Specrails and its running work stops. The repository files on disk are not deleted; you can add the folder again later.",
+    "navLabel": "Settings sections",
+    "navGroups": {
+      "personal": "Personal",
+      "agents": "Agents",
+      "system": "System"
+    },
+    "unsavedChanges": "Unsaved changes"
   },
   "notifications": {
     "heading": "OS Notifications",
@@ -122,8 +128,6 @@
     "eventJobCompleted": "Job completed",
     "eventJobFailed": "Job failed",
     "eventDailyBudgetExceeded": "Daily budget exceeded",
-    "statusOn": "on",
-    "statusOff": "off",
     "disable": "Disable",
     "enable": "Enable",
     "sendTestPing": "Send test ping",
@@ -140,7 +144,8 @@
     "testPingSent": "Test ping sent",
     "testPingFailed": "Failed to send test ping",
     "removeConfirmTitle": "Remove webhook?",
-    "removeConfirmBody": "{{url}} will stop receiving Desktop events."
+    "removeConfirmBody": "{{url}} will stop receiving Desktop events.",
+    "urlLabel": "Webhook URL"
   },
   "terminal": {
     "title": "Terminal panel",
@@ -236,10 +241,7 @@
     "affectsAll": "Applies to all projects — no restart needed.",
     "unavailable": "Core updates aren't available in this build.",
     "toastDone": "Specrails Core updated to {{version}}",
-    "toastError": "Core update failed: {{message}}",
     "toastUpToDate": "Specrails Core is up to date",
-    "toastCheckFailed": "Update check failed: {{message}}",
-    "loadFailed": "Could not refresh Core status. Retry",
     "runtime": "Runtime: {{version}}",
     "bundled": "Included in Desktop: {{version}}",
     "sources": {
@@ -250,7 +252,10 @@
       "global": "External CLI"
     },
     "repair": "Finish updating {{version}}",
-    "stableFallback": "specrails-core has no stable release yet, so Core follows Latest for now."
+    "stableFallback": "specrails-core has no stable release yet, so Core follows Latest for now.",
+    "updateFailed": "Core update failed",
+    "checkFailed": "Update check failed",
+    "loadError": "Could not refresh Core status."
   },
   "updateChannel": {
     "heading": "Update channel",
@@ -282,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — Settings",
-    "description": "Project-level configuration: prompts, branch, environment, budget, telemetry and terminal.",
+    "description": "Project-level configuration: prompts, branch, environment, budget, telemetry, rules and terminal.",
     "nav": {
       "general": "General",
       "branch": "Branch",
@@ -293,7 +298,8 @@
       "agentRuntime": "Verification commands",
       "subagents": "Sub-agents",
       "rules": "Rules"
-    }
+    },
+    "navLabel": "Project settings sections"
   },
   "integrationBranch": {
     "title": "Integration branch",

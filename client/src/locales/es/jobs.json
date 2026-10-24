@@ -102,7 +102,9 @@
       "sendFailed": "No se pudo enviar el mensaje",
       "wrapUpScheduled": "Terminando el job…",
       "wrapUpStepScheduled": "Cerrando el paso — el loop avanza con lo que ha producido"
-    }
+    },
+    "actionFailed": "No se pudo completar la acción",
+    "breadcrumbAria": "Ruta de navegación"
   },
   "statusPanel": {
     "inProgress": "Job en curso",
@@ -178,7 +180,7 @@
   "comparison": {
     "title": "Comparación de jobs",
     "jobN": "Job {{n}}",
-    "loadFailed": "No se pudo cargar la comparación: {{error}}",
+    "loadFailed": "No se pudo cargar la comparación. Inténtalo de nuevo.",
     "duration": "Duración",
     "cost": "Coste",
     "tokensOut": "Tokens de salida",
@@ -186,7 +188,8 @@
     "cacheRead": "Lectura de caché",
     "model": "Modelo",
     "phasesDone": "Fases completadas",
-    "betterValueHint": "Los resaltados en verde indican mejor valor"
+    "betterValueHint": "Los resaltados en verde indican mejor valor",
+    "loading": "Cargando comparación…"
   },
   "recent": {
     "emptyTitle": "Aún no hay jobs",
@@ -243,7 +246,9 @@
       "cleared_other": "{{count}} jobs eliminados",
       "clearFailed": "No se pudieron limpiar los jobs",
       "networkError": "Error de red"
-    }
+    },
+    "emptyCta": "Abrir el tablero de specs",
+    "loading": "Cargando jobs…"
   },
   "activeJob": {
     "none": "Ningún job activo",

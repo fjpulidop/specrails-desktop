@@ -75,7 +75,7 @@
   },
   "git": {
     "branch": "Branch",
-    "detached": "(detached)",
+    "detached": "(losgelöst)",
     "dirty": "Nicht committete Änderungen",
     "switched": "Zu {{branch}} gewechselt",
     "switchFailed": "Branch-Wechsel fehlgeschlagen",
@@ -597,10 +597,10 @@
     "heading": "Rail-Start",
     "rail": "Rail {{index}}",
     "newRail": "Neuer Rail",
-    "play": "Play",
+    "play": "Starten",
     "launching": "Wird gestartet…",
     "dismiss": "Verwerfen",
-    "playHint": "Passe alles nach Bedarf an und drücke dann Play, um den Start unter deiner eigenen Verantwortung auszulösen.",
+    "playHint": "Passe alles nach Bedarf an und drücke dann Starten, um den Start unter deiner eigenen Verantwortung auszulösen.",
     "pending": "Startvorschlag wird vorbereitet…",
     "unreadable_one": "Der Startvorschlag des Agenten konnte nicht gelesen werden.",
     "unreadable_other": "{{count}} Startvorschläge konnten nicht gelesen werden.",
@@ -967,7 +967,7 @@
           "hintExisting": "Baut diese Spec gemeinsam auf einem eigenen Flow-Branch; die Spec wird aus dem Gebauten neu geschrieben."
         },
         "implement": {
-          "title": "Spec + Implement",
+          "title": "Spec + umsetzen",
           "hint": "Zuerst eine Spec vereinbaren, dann an einen Rail delegieren.",
           "hintExisting": "Übergib diese Spec, wie sie geschrieben ist, an eine Rail."
         }
@@ -1301,5 +1301,11 @@
     "mission": "Mission",
     "board": "Board",
     "current": "Aktueller Modus: {{mode}}. Klicken zum Wechseln."
+  },
+  "errors": {
+    "sendFailed": "Die Nachricht konnte nicht gesendet werden.",
+    "stopFailed": "Der Agent konnte nicht gestoppt werden.",
+    "mcpEnableFailed": "MCP konnte nicht aktiviert werden.",
+    "removeAttachmentFailed": "Der Anhang konnte nicht entfernt werden."
   }
 }

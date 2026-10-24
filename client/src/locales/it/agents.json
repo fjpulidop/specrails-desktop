@@ -65,7 +65,7 @@
       "body": "I ruoli base (architect, developer, reviewer) sono definiti dal runtime di specrails-core e non richiedono installazione. Crea un agente custom per ampliare il tuo team."
     },
     "actions": {
-      "template": "Template",
+      "template": "Modello",
       "templateTitle": "Parti da un template",
       "generate": "Genera",
       "generateWithClaude": "Genera con Claude",
@@ -80,7 +80,7 @@
     "sections": {
       "upstream": "Upstream ({{count}})",
       "upstreamDescription": "Ruoli base definiti dal runtime di specrails-core; sola lettura.",
-      "custom": "Custom ({{count}})",
+      "custom": "Personalizzati ({{count}})",
       "customDescription": "I file custom-*.md del tuo progetto. Usa Template / Genera / Vuoto qui sopra per crearne uno.",
       "noCustomAgents": "Ancora nessun agente custom."
     },
@@ -94,7 +94,7 @@
     },
     "kind": {
       "upstream": "upstream",
-      "custom": "custom"
+      "custom": "personalizzato"
     }
   },
   "profiles": {

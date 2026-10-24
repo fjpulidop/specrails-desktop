@@ -32,10 +32,11 @@
     "all": "Todo",
     "engine": "Motor",
     "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Error al cargar: {{error}}",
+    "failedToLoad": "No se pudieron cargar las analíticas. Inténtalo de nuevo.",
     "modelChip": "Modelo: {{model}}",
     "clearModelFilter": "Quitar filtro de modelo",
-    "localEngine": "local"
+    "localEngine": "local",
+    "moreBreakdowns": "Más desgloses"
   },
   "hero": {
     "spending": "Gasto",
@@ -170,7 +171,7 @@
   "desktop": {
     "title": "Analíticas de Desktop",
     "refreshAria": "Actualizar analíticas",
-    "failedToLoad": "No se pudieron cargar las analíticas: {{error}}",
+    "failedToLoad": "No se pudieron cargar las analíticas de Desktop. Prueba a actualizar.",
     "totalCost": "Coste total",
     "costToday": "{{value}} hoy",
     "costTodayUnavailable": "coste no disponible hoy",
@@ -193,8 +194,6 @@
     "includesEstimatedTooltip": "Incluye {{amount}} de coste estimado por tabla de precios (codex/gemini), no facturado por el proveedor.",
     "includesEstimatedShort": "incl. estimado",
     "timelineEstimatedTooltip": "Algunos días incluyen coste estimado por tabla de precios (codex/gemini) marcado con ~.",
-    "estimatedBadge": "est.",
-    "projectEstimatedTooltip": "{{amount}} del coste de este proyecto es una estimación por tabla de precios (codex/gemini), no facturado por el proveedor.",
     "statusBarEstimatedTooltip": "Incluye coste estimado por tabla de precios (codex/gemini), no facturado por el proveedor.",
     "costUnavailable": "Hay invocaciones registradas, pero la telemetría de coste no está disponible.",
     "costUnavailableShort": "no disponible",

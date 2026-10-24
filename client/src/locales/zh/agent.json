@@ -597,10 +597,10 @@
     "heading": "Rail 启动",
     "rail": "Rail {{index}}",
     "newRail": "新建 Rail",
-    "play": "Play",
+    "play": "启动",
     "launching": "正在启动…",
     "dismiss": "忽略",
-    "playHint": "随意调整后，按 Play 以你自己的授权启动。",
+    "playHint": "随意调整后，按“启动”以你自己的授权启动。",
     "pending": "正在准备启动提案…",
     "unreadable_one": "无法读取代理的启动提案。",
     "unreadable_other": "无法读取 {{count}} 个启动提案。",
@@ -967,7 +967,7 @@
           "hintExisting": "在独立的 Flow 分支上一起构建该规格；规格会根据所构建的内容重写。"
         },
         "implement": {
-          "title": "Spec + Implement",
+          "title": "Spec + 实现",
           "hint": "先确定 spec，再交给轨道执行。",
           "hintExisting": "按现有内容将该规格交给轨道。"
         }
@@ -1301,5 +1301,11 @@
     "mission": "任务",
     "board": "看板",
     "current": "当前模式：{{mode}}。点击切换。"
+  },
+  "errors": {
+    "sendFailed": "无法发送消息。",
+    "stopFailed": "无法停止智能体。",
+    "mcpEnableFailed": "无法启用 MCP。",
+    "removeAttachmentFailed": "无法移除附件。"
   }
 }

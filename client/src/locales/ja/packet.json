@@ -11,7 +11,8 @@
     "partial": "{{total}} 件のうち {{succeeded}} 件が完了",
     "noChanges": "変更は不要でした",
     "failed": "完了できませんでした",
-    "failedPartial": "一部しか完了できませんでした"
+    "failedPartial": "一部しか完了できませんでした",
+    "generic": "納品された変更を確認してください"
   },
   "confidence": {
     "pill": "AI レビュアーの確信度 {{overall}}/100",

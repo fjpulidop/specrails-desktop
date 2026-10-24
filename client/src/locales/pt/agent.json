@@ -75,7 +75,7 @@
   },
   "git": {
     "branch": "Branch",
-    "detached": "(detached)",
+    "detached": "(desanexado)",
     "dirty": "Alterações sem commit",
     "switched": "Mudou para {{branch}}",
     "switchFailed": "Não foi possível trocar de branch",
@@ -597,10 +597,10 @@
     "heading": "Lançamento de rail",
     "rail": "Rail {{index}}",
     "newRail": "Novo rail",
-    "play": "Play",
+    "play": "Lançar",
     "launching": "A lançar…",
     "dismiss": "Descartar",
-    "playHint": "Ajuste o que quiser e depois prima Play para lançar sob a sua própria autoridade.",
+    "playHint": "Ajuste o que quiser e depois prima Lançar para lançar sob a sua própria autoridade.",
     "pending": "A preparar uma proposta de lançamento…",
     "unreadable_one": "Não foi possível ler a proposta de lançamento do agente.",
     "unreadable_other": "Não foi possível ler {{count}} propostas de lançamento.",
@@ -967,7 +967,7 @@
           "hintExisting": "Construam esta spec juntos em um branch Flow separado; a spec é reescrita a partir do que for construído."
         },
         "implement": {
-          "title": "Spec + Implement",
+          "title": "Spec + implementar",
           "hint": "Combine primeiro uma spec com o agente e depois passe-a a um rail.",
           "hintExisting": "Delegue esta spec, como está escrita, a um rail."
         }
@@ -1301,5 +1301,11 @@
     "mission": "Missão",
     "board": "Quadro",
     "current": "Modo atual: {{mode}}. Clique para mudar."
+  },
+  "errors": {
+    "sendFailed": "Não foi possível enviar a mensagem.",
+    "stopFailed": "Não foi possível parar o agente.",
+    "mcpEnableFailed": "Não foi possível ativar o MCP.",
+    "removeAttachmentFailed": "Não foi possível remover o anexo."
   }
 }

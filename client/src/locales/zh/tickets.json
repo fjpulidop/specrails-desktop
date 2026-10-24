@@ -62,8 +62,8 @@
     "populated": "已填充 {{n}}/5"
   },
   "rail": {
-    "moveToRail": "放入 Rail",
-    "removeFromRail": "从 Rail 移除",
+    "moveToRail": "放入 rail",
+    "removeFromRail": "从 rail 移除",
     "currentlyOn": "当前位于 {{rail}}",
     "popoverTitle": "放入 rail",
     "noRails": "没有可用的 rail。"

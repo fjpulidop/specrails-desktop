@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} of {{total}} changes are ready",
     "noChanges": "Nothing needed changing",
     "failed": "This could not be completed",
-    "failedPartial": "Only part of this could be completed"
+    "failedPartial": "Only part of this could be completed",
+    "generic": "Review the delivered change"
   },
   "confidence": {
     "pill": "AI reviewer confidence {{overall}}/100",

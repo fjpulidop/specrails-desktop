@@ -37,7 +37,8 @@
     "manualPlaceholder": "PROJ",
     "selected": "{{key}} — {{name}}",
     "none": "プロジェクトが見つかりません",
-    "loading": "プロジェクトを読み込み中…"
+    "loading": "プロジェクトを読み込み中…",
+    "search": "検索"
   },
   "mapping": {
     "intro": "ステータスはカテゴリ（To Do / 進行中 / 完了）で自動的に対応付けられます。ワークフローが独自の名前を使う場合は上書きできます。",

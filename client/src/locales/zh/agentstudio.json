@@ -2,7 +2,6 @@
   "studio": {
     "loadingAgent": "正在加载 Agent…",
     "modeCreate": "新建自定义 Agent",
-    "modeEdit": "编辑自定义 Agent",
     "create": "创建",
     "unsaved": "● 未保存",
     "resumeAiEdit": "继续 AI 编辑",
@@ -60,7 +59,8 @@
       "empty": "此 Agent 暂无历史版本记录。",
       "restoreHint": "点击某个版本可将其内容恢复到编辑器中（仍需手动保存）。"
     },
-    "idLabel": "Agent ID"
+    "idLabel": "智能体 ID",
+    "defaultDescription": "简要说明何时使用此智能体。"
   },
   "refine": {
     "eyebrow": "AI 编辑",

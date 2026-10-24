@@ -93,7 +93,9 @@
   },
   "errorBoundary": {
     "title": "問題が発生しました",
-    "occurredIn": "<strong>{{name}}</strong> でエラーが発生しました"
+    "occurredIn": "<strong>{{name}}</strong> でエラーが発生しました",
+    "description": "この画面が動作しなくなりました。再試行すると再読み込みされます。他の作業には影響しません。",
+    "details": "技術的な詳細"
   },
   "healthWidget": {
     "healthLabel": "ヘルス",
@@ -130,5 +132,6 @@
     "active": "自動スリープを防止します。画面は消灯できます。",
     "inactive": "通常のスリープを許可します。",
     "failed": "スリープ設定を変更できませんでした。"
-  }
+  },
+  "skipToContent": "メインコンテンツへスキップ"
 }

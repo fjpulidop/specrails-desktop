@@ -50,7 +50,7 @@
     "proposalDeleteFailed": "无法删除提案，请重试。"
   },
   "detail": {
-    "breadcrumbDashboard": "Dashboard",
+    "breadcrumbDashboard": "仪表盘",
     "breadcrumbJob": "任务 #{{id}}",
     "notFound": "未找到任务",
     "notFoundDescription": "任务 ID“{{id}}”不存在",
@@ -102,7 +102,9 @@
       "sendFailed": "发送消息失败",
       "wrapUpScheduled": "正在收尾任务…",
       "wrapUpStepScheduled": "正在结算步骤 — 循环将带着已有产出继续"
-    }
+    },
+    "actionFailed": "无法完成该操作",
+    "breadcrumbAria": "面包屑导航"
   },
   "statusPanel": {
     "inProgress": "任务进行中",
@@ -178,7 +180,7 @@
   "comparison": {
     "title": "任务对比",
     "jobN": "任务 {{n}}",
-    "loadFailed": "加载对比失败：{{error}}",
+    "loadFailed": "无法加载对比，请重试。",
     "duration": "时长",
     "cost": "成本",
     "tokensOut": "输出 token",
@@ -186,7 +188,8 @@
     "cacheRead": "缓存读取",
     "model": "模型",
     "phasesDone": "完成阶段数",
-    "betterValueHint": "绿色高亮表示更优值"
+    "betterValueHint": "绿色高亮表示更优值",
+    "loading": "正在加载对比…"
   },
   "recent": {
     "emptyTitle": "暂无任务",
@@ -243,7 +246,9 @@
       "cleared_other": "已清除 {{count}} 个任务",
       "clearFailed": "清除任务失败",
       "networkError": "网络错误"
-    }
+    },
+    "emptyCta": "打开规格看板",
+    "loading": "正在加载任务…"
   },
   "activeJob": {
     "none": "没有进行中的任务",

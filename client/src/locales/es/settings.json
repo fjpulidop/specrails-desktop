@@ -76,7 +76,7 @@
       "subscriptionUsage": "Uso de suscripciones"
     },
     "title": "Ajustes de Desktop",
-    "description": "Gestiona los proyectos registrados y consulta la información de Desktop.",
+    "description": "Apariencia, proveedores de IA, actualizaciones y preferencias generales de Desktop.",
     "registeredProjects": "Proyectos registrados",
     "noProjects": "Aún no hay proyectos registrados",
     "techUrlDescription": "URL base de la API de specrails-tech (por defecto: http://localhost:3000)",
@@ -97,13 +97,19 @@
     "platformTour": "Tour de la plataforma",
     "platformTourDescription": "Vuelve a ver el asistente de bienvenida para repasar las funciones clave.",
     "replayTour": "Repetir tour",
-    "terminalPanelHeading": "Panel de terminal",
     "infoHeading": "Información de Desktop",
     "infoPort": "Puerto",
     "infoProjects": "Proyectos",
     "infoDb": "BD de Desktop",
     "removeProjectConfirmTitle": "¿Quitar {{name}}?",
-    "removeProjectConfirmBody": "{{name}} se elimina del registro de Specrails y su trabajo en curso se detiene. Los archivos del repositorio en disco no se borran; puedes volver a añadir la carpeta más tarde."
+    "removeProjectConfirmBody": "{{name}} se elimina del registro de Specrails y su trabajo en curso se detiene. Los archivos del repositorio en disco no se borran; puedes volver a añadir la carpeta más tarde.",
+    "navLabel": "Secciones de ajustes",
+    "navGroups": {
+      "personal": "Personal",
+      "agents": "Agentes",
+      "system": "Sistema"
+    },
+    "unsavedChanges": "Cambios sin guardar"
   },
   "notifications": {
     "heading": "Notificaciones del sistema",
@@ -122,8 +128,6 @@
     "eventJobCompleted": "Job completado",
     "eventJobFailed": "Job fallido",
     "eventDailyBudgetExceeded": "Presupuesto diario superado",
-    "statusOn": "on",
-    "statusOff": "off",
     "disable": "Desactivar",
     "enable": "Activar",
     "sendTestPing": "Enviar ping de prueba",
@@ -140,7 +144,8 @@
     "testPingSent": "Ping de prueba enviado",
     "testPingFailed": "No se pudo enviar el ping de prueba",
     "removeConfirmTitle": "¿Eliminar el webhook?",
-    "removeConfirmBody": "{{url}} dejará de recibir eventos de Desktop."
+    "removeConfirmBody": "{{url}} dejará de recibir eventos de Desktop.",
+    "urlLabel": "URL del webhook"
   },
   "terminal": {
     "title": "Panel de terminal",
@@ -236,10 +241,7 @@
     "affectsAll": "Afecta a todos los proyectos — sin reiniciar.",
     "unavailable": "Las actualizaciones del core no están disponibles en esta versión.",
     "toastDone": "Specrails Core actualizado a {{version}}",
-    "toastError": "Error al actualizar el core: {{message}}",
     "toastUpToDate": "Specrails Core está actualizado",
-    "toastCheckFailed": "Error al comprobar actualizaciones: {{message}}",
-    "loadFailed": "No se pudo actualizar el estado de Core. Reintentar",
     "runtime": "Motor: {{version}}",
     "bundled": "Incluido en Desktop: {{version}}",
     "sources": {
@@ -250,7 +252,10 @@
       "global": "CLI externo"
     },
     "repair": "Completar actualización {{version}}",
-    "stableFallback": "specrails-core aún no tiene versión estable, así que Core sigue Última por ahora."
+    "stableFallback": "specrails-core aún no tiene versión estable, así que Core sigue Última por ahora.",
+    "updateFailed": "No se pudo actualizar Core",
+    "checkFailed": "No se pudo buscar actualizaciones",
+    "loadError": "No se pudo actualizar el estado de Core."
   },
   "updateChannel": {
     "heading": "Canal de actualización",
@@ -282,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — Ajustes",
-    "description": "Configuración del proyecto: prompts, rama base, entorno, presupuesto, telemetría y terminal.",
+    "description": "Configuración del proyecto: prompts, rama base, entorno, presupuesto, telemetría, reglas y terminal.",
     "nav": {
       "general": "General",
       "branch": "Rama base",
@@ -293,7 +298,8 @@
       "agentRuntime": "Comandos de verificación",
       "subagents": "Sub-agentes",
       "rules": "Reglas"
-    }
+    },
+    "navLabel": "Secciones de ajustes del proyecto"
   },
   "integrationBranch": {
     "title": "Rama de integración",

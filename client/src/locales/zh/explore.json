@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · 交互式",
     "backAriaLabel": "返回 (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · 交互式",
-    "editingEyebrow": "编辑 SPEC · #{{id}}",
     "newSpecPlaceholder": "新建 Spec…",
     "contextPill": "上下文：{{scopes}}",
     "contextPillTitle": "当前 Explore 会话的上下文范围",
@@ -89,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "审阅更改",
-    "eyebrow": "审阅更改 · explore-spec",
     "heading": "提交前确认",
     "titleLabel": "标题",
     "priorityLabel": "优先级",

@@ -2,7 +2,6 @@
   "studio": {
     "loadingAgent": "Agent wird geladen…",
     "modeCreate": "Neuer Custom-Agent",
-    "modeEdit": "Custom-Agent bearbeiten",
     "create": "Erstellen",
     "unsaved": "● ungespeichert",
     "resumeAiEdit": "AI Edit fortsetzen",
@@ -60,7 +59,8 @@
       "empty": "Keine früheren Versionen für diesen Agent vorhanden.",
       "restoreHint": "Klicken Sie auf eine Version, um ihren Inhalt in den Editor zu übernehmen (Speichern ist weiterhin nötig)."
     },
-    "idLabel": "Agenten-ID"
+    "idLabel": "Agenten-ID",
+    "defaultDescription": "Kurze Beschreibung, wann dieser Agent eingesetzt wird."
   },
   "refine": {
     "eyebrow": "AI Edit",
@@ -104,7 +104,7 @@
       "emptyCatalog": "Keine weiteren Agenten im Katalog. Fügen Sie Custom-Agenten über den Tab „Agenten-Katalog“ hinzu.",
       "kind": {
         "upstream": "upstream",
-        "custom": "custom"
+        "custom": "benutzerdefiniert"
       }
     },
     "routing": {

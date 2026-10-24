@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · interativo",
     "backAriaLabel": "Voltar (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · interativo",
-    "editingEyebrow": "A EDITAR SPEC · #{{id}}",
     "newSpecPlaceholder": "Nova spec…",
     "contextPill": "Contexto: {{scopes}}",
     "contextPillTitle": "Âmbito de contexto ativo nesta sessão de Explore",
@@ -89,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "Rever alterações",
-    "eyebrow": "Rever alterações · explore-spec",
     "heading": "Confirmar antes de submeter",
     "titleLabel": "Título",
     "priorityLabel": "Prioridade",

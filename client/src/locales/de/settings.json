@@ -76,7 +76,7 @@
       "subscriptionUsage": "Abonnementnutzung"
     },
     "title": "Desktop-Einstellungen",
-    "description": "Registrierte Projekte verwalten und Desktop-Informationen einsehen.",
+    "description": "Darstellung, KI-Anbieter, Updates und Desktop-weite Einstellungen.",
     "registeredProjects": "Registrierte Projekte",
     "noProjects": "Noch keine Projekte registriert",
     "techUrlDescription": "Basis-URL für die specrails-tech-API (Standard: http://localhost:3000)",
@@ -97,13 +97,19 @@
     "platformTour": "Plattform-Tour",
     "platformTourDescription": "Den Willkommensassistenten erneut abspielen, um die wichtigsten Funktionen zu sehen.",
     "replayTour": "Tour erneut abspielen",
-    "terminalPanelHeading": "Terminal-Panel",
     "infoHeading": "Desktop-Informationen",
     "infoPort": "Port",
     "infoProjects": "Projekte",
     "infoDb": "Desktop-DB",
     "removeProjectConfirmTitle": "{{name}} entfernen?",
-    "removeProjectConfirmBody": "{{name}} wird aus Specrails abgemeldet und laufende Arbeit wird gestoppt. Die Repository-Dateien auf der Festplatte werden nicht gelöscht; du kannst den Ordner später erneut hinzufügen."
+    "removeProjectConfirmBody": "{{name}} wird aus Specrails abgemeldet und laufende Arbeit wird gestoppt. Die Repository-Dateien auf der Festplatte werden nicht gelöscht; du kannst den Ordner später erneut hinzufügen.",
+    "navLabel": "Einstellungsbereiche",
+    "navGroups": {
+      "personal": "Persönlich",
+      "agents": "Agenten",
+      "system": "System"
+    },
+    "unsavedChanges": "Ungespeicherte Änderungen"
   },
   "notifications": {
     "heading": "OS-Benachrichtigungen",
@@ -122,8 +128,6 @@
     "eventJobCompleted": "Job abgeschlossen",
     "eventJobFailed": "Job fehlgeschlagen",
     "eventDailyBudgetExceeded": "Tagesbudget überschritten",
-    "statusOn": "an",
-    "statusOff": "aus",
     "disable": "Deaktivieren",
     "enable": "Aktivieren",
     "sendTestPing": "Test-Ping senden",
@@ -140,7 +144,8 @@
     "testPingSent": "Test-Ping gesendet",
     "testPingFailed": "Test-Ping konnte nicht gesendet werden",
     "removeConfirmTitle": "Webhook entfernen?",
-    "removeConfirmBody": "{{url}} erhält keine Desktop-Ereignisse mehr."
+    "removeConfirmBody": "{{url}} erhält keine Desktop-Ereignisse mehr.",
+    "urlLabel": "Webhook-URL"
   },
   "terminal": {
     "title": "Terminal-Panel",
@@ -236,10 +241,7 @@
     "affectsAll": "Gilt für alle Projekte — kein Neustart nötig.",
     "unavailable": "Core-Updates sind in diesem Build nicht verfügbar.",
     "toastDone": "Specrails Core auf {{version}} aktualisiert",
-    "toastError": "Core-Update fehlgeschlagen: {{message}}",
     "toastUpToDate": "Specrails Core ist aktuell",
-    "toastCheckFailed": "Update-Prüfung fehlgeschlagen: {{message}}",
-    "loadFailed": "Core-Status konnte nicht geladen werden. Erneut versuchen",
     "runtime": "Laufzeit: {{version}}",
     "bundled": "In Desktop enthalten: {{version}}",
     "sources": {
@@ -250,7 +252,10 @@
       "global": "Externe CLI"
     },
     "repair": "Update auf {{version}} abschließen",
-    "stableFallback": "specrails-core hat noch keine stabile Version, daher folgt Core vorerst Neueste."
+    "stableFallback": "specrails-core hat noch keine stabile Version, daher folgt Core vorerst Neueste.",
+    "updateFailed": "Core-Update fehlgeschlagen",
+    "checkFailed": "Update-Prüfung fehlgeschlagen",
+    "loadError": "Core-Status konnte nicht aktualisiert werden."
   },
   "updateChannel": {
     "heading": "Update-Kanal",
@@ -282,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — Einstellungen",
-    "description": "Projektkonfiguration: Prompts, Branch, Umgebung, Budget, Telemetrie und Terminal.",
+    "description": "Projektkonfiguration: Prompts, Branch, Umgebung, Budget, Telemetrie, Regeln und Terminal.",
     "nav": {
       "general": "Allgemein",
       "branch": "Branch",
@@ -293,7 +298,8 @@
       "agentRuntime": "Verifikationsbefehle",
       "subagents": "Sub-Agenten",
       "rules": "Regeln"
-    }
+    },
+    "navLabel": "Bereiche der Projekteinstellungen"
   },
   "integrationBranch": {
     "title": "Integrationszweig",

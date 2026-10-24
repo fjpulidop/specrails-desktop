@@ -62,7 +62,10 @@
     "categoryCount_one": "{{count}} catégorie",
     "categoryCount_other": "{{count}} catégories",
     "summary": "{{documents}} répartis dans {{categories}}.",
-    "loadError": "Échec du chargement du document"
+    "loadError": "Impossible de charger ce document.",
+    "loading": "Chargement de la documentation…",
+    "errorDetails": "Détails",
+    "navLabel": "Sections de la documentation"
   },
   "jiraCard": {
     "title": "Jira",
@@ -85,23 +88,25 @@
       "subtitle": "Outils globaux et intégrations de projet, gérés au même endroit.",
       "readyCount_one": "{{count}} prêt",
       "readyCount_other": "{{count}} prêts",
-      "openWindow": "Ouvrir dans une fenêtre"
+      "openWindow": "Ouvrir dans une fenêtre",
+      "openWindowFailed": "Impossible d’ouvrir la fenêtre des plugins"
     },
     "search": {
       "placeholder": "Rechercher des plugins"
     },
     "filters": {
-      "all": "tous",
-      "global": "globaux",
-      "project": "projet"
+      "all": "Tous",
+      "global": "Globaux",
+      "project": "Projet",
+      "label": "Portée"
     },
     "sections": {
       "installed": "Installés",
       "available": "Disponibles"
     },
     "scope": {
-      "global": "global",
-      "project": "projet"
+      "global": "Global",
+      "project": "Projet"
     },
     "groups": {
       "global": {
@@ -121,10 +126,12 @@
     },
     "actions": {
       "install": "Installer",
-      "installing": "Installation",
       "manage": "Gérer",
       "review": "Examiner",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "installBusy": "Installation…",
+      "configureBusy": "Configuration…",
+      "reviewBusy": "Vérification…"
     },
     "status": {
       "attention": "attention requise",

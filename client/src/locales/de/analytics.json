@@ -32,10 +32,11 @@
     "all": "Alle",
     "engine": "Engine",
     "ticketChip": "Ticket #{{id}} ·  ✕",
-    "failedToLoad": "Laden fehlgeschlagen: {{error}}",
+    "failedToLoad": "Analysen konnten nicht geladen werden. Versuche es erneut.",
     "modelChip": "Modell: {{model}}",
     "clearModelFilter": "Modellfilter zurücksetzen",
-    "localEngine": "lokal"
+    "localEngine": "lokal",
+    "moreBreakdowns": "Weitere Aufschlüsselungen"
   },
   "hero": {
     "spending": "Ausgaben",
@@ -132,7 +133,7 @@
     "failed": "Fehlgeschlagen",
     "aborted": "Abgebrochen",
     "empty": "Keine Aufrufe entsprechen den aktuellen Filtern.",
-    "colSurface": "Surface",
+    "colSurface": "Oberfläche",
     "colTicket": "Ticket",
     "colCost": "Kosten",
     "colTurns": "Turns",
@@ -170,7 +171,7 @@
   "desktop": {
     "title": "Desktop-Analytics",
     "refreshAria": "Analytics aktualisieren",
-    "failedToLoad": "Analytics konnten nicht geladen werden: {{error}}",
+    "failedToLoad": "Desktop-Analysen konnten nicht geladen werden. Versuche zu aktualisieren.",
     "totalCost": "Gesamtkosten",
     "costToday": "{{value}} heute",
     "costTodayUnavailable": "Kosten heute nicht verfügbar",
@@ -193,8 +194,6 @@
     "includesEstimatedTooltip": "Enthält {{amount}} geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "includesEstimatedShort": "inkl. geschätzt",
     "timelineEstimatedTooltip": "Einige Tage enthalten geschätzte Kosten aus der Preistabelle (codex/gemini), markiert mit ~.",
-    "estimatedBadge": "gesch.",
-    "projectEstimatedTooltip": "{{amount}} der Kosten dieses Projekts sind eine Schätzung aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "statusBarEstimatedTooltip": "Enthält geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "costUnavailable": "Aufrufe wurden erfasst, aber die Kostentelemetrie ist nicht verfügbar.",
     "costUnavailableShort": "nicht verfügbar",

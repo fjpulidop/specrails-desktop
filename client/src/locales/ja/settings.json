@@ -76,7 +76,7 @@
       "subscriptionUsage": "サブスクリプション使用量"
     },
     "title": "Desktop 設定",
-    "description": "登録済みプロジェクトの管理と Desktop 情報の表示。",
+    "description": "外観、AI プロバイダー、アップデート、Desktop 全体の設定。",
     "registeredProjects": "登録済みプロジェクト",
     "noProjects": "登録されたプロジェクトはまだありません",
     "techUrlDescription": "specrails-tech API のベース URL（デフォルト: http://localhost:3000）",
@@ -97,13 +97,19 @@
     "platformTour": "プラットフォームツアー",
     "platformTourDescription": "ウェルカムウィザードを再生して主要機能を確認します。",
     "replayTour": "ツアーを再生",
-    "terminalPanelHeading": "ターミナルパネル",
     "infoHeading": "Desktop 情報",
     "infoPort": "ポート",
     "infoProjects": "プロジェクト",
     "infoDb": "Desktop DB",
     "removeProjectConfirmTitle": "{{name}} を削除しますか？",
-    "removeProjectConfirmBody": "{{name}} の Specrails への登録が解除され、実行中の作業は停止します。ディスク上のリポジトリのファイルは削除されません。後でフォルダーを再度追加できます。"
+    "removeProjectConfirmBody": "{{name}} の Specrails への登録が解除され、実行中の作業は停止します。ディスク上のリポジトリのファイルは削除されません。後でフォルダーを再度追加できます。",
+    "navLabel": "設定セクション",
+    "navGroups": {
+      "personal": "個人",
+      "agents": "エージェント",
+      "system": "システム"
+    },
+    "unsavedChanges": "未保存の変更"
   },
   "notifications": {
     "heading": "OS 通知",
@@ -122,8 +128,6 @@
     "eventJobCompleted": "ジョブ完了",
     "eventJobFailed": "ジョブ失敗",
     "eventDailyBudgetExceeded": "日次予算超過",
-    "statusOn": "オン",
-    "statusOff": "オフ",
     "disable": "無効化",
     "enable": "有効化",
     "sendTestPing": "テスト ping を送信",
@@ -140,7 +144,8 @@
     "testPingSent": "テスト ping を送信しました",
     "testPingFailed": "テスト ping の送信に失敗しました",
     "removeConfirmTitle": "Webhook を削除しますか？",
-    "removeConfirmBody": "{{url}} は Desktop のイベントを受信しなくなります。"
+    "removeConfirmBody": "{{url}} は Desktop のイベントを受信しなくなります。",
+    "urlLabel": "Webhook URL"
   },
   "terminal": {
     "title": "ターミナルパネル",
@@ -236,10 +241,7 @@
     "affectsAll": "すべてのプロジェクトに適用 — 再起動不要。",
     "unavailable": "このビルドではコアの更新は利用できません。",
     "toastDone": "Specrails Core を {{version}} に更新しました",
-    "toastError": "コアの更新に失敗しました: {{message}}",
     "toastUpToDate": "Specrails Core は最新です",
-    "toastCheckFailed": "更新の確認に失敗しました: {{message}}",
-    "loadFailed": "Core の状態を更新できませんでした。再試行",
     "runtime": "ランタイム: {{version}}",
     "bundled": "Desktop 同梱: {{version}}",
     "sources": {
@@ -250,7 +252,10 @@
       "global": "外部 CLI"
     },
     "repair": "{{version}} への更新を完了",
-    "stableFallback": "specrails-core にはまだ安定版がないため、Core は当面最新に従います。"
+    "stableFallback": "specrails-core にはまだ安定版がないため、Core は当面最新に従います。",
+    "updateFailed": "Core の更新に失敗しました",
+    "checkFailed": "アップデートの確認に失敗しました",
+    "loadError": "Core の状態を更新できませんでした。"
   },
   "updateChannel": {
     "heading": "アップデートチャネル",
@@ -282,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — 設定",
-    "description": "プロジェクト設定：プロンプト、ブランチ、環境、予算、テレメトリ、ターミナル。",
+    "description": "プロジェクト設定：プロンプト、ブランチ、環境、予算、テレメトリ、ルール、ターミナル。",
     "nav": {
       "general": "一般",
       "branch": "ブランチ",
@@ -293,7 +298,8 @@
       "agentRuntime": "検証コマンド",
       "subagents": "サブエージェント",
       "rules": "ルール"
-    }
+    },
+    "navLabel": "プロジェクト設定セクション"
   },
   "integrationBranch": {
     "title": "統合ブランチ",

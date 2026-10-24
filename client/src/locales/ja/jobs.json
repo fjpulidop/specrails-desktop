@@ -35,7 +35,7 @@
     "proposal": {
       "title": "提案",
       "noContent": "提案の内容はまだありません。",
-      "githubIssue": "GitHub Issue:",
+      "githubIssue": "GitHub イシュー:",
       "status": {
         "input": "入力待ち",
         "exploring": "調査中",
@@ -102,7 +102,9 @@
       "sendFailed": "メッセージの送信に失敗しました",
       "wrapUpScheduled": "ジョブを切り上げ中…",
       "wrapUpStepScheduled": "ステップを確定中 — ループは産出済みの成果で先へ進みます"
-    }
+    },
+    "actionFailed": "操作を完了できませんでした",
+    "breadcrumbAria": "パンくずリスト"
   },
   "statusPanel": {
     "inProgress": "ジョブ実行中",
@@ -178,7 +180,7 @@
   "comparison": {
     "title": "ジョブ比較",
     "jobN": "ジョブ {{n}}",
-    "loadFailed": "比較の読み込みに失敗しました: {{error}}",
+    "loadFailed": "比較を読み込めませんでした。もう一度お試しください。",
     "duration": "実行時間",
     "cost": "コスト",
     "tokensOut": "出力トークン",
@@ -186,7 +188,8 @@
     "cacheRead": "キャッシュ読み取り",
     "model": "モデル",
     "phasesDone": "完了フェーズ",
-    "betterValueHint": "緑のハイライトはより良い値を示します"
+    "betterValueHint": "緑のハイライトはより良い値を示します",
+    "loading": "比較を読み込み中…"
   },
   "recent": {
     "emptyTitle": "ジョブはまだありません",
@@ -243,7 +246,9 @@
       "cleared_other": "{{count}} 件のジョブをクリアしました",
       "clearFailed": "ジョブのクリアに失敗しました",
       "networkError": "ネットワークエラー"
-    }
+    },
+    "emptyCta": "スペックボードを開く",
+    "loading": "ジョブを読み込み中…"
   },
   "activeJob": {
     "none": "アクティブなジョブはありません",

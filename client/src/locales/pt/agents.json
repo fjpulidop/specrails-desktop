@@ -65,7 +65,7 @@
       "body": "Os papéis base (architect, developer, reviewer) são definidos pelo runtime do specrails-core e não precisam de instalação. Crie um agente personalizado para ampliar a sua equipa."
     },
     "actions": {
-      "template": "Template",
+      "template": "Modelo",
       "templateTitle": "Começar a partir de um template",
       "generate": "Gerar",
       "generateWithClaude": "Gerar com o Claude",

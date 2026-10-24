@@ -96,6 +96,7 @@
       "invalid_body": "Fehlerhafte Anfrage"
     },
     "removeConfirmTitle": "{{name}} entfernen?",
-    "removeConfirmBody": "Der Missions-Agent lädt diesen Server für keinen Anbieter mehr. Ein erkannter Server bleibt in der Konfiguration deines KI-Anbieters und kann wieder aktiviert werden."
+    "removeConfirmBody": "Der Missions-Agent lädt diesen Server für keinen Anbieter mehr. Ein erkannter Server bleibt in der Konfiguration deines KI-Anbieters und kann wieder aktiviert werden.",
+    "formProviderToggle": "Für {{provider}} aktivieren"
   }
 }

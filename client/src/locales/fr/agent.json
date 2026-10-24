@@ -597,10 +597,10 @@
     "heading": "Lancement de rail",
     "rail": "Rail {{index}}",
     "newRail": "Nouveau rail",
-    "play": "Play",
+    "play": "Lancer",
     "launching": "Lancement…",
     "dismiss": "Ignorer",
-    "playHint": "Ajustez ce que vous voulez, puis appuyez sur Play pour lancer sous votre propre autorité.",
+    "playHint": "Ajustez ce que vous voulez, puis appuyez sur Lancer pour lancer sous votre propre autorité.",
     "pending": "Préparation d’une proposition de lancement…",
     "unreadable_one": "La proposition de lancement de l’agent n’a pas pu être lue.",
     "unreadable_other": "{{count}} propositions de lancement n’ont pas pu être lues.",
@@ -967,7 +967,7 @@
           "hintExisting": "Construisez cette spec ensemble sur une branche Flow à part ; la spec est réécrite à partir de ce qui est construit."
         },
         "implement": {
-          "title": "Spec + Implement",
+          "title": "Spec + implémenter",
           "hint": "Validez d’abord une spec, puis confiez-la à un rail.",
           "hintExisting": "Confiez cette spec, telle qu’elle est écrite, à un rail."
         }
@@ -1301,5 +1301,11 @@
     "mission": "Mission",
     "board": "Tableau",
     "current": "Mode actuel : {{mode}}. Cliquez pour changer."
+  },
+  "errors": {
+    "sendFailed": "Impossible d’envoyer le message.",
+    "stopFailed": "Impossible d’arrêter l’agent.",
+    "mcpEnableFailed": "Impossible d’activer MCP.",
+    "removeAttachmentFailed": "Impossible de retirer la pièce jointe."
   }
 }

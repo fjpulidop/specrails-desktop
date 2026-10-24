@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · interactive",
     "backAriaLabel": "Back (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · interactive",
-    "editingEyebrow": "EDITING SPEC · #{{id}}",
     "newSpecPlaceholder": "New spec…",
     "contextPill": "Context: {{scopes}}",
     "contextPillTitle": "Active context scope for this Explore session",
@@ -89,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "Review changes",
-    "eyebrow": "Review changes · explore-spec",
     "heading": "Confirm before commit",
     "titleLabel": "Title",
     "priorityLabel": "Priority",

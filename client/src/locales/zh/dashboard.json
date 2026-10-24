@@ -34,7 +34,9 @@
     "railWorktreesError": "Worktree 隔离失败 — 此次运行将在没有 PR 审查流程的情况下继续（无实施卡片）。请查看下方错误详情。",
     "onReviewCannotMoveToRail": "该 Spec 正在等待 PR 评审 — 请先处理 PR 决定",
     "onReviewNotLaunchable": "该 Rail 上有 Spec 正在等待 PR 评审，请先处理 PR 决定再启动。",
-    "launchRepositoryHasNoCommits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。"
+    "launchRepositoryHasNoCommits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。",
+    "railDeletePrPending": "{{rail}} 有待处理的 PR 决定，请先处理再移除该 rail",
+    "railDeleteLastRail": "项目至少需要一个 rail，无法移除此 rail"
   },
   "railPr": {
     "operation": {
@@ -242,7 +244,12 @@
     "dropHere": "拖放到此处",
     "dropOnThisRail": "拖放到此 Rail",
     "dragSpecsHere": "将 Spec 拖到此处",
-    "dragHandle": "调整 {{label}} 的顺序"
+    "dragHandle": "调整 {{label}} 的顺序",
+    "status": {
+      "idle": "空闲",
+      "running": "运行中",
+      "failed": "失败"
+    }
   },
   "freestyleDialog": {
     "title": "以 Freestyle 模式启动",

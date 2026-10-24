@@ -52,7 +52,7 @@
     "prerequisites": "Prerequisiti",
     "addLabel": "Aggiungi etichetta",
     "addLabelPlaceholder": "Aggiungi etichetta...",
-    "effort": "Effort",
+    "effort": "Impegno",
     "assignee": "Assegnatario",
     "continueEditing": "Continua a modificare",
     "ticketFallbackLabel": "Ticket #{{id}}"
