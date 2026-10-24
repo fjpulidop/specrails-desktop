@@ -62,9 +62,11 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
 export interface TicketStatusDotProps {
   status: TicketStatus
   className?: string
+  /** Set false to render the in-progress dot static (nothing is moving). */
+  pulsing?: boolean
 }
 
-export function TicketStatusDot({ status, className }: TicketStatusDotProps) {
+export function TicketStatusDot({ status, className, pulsing = true }: TicketStatusDotProps) {
   const { t } = useTranslation('specs')
   const cfg = STATUS_CONFIG[status]
 
@@ -86,7 +88,7 @@ export function TicketStatusDot({ status, className }: TicketStatusDotProps) {
     )
   }
 
-  if (cfg.pulsing) {
+  if (cfg.pulsing && pulsing) {
     return (
       <LiveDot
         size="md"

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { API_ORIGIN } from '../../../lib/origin'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { readProjectCache, writeProjectCache } from '../../../hooks/useProjectCache'
 import { isSpecGenInFlight } from '../lib/spec-gen-suppression'
 import type { LocalTicket } from '../../../types'
 
@@ -23,6 +24,7 @@ interface TicketWsMessage {
 }
 
 const GLOW_DURATION_MS = 3000
+const TICKETS_CACHE_NAMESPACE = 'tickets'
 const CONTRACT_LAYER_MARKER = '\n\n---\n\n## Contract Layer\n\n'
 
 function ticketsApiBase(projectId: string): string {
@@ -56,7 +58,12 @@ export function reconcileTickets(prev: LocalTicket[], fetched: LocalTicket[]): L
 export function useTickets() {
   const { t } = useTranslation('tickets')
   const { activeProjectId } = useDesktop()
-  const [tickets, setTickets] = useState<LocalTicket[]>([])
+  // Seed from the per-project cache so a remount / project switch shows the
+  // last known board instantly while the network revalidates.
+  const [tickets, setTickets] = useState<LocalTicket[]>(
+    () => readProjectCache<LocalTicket[]>(activeProjectId, TICKETS_CACHE_NAMESPACE) ?? [],
+  )
+  const ticketsOwnerRef = useRef<string | null>(activeProjectId)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [newTicketIds, setNewTicketIds] = useState<Set<number>>(new Set())
@@ -124,7 +131,9 @@ export function useTickets() {
       }
       knownIdsRef.current = new Set(fetched.map((ticket) => ticket.id))
       if (mode === 'replace') {
-        setTickets(fetched)
+        // Reconcile against any cached rows so a revalidation does not churn
+        // references (prev is [] on a cold load, so this equals a plain replace).
+        setTickets((prev) => reconcileTickets(prev, fetched))
       } else {
         // Reuse unchanged row references so a background refresh does not churn
         // every ticket card.
@@ -163,14 +172,24 @@ export function useTickets() {
     await loadTickets(activeProjectId, 'merge')
   }, [activeProjectId, loadTickets])
 
+  // Persist the live list per project. Declared BEFORE the switch effect so on a
+  // project change it still sees the previous owner and skips (no cross-project write).
+  useEffect(() => {
+    if (activeProjectId && ticketsOwnerRef.current === activeProjectId) {
+      writeProjectCache(activeProjectId, TICKETS_CACHE_NAMESPACE, tickets)
+    }
+  }, [tickets, activeProjectId])
+
   useEffect(() => {
     requestGenerationRef.current += 1
     activeFetchControllerRef.current?.abort()
     activeFetchControllerRef.current = null
-    setTickets([])
+    const cached = readProjectCache<LocalTicket[]>(activeProjectId, TICKETS_CACHE_NAMESPACE) ?? []
+    ticketsOwnerRef.current = activeProjectId
+    setTickets(cached)
     setLoading(false)
     setError(null)
-    knownIdsRef.current = new Set()
+    knownIdsRef.current = new Set(cached.map((ticket) => ticket.id))
     setNewTicketIds(new Set())
     setContractRefiningIds(new Set())
 

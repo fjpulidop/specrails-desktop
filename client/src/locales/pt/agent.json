@@ -1368,6 +1368,11 @@
   "missionHome": {
     "greeting": "O que deve ser entregue a seguir em {{project}}?",
     "greetingNoProject": "O que deve ser entregue a seguir?",
-    "status": "{{ready}} specs prontas · {{running}} em execução"
+    "statusTodo_one": "{{count}} a fazer",
+    "statusTodo_other": "{{count}} a fazer",
+    "statusReview_one": "{{count}} aguardando revisão",
+    "statusReview_other": "{{count}} aguardando revisão",
+    "statusRunning_one": "{{count}} em execução",
+    "statusRunning_other": "{{count}} em execução"
   }
 }

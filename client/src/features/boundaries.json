@@ -397,6 +397,7 @@
       "lib/spec-addenda-core.ts",
       "lib/spec-draft.ts",
       "lib/spec-sort.ts",
+      "lib/spec-status-filter.ts",
       "lib/spec-triage.ts",
       "lib/specs-view-tier.ts",
       "types/spec-sort.ts"

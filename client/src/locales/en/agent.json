@@ -1368,6 +1368,11 @@
   "missionHome": {
     "greeting": "What should ship next in {{project}}?",
     "greetingNoProject": "What should ship next?",
-    "status": "{{ready}} specs ready · {{running}} running"
+    "statusTodo_one": "{{count}} to do",
+    "statusTodo_other": "{{count}} to do",
+    "statusReview_one": "{{count}} waiting for review",
+    "statusReview_other": "{{count}} waiting for review",
+    "statusRunning_one": "{{count}} running",
+    "statusRunning_other": "{{count}} running"
   }
 }

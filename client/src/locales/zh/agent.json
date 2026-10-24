@@ -1368,6 +1368,11 @@
   "missionHome": {
     "greeting": "{{project}} 接下来要交付什么?",
     "greetingNoProject": "接下来要交付什么?",
-    "status": "{{ready}} 个规格就绪 · {{running}} 个运行中"
+    "statusTodo_one": "{{count}} 项待办",
+    "statusTodo_other": "{{count}} 项待办",
+    "statusReview_one": "{{count}} 项等待评审",
+    "statusReview_other": "{{count}} 项等待评审",
+    "statusRunning_one": "{{count}} 项运行中",
+    "statusRunning_other": "{{count}} 项运行中"
   }
 }

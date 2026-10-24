@@ -1368,6 +1368,11 @@
   "missionHome": {
     "greeting": "{{project}} で次に出荷するものは何ですか?",
     "greetingNoProject": "次に出荷するものは何ですか?",
-    "status": "{{ready}} 件のスペックが準備完了 · {{running}} 件実行中"
+    "statusTodo_one": "{{count}} 件が未着手",
+    "statusTodo_other": "{{count}} 件が未着手",
+    "statusReview_one": "{{count}} 件がレビュー待ち",
+    "statusReview_other": "{{count}} 件がレビュー待ち",
+    "statusRunning_one": "{{count}} 件実行中",
+    "statusRunning_other": "{{count}} 件実行中"
   }
 }

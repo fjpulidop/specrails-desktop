@@ -60,11 +60,11 @@ const SEGMENT_BASE =
 const SEGMENT_SELECTED = 'bg-background text-foreground shadow-sm ring-1 ring-border/70'
 const SEGMENT_IDLE = 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
 
-function StatusDot({ value }: { value: SpecStatusFilterValue }) {
+function StatusDot({ value, pulsing = true }: { value: SpecStatusFilterValue; pulsing?: boolean }) {
   if (!isStatus(value)) return null
   return (
     <span aria-hidden className="inline-flex items-center">
-      <TicketStatusDot status={value} className="w-2 h-2" />
+      <TicketStatusDot status={value} className="w-2 h-2" pulsing={pulsing} />
     </span>
   )
 }
@@ -95,12 +95,14 @@ interface SegmentProps {
   onSelect?: () => void
   /** Measuring clone: no roles, ids or focus. */
   measure?: boolean
+  /** Pulse the in-progress dot only while something is in progress. */
+  pulsing?: boolean
 }
 
-function Segment({ value, label, countText, selected, onSelect, measure }: SegmentProps) {
+function Segment({ value, label, countText, selected, onSelect, measure, pulsing }: SegmentProps) {
   const content = (
     <>
-      <StatusDot value={value} />
+      <StatusDot value={value} pulsing={pulsing} />
       <span>{label}</span>
       <Count value={value} selected={selected} text={countText} measure={measure} />
     </>
@@ -153,6 +155,7 @@ export function SpecStatusFilter({ value, onChange, counts, loading = false, for
     v === 'active' ? activeCount : v === 'all' ? allCount : counts[v]
   const countText = (v: SpecStatusFilterValue) => (loading ? '–' : String(countFor(v)))
   const labelFor = (v: SpecStatusFilterValue) => t(LABEL_KEYS[v])
+  const inProgressPulsing = !loading && counts.in_progress > 0
 
   // The measuring clones mount only once a real width is known (never in
   // jsdom), so they cannot duplicate text or test ids for queries.
@@ -211,6 +214,7 @@ export function SpecStatusFilter({ value, onChange, counts, loading = false, for
         selected={!measure && value === v}
         onSelect={measure ? undefined : () => onChange(v)}
         measure={measure}
+        pulsing={inProgressPulsing}
       />
     ))
 
@@ -230,7 +234,7 @@ export function SpecStatusFilter({ value, onChange, counts, loading = false, for
           <span className="inline-flex w-3.5 justify-center" aria-hidden>
             {selected && <Check className="w-3.5 h-3.5" />}
           </span>
-          <StatusDot value={v} />
+          <StatusDot value={v} pulsing={inProgressPulsing} />
           <span className="flex-1">{labelFor(v)}</span>
           <span className="tabular-nums text-muted-foreground">{countText(v)}</span>
         </DropdownMenuItem>
@@ -271,7 +275,7 @@ export function SpecStatusFilter({ value, onChange, counts, loading = false, for
             >
               {selectedInMenu ? (
                 <>
-                  <StatusDot value={value} />
+                  <StatusDot value={value} pulsing={inProgressPulsing} />
                   <span>{labelFor(value)}</span>
                   <Count value={value} selected text={countText(value)} />
                 </>
@@ -291,7 +295,7 @@ export function SpecStatusFilter({ value, onChange, counts, loading = false, for
               aria-label={t('statusFilter.moreSelected', { status: labelFor(value) })}
               className={cn(SEGMENT_BASE, SEGMENT_SELECTED)}
             >
-              <StatusDot value={value} />
+              <StatusDot value={value} pulsing={inProgressPulsing} />
               <span>{labelFor(value)}</span>
               <Count value={value} selected text={countText(value)} />
               <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />

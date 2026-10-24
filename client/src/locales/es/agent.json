@@ -1368,6 +1368,11 @@
   "missionHome": {
     "greeting": "¿Qué debería salir a continuación en {{project}}?",
     "greetingNoProject": "¿Qué debería salir a continuación?",
-    "status": "{{ready}} specs listas · {{running}} en curso"
+    "statusTodo_one": "{{count}} por hacer",
+    "statusTodo_other": "{{count}} por hacer",
+    "statusReview_one": "{{count}} esperando revisión",
+    "statusReview_other": "{{count}} esperando revisión",
+    "statusRunning_one": "{{count}} en curso",
+    "statusRunning_other": "{{count}} en curso"
   }
 }
