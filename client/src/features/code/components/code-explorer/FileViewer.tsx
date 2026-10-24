@@ -1,5 +1,4 @@
 import { useCallback, useId, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronUp, FileMinus2, FilePlus2, FileText, GitCommitHorizontal } from 'lucide-react'
@@ -8,8 +7,8 @@ import { providerSupportsPureOutput } from '../../../providers/lib/provider-capa
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useSharedWebSocket } from '../../../../hooks/useSharedWebSocket'
 import { useTicketDetailModal } from '../../../specs/context/TicketDetailModalContext'
-import { useMovableResizableModal } from '../../../../hooks/useMovableResizableModal'
-import { ResizeGrips } from '../../../../components/ui/ResizeGrips'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog'
+import { Button } from '../../../../components/ui/button'
 import { CodeViewerMonaco } from './CodeViewerMonaco'
 import { SummaryHeader, type SummaryPayload } from './SummaryHeader'
 import { MarkdownPreview } from './MarkdownPreview'
@@ -169,7 +168,6 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
   const { openTicketDetail } = useTicketDetailModal()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const instanceId = useId()
-  const budgetModal = useMovableResizableModal({ allowMove: false })
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const [file, setFile] = useState<FileResponse | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -618,42 +616,21 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
         </>
       )}
 
-      {budgetPromptOpen && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          role="dialog"
-          aria-modal="true"
-          data-testid="budget-prompt"
-          onClick={budgetModal.guardBackdrop(() => setBudgetPromptOpen(false))}
-        >
-          <div
-            ref={budgetModal.panelRef}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-card border border-border rounded-lg p-4 w-80 flex flex-col gap-3"
-            style={budgetModal.panelStyle}
-          >
-            <p className="text-sm text-foreground">{t('viewer.budgetPrompt')}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setBudgetPromptOpen(false)}
-                className="text-xs px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground"
-              >
-                {t('common:actions.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setBudgetPromptOpen(false); handleRegenerate(true) }}
-                className="text-xs px-3 py-1.5 rounded-md bg-accent-primary text-white"
-              >
-                {t('common:actions.confirm')}
-              </button>
-            </div>
-          </div>
-          <ResizeGrips handles={budgetModal.resizeHandles} />
-        </div>,
-        document.body,
-      )}
+      <Dialog open={budgetPromptOpen} onOpenChange={setBudgetPromptOpen}>
+        <DialogContent className="max-w-sm" data-testid="budget-prompt">
+          <DialogHeader>
+            <DialogTitle className="text-sm">{t('viewer.budgetPrompt')}</DialogTitle>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setBudgetPromptOpen(false)}>
+              {t('common:actions.cancel')}
+            </Button>
+            <Button size="sm" onClick={() => { setBudgetPromptOpen(false); handleRegenerate(true) }}>
+              {t('common:actions.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

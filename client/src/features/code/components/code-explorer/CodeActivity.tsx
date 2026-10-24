@@ -99,7 +99,7 @@ export function CodeActivity({ projectId, repositoryName, multipleRepositories, 
     </div>
     <div className="min-h-0 flex-1 overflow-auto" aria-busy={loading}>
       {failed && <div role="alert" className="space-y-2 p-3 text-xs"><p>{t('activity.failed')}</p><button type="button" onClick={() => { void load(data?.nextCursor ?? undefined) }} className="text-accent-primary underline">{t('explore.retry')}</button></div>}
-      {data?.truncated && <p role="status" className="border-b border-border p-3 text-xs text-amber-600 dark:text-amber-400">{t('activity.partial')}</p>}
+      {data?.truncated && <p role="status" className="border-b border-border p-3 text-xs text-accent-warning">{t('activity.partial')}</p>}
       {data && data.entries.length === 0 && !data.truncated && !data.nextCursor && !loading && <div className="space-y-2 p-6 text-center text-xs text-muted-foreground"><History className="mx-auto h-6 w-6 opacity-50" /><p>{t('activity.empty')}</p></div>}
       <ol>{data?.entries.map((entry, index) => {
         const previous = data.entries[index - 1]

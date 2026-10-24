@@ -435,4 +435,22 @@ it('opens the Plugins window and dismisses its modal only after success', async 
   await waitFor(() => expect(dismiss).toHaveBeenCalledOnce())
 })
 
+  it('renders Headroom provider routes as accessible switches', async () => {
+    const state = headroomState({
+      installed: true,
+      installSource: 'managed',
+      version: '0.30.0',
+      executablePath: '/Users/test/.specrails/tools/bin/headroom',
+      activeProviders: { codex: true, claude: false },
+      detectedRoutes: { codex: true, claude: false },
+    }) as ReturnType<typeof headroomState>
+    installFetchMock(state)
+
+    render(<PluginsPage />)
+    fireEvent.click(await screen.findByRole('button', { name: /Manage/i }))
+
+    const codex = await screen.findByRole('switch', { name: 'codex' })
+    expect(codex).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: 'claude' })).toHaveAttribute('aria-checked', 'false')
+  })
 })

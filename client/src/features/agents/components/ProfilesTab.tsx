@@ -416,7 +416,7 @@ export function ProfilesTab() {
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               {t('profiles.sidebar.title')}
             </div>
-            <Button size="sm" variant="ghost" onClick={createNew} disabled={saving}>
+            <Button size="sm" variant="ghost" onClick={createNew} disabled={saving} aria-label={t('profiles.sidebar.new')} title={t('profiles.sidebar.new')}>
               <Plus className="w-3.5 h-3.5" />
             </Button>
           </div>

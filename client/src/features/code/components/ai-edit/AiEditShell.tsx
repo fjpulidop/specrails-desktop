@@ -904,7 +904,7 @@ export function PlainComposer({
           onClick={onSubmit}
           disabled={!value.trim() || disabled}
           aria-label={t('shell.composer.sendAriaLabel')}
-          className="absolute bottom-2.5 right-2.5 p-2 rounded-md bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none transition-opacity"
+          className="absolute bottom-2.5 right-2.5 p-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition-opacity"
         >
           {disabled ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />

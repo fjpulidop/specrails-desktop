@@ -417,6 +417,7 @@ export function ProfileEditor({
                 className="p-1 hover:bg-accent rounded"
                 onClick={() => setPickingAgent(false)}
                 title={t('common:actions.close')}
+                aria-label={t('common:actions.close')}
               >
                 <X className="w-3 h-3" />
               </button>
@@ -728,12 +729,12 @@ function RoutingRow({
           </button>
         )}
         {canMove && !isLast && (
-          <button type="button" className="p-1 hover:bg-accent rounded" onClick={onDown} title={t('profileEditor.routingRow.moveDown')}>
+          <button type="button" className="p-1 hover:bg-accent rounded" onClick={onDown} title={t('profileEditor.routingRow.moveDown')} aria-label={t('profileEditor.routingRow.moveDown')}>
             <ArrowDown className="w-3 h-3" />
           </button>
         )}
         {canMove && ordinal > 1 && (
-          <button type="button" className="p-1 hover:bg-accent rounded" onClick={onUp} title={t('profileEditor.routingRow.moveUp')}>
+          <button type="button" className="p-1 hover:bg-accent rounded" onClick={onUp} title={t('profileEditor.routingRow.moveUp')} aria-label={t('profileEditor.routingRow.moveUp')}>
             <ArrowUp className="w-3 h-3" />
           </button>
         )}
@@ -743,6 +744,7 @@ function RoutingRow({
             className="p-1 hover:bg-red-500/20 aurora-light:hover:bg-destructive/15 text-red-400 aurora-light:text-destructive rounded"
             onClick={onRemove}
             title={t('common:actions.remove')}
+            aria-label={t('common:actions.remove')}
           >
             <X className="w-3 h-3" />
           </button>

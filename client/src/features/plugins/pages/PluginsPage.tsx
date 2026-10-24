@@ -23,6 +23,8 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Button } from '../../../components/ui/button'
+import { Switch } from '../../../components/ui/switch'
 import { JiraConnectWizard } from '../../integrations/components/jira/JiraConnectWizard'
 import { JiraConnectedCard } from '../../integrations/components/jira/JiraConnectedCard'
 import { API_ORIGIN } from '../../../lib/origin'
@@ -453,7 +455,8 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('plugins.search.placeholder')}
-              className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-accent-primary/60"
+              aria-label={t('plugins.search.placeholder')}
+              className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
           <div className="inline-flex h-9 rounded-lg border border-border bg-card p-1">
@@ -784,7 +787,7 @@ function HeadroomPanel({
           type="button"
           disabled={!!busy}
           onClick={onInstall}
-          className="mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-accent-primary px-3 text-xs font-medium text-white disabled:opacity-50"
+          className="mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
           {busy === 'install' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           {t('plugins.headroom.actions.installWithUv')}
@@ -1134,26 +1137,35 @@ function ProviderToggle({
         ? t('plugins.headroom.provider.detectedExternalRoute')
         : t('plugins.headroom.provider.notRouted')
 
+  const labelId = `headroom-provider-${provider}-label`
+  const statusId = `headroom-provider-${provider}-status`
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy || !available}
-      className="flex w-full items-center gap-3 rounded-lg border border-border bg-background/45 p-3 text-left hover:bg-muted/35 disabled:opacity-50"
+    <div
+      className={cn(
+        'flex w-full items-center gap-3 rounded-lg border border-border bg-background/45 p-3 text-left',
+        (busy || !available) && 'opacity-50',
+      )}
     >
       <div className={cn('grid h-8 w-8 place-items-center rounded-md', active ? 'bg-accent-success/15 text-accent-success' : 'bg-muted text-muted-foreground')}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe2 className="h-3.5 w-3.5" />}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium capitalize">{provider}</div>
-        <div className="text-[11px] text-muted-foreground">
+        <div id={labelId} className="text-xs font-medium capitalize">{provider}</div>
+        <div id={statusId} className="text-[11px] text-muted-foreground">
           {statusText}
         </div>
       </div>
-      <span className={cn('h-5 w-9 rounded-full p-0.5 transition-colors', active ? 'bg-accent-success' : 'bg-muted')}>
-        <span className={cn('block h-4 w-4 rounded-full bg-white shadow transition-transform', active && 'translate-x-4')} />
-      </span>
-    </button>
+      <Switch
+        checked={active}
+        onCheckedChange={() => onClick()}
+        disabled={busy || !available}
+        aria-labelledby={labelId}
+        aria-describedby={statusId}
+        onClassName="bg-accent-success"
+        className="disabled:opacity-100"
+      />
+    </div>
   )
 }
 
@@ -1202,9 +1214,7 @@ function ProjectPluginWizard({
                     <div className="truncate text-xs font-medium">{project.name}</div>
                     <div className="truncate text-[10px]">
                       {disabled
-                        ? t('plugins.projectWizard.requiresSupportedProvider', {
-                            defaultValue: 'Requires Claude or Codex',
-                          })
+                        ? t('plugins.projectWizard.requiresSupportedProvider')
                         : project.path}
                     </div>
                   </button>
@@ -1258,7 +1268,7 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        {t('plugins.jira.loading', { defaultValue: 'Loading Jira...' })}
+        {t('plugins.jira.loading')}
       </div>
     )
   }
@@ -1267,9 +1277,9 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
     return (
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name, defaultValue: `Jira for ${project.name}` })}</h3>
+          <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name })}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {t('plugins.jira.configuredDescription', { defaultValue: 'Manage the Jira project, status mapping, discard status, sync, and connection state.' })}
+            {t('plugins.jira.configuredDescription')}
           </p>
         </div>
         <JiraConnectedCard
@@ -1284,11 +1294,11 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name, defaultValue: `Jira for ${project.name}` })}</h3>
+        <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name })}</h3>
         <p className="mt-1 text-xs text-muted-foreground">
           {error
-            ? t('plugins.jira.loadFailed', { message: error, defaultValue: `Could not load the current Jira configuration: ${error}` })
-            : t('plugins.jira.notConfiguredDescription', { defaultValue: 'Connect this project to Jira.' })}
+            ? t('plugins.jira.loadFailed', { message: error })
+            : t('plugins.jira.notConfiguredDescription')}
         </p>
       </div>
       <JiraConnectWizard
@@ -1385,10 +1395,10 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
       </div>
       <label className="block space-y-1">
         <span className="text-xs font-medium">
-          {t('plugins.serena.provider', { defaultValue: 'AI provider' })}
+          {t('plugins.serena.provider')}
         </span>
         <select
-          aria-label={t('plugins.serena.provider', { defaultValue: 'AI provider' })}
+          aria-label={t('plugins.serena.provider')}
           value={providerId}
           disabled={busy}
           onChange={(event) => {
@@ -1441,15 +1451,15 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</div>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onDone} className="rounded-md border border-border px-3 py-1.5 text-xs">{t('plugins.actions.cancel')}</button>
-        <button
+        <Button
           type="button"
           disabled={busy || plugin?.status !== 'not-installed' || !prereqsOk}
           onClick={install}
-          className="flex items-center gap-2 rounded-md bg-accent-primary px-3 py-1.5 text-xs text-white disabled:opacity-50"
+          className="gap-2"
         >
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           {t('plugins.actions.install')}
-        </button>
+        </Button>
       </div>
     </div>
   )

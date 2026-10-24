@@ -63,7 +63,7 @@ export function PromptDialog({
             className="text-sm font-mono"
           />
           {trimmed.length > 0 && !matchesPattern && inputInvalidHint && (
-            <p className="text-[11px] text-yellow-500 aurora-light:text-accent-warning">{inputInvalidHint}</p>
+            <p className="text-[11px] text-accent-warning">{inputInvalidHint}</p>
           )}
         </div>
         <DialogFooter>
@@ -116,8 +116,8 @@ export function ConfirmDialog({
           </Button>
           <Button
             size="sm"
+            variant={destructive ? 'destructive' : 'default'}
             onClick={onConfirm}
-            className={destructive ? 'bg-red-500 hover:bg-red-600 text-white' : undefined}
           >
             {confirmLabel ?? t('actions.confirm')}
           </Button>

@@ -347,7 +347,7 @@ function ProvenanceResultPanel({
     <section className="max-h-52 shrink-0 overflow-auto border-b border-border bg-card/35 px-4 py-3" data-testid="provenance-result-panel">
       {failed && <p role="alert" className="mb-2 text-xs">{t('activity.failed')} <button type="button" className="text-accent-primary underline" onClick={() => setRetry(value => value + 1)}>{t('explore.retry')}</button></p>}
       {!rows && !failed && <p role="status" className="mb-2 text-xs text-muted-foreground">{t('activity.loading')}</p>}
-      {partial && <p role="status" className="mb-2 text-xs text-amber-600 dark:text-amber-400">{t('activity.partial')}</p>}
+      {partial && <p role="status" className="mb-2 text-xs text-accent-warning">{t('activity.partial')}</p>}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

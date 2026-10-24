@@ -325,7 +325,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
       </div>
 
       {error && <div role="alert" className="space-y-1 border-b border-border p-3 text-xs"><p>{t('tree.loadFailed')}</p><button type="button" onClick={() => { void refresh() }} className="text-accent-primary underline">{t('explore.retry')}</button></div>}
-      {data.partial && <p role="status" className="border-b border-border p-3 text-xs text-amber-600 dark:text-amber-400">{t('tree.partial')}</p>}
+      {data.partial && <p role="status" className="border-b border-border p-3 text-xs text-accent-warning">{t('tree.partial')}</p>}
       {isEmpty && error ? null : isEmpty && isFirstLoad ? (
         <div className="flex-1 flex items-center justify-center px-4 text-center" data-testid="file-tree-loading">
           <p className="text-xs text-muted-foreground animate-pulse">{t('tree.loadingFiles')}</p>

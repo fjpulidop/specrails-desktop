@@ -355,6 +355,7 @@ export function AgentStudio({
           onClick={onClose}
           className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
           title={t('common:actions.back')}
+          aria-label={t('common:actions.back')}
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
@@ -372,6 +373,7 @@ export function AgentStudio({
                 setDirty(true)
               }}
               placeholder="custom-my-agent"
+              aria-label={t('studio.idLabel')}
               className="text-sm font-mono mt-1 max-w-sm"
             />
           ) : (

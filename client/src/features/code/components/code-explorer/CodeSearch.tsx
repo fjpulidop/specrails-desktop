@@ -105,7 +105,7 @@ export function CodeSearch({ projectId, repositoryName, multipleRepositories, ac
       {results && <>
         <div role="status" className="space-y-1 border-b border-border/50 px-3 py-2 text-[11px] text-muted-foreground">
           <p>{t('search.results', { count: results.matches.length })}</p>
-          {results.truncated && <p className="text-amber-600 dark:text-amber-400">{t('search.partial')}</p>}
+          {results.truncated && <p className="text-accent-warning">{t('search.partial')}</p>}
           {results.repositories?.filter(repo => !['ok', 'partial'].includes(repo.status)).map(repo => <p key={repo.repositoryId}>{t('search.repositoryIncomplete', { name: repo.repositoryName })}</p>)}
         </div>
         {results.matches.length === 0 && <p className="p-4 text-xs text-muted-foreground">{t(results.truncated ? 'search.noMatchesPartial' : 'search.noMatches')}</p>}
