@@ -20,6 +20,7 @@ import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, Dia
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
 import { TitleBar } from './components/TitleBar'
+import { RailMark } from './components/brand/RailMark'
 import { ThemeEffectLayer } from './features/settings/components/theme-effects/ThemeEffectLayer'
 
 // Lazy-loaded pages — never visible at initial render
@@ -439,7 +440,7 @@ function DesktopApp() {
             // to <Routes>; Loops and Plugins open modals with an optional window action.
             <AgentModeSurface />
           ) : (
-            <Suspense fallback={<div className="flex-1 flex items-center justify-center" role="status"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center" role="status" aria-label={t('states.loading')}><RailMark size={64} state="travel" /></div>}>
               <Routes>
                 <Route path="/docs" element={<DocsPage />} />
                 <Route path="/docs/:category/:slug" element={<DocsPage />} />

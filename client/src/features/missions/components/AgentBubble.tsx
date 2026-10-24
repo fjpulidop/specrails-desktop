@@ -1,43 +1,60 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useMotionValue } from 'motion/react'
-import { Bot } from 'lucide-react'
 import { useAgentChat } from '../context/AgentChatContext'
+import { RailMark } from '../../../components/brand/RailMark'
 import { BuilderHalo } from '../../builder/components/project-builder/BuilderHalo'
 
-// Persisted bubble position (top-left px). Remembered across minimize/open cycles.
+// Persisted bubble position, stored as the distance from the bottom-right
+// corner so a shrinking window keeps it anchored to the corner it was dropped
+// near instead of pushing it up-left over the sidebar and page title.
 const POS_KEY = 'specrails-desktop:agent-bubble-pos'
 const BUBBLE = 56 // approx square footprint used for clamping
 const MARGIN = 12
+// Chrome-safe insets: the collapsed sidebar rail (44px) and the title bar (28px)
+// plus a gap, so the bubble never lands on the unpin button or the page H1.
+export const CHROME_LEFT = 44 + 8
+export const CHROME_TOP = 28 + 8 + 28
 
+/** Offsets from the bottom-right corner of the viewport (px). */
+export interface Corner { right: number; bottom: number }
+/** Top-left coordinates derived from a Corner for the current viewport. */
 interface Pos { left: number; top: number }
-
-function readStored(): Pos | null {
-  try {
-    const raw = localStorage.getItem(POS_KEY)
-    if (!raw) return null
-    const p = JSON.parse(raw)
-    if (typeof p?.left === 'number' && typeof p?.top === 'number') return p
-  } catch {
-    /* ignore */
-  }
-  return null
-}
-
-function clamp(p: Pos): Pos {
-  const maxLeft = Math.max(MARGIN, window.innerWidth - BUBBLE - MARGIN)
-  const maxTop = Math.max(MARGIN, window.innerHeight - BUBBLE - MARGIN)
-  return { left: Math.min(Math.max(MARGIN, p.left), maxLeft), top: Math.min(Math.max(MARGIN, p.top), maxTop) }
-}
 
 // Default spot: bottom-right (16px from the right, 40px above the bottom —
 // clear of the status bar), so it no longer covers centred content such as
 // the job Story list or the code tree.
-const DEFAULT_RIGHT = 16
-const DEFAULT_BOTTOM = 40
+const DEFAULT_CORNER: Corner = { right: 16, bottom: 40 }
 
-function defaultPos(): Pos {
-  return { left: window.innerWidth - BUBBLE - DEFAULT_RIGHT, top: window.innerHeight - BUBBLE - DEFAULT_BOTTOM }
+export function clampCorner(c: Corner, vw = window.innerWidth, vh = window.innerHeight): Corner {
+  const maxRight = Math.max(MARGIN, vw - BUBBLE - CHROME_LEFT)
+  const maxBottom = Math.max(MARGIN, vh - BUBBLE - CHROME_TOP)
+  return {
+    right: Math.min(Math.max(MARGIN, c.right), maxRight),
+    bottom: Math.min(Math.max(MARGIN, c.bottom), maxBottom),
+  }
+}
+
+function toPos(c: Corner): Pos {
+  return { left: window.innerWidth - BUBBLE - c.right, top: window.innerHeight - BUBBLE - c.bottom }
+}
+
+function toCorner(p: Pos): Corner {
+  return { right: window.innerWidth - BUBBLE - p.left, bottom: window.innerHeight - BUBBLE - p.top }
+}
+
+function readStored(): Corner | null {
+  try {
+    const raw = localStorage.getItem(POS_KEY)
+    if (!raw) return null
+    const p = JSON.parse(raw)
+    if (typeof p?.right === 'number' && typeof p?.bottom === 'number') return p
+    // Legacy top-left format: convert once against the current viewport.
+    if (typeof p?.left === 'number' && typeof p?.top === 'number') return toCorner(p)
+  } catch {
+    /* ignore */
+  }
+  return null
 }
 
 /**
@@ -50,7 +67,8 @@ export function AgentBubble() {
   const { t: tBuilder } = useTranslation('builder')
   const { open, isStreaming, active, builderMode } = useAgentChat()
   const [hovered, setHovered] = useState(false)
-  const [pos, setPos] = useState<Pos>(() => clamp(readStored() ?? defaultPos()))
+  const [corner, setCorner] = useState<Corner>(() => clampCorner(readStored() ?? DEFAULT_CORNER))
+  const pos = toPos(corner)
 
   // motion transform offset applied ON TOP of left/top; rebased to 0 after each drag.
   const x = useMotionValue(0)
@@ -60,12 +78,12 @@ export function AgentBubble() {
 
   // Keep the bubble on-screen when the window shrinks.
   useEffect(() => {
-    const onResize = () => setPos((p) => clamp(p))
+    const onResize = () => setCorner((c) => clampCorner(c))
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  const persist = useCallback((p: Pos) => {
+  const persist = useCallback((p: Corner) => {
     try {
       localStorage.setItem(POS_KEY, JSON.stringify(p))
     } catch {
@@ -103,11 +121,11 @@ export function AgentBubble() {
       style={{ position: 'fixed', ...anchorStyle, x, y }}
       onDragStart={() => { draggedRef.current = true }}
       onDragEnd={() => {
-        const next = clamp({ left: pos.left + x.get(), top: pos.top + y.get() })
+        const next = clampCorner(toCorner({ left: pos.left + x.get(), top: pos.top + y.get() }))
         // Rebase: commit to left/top and reset the transform so nothing jumps.
         x.set(0)
         y.set(0)
-        setPos(next)
+        setCorner(next)
         persist(next)
         // Let the click that fires right after the drag be swallowed, then re-arm.
         setTimeout(() => { draggedRef.current = false }, 0)
@@ -126,7 +144,7 @@ export function AgentBubble() {
           active={builderMode.active && builderMode.session.messages.length === 0 && builderMode.session.phase === 'chat'}
           inset={-4}
         />
-        <Bot className="h-5 w-5 text-accent-primary" />
+        <RailMark size={20} state={showingActivity ? 'travel' : 'idle'} />
         {showingActivity && (
           <motion.span
             className="absolute inset-0 rounded-full ring-2 ring-accent-success"

@@ -93,6 +93,7 @@
   },
   "welcome": {
     "title": "Bienvenido a <spec>spec</spec><rails>rails</rails>",
+    "tagline": "Specs dentro, pull requests revisadas fuera.",
     "description": "Specrails gestiona varios proyectos desde una única interfaz. Añade tu primer proyecto para empezar.",
     "addFirstProject": "Añade tu primer proyecto",
     "jiraHint": "Conecta cada proyecto a su propio tablero de Jira — las specs se sincronizan en ambos sentidos.",

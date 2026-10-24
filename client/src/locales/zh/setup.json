@@ -93,6 +93,7 @@
   },
   "welcome": {
     "title": "欢迎使用 <spec>spec</spec><rails>rails</rails>",
+    "tagline": "输入规格，输出经过评审的拉取请求。",
     "description": "Specrails 让你在一个界面中管理多个项目。添加第一个项目即可开始。",
     "addFirstProject": "添加你的第一个项目",
     "jiraHint": "将每个项目连接到各自的 Jira 看板——规格在两个方向保持同步。",

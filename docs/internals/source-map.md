@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1196 source/build files. Nearby tests are linked where names
+Includes 1198 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -44,6 +44,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [StatusBar.tsx](../../client/src/components/StatusBar.tsx) · [test](../../client/src/components/__tests__/StatusBar.test.tsx)
 - [TitleBar.tsx](../../client/src/components/TitleBar.tsx) · [test](../../client/src/components/__tests__/TitleBar.test.tsx)
 - [WelcomeScreen.tsx](../../client/src/components/WelcomeScreen.tsx) · [test](../../client/src/components/__tests__/WelcomeScreen.test.tsx)
+
+## client/src/components/brand
+
+- [RailMark.tsx](../../client/src/components/brand/RailMark.tsx)
+- [RailTrack.tsx](../../client/src/components/brand/RailTrack.tsx)
 
 ## client/src/components/ui
 

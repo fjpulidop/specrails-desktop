@@ -77,7 +77,7 @@ Prereq (fix #1): `npm i tw-animate-css` + `@import "tw-animate-css";` in `global
 | Job success | `CheckCircle2` | accent-success |
 | Job failed | `XCircle` | destructive |
 | Job canceled | `Ban` | muted-foreground |
-| App agent (chat/mode) | `Bot` | accent-primary |
+| App agent (chat/mode) | `RailMark` (brand glyph, `components/brand`) | accent-primary |
 | Pipeline agents/profiles | `BrainCircuit` | accent-primary |
 | MCP | `Plug` | accent-info |
 | AI generate/magic | `Sparkles` | accent-primary (one tint) |
