@@ -89,6 +89,7 @@
     "publish": "Publish",
     "publishTooltip": "Open this draft PR for team review",
     "checkout": "Checkout",
+    "moreActions": "More actions",
     "checkoutTooltip": "Check out {{branch}} in the main project folder",
     "checkoutSuccess": "Checked out {{branch}}",
     "checkoutFailed": "Could not check out the implementation branch",
@@ -254,7 +255,7 @@
     "deleteRail": "Delete {{label}}",
     "dropHere": "Drop here",
     "dropOnThisRail": "Drop on this rail",
-    "dragSpecsHere": "Drag specs here",
+    "dropHint": "Drop a spec onto this rail",
     "dragHandle": "Reorder {{label}}",
     "status": {
       "idle": "Idle",

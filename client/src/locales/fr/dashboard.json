@@ -109,6 +109,7 @@
     "publish": "Publier",
     "publishTooltip": "Ouvre la PR en brouillon pour la relecture de l'équipe",
     "checkout": "Changer de branche",
+    "moreActions": "Plus d’actions",
     "checkoutTooltip": "Basculer le dossier principal du projet sur {{branch}}",
     "checkoutSuccess": "Checkout effectué sur {{branch}}",
     "checkoutFailed": "Impossible de basculer sur la branche d’implémentation",
@@ -254,7 +255,7 @@
     "deleteRail": "Supprimer {{label}}",
     "dropHere": "Déposer ici",
     "dropOnThisRail": "Déposer sur ce rail",
-    "dragSpecsHere": "Glissez des specs ici",
+    "dropHint": "Déposez une spec sur ce rail",
     "dragHandle": "Réordonner {{label}}",
     "status": {
       "idle": "Inactif",

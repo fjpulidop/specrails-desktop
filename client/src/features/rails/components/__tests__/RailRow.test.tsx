@@ -40,7 +40,7 @@ describe('RailRow', () => {
 
   it('shows empty drop zone when no tickets', () => {
     renderRailRow()
-    expect(screen.getByText('Drag specs here')).toBeInTheDocument()
+    expect(screen.getByText('Drop a spec onto this rail')).toBeInTheDocument()
   })
 
   it('clicking label enters edit mode', () => {
@@ -133,7 +133,7 @@ describe('RailRow', () => {
 
     it('omits the drop zone in compact mode', () => {
       renderRailRow({ ...defaultProps, density: 'compact' } as any)
-      expect(screen.queryByText('Drag specs here')).not.toBeInTheDocument()
+      expect(screen.queryByText('Drop a spec onto this rail')).not.toBeInTheDocument()
     })
 
     it('renders clickable id pills for each assigned ticket and opens via onTicketClick', () => {
@@ -304,7 +304,7 @@ describe('RailRow spec triage preselection (launch-triage)', () => {
 describe('RailRow status dot', () => {
   it('names the rail status for assistive tech (not colour-only)', () => {
     renderRailRow({ ...defaultProps, status: 'failed' as never })
-    expect(screen.getByRole('img', { name: 'Failed' })).toHaveClass('bg-destructive')
+    expect(screen.getByRole('img', { name: 'Failed' }).querySelector('.bg-destructive')).not.toBeNull()
   })
 
   it('reports an idle rail', () => {

@@ -109,6 +109,7 @@
     "publish": "发布",
     "publishTooltip": "将草稿 PR 开放给团队评审",
     "checkout": "检出分支",
+    "moreActions": "更多操作",
     "checkoutTooltip": "在项目主目录检出 {{branch}}",
     "checkoutSuccess": "已检出 {{branch}}",
     "checkoutFailed": "无法检出实现分支",
@@ -254,7 +255,7 @@
     "deleteRail": "删除 {{label}}",
     "dropHere": "拖放到此处",
     "dropOnThisRail": "拖放到此 Rail",
-    "dragSpecsHere": "将 Spec 拖到此处",
+    "dropHint": "将 Spec 拖放到此轨道",
     "dragHandle": "调整 {{label}} 的顺序",
     "status": {
       "idle": "空闲",

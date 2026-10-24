@@ -168,7 +168,7 @@ describe('TicketPostitCard', () => {
       expect(onMove).toHaveBeenCalledWith(42, 'rail-1')
     })
 
-    it('uses semantic accent-warning tokens (no brand-named colours)', () => {
+    it('uses semantic accent-review tokens (no brand-named colours)', () => {
       render(
         wrap(
           <TicketPostitCard
@@ -180,7 +180,7 @@ describe('TicketPostitCard', () => {
         ),
       )
       const badge = screen.getByTestId('on-review-badge-postit-42')
-      expect(badge.className).toContain('text-accent-warning')
+      expect(badge.className).toContain('text-accent-review')
       expect(badge.className).not.toMatch(/dracula-/)
     })
   })

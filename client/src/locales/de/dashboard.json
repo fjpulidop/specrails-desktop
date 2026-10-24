@@ -109,6 +109,7 @@
     "publish": "Veröffentlichen",
     "publishTooltip": "Öffnet den Entwurfs-PR für das Review des Teams",
     "checkout": "Branch auschecken",
+    "moreActions": "Weitere Aktionen",
     "checkoutTooltip": "Den Hauptordner des Projekts auf {{branch}} auschecken",
     "checkoutSuccess": "{{branch}} ausgecheckt",
     "checkoutFailed": "Die Implementierungsbranch konnte nicht ausgecheckt werden",
@@ -254,7 +255,7 @@
     "deleteRail": "{{label}} löschen",
     "dropHere": "Hier ablegen",
     "dropOnThisRail": "Auf diesem Rail ablegen",
-    "dragSpecsHere": "Specs hierher ziehen",
+    "dropHint": "Spec auf diese Rail ziehen",
     "dragHandle": "{{label}} verschieben",
     "status": {
       "idle": "Inaktiv",

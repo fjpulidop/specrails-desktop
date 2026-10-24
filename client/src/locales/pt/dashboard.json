@@ -109,6 +109,7 @@
     "publish": "Publicar",
     "publishTooltip": "Abre a PR em rascunho para a revisão da equipa",
     "checkout": "Mudar para o branch",
+    "moreActions": "Mais ações",
     "checkoutTooltip": "Fazer checkout de {{branch}} na pasta principal do projeto",
     "checkoutSuccess": "Checkout feito em {{branch}}",
     "checkoutFailed": "Não foi possível fazer checkout da branch de implementação",
@@ -254,7 +255,7 @@
     "deleteRail": "Eliminar {{label}}",
     "dropHere": "Largar aqui",
     "dropOnThisRail": "Largar neste rail",
-    "dragSpecsHere": "Arraste specs para aqui",
+    "dropHint": "Solte uma spec neste rail",
     "dragHandle": "Reordenar {{label}}",
     "status": {
       "idle": "Inativo",

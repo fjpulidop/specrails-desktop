@@ -89,6 +89,7 @@
     "publish": "Publicar",
     "publishTooltip": "Abre la PR en borrador para la revisión del equipo",
     "checkout": "Cambiar a la rama",
+    "moreActions": "Más acciones",
     "checkoutTooltip": "Cambia la carpeta principal del proyecto a {{branch}}",
     "checkoutSuccess": "Checkout en {{branch}}",
     "checkoutFailed": "No se pudo hacer checkout de la rama de implementación",
@@ -254,7 +255,7 @@
     "deleteRail": "Eliminar {{label}}",
     "dropHere": "Suelta aquí",
     "dropOnThisRail": "Suelta en este rail",
-    "dragSpecsHere": "Arrastra specs aquí",
+    "dropHint": "Suelta una spec en este rail",
     "dragHandle": "Reordenar {{label}}",
     "status": {
       "idle": "Inactivo",

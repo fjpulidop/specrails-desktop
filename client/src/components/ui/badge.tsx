@@ -15,6 +15,7 @@ const badgeVariants = cva(
         warning: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-warning border-accent-warning/30',
         running: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-info border-accent-info/30',
         queued: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-muted-foreground border-border',
+        review: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-review border-accent-review/30',
         failed: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-destructive border-destructive/30',
         canceled: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-muted-foreground border-border',
       },

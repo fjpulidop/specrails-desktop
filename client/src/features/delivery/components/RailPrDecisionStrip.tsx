@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
 import { toast } from 'sonner'
-import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, FolderOpen, MessageSquareWarning } from 'lucide-react'
+import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, FolderOpen, MessageSquareWarning, MoreHorizontal } from 'lucide-react'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../../../types'
 import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode, prDeliveryCheckoutBranch } from '../lib/pr-delivery'
@@ -73,7 +74,12 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const presentation = derivePrDeliveryPresentation(decision)
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(decision.statusCode, decision.statusDetail)
   const recoveredInterruptedOperation = decision.operation == null && interruptedOperationDetail
-  const statusLabel = isKnownPrDeliveryStatusCode(decision.statusCode)
+  // The status-code chip repeats the state pill when both say the same thing.
+  const statusRepeatsPill =
+    (decision.decision === 'on_review' && decision.statusCode === 'ready_for_review') ||
+    (decision.decision === 'pr_ready' && decision.statusCode === 'pr_ready') ||
+    (decision.decision === 'pr_draft' && decision.statusCode === 'pr_draft_ready')
+  const statusLabel = isKnownPrDeliveryStatusCode(decision.statusCode) && !statusRepeatsPill
     ? t(`common:prDeliveryStatus.${decision.statusCode}`)
     : null
   const announcement = decision.operation
@@ -551,6 +557,86 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     </button>
   )
 
+  // ── overflow menu: secondary actions live behind one trigger ──────────────
+  const itemCls = compact ? 'text-caption' : ''
+  const checkoutItem = checkoutBtn && (
+    <DropdownMenuItem
+      key="checkout"
+      data-testid="rail-pr-checkout"
+      disabled={busy}
+      title={t('railPr.checkoutTooltip', { branch: checkoutBranch })}
+      className={itemCls}
+      onSelect={() => { void runCheckout() }}
+    >
+      {checkingOut ? spinner : <GitBranch className={iconCls} aria-hidden />}
+      {t('railPr.checkout')}
+    </DropdownMenuItem>
+  )
+  const mergeLocalItem = mergeLocalBtn && (
+    <DropdownMenuItem
+      key="merge-local"
+      data-testid="rail-pr-merge-local"
+      disabled={busy}
+      title={t('railPr.mergeLocalTooltip', { base: decision.baseBranch })}
+      className={itemCls}
+      onSelect={() => openConfirmation('merge-local')}
+    >
+      {inFlight === 'merge-local' ? spinner : <GitMerge className={iconCls} aria-hidden />}
+      {t('railPr.mergeLocal')}
+    </DropdownMenuItem>
+  )
+  const endItem = presentation.continuation ? (
+    <DropdownMenuItem
+      key="dismiss"
+      data-testid="rail-pr-dismiss"
+      disabled={busy}
+      destructive
+      className={itemCls}
+      onSelect={() => openConfirmation('dismiss')}
+    >
+      {inFlight === 'dismiss' ? spinner : null}
+      {t('railPr.dismiss')}
+    </DropdownMenuItem>
+  ) : (
+    <DropdownMenuItem
+      key="discard"
+      data-testid="rail-pr-discard"
+      disabled={busy}
+      destructive
+      title={discardTitle}
+      className={itemCls}
+      onSelect={() => openConfirmation('discard')}
+    >
+      {inFlight === 'discard' ? spinner : null}
+      {t('railPr.discard')}
+    </DropdownMenuItem>
+  )
+  /** Checkout / integrate locally / discard behind "More actions". A lone
+   *  discard stays a plain button so the only way out is never hidden. */
+  const secondary = (withCheckout: boolean, withMerge: boolean) => {
+    if (!(withCheckout && checkoutItem) && !(withMerge && mergeLocalItem)) {
+      return presentation.continuation ? dismissBtn : discardBtn
+    }
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          data-testid="rail-pr-more"
+          aria-label={t('railPr.moreActions')}
+          title={t('railPr.moreActions')}
+          onClick={(e) => e.stopPropagation()}
+          className={`inline-flex items-center justify-center rounded-control border border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent-primary/10 transition-colors ${compact ? 'h-5 w-5' : 'h-6 w-6'}`}
+        >
+          <MoreHorizontal className={iconCls} aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {withCheckout && checkoutItem}
+          {withMerge && mergeLocalItem}
+          {endItem}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
   // ── per-state pill + actions ────────────────────────────────────────────────
   let pill: React.ReactNode = null
   let actions: React.ReactNode = null
@@ -587,30 +673,27 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       actions = (
         <>
           {linkChip}
-          {checkoutBtn}
           {actionButton('publish', 'pr_draft', t('railPr.publish'), 'rail-pr-publish', t('railPr.publishTooltip'))}
-          {presentation.continuation ? dismissBtn : discardBtn}
+          {secondary(true, false)}
         </>
       )
     } else if (d === 'pr_ready') {
       actions = (
         <>
           {linkChip}
-          {checkoutBtn}
           {actionButton('poll-merge', 'pr_ready', t('railPr.verifyPr'), 'rail-pr-poll', t('railPr.verifyPrTooltip'))}
-          {presentation.continuation ? dismissBtn : discardBtn}
+          {secondary(true, false)}
         </>
       )
     } else if (d === 'on_review' || (d === 'pr_draft' && !decision.prUrl)) {
       actions = (
         <>
-          {checkoutBtn}
           {actionButton('create-pr', d, t('railPr.createPartialPr', { count: presentation.deliverableCount }), 'rail-pr-create-partial')}
-          {presentation.continuation ? dismissBtn : discardBtn}
+          {secondary(true, false)}
         </>
       )
     } else {
-      actions = <>{linkChip}{checkoutBtn}{presentation.continuation ? dismissBtn : discardBtn}</>
+      actions = <>{linkChip}{secondary(true, false)}</>
     }
   } else if (presentation.deliveryBlocked) {
     pill = (
@@ -637,9 +720,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {linkChip}
-        {checkoutBtn}
         {actionButton('create-pr', d, t('railPr.retryPush'), 'rail-pr-retry-push')}
-        {presentation.continuation ? dismissBtn : discardBtn}
+        {secondary(true, false)}
       </>
     )
   } else if (presentation.retryablePrCreation) {
@@ -656,9 +738,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {actionButton('create-pr', d, t('railPr.retryPr'), 'rail-pr-create')}
-        {checkoutBtn}
-        {mergeLocalBtn}
-        {presentation.continuation ? dismissBtn : discardBtn}
+        {secondary(true, true)}
       </>
     )
   } else if (presentation.closed) {
@@ -671,9 +751,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {linkChip}
-        {checkoutBtn}
         {actionButton('reopen', 'pr_closed', t('railPr.reopen'), 'rail-pr-reopen', undefined, <RotateCcw className={iconCls} aria-hidden />)}
-        {presentation.continuation ? dismissBtn : discardBtn}
+        {secondary(true, false)}
       </>
     )
   } else if (d === 'on_review') {
@@ -686,10 +765,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {reviewPacketBtn}
-        {checkoutBtn}
         {actionButton('create-pr', 'on_review', t('railPr.createPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }), <GitPullRequest className={iconCls} aria-hidden />)}
-        {mergeLocalBtn}
-        {presentation.continuation ? dismissBtn : discardBtn}
+        {secondary(true, true)}
       </>
     )
   } else if (d === 'pr_draft' && decision.prUrl) {
@@ -702,9 +779,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {linkChip}
-        {checkoutBtn}
         {actionButton('publish', 'pr_draft', t('railPr.publish'), 'rail-pr-publish', t('railPr.publishTooltip'))}
-        {presentation.continuation ? dismissBtn : discardBtn}
+        {secondary(true, false)}
       </>
     )
   } else if (d === 'pr_draft') {
@@ -719,9 +795,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {actionButton('create-pr', 'pr_draft', t('railPr.retryPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }))}
-        {checkoutBtn}
-        {mergeLocalBtn}
-        {presentation.continuation ? dismissBtn : discardBtn}
+        {secondary(true, true)}
       </>
     )
   } else if (d === 'pr_ready') {
@@ -734,9 +808,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {linkChip}
-        {checkoutBtn}
         {actionButton('poll-merge', 'pr_ready', t('railPr.verifyPr'), 'rail-pr-poll', t('railPr.verifyPrTooltip'))}
-        {presentation.continuation ? dismissBtn : discardBtn}
+        {secondary(true, false)}
       </>
     )
   } else if (d === 'pr_failed') {
@@ -749,10 +822,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {linkChip}
-        {checkoutBtn}
         {actionButton('create-pr', 'pr_failed', t('railPr.retry'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }))}
-        {!decision.prUrl && mergeLocalBtn}
-        {presentation.continuation ? dismissBtn : discardBtn}
+        {secondary(true, !decision.prUrl)}
       </>
     )
   } else if (d === 'implementation_failed' && decision.statusCode === 'review_changes_requested') {

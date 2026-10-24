@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1198 source/build files. Nearby tests are linked where names
+Includes 1199 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -809,6 +809,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [active-explore-spec.ts](../../client/src/features/specs/lib/active-explore-spec.ts)
 - [pending-spec-id.ts](../../client/src/features/specs/lib/pending-spec-id.ts) · [test](../../client/src/features/specs/lib/__tests__/pending-spec-id.test.ts)
 - [pending-specs.ts](../../client/src/features/specs/lib/pending-specs.ts) · [test](../../client/src/features/specs/lib/__tests__/pending-specs.test.ts)
+- [priority.ts](../../client/src/features/specs/lib/priority.ts)
 - [spec-addenda-core.ts](../../client/src/features/specs/lib/spec-addenda-core.ts)
 - [spec-draft.ts](../../client/src/features/specs/lib/spec-draft.ts)
 - [spec-filters.ts](../../client/src/features/specs/lib/spec-filters.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-filters.test.ts)

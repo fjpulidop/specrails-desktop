@@ -10,15 +10,9 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
 import { canRefineTicket } from '../lib/ticket-refine'
 import { genPendingSpecId } from '../lib/pending-spec-id'
-import type { LocalTicket, TicketPriority } from '../../../types'
+import type { LocalTicket } from '../../../types'
+import { PRIORITY_TONE } from '../lib/priority'
 import type { RailState } from '../../rails/components/RailsBoard'
-
-const PRIORITY_VARIANT: Record<TicketPriority, 'destructive' | 'default' | 'warning' | 'outline'> = {
-  critical: 'destructive',
-  high: 'default',
-  medium: 'warning',
-  low: 'outline',
-}
 
 interface TicketPostitCardProps {
   ticket: LocalTicket
@@ -184,7 +178,7 @@ export function TicketPostitCard({
   const tone = isDraft
     ? 'bg-accent-secondary/10 border-accent-secondary/40'
     : isOnReview
-      ? 'bg-accent-warning/5 border-accent-warning/40'
+      ? 'bg-card border-border/40'
       : contractRefining
         ? 'bg-card border-accent-highlight/70 ring-1 ring-accent-highlight/50'
         : isEpic
@@ -293,7 +287,7 @@ export function TicketPostitCard({
               </Badge>
             )}
             {ticket.priority && !isDraft && !isOnReview && (
-              <Badge variant={PRIORITY_VARIANT[ticket.priority]} className="h-5 px-1.5 text-caption">
+              <Badge variant={PRIORITY_TONE[ticket.priority]} className="h-5 px-1.5 text-caption">
                 {t(`priority.${ticket.priority}`)}
               </Badge>
             )}
@@ -304,8 +298,8 @@ export function TicketPostitCard({
             )}
             {isOnReview && (
               <Badge
-                variant="outline"
-                className="h-5 px-1.5 text-caption border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+                variant="review"
+                className="h-5 px-1.5 text-caption"
                 title={t('status.onReviewHint')}
                 data-testid={`on-review-badge-postit-${ticket.id}`}
               >

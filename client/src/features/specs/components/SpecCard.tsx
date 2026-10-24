@@ -7,14 +7,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { Trash2, AlertTriangle, ArrowUp, Layers, Waves } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
 import { SpecTriageChip } from './SpecTriageChip'
-import type { LocalTicket, TicketPriority } from '../../../types'
-
-const PRIORITY_VARIANT: Record<TicketPriority, 'destructive' | 'default' | 'warning' | 'outline'> = {
-  critical: 'destructive',
-  high: 'default',
-  medium: 'warning',
-  low: 'outline',
-}
+import type { LocalTicket } from '../../../types'
+import { PRIORITY_TONE } from '../lib/priority'
 
 const LONG_PRESS_MS = 700
 
@@ -140,7 +134,7 @@ export function SpecCard({
   const variantClass = isDraft
     ? 'border-dashed border-accent-secondary/50 bg-accent-secondary/10 hover:bg-accent-secondary/15 hover:border-accent-secondary/70'
     : isOnReview
-      ? 'border-accent-warning/40 bg-accent-warning/5 hover:bg-accent-warning/10 hover:border-accent-warning/60'
+      ? 'border-border/40 bg-card/60 hover:bg-card/80 hover:border-border/60'
       : contractRefining
         ? 'border-accent-highlight/70 bg-card/70 ring-1 ring-accent-highlight/50'
         : 'border-border/40 bg-card/60 hover:bg-card/80 hover:border-border/60'
@@ -290,8 +284,8 @@ export function SpecCard({
         </Badge>
       ) : isOnReview ? (
         <Badge
-          variant="outline"
-          className="text-caption shrink-0 border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+          variant="review"
+          className="text-caption shrink-0"
           title={t('status.onReviewHint')}
           data-testid={`on-review-badge-${ticket.id}`}
         >
@@ -305,7 +299,7 @@ export function SpecCard({
           {t('badges.contract')}
         </Badge>
       ) : ticket.priority ? (
-        <Badge variant={PRIORITY_VARIANT[ticket.priority]} className="text-caption shrink-0">
+        <Badge variant={PRIORITY_TONE[ticket.priority]} className="text-caption shrink-0">
           {t(`priority.${ticket.priority}`)}
         </Badge>
       ) : null}

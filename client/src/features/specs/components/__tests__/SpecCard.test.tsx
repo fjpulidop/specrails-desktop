@@ -208,7 +208,7 @@ describe('SpecCard', () => {
       expect(screen.queryByText('high')).not.toBeInTheDocument()
     })
 
-    it('marks the card with data-on-review and uses the accent-warning token', () => {
+    it('marks the card with data-on-review and uses the accent-review token', () => {
       render(
         <SpecCard
           ticket={makeTicket({ status: 'on_review' })}
@@ -217,7 +217,7 @@ describe('SpecCard', () => {
       )
       const card = screen.getByText('Build the feature').closest('[role="button"]')!
       expect(card).toHaveAttribute('data-on-review', 'true')
-      expect(card.outerHTML).toMatch(/accent-warning/)
+      expect(card.outerHTML).toMatch(/accent-review/)
       expect(card.outerHTML).not.toMatch(/dracula-/)
     })
 

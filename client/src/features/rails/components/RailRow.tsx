@@ -18,6 +18,8 @@ import { RailModelSelector, type FreestyleModel } from '../../agents/components/
 import { RailLoopSelector } from '../../agents/components/RailLoopSelector'
 import { RailExecutionInfo } from './RailExecutionInfo'
 import { RailEffortSelector, type ReasoningEffort } from '../../agents/components/RailEffortSelector'
+import { LiveDot } from '../../../components/ui/live-dot'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { RailPrDecisionStrip } from '../../delivery/components/RailPrDecisionStrip'
 import { RailTargetPrSelector, type RailTargetPr } from './RailTargetPrSelector'
 import { railIndexFromId } from '../lib/rail-id'
@@ -368,14 +370,11 @@ export function RailRow({
           >
             <GripVertical className="w-3 h-3" />
           </button>
-          <div
-            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-200 ${
-              isRunning
-                ? 'bg-accent-success motion-safe:animate-pulse'
-                : status === 'failed'
-                  ? 'bg-destructive'
-                  : 'bg-muted-foreground/40'
-            }`}
+          <LiveDot
+            size="xs"
+            tone={isRunning ? 'success' : status === 'failed' ? 'destructive' : 'muted'}
+            pulsing={isRunning}
+            className={!isRunning && status !== 'failed' ? 'opacity-40' : undefined}
             role="img"
             aria-label={t(`railRow.status.${status}`)}
           />
@@ -627,10 +626,11 @@ export function RailRow({
             >
               <GripVertical className="w-3.5 h-3.5" />
             </button>
-            <div
-              className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-200 ${
-                status === 'running' ? 'bg-accent-success motion-safe:animate-pulse' : status === 'failed' ? 'bg-destructive' : 'bg-muted-foreground/40'
-              }`}
+            <LiveDot
+              size="xs"
+              tone={isRunning ? 'success' : status === 'failed' ? 'destructive' : 'muted'}
+              pulsing={isRunning}
+              className={!isRunning && status !== 'failed' ? 'opacity-40' : undefined}
               role="img"
               aria-label={t(`railRow.status.${status}`)}
             />
@@ -704,6 +704,7 @@ export function RailRow({
           </div>
 
           {/* Live execution metrics (elapsed · steps · lines) — same WS source as Jobs */}
+          {isRunning && <RailTrack running className="mx-3 mb-1" aria-label={t('railRow.status.running')} />}
           {isRunning && executionMetric && (
             <div className="px-3 pb-1"><RailExecutionInfo metric={executionMetric} /></div>
           )}
@@ -777,15 +778,16 @@ export function RailRow({
         >
           {tickets.length === 0 ? (
             <div
-              className={`h-10 flex items-center justify-center rounded-lg border border-dashed transition-all duration-150 ${
+              data-testid="rail-drop-track"
+              className={`h-10 flex items-center justify-center rounded-card border-y transition-colors duration-150 ${
                 isOver
-                  ? 'border-accent-info/60 text-accent-info bg-accent-info/[0.06]'
+                  ? 'border-accent-info/60 text-accent-info'
                   : ticketDragActive
                     ? 'border-accent-info/35 text-accent-info'
-                    : 'border-border/25 text-muted-foreground'
+                    : 'border-border text-muted-foreground'
               }`}
             >
-              <span className="text-xs select-none">{isOver ? t('railRow.dropHere') : ticketDragActive ? t('railRow.dropOnThisRail') : t('railRow.dragSpecsHere')}</span>
+              <span className="text-xs select-none">{isOver ? t('railRow.dropHere') : ticketDragActive ? t('railRow.dropOnThisRail') : t('railRow.dropHint')}</span>
             </div>
           ) : (
             <SortableContext items={tickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>

@@ -109,6 +109,7 @@
     "publish": "公開",
     "publishTooltip": "ドラフト PR をチームのレビューに公開します",
     "checkout": "ブランチをチェックアウト",
+    "moreActions": "その他の操作",
     "checkoutTooltip": "プロジェクトのメインフォルダで {{branch}} をチェックアウト",
     "checkoutSuccess": "{{branch}} をチェックアウトしました",
     "checkoutFailed": "実装ブランチをチェックアウトできませんでした",
@@ -254,7 +255,7 @@
     "deleteRail": "{{label}} を削除",
     "dropHere": "ここにドロップ",
     "dropOnThisRail": "このレールにドロップ",
-    "dragSpecsHere": "ここにスペックをドラッグ",
+    "dropHint": "このレールにスペックをドロップ",
     "dragHandle": "{{label}} を並べ替え",
     "status": {
       "idle": "待機中",
