@@ -16,7 +16,8 @@
     "cancelDownload": "Agora não",
     "loading": "A preparar ficheiro…",
     "loadFailed": "Não foi possível carregar o anexo",
-    "loadError": "Não foi possível carregar o anexo: {{error}}"
+    "loadError": "Não foi possível carregar o anexo: {{error}}",
+    "remove": "Remover {{name}}"
   },
   "maximize": "Maximizar",
   "restore": "Restaurar",
@@ -24,7 +25,7 @@
   "close": "Fechar",
   "newConversation": "Nova missão",
   "emptyTitle": "Qual é a missão?",
-  "emptyHint": "Escolha um projeto e depois pergunte. O quadro é atualizado ao vivo enquanto o agente trabalha.",
+  "emptyHint": "Pergunte qualquer coisa sobre este projeto — o agente pode ler, planejar specs e iniciar rails.",
   "thinking": "Pensando…",
   "connecting": "Conectando…",
   "consultingCode": "Consultando o app…",
@@ -43,7 +44,7 @@
   },
   "queue": {
     "queued": "Na fila",
-    "send": "Enviar mensagem",
+    "send": "Enfileirar mensagem",
     "sendHint": "Enfileirar para o próximo turno. Escolha «Orientar» em uma mensagem na fila para enviá-la sem interromper o modelo.",
     "placeholder": "Adicionar uma mensagem à fila…",
     "delivered": "Entregue ao agente",
@@ -56,7 +57,8 @@
     "more": "Opções da mensagem",
     "edit": "Editar",
     "actionConflict": "Esta mensagem já está sendo entregue ou não está mais na fila.",
-    "actionFailed": "Não foi possível atualizar a mensagem na fila. Tente novamente."
+    "actionFailed": "Não foi possível atualizar a mensagem na fila. Tente novamente.",
+    "removed": "Mensagem enfileirada excluída"
   },
   "receipt": {
     "sent": "Enviado ao agente",
@@ -120,7 +122,10 @@
     },
     "lockedTitle": "Precisa de um nível superior",
     "lockedBody": "Essa ação precisa do nível \"{{level}}\". Você está no \"{{current}}\".",
-    "raiseHint": "⇧⇥ para aumentar o nível, ou peça de outra forma."
+    "raiseHint": "⇧⇥ para aumentar o nível, ou peça de outra forma.",
+    "confirmAutonomous": "Mudar para Autônomo",
+    "autonomousWarning": "O modo Autônomo pode excluir e encerrar processos.",
+    "skipAutonomousHint": "Pressione ⇧⇥ de novo para voltar a “Observa”."
   },
   "approval": {
     "title": "Confirmar ação",
@@ -195,8 +200,8 @@
   },
   "noProvider": {
     "title": "Nenhum provedor de IA instalado",
-    "body": "O agente precisa de Claude ou Codex na sua máquina. Instale um e reabra o agente para começar a conversar.",
-    "placeholder": "Instale um provedor de IA para usar o agente…"
+    "body": "O agente precisa de um provedor de IA (Claude, Codex, Gemini ou um motor local). Instale ou conecte um e reabra o agente.",
+    "placeholder": "Conecte um provedor de IA para usar o agente…"
   },
   "degraded": {
     "title": "O MCP do Specrails está desligado",
@@ -511,7 +516,18 @@
     "copySuccess": "Log copiado para a área de transferência",
     "copyFailed": "Não foi possível copiar o log",
     "openLog": "Ver log de execução",
-    "close": "Fechar"
+    "close": "Fechar",
+    "tool": {
+      "terminal": "Terminal",
+      "reading": "Lendo",
+      "searching": "Pesquisando",
+      "editing": "Editando",
+      "web": "Web",
+      "agent": "Agente",
+      "agentNamed": "Agente · {{description}}",
+      "mcp": "MCP · {{name}}",
+      "mcpTool": "Ferramenta MCP"
+    }
   },
   "backgroundProcess": {
     "open": "Ver logs de {{command}}",
@@ -1306,6 +1322,42 @@
     "sendFailed": "Não foi possível enviar a mensagem.",
     "stopFailed": "Não foi possível parar o agente.",
     "mcpEnableFailed": "Não foi possível ativar o MCP.",
-    "removeAttachmentFailed": "Não foi possível remover o anexo."
-  }
+    "removeAttachmentFailed": "Não foi possível remover o anexo.",
+    "sendFailedHint": "Seu texto voltou para a caixa — pressione Enter para tentar de novo.",
+    "providerSwitchFailed": "Não foi possível trocar de provedor — o anterior continua ativo.",
+    "modelSwitchFailed": "Não foi possível trocar de modelo — o anterior continua ativo.",
+    "effortSwitchFailed": "Não foi possível trocar o esforço — o anterior continua ativo."
+  },
+  "composer": {
+    "ariaLabel": "Mensagem para o agente",
+    "dropFiles": "Solte os arquivos para anexar",
+    "uploading": "Enviando…"
+  },
+  "conversation": {
+    "ariaLabel": "Conversa da missão",
+    "agentWorking": "O agente está trabalhando…",
+    "agentReplied": "O agente respondeu",
+    "newMessages": "Novas mensagens"
+  },
+  "message": {
+    "you": "Você",
+    "agent": "Agente"
+  },
+  "options": {
+    "groupLabel": "Respostas sugeridas",
+    "shortcut": "Alt+{{n}}"
+  },
+  "copied": "Copiado",
+  "copyCode": "Copiar código",
+  "composerReplyPlaceholder": "Responda, ou use @ para referenciar…",
+  "sendHint": "Enviar (Enter) · Nova linha (Shift+Enter)",
+  "undo": "Desfazer",
+  "imagesUnsupportedCount": "Este provedor ainda não lê imagens — {{count}} imagens não foram anexadas",
+  "starter": {
+    "reference": "Referenciar uma spec",
+    "action": "Executar uma ação",
+    "plan": "Planejar uma nova spec",
+    "planSpec": "Me ajude a planejar uma nova spec: "
+  },
+  "emptyLegend": "⇧⇥ muda o que o agente pode fazer · ↑ recupera seu último prompt"
 }

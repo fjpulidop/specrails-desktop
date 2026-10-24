@@ -16,7 +16,8 @@
     "cancelDownload": "Pas maintenant",
     "loading": "Préparation du fichier…",
     "loadFailed": "Impossible de charger la pièce jointe",
-    "loadError": "Impossible de charger la pièce jointe : {{error}}"
+    "loadError": "Impossible de charger la pièce jointe : {{error}}",
+    "remove": "Retirer {{name}}"
   },
   "maximize": "Agrandir",
   "restore": "Restaurer",
@@ -24,7 +25,7 @@
   "close": "Fermer",
   "newConversation": "Nouvelle mission",
   "emptyTitle": "Quelle est la mission ?",
-  "emptyHint": "Choisissez un projet, puis demandez. Le tableau se met à jour en direct pendant que l'agent travaille.",
+  "emptyHint": "Posez n’importe quelle question sur ce projet — l’agent peut lire, planifier des specs et lancer des rails.",
   "thinking": "Réflexion…",
   "connecting": "Connexion…",
   "consultingCode": "Consultation de l'app…",
@@ -43,7 +44,7 @@
   },
   "queue": {
     "queued": "En file d’attente",
-    "send": "Envoyer le message",
+    "send": "Mettre le message en file",
     "sendHint": "Ajouté à la file pour le prochain tour. Choisissez « Orienter » sur un message en attente pour l’envoyer sans interrompre le modèle.",
     "placeholder": "Ajouter un message à la file…",
     "delivered": "Transmis à l’agent",
@@ -56,7 +57,8 @@
     "more": "Options du message",
     "edit": "Modifier",
     "actionConflict": "Ce message est déjà en cours de transmission ou n’est plus dans la file.",
-    "actionFailed": "Impossible de modifier le message en attente. Réessayez."
+    "actionFailed": "Impossible de modifier le message en attente. Réessayez.",
+    "removed": "Message en file supprimé"
   },
   "receipt": {
     "sent": "Envoyé à l’agent",
@@ -120,7 +122,10 @@
     },
     "lockedTitle": "Nécessite un niveau supérieur",
     "lockedBody": "Cette action nécessite le niveau « {{level}} ». Vous êtes sur « {{current}} ».",
-    "raiseHint": "⇧⇥ pour augmenter le niveau, ou demandez autrement."
+    "raiseHint": "⇧⇥ pour augmenter le niveau, ou demandez autrement.",
+    "confirmAutonomous": "Passer en Autonome",
+    "autonomousWarning": "Le mode Autonome peut supprimer et arrêter des processus.",
+    "skipAutonomousHint": "Appuyez de nouveau sur ⇧⇥ pour revenir à Observer."
   },
   "approval": {
     "title": "Confirmer l'action",
@@ -195,8 +200,8 @@
   },
   "noProvider": {
     "title": "Aucun fournisseur d'IA installé",
-    "body": "L'agent a besoin de Claude ou Codex sur votre machine. Installez-en un, puis rouvrez l'agent pour discuter.",
-    "placeholder": "Installez un fournisseur d'IA pour utiliser l'agent…"
+    "body": "L’agent a besoin d’un fournisseur d’IA (Claude, Codex, Gemini ou un moteur local). Installez-en ou connectez-en un, puis rouvrez l’agent.",
+    "placeholder": "Connectez un fournisseur d’IA pour utiliser l’agent…"
   },
   "degraded": {
     "title": "Le MCP Specrails est désactivé",
@@ -511,7 +516,18 @@
     "copySuccess": "Journal copié dans le presse-papiers",
     "copyFailed": "Impossible de copier le journal",
     "openLog": "Voir le journal d'exécution",
-    "close": "Fermer"
+    "close": "Fermer",
+    "tool": {
+      "terminal": "Terminal",
+      "reading": "Lecture",
+      "searching": "Recherche",
+      "editing": "Modification",
+      "web": "Web",
+      "agent": "Agent",
+      "agentNamed": "Agent · {{description}}",
+      "mcp": "MCP · {{name}}",
+      "mcpTool": "Outil MCP"
+    }
   },
   "backgroundProcess": {
     "open": "Voir les logs de {{command}}",
@@ -1306,6 +1322,42 @@
     "sendFailed": "Impossible d’envoyer le message.",
     "stopFailed": "Impossible d’arrêter l’agent.",
     "mcpEnableFailed": "Impossible d’activer MCP.",
-    "removeAttachmentFailed": "Impossible de retirer la pièce jointe."
-  }
+    "removeAttachmentFailed": "Impossible de retirer la pièce jointe.",
+    "sendFailedHint": "Votre texte est de retour dans la zone — appuyez sur Entrée pour réessayer.",
+    "providerSwitchFailed": "Impossible de changer de fournisseur — le précédent reste actif.",
+    "modelSwitchFailed": "Impossible de changer de modèle — le précédent reste actif.",
+    "effortSwitchFailed": "Impossible de changer l’effort — le précédent reste actif."
+  },
+  "composer": {
+    "ariaLabel": "Message à l’agent",
+    "dropFiles": "Déposez les fichiers pour les joindre",
+    "uploading": "Envoi en cours…"
+  },
+  "conversation": {
+    "ariaLabel": "Conversation de la mission",
+    "agentWorking": "L’agent travaille…",
+    "agentReplied": "L’agent a répondu",
+    "newMessages": "Nouveaux messages"
+  },
+  "message": {
+    "you": "Vous",
+    "agent": "Agent"
+  },
+  "options": {
+    "groupLabel": "Réponses suggérées",
+    "shortcut": "Alt+{{n}}"
+  },
+  "copied": "Copié",
+  "copyCode": "Copier le code",
+  "composerReplyPlaceholder": "Répondez, ou @ pour référencer…",
+  "sendHint": "Envoyer (Entrée) · Nouvelle ligne (Maj+Entrée)",
+  "undo": "Annuler",
+  "imagesUnsupportedCount": "Ce fournisseur ne lit pas encore les images — {{count}} images n’ont pas été jointes",
+  "starter": {
+    "reference": "Référencer une spec",
+    "action": "Lancer une action",
+    "plan": "Planifier une nouvelle spec",
+    "planSpec": "Aide-moi à planifier une nouvelle spec : "
+  },
+  "emptyLegend": "⇧⇥ change ce que l’agent peut faire · ↑ rappelle votre dernier message"
 }

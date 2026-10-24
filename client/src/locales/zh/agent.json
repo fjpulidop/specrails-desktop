@@ -16,7 +16,8 @@
     "cancelDownload": "暂不",
     "loading": "正在准备文件…",
     "loadFailed": "无法加载附件",
-    "loadError": "无法加载附件：{{error}}"
+    "loadError": "无法加载附件：{{error}}",
+    "remove": "移除 {{name}}"
   },
   "maximize": "最大化",
   "restore": "还原",
@@ -24,7 +25,7 @@
   "close": "关闭",
   "newConversation": "新任务",
   "emptyTitle": "这次的任务是什么？",
-  "emptyHint": "先选择一个项目，然后提问。智能体工作时看板会实时更新。",
+  "emptyHint": "可以询问关于此项目的任何问题——智能体可以读取内容、规划规格并启动 rail。",
   "thinking": "思考中…",
   "connecting": "连接中…",
   "consultingCode": "正在查询应用…",
@@ -43,7 +44,7 @@
   },
   "queue": {
     "queued": "已排队",
-    "send": "发送消息",
+    "send": "将消息加入队列",
     "sendHint": "排队等待下一轮。点击队列中消息的“调整方向”，即可在不中断模型的情况下发送。",
     "placeholder": "向队列添加消息…",
     "delivered": "已送达智能体",
@@ -56,7 +57,8 @@
     "more": "消息选项",
     "edit": "编辑",
     "actionConflict": "该消息正在送达或已不在队列中。",
-    "actionFailed": "无法更新队列中的消息，请重试。"
+    "actionFailed": "无法更新队列中的消息，请重试。",
+    "removed": "已删除排队消息"
   },
   "receipt": {
     "sent": "已发送给智能体",
@@ -120,7 +122,10 @@
     },
     "lockedTitle": "需要更高的级别",
     "lockedBody": "该操作需要「{{level}}」级别。你当前处于「{{current}}」。",
-    "raiseHint": "⇧⇥ 提升级别，或换一种方式询问。"
+    "raiseHint": "⇧⇥ 提升级别，或换一种方式询问。",
+    "confirmAutonomous": "切换到自主",
+    "autonomousWarning": "自主级别可以删除内容并终止进程。",
+    "skipAutonomousHint": "再次按 ⇧⇥ 返回“观察”。"
   },
   "approval": {
     "title": "确认操作",
@@ -195,8 +200,8 @@
   },
   "noProvider": {
     "title": "未安装 AI 提供方",
-    "body": "智能体需要在你的机器上安装 Claude 或 Codex。安装其中之一后重新打开智能体即可开始对话。",
-    "placeholder": "请安装 AI 提供方以使用智能体…"
+    "body": "智能体需要一个 AI 提供方（Claude、Codex、Gemini 或本地引擎）。安装或连接一个后，重新打开智能体。",
+    "placeholder": "连接一个 AI 提供方以使用智能体…"
   },
   "degraded": {
     "title": "Specrails MCP 已关闭",
@@ -511,7 +516,18 @@
     "copySuccess": "日志已复制到剪贴板",
     "copyFailed": "无法复制日志",
     "openLog": "查看执行日志",
-    "close": "关闭"
+    "close": "关闭",
+    "tool": {
+      "terminal": "终端",
+      "reading": "正在读取",
+      "searching": "正在搜索",
+      "editing": "正在编辑",
+      "web": "网页",
+      "agent": "智能体",
+      "agentNamed": "智能体 · {{description}}",
+      "mcp": "MCP · {{name}}",
+      "mcpTool": "MCP 工具"
+    }
   },
   "backgroundProcess": {
     "open": "查看 {{command}} 的日志",
@@ -1306,6 +1322,42 @@
     "sendFailed": "无法发送消息。",
     "stopFailed": "无法停止智能体。",
     "mcpEnableFailed": "无法启用 MCP。",
-    "removeAttachmentFailed": "无法移除附件。"
-  }
+    "removeAttachmentFailed": "无法移除附件。",
+    "sendFailedHint": "你的文本已放回输入框，按 Enter 重试。",
+    "providerSwitchFailed": "无法切换提供方，之前的提供方仍在使用中。",
+    "modelSwitchFailed": "无法切换模型，之前的模型仍在使用中。",
+    "effortSwitchFailed": "无法切换推理强度，之前的设置仍在使用中。"
+  },
+  "composer": {
+    "ariaLabel": "发送给智能体的消息",
+    "dropFiles": "拖放文件以添加附件",
+    "uploading": "正在上传…"
+  },
+  "conversation": {
+    "ariaLabel": "任务对话",
+    "agentWorking": "智能体正在工作…",
+    "agentReplied": "智能体已回复",
+    "newMessages": "新消息"
+  },
+  "message": {
+    "you": "你",
+    "agent": "智能体"
+  },
+  "options": {
+    "groupLabel": "建议回复",
+    "shortcut": "Alt+{{n}}"
+  },
+  "copied": "已复制",
+  "copyCode": "复制代码",
+  "composerReplyPlaceholder": "回复，或输入 @ 引用…",
+  "sendHint": "发送 (Enter) · 换行 (Shift+Enter)",
+  "undo": "撤销",
+  "imagesUnsupportedCount": "该提供方暂不支持读取图片，{{count}} 张图片未添加",
+  "starter": {
+    "reference": "引用规格",
+    "action": "运行操作",
+    "plan": "规划新规格",
+    "planSpec": "帮我规划一个新规格："
+  },
+  "emptyLegend": "⇧⇥ 更改智能体的权限 · ↑ 调出上一条提示"
 }

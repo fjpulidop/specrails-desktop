@@ -16,7 +16,8 @@
     "cancelDownload": "Not now",
     "loading": "Preparing file…",
     "loadFailed": "Could not load attachment",
-    "loadError": "Could not load attachment: {{error}}"
+    "loadError": "Could not load attachment: {{error}}",
+    "remove": "Remove {{name}}"
   },
   "maximize": "Maximize",
   "restore": "Restore",
@@ -24,7 +25,7 @@
   "close": "Close",
   "newConversation": "New mission",
   "emptyTitle": "What's the mission?",
-  "emptyHint": "Pick a project, then ask. The board updates live as the agent works.",
+  "emptyHint": "Ask anything about this project — the agent can read, plan specs and launch rails.",
   "thinking": "Thinking…",
   "connecting": "Connecting…",
   "consultingCode": "Consulting the app…",
@@ -43,7 +44,7 @@
   },
   "queue": {
     "queued": "Queued",
-    "send": "Send message",
+    "send": "Queue message",
     "sendHint": "Queue for the next turn. Choose Steer on a queued message to submit it without interrupting the model.",
     "placeholder": "Add a message to the queue…",
     "delivered": "Delivered to agent",
@@ -56,7 +57,8 @@
     "more": "Message options",
     "edit": "Edit",
     "actionConflict": "This message is already being delivered or is no longer queued.",
-    "actionFailed": "Could not update the queued message. Try again."
+    "actionFailed": "Could not update the queued message. Try again.",
+    "removed": "Queued message deleted"
   },
   "receipt": {
     "sent": "Sent to agent",
@@ -120,7 +122,10 @@
     },
     "lockedTitle": "Needs a higher level",
     "lockedBody": "That action needs the \"{{level}}\" level. You're on \"{{current}}\".",
-    "raiseHint": "⇧⇥ to raise the level, or ask another way."
+    "raiseHint": "⇧⇥ to raise the level, or ask another way.",
+    "confirmAutonomous": "Switch to Autonomous",
+    "autonomousWarning": "Autonomous can delete and kill processes.",
+    "skipAutonomousHint": "Press ⇧⇥ again to go back to Observe."
   },
   "approval": {
     "title": "Confirm action",
@@ -195,8 +200,8 @@
   },
   "noProvider": {
     "title": "No AI provider installed",
-    "body": "The agent needs Claude or Codex on your machine. Install one, then reopen the agent to start chatting.",
-    "placeholder": "Install an AI provider to use the agent…"
+    "body": "The agent needs an AI provider (Claude, Codex, Gemini or a local engine). Install or connect one, then reopen the agent.",
+    "placeholder": "Connect an AI provider to use the agent…"
   },
   "degraded": {
     "title": "Specrails MCP is off",
@@ -511,7 +516,18 @@
     "copySuccess": "Log copied to clipboard",
     "copyFailed": "Could not copy the log",
     "openLog": "View execution log",
-    "close": "Close"
+    "close": "Close",
+    "tool": {
+      "terminal": "Terminal",
+      "reading": "Reading",
+      "searching": "Searching",
+      "editing": "Editing",
+      "web": "Web",
+      "agent": "Agent",
+      "agentNamed": "Agent · {{description}}",
+      "mcp": "MCP · {{name}}",
+      "mcpTool": "MCP tool"
+    }
   },
   "backgroundProcess": {
     "open": "View logs for {{command}}",
@@ -1306,6 +1322,42 @@
     "sendFailed": "The message could not be sent.",
     "stopFailed": "The agent could not be stopped.",
     "mcpEnableFailed": "MCP could not be enabled.",
-    "removeAttachmentFailed": "The attachment could not be removed."
-  }
+    "removeAttachmentFailed": "The attachment could not be removed.",
+    "sendFailedHint": "Your text is back in the box — press Enter to retry.",
+    "providerSwitchFailed": "Couldn’t switch provider — the previous one is still active.",
+    "modelSwitchFailed": "Couldn’t switch model — the previous one is still active.",
+    "effortSwitchFailed": "Couldn’t switch effort — the previous one is still active."
+  },
+  "composer": {
+    "ariaLabel": "Message to the agent",
+    "dropFiles": "Drop files to attach",
+    "uploading": "Uploading…"
+  },
+  "conversation": {
+    "ariaLabel": "Mission conversation",
+    "agentWorking": "Agent is working…",
+    "agentReplied": "Agent replied",
+    "newMessages": "New messages"
+  },
+  "message": {
+    "you": "You",
+    "agent": "Agent"
+  },
+  "options": {
+    "groupLabel": "Suggested replies",
+    "shortcut": "Alt+{{n}}"
+  },
+  "copied": "Copied",
+  "copyCode": "Copy code",
+  "composerReplyPlaceholder": "Reply, or @ to reference…",
+  "sendHint": "Send (Enter) · New line (Shift+Enter)",
+  "undo": "Undo",
+  "imagesUnsupportedCount": "This provider can't read images yet — {{count}} images were not attached",
+  "starter": {
+    "reference": "Reference a spec",
+    "action": "Run an action",
+    "plan": "Plan a new spec",
+    "planSpec": "Help me plan a new spec: "
+  },
+  "emptyLegend": "⇧⇥ changes what the agent may do · ↑ recalls your last prompt"
 }

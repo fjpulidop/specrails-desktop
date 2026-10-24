@@ -16,7 +16,8 @@
     "cancelDownload": "今はしない",
     "loading": "ファイルを準備中…",
     "loadFailed": "添付ファイルを読み込めませんでした",
-    "loadError": "添付ファイルを読み込めませんでした: {{error}}"
+    "loadError": "添付ファイルを読み込めませんでした: {{error}}",
+    "remove": "{{name}} を削除"
   },
   "maximize": "最大化",
   "restore": "元に戻す",
@@ -24,7 +25,7 @@
   "close": "閉じる",
   "newConversation": "新しいミッション",
   "emptyTitle": "ミッションは何ですか？",
-  "emptyHint": "プロジェクトを選んでから尋ねてください。エージェントの作業中、ボードはリアルタイムで更新されます。",
+  "emptyHint": "このプロジェクトについて何でも質問できます。エージェントは読み取り、スペックの計画、レールの起動ができます。",
   "thinking": "考え中…",
   "connecting": "接続中…",
   "consultingCode": "アプリを確認中…",
@@ -43,7 +44,7 @@
   },
   "queue": {
     "queued": "キュー待ち",
-    "send": "メッセージを送信",
+    "send": "メッセージをキューに追加",
     "sendHint": "次のターンに送信します。キュー内のメッセージで「方向修正」を選ぶと、モデルを中断せずに送信できます。",
     "placeholder": "キューにメッセージを追加…",
     "delivered": "エージェントに送信済み",
@@ -56,7 +57,8 @@
     "more": "メッセージのオプション",
     "edit": "編集",
     "actionConflict": "このメッセージはすでに送信中か、キューにありません。",
-    "actionFailed": "キュー内のメッセージを更新できませんでした。もう一度お試しください。"
+    "actionFailed": "キュー内のメッセージを更新できませんでした。もう一度お試しください。",
+    "removed": "キューのメッセージを削除しました"
   },
   "receipt": {
     "sent": "エージェントに送信済み",
@@ -120,7 +122,10 @@
     },
     "lockedTitle": "より高いレベルが必要です",
     "lockedBody": "その操作には「{{level}}」レベルが必要です。現在は「{{current}}」です。",
-    "raiseHint": "⇧⇥ でレベルを上げるか、別の方法で尋ねてください。"
+    "raiseHint": "⇧⇥ でレベルを上げるか、別の方法で尋ねてください。",
+    "confirmAutonomous": "自律に切り替える",
+    "autonomousWarning": "自律モードでは削除やプロセスの強制終了ができます。",
+    "skipAutonomousHint": "もう一度 ⇧⇥ を押すと「観察」に戻ります。"
   },
   "approval": {
     "title": "操作を確認",
@@ -195,8 +200,8 @@
   },
   "noProvider": {
     "title": "AIプロバイダーが未インストール",
-    "body": "エージェントには Claude、Codex のいずれかが必要です。インストールしてからエージェントを再度開いてください。",
-    "placeholder": "AIプロバイダーをインストールしてエージェントを利用…"
+    "body": "エージェントには AI プロバイダー（Claude、Codex、Gemini、またはローカルエンジン）が必要です。インストールまたは接続してから、エージェントを開き直してください。",
+    "placeholder": "エージェントを使うには AI プロバイダーを接続してください…"
   },
   "degraded": {
     "title": "Specrails MCP がオフです",
@@ -511,7 +516,18 @@
     "copySuccess": "ログをクリップボードにコピーしました",
     "copyFailed": "ログをコピーできませんでした",
     "openLog": "実行ログを表示",
-    "close": "閉じる"
+    "close": "閉じる",
+    "tool": {
+      "terminal": "ターミナル",
+      "reading": "読み取り中",
+      "searching": "検索中",
+      "editing": "編集中",
+      "web": "Web",
+      "agent": "エージェント",
+      "agentNamed": "エージェント · {{description}}",
+      "mcp": "MCP · {{name}}",
+      "mcpTool": "MCP ツール"
+    }
   },
   "backgroundProcess": {
     "open": "{{command}} のログを表示",
@@ -1306,6 +1322,42 @@
     "sendFailed": "メッセージを送信できませんでした。",
     "stopFailed": "エージェントを停止できませんでした。",
     "mcpEnableFailed": "MCP を有効にできませんでした。",
-    "removeAttachmentFailed": "添付ファイルを削除できませんでした。"
-  }
+    "removeAttachmentFailed": "添付ファイルを削除できませんでした。",
+    "sendFailedHint": "テキストは入力欄に戻りました。Enter で再試行できます。",
+    "providerSwitchFailed": "プロバイダーを切り替えられませんでした。以前のプロバイダーが引き続き有効です。",
+    "modelSwitchFailed": "モデルを切り替えられませんでした。以前のモデルが引き続き有効です。",
+    "effortSwitchFailed": "推論レベルを切り替えられませんでした。以前の設定が引き続き有効です。"
+  },
+  "composer": {
+    "ariaLabel": "エージェントへのメッセージ",
+    "dropFiles": "ドロップしてファイルを添付",
+    "uploading": "アップロード中…"
+  },
+  "conversation": {
+    "ariaLabel": "ミッションの会話",
+    "agentWorking": "エージェントが作業中…",
+    "agentReplied": "エージェントが返信しました",
+    "newMessages": "新しいメッセージ"
+  },
+  "message": {
+    "you": "あなた",
+    "agent": "エージェント"
+  },
+  "options": {
+    "groupLabel": "返信の候補",
+    "shortcut": "Alt+{{n}}"
+  },
+  "copied": "コピーしました",
+  "copyCode": "コードをコピー",
+  "composerReplyPlaceholder": "返信、または @ で参照…",
+  "sendHint": "送信 (Enter) · 改行 (Shift+Enter)",
+  "undo": "元に戻す",
+  "imagesUnsupportedCount": "このプロバイダーはまだ画像を読み取れません。{{count}} 件の画像は添付されませんでした",
+  "starter": {
+    "reference": "スペックを参照",
+    "action": "アクションを実行",
+    "plan": "新しいスペックを計画",
+    "planSpec": "新しいスペックの計画を手伝って: "
+  },
+  "emptyLegend": "⇧⇥ でエージェントの権限を変更 · ↑ で前回のプロンプトを呼び出し"
 }

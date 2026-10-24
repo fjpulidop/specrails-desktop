@@ -1,10 +1,11 @@
 import { MissionWindowAction } from './MissionWindowAction'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion } from 'motion/react'
+import { motion, MotionConfig } from 'motion/react'
 import { Bot, X, Plus, Maximize2, Minimize2 } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { useAgentChat } from '../context/AgentChatContext'
+import { useGuardedTierCycle } from '../hooks/useGuardedTierCycle'
 import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../../../components/ui/ResizeGrips'
 import { AgentConversationView } from './AgentConversationView'
@@ -21,9 +22,10 @@ import { BlueprintReadiness } from '../../builder/components/project-builder/Blu
 export function AgentChatPanel() {
   const { t } = useTranslation('agent')
   const { t: tBuilder } = useTranslation('builder')
-  const { minimize, startNewConversation, cycleTier, active, draftPinnedProjectId, setPinnedProject, builderMode } = useAgentChat()
+  const { minimize, startNewConversation, active, draftPinnedProjectId, setPinnedProject, builderMode } = useAgentChat()
   const [maximized, setMaximized] = useState(false)
   const builder = builderMode.active
+  const cycleTier = useGuardedTierCycle()
 
   // Shift+Tab anywhere in the panel chrome cycles the tier ladder. Presses inside
   // the conversation body are handled (and stopPropagation'd) by AgentConversationView,
@@ -32,7 +34,7 @@ export function AgentChatPanel() {
     if (builder) return
     if (e.shiftKey && (e.key === 'Tab' || e.code === 'Tab')) {
       e.preventDefault()
-      void cycleTier()
+      cycleTier()
     }
   }
 
@@ -48,7 +50,7 @@ export function AgentChatPanel() {
   const MAXIMIZED_STYLE: CSSProperties = { position: 'fixed', inset: 12, width: 'auto', height: 'auto', maxWidth: 'none', maxHeight: 'none' }
 
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <motion.div
         ref={panelRef}
         initial={{ opacity: 0, scale: 0.85, y: 8 }}
@@ -142,6 +144,6 @@ export function AgentChatPanel() {
           <ResizeGrips handles={resizeHandles} />
         </div>
       )}
-    </>
+    </MotionConfig>
   )
 }

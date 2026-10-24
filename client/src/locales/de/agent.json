@@ -16,7 +16,8 @@
     "cancelDownload": "Jetzt nicht",
     "loading": "Datei wird vorbereitet…",
     "loadFailed": "Anhang konnte nicht geladen werden",
-    "loadError": "Anhang konnte nicht geladen werden: {{error}}"
+    "loadError": "Anhang konnte nicht geladen werden: {{error}}",
+    "remove": "{{name}} entfernen"
   },
   "maximize": "Maximieren",
   "restore": "Wiederherstellen",
@@ -24,7 +25,7 @@
   "close": "Schließen",
   "newConversation": "Neue Mission",
   "emptyTitle": "Wie lautet die Mission?",
-  "emptyHint": "Wähle ein Projekt und frag dann. Das Board aktualisiert sich live, während der Agent arbeitet.",
+  "emptyHint": "Frag alles zu diesem Projekt – der Agent kann lesen, Specs planen und Rails starten.",
   "thinking": "Denkt nach…",
   "connecting": "Verbinden…",
   "consultingCode": "App wird abgefragt…",
@@ -43,7 +44,7 @@
   },
   "queue": {
     "queued": "In Warteschlange",
-    "send": "Nachricht senden",
+    "send": "Nachricht einreihen",
     "sendHint": "Für den nächsten Durchlauf vormerken. Mit „Steuern“ an einer wartenden Nachricht sendest du sie, ohne das Modell zu unterbrechen.",
     "placeholder": "Nachricht zur Warteschlange hinzufügen…",
     "delivered": "An Agent übergeben",
@@ -56,7 +57,8 @@
     "more": "Nachrichtenoptionen",
     "edit": "Bearbeiten",
     "actionConflict": "Diese Nachricht wird bereits übergeben oder ist nicht mehr in der Warteschlange.",
-    "actionFailed": "Die wartende Nachricht konnte nicht aktualisiert werden. Versuche es erneut."
+    "actionFailed": "Die wartende Nachricht konnte nicht aktualisiert werden. Versuche es erneut.",
+    "removed": "Eingereihte Nachricht gelöscht"
   },
   "receipt": {
     "sent": "An Agent gesendet",
@@ -120,7 +122,10 @@
     },
     "lockedTitle": "Höhere Stufe erforderlich",
     "lockedBody": "Diese Aktion erfordert die Stufe „{{level}}“. Du bist auf „{{current}}“.",
-    "raiseHint": "⇧⇥ um die Stufe zu erhöhen, oder frag anders."
+    "raiseHint": "⇧⇥ um die Stufe zu erhöhen, oder frag anders.",
+    "confirmAutonomous": "Zu Autonom wechseln",
+    "autonomousWarning": "Autonom kann löschen und Prozesse beenden.",
+    "skipAutonomousHint": "Drücke erneut ⇧⇥, um zu Beobachten zurückzukehren."
   },
   "approval": {
     "title": "Aktion bestätigen",
@@ -195,8 +200,8 @@
   },
   "noProvider": {
     "title": "Kein KI-Anbieter installiert",
-    "body": "Der Agent benötigt Claude oder Codex auf deinem Rechner. Installiere einen und öffne den Agenten erneut, um zu chatten.",
-    "placeholder": "Installiere einen KI-Anbieter, um den Agenten zu nutzen…"
+    "body": "Der Agent braucht einen KI-Anbieter (Claude, Codex, Gemini oder eine lokale Engine). Installiere oder verbinde einen und öffne den Agenten erneut.",
+    "placeholder": "Verbinde einen KI-Anbieter, um den Agenten zu nutzen…"
   },
   "degraded": {
     "title": "Specrails MCP ist aus",
@@ -511,7 +516,18 @@
     "copySuccess": "Protokoll in die Zwischenablage kopiert",
     "copyFailed": "Protokoll konnte nicht kopiert werden",
     "openLog": "Ausführungsprotokoll anzeigen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "tool": {
+      "terminal": "Terminal",
+      "reading": "Liest",
+      "searching": "Sucht",
+      "editing": "Bearbeitet",
+      "web": "Web",
+      "agent": "Agent",
+      "agentNamed": "Agent · {{description}}",
+      "mcp": "MCP · {{name}}",
+      "mcpTool": "MCP-Werkzeug"
+    }
   },
   "backgroundProcess": {
     "open": "Logs für {{command}} anzeigen",
@@ -1306,6 +1322,42 @@
     "sendFailed": "Die Nachricht konnte nicht gesendet werden.",
     "stopFailed": "Der Agent konnte nicht gestoppt werden.",
     "mcpEnableFailed": "MCP konnte nicht aktiviert werden.",
-    "removeAttachmentFailed": "Der Anhang konnte nicht entfernt werden."
-  }
+    "removeAttachmentFailed": "Der Anhang konnte nicht entfernt werden.",
+    "sendFailedHint": "Dein Text steht wieder im Feld – drücke Enter, um es erneut zu versuchen.",
+    "providerSwitchFailed": "Anbieter konnte nicht gewechselt werden – der bisherige ist weiter aktiv.",
+    "modelSwitchFailed": "Modell konnte nicht gewechselt werden – das bisherige ist weiter aktiv.",
+    "effortSwitchFailed": "Aufwand konnte nicht geändert werden – der bisherige ist weiter aktiv."
+  },
+  "composer": {
+    "ariaLabel": "Nachricht an den Agenten",
+    "dropFiles": "Dateien zum Anhängen ablegen",
+    "uploading": "Wird hochgeladen…"
+  },
+  "conversation": {
+    "ariaLabel": "Missionsunterhaltung",
+    "agentWorking": "Der Agent arbeitet…",
+    "agentReplied": "Der Agent hat geantwortet",
+    "newMessages": "Neue Nachrichten"
+  },
+  "message": {
+    "you": "Du",
+    "agent": "Agent"
+  },
+  "options": {
+    "groupLabel": "Vorgeschlagene Antworten",
+    "shortcut": "Alt+{{n}}"
+  },
+  "copied": "Kopiert",
+  "copyCode": "Code kopieren",
+  "composerReplyPlaceholder": "Antworten oder mit @ verweisen…",
+  "sendHint": "Senden (Enter) · Neue Zeile (Umschalt+Enter)",
+  "undo": "Rückgängig",
+  "imagesUnsupportedCount": "Dieser Anbieter kann noch keine Bilder lesen – {{count}} Bilder wurden nicht angehängt",
+  "starter": {
+    "reference": "Auf eine Spec verweisen",
+    "action": "Eine Aktion ausführen",
+    "plan": "Eine neue Spec planen",
+    "planSpec": "Hilf mir, eine neue Spec zu planen: "
+  },
+  "emptyLegend": "⇧⇥ ändert, was der Agent darf · ↑ holt deinen letzten Prompt zurück"
 }
