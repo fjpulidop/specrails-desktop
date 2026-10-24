@@ -660,6 +660,12 @@ describe('Core definition process bridge', () => {
     await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true,approve:['approval1'],interruptId:'approval1',onSpawn:child=>{args=child.spawnargs}})
     expect(args).toEqual(expect.arrayContaining(['--approve','approval1','--interrupt-id','approval1']))
   })
+  it('surfaces a host pause (state.pause, no interrupt) on exit two',async()=>{
+    fixture.v2=true
+    const pause={requestId:'desktop-budget-pause:r:1',reason:'budget',at:'2026-10-24T00:00:00.000Z'}
+    script(`console.log(JSON.stringify(${JSON.stringify(v2('paused',{pendingInterrupts:[],pause}))}));process.exitCode=2;`)
+    expect(await runAgentRuntimeInvocation({...options(),engineVersion:2,prepareDefinition:definition})).toMatchObject({runtimeStatus:'paused',failed:false,pendingInterrupts:[],pause,errorText:'Workflow paused by the host (budget)'})
+  })
   it('rejects success without acceptance evidence, contradictory exit, cross-run events and failed durable observers',async()=>{
     fixture.v2=true
     writeFileSync(join(root, 'state', 'desktop-workflow-definition.json'), JSON.stringify(definition()))

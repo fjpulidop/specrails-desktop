@@ -277,6 +277,11 @@ export function createLoopExecutors(
       const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
       await runAgentRuntimeControl({ kind: 'cancel', runId, contextPath, requestId, ...host })
     },
+    async pauseDefinition({ runId, contextPath, requestId, reason }) {
+      const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
+      const paused = await runAgentRuntimeControl({ kind: 'pause', runId, contextPath, requestId, reason, ...host })
+      return { outcome: paused.outcome }
+    },
     async assertDefinitionSupport(graph) {
       const runtime = await loadCoreAgentRuntime()
       if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) throw new Error('engine_unsupported: Update Core to run workflow definitions')

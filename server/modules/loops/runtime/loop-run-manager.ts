@@ -91,6 +91,7 @@ export interface AiStepResult {
   pendingInterrupts?: DefinitionInterrupt[]
   pendingQuestion?: DefinitionRuntimeResult['pendingQuestion']
   pendingApproval?: DefinitionRuntimeResult['pendingApproval']
+  pause?: DefinitionRuntimeResult['pause']
   graph?: Record<string, unknown>
   text: string
   sessionId?: string
@@ -226,6 +227,10 @@ export interface LoopExecutors {
   assertLegacyEngineSupport?(): Promise<void>
   runDefinition?(input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult>
   cancelDefinition?(input: { runId: string; contextPath: string; requestId: string }): Promise<void>
+  /** Cooperative Core pause of a RUNNING definition run (`runtime pause`): the
+   *  current step finishes, then Core exits 2 with `state.pause`. Rejects with
+   *  `engine_unsupported` when the retained Core lacks `pauseRuns`. */
+  pauseDefinition?(input: { runId: string; contextPath: string; requestId: string; reason: string }): Promise<{ outcome: string }>
   readCoreCompletion?(runId: string): Promise<CoreCompletionSnapshot | null>
   runAiStep(input: {
     runtimeProviderOverride?: RuntimeProviderOverride
@@ -1897,9 +1902,39 @@ export class LoopRunManager {
 
       if (definitionEngine) {
         settled = true
+        // rail-loop-budget-guard (mid-run): Core schedules every step inside one
+        // invocation, so a budget crossed by a role's spend is enforced with
+        // Core's cooperative pause (`pauseRuns`): the current step finishes, Core
+        // records `paused` (reason `budget`) and exits 2, and the run parks on
+        // the same resumable `budget_paused` pause. One request per invocation;
+        // a Core without the capability keeps the between-invocation guard.
+        let budgetPauseRequested = false, budgetPauseUnsupported = false, budgetPauseEpisode = 0, budgetCheckedCost = totalCost
+        const requestBudgetPause = (): void => {
+          if (budgetPauseRequested || budgetPauseUnsupported || !this.executors.pauseDefinition || this._cancelled.has(runId) || this._disposed) return
+          const breach = this._dailyBudgetBreach()
+          const contextPath = breach ? readDefinitionRun(this.db, runId)?.metadata.contextPath : undefined
+          if (!breach || !contextPath) return
+          budgetPauseRequested = true
+          const requestId = `desktop-budget-pause:${runId}:${++budgetPauseEpisode}`
+          logLine(`\n■ Daily budget reached mid-run — ${breach.detail} Pausing the workflow after its current step.`, 'stderr')
+          void this.executors.pauseDefinition({ runId, contextPath, requestId, reason: 'budget' }).catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : String(error)
+            if (message.startsWith('engine_unsupported')) {
+              budgetPauseUnsupported = true
+              logLine(`\n■ This run's Core cannot pause mid-run; the daily budget applies before its next continuation.`, 'stderr')
+            } else {
+              budgetPauseRequested = false
+              console.error(`[loop-run] budget pause request failed for ${runId}: ${message}`)
+            }
+          })
+        }
         const projectEvent = createDefinitionEventProjection({ db: this.db, runId, projectId: req.projectId, ticketIds: exactTicketIds, nextSequence: takeSeq,
           broadcast: event => this._emit({ type: 'event', jobId: runId, event_type: event.eventType, source: 'stdout', payload: event.payload, seq: event.seq, timestamp: event.timestamp }),
-          onProgress: (count, usage) => { stepNum = count; totalCost = usage.cost; totalTokens = usage.tokensIn + usage.tokensOut; totalDuration = usage.duration; costUncertain = usage.costUnknown; usageTelemetryAvailable = usage.present },
+          onProgress: (count, usage) => {
+            stepNum = count; totalCost = usage.cost; totalTokens = usage.tokensIn + usage.tokensOut; totalDuration = usage.duration; costUncertain = usage.costUnknown; usageTelemetryAvailable = usage.present
+            // Only new recorded spend can cross the budget: check on a cost change.
+            if (totalCost > budgetCheckedCost) { budgetCheckedCost = totalCost; requestBudgetPause() }
+          },
         })
         let activeDurationMs = continuation ? getLoopRun(this.db,runId)?.total_duration_ms ?? 0 : 0
         const result = await runDefinitionLoop(req, runId, { continuation, contextPath: () => readDefinitionRun(this.db,runId)?.metadata.contextPath,
@@ -1911,7 +1946,7 @@ export class LoopRunManager {
             if (this._cancelled.has(runId)) this.cancelResident(runId, false)
           },
           onInvocationEnd: result => {
-            this._activeChild.delete(runId); if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs }
+            this._activeChild.delete(runId); budgetPauseRequested = false; if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs }
             try { this.options.onDefinitionInvocationEnd?.(runId, exactTicketIds, result.runtimeStatus) } catch { /* advisory observer */ }
           }, awaitHumanDecision,
           // Core schedules every step inside one invocation; the only boundary
@@ -1919,6 +1954,15 @@ export class LoopRunManager {
           beforeContinuation: async () => {
             const breach = this._dailyBudgetBreach()
             return breach ? awaitBudget(breach) : 'continue'
+          },
+          // Core exited 2 on the budget pause requested above. A budget raised
+          // meanwhile resumes at once; otherwise the run waits like any budget pause.
+          awaitHostPause: async pause => {
+            if (pause.reason !== 'budget') throw new Error(`Core paused (${pause.reason}) without an addressable interrupt`)
+            const breach = this._dailyBudgetBreach()
+            if (breach) return awaitBudget(breach)
+            logLine(`\n▶ The daily budget allows the next step — resuming the workflow.`)
+            return 'continue'
           },
         })
         definitionCompletion = result.completion

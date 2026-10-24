@@ -14,7 +14,7 @@ import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime
 import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, resolveInheritedRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates, coreSupportsSetupCommands } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
-import type { DefinitionCompletion, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
+import type { DefinitionCompletion, DefinitionHostPause, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
 import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
 import { CORE_DEFAULT_MAX_TURNS, withTurnLimitHint } from '../../loops/runtime/loop-turn-limits'
@@ -159,6 +159,8 @@ interface RuntimeResult {
   pendingInterrupts?: DefinitionInterrupt[]
   pendingApproval?: { stepId?: string; reason?: string }
   pendingQuestion?: { stepId?: string; question?: string }
+  /** Present when a host `runtime pause` (not an interrupt) parked the run. */
+  pause?: DefinitionHostPause
   usage?: { durationMs?: number | null }
   invocationUsage?: { costUsd?: number | null; inputTokens?: number | null; outputTokens?: number | null }
 }
@@ -426,6 +428,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       if (definitionEngine && result?.status === 'paused' && result.runId !== admittedContext.runId) invalidProtocol = true
       const acceptanceBlocked = definitionEngine && result?.status === 'succeeded' && result.completion && (!result.completion.ok || requiresVerified && !result.completion.verified)
       const validPause = definitionEngine && code === 2 && result?.status === 'paused'
+      const hostPause = validPause ? readHostPause(result?.pause) : undefined
       const failed = (!validPause && (code !== 0 || result?.status !== 'succeeded')) || invalidProtocol || timedOut || Boolean(observerError) || Boolean(acceptanceBlocked)
       const runtimeError = typeof result?.error === 'string' ? result.error : runtimeErrorText(result?.error)
       const completionError = Array.isArray(result?.completion?.reasons) ? result.completion.reasons.filter(reason => typeof reason === 'string' && reason.trim()).join('; ').slice(0, 4_000) : ''
@@ -433,7 +436,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       const errorText = observerError ?? (timedOut ? 'Programmatic workflow timed out; inspect its checkpoint before recovery'
         : invalidProtocol ? 'Core returned an invalid runtime event stream'
         : acceptanceBlocked ? result?.completion?.reasons.join('; ') || 'Core workflow acceptance or required verification is not satisfied'
-        : runtimeError ?? (result?.status === 'paused' ? (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
+        : runtimeError ?? (result?.status === 'paused' ? hostPause ? `Workflow paused by the host (${hostPause.reason})` : (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
           ? `Workflow awaits an answer in Agent Runtime settings: ${result.pendingQuestion.question.trim().slice(0, 500)}`
           : 'Workflow awaits approval in Agent Runtime settings')
         : failed ? completionError || [...stepFailures.values()].at(-1) || stderr || 'Core exited without a successful programmatic workflow result' : undefined))
@@ -441,7 +444,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       resolve({
         text: summary || (failed ? errorText ?? '' : definitionEngine ? 'Workflow execution completed.' : 'Programmatic implementation verified and archived.'),
         provider: 'agent-runtime', model: 'per-role', failed, errorText,
-        ...(definitionEngine ? { runtimeStatus, completion: result?.completion, pendingInterrupts: result?.pendingInterrupts, pendingQuestion: result?.pendingQuestion, pendingApproval: result?.pendingApproval, graph } : {}),
+        ...(definitionEngine ? { runtimeStatus, completion: result?.completion, pendingInterrupts: result?.pendingInterrupts, pendingQuestion: result?.pendingQuestion, pendingApproval: result?.pendingApproval, ...(hostPause ? { pause: hostPause } : {}), graph } : {}),
         cost, tokensIn, tokensOut, tokens: tokensIn === undefined || tokensOut === undefined ? undefined : tokensIn + tokensOut,
         estimated: cost === undefined, durationMs: definitionEngine ? known(result?.usage?.durationMs) : Date.now() - started,
       })
@@ -464,6 +467,7 @@ export type AgentRuntimeControlInvocation =
   | (AgentRuntimeControlBase & { kind: 'fork'; childRunId: string; fromNodePath: string; scopeId?: string; visit?: number; state?: Record<string, unknown>; requestId?: string })
   | (AgentRuntimeControlBase & { kind: 'cancel'; requestId: string })
   | (AgentRuntimeControlBase & { kind: 'signal'; requestId: string; text: string })
+  | (AgentRuntimeControlBase & { kind: 'pause'; requestId: string; reason: string })
 export interface AgentRuntimeForkResult {
   kind: 'fork'
   runId: string
@@ -482,6 +486,28 @@ export interface AgentRuntimeForkResult {
 }
 export interface AgentRuntimeCancelResult { kind: 'cancel'; requestId: string | null; accepted: Record<string, unknown> }
 export interface AgentRuntimeSignalResult { kind: 'signal'; id: string; acceptedAt: string }
+/** Core's `runtime pause` outcome. `requested`: a live owner finishes its
+ *  current step, records `paused` and exits 2; `paused`: an ownerless run was
+ *  parked directly; the rest are reported no-ops. */
+export type AgentRuntimePauseOutcome = 'requested' | 'paused' | 'already-paused' | 'not-running' | 'terminal'
+export interface AgentRuntimePauseResult { kind: 'pause'; requestId: string; reason: string; outcome: AgentRuntimePauseOutcome; status: string }
+const PAUSE_OUTCOMES: readonly AgentRuntimePauseOutcome[] = ['requested', 'paused', 'already-paused', 'not-running', 'terminal']
+const PAUSE_REASON = /^[a-z][a-z0-9_-]{0,63}$/
+
+function readHostPause(value: unknown): DefinitionHostPause | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const pause = value as Record<string, unknown>
+  return typeof pause.requestId === 'string' && typeof pause.reason === 'string' && typeof pause.at === 'string'
+    ? { requestId: pause.requestId, reason: pause.reason, at: pause.at } : undefined
+}
+
+/** True when the run's retained Core announces cooperative pause (`pauseRuns`). */
+export async function retainedRuntimeSupportsPause(options: AgentRuntimeControlBase): Promise<boolean> {
+  const cli = resolveRetainedAgentRuntime(options.contextPath)
+  const events = await runControlProcess([cli, 'api'], options)
+  const capabilities = events.find(event => event.type === 'runtime-api')?.capabilities as Record<string, unknown> | undefined
+  return capabilities?.pauseRuns === 1
+}
 
 const CONTROL_RUN_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 const CONTROL_TIMEOUT_MS = 60_000
@@ -581,7 +607,7 @@ function materializeForkedRun(sourceContextPath: string, childRunId: string, chi
 }
 
 /**
- * Fork or cancel a retained Core run. Both verbs use the ORIGINAL retained
+ * Fork, cancel, signal or pause a retained Core run. Every verb uses the ORIGINAL retained
  * runtime and the frozen context: current project settings never enter. Fork
  * produces the child's Core database through Core and then freezes the child's
  * Desktop files as copies of the source's frozen inputs; the source directory
@@ -590,7 +616,8 @@ function materializeForkedRun(sourceContextPath: string, childRunId: string, chi
 export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'fork' }): Promise<AgentRuntimeForkResult>
 export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'cancel' }): Promise<AgentRuntimeCancelResult>
 export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'signal' }): Promise<AgentRuntimeSignalResult>
-export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation): Promise<AgentRuntimeForkResult | AgentRuntimeCancelResult | AgentRuntimeSignalResult> {
+export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'pause' }): Promise<AgentRuntimePauseResult>
+export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation): Promise<AgentRuntimeForkResult | AgentRuntimeCancelResult | AgentRuntimeSignalResult | AgentRuntimePauseResult> {
   const cli = resolveRetainedAgentRuntime(options.contextPath)
   const admitted = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown }
   if (typeof admitted.runId !== 'string' || admitted.runId !== options.runId) throw new Error('runtime_scope_changed: Frozen context belongs to another run')
@@ -602,6 +629,17 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
     const accepted = events.find(event => event.type === 'runtime-signal-accepted')
     if (accepted?.id !== options.requestId || typeof accepted.acceptedAt !== 'string' || !Number.isFinite(Date.parse(accepted.acceptedAt))) throw new Error('Core did not acknowledge the steering request')
     return { kind: 'signal', id: accepted.id as string, acceptedAt: accepted.acceptedAt }
+  }
+  if (options.kind === 'pause') {
+    if (typeof options.requestId !== 'string' || !options.requestId.trim() || options.requestId.length > 256 || options.requestId.includes('\0')) throw new Error('invalid_arguments: Pause requires a request id of 1–256 characters')
+    if (!PAUSE_REASON.test(options.reason)) throw new Error('invalid_arguments: Pause reason must be a lowercase token')
+    // An older retained Core has no pause verb: say so instead of failing the spawn.
+    if (!await retainedRuntimeSupportsPause(options)) throw new Error('engine_unsupported: Retained Core does not support cooperative pause')
+    args.push('--request-id', options.requestId, '--reason', options.reason)
+    const events = await runControlProcess(args, options)
+    const paused = events.find(event => event.type === 'runtime-pause-result')
+    if (paused?.requestId !== options.requestId || paused.runId !== options.runId || !PAUSE_OUTCOMES.includes(paused.outcome as AgentRuntimePauseOutcome)) throw new Error('Core did not acknowledge the pause request')
+    return { kind: 'pause', requestId: options.requestId, reason: options.reason, outcome: paused.outcome as AgentRuntimePauseOutcome, status: typeof paused.status === 'string' ? paused.status : 'unknown' }
   }
   if (options.kind === 'cancel') {
     if (typeof options.requestId !== 'string' || !options.requestId.trim() || options.requestId.length > 256 || options.requestId.includes('\0')) throw new Error('invalid_arguments: Cancellation requires a request id of 1–256 characters')
