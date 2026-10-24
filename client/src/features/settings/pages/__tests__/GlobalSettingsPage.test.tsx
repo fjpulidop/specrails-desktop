@@ -113,9 +113,9 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     await screen.findByRole('navigation', { name: 'Settings sections' })
     const labels = screen.getAllByTestId(/^settings-nav-group-label-/)
     expect(labels.length).toBeGreaterThan(1)
-    expect(labels[0]).toHaveClass('mt-0', 'mb-1', 'text-xs')
+    expect(labels[0]).toHaveClass('mt-0', 'mb-1', 'text-label')
     for (const label of labels.slice(1)) {
-      expect(label).toHaveClass('mt-4', 'mb-1', 'text-xs')
+      expect(label).toHaveClass('mt-4', 'mb-1', 'text-label')
       expect(label.className).not.toMatch(/text-\[11px\]/)
     }
   })

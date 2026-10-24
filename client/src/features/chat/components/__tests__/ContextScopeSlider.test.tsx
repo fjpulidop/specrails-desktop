@@ -28,7 +28,7 @@ describe('ContextScopeSlider', () => {
     render(<ContextScopeSlider value={PRESETS[1].scope} onChange={() => {}} />)
     const tier = screen.getByTestId('context-awareness-tier')
     expect(tier).toHaveTextContent(/^Cost tier: (Light|Medium|Heavy|Deep)$/)
-    expect(tier.className).toMatch(/text-xs/)
+    expect(tier.className).toMatch(/text-label/)
   })
 
   it('renders all six stop labels', () => {

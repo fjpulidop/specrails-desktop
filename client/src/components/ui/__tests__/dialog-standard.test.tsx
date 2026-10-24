@@ -88,7 +88,7 @@ describe('modal standard: anatomy', () => {
   it('uses the 16px title and 13px description scale', () => {
     render(<Standard />)
     expect(screen.getByText('Title').className).toContain('text-base')
-    expect(screen.getByText('Consequence').className).toContain('text-[13px]')
+    expect(screen.getByText('Consequence').className).toContain('text-body')
   })
 
   it('uses the shared scrim token', () => {
