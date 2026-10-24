@@ -45,6 +45,16 @@ const reportedUnknownSteps = new Set<string>()
 /** A settled step that took under 5 s counts as bookkeeping. */
 const QUICK_SECONDS = 5
 
+/**
+ * Engine-internal steps with no AI work of their own: when they end cleanly
+ * they are bookkeeping whatever follows them, and fold into "+N checks".
+ */
+const BOOKKEEPING_STEPS = new Set([
+  'initialize-corrections', 'tasks', 'developer-blocker', 'correction-context', 'capture-review',
+  'correction-budget', 'begin-correction', 'correction-blocker', 'correction-progress',
+  'review-policy', 'approval-policy',
+])
+
 function isStation(m: NarrationMilestone): boolean {
   return m.kind === 'step-start' || m.kind === 'step-end' || m.kind === 'step-interrupted' || m.values.phaseBoundary === 1
 }
@@ -86,9 +96,10 @@ export function NarratedProgress({
         : null
       // Bookkeeping: a clean step that ended in under 2 s with no activity of its own.
       const next = visible[i + 1]
+      const bookkeeping = typeof milestone.values.title === 'string' && BOOKKEEPING_STEPS.has(milestone.values.title)
       const quick = milestone.kind === 'step-start' && !!end && end.tone !== 'bad' && milestone.tone !== 'bad'
         && end.code !== 'step.doneTimedMin' && seconds < QUICK_SECONDS
-        && (!next || next.kind === 'step-start')
+        && (bookkeeping || !next || next.kind === 'step-start')
         && !(!settled && i === lastStation)
       return { milestone, station, duration, quick, live: station && !settled && i === lastStation && !end }
     })
@@ -104,11 +115,15 @@ export function NarratedProgress({
       | { type: 'folded'; key: number; rows: Row[] }
     const maxRound = rows.reduce((max, r) => (r.milestone.kind === 'step-start' ? Math.max(max, Number(r.milestone.values.iteration ?? 1)) : max), 1)
     const out: Item[] = []
-    let currentRound = 1
+    // "Start a fix round" opens round N itself (the first one is round 1);
+    // a retried step at iteration N > 1 opens round N when none did.
+    const announced = new Set<number>()
     for (const row of rows) {
       const iteration = row.milestone.kind === 'step-start' ? Number(row.milestone.values.iteration ?? 1) : 1
-      if (row.milestone.kind === 'step-start' && iteration > currentRound) {
-        currentRound = iteration
+      const opensRound = row.milestone.kind === 'step-start'
+        && (row.milestone.values.title === 'begin-correction' || iteration > 1)
+      if (opensRound && !announced.has(iteration)) {
+        announced.add(iteration)
         out.push({ type: 'round', key: row.milestone.seq, round: iteration })
       }
       if (row.quick) {
@@ -119,7 +134,7 @@ export function NarratedProgress({
         out.push({ type: 'row', row })
       }
     }
-    return { out, maxRound }
+    return { out, maxRound: Math.max(maxRound, ...announced) }
   }, [rows])
 
   const toggle = (key: number) =>
@@ -133,15 +148,29 @@ export function NarratedProgress({
   // Flat list of what is on screen, so the track line knows its first and last stop.
   const flat = useMemo(() => {
     type Flat =
-      | { type: 'row'; row: (typeof rows)[number] }
+      | { type: 'row'; row: (typeof rows)[number]; nested?: boolean }
       | { type: 'round'; key: number; round: number }
       | { type: 'folded'; key: number; count: number; open: boolean }
     const list: Flat[] = []
+    // Numbers count only the steps on screen, so "Step 1, 2, 3" never skips.
+    const displayStep = new Map<number, number>()
+    let visibleSteps = 0
+    for (const item of items.out) {
+      if (item.type === 'row' && item.row.milestone.kind === 'step-start' && item.row.milestone.stepIndex !== null) {
+        displayStep.set(item.row.milestone.stepIndex, ++visibleSteps)
+      }
+    }
     for (const item of items.out) {
       if (item.type === 'folded') {
         const open = expanded.has(item.key)
         list.push({ type: 'folded', key: item.key, count: item.rows.length, open })
-        if (open) for (const row of item.rows) list.push({ type: 'row', row })
+        if (open) for (const row of item.rows) list.push({ type: 'row', row, nested: true })
+      } else if (item.type === 'row') {
+        const m = item.row.milestone
+        const mapped = m.stepIndex !== null ? displayStep.get(m.stepIndex) : undefined
+        list.push(mapped !== undefined
+          ? { type: 'row', row: { ...item.row, milestone: { ...m, values: { ...m.values, step: mapped } } } }
+          : item)
       } else list.push(item)
     }
     return list
@@ -208,6 +237,7 @@ export function NarratedProgress({
           }
           const row = entry.row
           const { milestone, station, duration, live } = row
+          const nested = entry.nested === true
           // Runtime phases are section headers for the steps below them: a
           // label, no dot, with room above — steps keep the rail's stops.
           if (milestone.kind === 'activity' && milestone.values.phaseBoundary === 1) {
@@ -262,7 +292,9 @@ export function NarratedProgress({
                 )}
                 {/* A step the engine named by role reads as its role; anything
                     else keeps the real title rather than a guessed label. */}
-                {milestone.kind === 'step-start' && typeof milestone.values.roleCode === 'string'
+                {nested && milestone.kind === 'step-start'
+                  ? (typeof milestone.values.roleCode === 'string' ? t(milestone.values.roleCode) : humanTitle(milestone.values.title))
+                  : milestone.kind === 'step-start' && typeof milestone.values.roleCode === 'string'
                   ? t(stepCode, {
                       ...milestone.values,
                       title: t(milestone.values.roleCode as string),

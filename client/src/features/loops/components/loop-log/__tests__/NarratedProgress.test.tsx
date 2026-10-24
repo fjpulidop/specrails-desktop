@@ -202,4 +202,35 @@ describe('job log mode preference', () => {
       expect(rounds.map(r => r.textContent)).toEqual(['Fix round 2 of 3', 'Fix round 3 of 3'])
     })
   })
+  describe('fewer rows', () => {
+    const story = () => {
+      const events: EventRow[] = []
+      const quick = (i: number, id: string, iteration = 1) => {
+        events.push(step(i, id, { iteration }), tool('Read', { file_path: '/a.ts' }), stepEnd(i, { durationMs: 1_000 }))
+      }
+      events.push(step(1, 'architect'), stepEnd(1, { durationMs: 120_000 }))
+      quick(5, 'tasks')
+      events.push(step(6, 'developer'), stepEnd(6, { durationMs: 120_000 }))
+      quick(8, 'begin-correction')
+      events.push(step(9, 'fixer'), stepEnd(9, { durationMs: 120_000 }))
+      return events
+    }
+
+    it('folds bookkeeping steps even when activity follows them', () => {
+      render(<NarratedProgress events={story()} settled />)
+      expect(screen.queryByText(/Work through tasks/)).toBeNull()
+      expect(screen.queryByText(/Start a fix round/)).toBeNull()
+    })
+
+    it('numbers the visible steps sequentially', () => {
+      render(<NarratedProgress events={story()} settled />)
+      const numbers = screen.getAllByTestId('narration-list')[0].textContent?.match(/Step (\d+)/g)
+      expect(numbers).toEqual(['Step 1', 'Step 2', 'Step 3'])
+    })
+
+    it('heads the first fix round like the later ones', () => {
+      render(<NarratedProgress events={story()} settled />)
+      expect(screen.getAllByTestId('narration-round').map(r => r.textContent)).toEqual(['Fix round 1 of 1'])
+    })
+  })
 })

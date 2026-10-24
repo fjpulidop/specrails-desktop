@@ -136,14 +136,15 @@ describe('JobDetailPage', () => {
     })
   })
 
-  it('shows breadcrumb with job id', async () => {
+  it('shows a humanised breadcrumb and keeps the job id in its tooltip', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ job: mockJob, events: mockEvents }),
+      json: async () => ({ job: { ...mockJob, command: '/specrails:implement #15' }, events: mockEvents }),
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByText(/Job #job-abc1/i)).toBeInTheDocument()
+      const crumb = screen.getByText('Implement · #15', { selector: '[aria-current="page"]' })
+      expect(crumb).toHaveAttribute('title', expect.stringMatching(/Job #job-abc1/i))
     })
   })
 

@@ -155,6 +155,13 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         expect(within(strip).queryByTestId('rail-pr-poll')).toBeNull()
       })
 
+      it('shows the spec number inside the status pill, not only in a tooltip', () => {
+        renderRail(snapshot(), density)
+        const ref = screen.getByTestId('rail-pr-spec-ref')
+        expect(ref.textContent).toMatch(/^#\d+/)
+        expect(ref.parentElement).toHaveTextContent(/Ready for review/)
+      })
+
       it('on_review → Ready-for-review pill + Create PR (tooltip → base) + Discard', () => {
         renderRail(snapshot(), density)
         const strip = screen.getByTestId('rail-pr-strip')

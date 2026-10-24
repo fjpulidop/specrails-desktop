@@ -896,8 +896,27 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     loopTooltip,
     unitSummary,
   ].filter(Boolean).join('\n')
-  const pillWithEvidence = React.isValidElement(pill) && pillTooltip
-    ? React.cloneElement(pill as React.ReactElement<{ title?: string }>, { title: pillTooltip })
+  // The spec number stays visible inside the pill ("#15 · Ready for review") so
+  // two rails never read identically; the detail remains in the tooltip.
+  const specRef = (decision.ticketIds ?? []).filter((id) => id != null).map((id) => `#${id}`).join(', ')
+  const pillWithEvidence = React.isValidElement(pill)
+    ? React.cloneElement(
+        pill as React.ReactElement<{ title?: string; children?: React.ReactNode }>,
+        {
+          ...(pillTooltip ? { title: pillTooltip } : {}),
+          ...(specRef
+            ? {
+                children: (
+                  <>
+                    <span data-testid="rail-pr-spec-ref" className="tabular-nums">{specRef}</span>
+                    <span aria-hidden>·</span>
+                    {(pill.props as { children?: React.ReactNode }).children}
+                  </>
+                ),
+              }
+            : {}),
+        },
+      )
     : pill
 
   return (

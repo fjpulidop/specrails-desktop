@@ -25,7 +25,7 @@ import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 import { useDesktop } from '../../../hooks/useDesktop'
-import { humaniseCommand, ticketTitlesOf } from '../lib/humanise-command'
+import { humaniseCommand, humaniseJobCrumb, ticketTitlesOf } from '../lib/humanise-command'
 import { formatCommandForProvider } from '../../../lib/format-command'
 
 export default function JobDetailPage() {
@@ -405,7 +405,8 @@ export default function JobDetailPage() {
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
   // "Implement · #15 Title" when the spec title is known; the raw command is its tooltip.
   const rawCommand = formatCommandForProvider(job.command, activeProvider)
-  const friendlyCommand = humaniseCommand(job.command, ticketTitlesOf(job.tickets))
+  const friendlyCommand = humaniseCommand(job.command, ticketTitlesOf(job.tickets), { omitTitle: hasTicketHeader })
+  const crumbLabel = humaniseJobCrumb(job.command)
   // Loop runs get the step-grouped explorer; every other job keeps the legacy
   // LogViewer byte-identical. Same discriminator as the composer `kind` below.
   const isLoopJob = job.command.startsWith('loop:')
@@ -423,7 +424,13 @@ export default function JobDetailPage() {
             {t('detail.breadcrumbJobs')}
           </Link>
           <ChevronRight className="w-3 h-3" aria-hidden />
-          <span aria-current="page" className="text-foreground font-mono">{t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}</span>
+          <span
+            aria-current="page"
+            className={cn('text-foreground', !crumbLabel && 'font-mono')}
+            title={t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+          >
+            {crumbLabel ?? t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+          </span>
         </nav>
 
         {/* Ticket identity card — premium header when the job references tickets */}
