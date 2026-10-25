@@ -620,7 +620,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
                     }}
                     placeholder={t('proposeModal.raw.titlePlaceholder')}
                     data-testid="raw-title-input"
-                    className="flex-1 h-8 px-2.5 rounded-md bg-card/40 border border-border/40 text-sm text-foreground placeholder-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/40 focus-visible:border-accent-info/60 transition-colors"
+                    className="flex-1 h-8 px-2.5 rounded-md bg-card/40 border border-border/40 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/40 focus-visible:border-accent-info/60 transition-colors"
                   />
                 </div>
 
@@ -687,7 +687,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
                         aria-label={t('proposeModal.raw.addLabelAria')}
                         data-testid="raw-label-input"
                         placeholder={labels.length ? '' : t('proposeModal.raw.labelPlaceholder')}
-                        className="flex-1 min-w-[4rem] bg-transparent text-xs text-foreground placeholder-muted-foreground/50 focus-visible:outline-none"
+                        className="flex-1 min-w-[4rem] bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none"
                         onKeyDown={(e) => {
                           const el = e.target as HTMLInputElement
                           const v = el.value.trim()
@@ -895,7 +895,7 @@ function ModeOption({
     >
       {icon}
       {label}
-      <span className={`text-xs ${active ? 'text-primary/60' : 'text-muted-foreground'}`}>{hint}</span>
+      <span className={`text-xs ${active ? 'text-accent-primary' : 'text-muted-foreground'}`}>{hint}</span>
     </button>
   )
 }

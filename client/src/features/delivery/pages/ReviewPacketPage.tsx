@@ -880,7 +880,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   <Icon className="size-3.5" aria-hidden />
                   {t(`tier.${tier}.title`)}
                 </h3>
-                <p className="mb-2 text-xs opacity-80">{t(`tier.${tier}.caveat`)}</p>
+                <p className="mb-2 text-xs">{t(`tier.${tier}.caveat`)}</p>
                 <ul className="space-y-1">
                   {items.map((item, index) => <ProofRow key={`${item.code}-${index}`} item={item} />)}
                 </ul>

@@ -150,7 +150,7 @@ function LoopStepSectionInner({
         >
           <ChevronRight
             className={cn(
-              'w-3 h-3 text-primary/60 shrink-0 transition-transform duration-150',
+              'w-3 h-3 text-muted-foreground shrink-0 transition-transform duration-150',
               !collapsed && 'rotate-90',
             )}
           />

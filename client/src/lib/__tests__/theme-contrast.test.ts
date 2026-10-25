@@ -119,18 +119,50 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
   return out
 }
 
-/** Text colour utilities with an alpha: the faded result is below 4.5:1 in several themes. */
-const FADED_TEXT = /(?<![\w-])(?:[a-z-]+:)*text-(?:foreground|muted-foreground|destructive|accent-[a-z]+)\/\d/
-/** Files that may fade text on purpose (decorative, aria-hidden). Keep empty; justify any entry. */
-const FADED_TEXT_ALLOWLIST = new Set<string>()
+/**
+ * Text colour utilities with an alpha, for ANY token (`text-primary/60`, `text-accent-info/70`,
+ * `placeholder:text-muted-foreground/50`) and the `placeholder-<token>/N` form: the faded result is
+ * below 4.5:1 in several themes.
+ */
+const FADED_TEXT = /(?<![\w-])(?:[a-z-]+:)*(?:placeholder[:-])?text-[a-z][a-z-]*\/(?:\d|\[)|(?<![\w-])(?:[a-z-]+:)*placeholder-[a-z][a-z-]*\/(?:\d|\[)/
+/**
+ * Files that may fade text on purpose, with the reason. Keep it to decorative, aria-hidden marks and
+ * text over imagery, where the page background is not a theme surface.
+ */
+const FADED_TEXT_ALLOWLIST = new Map<string, string>([
+  ['features/chat/components/AttachmentPreviewLightbox.tsx', 'white text on the dark lightbox scrim, not on a theme surface'],
+  ['features/analytics/components/CostScatter.tsx', 'chart grid stroke drawn through currentColor, no text'],
+  ['features/analytics/components/SpendingTimeline.tsx', 'chart grid stroke drawn through currentColor, no text'],
+])
+
+/** Plain `opacity-N` (not a state variant) on an element that also sets a text size: it fades the text itself. */
+const OPACITY_ON_TEXT = /className=(?:"([^"]*)"|\{`([^`]*)`\}|\{'([^']*)'\})/g
+const TEXT_SIZE = /(?<![\w-])text-(?:xs|sm|base|lg|caption|label|body|title|headline)(?![\w-])/
+const PLAIN_OPACITY = /(?<![\w:-])opacity-(?!0(?![\d])|100)\d+/
+/** An opacity that is a state, an animation or a disabled look is not a faded label. */
+const STATE_OPACITY = /disabled|pointer-events-none|cursor-not-allowed|animate-|transition-opacity|aria-hidden|sr-only|group-hover|peer-/
 
 describe('text never fades with an alpha', () => {
-  it('has no text-/placeholder:text-<foreground|muted|destructive|accent>/<alpha> in any source', () => {
+  it('has no text-/placeholder:text-<any token>/<alpha> or placeholder-<token>/<alpha> in any source', () => {
     const offenders: string[] = []
     for (const file of sourceFiles(SRC)) {
       const rel = path.relative(SRC, file)
       if (FADED_TEXT_ALLOWLIST.has(rel)) continue
-      if (FADED_TEXT.test(fs.readFileSync(file, 'utf8'))) offenders.push(rel)
+      const hit = FADED_TEXT.exec(fs.readFileSync(file, 'utf8'))
+      if (hit) offenders.push(`${rel}: ${hit[0]}`)
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('does not fade a text element with opacity-N', () => {
+    const offenders: string[] = []
+    for (const file of sourceFiles(SRC)) {
+      const rel = path.relative(SRC, file)
+      const source = fs.readFileSync(file, 'utf8')
+      for (const m of source.matchAll(OPACITY_ON_TEXT)) {
+        const classes = m[1] ?? m[2] ?? m[3] ?? ''
+        if (TEXT_SIZE.test(classes) && PLAIN_OPACITY.test(classes) && !STATE_OPACITY.test(classes)) offenders.push(`${rel}: ${classes.slice(0, 90)}`)
+      }
     }
     expect(offenders).toEqual([])
   })

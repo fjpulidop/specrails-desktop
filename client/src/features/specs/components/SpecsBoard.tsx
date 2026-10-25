@@ -1081,7 +1081,7 @@ export function SpecsBoard({
             ) : visibleActiveTickets.length === 0 ? (
               <div
                 className={`flex flex-col items-center justify-center py-12 text-center transition-colors ${
-                  isOver ? 'text-primary/50' : 'text-muted-foreground'
+                  isOver ? 'text-accent-primary' : 'text-muted-foreground'
                 }`}
               >
                 <FileText className="w-8 h-8 mb-3 opacity-20" />

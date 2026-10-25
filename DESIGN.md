@@ -257,7 +257,7 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 - **Do** use the role tokens for type (`text-body`, `text-title`), radius (`rounded-card`) and elevation (`shadow-1/2/3`).
 - **Do** express state as a lamp with a label, and reserve amber for caution and cost.
 - **Do** show running work as a travelling rail pill and finish with a proportionate arrival moment.
-- **Do** keep every text pair at 4.5:1 and every lamp at 3:1 in all six themes. Secondary text is `text-muted-foreground`, never an alpha of it (`/70`, `/80`); `theme-contrast.test.ts` fails on both a failing token pair and an alpha variant.
+- **Do** keep every text pair at 4.5:1 and every lamp at 3:1 in all six themes. Secondary text is `text-muted-foreground`, never an alpha of it (`/70`, `/80`); `theme-contrast.test.ts` fails on a failing token pair, on an alpha on any text colour (`text-primary/60`, `placeholder-*/50`) and on `opacity-N` over a text element; a decorative, `aria-hidden` mark is the only exception.
 - **Do** show one loading indicator per region: `<RailTrack running />` for a panel or region, a `LiveDot` for a status chip, and a 12 to 14 px `Loader2` only inside a busy button.
 - **Do** add new copy to all eight locales and add new semantic tokens to every `[data-theme]` block.
 

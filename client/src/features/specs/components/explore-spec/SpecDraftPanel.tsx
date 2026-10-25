@@ -37,14 +37,14 @@ export function SpecDraftPanel({
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-shrink-0 px-5 py-3 border-b border-border/40 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary/70" />
+          <Sparkles className="w-4 h-4 text-accent-primary" />
           <h3 className="text-strong">{t('common:status.draft')}</h3>
         </div>
         {ready && (
           <span
             role="status"
             aria-live="polite"
-            className="text-caption text-primary/80 bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"
+            className="text-caption text-accent-primary bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"
           >
             <Sparkles className="w-3 h-3" />
             {t('draftPanel.ready')}
@@ -183,7 +183,7 @@ function LabelsEditor({ labels, onChange }: { labels: string[]; onChange: (label
       {labels.map((label) => (
         <span
           key={label}
-          className="flex items-center gap-1 text-caption px-2 py-0.5 rounded-full bg-primary/10 text-primary/90"
+          className="flex items-center gap-1 text-caption px-2 py-0.5 rounded-full bg-primary/10 text-accent-primary"
         >
           {label}
           <button
@@ -228,7 +228,7 @@ function AttachmentsList({ items, onRemove }: { items: Attachment[]; onRemove?: 
             key={att.id}
             className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border/40 bg-card/40 text-xs"
           >
-            <Icon className="w-3.5 h-3.5 text-primary/70 flex-shrink-0" />
+            <Icon className="w-3.5 h-3.5 text-accent-primary flex-shrink-0" />
             <span className="flex-1 truncate" title={`${att.filename} · ${formatBytes(att.size)}`}>
               {att.filename}
             </span>

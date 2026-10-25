@@ -302,7 +302,7 @@ export function NarratedProgress({
                     })
                   : t(stepCode, { ...milestone.values, title: humanTitle(milestone.values.title), defaultValue: stepCode })}
                 {repeats > 1 ? (
-                  <span className="ml-1.5 text-caption opacity-70">{t('repeats', { count: repeats })}</span>
+                  <span className="ml-1.5 text-caption text-muted-foreground">{t('repeats', { count: repeats })}</span>
                 ) : null}
               </span>
               {duration ? <span className="shrink-0 num text-caption text-muted-foreground">{duration}</span> : null}

@@ -89,7 +89,7 @@ export default function ActivityFeedPage() {
           <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
             <Activity className="w-8 h-8 opacity-40" />
             <p className="text-sm">{t('feed.emptyTitle')}</p>
-            <p className="text-xs opacity-70">{t('feed.emptyHint')}</p>
+            <p className="text-xs">{t('feed.emptyHint')}</p>
           </div>
         ) : (
           <ul className="divide-y divide-border/50">

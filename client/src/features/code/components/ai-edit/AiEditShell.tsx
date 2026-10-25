@@ -339,7 +339,7 @@ function Header({
         {showApply && (
           <Button size="sm" onClick={onApply} className="gap-1.5">
             <Check className="w-3.5 h-3.5" /> {t('shell.apply')}
-            <span className="text-xs opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+            <span className="text-xs ml-1">{keyboardLabel('⌘⏎')}</span>
           </Button>
         )}
       </div>

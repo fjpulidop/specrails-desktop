@@ -1080,7 +1080,7 @@ export function ExploreSpecShell({
                   data-testid="explore-stop-button"
                 >
                   {t('shell.stop')}
-                  <span data-chip className="inline-flex h-5 items-center text-caption opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+                  <span data-chip className="inline-flex h-5 items-center text-caption ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               ) : (
                 <Button
@@ -1091,7 +1091,7 @@ export function ExploreSpecShell({
                 >
                   <Send className="w-3.5 h-3.5" />
                   {t('shell.send')}
-                  <span data-chip className="inline-flex h-5 items-center text-caption opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+                  <span data-chip className="inline-flex h-5 items-center text-caption ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               )}
             </div>
