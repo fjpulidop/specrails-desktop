@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { notifyError } from '../../../../lib/notify-error'
 import { repositoryApiBase } from '../../../projects/lib/project-repositories'
 import type { RuntimeRun } from '../../../settings/lib/agent-runtime'
 
@@ -16,6 +17,7 @@ export interface UseRuntimeRunsOptions {
 
 export interface RuntimeRunsState {
   runs: RuntimeRun[]
+  /** A failure to LOAD the list. Action failures go through `notifyError`, never here. */
   error: string
   /** runId of the action in flight, null when idle. */
   busy: string | null
@@ -74,7 +76,7 @@ export function useRuntimeRuns(projectId: string | null | undefined, options: Us
     if (!projectId || inFlight.current.has(actionKey)) return
     inFlight.current.add(actionKey)
     const current = () => mounted.current && actionScope.current === endpoint
-    setBusy(run.runId); setError('')
+    setBusy(run.runId)
     try {
       const body = action === 'approve'
         ? { approve: [run.pendingApproval!.stepId] }
@@ -91,14 +93,18 @@ export function useRuntimeRuns(projectId: string | null | undefined, options: Us
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
       if (!response.ok) {
-        const data = await response.json() as { message?: string; detail?: string }
-        throw new Error(data.message ?? data.detail ?? t('runs.actionFailed'))
+        const data = await response.json().catch(() => ({})) as { message?: string; detail?: string }
+        throw new Error(data.message ?? data.detail ?? '')
       }
       if (current()) {
         if (action === 'answer') setAnswers((value) => ({ ...value, [run.runId]: '' }))
         setRevision((value) => value + 1)
       }
-    } catch (err) { if (current()) setError(err instanceof Error ? err.message : t('runs.actionFailed')) }
+    } catch (err) {
+      // An action failure is not a load failure: a localized headline, the server's
+      // words only when fit to show, and a Retry that repeats THIS action.
+      if (current()) notifyError(t('runs.actionFailed'), { detail: err instanceof Error ? err.message : undefined, retry: () => void act(run, action, selectedAttempts) })
+    }
     finally { inFlight.current.delete(actionKey); if (current()) setBusy(null) }
   }, [answers, endpoint, projectId, t])
 
