@@ -835,7 +835,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={t('railPr.branchPushedHint')}>
         <AlertTriangle className={iconCls} aria-hidden />
         {presentation.localOnly ? t('railPr.localOnly') : t('railPr.branchPushed')}
-      </span>
+      <span className="sr-only"> ({t('railPr.branchPushedHint')})</span></span>
     )
     actions = (
       <>
@@ -878,7 +878,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={decision.statusDetail ?? t('railPr.reviewChangesRequestedHint')} data-testid="rail-pr-review-changes">
         <MessageSquareWarning className={iconCls} aria-hidden />
         {t('railPr.reviewChangesRequested')}
-      </span>
+      {(decision.statusDetail ?? t('railPr.reviewChangesRequestedHint')) ? <span className="sr-only"> ({decision.statusDetail ?? t('railPr.reviewChangesRequestedHint')})</span> : null}</span>
     )
     actions = null
   } else if (d === 'implementation_failed' && presentation.implementationFailed) {
@@ -886,7 +886,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       <span className={`${pillBase} border-destructive/30 bg-destructive/10 text-destructive`} title={t('railPr.implementationFailedHint')}>
         <AlertTriangle className={iconCls} aria-hidden />
         {t('railPr.implementationFailed')}
-      </span>
+      <span className="sr-only"> ({t('railPr.implementationFailedHint')})</span></span>
     )
     actions = (
       <>

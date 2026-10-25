@@ -239,7 +239,8 @@
       "shortcuts": "keyboard shortcuts",
       "inbox": "the Needs you inbox",
       "specsBoard": "specs and the backlog",
-      "specTimeline": "the spec timeline and hand-off"
+      "specTimeline": "the spec timeline and hand-off",
+      "accessibility": "accessibility and personalisation"
     }
   },
   "forecast": {
@@ -267,5 +268,23 @@
     "launchBlocked_week": "This week’s cap is used up, so the launch would be refused. Raise the cap or wait for the reset.",
     "launchBlocked_month": "This month’s cap is used up, so the launch would be refused. Raise the cap or wait for the reset.",
     "raiseCap": "Raise cap"
+  },
+  "a11y": {
+    "announce": {
+      "started": "Run started",
+      "startedRail": "Rail {{rail}}: run started",
+      "pausedBudget": "Run paused: daily budget reached",
+      "pausedLimit": "Run paused: the provider limit was reached",
+      "needsYou": "A run needs you",
+      "needsYouRail": "Rail {{rail}}: a run needs you",
+      "failed": "Run failed",
+      "failedRail": "Rail {{rail}}: run failed",
+      "finished": "Run finished",
+      "finishedRail": "Rail {{rail}}: run finished",
+      "stopped": "Run stopped",
+      "stoppedRail": "Rail {{rail}}: run stopped",
+      "reviewReady": "Review ready",
+      "reviewReadyRail": "Rail {{rail}}: review ready"
+    }
   }
 }

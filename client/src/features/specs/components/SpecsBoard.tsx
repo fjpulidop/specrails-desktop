@@ -19,6 +19,7 @@ import { SpecActiveFilters, type ActiveFilterChip } from './SpecActiveFilters'
 import { SpecsDisplayControls } from './SpecsDisplayControls'
 import { SpecsViewsMenu, type SpecsViewsMenuHandle } from './SpecsViewsMenu'
 import { SpecsBulkBar } from './SpecsBulkBar'
+import { SpecMovePicker } from './SpecMovePicker'
 import type { CardSelection } from './SpecSelectCheckbox'
 import { epicNameFor } from './SpecEpicFilterOptions'
 import { sprintNameFor } from './SpecSprintFilterOptions'
@@ -619,6 +620,12 @@ export function SpecsBoard({
   // ⌘K "New spec" / "New spec (Explore)" open the same modal the button opens.
   useRegisterPaletteSurface('specs', {
     openNewSpec: (mode) => { setProposeMode(mode); setProposeOpen(true) },
+    canMoveFocused: () => !!bulk && lastFocusedCardRef.current !== null && moveTargetsFor(lastFocusedCardRef.current).length > 0,
+    openMovePicker: () => {
+      const id = lastFocusedCardRef.current
+      const ids = bulk && id !== null ? moveTargetsFor(id) : []
+      if (ids.length > 0) setMovePickerIds(ids)
+    },
   })
 
   useEffect(() => {
@@ -696,6 +703,19 @@ export function SpecsBoard({
     [selection, visibleById],
   )
   const clearSelection = useCallback(() => setSelection(EMPTY_SELECTION), [])
+
+  // ── Keyboard moves (BB4): `m` on a focused card is the keyboard equivalent of drag and drop ──
+  const [movePickerIds, setMovePickerIds] = useState<number[]>([])
+  const lastFocusedCardRef = useRef<number | null>(null)
+  /** The focused card, or the whole selection when the card belongs to it. */
+  const moveTargetsFor = useCallback((cardId: number): number[] => {
+    if (selection.ids.has(cardId) && selection.ids.size > 1) return [...selection.ids].filter((id) => visibleById.has(id))
+    return visibleById.has(cardId) ? [cardId] : []
+  }, [selection, visibleById])
+  const movePickerTickets = useMemo(
+    () => movePickerIds.map((id) => visibleById.get(id)).filter((tk): tk is LocalTicket => !!tk),
+    [movePickerIds, visibleById],
+  )
   const columnOf = useCallback((id: number): number[] => (doneColumnIds.includes(id) ? doneColumnIds : activeColumnIds), [activeColumnIds, doneColumnIds])
   const onSelectGesture = useCallback((ticket: LocalTicket, gesture: SelectGesture) => {
     setSelection((prev) => applyGesture(prev, gesture, columnOf(ticket.id), ticket.id))
@@ -723,6 +743,15 @@ export function SpecsBoard({
     }
     const columnEl = target.closest<HTMLElement>('[data-board-column]')
     if (!columnEl) return
+    if (e.key === 'm' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.repeat) {
+      const id = Number(target.closest<HTMLElement>('[data-ticket-id]')?.dataset.ticketId)
+      const ids = Number.isFinite(id) ? moveTargetsFor(id) : []
+      if (ids.length > 0) {
+        e.preventDefault()
+        setMovePickerIds(ids)
+      }
+      return
+    }
     if (e.key === 'x' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       const id = Number(target.closest<HTMLElement>('[data-ticket-id]')?.dataset.ticketId)
       if (Number.isFinite(id) && visibleById.has(id)) {
@@ -914,6 +943,10 @@ export function SpecsBoard({
       className="relative flex flex-col h-full"
       onClick={handleBackgroundClick}
       onKeyDown={handleBoardKeyDown}
+      onFocusCapture={(e) => {
+        const id = Number((e.target as HTMLElement).closest<HTMLElement>('[data-ticket-id]')?.dataset.ticketId)
+        if (Number.isFinite(id)) lastFocusedCardRef.current = id
+      }}
     >
       {/* Toolbar — rows 1 and 2 line up with the Rails toolbar across the
           splitter. Row 1: title, search, Filters, display, New spec. Row 2:
@@ -1238,6 +1271,10 @@ export function SpecsBoard({
           </div>
         )}
       </div>
+
+      {bulk && (
+        <SpecMovePicker tickets={movePickerTickets} rails={rails} handlers={bulk} onClose={() => setMovePickerIds([])} />
+      )}
 
       {bulk && selectedTickets.length > 0 && (
         <SpecsBulkBar selected={selectedTickets} handlers={bulk} rails={rails} onClear={clearSelection} />

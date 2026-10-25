@@ -213,7 +213,7 @@ export function NarratedProgress({
           )
           if (entry.type === 'round') {
             return (
-              <li key={`round-${entry.key}`} data-testid="narration-round" className="flex items-start gap-2 pt-2 text-label font-semibold text-foreground">
+              <li key={`round-${entry.key}`} data-testid="narration-round" className="flex items-start gap-2 pt-(--density-round-gap) text-label font-semibold text-foreground">
                 {track(<span className="relative mt-1.5 size-2 rounded-full bg-accent-warning ring-2 ring-background" />)}
                 <span className="min-w-0 flex-1">{t('round', { round: entry.round, total: items.maxRound })}</span>
               </li>
@@ -276,7 +276,7 @@ export function NarratedProgress({
               className={cn(
                 'flex items-start gap-2 text-sm',
                 station ? 'font-medium text-foreground' : 'text-muted-foreground',
-                station && index > 0 && 'pt-1.5',
+                station && index > 0 && 'pt-(--density-station-gap)',
               )}
             >
               {track(station ? (

@@ -3,7 +3,8 @@ import { RailTrack } from '../../../components/brand/RailTrack'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
+import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { AlertCircle, Bot, CheckCircle2, ChevronRight, CircleSlash, Loader2, RotateCcw, Square, Terminal } from 'lucide-react'
 
 import { cn } from '../../../lib/utils'
@@ -138,7 +139,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
             <span className="shrink-0 rounded-full border border-accent-primary/30 bg-accent-primary/[0.06] px-1.5 py-0.5 text-caption text-accent-primary/80"
               title={t('subagents.delegatedHint', { provider: providerLabel(node.delegated.driver), model: node.delegated.model })} data-testid="agent-subagent-delegated">
               {providerLabel(node.delegated.driver)} · {node.delegated.model}
-            </span>
+            <span className="sr-only"> ({t('subagents.delegatedHint', { provider: providerLabel(node.delegated.driver), model: node.delegated.model })})</span></span>
           ) : node.agentType && !shell && <span className="hidden shrink-0 rounded-full border border-border/50 px-1.5 py-0.5 text-caption text-foreground/70 sm:inline">{node.agentType}</span>}
           <span className="shrink-0 font-mono text-xs tabular-nums text-foreground/65" aria-label={t('subagents.elapsedAria', { elapsed })}>{elapsed}</span>
         </button>

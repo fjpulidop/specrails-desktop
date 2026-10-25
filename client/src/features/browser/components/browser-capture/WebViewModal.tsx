@@ -175,7 +175,7 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
             <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t('modal.nav.reload')} onClick={() => session.navigate('reload')}><RotateCw className="w-4 h-4" /></Button>
           </div>
           <form className="flex-1 flex items-center gap-2 min-w-0" onSubmit={(e) => { e.preventDefault(); go() }}>
-            <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1">
+            <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1 focus-within:ring-2 focus-within:ring-ring">
               <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <input
                 value={addressValue}
@@ -237,7 +237,7 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
         <div
           ref={surfaceRef}
-          className="relative flex-1 min-h-0 overflow-hidden flex items-center justify-center outline-none"
+          className="relative flex-1 min-h-0 overflow-hidden flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           tabIndex={0}
           onKeyDown={onKeyDown}
           onKeyUp={onKeyUp}

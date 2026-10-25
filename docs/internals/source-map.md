@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1325 source/build files. Nearby tests are linked where names
+Includes 1332 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -38,6 +38,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [KeepAwakeControl.tsx](../../client/src/components/KeepAwakeControl.tsx) · [test](../../client/src/components/__tests__/KeepAwakeControl.test.tsx)
 - [KeyboardShortcutsCheatsheet.tsx](../../client/src/components/KeyboardShortcutsCheatsheet.tsx) · [test](../../client/src/components/__tests__/KeyboardShortcutsCheatsheet.test.tsx)
 - [LaunchForecast.tsx](../../client/src/components/LaunchForecast.tsx) · [test](../../client/src/components/__tests__/LaunchForecast.test.tsx)
+- [LiveAnnouncer.tsx](../../client/src/components/LiveAnnouncer.tsx) · [test](../../client/src/components/__tests__/LiveAnnouncer.test.tsx)
 - [PlaceNavButtons.tsx](../../client/src/components/PlaceNavButtons.tsx) · [test](../../client/src/components/__tests__/PlaceNavButtons.test.tsx)
 - [ProjectLayout.tsx](../../client/src/components/ProjectLayout.tsx) · [test](../../client/src/components/__tests__/ProjectLayout.test.tsx)
 - [ProjectRightSidebar.tsx](../../client/src/components/ProjectRightSidebar.tsx) · [test](../../client/src/components/__tests__/ProjectRightSidebar.test.tsx)
@@ -753,6 +754,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/settings/components
 
+- [AccessibilitySection.tsx](../../client/src/features/settings/components/AccessibilitySection.tsx) · [test](../../client/src/features/settings/components/__tests__/AccessibilitySection.test.tsx)
 - [AgentEnvModeSection.tsx](../../client/src/features/settings/components/AgentEnvModeSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentEnvModeSection.test.tsx)
 - [AgentRuntimeMetrics.tsx](../../client/src/features/settings/components/AgentRuntimeMetrics.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentRuntimeMetrics.test.tsx)
 - [AgentRuntimeRuns.tsx](../../client/src/features/settings/components/AgentRuntimeRuns.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentRuntimeRuns.test.tsx)
@@ -854,6 +856,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [SpecJiraStatusFilterOptions.tsx](../../client/src/features/specs/components/SpecJiraStatusFilterOptions.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecJiraStatusFilterOptions.test.tsx)
 - [SpecLabelFilterOptions.tsx](../../client/src/features/specs/components/SpecLabelFilterOptions.tsx)
 - [SpecLabelFilterStrip.tsx](../../client/src/features/specs/components/SpecLabelFilterStrip.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecLabelFilterStrip.test.tsx)
+- [SpecMovePicker.tsx](../../client/src/features/specs/components/SpecMovePicker.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecMovePicker.test.tsx)
 - [SpecSearchField.tsx](../../client/src/features/specs/components/SpecSearchField.tsx)
 - [SpecSelectCheckbox.tsx](../../client/src/features/specs/components/SpecSelectCheckbox.tsx)
 - [SpecSortControl.tsx](../../client/src/features/specs/components/SpecSortControl.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecSortControl.test.tsx)
@@ -988,6 +991,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [usePlaceHistory.tsx](../../client/src/hooks/usePlaceHistory.tsx) · [test](../../client/src/hooks/__tests__/usePlaceHistory.test.tsx)
 - [usePlaceParam.ts](../../client/src/hooks/usePlaceParam.ts)
 - [useProjectCache.ts](../../client/src/hooks/useProjectCache.ts) · [test](../../client/src/hooks/__tests__/useProjectCache.test.ts)
+- [useReducedMotion.ts](../../client/src/hooks/useReducedMotion.ts)
 - [useResizableSidebar.ts](../../client/src/hooks/useResizableSidebar.ts)
 - [useSharedWebSocket.tsx](../../client/src/hooks/useSharedWebSocket.tsx) · [test](../../client/src/hooks/__tests__/useSharedWebSocket.test.tsx)
 - [useSidebarHoverIntent.ts](../../client/src/hooks/useSidebarHoverIntent.ts)
@@ -998,6 +1002,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/lib
 
+- [a11y-prefs.ts](../../client/src/lib/a11y-prefs.ts)
+- [announce.ts](../../client/src/lib/announce.ts) · [test](../../client/src/lib/__tests__/announce.test.ts)
 - [api-response.ts](../../client/src/lib/api-response.ts) · [test](../../client/src/lib/__tests__/api-response.test.ts)
 - [api.ts](../../client/src/lib/api.ts) · [test](../../client/src/lib/__tests__/api.test.ts)
 - [app-settings-events.ts](../../client/src/lib/app-settings-events.ts)
@@ -1032,6 +1038,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [relative-time.ts](../../client/src/lib/relative-time.ts) · [test](../../client/src/lib/__tests__/relative-time.test.ts)
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)
+- [run-announcements.ts](../../client/src/lib/run-announcements.ts) · [test](../../client/src/lib/__tests__/run-announcements.test.ts)
 - [run-cap.ts](../../client/src/lib/run-cap.ts)
 - [save-text-file.ts](../../client/src/lib/save-text-file.ts) · [test](../../client/src/lib/__tests__/save-text-file.test.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)

@@ -148,7 +148,8 @@
       "exportHandoffN": "导出 #{{id}} 的交接",
       "copyPrDescriptionN": "复制 #{{id}} 的 PR 描述",
       "exportHandoff": "导出交接",
-      "copyPrDescription": "复制 PR 描述"
+      "copyPrDescription": "复制 PR 描述",
+      "moveFocusedSpec": "移动聚焦的规格…"
     },
     "scopes": {
       "remove": "移除范围",
@@ -340,6 +341,14 @@
         "recentlyDeleted": {
           "label": "最近删除",
           "keywords": "已删除, 回收站, 恢复, 还原, deleted, trash"
+        },
+        "density": {
+          "label": "密度",
+          "keywords": "密度, 紧凑, 舒适, 间距, 行, 卡片, 无障碍, density"
+        },
+        "reduceMotion": {
+          "label": "减少动态效果",
+          "keywords": "减少动态效果, 动画, 无障碍, 前庭, 平静, 过渡, motion"
         }
       }
     }
@@ -413,7 +422,8 @@
       "boardSelect": "看板:选择 / 取消选择当前聚焦的规格",
       "boardSelectClick": "看板:点击切换规格,Shift+点击选择范围",
       "boardSelectColumn": "看板:选择该列中的所有规格",
-      "boardClearSelection": "看板:取消选择"
+      "boardClearSelection": "看板:取消选择",
+      "boardMove": "看板:移动当前聚焦的规格(状态或 Rail)"
     },
     "searchLabel": "搜索快捷键和指南",
     "searchPlaceholder": "搜索快捷键和指南…",

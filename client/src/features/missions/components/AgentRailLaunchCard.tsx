@@ -15,7 +15,8 @@
 import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { FollowUpProposal } from '../../rails/lib/rail-launch-draft'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
+import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import {
   Play, Rocket, Cpu, Gauge, Brain, Workflow, UserCog, GitPullRequest, GitBranch, Plus, X, Sparkles, ChevronRight,
   AlertTriangle, Loader2, CheckCircle2, Ban, ExternalLink, TrainFront, Layers, Pin, MessageSquareText, Pencil, RefreshCw,

@@ -521,5 +521,25 @@
   },
   "budgetMoved": "Les plafonds se modifient dans Analyses ▸ Budget.",
   "openBudget": "Ouvrir Budget",
-  "openSettings": "Ouvrir les réglages"
+  "openSettings": "Ouvrir les réglages",
+  "accessibility": {
+    "density": {
+      "title": "Densité",
+      "description": "L'espace occupé par les cartes et les lignes. S'applique au tableau, à la liste des jobs et au récit du job. Une vue enregistrée du tableau garde sa propre disposition.",
+      "comfortable": "Confortable",
+      "comfortableHint": "Cartes et lignes aérées",
+      "compact": "Compacte",
+      "compactHint": "Plus de specs et de lignes à l'écran"
+    },
+    "motion": {
+      "title": "Réduire les animations",
+      "description": "Désactive les animations et les transitions dans Specrails, indépendamment de votre système d'exploitation.",
+      "system": "Suivre le système",
+      "systemHint": "Utilise le réglage de votre OS",
+      "reduce": "Réduire",
+      "reduceHint": "Toujours calme : aucune animation",
+      "full": "Animations complètes",
+      "fullHint": "Anime même si l'OS demande moins"
+    }
+  }
 }

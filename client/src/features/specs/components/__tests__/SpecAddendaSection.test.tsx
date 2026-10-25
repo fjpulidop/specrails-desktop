@@ -60,7 +60,8 @@ describe('SpecAddendaSection', () => {
     ] })
     render(<SpecAddendaSection ticket={t} />)
     expect(screen.getByTestId('spec-addenda-open-count')).toHaveTextContent('1 open')
-    const statuses = screen.getAllByTestId('spec-addendum-status').map((el) => el.textContent)
+    // Each pill carries its explanation as sr-only text after the visible label (BB4).
+    const statuses = screen.getAllByTestId('spec-addendum-status').map((el) => el.firstChild?.textContent)
     expect(statuses).toEqual(['Open', 'In flight', 'Applied', 'Dismissed'])
     expect(screen.getByText('Change request')).toBeInTheDocument()
     // Body collapsed: a clamped preview; expanded: markdown with <strong>.

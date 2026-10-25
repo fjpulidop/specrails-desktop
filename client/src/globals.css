@@ -550,6 +550,47 @@ select {
   -webkit-backdrop-filter: blur(12px);
 }
 
+/* ── Density (BB4) ─────────────────────────────────────────────────────────
+ * One app setting (Settings ▸ Appearance) mirrored to <html data-density>.
+ * Board cards, the jobs list and the job story read these variables instead of
+ * forking per component. "comfortable" is the shipped metric. A saved board
+ * view still overrides the board tier (post-it vs row) on top of this default. */
+:root {
+  --density-card-y: 0.625rem;
+  --density-postit-pad: 0.75rem;
+  --density-postit-min: 180px;
+  --density-row-y: 0.5rem;
+  --density-round-gap: 0.5rem;
+  --density-station-gap: 0.375rem;
+}
+:root[data-density="compact"] {
+  --density-card-y: 0.25rem;
+  --density-postit-pad: 0.5rem;
+  --density-postit-min: 140px;
+  --density-row-y: 0.125rem;
+  --density-round-gap: 0.25rem;
+  --density-station-gap: 0.125rem;
+}
+
+/* ── Reduce motion override (BB4) ──────────────────────────────────────────
+ * Settings ▸ Appearance ▸ Reduce motion = "Reduce" sets <html data-motion="reduce">
+ * regardless of the OS: animations and transitions collapse to instant, and the
+ * authored rail motion lands on its static end state (same as the OS rule). JS
+ * motion honours the same choice through hooks/useReducedMotion. */
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+:root[data-motion="reduce"] .animate-rail-travel { animation: none; opacity: 1; transform: translateX(var(--rail-progress, 0%)); }
+:root[data-motion="reduce"] .animate-rail-arrive { animation: none; transform: translateX(var(--rail-distance, 100%)); }
+:root[data-motion="reduce"] .title-shimmer { animation: none; }
+
 /* Jiggle animation for rail delete mode (iOS-style) */
 @keyframes jiggle {
   0%   { transform: rotate(-0.4deg) translateX(-0.5px); }

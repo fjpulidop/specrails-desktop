@@ -7,7 +7,8 @@
 
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
+import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { AlertTriangle } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { modeAccent, type MissionModeBadge as Badge } from '../context/MissionExtensionsContext'

@@ -52,6 +52,7 @@ import { isSafeCustomModelAlias } from '../../providers/lib/model-alias'
 import { railIdFromIndex, railIndexFromId, MAX_RAILS } from '../../rails/lib/rail-id'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
 import { useUndo, UndoBlockedError } from '../../../hooks/useUndo'
+import { useA11yPrefs } from '../../../lib/a11y-prefs'
 import { useRegisterPaletteSurface } from '../../../lib/palette-bridge'
 import { useJiraConnection } from '../../integrations/hooks/useJiraConnection'
 import { jiraApi } from '../../integrations/lib/jira-api'
@@ -66,6 +67,7 @@ import type { SpecSortMode, SpecSortDir } from '../../specs/types/spec-sort'
 import { applySpecSort, loadSpecSort, saveSpecSort } from '../../specs/lib/spec-sort'
 import {
   loadSpecsViewTier,
+  hasStoredSpecsViewTier,
   saveSpecsViewTier,
   type SpecsViewTier,
 } from '../../specs/lib/specs-view-tier'
@@ -250,6 +252,12 @@ export default function DashboardPage() {
     setSortDir(s.dir)
     setViewTier(loadSpecsViewTier(activeProjectId))
   }, [activeProjectId])
+
+  // The app Density setting is the default tier until the project (or a saved view) picks one.
+  const appDensity = useA11yPrefs().density
+  useEffect(() => {
+    if (!hasStoredSpecsViewTier(activeProjectId)) setViewTier(loadSpecsViewTier(activeProjectId))
+  }, [activeProjectId, appDensity])
 
   const handleSortChange = useCallback((mode: SpecSortMode, dir: SpecSortDir) => {
     setSortMode(mode)

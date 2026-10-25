@@ -85,7 +85,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
         {costUnavailable
           ? '—'
           : `${(summary.estimatedCostUsd ?? 0) > 0 ? '~' : ''}${costPartiallyUnavailable ? '≥' : ''}${fmtCost(summary.totalCostUsd)}`}
-      </span>
+      {(costUnavailable ? t('spendingLine.costUnavailableTooltip') : costPartiallyUnavailable ? t('spendingLine.costPartiallyUnavailableTooltip') : (summary.estimatedCostUsd ?? 0) > 0 ? t('spendingLine.estimatedTooltip') : undefined) ? <span className="sr-only"> ({costUnavailable ? t('spendingLine.costUnavailableTooltip') : costPartiallyUnavailable ? t('spendingLine.costPartiallyUnavailableTooltip') : (summary.estimatedCostUsd ?? 0) > 0 ? t('spendingLine.estimatedTooltip') : undefined})</span> : null}</span>
       <span className="text-muted-foreground">·</span>
       <span
         className="num"
@@ -101,7 +101,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
         {turnsUnavailable
           ? '—'
           : t(turnsPartiallyUnavailable ? 'spendingLine.turnsAtLeast' : 'spendingLine.turns', { count: summary.totalTurns })}
-      </span>
+      {(turnsUnavailable ? t('spendingLine.turnsUnavailableTooltip') : turnsPartiallyUnavailable ? t('spendingLine.turnsPartiallyUnavailableTooltip') : undefined) ? <span className="sr-only"> ({turnsUnavailable ? t('spendingLine.turnsUnavailableTooltip') : turnsPartiallyUnavailable ? t('spendingLine.turnsPartiallyUnavailableTooltip') : undefined})</span> : null}</span>
       <span className="text-muted-foreground">·</span>
       <span className="num">{t('spendingLine.active', { duration: fmtDur(summary.activeDurationMs) })}</span>
       {breakdown && (

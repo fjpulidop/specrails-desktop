@@ -293,8 +293,8 @@ function TimelineRow({ entry, plan, open, onToggle, onNavigate, uiMode, currentS
             {inlineSummary && <span className="min-w-0 break-words text-destructive">{entry.summary}</span>}
             {failedPhases > 0 && <span className="text-destructive">{t('timeline.phaseFailed', { count: failedPhases })}</span>}
             {findings > 0 && <span className="text-accent-review">{t('timeline.findings', { count: findings })}</span>}
-            {cost?.kind === 'billed' && <span title={t('timeline.cost.billedTitle')}>{t('timeline.cost.billed', { amount: formatUsd(cost.usd) })}</span>}
-            {cost?.kind === 'estimated' && <span title={t('timeline.cost.estimatedTitle')}>{t('timeline.cost.estimated', { amount: formatUsd(cost.usd) })}</span>}
+            {cost?.kind === 'billed' && <span title={t('timeline.cost.billedTitle')}>{t('timeline.cost.billed', { amount: formatUsd(cost.usd) })}<span className="sr-only"> ({t('timeline.cost.billedTitle')})</span></span>}
+            {cost?.kind === 'estimated' && <span title={t('timeline.cost.estimatedTitle')}>{t('timeline.cost.estimated', { amount: formatUsd(cost.usd) })}<span className="sr-only"> ({t('timeline.cost.estimatedTitle')})</span></span>}
             {cost?.kind === 'turns' && <span>{t('timeline.cost.turns', { count: cost.turns })}</span>}
           </p>
         </div>

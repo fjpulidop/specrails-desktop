@@ -190,7 +190,7 @@ export function InvocationsTable({
                           </span>
                         )
                         : r.ticket_title
-                          ? <span className="truncate block text-muted-foreground/90 italic" title={t('table.provisionalTitleTooltip')}>{r.ticket_title}</span>
+                          ? <span className="truncate block text-muted-foreground/90 italic" title={t('table.provisionalTitleTooltip')}>{r.ticket_title}<span className="sr-only"> ({t('table.provisionalTitleTooltip')})</span></span>
                           : <span className="text-muted-foreground">—</span>
                       }
                     </td>
@@ -198,7 +198,7 @@ export function InvocationsTable({
                       {r.total_cost_usd_estimated === 1 && r.total_cost_usd != null ? (
                         <CostValue usd={r.total_cost_usd} estimated className="text-muted-foreground/90" />
                       ) : r.total_cost_usd == null && isLocalEngine(r.provider) ? (
-                        <span title={t('table.costUnknownLocalTooltip')} data-testid="cost-unknown-local" className="text-muted-foreground">—</span>
+                        <span title={t('table.costUnknownLocalTooltip')} data-testid="cost-unknown-local" className="text-muted-foreground">—<span className="sr-only"> ({t('table.costUnknownLocalTooltip')})</span></span>
                       ) : (
                         fmtCost(r.total_cost_usd)
                       )}

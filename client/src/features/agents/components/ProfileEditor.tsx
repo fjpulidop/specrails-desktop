@@ -609,7 +609,7 @@ function AgentRow({
           title={t('profileEditor.agentRow.pinnedFirstTitle')}
         >
           <Pin className="w-2.5 h-2.5 rotate-[135deg]" /> {t('profileEditor.agentRow.pinnedFirst')}
-        </span>
+        <span className="sr-only"> ({t('profileEditor.agentRow.pinnedFirstTitle')})</span></span>
       )}
       {pinnedLast && (
         <span
@@ -617,7 +617,7 @@ function AgentRow({
           title={t('profileEditor.agentRow.pinnedLastTitle')}
         >
           <Pin className="w-2.5 h-2.5 rotate-45" /> {t('profileEditor.agentRow.pinnedLast')}
-        </span>
+        <span className="sr-only"> ({t('profileEditor.agentRow.pinnedLastTitle')})</span></span>
       )}
       {isRequired && !pinnedFirst && !pinnedLast && (
         <span className="text-caption px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
@@ -756,7 +756,7 @@ function RoutingRow({
           title={t('profileEditor.routingRow.coreDefaultTitle')}
         >
           {t('profileEditor.routingRow.coreDefaultBadge')}
-        </span>
+        <span className="sr-only"> ({t('profileEditor.routingRow.coreDefaultTitle')})</span></span>
       )}
     </div>
   )

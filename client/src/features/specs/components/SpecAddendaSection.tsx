@@ -208,7 +208,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
               {openCount > 0 ? t('addenda.openCount', { count: openCount }) : addenda.length}
             </span>
           )}
-        </span>
+        <span className="sr-only"> ({t('addenda.hint')})</span></span>
         {!form && (
           <button
             type="button"
@@ -260,7 +260,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
                           <span className="rounded-full border border-border/50 px-1.5 py-px text-caption text-muted-foreground">{t(`addenda.kind.${a.kind}`)}</span>
                           <span className={`rounded-full border px-1.5 py-px text-caption font-medium ${STATUS_PILL[a.status]}`} title={t(`addenda.statusHint.${a.status}`)} data-testid="spec-addendum-status">
                             {t(`addenda.status.${a.status}`)}
-                          </span>
+                          <span className="sr-only"> ({t(`addenda.statusHint.${a.status}`)})</span></span>
                         </div>
                         {!isOpen && (
                           <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-muted-foreground">{a.body}</p>

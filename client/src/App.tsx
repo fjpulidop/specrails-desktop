@@ -88,6 +88,8 @@ import { WebViewModalProvider } from './features/browser/context/WebViewModalCon
 import { useCompareUrlSync } from './features/jobs/hooks/useCompareUrlSync'
 import { useMilestoneNotifications } from './features/builder/hooks/useMilestoneNotifications'
 import { dropLegacySequentialPlans } from './features/builder/lib/milestone-launch'
+import { useA11yPrefs } from './lib/a11y-prefs'
+import { LiveAnnouncer } from './components/LiveAnnouncer'
 import { ThemeProvider, useTheme } from './features/settings/context/ThemeContext'
 import { LanguageProvider } from './features/settings/context/LanguageContext'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT, FEATURE_REVIEW_PACKET } from './lib/feature-flags'
@@ -999,6 +1001,7 @@ function AppRoutes() {
                             <MissionWindowError />
                             {secondary ? <MissionWindowSurface /> : <DesktopApp />}
                             <AgentBrowserCaptureHost />
+                            <LiveAnnouncer />
                             <ThemedToaster />
                           </WebViewModalProvider>
                         </TicketDetailModalProvider>
@@ -1030,9 +1033,11 @@ function AppRoutes() {
 }
 
 export default function App() {
-  // One reduced-motion policy for every `motion` component in the app.
+  // One reduced-motion policy for every `motion` component in the app: the
+  // Settings override (system / reduce / full) combined with the OS value.
+  const { motion } = useA11yPrefs()
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={motion === 'reduce' ? 'always' : motion === 'full' ? 'never' : 'user'}>
       <AppRoutes />
     </MotionConfig>
   )

@@ -846,7 +846,7 @@ export function ExploreSpecShell({
                   contextScope.mcp && 'mcp',
                 ].filter(Boolean).join(', ') || t('shell.contextScopeMinimal'),
               })}
-            </span>
+            <span className="sr-only"> ({t('shell.contextPillTitle')})</span></span>
           ) : null}
           <Button
             size="sm"

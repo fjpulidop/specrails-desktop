@@ -239,7 +239,8 @@
       "shortcuts": "キーボードショートカット",
       "inbox": "「対応待ち」リスト",
       "specsBoard": "スペックとバックログ",
-      "specTimeline": "スペックのタイムラインと引き継ぎ"
+      "specTimeline": "スペックのタイムラインと引き継ぎ",
+      "accessibility": "アクセシビリティとカスタマイズ"
     }
   },
   "forecast": {
@@ -267,5 +268,23 @@
     "launchBlocked_week": "今週の上限は使い切られているため、起動は拒否されます。上限を引き上げるか、リセットをお待ちください。",
     "launchBlocked_month": "今月の上限は使い切られているため、起動は拒否されます。上限を引き上げるか、リセットをお待ちください。",
     "raiseCap": "上限を引き上げる"
+  },
+  "a11y": {
+    "announce": {
+      "started": "実行を開始しました",
+      "startedRail": "レール {{rail}}:実行を開始しました",
+      "pausedBudget": "実行を一時停止:1日の予算に達しました",
+      "pausedLimit": "実行を一時停止:プロバイダーの上限に達しました",
+      "needsYou": "対応が必要な実行があります",
+      "needsYouRail": "レール {{rail}}:対応が必要な実行があります",
+      "failed": "実行が失敗しました",
+      "failedRail": "レール {{rail}}:実行が失敗しました",
+      "finished": "実行が完了しました",
+      "finishedRail": "レール {{rail}}:実行が完了しました",
+      "stopped": "実行を停止しました",
+      "stoppedRail": "レール {{rail}}:実行を停止しました",
+      "reviewReady": "レビューの準備ができました",
+      "reviewReadyRail": "レール {{rail}}:レビューの準備ができました"
+    }
   }
 }

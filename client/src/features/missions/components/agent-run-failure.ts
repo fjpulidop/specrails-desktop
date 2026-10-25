@@ -8,6 +8,7 @@
 
 import type { AgentContextReference } from '../lib/agent-context-palette'
 import type { AgentMessage } from '../lib/agent-api'
+import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 
 export interface RunFailureRow {
   kind: 'run-failure'
@@ -82,7 +83,7 @@ export function focusInConversation(detail: FocusPrCardDetail | null | undefined
 /** Smooth unless the person asked the OS for reduced motion. */
 export function focusScrollBehavior(): ScrollBehavior {
   try {
-    return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+    return prefersReducedMotion() ? 'auto' : 'smooth'
   } catch {
     return 'smooth'
   }

@@ -521,5 +521,25 @@
   },
   "budgetMoved": "Caps are edited in Analytics ▸ Budget.",
   "openBudget": "Open Budget",
-  "openSettings": "Open Settings"
+  "openSettings": "Open Settings",
+  "accessibility": {
+    "density": {
+      "title": "Density",
+      "description": "How much room cards and rows take. Applies to the board, the jobs list and the job story. A saved board view still keeps its own layout.",
+      "comfortable": "Comfortable",
+      "comfortableHint": "Roomy cards and rows",
+      "compact": "Compact",
+      "compactHint": "More specs and rows on screen"
+    },
+    "motion": {
+      "title": "Reduce motion",
+      "description": "Turn animations and transitions off inside Specrails, independently of your operating system.",
+      "system": "Follow system",
+      "systemHint": "Use your OS setting",
+      "reduce": "Reduce",
+      "reduceHint": "Always calm: no animation",
+      "full": "Full motion",
+      "fullHint": "Animate even if the OS asks for less"
+    }
+  }
 }

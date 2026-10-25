@@ -56,6 +56,10 @@ export interface PaletteBoardSurface {
 /** The specs column: opens the New spec modal (optionally already in Explore). */
 export interface PaletteSpecsSurface {
   openNewSpec: (mode: 'quick' | 'explore') => void
+  /** A board card was focused and can be moved (keyboard `m`). */
+  canMoveFocused: () => boolean
+  /** Opens the status/rail picker for the last focused card (or the selection it belongs to). */
+  openMovePicker: () => void
 }
 
 /**

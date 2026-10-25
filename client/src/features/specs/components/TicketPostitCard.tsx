@@ -228,7 +228,7 @@ export function TicketPostitCard({
         }}
         data-ticket-id={ticket.id}
         data-tier="postit"
-        className={`group relative flex flex-col gap-2 rounded-xl border ${selection?.selected ? SELECTED_CARD_CLASS : tone} p-3 cursor-pointer transition-[transform,box-shadow,border-color] duration-150 ease-out hover:border-accent-info/40 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/60 min-h-[180px] ${jiggleMode ? 'motion-safe:animate-jiggle' : ''}`}
+        className={`group relative flex flex-col gap-2 rounded-xl border ${selection?.selected ? SELECTED_CARD_CLASS : tone} p-(--density-postit-pad) cursor-pointer transition-[transform,box-shadow,border-color] duration-150 ease-out hover:border-accent-info/40 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/60 min-h-(--density-postit-min) ${jiggleMode ? 'motion-safe:animate-jiggle' : ''}`}
       >
         {selection && !jiggleMode && (
           <SpecSelectCheckbox
@@ -278,7 +278,7 @@ export function TicketPostitCard({
               >
                 <AlertTriangle className="w-2.5 h-2.5" aria-hidden />
                 {t('badges.review')}
-              </Badge>
+              <span className="sr-only"> ({t('badges.needsReviewTitle')})</span></Badge>
             )}
             {isEpic && (
               <Badge variant="outline" className="h-5 gap-1 px-1.5 text-caption border-accent-highlight/40 text-accent-highlight">
@@ -296,7 +296,7 @@ export function TicketPostitCard({
                 data-testid={`raw-badge-${ticket.id}`}
               >
                 {t('badges.raw')}
-              </Badge>
+              <span className="sr-only"> ({t('badges.rawTitle')})</span></Badge>
             )}
             {ticket.jira_key && (
               <Badge
@@ -324,7 +324,7 @@ export function TicketPostitCard({
                 data-testid={`on-review-badge-postit-${ticket.id}`}
               >
                 {t('common:status.onReview')}
-              </Badge>
+              <span className="sr-only"> ({t('status.onReviewHint')})</span></Badge>
             )}
           </div>
         </div>

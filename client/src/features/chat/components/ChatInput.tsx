@@ -120,7 +120,7 @@ export function ChatInput({
                   value={model}
                   disabled={hasMessages}
                   className={cn(
-                    'rounded bg-transparent text-caption text-muted-foreground outline-none',
+                    'rounded bg-transparent text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     'border border-border/20 px-1.5 py-0.5',
                     hasMessages && 'opacity-50 pointer-events-none'
                   )}

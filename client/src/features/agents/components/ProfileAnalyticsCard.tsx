@@ -127,19 +127,19 @@ export function ProfileAnalyticsCard() {
               <span title={t('usage.jobsTooltip')}>
                 <span className="text-foreground font-mono">{row.jobs}</span>{' '}
                 {t('usage.jobsLabel', { count: row.jobs })}
-              </span>
+              <span className="sr-only"> ({t('usage.jobsTooltip')})</span></span>
               <span title={t('usage.successRateTooltip')}>
                 <span className="text-foreground font-mono">
                   {Math.round(row.successRate * 100)}%
                 </span>{' '}
                 {t('usage.okSuffix')}
-              </span>
+              <span className="sr-only"> ({t('usage.successRateTooltip')})</span></span>
               {row.avgDurationMs != null && (
                 <span title={t('usage.avgDurationTooltip')}>
                   <span className="text-foreground font-mono">
                     {formatDuration(row.avgDurationMs)}
                   </span>
-                </span>
+                <span className="sr-only"> ({t('usage.avgDurationTooltip')})</span></span>
               )}
               {row.avgTokens != null && (
                 <span title={t('usage.avgTokensTooltip')}>
@@ -147,7 +147,7 @@ export function ProfileAnalyticsCard() {
                     {formatTokens(row.avgTokens)}
                   </span>{' '}
                   {t('usage.tokensSuffix')}
-                </span>
+                <span className="sr-only"> ({t('usage.avgTokensTooltip')})</span></span>
               )}
             </div>
           </div>

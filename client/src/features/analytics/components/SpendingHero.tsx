@@ -108,7 +108,7 @@ export function SpendingHero({ data, loading, period }: Props) {
                 title={t('hero.usageUnavailableTooltip')}
               >
                 {t('hero.usageUnavailable')}
-              </span>
+              <span className="sr-only"> ({t('hero.usageUnavailableTooltip')})</span></span>
             ) : usagePartiallyUnavailable && totalTokens != null ? (
               <span
                 className="text-muted-foreground italic"
@@ -118,14 +118,14 @@ export function SpendingHero({ data, loading, period }: Props) {
                   tokens: fmtTokens(totalTokens),
                   count: usageUnavailableRuns,
                 })}
-              </span>
+              <span className="sr-only"> ({t('hero.usagePartiallyUnavailableTooltip')})</span></span>
             ) : totalTokens != null && totalTokens > 0 ? (
               <span
                 className="text-muted-foreground"
                 title={t('hero.tokensTooltip')}
               >
                 {t('hero.tokens', { tokens: fmtTokens(totalTokens) })}
-              </span>
+              <span className="sr-only"> ({t('hero.tokensTooltip')})</span></span>
             ) : null}
             {costUnavailable && (
               <span
@@ -133,7 +133,7 @@ export function SpendingHero({ data, loading, period }: Props) {
                 title={t('hero.costUnavailableTooltip')}
               >
                 {t('hero.costUnavailable')}
-              </span>
+              <span className="sr-only"> ({t('hero.costUnavailableTooltip')})</span></span>
             )}
             {costPartiallyUnavailable && (
               <span
@@ -142,7 +142,7 @@ export function SpendingHero({ data, loading, period }: Props) {
                 title={t('hero.costPartiallyUnavailableTooltip')}
               >
                 {t('hero.costPartiallyUnavailable', { count: unpricedRuns })}
-              </span>
+              <span className="sr-only"> ({t('hero.costPartiallyUnavailableTooltip')})</span></span>
             )}
             {hasEstimatedCost && (
               <span
@@ -150,7 +150,7 @@ export function SpendingHero({ data, loading, period }: Props) {
                 title={t('hero.includesEstimatedTooltip', { amount: fmtUsd(totalEstimated) })}
               >
                 {t('hero.includesEstimated', { amount: fmtUsd(totalEstimated) })}
-              </span>
+              <span className="sr-only"> ({t('hero.includesEstimatedTooltip', { amount: fmtUsd(totalEstimated) })})</span></span>
             )}
           </div>
         </div>

@@ -148,7 +148,8 @@
       "exportHandoffN": "Export hand-off for #{{id}}",
       "copyPrDescriptionN": "Copy PR description for #{{id}}",
       "exportHandoff": "Export hand-off",
-      "copyPrDescription": "Copy PR description"
+      "copyPrDescription": "Copy PR description",
+      "moveFocusedSpec": "Move focused spec…"
     },
     "scopes": {
       "remove": "Remove scope",
@@ -340,6 +341,14 @@
         "recentlyDeleted": {
           "label": "Recently deleted",
           "keywords": "deleted, trash, restore, undelete, recycle"
+        },
+        "density": {
+          "label": "Density",
+          "keywords": "density, compact, comfortable, spacing, rows, cards, accessibility"
+        },
+        "reduceMotion": {
+          "label": "Reduce motion",
+          "keywords": "reduce motion, animation, accessibility, vestibular, calm, transitions"
         }
       }
     }
@@ -413,7 +422,8 @@
       "boardSelect": "Board: select / deselect the focused spec",
       "boardSelectClick": "Board: click toggles a spec, Shift+click selects a range",
       "boardSelectColumn": "Board: select every spec in the column",
-      "boardClearSelection": "Board: clear the selection"
+      "boardClearSelection": "Board: clear the selection",
+      "boardMove": "Board: move the focused spec (status or rail)"
     },
     "searchLabel": "Search shortcuts and guides",
     "searchPlaceholder": "Search shortcuts and guides…",

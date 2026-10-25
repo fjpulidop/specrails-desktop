@@ -101,7 +101,8 @@ describe('registry', () => {
     expect(all.length).toBeGreaterThanOrEqual(20)
     // 30 before the board selection / saved-views actions (CD4); they exist only while mounted + selected.
     // 36 with the spec hand-off pair (BB2); they exist only while that spec's modal is open.
-    expect(all.length).toBeLessThanOrEqual(36)
+    // 37 with Move focused spec (BB4); it exists only while a board card has been focused.
+    expect(all.length).toBeLessThanOrEqual(37)
   })
 
   it('pins the project settings ids to the real sections', () => {

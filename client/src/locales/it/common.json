@@ -239,7 +239,8 @@
       "shortcuts": "le scorciatoie da tastiera",
       "inbox": "l’elenco «Da gestire»",
       "specsBoard": "le spec e il backlog",
-      "specTimeline": "la cronologia e il passaggio di consegne di una spec"
+      "specTimeline": "la cronologia e il passaggio di consegne di una spec",
+      "accessibility": "accessibilità e personalizzazione"
     }
   },
   "forecast": {
@@ -267,5 +268,23 @@
     "launchBlocked_week": "Il limite di questa settimana è esaurito, quindi l’avvio verrebbe rifiutato. Aumenta il limite o attendi il ripristino.",
     "launchBlocked_month": "Il limite di questo mese è esaurito, quindi l’avvio verrebbe rifiutato. Aumenta il limite o attendi il ripristino.",
     "raiseCap": "Aumenta limite"
+  },
+  "a11y": {
+    "announce": {
+      "started": "Run avviato",
+      "startedRail": "Rail {{rail}}: run avviato",
+      "pausedBudget": "Run in pausa: budget giornaliero raggiunto",
+      "pausedLimit": "Run in pausa: limite del provider raggiunto",
+      "needsYou": "Un run ha bisogno di te",
+      "needsYouRail": "Rail {{rail}}: un run ha bisogno di te",
+      "failed": "Run fallito",
+      "failedRail": "Rail {{rail}}: run fallito",
+      "finished": "Run terminato",
+      "finishedRail": "Rail {{rail}}: run terminato",
+      "stopped": "Run interrotto",
+      "stoppedRail": "Rail {{rail}}: run interrotto",
+      "reviewReady": "Revisione pronta",
+      "reviewReadyRail": "Rail {{rail}}: revisione pronta"
+    }
   }
 }

@@ -6,6 +6,7 @@
  * can actually run, and finding the failure in the log.
  */
 import type { EventRow } from '../../../types'
+import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 
 export const FAILURE_KINDS = ['tests_failed', 'provider_limit', 'environment', 'blocked', 'timeout', 'tool_inactivity', 'crash', 'unknown'] as const
 export type FailureKind = (typeof FAILURE_KINDS)[number]
@@ -164,7 +165,7 @@ export function openLogsAtFailure(root: ParentNode | null = typeof document === 
   if (!target) return false
   target.setAttribute('tabindex', '-1')
   let smooth = true
-  try { smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches } catch { /* default */ }
+  try { smooth = !prefersReducedMotion() } catch { /* default */ }
   target.scrollIntoView?.({ block: failed ? 'center' : 'start', behavior: smooth ? 'smooth' : 'auto' })
   target.focus({ preventScroll: true })
   return true

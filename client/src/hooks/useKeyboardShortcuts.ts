@@ -55,6 +55,7 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: 'V', descriptionKey: 'shortcuts.items.reviewViewed', category: 'actions' },
   // Specs board multi-select (features/specs/components/SpecsBoard.tsx)
   { keys: 'X', descriptionKey: 'shortcuts.items.boardSelect', category: 'actions' },
+  { keys: 'M', descriptionKey: 'shortcuts.items.boardMove', category: 'actions' },
   { keys: '⌘Click ⇧Click', descriptionKey: 'shortcuts.items.boardSelectClick', category: 'actions' },
   { keys: '⌘A', descriptionKey: 'shortcuts.items.boardSelectColumn', category: 'actions' },
   { keys: 'Esc', descriptionKey: 'shortcuts.items.boardClearSelection', category: 'actions' },

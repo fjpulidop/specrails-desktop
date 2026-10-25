@@ -73,7 +73,7 @@ function TicketRow({ ticket, onClick }: { ticket: TicketRef; onClick: () => void
           title={t('ticketHeader.deletedTooltip')}
         >
           {t('ticketHeader.deletedTicket', { id: ticket.id })}
-        </span>
+        <span className="sr-only"> ({t('ticketHeader.deletedTooltip')})</span></span>
       </div>
     )
   }

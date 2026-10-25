@@ -53,7 +53,7 @@ export function AgentMissionsCard({ data, loading }: Props) {
           title={isEstimated ? t('agentMissions.estimatedNote') : undefined}
         >
           {isEstimated ? '~' : ''}{fmtUsd(summary.totalCostUsd)}
-        </span>
+        {(isEstimated ? t('agentMissions.estimatedNote') : undefined) ? <span className="sr-only"> ({isEstimated ? t('agentMissions.estimatedNote') : undefined})</span> : null}</span>
         {delta !== null && (
           <span className={delta > 0 ? 'text-xs text-accent-warning' : 'text-xs text-accent-success'}>
             {delta > 0 ? '+' : ''}{delta.toFixed(0)}% {t('agentMissions.vsPrev')}

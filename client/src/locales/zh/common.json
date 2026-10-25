@@ -239,7 +239,8 @@
       "shortcuts": "键盘快捷键",
       "inbox": "“待处理”列表",
       "specsBoard": "规格与待办列表",
-      "specTimeline": "规格时间线与交接"
+      "specTimeline": "规格时间线与交接",
+      "accessibility": "无障碍与个性化"
     }
   },
   "forecast": {
@@ -267,5 +268,23 @@
     "launchBlocked_week": "本周的上限已用完，启动将被拒绝。请调高上限或等待重置。",
     "launchBlocked_month": "本月的上限已用完，启动将被拒绝。请调高上限或等待重置。",
     "raiseCap": "调高上限"
+  },
+  "a11y": {
+    "announce": {
+      "started": "运行已开始",
+      "startedRail": "Rail {{rail}}:运行已开始",
+      "pausedBudget": "运行已暂停:已达每日预算",
+      "pausedLimit": "运行已暂停:已达提供商限额",
+      "needsYou": "有运行需要你处理",
+      "needsYouRail": "Rail {{rail}}:有运行需要你处理",
+      "failed": "运行失败",
+      "failedRail": "Rail {{rail}}:运行失败",
+      "finished": "运行已完成",
+      "finishedRail": "Rail {{rail}}:运行已完成",
+      "stopped": "运行已停止",
+      "stoppedRail": "Rail {{rail}}:运行已停止",
+      "reviewReady": "审阅已就绪",
+      "reviewReadyRail": "Rail {{rail}}:审阅已就绪"
+    }
   }
 }

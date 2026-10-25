@@ -436,7 +436,7 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
               go()
             }}
           >
-            <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1">
+            <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1 focus-within:ring-2 focus-within:ring-ring">
               <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <input
                 value={addressValue}

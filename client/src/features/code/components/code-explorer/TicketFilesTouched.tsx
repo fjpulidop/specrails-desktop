@@ -109,7 +109,7 @@ export function TicketFilesTouched({ ticketId, onClose }: Props) {
                 {row.jobId && <span className="inline-flex items-center gap-1 text-caption text-muted-foreground font-mono shrink-0" title={t('ticketFiles.jobTitle', { jobId: row.jobId })}>
                   <GitCommitHorizontal className="h-3 w-3" />
                   {row.jobId.length > 10 ? row.jobId.slice(0, 10) : row.jobId}
-                </span>}
+                <span className="sr-only"> ({t('ticketFiles.jobTitle', { jobId: row.jobId })})</span></span>}
                 <span className="text-caption text-muted-foreground shrink-0">{t(`kind.${row.kind}`)}</span>
               </button>
             </li>

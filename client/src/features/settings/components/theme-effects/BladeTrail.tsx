@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useReducedMotion } from '../../../../hooks/useReducedMotion'
 
 /**
  * Blade cursor-trail decoration. Renders a viewport-sized `<canvas>`
@@ -34,10 +35,11 @@ interface Sample {
 
 export function BladeTrail() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const reduced = useReducedMotion()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (reduced) return
     const canvasEl = canvasRef.current
     if (!canvasEl) return
     const ctx2d = canvasEl.getContext('2d', { alpha: true })
@@ -128,7 +130,7 @@ export function BladeTrail() {
       document.removeEventListener('mouseleave', onPointerLeaveWindow)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [])
+  }, [reduced])
 
   return (
     <canvas

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useReducedMotion } from '../../../../hooks/useReducedMotion'
 
 interface Star {
   x: number
@@ -36,10 +37,11 @@ function getCanvasSize(canvas: HTMLCanvasElement) {
 
 export function Starfield() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const reduced = useReducedMotion()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (reduced) return
     const canvasEl = canvasRef.current
     if (!canvasEl) return
     const ctx2d = canvasEl.getContext('2d', { alpha: true })
@@ -151,7 +153,7 @@ export function Starfield() {
       window.removeEventListener('resize', resize)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [])
+  }, [reduced])
 
   return (
     <canvas

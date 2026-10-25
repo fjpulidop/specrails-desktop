@@ -78,7 +78,7 @@ export function TerminalSearchOverlay({ search, onClose }: Props) {
 
   return (
     <div
-      className="absolute top-2 right-2 flex items-center gap-1 bg-popover border border-border rounded-md shadow-lg px-2 py-1 z-30"
+      className="absolute top-2 right-2 flex items-center gap-1 bg-popover border border-border rounded-md shadow-lg px-2 py-1 z-30 focus-within:ring-2 focus-within:ring-ring"
       role="search"
       data-terminal-search-overlay
     >

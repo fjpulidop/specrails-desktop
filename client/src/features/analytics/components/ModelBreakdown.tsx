@@ -89,7 +89,7 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
                             )}
                           </>
                         )}
-                    </span>
+                    {(costUnavailable ? t('models.costUnavailableTooltip') : costPartiallyUnavailable ? t('models.costPartiallyUnavailableTooltip') : isEstimated ? t('models.estimatedTooltip') : undefined) ? <span className="sr-only"> ({costUnavailable ? t('models.costUnavailableTooltip') : costPartiallyUnavailable ? t('models.costPartiallyUnavailableTooltip') : isEstimated ? t('models.estimatedTooltip') : undefined})</span> : null}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-background-deep overflow-hidden">
                     <div

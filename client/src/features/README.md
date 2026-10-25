@@ -23,6 +23,42 @@ subpaths and feature dependencies, [scripts/client-feature-readme.mjs](../../../
 hand-written sections outside it are kept. `--check` also fails when a block is
 stale. Run client coverage after changes spanning capabilities.
 
+## Accessibility and personalisation
+
+App-wide preferences live in `lib/a11y-prefs.ts` (per machine, `localStorage`,
+mirrored onto `<html data-density="comfortable|compact">` and
+`data-motion="reduce|full"`; absent = follow the OS). Settings ▸ Appearance owns the
+two controls (`settings/components/AccessibilitySection.tsx`, anchors `density` and
+`reduceMotion`).
+
+- **Density** is CSS only: `globals.css` defines `--density-*` variables per
+  `data-density`, read by board cards (`SpecCard`, `TicketPostitCard`), the jobs list
+  (`RecentJobs`) and the job story (`NarratedProgress`) through
+  `py-(--density-...)` utilities. Do not fork a component per density. The specs board
+  tier (rows vs post-its) takes the app density as its default
+  (`specs/lib/specs-view-tier.ts`); a project's own choice or an applied saved view
+  stores a tier and wins.
+- **Reduce motion**: use `hooks/useReducedMotion` (override combined with the OS),
+  never `motion/react`'s `useReducedMotion` (OS only) or `matchMedia` directly; outside
+  React use `prefersReducedMotion()` from `lib/a11y-prefs`. CSS animations and
+  transitions collapse under `data-motion="reduce"`. Limitation: "Full motion" over an
+  OS reduce request restores JS motion, but a few `@media (prefers-reduced-motion)`
+  CSS rules (rail pill, shimmer, theme glow) still follow the OS.
+- **Live announcements**: one `<LiveAnnouncer/>` polite region (mounted in `App.tsx`)
+  speaks `announce()` (`lib/announce.ts`: dedupe 4 s, throttle 1 s, at most 3 per
+  flush) and run-state changes of the *active project* from the WebSocket
+  (`lib/run-announcements.ts`). Sonner toasts already live in their own polite region:
+  do not announce them again.
+- **Keyboard moves**: `m` on a focused spec card opens `specs/components/SpecMovePicker`
+  (status targets + rails) running the bulk handlers (`SpecBulkHandlers`), so Jira
+  moves, undo and rail gating match drag and drop. It acts on the whole selection when
+  the card belongs to it. The palette action `spec.moveFocused` opens the same picker.
+- **Focus and hints**: the global base ring in `globals.css` covers every button, link,
+  `role=button|tab|switch` and `[tabindex]`. An element that sets `outline-none` must
+  bring its own `focus-visible:*` style. Evidence that only lived in a `title` on a
+  non-focusable span also gets an `sr-only` copy. `lib/__tests__/a11y-guard.test.ts`
+  enforces both.
+
 ## Modals
 
 Every modal follows the [modal standard](../../../docs/internals/modal-standard.md):

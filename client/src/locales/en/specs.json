@@ -292,5 +292,20 @@
     "linkCopyFailed": "Couldn’t copy the link",
     "linkMissing": "That view doesn’t exist in this project",
     "deleted": "View “{{name}}” deleted"
+  },
+  "movePicker": {
+    "titleOne": "Move spec #{{id}}",
+    "titleMany": "Move {{count}} specs",
+    "description": "Pick a status or a rail. Same as dragging the card there.",
+    "statusHeading": "Status",
+    "railHeading": "Rail",
+    "jiraLoading": "Loading Jira statuses…",
+    "jiraFailed": "Could not load the Jira statuses.",
+    "jiraStatus": "{{status}} (Jira)",
+    "noRails": "No rails yet.",
+    "running": "Running",
+    "hintNavigate": "move",
+    "hintChoose": "choose",
+    "hintClose": "close"
   }
 }

@@ -421,7 +421,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                         title={t('tree.folderTouched', { count: folderTouchedCount })}
                       >
                         {folderTouchedCount}
-                      </span>
+                      <span className="sr-only"> ({t('tree.folderTouched', { count: folderTouchedCount })})</span></span>
                     )}
                     {!isFolder && latestAction && (
                       <span

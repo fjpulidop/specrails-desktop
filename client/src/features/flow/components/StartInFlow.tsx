@@ -151,7 +151,7 @@ export function StartInFlowButton({ spec, rail, className }: StartInFlowProps & 
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />}
         {busy ? t('flow.startFromSpec.starting') : t('flow.startFromSpec.action')}
       </button>
-    </span>
+    {(reason ?? t('flow.startFromSpec.hint')) ? <span className="sr-only"> ({reason ?? t('flow.startFromSpec.hint')})</span> : null}</span>
   )
 }
 

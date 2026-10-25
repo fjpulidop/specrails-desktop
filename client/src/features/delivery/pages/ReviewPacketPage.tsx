@@ -417,7 +417,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               title={t('confidence.tooltip')}
             >
               {t('confidence.pill', { overall: packet.confidence.overall })}
-            </span>
+            <span className="sr-only"> ({t('confidence.tooltip')})</span></span>
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-muted-foreground">
               {t('confidence.unavailable')}

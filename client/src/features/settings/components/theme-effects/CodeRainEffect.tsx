@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useReducedMotion } from '../../../../hooks/useReducedMotion'
 
 /**
  * Code Rain decoration. Renders a viewport-sized `<canvas>` that paints
@@ -66,10 +67,11 @@ function makeColumn(rowCount: number): Column {
 
 export function CodeRainEffect() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const reduced = useReducedMotion()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (reduced) return
     const canvasEl = canvasRef.current
     if (!canvasEl) return
     const ctx2d = canvasEl.getContext('2d', { alpha: true })
@@ -243,7 +245,7 @@ export function CodeRainEffect() {
       document.removeEventListener('mouseleave', onPointerLeaveWindow)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [])
+  }, [reduced])
 
   // z-index: -1 inside #root's stacking context (see globals.css) lays the
   // canvas behind all app content but above the body background. The code-rain

@@ -305,10 +305,10 @@ function StoryCard({
           )}
           <span className="ml-auto inline-flex items-center gap-2">
             {entry.addedLines != null && entry.addedLines > 0 && (
-              <span className="font-mono text-caption text-accent-success" title={t('story.linesAdded')}>+{entry.addedLines}</span>
+              <span className="font-mono text-caption text-accent-success" title={t('story.linesAdded')}>+{entry.addedLines}<span className="sr-only"> ({t('story.linesAdded')})</span></span>
             )}
             {entry.removedLines != null && entry.removedLines > 0 && (
-              <span className="font-mono text-caption text-destructive" title={t('story.linesRemoved')}>−{entry.removedLines}</span>
+              <span className="font-mono text-caption text-destructive" title={t('story.linesRemoved')}>−{entry.removedLines}<span className="sr-only"> ({t('story.linesRemoved')})</span></span>
             )}
             <time className="text-caption text-muted-foreground" dateTime={new Date(entry.at).toISOString()}>
               {format(new Date(entry.at), 'PPp', { locale: getDateFnsLocale() })}

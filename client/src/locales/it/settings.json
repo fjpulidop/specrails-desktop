@@ -521,5 +521,25 @@
   },
   "budgetMoved": "I limiti si modificano in Analisi ▸ Budget.",
   "openBudget": "Apri Budget",
-  "openSettings": "Apri impostazioni"
+  "openSettings": "Apri impostazioni",
+  "accessibility": {
+    "density": {
+      "title": "Densità",
+      "description": "Quanto spazio occupano schede e righe. Vale per la bacheca, l'elenco dei job e la storia del job. Una vista salvata della bacheca mantiene il proprio layout.",
+      "comfortable": "Comoda",
+      "comfortableHint": "Schede e righe ariose",
+      "compact": "Compatta",
+      "compactHint": "Più spec e righe sullo schermo"
+    },
+    "motion": {
+      "title": "Riduci movimento",
+      "description": "Disattiva animazioni e transizioni dentro Specrails, indipendentemente dal sistema operativo.",
+      "system": "Segui il sistema",
+      "systemHint": "Usa l'impostazione del tuo SO",
+      "reduce": "Riduci",
+      "reduceHint": "Sempre calmo: nessuna animazione",
+      "full": "Movimento completo",
+      "fullHint": "Anima anche se il SO ne chiede meno"
+    }
+  }
 }

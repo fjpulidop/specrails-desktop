@@ -8,6 +8,7 @@ import { TerminalSettingsSection } from '../components/TerminalSettingsSection'
 import { EffectsSection } from '../components/EffectsSection'
 import { AppearanceSection } from '../components/AppearanceSection'
 import { LanguageSection } from '../components/LanguageSection'
+import { AccessibilitySettings } from '../components/AccessibilitySection'
 import { CodeSectionSettings } from '../components/CodeSectionSettings'
 import { EditorSection } from '../components/EditorSection'
 import { ProviderConnectionsCard } from '../components/provider-connections'
@@ -418,6 +419,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             <div className={paneCls('appearance')}>
               <SettingAnchor id="theme"><AppearanceSection /></SettingAnchor>
               <SettingAnchor id="language"><LanguageSection /></SettingAnchor>
+              <AccessibilitySettings />
               {onOpenOnboarding && (
                 <SettingsCard title={t('desktop.onboardingHeading')}>
                   <div className="flex items-center justify-between gap-3">

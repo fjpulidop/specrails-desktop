@@ -28,6 +28,8 @@ const project = (id: string, section: (typeof PROJECT_SETTINGS_SECTION_IDS)[numb
 export const SETTINGS_REGISTRY: readonly SettingEntry[] = [
   app('theme', 'appearance'),
   app('language', 'appearance'),
+  app('density', 'appearance'),
+  app('reduceMotion', 'appearance'),
   app('effects', 'effects'),
   app('editor', 'code'),
   app('codeSection', 'code'),

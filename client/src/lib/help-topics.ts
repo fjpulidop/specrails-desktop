@@ -34,6 +34,7 @@ export const HELP_TOPICS = {
   contextScope: { category: 'specs', slug: 'add-spec-explore-mode', anchor: 'context-scope' },
   launchForecast: { category: 'pipeline', slug: 'rails-and-jobs', anchor: 'launch-forecast' },
   loopBuilder: { category: 'pipeline', slug: 'the-loop-builder', anchor: 'loop-builder' },
+  accessibility: { category: 'settings', slug: 'accessibility', anchor: 'accessibility' },
   shortcuts: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'shortcuts' },
   inbox: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'shortcuts' },
 } as const satisfies Record<string, DocsTarget & { anchor: string }>

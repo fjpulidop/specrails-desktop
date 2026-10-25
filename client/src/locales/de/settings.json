@@ -521,5 +521,25 @@
   },
   "budgetMoved": "Limits werden unter Analysen ▸ Budget bearbeitet.",
   "openBudget": "Budget öffnen",
-  "openSettings": "Einstellungen öffnen"
+  "openSettings": "Einstellungen öffnen",
+  "accessibility": {
+    "density": {
+      "title": "Dichte",
+      "description": "Wie viel Platz Karten und Zeilen einnehmen. Gilt für das Board, die Job-Liste und die Job-Story. Eine gespeicherte Board-Ansicht behält ihr eigenes Layout.",
+      "comfortable": "Komfortabel",
+      "comfortableHint": "Großzügige Karten und Zeilen",
+      "compact": "Kompakt",
+      "compactHint": "Mehr Specs und Zeilen auf dem Bildschirm"
+    },
+    "motion": {
+      "title": "Bewegung reduzieren",
+      "description": "Schaltet Animationen und Übergänge in Specrails aus, unabhängig von deinem Betriebssystem.",
+      "system": "System folgen",
+      "systemHint": "Nutzt die Einstellung deines Betriebssystems",
+      "reduce": "Reduzieren",
+      "reduceHint": "Immer ruhig: keine Animation",
+      "full": "Volle Bewegung",
+      "fullHint": "Animiert auch, wenn das System weniger verlangt"
+    }
+  }
 }

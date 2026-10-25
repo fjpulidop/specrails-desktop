@@ -521,5 +521,25 @@
   },
   "budgetMoved": "上限は 分析 ▸ 予算 で編集します。",
   "openBudget": "予算を開く",
-  "openSettings": "設定を開く"
+  "openSettings": "設定を開く",
+  "accessibility": {
+    "density": {
+      "title": "表示密度",
+      "description": "カードや行が占める余白の大きさです。ボード、ジョブ一覧、ジョブのストーリーに適用されます。保存したボードビューは独自のレイアウトを保ちます。",
+      "comfortable": "ゆったり",
+      "comfortableHint": "余裕のあるカードと行",
+      "compact": "コンパクト",
+      "compactHint": "画面に多くのスペックと行を表示"
+    },
+    "motion": {
+      "title": "視覚効果を減らす",
+      "description": "OSの設定とは別に、Specrails内のアニメーションとトランジションをオフにします。",
+      "system": "システムに従う",
+      "systemHint": "OSの設定を使用",
+      "reduce": "減らす",
+      "reduceHint": "常に落ち着いた表示:アニメーションなし",
+      "full": "フルモーション",
+      "fullHint": "OSが控えめを求めてもアニメーションを表示"
+    }
+  }
 }

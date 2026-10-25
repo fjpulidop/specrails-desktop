@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
+import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { Eye, Pencil, Zap, Flame } from 'lucide-react'
 import type { AgentTierLevel } from '../lib/agent-api'
 

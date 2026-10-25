@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { cn } from '../../lib/utils'
+import { useReducedMotion } from '../../hooks/useReducedMotion'
 
 export type LiveDotTone = 'primary' | 'success' | 'info' | 'warning' | 'destructive' | 'muted'
 
@@ -32,11 +33,12 @@ function LiveDot({
   className,
   ...props
 }: LiveDotProps) {
+  const reduced = useReducedMotion()
   const color = dotClassName ?? TONE_CLASS[tone]
   const sz = SIZE_CLASS[size]
   return (
     <span className={cn('relative flex shrink-0', sz, className)} {...props}>
-      {pulsing && (
+      {pulsing && !reduced && (
         <span
           data-live-ring=""
           aria-hidden="true"

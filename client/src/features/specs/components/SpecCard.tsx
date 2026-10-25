@@ -141,7 +141,7 @@ export function SpecCard({
 
   const isDraft = ticket.status === 'draft'
   const isOnReview = ticket.status === 'on_review'
-  const baseClass = 'relative flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors group touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/60'
+  const baseClass = 'relative flex items-center gap-2 px-3 py-(--density-card-y) rounded-lg border transition-colors group touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/60'
   // No grab cursor when the card cannot actually be dragged.
   const cursorClass = jiggleMode || (isOnReview && !allowOnReviewDrag) ? '' : 'cursor-grab active:cursor-grabbing'
   const variantClass = isDraft
@@ -266,7 +266,7 @@ export function SpecCard({
         >
           <AlertTriangle className="w-2.5 h-2.5" aria-hidden />
           {t('badges.review')}
-        </Badge>
+        <span className="sr-only"> ({t('badges.needsReviewTitle')})</span></Badge>
       ) : null}
       {ticket.source === 'free-prompt' ? (
         <Badge
@@ -276,7 +276,7 @@ export function SpecCard({
           data-testid={`raw-badge-${ticket.id}`}
         >
           {t('badges.raw')}
-        </Badge>
+        <span className="sr-only"> ({t('badges.rawTitle')})</span></Badge>
       ) : null}
       {ticket.jira_key ? (
         <Badge
@@ -297,7 +297,7 @@ export function SpecCard({
         >
           <Layers className="h-2.5 w-2.5" />
           {openAddendaCount}
-        </Badge>
+        <span className="sr-only"> ({t('badges.addendaTitle', { count: openAddendaCount })})</span></Badge>
       ) : null}
       {!jiggleMode && <SpecTriageChip ticket={ticket} />}
       {isDraft ? (
@@ -312,7 +312,7 @@ export function SpecCard({
           data-testid={`on-review-badge-${ticket.id}`}
         >
           {t('common:status.onReview')}
-        </Badge>
+        <span className="sr-only"> ({t('status.onReviewHint')})</span></Badge>
       ) : contractRefining ? (
         <Badge
           variant="outline"

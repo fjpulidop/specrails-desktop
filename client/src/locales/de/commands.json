@@ -148,7 +148,8 @@
       "exportHandoffN": "Übergabe für #{{id}} exportieren",
       "copyPrDescriptionN": "PR-Beschreibung für #{{id}} kopieren",
       "exportHandoff": "Übergabe exportieren",
-      "copyPrDescription": "PR-Beschreibung kopieren"
+      "copyPrDescription": "PR-Beschreibung kopieren",
+      "moveFocusedSpec": "Fokussierte Spec verschieben…"
     },
     "scopes": {
       "remove": "Bereich entfernen",
@@ -340,6 +341,14 @@
         "recentlyDeleted": {
           "label": "Kürzlich gelöscht",
           "keywords": "gelöscht, papierkorb, wiederherstellen, deleted, trash"
+        },
+        "density": {
+          "label": "Dichte",
+          "keywords": "dichte, kompakt, komfortabel, abstand, zeilen, karten, barrierefreiheit, density"
+        },
+        "reduceMotion": {
+          "label": "Bewegung reduzieren",
+          "keywords": "bewegung reduzieren, animation, barrierefreiheit, vestibulär, ruhe, übergänge, motion"
         }
       }
     }
@@ -413,7 +422,8 @@
       "boardSelect": "Board: fokussierte Spec auswählen / abwählen",
       "boardSelectClick": "Board: Klick wählt eine Spec an oder ab, Umschalt+Klick wählt einen Bereich",
       "boardSelectColumn": "Board: alle Specs der Spalte auswählen",
-      "boardClearSelection": "Board: Auswahl aufheben"
+      "boardClearSelection": "Board: Auswahl aufheben",
+      "boardMove": "Board: fokussierte Spec verschieben (Status oder Rail)"
     },
     "searchLabel": "Tastaturkürzel und Anleitungen durchsuchen",
     "searchPlaceholder": "Tastaturkürzel und Anleitungen durchsuchen…",

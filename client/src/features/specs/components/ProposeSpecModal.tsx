@@ -780,7 +780,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
                     data-testid="propose-cost-estimate"
                   >
                     {costEstimate}
-                  </span>
+                  <span className="sr-only"> ({t('proposeModal.costEstimateTitle')})</span></span>
                 )}
               </>
             ) : undefined}

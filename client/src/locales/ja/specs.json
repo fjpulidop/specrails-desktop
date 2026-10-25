@@ -292,5 +292,20 @@
     "linkCopyFailed": "リンクをコピーできませんでした",
     "linkMissing": "このビューはこのプロジェクトにありません",
     "deleted": "ビュー「{{name}}」を削除しました"
+  },
+  "movePicker": {
+    "titleOne": "スペック #{{id}} を移動",
+    "titleMany": "{{count}} 件のスペックを移動",
+    "description": "ステータスまたはレールを選びます。カードをドラッグするのと同じ操作です。",
+    "statusHeading": "ステータス",
+    "railHeading": "レール",
+    "jiraLoading": "Jiraのステータスを読み込み中…",
+    "jiraFailed": "Jiraのステータスを読み込めませんでした。",
+    "jiraStatus": "{{status}}(Jira)",
+    "noRails": "レールはまだありません。",
+    "running": "実行中",
+    "hintNavigate": "移動",
+    "hintChoose": "選択",
+    "hintClose": "閉じる"
   }
 }

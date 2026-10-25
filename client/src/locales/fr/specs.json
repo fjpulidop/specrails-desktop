@@ -292,5 +292,20 @@
     "linkCopyFailed": "Impossible de copier le lien",
     "linkMissing": "Cette vue n’existe pas dans ce projet",
     "deleted": "Vue « {{name}} » supprimée"
+  },
+  "movePicker": {
+    "titleOne": "Déplacer la spec #{{id}}",
+    "titleMany": "Déplacer {{count}} specs",
+    "description": "Choisissez un statut ou un rail. Équivaut à y glisser la carte.",
+    "statusHeading": "Statut",
+    "railHeading": "Rail",
+    "jiraLoading": "Chargement des statuts Jira…",
+    "jiraFailed": "Impossible de charger les statuts Jira.",
+    "jiraStatus": "{{status}} (Jira)",
+    "noRails": "Aucun rail pour l'instant.",
+    "running": "En cours",
+    "hintNavigate": "naviguer",
+    "hintChoose": "choisir",
+    "hintClose": "fermer"
   }
 }

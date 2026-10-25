@@ -160,7 +160,7 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
             title={t('desktop.timelineEstimatedTooltip')}
           >
             {t('desktop.includesEstimatedShort')}
-          </span>
+          <span className="sr-only"> ({t('desktop.timelineEstimatedTooltip')})</span></span>
         )}
         {costPartiallyUnavailable && (
           <span className="text-xs text-muted-foreground italic">
@@ -269,7 +269,7 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
                   {costUnavailable
                     ? t('desktop.costUnavailableShort')
                     : <CostValue usd={p.totalCostUsd} estimated={isEstimated} />}
-                </span>
+                {(costPartiallyUnavailable ? t('desktop.costPartiallyUnavailable', { count: unpricedRuns }) : undefined) ? <span className="sr-only"> ({costPartiallyUnavailable ? t('desktop.costPartiallyUnavailable', { count: unpricedRuns }) : undefined})</span> : null}</span>
               </div>
             </div>
             <div className="h-1.5 rounded-full bg-border/30 overflow-hidden">

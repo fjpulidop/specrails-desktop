@@ -292,5 +292,20 @@
     "linkCopyFailed": "无法复制链接",
     "linkMissing": "此项目中没有该视图",
     "deleted": "已删除视图“{{name}}”"
+  },
+  "movePicker": {
+    "titleOne": "移动规格 #{{id}}",
+    "titleMany": "移动 {{count}} 个规格",
+    "description": "选择一个状态或一条 Rail,效果等同于把卡片拖过去。",
+    "statusHeading": "状态",
+    "railHeading": "Rail",
+    "jiraLoading": "正在加载 Jira 状态…",
+    "jiraFailed": "无法加载 Jira 状态。",
+    "jiraStatus": "{{status}}(Jira)",
+    "noRails": "还没有 Rail。",
+    "running": "运行中",
+    "hintNavigate": "移动",
+    "hintChoose": "选择",
+    "hintClose": "关闭"
   }
 }

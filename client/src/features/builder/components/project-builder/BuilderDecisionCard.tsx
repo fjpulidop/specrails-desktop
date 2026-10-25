@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
+import { useReducedMotion } from '../../../../hooks/useReducedMotion'
 import { ArrowRight, Check, Rocket, Sparkles, Wand2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '../../../../lib/utils'

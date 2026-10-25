@@ -227,7 +227,7 @@ A hybrid of hairlines and three structural shadows. At rest a surface is defined
 
 Four radius roles, each overridable per theme: **control** 6 px (buttons, inputs, chips), **card** 10 px, **panel** 14 px (dialogs, composer, floating panels), **pill** 9999 px (badges, lamps, rail pill). Code-rain sharpens them. Legacy Tailwind radius (`rounded-sm` to `rounded-3xl`) and shadow (`shadow-sm` to `shadow-2xl`) utilities are aliased to these roles in `@theme`, so they follow the theme; `rounded-full` and `shadow-none` are untouched. The display roles (`text-headline`, `text-display`, `text-display-xl`) use `--font-display`. Borders are always one hairline; no coloured side-borders.
 
-Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1); durations instant 100 ms, fast 150, base 200, slow 300, peak 640 (arrival moments only). All motion respects `prefers-reduced-motion`.
+Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1); durations instant 100 ms, fast 150, base 200, slow 300, peak 640 (arrival moments only). All motion respects `prefers-reduced-motion`, and Settings ▸ Appearance ▸ Reduce motion (system / reduce / full) overrides the OS through `<html data-motion>` and `hooks/useReducedMotion`. Density (comfortable / compact) is the `--density-*` variable set on `<html data-density>`: cards, rows and the job story read it; components never fork per density.
 
 ## Components
 

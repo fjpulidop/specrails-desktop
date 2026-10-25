@@ -4,10 +4,8 @@ import { Check, CircleDot, Film } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { RECORDED_LINES, RECORDED_LINE_INTERVAL_MS, RECORDED_PACKET } from '../lib/recorded-run'
+import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 
-function prefersReducedMotion(): boolean {
-  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return false }
-}
 
 interface RecordedRunDialogProps {
   open: boolean

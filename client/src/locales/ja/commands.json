@@ -148,7 +148,8 @@
       "exportHandoffN": "#{{id}} の引き継ぎをエクスポート",
       "copyPrDescriptionN": "#{{id}} の PR 説明をコピー",
       "exportHandoff": "引き継ぎをエクスポート",
-      "copyPrDescription": "PR 説明をコピー"
+      "copyPrDescription": "PR 説明をコピー",
+      "moveFocusedSpec": "フォーカス中のスペックを移動…"
     },
     "scopes": {
       "remove": "範囲を解除",
@@ -340,6 +341,14 @@
         "recentlyDeleted": {
           "label": "最近削除した項目",
           "keywords": "削除済み, ごみ箱, 復元, 元に戻す, deleted, trash"
+        },
+        "density": {
+          "label": "表示密度",
+          "keywords": "表示密度, コンパクト, ゆったり, 余白, 行, カード, アクセシビリティ, density"
+        },
+        "reduceMotion": {
+          "label": "視覚効果を減らす",
+          "keywords": "視覚効果を減らす, アニメーション, アクセシビリティ, 前庭, 落ち着き, トランジション, motion"
         }
       }
     }
@@ -413,7 +422,8 @@
       "boardSelect": "ボード: フォーカス中のスペックを選択 / 選択解除",
       "boardSelectClick": "ボード: クリックで切り替え、Shift+クリックで範囲選択",
       "boardSelectColumn": "ボード: 列内のスペックをすべて選択",
-      "boardClearSelection": "ボード: 選択を解除"
+      "boardClearSelection": "ボード: 選択を解除",
+      "boardMove": "ボード:フォーカス中のスペックを移動(ステータスまたはレール)"
     },
     "searchLabel": "ショートカットとガイドを検索",
     "searchPlaceholder": "ショートカットとガイドを検索…",

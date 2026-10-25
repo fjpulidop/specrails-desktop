@@ -64,7 +64,7 @@ export function LocalEngineCard({ provider, status, persisted, invalid = false, 
             <span data-chip className={cn('inline-flex h-5 items-center rounded-full border px-1.5 text-caption font-medium', loop === 'compact' ? 'border-accent-secondary/30 bg-accent-secondary/10 text-accent-secondary' : 'border-border bg-muted/40 text-muted-foreground')} data-testid="agent-loop-chip">
               {t(`providers.agentLoop_${loop}`)}
             </span>
-            <span className="tabular-nums" title={t('providers.contextWindow')}>{formatContextWindow(provider.contextWindowTokens)} ctx</span>
+            <span className="tabular-nums" title={t('providers.contextWindow')}>{formatContextWindow(provider.contextWindowTokens)} ctx<span className="sr-only"> ({t('providers.contextWindow')})</span></span>
           </div>
         </div>
         <button

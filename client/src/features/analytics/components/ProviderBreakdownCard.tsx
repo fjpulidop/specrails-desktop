@@ -138,7 +138,7 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
           title={t('providerCard.costUnavailableTooltip')}
         >
           {t('providerCard.costUnavailable')}
-        </span>
+        <span className="sr-only"> ({t('providerCard.costUnavailableTooltip')})</span></span>
       ) : (
         <span
           className="ml-auto text-label num"
@@ -150,7 +150,7 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
               {t('providerCard.costPartiallyUnavailable', { count: unpricedCount })}
             </span>
           )}
-        </span>
+        {(costPartiallyUnavailable ? t('providerCard.costPartiallyUnavailableTooltip') : undefined) ? <span className="sr-only"> ({costPartiallyUnavailable ? t('providerCard.costPartiallyUnavailableTooltip') : undefined})</span> : null}</span>
       )}
     </div>
   )

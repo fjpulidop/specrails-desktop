@@ -113,7 +113,7 @@ export function MilestoneRailRow({ rail, now, onReview, onOpenRail }: MilestoneR
       {rail.chunkIndex != null && (
         <span className="shrink-0 rounded bg-muted/70 px-1 py-px text-caption font-mono tabular-nums text-muted-foreground" title={t('milestoneProgress.rail.chunk', { k: rail.chunkIndex })}>
           {rail.chunkIndex}
-        </span>
+        <span className="sr-only"> ({t('milestoneProgress.rail.chunk', { k: rail.chunkIndex })})</span></span>
       )}
       <button
         type="button"

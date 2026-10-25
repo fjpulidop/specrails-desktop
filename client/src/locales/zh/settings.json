@@ -521,5 +521,25 @@
   },
   "budgetMoved": "上限在 分析 ▸ 预算 中编辑。",
   "openBudget": "打开预算",
-  "openSettings": "打开设置"
+  "openSettings": "打开设置",
+  "accessibility": {
+    "density": {
+      "title": "密度",
+      "description": "卡片和行占用的空间。适用于看板、作业列表和作业过程。已保存的看板视图保留自己的布局。",
+      "comfortable": "舒适",
+      "comfortableHint": "宽松的卡片和行",
+      "compact": "紧凑",
+      "compactHint": "屏幕上显示更多规格和行"
+    },
+    "motion": {
+      "title": "减少动态效果",
+      "description": "在 Specrails 内关闭动画和过渡,与操作系统设置无关。",
+      "system": "跟随系统",
+      "systemHint": "使用操作系统的设置",
+      "reduce": "减少",
+      "reduceHint": "始终平静:无动画",
+      "full": "完整动效",
+      "fullHint": "即使系统要求减少也播放动画"
+    }
+  }
 }

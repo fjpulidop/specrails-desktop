@@ -179,7 +179,7 @@ function LabelsEditor({ labels, onChange }: { labels: string[]; onChange: (label
     onChange(labels.filter((l) => l !== label))
   }
   return (
-    <div className="flex flex-wrap gap-1.5 p-1.5 rounded-md border border-border/50 bg-background min-h-[36px]">
+    <div className="flex flex-wrap gap-1.5 p-1.5 rounded-md border border-border/50 bg-background min-h-[36px] focus-within:ring-2 focus-within:ring-ring">
       {labels.map((label) => (
         <span
           key={label}

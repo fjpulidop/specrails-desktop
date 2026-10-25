@@ -9,6 +9,7 @@ import { tourStore } from './tour-store'
 import { findTourElement, type TourSelectorKey } from './selectors'
 import { TOUR_TIMELINE, type Beat } from './timeline'
 import { TOUR_LOG_LINES, TOUR_LOG_LINE_INTERVAL_MS } from '../fixtures/tour-log'
+import { prefersReducedMotion } from '../../lib/a11y-prefs'
 
 /** Stable sonner toast id — one per page, so loops replace instead of stack. */
 const TOUR_TOAST_ID = 'tour-spec-generation'
@@ -279,8 +280,7 @@ export function startTour(): TourHandle | null {
 
   // Honour reduced motion: render idle state only.
   const reducedMotion =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    typeof window !== 'undefined' && prefersReducedMotion()
   if (reducedMotion) {
     tourStore.update({ cursorVisible: false })
     return null

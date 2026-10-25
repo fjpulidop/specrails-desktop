@@ -30,7 +30,8 @@
 
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
+import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { AlertTriangle, BellRing, ChevronUp, Info, Loader2, Pause } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { keyboardLabel } from '../../../lib/keyboard-label'

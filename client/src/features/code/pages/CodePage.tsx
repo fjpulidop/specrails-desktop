@@ -229,7 +229,7 @@ function CodeProvenanceToolbar({
         >
           {t('toolbar.allAi')}
         </button>
-        <div className="flex items-center gap-1 rounded-md border border-border/70 bg-card/40 px-1 py-1">
+        <div className="flex items-center gap-1 rounded-md border border-border/70 bg-card/40 px-1 py-1 focus-within:ring-2 focus-within:ring-ring">
           <button
             type="button"
             onClick={() => onApplyTicket(ticketInput)}

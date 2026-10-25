@@ -5,8 +5,11 @@ import './globals.css'
 import App from './App'
 import { initAuth, installFetchInterceptor } from './lib/auth'
 import { initI18n } from './lib/i18n'
+import { applyA11yPrefs } from './lib/a11y-prefs'
 
 async function bootstrap() {
+  // Density / reduce-motion attributes on <html> before first paint.
+  applyA11yPrefs()
   await initAuth()
   installFetchInterceptor()
   // Apply persisted (or OS-detected) UI language before first paint.

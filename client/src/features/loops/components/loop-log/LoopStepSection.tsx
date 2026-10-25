@@ -190,7 +190,7 @@ function LoopStepSectionInner({
               data-testid="loop-step-provider-limit"
             >
               {t('loopExplorer.providerLimit')}
-            </span>
+            <span className="sr-only"> ({t('loopExplorer.providerLimitHint')})</span></span>
           )}
           {status === 'failed' && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
           {status === 'stalled' && (
@@ -199,7 +199,7 @@ function LoopStepSectionInner({
               title={end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined}
             >
               {t('loopExplorer.stalled')}
-            </span>
+            {(end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined) ? <span className="sr-only"> ({end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined})</span> : null}</span>
           )}
           {status === 'interrupted' && (
             <span className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-label text-accent-warning">

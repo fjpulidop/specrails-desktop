@@ -148,7 +148,8 @@
       "exportHandoffN": "Esporta passaggio di #{{id}}",
       "copyPrDescriptionN": "Copia descrizione PR di #{{id}}",
       "exportHandoff": "Esporta passaggio di consegne",
-      "copyPrDescription": "Copia descrizione PR"
+      "copyPrDescription": "Copia descrizione PR",
+      "moveFocusedSpec": "Sposta la spec a fuoco…"
     },
     "scopes": {
       "remove": "Rimuovi ambito",
@@ -340,6 +341,14 @@
         "recentlyDeleted": {
           "label": "Eliminati di recente",
           "keywords": "eliminati, cestino, ripristina, recupera, deleted, trash"
+        },
+        "density": {
+          "label": "Densità",
+          "keywords": "densità, compatta, comoda, spaziatura, righe, schede, accessibilità, density"
+        },
+        "reduceMotion": {
+          "label": "Riduci movimento",
+          "keywords": "riduci movimento, animazione, accessibilità, vestibolare, calma, transizioni, motion"
         }
       }
     }
@@ -413,7 +422,8 @@
       "boardSelect": "Bacheca: seleziona / deseleziona la spec a fuoco",
       "boardSelectClick": "Bacheca: il clic alterna una spec, Maiusc+clic seleziona un intervallo",
       "boardSelectColumn": "Bacheca: seleziona tutte le spec della colonna",
-      "boardClearSelection": "Bacheca: deseleziona tutto"
+      "boardClearSelection": "Bacheca: deseleziona tutto",
+      "boardMove": "Bacheca: sposta la spec a fuoco (stato o rail)"
     },
     "searchLabel": "Cerca scorciatoie e guide",
     "searchPlaceholder": "Cerca scorciatoie e guide…",

@@ -292,5 +292,20 @@
     "linkCopyFailed": "No se pudo copiar el enlace",
     "linkMissing": "Esa vista no existe en este proyecto",
     "deleted": "Vista «{{name}}» eliminada"
+  },
+  "movePicker": {
+    "titleOne": "Mover la spec #{{id}}",
+    "titleMany": "Mover {{count}} specs",
+    "description": "Elige un estado o un rail. Equivale a arrastrar la tarjeta hasta allí.",
+    "statusHeading": "Estado",
+    "railHeading": "Rail",
+    "jiraLoading": "Cargando estados de Jira…",
+    "jiraFailed": "No se pudieron cargar los estados de Jira.",
+    "jiraStatus": "{{status}} (Jira)",
+    "noRails": "Aún no hay rails.",
+    "running": "En marcha",
+    "hintNavigate": "moverse",
+    "hintChoose": "elegir",
+    "hintClose": "cerrar"
   }
 }

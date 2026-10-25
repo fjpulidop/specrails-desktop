@@ -521,5 +521,25 @@
   },
   "budgetMoved": "Los límites se editan en Analíticas ▸ Presupuesto.",
   "openBudget": "Abrir Presupuesto",
-  "openSettings": "Abrir Ajustes"
+  "openSettings": "Abrir Ajustes",
+  "accessibility": {
+    "density": {
+      "title": "Densidad",
+      "description": "Cuánto espacio ocupan las tarjetas y las filas. Se aplica al tablero, a la lista de jobs y a la historia del job. Una vista guardada del tablero mantiene su propio diseño.",
+      "comfortable": "Cómoda",
+      "comfortableHint": "Tarjetas y filas con aire",
+      "compact": "Compacta",
+      "compactHint": "Más specs y filas en pantalla"
+    },
+    "motion": {
+      "title": "Reducir movimiento",
+      "description": "Desactiva animaciones y transiciones dentro de Specrails, con independencia de tu sistema operativo.",
+      "system": "Seguir el sistema",
+      "systemHint": "Usa el ajuste de tu SO",
+      "reduce": "Reducir",
+      "reduceHint": "Siempre en calma: sin animación",
+      "full": "Movimiento completo",
+      "fullHint": "Anima aunque el SO pida menos"
+    }
+  }
 }

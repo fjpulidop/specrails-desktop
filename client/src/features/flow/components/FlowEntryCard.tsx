@@ -8,7 +8,8 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
+import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { AlertTriangle, FileText, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
@@ -20,6 +21,7 @@ import { FlowRepositoryPicker } from './FlowRepositoryPicker'
 import { InitialCommitButton } from '../../../components/InitialCommitButton'
 import { HelpHint } from '../../../components/HelpHint'
 import { PRIMARY_ACTION_SHAPE } from '../../missions/components/run-primary'
+import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 
 interface Props {
   idea: string
@@ -45,7 +47,7 @@ type RepositoryLoad = { projectId: string; repositories: FlowRepositoryOption[] 
 export function focusFlowBar(flowId: string): boolean {
   const strip = document.querySelector<HTMLElement>(`[data-testid="mission-run-strip"][data-flow-id="${CSS.escape(flowId)}"]`)
   if (!strip) return false
-  strip.scrollIntoView?.({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  strip.scrollIntoView?.({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
   const target = strip.querySelector<HTMLElement>('[data-testid="mission-run-strip-bar"] button:not(:disabled)')
   target?.focus({ preventScroll: true })
   return true

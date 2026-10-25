@@ -1,4 +1,5 @@
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
+import { useReducedMotion } from '../../../../hooks/useReducedMotion'
 
 // The builder-mode halo (reskin-project-builder-into-agent-panel D3): an
 // animated ring of light orbiting the agent identity while the Builder skin is

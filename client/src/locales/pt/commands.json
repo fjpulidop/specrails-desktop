@@ -148,7 +148,8 @@
       "exportHandoffN": "Exportar passagem de #{{id}}",
       "copyPrDescriptionN": "Copiar descrição de PR de #{{id}}",
       "exportHandoff": "Exportar passagem",
-      "copyPrDescription": "Copiar descrição de PR"
+      "copyPrDescription": "Copiar descrição de PR",
+      "moveFocusedSpec": "Mover a spec em foco…"
     },
     "scopes": {
       "remove": "Remover escopo",
@@ -340,6 +341,14 @@
         "recentlyDeleted": {
           "label": "Excluídos recentemente",
           "keywords": "excluídos, lixeira, restaurar, recuperar, deleted, trash"
+        },
+        "density": {
+          "label": "Densidade",
+          "keywords": "densidade, compacta, confortável, espaçamento, linhas, cartões, acessibilidade, density"
+        },
+        "reduceMotion": {
+          "label": "Reduzir movimento",
+          "keywords": "reduzir movimento, animação, acessibilidade, vestibular, calma, transições, motion"
         }
       }
     }
@@ -413,7 +422,8 @@
       "boardSelect": "Quadro: selecionar / desmarcar a spec em foco",
       "boardSelectClick": "Quadro: clique alterna uma spec, Shift+clique seleciona um intervalo",
       "boardSelectColumn": "Quadro: selecionar todas as specs da coluna",
-      "boardClearSelection": "Quadro: limpar a seleção"
+      "boardClearSelection": "Quadro: limpar a seleção",
+      "boardMove": "Quadro: mover a spec em foco (estado ou rail)"
     },
     "searchLabel": "Pesquisar atalhos e guias",
     "searchPlaceholder": "Pesquisar atalhos e guias…",

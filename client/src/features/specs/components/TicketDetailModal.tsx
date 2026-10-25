@@ -529,7 +529,7 @@ export function TicketDetailModal({
               {ticket.status === 'on_review' && (
                 <span title={t('specs:status.onReviewHint')} data-testid="ticket-modal-on-review-badge">
                   <TicketStatusBadge status="on_review" />
-                </span>
+                <span className="sr-only"> ({t('specs:status.onReviewHint')})</span></span>
               )}
             </div>
             {/* Plain-language gloss for the "~$x · ≥N turns · 1 quick + 3 loops" line. */}

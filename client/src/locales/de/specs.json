@@ -292,5 +292,20 @@
     "linkCopyFailed": "Der Link konnte nicht kopiert werden",
     "linkMissing": "Diese Ansicht gibt es in diesem Projekt nicht",
     "deleted": "Ansicht „{{name}}“ gelöscht"
+  },
+  "movePicker": {
+    "titleOne": "Spec #{{id}} verschieben",
+    "titleMany": "{{count}} Specs verschieben",
+    "description": "Wähle einen Status oder eine Rail. Das entspricht dem Ziehen der Karte dorthin.",
+    "statusHeading": "Status",
+    "railHeading": "Rail",
+    "jiraLoading": "Jira-Status werden geladen…",
+    "jiraFailed": "Die Jira-Status konnten nicht geladen werden.",
+    "jiraStatus": "{{status}} (Jira)",
+    "noRails": "Noch keine Rails.",
+    "running": "Läuft",
+    "hintNavigate": "navigieren",
+    "hintChoose": "auswählen",
+    "hintClose": "schließen"
   }
 }

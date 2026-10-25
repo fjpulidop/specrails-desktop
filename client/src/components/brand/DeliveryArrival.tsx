@@ -3,17 +3,11 @@ import { Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import { RailMark } from './RailMark'
+import { prefersReducedMotion } from '../../lib/a11y-prefs'
 
 /** Deliveries whose arrival already played in this session (never replays on remount). */
 const played = new Set<string>()
 
-function prefersReducedMotion(): boolean {
-  try {
-    return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true
-  } catch {
-    return false
-  }
-}
 
 export interface DeliveryArrivalProps {
   /** Delivery identity: the arrival plays once per id. */

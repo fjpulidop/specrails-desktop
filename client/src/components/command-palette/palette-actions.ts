@@ -268,6 +268,12 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     },
   },
   {
+    id: 'spec.moveFocused', labelKey: 'palette.actions.moveFocusedSpec', group: 'board', icon: MoveRight, shortcut: 'M',
+    keywords: ['move', 'keyboard', 'focused', 'status', 'rail', 'picker', 'accessibility'],
+    when: (ctx) => !!ctx.surfaces.specs?.canMoveFocused?.(),
+    run: (ctx) => ctx.surfaces.specs?.openMovePicker(),
+  },
+  {
     id: 'spec.review', labelKey: 'palette.actions.openReview', group: 'board', icon: ClipboardCheck,
     keywords: ['review', 'pr', 'pull request', 'packet', 'delivery'],
     resolveLabel: (ctx) => ctx.focusedSpecId !== null ? ctx.t('palette.actions.openReviewN', { id: ctx.focusedSpecId }) : ctx.t('palette.actions.openReview'),

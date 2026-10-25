@@ -207,7 +207,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
             <LiveDot tone="success" pulsing={false} size="sm" aria-hidden />
             <span className="text-display num leading-none text-foreground">{elapsed}</span>
             {final.cost && <span className="text-label num text-muted-foreground">{final.cost}</span>}
-          </span>
+          <span className="sr-only"> ({t('statusPanel.duration')})</span></span>
         ) : (
         <span
           className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
@@ -215,7 +215,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         >
           {isRunning && <LiveDot tone="info" size="xs" aria-hidden />}
           {elapsed}
-        </span>
+        {(isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')) ? <span className="sr-only"> ({isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')})</span> : null}</span>
         )}
         {liveLine && (
           <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">

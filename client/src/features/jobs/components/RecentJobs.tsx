@@ -401,7 +401,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
               key={job.id}
               role="button"
               tabIndex={0}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors cursor-pointer group ${
+              className={`flex items-center gap-3 px-3 py-(--density-row-y) rounded-md transition-colors cursor-pointer group ${
                 isSelected
                   ? 'bg-accent/70 ring-1 ring-border'
                   : isDisabled
@@ -471,17 +471,17 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
 
               {/* Meta */}
               <div className="flex items-center gap-3 text-caption num text-muted-foreground shrink-0">
-                <span className="w-14 text-right whitespace-nowrap" title={t('recent.colDuration')}>{duration ?? '—'}</span>
-                <span className="w-12 text-right" title={t('recent.colTokens')}>{tokens ? `${tokens}` : '—'}</span>
+                <span className="w-14 text-right whitespace-nowrap" title={t('recent.colDuration')}>{duration ?? '—'}<span className="sr-only"> ({t('recent.colDuration')})</span></span>
+                <span className="w-12 text-right" title={t('recent.colTokens')}>{tokens ? `${tokens}` : '—'}<span className="sr-only"> ({t('recent.colTokens')})</span></span>
                 <span className="w-12 text-right" title={t('recent.colCost')}>
                   <CostValue
                     usd={job.total_cost_usd || null}
                     estimated={Boolean(job.total_cost_usd_estimated)}
                   />
-                </span>
+                <span className="sr-only"> ({t('recent.colCost')})</span></span>
                 <span className="w-20 text-right whitespace-nowrap" title={t('recent.colStarted')}>
                   {job.status === 'queued' ? '—' : formatRelTime(job.started_at)}
-                </span>
+                <span className="sr-only"> ({t('recent.colStarted')})</span></span>
                 {isProposal && proposalId && (
                   <button
                     type="button"

@@ -1090,7 +1090,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             >
               <GitBranch className="h-3 w-3 shrink-0 text-accent-primary/70" />
               <span className="truncate">{envelope.branch}</span>
-            </span>
+            <span className="sr-only"> ({t('git.branch')})</span></span>
           </div>
         )}
         {buildingPaused && pausedRunId && (
@@ -1505,7 +1505,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           <GitBranch className="h-3 w-3 text-accent-primary/70" />
           {'→ '}
           {envelope.baseBranch}
-        </span>}
+        <span className="sr-only"> ({t('prCard.base')})</span></span>}
         <LoopChip loopId={envelope.loopId} loopName={envelope.loopName} />
         <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption text-foreground/70">
           <Ticket className="h-3 w-3 text-accent-secondary/80" />

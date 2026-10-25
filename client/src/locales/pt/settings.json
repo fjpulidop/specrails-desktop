@@ -521,5 +521,25 @@
   },
   "budgetMoved": "Os limites são editados em Análises ▸ Orçamento.",
   "openBudget": "Abrir Orçamento",
-  "openSettings": "Abrir configurações"
+  "openSettings": "Abrir configurações",
+  "accessibility": {
+    "density": {
+      "title": "Densidade",
+      "description": "Quanto espaço ocupam os cartões e as linhas. Aplica-se ao quadro, à lista de jobs e à história do job. Uma vista guardada do quadro mantém o seu próprio layout.",
+      "comfortable": "Confortável",
+      "comfortableHint": "Cartões e linhas arejados",
+      "compact": "Compacta",
+      "compactHint": "Mais specs e linhas no ecrã"
+    },
+    "motion": {
+      "title": "Reduzir movimento",
+      "description": "Desativa animações e transições dentro do Specrails, independentemente do seu sistema operativo.",
+      "system": "Seguir o sistema",
+      "systemHint": "Usa a definição do seu SO",
+      "reduce": "Reduzir",
+      "reduceHint": "Sempre calmo: sem animação",
+      "full": "Movimento total",
+      "fullHint": "Anima mesmo que o SO peça menos"
+    }
+  }
 }
