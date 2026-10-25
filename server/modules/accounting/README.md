@@ -51,3 +51,13 @@ triage accuracy are nullable placeholders. The pure helpers
 (`isDelivered`, `summarizeInvocationCost`, `countLoopRounds`,
 `aggregateLoopEconomics`) are the shared join rules the offline
 `scripts/metrics-baseline.mjs` export can import.
+
+## What-if pricing
+
+[what-if.ts](runtime/what-if.ts) backs `GET /api/projects/:id/budget/what-if`: it re-prices the *recorded* token usage
+of one `provider:model` bucket on another model with the local rate card ([pricing.ts](runtime/pricing.ts)). Both sides
+are estimates (the current model is re-priced the same way, so the delta compares like with like); the recorded cost
+is reported apart and never enters the delta. A model the rate card cannot price is reported as `noPricing` with null
+estimates, never guessed; a long-context tier is applied per invocation, not to the sum. Usage is recorded per model,
+not per profile role, so the source is a model bucket. The spend-vs-caps read model and the month-end projection live
+in the [execution module](../execution/README.md#spend-caps).

@@ -38,13 +38,14 @@ project**, grouped by project, newest first.
   `jira.outbox_changed`, any project).
 - **Sources:** review ready (delivery `on_review`, `pr_draft`, `pr_ready`, changes requested),
   agent question (a run paused for a human decision), run failed or blocked (a delivery that
-  failed, a failed/stalled/blocked run, a run interrupted by a restart), budget paused, and
+  failed, a failed/stalled/blocked run, a run interrupted by a restart), budget paused, a spend
+  cap that is reached (daily, weekly or monthly; primary action Raise cap, which opens Analytics ▸ Budget), and
   a Jira update that exhausted its retries (dead outbox op).
 - **Cause.** A failed or blocked run's row says why in the diagnosis' plain words ("The AI provider's usage limit was reached", "The environment can't run the checks") instead of the raw outcome; an unknown cause keeps the raw outcome ([recovery](../recovery/README.md)).
 - **Primary action** reuses the existing handlers: Open review / Open / Answer navigate
   to the place (`?review=` / `?job=` in Mission mode, `/review/:id` / `/jobs/:id` in Board
   mode) after switching project when needed; Resume calls `POST /loop-runs/:id/resume` of
-  the item's project (the budget 409 is shown localized); Retry calls the Jira outbox retry.
+  the item's project (the budget 409 is shown localized; a run paused at its per-run cap opens the Continue / Raise dialog and resumes with that choice); Retry calls the Jira outbox retry.
 - **Snooze (1 hour, until tomorrow 08:00) and Done** are per viewer (`localStorage`, in try/catch)
   and keyed by item id **and state version**: when the underlying state changes the item
   comes back. Entries older than 30 days are pruned.

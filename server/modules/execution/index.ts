@@ -18,3 +18,8 @@ export {
   type AgentEnvInput,
   type AgentEnvMode,
 } from './domain/agent-env'
+export {
+  CAP_PERIODS, TRAILING_DAYS, capHeadroomCents, capRejection, effectiveRunCap, firstExhaustedCap, fromCents, isCapExceeded, isRunCapCrossed,
+  localDayKey, periodEnd, periodResetsAtIso, periodStart, periodStartIso, projectMonthEnd, runCapRejection, tightestCap, toCents,
+  type BudgetPeriod, type CapPeriod, type CapStatus, type DailySpendPoint, type MonthProjection,
+} from './domain/spend-caps'

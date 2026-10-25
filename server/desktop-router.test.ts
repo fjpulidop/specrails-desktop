@@ -100,6 +100,7 @@ function createMockRegistry(desktopDb: DbInstance) {
     touchProject: vi.fn(),
     listContexts: vi.fn(() => Array.from(contexts.values())),
     installedProvidersUnion: vi.fn(() => ['claude']),
+    desktopCapStatuses: vi.fn(() => []),
   } as unknown as ProjectRegistry
 
   return { registry, contexts }
@@ -688,6 +689,32 @@ describe('desktop-router', () => {
   })
 
   // ─── GET /recent-jobs ───────────────────────────────────────────────────────
+
+  describe('GET/PATCH /api/budget — weekly, monthly and per-run caps (CD5)', () => {
+    it('sets, reads back, validates and clears the app-wide caps', async () => {
+      const { app } = createApp()
+      expect((await request(app).patch('/api/budget').send({ desktopWeeklyBudgetUsd: 40, desktopMonthlyBudgetUsd: 150, runCapUsd: 4 })).status).toBe(200)
+      expect((await request(app).get('/api/budget')).body).toMatchObject({ desktopWeeklyBudgetUsd: 40, desktopMonthlyBudgetUsd: 150, runCapUsd: 4 })
+      expect(getDesktopSetting(desktopDb, 'desktop_weekly_budget_usd')).toBe('40')
+      const bad = await request(app).patch('/api/budget').send({ desktopMonthlyBudgetUsd: -1 })
+      expect(bad.status).toBe(400)
+      expect(bad.body).toEqual({ error: 'invalid_cap', field: 'desktopMonthlyBudgetUsd' })
+      await request(app).patch('/api/budget').send({ desktopWeeklyBudgetUsd: null })
+      expect((await request(app).get('/api/budget')).body).toMatchObject({ desktopWeeklyBudgetUsd: null, desktopMonthlyBudgetUsd: 150 })
+    })
+
+    it('GET /api/budget/caps returns the app-wide config, caps and spend overview', async () => {
+      setDesktopSetting(desktopDb, 'desktop_monthly_budget_usd', '100')
+      const { app, registry } = createApp()
+      vi.mocked(registry.desktopCapStatuses).mockReturnValue([{ scope: 'desktop', period: 'month', budgetUsd: 100, spentUsd: 12, exhausted: false, resetsAt: '2026-11-01T00:00:00.000Z' }])
+      const res = await request(app).get('/api/budget/caps')
+      expect(res.status).toBe(200)
+      expect(res.body.config).toEqual({ day: null, week: null, month: 100, run: null })
+      expect(res.body.caps).toHaveLength(1)
+      expect(res.body.spend.month).toMatchObject({ usd: 0, byProvider: [] })
+      expect(res.body.projection).toBeNull()
+    })
+  })
 
   describe('GET /api/recent-jobs', () => {
     it('returns empty list when no projects have jobs', async () => {

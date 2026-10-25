@@ -1937,6 +1937,29 @@ describe('QueueManager', () => {
       db.close()
     })
 
+    it('pauses the queue at a weekly or monthly cap before spawning, tagging the event with its period (CD5)', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockUuidV4).mockReturnValue('weekly-cap-job' as any)
+      const db = initDb(':memory:')
+      const onBudgetExceeded = vi.fn()
+      const cap = (scope: 'project' | 'desktop', period: 'week' | 'month', exhausted: boolean) =>
+        ({ scope, period, budgetUsd: 10, spentUsd: exhausted ? 11 : 1, exhausted, resetsAt: '2026-11-01T00:00:00.000Z' })
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, {
+        getPeriodCapBreaches: () => [cap('project', 'week', true), cap('desktop', 'month', true), cap('project', 'month', false)],
+        onBudgetExceeded,
+      })
+
+      qmWithDb.enqueue('/implement')
+
+      expect(qmWithDb.isPaused()).toBe(true)
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+      expect(onBudgetExceeded).toHaveBeenCalledWith('daily_budget_exceeded', expect.objectContaining({ dailySpend: 11, budget: 10, period: 'week' }))
+      expect(onBudgetExceeded).toHaveBeenCalledWith('desktop_daily_budget_exceeded', expect.objectContaining({ desktopDailySpend: 11, period: 'month' }))
+      // A cap that is not reached never pauses.
+      expect(onBudgetExceeded).toHaveBeenCalledTimes(2)
+      db.close()
+    })
+
     it('emits cost_alert for per-project cost threshold', async () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()

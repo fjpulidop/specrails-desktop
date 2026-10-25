@@ -8,8 +8,12 @@ import { getDateFnsLocale } from './i18n'
  * `budget_paused` loop run; this module turns either into localized copy so
  * no surface shows the server's English `detail`.
  */
+export type BudgetPeriod = 'day' | 'week' | 'month' | 'run'
+
 export interface DailyBudgetInfo {
   scope: 'project' | 'desktop'
+  /** Which cap was reached: the daily budget (default), a longer cap, or the per-run soft cap. */
+  period: BudgetPeriod
   budgetUsd: number
   spentUsd: number
   resetsAt: string | null
@@ -27,7 +31,8 @@ export function readDailyBudgetInfo(raw: unknown): DailyBudgetInfo | null {
   const budgetUsd = finite(body.budgetUsd)
   const spentUsd = finite(body.spentUsd)
   if (!scope || budgetUsd === null || spentUsd === null) return null
-  return { scope, budgetUsd, spentUsd, resetsAt: typeof body.resetsAt === 'string' ? body.resetsAt : null }
+  const period: BudgetPeriod = body.period === 'week' || body.period === 'month' || body.period === 'run' ? body.period : 'day'
+  return { scope, period, budgetUsd, spentUsd, resetsAt: typeof body.resetsAt === 'string' ? body.resetsAt : null }
 }
 
 /** The 409 `daily_budget_exceeded` body of a launch/resume, else null. */
@@ -46,19 +51,28 @@ function values(info: DailyBudgetInfo) {
   return { spent: info.spentUsd.toFixed(2), budget: info.budgetUsd.toFixed(2) }
 }
 
-/** "Daily budget reached ($12.40 of $10.00)" — headline for a refused launch. */
+/** i18next context for the longer caps; daily keeps the base (historical) strings. */
+function periodContext(info: DailyBudgetInfo): { context?: 'week' | 'month' } {
+  return info.period === 'week' || info.period === 'month' ? { context: info.period } : {}
+}
+
+/** "Weekly budget reached ($12.40 of $10.00)" — headline for a refused launch. */
 export function dailyBudgetExceededMessage(t: TFunction, info: DailyBudgetInfo): string {
-  return t(info.scope === 'project' ? 'common:budget.exceededProject' : 'common:budget.exceededDesktop', values(info))
+  if (info.period === 'run') return t('common:budget.exceededRun', values(info))
+  return t(info.scope === 'project' ? 'common:budget.exceededProject' : 'common:budget.exceededDesktop', { ...values(info), ...periodContext(info) })
 }
 
 /** What the person can do: raise the budget, or wait for the reset. */
 export function dailyBudgetActionMessage(t: TFunction, info: DailyBudgetInfo): string {
+  if (info.period === 'run') return t('common:budget.actionRun')
   const time = resetTime(info)
-  const where = t(info.scope === 'project' ? 'common:budget.whereProject' : 'common:budget.whereDesktop')
+  const ctx = periodContext(info)
+  const where = t(info.scope === 'project' ? 'common:budget.whereProject' : 'common:budget.whereDesktop', ctx)
   return time ? t('common:budget.actionWithReset', { where, time }) : t('common:budget.action', { where })
 }
 
-/** Status line for a run paused between steps on the daily budget. */
+/** Status line for a run paused between steps on a budget or its per-run cap. */
 export function dailyBudgetPausedMessage(t: TFunction, info: DailyBudgetInfo): string {
-  return t(info.scope === 'project' ? 'common:budget.pausedProject' : 'common:budget.pausedDesktop', values(info))
+  if (info.period === 'run') return t('common:budget.pausedRun', values(info))
+  return t(info.scope === 'project' ? 'common:budget.pausedProject' : 'common:budget.pausedDesktop', { ...values(info), ...periodContext(info) })
 }

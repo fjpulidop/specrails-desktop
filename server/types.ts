@@ -718,6 +718,8 @@ export interface DailyBudgetExceededMessage {
   dailySpend: number
   budget: number
   queuePaused: boolean
+  /** Which cap was reached; absent = the daily budget. */
+  period?: 'week' | 'month'
 }
 
 export interface DesktopDailyBudgetExceededMessage {
@@ -726,6 +728,7 @@ export interface DesktopDailyBudgetExceededMessage {
   desktopDailySpend: number
   desktopBudget: number
   queuePaused: boolean
+  period?: 'week' | 'month'
 }
 
 export interface PipelineStatusMessage {
@@ -1020,7 +1023,7 @@ export interface LoopRunPausedMessage {
   /** Absent for a human-decision pause. `budget_paused`: the daily budget ran
    *  out between AI steps; resume once the budget allows it. */
   pauseKind?: 'budget_paused'
-  budget?: { scope: 'project' | 'desktop'; budgetUsd: number; spentUsd: number; resetsAt: string }
+  budget?: { scope: 'project' | 'desktop'; period?: 'week' | 'month' | 'run'; budgetUsd: number; spentUsd: number; resetsAt: string | null }
 }
 
 export interface LoopRunResumedMessage {

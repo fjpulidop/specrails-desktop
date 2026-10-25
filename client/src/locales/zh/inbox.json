@@ -20,14 +20,16 @@
     "blocked": "已阻塞",
     "budget": "因预算暂停",
     "jira": "Jira 同步失败",
-    "failedNoCause": "在交付前停止"
+    "failedNoCause": "在交付前停止",
+    "capReached": "已达到预算上限"
   },
   "actions": {
     "open": "打开",
     "openReview": "打开评审",
     "answer": "回答",
     "resume": "继续",
-    "retry": "重试"
+    "retry": "重试",
+    "raiseCap": "调高上限"
   },
   "working": "处理中…",
   "rowLabel": "{{action}}：{{title}}",
@@ -59,6 +61,23 @@
     "stillOverBudget": "仍超出每日预算",
     "done": "已标记为完成",
     "snoozed": "已推迟到 {{when}}",
-    "undo": "撤销"
+    "undo": "撤销",
+    "stillOverBudget_week": "仍超出每周预算",
+    "stillOverBudget_month": "仍超出每月预算"
+  },
+  "cap": {
+    "title": {
+      "project": {
+        "day": "已达到项目每日预算",
+        "week": "已达到项目每周预算",
+        "month": "已达到项目每月预算"
+      },
+      "desktop": {
+        "day": "已达到全局每日预算",
+        "week": "已达到全局每周预算",
+        "month": "已达到全局每月预算"
+      }
+    },
+    "detail": "已花费 ${{spent}} / ${{budget}}"
   }
 }

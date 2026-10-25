@@ -5,6 +5,7 @@ import { readRunDiagnosis } from '../../recovery/adapters/sqlite'
 import { inboxItemId, oneLine, toIso, type InboxItem } from '../domain'
 import type { ProjectInboxSource } from '../ports'
 import type { PresentedFailureDiagnosis } from '../../recovery'
+import type { CapStatus } from '../../execution'
 
 /** Finished runs older than this are history, not something that waits for the person. */
 export const FAILED_RUN_WINDOW_MS = 3 * 24 * 60 * 60 * 1000
@@ -13,6 +14,9 @@ const MAX_DEAD_JIRA_OPS = 20
 export interface InboxProjectHandle {
   project: { id: string; name: string }
   db: DbInstance
+  /** Every configured spend cap this project answers for (its own, plus the
+   *  app-wide ones when this project is the one that speaks for them). */
+  caps?: () => CapStatus[]
 }
 
 interface RunRow {
@@ -174,6 +178,31 @@ function jiraItems(handle: InboxProjectHandle, nowIso: string): InboxItem[] {
   })
 }
 
+/**
+ * A spend cap that is reached right now (daily, weekly or monthly; project or
+ * app-wide). The item stays while the cap is exhausted and leaves on its own
+ * once it is raised or the period rolls over; its version includes both, so a
+ * dismissal never hides the next period's crossing.
+ */
+function capItems(handle: InboxProjectHandle, nowIso: string): InboxItem[] {
+  const caps = handle.caps?.() ?? []
+  return caps.filter((cap) => cap.exhausted).map((cap) => ({
+    id: inboxItemId(handle.project.id, 'budget', `cap-${cap.scope}-${cap.period}`),
+    projectId: handle.project.id,
+    projectName: handle.project.name,
+    kind: 'budget' as const,
+    title: `${cap.scope === 'project' ? 'Project' : 'App-wide'} ${cap.period === 'day' ? 'daily' : cap.period === 'week' ? 'weekly' : 'monthly'} budget reached`,
+    detail: null,
+    at: nowIso,
+    version: `cap:${cap.budgetUsd}:${cap.resetsAt}`,
+    action: 'raise-cap' as const,
+    subjectId: `${cap.scope}:${cap.period}`,
+    conversationId: null,
+    diagnosis: null,
+    cap: { scope: cap.scope, period: cap.period, budgetUsd: cap.budgetUsd, spentUsd: cap.spentUsd, resetsAt: cap.resetsAt },
+  }))
+}
+
 /** Run ids that recent deliveries already account for (the delivery speaks for them). */
 function representedRuns(db: DbInstance): Set<string> {
   const ids = new Set<string>()
@@ -202,6 +231,7 @@ export function createProjectInboxSource(handle: InboxProjectHandle, now: () => 
       try { represented = representedRuns(handle.db) } catch { /* runs then show without a delivery link */ }
       guard('runs', () => runItems(handle, represented, nowIso, nowMs))
       guard('jira', () => jiraItems(handle, nowIso))
+      guard('caps', () => capItems(handle, nowIso))
       return items
     },
   }

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1271 source/build files. Nearby tests are linked where names
+Includes 1279 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -41,6 +41,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [PlaceNavButtons.tsx](../../client/src/components/PlaceNavButtons.tsx) · [test](../../client/src/components/__tests__/PlaceNavButtons.test.tsx)
 - [ProjectLayout.tsx](../../client/src/components/ProjectLayout.tsx) · [test](../../client/src/components/__tests__/ProjectLayout.test.tsx)
 - [ProjectRightSidebar.tsx](../../client/src/components/ProjectRightSidebar.tsx) · [test](../../client/src/components/__tests__/ProjectRightSidebar.test.tsx)
+- [RunCapChoiceDialog.tsx](../../client/src/components/RunCapChoiceDialog.tsx)
 - [ShellErrorBoundary.tsx](../../client/src/components/ShellErrorBoundary.tsx) · [test](../../client/src/components/__tests__/ShellErrorBoundary.test.tsx)
 - [SidebarResizeGrip.tsx](../../client/src/components/SidebarResizeGrip.tsx)
 - [SplitViewShell.tsx](../../client/src/components/SplitViewShell.tsx) · [test](../../client/src/components/__tests__/SplitViewShell.test.tsx)
@@ -133,6 +134,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/analytics/components
 
 - [AgentMissionsCard.tsx](../../client/src/features/analytics/components/AgentMissionsCard.tsx)
+- [BudgetCard.tsx](../../client/src/features/analytics/components/BudgetCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/BudgetCard.test.tsx)
 - [ChartTooltip.tsx](../../client/src/features/analytics/components/ChartTooltip.tsx)
 - [CostScatter.tsx](../../client/src/features/analytics/components/CostScatter.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostScatter.test.tsx)
 - [CostValue.tsx](../../client/src/features/analytics/components/CostValue.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostValue.test.tsx)
@@ -149,6 +151,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [SpendingTimeline.tsx](../../client/src/features/analytics/components/SpendingTimeline.tsx) · [test](../../client/src/features/analytics/components/__tests__/SpendingTimeline.test.tsx)
 - [TicketSpendingLine.tsx](../../client/src/features/analytics/components/TicketSpendingLine.tsx) · [test](../../client/src/features/analytics/components/__tests__/TicketSpendingLine.test.tsx)
 - [TopTicketsCrossSurface.tsx](../../client/src/features/analytics/components/TopTicketsCrossSurface.tsx) · [test](../../client/src/features/analytics/components/__tests__/TopTicketsCrossSurface.test.tsx)
+- [WhatIfPanel.tsx](../../client/src/features/analytics/components/WhatIfPanel.tsx)
 
 ## client/src/features/analytics/hooks
 
@@ -156,6 +159,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/analytics/lib
 
+- [budget.ts](../../client/src/features/analytics/lib/budget.ts) · [test](../../client/src/features/analytics/lib/__tests__/budget.test.ts)
 - [format.ts](../../client/src/features/analytics/lib/format.ts)
 
 ## client/src/features/analytics/pages
@@ -993,6 +997,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [relative-time.ts](../../client/src/lib/relative-time.ts) · [test](../../client/src/lib/__tests__/relative-time.test.ts)
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)
+- [run-cap.ts](../../client/src/lib/run-cap.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)
 - [sidebar-layout.ts](../../client/src/lib/sidebar-layout.ts) · [test](../../client/src/lib/__tests__/sidebar-layout.test.ts)
 - [tauri-clipboard.ts](../../client/src/lib/tauri-clipboard.ts)
@@ -1281,6 +1286,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [telemetry-compactor.ts](../../server/modules/accounting/runtime/telemetry-compactor.ts)
 - [telemetry-export.ts](../../server/modules/accounting/runtime/telemetry-export.ts) · [test](../../server/modules/accounting/runtime/telemetry-export.test.ts)
 - [telemetry-receiver.ts](../../server/modules/accounting/runtime/telemetry-receiver.ts) · [test](../../server/modules/accounting/runtime/telemetry-receiver.test.ts)
+- [what-if.ts](../../server/modules/accounting/runtime/what-if.ts) · [test](../../server/modules/accounting/runtime/what-if.test.ts)
 
 ## server/modules/agent-runtime/runtime
 
@@ -1527,11 +1533,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [daily-budget.ts](../../server/modules/execution/domain/daily-budget.ts)
 - [job-accounting.ts](../../server/modules/execution/domain/job-accounting.ts)
 - [scheduling.ts](../../server/modules/execution/domain/scheduling.ts)
+- [spend-caps.ts](../../server/modules/execution/domain/spend-caps.ts)
 - [usage.ts](../../server/modules/execution/domain/usage.ts)
 
 ## server/modules/execution/runtime
 
 - [accept-ladder.ts](../../server/modules/execution/runtime/accept-ladder.ts) · [test](../../server/modules/execution/runtime/accept-ladder.test.ts)
+- [budget-overview.ts](../../server/modules/execution/runtime/budget-overview.ts)
 - [daily-budget-gate.ts](../../server/modules/execution/runtime/daily-budget-gate.ts)
 - [interactive-job-session.ts](../../server/modules/execution/runtime/interactive-job-session.ts) · [test](../../server/modules/execution/runtime/interactive-job-session.test.ts)
 - [job-listing.ts](../../server/modules/execution/runtime/job-listing.ts) · [test](../../server/modules/execution/runtime/job-listing.test.ts)

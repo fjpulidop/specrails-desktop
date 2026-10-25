@@ -18,10 +18,11 @@ import { InboxProvider, useInbox } from '../context/InboxContext'
 import { InboxButton } from '../components/InboxButton'
 import { InboxDialog } from '../components/InboxDialog'
 import { DISMISSALS_KEY, type InboxItem } from '../lib/inbox-model'
+import { OPEN_BUDGET_PANEL_EVENT } from '../../../lib/app-settings-events'
 
 const mk = (over: Partial<InboxItem>): InboxItem => ({
   id: 'p1:review:d1', projectId: 'p1', projectName: 'Alpha', kind: 'review', title: 'Add login', detail: null,
-  at: new Date(Date.now() - 2 * 3_600_000).toISOString(), version: 'on_review', action: 'open-review', subjectId: 'd1', conversationId: 'c1', diagnosis: null, ...over,
+  at: new Date(Date.now() - 2 * 3_600_000).toISOString(), version: 'on_review', action: 'open-review', subjectId: 'd1', conversationId: 'c1', diagnosis: null, cap: null, ...over,
 })
 
 let items: InboxItem[]
@@ -293,6 +294,68 @@ describe('Primary actions call the real handlers', () => {
     const row = (await screen.findAllByTestId('inbox-row')).find((r) => r.getAttribute('data-item-id') === 'p2:budget:r2')!
     fireEvent.click(within(row).getByTestId('inbox-primary'))
     await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith('Still over the daily budget', expect.anything()))
+  })
+
+  it('a run paused at its per-run cap asks Continue / Raise instead of a toast, and answers on the same route (CD5)', async () => {
+    const bodies: unknown[] = []
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(input)
+      if (u.endsWith('/api/inbox')) return { ok: true, status: 200, json: async () => ({ items, projects: [], generatedAt: '' }) }
+      const body = JSON.parse(String(init?.body ?? '{}'))
+      bodies.push(body)
+      if (body.runCap === 'ignore') return { ok: true, status: 202, json: async () => ({ resumed: true }) }
+      return { ok: false, status: 409, json: async () => ({ error: 'daily_budget_exceeded', scope: 'project', period: 'run', budgetUsd: 5, spentUsd: 5.2, resetsAt: null }) }
+    })
+    mount('/?inbox=1')
+    const row = (await screen.findAllByTestId('inbox-row')).find((r) => r.getAttribute('data-item-id') === 'p2:budget:r2')!
+    fireEvent.click(within(row).getByTestId('inbox-primary'))
+    const dialog = await screen.findByTestId('run-cap-dialog')
+    expect(dialog).toHaveTextContent('Paused at the per-run cap ($5.20 of $5.00)')
+    expect(h.toast.error).not.toHaveBeenCalled()
+    expect(screen.getByTestId('run-cap-amount')).toHaveValue(10.2)
+    fireEvent.click(screen.getByTestId('run-cap-ignore'))
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith('Run resumed'))
+    expect(bodies).toEqual([{}, { runCap: 'ignore' }])
+  })
+
+  it('Raise sends the new cap, and only when it ends above what the run spent', async () => {
+    const bodies: unknown[] = []
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(input)
+      if (u.endsWith('/api/inbox')) return { ok: true, status: 200, json: async () => ({ items, projects: [], generatedAt: '' }) }
+      const body = JSON.parse(String(init?.body ?? '{}'))
+      bodies.push(body)
+      if (typeof body.runCapUsd === 'number') return { ok: true, status: 202, json: async () => ({ resumed: true }) }
+      return { ok: false, status: 409, json: async () => ({ error: 'daily_budget_exceeded', scope: 'project', period: 'run', budgetUsd: 5, spentUsd: 5.2, resetsAt: null }) }
+    })
+    mount('/?inbox=1')
+    const row = (await screen.findAllByTestId('inbox-row')).find((r) => r.getAttribute('data-item-id') === 'p2:budget:r2')!
+    fireEvent.click(within(row).getByTestId('inbox-primary'))
+    const amount = await screen.findByTestId('run-cap-amount')
+    fireEvent.change(amount, { target: { value: '5.2' } })
+    expect(screen.getByTestId('run-cap-raise')).toBeDisabled()
+    fireEvent.change(amount, { target: { value: '8' } })
+    fireEvent.click(screen.getByTestId('run-cap-raise'))
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith('Run resumed'))
+    expect(bodies).toEqual([{}, { runCapUsd: 8 }])
+  })
+
+  it('a reached cap lists in the app\'s words with Raise cap, which opens the Budget panel', async () => {
+    items = [mk({
+      id: 'p1:budget:cap-project-week', kind: 'budget', title: 'Project weekly budget reached', action: 'raise-cap', subjectId: 'project:week',
+      conversationId: null, version: 'cap:50:x', cap: { scope: 'project', period: 'week', budgetUsd: 50, spentUsd: 52.5, resetsAt: '2026-10-26T00:00:00.000Z' },
+    })]
+    const opened = vi.fn()
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+    mount('/?inbox=1')
+    const row = (await screen.findAllByTestId('inbox-row'))[0]
+    expect(row).toHaveTextContent('Project weekly budget reached')
+    expect(row).toHaveTextContent('Budget cap reached')
+    expect(row).toHaveTextContent('$52.50 of $50.00 spent')
+    expect(within(row).getByTestId('inbox-primary')).toHaveTextContent('Raise cap')
+    fireEvent.click(within(row).getByTestId('inbox-primary'))
+    await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
+    window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
   })
 
   it('Retry re-queues the dead Jira op of the item\'s project', async () => {

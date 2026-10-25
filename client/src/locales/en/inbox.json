@@ -20,14 +20,16 @@
     "blocked": "Blocked",
     "budget": "Paused at budget",
     "jira": "Jira sync failed",
-    "failedNoCause": "Stopped before delivery"
+    "failedNoCause": "Stopped before delivery",
+    "capReached": "Budget cap reached"
   },
   "actions": {
     "open": "Open",
     "openReview": "Open review",
     "answer": "Answer",
     "resume": "Resume",
-    "retry": "Retry"
+    "retry": "Retry",
+    "raiseCap": "Raise cap"
   },
   "working": "Working…",
   "rowLabel": "{{action}}: {{title}}",
@@ -59,6 +61,23 @@
     "stillOverBudget": "Still over the daily budget",
     "done": "Marked done",
     "snoozed": "Snoozed until {{when}}",
-    "undo": "Undo"
+    "undo": "Undo",
+    "stillOverBudget_week": "Still over the weekly budget",
+    "stillOverBudget_month": "Still over the monthly budget"
+  },
+  "cap": {
+    "title": {
+      "project": {
+        "day": "Project daily budget reached",
+        "week": "Project weekly budget reached",
+        "month": "Project monthly budget reached"
+      },
+      "desktop": {
+        "day": "App-wide daily budget reached",
+        "week": "App-wide weekly budget reached",
+        "month": "App-wide monthly budget reached"
+      }
+    },
+    "detail": "${{spent}} of ${{budget}} spent"
   }
 }

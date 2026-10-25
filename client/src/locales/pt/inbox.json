@@ -20,14 +20,16 @@
     "blocked": "Bloqueado",
     "budget": "Pausado por orçamento",
     "jira": "Falha na sincronização com o Jira",
-    "failedNoCause": "Parou antes da entrega"
+    "failedNoCause": "Parou antes da entrega",
+    "capReached": "Limite de orçamento atingido"
   },
   "actions": {
     "open": "Abrir",
     "openReview": "Abrir revisão",
     "answer": "Responder",
     "resume": "Retomar",
-    "retry": "Tentar novamente"
+    "retry": "Tentar novamente",
+    "raiseCap": "Aumentar limite"
   },
   "working": "Processando…",
   "rowLabel": "{{action}}: {{title}}",
@@ -59,6 +61,23 @@
     "stillOverBudget": "Ainda acima do orçamento diário",
     "done": "Marcado como concluído",
     "snoozed": "Adiado até {{when}}",
-    "undo": "Desfazer"
+    "undo": "Desfazer",
+    "stillOverBudget_week": "Ainda acima do orçamento semanal",
+    "stillOverBudget_month": "Ainda acima do orçamento mensal"
+  },
+  "cap": {
+    "title": {
+      "project": {
+        "day": "Orçamento diário do projeto atingido",
+        "week": "Orçamento semanal do projeto atingido",
+        "month": "Orçamento mensal do projeto atingido"
+      },
+      "desktop": {
+        "day": "Orçamento diário global atingido",
+        "week": "Orçamento semanal global atingido",
+        "month": "Orçamento mensal global atingido"
+      }
+    },
+    "detail": "${{spent}} de ${{budget}} gastos"
   }
 }

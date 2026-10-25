@@ -20,6 +20,8 @@ export interface ForecastTime { p25Ms: number; medianMs: number; p75Ms: number; 
 export interface ForecastCost { lowUsd: number; highUsd: number; sampleCount: number }
 export interface ForecastBudget {
   scope: 'project' | 'desktop'
+  /** Which cap is tightest; absent = the daily budget. */
+  period?: 'week' | 'month'
   budgetUsd: number
   spentUsd: number
   exhausted: boolean
@@ -50,7 +52,7 @@ export function parseLaunchForecast(raw: unknown): LaunchForecastData | null {
     : null
   const b = record(body.budget)
   const budget: ForecastBudget | null = b && (b.scope === 'project' || b.scope === 'desktop') && finite(b.budgetUsd) && finite(b.spentUsd) && b.budgetUsd > 0
-    ? { scope: b.scope, budgetUsd: b.budgetUsd, spentUsd: b.spentUsd, exhausted: b.exhausted === true, resetsAt: typeof b.resetsAt === 'string' ? b.resetsAt : null }
+    ? { scope: b.scope, ...(b.period === 'week' || b.period === 'month' ? { period: b.period } : {}), budgetUsd: b.budgetUsd, spentUsd: b.spentUsd, exhausted: b.exhausted === true, resetsAt: typeof b.resetsAt === 'string' ? b.resetsAt : null }
     : null
   return { time, cost, minSamples: body.minSamples, budget }
 }

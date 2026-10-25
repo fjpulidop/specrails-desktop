@@ -6,7 +6,10 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { usePlaceParam } from '../../../hooks/usePlaceParam'
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { useUiMode } from '../../../context/UiModeContext'
-import { dailyBudgetActionMessage } from '../../../lib/daily-budget'
+import { dailyBudgetActionMessage, type DailyBudgetInfo } from '../../../lib/daily-budget'
+import { openBudgetPanel } from '../../../lib/app-settings-events'
+import { RunCapChoiceDialog } from '../../../components/RunCapChoiceDialog'
+import type { RunCapChoice } from '../../../lib/run-cap'
 import { OPEN_INBOX_EVENT } from '../../../lib/inbox-events'
 import { INBOX_PARAM, PLACE_PUSH_STATE } from '../../../lib/places'
 import { fetchInbox, resumeInboxRun, retryInboxJira, type InboxActionOutcome } from '../lib/inbox-api'
@@ -46,7 +49,7 @@ export interface InboxValue {
   busy: ReadonlySet<string>
   refresh: () => Promise<void>
   /** The primary inline action of the row. */
-  runPrimary: (item: InboxItem) => Promise<void>
+  runPrimary: (item: InboxItem, choice?: RunCapChoice) => Promise<void>
   snooze: (item: InboxItem, choice: SnoozeChoice) => void
   done: (item: InboxItem) => void
 }
@@ -153,7 +156,10 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   const uiModeRef = useRef(uiMode)
   uiModeRef.current = uiMode
   const pendingOpen = useRef<InboxItem | null>(null)
+  const [runCapPrompt, setRunCapPrompt] = useState<{ item: InboxItem; budget: DailyBudgetInfo } | null>(null)
   const goToItem = useCallback((item: InboxItem, fromInbox: boolean) => {
+    // "Raise cap" lands on the project's Analytics ▸ Budget panel (the shell navigates).
+    if (item.action === 'raise-cap') { openBudgetPanel(); return }
     const target = inboxTarget(item, uiModeRef.current)
     const inboxEntryIsHere = fromInbox && new URLSearchParams(locationRef.current.search).get(INBOX_PARAM) === '1'
     // The inbox entry (when this very row was opened from it) is replaced by the place it leads to,
@@ -184,17 +190,20 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   }, [activeProjectId])
 
   // ── Primary action: the same handlers/routes the existing buttons call
-  const runPrimary = useCallback(async (item: InboxItem) => {
-    if (item.action === 'open-review' || item.action === 'open-run') { openItem(item); return }
+  const runPrimary = useCallback(async (item: InboxItem, choice?: RunCapChoice) => {
+    if (item.action === 'open-review' || item.action === 'open-run' || item.action === 'raise-cap') { openItem(item); return }
     setBusy((current) => new Set(current).add(item.id))
     let outcome: InboxActionOutcome
     try {
-      outcome = item.action === 'resume-run' ? await resumeInboxRun(item) : await retryInboxJira(item)
+      outcome = item.action === 'resume-run' ? await resumeInboxRun(item, choice) : await retryInboxJira(item)
     } finally {
       if (alive.current) setBusy((current) => { const next = new Set(current); next.delete(item.id); return next })
     }
     if (outcome.kind === 'ok') {
       toast.success(t(item.action === 'resume-run' ? 'toast.resumed' : 'toast.retried'))
+    } else if (outcome.kind === 'over-budget' && outcome.budget.period === 'run') {
+      // The run's per-run soft cap stands: the person answers Continue / Raise.
+      if (alive.current) setRunCapPrompt({ item, budget: outcome.budget })
     } else if (outcome.kind === 'over-budget') {
       toast.error(t('toast.stillOverBudget'), { description: dailyBudgetActionMessage(t as never, outcome.budget) })
     } else {
@@ -237,5 +246,18 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     isOpen, openInbox, closeInbox, toggleInbox, status, items, groups, count: items.length, busy, refresh, runPrimary, snooze, done,
   }), [isOpen, openInbox, closeInbox, toggleInbox, status, items, groups, busy, refresh, runPrimary, snooze, done])
 
-  return <InboxContext.Provider value={value}>{children}</InboxContext.Provider>
+  return (
+    <InboxContext.Provider value={value}>
+      {children}
+      <RunCapChoiceDialog
+        info={runCapPrompt?.budget ?? null}
+        onDismiss={() => setRunCapPrompt(null)}
+        onChoose={(choice) => {
+          const prompt = runCapPrompt
+          setRunCapPrompt(null)
+          if (prompt) void runPrimary(prompt.item, choice)
+        }}
+      />
+    </InboxContext.Provider>
+  )
 }

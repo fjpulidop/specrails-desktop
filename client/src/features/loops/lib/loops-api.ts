@@ -234,7 +234,7 @@ export const loopsApi = {
   async runStandalone(
     projectId: string,
     loopId: string,
-    opts: { repositoryIds?: string[]; aiEngine?: string; model?: string; reasoning_effort?: string } = {}
+    opts: { repositoryIds?: string[]; aiEngine?: string; model?: string; reasoning_effort?: string; runCapUsd?: number } = {}
   ): Promise<{ loopRunId: string }> {
     const res = await fetch(`/api/projects/${projectId}/loop-runs`, {
       method: 'POST',

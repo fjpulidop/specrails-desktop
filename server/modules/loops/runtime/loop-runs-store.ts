@@ -723,6 +723,16 @@ export function getLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
   return db.prepare('SELECT * FROM loop_runs WHERE id = ?').get(id) as LoopRunRow | undefined
 }
 
+/** The run's own per-run soft cap: undefined = never set, 0 = waived, > 0 = the cap. */
+export function readLoopRunCap(db: DbInstance, id: string): number | undefined {
+  const row = db.prepare('SELECT run_cap_usd FROM loop_runs WHERE id = ?').get(id) as { run_cap_usd: number | null } | undefined
+  return row?.run_cap_usd == null ? undefined : row.run_cap_usd
+}
+
+export function writeLoopRunCap(db: DbInstance, id: string, capUsd: number): void {
+  db.prepare('UPDATE loop_runs SET run_cap_usd = ? WHERE id = ?').run(capUsd, id)
+}
+
 /** Activity-step count for one event, mirroring the client's deriveFrameActivity
  *  (../../client/src/features/browser/lib/frame-activity.ts) so the seeded count matches the live
  *  "pasos" the Job panel shows. A single assistant frame may carry several

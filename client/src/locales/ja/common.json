@@ -160,7 +160,30 @@
     "pausedProject": "プロジェクトの1日の予算で一時停止中（${{spent}} / ${{budget}}）。予算を引き上げてから再開してください。",
     "pausedDesktop": "アプリ全体の1日の予算で一時停止中（${{spent}} / ${{budget}}）。予算を引き上げてから再開してください。",
     "resume": "再開",
-    "stillExceeded": "1日の予算はまだ使い切られています。"
+    "stillExceeded": "1日の予算はまだ使い切られています。",
+    "exceededRun": "1 回の実行あたりの上限に達しました（${{spent}} / ${{budget}}）。実行は一時停止しています。",
+    "pausedRun": "1 回の実行あたりの上限で一時停止しました（${{spent}} / ${{budget}}）。上限なしで続行するか、上限を引き上げてください。",
+    "actionRun": "上限なしで続行するか、上限を引き上げてから再開してください。",
+    "exceededProject_week": "プロジェクトの週間予算に達しました（${{spent}} / ${{budget}}）。何も起動していません。",
+    "exceededProject_month": "プロジェクトの月間予算に達しました（${{spent}} / ${{budget}}）。何も起動していません。",
+    "exceededDesktop_week": "アプリ全体の週間予算に達しました（${{spent}} / ${{budget}}）。何も起動していません。",
+    "exceededDesktop_month": "アプリ全体の月間予算に達しました（${{spent}} / ${{budget}}）。何も起動していません。",
+    "pausedProject_week": "プロジェクトの週間予算で一時停止しました（${{spent}} / ${{budget}}）。引き上げてから再開してください。",
+    "pausedProject_month": "プロジェクトの月間予算で一時停止しました（${{spent}} / ${{budget}}）。引き上げてから再開してください。",
+    "pausedDesktop_week": "アプリ全体の週間予算で一時停止しました（${{spent}} / ${{budget}}）。引き上げてから再開してください。",
+    "pausedDesktop_month": "アプリ全体の月間予算で一時停止しました（${{spent}} / ${{budget}}）。引き上げてから再開してください。",
+    "whereProject_week": "分析 ▸ 予算",
+    "whereProject_month": "分析 ▸ 予算",
+    "whereDesktop_week": "分析 ▸ 予算",
+    "whereDesktop_month": "分析 ▸ 予算",
+    "stillExceeded_week": "週間予算はまだ使い切られています。",
+    "stillExceeded_month": "月間予算はまだ使い切られています。",
+    "runCap": {
+      "title": "実行が上限で一時停止しました",
+      "raise": "上限を引き上げて続行",
+      "continue": "上限なしで続行",
+      "raiseTo": "上限を引き上げる額（USD）"
+    }
   },
   "reviewWip": {
     "reached_one": "レビュー上限に達しました: {{count}} 件の納品がレビュー待ちです(上限 {{limit}})。何も起動していません。",
@@ -233,6 +256,14 @@
     "budgetReachedHint": "今日の支出が 1 日の予算に達したため、リセットまたは引き上げまで起動は拒否されます。予算設定を開く。",
     "launchOverBudget": "今日の予算を使い切りました。リセットされるまで実行は一時停止します。それでも起動しますか？",
     "launchAnyway": "それでも起動",
-    "perSpec": "スペックごと"
+    "perSpec": "スペックごと",
+    "budgetReached_week": "週間予算に達しました",
+    "budgetReached_month": "月間予算に達しました",
+    "budgetReachedHint_week": "今週の支出が週間予算に達したため、リセットされるか予算を引き上げるまで起動は拒否されます。予算パネルを開きます。",
+    "budgetReachedHint_month": "今月の支出が月間予算に達したため、リセットされるか予算を引き上げるまで起動は拒否されます。予算パネルを開きます。",
+    "budgetCautionHint_week": "今週の支出にこの見積もりの上限を加えると、週間予算に達する可能性があります。予算パネルを開きます。",
+    "budgetCautionHint_month": "今月の支出にこの見積もりの上限を加えると、月間予算に達する可能性があります。予算パネルを開きます。",
+    "launchOverBudget_week": "今週の予算を使い切りました。リセットされるまで実行は一時停止します。それでも起動しますか？",
+    "launchOverBudget_month": "今月の予算を使い切りました。リセットされるまで実行は一時停止します。それでも起動しますか？"
   }
 }

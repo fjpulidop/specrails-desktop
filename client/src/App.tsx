@@ -15,7 +15,7 @@ import { UndoProvider } from './hooks/useUndo'
 import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import { OPEN_DOCS_EVENT, type DocsTarget, type OpenDocsDetail } from './lib/docs-events'
-import { OPEN_APP_SETTINGS_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
+import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
 import DashboardPage from './features/dashboard/pages/DashboardPage'
 import SettingsPage from './features/settings/pages/SettingsPage'
 import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
@@ -274,6 +274,12 @@ function DesktopApp() {
     window.addEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
     return () => window.removeEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
   }, [])
+  // "Raise cap" (inbox, launch forecast) lands on the project's Analytics Budget panel.
+  useEffect(() => {
+    const onOpenBudget = () => navigate({ pathname: '/analytics', search: `?${BUDGET_PANEL_PARAM}=budget` })
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, onOpenBudget)
+    return () => window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, onOpenBudget)
+  }, [navigate])
   // Full-page modals are PLACES: `?overlay=loops|plugins|docs|analytics` (and
   // `?review=<id>` / `?job=<id>`), pushed on open so Back closes them. Analytics
   // and Docs are URL-driven in both modes; Loops/Plugins/Review are modals only

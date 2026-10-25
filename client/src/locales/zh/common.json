@@ -160,7 +160,30 @@
     "pausedProject": "因项目每日预算已暂停（${{spent}} / ${{budget}}）。提高预算后继续。",
     "pausedDesktop": "因全局每日预算已暂停（${{spent}} / ${{budget}}）。提高预算后继续。",
     "resume": "继续",
-    "stillExceeded": "每日预算仍已用尽。"
+    "stillExceeded": "每日预算仍已用尽。",
+    "exceededRun": "已达到单次运行上限（${{spent}} / ${{budget}}）。该运行已暂停。",
+    "pausedRun": "已在单次运行上限处暂停（${{spent}} / ${{budget}}）。可取消上限后继续，或调高上限。",
+    "actionRun": "取消上限继续，或调高上限，然后恢复。",
+    "exceededProject_week": "已达到项目每周预算（${{spent}} / ${{budget}}）。未启动任何任务。",
+    "exceededProject_month": "已达到项目每月预算（${{spent}} / ${{budget}}）。未启动任何任务。",
+    "exceededDesktop_week": "已达到全局每周预算（${{spent}} / ${{budget}}）。未启动任何任务。",
+    "exceededDesktop_month": "已达到全局每月预算（${{spent}} / ${{budget}}）。未启动任何任务。",
+    "pausedProject_week": "已因项目每周预算暂停（${{spent}} / ${{budget}}）。请调高后恢复。",
+    "pausedProject_month": "已因项目每月预算暂停（${{spent}} / ${{budget}}）。请调高后恢复。",
+    "pausedDesktop_week": "已因全局每周预算暂停（${{spent}} / ${{budget}}）。请调高后恢复。",
+    "pausedDesktop_month": "已因全局每月预算暂停（${{spent}} / ${{budget}}）。请调高后恢复。",
+    "whereProject_week": "分析 ▸ 预算",
+    "whereProject_month": "分析 ▸ 预算",
+    "whereDesktop_week": "分析 ▸ 预算",
+    "whereDesktop_month": "分析 ▸ 预算",
+    "stillExceeded_week": "每周预算仍已用尽。",
+    "stillExceeded_month": "每月预算仍已用尽。",
+    "runCap": {
+      "title": "运行已在其上限处暂停",
+      "raise": "调高上限并继续",
+      "continue": "取消上限并继续",
+      "raiseTo": "将上限调高到（USD）"
+    }
   },
   "reviewWip": {
     "reached_one": "已达到评审上限:{{count}} 个交付正在等待评审(上限 {{limit}})。未启动任何任务。",
@@ -233,6 +256,14 @@
     "budgetReachedHint": "今天的花费已达到每日预算，在重置或提高预算之前将拒绝启动。打开预算设置。",
     "launchOverBudget": "今日预算已用完。运行会暂停，直到预算重置。仍要启动吗？",
     "launchAnyway": "仍要启动",
-    "perSpec": "每个规格"
+    "perSpec": "每个规格",
+    "budgetReached_week": "已达到每周预算",
+    "budgetReached_month": "已达到每月预算",
+    "budgetReachedHint_week": "本周支出已达到每周预算，因此在重置或调高之前将拒绝启动。打开预算面板。",
+    "budgetReachedHint_month": "本月支出已达到每月预算，因此在重置或调高之前将拒绝启动。打开预算面板。",
+    "budgetCautionHint_week": "本周支出加上此估算的上限，可能会达到每周预算。打开预算面板。",
+    "budgetCautionHint_month": "本月支出加上此估算的上限，可能会达到每月预算。打开预算面板。",
+    "launchOverBudget_week": "本周预算已用完。运行会暂停，直到预算重置。仍要启动吗？",
+    "launchOverBudget_month": "本月预算已用完。运行会暂停，直到预算重置。仍要启动吗？"
   }
 }

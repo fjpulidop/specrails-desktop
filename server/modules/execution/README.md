@@ -58,3 +58,16 @@ eager barrel that initializes all effectful adapters.
 Run `npx vitest run server/modules/execution` and any affected consumers.
 
 [launch-forecast](runtime/launch-forecast.ts) is the read model behind `GET /launch-forecast`: the interquartile time band of [run-duration-stats](runtime/run-duration-stats.ts) samples narrowed to one provider, plus a cost band built only from provider-reported costs (a run whose cost was estimated, or has none, still informs the time band but never the cost band). Both are null below `MIN_DURATION_SAMPLES`. `createDailyBudgetHeadroom` in [daily-budget-gate](runtime/daily-budget-gate.ts) exposes the tightest budget (project or app-wide) read-only as `ProjectContext.dailyBudgetHeadroom`, so the UI can warn *before* the gate would refuse.
+
+## Spend caps
+
+[spend-caps](domain/spend-caps.ts) (pure) holds the local periods (day, week from Monday, month), the cap vocabulary, the
+per-run soft-cap predicate and the month-end projection (integer cents; average of the last 14 completed local days ×
+days left + month to date; null without a completed day). `readCapStatuses` in [daily-budget-gate](runtime/daily-budget-gate.ts)
+is the single read of every configured cap (project day/week/month, then app-wide); the admission gate, the launch
+forecast headroom, the queue's weekly/monthly pause (`getPeriodCapBreaches`), the inbox and the Budget panel
+([budget-overview](runtime/budget-overview.ts)) all derive from it. The daily rejection body is byte-identical to the
+historical one; week/month add `period`. `LoopRunManager` additionally checks the per-run soft cap (state in
+`loop_runs.run_cap_usd`, migration 85) on the same `budget_paused` pause, with Core's cooperative pause when the run is
+mid-step; `resumeBudgetPause(runId, { ignore } | { raiseTo })` is the explicit answer. Storage keys are in
+[budget-storage](adapters/budget-storage.ts).

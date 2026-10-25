@@ -160,7 +160,30 @@
     "pausedProject": "Pausiert: Tagesbudget des Projekts erreicht (${{spent}} von ${{budget}}). Erhöhe es und setze dann fort.",
     "pausedDesktop": "Pausiert: app-weites Tagesbudget erreicht (${{spent}} von ${{budget}}). Erhöhe es und setze dann fort.",
     "resume": "Fortsetzen",
-    "stillExceeded": "Das Tagesbudget ist weiterhin ausgeschöpft."
+    "stillExceeded": "Das Tagesbudget ist weiterhin ausgeschöpft.",
+    "exceededRun": "Limit pro Lauf erreicht (${{spent}} von ${{budget}}). Der Lauf ist pausiert.",
+    "pausedRun": "Am Limit pro Lauf pausiert (${{spent}} von ${{budget}}). Ohne Limit fortsetzen oder es erhöhen.",
+    "actionRun": "Ohne das Limit fortsetzen oder es erhöhen und dann fortsetzen.",
+    "exceededProject_week": "Wochenbudget des Projekts erreicht (${{spent}} von ${{budget}}). Es wurde nichts gestartet.",
+    "exceededProject_month": "Monatsbudget des Projekts erreicht (${{spent}} von ${{budget}}). Es wurde nichts gestartet.",
+    "exceededDesktop_week": "Globales Wochenbudget erreicht (${{spent}} von ${{budget}}). Es wurde nichts gestartet.",
+    "exceededDesktop_month": "Globales Monatsbudget erreicht (${{spent}} von ${{budget}}). Es wurde nichts gestartet.",
+    "pausedProject_week": "Am Wochenbudget des Projekts pausiert (${{spent}} von ${{budget}}). Erhöhen, dann fortsetzen.",
+    "pausedProject_month": "Am Monatsbudget des Projekts pausiert (${{spent}} von ${{budget}}). Erhöhen, dann fortsetzen.",
+    "pausedDesktop_week": "Am globalen Wochenbudget pausiert (${{spent}} von ${{budget}}). Erhöhen, dann fortsetzen.",
+    "pausedDesktop_month": "Am globalen Monatsbudget pausiert (${{spent}} von ${{budget}}). Erhöhen, dann fortsetzen.",
+    "whereProject_week": "Analysen ▸ Budget",
+    "whereProject_month": "Analysen ▸ Budget",
+    "whereDesktop_week": "Analysen ▸ Budget",
+    "whereDesktop_month": "Analysen ▸ Budget",
+    "stillExceeded_week": "Das Wochenbudget ist weiterhin aufgebraucht.",
+    "stillExceeded_month": "Das Monatsbudget ist weiterhin aufgebraucht.",
+    "runCap": {
+      "title": "Lauf an seinem Limit pausiert",
+      "raise": "Limit erhöhen und fortsetzen",
+      "continue": "Ohne Limit fortsetzen",
+      "raiseTo": "Limit erhöhen auf (USD)"
+    }
   },
   "reviewWip": {
     "reached_one": "Review-Limit erreicht: {{count}} Lieferung wartet auf Review (Limit {{limit}}). Es wurde nichts gestartet.",
@@ -233,6 +256,14 @@
     "budgetReachedHint": "Die heutigen Ausgaben haben dein Tagesbudget erreicht; ein Start wird abgelehnt, bis es zurückgesetzt oder erhöht wird. Budgeteinstellungen öffnen.",
     "launchOverBudget": "Das heutige Budget ist aufgebraucht. Der Lauf pausiert, bis es zurückgesetzt wird. Trotzdem starten?",
     "launchAnyway": "Trotzdem starten",
-    "perSpec": "pro Spec"
+    "perSpec": "pro Spec",
+    "budgetReached_week": "Wochenbudget erreicht",
+    "budgetReached_month": "Monatsbudget erreicht",
+    "budgetReachedHint_week": "Die Ausgaben dieser Woche haben dein Wochenbudget erreicht; ein Start wird abgelehnt, bis es zurückgesetzt wird oder du es erhöhst. Öffne das Budget-Panel.",
+    "budgetReachedHint_month": "Die Ausgaben dieses Monats haben dein Monatsbudget erreicht; ein Start wird abgelehnt, bis es zurückgesetzt wird oder du es erhöhst. Öffne das Budget-Panel.",
+    "budgetCautionHint_week": "Die Ausgaben dieser Woche plus das obere Ende dieser Schätzung könnten dein Wochenbudget erreichen. Öffne das Budget-Panel.",
+    "budgetCautionHint_month": "Die Ausgaben dieses Monats plus das obere Ende dieser Schätzung könnten dein Monatsbudget erreichen. Öffne das Budget-Panel.",
+    "launchOverBudget_week": "Das Budget dieser Woche ist aufgebraucht. Der Lauf pausiert bis zum Zurücksetzen. Trotzdem starten?",
+    "launchOverBudget_month": "Das Budget dieses Monats ist aufgebraucht. Der Lauf pausiert bis zum Zurücksetzen. Trotzdem starten?"
   }
 }

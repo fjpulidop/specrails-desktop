@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { BudgetCard } from '../components/BudgetCard'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw, TrendingUp } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from 'recharts'
@@ -491,6 +492,7 @@ export default function DesktopAnalyticsPage({ inDialog = false }: { inDialog?: 
           <div className="flex items-center gap-3">{headerActions}</div>
         </div>
         {body}
+        <BudgetCard projectId={null} />
       </div>
     </div>
   )

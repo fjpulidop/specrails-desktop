@@ -103,6 +103,9 @@ export function analyticsTools(): McpToolSpec[] {
           .nullable()
           .optional()
           .describe('budget_set: per-job cost alert threshold USD (>0); null clears it'),
+        weeklyBudgetUsd: z.number().nullable().optional().describe('budget_set: PER-PROJECT weekly cap USD (>0, week starts Monday local); null clears it. Enforced by the same gate as the daily budget.'),
+        monthlyBudgetUsd: z.number().nullable().optional().describe('budget_set: PER-PROJECT monthly cap USD (>0, local calendar month); null clears it.'),
+        runCapUsd: z.number().nullable().optional().describe('budget_set: per-run soft cap USD (>0): a loop run pauses (budget_paused) when its provider-reported cost reaches it and resumes after Continue/Raise. null clears it.'),
       },
       async handler(ctx, args) {
         const base = projectPath(ctx, args.projectId as string | undefined)
@@ -179,8 +182,9 @@ export function analyticsTools(): McpToolSpec[] {
             const body: Record<string, unknown> = {}
             if ('dailyBudgetUsd' in args) body.dailyBudgetUsd = args.dailyBudgetUsd
             if ('jobCostThresholdUsd' in args) body.jobCostThresholdUsd = args.jobCostThresholdUsd
+            for (const field of ['weeklyBudgetUsd', 'monthlyBudgetUsd', 'runCapUsd'] as const) if (field in args) body[field] = args[field]
             if (Object.keys(body).length === 0) {
-              throw new Error('budget_set requires dailyBudgetUsd and/or jobCostThresholdUsd (number>0 to set, null to clear).')
+              throw new Error('budget_set requires dailyBudgetUsd, weeklyBudgetUsd, monthlyBudgetUsd, runCapUsd and/or jobCostThresholdUsd (number>0 to set, null to clear).')
             }
             return apiCall(ctx, 'PATCH', `${base}/budget`, body)
           }

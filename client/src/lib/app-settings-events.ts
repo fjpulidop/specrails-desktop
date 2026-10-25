@@ -43,3 +43,19 @@ export function openProjectSettings(section: string): void {
     // non-DOM environment — nothing to open
   }
 }
+
+/**
+ * Same idea for the Analytics Budget panel (caps, projection, what-if): the
+ * shell navigates to the active project's analytics and scrolls to the panel.
+ */
+export const OPEN_BUDGET_PANEL_EVENT = 'specrails:open-budget-panel'
+/** Query param (`?panel=budget`) the analytics page reads to scroll to the panel. */
+export const BUDGET_PANEL_PARAM = 'panel'
+
+export function openBudgetPanel(): void {
+  try {
+    window.dispatchEvent(new CustomEvent(OPEN_BUDGET_PANEL_EVENT))
+  } catch {
+    // non-DOM environment — nothing to open
+  }
+}

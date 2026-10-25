@@ -289,5 +289,72 @@
       "requirementsDemonstrated": "Requirements demonstrated",
       "triageAccuracy": "Triage accuracy"
     }
+  },
+  "budget": {
+    "title": "Budget",
+    "loadFailed": "Couldn’t load the budget.",
+    "estimate": "Estimate",
+    "scope": {
+      "project": "This project",
+      "desktop": "All projects (app-wide)"
+    },
+    "period": {
+      "day": "Today",
+      "week": "This week",
+      "month": "This month",
+      "run": "Per run"
+    },
+    "capLabel": {
+      "project": {
+        "day": "Project daily cap (USD)",
+        "week": "Project weekly cap (USD)",
+        "month": "Project monthly cap (USD)",
+        "run": "Project per-run cap (USD)"
+      },
+      "desktop": {
+        "day": "App-wide daily cap (USD)",
+        "week": "App-wide weekly cap (USD)",
+        "month": "App-wide monthly cap (USD)",
+        "run": "App-wide per-run cap (USD)"
+      }
+    },
+    "noCap": "No cap",
+    "spentOf": "{{spent}} of {{cap}}",
+    "spentNoCap": "{{spent}} · no cap",
+    "turns": "Turns: {{n}}",
+    "reached": "Reached",
+    "nearing": "Nearing",
+    "planNote": "Plan billing: no dollar cost per use, so turns and limits are shown",
+    "estimatedPart": "about {{amount}} of it priced from the app’s price list, not reported",
+    "resets": "resets {{time}}",
+    "runHint": "A run pauses and asks when its own cost reaches this amount.",
+    "saved": "Budget saved",
+    "saveFailed": "Couldn’t save the budget",
+    "invalidNumber": "Enter an amount above zero, or leave it empty for no cap.",
+    "projection": {
+      "title": "Month-end projection",
+      "basis": "{{days}}-day average {{avg}}/day × {{remaining}} days left + {{mtd}} so far",
+      "none": "Not enough history yet for a projection.",
+      "overCap": "At this pace you would pass the {{cap}} monthly cap."
+    },
+    "whatIf": {
+      "title": "What if: price it on another model",
+      "description": "Re-prices the last {{days}} days of recorded token usage with another model, using the app’s price list. An estimate, not a bill.",
+      "from": "Currently ran on",
+      "to": "Instead",
+      "choose": "Choose a model",
+      "runs": "{{n}} runs",
+      "noPricing": "No pricing for {{model}}",
+      "empty": "No recorded model usage in this window.",
+      "planNote": "This work runs on a plan, so there is no dollar cost per use to compare. Tokens are shown instead.",
+      "tokens": "Tokens: {{input}} in · {{output}} out",
+      "compare": "≈ {{current}} now → ≈ {{whatIf}} instead",
+      "saves": "≈ {{amount}} less",
+      "costs": "≈ {{amount}} more",
+      "same": "About the same",
+      "skipped": "{{n}} runs without token usage or a price are left out.",
+      "recorded": "Recorded cost for these runs: {{amount}}.",
+      "roleNote": "Usage is recorded per model, not per role: pick the model your role runs on."
+    }
   }
 }

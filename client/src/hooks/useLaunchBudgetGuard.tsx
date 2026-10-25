@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '../components/ui/confirm-dialog'
-import { useBudgetOutlook } from './useLaunchForecast'
+import { useBudgetOutlook, useLaunchForecast } from './useLaunchForecast'
 import type { ForecastQuery } from '../lib/launch-forecast'
 
 /**
@@ -12,6 +12,8 @@ import type { ForecastQuery } from '../lib/launch-forecast'
 export function useLaunchBudgetGuard(query: ForecastQuery | null): { guard: (launch: () => void) => void; dialog: ReactNode } {
   const { t } = useTranslation('common')
   const outlook = useBudgetOutlook(query)
+  const period = useLaunchForecast(query)?.budget?.period
+  const ctx = period ? { context: period } : {}
   const [open, setOpen] = useState(false)
   const pending = useRef<(() => void) | null>(null)
 
@@ -34,8 +36,8 @@ export function useLaunchBudgetGuard(query: ForecastQuery | null): { guard: (lau
       <ConfirmDialog
         open={open}
         onOpenChange={(next) => { setOpen(next); if (!next) pending.current = null }}
-        title={t('forecast.budgetReached')}
-        description={t('forecast.launchOverBudget')}
+        title={t('forecast.budgetReached', ctx)}
+        description={t('forecast.launchOverBudget', ctx)}
         confirmLabel={t('forecast.launchAnyway')}
         tone="default"
         testId="launch-over-budget-dialog"

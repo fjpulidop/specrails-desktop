@@ -20,14 +20,16 @@
     "blocked": "ブロック中",
     "budget": "予算で一時停止",
     "jira": "Jira 同期に失敗",
-    "failedNoCause": "納品前に停止しました"
+    "failedNoCause": "納品前に停止しました",
+    "capReached": "予算の上限に達しました"
   },
   "actions": {
     "open": "開く",
     "openReview": "レビューを開く",
     "answer": "回答",
     "resume": "再開",
-    "retry": "再試行"
+    "retry": "再試行",
+    "raiseCap": "上限を引き上げる"
   },
   "working": "処理中…",
   "rowLabel": "{{action}}：{{title}}",
@@ -59,6 +61,23 @@
     "stillOverBudget": "日次予算をまだ超えています",
     "done": "完了にしました",
     "snoozed": "{{when}} まで後回しにしました",
-    "undo": "元に戻す"
+    "undo": "元に戻す",
+    "stillOverBudget_week": "週間予算をまだ超えています",
+    "stillOverBudget_month": "月間予算をまだ超えています"
+  },
+  "cap": {
+    "title": {
+      "project": {
+        "day": "プロジェクトの 1 日の予算に達しました",
+        "week": "プロジェクトの週間予算に達しました",
+        "month": "プロジェクトの月間予算に達しました"
+      },
+      "desktop": {
+        "day": "アプリ全体の 1 日の予算に達しました",
+        "week": "アプリ全体の週間予算に達しました",
+        "month": "アプリ全体の月間予算に達しました"
+      }
+    },
+    "detail": "${{spent}} / ${{budget}} を使用"
   }
 }

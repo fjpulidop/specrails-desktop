@@ -16,10 +16,15 @@ export interface DailyBudgetBreach {
 export interface DailyBudgetRejection {
   error: 'daily_budget_exceeded'
   scope: DailyBudgetScope
+  /**
+   * Which cap was reached. Absent = the daily budget (the historical body, byte
+   * identical); `week`/`month` are the longer caps and `run` the per-run soft cap.
+   */
+  period?: 'week' | 'month' | 'run'
   budgetUsd: number
   spentUsd: number
-  /** When the spend window rolls over (ISO). Raising the budget also clears it. */
-  resetsAt: string
+  /** When the spend window rolls over (ISO). Raising the budget also clears it. Null for a per-run cap (no window). */
+  resetsAt: string | null
   detail: string
   action: string
 }

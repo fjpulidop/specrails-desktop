@@ -266,7 +266,10 @@
     "effort": "推論の強度",
     "execute": "実行",
     "noProjects": "利用可能なプロジェクトがありません。",
-    "launched": "{{name}} を実行中"
+    "launched": "{{name}} を実行中",
+    "runCap": "この金額で一時停止して確認（USD）",
+    "runCapPlaceholder": "プロジェクトの既定値",
+    "runCapHint": "任意です。実行のコストがこの金額に達すると一時停止し、続行するか確認します。"
   },
   "catalog": {
     "ship-and-green": {

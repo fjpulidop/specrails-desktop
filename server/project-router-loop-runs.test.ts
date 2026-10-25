@@ -150,6 +150,21 @@ describe('project-router standalone loop runs', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
+  it('passes a per-launch per-run soft cap through, and omits it when absent or malformed (CD5)', async () => {
+    const id = publish('capped-loop')
+    const launch = async (body: Record<string, unknown>) => {
+      run.mockClear()
+      const res = await request(buildApp({ provider: 'claude', providers: ['claude'] })).post('/api/projects/p1/loop-runs').send({ loopId: id, ...body })
+      expect(res.status).toBe(202)
+      return run.mock.calls[0][0] as Record<string, unknown>
+    }
+    expect(await launch({ runCapUsd: 3.5 })).toMatchObject({ runCapUsd: 3.5 })
+    expect(await launch({ runCapUsd: 0 })).toMatchObject({ runCapUsd: 0 }) // 0 waives the default for this run
+    expect(await launch({})).not.toHaveProperty('runCapUsd')
+    expect(await launch({ runCapUsd: -1 })).not.toHaveProperty('runCapUsd')
+    expect(await launch({ runCapUsd: '5' })).not.toHaveProperty('runCapUsd')
+  })
+
   it('preserves a safe custom Kimi alias exactly and omits effort', async () => {
     const id = publish('kimi-custom-model', 'Inspect the repository')
     const customAlias = 'moonshot-team/private-coder:v2'
@@ -316,7 +331,28 @@ describe('loop runs — daily budget guard (rail-loop-budget-guard)', () => {
     const res = await request(resumeApp({ budgetPause: () => rejection, resumeBudgetPause })).post('/api/projects/p1/loop-runs/paused-run/resume').send({})
     expect(res.status).toBe(202)
     expect(res.body).toEqual({ loopRunId: 'paused-run', resumed: true })
-    expect(resumeBudgetPause).toHaveBeenCalledWith('paused-run')
+    expect(resumeBudgetPause).toHaveBeenCalledWith('paused-run', undefined)
+  })
+
+  it('passes the person\'s answer to a per-run soft cap: ignore, or raise to a positive amount (CD5)', async () => {
+    const resumeBudgetPause = vi.fn().mockReturnValue({ status: 'resumed' })
+    const app = resumeApp({ budgetPause: () => rejection, resumeBudgetPause })
+    await request(app).post('/api/projects/p1/loop-runs/paused-run/resume').send({ runCap: 'ignore' })
+    expect(resumeBudgetPause).toHaveBeenLastCalledWith('paused-run', { ignore: true })
+    await request(app).post('/api/projects/p1/loop-runs/paused-run/resume').send({ runCapUsd: 8.5 })
+    expect(resumeBudgetPause).toHaveBeenLastCalledWith('paused-run', { raiseTo: 8.5 })
+    for (const bad of [{ runCapUsd: 0 }, { runCapUsd: -2 }, { runCapUsd: '8' }, { runCap: 'raise' }]) {
+      await request(app).post('/api/projects/p1/loop-runs/paused-run/resume').send(bad)
+      expect(resumeBudgetPause).toHaveBeenLastCalledWith('paused-run', undefined)
+    }
+  })
+
+  it('a run paused at its per-run cap answers 409 with the run period until the person chooses', async () => {
+    const runRejection = { ...rejection, period: 'run', resetsAt: null }
+    const resumeBudgetPause = vi.fn().mockReturnValue({ status: 'over_budget', rejection: runRejection })
+    const res = await request(resumeApp({ budgetPause: () => runRejection, resumeBudgetPause })).post('/api/projects/p1/loop-runs/paused-run/resume').send({})
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({ error: 'daily_budget_exceeded', period: 'run', resetsAt: null })
   })
 
   it('keeps a budget_paused run paused and 409s while still over budget', async () => {

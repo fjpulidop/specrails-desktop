@@ -1938,6 +1938,15 @@ const MIGRATIONS: Migration[] = [
     if (!cols.has('failure_diagnosis')) db.exec('ALTER TABLE loop_runs ADD COLUMN failure_diagnosis TEXT')
   },
 
+  // Migration 85: loop_runs.run_cap_usd — the per-run soft cap ("pause and ask
+  // at $X") the run was launched with, as raised or waived on a resume. NULL ⇒
+  // never set (the project/app default applies); 0 ⇒ explicitly no cap for
+  // this run. Persisted so a restart keeps the choice the person made.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('run_cap_usd')) db.exec('ALTER TABLE loop_runs ADD COLUMN run_cap_usd REAL')
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

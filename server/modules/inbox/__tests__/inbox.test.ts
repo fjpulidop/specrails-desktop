@@ -205,3 +205,32 @@ describe('GET /inbox', () => {
     } finally { server.close() }
   })
 })
+
+describe('inbox projection: spend caps (CD5)', () => {
+  const cap = (over: Partial<import('../../execution').CapStatus> = {}): import('../../execution').CapStatus =>
+    ({ scope: 'project', period: 'week', budgetUsd: 20, spentUsd: 21, exhausted: true, resetsAt: '2026-10-26T00:00:00.000Z', ...over })
+  const withCaps = (caps: import('../../execution').CapStatus[]) =>
+    createProjectInboxSource({ project: { id: 'p1', name: 'Alpha' }, db, caps: () => caps }, () => NOW).collect()
+
+  it('lists a reached cap with a Raise-cap action and leaves the unreached ones out', () => {
+    const items = withCaps([cap(), cap({ period: 'month', spentUsd: 3, exhausted: false }), cap({ scope: 'desktop', period: 'day' })])
+    expect(items.map((i) => i.id).sort()).toEqual(['p1:budget:cap-desktop-day', 'p1:budget:cap-project-week'])
+    expect(items.find((i) => i.subjectId === 'project:week')).toMatchObject({
+      kind: 'budget', action: 'raise-cap', projectId: 'p1', at: new Date(NOW).toISOString(),
+      cap: { scope: 'project', period: 'week', budgetUsd: 20, spentUsd: 21, resetsAt: '2026-10-26T00:00:00.000Z' },
+    })
+  })
+
+  it('re-arms a dismissal when the cap is raised or the period rolls over (version moves)', () => {
+    const v = (c: import('../../execution').CapStatus) => withCaps([c])[0].version
+    expect(v(cap({ budgetUsd: 25 }))).not.toBe(v(cap()))
+    expect(v(cap({ resetsAt: '2026-11-02T00:00:00.000Z' }))).not.toBe(v(cap()))
+  })
+
+  it('shows nothing without caps and survives a failing cap reader', () => {
+    expect(withCaps([])).toEqual([])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(createProjectInboxSource({ project: { id: 'p1', name: 'Alpha' }, db, caps: () => { throw new Error('boom') } }, () => NOW).collect()).toEqual([])
+    warn.mockRestore()
+  })
+})

@@ -49,7 +49,7 @@ The Global Settings page is organised into the sections below (it also surfaces 
 | **Language** | App-wide UI language (hot-switch, no restart). Eight built-ins: `en`, `es`, `fr`, `de`, `pt`, `it`, `zh`, `ja`. | `ui_language` (unset = follow the OS language; only an explicit pick is persisted) |
 | **Mobile Access** | Enable the mobile-companion gateway, pair/revoke devices, and rotate the device cert identity. | — (loopback + token still enforced server-side) |
 | **specrails-tech** | Base URL for the external specrails-tech agents service. | `specrails_tech_url` = `http://localhost:3000` (the `SPECRAILS_TECH_URL` env var is only a fallback when this setting is unset — the stored setting wins) |
-| **Budget & Alerts** | App-wide daily spend cap (queues auto-pause when exceeded; rail/loop launches get `409 daily_budget_exceeded` and running loops pause `budget_paused` between AI steps; a running Core workflow (engine 2) whose retained Core announces `pauseRuns` is paused mid-run through `runtime pause --reason budget` as soon as recorded spend crosses the budget — its current step finishes, Core exits 2 with `state.pause`, and the run parks on the same resumable pause; an older Core keeps the between-invocation check — see [tracking cost](../tracking-cost.md#rails-and-loops-over-budget)) and a per-job cost alert threshold. | `desktop_daily_budget_usd`, `cost_alert_threshold_usd` (both unset by default = no cap / no alert) |
+| **Budget & Alerts** | App-wide daily spend cap (queues auto-pause when exceeded; rail/loop launches get `409 daily_budget_exceeded` and running loops pause `budget_paused` between AI steps; a running Core workflow (engine 2) whose retained Core announces `pauseRuns` is paused mid-run through `runtime pause --reason budget` as soon as recorded spend crosses the budget — its current step finishes, Core exits 2 with `state.pause`, and the run parks on the same resumable pause; an older Core keeps the between-invocation check — see [tracking cost](../tracking-cost.md#rails-and-loops-over-budget)) and a per-job cost alert threshold. | `desktop_daily_budget_usd`, `desktop_weekly_budget_usd`, `desktop_monthly_budget_usd`, `desktop_run_cap_usd`, `cost_alert_threshold_usd` (all unset by default = no cap / no alert). Weekly / monthly caps are edited in Analytics ▸ Budget |
 | **OS Notifications** | Desktop notification preferences for long-running jobs and budget events. | — |
 | **Outbound Webhooks** | HTTP webhooks fired on `job.completed`, `job.failed`, `job.canceled`, `daily_budget_exceeded`, and `desktop_daily_budget_exceeded`. | webhooks table (a hook created without an explicit events list defaults to `["job.completed","job.failed","job.canceled"]`) |
 | **Code section** | Plain-language file-summary language (`en` / `es`) and the monthly summary budget cap. | `summary_language` = `en`, `summary_monthly_budget_usd` = `5.00` |
@@ -74,7 +74,7 @@ Project settings apply to a single project. Open them from the project's **Proje
 | **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (every CLI provider and local engine advertises this autonomous rail mode; only Claude adds the interactive in-job chat). |
 | **Worktree environment** | Names of environment variables passed to the project's agents (values are read at spawn time, never stored). |
 | **Agent environment** | `inherit` (default) or `minimal`. See [Agent environment mode](#agent-environment-mode). |
-| **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. |
+| **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. Weekly and monthly caps and the per-run soft cap live in Analytics ▸ Budget (`queue_state` keys `config.weekly_budget_usd`, `config.monthly_budget_usd`, `config.run_cap_usd`). |
 | **Review limit** | `reviewWipLimit` (`config.review_wip_limit`): how many deliveries may wait for review at once. Running (`building`), undecided (`on_review`) and open app PRs (`pr_draft`/`pr_ready`) count, one per top-level delivery. Empty = no limit (default); the UI suggests 5. At the limit every rail launch door refuses a **new** delivery with `409 review_wip_limit_reached`. Changes to an existing delivery (revision, Relaunch, PR follow-up) stay allowed. See [safe PR flow](safe-pr-review-flow.md#review-wip-limit). |
 | **Agent actions audit** | `agentAuditRetentionDays` (default 30, 1–3650): how long the project keeps its log of what agents read, wrote, executed, called over MCP or fetched. Older rows are deleted 5 seconds after the project opens and then daily. See [agent actions audit](agent-actions-audit.md). |
 | **Existing-project anchoring** | Two opt-in switches (both off by default, each gated on a Core capability; without it the switch is disabled with an "update Core" note). `jiraPostClarifications` (`config.jira_post_clarifications`, Core `architectClarifications: 1`): when a run pauses with the architect's questions or proceeds on assumptions, post them as one comment on the linked Jira issue and record a reply there as a `clarification` addendum. `baselineOnTouch` (`config.baseline_on_touch`, Core `baselineOnTouch: 1`): forwarded to Core's runtime config so a change that reaches code no spec describes first writes characterization tests and an as-built spec. See [existing-project anchoring](existing-project-anchoring.md). |
@@ -437,3 +437,26 @@ rm -rf ~/.specrails/desktop.sqlite ~/.specrails/projects/
 - [Codex](../codex.md) — using the Codex CLI provider
 - [Gemini](../gemini.md) — using the Gemini CLI provider
 - [Adding a provider](adding-a-provider.md) — wiring a new AI CLI adapter
+
+## Spend caps (daily, weekly, monthly, per run)
+
+Caps are plain settings; there is no feature flag. The week starts on **Monday 00:00** and the month on the
+**1st 00:00**, both in the **local** time of the machine running the server (the day is local for a project cap;
+the app-wide *daily* budget keeps its historical UTC day). A cap counts the recorded `total_cost_usd` of
+`ai_invocations` (the same sum the daily budget has always used); the part priced from the local rate card is
+reported apart in the Budget panel.
+
+| Cap | Project key (`queue_state`) | App-wide key (`desktop_settings`) |
+| --- | --- | --- |
+| Daily | `config.daily_budget_usd` | `desktop_daily_budget_usd` |
+| Weekly | `config.weekly_budget_usd` | `desktop_weekly_budget_usd` |
+| Monthly | `config.monthly_budget_usd` | `desktop_monthly_budget_usd` |
+| Per run (soft) | `config.run_cap_usd` | `desktop_run_cap_usd` |
+
+All of them go through the one admission gate: rail and loop launches and resumes are refused with
+`409 daily_budget_exceeded` (`period` says which cap), queues auto-pause, and a running loop parks as
+`budget_paused` (a running Core workflow through its cooperative pause, `pauseRuns`). The tightest cap wins; the
+project scope is reported before the app-wide one. The per-run soft cap pauses a run when *its own*
+provider-reported cost reaches it (the tighter of the project and app-wide default, or the launch's `runCapUsd`);
+Continue waives it for that run and Raise moves it up (persisted in `loop_runs.run_cap_usd`, migration 85). A cap
+that is reached also appears in the inbox ("Raise cap").

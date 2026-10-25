@@ -8,7 +8,16 @@ import { JOB_PARAM, MISSION_PARAM, REVIEW_PARAM } from '../../../lib/places'
 import { readFailureDiagnosis, type FailureDiagnosis } from '../../recovery/lib/failure-diagnosis'
 
 export type InboxKind = 'review' | 'question' | 'failed' | 'blocked' | 'budget' | 'jira'
-export type InboxAction = 'open-review' | 'open-run' | 'resume-run' | 'retry-jira'
+export type InboxAction = 'open-review' | 'open-run' | 'resume-run' | 'retry-jira' | 'raise-cap'
+
+/** A spend cap that is reached right now (`raise-cap` items). */
+export interface InboxCap {
+  scope: 'project' | 'desktop'
+  period: 'day' | 'week' | 'month'
+  budgetUsd: number
+  spentUsd: number
+  resetsAt: string
+}
 
 export interface InboxItem {
   id: string
@@ -24,6 +33,8 @@ export interface InboxItem {
   conversationId: string | null
   /** Why a failed / blocked run stopped (recovery cockpit); null for every other item. */
   diagnosis: FailureDiagnosis | null
+  /** Which cap and where it stands; set only on a `raise-cap` item. */
+  cap: InboxCap | null
 }
 
 export interface InboxSnapshot {
@@ -33,7 +44,15 @@ export interface InboxSnapshot {
 }
 
 const KINDS: readonly string[] = ['review', 'question', 'failed', 'blocked', 'budget', 'jira']
-const ACTIONS: readonly string[] = ['open-review', 'open-run', 'resume-run', 'retry-jira']
+const ACTIONS: readonly string[] = ['open-review', 'open-run', 'resume-run', 'retry-jira', 'raise-cap']
+
+function readCap(raw: unknown): InboxCap | null {
+  const c = raw as Record<string, unknown> | null
+  if (!c || typeof c !== 'object') return null
+  if ((c.scope !== 'project' && c.scope !== 'desktop') || (c.period !== 'day' && c.period !== 'week' && c.period !== 'month')) return null
+  if (typeof c.budgetUsd !== 'number' || typeof c.spentUsd !== 'number' || !Number.isFinite(c.budgetUsd) || !Number.isFinite(c.spentUsd)) return null
+  return { scope: c.scope, period: c.period, budgetUsd: c.budgetUsd, spentUsd: c.spentUsd, resetsAt: typeof c.resetsAt === 'string' ? c.resetsAt : '' }
+}
 
 /** Defensive read of the wire body: anything malformed is dropped, never thrown. */
 export function readInboxSnapshot(raw: unknown): InboxSnapshot {
@@ -54,6 +73,7 @@ export function readInboxSnapshot(raw: unknown): InboxSnapshot {
       action: v.action as InboxAction,
       conversationId: str('conversationId'),
       diagnosis: readFailureDiagnosis(v.diagnosis),
+      cap: readCap(v.cap),
     }]
   })
   const projects = (Array.isArray(body.projects) ? body.projects : []).flatMap((value) => {

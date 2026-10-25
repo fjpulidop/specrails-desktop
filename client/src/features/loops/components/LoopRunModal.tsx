@@ -41,7 +41,7 @@ export function LoopRunModal({
   loop: { id: string; name: string } | null
   projects: RunModalProject[]
   onClose: () => void
-  onExecute: (args: { projectId: string; provider?: string; model?: string; effort?: string; repositoryIds?: string[] }) => void
+  onExecute: (args: { projectId: string; provider?: string; model?: string; effort?: string; repositoryIds?: string[]; runCapUsd?: number }) => void
 }) {
   const { t } = useTranslation('loops')
   const open = loop !== null
@@ -50,6 +50,8 @@ export function LoopRunModal({
   const [model, setModel] = useState('')
   const [effort, setEffort] = useState('')
   const [repositoryIds, setRepositoryIds] = useState<string[] | undefined>()
+  // Per-launch override of the per-run soft cap ("pause and ask at $X"); empty = the project/app default.
+  const [runCap, setRunCap] = useState('')
 
   const selected = projects.find((p) => p.id === (projectId || projects[0]?.id))
   const providerList = useMemo(() => selected?.providers ?? (selected?.provider ? [selected.provider] : []), [selected])
@@ -74,8 +76,10 @@ export function LoopRunModal({
   const execute = () => {
     const pid = projectId || projects[0]?.id
     if (!pid) return
+    const cap = parseFloat(runCap)
     onExecute({
       projectId: pid,
+      ...(runCap.trim() !== '' && Number.isFinite(cap) && cap > 0 ? { runCapUsd: cap } : {}),
       ...(repositoryIds ? { repositoryIds } : {}),
       provider: providerList.length > 1 ? effectiveProvider : undefined,
       model: modelOptions.length > 0 ? effectiveModel : undefined,
@@ -180,6 +184,17 @@ export function LoopRunModal({
                 </select>
               </>
             )}
+            <label className="block text-label text-muted-foreground">{t('run.runCap')}</label>
+            <input
+              type="number" min="0" step="0.01" inputMode="decimal"
+              aria-label={t('run.runCap')}
+              data-testid="run-cap-input"
+              value={runCap}
+              onChange={(e) => setRunCap(e.target.value)}
+              placeholder={t('run.runCapPlaceholder')}
+              className="num w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
+            />
+            <p className="text-micro text-muted-foreground">{t('run.runCapHint')}</p>
             <LaunchForecast projectId={selected?.id} loopId={loop.id} provider={effectiveProvider || null} className="pt-1" />
             </DialogBody>
 

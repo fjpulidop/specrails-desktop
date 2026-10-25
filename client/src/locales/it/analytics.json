@@ -289,5 +289,72 @@
       "requirementsDemonstrated": "Requisiti dimostrati",
       "triageAccuracy": "Accuratezza del triage"
     }
+  },
+  "budget": {
+    "title": "Budget",
+    "loadFailed": "Impossibile caricare il budget.",
+    "estimate": "Stima",
+    "scope": {
+      "project": "Questo progetto",
+      "desktop": "Tutti i progetti (globale)"
+    },
+    "period": {
+      "day": "Oggi",
+      "week": "Questa settimana",
+      "month": "Questo mese",
+      "run": "Per esecuzione"
+    },
+    "capLabel": {
+      "project": {
+        "day": "Limite giornaliero del progetto (USD)",
+        "week": "Limite settimanale del progetto (USD)",
+        "month": "Limite mensile del progetto (USD)",
+        "run": "Limite per esecuzione del progetto (USD)"
+      },
+      "desktop": {
+        "day": "Limite giornaliero globale (USD)",
+        "week": "Limite settimanale globale (USD)",
+        "month": "Limite mensile globale (USD)",
+        "run": "Limite per esecuzione globale (USD)"
+      }
+    },
+    "noCap": "Nessun limite",
+    "spentOf": "{{spent}} su {{cap}}",
+    "spentNoCap": "{{spent}} · nessun limite",
+    "turns": "Turni: {{n}}",
+    "reached": "Raggiunto",
+    "nearing": "Vicino al limite",
+    "planNote": "Fatturazione a piano: nessun costo in dollari per uso, quindi si mostrano turni e limiti",
+    "estimatedPart": "circa {{amount}} calcolati con il listino prezzi dell’app, non riportati",
+    "resets": "si azzera {{time}}",
+    "runHint": "Un’esecuzione si mette in pausa e chiede quando il suo costo raggiunge questo importo.",
+    "saved": "Budget salvato",
+    "saveFailed": "Impossibile salvare il budget",
+    "invalidNumber": "Inserisci un importo maggiore di zero, oppure lascia vuoto per nessun limite.",
+    "projection": {
+      "title": "Proiezione a fine mese",
+      "basis": "media di {{days}} giorni {{avg}}/giorno × {{remaining}} giorni rimasti + {{mtd}} finora",
+      "none": "Storico ancora insufficiente per una proiezione.",
+      "overCap": "Di questo passo supereresti il limite mensile di {{cap}}."
+    },
+    "whatIf": {
+      "title": "E se: calcolarlo con un altro modello",
+      "description": "Ricalcola l’uso di token registrato negli ultimi {{days}} giorni con un altro modello, usando il listino prezzi dell’app. Una stima, non una fattura.",
+      "from": "Eseguito con",
+      "to": "Invece",
+      "choose": "Scegli un modello",
+      "runs": "{{n}} esecuzioni",
+      "noPricing": "Nessun prezzo per {{model}}",
+      "empty": "Nessun uso di modelli registrato in questo periodo.",
+      "planNote": "Questo lavoro gira su un piano, quindi non c’è un costo in dollari per uso da confrontare. Si mostrano i token.",
+      "tokens": "Token: {{input}} in ingresso · {{output}} in uscita",
+      "compare": "≈ {{current}} ora → ≈ {{whatIf}} invece",
+      "saves": "≈ {{amount}} in meno",
+      "costs": "≈ {{amount}} in più",
+      "same": "Più o meno uguale",
+      "skipped": "{{n}} esecuzioni senza uso di token o senza prezzo sono escluse.",
+      "recorded": "Costo registrato per queste esecuzioni: {{amount}}.",
+      "roleNote": "L’uso è registrato per modello, non per ruolo: scegli il modello su cui gira il tuo ruolo."
+    }
   }
 }

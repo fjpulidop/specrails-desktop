@@ -46,7 +46,9 @@ import { AgentRefChip } from './AgentRefChip'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { forceProjectRoute } from '../../../lib/route-memory'
 import { API_ORIGIN } from '../../../lib/origin'
-import { dailyBudgetActionMessage, dailyBudgetExceededMessage, dailyBudgetPausedMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
+import { dailyBudgetActionMessage, dailyBudgetExceededMessage, dailyBudgetPausedMessage, readDailyBudgetRejection, type DailyBudgetInfo } from '../../../lib/daily-budget'
+import { RunCapChoiceDialog } from '../../../components/RunCapChoiceDialog'
+import type { RunCapChoice } from '../../../lib/run-cap'
 import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import type { RuntimeRun } from '../../settings/lib/agent-runtime'
@@ -593,17 +595,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   // budget_paused runs resume in place once the budget allows the next step;
   // still over budget ⇒ the shared 409 body, shown localized.
   const [resumingBudgetRunId, setResumingBudgetRunId] = useState<string | null>(null)
-  const resumeBudgetPausedRun = async (runId: string) => {
+  const [runCapPrompt, setRunCapPrompt] = useState<{ runId: string; budget: DailyBudgetInfo } | null>(null)
+  const resumeBudgetPausedRun = async (runId: string, choice?: RunCapChoice) => {
     if (resumingBudgetRunId) return
     setResumingBudgetRunId(runId)
     try {
       const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(envelope.projectId)}/loop-runs/${encodeURIComponent(runId)}/resume`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(choice ?? {}),
       })
       if (res.ok) return
       const body = await res.json().catch(() => null)
       const budget = readDailyBudgetRejection(body)
-      if (budget) toast.error(t('common:budget.stillExceeded'), { description: dailyBudgetActionMessage(t, budget) })
+      // The run's per-run soft cap stands: the person answers Continue / Raise.
+      if (budget?.period === 'run') setRunCapPrompt({ runId, budget })
+      else if (budget) toast.error(t('common:budget.stillExceeded'), { description: dailyBudgetActionMessage(t, budget) })
       else toast.error(t('runCard.relaunchFailed'), { description: (body as { error?: string } | null)?.error ?? `HTTP ${res.status}` })
     } catch (e) {
       toast.error(t('runCard.relaunchFailed'), { description: e instanceof Error ? e.message : undefined })
@@ -1440,6 +1445,19 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         flashClass,
       )}
     >
+      {/* The dialog is portalled but React still bubbles its events to this card. */}
+      <div style={{ display: 'contents' }} onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
+        <RunCapChoiceDialog
+          info={runCapPrompt?.budget ?? null}
+          busy={resumingBudgetRunId !== null}
+          onDismiss={() => setRunCapPrompt(null)}
+          onChoose={(choice) => {
+            const prompt = runCapPrompt
+            setRunCapPrompt(null)
+            if (prompt) void resumeBudgetPausedRun(prompt.runId, choice)
+          }}
+        />
+      </div>
       {shouldAnnounce && (
         <span
           role="status"

@@ -289,5 +289,72 @@
       "requirementsDemonstrated": "已验证需求",
       "triageAccuracy": "分诊准确率"
     }
+  },
+  "budget": {
+    "title": "预算",
+    "loadFailed": "无法加载预算。",
+    "estimate": "估算",
+    "scope": {
+      "project": "本项目",
+      "desktop": "所有项目（全局）"
+    },
+    "period": {
+      "day": "今天",
+      "week": "本周",
+      "month": "本月",
+      "run": "每次运行"
+    },
+    "capLabel": {
+      "project": {
+        "day": "项目每日上限（USD）",
+        "week": "项目每周上限（USD）",
+        "month": "项目每月上限（USD）",
+        "run": "项目单次运行上限（USD）"
+      },
+      "desktop": {
+        "day": "全局每日上限（USD）",
+        "week": "全局每周上限（USD）",
+        "month": "全局每月上限（USD）",
+        "run": "全局单次运行上限（USD）"
+      }
+    },
+    "noCap": "无上限",
+    "spentOf": "{{spent}} / {{cap}}",
+    "spentNoCap": "{{spent}} · 无上限",
+    "turns": "回合数：{{n}}",
+    "reached": "已达到",
+    "nearing": "接近上限",
+    "planNote": "按订阅计费：每次使用没有美元成本，因此显示回合数和额度",
+    "estimatedPart": "其中约 {{amount}} 按应用的价格表估算，并非供应商上报",
+    "resets": "{{time}} 重置",
+    "runHint": "单次运行的成本达到此金额时，会暂停并询问。",
+    "saved": "预算已保存",
+    "saveFailed": "无法保存预算",
+    "invalidNumber": "请输入大于零的金额，或留空表示无上限。",
+    "projection": {
+      "title": "月末预测",
+      "basis": "{{days}} 天均值 {{avg}}/天 × 剩余 {{remaining}} 天 + 目前已花费 {{mtd}}",
+      "none": "历史数据尚不足以做出预测。",
+      "overCap": "按此速度，你将超出 {{cap}} 的每月上限。"
+    },
+    "whatIf": {
+      "title": "假设：改用其他模型计价",
+      "description": "用应用的价格表，按另一个模型重新计算最近 {{days}} 天记录的 token 用量。这是估算，不是账单。",
+      "from": "当前使用",
+      "to": "改用",
+      "choose": "选择模型",
+      "runs": "{{n}} 次运行",
+      "noPricing": "{{model}} 没有价格",
+      "empty": "此时间段内没有记录到模型用量。",
+      "planNote": "这项工作按订阅运行，没有可比较的每次使用美元成本，因此改为显示 token。",
+      "tokens": "Token：输入 {{input}} · 输出 {{output}}",
+      "compare": "目前约 {{current}} → 改用后约 {{whatIf}}",
+      "saves": "约少 {{amount}}",
+      "costs": "约多 {{amount}}",
+      "same": "大致相同",
+      "skipped": "有 {{n}} 次运行没有 token 用量或价格，已排除。",
+      "recorded": "这些运行记录的成本：{{amount}}。",
+      "roleNote": "用量按模型记录，而不是按角色：请选择你的角色所使用的模型。"
+    }
   }
 }

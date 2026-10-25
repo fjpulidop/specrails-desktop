@@ -10,7 +10,12 @@ import { createProjectInboxSource } from './project-source'
  */
 export function registerInboxRoutes(router: Router, registry: ProjectRegistry): void {
   router.get('/inbox', (_req, res) => {
-    const sources = registry.listContexts().map((ctx) => createProjectInboxSource({ project: { id: ctx.project.id, name: ctx.project.name }, db: ctx.db }))
+    // An app-wide cap belongs to no project: the first project speaks for it so it appears once.
+    const sources = registry.listContexts().map((ctx, index) => createProjectInboxSource({
+      project: { id: ctx.project.id, name: ctx.project.name },
+      db: ctx.db,
+      caps: () => (ctx.budgetCaps?.() ?? []).filter((cap) => cap.scope === 'project' || index === 0),
+    }))
     res.json(collectInbox(sources))
   })
 }

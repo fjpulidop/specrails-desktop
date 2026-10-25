@@ -266,7 +266,10 @@
     "effort": "推理强度",
     "execute": "执行",
     "noProjects": "没有可用的项目。",
-    "launched": "正在运行 {{name}}"
+    "launched": "正在运行 {{name}}",
+    "runCap": "达到此金额时暂停并询问（USD）",
+    "runCapPlaceholder": "项目默认值",
+    "runCapHint": "可选。运行成本达到此金额时会暂停，并询问是否继续。"
   },
   "catalog": {
     "ship-and-green": {

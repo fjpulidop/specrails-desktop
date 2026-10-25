@@ -174,6 +174,12 @@ Rail launches and loop runs check the same project and app-wide budgets the queu
 - **Core workflows** schedule their steps inside one Core process, so Desktop gates them at the points it controls: at launch, at resume, and before it re-invokes Core after a question or approval. Core has no pause control yet, so a Core workflow that is already running finishes its current invocation.
 - If the budget state can't be read, the launch is allowed (fail-open, same as the queue). The app-wide spend is the queue's figure: completed jobs since UTC midnight. The project spend counts every billed invocation since local midnight.
 
+### Weekly, monthly and per-run caps
+
+Besides the daily budget, **Analytics ▸ Budget** sets a **weekly** and a **monthly** cap, per project and app-wide, and a **per-run soft cap** ("pause and ask at $X"). Weeks start on Monday and months on the 1st, in your local time. Weekly and monthly caps are enforced by the very same gate as the daily budget: launches are refused with `409 daily_budget_exceeded` (the body names the `period`), queues pause and running loops park as `budget_paused`. The per-run cap pauses one run when its own reported cost reaches it; **Resume** then asks you to continue without the cap or raise it. Reaching a cap also puts a **Raise cap** item in the inbox.
+
+The panel shows today, this week and this month against each cap, a month-end **projection** (an estimate: the average of the last 14 completed days times the days left, plus what is spent so far; it is never added to billed spend) and a **What-if** pricer that re-prices the last 30 days of recorded token usage on another model with the app's price list (a model without a price says so). On a subscription plan there is no per-use dollar cost, so the panel shows turns and plan limits instead of dollars.
+
 See [Customising the app](customizing.md#budget) for the full setup.
 
 ## App-wide analytics

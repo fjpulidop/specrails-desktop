@@ -3,7 +3,7 @@ import { Clock3 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useLaunchForecast, useProviderBilling } from '../hooks/useLaunchForecast'
 import { budgetOutlook, forecastMinutes, formatUsdBand } from '../lib/launch-forecast'
-import { openAppSettings, openProjectSettings } from '../lib/app-settings-events'
+import { openAppSettings, openBudgetPanel, openProjectSettings } from '../lib/app-settings-events'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface LaunchForecastProps {
@@ -38,9 +38,13 @@ export function LaunchForecast({ projectId, loopId, provider, perSpec = false, h
   if (hideWhenInsufficient && !data.time && outlook === 'none') return null
   const openBudget = (event: React.MouseEvent) => {
     event.stopPropagation()
-    if (data.budget?.scope === 'desktop') openAppSettings('advanced')
+    // Weekly and monthly caps are edited in Analytics ▸ Budget; the daily budget in settings.
+    if (data.budget?.period) openBudgetPanel()
+    else if (data.budget?.scope === 'desktop') openAppSettings('advanced')
     else openProjectSettings('budget')
   }
+  // Longer caps word the same lines for their own period (i18n context), daily keeps the base text.
+  const ctx = data.budget?.period ? { context: data.budget.period } : {}
   const showCost = billing.ready && billing.metered && !billing.plan && data.cost !== null
 
   let line: React.ReactNode
@@ -92,10 +96,10 @@ export function LaunchForecast({ projectId, loopId, provider, perSpec = false, h
                 className="inline-flex items-center gap-1 rounded-control text-accent-warning transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="size-1.5 rounded-full bg-accent-warning" aria-hidden />
-                {outlook === 'reached' ? t('forecast.budgetReached') : t('forecast.budgetCaution')}
+                {outlook === 'reached' ? t('forecast.budgetReached', ctx) : t('forecast.budgetCaution')}
               </button>
             </TooltipTrigger>
-            <TooltipContent>{outlook === 'reached' ? t('forecast.budgetReachedHint') : t('forecast.budgetCautionHint')}</TooltipContent>
+            <TooltipContent>{outlook === 'reached' ? t('forecast.budgetReachedHint', ctx) : t('forecast.budgetCautionHint', ctx)}</TooltipContent>
           </Tooltip>
         )}
       </TooltipProvider>

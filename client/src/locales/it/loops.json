@@ -266,7 +266,10 @@
     "effort": "Sforzo di ragionamento",
     "execute": "Esegui",
     "noProjects": "Nessun progetto disponibile.",
-    "launched": "Esecuzione di {{name}}"
+    "launched": "Esecuzione di {{name}}",
+    "runCap": "Metti in pausa e chiedi a (USD)",
+    "runCapPlaceholder": "Predefinito del progetto",
+    "runCapHint": "Facoltativo. L’esecuzione si mette in pausa quando il suo costo raggiunge questo importo e chiede se continuare."
   },
   "catalog": {
     "ship-and-green": {

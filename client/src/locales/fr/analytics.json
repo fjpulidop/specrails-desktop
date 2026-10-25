@@ -289,5 +289,72 @@
       "requirementsDemonstrated": "Exigences démontrées",
       "triageAccuracy": "Précision du triage"
     }
+  },
+  "budget": {
+    "title": "Budget",
+    "loadFailed": "Impossible de charger le budget.",
+    "estimate": "Estimation",
+    "scope": {
+      "project": "Ce projet",
+      "desktop": "Tous les projets (global)"
+    },
+    "period": {
+      "day": "Aujourd’hui",
+      "week": "Cette semaine",
+      "month": "Ce mois",
+      "run": "Par exécution"
+    },
+    "capLabel": {
+      "project": {
+        "day": "Plafond quotidien du projet (USD)",
+        "week": "Plafond hebdomadaire du projet (USD)",
+        "month": "Plafond mensuel du projet (USD)",
+        "run": "Plafond par exécution du projet (USD)"
+      },
+      "desktop": {
+        "day": "Plafond quotidien global (USD)",
+        "week": "Plafond hebdomadaire global (USD)",
+        "month": "Plafond mensuel global (USD)",
+        "run": "Plafond par exécution global (USD)"
+      }
+    },
+    "noCap": "Sans plafond",
+    "spentOf": "{{spent}} sur {{cap}}",
+    "spentNoCap": "{{spent}} · sans plafond",
+    "turns": "Tours : {{n}}",
+    "reached": "Atteint",
+    "nearing": "Proche",
+    "planNote": "Facturation par forfait : pas de coût en dollars par usage, on affiche donc les tours et les limites",
+    "estimatedPart": "dont environ {{amount}} calculés avec la grille de prix de l’app, non communiqués",
+    "resets": "réinitialisation {{time}}",
+    "runHint": "Une exécution se met en pause et demande quand son propre coût atteint ce montant.",
+    "saved": "Budget enregistré",
+    "saveFailed": "Impossible d’enregistrer le budget",
+    "invalidNumber": "Saisissez un montant supérieur à zéro, ou laissez vide pour ne pas avoir de plafond.",
+    "projection": {
+      "title": "Projection de fin de mois",
+      "basis": "moyenne sur {{days}} jours {{avg}}/jour × {{remaining}} jours restants + {{mtd}} à ce jour",
+      "none": "Historique insuffisant pour une projection.",
+      "overCap": "À ce rythme, vous dépasseriez le plafond mensuel de {{cap}}."
+    },
+    "whatIf": {
+      "title": "Et si : chiffrer avec un autre modèle",
+      "description": "Recalcule l’usage de tokens enregistré sur les {{days}} derniers jours avec un autre modèle, d’après la grille de prix de l’app. Une estimation, pas une facture.",
+      "from": "Exécuté avec",
+      "to": "À la place",
+      "choose": "Choisir un modèle",
+      "runs": "{{n}} exécutions",
+      "noPricing": "Pas de tarif pour {{model}}",
+      "empty": "Aucun usage de modèle enregistré sur cette période.",
+      "planNote": "Ce travail passe par un forfait : il n’y a pas de coût en dollars par usage à comparer. Les tokens sont affichés à la place.",
+      "tokens": "Tokens : {{input}} en entrée · {{output}} en sortie",
+      "compare": "≈ {{current}} actuellement → ≈ {{whatIf}} à la place",
+      "saves": "≈ {{amount}} de moins",
+      "costs": "≈ {{amount}} de plus",
+      "same": "À peu près pareil",
+      "skipped": "{{n}} exécutions sans usage de tokens ou sans tarif sont exclues.",
+      "recorded": "Coût enregistré pour ces exécutions : {{amount}}.",
+      "roleNote": "L’usage est enregistré par modèle, pas par rôle : choisissez le modèle sur lequel tourne votre rôle."
+    }
   }
 }

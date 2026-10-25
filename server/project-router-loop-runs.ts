@@ -58,7 +58,12 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     // rail-loop-budget-guard: a resident run paused on the daily budget (either
     // engine) resumes in place once the budget allows the next step.
     if (run && run.project_id === c.project.id && c.loopRunManager.budgetPause?.(runId)) {
-      const resumed = c.loopRunManager.resumeBudgetPause(runId)
+      // A per-run soft cap is answered explicitly: `{ runCap: 'ignore' }` continues
+      // without it, `{ runCapUsd: n }` raises it. Anything else leaves it standing.
+      const body = (req.body ?? {}) as { runCap?: unknown; runCapUsd?: unknown }
+      const choice = body.runCap === 'ignore' ? { ignore: true as const }
+        : typeof body.runCapUsd === 'number' && Number.isFinite(body.runCapUsd) && body.runCapUsd > 0 ? { raiseTo: body.runCapUsd } : undefined
+      const resumed = c.loopRunManager.resumeBudgetPause(runId, choice)
       if (resumed.status === 'over_budget') { res.status(409).json(resumed.rejection); return }
       if (resumed.status === 'resumed') { res.status(202).json({ loopRunId: runId, resumed: true }); return }
     }
@@ -255,6 +260,8 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     const c = ctx(req)
     const body = req.body ?? {}
     const { loopId, aiEngine, provider: providerAlias, reasoning_effort, model: requestedModel } = body
+    // Per-launch override of the per-run soft cap: a number > 0 caps this run, 0 waives the default.
+    const runCapUsd = typeof body.runCapUsd === 'number' && Number.isFinite(body.runCapUsd) && body.runCapUsd >= 0 ? body.runCapUsd : undefined
 
     if (typeof loopId !== 'string' || !loopId) {
       res.status(400).json({ error: 'loopId is required' }); return
@@ -403,6 +410,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
         provider,
         model,
         effort,
+        ...(runCapUsd !== undefined ? { runCapUsd } : {}),
       })
       .then((r) => c.onLoopRunFinished(r.runId, r.outcome, r.stallReason ? { stallReason: r.stallReason } : undefined))
       .catch((err) => {

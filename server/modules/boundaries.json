@@ -12,7 +12,8 @@
       "runtime/spending.ts",
       "runtime/telemetry-compactor.ts",
       "runtime/telemetry-export.ts",
-      "runtime/telemetry-receiver.ts"
+      "runtime/telemetry-receiver.ts",
+      "runtime/what-if.ts"
     ],
     "dependencies": {
       "runtime/ai-invocations.ts": [
@@ -77,6 +78,10 @@
         "os",
         "path",
         "zlib"
+      ],
+      "runtime/what-if.ts": [
+        "../../../db",
+        "./pricing"
       ]
     }
   },
@@ -1497,8 +1502,10 @@
   },
   "execution": {
     "publicEntries": [
+      "adapters/budget-storage.ts",
       "index.ts",
       "runtime/accept-ladder.ts",
+      "runtime/budget-overview.ts",
       "runtime/daily-budget-gate.ts",
       "runtime/interactive-job-session.ts",
       "runtime/job-listing.ts",
@@ -1515,7 +1522,8 @@
     "dependencies": {
       "adapters/budget-storage.ts": [
         "../../../db/types",
-        "../application/enforce-budget"
+        "../application/enforce-budget",
+        "../domain/spend-caps"
       ],
       "adapters/usage-reader.ts": [
         "../../../db/types",
@@ -1540,6 +1548,9 @@
       "domain/daily-budget.ts": [],
       "domain/job-accounting.ts": [],
       "domain/scheduling.ts": [],
+      "domain/spend-caps.ts": [
+        "./daily-budget"
+      ],
       "domain/usage.ts": [
         "./job-accounting"
       ],
@@ -1551,6 +1562,7 @@
         "./domain/daily-budget",
         "./domain/job-accounting",
         "./domain/scheduling",
+        "./domain/spend-caps",
         "./domain/usage",
         "./ports"
       ],
@@ -1561,10 +1573,17 @@
       "runtime/accept-ladder.ts": [
         "../../delivery/runtime/pr-publisher"
       ],
-      "runtime/daily-budget-gate.ts": [
-        "..",
+      "runtime/budget-overview.ts": [
         "../../../db/types",
-        "../adapters/budget-storage"
+        "../adapters/budget-storage",
+        "../domain/spend-caps"
+      ],
+      "runtime/daily-budget-gate.ts": [
+        "../../../db/types",
+        "../adapters/budget-storage",
+        "../application/enforce-budget",
+        "../domain/daily-budget",
+        "../domain/spend-caps"
       ],
       "runtime/interactive-job-session.ts": [
         "../../../db",
@@ -1759,6 +1778,7 @@
         "../../../db",
         "../../../jira/jira-db",
         "../../delivery/runtime/rail-pr-store",
+        "../../execution",
         "../../recovery",
         "../../recovery/adapters/sqlite",
         "../domain",
@@ -1960,6 +1980,7 @@
         "../../audit",
         "../../delivery/runtime/multi-repo-execution-store",
         "../../delivery/runtime/rails-store",
+        "../../execution",
         "../../execution/runtime/interactive-job-session",
         "../../execution/runtime/verification-sentinel",
         "../../recovery",

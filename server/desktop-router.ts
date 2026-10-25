@@ -15,6 +15,8 @@ import type { ProjectRegistry } from './project-registry'
 import { RepositoryValidationError, inspectRepositoryPath, assertDistinctRepositories, getProjectRepositories, resolveRepositoryProject, type ProjectRepositoryInput } from './project-repositories'
 import { GLOBAL_ALLOW_SUBAGENTS_KEY, getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setGlobalSubagentRuntime, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook, getUpdateChannel, setUpdateChannel } from './desktop-db'
 import type { WebhookEvent } from './desktop-db'
+import { DESKTOP_CAP_KEYS, readDesktopCaps } from './modules/execution/adapters/budget-storage'
+import { readSpendOverview } from './modules/execution/runtime/budget-overview'
 import { WebhookManager } from './webhook-manager'
 import { CoreUpdateManager } from './core-update-manager'
 import { API_VERSION } from './api-version'
@@ -919,8 +921,12 @@ export function createDesktopRouter(
       desktopDailyBudgetUsd != null && desktopDailyBudgetUsd > 0 && unpricedRuns === 0
       ? (costToday / desktopDailyBudgetUsd) * 100
       : null
+    const caps = readDesktopCaps((key) => getDesktopSetting(registry.desktopDb, key))
     res.json({
       desktopDailyBudgetUsd,
+      desktopWeeklyBudgetUsd: caps.week,
+      desktopMonthlyBudgetUsd: caps.month,
+      runCapUsd: caps.run,
       costAlertThresholdUsd,
       costToday,
       pricedRuns,
@@ -932,6 +938,19 @@ export function createDesktopRouter(
   // PATCH /api/budget — update app-level budget settings
   router.patch('/budget', (req, res) => {
     const { desktopDailyBudgetUsd, costAlertThresholdUsd } = req.body ?? {}
+    // Caps beyond the daily budget (CD5): null clears, a number > 0 sets, anything else is a 400.
+    const capFields: Array<[string, string]> = [['desktopWeeklyBudgetUsd', DESKTOP_CAP_KEYS.week], ['desktopMonthlyBudgetUsd', DESKTOP_CAP_KEYS.month], ['runCapUsd', DESKTOP_CAP_KEYS.run]]
+    for (const [field] of capFields) {
+      const value = (req.body ?? {})[field]
+      if (value !== undefined && value !== null && !(typeof value === 'number' && Number.isFinite(value) && value > 0)) {
+        res.status(400).json({ error: 'invalid_cap', field }); return
+      }
+    }
+    for (const [field, key] of capFields) {
+      const value = (req.body ?? {})[field]
+      if (value === null) registry.desktopDb.prepare('DELETE FROM desktop_settings WHERE key = ?').run(key)
+      else if (typeof value === 'number') setDesktopSetting(registry.desktopDb, key, String(value))
+    }
     if (desktopDailyBudgetUsd !== undefined) {
       if (desktopDailyBudgetUsd === null) {
         registry.desktopDb.prepare('DELETE FROM desktop_settings WHERE key = ?').run('desktop_daily_budget_usd')
@@ -947,6 +966,23 @@ export function createDesktopRouter(
       }
     }
     res.json({ ok: true })
+  })
+
+  // GET /api/budget/caps — app-wide Budget panel read model: the app-wide caps
+  // with their spend (all projects combined), spend per period split by
+  // provider and the month-end projection (an estimate).
+  router.get('/budget/caps', (_req, res) => {
+    try {
+      const at = new Date()
+      res.json({
+        ...readSpendOverview(registry.listContexts().map((c) => ({ db: c.db, projectId: c.project.id })), at),
+        config: readDesktopCaps((key) => getDesktopSetting(registry.desktopDb, key)),
+        caps: registry.desktopCapStatuses(at),
+      })
+    } catch (err) {
+      console.error('[desktop-router] budget caps error:', err)
+      res.status(500).json({ error: 'budget_caps_unavailable' })
+    }
   })
 
   // ─── Agent routes ────────────────────────────────────────────────────────────

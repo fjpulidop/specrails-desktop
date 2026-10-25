@@ -266,7 +266,10 @@
     "effort": "Reasoning-Aufwand",
     "execute": "Ausführen",
     "noProjects": "Keine Projekte verfügbar.",
-    "launched": "{{name}} wird ausgeführt"
+    "launched": "{{name}} wird ausgeführt",
+    "runCap": "Pausieren und nachfragen bei (USD)",
+    "runCapPlaceholder": "Projektstandard",
+    "runCapHint": "Optional. Der Lauf pausiert, wenn seine Kosten diesen Betrag erreichen, und fragt, ob er fortgesetzt werden soll."
   },
   "catalog": {
     "ship-and-green": {

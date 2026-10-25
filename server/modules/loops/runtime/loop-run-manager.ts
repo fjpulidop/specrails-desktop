@@ -72,10 +72,13 @@ import {
   completeLoopStepRecovery,
   listLoopStepRecoveries,
   getLoopRun,
+  readLoopRunCap,
+  writeLoopRunCap,
   type LoopStepRecoveryPayload,
   type LoopRunOutcome,
 } from './loop-runs-store'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
+import { isRunCapCrossed, runCapRejection } from '../../execution'
 import { classifyProviderLimit, describeProviderLimit, type ProviderLimit } from '../../../provider-limit'
 import { deriveFailureDiagnosis, isDiagnosableOutcome, serializeDiagnosis } from '../../recovery'
 import { newId } from '../../../ids'
@@ -298,6 +301,9 @@ export interface LoopRunRequest {
   /** Pre-allocated run id (so the caller can track/cancel before completion).
    *  Defaults to a fresh id. */
   runId?: string
+  /** Per-run soft cap override (USD) for THIS launch: > 0 caps it, 0 waives the
+   *  project/app default. Absent ⇒ the default applies ("pause and ask at $X"). */
+  runCapUsd?: number
   loopId: string
   loopName?: string
   graph: LoopGraph
@@ -616,9 +622,11 @@ type PausedHumanDecision =
 export interface LoopBudgetBreach {
   error: 'daily_budget_exceeded'
   scope: 'project' | 'desktop'
+  /** Absent = the daily budget; `run` = the per-run soft cap (no reset window). */
+  period?: 'week' | 'month' | 'run'
   budgetUsd: number
   spentUsd: number
-  resetsAt: string
+  resetsAt: string | null
   detail: string
   action: string
 }
@@ -626,6 +634,9 @@ export interface LoopBudgetBreach {
 /** Pause kind recorded on `loop_runs.restart_reason` and the paused event for a
  *  run stopped between AI steps by the daily budget. Resumable in place. */
 export const BUDGET_PAUSED = 'budget_paused' as const
+
+/** How a resume answers a per-run soft cap: continue without it, or with a higher one. */
+export type RunCapChoice = { ignore: true } | { raiseTo: number }
 
 export type BudgetResumeResult =
   | { status: 'resumed' }
@@ -966,6 +977,8 @@ export class LoopRunManager {
     private readonly options: {
       idleTimeoutMs?: number
       dailyBudget?: () => LoopBudgetBreach | null
+      /** Default per-run soft cap (USD) a new run starts with; null/absent = none. */
+      runCapDefault?: () => number | null
       /** Agent actions audit sink bound to this project (observing only). */
       agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
       /** Observer after each Core workflow invocation ends (paused included);
@@ -975,9 +988,24 @@ export class LoopRunManager {
     } = {},
   ) {}
 
+  /** Live per-run soft cap state of the runs this manager is executing. */
+  private readonly _runCaps = new Map<string, { capUsd: number | null; cost: () => number }>()
+
   /** Best-effort budget read: an unreadable budget never stops a run. */
   private _dailyBudgetBreach(): LoopBudgetBreach | null {
     try { return this.options.dailyBudget?.() ?? null } catch { return null }
+  }
+
+  /** The per-run soft cap, when this run's provider-reported cost has reached it. */
+  private _runCapBreach(runId: string): LoopBudgetBreach | null {
+    const state = this._runCaps.get(runId)
+    if (!state || !isRunCapCrossed(state.capUsd, state.cost())) return null
+    return runCapRejection(state.capUsd as number, state.cost())
+  }
+
+  /** Daily/weekly/monthly cap first (refuses outright), then the run's soft cap. */
+  private _budgetBreach(runId: string): LoopBudgetBreach | null {
+    return this._dailyBudgetBreach() ?? this._runCapBreach(runId)
   }
 
   /** The budget a run is paused on (`budget_paused`), else null. */
@@ -988,10 +1016,16 @@ export class LoopRunManager {
 
   /** Resume a `budget_paused` run once the budget allows the next step. While
    *  still exhausted the run stays paused and the caller gets the 409 body. */
-  resumeBudgetPause(runId: string): BudgetResumeResult {
+  resumeBudgetPause(runId: string, choice?: RunCapChoice): BudgetResumeResult {
     const paused = this._pausedHumanDecisions.get(runId)
     if (!paused?.budget) return { status: 'not_budget_paused' }
-    const rejection = this._dailyBudgetBreach()
+    // The person's answer to a per-run soft cap: waive it for this run, or move it up.
+    const state = this._runCaps.get(runId)
+    if (state && choice) {
+      state.capUsd = 'ignore' in choice ? null : choice.raiseTo
+      try { writeLoopRunCap(this.db, runId, state.capUsd ?? 0) } catch { /* the in-memory choice still applies */ }
+    }
+    const rejection = this._budgetBreach(runId)
     if (rejection) {
       paused.budget = rejection
       return { status: 'over_budget', rejection: structuredClone(rejection) }
@@ -1546,6 +1580,23 @@ export class LoopRunManager {
     let totalCost = 0
     let totalTokens = 0
     let totalDuration = 0
+    // Per-run soft cap ("pause and ask at $X"): this launch's override, else what
+    // the run was already given (a restart keeps the person's choice), else the
+    // project/app default. The cost read is the run's provider-reported total.
+    {
+      let cap: number | null = null
+      try {
+        const stored = readLoopRunCap(this.db, runId)
+        // A resumed run keeps what it was given (and what the person decided
+        // since): the frozen request's override applies to a FRESH launch only.
+        const override = !continuation && req.runCapUsd !== undefined ? req.runCapUsd : undefined
+        if (override !== undefined) cap = override > 0 ? override : null
+        else if (stored !== undefined) cap = stored > 0 ? stored : null
+        else cap = this.options.runCapDefault?.() ?? null
+        if (override !== undefined || stored === undefined) writeLoopRunCap(this.db, runId, cap ?? 0)
+      } catch { cap = null }
+      this._runCaps.set(runId, { capUsd: cap, cost: () => totalCost })
+    }
     let finalJobUsage: {
       tokensIn: number | null
       tokensOut: number | null
@@ -1837,7 +1888,7 @@ export class LoopRunManager {
           reason,
           ticketIds: exactTicketIds,
           pauseKind: BUDGET_PAUSED,
-          budget: { scope: current.scope, budgetUsd: current.budgetUsd, spentUsd: current.spentUsd, resetsAt: current.resetsAt },
+          budget: { scope: current.scope, ...(current.period ? { period: current.period } : {}), budgetUsd: current.budgetUsd, spentUsd: current.spentUsd, resetsAt: current.resetsAt },
         })
         this._emit({
           type: 'job.interactive',
@@ -1855,7 +1906,7 @@ export class LoopRunManager {
           return 'stop'
         }
         if (Number.isFinite(deadline)) deadline += Math.max(0, this.now() - pausedAtMs)
-        const still = this._dailyBudgetBreach()
+        const still = this._budgetBreach(runId)
         if (still) { current = still; continue }
         resumeLoopRun(this.db, runId)
         const resumedAt = new Date(this.now()).toISOString()
@@ -1919,7 +1970,7 @@ export class LoopRunManager {
         let budgetPauseRequested = false, budgetPauseUnsupported = false, budgetPauseEpisode = 0, budgetCheckedCost = totalCost
         const requestBudgetPause = (): void => {
           if (budgetPauseRequested || budgetPauseUnsupported || !this.executors.pauseDefinition || this._cancelled.has(runId) || this._disposed) return
-          const breach = this._dailyBudgetBreach()
+          const breach = this._budgetBreach(runId)
           const contextPath = breach ? readDefinitionRun(this.db, runId)?.metadata.contextPath : undefined
           if (!breach || !contextPath) return
           budgetPauseRequested = true
@@ -1960,14 +2011,14 @@ export class LoopRunManager {
           // Core schedules every step inside one invocation; the only boundary
           // Desktop owns is the re-invocation after a human decision.
           beforeContinuation: async () => {
-            const breach = this._dailyBudgetBreach()
+            const breach = this._budgetBreach(runId)
             return breach ? awaitBudget(breach) : 'continue'
           },
           // Core exited 2 on the budget pause requested above. A budget raised
           // meanwhile resumes at once; otherwise the run waits like any budget pause.
           awaitHostPause: async pause => {
             if (pause.reason !== 'budget') throw new Error(`Core paused (${pause.reason}) without an addressable interrupt`)
-            const breach = this._dailyBudgetBreach()
+            const breach = this._budgetBreach(runId)
             if (breach) return awaitBudget(breach)
             logLine(`\n▶ The daily budget allows the next step — resuming the workflow.`)
             return 'continue'
@@ -1997,7 +2048,7 @@ export class LoopRunManager {
         // first one). The current step always finishes; the next AI-bearing
         // node waits on a resumable `budget_paused` pause.
         if ((node.type === 'ai-step' || node.type === 'decider') && stepNum > 0) {
-          const breach = this._dailyBudgetBreach()
+          const breach = this._budgetBreach(runId)
           if (breach && (await awaitBudget(breach)) === 'stop') { outcome = 'stopped'; break }
         }
         const succs = successors(req.graph, node.id)
@@ -2696,6 +2747,7 @@ export class LoopRunManager {
     )
     if (coreCompletion) logLine(`Core result: implementation=${coreCompletion.completion.implementation}; validation=${coreCompletion.completion.validation}; archive=${coreCompletion.completion.archive}; delivery=${coreCompletion.completion.delivery}`)
     const finishedAt = new Date(this.now()).toISOString()
+    this._runCaps.delete(runId)
     finishLoopRunAndJob(this.db, runId, {
       outcome,
       finishedAt,

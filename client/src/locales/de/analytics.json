@@ -289,5 +289,72 @@
       "requirementsDemonstrated": "Nachgewiesene Anforderungen",
       "triageAccuracy": "Triage-Treffer"
     }
+  },
+  "budget": {
+    "title": "Budget",
+    "loadFailed": "Das Budget konnte nicht geladen werden.",
+    "estimate": "Schätzung",
+    "scope": {
+      "project": "Dieses Projekt",
+      "desktop": "Alle Projekte (global)"
+    },
+    "period": {
+      "day": "Heute",
+      "week": "Diese Woche",
+      "month": "Dieser Monat",
+      "run": "Pro Lauf"
+    },
+    "capLabel": {
+      "project": {
+        "day": "Tageslimit des Projekts (USD)",
+        "week": "Wochenlimit des Projekts (USD)",
+        "month": "Monatslimit des Projekts (USD)",
+        "run": "Limit pro Lauf des Projekts (USD)"
+      },
+      "desktop": {
+        "day": "Globales Tageslimit (USD)",
+        "week": "Globales Wochenlimit (USD)",
+        "month": "Globales Monatslimit (USD)",
+        "run": "Globales Limit pro Lauf (USD)"
+      }
+    },
+    "noCap": "Kein Limit",
+    "spentOf": "{{spent}} von {{cap}}",
+    "spentNoCap": "{{spent}} · kein Limit",
+    "turns": "Turns: {{n}}",
+    "reached": "Erreicht",
+    "nearing": "Fast erreicht",
+    "planNote": "Abrechnung über ein Abo: keine Dollarkosten pro Nutzung, deshalb werden Turns und Limits angezeigt",
+    "estimatedPart": "davon etwa {{amount}} anhand der Preisliste der App berechnet, nicht gemeldet",
+    "resets": "wird {{time}} zurückgesetzt",
+    "runHint": "Ein Lauf pausiert und fragt nach, wenn seine eigenen Kosten diesen Betrag erreichen.",
+    "saved": "Budget gespeichert",
+    "saveFailed": "Das Budget konnte nicht gespeichert werden",
+    "invalidNumber": "Gib einen Betrag über null ein oder lass das Feld leer für kein Limit.",
+    "projection": {
+      "title": "Prognose zum Monatsende",
+      "basis": "{{days}}-Tage-Schnitt {{avg}}/Tag × {{remaining}} verbleibende Tage + {{mtd}} bisher",
+      "none": "Noch nicht genug Verlauf für eine Prognose.",
+      "overCap": "In diesem Tempo würdest du das Monatslimit von {{cap}} überschreiten."
+    },
+    "whatIf": {
+      "title": "Was wäre, wenn: mit einem anderen Modell berechnen",
+      "description": "Berechnet die erfasste Token-Nutzung der letzten {{days}} Tage mit einem anderen Modell neu, anhand der Preisliste der App. Eine Schätzung, keine Rechnung.",
+      "from": "Bisher gelaufen auf",
+      "to": "Stattdessen",
+      "choose": "Modell wählen",
+      "runs": "{{n}} Läufe",
+      "noPricing": "Kein Preis für {{model}}",
+      "empty": "In diesem Zeitraum wurde keine Modellnutzung erfasst.",
+      "planNote": "Diese Arbeit läuft über ein Abo, es gibt also keine Dollarkosten pro Nutzung zum Vergleichen. Stattdessen werden Tokens angezeigt.",
+      "tokens": "Tokens: {{input}} Eingabe · {{output}} Ausgabe",
+      "compare": "≈ {{current}} jetzt → ≈ {{whatIf}} stattdessen",
+      "saves": "≈ {{amount}} weniger",
+      "costs": "≈ {{amount}} mehr",
+      "same": "Ungefähr gleich",
+      "skipped": "{{n}} Läufe ohne Token-Nutzung oder Preis bleiben unberücksichtigt.",
+      "recorded": "Erfasste Kosten dieser Läufe: {{amount}}.",
+      "roleNote": "Die Nutzung wird pro Modell erfasst, nicht pro Rolle: Wähle das Modell, auf dem deine Rolle läuft."
+    }
   }
 }

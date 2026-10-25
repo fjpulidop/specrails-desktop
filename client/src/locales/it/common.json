@@ -160,7 +160,30 @@
     "pausedProject": "In pausa per il budget giornaliero del progetto (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
     "pausedDesktop": "In pausa per il budget giornaliero globale (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
     "resume": "Riprendi",
-    "stillExceeded": "Il budget giornaliero è ancora esaurito."
+    "stillExceeded": "Il budget giornaliero è ancora esaurito.",
+    "exceededRun": "Limite per esecuzione raggiunto (${{spent}} su ${{budget}}). L’esecuzione è in pausa.",
+    "pausedRun": "In pausa al limite per esecuzione (${{spent}} su ${{budget}}). Continua senza o aumentalo.",
+    "actionRun": "Continua senza il limite, oppure aumentalo, poi riprendi.",
+    "exceededProject_week": "Budget settimanale del progetto raggiunto (${{spent}} su ${{budget}}). Non è stato avviato nulla.",
+    "exceededProject_month": "Budget mensile del progetto raggiunto (${{spent}} su ${{budget}}). Non è stato avviato nulla.",
+    "exceededDesktop_week": "Budget settimanale globale raggiunto (${{spent}} su ${{budget}}). Non è stato avviato nulla.",
+    "exceededDesktop_month": "Budget mensile globale raggiunto (${{spent}} su ${{budget}}). Non è stato avviato nulla.",
+    "pausedProject_week": "In pausa sul budget settimanale del progetto (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
+    "pausedProject_month": "In pausa sul budget mensile del progetto (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
+    "pausedDesktop_week": "In pausa sul budget settimanale globale (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
+    "pausedDesktop_month": "In pausa sul budget mensile globale (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
+    "whereProject_week": "Analisi ▸ Budget",
+    "whereProject_month": "Analisi ▸ Budget",
+    "whereDesktop_week": "Analisi ▸ Budget",
+    "whereDesktop_month": "Analisi ▸ Budget",
+    "stillExceeded_week": "Il budget settimanale è ancora esaurito.",
+    "stillExceeded_month": "Il budget mensile è ancora esaurito.",
+    "runCap": {
+      "title": "Esecuzione in pausa al suo limite",
+      "raise": "Aumenta il limite e continua",
+      "continue": "Continua senza limite",
+      "raiseTo": "Aumenta il limite a (USD)"
+    }
   },
   "reviewWip": {
     "reached_one": "Limite di revisione raggiunto: {{count}} consegna attende la revisione (limite {{limit}}). Non è stato avviato nulla.",
@@ -233,6 +256,14 @@
     "budgetReachedHint": "La spesa di oggi ha raggiunto il tuo budget giornaliero: un avvio viene rifiutato fino al reset o finché non lo aumenti. Apri le impostazioni del budget.",
     "launchOverBudget": "Il budget di oggi è esaurito. L’esecuzione resterà in pausa finché non viene ripristinato. Avviare comunque?",
     "launchAnyway": "Avvia comunque",
-    "perSpec": "per spec"
+    "perSpec": "per spec",
+    "budgetReached_week": "Budget settimanale raggiunto",
+    "budgetReached_month": "Budget mensile raggiunto",
+    "budgetReachedHint_week": "La spesa di questa settimana ha raggiunto il tuo budget settimanale, quindi un avvio viene rifiutato finché non si azzera o lo aumenti. Apri il pannello del budget.",
+    "budgetReachedHint_month": "La spesa di questo mese ha raggiunto il tuo budget mensile, quindi un avvio viene rifiutato finché non si azzera o lo aumenti. Apri il pannello del budget.",
+    "budgetCautionHint_week": "La spesa di questa settimana più il massimo di questa stima potrebbe raggiungere il tuo budget settimanale. Apri il pannello del budget.",
+    "budgetCautionHint_month": "La spesa di questo mese più il massimo di questa stima potrebbe raggiungere il tuo budget mensile. Apri il pannello del budget.",
+    "launchOverBudget_week": "Il budget di questa settimana è esaurito. L’esecuzione resterà in pausa finché non viene ripristinato. Avviare comunque?",
+    "launchOverBudget_month": "Il budget di questo mese è esaurito. L’esecuzione resterà in pausa finché non viene ripristinato. Avviare comunque?"
   }
 }

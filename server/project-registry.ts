@@ -8,7 +8,9 @@ import { initDb } from './db'
 import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
 import { getRepositoryExecutionReferences } from './modules/delivery/runtime/multi-repo-execution-store'
 import { QueueManager } from './modules/execution/runtime/queue-manager'
-import { createDailyBudgetGate, createDailyBudgetHeadroom, type DailyBudgetHeadroom } from './modules/execution/runtime/daily-budget-gate'
+import { createDailyBudgetGate, createDailyBudgetHeadroom, readCapStatuses, type DailyBudgetHeadroom } from './modules/execution/runtime/daily-budget-gate'
+import { projectSpendSince, readDesktopCaps, readProjectCaps, type CapConfig } from './modules/execution/adapters/budget-storage'
+import { dailyBudgetResetsAt, effectiveRunCap, isCapExceeded, periodResetsAtIso, periodStartIso, type CapPeriod, type CapStatus } from './modules/execution'
 import { createReviewWipGate, type ReviewWipGate } from './modules/delivery/runtime/review-wip-gate'
 import type { DailyBudgetRejection } from './modules/execution'
 import { createLoopProfilePathResolver, resolveAgentDefaults } from './modules/agents/runtime/agent-defaults'
@@ -180,6 +182,10 @@ export interface ProjectContext {
   /** Read-only headroom of the tightest daily budget, for warnings before a
    *  launch (launch forecast). Absent in bare test contexts. */
   dailyBudgetHeadroom?: () => DailyBudgetHeadroom | null
+  /** Every configured cap (day/week/month × project/app-wide) with its spend. */
+  budgetCaps?: (at?: Date) => CapStatus[]
+  /** The per-run soft cap a new run starts with (tighter of project and app default), or null. */
+  runCapDefault?: () => number | null
   /** Review WIP limit admission for rail launches (review-wip-limit): bound
    *  to this project's connection and `reviewWipLimit` setting. Absent in
    *  bare test contexts. */
@@ -819,6 +825,7 @@ export class ProjectRegistry {
         return val != null ? parseFloat(val) : null
       },
       getDesktopDailyBudget: () => this._desktopDailyBudgetSnapshot(),
+      getPeriodCapBreaches: () => this._capStatuses(db, project.id).filter((cap) => cap.exhausted && cap.period !== 'day'),
       onBudgetExceeded: (event, data) => {
         if (event === 'desktop_daily_budget_exceeded') {
           this._pauseAllQueuesForDesktopBudget()
@@ -1243,8 +1250,14 @@ export class ProjectRegistry {
     // See resolveLoopBaseEnv.
     // Same budget state the queue auto-pause enforces; bound to THIS project's
     // connection (project budget) plus the app-wide snapshot.
-    const dailyBudgetRejection = createDailyBudgetGate({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
-    const dailyBudgetHeadroom = createDailyBudgetHeadroom({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
+    const capOptions = { db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot(), desktopPeriod: (period: Exclude<CapPeriod, 'day'>, at: Date) => this._desktopPeriodSnapshot(period, at) }
+    const dailyBudgetRejection = createDailyBudgetGate(capOptions)
+    const dailyBudgetHeadroom = createDailyBudgetHeadroom(capOptions)
+    // Every configured cap with its spend (Budget panel, inbox, mid-run pause).
+    const budgetCaps = (at: Date = new Date()): CapStatus[] => readCapStatuses(capOptions, at)
+    // The per-run soft cap that applies to a new run: the tighter of the
+    // project's and the app-wide default (null = none).
+    const runCapDefault = (): number | null => effectiveRunCap(readProjectCaps(db).run, this._desktopCapConfig().run)
     const reviewWipGate = createReviewWipGate({ db, readLimit: () => getProjectSettings(db).reviewWipLimit })
     // Architect clarifications (feedback-2026-10 task 3.2): after a Core
     // invocation pauses or ends, post the run's clarifications record to the
@@ -1284,7 +1297,7 @@ export class ProjectRegistry {
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
         supportsProfiles: projectSupportsProfiles,
       }),
-    }), undefined, { dailyBudget: dailyBudgetRejection, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds) })
+    }), undefined, { dailyBudget: dailyBudgetRejection, runCapDefault, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds) })
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
       try {
@@ -1601,7 +1614,7 @@ export class ProjectRegistry {
       broadcast: boundBroadcast,
     })
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, dailyBudgetHeadroom, reviewWipGate, agentAudit }
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, dailyBudgetHeadroom, budgetCaps, runCapDefault, reviewWipGate, agentAudit }
     ctx.milestoneChains = milestoneChains
     // Spec triage (launch-triage): cheap per-spec loop recommendation. Seeded
     // now so the existing backlog is only triaged on edit or on demand.
@@ -1821,6 +1834,42 @@ export class ProjectRegistry {
       totalSpend += row.total
     }
     return { budget, totalSpend }
+  }
+
+  /** App-wide caps (all projects combined) as configured in desktop settings. */
+  private _desktopCapConfig(): CapConfig {
+    return readDesktopCaps((key) => getDesktopSetting(this._desktopDb, key))
+  }
+
+  /** App-wide weekly/monthly cap with the spend of EVERY project in the local period containing `at`. */
+  private _desktopPeriodSnapshot(period: Exclude<CapPeriod, 'day'>, at: Date): { budget: number | null; totalSpend: number } {
+    const budget = this._desktopCapConfig()[period]
+    if (budget === null) return { budget: null, totalSpend: 0 }
+    const since = periodStartIso(period, at)
+    let totalSpend = 0
+    for (const c of this.listContexts()) {
+      try { totalSpend += projectSpendSince(c.db, c.project.id, since) } catch { /* an unreadable project adds nothing (fail-open) */ }
+    }
+    return { budget, totalSpend }
+  }
+
+  /** The app-wide caps with their spend (all projects combined), for the Budget panel. */
+  desktopCapStatuses(at: Date = new Date()): CapStatus[] {
+    const out: CapStatus[] = []
+    const day = this._desktopDailyBudgetSnapshot()
+    const push = (period: CapPeriod, snapshot: { budget: number | null; totalSpend: number }, resetsAt: string): void => {
+      if (snapshot.budget == null || !(snapshot.budget > 0)) return
+      out.push({ scope: 'desktop', period, budgetUsd: snapshot.budget, spentUsd: snapshot.totalSpend, exhausted: isCapExceeded(snapshot.budget, snapshot.totalSpend), resetsAt })
+    }
+    push('day', day, dailyBudgetResetsAt('desktop', at))
+    push('week', this._desktopPeriodSnapshot('week', at), periodResetsAtIso('week', at))
+    push('month', this._desktopPeriodSnapshot('month', at), periodResetsAtIso('month', at))
+    return out
+  }
+
+  /** Every cap of one project plus the app-wide ones, with spend. */
+  private _capStatuses(db: DbInstance, projectId: string, at: Date = new Date()): CapStatus[] {
+    return readCapStatuses({ db, projectId, desktop: () => this._desktopDailyBudgetSnapshot(), desktopPeriod: (period, when) => this._desktopPeriodSnapshot(period, when) }, at)
   }
 
   /** Enforce the app-wide budget through every per-project queue authority. */

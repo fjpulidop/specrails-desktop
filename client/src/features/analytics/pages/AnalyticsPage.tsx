@@ -24,6 +24,8 @@ import { InvocationsTable } from '../components/InvocationsTable'
 import { LegacyWorkflowUsage } from '../components/LegacyWorkflowUsage'
 import { DecisionTimesCard } from '../components/DecisionTimesCard'
 import { LoopEconomicsCard } from '../components/LoopEconomicsCard'
+import { BudgetCard } from '../components/BudgetCard'
+import { BUDGET_PANEL_PARAM } from '../../../lib/app-settings-events'
 
 const PERIODS: { value: Period; labelKey: string }[] = [
   { value: '7d', labelKey: 'periods.d7' },
@@ -74,6 +76,15 @@ export default function AnalyticsPage() {
   const { t } = useTranslation('analytics')
   const { activeProjectId, projects } = useDesktop()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  const budgetAnchor = useRef<HTMLDivElement | null>(null)
+  const wantsBudget = searchParams.get(BUDGET_PANEL_PARAM) === 'budget'
+  // Land on the Budget panel when asked to (the inbox's "Raise cap", the launch forecast).
+  useEffect(() => {
+    if (!wantsBudget) return
+    const timer = window.setTimeout(() => budgetAnchor.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }), 150)
+    return () => window.clearTimeout(timer)
+  }, [wantsBudget, activeProjectId])
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
   const installedProviders = activeProject ? projectProviders(activeProject) : ['claude']
@@ -455,6 +466,9 @@ export default function AnalyticsPage() {
       <SpendingHero data={data} loading={loading} period={filters.period} />
       {/* Internal telemetry: development builds only. */}
       {import.meta.env.DEV && activeProjectId && <LegacyWorkflowUsage projectId={activeProjectId} />}
+
+      {/* Budget: caps, projection and what-if. `?panel=budget` (inbox, forecast) lands here. */}
+      {activeProjectId && <div ref={budgetAnchor}><BudgetCard projectId={activeProjectId} refreshKey={data?.summary?.totalCostUsd ?? null} /></div>}
 
       {/* Block 1b: Provider breakdown (renders only on multi-provider projects) */}
       <ProviderBreakdownCard data={data} loading={loading} />

@@ -25,7 +25,7 @@ export const INBOX_KINDS = ['review', 'question', 'failed', 'blocked', 'budget',
 export type InboxKind = (typeof INBOX_KINDS)[number]
 
 /** What the primary inline action does (the client maps each to the existing handler/route). */
-export const INBOX_ACTIONS = ['open-review', 'open-run', 'resume-run', 'retry-jira'] as const
+export const INBOX_ACTIONS = ['open-review', 'open-run', 'resume-run', 'retry-jira', 'raise-cap'] as const
 export type InboxAction = (typeof INBOX_ACTIONS)[number]
 
 export interface InboxItem {
@@ -51,6 +51,17 @@ export interface InboxItem {
   conversationId: string | null
   /** Why a failed/blocked run stopped, with ranked remedies; null for every other item. */
   diagnosis: InboxDiagnosis | null
+  /** Present only on a "spend cap reached" item (`raise-cap`): which cap and where it stands. */
+  cap?: InboxCap
+}
+
+/** A spend cap that is reached right now (CD5). */
+export interface InboxCap {
+  scope: 'project' | 'desktop'
+  period: 'day' | 'week' | 'month'
+  budgetUsd: number
+  spentUsd: number
+  resetsAt: string
 }
 
 export interface ProjectInbox {

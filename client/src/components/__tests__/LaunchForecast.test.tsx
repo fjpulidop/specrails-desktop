@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { render } from '../../test-utils'
 import { LaunchForecast } from '../LaunchForecast'
 import { resetLaunchForecastCache } from '../../lib/launch-forecast'
-import { OPEN_APP_SETTINGS_EVENT, OPEN_PROJECT_SETTINGS_EVENT } from '../../lib/app-settings-events'
+import { OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, OPEN_PROJECT_SETTINGS_EVENT } from '../../lib/app-settings-events'
 
 const time = { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 7 }
 const cost = { lowUsd: 2, highUsd: 4, sampleCount: 7 }
@@ -204,6 +204,22 @@ describe('LaunchForecast', () => {
         await userEvent.click(await screen.findByRole('button', { name: 'May pause at budget' }))
         expect(opened).toEqual(['advanced'])
       } finally { window.removeEventListener(OPEN_APP_SETTINGS_EVENT, onOpen) }
+    })
+
+    it('words a weekly or monthly cap for its own period and opens the Budget panel (CD5)', async () => {
+      mockApi({ time: null, cost: null, minSamples: 5, budget: { ...budget(10), period: 'week' } })
+      const opened = vi.fn()
+      window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+      try {
+        view()
+        const reached = await screen.findByRole('button', { name: 'Weekly budget reached' })
+        await userEvent.click(reached)
+        expect(opened).toHaveBeenCalledTimes(1)
+      } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
+      resetLaunchForecastCache()
+      mockApi({ time, cost, minSamples: 5, budget: { ...budget(6.5), period: 'month' } })
+      view()
+      expect(await screen.findByRole('button', { name: 'May pause at budget' })).toBeInTheDocument()
     })
 
     it('stays quiet while there is room, and with no budget at all', async () => {

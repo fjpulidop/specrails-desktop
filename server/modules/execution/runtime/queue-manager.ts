@@ -1,6 +1,6 @@
 import { createQueueBudgetStorage } from '../adapters/budget-storage'
 import { isLegacySlashCommand, recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
-import { enforceDailyBudgets, localDayStartIso } from '..'
+import { enforceDailyBudgets, localDayStartIso, type CapStatus } from '..'
 import { createDurableUsageReader } from '../adapters/usage-reader'
 import { normalizePendingQueue, isDependencySatisfied, recordJobInvocations, recoverJobUsage, sanitizeRecoveredResult, type JobAccountingInput } from '..'
 import { ChildProcess } from 'child_process'
@@ -290,6 +290,7 @@ export class QueueManager {
 
   private _getCostAlertThreshold: (() => number | null) | null
   private _getDesktopDailyBudget: (() => { budget: number | null; totalSpend: number }) | null
+  private _getPeriodCapBreaches: (() => CapStatus[]) | null
   private _adapter: ProviderAdapter
   /** Effective model to use when spawning processes. For Claude the adapter
    *  reads its own config; this is the override that gets passed via `--model`.
@@ -409,6 +410,9 @@ export class QueueManager {
       zombieTimeoutMs?: number
       getCostAlertThreshold?: () => number | null
       getDesktopDailyBudget?: () => { budget: number | null; totalSpend: number }
+      /** Weekly/monthly caps (project + app-wide) that are reached right now.
+       *  Enforced exactly like the daily budget: the queue pauses. */
+      getPeriodCapBreaches?: () => CapStatus[]
       /** Agent actions audit (batched, never blocking). Absent ⇒ no audit rows. */
       agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
       provider?: ProviderId
@@ -478,6 +482,7 @@ export class QueueManager {
 
     this._getCostAlertThreshold = options?.getCostAlertThreshold ?? null
     this._getDesktopDailyBudget = options?.getDesktopDailyBudget ?? null
+    this._getPeriodCapBreaches = options?.getPeriodCapBreaches ?? null
     this._adapter = getAdapter(options?.provider ?? 'claude')
     this._resolvedModel = options?.resolvedModel ?? null
     this._agentDefaults = options?.agentDefaults ?? null
@@ -1570,6 +1575,21 @@ export class QueueManager {
           }
         },
       })
+      // Weekly/monthly caps: same effect as the daily budget (pause + event),
+      // reported with the period so a webhook/UI can say which cap was reached.
+      for (const cap of this._getPeriodCapBreaches?.() ?? []) {
+        if (!cap.exhausted || cap.period === 'day') continue
+        const wasPaused = this._paused
+        this._paused = true
+        if (!wasPaused) storage.pause()
+        if (cap.scope === 'project') {
+          this._broadcast({ type: 'daily_budget_exceeded', projectId: '', dailySpend: cap.spentUsd, budget: cap.budgetUsd, queuePaused: true, period: cap.period })
+          try { this._onBudgetExceeded?.('daily_budget_exceeded', { dailySpend: cap.spentUsd, budget: cap.budgetUsd, queuePaused: true, period: cap.period }) } catch { /* webhook delivery is best-effort */ }
+        } else {
+          this._broadcast({ type: 'desktop_daily_budget_exceeded', projectId: '', desktopDailySpend: cap.spentUsd, desktopBudget: cap.budgetUsd, queuePaused: true, period: cap.period })
+          try { this._onBudgetExceeded?.('desktop_daily_budget_exceeded', { desktopDailySpend: cap.spentUsd, desktopBudget: cap.budgetUsd, queuePaused: true, period: cap.period }) } catch { /* webhook delivery is best-effort */ }
+        }
+      }
     } catch (err) {
       console.error('[queue-manager] daily-budget enforcement failed (db unavailable?):', err)
     }

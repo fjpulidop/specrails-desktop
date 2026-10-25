@@ -160,7 +160,30 @@
     "pausedProject": "Paused on the project daily budget (${{spent}} of ${{budget}}). Raise it, then resume.",
     "pausedDesktop": "Paused on the app-wide daily budget (${{spent}} of ${{budget}}). Raise it, then resume.",
     "resume": "Resume",
-    "stillExceeded": "The daily budget is still exhausted."
+    "stillExceeded": "The daily budget is still exhausted.",
+    "exceededRun": "Per-run cap reached (${{spent}} of ${{budget}}). The run is paused.",
+    "pausedRun": "Paused at the per-run cap (${{spent}} of ${{budget}}). Continue without it or raise it.",
+    "actionRun": "Continue without the cap, or raise it, then resume.",
+    "exceededProject_week": "Project weekly budget reached (${{spent}} of ${{budget}}). Nothing was launched.",
+    "exceededProject_month": "Project monthly budget reached (${{spent}} of ${{budget}}). Nothing was launched.",
+    "exceededDesktop_week": "App-wide weekly budget reached (${{spent}} of ${{budget}}). Nothing was launched.",
+    "exceededDesktop_month": "App-wide monthly budget reached (${{spent}} of ${{budget}}). Nothing was launched.",
+    "pausedProject_week": "Paused on the project weekly budget (${{spent}} of ${{budget}}). Raise it, then resume.",
+    "pausedProject_month": "Paused on the project monthly budget (${{spent}} of ${{budget}}). Raise it, then resume.",
+    "pausedDesktop_week": "Paused on the app-wide weekly budget (${{spent}} of ${{budget}}). Raise it, then resume.",
+    "pausedDesktop_month": "Paused on the app-wide monthly budget (${{spent}} of ${{budget}}). Raise it, then resume.",
+    "whereProject_week": "Analytics ▸ Budget",
+    "whereProject_month": "Analytics ▸ Budget",
+    "whereDesktop_week": "Analytics ▸ Budget",
+    "whereDesktop_month": "Analytics ▸ Budget",
+    "stillExceeded_week": "The weekly budget is still exhausted.",
+    "stillExceeded_month": "The monthly budget is still exhausted.",
+    "runCap": {
+      "title": "Run paused at its cap",
+      "raise": "Raise cap and continue",
+      "continue": "Continue without cap",
+      "raiseTo": "Raise the cap to (USD)"
+    }
   },
   "reviewWip": {
     "reached_one": "Review limit reached: {{count}} delivery is waiting for review (limit {{limit}}). Nothing was launched.",
@@ -233,6 +256,14 @@
     "budgetReachedHint": "Today’s spend has reached your daily budget, so a launch is refused until it resets or you raise it. Open budget settings.",
     "launchOverBudget": "Today’s budget is used up. The run will pause until it resets. Launch anyway?",
     "launchAnyway": "Launch anyway",
-    "perSpec": "per spec"
+    "perSpec": "per spec",
+    "budgetReached_week": "Weekly budget reached",
+    "budgetReached_month": "Monthly budget reached",
+    "budgetReachedHint_week": "This week’s spend has reached your weekly budget, so a launch is refused until it resets or you raise it. Open the budget panel.",
+    "budgetReachedHint_month": "This month’s spend has reached your monthly budget, so a launch is refused until it resets or you raise it. Open the budget panel.",
+    "budgetCautionHint_week": "This week’s spend plus the top of this estimate could reach your weekly budget. Open the budget panel.",
+    "budgetCautionHint_month": "This month’s spend plus the top of this estimate could reach your monthly budget. Open the budget panel.",
+    "launchOverBudget_week": "This week’s budget is used up. The run will pause until it resets. Launch anyway?",
+    "launchOverBudget_month": "This month’s budget is used up. The run will pause until it resets. Launch anyway?"
   }
 }
