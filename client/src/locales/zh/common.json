@@ -238,7 +238,8 @@
       "loopBuilder": "Loop Builder",
       "shortcuts": "键盘快捷键",
       "inbox": "“待处理”列表",
-      "specsBoard": "规格与待办列表"
+      "specsBoard": "规格与待办列表",
+      "specTimeline": "规格时间线与交接"
     }
   },
   "forecast": {

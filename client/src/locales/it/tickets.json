@@ -202,5 +202,112 @@
   "split": {
     "label": "Confronta le spec",
     "resize": "Ridimensiona i pannelli"
+  },
+  "timeline": {
+    "tabs": {
+      "aria": "Sezioni della spec",
+      "details": "Dettagli",
+      "timeline": "Cronologia"
+    },
+    "filters": {
+      "aria": "Filtra per tipo"
+    },
+    "kinds": {
+      "spec_edit": "Spec",
+      "addendum": "Addenda",
+      "mission_turn": "Missioni",
+      "job": "Esecuzioni",
+      "phase": "Fasi",
+      "audit": "Azioni",
+      "pr_event": "PR",
+      "review": "Revisione"
+    },
+    "loading": "Caricamento della cronologia…",
+    "error": "Impossibile caricare la cronologia.",
+    "retry": "Riprova",
+    "loadMore": "Mostra precedenti",
+    "empty": {
+      "title": "Non è ancora successo nulla a questa spec",
+      "description": "Modifiche, addenda, missioni, esecuzioni, eventi di PR e verdetti di revisione compaiono qui man mano che accadono.",
+      "filtered": "Nessuna voce di questo tipo.",
+      "refresh": "Aggiorna"
+    },
+    "today": "Oggi",
+    "yesterday": "Ieri",
+    "expand": "Mostra dettagli",
+    "collapse": "Nascondi dettagli",
+    "actors": {
+      "user": "Tu",
+      "mcp": "Client esterno",
+      "system": "Sistema",
+      "agent": "Agente"
+    },
+    "tone": {
+      "failure": "Non riuscito",
+      "review": "Da rivedere",
+      "ok": "Completato"
+    },
+    "events": {
+      "spec_created": "Spec creata",
+      "spec_updated": "Spec modificata",
+      "spec_comment": "Commento aggiunto",
+      "spec_ai_ai-edit": "Modificata con l’IA",
+      "spec_ai_quick-spec": "Generata con Quick",
+      "spec_ai_smash": "Suddivisa in sotto-spec",
+      "spec_ai_triage": "Triata",
+      "spec_ai_spec-launcher": "Avviata con l’IA",
+      "addendum_created": "Addendum aggiunto",
+      "addendum_applied": "Addendum applicato",
+      "addendum_in_flight": "Addendum in corso",
+      "addendum_dismissed": "Addendum scartato",
+      "job_run": "Esecuzione",
+      "pr_delivery_started": "Consegna avviata",
+      "pr_ready_for_review": "Pronta per la revisione",
+      "pr_published": "Pull request pubblicata",
+      "pr_merged": "Unita",
+      "pr_failed": "Consegna non riuscita",
+      "pr_discarded": "Consegna scartata",
+      "pr_superseded": "Consegna sostituita",
+      "review_approved": "Il revisore ha approvato",
+      "review_changes_requested": "Il revisore ha chiesto modifiche",
+      "review_failed": "Verifica non riuscita",
+      "review_recorded": "Revisione registrata",
+      "mission_turns_one": "{{count}} turno di missione",
+      "mission_turns_other": "{{count}} turni di missione",
+      "phase_group_one": "{{count}} fase",
+      "phase_group_other": "{{count}} fasi",
+      "audit_group_one": "{{count}} azione dell’agente",
+      "audit_group_other": "{{count}} azioni dell’agente"
+    },
+    "phaseFailed": "{{count}} non riuscite",
+    "findings_one": "{{count}} rilievo",
+    "findings_other": "{{count}} rilievi",
+    "cost": {
+      "billed": "{{amount}}",
+      "estimated": "~{{amount}} stim.",
+      "billedTitle": "Riportato dal provider",
+      "estimatedTitle": "Stimato dalla tabella prezzi locale, non fatturato",
+      "turns_one": "{{count}} turno",
+      "turns_other": "{{count}} turni"
+    },
+    "links": {
+      "mission": "Apri missione",
+      "job": "Apri esecuzione",
+      "review": "Apri revisione",
+      "pr": "Apri pull request",
+      "spec": "Questa spec"
+    },
+    "export": {
+      "menu": "Esporta passaggio di consegne",
+      "markdown": "Passaggio in Markdown",
+      "html": "Passaggio in HTML",
+      "copyPr": "Copia come descrizione della PR",
+      "saved": "Passaggio di #{{id}} salvato",
+      "copied": "Descrizione PR di #{{id}} copiata",
+      "failed": "Impossibile generare il passaggio di consegne.",
+      "copyFailed": "Impossibile copiare negli appunti.",
+      "redacted_one": "{{count}} valore simile a un segreto è stato oscurato.",
+      "redacted_other": "{{count}} valori simili a segreti sono stati oscurati."
+    }
   }
 }

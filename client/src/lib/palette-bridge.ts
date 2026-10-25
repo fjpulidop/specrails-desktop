@@ -97,11 +97,24 @@ export interface PaletteFlowSurface {
   controls: () => PaletteFlowControl[]
 }
 
+/**
+ * The spec detail modal's hand-off export. It is mounted for exactly the spec
+ * that `?spec=` names, so `ticketId()` is the spec the actions apply to.
+ */
+export interface PaletteHandoffSurface {
+  ticketId: () => number
+  /** Builds the Markdown hand-off and opens the save dialog. */
+  exportHandoff: (ticketId: number) => void
+  /** Copies the concise PR description to the clipboard (toast on success). */
+  copyPrDescription: (ticketId: number) => void
+}
+
 export interface PaletteSurfaces {
   board: PaletteBoardSurface
   specs: PaletteSpecsSurface
   selection: PaletteSelectionSurface
   flow: PaletteFlowSurface
+  handoff: PaletteHandoffSurface
 }
 
 export type PaletteSurfaceKey = keyof PaletteSurfaces

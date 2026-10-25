@@ -80,6 +80,14 @@ Excluir uma spec, movê-la para outro estado, mudar suas etiquetas ou tirá-la d
 
 Uma spec excluída (e uma missão excluída) não desaparece. Ela vai para **Configurações → Excluídos recentemente**, nas configurações do projeto, onde você pode **Restaurá-la** por 30 dias ou **Excluí-la definitivamente**, o que pergunta antes. Depois de 30 dias ela é removida de vez. Descartar trabalho não enviado, fechar à força uma pull request e remover um projeto continuam perguntando antes, porque não podem ser revertidos. Uma spec ligada ao Jira continua sendo movida com **Mover para**, em vez de excluída.
 
+## A cronologia da spec e a passagem {#spec-timeline}
+
+Abra uma spec e passe para o separador **Cronologia** para ler toda a sua história num só sítio: as edições e adendas, as missões que lhe tocaram, cada execução com as suas fases e ações do agente, os eventos do pull request e o veredito do revisor com os seus achados. As entradas são agrupadas por dia, os chips filtram por tipo e cada entrada liga à missão, execução ou revisão de onde vem. Os grupos longos (fases, ações do agente, turnos de missão) ficam recolhidos com uma contagem e expandem no próprio sítio.
+
+O custo aparece junto da entrada que o gerou, com os dois tipos separados: um valor reportado pelo fornecedor e outro estimado pela tabela de preços local (marcado «est.»). Se um fornecedor é faturado por um plano, a cronologia e as exportações mostram turnos, nunca dólares; uma execução que não reportou custo simplesmente não o mostra.
+
+**Exportar passagem** (o menu junto aos separadores, ou ⌘K → *Exportar passagem de #N*) gera um ficheiro Markdown ou uma página HTML autónoma com o resumo, as decisões (adendas, esclarecimentos, vereditos do revisor), as estatísticas do diff, o custo e o que continua em aberto (adendas abertas e achados de revisão por resolver). **Copiar como descrição de PR** (também no ⌘K) coloca uma versão mais curta em Markdown na área de transferência. Os títulos seguem o idioma da aplicação. Tudo passa pela mesma ocultação de segredos usada pela auditoria de ações do agente, e o aviso diz-lhe quando algo foi ocultado.
+
 ## Para onde ir a seguir
 
 - [Adicionar Spec — modo Quick](add-spec-quick-mode.md) — a forma mais rápida de transformar uma ideia numa spec.

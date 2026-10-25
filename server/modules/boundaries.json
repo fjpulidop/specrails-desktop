@@ -876,6 +876,7 @@
   "delivery": {
     "publicEntries": [
       "runtime/definition-fork.ts",
+      "runtime/delivery-changes.ts",
       "runtime/delivery-evidence.ts",
       "runtime/flow-review-legacy.ts",
       "runtime/flow-review-outcome.ts",
@@ -2362,6 +2363,7 @@
   },
   "specs": {
     "publicEntries": [
+      "adapters/timeline-http.ts",
       "domain/non-goals.ts",
       "domain/triage.ts",
       "runtime/contract-refine-runner.ts",
@@ -2383,7 +2385,23 @@
       "runtime/triage.ts"
     ],
     "dependencies": {
+      "adapters/timeline-http.ts": [
+        "../../../db",
+        "../../../feature-flags",
+        "../../delivery/runtime/delivery-changes",
+        "../../delivery/runtime/rail-pr-store",
+        "../domain/timeline",
+        "../runtime/spec-handoff",
+        "../runtime/spec-history",
+        "../runtime/ticket-store",
+        "express"
+      ],
+      "domain/handoff-labels.ts": [],
+      "domain/handoff.ts": [
+        "./handoff-labels"
+      ],
       "domain/non-goals.ts": [],
+      "domain/timeline.ts": [],
       "domain/triage.ts": [],
       "runtime/contract-refine-runner.ts": [
         "../../../db",
@@ -2478,6 +2496,23 @@
         "crypto",
         "readline",
         "tree-kill"
+      ],
+      "runtime/spec-handoff.ts": [
+        "../../audit",
+        "../domain/handoff",
+        "../domain/handoff-labels",
+        "./spec-addenda-core",
+        "./spec-history",
+        "./ticket-store"
+      ],
+      "runtime/spec-history.ts": [
+        "../../../db",
+        "../../audit",
+        "../../delivery/runtime/delivery-evidence",
+        "../../recovery/adapters/sqlite",
+        "../domain/timeline",
+        "./spec-addenda-core",
+        "./ticket-store"
       ],
       "runtime/spec-launcher-manager.ts": [
         "../../../command-resolver",

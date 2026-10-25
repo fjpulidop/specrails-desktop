@@ -68,13 +68,40 @@ function ctx(overrides: Partial<PaletteContext> = {}): PaletteContext {
 
 const ids = (c: PaletteContext) => availableActions(c).map((a) => a.id)
 
+describe('spec hand-off actions (BB2)', () => {
+  const handoff = (id: number) => ({ ticketId: () => id, exportHandoff: vi.fn(), copyPrDescription: vi.fn() })
+
+  it('exist only while the modal of the focused spec is mounted', () => {
+    expect(ids(ctx({ focusedSpecId: 7 }))).not.toContain('spec.exportHandoff')
+    expect(ids(ctx({ focusedSpecId: null, surfaces: { handoff: handoff(7) } }))).not.toContain('spec.exportHandoff')
+    expect(ids(ctx({ focusedSpecId: 8, surfaces: { handoff: handoff(7) } }))).not.toContain('spec.copyPrDescription')
+    const open = ids(ctx({ focusedSpecId: 7, surfaces: { handoff: handoff(7) } }))
+    expect(open).toContain('spec.exportHandoff')
+    expect(open).toContain('spec.copyPrDescription')
+  })
+
+  it('name the spec and call the surface with it', () => {
+    const surface = handoff(7)
+    const c = ctx({ focusedSpecId: 7, surfaces: { handoff: surface } })
+    const exportAction = PALETTE_ACTIONS.find((a) => a.id === 'spec.exportHandoff')!
+    const copyAction = PALETTE_ACTIONS.find((a) => a.id === 'spec.copyPrDescription')!
+    expect(actionLabel(exportAction, c)).toBe('Export hand-off for #7')
+    expect(actionLabel(copyAction, c)).toBe('Copy PR description for #7')
+    exportAction.run(c, undefined)
+    copyAction.run(c, undefined)
+    expect(surface.exportHandoff).toHaveBeenCalledWith(7)
+    expect(surface.copyPrDescription).toHaveBeenCalledWith(7)
+  })
+})
+
 describe('registry', () => {
   it('has unique ids and a bounded size', () => {
     const all = PALETTE_ACTIONS.map((a) => a.id)
     expect(new Set(all).size).toBe(all.length)
     expect(all.length).toBeGreaterThanOrEqual(20)
     // 30 before the board selection / saved-views actions (CD4); they exist only while mounted + selected.
-    expect(all.length).toBeLessThanOrEqual(34)
+    // 36 with the spec hand-off pair (BB2); they exist only while that spec's modal is open.
+    expect(all.length).toBeLessThanOrEqual(36)
   })
 
   it('pins the project settings ids to the real sections', () => {

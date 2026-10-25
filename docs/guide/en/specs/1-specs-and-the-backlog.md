@@ -80,6 +80,14 @@ Deleting a spec, moving it to another status, changing its labels or taking it o
 
 A deleted spec (and a deleted mission) is not gone. It moves to **Settings → Recently deleted** in the project settings, where you can **Restore** it for 30 days or **Delete permanently**, which does ask first. After 30 days it is removed for good. Discarding unpushed work, force-closing a pull request and removing a project are the actions that still ask first, because they cannot be reversed. A Jira-backed spec is still moved with **Move to** rather than deleted.
 
+## The spec timeline and hand-off {#spec-timeline}
+
+Open a spec and switch to the **Timeline** tab to read its whole story in one place: the edits and addenda, the missions that touched it, every run with its phases and agent actions, the pull request events and the reviewer's verdict with its findings. Entries are grouped by day, the chips filter by kind, and each entry has a link to the mission, run or review it came from. Long groups (phases, agent actions, mission turns) are collapsed with a count and expand in place.
+
+Cost appears next to the entry that spent it, with the two kinds kept apart: a figure the provider reported, and a figure estimated from the local pricing table (marked "est."). If a provider is billed through a plan, the timeline and the exports show turns, never dollars; a run that reported no cost simply shows none.
+
+**Export hand-off** (the menu beside the tabs, or ⌘K → *Export hand-off for #N*) writes a Markdown file or a self-contained HTML page with the summary, the decisions (addenda, clarifications, reviewer verdicts), the diff stats, the cost and what is still open (open addenda and unresolved review findings). **Copy as PR description** (also in ⌘K) puts a shorter Markdown version on the clipboard. Headings follow the app language. Everything is passed through the same secret redaction the agent actions audit uses, and the toast tells you when something was hidden.
+
 ## Where to go next
 
 - [Add Spec — Quick mode](add-spec-quick-mode.md) — the fastest way to turn an idea into a spec.

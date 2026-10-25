@@ -202,5 +202,112 @@
   "split": {
     "label": "Specs vergleichen",
     "resize": "Bereiche anpassen"
+  },
+  "timeline": {
+    "tabs": {
+      "aria": "Abschnitte der Spec",
+      "details": "Details",
+      "timeline": "Verlauf"
+    },
+    "filters": {
+      "aria": "Nach Art filtern"
+    },
+    "kinds": {
+      "spec_edit": "Spec",
+      "addendum": "Nachträge",
+      "mission_turn": "Missionen",
+      "job": "Läufe",
+      "phase": "Phasen",
+      "audit": "Aktionen",
+      "pr_event": "PR",
+      "review": "Review"
+    },
+    "loading": "Verlauf wird geladen …",
+    "error": "Der Verlauf konnte nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "loadMore": "Ältere anzeigen",
+    "empty": {
+      "title": "Mit dieser Spec ist noch nichts passiert",
+      "description": "Änderungen, Nachträge, Missionen, Läufe, PR-Ereignisse und Review-Urteile erscheinen hier, sobald sie eintreten.",
+      "filtered": "Keine Einträge dieser Art.",
+      "refresh": "Aktualisieren"
+    },
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "expand": "Details anzeigen",
+    "collapse": "Details ausblenden",
+    "actors": {
+      "user": "Du",
+      "mcp": "Externer Client",
+      "system": "System",
+      "agent": "Agent"
+    },
+    "tone": {
+      "failure": "Fehlgeschlagen",
+      "review": "Review nötig",
+      "ok": "Erledigt"
+    },
+    "events": {
+      "spec_created": "Spec erstellt",
+      "spec_updated": "Spec bearbeitet",
+      "spec_comment": "Kommentar hinzugefügt",
+      "spec_ai_ai-edit": "Mit KI bearbeitet",
+      "spec_ai_quick-spec": "Mit Quick erzeugt",
+      "spec_ai_smash": "In Sub-Specs zerlegt",
+      "spec_ai_triage": "Triagiert",
+      "spec_ai_spec-launcher": "Mit KI gestartet",
+      "addendum_created": "Nachtrag hinzugefügt",
+      "addendum_applied": "Nachtrag angewendet",
+      "addendum_in_flight": "Nachtrag in Arbeit",
+      "addendum_dismissed": "Nachtrag verworfen",
+      "job_run": "Lauf",
+      "pr_delivery_started": "Lieferung gestartet",
+      "pr_ready_for_review": "Bereit zum Review",
+      "pr_published": "Pull Request veröffentlicht",
+      "pr_merged": "Gemergt",
+      "pr_failed": "Lieferung fehlgeschlagen",
+      "pr_discarded": "Lieferung verworfen",
+      "pr_superseded": "Lieferung ersetzt",
+      "review_approved": "Reviewer hat freigegeben",
+      "review_changes_requested": "Reviewer fordert Änderungen an",
+      "review_failed": "Verifikation fehlgeschlagen",
+      "review_recorded": "Review erfasst",
+      "mission_turns_one": "{{count}} Missions-Turn",
+      "mission_turns_other": "{{count}} Missions-Turns",
+      "phase_group_one": "{{count}} Phase",
+      "phase_group_other": "{{count}} Phasen",
+      "audit_group_one": "{{count}} Agent-Aktion",
+      "audit_group_other": "{{count}} Agent-Aktionen"
+    },
+    "phaseFailed": "{{count}} fehlgeschlagen",
+    "findings_one": "{{count}} Befund",
+    "findings_other": "{{count}} Befunde",
+    "cost": {
+      "billed": "{{amount}}",
+      "estimated": "~{{amount}} gesch.",
+      "billedTitle": "Vom Anbieter gemeldet",
+      "estimatedTitle": "Aus der lokalen Preistabelle geschätzt, nicht abgerechnet",
+      "turns_one": "{{count}} Turn",
+      "turns_other": "{{count}} Turns"
+    },
+    "links": {
+      "mission": "Mission öffnen",
+      "job": "Lauf öffnen",
+      "review": "Review öffnen",
+      "pr": "Pull Request öffnen",
+      "spec": "Diese Spec"
+    },
+    "export": {
+      "menu": "Übergabe exportieren",
+      "markdown": "Übergabe als Markdown",
+      "html": "Übergabe als HTML",
+      "copyPr": "Als PR-Beschreibung kopieren",
+      "saved": "Übergabe für #{{id}} gespeichert",
+      "copied": "PR-Beschreibung für #{{id}} kopiert",
+      "failed": "Die Übergabe konnte nicht erstellt werden.",
+      "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen.",
+      "redacted_one": "{{count}} geheimnisähnlicher Wert wurde entfernt.",
+      "redacted_other": "{{count}} geheimnisähnliche Werte wurden entfernt."
+    }
   }
 }

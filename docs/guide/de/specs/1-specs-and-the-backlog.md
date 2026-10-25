@@ -80,6 +80,14 @@ Eine Spec löschen, ihren Status ändern, ihre Labels ändern oder sie von einer
 
 Eine gelöschte Spec (und eine gelöschte Mission) ist nicht weg. Sie landet unter **Einstellungen → Zuletzt gelöscht** in den Projekteinstellungen, wo du sie 30 Tage lang **Wiederherstellen** oder **Endgültig löschen** kannst — Letzteres fragt nach. Nach 30 Tagen wird sie endgültig entfernt. Nicht gepushte Arbeit verwerfen, einen Pull Request erzwungen schließen und ein Projekt entfernen fragen weiterhin nach, weil sie sich nicht rückgängig machen lassen. Eine Jira-gestützte Spec wird weiterhin mit **Verschieben nach** statt durch Löschen bearbeitet.
 
+## Der Spec-Verlauf und die Übergabe {#spec-timeline}
+
+Öffne eine Spec und wechsle zum Tab **Verlauf**, um ihre ganze Geschichte an einem Ort zu lesen: die Änderungen und Nachträge, die Missionen, die sie berührt haben, jeden Lauf mit seinen Phasen und Agent-Aktionen, die Pull-Request-Ereignisse und das Urteil des Reviewers samt Befunden. Die Einträge sind nach Tag gruppiert, die Chips filtern nach Art, und jeder Eintrag verlinkt auf die Mission, den Lauf oder das Review, aus dem er stammt. Lange Gruppen (Phasen, Agent-Aktionen, Missions-Turns) sind mit einer Zahl eingeklappt und klappen an Ort und Stelle auf.
+
+Die Kosten stehen neben dem Eintrag, der sie verursacht hat, und die beiden Arten bleiben getrennt: ein vom Anbieter gemeldeter Betrag und ein aus der lokalen Preistabelle geschätzter (mit „gesch.“ markiert). Wird ein Anbieter über ein Abo abgerechnet, zeigen Verlauf und Exporte Turns, nie Dollar; ein Lauf ohne gemeldete Kosten zeigt schlicht keine.
+
+**Übergabe exportieren** (das Menü neben den Tabs oder ⌘K → *Übergabe für #N exportieren*) schreibt eine Markdown-Datei oder eine eigenständige HTML-Seite mit der Zusammenfassung, den Entscheidungen (Nachträge, Klärungen, Urteile des Reviewers), den Diff-Statistiken, den Kosten und dem, was noch offen ist (offene Nachträge und ungelöste Review-Befunde). **Als PR-Beschreibung kopieren** (auch in ⌘K) legt eine kürzere Markdown-Fassung in die Zwischenablage. Die Überschriften folgen der Sprache der App. Alles läuft durch dieselbe Geheimnis-Schwärzung wie das Audit der Agent-Aktionen, und die Meldung sagt dir, wenn etwas entfernt wurde.
+
 ## Wie es weitergeht
 
 - [Spec hinzufügen – Quick-Modus](add-spec-quick-mode.md) – der schnellste Weg, eine Idee in eine Spec zu verwandeln.

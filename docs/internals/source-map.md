@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1314 source/build files. Nearby tests are linked where names
+Includes 1324 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -859,6 +859,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [SpecSortControl.tsx](../../client/src/features/specs/components/SpecSortControl.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecSortControl.test.tsx)
 - [SpecSprintFilterOptions.tsx](../../client/src/features/specs/components/SpecSprintFilterOptions.tsx)
 - [SpecStatusFilter.tsx](../../client/src/features/specs/components/SpecStatusFilter.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecStatusFilter.test.tsx)
+- [SpecTimeline.tsx](../../client/src/features/specs/components/SpecTimeline.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecTimeline.test.tsx)
 - [SpecTriageChip.tsx](../../client/src/features/specs/components/SpecTriageChip.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecTriageChip.test.tsx)
 - [SpecsBoard.tsx](../../client/src/features/specs/components/SpecsBoard.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecsBoard.test.tsx)
 - [SpecsBulkBar.tsx](../../client/src/features/specs/components/SpecsBulkBar.tsx)
@@ -917,9 +918,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-filters.ts](../../client/src/features/specs/lib/spec-filters.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-filters.test.ts)
 - [spec-flow.ts](../../client/src/features/specs/lib/spec-flow.ts)
 - [spec-gen-suppression.ts](../../client/src/features/specs/lib/spec-gen-suppression.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-gen-suppression.test.ts)
+- [spec-handoff-actions.ts](../../client/src/features/specs/lib/spec-handoff-actions.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-handoff-actions.test.ts)
 - [spec-search.ts](../../client/src/features/specs/lib/spec-search.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-search.test.ts)
 - [spec-sort.ts](../../client/src/features/specs/lib/spec-sort.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-sort.test.ts)
 - [spec-status-filter.ts](../../client/src/features/specs/lib/spec-status-filter.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-status-filter.test.ts)
+- [spec-timeline.ts](../../client/src/features/specs/lib/spec-timeline.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-timeline.test.ts)
 - [spec-triage.ts](../../client/src/features/specs/lib/spec-triage.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-triage.test.ts)
 - [spec-views.ts](../../client/src/features/specs/lib/spec-views.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-views.test.ts)
 - [specs-view-tier.ts](../../client/src/features/specs/lib/specs-view-tier.ts) · [test](../../client/src/features/specs/lib/__tests__/specs-view-tier.test.ts)
@@ -1030,6 +1033,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)
 - [run-cap.ts](../../client/src/lib/run-cap.ts)
+- [save-text-file.ts](../../client/src/lib/save-text-file.ts) · [test](../../client/src/lib/__tests__/save-text-file.test.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)
 - [sidebar-layout.ts](../../client/src/lib/sidebar-layout.ts) · [test](../../client/src/lib/__tests__/sidebar-layout.test.ts)
 - [tauri-clipboard.ts](../../client/src/lib/tauri-clipboard.ts)
@@ -1717,9 +1721,16 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [sqlite.ts](../../server/modules/recovery/adapters/sqlite.ts)
 
+## server/modules/specs/adapters
+
+- [timeline-http.ts](../../server/modules/specs/adapters/timeline-http.ts)
+
 ## server/modules/specs/domain
 
+- [handoff-labels.ts](../../server/modules/specs/domain/handoff-labels.ts)
+- [handoff.ts](../../server/modules/specs/domain/handoff.ts)
 - [non-goals.ts](../../server/modules/specs/domain/non-goals.ts) · [test](../../server/modules/specs/domain/non-goals.test.ts)
+- [timeline.ts](../../server/modules/specs/domain/timeline.ts)
 - [triage.ts](../../server/modules/specs/domain/triage.ts) · [test](../../server/modules/specs/domain/triage.test.ts)
 
 ## server/modules/specs/runtime
@@ -1733,6 +1744,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-contract-prompt.ts](../../server/modules/specs/runtime/spec-contract-prompt.ts)
 - [spec-draft-parser.ts](../../server/modules/specs/runtime/spec-draft-parser.ts) · [test](../../server/modules/specs/runtime/spec-draft-parser.test.ts)
 - [spec-generation.ts](../../server/modules/specs/runtime/spec-generation.ts) · [test](../../server/modules/specs/runtime/spec-generation.test.ts)
+- [spec-handoff.ts](../../server/modules/specs/runtime/spec-handoff.ts)
+- [spec-history.ts](../../server/modules/specs/runtime/spec-history.ts)
 - [spec-launcher-manager.ts](../../server/modules/specs/runtime/spec-launcher-manager.ts) · [test](../../server/modules/specs/runtime/spec-launcher-manager.test.ts)
 - [spec-models.ts](../../server/modules/specs/runtime/spec-models.ts) · [test](../../server/modules/specs/runtime/spec-models.test.ts)
 - [spec-search.ts](../../server/modules/specs/runtime/spec-search.ts) · [test](../../server/modules/specs/runtime/spec-search.test.ts)

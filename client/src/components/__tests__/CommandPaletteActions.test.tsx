@@ -89,6 +89,44 @@ describe('CommandPalette actions (QW1)', () => {
   })
   afterEach(() => resetPaletteSurfaces())
 
+  it('offers the hand-off actions only while the spec modal of the focused spec is open', async () => {
+    const exportHandoff = vi.fn()
+    const copyPrDescription = vi.fn()
+    const user = userEvent.setup()
+    // No surface: the actions are hidden even with a focused spec.
+    const first = render(<CommandPalette />, { route: '/?spec=15' })
+    let input = await openPalette(user)
+    await user.type(input, 'hand-off')
+    expect(screen.queryByTestId('palette-action-a-spec.exportHandoff')).not.toBeInTheDocument()
+    first.unmount()
+
+    registerPaletteSurface('handoff', { ticketId: () => 15, exportHandoff, copyPrDescription })
+    render(<CommandPalette />, { route: '/?spec=15' })
+    input = await openPalette(user)
+    await user.type(input, 'hand-off')
+    const row = await screen.findByTestId('palette-action-a-spec.exportHandoff')
+    expect(row).toHaveTextContent('Export hand-off for #15')
+    await user.click(row)
+    expect(exportHandoff).toHaveBeenCalledWith(15)
+    await waitFor(() => expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument())
+
+    input = await openPalette(user)
+    await user.type(input, 'pr description')
+    const copy = await screen.findByTestId('palette-action-a-spec.copyPrDescription')
+    expect(copy).toHaveTextContent('Copy PR description for #15')
+    await user.click(copy)
+    expect(copyPrDescription).toHaveBeenCalledWith(15)
+  })
+
+  it('hides the hand-off actions when the open modal belongs to another spec', async () => {
+    registerPaletteSurface('handoff', { ticketId: () => 99, exportHandoff: vi.fn(), copyPrDescription: vi.fn() })
+    const user = userEvent.setup()
+    render(<CommandPalette />, { route: '/?spec=15' })
+    const input = await openPalette(user)
+    await user.type(input, 'hand-off')
+    expect(screen.queryByTestId('palette-action-a-spec.exportHandoff')).not.toBeInTheDocument()
+  })
+
   it('shows no Actions group for an empty query, and hints at >', async () => {
     const user = userEvent.setup()
     render(<CommandPalette />)

@@ -26,6 +26,7 @@ export const HELP_TOPICS = {
   telemetry: { category: 'settings', slug: 'pipeline-telemetry-and-diagnostics', anchor: 'telemetry' },
   dailyBudget: { category: 'insights', slug: 'analytics-and-cost-tracking', anchor: 'daily-budget' },
   specsBoard: { category: 'specs', slug: 'specs-and-the-backlog', anchor: 'specs-backlog' },
+  specTimeline: { category: 'specs', slug: 'specs-and-the-backlog', anchor: 'spec-timeline' },
   recentlyDeleted: { category: 'specs', slug: 'specs-and-the-backlog', anchor: 'recently-deleted' },
   railLoops: { category: 'pipeline', slug: 'rails-and-jobs', anchor: 'rail-loops' },
   flowMode: { category: 'integrations', slug: 'flow-mode', anchor: 'flow-mode' },

@@ -84,6 +84,14 @@ first, with **Watch a recorded run** as the honest fallback. Costs are always la
 The old platform tour is under **Help**: *Replay tour* in the Docs dialog and the command palette
 (`replayTour()` in `lib/onboarding-events.ts`; the shell listens in `App.tsx`).
 
+## Spec timeline and hand-off
+
+The spec modal's **Timeline** tab merges what happened to a spec (edits and addenda, missions, runs with phases and
+agent actions, PR events, reviewer verdict and findings) and **Export hand-off** turns it into Markdown, a
+self-contained HTML page or a concise PR description. Details, rules and tests: [`features/specs`](specs/README.md#timeline-tab-and-hand-off-export);
+server projection and redaction: [`server/modules/specs`](../../../server/modules/specs/README.md#lifecycle-timeline-and-hand-off-export).
+The palette actions live in `palette-actions.ts` (`spec.exportHandoff`, `spec.copyPrDescription`) behind the `handoff` surface.
+
 ## Contextual help (Learn more)
 
 `components/HelpHint.tsx` is the one way to link a screen to the guide: an `ⓘ` icon button

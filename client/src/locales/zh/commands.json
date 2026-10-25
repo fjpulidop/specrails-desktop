@@ -144,7 +144,11 @@
       "saveView": "保存当前视图",
       "switchView": "切换视图",
       "openBudget": "打开预算（上限、预测、假设分析）",
-      "openBudgetKeywords": "预算, 上限, 限额, 每周, 每月, 支出, 成本, budget"
+      "openBudgetKeywords": "预算, 上限, 限额, 每周, 每月, 支出, 成本, budget",
+      "exportHandoffN": "导出 #{{id}} 的交接",
+      "copyPrDescriptionN": "复制 #{{id}} 的 PR 描述",
+      "exportHandoff": "导出交接",
+      "copyPrDescription": "复制 PR 描述"
     },
     "scopes": {
       "remove": "移除范围",

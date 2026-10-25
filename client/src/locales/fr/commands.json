@@ -144,7 +144,11 @@
       "saveView": "Enregistrer la vue actuelle",
       "switchView": "Changer de vue",
       "openBudget": "Ouvrir Budget (plafonds, projection, et si…)",
-      "openBudgetKeywords": "budget, plafond, limite, hebdomadaire, mensuel, dépense, coût"
+      "openBudgetKeywords": "budget, plafond, limite, hebdomadaire, mensuel, dépense, coût",
+      "exportHandoffN": "Exporter la passation de #{{id}}",
+      "copyPrDescriptionN": "Copier la description de PR de #{{id}}",
+      "exportHandoff": "Exporter la passation",
+      "copyPrDescription": "Copier la description de PR"
     },
     "scopes": {
       "remove": "Retirer le périmètre",

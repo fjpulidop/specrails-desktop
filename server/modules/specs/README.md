@@ -105,3 +105,35 @@ a deleted epic orphaned when they are still parentless.
   (desktop DB migration 37), see [agent chat routes](../missions/runtime/agent-chat-router.ts).
 - HTTP: `GET /tickets/trash`, `POST /tickets/:id/restore`,
   `DELETE /tickets/trash/:id` ([API reference](../../../docs/internals/api-reference.md)).
+
+## Lifecycle timeline and hand-off export
+
+A projection with no store of its own (`GET /tickets/:ticketId/timeline` and
+`/handoff`, [API reference](../../../docs/internals/api-reference.md)).
+
+- [`domain/timeline.ts`](domain/timeline.ts) (pure, zero imports): the entry shape, newest-first
+  ordering, kind filter, opaque `(at, id)` cursor paging, and `foldCost`. A cost is `billed` (provider
+  reported), `estimated` (pricing table) or absent; the two are never summed into one figure.
+- [`runtime/spec-history.ts`](runtime/spec-history.ts): reads ONE project's database (the caller passes
+  that connection; nothing is cached) and the ticket. Sources: ticket creation / last edit / comments,
+  addenda (creation and status change), the `ai_invocations` ledger (AI edits, missions grouped per
+  conversation, every job or loop run attributed to the spec), `loop_runs` / `jobs` with their failure
+  diagnosis ([recovery](../recovery/README.md)), `job_phases` grouped per job, `agent_actions` grouped per
+  run ([audit](../audit/README.md)), `rail_pr_deliveries` (PR events) and the reviewer's settle evidence
+  (verdict, findings and `findingLocations`). The ticket store keeps no revision history, so a plain edit
+  is known only as "last edited at".
+- [`domain/handoff.ts`](domain/handoff.ts) + [`domain/handoff-labels.ts`](domain/handoff-labels.ts) (pure):
+  the export model, cost summary per provider (a plan provider carries turns and no dollar figure at all),
+  Markdown (full and PR variants) and the self-contained HTML bundle (inline style, no script, no remote
+  resource, every value escaped). Headings exist in the 8 UI locales; source text is never translated.
+- [`runtime/spec-handoff.ts`](runtime/spec-handoff.ts) builds the model (the diff reader is injected) and
+  renders it. Redaction is [`redactProse`](../audit/domain.ts) from the audit module: the same token shapes,
+  URL credentials and headers as the command redaction, without the command-only rules that would mangle
+  prose. Strings are redacted when the model is built and the finished document once more.
+- [`adapters/timeline-http.ts`](adapters/timeline-http.ts) mounts both routes next to the ticket routes and
+  reads diff stats through `composeDeliveryChanges` (the review packet's Changes read model).
+
+Tests: [`runtime/spec-timeline.test.ts`](runtime/spec-timeline.test.ts) (per-source projection, grouping,
+paging, project isolation, export content, redaction with fake secrets, cost separation, plan providers,
+8-locale headings, routes). That file is on the `.gitleaks.toml` allowlist because it holds fake
+credentials; keep it the only place for them in this capability.

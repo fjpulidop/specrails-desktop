@@ -238,7 +238,8 @@
       "loopBuilder": "den Loop Builder",
       "shortcuts": "Tastaturkürzel",
       "inbox": "die Liste „Offen“",
-      "specsBoard": "Specs und das Backlog"
+      "specsBoard": "Specs und das Backlog",
+      "specTimeline": "den Spec-Verlauf und die Übergabe"
     }
   },
   "forecast": {

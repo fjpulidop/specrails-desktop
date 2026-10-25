@@ -238,7 +238,8 @@
       "loopBuilder": "Loop Builder",
       "shortcuts": "キーボードショートカット",
       "inbox": "「対応待ち」リスト",
-      "specsBoard": "スペックとバックログ"
+      "specsBoard": "スペックとバックログ",
+      "specTimeline": "スペックのタイムラインと引き継ぎ"
     }
   },
   "forecast": {

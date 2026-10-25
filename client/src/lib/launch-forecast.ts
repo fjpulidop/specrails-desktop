@@ -112,6 +112,18 @@ export function isPlanBilled(snapshot: unknown, provider: string): boolean {
   return hasPlan || hasWindow
 }
 
+/** Every provider of the machine's usage snapshot that is billed through a plan (see {@link isPlanBilled}). */
+export function planProviderIds(snapshot: unknown): string[] {
+  const providers = record(snapshot)?.providers
+  if (!Array.isArray(providers)) return []
+  const ids: string[] = []
+  for (const entry of providers) {
+    const id = record(entry)?.providerId
+    if (typeof id === 'string' && isPlanBilled(snapshot, id) && !ids.includes(id)) ids.push(id)
+  }
+  return ids
+}
+
 /**
  * Is `provider` POSITIVELY known to be billed per use (API-key auth, or an
  * on-demand enterprise account with its own spend)? Only then may the forecast

@@ -4,6 +4,8 @@ import {
   Rocket,
   MoveRight,
   ClipboardCheck,
+  FileDown,
+  ClipboardCopy,
   Pause,
   Play,
   Check,
@@ -289,6 +291,22 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
       const path = id !== null && id !== undefined ? ctx.surfaces.board?.reviewPath(id) : null
       if (path) ctx.go.navigate(path)
     },
+  },
+
+  // Spec hand-off (BB2): both run the handlers the spec modal's Export menu calls; offered only while that modal is open.
+  {
+    id: 'spec.exportHandoff', labelKey: 'palette.actions.exportHandoff', group: 'board', icon: FileDown,
+    keywords: ['export', 'handoff', 'hand-off', 'summary', 'markdown', 'report', 'timeline'],
+    resolveLabel: (ctx) => ctx.t('palette.actions.exportHandoffN', { id: ctx.focusedSpecId }),
+    when: (ctx) => ctx.focusedSpecId !== null && ctx.surfaces.handoff?.ticketId() === ctx.focusedSpecId,
+    run: (ctx) => { if (ctx.focusedSpecId !== null) ctx.surfaces.handoff?.exportHandoff(ctx.focusedSpecId) },
+  },
+  {
+    id: 'spec.copyPrDescription', labelKey: 'palette.actions.copyPrDescription', group: 'board', icon: ClipboardCopy,
+    keywords: ['copy', 'pr', 'pull request', 'description', 'clipboard'],
+    resolveLabel: (ctx) => ctx.t('palette.actions.copyPrDescriptionN', { id: ctx.focusedSpecId }),
+    when: (ctx) => ctx.focusedSpecId !== null && ctx.surfaces.handoff?.ticketId() === ctx.focusedSpecId,
+    run: (ctx) => { if (ctx.focusedSpecId !== null) ctx.surfaces.handoff?.copyPrDescription(ctx.focusedSpecId) },
   },
 
 

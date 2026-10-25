@@ -144,7 +144,11 @@
       "saveView": "Save current view",
       "switchView": "Switch view",
       "openBudget": "Open Budget (caps, projection, what-if)",
-      "openBudgetKeywords": "budget, cap, limit, weekly, monthly, spend, cost"
+      "openBudgetKeywords": "budget, cap, limit, weekly, monthly, spend, cost",
+      "exportHandoffN": "Export hand-off for #{{id}}",
+      "copyPrDescriptionN": "Copy PR description for #{{id}}",
+      "exportHandoff": "Export hand-off",
+      "copyPrDescription": "Copy PR description"
     },
     "scopes": {
       "remove": "Remove scope",

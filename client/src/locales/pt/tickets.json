@@ -202,5 +202,112 @@
   "split": {
     "label": "Comparar specs",
     "resize": "Redimensionar painéis"
+  },
+  "timeline": {
+    "tabs": {
+      "aria": "Secções da spec",
+      "details": "Detalhes",
+      "timeline": "Cronologia"
+    },
+    "filters": {
+      "aria": "Filtrar por tipo"
+    },
+    "kinds": {
+      "spec_edit": "Spec",
+      "addendum": "Adendas",
+      "mission_turn": "Missões",
+      "job": "Execuções",
+      "phase": "Fases",
+      "audit": "Ações",
+      "pr_event": "PR",
+      "review": "Revisão"
+    },
+    "loading": "A carregar a cronologia…",
+    "error": "Não foi possível carregar a cronologia.",
+    "retry": "Tentar de novo",
+    "loadMore": "Mostrar anteriores",
+    "empty": {
+      "title": "Ainda não aconteceu nada com esta spec",
+      "description": "Edições, adendas, missões, execuções, eventos de PR e vereditos de revisão aparecem aqui à medida que acontecem.",
+      "filtered": "Não há entradas deste tipo.",
+      "refresh": "Atualizar"
+    },
+    "today": "Hoje",
+    "yesterday": "Ontem",
+    "expand": "Mostrar detalhes",
+    "collapse": "Ocultar detalhes",
+    "actors": {
+      "user": "Você",
+      "mcp": "Cliente externo",
+      "system": "Sistema",
+      "agent": "Agente"
+    },
+    "tone": {
+      "failure": "Falhou",
+      "review": "Requer revisão",
+      "ok": "Concluído"
+    },
+    "events": {
+      "spec_created": "Spec criada",
+      "spec_updated": "Spec editada",
+      "spec_comment": "Comentário adicionado",
+      "spec_ai_ai-edit": "Editada com IA",
+      "spec_ai_quick-spec": "Gerada com Quick",
+      "spec_ai_smash": "Dividida em sub-specs",
+      "spec_ai_triage": "Triada",
+      "spec_ai_spec-launcher": "Lançada com IA",
+      "addendum_created": "Adenda adicionada",
+      "addendum_applied": "Adenda aplicada",
+      "addendum_in_flight": "Adenda em curso",
+      "addendum_dismissed": "Adenda descartada",
+      "job_run": "Execução",
+      "pr_delivery_started": "Entrega iniciada",
+      "pr_ready_for_review": "Pronta para revisão",
+      "pr_published": "Pull request publicado",
+      "pr_merged": "Mesclada",
+      "pr_failed": "Entrega falhou",
+      "pr_discarded": "Entrega descartada",
+      "pr_superseded": "Entrega substituída",
+      "review_approved": "O revisor aprovou",
+      "review_changes_requested": "O revisor pediu alterações",
+      "review_failed": "A verificação falhou",
+      "review_recorded": "Revisão registada",
+      "mission_turns_one": "{{count}} turno de missão",
+      "mission_turns_other": "{{count}} turnos de missão",
+      "phase_group_one": "{{count}} fase",
+      "phase_group_other": "{{count}} fases",
+      "audit_group_one": "{{count}} ação do agente",
+      "audit_group_other": "{{count}} ações do agente"
+    },
+    "phaseFailed": "{{count}} com falha",
+    "findings_one": "{{count}} achado",
+    "findings_other": "{{count}} achados",
+    "cost": {
+      "billed": "{{amount}}",
+      "estimated": "~{{amount}} est.",
+      "billedTitle": "Reportado pelo fornecedor",
+      "estimatedTitle": "Estimado pela tabela de preços local, não faturado",
+      "turns_one": "{{count}} turno",
+      "turns_other": "{{count}} turnos"
+    },
+    "links": {
+      "mission": "Abrir missão",
+      "job": "Abrir execução",
+      "review": "Abrir revisão",
+      "pr": "Abrir pull request",
+      "spec": "Esta spec"
+    },
+    "export": {
+      "menu": "Exportar passagem",
+      "markdown": "Passagem em Markdown",
+      "html": "Passagem em HTML",
+      "copyPr": "Copiar como descrição de PR",
+      "saved": "Passagem de #{{id}} guardada",
+      "copied": "Descrição de PR de #{{id}} copiada",
+      "failed": "Não foi possível gerar a passagem.",
+      "copyFailed": "Não foi possível copiar para a área de transferência.",
+      "redacted_one": "{{count}} valor semelhante a um segredo foi ocultado.",
+      "redacted_other": "{{count}} valores semelhantes a segredos foram ocultados."
+    }
   }
 }

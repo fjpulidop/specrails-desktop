@@ -80,6 +80,14 @@ Supprimer une spec, la déplacer vers un autre statut, modifier ses étiquettes 
 
 Une spec supprimée (comme une mission supprimée) n'est pas perdue. Elle passe dans **Réglages → Supprimés récemment**, dans les paramètres du projet, où vous pouvez la **Restaurer** pendant 30 jours ou la **Supprimer définitivement**, ce qui demande confirmation. Après 30 jours, elle est supprimée pour de bon. Abandonner un travail non poussé, fermer de force une pull request et retirer un projet demandent toujours confirmation, car ils sont irréversibles. Une spec liée à Jira se déplace toujours avec **Déplacer vers** au lieu d'être supprimée.
 
+## La chronologie de la spec et la passation {#spec-timeline}
+
+Ouvrez une spec et passez à l’onglet **Chronologie** pour lire toute son histoire au même endroit : les modifications et addenda, les missions qui l’ont touchée, chaque exécution avec ses phases et les actions de l’agent, les événements de la pull request et le verdict du relecteur avec ses constats. Les entrées sont regroupées par jour, les pastilles filtrent par type et chaque entrée renvoie à la mission, à l’exécution ou à la relecture dont elle provient. Les longs groupes (phases, actions de l’agent, tours de mission) sont repliés avec un compteur et se déplient sur place.
+
+Le coût apparaît à côté de l’entrée qui l’a engendré, les deux sortes restant séparées : un montant communiqué par le fournisseur et un montant estimé d’après la grille tarifaire locale (marqué « est. »). Si un fournisseur est facturé via un forfait, la chronologie et les exports affichent des tours, jamais des dollars ; une exécution sans coût communiqué n’en affiche simplement pas.
+
+**Exporter la passation** (le menu à côté des onglets, ou ⌘K → *Exporter la passation de #N*) produit un fichier Markdown ou une page HTML autonome avec le résumé, les décisions (addenda, clarifications, verdicts du relecteur), les statistiques du diff, le coût et ce qui reste ouvert (addenda ouverts et constats de relecture non résolus). **Copier comme description de PR** (aussi dans ⌘K) place une version plus courte en Markdown dans le presse-papiers. Les titres suivent la langue de l’application. Tout passe par le même masquage des secrets que l’audit des actions de l’agent, et la notification indique quand quelque chose a été masqué.
+
 ## Pour aller plus loin
 
 - [Ajouter une spec — mode Quick](add-spec-quick-mode.md) — la façon la plus rapide de transformer une idée en spec.

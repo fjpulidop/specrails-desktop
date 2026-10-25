@@ -238,7 +238,8 @@
       "loopBuilder": "the Loop Builder",
       "shortcuts": "keyboard shortcuts",
       "inbox": "the Needs you inbox",
-      "specsBoard": "specs and the backlog"
+      "specsBoard": "specs and the backlog",
+      "specTimeline": "the spec timeline and hand-off"
     }
   },
   "forecast": {

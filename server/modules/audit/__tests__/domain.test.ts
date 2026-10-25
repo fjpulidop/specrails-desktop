@@ -8,6 +8,7 @@ import {
   parseAgentAuditFormat,
   patchPaths,
   redactCommand,
+  redactProse,
   redactUrl,
   retentionCutoff,
   toAgentActionRow,
@@ -171,5 +172,31 @@ describe('export formats and retention', () => {
     const now = Date.parse('2026-10-31T00:00:00.000Z')
     expect(retentionCutoff(now, 30)).toBe('2026-10-01T00:00:00.000Z')
     expect(retentionCutoff(now, 0)).toBe('2026-10-30T00:00:00.000Z')
+  })
+})
+
+describe('redactProse', () => {
+  it('scrubs secrets from prose without mangling ordinary words', () => {
+    const text = [
+      'Token refresh happens hourly and Basic authentication is off.',
+      'Set NODE_ENV=production for the build.',
+      'Use API_KEY=supersecretvalue99 and password: hunter2hunter2.',
+      'Key sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789ABCD and ghp_abcdefghijklmnopqrstuvwxyz0123456789 and AKIAABCDEFGHIJKLMNOP.',
+      'Clone postgres://admin:hunter2hunter2@db.internal/app now.',
+      'Authorization: Bearer abcdefghijklmnop1234567890',
+      '-----BEGIN RSA PRIVATE KEY-----\nMIIEabc\n-----END RSA PRIVATE KEY-----',
+    ].join('\n')
+    const out = redactProse(text)
+    expect(out).toContain('Token refresh happens hourly and Basic authentication is off.')
+    expect(out).toContain('NODE_ENV=production')
+    for (const secret of ['supersecretvalue99', 'hunter2hunter2', 'sk-ant-api03', 'ghp_abcdefgh', 'AKIAABCDEFGHIJKLMNOP', 'abcdefghijklmnop1234567890', 'MIIEabc']) {
+      expect(out).not.toContain(secret)
+    }
+  })
+
+  it('is idempotent and leaves clean text untouched', () => {
+    expect(redactProse('Nothing to hide here.')).toBe('Nothing to hide here.')
+    const once = redactProse('API_KEY=abc123abc123')
+    expect(redactProse(once)).toBe(once)
   })
 })

@@ -60,6 +60,10 @@ const coreDependencies: Record<string, string[]> = {
   'specs/domain/triage.ts': [],
   // Ticket non-goals ("Out of scope"): validation, extraction, rendering.
   'specs/domain/non-goals.ts': [],
+  // Spec lifecycle timeline and hand-off export: pure vocabulary, paging, cost folding and renderers.
+  'specs/domain/timeline.ts': [],
+  'specs/domain/handoff-labels.ts': [],
+  'specs/domain/handoff.ts': ['./handoff-labels'],
   // Project rules inventory (.specrails/rules.json, annex D.5): pure parsing.
   'project-rules/domain.ts': [],
   // Inbox (needs-you read-model): pure vocabulary; the collector depends only on its own port.

@@ -202,5 +202,112 @@
   "split": {
     "label": "スペックを比較",
     "resize": "パネルのサイズを変更"
+  },
+  "timeline": {
+    "tabs": {
+      "aria": "スペックのセクション",
+      "details": "詳細",
+      "timeline": "タイムライン"
+    },
+    "filters": {
+      "aria": "種類で絞り込み"
+    },
+    "kinds": {
+      "spec_edit": "スペック",
+      "addendum": "補足",
+      "mission_turn": "ミッション",
+      "job": "実行",
+      "phase": "フェーズ",
+      "audit": "エージェント操作",
+      "pr_event": "PR",
+      "review": "レビュー"
+    },
+    "loading": "タイムラインを読み込み中…",
+    "error": "タイムラインを読み込めませんでした。",
+    "retry": "再試行",
+    "loadMore": "古い項目を表示",
+    "empty": {
+      "title": "このスペックにはまだ何も起きていません",
+      "description": "編集、補足、ミッション、実行、PR イベント、レビューの判定が発生するたびにここに表示されます。",
+      "filtered": "この種類の項目はありません。",
+      "refresh": "更新"
+    },
+    "today": "今日",
+    "yesterday": "昨日",
+    "expand": "詳細を表示",
+    "collapse": "詳細を隠す",
+    "actors": {
+      "user": "あなた",
+      "mcp": "外部クライアント",
+      "system": "システム",
+      "agent": "エージェント"
+    },
+    "tone": {
+      "failure": "失敗",
+      "review": "要レビュー",
+      "ok": "完了"
+    },
+    "events": {
+      "spec_created": "スペックを作成",
+      "spec_updated": "スペックを編集",
+      "spec_comment": "コメントを追加",
+      "spec_ai_ai-edit": "AI で編集",
+      "spec_ai_quick-spec": "Quick で生成",
+      "spec_ai_smash": "サブスペックに分割",
+      "spec_ai_triage": "トリアージ済み",
+      "spec_ai_spec-launcher": "AI で起動",
+      "addendum_created": "補足を追加",
+      "addendum_applied": "補足を適用",
+      "addendum_in_flight": "補足を実行中",
+      "addendum_dismissed": "補足を破棄",
+      "job_run": "実行",
+      "pr_delivery_started": "デリバリー開始",
+      "pr_ready_for_review": "レビュー待ち",
+      "pr_published": "プルリクエストを公開",
+      "pr_merged": "マージ済み",
+      "pr_failed": "デリバリー失敗",
+      "pr_discarded": "デリバリーを破棄",
+      "pr_superseded": "デリバリーを置換",
+      "review_approved": "レビュアーが承認",
+      "review_changes_requested": "レビュアーが変更を依頼",
+      "review_failed": "検証失敗",
+      "review_recorded": "レビューを記録",
+      "mission_turns_one": "ミッション {{count}} ターン",
+      "mission_turns_other": "ミッション {{count}} ターン",
+      "phase_group_one": "{{count}} フェーズ",
+      "phase_group_other": "{{count}} フェーズ",
+      "audit_group_one": "エージェント操作 {{count}} 件",
+      "audit_group_other": "エージェント操作 {{count}} 件"
+    },
+    "phaseFailed": "{{count}} 件失敗",
+    "findings_one": "指摘 {{count}} 件",
+    "findings_other": "指摘 {{count}} 件",
+    "cost": {
+      "billed": "{{amount}}",
+      "estimated": "約 {{amount}}（推定）",
+      "billedTitle": "プロバイダーが報告",
+      "estimatedTitle": "ローカルの料金表からの推定で、請求額ではありません",
+      "turns_one": "{{count}} ターン",
+      "turns_other": "{{count}} ターン"
+    },
+    "links": {
+      "mission": "ミッションを開く",
+      "job": "実行を開く",
+      "review": "レビューを開く",
+      "pr": "プルリクエストを開く",
+      "spec": "このスペック"
+    },
+    "export": {
+      "menu": "引き継ぎをエクスポート",
+      "markdown": "引き継ぎ（Markdown）",
+      "html": "引き継ぎ（HTML）",
+      "copyPr": "PR の説明としてコピー",
+      "saved": "#{{id}} の引き継ぎを保存しました",
+      "copied": "#{{id}} の PR 説明をコピーしました",
+      "failed": "引き継ぎを作成できませんでした。",
+      "copyFailed": "クリップボードにコピーできませんでした。",
+      "redacted_one": "機密に見える値を {{count}} 件伏せました。",
+      "redacted_other": "機密に見える値を {{count}} 件伏せました。"
+    }
   }
 }

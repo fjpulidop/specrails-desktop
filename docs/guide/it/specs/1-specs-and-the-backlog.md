@@ -80,6 +80,14 @@ Eliminare una spec, spostarla in un altro stato, cambiarne le etichette o toglie
 
 Una spec eliminata (e una missione eliminata) non sparisce. Va in **Impostazioni → Eliminati di recente**, nelle impostazioni del progetto, dove puoi **Ripristinarla** per 30 giorni o **Eliminarla definitivamente**, che chiede prima conferma. Dopo 30 giorni viene rimossa per sempre. Scartare lavoro non pushato, chiudere con la forza una pull request e rimuovere un progetto chiedono ancora conferma, perché non si possono annullare. Una spec collegata a Jira si sposta ancora con **Sposta in** invece di essere eliminata.
 
+## La cronologia della spec e il passaggio di consegne {#spec-timeline}
+
+Apri una spec e passa alla scheda **Cronologia** per leggere tutta la sua storia in un unico posto: le modifiche e gli addenda, le missioni che l’hanno toccata, ogni esecuzione con le sue fasi e le azioni dell’agente, gli eventi della pull request e il verdetto del revisore con i suoi rilievi. Le voci sono raggruppate per giorno, i chip filtrano per tipo e ogni voce rimanda alla missione, all’esecuzione o alla revisione da cui proviene. I gruppi lunghi (fasi, azioni dell’agente, turni di missione) sono compressi con un contatore e si espandono sul posto.
+
+Il costo compare accanto alla voce che lo ha generato, con i due tipi tenuti separati: una cifra riportata dal provider e una stimata dalla tabella prezzi locale (segnata «stim.»). Se un provider è fatturato tramite abbonamento, la cronologia e le esportazioni mostrano i turni, mai i dollari; un’esecuzione che non ha riportato costo semplicemente non ne mostra.
+
+**Esporta passaggio di consegne** (il menu accanto alle schede, o ⌘K → *Esporta passaggio di #N*) scrive un file Markdown o una pagina HTML autonoma con il riepilogo, le decisioni (addenda, chiarimenti, verdetti del revisore), le statistiche del diff, il costo e ciò che resta aperto (addenda aperti e rilievi di revisione non risolti). **Copia come descrizione della PR** (anche in ⌘K) mette negli appunti una versione più breve in Markdown. Le intestazioni seguono la lingua dell’app. Tutto passa per la stessa oscuratura dei segreti usata dall’audit delle azioni dell’agente, e la notifica ti dice quando qualcosa è stato oscurato.
+
 ## Dove andare adesso
 
 - [Aggiungi spec — Modalità Quick](add-spec-quick-mode.md) — il modo più rapido per trasformare un'idea in una spec.

@@ -39,6 +39,12 @@ vi.mock('../specs-smash/SmashActions', () => ({
 const mockOpenExternalUrl = vi.fn()
 vi.mock('../../../../lib/tauri-shell', () => ({ openExternalUrl: (u: string) => mockOpenExternalUrl(u) }))
 
+const { mockExportHandoff, mockCopyPr } = vi.hoisted(() => ({ mockExportHandoff: vi.fn(), mockCopyPr: vi.fn() }))
+vi.mock('../../lib/spec-handoff-actions', () => ({ exportHandoff: mockExportHandoff, copyPrDescription: mockCopyPr }))
+vi.mock('../SpecTimeline', () => ({
+  SpecTimeline: ({ ticketId, refreshKey }: { ticketId: number; refreshKey?: string }) => <div data-testid="spec-timeline-stub">{ticketId}:{refreshKey}</div>,
+}))
+
 import { TicketDetailModal } from '../TicketDetailModal'
 import type { LocalTicket } from '../../../../types'
 
@@ -97,6 +103,44 @@ describe('TicketDetailModal', () => {
       const dialog = screen.getByRole('dialog')
       expect(dialog).toHaveAttribute('data-dialog-layer', 'entity')
       expect(dialog).toHaveAccessibleName('Test ticket')
+    })
+  })
+
+  describe('Timeline tab and hand-off export', () => {
+    it('keeps Details as the default and switches to the Timeline tab without touching history', () => {
+      render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 7 }) })} />)
+      expect(screen.getByTestId('ticket-tab-details')).toHaveAttribute('aria-selected', 'true')
+      expect(screen.queryByTestId('spec-timeline-stub')).not.toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('ticket-tab-timeline'))
+      expect(screen.getByTestId('ticket-tab-timeline')).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByTestId('spec-timeline-stub')).toHaveTextContent('7:2026-01-01T00:00:00.000Z')
+      expect(screen.getByRole('tabpanel')).toHaveAttribute('id', 'ticket-panel-timeline')
+      fireEvent.keyDown(screen.getByTestId('ticket-tab-timeline'), { key: 'ArrowLeft' })
+      expect(screen.getByTestId('ticket-tab-details')).toHaveAttribute('aria-selected', 'true')
+      expect(screen.queryByTestId('spec-timeline-stub')).not.toBeInTheDocument()
+    })
+
+    it('returns to Details when another spec opens in the same modal', () => {
+      const { rerender } = render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 7 }) })} />)
+      fireEvent.click(screen.getByTestId('ticket-tab-timeline'))
+      rerender(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 8 }) })} />)
+      expect(screen.getByTestId('ticket-tab-details')).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('exports Markdown, HTML and the PR description from the Export menu', async () => {
+      const user = userEvent.setup()
+      render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 7 }) })} />)
+      await user.click(screen.getByTestId('ticket-export-menu'))
+      fireEvent.click(await screen.findByTestId('ticket-export-md'))
+      expect(mockExportHandoff).toHaveBeenCalledWith(7, 'md', expect.any(Function))
+      await waitFor(() => expect(screen.queryByTestId('ticket-export-md')).not.toBeInTheDocument())
+      await user.click(screen.getByTestId('ticket-export-menu'))
+      fireEvent.click(await screen.findByTestId('ticket-export-html'))
+      expect(mockExportHandoff).toHaveBeenCalledWith(7, 'html', expect.any(Function))
+      await waitFor(() => expect(screen.queryByTestId('ticket-export-md')).not.toBeInTheDocument())
+      await user.click(screen.getByTestId('ticket-export-menu'))
+      fireEvent.click(await screen.findByTestId('ticket-copy-pr'))
+      expect(mockCopyPr).toHaveBeenCalledWith(7, expect.any(Function))
     })
   })
 

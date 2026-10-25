@@ -12,4 +12,5 @@ description = "Fake credentials used only by redaction and environment-filtering
 paths = [
   '''^server/modules/audit/__tests__/domain\.test\.ts$''',
   '''^server/modules/execution/__tests__/agent-env\.test\.ts$''',
+  '''^server/modules/specs/runtime/spec-timeline\.test\.ts$''',
 ]

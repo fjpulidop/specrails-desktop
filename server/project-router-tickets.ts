@@ -57,6 +57,7 @@ import { captureProcessAdmission } from './process-admission'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
 import multer from 'multer'
+import { registerSpecTimelineRoutes } from './modules/specs/adapters/timeline-http'
 import { attachmentManager, isSupportedUploadedFile, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import {
   type ProjectRoutesDeps,
@@ -1418,6 +1419,9 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (failure === 'in_flight') { res.status(409).json({ error: 'addendum_in_flight', detail: 'the addendum is frozen inside a running job; wait for it to settle' }); return }
     res.status(409).json({ error: 'addendum_applied', detail: 'an applied addendum is history; reopen it or add a new one' })
   }
+
+  // GET /:projectId/tickets/:ticketId/timeline and /handoff — the spec lifecycle projection and its export.
+  registerSpecTimelineRoutes(router, { ctx, ticketPath })
 
   // GET /:projectId/tickets/:id/addenda — list a spec's addenda
   router.get('/:projectId/tickets/:id/addenda', (req: Request, res: Response) => {

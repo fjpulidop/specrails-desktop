@@ -202,5 +202,112 @@
   "split": {
     "label": "比较规格",
     "resize": "调整面板大小"
+  },
+  "timeline": {
+    "tabs": {
+      "aria": "规格分区",
+      "details": "详情",
+      "timeline": "时间线"
+    },
+    "filters": {
+      "aria": "按类型筛选"
+    },
+    "kinds": {
+      "spec_edit": "规格",
+      "addendum": "补充",
+      "mission_turn": "任务",
+      "job": "运行",
+      "phase": "阶段",
+      "audit": "智能体操作",
+      "pr_event": "PR",
+      "review": "评审"
+    },
+    "loading": "正在加载时间线…",
+    "error": "无法加载时间线。",
+    "retry": "重试",
+    "loadMore": "显示更早的",
+    "empty": {
+      "title": "此规格尚无任何记录",
+      "description": "编辑、补充、任务、运行、PR 事件和评审结论会在发生时显示在这里。",
+      "filtered": "没有此类条目。",
+      "refresh": "刷新"
+    },
+    "today": "今天",
+    "yesterday": "昨天",
+    "expand": "显示详情",
+    "collapse": "隐藏详情",
+    "actors": {
+      "user": "你",
+      "mcp": "外部客户端",
+      "system": "系统",
+      "agent": "智能体"
+    },
+    "tone": {
+      "failure": "失败",
+      "review": "待评审",
+      "ok": "完成"
+    },
+    "events": {
+      "spec_created": "规格已创建",
+      "spec_updated": "规格已编辑",
+      "spec_comment": "已添加评论",
+      "spec_ai_ai-edit": "已用 AI 编辑",
+      "spec_ai_quick-spec": "已用 Quick 生成",
+      "spec_ai_smash": "已拆分为子规格",
+      "spec_ai_triage": "已分诊",
+      "spec_ai_spec-launcher": "已用 AI 启动",
+      "addendum_created": "已添加补充",
+      "addendum_applied": "补充已应用",
+      "addendum_in_flight": "补充进行中",
+      "addendum_dismissed": "补充已忽略",
+      "job_run": "运行",
+      "pr_delivery_started": "交付已开始",
+      "pr_ready_for_review": "可供评审",
+      "pr_published": "拉取请求已发布",
+      "pr_merged": "已合并",
+      "pr_failed": "交付失败",
+      "pr_discarded": "交付已丢弃",
+      "pr_superseded": "交付已被取代",
+      "review_approved": "评审已批准",
+      "review_changes_requested": "评审要求修改",
+      "review_failed": "验证失败",
+      "review_recorded": "已记录评审",
+      "mission_turns_one": "{{count}} 轮任务交互",
+      "mission_turns_other": "{{count}} 轮任务交互",
+      "phase_group_one": "{{count}} 个阶段",
+      "phase_group_other": "{{count}} 个阶段",
+      "audit_group_one": "{{count}} 个智能体操作",
+      "audit_group_other": "{{count}} 个智能体操作"
+    },
+    "phaseFailed": "{{count}} 个失败",
+    "findings_one": "{{count}} 项发现",
+    "findings_other": "{{count}} 项发现",
+    "cost": {
+      "billed": "{{amount}}",
+      "estimated": "约 {{amount}}（估算）",
+      "billedTitle": "由提供方报告",
+      "estimatedTitle": "按本地价格表估算，非实际计费",
+      "turns_one": "{{count}} 轮",
+      "turns_other": "{{count}} 轮"
+    },
+    "links": {
+      "mission": "打开任务",
+      "job": "打开运行",
+      "review": "打开评审",
+      "pr": "打开拉取请求",
+      "spec": "此规格"
+    },
+    "export": {
+      "menu": "导出交接",
+      "markdown": "交接（Markdown）",
+      "html": "交接（HTML）",
+      "copyPr": "复制为 PR 描述",
+      "saved": "已保存 #{{id}} 的交接",
+      "copied": "已复制 #{{id}} 的 PR 描述",
+      "failed": "无法生成交接文档。",
+      "copyFailed": "无法复制到剪贴板。",
+      "redacted_one": "已隐去 {{count}} 个疑似机密的值。",
+      "redacted_other": "已隐去 {{count}} 个疑似机密的值。"
+    }
   }
 }

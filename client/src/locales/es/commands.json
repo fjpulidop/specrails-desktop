@@ -144,7 +144,11 @@
       "saveView": "Guardar la vista actual",
       "switchView": "Cambiar de vista",
       "openBudget": "Abrir Presupuesto (límites, proyección, y si…)",
-      "openBudgetKeywords": "presupuesto, límite, semanal, mensual, gasto, coste, budget"
+      "openBudgetKeywords": "presupuesto, límite, semanal, mensual, gasto, coste, budget",
+      "exportHandoffN": "Exportar traspaso de #{{id}}",
+      "copyPrDescriptionN": "Copiar descripción de PR de #{{id}}",
+      "exportHandoff": "Exportar traspaso",
+      "copyPrDescription": "Copiar descripción de PR"
     },
     "scopes": {
       "remove": "Quitar ámbito",

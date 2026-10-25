@@ -144,7 +144,11 @@
       "saveView": "現在のビューを保存",
       "switchView": "ビューを切り替え",
       "openBudget": "予算を開く（上限・予測・もしも）",
-      "openBudgetKeywords": "予算, 上限, 週間, 月間, 支出, コスト, budget"
+      "openBudgetKeywords": "予算, 上限, 週間, 月間, 支出, コスト, budget",
+      "exportHandoffN": "#{{id}} の引き継ぎをエクスポート",
+      "copyPrDescriptionN": "#{{id}} の PR 説明をコピー",
+      "exportHandoff": "引き継ぎをエクスポート",
+      "copyPrDescription": "PR 説明をコピー"
     },
     "scopes": {
       "remove": "範囲を解除",

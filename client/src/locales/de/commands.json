@@ -144,7 +144,11 @@
       "saveView": "Aktuelle Ansicht speichern",
       "switchView": "Ansicht wechseln",
       "openBudget": "Budget öffnen (Limits, Prognose, Was-wäre-wenn)",
-      "openBudgetKeywords": "budget, limit, wöchentlich, monatlich, ausgaben, kosten"
+      "openBudgetKeywords": "budget, limit, wöchentlich, monatlich, ausgaben, kosten",
+      "exportHandoffN": "Übergabe für #{{id}} exportieren",
+      "copyPrDescriptionN": "PR-Beschreibung für #{{id}} kopieren",
+      "exportHandoff": "Übergabe exportieren",
+      "copyPrDescription": "PR-Beschreibung kopieren"
     },
     "scopes": {
       "remove": "Bereich entfernen",

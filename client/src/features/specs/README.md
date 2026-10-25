@@ -121,6 +121,29 @@ without it cards stay plain buttons (rails render `SpecCard` without a selection
   selection, Save current view and Switch view always; Move / Label / Priority / Add to rail /
   Launch / Delete only while specs are selected, all through the same handlers as the bar.
 
+## Timeline tab and hand-off export
+
+The spec modal has two tabs, **Details** and **Timeline** (a tab inside a modal is not a place: no history
+entry, it returns to Details when another spec opens). [`SpecTimeline`](components/SpecTimeline.tsx) reads
+`GET /tickets/:id/timeline` ([server](../../../../server/modules/specs/README.md)): entries grouped by day,
+kind chips with counts (the filter is applied server-side, `aria-pressed`), collapsed groups (phases, agent
+actions, mission turns) that expand in place, "Show older" for the cursor, an `EmptyState` with a Learn more
+hint (`specTimeline`), and cached entries kept on screen while a refresh runs.
+
+- **Lamp tokens.** `failure` uses `text-destructive`, `review` the review lamp (`text-accent-review`), `ok` the
+  success accent; a non-neutral tone also has a screen-reader prefix.
+- **Links are places.** Each entry's `link` is `{ place, id }`; [`timelineTarget`](lib/spec-timeline.ts) writes it the
+  way the current mode writes places (Board: `/jobs/:id`, `/review/:id`; Mission mode: `?job=` / `?review=` layered on
+  the current mission, `?spec` dropped). A mission link needs Mission mode, so the host switches mode first.
+- **Cost.** Billed and estimated amounts are shown apart (`~$x est.` with a tooltip); a provider billed through a plan
+  (`planProviderIds` from the subscription snapshot) shows turns, never dollars; an entry without a reported cost shows none.
+- **Export hand-off** (menu beside the tabs): Markdown or HTML through [`saveTextFile`](../../lib/save-text-file.ts) (the
+  host's save dialog in Tauri, an anchor download in a browser), and **Copy as PR description** to the clipboard with a toast
+  ([`spec-handoff-actions.ts`](lib/spec-handoff-actions.ts)). The client sends the UI language and the plan providers; the
+  server redacts and renders, and the toast mentions how many values were hidden.
+- **⌘K.** The modal registers the `handoff` palette surface: *Export hand-off for #N* and *Copy PR description for #N*
+  appear only while that spec's modal is open and run the same handlers as the menu.
+
 ## Extension seam
 
 [`SpecExtensionsContext`](context/SpecExtensionsContext.tsx) lets a feature

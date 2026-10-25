@@ -5,8 +5,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { formatDistanceToNow } from 'date-fns'
 import { useTranslation } from 'react-i18next'
-import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink, MoreHorizontal, Split } from 'lucide-react'
-import { useInRouterContext, useNavigate } from 'react-router-dom'
+import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink, MoreHorizontal, Split, Download, FileText, FileCode, ClipboardCopy } from 'lucide-react'
+import { useInRouterContext, useLocation, useNavigate } from 'react-router-dom'
 import { openExternalUrl } from '../../../lib/tauri-shell'
 import { toast } from 'sonner'
 import { getDateFnsLocale } from '../../../lib/i18n'
@@ -21,6 +21,12 @@ import { cn } from '../../../lib/utils'
 import { AttachmentsSection } from '../../chat/components/AttachmentsSection'
 import { TicketFilesTouched } from '../../code/components/code-explorer/TicketFilesTouched'
 import { SpecAddendaSection } from './SpecAddendaSection'
+import { SpecTimeline } from './SpecTimeline'
+import { copyPrDescription, exportHandoff } from '../lib/spec-handoff-actions'
+import type { TimelineTarget } from '../lib/spec-timeline'
+import { useUiMode } from '../../../context/UiModeContext'
+import { PLACE_PUSH_STATE } from '../../../lib/places'
+import { useRegisterPaletteSurface } from '../../../lib/palette-bridge'
 import { TicketSpendingLine } from '../../analytics/components/TicketSpendingLine'
 import { TicketStatusBadge } from './TicketStatusIndicator'
 import { useMinimizedChats } from '../../missions/context/MinimizedChatsContext'
@@ -126,6 +132,13 @@ export function TicketDetailModal({
   const { activeProjectId, projects } = useDesktop()
   const { enterSplit, state: splitState } = useTicketDetailModal()
   const inSplit = splitState.originSide !== null
+  // ⌘K: "Export hand-off for #N" / "Copy PR description for #N" run the very handlers the Export menu calls.
+  const { t: tTimeline } = useTranslation('tickets')
+  useRegisterPaletteSurface('handoff', {
+    ticketId: () => ticket.id,
+    exportHandoff: (id) => { void exportHandoff(id, 'md', tTimeline) },
+    copyPrDescription: (id) => { void copyPrDescription(id, tTimeline) },
+  })
   // Feature flag for SMASH. Server gates with `SPECRAILS_SMASH=0` returning
   // 409 from endpoints; the UI optimistically shows the affordance and lets
   // the server reject if disabled.
@@ -136,6 +149,8 @@ export function TicketDetailModal({
   // closed while project context is loading.
   const activeProvider = projects.find((p) => p.id === activeProjectId)?.provider
   const smashFlagOn = isSmashCapable(activeProvider)
+  const [tab, setTab] = useState<'details' | 'timeline'>('details')
+  useEffect(() => { setTab('details') }, [ticket.id])
   const [statusPrimaryShown, setStatusPrimaryShown] = useState(false)
   const [smashAvailable, setSmashAvailable] = useState(false)
   const [smashOpenRequest, setSmashOpenRequest] = useState(0)
@@ -610,8 +625,61 @@ export function TicketDetailModal({
           </button>
         </div>
 
+        {/* Sections: a tab inside the modal is not a place (no history entry). */}
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/30 px-5" data-testid="ticket-modal-tabs">
+          <div role="tablist" aria-label={t('timeline.tabs.aria')} className="flex items-center gap-1">
+            {(['details', 'timeline'] as const).map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                id={`ticket-tab-${id}`}
+                aria-selected={tab === id}
+                aria-controls={`ticket-panel-${id}`}
+                tabIndex={tab === id ? 0 : -1}
+                data-testid={`ticket-tab-${id}`}
+                onClick={() => setTab(id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); setTab(id === 'details' ? 'timeline' : 'details') }
+                }}
+                className={cn(
+                  '-mb-px border-b-2 px-2.5 py-2 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  tab === id ? 'border-accent-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {t(`timeline.tabs.${id}`)}
+              </button>
+            ))}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              data-testid="ticket-export-menu"
+              className="my-1 inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-label text-muted-foreground transition-colors hover:bg-surface/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              {t('timeline.export.menu')}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className={DIALOG_LAYER_CLASS.stacked}>
+              <DropdownMenuItem data-testid="ticket-export-md" onSelect={() => { void exportHandoff(ticket.id, 'md', t) }}>
+                <FileText className="h-3.5 w-3.5" aria-hidden />{t('timeline.export.markdown')}
+              </DropdownMenuItem>
+              <DropdownMenuItem data-testid="ticket-export-html" onSelect={() => { void exportHandoff(ticket.id, 'html', t) }}>
+                <FileCode className="h-3.5 w-3.5" aria-hidden />{t('timeline.export.html')}
+              </DropdownMenuItem>
+              <DropdownMenuItem data-testid="ticket-copy-pr" onSelect={() => { void copyPrDescription(ticket.id, t) }}>
+                <ClipboardCopy className="h-3.5 w-3.5" aria-hidden />{t('timeline.export.copyPr')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
         {/* Body */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        {tab === 'timeline' ? (
+          <div className="flex-1 overflow-y-auto min-h-0 px-5 py-4" role="tabpanel" id="ticket-panel-timeline" aria-labelledby="ticket-tab-timeline">
+            <TimelineHost ticketId={ticket.id} refreshKey={ticket.updated_at} onClose={onClose} />
+          </div>
+        ) : (
+        <div className="flex-1 overflow-y-auto min-h-0" role="tabpanel" id="ticket-panel-details" aria-labelledby="ticket-tab-details">
           <div className="flex flex-col sm:flex-row h-full">
             {/* Main content */}
             <div className="flex-1 min-w-0 px-5 py-4 space-y-4 flex flex-col">
@@ -938,6 +1006,7 @@ export function TicketDetailModal({
             </div>
           </div>
         </div>
+        )}
 
         {/* Footer: destructive action + provenance on the left, Save on the right. */}
         <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-3 border-t border-border/40">
@@ -1238,6 +1307,27 @@ function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail, s
       )}
     </>
   )
+}
+
+// ─── Timeline tab host ──────────────────────────────────────────────────────
+
+/** Mounts the timeline with router-aware navigation (the modal also renders outside a router in isolation). */
+function TimelineHost(props: { ticketId: number; refreshKey: string; onClose: () => void }) {
+  const inRouter = useInRouterContext()
+  return inRouter ? <TimelineHostInner {...props} /> : <SpecTimeline ticketId={props.ticketId} refreshKey={props.refreshKey} uiMode="kanban" currentSearch="" onNavigate={() => {}} />
+}
+
+function TimelineHostInner({ ticketId, refreshKey, onClose }: { ticketId: number; refreshKey: string; onClose: () => void }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { uiMode, setUiMode } = useUiMode()
+  const goTo = useCallback((target: TimelineTarget) => {
+    onClose()
+    const go = (): void => { navigate({ pathname: target.pathname, search: target.search }, { state: { [PLACE_PUSH_STATE]: target.place } }) }
+    // A mission only exists in Mission mode: switch first, then navigate in the next task (the mode switch restores its own route).
+    if (target.needsAgentMode) { setUiMode('agent'); setTimeout(go, 0) } else go()
+  }, [navigate, onClose, setUiMode])
+  return <SpecTimeline ticketId={ticketId} refreshKey={refreshKey} uiMode={uiMode} currentSearch={location.search} onNavigate={goTo} onOpenExternal={(url) => { void openExternalUrl(url) }} />
 }
 
 // ─── Status primary action ──────────────────────────────────────────────────
