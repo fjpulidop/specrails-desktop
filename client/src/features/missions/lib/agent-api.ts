@@ -42,6 +42,8 @@ export interface AgentMessage {
   context_refs?: AgentContextReference[]
   delivery_status?: 'delivered' | 'interrupted' | 'cancelled'
   delivery_receipt?: AgentDeliveryReceipt
+  /** The client's own id for a user message (the `queueId` it sent). Lets an optimistic bubble be matched to its saved row by id. */
+  queue_id?: string
   /** Decisions taken on cards inside this message (mission-rail-cards), one per
    *  proposal index. Absent/[] for ordinary rows. */
   intents?: AgentMessageIntent[]

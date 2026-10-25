@@ -521,15 +521,17 @@ type ConversationSnapshot = Awaited<ReturnType<typeof getAgentConversation>>
  * failure notes). A background revalidation replaces the transcript with the
  * persisted one; these must survive it — unless the snapshot already carries
  * the persisted copy of the same user message. That copy is recognised by id only:
- * the bubble's own id, or the server message id the send acknowledged for its
- * queueId (`serverIdOf`). Never by content: a repeated "ok" is a different message.
+ * the bubble's own id, the persisted row's `queue_id` (the id the client sent, which the
+ * server stores with the message), or the server message id the send acknowledged
+ * (`serverIdOf`). Never by content: a repeated "ok" is a different message.
  */
 export function retainOptimisticRows(current: AgentMessage[], persisted: AgentMessage[], serverIdOf?: (queueId: string) => string | undefined): AgentMessage[] {
   return current.filter((message) => {
     if (message.id.startsWith('err-')) return !persisted.some((row) => row.id === message.id)
     if (!message.id.startsWith('local-u-')) return false
-    const serverId = serverIdOf?.(message.id.slice('local-u-'.length))
-    return !persisted.some((row) => row.id === message.id || (serverId !== undefined && row.id === serverId))
+    const queueId = message.id.slice('local-u-'.length)
+    const serverId = serverIdOf?.(queueId)
+    return !persisted.some((row) => row.id === message.id || row.queue_id === queueId || (serverId !== undefined && row.id === serverId))
   })
 }
 
@@ -540,8 +542,15 @@ export function retainOptimisticRows(current: AgentMessage[], persisted: AgentMe
 export function placeOptimisticRows(base: AgentMessage[], optimistic: AgentMessage[]): AgentMessage[] {
   const rows = [...base]
   const placed = new Set<string>()
+  // An anchor on an optimistic bubble (`local-u-<queueId>`) follows it to its saved row once the send is acknowledged.
+  const anchorId = (id: string): string => {
+    if (!id.startsWith('local-u-')) return id
+    const queueId = id.slice('local-u-'.length)
+    return rows.find((row) => row.queue_id === queueId)?.id ?? id
+  }
   for (const message of optimistic) {
-    let index = message.client_after_id ? rows.findIndex((row) => row.id === message.client_after_id) : -1
+    const anchor = message.client_after_id ? anchorId(message.client_after_id) : null
+    let index = anchor ? rows.findIndex((row) => row.id === anchor) : -1
     if (index >= 0) {
       while (index + 1 < rows.length && placed.has(rows[index + 1].id)) index++
       rows.splice(index + 1, 0, message)

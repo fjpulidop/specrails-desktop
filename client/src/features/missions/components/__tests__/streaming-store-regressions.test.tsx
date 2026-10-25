@@ -73,6 +73,7 @@ vi.mock('../../lib/agent-api', async (orig) => {
   }
 })
 
+import { sendAgentMessage } from '../../lib/agent-api'
 import { AgentChatProvider, useAgentChat, retainOptimisticRows, placeOptimisticRows } from '../../context/AgentChatContext'
 import { AgentConversationView } from '../AgentConversationView'
 import { MissionExtensionsProvider, type MissionExtensions, type MissionFenceCardProps } from '../../context/MissionExtensionsContext'
@@ -213,7 +214,18 @@ describe('scroll position on revisit', () => {
 })
 
 describe('optimistic rows and background revalidation', () => {
-  const msg = (id: string, role: 'user' | 'assistant', content: string) => ({ id, conversation_id: 'c1', role, content, created_at: '' })
+  const msg = (id: string, role: 'user' | 'assistant', content: string, extra: Record<string, unknown> = {}) => ({ id, conversation_id: 'c1', role, content, created_at: '', ...extra })
+  it('matches a saved row to its optimistic bubble by the queue id the client sent', () => {
+    const current = [msg('local-u-q1', 'user', 'hello')]
+    expect(retainOptimisticRows(current, [msg('m9', 'user', 'hello', { queue_id: 'q1' })])).toEqual([])
+    // Another message with the same words but a different queue id is a different message.
+    expect(retainOptimisticRows(current, [msg('m9', 'user', 'hello', { queue_id: 'q0' })]).map((m) => m.id)).toEqual(['local-u-q1'])
+  })
+  it('an error note anchored to an optimistic bubble follows it to the saved row', () => {
+    const err = { ...msg('err-1', 'assistant', 'failed'), client_after_id: 'local-u-q1' }
+    const persisted = [msg('m1', 'user', 'a'), msg('m9', 'user', 'hello', { queue_id: 'q1' }), msg('m10', 'assistant', 'reply')]
+    expect(placeOptimisticRows(persisted, [err]).map((m) => m.id)).toEqual(['m1', 'm9', 'err-1', 'm10'])
+  })
   it('keeps unsent local rows and error notes the snapshot does not carry', () => {
     const current = [msg('m1', 'user', 'a'), msg('local-u-q1', 'user', 'pending'), msg('err-1', 'assistant', 'failed')]
     const persisted = [msg('m1', 'user', 'a')]
@@ -256,5 +268,42 @@ describe('optimistic rows and background revalidation', () => {
     await tick(200)
     const mine = chatApi!.messages.filter((m) => m.content === 'still on its way')
     expect(mine).toHaveLength(1)
+  })
+  describe('a revalidation between the save and the acknowledgement', () => {
+    async function startSend() {
+      state.transcripts.set('c1', longTranscript('c1', 4))
+      await boot(<AgentConversationView variant="inline" />)
+      await chatApi!.selectConversation('c1')
+      await until(() => chatApi?.active?.id === 'c1' && chatApi.messages.length === 4)
+      let queueId = ''
+      let reject!: (error: Error) => void
+      let resolve!: (value: unknown) => void
+      vi.mocked(sendAgentMessage).mockImplementationOnce(((_id: string, _text: string, opts?: { queueId?: string }) => {
+        queueId = opts?.queueId ?? ''
+        return new Promise((res, rej) => { resolve = res; reject = rej })
+      }) as never)
+      void chatApi!.send('saved already')
+      await until(() => chatApi!.messages.some((m) => m.id.startsWith('local-u-')))
+      // The server saved it (with the client's queue id) before the POST answered.
+      state.transcripts.set('c1', [...longTranscript('c1', 4), { ...row('c1', 4, 'user', 'saved already'), id: 'srv-5', queue_id: queueId }])
+      await chatApi!.selectConversation('c2')
+      await until(() => chatApi?.active?.id === 'c2')
+      await chatApi!.selectConversation('c1')
+      await until(() => chatApi!.messages.some((m) => m.id === 'srv-5'))
+      return { reject, resolve, queueId }
+    }
+
+    it('shows the message once while the acknowledgement is still pending', async () => {
+      await startSend()
+      await tick(100)
+      expect(chatApi!.messages.filter((m) => m.content === 'saved already').map((m) => m.id)).toEqual(['srv-5'])
+    })
+
+    it('shows it once when the POST then fails after the save', async () => {
+      const { reject } = await startSend()
+      reject(new Error('network dropped'))
+      await tick(100)
+      expect(chatApi!.messages.filter((m) => m.content === 'saved already').map((m) => m.id)).toEqual(['srv-5'])
+    })
   })
 })

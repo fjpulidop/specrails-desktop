@@ -180,6 +180,18 @@ describe('durable mission inputs', () => {
     expect(decorateAgentInputMessages(db, [])).toEqual([])
   })
 
+  it('carries the client queue id on the persisted row so an optimistic bubble can be matched by id', () => {
+    put('First', 'q-first'); put('Second', 'q-second')
+    const delivered = deliverAgentInput(db, conversationId, 'q-second')!
+    expect(delivered.queue_id).toBe('q-second')
+    const decorated = decorateAgentInputMessages(db, listAgentMessages(db, conversationId))
+    expect(decorated).toHaveLength(1)
+    expect(decorated[0]).toMatchObject({ id: delivered.id, queue_id: 'q-second' })
+    // Ordinary history has no queue id.
+    const ordinary = addAgentMessage(db, { conversationId, role: 'assistant', content: 'Plain' })
+    expect(decorateAgentInputMessages(db, [ordinary])[0]).not.toHaveProperty('queue_id')
+  })
+
   it('persists sent before provider handoff and advances receipts on the same original message', () => {
     const original = put().input
     expect(original.receipt).toBe('sent')

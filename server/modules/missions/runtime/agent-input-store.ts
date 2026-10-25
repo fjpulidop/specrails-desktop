@@ -14,7 +14,7 @@ export interface AgentInputOptions {
 export type AgentInputStatus = 'pending' | 'delivered' | 'cancelled' | 'interrupted'
 export type AgentInputDeliveryStatus = Exclude<AgentInputStatus, 'pending'>
 export type AgentInputReceipt = 'sent' | 'received' | 'read'
-export type AgentInputMessage = AgentMessage & { delivery_status: AgentInputDeliveryStatus; delivery_receipt?: AgentInputReceipt }
+export type AgentInputMessage = AgentMessage & { delivery_status: AgentInputDeliveryStatus; delivery_receipt?: AgentInputReceipt; queue_id?: string }
 export interface AgentInput {
   id: string
   conversationId: string
@@ -168,7 +168,7 @@ function settleInput(db: DbInstance, row: RawInput, status: AgentInputDeliverySt
   db.prepare("UPDATE agent_inputs SET status = ?, message_id = ?, receipt = ? WHERE id = ? AND status = 'pending'").run(status, message.id, nextReceipt, row.id)
   return {
     input: mapInput(readRaw(db, row.conversation_id, row.queue_id)!),
-    message: { ...message, delivery_status: status, delivery_receipt: nextReceipt },
+    message: { ...message, delivery_status: status, delivery_receipt: nextReceipt, queue_id: row.queue_id },
   }
 }
 
@@ -185,7 +185,7 @@ export function setAgentInputReceipt(db: DbInstance, conversationId: string, que
     const message = row.message_id ? listAgentMessages(db, conversationId).find((entry) => entry.id === row.message_id) : undefined
     return {
       input: mapInput(updated),
-      ...(message ? { message: { ...message, delivery_status: row.status as AgentInputDeliveryStatus, delivery_receipt: nextReceipt } } : {}),
+      ...(message ? { message: { ...message, delivery_status: row.status as AgentInputDeliveryStatus, delivery_receipt: nextReceipt, queue_id: row.queue_id } } : {}),
     }
   })()
 }
@@ -230,14 +230,19 @@ export function recoverPendingAgentInputs(db: DbInstance, conversationId?: strin
   return settlePending(db, 'interrupted', conversationId)
 }
 
-export function decorateAgentInputMessages<T extends AgentMessage>(db: DbInstance, messages: readonly T[]): Array<T & { delivery_status?: AgentInputDeliveryStatus; delivery_receipt?: AgentInputReceipt }> {
+/**
+ * Adds the delivery state and the client's own `queue_id` to persisted user rows. The
+ * client matches its optimistic bubble to the saved row by that id, so a revalidation that
+ * lands between the save and the send acknowledgement never shows the message twice.
+ */
+export function decorateAgentInputMessages<T extends AgentMessage>(db: DbInstance, messages: readonly T[]): Array<T & { delivery_status?: AgentInputDeliveryStatus; delivery_receipt?: AgentInputReceipt; queue_id?: string }> {
   if (messages.length === 0) return []
   const ids = messages.map((message) => message.id)
-  const rows = db.prepare(`SELECT message_id, status, receipt FROM agent_inputs
-    WHERE message_id IN (SELECT value FROM json_each(?)) AND status <> 'pending'`).all(JSON.stringify(ids)) as Array<{ message_id: string; status: AgentInputDeliveryStatus; receipt: AgentInputReceipt }>
+  const rows = db.prepare(`SELECT message_id, status, receipt, queue_id FROM agent_inputs
+    WHERE message_id IN (SELECT value FROM json_each(?)) AND status <> 'pending'`).all(JSON.stringify(ids)) as Array<{ message_id: string; status: AgentInputDeliveryStatus; receipt: AgentInputReceipt; queue_id: string }>
   const statuses = new Map(rows.map((row) => [row.message_id, row]))
   return messages.map((message) => {
     const status = statuses.get(message.id)
-    return status ? { ...message, delivery_status: status.status, delivery_receipt: status.receipt } : message
+    return status ? { ...message, delivery_status: status.status, delivery_receipt: status.receipt, queue_id: status.queue_id } : message
   })
 }
