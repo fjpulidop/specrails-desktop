@@ -301,4 +301,22 @@ describe('streaming concurrency harness', () => {
     // Whole-text parsing would cost ~1 parse of 18 KB per frame; chunking keeps it to the tail (+ one per new chunk).
     expect(markdownRenders.count).toBeLessThan(FRAMES * 3)
   }, 60000)
+
+  it('a turn starting and ending does not re-parse the settled transcript', async () => {
+    render(<Shell><AgentConversationView variant="inline" /></Shell>)
+    await until(() => chatApi !== null)
+    await chatApi!.refreshConversations()
+    await chatApi!.selectConversation('c1')
+    await until(() => chatApi?.active?.id === 'c1' && chatApi.messages.length === 160)
+    await until(() => markdownRenders.count >= 80)
+    await tick(300)
+    reset()
+    wsHandler({ type: 'agent_stream', conversationId: 'c1', delta: 'Working' })
+    await tick(300)
+    wsHandler({ type: 'agent_done', conversationId: 'c1', messageId: 'done-1', fullText: 'All done' })
+    await tick(400)
+    metrics.turnBoundary = { markdownRenders: markdownRenders.count }
+    // 80 assistant rows would re-parse on each boundary if rows followed the in-flight flag.
+    expect(markdownRenders.count).toBeLessThan(20)
+  }, 60000)
 })

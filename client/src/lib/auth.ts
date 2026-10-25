@@ -63,6 +63,19 @@ export function getDesktopTokenProtocol(): string | undefined {
 /** Rewrite desktop API paths and authenticate only the exact API origin.
  * A rejected token is refreshed once, then the request is replayed once. The
  * server rejects authentication before executing an API mutation. */
+/** Concurrent identical API reads (several hooks mounting on the same screen). */
+const inflightReads = new Map<string, Promise<Response>>()
+
+/** One request per distinct read in flight; every caller gets its own body (clone). */
+function shareInflightRead(key: string, run: () => Promise<Response>): Promise<Response> {
+  let shared = inflightReads.get(key)
+  if (!shared) {
+    shared = run().finally(() => { inflightReads.delete(key) })
+    inflightReads.set(key, shared)
+  }
+  return shared.then((res) => (typeof res.clone === 'function' ? res.clone() : res))
+}
+
 export function installFetchInterceptor(): void {
   if (_installed) return
   _installed = true
@@ -70,7 +83,7 @@ export function installFetchInterceptor(): void {
   _rawFetch = origFetch
   const apiOrigin = API_ORIGIN || window.location.origin
 
-  window.fetch = async function (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const interceptedFetch = async function (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
     const source = input instanceof Request ? input : null
     const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     let target: URL
@@ -115,5 +128,26 @@ export function installFetchInterceptor(): void {
       res = await replay()
     }
     return res
+  }
+
+  window.fetch = function (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+    // Only plain reads without a caller signal (an abort must stay the caller's own)
+    // and never a stream: identical reads started together share one request.
+    const method = (init.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase()
+    if (method !== 'GET' && method !== 'HEAD') {
+      // Read-after-write: a read that starts after a mutation must never join one
+      // that began before it landed.
+      inflightReads.clear()
+      return interceptedFetch(input, init).finally(() => inflightReads.clear())
+    }
+    if (input instanceof Request || init.signal || init.body) return interceptedFetch(input, init)
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : ''
+    let target: URL
+    try { target = new URL(url, apiOrigin) } catch { return interceptedFetch(input, init) }
+    if (target.origin !== apiOrigin || !target.pathname.startsWith('/api/')) return interceptedFetch(input, init)
+    const headers = new Headers(init.headers)
+    if (/event-stream/i.test(headers.get('accept') ?? '')) return interceptedFetch(input, init)
+    const key = `${target.href}\n${[...headers].map(([k, v]) => `${k}:${v}`).sort().join('|')}`
+    return shareInflightRead(key, () => interceptedFetch(input, init))
   }
 }

@@ -107,9 +107,11 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
 
 const NO_ROWS: AgentMessageRow[] = []
 /** Rows mounted on the first paint of a long mission; the rest backfill in a transition. */
-const INITIAL_ROWS = 40
+const INITIAL_ROWS = 24
 /** Older rows skip layout and paint until scrolled near (content-visibility). */
 const RECENT_ROWS_FULL_RENDER = 12
+/** Rows that follow the in-flight flag; older ones never depend on it. */
+const RECENT_STREAMING_AWARE_ROWS = 4
 
 type AgentMessageRow = ReturnType<typeof useAgentChat>['messages'][number]
 type AgentMessageProps = Parameters<typeof AgentMessage>[0]
@@ -549,7 +551,10 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 // Problem-frame readings stay affordable (but disabled) while a
                 // turn streams, so the card doesn't silently go static mid-turn.
                 isLatest={i === messages.length - 1}
-                isStreaming={isStreaming}
+                // Only the newest rows act on "a turn is in flight" (frame readings, extension
+                // cards): older rows keep a constant prop so a turn starting or ending does not
+                // re-render (re-parse) the whole transcript.
+                isStreaming={isStreaming && i >= messages.length - RECENT_STREAMING_AWARE_ROWS}
                 onPickOption={onPickOption}
                 refsProjectId={refsProjectId}
                 onOpenRef={onOpenRef}

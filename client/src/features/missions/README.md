@@ -153,6 +153,63 @@ message's suggested reply while the box is empty. On-accent glyphs use
 `text-background` (`text-destructive-foreground` on Stop) so they read in every
 theme.
 
+## Live turn state and rendering performance
+
+A streamed token must never re-render anything but the text it extends. The rules:
+
+- **Live turn state is not in React state.** Streamed text, tool chips and queued
+  inputs live per conversation in an external store
+  ([`live-store.ts`](lib/live-store.ts), provided by `AgentChatProvider` through
+  [`LiveStoreContext`](context/LiveStoreContext.ts)). `useAgentChat()` carries none
+  of it (its legacy `isStreaming` / `streamingText` / `queuedMessages` /
+  `streamingConversationIds` / `liveByConversation` fields exist only so isolated
+  tests can mock the chat with a flat shape). Read it through
+  [`hooks/useAgentLive.ts`](hooks/useAgentLive.ts): `useActiveLive()` (the streaming
+  tail only), `useIsStreaming()`, `useActiveQueued()`, `useStreamingConversationIds()`,
+  `useQueuedCounts()`, `useIsConversationStreaming(id)`. Aggregates keep their
+  identity while their content is unchanged, so lists never re-render per token.
+- **Frame batching.** `appendStream` buffers tokens: the open mission folds them in
+  once per animation frame (a timer covers hidden windows), missions out of view every
+  500 ms. The first token of a turn flips `isStreaming` at once (sidebar dot, composer).
+  Any state transition (`patch`) folds the buffer in first, so order is never inverted
+  and no token is lost or duplicated. Text-only changes notify only that conversation's
+  subscribers; aggregates wake on structural changes (streaming flag, tools, queue).
+- **The open mission renders in three layers**
+  ([`AgentConversationView`](components/AgentConversationView.tsx)): settled rows
+  (memoised, `content-visibility` for older ones), the `LiveTail` (the only part that
+  re-renders per frame) and the composer/run strip. The transcript is a
+  `useDeferredValue` of the committed messages and mounts windowed (newest 24 rows, the
+  rest backfilled in a transition while keeping the distance to the bottom), so opening
+  a long mission paints header, composer and the latest rows first. A mission saved
+  mid-history renders everything straight away to restore its scroll. A long streamed
+  answer renders as settled markdown chunks plus the live tail
+  ([`stream-markdown-blocks.ts`](lib/stream-markdown-blocks.ts)); settled messages
+  always render whole.
+- **Revisits are instant.** `AgentChatProvider` keeps a stale-while-revalidate snapshot
+  of the last 12 missions opened, shares one in-flight read per mission, and exposes
+  `prefetchConversation(id)` (sidebar rows call it on hover/focus/press). WS rows that
+  arrive while a mission is away are replayed over its snapshot. Opens that carry an
+  `AbortSignal` (window transfer, restore) always read fresh.
+- **Do not touch React state per token in a WS handler.** Even a `setState` that
+  bails out is an urgent update: it restarts the interruptible render of the mission
+  being opened and can starve it under a busy background stream. `markUnread` keeps a
+  ref for "already unread"; `MissionSessionsContext` ignores user-turn tokens.
+- **Place sync.** With the browser router the History API moves at once while the
+  router's React state commits as a transition. `useMissionPlaceSync` acts on the real
+  URL and never reads a trailing router state as Back/Forward, so a cached revisit is
+  not pulled back to the mission just left.
+- **Not adopted, on measurement:** a Web Worker for markdown (parse is ~20 % of a
+  streaming frame after chunking; AST transfer would cost more than it saves) and list
+  virtualisation of the transcript (rows are heterogeneous cards with sub-agent
+  anchors; windowing + `content-visibility` covers the open cost) and keeping the
+  mission surface mounted behind `<Activity>` while the Board shows (measured slower on
+  both switches: the hidden tree still renders). Revisit if a profile shows parse or
+  layout dominating again.
+- **Measure** with `client/src/features/missions/components/__tests__/perf-streaming-concurrency.test.tsx`
+  (jsdom: render counts, markdown parses, lag; `PERF_OUT=file.json` dumps the numbers).
+  Its bounds are regression tests. Real-browser numbers come from a production build
+  driven by Playwright against a mock API/WebSocket.
+
 Run the adjacent tests with `npm run test --prefix client -- src/features/missions`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
