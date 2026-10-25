@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatTokens as formatTokensCompact } from '../../../lib/format-tokens'
 import { getApiBase } from '../../../lib/api'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { CostValue } from '../../analytics/components/CostValue'
@@ -23,9 +24,7 @@ function formatDuration(ms: number | null): string {
 
 function formatTokens(n: number | null): string {
   if (n == null) return '—'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
+  return formatTokensCompact(n)
 }
 
 interface RowProps {

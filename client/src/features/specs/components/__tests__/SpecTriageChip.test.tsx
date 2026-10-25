@@ -31,7 +31,7 @@ describe('SpecTriageChip', () => {
     expect(screen.queryByText('Flow suggested')).toBeNull()
     expect(screen.queryByText(/\bFlow\b/)).toBeNull()
     expect(screen.getAllByText('+1 more file').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('haiku · $0.0123').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('haiku · $0.01').length).toBeGreaterThan(0)
     fireEvent.click(screen.getAllByTestId('triage-recalculate-7')[0])
     await waitFor(() => expect(onRecalculate).toHaveBeenCalledWith(7))
     expect(onCardClick).not.toHaveBeenCalled()

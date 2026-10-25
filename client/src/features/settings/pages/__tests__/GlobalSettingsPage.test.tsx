@@ -369,7 +369,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     expect(screen.getByTestId('advanced-save-bar')).toHaveAttribute('data-sticky', 'true')
     await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Alert set for jobs over $0.5')
+      expect(toast.success).toHaveBeenCalledWith('Alert set for jobs over $0.50')
     })
   })
 

@@ -202,7 +202,7 @@ describe('useTickets', () => {
         })
       })
 
-      expect(mockToastSuccess).toHaveBeenCalledWith('New ticket: New from CLI', expect.objectContaining({ id: 'new-ticket-5' }))
+      expect(mockToastSuccess).toHaveBeenCalledWith('New spec: New from CLI', expect.objectContaining({ id: 'new-ticket-5' }))
       expect(result.current.newTicketIds.has(5)).toBe(true)
     })
 
@@ -493,7 +493,7 @@ describe('useTickets', () => {
         expect(result.current.tickets).toHaveLength(3)
       })
 
-      expect(mockToastSuccess).toHaveBeenCalledWith('2 new tickets added from product discovery', expect.objectContaining({ id: expect.stringContaining('tickets-added-') }))
+      expect(mockToastSuccess).toHaveBeenCalledWith('2 new specs added from product discovery', expect.objectContaining({ id: expect.stringContaining('tickets-added-') }))
       expect(result.current.newTicketIds.has(2)).toBe(true)
       expect(result.current.newTicketIds.has(3)).toBe(true)
     })

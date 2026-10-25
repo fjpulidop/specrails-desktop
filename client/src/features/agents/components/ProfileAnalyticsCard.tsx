@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatTokens } from '../../../lib/format-tokens'
 import { getApiBase } from '../../../lib/api'
 
 interface AnalyticsRow {
@@ -166,8 +167,3 @@ function formatDuration(ms: number): string {
   return `${h}h${m % 60}m`
 }
 
-function formatTokens(n: number): string {
-  if (n < 1000) return Math.round(n).toString()
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`
-  return `${(n / 1_000_000).toFixed(1)}M`
-}

@@ -116,11 +116,7 @@
   --color-scrim-media:            rgb(0 0 0 / 0.85);
 
   /* ─── Premium tokens (type, radius, elevation, motion) ─── */
-  /* Type scale: role-based. Utilities: text-micro … text-display-xl. */
-  --text-micro:                       0.65625rem;  /* 10.5px */
-  --text-micro--line-height:          0.875rem;
-  --text-micro--font-weight:          500;
-  --text-micro--letter-spacing:       0.01em;
+  /* Type scale: role-based. Utilities: text-caption … text-display-xl (11px is the floor; there is no smaller role). */
   --text-caption:                     0.6875rem;   /* 11px */
   --text-caption--line-height:        1rem;
   --text-label:                       0.75rem;     /* 12px */

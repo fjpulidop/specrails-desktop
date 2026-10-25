@@ -184,7 +184,9 @@
       "continue": "Ohne Limit fortsetzen",
       "raiseTo": "Limit erhöhen auf (USD)",
       "mustExceed": "Muss über den bereits ausgegebenen {{spent}} liegen"
-    }
+    },
+    "raiseCap": "Limit erhöhen",
+    "stillExceeded_run": "Das Limit pro Ausführung ist weiterhin erreicht."
   },
   "reviewWip": {
     "reached_one": "Review-Limit erreicht: {{count}} Lieferung wartet auf Review (Limit {{limit}}). Es wurde nichts gestartet.",
@@ -294,5 +296,8 @@
       "needsYouSpec": "Rail {{rail}}: #{{id}} braucht dich",
       "reviewReadySpec": "Rail {{rail}}: Review für #{{id}} bereit"
     }
+  },
+  "errors": {
+    "technicalDetails": "Technische Details"
   }
 }

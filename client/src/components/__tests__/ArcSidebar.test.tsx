@@ -287,6 +287,41 @@ describe('ArcSidebar', () => {
   })
 })
 
+describe('removing a project without the hover X', () => {
+  it('takes the hover X out of the Tab order and announces Delete on the row', () => {
+    render(<ArcSidebar {...defaultProps} />)
+    expect(screen.getByRole('button', { name: /Remove Project Beta/i })).toHaveAttribute('tabindex', '-1')
+    const row = document.querySelector('[data-project-row="proj-2"]')!
+    expect(row).toHaveAttribute('aria-keyshortcuts', 'Delete')
+  })
+
+  it('Delete on the focused row arms the confirmation and a second Delete removes the project', () => {
+    render(<ArcSidebar {...defaultProps} />)
+    const row = document.querySelector('[data-project-row="proj-2"]')!
+    fireEvent.keyDown(row, { key: 'Delete' })
+    expect(screen.getByRole('button', { name: /Confirm remove Project Beta/i })).toBeInTheDocument()
+    expect(mockRemoveProject).not.toHaveBeenCalled()
+    fireEvent.keyDown(row, { key: 'Delete' })
+    expect(mockRemoveProject).toHaveBeenCalledWith('proj-2')
+  })
+
+  it('the context menu offers the same two-step removal and Escape dismisses it', () => {
+    render(<ArcSidebar {...defaultProps} />)
+    const row = document.querySelector('[data-project-row="proj-2"]')!
+    fireEvent.contextMenu(row)
+    const item = screen.getByRole('menuitem', { name: /Remove Project Beta/i })
+    fireEvent.click(item)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Confirm remove Project Beta/i })).toBeInTheDocument()
+    expect(mockRemoveProject).not.toHaveBeenCalled()
+
+    fireEvent.contextMenu(row)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})
+
 describe('projectMonogram', () => {
   it('uses the initials of the first two words, else the first two characters', async () => {
     const { projectMonogram } = await import('../ArcSidebar')

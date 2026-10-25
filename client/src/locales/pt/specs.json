@@ -291,7 +291,9 @@
     "linkCopied": "Link copiado",
     "linkCopyFailed": "Não foi possível copiar o link",
     "linkMissing": "Essa visão não existe neste projeto",
-    "deleted": "Visão “{{name}}” excluída"
+    "deleted": "Visão “{{name}}” excluída",
+    "linkOtherProject": "Esta vista pertence a {{project}}.",
+    "openInProject": "Abrir em {{project}}"
   },
   "movePicker": {
     "titleOne": "Mover a spec #{{id}}",

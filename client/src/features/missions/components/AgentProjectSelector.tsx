@@ -172,7 +172,7 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
                 aria-autocomplete="list"
                 aria-controls={listboxId}
                 aria-activedescendant={highlighted >= 0 ? `${listboxId}-option-${highlighted}` : undefined}
-                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-foreground/40"
+                className="w-full bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-foreground/40"
               />
             </div>
             <div

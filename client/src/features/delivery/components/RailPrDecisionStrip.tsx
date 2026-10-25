@@ -311,7 +311,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   }
 
   // ── shared bits ─────────────────────────────────────────────────────────────
-  const pillBase = `inline-flex items-center gap-1 rounded-pill font-medium border text-micro ${
+  const pillBase = `inline-flex items-center gap-1 rounded-pill font-medium border text-caption ${
     compact ? 'px-2 py-1' : 'px-2.5 py-1'
   }`
   const primaryBtn = `inline-flex items-center gap-1 rounded-control font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors ${

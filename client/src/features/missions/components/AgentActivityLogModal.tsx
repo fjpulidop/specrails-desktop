@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Check, Copy, Loader2, ScrollText, TerminalSquare } from 'lucide-react'
+import { Check, Copy, ScrollText, TerminalSquare } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import type { AgentLiveTool } from '../context/AgentChatContext'
 import { toolChipLabel } from './AgentActivityChip'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 /**
  * Execution-log modal opened from the agent activity chip: every tool call of
@@ -81,7 +82,7 @@ export function AgentActivityLogModal({
             </span>
             {streaming && (
               <span className="inline-flex items-center gap-1.5 text-xs text-accent-info">
-                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                <LiveDot tone="info" size="xs" aria-hidden />
                 {t('activity.live')}
               </span>
             )}

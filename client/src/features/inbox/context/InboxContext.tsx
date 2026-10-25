@@ -46,6 +46,8 @@ export interface InboxValue {
   closeInbox: () => void
   toggleInbox: () => void
   status: 'loading' | 'ready' | 'error'
+  /** The last refresh failed while a list was already showing: the list is out of date. */
+  stale: boolean
   /** Everything not snoozed or done, newest first. */
   items: InboxItem[]
   groups: InboxGroup[]
@@ -78,6 +80,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const [snapshotItems, setSnapshotItems] = useState<InboxItem[]>([])
   const [status, setStatus] = useState<InboxValue['status']>('loading')
+  const [stale, setStale] = useState(false)
   const [dismissals, setDismissals] = useState<Dismissals>(() => readDismissals())
   const [now, setNow] = useState(() => Date.now())
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
@@ -97,9 +100,14 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       // keeps its identity so the badge, the app shell and the dialog do not re-render.
       setSnapshotItems((previous) => (sameSnapshot(previous, snapshot.items) ? previous : snapshot.items))
       setStatus('ready')
+      setStale(false)
     } catch {
-      // Keep what we last knew; only say "error" when there is nothing to show.
-      if (alive.current && mine === revision.current) setStatus((s) => (s === 'ready' ? s : 'error'))
+      // Keep what we last knew; say "error" when there is nothing to show, and "stale" when
+      // the list on screen could not be refreshed (never silently serve an old list).
+      if (alive.current && mine === revision.current) {
+        setStatus((s) => (s === 'ready' ? s : 'error'))
+        setStale(true)
+      }
     }
   }, [])
 
@@ -251,8 +259,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   }, [persist, undoDismissal, t])
 
   const value = useMemo<InboxValue>(() => ({
-    isOpen, openInbox, closeInbox, toggleInbox, status, items, groups, count: items.length, busy, refresh, runPrimary, snooze, done,
-  }), [isOpen, openInbox, closeInbox, toggleInbox, status, items, groups, busy, refresh, runPrimary, snooze, done])
+    isOpen, openInbox, closeInbox, toggleInbox, status, stale, items, groups, count: items.length, busy, refresh, runPrimary, snooze, done,
+  }), [isOpen, openInbox, closeInbox, toggleInbox, status, stale, items, groups, busy, refresh, runPrimary, snooze, done])
 
   return (
     <InboxContext.Provider value={value}>

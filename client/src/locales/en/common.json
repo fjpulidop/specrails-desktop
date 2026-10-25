@@ -160,7 +160,7 @@
     "pausedProject": "Paused on the project daily budget ({{spent}} of {{budget}}). Raise it, then resume.",
     "pausedDesktop": "Paused on the app-wide daily budget ({{spent}} of {{budget}}). Raise it, then resume.",
     "resume": "Resume",
-    "stillExceeded": "The daily budget is still exhausted.",
+    "stillExceeded": "The daily limit is still reached.",
     "exceededRun": "Per-run cap reached ({{spent}} of {{budget}}). The run is paused.",
     "pausedRun": "Paused at the per-run cap ({{spent}} of {{budget}}). Continue without it or raise it.",
     "actionRun": "Continue without the cap, or raise it, then resume.",
@@ -176,15 +176,17 @@
     "whereProject_month": "Analytics ▸ Budget",
     "whereDesktop_week": "Analytics ▸ Budget",
     "whereDesktop_month": "Analytics ▸ Budget",
-    "stillExceeded_week": "The weekly budget is still exhausted.",
-    "stillExceeded_month": "The monthly budget is still exhausted.",
+    "stillExceeded_week": "The weekly limit is still reached.",
+    "stillExceeded_month": "The monthly limit is still reached.",
     "runCap": {
       "title": "Run paused at its cap",
       "raise": "Raise cap and continue",
       "continue": "Continue without cap",
       "raiseTo": "Raise the cap to (USD)",
       "mustExceed": "Must be above the {{spent}} already spent"
-    }
+    },
+    "raiseCap": "Raise limit",
+    "stillExceeded_run": "The per-run limit is still reached."
   },
   "reviewWip": {
     "reached_one": "Review limit reached: {{count}} delivery is waiting for review (limit {{limit}}). Nothing was launched.",
@@ -294,5 +296,8 @@
       "needsYouSpec": "Rail {{rail}}: #{{id}} needs you",
       "reviewReadySpec": "Rail {{rail}}: #{{id}} review ready"
     }
+  },
+  "errors": {
+    "technicalDetails": "Technical details"
   }
 }

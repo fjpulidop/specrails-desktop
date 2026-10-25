@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-pill border px-2 py-0.5 text-micro transition-colors duration-[var(--duration-fast)]',
+  'inline-flex items-center rounded-pill border px-2 py-0.5 text-caption font-medium transition-colors duration-[var(--duration-fast)]',
   {
     variants: {
       variant: {

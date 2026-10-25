@@ -324,5 +324,8 @@
   },
   "errors": {
     "deleteFailed": "スペックを削除できませんでした"
+  },
+  "board": {
+    "pageTitle": "{{project}}：ボード"
   }
 }

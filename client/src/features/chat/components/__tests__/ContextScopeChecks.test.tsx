@@ -8,14 +8,14 @@ const baseScope: ContextScope = { specrails: false, openspec: false, full: false
 describe('ContextScopeChecks', () => {
   it('is collapsed by default and toggles open', () => {
     render(<ContextScopeChecks scope={baseScope} mode="explore" onChange={() => {}} />)
-    expect(screen.queryByLabelText('specrails tickets')).toBeNull()
+    expect(screen.queryByLabelText('specrails specs')).toBeNull()
     fireEvent.click(screen.getByTestId('context-scope-toggle'))
-    expect(screen.getByLabelText('specrails tickets')).toBeInTheDocument()
+    expect(screen.getByLabelText('specrails specs')).toBeInTheDocument()
   })
 
   it('renders six toggles when open', () => {
     render(<ContextScopeChecks scope={baseScope} mode="explore" onChange={() => {}} defaultOpen />)
-    expect(screen.getByLabelText('specrails tickets')).toBeInTheDocument()
+    expect(screen.getByLabelText('specrails specs')).toBeInTheDocument()
     expect(screen.getByLabelText('openspec specs')).toBeInTheDocument()
     expect(screen.getByLabelText('Full codebase')).toBeInTheDocument()
     expect(screen.getByLabelText('Project MCPs')).toBeInTheDocument()

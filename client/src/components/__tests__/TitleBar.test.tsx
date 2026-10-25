@@ -58,6 +58,17 @@ describe('TitleBar', () => {
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
   })
 
+  it('exposes the platform shortcut and a name that leads with the visible project name', () => {
+    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+    const { unmount } = render(<TitleBar />)
+    const pill = screen.getByRole('button', { name: 'Search Project One' })
+    expect(pill).toHaveAttribute('aria-keyshortcuts', 'Control+K')
+    unmount()
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+    render(<TitleBar />)
+    expect(screen.getByRole('button', { name: 'Search Project One' })).toHaveAttribute('aria-keyshortcuts', 'Meta+K')
+  })
+
   it('uses theme tokens for the macOS overlay titlebar', () => {
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
     render(<TitleBar />)

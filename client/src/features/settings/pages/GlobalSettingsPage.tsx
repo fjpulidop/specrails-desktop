@@ -506,7 +506,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                       {t('openBudget')}
                     </Button>
                   </div>
-                  <p className="text-micro text-muted-foreground">{t('budgetMoved')}</p>
+                  <p className="text-caption text-muted-foreground">{t('budgetMoved')}</p>
                 </div>
                 <div className="space-y-1.5 border-t border-border pt-3">
                   <label htmlFor="settings-cost-alert" className="text-label">{t('budget.perJobLabel')}</label>

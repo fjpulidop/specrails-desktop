@@ -19,6 +19,7 @@ import { BuilderDoneMilestone } from './BuilderDoneMilestone'
 import { BuilderDecisionCard } from './BuilderDecisionCard'
 import { MilestoneAutoAdvanceToggle } from './MilestoneProgressCard'
 import { readMilestoneAutoAdvance, saveMilestoneAutoAdvance } from '../../lib/milestone-launch'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 // Shared composer card chrome — the morph target of `layoutId` (the mission's
 // "agent-composer-dock" twin) so the empty hero card lowers smoothly into the
@@ -221,7 +222,7 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
               return (
                 <li key={step} className="flex items-center gap-2 text-xs">
                   {!state && <CircleDashed className="h-3.5 w-3.5 text-muted-foreground" />}
-                  {state?.status === 'running' && <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-info" />}
+                  {state?.status === 'running' && <LiveDot tone="info" size="xs" aria-hidden />}
                   {state?.status === 'done' && <Check className="h-3.5 w-3.5 text-accent-success" />}
                   {state?.status === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" />}
                   {state?.status === 'failed' && <X className="h-3.5 w-3.5 text-destructive" />}

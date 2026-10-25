@@ -31,7 +31,7 @@ export function WhatIfResultView({ result, metered }: ResultProps) {
     return (
       <div className="flex flex-col gap-0.5" data-testid="whatif-plan">
         <p className="text-caption text-muted-foreground">{t('budget.whatIf.planNote')}</p>
-        <p className="num text-micro text-muted-foreground">{tokens}</p>
+        <p className="num text-caption text-muted-foreground">{tokens}</p>
       </div>
     )
   }
@@ -44,11 +44,11 @@ export function WhatIfResultView({ result, metered }: ResultProps) {
       </p>
       <p className="num text-caption text-foreground" data-testid="whatif-delta" data-sign={sign}>
         {sign === 'same' ? t('budget.whatIf.same') : t(sign === 'saves' ? 'budget.whatIf.saves' : 'budget.whatIf.costs', { amount: formatUsd(Math.abs(delta)) })}
-        <span className="ml-2 rounded-pill border border-border px-1.5 text-micro text-muted-foreground">{t('budget.estimate')}</span>
+        <span className="ml-2 rounded-pill border border-border px-1.5 text-caption text-muted-foreground">{t('budget.estimate')}</span>
       </p>
-      <p className="num text-micro text-muted-foreground">{tokens}</p>
-      {result.skipped > 0 && <p className="text-micro text-muted-foreground">{t('budget.whatIf.skipped', { n: result.skipped })}</p>}
-      {result.recordedUsd !== null && <p className="num text-micro text-muted-foreground">{t('budget.whatIf.recorded', { amount: formatUsd(result.recordedUsd) })}</p>}
+      <p className="num text-caption text-muted-foreground">{tokens}</p>
+      {result.skipped > 0 && <p className="text-caption text-muted-foreground">{t('budget.whatIf.skipped', { n: result.skipped })}</p>}
+      {result.recordedUsd !== null && <p className="num text-caption text-muted-foreground">{t('budget.whatIf.recorded', { amount: formatUsd(result.recordedUsd) })}</p>}
     </div>
   )
 }
@@ -96,7 +96,7 @@ export function WhatIfPanel({ projectBase, billing }: PanelProps) {
     <details className="group rounded-card border border-border/60" data-testid="budget-whatif" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
       <summary className="flex cursor-pointer list-none items-center gap-2 rounded-card px-3 py-2 text-label text-foreground hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
         {t('budget.whatIf.title')}
-        <span className="rounded-pill border border-border px-1.5 text-micro text-muted-foreground">{t('budget.estimate')}</span>
+        <span className="rounded-pill border border-border px-1.5 text-caption text-muted-foreground">{t('budget.estimate')}</span>
       </summary>
       <div className="flex flex-col gap-3 px-3 pb-3 pt-1">
         <p className="text-caption text-muted-foreground">{t('budget.whatIf.description', { days: overview?.days ?? 30 })}</p>
@@ -125,7 +125,7 @@ export function WhatIfPanel({ projectBase, billing }: PanelProps) {
           </div>
         )}
         {result && <WhatIfResultView result={result} metered={metered} />}
-        <p className="text-micro text-muted-foreground">{t('budget.whatIf.roleNote')}</p>
+        <p className="text-caption text-muted-foreground">{t('budget.whatIf.roleNote')}</p>
       </div>
     </details>
   )

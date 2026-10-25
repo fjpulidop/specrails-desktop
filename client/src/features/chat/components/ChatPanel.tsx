@@ -79,6 +79,10 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
       <div
         className="flex w-10 shrink-0 cursor-pointer flex-col items-center border-l border-border/30 bg-background/80 backdrop-blur-sm pt-6"
         onClick={togglePanel}
+        onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); togglePanel() } }}
+        role="button"
+        tabIndex={0}
+        aria-label={t('panel.openChat')}
         title={t('panel.openChat')}
       >
         <div className="relative">
@@ -112,7 +116,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
 
       {/* Tab bar */}
       {conversations.length > 0 && (
-        <div className="flex shrink-0 items-center gap-0 border-b border-border/30 overflow-x-auto">
+        <div role="tablist" className="flex shrink-0 items-center gap-0 border-b border-border/30 overflow-x-auto">
           {conversations.map((conv, i) => (
             <div
               key={conv.id}
@@ -124,6 +128,10 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
                   : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
               )}
               onClick={() => setActiveTabIndex(i)}
+              onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setActiveTabIndex(i) } }}
+              role="tab"
+              tabIndex={0}
+              aria-selected={i === activeTabIndex}
             >
               <span className="truncate max-w-[70px]">
                 {conv.title ?? t('panel.tabTitle', { n: i + 1 })}

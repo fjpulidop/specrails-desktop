@@ -74,7 +74,7 @@ describe('JobRunHeader', () => {
 
   it('renders the status pill and the final duration once for a completed job', () => {
     renderHeader(completedJob)
-    expect(screen.getByText('completed')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
     expect(screen.getAllByText('1m 2s')).toHaveLength(1)
   })
 
@@ -181,7 +181,7 @@ describe('JobRunHeader', () => {
 
     const completed: JobSummary = { ...runningJob, started_at: startedAt, finished_at: new Date().toISOString(), status: 'completed', total_cost_usd: 0.42, tokens_in: 100, tokens_out: 100, num_turns: 1 }
     rerender(<JobRunHeader job={completed} events={events} phases={{}} phaseDefinitions={[]} variant="page" />)
-    expect(screen.getByText('completed')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(screen.getAllByText('$0.42')).toHaveLength(2) // outcome header + Details tile
     expect(screen.getByText('Turns').nextElementSibling).toHaveTextContent('1')
@@ -197,7 +197,7 @@ describe('JobRunHeader', () => {
 
   it('shows em-dash + "Not available" for null terminal metrics, never a fake 0', () => {
     renderHeader(failedJob)
-    expect(screen.getByText('failed')).toBeInTheDocument()
+    expect(screen.getByText('Failed')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3) // duration + cost + turns + tokens
     expect(screen.getAllByText('Not available')).toHaveLength(3)

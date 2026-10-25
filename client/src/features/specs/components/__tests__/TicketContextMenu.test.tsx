@@ -60,17 +60,17 @@ describe('TicketContextMenu', () => {
       </TicketContextMenu>
     )
     fireEvent.contextMenu(screen.getByText('Target'))
-    expect(screen.getByRole('menu', { name: 'Ticket actions' })).toBeDefined()
+    expect(screen.getByRole('menu', { name: 'Spec actions' })).toBeDefined()
   })
 
-  it('menu contains "Delete ticket" option', () => {
+  it('menu contains "Delete spec" option', () => {
     render(
       <TicketContextMenu {...makeDefaultProps()}>
         <span>Target</span>
       </TicketContextMenu>
     )
     fireEvent.contextMenu(screen.getByText('Target'))
-    expect(screen.getByText('Delete ticket')).toBeDefined()
+    expect(screen.getByText('Delete spec')).toBeDefined()
   })
 
   it('menu contains "Change status" option', () => {
@@ -93,7 +93,7 @@ describe('TicketContextMenu', () => {
     expect(screen.getByText('Set priority')).toBeDefined()
   })
 
-  it('clicking "Delete ticket" deletes at once, without a confirmation dialog', () => {
+  it('clicking "Delete spec" deletes at once, without a confirmation dialog', () => {
     const onDelete = vi.fn()
     render(
       <TicketContextMenu {...makeDefaultProps({ onDelete })}>
@@ -101,7 +101,7 @@ describe('TicketContextMenu', () => {
       </TicketContextMenu>
     )
     fireEvent.contextMenu(screen.getByText('Target'))
-    fireEvent.click(screen.getByText('Delete ticket'))
+    fireEvent.click(screen.getByText('Delete spec'))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(onDelete).toHaveBeenCalledTimes(1)
     expect(onDelete).toHaveBeenCalledWith(1)
@@ -114,10 +114,10 @@ describe('TicketContextMenu', () => {
       </TicketContextMenu>
     )
     fireEvent.contextMenu(screen.getByText('Target'))
-    expect(screen.getByRole('menu', { name: 'Ticket actions' })).toBeDefined()
+    expect(screen.getByRole('menu', { name: 'Spec actions' })).toBeDefined()
 
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('menu', { name: 'Ticket actions' })).toBeNull()
+    expect(screen.queryByRole('menu', { name: 'Spec actions' })).toBeNull()
   })
 
   describe('on_review ticket', () => {

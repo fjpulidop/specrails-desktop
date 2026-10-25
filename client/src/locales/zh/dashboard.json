@@ -324,5 +324,8 @@
   },
   "errors": {
     "deleteFailed": "无法删除该规格"
+  },
+  "board": {
+    "pageTitle": "{{project}}：看板"
   }
 }

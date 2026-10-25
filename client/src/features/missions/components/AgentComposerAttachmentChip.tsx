@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Paperclip, X, Loader2 } from 'lucide-react'
+import { Paperclip, X } from 'lucide-react'
 import { fetchAgentAttachmentBlob, type AgentAttachment } from '../lib/agent-api'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 function isImageAttachment(attachment: AgentAttachment): boolean {
   return attachment.mimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(attachment.filename)
@@ -61,7 +62,7 @@ export function AgentComposerAttachmentChip({
           <img src={objectUrl} alt={attachment.filename} className="h-full w-full object-cover" />
         ) : (
           <span className="flex h-full w-full items-center justify-center">
-            <Loader2 className="h-4 w-4 animate-spin text-foreground/60 motion-reduce:animate-none" />
+            <LiveDot tone="muted" size="sm" aria-hidden />
           </span>
         )}
         <button

@@ -7,12 +7,12 @@ import type { SpecBulkHandlers } from '../../lib/bulk-actions'
 import { getPaletteSurface, resetPaletteSurfaces } from '../../../../lib/palette-bridge'
 import { encodeViewState, type SpecViewState } from '../../lib/spec-views'
 
-const h = vi.hoisted(() => ({ activeId: 'proj-A' as string | null, projects: [] as Array<{ id: string }> }))
+const h = vi.hoisted(() => ({ activeId: 'proj-A' as string | null, projects: [] as Array<{ id: string; name?: string }>, setActive: vi.fn() }))
 const toasts = vi.hoisted(() => ({ fn: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }) }))
 vi.mock('sonner', () => ({ toast: toasts.fn }))
 vi.mock('../../../../hooks/useDesktop', () => ({
   useDesktop: () => ({
-    projects: h.projects, activeProjectId: h.activeId, setActiveProjectId: () => {}, addProject: async () => null, removeProject: async () => {},
+    projects: h.projects, activeProjectId: h.activeId, setActiveProjectId: (id: string) => h.setActive(id), addProject: async () => null, removeProject: async () => {},
     isLoading: false, isSwitchingProject: false, setupProjectIds: new Set(), startSetupWizard: () => {}, completeSetupWizard: () => {},
   }),
 }))
@@ -577,12 +577,20 @@ describe('SpecsBoard saved views (CD4)', () => {
   })
 
   it('a view link for a project that exists here still waits for the switch', () => {
-    h.projects = [{ id: 'proj-A' }, { id: 'proj-B' }]
+    h.projects = [{ id: 'proj-A', name: 'Alpha' }, { id: 'proj-B', name: 'Beta' }]
+    h.setActive.mockClear(); toasts.fn.info.mockClear()
     try {
       const token = encodeViewState({ status: 'done', labels: [], epic: null, sprint: null, jiraStatus: null, sortMode: 'default', sortDir: 'desc', viewTier: 'row' })
       renderBoard({ doneTickets: DONE, route: `/?view=${token}&p=proj-B` })
       expect(screen.queryByTestId('specs-board-done-bucket')).toBeNull()
       expect(screen.getByTestId('loc').textContent).toContain('view=')
+      // …and says so, with a one-click switch instead of waiting silently.
+      expect(toasts.fn.info).toHaveBeenCalledTimes(1)
+      const [message, options] = toasts.fn.info.mock.calls[0] as [string, { action: { label: string; onClick: () => void } }]
+      expect(message).toBe('This view belongs to Beta.')
+      expect(options.action.label).toBe('Open in Beta')
+      options.action.onClick()
+      expect(h.setActive).toHaveBeenCalledWith('proj-B')
     } finally { h.projects = [] }
   })
 

@@ -29,6 +29,7 @@ import { AgentRefChip } from './AgentRefChip'
 import { AgentDeliveryReceipt } from './AgentDeliveryReceipt'
 import { extractExtensionFences } from './agent-extension-fences'
 import { extensionFenceTags, modeAccent, useMissionExtensions, type MissionModeBadge } from '../context/MissionExtensionsContext'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
@@ -394,7 +395,7 @@ function AgentExtensionPending() {
   const { t } = useTranslation('agent')
   return (
     <div data-testid="agent-extension-card-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary">
-      <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />
+      <LiveDot tone="primary" size="xs" aria-hidden />
       {t('cardPending')}
     </div>
   )

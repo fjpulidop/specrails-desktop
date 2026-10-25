@@ -63,12 +63,6 @@ typography:
     fontFamily: "system-ui"
     fontSize: "0.6875rem"
     lineHeight: "1rem"
-  micro:
-    fontFamily: "system-ui"
-    fontSize: "0.65625rem"
-    fontWeight: 500
-    lineHeight: "0.875rem"
-    letterSpacing: "0.01em"
 rounded:
   control: "6px"
   card: "10px"
@@ -166,6 +160,8 @@ One state, one token, on every surface (chips, badges, pills, cards).
 - **Hairline** (hsl(240 25% 100% / 0.14)): every border.
 - **Ink** (hsl(240 20% 95%)) text; **Muted Ink** (hsl(240 13% 62%)) secondary text, at least 4.5:1 on panel.
 
+Contrast is enforced per theme by `client/src/lib/__tests__/theme-contrast.test.ts`, which parses `globals.css`: foreground, muted foreground, destructive and every accent reach 4.5:1 on background, card and surface; primary foreground reads on primary.
+
 ### Theme characters
 - **specrails**: night signal box, indigo-black with cyan lamps.
 - **aurora-light**: daylight drafting table, paper and ink, elevation by shadow rather than tint.
@@ -189,7 +185,7 @@ One state, one token, on every surface (chips, badges, pills, cards).
 **Character:** native and precise. Real steps in size and weight, tight tracking on large sizes, tabular numerals wherever numbers align.
 
 ### Hierarchy
-Tailwind utilities `text-micro` through `text-display-xl` come from `--text-*` tokens.
+Tailwind utilities `text-caption` through `text-display-xl` come from `--text-*` tokens.
 - **Display XL** (600, 2.5rem/2.75rem, -0.025em): hero numerals only.
 - **Display** (600, 1.75rem/2rem, -0.02em): analytics figures, mission home.
 - **Headline** (600, 1.25rem/1.625rem, -0.015em): page titles.
@@ -197,7 +193,7 @@ Tailwind utilities `text-micro` through `text-display-xl` come from `--text-*` t
 - **Strong** (600, 0.875rem/1.25rem): emphasised rows.
 - **Body** (400, 0.8125rem/1.25rem): default text; keep prose to 65 to 75ch.
 - **Label** (500, 0.75rem/1rem): controls and form labels.
-- **Caption** (400, 0.6875rem/1rem) and **Micro** (500, 0.65625rem/0.875rem, +0.01em): metadata text. Micro (10.5 px) is badge-only; readable text is 11 px or larger.
+- **Caption** (400, 0.6875rem/1rem): metadata text and badges. 11 px is the floor; there is no smaller type role.
 
 ### Named Rules
 **The Role Rule.** Pick a role token, never a raw `text-[Npx]`. Hierarchy comes from the step between roles.
@@ -237,7 +233,7 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 - **Hover / Focus:** colour shift in 150 ms; press scales to 0.98 in 100 ms; focus shows a 2 px ring in the primary.
 
 ### Badges and lamps
-- **Style:** pill, transparent fill, 30% tinted hairline, a 6 px leading dot in the lamp colour, micro text.
+- **Style:** pill, transparent fill, 30% tinted hairline, a 6 px leading dot in the lamp colour, caption text.
 - **State:** success, running, warning, review, failed, queued, canceled. `LiveDot` adds a soft 2 s ring only while work is live.
 
 ### Cards / Containers
@@ -261,7 +257,8 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 - **Do** use the role tokens for type (`text-body`, `text-title`), radius (`rounded-card`) and elevation (`shadow-1/2/3`).
 - **Do** express state as a lamp with a label, and reserve amber for caution and cost.
 - **Do** show running work as a travelling rail pill and finish with a proportionate arrival moment.
-- **Do** keep every text pair at 4.5:1 and every lamp at 3:1 in all six themes.
+- **Do** keep every text pair at 4.5:1 and every lamp at 3:1 in all six themes. Secondary text is `text-muted-foreground`, never an alpha of it (`/70`, `/80`); `theme-contrast.test.ts` fails on both a failing token pair and an alpha variant.
+- **Do** show one loading indicator per region: `<RailTrack running />` for a panel or region, a `LiveDot` for a status chip, and a 12 to 14 px `Loader2` only inside a busy button.
 - **Do** add new copy to all eight locales and add new semantic tokens to every `[data-theme]` block.
 
 ### Don't:

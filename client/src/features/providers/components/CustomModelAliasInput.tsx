@@ -85,7 +85,7 @@ export function CustomModelAliasInput({
         data-testid={testId}
         placeholder={placeholder}
         className={cn(
-          'rounded border border-border bg-transparent text-foreground outline-none',
+          'rounded border border-border bg-transparent text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
           'focus:ring-1 focus:ring-accent-primary/40',
           !valid && 'border-destructive focus:ring-destructive/40',
           disabled && 'pointer-events-none opacity-50',

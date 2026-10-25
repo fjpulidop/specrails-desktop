@@ -489,7 +489,7 @@ export function AgentStudio({
               setDirty(true)
             }}
             spellCheck={false}
-            className="flex-1 w-full p-4 text-xs font-mono bg-background text-foreground outline-none resize-none leading-relaxed"
+            className="flex-1 w-full p-4 text-xs font-mono bg-background text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none leading-relaxed"
           />
         </div>
 

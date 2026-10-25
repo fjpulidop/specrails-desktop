@@ -802,7 +802,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           data-open={panelOpen ? 'true' : 'false'}
           style={{ maxHeight }}
           className={cn(
-            'absolute inset-x-0 bottom-full z-20 mb-2 overflow-y-auto overscroll-contain rounded-xl border border-border/60 bg-card p-3 text-xs shadow-[0_14px_36px_-14px_rgb(0_0_0/0.5)] outline-none',
+            'absolute inset-x-0 bottom-full z-20 mb-2 overflow-y-auto overscroll-contain rounded-xl border border-border/60 bg-card p-3 text-xs shadow-[0_14px_36px_-14px_rgb(0_0_0/0.5)] outline-none focus-visible:ring-2 focus-visible:ring-ring',
             'origin-bottom transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none',
             panelOpen ? 'visible translate-y-0 opacity-100' : 'pointer-events-none invisible translate-y-1 opacity-0',
           )}

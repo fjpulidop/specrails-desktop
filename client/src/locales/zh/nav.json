@@ -86,7 +86,8 @@
     "backTo": "后退到 {{place}}",
     "forwardTo": "前进到 {{place}}",
     "backMenu": "之前的位置",
-    "forwardMenu": "之后的位置"
+    "forwardMenu": "之后的位置",
+    "searchIn": "在 {{project}} 中搜索"
   },
   "costAlerts": {
     "costAlertTitle": "成本警报",

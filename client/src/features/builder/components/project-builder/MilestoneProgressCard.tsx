@@ -5,6 +5,7 @@ import { cn } from '../../../../lib/utils'
 import { formatElapsed } from '../../../../lib/format-duration'
 import { PrDecisionPill } from '../../../missions/components/AgentPrDecisionPill'
 import type { AgentPrDecisionValue } from '../../../missions/lib/agent-api'
+import { LiveDot } from '../../../../components/ui/live-dot'
 import {
   chainAtCheckpoint,
   chainIsLive,
@@ -72,7 +73,7 @@ export function MilestoneStatePill({ state }: { state: MilestoneState }) {
     <span
       data-testid="milestone-state-pill"
       data-state={state}
-      className={cn('inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-micro font-semibold', STATE_TONE[state])}
+      className={cn('inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-caption font-semibold', STATE_TONE[state])}
     >
       {t(`milestoneProgress.state.${state}`)}
     </span>
@@ -125,7 +126,7 @@ export function MilestoneRailRow({ rail, now, onReview, onOpenRail }: MilestoneR
       </button>
       {rail.active ? (
         <span className="flex shrink-0 items-center gap-1 text-caption text-accent-info" data-testid="milestone-rail-running">
-          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          <LiveDot tone="info" size="xs" aria-hidden />
           {elapsed != null ? t('milestoneProgress.rail.running', { elapsed: formatElapsed(elapsed) }) : t('milestoneProgress.state.running')}
         </span>
       ) : decision ? (

@@ -90,7 +90,7 @@ export function TerminalSearchOverlay({ search, onClose }: Props) {
           if (e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) findPrev(); else findNext() }
         }}
         placeholder={t('search.placeholder')}
-        className="bg-transparent text-sm outline-none text-popover-foreground placeholder:text-muted-foreground w-48"
+        className="bg-transparent text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring text-popover-foreground placeholder:text-muted-foreground w-48"
       />
       {matchInfo && (
         <span className="text-xs text-muted-foreground tabular-nums">

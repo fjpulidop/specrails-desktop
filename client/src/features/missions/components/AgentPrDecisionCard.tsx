@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
 import { FEATURE_MISSION_RAIL_CARDS, FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
 import { toast } from 'sonner'
+import { notifyError } from '../../../lib/notify-error'
+import { openBudgetPanel } from '../../../lib/app-settings-events'
 import { motion } from 'motion/react'
 import {
   GitBranch, GitMerge, GitPullRequest, AlertTriangle, XCircle,
@@ -46,7 +48,7 @@ import { AgentRefChip } from './AgentRefChip'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { forceProjectRoute } from '../../../lib/route-memory'
 import { API_ORIGIN } from '../../../lib/origin'
-import { dailyBudgetActionMessage, dailyBudgetExceededMessage, dailyBudgetPausedMessage, readDailyBudgetRejection, type DailyBudgetInfo } from '../../../lib/daily-budget'
+import { dailyBudgetActionMessage, dailyBudgetExceededMessage, dailyBudgetPausedMessage, dailyBudgetStillExceededMessage, readDailyBudgetRejection, type DailyBudgetInfo } from '../../../lib/daily-budget'
 import { RunCapChoiceDialog } from '../../../components/RunCapChoiceDialog'
 import type { RunCapChoice } from '../../../lib/run-cap'
 import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
@@ -401,7 +403,7 @@ function RunLogChip({
             className="tabular-nums"
             aria-label={t('prCard.runCostAria', { cost: formatUsd(vitals.costUsd!) })}
           >
-            ${vitals.costUsd!.toFixed(2)}
+            {formatUsd(vitals.costUsd!)}
           </span>
         </>
       )}
@@ -513,7 +515,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     }
   }, [envelope.prDeliveryId, envelope.runIds, conversationId])
   // Brief highlight pulse in theme tokens; the pulse only runs when motion is allowed.
-  const flashClass = cn('outline-none', flash && 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background motion-safe:animate-pulse')
+  const flashClass = cn('outline-none focus-visible:ring-2 focus-visible:ring-ring', flash && 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background motion-safe:animate-pulse')
   const focusRegion = {
     tabIndex: -1,
     role: 'region' as const,
@@ -608,10 +610,14 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       const budget = readDailyBudgetRejection(body)
       // The run's per-run soft cap stands: the person answers Continue / Raise.
       if (budget?.period === 'run') setRunCapPrompt({ runId, budget })
-      else if (budget) toast.error(t('common:budget.stillExceeded'), { description: dailyBudgetActionMessage(t, budget) })
-      else toast.error(t('runCard.relaunchFailed'), { description: (body as { error?: string } | null)?.error ?? `HTTP ${res.status}` })
+      else if (budget) {
+        notifyError(dailyBudgetStillExceededMessage(t, budget), {
+          detail: dailyBudgetActionMessage(t, budget),
+          action: { label: t('common:budget.raiseCap'), onClick: openBudgetPanel },
+        })
+      } else notifyError(t('runCard.relaunchFailed'), { detail: (body as { error?: string } | null)?.error, retry: () => void resumeBudgetPausedRun(runId, choice) })
     } catch (e) {
-      toast.error(t('runCard.relaunchFailed'), { description: e instanceof Error ? e.message : undefined })
+      notifyError(t('runCard.relaunchFailed'), { detail: e instanceof Error ? e.message : undefined, retry: () => void resumeBudgetPausedRun(runId, choice) })
     } finally {
       setResumingBudgetRunId(null)
     }
@@ -625,7 +631,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       if (outcome.ok) {
         toast.info(t('prCard.stopExecutionSent'))
       } else {
-        toast.error(t('prCard.stopExecutionFailed'), { description: outcome.error })
+        notifyError(t('prCard.stopExecutionFailed'), { detail: outcome.error, retry: () => void stopPausedRun(runId) })
       }
     } finally {
       setStoppingRunId(null)
@@ -675,7 +681,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           ? t('prCard.mergeLocalBlockedDirty', { base: r.base || targetBase })
           : t('prCard.mergeLocalBlockedBranch', { base: r.base || targetBase, current: r.current ?? '?' }))
       } else if (r.kind === 'failed') {
-        toast.error(t('prCard.actionFailed'), { description: r.detail })
+        notifyError(t('prCard.actionFailed'), { detail: r.detail, retry: () => void act(action, repositoryId) })
       } else if (r.kind === 'ok' && action === 'recover-and-retry') {
         if (r.deliveryVerified) {
           const sha = (r.verifiedSha ?? r.snapshot?.deliverySha ?? '').slice(0, 8)
@@ -691,7 +697,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       } else if (r.kind === 'ok' && action === 'create-pr' && r.detail) {
         // Successful HTTP can still mean a retryable/degraded delivery. Keep the
         // stable localized card title primary and expose the raw detail second.
-        toast.error(t('prCard.deliveryNeedsAttention'), { description: r.detail })
+        notifyError(t('prCard.deliveryNeedsAttention'), { detail: r.detail, retry: () => void act(action, repositoryId) })
       } else if (r.kind === 'ok' && action === 'poll-merge' && r.deliveryVerified === false) {
         toast.warning(t('prCard.commitMissingRetry'))
       } else if (r.kind === 'ok' && action === 'poll-merge' && r.deliveryVerified && !r.merged) {
@@ -712,7 +718,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         notifyGitChanged(envelope.projectId)
       }
     } catch (e) {
-      toast.error(t('prCard.actionFailed'), { description: e instanceof Error ? e.message : undefined })
+      notifyError(t('prCard.actionFailed'), { detail: e instanceof Error ? e.message : undefined, retry: () => void act(action, repositoryId) })
     } finally {
       setBusy(null)
     }
@@ -743,7 +749,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         if (r.reason === 'wrong_branch') toast.warning(t('prCard.localStash.blockedBranch', { base: r.base || branch, current: r.current ?? '?' }))
         else if (r.reason === 'dirty') toast.warning(t('prCard.localStash.blockedDirty'))
         else if (r.reason === 'branch_changed' || r.reason === 'target_conflict') toast.warning(t('prCard.localStash.blockedBringBack', { branch }), { description: r.detail || undefined })
-        else toast.error(t('prCard.localStash.failed'))
+        else notifyError(t('prCard.localStash.failed'), { retry: () => void runLocalChangesAction(action) })
       } else if (r.kind === 'not_ready' || r.kind === 'in_progress') {
         toast.info(t('prCard.localStash.notReady'))
       } else if (r.kind === 'busy') {
@@ -751,7 +757,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       } else if (r.kind === 'recovering') {
         toast.info(t('common:prRecovery.inProgress'))
       } else {
-        toast.error(t('prCard.localStash.failed'), { description: r.detail })
+        notifyError(t('prCard.localStash.failed'), { detail: r.detail, retry: () => void runLocalChangesAction(action) })
       }
     } finally {
       setLocalAction(null)
@@ -784,7 +790,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         toast.warning(t('prCard.checkoutFailed'), { description: r.detail })
       }
     } catch (e) {
-      toast.error(t('prCard.checkoutFailed'), { description: e instanceof Error ? e.message : undefined })
+      notifyError(t('prCard.checkoutFailed'), { detail: e instanceof Error ? e.message : undefined, retry: () => void checkoutPrBranch(repositoryId) })
     } finally {
       setCheckingOut(false)
     }
@@ -841,13 +847,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         ? `${dailyBudgetExceededMessage(t, budget)} — ${dailyBudgetActionMessage(t, budget)}`
         : wip
           ? `${reviewWipRejectionMessage(t, wip)} — ${reviewWipActionMessage(t)}`
-          : [body.detail ?? body.error, body.action].filter(Boolean).join(' — ') || `HTTP ${res.status}`
+          : [body.detail ?? body.error, body.action].filter(Boolean).join(' — ') || t('runCard.relaunchFailed')
       setRelaunchError(detail)
-      toast.error(t('runCard.relaunchFailed'), { description: detail })
+      notifyError(t('runCard.relaunchFailed'), { detail, retry: () => void relaunch() })
     } catch (e) {
       const detail = e instanceof Error ? e.message : t('runCard.relaunchFailed')
       setRelaunchError(detail)
-      toast.error(t('runCard.relaunchFailed'), { description: detail })
+      notifyError(t('runCard.relaunchFailed'), { detail, retry: () => void relaunch() })
     } finally {
       relaunchInFlight.current = false
       setRelaunching(false)
@@ -1320,9 +1326,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       })
       if (res.ok) { toast.success(t('prCard.retryDeliverySent')); return }
       const body = await res.json().catch(() => null) as { error?: string; detail?: string } | null
-      toast.error(t('prCard.retryDeliveryFailed'), { description: body?.detail ?? body?.error ?? `HTTP ${res.status}` })
+      notifyError(t('prCard.retryDeliveryFailed'), { detail: body?.detail ?? body?.error, retry: () => void retryDelivery() })
     } catch (e) {
-      toast.error(t('prCard.retryDeliveryFailed'), { description: e instanceof Error ? e.message : undefined })
+      notifyError(t('prCard.retryDeliveryFailed'), { detail: e instanceof Error ? e.message : undefined, retry: () => void retryDelivery() })
     } finally {
       setRetryingDelivery(false)
     }

@@ -257,7 +257,7 @@ export function SpecsBoard({
   const [proposeOpen, setProposeOpen] = useState(false)
   const [proposeMode, setProposeMode] = useState<'quick' | 'explore'>('quick')
   const [explore, setExplore] = useState<ExploreState | null>(null)
-  const { activeProjectId, projects } = useDesktop()
+  const { activeProjectId, projects, setActiveProjectId } = useDesktop()
   const [searchParams, setSearchParams] = useSearchParams()
   // Filters persist per-project (and across app restarts) — restored from
   // localStorage on mount and on every project switch (see the effect below).
@@ -849,15 +849,27 @@ export function SpecsBoard({
   const viewParam = searchParams.get(VIEW_PARAM)
   const viewLinkProject = searchParams.get(PROJECT_PARAM)
   const handledViewParamRef = useRef<string | null>(null)
+  const offeredViewSwitchRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!viewParam) { handledViewParamRef.current = null; return }
+    if (!viewParam) { handledViewParamRef.current = null; offeredViewSwitchRef.current = null; return }
     if (handledViewParamRef.current === viewParam || !activeProjectId) return
     // A link for another project waits for the switch, unless the view travels inside the link
     // and that project does not exist on this machine (the link came from elsewhere): then it
     // applies to the project that is open instead of never opening.
     if (viewLinkProject && viewLinkProject !== activeProjectId) {
-      const unknownHere = !projects.some((p) => p.id === viewLinkProject)
-      if (!(unknownHere && decodeViewState(viewParam))) return
+      const target = projects.find((p) => p.id === viewLinkProject)
+      const unknownHere = !target
+      if (!(unknownHere && decodeViewState(viewParam))) {
+        // A known but different project: say so and offer the switch (once per link) instead of
+        // waiting silently. After the switch this effect applies the view.
+        if (target && offeredViewSwitchRef.current !== viewParam) {
+          offeredViewSwitchRef.current = viewParam
+          toast.info(t('views.linkOtherProject', { project: target.name }), {
+            action: { label: t('views.openInProject', { project: target.name }), onClick: () => setActiveProjectId(target.id) },
+          })
+        }
+        return
+      }
     }
     if (viewsState.projectId !== activeProjectId) return
     handledViewParamRef.current = viewParam
@@ -871,7 +883,7 @@ export function SpecsBoard({
       next.delete(VIEW_PARAM)
       return next
     }, { replace: true })
-  }, [viewParam, viewLinkProject, activeProjectId, projects, viewsState.projectId, views, applyView, setSearchParams, t])
+  }, [viewParam, viewLinkProject, activeProjectId, projects, setActiveProjectId, viewsState.projectId, views, applyView, setSearchParams, t])
 
   // ⌘K: selection + saved views. Lists are functions so the palette always reads the latest board.
   const selectedIds = () => [...selection.ids]

@@ -79,5 +79,6 @@
       }
     },
     "detail": "{{spent}} de {{budget}} gastos"
-  }
+  },
+  "stale": "Não foi possível atualizar; a última lista continua visível."
 }

@@ -500,7 +500,7 @@ describe('RailPrDecisionStrip interactions', () => {
     expect(dialog).toHaveTextContent('PR will be closed without deleting its remote branch')
     expect(dialog).toHaveTextContent('SpecRails-owned local branches and worktrees that are still at their recorded commit')
     expect(dialog).toHaveTextContent('anything changed will be preserved with a warning')
-    expect(dialog).toHaveTextContent('tickets will return to the Specs backlog')
+    expect(dialog).toHaveTextContent('specs will return to the Specs backlog')
     expect(dialog).toHaveTextContent('Removed local resources cannot be recovered')
     fireEvent.click(within(dialog).getByTestId('rail-pr-discard-confirm-btn'))
     await waitFor(() => expect(act).toHaveBeenCalledWith('discard', 'pr_failed', 'del-1'))
@@ -1072,7 +1072,7 @@ describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () =
     fireEvent.click(menuItem('rail-pr-discard'))
     const dialog = screen.getByTestId('rail-pr-discard-confirm')
     expect(dialog).toHaveTextContent('The PR will be closed without deleting its remote branch')
-    expect(dialog).toHaveTextContent('tickets will return to the Specs backlog')
+    expect(dialog).toHaveTextContent('specs will return to the Specs backlog')
   })
 
   it('discloses durable safety archives without mislabeling cleanup as incomplete', () => {

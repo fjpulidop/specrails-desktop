@@ -291,7 +291,9 @@
     "linkCopied": "Link copied",
     "linkCopyFailed": "Couldn’t copy the link",
     "linkMissing": "That view doesn’t exist in this project",
-    "deleted": "View “{{name}}” deleted"
+    "deleted": "View “{{name}}” deleted",
+    "linkOtherProject": "This view belongs to {{project}}.",
+    "openInProject": "Open in {{project}}"
   },
   "movePicker": {
     "titleOne": "Move spec #{{id}}",

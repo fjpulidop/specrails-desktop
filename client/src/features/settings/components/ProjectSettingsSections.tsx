@@ -760,7 +760,7 @@ export function ProjectBudgetSection() {
             <p className="num text-body text-foreground" data-testid="project-daily-budget-summary">
               {dailyBudget === '' ? t('budget.dailyNone') : t('budget.dailyCurrent', { amount: formatUsd(Number(dailyBudget)) })}
             </p>
-            <p className="text-micro text-muted-foreground">{t('budgetMoved')}</p>
+            <p className="text-caption text-muted-foreground">{t('budgetMoved')}</p>
             <div className="flex justify-end">
               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openBudgetPanel} data-testid="project-open-budget">
                 {t('openBudget')}

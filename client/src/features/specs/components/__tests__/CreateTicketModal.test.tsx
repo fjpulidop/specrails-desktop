@@ -281,7 +281,7 @@ describe('CreateTicketModal', () => {
       expect(dialog).toHaveAttribute('data-dialog-size', 'form')
       expect(dialog.className).not.toContain('glass-card')
       expect(dialog).toHaveAccessibleDescription(/by hand/i)
-      await waitFor(() => expect(document.activeElement).toBe(screen.getByPlaceholderText(/ticket title/i)))
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByPlaceholderText(/spec title/i)))
     })
   })
 })

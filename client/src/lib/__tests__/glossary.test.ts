@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 
-const LOCALES_DIR = path.resolve(__dirname, '..')
+const LOCALES_DIR = path.resolve(__dirname, '../../locales')
 
 function flatten(obj: unknown, prefix: string[] = [], out: Array<[string, string]> = []): Array<[string, string]> {
   if (typeof obj === 'string') out.push([prefix.join('.'), obj])
@@ -79,3 +79,40 @@ describe('glossary: other locales keep the spec noun where they translated it', 
     })
   }
 })
+
+describe('glossary: guide pages', () => {
+  const GUIDE = path.resolve(__dirname, '../../../../docs/guide')
+  function pages(lang: string, dir = path.join(GUIDE, lang), out: string[] = []): string[] {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) pages(lang, full, out)
+      else if (entry.name.endsWith('.md')) out.push(full)
+    }
+    return out
+  }
+  /** Prose only: code spans, link targets, URLs, tags and Jira tickets are exempt. */
+  const prose = (line: string) => line.replace(/`[^`\n]*`|\]\([^)]*\)|https?:\/\/\S+|<[^>\n]+>|\{\{[^}]*\}\}|\b[Tt]icket(s)? (de )?Jira|\bJira[- ](ticket|issue)s?/g, '')
+
+  it('the Spanish pages say Tablero / Trabajos / spec / ejecución', () => {
+    const bad: string[] = []
+    for (const file of pages('es')) {
+      fs.readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+        const m = /\b(dashboard|jobs?|tickets?|runs?)\b/i.exec(prose(line))
+        if (m) bad.push(`${path.relative(GUIDE, file)}:${i + 1} ${m[0]}`)
+      })
+    }
+    expect(bad).toEqual([])
+  })
+
+  it('the English pages say spec, not ticket, outside Jira', () => {
+    const bad: string[] = []
+    for (const file of pages('en')) {
+      fs.readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+        const m = /\btickets?\b/i.exec(prose(line))
+        if (m) bad.push(`${path.relative(GUIDE, file)}:${i + 1} ${m[0]}`)
+      })
+    }
+    expect(bad).toEqual([])
+  })
+})
+

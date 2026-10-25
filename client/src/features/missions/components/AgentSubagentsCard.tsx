@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
-import { AlertCircle, Bot, CheckCircle2, ChevronRight, CircleSlash, Loader2, RotateCcw, Square, Terminal } from 'lucide-react'
+import { AlertCircle, Bot, CheckCircle2, ChevronRight, CircleSlash, RotateCcw, Square, Terminal } from 'lucide-react'
 
 import { cn } from '../../../lib/utils'
 import { formatElapsed } from '../../../lib/format-duration'
@@ -304,7 +304,7 @@ export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onSt
             working > 0 ? 'border-accent-primary/40 bg-accent-primary/[0.07] text-foreground/85' : 'border-border/50 bg-surface/60 text-foreground/70 hover:border-border hover:text-foreground/85',
           )}
         >
-          {working > 0 ? <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-primary motion-reduce:animate-none" aria-hidden /> : <Bot className="h-3 w-3 shrink-0 text-foreground/65" aria-hidden />}
+          {working > 0 ? <LiveDot tone="primary" size="xs" aria-hidden /> : <Bot className="h-3 w-3 shrink-0 text-foreground/65" aria-hidden />}
           <span className="shrink-0 font-medium">{t('subagents.count', { count: subagents.length })}</span>
           <span className="min-w-0 truncate text-foreground/55" aria-live="polite">{status}</span>
           {working > 0 && <span className="shrink-0 font-mono text-xs tabular-nums text-foreground/65">{elapsed}</span>}

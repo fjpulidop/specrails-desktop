@@ -149,7 +149,7 @@ function UsageRow({ scope, period, overview, config, billing, plan, value, inval
         <CapInput scope={scope} field={period} value={value} invalid={invalid} onChange={onChange} />
       )}
       {(limits || resets || (period === 'month' && spend.estimatedUsd > 0 && !plan)) && (
-        <p className="num text-micro text-muted-foreground sm:col-start-2 sm:col-span-3">
+        <p className="num text-caption text-muted-foreground sm:col-start-2 sm:col-span-3">
           {limits}
           {!plan && period === 'month' && spend.estimatedUsd > 0 && t('budget.estimatedPart', { amount: formatUsd(spend.estimatedUsd) })}
           {resets && `${limits || (period === 'month' && spend.estimatedUsd > 0 && !plan) ? ' · ' : ''}${t('budget.resets', { time: resets })}`}
@@ -217,7 +217,7 @@ function CapGroup({ scope, overview, config, billing, plan, onSaved }: GroupProp
   const runRow = (
     <div className="grid grid-cols-1 items-start gap-x-3 gap-y-1 sm:grid-cols-[5.5rem_minmax(0,1fr)_7rem]" data-testid={`budget-row-${scope}-run`}>
       <span className="text-label text-foreground">{t('budget.period.run')}</span>
-      <p className="text-micro text-muted-foreground">{t('budget.runHint')}</p>
+      <p className="text-caption text-muted-foreground">{t('budget.runHint')}</p>
       <CapInput scope={scope} field="run" value={values.run} invalid={invalid.has('run')} onChange={(v) => change('run', v)} />
     </div>
   )
@@ -272,14 +272,14 @@ function ProjectionBlock({ overview, plan }: { overview: BudgetOverview; plan: b
     <section className="flex flex-col gap-1" data-testid="budget-projection" aria-label={t('budget.projection.title')}>
       <div className="flex items-center gap-2">
         <h4 className="text-caption text-muted-foreground">{t('budget.projection.title')}</h4>
-        {!plan && <span className="rounded-pill border border-border px-1.5 text-micro text-muted-foreground">{t('budget.estimate')}</span>}
+        {!plan && <span className="rounded-pill border border-border px-1.5 text-caption text-muted-foreground">{t('budget.estimate')}</span>}
       </div>
       {plan ? (
         <p className="text-caption text-muted-foreground" data-testid="budget-projection-plan">{t('budget.projection.planNone')}</p>
       ) : p ? (
         <>
           <p className="num text-title text-foreground" data-testid="budget-projection-value">≈ {formatUsd(p.projectedUsd)}</p>
-          <p className="num text-micro text-muted-foreground">
+          <p className="num text-caption text-muted-foreground">
             {t('budget.projection.basis', { days: p.trailingDays, avg: formatUsd(p.avgDailyUsd), remaining: p.remainingDays, mtd: formatUsd(p.monthToDateUsd) })}
           </p>
           {passes && overview.config.month !== null && (

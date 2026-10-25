@@ -4,6 +4,7 @@ import { useMissionSplitViews } from '../features/missions/context/MissionSplitV
 import { keyboardLabel } from '../lib/keyboard-label'
 import { OPEN_PROJECT_SETTINGS_EVENT, type OpenProjectSettingsDetail } from '../lib/app-settings-events'
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
+import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -417,8 +418,26 @@ function ProjectItem({
     }
   }, [])
 
-  function handleRemoveClick(e: React.MouseEvent) {
-    e.stopPropagation()
+  // Context menu (right-click, the Menu key or Shift+F10) offers the same two-step removal as
+  // the hover X, so keyboard and screen-reader users never need that X as a Tab stop.
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
+  const menuItemRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    if (!menuAt) return
+    menuItemRef.current?.focus()
+    const close = () => setMenuAt(null)
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { ev.stopPropagation(); close() } }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', onKey, true)
+    window.addEventListener('blur', close)
+    return () => {
+      document.removeEventListener('pointerdown', close)
+      document.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('blur', close)
+    }
+  }, [menuAt])
+
+  function requestRemove() {
     if (confirming) {
       if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
       setConfirming(false)
@@ -430,6 +449,11 @@ function ProjectItem({
         confirmTimerRef.current = null
       }, CONFIRM_RESET_MS)
     }
+  }
+
+  function handleRemoveClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    requestRemove()
   }
 
   // Mission state of this project's conversations, shown on the project row
@@ -480,6 +504,7 @@ function ProjectItem({
   return (
     <div>
       <div
+        onContextMenu={(e) => { e.preventDefault(); setMenuAt({ x: e.clientX, y: e.clientY }) }}
         className={cn(
           'group relative flex items-center gap-1 w-full h-8 rounded-md transition-colors duration-150',
           expanded ? 'pr-2' : 'justify-center',
@@ -492,6 +517,8 @@ function ProjectItem({
         <button
           type="button"
           onClick={onSelect}
+          onKeyDown={(e) => { if (e.key === 'Delete') { e.preventDefault(); requestRemove() } }}
+          aria-keyshortcuts="Delete"
           className={cn(
             'flex-1 min-w-0 flex items-center gap-2 h-full rounded-md text-left',
             expanded ? 'pl-2' : 'justify-center',
@@ -580,6 +607,7 @@ function ProjectItem({
             )}
             <button
               type="button"
+              tabIndex={-1}
               onClick={handleRemoveClick}
               className={cn(
                 'flex-shrink-0 flex items-center justify-center rounded-sm transition-all',
@@ -595,6 +623,28 @@ function ProjectItem({
           </>
         )}
       </div>
+      {menuAt && createPortal(
+        <div
+          role="menu"
+          aria-label={project.name}
+          data-testid="project-row-menu"
+          style={{ position: 'fixed', left: menuAt.x, top: menuAt.y }}
+          className="z-[80] min-w-40 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-3"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            ref={menuItemRef}
+            type="button"
+            role="menuitem"
+            onClick={() => { setMenuAt(null); requestRemove() }}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none"
+          >
+            <X className="h-3 w-3" aria-hidden />
+            {t('projects.remove', { name: project.name })}
+          </button>
+        </div>,
+        document.body,
+      )}
       {agentMode && treeOpen && expanded && conversations.length > 0 && (
         <div className="mt-0.5 space-y-0.5">
           {conversations.map((c) => (

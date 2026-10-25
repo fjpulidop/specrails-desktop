@@ -324,5 +324,8 @@
   },
   "errors": {
     "deleteFailed": "Não foi possível eliminar a spec"
+  },
+  "board": {
+    "pageTitle": "{{project}}: quadro"
   }
 }

@@ -86,9 +86,9 @@ describe('RecentJobs', () => {
 
   it('renders job list with status badges', () => {
     render(<RecentJobs jobs={mockJobs} />)
-    expect(screen.getByText('completed')).toBeInTheDocument()
-    expect(screen.getByText('running')).toBeInTheDocument()
-    expect(screen.getByText('failed')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
+    expect(screen.getByText('Running')).toBeInTheDocument()
+    expect(screen.getByText('Failed')).toBeInTheDocument()
   })
 
   it('renders a queued admission without treating it as an execution start', () => {
@@ -212,7 +212,7 @@ describe('RecentJobs', () => {
 
   it('renders tokens when available', () => {
     render(<RecentJobs jobs={[{ ...mockJobs[0], tokens_out: 2500 }]} />)
-    expect(screen.getByText('2.5k')).toBeInTheDocument()
+    expect(screen.getByText('2.5K')).toBeInTheDocument()
   })
 
   describe('clear modal', () => {
@@ -320,7 +320,7 @@ describe('RecentJobs', () => {
         status: 'zombie_terminated',
       }
       render(<RecentJobs jobs={[zombieJob]} />)
-      expect(screen.getByText('zombie')).toBeInTheDocument()
+      expect(screen.getByText('Zombie')).toBeInTheDocument()
     })
   })
 
@@ -333,7 +333,7 @@ describe('RecentJobs', () => {
         status: 'queued',
       }
       render(<RecentJobs jobs={[queuedJob]} />)
-      expect(screen.getByText('queued')).toBeInTheDocument()
+      expect(screen.getByText('Queued')).toBeInTheDocument()
     })
   })
 
@@ -346,7 +346,7 @@ describe('RecentJobs', () => {
         status: 'canceled',
       }
       render(<RecentJobs jobs={[canceledJob]} />)
-      expect(screen.getByText('canceled')).toBeInTheDocument()
+      expect(screen.getByText('Canceled')).toBeInTheDocument()
     })
   })
 

@@ -184,7 +184,9 @@
       "continue": "取消上限并继续",
       "raiseTo": "将上限调高到（USD）",
       "mustExceed": "必须高于已花费的 {{spent}}"
-    }
+    },
+    "raiseCap": "提高上限",
+    "stillExceeded_run": "单次运行上限仍已用尽。"
   },
   "reviewWip": {
     "reached_one": "已达到评审上限:{{count}} 个交付正在等待评审(上限 {{limit}})。未启动任何任务。",
@@ -294,5 +296,8 @@
       "needsYouSpec": "Rail {{rail}}:#{{id}} 需要你处理",
       "reviewReadySpec": "Rail {{rail}}:#{{id}} 的审阅已就绪"
     }
+  },
+  "errors": {
+    "technicalDetails": "技术详情"
   }
 }

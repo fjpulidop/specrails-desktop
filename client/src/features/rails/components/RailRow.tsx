@@ -410,7 +410,7 @@ export function RailRow({
                   setEditing(false)
                 }}
                 onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
-                className="flex-1 min-w-0 text-label bg-transparent border-b border-accent-info/60 outline-none text-foreground/90 px-0.5"
+                className="flex-1 min-w-0 text-label bg-transparent border-b border-accent-info/60 outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground/90 px-0.5"
                 autoFocus
               />
             </form>
@@ -669,7 +669,7 @@ export function RailRow({
                     setEditing(false)
                   }}
                   onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false) } }}
-                  className="w-24 text-label bg-transparent border-b border-primary/50 outline-none text-foreground/80 px-0.5"
+                  className="w-24 text-label bg-transparent border-b border-primary/50 outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground/80 px-0.5"
                   autoFocus
                 />
               </form>

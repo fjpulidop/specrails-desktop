@@ -117,7 +117,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
           placeholder={t('shell.inputPlaceholder')}
           aria-label={t('shell.inputPlaceholder')}
           data-agent-interactive
-          className="min-h-[3.25rem] max-h-64 min-w-[12rem] flex-1 resize-y bg-transparent text-sm text-foreground outline-none placeholder:text-foreground/40"
+          className="min-h-[3.25rem] max-h-64 min-w-[12rem] flex-1 resize-y bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-foreground/40"
           data-testid="builder-input"
         />
         <button

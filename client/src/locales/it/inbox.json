@@ -79,5 +79,6 @@
       }
     },
     "detail": "{{spent}} su {{budget}} spesi"
-  }
+  },
+  "stale": "Impossibile aggiornare: viene mostrata l'ultima lista."
 }

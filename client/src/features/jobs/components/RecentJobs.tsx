@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { formatTokens as formatTokensCompact } from '../../../lib/format-tokens'
 import { getApiBase } from '../../../lib/api'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { formatDistanceToNow } from 'date-fns'
@@ -18,6 +19,7 @@ import { humaniseCommand } from '../lib/humanise-command'
 import { formatCommandForProvider } from '../../../lib/format-command'
 import { CostValue } from '../../analytics/components/CostValue'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
+import { DateInput } from '../../../components/ui/date-input'
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
 
@@ -59,9 +61,7 @@ function formatWallDuration(startedAt: string | null, finishedAt: string | null 
 
 function formatTokens(n: number | null | undefined): string | null {
   if (n == null || n === 0) return null
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
+  return formatTokensCompact(n)
 }
 
 function formatRelTime(dateStr: string | null): string {
@@ -278,19 +278,15 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
         </div>
 
         <div className="flex items-center gap-2">
-          <input
-            type="date"
+          <DateInput
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit]"
             title={t('recent.fromDate')}
             aria-label={t('recent.fromDate')}
           />
-          <input
-            type="date"
+          <DateInput
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit]"
             title={t('recent.toDate')}
             aria-label={t('recent.toDate')}
           />
@@ -524,19 +520,17 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
       >
         <p className="text-xs text-muted-foreground">{t('recent.clearModal.orByRange')}</p>
         <div className="flex gap-2">
-          <input
-            type="date"
+          <DateInput
             value={clearFrom}
             onChange={(e) => setClearFrom(e.target.value)}
-            className="flex-1 h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit]"
+            className="flex-1"
             placeholder={t('recent.clearModal.fromPlaceholder')}
             aria-label={t('recent.clearModal.fromPlaceholder')}
           />
-          <input
-            type="date"
+          <DateInput
             value={clearTo}
             onChange={(e) => setClearTo(e.target.value)}
-            className="flex-1 h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit]"
+            className="flex-1"
             placeholder={t('recent.clearModal.toPlaceholder')}
             aria-label={t('recent.clearModal.toPlaceholder')}
           />

@@ -72,6 +72,11 @@ export function dailyBudgetActionMessage(t: TFunction, info: DailyBudgetInfo): s
   return time ? t('common:budget.actionWithReset', { where, time }) : t('common:budget.action', { where })
 }
 
+/** "The weekly limit is still reached." — shown when a relaunch is refused by the same limit again. */
+export function dailyBudgetStillExceededMessage(t: TFunction, info: DailyBudgetInfo): string {
+  return t('common:budget.stillExceeded', info.period === 'week' || info.period === 'month' || info.period === 'run' ? { context: info.period } : {})
+}
+
 /** Status line for a run paused between steps on a budget or its per-run cap. */
 export function dailyBudgetPausedMessage(t: TFunction, info: DailyBudgetInfo): string {
   if (info.period === 'run') return t('common:budget.pausedRun', values(info))

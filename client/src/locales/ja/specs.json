@@ -291,7 +291,9 @@
     "linkCopied": "リンクをコピーしました",
     "linkCopyFailed": "リンクをコピーできませんでした",
     "linkMissing": "このビューはこのプロジェクトにありません",
-    "deleted": "ビュー「{{name}}」を削除しました"
+    "deleted": "ビュー「{{name}}」を削除しました",
+    "linkOtherProject": "このビューは {{project}} のものです。",
+    "openInProject": "{{project}} で開く"
   },
   "movePicker": {
     "titleOne": "スペック #{{id}} を移動",

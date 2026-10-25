@@ -151,7 +151,7 @@ describe('JobDetailModal', () => {
       expect(screen.getByText('/specrails:queued')).toBeInTheDocument()
     })
     expect(screen.queryByText(/1970|Invalid Date/i)).not.toBeInTheDocument()
-    expect(screen.getByText('queued')).toBeInTheDocument()
+    expect(screen.getByText('Queued')).toBeInTheDocument()
   })
 
   it('an explicit projectId scopes every fetch to THAT project (agent-chat refs)', async () => {
@@ -200,7 +200,7 @@ describe('JobDetailModal', () => {
   it('renders status badge for completed job', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
   })
 
@@ -340,7 +340,7 @@ describe('JobDetailModal', () => {
   it('does not show Cancel button when job is completed', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
     expect(screen.queryByRole('button', { name: /^cancel$/i })).not.toBeInTheDocument()
   })
@@ -529,7 +529,7 @@ describe('JobDetailModal', () => {
     })
     render(<JobDetailModal jobId="job-running" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('running')).toBeInTheDocument()
+      expect(screen.getByText('Running')).toBeInTheDocument()
     })
   })
 
@@ -544,7 +544,7 @@ describe('JobDetailModal', () => {
     })
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('zombie')).toBeInTheDocument()
+      expect(screen.getByText('Zombie')).toBeInTheDocument()
     })
   })
 
@@ -585,7 +585,7 @@ describe('JobDetailModal', () => {
     })
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
     expect(screen.queryByText(/^\$/)).not.toBeInTheDocument()
   })
@@ -601,7 +601,7 @@ describe('JobDetailModal', () => {
     })
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
     expect(screen.queryByText(/\ds$/)).not.toBeInTheDocument()
   })
@@ -776,7 +776,7 @@ describe('JobDetailModal', () => {
       })
       render(<JobDetailModal jobId="job-running" onClose={onClose} />)
       await waitFor(() => {
-        expect(screen.getByText('running')).toBeInTheDocument()
+        expect(screen.getByText('Running')).toBeInTheDocument()
       })
       expect(screen.queryByTestId('interactive-job-composer')).not.toBeInTheDocument()
       // Regression: `job.interactive` is a SQLite 0/1 number, so the composer
@@ -796,7 +796,7 @@ describe('JobDetailModal', () => {
       })
       render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
       await waitFor(() => {
-        expect(screen.getByText('completed')).toBeInTheDocument()
+        expect(screen.getByText('Completed')).toBeInTheDocument()
       })
       expect(screen.queryByTestId('interactive-job-composer')).not.toBeInTheDocument()
     })

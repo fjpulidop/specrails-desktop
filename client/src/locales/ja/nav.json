@@ -86,7 +86,8 @@
     "backTo": "{{place}} に戻る",
     "forwardTo": "{{place}} に進む",
     "backMenu": "以前の場所",
-    "forwardMenu": "次の場所"
+    "forwardMenu": "次の場所",
+    "searchIn": "{{project}} を検索"
   },
   "costAlerts": {
     "costAlertTitle": "コストアラート",

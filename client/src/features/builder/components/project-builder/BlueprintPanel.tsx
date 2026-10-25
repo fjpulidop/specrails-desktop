@@ -9,6 +9,7 @@ import {
 } from '../../lib/blueprint-draft'
 import { BlueprintSpecModal } from './BlueprintSpecModal'
 import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 // Live blueprint panel (add-project-builder D8): five dimension rows filling
 // in as ✓/✗ during the interview, then the complete M1 spec batch after
@@ -63,7 +64,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
         <h3 className="flex items-center gap-2 text-xs font-semibold text-foreground/80">
           {t('panel.title')}
           {snapshot?.status === 'repairing' && (
-            <Loader2 className="h-3 w-3 animate-spin text-accent-info" aria-hidden data-testid="panel-repairing" />
+            <LiveDot tone="info" size="xs" aria-hidden data-testid="panel-repairing" />
           )}
         </h3>
         <div className="space-y-1">
@@ -150,7 +151,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
                       <span
                         className={cn(
-                          'rounded-full border px-1.5 py-px text-micro font-medium',
+                          'rounded-full border px-1.5 py-px text-caption font-medium',
                           PRIORITY_PILL[spec.priority],
                         )}
                         data-testid={`m1-spec-priority-${i}`}

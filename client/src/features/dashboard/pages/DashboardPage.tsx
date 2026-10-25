@@ -16,6 +16,8 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { toast } from 'sonner'
+import { notifyError } from '../../../lib/notify-error'
+import { openBudgetPanel } from '../../../lib/app-settings-events'
 import { useTranslation } from 'react-i18next'
 import { useTickets } from '../../specs/hooks/useTickets'
 import { SpecsBoard } from '../../specs/components/SpecsBoard'
@@ -611,11 +613,11 @@ export default function DashboardPage() {
       if (code === 'rail_active') toast.error(t('toasts.railRunningStopFirst', { rail: rail.label }))
       else if (code === 'pr_decision_pending') toast.error(t('toasts.railDeletePrPending', { rail: rail.label }))
       else if (res.status === 400 || code === 'cannot_delete_last_rail') toast.error(t('toasts.railDeleteLastRail'))
-      else toast.error(t('toasts.railDeleteFailed'))
+      else notifyError(t('toasts.railDeleteFailed'), { retry: () => void handleDeleteRail(railId) })
     } catch {
       // Unknown server state: keep the rail visible until a successful retry
       // or refresh reconciles it. Optimistic removal here can desync the board.
-      toast.error(t('toasts.railDeleteFailed'))
+      notifyError(t('toasts.railDeleteFailed'), { retry: () => void handleDeleteRail(railId) })
     }
   }, [rails, updateRails, updateSpecOrder, t])
 
@@ -1330,7 +1332,7 @@ export default function DashboardPage() {
         updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'idle', activeJobId: undefined } : r)))
         toast.info(t('toasts.railStopped', { rail: rail.label }))
       } catch {
-        toast.error(t('toasts.stopFailed'))
+        notifyError(t('toasts.stopFailed'), { retry: () => void handleToggle(railId) })
       }
       return
     }
@@ -1424,7 +1426,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ ticketIds: rail.ticketIds }),
       })
     } catch {
-      if (!silent) toast.error(t('toasts.syncTicketsFailed'))
+      if (!silent) notifyError(t('toasts.syncTicketsFailed'), { retry: () => void doLaunchRail(railId, opts) })
       return 'failed'
     }
 
@@ -1475,7 +1477,11 @@ export default function DashboardPage() {
         const budget = res.status === 409 ? readDailyBudgetRejection(data) : null
         if (budget) {
           if (!silent) {
-            toast.error(dailyBudgetExceededMessage(t, budget), { description: dailyBudgetActionMessage(t, budget), duration: 10000 })
+            notifyError(dailyBudgetExceededMessage(t, budget), {
+              detail: dailyBudgetActionMessage(t, budget),
+              duration: 10000,
+              action: { label: t('common:budget.raiseCap'), onClick: openBudgetPanel },
+            })
           }
           return 'budget'
         }
@@ -1519,7 +1525,7 @@ export default function DashboardPage() {
           }
           return 'failed'
         }
-        if (!silent) toast.error(data.error || t('toasts.launchFailed'))
+        if (!silent) notifyError(t('toasts.launchFailed'), { detail: data.error, retry: () => void doLaunchRail(railId, opts) })
         return 'failed'
       }
       // Implement/freestyle return { jobId }; loop mode returns { loopRunIds }.
@@ -1552,7 +1558,7 @@ export default function DashboardPage() {
       }
       return 'launched'
     } catch {
-      if (!silent) toast.error(t('toasts.launchNetworkError'))
+      if (!silent) notifyError(t('toasts.launchNetworkError'), { retry: () => void doLaunchRail(railId, opts) })
       return 'failed'
     }
   }
@@ -1717,6 +1723,7 @@ export default function DashboardPage() {
     <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div ref={dashboardContainerRef} className="relative z-0 flex h-full overflow-hidden">
         {isGalaxy && <Starfield />}
+        <h1 className="sr-only">{t('board.pageTitle', { project: projects.find((pr) => pr.id === activeProjectId)?.name ?? '' })}</h1>
         {/* Left panel: Specs board */}
         <div
           className="relative z-10 min-w-0 flex flex-col overflow-hidden"

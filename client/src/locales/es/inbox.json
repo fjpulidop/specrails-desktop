@@ -79,5 +79,6 @@
       }
     },
     "detail": "{{spent}} de {{budget}} gastados"
-  }
+  },
+  "stale": "No se pudo actualizar; se muestra la última lista."
 }

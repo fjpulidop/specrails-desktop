@@ -291,7 +291,9 @@
     "linkCopied": "Link kopiert",
     "linkCopyFailed": "Der Link konnte nicht kopiert werden",
     "linkMissing": "Diese Ansicht gibt es in diesem Projekt nicht",
-    "deleted": "Ansicht „{{name}}“ gelöscht"
+    "deleted": "Ansicht „{{name}}“ gelöscht",
+    "linkOtherProject": "Diese Ansicht gehört zu {{project}}.",
+    "openInProject": "In {{project}} öffnen"
   },
   "movePicker": {
     "titleOne": "Spec #{{id}} verschieben",

@@ -1,5 +1,5 @@
 import { useSidebarPin } from '../context/SidebarPinContext'
-import { keyboardLabel } from '../lib/keyboard-label'
+import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
@@ -78,20 +78,22 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
 
   function handleClick() {
     window.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true })
+      new KeyboardEvent('keydown', isMacKeyboard() ? { key: 'k', metaKey: true, bubbles: true } : { key: 'k', ctrlKey: true, bubbles: true })
     )
   }
 
   // Agent Mode hides the pill with a fade (stays mounted so the CSS transition
   // runs BOTH ways: fade-out entering agent, fade-in returning to kanban).
-  // Accessible name = the visible text (WCAG 2.5.3 label-in-name); the
-  // shortcut is exposed via aria-keyshortcuts and the hover title.
+  // The visible text is the project name, so the accessible name leads with it (WCAG 2.5.3
+  // label-in-name) and says what the control does; the shortcut is exposed via
+  // aria-keyshortcuts (per platform) and the hover title.
   return (
     <button
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      aria-keyshortcuts="Meta+K"
+      aria-keyshortcuts={isMacKeyboard() ? 'Meta+K' : 'Control+K'}
+      aria-label={projectName ? t('titleBar.searchIn', { project: projectName }) : undefined}
       title={t('titleBar.searchShortcut', { shortcut: keyboardLabel('⌘K') })}
       aria-hidden={hidden || undefined}
       tabIndex={hidden ? -1 : undefined}

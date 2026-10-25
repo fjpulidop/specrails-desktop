@@ -291,7 +291,9 @@
     "linkCopied": "链接已复制",
     "linkCopyFailed": "无法复制链接",
     "linkMissing": "此项目中没有该视图",
-    "deleted": "已删除视图“{{name}}”"
+    "deleted": "已删除视图“{{name}}”",
+    "linkOtherProject": "此视图属于 {{project}}。",
+    "openInProject": "在 {{project}} 中打开"
   },
   "movePicker": {
     "titleOne": "移动规格 #{{id}}",

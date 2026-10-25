@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { Loader2, ScrollText } from 'lucide-react'
+import { ScrollText } from 'lucide-react'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 /** The i18n key under `activity.tool.*` for each built-in tool verb. */
 const TOOL_KEYS: Record<string, string> = {
@@ -60,7 +61,7 @@ export function AgentActivityChip({ tool, onClick, agentDescription }: { tool: s
 
   const body = (
     <>
-      <Loader2 className="h-3 w-3 animate-spin text-accent-info motion-reduce:animate-none" />
+      <LiveDot tone="info" size="xs" aria-hidden />
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={label}

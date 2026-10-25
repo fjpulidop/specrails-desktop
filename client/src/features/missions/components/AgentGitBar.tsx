@@ -7,6 +7,7 @@ import { useIsStreaming } from '../hooks/useAgentLive'
 import { subscribeGitChanged } from '../../code/lib/git-refresh'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { projectRepositories, repositoryApiBase } from '../../projects/lib/project-repositories'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 interface GitWorktree {
   path: string
@@ -281,7 +282,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
         </div>}
       </div>}
       {!info?.git && <span role={loadFailed ? 'status' : undefined} className="min-w-0 truncate">
-        {loadFailed ? t('git.loadFailed') : info ? t('git.notGit') : <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />}
+        {loadFailed ? t('git.loadFailed') : info ? t('git.notGit') : <LiveDot tone="muted" size="xs" aria-hidden />}
       </span>}
       {loadFailed && <button type="button" onClick={() => void refresh()} className="shrink-0 text-accent-primary hover:underline">{t('git.retry')}</button>}
       {info?.git && <button
@@ -322,7 +323,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('git.searchPlaceholder')}
                 aria-label={t('git.searchPlaceholder')}
-                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                className="w-full bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
               />
             </div>
             <div ref={branchListRef} className="max-h-64 overflow-y-auto py-1" role="listbox" aria-label={t('git.branch')}>

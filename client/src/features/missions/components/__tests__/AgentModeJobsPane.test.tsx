@@ -75,8 +75,8 @@ describe('AgentModeJobsPane', () => {
     renderPane()
     expect(screen.getByText('/specrails:implement #12')).toBeInTheDocument()
     expect(screen.getByText('/specrails:implement #9')).toBeInTheDocument()
-    expect(screen.getByText('running')).toBeInTheDocument()
-    expect(screen.getByText('completed')).toBeInTheDocument()
+    expect(screen.getByText('Running')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
   })
 
   it('opens the near-fullscreen execution modal on job click and closes it', () => {

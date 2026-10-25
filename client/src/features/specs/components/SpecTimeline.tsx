@@ -11,6 +11,7 @@ import { fetchUsageSnapshot, planProviderIds } from '../../../lib/launch-forecas
 import { formatUsd } from '../../../lib/format-usd'
 import { getActiveLanguage } from '../../../lib/i18n'
 import { cn } from '../../../lib/utils'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import {
   TIMELINE_KINDS, entryCost, eventCount, eventKey, groupByDay, timelineTarget,
   fetchSpecTimeline, type TimelineEntry, type TimelineKind, type TimelineTarget, type TimelineTone,
@@ -188,7 +189,10 @@ export function SpecTimeline({ ticketId, refreshKey, onNavigate, uiMode, current
       )}
 
       {state === 'loading' && entries.length === 0 && (
-        <p className="flex items-center gap-2 text-body text-muted-foreground" role="status"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t('timeline.loading')}</p>
+        <div className="space-y-2" data-testid="timeline-loading">
+          <RailTrack running aria-label={t('timeline.loading')} />
+          <p className="text-body text-muted-foreground">{t('timeline.loading')}</p>
+        </div>
       )}
 
       {state === 'error' && (

@@ -184,7 +184,9 @@
       "continue": "上限なしで続行",
       "raiseTo": "上限を引き上げる額（USD）",
       "mustExceed": "すでに使用した {{spent}} を上回る必要があります"
-    }
+    },
+    "raiseCap": "上限を引き上げる",
+    "stillExceeded_run": "実行ごとの上限は引き続き到達しています。"
   },
   "reviewWip": {
     "reached_one": "レビュー上限に達しました: {{count}} 件の納品がレビュー待ちです(上限 {{limit}})。何も起動していません。",
@@ -294,5 +296,8 @@
       "needsYouSpec": "レール {{rail}}:#{{id}} は対応が必要です",
       "reviewReadySpec": "レール {{rail}}:#{{id}} のレビューの準備ができました"
     }
+  },
+  "errors": {
+    "technicalDetails": "技術的な詳細"
   }
 }

@@ -137,10 +137,10 @@ describe('JobComparisonModal', () => {
     render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
     await waitFor(() => {
       // job-a tokensOut: 3000 and job-b tokensIn: 3000 → "3.0k" appears multiple times
-      const threeK = screen.getAllByText('3.0k')
+      const threeK = screen.getAllByText('3K')
       expect(threeK.length).toBeGreaterThanOrEqual(1)
       // 1500 tokens → 1.5k
-      expect(screen.getByText('1.5k')).toBeInTheDocument()
+      expect(screen.getByText('1.5K')).toBeInTheDocument()
     })
   })
 
@@ -176,8 +176,8 @@ describe('JobComparisonModal', () => {
   it('renders status label for each job', async () => {
     render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
-      expect(screen.getByText('failed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
+      expect(screen.getByText('Failed')).toBeInTheDocument()
     })
   })
 

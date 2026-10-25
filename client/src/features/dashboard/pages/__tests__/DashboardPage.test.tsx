@@ -292,6 +292,14 @@ describe('DashboardPage', () => {
     })
   })
 
+  it('gives the page its single level-1 heading, naming the project', () => {
+    render(<DashboardPage />)
+    const h1 = screen.getAllByRole('heading', { level: 1 })
+    expect(h1).toHaveLength(1)
+    expect(h1[0]).toHaveClass('sr-only')
+    expect(h1[0].textContent).toMatch(/Board$/)
+  })
+
   it('CreateTicketModal is not shown initially', () => {
     render(<DashboardPage />)
     expect(screen.queryByTestId('create-ticket-modal')).not.toBeInTheDocument()

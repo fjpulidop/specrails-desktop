@@ -752,7 +752,7 @@ describe('AgentPrDecisionCard actions', () => {
     global.fetch = vi.fn(async () => httpRes(409, { error: 'delivery_not_verified', detail: 'Commit evidence is missing.' })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env()} />)
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create PR' })) })
-    expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Commit evidence is missing.' })
+    expect(toast.error).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ description: 'Commit evidence is missing.' }))
     expect(toast.info).not.toHaveBeenCalledWith('Already resolved elsewhere')
   })
 
@@ -948,7 +948,7 @@ describe('AgentPrDecisionCard actions', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created' })} />)
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Publish' })) })
     await waitFor(() =>
-      expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Action failed', { description: 'gh: not logged in' }),
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Action failed', expect.objectContaining({ description: 'gh: not logged in', action: expect.objectContaining({ label: 'Retry' }) })),
     )
   })
 
@@ -1019,7 +1019,7 @@ describe('AgentPrDecisionCard actions', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create PR' })) })
     await waitFor(() => expect(screen.getByText('Implementation complete: update failed')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Retry push' })).toBeInTheDocument()
-    expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Implementation complete; delivery needs attention', { description: 'remote temporarily unavailable' })
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Implementation complete; delivery needs attention', expect.objectContaining({ description: 'remote temporarily unavailable' }))
   })
 
   it('confirms the exact SHA after Retry push and immediately renders the verified PR state', async () => {
@@ -1164,7 +1164,7 @@ describe('AgentPrDecisionCard actions', () => {
     global.fetch = vi.fn(async () => { throw new Error('offline') }) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env()} />)
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create PR' })) })
-    await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Action failed', { description: 'offline' }))
+    await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Action failed', expect.objectContaining({ description: 'offline', action: expect.objectContaining({ label: 'Retry' }) })))
     expect(screen.getByRole('button', { name: 'Create PR' })).toBeEnabled()
   })
 })

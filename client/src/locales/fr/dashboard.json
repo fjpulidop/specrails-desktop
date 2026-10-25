@@ -324,5 +324,8 @@
   },
   "errors": {
     "deleteFailed": "Impossible de supprimer la spec"
+  },
+  "board": {
+    "pageTitle": "{{project}} : tableau"
   }
 }

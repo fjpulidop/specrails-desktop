@@ -37,7 +37,7 @@ export function InboxButton() {
         <span
           data-testid="inbox-badge"
           aria-hidden
-          className="absolute -right-0.5 -top-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-pill bg-foreground px-1 text-micro tabular-nums text-background"
+          className="absolute -right-0.5 -top-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-pill bg-foreground px-1 text-caption tabular-nums text-background"
         >
           {count > 99 ? '99+' : count}
         </span>

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1336 source/build files. Nearby tests are linked where names
+Includes 1342 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -74,6 +74,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [button.tsx](../../client/src/components/ui/button.tsx)
 - [card.tsx](../../client/src/components/ui/card.tsx)
 - [confirm-dialog.tsx](../../client/src/components/ui/confirm-dialog.tsx)
+- [date-input.tsx](../../client/src/components/ui/date-input.tsx) · [test](../../client/src/components/ui/__tests__/date-input.test.tsx)
 - [dialog.tsx](../../client/src/components/ui/dialog.tsx)
 - [dropdown-menu.tsx](../../client/src/components/ui/dropdown-menu.tsx) · [test](../../client/src/components/ui/__tests__/dropdown-menu.test.tsx)
 - [empty-state.tsx](../../client/src/components/ui/empty-state.tsx)
@@ -150,6 +151,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [LegacyWorkflowUsage.tsx](../../client/src/features/analytics/components/LegacyWorkflowUsage.tsx) · [test](../../client/src/features/analytics/components/__tests__/LegacyWorkflowUsage.test.tsx)
 - [LoopEconomicsCard.tsx](../../client/src/features/analytics/components/LoopEconomicsCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/LoopEconomicsCard.test.tsx)
 - [ModelBreakdown.tsx](../../client/src/features/analytics/components/ModelBreakdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ModelBreakdown.test.tsx)
+- [ModelName.tsx](../../client/src/features/analytics/components/ModelName.tsx)
 - [PeriodSelector.tsx](../../client/src/features/analytics/components/PeriodSelector.tsx) · [test](../../client/src/features/analytics/components/__tests__/PeriodSelector.test.tsx)
 - [ProviderBreakdownCard.tsx](../../client/src/features/analytics/components/ProviderBreakdownCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/ProviderBreakdownCard.test.tsx)
 - [QuickVsExploreCard.tsx](../../client/src/features/analytics/components/QuickVsExploreCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/QuickVsExploreCard.test.tsx)
@@ -167,6 +169,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [budget.ts](../../client/src/features/analytics/lib/budget.ts) · [test](../../client/src/features/analytics/lib/__tests__/budget.test.ts)
 - [format.ts](../../client/src/features/analytics/lib/format.ts)
+- [use-billing.ts](../../client/src/features/analytics/lib/use-billing.ts)
 
 ## client/src/features/analytics/pages
 
@@ -1020,6 +1023,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [feature-flags.ts](../../client/src/lib/feature-flags.ts)
 - [format-command.ts](../../client/src/lib/format-command.ts) · [test](../../client/src/lib/__tests__/format-command.test.ts)
 - [format-duration.ts](../../client/src/lib/format-duration.ts) · [test](../../client/src/lib/__tests__/format-duration.test.ts)
+- [format-tokens.ts](../../client/src/lib/format-tokens.ts) · [test](../../client/src/lib/__tests__/format-tokens.test.ts)
 - [format-usd.ts](../../client/src/lib/format-usd.ts) · [test](../../client/src/lib/__tests__/format-usd.test.ts)
 - [global-route-mode-transition.ts](../../client/src/lib/global-route-mode-transition.ts) · [test](../../client/src/lib/__tests__/global-route-mode-transition.test.ts)
 - [help-topics.ts](../../client/src/lib/help-topics.ts) · [test](../../client/src/lib/__tests__/help-topics.test.ts)
@@ -1034,6 +1038,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [markdown-detect.ts](../../client/src/lib/markdown-detect.ts) · [test](../../client/src/lib/__tests__/markdown-detect.test.ts)
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
+- [model-label.ts](../../client/src/lib/model-label.ts)
+- [notify-error.ts](../../client/src/lib/notify-error.ts) · [test](../../client/src/lib/__tests__/notify-error.test.ts)
 - [onboarding-events.ts](../../client/src/lib/onboarding-events.ts)
 - [open-in-editor.ts](../../client/src/lib/open-in-editor.ts) · [test](../../client/src/lib/__tests__/open-in-editor.test.ts)
 - [origin.ts](../../client/src/lib/origin.ts)

@@ -6,6 +6,7 @@ import { CheckCircle2, XCircle, Ban, Activity, Zap } from 'lucide-react'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useActivity } from '../hooks/useActivity'
 import type { ActivityItem } from '../hooks/useActivity'
+import { formatUsd } from '../lib/format'
 
 function formatRelativeTime(isoTimestamp: string, t: TFunction): string {
   const diff = Date.now() - new Date(isoTimestamp).getTime()
@@ -105,7 +106,7 @@ export default function ActivityFeedPage() {
                     </span>
                     {item.costUsd != null && (
                       <span className="text-xs text-muted-foreground">
-                        ${item.costUsd.toFixed(4)}
+                        {formatUsd(item.costUsd)}
                       </span>
                     )}
                   </div>

@@ -215,7 +215,7 @@ export function AgentMissionSelector() {
                   value={query}
                   onChange={(e) => { setQuery(e.target.value); setHighlighted(0) }}
                   placeholder={t('mission.searchPlaceholder')}
-                  className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-foreground/40"
+                  className="w-full bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-foreground/40"
                 />
               </div>
             )}

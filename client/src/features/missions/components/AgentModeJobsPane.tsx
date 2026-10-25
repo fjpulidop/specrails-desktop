@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
-import { Maximize2, Minimize2, X, Loader2, Briefcase } from 'lucide-react'
+import { Maximize2, Minimize2, X, Briefcase } from 'lucide-react'
 import { repositoryApiBase } from '../../projects/lib/project-repositories'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { cn } from '../../../lib/utils'
@@ -17,6 +17,7 @@ import { jobActivityTimestamp, parseJobTimestamp } from '../../jobs/lib/job-time
 import { Badge } from '../../../components/ui/badge'
 import { JobDetailModal } from '../../jobs/components/JobDetailModal'
 import type { JobSummary } from '../../../types'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 const MIN_PANE = 360
 const DEFAULT_PANE = 480
@@ -176,7 +177,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
                     <Badge variant={STATUS_VARIANT[job.status] ?? 'queued'}>
                       {tJobs(`statusLabel.${job.status in STATUS_VARIANT ? job.status : 'queued'}`)}
                     </Badge>
-                    {job.status === 'running' && <Loader2 className="h-3 w-3 animate-spin text-accent-primary" />}
+                    {job.status === 'running' && <LiveDot tone="primary" size="xs" aria-hidden />}
                     <span className="ml-auto text-caption text-muted-foreground">
                       {(() => {
                         const timestamp = parseJobTimestamp(jobActivityTimestamp(job))

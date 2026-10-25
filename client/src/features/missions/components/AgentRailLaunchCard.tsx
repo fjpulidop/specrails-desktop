@@ -52,6 +52,7 @@ import { InitialCommitButton } from '../../../components/InitialCommitButton'
 import { HelpHint } from '../../../components/HelpHint'
 import { LaunchForecast } from '../../../components/LaunchForecast'
 import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 // ── Live project state the card reconciles against ────────────────────────────
 
@@ -1148,7 +1149,7 @@ export function AgentRailLaunchPending() {
   const { t } = useTranslation('agent')
   return (
     <div data-testid="agent-rail-launch-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-caption text-accent-primary">
-      <Loader2 className="h-3 w-3 animate-spin" />
+      <LiveDot tone="primary" size="xs" aria-hidden />
       {t('railCard.pending')}
     </div>
   )

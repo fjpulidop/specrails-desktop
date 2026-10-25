@@ -79,5 +79,6 @@
       }
     },
     "detail": "{{spent}} von {{budget}} ausgegeben"
-  }
+  },
+  "stale": "Aktualisierung fehlgeschlagen – die letzte Liste wird angezeigt."
 }

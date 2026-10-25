@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
-import { Loader2, Sparkles, Wrench } from 'lucide-react'
+import { Sparkles, Wrench } from 'lucide-react'
 import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 // Live generation feedback (harden-project-builder-snapshots). While the M1
 // batch streams in, the raw JSON is hidden by the tail cut — so for up to a
@@ -45,7 +46,7 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
       aria-live="polite"
     >
       <div className="flex items-center gap-2">
-        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-info" aria-hidden />
+        <LiveDot tone="info" size="xs" aria-hidden />
         <Icon className="h-3 w-3 shrink-0 text-accent-primary" aria-hidden />
         <AnimatePresence mode="wait" initial={false}>
           <motion.span

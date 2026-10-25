@@ -137,7 +137,7 @@ describe('ActivityFeedPage', () => {
   it('renders cost in USD when costUsd is not null', () => {
     mockItems = [baseItems[0]] // costUsd: 0.0123
     render(<ActivityFeedPage />)
-    expect(screen.getByText('$0.0123')).toBeInTheDocument()
+    expect(screen.getByText('$0.01')).toBeInTheDocument()
   })
 
   it('does not render cost when costUsd is null', () => {

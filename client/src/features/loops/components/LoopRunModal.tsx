@@ -194,7 +194,7 @@ export function LoopRunModal({
               placeholder={t('run.runCapPlaceholder')}
               className="num w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
             />
-            <p className="text-micro text-muted-foreground">{t('run.runCapHint')}</p>
+            <p className="text-caption text-muted-foreground">{t('run.runCapHint')}</p>
             <LaunchForecast projectId={selected?.id} loopId={loop.id} provider={effectiveProvider || null} className="pt-1" />
             </DialogBody>
 

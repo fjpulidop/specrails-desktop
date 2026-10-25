@@ -451,7 +451,7 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
                 }}
                 placeholder={t('modal.address.placeholder')}
                 aria-label={t('modal.address.label')}
-                className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+                className="flex-1 min-w-0 bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring text-sm"
               />
             </div>
             <Button type="submit" size="sm" variant="secondary" className="shrink-0">{t('modal.address.go')}</Button>

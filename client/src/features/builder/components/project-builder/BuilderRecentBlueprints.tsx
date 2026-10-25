@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlertTriangle, Check, History, Layers, Loader2, Play, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Check, History, Layers, Play, Trash2, X } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { getDateFnsLocale } from '../../../../lib/i18n'
 import type { RecentBlueprint } from '../../hooks/useBuilderSession'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 // "Continue where you left off" (harden-project-builder-snapshots): the
 // durable answer to a closed panel, a crash, or a refresh mid-blueprint. The
@@ -47,7 +48,7 @@ export function BuilderRecentBlueprints({ items, loading, disabled = false, onRe
       <div className="mb-2 flex items-center gap-2 px-1">
         <History className="h-3.5 w-3.5 text-accent-secondary" aria-hidden />
         <h3 className="text-xs font-semibold text-foreground/80">{t('recent.title')}</h3>
-        {loading && <Loader2 className="ml-auto h-3 w-3 animate-spin text-muted-foreground" aria-hidden />}
+        {loading && <LiveDot tone="muted" size="xs" className="ml-auto" aria-hidden />}
       </div>
       <ul className="space-y-1">
         <AnimatePresence initial={false}>

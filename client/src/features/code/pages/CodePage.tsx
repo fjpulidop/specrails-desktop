@@ -246,7 +246,7 @@ function CodeProvenanceToolbar({
             onKeyDown={(e) => { if (e.key === 'Enter') onApplyTicket(ticketInput) }}
             placeholder={t('toolbar.ticketIdPlaceholder')}
             inputMode="numeric"
-            className="h-6 w-20 bg-transparent px-1 font-mono text-xs outline-none placeholder:text-muted-foreground"
+            className="h-6 w-20 bg-transparent px-1 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
           />
         </div>
         <div className="flex-1" />

@@ -16,6 +16,7 @@ import { Button } from '../../../../components/ui/button'
 import { cn } from '../../../../lib/utils'
 import { localizeQualityIssue, type ReadinessReport, type ReadinessStep } from '../../lib/blueprint-readiness'
 import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 // The commit gate, made legible (harden-project-builder-snapshots). Replaces
 // the single raw English sentence under a greyed-out button with:
@@ -112,7 +113,7 @@ export function BlueprintReadiness({
             className="flex items-center gap-2 rounded-md border border-accent-info/30 bg-accent-info/10 px-2.5 py-1.5 text-caption text-accent-info"
             data-testid="snapshot-repairing"
           >
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+            <LiveDot tone="info" size="xs" aria-hidden />
             <span className="min-w-0 flex-1">
               {t(`snapshot.repairing.${snapshot.kind}`)}
               {snapshot.manual ? '' : ` · ${t('snapshot.repairing.automatic')}`}

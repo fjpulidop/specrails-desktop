@@ -86,7 +86,8 @@
     "backTo": "Voltar para {{place}}",
     "forwardTo": "Avançar para {{place}}",
     "backMenu": "Lugares anteriores",
-    "forwardMenu": "Próximos lugares"
+    "forwardMenu": "Próximos lugares",
+    "searchIn": "Pesquisar em {{project}}"
   },
   "costAlerts": {
     "costAlertTitle": "Alerta de custo",

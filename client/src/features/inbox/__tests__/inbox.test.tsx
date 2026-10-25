@@ -199,6 +199,20 @@ describe('Inbox panel', () => {
     await waitFor(() => expect(screen.getAllByTestId('inbox-row').length).toBe(4))
   })
 
+  it('says so when a refresh fails while a list is showing, and Try again recovers', async () => {
+    mount('/?inbox=1')
+    await waitFor(() => expect(screen.getAllByTestId('inbox-row').length).toBe(4))
+    expect(screen.queryByTestId('inbox-stale')).toBeNull()
+    fetchMock.mockImplementation(async () => ({ ok: false, status: 500, json: async () => ({}) }))
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    const stale = await screen.findByTestId('inbox-stale')
+    expect(stale).toHaveTextContent("Couldn't refresh — showing the last list.")
+    expect(screen.getAllByTestId('inbox-row').length).toBe(4)
+    fetchMock.mockImplementation(async () => ({ ok: true, status: 200, json: async () => ({ items, projects: [], generatedAt: '' }) }))
+    fireEvent.click(within(stale).getByText('Try again'))
+    await waitFor(() => expect(screen.queryByTestId('inbox-stale')).toBeNull())
+  })
+
   it('walks the rows with the arrow keys', async () => {
     mount('/?inbox=1')
     const dialog = await screen.findByTestId('inbox-dialog')

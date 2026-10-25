@@ -79,5 +79,6 @@
       }
     },
     "detail": "{{spent}} of {{budget}} spent"
-  }
+  },
+  "stale": "Couldn't refresh — showing the last list."
 }

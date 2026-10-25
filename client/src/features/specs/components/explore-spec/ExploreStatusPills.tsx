@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 /**
  * Status pill area shown for Explore turns from user-submit through to the
@@ -93,7 +93,7 @@ export function ExploreStatusPills({
       data-testid="explore-status-pill"
       data-stage={displayedStage}
     >
-      <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+      <LiveDot tone="info" size="xs" aria-hidden />
       <span>{label}</span>
     </div>
   )

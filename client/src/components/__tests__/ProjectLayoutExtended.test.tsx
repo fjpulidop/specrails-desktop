@@ -124,7 +124,7 @@ describe('ProjectLayout (extended: cost alerts + terminal panel)', () => {
     expect(h.toastWarning).toHaveBeenCalledWith(
       'Cost alert',
       expect.objectContaining({
-        description: 'Job cost $1.2345 — threshold is $1.00',
+        description: 'Job cost $1.23 — threshold is $1.00',
       }),
     )
   })
@@ -146,7 +146,7 @@ describe('ProjectLayout (extended: cost alerts + terminal panel)', () => {
       h.wsHandler!({ type: 'daily_budget_exceeded', projectId: 'proj-1', dailySpend: 12, budget: 10 })
     })
     expect(h.toastError).toHaveBeenCalledWith(
-      'Daily budget exceeded',
+      'Daily limit reached',
       expect.objectContaining({
         description: 'Spent $12.00 of $10.00 today. Queue paused.',
         duration: Infinity,
@@ -154,7 +154,7 @@ describe('ProjectLayout (extended: cost alerts + terminal panel)', () => {
     )
     // Banner with the formatted amounts
     expect(
-      screen.getByText('Daily budget exceeded — spent $12.00 of $10.00. Queue is paused.'),
+      screen.getByText('Daily limit reached — spent $12.00 of $10.00. Queue is paused.'),
     ).toBeInTheDocument()
 
     // Dismiss removes the banner

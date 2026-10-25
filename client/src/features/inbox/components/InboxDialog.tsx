@@ -152,6 +152,12 @@ export function InboxDialog() {
         <DialogHeader icon={<Inbox />}>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{empty ? t('subtitleEmpty') : t('subtitle', { count: inbox.count })}</DialogDescription>
+          {inbox.stale && inbox.status === 'ready' && (
+            <p role="status" className="text-caption text-muted-foreground" data-testid="inbox-stale">
+              {t('stale')}{' '}
+              <Button variant="link" size="sm" className="h-auto p-0 text-caption" onClick={() => { void inbox.refresh() }}>{t('error.retry')}</Button>
+            </p>
+          )}
         </DialogHeader>
         <DialogBody>
           <div ref={listRef} onKeyDown={onKeyDown} className="flex flex-col gap-4">

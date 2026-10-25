@@ -80,7 +80,7 @@ describe('SpecsBoard', () => {
   it('shows load error with Retry instead of the empty state', () => {
     const onRetry = vi.fn()
     render(<SpecsBoard tickets={[]} isLoading={false} error="request failed" onRetry={onRetry} onTicketClick={onTicketClick} />)
-    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load tickets')
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load specs')
     expect(screen.queryByText('No specs yet')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(onRetry).toHaveBeenCalledTimes(1)

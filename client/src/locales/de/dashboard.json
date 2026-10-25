@@ -324,5 +324,8 @@
   },
   "errors": {
     "deleteFailed": "Die Spec konnte nicht gelöscht werden"
+  },
+  "board": {
+    "pageTitle": "{{project}}: Board"
   }
 }

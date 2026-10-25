@@ -511,7 +511,7 @@ export function TicketDetailModal({
                   if (e.key === 'Enter') setEditingTitle(false)
                   if (e.key === 'Escape') { setTitle(ticket.title); setEditingTitle(false) }
                 }}
-                className="w-full bg-transparent border-b border-accent-primary/50 text-title text-foreground outline-none pb-0.5"
+                className="w-full bg-transparent border-b border-accent-primary/50 text-title text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring pb-0.5"
               />
             ) : (
               <button

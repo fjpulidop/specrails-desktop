@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useMotionValue } from 'motion/react'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useIsStreaming } from '../hooks/useAgentLive'
 import { RailMark } from '../../../components/brand/RailMark'
+import { keyboardLabel } from '../../../lib/keyboard-label'
 import { BuilderHalo } from '../../builder/components/project-builder/BuilderHalo'
 
 // Persisted bubble position, stored as the distance from the bottom-right
@@ -116,7 +117,7 @@ export function AgentBubble() {
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
       aria-label={t('trigger')}
-      title={`${t('trigger')} (⌘⇧A)`}
+      title={`${t('trigger')} (${keyboardLabel('⌘⇧A')})`}
       drag
       dragMomentum={false}
       dragElastic={0}
