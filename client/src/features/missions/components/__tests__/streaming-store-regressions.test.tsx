@@ -73,7 +73,7 @@ vi.mock('../../lib/agent-api', async (orig) => {
   }
 })
 
-import { AgentChatProvider, useAgentChat, retainOptimisticRows } from '../../context/AgentChatContext'
+import { AgentChatProvider, useAgentChat, retainOptimisticRows, placeOptimisticRows } from '../../context/AgentChatContext'
 import { AgentConversationView } from '../AgentConversationView'
 import { MissionExtensionsProvider, type MissionExtensions, type MissionFenceCardProps } from '../../context/MissionExtensionsContext'
 import { useIsConversationStreaming } from '../../hooks/useAgentLive'
@@ -219,9 +219,29 @@ describe('optimistic rows and background revalidation', () => {
     const persisted = [msg('m1', 'user', 'a')]
     expect(retainOptimisticRows(current, persisted).map((m) => m.id)).toEqual(['local-u-q1', 'err-1'])
   })
-  it('drops a local row once the persisted copy is in the snapshot (no duplicate)', () => {
+  it('drops a local row once its acknowledged server id is in the snapshot (no duplicate)', () => {
     const current = [msg('local-u-q1', 'user', 'hello')]
-    expect(retainOptimisticRows(current, [msg('m9', 'user', 'hello')])).toEqual([])
+    const serverIdOf = (queueId: string) => (queueId === 'q1' ? 'm9' : undefined)
+    expect(retainOptimisticRows(current, [msg('m9', 'user', 'hello')], serverIdOf)).toEqual([])
+  })
+  it('never matches by content: a repeated "ok" does not swallow the unsent one', () => {
+    const current = [msg('local-u-q2', 'user', 'ok')]
+    // The snapshot has an earlier, different "ok"; the second is still on its way.
+    expect(retainOptimisticRows(current, [msg('m1', 'user', 'ok')]).map((m) => m.id)).toEqual(['local-u-q2'])
+    expect(retainOptimisticRows(current, [msg('m1', 'user', 'ok')], () => undefined).map((m) => m.id)).toEqual(['local-u-q2'])
+  })
+  it('an error note goes back after the row it followed, not to the end', () => {
+    const err = { ...msg('err-1', 'assistant', 'failed'), client_after_id: 'm1' }
+    const persisted = [msg('m1', 'user', 'a'), msg('m2', 'assistant', 'b'), msg('m3', 'user', 'c')]
+    const kept = retainOptimisticRows([err], persisted)
+    expect(placeOptimisticRows(persisted, kept).map((m) => m.id)).toEqual(['m1', 'err-1', 'm2', 'm3'])
+    // Without an anchor (or when it is gone) it appends, as before.
+    expect(placeOptimisticRows(persisted, [msg('err-2', 'assistant', 'x')]).map((m) => m.id)).toEqual(['m1', 'm2', 'm3', 'err-2'])
+  })
+  it('keeps several optimistic rows anchored to the same row in order', () => {
+    const a = { ...msg('err-1', 'assistant', 'one'), client_after_id: 'm1' }
+    const b = { ...msg('err-2', 'assistant', 'two'), client_after_id: 'm1' }
+    expect(placeOptimisticRows([msg('m1', 'user', 'a'), msg('m2', 'user', 'b')], [a, b]).map((m) => m.id)).toEqual(['m1', 'err-1', 'err-2', 'm2'])
   })
   it('a revalidation read keeps the bubble of a message still being sent', async () => {
     state.transcripts.set('c1', longTranscript('c1', 4))

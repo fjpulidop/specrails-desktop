@@ -517,17 +517,38 @@ function mergeTranscriptRows(current: AgentMessage[], incoming: AgentMessage[]):
 type ConversationSnapshot = Awaited<ReturnType<typeof getAgentConversation>>
 
 /**
- * Optimistic rows the server has not echoed yet (`local-u-` user bubbles, `err-`
+ * Optimistic rows the server has not echoed yet (`local-u-<queueId>` user bubbles, `err-`
  * failure notes). A background revalidation replaces the transcript with the
  * persisted one; these must survive it — unless the snapshot already carries
- * the persisted copy of the same user message (merge by client id / content).
+ * the persisted copy of the same user message. That copy is recognised by id only:
+ * the bubble's own id, or the server message id the send acknowledged for its
+ * queueId (`serverIdOf`). Never by content: a repeated "ok" is a different message.
  */
-export function retainOptimisticRows(current: AgentMessage[], persisted: AgentMessage[]): AgentMessage[] {
+export function retainOptimisticRows(current: AgentMessage[], persisted: AgentMessage[], serverIdOf?: (queueId: string) => string | undefined): AgentMessage[] {
   return current.filter((message) => {
     if (message.id.startsWith('err-')) return !persisted.some((row) => row.id === message.id)
     if (!message.id.startsWith('local-u-')) return false
-    return !persisted.some((row) => row.id === message.id || (row.role === 'user' && row.content === message.content && !row.id.startsWith('local-u-')))
+    const serverId = serverIdOf?.(message.id.slice('local-u-'.length))
+    return !persisted.some((row) => row.id === message.id || (serverId !== undefined && row.id === serverId))
   })
+}
+
+/**
+ * Put retained optimistic rows back on a persisted transcript. A row that remembers the row
+ * before it (`client_after_id`, set on `err-` notes) goes right after it; the rest append.
+ */
+export function placeOptimisticRows(base: AgentMessage[], optimistic: AgentMessage[]): AgentMessage[] {
+  const rows = [...base]
+  const placed = new Set<string>()
+  for (const message of optimistic) {
+    let index = message.client_after_id ? rows.findIndex((row) => row.id === message.client_after_id) : -1
+    if (index >= 0) {
+      while (index + 1 < rows.length && placed.has(rows[index + 1].id)) index++
+      rows.splice(index + 1, 0, message)
+    } else rows.push(message)
+    placed.add(message.id)
+  }
+  return rows
 }
 
 /** A renamed mission must also read renamed when it is repainted from the revisit cache. */
@@ -969,7 +990,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         if (isActive) {
           setMessages((m) => [
             ...m,
-            { id: `err-${Date.now()}`, conversation_id: convId, role: 'assistant', content: `⚠️ ${err}`, created_at: new Date().toISOString() },
+            { id: `err-${Date.now()}`, conversation_id: convId, role: 'assistant', content: `⚠️ ${err}`, client_after_id: m[m.length - 1]?.id ?? null, created_at: new Date().toISOString() },
           ])
         }
       } else if (msg.type === 'agent_queued') {
@@ -1136,9 +1157,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     const merged = mergeTranscriptRows(snapshot.messages, transcriptEventsRef.current.get(id) ?? []).map(withReceipt)
     // `shownIdRef` leads `active` by a render: a cached paint followed at once by
     // its revalidation must still see that this mission is the one on screen.
-    const optimistic = (shownIdRef.current ?? activeRef.current?.id) === id ? retainOptimisticRows(messagesRef.current, merged) : []
+    const optimistic = (shownIdRef.current ?? activeRef.current?.id) === id ? retainOptimisticRows(messagesRef.current, merged, (queueId) => inputMessageIdsRef.current.get(`${id}:q:${queueId}`)) : []
     const msgs = [...(prEnvelopeEventsRef.current.get(id)?.values() ?? [])]
-      .reduce((projected, envelope) => upsertPrDecisionMessage(projected, id, envelope), optimistic.length ? [...merged, ...optimistic] : merged)
+      .reduce((projected, envelope) => upsertPrDecisionMessage(projected, id, envelope), optimistic.length ? placeOptimisticRows(merged, optimistic) : merged)
     for (const message of msgs) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
     shownIdRef.current = id
     setActive(snapshot.conversation)
@@ -1209,7 +1230,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       if ((fresh.pendingMessages !== undefined || fresh.live) && eventVersion === (conversationEventVersionRef.current.get(conversationId) ?? 0)) {
         const persisted = mergeTranscriptRows(fresh.messages, transcriptEventsRef.current.get(conversationId) ?? []).map(withReceipt)
         for (const message of persisted) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
-        setMessages((current) => mergeTranscriptRows(persisted, retainOptimisticRows(current, persisted)))
+        setMessages((current) => placeOptimisticRows(persisted, retainOptimisticRows(current, persisted, (queueId) => inputMessageIdsRef.current.get(`${conversationId}:q:${queueId}`))))
         patchLive(conversationId, (previous) => ({
           ...previous,
           ...(fresh.live ? { isStreaming: fresh.live.isStreaming, streamingText: fresh.live.streamingText } : {}),

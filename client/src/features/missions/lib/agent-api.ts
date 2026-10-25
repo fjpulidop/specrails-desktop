@@ -49,6 +49,8 @@ export interface AgentMessage {
   core_turn_id?: string
   /** `subagent`/`system`: a turn the agent started on its own after background work. */
   turn_origin?: 'user' | 'subagent' | 'system'
+  /** Client-only, on `err-` notes: the row that preceded it, so a revalidation puts it back in place. */
+  client_after_id?: string | null
   created_at: string
 }
 
