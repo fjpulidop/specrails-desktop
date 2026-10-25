@@ -8,6 +8,12 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+    ignore:
+      # Playwright pins the Chromium bundled in the macOS app. A new Chromium
+      # major needs a signing-policy review (scripts/sign-chromium-macos.mjs)
+      # before it can ship, so bumps are deliberate, not automatic.
+      - dependency-name: "playwright"
+      - dependency-name: "playwright-core"
 
   - package-ecosystem: "npm"
     directory: "/client"
