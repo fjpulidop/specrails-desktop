@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../../../../test-utils'
+import { render, screen, waitFor, fireEvent, act } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import SettingsPage from '../SettingsPage'
 import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
@@ -161,6 +161,30 @@ describe('SettingsPage', () => {
     expect(scrollIntoView).toHaveBeenCalled()
     expect(button).toHaveAttribute('aria-current', 'true')
     expect(nav.querySelectorAll('[aria-current="true"]')).toHaveLength(1)
+  })
+
+  it('marks the LAST section current when the page is scrolled to the bottom', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
+    render(<div data-testid="scroller" style={{ overflowY: 'auto' }}><SettingsPage /></div>)
+    const nav = await screen.findByRole('navigation', { name: 'Project settings sections' })
+    const buttons = Array.from(nav.querySelectorAll('button'))
+    expect(buttons[0]).toHaveAttribute('aria-current', 'true')
+    const scroller = screen.getByTestId('scroller')
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 3000 })
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 800 })
+    Object.defineProperty(scroller, 'scrollTop', { configurable: true, value: 2200 })
+    act(() => { fireEvent.scroll(scroller) })
+    await waitFor(() => expect(buttons[buttons.length - 1]).toHaveAttribute('aria-current', 'true'))
+    expect(nav.querySelectorAll('[aria-current="true"]')).toHaveLength(1)
+  })
+
+  it('keeps the heading outline h1 > h2 > h3 (one hidden h2 per section)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
+    render(<SettingsPage />)
+    await screen.findByRole('navigation', { name: 'Project settings sections' })
+    const sections = Array.from(document.querySelectorAll('[data-section-id]'))
+    expect(sections.length).toBeGreaterThan(3)
+    for (const section of sections) expect(section.querySelector(':scope > h2')).not.toBeNull()
   })
 
   it('reports a failed config load with a Retry instead of swallowing it', async () => {

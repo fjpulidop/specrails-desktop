@@ -10,6 +10,15 @@ import { ProjectTelemetrySection } from '../components/ProjectSettingsSections'
 import { notifyError } from '../../../lib/notify-error'
 import { cn } from '../../../lib/utils'
 
+/** The nearest ancestor that scrolls vertically, or null when the document does. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+    const overflowY = getComputedStyle(node).overflowY
+    if (overflowY === 'auto' || overflowY === 'scroll') return node
+  }
+  return null
+}
+
 export default function SettingsPage() {
   const { t } = useTranslation('settings')
   const { activeProjectId } = useDesktop()
@@ -98,26 +107,57 @@ export default function SettingsPage() {
   const [currentSection, setCurrentSection] = useState<string>(sections[0]?.id ?? 'general')
   const sectionEls = useRef<Map<string, HTMLElement>>(new Map())
 
-  // Scroll-spy: the section whose top has crossed the upper third of the viewport is current.
+  // After a nav click the smooth scroll passes through every section on the way: the spy
+  // ignores those until the scroll settles (`scrollend`, else a short time budget).
+  const spyLockedUntil = useRef(0)
+
+  // Scroll-spy. The page scrolls inside an `overflow-auto` ancestor of the app shell, not the
+  // window, so the observer is rooted there. The section whose top has crossed the upper third
+  // is current; at the very bottom the last section is, however short it is (it can never
+  // reach the upper third on its own).
   useEffect(() => {
-    if (isLoading || typeof IntersectionObserver === 'undefined') return
+    if (isLoading) return
+    const firstEl = sectionEls.current.values().next().value as HTMLElement | undefined
+    const scroller = firstEl ? scrollParent(firstEl) : null
+    const lastId = sections[sections.length - 1]?.id
+    const atBottom = (): boolean => {
+      if (scroller) return scroller.scrollHeight > scroller.clientHeight && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2
+      const root = document.documentElement
+      return root.scrollHeight > window.innerHeight && window.scrollY + window.innerHeight >= root.scrollHeight - 2
+    }
+    const locked = (): boolean => Date.now() < spyLockedUntil.current
     const visible = new Set<string>()
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        const id = (entry.target as HTMLElement).dataset.sectionId
-        if (!id) continue
-        if (entry.isIntersecting) visible.add(id)
-        else visible.delete(id)
-      }
-      const first = sections.find((s) => visible.has(s.id))
-      if (first) setCurrentSection(first.id)
-    }, { rootMargin: '0px 0px -66% 0px' })
-    sectionEls.current.forEach((el) => observer.observe(el))
-    return () => observer.disconnect()
+    let observer: IntersectionObserver | undefined
+    if (typeof IntersectionObserver !== 'undefined') {
+      observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          const id = (entry.target as HTMLElement).dataset.sectionId
+          if (!id) continue
+          if (entry.isIntersecting) visible.add(id)
+          else visible.delete(id)
+        }
+        if (locked()) return
+        if (lastId && atBottom()) { setCurrentSection(lastId); return }
+        const first = sections.find((s) => visible.has(s.id))
+        if (first) setCurrentSection(first.id)
+      }, { root: scroller, rootMargin: '0px 0px -66% 0px' })
+      sectionEls.current.forEach((el) => observer!.observe(el))
+    }
+    const target: HTMLElement | Window = scroller ?? window
+    const onScroll = (): void => { if (!locked() && lastId && atBottom()) setCurrentSection(lastId) }
+    const onScrollEnd = (): void => { spyLockedUntil.current = 0; onScroll() }
+    target.addEventListener('scroll', onScroll, { passive: true })
+    target.addEventListener('scrollend', onScrollEnd)
+    return () => {
+      observer?.disconnect()
+      target.removeEventListener('scroll', onScroll)
+      target.removeEventListener('scrollend', onScrollEnd)
+    }
   }, [isLoading, sections])
 
   const goToSection = useCallback((id: string) => {
     setCurrentSection(id)
+    spyLockedUntil.current = Date.now() + 700
     sectionEls.current.get(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   }, [])
 
@@ -189,6 +229,8 @@ export default function SettingsPage() {
               ref={(el) => { if (el) sectionEls.current.set(section.id, el); else sectionEls.current.delete(section.id) }}
               className="scroll-mt-6 space-y-6"
             >
+              {/* The panes below carry h3 titles: this keeps the outline h1 > h2 > h3. */}
+              <h2 className="sr-only">{t(section.labelKey)}</h2>
               {section.panes.map((Pane, i) => <ProjectSettingsPane key={`${section.id}-${i}`} Pane={Pane} />)}
             </section>
           ))}
