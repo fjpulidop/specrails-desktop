@@ -6,7 +6,8 @@
     "updateFailed": "无法保存语言偏好"
   },
   "page": {
-    "title": "项目设置"
+    "title": "项目设置",
+    "loadFailed": "无法加载项目配置"
   },
   "errors": {
     "saveFailed": "保存失败"

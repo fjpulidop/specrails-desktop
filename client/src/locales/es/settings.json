@@ -6,7 +6,8 @@
     "updateFailed": "No se pudo guardar la preferencia de idioma"
   },
   "page": {
-    "title": "Ajustes del proyecto"
+    "title": "Ajustes del proyecto",
+    "loadFailed": "No se pudo cargar la configuración del proyecto"
   },
   "errors": {
     "saveFailed": "Error al guardar"

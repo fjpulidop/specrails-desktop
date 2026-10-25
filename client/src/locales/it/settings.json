@@ -6,7 +6,8 @@
     "updateFailed": "Impossibile salvare la preferenza di lingua"
   },
   "page": {
-    "title": "Impostazioni progetto"
+    "title": "Impostazioni progetto",
+    "loadFailed": "Impossibile caricare la configurazione del progetto"
   },
   "errors": {
     "saveFailed": "Salvataggio non riuscito"

@@ -94,7 +94,7 @@ describe('SettingsPage', () => {
     })
     render(<SettingsPage />)
     await waitFor(() => {
-      expect(screen.getByText('Budget')).toBeInTheDocument()
+      expect(screen.getAllByText('Budget').length).toBeGreaterThan(0)
     })
   })
 
@@ -146,5 +146,30 @@ describe('SettingsPage', () => {
       expect(el).toHaveAttribute('data-setting-flash', 'true')
       expect(el.contains(document.activeElement)).toBe(true)
     })
+  })
+
+  it('offers a section index that scrolls to the section and marks it current', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
+    const user = userEvent.setup()
+    render(<SettingsPage />)
+    const nav = await screen.findByRole('navigation', { name: 'Project settings sections' })
+    const scrollIntoView = vi.fn()
+    const section = document.getElementById('settings-section-environment') as HTMLElement
+    section.scrollIntoView = scrollIntoView
+    const button = Array.from(nav.querySelectorAll('button')).find((b) => b.textContent === 'Environment') as HTMLButtonElement
+    await user.click(button)
+    expect(scrollIntoView).toHaveBeenCalled()
+    expect(button).toHaveAttribute('aria-current', 'true')
+    expect(nav.querySelectorAll('[aria-current="true"]')).toHaveLength(1)
+  })
+
+  it('reports a failed config load with a Retry instead of swallowing it', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) })
+    const { toast } = await import('sonner')
+    render(<SettingsPage />)
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
+      "Couldn't load the project configuration",
+      expect.objectContaining({ action: expect.objectContaining({ label: 'Retry' }) }),
+    ))
   })
 })

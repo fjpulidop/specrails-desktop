@@ -32,10 +32,10 @@ export interface ProjectSettingsSection {
 }
 
 /**
- * Single source of truth for project settings. The Agent-mode dialog renders
- * one pane per entry behind a left nav; the Kanban /settings route renders
- * every pane in this same order on one page. Adding a section here adds it
- * to both surfaces.
+ * Single source of truth for project settings. The /settings route (both UI
+ * modes) renders every pane in this order on one page, with a sticky section
+ * index beside it (a select below 900px). Adding a section here adds it to
+ * the page and to that index.
  */
 export const PROJECT_SETTINGS_SECTIONS = [
   { id: 'general', icon: SlidersHorizontal, labelKey: 'projectDialog.nav.general', panes: [ProjectRepositoriesSection, ProjectPrePromptsSection] },

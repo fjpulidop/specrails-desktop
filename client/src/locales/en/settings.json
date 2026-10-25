@@ -6,7 +6,8 @@
     "updateFailed": "Could not save the language preference"
   },
   "page": {
-    "title": "Project Settings"
+    "title": "Project Settings",
+    "loadFailed": "Couldn't load the project configuration"
   },
   "errors": {
     "saveFailed": "Failed to save"

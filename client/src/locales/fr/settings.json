@@ -6,7 +6,8 @@
     "updateFailed": "Impossible d'enregistrer la préférence de langue"
   },
   "page": {
-    "title": "Paramètres du projet"
+    "title": "Paramètres du projet",
+    "loadFailed": "Impossible de charger la configuration du projet"
   },
   "errors": {
     "saveFailed": "Échec de l'enregistrement"

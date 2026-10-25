@@ -6,7 +6,8 @@
     "updateFailed": "言語設定を保存できませんでした"
   },
   "page": {
-    "title": "プロジェクト設定"
+    "title": "プロジェクト設定",
+    "loadFailed": "プロジェクト設定を読み込めませんでした"
   },
   "errors": {
     "saveFailed": "保存に失敗しました"

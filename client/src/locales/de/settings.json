@@ -6,7 +6,8 @@
     "updateFailed": "Spracheinstellung konnte nicht gespeichert werden"
   },
   "page": {
-    "title": "Projekteinstellungen"
+    "title": "Projekteinstellungen",
+    "loadFailed": "Die Projektkonfiguration konnte nicht geladen werden"
   },
   "errors": {
     "saveFailed": "Speichern fehlgeschlagen"
