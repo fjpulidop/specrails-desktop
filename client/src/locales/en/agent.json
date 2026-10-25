@@ -486,7 +486,8 @@
       "createPr": "Couldn't create the PR",
       "mergeLocal": "Couldn't integrate locally",
       "discard": "Couldn't discard the result",
-      "publish": "Couldn't publish the PR"
+      "publish": "Couldn't publish the PR",
+      "generic": "Delivery stopped. See technical details."
     },
     "moreActions": "More actions"
   },

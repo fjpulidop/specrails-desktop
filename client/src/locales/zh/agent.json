@@ -486,7 +486,8 @@
       "createPr": "无法创建 PR",
       "mergeLocal": "无法在本地集成",
       "discard": "无法丢弃结果",
-      "publish": "无法发布 PR"
+      "publish": "无法发布 PR",
+      "generic": "交付已停止。请查看技术详情。"
     },
     "moreActions": "更多操作"
   },

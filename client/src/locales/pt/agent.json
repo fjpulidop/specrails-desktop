@@ -486,7 +486,8 @@
       "createPr": "Não foi possível criar o PR",
       "mergeLocal": "Não foi possível integrar localmente",
       "discard": "Não foi possível descartar o resultado",
-      "publish": "Não foi possível publicar o PR"
+      "publish": "Não foi possível publicar o PR",
+      "generic": "A entrega foi interrompida. Veja os detalhes técnicos."
     },
     "moreActions": "Mais ações"
   },

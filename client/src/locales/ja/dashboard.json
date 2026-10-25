@@ -172,7 +172,10 @@
     "reviewChangesRequestedHint": "Flow の引き渡しにはまだ変更が必要です。ミッションカードから Flow に戻るか再実行してください。",
     "mergedLocallyRestored": "ローカル変更を退避し、{{tickets}} を統合してから元に戻しました。",
     "mergedLocallyStashConflict": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。Specrails が別ブランチで復元しています。",
-    "mergedLocallyStashKept": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。準備ができたら復元してください。"
+    "mergedLocallyStashKept": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。準備ができたら復元してください。",
+    "failed": {
+      "generic": "配信が停止しました。技術的な詳細を確認してください。"
+    }
   },
   "railsBoard": {
     "title": "レール",

@@ -486,7 +486,8 @@
       "createPr": "No se pudo crear el PR",
       "mergeLocal": "No se pudo integrar en local",
       "discard": "No se pudo descartar el resultado",
-      "publish": "No se pudo publicar el PR"
+      "publish": "No se pudo publicar el PR",
+      "generic": "La entrega se detuvo. Mira los detalles técnicos."
     },
     "moreActions": "Más acciones"
   },

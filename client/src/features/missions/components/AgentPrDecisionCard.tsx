@@ -1,3 +1,5 @@
+import { localizeStatusDetail } from '../../../lib/pr-status-detail'
+import { TechnicalDetail } from '../../../components/ui/technical-detail'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
@@ -277,7 +279,8 @@ function RunFailureBlock({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
   const { t } = useTranslation('agent')
   const failure = envelope.runtime?.failure ?? null
   const code = failure?.code ?? envelope.statusCode ?? null
-  const detail = failure?.detail ?? envelope.statusDetail ?? null
+  const localized = localizeStatusDetail(failure?.detail ?? envelope.statusDetail, t('prCard.failed.generic'))
+  const detail = localized?.text ?? null
   const unitFailures = (envelope.units ?? []).filter((u) => u.failureCode).map((u) => ({ ticketId: u.ticketId, code: u.failureCode as string }))
   if (!code && !detail && unitFailures.length === 0) return null
   return (
@@ -299,6 +302,7 @@ function RunFailureBlock({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
       {detail && (
         <p className="mt-1 break-words leading-4 text-muted-foreground" data-testid="mission-run-failure-detail">{detail}</p>
       )}
+      {localized?.raw && <TechnicalDetail summary={t('prCard.recoveryDetailSummary')} className="mt-1 text-label leading-4">{localized.raw}</TechnicalDetail>}
       {unitFailures.length > 0 && (
         <ul className="mt-1 space-y-0.5 font-mono text-caption text-muted-foreground">
           {unitFailures.map((u) => (
@@ -564,6 +568,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const terminal = presentation.terminal
   // Peak: the delivery arrived at review (a PR exists and awaits the person).
   const showArrival = Boolean(prUrl) && (decision === 'pr_draft' || decision === 'pr_ready')
+  // The server's detail is English git/gh text: localized line first, the raw text behind a disclosure.
+  const statusDetail = localizeStatusDetail(envelope.statusDetail, t('prCard.failed.generic'))
   const statusLabel = isKnownPrDeliveryStatusCode(envelope.statusCode)
     ? t(`common:prDeliveryStatus.${envelope.statusCode}`)
     : null
@@ -1594,7 +1600,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               ? t('prCard.recoveryUnavailableBody')
               : t(presentation.partial ? 'prCard.partialDeliveryBlockedNote' : 'prCard.deliveryBlockedNote')}
             {envelope.statusDetail && !interruptedOperationDetail && !presentation.recoveryUnavailable
-              ? <span className="mt-0.5 block text-muted-foreground">{envelope.statusDetail}</span>
+              ? <span className="mt-0.5 block text-muted-foreground">{statusDetail?.text}</span>
               : null}
           </span>
         </p>
@@ -1612,15 +1618,19 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
             {t('prCard.retryPushNote')}
-            {envelope.statusDetail && !interruptedOperationDetail ? <span className="mt-0.5 block text-muted-foreground">{envelope.statusDetail}</span> : null}
+            {envelope.statusDetail && !interruptedOperationDetail ? <span className="mt-0.5 block text-muted-foreground">{statusDetail?.text}</span> : null}
           </span>
         </p>
       )}
 
       {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && flowOutcome === null && (
         <p className="mt-1 text-label leading-4 text-muted-foreground" data-testid="agent-pr-status-detail">
-          {envelope.statusDetail}
+          {statusDetail?.text}
         </p>
+      )}
+
+      {statusDetail?.raw && !interruptedOperationDetail && !presentation.recoveryUnavailable && flowOutcome === null && (
+        <TechnicalDetail summary={t('prCard.recoveryDetailSummary')} className="mt-1 text-label leading-4" testId="agent-pr-status-technical-detail">{statusDetail.raw}</TechnicalDetail>
       )}
 
       {/* Degraded delivery: pushed / assembled-locally but no PR yet. */}

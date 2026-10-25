@@ -1,3 +1,5 @@
+import { localizeStatusDetail } from '../../../lib/pr-status-detail'
+import { TechnicalDetail } from '../../../components/ui/technical-detail'
 import * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -77,6 +79,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const presentation = derivePrDeliveryPresentation(decision)
   const loopLabel = useLoopLabel(decision.loopId, decision.loopName)
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(decision.statusCode, decision.statusDetail)
+  const statusDetail = localizeStatusDetail(decision.statusDetail, t('railPr.failed.generic'))
   const recoveredInterruptedOperation = decision.operation == null && interruptedOperationDetail
   // The status-code chip repeats the state pill when both say the same thing.
   const statusRepeatsPill =
@@ -988,7 +991,10 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
               <p className="mt-1 break-words">{decision.statusDetail}</p>
             </details>
           )}
-          {!interruptedOperationDetail && decision.statusDetail && !presentation.recoveryUnavailable && <p>{decision.statusDetail}</p>}
+          {!interruptedOperationDetail && statusDetail && !presentation.recoveryUnavailable && <p>{statusDetail.text}</p>}
+          {!interruptedOperationDetail && statusDetail?.raw && !presentation.recoveryUnavailable && (
+            <TechnicalDetail summary={t('railPr.recoveryDetailSummary')} className="mt-1" testId="rail-pr-status-technical-detail">{statusDetail.raw}</TechnicalDetail>
+          )}
           {presentation.cleanupWarnings.length > 0 && (
             <div className={recoveredInterruptedOperation || (!interruptedOperationDetail && decision.statusDetail) ? 'mt-1' : undefined}>
               <p className="font-medium">{t('railPr.cleanupIncomplete', { count: presentation.cleanupWarnings.length })}</p>

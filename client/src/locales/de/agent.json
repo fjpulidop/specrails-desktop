@@ -486,7 +486,8 @@
       "createPr": "Der PR konnte nicht erstellt werden",
       "mergeLocal": "Lokale Integration fehlgeschlagen",
       "discard": "Das Ergebnis konnte nicht verworfen werden",
-      "publish": "Der PR konnte nicht veröffentlicht werden"
+      "publish": "Der PR konnte nicht veröffentlicht werden",
+      "generic": "Die Lieferung wurde angehalten. Siehe technische Details."
     },
     "moreActions": "Weitere Aktionen"
   },

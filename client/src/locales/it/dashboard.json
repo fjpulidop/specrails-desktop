@@ -172,7 +172,10 @@
     "reviewChangesRequestedHint": "L’affidamento del Flow richiede ancora modifiche. Apri la scheda della missione per tornare in Flow o rilanciare.",
     "mergedLocallyRestored": "Ho salvato le tue modifiche locali, integrato {{tickets}} e le ho ripristinate.",
     "mergedLocallyStashConflict": "{{tickets}} integrato. Le tue modifiche locali sono al sicuro in uno stash; Specrails le sta ripristinando su un branch separato.",
-    "mergedLocallyStashKept": "{{tickets}} integrato. Le tue modifiche locali sono al sicuro in uno stash; ripristinale quando vuoi."
+    "mergedLocallyStashKept": "{{tickets}} integrato. Le tue modifiche locali sono al sicuro in uno stash; ripristinale quando vuoi.",
+    "failed": {
+      "generic": "La consegna si è interrotta. Vedi i dettagli tecnici."
+    }
   },
   "railsBoard": {
     "title": "Rails",

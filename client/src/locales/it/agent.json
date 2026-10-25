@@ -486,7 +486,8 @@
       "createPr": "Impossibile creare la PR",
       "mergeLocal": "Impossibile integrare in locale",
       "discard": "Impossibile scartare il risultato",
-      "publish": "Impossibile pubblicare la PR"
+      "publish": "Impossibile pubblicare la PR",
+      "generic": "La consegna si è interrotta. Vedi i dettagli tecnici."
     },
     "moreActions": "Altre azioni"
   },
