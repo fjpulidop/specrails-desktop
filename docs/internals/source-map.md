@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1262 source/build files. Nearby tests are linked where names
+Includes 1271 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -300,6 +300,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/dashboard/hooks
 
 - [useDashboardSplit.ts](../../client/src/features/dashboard/hooks/useDashboardSplit.ts)
+- [useSpecBulkActions.tsx](../../client/src/features/dashboard/hooks/useSpecBulkActions.tsx) · [test](../../client/src/features/dashboard/hooks/__tests__/useSpecBulkActions.test.tsx)
 
 ## client/src/features/dashboard/lib
 
@@ -819,13 +820,16 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [SpecLabelFilterOptions.tsx](../../client/src/features/specs/components/SpecLabelFilterOptions.tsx)
 - [SpecLabelFilterStrip.tsx](../../client/src/features/specs/components/SpecLabelFilterStrip.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecLabelFilterStrip.test.tsx)
 - [SpecSearchField.tsx](../../client/src/features/specs/components/SpecSearchField.tsx)
+- [SpecSelectCheckbox.tsx](../../client/src/features/specs/components/SpecSelectCheckbox.tsx)
 - [SpecSortControl.tsx](../../client/src/features/specs/components/SpecSortControl.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecSortControl.test.tsx)
 - [SpecSprintFilterOptions.tsx](../../client/src/features/specs/components/SpecSprintFilterOptions.tsx)
 - [SpecStatusFilter.tsx](../../client/src/features/specs/components/SpecStatusFilter.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecStatusFilter.test.tsx)
 - [SpecTriageChip.tsx](../../client/src/features/specs/components/SpecTriageChip.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecTriageChip.test.tsx)
 - [SpecsBoard.tsx](../../client/src/features/specs/components/SpecsBoard.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecsBoard.test.tsx)
+- [SpecsBulkBar.tsx](../../client/src/features/specs/components/SpecsBulkBar.tsx)
 - [SpecsDisplayControls.tsx](../../client/src/features/specs/components/SpecsDisplayControls.tsx)
 - [SpecsViewTierToggle.tsx](../../client/src/features/specs/components/SpecsViewTierToggle.tsx)
+- [SpecsViewsMenu.tsx](../../client/src/features/specs/components/SpecsViewsMenu.tsx)
 - [TicketContextMenu.tsx](../../client/src/features/specs/components/TicketContextMenu.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketContextMenu.test.tsx)
 - [TicketDetailModal.tsx](../../client/src/features/specs/components/TicketDetailModal.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketDetailModal.test.tsx)
 - [TicketPostitCard.tsx](../../client/src/features/specs/components/TicketPostitCard.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketPostitCard.test.tsx)
@@ -867,6 +871,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/specs/lib
 
 - [active-explore-spec.ts](../../client/src/features/specs/lib/active-explore-spec.ts)
+- [board-selection.ts](../../client/src/features/specs/lib/board-selection.ts) · [test](../../client/src/features/specs/lib/__tests__/board-selection.test.ts)
+- [bulk-actions.ts](../../client/src/features/specs/lib/bulk-actions.ts)
+- [bulk-launch.ts](../../client/src/features/specs/lib/bulk-launch.ts) · [test](../../client/src/features/specs/lib/__tests__/bulk-launch.test.ts)
+- [bulk-report.ts](../../client/src/features/specs/lib/bulk-report.ts) · [test](../../client/src/features/specs/lib/__tests__/bulk-report.test.ts)
 - [pending-spec-id.ts](../../client/src/features/specs/lib/pending-spec-id.ts) · [test](../../client/src/features/specs/lib/__tests__/pending-spec-id.test.ts)
 - [pending-specs.ts](../../client/src/features/specs/lib/pending-specs.ts) · [test](../../client/src/features/specs/lib/__tests__/pending-specs.test.ts)
 - [spec-addenda-core.ts](../../client/src/features/specs/lib/spec-addenda-core.ts)
@@ -878,6 +886,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-sort.ts](../../client/src/features/specs/lib/spec-sort.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-sort.test.ts)
 - [spec-status-filter.ts](../../client/src/features/specs/lib/spec-status-filter.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-status-filter.test.ts)
 - [spec-triage.ts](../../client/src/features/specs/lib/spec-triage.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-triage.test.ts)
+- [spec-views.ts](../../client/src/features/specs/lib/spec-views.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-views.test.ts)
 - [specs-view-tier.ts](../../client/src/features/specs/lib/specs-view-tier.ts) · [test](../../client/src/features/specs/lib/__tests__/specs-view-tier.test.ts)
 - [ticket-refine.ts](../../client/src/features/specs/lib/ticket-refine.ts) · [test](../../client/src/features/specs/lib/__tests__/ticket-refine.test.ts)
 - [ticket-status-moves.ts](../../client/src/features/specs/lib/ticket-status-moves.ts)

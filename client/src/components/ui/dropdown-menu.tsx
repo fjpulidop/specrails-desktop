@@ -91,28 +91,32 @@ DropdownMenuTrigger.displayName = 'DropdownMenuTrigger'
 
 interface DropdownMenuContentProps extends React.HTMLAttributes<HTMLDivElement> {
   align?: 'start' | 'end'
+  /** Open below (default) or above the trigger (a trigger docked at the bottom edge, e.g. a bulk bar). */
+  side?: 'bottom' | 'top'
 }
 
 export function DropdownMenuContent({
   className,
   align = 'end',
+  side = 'bottom',
   children,
   ...props
 }: DropdownMenuContentProps) {
   const { open, setOpen, triggerRef, menuId } = useDropdownMenu()
   const menuRef = React.useRef<HTMLDivElement | null>(null)
-  const [pos, setPos] = React.useState<{ top: number; left?: number; right?: number } | null>(null)
+  const [pos, setPos] = React.useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null)
 
   React.useLayoutEffect(() => {
     if (!open) return
     const rect = triggerRef.current?.getBoundingClientRect()
     if (!rect) return
+    const vertical = side === 'top' ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }
     setPos(
       align === 'end'
-        ? { top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) }
-        : { top: rect.bottom + 4, left: Math.max(8, rect.left) },
+        ? { ...vertical, right: Math.max(8, window.innerWidth - rect.right) }
+        : { ...vertical, left: Math.max(8, rect.left) },
     )
-  }, [open, align, triggerRef])
+  }, [open, align, side, triggerRef])
 
   const items = () =>
     Array.from(
@@ -172,7 +176,7 @@ export function DropdownMenuContent({
       role="menu"
       aria-orientation="vertical"
       onKeyDown={onKeyDown}
-      style={pos ? { position: 'fixed', top: pos.top, left: pos.left, right: pos.right } : { position: 'fixed' }}
+      style={pos ? { position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right } : { position: 'fixed' }}
       className={cn(
         'z-50 min-w-[10rem] rounded-card border border-border bg-popover p-1 text-popover-foreground shadow-2',
         className,

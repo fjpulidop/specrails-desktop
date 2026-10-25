@@ -62,7 +62,8 @@ Rules:
 - **Not places** (use `replace`, or no navigation): filters, sort, search, tabs inside
   a modal, sidebar pins, run-strip focus (`⌥[ ⌥]`), terminal toggle, scroll, composer
   state and the Board/Mission toggle. Writing them with `setSearchParams` must pass
-  `{ replace: true }`.
+  `{ replace: true }`. A copied saved-view link (`?view=<id>`, `VIEW_PARAM`) is one of these: the
+  specs board applies the view and drops the param in place, and `placeKey` ignores it.
 - Back/Forward (`usePlaceHistory`) never flips `uiMode`: `placeKey(entry, mode)` decides
   what is the same place in the current mode, and entries that mean nothing there are
   skipped. Restoring re-runs no side effect (no launch, no new-mission draft).
@@ -133,6 +134,9 @@ previous project's toasts, so `undo` must address its project explicitly. Withou
 a provider `pushUndo` is a no-op that returns `false`. Throw `UndoBlockedError`
 from `undo` to refuse with a specific reason.
 
+A bulk change (board multi-select) pushes ONE grouped entry whose `undo` reverses every spec it
+changed; see [specs: multi-select](specs/README.md#multi-select-bulk-actions-and-saved-views).
+
 Deletes are soft (specs and missions stay restorable for 30 days under project
 settings → Recently deleted, `settings/components/RecentlyDeletedSection.tsx`).
 Keep a confirm only for what cannot be reversed: discarding unpushed work,
@@ -152,7 +156,9 @@ each action has an `id`, i18n label, `group`, icon, `shortcut` (shown through `k
   ([`lib/palette-bridge.ts`](../lib/palette-bridge.ts)): the specs column (`specs`: New spec /
   Explore), the dashboard (`board`: launch on rail through `handleToggle` and its gates, status
   move with Undo or the Jira workflow move, review path), the Flow strip (`flow`: the very
-  Pause/Resume/Hand off controls, disabled ones are not offered). A surface that is not mounted is
+  Pause/Resume/Hand off controls, disabled ones are not offered), the specs board's multi-selection
+  and saved views (`selection`: Select all in column, bulk Move / Label / Priority / Add to rail /
+  Launch / Delete while specs are selected, Save current view, Switch view). A surface that is not mounted is
   absent, so its actions are hidden. A surface is an object of functions; the registry stores a
   facade that forwards to the latest render, so lists are read fresh, never snapshotted.
 - **Adding an action:** append to `PALETTE_ACTIONS`, add its label to `commands:palette.actions`

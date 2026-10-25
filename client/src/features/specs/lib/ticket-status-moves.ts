@@ -30,13 +30,15 @@ export async function moveJiraSpecToStatus(
   ticketId: number,
   status: string,
   tj: (key: string, options?: Record<string, unknown>) => string,
+  /** `quiet`: the caller (a bulk move) reports one summary instead of a toast per spec. */
+  opts?: { quiet?: boolean },
 ): Promise<boolean> {
   try {
     await jiraApi.moveSpecToStatus(ticketId, status)
-    toast.success(tj('moveToStatus.queued', { status }))
+    if (!opts?.quiet) toast.success(tj('moveToStatus.queued', { status }))
     return true
   } catch {
-    toast.error(tj('moveToStatus.failed'))
+    if (!opts?.quiet) toast.error(tj('moveToStatus.failed'))
     return false
   }
 }

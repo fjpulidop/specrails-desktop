@@ -15,6 +15,26 @@ O quadro tem dois modos de visualização, alternados a partir de um botão na b
 
 A barra de ferramentas das Specs tem duas linhas. A primeira reúne um campo de **pesquisa** (prima `/` para lá chegar; procura no título, `#número`, etiqueta ou chave do Jira), um único botão **Filtros**, os controlos de ordenação e vista, e **Nova spec**. A segunda linha é o **seletor de estados**: cada estado como um segmento próprio com contagem em direto, mais dois grupos inteligentes, **Ativas** (a predefinição: tudo o que ainda está em movimento, ou seja rascunhos, por fazer, em curso e em revisão) e **Todos** (tudo, com Concluído fixado no fundo). Quando a coluna é estreita, os estados menos usados recolhem-se num menu **Mais**, e o estado escolhido fica sempre visível. A sua escolha é lembrada por projeto e espelhada no URL, pelo que um refresh ou um link partilhado restaura a vista exata. **Filtros** abre um único painel com uma secção por dimensão: **etiquetas** (seleção múltipla) e, em projetos ligados ao Jira, **épico**, **sprint** e **estado Jira** (os estados *reais* do fluxo do quadro, p. ex. "Code Review", agrupados sob o estado a que mapeiam e combinados com o seletor de estados). Enquanto uma pesquisa ou um filtro restringe o quadro, uma terceira linha mostra cada um como um chip removível, indica "x de y" specs e oferece **Limpar tudo** (que mantém o estado escolhido). Ordene por **Predefinida**, **Ticket #** ou **Prioridade**, cada uma com um seletor ascendente/descendente.
 
+### Selecionar várias specs
+
+Faça a triagem em lote em vez de uma spec de cada vez. Pressione `x` em um cartão em foco, clique em um cartão com `Ctrl`/`⌘` ou clique com `Shift` para selecionar um intervalo (um intervalo fica dentro de uma coluna: as specs ativas ou o grupo Concluído). `Ctrl`/`⌘`+`A` seleciona toda a coluna em que você está e `Esc` limpa a seleção. Cada cartão mostra uma caixa de seleção ao passar o mouse ou receber foco, e os cartões selecionados têm a borda destacada. Nenhuma dessas teclas age enquanto você digita no campo de busca.
+
+Assim que uma spec é selecionada, uma barra flutuante aparece na parte inferior do quadro com a contagem e as ações:
+
+- **Mover para** muda o estado. As specs locais recebem os estados locais; as que vêm do Jira recebem os estados reais do fluxo do quadro do Jira e passam pela mesma fila do Jira que um movimento individual.
+- **Etiqueta** adiciona uma etiqueta à seleção, ou remove uma que as specs já tenham.
+- **Prioridade** define uma mesma prioridade para todas.
+- **Adicionar a um rail** coloca a seleção em um rail.
+- **Lançar tudo** dá a cada spec selecionada seu próprio rail livre e as inicia em paralelo, após a mesma confirmação e verificação do orçamento diário do *Lançar tudo* dos rails. Specs que ainda não podem ser lançadas (por exemplo, em revisão sem PR aberta) ou que não encontram um rail livre são ignoradas e contadas no resumo.
+- **Excluir** envia as specs para *Excluídas recentemente*.
+- **Limpar** (ou `Esc`) descarta a seleção.
+
+Excluir e alterar estado, etiquetas ou prioridade podem ser desfeitos em uma única etapa: um só aviso *Desfazer* (ou `⌘Z`) restaura todas as specs alteradas. Se algumas falharem, um único aviso diz quantas deram certo e quantas não. A seleção só contém specs que você vê: um filtro que oculta uma spec selecionada a tira da seleção.
+
+### Visões salvas
+
+O botão **Visões**, ao lado de **Filtros**, salva o quadro como está agora: o seletor de estado, os filtros, a ordenação e a densidade (não o texto da busca). Escolha **Salvar a visão atual…**, dê um nome («Prontas para lançar», «Sprint 42», «Falhas desta semana») e escolha-a depois no mesmo menu. **Gerenciar visões…** renomeia uma visão, atualiza-a com o quadro como está, copia o link ou exclui. As visões pertencem ao projeto. Um link copiado (`?view=…`) aplica a visão quando aberto neste aplicativo, e a paleta de comandos (`⌘K`) pode salvar a visão atual ou trocar para outra.
+
 ## Estados
 
 Uma spec percorre um pequeno conjunto de estados. O quadro dá a cada um uma pista visual consistente para que possa ler o estado do seu backlog de relance:

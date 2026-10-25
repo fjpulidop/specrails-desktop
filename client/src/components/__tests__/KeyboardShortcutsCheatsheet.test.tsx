@@ -30,6 +30,14 @@ describe('KeyboardShortcutsCheatsheet', () => {
     expect(screen.getByText('Actions')).toBeInTheDocument()
   })
 
+  it('lists the board multi-select shortcuts (x, click, ⌘A, Esc)', () => {
+    render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />)
+    expect(screen.getByText('Board: select / deselect the focused spec')).toBeInTheDocument()
+    expect(screen.getByText('Board: click toggles a spec, Shift+click selects a range')).toBeInTheDocument()
+    expect(screen.getByText('Board: select every spec in the column')).toBeInTheDocument()
+    expect(screen.getByText('Board: clear the selection')).toBeInTheDocument()
+  })
+
   it('displays navigation shortcut descriptions', () => {
     render(
       <KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />,

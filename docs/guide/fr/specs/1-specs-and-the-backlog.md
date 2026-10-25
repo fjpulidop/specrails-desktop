@@ -15,6 +15,26 @@ Le tableau propose deux modes d'affichage, basculables depuis un bouton de la ba
 
 La barre d'outils des Specs a deux rangées. La première réunit un champ de **recherche** (appuyez sur `/` pour y aller ; il cherche dans le titre, le `#numéro`, les étiquettes ou la clé Jira), un unique bouton **Filtres**, les contrôles de tri et d'affichage, et **Nouvelle spec**. La seconde rangée est le **sélecteur de statuts** : chaque statut sous forme de segment avec un compteur en direct, plus deux groupes intelligents, **Actives** (le défaut : tout ce qui bouge encore, soit brouillons, à faire, en cours et en révision) et **Tous** (tout, avec Terminé épinglé en bas). Quand la colonne est étroite, les statuts les moins utilisés se replient dans un menu **Plus**, et le statut choisi reste toujours visible. Votre choix est mémorisé par projet et reflété dans l'URL : un rafraîchissement ou un lien partagé restaure la vue exacte. **Filtres** ouvre un seul panneau avec une section par dimension : **étiquettes** (sélection multiple) et, sur les projets connectés à Jira, **epic**, **sprint** et **statut Jira** (les *vrais* statuts du workflow du board, p. ex. « Code Review », regroupés sous l'état auquel ils correspondent et combinés avec le sélecteur de statuts). Tant qu'une recherche ou un filtre restreint le board, une troisième rangée affiche chacun sous forme de puce amovible, indique « x sur y » specs et propose **Tout effacer** (qui conserve le statut choisi). Triez par **Par défaut**, **Ticket #** ou **Priorité**, chacun avec un sens croissant/décroissant.
 
+### Sélectionner plusieurs specs
+
+Triez en lot plutôt qu'une spec à la fois. Appuyez sur `x` sur une carte ciblée, cliquez sur une carte avec `Ctrl`/`⌘`, ou cliquez avec `Maj` pour sélectionner une plage (une plage reste dans une colonne : les specs actives ou le groupe Terminé). `Ctrl`/`⌘`+`A` sélectionne toute la colonne où vous êtes, et `Échap` efface la sélection. Chaque carte affiche une case au survol ou au focus, et les cartes sélectionnées ont une bordure mise en évidence. Aucune de ces touches n'agit pendant que vous saisissez du texte dans la recherche.
+
+Dès qu'une spec est sélectionnée, une barre flottante apparaît en bas du tableau avec le nombre et les actions :
+
+- **Déplacer vers** change le statut. Les specs locales reçoivent les statuts locaux ; celles qui viennent de Jira reçoivent les vrais statuts du workflow du tableau Jira et passent par la même file Jira qu'un déplacement individuel.
+- **Libellé** ajoute un libellé à la sélection, ou retire un libellé que les specs portent.
+- **Priorité** définit une même priorité pour toutes.
+- **Ajouter à un rail** place la sélection sur un rail.
+- **Tout lancer** donne à chaque spec sélectionnée son propre rail libre et les démarre en parallèle, après la même confirmation et le même contrôle du budget quotidien que *Tout lancer* des rails. Les specs qui ne peuvent pas encore être lancées (par exemple en revue sans PR ouverte) ou qui ne trouvent pas de rail libre sont ignorées et comptées dans le récapitulatif.
+- **Supprimer** les envoie dans *Récemment supprimées*.
+- **Effacer** (ou `Échap`) abandonne la sélection.
+
+La suppression et les changements de statut, de libellés ou de priorité s'annulent en une seule étape : un seul message *Annuler* (ou `⌘Z`) restaure toutes les specs modifiées. Si certaines échouent, un seul message indique combien ont réussi et combien ont échoué. La sélection ne contient que des specs visibles : un filtre qui masque une spec sélectionnée la retire de la sélection.
+
+### Vues enregistrées
+
+Le bouton **Vues**, à côté de **Filtres**, enregistre le tableau tel qu'il est : le sélecteur de statut, les filtres, le tri et la densité (pas le texte de recherche). Choisissez **Enregistrer la vue actuelle…**, nommez-la (« Prêtes à lancer », « Sprint 42 », « En échec cette semaine ») et retrouvez-la ensuite dans le même menu. **Gérer les vues…** renomme une vue, la met à jour avec le tableau actuel, copie son lien ou la supprime. Les vues appartiennent au projet. Un lien copié (`?view=…`) applique la vue lorsqu'il est ouvert dans cette application, et la palette de commandes (`⌘K`) peut enregistrer la vue actuelle ou passer à une autre.
+
 ## Les statuts
 
 Une spec traverse un petit ensemble de statuts. Le tableau donne à chacun un repère visuel cohérent, pour que vous lisiez l'état de votre backlog d'un seul coup d'œil :

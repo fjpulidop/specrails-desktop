@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { FileText, Plus, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -16,6 +17,9 @@ import { SpecSearchField } from './SpecSearchField'
 import { SpecFiltersPopover, countActiveSpecFilters, type SpecFiltersPopoverHandle } from './SpecFiltersPopover'
 import { SpecActiveFilters, type ActiveFilterChip } from './SpecActiveFilters'
 import { SpecsDisplayControls } from './SpecsDisplayControls'
+import { SpecsViewsMenu, type SpecsViewsMenuHandle } from './SpecsViewsMenu'
+import { SpecsBulkBar } from './SpecsBulkBar'
+import type { CardSelection } from './SpecSelectCheckbox'
 import { epicNameFor } from './SpecEpicFilterOptions'
 import { sprintNameFor } from './SpecSprintFilterOptions'
 import {
@@ -36,8 +40,33 @@ import {
 import type { SpecsViewTier } from '../lib/specs-view-tier'
 import { applySpecSort } from '../lib/spec-sort'
 import { loadSpecFilters, saveSpecFilters } from '../lib/spec-filters'
+import {
+  EMPTY_SELECTION,
+  applyGesture,
+  isTypingTarget,
+  pruneSelection,
+  selectColumn,
+  toggleSelection,
+  type BoardSelection,
+  type SelectGesture,
+} from '../lib/board-selection'
+import {
+  addSpecView,
+  buildViewLink,
+  deleteSpecView,
+  loadSpecViews,
+  renameSpecView,
+  saveSpecViews,
+  updateSpecView,
+  VIEW_PARAM,
+  type SpecView,
+  type SpecViewState,
+} from '../lib/spec-views'
+import { MANUAL_STATUS_TARGETS, STATUS_LABEL_KEY, isJiraBackedTicket } from '../lib/ticket-status-moves'
+import { BULK_PRIORITIES, type SpecBulkHandlers } from '../lib/bulk-actions'
+import { PROJECT_PARAM } from '../../../lib/places'
 import type { SpecSortMode, SpecSortDir } from '../types/spec-sort'
-import { useRegisterPaletteSurface } from '../../../lib/palette-bridge'
+import { useRegisterPaletteSurface, type PaletteStatusOption } from '../../../lib/palette-bridge'
 import { ProposeSpecModal, type ExploreLaunchPayload } from './ProposeSpecModal'
 import { ExploreSpecShell } from './explore-spec/ExploreSpecShell'
 import { ShellErrorBoundary } from '../../../components/ShellErrorBoundary'
@@ -91,7 +120,11 @@ interface SpecsBoardProps {
   onTicketStatusChange?: (ticketId: number, status: TicketStatus) => void
   /** Right-click context menu — priority change. */
   onTicketPriorityChange?: (ticketId: number, priority: TicketPriority) => void
+  /** Bulk handlers: when present the board is multi-select (x, ⌘/Shift-click, ⌘A) with a floating bulk bar. */
+  bulk?: SpecBulkHandlers
 }
+
+const NO_VIEWS: SpecView[] = []
 
 interface DraftOverrides {
   title?: string
@@ -193,8 +226,10 @@ export function SpecsBoard({
   continuableReviewTicketIds,
   onTicketStatusChange,
   onTicketPriorityChange,
+  bulk,
 }: SpecsBoardProps) {
   const { t } = useTranslation('specs')
+  const { t: tTickets } = useTranslation('tickets')
   // "In Flow" label → the Flow's mission conversation.
   const { selectConversation, open: openAgentPanel } = useAgentChat()
   const openFlowConversation = useCallback((conversationId: string) => {
@@ -251,13 +286,19 @@ export function SpecsBoard({
   // Mirror the two status dimensions into the URL. Default values are DELETED
   // (a pristine `/` stays pristine); foreign params (e.g. `?compare=…`) are
   // preserved via the functional form.
+  // A just-applied `?view=` link is dropped by the same write (two functional writes in one
+  // tick would each start from the stale params and undo the other).
+  const dropViewParamRef = useRef(false)
   useEffect(() => {
+    const dropView = dropViewParamRef.current
+    dropViewParamRef.current = false
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       if (statusFilter === 'active') next.delete('status')
       else next.set('status', statusFilter)
       if (activeJiraStatus === null) next.delete('jiraStatus')
       else next.set('jiraStatus', activeJiraStatus)
+      if (dropView) next.delete(VIEW_PARAM)
       return next.toString() === prev.toString() ? prev : next
     }, { replace: true })
   }, [statusFilter, activeJiraStatus, setSearchParams])
@@ -631,6 +672,187 @@ export function SpecsBoard({
   const totalSpecs = tickets.length + doneTickets.length
   const shownCount = visibleActiveTickets.length + (showDoneBucket ? visibleDoneTickets.length : 0)
 
+  // ── Multi-select (CD4) ─────────────────────────────────────────────────────
+  // A selection only ever holds specs the board shows right now: a filter, a
+  // delete or a move that hides one drops it, so a bulk action never touches
+  // something the person cannot see. Columns are the active and Done buckets.
+  const sectionRef = useRef<HTMLElement>(null)
+  const [selection, setSelection] = useState<BoardSelection>(EMPTY_SELECTION)
+  const activeColumnIds = useMemo(() => (showTodoBucket ? visibleActiveTickets.map((tk) => tk.id) : []), [showTodoBucket, visibleActiveTickets])
+  const doneColumnIds = useMemo(() => (showDoneBucket ? visibleDoneTickets.map((tk) => tk.id) : []), [showDoneBucket, visibleDoneTickets])
+  const visibleById = useMemo(() => {
+    const m = new Map<number, LocalTicket>()
+    if (showTodoBucket) for (const tk of visibleActiveTickets) m.set(tk.id, tk)
+    if (showDoneBucket) for (const tk of visibleDoneTickets) m.set(tk.id, tk)
+    return m
+  }, [showTodoBucket, showDoneBucket, visibleActiveTickets, visibleDoneTickets])
+  useEffect(() => {
+    setSelection((prev) => (prev.ids.size === 0 ? prev : pruneSelection(prev, new Set(visibleById.keys()))))
+  }, [visibleById])
+  useEffect(() => { setSelection(EMPTY_SELECTION) }, [activeProjectId])
+  const selectedTickets = useMemo(
+    () => [...selection.ids].map((id) => visibleById.get(id)).filter((tk): tk is LocalTicket => !!tk),
+    [selection, visibleById],
+  )
+  const clearSelection = useCallback(() => setSelection(EMPTY_SELECTION), [])
+  const columnOf = useCallback((id: number): number[] => (doneColumnIds.includes(id) ? doneColumnIds : activeColumnIds), [activeColumnIds, doneColumnIds])
+  const onSelectGesture = useCallback((ticket: LocalTicket, gesture: SelectGesture) => {
+    setSelection((prev) => applyGesture(prev, gesture, columnOf(ticket.id), ticket.id))
+  }, [columnOf])
+  const selectWholeColumn = useCallback((column: 'active' | 'done' | null = null) => {
+    const ids = column === 'done' ? doneColumnIds : column === 'active' ? activeColumnIds : (activeColumnIds.length > 0 ? activeColumnIds : doneColumnIds)
+    setSelection((prev) => selectColumn(prev, ids))
+  }, [activeColumnIds, doneColumnIds])
+  const cardSelection = (ticket: LocalTicket): CardSelection | undefined =>
+    bulk ? { selected: selection.ids.has(ticket.id), active: selection.ids.size > 0, onSelect: onSelectGesture } : undefined
+  const listboxProps = bulk
+    ? { role: 'listbox' as const, 'aria-multiselectable': true as const, 'aria-label': t('bulk.listLabel') }
+    : {}
+
+  // x toggles the focused card, ⌘/Ctrl+A selects its column, Esc clears. Only
+  // for keys that start inside the board (menus and dialogs are portalled out
+  // of it) and never while typing.
+  const handleBoardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (!bulk || e.defaultPrevented) return
+    const target = e.target as HTMLElement
+    if (isTypingTarget(target) || !e.currentTarget.contains(target)) return
+    if (e.key === 'Escape') {
+      if (selection.ids.size > 0) { clearSelection(); e.stopPropagation() }
+      return
+    }
+    const columnEl = target.closest<HTMLElement>('[data-board-column]')
+    if (!columnEl) return
+    if (e.key === 'x' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      const id = Number(target.closest<HTMLElement>('[data-ticket-id]')?.dataset.ticketId)
+      if (Number.isFinite(id) && visibleById.has(id)) {
+        e.preventDefault()
+        setSelection((prev) => toggleSelection(prev, id))
+      }
+      return
+    }
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'a') {
+      e.preventDefault()
+      selectWholeColumn(columnEl.dataset.boardColumn === 'done' ? 'done' : 'active')
+    }
+  }
+
+  // ── Saved views (CD4) ──────────────────────────────────────────────────────
+  const viewsRef = useRef<SpecsViewsMenuHandle>(null)
+  const [viewsState, setViewsState] = useState(() => ({ projectId: activeProjectId, list: loadSpecViews(activeProjectId) }))
+  useEffect(() => {
+    if (viewsState.projectId !== activeProjectId) setViewsState({ projectId: activeProjectId, list: loadSpecViews(activeProjectId) })
+  }, [activeProjectId, viewsState.projectId])
+  const views = viewsState.projectId === activeProjectId ? viewsState.list : NO_VIEWS
+  const commitViews = useCallback((next: SpecView[]) => {
+    setViewsState({ projectId: activeProjectId, list: next })
+    saveSpecViews(activeProjectId, next)
+  }, [activeProjectId])
+  const currentViewState: SpecViewState = {
+    status: statusFilter,
+    labels: [...activeLabels],
+    epic: activeEpic,
+    sprint: activeSprint,
+    jiraStatus: activeJiraStatus,
+    sortMode,
+    sortDir,
+    viewTier,
+  }
+  const applyView = useCallback((view: SpecView) => {
+    const labels = new Set(view.labels)
+    setActiveLabels(labels)
+    setActiveEpic(view.epic)
+    setActiveSprint(view.sprint)
+    setActiveJiraStatus(view.jiraStatus)
+    setStatusFilter(view.status)
+    setSearch('')
+    saveSpecFilters(activeProjectId, { labels, epic: view.epic, sprint: view.sprint, jiraStatus: view.jiraStatus })
+    saveSpecStatusFilter(activeProjectId, view.status)
+    onSortChange(view.sortMode, view.sortDir)
+    onViewTierChange?.(view.viewTier)
+  }, [activeProjectId, onSortChange, onViewTierChange])
+  const handleSaveView = (name: string) => {
+    const { views: next, created } = addSpecView(views, name, currentViewState)
+    if (created) {
+      commitViews(next)
+      toast.success(t('views.saved', { name: created.name }))
+    }
+  }
+  const handleCopyViewLink = (id: string) => {
+    if (!activeProjectId) return
+    const link = buildViewLink(activeProjectId, id)
+    const done = () => toast.success(t('views.linkCopied'))
+    const fail = () => toast.error(t('views.linkCopyFailed'))
+    try {
+      if (!navigator.clipboard) { fail(); return }
+      void navigator.clipboard.writeText(link).then(done, fail)
+    } catch {
+      fail()
+    }
+  }
+  // `?view=<id>` (a copied link): apply the view, then drop the param in place.
+  // A link that names another project waits for the project switch.
+  const viewParam = searchParams.get(VIEW_PARAM)
+  const viewLinkProject = searchParams.get(PROJECT_PARAM)
+  const handledViewParamRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!viewParam) { handledViewParamRef.current = null; return }
+    if (handledViewParamRef.current === viewParam || !activeProjectId) return
+    if (viewLinkProject && viewLinkProject !== activeProjectId) return
+    if (viewsState.projectId !== activeProjectId) return
+    handledViewParamRef.current = viewParam
+    const view = views.find((v) => v.id === viewParam)
+    if (view) applyView(view)
+    else toast.info(t('views.linkMissing'))
+    dropViewParamRef.current = true
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete(VIEW_PARAM)
+      return next
+    }, { replace: true })
+  }, [viewParam, viewLinkProject, activeProjectId, viewsState.projectId, views, applyView, setSearchParams, t])
+
+  // ⌘K: selection + saved views. Lists are functions so the palette always reads the latest board.
+  const selectedIds = () => [...selection.ids]
+  useRegisterPaletteSurface('selection', {
+    count: () => (bulk ? selection.ids.size : 0),
+    selectAllInColumn: () => { if (bulk) selectWholeColumn() },
+    clear: clearSelection,
+    statusOptions: async () => {
+      if (!bulk) return []
+      const picked = selectedIds().map((id) => visibleById.get(id)).filter((tk): tk is LocalTicket => !!tk)
+      const options: PaletteStatusOption[] = []
+      if (picked.some((tk) => !isJiraBackedTicket(tk, bulk.jiraConnected))) {
+        for (const st of MANUAL_STATUS_TARGETS) options.push({ id: `local:${st}`, label: tTickets(STATUS_LABEL_KEY[st]), current: false })
+      }
+      if (picked.some((tk) => isJiraBackedTicket(tk, bulk.jiraConnected))) {
+        for (const name of await bulk.loadJiraStatuses()) options.push({ id: `jira:${name}`, label: `${name} (Jira)`, current: false })
+      }
+      return options
+    },
+    moveStatus: (optionId) => {
+      if (!bulk) return
+      const picked = selectedIds().map((id) => visibleById.get(id)).filter((tk): tk is LocalTicket => !!tk)
+      if (optionId.startsWith('jira:')) {
+        const ids = picked.filter((tk) => isJiraBackedTicket(tk, bulk.jiraConnected)).map((tk) => tk.id)
+        void bulk.onStatus(ids, { kind: 'jira', status: optionId.slice(5) })
+      } else if (optionId.startsWith('local:')) {
+        const ids = picked.filter((tk) => !isJiraBackedTicket(tk, bulk.jiraConnected)).map((tk) => tk.id)
+        void bulk.onStatus(ids, { kind: 'local', status: optionId.slice(6) as TicketStatus })
+      }
+    },
+    priorityOptions: () => BULK_PRIORITIES.map((p) => ({ id: p, label: t(`priority.${p}`) })),
+    setPriority: (priority) => { void bulk?.onPriority(selectedIds(), priority as TicketPriority) },
+    labelOptions: () => (bulk ? bulk.allLabels.filter((l) => !selectedTickets.every((tk) => (tk.labels ?? []).includes(l))) : []),
+    addLabel: (label) => { void bulk?.onLabel(selectedIds(), label, 'add') },
+    railOptions: () => rails.map((r) => ({ id: r.id, label: r.label, running: r.status === 'running' })),
+    addToRail: (railId) => bulk?.onMoveToRail(selectedIds(), railId),
+    launch: () => bulk?.onLaunch(selectedIds()),
+    remove: () => { void bulk?.onDelete(selectedIds()) },
+    views: () => views.map((v) => ({ id: v.id, name: v.name })),
+    switchView: (id) => { const v = views.find((x) => x.id === id); if (v) applyView(v) },
+    saveCurrentView: () => viewsRef.current?.promptSave(),
+  })
+
   // One removable chip per active narrowing value (status is not a chip).
   const filterSourceTickets = useMemo(() => [...tickets, ...doneTickets], [tickets, doneTickets])
   const activeChips: ActiveFilterChip[] = []
@@ -659,7 +881,13 @@ export function SpecsBoard({
   }
 
   return (
-    <section aria-labelledby="specs-board-title" className="flex flex-col h-full" onClick={handleBackgroundClick}>
+    <section
+      ref={sectionRef}
+      aria-labelledby="specs-board-title"
+      className="relative flex flex-col h-full"
+      onClick={handleBackgroundClick}
+      onKeyDown={handleBoardKeyDown}
+    >
       {/* Toolbar — rows 1 and 2 line up with the Rails toolbar across the
           splitter. Row 1: title, search, Filters, display, New spec. Row 2:
           the status selector. Row 3 (only while narrowed): active chips. */}
@@ -686,6 +914,18 @@ export function SpecsBoard({
             showSprint={hasSprints}
             showJiraStatus={hasJiraStatuses}
             onClearAll={handleClearToolbarFilters}
+            compact={compactControls}
+          />
+          <SpecsViewsMenu
+            ref={viewsRef}
+            views={views}
+            current={currentViewState}
+            onApply={applyView}
+            onSave={handleSaveView}
+            onRename={(id, name) => commitViews(renameSpecView(views, id, name))}
+            onUpdate={(id) => { commitViews(updateSpecView(views, id, currentViewState)); toast.success(t('views.updated')) }}
+            onDelete={(id) => commitViews(deleteSpecView(views, id))}
+            onCopyLink={handleCopyViewLink}
             compact={compactControls}
           />
           <SpecsDisplayControls
@@ -733,7 +973,7 @@ export function SpecsBoard({
       {/* Content area — single scrollable list. Status filter decides which
           buckets render; in `all` mode todo specs come first and the done
           bucket is always pinned to the bottom of the scroller. */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className={`flex-1 overflow-y-auto min-h-0 ${bulk && selection.ids.size > 0 ? 'pb-20' : ''}`}>
         {error && (
           <div role="alert" data-testid="specs-load-error" className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -750,6 +990,7 @@ export function SpecsBoard({
           <div
             ref={setNodeRef}
             data-tour="specs-list"
+            data-board-column="active"
             className={`px-4 pt-3 pb-2 space-y-1.5 transition-colors duration-150 ${isOver ? 'bg-primary/[0.04]' : ''}`}
           >
             {isLoading && !hasLastGoodData ? (
@@ -800,6 +1041,7 @@ export function SpecsBoard({
               <SortableContext items={visibleActiveTickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div
                   data-testid="specs-board-postit-grid"
+                  {...listboxProps}
                   className="grid gap-3"
                   style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}
                 >
@@ -814,6 +1056,7 @@ export function SpecsBoard({
                     >
                       <TicketPostitCard
                         ticket={ticket}
+                        selection={cardSelection(ticket)}
                         rails={rails}
                         onClick={onTicketClick}
                         onMoveToRail={onMoveToRail}
@@ -835,6 +1078,7 @@ export function SpecsBoard({
                 <div
                   data-testid="specs-board-list"
                   data-tier="row"
+                  {...listboxProps}
                   className="space-y-1.5"
                 >
                   {visibleActiveTickets.map((ticket) => (
@@ -848,6 +1092,7 @@ export function SpecsBoard({
                     >
                       <SpecCard
                         ticket={ticket}
+                        selection={cardSelection(ticket)}
                         onClick={onTicketClick}
                         contractRefining={contractRefiningIds.has(ticket.id)}
                         epicChildrenCount={ticket.is_epic ? epicChildCounts.get(ticket.id) ?? 0 : undefined}
@@ -872,6 +1117,7 @@ export function SpecsBoard({
           <div
             ref={setDoneNodeRef}
             data-testid="specs-board-done-bucket"
+            data-board-column="done"
             className={`px-4 pt-2 pb-3 space-y-1.5 transition-colors duration-150 ${
               isDoneOver ? 'bg-accent-success/10' : ''
             } ${showTodoBucket ? 'border-t border-border/30 mt-1' : ''}`}
@@ -901,6 +1147,7 @@ export function SpecsBoard({
               <SortableContext items={visibleDoneTickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div
                   data-testid="specs-board-done-postit-grid"
+                  {...listboxProps}
                   className="grid gap-3"
                   style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}
                 >
@@ -915,6 +1162,7 @@ export function SpecsBoard({
                     >
                       <TicketPostitCard
                         ticket={ticket}
+                        selection={cardSelection(ticket)}
                         rails={rails}
                         onClick={onTicketClick}
                         onMoveToRail={onMoveToRail}
@@ -932,6 +1180,7 @@ export function SpecsBoard({
               </SortableContext>
             ) : (
               <SortableContext items={visibleDoneTickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                <div data-testid="specs-board-done-list" className="space-y-1.5" {...listboxProps}>
                 {visibleDoneTickets.map((ticket) => (
                   <MaybeContextMenu
                     key={ticket.id}
@@ -943,6 +1192,7 @@ export function SpecsBoard({
                   >
                     <SpecCard
                       ticket={ticket}
+                      selection={cardSelection(ticket)}
                       onClick={onTicketClick}
                       contractRefining={contractRefiningIds.has(ticket.id)}
                       epicChildrenCount={ticket.is_epic ? epicChildCounts.get(ticket.id) ?? 0 : undefined}
@@ -955,11 +1205,16 @@ export function SpecsBoard({
                     />
                   </MaybeContextMenu>
                 ))}
+                </div>
               </SortableContext>
             )}
           </div>
         )}
       </div>
+
+      {bulk && selectedTickets.length > 0 && (
+        <SpecsBulkBar selected={selectedTickets} handlers={bulk} rails={rails} onClear={clearSelection} />
+      )}
 
       <ProposeSpecModal
         open={proposeOpen}

@@ -32,5 +32,13 @@
     "loadFailed": "最近削除した項目を読み込めませんでした",
     "retry": "再試行"
   },
-  "hintRecoverable": "または {{keys}} を押す · 「最近削除した項目」に {{days}} 日間保管"
+  "hintRecoverable": "または {{keys}} を押す · 「最近削除した項目」に {{days}} 日間保管",
+  "bulkDeleted_one": "スペック{{count}}件を削除しました",
+  "bulkDeleted_other": "スペック{{count}}件を削除しました",
+  "bulkStatusMoved_one": "スペック{{count}}件を{{status}}に移動しました",
+  "bulkStatusMoved_other": "スペック{{count}}件を{{status}}に移動しました",
+  "bulkPriorityChanged_one": "スペック{{count}}件の優先度を変更しました",
+  "bulkPriorityChanged_other": "スペック{{count}}件の優先度を変更しました",
+  "bulkLabelsUpdated_one": "スペック{{count}}件のラベルを更新しました",
+  "bulkLabelsUpdated_other": "スペック{{count}}件のラベルを更新しました"
 }

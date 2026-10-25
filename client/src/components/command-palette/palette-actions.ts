@@ -21,6 +21,12 @@ import {
   Trash2,
   FolderOpen,
   Inbox,
+  ListChecks,
+  X,
+  BookmarkPlus,
+  Bookmark,
+  Tag,
+  Flag,
   type LucideIcon,
 } from 'lucide-react'
 import type { PaletteSurfaces } from '../../lib/palette-bridge'
@@ -179,6 +185,18 @@ function statusPage(ctx: PaletteContext, ticketId: number): ArgPage {
 
 const launchableSpecs = (ctx: PaletteContext) => (ctx.surfaces.board?.specs() ?? []).filter((s) => ctx.surfaces.board?.launchBlocker(s.id) === null)
 
+
+const selectionCount = (ctx: PaletteContext): number => ctx.surfaces.selection?.count() ?? 0
+
+function selectedPage(ctx: PaletteContext, titleKey: string, placeholderKey: string, options: ArgOption[], emptyKey: string): ArgPage {
+  return {
+    title: ctx.t(titleKey, { count: selectionCount(ctx) }),
+    placeholder: ctx.t(placeholderKey),
+    emptyLabel: ctx.t(emptyKey),
+    options,
+  }
+}
+
 function flowControl(ctx: PaletteContext, id: 'pause' | 'resume' | 'hand-off') {
   const control = ctx.surfaces.flow?.controls().find((c) => c.id === id)
   return control && !control.disabled ? control : null
@@ -270,6 +288,96 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
       const path = id !== null && id !== undefined ? ctx.surfaces.board?.reviewPath(id) : null
       if (path) ctx.go.navigate(path)
     },
+  },
+
+
+  // Board selection (CD4): bulk actions exist only while specs are selected.
+  {
+    id: 'selection.selectAll', labelKey: 'palette.actions.selectAll', group: 'board', icon: ListChecks, shortcut: '⌘A',
+    keywords: ['select', 'all', 'column', 'multi', 'bulk'],
+    when: (ctx) => !!ctx.surfaces.selection && !!ctx.surfaces.board,
+    run: (ctx) => ctx.surfaces.selection?.selectAllInColumn(),
+  },
+  {
+    id: 'selection.clear', labelKey: 'palette.actions.clearSelection', group: 'board', icon: X, shortcut: 'Esc',
+    keywords: ['clear', 'deselect', 'selection', 'unselect'],
+    when: (ctx) => selectionCount(ctx) > 0,
+    run: (ctx) => ctx.surfaces.selection?.clear(),
+  },
+  {
+    id: 'selection.move', labelKey: 'palette.actions.moveSelected', group: 'board', icon: MoveRight,
+    keywords: ['move', 'status', 'selected', 'bulk', 'todo', 'done', 'jira'],
+    resolveLabel: (ctx) => ctx.t('palette.actions.moveSelectedN', { count: selectionCount(ctx) }),
+    when: (ctx) => selectionCount(ctx) > 0,
+    page: (ctx) => ({
+      title: ctx.t('palette.actions.pages.statusSelectedTitle', { count: selectionCount(ctx) }),
+      placeholder: ctx.t('palette.actions.pages.statusPlaceholder'),
+      emptyLabel: ctx.t('palette.actions.pages.noStatuses'),
+      load: async () => (await (ctx.surfaces.selection?.statusOptions() ?? Promise.resolve([]))).map((o) => ({ id: `status-${o.id}`, label: o.label, arg: o.id })),
+    }),
+    run: (ctx, arg) => ctx.surfaces.selection?.moveStatus(arg as string),
+  },
+  {
+    id: 'selection.label', labelKey: 'palette.actions.labelSelected', group: 'board', icon: Tag,
+    keywords: ['label', 'tag', 'selected', 'bulk'],
+    resolveLabel: (ctx) => ctx.t('palette.actions.labelSelectedN', { count: selectionCount(ctx) }),
+    when: (ctx) => selectionCount(ctx) > 0 && (ctx.surfaces.selection?.labelOptions().length ?? 0) > 0,
+    page: (ctx) => selectedPage(ctx, 'palette.actions.pages.labelSelectedTitle', 'palette.actions.pages.labelPlaceholder',
+      (ctx.surfaces.selection?.labelOptions() ?? []).map((l) => ({ id: `label-${l}`, label: l, arg: l })), 'palette.actions.pages.noLabels'),
+    run: (ctx, arg) => ctx.surfaces.selection?.addLabel(arg as string),
+  },
+  {
+    id: 'selection.priority', labelKey: 'palette.actions.prioritySelected', group: 'board', icon: Flag,
+    keywords: ['priority', 'critical', 'high', 'low', 'selected', 'bulk'],
+    resolveLabel: (ctx) => ctx.t('palette.actions.prioritySelectedN', { count: selectionCount(ctx) }),
+    when: (ctx) => selectionCount(ctx) > 0,
+    page: (ctx) => selectedPage(ctx, 'palette.actions.pages.prioritySelectedTitle', 'palette.actions.pages.priorityPlaceholder',
+      (ctx.surfaces.selection?.priorityOptions() ?? []).map((p) => ({ id: `priority-${p.id}`, label: p.label, arg: p.id })), 'palette.actions.pages.noPriorities'),
+    run: (ctx, arg) => ctx.surfaces.selection?.setPriority(arg as string),
+  },
+  {
+    id: 'selection.rail', labelKey: 'palette.actions.railSelected', group: 'board', icon: MoveRight,
+    keywords: ['rail', 'add', 'selected', 'bulk', 'queue'],
+    resolveLabel: (ctx) => ctx.t('palette.actions.railSelectedN', { count: selectionCount(ctx) }),
+    when: (ctx) => selectionCount(ctx) > 0,
+    page: (ctx) => selectedPage(ctx, 'palette.actions.pages.railSelectedTitle', 'palette.actions.pages.railPlaceholder',
+      (ctx.surfaces.selection?.railOptions() ?? []).map((r) => ({
+        id: `rail-${r.id}`, label: r.label, hint: r.running ? ctx.t('palette.actions.pages.railRunning') : undefined, disabled: r.running, arg: r.id,
+      })), 'palette.actions.pages.noRails'),
+    run: (ctx, arg) => ctx.surfaces.selection?.addToRail(arg as string),
+  },
+  {
+    id: 'selection.launch', labelKey: 'palette.actions.launchSelected', group: 'board', icon: Rocket,
+    keywords: ['launch', 'run', 'start', 'implement', 'selected', 'bulk'],
+    resolveLabel: (ctx) => ctx.t('palette.actions.launchSelectedN', { count: selectionCount(ctx) }),
+    when: (ctx) => selectionCount(ctx) > 0,
+    run: (ctx) => ctx.surfaces.selection?.launch(),
+  },
+  {
+    id: 'selection.delete', labelKey: 'palette.actions.deleteSelected', group: 'board', icon: Trash2,
+    keywords: ['delete', 'remove', 'selected', 'bulk', 'trash'],
+    resolveLabel: (ctx) => ctx.t('palette.actions.deleteSelectedN', { count: selectionCount(ctx) }),
+    when: (ctx) => selectionCount(ctx) > 0,
+    run: (ctx) => ctx.surfaces.selection?.remove(),
+  },
+  // Saved views (CD4)
+  {
+    id: 'view.save', labelKey: 'palette.actions.saveView', group: 'board', icon: BookmarkPlus,
+    keywords: ['save', 'view', 'filters', 'sort', 'saved'],
+    when: (ctx) => !!ctx.surfaces.selection,
+    run: (ctx) => ctx.surfaces.selection?.saveCurrentView(),
+  },
+  {
+    id: 'view.switch', labelKey: 'palette.actions.switchView', group: 'board', icon: Bookmark,
+    keywords: ['view', 'saved', 'filters', 'switch', 'apply'],
+    when: (ctx) => (ctx.surfaces.selection?.views().length ?? 0) > 0,
+    page: (ctx) => ({
+      title: ctx.t('palette.actions.pages.viewTitle'),
+      placeholder: ctx.t('palette.actions.pages.viewPlaceholder'),
+      emptyLabel: ctx.t('palette.actions.pages.noViews'),
+      options: (ctx.surfaces.selection?.views() ?? []).map((v) => ({ id: `view-${v.id}`, label: v.name, arg: v.id })),
+    }),
+    run: (ctx, arg) => ctx.surfaces.selection?.switchView(arg as string),
   },
 
   // Mission

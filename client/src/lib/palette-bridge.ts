@@ -58,6 +58,33 @@ export interface PaletteSpecsSurface {
   openNewSpec: (mode: 'quick' | 'explore') => void
 }
 
+/**
+ * The specs board's multi-selection and saved views (CD4). `count` is 0 while
+ * nothing is selected, which hides the bulk actions; the views functions work
+ * regardless. Bulk calls run the same handlers as the floating bulk bar.
+ */
+export interface PaletteSelectionSurface {
+  count: () => number
+  selectAllInColumn: () => void
+  clear: () => void
+  /** Status targets for the selection: ids are `local:<status>` or `jira:<workflow status>`. */
+  statusOptions: () => Promise<PaletteStatusOption[]>
+  moveStatus: (optionId: string) => void
+  priorityOptions: () => { id: string; label: string }[]
+  setPriority: (priority: string) => void
+  /** Labels not yet on every selected spec. */
+  labelOptions: () => string[]
+  addLabel: (label: string) => void
+  railOptions: () => { id: string; label: string; running: boolean }[]
+  addToRail: (railId: string) => void
+  launch: () => void
+  remove: () => void
+  views: () => { id: string; name: string }[]
+  switchView: (id: string) => void
+  /** Opens the board's "Save current view" dialog. */
+  saveCurrentView: () => void
+}
+
 export interface PaletteFlowControl {
   id: 'pause' | 'resume' | 'hand-off'
   label: string
@@ -73,6 +100,7 @@ export interface PaletteFlowSurface {
 export interface PaletteSurfaces {
   board: PaletteBoardSurface
   specs: PaletteSpecsSurface
+  selection: PaletteSelectionSurface
   flow: PaletteFlowSurface
 }
 

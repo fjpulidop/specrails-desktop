@@ -15,6 +15,26 @@ La board ha due modalità di visualizzazione, che si alternano con un toggle nel
 
 La toolbar delle Spec ha due righe. La prima contiene un campo di **ricerca** (premi `/` per raggiungerlo; cerca per titolo, `#numero`, etichetta o chiave Jira), un unico pulsante **Filtri**, i controlli di ordinamento e vista, e **Nuova spec**. La seconda riga è il **selettore di stati**: ogni stato come segmento dedicato con un conteggio in tempo reale, più due gruppi intelligenti, **Attive** (il predefinito: tutto ciò che è ancora in movimento, cioè bozze, da fare, in corso e in revisione) e **Tutti** (tutto, con Completato fissato in fondo). Quando la colonna è stretta, gli stati meno usati si raccolgono in un menu **Altro**, e lo stato scelto resta sempre visibile. La scelta viene ricordata per progetto e riflessa nell'URL, così un refresh o un link condiviso ripristina esattamente la stessa vista. **Filtri** apre un unico pannello con una sezione per dimensione: **etichette** (selezione multipla) e, nei progetti collegati a Jira, **epic**, **sprint** e **stato Jira** (gli stati *reali* del workflow della board, es. "Code Review", raggruppati sotto lo stato a cui mappano e combinati con il selettore di stati). Finché una ricerca o un filtro restringe la board, una terza riga mostra ciascuno come chip rimovibile, indica "x di y" spec e offre **Cancella tutto** (che mantiene lo stato scelto). Ordina per **Predefinito**, **Ticket #** o **Priorità**, ciascuno con un toggle crescente/decrescente.
 
+### Selezionare più spec
+
+Fai la triage in blocco invece di una spec alla volta. Premi `x` su una scheda a fuoco, fai clic su una scheda con `Ctrl`/`⌘`, oppure fai clic con `Maiusc` per selezionare un intervallo (un intervallo resta dentro una colonna: le spec attive o il gruppo Completate). `Ctrl`/`⌘`+`A` seleziona l'intera colonna in cui ti trovi e `Esc` deseleziona tutto. Ogni scheda mostra una casella al passaggio del mouse o quando ha il fuoco, e quelle selezionate hanno il bordo evidenziato. Nessuno di questi tasti agisce mentre scrivi nel campo di ricerca.
+
+Appena una spec è selezionata, in basso nella board compare una barra mobile con il conteggio e le azioni:
+
+- **Sposta in** cambia lo stato. Le spec locali ricevono gli stati locali; quelle che arrivano da Jira ricevono i veri stati del workflow della board Jira e passano dalla stessa coda Jira di uno spostamento singolo.
+- **Etichetta** aggiunge un'etichetta alla selezione, oppure ne rimuove una presente nelle spec.
+- **Priorità** imposta la stessa priorità per tutte.
+- **Aggiungi a un rail** mette la selezione su un rail.
+- **Avvia tutto** assegna a ogni spec selezionata un rail libero tutto suo e le avvia in parallelo, dopo la stessa conferma e lo stesso controllo del budget giornaliero di *Avvia tutto* dei rail. Le spec che non possono ancora partire (per esempio in revisione senza PR aperta) o che non trovano un rail libero vengono saltate e contate nel riepilogo.
+- **Elimina** le sposta in *Eliminate di recente*.
+- **Deseleziona** (o `Esc`) scarta la selezione.
+
+Eliminazione e modifiche di stato, etichette o priorità si annullano in un solo passaggio: un unico avviso *Annulla* (o `⌘Z`) ripristina ogni spec modificata. Se alcune falliscono, un solo avviso indica quante sono riuscite e quante no. La selezione contiene solo spec visibili: un filtro che nasconde una spec selezionata la toglie dalla selezione.
+
+### Viste salvate
+
+Il pulsante **Viste**, accanto a **Filtri**, salva la board così com'è ora: il selettore di stato, i filtri, l'ordinamento e la densità (non il testo di ricerca). Scegli **Salva la vista attuale…**, dalle un nome («Pronte da avviare», «Sprint 42», «Fallite questa settimana») e scegliila poi dallo stesso menu. **Gestisci le viste…** rinomina una vista, la aggiorna con la board attuale, ne copia il link o la elimina. Le viste appartengono al progetto. Un link copiato (`?view=…`) applica la vista quando viene aperto in questa app, e la palette dei comandi (`⌘K`) può salvare la vista attuale o passare a un'altra.
+
 ## Stati
 
 Una spec attraversa un piccolo insieme di stati. La board associa a ciascuno un segnale visivo coerente, così puoi leggere lo stato del tuo backlog a colpo d'occhio:

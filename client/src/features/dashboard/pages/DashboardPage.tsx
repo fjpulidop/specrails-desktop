@@ -26,6 +26,7 @@ import { useRailMetrics } from '../../rails/context/RailMetricsContext'
 import { useRailPrDecisions } from '../../delivery/context/RailPrDecisionContext'
 import { DashboardSplitter } from '../components/DashboardSplitter'
 import { useDashboardSplit } from '../hooks/useDashboardSplit'
+import { useSpecBulkActions } from '../hooks/useSpecBulkActions'
 import { TicketDetailModal } from '../../specs/components/TicketDetailModal'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { usePlaceParam } from '../../../hooks/usePlaceParam'
@@ -180,7 +181,7 @@ export default function DashboardPage() {
     const p = projects.find((pr) => pr.id === activeProjectId)
     return p ? projectProviders(p) : ['claude']
   })()
-  const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds } = useTickets()
+  const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds, bulkDelete, bulkUpdateStatus, bulkUpdatePriority, bulkUpdateLabels } = useTickets()
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { specToOpen, clearSpecToOpen } = useSpecGenTracker()
   // The spec detail modal is a place: `?spec=<id>` (Back closes it, a link reopens it).
@@ -901,18 +902,20 @@ export default function DashboardPage() {
   // path (`handleDragEnd`) and by the `Move to Rail` popover on the
   // dashboard postit tier. Idempotent: re-assigning to the same rail is a
   // no-op; assigning to a different rail moves the ticket atomically.
-  const handleMoveTicketToRail = useCallback((ticketId: number, railId: string) => {
+  // `quiet` (a bulk move) skips the per-spec toasts; the caller reports one summary.
+  const handleMoveTicketToRail = useCallback((ticketId: number, railId: string, opts?: { quiet?: boolean }): boolean => {
+    const quiet = opts?.quiet === true
     const targetRail = rails.find((r) => r.id === railId)
-    if (!targetRail) return
+    if (!targetRail) return false
     // On-review specs are frozen unless they already have a draft/published PR
     // head that a relaunch can continue.
     if (tickets.find((tk) => tk.id === ticketId)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(ticketId, railPrDecisions, tickets))) {
-      toast.info(t('toasts.onReviewCannotMoveToRail'))
-      return
+      if (!quiet) toast.info(t('toasts.onReviewCannotMoveToRail'))
+      return false
     }
     if (targetRail.ticketIds.includes(ticketId)) {
-      toast.info(t('toasts.alreadyOnRail', { rail: targetRail.label }))
-      return
+      if (!quiet) toast.info(t('toasts.alreadyOnRail', { rail: targetRail.label }))
+      return false
     }
     updateSpecOrder((prev) => (prev ?? specTickets.map((t) => t.id)).filter((id) => id !== ticketId))
     updateRails((prev) => prev.map((r) => {
@@ -924,7 +927,8 @@ export default function DashboardPage() {
       }
       return r
     }))
-    toast.success(t('toasts.movedToRail', { rail: targetRail.label }))
+    if (!quiet) toast.success(t('toasts.movedToRail', { rail: targetRail.label }))
+    return true
   }, [rails, tickets, specTickets, updateRails, updateSpecOrder, t, railPrDecisions, railPrDecisionsHydrated])
 
   // Reverse of `handleMoveTicketToRail`: remove a ticket from whatever rail
@@ -1345,9 +1349,11 @@ export default function DashboardPage() {
     }
   }
 
-  async function doLaunchRail(railId: string, opts?: { silent?: boolean }): Promise<LaunchOutcome> {
+  // `rail` (a bulk launch) is the rail as it will be once the spec lands on it: React has not
+  // committed that assignment yet, so the closure's `rails` would still show it empty.
+  async function doLaunchRail(railId: string, opts?: { silent?: boolean; rail?: RailState }): Promise<LaunchOutcome> {
     const silent = opts?.silent ?? false
-    const rail = rails.find((r) => r.id === railId)
+    const rail = opts?.rail ?? rails.find((r) => r.id === railId)
     const railIndex = serverRailIndex(railId)
     if (!rail || railIndex === -1) return 'failed'
     if (rail.ticketIds.length === 0) return 'skipped'
@@ -1664,6 +1670,26 @@ export default function DashboardPage() {
     },
   })
 
+  // Board multi-select (CD4): bulk bar handlers + the launch confirmation they open.
+  const railDecisionIndex = (railId: string) => railIndexFromId(railId) ?? rails.findIndex((r) => r.id === railId)
+  const bulkActions = useSpecBulkActions({
+    rails,
+    jiraConnected: jira.connected,
+    allLabels: allTicketLabels,
+    store: { bulkDelete, bulkUpdateStatus, bulkUpdatePriority, bulkUpdateLabels },
+    moveToRail: handleMoveTicketToRail,
+    launchRail: (railId, rail) => doLaunchRail(railId, { silent: true, rail }),
+    gates: {
+      blockerOf: paletteLaunchBlocker,
+      hasPendingDecision: (railId) => railPrDecisions.has(railDecisionIndex(railId)),
+      takesReviewSlot: (railId) => railLaunchAddsReviewWip(railDecisionIndex(railId), railPrDecisions),
+      reviewCapacity: reviewWipCapacity(reviewWipLimit, pendingReview.length),
+    },
+    forecastQueryOf: (rail) => (activeProjectId && !isRolesEngine(rail.aiEngine)
+      ? { projectId: activeProjectId, loopId: effectiveLoopId(rail.selectedLoopId, rail.mode), provider: railProvider(rail) }
+      : null),
+  })
+
   const { leftWidth, enabled: splitterEnabled, beginDrag, resetToDefault, nudge: nudgeSplit } = useDashboardSplit(activeProjectId, dashboardContainerRef)
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
 
@@ -1702,6 +1728,7 @@ export default function DashboardPage() {
             rails={rails}
             onMoveToRail={handleMoveTicketToRail}
             continuableReviewTicketIds={continuableReviewTicketIds}
+            bulk={bulkActions.handlers}
           />
         </div>
 
@@ -1824,6 +1851,8 @@ export default function DashboardPage() {
         onClose={() => setCreateTicketOpen(false)}
         onCreate={createTicket}
       />
+
+      {bulkActions.dialogs}
 
       <LaunchAllDialog
         open={launchAllConfirm}

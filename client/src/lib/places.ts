@@ -26,6 +26,12 @@ export const MISSION_PARAM = 'mission'
 export const INBOX_PARAM = 'inbox'
 /** `?overlay=loops|plugins|docs|analytics` — a full-page modal. */
 export const OVERLAY_PARAM = 'overlay'
+/**
+ * `?view=<savedViewId>` — a saved specs-board view (CD4). NOT a place: opening a
+ * link applies the view and the param is dropped in place (replace), and picking
+ * a view in the switcher never touches history. `placeKey` ignores it.
+ */
+export const VIEW_PARAM = 'view'
 /** `?p=<projectId>` — the project a place belongs to (Back across a project switch restores it). */
 export const PROJECT_PARAM = 'p'
 

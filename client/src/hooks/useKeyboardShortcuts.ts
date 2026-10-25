@@ -53,6 +53,11 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: 'J K', descriptionKey: 'shortcuts.items.reviewFiles', category: 'actions' },
   { keys: 'N P', descriptionKey: 'shortcuts.items.reviewAnnotations', category: 'actions' },
   { keys: 'V', descriptionKey: 'shortcuts.items.reviewViewed', category: 'actions' },
+  // Specs board multi-select (features/specs/components/SpecsBoard.tsx)
+  { keys: 'X', descriptionKey: 'shortcuts.items.boardSelect', category: 'actions' },
+  { keys: '⌘Click ⇧Click', descriptionKey: 'shortcuts.items.boardSelectClick', category: 'actions' },
+  { keys: '⌘A', descriptionKey: 'shortcuts.items.boardSelectColumn', category: 'actions' },
+  { keys: 'Esc', descriptionKey: 'shortcuts.items.boardClearSelection', category: 'actions' },
 
   // Missions: the run strip of the mission you are in (missions/components/run-strip-keys.ts)
   ...(FEATURE_AGENT_CHAT

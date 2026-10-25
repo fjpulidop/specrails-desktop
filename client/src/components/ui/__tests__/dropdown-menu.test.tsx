@@ -63,3 +63,29 @@ describe('DropdownMenu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })
+
+describe('DropdownMenu side', () => {
+  it('opens above the trigger with side="top" (a trigger docked at the bottom edge)', () => {
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger aria-label="Up">^</DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align="start">
+          <DropdownMenuItem>One</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Up' }))
+    const menu = screen.getByRole('menu')
+    expect(menu.style.bottom).not.toBe('')
+    expect(menu.style.top).toBe('')
+  })
+
+  it('still opens below by default', () => {
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'More' }))
+    const menu = screen.getByRole('menu')
+    expect(menu.style.top).not.toBe('')
+    expect(menu.style.bottom).toBe('')
+  })
+})
+

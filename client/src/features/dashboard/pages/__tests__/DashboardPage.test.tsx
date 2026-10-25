@@ -63,10 +63,11 @@ vi.mock('../../../specs/hooks/useTickets', () => ({
 // Mock SpecsBoard to expose onTicketClick for testing
 const mockOnTicketClick = vi.fn()
 vi.mock('../../../specs/components/SpecsBoard', () => ({
-  SpecsBoard: ({ tickets, isLoading, onTicketClick }: {
+  SpecsBoard: ({ tickets, isLoading, onTicketClick, bulk }: {
     tickets: LocalTicket[]
     isLoading: boolean
     onTicketClick: (t: LocalTicket) => void
+    bulk?: import('../../../specs/lib/bulk-actions').SpecBulkHandlers
   }) => (
     <div data-testid="specs-board">
       <span data-testid="specs-board-ticket-count">{tickets.length}</span>
@@ -77,6 +78,8 @@ vi.mock('../../../specs/components/SpecsBoard', () => ({
       >
         open ticket
       </button>
+      <button data-testid="bulk-add-to-rail" onClick={() => bulk?.onMoveToRail([tickets[0].id], 'rail-1')}>bulk rail</button>
+      <button data-testid="bulk-launch" onClick={() => bulk?.onLaunch(tickets.map((tk) => tk.id))}>bulk launch</button>
     </div>
   ),
 }))
@@ -292,5 +295,31 @@ describe('DashboardPage', () => {
   it('CreateTicketModal is not shown initially', () => {
     render(<DashboardPage />)
     expect(screen.queryByTestId('create-ticket-modal')).not.toBeInTheDocument()
+  })
+
+  describe('board bulk actions (CD4)', () => {
+    it('hands the board its bulk handlers', () => {
+      render(<DashboardPage />)
+      expect(screen.getByTestId('bulk-add-to-rail')).toBeInTheDocument()
+    })
+
+    it('Add to rail moves the spec onto the rail through the board’s own move', () => {
+      render(<DashboardPage />)
+      fireEvent.click(screen.getByTestId('bulk-add-to-rail'))
+      expect(screen.getByText('Spec ticket')).toBeInTheDocument()
+    })
+
+    it('Launch all asks for confirmation (LaunchAllDialog) before anything starts, and cancel starts nothing', () => {
+      const fetchMock = vi.mocked(global.fetch)
+      fetchMock.mockClear()
+      render(<DashboardPage />)
+      fireEvent.click(screen.getByTestId('bulk-launch'))
+      const dialog = screen.getByRole('dialog')
+      expect(dialog).toHaveTextContent('1 rail')
+      expect(dialog).toHaveTextContent('1 spec')
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/launch'))).toBe(false)
+    })
   })
 })

@@ -122,3 +122,133 @@ describe('useTickets: undo instead of confirm', () => {
     expect(toastFn).not.toHaveBeenCalled()
   })
 })
+
+describe('useTickets: bulk changes with ONE grouped undo (CD4)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    purgeProjectCache('proj-1')
+    mockActiveProjectId = 'proj-1'
+  })
+
+  const three = () => [ticket({ id: 1, title: 'One', labels: ['bug'] }), ticket({ id: 2, title: 'Two', labels: [] }), ticket({ id: 3, title: 'Three', status: 'in_progress', priority: 'low' })]
+
+  async function setup(listed = three()) {
+    installFetch(listed)
+    const hook = renderHook(() => useTickets(), { wrapper })
+    await waitFor(() => expect(hook.result.current.tickets).toHaveLength(listed.length))
+    calls.length = 0
+    return hook
+  }
+  const undoToasts = () => toastFn.mock.calls.filter(([, opts]) => (opts as { action?: unknown } | undefined)?.action)
+
+  it('bulk delete runs the per-spec DELETE, refetches once and pushes ONE Undo that restores all', async () => {
+    const { result } = await setup()
+    let outcome: Awaited<ReturnType<typeof result.current.bulkDelete>> | undefined
+    await act(async () => { outcome = await result.current.bulkDelete([1, 2, 3]) })
+    expect(outcome).toMatchObject({ ok: [1, 2, 3], failed: [], undoable: true })
+    expect(calls.filter((c) => c.method === 'DELETE').map((c) => c.url.split('/').pop())).toEqual(['1', '2', '3'])
+    expect(calls.filter((c) => c.method === 'GET')).toHaveLength(1)
+    expect(undoToasts()).toHaveLength(1)
+    expect(toastFn.mock.calls.at(-1)![0]).toBe('Deleted 3 specs')
+    expect((toastFn.mock.calls.at(-1)![1] as { description: string }).description).toMatch(/Recently deleted$/)
+    calls.length = 0
+    await act(async () => { lastAction().onClick() })
+    expect(calls.filter((c) => c.method === 'POST').map((c) => c.url.split('/').slice(-2).join('/'))).toEqual(['3/restore', '2/restore', '1/restore'])
+  })
+
+  it('a partial failure reports the failed ids and the Undo only covers what succeeded', async () => {
+    const { result } = await setup()
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      calls.push({ url, method })
+      if (method === 'DELETE' && url.endsWith('/2')) return { ok: false, status: 500, json: async () => ({}) } as Response
+      if (method === 'GET') return { ok: true, json: async () => ({ tickets: three() }) } as Response
+      return { ok: true, json: async () => ({ ok: true }) } as Response
+    })
+    let outcome: Awaited<ReturnType<typeof result.current.bulkDelete>> | undefined
+    await act(async () => { outcome = await result.current.bulkDelete([1, 2, 3]) })
+    expect(outcome).toMatchObject({ ok: [1, 3], failed: [2] })
+    expect(toastFn.mock.calls.at(-1)![0]).toBe('Deleted 2 specs')
+    calls.length = 0
+    await act(async () => { lastAction().onClick() })
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(2)
+  })
+
+  it('when everything fails there is no Undo', async () => {
+    const { result } = await setup()
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (_i: RequestInfo | URL, init?: RequestInit) => (
+      (init?.method ?? 'GET') === 'GET' ? ({ ok: true, json: async () => ({ tickets: three() }) } as Response) : ({ ok: false, status: 500, json: async () => ({}) } as Response)
+    ))
+    let outcome: Awaited<ReturnType<typeof result.current.bulkDelete>> | undefined
+    await act(async () => { outcome = await result.current.bulkDelete([1, 2]) })
+    expect(outcome).toMatchObject({ ok: [], failed: [1, 2], undoable: false })
+    expect(undoToasts()).toHaveLength(0)
+  })
+
+  it('bulk status uses the status handler per spec and Undo moves each back to ITS previous status', async () => {
+    const { result } = await setup()
+    await act(async () => { await result.current.bulkUpdateStatus([1, 3], 'done') })
+    expect(calls.filter((c) => c.method === 'PATCH').map((c) => c.body)).toEqual([{ status: 'done' }, { status: 'done' }])
+    expect(undoToasts()).toHaveLength(1)
+    expect(toastFn.mock.calls.at(-1)![0]).toBe('Moved 2 specs to Done')
+    calls.length = 0
+    await act(async () => { lastAction().onClick() })
+    const patches = calls.filter((c) => c.method === 'PATCH')
+    // Reverse order; spec 3 was in progress, spec 1 was todo.
+    expect(patches.map((p) => [p.url.split('/').pop(), p.body])).toEqual([['3', { status: 'in_progress' }], ['1', { status: 'todo' }]])
+  })
+
+  it('a move that changes nothing offers no Undo', async () => {
+    const { result } = await setup()
+    await act(async () => { await result.current.bulkUpdateStatus([1], 'todo') })
+    expect(undoToasts()).toHaveLength(0)
+  })
+
+  it('bulk labels add and remove per spec; a spec the change would not alter is skipped; Undo restores each previous set', async () => {
+    const { result } = await setup()
+    await act(async () => { await result.current.bulkUpdateLabels([1, 2], { add: ['bug', 'ui'] }) })
+    // #1 already has bug → gains ui; #2 gains both.
+    expect(calls.filter((c) => c.method === 'PATCH').map((c) => [c.url.split('/').pop(), c.body])).toEqual([['1', { labels: ['bug', 'ui'] }], ['2', { labels: ['bug', 'ui'] }]])
+    expect(toastFn.mock.calls.at(-1)![0]).toBe('Labels updated on 2 specs')
+    calls.length = 0
+    await act(async () => { lastAction().onClick() })
+    expect(calls.filter((c) => c.method === 'PATCH').map((c) => [c.url.split('/').pop(), c.body])).toEqual([['2', { labels: [] }], ['1', { labels: ['bug'] }]])
+  })
+
+  it('removing a label nobody has changes nothing and offers no Undo', async () => {
+    const { result } = await setup()
+    let outcome: Awaited<ReturnType<typeof result.current.bulkUpdateLabels>> | undefined
+    await act(async () => { outcome = await result.current.bulkUpdateLabels([2], { remove: ['bug'] }) })
+    expect(outcome).toMatchObject({ ok: [2], failed: [], undoable: false })
+    expect(calls.filter((c) => c.method === 'PATCH')).toHaveLength(0)
+  })
+
+  it('bulk priority is undoable as a group', async () => {
+    const { result } = await setup()
+    await act(async () => { await result.current.bulkUpdatePriority([1, 3], 'critical') })
+    expect(calls.filter((c) => c.method === 'PATCH').map((c) => c.body)).toEqual([{ priority: 'critical' }, { priority: 'critical' }])
+    expect(toastFn.mock.calls.at(-1)![0]).toBe('Priority changed on 2 specs')
+    calls.length = 0
+    await act(async () => { lastAction().onClick() })
+    expect(calls.filter((c) => c.method === 'PATCH').map((c) => [c.url.split('/').pop(), c.body])).toEqual([['3', { priority: 'low' }], ['1', { priority: 'medium' }]])
+  })
+
+  it('a single priority edit still pushes no Undo', async () => {
+    const { result } = await setup()
+    await act(async () => { await result.current.updateTicketPriority(1, 'high') })
+    expect(undoToasts()).toHaveLength(0)
+  })
+
+  it('with no active project nothing is sent', async () => {
+    const { result } = await setup()
+    mockActiveProjectId = null
+    const { result: r2 } = renderHook(() => useTickets(), { wrapper })
+    calls.length = 0
+    let outcome: Awaited<ReturnType<typeof r2.current.bulkDelete>> | undefined
+    await act(async () => { outcome = await r2.current.bulkDelete([1, 2]) })
+    expect(outcome).toMatchObject({ ok: [], failed: [1, 2] })
+    expect(calls.filter((c) => c.method === 'DELETE')).toHaveLength(0)
+    void result
+  })
+})

@@ -32,5 +32,13 @@
     "loadFailed": "Couldn't load the recently deleted items",
     "retry": "Retry"
   },
-  "hintRecoverable": "or press {{keys}} · kept {{days}} days in Recently deleted"
+  "hintRecoverable": "or press {{keys}} · kept {{days}} days in Recently deleted",
+  "bulkDeleted_one": "Deleted {{count}} spec",
+  "bulkDeleted_other": "Deleted {{count}} specs",
+  "bulkStatusMoved_one": "Moved {{count}} spec to {{status}}",
+  "bulkStatusMoved_other": "Moved {{count}} specs to {{status}}",
+  "bulkPriorityChanged_one": "Priority changed on {{count}} spec",
+  "bulkPriorityChanged_other": "Priority changed on {{count}} specs",
+  "bulkLabelsUpdated_one": "Labels updated on {{count}} spec",
+  "bulkLabelsUpdated_other": "Labels updated on {{count}} specs"
 }

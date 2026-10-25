@@ -15,6 +15,26 @@ Das Board hat zwei Ansichtsmodi, die du über einen Umschalter in der Toolbar we
 
 Die Specs-Werkzeugleiste hat zwei Zeilen. Die erste enthält ein **Suchfeld** (mit `/` springst du hinein; es findet Titel, `#Nummer`, Label oder Jira-Schlüssel), eine einzige **Filter**-Schaltfläche, die Sortier- und Ansichtssteuerung sowie **Neue Spec**. Die zweite Zeile ist der **Status-Selektor**: jeder Status als eigenes Segment mit Live-Zähler, dazu zwei smarte Gruppen, **Aktiv** (der Standard: alles, was noch in Bewegung ist, also Entwürfe, To-dos, in Arbeit und in Prüfung) und **Alle** (alles, mit Fertig unten angeheftet). Ist die Spalte schmal, wandern die seltener genutzten Status in ein **Mehr**-Menü, und der gewählte Status bleibt immer sichtbar. Deine Auswahl wird pro Projekt gemerkt und in die URL gespiegelt, sodass ein Neuladen oder ein geteilter Link exakt dieselbe Ansicht wiederherstellt. **Filter** öffnet ein Panel mit einem Abschnitt pro Dimension: **Labels** (Mehrfachauswahl) und bei Jira-verbundenen Projekten **Epic**, **Sprint** und **Jira-Status** (die *echten* Workflow-Status des Boards, z. B. „Code Review“, gruppiert unter dem Zustand, auf den sie abbilden, kombiniert mit dem Status-Selektor). Solange eine Suche oder ein Filter das Board eingrenzt, zeigt eine dritte Zeile jeden davon als entfernbaren Chip, nennt „x von y“ Specs und bietet **Alle zurücksetzen** (dein gewählter Status bleibt erhalten). Sortiere nach **Standard**, **Ticket #** oder **Priorität**, jeweils mit Umschalter für auf- und absteigend.
 
+### Mehrere Specs auswählen
+
+Sortieren Sie gesammelt statt Spec für Spec. Drücken Sie `x` auf einer fokussierten Karte, klicken Sie mit `Strg`/`⌘` auf eine Karte oder mit `Umschalt` für einen Bereich (ein Bereich bleibt in einer Spalte: die aktiven Specs oder der Bereich „Erledigt“). `Strg`/`⌘`+`A` wählt die ganze Spalte, in der Sie sind, `Esc` hebt die Auswahl auf. Jede Karte zeigt beim Darüberfahren oder Fokussieren ein Kontrollkästchen, ausgewählte Karten haben einen hervorgehobenen Rahmen. Keine dieser Tasten wirkt, solange Sie im Suchfeld tippen.
+
+Sobald eine Spec ausgewählt ist, erscheint unten im Board eine schwebende Leiste mit der Anzahl und den Aktionen:
+
+- **Verschieben nach** ändert den Status. Lokale Specs erhalten die lokalen Status; Specs aus Jira erhalten die echten Workflow-Status des Jira-Boards und laufen über dieselbe Jira-Warteschlange wie eine einzelne Verschiebung.
+- **Label** fügt der Auswahl ein Label hinzu oder entfernt eines, das die Specs tragen.
+- **Priorität** setzt für alle dieselbe Priorität.
+- **Zu Rail hinzufügen** legt die Auswahl auf einen Rail.
+- **Alle starten** gibt jeder ausgewählten Spec einen eigenen freien Rail und startet sie parallel, nach derselben Bestätigung und Prüfung des Tagesbudgets wie *Alle starten* bei den Rails. Specs, die noch nicht starten können (etwa im Review ohne offenen PR) oder keinen freien Rail finden, werden übersprungen und in der Zusammenfassung gezählt.
+- **Löschen** verschiebt sie nach *Zuletzt gelöscht*.
+- **Aufheben** (oder `Esc`) verwirft die Auswahl.
+
+Löschen sowie Änderungen von Status, Labels und Priorität lassen sich in einem Schritt rückgängig machen: eine einzige *Rückgängig*-Meldung (oder `⌘Z`) stellt jede geänderte Spec wieder her. Schlagen einzelne fehl, nennt eine Meldung, wie viele geklappt haben und wie viele nicht. Die Auswahl enthält nur Specs, die Sie sehen: Ein Filter, der eine ausgewählte Spec ausblendet, nimmt sie aus der Auswahl.
+
+### Gespeicherte Ansichten
+
+Die Schaltfläche **Ansichten** neben **Filter** speichert das Board so, wie es gerade ist: die Statusauswahl, die Filter, die Sortierung und die Dichte (nicht den Suchtext). Wählen Sie **Aktuelle Ansicht speichern…**, geben Sie ihr einen Namen („Startbereit“, „Sprint 42“, „Diese Woche fehlgeschlagen“) und wählen Sie sie später im selben Menü. **Ansichten verwalten…** benennt eine Ansicht um, aktualisiert sie mit dem aktuellen Board, kopiert ihren Link oder löscht sie. Ansichten gehören zum Projekt. Ein kopierter Link (`?view=…`) wendet die Ansicht an, wenn er in dieser App geöffnet wird, und die Befehlspalette (`⌘K`) kann die aktuelle Ansicht speichern oder zu einer anderen wechseln.
+
 ## Status
 
 Eine Spec durchläuft eine überschaubare Reihe von Status. Das Board gibt jedem davon einen einheitlichen visuellen Hinweis, damit du den Zustand deines Backlogs auf einen Blick erfassen kannst:

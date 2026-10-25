@@ -32,5 +32,13 @@
     "loadFailed": "Kürzlich gelöschte Elemente konnten nicht geladen werden",
     "retry": "Erneut versuchen"
   },
-  "hintRecoverable": "oder drücke {{keys}} · {{days}} Tage in Zuletzt gelöscht aufbewahrt"
+  "hintRecoverable": "oder drücke {{keys}} · {{days}} Tage in Zuletzt gelöscht aufbewahrt",
+  "bulkDeleted_one": "{{count}} Spec gelöscht",
+  "bulkDeleted_other": "{{count}} Specs gelöscht",
+  "bulkStatusMoved_one": "{{count}} Spec nach {{status}} verschoben",
+  "bulkStatusMoved_other": "{{count}} Specs nach {{status}} verschoben",
+  "bulkPriorityChanged_one": "Priorität bei {{count}} Spec geändert",
+  "bulkPriorityChanged_other": "Priorität bei {{count}} Specs geändert",
+  "bulkLabelsUpdated_one": "Labels bei {{count}} Spec aktualisiert",
+  "bulkLabelsUpdated_other": "Labels bei {{count}} Specs aktualisiert"
 }

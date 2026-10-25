@@ -20,7 +20,7 @@ import {
 import { RECENT_ACTIONS_KEY, readRecentActionIds, recordRecentAction } from '../recent-actions'
 import { PROJECT_SETTINGS_SECTIONS } from '../../../features/settings/components/project-settings-sections'
 import { PROJECT_SETTINGS_SECTION_IDS } from '../../../features/settings/lib/project-settings-section-ids'
-import type { PaletteBoardSurface, PaletteFlowControl } from '../../../lib/palette-bridge'
+import type { PaletteBoardSurface, PaletteFlowControl, PaletteSelectionSurface } from '../../../lib/palette-bridge'
 
 // English resolver for the keys the registry uses (interpolates {{x}}).
 function t(key: string, options?: Record<string, unknown>): string {
@@ -73,7 +73,8 @@ describe('registry', () => {
     const all = PALETTE_ACTIONS.map((a) => a.id)
     expect(new Set(all).size).toBe(all.length)
     expect(all.length).toBeGreaterThanOrEqual(20)
-    expect(all.length).toBeLessThanOrEqual(30)
+    // 30 before the board selection / saved-views actions (CD4); they exist only while mounted + selected.
+    expect(all.length).toBeLessThanOrEqual(34)
   })
 
   it('pins the project settings ids to the real sections', () => {
@@ -345,5 +346,86 @@ describe('locales', () => {
       }
       expect(json.palette.actions.verbs.split(',').length).toBeGreaterThan(8)
     }
+  })
+})
+
+
+describe('board selection and saved views (CD4)', () => {
+  function selection(count: number, overrides: Partial<PaletteSelectionSurface> = {}): PaletteSelectionSurface {
+    return {
+      count: () => count,
+      selectAllInColumn: vi.fn(),
+      clear: vi.fn(),
+      statusOptions: async () => [{ id: 'local:done', label: 'Done', current: false }],
+      moveStatus: vi.fn(),
+      priorityOptions: () => [{ id: 'high', label: 'high' }],
+      setPriority: vi.fn(),
+      labelOptions: () => ['bug'],
+      addLabel: vi.fn(),
+      railOptions: () => [{ id: 'r1', label: 'Rail 1', running: false }, { id: 'r2', label: 'Rail 2', running: true }],
+      addToRail: vi.fn(),
+      launch: vi.fn(),
+      remove: vi.fn(),
+      views: () => [{ id: 'v1', name: 'Ready to launch' }],
+      switchView: vi.fn(),
+      saveCurrentView: vi.fn(),
+      ...overrides,
+    }
+  }
+  const BULK = ['selection.move', 'selection.label', 'selection.priority', 'selection.rail', 'selection.launch', 'selection.delete', 'selection.clear']
+  const action = (id: string) => PALETTE_ACTIONS.find((a) => a.id === id)!
+
+  it('offers select-all, save view and switch view with the board mounted, and no bulk action without a selection', () => {
+    const got = ids(ctx({ surfaces: { board: board(), selection: selection(0) } }))
+    expect(got).toEqual(expect.arrayContaining(['selection.selectAll', 'view.save', 'view.switch']))
+    for (const id of BULK) expect(got).not.toContain(id)
+  })
+
+  it('offers every bulk action while specs are selected, and nothing without the surface', () => {
+    const got = ids(ctx({ surfaces: { board: board(), selection: selection(3) } }))
+    expect(got).toEqual(expect.arrayContaining(BULK))
+    const none = ids(ctx({ surfaces: { board: board() } }))
+    for (const id of [...BULK, 'selection.selectAll', 'view.save', 'view.switch']) expect(none).not.toContain(id)
+  })
+
+  it('hides Switch view without saved views and Add label without labels to add', () => {
+    const got = ids(ctx({ surfaces: { selection: selection(2, { views: () => [], labelOptions: () => [] }) } }))
+    expect(got).not.toContain('view.switch')
+    expect(got).not.toContain('selection.label')
+  })
+
+  it('runs the surface handlers: select all, clear, launch, delete, save view', () => {
+    const sel = selection(2)
+    const c = ctx({ surfaces: { selection: sel } })
+    action('selection.selectAll').run(c)
+    action('selection.clear').run(c)
+    action('selection.launch').run(c)
+    action('selection.delete').run(c)
+    action('view.save').run(c)
+    expect(sel.selectAllInColumn).toHaveBeenCalled()
+    expect(sel.clear).toHaveBeenCalled()
+    expect(sel.launch).toHaveBeenCalled()
+    expect(sel.remove).toHaveBeenCalled()
+    expect(sel.saveCurrentView).toHaveBeenCalled()
+  })
+
+  it('argument pages hand the picked option to the surface', async () => {
+    const sel = selection(2)
+    const c = ctx({ surfaces: { selection: sel } })
+    const status = await action('selection.move').page!(c)!.load!()
+    expect(status).toEqual([expect.objectContaining({ label: 'Done', arg: 'local:done' })])
+    action('selection.move').run(c, status[0].arg)
+    expect(sel.moveStatus).toHaveBeenCalledWith('local:done')
+    action('selection.priority').run(c, action('selection.priority').page!(c)!.options![0].arg)
+    expect(sel.setPriority).toHaveBeenCalledWith('high')
+    action('selection.label').run(c, 'bug')
+    expect(sel.addLabel).toHaveBeenCalledWith('bug')
+    const rails = action('selection.rail').page!(c)!.options!
+    expect(rails.map((r) => r.disabled)).toEqual([false, true])
+    action('selection.rail').run(c, 'r1')
+    expect(sel.addToRail).toHaveBeenCalledWith('r1')
+    const views = action('view.switch').page!(c)!.options!
+    action('view.switch').run(c, views[0].arg)
+    expect(sel.switchView).toHaveBeenCalledWith('v1')
   })
 })

@@ -32,5 +32,13 @@
     "loadFailed": "Não foi possível carregar os itens excluídos recentemente",
     "retry": "Tentar novamente"
   },
-  "hintRecoverable": "ou pressione {{keys}} · guardado por {{days}} dias em Excluídos recentemente"
+  "hintRecoverable": "ou pressione {{keys}} · guardado por {{days}} dias em Excluídos recentemente",
+  "bulkDeleted_one": "{{count}} spec excluída",
+  "bulkDeleted_other": "{{count}} specs excluídas",
+  "bulkStatusMoved_one": "{{count}} spec movida para {{status}}",
+  "bulkStatusMoved_other": "{{count}} specs movidas para {{status}}",
+  "bulkPriorityChanged_one": "Prioridade alterada em {{count}} spec",
+  "bulkPriorityChanged_other": "Prioridade alterada em {{count}} specs",
+  "bulkLabelsUpdated_one": "Etiquetas atualizadas em {{count}} spec",
+  "bulkLabelsUpdated_other": "Etiquetas atualizadas em {{count}} specs"
 }

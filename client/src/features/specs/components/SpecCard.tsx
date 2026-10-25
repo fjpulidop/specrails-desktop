@@ -9,6 +9,8 @@ import { Badge } from '../../../components/ui/badge'
 import { SpecTriageChip } from './SpecTriageChip'
 import type { LocalTicket } from '../../../types'
 import { PriorityBadge } from './PriorityBadge'
+import { SpecSelectCheckbox, SELECTED_CARD_CLASS, type CardSelection } from './SpecSelectCheckbox'
+import { gestureOfClick } from '../lib/board-selection'
 
 const LONG_PRESS_MS = 700
 
@@ -33,6 +35,8 @@ interface SpecCardProps {
   onOpenFlow?: (conversationId: string) => void
   /** Rendered inside a rail: a Flow spec there was handed off, so no "In Flow" label. */
   onRail?: boolean
+  /** Multi-select state from the specs board (absent in a rail). */
+  selection?: CardSelection
 }
 
 export function SpecCard({
@@ -49,6 +53,7 @@ export function SpecCard({
   onDelete,
   onOpenFlow,
   onRail = false,
+  selection,
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
   const openAddendaCount = openAddenda(ticket.addenda).length
@@ -94,6 +99,14 @@ export function SpecCard({
   }, [clearLongPress])
 
   const handleClick = useCallback((e: React.MouseEvent) => {
+    // ⌘/Ctrl-click toggles the spec in the board selection, Shift-click extends a range.
+    const gesture = selection && !jiggleMode ? gestureOfClick(e) : null
+    if (selection && gesture) {
+      e.preventDefault()
+      e.stopPropagation()
+      selection.onSelect(ticket, gesture)
+      return
+    }
     if (longPressFiredRef.current) {
       // Suppress the click that follows a successful long-press so the modal
       // doesn't open the moment we enter jiggle mode.
@@ -108,7 +121,7 @@ export function SpecCard({
       return
     }
     onClick(ticket)
-  }, [jiggleMode, onClick, ticket])
+  }, [jiggleMode, onClick, ticket, selection])
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -139,7 +152,7 @@ export function SpecCard({
         ? 'border-accent-highlight/70 bg-card/70 ring-1 ring-accent-highlight/50'
         : 'border-border/40 bg-card/60 hover:bg-card/80 hover:border-border/60'
   const jiggleClass = jiggleMode ? 'motion-safe:animate-jiggle' : ''
-  const cardClass = `${baseClass} ${cursorClass} ${variantClass} ${jiggleClass}`
+  const cardClass = `${baseClass} ${cursorClass} ${selection?.selected ? SELECTED_CARD_CLASS : variantClass} ${jiggleClass}`
 
   return (
     <div
@@ -159,7 +172,8 @@ export function SpecCard({
       onPointerUp={handlePointerUpOrLeave}
       onPointerLeave={handlePointerUpOrLeave}
       onPointerCancel={handlePointerUpOrLeave}
-      role="button"
+      role={selection ? 'option' : 'button'}
+      aria-selected={selection ? selection.selected : undefined}
       tabIndex={0}
       // Enter opens the spec; other keys (Space to lift) reach dnd-kit's
       // keyboard sensor, which this explicit onKeyDown would otherwise shadow.
@@ -172,6 +186,14 @@ export function SpecCard({
         if (!dragFrozen) listeners?.onKeyDown?.(e)
       }}
     >
+      {selection && !jiggleMode && (
+        <SpecSelectCheckbox
+          ticket={ticket}
+          selection={selection}
+          className="absolute -left-2.5 top-1/2 z-10 -translate-y-1/2"
+          onToggle={() => selection.onSelect(ticket, 'toggle')}
+        />
+      )}
       <span className="text-caption font-mono text-foreground shrink-0">#{ticket.id}</span>
       <span className="flex-1 text-sm truncate text-foreground">{ticket.title}</span>
       {ticket.is_epic ? (

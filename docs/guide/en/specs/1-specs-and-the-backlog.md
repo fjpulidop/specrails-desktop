@@ -15,6 +15,26 @@ The board has two view modes, switched from a toolbar toggle and remembered per 
 
 The Specs toolbar has two rows. The first holds a **search** field (press `/` to jump to it; it matches title, `#number`, label or Jira key), a single **Filters** button, the sort and view controls, and **New spec**. The second row is the **status selector**: every status as its own segment with a live count, plus two smart buckets, **Active** (the default: everything still moving, so drafts, todos, in-progress and on-review specs) and **All** (everything, with Done pinned at the bottom). When the column is narrow, the less-used statuses fold into a **More** menu, and the status you picked always stays visible. Your pick is remembered per project and mirrored to the URL, so a refresh or a shared link restores the exact view. **Filters** opens one panel with a section per dimension: **labels** (multi-select), and on Jira-connected projects **epic**, **sprint** and **Jira status** (the board's *real* workflow statuses, e.g. "Code Review", grouped under the state they map to, combining with the status selector). While a search or filter narrows the board, a third row lists each one as a removable chip, shows "x of y" specs, and offers **Clear all** (which keeps your status pick). Sort by **Default**, **Ticket #** or **Priority**, each with an ascending/descending toggle.
 
+### Selecting several specs
+
+Triage in bulk instead of one spec at a time. Press `x` on a focused card, `Ctrl`/`⌘`-click a card, or `Shift`-click to select a range (a range stays inside one column: the active specs or the Done bucket). `Ctrl`/`⌘`+`A` selects the whole column you are in, and `Esc` clears the selection. Each card shows a checkbox when you hover or focus it; selected cards get a highlighted border. None of these keys act while you are typing in the search field.
+
+As soon as one spec is selected, a bar floats at the bottom of the board with the count and the actions:
+
+- **Move to** changes the status. Local specs get the local statuses; specs that come from Jira get the Jira board's real workflow statuses and move through the same Jira queue as a single move.
+- **Label** adds a label to the selection, or removes one the specs carry.
+- **Priority** sets one priority for all of them.
+- **Add to rail** puts the selection on a rail.
+- **Launch all** gives each selected spec its own free rail and starts them in parallel, after the same confirmation and daily-budget check as *Launch all* on the rails. Specs that cannot launch yet (for example, on review without an open PR) or that find no free rail are skipped and counted in the summary.
+- **Delete** removes them to *Recently deleted*.
+- **Clear** (or `Esc`) drops the selection.
+
+Delete, status, label and priority changes are undoable as one step: a single *Undo* toast (or `⌘Z`) restores every spec it changed. If some specs fail, one toast says how many worked and how many did not. The selection only ever holds specs you can see: a filter that hides a selected spec drops it from the selection.
+
+### Saved views
+
+The **Views** button next to **Filters** saves the board as you have it now: the status selector, the filters, the sort and the density (not the search text). Choose **Save current view…**, name it ("Ready to launch", "Sprint 42", "Failed this week") and pick it from the same menu later. **Manage views…** renames a view, updates it from the board as it is now, copies its link, or deletes it. Views belong to the project. A copied link (`?view=…`) applies the view when opened in this app, and the command palette (`⌘K`) can save the current view or switch to another.
+
 ## Statuses
 
 A spec moves through a small set of statuses. The board gives each one a consistent visual cue so you can read the state of your backlog at a glance:

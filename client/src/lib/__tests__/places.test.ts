@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { PlaceStack, placeKey, isComposeKey, consumeUserPlaceIntent, markUserPlaceIntent, type PlaceEntry } from '../places'
+import { PlaceStack, VIEW_PARAM, placeKey, isComposeKey, consumeUserPlaceIntent, markUserPlaceIntent, type PlaceEntry } from '../places'
 
 const loc = (path: string, search = '', key = `${path}${search}`) => ({ key, pathname: path, search })
 
@@ -10,6 +10,15 @@ describe('placeKey', () => {
     expect(placeKey({ pathname: '/', search: '?q=login&sort=priority&compare=3&compareSide=left' }, 'kanban')).toBe(base)
     const mission = placeKey({ pathname: '/', search: '?mission=m1' }, 'agent')
     expect(placeKey({ pathname: '/', search: '?mission=m1&status=done&q=x' }, 'agent')).toBe(mission)
+  })
+
+  it('ignores ?view=: a saved-view link applies a view, it is not a place', () => {
+    const base = placeKey({ pathname: '/', search: '' }, 'kanban')
+    expect(placeKey({ pathname: '/', search: '?view=abc123' }, 'kanban')).toBe(base)
+    expect(placeKey({ pathname: '/', search: '?view=abc123&status=done' }, 'kanban')).toBe(base)
+    const mission = placeKey({ pathname: '/', search: '?mission=m1' }, 'agent')
+    expect(placeKey({ pathname: '/', search: '?mission=m1&view=abc123' }, 'agent')).toBe(mission)
+    expect(VIEW_PARAM).toBe('view')
   })
 
   it('tells missions, specs and overlays apart', () => {

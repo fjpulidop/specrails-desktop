@@ -54,6 +54,21 @@ export function reconcileTickets(prev: LocalTicket[], fetched: LocalTicket[]): L
   return sameAsPrev ? prev : merged
 }
 
+/** Options of the per-item mutations when a bulk operation drives them. */
+export interface ItemOpts {
+  /** Receives the item's undo instead of the item pushing its own toast. */
+  collect?: (undo: () => Promise<void>) => void
+  /** false = skip the post-mutation refetch (the bulk runner refetches once). */
+  refresh?: boolean
+}
+
+export interface BulkResult {
+  ok: number[]
+  failed: number[]
+  /** A grouped Undo was offered for what succeeded. */
+  undoable: boolean
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useTickets() {
@@ -331,36 +346,42 @@ export function useTickets() {
   const ticketsRef = useRef(tickets)
   ticketsRef.current = tickets
 
-  const patchTicketIn = useCallback(async (projectId: string, ticketId: number, fields: Record<string, unknown>): Promise<boolean> => {
+  const patchTicketIn = useCallback(async (projectId: string, ticketId: number, fields: Record<string, unknown>, refresh = true): Promise<boolean> => {
     const res = await fetch(`${ticketsApiBase(projectId)}/tickets/${ticketId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(fields),
     })
-    if (res.ok && activeProjectIdRef.current === projectId) await loadTickets(projectId, 'merge')
+    if (res.ok && refresh && activeProjectIdRef.current === projectId) await loadTickets(projectId, 'merge')
     return res.ok
   }, [loadTickets])
 
-  const deleteTicket = useCallback(async (ticketId: number): Promise<boolean> => {
+  const deleteTicket = useCallback(async (ticketId: number, opts?: ItemOpts): Promise<boolean> => {
     const ownerProjectId = activeProjectId
     if (!ownerProjectId) return false
     const title = ticketsRef.current.find((tk) => tk.id === ticketId)?.title ?? `#${ticketId}`
     try {
       const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}`, { method: 'DELETE' })
-      if (res.ok && activeProjectIdRef.current === ownerProjectId) {
+      if (res.ok && opts?.refresh !== false && activeProjectIdRef.current === ownerProjectId) {
         await loadTickets(ownerProjectId, 'merge')
       }
       if (res.ok) {
-        pushUndo({
-          projectId: ownerProjectId,
-          label: tUndo('specDeleted', { title }),
-          recoverableDays: TRASH_RETENTION_DAYS,
-          undo: async () => {
-            const back = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}/restore`, { method: 'POST' })
-            if (!back.ok) throw new Error(`restore failed: ${back.status}`)
-            if (activeProjectIdRef.current === ownerProjectId) await loadTickets(ownerProjectId, 'merge')
-          },
-        })
+        const restore = async () => {
+          const back = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}/restore`, { method: 'POST' })
+          if (!back.ok) throw new Error(`restore failed: ${back.status}`)
+        }
+        if (opts?.collect) opts.collect(restore)
+        else {
+          pushUndo({
+            projectId: ownerProjectId,
+            label: tUndo('specDeleted', { title }),
+            recoverableDays: TRASH_RETENTION_DAYS,
+            undo: async () => {
+              await restore()
+              if (activeProjectIdRef.current === ownerProjectId) await loadTickets(ownerProjectId, 'merge')
+            },
+          })
+        }
       }
       return res.ok
     } catch {
@@ -369,21 +390,27 @@ export function useTickets() {
   }, [activeProjectId, loadTickets, pushUndo, tUndo])
 
   const updateTicketStatus = useCallback(
-    async (ticketId: number, status: LocalTicket['status']): Promise<boolean> => {
+    async (ticketId: number, status: LocalTicket['status'], opts?: ItemOpts): Promise<boolean> => {
       const ownerProjectId = activeProjectId
       if (!ownerProjectId) return false
       const before = ticketsRef.current.find((tk) => tk.id === ticketId)
       try {
-        const ok = await patchTicketIn(ownerProjectId, ticketId, { status })
+        const ok = await patchTicketIn(ownerProjectId, ticketId, { status }, opts?.refresh !== false)
         if (ok && before && before.status !== status) {
           const previous = before.status
-          pushUndo({
-            projectId: ownerProjectId,
-            label: tUndo('statusMoved', { id: ticketId, status: t(`ticketStatus.${status}`) }),
-            undo: async () => {
-              if (!(await patchTicketIn(ownerProjectId, ticketId, { status: previous }))) throw new Error('status undo failed')
-            },
-          })
+          if (opts?.collect) {
+            opts.collect(async () => {
+              if (!(await patchTicketIn(ownerProjectId, ticketId, { status: previous }, false))) throw new Error('status undo failed')
+            })
+          } else {
+            pushUndo({
+              projectId: ownerProjectId,
+              label: tUndo('statusMoved', { id: ticketId, status: t(`ticketStatus.${status}`) }),
+              undo: async () => {
+                if (!(await patchTicketIn(ownerProjectId, ticketId, { status: previous }))) throw new Error('status undo failed')
+              },
+            })
+          }
         }
         return ok
       } catch {
@@ -394,24 +421,33 @@ export function useTickets() {
   )
 
   const updateTicketPriority = useCallback(
-    async (ticketId: number, priority: LocalTicket['priority']): Promise<boolean> => {
+    async (ticketId: number, priority: LocalTicket['priority'], opts?: ItemOpts): Promise<boolean> => {
       const ownerProjectId = activeProjectId
       if (!ownerProjectId) return false
+      const before = ticketsRef.current.find((tk) => tk.id === ticketId)
       try {
         const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ priority }),
         })
-        if (res.ok && activeProjectIdRef.current === ownerProjectId) {
+        if (res.ok && opts?.refresh !== false && activeProjectIdRef.current === ownerProjectId) {
           await loadTickets(ownerProjectId, 'merge')
+        }
+        // A single priority edit keeps its old no-undo behaviour; inside a bulk
+        // change the group undo restores each previous priority.
+        if (res.ok && opts?.collect && before && before.priority !== priority) {
+          const previous = before.priority
+          opts.collect(async () => {
+            if (!(await patchTicketIn(ownerProjectId, ticketId, { priority: previous }, false))) throw new Error('priority undo failed')
+          })
         }
         return res.ok
       } catch {
         return false
       }
     },
-    [activeProjectId, loadTickets]
+    [activeProjectId, loadTickets, patchTicketIn]
   )
 
   const createTicket = useCallback(
@@ -436,22 +472,28 @@ export function useTickets() {
   )
 
   const updateTicket = useCallback(
-    async (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'prerequisites' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf?: string | null } }): Promise<boolean> => {
+    async (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'prerequisites' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf?: string | null } }, opts?: ItemOpts): Promise<boolean> => {
       const ownerProjectId = activeProjectId
       if (!ownerProjectId) return false
       const before = ticketsRef.current.find((tk) => tk.id === ticketId)
       try {
-        const ok = await patchTicketIn(ownerProjectId, ticketId, fields)
+        const ok = await patchTicketIn(ownerProjectId, ticketId, fields, opts?.refresh !== false)
         // A label change is undoable: restore the labels the spec had.
         if (ok && before && fields.labels !== undefined && JSON.stringify(fields.labels) !== JSON.stringify(before.labels)) {
           const previousLabels = before.labels ?? []
-          pushUndo({
-            projectId: ownerProjectId,
-            label: tUndo('labelsUpdated', { id: ticketId }),
-            undo: async () => {
-              if (!(await patchTicketIn(ownerProjectId, ticketId, { labels: previousLabels }))) throw new Error('labels undo failed')
-            },
-          })
+          if (opts?.collect) {
+            opts.collect(async () => {
+              if (!(await patchTicketIn(ownerProjectId, ticketId, { labels: previousLabels }, false))) throw new Error('labels undo failed')
+            })
+          } else {
+            pushUndo({
+              projectId: ownerProjectId,
+              label: tUndo('labelsUpdated', { id: ticketId }),
+              undo: async () => {
+                if (!(await patchTicketIn(ownerProjectId, ticketId, { labels: previousLabels }))) throw new Error('labels undo failed')
+              },
+            })
+          }
         }
         return ok
       } catch {
@@ -459,6 +501,81 @@ export function useTickets() {
       }
     },
     [activeProjectId, patchTicketIn, pushUndo, tUndo]
+  )
+
+  // ── Bulk mutations (board multi-select) ─────────────────────────────────────
+  // Every bulk change runs the SAME per-item handler above, one spec after the
+  // other, collecting each item's undo instead of pushing its own toast. The
+  // board refreshes once at the end and ONE grouped Undo reverses everything
+  // that succeeded. Failed items are reported, never retried silently.
+  const runBulk = useCallback(async (
+    ids: readonly number[],
+    undoLabel: (okCount: number) => string,
+    item: (id: number, opts: ItemOpts) => Promise<boolean>,
+    recoverableDays?: number,
+  ): Promise<BulkResult> => {
+    const ownerProjectId = activeProjectId
+    const ok: number[] = []
+    const failed: number[] = []
+    if (!ownerProjectId) return { ok, failed: [...ids], undoable: false }
+    const undos: (() => Promise<void>)[] = []
+    for (const id of ids) {
+      let done = false
+      try {
+        done = await item(id, { collect: (undo) => { undos.push(undo) }, refresh: false })
+      } catch {
+        done = false
+      }
+      if (done) ok.push(id)
+      else failed.push(id)
+    }
+    if (activeProjectIdRef.current === ownerProjectId) await loadTickets(ownerProjectId, 'merge')
+    if (undos.length > 0) {
+      pushUndo({
+        projectId: ownerProjectId,
+        label: undoLabel(ok.length),
+        recoverableDays,
+        undo: async () => {
+          let anyFailed = false
+          for (const undo of [...undos].reverse()) {
+            try { await undo() } catch { anyFailed = true }
+          }
+          if (activeProjectIdRef.current === ownerProjectId) await loadTickets(ownerProjectId, 'merge')
+          if (anyFailed) throw new Error('bulk undo incomplete')
+        },
+      })
+    }
+    return { ok, failed, undoable: undos.length > 0 }
+  }, [activeProjectId, loadTickets, pushUndo])
+
+  const bulkDelete = useCallback(
+    (ids: readonly number[]) => runBulk(ids, (n) => tUndo('bulkDeleted', { count: n }), (id, o) => deleteTicket(id, o), TRASH_RETENTION_DAYS),
+    [runBulk, deleteTicket, tUndo],
+  )
+
+  const bulkUpdateStatus = useCallback(
+    (ids: readonly number[], status: LocalTicket['status']) =>
+      runBulk(ids, (n) => tUndo('bulkStatusMoved', { count: n, status: t(`ticketStatus.${status}`) }), (id, o) => updateTicketStatus(id, status, o)),
+    [runBulk, updateTicketStatus, tUndo, t],
+  )
+
+  const bulkUpdatePriority = useCallback(
+    (ids: readonly number[], priority: LocalTicket['priority']) =>
+      runBulk(ids, (n) => tUndo('bulkPriorityChanged', { count: n }), (id, o) => updateTicketPriority(id, priority, o)),
+    [runBulk, updateTicketPriority, tUndo],
+  )
+
+  /** Adds (and/or removes) labels on every spec; a spec the change would not alter counts as done. */
+  const bulkUpdateLabels = useCallback(
+    (ids: readonly number[], change: { add?: readonly string[]; remove?: readonly string[] }) =>
+      runBulk(ids, (n) => tUndo('bulkLabelsUpdated', { count: n }), async (id, o) => {
+        const current = ticketsRef.current.find((tk) => tk.id === id)?.labels ?? []
+        const next = [...current.filter((l) => !(change.remove ?? []).includes(l))]
+        for (const l of change.add ?? []) if (!next.includes(l)) next.push(l)
+        if (JSON.stringify(next) === JSON.stringify(current)) return true
+        return updateTicket(id, { labels: next }, o)
+      }),
+    [runBulk, updateTicket, tUndo],
   )
 
   return {
@@ -475,5 +592,9 @@ export function useTickets() {
     updateTicketPriority,
     createTicket,
     updateTicket,
+    bulkDelete,
+    bulkUpdateStatus,
+    bulkUpdatePriority,
+    bulkUpdateLabels,
   }
 }

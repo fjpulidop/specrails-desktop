@@ -32,5 +32,13 @@
     "loadFailed": "Impossible de charger les éléments supprimés récemment",
     "retry": "Réessayer"
   },
-  "hintRecoverable": "ou appuyez sur {{keys}} · conservé {{days}} jours dans Supprimés récemment"
+  "hintRecoverable": "ou appuyez sur {{keys}} · conservé {{days}} jours dans Supprimés récemment",
+  "bulkDeleted_one": "{{count}} spec supprimée",
+  "bulkDeleted_other": "{{count}} specs supprimées",
+  "bulkStatusMoved_one": "{{count}} spec déplacée vers {{status}}",
+  "bulkStatusMoved_other": "{{count}} specs déplacées vers {{status}}",
+  "bulkPriorityChanged_one": "Priorité modifiée sur {{count}} spec",
+  "bulkPriorityChanged_other": "Priorité modifiée sur {{count}} specs",
+  "bulkLabelsUpdated_one": "Libellés mis à jour sur {{count}} spec",
+  "bulkLabelsUpdated_other": "Libellés mis à jour sur {{count}} specs"
 }

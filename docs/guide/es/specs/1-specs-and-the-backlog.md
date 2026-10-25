@@ -15,6 +15,26 @@ El tablero tiene dos modos de vista, que se cambian con un botón de la barra de
 
 La barra de herramientas de Specs tiene dos filas. La primera reúne un campo de **búsqueda** (pulsa `/` para ir a él; busca por título, `#número`, etiqueta o clave de Jira), un único botón **Filtros**, los controles de orden y vista, y **Nueva spec**. La segunda fila es el **selector de estados**: cada estado como su propio segmento con un contador en vivo, más dos grupos inteligentes, **Activas** (el valor por defecto: todo lo que sigue en movimiento, es decir borradores, por hacer, en curso y en revisión) y **Todos** (todo, con Hecho fijado al final). Cuando la columna es estrecha, los estados menos usados se pliegan en un menú **Más**, y el estado elegido siempre queda visible. Tu selección se recuerda por proyecto y se refleja en la URL, así que un refresco o un enlace compartido restaura la vista exacta. **Filtros** abre un único panel con una sección por dimensión: **etiquetas** (selección múltiple) y, en proyectos conectados a Jira, **épica**, **sprint** y **estado de Jira** (los estados *reales* del flujo del tablero, p. ej. "Code Review", agrupados bajo el estado al que mapean y combinados con el selector de estados). Mientras una búsqueda o un filtro acota el tablero, una tercera fila muestra cada uno como un chip que puedes quitar, indica "x de y" specs y ofrece **Quitar todo** (que conserva el estado elegido). Ordena por **Por defecto**, **Ticket #** o **Prioridad**, cada uno con un interruptor ascendente/descendente.
 
+### Seleccionar varias specs
+
+Clasifica en bloque en lugar de una spec cada vez. Pulsa `x` sobre una tarjeta enfocada, haz clic con `Ctrl`/`⌘` sobre una tarjeta, o clic con `Mayús` para seleccionar un rango (un rango se queda dentro de una columna: las specs activas o el grupo Hecho). `Ctrl`/`⌘`+`A` selecciona toda la columna en la que estás y `Esc` quita la selección. Cada tarjeta muestra una casilla al pasar el ratón o enfocarla, y las seleccionadas tienen el borde resaltado. Ninguna de estas teclas actúa mientras escribes en el campo de búsqueda.
+
+En cuanto hay una spec seleccionada, aparece una barra flotante al pie del tablero con el recuento y las acciones:
+
+- **Mover a** cambia el estado. Las specs locales usan los estados locales; las que vienen de Jira usan los estados reales del flujo del tablero de Jira y se mueven por la misma cola de Jira que un movimiento individual.
+- **Etiqueta** añade una etiqueta a la selección, o quita una que las specs ya tengan.
+- **Prioridad** fija una misma prioridad para todas.
+- **Añadir a un rail** coloca la selección en un rail.
+- **Lanzar todo** da a cada spec seleccionada su propio rail libre y las arranca en paralelo, tras la misma confirmación y comprobación del presupuesto diario que *Lanzar todo* de los rails. Las specs que aún no se pueden lanzar (por ejemplo, en revisión sin PR abierta) o que no encuentran un rail libre se omiten y se cuentan en el resumen.
+- **Eliminar** las envía a *Eliminadas recientemente*.
+- **Quitar** (o `Esc`) descarta la selección.
+
+Eliminar y cambiar estado, etiquetas o prioridad se deshacen en un solo paso: un único aviso *Deshacer* (o `⌘Z`) restaura todas las specs que cambió. Si algunas fallan, un solo aviso indica cuántas funcionaron y cuántas no. La selección solo contiene specs que ves: un filtro que oculta una spec seleccionada la saca de la selección.
+
+### Vistas guardadas
+
+El botón **Vistas**, junto a **Filtros**, guarda el tablero tal como lo tienes ahora: el selector de estado, los filtros, el orden y la densidad (no el texto de búsqueda). Elige **Guardar la vista actual…**, ponle nombre («Listas para lanzar», «Sprint 42», «Fallidas esta semana») y selecciónala después desde el mismo menú. **Gestionar vistas…** renombra una vista, la actualiza con el tablero tal como está, copia su enlace o la elimina. Las vistas pertenecen al proyecto. Un enlace copiado (`?view=…`) aplica la vista al abrirlo en esta aplicación, y la paleta de comandos (`⌘K`) puede guardar la vista actual o cambiar a otra.
+
 ## Estados
 
 Una spec recorre un pequeño conjunto de estados. El tablero le da a cada uno una señal visual coherente para que puedas leer el estado de tu backlog de un vistazo:

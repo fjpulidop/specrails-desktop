@@ -32,5 +32,13 @@
     "loadFailed": "无法加载最近删除的内容",
     "retry": "重试"
   },
-  "hintRecoverable": "或按 {{keys}} · 在“最近删除”中保留 {{days}} 天"
+  "hintRecoverable": "或按 {{keys}} · 在“最近删除”中保留 {{days}} 天",
+  "bulkDeleted_one": "已删除 {{count}} 个规格",
+  "bulkDeleted_other": "已删除 {{count}} 个规格",
+  "bulkStatusMoved_one": "已将 {{count}} 个规格移至{{status}}",
+  "bulkStatusMoved_other": "已将 {{count}} 个规格移至{{status}}",
+  "bulkPriorityChanged_one": "已更改 {{count}} 个规格的优先级",
+  "bulkPriorityChanged_other": "已更改 {{count}} 个规格的优先级",
+  "bulkLabelsUpdated_one": "已更新 {{count}} 个规格的标签",
+  "bulkLabelsUpdated_other": "已更新 {{count}} 个规格的标签"
 }

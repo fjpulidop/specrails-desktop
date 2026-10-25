@@ -12,6 +12,8 @@ import { canRefineTicket } from '../lib/ticket-refine'
 import { genPendingSpecId } from '../lib/pending-spec-id'
 import type { LocalTicket } from '../../../types'
 import { PriorityBadge } from './PriorityBadge'
+import { SpecSelectCheckbox, SELECTED_CARD_CLASS, type CardSelection } from './SpecSelectCheckbox'
+import { gestureOfClick } from '../lib/board-selection'
 import type { RailState } from '../../rails/components/RailsBoard'
 
 interface TicketPostitCardProps {
@@ -32,6 +34,8 @@ interface TicketPostitCardProps {
   /** Fires after a sustained press on the card body — used to enter jiggle / delete mode. */
   onLongPress?: () => void
   onDelete?: (ticket: LocalTicket) => void
+  /** Multi-select state from the specs board. */
+  selection?: CardSelection
 }
 
 const LONG_PRESS_MS = 700
@@ -57,6 +61,7 @@ export function TicketPostitCard({
   jiggleMode = false,
   onLongPress,
   onDelete,
+  selection,
 }: TicketPostitCardProps) {
   const { t } = useTranslation('specs')
   // On-review specs are frozen unless there is an open PR branch the rail can
@@ -101,6 +106,14 @@ export function TicketPostitCard({
   }, [clearLongPress])
 
   const handleCardClick = useCallback((e: React.MouseEvent) => {
+    // ⌘/Ctrl-click toggles the spec in the board selection, Shift-click extends a range.
+    const gesture = selection && !jiggleMode ? gestureOfClick(e) : null
+    if (selection && gesture) {
+      e.preventDefault()
+      e.stopPropagation()
+      selection.onSelect(ticket, gesture)
+      return
+    }
     if (longPressFiredRef.current) {
       // Suppress the click that follows a long-press so the modal doesn't
       // open the moment we enter jiggle mode.
@@ -110,7 +123,7 @@ export function TicketPostitCard({
     }
     if (jiggleMode) return
     onClick(ticket)
-  }, [jiggleMode, onClick, ticket])
+  }, [jiggleMode, onClick, ticket, selection])
 
   const handleMoveClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -199,7 +212,8 @@ export function TicketPostitCard({
         onPointerUp={handlePointerUpOrLeave}
         onPointerLeave={handlePointerUpOrLeave}
         onPointerCancel={handlePointerUpOrLeave}
-        role="button"
+        role={selection ? 'option' : 'button'}
+        aria-selected={selection ? selection.selected : undefined}
         tabIndex={0}
         // Enter opens the spec; every other key (Space to lift, arrows to
         // move) goes to dnd-kit's keyboard sensor, which the explicit
@@ -214,8 +228,16 @@ export function TicketPostitCard({
         }}
         data-ticket-id={ticket.id}
         data-tier="postit"
-        className={`group relative flex flex-col gap-2 rounded-xl border ${tone} p-3 cursor-pointer transition-[transform,box-shadow,border-color] duration-150 ease-out hover:border-accent-info/40 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/60 min-h-[180px] ${jiggleMode ? 'motion-safe:animate-jiggle' : ''}`}
+        className={`group relative flex flex-col gap-2 rounded-xl border ${selection?.selected ? SELECTED_CARD_CLASS : tone} p-3 cursor-pointer transition-[transform,box-shadow,border-color] duration-150 ease-out hover:border-accent-info/40 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/60 min-h-[180px] ${jiggleMode ? 'motion-safe:animate-jiggle' : ''}`}
       >
+        {selection && !jiggleMode && (
+          <SpecSelectCheckbox
+            ticket={ticket}
+            selection={selection}
+            className="absolute -left-1.5 -top-1.5 z-10"
+            onToggle={() => selection.onSelect(ticket, 'toggle')}
+          />
+        )}
         {/* Header: id + parent-epic chip (left) · priority pills (right) */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">

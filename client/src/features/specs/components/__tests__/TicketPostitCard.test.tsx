@@ -264,3 +264,35 @@ describe('TicketPostitCard', () => {
     expect(screen.queryByTestId('raw-badge-42')).not.toBeInTheDocument()
   })
 })
+
+describe('TicketPostitCard selection (CD4)', () => {
+  const sel = (selected: boolean, active = false) => ({ selected, active, onSelect: vi.fn() })
+
+  it('is an option with aria-selected, a checkbox and the selected state', () => {
+    render(wrap(<TicketPostitCard ticket={makeTicket()} rails={makeRails()} onClick={() => {}} onMoveToRail={() => {}} selection={sel(true, true)} />))
+    const card = document.querySelector('[data-ticket-id="42"]')!
+    expect(card).toHaveAttribute('role', 'option')
+    expect(card).toHaveAttribute('aria-selected', 'true')
+    expect(card.className).toContain('border-accent-primary')
+    expect(screen.getByTestId('spec-select-42')).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('⌘/Shift-click select instead of opening; a plain click opens', () => {
+    const onClick = vi.fn()
+    const selection = sel(false)
+    render(wrap(<TicketPostitCard ticket={makeTicket()} rails={makeRails()} onClick={onClick} onMoveToRail={() => {}} selection={selection} />))
+    const card = document.querySelector('[data-ticket-id="42"]')!
+    fireEvent.click(card, { ctrlKey: true })
+    fireEvent.click(card, { shiftKey: true })
+    expect(selection.onSelect.mock.calls.map((c) => c[1])).toEqual(['toggle', 'range'])
+    expect(onClick).not.toHaveBeenCalled()
+    fireEvent.click(card)
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays a plain button without a selection', () => {
+    render(wrap(<TicketPostitCard ticket={makeTicket()} rails={makeRails()} onClick={() => {}} onMoveToRail={() => {}} />))
+    expect(document.querySelector('[data-ticket-id="42"]')).toHaveAttribute('role', 'button')
+    expect(screen.queryByTestId('spec-select-42')).toBeNull()
+  })
+})

@@ -426,3 +426,57 @@ describe('SpecCard spec addenda badge', () => {
     })
   })
 })
+
+describe('SpecCard selection (CD4)', () => {
+  const sel = (selected: boolean, active = false) => ({ selected, active, onSelect: vi.fn() })
+
+  it('is a plain button without a selection', () => {
+    render(<SpecCard ticket={makeTicket()} onClick={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /Build the feature/ })).toHaveAttribute('data-ticket-id', '42')
+    expect(screen.queryByRole('checkbox')).toBeNull()
+  })
+
+  it('becomes an option with aria-selected and a checkbox, and shows the selected state', () => {
+    const { rerender } = render(<SpecCard ticket={makeTicket()} onClick={vi.fn()} selection={sel(false)} />)
+    const card = document.querySelector('[data-ticket-id="42"]')!
+    expect(card).toHaveAttribute('role', 'option')
+    expect(card).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('checkbox', { name: 'Select spec #42' })).toHaveAttribute('aria-checked', 'false')
+    rerender(<SpecCard ticket={makeTicket()} onClick={vi.fn()} selection={sel(true, true)} />)
+    expect(card).toHaveAttribute('aria-selected', 'true')
+    expect(card.className).toContain('border-accent-primary')
+    expect(screen.getByRole('checkbox')).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('⌘-click and Shift-click go to the selection, not to onClick', () => {
+    const onClick = vi.fn()
+    const selection = sel(false)
+    render(<SpecCard ticket={makeTicket()} onClick={onClick} selection={selection} />)
+    const card = document.querySelector('[data-ticket-id="42"]')!
+    fireEvent.click(card, { metaKey: true })
+    fireEvent.click(card, { shiftKey: true })
+    expect(selection.onSelect.mock.calls.map((c) => c[1])).toEqual(['toggle', 'range'])
+    expect(onClick).not.toHaveBeenCalled()
+    fireEvent.click(card)
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('has no checkbox and no selection gesture in jiggle (delete) mode', () => {
+    const onClick = vi.fn()
+    const selection = sel(false)
+    render(<SpecCard ticket={makeTicket()} onClick={onClick} selection={selection} jiggleMode />)
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    fireEvent.click(document.querySelector('[data-ticket-id="42"]')!, { metaKey: true })
+    expect(selection.onSelect).not.toHaveBeenCalled()
+  })
+
+  it('Space on the checkbox toggles without opening the spec', () => {
+    const onClick = vi.fn()
+    const selection = sel(false)
+    render(<SpecCard ticket={makeTicket()} onClick={onClick} selection={selection} />)
+    fireEvent.keyDown(screen.getByRole('checkbox'), { key: ' ' })
+    expect(selection.onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 42 }), 'toggle')
+    expect(onClick).not.toHaveBeenCalled()
+  })
+})
+
