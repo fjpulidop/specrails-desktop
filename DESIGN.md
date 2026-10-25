@@ -160,7 +160,7 @@ One state, one token, on every surface (chips, badges, pills, cards).
 - **Hairline** (hsl(240 25% 100% / 0.14)): every border.
 - **Ink** (hsl(240 20% 95%)) text; **Muted Ink** (hsl(240 13% 62%)) secondary text, at least 4.5:1 on panel.
 
-Contrast is enforced per theme by `client/src/lib/__tests__/theme-contrast.test.ts`, which parses `globals.css`: foreground, muted foreground, destructive and every accent reach 4.5:1 on background, card and surface; primary foreground reads on primary.
+Contrast is enforced per theme by `client/src/lib/__tests__/theme-contrast.test.ts`, which parses `globals.css`: foreground, muted foreground, destructive and every accent reach 4.5:1 on background, card and surface; primary foreground reads on primary. The same file keeps the `muted` fill visibly apart from `card` (contrast at least 1.15 in Dracula, Code Rain and Obsidian, never below 1.04 elsewhere) while text and accents stay at 4.5:1 on `muted`; when a token fails on the lighter `muted`, raise the token, never darken the surface.
 
 ### Theme characters
 - **specrails**: night signal box, indigo-black with cyan lamps.

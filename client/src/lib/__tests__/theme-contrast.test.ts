@@ -62,6 +62,9 @@ const TEXT = ['foreground', 'muted-foreground', 'destructive', 'accent-primary',
   'accent-success', 'accent-secondary', 'accent-warning', 'accent-review', 'accent-highlight']
 const SURFACES = ['background', 'card', 'surface']
 
+/** Dracula, Code Rain and Obsidian were flattened by an earlier contrast pass; the others only must not regress. */
+const MUTED_VS_CARD_MIN: Record<string, number> = { dracula: 1.15, 'code-rain': 1.15, 'obsidian-dark': 1.15 }
+
 describe('theme contrast', () => {
   it('parses the six themes', () => {
     expect(Object.keys(THEMES)).toHaveLength(6)
@@ -87,6 +90,11 @@ describe('theme contrast', () => {
     it(`${name}: foreground and muted-foreground are readable on the muted surface`, () => {
       expect(contrast(tokens.foreground, tokens.muted)).toBeGreaterThanOrEqual(4.5)
       expect(contrast(tokens['muted-foreground'], tokens.muted)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it(`${name}: the muted fill stays distinguishable from the card it sits on`, () => {
+      // Chips, hover rows and kbd use bg-muted on cards: they vanish if the two surfaces merge.
+      expect(contrast(tokens.muted, tokens.card)).toBeGreaterThanOrEqual(MUTED_VS_CARD_MIN[name] ?? 1.04)
     })
 
     it(`${name}: accent and destructive text reach 4.5:1 on the muted surface`, () => {

@@ -101,10 +101,10 @@ const DRACULA_PALETTE = {
   fg:      'hsl(60 30% 96%)',
   current: 'hsl(232 14% 31%)',
   comment: 'hsl(225 27% 51%)',
-  purple:  'hsl(265 89% 78%)',
+  purple:  'hsl(265 89% 81%)',
   cyan:    'hsl(191 97% 77%)',
   green:   'hsl(135 94% 65%)',
-  pink:    'hsl(326 100% 74%)',
+  pink:    'hsl(326 100% 78%)',
   orange:  'hsl(31 100% 71%)',
   red:     'hsl(0 100% 67%)',
   yellow:  'hsl(65 92% 76%)',
@@ -226,7 +226,7 @@ const OBSIDIAN_PALETTE = {
   success:   'hsl(150 60% 55%)',
   secondary: 'hsl(330 68% 68%)',
   warning:   'hsl(35 81% 62%)',
-  destructive: 'hsl(0 66% 62%)',
+  destructive: 'hsl(0 66% 67%)',
   highlight: 'hsl(50 81% 65%)',
 } as const
 
@@ -288,10 +288,10 @@ const CODE_RAIN_PALETTE = {
   primary:     'hsl(144 100% 50%)', // canonical phosphor green (#00FF66 family)
   info:        'hsl(174 56% 56%)',  // teal (#4FD1C5)
   success:     'hsl(145 100% 70%)', // bright mint-green (#5BFFA0)
-  secondary:   'hsl(153 100% 33%)', // deep terminal green — pill backgrounds
+  secondary:   'hsl(153 100% 36%)', // deep terminal green — pill backgrounds
   warning:     'hsl(35 100% 64%)',  // amber (#FFB347)
   highlight:   'hsl(51 100% 50%)',  // gold (#FFD700)
-  destructive: 'hsl(351 100% 65%)', // rose (#FF4D6D — the red pill)
+  destructive: 'hsl(351 100% 71%)', // rose (#FF4D6D — the red pill)
 } as const
 
 const CODE_RAIN: ThemeDescriptor = {
