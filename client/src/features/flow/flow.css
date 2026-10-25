@@ -11,6 +11,14 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .flow-app-dot {
+      animation: flow-app-dot-pulse 2.4s ease-in-out infinite;
+    }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
   .flow-app-dot {
     animation: flow-app-dot-pulse 2.4s ease-in-out infinite;
   }

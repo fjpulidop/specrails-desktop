@@ -496,10 +496,10 @@ describe('CommandPalette', () => {
     const user = userEvent.setup()
     render(<CommandPalette />)
     await user.keyboard('{Meta>}k{/Meta}')
-    const dialog = await screen.findByRole('dialog', { name: 'Search missions, projects and jobs' })
+    const dialog = await screen.findByRole('dialog', { name: 'Search and run actions' })
     const labelledBy = dialog.getAttribute('aria-labelledby')
     expect(labelledBy).toBeTruthy()
-    expect(document.getElementById(labelledBy!)).toHaveTextContent('Search missions, projects and jobs')
+    expect(document.getElementById(labelledBy!)).toHaveTextContent('Search and run actions')
     expect(dialog).toHaveAccessibleDescription(/press Enter to open the highlighted result/)
     // Standard form-size panel on the shared scrim.
     expect(dialog).toHaveClass('max-w-lg')

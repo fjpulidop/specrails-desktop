@@ -209,6 +209,16 @@ export function formatLocation(location: { path: string; line?: number; endLine?
     : `${location.path}:${location.line}`
 }
 
+/**
+ * SQLite `datetime('now')` yields `YYYY-MM-DD HH:MM:SS` with no zone, and a
+ * browser reads that as LOCAL time. The value is UTC, so give it an ISO `T…Z`
+ * form before it is compared, sorted or sent to a client. Values that already
+ * carry a zone pass through untouched.
+ */
+export function utc<T>(value: T): T | string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value) ? `${value.replace(' ', 'T')}Z` : value
+}
+
 export function oneLine(value: unknown, max = 240): string | null {
   if (typeof value !== 'string') return null
   const flat = value.replace(/\s+/g, ' ').trim()

@@ -120,7 +120,7 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
       {/* Clearing sits next to the count so it is never the part that gets cut off on a narrow board. */}
       <button type="button" className={cn(barButton, 'px-2 text-muted-foreground')} onClick={onClear} data-testid="specs-bulk-clear" aria-label={t('bulk.clearTitle')} title={t('bulk.clearTitle')}>
         <X className="h-3.5 w-3.5" aria-hidden />
-        <span className="hidden @[44rem]:inline" aria-hidden>{t('bulk.clear')}</span>
+        <span className="hidden @[36rem]:inline" aria-hidden>{t('bulk.clear')}</span>
       </button>
       <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
 
@@ -166,7 +166,7 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
       </DropdownMenu>
 
       <DropdownMenu>
-        <DropdownMenuTrigger className={cn(barButton, 'hidden @[44rem]:inline-flex')} data-testid="specs-bulk-label">
+        <DropdownMenuTrigger className={cn(barButton, 'hidden @[36rem]:inline-flex')} data-testid="specs-bulk-label">
           <Tag className="h-3.5 w-3.5" aria-hidden />
           {t('bulk.label')}
           <ChevronUp className="h-3 w-3 text-muted-foreground" aria-hidden />
@@ -177,7 +177,7 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
       </DropdownMenu>
 
       <DropdownMenu>
-        <DropdownMenuTrigger className={cn(barButton, 'hidden @[44rem]:inline-flex')} data-testid="specs-bulk-priority">
+        <DropdownMenuTrigger className={cn(barButton, 'hidden @[36rem]:inline-flex')} data-testid="specs-bulk-priority">
           {t('bulk.priority')}
           <ChevronUp className="h-3 w-3 text-muted-foreground" aria-hidden />
         </DropdownMenuTrigger>
@@ -211,7 +211,7 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
 
       {/* Narrow board: Label and Priority fold into one menu. */}
       <DropdownMenu>
-        <DropdownMenuTrigger className={cn(barButton, '@[44rem]:hidden')} data-testid="specs-bulk-more">
+        <DropdownMenuTrigger className={cn(barButton, '@[36rem]:hidden')} data-testid="specs-bulk-more">
           <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
           {t('bulk.more')}
           <ChevronUp className="h-3 w-3 text-muted-foreground" aria-hidden />

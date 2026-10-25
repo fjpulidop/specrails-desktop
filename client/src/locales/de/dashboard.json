@@ -179,7 +179,7 @@
     "launchAllTitle": "Startet alle startbereiten Rails parallel – jeder Lauf ist in seinem eigenen Git-Worktree isoliert",
     "addRail": "Rail hinzufügen",
     "addRailLimit": "Rail-Limit erreicht (max. {{max}})",
-    "launchAllNoneReady": "Kein Rail ist bereit. Ziehe Specs auf ein Rail, um es zu starten.",
+    "launchAllNoneReady": "Kein Rail ist bereit. Ziehe eine Spec auf ein Rail oder drücke M auf einer fokussierten Karte.",
     "summary": {
       "running_one": "{{count}} läuft",
       "running_other": "{{count}} laufen",

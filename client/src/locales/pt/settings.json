@@ -529,7 +529,9 @@
       "comfortable": "Confortável",
       "comfortableHint": "Cartões e linhas arejados",
       "compact": "Compacta",
-      "compactHint": "Mais specs e linhas no ecrã"
+      "compactHint": "Mais specs e linhas no ecrã",
+      "resetBoard": "Usar também no quadro",
+      "resetBoardDone": "O quadro deste projeto passa a segui-la."
     },
     "motion": {
       "title": "Reduzir movimento",

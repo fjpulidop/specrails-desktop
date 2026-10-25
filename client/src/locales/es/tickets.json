@@ -254,7 +254,7 @@
       "spec_ai_ai-edit": "Editada con IA",
       "spec_ai_quick-spec": "Generada con Quick",
       "spec_ai_smash": "Dividida en sub-specs",
-      "spec_ai_triage": "Triada",
+      "spec_ai_triage": "Clasificada",
       "spec_ai_spec-launcher": "Lanzada con IA",
       "addendum_created": "Adenda añadida",
       "addendum_applied": "Adenda aplicada",
@@ -308,6 +308,20 @@
       "copyFailed": "No se pudo copiar al portapapeles.",
       "redacted_one": "Se ocultó {{count}} valor que parecía un secreto.",
       "redacted_other": "Se ocultaron {{count}} valores que parecían secretos."
+    },
+    "agentRoles": {
+      "reviewer": "Revisor",
+      "loop": "Rail",
+      "triage": "Triaje",
+      "quick-spec": "Spec rápida",
+      "explore-spec": "Explorar",
+      "mission": "Misión",
+      "job": "Trabajo",
+      "ai-edit": "Edición con IA",
+      "smash": "División",
+      "spec-launcher": "Lanzador de specs",
+      "chat-sidebar": "Chat",
+      "flow": "Flow"
     }
   }
 }

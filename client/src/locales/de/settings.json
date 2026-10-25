@@ -529,7 +529,9 @@
       "comfortable": "Komfortabel",
       "comfortableHint": "Großzügige Karten und Zeilen",
       "compact": "Kompakt",
-      "compactHint": "Mehr Specs und Zeilen auf dem Bildschirm"
+      "compactHint": "Mehr Specs und Zeilen auf dem Bildschirm",
+      "resetBoard": "Auch für das Board verwenden",
+      "resetBoardDone": "Das Board dieses Projekts folgt jetzt dieser Einstellung."
     },
     "motion": {
       "title": "Bewegung reduzieren",

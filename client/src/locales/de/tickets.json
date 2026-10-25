@@ -308,6 +308,20 @@
       "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen.",
       "redacted_one": "{{count}} geheimnisähnlicher Wert wurde entfernt.",
       "redacted_other": "{{count}} geheimnisähnliche Werte wurden entfernt."
+    },
+    "agentRoles": {
+      "reviewer": "Reviewer",
+      "loop": "Rail",
+      "triage": "Triage",
+      "quick-spec": "Schnelle Spec",
+      "explore-spec": "Erkunden",
+      "mission": "Mission",
+      "job": "Job",
+      "ai-edit": "KI-Bearbeitung",
+      "smash": "Aufteilen",
+      "spec-launcher": "Spec-Starter",
+      "chat-sidebar": "Chat",
+      "flow": "Flow"
     }
   }
 }

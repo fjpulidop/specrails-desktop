@@ -529,7 +529,9 @@
       "comfortable": "ゆったり",
       "comfortableHint": "余裕のあるカードと行",
       "compact": "コンパクト",
-      "compactHint": "画面に多くのスペックと行を表示"
+      "compactHint": "画面に多くのスペックと行を表示",
+      "resetBoard": "ボードにも適用する",
+      "resetBoardDone": "このプロジェクトのボードもこの設定に従います。"
     },
     "motion": {
       "title": "視覚効果を減らす",

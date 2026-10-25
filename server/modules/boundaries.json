@@ -2502,6 +2502,7 @@
         "../../audit",
         "../domain/handoff",
         "../domain/handoff-labels",
+        "../domain/timeline",
         "./spec-addenda-core",
         "./spec-history",
         "./ticket-store"

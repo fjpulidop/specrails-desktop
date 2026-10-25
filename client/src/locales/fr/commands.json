@@ -48,7 +48,7 @@
     "missions": {
       "home": "Accueil"
     },
-    "dialogTitle": "Rechercher des missions, projets et tâches",
+    "dialogTitle": "Rechercher et lancer des actions",
     "dialogDescription": "Tapez pour filtrer, puis appuyez sur Entrée pour ouvrir le résultat mis en évidence.",
     "actions": {
       "verbs": "nouveau,nouvelle,créer,ajouter,lancer,exécuter,déplacer,ouvrir,changer,basculer,aller,transmettre,pause,reprendre,annuler,afficher,démarrer,restaurer,new,launch,move,open,switch,run,toggle,go,undo,sélectionner,enregistrer,effacer,supprimer,select,save,clear,delete",

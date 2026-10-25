@@ -529,7 +529,9 @@
       "comfortable": "Confortable",
       "comfortableHint": "Cartes et lignes aérées",
       "compact": "Compacte",
-      "compactHint": "Plus de specs et de lignes à l'écran"
+      "compactHint": "Plus de specs et de lignes à l'écran",
+      "resetBoard": "L’appliquer aussi au tableau",
+      "resetBoardDone": "Le tableau de ce projet la suit désormais."
     },
     "motion": {
       "title": "Réduire les animations",

@@ -1859,7 +1859,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [checkout-path.ts](../../server/util/checkout-path.ts)
 - [cli-prompt.ts](../../server/util/cli-prompt.ts) · [test](../../server/util/cli-prompt.test.ts)
 - [distribute-int.ts](../../server/util/distribute-int.ts)
-- [search-snippet.ts](../../server/util/search-snippet.ts)
+- [search-snippet.ts](../../server/util/search-snippet.ts) · [test](../../server/util/search-snippet.test.ts)
 - [secure-fs.ts](../../server/util/secure-fs.ts) · [test](../../server/util/secure-fs.test.ts)
 - [secure-token-file.ts](../../server/util/secure-token-file.ts) · [test](../../server/util/secure-token-file.test.ts)
 - [sqlite-migrations.ts](../../server/util/sqlite-migrations.ts) · [test](../../server/util/sqlite-migrations.test.ts)

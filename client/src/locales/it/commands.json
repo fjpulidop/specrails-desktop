@@ -48,7 +48,7 @@
     "missions": {
       "home": "Home"
     },
-    "dialogTitle": "Cerca missioni, progetti e job",
+    "dialogTitle": "Cerca ed esegui azioni",
     "dialogDescription": "Digita per filtrare, poi premi Invio per aprire il risultato evidenziato.",
     "actions": {
       "verbs": "nuovo,nuova,crea,aggiungi,avvia,esegui,sposta,apri,cambia,attiva,vai,consegna,pausa,riprendi,annulla,mostra,inizia,ripristina,new,launch,move,open,switch,run,toggle,go,undo,seleziona,salva,deseleziona,elimina,select,save,clear,delete",

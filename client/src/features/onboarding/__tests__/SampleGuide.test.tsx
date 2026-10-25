@@ -87,6 +87,18 @@ describe('SampleGuide: exactly three steps', () => {
     expect(screen.queryByTestId('sample-guide')).not.toBeInTheDocument()
   })
 
+  it('sits at the foot of the workspace, leaving the bottom-right corner to toasts and the agent chat button', async () => {
+    const { user } = await setup()
+    const guide = await screen.findByTestId('sample-guide')
+    expect(guide.className).toContain('left-[calc(var(--sidebar-width')
+    expect(guide.className).not.toMatch(/(^|\s)right-/)
+    expect(screen.getByTestId('sample-step-count').className).not.toContain('uppercase')
+    await user.click(screen.getByTestId('sample-dismiss'))
+    const pill = screen.getByTestId('sample-pill')
+    expect(pill.className).toContain('left-[calc(var(--sidebar-width')
+    expect(pill.className).not.toMatch(/(^|\s)right-/)
+  })
+
   it('starts collapsed when this viewer already finished the guide', async () => {
     localStorage.setItem(SAMPLE_GUIDE_KEY, JSON.stringify({ projectId: 'sample-p', step: 2, done: true, launched: true }))
     await setup()

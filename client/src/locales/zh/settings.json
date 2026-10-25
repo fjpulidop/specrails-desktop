@@ -529,7 +529,9 @@
       "comfortable": "舒适",
       "comfortableHint": "宽松的卡片和行",
       "compact": "紧凑",
-      "compactHint": "屏幕上显示更多规格和行"
+      "compactHint": "屏幕上显示更多规格和行",
+      "resetBoard": "同时用于看板",
+      "resetBoardDone": "此项目的看板现在遵循该设置。"
     },
     "motion": {
       "title": "减少动态效果",

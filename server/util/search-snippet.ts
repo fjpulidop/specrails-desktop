@@ -32,6 +32,11 @@ export function ftsPhrase(query: string): string {
   return `"${query.replace(/"/g, '""')}"`
 }
 
+/** Literal `\n` escapes and Markdown heading hashes read as noise in a one-line excerpt. */
+function tidy(text: string): string {
+  return text.replace(/\\[ntr]/g, ' ').replace(/(^|\s)#{1,6}\s/g, '$1').replace(/\s+/g, ' ')
+}
+
 /**
  * Cut a marked full-content string (`highlight()` output, or the substring
  * fallback's own marking) down to a window of ~${FALLBACK_CONTEXT} characters on
@@ -41,14 +46,14 @@ export function ftsPhrase(query: string): string {
  */
 export function windowMarked(marked: string): string {
   const at = marked.indexOf(MARK_START)
-  if (at < 0) return marked.slice(0, FALLBACK_CONTEXT * 2).replace(/\s+/g, ' ')
+  if (at < 0) return tidy(marked.slice(0, FALLBACK_CONTEXT * 2))
   const close = marked.indexOf(MARK_END, at)
   const matchEnd = close < 0 ? marked.length : close + 1
   const start = Math.max(0, at - FALLBACK_CONTEXT)
   const end = Math.min(marked.length, matchEnd + FALLBACK_CONTEXT)
   const prefix = start > 0 ? '…' : ''
   const suffix = end < marked.length ? '…' : ''
-  return prefix + marked.slice(start, end).replace(/\s+/g, ' ') + suffix
+  return prefix + tidy(marked.slice(start, end)) + suffix
 }
 
 /** Turn a marked window into plain text + `[start, end)` highlight ranges. */

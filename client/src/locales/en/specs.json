@@ -306,6 +306,8 @@
     "running": "Running",
     "hintNavigate": "move",
     "hintChoose": "choose",
-    "hintClose": "close"
+    "hintClose": "close",
+    "current": "Current",
+    "descriptionOne": "“{{title}}”. Pick a status or a rail."
   }
 }

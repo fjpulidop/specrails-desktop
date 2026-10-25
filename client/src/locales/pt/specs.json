@@ -306,6 +306,8 @@
     "running": "Em execução",
     "hintNavigate": "navegar",
     "hintChoose": "escolher",
-    "hintClose": "fechar"
+    "hintClose": "fechar",
+    "current": "Atual",
+    "descriptionOne": "“{{title}}”. Escolha um estado ou um rail."
   }
 }

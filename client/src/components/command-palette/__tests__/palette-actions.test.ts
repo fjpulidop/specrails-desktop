@@ -191,6 +191,20 @@ describe('availability per context', () => {
   })
 })
 
+describe('localized keywords', () => {
+  it('finds the budget action by its Spanish words after >, not only the English ones', () => {
+    const es = { commands: { palette: { actions: { openBudget: 'Abrir el presupuesto', openBudgetKeywords: 'presupuesto, límite, semanal' } } } }
+    const tEs = ((key: string) => {
+      const v = key.split('.').reduce<unknown>((n, p) => (n as Record<string, unknown> | undefined)?.[p], es.commands)
+      return typeof v === 'string' ? v : key
+    }) as PaletteContext['t']
+    expect(rankActions(ctx({ t: tEs }), '> semanal').rows.map((r) => r.action.id)).toContain('budget.open')
+    expect(rankActions(ctx({ t: tEs }), '> weekly').rows.map((r) => r.action.id)).toContain('budget.open')
+    // Without the localized list the English words still match (a missing key never breaks search).
+    expect(rankActions(ctx(), '> weekly').rows.map((r) => r.action.id)).toContain('budget.open')
+  })
+})
+
 describe('query: is it an action', () => {
   const verbs = localeVerbs(t)
   it('parses the > prefix', () => {

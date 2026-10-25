@@ -136,6 +136,8 @@ export interface PaletteAction {
   shortcut?: string
   /** Extra match terms (English, so any locale finds the action). */
   keywords?: string[]
+  /** i18n key (commands namespace) of a comma-separated list of localized match terms, added to `keywords`. */
+  keywordsKey?: string
   /** Availability: false hides the row. */
   when: (ctx: PaletteContext) => boolean
   /** Argument page (the action then runs with the picked `arg`); null means this context needs no argument and `run` fires directly. */
@@ -550,6 +552,7 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     // Caps, projection and what-if all live in Analytics ▸ Budget: one action that opens it. `/budget` finds it too.
     id: 'budget.open', labelKey: 'palette.actions.openBudget', group: 'global', icon: Gauge,
     keywords: ['budget', 'cap', 'limit', 'weekly', 'monthly', 'daily', 'spend', 'cost', 'projection', 'what if'],
+    keywordsKey: 'palette.actions.openBudgetKeywords',
     when: (ctx) => ctx.projectId !== null,
     run: () => openBudgetPanel(),
   },
@@ -560,6 +563,15 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.go.openProjectSettings('recentlyDeleted'),
   },
 ]
+
+/** English keywords plus the localized ones, so `>` finds an action in the viewer's own language. */
+export function actionKeywords(action: PaletteAction, ctx: PaletteContext): string[] {
+  const base = action.keywords ?? []
+  if (!action.keywordsKey) return base
+  const localized = ctx.t(action.keywordsKey)
+  if (!localized || localized === action.keywordsKey) return base
+  return [...base, ...localized.split(',').map((k) => k.trim()).filter(Boolean)]
+}
 
 export function actionLabel(action: PaletteAction, ctx: PaletteContext): string {
   return action.resolveLabel ? action.resolveLabel(ctx) : ctx.t(action.labelKey, action.labelParams?.(ctx))
@@ -621,14 +633,14 @@ export function rankActions(ctx: PaletteContext, query: string): RankedActions {
   const verbs = localeVerbs(ctx.t)
   const leading = isActionQuery(query, verbs)
   if (!explicit && !text) return { leading: false, rows: [] }
-  const labelled = availableActions(ctx).map((action, order) => ({ action, label: actionLabel(action, ctx), order }))
+  const labelled = availableActions(ctx).map((action, order) => ({ action, label: actionLabel(action, ctx), keywords: actionKeywords(action, ctx), order }))
   // The text after `>` filters; a lone verb ("new") also matches by label start.
-  const matched = labelled.filter(({ action, label }) => matchesPaletteQuery(text, label, action.keywords ?? []))
+  const matched = labelled.filter(({ label, keywords }) => matchesPaletteQuery(text, label, keywords))
   const preferred: ActionGroup = ctx.uiMode === 'agent' ? 'mission' : 'board'
   const selected = selectionCount(ctx) > 0
   matched.sort((a, b) => {
-    const sa = text ? matchScore(a.label, a.action.keywords ?? [], text) : 0
-    const sb = text ? matchScore(b.label, b.action.keywords ?? [], text) : 0
+    const sa = text ? matchScore(a.label, a.keywords, text) : 0
+    const sb = text ? matchScore(b.label, b.keywords, text) : 0
     if (sa !== sb) return sa - sb
     // With specs selected, what can be done to the selection comes first.
     if (selected) {

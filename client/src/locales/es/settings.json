@@ -529,7 +529,9 @@
       "comfortable": "Cómoda",
       "comfortableHint": "Tarjetas y filas con aire",
       "compact": "Compacta",
-      "compactHint": "Más specs y filas en pantalla"
+      "compactHint": "Más specs y filas en pantalla",
+      "resetBoard": "Usarla también en el tablero",
+      "resetBoardDone": "El tablero de este proyecto ya la sigue."
     },
     "motion": {
       "title": "Reducir movimiento",

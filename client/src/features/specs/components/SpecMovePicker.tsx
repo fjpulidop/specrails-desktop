@@ -78,13 +78,22 @@ export function SpecMovePicker({ tickets, rails, handlers, onClose }: SpecMovePi
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent size="confirm" data-testid="spec-move-picker">
+      <DialogContent
+        size="confirm"
+        data-testid="spec-move-picker"
+        onKeyDown={onKeyDown}
+        onOpenAutoFocus={(e) => {
+          // Land on the first usable option, not the close button, so arrows work at once.
+          e.preventDefault()
+          listRef.current?.querySelector<HTMLElement>('button:not(:disabled)')?.focus()
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><MoveRight className="h-4 w-4 text-accent-primary" aria-hidden />{title}</DialogTitle>
-          <DialogDescription>{t('movePicker.description')}</DialogDescription>
+          <DialogDescription>{tickets.length === 1 ? t('movePicker.descriptionOne', { title: tickets[0].title }) : t('movePicker.description')}</DialogDescription>
         </DialogHeader>
         <DialogBody>
-          <div ref={listRef} onKeyDown={onKeyDown} className="flex flex-col gap-3">
+          <div ref={listRef} className="flex flex-col gap-3">
             <section aria-labelledby="move-picker-status" className="flex flex-col gap-0.5">
               <h3 id="move-picker-status" className="px-3 pb-1 text-caption font-semibold text-muted-foreground">{t('movePicker.statusHeading')}</h3>
               {localIds.length > 0 && MANUAL_STATUS_TARGETS.map((st) => (
@@ -97,6 +106,7 @@ export function SpecMovePicker({ tickets, rails, handlers, onClose }: SpecMovePi
                   onClick={() => moveLocal(st)}
                 >
                   {tTickets(STATUS_LABEL_KEY[st])}
+                  {tickets.length === 1 && tickets[0].status === st && <span className="shrink-0 text-caption text-muted-foreground">{t('movePicker.current')}</span>}
                 </button>
               ))}
               {jiraIds.length > 0 && jira.state === 'loading' && (

@@ -967,6 +967,21 @@ describe('project-router', () => {
         expect(res.body.job.tickets).toEqual([{ id: 24, title: 'Add live job status' }])
       })
 
+      it('names jobs by their first spec in the list, and leaves jobs without a live spec untouched', async () => {
+        const dir = newProjectDir()
+        writeTickets(dir, { '24': { id: 24, title: 'Add live job status' } })
+        db.prepare(`INSERT INTO jobs (id, command, started_at, status) VALUES ('j1', '/specrails:implement #24 --yes', '2026-05-05T10:00:00.000Z', 'running')`).run()
+        db.prepare(`INSERT INTO jobs (id, command, started_at, status) VALUES ('j2', '/specrails:implement #99', '2026-05-05T10:01:00.000Z', 'completed')`).run()
+        db.prepare(`INSERT INTO jobs (id, command, started_at, status) VALUES ('j3', '/specrails:health-check', '2026-05-05T10:02:00.000Z', 'completed')`).run()
+        const { app } = createApp(new Map([['proj-1', makeCtxAt(dir)]]))
+        const res = await request(app).get('/api/projects/proj-1/jobs')
+        expect(res.status).toBe(200)
+        const byId = Object.fromEntries(res.body.jobs.map((j: { id: string }) => [j.id, j]))
+        expect(byId.j1).toMatchObject({ ticketId: 24, ticketTitle: 'Add live job status' })
+        expect(byId.j2.ticketTitle).toBeUndefined()
+        expect(byId.j3.ticketId).toBeUndefined()
+      })
+
       it('RELOCATED: resolves ticket titles from the WORKSPACE store, not the repo', async () => {
         const prevHome = process.env.SPECRAILS_REGISTRY_HOME
         const regHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pr-reloc-home-')))

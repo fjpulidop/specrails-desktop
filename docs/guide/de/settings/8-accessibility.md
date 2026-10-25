@@ -4,7 +4,7 @@ Specrails passt sich an deine Arbeitsweise an. Alles steht unter **Einstellungen
 
 ## Dichte {#density}
 
-**Komfortabel** hält Karten und Zeilen großzügig. **Kompakt** zeigt mehr auf einmal: Das Spec-Board startet als kompakte Zeilen, die Job-Liste nutzt engere Zeilen und die Job-Story verdichtet ihre Zeitleiste. Eine gespeicherte Board-Ansicht behält ihr eigenes Layout; eine als Haftnotizen gespeicherte Ansicht öffnet sich also weiterhin als Haftnotizen.
+**Komfortabel** hält Karten und Zeilen großzügig. **Kompakt** zeigt mehr auf einmal: Das Spec-Board startet als kompakte Zeilen, die Job-Liste nutzt engere Zeilen und die Job-Story verdichtet ihre Zeitleiste. Eine gespeicherte Board-Ansicht behält ihr eigenes Layout; eine als Haftnotizen gespeicherte Ansicht öffnet sich also weiterhin als Haftnotizen. Hat das Board dieses Projekts bereits ein eigenes Layout, lässt **Auch für das Board verwenden** unter der Auswahl es wieder der Dichte folgen.
 
 ## Bewegung reduzieren {#reduce-motion}
 

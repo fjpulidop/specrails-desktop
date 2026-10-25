@@ -93,7 +93,7 @@ import {
   type PaletteGroup,
 } from '../features/missions/lib/mission-search'
 import { absoluteTime, compactRelativeTime } from '../lib/relative-time'
-import { LiveDot } from './ui/live-dot'
+import { LiveDot, type LiveDotTone } from './ui/live-dot'
 import { Kbd } from './ui/kbd'
 import { replayTour } from '../lib/onboarding-events'
 import { RailTrack } from './brand/RailTrack'
@@ -117,6 +117,14 @@ interface ServerHits {
 }
 
 const EMPTY_HITS: MissionSearchHit[] = []
+
+/** What a job is called in lists: its spec (`#14 Add login`) when it has one, else the raw command. */
+function jobLabel(job: JobSummary): string {
+  return job.ticketTitle ? `#${job.ticketId} ${job.ticketTitle}` : job.command
+}
+const JOB_LAMP: Partial<Record<JobSummary['status'], LiveDotTone>> = { completed: 'success', failed: 'destructive', running: 'info', queued: 'muted' }
+/** Rows per group (missions, jobs) while nothing is typed: the empty palette stays scannable. */
+const EMPTY_LIST_MAX = 5
 
 const SCOPE_ICON: Record<SearchScope, LucideIcon> = {
   specs: Hash,
@@ -307,10 +315,16 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   const missionRows = useMemo<MissionSearchRow[]>(() => {
     if (parsedQuery.explicit || (scope !== null && scope !== 'missions')) return []
     const q = parsedQuery.text
-    if (!q) return recentMissions(conversations)
+    if (!q) {
+      // Nothing typed: a short list, the open project's missions first, so Enter never lands in another project.
+      const mine = (c: (typeof conversations)[number]) => !c.pinned_project_id || c.pinned_project_id === activeProjectId
+      const rows = recentMissions(conversations.filter(mine), EMPTY_LIST_MAX)
+      if (rows.length < EMPTY_LIST_MAX) rows.push(...recentMissions(conversations.filter((c) => !mine(c)), EMPTY_LIST_MAX - rows.length))
+      return rows
+    }
     const titleRows = matchMissionTitles(conversations, q, untitledMission)
     return mergeMissionResults(titleRows, serverHits.query === q ? serverHits.hits : EMPTY_HITS)
-  }, [conversations, parsedQuery.explicit, parsedQuery.text, scope, serverHits, untitledMission])
+  }, [conversations, activeProjectId, parsedQuery.explicit, parsedQuery.text, scope, serverHits, untitledMission])
 
   const projectNameById = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
 
@@ -398,7 +412,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   // and it must not be what Enter does on open. A typed name still finds it.
   const visibleProjects = commandMode || !unscoped ? [] : projects.filter((p) => matchesPaletteQuery(textQuery, p.name, [p.slug]) && (textQuery !== '' || p.id !== activeProjectId))
   const visibleCommands = commandMode || !unscoped ? [] : commands.filter((cmd) => matchesPaletteQuery(textQuery, cmd.name, [cmd.slug, cmd.description ?? '']))
-  const visibleJobs = commandMode || !unscoped ? [] : recentJobs.filter((job) => matchesPaletteQuery(textQuery, `${job.command} ${job.id}`, [job.status]))
+  const visibleJobs = commandMode || !unscoped ? [] : recentJobs.filter((job) => matchesPaletteQuery(textQuery, `${jobLabel(job)} ${job.command} ${job.id}`, [job.status])).slice(0, textQuery ? undefined : EMPTY_LIST_MAX)
 
   interface NavEntry {
     key: string
@@ -616,6 +630,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     </Command.Group>
   )
 
+  // Scores below 1 are label-prefix matches (see `scoreSetting`).
+  const settingsLeads = scope === null && textQuery !== '' && (settingRows[0]?.score ?? Infinity) < 1
+
   const slashCommandsGroup = slashCommandRows.length > 0 && (
     <Command.Group key="slash-commands" heading={t('palette.scopes.settings.commandsFallback', { query: textQuery })} data-testid="palette-group-slash-commands">
       {slashCommandRows.map((cmd) => (
@@ -827,19 +844,20 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           <Command.Item
             key={job.id}
             value={`${job.command} ${job.id}`}
-            keywords={[job.status]}
+            keywords={[job.status, jobLabel(job)]}
             onSelect={() => handleSelectJob(job.id)}
             className={navItemClass}
           >
-            <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
-            <span className="flex-1 truncate">{job.command}</span>
+            <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
+            <span className="flex-1 truncate">{jobLabel(job)}</span>
             <span className={cn(
-              'text-caption font-medium',
+              'inline-flex items-center gap-1.5 text-caption font-medium',
               job.status === 'completed' && 'text-accent-success',
               job.status === 'failed' && 'text-destructive',
               job.status === 'running' && 'text-accent-info',
               job.status === 'queued' && 'text-muted-foreground',
             )}>
+              <LiveDot size="xs" tone={JOB_LAMP[job.status] ?? 'muted'} pulsing={job.status === 'running'} aria-hidden />
               {t(`common:status.${job.status}`, { defaultValue: job.status })}
             </span>
           </Command.Item>
@@ -928,7 +946,6 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           placeholder={topPage ? topPage.page.placeholder : scope ? t(`palette.scopes.${scope}.placeholder`) : uiMode === 'agent' ? t('palette.searchPlaceholderAgent') : t('palette.searchPlaceholder')}
           className="flex-1 h-11 bg-transparent text-body outline-none placeholder:text-muted-foreground"
         />
-        <Kbd className="hidden sm:inline-flex">esc</Kbd>
       </div>
 
       {/* Results list — group order follows the UI mode (D6) */}
@@ -982,10 +999,12 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
               {!search.trim() && recentActionsGroup}
               {!search.trim() && recentPlacesGroup}
               {/* Nothing typed: recents and missions lead, the project switcher trails (Enter must not switch project). */}
+              {/* A setting whose label starts with the query leads: "density" must not sit under a mission that only mentions it. */}
+              {settingsLeads && settingsGroup}
               {groupOrderForMode(uiMode)
                 .sort((a, b) => (search.trim() ? 0 : Number(a === 'projects') - Number(b === 'projects')))
                 .map((group) => groups[group])}
-              {settingsGroup}
+              {!settingsLeads && settingsGroup}
               {!actionRows.leading && actionsGroup}
             </>
           )

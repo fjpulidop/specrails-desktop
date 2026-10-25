@@ -35,6 +35,20 @@ describe('SpecTimeline', () => {
   beforeEach(() => { vi.clearAllMocks() })
   afterEach(() => { vi.unstubAllGlobals() })
 
+  it('shows product names for agent roles instead of internal slugs', async () => {
+    mockTimeline({ '|': { entries: [
+      entry({ id: 'review:d1', kind: 'review', event: 'review.verdict', title: 'Review', actor: { type: 'agent', label: 'reviewer', provider: null } }),
+      entry({ id: 'ai:1', kind: 'spec_edit', event: 'spec.ai.quick-spec', title: 'AI quick-spec', actor: { type: 'agent', label: 'quick-spec', provider: null } }),
+      entry({ id: 'job:r1', actor: { type: 'agent', label: 'custom-role', provider: null } }),
+    ] } })
+    render(<SpecTimeline {...baseProps} onNavigate={vi.fn()} />)
+    const rows = await screen.findAllByTestId('spec-timeline-entry')
+    expect(rows[0]).toHaveTextContent('Reviewer')
+    expect(rows[0]).not.toHaveTextContent('reviewer')
+    expect(rows[1]).toHaveTextContent('Quick spec')
+    expect(rows[2]).toHaveTextContent('custom-role')
+  })
+
   it('groups entries by day with the lamp tone, source title, cost and a link to the place', async () => {
     mockTimeline({ '|': { entries: [
       entry({ id: 'job:r2', at: localNoon(22), title: 'Implement', tone: 'failure', summary: 'Tests failed', costUsd: 1.2, costKind: 'billed', link: { place: 'job', id: 'r2' } }),

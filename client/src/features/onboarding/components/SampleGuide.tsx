@@ -99,7 +99,7 @@ export function SampleGuide({ onAddProject }: SampleGuideProps) {
         <section
           aria-label={t('pill.label')}
           data-testid="sample-pill"
-          className={cn('fixed bottom-[44px] right-4 flex items-center gap-1 rounded-pill border border-border/50 bg-popover px-2 py-1 shadow-2', LAYER_CLASS.floatingChat)}
+          className={cn('fixed bottom-[44px] left-[calc(var(--sidebar-width,2.75rem)+1rem)] flex items-center gap-1 rounded-pill border border-border/50 bg-popover px-2 py-1 shadow-2', LAYER_CLASS.floatingChat)}
         >
           <Sparkles className="ml-1 size-3.5 text-accent-primary" aria-hidden />
           <span className="px-1 text-label">{t('pill.label')}</span>
@@ -130,11 +130,11 @@ export function SampleGuide({ onAddProject }: SampleGuideProps) {
         data-testid="sample-guide"
         data-step={step}
         onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); dismiss() } }}
-        className={cn('fixed bottom-[44px] right-4 w-[min(22rem,calc(100vw-2rem))] space-y-3 rounded-panel border border-border/50 bg-popover p-4 text-popover-foreground shadow-3', LAYER_CLASS.floatingChat)}
+        className={cn('fixed bottom-[44px] left-[calc(var(--sidebar-width,2.75rem)+1rem)] w-[min(22rem,calc(100vw-2rem))] space-y-3 rounded-panel border border-border/50 bg-popover p-4 text-popover-foreground shadow-3', LAYER_CLASS.floatingChat)}
       >
         <header className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-micro uppercase tracking-wide text-muted-foreground" data-testid="sample-step-count">{t('guide.stepCount', { current: guide.step + 1, total: GUIDE_STEPS.length })}</p>
+            <p className="text-caption text-muted-foreground" data-testid="sample-step-count">{t('guide.stepCount', { current: guide.step + 1, total: GUIDE_STEPS.length })}</p>
             <h2 className="text-title">{t(`steps.${step}.title`)}</h2>
           </div>
           <Button size="icon" variant="ghost" className="-mr-1.5 -mt-1 size-7 shrink-0" onClick={dismiss} aria-label={t('guide.dismiss')} title={t('guide.dismiss')} data-testid="sample-dismiss">

@@ -306,6 +306,8 @@
     "running": "実行中",
     "hintNavigate": "移動",
     "hintChoose": "選択",
-    "hintClose": "閉じる"
+    "hintClose": "閉じる",
+    "current": "現在",
+    "descriptionOne": "「{{title}}」。ステータスまたはレールを選んでください。"
   }
 }

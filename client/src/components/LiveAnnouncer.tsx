@@ -35,8 +35,9 @@ export function LiveAnnouncer() {
       const a = runAnnouncementFor(message, projectRef.current)
       if (!a) return
       const base = `a11y.announce.${a.kind}${a.detail ? a.detail[0].toUpperCase() + a.detail.slice(1) : ''}`
-      const key = a.rail !== null && !a.detail ? `${base}Rail` : base
-      announce(tRef.current(key, { rail: a.rail ?? undefined }), a.key)
+      // Most specific sentence the message supports: rail + spec, then rail, then the bare state.
+      const key = a.rail === null ? base : a.ticketId !== null && !a.detail ? `${base}Spec` : `${base}Rail`
+      announce(tRef.current(key, { rail: a.rail ?? undefined, id: a.ticketId ?? undefined }), a.key)
     })
     return () => unregisterHandler('live-announcer')
   }, [registerHandler, unregisterHandler])

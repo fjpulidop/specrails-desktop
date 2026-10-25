@@ -179,7 +179,7 @@
     "launchAllTitle": "Launch every ready rail in parallel — each run is isolated in its own git worktree",
     "addRail": "Add rail",
     "addRailLimit": "Rail limit reached ({{max}} max)",
-    "launchAllNoneReady": "No rail is ready. Drag specs onto a rail to launch it.",
+    "launchAllNoneReady": "No rail is ready. Drag a spec onto a rail, or press M on a focused card.",
     "summary": {
       "running_one": "{{count}} running",
       "running_other": "{{count}} running",

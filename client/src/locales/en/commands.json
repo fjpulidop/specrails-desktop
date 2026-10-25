@@ -48,7 +48,7 @@
     "missions": {
       "home": "Home"
     },
-    "dialogTitle": "Search missions, projects and jobs",
+    "dialogTitle": "Search and run actions",
     "dialogDescription": "Type to filter, then press Enter to open the highlighted result.",
     "actions": {
       "verbs": "new,create,add,launch,run,move,open,switch,change,toggle,go,hand,pause,resume,undo,show,start,restore,select,save,clear,delete",

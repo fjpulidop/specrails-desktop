@@ -629,7 +629,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         />
       </div>
 
-      <div id="packet-panel-overview" role="tabpanel" aria-labelledby="packet-tab-overview" className={tab === 'changes' ? 'hidden' : 'flex w-full max-w-3xl flex-col gap-4'} data-testid="packet-overview-panel">
+      <div id="packet-panel-overview" role="tabpanel" aria-labelledby="packet-tab-overview" className={tab === 'changes' ? 'hidden' : 'mx-auto flex w-full max-w-3xl flex-col gap-4'} data-testid="packet-overview-panel">
       {/* ── What to look at: the reviewer's risk brief, first after the verdict.
           Absent for runs without a brief, so older packets read as before. */}
       {packet.whatToLookAt ? (

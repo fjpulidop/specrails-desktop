@@ -179,7 +179,7 @@
     "launchAllTitle": "并行启动所有就绪的 Rail — 每次运行都隔离在自己的 git worktree 中",
     "addRail": "添加 Rail",
     "addRailLimit": "已达 Rail 上限（最多 {{max}}）",
-    "launchAllNoneReady": "没有就绪的 Rail。将 Spec 拖到 Rail 上即可启动。",
+    "launchAllNoneReady": "没有就绪的 Rail。将 Spec 拖到 Rail 上,或在已聚焦的卡片上按 M。",
     "summary": {
       "running_one": "{{count}} 运行中",
       "running_other": "{{count}} 运行中",

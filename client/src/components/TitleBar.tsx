@@ -92,7 +92,7 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       aria-keyshortcuts="Meta+K"
-      title={t('titleBar.searchShortcut')}
+      title={t('titleBar.searchShortcut', { shortcut: keyboardLabel('⌘K') })}
       aria-hidden={hidden || undefined}
       tabIndex={hidden ? -1 : undefined}
       style={{

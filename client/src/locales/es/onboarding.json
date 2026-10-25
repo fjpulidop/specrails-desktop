@@ -78,7 +78,7 @@
     "preparing": "Preparando el espacio de trabajo del proyecto. Solo tarda un momento.",
     "workspaceFailed": "No se pudo preparar el espacio de trabajo.",
     "retryWorkspace": "Reintentar",
-    "overBudget": "Ya se alcanzó el presupuesto de hoy. Súbelo en Analíticas ▸ Presupuesto y vuelve a intentarlo.",
+    "overBudget": "Ya se alcanzó el límite diario. Súbelo en Analíticas ▸ Presupuesto y vuelve a intentarlo.",
     "failed": "No se pudo iniciar la ejecución. Inténtalo de nuevo.",
     "failedDetail": "No se pudo iniciar la ejecución: {{detail}}"
   },

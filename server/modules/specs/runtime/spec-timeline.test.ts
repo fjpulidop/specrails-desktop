@@ -167,6 +167,28 @@ describe('spec history projection', () => {
     expect(JSON.stringify(review)).not.toContain(FAKE_ANTHROPIC)
   })
 
+  it('reads zone-less SQLite timestamps as UTC and orders them against ISO ones', async () => {
+    delivery('d1', [7], 'on_review')
+    db.prepare('UPDATE rail_pr_deliveries SET created_at = ?, on_review_at = ? WHERE id = ?').run('2026-10-24 05:31:00', '2026-10-24 05:40:00', 'd1')
+    const ticket = makeTicket(7, { created_at: '2026-10-24T05:30:00Z', updated_at: '2026-10-24T05:30:00Z' })
+    const { entries, deliveries } = collectSpecHistory(db, ticket)
+    const created = entries.find((e) => e.id === 'pr:d1:created')!
+    expect(created.at).toBe('2026-10-24T05:31:00Z')
+    expect(entries.find((e) => e.id === 'pr:d1:review')!.at).toBe('2026-10-24T05:40:00Z')
+    // The delivery (05:31Z) happened AFTER the spec (05:30Z): newest first puts it before.
+    expect(entries.findIndex((e) => e.id === 'pr:d1:created')).toBeLessThan(entries.findIndex((e) => e.id === 'spec:created'))
+    expect(deliveries[0]!.createdAt).toBe('2026-10-24T05:31:00Z')
+    // The export reads the same normalised facts.
+    const model = await buildHandoffModel({ ticket, history: { entries, invocations: [], deliveries, runIds: [] }, diffFor: async () => null, now: new Date(T0) } as never)
+    expect(model.deliveries[0]!.createdAt).toBe('2026-10-24T05:31:00Z')
+  })
+
+  it('turns Markdown into plain prose in summaries', () => {
+    const ticket = makeTicket(7, { comments: [{ id: 1, body: '**Tracker:** `ABC-1`\n## Next step\n- do it', created_at: at(1), created_by: 'user' }] })
+    const { entries } = collectSpecHistory(db, ticket)
+    expect(entries.find((e) => e.id === 'spec:comment:1')!.summary).toBe('Tracker: ABC-1 Next step do it')
+  })
+
   it('isolates projects: another database never leaks into this spec', () => {
     const other = initDb(':memory:')
     other.prepare('INSERT INTO chat_conversations (id, title, model) VALUES (?, ?, ?)').run('c-x', 'Other project mission', 'sonnet')

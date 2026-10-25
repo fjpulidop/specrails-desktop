@@ -170,6 +170,9 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         const create = within(strip).getByTestId('rail-pr-create')
         expect(create).toHaveTextContent('Create PR')
         expect(create).toHaveAttribute('title', '→ main')
+        // Review carries the primary call to action; Create PR must not compete with it (or with other rails' Create PR).
+        expect(within(strip).getByTestId('rail-pr-open-packet')).toBeInTheDocument()
+        expect(create.className).not.toContain('bg-primary')
         expect(menuItem('rail-pr-discard')).toHaveTextContent('Discard')
         expect(within(strip).queryByTestId('rail-pr-publish')).toBeNull()
         expect(within(strip).queryByTestId('rail-pr-link')).toBeNull()

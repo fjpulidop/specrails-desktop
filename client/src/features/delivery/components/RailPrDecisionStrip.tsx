@@ -409,6 +409,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     testId: string,
     title?: string,
     icon?: React.ReactNode,
+    /** `outline` when another button on the strip already carries the primary call to action. */
+    tone: 'primary' | 'outline' = 'primary',
   ) => !hasRepositoryDeliveries && (
     <button
       type="button"
@@ -416,7 +418,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       disabled={busy}
       title={title}
       onClick={(e) => { e.stopPropagation(); void run(action, expected) }}
-      className={primaryBtn}
+      className={tone === 'outline' ? secondaryBtn : primaryBtn}
     >
       {inFlight === action ? spinner : icon}
       {label}
@@ -810,7 +812,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {reviewPacketBtn}
-        {actionButton('create-pr', 'on_review', t('railPr.createPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }), <GitPullRequest className={iconCls} aria-hidden />)}
+        {actionButton('create-pr', 'on_review', t('railPr.createPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }), <GitPullRequest className={iconCls} aria-hidden />, FEATURE_REVIEW_PACKET ? 'outline' : 'primary')}
         {secondary(true, true)}
       </>
     )

@@ -529,7 +529,9 @@
       "comfortable": "Comoda",
       "comfortableHint": "Schede e righe ariose",
       "compact": "Compatta",
-      "compactHint": "Più spec e righe sullo schermo"
+      "compactHint": "Più spec e righe sullo schermo",
+      "resetBoard": "Usala anche per la bacheca",
+      "resetBoardDone": "La bacheca di questo progetto ora la segue."
     },
     "motion": {
       "title": "Riduci movimento",

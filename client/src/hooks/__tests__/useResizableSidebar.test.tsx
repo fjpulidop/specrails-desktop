@@ -34,6 +34,17 @@ describe('useResizableSidebar (imperative, jank-free)', () => {
     expect(panelWidth(getByTestId)).toBe('240px')
   })
 
+  it('publishes the width the left sidebar reserves as --sidebar-width (the right one does not)', () => {
+    document.documentElement.style.removeProperty('--sidebar-width')
+    const right = render(<Host side="right" />)
+    expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('')
+    right.unmount()
+    const { rerender } = render(<Host />)
+    expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('240px')
+    rerender(<Host expanded={false} />)
+    expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('44px')
+  })
+
   it('applies the collapsed rail width when collapsed', () => {
     const { getByTestId } = render(<Host expanded={false} />)
     expect(panelWidth(getByTestId)).toBe('44px')

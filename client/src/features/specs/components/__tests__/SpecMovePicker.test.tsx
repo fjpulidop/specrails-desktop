@@ -108,6 +108,32 @@ describe('SpecsBoard keyboard move picker (BB4)', () => {
     expect(within(dialog).getByTestId('move-picker-rail-rail-2')).toHaveTextContent('Running')
   })
 
+  it('focuses the first usable option on open and moves with the arrow keys across the whole dialog', () => {
+    renderBoard()
+    fireEvent.keyDown(card(2), { key: 'm' })
+    const dialog = screen.getByTestId('spec-move-picker')
+    // Spec 2 is `todo`: its own status is disabled and labelled, so focus starts on the next option.
+    expect(within(dialog).getByTestId('move-picker-status-todo')).toBeDisabled()
+    expect(within(dialog).getByText('Current')).toBeInTheDocument()
+    expect(document.activeElement).toBe(within(dialog).getByTestId('move-picker-status-in_progress'))
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(within(dialog).getByTestId('move-picker-status-done'))
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' })
+    expect(document.activeElement).toBe(within(dialog).getByTestId('move-picker-status-in_progress'))
+    fireEvent.keyDown(document.activeElement!, { key: 'End' })
+    expect(document.activeElement).toBe(within(dialog).getByTestId('move-picker-rail-rail-2'))
+    // Arrows also work when focus sits outside the list (e.g. on the close button).
+    ;(within(dialog).getByRole('button', { name: /close/i }) as HTMLElement).focus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(within(dialog).getByTestId('move-picker-status-in_progress'))
+  })
+
+  it('names the spec in the description when moving a single one', () => {
+    renderBoard()
+    fireEvent.keyDown(card(2), { key: 'm' })
+    expect(within(screen.getByTestId('spec-move-picker')).getByText(/Spec 2.*Pick a status or a rail/)).toBeInTheDocument()
+  })
+
   it('picking a status runs the same handler as the bulk bar and closes the picker', () => {
     const { bulk } = renderBoard()
     fireEvent.keyDown(card(2), { key: 'm' })

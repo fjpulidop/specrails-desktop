@@ -306,6 +306,8 @@
     "running": "Läuft",
     "hintNavigate": "navigieren",
     "hintChoose": "auswählen",
-    "hintClose": "schließen"
+    "hintClose": "schließen",
+    "current": "Aktuell",
+    "descriptionOne": "„{{title}}“. Wähle einen Status oder eine Rail."
   }
 }

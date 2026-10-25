@@ -70,7 +70,11 @@ export function useResizableSidebar(id: string, opts: Options) {
     if (el) el.style.width = `${opts.expanded ? width : opts.collapsedWidth}px`
     const wrapper = wrapperRef.current
     if (wrapper) wrapper.style.width = `${docked ? width : opts.collapsedWidth}px`
-  }, [width, opts.expanded, opts.collapsedWidth, docked])
+    // The left sidebar publishes the width it reserves, so floating surfaces
+    // (the sample guide) can sit at the foot of the WORKSPACE instead of the
+    // bottom-right corner shared by toasts and the agent chat button.
+    if (opts.side === 'left') document.documentElement.style.setProperty('--sidebar-width', `${docked ? width : opts.collapsedWidth}px`)
+  }, [width, opts.expanded, opts.collapsedWidth, docked, opts.side])
 
   const onGripPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0 || !optsRef.current.expanded) return

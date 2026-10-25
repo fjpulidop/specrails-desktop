@@ -308,6 +308,20 @@
       "copyFailed": "Impossible de copier dans le presse-papiers.",
       "redacted_one": "{{count}} valeur ressemblant à un secret a été masquée.",
       "redacted_other": "{{count}} valeurs ressemblant à des secrets ont été masquées."
+    },
+    "agentRoles": {
+      "reviewer": "Relecteur",
+      "loop": "Rail",
+      "triage": "Triage",
+      "quick-spec": "Spec rapide",
+      "explore-spec": "Explorer",
+      "mission": "Mission",
+      "job": "Tâche",
+      "ai-edit": "Édition IA",
+      "smash": "Découpage",
+      "spec-launcher": "Lanceur de specs",
+      "chat-sidebar": "Chat",
+      "flow": "Flow"
     }
   }
 }

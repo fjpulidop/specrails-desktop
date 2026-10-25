@@ -129,7 +129,7 @@ describe('DashboardPage — Launch all control', () => {
     // Disabled reads as neutral (not faded green) and explains itself.
     expect(btn).toBe(screen.getByTestId('rails-launch-all'))
     expect(btn.className).not.toMatch(/bg-accent-success/)
-    expect(screen.getByText('No rail is ready. Drag specs onto a rail to launch it.')).toBeInTheDocument()
+    expect(screen.getByText('No rail is ready. Drag a spec onto a rail, or press M on a focused card.')).toBeInTheDocument()
   })
 
   it('shows the eligible count and opens the confirm dialog', async () => {

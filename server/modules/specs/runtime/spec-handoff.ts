@@ -20,6 +20,7 @@ import {
   type HandoffModel,
   type HandoffVariant,
 } from '../domain/handoff'
+import { utc } from '../domain/timeline'
 import { handoffLabels, resolveHandoffLocale } from '../domain/handoff-labels'
 
 export type HandoffFormat = 'md' | 'html' | 'pr'
@@ -68,7 +69,7 @@ export async function buildHandoffModel(input: HandoffInputs): Promise<HandoffMo
 
   const decisions: HandoffDecision[] = addenda
     .filter((a) => a.status !== 'dismissed')
-    .map((a) => ({ kind: a.kind, at: a.created_at, title: a.title, body: a.body, status: a.status }))
+    .map((a) => ({ kind: a.kind, at: utc(a.created_at), title: a.title, body: a.body, status: a.status }))
   for (const d of history.deliveries) {
     const verdict = verdictOf(d)
     if (!d.review || !verdict) continue

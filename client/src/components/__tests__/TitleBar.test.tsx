@@ -51,6 +51,13 @@ describe('TitleBar', () => {
     expect(container.firstChild).toBeNull()
   })
 
+  it('labels the search shortcut for the keyboard in use (Ctrl on Windows and Linux)', () => {
+    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+    render(<TitleBar />)
+    expect(screen.getByTitle('Search (Ctrl+K)')).toBeInTheDocument()
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+  })
+
   it('uses theme tokens for the macOS overlay titlebar', () => {
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
     render(<TitleBar />)

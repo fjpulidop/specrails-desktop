@@ -93,6 +93,9 @@ export interface JobSummary {
    * undefined elsewhere. `title === null` means the ticket no longer exists.
    */
   tickets?: Array<{ id: number; title: string | null }>
+  /** First spec the job refers to and its title (list endpoint only; absent when the spec is gone). */
+  ticketId?: number
+  ticketTitle?: string
 }
 
 export interface EventRow {

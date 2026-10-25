@@ -179,7 +179,7 @@
     "launchAllTitle": "Lanza en paralelo todos los rails listos — cada ejecución se aísla en su propio worktree de git",
     "addRail": "Añadir rail",
     "addRailLimit": "Límite de rails alcanzado (máx. {{max}})",
-    "launchAllNoneReady": "Ningún rail está listo. Arrastra specs a un rail para lanzarlo.",
+    "launchAllNoneReady": "Ningún rail está listo. Arrastra una spec a un rail o pulsa M sobre una tarjeta enfocada.",
     "summary": {
       "running_one": "{{count}} en ejecución",
       "running_other": "{{count}} en ejecución",
@@ -230,7 +230,7 @@
     "reviewLimitPartial_other": "Solo {{launched}} pueden empezar ahora; {{count}} rails esperan a que decidas una entrega.",
     "forecastTotal_one": "{{count}} ejecución · normalmente {{cost}} en total",
     "forecastTotal_other": "{{count}} ejecuciones · normalmente {{cost}} en total",
-    "mayPause": "Podría alcanzar un límite de presupuesto y pausar algunas ejecuciones."
+    "mayPause": "Podría alcanzar un límite de gasto y pausar algunas ejecuciones."
   },
   "railControls": {
     "viewJobLog": "Ver log del job",

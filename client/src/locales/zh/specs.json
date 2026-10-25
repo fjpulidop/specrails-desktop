@@ -306,6 +306,8 @@
     "running": "运行中",
     "hintNavigate": "移动",
     "hintChoose": "选择",
-    "hintClose": "关闭"
+    "hintClose": "关闭",
+    "current": "当前",
+    "descriptionOne": "“{{title}}”。选择一个状态或一条 rail。"
   }
 }

@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import { format } from 'date-fns'
 import { getDateFnsLocale } from './i18n'
+import { formatUsd } from './format-usd'
 
 /**
  * Daily budget refusals (rail-loop-budget-guard). The server returns the same
@@ -48,7 +49,7 @@ function resetTime(info: DailyBudgetInfo): string | null {
 }
 
 function values(info: DailyBudgetInfo) {
-  return { spent: info.spentUsd.toFixed(2), budget: info.budgetUsd.toFixed(2) }
+  return { spent: formatUsd(info.spentUsd), budget: formatUsd(info.budgetUsd) }
 }
 
 /** i18next context for the longer caps; daily keeps the base (historical) strings. */

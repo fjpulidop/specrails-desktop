@@ -1,11 +1,13 @@
 import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '../../../../test-utils'
+import { render, screen, fireEvent, cleanup } from '../../../../test-utils'
 import { AccessibilitySettings } from '../AccessibilitySection'
 import { resetA11yPrefsCache, applyA11yPrefs, DEFAULT_A11Y_PREFS, getA11yPrefs } from '../../../../lib/a11y-prefs'
-import { loadSpecsViewTier, saveSpecsViewTier, hasStoredSpecsViewTier } from '../../../specs/lib/specs-view-tier'
+import { loadSpecsViewTier, saveSpecsViewTier, hasStoredSpecsViewTier, SPECS_VIEW_TIER_RESET_EVENT } from '../../../specs/lib/specs-view-tier'
 
 vi.mock('../../../../components/HelpHint', () => ({ HelpHint: () => null }))
+const desktop = vi.hoisted(() => ({ activeProjectId: 'p1' as string | null }))
+vi.mock('../../../../hooks/useDesktop', () => ({ useDesktop: () => ({ activeProjectId: desktop.activeProjectId }) }))
 
 describe('Density and Reduce motion settings', () => {
   beforeEach(() => { localStorage.clear(); resetA11yPrefsCache(); applyA11yPrefs(DEFAULT_A11Y_PREFS) })
@@ -17,6 +19,24 @@ describe('Density and Reduce motion settings', () => {
     expect(document.documentElement).toHaveAttribute('data-density', 'compact')
     expect(getA11yPrefs().density).toBe('compact')
     expect(screen.getByTestId('density-choice-compact')).toBeChecked()
+  })
+
+  it('offers to make the board follow the density again when the project chose its own tier', () => {
+    desktop.activeProjectId = 'p1'
+    render(<AccessibilitySettings />)
+    expect(screen.queryByTestId('density-reset-board')).toBeNull()
+    cleanup()
+    saveSpecsViewTier('p1', 'row')
+    const seen: string[] = []
+    const onReset = (e: Event) => seen.push((e as CustomEvent<{ projectId: string }>).detail.projectId)
+    window.addEventListener(SPECS_VIEW_TIER_RESET_EVENT, onReset)
+    render(<AccessibilitySettings />)
+    fireEvent.click(screen.getByText('Use this for the board too'))
+    window.removeEventListener(SPECS_VIEW_TIER_RESET_EVENT, onReset)
+    expect(hasStoredSpecsViewTier('p1')).toBe(false)
+    expect(seen).toEqual(['p1'])
+    expect(screen.queryByTestId('density-reset-board')).toBeNull()
+    expect(screen.getByTestId('density-reset-board-done')).toBeInTheDocument()
   })
 
   it('offers system / reduce / full for motion', () => {

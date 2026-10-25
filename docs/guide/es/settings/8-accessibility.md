@@ -4,7 +4,7 @@ Specrails se adapta a tu forma de trabajar. Todo esto está en **Ajustes ▸ Apa
 
 ## Densidad {#density}
 
-**Cómoda** mantiene las tarjetas y las filas con aire. **Compacta** cabe más en pantalla: el tablero de specs empieza en filas compactas, la lista de jobs usa filas más ajustadas y la historia del job estrecha su línea de tiempo. Una vista guardada del tablero conserva su propio diseño, así que una vista guardada con tarjetas tipo post-it se abre como tarjetas tipo post-it.
+**Cómoda** mantiene las tarjetas y las filas con aire. **Compacta** cabe más en pantalla: el tablero de specs empieza en filas compactas, la lista de jobs usa filas más ajustadas y la historia del job estrecha su línea de tiempo. Una vista guardada del tablero conserva su propio diseño, así que una vista guardada con tarjetas tipo post-it se abre como tarjetas tipo post-it. Si el tablero de este proyecto ya tiene su propio diseño, **Usarla también en el tablero**, bajo la elección, hace que vuelva a seguir la densidad.
 
 ## Reducir movimiento {#reduce-motion}
 

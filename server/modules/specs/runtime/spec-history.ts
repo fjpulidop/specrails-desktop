@@ -25,6 +25,7 @@ import {
   formatLocation,
   oneLine,
   sortTimeline,
+  utc,
   TIMELINE_MAX_ITEMS,
   type CostRow,
   type TimelineActor,
@@ -140,8 +141,18 @@ export function actorOf(createdBy: string | null | undefined, provider: string |
   return { type: 'system', label: by, provider }
 }
 
+/** Markdown to plain prose, so a summary never shows `**Tracker:**` or `## Heading` literally. */
+function plain(text: string | null | undefined): string | null | undefined {
+  if (typeof text !== 'string') return text
+  return text
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/^\s*[-*#>]+\s*/gm, '')
+    .replace(/\s+/g, ' ')
+}
+
 function clean(text: string | null | undefined, max = 240): string | null {
-  const flat = oneLine(text, max)
+  const flat = oneLine(plain(text), max)
   return flat === null ? null : redactProse(flat)
 }
 
@@ -158,22 +169,22 @@ export function collectSpecHistory(db: DbInstance, ticket: Pick<Ticket, 'id' | '
 
   // ─── Ticket: creation, last edit, comments ────────────────────────────────
   entries.push({
-    id: 'spec:created', at: ticket.created_at, kind: 'spec_edit', event: 'spec.created',
+    id: 'spec:created', at: utc(ticket.created_at), kind: 'spec_edit', event: 'spec.created',
     params: { source: ticket.source }, title: 'Spec created', summary: clean(ticket.title),
     actor: actorOf(ticket.created_by), tone: 'neutral', provider: null,
     link: ticket.origin_conversation_id ? { place: 'mission', id: ticket.origin_conversation_id } : specLink,
   })
-  const updatedMs = Date.parse(ticket.updated_at)
-  if (Number.isFinite(updatedMs) && updatedMs - Date.parse(ticket.created_at) > 1000) {
+  const updatedMs = Date.parse(utc(ticket.updated_at))
+  if (Number.isFinite(updatedMs) && updatedMs - Date.parse(utc(ticket.created_at)) > 1000) {
     entries.push({
-      id: 'spec:updated', at: ticket.updated_at, kind: 'spec_edit', event: 'spec.updated',
+      id: 'spec:updated', at: utc(ticket.updated_at), kind: 'spec_edit', event: 'spec.updated',
       params: { status: ticket.status }, title: 'Spec last edited', summary: null,
       actor: null, tone: 'neutral', provider: null, link: specLink,
     })
   }
   for (const comment of ticket.comments ?? []) {
     entries.push({
-      id: `spec:comment:${comment.id}`, at: comment.created_at, kind: 'spec_edit', event: 'spec.comment',
+      id: `spec:comment:${comment.id}`, at: utc(comment.created_at), kind: 'spec_edit', event: 'spec.comment',
       params: {}, title: 'Comment', summary: clean(comment.body, 400), actor: actorOf(comment.created_by),
       tone: 'neutral', provider: null, link: specLink,
     })
@@ -182,14 +193,14 @@ export function collectSpecHistory(db: DbInstance, ticket: Pick<Ticket, 'id' | '
   // ─── Addenda ───────────────────────────────────────────────────────────────
   for (const addendum of readSpecAddenda(ticket.addenda)) {
     entries.push({
-      id: `addendum:${addendum.id}:created`, at: addendum.created_at, kind: 'addendum', event: 'addendum.created',
+      id: `addendum:${addendum.id}:created`, at: utc(addendum.created_at), kind: 'addendum', event: 'addendum.created',
       params: { addendumKind: addendum.kind }, title: clean(addendum.title, 200) ?? addendum.kind,
       summary: clean(addendum.body, 400), actor: actorOf(addendum.created_by), tone: 'neutral', provider: null,
       link: addendum.origin_conversation_id ? { place: 'mission', id: addendum.origin_conversation_id } : specLink,
     })
     if (addendum.status !== 'open') {
       entries.push({
-        id: `addendum:${addendum.id}:${addendum.status}`, at: addendum.applied_at ?? addendum.updated_at, kind: 'addendum',
+        id: `addendum:${addendum.id}:${addendum.status}`, at: utc(addendum.applied_at ?? addendum.updated_at), kind: 'addendum',
         event: `addendum.${addendum.status}`, params: { addendumKind: addendum.kind }, title: clean(addendum.title, 200) ?? addendum.kind,
         summary: null, actor: null, tone: addendum.status === 'applied' ? 'ok' : 'neutral', provider: null,
         link: addendum.run_id ? { place: 'job', id: addendum.run_id } : specLink,
@@ -209,7 +220,7 @@ export function collectSpecHistory(db: DbInstance, ticket: Pick<Ticket, 'id' | '
   }>
   const invocations: InvocationFact[] = invocationRows.map((row) => ({
     id: row.id, surface: row.surface, refId: row.surface_ref_id, conversationId: row.conversation_id, loopRunId: row.loop_run_id,
-    provider: row.provider, model: row.model, status: row.status, startedAt: row.started_at,
+    provider: row.provider, model: row.model, status: row.status, startedAt: utc(row.started_at),
     costUsd: row.total_cost_usd, estimated: row.total_cost_usd_estimated === 1, turns: row.num_turns,
   }))
   const costOf = (rows: readonly InvocationFact[]) => foldCost(rows.map((r): CostRow => ({ provider: r.provider, costUsd: r.costUsd, estimated: r.estimated, turns: r.turns })))
@@ -272,11 +283,11 @@ export function collectSpecHistory(db: DbInstance, ticket: Pick<Ticket, 'id' | '
       id: String(row.id), loopName: String(row.loop_name ?? ''), decision: String(row.decision), statusCode: (row.status_code as string | null) ?? null,
       statusDetail: (row.status_detail as string | null) ?? null, branch: (row.branch as string | null) ?? null, baseBranch: String(row.base_branch ?? ''),
       prUrl: (row.pr_url as string | null) ?? null, prNumber: (row.pr_number as number | null) ?? null, prState: String(row.pr_state ?? 'none'),
-      originConversationId: (row.origin_conversation_id as string | null) ?? null, createdAt: String(row.created_at),
-      onReviewAt: (row.on_review_at as string | null) ?? null, publishedAt: (row.published_at as string | null) ?? null,
-      mergedAt: (row.merged_at as string | null) ?? null, decidedAt: (row.decided_at as string | null) ?? null, updatedAt: String(row.updated_at),
+      originConversationId: (row.origin_conversation_id as string | null) ?? null, createdAt: utc(String(row.created_at)),
+      onReviewAt: utc((row.on_review_at as string | null) ?? null), publishedAt: utc((row.published_at as string | null) ?? null),
+      mergedAt: utc((row.merged_at as string | null) ?? null), decidedAt: utc((row.decided_at as string | null) ?? null), updatedAt: utc(String(row.updated_at)),
       ticketIds: parseJson<number[]>(row.ticket_ids as string, []),
-      review: unit && evidence ? reviewFact(unit.runtime ?? null, unit.sentinel, unit.sentinelDetail, evidence.harvestedAt) : null,
+      review: unit && evidence ? reviewFact(unit.runtime ?? null, unit.sentinel, unit.sentinelDetail, utc(evidence.harvestedAt)) : null,
     }
   })
   const deliveryRunIds = deliveryRows.flatMap((row) => parseJson<unknown[]>(row.run_ids as string, []).filter((v): v is string => typeof v === 'string'))
@@ -299,12 +310,12 @@ export function collectSpecHistory(db: DbInstance, ticket: Pick<Ticket, 'id' | '
   for (const ids of chunk([...runIdSet], 400)) {
     const marks = placeholders(ids.length)
     const loopRows = db.prepare(`SELECT id, loop_name, provider, model, status, final_outcome, started_at, finished_at FROM loop_runs WHERE id IN (${marks})`).all(...ids) as Array<Omit<RunRow, 'source' | 'command'>>
-    for (const row of loopRows) runs.push({ ...row, source: 'run', command: null })
+    for (const row of loopRows) runs.push({ ...row, started_at: utc(row.started_at), finished_at: utc(row.finished_at), source: 'run', command: null })
     const seen = new Set(loopRows.map((r) => r.id))
     const rest = ids.filter((id) => !seen.has(id))
     if (rest.length > 0) {
       const jobRows = db.prepare(`SELECT id, command, provider, model, status, started_at, finished_at FROM jobs WHERE id IN (${placeholders(rest.length)})`).all(...rest) as Array<{ id: string; command: string; provider: string | null; model: string | null; status: string; started_at: string; finished_at: string | null }>
-      for (const row of jobRows) runs.push({ id: row.id, loop_name: null, provider: row.provider, model: row.model, status: row.status, final_outcome: null, started_at: row.started_at, finished_at: row.finished_at, source: 'job', command: row.command })
+      for (const row of jobRows) runs.push({ id: row.id, loop_name: null, provider: row.provider, model: row.model, status: row.status, final_outcome: null, started_at: utc(row.started_at), finished_at: utc(row.finished_at), source: 'job', command: row.command })
     }
   }
   runs.sort((a, b) => (a.started_at < b.started_at ? 1 : -1))
@@ -339,10 +350,10 @@ export function collectSpecHistory(db: DbInstance, ticket: Pick<Ticket, 'id' | '
       rows.sort((a, b) => (a.updated_at < b.updated_at ? -1 : 1))
       const failed = rows.filter((r) => r.state === 'failed' || r.state === 'error').length
       entries.push({
-        id: `phases:${jobId}`, at: rows[rows.length - 1]!.updated_at, kind: 'phase', event: 'phase.group',
+        id: `phases:${jobId}`, at: utc(rows[rows.length - 1]!.updated_at), kind: 'phase', event: 'phase.group',
         params: { count: rows.length, failed }, title: `${rows.length} phases`, summary: clean(rows.map((r) => r.phase).join(' → '), 200),
         actor: null, tone: failed > 0 ? 'failure' : 'neutral', provider: null, link: { place: 'job', id: jobId }, count: rows.length,
-        items: rows.slice(0, TIMELINE_MAX_ITEMS).map((r) => ({ at: r.updated_at, label: r.phase, detail: r.state, ...(r.state === 'failed' || r.state === 'error' ? { tone: 'failure' as const } : {}) })),
+        items: rows.slice(0, TIMELINE_MAX_ITEMS).map((r) => ({ at: utc(r.updated_at), label: r.phase, detail: r.state, ...(r.state === 'failed' || r.state === 'error' ? { tone: 'failure' as const } : {}) })),
       })
     }
 
@@ -368,11 +379,11 @@ export function collectSpecHistory(db: DbInstance, ticket: Pick<Ticket, 'id' | '
       const notable = rows.filter((r) => r.kind !== 'read')
       const roles = [...new Set(rows.map((r) => r.role))]
       entries.push({
-        id: `audit:${runId}`, at: rows.reduce((max, r) => (r.ts > max ? r.ts : max), rows[0]!.ts), kind: 'audit', event: 'audit.group',
+        id: `audit:${runId}`, at: utc(rows.reduce((max, r) => (r.ts > max ? r.ts : max), rows[0]!.ts)), kind: 'audit', event: 'audit.group',
         params: { count: rows.length, ...counts }, title: `${rows.length} agent actions`, summary: null,
         actor: roles.length === 1 ? { type: 'agent', label: roles[0]!, provider: null } : null, tone: 'neutral', provider: null,
         link: { place: 'job', id: runId }, count: rows.length,
-        items: notable.slice(0, TIMELINE_MAX_ITEMS).map((r) => ({ at: r.ts, label: r.kind, detail: clean(r.target, 200), })),
+        items: notable.slice(0, TIMELINE_MAX_ITEMS).map((r) => ({ at: utc(r.ts), label: r.kind, detail: clean(r.target, 200), })),
       })
     }
   }

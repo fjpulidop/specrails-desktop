@@ -308,6 +308,20 @@
       "copyFailed": "Could not copy to the clipboard.",
       "redacted_one": "{{count}} secret-like value was redacted.",
       "redacted_other": "{{count}} secret-like values were redacted."
+    },
+    "agentRoles": {
+      "reviewer": "Reviewer",
+      "loop": "Rail",
+      "triage": "Triage",
+      "quick-spec": "Quick spec",
+      "explore-spec": "Explore",
+      "mission": "Mission",
+      "job": "Job",
+      "ai-edit": "AI edit",
+      "smash": "Split",
+      "spec-launcher": "Spec launcher",
+      "chat-sidebar": "Chat",
+      "flow": "Flow"
     }
   }
 }

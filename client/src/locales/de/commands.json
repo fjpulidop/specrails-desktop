@@ -48,7 +48,7 @@
     "missions": {
       "home": "Start"
     },
-    "dialogTitle": "Missionen, Projekte und Jobs durchsuchen",
+    "dialogTitle": "Aktionen suchen und ausführen",
     "dialogDescription": "Tippe zum Filtern und drücke die Eingabetaste, um das markierte Ergebnis zu öffnen.",
     "actions": {
       "verbs": "neu,neue,erstellen,hinzufügen,starten,ausführen,verschieben,öffnen,wechseln,umschalten,gehe,übergeben,pausieren,fortsetzen,rückgängig,zeigen,beginnen,wiederherstellen,new,launch,move,open,switch,run,toggle,go,undo,auswählen,speichern,aufheben,löschen,select,save,clear,delete",

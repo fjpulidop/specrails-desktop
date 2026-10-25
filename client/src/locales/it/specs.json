@@ -306,6 +306,8 @@
     "running": "In corso",
     "hintNavigate": "spostarsi",
     "hintChoose": "scegliere",
-    "hintClose": "chiudere"
+    "hintClose": "chiudere",
+    "current": "Attuale",
+    "descriptionOne": "«{{title}}». Scegli uno stato o un rail."
   }
 }

@@ -74,7 +74,7 @@
     "connectionRestored": "连接已恢复"
   },
   "titleBar": {
-    "searchShortcut": "搜索 (⌘K)",
+    "searchShortcut": "搜索 ({{shortcut}})",
     "searchPlaceholder": "搜索…",
     "minimizeWindow": "最小化窗口",
     "maximizeWindow": "最大化窗口",

@@ -10,6 +10,33 @@
  * than the base utility so it reliably wins. */
 @custom-variant aurora-light ([data-theme="aurora-light"] &);
 
+/* Motion variants that obey the in-app Motion setting (Settings > Accessibility,
+ * mirrored on <html data-motion="system|reduce|full">). Tailwind's built-ins only
+ * read the OS preference, which made "Full motion" apply to JS motion but not to
+ * CSS. Same rule for every hand-written `prefers-reduced-motion` block below:
+ *   - "reduce" always reduces, "full" always animates,
+ *   - "system" (no attribute) follows the OS. */
+@custom-variant motion-safe {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="reduce"]) & {
+      @slot;
+    }
+  }
+  :root[data-motion="full"] & {
+    @slot;
+  }
+}
+@custom-variant motion-reduce {
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion="full"]) & {
+      @slot;
+    }
+  }
+  :root[data-motion="reduce"] & {
+    @slot;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
  * Theme system
  *
@@ -273,10 +300,21 @@
  * elements — keeps the phosphor halo where it matters without taxing every
  * surface or fighting Tailwind's `ring-*` utilities. */
 @media (prefers-reduced-motion: no-preference) {
-  [data-theme="code-rain"] button:focus-visible,
-  [data-theme="code-rain"] a:focus-visible,
-  [data-theme="code-rain"] [role="button"]:focus-visible,
-  [data-theme="code-rain"] [role="radio"]:focus-visible {
+  :root:not([data-motion="reduce"]) {
+    &[data-theme="code-rain"] button:focus-visible,
+    &[data-theme="code-rain"] a:focus-visible,
+    &[data-theme="code-rain"] [role="button"]:focus-visible,
+    &[data-theme="code-rain"] [role="radio"]:focus-visible {
+      filter: var(--code-rain-glow);
+    }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
+  &[data-theme="code-rain"] button:focus-visible,
+  &[data-theme="code-rain"] a:focus-visible,
+  &[data-theme="code-rain"] [role="button"]:focus-visible,
+  &[data-theme="code-rain"] [role="radio"]:focus-visible {
     filter: var(--code-rain-glow);
   }
 }
@@ -435,10 +473,32 @@
  * code-rain glow rule above — kept as its own rule block so both themes stay
  * independently scoped. */
 @media (prefers-reduced-motion: no-preference) {
-  [data-theme="galaxy"] button:focus-visible,
-  [data-theme="galaxy"] a:focus-visible,
-  [data-theme="galaxy"] [role="button"]:focus-visible,
-  [data-theme="galaxy"] [role="radio"]:focus-visible {
+  :root:not([data-motion="reduce"]) {
+    &[data-theme="galaxy"] button:focus-visible,
+    &[data-theme="galaxy"] a:focus-visible,
+    &[data-theme="galaxy"] [role="button"]:focus-visible,
+    &[data-theme="galaxy"] [role="radio"]:focus-visible {
+      filter: var(--galaxy-glow);
+    }
+
+    /* Blade-glow border treatment — zero new markup. Rides on hooks the app
+     * already emits: react-router's `aria-current="page"` on the active nav
+     * link, and the existing `border-accent-primary` "active/selected" utility
+     * applied conditionally by ~19 components (see design.md Decision D3). */
+    &[data-theme="galaxy"] a[aria-current="page"],
+    &[data-theme="galaxy"] .border-accent-primary {
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 55%, transparent),
+        0 0 12px color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
+    }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
+  &[data-theme="galaxy"] button:focus-visible,
+  &[data-theme="galaxy"] a:focus-visible,
+  &[data-theme="galaxy"] [role="button"]:focus-visible,
+  &[data-theme="galaxy"] [role="radio"]:focus-visible {
     filter: var(--galaxy-glow);
   }
 
@@ -446,8 +506,8 @@
    * already emits: react-router's `aria-current="page"` on the active nav
    * link, and the existing `border-accent-primary` "active/selected" utility
    * applied conditionally by ~19 components (see design.md Decision D3). */
-  [data-theme="galaxy"] a[aria-current="page"],
-  [data-theme="galaxy"] .border-accent-primary {
+  &[data-theme="galaxy"] a[aria-current="page"],
+  &[data-theme="galaxy"] .border-accent-primary {
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 55%, transparent),
       0 0 12px color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
@@ -629,7 +689,9 @@ select {
   animation: title-shimmer-sweep 1.3s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .title-shimmer { animation: none; }
+  :root:not([data-motion="full"]) {
+    .title-shimmer { animation: none; }
+  }
 }
 
 /* Unread mission icon: the accent colour, steady. A breathing destructive glow
@@ -664,9 +726,11 @@ select {
   animation: rail-arrive var(--duration-peak) var(--ease-rail) forwards;
 }
 @media (prefers-reduced-motion: reduce) {
-  /* Static pill at its progress position; arrive becomes instant. */
-  .animate-rail-travel { animation: none; opacity: 1; transform: translateX(var(--rail-progress, 0%)); }
-  .animate-rail-arrive { animation: none; transform: translateX(var(--rail-distance, 100%)); }
+  :root:not([data-motion="full"]) {
+    /* Static pill at its progress position; arrive becomes instant. */
+    .animate-rail-travel { animation: none; opacity: 1; transform: translateX(var(--rail-progress, 0%)); }
+    .animate-rail-arrive { animation: none; transform: translateX(var(--rail-distance, 100%)); }
+  }
 }
 
 /* ── Highlight.js — theme-aware syntax colours (drive from CSS vars) ─────── */
@@ -1077,6 +1141,12 @@ select {
   animation: u-check-draw 420ms var(--ease-out) calc(var(--duration-peak) * 0.7) forwards;
 }
 @media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    .u-arrive-check path { animation: none; stroke-dashoffset: 0; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="reduce"] {
   .u-arrive-check path { animation: none; stroke-dashoffset: 0; }
 }
 .u-update-card[data-state='ready'] .u-badge {
@@ -1089,6 +1159,24 @@ select {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    .u-update-card .u-glow,
+    .u-update-card[data-state='downloading'] .u-glow,
+    .u-update-card[data-state='installing'] .u-glow,
+    .u-update-card[data-state='ready'] .u-glow,
+    .u-update-card .u-shimmer,
+    .u-update-card .u-indeterminate,
+    .u-update-card .u-spin,
+    .u-update-card[data-state='ready'] .u-badge {
+      animation: none;
+    }
+    .u-update-card .u-shimmer { display: none; }
+    .u-update-card .u-indeterminate { left: 0; width: 100%; opacity: 0.5; }
+    .u-update-card .u-check path { stroke-dashoffset: 0; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="reduce"] {
   .u-update-card .u-glow,
   .u-update-card[data-state='downloading'] .u-glow,
   .u-update-card[data-state='installing'] .u-glow,
@@ -1161,17 +1249,19 @@ select {
  * a single near-instant frame. Spinners keep turning (slowly) because they
  * communicate ongoing work rather than decorate. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+  :root:not([data-motion="full"]) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
 
-  .animate-spin {
-    animation-duration: 1s !important;
-    animation-iteration-count: infinite !important;
+    .animate-spin {
+      animation-duration: 1s !important;
+      animation-iteration-count: infinite !important;
+    }
   }
 }
 
@@ -1199,6 +1289,12 @@ select {
 .modal-scrim-enter { animation: modal-scrim-enter 180ms ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    .modal-panel, .modal-scrim, .modal-enter, .modal-scrim-enter { animation: none !important; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="reduce"] {
   .modal-panel, .modal-scrim, .modal-enter, .modal-scrim-enter { animation: none !important; }
 }
 
@@ -1211,6 +1307,21 @@ select {
   background-color: color-mix(in srgb, var(--color-foreground) 7%, transparent);
 }
 @media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .u-skeleton {
+      background-image: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--color-foreground) 8%, transparent) 50%,
+        transparent 100%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.4s linear infinite;
+    }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
   .u-skeleton {
     background-image: linear-gradient(
       90deg,
@@ -1230,9 +1341,21 @@ select {
   100% { opacity: 0;   transform: scale(2.2); }
 }
 @media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .u-lamp-ring { animation: lamp-ring 2s var(--ease-out) infinite; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
   .u-lamp-ring { animation: lamp-ring 2s var(--ease-out) infinite; }
 }
 @media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    .u-lamp-ring { display: none; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="reduce"] {
   .u-lamp-ring { display: none; }
 }
 
@@ -1242,6 +1365,12 @@ select {
   30%           { opacity: 1; }
 }
 @media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .u-dot-wave { animation: dot-wave 1.2s var(--ease-out) infinite; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
   .u-dot-wave { animation: dot-wave 1.2s var(--ease-out) infinite; }
 }
 
@@ -1251,6 +1380,18 @@ select {
 @keyframes u-fade       { from { opacity: 0; } to { opacity: 1; } }
 @keyframes u-fade-out   { from { opacity: 1; } to { opacity: 0; } }
 @media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .u-enter      { animation: u-enter-up var(--duration-base) var(--ease-out) both; }
+    .u-enter-down { animation: u-enter-down var(--duration-base) var(--ease-out) both; }
+    .u-fade       { animation: u-fade var(--duration-fast) var(--ease-out) both; }
+    /* Radix popovers/tooltips/menus: animate on open, quick fade on close. */
+    .u-pop[data-state="open"]   { animation: u-enter-up var(--duration-fast) var(--ease-out) both; }
+    .u-pop[data-state="open"][data-side="bottom"] { animation-name: u-enter-down; }
+    .u-pop[data-state="closed"] { animation: u-fade-out var(--duration-instant) var(--ease-in) both; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
   .u-enter      { animation: u-enter-up var(--duration-base) var(--ease-out) both; }
   .u-enter-down { animation: u-enter-down var(--duration-base) var(--ease-out) both; }
   .u-fade       { animation: u-fade var(--duration-fast) var(--ease-out) both; }

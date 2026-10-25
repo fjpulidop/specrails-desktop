@@ -4,7 +4,7 @@ O Specrails adapta-se à sua forma de trabalhar. Tudo isto está em **Definiçõ
 
 ## Densidade {#density}
 
-**Confortável** mantém os cartões e as linhas arejados. **Compacta** cabe mais no ecrã: o quadro de specs começa em linhas compactas, a lista de jobs usa linhas mais justas e a história do job aperta a sua linha do tempo. Uma vista guardada do quadro mantém o seu próprio layout, por isso uma vista guardada com cartões tipo post-it continua a abrir como cartões tipo post-it.
+**Confortável** mantém os cartões e as linhas arejados. **Compacta** cabe mais no ecrã: o quadro de specs começa em linhas compactas, a lista de jobs usa linhas mais justas e a história do job aperta a sua linha do tempo. Uma vista guardada do quadro mantém o seu próprio layout, por isso uma vista guardada com cartões tipo post-it continua a abrir como cartões tipo post-it. Se o quadro deste projeto já tem o seu próprio esquema, **Usar também no quadro**, por baixo da escolha, faz com que volte a seguir a densidade.
 
 ## Reduzir movimento {#reduce-motion}
 

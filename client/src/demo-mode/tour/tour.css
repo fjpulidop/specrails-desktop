@@ -178,6 +178,19 @@ body.tour-new-spec-visible [data-ticket-id="9999"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    [data-tour-cursor],
+    [data-tour-fake-modal],
+    [data-tour-fake-spec-card],
+    [data-tour-rail-running],
+    [data-tour-fullscreen-log] {
+      animation-duration: 0s !important;
+      transition-duration: 0s !important;
+    }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="reduce"] {
   [data-tour-cursor],
   [data-tour-fake-modal],
   [data-tour-fake-spec-card],

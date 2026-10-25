@@ -154,7 +154,7 @@ describe('ReviewPacketPage — Overview / Changes tabs', () => {
     const article = (await screen.findByRole('tab', { name: 'Overview' })).closest('article') as HTMLElement
     expect(article).toHaveClass('max-w-7xl')
     expect(article.className).not.toMatch(/max-w-3xl/)
-    expect(screen.getByTestId('packet-overview-panel')).toHaveClass('max-w-3xl')
+    expect(screen.getByTestId('packet-overview-panel')).toHaveClass('max-w-3xl', 'mx-auto')
     fireEvent.click(screen.getByRole('tab', { name: 'Changes' }))
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true'))
     // The header does not move when the tab changes.

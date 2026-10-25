@@ -308,6 +308,20 @@
       "copyFailed": "Não foi possível copiar para a área de transferência.",
       "redacted_one": "{{count}} valor semelhante a um segredo foi ocultado.",
       "redacted_other": "{{count}} valores semelhantes a segredos foram ocultados."
+    },
+    "agentRoles": {
+      "reviewer": "Revisor",
+      "loop": "Rail",
+      "triage": "Triagem",
+      "quick-spec": "Spec rápida",
+      "explore-spec": "Explorar",
+      "mission": "Missão",
+      "job": "Tarefa",
+      "ai-edit": "Edição com IA",
+      "smash": "Divisão",
+      "spec-launcher": "Lançador de specs",
+      "chat-sidebar": "Chat",
+      "flow": "Flow"
     }
   }
 }

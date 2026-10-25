@@ -48,7 +48,7 @@
     "missions": {
       "home": "ホーム"
     },
-    "dialogTitle": "ミッション、プロジェクト、ジョブを検索",
+    "dialogTitle": "アクションを検索して実行",
     "dialogDescription": "入力して絞り込み、Enter キーで選択中の結果を開きます。",
     "actions": {
       "verbs": "新規,作成,追加,起動,実行,移動,開く,切り替え,切替,移る,引き継ぎ,一時停止,再開,元に戻す,表示,開始,復元,new,launch,move,open,switch,run,toggle,go,undo,選択,保存,解除,削除,select,save,clear,delete",

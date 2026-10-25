@@ -8,6 +8,8 @@ export interface RunAnnouncement {
   kind: RunAnnouncementKind
   /** 1-based rail number when the run belongs to a rail. */
   rail: number | null
+  /** The spec the run works on, when the message names exactly one. */
+  ticketId: number | null
   /** Dedupe key: the same state of the same run is said once. */
   key: string
   /** Extra detail slot (pause reason kind). */
@@ -16,6 +18,11 @@ export interface RunAnnouncement {
 
 function str(v: unknown): string | null {
   return typeof v === 'string' && v ? v : null
+}
+function ticketOf(m: Record<string, unknown>): number | null {
+  if (typeof m.ticketId === 'number' && Number.isInteger(m.ticketId) && m.ticketId > 0) return m.ticketId
+  const ids = Array.isArray(m.ticketIds) ? m.ticketIds.filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0) : []
+  return ids.length === 1 ? ids[0]! : null
 }
 function railOf(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v + 1 : null
@@ -30,7 +37,7 @@ export function runAnnouncementFor(msg: unknown, activeProjectId: string | null)
   if (!type) return null
   const run = str(m.jobId) ?? str(m.loopRunId) ?? str(m.runId) ?? ''
   const mk = (kind: RunAnnouncementKind, rail: number | null, id: string, detail?: RunAnnouncement['detail']): RunAnnouncement =>
-    ({ kind, rail, key: `${kind}:${id}`, ...(detail ? { detail } : {}) })
+    ({ kind, rail, ticketId: ticketOf(m), key: `${kind}:${id}`, ...(detail ? { detail } : {}) })
 
   switch (type) {
     case 'rail.job_started': return mk('started', railOf(m.railIndex), run)

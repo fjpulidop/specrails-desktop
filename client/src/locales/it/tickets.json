@@ -308,6 +308,20 @@
       "copyFailed": "Impossibile copiare negli appunti.",
       "redacted_one": "{{count}} valore simile a un segreto è stato oscurato.",
       "redacted_other": "{{count}} valori simili a segreti sono stati oscurati."
+    },
+    "agentRoles": {
+      "reviewer": "Revisore",
+      "loop": "Rail",
+      "triage": "Triage",
+      "quick-spec": "Spec rapida",
+      "explore-spec": "Esplora",
+      "mission": "Missione",
+      "job": "Job",
+      "ai-edit": "Modifica con IA",
+      "smash": "Suddivisione",
+      "spec-launcher": "Avvio spec",
+      "chat-sidebar": "Chat",
+      "flow": "Flow"
     }
   }
 }

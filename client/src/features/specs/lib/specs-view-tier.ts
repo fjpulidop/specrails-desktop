@@ -42,3 +42,13 @@ export function saveSpecsViewTier(projectId: string | null, tier: SpecsViewTier)
     /* private mode / quota */
   }
 }
+
+/** Fired after a project's own tier was dropped, so an open board follows the app Density again. */
+export const SPECS_VIEW_TIER_RESET_EVENT = 'specrails:specs-view-tier-reset'
+
+/** Forget a project's own tier: the board goes back to the app Density default. */
+export function clearSpecsViewTier(projectId: string | null): void {
+  if (!projectId) return
+  try { localStorage.removeItem(KEY(projectId)) } catch { /* private mode / quota */ }
+  try { window.dispatchEvent(new CustomEvent(SPECS_VIEW_TIER_RESET_EVENT, { detail: { projectId } })) } catch { /* non-DOM */ }
+}

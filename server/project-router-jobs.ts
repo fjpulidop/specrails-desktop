@@ -37,7 +37,10 @@ import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
 import { getProjectMetrics } from './modules/accounting/runtime/metrics'
 import { getQueuedJobForListing, listUnifiedJobs } from './modules/execution/runtime/job-listing'
 import {
-  resolveTicketsFromCommand
+  extractTicketIdsFromCommand,
+  readStore,
+  resolveTicketsFromCommand,
+  resolveTicketStoragePath,
 } from './modules/specs/runtime/ticket-store'
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
 import { createAgentAuditService } from './modules/audit'
@@ -485,10 +488,24 @@ const accepted = loopPaused
     // Annotate each job with hasTelemetry so the client can show the
     // Export diagnostic button without an extra round trip.
     const jobsWithTelemetry = getJobsWithTelemetry(db)
+    // The first spec a job refers to names it in lists (palette, tables):
+    // `#14` alone says nothing. Resolved best-effort; an unreadable store
+    // never fails the listing.
+    let store: ReturnType<typeof readStore> | null | undefined
+    const specOf = (command: string): { ticketId: number; ticketTitle: string } | null => {
+      const [id] = extractTicketIdsFromCommand(command)
+      if (id === undefined) return null
+      if (store === undefined) {
+        try { store = readStore(ticketPath(req) ?? resolveTicketStoragePath(ctx(req).project.path)) } catch { store = null }
+      }
+      const title = store?.tickets[String(id)]?.title
+      return title ? { ticketId: id, ticketTitle: title } : null
+    }
     const annotatedJobs = result.jobs.map((j) => ({
       ...j,
       ...(isRuntimeContinuationActive(ctx(req), j.id) ? { status: 'running', finished_at: null } : {}),
       hasTelemetry: jobsWithTelemetry.has(j.id),
+      ...(specOf(j.command) ?? {}),
     }))
 
     res.json({ jobs: annotatedJobs, total: result.total })

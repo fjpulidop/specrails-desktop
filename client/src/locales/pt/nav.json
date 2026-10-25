@@ -74,7 +74,7 @@
     "connectionRestored": "Ligação restaurada"
   },
   "titleBar": {
-    "searchShortcut": "Pesquisar (⌘K)",
+    "searchShortcut": "Pesquisar ({{shortcut}})",
     "searchPlaceholder": "Pesquisar…",
     "minimizeWindow": "Minimizar janela",
     "maximizeWindow": "Maximizar janela",

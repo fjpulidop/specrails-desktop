@@ -4,7 +4,7 @@ Specrails si adatta al tuo modo di lavorare. Tutto si trova in **Impostazioni �
 
 ## Densità {#density}
 
-**Comoda** mantiene schede e righe ariose. **Compatta** ne mostra di più: la bacheca delle spec parte con righe compatte, l'elenco dei job usa righe più strette e la storia del job stringe la sua linea del tempo. Una vista salvata della bacheca mantiene il proprio layout, quindi una vista salvata con schede post-it si apre ancora come schede post-it.
+**Comoda** mantiene schede e righe ariose. **Compatta** ne mostra di più: la bacheca delle spec parte con righe compatte, l'elenco dei job usa righe più strette e la storia del job stringe la sua linea del tempo. Una vista salvata della bacheca mantiene il proprio layout, quindi una vista salvata con schede post-it si apre ancora come schede post-it. Se la bacheca di questo progetto ha già una sua disposizione, **Usala anche per la bacheca**, sotto la scelta, le fa seguire di nuovo la densità.
 
 ## Riduci movimento {#reduce-motion}
 

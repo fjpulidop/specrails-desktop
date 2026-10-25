@@ -7,12 +7,12 @@ import type { SpecBulkHandlers } from '../../lib/bulk-actions'
 import { getPaletteSurface, resetPaletteSurfaces } from '../../../../lib/palette-bridge'
 import { encodeViewState, type SpecViewState } from '../../lib/spec-views'
 
-const h = vi.hoisted(() => ({ activeId: 'proj-A' as string | null }))
+const h = vi.hoisted(() => ({ activeId: 'proj-A' as string | null, projects: [] as Array<{ id: string }> }))
 const toasts = vi.hoisted(() => ({ fn: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }) }))
 vi.mock('sonner', () => ({ toast: toasts.fn }))
 vi.mock('../../../../hooks/useDesktop', () => ({
   useDesktop: () => ({
-    projects: [], activeProjectId: h.activeId, setActiveProjectId: () => {}, addProject: async () => null, removeProject: async () => {},
+    projects: h.projects, activeProjectId: h.activeId, setActiveProjectId: () => {}, addProject: async () => null, removeProject: async () => {},
     isLoading: false, isSwitchingProject: false, setupProjectIds: new Set(), startSetupWizard: () => {}, completeSetupWizard: () => {},
   }),
 }))
@@ -335,8 +335,8 @@ describe('SpecsBoard bulk bar (CD4)', () => {
     const more = screen.getByTestId('specs-bulk-more')
     expect(more).toHaveTextContent('More')
     // The wide-board buttons hide below the container breakpoint; the folded one hides above it.
-    expect(screen.getByTestId('specs-bulk-label').className).toMatch(/@\[44rem\]:inline-flex/)
-    expect(more.className).toMatch(/@\[44rem\]:hidden/)
+    expect(screen.getByTestId('specs-bulk-label').className).toMatch(/@\[36rem\]:inline-flex/)
+    expect(more.className).toMatch(/@\[36rem\]:hidden/)
     openMenu('specs-bulk-more')
     fireEvent.click(screen.getByTestId('specs-bulk-more-priority-high'))
     expect(bulk.onPriority).toHaveBeenCalledWith([2, 4], 'high')
@@ -567,6 +567,23 @@ describe('SpecsBoard saved views (CD4)', () => {
     renderBoard({ doneTickets: DONE, route: '/?view=vb&p=proj-B' })
     expect(screen.getByTestId('loc').textContent).toContain('view=vb')
     expect(screen.queryByTestId('specs-board-done-bucket')).toBeNull()
+  })
+
+  it('a link whose project is not on this machine still applies a view that carries its state', () => {
+    const token = encodeViewState({ status: 'done', labels: [], epic: null, sprint: null, jiraStatus: null, sortMode: 'default', sortDir: 'desc', viewTier: 'row' })
+    renderBoard({ doneTickets: DONE, route: `/?view=${token}&p=proj-elsewhere` })
+    expect(screen.getByTestId('specs-board-done-bucket')).toBeInTheDocument()
+    expect(screen.getByTestId('loc').textContent).not.toContain('view=')
+  })
+
+  it('a view link for a project that exists here still waits for the switch', () => {
+    h.projects = [{ id: 'proj-A' }, { id: 'proj-B' }]
+    try {
+      const token = encodeViewState({ status: 'done', labels: [], epic: null, sprint: null, jiraStatus: null, sortMode: 'default', sortDir: 'desc', viewTier: 'row' })
+      renderBoard({ doneTickets: DONE, route: `/?view=${token}&p=proj-B` })
+      expect(screen.queryByTestId('specs-board-done-bucket')).toBeNull()
+      expect(screen.getByTestId('loc').textContent).toContain('view=')
+    } finally { h.projects = [] }
   })
 
   it('the palette can open the save dialog and switch views', async () => {

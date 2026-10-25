@@ -4,7 +4,7 @@ Specrails adapts to how you work. Everything here lives in **Settings ▸ Appear
 
 ## Density {#density}
 
-**Comfortable** keeps cards and rows roomy. **Compact** fits more on screen: the specs board starts as compact rows, the jobs list uses tighter rows and the job story tightens its timeline. A saved board view keeps its own layout, so a view that was saved as post-it cards still opens as post-it cards.
+**Comfortable** keeps cards and rows roomy. **Compact** fits more on screen: the specs board starts as compact rows, the jobs list uses tighter rows and the job story tightens its timeline. A saved board view keeps its own layout, so a view that was saved as post-it cards still opens as post-it cards. If this project's board already has its own layout, **Use this for the board too** under the choice makes it follow the density again.
 
 ## Reduce motion {#reduce-motion}
 

@@ -308,6 +308,20 @@
       "copyFailed": "クリップボードにコピーできませんでした。",
       "redacted_one": "機密に見える値を {{count}} 件伏せました。",
       "redacted_other": "機密に見える値を {{count}} 件伏せました。"
+    },
+    "agentRoles": {
+      "reviewer": "レビュアー",
+      "loop": "レール",
+      "triage": "トリアージ",
+      "quick-spec": "クイックスペック",
+      "explore-spec": "探索",
+      "mission": "ミッション",
+      "job": "ジョブ",
+      "ai-edit": "AI 編集",
+      "smash": "分割",
+      "spec-launcher": "スペック起動",
+      "chat-sidebar": "チャット",
+      "flow": "Flow"
     }
   }
 }

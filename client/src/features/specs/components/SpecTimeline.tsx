@@ -266,7 +266,7 @@ function TimelineRow({ entry, plan, open, onToggle, onNavigate, uiMode, currentS
   const target = timelineTarget(entry.link, uiMode, currentSearch)
   const cost = entryCost(entry, plan)
   const actorLabel = entry.actor
-    ? entry.actor.type === 'agent' && entry.actor.label && entry.actor.label !== 'agent' ? entry.actor.label : t(`timeline.actors.${entry.actor.type}`)
+    ? entry.actor.type === 'agent' && entry.actor.label && entry.actor.label !== 'agent' ? t(`timeline.agentRoles.${entry.actor.label}`, { defaultValue: entry.actor.label }) : t(`timeline.actors.${entry.actor.type}`)
     : null
   const details = entry.items ?? []
   const inlineSummary = sourceTitled && entry.tone === 'failure' && !!entry.summary

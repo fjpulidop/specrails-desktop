@@ -1,9 +1,11 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HelpHint } from '../../../components/HelpHint'
 import { SettingAnchor } from './SettingAnchor'
 import { SettingsCard } from './SettingsCard'
 import { cn } from '../../../lib/utils'
+import { useDesktop } from '../../../hooks/useDesktop'
+import { clearSpecsViewTier, hasStoredSpecsViewTier } from '../../specs/lib/specs-view-tier'
 import {
   setA11yPrefs,
   useA11yPrefs,
@@ -62,6 +64,10 @@ function ChoiceGroup<T extends string>({ name, legend, value, options, onChange,
 export function DensitySection() {
   const { t } = useTranslation('settings')
   const { density } = useA11yPrefs()
+  const { activeProjectId } = useDesktop()
+  // The board remembers its own tier per project and wins over this setting: say so, and offer the way back.
+  const [applied, setApplied] = useState(false)
+  const boardOverrides = hasStoredSpecsViewTier(activeProjectId) && !applied
   return (
     <SettingsCard
       title={t('accessibility.density.title')}
@@ -80,6 +86,17 @@ export function DensitySection() {
           { value: 'compact', label: t('accessibility.density.compact'), hint: t('accessibility.density.compactHint') },
         ]}
       />
+      {boardOverrides && (
+        <button
+          type="button"
+          className="mt-2 w-fit text-caption text-accent-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => { clearSpecsViewTier(activeProjectId); setApplied(true) }}
+          data-testid="density-reset-board"
+        >
+          {t('accessibility.density.resetBoard')}
+        </button>
+      )}
+      {applied && <p className="mt-2 text-caption text-muted-foreground" role="status" data-testid="density-reset-board-done">{t('accessibility.density.resetBoardDone')}</p>}
     </SettingsCard>
   )
 }

@@ -21,7 +21,7 @@
     "budget": "Pausado por un límite",
     "jira": "Falló la sincronización con Jira",
     "failedNoCause": "Se detuvo antes de entregar",
-    "capReached": "Límite de presupuesto alcanzado"
+    "capReached": "Límite alcanzado"
   },
   "actions": {
     "open": "Abrir",

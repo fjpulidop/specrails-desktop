@@ -48,7 +48,7 @@
     "missions": {
       "home": "主页"
     },
-    "dialogTitle": "搜索任务、项目和作业",
+    "dialogTitle": "搜索并运行操作",
     "dialogDescription": "输入以筛选，然后按 Enter 打开高亮的结果。",
     "actions": {
       "verbs": "新建,创建,添加,启动,运行,移动,打开,切换,转到,交接,暂停,继续,撤销,显示,开始,恢复,new,launch,move,open,switch,run,toggle,go,undo,选择,保存,取消选择,删除,select,save,clear,delete",

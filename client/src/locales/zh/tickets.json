@@ -308,6 +308,20 @@
       "copyFailed": "无法复制到剪贴板。",
       "redacted_one": "已隐去 {{count}} 个疑似机密的值。",
       "redacted_other": "已隐去 {{count}} 个疑似机密的值。"
+    },
+    "agentRoles": {
+      "reviewer": "评审",
+      "loop": "Rail",
+      "triage": "分诊",
+      "quick-spec": "快速 Spec",
+      "explore-spec": "探索",
+      "mission": "任务",
+      "job": "作业",
+      "ai-edit": "AI 编辑",
+      "smash": "拆分",
+      "spec-launcher": "Spec 启动器",
+      "chat-sidebar": "聊天",
+      "flow": "Flow"
     }
   }
 }

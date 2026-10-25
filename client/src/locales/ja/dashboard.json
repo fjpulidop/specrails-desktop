@@ -179,7 +179,7 @@
     "launchAllTitle": "準備完了のレールをすべて並列で起動します — 各実行は専用の git worktree に隔離されます",
     "addRail": "レールを追加",
     "addRailLimit": "レール数の上限に達しました（最大 {{max}}）",
-    "launchAllNoneReady": "準備済みのレールはありません。スペックをレールにドラッグして起動します。",
+    "launchAllNoneReady": "準備済みのレールはありません。スペックをレールにドラッグするか、フォーカス中のカードで M を押してください。",
     "summary": {
       "running_one": "{{count}} 実行中",
       "running_other": "{{count}} 実行中",

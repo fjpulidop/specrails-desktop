@@ -257,7 +257,7 @@ export function SpecsBoard({
   const [proposeOpen, setProposeOpen] = useState(false)
   const [proposeMode, setProposeMode] = useState<'quick' | 'explore'>('quick')
   const [explore, setExplore] = useState<ExploreState | null>(null)
-  const { activeProjectId } = useDesktop()
+  const { activeProjectId, projects } = useDesktop()
   const [searchParams, setSearchParams] = useSearchParams()
   // Filters persist per-project (and across app restarts) — restored from
   // localStorage on mount and on every project switch (see the effect below).
@@ -852,7 +852,13 @@ export function SpecsBoard({
   useEffect(() => {
     if (!viewParam) { handledViewParamRef.current = null; return }
     if (handledViewParamRef.current === viewParam || !activeProjectId) return
-    if (viewLinkProject && viewLinkProject !== activeProjectId) return
+    // A link for another project waits for the switch, unless the view travels inside the link
+    // and that project does not exist on this machine (the link came from elsewhere): then it
+    // applies to the project that is open instead of never opening.
+    if (viewLinkProject && viewLinkProject !== activeProjectId) {
+      const unknownHere = !projects.some((p) => p.id === viewLinkProject)
+      if (!(unknownHere && decodeViewState(viewParam))) return
+    }
     if (viewsState.projectId !== activeProjectId) return
     handledViewParamRef.current = viewParam
     // An id (a link copied by an older build, or a view of this very project) or the view's own state.
@@ -865,7 +871,7 @@ export function SpecsBoard({
       next.delete(VIEW_PARAM)
       return next
     }, { replace: true })
-  }, [viewParam, viewLinkProject, activeProjectId, viewsState.projectId, views, applyView, setSearchParams, t])
+  }, [viewParam, viewLinkProject, activeProjectId, projects, viewsState.projectId, views, applyView, setSearchParams, t])
 
   // ⌘K: selection + saved views. Lists are functions so the palette always reads the latest board.
   const selectedIds = () => [...selection.ids]

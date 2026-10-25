@@ -69,6 +69,7 @@ import {
   loadSpecsViewTier,
   hasStoredSpecsViewTier,
   saveSpecsViewTier,
+  SPECS_VIEW_TIER_RESET_EVENT,
   type SpecsViewTier,
 } from '../../specs/lib/specs-view-tier'
 import { insertAt, resolveDestContainer, restoreTicketToRail } from '../lib/dashboard-dnd'
@@ -258,6 +259,16 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!hasStoredSpecsViewTier(activeProjectId)) setViewTier(loadSpecsViewTier(activeProjectId))
   }, [activeProjectId, appDensity])
+
+  // Settings ▸ Density ▸ "Use this for the board too" drops this project's own tier.
+  useEffect(() => {
+    const onReset = (e: Event) => {
+      const projectId = (e as CustomEvent<{ projectId?: string }>).detail?.projectId
+      if (projectId === activeProjectId) setViewTier(loadSpecsViewTier(activeProjectId))
+    }
+    window.addEventListener(SPECS_VIEW_TIER_RESET_EVENT, onReset)
+    return () => window.removeEventListener(SPECS_VIEW_TIER_RESET_EVENT, onReset)
+  }, [activeProjectId])
 
   const handleSortChange = useCallback((mode: SpecSortMode, dir: SpecSortDir) => {
     setSortMode(mode)

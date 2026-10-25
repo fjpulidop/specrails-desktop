@@ -16,6 +16,13 @@ describe('runAnnouncementFor', () => {
     expect(f({ type: 'job.stuck', jobId: 'j9' })).toMatchObject({ kind: 'needsYou' })
   })
 
+  it('carries the spec only when the message names exactly one', () => {
+    expect(f({ type: 'rail.job_completed', railIndex: 0, jobId: 'j1', status: 'completed', ticketIds: [14] })).toMatchObject({ ticketId: 14 })
+    expect(f({ type: 'rail.job_completed', railIndex: 0, jobId: 'j1', status: 'completed', ticketIds: [14, 15] })).toMatchObject({ ticketId: null })
+    expect(f({ type: 'rail.job_started', railIndex: 0, jobId: 'j1', ticketId: 3 })).toMatchObject({ ticketId: 3 })
+    expect(f({ type: 'rail.job_started', railIndex: 0, jobId: 'j1' })).toMatchObject({ ticketId: null })
+  })
+
   it('distinguishes a budget pause from a decision pause and a provider limit', () => {
     expect(f({ type: 'loop.run_paused', loopRunId: 'r1', railIndex: 0, pauseKind: 'budget_paused' })).toMatchObject({ kind: 'paused', detail: 'budget' })
     expect(f({ type: 'loop.run_paused', loopRunId: 'r1', railIndex: 0 })).toMatchObject({ kind: 'needsYou' })

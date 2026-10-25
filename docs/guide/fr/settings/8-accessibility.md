@@ -4,7 +4,7 @@ Specrails s'adapte à votre façon de travailler. Tout se trouve dans **Réglage
 
 ## Densité {#density}
 
-**Confortable** garde cartes et lignes aérées. **Compacte** en affiche davantage : le tableau des specs démarre en lignes compactes, la liste des jobs resserre ses lignes et le récit du job resserre sa chronologie. Une vue enregistrée du tableau garde sa propre disposition : une vue enregistrée en cartes post-it s'ouvre toujours en cartes post-it.
+**Confortable** garde cartes et lignes aérées. **Compacte** en affiche davantage : le tableau des specs démarre en lignes compactes, la liste des jobs resserre ses lignes et le récit du job resserre sa chronologie. Une vue enregistrée du tableau garde sa propre disposition : une vue enregistrée en cartes post-it s'ouvre toujours en cartes post-it. Si le tableau de ce projet a déjà sa propre disposition, **L’appliquer aussi au tableau**, sous le choix, lui fait suivre à nouveau la densité.
 
 ## Réduire les animations {#reduce-motion}
 

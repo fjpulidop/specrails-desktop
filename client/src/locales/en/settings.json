@@ -529,7 +529,9 @@
       "comfortable": "Comfortable",
       "comfortableHint": "Roomy cards and rows",
       "compact": "Compact",
-      "compactHint": "More specs and rows on screen"
+      "compactHint": "More specs and rows on screen",
+      "resetBoard": "Use this for the board too",
+      "resetBoardDone": "The board of this project now follows it."
     },
     "motion": {
       "title": "Reduce motion",
