@@ -164,6 +164,9 @@ server.listen(0, '127.0.0.1', () => {
   it('stops only the Flow processes when the Flow pauses, ends or is handed off', async () => {
     const flowApp = json<{ process: BackgroundProcess }>(await startApp(1)).process
     flowState = 'paused'
+    // Outside the Flow the app runs in the main checkout, so it needs a long-lived server there too
+    // (otherwise it exits at once and is 'failed' before the assertion on slow runners).
+    writeFileSync(path.join(repo, 'server.cjs'), "require('node:http').createServer((q, r) => r.end('main')).listen(0, '127.0.0.1')\n")
     const other = json<{ process: BackgroundProcess }>(await startApp(3)).process
     await waitFor(() => getBackgroundProcess(flowApp.pid, flowApp.processId)?.status === 'running')
     const result = await stopBackgroundProcessesForFlow('flow-1', PROJECT, 6000)

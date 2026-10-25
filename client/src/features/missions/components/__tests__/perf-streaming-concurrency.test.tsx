@@ -144,6 +144,17 @@ async function until(cond: () => boolean, timeout = 15000) {
     await tick(5)
   }
 }
+/** Wait until the transcript backfill has stopped rendering markdown (slow CI runners finish it late). */
+async function settled(quietMs = 400, timeout = 20000) {
+  const t0 = performance.now()
+  let last = markdownRenders.count
+  let since = performance.now()
+  while (performance.now() - since < quietMs) {
+    if (performance.now() - t0 > timeout) throw new Error('timeout')
+    await tick(25)
+    if (markdownRenders.count !== last) { last = markdownRenders.count; since = performance.now() }
+  }
+}
 const metrics: Record<string, unknown> = {}
 
 describe('streaming concurrency harness', () => {
@@ -275,6 +286,7 @@ describe('streaming concurrency harness', () => {
     metrics.prefetchedOpen = { selectResolvedMs: Math.round(open), requests: requests.filter((r) => r.startsWith('get:')) }
     // prefetch (1) + the revalidation read of the open (1); never a third.
     expect(requests.filter((r) => r === 'get:c3').length).toBeLessThanOrEqual(2)
+    await until(() => chatApi?.active?.id === 'c3') // the open commits in a transition; slow runners lag
     expect(chatApi?.active?.id).toBe('c3')
   }, 60000)
 
@@ -309,7 +321,7 @@ describe('streaming concurrency harness', () => {
     await chatApi!.selectConversation('c1')
     await until(() => chatApi?.active?.id === 'c1' && chatApi.messages.length === 160)
     await until(() => markdownRenders.count >= 80)
-    await tick(300)
+    await settled()
     reset()
     wsHandler({ type: 'agent_stream', conversationId: 'c1', delta: 'Working' })
     await tick(300)
