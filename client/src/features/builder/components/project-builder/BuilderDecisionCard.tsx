@@ -48,10 +48,10 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
       <span
         aria-hidden
         className={cn(
-          'pointer-events-none absolute inset-0 bg-gradient-to-br via-transparent transition-opacity',
+          'pointer-events-none absolute inset-0 transition-opacity',
           settled
-            ? 'from-accent-success/[0.06] to-accent-success/[0.03] opacity-100'
-            : 'from-accent-primary/[0.08] to-accent-highlight/[0.08] opacity-70 group-hover:opacity-100',
+            ? 'bg-accent-success/5 opacity-100'
+            : 'bg-accent-primary/5 opacity-70 group-hover:opacity-100',
         )}
       />
       <div
@@ -79,7 +79,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
             'flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-inner',
             settled
               ? 'bg-accent-success/15 text-accent-success'
-              : 'bg-gradient-to-br from-accent-primary/25 to-accent-highlight/25 text-accent-primary',
+              : 'bg-accent-primary/15 text-accent-primary',
           )}
         >
           <Icon className="h-4 w-4" aria-hidden />

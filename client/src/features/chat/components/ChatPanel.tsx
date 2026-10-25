@@ -77,7 +77,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
   if (!isPanelOpen) {
     return (
       <div
-        className="flex w-10 shrink-0 cursor-pointer flex-col items-center border-l border-border/30 bg-background/80 backdrop-blur-sm pt-6"
+        className="flex w-10 shrink-0 cursor-pointer flex-col items-center border-l border-border/30 bg-background pt-6"
         onClick={togglePanel}
         onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); togglePanel() } }}
         role="button"
@@ -222,7 +222,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
   // Maximized: fixed overlay covering full viewport
   if (isMaximized) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md border-l border-border/30">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background border-l border-border/30">
         {panelContent}
       </div>
     )
@@ -231,7 +231,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
   // Normal: sidebar panel with draggable left border
   return (
     <div
-      className="relative flex shrink-0 flex-col border-l border-border/30 bg-background/80 backdrop-blur-sm"
+      className="relative flex shrink-0 flex-col border-l border-border/30 bg-background"
       style={{ width: panelWidth }}
     >
       {/* Drag handle — left border */}
