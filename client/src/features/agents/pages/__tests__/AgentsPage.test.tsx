@@ -53,7 +53,7 @@ describe('AgentsPage core upgrade banner', () => {
   })
 
   it('exposes the sections as a keyboard-navigable tablist', async () => {
-    mockCoreVersion({ version: '6.6.5', required: '4.1.0', profileAware: true })
+    mockCoreVersion({ version: '6.7.0', required: '4.1.0', profileAware: true })
     render(<AgentsPage />)
     const tablist = await screen.findByRole('tablist')
     const tabs = screen.getAllByRole('tab')
@@ -67,7 +67,7 @@ describe('AgentsPage core upgrade banner', () => {
   })
 
   it('shows no banner when the workspace is profile-aware', async () => {
-    mockCoreVersion({ version: '6.6.5', required: '4.1.0', profileAware: true })
+    mockCoreVersion({ version: '6.7.0', required: '4.1.0', profileAware: true })
     render(<AgentsPage />)
     expect(await screen.findByTestId('profiles-tab')).toBeInTheDocument()
     await new Promise((resolve) => setTimeout(resolve, 0))
