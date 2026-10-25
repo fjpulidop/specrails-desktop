@@ -688,6 +688,19 @@ describe('useRailLaunchProposals', () => {
     rerender({ m: messages })
     expect(result.current.pinned.map((p) => p.messageId)).toEqual(['c'])
   })
+
+  it('drops a proposal whose specs launched later through another door (Flow hand-off)', () => {
+    const handOff: AgentMessageIntent = { kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', at: 'x', railIndex: 0, config: { ticketIds: [4] } }
+    const messages = [
+      msg('p', fence({ ticketIds: [4] }), { intents: [handOff] }),
+      msg('q', fence({ ticketIds: [5] })),
+      msg('r', 'flow', { intents: [{ ...handOff, config: { ticketIds: [7] } }] }),
+      msg('s', fence({ ticketIds: [7] })),
+    ]
+    const { result } = renderHook(() => useRailLaunchProposals(messages))
+    // #4 handed off in its own message; #7's hand-off came BEFORE its proposal, so that one stays.
+    expect(result.current.pinned.map((p) => p.messageId)).toEqual(['q', 's'])
+  })
 })
 
 describe('AgentRailLaunchCard spec triage (launch-triage)', () => {
