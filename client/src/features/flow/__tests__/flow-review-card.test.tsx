@@ -17,8 +17,9 @@ vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), toast), Toaster: () => 
 vi.mock('../../../lib/tauri-shell', () => ({ isTauri: () => false, revealItemInDir: vi.fn() }))
 vi.mock('../../code/lib/git-refresh', () => ({ notifyGitChanged: vi.fn() }))
 vi.mock('../../jobs/components/JobDetailModal', () => ({ JobDetailModal: () => null }))
+const runtimeRuns = vi.hoisted(() => ({ value: [] as unknown[] }))
 vi.mock('../../jobs/components/job-run/useRuntimeRuns', () => ({
-  useRuntimeRuns: () => ({ runs: [], error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn(async () => {}), refresh: vi.fn() }),
+  useRuntimeRuns: () => ({ runs: runtimeRuns.value, error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn(async () => {}), refresh: vi.fn() }),
 }))
 const flowContext = vi.hoisted(() => ({
   value: null as null | { returnToFlow: ReturnType<typeof vi.fn>; relaunch: ReturnType<typeof vi.fn> },
@@ -66,6 +67,7 @@ const withFlow = (node: React.ReactNode) => (
 )
 
 beforeEach(() => {
+  runtimeRuns.value = []
   Object.values(toast).forEach((f) => f.mockClear())
   flowContext.value = {
     returnToFlow: vi.fn(async () => ({ id: 'flow-1', state: 'active' })),
@@ -205,6 +207,15 @@ describe('Flow → Spec failed outright (Flow-authored failure)', () => {
     const actions = screen.getAllByRole('button').map((button) => button.getAttribute('data-testid')).filter((id) => id?.startsWith('flow-review-'))
     expect(actions).toEqual(['flow-review-back-to-flow', 'flow-review-relaunch'])
     expect(screen.getByTestId('flow-review-back-to-flow').getAttribute('title')).toBe('Reopen this Flow with the same changes; the agent receives the error on its next turn')
+    expect(screen.queryByTestId('mission-run-relaunch')).toBeNull()
+  })
+
+  it('a resumable crash without the failure extension keeps Resume as the primary and its Flow actions beside it', () => {
+    runtimeRuns.value = [{ runId: 'run-1', status: 'failed', nextStep: 'derive', recoverableSteps: [], active: false, canResume: true, canCancel: false }]
+    render(withFlow(<AgentPrDecisionCard envelope={crashed({ runtime: { ...crashRuntime, canResume: true } as never })} conversationId="conv-1" />))
+    expect(screen.getByTestId('mission-run-resume')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-review-back-to-flow')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-review-relaunch')).toBeInTheDocument()
     expect(screen.queryByTestId('mission-run-relaunch')).toBeNull()
   })
 

@@ -960,14 +960,17 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   }, [onSummary, summaryStep, pausedRunId, summaryPausedReason, summaryStalled, summaryApproval])
   const runActionBtn = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-caption font-medium transition-colors disabled:pointer-events-none disabled:opacity-50'
   const runtimeBusy = runtime.busy !== null || relaunching
-  const resumeAction = FEATURE_MISSION_RAIL_CARDS && actionableRun && actionableRun.canResume && (
+  const canResumeRun = Boolean(FEATURE_MISSION_RAIL_CARDS && actionableRun && actionableRun.canResume)
+  // `asPrimary`: the card's ONE primary in a failed state wears the shared primary recipe.
+  const resumeButton = (asPrimary: boolean) => actionableRun && (
     <RunPrimaryButton primary={{ id: 'resume', label: t('runCard.actions.resume'), kind: 'local', rank: 2 }} data-agent-interactive data-testid="mission-run-resume" disabled={runtimeBusy || busy !== null}
       onClick={() => void runtime.act(actionableRun, 'resume')}
-      className={cn(runActionBtn, 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20')}>
+      className={asPrimary ? PRIMARY_ACTION : cn(runActionBtn, 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20')}>
       {runtime.busy === actionableRun.runId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
       {t('runCard.actions.resume')}
     </RunPrimaryButton>
   )
+  const resumeAction = canResumeRun && resumeButton(false)
   const approveAction = FEATURE_MISSION_RAIL_CARDS && actionableRun && actionableRun.pendingApproval && (
     <RunPrimaryButton primary={{ id: 'approve', label: t('runCard.actions.approve'), kind: 'outward', rank: 0 }} data-agent-interactive data-testid="mission-run-approve" disabled={runtimeBusy || busy !== null}
       onClick={() => void runtime.act(actionableRun, 'approve')}
@@ -1000,18 +1003,19 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     <RunCardActions projectId={envelope.projectId} prDeliveryId={envelope.prDeliveryId} conversationId={conversationId ?? null}
       decision={decision} statusCode={envelope.statusCode ?? null} busy={busy !== null || envelope.operation != null || runtimeBusy} />
   ) : null
-  const relaunchAction = flowSpecRun ? flowRunActions : FEATURE_MISSION_RAIL_CARDS && (
+  const relaunchButton = (asPrimary: boolean) => flowSpecRun ? flowRunActions : FEATURE_MISSION_RAIL_CARDS && (
     <>
       <RunPrimaryButton primary={{ id: 'relaunch', label: t('runCard.actions.relaunch'), kind: 'outward', rank: 5 }} data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
         title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
         onClick={() => void relaunch()}
-        className={cn(runActionBtn, 'border-border/60 text-muted-foreground hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
+        className={asPrimary ? PRIMARY_ACTION : cn(runActionBtn, 'border-border/60 text-muted-foreground hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
         {relaunching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
         {t('runCard.actions.relaunch')}
       </RunPrimaryButton>
       {relaunchError && <p role="alert" className="w-full text-xs text-destructive" data-testid="mission-run-relaunch-error">{relaunchError}</p>}
     </>
   )
+  const relaunchAction = relaunchButton(false)
   // ── failure recovery cockpit: the run's diagnosis, with the remedies this card really has ──
   const { openTicketDetailInProject } = useTicketDetailModal()
   const { t: tRecovery } = useTranslation('recovery')
@@ -1785,7 +1789,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               </p>
               <div className="flex flex-wrap items-center gap-1.5">
                 {/* One primary: resume the run when it can be, else relaunch. The rest wait in the menu. */}
-                {resumeAction || relaunchAction}
+                {canResumeRun ? resumeButton(true) : relaunchButton(true)}
+                {/* A resumable Flow → Spec run keeps its Flow actions (Back to Flow, relaunch from the Flow) beside Resume. */}
+                {canResumeRun && flowSpecRun && flowRunActions}
                 {moreActions({ lead: implementationFailedLead })}
               </div>
               {resumeAction && !flowSpecRun && relaunchError && <p role="alert" className="text-xs text-destructive" data-testid="mission-run-relaunch-error">{relaunchError}</p>}
@@ -1793,7 +1799,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           )}
           {FEATURE_MISSION_RAIL_CARDS && decision === 'discarded' && envelope.statusCode === 'delivery_failed' && (
             <div className="mb-2 flex flex-wrap items-center gap-1.5" data-testid="mission-run-discarded-actions">
-              {relaunchAction}
+              {relaunchButton(true)}
             </div>
           )}
           {decision === 'merged' && (
