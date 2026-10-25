@@ -390,6 +390,8 @@ export interface AgentChatContextValue {
   draftEffort: string | null
   setEffort: (effort: string | null) => Promise<void>
   selectConversation: (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal; placeRestore?: boolean }) => Promise<void>
+  /** Warm a mission's snapshot (hover/focus intent) so opening it paints at once. */
+  prefetchConversation?: (id: string) => void
   deleteConversation: (id: string) => Promise<void>
   /** Rename a conversation (optimistic; blank clears to auto-title). */
   renameConversation: (id: string, title: string) => Promise<void>
@@ -504,6 +506,16 @@ function mergeTranscriptRows(current: AgentMessage[], incoming: AgentMessage[]):
     }
   }
   return rows
+}
+
+type ConversationSnapshot = Awaited<ReturnType<typeof getAgentConversation>>
+
+/** Revisit cache size: a transcript is the heavy part, a dozen missions is plenty. */
+const CONVERSATION_CACHE_LIMIT = 12
+function cacheConversation(cache: Map<string, ConversationSnapshot>, id: string, snapshot: ConversationSnapshot): void {
+  cache.delete(id) // re-insert as most recent
+  cache.set(id, snapshot)
+  while (cache.size > CONVERSATION_CACHE_LIMIT) cache.delete(cache.keys().next().value as string)
 }
 
 export function AgentChatProvider({ children, fixedConversationId }: { children: ReactNode; fixedConversationId?: string }) {
@@ -697,24 +709,28 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   }, [attentionByConversation, runAttention, extensionAttention])
   const attentionConversationIds = useMemo<ReadonlySet<string>>(() => new Set(attentionKinds.keys()), [attentionKinds])
 
+  // The ref is the authority for "is it already unread": a streamed token of a
+  // mission that is already marked must NOT touch React state — a pending
+  // setState (even one that bails out) is an urgent render that restarts the
+  // interruptible render of the mission being opened, so a busy background
+  // stream could otherwise starve it.
+  const unreadRef = useRef<ReadonlySet<string>>(new Set())
   const markUnread = useCallback((conversationId: string): void => {
     const documentHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
     if (conversationId === activeIdRef.current && !documentHidden) return
-    setUnreadConversationIds((prev) => {
-      if (prev.has(conversationId)) return prev
-      const next = new Set(prev)
-      next.add(conversationId)
-      return next
-    })
+    if (unreadRef.current.has(conversationId)) return
+    const next = new Set(unreadRef.current)
+    next.add(conversationId)
+    unreadRef.current = next
+    setUnreadConversationIds(next)
   }, [])
 
   const clearUnread = useCallback((conversationId: string): void => {
-    setUnreadConversationIds((prev) => {
-      if (!prev.has(conversationId)) return prev
-      const next = new Set(prev)
-      next.delete(conversationId)
-      return next
-    })
+    if (!unreadRef.current.has(conversationId)) return
+    const next = new Set(unreadRef.current)
+    next.delete(conversationId)
+    unreadRef.current = next
+    setUnreadConversationIds(next)
   }, [])
 
   useEffect(() => {
@@ -1052,37 +1068,85 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     return () => unregisterHandler(handlerId)
   }, [registerHandler, unregisterHandler, patchLive, liveStore, markUnread, recordAttention, refreshConversations, handlerId, fixedConversationId])
 
+  // Stale-while-revalidate: the last snapshot of every mission the person opened
+  // (or hovered) paints a revisit at once; a fresh read reconciles right after.
+  // Only the transcript/identity is cached — live turn state, queue and cards are
+  // owned by the WS stream and the live store, which never go stale.
+  const conversationCacheRef = useRef(new Map<string, ConversationSnapshot>())
+  const inflightConversationRef = useRef(new Map<string, Promise<ConversationSnapshot>>())
+  const activeRef = useRef(active)
+  activeRef.current = active
+
+  /** One GET per mission at a time: concurrent opens, hovers and focus syncs share it. */
+  const fetchConversationSnapshot = useCallback((id: string): Promise<ConversationSnapshot> => {
+    const pending = inflightConversationRef.current.get(id)
+    if (pending) return pending
+    const request = getAgentConversation(id)
+      .then((snapshot) => { cacheConversation(conversationCacheRef.current, id, snapshot); return snapshot })
+      .finally(() => { inflightConversationRef.current.delete(id) })
+    inflightConversationRef.current.set(id, request)
+    return request
+  }, [])
+
+  const prefetchConversation = useCallback((id: string): void => {
+    if (id === activeIdRef.current || fixedConversationId || secondaryWindow) return
+    if (conversationCacheRef.current.has(id) || inflightConversationRef.current.has(id)) return
+    void fetchConversationSnapshot(id).catch(() => { /* a hover must never surface an error */ })
+  }, [fetchConversationSnapshot, fixedConversationId, secondaryWindow])
+
+  /** Paint a snapshot as the open mission: transcript, rows' receipts, PR cards. */
+  const showConversation = useCallback((id: string, snapshot: ConversationSnapshot) => {
+    prSnapshotVersionRef.current++
+    const merged = mergeTranscriptRows(snapshot.messages, transcriptEventsRef.current.get(id) ?? []).map(withReceipt)
+    const msgs = [...(prEnvelopeEventsRef.current.get(id)?.values() ?? [])]
+      .reduce((projected, envelope) => upsertPrDecisionMessage(projected, id, envelope), merged)
+    for (const message of msgs) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
+    setActive(snapshot.conversation)
+    messagesRef.current = msgs
+    setMessages(msgs)
+    clearUnread(id)
+  }, [clearUnread])
+
   const loadConversation = useCallback(async (id: string, signal?: AbortSignal) => {
     const epoch = ++conversationLoadEpochRef.current
     const eventVersion = conversationEventVersionRef.current.get(id) ?? 0
     // Invalidates a focus/reconnect card hydration for the previous view even
     // when navigation later returns to the same conversation (C1→C2→C1 ABA).
     prSnapshotVersionRef.current++
-    const { conversation, messages: fetched, pendingMessages, live } = await getAgentConversation(id)
-    if (signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')
-    if (epoch !== conversationLoadEpochRef.current) {
-      if (signal) throw new DOMException('The mission changed during restoration', 'AbortError')
+    // Leaving a mission: remember exactly what the person saw, for the way back.
+    const leaving = activeRef.current
+    if (leaving && leaving.id !== id) {
+      cacheConversation(conversationCacheRef.current, leaving.id, { conversation: leaving, messages: messagesRef.current })
+    }
+    const cached = conversationCacheRef.current.get(id)
+    const revalidate = async (): Promise<void> => {
+      const fetched = await fetchConversationSnapshot(id)
+      const { pendingMessages, live } = fetched
+      if (signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')
+      if (epoch !== conversationLoadEpochRef.current) {
+        if (signal) throw new DOMException('The mission changed during restoration', 'AbortError')
+        return
+      }
+      showConversation(id, fetched)
+      if (eventVersion === (conversationEventVersionRef.current.get(id) ?? 0) && (pendingMessages !== undefined || live)) {
+        patchLive(id, (previous) => ({
+          ...previous,
+          ...(live ? { isStreaming: live.isStreaming, streamingText: live.streamingText } : {}),
+          queued: pendingMessages?.filter((item) => !consumedQueueIdsRef.current.has(item.queueId)).map((item) => withPendingReceipt(id, item)) ?? previous.queued,
+        }))
+      }
+    }
+    if (cached && !signal && leaving?.id !== id) {
+      // A revisit paints from its snapshot and resolves; the fresh read follows
+      // on its own (a failed refresh is not a failed open).
+      showConversation(id, cached)
+      void revalidate().catch(() => { /* the snapshot stays; the next focus/reconnect sync retries */ })
       return
     }
-    prSnapshotVersionRef.current++
-    const merged = mergeTranscriptRows(fetched, transcriptEventsRef.current.get(id) ?? []).map(withReceipt)
-    const msgs = [...(prEnvelopeEventsRef.current.get(id)?.values() ?? [])]
-      .reduce((projected, envelope) => upsertPrDecisionMessage(projected, id, envelope), merged)
-    for (const message of msgs) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
-    setActive(conversation)
-    messagesRef.current = msgs
-    setMessages(msgs)
-    clearUnread(id)
-    if (eventVersion === (conversationEventVersionRef.current.get(id) ?? 0) && (pendingMessages !== undefined || live)) {
-      patchLive(id, (previous) => ({
-        ...previous,
-        ...(live ? { isStreaming: live.isStreaming, streamingText: live.streamingText } : {}),
-        queued: pendingMessages?.filter((item) => !consumedQueueIdsRef.current.has(item.queueId)).map((item) => withPendingReceipt(id, item)) ?? previous.queued,
-      }))
-    }
+    await revalidate()
     // Old servers omit live snapshots; retain background state in that case.
     // Modern snapshots hydrate reloads without overwriting newer WS events.
-  }, [clearUnread, patchLive])
+  }, [fetchConversationSnapshot, showConversation, patchLive])
 
   // Reconcile persisted cards and checkpoint deliveries after missed WS events.
   // Older servers still use the card-only convergence path.
@@ -1631,6 +1695,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     if (!editable(id)) return
     const deleted = conversationsRef.current.find((c) => c.id === id) ?? (activeIdRef.current === id ? active : null)
     await deleteAgentConversation(id)
+    conversationCacheRef.current.delete(id)
     // Applied at once, no confirm: Undo restores the mission with its history.
     pushUndo({
       projectId: deleted?.pinned_project_id ?? activeProjectId,
@@ -1726,7 +1791,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
+    selectConversation, prefetchConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
     resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
     builderMode: { active: builderActive, enter: enterBuilderMode, exit: exitBuilderMode, session: builderSession },
   }), [
@@ -1738,7 +1803,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
+    selectConversation, prefetchConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
     resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
   ])
 

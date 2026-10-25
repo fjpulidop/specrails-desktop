@@ -237,4 +237,68 @@ describe('streaming concurrency harness', () => {
     // Settled messages are memoised: markdown renders only for the live bubble.
     expect(markdownRenders.count).toBeLessThan(400)
   }, 60000)
+
+  it('revisits a mission from cache and revalidates once (stale-while-revalidate)', async () => {
+    render(<Shell><AgentConversationView variant="inline" /></Shell>)
+    await until(() => chatApi !== null)
+    await chatApi!.refreshConversations()
+    await chatApi!.selectConversation('c1')
+    await until(() => chatApi?.active?.id === 'c1' && chatApi.messages.length === 160)
+    await chatApi!.selectConversation('c2')
+    await until(() => chatApi?.active?.id === 'c2' && chatApi.messages.length === 160)
+    await tick(300)
+    requests.length = 0
+    const t0 = performance.now()
+    const reopened = chatApi!.selectConversation('c1')
+    await until(() => chatApi?.active?.id === 'c1' && (chatApi?.messages.length ?? 0) === 160)
+    const painted = performance.now() - t0
+    await reopened
+    await tick(200)
+    metrics.revisit = { timeToTranscriptStateMs: Math.round(painted), requests: [...requests.filter((r) => r.startsWith('get:'))] }
+    expect(requests.filter((r) => r === 'get:c1')).toHaveLength(1) // one revalidation, no duplicate
+  }, 60000)
+
+  it('warms a mission on intent so the open needs no extra round trip', async () => {
+    render(<Shell><AgentConversationView variant="inline" /></Shell>)
+    await until(() => chatApi !== null)
+    await chatApi!.refreshConversations()
+    await chatApi!.selectConversation('c1')
+    await until(() => chatApi?.active?.id === 'c1')
+    requests.length = 0
+    chatApi!.prefetchConversation?.('c3')
+    chatApi!.prefetchConversation?.('c3') // hover jitter must not double-fetch
+    await until(() => requests.includes('get:c3'))
+    const t0 = performance.now()
+    await chatApi!.selectConversation('c3')
+    const open = performance.now() - t0
+    await tick(100)
+    metrics.prefetchedOpen = { selectResolvedMs: Math.round(open), requests: requests.filter((r) => r.startsWith('get:')) }
+    // prefetch (1) + the revalidation read of the open (1); never a third.
+    expect(requests.filter((r) => r === 'get:c3').length).toBeLessThanOrEqual(2)
+    expect(chatApi?.active?.id).toBe('c3')
+  }, 60000)
+
+  it('a long streamed answer re-parses only its live tail', async () => {
+    render(<Shell><AgentConversationView variant="inline" /></Shell>)
+    await until(() => chatApi !== null)
+    await chatApi!.refreshConversations()
+    await chatApi!.selectConversation('c1')
+    await until(() => chatApi?.active?.id === 'c1' && chatApi.messages.length === 160)
+    await until(() => markdownRenders.count >= 80)
+    const paragraph = (i: number) => `Paragraph ${i}: ${'the agent explains what it changed and why. '.repeat(10)}\n\n`
+    for (let i = 0; i < 40; i++) wsHandler({ type: 'agent_stream', conversationId: 'c1', delta: paragraph(i) })
+    await tick(800) // the smoothed reveal catches up with the 18 KB burst
+    await until(() => document.body.textContent?.includes('Paragraph 39') === true, 20000)
+    await tick(300)
+    reset()
+    const FRAMES = 40
+    for (let i = 0; i < FRAMES; i++) {
+      wsHandler({ type: 'agent_stream', conversationId: 'c1', delta: `live${i} ` })
+      await tick(16)
+    }
+    await tick(300)
+    metrics.longStreamTail = { frames: FRAMES, markdownRenders: markdownRenders.count, perFrame: +(markdownRenders.count / FRAMES).toFixed(2) }
+    // Whole-text parsing would cost ~1 parse of 18 KB per frame; chunking keeps it to the tail (+ one per new chunk).
+    expect(markdownRenders.count).toBeLessThan(FRAMES * 3)
+  }, 60000)
 })

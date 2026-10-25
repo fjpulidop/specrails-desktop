@@ -466,7 +466,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
           aria-relevant="additions"
           className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4"
         >
-          {messages.length === 0 && !isStreaming && (
+          {committedMessages.length === 0 && !isStreaming && (
             <div className="flex h-full flex-col items-center justify-center text-center text-foreground/50">
               <Bot className="mb-2 h-8 w-8 text-accent-primary/60" />
               <p className="text-sm font-medium text-foreground/70">{emptyTitle}</p>

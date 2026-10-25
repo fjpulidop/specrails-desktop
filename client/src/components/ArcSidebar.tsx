@@ -194,9 +194,24 @@ function ConversationRow({
     prevStreamingRef.current = streaming
   }, [streaming])
 
+  // Intent to open (hover/focus, or the press before the click): warm the
+  // mission's snapshot so the click paints at once.
+  const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prefetchConversation = chat.prefetchConversation
+  const armPrefetch = (delayMs: number) => {
+    if (!prefetchConversation || active) return
+    if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current)
+    prefetchTimerRef.current = setTimeout(() => { prefetchTimerRef.current = null; prefetchConversation(conversation.id) }, delayMs)
+  }
+  const cancelPrefetch = () => {
+    if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current)
+    prefetchTimerRef.current = null
+  }
+
   useEffect(() => {
     return () => {
       if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+      if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current)
     }
   }, [])
 
@@ -234,6 +249,11 @@ function ConversationRow({
       <button
         type="button"
         onClick={onSelect}
+        onPointerEnter={() => armPrefetch(120)}
+        onPointerLeave={cancelPrefetch}
+        onFocus={() => armPrefetch(120)}
+        onBlur={cancelPrefetch}
+        onPointerDown={() => armPrefetch(0)}
         className={cn(
           'flex-1 min-w-0 flex items-center gap-2 h-full rounded-md text-left',
           expanded ? 'pl-7' : 'justify-center',

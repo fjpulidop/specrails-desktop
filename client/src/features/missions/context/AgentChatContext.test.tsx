@@ -989,6 +989,54 @@ describe('self-healing mission cards (missed broadcasts)', () => {
   })
 })
 
+describe('revisiting a mission (stale-while-revalidate)', () => {
+  const row = (id: string, content: string) => ({ id, conversation_id: 'c1', role: 'assistant' as const, content, created_at: '' })
+
+  it('paints the snapshot of a mission already opened before the fresh read lands, then reconciles', async () => {
+    let c1Reads = 0
+    let releaseSecondRead!: () => void
+    const gate = new Promise<void>((resolve) => { releaseSecondRead = resolve })
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => {
+      if (id === 'c2') return { conversation: api.conv2, messages: [] }
+      c1Reads++
+      if (c1Reads === 2) await gate
+      return { conversation: api.conv1, messages: c1Reads === 1 ? [row('a', 'first')] : [row('a', 'first'), row('b', 'fresh')] }
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('select-c1')) })
+    await waitFor(() => expect(screen.getByTestId('message-text')).toHaveTextContent('first'))
+    await act(async () => { fireEvent.click(screen.getByText('select-c2')) })
+    await waitFor(() => expect(screen.getByTestId('active-id')).toHaveTextContent('c2'))
+    // A reply lands while the person is away: it must survive the cached snapshot.
+    await act(async () => { wsHandler?.({ type: 'agent_done', conversationId: 'c1', messageId: 'while-away', fullText: 'arrived while away' }) })
+
+    await act(async () => { fireEvent.click(screen.getByText('select-c1')) })
+    // The second read is still in flight and the mission is already on screen.
+    expect(screen.getByTestId('active-id')).toHaveTextContent('c1')
+    expect(screen.getByTestId('message-text')).toHaveTextContent('first')
+    expect(screen.getByTestId('message-text')).toHaveTextContent('arrived while away')
+    await act(async () => { releaseSecondRead() })
+    await waitFor(() => expect(screen.getByTestId('message-text')).toHaveTextContent('fresh'))
+    expect(c1Reads).toBe(2)
+  })
+
+  it('shares one read between concurrent opens of the same mission', async () => {
+    let reads = 0
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => {
+      reads++
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      return { conversation: api.conv1, messages: [row('a', 'one')] }
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => {
+      fireEvent.click(screen.getByText('select-c1'))
+      fireEvent.click(screen.getByText('select-c1'))
+    })
+    await waitFor(() => expect(screen.getByTestId('message-text')).toHaveTextContent('one'))
+    expect(reads).toBe(1)
+  })
+})
+
 describe('describeAgentError (known Core turn failures)', () => {
   it('reads the inactivity limits in the person\'s language and keeps unknown server text', async () => {
     const { describeAgentError } = await import('./AgentChatContext')

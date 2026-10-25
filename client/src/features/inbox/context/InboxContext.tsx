@@ -23,6 +23,12 @@ const NUDGE_TYPES = new Set(['rail.pr_state', 'rail.job_completed', 'rail.job_st
 const NUDGE_DEBOUNCE_MS = 400
 const POLL_MS = 60_000
 
+function sameSnapshot(a: InboxItem[], b: InboxItem[]): boolean {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  try { return JSON.stringify(a) === JSON.stringify(b) } catch { return false }
+}
+
 /** "3:15 PM" when the snooze ends today, "Mon 8:00 AM" otherwise. */
 function formatSnoozeEnd(until: number | null, lang: string): string {
   if (until === null) return ''
@@ -87,7 +93,9 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     try {
       const snapshot = await fetchInbox()
       if (!alive.current || mine !== revision.current) return
-      setSnapshotItems(snapshot.items)
+      // The 60 s poll and every focus return fetch again: an identical snapshot
+      // keeps its identity so the badge, the app shell and the dialog do not re-render.
+      setSnapshotItems((previous) => (sameSnapshot(previous, snapshot.items) ? previous : snapshot.items))
       setStatus('ready')
     } catch {
       // Keep what we last knew; only say "error" when there is nothing to show.

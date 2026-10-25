@@ -18,6 +18,25 @@ import { MISSION_PARAM, PLACE_PUSH_STATE, consumeUserPlaceIntent } from '../../.
  *   push, so Back returns to the mission you left; that compose entry is not
  *   restorable on Forward (see `placeKey`).
  */
+/**
+ * With the browser router the History API is updated at once while the router's
+ * React state commits as a transition, so under load `location` can trail the
+ * real URL. A revisit paints from cache instantly, which makes that window
+ * reachable: act on the real URL, and never read a trailing router state as the
+ * person's navigation (it would pull them back to the mission they just left).
+ * Memory routers (tests, embedded) never touch window.history and read as in sync.
+ */
+function routerTrailsHistory(routerKey: string): boolean {
+  if (typeof window === 'undefined') return false
+  const state = window.history.state as { idx?: unknown; key?: unknown } | null
+  return typeof state?.idx === 'number' && typeof state.key === 'string' && state.key !== routerKey
+}
+function liveSearch(routerSearch: string): string {
+  if (typeof window === 'undefined') return routerSearch
+  const state = window.history.state as { idx?: unknown } | null
+  return typeof state?.idx === 'number' ? window.location.search : routerSearch
+}
+
 export function useMissionPlaceSync(): void {
   const chat = useAgentChat()
   const { uiMode } = useUiMode()
@@ -55,6 +74,7 @@ export function useMissionPlaceSync(): void {
   const requestedRef = useRef<string | null>(null)
   useEffect(() => {
     if (!agent) return
+    if (routerTrailsHistory(locationRef.current.key)) return // the router is still catching up to the URL
     if (!urlMission) { appliedRef.current = null; requestedRef.current = null; return }
     if (urlMission === activeId) { appliedRef.current = urlMission; requestedRef.current = null; return }
     if (appliedRef.current === urlMission) return // already requested
@@ -67,7 +87,7 @@ export function useMissionPlaceSync(): void {
       if (chatRef.current.conversations.some((c) => c.id === wanted)) return
       placesRef.current?.reportMissing('mission')
     })
-  }, [agent, urlMission, activeId])
+  }, [agent, urlMission, activeId, location.key])
 
   // Mission → URL.
   const prevActiveRef = useRef<string | null | undefined>(undefined)
@@ -76,7 +96,7 @@ export function useMissionPlaceSync(): void {
     prevActiveRef.current = activeId
     if (!agent || onDocsRoute) return
     const loc = locationRef.current
-    const params = new URLSearchParams(loc.search)
+    const params = new URLSearchParams(liveSearch(loc.search))
     const current = params.get(MISSION_PARAM)
     if (current === activeId) return
     const changed = prev !== undefined && prev !== activeId

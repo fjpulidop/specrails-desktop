@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, startTransition, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { FEATURE_AGENT_MODE } from '../lib/feature-flags'
 
 export type UiMode = 'kanban' | 'agent'
@@ -38,16 +38,20 @@ export function UiModeProvider({ children, initialMode, persist = true }: { chil
 
   const setUiMode = useCallback((m: UiMode) => {
     if (!FEATURE_AGENT_MODE) return
-    setUiModeState(m)
+    // The new surface renders as an interruptible transition: the click answers
+    // at once and the current mode stays interactive until the next one is ready.
+    startTransition(() => setUiModeState(m))
     if (persist) writeStored(m)
   }, [persist])
 
   const toggleUiMode = useCallback(() => {
-    setUiModeState((cur) => {
-      if (!FEATURE_AGENT_MODE) return 'kanban'
-      const next: UiMode = cur === 'kanban' ? 'agent' : 'kanban'
-      if (persist) writeStored(next)
-      return next
+    startTransition(() => {
+      setUiModeState((cur) => {
+        if (!FEATURE_AGENT_MODE) return 'kanban'
+        const next: UiMode = cur === 'kanban' ? 'agent' : 'kanban'
+        if (persist) writeStored(next)
+        return next
+      })
     })
   }, [persist])
 

@@ -35,6 +35,8 @@ export function WebViewModalProvider({ children }: { children: ReactNode }) {
  * provider is mounted (e.g. unit tests), so consumers can call it unconditionally
  * and the link keeps its default behaviour.
  */
+const NO_WEB_VIEW: WebViewModalApi = { openWebView: () => {}, canOpenWebView: false }
+
 export function useWebViewModal(): WebViewModalApi {
-  return useContext(WebViewModalContext) ?? { openWebView: () => {}, canOpenWebView: false }
+  return useContext(WebViewModalContext) ?? NO_WEB_VIEW
 }

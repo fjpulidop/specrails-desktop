@@ -1,4 +1,4 @@
-import { Children, isValidElement, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Children, isValidElement, memo, useEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AlertCircle, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { format, isToday } from 'date-fns'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { toDate } from '../../../lib/relative-time'
+import { splitStreamedMarkdown } from '../lib/stream-markdown-blocks'
 import { cn } from '../../../lib/utils'
 import { useWebViewModal } from '../../browser/context/WebViewModalContext'
 import { MediaLightbox } from '../../chat/components/AttachmentPreviewLightbox'
@@ -449,6 +450,32 @@ interface Props {
   railProposalsPinned?: boolean
 }
 
+type MarkdownPlugins = ComponentProps<typeof ReactMarkdown>['remarkPlugins']
+type MarkdownComponents = ComponentProps<typeof ReactMarkdown>['components']
+
+/** One settled chunk of a streaming answer: parsed once, never again. */
+const StreamedChunk = memo(function StreamedChunk({ text, remarkPlugins, components }: { text: string; remarkPlugins: MarkdownPlugins; components: MarkdownComponents }) {
+  return <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>{text}</ReactMarkdown>
+})
+
+/**
+ * The message body. A LONG streaming answer renders as settled chunks (memoised)
+ * plus the live tail, so each frame re-parses the tail only; everything else
+ * (settled messages, short streams) renders whole.
+ */
+function MessageMarkdown({ body, streaming, remarkPlugins, components }: { body: string; streaming: boolean; remarkPlugins: MarkdownPlugins; components: MarkdownComponents }) {
+  const chunks = useMemo(() => (streaming ? splitStreamedMarkdown(body) : null), [body, streaming])
+  if (!chunks || chunks.stable.length === 0) {
+    return <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>{body}</ReactMarkdown>
+  }
+  return (
+    <>
+      {chunks.stable.map((text, index) => <StreamedChunk key={index} text={text} remarkPlugins={remarkPlugins} components={components} />)}
+      <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>{chunks.tail}</ReactMarkdown>
+    </>
+  )
+}
+
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
 export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
   const { t } = useTranslation('agent')
@@ -572,7 +599,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
   return (
     <article aria-label={t('message.agent')} aria-busy={streaming || undefined} className="group flex flex-col gap-1">
       <div className={cn('max-w-full', MD)}>
-        <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{body}</ReactMarkdown>
+        <MessageMarkdown body={body} streaming={!!streaming} remarkPlugins={remarkPlugins} components={markdownComponents} />
       </div>
       {frame && (
         // Both readings are clickable answers to the discriminating question:

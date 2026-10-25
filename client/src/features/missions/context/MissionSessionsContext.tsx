@@ -48,6 +48,8 @@ function MissionSessionsRoot({ children }: { children: ReactNode }) {
     const handler = (raw: unknown): void => {
       const message = raw as SessionWsMessage
       if (!message || typeof message.type !== 'string' || !SESSION_EVENTS.has(message.type)) return
+      // A user turn's tokens belong to the live store; only background turns carry a turnId.
+      if (message.type === 'agent_stream' && !message.turnId) return
       setSessions((state) => applySessionMessage(state, message))
     }
     registerHandler(handlerId, handler)

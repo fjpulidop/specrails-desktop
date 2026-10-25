@@ -226,4 +226,21 @@ describe('useMissionPlaceSync', () => {
     expect(h.chat.select).toHaveBeenCalledWith('m2', { placeRestore: true })
     expect(url()).toBe('/?mission=m2')
   })
+
+  it('ignores a router location that trails the History API (a cached revisit must not be pulled back)', async () => {
+    mount('/?mission=m1')
+    h.chat.active = { id: 'm1' }
+    notify()
+    await settle()
+    h.chat.select.mockClear()
+    // The browser router already moved the real history entry on; its React state commits later (a transition).
+    window.history.replaceState({ idx: 3, key: 'newer-entry', usr: null }, '')
+    try {
+      await userSelects('m2') // sync from cache: m2 is open, `?mission=m1` has not been replaced yet
+      expect(h.chat.select).not.toHaveBeenCalledWith('m1', expect.anything())
+      expect(h.chat.active).toEqual({ id: 'm2' })
+    } finally {
+      window.history.replaceState(null, '')
+    }
+  })
 })
