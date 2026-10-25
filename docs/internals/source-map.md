@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1342 source/build files. Nearby tests are linked where names
+Includes 1346 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -81,11 +81,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [input.tsx](../../client/src/components/ui/input.tsx)
 - [kbd.tsx](../../client/src/components/ui/kbd.tsx) · [test](../../client/src/components/ui/__tests__/kbd.test.tsx)
 - [live-dot.tsx](../../client/src/components/ui/live-dot.tsx)
+- [load-error.tsx](../../client/src/components/ui/load-error.tsx)
 - [overflow-actions.tsx](../../client/src/components/ui/overflow-actions.tsx)
 - [page-header.tsx](../../client/src/components/ui/page-header.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
 - [skeleton.tsx](../../client/src/components/ui/skeleton.tsx)
 - [switch.tsx](../../client/src/components/ui/switch.tsx)
+- [technical-detail.tsx](../../client/src/components/ui/technical-detail.tsx)
 - [tooltip.tsx](../../client/src/components/ui/tooltip.tsx)
 
 ## client/src/context
@@ -639,6 +641,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useAgentRefActions.ts](../../client/src/features/missions/hooks/useAgentRefActions.ts)
 - [useGuardedTierCycle.ts](../../client/src/features/missions/hooks/useGuardedTierCycle.ts)
 - [useMissionPlaceSync.ts](../../client/src/features/missions/hooks/useMissionPlaceSync.ts)
+- [useOpenMission.ts](../../client/src/features/missions/hooks/useOpenMission.ts)
 
 ## client/src/features/missions/lib
 
@@ -1045,6 +1048,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [origin.ts](../../client/src/lib/origin.ts)
 - [palette-bridge.ts](../../client/src/lib/palette-bridge.ts)
 - [places.ts](../../client/src/lib/places.ts) · [test](../../client/src/lib/__tests__/places.test.ts)
+- [pr-status-detail.ts](../../client/src/lib/pr-status-detail.ts) · [test](../../client/src/lib/__tests__/pr-status-detail.test.ts)
 - [relative-time.ts](../../client/src/lib/relative-time.ts) · [test](../../client/src/lib/__tests__/relative-time.test.ts)
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)
