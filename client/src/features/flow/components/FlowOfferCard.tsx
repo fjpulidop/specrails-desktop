@@ -37,13 +37,11 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
   const [busy, setBusy] = useState(false)
 
   if (!offer) return null
-  // A spec already launched from this message's rail card answers the question: the
-  // offer settles as "Implement" instead of staying clickable next to a running job.
-  const launchedHere = messageId && offer ? launchedRailIntentFor(local, messageId, intents, offer.ticketId ?? null) : null
-  const decided = messageId
-    ? intentFor(local, messageId, intents, index, 'flow-offer')
-      ?? (launchedHere ? { kind: 'flow-offer' as const, proposalIndex: index, status: 'accepted' as const, chosenMode: 'implement' as const, at: launchedHere.at } : null)
-    : null
+  const decided = messageId ? intentFor(local, messageId, intents, index, 'flow-offer') : null
+  // A spec already launched from this message's rail card answers the question. The
+  // launch card above already says what ran (rail, loop), so the offer steps aside
+  // instead of staying clickable — or claiming a loop it didn't pick.
+  if (!decided && messageId && launchedRailIntentFor(local, messageId, intents, offer.ticketId ?? null)) return null
   const handOff = messageId ? intentFor(local, messageId, intents, 0, 'flow-hand-off') : null
 
   const record = async (decision: Omit<AgentMessageIntent, 'at' | 'kind' | 'proposalIndex'>) => {
