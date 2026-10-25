@@ -268,6 +268,11 @@
       "idle": "Inativo",
       "running": "Em execução",
       "failed": "Falhou"
+    },
+    "deleteMenuItem": "Excluir rail",
+    "deleteConfirm": {
+      "title": "Excluir {{label}}?",
+      "body": "As specs voltam para o backlog. O provedor, o loop e as configurações de PR deste rail são perdidos."
     }
   },
   "freestyleDialog": {

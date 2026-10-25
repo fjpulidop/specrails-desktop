@@ -311,4 +311,43 @@ describe('RailRow status dot', () => {
     renderRailRow()
     expect(screen.getByRole('img', { name: 'Idle' })).toBeInTheDocument()
   })
+
+  describe('deleting without losing the rail by accident', () => {
+    it('Backspace / Delete on the focused rail asks first and only deletes on confirm', () => {
+      const onDelete = vi.fn()
+      renderRailRow({ ...defaultProps, onDelete })
+      const row = screen.getByRole('group', { name: 'Rail 1' })
+      fireEvent.keyDown(row, { key: 'Backspace' })
+      expect(onDelete).not.toHaveBeenCalled()
+      const dialog = screen.getByTestId('rail-delete-confirm-rail-1')
+      expect(within(dialog).getByText('Delete Rail 1?')).toBeInTheDocument()
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete rail' }))
+      expect(onDelete).toHaveBeenCalledTimes(1)
+    })
+
+    it('cancelling the confirmation keeps the rail', () => {
+      const onDelete = vi.fn()
+      renderRailRow({ ...defaultProps, onDelete })
+      fireEvent.keyDown(screen.getByRole('group', { name: 'Rail 1' }), { key: 'Delete' })
+      fireEvent.click(within(screen.getByTestId('rail-delete-confirm-rail-1')).getByRole('button', { name: 'Cancel' }))
+      expect(onDelete).not.toHaveBeenCalled()
+    })
+
+    it('right-click opens a rail menu whose Delete rail item also confirms first', () => {
+      const onDelete = vi.fn()
+      renderRailRow({ ...defaultProps, onDelete })
+      fireEvent.mouseDown(screen.getByRole('group', { name: 'Rail 1' }), { button: 2 })
+      fireEvent.click(within(screen.getByTestId('rail-context-menu-rail-1')).getByRole('menuitem', { name: 'Delete rail' }))
+      expect(onDelete).not.toHaveBeenCalled()
+      expect(screen.getByTestId('rail-delete-confirm-rail-1')).toBeInTheDocument()
+    })
+
+    it('a running rail has neither the shortcut nor the menu', () => {
+      renderRailRow({ ...defaultProps, status: 'running' as const })
+      // A running rail is not focusable as a deletable group at all.
+      expect(screen.queryByRole('group', { name: 'Rail 1' })).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rail-delete-confirm-rail-1')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rail-context-menu-rail-1')).not.toBeInTheDocument()
+    })
+  })
 })

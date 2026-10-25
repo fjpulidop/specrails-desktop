@@ -268,6 +268,11 @@
       "idle": "Inactivo",
       "running": "En ejecución",
       "failed": "Fallido"
+    },
+    "deleteMenuItem": "Eliminar rail",
+    "deleteConfirm": {
+      "title": "¿Eliminar {{label}}?",
+      "body": "Sus specs vuelven a la lista. Se pierden el proveedor, el loop y los ajustes de PR de este rail."
     }
   },
   "freestyleDialog": {

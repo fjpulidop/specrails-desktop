@@ -268,6 +268,11 @@
       "idle": "Inaktiv",
       "running": "Läuft",
       "failed": "Fehlgeschlagen"
+    },
+    "deleteMenuItem": "Rail löschen",
+    "deleteConfirm": {
+      "title": "{{label}} löschen?",
+      "body": "Die Specs kehren in den Backlog zurück. Anbieter, Loop und PR-Einstellungen dieses Rails gehen verloren."
     }
   },
   "freestyleDialog": {

@@ -21,6 +21,7 @@ import { RailLoopSelector } from '../../agents/components/RailLoopSelector'
 import { RailExecutionInfo } from './RailExecutionInfo'
 import { RailEffortSelector, type ReasoningEffort } from '../../agents/components/RailEffortSelector'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { RailPrDecisionStrip } from '../../delivery/components/RailPrDecisionStrip'
 import { RailTargetPrSelector, type RailTargetPr } from './RailTargetPrSelector'
@@ -226,6 +227,24 @@ export function RailRow({
       document.removeEventListener('keydown', onKey)
     }
   }, [ticketCtxMenu])
+  // Deleting a rail loses its provider/loop/PR settings and can't be undone client-side:
+  // the keyboard shortcut and the context menu both ask first.
+  const [railCtxMenu, setRailCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  useEffect(() => {
+    if (!railCtxMenu) return
+    function onPointer(e: PointerEvent) {
+      if ((e.target as Element | null)?.closest('[role="menu"]')) return
+      setRailCtxMenu(null)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setRailCtxMenu(null) }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [railCtxMenu])
   const { isOver, setNodeRef } = useDroppable({ id })
   // True whenever a ticket (numeric id) is being dragged anywhere in the
   // dashboard's DndContext — used to surface a subtle "available drop target"
@@ -309,8 +328,15 @@ export function RailRow({
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // Only start long press on the rail header area, not on buttons
     if ((e.target as HTMLElement).closest('button')) return
+    // Right-click: the rail's own menu (ticket pills open theirs and stop the event first).
+    // Opened on mousedown because the Tauri webview suppresses `contextmenu`.
+    if (e.button === 2 && canDelete) {
+      e.preventDefault()
+      setRailCtxMenu({ x: e.clientX, y: e.clientY })
+      return
+    }
     startLongPress()
-  }, [startLongPress])
+  }, [startLongPress, canDelete])
 
   const handleMouseUp = useCallback(() => {
     // Only clear the timer — don't exit jiggle mode (it persists after release)
@@ -338,11 +364,51 @@ export function RailRow({
     if (e.key !== 'Delete' && e.key !== 'Backspace') return
     e.preventDefault()
     e.stopPropagation()
-    onDelete()
-  }, [canDelete, onDelete])
+    setConfirmingDelete(true)
+  }, [canDelete])
+  const handleRowContextMenu = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    // Keep the OS menu on controls (inputs, buttons); everywhere else the rail has its own.
+    if ((e.target as HTMLElement).closest('button, input, textarea, select, a')) return
+    e.preventDefault()
+  }, [])
   const rowFocusProps = canDelete
-    ? { tabIndex: 0, role: 'group' as const, 'aria-label': label, 'aria-keyshortcuts': 'Delete Backspace', onKeyDown: handleRowKeyDown }
+    ? { tabIndex: 0, role: 'group' as const, 'aria-label': label, 'aria-keyshortcuts': 'Delete Backspace', onKeyDown: handleRowKeyDown, onContextMenu: handleRowContextMenu }
     : {}
+
+  const railDeleteUi = (
+    <>
+      {railCtxMenu && canDelete && createPortal(
+        <div
+          role="menu"
+          data-testid={`rail-context-menu-${id}`}
+          className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-popover shadow-xl shadow-black/40 p-1"
+          style={{ top: Math.min(railCtxMenu.y, window.innerHeight - 60), left: Math.min(railCtxMenu.x, window.innerWidth - 180) }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            autoFocus
+            onClick={(e) => { e.stopPropagation(); setRailCtxMenu(null); setConfirmingDelete(true) }}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none transition-colors"
+          >
+            <Trash2 className="w-3 h-3" aria-hidden />
+            {t('railRow.deleteMenuItem')}
+          </button>
+        </div>,
+        document.body,
+      )}
+      <ConfirmDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        title={t('railRow.deleteConfirm.title', { label })}
+        description={t('railRow.deleteConfirm.body')}
+        confirmLabel={t('railRow.deleteMenuItem')}
+        onConfirm={() => { setConfirmingDelete(false); onDelete() }}
+        testId={`rail-delete-confirm-${id}`}
+      />
+    </>
+  )
 
   const handleDeleteClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -363,6 +429,7 @@ export function RailRow({
 
   if (density === 'compact') {
     return (
+      <>
       <div
         ref={setNodeRef}
         data-testid={`rail-row-compact-${id}`}
@@ -593,10 +660,13 @@ export function RailRow({
           </button>
         )}
       </div>
+      {railDeleteUi}
+      </>
     )
   }
 
   return (
+    <>
     <div
       className="relative overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60"
       {...rowFocusProps}
@@ -876,5 +946,7 @@ export function RailRow({
         )}
       </div>
     </div>
+    {railDeleteUi}
+    </>
   )
 }

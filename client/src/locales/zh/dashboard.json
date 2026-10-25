@@ -268,6 +268,11 @@
       "idle": "空闲",
       "running": "运行中",
       "failed": "失败"
+    },
+    "deleteMenuItem": "删除轨道",
+    "deleteConfirm": {
+      "title": "删除 {{label}}？",
+      "body": "其中的规格将返回待办列表。此轨道的提供方、循环和 PR 设置将丢失。"
     }
   },
   "freestyleDialog": {
