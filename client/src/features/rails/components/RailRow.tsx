@@ -118,6 +118,9 @@ interface RailRowProps {
   launchBlockedReason?: string | null
 }
 
+/** Controls inside a rail row that keep the browser's own mouse behavior (native menu, selection, clicks). */
+const CONTROL_SELECTOR = 'button, input, textarea, select, a, [contenteditable]'
+
 export function RailRow({
   id, label, tickets, mode, status, activeJobId, profileName, aiEngine, freestyleModel, loopModel, providers,
   loopAvailable, selectedLoopId, reasoningEffort, targetPr, worktreeSummary, prDecision, onPrDecision, onPrCheckout, executionMetric, jiggleMode,
@@ -231,6 +234,14 @@ export function RailRow({
   // the keyboard shortcut and the context menu both ask first.
   const [railCtxMenu, setRailCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // Closing the menu or the confirmation hands focus back to the rail row it came from (not to <body>).
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const deleteUiWasOpenRef = useRef(false)
+  useEffect(() => {
+    const open = railCtxMenu !== null || confirmingDelete
+    if (!open && deleteUiWasOpenRef.current) returnFocusRef.current?.focus?.({ preventScroll: true })
+    deleteUiWasOpenRef.current = open
+  }, [railCtxMenu, confirmingDelete])
   useEffect(() => {
     if (!railCtxMenu) return
     function onPointer(e: PointerEvent) {
@@ -326,12 +337,14 @@ export function RailRow({
 
   // ── Mouse handlers (long press only — no mouse swipe) ─────────────────────
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only start long press on the rail header area, not on buttons
-    if ((e.target as HTMLElement).closest('button')) return
+    // Only start long press on the rail header area, not on controls: the rename input keeps its
+    // native menu (cut / copy / paste) and its text selection, like `handleRowContextMenu`.
+    if ((e.target as HTMLElement).closest(CONTROL_SELECTOR)) return
     // Right-click: the rail's own menu (ticket pills open theirs and stop the event first).
     // Opened on mousedown because the Tauri webview suppresses `contextmenu`.
     if (e.button === 2 && canDelete) {
       e.preventDefault()
+      returnFocusRef.current = (e.target as HTMLElement).closest<HTMLElement>('[role="group"]')
       setRailCtxMenu({ x: e.clientX, y: e.clientY })
       return
     }
@@ -368,7 +381,7 @@ export function RailRow({
   }, [canDelete])
   const handleRowContextMenu = useCallback((e: React.MouseEvent<HTMLElement>) => {
     // Keep the OS menu on controls (inputs, buttons); everywhere else the rail has its own.
-    if ((e.target as HTMLElement).closest('button, input, textarea, select, a')) return
+    if ((e.target as HTMLElement).closest(CONTROL_SELECTOR)) return
     e.preventDefault()
   }, [])
   const rowFocusProps = canDelete

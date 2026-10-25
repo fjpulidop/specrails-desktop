@@ -342,6 +342,24 @@ describe('RailRow status dot', () => {
       expect(screen.getByTestId('rail-delete-confirm-rail-1')).toBeInTheDocument()
     })
 
+    it('right-click on the rename input keeps the native menu (no Delete rail menu)', () => {
+      renderRailRow({ ...defaultProps, onDelete: vi.fn() })
+      fireEvent.click(screen.getByRole('button', { name: 'Rail 1' }))
+      const input = screen.getByRole('textbox')
+      expect(fireEvent.mouseDown(input, { button: 2 })).toBe(true)
+      expect(screen.queryByTestId('rail-context-menu-rail-1')).not.toBeInTheDocument()
+      expect(fireEvent.contextMenu(input)).toBe(true)
+    })
+
+    it('hands focus back to the rail row when the menu and its confirmation close', () => {
+      renderRailRow({ ...defaultProps, onDelete: vi.fn() })
+      const row = screen.getByRole('group', { name: 'Rail 1' })
+      fireEvent.mouseDown(row, { button: 2 })
+      fireEvent.click(within(screen.getByTestId('rail-context-menu-rail-1')).getByRole('menuitem', { name: 'Delete rail' }))
+      fireEvent.click(within(screen.getByTestId('rail-delete-confirm-rail-1')).getByRole('button', { name: 'Cancel' }))
+      expect(document.activeElement).toBe(row)
+    })
+
     it('a running rail has neither the shortcut nor the menu', () => {
       renderRailRow({ ...defaultProps, status: 'running' as const })
       // A running rail is not focusable as a deletable group at all.
