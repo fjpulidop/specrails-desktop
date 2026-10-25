@@ -1,0 +1,131 @@
+{
+  "entry": {
+    "try": "在示例项目上试一试",
+    "cost": "先看看是免费的。运行一份规格大约花费 {{usd}}（≈ 估算）。",
+    "local": "先看看是免费的。在你的本地引擎上运行，无需 API 费用。",
+    "recordedOnly": "目前没有可用的 AI 提供商，你可以改为观看一次录制的运行。"
+  },
+  "dialog": {
+    "title": "在示例项目上试用 Specrails",
+    "description": "一个小游戏和三份现成的规格。你会看到一份规格沿着轨道走到审阅包，而无需改动你自己的代码。",
+    "gets": {
+      "repo": "一个小型网页游戏（{{name}}），带有独立的 git 仓库",
+      "specs": "看板上有三份现成的规格",
+      "nothingRuns": "在你点击“运行”之前不会运行任何内容"
+    },
+    "folder": "文件夹",
+    "folderHint": "将创建在你的主目录内。已存在的文件夹绝不会被覆盖。",
+    "choose": "选择文件夹",
+    "chooseTitle": "选择示例的创建位置",
+    "runLater": "之后运行规格时",
+    "localAlso": "你的本地引擎（{{engine}}）也可使用，无需 API 费用。",
+    "noProvider": "目前没有可用的 AI 提供商。你仍可创建示例并观看录制的运行。",
+    "notSignedIn": "你的 AI 提供商已安装但尚未登录。你仍可创建示例并观看录制的运行。",
+    "create": "创建示例项目",
+    "creating": "正在创建…",
+    "errors": {
+      "path_exists": "该文件夹已存在，请选择其他文件夹。",
+      "outside_home": "示例必须位于你的主目录内。",
+      "generic": "无法创建示例项目，请重试。"
+    }
+  },
+  "cost": {
+    "minutes": "约 {{low}}–{{high}} 分钟",
+    "local": "无 API 费用：在你的本地引擎上运行 · {{time}}（估算）",
+    "plan": "使用你的套餐，无额外费用 · {{time}}（估算）",
+    "metered": "≈ {{usd}} · {{time}}（估算）",
+    "unknown": "如按用量计费约 {{usd}} · {{time}}（估算）",
+    "using": "快速模式，使用 {{provider}} 上的 {{model}}",
+    "cap": "超过 {{cap}} 之前会暂停并询问你。"
+  },
+  "guide": {
+    "label": "示例项目向导",
+    "stepCount": "第 {{current}} 步，共 {{total}} 步",
+    "dismiss": "关闭向导",
+    "back": "上一步",
+    "next": "下一步",
+    "done": "完成",
+    "ending": "这就是完整的流程。现在把它用在你自己的代码上。",
+    "addOwn": "现在添加你自己的项目",
+    "remove": "移除示例"
+  },
+  "steps": {
+    "spec": {
+      "title": "规格",
+      "body": "这三份规格已为你写好。每份都说明了要构建什么，以及如何判断完成。"
+    },
+    "rail": {
+      "title": "轨道",
+      "body": "轨道会把一份规格推进到完成的变更：编写、测试，然后停下来等你。启动第一份吧。"
+    },
+    "review": {
+      "title": "审阅",
+      "body": "没有任何内容会自动合并。运行结束后，审阅包会展示改动内容，并让你接受或丢弃。"
+    }
+  },
+  "run": {
+    "noProvider": "这台电脑上没有可用的 AI 提供商，因此暂时无法真实运行。录制的运行展示了同样的流程。",
+    "notSignedIn": "你的 AI 提供商尚未登录，因此暂时无法真实运行。录制的运行展示了同样的流程。",
+    "watchRecording": "观看录制的运行",
+    "recheck": "重新检查",
+    "recordingNote": "这是录制内容：不会运行任何内容，也不会产生费用。",
+    "started": "已开始。大约需要 {{low}}–{{high}} 分钟；请在轨道中查看进度。",
+    "engine": "运行于",
+    "engineLocal": "本地引擎（{{provider}}）",
+    "engineCloud": "{{provider}}",
+    "cta": "运行第一份规格",
+    "launching": "正在启动…",
+    "preparing": "正在准备项目工作区，只需片刻。",
+    "workspaceFailed": "无法准备工作区。",
+    "retryWorkspace": "重试",
+    "overBudget": "今天的预算已用完。请在 分析 ▸ 预算 中提高额度，然后重试。",
+    "failed": "无法启动运行，请重试。",
+    "failedDetail": "无法启动运行：{{detail}}"
+  },
+  "pill": {
+    "label": "示例项目",
+    "showGuide": "显示向导"
+  },
+  "remove": {
+    "title": "移除示例项目？",
+    "description": "它会从你的项目中移除。除非在下方选择删除，否则文件夹仍保留在磁盘上。",
+    "deleteFolder": "同时删除示例文件夹",
+    "irreversible": "删除文件后无法恢复。",
+    "confirm": "移除示例",
+    "confirmDelete": "移除并删除文件夹",
+    "failed": "无法移除示例项目。"
+  },
+  "toast": {
+    "created": "示例项目“{{name}}”已就绪",
+    "reopened": "已打开示例项目“{{name}}”",
+    "removed": "示例项目已移除",
+    "removedDeleted": "示例项目及其文件夹已移除"
+  },
+  "recording": {
+    "title": "一次录制的运行",
+    "description": "一次完成的首次运行是什么样子，从规格到审阅包。",
+    "badge": "录制内容：没有任何内容在运行，也不会产生费用",
+    "logLabel": "录制运行的日志",
+    "lines": {
+      "setup": "环境准备",
+      "specPhase": "阶段：编写变更",
+      "specDone": "已为“添加“重新开始”按钮”编写变更",
+      "implementPhase": "阶段：实现",
+      "implementDone": "构建通过 · 修改了 4 个文件",
+      "testPhase": "阶段：测试",
+      "testDone": "5 项测试通过",
+      "reviewPhase": "阶段：审阅",
+      "shipped": "可供审阅 · 置信度 91/100"
+    },
+    "packet": {
+      "title": "审阅包（录制）",
+      "summary": "{{tests}} 项测试通过 · 置信度 {{confidence}}/100。变更等待你的决定。",
+      "decision": "在真实运行中，你在这里决定：接受变更或丢弃它。没有你的许可，不会合并任何内容。"
+    },
+    "replay": "重播",
+    "close": "关闭"
+  },
+  "help": {
+    "replayTour": "重新播放导览"
+  }
+}

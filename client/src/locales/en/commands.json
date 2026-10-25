@@ -26,7 +26,8 @@
       "projectAnalytics": "Project Analytics",
       "activityFeed": "Activity Feed",
       "desktopSettings": "Desktop Settings",
-      "docs": "Docs"
+      "docs": "Docs",
+      "replayTour": "Replay tour"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "Collapse left sidebar (keep pinned)",

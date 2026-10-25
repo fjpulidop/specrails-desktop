@@ -2232,6 +2232,54 @@
       ]
     }
   },
+  "onboarding": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "adapters/providers.ts",
+      "adapters/runtime.ts",
+      "catalog.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../application",
+        "../domain",
+        "express"
+      ],
+      "adapters/providers.ts": [
+        "../../../provider-detection",
+        "../../../providers",
+        "../../../providers/local-adapter",
+        "../../accounting/runtime/pricing",
+        "../../specs/runtime/spec-models",
+        "../domain"
+      ],
+      "adapters/runtime.ts": [
+        "../../../worktree-manager",
+        "../../specs/runtime/ticket-store",
+        "../domain",
+        "../ports",
+        "fs",
+        "os",
+        "path"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "catalog.ts": [
+        "./domain"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
+    }
+  },
   "project-rules": {
     "publicEntries": [
       "adapters/http.ts",

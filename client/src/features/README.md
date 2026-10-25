@@ -73,6 +73,17 @@ Rules:
   off macOS), mouse buttons 4/5 in `PlaceHistoryProvider`, the title-bar buttons in
   `components/PlaceNavButtons.tsx`.
 
+## First run: the sample project
+
+The Welcome screen offers *Try it on a sample project* next to *Add your project*
+([`features/onboarding`](onboarding/README.md)). It creates a bundled tic-tac-toe repo with three
+specs under `~/Specrails Samples`, registers it, lands on the Board and shows a 3-step guide (spec,
+rail, review) with one cost-bounded **Run the first spec** action: Quick SDD, the cheapest priced
+model (or a configured local engine) and a per-run soft cap, validated against the ready providers
+first, with **Watch a recorded run** as the honest fallback. Costs are always labelled estimates.
+The old platform tour is under **Help**: *Replay tour* in the Docs dialog and the command palette
+(`replayTour()` in `lib/onboarding-events.ts`; the shell listens in `App.tsx`).
+
 ## Contextual help (Learn more)
 
 `components/HelpHint.tsx` is the one way to link a screen to the guide: an `ⓘ` icon button

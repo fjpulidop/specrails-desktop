@@ -26,7 +26,8 @@
       "projectAnalytics": "项目分析",
       "activityFeed": "活动流",
       "desktopSettings": "Desktop 设置",
-      "docs": "文档"
+      "docs": "文档",
+      "replayTour": "重新播放导览"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "收起左侧边栏（保持固定）",

@@ -5,6 +5,7 @@ import App from '../App'
 import { openDocs } from '../lib/docs-events'
 import { helpTarget } from '../lib/help-topics'
 import { openAppSettings } from '../lib/app-settings-events'
+import { replayTour } from '../lib/onboarding-events'
 
 vi.mock('../features/loops/components/LoopWindowSurface', () => ({ LoopWindowSurface: () => <div data-testid="loop-window-surface" /> }))
 
@@ -12,7 +13,7 @@ vi.mock('../features/plugins/pages/PluginsPage', () => ({ default: () => <div da
 
 vi.mock('../features/loops/pages/LoopsPage', () => ({ default: () => <div data-testid="loops-library" /> }))
 
-vi.mock('../features/projects/components/OnboardingWizard', () => ({ OnboardingWizard: () => null, hasSeenOnboarding: () => true }))
+vi.mock('../features/projects/components/OnboardingWizard', () => ({ OnboardingWizard: ({ open }: { open: boolean }) => (open ? <div data-testid="platform-tour" /> : null), hasSeenOnboarding: () => true }))
 
 vi.mock('sonner', () => ({
   toast: {
@@ -91,6 +92,15 @@ describe('App — desktop bootstrap', () => {
     await waitFor(() => {
       expect(screen.getByTestId('desktop-provider')).toBeInTheDocument()
     })
+  })
+
+  it('Help ▸ Replay tour reopens the platform tour (the Welcome screen no longer carries the button)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
+    render(<App />)
+    await waitFor(() => expect(screen.getByTestId('desktop-provider')).toBeInTheDocument())
+    expect(screen.queryByTestId('platform-tour')).not.toBeInTheDocument()
+    act(() => { replayTour() })
+    expect(await screen.findByTestId('platform-tour')).toBeInTheDocument()
   })
 
   it('does not probe /api/state for mode detection', () => {

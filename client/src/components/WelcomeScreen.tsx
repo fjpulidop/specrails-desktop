@@ -1,16 +1,15 @@
 import { useTranslation, Trans } from 'react-i18next'
-import { FolderOpen, GraduationCap, Plug, MessageSquare, Cpu, GitBranch } from 'lucide-react'
+import { FolderOpen, Plug, MessageSquare, Cpu, GitBranch } from 'lucide-react'
 import { RailMark } from './brand/RailMark'
 import { Button } from './ui/button'
+import { SampleProjectEntry } from '../features/onboarding/components/SampleProjectEntry'
 import { FEATURE_JIRA, FEATURE_MCP, FEATURE_AGENT_CHAT, FEATURE_LOCAL_ENGINES } from '../lib/feature-flags'
 
 interface WelcomeScreenProps {
   onAddProject: () => void
-  /** Re-open the platform tour (onboarding wizard). Hidden when omitted. */
-  onReplayTour?: () => void
 }
 
-export function WelcomeScreen({ onAddProject, onReplayTour }: WelcomeScreenProps) {
+export function WelcomeScreen({ onAddProject }: WelcomeScreenProps) {
   const { t } = useTranslation('setup')
   const hints = (
     [
@@ -39,17 +38,12 @@ export function WelcomeScreen({ onAddProject, onReplayTour }: WelcomeScreenProps
         </p>
       </div>
 
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-wrap items-start justify-center gap-3">
         <Button onClick={onAddProject} size="default" className="gap-2">
           <FolderOpen className="w-3.5 h-3.5" aria-hidden />
           {t('welcome.addFirstProject')}
         </Button>
-        {onReplayTour && (
-          <Button onClick={onReplayTour} size="sm" variant="ghost" className="gap-2 text-muted-foreground">
-            <GraduationCap className="w-3.5 h-3.5" aria-hidden />
-            {t('welcome.replayTour')}
-          </Button>
-        )}
+        <SampleProjectEntry />
       </div>
 
       {hints.length > 0 && (

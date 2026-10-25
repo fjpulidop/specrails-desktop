@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BookOpen, FileText, Search } from 'lucide-react'
+import { BookOpen, FileText, GraduationCap, Search } from 'lucide-react'
+import { Button } from '../../../components/ui/button'
+import { replayTour } from '../../../lib/onboarding-events'
 import { cn } from '../../../lib/utils'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Input } from '../../../components/ui/input'
@@ -137,6 +139,7 @@ interface DocsDialogProps {
 
 function DocsDialogImpl({ open, onClose, target = null }: DocsDialogProps) {
   const { t, i18n } = useTranslation('integrations')
+  const { t: tOnboarding } = useTranslation('onboarding')
   const lang = i18n.language || 'en'
   const [index, setIndex] = useState<DocsIndex | null>(null)
   const [indexLoading, setIndexLoading] = useState(true)
@@ -229,7 +232,16 @@ function DocsDialogImpl({ open, onClose, target = null }: DocsDialogProps) {
           ;(filterRef.current ?? contentRef.current)?.focus()
         }}
       >
-        <DialogHeader icon={<BookOpen />}>
+        <DialogHeader
+          icon={<BookOpen />}
+          actions={
+            // Help ▸ Replay tour: the platform tour is re-opened from here (and ⌘K), not from the Welcome screen.
+            <Button variant="ghost" size="sm" className="gap-1.5" data-testid="docs-replay-tour" onClick={() => { onClose(); replayTour() }}>
+              <GraduationCap className="size-3.5" aria-hidden />
+              {tOnboarding('help.replayTour')}
+            </Button>
+          }
+        >
           <DialogTitle>{t('docs.title')}</DialogTitle>
           <DialogDescription>
             {indexLoading

@@ -26,7 +26,8 @@
       "projectAnalytics": "Análises do projeto",
       "activityFeed": "Feed de atividade",
       "desktopSettings": "Definições do Desktop",
-      "docs": "Docs"
+      "docs": "Docs",
+      "replayTour": "Rever o tour"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "Recolher barra lateral esquerda (manter afixada)",

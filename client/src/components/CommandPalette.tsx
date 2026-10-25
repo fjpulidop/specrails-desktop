@@ -26,6 +26,7 @@ import {
   FileCode2,
   ScrollText,
   BookOpen,
+  GraduationCap,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -94,6 +95,7 @@ import {
 import { absoluteTime, compactRelativeTime } from '../lib/relative-time'
 import { LiveDot } from './ui/live-dot'
 import { Kbd } from './ui/kbd'
+import { replayTour } from '../lib/onboarding-events'
 import { RailTrack } from './brand/RailTrack'
 
 interface PageFrame {
@@ -414,6 +416,8 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     { key: 'activityFeed', label: t('palette.nav.activityFeed'), keywords: ['log'], icon: <Activity className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => handleNavigate('/activity') },
     { key: 'desktopSettings', label: t('palette.nav.desktopSettings'), keywords: ['configuration'], icon: <Settings className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => (onOpenSettings ? handleDesktopAction(onOpenSettings) : handleNavigate('/settings')) },
     { key: 'docs', label: t('palette.nav.docs'), keywords: ['documentation'], icon: <FileText className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => (onOpenDocs ? handleDesktopAction(onOpenDocs) : handleNavigate('/docs')) },
+    // Help ▸ Replay tour: the platform tour lives behind Help now, not on the Welcome screen.
+    { key: 'replayTour', label: t('palette.nav.replayTour'), keywords: ['onboarding', 'tutorial', 'help', 'tour', 'welcome'], icon: <GraduationCap className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => handleDesktopAction(replayTour) },
   ]
   const visibleNav = commandMode || !unscoped ? [] : navEntries.filter((entry) => matchesPaletteQuery(textQuery, entry.label, entry.keywords))
 

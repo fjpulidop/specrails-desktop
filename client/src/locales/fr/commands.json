@@ -26,7 +26,8 @@
       "projectAnalytics": "Analytics du projet",
       "activityFeed": "Fil d'activité",
       "desktopSettings": "Paramètres de Desktop",
-      "docs": "Docs"
+      "docs": "Docs",
+      "replayTour": "Revoir la visite"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "Replier la barre latérale gauche (garder épinglée)",

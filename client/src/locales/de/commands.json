@@ -26,7 +26,8 @@
       "projectAnalytics": "Projekt-Analytics",
       "activityFeed": "Aktivitäts-Feed",
       "desktopSettings": "Desktop-Einstellungen",
-      "docs": "Doku"
+      "docs": "Doku",
+      "replayTour": "Tour wiederholen"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "Linke Seitenleiste einklappen (angepinnt lassen)",

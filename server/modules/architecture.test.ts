@@ -67,6 +67,11 @@ const coreDependencies: Record<string, string[]> = {
   'inbox/ports.ts': ['./domain'],
   'inbox/application.ts': ['./domain', './ports'],
   'inbox/index.ts': ['./application', './domain', './ports'],
+  // Onboarding (sample project): pure preset/naming rules; the use cases depend only on their own ports.
+  'onboarding/domain.ts': [],
+  'onboarding/ports.ts': ['./domain'],
+  'onboarding/application.ts': ['./domain', './ports'],
+  'onboarding/index.ts': ['./application', './domain', './ports'],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>

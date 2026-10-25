@@ -355,6 +355,22 @@ describe('CommandPalette', () => {
     expect(onOpenDocs).toHaveBeenCalled()
   })
 
+  it('offers Help ▸ Replay tour, which asks the shell to reopen the platform tour', async () => {
+    const onReplay = vi.fn()
+    window.addEventListener('specrails:replay-tour', onReplay)
+    const user = userEvent.setup()
+    render(<CommandPalette onOpenDocs={vi.fn()} />)
+
+    await user.keyboard('{Meta>}k{/Meta}')
+    await waitFor(() => {
+      expect(screen.getByText('Replay tour')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('Replay tour'))
+    expect(onReplay).toHaveBeenCalledTimes(1)
+    window.removeEventListener('specrails:replay-tour', onReplay)
+  })
+
   // ─── Error handling ───────────────────────────────────────────────────────
 
   it('shows error toast when command spawn fails', async () => {

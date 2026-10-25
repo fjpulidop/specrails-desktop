@@ -15,6 +15,7 @@ import { UndoProvider } from './hooks/useUndo'
 import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import { OPEN_DOCS_EVENT, type DocsTarget, type OpenDocsDetail } from './lib/docs-events'
+import { REPLAY_TOUR_EVENT } from './lib/onboarding-events'
 import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
 import DashboardPage from './features/dashboard/pages/DashboardPage'
 import SettingsPage from './features/settings/pages/SettingsPage'
@@ -46,6 +47,7 @@ import { ProjectLayout } from './components/ProjectLayout'
 import { ProjectErrorBoundary } from './features/projects/components/ProjectErrorBoundary'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { OnboardingWizard, hasSeenOnboarding } from './features/projects/components/OnboardingWizard'
+import { SampleGuide } from './features/onboarding/components/SampleGuide'
 import { ArcSidebar } from './components/ArcSidebar'
 import { ProjectRightSidebar } from './components/ProjectRightSidebar'
 import { AddProjectDialog } from './features/projects/components/AddProjectDialog'
@@ -404,6 +406,12 @@ function DesktopApp() {
   // Selected mission ⇄ ?mission=<id>.
   useMissionPlaceSync()
   const [onboardingOpen, setOnboardingOpen] = useState(() => !hasSeenOnboarding())
+  // Help ▸ Replay tour (Docs dialog, ⌘K) reopens the platform tour without importing the shell.
+  useEffect(() => {
+    const onReplay = () => setOnboardingOpen(true)
+    window.addEventListener(REPLAY_TOUR_EVENT, onReplay)
+    return () => window.removeEventListener(REPLAY_TOUR_EVENT, onReplay)
+  }, [])
 
   // Remember which page each project was on
   useProjectRouteMemory(activeProjectId)
@@ -629,7 +637,7 @@ function DesktopApp() {
                 <Route path="/plugins" element={<PluginsPage />} />
                 {/* Project routes */}
                 {projects.length === 0 ? (
-                  <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} onReplayTour={() => setOnboardingOpen(true)} />} />
+                  <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} />} />
                 ) : activeProject ? (
                   <Route element={
                     <ProjectErrorBoundary key={activeProject.id} projectName={activeProject.name}>
@@ -649,7 +657,7 @@ function DesktopApp() {
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Route>
                 ) : (
-                  <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} onReplayTour={() => setOnboardingOpen(true)} />} />
+                  <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} />} />
                 )}
               </Routes>
             </Suspense>
@@ -679,6 +687,7 @@ function DesktopApp() {
       {/* New-project path (reskin): the chooser's New card puts the AGENT into
           builder mode (floating panel in board mode; mission surface + sidebar
           transform in Agent Mode) — no standalone overlay. */}
+      <SampleGuide onAddProject={() => setAddDialogOpen(true)} />
       <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} onOpenBuilder={() => agentChat.builderMode.enter()} />
       <SettingsDialog initialSection={settingsSection} initialSettingId={settingsSettingId} open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
 

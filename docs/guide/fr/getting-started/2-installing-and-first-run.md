@@ -39,3 +39,5 @@ Vous y verrez :
 C'est tout l'onboarding — aucun compte à créer, aucune inscription. Specrails fonctionne entièrement sur votre machine.
 
 Cliquez sur **Ajouter votre premier projet** et passez à [Ajouter votre premier projet](adding-your-first-project).
+
+Ou commencez par le [projet exemple](try-the-sample-project) : un petit jeu et trois specs toutes prêtes, avec le coût indiqué d'avance.

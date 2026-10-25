@@ -578,6 +578,10 @@ export function createRailsRouter(): Router {
     // Non-string values fail the VALID_MODES check below.
     let mode = normalizeRailMode(req.body?.mode ?? 'implement') as string
     const { repositoryIds: rawRepositoryIds, workspaceSelection: rawWorkspaceSelection, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch, followUp: rawFollowUp } = req.body ?? {}
+    // Per-launch soft cap (USD): > 0 caps this run, 0 waives the default. The
+    // sample-project first run sends it so a newcomer's first run is cost-bounded.
+    const rawRunCap: unknown = req.body?.runCapUsd
+    const runCapUsd = typeof rawRunCap === 'number' && Number.isFinite(rawRunCap) && rawRunCap >= 0 ? rawRunCap : undefined
     // PR review follow-up (pr-follow-up-fixes): a typed, bounded, FROZEN scope
     // for "resolve these review comments". It rides the delivery row and every
     // ai-step prompt — never the spec, whose description Jira-linked projects
@@ -1250,6 +1254,7 @@ export function createRailsRouter(): Router {
                 provider: loopProvider, model: loopModel, effort, scope,
                 ...(deciderEngine ? { deciderEngine } : {}),
                 profileName: resolvedProfile,
+                ...(runCapUsd !== undefined ? { runCapUsd } : {}),
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
                 ...(baseBranch ? { baseBranch } : {}),
@@ -1415,6 +1420,7 @@ export function createRailsRouter(): Router {
               effort,
               ...(deciderEngine ? { deciderEngine } : {}),
               profileName: resolvedProfile,
+              ...(runCapUsd !== undefined ? { runCapUsd } : {}),
               ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
             })
             .then((r) => {

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1291 source/build files. Nearby tests are linked where names
+Includes 1314 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -647,6 +647,29 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-windows.ts](../../client/src/features/missions/lib/mission-windows.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-windows.test.ts)
 - [subagent-result.ts](../../client/src/features/missions/lib/subagent-result.ts) · [test](../../client/src/features/missions/lib/__tests__/subagent-result.test.ts)
 
+## client/src/features/onboarding/components
+
+- [RecordedRunDialog.tsx](../../client/src/features/onboarding/components/RecordedRunDialog.tsx)
+- [RemoveSampleDialog.tsx](../../client/src/features/onboarding/components/RemoveSampleDialog.tsx)
+- [RunFirstSpec.tsx](../../client/src/features/onboarding/components/RunFirstSpec.tsx)
+- [SampleCostStatement.tsx](../../client/src/features/onboarding/components/SampleCostStatement.tsx)
+- [SampleGuide.tsx](../../client/src/features/onboarding/components/SampleGuide.tsx)
+- [SampleProjectDialog.tsx](../../client/src/features/onboarding/components/SampleProjectDialog.tsx)
+- [SampleProjectEntry.tsx](../../client/src/features/onboarding/components/SampleProjectEntry.tsx)
+
+## client/src/features/onboarding/hooks
+
+- [useActivateSample.ts](../../client/src/features/onboarding/hooks/useActivateSample.ts)
+- [useAnchorRect.ts](../../client/src/features/onboarding/hooks/useAnchorRect.ts)
+- [useSampleStatus.ts](../../client/src/features/onboarding/hooks/useSampleStatus.ts)
+
+## client/src/features/onboarding/lib
+
+- [recorded-run.ts](../../client/src/features/onboarding/lib/recorded-run.ts)
+- [sample-api.ts](../../client/src/features/onboarding/lib/sample-api.ts)
+- [sample-guide-state.ts](../../client/src/features/onboarding/lib/sample-guide-state.ts)
+- [sample-model.ts](../../client/src/features/onboarding/lib/sample-model.ts)
+
 ## client/src/features/plugins/lib
 
 - [plugin-windows.ts](../../client/src/features/plugins/lib/plugin-windows.ts) · [test](../../client/src/features/plugins/lib/__tests__/plugin-windows.test.ts)
@@ -998,6 +1021,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [markdown-detect.ts](../../client/src/lib/markdown-detect.ts) · [test](../../client/src/lib/__tests__/markdown-detect.test.ts)
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
+- [onboarding-events.ts](../../client/src/lib/onboarding-events.ts)
 - [open-in-editor.ts](../../client/src/lib/open-in-editor.ts) · [test](../../client/src/lib/__tests__/open-in-editor.test.ts)
 - [origin.ts](../../client/src/lib/origin.ts)
 - [palette-bridge.ts](../../client/src/lib/palette-bridge.ts)
@@ -1644,6 +1668,20 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
 - [mission-session-projector.ts](../../server/modules/missions/runtime/mission-session-projector.ts) · [test](../../server/modules/missions/runtime/mission-session-projector.test.ts)
 - [mission-tool-policy.ts](../../server/modules/missions/runtime/mission-tool-policy.ts) · [test](../../server/modules/missions/runtime/mission-tool-policy.test.ts)
+
+## server/modules/onboarding
+
+- [application.ts](../../server/modules/onboarding/application.ts)
+- [catalog.ts](../../server/modules/onboarding/catalog.ts)
+- [domain.ts](../../server/modules/onboarding/domain.ts)
+- [index.ts](../../server/modules/onboarding/index.ts)
+- [ports.ts](../../server/modules/onboarding/ports.ts)
+
+## server/modules/onboarding/adapters
+
+- [http.ts](../../server/modules/onboarding/adapters/http.ts)
+- [providers.ts](../../server/modules/onboarding/adapters/providers.ts)
+- [runtime.ts](../../server/modules/onboarding/adapters/runtime.ts)
 
 ## server/modules/project-rules
 

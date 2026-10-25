@@ -81,6 +81,17 @@ describe('DocsDialog', () => {
     })
   })
 
+  it('has Help ▸ Replay tour: closes the guide and asks the shell to reopen the platform tour', async () => {
+    const onClose = vi.fn()
+    const onReplay = vi.fn()
+    window.addEventListener('specrails:replay-tour', onReplay)
+    render(<DocsDialog open={true} onClose={onClose} />)
+    await userEvent.setup().click(await screen.findByTestId('docs-replay-tour'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onReplay).toHaveBeenCalledTimes(1)
+    window.removeEventListener('specrails:replay-tour', onReplay)
+  })
+
   it('renders category names from API', async () => {
     render(<DocsDialog open={true} onClose={vi.fn()} />)
     await waitFor(() => {

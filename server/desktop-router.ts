@@ -1,5 +1,9 @@
 import { parseSubagentRuntimeSetting } from './modules/project-settings'
 import { registerInboxRoutes } from './modules/inbox/adapters/http'
+import { registerOnboardingRoutes } from './modules/onboarding/adapters/http'
+import { loadPresetCandidates } from './modules/onboarding/adapters/providers'
+import { createSampleFiles, createSampleGit, createSampleSpecs, createSampleState } from './modules/onboarding/adapters/runtime'
+import { SAMPLE_CATALOG } from './modules/onboarding/catalog'
 import { registerUsageRoutes } from './modules/subscription-usage/adapters/http'
 import type { UsageService } from './modules/subscription-usage/runtime/usage-service'
 import { registerRuntimeRolePromptRoutes } from './runtime-role-prompts-router'
@@ -375,6 +379,47 @@ export function createDesktopRouter(
   if (usageService) registerUsageRoutes(router, usageService)
   // "Needs you" inbox: read-only projection across projects (modules/inbox).
   registerInboxRoutes(router, registry)
+  // Sample-project first run (modules/onboarding): create/remove the bundled
+  // sample project and report launch readiness. Registered before the
+  // `/projects` routes below; it shares their registration side effects.
+  registerOnboardingRoutes(router, {
+    samples: SAMPLE_CATALOG,
+    files: createSampleFiles(),
+    git: createSampleGit(),
+    specs: createSampleSpecs(),
+    state: createSampleState({
+      get: (key) => getDesktopSetting(registry.desktopDb, key),
+      set: (key, value) => setDesktopSetting(registry.desktopDb, key, value),
+    }),
+    providers: ({ refresh }) => loadPresetCandidates(refresh),
+    projects: {
+      register: ({ path: projectPath, name }) => {
+        const canonicalPath = canonicalizePath(path.resolve(projectPath))
+        const detectedNow: string[] = getDetectedIdsSync() ?? []
+        const providers = detectedNow.length > 0 ? [...detectedNow] : ['claude']
+        const slug = allocateSlug(name, new Set(listProjects(registry.desktopDb).map((p) => p.slug)))
+        const id = randomUUID()
+        const ctx = registry.addProject({ id, slug, name, path: canonicalPath, provider: providers[0], providers, repositories: [], workspacePaths: undefined })
+        broadcast({ type: 'desktop.project_added', project: ctx.project, timestamp: new Date().toISOString() })
+        // Same silent, non-blocking workspace assembly as POST /projects.
+        try {
+          if (!isWorkspacePopulated(workspacePathFor(slug))) ctx.setupManager.startSilentAssemble(id, canonicalPath, slug, providers)
+        } catch (err) {
+          console.warn('[desktop] sample silent assemble launch failed (non-fatal):', err)
+        }
+        return { id, name: ctx.project.name, path: canonicalPath }
+      },
+      unregister: (projectId) => {
+        registry.removeProject(projectId)
+        broadcast({ type: 'desktop.project_removed', projectId, timestamp: new Date().toISOString() })
+      },
+      isRegistered: (projectId) => registry.getProjectRow(projectId) !== undefined,
+      get: (projectId) => {
+        const row = registry.getProjectRow(projectId)
+        return row ? { id: row.id, name: row.name, path: row.path } : null
+      },
+    },
+  })
 
   // Loops (global, cross-project library) — /api/loops*. Registered here so the
   // routes live on the global `/api` router (loops are NOT project-scoped). The

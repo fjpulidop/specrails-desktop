@@ -291,6 +291,15 @@
       "terminals"
     ]
   },
+  "onboarding": {
+    "publicEntries": [
+      "components/SampleGuide.tsx",
+      "components/SampleProjectEntry.tsx"
+    ],
+    "dependencies": [
+      "jobs"
+    ]
+  },
   "plugins": {
     "publicEntries": [
       "lib/plugin-windows.ts",

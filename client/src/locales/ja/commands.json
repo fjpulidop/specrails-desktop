@@ -26,7 +26,8 @@
       "projectAnalytics": "プロジェクト分析",
       "activityFeed": "アクティビティフィード",
       "desktopSettings": "Desktop 設定",
-      "docs": "ドキュメント"
+      "docs": "ドキュメント",
+      "replayTour": "ツアーをもう一度見る"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "左サイドバーを折りたたむ (ピン留めは維持)",
