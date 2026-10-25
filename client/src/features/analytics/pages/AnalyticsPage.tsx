@@ -78,13 +78,18 @@ export default function AnalyticsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const budgetAnchor = useRef<HTMLDivElement | null>(null)
+  // Land on the Budget panel when asked to (the inbox's "Raise cap", the launch forecast). Captured once
+  // from the URL: the filter-persisting effect below rewrites the query string, so the param cannot be
+  // the source of truth. The scroll waits for the card itself (it renders a skeleton while loading).
+  const [landOnBudget, setLandOnBudget] = useState(() => searchParams.get(BUDGET_PANEL_PARAM) === 'budget')
+  const onBudgetReady = useCallback(() => {
+    if (!landOnBudget) return
+    budgetAnchor.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+    setLandOnBudget(false)
+  }, [landOnBudget])
+  // A repeated "Raise cap" while already on Analytics re-arms the landing.
   const wantsBudget = searchParams.get(BUDGET_PANEL_PARAM) === 'budget'
-  // Land on the Budget panel when asked to (the inbox's "Raise cap", the launch forecast).
-  useEffect(() => {
-    if (!wantsBudget) return
-    const timer = window.setTimeout(() => budgetAnchor.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }), 150)
-    return () => window.clearTimeout(timer)
-  }, [wantsBudget, activeProjectId])
+  useEffect(() => { if (wantsBudget) setLandOnBudget(true) }, [wantsBudget])
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
   const installedProviders = activeProject ? projectProviders(activeProject) : ['claude']
@@ -145,8 +150,9 @@ export default function AnalyticsPage() {
         next.set('modelProvider', filters.modelKeys.map((k) => k.provider).join(','))
       }
     }
+    if (landOnBudget) next.set(BUDGET_PANEL_PARAM, 'budget')
     setSearchParams(next, { replace: true })
-  }, [filters.period, filters.surface, filters.provider, filters.ticketId, filters.model, filters.modelKeys, setSearchParams])
+  }, [filters.period, filters.surface, filters.provider, filters.ticketId, filters.model, filters.modelKeys, landOnBudget, setSearchParams])
 
   const fetchSpending = useCallback(async () => {
     if (!activeProjectId) return
@@ -468,7 +474,7 @@ export default function AnalyticsPage() {
       {import.meta.env.DEV && activeProjectId && <LegacyWorkflowUsage projectId={activeProjectId} />}
 
       {/* Budget: caps, projection and what-if. `?panel=budget` (inbox, forecast) lands here. */}
-      {activeProjectId && <div ref={budgetAnchor}><BudgetCard projectId={activeProjectId} refreshKey={data?.summary?.totalCostUsd ?? null} /></div>}
+      {activeProjectId && <div ref={budgetAnchor}><BudgetCard projectId={activeProjectId} onReady={onBudgetReady} refreshKey={data?.summary?.totalCostUsd ?? null} /></div>}
 
       {/* Block 1b: Provider breakdown (renders only on multi-provider projects) */}
       <ProviderBreakdownCard data={data} loading={loading} />

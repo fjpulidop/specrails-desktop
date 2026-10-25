@@ -60,13 +60,13 @@ describe('BudgetCard', () => {
     expect(await row('desktop', 'month')).toHaveAttribute('data-level', 'ok')
   })
 
-  it('marks a reached cap with the destructive lamp', async () => {
+  it('marks a reached cap with the amber lamp (cost is amber; the label and dot carry the level)', async () => {
     ;(project.caps as unknown[]).splice(0, 1, cap('project', 'week', 40, 42))
     ;(project.config as Record<string, unknown>).week = 40
     render(<BudgetCard projectId="p1" />)
     const week = await row('project', 'week')
     expect(week).toHaveAttribute('data-level', 'reached')
-    expect(within(week).getByText('Reached')).toHaveClass('text-destructive')
+    expect(within(week).getByText('Reached')).toHaveClass('text-accent-warning')
   })
 
   it('labels the month-end projection as an estimate and warns when it passes the monthly cap', async () => {
@@ -86,14 +86,55 @@ describe('BudgetCard', () => {
     expect(screen.queryByTestId('budget-projection-value')).toBeNull()
   })
 
-  it('shows turns and plan limits, never dollars, for a plan-billed provider', async () => {
+  it('decides plan billing once: one note, named provider windows, no projection dollars, dollar fields collapsed', async () => {
     usage = { providers: [{ providerId: 'claude', availability: 'available', plan: 'max', spend: null, windows: [{ label: '5h', usedPercent: 42 }, { label: 'weekly', usedPercent: 18 }] }] }
     render(<BudgetCard projectId="p1" />)
     const week = await row('project', 'week')
     await waitFor(() => expect(within(week).getByTestId('budget-spent-project-week')).toHaveTextContent('Turns: 30'))
     expect(within(week).getByTestId('budget-spent-project-week')).not.toHaveTextContent('$')
-    expect(week).toHaveTextContent('Plan billing: no dollar cost per use')
-    expect(week).toHaveTextContent('5h 42% · weekly 18%')
+    // Today (no cap) reads like the other rows, not "$0.00 · no cap" beside "Turns".
+    expect(within(await row('project', 'day')).getByTestId('budget-spent-project-day')).toHaveTextContent('Turns: 30')
+    expect(week).toHaveTextContent('Claude: 5h 42% · weekly 18%')
+    // The note appears once, under the title, not in every row.
+    expect(screen.getAllByText(/Plan billing: no dollar cost per use/)).toHaveLength(1)
+    expect(week).not.toHaveTextContent('Plan billing')
+    // The month-end projection has no dollars to project.
+    expect(screen.getByTestId('budget-projection-plan')).toHaveTextContent('no per-use dollar cost')
+    expect(screen.queryByTestId('budget-projection-value')).toBeNull()
+    // The dollar fields live in a collapsed section for metered providers.
+    const details = screen.getByTestId('budget-caps-metered-project')
+    expect(details.tagName).toBe('DETAILS')
+    expect(details).not.toHaveAttribute('open')
+    expect(details).toHaveTextContent('Dollar caps (metered providers)')
+    expect(within(week).queryByLabelText('Project weekly cap (USD)')).toBeNull()
+  })
+
+  it('names each provider once when several plan providers have usage windows', async () => {
+    ;(project.spend as Record<string, unknown>).week = period(42, [
+      { provider: 'claude', usd: 20, estimatedUsd: 0, invocations: 2, turns: 10 },
+      { provider: 'codex', usd: 22, estimatedUsd: 0, invocations: 2, turns: 20 },
+    ])
+    usage = { providers: [
+      { providerId: 'claude', availability: 'available', plan: 'max', spend: null, windows: [{ label: 'session', usedPercent: 7 }, { label: 'weekly', usedPercent: 71 }] },
+      { providerId: 'codex', availability: 'available', plan: 'plus', spend: null, windows: [{ label: 'weekly', usedPercent: 0 }] },
+    ] }
+    render(<BudgetCard projectId="p1" />)
+    const week = await row('project', 'week')
+    await waitFor(() => expect(week).toHaveTextContent('Claude: session 7% · weekly 71% · Codex: weekly 0%'))
+  })
+
+  it('keeps showing dollars when any provider with spend is metered', async () => {
+    ;(project.spend as Record<string, unknown>).month = period(120, [
+      { provider: 'claude', usd: 100, estimatedUsd: 0, invocations: 2, turns: 10 },
+      { provider: 'codex', usd: 20, estimatedUsd: 0, invocations: 2, turns: 5 },
+    ])
+    usage = { providers: [
+      { providerId: 'claude', availability: 'available', plan: 'max', spend: null, windows: [{ label: 'weekly', usedPercent: 18 }] },
+      { providerId: 'codex', availability: 'unsupported-auth', plan: null, windows: [], spend: null },
+    ] }
+    render(<BudgetCard projectId="p1" />)
+    expect(await screen.findByTestId('budget-projection-value')).toBeInTheDocument()
+    expect(screen.queryByTestId('budget-plan-note')).toBeNull()
   })
 
   it('shows no dollar figure while the billing mode is still unknown', async () => {
@@ -129,12 +170,37 @@ describe('BudgetCard', () => {
     expect(patches[1].url).toMatch(/\/api\/budget$/)
   })
 
-  it('refuses a non-positive amount without calling the server', async () => {
+  it('refuses a non-positive amount inline under the input, without calling the server', async () => {
     render(<BudgetCard projectId="p1" />)
-    fireEvent.change(await screen.findByLabelText('Project weekly cap (USD)'), { target: { value: '-3' } })
+    const input = await screen.findByLabelText('Project weekly cap (USD)')
+    fireEvent.change(input, { target: { value: '-3' } })
     fireEvent.click(screen.getByTestId('budget-save-project'))
-    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith('Enter an amount above zero, or leave it empty for no cap.'))
+    const error = await screen.findByText('Enter an amount above zero, or leave it empty for no cap.')
+    expect(error).toHaveAttribute('role', 'alert')
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input.getAttribute('aria-describedby')).toBe(error.id)
+    expect(h.toast.error).not.toHaveBeenCalled()
     expect(patches).toHaveLength(0)
+    // Editing the field clears its error.
+    fireEvent.change(input, { target: { value: '30' } })
+    expect(screen.queryByText('Enter an amount above zero, or leave it empty for no cap.')).toBeNull()
+    expect(input).not.toHaveAttribute('aria-invalid')
+  })
+
+  it('offers Retry when the budget fails to load, and calls onReady once it has loaded', async () => {
+    const onReady = vi.fn()
+    const original = global.fetch
+    let failing = true
+    global.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (failing && String(input).includes('/budget/caps')) return Promise.resolve({ ok: false, status: 500, json: async () => ({}) })
+      return (original as typeof fetch)(input, init)
+    }) as never
+    render(<BudgetCard projectId="p1" onReady={onReady} />)
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    failing = false
+    fireEvent.click(retry)
+    expect(await screen.findByTestId('budget-card')).toBeInTheDocument()
+    await waitFor(() => expect(onReady).toHaveBeenCalled())
   })
 
   it('renders only the app-wide caps on the Desktop overlay', async () => {

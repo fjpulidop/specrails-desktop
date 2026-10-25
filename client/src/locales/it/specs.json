@@ -222,7 +222,7 @@
     "label": "Etichetta",
     "priority": "Priorità",
     "addToRail": "Aggiungi a un rail",
-    "launchAll": "Avvia tutto",
+    "launchAll": "Avvia selezione",
     "delete": "Elimina",
     "clear": "Deseleziona",
     "clearTitle": "Deseleziona tutto (Esc)",
@@ -263,7 +263,8 @@
       "skipNoRail_other": "{{count}} senza rail libero",
       "skipReviewLimit_one": "{{count}} trattenuta dal limite di revisione",
       "skipReviewLimit_other": "{{count}} trattenute dal limite di revisione"
-    }
+    },
+    "more": "Altro"
   },
   "views": {
     "trigger": "Viste",
@@ -289,6 +290,7 @@
     "done": "Fine",
     "linkCopied": "Link copiato",
     "linkCopyFailed": "Impossibile copiare il link",
-    "linkMissing": "Questa vista non esiste in questo progetto"
+    "linkMissing": "Questa vista non esiste in questo progetto",
+    "deleted": "Vista “{{name}}” eliminata"
   }
 }

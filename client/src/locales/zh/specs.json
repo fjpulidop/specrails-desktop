@@ -222,7 +222,7 @@
     "label": "标签",
     "priority": "优先级",
     "addToRail": "加入轨道",
-    "launchAll": "全部启动",
+    "launchAll": "启动所选",
     "delete": "删除",
     "clear": "取消选择",
     "clearTitle": "取消选择(Esc)",
@@ -263,7 +263,8 @@
       "skipNoRail_other": "{{count}} 个没有空闲轨道",
       "skipReviewLimit_one": "{{count}} 个因评审上限被暂缓",
       "skipReviewLimit_other": "{{count}} 个因评审上限被暂缓"
-    }
+    },
+    "more": "更多"
   },
   "views": {
     "trigger": "视图",
@@ -289,6 +290,7 @@
     "done": "完成",
     "linkCopied": "链接已复制",
     "linkCopyFailed": "无法复制链接",
-    "linkMissing": "此项目中没有该视图"
+    "linkMissing": "此项目中没有该视图",
+    "deleted": "已删除视图“{{name}}”"
   }
 }

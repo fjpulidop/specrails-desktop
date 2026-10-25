@@ -327,7 +327,7 @@
     "planNote": "Facturation par forfait : pas de coût en dollars par usage, on affiche donc les tours et les limites",
     "estimatedPart": "dont environ {{amount}} calculés avec la grille de prix de l’app, non communiqués",
     "resets": "réinitialisation {{time}}",
-    "runHint": "Une exécution se met en pause et demande quand son propre coût atteint ce montant.",
+    "runHint": "Une exécution se met en pause et demande quand son propre coût atteint ce montant. Le plus bas entre le plafond du projet et le plafond global s’applique.",
     "saved": "Budget enregistré",
     "saveFailed": "Impossible d’enregistrer le budget",
     "invalidNumber": "Saisissez un montant supérieur à zéro, ou laissez vide pour ne pas avoir de plafond.",
@@ -335,7 +335,8 @@
       "title": "Projection de fin de mois",
       "basis": "moyenne sur {{days}} jours {{avg}}/jour × {{remaining}} jours restants + {{mtd}} à ce jour",
       "none": "Historique insuffisant pour une projection.",
-      "overCap": "À ce rythme, vous dépasseriez le plafond mensuel de {{cap}}."
+      "overCap": "À ce rythme, vous dépasseriez le plafond mensuel de {{cap}}.",
+      "planNone": "Avec la facturation par forfait, il n’y a pas de coût en dollars par usage : aucun montant de fin de mois à projeter."
     },
     "whatIf": {
       "title": "Et si : chiffrer avec un autre modèle",
@@ -355,6 +356,12 @@
       "skipped": "{{n}} exécutions sans usage de tokens ou sans tarif sont exclues.",
       "recorded": "Coût enregistré pour ces exécutions : {{amount}}.",
       "roleNote": "L’usage est enregistré par modèle, pas par rôle : choisissez le modèle sur lequel tourne votre rôle."
-    }
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "session",
+      "weekly": "hebdo"
+    },
+    "capsMetered": "Plafonds en dollars (fournisseurs à l’usage)"
   }
 }

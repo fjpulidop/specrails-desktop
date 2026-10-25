@@ -348,16 +348,18 @@
     },
     "line": {
       "select": "选择第 {{n}} 行",
-      "selectOld": "选择原第 {{n}} 行"
+      "selectOld": "选择原第 {{n}} 行",
+      "added": "新增",
+      "removed": "删除"
     },
     "selection": {
       "clear": "清除选择"
     },
     "ask": {
-      "button": "让智能体修改这里",
+      "button": "请智能体做出修改",
       "title": "需要修改什么：",
       "placeholder": "描述你想要的修改…",
-      "ticket": "添加到规格",
+      "ticket": "规格",
       "submit": "添加到规格",
       "hint": "将作为评审反馈保存到规格中；之后针对该规格的运行会收到它。",
       "created": "已作为评审反馈添加到规格 #{{id}}。",
@@ -371,11 +373,12 @@
         "vscode": "VS Code",
         "cursor": "Cursor",
         "jetbrains": "JetBrains"
-      }
+      },
+      "failed": "无法打开 {{editor}}。是否已安装？可在 设置 ▸ 代码 中更改。"
     },
     "annotations": {
       "title": "未关联到具体行（{{count}}）",
-      "ask": "让智能体修复这个问题",
+      "ask": "请智能体做出修改",
       "source": {
         "reviewer-finding": "评审员发现",
         "review-risk": "需要检查的风险",

@@ -1,8 +1,8 @@
 {
   "palette": {
     "label": "Palette de commandes",
-    "searchPlaceholder": "Rechercher projets, commandes, jobs...",
-    "searchPlaceholderAgent": "Rechercher missions, projets, jobs...",
+    "searchPlaceholder": "Cherchez, ou tapez # @ / ? pour affiner…",
+    "searchPlaceholderAgent": "Cherchez, ou tapez # @ / ? pour affiner…",
     "noResults": "Aucun résultat.",
     "activeBadge": "actif",
     "groups": {
@@ -141,10 +141,11 @@
       "deleteSelectedN_one": "Supprimer {{count}} spec sélectionnée",
       "deleteSelectedN_other": "Supprimer {{count}} specs sélectionnées",
       "saveView": "Enregistrer la vue actuelle",
-      "switchView": "Changer de vue"
+      "switchView": "Changer de vue",
+      "openBudget": "Ouvrir Budget (plafonds, projection, et si…)",
+      "openBudgetKeywords": "budget, plafond, limite, hebdomadaire, mensuel, dépense, coût"
     },
     "scopes": {
-      "hintsLabel": "Rechercher dans",
       "remove": "Retirer le périmètre",
       "needsProject": "Ouvrez un projet pour chercher ici.",
       "searching": "Recherche…",
@@ -163,7 +164,8 @@
       "settings": {
         "label": "Réglages",
         "placeholder": "Rechercher un réglage…",
-        "prompt": "Saisissez pour chercher un réglage."
+        "prompt": "Saisissez pour chercher un réglage.",
+        "commandsFallback": "Commandes correspondant à « /{{query}} »"
       },
       "files": {
         "label": "Fichiers",

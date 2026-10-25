@@ -348,16 +348,18 @@
     },
     "line": {
       "select": "Sélectionner la ligne {{n}}",
-      "selectOld": "Sélectionner la ligne d'origine {{n}}"
+      "selectOld": "Sélectionner la ligne d'origine {{n}}",
+      "added": "ajoutée",
+      "removed": "supprimée"
     },
     "selection": {
       "clear": "Effacer la sélection"
     },
     "ask": {
-      "button": "Demander à l'agent de modifier ceci",
+      "button": "Demander une modification à l'agent",
       "title": "Que faut-il changer dans",
       "placeholder": "Décrivez la modification souhaitée…",
-      "ticket": "Ajouter à la spec",
+      "ticket": "Spec",
       "submit": "Ajouter à la spec",
       "hint": "Enregistré comme retour de revue sur la spec ; la prochaine exécution en tiendra compte.",
       "created": "Ajouté à la spec n° {{id}} comme retour de revue.",
@@ -371,11 +373,12 @@
         "vscode": "VS Code",
         "cursor": "Cursor",
         "jetbrains": "JetBrains"
-      }
+      },
+      "failed": "Impossible d’ouvrir {{editor}}. Est-il installé ? Changez-le dans Réglages ▸ Code."
     },
     "annotations": {
       "title": "Sans ligne associée ({{count}})",
-      "ask": "Demander à l'agent de corriger",
+      "ask": "Demander une modification à l'agent",
       "source": {
         "reviewer-finding": "Constat du relecteur",
         "review-risk": "Risque à vérifier",

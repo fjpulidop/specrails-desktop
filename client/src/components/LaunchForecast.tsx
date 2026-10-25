@@ -3,7 +3,7 @@ import { Clock3 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useLaunchForecast, useProviderBilling } from '../hooks/useLaunchForecast'
 import { budgetOutlook, forecastMinutes, formatUsdBand } from '../lib/launch-forecast'
-import { openAppSettings, openBudgetPanel, openProjectSettings } from '../lib/app-settings-events'
+import { openBudgetPanel } from '../lib/app-settings-events'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface LaunchForecastProps {
@@ -25,7 +25,7 @@ interface LaunchForecastProps {
  * "Not enough history yet" instead of a guess and the dollar figure shown only
  * when the provider is positively known to be metered (never on a plan or while
  * the billing mode is unknown). When today's spend plus the top of the band would reach
- * the daily budget it adds a caution that opens the budget settings.
+ * the daily budget it adds a caution that opens the Budget panel.
  */
 export function LaunchForecast({ projectId, loopId, provider, perSpec = false, hideWhenInsufficient = false, className }: LaunchForecastProps) {
   const { t, i18n } = useTranslation('common')
@@ -38,10 +38,8 @@ export function LaunchForecast({ projectId, loopId, provider, perSpec = false, h
   if (hideWhenInsufficient && !data.time && outlook === 'none') return null
   const openBudget = (event: React.MouseEvent) => {
     event.stopPropagation()
-    // Weekly and monthly caps are edited in Analytics ▸ Budget; the daily budget in settings.
-    if (data.budget?.period) openBudgetPanel()
-    else if (data.budget?.scope === 'desktop') openAppSettings('advanced')
-    else openProjectSettings('budget')
+    // Every cap (daily, weekly, monthly) is edited in one place: Analytics ▸ Budget.
+    openBudgetPanel()
   }
   // Longer caps word the same lines for their own period (i18n context), daily keeps the base text.
   const ctx = data.budget?.period ? { context: data.budget.period } : {}

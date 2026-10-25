@@ -19,6 +19,11 @@ vi.mock('../../../../hooks/useLaunchBudgetGuard', () => ({
   },
 }))
 
+const forecastState = vi.hoisted(() => ({ queries: [] as unknown[], value: null as unknown }))
+vi.mock('../../../../hooks/useLaunchForecast', () => ({
+  useBulkLaunchForecast: (queries: unknown) => { forecastState.queries.push(queries); return forecastState.value },
+}))
+
 import { useSpecBulkActions, type BulkLaunchOutcome } from '../useSpecBulkActions'
 
 const RAILS: RailState[] = [
@@ -129,6 +134,7 @@ describe('useSpecBulkActions (CD4)', () => {
   })
 
   describe('Launch all', () => {
+    beforeEach(() => { forecastState.value = null; forecastState.queries.length = 0 })
     const open = () => screen.getByRole('dialog')
 
     it('opens LaunchAllDialog with one rail per spec, and launches nothing until confirmed', () => {
@@ -138,6 +144,26 @@ describe('useSpecBulkActions (CD4)', () => {
       expect(open()).toHaveTextContent('2 specs')
       expect(s.deps.launchRail).not.toHaveBeenCalled()
       expect(s.deps.moveToRail).not.toHaveBeenCalled()
+    })
+
+    it('forecasts the WHOLE batch: one query per run across every rail, summed in the dialog, with the pause warning', () => {
+      forecastState.value = { runs: 2, cost: { lowUsd: 3, highUsd: 7 }, mayPause: true }
+      const s = setup()
+      act(() => s.h.onLaunch([1, 2]))
+      expect(forecastState.queries.at(-1)).toEqual([
+        { projectId: 'p1', loopId: 'factory:implement', provider: 'rail-1' },
+        { projectId: 'p1', loopId: 'factory:implement', provider: 'rail-2' },
+      ])
+      expect(screen.getByTestId('launch-all-forecast-total')).toHaveTextContent('2 runs · usually $3–$7 in total')
+      expect(screen.getByTestId('launch-all-may-pause')).toHaveTextContent('This may reach a budget cap and pause some runs.')
+    })
+
+    it('says nothing extra when the batch has no dollars to sum (plan billing) and the cap is safe', () => {
+      forecastState.value = { runs: 2, cost: null, mayPause: false }
+      const s = setup()
+      act(() => s.h.onLaunch([1, 2]))
+      expect(screen.queryByTestId('launch-all-forecast')).toBeNull()
+      void s
     })
 
     it('cancelling launches nothing', () => {

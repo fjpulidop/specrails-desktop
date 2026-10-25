@@ -29,7 +29,7 @@ async function waitForSelfFetchingSections() {
   await screen.findByTestId('integration-branch-input')
   await screen.findByTestId('worktree-env-input')
   await waitFor(() => expect(screen.getByLabelText('Enable pipeline telemetry')).toBeInTheDocument())
-  await waitFor(() => expect(screen.getByPlaceholderText('e.g. 5.00')).toBeInTheDocument())
+  await waitFor(() => expect(screen.getByTestId('project-daily-budget-summary')).toBeInTheDocument())
 }
 
 describe('ProjectSettingsDialog', () => {

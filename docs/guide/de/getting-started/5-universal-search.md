@@ -21,7 +21,7 @@ Treffer zeigen einen kurzen Ausschnitt um die erste Übereinstimmung, mit hervor
 
 ## Einstellungen
 
-`/` kennt die wichtigsten Einstellungsblöcke in deiner Sprache: Design, Sprache, Editor, Budgets, Benachrichtigungen, Webhooks, Updates, Branch, Umgebung, Telemetrie, Regeln und mehr. Projekteinstellungen werden angeboten, wenn ein Projekt geöffnet ist. Wähle eine aus, und das richtige Fenster öffnet sich an diesem Block. Ohne Präfix fügt ein starker Treffer (ab drei Zeichen) den normalen Ergebnissen bis zu drei Einstellungen hinzu.
+`/` kennt die wichtigsten Einstellungsblöcke in deiner Sprache: Design, Sprache, Editor, Budgets, Benachrichtigungen, Webhooks, Updates, Branch, Umgebung, Telemetrie, Regeln und mehr. Projekteinstellungen werden angeboten, wenn ein Projekt geöffnet ist. Wähle eine aus, und das richtige Fenster öffnet sich an diesem Block. Ohne Präfix fügt ein starker Treffer (ab drei Zeichen) den normalen Ergebnissen bis zu drei Einstellungen hinzu. `/budget` findet auch das Budget-Panel (Limits, Prognose, Was-wäre-wenn), in dem das Wochen- und das Monatslimit liegen. Ein Slash-Befehl wie `/implement` steht unter den Einstellungen in einer eigenen Gruppe, das Präfix `/` blendet ihn also nie aus.
 
 ## Job-Protokolle
 

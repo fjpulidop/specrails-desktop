@@ -100,7 +100,7 @@ describe('paused building card', () => {
     await act(async () => { fireEvent.click(screen.getByTestId('pr-run-paused-resume')) })
     expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/loop-runs\/r1\/resume$/), expect.objectContaining({ method: 'POST' }))
     expect(runtime.state.act).not.toHaveBeenCalled()
-    expect(toast.error).toHaveBeenCalledWith('The daily budget is still exhausted.', expect.objectContaining({ description: expect.stringContaining('Settings ▸ Budget') }))
+    expect(toast.error).toHaveBeenCalledWith('The daily budget is still exhausted.', expect.objectContaining({ description: expect.stringContaining('Analytics ▸ Budget') }))
   })
 
   it('relaunch reports a daily budget 409 in localized words', async () => {

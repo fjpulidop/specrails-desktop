@@ -110,7 +110,7 @@
     "actionFailed": "Esa acción no se completó.",
     "revisionStale": "Esto se acaba de resolver en otro sitio — recarga para ver cómo está.",
     "revisionFailed": "No se pudo iniciar el cambio. Tu texto se ha conservado.",
-    "revisionBudget": "El presupuesto diario está agotado, así que el cambio no se inició. Tu texto se ha conservado."
+    "revisionBudget": "El límite diario está agotado, así que el cambio no se inició. Tu texto se ha conservado."
   },
   "versions": {
     "title": "Versiones anteriores ({{count}})",
@@ -348,16 +348,18 @@
     },
     "line": {
       "select": "Seleccionar la línea {{n}}",
-      "selectOld": "Seleccionar la línea original {{n}}"
+      "selectOld": "Seleccionar la línea original {{n}}",
+      "added": "añadida",
+      "removed": "eliminada"
     },
     "selection": {
       "clear": "Borrar la selección"
     },
     "ask": {
-      "button": "Pedir al agente que cambie esto",
-      "title": "¿Qué debería cambiar en",
+      "button": "Pedir un cambio al agente",
+      "title": "Cambio a hacer en",
       "placeholder": "Describe el cambio que quieres…",
-      "ticket": "Añadir a la spec",
+      "ticket": "Spec",
       "submit": "Añadir a la spec",
       "hint": "Se guarda como feedback de revisión en la spec; la próxima ejecución sobre ella lo recibirá.",
       "created": "Añadido a la spec #{{id}} como feedback de revisión.",
@@ -371,11 +373,12 @@
         "vscode": "VS Code",
         "cursor": "Cursor",
         "jetbrains": "JetBrains"
-      }
+      },
+      "failed": "No se pudo abrir {{editor}}. ¿Está instalado? Cámbialo en Ajustes ▸ Código."
     },
     "annotations": {
       "title": "Sin línea asociada ({{count}})",
-      "ask": "Pedir al agente que lo arregle",
+      "ask": "Pedir un cambio al agente",
       "source": {
         "reviewer-finding": "Hallazgo del revisor",
         "review-risk": "Riesgo a comprobar",

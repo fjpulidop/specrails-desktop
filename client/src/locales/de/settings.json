@@ -45,19 +45,17 @@
   "budget": {
     "title": "Budget",
     "description": "Tagesausgabenlimit für dieses Projekt festlegen. Die Queue pausiert automatisch, wenn das Limit erreicht ist.",
-    "dailyLabel": "Tagesbudget (USD)",
-    "dailyHelper": "Leer lassen zum Deaktivieren. Ausgaben werden über die letzten 24 Stunden berechnet.",
-    "dailyPlaceholder": "z. B. 5.00",
+    "dailyLabel": "Tageslimit",
+    "dailyHelper": "Die Ausgaben werden über die letzten 24 Stunden gezählt. Die Queue pausiert, sobald das Limit erreicht ist.",
     "perJobLabel": "Kostenalarm pro Job (USD)",
     "perJobHelper": "Alarm, wenn ein einzelner Job in diesem Projekt diesen Betrag überschreitet.",
     "perJobPlaceholder": "z. B. 0.50",
     "invalidNumber": "Positive Zahl eingeben oder leer lassen zum Deaktivieren",
-    "dailyRemoved": "Tagesbudget entfernt",
-    "dailySet": "Tagesbudget auf ${{amount}} gesetzt",
     "perJobAlertDisabled": "Kostenalarm pro Job deaktiviert",
     "alertSet": "Alarm für Jobs über ${{amount}} gesetzt",
-    "saveBudgetFailed": "Budget konnte nicht gespeichert werden",
-    "saveThresholdFailed": "Schwellenwert konnte nicht gespeichert werden"
+    "saveThresholdFailed": "Schwellenwert konnte nicht gespeichert werden",
+    "dailyCurrent": "Aktuell {{amount}} pro Tag",
+    "dailyNone": "Kein Tageslimit gesetzt"
   },
   "desktop": {
     "nav": {
@@ -83,14 +81,10 @@
     "techUrlSaved": "specrails-tech-URL gespeichert",
     "techUrlSaveFailed": "URL konnte nicht gespeichert werden",
     "budgetAlertsHeading": "Budget & Alarme",
-    "dailyBudgetLabel": "Desktop-Tagesbudget (USD)",
+    "dailyBudgetLabel": "Desktop-Tageslimit",
     "dailyBudgetHelper": "Globales Tagesausgabenlimit über alle Projekte. Queues pausieren automatisch bei Überschreitung.",
-    "dailyBudgetPlaceholder": "z. B. 10.00",
     "perJobHelper": "Alarm, wenn ein einzelner Job diesen Betrag überschreitet. Leer lassen zum Deaktivieren.",
     "costAlertsDisabled": "Kostenalarme deaktiviert",
-    "dailyBudgetRemoved": "Desktop-Tagesbudget entfernt",
-    "dailyBudgetSet": "Desktop-Tagesbudget auf ${{amount}} gesetzt",
-    "dailyBudgetSaveFailed": "Desktop-Tagesbudget konnte nicht gespeichert werden",
     "projectRemoved": "Projekt entfernt",
     "projectRemoveFailed": "Projekt konnte nicht entfernt werden",
     "onboardingHeading": "Onboarding",
@@ -109,7 +103,9 @@
       "agents": "Agenten",
       "system": "System"
     },
-    "unsavedChanges": "Ungespeicherte Änderungen"
+    "unsavedChanges": "Ungespeicherte Änderungen",
+    "dailyBudgetCurrent": "Aktuell {{amount}} pro Tag",
+    "dailyBudgetNone": "Kein Tageslimit gesetzt"
   },
   "notifications": {
     "heading": "OS-Benachrichtigungen",
@@ -522,5 +518,8 @@
       "cursor": "Cursor",
       "jetbrains": "JetBrains-IDE"
     }
-  }
+  },
+  "budgetMoved": "Limits werden unter Analysen ▸ Budget bearbeitet.",
+  "openBudget": "Budget öffnen",
+  "openSettings": "Einstellungen öffnen"
 }

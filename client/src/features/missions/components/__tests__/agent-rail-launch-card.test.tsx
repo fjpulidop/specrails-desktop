@@ -20,6 +20,7 @@ import type { ProjectRepository } from '../../../projects/lib/project-repositori
 import { StrictMode } from 'react'
 import { setActiveProjectId } from '../../../../lib/api'
 import { resetLaunchForecastCache } from '../../../../lib/launch-forecast'
+import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
 
 vi.mock('../../../jobs/components/JobDetailModal', () => ({
   JobDetailModal: ({ jobId, projectId, onClose }: { jobId: string; projectId?: string; onClose: () => void }) => (
@@ -105,7 +106,7 @@ describe('AgentRailLaunchCard launch forecast', () => {
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
   })
 
-  it('asks before Play when today\'s budget is already reached; Launch anyway then launches, Cancel does not', async () => {
+  it('does not launch when today\'s budget is reached: the dialog offers Raise cap, never Launch anyway', async () => {
     resetLaunchForecastCache()
     const reached = { ...forecast, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
     mockFetch({ '/launch-forecast': () => ({ status: 200, body: reached }) })
@@ -114,14 +115,20 @@ describe('AgentRailLaunchCard launch forecast', () => {
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     fireEvent.click(screen.getByTestId('rail-card-play'))
     const dialog = await screen.findByTestId('launch-over-budget-dialog')
-    expect(dialog).toHaveTextContent('Launch anyway?')
+    expect(dialog).toHaveTextContent('the launch would be refused')
+    expect(within(dialog).queryByRole('button', { name: 'Launch anyway' })).toBeNull()
     expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByTestId('launch-over-budget-dialog')).toBeNull())
     expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
-    fireEvent.click(screen.getByTestId('rail-card-play'))
-    fireEvent.click(within(await screen.findByTestId('launch-over-budget-dialog')).getByRole('button', { name: 'Launch anyway' }))
-    await waitFor(() => expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(true))
+    const opened = vi.fn()
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+    try {
+      fireEvent.click(screen.getByTestId('rail-card-play'))
+      fireEvent.click(within(await screen.findByTestId('launch-over-budget-dialog')).getByRole('button', { name: 'Raise cap' }))
+      expect(opened).toHaveBeenCalledTimes(1)
+    } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
+    expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
   })
 
   it('says nothing once the launch is decided', async () => {
@@ -541,7 +548,7 @@ describe('AgentRailLaunchCard', () => {
     const error = screen.getByTestId('rail-card-error')
     expect(error).toHaveTextContent('Daily budget reached. Nothing was launched.')
     expect(error).toHaveTextContent('Project daily budget reached ($12.40 of $10.00)')
-    expect(error).toHaveTextContent('Project settings ▸ Budget')
+    expect(error).toHaveTextContent('Analytics ▸ Budget')
     expect(error).not.toHaveTextContent('SERVER ENGLISH')
     expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
   })

@@ -21,7 +21,7 @@ I risultati mostrano un breve estratto attorno alla prima corrispondenza, con il
 
 ## Impostazioni
 
-`/` conosce i principali blocchi di impostazioni, nella tua lingua: tema, lingua, editor, budget, notifiche, webhook, aggiornamenti, branch, ambiente, telemetria, regole e altro. Le impostazioni del progetto vengono proposte quando un progetto è aperto. Sceglierne una apre la finestra giusta su quel blocco. Senza prefisso, una corrispondenza forte (tre o più caratteri) aggiunge fino a tre impostazioni ai risultati normali.
+`/` conosce i principali blocchi di impostazioni, nella tua lingua: tema, lingua, editor, budget, notifiche, webhook, aggiornamenti, branch, ambiente, telemetria, regole e altro. Le impostazioni del progetto vengono proposte quando un progetto è aperto. Sceglierne una apre la finestra giusta su quel blocco. Senza prefisso, una corrispondenza forte (tre o più caratteri) aggiunge fino a tre impostazioni ai risultati normali. `/budget` trova anche il pannello Budget (limiti, proiezione, e se…), dove si trovano i limiti settimanale e mensile. Un comando con barra come `/implement` compare sotto le impostazioni, in un gruppo a parte, quindi il prefisso `/` non lo nasconde mai.
 
 ## Log dei job
 

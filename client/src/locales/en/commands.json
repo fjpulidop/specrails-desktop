@@ -1,8 +1,8 @@
 {
   "palette": {
     "label": "Command palette",
-    "searchPlaceholder": "Search projects, commands, jobs...",
-    "searchPlaceholderAgent": "Search missions, projects, jobs...",
+    "searchPlaceholder": "Search, or type # @ / ? to narrow…",
+    "searchPlaceholderAgent": "Search, or type # @ / ? to narrow…",
     "noResults": "No results found.",
     "activeBadge": "active",
     "groups": {
@@ -141,10 +141,11 @@
       "deleteSelectedN_one": "Delete {{count}} selected spec",
       "deleteSelectedN_other": "Delete {{count}} selected specs",
       "saveView": "Save current view",
-      "switchView": "Switch view"
+      "switchView": "Switch view",
+      "openBudget": "Open Budget (caps, projection, what-if)",
+      "openBudgetKeywords": "budget, cap, limit, weekly, monthly, spend, cost"
     },
     "scopes": {
-      "hintsLabel": "Search in",
       "remove": "Remove scope",
       "needsProject": "Open a project to search here.",
       "searching": "Searching…",
@@ -163,7 +164,8 @@
       "settings": {
         "label": "Settings",
         "placeholder": "Search settings…",
-        "prompt": "Type to search settings."
+        "prompt": "Type to search settings.",
+        "commandsFallback": "Commands matching “/{{query}}”"
       },
       "files": {
         "label": "Files",

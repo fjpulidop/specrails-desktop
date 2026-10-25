@@ -1,5 +1,5 @@
 import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
-import type { AppSettingsSection } from '../../../lib/app-settings-events'
+import { openBudgetPanel, type AppSettingsSection } from '../../../lib/app-settings-events'
 import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
@@ -20,6 +20,7 @@ import { FEATURE_MCP } from '../../../lib/feature-flags'
 import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, Cpu, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles, Gauge, Save } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
+import { formatUsd } from '../../../lib/format-usd'
 import { Input } from '../../../components/ui/input'
 import { Switch } from '../../../components/ui/switch'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
@@ -162,10 +163,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
   // Advanced pane: draft vs last-saved values feed one dirty save bar.
   const [costAlertThreshold, setCostAlertThreshold] = useState('')
   const [savedCostAlertThreshold, setSavedCostAlertThreshold] = useState('')
+  // Read-only here: every cap is edited in Analytics ▸ Budget (the single editor).
   const [desktopDailyBudget, setDesktopDailyBudget] = useState('')
-  const [savedDesktopDailyBudget, setSavedDesktopDailyBudget] = useState('')
   const [isSavingAdvanced, setIsSavingAdvanced] = useState(false)
-  const advancedDirty = costAlertThreshold !== savedCostAlertThreshold || desktopDailyBudget !== savedDesktopDailyBudget
+  const advancedDirty = costAlertThreshold !== savedCostAlertThreshold
 
   // Destructive-action confirmations
   const [pendingRemoveProject, setPendingRemoveProject] = useState<DesktopProject | null>(null)
@@ -228,7 +229,6 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
       .then((r) => r.json())
       .then((data: { desktopDailyBudgetUsd?: number | null }) => {
         setDesktopDailyBudget(amountValue(data.desktopDailyBudgetUsd))
-        setSavedDesktopDailyBudget(amountValue(data.desktopDailyBudgetUsd))
       })
       .catch(() => {})
   }, [open])
@@ -258,36 +258,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
     return false
   }
 
-  /** Persists the Desktop-wide daily budget. Returns true on success. */
-  async function saveDesktopDailyBudget(): Promise<boolean> {
-    try {
-      const val = desktopDailyBudget.trim() === '' ? null : parseFloat(desktopDailyBudget)
-      if (val !== null && (isNaN(val) || val <= 0)) {
-        toast.error(t('budget.invalidNumber'))
-        return false
-      }
-      const res = await fetch('/api/budget', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ desktopDailyBudgetUsd: val }),
-      })
-      if (res.ok) {
-        setSavedDesktopDailyBudget(desktopDailyBudget)
-        toast.success(val == null ? t('desktop.dailyBudgetRemoved') : t('desktop.dailyBudgetSet', { amount: val }))
-        return true
-      }
-      toast.error(t('desktop.dailyBudgetSaveFailed'))
-    } catch {
-      toast.error(t('desktop.dailyBudgetSaveFailed'))
-    }
-    return false
-  }
-
   /** One save for the whole Advanced pane: only the edited fields are sent. */
   async function handleSaveAdvanced() {
     setIsSavingAdvanced(true)
     try {
-      if (desktopDailyBudget !== savedDesktopDailyBudget) await saveDesktopDailyBudget()
       if (costAlertThreshold !== savedCostAlertThreshold) await saveCostAlertThreshold()
     } finally {
       setIsSavingAdvanced(false)
@@ -518,20 +492,19 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
               <SettingsCard title={t('desktop.budgetAlertsHeading')} contentClassName="space-y-4" data-setting-id="budgetAlerts">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1">
-                    <label htmlFor="settings-daily-budget" className="text-label">{t('desktop.dailyBudgetLabel')}</label>
+                    <span className="text-label">{t('desktop.dailyBudgetLabel')}</span>
                     <HelpHint topic="dailyBudget" />
                   </div>
                   <p className="text-xs text-muted-foreground">{t('desktop.dailyBudgetHelper')}</p>
-                  <Input
-                    id="settings-daily-budget"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={desktopDailyBudget}
-                    onChange={(e) => setDesktopDailyBudget(e.target.value)}
-                    placeholder={t('desktop.dailyBudgetPlaceholder')}
-                    className="h-7 text-xs font-mono"
-                  />
+                  <div className="flex flex-wrap items-center justify-between gap-2" data-testid="settings-daily-budget-summary">
+                    <p className="num text-body text-foreground">
+                      {desktopDailyBudget === '' ? t('desktop.dailyBudgetNone') : t('desktop.dailyBudgetCurrent', { amount: formatUsd(Number(desktopDailyBudget)) })}
+                    </p>
+                    <Button size="sm" variant="outline" onClick={() => { onClose(); openBudgetPanel() }} data-testid="settings-open-budget">
+                      {t('openBudget')}
+                    </Button>
+                  </div>
+                  <p className="text-micro text-muted-foreground">{t('budgetMoved')}</p>
                 </div>
                 <div className="space-y-1.5 border-t border-border pt-3">
                   <label htmlFor="settings-cost-alert" className="text-label">{t('budget.perJobLabel')}</label>

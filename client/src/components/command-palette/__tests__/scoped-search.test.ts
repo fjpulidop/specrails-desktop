@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { SCOPE_PREFIX, SCOPE_ROW_CAPS, SEARCH_SCOPES, UNSCOPED_SETTINGS_CAP, detectScope } from '../search-scopes'
 import { highlightParts, rangesForQuery, sanitizeRanges } from '../snippet'
-import { rankSettings } from '../settings-search'
+import { rankSettings as rankAll, type SettingRow, type SettingsSearchRow } from '../settings-search'
 import { SETTINGS_REGISTRY } from '../../../features/settings/lib/settings-registry'
 import type { TFn } from '../palette-actions'
 
@@ -71,6 +71,10 @@ describe('highlight sanitization', () => {
   })
 })
 
+// Most assertions are about the settings registry; the Budget panel action row has its own tests below.
+const isSetting = (row: SettingsSearchRow): row is SettingRow => row.kind === 'setting'
+const rankSettings = (...args: Parameters<typeof rankAll>) => rankAll(...args).filter(isSetting)
+
 describe('rankSettings', () => {
   const t = tIn('en')
 
@@ -116,5 +120,28 @@ describe('rankSettings', () => {
     expect(rankSettings(tIn('es'), 'presupuesto', { hasProject: true, cap: 8 }).map((r) => r.entry.id)).toEqual(expect.arrayContaining(['budgetAlerts', 'projectBudget']))
     expect(rankSettings(tIn('ja'), '予算', { hasProject: true, cap: 8 }).map((r) => r.entry.id)).toContain('projectBudget')
     expect(rankSettings(tIn('zh'), '主题', { hasProject: true, cap: 8 })[0].entry.id).toBe('theme')
+  })
+
+  it('also offers the Budget panel action when the query names a cap (/budget, /weekly, /monthly), only with a project', () => {
+    for (const q of ['budget', 'weekly', 'monthly', 'cap']) {
+      const rows = rankAll(t, q, { hasProject: true, cap: 8 })
+      expect(rows.find((r) => r.kind === 'action'), q).toMatchObject({ kind: 'action', actionId: 'budget.open', label: 'Open Budget (caps, projection, what-if)' })
+    }
+    expect(rankAll(t, 'weekly', { hasProject: false, cap: 8 }).some((r) => r.kind === 'action')).toBe(false)
+    expect(rankAll(t, 'webhook', { hasProject: true, cap: 8 }).some((r) => r.kind === 'action')).toBe(false)
+  })
+
+  it('finds the Budget panel through the localized keywords (es: límite / semanal)', () => {
+    for (const q of ['límite', 'semanal', 'presupuesto']) {
+      expect(rankAll(tIn('es'), q, { hasProject: true, cap: 8 }).some((r) => r.kind === 'action'), q).toBe(true)
+    }
+  })
+
+  it.each(['es', 'fr', 'de', 'pt', 'it', 'zh', 'ja'])('has the Budget panel label and keywords in %s', (lng) => {
+    const tl = tIn(lng)
+    expect(tl('palette.actions.openBudget')).not.toMatch(/^palette\./)
+    const keywords = tl('palette.actions.openBudgetKeywords')
+    expect(keywords).not.toMatch(/^palette\./)
+    expect(keywords.split(',').length).toBeGreaterThanOrEqual(4)
   })
 })

@@ -21,7 +21,7 @@ Los resultados muestran un fragmento corto alrededor de la primera coincidencia,
 
 ## Ajustes
 
-`/` conoce los bloques principales de ajustes, en tu idioma: tema, idioma, editor, presupuestos, notificaciones, webhooks, actualizaciones, rama, entorno, telemetría, reglas y más. Los ajustes del proyecto se ofrecen cuando hay un proyecto abierto. Elige uno y se abre la ventana correcta en ese bloque. Sin prefijo, una coincidencia fuerte (tres o más caracteres) añade hasta tres ajustes a los resultados normales.
+`/` conoce los bloques principales de ajustes, en tu idioma: tema, idioma, editor, presupuestos, notificaciones, webhooks, actualizaciones, rama, entorno, telemetría, reglas y más. Los ajustes del proyecto se ofrecen cuando hay un proyecto abierto. Elige uno y se abre la ventana correcta en ese bloque. Sin prefijo, una coincidencia fuerte (tres o más caracteres) añade hasta tres ajustes a los resultados normales. `/budget` también encuentra el panel de Presupuesto (límites, proyección, y si…), donde viven los límites semanal y mensual. Un comando con barra como `/implement` aparece bajo los ajustes, en su propio grupo, así que el prefijo `/` nunca lo oculta.
 
 ## Registros de jobs
 

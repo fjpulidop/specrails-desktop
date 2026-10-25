@@ -16,7 +16,7 @@ Los hallazgos del revisor, los riesgos que señaló y los comentarios de revisi�
 
 ## Pide al agente que cambie algo
 
-Selecciona líneas pulsando sus números (Mayús-clic amplía el rango), elige **Pedir al agente que cambie esto** y describe el cambio. Specrails lo guarda como feedback de revisión en la spec, con el archivo, el rango de líneas y el código seleccionado, y muestra un mensaje con un enlace a la spec. La próxima ejecución sobre esa spec lo recibirá. Para lanzarla ya, usa **Pedir cambios** en el Resumen. Aquí no hay hilos de comentarios entre personas; habla con tu equipo en GitHub.
+Selecciona líneas pulsando sus números (Mayús-clic amplía el rango), elige **Pedir un cambio al agente** y describe el cambio. Specrails lo guarda como feedback de revisión en la spec, con el archivo, el rango de líneas y el código seleccionado, y muestra un mensaje con un enlace a la spec. La próxima ejecución sobre esa spec lo recibirá. Para lanzarla ya, usa **Pedir cambios** en el Resumen. Aquí no hay hilos de comentarios entre personas; habla con tu equipo en GitHub.
 
 ## Ábrelo en tu editor
 

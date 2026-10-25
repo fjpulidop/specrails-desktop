@@ -19,12 +19,12 @@ describe('daily budget copy (rail-loop-budget-guard)', () => {
     const project = { scope: 'project' as const, period: 'day' as const, budgetUsd: 10, spentUsd: 12.4, resetsAt: null }
     expect(dailyBudgetExceededMessage(t, project)).toBe('Project daily budget reached ($12.40 of $10.00). Nothing was launched.')
     expect(dailyBudgetPausedMessage(t, project)).toBe('Paused on the project daily budget ($12.40 of $10.00). Raise it, then resume.')
-    expect(dailyBudgetActionMessage(t, project)).toBe('Raise or clear the budget in Project settings ▸ Budget, or wait for the daily reset.')
+    expect(dailyBudgetActionMessage(t, project)).toBe('Raise or clear the budget in Analytics ▸ Budget, or wait for the daily reset.')
     const desktop = { scope: 'desktop' as const, period: 'day' as const, budgetUsd: 5, spentUsd: 5, resetsAt: '2026-10-22T00:00:00.000Z' }
     expect(dailyBudgetExceededMessage(t, desktop)).toContain('App-wide daily budget reached ($5.00 of $5.00)')
     expect(dailyBudgetPausedMessage(t, desktop)).toContain('app-wide')
-    expect(dailyBudgetActionMessage(t, desktop)).toMatch(/^Raise or clear the budget in Settings ▸ Budget, or wait for the reset \(.+\)\.$/)
-    expect(dailyBudgetActionMessage(t, { ...desktop, resetsAt: 'not a date' })).toBe('Raise or clear the budget in Settings ▸ Budget, or wait for the daily reset.')
+    expect(dailyBudgetActionMessage(t, desktop)).toMatch(/^Raise or clear the budget in Analytics ▸ Budget, or wait for the reset \(.+\)\.$/)
+    expect(dailyBudgetActionMessage(t, { ...desktop, resetsAt: 'not a date' })).toBe('Raise or clear the budget in Analytics ▸ Budget, or wait for the daily reset.')
   })
 
   it('reads the period of a longer cap and words it for that period (CD5)', () => {

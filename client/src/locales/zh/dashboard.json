@@ -227,7 +227,10 @@
     "reviewLimitNone_one": "{{count}} 条 Rail 会开启新的交付,因此不会启动任何任务。请先处理一个待决交付。",
     "reviewLimitNone_other": "{{count}} 条 Rail 会开启新的交付,因此不会启动任何任务。请先处理一个待决交付。",
     "reviewLimitPartial_one": "现在只能启动 {{launched}} 条;{{count}} 条 Rail 将等待某个交付被处理。",
-    "reviewLimitPartial_other": "现在只能启动 {{launched}} 条;{{count}} 条 Rail 将等待某个交付被处理。"
+    "reviewLimitPartial_other": "现在只能启动 {{launched}} 条;{{count}} 条 Rail 将等待某个交付被处理。",
+    "forecastTotal_one": "{{count}} 次运行 · 通常共 {{cost}}",
+    "forecastTotal_other": "{{count}} 次运行 · 通常共 {{cost}}",
+    "mayPause": "这可能会达到预算上限，并暂停部分运行。"
   },
   "railControls": {
     "viewJobLog": "查看任务日志",

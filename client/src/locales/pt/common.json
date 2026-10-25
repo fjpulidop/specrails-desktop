@@ -153,8 +153,8 @@
   "budget": {
     "exceededProject": "Orçamento diário do projeto atingido (${{spent}} de ${{budget}}). Nada foi iniciado.",
     "exceededDesktop": "Orçamento diário global atingido (${{spent}} de ${{budget}}). Nada foi iniciado.",
-    "whereProject": "Configurações do projeto ▸ Orçamento",
-    "whereDesktop": "Configurações ▸ Orçamento",
+    "whereProject": "Análises ▸ Orçamento",
+    "whereDesktop": "Análises ▸ Orçamento",
     "action": "Aumente ou remova o orçamento em {{where}}, ou aguarde a reinicialização diária.",
     "actionWithReset": "Aumente ou remova o orçamento em {{where}}, ou aguarde a reinicialização ({{time}}).",
     "pausedProject": "Pausado pelo orçamento diário do projeto (${{spent}} de ${{budget}}). Aumente-o e retome.",
@@ -182,7 +182,8 @@
       "title": "Execução em pausa no seu limite",
       "raise": "Aumentar o limite e continuar",
       "continue": "Continuar sem limite",
-      "raiseTo": "Aumentar o limite para (USD)"
+      "raiseTo": "Aumentar o limite para (USD)",
+      "mustExceed": "Deve ser maior que os {{spent}} já gastos"
     }
   },
   "reviewWip": {
@@ -252,10 +253,8 @@
     "estimateHintCost": "Estimativa de {{count}} execuções anteriores (custo de {{costCount}}) — não é custo cobrado",
     "budgetCaution": "Pode pausar no orçamento",
     "budgetReached": "Orçamento diário atingido",
-    "budgetCautionHint": "O gasto de hoje mais o topo desta estimativa pode atingir seu orçamento diário. Abrir configurações de orçamento.",
-    "budgetReachedHint": "O gasto de hoje atingiu seu orçamento diário, então um lançamento é recusado até a redefinição ou até você aumentá-lo. Abrir configurações de orçamento.",
-    "launchOverBudget": "O orçamento de hoje acabou. A execução ficará em pausa até ele ser reiniciado. Iniciar mesmo assim?",
-    "launchAnyway": "Iniciar mesmo assim",
+    "budgetCautionHint": "O gasto de hoje mais o topo desta estimativa pode atingir seu orçamento diário. Abra o painel de orçamento.",
+    "budgetReachedHint": "O gasto de hoje atingiu seu orçamento diário, então um lançamento é recusado até a redefinição ou até você aumentá-lo. Abra o painel de orçamento.",
     "perSpec": "por spec",
     "budgetReached_week": "Orçamento semanal atingido",
     "budgetReached_month": "Orçamento mensal atingido",
@@ -263,7 +262,9 @@
     "budgetReachedHint_month": "O gasto deste mês atingiu seu orçamento mensal, então um início é recusado até ele ser reiniciado ou você aumentá-lo. Abra o painel de orçamento.",
     "budgetCautionHint_week": "O gasto desta semana mais o topo desta estimativa pode atingir seu orçamento semanal. Abra o painel de orçamento.",
     "budgetCautionHint_month": "O gasto deste mês mais o topo desta estimativa pode atingir seu orçamento mensal. Abra o painel de orçamento.",
-    "launchOverBudget_week": "O orçamento desta semana acabou. A execução ficará em pausa até ele ser reiniciado. Iniciar mesmo assim?",
-    "launchOverBudget_month": "O orçamento deste mês acabou. A execução ficará em pausa até ele ser reiniciado. Iniciar mesmo assim?"
+    "launchBlocked": "Este limite foi atingido, então o lançamento seria recusado. Aumente o limite ou aguarde a reinicialização.",
+    "launchBlocked_week": "O limite desta semana foi atingido, então o lançamento seria recusado. Aumente o limite ou aguarde a reinicialização.",
+    "launchBlocked_month": "O limite deste mês foi atingido, então o lançamento seria recusado. Aumente o limite ou aguarde a reinicialização.",
+    "raiseCap": "Aumentar limite"
   }
 }

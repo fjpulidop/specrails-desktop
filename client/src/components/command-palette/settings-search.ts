@@ -4,6 +4,7 @@ import type { TFn } from './palette-actions'
 
 /** A registry entry resolved for the active locale. */
 export interface SettingRow {
+  kind: 'setting'
   entry: SettingEntry
   label: string
   /** "Desktop settings" or "Project settings". */
@@ -13,8 +14,26 @@ export interface SettingRow {
   score: number
 }
 
+/**
+ * Where caps, projection and what-if live is a panel, not a settings block, but
+ * people look for it with `/budget`: it is offered as a row that opens the panel.
+ */
+export interface ActionRow {
+  kind: 'action'
+  actionId: 'budget.open'
+  label: string
+  /** Right-hand context ("Project analytics"). */
+  scopeLabel: string
+  sectionLabel: string
+  score: number
+}
+
+export type SettingsSearchRow = SettingRow | ActionRow
+
 export const SETTING_LABEL_KEY = (id: string) => `palette.settings.entries.${id}.label`
 export const SETTING_KEYWORDS_KEY = (id: string) => `palette.settings.entries.${id}.keywords`
+export const BUDGET_ACTION_LABEL_KEY = 'palette.actions.openBudget'
+export const BUDGET_ACTION_KEYWORDS_KEY = 'palette.actions.openBudgetKeywords'
 
 /** Scores at or below this count as a strong match for the unscoped Settings group. */
 const STRONG_SCORE = 1.5
@@ -45,10 +64,10 @@ export interface RankSettingsOptions {
 }
 
 /** The settings matching `query`, best match first, capped. Project settings need an open project. */
-export function rankSettings(t: TFn, query: string, { hasProject, cap, strongOnly = false }: RankSettingsOptions): SettingRow[] {
+export function rankSettings(t: TFn, query: string, { hasProject, cap, strongOnly = false }: RankSettingsOptions): SettingsSearchRow[] {
   const text = query.trim()
   if (strongOnly && [...text].length < STRONG_MIN_CHARS) return []
-  const rows: SettingRow[] = []
+  const rows: SettingsSearchRow[] = []
   SETTINGS_REGISTRY.forEach((entry, order) => {
     if (entry.scope === 'project' && !hasProject) return
     const label = t(SETTING_LABEL_KEY(entry.id))
@@ -56,6 +75,7 @@ export function rankSettings(t: TFn, query: string, { hasProject, cap, strongOnl
     if (score === null) return
     if (strongOnly && score > STRONG_SCORE) return
     rows.push({
+      kind: 'setting',
       entry,
       label,
       scopeLabel: t(entry.scope === 'app' ? 'palette.settings.appScope' : 'palette.settings.projectScope'),
@@ -63,6 +83,13 @@ export function rankSettings(t: TFn, query: string, { hasProject, cap, strongOnl
       score: score + order / 1000,
     })
   })
+  if (hasProject) {
+    const label = t(BUDGET_ACTION_LABEL_KEY)
+    const score = scoreSetting(label, t(BUDGET_ACTION_KEYWORDS_KEY).split(',').map((k) => foldText(k.trim())).filter(Boolean), text)
+    if (score !== null && !(strongOnly && score > STRONG_SCORE)) {
+      rows.push({ kind: 'action', actionId: 'budget.open', label, scopeLabel: t('palette.nav.projectAnalytics'), sectionLabel: '', score: score + SETTINGS_REGISTRY.length / 1000 })
+    }
+  }
   rows.sort((a, b) => a.score - b.score)
   return rows.slice(0, cap)
 }

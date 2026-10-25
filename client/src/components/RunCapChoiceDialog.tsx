@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
 import { ConfirmDialog } from './ui/confirm-dialog'
 import { Input } from './ui/input'
+import { formatUsd } from '../lib/format-usd'
 import { dailyBudgetPausedMessage, type DailyBudgetInfo } from '../lib/daily-budget'
 import { isValidRaise, suggestedRaise, type RunCapChoice } from '../lib/run-cap'
 
@@ -21,11 +22,14 @@ interface RunCapChoiceDialogProps {
  * end above what the run already spent). Dismissing leaves the run paused.
  */
 export function RunCapChoiceDialog({ info, busy = false, onChoose, onDismiss }: RunCapChoiceDialogProps) {
-  const { t } = useTranslation('common')
+  const { t, i18n } = useTranslation('common')
   const [amount, setAmount] = useState('')
   useEffect(() => { if (info) setAmount(String(suggestedRaise(info))) }, [info])
   const parsed = parseFloat(amount)
   const valid = !!info && isValidRaise(parsed, info)
+  // A disabled button alone says nothing: name the rule when the typed amount breaks it.
+  const showError = !!info && amount.trim() !== '' && !valid
+  const errorId = 'run-cap-amount-error'
   return (
     <ConfirmDialog
       open={info !== null}
@@ -43,7 +47,16 @@ export function RunCapChoiceDialog({ info, busy = false, onChoose, onDismiss }: 
     >
       <label className="flex flex-col gap-1 text-caption text-muted-foreground">
         {t('budget.runCap.raiseTo')}
-        <Input type="number" min="0" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label={t('budget.runCap.raiseTo')} className="num h-8 text-body" data-testid="run-cap-amount" />
+        <Input
+          type="number" min="0" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)}
+          aria-label={t('budget.runCap.raiseTo')} aria-invalid={showError || undefined} aria-describedby={showError ? errorId : undefined}
+          className="num h-8 text-body" data-testid="run-cap-amount"
+        />
+        {showError && (
+          <p id={errorId} role="alert" className="text-caption text-destructive" data-testid="run-cap-error">
+            {t('budget.runCap.mustExceed', { spent: formatUsd(info.spentUsd, i18n.language) })}
+          </p>
+        )}
       </label>
     </ConfirmDialog>
   )

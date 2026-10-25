@@ -8,6 +8,7 @@ import {
   Search,
   FolderOpen,
   Zap,
+  Gauge,
   Briefcase,
   LayoutDashboard,
   BarChart3,
@@ -35,7 +36,7 @@ import { useUndo } from '../hooks/useUndo'
 import { useThemeOptional } from '../features/settings/context/ThemeContext'
 import { loopsApi } from '../features/loops/lib/loops-api'
 import { loopNeedsTicket } from '../features/loops/lib/loop-ticket-need'
-import { openAppSettings, openProjectSettings, type AppSettingsSection } from '../lib/app-settings-events'
+import { openAppSettings, openBudgetPanel, openProjectSettings, type AppSettingsSection } from '../lib/app-settings-events'
 import { openDocs } from '../lib/docs-events'
 import { useTicketDetailModal } from '../features/specs/context/TicketDetailModalContext'
 import { usePaletteSurfaces } from '../lib/palette-bridge'
@@ -68,7 +69,7 @@ import {
   scopeNeedsProject,
   type SearchScope,
 } from './command-palette/search-scopes'
-import { rankSettings, type SettingRow } from './command-palette/settings-search'
+import { rankSettings, type SettingsSearchRow } from './command-palette/settings-search'
 import { isRemoteScope, useScopedSearch, type DocRow, type FileRow, type LogRow, type SpecRow } from './command-palette/useScopedSearch'
 import { getApiBase } from '../lib/api'
 import type { CommandInfo, JobSummary } from '../types'
@@ -365,8 +366,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     openDocs({ category: row.category, slug: row.slug, anchor: row.anchor, heading: row.heading })
   }, [])
 
-  const handleSelectSetting = useCallback((row: SettingRow) => {
+  const handleSelectSetting = useCallback((row: SettingsSearchRow) => {
     setOpen(false)
+    if (row.kind === 'action') { openBudgetPanel(); return }
     const { entry } = row
     if (entry.scope === 'app') {
       openAppSettings(entry.section as AppSettingsSection, entry.id)
@@ -390,7 +392,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   const commandMode = parsedQuery.explicit
   const textQuery = parsedQuery.text
   const unscoped = scope === null
-  const visibleProjects = commandMode || !unscoped ? [] : projects.filter((p) => matchesPaletteQuery(textQuery, p.name, [p.slug]))
+  // With nothing typed, the project switcher lists the OTHER projects: switching to the open one is a no-op,
+  // and it must not be what Enter does on open. A typed name still finds it.
+  const visibleProjects = commandMode || !unscoped ? [] : projects.filter((p) => matchesPaletteQuery(textQuery, p.name, [p.slug]) && (textQuery !== '' || p.id !== activeProjectId))
   const visibleCommands = commandMode || !unscoped ? [] : commands.filter((cmd) => matchesPaletteQuery(textQuery, cmd.name, [cmd.slug, cmd.description ?? '']))
   const visibleJobs = commandMode || !unscoped ? [] : recentJobs.filter((job) => matchesPaletteQuery(textQuery, `${job.command} ${job.id}`, [job.status]))
 
@@ -464,12 +468,17 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   // ─── Scoped search (CD6) ───────────────────────────────────────────────────
   const hasProject = activeProjectId !== null
   const scopes = availableScopes()
-  const settingRows = useMemo<SettingRow[]>(() => {
+  const settingRows = useMemo<SettingsSearchRow[]>(() => {
     if (!open || commandMode) return []
     if (scope === 'settings') return rankSettings(t as PaletteContext['t'], textQuery, { hasProject, cap: SCOPE_ROW_CAPS.settings })
     if (scope === null) return rankSettings(t as PaletteContext['t'], textQuery, { hasProject, cap: UNSCOPED_SETTINGS_CAP, strongOnly: true })
     return []
   }, [open, commandMode, scope, t, textQuery, hasProject])
+  // `/implement` is a slash command, not a setting: in the settings scope the commands that match the
+  // text are listed under the settings, so the `/` prefix never hides them.
+  const slashCommandRows = scope === 'settings' && textQuery
+    ? commands.filter((cmd) => matchesPaletteQuery(textQuery, cmd.name, [cmd.slug, cmd.description ?? '']))
+    : []
   const remote = useScopedSearch({ scope, text: textQuery, open, projectId: activeProjectId, lang: i18n.language || 'en' })
 
   const handleSearchChange = (value: string) => {
@@ -587,15 +596,39 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     <Command.Group key="settings" heading={t('palette.groups.settings')} data-testid="palette-group-settings">
       {settingRows.map((row) => (
         <Command.Item
-          key={row.entry.id}
-          value={`setting:${row.entry.id}`}
+          key={row.kind === 'setting' ? row.entry.id : row.actionId}
+          value={row.kind === 'setting' ? `setting:${row.entry.id}` : `setting-action:${row.actionId}`}
           onSelect={() => handleSelectSetting(row)}
           className={navItemClass}
-          data-testid={`palette-setting-${row.entry.id}`}
+          data-testid={row.kind === 'setting' ? `palette-setting-${row.entry.id}` : `palette-setting-action-${row.actionId}`}
         >
-          <SlidersHorizontal className="w-4 h-4 text-muted-foreground shrink-0" />
+          {row.kind === 'setting'
+            ? <SlidersHorizontal className="w-4 h-4 text-muted-foreground shrink-0" />
+            : <Gauge className="w-4 h-4 text-muted-foreground shrink-0" />}
           <span className="flex-1 min-w-0 truncate"><SnippetText text={row.label} ranges={rangesForQuery(row.label, textQuery)} /></span>
-          <span className="shrink-0 text-caption text-muted-foreground">{row.scopeLabel} · {row.sectionLabel}</span>
+          <span className="shrink-0 text-caption text-muted-foreground">{[row.scopeLabel, row.sectionLabel].filter(Boolean).join(' · ')}</span>
+        </Command.Item>
+      ))}
+    </Command.Group>
+  )
+
+  const slashCommandsGroup = slashCommandRows.length > 0 && (
+    <Command.Group key="slash-commands" heading={t('palette.scopes.settings.commandsFallback', { query: textQuery })} data-testid="palette-group-slash-commands">
+      {slashCommandRows.map((cmd) => (
+        <Command.Item
+          key={cmd.id}
+          value={`slash:${cmd.slug}`}
+          onSelect={() => handleSelectCommand(cmd.slug)}
+          className={navItemClass}
+          data-testid={`palette-slash-command-${cmd.slug}`}
+        >
+          <Zap className="w-4 h-4 text-accent-info shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="truncate">{cmd.name}</span>
+            {cmd.description && (
+              <span className="text-caption text-muted-foreground ml-2 truncate">{cmd.description}</span>
+            )}
+          </div>
         </Command.Item>
       ))}
     </Command.Group>
@@ -682,7 +715,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   const scopeMessage = ((): { text: string; busy?: boolean; testId: string } | null => {
     if (scope === null) return null
     if (scopeNeedsProject(scope) && !hasProject) return { text: t('palette.scopes.needsProject'), testId: 'palette-scope-needs-project' }
-    const visible = scope === 'settings' ? settingRows.length : scope === 'missions' ? missionRows.length : remote.rows.length
+    const visible = scope === 'settings' ? settingRows.length + slashCommandRows.length : scope === 'missions' ? missionRows.length : remote.rows.length
     if (visible > 0) return null
     if (!textQuery) return scope === 'settings' || scope === 'missions'
       ? { text: t('palette.noResults'), testId: 'palette-scope-empty' }
@@ -916,20 +949,20 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
                 </div>
               )}
               {scope === 'settings' && settingsGroup}
+              {scope === 'settings' && slashCommandsGroup}
               {scope === 'missions' && groups.missions}
               {remoteGroup}
             </>
           ) : (
             <>
               {!search.trim() && (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 pt-1 text-caption text-muted-foreground" data-testid="palette-scope-hints">
-                  <span>{t('palette.scopes.hintsLabel')}</span>
+                <div className="flex flex-nowrap items-center gap-x-3 overflow-hidden px-3 pb-2 pt-1 text-caption text-muted-foreground" data-testid="palette-scope-hints">
                   {scopes.map((id) => (
                     <button
                       key={id}
                       type="button"
                       onClick={() => enterScope(id)}
-                      className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       data-testid={`palette-scope-hint-${id}`}
                     >
                       <Kbd>{SCOPE_PREFIX[id]}</Kbd>
@@ -944,7 +977,10 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
               {actionRows.leading && actionsGroup}
               {!search.trim() && recentActionsGroup}
               {!search.trim() && recentPlacesGroup}
-              {groupOrderForMode(uiMode).map((group) => groups[group])}
+              {/* Nothing typed: recents and missions lead, the project switcher trails (Enter must not switch project). */}
+              {groupOrderForMode(uiMode)
+                .sort((a, b) => (search.trim() ? 0 : Number(a === 'projects') - Number(b === 'projects')))
+                .map((group) => groups[group])}
               {settingsGroup}
               {!actionRows.leading && actionsGroup}
             </>

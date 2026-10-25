@@ -375,6 +375,30 @@ describe('board selection and saved views (CD4)', () => {
   const BULK = ['selection.move', 'selection.label', 'selection.priority', 'selection.rail', 'selection.launch', 'selection.delete', 'selection.clear']
   const action = (id: string) => PALETTE_ACTIONS.find((a) => a.id === id)!
 
+  it('lists what can be done to the selection first when specs are selected (and not otherwise)', () => {
+    const withSelection = ctx({ surfaces: { board: board(), selection: selection(2), specs: { openNewSpec: vi.fn() } } })
+    const leading = rankActions(withSelection, '>').rows.map((r) => r.action.id)
+    expect(leading.every((id) => id.startsWith('selection.'))).toBe(true)
+    expect(leading).toEqual(expect.arrayContaining(BULK))
+    // A typed query still ranks by match quality first: "new" leads with the new-spec action.
+    expect(rankActions(withSelection, 'new').rows[0].action.id).toBe('spec.new')
+    // No selection: the board's own actions lead as before.
+    const none = rankActions(ctx({ surfaces: { board: board(), selection: selection(0), specs: { openNewSpec: vi.fn() } } }), '>').rows.map((r) => r.action.id)
+    expect(none[0]).toBe('spec.new')
+  })
+
+  it('offers one action that opens the Budget panel, only with a project', () => {
+    expect(ids(ctx())).toContain('budget.open')
+    expect(ids(ctx({ projectId: null }))).not.toContain('budget.open')
+    const opened = vi.fn()
+    window.addEventListener('specrails:open-budget-panel', opened)
+    try {
+      PALETTE_ACTIONS.find((a) => a.id === 'budget.open')!.run(ctx())
+      expect(opened).toHaveBeenCalledTimes(1)
+    } finally { window.removeEventListener('specrails:open-budget-panel', opened) }
+    expect(rankActions(ctx(), 'weekly').rows.map((r) => r.action.id)).toContain('budget.open')
+  })
+
   it('offers select-all, save view and switch view with the board mounted, and no bulk action without a selection', () => {
     const got = ids(ctx({ surfaces: { board: board(), selection: selection(0) } }))
     expect(got).toEqual(expect.arrayContaining(['selection.selectAll', 'view.save', 'view.switch']))

@@ -62,6 +62,7 @@ export function useEditorPref(): EditorId {
   return useSyncExternalStore(subscribe, readEditor, () => DEFAULT_EDITOR)
 }
 
-export async function openInEditor(editor: EditorId, absolutePath: string, line?: number | null): Promise<void> {
-  await openExternalUrl(buildEditorUrl(editor, absolutePath, line))
+/** Whether the editor's URL could be handed to the shell (false = nothing opened). */
+export async function openInEditor(editor: EditorId, absolutePath: string, line?: number | null): Promise<boolean> {
+  return openExternalUrl(buildEditorUrl(editor, absolutePath, line))
 }

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   addSpecView,
   buildViewLink,
+  decodeViewState,
+  encodeViewState,
   deleteSpecView,
   loadSpecViews,
   renameSpecView,
@@ -79,5 +81,20 @@ describe('spec-views', () => {
 
   it('builds a link carrying project and view', () => {
     expect(buildViewLink('p 1', 'abc', { origin: 'http://localhost:5173', pathname: '/' })).toBe('http://localhost:5173/?p=p+1&view=abc')
+  })
+
+  it('round-trips a view state through the link token (any script, URL-safe)', () => {
+    const state: SpecViewState = { ...base, labels: ['a', 'día', '日本語'], epic: 'Épica ✓' }
+    const token = encodeViewState(state)
+    expect(token).toMatch(/^[A-Za-z0-9_-]+$/)
+    expect(decodeViewState(token)).toEqual({ ...state, labels: ['a', 'día', '日本語'].sort() })
+    const link = buildViewLink('p1', state, { origin: 'http://x', pathname: '/' })
+    expect(new URL(link).searchParams.get('view')).toBe(token)
+  })
+
+  it('refuses a token that is not a view state and normalises a partial one', () => {
+    expect(decodeViewState('not base64 !!')).toBeNull()
+    expect(decodeViewState('e30')).toMatchObject({ status: 'active', labels: [], sortMode: 'default' }) // {}
+    expect(decodeViewState(btoa('[1,2]').replace(/=+$/, ''))).toMatchObject({ status: 'active' })
   })
 })

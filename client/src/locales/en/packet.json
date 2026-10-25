@@ -348,16 +348,18 @@
     },
     "line": {
       "select": "Select line {{n}}",
-      "selectOld": "Select original line {{n}}"
+      "selectOld": "Select original line {{n}}",
+      "added": "added",
+      "removed": "removed"
     },
     "selection": {
       "clear": "Clear the selection"
     },
     "ask": {
-      "button": "Ask agent to change this",
-      "title": "What should change in",
+      "button": "Ask agent for a change",
+      "title": "Change to make in",
       "placeholder": "Describe the change you want…",
-      "ticket": "Add to spec",
+      "ticket": "Spec",
       "submit": "Add to spec",
       "hint": "Saved as review feedback on the spec; the next run on it is briefed with it.",
       "created": "Added to spec #{{id}} as review feedback.",
@@ -371,11 +373,12 @@
         "vscode": "VS Code",
         "cursor": "Cursor",
         "jetbrains": "JetBrains"
-      }
+      },
+      "failed": "Couldn’t open {{editor}}. Is it installed? Change it in Settings ▸ Code."
     },
     "annotations": {
       "title": "Not tied to a line ({{count}})",
-      "ask": "Ask agent to fix this",
+      "ask": "Ask agent for a change",
       "source": {
         "reviewer-finding": "Reviewer finding",
         "review-risk": "Risk to check",

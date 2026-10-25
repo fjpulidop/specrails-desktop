@@ -78,6 +78,6 @@
         "month": "App-wide monthly budget reached"
       }
     },
-    "detail": "${{spent}} of ${{budget}} spent"
+    "detail": "{{spent}} of {{budget}} spent"
   }
 }

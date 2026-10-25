@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
@@ -71,6 +73,13 @@ vi.mock('../../components/InvocationsTable', () => ({
   InvocationsTable: ({ truncated, totalAvailable }: { truncated: boolean; totalAvailable: number }) => (
     <div data-testid="table" data-truncated={String(truncated)} data-total={totalAvailable}>table</div>
   ),
+}))
+vi.mock('../../components/BudgetCard', () => ({
+  // Like the real card: ready only after a tick (it renders a skeleton while loading).
+  BudgetCard: ({ onReady }: { onReady?: () => void }) => {
+    useEffect(() => { const timer = setTimeout(() => onReady?.(), 20); return () => clearTimeout(timer) }, [onReady])
+    return <div data-testid="budget-card">budget</div>
+  },
 }))
 vi.mock('../../components/ExportDropdown', () => ({
   ExportDropdown: ({ disabled }: { disabled?: boolean }) => (
@@ -245,6 +254,37 @@ describe('AnalyticsPage', () => {
       const last = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
         .map((c) => c[0] as string).filter((u) => u.includes('/spending')).at(-1)
       expect(last).toContain('tzOffsetMinutes=')
+    })
+  })
+
+  // "Raise cap" lands on ?panel=budget: the filter-persisting effect used to rewrite the URL and cancel the scroll.
+  describe('?panel=budget landing', () => {
+    function LocationProbe() {
+      const location = useLocation()
+      return <output data-testid="loc">{location.search}</output>
+    }
+
+    it('scrolls to the budget card once it is ready and keeps the param meanwhile', async () => {
+      const scrollIntoView = vi.fn()
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoView
+      render(<><AnalyticsPage /><LocationProbe /></>, { route: '/analytics?panel=budget' })
+      await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
+      // The filter effect has rewritten the query string, yet the landing request survived it.
+      expect(screen.getByTestId('loc').textContent).toContain('panel=budget')
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1))
+      const target = scrollIntoView.mock.instances[0] as HTMLElement
+      expect(target.querySelector('[data-testid="budget-card"]')).not.toBeNull()
+      // Landed: the param is dropped so a later refresh does not scroll again.
+      await waitFor(() => expect(screen.getByTestId('loc').textContent).not.toContain('panel=budget'))
+    })
+
+    it('does not scroll without the param', async () => {
+      const scrollIntoView = vi.fn()
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoView
+      renderPage()
+      await waitFor(() => expect(screen.getByTestId('budget-card')).toBeInTheDocument())
+      await new Promise((resolve) => setTimeout(resolve, 60))
+      expect(scrollIntoView).not.toHaveBeenCalled()
     })
   })
 })

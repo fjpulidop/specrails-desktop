@@ -1,8 +1,8 @@
 {
   "palette": {
     "label": "命令面板",
-    "searchPlaceholder": "搜索项目、命令、任务...",
-    "searchPlaceholderAgent": "搜索任务、项目、作业...",
+    "searchPlaceholder": "搜索，或输入 # @ / ? 缩小范围…",
+    "searchPlaceholderAgent": "搜索，或输入 # @ / ? 缩小范围…",
     "noResults": "未找到结果。",
     "activeBadge": "当前",
     "groups": {
@@ -141,10 +141,11 @@
       "deleteSelectedN_one": "删除所选的 {{count}} 个规格",
       "deleteSelectedN_other": "删除所选的 {{count}} 个规格",
       "saveView": "保存当前视图",
-      "switchView": "切换视图"
+      "switchView": "切换视图",
+      "openBudget": "打开预算（上限、预测、假设分析）",
+      "openBudgetKeywords": "预算, 上限, 限额, 每周, 每月, 支出, 成本, budget"
     },
     "scopes": {
-      "hintsLabel": "搜索范围",
       "remove": "移除范围",
       "needsProject": "请先打开一个项目再在此搜索。",
       "searching": "正在搜索…",
@@ -163,7 +164,8 @@
       "settings": {
         "label": "设置",
         "placeholder": "搜索设置…",
-        "prompt": "输入以搜索设置。"
+        "prompt": "输入以搜索设置。",
+        "commandsFallback": "与“/{{query}}”匹配的命令"
       },
       "files": {
         "label": "文件",

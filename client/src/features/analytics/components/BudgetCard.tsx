@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
@@ -9,6 +10,7 @@ import { HelpHint } from '../../../components/HelpHint'
 import { API_ORIGIN } from '../../../lib/origin'
 import { getApiBase } from '../../../lib/api'
 import { getDateFnsLocale } from '../../../lib/i18n'
+import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { fetchUsageSnapshot, isMeteredBilled } from '../../../lib/launch-forecast'
 import { cn } from '../../../lib/utils'
 import { formatUsd } from '../lib/format'
@@ -28,8 +30,10 @@ const BODY_KEY: Record<Scope, Record<Field, string>> = {
   desktop: { day: 'desktopDailyBudgetUsd', week: 'desktopWeeklyBudgetUsd', month: 'desktopMonthlyBudgetUsd', run: 'runCapUsd' },
 }
 
-const BAR_TONE: Record<BarLevel, string> = { ok: 'bg-primary', caution: 'bg-accent-warning', reached: 'bg-destructive' }
-const LAMP_TONE: Record<Exclude<BarLevel, 'ok'>, string> = { caution: 'text-accent-warning', reached: 'text-destructive' }
+// Cost is amber (Amber Rule): "Reached" differs from "Nearing" by its label and dot, not by hue, and the
+// healthy bar is neutral because cyan is reserved for the primary action (Lamp Rule).
+const BAR_TONE: Record<BarLevel, string> = { ok: 'bg-foreground/40', caution: 'bg-accent-warning', reached: 'bg-accent-warning' }
+const LAMP_TONE: Record<Exclude<BarLevel, 'ok'>, string> = { caution: 'text-accent-warning', reached: 'text-accent-warning' }
 
 const amount = (cap: number | null): string => (cap === null ? '' : String(cap))
 
@@ -64,16 +68,28 @@ function planOnly(spend: PeriodSpend, billing: Billing): boolean {
   return spend.byProvider.length > 0 && spend.byProvider.every((row) => !isMeteredBilled(billing.snapshot, row.provider))
 }
 
-/** "5h 42% · weekly 18%" from the plan providers' usage windows (turns/limits instead of dollars). */
-function planLimits(spend: PeriodSpend, billing: Billing): string | null {
+/**
+ * "Claude: session 7% · weekly 71% · Codex: weekly 0%" from the plan providers' usage windows (turns and
+ * limits instead of dollars). Each provider appears once and is named, so a window is never anonymous.
+ */
+function planLimits(spend: PeriodSpend, billing: Billing, t: TFunction<'analytics'>): string | null {
   const providers = (billing.snapshot as { providers?: Array<{ providerId?: string; windows?: Array<{ label?: string; usedPercent?: number | null }> }> } | null)?.providers
   if (!Array.isArray(providers)) return null
   const parts: string[] = []
+  const seen = new Set<string>()
   for (const row of spend.byProvider) {
+    if (seen.has(row.provider)) continue
+    seen.add(row.provider)
     const entry = providers.find((p) => p.providerId === row.provider)
+    const windows: string[] = []
     for (const w of entry?.windows ?? []) {
-      if (typeof w.usedPercent === 'number' && Number.isFinite(w.usedPercent) && w.label) parts.push(`${w.label} ${Math.round(w.usedPercent)}%`)
+      if (typeof w.usedPercent === 'number' && Number.isFinite(w.usedPercent) && w.label) {
+        const known = w.label.toLowerCase()
+        const label = known === 'session' || known === 'weekly' ? t(`budget.windowLabel.${known}`) : w.label
+        windows.push(`${label} ${Math.round(w.usedPercent)}%`)
+      }
     }
+    if (windows.length) parts.push(t('budget.providerWindow', { provider: providerLabel(row.provider), windows: windows.slice(0, 2).join(' · ') }))
   }
   return parts.length ? parts.slice(0, 4).join(' · ') : null
 }
@@ -84,11 +100,35 @@ interface RowProps {
   overview: BudgetOverview
   config: CapConfig
   billing: Billing
+  /** Plan billing for the whole card: rows show turns and limits and the dollar field moves to the collapsed editor. */
+  plan: boolean
   value: string
+  invalid: boolean
   onChange: (value: string) => void
 }
 
-function UsageRow({ scope, period, overview, config, billing, value, onChange }: RowProps) {
+/** One dollar field; a rejected value says so under the input instead of only in a toast. */
+function CapInput({ scope, field, value, invalid, onChange }: { scope: Scope; field: Field; value: string; invalid: boolean; onChange: (value: string) => void }) {
+  const { t } = useTranslation('analytics')
+  const errorId = `budget-error-${scope}-${field}`
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Input
+        type="number" min="0" step="0.01" inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={t('budget.noCap')}
+        aria-label={t(`budget.capLabel.${scope}.${field}`)}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? errorId : undefined}
+        className="num h-7 text-caption"
+      />
+      {invalid && <p id={errorId} role="alert" className="text-caption text-destructive">{t('budget.invalidNumber')}</p>}
+    </div>
+  )
+}
+
+function UsageRow({ scope, period, overview, config, billing, plan, value, invalid, onChange }: RowProps) {
   const { t } = useTranslation('analytics')
   const spend = overview.spend[period]
   const cap = config[period]
@@ -97,8 +137,7 @@ function UsageRow({ scope, period, overview, config, billing, value, onChange }:
   const spent = periodSpentUsd(overview, period, scope)
   const level = barLevel(spent, cap)
   const pending = !billing.ready && spend.byProvider.length > 0
-  const plan = billing.ready && planOnly(spend, billing)
-  const limits = plan ? planLimits(spend, billing) : null
+  const limits = plan ? planLimits(spend, billing, t) : null
   const turns = spend.byProvider.reduce((sum, row) => sum + row.turns, 0)
   const resets = status ? resetLabel(status.resetsAt) : null
   const label = t(`budget.period.${period}`)
@@ -121,20 +160,14 @@ function UsageRow({ scope, period, overview, config, billing, value, onChange }:
           </span>
         )}
       </span>
-      <Input
-        type="number" min="0" step="0.01" inputMode="decimal"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={t('budget.noCap')}
-        aria-label={t(`budget.capLabel.${scope}.${period}`)}
-        className="num h-7 text-caption"
-      />
-      {(plan || resets || (period === 'month' && spend.estimatedUsd > 0 && !plan)) && (
+      {plan ? <span aria-hidden /> : (
+        <CapInput scope={scope} field={period} value={value} invalid={invalid} onChange={onChange} />
+      )}
+      {(limits || resets || (period === 'month' && spend.estimatedUsd > 0 && !plan)) && (
         <p className="num text-micro text-muted-foreground sm:col-start-2 sm:col-span-3">
-          {plan && t('budget.planNote')}
-          {plan && limits && ` · ${limits}`}
+          {limits}
           {!plan && period === 'month' && spend.estimatedUsd > 0 && t('budget.estimatedPart', { amount: formatUsd(spend.estimatedUsd) })}
-          {resets && `${plan || (period === 'month' && spend.estimatedUsd > 0) ? ' · ' : ''}${t('budget.resets', { time: resets })}`}
+          {resets && `${limits || (period === 'month' && spend.estimatedUsd > 0 && !plan) ? ' · ' : ''}${t('budget.resets', { time: resets })}`}
         </p>
       )}
     </div>
@@ -146,14 +179,16 @@ interface GroupProps {
   overview: BudgetOverview
   config: CapConfig
   billing: Billing
+  plan: boolean
   onSaved: () => void
 }
 
-function CapGroup({ scope, overview, config, billing, onSaved }: GroupProps) {
+function CapGroup({ scope, overview, config, billing, plan, onSaved }: GroupProps) {
   const { t } = useTranslation('analytics')
   const [values, setValues] = useState<Record<Field, string>>(() => Object.fromEntries(FIELDS.map((f) => [f, amount(config[f])])) as Record<Field, string>)
   const touched = useRef(new Set<Field>())
   const [saving, setSaving] = useState(false)
+  const [invalid, setInvalid] = useState<ReadonlySet<Field>>(new Set())
 
   // A refetch refreshes untouched fields; a field the person is editing is never overwritten.
   useEffect(() => {
@@ -164,11 +199,14 @@ function CapGroup({ scope, overview, config, billing, onSaved }: GroupProps) {
 
   const save = async () => {
     const body: Record<string, number | null> = {}
+    const rejected = new Set<Field>()
     for (const f of dirty) {
       const parsed = parseCap(values[f])
-      if (parsed === undefined) { toast.error(t('budget.invalidNumber')); return }
-      body[BODY_KEY[scope][f]] = parsed
+      if (parsed === undefined) rejected.add(f)
+      else body[BODY_KEY[scope][f]] = parsed
     }
+    setInvalid(rejected)
+    if (rejected.size) return
     if (!Object.keys(body).length) return
     setSaving(true)
     try {
@@ -185,38 +223,63 @@ function CapGroup({ scope, overview, config, billing, onSaved }: GroupProps) {
     }
   }
 
+  const change = (field: Field, value: string) => {
+    touched.current.add(field)
+    setValues((c) => ({ ...c, [field]: value }))
+    setInvalid((c) => { if (!c.has(field)) return c; const next = new Set(c); next.delete(field); return next })
+  }
+
+  const runRow = (
+    <div className="grid grid-cols-1 items-start gap-x-3 gap-y-1 sm:grid-cols-[5.5rem_minmax(0,1fr)_7rem]" data-testid={`budget-row-${scope}-run`}>
+      <span className="text-label text-foreground">{t('budget.period.run')}</span>
+      <p className="text-micro text-muted-foreground">{t('budget.runHint')}</p>
+      <CapInput scope={scope} field="run" value={values.run} invalid={invalid.has('run')} onChange={(v) => change('run', v)} />
+    </div>
+  )
+  const saveRow = (
+    <div className="flex justify-end">
+      <Button size="sm" variant="secondary" disabled={saving || dirty.length === 0} onClick={() => { void save() }} data-testid={`budget-save-${scope}`}>
+        {saving ? t('common:states.saving') : t('common:actions.save')}
+      </Button>
+    </div>
+  )
+
   return (
     <section className="flex flex-col gap-2.5" data-testid={`budget-group-${scope}`} aria-label={t(`budget.scope.${scope}`)}>
       <h4 className="text-caption text-muted-foreground">{t(`budget.scope.${scope}`)}</h4>
       {CAP_PERIODS.map((period) => (
         <UsageRow
-          key={period} scope={scope} period={period} overview={overview} config={config} billing={billing}
-          value={values[period]}
-          onChange={(v) => { touched.current.add(period); setValues((c) => ({ ...c, [period]: v })) }}
+          key={period} scope={scope} period={period} overview={overview} config={config} billing={billing} plan={plan}
+          value={values[period]} invalid={invalid.has(period)}
+          onChange={(v) => change(period, v)}
         />
       ))}
-      <div className="grid grid-cols-1 items-center gap-x-3 gap-y-1 sm:grid-cols-[5.5rem_minmax(0,1fr)_7rem]" data-testid={`budget-row-${scope}-run`}>
-        <span className="text-label text-foreground">{t('budget.period.run')}</span>
-        <p className="text-micro text-muted-foreground">{t('budget.runHint')}</p>
-        <Input
-          type="number" min="0" step="0.01" inputMode="decimal"
-          value={values.run}
-          onChange={(e) => { touched.current.add('run'); setValues((c) => ({ ...c, run: e.target.value })) }}
-          placeholder={t('budget.noCap')}
-          aria-label={t(`budget.capLabel.${scope}.run`)}
-          className="num h-7 text-caption"
-        />
-      </div>
-      <div className="flex justify-end">
-        <Button size="sm" variant="secondary" disabled={saving || dirty.length === 0} onClick={() => { void save() }} data-testid={`budget-save-${scope}`}>
-          {saving ? t('common:states.saving') : t('common:actions.save')}
-        </Button>
-      </div>
+      {plan ? (
+        // Plan billing has no per-use dollar meaning: the dollar caps (for metered providers) stay one click away.
+        <details className="group flex flex-col gap-2.5" data-testid={`budget-caps-metered-${scope}`}>
+          <summary className="cursor-pointer text-caption text-muted-foreground hover:text-foreground">{t('budget.capsMetered')}</summary>
+          <div className="mt-2.5 flex flex-col gap-2.5">
+            {CAP_PERIODS.map((period) => (
+              <div key={period} className="grid grid-cols-1 items-start gap-x-3 gap-y-1 sm:grid-cols-[5.5rem_minmax(0,1fr)]">
+                <span className="text-label text-foreground">{t(`budget.period.${period}`)}</span>
+                <CapInput scope={scope} field={period} value={values[period]} invalid={invalid.has(period)} onChange={(v) => change(period, v)} />
+              </div>
+            ))}
+            {runRow}
+            {saveRow}
+          </div>
+        </details>
+      ) : (
+        <>
+          {runRow}
+          {saveRow}
+        </>
+      )}
     </section>
   )
 }
 
-function ProjectionBlock({ overview }: { overview: BudgetOverview }) {
+function ProjectionBlock({ overview, plan }: { overview: BudgetOverview; plan: boolean }) {
   const { t } = useTranslation('analytics')
   const p = overview.projection
   const passes = projectionPassesCap(p, overview.config.month)
@@ -224,9 +287,11 @@ function ProjectionBlock({ overview }: { overview: BudgetOverview }) {
     <section className="flex flex-col gap-1" data-testid="budget-projection" aria-label={t('budget.projection.title')}>
       <div className="flex items-center gap-2">
         <h4 className="text-caption text-muted-foreground">{t('budget.projection.title')}</h4>
-        <span className="rounded-pill border border-border px-1.5 text-micro text-muted-foreground">{t('budget.estimate')}</span>
+        {!plan && <span className="rounded-pill border border-border px-1.5 text-micro text-muted-foreground">{t('budget.estimate')}</span>}
       </div>
-      {p ? (
+      {plan ? (
+        <p className="text-caption text-muted-foreground" data-testid="budget-projection-plan">{t('budget.projection.planNone')}</p>
+      ) : p ? (
         <>
           <p className="num text-title text-foreground" data-testid="budget-projection-value">≈ {formatUsd(p.projectedUsd)}</p>
           <p className="num text-micro text-muted-foreground">
@@ -251,6 +316,8 @@ interface BudgetCardProps {
   projectId: string | null
   /** Changes whenever new spend was recorded, so the bars follow the work. */
   refreshKey?: unknown
+  /** Called once the card has real content (not the loading skeleton), e.g. to scroll it into view. */
+  onReady?: () => void
 }
 
 /**
@@ -258,7 +325,7 @@ interface BudgetCardProps {
  * project and app-wide), the per-run soft cap, a month-end projection and a
  * what-if pricer. Caps are enforced by the same gate as the daily budget.
  */
-export function BudgetCard({ projectId, refreshKey }: BudgetCardProps) {
+export function BudgetCard({ projectId, refreshKey, onReady }: BudgetCardProps) {
   const { t } = useTranslation('analytics')
   // The project's own overview (null on the app-wide overlay) and the app-wide one.
   const [project, setProject] = useState<BudgetOverview | null>(null)
@@ -284,30 +351,44 @@ export function BudgetCard({ projectId, refreshKey }: BudgetCardProps) {
   }, [load, refreshKey])
 
   const ready = base ? project && app : app
+  const isReady = !!ready
+  useEffect(() => { if (isReady) onReady?.() }, [isReady, onReady])
+  // The page scrolls to the card when it is ready, so the failure state counts as ready too (it is what is there to see).
+  useEffect(() => { if (!isReady && failed) onReady?.() }, [isReady, failed, onReady])
   if (!ready) {
     return failed
-      ? <p role="alert" className="rounded-card border border-accent-warning/30 bg-accent-warning/10 p-3 text-caption text-accent-warning">{t('budget.loadFailed')}</p>
+      ? (
+        <div role="alert" data-testid="budget-load-failed" className="flex flex-wrap items-center gap-3 rounded-card border border-accent-warning/30 bg-accent-warning/10 p-3 text-caption text-accent-warning">
+          <span>{t('budget.loadFailed')}</span>
+          <Button size="sm" variant="outline" onClick={() => load()}>{t('common:actions.retry')}</Button>
+        </div>
+      )
       : <Skeleton className="h-48" />
   }
+  // Plan billing is decided once for the whole card, so no row shows dollars while its neighbour shows turns.
+  const plan = billing.ready && [project, app].every((o) => o === null || planOnly(o.spend.month, billing)) && (project ?? app) !== null
 
   const refresh = () => load()
   return (
     <section id="budget-panel" className="flex flex-col gap-4 rounded-card border border-border bg-card p-4" data-testid="budget-card" aria-labelledby="budget-panel-title">
-      <header className="flex items-center gap-1">
-        <h3 id="budget-panel-title" className="text-strong">{t('budget.title')}</h3>
-        <HelpHint topic="dailyBudget" />
+      <header className="flex flex-col gap-1">
+        <div className="flex items-center gap-1">
+          <h3 id="budget-panel-title" className="text-strong">{t('budget.title')}</h3>
+          <HelpHint topic="dailyBudget" />
+        </div>
+        {plan && <p className="text-caption text-muted-foreground" data-testid="budget-plan-note">{t('budget.planNote')}</p>}
       </header>
       {project && app ? (
         <>
-          <CapGroup scope="project" overview={project} config={project.config} billing={billing} onSaved={refresh} />
-          <CapGroup scope="desktop" overview={app} config={app.config} billing={billing} onSaved={refresh} />
-          <ProjectionBlock overview={project} />
+          <CapGroup scope="project" overview={project} config={project.config} billing={billing} plan={plan} onSaved={refresh} />
+          <CapGroup scope="desktop" overview={app} config={app.config} billing={billing} plan={plan} onSaved={refresh} />
+          <ProjectionBlock overview={project} plan={plan} />
           <WhatIfPanel projectBase={base as string} billing={billing} />
         </>
       ) : app ? (
         <>
-          <CapGroup scope="desktop" overview={app} config={app.config} billing={billing} onSaved={refresh} />
-          <ProjectionBlock overview={app} />
+          <CapGroup scope="desktop" overview={app} config={app.config} billing={billing} plan={plan} onSaved={refresh} />
+          <ProjectionBlock overview={app} plan={plan} />
         </>
       ) : null}
     </section>

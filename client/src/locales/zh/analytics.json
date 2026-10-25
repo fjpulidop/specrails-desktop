@@ -327,7 +327,7 @@
     "planNote": "按订阅计费：每次使用没有美元成本，因此显示回合数和额度",
     "estimatedPart": "其中约 {{amount}} 按应用的价格表估算，并非供应商上报",
     "resets": "{{time}} 重置",
-    "runHint": "单次运行的成本达到此金额时，会暂停并询问。",
+    "runHint": "单次运行的成本达到此金额时，会暂停并询问。项目上限与全局上限中较低者生效。",
     "saved": "预算已保存",
     "saveFailed": "无法保存预算",
     "invalidNumber": "请输入大于零的金额，或留空表示无上限。",
@@ -335,7 +335,8 @@
       "title": "月末预测",
       "basis": "{{days}} 天均值 {{avg}}/天 × 剩余 {{remaining}} 天 + 目前已花费 {{mtd}}",
       "none": "历史数据尚不足以做出预测。",
-      "overCap": "按此速度，你将超出 {{cap}} 的每月上限。"
+      "overCap": "按此速度，你将超出 {{cap}} 的每月上限。",
+      "planNone": "按订阅计费时，每次使用没有美元成本，因此没有可预测的月末金额。"
     },
     "whatIf": {
       "title": "假设：改用其他模型计价",
@@ -355,6 +356,12 @@
       "skipped": "有 {{n}} 次运行没有 token 用量或价格，已排除。",
       "recorded": "这些运行记录的成本：{{amount}}。",
       "roleNote": "用量按模型记录，而不是按角色：请选择你的角色所使用的模型。"
-    }
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "会话",
+      "weekly": "每周"
+    },
+    "capsMetered": "美元上限（按用量计费的提供商）"
   }
 }

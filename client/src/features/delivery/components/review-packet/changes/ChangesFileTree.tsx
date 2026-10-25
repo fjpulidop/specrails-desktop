@@ -8,14 +8,14 @@ import { changedSinceViewed, isViewed, type ViewedMap } from '../../../lib/viewe
 
 const ROW_HEIGHT = 28
 
-/** Letter + lamp tone per status; the letter keeps it readable without colour. */
+/** Letter + tone per status. Lamp Rule: only added and deleted carry a hue; the letter keeps it readable without colour. */
 const STATUS_BADGE: Record<ChangedFileStatus, { letter: string; tone: string }> = {
   added: { letter: 'A', tone: 'text-accent-success' },
-  modified: { letter: 'M', tone: 'text-accent-info' },
+  modified: { letter: 'M', tone: 'text-muted-foreground' },
   deleted: { letter: 'D', tone: 'text-destructive' },
-  renamed: { letter: 'R', tone: 'text-accent-review' },
-  copied: { letter: 'C', tone: 'text-accent-review' },
-  typechange: { letter: 'T', tone: 'text-accent-warning' },
+  renamed: { letter: 'R', tone: 'text-muted-foreground' },
+  copied: { letter: 'C', tone: 'text-muted-foreground' },
+  typechange: { letter: 'T', tone: 'text-muted-foreground' },
 }
 
 /**

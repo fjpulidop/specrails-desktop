@@ -16,7 +16,7 @@ Os achados do revisor, os riscos apontados e os comentários de revisão que a e
 
 ## Peça ao agente para mudar algo
 
-Selecione linhas clicando nos números (Shift-clique amplia o intervalo), escolha **Pedir ao agente para mudar isto** e descreva a mudança. O Specrails salva como feedback de revisão na spec, com o arquivo, o intervalo de linhas e o código selecionado, e mostra uma mensagem com um link para a spec. A próxima execução dessa spec o receberá. Para iniciá-la agora, use **Pedir alterações** no Resumo. Aqui não há threads de comentários entre pessoas; converse com sua equipe no GitHub.
+Selecione linhas clicando nos números (Shift-clique amplia o intervalo), escolha **Pedir uma mudança ao agente** e descreva a mudança. O Specrails salva como feedback de revisão na spec, com o arquivo, o intervalo de linhas e o código selecionado, e mostra uma mensagem com um link para a spec. A próxima execução dessa spec o receberá. Para iniciá-la agora, use **Pedir alterações** no Resumo. Aqui não há threads de comentários entre pessoas; converse com sua equipe no GitHub.
 
 ## Abra no seu editor
 

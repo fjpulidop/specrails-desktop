@@ -1,6 +1,8 @@
 import { keyboardLabel } from '../../../lib/keyboard-label'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatUsdBand } from '../../../lib/launch-forecast'
+import type { BulkForecast } from '../../../hooks/useLaunchForecast'
 import { Rocket, GitBranch, Layers, DollarSign, Inbox } from 'lucide-react'
 import {
   Dialog,
@@ -23,6 +25,8 @@ interface Props {
   onCancel: () => void
   /** Rails held back by the project's review WIP limit (null when none). */
   reviewLimit?: { limit: number; pending: number; held: number } | null
+  /** Summed forecast of the whole batch (bulk launch); absent where there is none. */
+  forecast?: BulkForecast | null
 }
 
 /**
@@ -32,8 +36,8 @@ interface Props {
  * worktree so the parallel runs never collide. Confirm is the affirmative
  * (green) action; ⌘/Ctrl+Enter triggers it.
  */
-export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCancel, reviewLimit = null }: Props) {
-  const { t } = useTranslation('dashboard')
+export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCancel, reviewLimit = null, forecast = null }: Props) {
+  const { t, i18n } = useTranslation('dashboard')
   const confirmRef = useRef<HTMLButtonElement>(null)
 
   // ⌘/Ctrl + Enter confirms while the dialog is open.
@@ -79,6 +83,22 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
                   ? t('launchAllDialog.reviewLimitNone', { count: reviewLimit.held })
                   : t('launchAllDialog.reviewLimitPartial', { count: reviewLimit.held, launched: railCount })}
               </span>
+            </div>
+          )}
+
+          {forecast && (forecast.cost || forecast.mayPause) && (
+            <div className="flex flex-col gap-1" data-testid="launch-all-forecast">
+              {forecast.cost && (
+                <p className="num text-caption text-muted-foreground" data-testid="launch-all-forecast-total">
+                  {t('launchAllDialog.forecastTotal', { count: forecast.runs, cost: formatUsdBand(forecast.cost.lowUsd, forecast.cost.highUsd, i18n.language || 'en') })}
+                </p>
+              )}
+              {forecast.mayPause && (
+                <p className="inline-flex items-center gap-1.5 text-caption text-accent-warning" role="status" data-testid="launch-all-may-pause">
+                  <span className="size-1.5 shrink-0 rounded-full bg-accent-warning" aria-hidden />
+                  {t('launchAllDialog.mayPause')}
+                </p>
+              )}
             </div>
           )}
 

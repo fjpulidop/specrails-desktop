@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { LaunchAllDialog } from '../../rails/components/LaunchAllDialog'
 import type { RailState } from '../../rails/components/RailsBoard'
 import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
+import { useBulkLaunchForecast } from '../../../hooks/useLaunchForecast'
 import type { ForecastQuery } from '../../../lib/launch-forecast'
 import { jiraApi } from '../../integrations/lib/jira-api'
 import type { BulkResult } from '../../specs/hooks/useTickets'
@@ -53,6 +54,10 @@ export function useSpecBulkActions(deps: Deps): { handlers: SpecBulkHandlers; di
 
   const firstRail = pending ? rails.find((r) => r.id === pending.assignments[0]?.railId) : undefined
   const guard = useLaunchBudgetGuard(firstRail ? forecastQueryOf(firstRail) : null)
+  // The whole batch, not just its first rail: every run's band summed against the cap.
+  const forecast = useBulkLaunchForecast(
+    pending ? pending.assignments.map((a) => { const rail = rails.find((r) => r.id === a.railId); return rail ? forecastQueryOf(rail) : null }) : [],
+  )
 
   const onStatus = useCallback<SpecBulkHandlers['onStatus']>(async (ids, target) => {
     if (ids.length === 0) return
@@ -156,6 +161,7 @@ export function useSpecBulkActions(deps: Deps): { handlers: SpecBulkHandlers; di
         open={pending !== null}
         railCount={pending?.assignments.length ?? 0}
         specCount={pending?.assignments.length ?? 0}
+        forecast={forecast}
         onCancel={() => setPending(null)}
         onConfirm={() => {
           const plan = pending

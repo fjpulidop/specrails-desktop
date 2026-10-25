@@ -81,7 +81,7 @@ Non devi ricaricare. Quando una nuova invocazione viene registrata in qualsiasi 
 
 ## Budget giornalieri {#daily-budget}
 
-Imposta un budget giornaliero per limitare quanto può costare una giornata. Il budget dell’intera app si trova in **Impostazioni → Avanzate**; quello di un progetto in **Impostazioni del progetto → Budget**.
+Imposta un budget giornaliero per limitare quanto può costare una giornata. Tutti i limiti (giornaliero, settimanale, mensile e per esecuzione) si modificano in un unico posto: **Analisi → Budget**. **Impostazioni → Avanzate** e **Impostazioni del progetto → Budget** mostrano solo il limite giornaliero attuale, con un pulsante **Apri Budget** che porta lì.
 
 Quando la spesa registrata della giornata raggiunge un budget, la coda si mette in pausa da sola, i rail e le esecuzioni dei loop non partono e mostrano *Budget giornaliero raggiunto*, e un’esecuzione di loop in corso si ferma tra un passo e l’altro, in pausa per il budget. Aumenta o rimuovi il budget, oppure attendi il reset giornaliero, poi riprendi.
 

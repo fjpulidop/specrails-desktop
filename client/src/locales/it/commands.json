@@ -1,8 +1,8 @@
 {
   "palette": {
     "label": "Palette comandi",
-    "searchPlaceholder": "Cerca progetti, comandi, job...",
-    "searchPlaceholderAgent": "Cerca missioni, progetti, job...",
+    "searchPlaceholder": "Cerca, oppure digita # @ / ? per restringere…",
+    "searchPlaceholderAgent": "Cerca, oppure digita # @ / ? per restringere…",
     "noResults": "Nessun risultato trovato.",
     "activeBadge": "attivo",
     "groups": {
@@ -141,10 +141,11 @@
       "deleteSelectedN_one": "Elimina {{count}} spec selezionata",
       "deleteSelectedN_other": "Elimina {{count}} spec selezionate",
       "saveView": "Salva la vista attuale",
-      "switchView": "Cambia vista"
+      "switchView": "Cambia vista",
+      "openBudget": "Apri Budget (limiti, proiezione, e se…)",
+      "openBudgetKeywords": "budget, limite, settimanale, mensile, spesa, costo"
     },
     "scopes": {
-      "hintsLabel": "Cerca in",
       "remove": "Rimuovi ambito",
       "needsProject": "Apri un progetto per cercare qui.",
       "searching": "Ricerca in corso…",
@@ -163,7 +164,8 @@
       "settings": {
         "label": "Impostazioni",
         "placeholder": "Cerca impostazioni…",
-        "prompt": "Digita per cercare impostazioni."
+        "prompt": "Digita per cercare impostazioni.",
+        "commandsFallback": "Comandi corrispondenti a “/{{query}}”"
       },
       "files": {
         "label": "File",

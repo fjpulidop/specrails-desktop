@@ -227,7 +227,10 @@
     "reviewLimitNone_one": "{{count}} rail would open a new delivery, so nothing launches. Decide a pending delivery first.",
     "reviewLimitNone_other": "{{count}} rails would open new deliveries, so nothing launches. Decide a pending delivery first.",
     "reviewLimitPartial_one": "Only {{launched}} can start now; {{count}} rail waits until a delivery is decided.",
-    "reviewLimitPartial_other": "Only {{launched}} can start now; {{count}} rails wait until a delivery is decided."
+    "reviewLimitPartial_other": "Only {{launched}} can start now; {{count}} rails wait until a delivery is decided.",
+    "forecastTotal_one": "{{count}} run · usually {{cost}} in total",
+    "forecastTotal_other": "{{count}} runs · usually {{cost}} in total",
+    "mayPause": "This may reach a budget cap and pause some runs."
   },
   "railControls": {
     "viewJobLog": "View job log",

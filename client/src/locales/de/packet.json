@@ -348,16 +348,18 @@
     },
     "line": {
       "select": "Zeile {{n}} auswählen",
-      "selectOld": "Ursprüngliche Zeile {{n}} auswählen"
+      "selectOld": "Ursprüngliche Zeile {{n}} auswählen",
+      "added": "hinzugefügt",
+      "removed": "entfernt"
     },
     "selection": {
       "clear": "Auswahl aufheben"
     },
     "ask": {
-      "button": "Agent bitten, das zu ändern",
+      "button": "Änderung beim Agenten anfragen",
       "title": "Was soll sich ändern in",
       "placeholder": "Beschreibe die gewünschte Änderung…",
-      "ticket": "Zur Spec hinzufügen",
+      "ticket": "Spec",
       "submit": "Zur Spec hinzufügen",
       "hint": "Wird als Review-Feedback an der Spec gespeichert; der nächste Lauf dazu erhält es.",
       "created": "Als Review-Feedback zu Spec #{{id}} hinzugefügt.",
@@ -371,11 +373,12 @@
         "vscode": "VS Code",
         "cursor": "Cursor",
         "jetbrains": "JetBrains"
-      }
+      },
+      "failed": "{{editor}} konnte nicht geöffnet werden. Ist es installiert? Ändere es unter Einstellungen ▸ Code."
     },
     "annotations": {
       "title": "Keiner Zeile zugeordnet ({{count}})",
-      "ask": "Agent bitten, das zu beheben",
+      "ask": "Änderung beim Agenten anfragen",
       "source": {
         "reviewer-finding": "Befund des Reviewers",
         "review-risk": "Zu prüfendes Risiko",

@@ -78,6 +78,6 @@
         "month": "アプリ全体の月間予算に達しました"
       }
     },
-    "detail": "${{spent}} / ${{budget}} を使用"
+    "detail": "{{spent}} / {{budget}} を使用"
   }
 }

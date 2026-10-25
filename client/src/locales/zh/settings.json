@@ -45,19 +45,17 @@
   "budget": {
     "title": "预算",
     "description": "为此项目设置每日支出上限。达到上限时队列自动暂停。",
-    "dailyLabel": "每日预算（USD）",
-    "dailyHelper": "留空表示禁用。支出按最近 24 小时计算。",
-    "dailyPlaceholder": "如 5.00",
+    "dailyLabel": "每日上限",
+    "dailyHelper": "支出按最近 24 小时计算。达到上限后队列会暂停。",
     "perJobLabel": "单任务成本告警（USD）",
     "perJobHelper": "当此项目中的单个任务超过此金额时告警。",
     "perJobPlaceholder": "如 0.50",
     "invalidNumber": "请输入正数，或留空以禁用",
-    "dailyRemoved": "已移除每日预算",
-    "dailySet": "每日预算已设为 ${{amount}}",
     "perJobAlertDisabled": "已禁用单任务成本告警",
     "alertSet": "已设置任务超过 ${{amount}} 时告警",
-    "saveBudgetFailed": "保存预算失败",
-    "saveThresholdFailed": "保存阈值失败"
+    "saveThresholdFailed": "保存阈值失败",
+    "dailyCurrent": "当前每日 {{amount}}",
+    "dailyNone": "未设置每日上限"
   },
   "desktop": {
     "nav": {
@@ -83,14 +81,10 @@
     "techUrlSaved": "specrails-tech URL 已保存",
     "techUrlSaveFailed": "保存 URL 失败",
     "budgetAlertsHeading": "预算与告警",
-    "dailyBudgetLabel": "Desktop 每日预算（USD）",
+    "dailyBudgetLabel": "Desktop 每日上限",
     "dailyBudgetHelper": "所有项目的全局每日支出上限。超出后队列自动暂停。",
-    "dailyBudgetPlaceholder": "如 10.00",
     "perJobHelper": "当单个任务超过此金额时告警。留空表示禁用。",
     "costAlertsDisabled": "已禁用成本告警",
-    "dailyBudgetRemoved": "已移除 Desktop 每日预算",
-    "dailyBudgetSet": "Desktop 每日预算已设为 ${{amount}}",
-    "dailyBudgetSaveFailed": "保存 Desktop 每日预算失败",
     "projectRemoved": "项目已移除",
     "projectRemoveFailed": "移除项目失败",
     "onboardingHeading": "新手引导",
@@ -109,7 +103,9 @@
       "agents": "智能体",
       "system": "系统"
     },
-    "unsavedChanges": "未保存的更改"
+    "unsavedChanges": "未保存的更改",
+    "dailyBudgetCurrent": "当前每日 {{amount}}",
+    "dailyBudgetNone": "未设置每日上限"
   },
   "notifications": {
     "heading": "系统通知",
@@ -522,5 +518,8 @@
       "cursor": "Cursor",
       "jetbrains": "JetBrains IDE"
     }
-  }
+  },
+  "budgetMoved": "上限在 分析 ▸ 预算 中编辑。",
+  "openBudget": "打开预算",
+  "openSettings": "打开设置"
 }

@@ -16,7 +16,7 @@ Die Befunde des Reviewers, die markierten Risiken und die Review-Kommentare, die
 
 ## Den Agenten um eine Änderung bitten
 
-Wähle Zeilen per Klick auf ihre Nummern (Umschalt-Klick erweitert den Bereich), wähle **Agent bitten, das zu ändern** und beschreibe die Änderung. Specrails speichert sie als Review-Feedback an der Spec, mit Datei, Zeilenbereich und dem ausgewählten Code, und zeigt eine Meldung mit einem Link zur Spec. Der nächste Lauf zu dieser Spec erhält es. Um ihn sofort zu starten, nutze **Änderungen anfordern** in der Übersicht. Hier gibt es keine Kommentarthreads zwischen Personen; besprich dich mit deinem Team auf GitHub.
+Wähle Zeilen per Klick auf ihre Nummern (Umschalt-Klick erweitert den Bereich), wähle **Änderung beim Agenten anfragen** und beschreibe die Änderung. Specrails speichert sie als Review-Feedback an der Spec, mit Datei, Zeilenbereich und dem ausgewählten Code, und zeigt eine Meldung mit einem Link zur Spec. Der nächste Lauf zu dieser Spec erhält es. Um ihn sofort zu starten, nutze **Änderungen anfordern** in der Übersicht. Hier gibt es keine Kommentarthreads zwischen Personen; besprich dich mit deinem Team auf GitHub.
 
 ## In deinem Editor öffnen
 

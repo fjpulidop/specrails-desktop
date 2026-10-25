@@ -144,8 +144,46 @@ export function viewMatchesState(view: SpecViewState, current: SpecViewState): b
     && a.labels.every((l, i) => l === b.labels[i])
 }
 
-/** The link a copied view resolves to: the current location with `?p=<project>&view=<id>`. */
-export function buildViewLink(projectId: string, viewId: string, base: { origin: string; pathname: string } = window.location): string {
-  const params = new URLSearchParams({ p: projectId, view: viewId })
+/** base64url of UTF-8 text (labels, epics and sprints may be any script). */
+function toBase64Url(text: string): string {
+  let binary = ''
+  for (const byte of new TextEncoder().encode(text)) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function fromBase64Url(value: string): string {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/')
+  const binary = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4))
+  return new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)))
+}
+
+/**
+ * The view's state as a URL-safe token (`?view=<token>`). A saved view lives in this machine's
+ * localStorage, so a link that carried only its id would mean nothing anywhere else: the link
+ * carries the state itself.
+ */
+export function encodeViewState(state: SpecViewState): string {
+  return toBase64Url(JSON.stringify(cloneState(state)))
+}
+
+/** Tolerant inverse of {@link encodeViewState}: null when the token is not a view state. */
+export function decodeViewState(token: string): SpecViewState | null {
+  try {
+    const parsed = parseView({ ...(JSON.parse(fromBase64Url(token)) as Record<string, unknown>), id: 'link', name: 'link' })
+    if (!parsed) return null
+    const { id: _id, name: _name, ...state } = parsed
+    void _id; void _name
+    return state
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The link a copied view resolves to: the current location with `?p=<project>&view=<token>`.
+ * `view` is the view's state (works on any machine) or, for a legacy link, a saved view's id.
+ */
+export function buildViewLink(projectId: string, view: SpecViewState | string, base: { origin: string; pathname: string } = window.location): string {
+  const params = new URLSearchParams({ p: projectId, view: typeof view === 'string' ? view : encodeViewState(view) })
   return `${base.origin}${base.pathname}?${params.toString()}`
 }

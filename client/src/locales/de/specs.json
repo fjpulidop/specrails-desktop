@@ -222,7 +222,7 @@
     "label": "Label",
     "priority": "Priorität",
     "addToRail": "Zu Rail hinzufügen",
-    "launchAll": "Alle starten",
+    "launchAll": "Auswahl starten",
     "delete": "Löschen",
     "clear": "Aufheben",
     "clearTitle": "Auswahl aufheben (Esc)",
@@ -263,7 +263,8 @@
       "skipNoRail_other": "{{count}} ohne freies Rail",
       "skipReviewLimit_one": "{{count}} vom Review-Limit zurückgehalten",
       "skipReviewLimit_other": "{{count}} vom Review-Limit zurückgehalten"
-    }
+    },
+    "more": "Mehr"
   },
   "views": {
     "trigger": "Ansichten",
@@ -289,6 +290,7 @@
     "done": "Fertig",
     "linkCopied": "Link kopiert",
     "linkCopyFailed": "Der Link konnte nicht kopiert werden",
-    "linkMissing": "Diese Ansicht gibt es in diesem Projekt nicht"
+    "linkMissing": "Diese Ansicht gibt es in diesem Projekt nicht",
+    "deleted": "Ansicht „{{name}}“ gelöscht"
   }
 }

@@ -27,12 +27,13 @@ import {
   Bookmark,
   Tag,
   Flag,
+  Gauge,
   type LucideIcon,
 } from 'lucide-react'
 import type { PaletteSurfaces } from '../../lib/palette-bridge'
 import { foldText, matchesPaletteQuery } from '../../features/missions/lib/mission-search'
 import { THEME_IDS, THEMES, type ThemeId } from '../../features/settings/lib/themes'
-import { APP_SETTINGS_SECTIONS, type AppSettingsSection } from '../../lib/app-settings-events'
+import { APP_SETTINGS_SECTIONS, openBudgetPanel, type AppSettingsSection } from '../../lib/app-settings-events'
 import { PROJECT_SETTINGS_SECTION_IDS } from '../../features/settings/lib/project-settings-section-ids'
 
 /**
@@ -522,6 +523,13 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.inbox?.open(),
   },
   {
+    // Caps, projection and what-if all live in Analytics ▸ Budget: one action that opens it. `/budget` finds it too.
+    id: 'budget.open', labelKey: 'palette.actions.openBudget', group: 'global', icon: Gauge,
+    keywords: ['budget', 'cap', 'limit', 'weekly', 'monthly', 'daily', 'spend', 'cost', 'projection', 'what if'],
+    when: (ctx) => ctx.projectId !== null,
+    run: () => openBudgetPanel(),
+  },
+  {
     id: 'trash.open', labelKey: 'palette.actions.recentlyDeleted', group: 'global', icon: Trash2,
     keywords: ['deleted', 'trash', 'restore', 'recover', 'bin'],
     when: (ctx) => ctx.projectId !== null,
@@ -593,10 +601,17 @@ export function rankActions(ctx: PaletteContext, query: string): RankedActions {
   // The text after `>` filters; a lone verb ("new") also matches by label start.
   const matched = labelled.filter(({ action, label }) => matchesPaletteQuery(text, label, action.keywords ?? []))
   const preferred: ActionGroup = ctx.uiMode === 'agent' ? 'mission' : 'board'
+  const selected = selectionCount(ctx) > 0
   matched.sort((a, b) => {
     const sa = text ? matchScore(a.label, a.action.keywords ?? [], text) : 0
     const sb = text ? matchScore(b.label, b.action.keywords ?? [], text) : 0
     if (sa !== sb) return sa - sb
+    // With specs selected, what can be done to the selection comes first.
+    if (selected) {
+      const xa = a.action.id.startsWith('selection.') ? 0 : 1
+      const xb = b.action.id.startsWith('selection.') ? 0 : 1
+      if (xa !== xb) return xa - xb
+    }
     const ga = a.action.group === preferred ? 0 : 1
     const gb = b.action.group === preferred ? 0 : 1
     if (ga !== gb) return ga - gb

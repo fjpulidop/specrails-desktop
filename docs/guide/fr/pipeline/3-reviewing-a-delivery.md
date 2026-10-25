@@ -16,7 +16,7 @@ Les constats du relecteur, les risques signalés et les commentaires de revue qu
 
 ## Demander à l'agent de modifier quelque chose
 
-Sélectionnez des lignes en cliquant sur leurs numéros (Maj-clic étend la plage), choisissez **Demander à l'agent de modifier ceci** et décrivez la modification. Specrails l'enregistre comme retour de revue sur la spec, avec le fichier, la plage de lignes et le code sélectionné, et affiche un message avec un lien vers la spec. La prochaine exécution sur cette spec en tiendra compte. Pour la lancer tout de suite, utilisez **Demander des modifications** dans l'Aperçu. Il n'y a pas de fils de commentaires entre personnes ici ; discutez avec votre équipe sur GitHub.
+Sélectionnez des lignes en cliquant sur leurs numéros (Maj-clic étend la plage), choisissez **Demander une modification à l'agent** et décrivez la modification. Specrails l'enregistre comme retour de revue sur la spec, avec le fichier, la plage de lignes et le code sélectionné, et affiche un message avec un lien vers la spec. La prochaine exécution sur cette spec en tiendra compte. Pour la lancer tout de suite, utilisez **Demander des modifications** dans l'Aperçu. Il n'y a pas de fils de commentaires entre personnes ici ; discutez avec votre équipe sur GitHub.
 
 ## Ouvrir dans votre éditeur
 

@@ -116,9 +116,10 @@ cost band and the tightest daily budget's headroom. Rules, all in `lib/launch-fo
   (`unsupported-auth`) or on-demand enterprise. On a plan (`isPlanBilled`), while the snapshot has not answered,
   or when it does not say, the line shows time only: a plan user never sees a `$`.
 - **Budget caution.** `budgetOutlook` compares, in integer cents, today's spend plus the top of the cost band with the
-  daily budget: "May pause at budget" (or "Daily budget reached" when the gate would already refuse). It links to
-  `openProjectSettings('budget')` or `openAppSettings('advanced')` for an app-wide budget. With the budget
-  already reached, `hooks/useLaunchBudgetGuard` makes Play / Run / Launch ask first ("Launch anyway?"); it never blocks.
+  daily budget: "May pause at budget" (or "Daily budget reached" when the gate would already refuse). It opens the one cap
+  editor, Analytics ▸ Budget (`openBudgetPanel()`); Settings only shows the daily cap read-only with a link there. With the
+  budget already reached the admission gate would refuse the launch, so `hooks/useLaunchBudgetGuard` does not launch: it explains
+  and offers "Raise cap" (the Budget panel). `useBulkLaunchForecast` sums the bands of a whole bulk launch.
 - Idle rails pass `hideWhenInsufficient` (no repeated "Not enough history yet") and `perSpec` when they hold several specs.
 - Forecasts are cached 30 s per project/loop/provider (`fetchLaunchForecast`) and shared between rails.
 

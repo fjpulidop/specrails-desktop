@@ -3,6 +3,8 @@ import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
 import { Plus, RefreshCw, X } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
+import { openBudgetPanel } from '../../../lib/app-settings-events'
+import { formatUsd } from '../../../lib/format-usd'
 import { notifyReviewWipLimitChanged, parseReviewWipLimitInput, REVIEW_WIP_LIMIT_MAX, SUGGESTED_REVIEW_WIP_LIMIT } from '../../../lib/review-wip'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
@@ -675,24 +677,24 @@ export function ProjectPrePromptsSection() {
 export function ProjectBudgetSection() {
   const { t } = useTranslation('settings')
   const { activeProjectId } = useDesktop()
+  // Read-only here: every cap is edited in Analytics ▸ Budget (the single editor).
   const [dailyBudget, setDailyBudget] = useState('')
-  const [isSavingBudget, setIsSavingBudget] = useState(false)
   const [jobCostThreshold, setJobCostThreshold] = useState('')
   const [isSavingJobThreshold, setIsSavingJobThreshold] = useState(false)
   const [loaded, setLoaded] = useState(false)
   // A late-landing GET must never clobber a field the user already edited.
-  const touchedRef = useRef({ daily: false, perJob: false })
+  const touchedRef = useRef({ perJob: false })
 
   useEffect(() => {
     if (!activeProjectId) return
     let cancelled = false
     setLoaded(false)
-    touchedRef.current = { daily: false, perJob: false }
+    touchedRef.current = { perJob: false }
     fetch(`${getApiBase()}/budget`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { dailyBudgetUsd?: number | null; jobCostThresholdUsd?: number | null } | null) => {
         if (cancelled || !data) return
-        if (!touchedRef.current.daily) setDailyBudget(data.dailyBudgetUsd != null ? String(data.dailyBudgetUsd) : '')
+        setDailyBudget(data.dailyBudgetUsd != null ? String(data.dailyBudgetUsd) : '')
         if (!touchedRef.current.perJob) setJobCostThreshold(data.jobCostThresholdUsd != null ? String(data.jobCostThresholdUsd) : '')
       })
       .catch(() => {})
@@ -726,17 +728,6 @@ export function ProjectBudgetSection() {
     return parsed
   }
 
-  function saveDailyBudget() {
-    const parsed = parseAmount(dailyBudget)
-    if (parsed === undefined) return
-    void savePatch(
-      { dailyBudgetUsd: parsed },
-      parsed == null ? t('budget.dailyRemoved') : t('budget.dailySet', { amount: parsed }),
-      'budget.saveBudgetFailed',
-      setIsSavingBudget,
-    )
-  }
-
   function saveJobCostThreshold() {
     const parsed = parseAmount(jobCostThreshold)
     if (parsed === undefined) return
@@ -766,18 +757,13 @@ export function ProjectBudgetSection() {
               </div>
               <p className="text-xs text-muted-foreground">{t('budget.dailyHelper')}</p>
             </div>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={dailyBudget}
-              onChange={(e) => { touchedRef.current.daily = true; setDailyBudget(e.target.value) }}
-              placeholder={t('budget.dailyPlaceholder')}
-              className="h-8 text-xs font-mono"
-            />
+            <p className="num text-body text-foreground" data-testid="project-daily-budget-summary">
+              {dailyBudget === '' ? t('budget.dailyNone') : t('budget.dailyCurrent', { amount: formatUsd(Number(dailyBudget)) })}
+            </p>
+            <p className="text-micro text-muted-foreground">{t('budgetMoved')}</p>
             <div className="flex justify-end">
-              <Button size="sm" variant="secondary" className="h-7 text-xs" disabled={isSavingBudget} onClick={saveDailyBudget}>
-                {isSavingBudget ? t('common:states.saving') : t('common:actions.save')}
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openBudgetPanel} data-testid="project-open-budget">
+                {t('openBudget')}
               </Button>
             </div>
           </div>

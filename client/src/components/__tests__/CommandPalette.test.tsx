@@ -135,10 +135,22 @@ describe('CommandPalette', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
 
+    // The open project (Alpha) is not offered as a switch; the others are.
     await waitFor(() => {
-      expect(screen.getByText('Project Alpha')).toBeInTheDocument()
       expect(screen.getByText('Project Beta')).toBeInTheDocument()
     })
+    expect(screen.queryByText('Project Alpha')).not.toBeInTheDocument()
+  })
+
+  it('never preselects a project switch when opened: the project group trails the rest', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette />)
+    await user.keyboard('{Meta>}k{/Meta}')
+    await screen.findByText('Project Beta')
+    const selected = document.querySelector('[cmdk-item][data-selected="true"]')
+    expect(selected?.textContent ?? '').not.toContain('Project Beta')
+    const groups = Array.from(document.querySelectorAll('[cmdk-group-heading]')).map((el) => el.textContent)
+    expect(groups.at(-1)).toBe('Projects')
   })
 
   it('shows commands after data loads', async () => {
@@ -185,6 +197,8 @@ describe('CommandPalette', () => {
     render(<CommandPalette />)
 
     await user.keyboard('{Meta>}k{/Meta}')
+    // Typing a name finds even the open project, and says it is the active one.
+    await user.type(await screen.findByPlaceholderText(/search/i), 'alpha')
 
     await waitFor(() => {
       expect(screen.getByText('active')).toBeInTheDocument()
@@ -199,7 +213,7 @@ describe('CommandPalette', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
     await waitFor(() => {
-      expect(screen.getByText('Project Alpha')).toBeInTheDocument()
+      expect(screen.getByText('Project Beta')).toBeInTheDocument()
     })
 
     const input = screen.getByPlaceholderText(/search/i)
@@ -391,7 +405,7 @@ describe('CommandPalette', () => {
 
     // Projects from context should still show even if fetch fails
     await waitFor(() => {
-      expect(screen.getByText('Project Alpha')).toBeInTheDocument()
+      expect(screen.getByText('Project Beta')).toBeInTheDocument()
       expect(screen.getByText('Dashboard')).toBeInTheDocument()
     })
   })

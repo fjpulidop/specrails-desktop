@@ -81,7 +81,7 @@ Não precisa de atualizar a página. Quando uma nova invocação é registada em
 
 ## Orçamentos diários {#daily-budget}
 
-Defina um orçamento diário para limitar quanto um dia pode custar. O orçamento de todo o app fica em **Configurações → Avançado**; o de cada projeto, em **Configurações do projeto → Orçamento**.
+Defina um orçamento diário para limitar quanto um dia pode custar. Todos os limites (diário, semanal, mensal e por execução) são editados em um único lugar: **Análises → Orçamento**. **Configurações → Avançado** e **Configurações do projeto → Orçamento** apenas mostram o limite diário atual, com um botão **Abrir Orçamento** que leva até lá.
 
 Quando o gasto registrado do dia atinge um orçamento, a fila se pausa sozinha, os rails e as execuções de loops se recusam a iniciar com *Orçamento diário atingido*, e uma execução de loop em andamento para entre etapas, pausada pelo orçamento. Aumente ou remova o orçamento, ou espere a redefinição diária, e depois retome.
 

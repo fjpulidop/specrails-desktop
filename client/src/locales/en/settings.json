@@ -45,19 +45,17 @@
   "budget": {
     "title": "Budget",
     "description": "Set a daily spend cap for this project. The queue auto-pauses when the limit is hit.",
-    "dailyLabel": "Daily budget (USD)",
-    "dailyHelper": "Leave blank to disable. Spend is calculated over the last 24 hours.",
-    "dailyPlaceholder": "e.g. 5.00",
+    "dailyLabel": "Daily cap",
+    "dailyHelper": "Spend is counted over the last 24 hours. The queue pauses when the cap is reached.",
     "perJobLabel": "Per-job cost alert (USD)",
     "perJobHelper": "Alert when a single job in this project exceeds this amount.",
     "perJobPlaceholder": "e.g. 0.50",
     "invalidNumber": "Enter a positive number or leave blank to disable",
-    "dailyRemoved": "Daily budget removed",
-    "dailySet": "Daily budget set to ${{amount}}",
     "perJobAlertDisabled": "Per-job cost alert disabled",
     "alertSet": "Alert set for jobs over ${{amount}}",
-    "saveBudgetFailed": "Failed to save budget",
-    "saveThresholdFailed": "Failed to save threshold"
+    "saveThresholdFailed": "Failed to save threshold",
+    "dailyCurrent": "Currently {{amount}} a day",
+    "dailyNone": "No daily cap set"
   },
   "desktop": {
     "nav": {
@@ -83,14 +81,10 @@
     "techUrlSaved": "specrails-tech URL saved",
     "techUrlSaveFailed": "Failed to save URL",
     "budgetAlertsHeading": "Budget & Alerts",
-    "dailyBudgetLabel": "Desktop daily budget (USD)",
+    "dailyBudgetLabel": "Desktop daily cap",
     "dailyBudgetHelper": "Global daily spend limit across all projects. Queues auto-pause when exceeded.",
-    "dailyBudgetPlaceholder": "e.g. 10.00",
     "perJobHelper": "Alert when a single job exceeds this amount. Leave blank to disable.",
     "costAlertsDisabled": "Cost alerts disabled",
-    "dailyBudgetRemoved": "Desktop daily budget removed",
-    "dailyBudgetSet": "Desktop daily budget set to ${{amount}}",
-    "dailyBudgetSaveFailed": "Failed to save Desktop daily budget",
     "projectRemoved": "Project removed",
     "projectRemoveFailed": "Failed to remove project",
     "onboardingHeading": "Onboarding",
@@ -109,7 +103,9 @@
       "agents": "Agents",
       "system": "System"
     },
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "Unsaved changes",
+    "dailyBudgetCurrent": "Currently {{amount}} a day",
+    "dailyBudgetNone": "No daily cap set"
   },
   "notifications": {
     "heading": "OS Notifications",
@@ -522,5 +518,8 @@
       "cursor": "Cursor",
       "jetbrains": "JetBrains IDE"
     }
-  }
+  },
+  "budgetMoved": "Caps are edited in Analytics ▸ Budget.",
+  "openBudget": "Open Budget",
+  "openSettings": "Open Settings"
 }

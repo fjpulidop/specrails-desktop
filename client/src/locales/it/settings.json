@@ -45,19 +45,17 @@
   "budget": {
     "title": "Budget",
     "description": "Imposta un tetto di spesa giornaliero per questo progetto. La coda si mette in pausa automaticamente al raggiungimento del limite.",
-    "dailyLabel": "Budget giornaliero (USD)",
-    "dailyHelper": "Lascia vuoto per disabilitare. La spesa è calcolata sulle ultime 24 ore.",
-    "dailyPlaceholder": "es. 5.00",
+    "dailyLabel": "Limite giornaliero",
+    "dailyHelper": "La spesa è calcolata sulle ultime 24 ore. La coda si mette in pausa quando il limite è raggiunto.",
     "perJobLabel": "Avviso di costo per job (USD)",
     "perJobHelper": "Avvisa quando un singolo job di questo progetto supera questo importo.",
     "perJobPlaceholder": "es. 0.50",
     "invalidNumber": "Inserisci un numero positivo o lascia vuoto per disabilitare",
-    "dailyRemoved": "Budget giornaliero rimosso",
-    "dailySet": "Budget giornaliero impostato a ${{amount}}",
     "perJobAlertDisabled": "Avviso di costo per job disabilitato",
     "alertSet": "Avviso impostato per i job oltre ${{amount}}",
-    "saveBudgetFailed": "Salvataggio del budget non riuscito",
-    "saveThresholdFailed": "Salvataggio della soglia non riuscito"
+    "saveThresholdFailed": "Salvataggio della soglia non riuscito",
+    "dailyCurrent": "Attualmente {{amount}} al giorno",
+    "dailyNone": "Nessun limite giornaliero"
   },
   "desktop": {
     "nav": {
@@ -83,14 +81,10 @@
     "techUrlSaved": "URL di specrails-tech salvato",
     "techUrlSaveFailed": "Salvataggio dell'URL non riuscito",
     "budgetAlertsHeading": "Budget e avvisi",
-    "dailyBudgetLabel": "Budget giornaliero di Desktop (USD)",
+    "dailyBudgetLabel": "Limite giornaliero di Desktop",
     "dailyBudgetHelper": "Limite di spesa giornaliero globale su tutti i progetti. Le code si mettono in pausa automaticamente al superamento.",
-    "dailyBudgetPlaceholder": "es. 10.00",
     "perJobHelper": "Avvisa quando un singolo job supera questo importo. Lascia vuoto per disabilitare.",
     "costAlertsDisabled": "Avvisi di costo disabilitati",
-    "dailyBudgetRemoved": "Budget giornaliero di Desktop rimosso",
-    "dailyBudgetSet": "Budget giornaliero di Desktop impostato a ${{amount}}",
-    "dailyBudgetSaveFailed": "Salvataggio del budget giornaliero di Desktop non riuscito",
     "projectRemoved": "Progetto rimosso",
     "projectRemoveFailed": "Rimozione del progetto non riuscita",
     "onboardingHeading": "Onboarding",
@@ -109,7 +103,9 @@
       "agents": "Agenti",
       "system": "Sistema"
     },
-    "unsavedChanges": "Modifiche non salvate"
+    "unsavedChanges": "Modifiche non salvate",
+    "dailyBudgetCurrent": "Attualmente {{amount}} al giorno",
+    "dailyBudgetNone": "Nessun limite giornaliero"
   },
   "notifications": {
     "heading": "Notifiche di sistema",
@@ -522,5 +518,8 @@
       "cursor": "Cursor",
       "jetbrains": "IDE JetBrains"
     }
-  }
+  },
+  "budgetMoved": "I limiti si modificano in Analisi ▸ Budget.",
+  "openBudget": "Apri Budget",
+  "openSettings": "Apri impostazioni"
 }

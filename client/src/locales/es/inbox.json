@@ -18,7 +18,7 @@
     "question": "Esperando tu respuesta",
     "failed": "Falló",
     "blocked": "Bloqueado",
-    "budget": "Pausado por presupuesto",
+    "budget": "Pausado por un límite",
     "jira": "Falló la sincronización con Jira",
     "failedNoCause": "Se detuvo antes de entregar",
     "capReached": "Límite de presupuesto alcanzado"
@@ -58,26 +58,26 @@
     "retried": "Reintento en cola",
     "resumeFailed": "No se pudo reanudar la ejecución",
     "retryFailed": "No se pudo reintentar la actualización de Jira",
-    "stillOverBudget": "Sigues por encima del presupuesto diario",
+    "stillOverBudget": "Sigues por encima del límite diario",
     "done": "Marcado como hecho",
     "snoozed": "Pospuesto hasta {{when}}",
     "undo": "Deshacer",
-    "stillOverBudget_week": "Sigue superado el presupuesto semanal",
-    "stillOverBudget_month": "Sigue superado el presupuesto mensual"
+    "stillOverBudget_week": "Sigue superado el límite semanal",
+    "stillOverBudget_month": "Sigue superado el límite mensual"
   },
   "cap": {
     "title": {
       "project": {
-        "day": "Presupuesto diario del proyecto alcanzado",
-        "week": "Presupuesto semanal del proyecto alcanzado",
-        "month": "Presupuesto mensual del proyecto alcanzado"
+        "day": "Límite diario del proyecto alcanzado",
+        "week": "Límite semanal del proyecto alcanzado",
+        "month": "Límite mensual del proyecto alcanzado"
       },
       "desktop": {
-        "day": "Presupuesto diario global alcanzado",
-        "week": "Presupuesto semanal global alcanzado",
-        "month": "Presupuesto mensual global alcanzado"
+        "day": "Límite diario global alcanzado",
+        "week": "Límite semanal global alcanzado",
+        "month": "Límite mensual global alcanzado"
       }
     },
-    "detail": "${{spent}} de ${{budget}} gastados"
+    "detail": "{{spent}} de {{budget}} gastados"
   }
 }

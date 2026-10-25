@@ -81,7 +81,7 @@ Pas besoin d'actualiser. Quand une nouvelle invocation est enregistrée n'import
 
 ## Budgets quotidiens {#daily-budget}
 
-Définissez un budget quotidien pour plafonner ce qu’une journée peut coûter. Le budget de toute l’app se trouve dans **Réglages → Avancé** ; le budget d’un projet, dans **Réglages du projet → Budget**.
+Définissez un budget quotidien pour plafonner ce qu’une journée peut coûter. Tous les plafonds (quotidien, hebdomadaire, mensuel et par exécution) se modifient au même endroit : **Analyses → Budget**. **Réglages → Avancé** et **Réglages du projet → Budget** n’affichent que le plafond quotidien actuel, avec un bouton **Ouvrir Budget** qui y mène.
 
 Quand la dépense enregistrée du jour atteint un budget, la file se met en pause d’elle-même, les rails et les exécutions de loops refusent de démarrer avec *Budget quotidien atteint*, et une exécution de loop en cours s’arrête entre deux étapes, en pause à cause du budget. Augmentez ou supprimez le budget, ou attendez la réinitialisation quotidienne, puis reprenez.
 

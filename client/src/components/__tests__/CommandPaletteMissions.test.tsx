@@ -23,6 +23,7 @@ vi.mock('../../hooks/useDesktop', () => ({
   useDesktop: () => ({
     projects: [
       { id: 'p1', slug: 'neotetris', name: 'NeoTetris', path: '/a', db_path: '/a/db', provider: 'claude', added_at: '', last_seen_at: '' },
+      { id: 'p2', slug: 'pixel-depths', name: 'Pixel Depths', path: '/b', db_path: '/b/db', provider: 'claude', added_at: '', last_seen_at: '' },
     ],
     activeProjectId: 'p1',
     setActiveProjectId: vi.fn(),
@@ -98,7 +99,7 @@ describe('CommandPalette — missions', () => {
     render(<CommandPalette />)
     await openPalette(user)
 
-    expect(screen.getByPlaceholderText('Search missions, projects, jobs...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search, or type # @ / ? to narrow…')).toBeInTheDocument()
     const headings = groupHeadings()
     expect(headings.indexOf('Missions')).toBeGreaterThanOrEqual(0)
     expect(headings.indexOf('Missions')).toBeLessThan(headings.indexOf('Projects'))
@@ -108,13 +109,19 @@ describe('CommandPalette — missions', () => {
     expect(searchMissions).not.toHaveBeenCalled()
   })
 
-  it('renders projects before missions on the board and keeps the classic placeholder', async () => {
+  it('puts projects before missions on the board once a query is typed (and last when empty)', async () => {
     uiMode = 'kanban'
     const user = userEvent.setup()
     render(<CommandPalette />)
     await openPalette(user)
 
-    expect(screen.getByPlaceholderText('Search projects, commands, jobs...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search, or type # @ / ? to narrow…')).toBeInTheDocument()
+    // Nothing typed: recents and missions lead and the switcher trails, so Enter on open never switches project.
+    const empty = groupHeadings()
+    expect(empty.indexOf('Missions')).toBeGreaterThanOrEqual(0)
+    expect(empty.indexOf('Projects')).toBeGreaterThan(empty.indexOf('Missions'))
+    // With a query the board's own order applies: projects first.
+    await user.type(screen.getByRole('combobox'), 'e')
     const headings = groupHeadings()
     expect(headings.indexOf('Projects')).toBeGreaterThanOrEqual(0)
     expect(headings.indexOf('Projects')).toBeLessThan(headings.indexOf('Missions'))

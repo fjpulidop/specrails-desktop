@@ -348,13 +348,15 @@
     },
     "line": {
       "select": "{{n}} 行目を選択",
-      "selectOld": "元の {{n}} 行目を選択"
+      "selectOld": "元の {{n}} 行目を選択",
+      "added": "追加",
+      "removed": "削除"
     },
     "selection": {
       "clear": "選択を解除"
     },
     "ask": {
-      "button": "エージェントにここの変更を依頼",
+      "button": "エージェントに変更を依頼",
       "title": "変更してほしい内容:",
       "placeholder": "希望する変更を書いてください…",
       "ticket": "追加先のスペック",
@@ -371,11 +373,12 @@
         "vscode": "VS Code",
         "cursor": "Cursor",
         "jetbrains": "JetBrains"
-      }
+      },
+      "failed": "{{editor}} を開けませんでした。インストールされていますか？ 設定 ▸ コード で変更できます。"
     },
     "annotations": {
       "title": "行に紐づかないもの（{{count}}）",
-      "ask": "エージェントに修正を依頼",
+      "ask": "エージェントに変更を依頼",
       "source": {
         "reviewer-finding": "レビュアーの指摘",
         "review-risk": "確認すべきリスク",

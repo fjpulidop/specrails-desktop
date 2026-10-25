@@ -5,8 +5,11 @@ import { useLocation } from 'react-router-dom'
 import type { LocalTicket } from '../../../../types'
 import type { SpecBulkHandlers } from '../../lib/bulk-actions'
 import { getPaletteSurface, resetPaletteSurfaces } from '../../../../lib/palette-bridge'
+import { encodeViewState, type SpecViewState } from '../../lib/spec-views'
 
 const h = vi.hoisted(() => ({ activeId: 'proj-A' as string | null }))
+const toasts = vi.hoisted(() => ({ fn: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }) }))
+vi.mock('sonner', () => ({ toast: toasts.fn }))
 vi.mock('../../../../hooks/useDesktop', () => ({
   useDesktop: () => ({
     projects: [], activeProjectId: h.activeId, setActiveProjectId: () => {}, addProject: async () => null, removeProject: async () => {},
@@ -242,7 +245,7 @@ describe('SpecsBoard bulk bar (CD4)', () => {
     renderBoard()
     select(1)
     const toolbar = screen.getByRole('toolbar')
-    for (const id of ['move', 'label', 'priority', 'rail', 'launch', 'delete', 'clear']) {
+    for (const id of ['move', 'label', 'priority', 'more', 'rail', 'launch', 'delete', 'clear']) {
       expect(within(toolbar).getByTestId(`specs-bulk-${id}`)).toBeInTheDocument()
     }
   })
@@ -309,6 +312,46 @@ describe('SpecsBoard bulk bar (CD4)', () => {
     expect(bulk.onLaunch).toHaveBeenCalledWith([1, 2])
     fireEvent.click(screen.getByTestId('specs-bulk-delete'))
     expect(bulk.onDelete).toHaveBeenCalledWith([1, 2])
+  })
+
+  it('keeps Clear right after the count (an icon button with an accessible name) so a narrow board never cuts it off', () => {
+    renderBoard()
+    select(1, 2)
+    const toolbar = screen.getByRole('toolbar')
+    const controls = Array.from(toolbar.children)
+    expect(controls[0]).toBe(screen.getByTestId('specs-bulk-count'))
+    const clear = screen.getByTestId('specs-bulk-clear')
+    expect(controls[1]).toBe(clear)
+    expect(clear).toHaveAccessibleName('Clear the selection (Esc)')
+    expect(toolbar.parentElement).toHaveClass('@container')
+    // The bar may wrap on a narrow board instead of scrolling its tail out of reach.
+    expect(toolbar).toHaveClass('flex-wrap')
+    expect(toolbar.className).not.toMatch(/overflow-x-auto/)
+  })
+
+  it('folds Label and Priority into a More menu on a narrow board, with the same handlers', () => {
+    const { bulk } = renderBoard()
+    select(2, 4)
+    const more = screen.getByTestId('specs-bulk-more')
+    expect(more).toHaveTextContent('More')
+    // The wide-board buttons hide below the container breakpoint; the folded one hides above it.
+    expect(screen.getByTestId('specs-bulk-label').className).toMatch(/@\[44rem\]:inline-flex/)
+    expect(more.className).toMatch(/@\[44rem\]:hidden/)
+    openMenu('specs-bulk-more')
+    fireEvent.click(screen.getByTestId('specs-bulk-more-priority-high'))
+    expect(bulk.onPriority).toHaveBeenCalledWith([2, 4], 'high')
+    openMenu('specs-bulk-more')
+    fireEvent.click(screen.getByTestId('specs-bulk-more-label-add-ui'))
+    expect(bulk.onLabel).toHaveBeenCalledWith([2, 4], 'ui', 'add')
+  })
+
+  it('"Launch selected" is a plain action, not the green "done" lamp', () => {
+    renderBoard()
+    select(1)
+    const launch = screen.getByTestId('specs-bulk-launch')
+    expect(launch).toHaveTextContent('Launch selected')
+    expect(launch.className).not.toMatch(/accent-success/)
+    expect(launch).toHaveClass('text-foreground')
   })
 
   it('Clear empties the selection', () => {
@@ -428,6 +471,32 @@ describe('SpecsBoard saved views (CD4)', () => {
     expect(storedViews()).toEqual([])
   })
 
+  it('deleting a view can be undone from the toast, restoring it where it was', async () => {
+    renderBoard()
+    await saveView('First')
+    await saveView('Second')
+    const [first, second] = storedViews()
+    fireEvent.click(screen.getByTestId('specs-views-trigger'))
+    fireEvent.click(screen.getByTestId('specs-views-manage'))
+    toasts.fn.mockClear()
+    fireEvent.click(screen.getByTestId(`specs-views-delete-${first.id}`))
+    expect(storedViews().map((v) => v.name)).toEqual(['Second'])
+    expect(toasts.fn).toHaveBeenCalledTimes(1)
+    const [message, options] = toasts.fn.mock.calls[0] as [string, { action: { label: string; onClick: () => void } }]
+    expect(message).toBe('View “First” deleted')
+    expect(options.action.label).toBe('Undo')
+    // Something else changes before Undo: it must survive.
+    fireEvent.click(screen.getByTestId(`specs-views-rename-${second.id}`))
+    const input = screen.getByTestId('specs-views-rename-input')
+    fireEvent.change(input, { target: { value: 'Second renamed' } })
+    fireEvent.blur(input)
+    act(() => options.action.onClick())
+    expect(storedViews().map((v) => v.name)).toEqual(['First', 'Second renamed'])
+    // A second Undo click does not duplicate it.
+    act(() => options.action.onClick())
+    expect(storedViews()).toHaveLength(2)
+  })
+
   it('refuses an empty name', async () => {
     renderBoard()
     fireEvent.click(screen.getByTestId('specs-views-trigger'))
@@ -448,7 +517,7 @@ describe('SpecsBoard saved views (CD4)', () => {
     expect(storedViews('proj-A')).toHaveLength(1)
   })
 
-  it('copies a link that carries the project and the view id', async () => {
+  it('copies a link that carries the project and the view itself, so it works on another machine', async () => {
     const writeText = vi.fn(async () => {})
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     renderBoard()
@@ -459,8 +528,19 @@ describe('SpecsBoard saved views (CD4)', () => {
     fireEvent.click(screen.getByTestId(`specs-views-link-${id}`))
     expect(writeText).toHaveBeenCalledTimes(1)
     const url = new URL(writeText.mock.calls[0][0] as string)
-    expect(url.searchParams.get('view')).toBe(id)
+    expect(url.searchParams.get('view')).not.toBe(id)
     expect(url.searchParams.get('p')).toBe('proj-A')
+    const stored = storedViews()[0]
+    expect(url.searchParams.get('view')).toBe(encodeViewState({ ...stored, epic: null, sprint: null, jiraStatus: null, sortDir: 'desc' } as SpecViewState))
+  })
+
+  it('?view=<state> from another machine applies the view without it being saved here', () => {
+    const token = encodeViewState({ status: 'done', labels: [], epic: null, sprint: null, jiraStatus: null, sortMode: 'default', sortDir: 'desc', viewTier: 'row' })
+    renderBoard({ doneTickets: DONE, route: `/?view=${token}&p=proj-A` })
+    expect(screen.getByTestId('specs-board-done-bucket')).toBeInTheDocument()
+    expect(screen.getByTestId('loc').textContent).not.toContain('view=')
+    expect(storedViews()).toEqual([])
+    expect(toasts.fn.info).not.toHaveBeenCalled()
   })
 
   it('?view=<id> applies the view and drops the param in place', () => {

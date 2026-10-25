@@ -78,6 +78,6 @@
         "month": "Globales Monatsbudget erreicht"
       }
     },
-    "detail": "${{spent}} von ${{budget}} ausgegeben"
+    "detail": "{{spent}} von {{budget}} ausgegeben"
   }
 }

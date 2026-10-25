@@ -14,7 +14,7 @@ const SOURCE_ICON = {
 const SEVERITY_TONE = {
   high: 'border-destructive/40 bg-destructive/5',
   medium: 'border-accent-warning/40 bg-accent-warning/5',
-  low: 'border-accent-info/30 bg-accent-info/5',
+  low: 'border-border bg-surface/60',
 } as const
 
 export function locationLabel(location: NonNullable<ChangeAnnotation['location']>): string {

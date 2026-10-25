@@ -1,8 +1,8 @@
 {
   "palette": {
     "label": "Paleta de comandos",
-    "searchPlaceholder": "Buscar proyectos, comandos, jobs…",
-    "searchPlaceholderAgent": "Buscar misiones, proyectos, jobs…",
+    "searchPlaceholder": "Busca, o escribe # @ / ? para acotar…",
+    "searchPlaceholderAgent": "Busca, o escribe # @ / ? para acotar…",
     "noResults": "Sin resultados",
     "activeBadge": "activo",
     "groups": {
@@ -141,10 +141,11 @@
       "deleteSelectedN_one": "Eliminar {{count}} spec seleccionada",
       "deleteSelectedN_other": "Eliminar {{count}} specs seleccionadas",
       "saveView": "Guardar la vista actual",
-      "switchView": "Cambiar de vista"
+      "switchView": "Cambiar de vista",
+      "openBudget": "Abrir Presupuesto (límites, proyección, y si…)",
+      "openBudgetKeywords": "presupuesto, límite, semanal, mensual, gasto, coste, budget"
     },
     "scopes": {
-      "hintsLabel": "Buscar en",
       "remove": "Quitar ámbito",
       "needsProject": "Abre un proyecto para buscar aquí.",
       "searching": "Buscando…",
@@ -163,7 +164,8 @@
       "settings": {
         "label": "Ajustes",
         "placeholder": "Buscar ajustes…",
-        "prompt": "Escribe para buscar ajustes."
+        "prompt": "Escribe para buscar ajustes.",
+        "commandsFallback": "Comandos que coinciden con «/{{query}}»"
       },
       "files": {
         "label": "Archivos",
@@ -247,7 +249,7 @@
           "keywords": "proyectos, quitar proyecto, repositorios, registrados, projects"
         },
         "budgetAlerts": {
-          "label": "Presupuesto diario y alertas de coste",
+          "label": "Límite diario y alertas de coste",
           "keywords": "presupuesto, diario, coste, gasto, límite, alerta, dinero, budget"
         },
         "notifications": {
@@ -303,7 +305,7 @@
           "keywords": "entorno del agente, modo env, variables, secretos, aislado"
         },
         "projectBudget": {
-          "label": "Presupuesto diario del proyecto",
+          "label": "Límite diario del proyecto",
           "keywords": "presupuesto, diario, coste, gasto, límite, pausar, budget"
         },
         "reviewLimit": {

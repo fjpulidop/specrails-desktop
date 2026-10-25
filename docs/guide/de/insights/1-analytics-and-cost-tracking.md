@@ -81,7 +81,7 @@ Du musst nicht neu laden. Sobald irgendwo im Projekt ein neuer Aufruf erfasst wi
 
 ## Tagesbudgets {#daily-budget}
 
-Mit einem Tagesbudget begrenzt du, was ein Tag kosten darf. Das app-weite Budget findest du unter **Einstellungen → Erweitert**, das Projektbudget unter **Projekteinstellungen → Budget**.
+Mit einem Tagesbudget begrenzt du, was ein Tag kosten darf. Alle Limits (täglich, wöchentlich, monatlich und pro Lauf) bearbeitest du an einer Stelle: **Analysen → Budget**. **Einstellungen → Erweitert** und **Projekteinstellungen → Budget** zeigen nur das aktuelle Tageslimit, mit einer Schaltfläche **Budget öffnen**, die dorthin führt.
 
 Erreichen die erfassten Tagesausgaben ein Budget, pausiert die Warteschlange sich selbst, Rails und Loop-Läufe starten nicht mehr und melden *Tagesbudget erreicht*, und ein laufender Loop-Lauf hält zwischen zwei Schritten an, pausiert durch das Budget. Erhöhe oder entferne das Budget oder warte auf das tägliche Zurücksetzen und setze dann fort.
 

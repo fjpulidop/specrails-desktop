@@ -148,6 +148,20 @@ describe('ReviewPacketPage — Overview / Changes tabs', () => {
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.some((c) => String(c[0]) === '/api/projects/proj-1/rails/pr-deliveries/del-1/changes')).toBe(true))
   })
 
+  it('keeps one page width across tabs; only the Overview panel is held to a reading measure', async () => {
+    respond({})
+    renderPage()
+    const article = (await screen.findByRole('tab', { name: 'Overview' })).closest('article') as HTMLElement
+    expect(article).toHaveClass('max-w-7xl')
+    expect(article.className).not.toMatch(/max-w-3xl/)
+    expect(screen.getByTestId('packet-overview-panel')).toHaveClass('max-w-3xl')
+    fireEvent.click(screen.getByRole('tab', { name: 'Changes' }))
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true'))
+    // The header does not move when the tab changes.
+    expect(article).toHaveClass('max-w-7xl')
+    expect(screen.getByTestId('packet-overview-panel')).toHaveClass('hidden')
+  })
+
   it('switches tabs with the arrow keys', async () => {
     respond({})
     renderPage()

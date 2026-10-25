@@ -222,7 +222,7 @@
     "label": "Label",
     "priority": "Priority",
     "addToRail": "Add to rail",
-    "launchAll": "Launch all",
+    "launchAll": "Launch selected",
     "delete": "Delete",
     "clear": "Clear",
     "clearTitle": "Clear the selection (Esc)",
@@ -263,7 +263,8 @@
       "skipNoRail_other": "{{count}} have no free rail",
       "skipReviewLimit_one": "{{count}} held by the review limit",
       "skipReviewLimit_other": "{{count}} held by the review limit"
-    }
+    },
+    "more": "More"
   },
   "views": {
     "trigger": "Views",
@@ -289,6 +290,7 @@
     "done": "Done",
     "linkCopied": "Link copied",
     "linkCopyFailed": "Couldn’t copy the link",
-    "linkMissing": "That view doesn’t exist in this project"
+    "linkMissing": "That view doesn’t exist in this project",
+    "deleted": "View “{{name}}” deleted"
   }
 }

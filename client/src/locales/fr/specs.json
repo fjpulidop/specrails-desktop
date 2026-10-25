@@ -222,7 +222,7 @@
     "label": "Libellé",
     "priority": "Priorité",
     "addToRail": "Ajouter à un rail",
-    "launchAll": "Tout lancer",
+    "launchAll": "Lancer la sélection",
     "delete": "Supprimer",
     "clear": "Effacer",
     "clearTitle": "Effacer la sélection (Échap)",
@@ -263,7 +263,8 @@
       "skipNoRail_other": "{{count}} sans rail libre",
       "skipReviewLimit_one": "{{count}} retenue par la limite de revue",
       "skipReviewLimit_other": "{{count}} retenues par la limite de revue"
-    }
+    },
+    "more": "Plus"
   },
   "views": {
     "trigger": "Vues",
@@ -289,6 +290,7 @@
     "done": "Terminé",
     "linkCopied": "Lien copié",
     "linkCopyFailed": "Impossible de copier le lien",
-    "linkMissing": "Cette vue n’existe pas dans ce projet"
+    "linkMissing": "Cette vue n’existe pas dans ce projet",
+    "deleted": "Vue « {{name}} » supprimée"
   }
 }

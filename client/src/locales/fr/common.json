@@ -153,8 +153,8 @@
   "budget": {
     "exceededProject": "Budget quotidien du projet atteint (${{spent}} sur ${{budget}}). Rien n’a été lancé.",
     "exceededDesktop": "Budget quotidien global atteint (${{spent}} sur ${{budget}}). Rien n’a été lancé.",
-    "whereProject": "Paramètres du projet ▸ Budget",
-    "whereDesktop": "Paramètres ▸ Budget",
+    "whereProject": "Analyses ▸ Budget",
+    "whereDesktop": "Analyses ▸ Budget",
     "action": "Augmentez ou supprimez le budget dans {{where}}, ou attendez la réinitialisation quotidienne.",
     "actionWithReset": "Augmentez ou supprimez le budget dans {{where}}, ou attendez la réinitialisation ({{time}}).",
     "pausedProject": "En pause : budget quotidien du projet atteint (${{spent}} sur ${{budget}}). Augmentez-le, puis reprenez.",
@@ -182,7 +182,8 @@
       "title": "Exécution en pause à son plafond",
       "raise": "Relever le plafond et continuer",
       "continue": "Continuer sans plafond",
-      "raiseTo": "Relever le plafond à (USD)"
+      "raiseTo": "Relever le plafond à (USD)",
+      "mustExceed": "Doit dépasser les {{spent}} déjà dépensés"
     }
   },
   "reviewWip": {
@@ -252,10 +253,8 @@
     "estimateHintCost": "Estimation d’après {{count}} exécutions passées (coût d’après {{costCount}}) — pas un coût facturé",
     "budgetCaution": "Peut se mettre en pause au budget",
     "budgetReached": "Budget quotidien atteint",
-    "budgetCautionHint": "La dépense du jour plus le haut de cette estimation pourrait atteindre votre budget quotidien. Ouvrir les réglages du budget.",
-    "budgetReachedHint": "La dépense du jour a atteint votre budget quotidien : aucun lancement n’est accepté avant la réinitialisation ou une hausse du budget. Ouvrir les réglages du budget.",
-    "launchOverBudget": "Le budget du jour est épuisé. L’exécution sera mise en pause jusqu’à sa réinitialisation. Lancer quand même ?",
-    "launchAnyway": "Lancer quand même",
+    "budgetCautionHint": "La dépense du jour plus le haut de cette estimation pourrait atteindre votre budget quotidien. Ouvrez le panneau Budget.",
+    "budgetReachedHint": "La dépense du jour a atteint votre budget quotidien : aucun lancement n’est accepté avant la réinitialisation ou une hausse du budget. Ouvrez le panneau Budget.",
     "perSpec": "par spec",
     "budgetReached_week": "Budget hebdomadaire atteint",
     "budgetReached_month": "Budget mensuel atteint",
@@ -263,7 +262,9 @@
     "budgetReachedHint_month": "Les dépenses de ce mois ont atteint votre budget mensuel : un lancement est refusé jusqu’à la réinitialisation ou jusqu’à ce que vous le releviez. Ouvrez le panneau Budget.",
     "budgetCautionHint_week": "Les dépenses de cette semaine plus le haut de cette estimation pourraient atteindre votre budget hebdomadaire. Ouvrez le panneau Budget.",
     "budgetCautionHint_month": "Les dépenses de ce mois plus le haut de cette estimation pourraient atteindre votre budget mensuel. Ouvrez le panneau Budget.",
-    "launchOverBudget_week": "Le budget de cette semaine est épuisé. L’exécution sera mise en pause jusqu’à la réinitialisation. Lancer quand même ?",
-    "launchOverBudget_month": "Le budget de ce mois est épuisé. L’exécution sera mise en pause jusqu’à la réinitialisation. Lancer quand même ?"
+    "launchBlocked": "Ce plafond est épuisé : le lancement serait refusé. Relevez le plafond ou attendez la réinitialisation.",
+    "launchBlocked_week": "Le plafond de cette semaine est épuisé : le lancement serait refusé. Relevez le plafond ou attendez la réinitialisation.",
+    "launchBlocked_month": "Le plafond de ce mois est épuisé : le lancement serait refusé. Relevez le plafond ou attendez la réinitialisation.",
+    "raiseCap": "Relever le plafond"
   }
 }

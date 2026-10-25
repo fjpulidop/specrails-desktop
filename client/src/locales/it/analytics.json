@@ -327,7 +327,7 @@
     "planNote": "Fatturazione a piano: nessun costo in dollari per uso, quindi si mostrano turni e limiti",
     "estimatedPart": "circa {{amount}} calcolati con il listino prezzi dell’app, non riportati",
     "resets": "si azzera {{time}}",
-    "runHint": "Un’esecuzione si mette in pausa e chiede quando il suo costo raggiunge questo importo.",
+    "runHint": "Un’esecuzione si mette in pausa e chiede quando il suo costo raggiunge questo importo. Vale il più basso tra il limite del progetto e quello globale.",
     "saved": "Budget salvato",
     "saveFailed": "Impossibile salvare il budget",
     "invalidNumber": "Inserisci un importo maggiore di zero, oppure lascia vuoto per nessun limite.",
@@ -335,7 +335,8 @@
       "title": "Proiezione a fine mese",
       "basis": "media di {{days}} giorni {{avg}}/giorno × {{remaining}} giorni rimasti + {{mtd}} finora",
       "none": "Storico ancora insufficiente per una proiezione.",
-      "overCap": "Di questo passo supereresti il limite mensile di {{cap}}."
+      "overCap": "Di questo passo supereresti il limite mensile di {{cap}}.",
+      "planNone": "Con la fatturazione a piano non c’è un costo in dollari per uso, quindi non c’è un importo di fine mese da proiettare."
     },
     "whatIf": {
       "title": "E se: calcolarlo con un altro modello",
@@ -355,6 +356,12 @@
       "skipped": "{{n}} esecuzioni senza uso di token o senza prezzo sono escluse.",
       "recorded": "Costo registrato per queste esecuzioni: {{amount}}.",
       "roleNote": "L’uso è registrato per modello, non per ruolo: scegli il modello su cui gira il tuo ruolo."
-    }
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "sessione",
+      "weekly": "settimanale"
+    },
+    "capsMetered": "Limiti in dollari (provider a consumo)"
   }
 }

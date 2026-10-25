@@ -327,7 +327,7 @@
     "planNote": "Plan billing: no dollar cost per use, so turns and limits are shown",
     "estimatedPart": "about {{amount}} of it priced from the app’s price list, not reported",
     "resets": "resets {{time}}",
-    "runHint": "A run pauses and asks when its own cost reaches this amount.",
+    "runHint": "A run pauses and asks when its own cost reaches this amount. The lower of the project and app-wide caps applies.",
     "saved": "Budget saved",
     "saveFailed": "Couldn’t save the budget",
     "invalidNumber": "Enter an amount above zero, or leave it empty for no cap.",
@@ -335,7 +335,8 @@
       "title": "Month-end projection",
       "basis": "{{days}}-day average {{avg}}/day × {{remaining}} days left + {{mtd}} so far",
       "none": "Not enough history yet for a projection.",
-      "overCap": "At this pace you would pass the {{cap}} monthly cap."
+      "overCap": "At this pace you would pass the {{cap}} monthly cap.",
+      "planNone": "Plan billing has no per-use dollar cost, so there is no month-end amount to project."
     },
     "whatIf": {
       "title": "What if: price it on another model",
@@ -355,6 +356,12 @@
       "skipped": "{{n}} runs without token usage or a price are left out.",
       "recorded": "Recorded cost for these runs: {{amount}}.",
       "roleNote": "Usage is recorded per model, not per role: pick the model your role runs on."
-    }
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "session",
+      "weekly": "weekly"
+    },
+    "capsMetered": "Dollar caps (metered providers)"
   }
 }

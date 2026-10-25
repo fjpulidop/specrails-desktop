@@ -327,7 +327,7 @@
     "planNote": "Facturación por plan: no hay coste en dólares por uso, así que se muestran turnos y límites",
     "estimatedPart": "unos {{amount}} calculados con la lista de precios de la app, no reportados",
     "resets": "se reinicia {{time}}",
-    "runHint": "Una ejecución se pausa y pregunta cuando su propio coste llega a este importe.",
+    "runHint": "Una ejecución se pausa y pregunta cuando su propio coste llega a este importe. Se aplica el menor entre el del proyecto y el global.",
     "saved": "Presupuesto guardado",
     "saveFailed": "No se pudo guardar el presupuesto",
     "invalidNumber": "Introduce un importe mayor que cero, o déjalo vacío para no tener límite.",
@@ -335,10 +335,11 @@
       "title": "Proyección a fin de mes",
       "basis": "media de {{days}} días {{avg}}/día × {{remaining}} días restantes + {{mtd}} hasta ahora",
       "none": "Aún no hay historial suficiente para proyectar.",
-      "overCap": "A este ritmo superarías el límite mensual de {{cap}}."
+      "overCap": "A este ritmo superarías el límite mensual de {{cap}}.",
+      "planNone": "Con facturación por plan no hay coste en dólares por uso, así que no hay importe de fin de mes que proyectar."
     },
     "whatIf": {
-      "title": "Y si: calcularlo con otro modelo",
+      "title": "¿Y si usaras otro modelo?",
       "description": "Vuelve a calcular el uso de tokens registrado en los últimos {{days}} días con otro modelo, usando la lista de precios de la app. Es una estimación, no una factura.",
       "from": "Se ejecutó con",
       "to": "En su lugar",
@@ -355,6 +356,12 @@
       "skipped": "Se omiten {{n}} ejecuciones sin uso de tokens o sin precio.",
       "recorded": "Coste registrado de estas ejecuciones: {{amount}}.",
       "roleNote": "El uso se registra por modelo, no por rol: elige el modelo con el que se ejecuta tu rol."
-    }
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "sesión",
+      "weekly": "semanal"
+    },
+    "capsMetered": "Límites en dólares (proveedores por uso)"
   }
 }

@@ -45,19 +45,17 @@
   "budget": {
     "title": "Orçamento",
     "description": "Defina um limite de gasto diário para este projeto. A fila pausa automaticamente quando o limite é atingido.",
-    "dailyLabel": "Orçamento diário (USD)",
-    "dailyHelper": "Deixe em branco para desativar. O gasto é calculado sobre as últimas 24 horas.",
-    "dailyPlaceholder": "ex.: 5.00",
+    "dailyLabel": "Limite diário",
+    "dailyHelper": "O gasto é contado sobre as últimas 24 horas. A fila pausa quando o limite é atingido.",
     "perJobLabel": "Alerta de custo por job (USD)",
     "perJobHelper": "Alertar quando um único job deste projeto excede este valor.",
     "perJobPlaceholder": "ex.: 0.50",
     "invalidNumber": "Introduza um número positivo ou deixe em branco para desativar",
-    "dailyRemoved": "Orçamento diário removido",
-    "dailySet": "Orçamento diário definido como ${{amount}}",
     "perJobAlertDisabled": "Alerta de custo por job desativado",
     "alertSet": "Alerta definido para jobs acima de ${{amount}}",
-    "saveBudgetFailed": "Falha ao guardar o orçamento",
-    "saveThresholdFailed": "Falha ao guardar o limiar"
+    "saveThresholdFailed": "Falha ao guardar o limiar",
+    "dailyCurrent": "Atualmente {{amount}} por dia",
+    "dailyNone": "Sem limite diário"
   },
   "desktop": {
     "nav": {
@@ -83,14 +81,10 @@
     "techUrlSaved": "URL do specrails-tech guardado",
     "techUrlSaveFailed": "Falha ao guardar o URL",
     "budgetAlertsHeading": "Orçamento e alertas",
-    "dailyBudgetLabel": "Orçamento diário do Desktop (USD)",
+    "dailyBudgetLabel": "Limite diário do Desktop",
     "dailyBudgetHelper": "Limite global de gasto diário em todos os projetos. As filas pausam automaticamente quando é excedido.",
-    "dailyBudgetPlaceholder": "ex.: 10.00",
     "perJobHelper": "Alertar quando um único job excede este valor. Deixe em branco para desativar.",
     "costAlertsDisabled": "Alertas de custo desativados",
-    "dailyBudgetRemoved": "Orçamento diário do Desktop removido",
-    "dailyBudgetSet": "Orçamento diário do Desktop definido como ${{amount}}",
-    "dailyBudgetSaveFailed": "Falha ao guardar o orçamento diário do Desktop",
     "projectRemoved": "Projeto removido",
     "projectRemoveFailed": "Falha ao remover o projeto",
     "onboardingHeading": "Onboarding",
@@ -109,7 +103,9 @@
       "agents": "Agentes",
       "system": "Sistema"
     },
-    "unsavedChanges": "Alterações não guardadas"
+    "unsavedChanges": "Alterações não guardadas",
+    "dailyBudgetCurrent": "Atualmente {{amount}} por dia",
+    "dailyBudgetNone": "Sem limite diário"
   },
   "notifications": {
     "heading": "Notificações do SO",
@@ -522,5 +518,8 @@
       "cursor": "Cursor",
       "jetbrains": "IDE da JetBrains"
     }
-  }
+  },
+  "budgetMoved": "Os limites são editados em Análises ▸ Orçamento.",
+  "openBudget": "Abrir Orçamento",
+  "openSettings": "Abrir configurações"
 }

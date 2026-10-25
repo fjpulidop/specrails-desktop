@@ -227,7 +227,10 @@
     "reviewLimitNone_one": "{{count}} rail aprirebbe una nuova consegna, quindi non si avvia nulla. Decidi prima una consegna in sospeso.",
     "reviewLimitNone_other": "{{count}} rail aprirebbero nuove consegne, quindi non si avvia nulla. Decidi prima una consegna in sospeso.",
     "reviewLimitPartial_one": "Solo {{launched}} possono partire ora; {{count}} rail attende che una consegna venga decisa.",
-    "reviewLimitPartial_other": "Solo {{launched}} possono partire ora; {{count}} rail attendono che una consegna venga decisa."
+    "reviewLimitPartial_other": "Solo {{launched}} possono partire ora; {{count}} rail attendono che una consegna venga decisa.",
+    "forecastTotal_one": "{{count}} esecuzione · di solito {{cost}} in totale",
+    "forecastTotal_other": "{{count}} esecuzioni · di solito {{cost}} in totale",
+    "mayPause": "Potrebbe raggiungere un limite di budget e mettere in pausa alcune esecuzioni."
   },
   "railControls": {
     "viewJobLog": "Visualizza log del job",

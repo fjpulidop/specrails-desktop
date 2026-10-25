@@ -45,19 +45,17 @@
   "budget": {
     "title": "Presupuesto",
     "description": "Define un límite de gasto diario para este proyecto. La cola se pausa automáticamente al alcanzar el límite.",
-    "dailyLabel": "Presupuesto diario (USD)",
-    "dailyHelper": "Déjalo en blanco para desactivarlo. El gasto se calcula sobre las últimas 24 horas.",
-    "dailyPlaceholder": "p. ej. 5.00",
+    "dailyLabel": "Límite diario",
+    "dailyHelper": "El gasto se cuenta sobre las últimas 24 horas. La cola se pausa al alcanzar el límite.",
     "perJobLabel": "Alerta de coste por job (USD)",
     "perJobHelper": "Avisa cuando un único job de este proyecto supere este importe.",
     "perJobPlaceholder": "p. ej. 0.50",
     "invalidNumber": "Introduce un número positivo o déjalo en blanco para desactivar",
-    "dailyRemoved": "Presupuesto diario eliminado",
-    "dailySet": "Presupuesto diario fijado en ${{amount}}",
     "perJobAlertDisabled": "Alerta de coste por job desactivada",
     "alertSet": "Alerta configurada para jobs de más de ${{amount}}",
-    "saveBudgetFailed": "No se pudo guardar el presupuesto",
-    "saveThresholdFailed": "No se pudo guardar el umbral"
+    "saveThresholdFailed": "No se pudo guardar el umbral",
+    "dailyCurrent": "Ahora mismo: {{amount}} al día",
+    "dailyNone": "Sin límite diario"
   },
   "desktop": {
     "nav": {
@@ -83,14 +81,10 @@
     "techUrlSaved": "URL de specrails-tech guardada",
     "techUrlSaveFailed": "No se pudo guardar la URL",
     "budgetAlertsHeading": "Presupuesto y alertas",
-    "dailyBudgetLabel": "Presupuesto diario de Desktop (USD)",
+    "dailyBudgetLabel": "Límite diario de Desktop",
     "dailyBudgetHelper": "Límite global de gasto diario en todos los proyectos. Las colas se pausan automáticamente al superarlo.",
-    "dailyBudgetPlaceholder": "p. ej. 10.00",
     "perJobHelper": "Avisa cuando un único job supere este importe. Déjalo en blanco para desactivarlo.",
     "costAlertsDisabled": "Alertas de coste desactivadas",
-    "dailyBudgetRemoved": "Presupuesto diario de Desktop eliminado",
-    "dailyBudgetSet": "Presupuesto diario de Desktop fijado en ${{amount}}",
-    "dailyBudgetSaveFailed": "No se pudo guardar el presupuesto diario de Desktop",
     "projectRemoved": "Proyecto eliminado",
     "projectRemoveFailed": "No se pudo eliminar el proyecto",
     "onboardingHeading": "Onboarding",
@@ -109,7 +103,9 @@
       "agents": "Agentes",
       "system": "Sistema"
     },
-    "unsavedChanges": "Cambios sin guardar"
+    "unsavedChanges": "Cambios sin guardar",
+    "dailyBudgetCurrent": "Ahora mismo: {{amount}} al día",
+    "dailyBudgetNone": "Sin límite diario"
   },
   "notifications": {
     "heading": "Notificaciones del sistema",
@@ -127,7 +123,7 @@
     "description": "Notifica a herramientas externas (Slack, Zapier, CI/CD) los eventos de Desktop. Las peticiones se firman con <code>X-Specrails-Signature</code> cuando hay un secreto configurado.",
     "eventJobCompleted": "Job completado",
     "eventJobFailed": "Job fallido",
-    "eventDailyBudgetExceeded": "Presupuesto diario superado",
+    "eventDailyBudgetExceeded": "Límite diario superado",
     "disable": "Desactivar",
     "enable": "Activar",
     "sendTestPing": "Enviar ping de prueba",
@@ -522,5 +518,8 @@
       "cursor": "Cursor",
       "jetbrains": "IDE de JetBrains"
     }
-  }
+  },
+  "budgetMoved": "Los límites se editan en Analíticas ▸ Presupuesto.",
+  "openBudget": "Abrir Presupuesto",
+  "openSettings": "Abrir Ajustes"
 }

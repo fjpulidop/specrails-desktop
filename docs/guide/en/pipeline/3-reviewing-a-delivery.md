@@ -16,7 +16,7 @@ The reviewer's findings, the risks it flagged and any review comments the run wa
 
 ## Ask the agent to change something
 
-Select lines by clicking their numbers (Shift-click extends the range), then choose **Ask agent to change this** and describe the change. Specrails saves it as review feedback on the spec, with the file, the line range and the selected code, and shows a message with a link to the spec. The next run on that spec is briefed with it. To start the run now, use **Ask for changes** on the Overview. There are no comment threads between people here; discuss with your team on GitHub.
+Select lines by clicking their numbers (Shift-click extends the range), then choose **Ask agent for a change** and describe the change. Specrails saves it as review feedback on the spec, with the file, the line range and the selected code, and shows a message with a link to the spec. The next run on that spec is briefed with it. To start the run now, use **Ask for changes** on the Overview. There are no comment threads between people here; discuss with your team on GitHub.
 
 ## Open in your editor
 

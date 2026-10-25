@@ -327,7 +327,7 @@
     "planNote": "Abrechnung über ein Abo: keine Dollarkosten pro Nutzung, deshalb werden Turns und Limits angezeigt",
     "estimatedPart": "davon etwa {{amount}} anhand der Preisliste der App berechnet, nicht gemeldet",
     "resets": "wird {{time}} zurückgesetzt",
-    "runHint": "Ein Lauf pausiert und fragt nach, wenn seine eigenen Kosten diesen Betrag erreichen.",
+    "runHint": "Ein Lauf pausiert und fragt nach, wenn seine eigenen Kosten diesen Betrag erreichen. Es gilt das niedrigere von Projekt- und App-weitem Limit.",
     "saved": "Budget gespeichert",
     "saveFailed": "Das Budget konnte nicht gespeichert werden",
     "invalidNumber": "Gib einen Betrag über null ein oder lass das Feld leer für kein Limit.",
@@ -335,7 +335,8 @@
       "title": "Prognose zum Monatsende",
       "basis": "{{days}}-Tage-Schnitt {{avg}}/Tag × {{remaining}} verbleibende Tage + {{mtd}} bisher",
       "none": "Noch nicht genug Verlauf für eine Prognose.",
-      "overCap": "In diesem Tempo würdest du das Monatslimit von {{cap}} überschreiten."
+      "overCap": "In diesem Tempo würdest du das Monatslimit von {{cap}} überschreiten.",
+      "planNone": "Bei Abrechnung über ein Abo fallen keine Dollarkosten pro Nutzung an, daher gibt es keinen Betrag zum Monatsende zu prognostizieren."
     },
     "whatIf": {
       "title": "Was wäre, wenn: mit einem anderen Modell berechnen",
@@ -355,6 +356,12 @@
       "skipped": "{{n}} Läufe ohne Token-Nutzung oder Preis bleiben unberücksichtigt.",
       "recorded": "Erfasste Kosten dieser Läufe: {{amount}}.",
       "roleNote": "Die Nutzung wird pro Modell erfasst, nicht pro Rolle: Wähle das Modell, auf dem deine Rolle läuft."
-    }
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "Sitzung",
+      "weekly": "wöchentlich"
+    },
+    "capsMetered": "Dollar-Limits (nutzungsbasierte Anbieter)"
   }
 }

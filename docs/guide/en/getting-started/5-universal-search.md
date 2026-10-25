@@ -21,7 +21,7 @@ Results show a short snippet around the first match, with the matching text high
 
 ## Settings
 
-`/` knows the main settings blocks, in your language: theme, language, editor, budgets, notifications, webhooks, updates, branch, environment, telemetry, rules and more. Project settings are offered when a project is open. Pick one and the right window opens at that block. Without a prefix, a strong match (three or more characters) adds up to three settings to the normal results.
+`/` knows the main settings blocks, in your language: theme, language, editor, budgets, notifications, webhooks, updates, branch, environment, telemetry, rules and more. Project settings are offered when a project is open. Pick one and the right window opens at that block. Without a prefix, a strong match (three or more characters) adds up to three settings to the normal results. `/budget` also finds the Budget panel (caps, projection, what-if), where the weekly and monthly caps live. A slash command such as `/implement` is listed under the settings, in its own group, so the `/` prefix never hides it.
 
 ## Job logs
 

@@ -181,29 +181,23 @@ describe('LaunchForecast', () => {
   describe('daily budget caution', () => {
     const budget = (spentUsd: number, scope: 'project' | 'desktop' = 'project', exhausted = false) => ({ scope, budgetUsd: 10, spentUsd, exhausted, resetsAt: null })
 
-    it('adds "May pause at budget" when today\'s spend plus the top of the band reaches the budget, linking to the project budget', async () => {
-      mockApi({ time, cost, minSamples: 5, budget: budget(6.5) })
-      const opened: string[] = []
-      const onOpen = (e: Event) => opened.push((e as CustomEvent<{ section: string }>).detail.section)
-      window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
-      try {
-        view()
-        const caution = await screen.findByRole('button', { name: 'May pause at budget' })
-        await userEvent.click(caution)
-        expect(opened).toEqual(['budget'])
-      } finally { window.removeEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen) }
-    })
-
-    it('opens the app-wide budget for an app-wide budget', async () => {
-      mockApi({ time, cost, minSamples: 5, budget: budget(8, 'desktop') })
-      const opened: string[] = []
-      const onOpen = (e: Event) => opened.push((e as CustomEvent<{ section: string }>).detail.section)
-      window.addEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
+    it.each(['project', 'desktop'] as const)('adds "May pause at budget" when today\'s spend plus the top of the band reaches the budget, and opens the one Budget editor (%s)', async (scope) => {
+      mockApi({ time, cost, minSamples: 5, budget: budget(scope === 'project' ? 6.5 : 8, scope) })
+      const opened = vi.fn()
+      const settings = vi.fn()
+      window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+      window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, settings)
+      window.addEventListener(OPEN_APP_SETTINGS_EVENT, settings)
       try {
         view()
         await userEvent.click(await screen.findByRole('button', { name: 'May pause at budget' }))
-        expect(opened).toEqual(['advanced'])
-      } finally { window.removeEventListener(OPEN_APP_SETTINGS_EVENT, onOpen) }
+        expect(opened).toHaveBeenCalledTimes(1)
+        expect(settings).not.toHaveBeenCalled()
+      } finally {
+        window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+        window.removeEventListener(OPEN_PROJECT_SETTINGS_EVENT, settings)
+        window.removeEventListener(OPEN_APP_SETTINGS_EVENT, settings)
+      }
     })
 
     it('words a weekly or monthly cap for its own period and opens the Budget panel (CD5)', async () => {

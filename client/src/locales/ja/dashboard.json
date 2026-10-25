@@ -227,7 +227,10 @@
     "reviewLimitNone_one": "{{count}} 本のレールが新しい納品を開くため、何も起動しません。先に保留中の納品を決定してください。",
     "reviewLimitNone_other": "{{count}} 本のレールが新しい納品を開くため、何も起動しません。先に保留中の納品を決定してください。",
     "reviewLimitPartial_one": "今すぐ開始できるのは {{launched}} 本のみです。{{count}} 本のレールは納品が決定されるまで待機します。",
-    "reviewLimitPartial_other": "今すぐ開始できるのは {{launched}} 本のみです。{{count}} 本のレールは納品が決定されるまで待機します。"
+    "reviewLimitPartial_other": "今すぐ開始できるのは {{launched}} 本のみです。{{count}} 本のレールは納品が決定されるまで待機します。",
+    "forecastTotal_one": "{{count}} 件の実行 · 通常は合計 {{cost}}",
+    "forecastTotal_other": "{{count}} 件の実行 · 通常は合計 {{cost}}",
+    "mayPause": "予算の上限に達し、一部の実行が一時停止する場合があります。"
   },
   "railControls": {
     "viewJobLog": "ジョブログを表示",

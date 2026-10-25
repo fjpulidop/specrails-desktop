@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, within } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import GlobalSettingsPage from '../GlobalSettingsPage'
+import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -408,69 +409,38 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
   })
 
-  it('renders desktop daily budget input', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 10\.00/i)).toBeInTheDocument()
-    })
-  })
-
-  it('saves desktop daily budget successfully', async () => {
+  it('shows the app-wide daily cap read-only and links to Analytics ▸ Budget instead of editing it', async () => {
     const user = userEvent.setup()
-    const { toast } = await import('sonner')
+    const onClose = vi.fn()
+    const requests: Array<{ url: string; method?: string }> = []
     global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      requests.push({ url: String(url), method: opts?.method })
       if (typeof url === 'string' && url.includes('/api/webhooks')) {
         return Promise.resolve({ ok: true, json: async () => ({ webhooks: [] }) })
       }
       if (typeof url === 'string' && url.includes('/api/budget')) {
-        if (opts?.method === 'PATCH') {
-          return Promise.resolve({ ok: true })
-        }
-        return Promise.resolve({ ok: true, json: async () => budgetResponse })
-      }
-      return Promise.resolve({ ok: true, json: async () => desktopSettings })
-    })
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 10\.00/i)).toBeInTheDocument()
-    })
-    const input = screen.getByPlaceholderText(/e\.g\. 10\.00/i) as HTMLInputElement
-    await user.type(input, '10')
-    // Find the Save buttons — desktop budget save comes before cost alert save
-    // Filter out the (disabled) Terminal Panel Save button from the new
-    // section so positional indexing matches the original test layout.
-    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Desktop daily budget set to $10')
-    })
-  })
-
-  it('removes desktop daily budget when input is blank', async () => {
-    const user = userEvent.setup()
-    const { toast } = await import('sonner')
-    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      if (typeof url === 'string' && url.includes('/api/webhooks')) {
-        return Promise.resolve({ ok: true, json: async () => ({ webhooks: [] }) })
-      }
-      if (typeof url === 'string' && url.includes('/api/budget')) {
-        if (opts?.method === 'PATCH') {
-          return Promise.resolve({ ok: true })
-        }
         return Promise.resolve({ ok: true, json: async () => ({ desktopDailyBudgetUsd: 10 }) })
       }
       return Promise.resolve({ ok: true, json: async () => desktopSettings })
     })
+    render(<GlobalSettingsPage open={true} onClose={onClose} />)
+    expect(await screen.findByText('Currently $10.00 a day')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(/e\.g\. 10\.00/i)).toBeNull()
+    expect(screen.getByText('Caps are edited in Analytics ▸ Budget.')).toBeInTheDocument()
+    const opened = vi.fn()
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+    try {
+      await user.click(screen.getByTestId('settings-open-budget'))
+      expect(opened).toHaveBeenCalledTimes(1)
+      expect(onClose).toHaveBeenCalled()
+    } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
+    // Nothing on this pane writes the daily cap any more.
+    expect(requests.some((r) => r.method === 'PATCH')).toBe(false)
+  })
+
+  it('says there is no daily cap when none is set', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 10\.00/i)).toBeInTheDocument()
-    })
-    const input = screen.getByPlaceholderText(/e\.g\. 10\.00/i) as HTMLInputElement
-    await waitFor(() => expect(input.value).toBe('10'))
-    await user.clear(input)
-    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Desktop daily budget removed')
-    })
+    expect(await screen.findByText('No daily cap set')).toBeInTheDocument()
   })
 })
 

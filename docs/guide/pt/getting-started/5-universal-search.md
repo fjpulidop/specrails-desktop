@@ -21,7 +21,7 @@ Os resultados mostram um trecho curto em torno da primeira ocorrência, com o te
 
 ## Configurações
 
-`/` conhece os principais blocos de configurações, no seu idioma: tema, idioma, editor, orçamentos, notificações, webhooks, atualizações, branch, ambiente, telemetria, regras e mais. As configurações do projeto aparecem quando há um projeto aberto. Escolha uma e a janela certa abre nesse bloco. Sem prefixo, uma correspondência forte (três ou mais caracteres) acrescenta até três configurações aos resultados normais.
+`/` conhece os principais blocos de configurações, no seu idioma: tema, idioma, editor, orçamentos, notificações, webhooks, atualizações, branch, ambiente, telemetria, regras e mais. As configurações do projeto aparecem quando há um projeto aberto. Escolha uma e a janela certa abre nesse bloco. Sem prefixo, uma correspondência forte (três ou mais caracteres) acrescenta até três configurações aos resultados normais. `/budget` também encontra o painel de Orçamento (limites, projeção, e se…), onde ficam os limites semanal e mensal. Um comando com barra, como `/implement`, aparece sob as configurações, em um grupo próprio, então o prefixo `/` nunca o esconde.
 
 ## Logs de jobs
 

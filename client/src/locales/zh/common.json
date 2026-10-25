@@ -153,8 +153,8 @@
   "budget": {
     "exceededProject": "已达到项目每日预算（${{spent}} / ${{budget}}）。未启动任何任务。",
     "exceededDesktop": "已达到全局每日预算（${{spent}} / ${{budget}}）。未启动任何任务。",
-    "whereProject": "项目设置 ▸ 预算",
-    "whereDesktop": "设置 ▸ 预算",
+    "whereProject": "分析 ▸ 预算",
+    "whereDesktop": "分析 ▸ 预算",
     "action": "请在{{where}}中提高或清除预算，或等待每日重置。",
     "actionWithReset": "请在{{where}}中提高或清除预算，或等待重置（{{time}}）。",
     "pausedProject": "因项目每日预算已暂停（${{spent}} / ${{budget}}）。提高预算后继续。",
@@ -182,7 +182,8 @@
       "title": "运行已在其上限处暂停",
       "raise": "调高上限并继续",
       "continue": "取消上限并继续",
-      "raiseTo": "将上限调高到（USD）"
+      "raiseTo": "将上限调高到（USD）",
+      "mustExceed": "必须高于已花费的 {{spent}}"
     }
   },
   "reviewWip": {
@@ -252,10 +253,8 @@
     "estimateHintCost": "根据过去 {{count}} 次运行估算（费用取自 {{costCount}} 次）— 不是已计费的费用",
     "budgetCaution": "可能因预算而暂停",
     "budgetReached": "已达到每日预算",
-    "budgetCautionHint": "今天的花费加上此估算的上限可能达到每日预算。打开预算设置。",
-    "budgetReachedHint": "今天的花费已达到每日预算，在重置或提高预算之前将拒绝启动。打开预算设置。",
-    "launchOverBudget": "今日预算已用完。运行会暂停，直到预算重置。仍要启动吗？",
-    "launchAnyway": "仍要启动",
+    "budgetCautionHint": "今天的花费加上此估算的上限可能达到每日预算。打开预算面板。",
+    "budgetReachedHint": "今天的花费已达到每日预算，在重置或提高预算之前将拒绝启动。打开预算面板。",
     "perSpec": "每个规格",
     "budgetReached_week": "已达到每周预算",
     "budgetReached_month": "已达到每月预算",
@@ -263,7 +262,9 @@
     "budgetReachedHint_month": "本月支出已达到每月预算，因此在重置或调高之前将拒绝启动。打开预算面板。",
     "budgetCautionHint_week": "本周支出加上此估算的上限，可能会达到每周预算。打开预算面板。",
     "budgetCautionHint_month": "本月支出加上此估算的上限，可能会达到每月预算。打开预算面板。",
-    "launchOverBudget_week": "本周预算已用完。运行会暂停，直到预算重置。仍要启动吗？",
-    "launchOverBudget_month": "本月预算已用完。运行会暂停，直到预算重置。仍要启动吗？"
+    "launchBlocked": "此上限已用完，启动将被拒绝。请调高上限或等待重置。",
+    "launchBlocked_week": "本周的上限已用完，启动将被拒绝。请调高上限或等待重置。",
+    "launchBlocked_month": "本月的上限已用完，启动将被拒绝。请调高上限或等待重置。",
+    "raiseCap": "调高上限"
   }
 }

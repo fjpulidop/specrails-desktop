@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { resetLaunchForecastCache } from '../../../../lib/launch-forecast'
+import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
 import { LoopRunModal, type RunModalProject } from '../LoopRunModal'
 
 const PROJECTS: RunModalProject[] = [
@@ -170,7 +171,7 @@ describe('LoopRunModal with the daily budget reached', () => {
   beforeEach(() => resetLaunchForecastCache())
   const forecast = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
 
-  it('asks before executing, and Launch anyway executes', async () => {
+  it('does not execute while the budget is reached: Raise cap opens the budget panel', async () => {
     global.fetch = vi.fn().mockImplementation(async (url: string) =>
       String(url).includes('/launch-forecast') ? { ok: true, json: async () => forecast } : { ok: true, json: async () => ({}) }) as typeof fetch
     const onExecute = vi.fn()
@@ -179,7 +180,12 @@ describe('LoopRunModal with the daily budget reached', () => {
     fireEvent.click(screen.getByRole('button', { name: /Execute/i }))
     const confirm = await screen.findByTestId('launch-over-budget-dialog')
     expect(onExecute).not.toHaveBeenCalled()
-    fireEvent.click(within(confirm).getByRole('button', { name: 'Launch anyway' }))
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p1' })))
+    const opened = vi.fn()
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+    try {
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Raise cap' }))
+      expect(opened).toHaveBeenCalledTimes(1)
+    } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
+    expect(onExecute).not.toHaveBeenCalled()
   })
 })

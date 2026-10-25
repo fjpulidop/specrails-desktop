@@ -257,7 +257,7 @@ model in `lib/changes-model.ts`):
   the displayed hunks pins to the file header; one that names no file of the
   change (or no place at all, e.g. every finding from an older run) is listed
   above the tree. Nothing is dropped.
-- "Ask agent to change this" files a **spec addendum** (`review-feedback`, the
+- "Ask agent for a change" files a **spec addendum** (`review-feedback`, the
   existing carrier: `POST /tickets/:id/addenda`) containing `path:lines`, the
   selected snippet and the note, then toasts with a link to the spec. It does
   not launch a run; the next run on the spec is briefed with it

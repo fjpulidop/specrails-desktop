@@ -340,9 +340,10 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
     : `${packet.cost.estimated ? '~' : ''}${formatUsd(packet.cost.totalUsd)}`
 
   // Rendered inside the App shell's <main> (route) or a modal, so the page is a
-  // labelled <article> rather than a second <main> landmark.
+  // labelled <article> rather than a second <main> landmark. The article keeps ONE width for both tabs
+  // (switching tabs must not move the header); only the Overview panel is held to a reading measure.
   return (
-    <article aria-labelledby="review-packet-headline" className={`mx-auto flex w-full flex-col gap-4 p-6 ${tab === 'changes' ? 'max-w-7xl' : 'max-w-3xl'}`}>
+    <article aria-labelledby="review-packet-headline" className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
       <button
         type="button"
         onClick={goBack}
@@ -628,7 +629,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         />
       </div>
 
-      <div id="packet-panel-overview" role="tabpanel" aria-labelledby="packet-tab-overview" className={tab === 'changes' ? 'hidden' : 'contents'}>
+      <div id="packet-panel-overview" role="tabpanel" aria-labelledby="packet-tab-overview" className={tab === 'changes' ? 'hidden' : 'flex w-full max-w-3xl flex-col gap-4'} data-testid="packet-overview-panel">
       {/* ── What to look at: the reviewer's risk brief, first after the verdict.
           Absent for runs without a brief, so older packets read as before. */}
       {packet.whatToLookAt ? (

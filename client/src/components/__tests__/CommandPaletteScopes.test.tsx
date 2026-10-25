@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within, fireEvent } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { CommandPalette } from '../CommandPalette'
-import { OPEN_APP_SETTINGS_EVENT, OPEN_PROJECT_SETTINGS_EVENT } from '../../lib/app-settings-events'
+import { OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, OPEN_PROJECT_SETTINGS_EVENT } from '../../lib/app-settings-events'
 import { OPEN_DOCS_EVENT } from '../../lib/docs-events'
 import type { AgentConversation } from '../../features/missions/lib/agent-api'
 
@@ -211,6 +211,76 @@ describe('CommandPalette — scoped search', () => {
       window.removeEventListener(OPEN_APP_SETTINGS_EVENT, onApp)
       window.removeEventListener(OPEN_PROJECT_SETTINGS_EVENT, onProject)
     }
+  })
+
+  it('/implement lists the matching slash command under the settings instead of "Nothing found"', async () => {
+    responses['/config'] = { commands: [
+      { id: 'c1', name: 'Implement', slug: 'implement', description: 'Implement a spec end to end' },
+      { id: 'c2', name: 'Batch implement', slug: 'batch-implement', description: '' },
+      { id: 'c3', name: 'Retry', slug: 'retry', description: '' },
+    ] }
+    responses['/spawn'] = { jobId: 'job-1' }
+    const user = userEvent.setup()
+    render(<CommandPalette />)
+    const input = await openPalette(user)
+    await user.type(input, '/implement')
+    const group = await screen.findByTestId('palette-group-slash-commands')
+    expect(group).toHaveTextContent('Commands matching “/implement”')
+    expect(within(group).getByTestId('palette-slash-command-implement')).toBeInTheDocument()
+    expect(within(group).getByTestId('palette-slash-command-batch-implement')).toBeInTheDocument()
+    expect(within(group).queryByTestId('palette-slash-command-retry')).toBeNull()
+    // While there are command rows the "nothing found" message stays away.
+    expect(screen.queryByTestId('palette-scope-empty')).toBeNull()
+    await user.click(within(group).getByTestId('palette-slash-command-implement'))
+    await waitFor(() => expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/spawn'))).toBe(true))
+  })
+
+  it('/ keeps "Nothing found" when neither a setting nor a command matches', async () => {
+    responses['/config'] = { commands: [{ id: 'c1', name: 'Implement', slug: 'implement', description: '' }] }
+    const user = userEvent.setup()
+    render(<CommandPalette />)
+    const input = await openPalette(user)
+    await user.type(input, '/zzzzqq')
+    expect(await screen.findByTestId('palette-scope-empty')).toBeInTheDocument()
+    expect(screen.queryByTestId('palette-group-slash-commands')).toBeNull()
+  })
+
+  it('/budget finds the Budget panel (weekly and monthly caps live there) and opens it', async () => {
+    const opened = vi.fn()
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+    try {
+      const user = userEvent.setup()
+      render(<CommandPalette />)
+      const input = await openPalette(user)
+      await user.type(input, '/weekly')
+      // "weekly" is only a keyword of the panel: no settings block carries it.
+      const row = await screen.findByTestId('palette-setting-action-budget.open')
+      expect(row).toHaveTextContent('Open Budget (caps, projection, what-if)')
+      await user.click(row)
+      expect(opened).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
+  })
+
+  it('/ does not offer the Budget panel without a project', async () => {
+    activeProjectId = null
+    const user = userEvent.setup()
+    render(<CommandPalette />)
+    const input = await openPalette(user)
+    await user.type(input, '/weekly')
+    expect(screen.queryByTestId('palette-setting-action-budget.open')).toBeNull()
+  })
+
+  it('the empty palette: one-line hints without a label, the open project is not offered as a switch, and the placeholder teaches the prefixes', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette />)
+    await openPalette(user)
+    const hints = await screen.findByTestId('palette-scope-hints')
+    expect(hints).toHaveClass('flex-nowrap', 'overflow-hidden')
+    expect(hints).not.toHaveTextContent('Search in')
+    expect(screen.getByPlaceholderText('Search, or type # @ / ? to narrow…')).toBeInTheDocument()
+    // NeoTetris is the only (and the active) project: nothing to switch to, so Enter can't switch.
+    expect(screen.queryByTestId('palette-group-projects')).toBeNull()
   })
 
   it('/ sends Board mode to /settings?setting= and hides project settings without a project', async () => {

@@ -11,7 +11,9 @@ vi.mock('../../../../specs/context/TicketDetailModalContext', () => ({
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
 vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: (...a: unknown[]) => toastError(...a) } }))
-const openExternalUrl = vi.fn(async () => {})
+const openExternalUrl = vi.fn(async (_url: string): Promise<boolean> => true)
+const openAppSettings = vi.fn()
+vi.mock('../../../../../lib/app-settings-events', () => ({ openAppSettings: (...a: unknown[]) => openAppSettings(...a) }))
 vi.mock('../../../../../lib/tauri-shell', () => ({ openExternalUrl: (url: string) => openExternalUrl(url) }))
 
 import { ChangesTab } from '../ChangesTab'
@@ -57,7 +59,7 @@ let diffFor: (path: string) => FileDiff
 let fetchMock: ReturnType<typeof vi.fn>
 beforeEach(() => {
   localStorage.clear()
-  toastSuccess.mockClear(); toastError.mockClear(); openExternalUrl.mockClear(); mockOpenTicketDetail.mockClear()
+  toastSuccess.mockClear(); toastError.mockClear(); openExternalUrl.mockReset(); openExternalUrl.mockResolvedValue(true); openAppSettings.mockClear(); mockOpenTicketDetail.mockClear()
   diffFor = smallDiff
   fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') return { ok: true, json: async () => ({ addendum: { id: 'ad-1' } }) }
@@ -156,7 +158,10 @@ describe('ChangesTab', () => {
     await screen.findByText('two')
     fireEvent.click(screen.getByRole('button', { name: /Select line 2/ }))
     fireEvent.click(screen.getByRole('button', { name: /Select line 3/ }), { shiftKey: true })
-    expect(screen.getByTestId('changes-selection-bar')).toHaveTextContent('src/a.ts:2-3')
+    // The path is in the header above; the bar names only the lines, and floats instead of pushing the diff down.
+    expect(screen.getByTestId('changes-selection-bar')).toHaveTextContent(/^:2-3/)
+    expect(screen.getByTestId('changes-selection-bar')).not.toHaveTextContent('src/a.ts')
+    expect(screen.getByTestId('changes-selection-layer')).toHaveClass('sticky', 'top-0', 'z-10', 'h-0')
     fireEvent.click(screen.getByTestId('changes-ask-button'))
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Rename these' } })
     fireEvent.click(screen.getByTestId('changes-ask-submit'))
@@ -177,7 +182,7 @@ describe('ChangesTab', () => {
     renderTab()
     await screen.findByText('two')
     const card = screen.getByText('Guard against null').closest('[data-annotation-id]') as HTMLElement
-    fireEvent.click(within(card).getByRole('button', { name: /Ask agent to fix this/ }))
+    fireEvent.click(within(card).getByRole('button', { name: /Ask agent for a change/ }))
     expect(screen.getByRole('textbox')).toHaveValue('Guard against null')
     fireEvent.click(screen.getByTestId('changes-ask-submit'))
     await waitFor(() => expect(toastSuccess).toHaveBeenCalled())
@@ -207,6 +212,106 @@ describe('ChangesTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /Select line 3/ }))
     fireEvent.click(screen.getByTestId('changes-open-editor'))
     expect(openExternalUrl).toHaveBeenCalledWith('vscode://file/repo/src/a.ts:3')
+  })
+
+  it('tells the reviewer when the editor could not be opened, and offers the setting', async () => {
+    openExternalUrl.mockResolvedValue(false)
+    renderTab()
+    await screen.findByText('two')
+    fireEvent.click(screen.getByTestId('changes-open-editor'))
+    await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1))
+    const [message, options] = toastError.mock.calls[0] as [string, { action: { label: string; onClick: () => void } }]
+    expect(message).toBe('Couldn’t open VS Code. Is it installed? Change it in Settings ▸ Code.')
+    expect(options.action.label).toBe('Open Settings')
+    options.action.onClick()
+    expect(openAppSettings).toHaveBeenCalledWith('code', 'editor')
+  })
+
+  it('stays quiet when the editor opens', async () => {
+    renderTab()
+    await screen.findByText('two')
+    fireEvent.click(screen.getByTestId('changes-open-editor'))
+    await waitFor(() => expect(openExternalUrl).toHaveBeenCalled())
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  describe('which file opens first', () => {
+    const f = (path: string, hash: string) => ({ path, oldPath: null, status: 'modified' as const, additions: 1, deletions: 0, binary: false, hash })
+    const serve = (list: ReturnType<typeof f>[], annotations: ChangesPayload extends { annotations: infer A } ? A : never) => {
+      fetchMock.mockImplementation(async (url: string) => {
+        if (url.includes('/changes/file')) {
+          const path = new URL(url, 'http://x').searchParams.get('path')!
+          return { ok: true, json: async () => ({ diff: smallDiff(path) }) }
+        }
+        return { ok: true, json: async () => ({ changes: payload({ files: list, annotations, totals: { files: list.length, additions: list.length, deletions: 0 } }) }) }
+      })
+    }
+
+    it('skips the change\'s own openspec docs: opens the first real file and starts openspec folded', async () => {
+      serve([f('openspec/changes/x/spec.md', 'o1'), f('src/app.ts', 's1')], [])
+      renderTab()
+      await screen.findByText('two')
+      expect(within(selectedRow()).getByText('app.ts')).toBeInTheDocument()
+      const tree = screen.getByRole('tree')
+      expect(within(tree).queryByText('spec.md')).toBeNull()
+      // the single-child chain is one row; it is the folded one
+      expect(within(tree).getByText('openspec/changes/x')).toBeInTheDocument()
+    })
+
+    it('prefers the first file with a reviewer note, even inside openspec (which then stays open)', async () => {
+      serve(
+        [f('openspec/changes/x/spec.md', 'o1'), f('src/app.ts', 's1')],
+        [{ id: 'finding:1:0', source: 'reviewer-finding', text: 'Spec drifts', severity: null, author: null, location: { path: 'openspec/changes/x/spec.md', line: 2, endLine: null } }],
+      )
+      renderTab()
+      await screen.findByText('two')
+      expect(within(selectedRow()).getByText('spec.md')).toBeInTheDocument()
+    })
+
+    it('falls back to the first file when everything is under openspec', async () => {
+      serve([f('openspec/a.md', 'a1'), f('openspec/b.md', 'b1')], [])
+      renderTab()
+      await screen.findByText('two')
+      expect(within(selectedRow()).getByText('a.md')).toBeInTheDocument()
+    })
+  })
+
+  it('gives the diff ONE gutter tab stop; the arrows move between lines; +/− have a spoken word', async () => {
+    renderTab()
+    await screen.findByText('two')
+    const gutters = () => Array.from(document.querySelectorAll<HTMLElement>('[data-testid="changes-diff"] [data-gutter-key]'))
+    const stops = () => gutters().filter((g) => g.getAttribute('tabindex') === '0')
+    expect(gutters().length).toBeGreaterThan(2)
+    expect(stops()).toHaveLength(1)
+    const newSide = gutters().filter((g) => g.dataset.gutterSide === 'new')
+    expect(stops()[0]).toBe(newSide[0])
+    newSide[0].focus()
+    fireEvent.keyDown(newSide[0], { key: 'ArrowDown' })
+    await waitFor(() => expect(newSide[1]).toHaveFocus())
+    // The stop followed the focus, and is still exactly one.
+    expect(stops()).toEqual([newSide[1]])
+    fireEvent.keyDown(newSide[1], { key: 'ArrowUp' })
+    await waitFor(() => expect(newSide[0]).toHaveFocus())
+    // The marker glyph is decoration; an added line says "added" to a screen reader.
+    const added = screen.getByText('two').closest('span') as HTMLElement
+    expect(within(added).getByText('added')).toHaveClass('sr-only')
+  })
+
+  it('keeps hue for added and deleted only (Lamp Rule): modified is neutral, the letter still says what it is', async () => {
+    renderTab()
+    await screen.findByText('two')
+    const tree = screen.getByRole('tree')
+    for (const m of within(tree).getAllByText('M', { selector: 'span' })) expect(m).toHaveClass('text-muted-foreground')
+    expect(within(tree).getByText('A', { selector: 'span' })).toHaveClass('text-accent-success')
+    expect(screen.getByText('Modified')).toHaveClass('text-muted-foreground')
+  })
+
+  it('shows the loading state as a rail track, not a spinner', () => {
+    fetchMock.mockImplementation(() => new Promise(() => {}))
+    renderTab()
+    const loading = screen.getByTestId('changes-loading')
+    expect(loading.querySelector('.animate-spin')).toBeNull()
+    expect(loading.querySelector('[class*="w-24"]')).not.toBeNull()
   })
 
   it('virtualises a large diff: only a window of rows is mounted', async () => {

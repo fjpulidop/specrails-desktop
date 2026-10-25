@@ -81,7 +81,7 @@ You don't need to refresh. When a new invocation is recorded anywhere in the pro
 
 ## Daily budgets {#daily-budget}
 
-Set a daily budget to cap what a day can cost. The app-wide budget lives in **Settings → Advanced**; a per-project budget lives in **Project settings → Budget**.
+Set a daily budget to cap what a day can cost. Every cap, daily, weekly, monthly and per-run, is edited in one place: **Analytics → Budget**. **Settings → Advanced** and **Project settings → Budget** only show the current daily cap, with an **Open Budget** button that takes you there.
 
 When the day's recorded spend reaches a budget, the queue pauses itself, rails and loop runs refuse to launch with *Daily budget reached*, and a loop run already in progress parks between steps, paused at the budget. Raise or clear the budget, or wait for the daily reset, and then resume.
 

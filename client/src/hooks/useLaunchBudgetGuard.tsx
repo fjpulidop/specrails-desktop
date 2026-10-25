@@ -1,13 +1,15 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '../components/ui/confirm-dialog'
 import { useBudgetOutlook, useLaunchForecast } from './useLaunchForecast'
+import { openBudgetPanel } from '../lib/app-settings-events'
 import type { ForecastQuery } from '../lib/launch-forecast'
 
 /**
- * Budget-aware launch: when today's budget is already reached, a launch is not
- * blocked (the person may know better) but asks first, saying the run will
- * pause. Wrap the launch action in `guard(...)` and render `dialog` once.
+ * Budget-aware launch: when a cap is already reached the admission gate would
+ * refuse the launch, so the guard never starts it. It explains that and offers
+ * the way out: "Raise cap" opens the budget panel. Wrap the launch action in
+ * `guard(...)` and render `dialog` once.
  */
 export function useLaunchBudgetGuard(query: ForecastQuery | null): { guard: (launch: () => void) => void; dialog: ReactNode } {
   const { t } = useTranslation('common')
@@ -15,11 +17,9 @@ export function useLaunchBudgetGuard(query: ForecastQuery | null): { guard: (lau
   const period = useLaunchForecast(query)?.budget?.period
   const ctx = period ? { context: period } : {}
   const [open, setOpen] = useState(false)
-  const pending = useRef<(() => void) | null>(null)
 
   const guard = useCallback((launch: () => void) => {
     if (outlook !== 'reached') { launch(); return }
-    pending.current = launch
     setOpen(true)
   }, [outlook])
 
@@ -35,19 +35,14 @@ export function useLaunchBudgetGuard(query: ForecastQuery | null): { guard: (lau
     >
       <ConfirmDialog
         open={open}
-        onOpenChange={(next) => { setOpen(next); if (!next) pending.current = null }}
+        onOpenChange={setOpen}
         title={t('forecast.budgetReached', ctx)}
-        description={t('forecast.launchOverBudget', ctx)}
-        confirmLabel={t('forecast.launchAnyway')}
+        description={t('forecast.launchBlocked', ctx)}
+        confirmLabel={t('forecast.raiseCap')}
         tone="default"
         testId="launch-over-budget-dialog"
         confirmTestId="launch-over-budget-confirm"
-        onConfirm={() => {
-          const launch = pending.current
-          pending.current = null
-          setOpen(false)
-          launch?.()
-        }}
+        onConfirm={() => { setOpen(false); openBudgetPanel() }}
       />
     </div>
   )

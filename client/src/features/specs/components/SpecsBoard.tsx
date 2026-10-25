@@ -53,6 +53,7 @@ import {
 import {
   addSpecView,
   buildViewLink,
+  decodeViewState,
   deleteSpecView,
   loadSpecViews,
   renameSpecView,
@@ -757,7 +758,7 @@ export function SpecsBoard({
     sortDir,
     viewTier,
   }
-  const applyView = useCallback((view: SpecView) => {
+  const applyView = useCallback((view: SpecViewState) => {
     const labels = new Set(view.labels)
     setActiveLabels(labels)
     setActiveEpic(view.epic)
@@ -777,9 +778,34 @@ export function SpecsBoard({
       toast.success(t('views.saved', { name: created.name }))
     }
   }
+  // Deleting a view offers Undo. It puts THAT view back where it was in the list as it is now,
+  // so anything saved or renamed in between survives.
+  const latestViews = useRef(views)
+  latestViews.current = views
+  const handleDeleteView = (id: string) => {
+    const index = views.findIndex((v) => v.id === id)
+    const removed = views[index]
+    if (!removed) return
+    commitViews(deleteSpecView(views, id))
+    toast(t('views.deleted', { name: removed.name }), {
+      action: {
+        label: t('undo:action'),
+        onClick: () => {
+          const current = latestViews.current
+          if (current.some((v) => v.id === removed.id)) return
+          const restored = [...current]
+          restored.splice(Math.min(index, restored.length), 0, removed)
+          commitViews(restored)
+        },
+      },
+    })
+  }
   const handleCopyViewLink = (id: string) => {
     if (!activeProjectId) return
-    const link = buildViewLink(activeProjectId, id)
+    const view = views.find((v) => v.id === id)
+    if (!view) return
+    // The link carries the view's state: a saved view only exists in this machine's storage.
+    const link = buildViewLink(activeProjectId, view)
     const done = () => toast.success(t('views.linkCopied'))
     const fail = () => toast.error(t('views.linkCopyFailed'))
     try {
@@ -800,7 +826,8 @@ export function SpecsBoard({
     if (viewLinkProject && viewLinkProject !== activeProjectId) return
     if (viewsState.projectId !== activeProjectId) return
     handledViewParamRef.current = viewParam
-    const view = views.find((v) => v.id === viewParam)
+    // An id (a link copied by an older build, or a view of this very project) or the view's own state.
+    const view = views.find((v) => v.id === viewParam) ?? decodeViewState(viewParam)
     if (view) applyView(view)
     else toast.info(t('views.linkMissing'))
     dropViewParamRef.current = true
@@ -924,7 +951,7 @@ export function SpecsBoard({
             onSave={handleSaveView}
             onRename={(id, name) => commitViews(renameSpecView(views, id, name))}
             onUpdate={(id) => { commitViews(updateSpecView(views, id, currentViewState)); toast.success(t('views.updated')) }}
-            onDelete={(id) => commitViews(deleteSpecView(views, id))}
+            onDelete={handleDeleteView}
             onCopyLink={handleCopyViewLink}
             compact={compactControls}
           />

@@ -21,7 +21,7 @@ Les résultats montrent un court extrait autour de la première correspondance, 
 
 ## Réglages
 
-`/` connaît les principaux blocs de réglages, dans votre langue : thème, langue, éditeur, budgets, notifications, webhooks, mises à jour, branche, environnement, télémétrie, règles et plus. Les réglages du projet sont proposés quand un projet est ouvert. Choisissez-en un : la bonne fenêtre s’ouvre sur ce bloc. Sans préfixe, une correspondance forte (trois caractères ou plus) ajoute jusqu’à trois réglages aux résultats habituels.
+`/` connaît les principaux blocs de réglages, dans votre langue : thème, langue, éditeur, budgets, notifications, webhooks, mises à jour, branche, environnement, télémétrie, règles et plus. Les réglages du projet sont proposés quand un projet est ouvert. Choisissez-en un : la bonne fenêtre s’ouvre sur ce bloc. Sans préfixe, une correspondance forte (trois caractères ou plus) ajoute jusqu’à trois réglages aux résultats habituels. `/budget` trouve aussi le panneau Budget (plafonds, projection, et si…), où se trouvent les plafonds hebdomadaire et mensuel. Une commande à barre comme `/implement` est listée sous les réglages, dans son propre groupe : le préfixe `/` ne la masque jamais.
 
 ## Journaux de jobs
 

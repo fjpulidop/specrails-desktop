@@ -153,8 +153,8 @@
   "budget": {
     "exceededProject": "Tagesbudget des Projekts erreicht (${{spent}} von ${{budget}}). Es wurde nichts gestartet.",
     "exceededDesktop": "App-weites Tagesbudget erreicht (${{spent}} von ${{budget}}). Es wurde nichts gestartet.",
-    "whereProject": "Projekteinstellungen ▸ Budget",
-    "whereDesktop": "Einstellungen ▸ Budget",
+    "whereProject": "Analysen ▸ Budget",
+    "whereDesktop": "Analysen ▸ Budget",
     "action": "Erhöhe oder entferne das Budget unter {{where}} oder warte auf die tägliche Zurücksetzung.",
     "actionWithReset": "Erhöhe oder entferne das Budget unter {{where}} oder warte auf die Zurücksetzung ({{time}}).",
     "pausedProject": "Pausiert: Tagesbudget des Projekts erreicht (${{spent}} von ${{budget}}). Erhöhe es und setze dann fort.",
@@ -182,7 +182,8 @@
       "title": "Lauf an seinem Limit pausiert",
       "raise": "Limit erhöhen und fortsetzen",
       "continue": "Ohne Limit fortsetzen",
-      "raiseTo": "Limit erhöhen auf (USD)"
+      "raiseTo": "Limit erhöhen auf (USD)",
+      "mustExceed": "Muss über den bereits ausgegebenen {{spent}} liegen"
     }
   },
   "reviewWip": {
@@ -252,10 +253,8 @@
     "estimateHintCost": "Schätzung aus {{count}} früheren Läufen (Kosten aus {{costCount}}) — keine abgerechneten Kosten",
     "budgetCaution": "Könnte am Budget pausieren",
     "budgetReached": "Tagesbudget erreicht",
-    "budgetCautionHint": "Die heutigen Ausgaben plus das obere Ende dieser Schätzung könnten dein Tagesbudget erreichen. Budgeteinstellungen öffnen.",
-    "budgetReachedHint": "Die heutigen Ausgaben haben dein Tagesbudget erreicht; ein Start wird abgelehnt, bis es zurückgesetzt oder erhöht wird. Budgeteinstellungen öffnen.",
-    "launchOverBudget": "Das heutige Budget ist aufgebraucht. Der Lauf pausiert, bis es zurückgesetzt wird. Trotzdem starten?",
-    "launchAnyway": "Trotzdem starten",
+    "budgetCautionHint": "Die heutigen Ausgaben plus das obere Ende dieser Schätzung könnten dein Tagesbudget erreichen. Öffne das Budget-Panel.",
+    "budgetReachedHint": "Die heutigen Ausgaben haben dein Tagesbudget erreicht; ein Start wird abgelehnt, bis es zurückgesetzt oder erhöht wird. Öffne das Budget-Panel.",
     "perSpec": "pro Spec",
     "budgetReached_week": "Wochenbudget erreicht",
     "budgetReached_month": "Monatsbudget erreicht",
@@ -263,7 +262,9 @@
     "budgetReachedHint_month": "Die Ausgaben dieses Monats haben dein Monatsbudget erreicht; ein Start wird abgelehnt, bis es zurückgesetzt wird oder du es erhöhst. Öffne das Budget-Panel.",
     "budgetCautionHint_week": "Die Ausgaben dieser Woche plus das obere Ende dieser Schätzung könnten dein Wochenbudget erreichen. Öffne das Budget-Panel.",
     "budgetCautionHint_month": "Die Ausgaben dieses Monats plus das obere Ende dieser Schätzung könnten dein Monatsbudget erreichen. Öffne das Budget-Panel.",
-    "launchOverBudget_week": "Das Budget dieser Woche ist aufgebraucht. Der Lauf pausiert bis zum Zurücksetzen. Trotzdem starten?",
-    "launchOverBudget_month": "Das Budget dieses Monats ist aufgebraucht. Der Lauf pausiert bis zum Zurücksetzen. Trotzdem starten?"
+    "launchBlocked": "Dieses Limit ist aufgebraucht, ein Start würde abgelehnt. Erhöhe das Limit oder warte auf das Zurücksetzen.",
+    "launchBlocked_week": "Das Limit dieser Woche ist aufgebraucht, ein Start würde abgelehnt. Erhöhe das Limit oder warte auf das Zurücksetzen.",
+    "launchBlocked_month": "Das Limit dieses Monats ist aufgebraucht, ein Start würde abgelehnt. Erhöhe das Limit oder warte auf das Zurücksetzen.",
+    "raiseCap": "Limit erhöhen"
   }
 }

@@ -16,7 +16,7 @@ I rilievi del revisore, i rischi segnalati e i commenti di revisione che l'esecu
 
 ## Chiedi all'agente di cambiare qualcosa
 
-Seleziona le righe cliccando sui loro numeri (Maiusc-clic estende l'intervallo), scegli **Chiedi all'agente di cambiare questo** e descrivi la modifica. Specrails la salva come feedback di revisione sulla spec, con il file, l'intervallo di righe e il codice selezionato, e mostra un messaggio con un link alla spec. La prossima esecuzione su quella spec lo riceverà. Per avviarla subito usa **Chiedi modifiche** nella Panoramica. Qui non ci sono thread di commenti tra persone; confrontati con il tuo team su GitHub.
+Seleziona le righe cliccando sui loro numeri (Maiusc-clic estende l'intervallo), scegli **Chiedi una modifica all'agente** e descrivi la modifica. Specrails la salva come feedback di revisione sulla spec, con il file, l'intervallo di righe e il codice selezionato, e mostra un messaggio con un link alla spec. La prossima esecuzione su quella spec lo riceverà. Per avviarla subito usa **Chiedi modifiche** nella Panoramica. Qui non ci sono thread di commenti tra persone; confrontati con il tuo team su GitHub.
 
 ## Aprilo nel tuo editor
 

@@ -153,8 +153,8 @@
   "budget": {
     "exceededProject": "Project daily budget reached (${{spent}} of ${{budget}}). Nothing was launched.",
     "exceededDesktop": "App-wide daily budget reached (${{spent}} of ${{budget}}). Nothing was launched.",
-    "whereProject": "Project settings ▸ Budget",
-    "whereDesktop": "Settings ▸ Budget",
+    "whereProject": "Analytics ▸ Budget",
+    "whereDesktop": "Analytics ▸ Budget",
     "action": "Raise or clear the budget in {{where}}, or wait for the daily reset.",
     "actionWithReset": "Raise or clear the budget in {{where}}, or wait for the reset ({{time}}).",
     "pausedProject": "Paused on the project daily budget (${{spent}} of ${{budget}}). Raise it, then resume.",
@@ -182,7 +182,8 @@
       "title": "Run paused at its cap",
       "raise": "Raise cap and continue",
       "continue": "Continue without cap",
-      "raiseTo": "Raise the cap to (USD)"
+      "raiseTo": "Raise the cap to (USD)",
+      "mustExceed": "Must be above the {{spent}} already spent"
     }
   },
   "reviewWip": {
@@ -252,10 +253,8 @@
     "estimateHintCost": "Estimate from {{count}} past runs (cost from {{costCount}}) — not billed cost",
     "budgetCaution": "May pause at budget",
     "budgetReached": "Daily budget reached",
-    "budgetCautionHint": "Today’s spend plus the top of this estimate could reach your daily budget. Open budget settings.",
-    "budgetReachedHint": "Today’s spend has reached your daily budget, so a launch is refused until it resets or you raise it. Open budget settings.",
-    "launchOverBudget": "Today’s budget is used up. The run will pause until it resets. Launch anyway?",
-    "launchAnyway": "Launch anyway",
+    "budgetCautionHint": "Today’s spend plus the top of this estimate could reach your daily budget. Open the budget panel.",
+    "budgetReachedHint": "Today’s spend has reached your daily budget, so a launch is refused until it resets or you raise it. Open the budget panel.",
     "perSpec": "per spec",
     "budgetReached_week": "Weekly budget reached",
     "budgetReached_month": "Monthly budget reached",
@@ -263,7 +262,9 @@
     "budgetReachedHint_month": "This month’s spend has reached your monthly budget, so a launch is refused until it resets or you raise it. Open the budget panel.",
     "budgetCautionHint_week": "This week’s spend plus the top of this estimate could reach your weekly budget. Open the budget panel.",
     "budgetCautionHint_month": "This month’s spend plus the top of this estimate could reach your monthly budget. Open the budget panel.",
-    "launchOverBudget_week": "This week’s budget is used up. The run will pause until it resets. Launch anyway?",
-    "launchOverBudget_month": "This month’s budget is used up. The run will pause until it resets. Launch anyway?"
+    "launchBlocked": "This cap is used up, so the launch would be refused. Raise the cap or wait for the reset.",
+    "launchBlocked_week": "This week’s cap is used up, so the launch would be refused. Raise the cap or wait for the reset.",
+    "launchBlocked_month": "This month’s cap is used up, so the launch would be refused. Raise the cap or wait for the reset.",
+    "raiseCap": "Raise cap"
   }
 }

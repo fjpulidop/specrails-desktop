@@ -78,6 +78,6 @@
         "month": "已达到全局每月预算"
       }
     },
-    "detail": "已花费 ${{spent}} / ${{budget}}"
+    "detail": "已花费 {{spent}} / {{budget}}"
   }
 }

@@ -279,9 +279,15 @@ function DesktopApp() {
   }, [])
   // "Raise cap" (inbox, launch forecast) lands on the project's Analytics Budget panel.
   useEffect(() => {
-    const onOpenBudget = () => navigate({ pathname: '/analytics', search: `?${BUDGET_PANEL_PARAM}=budget` })
+    // One frame later: the per-project route memory commits after the event and would overwrite an
+    // immediate navigation (a cold load of /analytics?panel=budget otherwise ended on /).
+    let frame = 0
+    const onOpenBudget = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => navigate({ pathname: '/analytics', search: `?${BUDGET_PANEL_PARAM}=budget` }))
+    }
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, onOpenBudget)
-    return () => window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, onOpenBudget)
+    return () => { cancelAnimationFrame(frame); window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, onOpenBudget) }
   }, [navigate])
   // Full-page modals are PLACES: `?overlay=loops|plugins|docs|analytics` (and
   // `?review=<id>` / `?job=<id>`), pushed on open so Back closes them. Analytics

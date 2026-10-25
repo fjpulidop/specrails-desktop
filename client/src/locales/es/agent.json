@@ -713,7 +713,7 @@
       "flow_handoff_not_adopted": "El rail arrancó sin hacerse cargo de los cambios de tu Flow",
       "illegal_transition": "El Flow cambió de estado mientras tanto",
       "feature_unavailable": "Flow no está disponible",
-      "daily_budget_exceeded": "Presupuesto diario alcanzado: no se ha lanzado nada.",
+      "daily_budget_exceeded": "Límite diario alcanzado: no se lanzó nada.",
       "review_wip_limit_reached": "Límite de revisión alcanzado: no se ha lanzado nada.",
       "repository_has_no_commits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear una copia aislada del proyecto."
     },

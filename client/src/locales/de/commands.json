@@ -1,8 +1,8 @@
 {
   "palette": {
     "label": "Befehlspalette",
-    "searchPlaceholder": "Projekte, Befehle, Jobs durchsuchen...",
-    "searchPlaceholderAgent": "Missionen, Projekte, Jobs durchsuchen...",
+    "searchPlaceholder": "Suchen, oder # @ / ? tippen zum Eingrenzen…",
+    "searchPlaceholderAgent": "Suchen, oder # @ / ? tippen zum Eingrenzen…",
     "noResults": "Keine Ergebnisse gefunden.",
     "activeBadge": "aktiv",
     "groups": {
@@ -141,10 +141,11 @@
       "deleteSelectedN_one": "{{count}} ausgewählte Spec löschen",
       "deleteSelectedN_other": "{{count}} ausgewählte Specs löschen",
       "saveView": "Aktuelle Ansicht speichern",
-      "switchView": "Ansicht wechseln"
+      "switchView": "Ansicht wechseln",
+      "openBudget": "Budget öffnen (Limits, Prognose, Was-wäre-wenn)",
+      "openBudgetKeywords": "budget, limit, wöchentlich, monatlich, ausgaben, kosten"
     },
     "scopes": {
-      "hintsLabel": "Suchen in",
       "remove": "Bereich entfernen",
       "needsProject": "Öffne ein Projekt, um hier zu suchen.",
       "searching": "Suche läuft…",
@@ -163,7 +164,8 @@
       "settings": {
         "label": "Einstellungen",
         "placeholder": "Einstellungen durchsuchen…",
-        "prompt": "Tippen, um Einstellungen zu suchen."
+        "prompt": "Tippen, um Einstellungen zu suchen.",
+        "commandsFallback": "Befehle passend zu „/{{query}}“"
       },
       "files": {
         "label": "Dateien",

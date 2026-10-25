@@ -227,7 +227,10 @@
     "reviewLimitNone_one": "{{count}} rail abriria uma nova entrega, por isso nada é iniciado. Decida antes uma entrega pendente.",
     "reviewLimitNone_other": "{{count}} rails abririam novas entregas, por isso nada é iniciado. Decida antes uma entrega pendente.",
     "reviewLimitPartial_one": "Só {{launched}} podem começar agora; {{count}} rail aguarda até que uma entrega seja decidida.",
-    "reviewLimitPartial_other": "Só {{launched}} podem começar agora; {{count}} rails aguardam até que uma entrega seja decidida."
+    "reviewLimitPartial_other": "Só {{launched}} podem começar agora; {{count}} rails aguardam até que uma entrega seja decidida.",
+    "forecastTotal_one": "{{count}} execução · normalmente {{cost}} no total",
+    "forecastTotal_other": "{{count}} execuções · normalmente {{cost}} no total",
+    "mayPause": "Isso pode atingir um limite de orçamento e pausar algumas execuções."
   },
   "railControls": {
     "viewJobLog": "Ver log do job",

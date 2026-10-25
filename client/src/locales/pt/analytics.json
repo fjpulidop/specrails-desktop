@@ -327,7 +327,7 @@
     "planNote": "Cobrança por plano: não há custo em dólares por uso, então são exibidos turnos e limites",
     "estimatedPart": "cerca de {{amount}} calculados pela tabela de preços do app, não informados",
     "resets": "reinicia {{time}}",
-    "runHint": "Uma execução pausa e pergunta quando o próprio custo chega a este valor.",
+    "runHint": "Uma execução pausa e pergunta quando o próprio custo chega a este valor. Vale o menor entre o limite do projeto e o global.",
     "saved": "Orçamento salvo",
     "saveFailed": "Não foi possível salvar o orçamento",
     "invalidNumber": "Informe um valor maior que zero, ou deixe vazio para não ter limite.",
@@ -335,7 +335,8 @@
       "title": "Projeção para o fim do mês",
       "basis": "média de {{days}} dias {{avg}}/dia × {{remaining}} dias restantes + {{mtd}} até agora",
       "none": "Ainda não há histórico suficiente para projetar.",
-      "overCap": "Nesse ritmo você passaria do limite mensal de {{cap}}."
+      "overCap": "Nesse ritmo você passaria do limite mensal de {{cap}}.",
+      "planNone": "Com cobrança por plano não há custo em dólares por uso, então não há valor de fim de mês para projetar."
     },
     "whatIf": {
       "title": "E se: calcular com outro modelo",
@@ -355,6 +356,12 @@
       "skipped": "{{n}} execuções sem uso de tokens ou sem preço ficaram de fora.",
       "recorded": "Custo registrado destas execuções: {{amount}}.",
       "roleNote": "O uso é registrado por modelo, não por papel: escolha o modelo em que seu papel roda."
-    }
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "sessão",
+      "weekly": "semanal"
+    },
+    "capsMetered": "Limites em dólares (provedores por uso)"
   }
 }

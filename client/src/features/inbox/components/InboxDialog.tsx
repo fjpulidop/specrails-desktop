@@ -6,6 +6,7 @@ import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, Dia
 import { EmptyState } from '../../../components/ui/empty-state'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { compactRelativeTime } from '../../../lib/relative-time'
+import { formatUsd } from '../../../lib/format-usd'
 import { cn } from '../../../lib/utils'
 import { useInbox, type InboxValue } from '../context/InboxContext'
 import type { InboxItem, InboxKind } from '../lib/inbox-model'
@@ -47,7 +48,7 @@ function InboxRow({ item, inbox }: { item: InboxItem; inbox: InboxValue }) {
   // A reached cap is worded here, in the app's language, from the structured cap.
   const cap = item.cap
   const title = cap ? t(`cap.title.${cap.scope}.${cap.period}`) : item.title
-  const detailText = cap ? t('cap.detail', { spent: cap.spentUsd.toFixed(2), budget: cap.budgetUsd.toFixed(2) }) : cause ?? (rawNoCause ? t('kinds.failedNoCause') : item.detail)
+  const detailText = cap ? t('cap.detail', { spent: formatUsd(cap.spentUsd), budget: formatUsd(cap.budgetUsd) }) : cause ?? (rawNoCause ? t('kinds.failedNoCause') : item.detail)
   return (
     <li className="flex flex-col gap-2 rounded-card border border-border/50 bg-card/40 px-3 py-2.5" data-testid="inbox-row" data-kind={item.kind} data-item-id={item.id} data-cause={item.diagnosis?.kind}>
       <div className="flex items-start gap-2.5">

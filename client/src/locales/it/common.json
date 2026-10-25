@@ -153,8 +153,8 @@
   "budget": {
     "exceededProject": "Budget giornaliero del progetto raggiunto (${{spent}} su ${{budget}}). Non è stato avviato nulla.",
     "exceededDesktop": "Budget giornaliero globale raggiunto (${{spent}} su ${{budget}}). Non è stato avviato nulla.",
-    "whereProject": "Impostazioni progetto ▸ Budget",
-    "whereDesktop": "Impostazioni ▸ Budget",
+    "whereProject": "Analisi ▸ Budget",
+    "whereDesktop": "Analisi ▸ Budget",
     "action": "Aumenta o rimuovi il budget in {{where}}, oppure attendi il ripristino giornaliero.",
     "actionWithReset": "Aumenta o rimuovi il budget in {{where}}, oppure attendi il ripristino ({{time}}).",
     "pausedProject": "In pausa per il budget giornaliero del progetto (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
@@ -182,7 +182,8 @@
       "title": "Esecuzione in pausa al suo limite",
       "raise": "Aumenta il limite e continua",
       "continue": "Continua senza limite",
-      "raiseTo": "Aumenta il limite a (USD)"
+      "raiseTo": "Aumenta il limite a (USD)",
+      "mustExceed": "Deve superare i {{spent}} già spesi"
     }
   },
   "reviewWip": {
@@ -252,10 +253,8 @@
     "estimateHintCost": "Stima da {{count}} esecuzioni passate (costo da {{costCount}}) — non è un costo addebitato",
     "budgetCaution": "Potrebbe fermarsi al budget",
     "budgetReached": "Budget giornaliero raggiunto",
-    "budgetCautionHint": "La spesa di oggi più il limite alto di questa stima potrebbe raggiungere il tuo budget giornaliero. Apri le impostazioni del budget.",
-    "budgetReachedHint": "La spesa di oggi ha raggiunto il tuo budget giornaliero: un avvio viene rifiutato fino al reset o finché non lo aumenti. Apri le impostazioni del budget.",
-    "launchOverBudget": "Il budget di oggi è esaurito. L’esecuzione resterà in pausa finché non viene ripristinato. Avviare comunque?",
-    "launchAnyway": "Avvia comunque",
+    "budgetCautionHint": "La spesa di oggi più il limite alto di questa stima potrebbe raggiungere il tuo budget giornaliero. Apri il pannello del budget.",
+    "budgetReachedHint": "La spesa di oggi ha raggiunto il tuo budget giornaliero: un avvio viene rifiutato fino al reset o finché non lo aumenti. Apri il pannello del budget.",
     "perSpec": "per spec",
     "budgetReached_week": "Budget settimanale raggiunto",
     "budgetReached_month": "Budget mensile raggiunto",
@@ -263,7 +262,9 @@
     "budgetReachedHint_month": "La spesa di questo mese ha raggiunto il tuo budget mensile, quindi un avvio viene rifiutato finché non si azzera o lo aumenti. Apri il pannello del budget.",
     "budgetCautionHint_week": "La spesa di questa settimana più il massimo di questa stima potrebbe raggiungere il tuo budget settimanale. Apri il pannello del budget.",
     "budgetCautionHint_month": "La spesa di questo mese più il massimo di questa stima potrebbe raggiungere il tuo budget mensile. Apri il pannello del budget.",
-    "launchOverBudget_week": "Il budget di questa settimana è esaurito. L’esecuzione resterà in pausa finché non viene ripristinato. Avviare comunque?",
-    "launchOverBudget_month": "Il budget di questo mese è esaurito. L’esecuzione resterà in pausa finché non viene ripristinato. Avviare comunque?"
+    "launchBlocked": "Questo limite è esaurito, quindi l’avvio verrebbe rifiutato. Aumenta il limite o attendi il ripristino.",
+    "launchBlocked_week": "Il limite di questa settimana è esaurito, quindi l’avvio verrebbe rifiutato. Aumenta il limite o attendi il ripristino.",
+    "launchBlocked_month": "Il limite di questo mese è esaurito, quindi l’avvio verrebbe rifiutato. Aumenta il limite o attendi il ripristino.",
+    "raiseCap": "Aumenta limite"
   }
 }

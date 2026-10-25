@@ -1,8 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowRight, ArrowUp, AlertCircle, ChevronUp, Rocket, Tag, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, AlertCircle, ChevronUp, MoreHorizontal, Rocket, Tag, Trash2, X } from 'lucide-react'
 import { cn } from '../../../lib/utils'
-import { Kbd } from '../../../components/ui/kbd'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +49,32 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
   const present = labelsOf(selected)
   const addable = handlers.allLabels.filter((l) => !selected.every((s) => (s.labels ?? []).includes(l)))
 
+  // Label and Priority menus: shown as their own buttons when the board is wide, folded into "More" when it is narrow.
+  const labelItems = (prefix: string) => (
+    <>
+      {addable.length === 0 && present.length === 0 && <p className="px-2 py-1.5 text-caption text-muted-foreground">{t('bulk.noLabels')}</p>}
+      {addable.length > 0 && <Heading>{t('bulk.labelAdd')}</Heading>}
+      {addable.map((label) => (
+        <DropdownMenuItem key={`add-${label}`} data-testid={`${prefix}-add-${label}`} onSelect={() => { void handlers.onLabel(ids, label, 'add') }}>
+          {label}
+        </DropdownMenuItem>
+      ))}
+      {addable.length > 0 && present.length > 0 && <DropdownMenuSeparator />}
+      {present.length > 0 && <Heading>{t('bulk.labelRemove')}</Heading>}
+      {present.map((label) => (
+        <DropdownMenuItem key={`rm-${label}`} data-testid={`${prefix}-remove-${label}`} onSelect={() => { void handlers.onLabel(ids, label, 'remove') }}>
+          {label}
+        </DropdownMenuItem>
+      ))}
+    </>
+  )
+  const priorityItems = (prefix: string) => BULK_PRIORITIES.map((priority) => (
+    <DropdownMenuItem key={priority} data-testid={`${prefix}-${priority}`} onSelect={() => { void handlers.onPriority(ids, priority) }}>
+      {PRIORITY_ICON[priority]}
+      <span className="capitalize">{t(`priority.${priority}`)}</span>
+    </DropdownMenuItem>
+  ))
+
   // Jira workflow statuses load when the Move to menu opens with Jira-backed specs selected.
   const [jiraStatuses, setJiraStatuses] = useState<{ state: 'idle' | 'loading' | 'error' | 'ready'; names: string[] }>({ state: 'idle', names: [] })
   const loadingRef = useRef(false)
@@ -67,7 +92,8 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
   const barRef = useRef<HTMLDivElement>(null)
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return
-    const items = Array.from(barRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? [])
+    // Controls hidden by the board's width (container queries) are not stops.
+    const items = Array.from(barRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? []).filter((el) => getComputedStyle(el).display !== 'none')
     const index = items.indexOf(document.activeElement as HTMLElement)
     if (index === -1) return
     e.preventDefault()
@@ -76,6 +102,8 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
   }
 
   return (
+    // The wrapper spans the board and is the size container: the bar itself is as wide as its content, so it cannot measure itself.
+    <div className="@container pointer-events-none absolute inset-x-4 bottom-4 z-20 flex justify-center">
     <div
       ref={barRef}
       role="toolbar"
@@ -84,11 +112,16 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
       data-testid="specs-bulk-bar"
       onKeyDown={onKeyDown}
       onClick={(e) => e.stopPropagation()}
-      className="absolute bottom-4 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto rounded-panel border border-border bg-popover p-1 text-popover-foreground shadow-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2"
+      className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-0.5 rounded-panel border border-border bg-popover p-1 text-popover-foreground shadow-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2"
     >
       <span className="shrink-0 px-2.5 text-caption font-semibold tabular-nums text-foreground" role="status" data-testid="specs-bulk-count">
         {t('bulk.count', { count })}
       </span>
+      {/* Clearing sits next to the count so it is never the part that gets cut off on a narrow board. */}
+      <button type="button" className={cn(barButton, 'px-2 text-muted-foreground')} onClick={onClear} data-testid="specs-bulk-clear" aria-label={t('bulk.clearTitle')} title={t('bulk.clearTitle')}>
+        <X className="h-3.5 w-3.5" aria-hidden />
+        <span className="hidden @[44rem]:inline" aria-hidden>{t('bulk.clear')}</span>
+      </button>
       <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
 
       <DropdownMenu onOpenChange={(open) => { if (open && jiraIds.length > 0 && jiraStatuses.state === 'idle') loadJira() }}>
@@ -133,41 +166,23 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
       </DropdownMenu>
 
       <DropdownMenu>
-        <DropdownMenuTrigger className={barButton} data-testid="specs-bulk-label">
+        <DropdownMenuTrigger className={cn(barButton, 'hidden @[44rem]:inline-flex')} data-testid="specs-bulk-label">
           <Tag className="h-3.5 w-3.5" aria-hidden />
           {t('bulk.label')}
           <ChevronUp className="h-3 w-3 text-muted-foreground" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" side="top" aria-label={t('bulk.label')} className="max-h-72 min-w-[13rem] overflow-y-auto">
-          {addable.length === 0 && present.length === 0 && <p className="px-2 py-1.5 text-caption text-muted-foreground">{t('bulk.noLabels')}</p>}
-          {addable.length > 0 && <Heading>{t('bulk.labelAdd')}</Heading>}
-          {addable.map((label) => (
-            <DropdownMenuItem key={`add-${label}`} data-testid={`specs-bulk-label-add-${label}`} onSelect={() => { void handlers.onLabel(ids, label, 'add') }}>
-              {label}
-            </DropdownMenuItem>
-          ))}
-          {addable.length > 0 && present.length > 0 && <DropdownMenuSeparator />}
-          {present.length > 0 && <Heading>{t('bulk.labelRemove')}</Heading>}
-          {present.map((label) => (
-            <DropdownMenuItem key={`rm-${label}`} data-testid={`specs-bulk-label-remove-${label}`} onSelect={() => { void handlers.onLabel(ids, label, 'remove') }}>
-              {label}
-            </DropdownMenuItem>
-          ))}
+          {labelItems('specs-bulk-label')}
         </DropdownMenuContent>
       </DropdownMenu>
 
       <DropdownMenu>
-        <DropdownMenuTrigger className={barButton} data-testid="specs-bulk-priority">
+        <DropdownMenuTrigger className={cn(barButton, 'hidden @[44rem]:inline-flex')} data-testid="specs-bulk-priority">
           {t('bulk.priority')}
           <ChevronUp className="h-3 w-3 text-muted-foreground" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" side="top" aria-label={t('bulk.priority')}>
-          {BULK_PRIORITIES.map((priority) => (
-            <DropdownMenuItem key={priority} data-testid={`specs-bulk-priority-${priority}`} onSelect={() => { void handlers.onPriority(ids, priority) }}>
-              {PRIORITY_ICON[priority]}
-              <span className="capitalize">{t(`priority.${priority}`)}</span>
-            </DropdownMenuItem>
-          ))}
+          {priorityItems('specs-bulk-priority')}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -194,8 +209,25 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Narrow board: Label and Priority fold into one menu. */}
+      <DropdownMenu>
+        <DropdownMenuTrigger className={cn(barButton, '@[44rem]:hidden')} data-testid="specs-bulk-more">
+          <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
+          {t('bulk.more')}
+          <ChevronUp className="h-3 w-3 text-muted-foreground" aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="top" aria-label={t('bulk.more')} className="max-h-72 min-w-[13rem] overflow-y-auto">
+          <Heading>{t('bulk.label')}</Heading>
+          {labelItems('specs-bulk-more-label')}
+          <DropdownMenuSeparator />
+          <Heading>{t('bulk.priority')}</Heading>
+          {priorityItems('specs-bulk-more-priority')}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
       <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
-      <button type="button" className={cn(barButton, 'text-accent-success hover:text-accent-success')} onClick={() => handlers.onLaunch(ids)} data-testid="specs-bulk-launch">
+      {/* Launch is a plain action, not a status: it takes the foreground colour (green is the "done" lamp). */}
+      <button type="button" className={cn(barButton, 'text-foreground')} onClick={() => handlers.onLaunch(ids)} data-testid="specs-bulk-launch">
         <Rocket className="h-3.5 w-3.5" aria-hidden />
         {t('bulk.launchAll')}
       </button>
@@ -203,12 +235,7 @@ export function SpecsBulkBar({ selected, handlers, rails, onClear }: SpecsBulkBa
         <Trash2 className="h-3.5 w-3.5" aria-hidden />
         {t('bulk.delete')}
       </button>
-      <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
-      <button type="button" className={barButton} onClick={onClear} data-testid="specs-bulk-clear" title={t('bulk.clearTitle')}>
-        <X className="h-3.5 w-3.5" aria-hidden />
-        {t('bulk.clear')}
-        <Kbd aria-hidden>Esc</Kbd>
-      </button>
+    </div>
     </div>
   )
 }

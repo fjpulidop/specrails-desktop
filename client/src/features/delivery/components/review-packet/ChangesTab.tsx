@@ -13,16 +13,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Columns2, ExternalLink, FileCheck2, Loader2, RefreshCw, Rows2, X } from 'lucide-react'
+import { Columns2, ExternalLink, FileCheck2, RefreshCw, Rows2, X } from 'lucide-react'
 import { getApiBase } from '../../../../lib/api'
+import { openAppSettings } from '../../../../lib/app-settings-events'
 import { cn } from '../../../../lib/utils'
 import { Kbd } from '../../../../components/ui/kbd'
+import { RailTrack } from '../../../../components/brand/RailTrack'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { joinProjectPath, openInEditor, useEditorPref } from '../../../../lib/open-in-editor'
 import { useTicketDetailModal } from '../../../specs/context/TicketDetailModalContext'
 import {
-  ancestorDirs, anchorAnnotations, annotationOrder, buildAskAgentAddendum, extendSelection, flattenDiff, formatLineRange,
+  ancestorDirs, anchorAnnotations, annotationOrder, buildAskAgentAddendum, buildTreeRows, extendSelection, flattenDiff, formatLineRange,
   orderedFiles, partitionAnnotations, selectionSnippet, stepIndex,
   type ChangeAnnotation, type ChangedFile, type ChangesPayload, type DiffMode, type FileDiff, type LineSelection,
 } from '../../lib/changes-model'
@@ -41,9 +43,29 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true
 }
 
+// Lamp Rule: colour is for state that needs attention. Only added (success) and deleted (destructive) carry a hue.
 const STATUS_TONE: Record<ChangedFile['status'], string> = {
-  added: 'text-accent-success', modified: 'text-accent-info', deleted: 'text-destructive',
-  renamed: 'text-accent-review', copied: 'text-accent-review', typechange: 'text-accent-warning',
+  added: 'text-accent-success', modified: 'text-muted-foreground', deleted: 'text-destructive',
+  renamed: 'text-muted-foreground', copied: 'text-muted-foreground', typechange: 'text-muted-foreground',
+}
+
+const isOpenspecPath = (path: string): boolean => path === 'openspec' || path.startsWith('openspec/')
+
+/** The tree rows that stand for the top-level `openspec/` folder (a single-child chain is merged into one row, so its path may be deeper). */
+function openspecDirs(files: readonly ChangedFile[]): string[] {
+  return buildTreeRows(files, new Set())
+    .filter((row) => row.kind === 'dir' && row.depth === 0 && (row.name === 'openspec' || row.name.startsWith('openspec/')))
+    .map((row) => row.path)
+}
+
+/**
+ * The file the tab opens on: the first one the reviewer left a note on, else the first outside
+ * `openspec/` (the change's own spec docs are context, not what is being reviewed), else the first.
+ */
+function firstUsefulFile(order: readonly ChangedFile[], annotated: ReadonlyMap<string, readonly ChangeAnnotation[]>): string | null {
+  return (order.find((f) => (annotated.get(f.path)?.length ?? 0) > 0)
+    ?? order.find((f) => !isOpenspecPath(f.path))
+    ?? order[0])?.path ?? null
 }
 
 export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
@@ -53,7 +75,7 @@ export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
   /** The tab is visible: keys are live and the first load happens. */
   active: boolean
 }) {
-  const { t } = useTranslation(['packet', 'common'])
+  const { t } = useTranslation(['packet', 'common', 'settings'])
   const { activeProjectId } = useDesktop()
   const { openTicketDetail } = useTicketDetailModal()
   const editor = useEditorPref()
@@ -119,13 +141,18 @@ export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
   const { forFile, unanchored } = useMemo(() => partitionAnnotations(files, annotations), [files, annotations])
   const walk = useMemo(() => annotationOrder(files, annotations), [files, annotations])
 
-  // A fresh list selects its first file; a still-valid selection survives a refresh.
+  // A fresh list selects the first file worth reading (see firstUsefulFile); a still-valid selection survives a refresh.
   useEffect(() => {
     if (!available) return
     if (selectedPath && files.some((f) => f.path === selectedPath)) return
-    setSelectedPath(order[0]?.path ?? null)
+    const first = firstUsefulFile(order, forFile)
+    setSelectedPath(first)
     setSelection(null)
-  }, [available, files, order, selectedPath])
+    // The archived change docs (openspec/) start folded when there is real code to look at, unless that is what opens.
+    const hasOthers = order.some((f) => !isOpenspecPath(f.path))
+    const keepOpen = first ? ancestorDirs(first) : []
+    setCollapsed(new Set(hasOthers ? openspecDirs(files).filter((dir) => !keepOpen.includes(dir)) : []))
+  }, [available, files, order, selectedPath, forFile])
 
   const file = files.find((f) => f.path === selectedPath) ?? null
   const full = !!file && fullPaths.has(file.path)
@@ -239,16 +266,22 @@ export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
     }
   }
 
-  const openEditor = (line: number | null) => {
+  const openEditor = async (line: number | null) => {
     if (!available || !file || file.status === 'deleted') return
-    void openInEditor(editor, joinProjectPath(available.root, file.path), line)
+    const editorName = t(`packet:changes.editor.names.${editor}`)
+    const opened = await openInEditor(editor, joinProjectPath(available.root, file.path), line).catch(() => false)
+    if (opened) return
+    // Never fail silently: say which editor, and where to change it.
+    toast.error(t('packet:changes.editor.failed', { editor: editorName }), {
+      action: { label: t('settings:openSettings'), onClick: () => openAppSettings('code', 'editor') },
+    })
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (!current || current.status === 'loading') {
     return (
-      <div role="status" className="flex items-center gap-2 p-6 text-body text-muted-foreground" data-testid="changes-loading">
-        <Loader2 className="size-4 animate-spin" aria-hidden />{t('packet:changes.loading')}
+      <div role="status" className="flex flex-col items-start gap-2 p-6 text-body text-muted-foreground" data-testid="changes-loading">
+        <RailTrack running className="w-24" />{t('packet:changes.loading')}
       </div>
     )
   }
@@ -272,7 +305,8 @@ export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
   const viewedCount = countViewed(viewed, files)
   const diffEntry = diff
   const rootNote = available.rootKind === 'repository' ? t('packet:changes.editor.rootRepository') : undefined
-  const selectionLabel = selection && file ? `${file.path}:${formatLineRange(selection)}` : null
+  // The path is in the header right above; the bar only names the lines.
+  const selectionLabel = selection && file ? `:${formatLineRange(selection)}` : null
 
   return (
     <section aria-label={t('packet:changes.tab')} className="flex flex-col gap-3" data-testid="changes-tab">
@@ -356,7 +390,7 @@ export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
                   </button>
                   <button
                     type="button"
-                    onClick={() => openEditor(selection?.side === 'new' ? Math.min(selection.from, selection.to) : null)}
+                    onClick={() => { void openEditor(selection?.side === 'new' ? Math.min(selection.from, selection.to) : null) }}
                     disabled={file.status === 'deleted'}
                     title={rootNote}
                     className="inline-flex items-center gap-1 rounded-control border border-border px-2 py-1 text-caption text-foreground hover:bg-surface disabled:opacity-50"
@@ -368,14 +402,17 @@ export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
                 </div>
 
                 {selection && !ask ? (
-                  <div className="flex flex-wrap items-center gap-2 rounded-card border border-primary/40 bg-primary/10 px-3 py-1.5 text-body" data-testid="changes-selection-bar">
-                    <code className="font-mono text-caption text-foreground">{selectionLabel}</code>
-                    <button type="button" onClick={() => setAsk({ note: '', annotationId: null })} className="rounded-control bg-primary px-2.5 py-1 text-caption font-medium text-primary-foreground hover:bg-primary/90" data-testid="changes-ask-button">
-                      {t('packet:changes.ask.button')}
-                    </button>
-                    <button type="button" onClick={() => setSelection(null)} aria-label={t('packet:changes.selection.clear')} className="rounded-control p-1 text-muted-foreground hover:text-foreground">
-                      <X className="size-3.5" aria-hidden />
-                    </button>
+                  // A zero-height sticky layer: the bar floats over the top of the diff instead of pushing it down when a line is picked.
+                  <div className="sticky top-0 z-10 h-0" data-testid="changes-selection-layer">
+                    <div className="absolute inset-x-0 top-1 flex flex-wrap items-center gap-2 rounded-card border border-primary/40 bg-popover px-3 py-1.5 text-body shadow-2" data-testid="changes-selection-bar">
+                      <code className="font-mono text-caption text-foreground">{selectionLabel}</code>
+                      <button type="button" onClick={() => setAsk({ note: '', annotationId: null })} className="rounded-control bg-primary px-2.5 py-1 text-caption font-medium text-primary-foreground hover:bg-primary/90" data-testid="changes-ask-button">
+                        {t('packet:changes.ask.button')}
+                      </button>
+                      <button type="button" onClick={() => setSelection(null)} aria-label={t('packet:changes.selection.clear')} className="rounded-control p-1 text-muted-foreground hover:text-foreground">
+                        <X className="size-3.5" aria-hidden />
+                      </button>
+                    </div>
                   </div>
                 ) : null}
                 {ask ? (
@@ -398,7 +435,7 @@ export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
                 {file.binary ? (
                   <p className="rounded-card border border-border/60 p-4 text-body text-muted-foreground" data-testid="changes-binary">{t('packet:changes.binary')}</p>
                 ) : !diffState || diffState.status === 'loading' ? (
-                  <div role="status" className="flex items-center gap-2 p-4 text-body text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />{t('packet:changes.loading')}</div>
+                  <div role="status" className="flex flex-col items-start gap-2 p-4 text-body text-muted-foreground"><RailTrack running className="w-24" />{t('packet:changes.loading')}</div>
                 ) : diffState.status === 'error' ? (
                   <p className="p-4 text-body text-muted-foreground">{t('packet:changes.fileError')}</p>
                 ) : diffEntry && diffEntry.hunks.length === 0 ? (

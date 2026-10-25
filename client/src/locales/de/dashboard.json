@@ -227,7 +227,10 @@
     "reviewLimitNone_one": "{{count}} Rail würde eine neue Lieferung öffnen, daher startet nichts. Entscheide zuerst über eine offene Lieferung.",
     "reviewLimitNone_other": "{{count}} Rails würden neue Lieferungen öffnen, daher startet nichts. Entscheide zuerst über eine offene Lieferung.",
     "reviewLimitPartial_one": "Nur {{launched}} können jetzt starten; {{count}} Rail wartet, bis über eine Lieferung entschieden ist.",
-    "reviewLimitPartial_other": "Nur {{launched}} können jetzt starten; {{count}} Rails warten, bis über eine Lieferung entschieden ist."
+    "reviewLimitPartial_other": "Nur {{launched}} können jetzt starten; {{count}} Rails warten, bis über eine Lieferung entschieden ist.",
+    "forecastTotal_one": "{{count}} Lauf · in der Regel {{cost}} insgesamt",
+    "forecastTotal_other": "{{count}} Läufe · in der Regel {{cost}} insgesamt",
+    "mayPause": "Das kann ein Budgetlimit erreichen und einige Läufe pausieren."
   },
   "railControls": {
     "viewJobLog": "Job-Log anzeigen",

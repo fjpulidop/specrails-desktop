@@ -45,19 +45,17 @@
   "budget": {
     "title": "Budget",
     "description": "Définissez un plafond de dépense quotidien pour ce projet. La file se met automatiquement en pause quand la limite est atteinte.",
-    "dailyLabel": "Budget quotidien (USD)",
-    "dailyHelper": "Laissez vide pour désactiver. La dépense est calculée sur les dernières 24 heures.",
-    "dailyPlaceholder": "ex. 5.00",
+    "dailyLabel": "Plafond quotidien",
+    "dailyHelper": "La dépense est comptée sur les dernières 24 heures. La file se met en pause lorsque le plafond est atteint.",
     "perJobLabel": "Alerte de coût par job (USD)",
     "perJobHelper": "Alerte quand un seul job de ce projet dépasse ce montant.",
     "perJobPlaceholder": "ex. 0.50",
     "invalidNumber": "Saisissez un nombre positif ou laissez vide pour désactiver",
-    "dailyRemoved": "Budget quotidien supprimé",
-    "dailySet": "Budget quotidien défini à {{amount}} $",
     "perJobAlertDisabled": "Alerte de coût par job désactivée",
     "alertSet": "Alerte définie pour les jobs dépassant {{amount}} $",
-    "saveBudgetFailed": "Échec de l'enregistrement du budget",
-    "saveThresholdFailed": "Échec de l'enregistrement du seuil"
+    "saveThresholdFailed": "Échec de l'enregistrement du seuil",
+    "dailyCurrent": "Actuellement {{amount}} par jour",
+    "dailyNone": "Aucun plafond quotidien"
   },
   "desktop": {
     "nav": {
@@ -83,14 +81,10 @@
     "techUrlSaved": "URL specrails-tech enregistrée",
     "techUrlSaveFailed": "Échec de l'enregistrement de l'URL",
     "budgetAlertsHeading": "Budget & alertes",
-    "dailyBudgetLabel": "Budget quotidien de Desktop (USD)",
+    "dailyBudgetLabel": "Plafond quotidien de Desktop",
     "dailyBudgetHelper": "Limite de dépense quotidienne globale pour tous les projets. Les files se mettent automatiquement en pause en cas de dépassement.",
-    "dailyBudgetPlaceholder": "ex. 10.00",
     "perJobHelper": "Alerte quand un seul job dépasse ce montant. Laissez vide pour désactiver.",
     "costAlertsDisabled": "Alertes de coût désactivées",
-    "dailyBudgetRemoved": "Budget quotidien de Desktop supprimé",
-    "dailyBudgetSet": "Budget quotidien de Desktop défini à {{amount}} $",
-    "dailyBudgetSaveFailed": "Échec de l'enregistrement du budget quotidien de Desktop",
     "projectRemoved": "Projet supprimé",
     "projectRemoveFailed": "Échec de la suppression du projet",
     "onboardingHeading": "Onboarding",
@@ -109,7 +103,9 @@
       "agents": "Agents",
       "system": "Système"
     },
-    "unsavedChanges": "Modifications non enregistrées"
+    "unsavedChanges": "Modifications non enregistrées",
+    "dailyBudgetCurrent": "Actuellement {{amount}} par jour",
+    "dailyBudgetNone": "Aucun plafond quotidien"
   },
   "notifications": {
     "heading": "Notifications système",
@@ -522,5 +518,8 @@
       "cursor": "Cursor",
       "jetbrains": "IDE JetBrains"
     }
-  }
+  },
+  "budgetMoved": "Les plafonds se modifient dans Analyses ▸ Budget.",
+  "openBudget": "Ouvrir Budget",
+  "openSettings": "Ouvrir les réglages"
 }

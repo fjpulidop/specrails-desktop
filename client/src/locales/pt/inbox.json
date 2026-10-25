@@ -78,6 +78,6 @@
         "month": "Orçamento mensal global atingido"
       }
     },
-    "detail": "${{spent}} de ${{budget}} gastos"
+    "detail": "{{spent}} de {{budget}} gastos"
   }
 }
