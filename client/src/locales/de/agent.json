@@ -391,7 +391,7 @@
       "recoverAndRetryTitle": "Das gesicherte Ergebnis committen und pushen?",
       "recoverAndRetryBody": "Specrails verwendet ausschließlich den isolierten Worktree oder den aufgezeichneten Fast-Forward-Branch für {{branch}}. Falls nötig, werden die lieferbaren Dateien committet. Anschließend wird nur dieser exakte Commit gepusht und auch nur dann, wenn der PR noch mit den erwarteten Quell- und Ziel-Branches geöffnet ist. Der Hauptordner deines Projekts und seine nicht committeten Änderungen bleiben unberührt.",
       "recheckRecoveryTitle": "Diesen Computer erneut prüfen?",
-      "recheckRecoveryBody": "Specrails durchsucht in diesem Klon erneut den zur Lieferung gehörenden Worktree, Branch, Refs, Reflogs und verwaiste Git-Objekte für {{branch}}. Wird genau ein Ergebnis bewiesen, kann Specrails isolierte Änderungen committen und den exakten Push wiederholen. Der Hauptprojektordner bleibt unberührt.",
+      "recheckRecoveryBody": "Wir prüfen, ob sich aus dieser Lieferung noch etwas wiederherstellen lässt. Es wird nichts gelöscht.",
       "noChangesDoneTitle": "Diese Specs als erledigt markieren?",
       "noChangesDoneBody": "Die Implementierung hat bestätigt, dass keine Codeänderungen nötig sind. Die Specs werden nach Erledigt verschoben und der unveränderte Worktree wird bereinigt.",
       "refineTitle": "Diese Specs verfeinern?",
@@ -405,7 +405,8 @@
       "dismissTitle": "Diese Fortsetzung schließen?",
       "dismissBody": "Diese Fortsetzungskarte wird geschlossen. Ihr zugehöriger Worktree wird nur entfernt, wenn dies weiterhin sicher ist; andernfalls bleibt er mit einer Warnung erhalten. Der bestehende PR, sein Branch und der Review-Status bleiben unverändert.",
       "discardLocalTitle": "Lokales Ergebnis verwerfen?",
-      "discardLocalBody": "Die wiederherstellbare lokale Iteration wird nur entfernt, wenn dies weiterhin sicher ist; wurde sie verändert, bleibt sie mit einer Warnung erhalten. Ein vorhandener PR und sein Branch bleiben unverändert. Ein entferntes Ergebnis kann nicht wiederhergestellt werden."
+      "discardLocalBody": "Die wiederherstellbare lokale Iteration wird nur entfernt, wenn dies weiterhin sicher ist; wurde sie verändert, bleibt sie mit einer Warnung erhalten. Ein vorhandener PR und sein Branch bleiben unverändert. Ein entferntes Ergebnis kann nicht wiederhergestellt werden.",
+      "recheckRecoveryTechnical": "Specrails durchsucht in diesem Klon erneut den zur Lieferung gehörenden Worktree, Branch, Refs, Reflogs und verwaiste Git-Objekte für {{branch}}. Wird genau ein Ergebnis bewiesen, kann Specrails isolierte Änderungen committen und den exakten Push wiederholen. Der Hauptprojektordner bleibt unberührt."
     },
     "degraded": {
       "pushed": "Der Branch wurde gepusht, aber der PR konnte nicht erstellt werden. Versuche es erneut, um abzuschließen.",

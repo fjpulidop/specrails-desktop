@@ -44,7 +44,7 @@
     "saveFailed": "Failed to save Freestyle pre-prompt"
   },
   "budget": {
-    "title": "Budget",
+    "title": "Spend limits",
     "description": "Set a daily spend limit for this project. The queue auto-pauses when the limit is hit.",
     "dailyLabel": "Daily limit",
     "dailyHelper": "Spend is counted over the last 24 hours. The queue pauses when the limit is reached.",
@@ -81,7 +81,7 @@
     "techUrlDescription": "Base URL for the specrails-tech API (default: http://localhost:3000)",
     "techUrlSaved": "specrails-tech URL saved",
     "techUrlSaveFailed": "Failed to save URL",
-    "budgetAlertsHeading": "Budget & Alerts",
+    "budgetAlertsHeading": "Spend limits & alerts",
     "dailyBudgetLabel": "Desktop daily limit",
     "dailyBudgetHelper": "Global daily spend limit across all projects. Queues auto-pause when exceeded.",
     "perJobHelper": "Alert when a single job exceeds this amount. Leave blank to disable.",
@@ -124,7 +124,7 @@
     "description": "Notify external tools (Slack, Zapier, CI/CD) on Desktop events. Requests are signed via <code>X-Specrails-Signature</code> when a secret is set.",
     "eventJobCompleted": "Job completed",
     "eventJobFailed": "Job failed",
-    "eventDailyBudgetExceeded": "Daily budget exceeded",
+    "eventDailyBudgetExceeded": "Daily limit exceeded",
     "disable": "Disable",
     "enable": "Enable",
     "sendTestPing": "Send test ping",
@@ -169,7 +169,7 @@
   "codeSection": {
     "heading": "Code section",
     "summaryLanguage": "Summary language",
-    "monthlyBudget": "Monthly budget (USD)",
+    "monthlyBudget": "Monthly limit (USD)",
     "budgetHelper": "Limit on `surface=file-summary` spend per calendar month. User-initiated regenerations can override."
   },
   "appearance": {
@@ -284,12 +284,12 @@
   },
   "projectDialog": {
     "title": "{{name}} — Settings",
-    "description": "Project-level configuration: prompts, branch, environment, budget, telemetry, rules and terminal.",
+    "description": "Project-level configuration: prompts, branch, environment, limit, telemetry, rules and terminal.",
     "nav": {
       "general": "General",
       "branch": "Branch",
       "environment": "Environment",
-      "budget": "Budget",
+      "budget": "Spend limits",
       "telemetry": "Telemetry",
       "terminal": "Terminal",
       "agentRuntime": "Verification commands",
@@ -520,8 +520,8 @@
       "jetbrains": "JetBrains IDE"
     }
   },
-  "budgetMoved": "Limits are edited in Analytics ▸ Budget.",
-  "openBudget": "Open Budget",
+  "budgetMoved": "Limits are edited in Analytics ▸ Spend limits.",
+  "openBudget": "Open Spend limits",
   "openSettings": "Open Settings",
   "accessibility": {
     "density": {

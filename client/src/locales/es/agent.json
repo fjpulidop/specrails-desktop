@@ -427,7 +427,7 @@
       "recoverAndRetryTitle": "¿Crear el commit y subir el resultado conservado?",
       "recoverAndRetryBody": "Specrails solo usará el worktree aislado o la rama registrada con avance rápido para {{branch}}. Si hace falta, creará un commit con los archivos entregables y subirá ese commit exacto únicamente si la PR sigue abierta sobre las ramas de origen y destino esperadas. La carpeta principal del proyecto y sus cambios sin commitear no se tocarán.",
       "recheckRecoveryTitle": "¿Volver a comprobar este equipo?",
-      "recheckRecoveryBody": "Specrails volverá a examinar en este clon el worktree, la rama, las refs, los reflogs y los objetos Git huérfanos pertenecientes a la entrega de {{branch}}. Si demuestra un único resultado, podrá confirmar los cambios aislados y reintentar el push exacto. No tocará la carpeta principal del proyecto.",
+      "recheckRecoveryBody": "Comprobaremos si aún se puede recuperar algo de esta entrega. No se borra nada.",
       "freshDiscardTitle": "¿Descartar esta entrega?",
       "freshDiscardBody": "La PR se cerrará sin eliminar su rama remota. Solo se eliminarán las ramas y los worktrees locales que pertenezcan a SpecRails y sigan en su commit registrado; cualquier recurso modificado se conservará y se mostrará un aviso. Las specs volverán al backlog. Los recursos locales eliminados no se pueden recuperar.",
       "implementationFailedDiscardTitle": "¿Descartar esta entrega fallida?",
@@ -439,7 +439,8 @@
       "noChangesDoneTitle": "¿Marcar estas specs como hechas?",
       "noChangesDoneBody": "La implementación confirmó que no hacen falta cambios de código. Las specs pasarán a Hecho y se limpiará el worktree sin cambios.",
       "refineTitle": "¿Refinar estas specs?",
-      "refineBody": "Se cerrará el resultado sin cambios y las specs volverán al backlog para que puedas refinarlas. Los registros de ejecución seguirán disponibles."
+      "refineBody": "Se cerrará el resultado sin cambios y las specs volverán al backlog para que puedas refinarlas. Los registros de ejecución seguirán disponibles.",
+      "recheckRecoveryTechnical": "Specrails volverá a examinar en este clon el worktree, la rama, las refs, los reflogs y los objetos Git huérfanos pertenecientes a la entrega de {{branch}}. Si demuestra un único resultado, podrá confirmar los cambios aislados y reintentar el push exacto. No tocará la carpeta principal del proyecto."
     },
     "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
     "resumeFromStep": "Reanudar desde {{step}}",

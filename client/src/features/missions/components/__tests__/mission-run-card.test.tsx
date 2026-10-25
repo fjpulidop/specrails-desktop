@@ -96,19 +96,19 @@ describe('paused building card', () => {
     global.fetch = vi.fn(async () => new Response(JSON.stringify({ error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 5, spentUsd: 7, resetsAt: null }), { status: 409, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env({ decision: 'building' })} conversationId="c1" />)
     const banner = screen.getByTestId('pr-run-paused-actions')
-    expect(banner).toHaveTextContent('Paused on the app-wide daily budget ($6.50 of $5.00)')
+    expect(banner).toHaveTextContent('Paused on the app-wide daily limit ($6.50 of $5.00)')
     expect(banner).not.toHaveTextContent('SERVER ENGLISH')
     await act(async () => { fireEvent.click(screen.getByTestId('pr-run-paused-resume')) })
     expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/loop-runs\/r1\/resume$/), expect.objectContaining({ method: 'POST' }))
     expect(runtime.state.act).not.toHaveBeenCalled()
-    expect(toast.error).toHaveBeenCalledWith('The daily limit is still reached.', expect.objectContaining({ description: expect.stringContaining('Analytics ▸ Budget'), action: expect.objectContaining({ label: 'Raise limit' }) }))
+    expect(toast.error).toHaveBeenCalledWith('The daily limit is still reached.', expect.objectContaining({ description: expect.stringContaining('Analytics ▸ Spend limits'), action: expect.objectContaining({ label: 'Raise limit' }) }))
   })
 
-  it('relaunch reports a daily budget 409 in localized words', async () => {
+  it('relaunch reports a daily limit 409 in localized words', async () => {
     global.fetch = vi.fn(async () => new Response(JSON.stringify({ error: 'daily_budget_exceeded', scope: 'project', budgetUsd: 10, spentUsd: 11, resetsAt: null, detail: 'SERVER' }), { status: 409, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', runtime: failed })} conversationId="c1" />)
     await act(async () => { fireEvent.click(screen.getByTestId('mission-run-relaunch')) })
-    expect(screen.getByTestId('mission-run-relaunch-error')).toHaveTextContent('Project daily budget reached ($11.00 of $10.00)')
+    expect(screen.getByTestId('mission-run-relaunch-error')).toHaveTextContent('Project daily limit reached ($11.00 of $10.00)')
     expect(screen.getByTestId('mission-run-relaunch-error')).not.toHaveTextContent('SERVER')
   })
 

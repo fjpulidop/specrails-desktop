@@ -427,7 +427,7 @@
       "recoverAndRetryTitle": "Commit and push the preserved result?",
       "recoverAndRetryBody": "Specrails will use only the isolated worktree or recorded fast-forward branch for {{branch}}. It will commit deliverable files if needed, then push the exact commit only if the PR is still open on the expected head and base. Your main project folder and its uncommitted changes will not be touched.",
       "recheckRecoveryTitle": "Check this computer again?",
-      "recheckRecoveryBody": "Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for {{branch}}. If it proves one result, it may commit isolated changes and retry the exact push. Your main project folder will not be touched.",
+      "recheckRecoveryBody": "We’ll check whether anything from this delivery can still be recovered. Nothing is deleted.",
       "freshDiscardTitle": "Discard this delivery?",
       "freshDiscardBody": "The PR will be closed without deleting its remote branch. Only SpecRails-owned local branches and worktrees that are still at their recorded commit will be removed; anything changed will be preserved with a warning. The specs will return to the backlog. Removed local resources cannot be recovered.",
       "implementationFailedDiscardTitle": "Discard this failed delivery?",
@@ -439,7 +439,8 @@
       "noChangesDoneTitle": "Mark these specs done?",
       "noChangesDoneBody": "The implementation confirmed that no code changes are needed. The specs will move to Done and the no-change worktree will be cleaned up.",
       "refineTitle": "Refine these specs?",
-      "refineBody": "The no-change result will be closed and the specs will return to the backlog so you can refine them. The run logs remain available."
+      "refineBody": "The no-change result will be closed and the specs will return to the backlog so you can refine them. The run logs remain available.",
+      "recheckRecoveryTechnical": "Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for {{branch}}. If it proves one result, it may commit isolated changes and retry the exact push. Your main project folder will not be touched."
     },
     "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work.",
     "resumeFromStep": "Resume from {{step}}",
@@ -721,7 +722,7 @@
       "flow_handoff_not_adopted": "The rail started without taking over your Flow's changes",
       "illegal_transition": "The Flow changed state meanwhile",
       "feature_unavailable": "Flow is not available",
-      "daily_budget_exceeded": "Daily budget reached. Nothing was launched.",
+      "daily_budget_exceeded": "Daily limit reached. Nothing was launched.",
       "review_wip_limit_reached": "Review limit reached. Nothing was launched.",
       "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project."
     },

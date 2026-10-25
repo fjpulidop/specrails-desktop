@@ -60,7 +60,14 @@ export function RailLoopSelector({
     (f) => (freestyleAvailable || !f.requiresFreestyle) && (loopsEnabled || !f.requiresLoops),
   )
 
+  // One line on what the picked loop does: the factory text, else the loop's own description.
+  const factory = builtIn.find((f) => f.id === value)
+  const description = factory
+    ? (builtinRows.get(factory.id)?.builtinModified ? builtinRows.get(factory.id)!.description : null) ?? t(factory.descriptionKey)
+    : published.find((l) => l.id === value)?.description ?? null
+
   return (
+    <div className="flex min-w-0 flex-col gap-0.5">
     <div
       className="inline-flex items-center"
       title={recommendedId && value === recommendedId ? `${t('railControls.loopTitle')} · ${t('railControls.recommended')}` : t('railControls.loopTitle')}
@@ -92,6 +99,8 @@ export function RailLoopSelector({
           </optgroup>
         )}
       </select>
+    </div>
+    {description ? <p className="max-w-[200px] truncate text-caption text-muted-foreground" title={description} data-testid="rail-loop-description">{description}</p> : null}
     </div>
   )
 }

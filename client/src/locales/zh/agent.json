@@ -391,7 +391,7 @@
       "recoverAndRetryTitle": "提交并推送已保留的结果？",
       "recoverAndRetryBody": "Specrails 只会使用 {{branch}} 对应的隔离 worktree 或已记录且可快进的分支。必要时，它会提交可交付文件；仅当 PR 仍以预期的源分支和目标分支保持打开状态时，才会推送这个精确提交。不会触碰项目主目录及其中尚未提交的更改。",
       "recheckRecoveryTitle": "再次检查此计算机？",
-      "recheckRecoveryBody": "Specrails 将在此克隆中重新扫描属于 {{branch}} 交付的 worktree、分支、refs、reflogs 和孤立 Git 对象。如果能证明唯一结果，它可以提交隔离的更改并重试精确 push。不会触碰主项目文件夹。",
+      "recheckRecoveryBody": "我们将检查此次交付是否还有可恢复的内容。不会删除任何内容。",
       "noChangesDoneTitle": "将这些 spec 标记为完成？",
       "noChangesDoneBody": "实现已确认无需更改代码。spec 将移至完成，并清理无更改的 worktree。",
       "refineTitle": "细化这些 spec？",
@@ -405,7 +405,8 @@
       "dismissTitle": "关闭此后续任务？",
       "dismissBody": "此后续卡片将被关闭。仅在仍可安全删除时才会移除其专用 worktree；否则将保留并显示警告。现有 PR、分支和审查状态不会改变。",
       "discardLocalTitle": "丢弃本地结果？",
-      "discardLocalBody": "仅在仍可安全删除时才会移除可恢复的本地迭代；如果它已发生变化，将保留并显示警告。任何现有 PR 及其分支都不会改变。已删除的结果无法恢复。"
+      "discardLocalBody": "仅在仍可安全删除时才会移除可恢复的本地迭代；如果它已发生变化，将保留并显示警告。任何现有 PR 及其分支都不会改变。已删除的结果无法恢复。",
+      "recheckRecoveryTechnical": "Specrails 将在此克隆中重新扫描属于 {{branch}} 交付的 worktree、分支、refs、reflogs 和孤立 Git 对象。如果能证明唯一结果，它可以提交隔离的更改并重试精确 push。不会触碰主项目文件夹。"
     },
     "degraded": {
       "pushed": "分支已推送，但无法创建 PR。请重试以完成。",

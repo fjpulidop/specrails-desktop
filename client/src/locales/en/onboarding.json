@@ -78,7 +78,7 @@
     "preparing": "Preparing the project's workspace. This only takes a moment.",
     "workspaceFailed": "The workspace could not be prepared.",
     "retryWorkspace": "Try again",
-    "overBudget": "Today's budget is already reached. Raise it in Analytics ▸ Budget, then try again.",
+    "overBudget": "Today's limit is already reached. Raise it in Analytics ▸ Spend limits, then try again.",
     "failed": "Couldn't start the run. Try again.",
     "failedDetail": "Couldn't start the run: {{detail}}"
   },

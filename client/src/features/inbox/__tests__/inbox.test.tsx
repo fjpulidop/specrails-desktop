@@ -298,7 +298,7 @@ describe('Primary actions call the real handlers', () => {
     await waitFor(() => expect(fetchMock.mock.calls.filter(([u]) => String(u).endsWith('/api/inbox')).length).toBeGreaterThan(before))
   })
 
-  it('Resume over the daily budget shows the localized refusal', async () => {
+  it('Resume over the daily limit shows the localized refusal', async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const u = String(input)
       if (u.endsWith('/api/inbox')) return { ok: true, status: 200, json: async () => ({ items, projects: [], generatedAt: '' }) }
@@ -307,7 +307,7 @@ describe('Primary actions call the real handlers', () => {
     mount('/?inbox=1')
     const row = (await screen.findAllByTestId('inbox-row')).find((r) => r.getAttribute('data-item-id') === 'p2:budget:r2')!
     fireEvent.click(within(row).getByTestId('inbox-primary'))
-    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith('Still over the daily budget', expect.anything()))
+    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith('Still over the daily limit', expect.anything()))
   })
 
   it('a run paused at its per-run cap asks Continue / Raise instead of a toast, and answers on the same route (CD5)', async () => {
@@ -356,14 +356,14 @@ describe('Primary actions call the real handlers', () => {
 
   it('a reached cap lists in the app\'s words with Raise limit, which opens the Budget panel', async () => {
     items = [mk({
-      id: 'p1:budget:cap-project-week', kind: 'budget', title: 'Project weekly budget reached', action: 'raise-cap', subjectId: 'project:week',
+      id: 'p1:budget:cap-project-week', kind: 'budget', title: 'Project weekly limit reached', action: 'raise-cap', subjectId: 'project:week',
       conversationId: null, version: 'cap:50:x', cap: { scope: 'project', period: 'week', budgetUsd: 50, spentUsd: 52.5, resetsAt: '2026-10-26T00:00:00.000Z' },
     })]
     const opened = vi.fn()
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
     mount('/?inbox=1')
     const row = (await screen.findAllByTestId('inbox-row'))[0]
-    expect(row).toHaveTextContent('Project weekly budget reached')
+    expect(row).toHaveTextContent('Project weekly limit reached')
     expect(row).toHaveTextContent('Spend limit reached')
     expect(row).toHaveTextContent('$52.50 of $50.00 spent')
     expect(within(row).getByTestId('inbox-primary')).toHaveTextContent('Raise limit')

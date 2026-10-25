@@ -291,8 +291,8 @@
     }
   },
   "budget": {
-    "title": "Budget",
-    "loadFailed": "Couldn’t load the budget.",
+    "title": "Spend limits",
+    "loadFailed": "Couldn’t load the spend limits.",
     "estimate": "Estimate",
     "scope": {
       "project": "This project",
@@ -328,8 +328,8 @@
     "estimatedPart": "about {{amount}} of it priced from the app’s price list, not reported",
     "resets": "resets {{time}}",
     "runHint": "A run pauses and asks when its own cost reaches this amount. The lower of the project and app-wide limits applies.",
-    "saved": "Budget saved",
-    "saveFailed": "Couldn’t save the budget",
+    "saved": "Spend limits saved",
+    "saveFailed": "Couldn’t save the spend limits",
     "invalidNumber": "Enter an amount above zero, or leave it empty for no limit.",
     "projection": {
       "title": "Month-end projection",

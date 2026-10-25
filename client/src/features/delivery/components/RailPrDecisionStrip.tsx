@@ -1168,7 +1168,11 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         confirmLabel={t(recoveryIsRecheck ? 'railPr.recheckRecovery' : 'railPr.recoverAndRetry')}
         confirmDisabled={busy}
         onConfirm={() => confirmAction('recover-and-retry', 'recover-and-retry')}
-      />
+      >
+        {recoveryIsRecheck && (
+          <TechnicalDetail summary={t('railPr.recoveryDetailSummary')} testId="rail-pr-recheck-technical">{t('railPr.recheckRecoveryConfirmTechnical', { branch: decision.branch ?? '' })}</TechnicalDetail>
+        )}
+      </ConfirmDialog>
     </div>
   )
 }

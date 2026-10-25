@@ -75,6 +75,19 @@ describe('glossary: one word per concept (reaudit-9 #9)', () => {
     expect(offenders('en', /\b(caps?|executions?)\b/i, () => false)).toEqual([])
   })
 
+  /** "Budget" survives only where it is a technical quantity, not the spend ceiling: each with its reason. */
+  const BUDGET_TERM = new Set([
+    'addspec:featureProposal.ideaPlaceholder', // the person's own example sentence
+    'addspec:modelSelector.preset.budget.label', // the cheap model preset
+    'agentRuntime:providers.maxOutput', // a token budget per turn
+    'agentRuntime:agents.thinkingHint', // explains the output-token budget
+    'agentRuntime:loopAgents.maxTokens', // a token budget
+    'narration:steps.correction-budget', // the retry budget of a verification step
+  ])
+  it('English calls the spend ceiling a "limit", not a "budget" (token and retry budgets excepted)', () => {
+    expect(offenders('en', /\bbudgets?\b/i, (r) => BUDGET_TERM.has(r.id))).toEqual([])
+  })
+
   for (const lang of ['en', 'es', 'fr', 'de', 'it', 'pt', 'zh', 'ja']) {
     it(`${lang}: "ticket" appears only for Jira issues, in every translated value`, () => {
       expect(offenders(lang, /\bticket|工单|チケット/i, (r) => JIRA_TICKET(r) || /jira/i.test(r.id + r.text))).toEqual([])

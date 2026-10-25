@@ -110,7 +110,7 @@
     "actionFailed": "That action did not go through.",
     "revisionStale": "This was just resolved elsewhere — reload to see where it stands.",
     "revisionFailed": "The change could not be started. Your text was kept.",
-    "revisionBudget": "The daily budget is exhausted, so the change was not started. Your text was kept."
+    "revisionBudget": "The daily limit is exhausted, so the change was not started. Your text was kept."
   },
   "versions": {
     "title": "Earlier versions ({{count}})",

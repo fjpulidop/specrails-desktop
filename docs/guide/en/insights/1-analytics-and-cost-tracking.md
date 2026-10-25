@@ -79,14 +79,14 @@ Exports respect whatever period and surface filters you currently have applied, 
 
 You don't need to refresh. When a new invocation is recorded anywhere in the project, the open dashboard quietly refetches itself a moment later, so the burn meter keeps pace with work as it finishes.
 
-## Daily budgets {#daily-budget}
+## Daily limits {#daily-budget}
 
-Set a daily budget to cap what a day can cost. Every cap, daily, weekly, monthly and per-run, is edited in one place: **Analytics → Budget**. **Settings → Advanced** and **Project settings → Budget** only show the current daily cap, with an **Open Budget** button that takes you there.
+Set a daily limit to cap what a day can cost. Every cap, daily, weekly, monthly and per-run, is edited in one place: **Analytics → Spend limits**. **Settings → Advanced** and **Project settings → Spend limits** only show the current daily cap, with an **Open Spend limits** button that takes you there.
 
-When the day's recorded spend reaches a budget, the queue pauses itself, rails and loop runs refuse to launch with *Daily budget reached*, and a loop run already in progress parks between steps, paused at the budget. Raise or clear the budget, or wait for the daily reset, and then resume.
+When the day's recorded spend reaches a limit, the queue pauses itself, rails and loop runs refuse to launch with *Daily limit reached*, and a loop run already in progress parks between steps, paused at the limit. Raise or clear the limit, or wait for the daily reset, and then resume.
 
-The project budget counts your local day; the app-wide budget counts the UTC day. The per-job cost alert is a separate setting.
+The project limit counts your local day; the app-wide limit counts the UTC day. The per-job cost alert is a separate setting.
 
-**Weekly, monthly and per-run caps.** Longer caps work the same way. Open **Analytics → Budget** to set a **weekly** and a **monthly** cap, per project and for the whole app, and a **per-run soft cap** (*pause and ask at $X*). Weeks start on Monday and months on the 1st, in your local time. A weekly or monthly cap pauses queues, refuses launches and parks running loops exactly like the daily budget; raise or clear it there, or wait for the reset. When a run's own reported cost reaches the per-run cap it pauses, and **Resume** asks whether to continue without the cap or raise it. Reaching any cap also adds a **Raise cap** item to the inbox.
+**Weekly, monthly and per-run caps.** Longer caps work the same way. Open **Analytics → Spend limits** to set a **weekly** and a **monthly** cap, per project and for the whole app, and a **per-run soft cap** (*pause and ask at $X*). Weeks start on Monday and months on the 1st, in your local time. A weekly or monthly cap pauses queues, refuses launches and parks running loops exactly like the daily limit; raise or clear it there, or wait for the reset. When a run's own reported cost reaches the per-run cap it pauses, and **Resume** asks whether to continue without the cap or raise it. Reaching any cap also adds a **Raise cap** item to the inbox.
 
-The Budget panel shows today, this week and this month against each cap. Its month-end **projection** is an estimate (the average of the last 14 completed days times the days left, plus what you have spent), never added to billed spend. **What-if** re-prices the last 30 days of recorded token usage on another model with the app's price list, and says *No pricing* for a model it has no price for. On a subscription plan there is no dollar cost per use, so the panel shows turns and plan limits instead of dollars.
+The Spend limits panel shows today, this week and this month against each cap. Its month-end **projection** is an estimate (the average of the last 14 completed days times the days left, plus what you have spent), never added to billed spend. **What-if** re-prices the last 30 days of recorded token usage on another model with the app's price list, and says *No pricing* for a model it has no price for. On a subscription plan there is no dollar cost per use, so the panel shows turns and plan limits instead of dollars.

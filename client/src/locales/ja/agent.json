@@ -391,7 +391,7 @@
       "recoverAndRetryTitle": "保存された結果をコミットして push しますか？",
       "recoverAndRetryBody": "Specrails は {{branch}} 用の隔離 worktree または記録済みの fast-forward 可能なブランチだけを使用します。必要に応じて配信対象ファイルをコミットし、PR が想定された head/base のまま開いている場合に限り、その正確なコミットだけを push します。メインのプロジェクトフォルダーと未コミットの変更には一切触れません。",
       "recheckRecoveryTitle": "このコンピューターをもう一度確認しますか？",
-      "recheckRecoveryBody": "Specrails は、このクローンで {{branch}} の配信に属する worktree、ブランチ、refs、reflogs、孤立した Git オブジェクトを再スキャンします。結果を 1 つに特定できた場合、隔離された変更をコミットし、正確な push を再試行します。メインのプロジェクトフォルダーには触れません。",
+      "recheckRecoveryBody": "この配信から復元できるものがまだあるか確認します。何も削除されません。",
       "noChangesDoneTitle": "これらの spec を完了にしますか？",
       "noChangesDoneBody": "コード変更が不要であることを実装が確認しました。spec を完了に移動し、変更のない worktree をクリーンアップします。",
       "refineTitle": "これらの spec を改善しますか？",
@@ -405,7 +405,8 @@
       "dismissTitle": "このフォローアップを閉じますか？",
       "dismissBody": "このフォローアップカードを閉じます。専用 worktree は、安全に削除できる場合にのみ削除されます。安全でない場合は警告とともに保持されます。既存の PR、ブランチ、レビュー状態は変更されません。",
       "discardLocalTitle": "ローカル結果を破棄しますか？",
-      "discardLocalBody": "復旧可能なローカル反復は、安全に削除できる場合にのみ削除されます。変更されている場合は警告とともに保持されます。既存の PR とブランチは変更されません。削除された結果は復旧できません。"
+      "discardLocalBody": "復旧可能なローカル反復は、安全に削除できる場合にのみ削除されます。変更されている場合は警告とともに保持されます。既存の PR とブランチは変更されません。削除された結果は復旧できません。",
+      "recheckRecoveryTechnical": "Specrails は、このクローンで {{branch}} の配信に属する worktree、ブランチ、refs、reflogs、孤立した Git オブジェクトを再スキャンします。結果を 1 つに特定できた場合、隔離された変更をコミットし、正確な push を再試行します。メインのプロジェクトフォルダーには触れません。"
     },
     "degraded": {
       "pushed": "ブランチはプッシュされましたが、PR を作成できませんでした。再試行して完了してください。",

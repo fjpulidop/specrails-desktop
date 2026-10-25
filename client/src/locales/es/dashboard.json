@@ -112,7 +112,7 @@
     "recoveryStillBlocked": "La recuperación local aún requiere atención",
     "recheckRecovery": "Comprobar de nuevo",
     "recheckRecoveryConfirmTitle": "¿Volver a comprobar este equipo?",
-    "recheckRecoveryConfirmBody": "Specrails volverá a examinar en este clon el worktree, la rama, las refs, los reflogs y los objetos Git huérfanos pertenecientes a la entrega de {{branch}}. Si demuestra un único resultado, podrá confirmar los cambios aislados y reintentar el push exacto. No tocará la carpeta principal del proyecto.",
+    "recheckRecoveryConfirmBody": "Comprobaremos si aún se puede recuperar algo de esta entrega. No se borra nada.",
     "recoveryUnavailable": "No se pudo verificar la recuperación en este equipo",
     "recoveryUnavailableBody": "Specrails no pudo demostrar de forma segura un único resultado perteneciente a la entrega en este clon. No se ha cambiado ni eliminado nada. Revisa el detalle de la fase y los registros de ejecución. Si se ejecutó en otro equipo, abre Specrails allí y vuelve a comprobar.",
     "recoveryDetailSummary": "Detalle técnico de recuperación",
@@ -178,7 +178,8 @@
     },
     "relaunch": "Relanzar",
     "relaunchSent": "Relanzando el rail",
-    "relaunchFailed": "No se pudo relanzar el rail"
+    "relaunchFailed": "No se pudo relanzar el rail",
+    "recheckRecoveryConfirmTechnical": "Specrails volverá a examinar en este clon el worktree, la rama, las refs, los reflogs y los objetos Git huérfanos pertenecientes a la entrega de {{branch}}. Si demuestra un único resultado, podrá confirmar los cambios aislados y reintentar el push exacto. No tocará la carpeta principal del proyecto."
   },
   "railsBoard": {
     "title": "Rails",
@@ -261,7 +262,12 @@
     "execLines": "{{count}} líneas",
     "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Recomendado",
-    "recommendedOption": "{{label}} · recomendado"
+    "recommendedOption": "{{label}} · recomendado",
+    "loopDescriptions": {
+      "implement": "Planifica, construye y revisa cada spec, y luego prepara la entrega.",
+      "freestyle": "El proveedor elegido construye la spec por su cuenta, sin pipeline.",
+      "openspec": "Escribe un cambio OpenSpec para la spec, lo construye y lo archiva."
+    }
   },
   "railRow": {
     "moveToSpecs": "Mover a Specs",

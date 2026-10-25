@@ -161,7 +161,7 @@ describe('SampleGuide: run the first spec', () => {
     launchFirstSpec.mockResolvedValueOnce({ ok: false, code: 'over_budget' })
     const { user } = await toRail()
     await user.click(screen.getByTestId('run-first-spec'))
-    expect(await screen.findByTestId('sample-run-error')).toHaveTextContent(/budget/i)
+    expect(await screen.findByTestId('sample-run-error')).toHaveTextContent(/limit/i)
     expect(screen.getByTestId('run-first-spec')).toBeEnabled()
   })
 })

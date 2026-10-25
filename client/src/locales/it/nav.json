@@ -45,7 +45,7 @@
   "globalSurfaceModal": {
     "loopsDescription": "Loops è aperto nella finestra Mission.",
     "pluginsDescription": "Plugins è aperto nella finestra Mission.",
-    "reviewDescription": "Il pacchetto di revisione è aperto come modale di missione."
+    "reviewDescription": "Il pacchetto di revisione è aperto nella finestra della missione."
   },
   "rightSidebar": {
     "projectTitle": "Progetto",

@@ -132,7 +132,7 @@
     "recoveryStillBlocked": "La récupération locale nécessite encore votre attention",
     "recheckRecovery": "Vérifier à nouveau",
     "recheckRecoveryConfirmTitle": "Vérifier à nouveau cet ordinateur ?",
-    "recheckRecoveryConfirmBody": "Specrails réanalysera dans ce clone le worktree, la branche, les refs, les reflogs et les objets Git orphelins appartenant à la livraison de {{branch}}. S’il prouve un résultat unique, il pourra committer les changements isolés et retenter le push exact. Le dossier principal du projet ne sera pas touché.",
+    "recheckRecoveryConfirmBody": "Nous vérifierons s’il est encore possible de récupérer quelque chose de cette livraison. Rien n’est supprimé.",
     "recoveryUnavailable": "La récupération n’a pas pu être vérifiée sur cet ordinateur",
     "recoveryUnavailableBody": "Specrails n’a pas pu prouver de manière sûre un résultat unique appartenant à la livraison dans ce clone. Rien n’a été modifié ou supprimé. Consultez le détail de l’étape et les journaux d’exécution. Si le run a été exécuté sur un autre ordinateur, ouvrez-y Specrails puis vérifiez à nouveau.",
     "recoveryDetailSummary": "Détail technique de récupération",
@@ -178,7 +178,8 @@
     },
     "relaunch": "Relancer",
     "relaunchSent": "Relance du rail",
-    "relaunchFailed": "Impossible de relancer le rail"
+    "relaunchFailed": "Impossible de relancer le rail",
+    "recheckRecoveryConfirmTechnical": "Specrails réanalysera dans ce clone le worktree, la branche, les refs, les reflogs et les objets Git orphelins appartenant à la livraison de {{branch}}. S’il prouve un résultat unique, il pourra committer les changements isolés et retenter le push exact. Le dossier principal du projet ne sera pas touché."
   },
   "railsBoard": {
     "title": "Rails",
@@ -261,7 +262,12 @@
     "execLines": "{{count}} lignes",
     "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Recommandé",
-    "recommendedOption": "{{label}} · recommandé"
+    "recommendedOption": "{{label}} · recommandé",
+    "loopDescriptions": {
+      "implement": "Planifie, construit et relit chaque spec, puis prépare la livraison.",
+      "freestyle": "Le fournisseur choisi construit la spec seul, sans pipeline.",
+      "openspec": "Rédige un changement OpenSpec pour la spec, le construit, puis l’archive."
+    }
   },
   "railRow": {
     "moveToSpecs": "Déplacer vers Specs",

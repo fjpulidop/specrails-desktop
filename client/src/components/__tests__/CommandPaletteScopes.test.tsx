@@ -258,7 +258,7 @@ describe('CommandPalette — scoped search', () => {
       await user.type(input, '/weekly')
       // "weekly" is only a keyword of the panel: no settings block carries it.
       const row = await screen.findByTestId('palette-setting-action-budget.open')
-      expect(row).toHaveTextContent('Open Budget (limits, projection, what-if)')
+      expect(row).toHaveTextContent('Open Spend limits (limits, projection, what-if)')
       await user.click(row)
       expect(opened).toHaveBeenCalledTimes(1)
       expect(screen.queryByRole('combobox')).not.toBeInTheDocument()

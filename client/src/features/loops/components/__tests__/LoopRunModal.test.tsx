@@ -167,16 +167,16 @@ describe('LoopRunModal launch forecast', () => {
   })
 })
 
-describe('LoopRunModal with the daily budget reached', () => {
+describe('LoopRunModal with the daily limit reached', () => {
   beforeEach(() => resetLaunchForecastCache())
   const forecast = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
 
-  it('does not execute while the budget is reached: Raise limit opens the budget panel', async () => {
+  it('does not execute while the budget is reached: Raise limit opens the spend limits panel', async () => {
     global.fetch = vi.fn().mockImplementation(async (url: string) =>
       String(url).includes('/launch-forecast') ? { ok: true, json: async () => forecast } : { ok: true, json: async () => ({}) }) as typeof fetch
     const onExecute = vi.fn()
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
-    await screen.findByRole('button', { name: 'Daily budget reached' })
+    await screen.findByRole('button', { name: 'Daily limit reached' })
     fireEvent.click(screen.getByRole('button', { name: /Execute/i }))
     const confirm = await screen.findByTestId('launch-over-budget-dialog')
     expect(onExecute).not.toHaveBeenCalled()

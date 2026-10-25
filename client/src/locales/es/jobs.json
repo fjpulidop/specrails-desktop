@@ -157,7 +157,7 @@
   "ticketHeader": {
     "showMore": "+ {{count}} más",
     "showLess": "Mostrar menos",
-    "deletedTicket": "#{{id}} (eliminado)",
+    "deletedTicket": "#{{id}} (eliminada)",
     "deletedTooltip": "La spec ya no existe"
   },
   "modal": {

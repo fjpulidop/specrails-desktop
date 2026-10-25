@@ -132,7 +132,7 @@
     "recoveryStillBlocked": "ローカル復元には引き続き対応が必要です",
     "recheckRecovery": "もう一度確認",
     "recheckRecoveryConfirmTitle": "このコンピューターをもう一度確認しますか？",
-    "recheckRecoveryConfirmBody": "Specrails は、このクローンで {{branch}} の配信に属する worktree、ブランチ、refs、reflogs、孤立した Git オブジェクトを再スキャンします。結果を 1 つに特定できた場合、隔離された変更をコミットし、正確な push を再試行します。メインのプロジェクトフォルダーには触れません。",
+    "recheckRecoveryConfirmBody": "この配信から復元できるものがまだあるか確認します。何も削除されません。",
     "recoveryUnavailable": "このコンピューターでは復旧を検証できませんでした",
     "recoveryUnavailableBody": "Specrails は、このクローンで配信に属する結果を安全に 1 つへ特定できませんでした。変更や削除は行われていません。ステージの詳細と run ログを確認してください。run を別のコンピューターで実行した場合は、そちらで Specrails を開いて再確認してください。",
     "recoveryDetailSummary": "復旧の技術的詳細",
@@ -178,7 +178,8 @@
     },
     "relaunch": "再起動",
     "relaunchSent": "レールを再起動しています",
-    "relaunchFailed": "レールを再起動できませんでした"
+    "relaunchFailed": "レールを再起動できませんでした",
+    "recheckRecoveryConfirmTechnical": "Specrails は、このクローンで {{branch}} の配信に属する worktree、ブランチ、refs、reflogs、孤立した Git オブジェクトを再スキャンします。結果を 1 つに特定できた場合、隔離された変更をコミットし、正確な push を再試行します。メインのプロジェクトフォルダーには触れません。"
   },
   "railsBoard": {
     "title": "レール",
@@ -261,7 +262,12 @@
     "execLines": "{{count}} 行",
     "openspec": "SDD Quick (OpenSpec)",
     "recommended": "推奨",
-    "recommendedOption": "{{label}} · 推奨"
+    "recommendedOption": "{{label}} · 推奨",
+    "loopDescriptions": {
+      "implement": "各スペックを計画・実装・レビューし、配信を準備します。",
+      "freestyle": "選択したプロバイダーがパイプラインなしでスペックを単独で実装します。",
+      "openspec": "スペックの OpenSpec 変更を作成し、実装してからアーカイブします。"
+    }
   },
   "railRow": {
     "moveToSpecs": "Specs に移動",

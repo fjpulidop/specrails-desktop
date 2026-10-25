@@ -155,7 +155,7 @@ describe('useSpecBulkActions (CD4)', () => {
         { projectId: 'p1', loopId: 'factory:implement', provider: 'rail-2' },
       ])
       expect(screen.getByTestId('launch-all-forecast-total')).toHaveTextContent('2 runs · usually $3–$7 in total')
-      expect(screen.getByTestId('launch-all-may-pause')).toHaveTextContent('This may reach a budget limit and pause some runs.')
+      expect(screen.getByTestId('launch-all-may-pause')).toHaveTextContent('This may reach a spend limit and pause some runs.')
     })
 
     it('says nothing extra when the batch has no dollars to sum (plan billing) and the cap is safe', () => {
@@ -207,7 +207,7 @@ describe('useSpecBulkActions (CD4)', () => {
       act(() => s.h.onLaunch([1, 2, 3]))
       fireEvent.click(screen.getByRole('button', { name: /Launch 3/ }))
       await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1))
-      expect(toast.success).toHaveBeenCalledWith('1 rail launched in parallel', { description: '1 over the daily budget · 1 failed' })
+      expect(toast.success).toHaveBeenCalledWith('1 rail launched in parallel', { description: '1 over the daily limit · 1 failed' })
       expect(toast.error).not.toHaveBeenCalled()
     })
 

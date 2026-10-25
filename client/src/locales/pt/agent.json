@@ -391,7 +391,7 @@
       "recoverAndRetryTitle": "Fazer commit e enviar o resultado preservado?",
       "recoverAndRetryBody": "O Specrails utilizará apenas o worktree isolado ou o ramo registado compatível com avanço rápido para {{branch}}. Se necessário, criará um commit com os ficheiros entregáveis e enviará esse commit exato apenas se a PR continuar aberta nos ramos de origem e destino esperados. A pasta principal do projeto e as respetivas alterações sem commit não serão afetadas.",
       "recheckRecoveryTitle": "Verificar este computador novamente?",
-      "recheckRecoveryBody": "O Specrails examinará novamente neste clone o worktree, a branch, as refs, os reflogs e os objetos Git órfãos pertencentes à entrega de {{branch}}. Se comprovar um único resultado, poderá fazer commit das alterações isoladas e repetir o push exato. A pasta principal do projeto não será alterada.",
+      "recheckRecoveryBody": "Vamos verificar se ainda é possível recuperar algo desta entrega. Nada é apagado.",
       "noChangesDoneTitle": "Marcar estas specs como concluídas?",
       "noChangesDoneBody": "A implementação confirmou que nenhuma alteração de código é necessária. As specs serão movidas para Concluído e o worktree sem alterações será limpo.",
       "refineTitle": "Refinar estas specs?",
@@ -405,7 +405,8 @@
       "dismissTitle": "Encerrar este acompanhamento?",
       "dismissBody": "Este cartão de acompanhamento será encerrado. Seu worktree só será removido se isso ainda for seguro; caso contrário, será preservado com um aviso. A PR existente, seu branch e o estado da revisão permanecerão inalterados.",
       "discardLocalTitle": "Descartar o resultado local?",
-      "discardLocalBody": "A iteração local recuperável só será removida se isso ainda for seguro; se tiver sido alterada, será preservada com um aviso. Qualquer PR existente e seu branch permanecerão inalterados. Um resultado removido não pode ser recuperado."
+      "discardLocalBody": "A iteração local recuperável só será removida se isso ainda for seguro; se tiver sido alterada, será preservada com um aviso. Qualquer PR existente e seu branch permanecerão inalterados. Um resultado removido não pode ser recuperado.",
+      "recheckRecoveryTechnical": "O Specrails examinará novamente neste clone o worktree, a branch, as refs, os reflogs e os objetos Git órfãos pertencentes à entrega de {{branch}}. Se comprovar um único resultado, poderá fazer commit das alterações isoladas e repetir o push exato. A pasta principal do projeto não será alterada."
     },
     "degraded": {
       "pushed": "O branch foi enviado, mas não foi possível criar a PR. Tente novamente para concluir.",

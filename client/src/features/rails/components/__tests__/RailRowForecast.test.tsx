@@ -63,7 +63,7 @@ describe('RailRow launch forecast noise', () => {
   })
 })
 
-describe('RailRow play with the daily budget reached', () => {
+describe('RailRow play with the daily limit reached', () => {
   const reached = { ...body, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
   const play = () => screen.getByTitle('Play')
 
@@ -71,7 +71,7 @@ describe('RailRow play with the daily budget reached', () => {
     mockApi(reached)
     const onToggle = vi.fn()
     renderRow({ density, onToggle })
-    await screen.findByRole('button', { name: 'Daily budget reached' })
+    await screen.findByRole('button', { name: 'Daily limit reached' })
     fireEvent.click(play())
     const dialog = await screen.findByTestId('launch-over-budget-dialog')
     expect(dialog).toHaveTextContent('This limit is used up, so the launch would be refused. Raise the limit or wait for the reset.')
@@ -90,7 +90,7 @@ describe('RailRow play with the daily budget reached', () => {
     mockApi(reached)
     const onToggle = vi.fn()
     renderRow({ onToggle })
-    await screen.findByRole('button', { name: 'Daily budget reached' })
+    await screen.findByRole('button', { name: 'Daily limit reached' })
     fireEvent.click(play())
     fireEvent.click(within(await screen.findByTestId('launch-over-budget-dialog')).getByRole('button', { name: 'Cancel' }))
     expect(onToggle).not.toHaveBeenCalled()

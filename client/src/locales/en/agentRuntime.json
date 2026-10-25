@@ -603,7 +603,7 @@
     "policy": "Workflow policy",
     "maxAttempts": "Maximum correction attempts",
     "maxTokens": "Token budget",
-    "maxCostUsd": "Cost budget (USD)",
+    "maxCostUsd": "Cost limit (USD)",
     "timeoutMs": "Run timeout (ms)",
     "projectHint": "Configure repository checks here. Agent definitions, models and workflow policy are configured in the loop editor. Historical project agents can be imported into a duplicated loop.",
     "showUnused": "Also show agents not used in this loop",

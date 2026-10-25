@@ -94,7 +94,7 @@ describe('SettingsPage', () => {
     })
     render(<SettingsPage />)
     await waitFor(() => {
-      expect(screen.getAllByText('Budget').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Spend limits').length).toBeGreaterThan(0)
     })
   })
 
@@ -121,7 +121,7 @@ describe('SettingsPage', () => {
     })
   })
 
-  it('shows the daily limit as a read-only summary with a link to Analytics ▸ Budget, not a second editor', async () => {
+  it('shows the daily limit as a read-only summary with a link to Analytics ▸ Spend limits, not a second editor', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ ...mockConfig, dailyBudgetUsd: 5 }),
@@ -129,11 +129,11 @@ describe('SettingsPage', () => {
     render(<SettingsPage />)
     expect(await screen.findByTestId('project-daily-budget-summary')).toHaveTextContent('Currently $5.00 a day')
     expect(screen.queryByPlaceholderText(/e\.g\. 5\.00/i)).toBeNull()
-    expect(screen.getByText('Limits are edited in Analytics ▸ Budget.')).toBeInTheDocument()
+    expect(screen.getByText('Limits are edited in Analytics ▸ Spend limits.')).toBeInTheDocument()
     const opened = vi.fn()
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
     try {
-      await userEvent.click(screen.getByRole('button', { name: 'Open Budget' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Open Spend limits' }))
       expect(opened).toHaveBeenCalledTimes(1)
     } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
   })

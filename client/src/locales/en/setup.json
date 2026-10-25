@@ -252,8 +252,8 @@
       "perTicketBody": "Each spec's detail shows what it cost and how many turns it took, deep-linking into Analytics filtered to that spec.",
       "honestLabel": "Honest numbers",
       "honestBody": "Claude cost is provider-billed; Codex may be estimated and marked with <mono>~</mono>.",
-      "budgetsLabel": "Budgets & alerts",
-      "budgetsBody": "Set a daily budget and a per-job cost alert; the app auto-pauses the queue when you cross the line. Export anything to CSV or JSON."
+      "budgetsLabel": "Spend limits & alerts",
+      "budgetsBody": "Set a daily limit and a per-job cost alert; the app auto-pauses the queue when you cross the line. Export anything to CSV or JSON."
     },
     "workspace": {
       "nav": "Workspace",

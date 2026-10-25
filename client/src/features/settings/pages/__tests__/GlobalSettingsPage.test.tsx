@@ -344,10 +344,10 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
   })
 
 
-  it('renders Budget & Alerts section', async () => {
+  it('renders Spend limits & alerts section', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Budget & Alerts')).toBeInTheDocument()
+      expect(screen.getByText('Spend limits & alerts')).toBeInTheDocument()
       expect(screen.getByPlaceholderText(/e\.g\. 0\.50/i)).toBeInTheDocument()
     })
   })
@@ -409,7 +409,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
   })
 
-  it('shows the app-wide daily limit read-only and links to Analytics ▸ Budget instead of editing it', async () => {
+  it('shows the app-wide daily limit read-only and links to Analytics ▸ Spend limits instead of editing it', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
     const requests: Array<{ url: string; method?: string }> = []
@@ -426,7 +426,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     render(<GlobalSettingsPage open={true} onClose={onClose} />)
     expect(await screen.findByText('Currently $10.00 a day')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/e\.g\. 10\.00/i)).toBeNull()
-    expect(screen.getByText('Limits are edited in Analytics ▸ Budget.')).toBeInTheDocument()
+    expect(screen.getByText('Limits are edited in Analytics ▸ Spend limits.')).toBeInTheDocument()
     const opened = vi.fn()
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
     try {
@@ -648,8 +648,8 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     await waitFor(() => {
       expect(screen.getByText('Outbound Webhooks')).toBeInTheDocument()
     })
-    // Find the "Daily budget exceeded" checkbox and toggle it
-    const checkbox = screen.getByRole('checkbox', { name: /daily budget exceeded/i })
+    // Find the "Daily limit exceeded" checkbox and toggle it
+    const checkbox = screen.getByRole('checkbox', { name: /daily limit exceeded/i })
     expect((checkbox as HTMLInputElement).checked).toBe(false)
     await user.click(checkbox)
     expect((checkbox as HTMLInputElement).checked).toBe(true)

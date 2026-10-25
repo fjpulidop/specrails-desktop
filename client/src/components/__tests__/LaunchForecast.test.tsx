@@ -163,7 +163,7 @@ describe('LaunchForecast', () => {
     resetLaunchForecastCache()
     mockApi({ time: null, cost: null, minSamples: 5, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } })
     view({ hideWhenInsufficient: true })
-    expect(await screen.findByRole('button', { name: 'Daily budget reached' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Daily limit reached' })).toBeInTheDocument()
   })
 
   it('renders nothing when the endpoint is unavailable, without a target, or for the hybrid roles engine', async () => {
@@ -178,10 +178,10 @@ describe('LaunchForecast', () => {
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
-  describe('daily budget caution', () => {
+  describe('daily limit caution', () => {
     const budget = (spentUsd: number, scope: 'project' | 'desktop' = 'project', exhausted = false) => ({ scope, budgetUsd: 10, spentUsd, exhausted, resetsAt: null })
 
-    it.each(['project', 'desktop'] as const)('adds "May pause at budget" when today\'s spend plus the top of the band reaches the budget, and opens the one Budget editor (%s)', async (scope) => {
+    it.each(['project', 'desktop'] as const)('adds "May pause at the limit" when today\'s spend plus the top of the band reaches the budget, and opens the one Budget editor (%s)', async (scope) => {
       mockApi({ time, cost, minSamples: 5, budget: budget(scope === 'project' ? 6.5 : 8, scope) })
       const opened = vi.fn()
       const settings = vi.fn()
@@ -190,7 +190,7 @@ describe('LaunchForecast', () => {
       window.addEventListener(OPEN_APP_SETTINGS_EVENT, settings)
       try {
         view()
-        await userEvent.click(await screen.findByRole('button', { name: 'May pause at budget' }))
+        await userEvent.click(await screen.findByRole('button', { name: 'May pause at the limit' }))
         expect(opened).toHaveBeenCalledTimes(1)
         expect(settings).not.toHaveBeenCalled()
       } finally {
@@ -206,14 +206,14 @@ describe('LaunchForecast', () => {
       window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
       try {
         view()
-        const reached = await screen.findByRole('button', { name: 'Weekly budget reached' })
+        const reached = await screen.findByRole('button', { name: 'Weekly limit reached' })
         await userEvent.click(reached)
         expect(opened).toHaveBeenCalledTimes(1)
       } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
       resetLaunchForecastCache()
       mockApi({ time, cost, minSamples: 5, budget: { ...budget(6.5), period: 'month' } })
       view()
-      expect(await screen.findByRole('button', { name: 'May pause at budget' })).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: 'May pause at the limit' })).toBeInTheDocument()
     })
 
     it('stays quiet while there is room, and with no budget at all', async () => {
@@ -226,14 +226,14 @@ describe('LaunchForecast', () => {
     it('says the budget is reached when it already is, even without enough history', async () => {
       mockApi({ time: null, cost: null, minSamples: 5, budget: budget(10) })
       view()
-      expect(await screen.findByRole('button', { name: 'Daily budget reached' })).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: 'Daily limit reached' })).toBeInTheDocument()
       expect(screen.getByText('Not enough history yet')).toBeInTheDocument()
     })
 
     it('can warn on a plan provider without showing any dollar figure', async () => {
       mockApi({ time, cost, minSamples: 5, budget: budget(6.5) }, planUsage)
       view()
-      expect(await screen.findByRole('button', { name: 'May pause at budget' })).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: 'May pause at the limit' })).toBeInTheDocument()
       await waitFor(() => expect(screen.queryByText(/\$/)).toBeNull())
     })
   })

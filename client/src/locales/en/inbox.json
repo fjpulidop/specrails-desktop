@@ -58,24 +58,24 @@
     "retried": "Retry queued",
     "resumeFailed": "Couldn't resume the run",
     "retryFailed": "Couldn't retry the Jira update",
-    "stillOverBudget": "Still over the daily budget",
+    "stillOverBudget": "Still over the daily limit",
     "done": "Marked done",
     "snoozed": "Snoozed until {{when}}",
     "undo": "Undo",
-    "stillOverBudget_week": "Still over the weekly budget",
-    "stillOverBudget_month": "Still over the monthly budget"
+    "stillOverBudget_week": "Still over the weekly limit",
+    "stillOverBudget_month": "Still over the monthly limit"
   },
   "cap": {
     "title": {
       "project": {
-        "day": "Project daily budget reached",
-        "week": "Project weekly budget reached",
-        "month": "Project monthly budget reached"
+        "day": "Project daily limit reached",
+        "week": "Project weekly limit reached",
+        "month": "Project monthly limit reached"
       },
       "desktop": {
-        "day": "App-wide daily budget reached",
-        "week": "App-wide weekly budget reached",
-        "month": "App-wide monthly budget reached"
+        "day": "App-wide daily limit reached",
+        "week": "App-wide weekly limit reached",
+        "month": "App-wide monthly limit reached"
       }
     },
     "detail": "{{spent}} of {{budget}} spent"

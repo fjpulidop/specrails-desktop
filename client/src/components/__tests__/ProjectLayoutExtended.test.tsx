@@ -137,7 +137,7 @@ describe('ProjectLayout (extended: cost alerts + terminal panel)', () => {
     })
     expect(h.toastWarning).not.toHaveBeenCalled()
     expect(h.toastError).not.toHaveBeenCalled()
-    expect(screen.queryByText(/Daily budget exceeded/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Daily limit exceeded/)).not.toBeInTheDocument()
   })
 
   it('shows an error toast and a dismissible banner on daily_budget_exceeded', () => {
@@ -160,7 +160,7 @@ describe('ProjectLayout (extended: cost alerts + terminal panel)', () => {
     // Dismiss removes the banner
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
     expect(
-      screen.queryByText(/Daily budget exceeded — spent/),
+      screen.queryByText(/Daily limit exceeded — spent/),
     ).not.toBeInTheDocument()
   })
 
@@ -171,7 +171,7 @@ describe('ProjectLayout (extended: cost alerts + terminal panel)', () => {
       h.wsHandler!({ type: 'desktop_daily_budget_exceeded' })
     })
     expect(h.toastError).toHaveBeenCalledWith(
-      'Desktop daily budget exceeded',
+      'Desktop daily limit exceeded',
       expect.objectContaining({
         description: 'Total Desktop spend $0.00 of $0.00. Queue paused.',
         duration: Infinity,

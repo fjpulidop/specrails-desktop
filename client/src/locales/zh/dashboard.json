@@ -132,7 +132,7 @@
     "recoveryStillBlocked": "本地恢复仍需处理",
     "recheckRecovery": "再次检查",
     "recheckRecoveryConfirmTitle": "再次检查此计算机？",
-    "recheckRecoveryConfirmBody": "Specrails 将在此克隆中重新扫描属于 {{branch}} 交付的 worktree、分支、refs、reflogs 和孤立 Git 对象。如果能证明唯一结果，它可以提交隔离的更改并重试精确 push。不会触碰主项目文件夹。",
+    "recheckRecoveryConfirmBody": "我们将检查此次交付是否还有可恢复的内容。不会删除任何内容。",
     "recoveryUnavailable": "无法在此计算机上验证恢复结果",
     "recoveryUnavailableBody": "Specrails 无法在此克隆中安全证明唯一一个属于此次交付的结果。没有更改或删除任何内容。请检查阶段详情和运行日志。如果 run 在另一台计算机上执行，请在那里打开 Specrails，然后再次检查。",
     "recoveryDetailSummary": "恢复技术详情",
@@ -178,7 +178,8 @@
     },
     "relaunch": "重新启动",
     "relaunchSent": "正在重新启动轨道",
-    "relaunchFailed": "无法重新启动轨道"
+    "relaunchFailed": "无法重新启动轨道",
+    "recheckRecoveryConfirmTechnical": "Specrails 将在此克隆中重新扫描属于 {{branch}} 交付的 worktree、分支、refs、reflogs 和孤立 Git 对象。如果能证明唯一结果，它可以提交隔离的更改并重试精确 push。不会触碰主项目文件夹。"
   },
   "railsBoard": {
     "title": "Rails",
@@ -261,7 +262,12 @@
     "execLines": "{{count}} 行",
     "openspec": "SDD Quick (OpenSpec)",
     "recommended": "推荐",
-    "recommendedOption": "{{label}} · 推荐"
+    "recommendedOption": "{{label}} · 推荐",
+    "loopDescriptions": {
+      "implement": "规划、构建并评审每个规格，然后准备交付。",
+      "freestyle": "所选提供方独立构建规格，不经过流水线。",
+      "openspec": "为规格编写 OpenSpec 变更，构建后归档。"
+    }
   },
   "railRow": {
     "moveToSpecs": "移至 Specs",

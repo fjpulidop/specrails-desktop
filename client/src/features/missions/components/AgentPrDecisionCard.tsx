@@ -1846,7 +1846,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         confirmLabel={t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
         confirmDisabled={anyBusy}
         onConfirm={() => { setConfirmingRecoverAndRetry(false); void act('recover-and-retry') }}
-      />
+      >
+        {recoveryIsRecheck && (
+          <TechnicalDetail summary={t('prCard.recoveryDetailSummary')} testId="agent-pr-recheck-technical">{t('prCard.confirm.recheckRecoveryTechnical', { branch: envelope.branch ?? '' })}</TechnicalDetail>
+        )}
+      </ConfirmDialog>
       <ConfirmDialog
         open={confirmingDiscard}
         onOpenChange={setConfirmingDiscard}

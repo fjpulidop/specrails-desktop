@@ -45,7 +45,7 @@
   "globalSurfaceModal": {
     "loopsDescription": "Loops 已在 Mission 窗口中打开。",
     "pluginsDescription": "Plugins 已在 Mission 窗口中打开。",
-    "reviewDescription": "审阅包已作为任务模态窗口打开。"
+    "reviewDescription": "审阅包已在任务窗口中打开。"
   },
   "rightSidebar": {
     "projectTitle": "项目",

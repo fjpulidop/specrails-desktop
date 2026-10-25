@@ -95,9 +95,9 @@
       "maxIterations": "Max iterations",
       "timeout": "Timeout (min)",
       "maxIterationsHint": "Hard limit on Loop Decider iterations — the loop stops when it's reached even if the goal isn't met. Prevents runaway loops.",
-      "timeoutHint": "Wall-clock limit for the whole run, in minutes. If exceeded, the run is stopped and marked failed — a safety net alongside max iterations. 0 disables this time limit; other budgets and cancellation still apply.",
+      "timeoutHint": "Wall-clock limit for the whole run, in minutes. If exceeded, the run is stopped and marked failed — a safety net alongside max iterations. 0 disables this time limit; other limits and cancellation still apply.",
       "maxCost": "Max cost ($)",
-      "maxCostHint": "Optional USD budget for the whole run. Checked BETWEEN steps (a step’s cost is only known once it finishes), so the loop stops before the next step once the total crosses it — may overshoot by one step. For non-Claude providers the cost is an estimate. Empty = no limit.",
+      "maxCostHint": "Optional USD limit for the whole run. Checked BETWEEN steps (a step’s cost is only known once it finishes), so the loop stops before the next step once the total crosses it — may overshoot by one step. For non-Claude providers the cost is an estimate. Empty = no limit.",
       "title": "Run limits"
     },
     "nodes": {

@@ -112,7 +112,7 @@
     "recoveryStillBlocked": "Local recovery still needs attention",
     "recheckRecovery": "Check again",
     "recheckRecoveryConfirmTitle": "Check this computer again?",
-    "recheckRecoveryConfirmBody": "Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for {{branch}}. If it proves one result, it may commit isolated changes and retry the exact push. Your main project folder will not be touched.",
+    "recheckRecoveryConfirmBody": "We’ll check whether anything from this delivery can still be recovered. Nothing is deleted.",
     "recoveryUnavailable": "Recovery could not be verified on this computer",
     "recoveryUnavailableBody": "Specrails could not safely prove one delivery-owned result in this clone. Nothing was changed or removed. Inspect the stage detail and run logs. If the run executed on another computer, open Specrails there, then check again.",
     "recoveryDetailSummary": "Technical recovery detail",
@@ -178,7 +178,8 @@
     },
     "relaunch": "Relaunch",
     "relaunchSent": "Relaunching the rail",
-    "relaunchFailed": "Couldn't relaunch the rail"
+    "relaunchFailed": "Couldn't relaunch the rail",
+    "recheckRecoveryConfirmTechnical": "Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for {{branch}}. If it proves one result, it may commit isolated changes and retry the exact push. Your main project folder will not be touched."
   },
   "railsBoard": {
     "title": "Rails",
@@ -211,7 +212,7 @@
     "skipInFlight_other": "{{count}} skipped (specs already in flight)",
     "failedCount_one": "{{count}} failed",
     "failedCount_other": "{{count}} failed",
-    "skipBudget": "{{count}} over the daily budget",
+    "skipBudget": "{{count}} over the daily limit",
     "skipReviewLimit_one": "{{count}} held by the review limit",
     "skipReviewLimit_other": "{{count}} held by the review limit"
   },
@@ -237,7 +238,7 @@
     "reviewLimitPartial_other": "Only {{launched}} can start now; {{count}} rails wait until a delivery is decided.",
     "forecastTotal_one": "{{count}} run · usually {{cost}} in total",
     "forecastTotal_other": "{{count}} runs · usually {{cost}} in total",
-    "mayPause": "This may reach a budget limit and pause some runs."
+    "mayPause": "This may reach a spend limit and pause some runs."
   },
   "railControls": {
     "viewJobLog": "View job log",
@@ -261,7 +262,12 @@
     "execLines": "{{count}} lines",
     "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Recommended",
-    "recommendedOption": "{{label}} · recommended"
+    "recommendedOption": "{{label}} · recommended",
+    "loopDescriptions": {
+      "implement": "Plans, builds and reviews each spec, then prepares the delivery.",
+      "freestyle": "The chosen provider builds the spec on its own, with no pipeline.",
+      "openspec": "Writes an OpenSpec change for the spec, builds it, then archives it."
+    }
   },
   "railRow": {
     "moveToSpecs": "Move to Specs",

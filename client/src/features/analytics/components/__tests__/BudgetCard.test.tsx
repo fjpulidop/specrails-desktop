@@ -161,7 +161,7 @@ describe('BudgetCard', () => {
     fireEvent.click(screen.getByTestId('budget-save-project'))
     await waitFor(() => expect(patches).toHaveLength(1))
     expect(patches[0]).toEqual({ url: '/api/projects/p1/budget', body: { monthlyBudgetUsd: 200, runCapUsd: null } })
-    expect(h.toast.success).toHaveBeenCalledWith('Budget saved')
+    expect(h.toast.success).toHaveBeenCalledWith('Spend limits saved')
 
     fireEvent.change(screen.getByLabelText('App-wide weekly limit (USD)'), { target: { value: '75.5' } })
     fireEvent.click(screen.getByTestId('budget-save-desktop'))

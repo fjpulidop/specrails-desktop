@@ -143,7 +143,7 @@
       "deleteSelectedN_other": "Delete {{count}} selected specs",
       "saveView": "Save current view",
       "switchView": "Switch view",
-      "openBudget": "Open Budget (limits, projection, what-if)",
+      "openBudget": "Open Spend limits (limits, projection, what-if)",
       "openBudgetKeywords": "budget, cap, limit, weekly, monthly, spend, cost",
       "exportHandoffN": "Export hand-off for #{{id}}",
       "copyPrDescriptionN": "Copy PR description for #{{id}}",
@@ -255,7 +255,7 @@
           "keywords": "projects, remove project, repositories, registered"
         },
         "budgetAlerts": {
-          "label": "Daily budget and cost alerts",
+          "label": "Daily limit and cost alerts",
           "keywords": "budget, daily, cost, spend, limit, alert, usd, money"
         },
         "notifications": {
@@ -311,7 +311,7 @@
           "keywords": "agent environment, env mode, variables, secrets, isolated"
         },
         "projectBudget": {
-          "label": "Project daily budget",
+          "label": "Project daily limit",
           "keywords": "budget, daily, cost, spend, limit, pause, usd"
         },
         "reviewLimit": {

@@ -21,7 +21,7 @@ describe('HelpHint', () => {
     const capture = captureOpenDocs()
     stop = capture.stop
     render(<HelpHint topic="dailyBudget" />)
-    const button = screen.getByRole('button', { name: 'Learn more about daily budgets' })
+    const button = screen.getByRole('button', { name: 'Learn more about daily limits' })
     await userEvent.click(button)
     expect(capture.seen).toEqual([
       { target: { category: 'insights', slug: 'analytics-and-cost-tracking', anchor: 'daily-budget' } },

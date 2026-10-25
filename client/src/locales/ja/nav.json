@@ -45,7 +45,7 @@
   "globalSurfaceModal": {
     "loopsDescription": "Loops は Mission のウィンドウで開いています。",
     "pluginsDescription": "Plugins は Mission のウィンドウで開いています。",
-    "reviewDescription": "レビューパケットはミッションのモーダルとして開いています。"
+    "reviewDescription": "レビューパケットはミッションのウィンドウで開いています。"
   },
   "rightSidebar": {
     "projectTitle": "プロジェクト",

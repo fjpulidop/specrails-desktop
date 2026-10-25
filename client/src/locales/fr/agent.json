@@ -391,7 +391,7 @@
       "recoverAndRetryTitle": "Créer le commit et envoyer le résultat préservé ?",
       "recoverAndRetryBody": "Specrails utilisera uniquement le worktree isolé ou la branche enregistrée compatible avec une avance rapide pour {{branch}}. Si nécessaire, il créera un commit avec les fichiers livrables, puis enverra ce commit exact uniquement si la PR est toujours ouverte sur les branches source et cible attendues. Le dossier principal de votre projet et ses modifications non validées resteront intacts.",
       "recheckRecoveryTitle": "Vérifier à nouveau cet ordinateur ?",
-      "recheckRecoveryBody": "Specrails réanalysera dans ce clone le worktree, la branche, les refs, les reflogs et les objets Git orphelins appartenant à la livraison de {{branch}}. S’il prouve un résultat unique, il pourra committer les changements isolés et retenter le push exact. Le dossier principal du projet ne sera pas touché.",
+      "recheckRecoveryBody": "Nous vérifierons s’il est encore possible de récupérer quelque chose de cette livraison. Rien n’est supprimé.",
       "noChangesDoneTitle": "Marquer ces specs comme terminées ?",
       "noChangesDoneBody": "L’implémentation a confirmé qu’aucune modification de code n’est nécessaire. Les specs passeront à Terminé et le worktree sans changement sera nettoyé.",
       "refineTitle": "Affiner ces specs ?",
@@ -405,7 +405,8 @@
       "dismissTitle": "Fermer ce suivi ?",
       "dismissBody": "Cette carte de suivi sera fermée. Son worktree ne sera supprimé que si cela reste sans risque ; sinon, il sera conservé avec un avertissement. La PR existante, sa branche et son état de revue resteront inchangés.",
       "discardLocalTitle": "Supprimer le résultat local ?",
-      "discardLocalBody": "L’itération locale récupérable ne sera supprimée que si cela reste sans risque ; si elle a changé, elle sera conservée avec un avertissement. Toute PR existante et sa branche resteront inchangées. Un résultat supprimé ne peut pas être récupéré."
+      "discardLocalBody": "L’itération locale récupérable ne sera supprimée que si cela reste sans risque ; si elle a changé, elle sera conservée avec un avertissement. Toute PR existante et sa branche resteront inchangées. Un résultat supprimé ne peut pas être récupéré.",
+      "recheckRecoveryTechnical": "Specrails réanalysera dans ce clone le worktree, la branche, les refs, les reflogs et les objets Git orphelins appartenant à la livraison de {{branch}}. S’il prouve un résultat unique, il pourra committer les changements isolés et retenter le push exact. Le dossier principal du projet ne sera pas touché."
     },
     "degraded": {
       "pushed": "La branche a été poussée mais la PR n’a pas pu être créée. Réessayez pour terminer.",

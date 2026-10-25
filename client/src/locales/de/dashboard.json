@@ -132,7 +132,7 @@
     "recoveryStillBlocked": "Die lokale Wiederherstellung erfordert noch Aufmerksamkeit",
     "recheckRecovery": "Erneut prüfen",
     "recheckRecoveryConfirmTitle": "Diesen Computer erneut prüfen?",
-    "recheckRecoveryConfirmBody": "Specrails durchsucht in diesem Klon erneut den zur Lieferung gehörenden Worktree, Branch, Refs, Reflogs und verwaiste Git-Objekte für {{branch}}. Wird genau ein Ergebnis bewiesen, kann Specrails isolierte Änderungen committen und den exakten Push wiederholen. Der Hauptprojektordner bleibt unberührt.",
+    "recheckRecoveryConfirmBody": "Wir prüfen, ob sich aus dieser Lieferung noch etwas wiederherstellen lässt. Es wird nichts gelöscht.",
     "recoveryUnavailable": "Die Wiederherstellung konnte auf diesem Computer nicht verifiziert werden",
     "recoveryUnavailableBody": "Specrails konnte in diesem Klon nicht sicher genau ein zur Lieferung gehörendes Ergebnis nachweisen. Nichts wurde geändert oder entfernt. Prüfe das Stufendetail und die Run-Protokolle. Wenn der Run auf einem anderen Computer lief, öffne Specrails dort und prüfe erneut.",
     "recoveryDetailSummary": "Technisches Wiederherstellungsdetail",
@@ -178,7 +178,8 @@
     },
     "relaunch": "Erneut starten",
     "relaunchSent": "Rail wird erneut gestartet",
-    "relaunchFailed": "Rail konnte nicht erneut gestartet werden"
+    "relaunchFailed": "Rail konnte nicht erneut gestartet werden",
+    "recheckRecoveryConfirmTechnical": "Specrails durchsucht in diesem Klon erneut den zur Lieferung gehörenden Worktree, Branch, Refs, Reflogs und verwaiste Git-Objekte für {{branch}}. Wird genau ein Ergebnis bewiesen, kann Specrails isolierte Änderungen committen und den exakten Push wiederholen. Der Hauptprojektordner bleibt unberührt."
   },
   "railsBoard": {
     "title": "Rails",
@@ -261,7 +262,12 @@
     "execLines": "{{count}} Zeilen",
     "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Empfohlen",
-    "recommendedOption": "{{label}} · empfohlen"
+    "recommendedOption": "{{label}} · empfohlen",
+    "loopDescriptions": {
+      "implement": "Plant, baut und prüft jede Spec und bereitet dann die Lieferung vor.",
+      "freestyle": "Der gewählte Anbieter baut die Spec eigenständig, ohne Pipeline.",
+      "openspec": "Schreibt eine OpenSpec-Änderung zur Spec, baut sie und archiviert sie."
+    }
   },
   "railRow": {
     "moveToSpecs": "Nach Specs verschieben",

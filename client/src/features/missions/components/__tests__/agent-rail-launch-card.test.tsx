@@ -111,7 +111,7 @@ describe('AgentRailLaunchCard launch forecast', () => {
     const reached = { ...forecast, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
     mockFetch({ '/launch-forecast': () => ({ status: 200, body: reached }) })
     renderCard({ loopId: 'factory:implement', aiEngine: 'codex' })
-    await screen.findByRole('button', { name: 'Daily budget reached' })
+    await screen.findByRole('button', { name: 'Daily limit reached' })
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     fireEvent.click(screen.getByTestId('rail-card-play'))
     const dialog = await screen.findByTestId('launch-over-budget-dialog')
@@ -539,16 +539,16 @@ describe('AgentRailLaunchCard', () => {
     expect(calls.some((c) => c.url.endsWith('/rails/2/launch'))).toBe(true)
   })
 
-  it('renders a daily budget 409 with localized amounts and remedy instead of the server detail', async () => {
+  it('renders a daily limit 409 with localized amounts and remedy instead of the server detail', async () => {
     mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'daily_budget_exceeded', scope: 'project', budgetUsd: 10, spentUsd: 12.4, resetsAt: null, detail: 'SERVER ENGLISH', action: 'SERVER ACTION' } }) })
     renderCard()
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
     await waitFor(() => expect(screen.getByTestId('rail-card-error')).toBeInTheDocument())
     const error = screen.getByTestId('rail-card-error')
-    expect(error).toHaveTextContent('Daily budget reached. Nothing was launched.')
-    expect(error).toHaveTextContent('Project daily budget reached ($12.40 of $10.00)')
-    expect(error).toHaveTextContent('Analytics ▸ Budget')
+    expect(error).toHaveTextContent('Daily limit reached. Nothing was launched.')
+    expect(error).toHaveTextContent('Project daily limit reached ($12.40 of $10.00)')
+    expect(error).toHaveTextContent('Analytics ▸ Spend limits')
     expect(error).not.toHaveTextContent('SERVER ENGLISH')
     expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
   })

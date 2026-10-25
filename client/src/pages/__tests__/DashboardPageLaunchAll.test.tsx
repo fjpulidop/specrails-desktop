@@ -307,7 +307,7 @@ describe('DashboardPage — Launch all control', () => {
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
     const [, opts] = (toast.error as ReturnType<typeof vi.fn>).mock.calls[0]
-    expect((opts as { description: string }).description).toContain('2 over the daily budget')
+    expect((opts as { description: string }).description).toContain('2 over the daily limit')
     expect((opts as { description: string }).description).not.toContain('failed')
     const persisted = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
     expect(persisted[0].status).toBe('idle')
