@@ -20,6 +20,7 @@ import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
+import { useStreamingConversationIds } from '../features/missions/hooks/useAgentLive'
 import { useMissionConversationMarks } from '../features/missions/context/MissionExtensionsContext'
 import { MissionAttentionMark, MissionModeRowMark } from '../features/missions/components/MissionModeBadge'
 import { motion } from 'motion/react'
@@ -680,9 +681,10 @@ export function ArcSidebar({
   const agentChat = useAgentChat()
   // A mission is live while a turn streams or its agents work in the background.
   const { backgroundConversationIds } = useMissionSessions()
+  const streamingConversationIds = useStreamingConversationIds()
   const liveConversationIds = useMemo(
-    () => backgroundConversationIds.size === 0 ? agentChat.streamingConversationIds : new Set([...agentChat.streamingConversationIds, ...backgroundConversationIds]),
-    [agentChat.streamingConversationIds, backgroundConversationIds],
+    () => backgroundConversationIds.size === 0 ? streamingConversationIds : new Set([...streamingConversationIds, ...backgroundConversationIds]),
+    [streamingConversationIds, backgroundConversationIds],
   )
   const agentMode = uiMode === 'agent'
 

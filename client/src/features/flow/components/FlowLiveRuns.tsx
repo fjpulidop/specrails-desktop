@@ -34,6 +34,7 @@ import { RefreshCw, Waves } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { useAgentChat } from '../../missions/context/AgentChatContext'
+import { useIsStreaming } from '../../missions/hooks/useAgentLive'
 import type {
   MissionConversationSlotProps, MissionLiveRun, MissionRunDescription, MissionRunDescriptionInput,
 } from '../../missions/context/MissionExtensionsContext'
@@ -65,7 +66,8 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
   const { t } = useTranslation('agent')
   const ctx = useFlowContext()
   const { flow } = useConversationFlow(conversationId, projectId)
-  const { isStreaming, active, resyncRunCards } = useAgentChat()
+  const { active, resyncRunCards } = useAgentChat()
+  const isStreaming = useIsStreaming()
   const working = isStreaming && active?.id === conversationId && flow?.state === 'active'
   const wrappingUp = !!ctx && !!flow && ctx.wrappingUp.has(flow.id) && isOpenFlow(flow)
   // Each "Hand off" opens the hand-off panel once (a new token per press).

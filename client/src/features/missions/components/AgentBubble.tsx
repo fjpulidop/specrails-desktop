@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useMotionValue } from 'motion/react'
 import { useAgentChat } from '../context/AgentChatContext'
+import { useIsStreaming } from '../hooks/useAgentLive'
 import { RailMark } from '../../../components/brand/RailMark'
 import { BuilderHalo } from '../../builder/components/project-builder/BuilderHalo'
 
@@ -65,7 +66,8 @@ function readStored(): Corner | null {
 export function AgentBubble() {
   const { t } = useTranslation('agent')
   const { t: tBuilder } = useTranslation('builder')
-  const { open, isStreaming, active, builderMode } = useAgentChat()
+  const { open, active, builderMode } = useAgentChat()
+  const isStreaming = useIsStreaming()
   const [hovered, setHovered] = useState(false)
   const [corner, setCorner] = useState<Corner>(() => clampCorner(readStored() ?? DEFAULT_CORNER))
   const pos = toPos(corner)

@@ -80,6 +80,7 @@ import { DIALOG_LAYER_CLASS } from '../lib/layers'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
+import { useStreamingConversationIds } from '../features/missions/hooks/useAgentLive'
 import { searchMissions, type MissionSearchHit } from '../features/missions/lib/agent-api'
 import {
   groupOrderForMode,
@@ -209,7 +210,8 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   const { projects, activeProjectId, setActiveProjectId } = useDesktop()
   const { leftMode, rightMode, cycleLeftMode, cycleRightMode } = useSidebarPin()
   const { uiMode, setUiMode } = useUiMode()
-  const { conversations, liveByConversation, selectConversation, open: openAgentPanel, startNewConversation } = useAgentChat()
+  const { conversations, selectConversation, open: openAgentPanel, startNewConversation } = useAgentChat()
+  const streamingConversationIds = useStreamingConversationIds()
   const leftLabel = leftMode === 'pinned-open'
     ? t('palette.sidebar.collapseLeftKeepPinned')
     : leftMode === 'pinned-collapsed'
@@ -751,7 +753,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       <Command.Group key="missions" heading={t('palette.groups.missions')} data-testid="palette-group-missions">
         {missionRows.map((row) => {
           const { conversation } = row
-          const streaming = liveByConversation.get(conversation.id)?.isStreaming === true
+          const streaming = streamingConversationIds.has(conversation.id)
           const projectName = conversation.pinned_project_id
             ? projectNameById.get(conversation.pinned_project_id) ?? null
             : null

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { SendHorizontal, History, Square, X, Check, Pencil, ListTree, Zap, Paperclip } from 'lucide-react'
 import { useAgentChat } from '../context/AgentChatContext'
+import { useActiveQueued, useIsStreaming } from '../hooks/useAgentLive'
 import { useGuardedTierCycle } from '../hooks/useGuardedTierCycle'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
 import { useBackgroundProcesses } from '../../background/context/BackgroundProcessesContext'
@@ -118,11 +119,13 @@ export function AgentComposer({
 }) {
   const { t } = useTranslation('agent')
   const {
-    active, messages, conversations, isStreaming, providersReady, draftPinnedProjectId,
+    active, messages, conversations, providersReady, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     send, abort, setProvider, setModel, setPinnedProject, materializeDraftConversation,
-    queuedMessages: allQueuedMessages, editQueuedMessage, wasQueueConsumed,
+    editQueuedMessage, wasQueueConsumed,
   } = useAgentChat()
+  const isStreaming = useIsStreaming()
+  const allQueuedMessages = useActiveQueued()
   const queuedMessages = useMemo(() => allQueuedMessages.filter((item) => item.deliveryMode !== 'steer'), [allQueuedMessages])
   const cycleTier = useGuardedTierCycle()
   const paletteId = useId()

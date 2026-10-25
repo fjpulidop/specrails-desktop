@@ -1,5 +1,7 @@
 import { MissionSplitViewsProvider } from './MissionSplitViewsContext'
 import { MissionSessionsProvider } from './MissionSessionsContext'
+import { LiveStoreContext } from './LiveStoreContext'
+import { createLiveStore, EMPTY_LIVE, type AgentConvLive, type AgentLiveTool, type AgentQueuedItem } from '../lib/live-store'
 import i18n from '../../../lib/i18n'
 import { useMissionWindows } from './MissionWindowsContext'
 import { isMissionWindowRoute } from '../lib/mission-windows'
@@ -40,7 +42,6 @@ import {
   type AgentContextReference,
   type AgentMessage,
   type AgentDeliveryReceipt,
-  type AgentPendingMessage,
   type AgentPrDecisionEnvelope,
   type AgentTierLevel,
 } from '../lib/agent-api'
@@ -61,40 +62,12 @@ import { hasUnsettledPrCard, railStateDiffersFromCard, usePrCardResync } from '.
 export type AgentVisibility = 'hidden' | 'open' | 'minimized'
 export type PrDecisionSnapshotApplication = 'accepted' | 'stale' | 'untracked'
 
-export interface AgentLiveTool {
-  id: string
-  tool: string
-  /** Bounded JSON preview of the tool input (server `agent_tool.input`). */
-  input?: string
-  /** Bounded output preview merged in from `agent_tool_result` (claude-only). */
-  output?: string
-  isError?: boolean
-  /** Provider tool-call id — correlates the result event to this entry. */
-  toolId?: string
-  /** ISO timestamp of the tool invocation (server clock). */
-  at?: string
-}
-
 /** Hard cap on retained activity entries per turn — the modal is a preview
  *  surface, not an archive; unbounded pushes would leak on very long turns. */
 const MAX_ACTIVITY_ENTRIES = 200
 
-/** Input awaiting native delivery, a safe tool checkpoint or a resumed turn. */
-export interface AgentQueuedItem extends AgentPendingMessage {}
+export type { AgentLiveTool, AgentQueuedItem, AgentConvLive } from '../lib/live-store'
 
-/** Live turn state for ONE conversation. Kept per-conversation so background
- *  agents keep streaming while the user reads another thread. */
-export interface AgentConvLive {
-  streamingText: string
-  isStreaming: boolean
-  liveTools: AgentLiveTool[]
-  /** The last SETTLED turn's tool activity — kept past agent_done so the
-   *  activity-log modal still has content between turns. Session-only. */
-  turnTools: AgentLiveTool[]
-  queued: AgentQueuedItem[]
-}
-
-const EMPTY_LIVE: AgentConvLive = { streamingText: '', isStreaming: false, liveTools: [], turnTools: [], queued: [] }
 const FAVORITE_CONVERSATIONS_KEY = 'specrails-desktop:favorite-agent-conversations'
 
 function loadFavoriteConversationIds(): Set<string> {
@@ -349,16 +322,22 @@ export interface AgentChatContextValue {
   conversations: AgentConversation[]
   active: AgentConversation | null
   messages: AgentMessage[]
-  streamingText: string
-  isStreaming: boolean
-  liveTools: AgentLiveTool[]
-  /** The active thread's last SETTLED turn activity (session-only) — what the
-   *  activity-log modal shows between turns. */
-  turnTools: AgentLiveTool[]
-  /** Messages waiting behind the in-flight turn (FIFO, server-drained). */
-  queuedMessages: AgentQueuedItem[]
-  /** Every conversation with a live turn — feeds the sidebar title shimmer. */
-  streamingConversationIds: ReadonlySet<string>
+  /** LIVE TURN STATE is not part of this context (a token must not re-render every
+   *  consumer): read it through hooks/useAgentLive.ts. The fields below exist only
+   *  so isolated tests can mock `useAgentChat()` with a flat shape; the real
+   *  provider leaves them undefined. */
+  /** @deprecated read `useActiveLive()` */
+  streamingText?: string
+  /** @deprecated read `useIsStreaming()` */
+  isStreaming?: boolean
+  /** @deprecated read `useActiveLive().liveTools` */
+  liveTools?: AgentLiveTool[]
+  /** @deprecated read `useActiveLive().turnTools` */
+  turnTools?: AgentLiveTool[]
+  /** @deprecated read `useActiveQueued()` */
+  queuedMessages?: AgentQueuedItem[]
+  /** @deprecated read `useStreamingConversationIds()` */
+  streamingConversationIds?: ReadonlySet<string>
   /** Conversations with assistant/system output that arrived out of view. */
   unreadConversationIds: ReadonlySet<string>
   /** Conversations with a delivery waiting for the person (a review decision,
@@ -366,9 +345,8 @@ export interface AgentChatContextValue {
   attentionConversationIds: ReadonlySet<string>
   /** Why each of those missions needs the person: a decision waits (wins) or a run failed. */
   attentionKinds?: ReadonlyMap<string, MissionAttentionKind>
-  /** Per-conversation live slices (stream/tools/queue) — feeds the mission
-   *  selector's queued-count badges without flattening to the active thread. */
-  liveByConversation: ReadonlyMap<string, AgentConvLive>
+  /** @deprecated read `useQueuedCounts()` / `useIsConversationStreaming(id)` */
+  liveByConversation?: ReadonlyMap<string, AgentConvLive>
   /** Mission IDs surfaced in the left sidebar's Favorite missions section. */
   favoriteConversationIds: ReadonlySet<string>
 
@@ -562,7 +540,11 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   // Live turn state is PER CONVERSATION: agents keep working in the background,
   // so switching threads never drops streamed text, tool chips or queued
   // messages. The view derives the active conversation's slice below.
-  const [liveByConv, setLiveByConv] = useState<ReadonlyMap<string, AgentConvLive>>(new Map())
+  // They live in an external store (lib/live-store.ts), NOT in React state: a
+  // streamed token must not re-render this provider or its consumers. Components
+  // subscribe to their own slice through hooks/useAgentLive.ts.
+  const [liveStore] = useState(createLiveStore)
+  useEffect(() => () => liveStore.dispose(), [liveStore])
   const [mcpEnabled, setMcpEnabled] = useState(true)
   const [enablingMcp, setEnablingMcp] = useState(false)
   const [providersReady, setProvidersReady] = useState<boolean | null>(null)
@@ -595,9 +577,8 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const activeIdRef = useRef<string | null>(null)
   activeIdRef.current = active?.id ?? null
-  // send() decides queue-vs-direct from a ref (liveByConv is not among its deps).
-  const liveRef = useRef(liveByConv)
-  liveRef.current = liveByConv
+  // The open mission flushes its tokens once per frame; the others at a low cadence.
+  useEffect(() => { liveStore.setForeground(active?.id ?? null) }, [liveStore, active?.id])
   // queueIds whose agent_dequeued already ran — send()'s race reconciliation
   // must never re-add a chip that was consumed while the POST was in flight.
   const consumedQueueIdsRef = useRef(new Set<string>())
@@ -662,21 +643,8 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   /** Update one conversation's live slice; a fully-idle slice drops its entry. */
   const patchLive = useCallback((id: string, fn: (prev: AgentConvLive) => AgentConvLive | null) => {
-    setLiveByConv((m) => {
-      const next = fn(m.get(id) ?? EMPTY_LIVE)
-      const copy = new Map(m)
-      if (
-        next === null ||
-        (!next.isStreaming && !next.streamingText && next.liveTools.length === 0
-          && next.turnTools.length === 0 && next.queued.length === 0)
-      ) {
-        copy.delete(id)
-      } else {
-        copy.set(id, next)
-      }
-      return copy
-    })
-  }, [])
+    liveStore.patch(id, fn)
+  }, [liveStore])
 
   // Attention: per conversation, which deliveries wait for the person. WS
   // envelopes cover every conversation; the open one is recomputed from its rows.
@@ -759,20 +727,6 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [clearUnread])
-
-  // The view's slice — everything downstream (panel, composer, Agent Mode
-  // surface) keeps consuming the same flat fields as before.
-  const activeLive = (active ? liveByConv.get(active.id) : undefined) ?? EMPTY_LIVE
-  const streamingText = activeLive.streamingText
-  const isStreaming = activeLive.isStreaming
-  const liveTools = activeLive.liveTools
-  const turnTools = activeLive.turnTools
-  const queuedMessages = activeLive.queued
-  const streamingConversationIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const [id, live] of liveByConv) if (live.isStreaming) ids.add(id)
-    return ids
-  }, [liveByConv])
 
   // Refresh the conversation list + MCP status lazily on first open.
   const refreshConversations = useCallback(async () => {
@@ -882,7 +836,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         }
       } else if (msg.type === 'agent_stream') {
         markUnread(convId)
-        patchLive(convId, (p) => ({ ...p, isStreaming: true, streamingText: p.streamingText + (msg.delta ?? '') }))
+        liveStore.appendStream(convId, msg.delta ?? '')
       } else if (msg.type === 'agent_tool') {
         patchLive(convId, (p) => ({
           ...p,
@@ -1096,7 +1050,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
     registerHandler(handlerId, handler)
     return () => unregisterHandler(handlerId)
-  }, [registerHandler, unregisterHandler, patchLive, markUnread, recordAttention, refreshConversations, handlerId, fixedConversationId])
+  }, [registerHandler, unregisterHandler, patchLive, liveStore, markUnread, recordAttention, refreshConversations, handlerId, fixedConversationId])
 
   const loadConversation = useCallback(async (id: string, signal?: AbortSignal) => {
     const epoch = ++conversationLoadEpochRef.current
@@ -1196,14 +1150,14 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       const capturedAt = Date.parse(snapshot.capturedAt)
       // React may defer or repeat a state updater. Derive side effects before
       // queuing it, otherwise the interruption notice depends on eager render.
-      const interrupted = [...liveRef.current].flatMap(([conversationId, live]) => {
+      const interrupted = [...liveStore.snapshot()].flatMap(([conversationId, live]) => {
         if (!live.isStreaming || activeIds.has(conversationId)) return []
         if ((eventVersions.get(conversationId) ?? 0) !== (conversationEventVersionRef.current.get(conversationId) ?? 0)) return []
         const startedAt = localTurnStartedAtRef.current.get(conversationId)
         if (startedAt && Date.parse(startedAt) > capturedAt) return []
         return [conversationId]
       })
-      setLiveByConv((current) => {
+      liveStore.replaceAll((current) => {
         const next = new Map(current)
         for (const [conversationId, live] of current) {
           if (!live.isStreaming || activeIds.has(conversationId)) continue
@@ -1236,7 +1190,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     } catch {
       /* The connection may still be stabilising; a later reconnect can retry. */
     }
-  }, [])
+  }, [liveStore])
 
   useEffect(() => {
     // Card hydration on focus runs through usePrCardResync (deduplicated).
@@ -1392,7 +1346,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       created_at: nowIso,
     }
     // Busy sends wait for the next turn unless the user explicitly picks Steer.
-    const wasBusy = liveRef.current.get(conv.id)?.isStreaming === true
+    const wasBusy = liveStore.get(conv.id)?.isStreaming === true
     // An interrupt is admitted as a native steer server-side (Flow mode).
     const interrupt = wasBusy && opts?.deliveryMode === 'interrupt'
     const pendingItem: AgentQueuedItem = { queueId, text: trimmed, contextRefs: opts?.contextRefs, attachmentIds: opts?.attachmentIds, deliveryMode: interrupt ? 'steer' : 'queue', deliveryReceipt: 'sent', timestamp: nowIso }
@@ -1473,7 +1427,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       toast.error(i18n.t('agent:errors.sendFailed'), { description: e instanceof Error ? e.message : undefined })
       return { accepted: false, conversationId: conv.id }
     }
-  }, [active, materializeDraftConversation, patchLive, reconcileActiveTurns])
+  }, [active, materializeDraftConversation, patchLive, liveStore, reconcileActiveTurns])
 
   const abort = useCallback(async () => {
     if (!active || !editable(active.id)) return
@@ -1491,7 +1445,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const editQueuedMessage = useCallback(async (queueId: string, text: string): Promise<'saved' | 'conflict'> => {
     const conv = active
-    if (!conv || !editable(conv.id) || liveRef.current.get(conv.id)?.queued.find((item) => item.queueId === queueId)?.deliveryMode === 'steer') return 'conflict'
+    if (!conv || !editable(conv.id) || liveStore.get(conv.id)?.queued.find((item) => item.queueId === queueId)?.deliveryMode === 'steer') return 'conflict'
     const r = await editQueuedAgentMessage(conv.id, queueId, text)
     if (r === 'saved') {
       // Optimistic chip update — the agent_queue_edited broadcast is a no-op here.
@@ -1505,11 +1459,11 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       }))
     }
     return r
-  }, [active, patchLive])
+  }, [active, patchLive, liveStore])
 
   const steerQueuedMessage = useCallback(async (queueId: string): Promise<'saved' | 'conflict'> => {
     const conv = active
-    const item = conv && liveRef.current.get(conv.id)?.queued.find((entry) => entry.queueId === queueId)
+    const item = conv && liveStore.get(conv.id)?.queued.find((entry) => entry.queueId === queueId)
     if (!conv || !editable(conv.id) || !item || item.deliveryMode === 'steer') return 'conflict'
     const result = await steerQueuedAgentMessage(conv.id, queueId)
     if (result === 'saved') {
@@ -1517,11 +1471,11 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       patchLive(conv.id, (previous) => ({ ...previous, queued: previous.queued.map((entry) => entry.queueId === queueId ? { ...entry, deliveryMode: 'steer' } : entry) }))
     } else if (activeIdRef.current === conv.id) void hydrateActivePrCards()
     return result
-  }, [active, patchLive, hydrateActivePrCards])
+  }, [active, patchLive, liveStore, hydrateActivePrCards])
 
   const removeQueuedMessage = useCallback(async (queueId: string): Promise<'saved' | 'conflict'> => {
     const conv = active
-    const item = conv && liveRef.current.get(conv.id)?.queued.find((entry) => entry.queueId === queueId)
+    const item = conv && liveStore.get(conv.id)?.queued.find((entry) => entry.queueId === queueId)
     if (!conv || !editable(conv.id) || !item || item.deliveryMode === 'steer') return 'conflict'
     const result = await removeQueuedAgentMessage(conv.id, queueId)
     if (result === 'saved') {
@@ -1531,7 +1485,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       patchLive(conv.id, (previous) => ({ ...previous, queued: previous.queued.filter((entry) => entry.queueId !== queueId) }))
     } else if (activeIdRef.current === conv.id) void hydrateActivePrCards()
     return result
-  }, [active, patchLive, hydrateActivePrCards])
+  }, [active, patchLive, liveStore, hydrateActivePrCards])
 
   const wasQueueConsumed = useCallback((queueId: string): boolean => consumedQueueIdsRef.current.has(queueId) && !removedQueueIdsRef.current.has(queueId), [])
 
@@ -1765,8 +1719,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const value = useMemo<AgentChatContextValue>(() => ({
     visibility, open, close, minimize, toggle,
-    conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
-    queuedMessages, streamingConversationIds, liveByConversation: liveByConv,
+    conversations, active, messages,
     unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
@@ -1779,8 +1732,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   }), [
     visibility, open, close, minimize, toggle,
     builderActive, enterBuilderMode, exitBuilderMode, builderSession,
-    conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
-    queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
+    conversations, active, messages, unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
@@ -1796,15 +1748,17 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const floatingAllowed = !fixedConversationId && FEATURE_AGENT_CHAT && uiMode !== 'agent'
 
   return (
-    <AgentChatContext.Provider value={value}>
-      <MissionSessionsProvider>
-        {fixedConversationId ? children : <MissionSplitViewsProvider primaryId={active?.id ?? null}>{children}</MissionSplitViewsProvider>}
-      </MissionSessionsProvider>
-      {floatingAllowed && visibility === 'open' && <AgentChatPanel />}
-      {/* Persistent bottom-center bubble: the single entry point when the panel
-          is not open (summon from hidden AND restore from minimized). */}
-      {floatingAllowed && visibility !== 'open' && <AgentBubble />}
-    </AgentChatContext.Provider>
+    <LiveStoreContext.Provider value={liveStore}>
+      <AgentChatContext.Provider value={value}>
+        <MissionSessionsProvider>
+          {fixedConversationId ? children : <MissionSplitViewsProvider primaryId={active?.id ?? null}>{children}</MissionSplitViewsProvider>}
+        </MissionSessionsProvider>
+        {floatingAllowed && visibility === 'open' && <AgentChatPanel />}
+        {/* Persistent bottom-center bubble: the single entry point when the panel
+            is not open (summon from hidden AND restore from minimized). */}
+        {floatingAllowed && visibility !== 'open' && <AgentBubble />}
+      </AgentChatContext.Provider>
+    </LiveStoreContext.Provider>
   )
 }
 

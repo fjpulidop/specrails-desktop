@@ -92,6 +92,7 @@ vi.mock('sonner', () => ({
 import { toast } from 'sonner'
 import * as agentApi from '../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../context/AgentChatContext'
+import { useActiveLive, useStreamingConversationIds } from '../../hooks/useAgentLive'
 import { AgentWorkspaceProvider, useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { AgentComposer, __clearComposerDrafts } from '../AgentComposer'
 import { AgentTierChip } from '../AgentTierChip'
@@ -504,21 +505,23 @@ describe('AgentModelSelector', () => {
 // ── Provider behaviour via a consumer ─────────────────────────────────────────
 function Harness() {
   const a = useAgentChat()
+  const live = useActiveLive()
+  const liveIds = useStreamingConversationIds()
   return (
     <div>
       <span data-testid="vis">{a.visibility}</span>
-      <span data-testid="streaming">{String(a.isStreaming)}</span>
-      <span data-testid="stream">{a.streamingText}</span>
-      <span data-testid="tools">{a.liveTools.length}</span>
-      <span data-testid="turn-tools">{a.turnTools.length}</span>
+      <span data-testid="streaming">{String(live.isStreaming)}</span>
+      <span data-testid="stream">{live.streamingText}</span>
+      <span data-testid="tools">{live.liveTools.length}</span>
+      <span data-testid="turn-tools">{live.turnTools.length}</span>
       <span data-testid="tool-detail">
-        {a.liveTools.map((t) => `${t.tool}:${t.input ?? ''}:${t.output ?? ''}${t.isError ? ':err' : ''}`).join('|')}
+        {live.liveTools.map((t) => `${t.tool}:${t.input ?? ''}:${t.output ?? ''}${t.isError ? ':err' : ''}`).join('|')}
       </span>
-      <span data-testid="queued">{a.queuedMessages.length}</span>
-      <span data-testid="queued-texts">{a.queuedMessages.map((q) => q.text).join('|')}</span>
-      <span data-testid="queued-data">{JSON.stringify(a.queuedMessages)}</span>
+      <span data-testid="queued">{live.queued.length}</span>
+      <span data-testid="queued-texts">{live.queued.map((q) => q.text).join('|')}</span>
+      <span data-testid="queued-data">{JSON.stringify(live.queued)}</span>
       <span data-testid="transcript-data">{JSON.stringify(a.messages)}</span>
-      <span data-testid="live-ids">{[...a.streamingConversationIds].sort().join(',')}</span>
+      <span data-testid="live-ids">{[...liveIds].sort().join(',')}</span>
       <span data-testid="mcp">{String(a.mcpEnabled)}</span>
       <span data-testid="tier">{a.active?.tier_level ?? -1}</span>
       <span data-testid="msgs">{a.messages.length}</span>
@@ -631,7 +634,8 @@ describe('AgentChatProvider', () => {
       wsHandler!({ type: 'agent_tool', conversationId: 'c1', tool: 'specrails_rails' })
       wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'lo' })
     })
-    expect(screen.getByTestId('stream').textContent).toBe('Hello')
+    // Tokens are folded in once per animation frame.
+    await waitFor(() => expect(screen.getByTestId('stream').textContent).toBe('Hello'))
     expect(screen.getByTestId('tools').textContent).toBe('1')
 
     await act(async () => {
@@ -892,7 +896,7 @@ describe('AgentChatProvider', () => {
       resolveSnapshot({ conversation: api.conv, messages: [], pendingMessages: [{ queueId: 'stale-q', text: 'Correction' }], live: { isStreaming: true, streamingText: 'Stale progress' } })
     })
     expect(screen.getByTestId('queued')).toHaveTextContent('0')
-    expect(screen.getByTestId('stream')).toHaveTextContent('After correction')
+    await waitFor(() => expect(screen.getByTestId('stream')).toHaveTextContent('After correction'))
     expect(JSON.parse(screen.getByTestId('transcript-data').textContent!).map((row: agentApi.AgentMessage) => row.id)).toEqual(['current-assistant', 'current-user'])
   })
 
@@ -910,7 +914,7 @@ describe('AgentChatProvider', () => {
     expect(screen.getByTestId('stream')).toHaveTextContent('')
     await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
     expect(JSON.parse(screen.getByTestId('transcript-data').textContent!).map((row: agentApi.AgentMessage) => row.content)).toEqual(['Original approach', 'Change approach'])
-    expect(screen.getByTestId('stream')).toHaveTextContent('New approach')
+    await waitFor(() => expect(screen.getByTestId('stream')).toHaveTextContent('New approach'))
   })
 
   it('opens empty process history without sending or replacing a saved mission draft', async () => {
@@ -1006,7 +1010,7 @@ describe('AgentChatProvider', () => {
       wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'After correction' })
     })
     expect(JSON.parse(screen.getByTestId('transcript-data').textContent!).map((row: agentApi.AgentMessage) => row.content)).toEqual(['hi', 'Before correction', 'extra'])
-    expect(screen.getByTestId('stream')).toHaveTextContent('After correction')
+    await waitFor(() => expect(screen.getByTestId('stream')).toHaveTextContent('After correction'))
     expect(screen.getByTestId('queued')).toHaveTextContent('0')
   })
 
@@ -1052,7 +1056,7 @@ describe('AgentChatProvider', () => {
     await act(async () => { fireEvent.click(screen.getByText('open')) })
     await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalled())
     await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Hel' }) })
-    expect(screen.getByTestId('stream').textContent).toBe('Hel')
+    await waitFor(() => expect(screen.getByTestId('stream').textContent).toBe('Hel'))
 
     // Focus another thread mid-stream: the view empties but NOTHING is lost.
     await act(async () => { fireEvent.click(screen.getByText('go-c2')) })

@@ -73,6 +73,7 @@ vi.mock('sonner', () => ({
 
 import * as agentApi from '../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../context/AgentChatContext'
+import { useActiveQueued, useIsStreaming } from '../../hooks/useAgentLive'
 import { AgentWorkspaceProvider } from '../../context/AgentWorkspaceContext'
 import { UiModeProvider } from '../../../../context/UiModeContext'
 import { __clearComposerDrafts } from '../../lib/agent-composer-drafts'
@@ -81,7 +82,9 @@ import { MissionExtensionsProvider, type MissionExtensions } from '../../context
 import { RunPrimaryButton } from '../run-primary'
 
 let chat: ReturnType<typeof useAgentChat> | null = null
-function Probe() { chat = useAgentChat(); return null }
+let streaming = false
+let queued: readonly { deliveryMode?: string }[] = []
+function Probe() { chat = useAgentChat(); streaming = useIsStreaming(); queued = useActiveQueued(); return null }
 
 const FLOW_MODE: MissionExtensions = {
   useConversationMode: () => ({ attributes: { 'data-flow': 'active' }, gitBranch: null, interruptWhileBusy: true }),
@@ -108,7 +111,7 @@ async function startBusyTurn() {
   const box = await screen.findByRole('textbox')
   inputEditor(box, 'build the board')
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send', exact: true })) })
-  await waitFor(() => expect(chat!.isStreaming).toBe(true))
+  await waitFor(() => expect(streaming).toBe(true))
   return box
 }
 
@@ -116,6 +119,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   __clearComposerDrafts()
   chat = null
+  streaming = false
   wsHandler = null
   vi.mocked(agentApi.listAgentConversations).mockResolvedValue([])
   vi.mocked(agentApi.createAgentConversation).mockResolvedValue(conversation('c-new'))
@@ -137,7 +141,7 @@ describe('missions extension seam (Flow mode)', () => {
     await waitFor(() => expect(agentApi.sendAgentMessage).toHaveBeenCalledTimes(2))
     expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[1][2]).toMatchObject({ deliveryMode: 'interrupt' })
     // Interrupt inputs are steers: never parked as a queued chip.
-    expect(chat!.queuedMessages.every((item) => item.deliveryMode === 'steer')).toBe(true)
+    expect(queued.every((item) => item.deliveryMode === 'steer')).toBe(true)
   })
 
   it('without an extension the surface is plain and a busy send queues as before', async () => {
@@ -369,7 +373,7 @@ describe('missions extension seam (Flow mode)', () => {
       await openWithOptions(FLOW_MODE)
       // A busy continuation turn (no newer settled message yet): the server streams.
       act(() => { wsHandler?.({ type: 'agent_stream', conversationId: 'c1', delta: 'Working on it' }) })
-      await waitFor(() => expect(chat!.isStreaming).toBe(true))
+      await waitFor(() => expect(streaming).toBe(true))
       vi.mocked(agentApi.sendAgentMessage).mockClear()
       vi.mocked(agentApi.sendAgentMessage).mockResolvedValue({ queued: true, deliveryMode: 'interrupt' })
       const chip = screen.queryByRole('button', { name: 'Solid trail' })
@@ -383,7 +387,7 @@ describe('missions extension seam (Flow mode)', () => {
     it('outside Flow a busy turn still suppresses the chips', async () => {
       await openWithOptions()
       act(() => { wsHandler?.({ type: 'agent_stream', conversationId: 'c1', delta: 'Working on it' }) })
-      await waitFor(() => expect(chat!.isStreaming).toBe(true))
+      await waitFor(() => expect(streaming).toBe(true))
       expect(screen.queryByRole('button', { name: 'Solid trail' })).toBeNull()
     })
   })

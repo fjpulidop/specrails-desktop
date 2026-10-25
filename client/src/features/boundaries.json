@@ -264,6 +264,7 @@
       "context/MissionSessionsContext.tsx",
       "context/MissionSplitViewsContext.tsx",
       "context/MissionWindowsContext.tsx",
+      "hooks/useAgentLive.ts",
       "hooks/useAgentRefActions.ts",
       "hooks/useMissionPlaceSync.ts",
       "lib/agent-api.ts",

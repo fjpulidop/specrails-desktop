@@ -88,6 +88,7 @@ vi.mock('sonner', () => ({
 import * as agentApi from '../lib/agent-api'
 import type { AgentPrDecisionEnvelope } from '../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from './AgentChatContext'
+import { useActiveLive } from '../hooks/useAgentLive'
 
 const prEnvelope = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelope => ({
   kind: 'pr_decision', prDeliveryId: 'd1', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [1],
@@ -112,6 +113,7 @@ function setDocumentVisibility(value: DocumentVisibilityState): void {
 
 function Harness() {
   const agentChat = useAgentChat()
+  const live = useActiveLive()
   const [applyResult, setApplyResult] = useState('')
   return (
     <div>
@@ -125,11 +127,11 @@ function Harness() {
         return envelope ? [`${envelope.prDeliveryId}:${envelope.decision}`] : []
       }).join(',')}</span>
       <span data-testid="apply-result">{applyResult}</span>
-      <span data-testid="streaming">{String(agentChat.isStreaming)}</span>
-      <span data-testid="stream-text">{agentChat.streamingText}</span>
-      <span data-testid="pending-inputs">{JSON.stringify(agentChat.queuedMessages)}</span>
+      <span data-testid="streaming">{String(live.isStreaming)}</span>
+      <span data-testid="stream-text">{live.streamingText}</span>
+      <span data-testid="pending-inputs">{JSON.stringify(live.queued)}</span>
       <span data-testid="transcript-data">{JSON.stringify(agentChat.messages)}</span>
-      <span data-testid="live-tools">{JSON.stringify(agentChat.liveTools)}</span>
+      <span data-testid="live-tools">{JSON.stringify(live.liveTools)}</span>
       <span data-testid="message-text">{agentChat.messages.map((message) => message.content).join('|')}</span>
       <span data-testid="favorites">{[...agentChat.favoriteConversationIds].sort().join(',')}</span>
       <span data-testid="draft-provider">{agentChat.draftProvider}</span>

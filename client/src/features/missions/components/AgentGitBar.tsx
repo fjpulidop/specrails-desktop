@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
 import { GitBranch, ChevronDown, Check, Search, Loader2, FolderGit2, Copy } from 'lucide-react'
-import { useAgentChat } from '../context/AgentChatContext'
+import { useIsStreaming } from '../hooks/useAgentLive'
 import { subscribeGitChanged } from '../../code/lib/git-refresh'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { projectRepositories, repositoryApiBase } from '../../projects/lib/project-repositories'
@@ -60,7 +60,7 @@ function AgentGitBranchOverride({ branch, label }: { branch: string; label: stri
 
 function AgentProjectGitBar({ projectId }: { projectId: string }) {
   const { t } = useTranslation('agent')
-  const { isStreaming } = useAgentChat()
+  const isStreaming = useIsStreaming()
   const { projects } = useDesktop()
   const project = projects.find(project => project.id === projectId)
   const repositories = projectRepositories(project)

@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { MoreVertical, Pencil, Copy, Check, ChevronRight, Trash2, Heart, Download, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAgentChat } from '../context/AgentChatContext'
+import { useStreamingConversationIds } from '../hooks/useAgentLive'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { cn } from '../../../lib/utils'
 import type { AgentConversation, AgentMessage } from '../lib/agent-api'
@@ -80,7 +81,8 @@ export function safeTranscriptFilename(title: string | null | undefined, id: str
 export function AgentConversationHeader() {
   const closePane = useMissionPaneClose()
   const { t } = useTranslation('agent')
-  const { active, messages, renameConversation, deleteConversation, startNewConversation, favoriteConversationIds, toggleFavoriteConversation, streamingConversationIds } = useAgentChat()
+  const { active, messages, renameConversation, deleteConversation, startNewConversation, favoriteConversationIds, toggleFavoriteConversation } = useAgentChat()
+  const streamingConversationIds = useStreamingConversationIds()
   const { projects } = useDesktop()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { compactRelativeTime, absoluteTime } from '../../../lib/relative-time'
 import { useMissionSessions } from '../context/MissionSessionsContext'
 import { useAgentChat } from '../context/AgentChatContext'
+import { useQueuedCounts, useStreamingConversationIds } from '../hooks/useAgentLive'
 import type { AgentConversation } from '../lib/agent-api'
 import { LiveDot } from '../../../components/ui/live-dot'
 
@@ -29,8 +30,10 @@ export function AgentMissionSelector() {
   const { t } = useTranslation('agent')
   const {
     conversations, active, selectConversation, deleteConversation,
-    startNewConversation, streamingConversationIds, liveByConversation,
+    startNewConversation,
   } = useAgentChat()
+  const streamingConversationIds = useStreamingConversationIds()
+  const queuedCounts = useQueuedCounts()
   const { backgroundConversationIds } = useMissionSessions()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -251,7 +254,7 @@ export function AgentMissionSelector() {
                   highlighted={highlighted === i + 1}
                   activeId={active?.id ?? null}
                   streaming={streamingConversationIds.has(c.id) || backgroundConversationIds.has(c.id)}
-                  queuedCount={liveByConversation.get(c.id)?.queued.length ?? 0}
+                  queuedCount={queuedCounts.get(c.id) ?? 0}
                   confirming={confirmingId === c.id}
                   onHover={() => setHighlighted(i + 1)}
                   onSelect={() => chooseMission(c.id)}
