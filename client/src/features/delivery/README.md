@@ -25,6 +25,7 @@ load every UI component. Changes to this surface require updating the boundary m
 
 - [builder](../builder/README.md)
 - [code](../code/README.md)
+- [jobs](../jobs/README.md)
 - [projects](../projects/README.md)
 - [rails](../rails/README.md)
 - [specs](../specs/README.md)
