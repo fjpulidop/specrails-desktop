@@ -369,6 +369,16 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(mockToggleUiMode).toHaveBeenCalledOnce()
   })
 
+  it('arrow keys move focus to the other radio at once (no waiting for the transition)', () => {
+    renderExpanded()
+    const mission = screen.getByRole('radio', { name: 'Mission' })
+    const board = screen.getByRole('radio', { name: 'Board' })
+    mission.focus()
+    fireEvent.keyDown(mission, { key: 'ArrowRight' })
+    expect(mockToggleUiMode).toHaveBeenCalledOnce()
+    expect(document.activeElement).toBe(board)
+  })
+
   it('shows the current mode as one icon button on the collapsed rail', () => {
     renderCollapsed()
     expect(screen.getByRole('button', { name: 'Current mode: Mission. Click to switch.' })).toBeInTheDocument()

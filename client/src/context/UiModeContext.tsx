@@ -1,11 +1,19 @@
-import { createContext, startTransition, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, startTransition, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { FEATURE_AGENT_MODE } from '../lib/feature-flags'
 
 export type UiMode = 'kanban' | 'agent'
 
 interface UiModeContextValue {
+  /** The mode whose surface is committed on screen. */
   uiMode: UiMode
-  setUiMode: (m: UiMode) => void
+  /** The mode the person asked for. Updates urgently (outside the surface
+   *  transition), so radios and focus follow the click/arrow at once. */
+  requestedMode: UiMode
+  /** The requested surface is still rendering. */
+  isPending: boolean
+  /** `immediate` skips the transition: the surface commits with this update
+   *  (callers that navigate right after the switch). */
+  setUiMode: (m: UiMode, opts?: { immediate?: boolean }) => void
   toggleUiMode: () => void
 }
 
@@ -34,30 +42,33 @@ function writeStored(m: UiMode): void {
 const UiModeContext = createContext<UiModeContextValue | null>(null)
 
 export function UiModeProvider({ children, initialMode, persist = true }: { children: ReactNode; initialMode?: UiMode; persist?: boolean }) {
-  const [uiMode, setUiModeState] = useState<UiMode>(() => initialMode ?? readStored())
+  const [initial] = useState<UiMode>(() => initialMode ?? readStored())
+  const [uiMode, setUiModeState] = useState<UiMode>(initial)
+  const [requestedMode, setRequestedMode] = useState<UiMode>(initial)
+  const requestedRef = useRef<UiMode>(initial)
 
-  const setUiMode = useCallback((m: UiMode) => {
+  const setUiMode = useCallback((m: UiMode, opts?: { immediate?: boolean }) => {
     if (!FEATURE_AGENT_MODE) return
-    // The new surface renders as an interruptible transition: the click answers
-    // at once and the current mode stays interactive until the next one is ready.
-    startTransition(() => setUiModeState(m))
+    requestedRef.current = m
+    // The request is urgent (radios, focus, aria-checked answer the click). Only
+    // the surface renders as an interruptible transition: the current mode stays
+    // interactive until the next one is ready.
+    setRequestedMode(m)
+    if (opts?.immediate) setUiModeState(m)
+    else startTransition(() => setUiModeState(m))
     if (persist) writeStored(m)
   }, [persist])
 
   const toggleUiMode = useCallback(() => {
-    startTransition(() => {
-      setUiModeState((cur) => {
-        if (!FEATURE_AGENT_MODE) return 'kanban'
-        const next: UiMode = cur === 'kanban' ? 'agent' : 'kanban'
-        if (persist) writeStored(next)
-        return next
-      })
-    })
-  }, [persist])
+    if (!FEATURE_AGENT_MODE) return
+    // Toggle from what was asked last, not from what is painted: two quick
+    // arrows must not both resolve against the same stale mode.
+    setUiMode(requestedRef.current === 'kanban' ? 'agent' : 'kanban')
+  }, [setUiMode])
 
   const value = useMemo(
-    () => ({ uiMode, setUiMode, toggleUiMode }),
-    [uiMode, setUiMode, toggleUiMode],
+    () => ({ uiMode, requestedMode, isPending: requestedMode !== uiMode, setUiMode, toggleUiMode }),
+    [uiMode, requestedMode, setUiMode, toggleUiMode],
   )
   return <UiModeContext.Provider value={value}>{children}</UiModeContext.Provider>
 }
@@ -66,6 +77,8 @@ export function UiModeProvider({ children, initialMode, persist = true }: { chil
 // in isolation & tests without a provider (mirrors the agent-chat NOOP fallback).
 const NOOP_UI_MODE: UiModeContextValue = {
   uiMode: 'kanban',
+  requestedMode: 'kanban',
+  isPending: false,
   setUiMode: () => {},
   toggleUiMode: () => {},
 }

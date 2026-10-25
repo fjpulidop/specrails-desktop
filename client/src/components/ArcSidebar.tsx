@@ -747,7 +747,7 @@ export function ArcSidebar({
   const onPluginsRoute = location.pathname.startsWith('/plugins')
   const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs')
   const { leftMode, effectiveLeftMode, cycleLeftMode, setLeftMode } = useSidebarPin()
-  const { uiMode, toggleUiMode } = useUiMode()
+  const { uiMode, requestedMode, toggleUiMode } = useUiMode()
   const agentChat = useAgentChat()
   // A mission is live while a turn streams or its agents work in the background.
   const { backgroundConversationIds } = useMissionSessions()
@@ -955,9 +955,12 @@ export function ArcSidebar({
   function handleModeRadioKeyDown(e: ReactKeyboardEvent<HTMLButtonElement>) {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
     e.preventDefault()
+    // Two radios: any arrow lands on the OTHER one. Focus it directly instead of
+    // waiting for the transition to repaint aria-checked (the focus would stay on
+    // the old radio and the next arrow would flip back).
     toggleUiMode()
-    const group = e.currentTarget.parentElement
-    requestAnimationFrame(() => group?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus())
+    const other = e.currentTarget.parentElement?.querySelector<HTMLElement>('[role="radio"]:not([data-mode="' + e.currentTarget.dataset.mode + '"])')
+    other?.focus()
   }
 
   const rowClass = (activeRow: boolean) => cn(
@@ -1065,12 +1068,13 @@ export function ArcSidebar({
                 { mode: 'agent', label: tAgent('modeSwitch.mission'), Icon: Bot },
                 { mode: 'kanban', label: tAgent('modeSwitch.board'), Icon: LayoutGrid },
               ] as const).map(({ mode, label, Icon }) => {
-                const checked = uiMode === mode
+                const checked = (requestedMode ?? uiMode) === mode
                 return (
                   <button
                     key={mode}
                     type="button"
                     role="radio"
+                    data-mode={mode}
                     aria-checked={checked}
                     tabIndex={checked ? 0 : -1}
                     onClick={() => { if (!checked) toggleUiMode() }}

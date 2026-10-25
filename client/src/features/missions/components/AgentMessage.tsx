@@ -1,4 +1,4 @@
-import { Children, isValidElement, memo, useEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
+import { Children, isValidElement, memo, useEffect, useMemo, useRef, useState, type ComponentProps, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AlertCircle, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
@@ -28,7 +28,8 @@ import { fetchAgentAttachmentBlob, type AgentAttachment, type AgentContextRefere
 import { AgentRefChip } from './AgentRefChip'
 import { AgentDeliveryReceipt } from './AgentDeliveryReceipt'
 import { extractExtensionFences } from './agent-extension-fences'
-import { extensionFenceTags, modeAccent, useMissionExtensions, type MissionModeBadge } from '../context/MissionExtensionsContext'
+import { useIsConversationStreaming } from '../hooks/useAgentLive'
+import { extensionFenceTags, modeAccent, useMissionExtensions, type MissionFenceCardProps, type MissionModeBadge } from '../context/MissionExtensionsContext'
 import { LiveDot } from '../../../components/ui/live-dot'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
@@ -478,6 +479,25 @@ function MessageMarkdown({ body, streaming, remarkPlugins, components }: { body:
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
+/**
+ * Settled rows far from the end ignore "a turn is in flight" on purpose (a turn
+ * starting would re-parse the whole transcript). Their INTERACTIVE cards still
+ * must not be clickable mid-turn, so each reads the conversation's streaming
+ * flag itself through a boolean selector: only rows that hold such a card
+ * re-render when a turn starts or ends.
+ */
+function useConversationBusy(conversationId: string | null, rowStreaming: boolean): boolean {
+  const live = useIsConversationStreaming(conversationId)
+  return rowStreaming || live
+}
+function LiveBusyFrameCard({ conversationId, isStreaming, ...rest }: ComponentProps<typeof AgentProblemFrameCard> & { conversationId: string | null }) {
+  return <AgentProblemFrameCard {...rest} isStreaming={useConversationBusy(conversationId, !!isStreaming)} />
+}
+function LiveBusyFenceCard({ Card, ...props }: { Card: ComponentType<MissionFenceCardProps> } & MissionFenceCardProps) {
+  const busy = useConversationBusy(props.conversationId, props.isStreaming)
+  return <Card {...props} isStreaming={busy} />
+}
+
 export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
   const { t } = useTranslation('agent')
   const localIntents = useLocalIntents()
@@ -607,10 +627,11 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
         // the same send() the option chips use, gated to the newest card and
         // disabled while a turn is in flight (no resend of an answered frame,
         // no duplicate concurrent turn).
-        <AgentProblemFrameCard
+        <LiveBusyFrameCard
           frame={frame}
           isLatest={!!isLatest}
           isStreaming={!!isStreaming || !!streaming}
+          conversationId={conversationId ?? null}
           onSelect={onPickOption}
         />
       )}
@@ -638,7 +659,8 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
       {!streaming && extensionBlocks.map((block) => {
         const Card = extensions.fenceCards?.[block.tag]
         return Card ? (
-          <Card
+          <LiveBusyFenceCard
+            Card={Card}
             key={`${messageId ?? 'live'}:${block.tag}:${block.index}`}
             tag={block.tag}
             payload={block.payload}

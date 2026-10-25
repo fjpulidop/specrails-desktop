@@ -510,6 +510,23 @@ function mergeTranscriptRows(current: AgentMessage[], incoming: AgentMessage[]):
 
 type ConversationSnapshot = Awaited<ReturnType<typeof getAgentConversation>>
 
+/**
+ * Optimistic rows the server has not echoed yet (`local-u-` user bubbles, `err-`
+ * failure notes). A background revalidation replaces the transcript with the
+ * persisted one; these must survive it — unless the snapshot already carries
+ * the persisted copy of the same user message (merge by client id / content).
+ */
+export function retainOptimisticRows(current: AgentMessage[], persisted: AgentMessage[]): AgentMessage[] {
+  return current.filter((message) => {
+    if (message.id.startsWith('err-')) return !persisted.some((row) => row.id === message.id)
+    if (!message.id.startsWith('local-u-')) return false
+    return !persisted.some((row) => row.id === message.id || (row.role === 'user' && row.content === message.content && !row.id.startsWith('local-u-')))
+  })
+}
+
+/** A snapshot read in flight, stamped with the WS event version it started at. */
+interface InflightSnapshot { promise: Promise<ConversationSnapshot>; versionAtStart: number }
+
 /** Revisit cache size: a transcript is the heavy part, a dozen missions is plenty. */
 const CONVERSATION_CACHE_LIMIT = 12
 function cacheConversation(cache: Map<string, ConversationSnapshot>, id: string, snapshot: ConversationSnapshot): void {
@@ -1073,34 +1090,43 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   // Only the transcript/identity is cached — live turn state, queue and cards are
   // owned by the WS stream and the live store, which never go stale.
   const conversationCacheRef = useRef(new Map<string, ConversationSnapshot>())
-  const inflightConversationRef = useRef(new Map<string, Promise<ConversationSnapshot>>())
+  const inflightConversationRef = useRef(new Map<string, InflightSnapshot>())
   const activeRef = useRef(active)
   activeRef.current = active
+  const shownIdRef = useRef<string | null>(null)
+  useEffect(() => { shownIdRef.current = null }, [active?.id])
 
-  /** One GET per mission at a time: concurrent opens, hovers and focus syncs share it. */
-  const fetchConversationSnapshot = useCallback((id: string): Promise<ConversationSnapshot> => {
+  /** One GET per mission at a time: concurrent opens, hovers and focus syncs share it.
+   *  The WS event version is stamped when the request is CREATED (a hover prefetch
+   *  included): a response older than any live event must never overwrite live state. */
+  const startConversationSnapshot = useCallback((id: string): InflightSnapshot => {
     const pending = inflightConversationRef.current.get(id)
     if (pending) return pending
-    const request = getAgentConversation(id)
+    const promise = getAgentConversation(id)
       .then((snapshot) => { cacheConversation(conversationCacheRef.current, id, snapshot); return snapshot })
       .finally(() => { inflightConversationRef.current.delete(id) })
-    inflightConversationRef.current.set(id, request)
-    return request
+    const entry: InflightSnapshot = { promise, versionAtStart: conversationEventVersionRef.current.get(id) ?? 0 }
+    inflightConversationRef.current.set(id, entry)
+    return entry
   }, [])
 
   const prefetchConversation = useCallback((id: string): void => {
     if (id === activeIdRef.current || fixedConversationId || secondaryWindow) return
     if (conversationCacheRef.current.has(id) || inflightConversationRef.current.has(id)) return
-    void fetchConversationSnapshot(id).catch(() => { /* a hover must never surface an error */ })
-  }, [fetchConversationSnapshot, fixedConversationId, secondaryWindow])
+    void startConversationSnapshot(id).promise.catch(() => { /* a hover must never surface an error */ })
+  }, [startConversationSnapshot, fixedConversationId, secondaryWindow])
 
   /** Paint a snapshot as the open mission: transcript, rows' receipts, PR cards. */
   const showConversation = useCallback((id: string, snapshot: ConversationSnapshot) => {
     prSnapshotVersionRef.current++
     const merged = mergeTranscriptRows(snapshot.messages, transcriptEventsRef.current.get(id) ?? []).map(withReceipt)
+    // `shownIdRef` leads `active` by a render: a cached paint followed at once by
+    // its revalidation must still see that this mission is the one on screen.
+    const optimistic = (shownIdRef.current ?? activeRef.current?.id) === id ? retainOptimisticRows(messagesRef.current, merged) : []
     const msgs = [...(prEnvelopeEventsRef.current.get(id)?.values() ?? [])]
-      .reduce((projected, envelope) => upsertPrDecisionMessage(projected, id, envelope), merged)
+      .reduce((projected, envelope) => upsertPrDecisionMessage(projected, id, envelope), optimistic.length ? [...merged, ...optimistic] : merged)
     for (const message of msgs) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
+    shownIdRef.current = id
     setActive(snapshot.conversation)
     messagesRef.current = msgs
     setMessages(msgs)
@@ -1109,7 +1135,6 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const loadConversation = useCallback(async (id: string, signal?: AbortSignal) => {
     const epoch = ++conversationLoadEpochRef.current
-    const eventVersion = conversationEventVersionRef.current.get(id) ?? 0
     // Invalidates a focus/reconnect card hydration for the previous view even
     // when navigation later returns to the same conversation (C1→C2→C1 ABA).
     prSnapshotVersionRef.current++
@@ -1120,7 +1145,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
     const cached = conversationCacheRef.current.get(id)
     const revalidate = async (): Promise<void> => {
-      const fetched = await fetchConversationSnapshot(id)
+      const request = startConversationSnapshot(id)
+      const eventVersion = request.versionAtStart
+      const fetched = await request.promise
       const { pendingMessages, live } = fetched
       if (signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')
       if (epoch !== conversationLoadEpochRef.current) {
@@ -1146,7 +1173,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     await revalidate()
     // Old servers omit live snapshots; retain background state in that case.
     // Modern snapshots hydrate reloads without overwriting newer WS events.
-  }, [fetchConversationSnapshot, showConversation, patchLive])
+  }, [startConversationSnapshot, showConversation, patchLive])
 
   // Reconcile persisted cards and checkpoint deliveries after missed WS events.
   // Older servers still use the card-only convergence path.
@@ -1168,7 +1195,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       if ((fresh.pendingMessages !== undefined || fresh.live) && eventVersion === (conversationEventVersionRef.current.get(conversationId) ?? 0)) {
         const persisted = mergeTranscriptRows(fresh.messages, transcriptEventsRef.current.get(conversationId) ?? []).map(withReceipt)
         for (const message of persisted) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
-        setMessages((current) => mergeTranscriptRows(persisted, current.filter((message) => message.id.startsWith('local-u-') && !persisted.some((row) => row.role === 'user' && row.content === message.content))))
+        setMessages((current) => mergeTranscriptRows(persisted, retainOptimisticRows(current, persisted)))
         patchLive(conversationId, (previous) => ({
           ...previous,
           ...(fresh.live ? { isStreaming: fresh.live.isStreaming, streamingText: fresh.live.streamingText } : {}),

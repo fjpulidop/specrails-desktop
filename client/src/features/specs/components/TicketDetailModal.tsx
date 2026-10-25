@@ -1325,7 +1325,7 @@ function TimelineHostInner({ ticketId, refreshKey, onClose }: { ticketId: number
     onClose()
     const go = (): void => { navigate({ pathname: target.pathname, search: target.search }, { state: { [PLACE_PUSH_STATE]: target.place } }) }
     // A mission only exists in Mission mode: switch first, then navigate in the next task (the mode switch restores its own route).
-    if (target.needsAgentMode) { setUiMode('agent'); setTimeout(go, 0) } else go()
+    if (target.needsAgentMode) { setUiMode('agent', { immediate: true }); setTimeout(go, 0) } else go()
   }, [navigate, onClose, setUiMode])
   return <SpecTimeline ticketId={ticketId} refreshKey={refreshKey} uiMode={uiMode} currentSearch={location.search} onNavigate={goTo} onOpenExternal={(url) => { void openExternalUrl(url) }} />
 }

@@ -136,21 +136,38 @@ const MemoAgentMessage = memo(AgentMessage, sameMessageProps)
  * The in-flight turn: streamed text, the activity chip. The ONLY part of the
  * conversation that re-renders per streamed frame.
  */
-function LiveTail({ tolerantFences, agentDescription, onOpenActivity, onGrew }: {
+function LiveTail({ tolerantFences, agentDescription, onOpenActivity, onGrew, committedLastId, renderedLastId }: {
   tolerantFences: boolean
   agentDescription: string | null
   onOpenActivity: () => void
   onGrew: () => void
+  /** Newest row of the committed transcript (it already has the turn's final row). */
+  committedLastId: string | undefined
+  /** Newest row the deferred transcript has painted so far. */
+  renderedLastId: string | undefined
 }) {
   const live = useActiveLive()
   const smoothed = useSmoothStream(live.streamingText, live.isStreaming)
   const firstRun = useRef(true)
+  const held = useRef('')
   const toolCount = live.liveTools.length
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return }
     onGrew()
   }, [onGrew, smoothed, toolCount])
-  if (!live.isStreaming) return null
+  if (live.isStreaming) held.current = smoothed
+  // Hand-off: the turn settled and its final row is committed, but the deferred
+  // transcript has not painted it yet. Keep the last streamed text on screen
+  // until that row exists, so the answer never blinks out for a frame (and the
+  // height never dips). The tail leaves in the SAME commit the row arrives in.
+  const settling = !live.isStreaming && held.current !== '' && committedLastId !== renderedLastId
+  if (!live.isStreaming && !settling) {
+    held.current = ''
+    return null
+  }
+  if (settling) {
+    return <div className="space-y-2" data-testid="agent-live-tail-settling"><AgentMessage role="assistant" content={held.current} streaming tolerantFences={tolerantFences} /></div>
+  }
   return (
     <div className="space-y-2">
       {smoothed && <AgentMessage role="assistant" content={smoothed} streaming tolerantFences={tolerantFences} />}
@@ -304,6 +321,10 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     backfillAnchor.current = null
     el.scrollTop = anchor.top + (el.scrollHeight - anchor.height)
   }, [backfilled])
+  // Decided once per opening: a mission reopened mid-history keeps every row
+  // fully laid out. WebKit does not scroll-anchor around content-visibility rows
+  // that are still estimated, so a restored pixel offset would land on the wrong row.
+  const [skipContentVisibility] = useState(() => !!savedScroll && !savedScroll.atBottom)
   const [unseen, setUnseen] = useState(false)
   useLayoutEffect(() => {
     const el = scrollRef.current
@@ -533,7 +554,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             const turnSubagents = m.role === 'assistant' ? subagentsForTurn(session, m.core_turn_id) : []
             const continuation = m.role === 'assistant' && (m.turn_origin === 'subagent' || m.turn_origin === 'system') ? m.turn_origin : null
             return (
-              <div key={m.id} className={i < messages.length - RECENT_ROWS_FULL_RENDER ? 'space-y-1 [content-visibility:auto] [contain-intrinsic-size:auto_120px]' : 'space-y-1'}>
+              <div key={m.id} className={!skipContentVisibility && i < messages.length - RECENT_ROWS_FULL_RENDER ? 'space-y-1 [content-visibility:auto] [contain-intrinsic-size:auto_120px]' : 'space-y-1'}>
               {continuation && <AgentTurnOriginLabel origin={continuation} />}
               <MemoAgentMessage
                 role={m.role}
@@ -587,6 +608,8 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             agentDescription={[...liveSubagentCards].reverse().find((node) => node.phase === 'running')?.description ?? null}
             onOpenActivity={() => setActivityOpen(true)}
             onGrew={onContentGrew}
+            committedLastId={committedMessages[committedMessages.length - 1]?.id}
+            renderedLastId={messages[messages.length - 1]?.id}
           />
           {subagentCard(liveSubagentCards, 'subagents:live')}
           {session?.backgroundTurn && !isStreaming && <AgentBackgroundTurn turn={session.backgroundTurn} />}
