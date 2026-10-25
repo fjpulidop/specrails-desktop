@@ -187,7 +187,7 @@
   },
   "mobile": {
     "heading": "モバイルコンパニオン",
-    "description": "スマートフォンの SpecRails Companion アプリから Specrails を操作します。通信は 100% ローカルネットワーク経由です。デフォルトはオフです。",
+    "description": "スマートフォンの SpecRails Companion アプリから Specrails を操作します。通信は 100% ローカルネットワーク経由です。デフォルトはオフです。ペアリング済みのスマートフォンは、MCP の権限レベルが許す範囲で、受信トレイから質問への回答、再開、再試行、ドラフト PR の作成ができます。マージ、破棄、設定はこのコンピューターでのみ行えます。",
     "accessOn": "モバイルアクセス オン",
     "accessOff": "モバイルアクセス オフ",
     "listeningOnPort": "ポート {{port}} で待機中",

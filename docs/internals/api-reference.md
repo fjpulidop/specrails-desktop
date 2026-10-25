@@ -157,7 +157,7 @@ Shape: `{ kind, confidence, phase, rounds, resetAt, detail, resumablePhase, bloc
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/inbox` | Read-only projection of what waits for the person, across every registered project: `{ items, projects, generatedAt }`. Each item: `id` (`<projectId>:<kind>:<sourceId>`), `projectId`, `projectName`, `kind` (`review` \| `question` \| `failed` \| `blocked` \| `budget` \| `jira`), `title`, `detail`, `at`, `version` (changes when the state changes), `action` (`open-review` \| `open-run` \| `resume-run` \| `retry-jira` \| `raise-cap`), `subjectId` (delivery id, loop-run id, Jira outbox id, or `<scope>:<period>` for a cap), `conversationId`, `diagnosis` (a failed / blocked run's [failure diagnosis](#failure-diagnosis), else `null`; a provider limit or environment problem is listed as `blocked`), and — only on a reached spend cap (`kind: 'budget'`, `action: 'raise-cap'`, id `<projectId>:budget:cap-<scope>-<period>`) — `cap: { scope, period, budgetUsd, spentUsd, resetsAt }`. An app-wide cap is listed once, under the first project. Newest first, at most 50 per project. Each project is read through its own database and a failing project is skipped; nothing is cached or stored. Snooze and Done are per viewer and never reach the server. Module: [`server/modules/inbox`](../../server/modules/inbox/README.md). |
+| `GET` | `/inbox` | Read-only projection of what waits for the person, across every registered project: `{ items, projects, generatedAt }`. Each item: `id` (`<projectId>:<kind>:<sourceId>`), `projectId`, `projectName`, `kind` (`review` \| `question` \| `failed` \| `blocked` \| `budget` \| `jira`), `title`, `detail`, `at`, `version` (changes when the state changes), `action` (`open-review` \| `open-run` \| `resume-run` \| `retry-jira` \| `raise-cap`), `subjectId` (delivery id, loop-run id, Jira outbox id, or `<scope>:<period>` for a cap), `conversationId`, `diagnosis` (a failed / blocked run's [failure diagnosis](#failure-diagnosis), else `null`; a provider limit or environment problem is listed as `blocked`), and — only on a reached spend cap (`kind: 'budget'`, `action: 'raise-cap'`, id `<projectId>:budget:cap-<scope>-<period>`) — `cap: { scope, period, budgetUsd, spentUsd, resetsAt }`. A delivery or run item also carries `railIndex` (when known) and a delivery item its `decision` (the state a remote PR decision must echo back). An app-wide cap is listed once, under the first project. Newest first, at most 50 per project. Each project is read through its own database and a failing project is skipped; nothing is cached or stored. Snooze and Done are per viewer and never reach the server. Module: [`server/modules/inbox`](../../server/modules/inbox/README.md). |
 
 ### Sample project (first run)
 
@@ -183,6 +183,22 @@ Loopback-only admin surface for the Mobile Gateway (the gateway itself is a sepa
 | `GET` | `/devices` | List paired devices |
 | `DELETE` | `/devices/:id` | Revoke a paired device |
 | `POST` | `/cert/rotate` | Rotate the gateway TLS identity (unpairs every device) |
+
+### Companion inbox decisions (`/v1/inbox*`, paired devices only)
+
+The paired companion reads the [Needs-you inbox](#needs-you-inbox-app-wide) and runs a closed set of safe decisions through the Mobile Gateway (`/v1`, device bearer token, same project grant as every other `/v1` route). Each action is forwarded to the route the desktop UI itself uses, addressed to one project, and tier-checked with the MCP permission tiers (Settings ▸ MCP): a tier that is off answers `403 { error: "tier_disabled", tier, action }` and nothing is forwarded. See [companion inbox decisions](companion-inbox-decisions.md).
+
+| Method | Path | Tier | Forwards to |
+|--------|------|------|-------------|
+| `GET` | `/v1/inbox` | none (read) | `GET /api/inbox`, narrowed to the device's granted projects; each item gains `companion: { actions: [{ id, tier, enabled }], runId?, sourceId?, railIndex?, expectedDecision? }` |
+| `GET` | `/v1/projects/:pid/inbox/runs/:runId/question` | none (read) | `GET /agent-runtime/runs/:runId`; answers `{ pending, question?, requestedAt? }` |
+| `POST` | `/v1/projects/:pid/inbox/answer` | `write` | body `{ runId, answer }` (1-20000 chars) -> `POST /loop-runs/:runId/resume { answer, interruptId }` (workflow runs) or `POST /agent-runtime/runs/:runId/resume { answer }`; `409 no_pending_question` when nothing waits |
+| `POST` | `/v1/projects/:pid/inbox/resume` | `ai-spawn` | body `{ runId, runCap?: "ignore" \| runCapUsd?: number }` -> `POST /loop-runs/:runId/resume`; the budget `409` body is passed through so the phone can offer Continue / Raise |
+| `POST` | `/v1/projects/:pid/inbox/retry` | `ai-spawn` | body `{ sourceId, railIndex }` (`sourceId` is a delivery id or `run:<id>`) -> `POST /rails/:railIndex/relaunch { sourceId }` |
+| `POST` | `/v1/projects/:pid/inbox/create-pr` | `destructive` (pushes a branch) | body `{ prDeliveryId, expectedDecision: "on_review" }` -> `POST /rails/pr-decision { action: "create-pr" }`; the answer is narrowed to `{ ok, decision, prUrl, prState, detail }` |
+| any | `/v1/projects/:pid/inbox/<anything else>` | n/a | `403 action_not_allowed_for_companion` (merge, discard, publish, force-push, settings, delete stay on Desktop) |
+
+WebSocket: a device subscribed to the `inbox` topic receives a bare `{ type: "inbox.changed", projectId, reason }` when `rail.pr_state`, `rail.job_completed`, `rail.job_stopped`, `job.stuck`, `jira.outbox_changed` or `loop.run_paused|resumed|stopped|completed` fires for a project it may see; the phone re-reads `GET /v1/inbox`.
 
 ### Mission app addresses
 

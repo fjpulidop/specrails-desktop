@@ -325,3 +325,31 @@ describe('mission capabilities and live ACL boundaries', () => {
     expect(socket.sent).toHaveLength(0)
   })
 })
+
+describe('MobileWsBridge inbox nudges', () => {
+  const nudge = (projectId: string, type = 'rail.pr_state') => ({ type, projectId, timestamp: '' }) as unknown as WsMessage
+
+  it('sends a bare inbox.changed to subscribers of the inbox topic for that project only', () => {
+    const bridge = new MobileWsBridge()
+    const s = new StubSocket(), noTopic = new StubSocket()
+    bridge.attach(s, 'dev-1'); bridge.attach(noTopic, 'dev-2')
+    sub(s, ['p1'], ['inbox']); sub(noTopic, ['p1'], ['rails'])
+    bridge.dispatch(nudge('p1'))
+    bridge.dispatch(nudge('p2'))
+    bridge.dispatch(nudge('p1', 'loop.run_paused'))
+    expect(s.sent).toEqual([
+      { type: 'inbox.changed', projectId: 'p1', reason: 'rail.pr_state' },
+      { type: 'inbox.changed', projectId: 'p1', reason: 'loop.run_paused' },
+    ])
+    expect(noTopic.sent).toEqual([])
+  })
+
+  it('never nudges a project the device was not granted', () => {
+    const bridge = new MobileWsBridge({ allowedProjectsFor: () => new Set(['p1']) })
+    const s = new StubSocket()
+    bridge.attach(s, 'dev-1')
+    sub(s, ['p1', 'p2'], ['inbox'])
+    bridge.dispatch(nudge('p2'))
+    expect(s.sent).toEqual([])
+  })
+})

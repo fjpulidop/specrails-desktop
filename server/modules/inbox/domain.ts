@@ -53,6 +53,10 @@ export interface InboxItem {
   diagnosis: InboxDiagnosis | null
   /** Present only on a "spend cap reached" item (`raise-cap`): which cap and where it stands. */
   cap?: InboxCap
+  /** Rail the work ran on, when the item addresses one (a delivery or a run); lets a remote surface retry it. */
+  railIndex?: number
+  /** A delivery item's decision state (`on_review`, `pr_failed`, ...): the optimistic-concurrency token of a PR decision. */
+  decision?: string
 }
 
 /** A spend cap that is reached right now (CD5). */

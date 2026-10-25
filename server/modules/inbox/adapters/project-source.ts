@@ -28,6 +28,7 @@ interface RunRow {
   started_at: string
   finished_at: string | null
   ticket_ids_json: string | null
+  rail_index: number | null
   failure_diagnosis: string | null
 }
 
@@ -92,6 +93,8 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
       action: 'open-review',
       subjectId: row.id,
       conversationId: row.origin_conversation_id,
+      decision,
+      ...(Number.isInteger(row.rail_index) ? { railIndex: row.rail_index } : {}),
     })
   }
   return out
@@ -106,7 +109,7 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
 function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<string>, nowIso: string, nowMs: number): InboxItem[] {
   const since = new Date(nowMs - FAILED_RUN_WINDOW_MS).toISOString()
   const rows = handle.db.prepare(`
-    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.failure_diagnosis
+    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.rail_index, r.failure_diagnosis
     FROM loop_runs r
     WHERE r.project_id = ?
       AND NOT EXISTS (SELECT 1 FROM definition_fork_operations f WHERE f.source_run_id = r.id AND f.adopted = 1)
@@ -135,6 +138,7 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
       subjectId: run.id,
       conversationId: null,
       diagnosis: null as PresentedFailureDiagnosis | null,
+      ...(typeof run.rail_index === 'number' ? { railIndex: run.rail_index } : {}),
     }
     if (run.status === 'paused') {
       if (run.restart_reason === 'budget_paused') {

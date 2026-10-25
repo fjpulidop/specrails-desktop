@@ -187,7 +187,7 @@
   },
   "mobile": {
     "heading": "Mobile Companion",
-    "description": "Steuern Sie Specrails über die SpecRails Companion-App auf Ihrem Smartphone – zu 100 % über Ihr lokales Netzwerk. Standardmäßig aus.",
+    "description": "Steuern Sie Specrails über die SpecRails Companion-App auf Ihrem Smartphone – zu 100 % über Ihr lokales Netzwerk. Standardmäßig aus. Ein gekoppeltes Smartphone kann im Posteingang Fragen beantworten, fortsetzen, wiederholen und Entwurfs-PRs erstellen, soweit die MCP-Berechtigungsstufen es erlauben; Zusammenführen, Verwerfen und Einstellungen bleiben auf diesem Computer.",
     "accessOn": "Mobilzugriff an",
     "accessOff": "Mobilzugriff aus",
     "listeningOnPort": "Lauscht auf Port {{port}}",

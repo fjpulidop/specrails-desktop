@@ -187,7 +187,7 @@
   },
   "mobile": {
     "heading": "App móvil",
-    "description": "Controla Specrails desde la app SpecRails Companion de tu teléfono, 100 % a través de tu red local. Desactivado por defecto.",
+    "description": "Controla Specrails desde la app SpecRails Companion de tu teléfono, 100 % a través de tu red local. Desactivado por defecto. Un teléfono emparejado puede responder preguntas, reanudar, reintentar y crear PR en borrador desde la bandeja, según lo que permitan los niveles de permisos MCP; fusionar, descartar y los ajustes se quedan en este ordenador.",
     "accessOn": "Acceso móvil activado",
     "accessOff": "Acceso móvil desactivado",
     "listeningOnPort": "A la escucha en el puerto {{port}}",

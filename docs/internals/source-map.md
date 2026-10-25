@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1324 source/build files. Nearby tests are linked where names
+Includes 1325 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1300,6 +1300,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mobile-devices.ts](../../server/mobile/mobile-devices.ts) · [test](../../server/mobile/mobile-devices.test.ts)
 - [mobile-event-bus.ts](../../server/mobile/mobile-event-bus.ts)
 - [mobile-gateway.ts](../../server/mobile/mobile-gateway.ts) · [test](../../server/mobile/mobile-gateway.test.ts)
+- [mobile-inbox.ts](../../server/mobile/mobile-inbox.ts) · [test](../../server/mobile/mobile-inbox.test.ts)
 - [mobile-missions.ts](../../server/mobile/mobile-missions.ts) · [test](../../server/mobile/mobile-missions.test.ts)
 - [mobile-redact.ts](../../server/mobile/mobile-redact.ts) · [test](../../server/mobile/mobile-redact.test.ts)
 - [mobile-router.ts](../../server/mobile/mobile-router.ts) · [test](../../server/mobile/mobile-router.test.ts)

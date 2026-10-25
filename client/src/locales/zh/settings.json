@@ -187,7 +187,7 @@
   },
   "mobile": {
     "heading": "移动伴侣",
-    "description": "通过手机上的 SpecRails Companion 应用控制 Specrails，完全经由本地网络。默认关闭。",
+    "description": "通过手机上的 SpecRails Companion 应用控制 Specrails，完全经由本地网络。默认关闭。已配对的手机可以在收件箱中回答问题、恢复、重试并创建草稿 PR，具体取决于 MCP 权限级别；合并、丢弃和设置仍只能在这台电脑上操作。",
     "accessOn": "移动访问已开启",
     "accessOff": "移动访问已关闭",
     "listeningOnPort": "正在监听端口 {{port}}",

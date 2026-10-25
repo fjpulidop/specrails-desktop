@@ -1767,7 +1767,8 @@
   },
   "inbox": {
     "publicEntries": [
-      "adapters/http.ts"
+      "adapters/http.ts",
+      "index.ts"
     ],
     "dependencies": {
       "adapters/http.ts": [

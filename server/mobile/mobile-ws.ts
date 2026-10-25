@@ -15,6 +15,16 @@ const LOG_FLUSH_MS = 250
 const LOG_LINE_MAX = 2048
 const LOG_BATCH_MAX = 60
 
+/**
+ * Events that can change what waits for the person (the "Needs you" inbox).
+ * They reach a companion that subscribed to the `inbox` topic as a bare
+ * `inbox.changed` nudge (no payload): the phone re-reads `GET /v1/inbox`.
+ */
+const INBOX_NUDGE_TYPES: ReadonlySet<string> = new Set([
+  'rail.pr_state', 'rail.job_completed', 'rail.job_stopped', 'job.stuck', 'jira.outbox_changed',
+  'loop.run_paused', 'loop.run_resumed', 'loop.run_stopped', 'loop.run_completed',
+])
+
 /** Minimal structural view of a ws.WebSocket (so tests can pass a stub). */
 export interface SocketLike {
   readyState: number
@@ -233,6 +243,7 @@ export class MobileWsBridge {
 
   /** Fan a single bus message out to matching sockets. */
   dispatch(msg: WsMessage): void {
+    if (INBOX_NUDGE_TYPES.has(msg.type)) this.nudgeInbox(msg)
     const topic = topicFor(msg.type)
     if (!topic) return
     for (const s of this._socks) {
@@ -288,6 +299,18 @@ export class MobileWsBridge {
       if (s.topics.has(topic)) {
         this.send(s, redact(toMobileWire(msg)))
       }
+    }
+  }
+
+  /** `inbox.changed` to devices on the `inbox` topic that may see the project. */
+  private nudgeInbox(msg: WsMessage): void {
+    const projectId = (msg as { projectId?: string }).projectId
+    if (!projectId) return
+    for (const s of this._socks) {
+      if (!s.topics.has('inbox') || !s.projects.has(projectId)) continue
+      const allowed = this._allowedProjectsFor(s.deviceId)
+      if (allowed !== null && !allowed.has(projectId)) continue
+      this.send(s, { type: 'inbox.changed', projectId, reason: msg.type })
     }
   }
 

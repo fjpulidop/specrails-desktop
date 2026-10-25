@@ -187,7 +187,7 @@
   },
   "mobile": {
     "heading": "Companion móvel",
-    "description": "Controle o Specrails a partir da app SpecRails Companion no seu telemóvel, 100% através da sua rede local. Desativado por omissão.",
+    "description": "Controle o Specrails a partir da app SpecRails Companion no seu telemóvel, 100% através da sua rede local. Desativado por omissão. Um telemóvel emparelhado pode responder a perguntas, retomar, repetir e criar PR em rascunho a partir da caixa de entrada, dentro do que os níveis de permissão MCP permitirem; integrar, descartar e as definições ficam neste computador.",
     "accessOn": "Acesso móvel ligado",
     "accessOff": "Acesso móvel desligado",
     "listeningOnPort": "À escuta na porta {{port}}",

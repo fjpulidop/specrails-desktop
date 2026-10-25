@@ -8,6 +8,7 @@ import type { DbInstance } from '../db'
 import { createMobileMissionsRouter } from './mobile-missions'
 import type { MobileUpstream } from './mobile-missions'
 import { createMobileCodeRouter } from './mobile-code'
+import { createMobileInboxRouter } from './mobile-inbox'
 
 // The gateway's authenticated REST surface: the `/v1/*` allow-list. Each route
 // forwards, in-process, via a REAL loopback HTTP request to
@@ -427,6 +428,7 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
   }
   v1.use(createMobileMissionsRouter({ db: deps.db, upstream: mobileUpstream }))
   v1.use(createMobileCodeRouter(mobileUpstream))
+  v1.use(createMobileInboxRouter({ db: deps.db, upstream: mobileUpstream }))
   router.use('/v1', v1)
 
   // Any unmatched gateway path → 404 JSON (NEVER falls through to a SPA handler;
@@ -441,6 +443,12 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
 /** The allow-list, exported for the CI drift test (asserts each entry resolves
  *  against a real internal route, and that no traversal param is accepted). */
 export const MOBILE_ALLOWLIST: Array<{ method: string; path: string }> = [
+  { method: 'GET', path: '/v1/inbox' },
+  { method: 'GET', path: '/v1/projects/:pid/inbox/runs/:runId/question' },
+  { method: 'POST', path: '/v1/projects/:pid/inbox/answer' },
+  { method: 'POST', path: '/v1/projects/:pid/inbox/resume' },
+  { method: 'POST', path: '/v1/projects/:pid/inbox/retry' },
+  { method: 'POST', path: '/v1/projects/:pid/inbox/create-pr' },
   { method: 'GET', path: '/v1/projects/:pid/repositories/:rid/code/tree' },
   { method: 'GET', path: '/v1/projects/:pid/repositories/:rid/code/find' },
   { method: 'GET', path: '/v1/projects/:pid/repositories/:rid/code/file' },
