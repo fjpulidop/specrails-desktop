@@ -30,7 +30,7 @@ vi.mock('../../../jobs/components/job-run/useRuntimeRuns', () => ({
 import { AgentPrDecisionCard, deriveMissionRunStatus } from '../AgentPrDecisionCard'
 import { FOCUS_PR_CARD_EVENT } from '../agent-run-failure'
 import type { AgentPrDecisionEnvelope } from '../../lib/agent-api'
-import { queryMoreItem } from './pr-card-actions'
+import { getMoreItem, queryMoreItem } from './pr-card-actions'
 
 const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelope => ({
   kind: 'pr_decision', prDeliveryId: 'run:r1', railIndex: 1, projectId: 'p1', baseBranch: 'main', ticketIds: [4],
@@ -196,7 +196,8 @@ describe('run-only card (shared-cwd launch)', () => {
   it('sends the isolated delivery id and pins requests to the card project', async () => {
     global.fetch = vi.fn(async () => new Response('{}', { status: 202 })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env({ projectId: 'other-project', prDeliveryId: 'failed-delivery', hasDelivery: true, decision: 'implementation_failed', runtime: failed })} conversationId="c1" />)
-    await act(async () => { fireEvent.click(screen.getByTestId('mission-run-relaunch')) })
+    const relaunchItem = getMoreItem('mission-run-relaunch')
+    await act(async () => { fireEvent.click(relaunchItem) })
     expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/projects\/other-project\/rails\/1\/relaunch$/), expect.objectContaining({ body: JSON.stringify({ sourceId: 'failed-delivery', originConversationId: 'c1', originSurface: 'agent-chat' }) }))
   })
 

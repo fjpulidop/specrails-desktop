@@ -175,7 +175,10 @@
     "mergedLocallyStashKept": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; restáuralos cuando quieras.",
     "failed": {
       "generic": "La entrega se detuvo. Mira los detalles técnicos."
-    }
+    },
+    "relaunch": "Relanzar",
+    "relaunchSent": "Relanzando el rail",
+    "relaunchFailed": "No se pudo relanzar el rail"
   },
   "railsBoard": {
     "title": "Rails",

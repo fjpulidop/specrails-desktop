@@ -1,4 +1,7 @@
 import { localizeStatusDetail } from '../../../lib/pr-status-detail'
+import { getApiBase } from '../../../lib/api'
+import { HelpHint } from '../../../components/HelpHint'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { TechnicalDetail } from '../../../components/ui/technical-detail'
 import * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
@@ -56,6 +59,10 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const { activeProjectId: stripProjectId } = useDesktop()
   const stackedHeads = useStackedHeadDeliveryIds(stripProjectId)
   const [inFlight, setInFlight] = useState<RailPrDecisionAction | null>(null)
+  // Refine runs the `discard` action: remember which button started it so only that one shows the spinner.
+  const [inFlightKind, setInFlightKind] = useState<ConfirmationKind | null>(null)
+  const pendingKindRef = useRef<ConfirmationKind | null>(null)
+  const [relaunching, setRelaunching] = useState(false)
   const [checkingOut, setCheckingOut] = useState(false)
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null)
   const currentDeliveryIdRef = useRef(decision.prDeliveryId)
@@ -133,6 +140,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       captured.prDeliveryId !== decision.prDeliveryId ||
       captured.prDeliveryId !== currentDeliveryIdRef.current
     ) return
+    pendingKindRef.current = kind
     void run(action, captured.expectedDecision, captured.prDeliveryId)
   }
 
@@ -151,6 +159,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     ) return
     const repository = decision.repositoryDeliveries?.find((item) => item.repositoryId === repositoryId)
     const targetBase = repository?.integrationBranch ?? repository?.baseBranch ?? decision.baseBranch
+    setInFlightKind(pendingKindRef.current)
+    pendingKindRef.current = null
     setInFlight(action)
     try {
       const res = await (repositoryId ? act(action, expected, expectedDeliveryId, repositoryId) : act(action, expected, expectedDeliveryId))
@@ -255,6 +265,28 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     }
   }
 
+  /** Run the failed attempt again on its rail. The server re-resolves the source delivery and validates limits. */
+  async function relaunch(): Promise<void> {
+    if (relaunching || inFlight || checkingOut || decision.operation) return
+    let base: string
+    try { base = getApiBase() } catch { return }
+    setRelaunching(true)
+    try {
+      const res = await fetch(`${base}/rails/${decision.railIndex}/relaunch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceId: decision.prDeliveryId }),
+      })
+      if (res.status === 202) { toast.success(t('railPr.relaunchSent')); return }
+      const body = await res.json().catch(() => ({})) as { error?: string; detail?: string }
+      notifyError(t('railPr.relaunchFailed'), { detail: body.detail ?? body.error, retry: () => void relaunch() })
+    } catch (e) {
+      notifyError(t('railPr.relaunchFailed'), { detail: e instanceof Error ? e.message : undefined, retry: () => void relaunch() })
+    } finally {
+      if (mountedRef.current) setRelaunching(false)
+    }
+  }
+
   async function runCheckout(repositoryId?: string) {
     if (hasRepositoryDeliveries && !repositoryId) return
     if (!mountedRef.current || !checkout || inFlight || checkingOut || decision.operation) return
@@ -329,7 +361,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   }`
   const iconCls = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
   const spinner = <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
-  const busy = inFlight !== null || checkingOut || decision.operation != null
+  const busy = inFlight !== null || checkingOut || relaunching || decision.operation != null
   // A later milestone chunk was stacked on this delivery (premium-milestone-
   // progress): discarding it pauses the chain — say so before the click.
   const isStackedHead = stackedHeads.has(decision.prDeliveryId)
@@ -382,7 +414,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       onClick={(e) => { e.stopPropagation(); openConfirmation('discard') }}
       className={ghostBtn}
     >
-      {inFlight === 'discard' ? spinner : null}
+      {inFlight === 'discard' && inFlightKind !== 'refine' ? spinner : null}
       {t('railPr.discard')}
     </button>
   )
@@ -558,7 +590,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       onClick={(event) => { event.stopPropagation(); openConfirmation('discard-local') }}
       className={ghostBtn}
     >
-      {inFlight === 'discard' ? spinner : null}
+      {inFlight === 'discard' && inFlightKind !== 'refine' ? spinner : null}
       {t('railPr.discardLocalResult')}
     </button>
   )
@@ -584,7 +616,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       onClick={(event) => { event.stopPropagation(); openConfirmation('refine') }}
       className={ghostBtn}
     >
-      {inFlight === 'discard' ? spinner : null}
+      {inFlight === 'discard' && inFlightKind === 'refine' ? spinner : null}
       {t('railPr.refine')}
     </button>
   )
@@ -639,7 +671,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       className={itemCls}
       onSelect={() => openConfirmation('discard')}
     >
-      {inFlight === 'discard' ? spinner : null}
+      {inFlight === 'discard' && inFlightKind !== 'refine' ? spinner : null}
       {t('railPr.discard')}
     </DropdownMenuItem>
   )
@@ -691,6 +723,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   // ── per-state pill + actions ────────────────────────────────────────────────
   let pill: React.ReactNode = null
   let actions: React.ReactNode = null
+  // The pill's explanation, readable without hovering (the tooltip keeps it too).
+  let detailLine: string | null = null
 
   if (existingPrIteration) {
     pill = (
@@ -880,6 +914,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   } else if (d === 'implementation_failed' && decision.statusCode === 'review_changes_requested') {
     // Flow → Spec still needs changes: its Flow worktree is kept for "Back to
     // Flow" / "Relaunch" on the mission card — never discarded from here.
+    detailLine = decision.statusDetail ? null : t('railPr.reviewChangesRequestedHint')
     pill = (
       <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={decision.statusDetail ?? t('railPr.reviewChangesRequestedHint')} data-testid="rail-pr-review-changes">
         <MessageSquareWarning className={iconCls} aria-hidden />
@@ -888,6 +923,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     )
     actions = null
   } else if (d === 'implementation_failed' && presentation.implementationFailed) {
+    detailLine = t('railPr.implementationFailedHint')
     pill = (
       <span className={`${pillBase} border-destructive/30 bg-destructive/10 text-destructive`} title={t('railPr.implementationFailedHint')}>
         <AlertTriangle className={iconCls} aria-hidden />
@@ -896,6 +932,13 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     )
     actions = (
       <>
+        {/* One primary: run the attempt again. Resuming a run lives on the mission card, which has the run's data. */}
+        {!presentation.continuation && (
+          <button type="button" data-testid="rail-pr-relaunch" disabled={busy} onClick={(event) => { event.stopPropagation(); void relaunch() }} className={primaryBtn}>
+            {relaunching ? spinner : <RotateCcw className={iconCls} aria-hidden />}
+            {t('railPr.relaunch')}
+          </button>
+        )}
         {presentation.continuation ? dismissBtn : discardBtn}
       </>
     )
@@ -948,11 +991,13 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       {d !== 'building' && !menuRendered && (decision.loopId || decision.loopName) ? <LoopChip loopId={decision.loopId} loopName={decision.loopName} /> : null}
       {decision.operation && (
         <span className={`${pillBase} border-accent-info/30 bg-accent-info/10 text-accent-info`} data-testid="rail-pr-operation">
-          <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
+          <RailTrack running className="w-8 shrink-0" />
           {t(`railPr.operation.${decision.operation}`)}
         </span>
       )}
       {actions}
+      <HelpHint topic="prDecision" />
+      {detailLine && <p className="basis-full text-caption text-muted-foreground" data-testid="rail-pr-detail-line">{detailLine}</p>}
       {decision.deliverySha && (
         <span
           className={`${pillBase} ${decision.deliveryOutcome === 'delivered' ? 'border-accent-success/30 bg-accent-success/10 text-accent-success' : 'border-border/60 bg-surface/60 text-muted-foreground'} font-mono`}

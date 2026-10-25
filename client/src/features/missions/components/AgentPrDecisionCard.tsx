@@ -960,32 +960,35 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   }, [onSummary, summaryStep, pausedRunId, summaryPausedReason, summaryStalled, summaryApproval])
   const runActionBtn = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-caption font-medium transition-colors disabled:pointer-events-none disabled:opacity-50'
   const runtimeBusy = runtime.busy !== null || relaunching
+  const resumeAction = FEATURE_MISSION_RAIL_CARDS && actionableRun && actionableRun.canResume && (
+    <RunPrimaryButton primary={{ id: 'resume', label: t('runCard.actions.resume'), kind: 'local', rank: 2 }} data-agent-interactive data-testid="mission-run-resume" disabled={runtimeBusy || busy !== null}
+      onClick={() => void runtime.act(actionableRun, 'resume')}
+      className={cn(runActionBtn, 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20')}>
+      {runtime.busy === actionableRun.runId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+      {t('runCard.actions.resume')}
+    </RunPrimaryButton>
+  )
+  const approveAction = FEATURE_MISSION_RAIL_CARDS && actionableRun && actionableRun.pendingApproval && (
+    <RunPrimaryButton primary={{ id: 'approve', label: t('runCard.actions.approve'), kind: 'outward', rank: 0 }} data-agent-interactive data-testid="mission-run-approve" disabled={runtimeBusy || busy !== null}
+      onClick={() => void runtime.act(actionableRun, 'approve')}
+      className={cn(runActionBtn, 'border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20')}>
+      <ShieldCheck className="h-3 w-3" />
+      {t('runCard.actions.approve')}
+    </RunPrimaryButton>
+  )
+  const recoverAction = FEATURE_MISSION_RAIL_CARDS && actionableRun && actionableRun.recoverableSteps.length > 0 && (
+    <RunPrimaryButton primary={{ id: 'recover', label: t('runCard.actions.recover'), kind: 'outward', rank: 3 }} data-agent-interactive data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
+      onClick={() => void runtime.act(actionableRun, 'recover')}
+      className={cn(runActionBtn, 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning hover:bg-accent-warning/20')}>
+      <Wrench className="h-3 w-3" />
+      {t('runCard.actions.recover')}
+    </RunPrimaryButton>
+  )
   const runtimeActions = FEATURE_MISSION_RAIL_CARDS && actionableRun && (
     <>
-      {actionableRun.canResume && (
-        <RunPrimaryButton primary={{ id: 'resume', label: t('runCard.actions.resume'), kind: 'local', rank: 2 }} data-agent-interactive data-testid="mission-run-resume" disabled={runtimeBusy || busy !== null}
-          onClick={() => void runtime.act(actionableRun, 'resume')}
-          className={cn(runActionBtn, 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20')}>
-          {runtime.busy === actionableRun.runId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-          {t('runCard.actions.resume')}
-        </RunPrimaryButton>
-      )}
-      {actionableRun.pendingApproval && (
-        <RunPrimaryButton primary={{ id: 'approve', label: t('runCard.actions.approve'), kind: 'outward', rank: 0 }} data-agent-interactive data-testid="mission-run-approve" disabled={runtimeBusy || busy !== null}
-          onClick={() => void runtime.act(actionableRun, 'approve')}
-          className={cn(runActionBtn, 'border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20')}>
-          <ShieldCheck className="h-3 w-3" />
-          {t('runCard.actions.approve')}
-        </RunPrimaryButton>
-      )}
-      {actionableRun.recoverableSteps.length > 0 && (
-        <RunPrimaryButton primary={{ id: 'recover', label: t('runCard.actions.recover'), kind: 'outward', rank: 3 }} data-agent-interactive data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
-          onClick={() => void runtime.act(actionableRun, 'recover')}
-          className={cn(runActionBtn, 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning hover:bg-accent-warning/20')}>
-          <Wrench className="h-3 w-3" />
-          {t('runCard.actions.recover')}
-        </RunPrimaryButton>
-      )}
+      {resumeAction}
+      {approveAction}
+      {recoverAction}
     </>
   )
   const relaunchBlocked = Boolean(liveRun?.active) || runStatus === 'running' || runStatus === 'paused'
@@ -1368,8 +1371,18 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
 
   // Secondary actions live behind ONE "More actions" menu: the card keeps a single
   // primary button (and at most the review packet as a quiet secondary).
-  const moreActions = (opts: { merge?: boolean } = {}) => {
-    const items: OverflowActionItem[] = []
+  // Failed implementation: approve / recover / relaunch are real, but not the first thing to press.
+  const implementationFailedLead: OverflowActionItem[] = []
+  if (FEATURE_MISSION_RAIL_CARDS && actionableRun) {
+    if (actionableRun.pendingApproval) implementationFailedLead.push({ id: 'approve', testId: 'mission-run-approve', label: t('runCard.actions.approve'), onSelect: () => void runtime.act(actionableRun, 'approve'), disabled: runtimeBusy || busy !== null })
+    if (actionableRun.recoverableSteps.length > 0) implementationFailedLead.push({ id: 'recover', testId: 'mission-run-recover', label: t('runCard.actions.recover'), onSelect: () => void runtime.act(actionableRun, 'recover'), disabled: runtimeBusy || busy !== null })
+  }
+  if (FEATURE_MISSION_RAIL_CARDS && !flowSpecRun && resumeAction) {
+    implementationFailedLead.push({ id: 'relaunch', testId: 'mission-run-relaunch', label: t('runCard.actions.relaunch'), hint: relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined, onSelect: () => void relaunch(), disabled: runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted })
+  }
+
+  const moreActions = (opts: { merge?: boolean; lead?: readonly OverflowActionItem[]; discardLocal?: boolean } = {}) => {
+    const items: OverflowActionItem[] = [...(opts.lead ?? [])]
     if (checkoutBranch && !hasRepositoryDeliveries) {
       items.push({
         id: 'checkout', testId: 'agent-pr-checkout', label: t('prCard.checkout'),
@@ -1387,30 +1400,18 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         onSelect: () => setConfirmingMergeLocal(true), disabled: anyBusy,
       })
     }
-    items.push(presentation.continuation
+    items.push(opts.discardLocal
+      ? { id: 'discard-local', testId: 'agent-pr-discard-local', label: t('prCard.discardLocalResult'), onSelect: () => setConfirmingDiscardLocal(true), disabled: anyBusy, destructive: true }
+      : presentation.continuation
       ? { id: 'dismiss', testId: 'agent-pr-dismiss', label: t('prCard.dismiss'), onSelect: () => setConfirmingDismiss(true), disabled: anyBusy }
       : { id: 'discard', testId: 'agent-pr-discard', label: t('prCard.discard'), onSelect: () => setConfirmingDiscard(true), disabled: anyBusy, destructive: true })
     return <OverflowActions label={t('prCard.moreActions')} items={items} disabled={anyBusy} testId="agent-pr-more" />
   }
 
-  const discardAction = (
-    <button type="button" onClick={() => setConfirmingDiscard(true)} disabled={anyBusy} data-agent-interactive className={ghostBtn}>
-      {busy === 'discard' && !refining && spinner}
-      {t('prCard.discard')}
-    </button>
-  )
-
   const dismissAction = (
     <button type="button" onClick={() => setConfirmingDismiss(true)} disabled={anyBusy} data-agent-interactive className={ghostBtn}>
       {busy === 'dismiss' && spinner}
       {t('prCard.dismiss')}
-    </button>
-  )
-
-  const discardLocalAction = (
-    <button type="button" onClick={() => setConfirmingDiscardLocal(true)} disabled={anyBusy} data-agent-interactive className={ghostBtn}>
-      {busy === 'discard' && !refining && spinner}
-      {t('prCard.discardLocalResult')}
     </button>
   )
 
@@ -1716,10 +1717,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
                 </RunPrimaryButton>
               )}
               {inspectLocalResultAction}
+              {/* Retry delivery exists only without a manual recovery, so there is one primary either way. */}
               {recoverAndRetryAction}
-              {presentation.continuation
-                ? (presentation.hasDiscardableRecoveryResult ? discardLocalAction : dismissAction)
-                : discardAction}
+              {moreActions({ discardLocal: presentation.continuation && presentation.hasDiscardableRecoveryResult })}
             </div>
           )}
           {!terminal && presentation.retryablePush && (
@@ -1784,10 +1784,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
                 {t('prCard.implementationFailedNote')}
               </p>
               <div className="flex flex-wrap items-center gap-1.5">
-                {runtimeActions}
-                {relaunchAction}
-                {presentation.continuation ? dismissAction : discardAction}
+                {/* One primary: resume the run when it can be, else relaunch. The rest wait in the menu. */}
+                {resumeAction || relaunchAction}
+                {moreActions({ lead: implementationFailedLead })}
               </div>
+              {resumeAction && !flowSpecRun && relaunchError && <p role="alert" className="text-xs text-destructive" data-testid="mission-run-relaunch-error">{relaunchError}</p>}
             </div>
           )}
           {FEATURE_MISSION_RAIL_CARDS && decision === 'discarded' && envelope.statusCode === 'delivery_failed' && (

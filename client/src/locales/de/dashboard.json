@@ -175,7 +175,10 @@
     "mergedLocallyStashKept": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; stelle sie wieder her, wenn du so weit bist.",
     "failed": {
       "generic": "Die Lieferung wurde angehalten. Siehe technische Details."
-    }
+    },
+    "relaunch": "Erneut starten",
+    "relaunchSent": "Rail wird erneut gestartet",
+    "relaunchFailed": "Rail konnte nicht erneut gestartet werden"
   },
   "railsBoard": {
     "title": "Rails",

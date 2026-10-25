@@ -175,7 +175,10 @@
     "mergedLocallyStashKept": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；准备好后再恢复。",
     "failed": {
       "generic": "交付已停止。请查看技术详情。"
-    }
+    },
+    "relaunch": "重新启动",
+    "relaunchSent": "正在重新启动轨道",
+    "relaunchFailed": "无法重新启动轨道"
   },
   "railsBoard": {
     "title": "Rails",

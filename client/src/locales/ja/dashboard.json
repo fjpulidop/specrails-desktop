@@ -175,7 +175,10 @@
     "mergedLocallyStashKept": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。準備ができたら復元してください。",
     "failed": {
       "generic": "配信が停止しました。技術的な詳細を確認してください。"
-    }
+    },
+    "relaunch": "再起動",
+    "relaunchSent": "レールを再起動しています",
+    "relaunchFailed": "レールを再起動できませんでした"
   },
   "railsBoard": {
     "title": "レール",

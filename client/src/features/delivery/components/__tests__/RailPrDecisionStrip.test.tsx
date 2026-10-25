@@ -18,6 +18,7 @@ vi.mock('../../../../lib/tauri-shell', () => ({
 
 import { RailRow } from '../../../rails/components/RailRow'
 import { RailPrDecisionStrip } from '../RailPrDecisionStrip'
+import { setActiveProjectId } from '../../../../lib/api'
 import type { LocalTicket, RailPrDecision, RailPrStateSnapshot } from '../../../../types'
 import type { RailPrActResult } from '../../context/RailPrDecisionContext'
 import type { RepositoryDeliverySnapshot } from '../../../projects/types/multi-repo'
@@ -1152,3 +1153,32 @@ describe('merge-local action', () => {
     await waitFor(() => expect(mockToast.error).toHaveBeenCalled())
   })
 })
+
+describe('strip: one primary, readable detail, honest spinners', () => {
+  it('shows the Refine spinner only for Refine, never for a Discard in flight', async () => {
+    let finish!: (r: RailPrActResult) => void
+    const act = vi.fn(() => new Promise<RailPrActResult>((resolve) => { finish = resolve }))
+    renderStrip(snapshot({ decision: 'no_changes', implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes' }), act)
+    fireEvent.click(screen.getByTestId('rail-pr-refine'))
+    fireEvent.click(screen.getByTestId('rail-pr-refine-confirm-btn'))
+    await waitFor(() => expect(act).toHaveBeenCalled())
+    expect(screen.getByTestId('rail-pr-refine').querySelector('.animate-spin')).not.toBeNull()
+    finish({ ok: true, status: 200 })
+    await waitFor(() => expect(screen.getByTestId('rail-pr-refine')).toBeEnabled())
+  })
+
+  it('carries the delivery help hint', () => {
+    renderStrip(snapshot({ decision: 'on_review' }))
+    expect(screen.getByTestId('rail-pr-strip').querySelector('[data-help-topic="prDecision"]')).not.toBeNull()
+  })
+
+  it('implementation_failed offers Relaunch as the one primary and a visible explanation', async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response('{}', { status: 202 })) as unknown as typeof fetch
+    setActiveProjectId('p1')
+    renderStrip(snapshot({ decision: 'implementation_failed', railIndex: 2 }))
+    expect(screen.getByTestId('rail-pr-detail-line')).toHaveTextContent(/implementation run failed/i)
+    fireEvent.click(screen.getByTestId('rail-pr-relaunch'))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/rails\/2\/relaunch$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ sourceId: 'del-1' }) })))
+  })
+})
+

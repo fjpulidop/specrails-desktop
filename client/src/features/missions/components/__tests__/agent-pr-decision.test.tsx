@@ -80,7 +80,7 @@ import { AgentChatProvider, useAgentChat } from '../../context/AgentChatContext'
 import { AgentPrDecisionCard } from '../AgentPrDecisionCard'
 import { DialogLayerProvider } from '../../../../components/ui/dialog'
 import type { RepositoryDeliverySnapshot } from '../../../projects/types/multi-repo'
-import { queryAction, getAction, queryMoreItem } from './pr-card-actions'
+import { queryAction, getAction, getMoreItem, queryMoreItem } from './pr-card-actions'
 
 const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelope => ({
   kind: 'pr_decision',
@@ -395,9 +395,9 @@ describe('AgentPrDecisionCard states', () => {
 
     expect(screen.getByRole('button', { name: 'Inspect local result' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Commit & retry push' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Discard local result' })).toBeInTheDocument()
+    expect(getMoreItem('agent-pr-discard-local')).toBeInTheDocument()
     expect(queryAction('Checkout')).not.toBeInTheDocument()
-    expect(queryAction('Discard')).not.toBeInTheDocument()
+    expect(queryMoreItem('agent-pr-discard')).not.toBeInTheDocument()
   })
 
   it('offers safe Dismiss instead of claiming a local result exists on another computer', () => {
@@ -439,9 +439,10 @@ describe('AgentPrDecisionCard states', () => {
     render(<AgentPrDecisionCard envelope={unavailableRecoveryEnv({ deliverySha: 'b'.repeat(40) })} />)
 
     expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Discard local result' })).toHaveLength(1)
+    getMoreItem('agent-pr-discard-local')
+    expect(screen.getAllByTestId('agent-pr-discard-local')).toHaveLength(1)
     expect(queryAction('Dismiss follow-up')).not.toBeInTheDocument()
-    expect(queryAction('Discard')).not.toBeInTheDocument()
+    expect(queryMoreItem('agent-pr-discard')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Commit & retry push' })).not.toBeInTheDocument()
     expect(queryAction('Checkout')).not.toBeInTheDocument()
   })
