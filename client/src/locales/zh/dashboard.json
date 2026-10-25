@@ -177,6 +177,8 @@
       "generic": "交付已停止。请查看技术详情。"
     },
     "relaunch": "重新启动",
+    "resume": "继续",
+    "relaunchBlocked": "该 Rail 仍有活动的运行",
     "relaunchSent": "正在重新启动轨道",
     "relaunchFailed": "无法重新启动轨道",
     "recheckRecoveryConfirmTechnical": "Specrails 将在此克隆中重新扫描属于 {{branch}} 交付的 worktree、分支、refs、reflogs 和孤立 Git 对象。如果能证明唯一结果，它可以提交隔离的更改并重试精确 push。不会触碰主项目文件夹。"

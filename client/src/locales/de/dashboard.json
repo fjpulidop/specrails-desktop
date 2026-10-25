@@ -177,6 +177,8 @@
       "generic": "Die Lieferung wurde angehalten. Siehe technische Details."
     },
     "relaunch": "Erneut starten",
+    "resume": "Fortsetzen",
+    "relaunchBlocked": "Der Rail hat noch einen aktiven Run",
     "relaunchSent": "Rail wird erneut gestartet",
     "relaunchFailed": "Rail konnte nicht erneut gestartet werden",
     "recheckRecoveryConfirmTechnical": "Specrails durchsucht in diesem Klon erneut den zur Lieferung gehörenden Worktree, Branch, Refs, Reflogs und verwaiste Git-Objekte für {{branch}}. Wird genau ein Ergebnis bewiesen, kann Specrails isolierte Änderungen committen und den exakten Push wiederholen. Der Hauptprojektordner bleibt unberührt."

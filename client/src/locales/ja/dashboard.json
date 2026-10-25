@@ -177,6 +177,8 @@
       "generic": "配信が停止しました。技術的な詳細を確認してください。"
     },
     "relaunch": "再起動",
+    "resume": "再開",
+    "relaunchBlocked": "レールにはまだ実行中の処理があります",
     "relaunchSent": "レールを再起動しています",
     "relaunchFailed": "レールを再起動できませんでした",
     "recheckRecoveryConfirmTechnical": "Specrails は、このクローンで {{branch}} の配信に属する worktree、ブランチ、refs、reflogs、孤立した Git オブジェクトを再スキャンします。結果を 1 つに特定できた場合、隔離された変更をコミットし、正確な push を再試行します。メインのプロジェクトフォルダーには触れません。"

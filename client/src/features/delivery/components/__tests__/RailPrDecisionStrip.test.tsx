@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '../../../../test-utils'
+import { render, screen, fireEvent, waitFor, within, act } from '../../../../test-utils'
 import { DndContext } from '@dnd-kit/core'
 import { cleanup } from '@testing-library/react'
 
@@ -11,6 +11,10 @@ const { mockToast, mockRevealItemInDir, mockClipboardWriteText, mockIsTauri } = 
   mockIsTauri: vi.fn(() => false),
 }))
 vi.mock('sonner', () => ({ toast: mockToast }))
+vi.mock('../../../../hooks/useDesktop', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../hooks/useDesktop')>()
+  return { ...actual, useDesktop: () => ({ ...actual.useDesktop(), activeProjectId: 'p1' }) }
+})
 vi.mock('../../../../lib/tauri-shell', () => ({
   isTauri: mockIsTauri,
   revealItemInDir: mockRevealItemInDir,
@@ -1179,6 +1183,53 @@ describe('strip: one primary, readable detail, honest spinners', () => {
     expect(screen.getByTestId('rail-pr-detail-line')).toHaveTextContent(/implementation run failed/i)
     fireEvent.click(screen.getByTestId('rail-pr-relaunch'))
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/rails\/2\/relaunch$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ sourceId: 'del-1' }) })))
+  })
+
+  describe('resumable failed attempt', () => {
+    const run = (over = {}) => ({ runId: 'run-1', status: 'failed', nextStep: 'fixer', recoverableSteps: [], active: false, canResume: true, canCancel: false, ...over })
+    const routeFetch = (runs: unknown[]) => {
+      global.fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        const href = String(url)
+        if (init?.method === 'POST') return new Response('{}', { status: 202 })
+        if (href.includes('/agent-runtime/runs')) return new Response(JSON.stringify({ runs }), { status: 200 })
+        return new Response('{}', { status: 200 })
+      }) as unknown as typeof fetch
+    }
+
+    it('offers Resume as the primary instead of Relaunch when the run can resume', async () => {
+      routeFetch([run()])
+      renderStrip(snapshot({ decision: 'implementation_failed', railIndex: 2, runIds: ['run-1'] }))
+      const resume = await screen.findByTestId('rail-pr-resume')
+      expect(screen.queryByTestId('rail-pr-relaunch')).toBeNull()
+      fireEvent.click(resume)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/agent-runtime\/runs\/run-1\/resume$/), expect.objectContaining({ method: 'POST' })))
+    })
+
+    it('a continuation gets Resume as its primary, and no Relaunch when it cannot resume', async () => {
+      routeFetch([run()])
+      const { view } = renderStrip(snapshot({ decision: 'implementation_failed', runIds: ['run-1'], isContinuation: true } as never))
+      expect(await screen.findByTestId('rail-pr-resume')).toBeInTheDocument()
+      view.unmount()
+      routeFetch([run({ canResume: false })])
+      renderStrip(snapshot({ decision: 'implementation_failed', runIds: ['run-1'], isContinuation: true } as never))
+      await act(async () => {})
+      expect(screen.queryByTestId('rail-pr-relaunch')).toBeNull()
+      expect(screen.queryByTestId('rail-pr-resume')).toBeNull()
+    })
+
+    it('disables Relaunch while the rail still has an active run', async () => {
+      routeFetch([run({ canResume: false, active: true, status: 'running', canCancel: true })])
+      renderStrip(snapshot({ decision: 'implementation_failed', runIds: ['run-1'] }))
+      await waitFor(() => expect(screen.getByTestId('rail-pr-relaunch')).toBeDisabled())
+      expect(screen.getByTestId('rail-pr-relaunch')).toHaveAttribute('title', 'The rail still has an active run')
+    })
+
+    it('never offers the plain rail Relaunch for a Flow to Spec run', async () => {
+      routeFetch([run({ canResume: false })])
+      renderStrip(snapshot({ decision: 'implementation_failed', runIds: ['run-1'], loopId: 'factory:flow-spec' }))
+      await act(async () => {})
+      expect(screen.queryByTestId('rail-pr-relaunch')).toBeNull()
+    })
   })
 })
 

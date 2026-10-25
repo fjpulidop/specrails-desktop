@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
 import { toast } from 'sonner'
-import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, FolderOpen, MessageSquareWarning, MoreHorizontal } from 'lucide-react'
+import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, Play, FolderOpen, MessageSquareWarning, MoreHorizontal } from 'lucide-react'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../../../types'
@@ -20,7 +20,8 @@ import { isTauri, revealItemInDir } from '../../../lib/tauri-shell'
 import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { RepositoryDeliveries } from './RepositoryDeliveries'
 import { TopRiskLine } from './TopRiskLine'
-import { LoopChip, useLoopLabel } from './LoopChip'
+import { FLOW_SPEC_LOOP_ID, LoopChip, useLoopLabel } from './LoopChip'
+import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 
@@ -85,6 +86,16 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const d = decision.decision
   const hasRepositoryDeliveries = Boolean(decision.repositoryDeliveries?.length)
   const presentation = derivePrDeliveryPresentation(decision)
+  // A failed attempt may be resumable. Ask the runtime for that one run only while the strip is in that
+  // state (the same cheap per-run poll the mission card uses); never for any other decision.
+  const failedRunId = decision.runIds?.[0] ?? null
+  const implementationFailedStrip = d === 'implementation_failed' && presentation.implementationFailed && decision.statusCode !== 'review_changes_requested'
+  const runtimeRuns = useRuntimeRuns(stripProjectId, { jobId: failedRunId ?? undefined, enabled: implementationFailedStrip && !!failedRunId })
+  const failedRun = runtimeRuns.runs.find((run) => run.runId === failedRunId) ?? null
+  const canResume = failedRun !== null && failedRun.canResume && !failedRun.active
+  const relaunchBlocked = failedRun !== null && (failedRun.active || failedRun.status === 'running' || failedRun.status === 'paused')
+  // A Flow → Spec run relaunches from its Flow (mission card): the rail relaunch refuses that loop.
+  const flowSpecRun = decision.loopId === FLOW_SPEC_LOOP_ID
   const loopLabel = useLoopLabel(decision.loopId, decision.loopName)
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(decision.statusCode, decision.statusDetail)
   const statusDetail = localizeStatusDetail(decision.statusDetail, t('railPr.failed.generic'))
@@ -362,7 +373,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   }`
   const iconCls = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
   const spinner = <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
-  const busy = inFlight !== null || checkingOut || relaunching || decision.operation != null
+  const busy = inFlight !== null || checkingOut || relaunching || runtimeRuns.busy !== null || decision.operation != null
   // A later milestone chunk was stacked on this delivery (premium-milestone-
   // progress): discarding it pauses the chain — say so before the click.
   const isStackedHead = stackedHeads.has(decision.prDeliveryId)
@@ -933,9 +944,14 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     )
     actions = (
       <>
-        {/* One primary: run the attempt again. Resuming a run lives on the mission card, which has the run's data. */}
-        {!presentation.continuation && (
-          <button type="button" data-testid="rail-pr-relaunch" disabled={busy} onClick={(event) => { event.stopPropagation(); void relaunch() }} className={primaryBtn}>
+        {/* One primary: resume the run when it can be, else run the attempt again (never for a continuation or a Flow run). */}
+        {canResume ? (
+          <button type="button" data-testid="rail-pr-resume" disabled={busy} onClick={(event) => { event.stopPropagation(); void runtimeRuns.act(failedRun, 'resume') }} className={primaryBtn}>
+            {runtimeRuns.busy !== null ? spinner : <Play className={iconCls} aria-hidden />}
+            {t('railPr.resume')}
+          </button>
+        ) : !presentation.continuation && !flowSpecRun && (
+          <button type="button" data-testid="rail-pr-relaunch" disabled={busy || relaunchBlocked} title={relaunchBlocked ? t('railPr.relaunchBlocked') : undefined} onClick={(event) => { event.stopPropagation(); void relaunch() }} className={primaryBtn}>
             {relaunching ? spinner : <RotateCcw className={iconCls} aria-hidden />}
             {t('railPr.relaunch')}
           </button>

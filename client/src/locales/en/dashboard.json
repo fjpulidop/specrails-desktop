@@ -177,6 +177,8 @@
       "generic": "Delivery stopped. See technical details."
     },
     "relaunch": "Relaunch",
+    "resume": "Resume",
+    "relaunchBlocked": "The rail still has an active run",
     "relaunchSent": "Relaunching the rail",
     "relaunchFailed": "Couldn't relaunch the rail",
     "recheckRecoveryConfirmTechnical": "Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for {{branch}}. If it proves one result, it may commit isolated changes and retry the exact push. Your main project folder will not be touched."

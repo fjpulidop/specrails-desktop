@@ -177,6 +177,8 @@
       "generic": "La entrega se detuvo. Mira los detalles técnicos."
     },
     "relaunch": "Relanzar",
+    "resume": "Reanudar",
+    "relaunchBlocked": "El rail todavía tiene una ejecución activa",
     "relaunchSent": "Relanzando el rail",
     "relaunchFailed": "No se pudo relanzar el rail",
     "recheckRecoveryConfirmTechnical": "Specrails volverá a examinar en este clon el worktree, la rama, las refs, los reflogs y los objetos Git huérfanos pertenecientes a la entrega de {{branch}}. Si demuestra un único resultado, podrá confirmar los cambios aislados y reintentar el push exacto. No tocará la carpeta principal del proyecto."
