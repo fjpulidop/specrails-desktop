@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop } from '../../../hooks/useDesktop'
 import type { ProjectConfig } from '../../../types'
-import { PROJECT_SETTINGS_SECTIONS } from '../components/project-settings-sections'
+import { PROJECT_SETTINGS_SECTIONS, ProjectSettingsPane } from '../components/project-settings-sections'
+import { SETTING_PARAM, focusSettingAnchor } from '../lib/setting-anchor'
 import { ProjectTelemetrySection } from '../components/ProjectSettingsSections'
 
 export default function SettingsPage() {
@@ -42,6 +43,13 @@ export default function SettingsPage() {
     tryScroll()
     return () => { cancelled = true }
   }, [location.hash, location.key])
+
+  // ⌘K `/` in Board mode: /settings?setting=<id> lands on that block once it has mounted.
+  const settingId = new URLSearchParams(location.search).get(SETTING_PARAM)
+  useEffect(() => {
+    if (!settingId) return
+    return focusSettingAnchor(settingId)
+  }, [settingId, location.key])
 
   const [config, setConfig] = useState<ProjectConfig | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -101,7 +109,7 @@ export default function SettingsPage() {
       {PROJECT_SETTINGS_SECTIONS.flatMap((section) =>
         section.panes
           .filter((Pane) => isSuperMode || Pane !== ProjectTelemetrySection)
-          .map((Pane, i) => <Pane key={`${section.id}-${i}`} />),
+          .map((Pane, i) => <ProjectSettingsPane key={`${section.id}-${i}`} Pane={Pane} />),
       )}
     </div>
   )

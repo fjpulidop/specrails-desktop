@@ -443,6 +443,7 @@
       ],
       "runtime/agent-store.ts": [
         "../../../db",
+        "../../../util/search-snippet",
         "../../missions/runtime/agent-tier",
         "crypto"
       ],
@@ -2001,6 +2002,7 @@
       ],
       "runtime/loop-runs-store.ts": [
         "../../../db",
+        "../../../db/job-search",
         "../../agent-runtime/runtime/agent-runtime-retention-records",
         "./loop-run-manager",
         "node:fs",
@@ -2325,6 +2327,7 @@
       "runtime/spec-generation.ts",
       "runtime/spec-launcher-manager.ts",
       "runtime/spec-models.ts",
+      "runtime/spec-search.ts",
       "runtime/ticket-store.ts",
       "runtime/ticket-trash-service.ts",
       "runtime/ticket-trash.ts",
@@ -2448,6 +2451,10 @@
       "runtime/spec-models.ts": [
         "../../../providers",
         "../../../providers/types"
+      ],
+      "runtime/spec-search.ts": [
+        "../../../util/search-snippet",
+        "./ticket-store"
       ],
       "runtime/ticket-store.ts": [
         "../domain/non-goals",

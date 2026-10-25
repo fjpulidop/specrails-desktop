@@ -721,11 +721,13 @@ export function ArcSidebar({
   // Per-project settings modal (Agent Mode hover gear on a project folder).
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
   const [projectSettingsSection, setProjectSettingsSection] = useState<string | undefined>()
+  const [projectSettingsSettingId, setProjectSettingsSettingId] = useState<string | undefined>()
   // ⌘K "Open project settings ▸ <section>" (lib/app-settings-events).
   useEffect(() => {
     const onOpen = (event: Event) => {
-      const section = (event as CustomEvent<OpenProjectSettingsDetail>).detail?.section
-      setProjectSettingsSection(section)
+      const detail = (event as CustomEvent<OpenProjectSettingsDetail>).detail
+      setProjectSettingsSection(detail?.section)
+      setProjectSettingsSettingId(detail?.settingId)
       setProjectSettingsOpen(true)
     }
     window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
@@ -1219,7 +1221,7 @@ export function ArcSidebar({
 
       {projectSettingsOpen && (
         <Suspense fallback={null}>
-          <ProjectSettingsDialog open initialSection={projectSettingsSection} onClose={() => { setProjectSettingsOpen(false); setProjectSettingsSection(undefined) }} />
+          <ProjectSettingsDialog open initialSection={projectSettingsSection} initialSettingId={projectSettingsSettingId} onClose={() => { setProjectSettingsOpen(false); setProjectSettingsSection(undefined); setProjectSettingsSettingId(undefined) }} />
         </Suspense>
       )}
     </div>

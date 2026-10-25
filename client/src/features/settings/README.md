@@ -28,6 +28,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [lib/agent-runtime.ts](lib/agent-runtime.ts)
 - [lib/effects-prefs.ts](lib/effects-prefs.ts)
 - [lib/project-settings-section-ids.ts](lib/project-settings-section-ids.ts)
+- [lib/settings-registry.ts](lib/settings-registry.ts)
 - [lib/terminal-settings-events.ts](lib/terminal-settings-events.ts)
 - [lib/terminal-settings-types.ts](lib/terminal-settings-types.ts)
 - [lib/theme-palette.ts](lib/theme-palette.ts)

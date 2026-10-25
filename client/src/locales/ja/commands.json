@@ -13,7 +13,12 @@
       "navigation": "ナビゲーション",
       "actions": "アクション",
       "recentActions": "最近のアクション",
-      "recentPlaces": "最近の場所"
+      "recentPlaces": "最近の場所",
+      "settings": "設定",
+      "specs": "スペック",
+      "files": "ファイル",
+      "logs": "ジョブログ",
+      "docs": "ガイド"
     },
     "nav": {
       "dashboard": "ダッシュボード",
@@ -36,7 +41,8 @@
       "select": "選択",
       "close": "閉じる",
       "actions": "アクション",
-      "back": "戻る"
+      "back": "戻る",
+      "removeScope": "範囲を解除"
     },
     "missions": {
       "home": "ホーム"
@@ -136,6 +142,199 @@
       "deleteSelectedN_other": "選択中の{{count}}件を削除",
       "saveView": "現在のビューを保存",
       "switchView": "ビューを切り替え"
+    },
+    "scopes": {
+      "hintsLabel": "検索対象",
+      "remove": "範囲を解除",
+      "needsProject": "ここで検索するにはプロジェクトを開いてください。",
+      "searching": "検索中…",
+      "failed": "現在、検索を利用できません。",
+      "empty": "「{{query}}」に一致するものはありません。",
+      "specs": {
+        "label": "スペック",
+        "placeholder": "タイトル、説明、ラベル、メモでスペックを検索…",
+        "prompt": "入力してスペックを検索します。"
+      },
+      "missions": {
+        "label": "ミッション",
+        "placeholder": "タイトルまたは内容でミッションを検索…",
+        "prompt": "入力してミッションを検索します。"
+      },
+      "settings": {
+        "label": "設定",
+        "placeholder": "設定を検索…",
+        "prompt": "入力して設定を検索します。"
+      },
+      "files": {
+        "label": "ファイル",
+        "placeholder": "名前またはパスでファイルを探す…",
+        "prompt": "ファイル名またはパスを入力します。"
+      },
+      "logs": {
+        "label": "ジョブログ",
+        "placeholder": "ジョブのコマンド、フェーズ、失敗を検索…",
+        "prompt": "入力して、実行内容と失敗の理由を検索します。"
+      },
+      "docs": {
+        "label": "ガイド",
+        "placeholder": "ガイドを検索…",
+        "prompt": "入力してガイドを検索します。"
+      }
+    },
+    "specs": {
+      "fields": {
+        "id": "スペック番号",
+        "title": "タイトル",
+        "summary": "概要",
+        "description": "説明",
+        "label": "ラベル",
+        "nonGoal": "対象外",
+        "addendum": "追記",
+        "comment": "コメント"
+      }
+    },
+    "logs": {
+      "fields": {
+        "command": "コマンド",
+        "loop": "ループ",
+        "phase": "フェーズ",
+        "failure": "失敗",
+        "detail": "詳細"
+      }
+    },
+    "settings": {
+      "appScope": "Desktop 設定",
+      "projectScope": "プロジェクト設定",
+      "entries": {
+        "theme": {
+          "label": "外観とテーマ",
+          "keywords": "テーマ, ダーク, ライト, 色, 外観, theme"
+        },
+        "language": {
+          "label": "言語",
+          "keywords": "言語, ロケール, 翻訳, language"
+        },
+        "effects": {
+          "label": "ビジュアルエフェクト",
+          "keywords": "エフェクト, アニメーション, モーション, 星空, 背景, effects"
+        },
+        "editor": {
+          "label": "エディタ",
+          "keywords": "エディタ, vscode, エディタで開く, ide, cursor"
+        },
+        "codeSection": {
+          "label": "コードエクスプローラー",
+          "keywords": "コード, エクスプローラー, ファイル, 構文, ハイライト, code"
+        },
+        "terminalApp": {
+          "label": "ターミナルパネル（Desktop）",
+          "keywords": "ターミナル, コンソール, shell, フォント, 選択時にコピー"
+        },
+        "providers": {
+          "label": "AI プロバイダーと接続",
+          "keywords": "プロバイダー, claude, codex, gemini, api キー, ログイン, エンジン, ローカル, provider"
+        },
+        "subagentsApp": {
+          "label": "サブエージェント（Desktop）",
+          "keywords": "サブエージェント, subagents, ネイティブ, 委任, 並列"
+        },
+        "mobileCompanion": {
+          "label": "モバイルコンパニオン",
+          "keywords": "モバイル, コンパニオン, スマホ, ペアリング, qr, ipad, リモート, mobile"
+        },
+        "registeredProjects": {
+          "label": "登録済みプロジェクト",
+          "keywords": "プロジェクト, プロジェクトを削除, リポジトリ, 登録済み, projects"
+        },
+        "budgetAlerts": {
+          "label": "1日の予算とコスト通知",
+          "keywords": "予算, 1日, コスト, 支出, 上限, 通知, 金額, budget"
+        },
+        "notifications": {
+          "label": "OS 通知",
+          "keywords": "通知, アラート, サウンド, notifications"
+        },
+        "webhooks": {
+          "label": "アウトバウンド Webhook",
+          "keywords": "webhook, http, slack, discord, イベント, 通知"
+        },
+        "updateChannel": {
+          "label": "アップデートチャンネル",
+          "keywords": "チャンネル, アップデート, ベータ, 安定版, バージョン, update channel"
+        },
+        "appUpdate": {
+          "label": "Specrails Desktop のアップデート",
+          "keywords": "更新, アップデート, バージョン, update, upgrade"
+        },
+        "coreUpdate": {
+          "label": "Specrails Core のアップデート",
+          "keywords": "core, 更新, バージョン, フレームワーク, specrails-core"
+        },
+        "about": {
+          "label": "Desktop の情報",
+          "keywords": "情報, について, ポート, データベース, バージョン, about"
+        },
+        "repositories": {
+          "label": "リポジトリ",
+          "keywords": "リポジトリ, repo, ワークスペース, フォルダ, git, マルチリポジトリ, プライマリ"
+        },
+        "prePrompt": {
+          "label": "レールのプリプロンプト",
+          "keywords": "プリプロンプト, pre-prompt, 指示, プロンプト, レール, freestyle"
+        },
+        "verificationCommands": {
+          "label": "検証コマンド",
+          "keywords": "検証, テストコマンド, lint, typecheck, ビルド, setup, コマンド"
+        },
+        "subagentsProject": {
+          "label": "サブエージェント（プロジェクト）",
+          "keywords": "サブエージェント, subagents, ネイティブ, 委任, 並列, プロジェクト"
+        },
+        "integrationBranch": {
+          "label": "統合ブランチ",
+          "keywords": "ブランチ, 統合, main, ベースブランチ, git, マージ先, branch"
+        },
+        "worktreeEnv": {
+          "label": "Worktree 環境",
+          "keywords": "worktree, 環境, env, 変数, .env, 依存関係, インストール"
+        },
+        "agentEnv": {
+          "label": "エージェント環境",
+          "keywords": "エージェント環境, env モード, 変数, シークレット, 分離"
+        },
+        "projectBudget": {
+          "label": "プロジェクトの1日の予算",
+          "keywords": "予算, 1日, コスト, 支出, 上限, 一時停止, budget"
+        },
+        "reviewLimit": {
+          "label": "レビュー上限",
+          "keywords": "レビュー上限, wip, レビュー待ち, プルリクエスト, キュー"
+        },
+        "telemetry": {
+          "label": "パイプラインのテレメトリ",
+          "keywords": "テレメトリ, トレース, ログ, 診断, メトリクス, telemetry"
+        },
+        "agentAudit": {
+          "label": "エージェント操作の監査",
+          "keywords": "監査, エージェント操作, ログ, ツール呼び出し, 履歴, audit"
+        },
+        "anchoring": {
+          "label": "既存プロジェクトのアンカリング",
+          "keywords": "アンカリング, 既存プロジェクト, 規約, ベースライン, スキャン, anchoring"
+        },
+        "projectRules": {
+          "label": "プロジェクトルール",
+          "keywords": "ルール, 規約, ゲート, チェック, agents.md, rules"
+        },
+        "terminalProject": {
+          "label": "ターミナルパネル（プロジェクト）",
+          "keywords": "ターミナル, コンソール, shell, プロジェクトのターミナル, フォント"
+        },
+        "recentlyDeleted": {
+          "label": "最近削除した項目",
+          "keywords": "削除済み, ごみ箱, 復元, 元に戻す, deleted, trash"
+        }
+      }
     }
   },
   "toasts": {

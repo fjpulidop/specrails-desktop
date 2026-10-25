@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1279 source/build files. Nearby tests are linked where names
+Includes 1291 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -57,8 +57,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/components/command-palette
 
+- [SnippetText.tsx](../../client/src/components/command-palette/SnippetText.tsx)
 - [palette-actions.ts](../../client/src/components/command-palette/palette-actions.ts) · [test](../../client/src/components/command-palette/__tests__/palette-actions.test.ts)
 - [recent-actions.ts](../../client/src/components/command-palette/recent-actions.ts)
+- [search-scopes.ts](../../client/src/components/command-palette/search-scopes.ts)
+- [settings-search.ts](../../client/src/components/command-palette/settings-search.ts)
+- [snippet.ts](../../client/src/components/command-palette/snippet.ts)
+- [useScopedSearch.ts](../../client/src/components/command-palette/useScopedSearch.ts)
 
 ## client/src/components/ui
 
@@ -754,6 +759,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RuntimeRetention.tsx](../../client/src/features/settings/components/RuntimeRetention.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRetention.test.tsx)
 - [RuntimeRolePrompts.tsx](../../client/src/features/settings/components/RuntimeRolePrompts.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRolePrompts.test.tsx)
 - [RuntimeSteering.tsx](../../client/src/features/settings/components/RuntimeSteering.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeSteering.test.tsx)
+- [SettingAnchor.tsx](../../client/src/features/settings/components/SettingAnchor.tsx)
 - [SettingsCard.tsx](../../client/src/features/settings/components/SettingsCard.tsx)
 - [SettingsSelect.tsx](../../client/src/features/settings/components/SettingsSelect.tsx)
 - [SubagentsSettingsSection.tsx](../../client/src/features/settings/components/SubagentsSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/SubagentsSettingsSection.test.tsx)
@@ -797,6 +803,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [effects-prefs.ts](../../client/src/features/settings/lib/effects-prefs.ts) · [test](../../client/src/features/settings/lib/__tests__/effects-prefs.test.ts)
 - [project-settings-section-ids.ts](../../client/src/features/settings/lib/project-settings-section-ids.ts)
 - [runtime-efficiency.ts](../../client/src/features/settings/lib/runtime-efficiency.ts)
+- [setting-anchor.ts](../../client/src/features/settings/lib/setting-anchor.ts)
+- [settings-registry.ts](../../client/src/features/settings/lib/settings-registry.ts)
 - [terminal-settings-events.ts](../../client/src/features/settings/lib/terminal-settings-events.ts) · [test](../../client/src/features/settings/lib/__tests__/terminal-settings-events.test.ts)
 - [terminal-settings-types.ts](../../client/src/features/settings/lib/terminal-settings-types.ts) · [test](../../client/src/features/settings/lib/__tests__/terminal-settings-types.test.ts)
 - [theme-palette.ts](../../client/src/features/settings/lib/theme-palette.ts) · [test](../../client/src/features/settings/lib/__tests__/theme-palette.test.ts)
@@ -1180,6 +1188,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [project-router-jobs.ts](../../server/project-router-jobs.ts)
 - [project-router-loop-runs.ts](../../server/project-router-loop-runs.ts) · [test](../../server/project-router-loop-runs.test.ts)
 - [project-router-rules.ts](../../server/project-router-rules.ts) · [test](../../server/project-router-rules.test.ts)
+- [project-router-search.ts](../../server/project-router-search.ts)
 - [project-router-settings.ts](../../server/project-router-settings.ts)
 - [project-router-setup.ts](../../server/project-router-setup.ts)
 - [project-router-spending.ts](../../server/project-router-spending.ts) · [test](../../server/project-router-spending.test.ts)
@@ -1192,6 +1201,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [activity.ts](../../server/db/activity.ts)
 - [connection.ts](../../server/db/connection.ts)
 - [conversations.ts](../../server/db/conversations.ts)
+- [job-search.ts](../../server/db/job-search.ts)
 - [jobs.ts](../../server/db/jobs.ts)
 - [migrations.ts](../../server/db/migrations.ts)
 - [proposals.ts](../../server/db/proposals.ts)
@@ -1687,6 +1697,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-generation.ts](../../server/modules/specs/runtime/spec-generation.ts) · [test](../../server/modules/specs/runtime/spec-generation.test.ts)
 - [spec-launcher-manager.ts](../../server/modules/specs/runtime/spec-launcher-manager.ts) · [test](../../server/modules/specs/runtime/spec-launcher-manager.test.ts)
 - [spec-models.ts](../../server/modules/specs/runtime/spec-models.ts) · [test](../../server/modules/specs/runtime/spec-models.test.ts)
+- [spec-search.ts](../../server/modules/specs/runtime/spec-search.ts) · [test](../../server/modules/specs/runtime/spec-search.test.ts)
 - [ticket-store.ts](../../server/modules/specs/runtime/ticket-store.ts) · [test](../../server/modules/specs/runtime/ticket-store.test.ts)
 - [ticket-trash-service.ts](../../server/modules/specs/runtime/ticket-trash-service.ts)
 - [ticket-trash.ts](../../server/modules/specs/runtime/ticket-trash.ts) · [test](../../server/modules/specs/runtime/ticket-trash.test.ts)
@@ -1789,6 +1800,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [checkout-path.ts](../../server/util/checkout-path.ts)
 - [cli-prompt.ts](../../server/util/cli-prompt.ts) · [test](../../server/util/cli-prompt.test.ts)
 - [distribute-int.ts](../../server/util/distribute-int.ts)
+- [search-snippet.ts](../../server/util/search-snippet.ts)
 - [secure-fs.ts](../../server/util/secure-fs.ts) · [test](../../server/util/secure-fs.test.ts)
 - [secure-token-file.ts](../../server/util/secure-token-file.ts) · [test](../../server/util/secure-token-file.test.ts)
 - [sqlite-migrations.ts](../../server/util/sqlite-migrations.ts) · [test](../../server/util/sqlite-migrations.test.ts)

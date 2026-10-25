@@ -83,8 +83,8 @@ export interface PaletteContext {
   go: {
     navigate: (path: string) => void
     setUiMode: (mode: 'kanban' | 'agent') => void
-    openAppSettings: (section: AppSettingsSection) => void
-    openProjectSettings: (section: string) => void
+    openAppSettings: (section: AppSettingsSection, settingId?: string) => void
+    openProjectSettings: (section: string, settingId?: string) => void
     newMission: () => void
     setProject: (id: string) => void
     toggleLeftSidebar: () => void

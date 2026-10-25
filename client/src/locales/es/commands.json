@@ -13,7 +13,12 @@
       "navigation": "Navegación",
       "actions": "Acciones",
       "recentActions": "Acciones recientes",
-      "recentPlaces": "Lugares recientes"
+      "recentPlaces": "Lugares recientes",
+      "settings": "Ajustes",
+      "specs": "Specs",
+      "files": "Archivos",
+      "logs": "Registros de jobs",
+      "docs": "Guía"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -36,7 +41,8 @@
       "select": "seleccionar",
       "close": "cerrar",
       "actions": "acciones",
-      "back": "volver"
+      "back": "volver",
+      "removeScope": "quitar ámbito"
     },
     "missions": {
       "home": "Inicio"
@@ -136,6 +142,199 @@
       "deleteSelectedN_other": "Eliminar {{count}} specs seleccionadas",
       "saveView": "Guardar la vista actual",
       "switchView": "Cambiar de vista"
+    },
+    "scopes": {
+      "hintsLabel": "Buscar en",
+      "remove": "Quitar ámbito",
+      "needsProject": "Abre un proyecto para buscar aquí.",
+      "searching": "Buscando…",
+      "failed": "La búsqueda no está disponible ahora.",
+      "empty": "No se encontró nada para «{{query}}».",
+      "specs": {
+        "label": "Specs",
+        "placeholder": "Busca specs por título, descripción, etiquetas o notas…",
+        "prompt": "Escribe para buscar specs."
+      },
+      "missions": {
+        "label": "Misiones",
+        "placeholder": "Busca misiones por título o contenido…",
+        "prompt": "Escribe para buscar misiones."
+      },
+      "settings": {
+        "label": "Ajustes",
+        "placeholder": "Buscar ajustes…",
+        "prompt": "Escribe para buscar ajustes."
+      },
+      "files": {
+        "label": "Archivos",
+        "placeholder": "Encuentra un archivo por nombre o ruta…",
+        "prompt": "Escribe un nombre o una ruta de archivo."
+      },
+      "logs": {
+        "label": "Registros de jobs",
+        "placeholder": "Busca comandos, fases y fallos de jobs…",
+        "prompt": "Escribe para buscar qué hicieron tus ejecuciones y por qué fallaron."
+      },
+      "docs": {
+        "label": "Guía",
+        "placeholder": "Buscar en la guía…",
+        "prompt": "Escribe para buscar en la guía."
+      }
+    },
+    "specs": {
+      "fields": {
+        "id": "Número de spec",
+        "title": "Título",
+        "summary": "Resumen",
+        "description": "Descripción",
+        "label": "Etiqueta",
+        "nonGoal": "Fuera de alcance",
+        "addendum": "Adenda",
+        "comment": "Comentario"
+      }
+    },
+    "logs": {
+      "fields": {
+        "command": "Comando",
+        "loop": "Loop",
+        "phase": "Fase",
+        "failure": "Fallo",
+        "detail": "Detalle"
+      }
+    },
+    "settings": {
+      "appScope": "Ajustes de Desktop",
+      "projectScope": "Ajustes del proyecto",
+      "entries": {
+        "theme": {
+          "label": "Apariencia y tema",
+          "keywords": "tema, oscuro, claro, colores, apariencia, aspecto, theme"
+        },
+        "language": {
+          "label": "Idioma",
+          "keywords": "idioma, lengua, traducción, language, locale"
+        },
+        "effects": {
+          "label": "Efectos visuales",
+          "keywords": "efectos, animación, movimiento, estrellas, fondo, effects"
+        },
+        "editor": {
+          "label": "Editor",
+          "keywords": "editor, vscode, abrir en el editor, ide, cursor"
+        },
+        "codeSection": {
+          "label": "Explorador de código",
+          "keywords": "código, explorador, archivos, sintaxis, resaltado, code"
+        },
+        "terminalApp": {
+          "label": "Panel de terminal (Desktop)",
+          "keywords": "terminal, consola, shell, fuente, tipografía, copiar al seleccionar"
+        },
+        "providers": {
+          "label": "Proveedores de IA y conexiones",
+          "keywords": "proveedor, claude, codex, gemini, clave api, inicio de sesión, motor, local, provider"
+        },
+        "subagentsApp": {
+          "label": "Sub-agentes (Desktop)",
+          "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, subagents"
+        },
+        "mobileCompanion": {
+          "label": "App móvil complementaria",
+          "keywords": "móvil, companion, teléfono, emparejar, qr, ipad, remoto, mobile"
+        },
+        "registeredProjects": {
+          "label": "Proyectos registrados",
+          "keywords": "proyectos, quitar proyecto, repositorios, registrados, projects"
+        },
+        "budgetAlerts": {
+          "label": "Presupuesto diario y alertas de coste",
+          "keywords": "presupuesto, diario, coste, gasto, límite, alerta, dinero, budget"
+        },
+        "notifications": {
+          "label": "Notificaciones del sistema",
+          "keywords": "notificaciones, avisos, sonido, notifications"
+        },
+        "webhooks": {
+          "label": "Webhooks salientes",
+          "keywords": "webhook, http, slack, discord, eventos, notificar"
+        },
+        "updateChannel": {
+          "label": "Canal de actualizaciones",
+          "keywords": "canal, actualizaciones, beta, estable, versión, update channel"
+        },
+        "appUpdate": {
+          "label": "Actualizaciones de Specrails Desktop",
+          "keywords": "actualizar, actualización, versión, update, upgrade"
+        },
+        "coreUpdate": {
+          "label": "Actualizaciones de Specrails Core",
+          "keywords": "core, actualizar, versión, framework, specrails-core"
+        },
+        "about": {
+          "label": "Información de Desktop",
+          "keywords": "acerca de, info, puerto, base de datos, versión, about"
+        },
+        "repositories": {
+          "label": "Repositorios",
+          "keywords": "repositorio, repo, espacio de trabajo, carpeta, git, multi-repo, principal"
+        },
+        "prePrompt": {
+          "label": "Pre-prompt del rail",
+          "keywords": "pre-prompt, preprompt, instrucciones, prompt, rail, freestyle"
+        },
+        "verificationCommands": {
+          "label": "Comandos de verificación",
+          "keywords": "verificación, comando de test, lint, typecheck, build, setup, comandos"
+        },
+        "subagentsProject": {
+          "label": "Sub-agentes (proyecto)",
+          "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, proyecto"
+        },
+        "integrationBranch": {
+          "label": "Rama de integración",
+          "keywords": "rama, integración, main, rama base, git, destino del merge, branch"
+        },
+        "worktreeEnv": {
+          "label": "Entorno del worktree",
+          "keywords": "worktree, entorno, env, variables, .env, dependencias, instalar"
+        },
+        "agentEnv": {
+          "label": "Entorno del agente",
+          "keywords": "entorno del agente, modo env, variables, secretos, aislado"
+        },
+        "projectBudget": {
+          "label": "Presupuesto diario del proyecto",
+          "keywords": "presupuesto, diario, coste, gasto, límite, pausar, budget"
+        },
+        "reviewLimit": {
+          "label": "Límite de revisión",
+          "keywords": "límite de revisión, wip, en revisión, pull requests, cola"
+        },
+        "telemetry": {
+          "label": "Telemetría del pipeline",
+          "keywords": "telemetría, trazas, registros, diagnóstico, métricas, telemetry"
+        },
+        "agentAudit": {
+          "label": "Auditoría de acciones de agentes",
+          "keywords": "auditoría, acciones de agentes, registro, llamadas a herramientas, historial, audit"
+        },
+        "anchoring": {
+          "label": "Anclaje de proyecto existente",
+          "keywords": "anclaje, proyecto existente, convenciones, línea base, escaneo, anchoring"
+        },
+        "projectRules": {
+          "label": "Reglas del proyecto",
+          "keywords": "reglas, convenciones, puertas, comprobaciones, agents.md, rules"
+        },
+        "terminalProject": {
+          "label": "Panel de terminal (proyecto)",
+          "keywords": "terminal, consola, shell, terminal del proyecto, fuente"
+        },
+        "recentlyDeleted": {
+          "label": "Eliminados recientemente",
+          "keywords": "eliminados, papelera, restaurar, recuperar, deleted, trash"
+        }
+      }
     }
   },
   "toasts": {

@@ -30,6 +30,8 @@ export {
   skipJob,
   getPipelineJobs,
 } from './db/jobs'
+export type { JobSearchHit } from './db/job-search'
+export { searchJobs, indexJob, rebuildJobSearchIndex, safeIndexJob, JOB_SEARCH_DEFAULT_LIMIT, JOB_SEARCH_MAX_LIMIT } from './db/job-search'
 export type { ActivityQueryOpts } from './db/activity'
 export { getProjectActivity } from './db/activity'
 export {

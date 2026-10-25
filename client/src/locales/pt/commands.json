@@ -13,7 +13,12 @@
       "navigation": "Navegação",
       "actions": "Ações",
       "recentActions": "Ações recentes",
-      "recentPlaces": "Lugares recentes"
+      "recentPlaces": "Lugares recentes",
+      "settings": "Configurações",
+      "specs": "Specs",
+      "files": "Arquivos",
+      "logs": "Logs de jobs",
+      "docs": "Guia"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -36,7 +41,8 @@
       "select": "selecionar",
       "close": "fechar",
       "actions": "ações",
-      "back": "voltar"
+      "back": "voltar",
+      "removeScope": "remover escopo"
     },
     "missions": {
       "home": "Início"
@@ -136,6 +142,199 @@
       "deleteSelectedN_other": "Excluir {{count}} specs selecionadas",
       "saveView": "Salvar a visão atual",
       "switchView": "Trocar de visão"
+    },
+    "scopes": {
+      "hintsLabel": "Buscar em",
+      "remove": "Remover escopo",
+      "needsProject": "Abra um projeto para buscar aqui.",
+      "searching": "Buscando…",
+      "failed": "A busca não está disponível agora.",
+      "empty": "Nada encontrado para “{{query}}”.",
+      "specs": {
+        "label": "Specs",
+        "placeholder": "Busque specs por título, descrição, etiquetas ou notas…",
+        "prompt": "Digite para buscar specs."
+      },
+      "missions": {
+        "label": "Missões",
+        "placeholder": "Busque missões por título ou conteúdo…",
+        "prompt": "Digite para buscar missões."
+      },
+      "settings": {
+        "label": "Configurações",
+        "placeholder": "Buscar configurações…",
+        "prompt": "Digite para buscar configurações."
+      },
+      "files": {
+        "label": "Arquivos",
+        "placeholder": "Encontre um arquivo por nome ou caminho…",
+        "prompt": "Digite um nome ou caminho de arquivo."
+      },
+      "logs": {
+        "label": "Logs de jobs",
+        "placeholder": "Busque comandos, fases e falhas de jobs…",
+        "prompt": "Digite para buscar o que suas execuções fizeram e por que falharam."
+      },
+      "docs": {
+        "label": "Guia",
+        "placeholder": "Buscar no guia…",
+        "prompt": "Digite para buscar no guia."
+      }
+    },
+    "specs": {
+      "fields": {
+        "id": "Número da spec",
+        "title": "Título",
+        "summary": "Resumo",
+        "description": "Descrição",
+        "label": "Etiqueta",
+        "nonGoal": "Fora do escopo",
+        "addendum": "Adendo",
+        "comment": "Comentário"
+      }
+    },
+    "logs": {
+      "fields": {
+        "command": "Comando",
+        "loop": "Loop",
+        "phase": "Fase",
+        "failure": "Falha",
+        "detail": "Detalhe"
+      }
+    },
+    "settings": {
+      "appScope": "Configurações do Desktop",
+      "projectScope": "Configurações do projeto",
+      "entries": {
+        "theme": {
+          "label": "Aparência e tema",
+          "keywords": "tema, escuro, claro, cores, aparência, visual, theme"
+        },
+        "language": {
+          "label": "Idioma",
+          "keywords": "idioma, língua, tradução, language, locale"
+        },
+        "effects": {
+          "label": "Efeitos visuais",
+          "keywords": "efeitos, animação, movimento, estrelas, fundo, effects"
+        },
+        "editor": {
+          "label": "Editor",
+          "keywords": "editor, vscode, abrir no editor, ide, cursor"
+        },
+        "codeSection": {
+          "label": "Explorador de código",
+          "keywords": "código, explorador, arquivos, sintaxe, destaque, code"
+        },
+        "terminalApp": {
+          "label": "Painel de terminal (Desktop)",
+          "keywords": "terminal, console, shell, fonte, copiar ao selecionar"
+        },
+        "providers": {
+          "label": "Provedores de IA e conexões",
+          "keywords": "provedor, claude, codex, gemini, chave de api, login, motor, local, provider"
+        },
+        "subagentsApp": {
+          "label": "Sub-agentes (Desktop)",
+          "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, subagents"
+        },
+        "mobileCompanion": {
+          "label": "App móvel complementar",
+          "keywords": "móvel, celular, companion, telefone, parear, qr, ipad, remoto, mobile"
+        },
+        "registeredProjects": {
+          "label": "Projetos registrados",
+          "keywords": "projetos, remover projeto, repositórios, registrados, projects"
+        },
+        "budgetAlerts": {
+          "label": "Orçamento diário e alertas de custo",
+          "keywords": "orçamento, diário, custo, gasto, limite, alerta, dinheiro, budget"
+        },
+        "notifications": {
+          "label": "Notificações do sistema",
+          "keywords": "notificações, avisos, som, notifications"
+        },
+        "webhooks": {
+          "label": "Webhooks de saída",
+          "keywords": "webhook, http, slack, discord, eventos, notificar"
+        },
+        "updateChannel": {
+          "label": "Canal de atualizações",
+          "keywords": "canal, atualizações, beta, estável, versão, update channel"
+        },
+        "appUpdate": {
+          "label": "Atualizações do Specrails Desktop",
+          "keywords": "atualizar, atualização, versão, update, upgrade"
+        },
+        "coreUpdate": {
+          "label": "Atualizações do Specrails Core",
+          "keywords": "core, atualizar, versão, framework, specrails-core"
+        },
+        "about": {
+          "label": "Informações do Desktop",
+          "keywords": "sobre, info, porta, banco de dados, versão, about"
+        },
+        "repositories": {
+          "label": "Repositórios",
+          "keywords": "repositório, repo, espaço de trabalho, pasta, git, multi-repo, principal"
+        },
+        "prePrompt": {
+          "label": "Pré-prompt do rail",
+          "keywords": "pré-prompt, preprompt, instruções, prompt, rail, freestyle"
+        },
+        "verificationCommands": {
+          "label": "Comandos de verificação",
+          "keywords": "verificação, comando de teste, lint, typecheck, build, setup, comandos"
+        },
+        "subagentsProject": {
+          "label": "Sub-agentes (projeto)",
+          "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, projeto"
+        },
+        "integrationBranch": {
+          "label": "Branch de integração",
+          "keywords": "branch, integração, main, branch base, git, destino do merge"
+        },
+        "worktreeEnv": {
+          "label": "Ambiente do worktree",
+          "keywords": "worktree, ambiente, env, variáveis, .env, dependências, instalar"
+        },
+        "agentEnv": {
+          "label": "Ambiente do agente",
+          "keywords": "ambiente do agente, modo env, variáveis, segredos, isolado"
+        },
+        "projectBudget": {
+          "label": "Orçamento diário do projeto",
+          "keywords": "orçamento, diário, custo, gasto, limite, pausar, budget"
+        },
+        "reviewLimit": {
+          "label": "Limite de revisão",
+          "keywords": "limite de revisão, wip, em revisão, pull requests, fila"
+        },
+        "telemetry": {
+          "label": "Telemetria do pipeline",
+          "keywords": "telemetria, rastreamento, logs, diagnóstico, métricas, telemetry"
+        },
+        "agentAudit": {
+          "label": "Auditoria de ações dos agentes",
+          "keywords": "auditoria, ações dos agentes, registro, chamadas de ferramentas, histórico, audit"
+        },
+        "anchoring": {
+          "label": "Ancoragem de projeto existente",
+          "keywords": "ancoragem, projeto existente, convenções, linha de base, varredura, anchoring"
+        },
+        "projectRules": {
+          "label": "Regras do projeto",
+          "keywords": "regras, convenções, portões, verificações, agents.md, rules"
+        },
+        "terminalProject": {
+          "label": "Painel de terminal (projeto)",
+          "keywords": "terminal, console, shell, terminal do projeto, fonte"
+        },
+        "recentlyDeleted": {
+          "label": "Excluídos recentemente",
+          "keywords": "excluídos, lixeira, restaurar, recuperar, deleted, trash"
+        }
+      }
     }
   },
   "toasts": {

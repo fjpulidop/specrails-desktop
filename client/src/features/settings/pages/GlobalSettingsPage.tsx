@@ -24,6 +24,8 @@ import { Input } from '../../../components/ui/input'
 import { Switch } from '../../../components/ui/switch'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { SettingsCard } from '../components/SettingsCard'
+import { SettingAnchor } from '../components/SettingAnchor'
+import { focusSettingAnchor } from '../lib/setting-anchor'
 import {
   Dialog,
   DialogContent,
@@ -68,6 +70,8 @@ interface DesktopSettings {
 
 interface SettingsDialogProps {
   initialSection?: AppSettingsSection
+  /** A `data-setting-id` to scroll to and focus once the section shows (⌘K `/`). */
+  initialSettingId?: string
   open: boolean
   onClose: () => void
   onOpenOnboarding?: () => void
@@ -141,13 +145,17 @@ function amountValue(value: number | null | undefined): string {
   return value != null ? String(value) : ''
 }
 
-export default function SettingsDialog({ open, onClose, onOpenOnboarding, initialSection = 'appearance' }: SettingsDialogProps) {
+export default function SettingsDialog({ open, onClose, onOpenOnboarding, initialSection = 'appearance', initialSettingId }: SettingsDialogProps) {
   const { t } = useTranslation('settings')
   const { projects, removeProject } = useDesktop()
   const [activeSection, setActiveSection] = useState<string>('appearance')
   useEffect(() => {
     if (open) setActiveSection(initialSection)
   }, [open, initialSection])
+  useEffect(() => {
+    if (!open || !initialSettingId) return
+    return focusSettingAnchor(initialSettingId)
+  }, [open, initialSettingId])
   const paneCls = (id: string) => cn('space-y-5', activeSection === id ? '' : 'hidden')
   const sectionHelp = (APP_SETTINGS_HELP as Record<string, HelpTopicId | undefined>)[activeSection]
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null)
@@ -434,8 +442,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
               </div>
             )}
             <div className={paneCls('appearance')}>
-              <AppearanceSection />
-              <LanguageSection />
+              <SettingAnchor id="theme"><AppearanceSection /></SettingAnchor>
+              <SettingAnchor id="language"><LanguageSection /></SettingAnchor>
               {onOpenOnboarding && (
                 <SettingsCard title={t('desktop.onboardingHeading')}>
                   <div className="flex items-center justify-between gap-3">
@@ -459,35 +467,35 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             </div>
 
             <div className={paneCls('effects')}>
-              <EffectsSection />
+              <SettingAnchor id="effects"><EffectsSection /></SettingAnchor>
             </div>
 
             <div className={paneCls('specrailsAgents')}>
-              <ProviderConnectionsCard />
-              <GlobalSubagentsSection />
+              <SettingAnchor id="providers"><ProviderConnectionsCard /></SettingAnchor>
+              <SettingAnchor id="subagentsApp"><GlobalSubagentsSection /></SettingAnchor>
             </div>
 
             {activeSection === 'subscriptionUsage' && <SubscriptionUsagePanel showDataDetails />}
 
             <div className={paneCls('code')}>
-              <EditorSection />
-              <CodeSectionSettings />
+              <SettingAnchor id="editor"><EditorSection /></SettingAnchor>
+              <SettingAnchor id="codeSection"><CodeSectionSettings /></SettingAnchor>
             </div>
 
             <div className={paneCls('updates')}>
-              <UpdateChannelSection />
-              <AppUpdateSection />
-              <CoreUpdateSection />
+              <SettingAnchor id="updateChannel"><UpdateChannelSection /></SettingAnchor>
+              <SettingAnchor id="appUpdate"><AppUpdateSection /></SettingAnchor>
+              <SettingAnchor id="coreUpdate"><CoreUpdateSection /></SettingAnchor>
             </div>
 
             <div className={paneCls('mobile')}>
-              <MobileAccessSection />
+              <SettingAnchor id="mobileCompanion"><MobileAccessSection /></SettingAnchor>
             </div>
 
             {FEATURE_MCP && <div className={paneCls('mcp')}><McpSettingsSection /></div>}
 
             <div className={paneCls('projects')}>
-              <SettingsCard title={t('desktop.registeredProjects')}>
+              <SettingsCard title={t('desktop.registeredProjects')} data-setting-id="registeredProjects">
                 {projects.length === 0 ? (
                   <div className="rounded-md border border-dashed border-border p-4 text-center">
                     <p className="text-xs text-muted-foreground">{t('desktop.noProjects')}</p>
@@ -507,7 +515,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             </div>
 
             <div className={paneCls('advanced')}>
-              <SettingsCard title={t('desktop.budgetAlertsHeading')} contentClassName="space-y-4">
+              <SettingsCard title={t('desktop.budgetAlertsHeading')} contentClassName="space-y-4" data-setting-id="budgetAlerts">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1">
                     <label htmlFor="settings-daily-budget" className="text-label">{t('desktop.dailyBudgetLabel')}</label>
@@ -541,7 +549,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 </div>
               </SettingsCard>
 
-              <SettingsCard title={t('notifications.heading')} description={t('notifications.description')}>
+              <SettingsCard title={t('notifications.heading')} description={t('notifications.description')} data-setting-id="notifications">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -602,6 +610,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
 
             <div className={paneCls('webhooks')}>
               <SettingsCard
+                data-setting-id="webhooks"
                 title={t('webhooks.heading')}
                 description={
                   <Trans
@@ -702,11 +711,11 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             </div>
 
             <div className={paneCls('terminal')}>
-              <TerminalSettingsSection mode="desktop" />
+              <SettingAnchor id="terminalApp"><TerminalSettingsSection mode="desktop" /></SettingAnchor>
             </div>
 
             <div className={paneCls('about')}>
-              <SettingsCard title={t('desktop.infoHeading')} contentClassName="space-y-2">
+              <SettingsCard title={t('desktop.infoHeading')} contentClassName="space-y-2" data-setting-id="about">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{t('desktop.infoPort')}</span>
                   <span className="font-mono">{desktopSettings?.port ?? '—'}</span>

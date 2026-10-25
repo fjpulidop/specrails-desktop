@@ -3,6 +3,7 @@ import { applyNumberedMigrations } from '../util/sqlite-migrations'
 import { migrateMultiRepoExecution } from '../modules/delivery/runtime/multi-repo-execution-store'
 import { migrateRepositoryProvenance } from '../project-repository-provenance'
 import { migrateFileStoryMetadata } from '../modules/code/runtime/file-story'
+import { createJobSearchSchema, rebuildJobSearchIndex } from './job-search'
 
 // ─── Migrations ──────────────────────────────────────────────────────────────
 
@@ -1945,6 +1946,16 @@ const MIGRATIONS: Migration[] = [
   (db) => {
     const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as Array<{ name: string }>).map((c) => c.name))
     if (!cols.has('run_cap_usd')) db.exec('ALTER TABLE loop_runs ADD COLUMN run_cap_usd REAL')
+  },
+
+  // Migration 86: job-log search (CD6). An FTS5 trigram index over job
+  // commands, loop names, phase titles and failure-diagnosis kind/detail —
+  // never raw token streams (see db/job-search.ts). The index is derived data:
+  // this migration creates it and runs the idempotent backfill; settle/phase
+  // events keep it current afterwards.
+  (db) => {
+    createJobSearchSchema(db)
+    rebuildJobSearchIndex(db)
   },
 
 ]

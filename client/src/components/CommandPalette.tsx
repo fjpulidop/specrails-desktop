@@ -19,6 +19,14 @@ import {
   ChevronLeft,
   ChevronRight,
   History,
+  Hash,
+  AtSign,
+  SlidersHorizontal,
+  FileCode2,
+  ScrollText,
+  BookOpen,
+  X,
+  type LucideIcon,
 } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
 import { usePlaceHistory } from '../hooks/usePlaceHistory'
@@ -27,7 +35,9 @@ import { useUndo } from '../hooks/useUndo'
 import { useThemeOptional } from '../features/settings/context/ThemeContext'
 import { loopsApi } from '../features/loops/lib/loops-api'
 import { loopNeedsTicket } from '../features/loops/lib/loop-ticket-need'
-import { openAppSettings, openProjectSettings } from '../lib/app-settings-events'
+import { openAppSettings, openProjectSettings, type AppSettingsSection } from '../lib/app-settings-events'
+import { openDocs } from '../lib/docs-events'
+import { useTicketDetailModal } from '../features/specs/context/TicketDetailModalContext'
 import { usePaletteSurfaces } from '../lib/palette-bridge'
 import { isGlobalRoute } from '../lib/sidebar-layout'
 import { keyboardLabel } from '../lib/keyboard-label'
@@ -47,6 +57,19 @@ import {
   type PaletteContext,
 } from './command-palette/palette-actions'
 import { readRecentActionIds, recordRecentAction } from './command-palette/recent-actions'
+import { SnippetText } from './command-palette/SnippetText'
+import { rangesForQuery } from './command-palette/snippet'
+import {
+  SCOPE_PREFIX,
+  SCOPE_ROW_CAPS,
+  UNSCOPED_SETTINGS_CAP,
+  availableScopes,
+  detectScope,
+  scopeNeedsProject,
+  type SearchScope,
+} from './command-palette/search-scopes'
+import { rankSettings, type SettingRow } from './command-palette/settings-search'
+import { isRemoteScope, useScopedSearch, type DocRow, type FileRow, type LogRow, type SpecRow } from './command-palette/useScopedSearch'
 import { getApiBase } from '../lib/api'
 import type { CommandInfo, JobSummary } from '../types'
 import { cn } from '../lib/utils'
@@ -55,7 +78,7 @@ import { DIALOG_LAYER_CLASS } from '../lib/layers'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
-import { searchMissions, type MissionSearchHit, type MissionSearchSnippet } from '../features/missions/lib/agent-api'
+import { searchMissions, type MissionSearchHit } from '../features/missions/lib/agent-api'
 import {
   groupOrderForMode,
   matchMissionTitles,
@@ -92,21 +115,13 @@ interface ServerHits {
 
 const EMPTY_HITS: MissionSearchHit[] = []
 
-/** Render a server snippet as text with `<mark>` over its highlight ranges. */
-function renderSnippet(snippet: MissionSearchSnippet): ReactNode {
-  const parts: ReactNode[] = []
-  let cursor = 0
-  snippet.ranges.forEach(([start, end], i) => {
-    if (start > cursor) parts.push(snippet.text.slice(cursor, start))
-    parts.push(
-      <mark key={i} className="rounded-sm bg-accent-primary/20 px-0.5 text-foreground">
-        {snippet.text.slice(start, end)}
-      </mark>,
-    )
-    cursor = end
-  })
-  if (cursor < snippet.text.length) parts.push(snippet.text.slice(cursor))
-  return parts
+const SCOPE_ICON: Record<SearchScope, LucideIcon> = {
+  specs: Hash,
+  missions: AtSign,
+  settings: SlidersHorizontal,
+  files: FileCode2,
+  logs: ScrollText,
+  docs: BookOpen,
 }
 
 const PALETTE_BY_ID = new Map(PALETTE_ACTIONS.map((a) => [a.id, a]))
@@ -169,11 +184,14 @@ function ArgPageList({ frame, search, loaded, onSelect, itemClass, loadingLabel,
 }
 
 export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: CommandPaletteProps) {
-  const { t } = useTranslation('commands')
+  const { t, i18n } = useTranslation('commands')
   const { t: tAgent } = useTranslation('agent')
+  const { t: tSpecs } = useTranslation('specs')
   const { t: tLoops } = useTranslation('loops')
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  // CD6: a scope prefix (`#`, `@`, `/`, `f:`, `log:`, `?`) turns into a chip; `search` then holds only the query.
+  const [scope, setScope] = useState<SearchScope | null>(null)
   const [commands, setCommands] = useState<CommandInfo[]>([])
   const [recentJobs, setRecentJobs] = useState<JobSummary[]>([])
   const [serverHits, setServerHits] = useState<ServerHits>({ query: '', hits: EMPTY_HITS })
@@ -197,6 +215,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   const places = usePlaceHistory()
   const inbox = useInbox()
   const { undoLast, peekUndo } = useUndo()
+  const { openTicketDetail } = useTicketDetailModal()
   const theme = useThemeOptional()
   const surfaces = usePaletteSurfaces()
   // Argument pages (cmdk pages): a stack so multi-step actions (pick a spec,
@@ -225,6 +244,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     if (!open) {
       fetchedRef.current = false
       setSearch('')
+      setScope(null)
       setPages([])
       setLoadedOptions(null)
       return
@@ -254,11 +274,13 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     fetchData()
   }, [open])
 
+  // Inside a scope the input holds the bare query (no `>` actions there).
+  const parsedQuery = scope ? { explicit: false, text: search.trim() } : parseActionQuery(search)
+
   // Phase B of mission search: debounced server query, previous request
   // aborted, answers matched back to the query they belong to (D1).
   useEffect(() => {
-    const parsed = parseActionQuery(search)
-    const q = parsed.explicit ? '' : parsed.text
+    const q = parsedQuery.explicit || (scope !== null && scope !== 'missions') ? '' : parsedQuery.text
     const seq = ++searchSeq.current
     if (!open || !q) return
     const ctrl = new AbortController()
@@ -276,17 +298,16 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       clearTimeout(timer)
       ctrl.abort()
     }
-  }, [search, open])
+  }, [parsedQuery.explicit, parsedQuery.text, scope, open])
 
   const untitledMission = tAgent('mission.untitled')
   const missionRows = useMemo<MissionSearchRow[]>(() => {
-    const parsedQuery = parseActionQuery(search)
-    if (parsedQuery.explicit) return []
+    if (parsedQuery.explicit || (scope !== null && scope !== 'missions')) return []
     const q = parsedQuery.text
     if (!q) return recentMissions(conversations)
     const titleRows = matchMissionTitles(conversations, q, untitledMission)
     return mergeMissionResults(titleRows, serverHits.query === q ? serverHits.hits : EMPTY_HITS)
-  }, [conversations, search, serverHits, untitledMission])
+  }, [conversations, parsedQuery.explicit, parsedQuery.text, scope, serverHits, untitledMission])
 
   const projectNameById = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
 
@@ -329,6 +350,33 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     navigate(path)
   }, [navigate])
 
+  const handleSelectSpec = useCallback((id: number) => {
+    setOpen(false)
+    openTicketDetail(id)
+  }, [openTicketDetail])
+
+  const handleSelectFile = useCallback((path: string) => {
+    setOpen(false)
+    navigate(`/code?path=${encodeURIComponent(path)}`)
+  }, [navigate])
+
+  const handleSelectDoc = useCallback((row: DocRow) => {
+    setOpen(false)
+    openDocs({ category: row.category, slug: row.slug, anchor: row.anchor, heading: row.heading })
+  }, [])
+
+  const handleSelectSetting = useCallback((row: SettingRow) => {
+    setOpen(false)
+    const { entry } = row
+    if (entry.scope === 'app') {
+      openAppSettings(entry.section as AppSettingsSection, entry.id)
+    } else if (uiMode === 'agent') {
+      openProjectSettings(entry.section, entry.id)
+    } else {
+      navigate(`/settings?setting=${encodeURIComponent(entry.id)}`)
+    }
+  }, [navigate, uiMode])
+
   const handleDesktopAction = useCallback((action: (() => void) | undefined) => {
     if (!action) return
     setOpen(false)
@@ -339,12 +387,12 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
 
   // cmdk's own fuzzy filter is OFF (a content hit whose title lacks the query
   // would otherwise be hidden), so every group filters itself (D5).
-  const parsedQuery = parseActionQuery(search)
   const commandMode = parsedQuery.explicit
   const textQuery = parsedQuery.text
-  const visibleProjects = commandMode ? [] : projects.filter((p) => matchesPaletteQuery(textQuery, p.name, [p.slug]))
-  const visibleCommands = commandMode ? [] : commands.filter((cmd) => matchesPaletteQuery(textQuery, cmd.name, [cmd.slug, cmd.description ?? '']))
-  const visibleJobs = commandMode ? [] : recentJobs.filter((job) => matchesPaletteQuery(textQuery, `${job.command} ${job.id}`, [job.status]))
+  const unscoped = scope === null
+  const visibleProjects = commandMode || !unscoped ? [] : projects.filter((p) => matchesPaletteQuery(textQuery, p.name, [p.slug]))
+  const visibleCommands = commandMode || !unscoped ? [] : commands.filter((cmd) => matchesPaletteQuery(textQuery, cmd.name, [cmd.slug, cmd.description ?? '']))
+  const visibleJobs = commandMode || !unscoped ? [] : recentJobs.filter((job) => matchesPaletteQuery(textQuery, `${job.command} ${job.id}`, [job.status]))
 
   interface NavEntry {
     key: string
@@ -363,7 +411,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     { key: 'desktopSettings', label: t('palette.nav.desktopSettings'), keywords: ['configuration'], icon: <Settings className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => (onOpenSettings ? handleDesktopAction(onOpenSettings) : handleNavigate('/settings')) },
     { key: 'docs', label: t('palette.nav.docs'), keywords: ['documentation'], icon: <FileText className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => (onOpenDocs ? handleDesktopAction(onOpenDocs) : handleNavigate('/docs')) },
   ]
-  const visibleNav = commandMode ? [] : navEntries.filter((entry) => matchesPaletteQuery(textQuery, entry.label, entry.keywords))
+  const visibleNav = commandMode || !unscoped ? [] : navEntries.filter((entry) => matchesPaletteQuery(textQuery, entry.label, entry.keywords))
 
   // ─── Actions (QW1) ─────────────────────────────────────────────────────────
   const focusedSpecParam = Number(searchParams.get(SPEC_PARAM))
@@ -385,7 +433,10 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       setUiMode,
       openAppSettings,
       // Mission mode hosts project settings as a modal; Board mode shows the same sections on /settings.
-      openProjectSettings: (section) => { if (uiMode === 'agent') openProjectSettings(section); else navigate('/settings') },
+      openProjectSettings: (section, settingId) => {
+        if (uiMode === 'agent') openProjectSettings(section, settingId)
+        else navigate(settingId ? `/settings?setting=${encodeURIComponent(settingId)}` : '/settings')
+      },
       newMission: () => {
         startNewConversation(activeProjectId)
         if (isGlobalRoute(location.pathname, uiMode)) navigate('/')
@@ -406,9 +457,37 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       },
     },
   }
-  const actionRows = open ? rankActions(paletteCtx, search) : { leading: false, rows: [] }
-  const recentRows = open && !search.trim() ? recentActionRows(paletteCtx, recentIds) : []
-  const recentPlaces = open && !search.trim() && places ? places.recent(MAX_RECENT_PLACES) : []
+  const actionRows = open && unscoped ? rankActions(paletteCtx, search) : { leading: false, rows: [] }
+  const recentRows = open && unscoped && !search.trim() ? recentActionRows(paletteCtx, recentIds) : []
+  const recentPlaces = open && unscoped && !search.trim() && places ? places.recent(MAX_RECENT_PLACES) : []
+
+  // ─── Scoped search (CD6) ───────────────────────────────────────────────────
+  const hasProject = activeProjectId !== null
+  const scopes = availableScopes()
+  const settingRows = useMemo<SettingRow[]>(() => {
+    if (!open || commandMode) return []
+    if (scope === 'settings') return rankSettings(t as PaletteContext['t'], textQuery, { hasProject, cap: SCOPE_ROW_CAPS.settings })
+    if (scope === null) return rankSettings(t as PaletteContext['t'], textQuery, { hasProject, cap: UNSCOPED_SETTINGS_CAP, strongOnly: true })
+    return []
+  }, [open, commandMode, scope, t, textQuery, hasProject])
+  const remote = useScopedSearch({ scope, text: textQuery, open, projectId: activeProjectId, lang: i18n.language || 'en' })
+
+  const handleSearchChange = (value: string) => {
+    if (scope === null && pages.length === 0) {
+      const detected = detectScope(value)
+      if (detected && scopes.includes(detected.scope)) {
+        setScope(detected.scope)
+        setSearch(detected.rest)
+        return
+      }
+    }
+    setSearch(value)
+  }
+  const enterScope = (next: SearchScope) => {
+    setScope(next)
+    setSearch('')
+    inputRef.current?.focus()
+  }
   const topPage = pages.length > 0 ? pages[pages.length - 1] : null
 
   const finishAction = (action: PaletteAction, arg?: unknown) => {
@@ -504,6 +583,115 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     </Command.Group>
   )
 
+  const settingsGroup = settingRows.length > 0 && (
+    <Command.Group key="settings" heading={t('palette.groups.settings')} data-testid="palette-group-settings">
+      {settingRows.map((row) => (
+        <Command.Item
+          key={row.entry.id}
+          value={`setting:${row.entry.id}`}
+          onSelect={() => handleSelectSetting(row)}
+          className={navItemClass}
+          data-testid={`palette-setting-${row.entry.id}`}
+        >
+          <SlidersHorizontal className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className="flex-1 min-w-0 truncate"><SnippetText text={row.label} ranges={rangesForQuery(row.label, textQuery)} /></span>
+          <span className="shrink-0 text-caption text-muted-foreground">{row.scopeLabel} · {row.sectionLabel}</span>
+        </Command.Item>
+      ))}
+    </Command.Group>
+  )
+
+  const specStatusLabel = (status: string) => tSpecs(`status.${status.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())}`, { defaultValue: status.replace(/_/g, ' ') })
+  const fieldLabel = (kind: 'specs' | 'logs', field: string) => t(`palette.${kind}.fields.${field}`, { defaultValue: '' })
+
+  const remoteGroup = (() => {
+    if (!isRemoteScope(scope) || remote.rows.length === 0) return null
+    const heading = t(`palette.groups.${scope}`)
+    return (
+      <Command.Group key={`scope-${scope}`} heading={heading} data-testid={`palette-group-${scope}`}>
+        {remote.rows.map((row) => {
+          if (row.kind === 'spec') {
+            const spec: SpecRow = row
+            const label = fieldLabel('specs', spec.field)
+            return (
+              <Command.Item key={`spec-${spec.id}`} value={`spec:${spec.id}`} onSelect={() => handleSelectSpec(spec.id)} className={cn(navItemClass, 'items-start')} data-testid={`palette-spec-${spec.id}`}>
+                <Hash className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="shrink-0 tabular-nums text-muted-foreground">#{spec.id}</span>
+                    <span className="truncate"><SnippetText text={spec.title} ranges={rangesForQuery(spec.title, textQuery)} /></span>
+                    <span className="ml-auto shrink-0 text-caption text-muted-foreground">{specStatusLabel(spec.status)}</span>
+                  </div>
+                  {spec.snippet && spec.field !== 'title' && (
+                    <div className="truncate text-caption text-muted-foreground" data-testid={`palette-spec-snippet-${spec.id}`}>
+                      {label && <span>{label} · </span>}
+                      <SnippetText text={spec.snippet.text} ranges={spec.snippet.ranges} />
+                    </div>
+                  )}
+                </div>
+              </Command.Item>
+            )
+          }
+          if (row.kind === 'log') {
+            const log: LogRow = row
+            const label = fieldLabel('logs', log.field)
+            return (
+              <Command.Item key={`log-${log.jobId}`} value={`log:${log.jobId}`} onSelect={() => handleSelectJob(log.jobId)} className={cn(navItemClass, 'items-start')} data-testid={`palette-log-${log.jobId}`}>
+                <ScrollText className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="truncate">{log.command}</span>
+                    <span className="ml-auto shrink-0 text-caption text-muted-foreground">{t(`common:status.${log.status}`, { defaultValue: log.status })}</span>
+                  </div>
+                  <div className="truncate text-caption text-muted-foreground" data-testid={`palette-log-snippet-${log.jobId}`}>
+                    {label && <span>{label} · </span>}
+                    <SnippetText text={log.snippet.text} ranges={log.snippet.ranges} />
+                  </div>
+                </div>
+              </Command.Item>
+            )
+          }
+          if (row.kind === 'file') {
+            const file: FileRow = row
+            const slash = file.path.lastIndexOf('/')
+            const name = file.path.slice(slash + 1)
+            const dir = slash >= 0 ? file.path.slice(0, slash) : ''
+            return (
+              <Command.Item key={`file-${file.path}`} value={`file:${file.path}`} onSelect={() => handleSelectFile(file.path)} className={navItemClass} data-testid="palette-file">
+                <FileCode2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="shrink-0"><SnippetText text={name} ranges={rangesForQuery(name, textQuery)} /></span>
+                {dir && <span className="min-w-0 flex-1 truncate text-caption text-muted-foreground" dir="ltr">{dir}</span>}
+              </Command.Item>
+            )
+          }
+          const doc: DocRow = row
+          const title = doc.heading ?? doc.title
+          return (
+            <Command.Item key={`doc-${doc.category}-${doc.slug}-${doc.anchor ?? ''}-${doc.heading ?? ''}`} value={`doc:${doc.category}/${doc.slug}#${doc.anchor ?? doc.heading ?? ''}`} onSelect={() => handleSelectDoc(doc)} className={navItemClass} data-testid="palette-doc">
+              <BookOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="flex-1 min-w-0 truncate"><SnippetText text={title} ranges={rangesForQuery(title, textQuery)} /></span>
+              <span className="shrink-0 text-caption text-muted-foreground">{doc.heading ? doc.title : doc.categoryName}</span>
+            </Command.Item>
+          )
+        })}
+      </Command.Group>
+    )
+  })()
+
+  // What the list says when a scope has nothing to show (instead of cmdk's generic empty state).
+  const scopeMessage = ((): { text: string; busy?: boolean; testId: string } | null => {
+    if (scope === null) return null
+    if (scopeNeedsProject(scope) && !hasProject) return { text: t('palette.scopes.needsProject'), testId: 'palette-scope-needs-project' }
+    const visible = scope === 'settings' ? settingRows.length : scope === 'missions' ? missionRows.length : remote.rows.length
+    if (visible > 0) return null
+    if (!textQuery) return scope === 'settings' || scope === 'missions'
+      ? { text: t('palette.noResults'), testId: 'palette-scope-empty' }
+      : { text: t(`palette.scopes.${scope}.prompt`), testId: 'palette-scope-prompt' }
+    if (isRemoteScope(scope) && remote.status === 'loading') return { text: t('palette.scopes.searching'), busy: true, testId: 'palette-scope-loading' }
+    if (isRemoteScope(scope) && remote.status === 'failed') return { text: t('palette.scopes.failed'), testId: 'palette-scope-failed' }
+    return { text: t('palette.scopes.empty', { query: textQuery }), testId: 'palette-scope-empty' }
+  })()
+
   const groups: Record<PaletteGroup, ReactNode> = {
     missions: missionRows.length > 0 && (
       <Command.Group key="missions" heading={t('palette.groups.missions')} data-testid="palette-group-missions">
@@ -545,7 +733,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
                     <>
                       <span aria-hidden="true">·</span>
                       <span className="truncate" data-testid={`palette-mission-snippet-${conversation.id}`}>
-                        {renderSnippet(row.snippet)}
+                        <SnippetText text={row.snippet.text} ranges={row.snippet.ranges} />
                       </span>
                     </>
                   )}
@@ -665,18 +853,42 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
         ) : (
           <Search className="w-4 h-4 text-muted-foreground shrink-0" />
         )}
+        {scope && !topPage && (
+          <span
+            className="inline-flex shrink-0 items-center gap-1 rounded-md bg-accent-primary/15 py-0.5 pl-1.5 pr-0.5 text-caption font-medium text-foreground"
+            data-testid="palette-scope-chip"
+          >
+            {(() => { const Icon = SCOPE_ICON[scope]; return <Icon className="size-3.5 text-accent-primary" aria-hidden /> })()}
+            {t(`palette.scopes.${scope}.label`)}
+            <button
+              type="button"
+              onClick={() => { setScope(null); setSearch(''); inputRef.current?.focus() }}
+              aria-label={t('palette.scopes.remove')}
+              data-testid="palette-scope-remove"
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="size-3" aria-hidden />
+            </button>
+          </span>
+        )}
         <Command.Input
           ref={inputRef}
           value={search}
-          onValueChange={setSearch}
+          onValueChange={handleSearchChange}
           onKeyDown={(e) => {
             // cmdk pages: Backspace on an empty query steps back one page.
             if (e.key === 'Backspace' && !search && pages.length > 0) {
               e.preventDefault()
               popPage()
+              return
+            }
+            // Scopes: Backspace on an empty query drops the scope chip.
+            if (e.key === 'Backspace' && !search && scope) {
+              e.preventDefault()
+              setScope(null)
             }
           }}
-          placeholder={topPage ? topPage.page.placeholder : uiMode === 'agent' ? t('palette.searchPlaceholderAgent') : t('palette.searchPlaceholder')}
+          placeholder={topPage ? topPage.page.placeholder : scope ? t(`palette.scopes.${scope}.placeholder`) : uiMode === 'agent' ? t('palette.searchPlaceholderAgent') : t('palette.searchPlaceholder')}
           className="flex-1 h-11 bg-transparent text-body outline-none placeholder:text-muted-foreground"
         />
         <Kbd className="hidden sm:inline-flex">esc</Kbd>
@@ -695,16 +907,48 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             failedLabel={t('palette.actions.pages.loadFailed')}
           />
         ) : (
-          <>
-            <Command.Empty className="py-8 text-center text-body text-muted-foreground">
-              {t('palette.noResults')}
-            </Command.Empty>
-            {actionRows.leading && actionsGroup}
-            {!search.trim() && recentActionsGroup}
-            {!search.trim() && recentPlacesGroup}
-            {groupOrderForMode(uiMode).map((group) => groups[group])}
-            {!actionRows.leading && actionsGroup}
-          </>
+          scope ? (
+            <>
+              {scopeMessage && (
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-body text-muted-foreground" role="status" data-testid={scopeMessage.testId}>
+                  {scopeMessage.busy && <RailTrack running className="w-24" />}
+                  {scopeMessage.text}
+                </div>
+              )}
+              {scope === 'settings' && settingsGroup}
+              {scope === 'missions' && groups.missions}
+              {remoteGroup}
+            </>
+          ) : (
+            <>
+              {!search.trim() && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 pt-1 text-caption text-muted-foreground" data-testid="palette-scope-hints">
+                  <span>{t('palette.scopes.hintsLabel')}</span>
+                  {scopes.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => enterScope(id)}
+                      className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      data-testid={`palette-scope-hint-${id}`}
+                    >
+                      <Kbd>{SCOPE_PREFIX[id]}</Kbd>
+                      {t(`palette.scopes.${id}.label`)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Command.Empty className="py-8 text-center text-body text-muted-foreground">
+                {t('palette.noResults')}
+              </Command.Empty>
+              {actionRows.leading && actionsGroup}
+              {!search.trim() && recentActionsGroup}
+              {!search.trim() && recentPlacesGroup}
+              {groupOrderForMode(uiMode).map((group) => groups[group])}
+              {settingsGroup}
+              {!actionRows.leading && actionsGroup}
+            </>
+          )
         )}
       </Command.List>
 
@@ -716,6 +960,8 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           <span><Kbd>esc</Kbd> {t('palette.footer.close')}</span>
           {topPage ? (
             <span data-testid="palette-footer-back"><Kbd>⌫</Kbd> {t('palette.footer.back')}</span>
+          ) : scope ? (
+            <span data-testid="palette-footer-remove-scope"><Kbd>⌫</Kbd> {t('palette.footer.removeScope')}</span>
           ) : (
             <span><Kbd>&gt;</Kbd> {t('palette.footer.actions')}</span>
           )}

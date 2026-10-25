@@ -1218,3 +1218,11 @@ select {
   .u-pop[data-state="open"][data-side="bottom"] { animation-name: u-enter-down; }
   .u-pop[data-state="closed"] { animation: u-fade-out var(--duration-instant) var(--ease-in) both; }
 }
+
+/* ⌘K "/" landing: the settings block the palette just opened (settings/lib/setting-anchor.ts).
+   A steady outline, no animation, so it reads the same with reduced motion. */
+[data-setting-flash='true'] {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 4px;
+  border-radius: 0.75rem;
+}

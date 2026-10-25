@@ -24,9 +24,11 @@ export function SettingsCard({
   className?: string
   contentClassName?: string
   'data-testid'?: string
+  /** ⌘K anchor (`lib/settings-registry.ts`). */
+  'data-setting-id'?: string
 }) {
   return (
-    <Card className={className} data-testid={rest['data-testid']}>
+    <Card className={cn('scroll-mt-4', className)} data-testid={rest['data-testid']} data-setting-id={rest['data-setting-id']}>
       <CardHeader className="p-3 pb-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">

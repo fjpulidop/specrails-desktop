@@ -35,6 +35,7 @@ import { registerSettingsRoutes } from './project-router-settings'
 import { registerLoopRunRoutes } from './project-router-loop-runs'
 import { registerGitRoutes } from './project-router-git'
 import { registerRulesRoutes } from './project-router-rules'
+import { registerSearchRoutes } from './project-router-search'
 import { formatDescriptionWithCriteria, type ProjectRoutesDeps } from './project-router-helpers'
 
 // Re-export the spec helpers from their new home so existing importers
@@ -480,6 +481,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   registerLoopRunRoutes(deps)
   registerGitRoutes(deps)
   registerRulesRoutes(deps)
+registerSearchRoutes(deps)
 
   return router
 }

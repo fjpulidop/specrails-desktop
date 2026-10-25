@@ -130,4 +130,14 @@ describe('SettingsPage', () => {
       expect(screen.getByPlaceholderText(/e\.g\. 5\.00/i)).toBeInTheDocument()
     })
   })
+
+  it('lands on the block named by ?setting= (⌘K "/" in Board mode)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
+    render(<SettingsPage />, { route: '/settings?setting=projectBudget' })
+    await waitFor(() => {
+      const el = document.querySelector('[data-setting-id="projectBudget"]') as HTMLElement
+      expect(el).toHaveAttribute('data-setting-flash', 'true')
+      expect(el.contains(document.activeElement)).toBe(true)
+    })
+  })
 })

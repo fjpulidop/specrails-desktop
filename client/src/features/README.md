@@ -177,6 +177,29 @@ each action has an `id`, i18n label, `group`, icon, `shortcut` (shown through `k
 - **Empty query:** *Recent actions* (last 5 ids, per viewer, `localStorage` in try/catch, only
   those still available) and *Recent places* (`usePlaceHistory().recent()`: last distinct places of
   the active project; selecting one *pushes* it). The palette itself is never a place.
+- **Scoped search (CD6).** A leading prefix narrows ⌘K to one source: `#` specs, `@` missions, `/` settings,
+  `f:` files, `log:` job logs, `?` the guide ([`search-scopes.ts`](../components/command-palette/search-scopes.ts)).
+  The prefix becomes a chip in the input (the input then holds only the query); Backspace on an empty input, or the
+  chip's ×, removes it; an empty unscoped input lists the prefixes as buttons. `>` actions and the unscoped groups are
+  unchanged, except that a strong settings match (3+ characters) adds a small *Settings* group (cap
+  `UNSCOPED_SETTINGS_CAP`). Per-scope row caps live in `SCOPE_ROW_CAPS`.
+  - **Sources.** `#` → `GET /search/specs`, `log:` → `GET /search/jobs` ([API](../../../docs/internals/api-reference.md)),
+    `f:` → the code explorer's `GET /code/find` (selecting opens `/code?path=`), `?` → `GET /api/docs/search` (selecting
+    calls `openDocs` at the heading), `@` → the existing mission search. The remote scopes share one debounced, abortable
+    hook ([`useScopedSearch.ts`](../components/command-palette/useScopedSearch.ts)); an answer is only used for the
+    scope/project/query it was asked for. `#`, `f:` and `log:` need an open project.
+  - **Highlights are ranges, never HTML.** Servers send `{ text, ranges }`; client-side matches (titles, paths,
+    settings) are computed by `rangesForQuery`. [`SnippetText`](../components/command-palette/SnippetText.tsx) renders text
+    nodes and `<mark>` after `sanitizeRanges` (integers, in bounds, sorted, merged), so markup in a spec title shows
+    literally.
+  - **Settings registry** ([`settings/lib/settings-registry.ts`](settings/lib/settings-registry.ts)): one typed entry per
+    settings block (`id`, `scope` app\|project, `section`). Copy lives in `commands:palette.settings.entries.<id>.label|keywords`
+    (all 8 locales, keywords per locale). Each block carries `data-setting-id="<id>"` (`SettingAnchor`, or `data-setting-id` on
+    `SettingsCard`). Selecting a row calls `openAppSettings(section, id)` / `openProjectSettings(section, id)` (Board mode:
+    `/settings?setting=<id>`); the dialog or page then runs `focusSettingAnchor` (waits for the pane to be visible, scrolls,
+    focuses the first control, outlines the block for ~2 s). `lib/__tests__/settings-registry.test.tsx` mounts both surfaces and
+    fails on a registry id without an anchor (or an anchor without an entry). **Adding a setting block:** add the anchor, the
+    registry entry and its label/keywords in the 8 locales.
 - **Settings sections** are deep links: `openAppSettings(section)` and
   `openProjectSettings(section)` ([`lib/app-settings-events.ts`](../lib/app-settings-events.ts));
   Board mode shows project settings on `/settings`.

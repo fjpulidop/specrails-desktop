@@ -261,14 +261,17 @@ function DesktopApp() {
   useCompareUrlSync()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<AppSettingsSection>('appearance')
+  const [settingsSettingId, setSettingsSettingId] = useState<string | undefined>()
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Pages inside features (e.g. the Agents upgrade banner) open a specific
   // app-settings section through a window event (see lib/app-settings-events).
   useEffect(() => {
     const onOpen = (event: Event) => {
-      const section = (event as CustomEvent<OpenAppSettingsDetail>).detail?.section
+      const detail = (event as CustomEvent<OpenAppSettingsDetail>).detail
+      const section = detail?.section
       if (!section) return
       setSettingsSection(section)
+      setSettingsSettingId(detail.settingId)
       setSettingsOpen(true)
     }
     window.addEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
@@ -671,7 +674,7 @@ function DesktopApp() {
           builder mode (floating panel in board mode; mission surface + sidebar
           transform in Agent Mode) — no standalone overlay. */}
       <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} onOpenBuilder={() => agentChat.builderMode.enter()} />
-      <SettingsDialog initialSection={settingsSection} open={settingsOpen} onClose={() => setSettingsOpen(false)} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
+      <SettingsDialog initialSection={settingsSection} initialSettingId={settingsSettingId} open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
         <DialogContent size="workspace" data-testid="analytics-modal">

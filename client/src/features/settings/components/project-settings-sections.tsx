@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { SlidersHorizontal, Wallet, Activity, TerminalSquare, KeyRound, GitBranch, Bot, Network, ShieldCheck, Trash2, type LucideIcon } from 'lucide-react'
+import { SettingAnchor } from './SettingAnchor'
 import { ProjectSubagentsSection } from './SubagentsSettingsSection'
 import { TerminalSettingsSection } from './TerminalSettingsSection'
 import { RecentlyDeletedSection } from './RecentlyDeletedSection'
@@ -50,3 +51,31 @@ export const PROJECT_SETTINGS_SECTIONS = [
 ] as const satisfies readonly ProjectSettingsSection[]
 
 export type ProjectSettingsSectionId = (typeof PROJECT_SETTINGS_SECTIONS)[number]['id']
+
+/**
+ * `data-setting-id` of each pane (see `lib/settings-registry.ts`): the ⌘K `/`
+ * scope lands on these. A test pins this map to the registry.
+ */
+export const PROJECT_PANE_ANCHORS: ReadonlyMap<ComponentType, string> = new Map<ComponentType, string>([
+  [ProjectRepositoriesSection, 'repositories'],
+  [ProjectPrePromptsSection, 'prePrompt'],
+  [AgentRuntimeSettingsSection, 'verificationCommands'],
+  [ProjectSubagentsSection, 'subagentsProject'],
+  [ProjectIntegrationBranchSection, 'integrationBranch'],
+  [ProjectWorktreeEnvSection, 'worktreeEnv'],
+  [ProjectAgentEnvModeSection, 'agentEnv'],
+  [ProjectBudgetSection, 'projectBudget'],
+  [ProjectReviewWipSection, 'reviewLimit'],
+  [ProjectTelemetrySection, 'telemetry'],
+  [ProjectAgentAuditSection, 'agentAudit'],
+  [ProjectAnchoringSection, 'anchoring'],
+  [ProjectRulesSection, 'projectRules'],
+  [ProjectTerminalSection, 'terminalProject'],
+  [RecentlyDeletedSection, 'recentlyDeleted'],
+])
+
+/** A pane wrapped in its ⌘K anchor. */
+export function ProjectSettingsPane({ Pane }: { Pane: ComponentType }) {
+  const anchor = PROJECT_PANE_ANCHORS.get(Pane)
+  return anchor ? <SettingAnchor id={anchor}><Pane /></SettingAnchor> : <Pane />
+}

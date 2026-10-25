@@ -378,6 +378,22 @@ provides no authoritative token/USD envelope, so those values remain null.
 | `GET` | `/run-duration-range?loopId=\|command=` | Measured p25/median/p75 of this project's settled runs of a loop or job-command shape (`{ range, minSamples }`); `range` is `null` below 5 samples. Feeds the job story's "Runs like this have taken…" |
 | `GET` | `/launch-forecast?loopId=\|command=&provider=` | Read-only launch forecast: `{ time, cost, minSamples, budget }`. Same samples as `run-duration-range`, narrowed to `provider`. `time` is `{ p25Ms, medianMs, p75Ms, sampleCount }`. `cost` is `{ lowUsd, highUsd, sampleCount }` (cents), built **only** from provider-reported costs (estimated costs and runs without a cost are excluded) and is an estimate, never a billed figure. Each is `null` below the 5-sample floor (render "Not enough history yet"). `factory:implement`/`factory:batch`/`factory:freestyle` read the `/specrails:implement`/`/specrails:freestyle` jobs; any other loop id reads `loop_runs`. `budget` is the tightest configured cap (daily, weekly or monthly; project or app-wide) `{ scope, period?, budgetUsd, spentUsd, exhausted, resetsAt }` (the same figures the launch gate enforces; `period` is absent for the daily budget) or `null`. `400` without `loopId`/`command` or on a malformed `provider` |
 
+### Scoped search (⌘K)
+
+The command palette's scopes. Missions (`@`) stay on `GET /api/agents/search`, files (`f:`) on `GET /code/find`
+and docs (`?`) on `GET /api/docs/search`; these two are project-scoped and read only that project's data.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/search/specs` | `?q=` (required, single line, at most 200 characters, `400` otherwise), `?limit=` (default 8, max 30). Folded (case- and diacritics-insensitive) substring scan of the ticket store: title, short summary, description, labels, non-goals, addenda and comments, so it is never behind the file Core also writes. `#12`/`12` also matches by id. Live Flow placeholders are skipped. Returns `{ results: [{ id, title, status, priority, field, snippet }] }`, best field first (`field`: `id` \| `title` \| `summary` \| `label` \| `description` \| `nonGoal` \| `addendum` \| `comment`), then newest. `snippet` is `{ text, ranges: [[start, end], ...] }` (plain text plus character ranges to mark; never HTML) or `null` |
+| `GET` | `/search/jobs` | Same `q`/`limit` rules. FTS5 trigram search (`bm25`, one row per job; queries under 3 characters use a bounded `LIKE` scan) over the job-log index of this project's database (migration 86, `server/db/job-search.ts`): job command, loop name, phase titles and the failure diagnosis kind/detail/host-blocker text. It never indexes events or token streams. Returns `{ results: [{ jobId, command, status, startedAt, field, snippet }] }` (`field`: `command` \| `loop` \| `phase` \| `failure` \| `detail`). `jobId` is also the loop-run id, so the client opens `/jobs/:jobId` |
+
+The job-log index (`job_search_docs` + external-content `job_search_fts`) is derived data kept current at job create,
+phase events and settle (`finishJob`, loop-run settle), cleaned on delete/purge, and bounded: 300 characters per
+document, 30 phase documents per job, 30,000 documents per project (the oldest tenth is dropped when over). Migration 86
+creates it and runs the same idempotent backfill (`rebuildJobSearchIndex`, newest 5,000 jobs). An indexing failure never
+fails the write that triggered it.
+
 ### Tickets
 
 | Method | Path | Notes |

@@ -13,7 +13,12 @@
       "navigation": "Navigation",
       "actions": "Actions",
       "recentActions": "Recent actions",
-      "recentPlaces": "Recent places"
+      "recentPlaces": "Recent places",
+      "settings": "Settings",
+      "specs": "Specs",
+      "files": "Files",
+      "logs": "Job logs",
+      "docs": "Guide"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -36,7 +41,8 @@
       "select": "select",
       "close": "close",
       "actions": "actions",
-      "back": "back"
+      "back": "back",
+      "removeScope": "remove scope"
     },
     "missions": {
       "home": "Home"
@@ -136,6 +142,199 @@
       "deleteSelectedN_other": "Delete {{count}} selected specs",
       "saveView": "Save current view",
       "switchView": "Switch view"
+    },
+    "scopes": {
+      "hintsLabel": "Search in",
+      "remove": "Remove scope",
+      "needsProject": "Open a project to search here.",
+      "searching": "Searching…",
+      "failed": "Search is unavailable right now.",
+      "empty": "Nothing found for “{{query}}”.",
+      "specs": {
+        "label": "Specs",
+        "placeholder": "Search specs by title, description, labels or notes…",
+        "prompt": "Type to search specs."
+      },
+      "missions": {
+        "label": "Missions",
+        "placeholder": "Search missions by title or content…",
+        "prompt": "Type to search missions."
+      },
+      "settings": {
+        "label": "Settings",
+        "placeholder": "Search settings…",
+        "prompt": "Type to search settings."
+      },
+      "files": {
+        "label": "Files",
+        "placeholder": "Find a file by name or path…",
+        "prompt": "Type a file name or path."
+      },
+      "logs": {
+        "label": "Job logs",
+        "placeholder": "Search job commands, phases and failures…",
+        "prompt": "Type to search what your runs did and why they failed."
+      },
+      "docs": {
+        "label": "Guide",
+        "placeholder": "Search the guide…",
+        "prompt": "Type to search the guide."
+      }
+    },
+    "specs": {
+      "fields": {
+        "id": "Spec number",
+        "title": "Title",
+        "summary": "Summary",
+        "description": "Description",
+        "label": "Label",
+        "nonGoal": "Out of scope",
+        "addendum": "Addendum",
+        "comment": "Comment"
+      }
+    },
+    "logs": {
+      "fields": {
+        "command": "Command",
+        "loop": "Loop",
+        "phase": "Phase",
+        "failure": "Failure",
+        "detail": "Detail"
+      }
+    },
+    "settings": {
+      "appScope": "Desktop settings",
+      "projectScope": "Project settings",
+      "entries": {
+        "theme": {
+          "label": "Appearance and theme",
+          "keywords": "theme, dark, light, colors, appearance, look"
+        },
+        "language": {
+          "label": "Language",
+          "keywords": "language, locale, translation, idioma"
+        },
+        "effects": {
+          "label": "Visual effects",
+          "keywords": "effects, animation, motion, starfield, background"
+        },
+        "editor": {
+          "label": "Editor",
+          "keywords": "editor, vscode, open in editor, ide, cursor"
+        },
+        "codeSection": {
+          "label": "Code explorer",
+          "keywords": "code, explorer, files, syntax, highlight"
+        },
+        "terminalApp": {
+          "label": "Terminal panel (Desktop)",
+          "keywords": "terminal, shell, font, renderer, copy on select"
+        },
+        "providers": {
+          "label": "AI providers and connections",
+          "keywords": "provider, claude, codex, gemini, api key, login, engine, local"
+        },
+        "subagentsApp": {
+          "label": "Sub-agents (Desktop)",
+          "keywords": "sub-agents, subagents, native, delegated, parallel"
+        },
+        "mobileCompanion": {
+          "label": "Mobile companion",
+          "keywords": "mobile, companion, phone, pair, qr, ipad, remote"
+        },
+        "registeredProjects": {
+          "label": "Registered projects",
+          "keywords": "projects, remove project, repositories, registered"
+        },
+        "budgetAlerts": {
+          "label": "Daily budget and cost alerts",
+          "keywords": "budget, daily, cost, spend, limit, alert, usd, money"
+        },
+        "notifications": {
+          "label": "OS notifications",
+          "keywords": "notifications, alerts, sound, desktop notifications"
+        },
+        "webhooks": {
+          "label": "Outbound webhooks",
+          "keywords": "webhook, http, slack, discord, events, notify"
+        },
+        "updateChannel": {
+          "label": "Update channel",
+          "keywords": "update channel, beta, stable, release"
+        },
+        "appUpdate": {
+          "label": "Specrails Desktop updates",
+          "keywords": "update, upgrade, version, desktop update"
+        },
+        "coreUpdate": {
+          "label": "Specrails Core updates",
+          "keywords": "core, update, version, framework, specrails-core"
+        },
+        "about": {
+          "label": "Desktop information",
+          "keywords": "about, info, port, database, version"
+        },
+        "repositories": {
+          "label": "Repositories",
+          "keywords": "repository, repo, workspace, folder, git, multi-repo, primary"
+        },
+        "prePrompt": {
+          "label": "Rail pre-prompt",
+          "keywords": "pre-prompt, preprompt, instructions, prompt, rail, freestyle"
+        },
+        "verificationCommands": {
+          "label": "Verification commands",
+          "keywords": "verification, test command, lint, typecheck, build, setup, commands"
+        },
+        "subagentsProject": {
+          "label": "Sub-agents (project)",
+          "keywords": "sub-agents, subagents, native, delegated, parallel, project"
+        },
+        "integrationBranch": {
+          "label": "Integration branch",
+          "keywords": "branch, integration, main, base branch, git, merge target"
+        },
+        "worktreeEnv": {
+          "label": "Worktree environment",
+          "keywords": "worktree, environment, env, variables, .env, dependencies, install"
+        },
+        "agentEnv": {
+          "label": "Agent environment",
+          "keywords": "agent environment, env mode, variables, secrets, isolated"
+        },
+        "projectBudget": {
+          "label": "Project daily budget",
+          "keywords": "budget, daily, cost, spend, limit, pause, usd"
+        },
+        "reviewLimit": {
+          "label": "Review limit",
+          "keywords": "review limit, wip, on review, pull requests, queue"
+        },
+        "telemetry": {
+          "label": "Pipeline telemetry",
+          "keywords": "telemetry, tracing, logs, diagnostics, metrics"
+        },
+        "agentAudit": {
+          "label": "Agent actions audit",
+          "keywords": "audit, agent actions, log, tool calls, history"
+        },
+        "anchoring": {
+          "label": "Existing-project anchoring",
+          "keywords": "anchoring, existing project, conventions, baseline, scan"
+        },
+        "projectRules": {
+          "label": "Project rules",
+          "keywords": "rules, conventions, gates, checks, agents.md, guardrails"
+        },
+        "terminalProject": {
+          "label": "Terminal panel (project)",
+          "keywords": "terminal, shell, project terminal, font"
+        },
+        "recentlyDeleted": {
+          "label": "Recently deleted",
+          "keywords": "deleted, trash, restore, undelete, recycle"
+        }
+      }
     }
   },
   "toasts": {

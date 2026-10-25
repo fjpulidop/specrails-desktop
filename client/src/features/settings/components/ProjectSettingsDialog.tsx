@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Settings } from 'lucide-react'
 import { cn } from '../../../lib/utils'
@@ -13,7 +13,8 @@ import {
 } from '../../../components/ui/dialog'
 import { HelpHint } from '../../../components/HelpHint'
 import { PROJECT_SETTINGS_HELP, type HelpTopicId } from '../../../lib/help-topics'
-import { PROJECT_SETTINGS_SECTIONS, type ProjectSettingsSectionId } from './project-settings-sections'
+import { PROJECT_SETTINGS_SECTIONS, ProjectSettingsPane, type ProjectSettingsSectionId } from './project-settings-sections'
+import { focusSettingAnchor } from '../lib/setting-anchor'
 
 type SectionId = ProjectSettingsSectionId
 
@@ -24,13 +25,18 @@ type SectionId = ProjectSettingsSectionId
  * left section nav + scrollable content, all panes mounted and toggled with
  * `hidden` so switching sections never refetches or resizes.
  */
-export function ProjectSettingsDialog({ open, onClose, initialSection }: { open: boolean; onClose: () => void; initialSection?: string }) {
+export function ProjectSettingsDialog({ open, onClose, initialSection, initialSettingId }: { open: boolean; onClose: () => void; initialSection?: string; /** A `data-setting-id` to scroll to and focus once the section shows (⌘K `/`). */ initialSettingId?: string }) {
   const { t } = useTranslation('settings')
   const { activeProjectId, projects } = useDesktop()
   const project = projects.find((p) => p.id === activeProjectId)
   const [activeSection, setActiveSection] = useState<SectionId>(
     () => PROJECT_SETTINGS_SECTIONS.find((s) => s.id === initialSection)?.id ?? 'general',
   )
+  // ⌘K `/`: once the dialog is up on the section, land on the setting itself.
+  useEffect(() => {
+    if (!open || !initialSettingId) return
+    return focusSettingAnchor(initialSettingId)
+  }, [open, initialSettingId])
   const paneCls = (id: SectionId) => cn('space-y-5', activeSection === id ? '' : 'hidden')
   const sectionHelp = (PROJECT_SETTINGS_HELP as Record<string, HelpTopicId | undefined>)[activeSection]
 
@@ -80,7 +86,7 @@ export function ProjectSettingsDialog({ open, onClose, initialSection }: { open:
             )}
             {PROJECT_SETTINGS_SECTIONS.map((section) => (
               <div key={section.id} className={paneCls(section.id)}>
-                {section.panes.map((Pane, i) => <Pane key={i} />)}
+                {section.panes.map((Pane, i) => <ProjectSettingsPane key={i} Pane={Pane} />)}
               </div>
             ))}
           </div>

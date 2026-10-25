@@ -14,11 +14,13 @@ export const OPEN_APP_SETTINGS_EVENT = 'specrails:open-app-settings'
 
 export interface OpenAppSettingsDetail {
   section: AppSettingsSection
+  /** A `data-setting-id` to scroll to and focus (⌘K `/`, see settings-registry). */
+  settingId?: string
 }
 
-export function openAppSettings(section: AppSettingsSection): void {
+export function openAppSettings(section: AppSettingsSection, settingId?: string): void {
   try {
-    window.dispatchEvent(new CustomEvent<OpenAppSettingsDetail>(OPEN_APP_SETTINGS_EVENT, { detail: { section } }))
+    window.dispatchEvent(new CustomEvent<OpenAppSettingsDetail>(OPEN_APP_SETTINGS_EVENT, { detail: { section, ...(settingId ? { settingId } : {}) } }))
   } catch {
     // non-DOM environment — nothing to open
   }
@@ -34,11 +36,13 @@ export const OPEN_PROJECT_SETTINGS_EVENT = 'specrails:open-project-settings'
 export interface OpenProjectSettingsDetail {
   /** A `PROJECT_SETTINGS_SECTIONS` id. */
   section: string
+  /** A `data-setting-id` to scroll to and focus (⌘K `/`, see settings-registry). */
+  settingId?: string
 }
 
-export function openProjectSettings(section: string): void {
+export function openProjectSettings(section: string, settingId?: string): void {
   try {
-    window.dispatchEvent(new CustomEvent<OpenProjectSettingsDetail>(OPEN_PROJECT_SETTINGS_EVENT, { detail: { section } }))
+    window.dispatchEvent(new CustomEvent<OpenProjectSettingsDetail>(OPEN_PROJECT_SETTINGS_EVENT, { detail: { section, ...(settingId ? { settingId } : {}) } }))
   } catch {
     // non-DOM environment — nothing to open
   }

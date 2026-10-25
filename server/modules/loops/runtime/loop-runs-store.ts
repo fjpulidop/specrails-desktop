@@ -9,6 +9,7 @@ import { readRuntimeExpiration } from '../../agent-runtime/runtime/agent-runtime
 import path from 'path'
 import { existsSync, realpathSync } from 'node:fs'
 import type { DbInstance } from '../../../db'
+import { safeIndexJob } from '../../../db/job-search'
 import type { LoopRunRequest } from './loop-run-manager'
 
 export type LoopRunStatus = 'running' | 'paused' | 'completed'
@@ -333,6 +334,7 @@ export function createLoopRun(db: DbInstance, input: CreateLoopRunInput): LoopRu
     input.iterationLimit,
     input.startedAt,
   )
+  safeIndexJob(db, input.id)
   return getLoopRun(db, input.id)!
 }
 
@@ -452,6 +454,7 @@ export function finishLoopRunAndJob(
       opts.job.numTurns,
       id,
     )
+    safeIndexJob(db, id)
     const payload: LoopTerminalRecoveryPayload = {
       version: 1,
       runId: id,
@@ -703,6 +706,7 @@ export function finishLoopRun(
   db.prepare(
     `UPDATE loop_runs SET status = 'completed', final_outcome = ?, finished_at = ?, failure_diagnosis = ? WHERE id = ?`
   ).run(opts.outcome, opts.finishedAt, opts.failureDiagnosis ?? null, id)
+  safeIndexJob(db, id)
   return getLoopRun(db, id)
 }
 

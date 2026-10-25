@@ -1,6 +1,12 @@
 import { randomUUID } from 'crypto'
 import type { DbInstance } from '../../../db'
 import { normalizeLevel, type AgentTierLevel } from '../../missions/runtime/agent-tier'
+import {
+  FALLBACK_SCAN_ROWS, MARK_END, MARK_START, TRIGRAM_MIN_CHARS,
+  foldSearchText, ftsPhrase, parseMarkedSnippet, windowMarked, type SearchSnippet,
+} from '../../../util/search-snippet'
+
+export { foldSearchText }
 
 // ─── App-global agent chat persistence (design D2) ────────────────────────────
 //
@@ -391,10 +397,7 @@ export function updateAgentMessageContent(db: DbInstance, messageId: string, con
 // ─── Mission search (search-missions-in-palette) ──────────────────────────────
 
 /** A highlighted excerpt: plain text plus `[start, end)` ranges to mark. */
-export interface MissionSearchSnippet {
-  text: string
-  ranges: Array<[number, number]>
-}
+export type MissionSearchSnippet = SearchSnippet
 
 export interface MissionSearchHit {
   conversation: AgentConversation
@@ -408,65 +411,6 @@ export interface MissionSearchHit {
 
 export const MISSION_SEARCH_DEFAULT_LIMIT = 20
 export const MISSION_SEARCH_MAX_LIMIT = 50
-/** The trigram tokenizer matches nothing below three characters; shorter
- *  queries take the bounded substring scan instead. */
-const TRIGRAM_MIN_CHARS = 3
-/** Rows the substring fallback inspects at most (newest first). */
-const FALLBACK_SCAN_ROWS = 400
-/** Characters kept on each side of the first match in a snippet window. */
-const FALLBACK_CONTEXT = 60
-const MARK_START = '\u0001'
-const MARK_END = '\u0002'
-
-/** Lowercase + strip combining diacritics, mirroring the index tokenizer so a
- *  title compare and a content compare agree on what "matches". */
-export function foldSearchText(value: string): string {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-}
-
-/** Quote a raw user query as one FTS5 phrase so operators/punctuation in it
- *  never become syntax; a trigram phrase is a plain substring match. */
-function ftsPhrase(query: string): string {
-  return `"${query.replace(/"/g, '""')}"`
-}
-
-/**
- * Cut a marked full-content string (`highlight()` output, or the substring
- * fallback's own marking) down to a window of ~${FALLBACK_CONTEXT} characters on
- * each side of the FIRST match, with ellipses where text was dropped and
- * whitespace collapsed. Markers outside the window are simply cut away;
- * `parseMarkedSnippet` tolerates a dangling one.
- */
-function windowMarked(marked: string): string {
-  const at = marked.indexOf(MARK_START)
-  if (at < 0) return marked.slice(0, FALLBACK_CONTEXT * 2).replace(/\s+/g, ' ')
-  const close = marked.indexOf(MARK_END, at)
-  const matchEnd = close < 0 ? marked.length : close + 1
-  const start = Math.max(0, at - FALLBACK_CONTEXT)
-  const end = Math.min(marked.length, matchEnd + FALLBACK_CONTEXT)
-  const prefix = start > 0 ? '…' : ''
-  const suffix = end < marked.length ? '…' : ''
-  return prefix + marked.slice(start, end).replace(/\s+/g, ' ') + suffix
-}
-
-/** Turn a marked window into plain text + `[start, end)` highlight ranges. */
-function parseMarkedSnippet(marked: string): MissionSearchSnippet {
-  let text = ''
-  const ranges: Array<[number, number]> = []
-  let open = -1
-  for (const ch of marked) {
-    if (ch === MARK_START) {
-      open = text.length
-    } else if (ch === MARK_END) {
-      if (open >= 0 && text.length > open) ranges.push([open, text.length])
-      open = -1
-    } else {
-      text += ch
-    }
-  }
-  return { text, ranges }
-}
-
 interface ContentHitRow {
   conversation_id: string
   message_id: string
