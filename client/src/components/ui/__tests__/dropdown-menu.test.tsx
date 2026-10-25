@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../dropdown-menu'
+import { LAYERS, LAYER_CLASS } from '../../../lib/layers'
 
 function Harness({ onDelete = vi.fn() }: { onDelete?: () => void }) {
   return (
@@ -23,6 +24,16 @@ function Harness({ onDelete = vi.fn() }: { onDelete?: () => void }) {
 }
 
 describe('DropdownMenu', () => {
+  it('paints above the floating agent panel it can be opened from', () => {
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'More' }))
+    const menu = screen.getByRole('menu')
+    expect(menu.className).toContain(LAYER_CLASS.popover)
+    expect(LAYERS.popover).toBeGreaterThan(LAYERS.floatingChat)
+    expect(LAYERS.popover).toBeGreaterThan(LAYERS.capture)
+    expect(LAYERS.popover).toBeLessThan(LAYERS.toast)
+  })
+
   it('exposes the menu-button pattern and toggles on click', () => {
     render(<Harness />)
     const trigger = screen.getByRole('button', { name: 'More' })

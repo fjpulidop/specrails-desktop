@@ -178,7 +178,7 @@ export function DropdownMenuContent({
       onKeyDown={onKeyDown}
       style={pos ? { position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right } : { position: 'fixed' }}
       className={cn(
-        'z-50 min-w-[10rem] rounded-card border border-border bg-popover p-1 text-popover-foreground shadow-2',
+        'z-[105] min-w-[10rem] rounded-card border border-border bg-popover p-1 text-popover-foreground shadow-2',
         className,
       )}
       {...props}

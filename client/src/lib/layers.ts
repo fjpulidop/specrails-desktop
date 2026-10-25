@@ -13,6 +13,8 @@
  *   capture        80   browser capture / web view / native browser pane,
  *                       background-process logs (opened over capture)
  *   media          100  lightboxes (full-bleed media viewer)
+ *   popover        105  menus, selects and tooltips (portaled to body): above
+ *                       every modal and the floating panel they open from
  *   toast          110  sonner toasts — above every modal
  *
  * The Tailwind classes below are literal strings so the v4 scanner emits them.
@@ -27,6 +29,7 @@ export const LAYERS = {
   dock: 75,
   capture: 80,
   media: 100,
+  popover: 105,
   toast: 110,
 } as const
 
@@ -57,6 +60,7 @@ export const LAYER_CLASS = {
   dock: 'z-[75]',
   capture: 'z-[80]',
   media: 'z-[100]',
+  popover: 'z-[105]',
   toast: 'z-[110]',
 } as const
 
