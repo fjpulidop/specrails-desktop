@@ -840,10 +840,14 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
               className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
             >
               {toggleContent}
-              <ChevronUp
-                aria-hidden
-                className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-muted-foreground motion-reduce:transition-none', panelOpen && 'rotate-180')}
-              />
+              {/* One disclosure cue: when the primary opens the card it carries the chevron. */}
+              {!(showPrimary && primary?.kind !== 'local') && (
+                <ChevronUp
+                  aria-hidden
+                  data-testid="mission-run-strip-toggle-chevron"
+                  className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-muted-foreground motion-reduce:transition-none', panelOpen && 'rotate-180')}
+                />
+              )}
             </button>
           ) : (
             <div tabIndex={-1} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50" data-testid="mission-run-strip-summary">{toggleContent}</div>

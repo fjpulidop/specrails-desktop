@@ -501,6 +501,8 @@ describe('strip panel', () => {
     const primary = await within(s).findByTestId('mission-run-strip-primary')
     expect(primary).toHaveTextContent('Create PR')
     expect(primary).toHaveAttribute('data-kind', 'outward')
+    // One disclosure cue: the outward primary carries the chevron, the toggle doesn't.
+    expect(within(s).queryByTestId('mission-run-strip-toggle-chevron')).not.toBeInTheDocument()
     expect(primary).toHaveAccessibleDescription('Opens the run\u2019s card so you can confirm there'.replace('\u2019', "'"))
     const create = within(s).getByTestId('agent-pr-decision-card').querySelector<HTMLButtonElement>('[data-run-primary-id="create-pr"]')!
     expect(create).toHaveAttribute('data-run-primary-kind', 'outward')
