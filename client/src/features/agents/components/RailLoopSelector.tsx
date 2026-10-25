@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Workflow } from 'lucide-react'
 import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
-import { loopNeedsTicket } from '../../loops/lib/loop-ticket-need'
+import { railRunnableCustomLoops } from '../../loops/lib/loop-ticket-need'
 import { FACTORY_RAIL_LOOPS } from '../../rails/lib/rail-loops'
 import { HelpHint } from '../../../components/HelpHint'
 
@@ -46,7 +46,7 @@ export function RailLoopSelector({
       // Standalone loops are launched from the Loops page "Run" instead.
       .then((ls) => {
         if (cancelled) return
-        setPublished(ls.filter((l) => !l.builtinId && l.status === 'published' && loopNeedsTicket(l.graph)))
+        setPublished(railRunnableCustomLoops(ls))
         setBuiltinRows(new Map(ls.filter((l) => l.builtinId).map((l) => [l.builtinId!, l])))
       })
       .catch(() => { /* leave empty; built-in loops still available */ })

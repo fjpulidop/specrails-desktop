@@ -37,7 +37,7 @@ import {
 } from '../../providers/lib/provider-capabilities'
 import { FACTORY_RAIL_LOOPS, deriveRailMode, effectiveLoopId } from '../../rails/lib/rail-loops'
 import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
-import { loopNeedsTicket } from '../../loops/lib/loop-ticket-need'
+import { railRunnableCustomLoops } from '../../loops/lib/loop-ticket-need'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { AgentToolbarSelector, type AgentToolbarOption } from './AgentToolbarSelector'
 import { PRIMARY_ACTION, RunPrimaryButton } from './run-primary'
@@ -264,7 +264,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     }).catch(() => { if (!cancelled) setLoadError(true) })
     if (FEATURE_LOOPS_SECTION) {
       loopsApi.list()
-        .then((ls) => { if (!cancelled) setCustomLoops(ls.filter((l) => l.status === 'published' && loopNeedsTicket(l.graph))) })
+        .then((ls) => { if (!cancelled) setCustomLoops(railRunnableCustomLoops(ls)) })
         .catch(() => { /* custom loops are optional */ })
     }
     return () => { cancelled = true }
