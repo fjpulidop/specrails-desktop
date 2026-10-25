@@ -40,9 +40,9 @@
     "openReview": "打开评审",
     "viewJob": "查看作业",
     "toast": {
-      "updated": "工单已更新",
-      "updateFailed": "更新工单失败",
-      "deleteFailed": "删除工单失败"
+      "updated": "规格已更新",
+      "updateFailed": "更新规格失败",
+      "deleteFailed": "删除规格失败"
     },
     "compare": "对比",
     "compareTooltip": "与另一个 spec 对比",
@@ -54,7 +54,7 @@
     "effort": "工作量",
     "assignee": "负责人",
     "continueEditing": "继续编辑",
-    "ticketFallbackLabel": "工单 #{{id}}",
+    "ticketFallbackLabel": "规格 #{{id}}",
     "spendingLineHint": "到目前为止在此规格上的全部消耗：总成本 · 智能体轮次（末尾的 + 表示部分运行未报告轮次）· 活跃时间 · 按类型统计的运行（例如“1 quick, 3 loops”= 一次 Quick 规格生成和三次 loop 运行）。点击可在 Analytics 中打开。"
   },
   "contractLayer": {
@@ -69,8 +69,8 @@
     "noRails": "没有可用的 rail。"
   },
   "contextMenu": {
-    "ariaLabel": "工单操作",
-    "deleteTicket": "删除工单",
+    "ariaLabel": "规格操作",
+    "deleteTicket": "删除规格",
     "changeStatus": "更改状态",
     "statusOptions": "状态选项",
     "setPriority": "设置优先级",
@@ -82,14 +82,14 @@
     "postit": "便签视图"
   },
   "createModal": {
-    "title": "创建工单",
-    "titlePlaceholder": "工单标题…",
+    "title": "创建规格",
+    "titlePlaceholder": "规格标题…",
     "labelsPlaceholder": "输入以添加标签…",
     "create": "创建",
     "creating": "正在创建…",
     "toast": {
-      "created": "工单已创建",
-      "createFailed": "创建工单失败"
+      "created": "规格已创建",
+      "createFailed": "创建规格失败"
     },
     "description": "手动向看板添加一个规格。它会以你选择的状态开始，之后可以继续完善或移到 rail。"
   },
@@ -101,7 +101,7 @@
     "empty": "没有其他可对比的 spec"
   },
   "spendingLine": {
-    "ariaLabel": "在分析页查看此工单的支出",
+    "ariaLabel": "在分析页查看此规格的支出",
     "turns_one": "{{count}} 轮智能体交互",
     "turns_other": "{{count}} 轮智能体交互",
     "turnsAtLeast_one": "{{count}}+ 轮智能体交互",
@@ -109,15 +109,15 @@
     "active": "活跃 {{duration}}",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。",
-    "costUnavailableTooltip": "此工单的所有调用均未提供成本遥测数据。",
+    "costUnavailableTooltip": "此规格的所有调用均未提供成本遥测数据。",
     "costPartiallyUnavailableTooltip": "仅显示已知成本小计；部分调用未提供成本遥测数据。",
-    "turnsUnavailableTooltip": "此工单的轮次遥测数据不可用。",
+    "turnsUnavailableTooltip": "此规格的轮次遥测数据不可用。",
     "turnsPartiallyUnavailableTooltip": "仅显示已知轮次小计；部分调用未提供轮次遥测数据。"
   },
   "toasts": {
-    "newTicket": "新工单：{{title}}",
-    "newTicketsAdded_one": "已从产品发现新增 {{count}} 个工单",
-    "newTicketsAdded_other": "已从产品发现新增 {{count}} 个工单"
+    "newTicket": "新规格：{{title}}",
+    "newTicketsAdded_one": "已从产品发现新增 {{count}} 个规格",
+    "newTicketsAdded_other": "已从产品发现新增 {{count}} 个规格"
   },
   "addenda": {
     "title": "附录",

@@ -184,7 +184,7 @@ describe('InvocationsTable', () => {
     expect(screen.getByText('Contract Layer')).toBeInTheDocument()
     expect(screen.getByText(/#48 Stage select screen/)).toBeInTheDocument()
     expect(screen.getByText(/Contract Layer refinement/)).toBeInTheDocument()
-    expect(screen.getAllByText('opus')).toHaveLength(2)
+    expect(screen.getAllByText('Claude Opus')).toHaveLength(2)
     expect(screen.getByText('inferred')).toBeInTheDocument()
   })
 

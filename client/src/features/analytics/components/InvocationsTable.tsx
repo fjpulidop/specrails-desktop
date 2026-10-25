@@ -5,6 +5,8 @@ import type { InvocationRow, Surface } from '../types/spending'
 import { SURFACE_LABEL, SURFACE_ACCENT } from '../types/spending'
 import { formatUsd } from '../lib/format'
 import { CostValue } from './CostValue'
+import { ModelName } from './ModelName'
+import { formatTokens } from '../../../lib/format-tokens'
 import { Skeleton } from '../../../components/ui/skeleton'
 
 interface TableFilters {
@@ -42,8 +44,7 @@ function fmtCost(v: number | null): string {
 }
 function fmtNum(v: number | null): string {
   if (v == null) return '—'
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}k`
-  return String(v)
+  return formatTokens(v)
 }
 
 function isContractLayerInvocation(r: InvocationRow): boolean {
@@ -183,20 +184,20 @@ export function InvocationsTable({
                           <span className="truncate block">
                             #{r.ticket_id}{' '}
                             {isContractLayer ? (
-                              <span className="text-muted-foreground/90">{t('table.contractLayerRefinement')}</span>
+                              <span className="text-muted-foreground">{t('table.contractLayerRefinement')}</span>
                             ) : (
                               r.ticket_title ?? <span className="text-muted-foreground italic">{t('table.deleted')}</span>
                             )}
                           </span>
                         )
                         : r.ticket_title
-                          ? <span className="truncate block text-muted-foreground/90 italic" title={t('table.provisionalTitleTooltip')}>{r.ticket_title}<span className="sr-only"> ({t('table.provisionalTitleTooltip')})</span></span>
+                          ? <span className="truncate block text-muted-foreground italic" title={t('table.provisionalTitleTooltip')}>{r.ticket_title}<span className="sr-only"> ({t('table.provisionalTitleTooltip')})</span></span>
                           : <span className="text-muted-foreground">—</span>
                       }
                     </td>
                     <td className="px-2 py-2 text-right font-medium">
                       {r.total_cost_usd_estimated === 1 && r.total_cost_usd != null ? (
-                        <CostValue usd={r.total_cost_usd} estimated className="text-muted-foreground/90" />
+                        <CostValue usd={r.total_cost_usd} estimated className="text-muted-foreground" />
                       ) : r.total_cost_usd == null && isLocalEngine(r.provider) ? (
                         <span title={t('table.costUnknownLocalTooltip')} data-testid="cost-unknown-local" className="text-muted-foreground">—<span className="sr-only"> ({t('table.costUnknownLocalTooltip')})</span></span>
                       ) : (
@@ -206,7 +207,7 @@ export function InvocationsTable({
                     <td className="px-2 py-2 text-right">{fmtNum(r.num_turns)}</td>
                     <td className="px-2 py-2 text-right">{totalTokens > 0 ? fmtNum(totalTokens) : '—'}</td>
                     <td className="px-2 py-2 max-w-[180px] truncate">
-                      {model ?? '—'}
+                      {model ? <ModelName slug={model} /> : '—'}
                       {model && !r.model ? <span className="ml-1 text-caption text-muted-foreground">{t('table.inferred')}</span> : null}
                     </td>
                     {multiProvider && (

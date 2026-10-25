@@ -424,7 +424,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     onSelect: () => void
   }
   const navEntries: NavEntry[] = [
-    { key: 'dashboard', label: t('palette.nav.dashboard'), keywords: ['home'], icon: <LayoutDashboard className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => handleNavigate('/') },
+    { key: 'dashboard', label: t('palette.nav.dashboard'), keywords: ['home', 'dashboard', 'panel'], icon: <LayoutDashboard className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => handleNavigate('/') },
     ...(onOpenAnalytics
       ? [{ key: 'desktopAnalytics', label: t('palette.nav.desktopAnalytics'), keywords: ['cross-project', 'desktop'], icon: <PieChart className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => handleDesktopAction(onOpenAnalytics) }]
       : []),
@@ -979,7 +979,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           ) : (
             <>
               {!search.trim() && (
-                <div className="flex flex-nowrap items-center gap-x-3 overflow-hidden px-3 pb-2 pt-1 text-caption text-muted-foreground" data-testid="palette-scope-hints">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 pt-1 text-caption text-muted-foreground" data-testid="palette-scope-hints">
                   {scopes.map((id) => (
                     <button
                       key={id}

@@ -259,7 +259,7 @@
   "builtInBadge": "Integriert",
   "run": {
     "title": "{{name}} ausführen",
-    "subtitle": "Diesen Loop auf einem Projekt starten (kein Ticket nötig).",
+    "subtitle": "Diesen Loop auf einem Projekt starten (keine Spec nötig).",
     "project": "Projekt",
     "provider": "Anbieter",
     "model": "Modell",
@@ -314,7 +314,7 @@
     },
     "factory_openspec": {
       "name": "OpenSpec-Lebenszyklus",
-      "description": "OpenSpec-Lebenszyklus vom Ticket bis zum Archiv: Artefakte generieren (opsx:ff) → implementieren (opsx:apply) → verifizieren (opsx:verify); bei FAIL zurück und denselben Change nachbessern, bei PASS unbeaufsichtigt archivieren."
+      "description": "OpenSpec-Lebenszyklus von der Spec bis zum Archiv: Artefakte generieren (opsx:ff) → implementieren (opsx:apply) → verifizieren (opsx:verify); bei FAIL zurück und denselben Change nachbessern, bei PASS unbeaufsichtigt archivieren."
     },
     "factory_revision": {
       "name": "Überarbeitung",

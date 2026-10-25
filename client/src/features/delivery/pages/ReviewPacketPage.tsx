@@ -427,7 +427,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
             <CircleDollarSign className="size-3.5" aria-hidden />
             {t('cost.thisBuild', { amount: costLabel })}
             {baselineCostUsd !== null ? (
-              <span className="text-muted-foreground/80" data-testid="packet-cost-baseline">{t('cost.baselinePart', { amount: formatUsd(baselineCostUsd) })}</span>
+              <span className="text-muted-foreground" data-testid="packet-cost-baseline">{t('cost.baselinePart', { amount: formatUsd(baselineCostUsd) })}</span>
             ) : null}
           </span>
           {packet.prUrl ? (
@@ -839,7 +839,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   <summary className="cursor-pointer select-none text-label text-muted-foreground group-open:text-foreground/80">
                     {t('planned.title')}
                   </summary>
-                  <p className="mt-1 text-xs italic text-muted-foreground/80">{t('planned.caveat')}</p>
+                  <p className="mt-1 text-xs italic text-muted-foreground">{t('planned.caveat')}</p>
                   <PacketMarkdown className="mt-2">{section.solutionOverflow ?? section.solution}</PacketMarkdown>
                 </details>
               ) : (

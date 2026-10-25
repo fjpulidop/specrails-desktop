@@ -107,4 +107,4 @@ The dollar figure shows only when the engine is known to bill per use (for examp
 ## Where to go next
 
 - [The Loop Builder](the-loop-builder) — what a rail runs, and how to build your own loops.
-- [The Job Detail view](the-job-detail-view) — phases, live metrics, ticket cards.
+- [The Job Detail view](the-job-detail-view) — phases, live metrics, spec cards.

@@ -1,12 +1,12 @@
 {
   "statusLabel": {
-    "running": "en cours",
-    "completed": "terminé",
-    "failed": "échoué",
-    "canceled": "annulé",
-    "queued": "en attente",
-    "zombie": "zombie",
-    "skipped": "ignoré"
+    "running": "En cours",
+    "completed": "Terminé",
+    "failed": "Échoué",
+    "canceled": "Annulé",
+    "queued": "En attente",
+    "zombie": "Zombie",
+    "skipped": "Ignoré"
   },
   "statusTooltip": {
     "running": "Le job est en cours d'exécution",
@@ -74,7 +74,7 @@
       "working": "L'agent travaille…",
       "placeholder": "Envoyez un message au job en cours…",
       "send": "Envoyer",
-      "liveTotals": "{{turns}} tours · ${{cost}}",
+      "liveTotals": "{{turns}} tours · {{cost}}",
       "autoHint": "Ce job suit son plan et se termine tout seul — les messages ne sont qu'un pilotage optionnel.",
       "wrapUp": "Terminer maintenant",
       "wrapUpTooltip": "Met fin à la session maintenant — le job se termine avec le travail produit jusqu'ici, les tokens et le coût de chaque tour étant intégrés au total.",
@@ -158,7 +158,7 @@
     "showMore": "+ {{count}} de plus",
     "showLess": "Voir moins",
     "deletedTicket": "#{{id}} (supprimé)",
-    "deletedTooltip": "Le ticket n'existe plus"
+    "deletedTooltip": "La spec n'existe plus"
   },
   "modal": {
     "notFound": "Job introuvable",
@@ -347,7 +347,7 @@
     "supplementary": "Complémentaire",
     "attempts": "Tentatives : {{count}}",
     "phaseCostUnavailable": "Le coût par phase Core est indisponible ; la consommation du fournisseur est attribuée aux étapes de la boucle.",
-    "noCoreEvidence": "Preuves d’acceptation indisponibles. Une exécution réussie ne confirme pas à elle seule que le ticket est terminé.",
+    "noCoreEvidence": "Preuves d’acceptation indisponibles. Une exécution réussie ne confirme pas à elle seule que la spec est terminée.",
     "status": {
       "success": "Réussie",
       "failed": "Échouée",

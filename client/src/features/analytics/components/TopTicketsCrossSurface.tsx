@@ -68,7 +68,7 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                         : formatUsd(tk.totalCostUsd)}
                     </div>
                     {costPartiallyUnavailable && (
-                      <div className="text-caption text-muted-foreground italic">
+                      <div className="text-caption text-muted-foreground">
                         {t('topTickets.costPartiallyUnavailable', { count: unpricedCount })}
                       </div>
                     )}

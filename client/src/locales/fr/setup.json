@@ -199,7 +199,7 @@
       "smashLabel": "SMASH une grosse épopée",
       "smashBody": "Éclatez une grande spec en une famille de sous-specs plus petites en un clic ; chaque enfant porte un court résumé sur sa carte.",
       "draftsLabel": "Brouillons et reprise",
-      "draftsBody": "Garez une exploration en cours comme ticket brouillon et reprenez-la plus tard ; rouvrez n'importe quelle spec dans Explorer pour continuer à l'affiner."
+      "draftsBody": "Garez une exploration en cours comme spec brouillon et reprenez-la plus tard ; rouvrez n'importe quelle spec dans Explorer pour continuer à l'affiner."
     },
     "rails": {
       "nav": "Rails et revue",
@@ -247,9 +247,9 @@
       "subtitle": "Chaque invocation facturable, enregistrée et visualisée",
       "intro": "Chaque invocation d’IA enregistre son cycle de vie et son fournisseur. Les données d’usage et de coût non rapportées restent indisponibles.",
       "analyticsLabel": "Page Analytics",
-      "analyticsBody": "Un hero de burn-rate, une timeline quotidienne, le top des tickets, la répartition par modèle et un nuage coût vs tours. Filtrez par période (7 j / 30 j / 90 j / Tout) et par surface.",
-      "perTicketLabel": "Dépenses par ticket",
-      "perTicketBody": "Le détail de chaque spec montre ce qu'elle a coûté et combien de tours il a fallu, avec un lien direct vers Analytics filtré sur ce ticket.",
+      "analyticsBody": "Un hero de burn-rate, une timeline quotidienne, le top des specs, la répartition par modèle et un nuage coût vs tours. Filtrez par période (7 j / 30 j / 90 j / Tout) et par surface.",
+      "perTicketLabel": "Dépenses par spec",
+      "perTicketBody": "Le détail de chaque spec montre ce qu'elle a coûté et combien de tours il a fallu, avec un lien direct vers Analytics filtré sur cette spec.",
       "honestLabel": "Des chiffres honnêtes",
       "honestBody": "Le coût Claude est fourni par le fournisseur ; Codex peuvent être estimés et marqués d'un <mono>~</mono>.",
       "budgetsLabel": "Budgets & alertes",

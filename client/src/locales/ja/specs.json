@@ -48,19 +48,19 @@
   },
   "card": {
     "deleteSpec": "スペック #{{id}} を削除",
-    "ticketFallbackLabel": "チケット #{{id}}",
+    "ticketFallbackLabel": "スペック #{{id}}",
     "dependsOn": "{{count}} 件に依存",
     "continueEditing": "編集を続ける",
     "continueEditingTitle": "このスペックの編集を続ける",
     "moveToRail": "レールに移動"
   },
   "emptyState": {
-    "noTickets": "チケットはまだありません",
-    "noTicketsHint": "最初のチケットを作成するか、プロダクトバックログコマンドを実行してチケットを生成してください",
-    "createFirst": "最初のチケットを作成"
+    "noTickets": "スペックはまだありません",
+    "noTicketsHint": "最初のスペックを作成するか、プロダクトバックログコマンドを実行してスペックを生成してください",
+    "createFirst": "最初のスペックを作成"
   },
   "errors": {
-    "loadFailed": "チケットの読み込みに失敗しました"
+    "loadFailed": "スペックの読み込みに失敗しました"
   },
   "listView": {
     "status": {
@@ -82,14 +82,14 @@
       "labels": "ラベル",
       "updated": "更新"
     },
-    "noMatch": "フィルターに一致するチケットはありません",
+    "noMatch": "フィルターに一致するスペックはありません",
     "clearFilters": "フィルターをクリア",
     "loadMore": "さらに読み込む（残り {{count}} 件）"
   },
   "gridView": {
-    "emptyTodo": "未着手のチケットはありません",
+    "emptyTodo": "未着手のスペックはありません",
     "emptyInProgress": "進行中のものはありません",
-    "emptyDone": "完了したチケットはありません",
+    "emptyDone": "完了したスペックはありません",
     "cancelledSection": "キャンセル ({{count}})"
   },
   "statusFilter": {
@@ -113,7 +113,7 @@
     "descending": "降順",
     "modes": {
       "default": "デフォルト",
-      "ticketId": "チケット #",
+      "ticketId": "スペック #",
       "priority": "優先度",
       "jiraKey": "Jira チケット #"
     }
@@ -162,7 +162,7 @@
     "filesLikely": "関係しそうなファイル",
     "moreFiles_one": "他 {{count}} 件",
     "moreFiles_other": "他 {{count}} 件",
-    "modelCost": "{{model}} · ${{cost}}",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · コスト未報告",
     "unavailable": "トリアージ不可",
     "unavailableDetail": "トリアージに使えるモデルがありません ({{reason}})。",

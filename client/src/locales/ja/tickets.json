@@ -40,9 +40,9 @@
     "openReview": "レビューを開く",
     "viewJob": "ジョブを表示",
     "toast": {
-      "updated": "チケットを更新しました",
-      "updateFailed": "チケットの更新に失敗しました",
-      "deleteFailed": "チケットの削除に失敗しました"
+      "updated": "スペックを更新しました",
+      "updateFailed": "スペックの更新に失敗しました",
+      "deleteFailed": "スペックの削除に失敗しました"
     },
     "compare": "比較",
     "compareTooltip": "別のスペックと比較",
@@ -54,7 +54,7 @@
     "effort": "工数",
     "assignee": "担当者",
     "continueEditing": "編集を続ける",
-    "ticketFallbackLabel": "チケット #{{id}}",
+    "ticketFallbackLabel": "スペック #{{id}}",
     "spendingLineHint": "これまでにこのスペックで使った内容: 合計コスト · エージェントのターン数（末尾の + は一部の実行がターン数を報告しなかったことを示します）· アクティブ時間 · 種類別の実行数（例:「1 quick, 3 loops」= Quick によるスペック生成 1 回とループ実行 3 回）。クリックすると Analytics で開きます。"
   },
   "contractLayer": {
@@ -69,8 +69,8 @@
     "noRails": "利用可能なレールがありません。"
   },
   "contextMenu": {
-    "ariaLabel": "チケット操作",
-    "deleteTicket": "チケットを削除",
+    "ariaLabel": "スペック操作",
+    "deleteTicket": "スペックを削除",
     "changeStatus": "ステータスを変更",
     "statusOptions": "ステータスオプション",
     "setPriority": "優先度を設定",
@@ -82,14 +82,14 @@
     "postit": "付箋表示"
   },
   "createModal": {
-    "title": "チケットを作成",
-    "titlePlaceholder": "チケットのタイトル...",
+    "title": "スペックを作成",
+    "titlePlaceholder": "スペックのタイトル...",
     "labelsPlaceholder": "入力してラベルを追加...",
     "create": "作成",
     "creating": "作成中...",
     "toast": {
-      "created": "チケットを作成しました",
-      "createFailed": "チケットの作成に失敗しました"
+      "created": "スペックを作成しました",
+      "createFailed": "スペックの作成に失敗しました"
     },
     "description": "スペックを手動でボードに追加します。選択したステータスから始まり、後で改善したりレールへ移動したりできます。"
   },
@@ -101,7 +101,7 @@
     "empty": "比較できる他のスペックはありません"
   },
   "spendingLine": {
-    "ariaLabel": "アナリティクスでチケットの支出を表示",
+    "ariaLabel": "アナリティクスでスペックの支出を表示",
     "turns_one": "エージェント {{count}} ターン",
     "turns_other": "エージェント {{count}} ターン",
     "turnsAtLeast_one": "エージェント {{count}}+ ターン",
@@ -109,15 +109,15 @@
     "active": "アクティブ {{duration}}",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "ローカルの料金表からの推定値 — このプロバイダーはコストをネイティブに報告しません。",
-    "costUnavailableTooltip": "このチケットの呼び出しではコストのテレメトリが提供されませんでした。",
+    "costUnavailableTooltip": "このスペックの呼び出しではコストのテレメトリが提供されませんでした。",
     "costPartiallyUnavailableTooltip": "既知のコスト小計のみです。一部の呼び出しではコストのテレメトリが提供されませんでした。",
-    "turnsUnavailableTooltip": "このチケットではターンのテレメトリを利用できません。",
+    "turnsUnavailableTooltip": "このスペックではターンのテレメトリを利用できません。",
     "turnsPartiallyUnavailableTooltip": "既知のターン小計のみです。一部の呼び出しではターンのテレメトリが提供されませんでした。"
   },
   "toasts": {
-    "newTicket": "新しいチケット: {{title}}",
-    "newTicketsAdded_one": "プロダクトディスカバリーから {{count}} 件の新しいチケットを追加しました",
-    "newTicketsAdded_other": "プロダクトディスカバリーから {{count}} 件の新しいチケットを追加しました"
+    "newTicket": "新しいスペック: {{title}}",
+    "newTicketsAdded_one": "プロダクトディスカバリーから {{count}} 件の新しいスペックを追加しました",
+    "newTicketsAdded_other": "プロダクトディスカバリーから {{count}} 件の新しいスペックを追加しました"
   },
   "addenda": {
     "title": "補足",

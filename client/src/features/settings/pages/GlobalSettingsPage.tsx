@@ -249,7 +249,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
       })
       if (res.ok) {
         setSavedCostAlertThreshold(costAlertThreshold)
-        toast.success(parsed == null ? t('desktop.costAlertsDisabled') : t('budget.alertSet', { amount: parsed }))
+        toast.success(parsed == null ? t('desktop.costAlertsDisabled') : t('budget.alertSet', { amount: formatUsd(parsed) }))
         return true
       }
       toast.error(t('budget.saveThresholdFailed'))

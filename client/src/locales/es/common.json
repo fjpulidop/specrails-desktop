@@ -228,7 +228,7 @@
       "providerCapabilities": "las capacidades de cada proveedor",
       "projectEnvironment": "el entorno del proyecto",
       "telemetry": "la telemetría del pipeline",
-      "dailyBudget": "los presupuestos diarios",
+      "dailyBudget": "los límites de gasto",
       "recentlyDeleted": "los elementos eliminados recientemente",
       "railLoops": "lo que ejecuta un rail",
       "flowMode": "Flow",

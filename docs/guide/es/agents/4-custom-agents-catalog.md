@@ -21,7 +21,7 @@ El flujo típico:
 
 ## Vigilar cómo rinden los perfiles
 
-La sección Agentes también tiene una pestaña **Uso** — un desglose por perfil de cuántos jobs corrieron bajo cada perfil en una ventana seleccionada. Es una forma rápida de confirmar que tu reparto `fast`/`max` se está usando realmente como pretendías, y de detectar hacia qué perfil gravita tu equipo.
+La sección Agentes también tiene una pestaña **Uso** — un desglose por perfil de cuántos trabajos corrieron bajo cada perfil en una ventana seleccionada. Es una forma rápida de confirmar que tu reparto `fast`/`max` se está usando realmente como pretendías, y de detectar hacia qué perfil gravita tu equipo.
 
 ## Resumen de toda la sección
 

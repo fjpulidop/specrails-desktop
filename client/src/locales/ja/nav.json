@@ -90,12 +90,12 @@
   },
   "costAlerts": {
     "costAlertTitle": "コストアラート",
-    "costAlertDescription": "ジョブのコストが ${{cost}} — しきい値は ${{threshold}} です",
+    "costAlertDescription": "ジョブのコストが {{cost}} — しきい値は {{threshold}} です",
     "dailyBudgetTitle": "1 日の予算を超過しました",
-    "dailyBudgetDescription": "本日 ${{budget}} のうち ${{spent}} を消費しました。キューを一時停止しました。",
+    "dailyBudgetDescription": "本日 {{budget}} のうち {{spent}} を消費しました。キューを一時停止しました。",
     "desktopBudgetTitle": "Desktop の 1 日の予算を超過しました",
-    "desktopBudgetDescription": "Desktop 全体で ${{budget}} のうち ${{spent}} を消費。キューを一時停止しました。",
-    "bannerMessage": "1 日の予算を超過しました — ${{budget}} のうち ${{spent}} を消費。キューは一時停止中です。",
+    "desktopBudgetDescription": "Desktop 全体で {{budget}} のうち {{spent}} を消費。キューを一時停止しました。",
+    "bannerMessage": "1 日の予算を超過しました — {{budget}} のうち {{spent}} を消費。キューは一時停止中です。",
     "dismiss": "閉じる"
   },
   "errorBoundary": {

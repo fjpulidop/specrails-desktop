@@ -90,12 +90,12 @@
   },
   "costAlerts": {
     "costAlertTitle": "Cost alert",
-    "costAlertDescription": "Job cost ${{cost}} — threshold is ${{threshold}}",
-    "dailyBudgetTitle": "Daily budget exceeded",
-    "dailyBudgetDescription": "Spent ${{spent}} of ${{budget}} today. Queue paused.",
+    "costAlertDescription": "Job cost {{cost}} — threshold is {{threshold}}",
+    "dailyBudgetTitle": "Daily limit reached",
+    "dailyBudgetDescription": "Spent {{spent}} of {{budget}} today. Queue paused.",
     "desktopBudgetTitle": "Desktop daily budget exceeded",
-    "desktopBudgetDescription": "Total Desktop spend ${{spent}} of ${{budget}}. Queue paused.",
-    "bannerMessage": "Daily budget exceeded — spent ${{spent}} of ${{budget}}. Queue is paused.",
+    "desktopBudgetDescription": "Total Desktop spend {{spent}} of {{budget}}. Queue paused.",
+    "bannerMessage": "Daily limit reached — spent {{spent}} of {{budget}}. Queue is paused.",
     "dismiss": "Dismiss"
   },
   "errorBoundary": {

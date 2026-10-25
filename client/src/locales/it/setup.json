@@ -199,7 +199,7 @@
       "smashLabel": "SMASH un grosso epic",
       "smashBody": "Esplodi una spec grande in una famiglia di sotto-spec più piccole con un clic; ogni figlia porta un breve riepilogo sulla sua scheda.",
       "draftsLabel": "Bozze e continua a modificare",
-      "draftsBody": "Parcheggia un'esplorazione in corso come ticket bozza e riprendila dopo; riapri qualsiasi spec in Explore per continuare a rifinirla."
+      "draftsBody": "Parcheggia un'esplorazione in corso come spec bozza e riprendila dopo; riapri qualsiasi spec in Explore per continuare a rifinirla."
     },
     "rails": {
       "nav": "Rail e revisione",
@@ -247,9 +247,9 @@
       "subtitle": "Ogni invocazione fatturabile, registrata e visualizzata",
       "intro": "Ogni invocazione IA registra ciclo di vita e provider. Utilizzo e costo non riportati restano non disponibili.",
       "analyticsLabel": "Pagina Analytics",
-      "analyticsBody": "Un hero con il burn-rate, timeline giornaliera, ticket principali, ripartizione per modello e uno scatter costo-vs-turni. Filtra per periodo (7d / 30d / 90d / Tutto) e per superficie.",
-      "perTicketLabel": "Spesa per ticket",
-      "perTicketBody": "Il dettaglio di ogni spec mostra quanto è costata e quanti turni ha richiesto, con un link diretto ad Analytics filtrato su quel ticket.",
+      "analyticsBody": "Un hero con il burn-rate, timeline giornaliera, spec principali, ripartizione per modello e uno scatter costo-vs-turni. Filtra per periodo (7d / 30d / 90d / Tutto) e per superficie.",
+      "perTicketLabel": "Spesa per spec",
+      "perTicketBody": "Il dettaglio di ogni spec mostra quanto è costata e quanti turni ha richiesto, con un link diretto ad Analytics filtrato su quella spec.",
       "honestLabel": "Numeri onesti",
       "honestBody": "Il costo Claude è fornito dal provider; il costo Codex può essere stimato e marcato con <mono>~</mono>.",
       "budgetsLabel": "Budget e avvisi",

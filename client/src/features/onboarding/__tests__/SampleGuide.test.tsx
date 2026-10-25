@@ -199,3 +199,11 @@ describe('SampleGuide: remove the sample', () => {
     expect(screen.getByTestId('remove-sample-dialog')).toBeInTheDocument()
   })
 })
+
+describe('SampleGuide: narrow windows', () => {
+  it('subtracts the sidebar from its width so the card never overflows the viewport', async () => {
+    await setup()
+    const card = await screen.findByTestId('sample-guide')
+    expect(card.className).toContain('w-[min(22rem,calc(100vw-var(--sidebar-width,2.75rem)-2rem))]')
+  })
+})

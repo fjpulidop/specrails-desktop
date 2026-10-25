@@ -14,8 +14,8 @@ The window has three zones:
 
 This is where the work happens. The dashboard shows:
 
-- **Your specs** — the tickets you've created, organized by status (Backlog/To-Do through Done). You can view them as a list, a grid, or sticky-note cards, whichever you prefer.
-- **A way to add a spec** — start a new piece of work. You can write a quick spec directly, or open a guided **Explore** chat that helps you shape it through conversation and drafts the ticket for you.
+- **Your specs** — the specs you've created, organized by status (Backlog/To-Do through Done). You can view them as a list, a grid, or sticky-note cards, whichever you prefer.
+- **A way to add a spec** — start a new piece of work. You can write a quick spec directly, or open a guided **Explore** chat that helps you shape it through conversation and drafts the spec for you.
 - **Rails** — these are the lanes where specs get built. Drop a spec onto a rail and launch it to send it through the Architect → Developer → Reviewer → Ship pipeline. Multiple rails can run at once, so you can work on several things in parallel.
 
 When a spec is running, you'll see its pipeline progress and live logs — the AI's real-time output as it designs, codes, and reviews your change.

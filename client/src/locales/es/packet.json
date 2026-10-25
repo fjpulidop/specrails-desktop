@@ -274,7 +274,7 @@
       "planned": "Baseline planificado: {{requirements}} requisitos as-built, {{tests}} tests de caracterización",
       "passed": "Baseline demostrado sobre el código sin cambios: {{requirements}} requisitos as-built, {{tests}} tests de caracterización",
       "failed": "Baseline bloqueado: los tests de caracterización no pasaron sobre el código sin cambios, así que no se editó el módulo",
-      "violated": "Baseline bloqueado: el paso de baseline editó código que no era de test, así que el run se detuvo",
+      "violated": "Baseline bloqueado: el paso de baseline editó código que no era de test, así que la ejecución se detuvo",
       "not-needed": "No hace falta baseline: las specs ya cubren el código que toca este cambio"
     },
     "module": "Módulo descrito:",

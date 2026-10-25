@@ -40,9 +40,9 @@
     "openReview": "Review öffnen",
     "viewJob": "Job ansehen",
     "toast": {
-      "updated": "Ticket aktualisiert",
-      "updateFailed": "Ticket konnte nicht aktualisiert werden",
-      "deleteFailed": "Ticket konnte nicht gelöscht werden"
+      "updated": "Spec aktualisiert",
+      "updateFailed": "Spec konnte nicht aktualisiert werden",
+      "deleteFailed": "Spec konnte nicht gelöscht werden"
     },
     "compare": "Vergleichen",
     "compareTooltip": "Mit einer anderen Spec vergleichen",
@@ -54,7 +54,7 @@
     "effort": "Aufwand",
     "assignee": "Zugewiesen an",
     "continueEditing": "Weiter bearbeiten",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "spendingLineHint": "Alles, was bisher für diese Spec angefallen ist: Gesamtkosten · Agenten-Turns (ein + dahinter bedeutet, dass einige Läufe keine Turns gemeldet haben) · aktive Zeit · Läufe nach Art (z. B. „1 quick, 3 loops“ = eine Quick-Spec-Erstellung und drei Loop-Läufe). Klicken, um es in Analytics zu öffnen."
   },
   "contractLayer": {
@@ -69,8 +69,8 @@
     "noRails": "Keine Rails verfügbar."
   },
   "contextMenu": {
-    "ariaLabel": "Ticket-Aktionen",
-    "deleteTicket": "Ticket löschen",
+    "ariaLabel": "Spec-Aktionen",
+    "deleteTicket": "Spec löschen",
     "changeStatus": "Status ändern",
     "statusOptions": "Statusoptionen",
     "setPriority": "Priorität festlegen",
@@ -82,14 +82,14 @@
     "postit": "Post-it-Ansicht"
   },
   "createModal": {
-    "title": "Ticket erstellen",
-    "titlePlaceholder": "Ticket-Titel…",
+    "title": "Spec erstellen",
+    "titlePlaceholder": "Spec-Titel…",
     "labelsPlaceholder": "Tippen, um Labels hinzuzufügen…",
     "create": "Erstellen",
     "creating": "Wird erstellt…",
     "toast": {
-      "created": "Ticket erstellt",
-      "createFailed": "Ticket konnte nicht erstellt werden"
+      "created": "Spec erstellt",
+      "createFailed": "Spec konnte nicht erstellt werden"
     },
     "description": "Füge dem Board manuell eine Spec hinzu. Sie startet im gewählten Status und kann später verfeinert oder auf eine Rail verschoben werden."
   },
@@ -101,7 +101,7 @@
     "empty": "Keine anderen Specs zum Vergleichen"
   },
   "spendingLine": {
-    "ariaLabel": "Ticket-Ausgaben in Analytics anzeigen",
+    "ariaLabel": "Spec-Ausgaben in Analytics anzeigen",
     "turns_one": "{{count}} Agent-Schritt",
     "turns_other": "{{count}} Agent-Schritte",
     "turnsAtLeast_one": "{{count}}+ Agent-Schritt",
@@ -109,15 +109,15 @@
     "active": "{{duration}} aktiv",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Geschätzt aus der lokalen Preistabelle — dieser Anbieter meldet die Kosten nicht nativ.",
-    "costUnavailableTooltip": "Keiner der Aufrufe dieses Tickets hat Kostentelemetrie bereitgestellt.",
+    "costUnavailableTooltip": "Keiner der Aufrufe dieser Spec hat Kostentelemetrie bereitgestellt.",
     "costPartiallyUnavailableTooltip": "Nur bekannte Kosten-Zwischensumme; einige Aufrufe haben keine Kostentelemetrie bereitgestellt.",
-    "turnsUnavailableTooltip": "Die Turn-Telemetrie ist für dieses Ticket nicht verfügbar.",
+    "turnsUnavailableTooltip": "Die Turn-Telemetrie ist für diese Spec nicht verfügbar.",
     "turnsPartiallyUnavailableTooltip": "Nur bekannte Turn-Zwischensumme; einige Aufrufe haben keine Turn-Telemetrie bereitgestellt."
   },
   "toasts": {
-    "newTicket": "Neues Ticket: {{title}}",
-    "newTicketsAdded_one": "{{count}} neues Ticket aus der Produkt-Discovery hinzugefügt",
-    "newTicketsAdded_other": "{{count}} neue Tickets aus der Produkt-Discovery hinzugefügt"
+    "newTicket": "Neue Spec: {{title}}",
+    "newTicketsAdded_one": "{{count}} neue Spec aus der Produkt-Discovery hinzugefügt",
+    "newTicketsAdded_other": "{{count}} neue Specs aus der Produkt-Discovery hinzugefügt"
   },
   "addenda": {
     "title": "Addenda",

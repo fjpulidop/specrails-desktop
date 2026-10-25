@@ -164,7 +164,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
           value={form.title}
           onChange={(e) => setForm({ ...form, title: e.target.value })}
           placeholder={t('addenda.form.titlePlaceholder')}
-          className="h-6 min-w-0 flex-1 rounded-md border border-border/60 bg-input px-2 text-caption text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-accent-primary/50"
+          className="h-6 min-w-0 flex-1 rounded-md border border-border/60 bg-input px-2 text-caption text-foreground outline-none placeholder:text-muted-foreground focus:border-accent-primary/50"
           data-testid="spec-addenda-title"
         />
       </div>
@@ -178,7 +178,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
           if (e.key === 'Escape') { e.preventDefault(); cancelForm() }
         }}
         placeholder={t('addenda.form.bodyPlaceholder')}
-        className="w-full min-h-[96px] rounded-md border border-border/60 bg-input px-2.5 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-accent-primary/50 resize-y"
+        className="w-full min-h-[96px] rounded-md border border-border/60 bg-input px-2.5 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-accent-primary/50 resize-y"
         data-testid="spec-addenda-body"
       />
       <div className="flex items-center justify-between gap-2">

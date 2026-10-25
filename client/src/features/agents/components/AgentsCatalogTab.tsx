@@ -430,7 +430,7 @@ export function AgentsCatalogTab() {
                     ))}
                   </div>
                   <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between">
-                    <code className="text-xs font-mono text-muted-foreground/70 truncate">
+                    <code className="text-xs font-mono text-muted-foreground truncate">
                       {tpl.nameHint}
                     </code>
                     <span aria-hidden className="text-xs text-accent-primary opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
@@ -618,7 +618,7 @@ export function AgentsCatalogTab() {
           <div className="text-label text-muted-foreground mb-1.5">
             {t('catalog.sidebar.title')}
           </div>
-          <div className="text-caption text-muted-foreground/70 mb-2">
+          <div className="text-caption text-muted-foreground mb-2">
             {t('catalog.sidebar.createLabel')}
           </div>
           <div className="flex gap-1">
@@ -826,7 +826,7 @@ function Section({
           {title}
         </div>
         {description && (
-          <div className="text-caption text-muted-foreground/70 mt-0.5">{description}</div>
+          <div className="text-caption text-muted-foreground mt-0.5">{description}</div>
         )}
       </div>
       <div className="space-y-0.5">{children}</div>

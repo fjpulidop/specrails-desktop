@@ -24,11 +24,11 @@
     "read": "読み取り",
     "readHelp": "プロジェクト、仕様、分析を閲覧します。常に許可されます。",
     "write": "書き込み",
-    "writeHelp": "仕様とチケットを作成・編集します。",
+    "writeHelp": "スペックを作成・編集します。",
     "aiSpawn": "AI 起動",
     "aiSpawnHelp": "CLI を実行する AI レールとジョブを起動します。",
     "destructive": "破壊的操作",
-    "destructiveHelp": "仕様、チケット、その他のプロジェクトデータを削除します。",
+    "destructiveHelp": "スペックとその他のプロジェクトデータを削除します。",
     "updateFailed": "権限を更新できませんでした: {{message}}"
   },
   "config": {

@@ -47,16 +47,16 @@ Desmarca **Destructivo** y podrá trabajar toda la noche sin borrar nada nunca.
 > *"Revisa todos mis proyectos. Dime cuáles tienen specs en el backlog y ningún rail en marcha, y arranca el de mayor prioridad en cada uno."*
 
 **Sin manos mientras programas.** Maneja Specrails desde tu editor o por voz, sin cambiar de ventana:
-> *"Lanza el rail 0 en modo Freestyle con Opus para el ticket #42 y avísame cuando termine."*
+> *"Lanza el rail 0 en modo Freestyle con Opus para la spec #42 y avísame cuando termine."*
 
 **Pregunta por el coste y el historial.** Tus analíticas, en lenguaje natural:
-> *"¿Dónde he gastado más en IA esta semana, por proyecto y por modelo? Enséñame los cinco tickets más caros."*
+> *"¿Dónde he gastado más en IA esta semana, por proyecto y por modelo? Enséñame los cinco specs más caras."*
 
 **Tu standup diario.**
 > *"Escribe mi standup: qué rails se ejecutaron ayer, qué se completó, qué falló y el coste total — en viñetas listas para pegar en Slack."*
 
 **Entiende el código.** Sin necesidad de editor:
-> *"¿Qué archivos tocó el ticket #38? Resume en una línea qué cambió en cada uno."*
+> *"¿Qué archivos tocó la spec #38? Resume en una línea qué cambió en cada uno."*
 
 Como tu asistente lee primero la guía incorporada, rara vez necesitas nombrar herramientas ni specs — describe el resultado que quieres y él se encarga de las llamadas.
 

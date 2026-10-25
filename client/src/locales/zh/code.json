@@ -152,7 +152,7 @@
     "loadingEditor": "正在加载编辑器…"
   },
   "ticketFiles": {
-    "title": "此工单改动的文件",
+    "title": "此规格改动的文件",
     "jobTitle": "任务 {{jobId}}",
     "loading": "正在加载已记录的文件…",
     "loadFailed": "无法加载已记录的文件。",

@@ -427,7 +427,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
                     placeholder={t('gallery.search')}
                     aria-label={t('gallery.search')}
                     data-testid="template-search"
-                    className="h-7 w-48 max-w-full rounded-md border border-border bg-surface/40 px-2.5 text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                    className="h-7 w-48 max-w-full rounded-md border border-border bg-surface/40 px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary"
                   />
                 </div>
 

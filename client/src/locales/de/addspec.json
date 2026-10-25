@@ -15,7 +15,7 @@
     "modeDescription": {
       "quick": "Beschreibe das Feature oder die Änderung. Hänge Mockups, Briefings oder Daten für mehr Kontext an.",
       "explore": "Beschreibe eine grobe Idee. Der ausgewählte KI-Assistent hilft dir, sie im Gespräch zu formen – du entscheidest, wann committet wird.",
-      "raw": "Dein Prompt, unverändert – als Spec-Ticket gespeichert. Es läuft jetzt keine KI; zieh es auf eine Rail, um es zu bauen."
+      "raw": "Dein Prompt, unverändert – als Spec gespeichert. Es läuft jetzt keine KI; zieh sie auf eine Rail, um sie zu bauen."
     },
     "editorPlaceholder": {
       "quick": "z. B. Einen Dark-Mode-Toggle auf der Einstellungsseite ergänzen, der die Nutzerpräferenz speichert…",
@@ -130,7 +130,7 @@
       "contract": "contract"
     },
     "checks": {
-      "specrailsLabel": "specrails-Tickets",
+      "specrailsLabel": "specrails-Specs",
       "openspecLabel": "openspec-Specs",
       "fullLabel": "Gesamte Codebasis",
       "mcpLabel": "Projekt-MCPs",

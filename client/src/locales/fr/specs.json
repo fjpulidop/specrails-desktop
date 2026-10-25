@@ -48,19 +48,19 @@
   },
   "card": {
     "deleteSpec": "Supprimer la spec #{{id}}",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "dependsOn": "Dépend de {{count}}",
     "continueEditing": "Continuer l'édition",
     "continueEditingTitle": "Continuer à éditer cette spec",
     "moveToRail": "Déplacer vers un rail"
   },
   "emptyState": {
-    "noTickets": "Aucun ticket pour l'instant",
-    "noTicketsHint": "Créez votre premier ticket ou exécutez une commande de product backlog pour remplir les tickets",
-    "createFirst": "Créer votre premier ticket"
+    "noTickets": "Aucune spec pour l'instant",
+    "noTicketsHint": "Créez votre première spec ou exécutez une commande de product backlog pour remplir les specs",
+    "createFirst": "Créer votre première spec"
   },
   "errors": {
-    "loadFailed": "Échec du chargement des tickets"
+    "loadFailed": "Échec du chargement des specs"
   },
   "listView": {
     "status": {
@@ -82,14 +82,14 @@
       "labels": "Labels",
       "updated": "Mis à jour"
     },
-    "noMatch": "Aucun ticket ne correspond à vos filtres",
+    "noMatch": "Aucune spec ne correspond à vos filtres",
     "clearFilters": "Effacer les filtres",
     "loadMore": "Charger plus ({{count}} restants)"
   },
   "gridView": {
-    "emptyTodo": "Aucun ticket à faire",
+    "emptyTodo": "Aucune spec à faire",
     "emptyInProgress": "Rien en cours",
-    "emptyDone": "Aucun ticket terminé",
+    "emptyDone": "Aucune spec terminée",
     "cancelledSection": "Annulés ({{count}})"
   },
   "statusFilter": {
@@ -113,7 +113,7 @@
     "descending": "Décroissant",
     "modes": {
       "default": "Par défaut",
-      "ticketId": "Ticket #",
+      "ticketId": "Spec #",
       "priority": "Priorité",
       "jiraKey": "Ticket Jira #"
     }
@@ -162,7 +162,7 @@
     "filesLikely": "Fichiers probables",
     "moreFiles_one": "+{{count}} fichier de plus",
     "moreFiles_other": "+{{count}} fichiers de plus",
-    "modelCost": "{{model}} · {{cost}} $",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · coût non communiqué",
     "unavailable": "Triage n/d",
     "unavailableDetail": "Aucun modèle n'est disponible pour le triage ({{reason}}).",

@@ -78,7 +78,7 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
       </div>
 
       {total === 0 && (
-        <div className="text-xs text-muted-foreground italic">
+        <div className="text-xs text-muted-foreground">
           {hasUnpriced ? t('providerCard.costUnavailableTooltip') : t('providerCard.noCost')}
         </div>
       )}
@@ -134,7 +134,7 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
       </span>
       {costUnavailable ? (
         <span
-          className="ml-auto text-label text-muted-foreground/80 italic"
+          className="ml-auto text-label text-muted-foreground"
           title={t('providerCard.costUnavailableTooltip')}
         >
           {t('providerCard.costUnavailable')}
@@ -146,7 +146,7 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
         >
           {allEstimated ? '~' : ''}{fmtUsd(sum)}
           {costPartiallyUnavailable && (
-            <span className="ml-1 font-normal text-muted-foreground/80 italic">
+            <span className="ml-1 font-normal text-muted-foreground">
               {t('providerCard.costPartiallyUnavailable', { count: unpricedCount })}
             </span>
           )}

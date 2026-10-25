@@ -259,7 +259,7 @@
   "builtInBadge": "Integrado",
   "run": {
     "title": "Executar {{name}}",
-    "subtitle": "Inicia este loop num projeto (sem ticket).",
+    "subtitle": "Inicia este loop num projeto (sem spec).",
     "project": "Projeto",
     "provider": "Provedor",
     "model": "Modelo",
@@ -314,7 +314,7 @@
     },
     "factory_openspec": {
       "name": "Ciclo de vida OpenSpec",
-      "description": "Ciclo OpenSpec do ticket ao arquivo: gera artefatos (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); em FAIL volta e emenda o mesmo change, em PASS arquiva sem intervenção."
+      "description": "Ciclo OpenSpec da spec ao arquivo: gera artefatos (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); em FAIL volta e emenda o mesmo change, em PASS arquiva sem intervenção."
     },
     "factory_revision": {
       "name": "Revisão",

@@ -22,7 +22,7 @@
   },
   "prePrompt": {
     "title": "Pre-prompt dei rail",
-    "description": "Istruzioni extra specifiche del progetto aggiunte ai job rail di implement dopo il contesto del ticket e prima dell'esecuzione.",
+    "description": "Istruzioni extra specifiche del progetto aggiunte ai job rail di implement dopo il contesto della spec e prima dell'esecuzione.",
     "label": "Pre-prompt",
     "placeholder": "Esempio: preferisci modifiche incrementali, mantieni le migrazioni retrocompatibili e aggiungi test per ogni modifica del rail.",
     "helper": "Usalo per indicazioni stabili di progetto che devono accompagnare ogni run di implementazione su rail.",
@@ -52,7 +52,7 @@
     "perJobPlaceholder": "es. 0.50",
     "invalidNumber": "Inserisci un numero positivo o lascia vuoto per disabilitare",
     "perJobAlertDisabled": "Avviso di costo per job disabilitato",
-    "alertSet": "Avviso impostato per i job oltre ${{amount}}",
+    "alertSet": "Avviso impostato per i job oltre {{amount}}",
     "saveThresholdFailed": "Salvataggio della soglia non riuscito",
     "dailyCurrent": "Attualmente {{amount}} al giorno",
     "dailyNone": "Nessun limite giornaliero"

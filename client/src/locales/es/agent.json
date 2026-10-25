@@ -161,7 +161,7 @@
       },
       "trace": {
         "title": "Traza",
-        "hint": "# jobs, ejecuciones, IDs"
+        "hint": "# trabajos, ejecuciones, IDs"
       },
       "action": {
         "title": "Acción",
@@ -172,7 +172,7 @@
       "reference": "Referencia",
       "referenceHint": "Proyectos, especificaciones, misiones",
       "trace": "Traza",
-      "traceHint": "Jobs, ejecuciones, IDs",
+      "traceHint": "Trabajos, ejecuciones, IDs",
       "action": "Acción",
       "actionHint": "Crear, lanzar, inspeccionar",
       "fileAttachment": "Archivo adjunto",
@@ -244,10 +244,10 @@
     "browserCaptured": "Captura añadida",
     "uploadFailed": "Error al subir",
     "requiresConversation": "Inicia una misión para usar esta herramienta",
-    "jobs": "Jobs",
-    "closeJobs": "Cerrar jobs",
-    "resizeJobs": "Redimensionar panel de jobs",
-    "noJobs": "Aún no hay jobs — pide al agente que lance uno",
+    "jobs": "Trabajos",
+    "closeJobs": "Cerrar trabajos",
+    "resizeJobs": "Redimensionar panel de trabajos",
+    "noJobs": "Aún no hay trabajos — pide al agente que lance uno",
     "analytics": "Analítica",
     "closeAnalytics": "Cerrar analítica",
     "resizeAnalytics": "Redimensionar panel de analítica"
@@ -354,7 +354,7 @@
     "recoveryStillBlocked": "La recuperación local aún requiere atención",
     "recheckRecovery": "Comprobar de nuevo",
     "recoveryUnavailable": "No se pudo verificar la recuperación en este equipo",
-    "recoveryUnavailableBody": "Specrails no pudo demostrar de forma segura un único resultado perteneciente a la entrega en este clon. No se ha cambiado ni eliminado nada. Revisa el detalle de la fase y los registros de ejecución. Si el run se ejecutó en otro equipo, abre Specrails allí y vuelve a comprobar.",
+    "recoveryUnavailableBody": "Specrails no pudo demostrar de forma segura un único resultado perteneciente a la entrega en este clon. No se ha cambiado ni eliminado nada. Revisa el detalle de la fase y los registros de ejecución. Si se ejecutó en otro equipo, abre Specrails allí y vuelve a comprobar.",
     "recoveryDetailSummary": "Detalle técnico de recuperación",
     "retry": "Reintentar",
     "retryPr": "Reintentar PR",
@@ -386,7 +386,7 @@
     "cleanupIncomplete_other": "La limpieza está incompleta ({{count}} avisos)",
     "safetyArchiveTitle": "Archivo de seguridad ({{count}})",
     "safetyArchiveHint": "Se han conservado archivos temporales del espacio de trabajo fuera de la PR como medida de precaución. Puedes revisarlos o eliminarlos manualmente.",
-    "implementationFailedNote": "El run de implementación falló antes de generar algo entregable. Abre el log del run para revisar el fallo y descarta esta card antes de relanzar.",
+    "implementationFailedNote": "La ejecución de implementación falló antes de generar algo entregable. Abre el log de la ejecución para revisar el fallo y descarta esta card antes de relanzar.",
     "degraded": {
       "pushed": "La rama se subió pero no se pudo crear la PR. Reintenta para terminar.",
       "localOnly": "Los cambios se ensamblaron en local pero no se subieron. Reintenta para publicar la PR."
@@ -445,7 +445,7 @@
     "resumeFromStep": "Reanudar desde {{step}}",
     "resumeFromStepHint": "El paso {{step}} interrumpido se vuelve a ejecutar desde el principio; se conserva el trabajo ya guardado en disco.",
     "retryDelivery": "Reintentar la entrega",
-    "retryDeliveryHint": "Repite solo el paso final (commit, push y PR) sobre la rama de este run. No se rehace trabajo de IA.",
+    "retryDeliveryHint": "Repite solo el paso final (commit, push y PR) sobre la rama de esta ejecución. No se rehace trabajo de IA.",
     "retryDeliverySent": "Reintentando la entrega…",
     "retryDeliveryFailed": "No se pudo reintentar la entrega",
     "mergedLocallyRestored": "Guardé tus cambios locales, integré {{tickets}} y los restauré.",
@@ -505,12 +505,12 @@
   "refs": {
     "openTicket": "Abrir spec #{{id}}",
     "openPullRequest": "Abrir PR #{{id}}",
-    "openJob": "Abrir job {{id}}",
+    "openJob": "Abrir trabajo {{id}}",
     "openLoop": "Abrir loop {{id}}",
     "ticketNotFound": "Spec #{{id}} no encontrada. Puede haber sido eliminada",
     "pullRequestUrlMissing": "La PR #{{id}} se mencionó sin URL",
     "pullRequestNotFound": "No se pudo encontrar la PR #{{id}} en este proyecto",
-    "jobNotFound": "Job no encontrado. Puede haber sido eliminado",
+    "jobNotFound": "Trabajo no encontrado. Puede haber sido eliminado",
     "loopNotFound": "Loop no encontrado. Puede haber sido eliminado",
     "lookupFailed": "No se pudo verificar la referencia. Inténtalo de nuevo"
   },
@@ -720,10 +720,10 @@
     "stub": {
       "launched": "Lanzado → Rail {{rail}}",
       "dismissed": "Propuesta descartada",
-      "viewRun": "Ver run",
+      "viewRun": "Ver ejecución",
       "goToCard": "Ir a la tarjeta",
       "goToCardTitle": "Ir a la tarjeta de implementación de este lanzamiento",
-      "viewRunTitle": "Abrir el log en vivo del run"
+      "viewRunTitle": "Abrir el log en vivo de la ejecución"
     },
     "followUp": {
       "title": "Resolver {{count}} comentario(s) de revisión de la PR",
@@ -780,8 +780,8 @@
       "succeeded": "Implementación terminada",
       "failed": "La implementación ha fallado",
       "stalled": "La implementación se ha estancado",
-      "cancelled": "Run cancelado",
-      "unknown": "Estado del run desconocido",
+      "cancelled": "Ejecución cancelada",
+      "unknown": "Estado de la ejecución desconocido",
       "changes_requested": "El revisor solicitó cambios",
       "returned": "De vuelta en Flow"
     },
@@ -798,9 +798,9 @@
       "recover": "Recuperar y reintentar",
       "relaunch": "Relanzar"
     },
-    "relaunchSent": "Rail {{index}} relanzado. Una nueva tarjeta seguirá el run.",
+    "relaunchSent": "Rail {{index}} relanzado. Una nueva tarjeta seguirá la ejecución.",
     "relaunchFailed": "No se pudo relanzar el rail",
-    "relaunchBlockedActive": "El rail todavía tiene un run activo",
+    "relaunchBlockedActive": "El rail todavía tiene una ejecución activa",
     "review": {
       "title": {
         "review": "El revisor solicitó cambios",

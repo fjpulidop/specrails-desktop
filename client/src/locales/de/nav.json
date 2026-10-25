@@ -90,12 +90,12 @@
   },
   "costAlerts": {
     "costAlertTitle": "Kostenwarnung",
-    "costAlertDescription": "Job-Kosten ${{cost}} – Schwellenwert ist ${{threshold}}",
+    "costAlertDescription": "Job-Kosten {{cost}} – Schwellenwert ist {{threshold}}",
     "dailyBudgetTitle": "Tagesbudget überschritten",
-    "dailyBudgetDescription": "Heute ${{spent}} von ${{budget}} ausgegeben. Warteschlange pausiert.",
+    "dailyBudgetDescription": "Heute {{spent}} von {{budget}} ausgegeben. Warteschlange pausiert.",
     "desktopBudgetTitle": "Desktop-Tagesbudget überschritten",
-    "desktopBudgetDescription": "Desktop-Gesamtausgaben ${{spent}} von ${{budget}}. Warteschlange pausiert.",
-    "bannerMessage": "Tagesbudget überschritten – ${{spent}} von ${{budget}} ausgegeben. Warteschlange ist pausiert.",
+    "desktopBudgetDescription": "Desktop-Gesamtausgaben {{spent}} von {{budget}}. Warteschlange pausiert.",
+    "bannerMessage": "Tagesbudget überschritten – {{spent}} von {{budget}} ausgegeben. Warteschlange ist pausiert.",
     "dismiss": "Schließen"
   },
   "errorBoundary": {

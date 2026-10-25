@@ -32,7 +32,7 @@
     "subtitle": "开销去向：按模型、规格和引擎统计成本、token 与活动。",
     "all": "全部",
     "engine": "引擎",
-    "ticketChip": "工单 #{{id}} ·  ✕",
+    "ticketChip": "规格 #{{id}} ·  ✕",
     "failedToLoad": "无法加载分析数据，请重试。",
     "modelChip": "模型：{{model}}",
     "clearModelFilter": "清除模型筛选",
@@ -63,7 +63,8 @@
     "emptyState": "当前筛选窗口内暂无调用。",
     "segmentTitle": "{{label}}：{{value}}",
     "legendBilled": "已计费",
-    "legendEstimated": "估算"
+    "legendEstimated": "估算",
+    "apiEquivalent": "按 API 计价的等值估算"
   },
   "providerCard": {
     "title": "按提供方",
@@ -119,15 +120,15 @@
     "costPartiallyUnavailable_other": "图表仅包含有成本数据的运行；{{count}} 次运行的成本不可用。"
   },
   "topTickets": {
-    "title": "热门工单",
-    "empty": "此期间没有工单活动。",
+    "title": "热门规格",
+    "empty": "此期间没有规格活动。",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "未归属",
-    "deletedTicket": "已删除工单 #{{id}}",
+    "deletedTicket": "已删除规格 #{{id}}",
     "costUnavailable": "成本不可用",
-    "costUnavailableTooltip": "此工单的所有运行均未提供成本遥测数据。",
+    "costUnavailableTooltip": "此规格的所有运行均未提供成本遥测数据。",
     "costPartiallyUnavailable": "{{count}} 次不可用",
-    "costPartiallyUnavailableTooltip": "仅显示已知小计；此工单的部分运行成本不可用。"
+    "costPartiallyUnavailableTooltip": "仅显示已知小计；此规格的部分运行成本不可用。"
   },
   "table": {
     "title": "全部调用",
@@ -140,7 +141,7 @@
     "aborted": "已中止",
     "empty": "没有符合当前筛选条件的调用。",
     "colSurface": "来源",
-    "colTicket": "工单",
+    "colTicket": "规格",
     "colCost": "成本",
     "colTurns": "轮次",
     "colTokens": "Token",
@@ -230,7 +231,6 @@
     "loading": "正在加载已记录的使用情况…",
     "total": "已记录事件：{{count}}",
     "last": "最近事件：",
-    "evidence": "仅凭这些计数不能证明可以移除旧版兼容功能。",
     "kinds": {
       "legacy_loop_traversal": "经典循环",
       "queue_manager_slash": "排队命令",
@@ -274,7 +274,7 @@
     "estimatedShare": "估算 {{share}}",
     "unpriced": "{{count}} 个无成本",
     "note": "已交付 = 已进入评审或之后的状态。平均成本仅使用已记录成本的交付（除标注为估算外均为提供商报告值）；无成本的交付会被排除，绝不按 $0 计算。轮次来自循环的 reviewer/fixer 步骤。— 表示未知。",
-    "escapedUntracked": "尚未跟踪逃逸缺陷：将缺陷工单关联到引入它的交付（工单中的“回归自”）即可开始统计。",
+    "escapedUntracked": "尚未跟踪逃逸缺陷：将缺陷规格关联到引入它的交付（规格中的“回归自”）即可开始统计。",
     "columns": {
       "loop": "循环",
       "delivered": "已交付",

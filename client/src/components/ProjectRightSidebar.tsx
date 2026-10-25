@@ -98,7 +98,7 @@ export function ProjectRightSidebar() {
             'flex items-center justify-center w-7 h-7 rounded-md transition-colors',
             lit
               ? 'text-foreground bg-muted'
-              : 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50',
+              : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/50',
             FOCUS_RING,
           )}
           aria-label={pinLabel}

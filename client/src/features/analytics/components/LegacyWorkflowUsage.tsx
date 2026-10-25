@@ -39,6 +39,8 @@ export function LegacyWorkflowUsage({ projectId }: { projectId: string }) {
   const summary = cache.current.get(projectId)
   const loading = state.projectId !== projectId || state.loading
   const failed = state.projectId === projectId && state.error
+  // Nothing to report until a legacy launch was actually recorded: an all-zero card is noise.
+  if (!failed && (!summary || summary.total === 0)) return null
   return <section className="rounded-xl border border-border/40 bg-card/40 p-4 space-y-3" aria-label={t('legacyUsage.title')}>
     <div className="flex items-center justify-between gap-3">
       <h2 className="text-strong">{t('legacyUsage.title')}</h2>
@@ -54,6 +56,5 @@ export function LegacyWorkflowUsage({ projectId }: { projectId: string }) {
       </dl>
       {summary.lastAt && <p className="text-xs text-muted-foreground">{t('legacyUsage.last')} <time dateTime={summary.lastAt}>{new Date(summary.lastAt).toLocaleString()}</time></p>}
     </>}
-    <p className="text-xs text-muted-foreground">{t('legacyUsage.evidence')}</p>
   </section>
 }

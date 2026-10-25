@@ -176,7 +176,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
               <p className="text-caption text-muted-foreground max-w-[180px] truncate">{project.path}</p>
             </div>
           )}
-          <p className="text-xs text-muted-foreground/70">
+          <p className="text-xs text-muted-foreground">
             {project ? t('panel.startConversation') : t('panel.noConversations')}
           </p>
           {project && (

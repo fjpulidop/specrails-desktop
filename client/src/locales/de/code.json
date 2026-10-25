@@ -152,7 +152,7 @@
     "loadingEditor": "Editor wird geladen…"
   },
   "ticketFiles": {
-    "title": "Von diesem Ticket bearbeitete Dateien",
+    "title": "Von dieser Spec bearbeitete Dateien",
     "jobTitle": "Job {{jobId}}",
     "loading": "Aufgezeichnete Dateien werden geladen…",
     "loadFailed": "Aufgezeichnete Dateien konnten nicht geladen werden.",

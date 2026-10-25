@@ -74,7 +74,7 @@
       "working": "代理处理中…",
       "placeholder": "向运行中的任务发送消息…",
       "send": "发送",
-      "liveTotals": "{{turns}} 轮 · ${{cost}}",
+      "liveTotals": "{{turns}} 轮 · {{cost}}",
       "autoHint": "该任务会按计划自行完成 — 消息只是可选的引导。",
       "wrapUp": "立即收尾",
       "wrapUpTooltip": "立即结束会话 — 任务以目前已产出的工作完成，每一轮的 token 与费用都会计入总额。",
@@ -158,7 +158,7 @@
     "showMore": "+ 还有 {{count}} 个",
     "showLess": "收起",
     "deletedTicket": "#{{id}}（已删除）",
-    "deletedTooltip": "工单已不存在"
+    "deletedTooltip": "规格已不存在"
   },
   "modal": {
     "notFound": "未找到任务",
@@ -347,7 +347,7 @@
     "supplementary": "补充",
     "attempts": "{{count}} 次尝试",
     "phaseCostUnavailable": "Core 各阶段成本不可用；供应商用量归属于循环步骤。",
-    "noCoreEvidence": "验收证据不可用。执行成功本身并不代表工单已完成。",
+    "noCoreEvidence": "验收证据不可用。执行成功本身并不代表规格已完成。",
     "status": {
       "success": "成功",
       "failed": "失败",

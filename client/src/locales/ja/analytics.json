@@ -32,7 +32,7 @@
     "subtitle": "支出の内訳：モデル・スペック・エンジン別のコスト、トークン、アクティビティ。",
     "all": "すべて",
     "engine": "エンジン",
-    "ticketChip": "チケット #{{id}} ·  ✕",
+    "ticketChip": "スペック #{{id}} ·  ✕",
     "failedToLoad": "分析を読み込めませんでした。もう一度お試しください。",
     "modelChip": "モデル：{{model}}",
     "clearModelFilter": "モデルフィルターをクリア",
@@ -63,7 +63,8 @@
     "emptyState": "このフィルター期間の呼び出しはまだありません。",
     "segmentTitle": "{{label}}: {{value}}",
     "legendBilled": "請求済み",
-    "legendEstimated": "推定"
+    "legendEstimated": "推定",
+    "apiEquivalent": "API 換算の推定値"
   },
   "providerCard": {
     "title": "プロバイダー別",
@@ -119,15 +120,15 @@
     "costPartiallyUnavailable_other": "プロットにはコストが判明している実行のみ含まれます。{{count}} 件はコストを利用できません。"
   },
   "topTickets": {
-    "title": "上位チケット",
-    "empty": "この期間のチケットアクティビティはありません。",
+    "title": "上位スペック",
+    "empty": "この期間のスペックアクティビティはありません。",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "未割り当て",
-    "deletedTicket": "削除済みチケット #{{id}}",
+    "deletedTicket": "削除済みスペック #{{id}}",
     "costUnavailable": "コスト利用不可",
-    "costUnavailableTooltip": "このチケットの実行ではコストのテレメトリが提供されませんでした。",
+    "costUnavailableTooltip": "このスペックの実行ではコストのテレメトリが提供されませんでした。",
     "costPartiallyUnavailable": "{{count}} 件は利用不可",
-    "costPartiallyUnavailableTooltip": "既知の小計のみです。このチケットの一部の実行ではコストを利用できません。"
+    "costPartiallyUnavailableTooltip": "既知の小計のみです。このスペックの一部の実行ではコストを利用できません。"
   },
   "table": {
     "title": "すべての呼び出し",
@@ -140,7 +141,7 @@
     "aborted": "中断",
     "empty": "現在のフィルターに一致する呼び出しはありません。",
     "colSurface": "サーフェス",
-    "colTicket": "チケット",
+    "colTicket": "スペック",
     "colCost": "コスト",
     "colTurns": "ターン",
     "colTokens": "トークン",
@@ -230,7 +231,6 @@
     "loading": "記録された使用状況を読み込み中…",
     "total": "記録されたイベント: {{count}}",
     "last": "最終イベント:",
-    "evidence": "これらの件数だけでは、従来の互換性を廃止できることの証明にはなりません。",
     "kinds": {
       "legacy_loop_traversal": "従来のループ",
       "queue_manager_slash": "キュー内のコマンド",
@@ -274,7 +274,7 @@
     "estimatedShare": "推定 {{share}}",
     "unpriced": "コスト不明 {{count}} 件",
     "note": "納品 = レビューに到達した以降の状態。平均コストはコストが記録された納品のみで算出します（推定と表示されたもの以外はプロバイダー報告値）。コスト不明の納品は除外され、$0 として数えません。ラウンド数はループの reviewer/fixer ステップから算出します。— は不明を意味します。",
-    "escapedUntracked": "流出欠陥はまだ記録されていません。バグチケットを原因となった納品に紐付ける（チケットの「回帰元」）と集計が始まります。",
+    "escapedUntracked": "流出欠陥はまだ記録されていません。バグスペックを原因となった納品に紐付ける（スペックの「回帰元」）と集計が始まります。",
     "columns": {
       "loop": "ループ",
       "delivered": "納品",

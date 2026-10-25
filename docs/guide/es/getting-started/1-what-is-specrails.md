@@ -8,7 +8,7 @@ En lugar de copiar y pegar prompts de un lado a otro, describes lo que quieres c
 
 El corazón de specrails es una idea sencilla: **la mejor forma de conseguir buen código de una IA es partir de una spec clara.**
 
-Una *spec* es una descripción breve y estructurada de un trabajo concreto: una funcionalidad, una corrección, un refactor. Puedes escribir una en segundos, o darle forma a través de un chat guiado que te hace las preguntas adecuadas y la redacta por ti. Cada spec se convierte en un **ticket** en el tablero de tu proyecto, igual que una tarea en cualquier gestor de incidencias.
+Una *spec* es una descripción breve y estructurada de un trabajo concreto: una funcionalidad, una corrección, un refactor. Puedes escribir una en segundos, o darle forma a través de un chat guiado que te hace las preguntas adecuadas y la redacta por ti. Cada spec se convierte en un **spec** en el tablero de tu proyecto, igual que una tarea en cualquier gestor de incidencias.
 
 A partir de ahí, le pasas la spec al pipeline y dejas que la IA haga el trabajo pesado.
 
@@ -25,7 +25,7 @@ Ves cada etapa a medida que se ejecuta, con logs en directo que llegan directame
 
 ## Proyectos
 
-Todo en specrails se organiza en torno a **proyectos**. Un proyecto no es más que una carpeta de tu ordenador que contiene una base de código. Puedes añadir tantos proyectos como quieras y cambiar entre ellos al instante; cada uno conserva sus propias specs, su historial de jobs, sus analíticas y sus ajustes.
+Todo en specrails se organiza en torno a **proyectos**. Un proyecto no es más que una carpeta de tu ordenador que contiene una base de código. Puedes añadir tantos proyectos como quieras y cambiar entre ellos al instante; cada uno conserva sus propias specs, su historial de trabajos, sus analíticas y sus ajustes.
 
 specrails nunca toca código que no le hayas pedido tocar. Trabaja dentro de tu repositorio existente, y tú mantienes el control de lo que acaba en un commit.
 
@@ -43,6 +43,6 @@ Elige el que ya uses, o instala más de uno y escoge según la tarea. Un proyect
 - **Velocidad sin caos** — las specs mantienen a la IA centrada, así que obtienes cambios útiles en lugar de divagaciones interminables.
 - **Visibilidad total** — logs en directo, una vista clara del pipeline y analíticas por proyecto te muestran exactamente qué pasó y cuánto costó.
 - **Tu máquina, tu código** — todo se ejecuta en local contra tu repositorio real.
-- **Todo en un solo sitio** — specs, jobs, chat, una terminal integrada y seguimiento de costes, todo en una única ventana.
+- **Todo en un solo sitio** — specs, trabajos, chat, una terminal integrada y seguimiento de costes, todo en una única ventana.
 
 ¿Listo para empezar? Lo siguiente: [Instalación y primer arranque](installing-and-first-run).

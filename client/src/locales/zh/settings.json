@@ -22,7 +22,7 @@
   },
   "prePrompt": {
     "title": "Rail 前置提示词",
-    "description": "追加到 implement rail 任务中的项目专属附加指令，位于工单上下文之后、开始执行之前。",
+    "description": "追加到 implement rail 任务中的项目专属附加指令，位于规格上下文之后、开始执行之前。",
     "label": "前置提示词",
     "placeholder": "示例：优先采用增量修改，保持迁移向后兼容，并为每次 rail 变更添加测试。",
     "helper": "用于应随每次 rail 实现运行附带的稳定项目指引。",
@@ -52,7 +52,7 @@
     "perJobPlaceholder": "如 0.50",
     "invalidNumber": "请输入正数，或留空以禁用",
     "perJobAlertDisabled": "已禁用单任务成本告警",
-    "alertSet": "已设置任务超过 ${{amount}} 时告警",
+    "alertSet": "已设置任务超过 {{amount}} 时告警",
     "saveThresholdFailed": "保存阈值失败",
     "dailyCurrent": "当前每日 {{amount}}",
     "dailyNone": "未设置每日上限"

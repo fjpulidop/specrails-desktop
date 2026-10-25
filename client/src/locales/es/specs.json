@@ -34,7 +34,7 @@
     "epicWithCount": "Épica · {{count}}",
     "subSpec": "↑ Sub-Spec",
     "review": "Revisar",
-    "needsReviewTitle": "Esta spec se marcó como hecha pero su job terminó en fallo — revísala",
+    "needsReviewTitle": "Esta spec se marcó como hecha pero su trabajo terminó en fallo — revísala",
     "raw": "Raw",
     "rawTitle": "Spec Raw — sin generación con IA al crearla",
     "contract": "Contract",
@@ -48,19 +48,19 @@
   },
   "card": {
     "deleteSpec": "Eliminar spec #{{id}}",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "dependsOn": "Depende de {{count}}",
     "continueEditing": "Seguir editando",
     "continueEditingTitle": "Seguir editando esta spec",
     "moveToRail": "Mover a un rail"
   },
   "emptyState": {
-    "noTickets": "Aún no hay tickets",
-    "noTicketsHint": "Crea tu primer ticket o ejecuta un comando de product backlog para generar tickets",
-    "createFirst": "Crea tu primer ticket"
+    "noTickets": "Aún no hay specs",
+    "noTicketsHint": "Crea tu primera spec o ejecuta un comando de product backlog para generar specs",
+    "createFirst": "Crea tu primera spec"
   },
   "errors": {
-    "loadFailed": "No se pudieron cargar los tickets"
+    "loadFailed": "No se pudieron cargar las specs"
   },
   "listView": {
     "status": {
@@ -82,14 +82,14 @@
       "labels": "Etiquetas",
       "updated": "Actualizado"
     },
-    "noMatch": "Ningún ticket coincide con tus filtros",
+    "noMatch": "Ninguna spec coincide con tus filtros",
     "clearFilters": "Limpiar filtros",
     "loadMore": "Cargar más ({{count}} restantes)"
   },
   "gridView": {
-    "emptyTodo": "No hay tickets por hacer",
+    "emptyTodo": "No hay specs por hacer",
     "emptyInProgress": "Nada en curso",
-    "emptyDone": "No hay tickets completados",
+    "emptyDone": "No hay specs completadas",
     "cancelledSection": "Cancelados ({{count}})"
   },
   "statusFilter": {
@@ -113,7 +113,7 @@
     "descending": "Descendente",
     "modes": {
       "default": "Por defecto",
-      "ticketId": "Ticket #",
+      "ticketId": "Spec #",
       "priority": "Prioridad",
       "jiraKey": "Ticket de Jira #"
     }
@@ -162,7 +162,7 @@
     "filesLikely": "Archivos probables",
     "moreFiles_one": "+{{count}} archivo más",
     "moreFiles_other": "+{{count}} archivos más",
-    "modelCost": "{{model}} · ${{cost}}",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · coste no informado",
     "unavailable": "Triaje n/d",
     "unavailableDetail": "No hay ningún modelo disponible para el triaje ({{reason}}).",

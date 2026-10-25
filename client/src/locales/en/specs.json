@@ -48,19 +48,19 @@
   },
   "card": {
     "deleteSpec": "Delete spec #{{id}}",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "dependsOn": "Depends on {{count}}",
     "continueEditing": "Continue Editing",
     "continueEditingTitle": "Continue editing this spec",
     "moveToRail": "Move to rail"
   },
   "emptyState": {
-    "noTickets": "No tickets yet",
-    "noTicketsHint": "Create your first ticket or run a product backlog command to populate tickets",
-    "createFirst": "Create your first ticket"
+    "noTickets": "No specs yet",
+    "noTicketsHint": "Create your first spec or run a product backlog command to populate specs",
+    "createFirst": "Create your first spec"
   },
   "errors": {
-    "loadFailed": "Failed to load tickets"
+    "loadFailed": "Failed to load specs"
   },
   "listView": {
     "status": {
@@ -82,14 +82,14 @@
       "labels": "Labels",
       "updated": "Updated"
     },
-    "noMatch": "No tickets match your filters",
+    "noMatch": "No specs match your filters",
     "clearFilters": "Clear filters",
     "loadMore": "Load more ({{count}} remaining)"
   },
   "gridView": {
-    "emptyTodo": "No tickets to do",
+    "emptyTodo": "No specs to do",
     "emptyInProgress": "Nothing in progress",
-    "emptyDone": "No completed tickets",
+    "emptyDone": "No completed specs",
     "cancelledSection": "Cancelled ({{count}})"
   },
   "statusFilter": {
@@ -113,7 +113,7 @@
     "descending": "Descending",
     "modes": {
       "default": "Default",
-      "ticketId": "Ticket #",
+      "ticketId": "Spec #",
       "priority": "Priority",
       "jiraKey": "Jira Ticket #"
     }
@@ -162,7 +162,7 @@
     "filesLikely": "Likely files",
     "moreFiles_one": "+{{count}} more file",
     "moreFiles_other": "+{{count}} more files",
-    "modelCost": "{{model}} · ${{cost}}",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · cost not reported",
     "unavailable": "Triage n/a",
     "unavailableDetail": "No model is available for triage ({{reason}}).",

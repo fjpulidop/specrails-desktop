@@ -27,7 +27,7 @@
     "retryRejected": "重试被拒绝",
     "retryRejectedWithError": "重试被拒绝：{{error}}",
     "retryFailed": "重试失败：{{message}}",
-    "skipped": "已跳过契约层 — 工单已保存（不含契约层）",
+    "skipped": "已跳过契约层 — 规格已保存（不含契约层）",
     "reason": "原因：{{reason}}",
     "added": "已添加契约层 · {{title}}"
   },

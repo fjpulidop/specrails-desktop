@@ -8,7 +8,7 @@
     "newConversation": "Nueva conversación",
     "suggestions": {
       "projectStatus": "¿Cuál es el estado del proyecto?",
-      "recentFailures": "Muestra los jobs fallidos recientes",
+      "recentFailures": "Muestra los trabajos fallidos recientes",
       "commands": "¿Qué comandos debería ejecutar?",
       "explainCodebase": "Explica la base de código"
     }
@@ -33,7 +33,7 @@
     "askAnything": "Pregunta a Claude lo que quieras sobre tu proyecto",
     "suggestions": {
       "currentStatus": "¿Cuál es el estado actual del proyecto?",
-      "recentFailures": "Muéstrame los jobs fallidos recientes",
+      "recentFailures": "Muéstrame los trabajos fallidos recientes",
       "testsToRun": "¿Qué tests debería ejecutar?",
       "mainArchitecture": "Explica la arquitectura principal"
     }

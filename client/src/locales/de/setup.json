@@ -199,7 +199,7 @@
       "smashLabel": "Ein großes Epic SMASHen",
       "smashBody": "Zerlege eine große Spec mit einem Klick in eine Familie kleinerer Sub-Specs; jedes Kind trägt eine Kurzfassung auf seiner Karte.",
       "draftsLabel": "Entwürfe & Weiterbearbeiten",
-      "draftsBody": "Parke eine laufende Exploration als Entwurfs-Ticket und mach später weiter; öffne jede Spec wieder in Explore, um sie zu verfeinern."
+      "draftsBody": "Parke eine laufende Exploration als Entwurfs-Spec und mach später weiter; öffne jede Spec wieder in Explore, um sie zu verfeinern."
     },
     "rails": {
       "nav": "Rails & Review",
@@ -247,9 +247,9 @@
       "subtitle": "Jeder kostenpflichtige Aufruf, erfasst und visualisiert",
       "intro": "Jeder KI-Aufruf erfasst Lebenszyklus und Anbieter. Nicht gemeldete Nutzungs- und Kostendaten bleiben nicht verfügbar.",
       "analyticsLabel": "Analytics-Seite",
-      "analyticsBody": "Ein Burn-Rate-Hero, Tages-Timeline, Top-Tickets, Modellaufschlüsselung und ein Kosten-vs.-Turns-Scatter. Filtern nach Zeitraum (7d / 30d / 90d / Alle) und nach Bereich.",
-      "perTicketLabel": "Ausgaben pro Ticket",
-      "perTicketBody": "Die Detailansicht jeder Spec zeigt, was sie gekostet hat und wie viele Turns sie brauchte – mit Deep-Link in die auf dieses Ticket gefilterte Analytics-Ansicht.",
+      "analyticsBody": "Ein Burn-Rate-Hero, Tages-Timeline, Top-Specs, Modellaufschlüsselung und ein Kosten-vs.-Turns-Scatter. Filtern nach Zeitraum (7d / 30d / 90d / Alle) und nach Bereich.",
+      "perTicketLabel": "Ausgaben pro Spec",
+      "perTicketBody": "Die Detailansicht jeder Spec zeigt, was sie gekostet hat und wie viele Turns sie brauchte – mit Deep-Link in die auf diese Spec gefilterte Analytics-Ansicht.",
       "honestLabel": "Ehrliche Zahlen",
       "honestBody": "Claude-Kosten werden vom Anbieter gemeldet; Codex können geschätzt und mit <mono>~</mono> markiert werden.",
       "budgetsLabel": "Budgets & Alarme",

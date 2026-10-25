@@ -85,7 +85,7 @@ function PhaseNode({ state }: { state: PhaseState }) {
       {state === 'running' && <Loader2 className="w-6 h-6 text-accent-info animate-spin" />}
       {state === 'done' && <CheckCircle2 className="w-6 h-6 text-accent-success" />}
       {state === 'error' && <XCircle className="w-6 h-6 text-destructive" />}
-      {state === 'idle' && <Circle className="w-6 h-6 text-muted-foreground/20" />}
+      {state === 'idle' && <Circle className="w-6 h-6 text-muted-foreground opacity-20" />}
     </div>
   )
 }

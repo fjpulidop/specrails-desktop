@@ -181,7 +181,7 @@ function CodeWorkspace({ embedded = false, initialPath = null, initialRepository
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-primary/20 bg-accent-primary/10 text-accent-primary"><FolderSearch className="h-7 w-7" /></div>
               <div><h1 className="text-headline">{t('explore.welcome')}</h1><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t('explore.description')}</p></div>
               <div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setMode('search'); setSidebarOpen(true) }} className="rounded-lg bg-accent-primary/15 px-3 py-2 text-xs text-accent-primary">{t('explore.findCode')}</button><button type="button" onClick={() => { setMode('activity'); setSidebarOpen(true) }} className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">{t('explore.viewActivity')}</button></div>
-              <p className="text-caption leading-relaxed text-muted-foreground/80">{t('explore.sourceHint')}</p>
+              <p className="text-caption leading-relaxed text-muted-foreground">{t('explore.sourceHint')}</p>
             </div>
           </div>}
         </div>}

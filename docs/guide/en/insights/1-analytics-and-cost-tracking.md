@@ -42,9 +42,9 @@ Your top models by spend (up to ten). Click any model to filter the whole dashbo
 
 Each point is one invocation, plotting cost against the number of turns. Outliers — the expensive, many-turn runs — jump right out. (The scatter shows your most recent 500 points to stay responsive.)
 
-### Top tickets
+### Top specs
 
-Your ten most expensive tickets across *all* surfaces combined, so a ticket that cost a little in Explore and a lot in a job shows its true total. Deleted tickets and unattributed runs get their own buckets so nothing silently vanishes from the totals.
+Your ten most expensive specs across *all* surfaces combined, so a spec that cost a little in Explore and a lot in a job shows its true total. Deleted specs and unattributed runs get their own buckets so nothing silently vanishes from the totals.
 
 ### Raw invocations table
 
@@ -56,19 +56,19 @@ The sticky header at the top carries the two primary filters — **period** and 
 
 A note on accuracy: failed and aborted runs are kept out of *cost averages* (they'd skew the per-run numbers) but they still count toward your total run count and failure rate. So the averages stay clean while the reliability picture stays complete.
 
-## Per-ticket cost
+## Per-spec cost
 
-You don't have to come to the Analytics page to see what a spec cost. Open any ticket and, if it has any spend attached, you'll see a one-line summary right under the title:
+You don't have to come to the Analytics page to see what a spec cost. Open any spec and, if it has any spend attached, you'll see a one-line summary right under the title:
 
 > $0.42 · 6 turns · 1m 12s active · breakdown
 
-Click it and you land on the Analytics page already filtered to that ticket. It's the quickest path from "what did this feature cost me?" to the full breakdown.
+Click it and you land on the Analytics page already filtered to that spec. It's the quickest path from "what did this feature cost me?" to the full breakdown.
 
 ## Exporting your data
 
 When you need the numbers outside the app — a spreadsheet, a finance report, your own analysis — use the **Export** dropdown. It offers four formats:
 
-- **Summary CSV** — a multi-section file with totals, the daily timeline, by-surface, by-model, and top tickets.
+- **Summary CSV** — a multi-section file with totals, the daily timeline, by-surface, by-model, and top specs.
 - **Summary JSON** — the same summary, structured.
 - **Raw CSV** — every invocation row (up to 10,000; it notes if it had to truncate).
 - **Raw JSON** — the same raw rows, structured.

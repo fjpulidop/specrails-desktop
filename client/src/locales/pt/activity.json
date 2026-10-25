@@ -27,7 +27,7 @@
     "retryRejected": "Repetição rejeitada",
     "retryRejectedWithError": "Repetição rejeitada: {{error}}",
     "retryFailed": "Falha ao repetir: {{message}}",
-    "skipped": "Contract layer ignorada — ticket guardado sem ela",
+    "skipped": "Contract layer ignorada — spec guardada sem ela",
     "reason": "Motivo: {{reason}}",
     "added": "Contract layer adicionada · {{title}}"
   },

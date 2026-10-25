@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next'
+import { format, parseISO } from 'date-fns'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
 import type { SpendingResponse } from '../types/spending'
 import { formatUsd } from '../lib/format'
+import { getDateFnsLocale } from '../../../lib/i18n'
 import { Skeleton } from '../../../components/ui/skeleton'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { ChartTooltip } from './ChartTooltip'
@@ -39,8 +41,8 @@ export function SpendingTimeline({ data, loading }: Props) {
   // The server already re-buckets dailyTimeline by the viewer's LOCAL calendar
   // day (it receives tzOffsetMinutes and applies it in the day-bucket SQL), so
   // each d.date is already a local YYYY-MM-DD string. The ONLY correct client
-  // step is to drop the year for the MM-DD axis label — re-parsing it as UTC and
-  // reformatting locally would double-apply the offset and shift the label a day.
+  // step is to label it in the viewer's language ("24 Oct") — parseISO reads a date-only
+  // string as LOCAL midnight, so no offset is applied twice and the label never shifts a day.
   const sumOfSeven = (d: (typeof data.dailyTimeline)[number]) =>
     d.jobsCostUsd +
     d.exploreCostUsd +
@@ -54,7 +56,7 @@ export function SpendingTimeline({ data, loading }: Props) {
   const othersFor = (d: (typeof data.dailyTimeline)[number]) =>
     Math.max(0, (d.totalCostUsd ?? 0) - sumOfSeven(d))
   const chartData = data.dailyTimeline.map((d) => ({
-    date: d.date.slice(5),
+    date: format(parseISO(d.date), 'd MMM', { locale: getDateFnsLocale() }),
     [labels.jobs]: d.jobsCostUsd,
     [labels.explore]: d.exploreCostUsd,
     [labels.quick]: d.quickCostUsd,

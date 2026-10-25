@@ -270,7 +270,7 @@
       "onReview": "En revisión",
       "inProgress": "En curso",
       "failed": "Fallaron el último intento",
-      "todo": "Pendientes"
+      "todo": "Por hacer"
     },
     "rail": {
       "fallbackName": "Rail {{n}}",

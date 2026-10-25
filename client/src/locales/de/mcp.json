@@ -24,11 +24,11 @@
     "read": "Lesen",
     "readHelp": "Projekte, Spezifikationen und Analysen durchsuchen. Immer erlaubt.",
     "write": "Schreiben",
-    "writeHelp": "Spezifikationen und Tickets erstellen und bearbeiten.",
+    "writeHelp": "Specs erstellen und bearbeiten.",
     "aiSpawn": "KI starten",
     "aiSpawnHelp": "KI-Rails und Jobs starten, die die CLI ausführen.",
     "destructive": "Destruktiv",
-    "destructiveHelp": "Spezifikationen, Tickets und andere Projektdaten löschen.",
+    "destructiveHelp": "Specs und andere Projektdaten löschen.",
     "updateFailed": "Berechtigungen konnten nicht aktualisiert werden: {{message}}"
   },
   "config": {

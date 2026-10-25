@@ -1,28 +1,28 @@
-# La vista de detalle del job
+# La vista de detalle del trabajo
 
-Pulsa cualquier tarjeta de job en la página **Jobs** y aterrizas aquí: la cabina de mando de una ejecución de rail concreta. Está construida en torno a una promesa — **los números en vivo que ves son reales, nunca estimaciones.** En esta página recorremos las fases, las métricas en vivo, las tarjetas de ticket — y el compositor que te permite **hablar con el job en marcha**.
+Pulsa cualquier tarjeta de trabajo en la página **Trabajos** y aterrizas aquí: la cabina de mando de una ejecución de rail concreta. Está construida en torno a una promesa — **los números en vivo que ves son reales, nunca estimaciones.** En esta página recorremos las fases, las métricas en vivo, las tarjetas de spec — y el compositor que te permite **hablar con el trabajo en marcha**.
 
 ## La distribución
 
-Dos paneles se sitúan encima del log completo en streaming; en un job de Claude en ejecución, un compositor de chat se sitúa debajo:
+Dos paneles se sitúan encima del log completo en streaming; en un trabajo de Claude en ejecución, un compositor de chat se sitúa debajo:
 
 ```
 ┌─────────────────────────────────────────────┐
 │  Cabecera de estado  (icono · duración en vivo · …)  │
 ├─────────────────────────────────────────────┤
-│  Cabecera de tickets  ( #12  #14  #15 )     │
+│  Cabecera de specs  ( #12  #14  #15 )     │
 ├─────────────────────────────────────────────┤
 │                                             │
 │  Log en streaming  (auto-scroll · búsqueda · …)  │
 │                                             │
 ├─────────────────────────────────────────────┤
-│  Compositor  (envía un mensaje al job · …)  │
+│  Compositor  (envía un mensaje al trabajo · …)  │
 └─────────────────────────────────────────────┘
 ```
 
 ## Fases del pipeline
 
-Para los jobs `Implement`, la ejecución avanza por las fases que define el slash command — por defecto:
+Para los trabajos `Implement`, la ejecución avanza por las fases que define el slash command — por defecto:
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -37,31 +37,31 @@ Cada fase es un agente especializado que el motor del rail invoca en el director
 | **Reviewer** | `sr-reviewer` | Revisa el resultado. |
 | **Ship** | (varía) | Cierre final: tests, commit, borrador de PR. |
 
-Qué agente se encarga de cada fase lo decide el **perfil de agentes** del proyecto. El trío base (`sr-architect`, `sr-developer`, `sr-reviewer`) está siempre presente; las reglas de enrutamiento de un perfil pueden añadir agentes o cambiar cuál ejecuta una fase. La barra de progreso de fases solo aparece cuando el comando define realmente fases — los jobs de Freestyle (que se saltan el pipeline) no mostrarán ninguna.
+Qué agente se encarga de cada fase lo decide el **perfil de agentes** del proyecto. El trío base (`sr-architect`, `sr-developer`, `sr-reviewer`) está siempre presente; las reglas de enrutamiento de un perfil pueden añadir agentes o cambiar cuál ejecuta una fase. La barra de progreso de fases solo aparece cuando el comando define realmente fases — los trabajos de Freestyle (que se saltan el pipeline) no mostrarán ninguna.
 
 ## Métricas en vivo — honestas por diseño
 
-La cabecera de estado es el titular. Muestra un icono de estado, una línea de actividad que describe qué está haciendo el job *ahora mismo*, un recuento de pasos dados y una fila de métricas:
+La cabecera de estado es el titular. Muestra un icono de estado, una línea de actividad que describe qué está haciendo el trabajo *ahora mismo*, un recuento de pasos dados y una fila de métricas:
 
 | Métrica | Cuándo ves el valor real |
 |--------|------------------------------|
-| **Duración** | **En vivo.** Un contador de 1 segundo va sumando mientras el job se ejecuta — este es el único número genuinamente en vivo. |
+| **Duración** | **En vivo.** Un contador de 1 segundo va sumando mientras el trabajo se ejecuta — este es el único número genuinamente en vivo. |
 | **Turnos** | Se deriva de forma incremental a partir de los eventos de assistant en streaming según van llegando. |
 | **Tokens** | Se agrega de forma incremental desde el mismo stream (tolerante con eventos a los que les faltan los campos de uso). |
-| **Coste** | Se muestra como `—` hasta que el job termina, y entonces se revela como el `total_cost_usd` autoritativo. |
+| **Coste** | Se muestra como `—` hasta que el trabajo termina, y entonces se revela como el `total_cost_usd` autoritativo. |
 
-El principio de diseño: **ningún número aproximado o estimado a media ejecución.** La duración es real porque es simplemente un reloj. Los turnos y los tokens se acumulan a partir de actividad real en streaming. El coste, deliberadamente, *no* se estima mientras se ejecuta — se muestra como pendiente y solo se resuelve a su cifra final y autoritativa cuando el proveedor la reporta al terminar el job. Si un número parece estar esperando, es intencionado — te estamos mostrando la verdad, no una proyección.
+El principio de diseño: **ningún número aproximado o estimado a media ejecución.** La duración es real porque es simplemente un reloj. Los turnos y los tokens se acumulan a partir de actividad real en streaming. El coste, deliberadamente, *no* se estima mientras se ejecuta — se muestra como pendiente y solo se resuelve a su cifra final y autoritativa cuando el proveedor la reporta al terminar el trabajo. Si un número parece estar esperando, es intencionado — te estamos mostrando la verdad, no una proyección.
 
-La etiqueta y el icono de la cabecera se corresponden con el estado del job, y el panel se renderiza igual para los jobs `running`, `completed` y `failed` — así, la vista de detalle de un job terminado muestra las mismas métricas congeladas en sus valores finales.
+La etiqueta y el icono de la cabecera se corresponden con el estado del trabajo, y el panel se renderiza igual para los trabajos `running`, `completed` y `failed` — así, la vista de detalle de un trabajo terminado muestra las mismas métricas congeladas en sus valores finales.
 
-## Las tarjetas de ticket
+## Las tarjetas de spec
 
-La **cabecera de tickets** se sitúa entre la cabecera de estado y el log. Es una tarjeta de identidad premium que muestra un chip por cada spec que tocó el job — extraídos del comando lanzado, así que reflejan exactamente qué tickets abarcó esta ejecución.
+La **cabecera de specs** se sitúa entre la cabecera de estado y el log. Es una tarjeta de identidad premium que muestra un chip por cada spec que tocó el trabajo — extraídas del comando lanzado, así que reflejan exactamente qué specs abarcó esta ejecución.
 
-- **2–3 tickets** — se muestran como una lista de chips.
+- **2–3 specs** — se muestran como una lista de chips.
 - **4 o más** — se colapsan en un modo compacto `+ N más` con un chevron para expandir, así la cabecera se mantiene ordenada.
 
-Pulsar un chip abre el detalle de esa spec **sobre la página del job** — no pierdes tu sitio ni cambias de ruta. Es una forma rápida de releer qué se supone que tiene que entregar un job mientras lo ves trabajar. (En pantallas de ancho de tablet incluso puedes arrastrar a un lado un modal de ticket para comparar dos specs lado a lado.)
+Pulsar un chip abre el detalle de esa spec **sobre la página del trabajo** — no pierdes tu sitio ni cambias de ruta. Es una forma rápida de releer qué se supone que tiene que entregar un trabajo mientras lo ves trabajar. (En pantallas de ancho de tablet incluso puedes arrastrar a un lado un modal de spec para comparar dos specs lado a lado.)
 
 ## El log en streaming
 
@@ -75,29 +75,29 @@ Esta es la verdad en bruto de lo que está haciendo la IA — cada llamada a una
 
 ## Ejecuciones de loop: el explorador de pasos
 
-Cuando el job es una **ejecución de loop** (ver [El Loop Builder](the-loop-builder)), el log plano deja paso a un **explorador de pasos** que refleja la forma real del loop:
+Cuando el trabajo es una **ejecución de loop** (ver [El Loop Builder](the-loop-builder)), el log plano deja paso a un **explorador de pasos** que refleja la forma real del loop:
 
 - **La franja de resumen** de arriba es el mapa en vivo del loop — un chip por nodo (Paso de IA, Shell, Loop Decider…), en el orden en que fluye el grafo. Los chips se van encendiendo según avanza la ejecución: atenuados mientras esperan, con pulso mientras corren, y después un check o una cruz. El chip de un Decider muestra además el veredicto por el que enrutó — volver atrás o seguir adelante — y un contador de iteraciones (`Iteración 3/10`) lleva la cuenta a la derecha. Pulsa cualquier chip para saltar directo al último paso de ese nodo.
 - **Una caja plegable por paso.** Cada pasada sobre un nodo se convierte en su propia sección, con el número de paso, su nombre, una insignia de iteración, su duración al terminar — y su propio botón de copiar, para que te lleves exactamente la salida de un paso. (El copiar de la barra superior sigue llevándose el log entero.) Todo lo impreso antes del primer paso — el banner de arranque, el aviso de worktree — queda recogido en una sección de **Preparación**.
 - **El modo seguimiento** viene activado por defecto: el paso en ejecución permanece abierto y con auto-scroll mientras los anteriores se pliegan para no estorbar. En cuanto subes el scroll o abres un paso antiguo, el seguimiento se pausa para que puedas leer — una píldora flotante **Reanudar seguimiento** te devuelve al directo. **Expandir todo / Contraer todo** viven en la barra superior, y escribir en el buscador busca en todos los pasos a la vez.
 - **Los pasos interrumpidos también son honestos.** Un paso que nunca llegó a reportar su resultado — la ejecución se canceló o la app se cerró a mitad de paso — se marca como **Interrumpido** con un borde discontinuo, en lugar de fingir que terminó.
 
-Todo lo demás de esta página funciona exactamente igual en las ejecuciones de loop — las métricas en vivo, las tarjetas de ticket, el compositor. Los jobs que no son de loop conservan el log en streaming clásico de arriba.
+Todo lo demás de esta página funciona exactamente igual en las ejecuciones de loop — las métricas en vivo, las tarjetas de spec, el compositor. Los trabajos que no son de loop conservan el log en streaming clásico de arriba.
 
-## Habla con el job en marcha
+## Habla con el trabajo en marcha
 
-Todo job de Claude se ejecuta por defecto como una **sesión en vivo**, así que un compositor de chat se sitúa al pie de esta página — y del modal de job en modo misión. Úsalo para preguntarle algo al agente en marcha («¿por qué falló ese test?») o para dirigirlo a mitad de ejecución («salta el refactor, céntrate en el fix»).
+Todo trabajo de Claude se ejecuta por defecto como una **sesión en vivo**, así que un compositor de chat se sitúa al pie de esta página — y del modal de trabajo en modo misión. Úsalo para preguntarle algo al agente en marcha («¿por qué falló ese test?») o para dirigirlo a mitad de ejecución («salta el refactor, céntrate en el fix»).
 
 Algunas cosas que conviene saber:
 
-- **Los mensajes se encolan, no interrumpen.** Envía mientras el agente está transmitiendo y tu mensaje espera su turno — se ejecuta como el siguiente prompt, y el job sigue con su plan. Un pequeño contador muestra cuántos mensajes hay en cola.
+- **Los mensajes se encolan, no interrumpen.** Envía mientras el agente está transmitiendo y tu mensaje espera su turno — se ejecuta como el siguiente prompt, y el trabajo sigue con su plan. Un pequeño contador muestra cuántos mensajes hay en cola.
 - **La línea de totales es real.** El compositor muestra un resumen en vivo `N turnos · $X`, sumado a partir del uso real de cada turno completado — coherente con la promesa de esta página de no adivinar nada.
-- **Dos formas de terminar una sesión.** La mayoría de los jobs **terminan solos**: en cuanto un turno acaba sin mensajes en cola, la sesión se asienta y el job se completa — tus mensajes son dirección opcional, nunca una obligación. Una acción discreta **Terminar ahora** la cierra antes con todo lo producido hasta el momento. Los jobs **Freestyle** son la excepción: quedan a la espera entre turnos hasta que tú pulsas **Finalize** — ese es su diseño, una sesión de ida y vuelta que cierras cuando terminas.
+- **Dos formas de terminar una sesión.** La mayoría de los trabajos **terminan solos**: en cuanto un turno acaba sin mensajes en cola, la sesión se asienta y el trabajo se completa — tus mensajes son dirección opcional, nunca una obligación. Una acción discreta **Terminar ahora** la cierra antes con todo lo producido hasta el momento. Los trabajos **Freestyle** son la excepción: quedan a la espera entre turnos hasta que tú pulsas **Finalize** — ese es su diseño, una sesión de ida y vuelta que cierras cuando terminas.
 - **En un loop, los mensajes van al paso activo.** En un loop propio o integrado, tu mensaje llega al **paso de IA que está corriendo en ese momento**. Entre pasos (mientras el Loop Decider piensa, o corre un comando de shell) el compositor muestra un breve estado *«Esperando el siguiente paso…»* — tu texto redactado se conserva, y el envío se reactiva cuando arranca el siguiente paso de IA. **Asentar este paso** cierra el paso actual antes de tiempo y deja que el loop avance con lo que produjo.
 
 ## Exportar diagnóstico
 
-Si la [telemetría](../settings/customizing) estaba activada para el job, aparece un botón **Exportar diagnóstico** en la cabecera. Descarga un ZIP que contiene:
+Si la [telemetría](../settings/customizing) estaba activada para el trabajo, aparece un botón **Exportar diagnóstico** en la cabecera. Descarga un ZIP que contiene:
 
 - `job-metadata.json` — comando, estado, perfil, plugins.
 - `telemetry.ndjson` — señales OTLP/JSON sin comprimir.
@@ -109,7 +109,7 @@ Práctico para compartir una ejecución con un compañero o para abrir un inform
 
 ## Cuando una ejecución falla
 
-Cuando un job falla, se detiene o queda bloqueado, el estado final empieza con una **tarjeta de diagnóstico** que cuenta qué pasó en lenguaje claro, por ejemplo *Las pruebas fallaron en la fase Reviewer tras 4 rondas de correcciones*, y por qué cuando la app lo sabe:
+Cuando un trabajo falla, se detiene o queda bloqueado, el estado final empieza con una **tarjeta de diagnóstico** que cuenta qué pasó en lenguaje claro, por ejemplo *Las pruebas fallaron en la fase Reviewer tras 4 rondas de correcciones*, y por qué cuando la app lo sabe:
 
 - **Pruebas fallidas**: las comprobaciones siguen fallando tras las rondas de correcciones.
 - **Límite del proveedor**: se alcanzó el límite de uso del proveedor de IA. La tarjeta cita cuándo se restablece, con las palabras del propio proveedor.
@@ -121,8 +121,8 @@ Bajo el diagnóstico hay hasta tres remedios ordenados, y solo los que pueden fu
 
 ## A dónde ir después
 
-- [Rails y jobs](rails-and-jobs) — lanzamiento y encolado.
-- [Seguimiento de costes](../analytics/tracking-cost) — convierte los costes por job en analíticas de proyecto.
+- [Rails y trabajos](rails-and-jobs) — lanzamiento y encolado.
+- [Seguimiento de costes](../analytics/tracking-cost) — convierte los costes por trabajo en analíticas de proyecto.
 
 ## Después de reiniciar un workflow
 
@@ -132,4 +132,4 @@ Cuando un paso de decisión se detiene para preguntar, la reanudación reutiliza
 
 ## Conservación del historial
 
-Las ejecuciones guardadas se conservan indefinidamente por defecto. En **Ejecuciones guardadas → Conservación del historial**, un proyecto puede conservarlas entre 1 y 3650 días. Nada se borra en segundo plano: guarda la política, elige **Previsualizar limpieza** y revisa cada ejecución y su motivo antes de **Eliminar historial caducado**. Una ejecución sigue protegida mientras está activa, espera tu respuesta o aprobación, tiene una escritura interrumpida, una entrega abierta o un fork que aún depende de ella. Solo se elimina el historial de ejecución dentro del almacenamiento de Specrails del proyecto; tu repositorio, los worktrees, el log del job y los registros de coste se conservan. Una ejecución caducada aparece como **Caducado** y ya no se puede reanudar ni bifurcar. Las versiones de Core que aún usa una ejecución conservada nunca se eliminan.
+Las ejecuciones guardadas se conservan indefinidamente por defecto. En **Ejecuciones guardadas → Conservación del historial**, un proyecto puede conservarlas entre 1 y 3650 días. Nada se borra en segundo plano: guarda la política, elige **Previsualizar limpieza** y revisa cada ejecución y su motivo antes de **Eliminar historial caducado**. Una ejecución sigue protegida mientras está activa, espera tu respuesta o aprobación, tiene una escritura interrumpida, una entrega abierta o un fork que aún depende de ella. Solo se elimina el historial de ejecución dentro del almacenamiento de Specrails del proyecto; tu repositorio, los worktrees, el log del trabajo y los registros de coste se conservan. Una ejecución caducada aparece como **Caducado** y ya no se puede reanudar ni bifurcar. Las versiones de Core que aún usa una ejecución conservada nunca se eliminan.

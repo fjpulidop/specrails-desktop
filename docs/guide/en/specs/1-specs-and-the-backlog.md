@@ -1,8 +1,6 @@
 # Specs & the backlog {#specs-backlog}
 
-A **spec** is the unit of work the AI pipeline implements. Think of it as a ticket: a title, a description of what you want done, a priority, and optional labels. When you launch the pipeline, the AI agents read the spec and act on it — so a clear spec is the single most important input to a good result.
-
-Specs are sometimes called **tickets** in the app — the two words mean the same thing.
+A **spec** is the unit of work the AI pipeline implements. Think of it as a short brief: a title, a description of what you want done, a priority, and optional labels. When you launch the pipeline, the AI agents read the spec and act on it — so a clear spec is the single most important input to a good result.
 
 ## The board
 
@@ -13,7 +11,7 @@ The board has two view modes, switched from a toolbar toggle and remembered per 
 - **Post-it view** (the default) — card-style tiles with short summaries.
 - **List view** — compact one-line rows.
 
-The Specs toolbar has two rows. The first holds a **search** field (press `/` to jump to it; it matches title, `#number`, label or Jira key), a single **Filters** button, the sort and view controls, and **New spec**. The second row is the **status selector**: every status as its own segment with a live count, plus two smart buckets, **Active** (the default: everything still moving, so drafts, todos, in-progress and on-review specs) and **All** (everything, with Done pinned at the bottom). When the column is narrow, the less-used statuses fold into a **More** menu, and the status you picked always stays visible. Your pick is remembered per project and mirrored to the URL, so a refresh or a shared link restores the exact view. **Filters** opens one panel with a section per dimension: **labels** (multi-select), and on Jira-connected projects **epic**, **sprint** and **Jira status** (the board's *real* workflow statuses, e.g. "Code Review", grouped under the state they map to, combining with the status selector). While a search or filter narrows the board, a third row lists each one as a removable chip, shows "x of y" specs, and offers **Clear all** (which keeps your status pick). Sort by **Default**, **Ticket #** or **Priority**, each with an ascending/descending toggle.
+The Specs toolbar has two rows. The first holds a **search** field (press `/` to jump to it; it matches title, `#number`, label or Jira key), a single **Filters** button, the sort and view controls, and **New spec**. The second row is the **status selector**: every status as its own segment with a live count, plus two smart buckets, **Active** (the default: everything still moving, so drafts, todos, in-progress and on-review specs) and **All** (everything, with Done pinned at the bottom). When the column is narrow, the less-used statuses fold into a **More** menu, and the status you picked always stays visible. Your pick is remembered per project and mirrored to the URL, so a refresh or a shared link restores the exact view. **Filters** opens one panel with a section per dimension: **labels** (multi-select), and on Jira-connected projects **epic**, **sprint** and **Jira status** (the board's *real* workflow statuses, e.g. "Code Review", grouped under the state they map to, combining with the status selector). While a search or filter narrows the board, a third row lists each one as a removable chip, shows "x of y" specs, and offers **Clear all** (which keeps your status pick). Sort by **Default**, **Spec #** or **Priority**, each with an ascending/descending toggle.
 
 ### Selecting several specs
 

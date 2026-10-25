@@ -1,4 +1,4 @@
-# Rails y jobs
+# Rails y trabajos
 
 Ya tienes specs en el tablero. Aquí es donde se convierten en código. Un **rail** es el carril que lleva una spec a través de todo el pipeline — Architect → Developer → Reviewer → Ship — ejecutando agentes de IA reales para tu proyecto. En esta página verás cómo lanzar un rail, la ejecución en paralelo y cómo seguir el trabajo en vivo.
 
@@ -32,7 +32,7 @@ Eso es todo. El rail arranca un proceso de la CLI de IA en el contexto de ejecuc
 
 | Control | Qué hace |
 |---------|--------------|
-| **Pastilla de estado** | `idle`, `running` o `failed`. No hay un estado "completed" aparte — un rail vuelve a `idle` cuando su job termina limpiamente. |
+| **Pastilla de estado** | `idle`, `running` o `failed`. No hay un estado "completed" aparte — un rail vuelve a `idle` cuando su trabajo termina limpiamente. |
 | **Lista de specs** | Los IDs asignados a este rail. Arrastra más para añadirlas, o sácalas para desvincularlas. |
 | **Selector de Loop** | El Loop que ejecuta este rail — uno integrado (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) o un loop personalizado. Mira la tabla de más abajo. Se recuerda por rail. |
 | **Selector de perfil** | Qué perfil del proveedor se ejecuta (rails Claude). |
@@ -45,18 +45,18 @@ Un rail ejecuta un **Loop** — la receta del trabajo. Dos loops están **integr
 
 | Loop integrado | Comando | Qué hace |
 |------|---------|--------------|
-| **Implement** | `/specrails:implement` | Un job que cubre todas las specs del rail. Ejecuta el pipeline completo Architect → Developer → Reviewer → Ship. El predeterminado del día a día. |
-| **Freestyle** | Freestyle | El proveedor del rail implementa cada spec de forma autónoma, **sin** el pipeline; después la verificación y el Loop Decider la refinan hasta que todo pasa. Una ejecución independiente por spec. Funciona con Claude, Codex, Gemini, Kimi y motores locales; el chat interactivo dentro del job es solo de Claude. |
+| **Implement** | `/specrails:implement` | Un trabajo que cubre todas las specs del rail. Ejecuta el pipeline completo Architect → Developer → Reviewer → Ship. El predeterminado del día a día. |
+| **Freestyle** | Freestyle | El proveedor del rail implementa cada spec de forma autónoma, **sin** el pipeline; después la verificación y el Loop Decider la refinan hasta que todo pasa. Una ejecución independiente por spec. Funciona con Claude, Codex, Gemini, Kimi y motores locales; el chat interactivo dentro del trabajo es solo de Claude. |
 
-Para ejecutar varias specs, pon las relacionadas (hasta 3) en un mismo rail — `Implement` las ejecuta como un único job conjunto — o reparte las independientes entre varios rails: cada rail con git se ejecuta en paralelo en su propio worktree aislado.
+Para ejecutar varias specs, pon las relacionadas (hasta 3) en un mismo rail — `Implement` las ejecuta como un único trabajo conjunto — o reparte las independientes entre varios rails: cada rail con git se ejecuta en paralelo en su propio worktree aislado.
 
 Los integrados también se pueden editar: edita uno en el Loop Builder y publícalo, y todos los rails que lo eligen ejecutan tu versión (usa **Restaurar original** para volver atrás).
 
 Más allá de los integrados, puedes **construir tus propios loops** — repetir un ciclo verify → fix → verify hasta cumplir un objetivo, encadenar comandos de shell entre pasos de IA y más. Esos loops personalizados aparecen en el mismo selector de Loop. Esa es la siguiente gran idea: [El Loop Builder](the-loop-builder).
 
-## La cola de jobs
+## La cola de trabajos
 
-Cada vez que pulsas Play, la ejecución del rail se convierte en un **job**. La regla más importante que debes interiorizar:
+Cada vez que pulsas Play, la ejecución del rail se convierte en un **trabajo**. La regla más importante que debes interiorizar:
 
 > **Los rails se ejecutan en paralelo.** Cada lanzamiento respaldado por git aísla su trabajo en un worktree de git por spec, así que varios rails pueden ejecutarse a la vez dentro del mismo proyecto sin pisarse. El trabajo nuevo termina en una tarjeta de decisión **En revisión**, donde puedes crear una draft PR o descartarlo; el trabajo de seguimiento para una spec que ya tiene una PR abierta continúa esa rama de PR en lugar de empezar otra vez desde la rama de integración.
 
@@ -68,15 +68,15 @@ No hay ninguna palanca global de concurrencia que ajustar. El único freno autom
 
 ## Verlo en marcha
 
-Encuentra todos los jobs en **Jobs**, en la barra lateral derecha del proyecto — una lista de tarjetas, la más reciente primero. Cada tarjeta muestra una insignia de estado, la insignia de perfil, una insignia de prioridad, la duración, el coste y el comando lanzado. Encima de la lista:
+Encuentra todos los trabajos en **Trabajos**, en la barra lateral derecha del proyecto — una lista de tarjetas, la más reciente primero. Cada tarjeta muestra una insignia de estado, la insignia de perfil, una insignia de prioridad, la duración, el coste y el comando lanzado. Encima de la lista:
 
-- **Chips de filtro por estado** — muestra solo los jobs en un estado concreto.
+- **Chips de filtro por estado** — muestra solo los trabajos en un estado concreto.
 - **Filtro por rango de fechas** — acota a una ventana temporal.
-- **Comparar** — elige dos jobs y velos lado a lado.
+- **Comparar** — elige dos trabajos y velos lado a lado.
 
-Pulsa cualquier tarjeta para abrir la **vista de detalle del job**, donde están el log en streaming en vivo y las métricas en vivo — y donde, en los jobs de Claude, un compositor de chat te permite **hacerle preguntas al agente en marcha o dirigirlo a mitad de ejecución** sin detener nada. Eso es la página siguiente: [La vista de detalle del job](the-job-detail-view).
+Pulsa cualquier tarjeta para abrir la **vista de detalle del trabajo**, donde están el log en streaming en vivo y las métricas en vivo — y donde, en los trabajos de Claude, un compositor de chat te permite **hacerle preguntas al agente en marcha o dirigirlo a mitad de ejecución** sin detener nada. Eso es la página siguiente: [La vista de detalle del trabajo](the-job-detail-view).
 
-## Cancelar un job
+## Cancelar un trabajo
 
 Pulsa **■ Stop** en la cabecera del rail. La app envía `SIGTERM` al subproceso, espera **5 segundos** a que salga limpiamente y luego le aplica `SIGKILL`. No queda nada a medio arrancar.
 
@@ -110,5 +110,5 @@ La cifra en dólares solo aparece cuando se sabe que el motor factura por uso (p
 ## A dónde ir después
 
 - [El Loop Builder](the-loop-builder) — qué ejecuta un rail y cómo construir tus propios loops.
-- [La vista de detalle del job](the-job-detail-view) — fases, métricas en vivo, tarjetas de ticket.
+- [La vista de detalle del trabajo](the-job-detail-view) — fases, métricas en vivo, tarjetas de spec.
 - [Elegir un motor por rail](picking-an-engine-per-rail) — Claude o Codex.

@@ -1,12 +1,12 @@
 {
   "statusLabel": {
-    "running": "em execução",
-    "completed": "concluído",
-    "failed": "falhou",
-    "canceled": "cancelado",
-    "queued": "em fila",
-    "zombie": "zombie",
-    "skipped": "ignorado"
+    "running": "Em execução",
+    "completed": "Concluído",
+    "failed": "Falhou",
+    "canceled": "Cancelado",
+    "queued": "Em fila",
+    "zombie": "Zombie",
+    "skipped": "Ignorado"
   },
   "statusTooltip": {
     "running": "O job está em execução",
@@ -74,7 +74,7 @@
       "working": "Agente a trabalhar…",
       "placeholder": "Envie uma mensagem ao job em execução…",
       "send": "Enviar",
-      "liveTotals": "{{turns}} turnos · ${{cost}}",
+      "liveTotals": "{{turns}} turnos · {{cost}}",
       "autoHint": "Este job segue o seu plano e termina sozinho — as mensagens são orientação opcional.",
       "wrapUp": "Concluir agora",
       "wrapUpTooltip": "Termina a sessão agora — o job conclui com o trabalho produzido até ao momento, com os tokens e o custo de cada turno somados ao total.",
@@ -158,7 +158,7 @@
     "showMore": "+ {{count}} mais",
     "showLess": "Mostrar menos",
     "deletedTicket": "#{{id}} (eliminado)",
-    "deletedTooltip": "O ticket já não existe"
+    "deletedTooltip": "A spec já não existe"
   },
   "modal": {
     "notFound": "Job não encontrado",
@@ -347,7 +347,7 @@
     "supplementary": "Complementar",
     "attempts": "Tentativas: {{count}}",
     "phaseCostUnavailable": "O custo por fase do Core não está disponível; o consumo do fornecedor é atribuído aos passos do loop.",
-    "noCoreEvidence": "Evidência de aceitação indisponível. O sucesso da execução, por si só, não confirma a conclusão do ticket.",
+    "noCoreEvidence": "Evidência de aceitação indisponível. O sucesso da execução, por si só, não confirma a conclusão da spec.",
     "status": {
       "success": "Bem-sucedida",
       "failed": "Falhou",

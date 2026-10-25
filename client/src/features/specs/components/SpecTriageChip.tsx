@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../
 import { cn } from '../../../lib/utils'
 import { anyTriage, recalculateSpecTriage, type SpecTriage, type SpecTriageReady } from '../lib/spec-triage'
 import type { LocalTicket } from '../../../types'
+import { formatUsd } from '../../../lib/format-usd'
 
 /** Built-in loop ids → their existing rail labels (dashboard namespace). */
 const FACTORY_LABEL_KEYS: Record<string, string> = {
@@ -163,7 +164,7 @@ export function SpecTriageChip({ ticket, onRecalculate }: Props) {
               )}
               <div className="text-caption text-muted-foreground">
                 {triage.costUsd != null
-                  ? t('triage.modelCost', { model: triage.model, cost: triage.costUsd.toFixed(4) })
+                  ? t('triage.modelCost', { model: triage.model, cost: formatUsd(triage.costUsd) })
                   : t('triage.modelOnly', { model: triage.model })}
               </div>
             </>

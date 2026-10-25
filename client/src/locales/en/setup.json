@@ -199,7 +199,7 @@
       "smashLabel": "SMASH a big epic",
       "smashBody": "Explode a large spec into a family of smaller sub-specs in one click — each child carries a short summary on its card.",
       "draftsLabel": "Drafts & Continue Editing",
-      "draftsBody": "Park an in-progress exploration as a draft ticket and resume it later; reopen any spec back in Explore to keep refining it."
+      "draftsBody": "Park an in-progress exploration as a draft spec and resume it later; reopen any spec back in Explore to keep refining it."
     },
     "rails": {
       "nav": "Rails & review",
@@ -247,9 +247,9 @@
       "subtitle": "Every billable invocation, recorded and visualized",
       "intro": "Every AI invocation records its lifecycle and provider. Usage and cost remain unavailable when the provider does not report them.",
       "analyticsLabel": "Analytics page",
-      "analyticsBody": "A burn-rate hero, daily timeline, top tickets, model breakdown and a cost-vs-turns scatter. Filter by period (7d / 30d / 90d / All) and by surface.",
-      "perTicketLabel": "Per-ticket spending",
-      "perTicketBody": "Each spec's detail shows what it cost and how many turns it took, deep-linking into Analytics filtered to that ticket.",
+      "analyticsBody": "A burn-rate hero, daily timeline, top specs, model breakdown and a cost-vs-turns scatter. Filter by period (7d / 30d / 90d / All) and by surface.",
+      "perTicketLabel": "Per-spec spending",
+      "perTicketBody": "Each spec's detail shows what it cost and how many turns it took, deep-linking into Analytics filtered to that spec.",
       "honestLabel": "Honest numbers",
       "honestBody": "Claude cost is provider-billed; Codex may be estimated and marked with <mono>~</mono>.",
       "budgetsLabel": "Budgets & alerts",

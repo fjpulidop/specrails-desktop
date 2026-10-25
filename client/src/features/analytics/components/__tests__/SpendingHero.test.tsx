@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen } from '../../../../test-utils'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '../../../../test-utils'
+import { resetLaunchForecastCache } from '../../../../lib/launch-forecast'
 import { SpendingHero } from '../SpendingHero'
 import type { SpendingResponse } from '../../types/spending'
 
@@ -158,5 +159,40 @@ describe('SpendingHero', () => {
     render(<SpendingHero data={data} loading={false} />)
     // The unknown surface is still itemised (neutral fallback label = raw id).
     expect(screen.getByText('future-surface')).toBeInTheDocument()
+  })
+
+  describe('plan-billed periods', () => {
+    const planData: SpendingResponse = { ...baseData, byProvider: [{ provider: 'claude', count: 42, costUsd: 12.34, estimatedCostUsd: 0 } as never] }
+    const mockUsage = (providers: unknown[] | null) => {
+      global.fetch = vi.fn(async () => ({ ok: providers !== null, json: async () => ({ providers }) })) as never
+    }
+    beforeEach(() => resetLaunchForecastCache())
+
+    it('labels the dollar figure as an API-equivalent estimate when every provider is plan-billed', async () => {
+      mockUsage([{ providerId: 'claude', availability: 'available', plan: 'max', windows: [], spend: null }])
+      render(<SpendingHero data={planData} loading={false} />)
+      expect(await screen.findByTestId('hero-api-equivalent')).toHaveTextContent('API-equivalent estimate')
+    })
+
+    it('stays quiet for metered (API-key) billing', async () => {
+      mockUsage([{ providerId: 'claude', availability: 'unsupported-auth', plan: null, windows: [], spend: null }])
+      render(<SpendingHero data={planData} loading={false} />)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+      expect(screen.queryByTestId('hero-api-equivalent')).not.toBeInTheDocument()
+    })
+
+    it('does not guess when the billing snapshot is unavailable', async () => {
+      mockUsage(null)
+      render(<SpendingHero data={planData} loading={false} />)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+      expect(screen.queryByTestId('hero-api-equivalent')).not.toBeInTheDocument()
+    })
+  })
+
+  it('formats token counts with the active locale instead of raw "5424.9k"', () => {
+    const data: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalTokens: 5_424_900 } }
+    render(<SpendingHero data={data} loading={false} />)
+    expect(screen.getByText(/5\.4M/)).toBeInTheDocument()
+    expect(screen.queryByText(/5424/)).not.toBeInTheDocument()
   })
 })

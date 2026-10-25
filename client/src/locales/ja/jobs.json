@@ -74,7 +74,7 @@
       "working": "エージェント作業中…",
       "placeholder": "実行中のジョブにメッセージを送信…",
       "send": "送信",
-      "liveTotals": "{{turns}} ターン · ${{cost}}",
+      "liveTotals": "{{turns}} ターン · {{cost}}",
       "autoHint": "このジョブは計画に沿って自動で完了します — メッセージは任意の指示です。",
       "wrapUp": "今すぐ切り上げる",
       "wrapUpTooltip": "セッションを今すぐ終了します — これまでの成果でジョブが完了し、各ターンのトークンとコストは合計に計上されます。",
@@ -158,7 +158,7 @@
     "showMore": "+ 他 {{count}} 件",
     "showLess": "折りたたむ",
     "deletedTicket": "#{{id}}（削除済み）",
-    "deletedTooltip": "チケットはもう存在しません"
+    "deletedTooltip": "スペックはもう存在しません"
   },
   "modal": {
     "notFound": "ジョブが見つかりません",
@@ -347,7 +347,7 @@
     "supplementary": "補足",
     "attempts": "{{count}} 回の試行",
     "phaseCostUnavailable": "Core のフェーズ別コストは利用できません。プロバイダー使用量はループのステップに割り当てられます。",
-    "noCoreEvidence": "受け入れの証拠は利用できません。実行の成功だけではチケットの完了を確認できません。",
+    "noCoreEvidence": "受け入れの証拠は利用できません。実行の成功だけではスペックの完了を確認できません。",
     "status": {
       "success": "成功",
       "failed": "失敗",

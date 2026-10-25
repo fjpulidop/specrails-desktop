@@ -24,11 +24,11 @@
     "read": "Lettura",
     "readHelp": "Esplorare progetti, specifiche e analisi. Sempre consentito.",
     "write": "Scrittura",
-    "writeHelp": "Creare e modificare specifiche e ticket.",
+    "writeHelp": "Creare e modificare spec.",
     "aiSpawn": "Avvio IA",
     "aiSpawnHelp": "Avviare rail e lavori di IA che eseguono la CLI.",
     "destructive": "Distruttivo",
-    "destructiveHelp": "Eliminare specifiche, ticket e altri dati del progetto.",
+    "destructiveHelp": "Eliminare spec e altri dati del progetto.",
     "updateFailed": "Impossibile aggiornare i permessi: {{message}}"
   },
   "config": {

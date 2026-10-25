@@ -4,7 +4,7 @@ Specrails se adapta a tu forma de trabajar. Todo esto está en **Ajustes ▸ Apa
 
 ## Densidad {#density}
 
-**Cómoda** mantiene las tarjetas y las filas con aire. **Compacta** cabe más en pantalla: el tablero de specs empieza en filas compactas, la lista de jobs usa filas más ajustadas y la historia del job estrecha su línea de tiempo. Una vista guardada del tablero conserva su propio diseño, así que una vista guardada con tarjetas tipo post-it se abre como tarjetas tipo post-it. Si el tablero de este proyecto ya tiene su propio diseño, **Usarla también en el tablero**, bajo la elección, hace que vuelva a seguir la densidad.
+**Cómoda** mantiene las tarjetas y las filas con aire. **Compacta** cabe más en pantalla: el tablero de specs empieza en filas compactas, la lista de trabajos usa filas más ajustadas y la historia del trabajo estrecha su línea de tiempo. Una vista guardada del tablero conserva su propio diseño, así que una vista guardada con tarjetas tipo post-it se abre como tarjetas tipo post-it. Si el tablero de este proyecto ya tiene su propio diseño, **Usarla también en el tablero**, bajo la elección, hace que vuelva a seguir la densidad.
 
 ## Reducir movimiento {#reduce-motion}
 
@@ -16,7 +16,7 @@ Enfoca una tarjeta de spec en el tablero (Tab o las flechas) y pulsa **M**. Un p
 
 ## Avisos de ejecución para lectores de pantalla {#live-status}
 
-Specrails anuncia los cambios de los runs mediante una región en vivo educada, para el proyecto que estás viendo: un run iniciado, en pausa, que te necesita, fallido, terminado o con la revisión lista. Las ráfagas se unen y las repeticiones se descartan, así que un rail ajetreado nunca inunda al lector. Los avisos de deshacer ya se anuncian solos.
+Specrails anuncia los cambios de las ejecuciones mediante una región en vivo educada, para el proyecto que estás viendo: una ejecución iniciado, en pausa, que te necesita, fallido, terminado o con la revisión lista. Las ráfagas se unen y las repeticiones se descartan, así que un rail ajetreado nunca inunda al lector. Los avisos de deshacer ya se anuncian solos.
 
 ## Foco de teclado {#focus}
 

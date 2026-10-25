@@ -22,7 +22,7 @@
   },
   "prePrompt": {
     "title": "Rail Pre-prompt",
-    "description": "Extra project-specific instructions appended to implement rail jobs after the ticket context and before execution.",
+    "description": "Extra project-specific instructions appended to implement rail jobs after the spec context and before execution.",
     "label": "Pre-prompt",
     "placeholder": "Example: Prefer incremental changes, keep migrations backward compatible, and add tests for every rail change.",
     "helper": "Use this for stable project guidance that should accompany every rail implementation run.",
@@ -52,7 +52,7 @@
     "perJobPlaceholder": "e.g. 0.50",
     "invalidNumber": "Enter a positive number or leave blank to disable",
     "perJobAlertDisabled": "Per-job cost alert disabled",
-    "alertSet": "Alert set for jobs over ${{amount}}",
+    "alertSet": "Alert set for jobs over {{amount}}",
     "saveThresholdFailed": "Failed to save threshold",
     "dailyCurrent": "Currently {{amount}} a day",
     "dailyNone": "No daily cap set"

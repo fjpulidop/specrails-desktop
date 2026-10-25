@@ -130,7 +130,7 @@ export function SampleGuide({ onAddProject }: SampleGuideProps) {
         data-testid="sample-guide"
         data-step={step}
         onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); dismiss() } }}
-        className={cn('fixed bottom-[44px] left-[calc(var(--sidebar-width,2.75rem)+1rem)] w-[min(22rem,calc(100vw-2rem))] space-y-3 rounded-panel border border-border/50 bg-popover p-4 text-popover-foreground shadow-3', LAYER_CLASS.floatingChat)}
+        className={cn('fixed bottom-[44px] left-[calc(var(--sidebar-width,2.75rem)+1rem)] w-[min(22rem,calc(100vw-var(--sidebar-width,2.75rem)-2rem))] space-y-3 rounded-panel border border-border/50 bg-popover p-4 text-popover-foreground shadow-3', LAYER_CLASS.floatingChat)}
       >
         <header className="flex items-start justify-between gap-2">
           <div className="min-w-0">

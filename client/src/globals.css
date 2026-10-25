@@ -73,7 +73,7 @@
   /* shadcn semantic tokens */
   --color-background:           hsl(231 15% 18%);
   --color-foreground:           hsl(60 30% 96%);
-  --color-card:                 hsl(232 14% 31%);
+  --color-card:                 hsl(232 14% 24%);
   --color-card-foreground:      hsl(60 30% 96%);
   --color-popover:              hsl(231 15% 18%);
   --color-popover-foreground:   hsl(60 30% 96%);
@@ -82,10 +82,10 @@
   --color-secondary:            hsl(232 14% 31%);
   --color-secondary-foreground: hsl(60 30% 96%);
   --color-muted:                hsl(232 14% 31%);
-  --color-muted-foreground:     hsl(225 27% 76%);  /* ≥4.5:1 on cards (4.7:1) and the background */
+  --color-muted-foreground:     hsl(225 27% 76%);  /* ≥4.5:1 on cards (6.1:1), muted and the background */
   --color-accent:               hsl(232 14% 31%);
   --color-accent-foreground:    hsl(60 30% 96%);
-  --color-destructive:          hsl(0 100% 67%);
+  --color-destructive:          hsl(0 100% 74%);
   --color-destructive-foreground: hsl(231 15% 18%);  /* theme background: ≥4.5:1 on the light red */
   --color-border:               hsl(225 27% 51% / 0.3);
   --color-input:                hsl(232 14% 31%);
@@ -100,7 +100,7 @@
   --color-accent-warning:    hsl(31 100% 71%);  /* orange */
   --color-accent-review:     hsl(326 100% 84%);  /* review lamp — the theme's pink (primary is violet) */
   --color-accent-highlight:  hsl(65 92% 76%);   /* yellow */
-  --color-surface:           hsl(232 14% 31%);  /* elevated surface (cards-on-card) */
+  --color-surface:           hsl(232 14% 24%);  /* elevated surface (cards-on-card) */
   --color-background-deep:   hsl(234 16% 14%);  /* deep background (sidebars, code blocks) */
 
   /* Theme-driven decorative tokens (used by hljs, prose, scrollbar, sonner) */
@@ -209,7 +209,7 @@
   --color-muted-foreground:       hsl(225 16% 35%);  /* darker: readable secondary text on light bg */
   --color-accent:                 hsl(220 18% 92%);
   --color-accent-foreground:      hsl(230 28% 14%);
-  --color-destructive:            hsl(0 72% 50%);
+  --color-destructive:            hsl(0 72% 46%);
   --color-destructive-foreground: hsl(220 25% 99%);
   --color-border:                 hsl(225 14% 86%);
   --color-input:                  hsl(220 18% 94%);
@@ -222,7 +222,7 @@
   --color-accent-secondary:  hsl(330 72% 45%);  /* magenta-pink, deeper for readability on light */
   --color-accent-warning:    hsl(32 90% 32%);   /* amber — darker so text reads on light bg (≥4.5:1) */
   --color-accent-review:     hsl(330 72% 45%);  /* review lamp — the theme's pink (primary is violet) */
-  --color-accent-highlight:  hsl(40 85% 36%);   /* gold/bronze — readable on light bg */
+  --color-accent-highlight:  hsl(40 85% 30%);   /* gold/bronze — readable on light bg */
   --color-surface:            hsl(220 22% 96%);
   --color-background-deep:    hsl(220 18% 94%);
 
@@ -398,7 +398,7 @@
   --color-accent-secondary:  hsl(280 45% 62%);   /* violet */
   --color-accent-warning:    hsl(42 92% 58%);    /* amber */
   --color-accent-review:     hsl(322 55% 72%);  /* review lamp — orchid pink, keeps amber for caution/cost */
-  --color-accent-highlight:  hsl(248 75% 67%);   /* indigo */
+  --color-accent-highlight:  hsl(248 75% 70%);   /* indigo */
   --color-surface:           hsl(238 28% 11%);   /* bg3 #131324 — elevated cards-on-card */
   --color-background-deep:   hsl(240 40% 2%);
 
@@ -433,7 +433,7 @@
   --color-muted-foreground:       hsl(215 15% 60%);
   --color-accent:                 hsl(220 16% 12%);
   --color-accent-foreground:      hsl(210 30% 94%);
-  --color-destructive:            hsl(355 92% 56%);   /* dark-side red */
+  --color-destructive:            hsl(355 92% 59%);   /* dark-side red */
   --color-destructive-foreground: hsl(220 20% 4%);    /* theme background */
   --color-border:                 hsl(210 12% 65% / 0.16);
   --color-input:                  hsl(220 16% 12%);
@@ -650,6 +650,23 @@ select {
 :root[data-motion="reduce"] .animate-rail-travel { animation: none; opacity: 1; transform: translateX(var(--rail-progress, 0%)); }
 :root[data-motion="reduce"] .animate-rail-arrive { animation: none; transform: translateX(var(--rail-distance, 100%)); }
 :root[data-motion="reduce"] .title-shimmer { animation: none; }
+
+/* "System" follows the OS (reaudit-8 #7): with prefers-reduced-motion and no explicit "full"
+ * override, authored motion collapses to instant exactly like the explicit "reduce" setting.
+ * Spinners are the exception: they convey "working", so they keep turning at a calm pace. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    .animate-spin {
+      animation-duration: 1.6s !important;
+      animation-iteration-count: infinite !important;
+    }
+  }
+}
 
 /* Jiggle animation for rail delete mode (iOS-style) */
 @keyframes jiggle {

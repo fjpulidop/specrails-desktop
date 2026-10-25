@@ -1,12 +1,12 @@
 {
   "statusLabel": {
-    "running": "running",
-    "completed": "completed",
-    "failed": "failed",
-    "canceled": "canceled",
-    "queued": "queued",
-    "zombie": "zombie",
-    "skipped": "skipped"
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed",
+    "canceled": "Canceled",
+    "queued": "Queued",
+    "zombie": "Zombie",
+    "skipped": "Skipped"
   },
   "statusTooltip": {
     "running": "Job is actively executing",
@@ -74,7 +74,7 @@
       "working": "Agent working…",
       "placeholder": "Send a message to the running job…",
       "send": "Send",
-      "liveTotals": "{{turns}} turns · ${{cost}}",
+      "liveTotals": "{{turns}} turns · {{cost}}",
       "autoHint": "This job follows its plan and finishes on its own — messages are optional steering.",
       "wrapUp": "Wrap up now",
       "wrapUpTooltip": "End the session now — the job completes with the work produced so far, every turn's tokens and cost rolled into the total.",
@@ -158,7 +158,7 @@
     "showMore": "+ {{count}} more",
     "showLess": "Show less",
     "deletedTicket": "#{{id}} (deleted)",
-    "deletedTooltip": "Ticket no longer exists"
+    "deletedTooltip": "Spec no longer exists"
   },
   "modal": {
     "notFound": "Job not found",
@@ -347,7 +347,7 @@
     "supplementary": "Supplementary",
     "attempts": "Attempts: {{count}}",
     "phaseCostUnavailable": "Cost per Core phase is unavailable; provider usage is attributed to loop steps.",
-    "noCoreEvidence": "Acceptance evidence unavailable. Execution success alone does not confirm ticket completion.",
+    "noCoreEvidence": "Acceptance evidence unavailable. Execution success alone does not confirm spec completion.",
     "status": {
       "success": "Succeeded",
       "failed": "Failed",

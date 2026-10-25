@@ -38,11 +38,11 @@
   "detailModal": {
     "moreActions": "Más acciones",
     "openReview": "Abrir revisión",
-    "viewJob": "Ver job",
+    "viewJob": "Ver trabajo",
     "toast": {
-      "updated": "Ticket actualizado",
-      "updateFailed": "No se pudo actualizar el ticket",
-      "deleteFailed": "No se pudo eliminar el ticket"
+      "updated": "Spec actualizada",
+      "updateFailed": "No se pudo actualizar la spec",
+      "deleteFailed": "No se pudo eliminar la spec"
     },
     "compare": "Comparar",
     "compareTooltip": "Comparar con otra spec",
@@ -54,7 +54,7 @@
     "effort": "Esfuerzo",
     "assignee": "Asignado a",
     "continueEditing": "Seguir editando",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "spendingLineHint": "Todo lo gastado en esta spec hasta ahora: coste total · turnos del agente (un + al final indica que algunas ejecuciones no informaron turnos) · tiempo activo · ejecuciones por tipo (p. ej. «1 quick, 3 loops» = una generación Quick de la spec y tres ejecuciones de loop). Haz clic para abrirlo en Analíticas."
   },
   "contractLayer": {
@@ -69,8 +69,8 @@
     "noRails": "No hay rails disponibles."
   },
   "contextMenu": {
-    "ariaLabel": "Acciones del ticket",
-    "deleteTicket": "Eliminar ticket",
+    "ariaLabel": "Acciones de la spec",
+    "deleteTicket": "Eliminar spec",
     "changeStatus": "Cambiar estado",
     "statusOptions": "Opciones de estado",
     "setPriority": "Establecer prioridad",
@@ -82,14 +82,14 @@
     "postit": "Vista post-it"
   },
   "createModal": {
-    "title": "Crear ticket",
-    "titlePlaceholder": "Título del ticket...",
+    "title": "Crear spec",
+    "titlePlaceholder": "Título de la spec...",
     "labelsPlaceholder": "Escribe para añadir etiquetas...",
     "create": "Crear",
     "creating": "Creando...",
     "toast": {
-      "created": "Ticket creado",
-      "createFailed": "No se pudo crear el ticket"
+      "created": "Spec creada",
+      "createFailed": "No se pudo crear la spec"
     },
     "description": "Añade una spec al tablero a mano. Empieza en el estado que elijas y podrás refinarla o moverla a un rail más tarde."
   },
@@ -101,7 +101,7 @@
     "empty": "No hay otras specs para comparar"
   },
   "spendingLine": {
-    "ariaLabel": "Ver el gasto del ticket en Analíticas",
+    "ariaLabel": "Ver el gasto de la spec en Analíticas",
     "turns_one": "{{count}} turno del agente",
     "turns_other": "{{count}} turnos del agente",
     "turnsAtLeast_one": "{{count}}+ turno del agente",
@@ -109,15 +109,15 @@
     "active": "{{duration}} activo",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimado a partir de la tabla de precios local — este proveedor no informa el coste de forma nativa.",
-    "costUnavailableTooltip": "Ninguna invocación de este ticket expuso telemetría de coste.",
+    "costUnavailableTooltip": "Ninguna invocación de esta spec expuso telemetría de coste.",
     "costPartiallyUnavailableTooltip": "Solo subtotal de coste conocido; algunas invocaciones no expusieron telemetría.",
-    "turnsUnavailableTooltip": "La telemetría de turnos no está disponible para este ticket.",
+    "turnsUnavailableTooltip": "La telemetría de turnos no está disponible para esta spec.",
     "turnsPartiallyUnavailableTooltip": "Solo subtotal de turnos conocido; algunas invocaciones no expusieron telemetría."
   },
   "toasts": {
-    "newTicket": "Nuevo ticket: {{title}}",
-    "newTicketsAdded_one": "{{count}} ticket nuevo añadido desde product discovery",
-    "newTicketsAdded_other": "{{count}} tickets nuevos añadidos desde product discovery"
+    "newTicket": "Nueva spec: {{title}}",
+    "newTicketsAdded_one": "{{count}} spec nueva añadida desde product discovery",
+    "newTicketsAdded_other": "{{count}} specs nuevas añadidas desde product discovery"
   },
   "addenda": {
     "title": "Anexos",
@@ -140,7 +140,7 @@
     },
     "statusHint": {
       "open": "Viaja con el próximo lanzamiento de esta spec",
-      "in_flight": "Reclamado por un job en ejecución — congelado hasta que termine",
+      "in_flight": "Reclamado por un trabajo en ejecución — congelado hasta que termine",
       "applied": "Entregado por una ejecución completada",
       "dismissed": "Retirado — no se inyecta"
     },
@@ -284,7 +284,7 @@
     "findings_other": "{{count}} hallazgos",
     "cost": {
       "billed": "{{amount}}",
-      "estimated": "~{{amount}} est.",
+      "estimated": "~{{amount}} estimado",
       "billedTitle": "Informado por el proveedor",
       "estimatedTitle": "Estimado con la tabla de precios local, no facturado",
       "turns_one": "{{count}} turno",

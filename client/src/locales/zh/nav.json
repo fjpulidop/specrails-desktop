@@ -90,12 +90,12 @@
   },
   "costAlerts": {
     "costAlertTitle": "成本警报",
-    "costAlertDescription": "任务成本 ${{cost}} — 阈值为 ${{threshold}}",
+    "costAlertDescription": "任务成本 {{cost}} — 阈值为 {{threshold}}",
     "dailyBudgetTitle": "已超出每日预算",
-    "dailyBudgetDescription": "今日已花费 ${{spent}}，预算 ${{budget}}。队列已暂停。",
+    "dailyBudgetDescription": "今日已花费 {{spent}}，预算 {{budget}}。队列已暂停。",
     "desktopBudgetTitle": "已超出 Desktop 每日预算",
-    "desktopBudgetDescription": "Desktop 总花费 ${{spent}}，预算 ${{budget}}。队列已暂停。",
-    "bannerMessage": "已超出每日预算 — 已花费 ${{spent}}，预算 ${{budget}}。队列已暂停。",
+    "desktopBudgetDescription": "Desktop 总花费 {{spent}}，预算 {{budget}}。队列已暂停。",
+    "bannerMessage": "已超出每日预算 — 已花费 {{spent}}，预算 {{budget}}。队列已暂停。",
     "dismiss": "忽略"
   },
   "errorBoundary": {

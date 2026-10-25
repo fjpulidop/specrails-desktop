@@ -8,7 +8,7 @@ Recurre a Explore cuando la idea todavía no está del todo formada, cuando hay 
 
 Para dar forma a una spec en modo Explore:
 
-1. En el Dashboard, haz clic en **Añadir** y luego elige **Explore**.
+1. En el Tablero, haz clic en **Añadir** y luego elige **Explore**.
 2. Escribe tu primer mensaje: la idea, una pregunta o un pensamiento a medio formar.
 3. Lee la respuesta de la IA y sigue contestando. En cada turno, refina su comprensión.
 4. Observa cómo se actualiza el **borrador en vivo** junto al chat: esta es la spec tomando forma.
@@ -43,7 +43,7 @@ Si quieres un control más fino, haz clic en **Ajuste fino** para activar las op
 
 - **Crear spec**: promueve el borrador en vivo a una spec real con estado **Por hacer**. (Cuando estás editando una spec existente, este botón pasa a leer **Actualizar spec** y parchea esa spec en su sitio.)
 - **Revisar →**: abre una superposición de revisión que muestra la spec propuesta comparada con la línea base antes de confirmar, para que no haya sorpresas.
-- **Guardar como borrador**: conserva la conversación como un ticket de borrador para que puedas retomarlo más tarde. Disponible en cuanto hayas enviado al menos un mensaje. Ver más abajo.
+- **Guardar como borrador**: conserva la conversación como una spec de borrador para que puedas retomarlo más tarde. Disponible en cuanto hayas enviado al menos un mensaje. Ver más abajo.
 - **Minimizar**: aparca la conversación como un chip en el dock de chats minimizados, abajo a la izquierda. Haz clic en el chip en cualquier momento para volver directamente a la conversación: no se pierde nada.
 - **Descartar**: tira la conversación a la basura (pide confirmación primero).
 

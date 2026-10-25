@@ -259,7 +259,7 @@
   "builtInBadge": "内置",
   "run": {
     "title": "运行 {{name}}",
-    "subtitle": "在某个项目上启动此循环（无需工单）。",
+    "subtitle": "在某个项目上启动此循环（无需规格）。",
     "project": "项目",
     "provider": "提供方",
     "model": "模型",
@@ -314,7 +314,7 @@
     },
     "factory_openspec": {
       "name": "OpenSpec 生命周期",
-      "description": "从 ticket 到归档的 OpenSpec 生命周期: 生成工件 (opsx:ff) → 实现 (opsx:apply) → 验证 (opsx:verify); FAIL 则回环修正同一 change, PASS 则无人值守归档。"
+      "description": "从规格到归档的 OpenSpec 生命周期: 生成工件 (opsx:ff) → 实现 (opsx:apply) → 验证 (opsx:verify); FAIL 则回环修正同一 change, PASS 则无人值守归档。"
     },
     "factory_revision": {
       "name": "修订",

@@ -147,7 +147,7 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
           onClick={cycleRightMode}
           className={cn(
             'flex items-center justify-center w-7 h-7 rounded-md transition-colors',
-            lit ? 'text-foreground bg-muted' : 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50',
+            lit ? 'text-foreground bg-muted' : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/50',
             'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2',
           )}
           aria-label={pinLabel}

@@ -1818,7 +1818,7 @@ export default function DashboardPage() {
                 {activeTicket.title}
               </h3>
               {activeTicket.short_summary && activeTicket.short_summary.trim().length > 0 && (
-                <p className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-3 italic">
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 italic">
                   {activeTicket.short_summary}
                 </p>
               )}

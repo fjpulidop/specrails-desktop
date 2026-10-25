@@ -1,6 +1,6 @@
 # The Job Detail view
 
-Click any job card on the **Jobs** page and you land here: the cockpit for a single rail run. It's built around one promise — **the live numbers you see are real, never guesses.** This page walks through the phases, the live metrics, the ticket cards — and the composer that lets you **talk to the running job**.
+Click any job card on the **Jobs** page and you land here: the cockpit for a single rail run. It's built around one promise — **the live numbers you see are real, never guesses.** This page walks through the phases, the live metrics, the spec cards — and the composer that lets you **talk to the running job**.
 
 ## The layout
 
@@ -10,7 +10,7 @@ Two panels sit above the full streaming log; on a running Claude job, a chat com
 ┌─────────────────────────────────────────────┐
 │  Status header  (icon · live duration · …)  │
 ├─────────────────────────────────────────────┤
-│  Ticket header  ( #12  #14  #15 )           │
+│  Spec header  ( #12  #14  #15 )           │
 ├─────────────────────────────────────────────┤
 │                                             │
 │  Streaming log  (auto-scroll · search · …)  │
@@ -54,14 +54,14 @@ The design principle: **no approximate or estimated mid-run numbers.** Duration 
 
 The header label and icon map to the job's status, and the panel renders for `running`, `completed`, and `failed` jobs alike — so a finished job's detail view shows the same metrics frozen at their final values.
 
-## The ticket cards
+## The spec cards
 
-The **ticket header** sits between the status header and the log. It's a premium identity card showing a chip for every spec the job touched — matched from the launched command, so it reflects exactly which tickets this run was about.
+The **spec header** sits between the status header and the log. It's a premium identity card showing a chip for every spec the job touched — matched from the launched command, so it reflects exactly which specs this run was about.
 
-- **2–3 tickets** — shown as a list of chips.
+- **2–3 specs** — shown as a list of chips.
 - **4 or more** — collapse into a compact `+ N more` mode with an expand chevron, so the header stays tidy.
 
-Clicking a chip opens that spec's detail **over the job page** — you don't lose your place or change route. It's a quick way to re-read what a job is supposed to deliver while you watch it work. (On tablet-width screens you can even drag a ticket modal aside to compare two specs side by side.)
+Clicking a chip opens that spec's detail **over the job page** — you don't lose your place or change route. It's a quick way to re-read what a job is supposed to deliver while you watch it work. (On tablet-width screens you can even drag a spec modal aside to compare two specs side by side.)
 
 ## The streaming log
 
@@ -82,7 +82,7 @@ When the job is a **loop run** (see [The Loop Builder](the-loop-builder)), the f
 - **Follow mode** is on by default: the running step stays open and auto-scrolls while earlier steps fold out of the way. The moment you scroll up or open an older step, following pauses so you can read — a floating **Resume follow** pill takes you back to live. **Expand all / collapse all** sit in the toolbar, and typing in the search box looks across every step at once.
 - **Interrupted steps are honest too.** A step that never got to report an outcome — the run was cancelled or the app went down mid-step — is marked **Interrupted** with a dashed border, rather than pretending it finished.
 
-Everything else on this page works exactly the same for loop runs — the live metrics, the ticket cards, the composer. Non-loop jobs keep the classic streaming log above.
+Everything else on this page works exactly the same for loop runs — the live metrics, the spec cards, the composer. Non-loop jobs keep the classic streaming log above.
 
 ## Talk to the running job
 

@@ -42,14 +42,14 @@
     "sectionProjects": "Proyectos"
   },
   "globalSurfaceModal": {
-    "loopsDescription": "Loops está abierto como modal de Mission.",
-    "pluginsDescription": "Plugins está abierto como modal de Mission.",
-    "reviewDescription": "El paquete de revisión está abierto como modal de misión."
+    "loopsDescription": "Loops está abierto en una ventana de la misión.",
+    "pluginsDescription": "Plugins está abierto en una ventana de la misión.",
+    "reviewDescription": "El paquete de revisión está abierto en una ventana de la misión."
   },
   "rightSidebar": {
     "projectTitle": "Proyecto",
-    "dashboard": "Dashboard",
-    "jobs": "Jobs",
+    "dashboard": "Tablero",
+    "jobs": "Trabajos",
     "analytics": "Analíticas",
     "agents": "Agentes",
     "code": "Código",
@@ -90,12 +90,12 @@
   },
   "costAlerts": {
     "costAlertTitle": "Alerta de coste",
-    "costAlertDescription": "El job ha costado ${{cost}} — el umbral es ${{threshold}}",
-    "dailyBudgetTitle": "Límite diario superado",
-    "dailyBudgetDescription": "Gastados ${{spent}} de ${{budget}} hoy. Cola pausada.",
+    "costAlertDescription": "El trabajo ha costado {{cost}} — el umbral es {{threshold}}",
+    "dailyBudgetTitle": "Límite diario alcanzado",
+    "dailyBudgetDescription": "Gastados {{spent}} de {{budget}} hoy. Cola pausada.",
     "desktopBudgetTitle": "Límite diario de Desktop superado",
-    "desktopBudgetDescription": "Gasto total de Desktop: ${{spent}} de ${{budget}}. Cola pausada.",
-    "bannerMessage": "Límite diario superado — gastados ${{spent}} de ${{budget}}. La cola está pausada.",
+    "desktopBudgetDescription": "Gasto total de Desktop: {{spent}} de {{budget}}. Cola pausada.",
+    "bannerMessage": "Límite diario alcanzado: {{spent}} de {{budget}}. La cola está en pausa.",
     "dismiss": "Descartar"
   },
   "errorBoundary": {
@@ -111,7 +111,7 @@
     "factorCoverageGood": "Cobertura ≥ 70%",
     "factorPipelineGreen": "Último pipeline en verde",
     "factorActiveWeek": "Activo esta semana",
-    "noJobsYet": "Aún no hay jobs",
+    "noJobsYet": "Aún no hay trabajos",
     "recurringFailures": "Fallos recurrentes detectados",
     "failurePattern": "<cmd>{{command}}</cmd> ha fallado <times>{{count}}×</times> esta semana — posible problema del proyecto.",
     "coverage": "Cobertura",
@@ -143,7 +143,7 @@
   "skipToContent": "Saltar al contenido principal",
   "places": {
     "routes": {
-      "dashboard": "Panel",
+      "dashboard": "Tablero",
       "jobs": "Trabajos",
       "analytics": "Analíticas",
       "activity": "Actividad",

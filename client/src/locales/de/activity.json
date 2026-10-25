@@ -27,7 +27,7 @@
     "retryRejected": "Wiederholung abgelehnt",
     "retryRejectedWithError": "Wiederholung abgelehnt: {{error}}",
     "retryFailed": "Wiederholung fehlgeschlagen: {{message}}",
-    "skipped": "Contract Layer übersprungen – Ticket ohne ihn gespeichert",
+    "skipped": "Contract Layer übersprungen – Spec ohne ihn gespeichert",
     "reason": "Grund: {{reason}}",
     "added": "Contract Layer hinzugefügt · {{title}}"
   },

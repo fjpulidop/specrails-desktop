@@ -152,7 +152,7 @@
     "loadingEditor": "Loading editor…"
   },
   "ticketFiles": {
-    "title": "Files touched by this ticket",
+    "title": "Files touched by this spec",
     "jobTitle": "Job {{jobId}}",
     "loading": "Loading recorded files…",
     "loadFailed": "Could not load recorded files.",

@@ -90,6 +90,9 @@ describe('CommandPalette — scoped search', () => {
     await openPalette(user)
     const hints = await screen.findByTestId('palette-scope-hints')
     for (const prefix of ['#', '@', '/', 'f:', 'log:', '?']) expect(within(hints).getByText(prefix)).toBeInTheDocument()
+    // Narrow windows wrap the scope row onto a second line instead of clipping the last scopes.
+    expect(hints.className).toContain('flex-wrap')
+    expect(hints.className).not.toContain('overflow-hidden')
 
     await user.click(screen.getByTestId('palette-scope-hint-settings'))
     expect(screen.getByTestId('palette-scope-chip')).toHaveTextContent('Settings')
@@ -271,12 +274,12 @@ describe('CommandPalette — scoped search', () => {
     expect(screen.queryByTestId('palette-setting-action-budget.open')).toBeNull()
   })
 
-  it('the empty palette: one-line hints without a label, the open project is not offered as a switch, and the placeholder teaches the prefixes', async () => {
+  it('the empty palette: wrapping hints without a label, the open project is not offered as a switch, and the placeholder teaches the prefixes', async () => {
     const user = userEvent.setup()
     render(<CommandPalette />)
     await openPalette(user)
     const hints = await screen.findByTestId('palette-scope-hints')
-    expect(hints).toHaveClass('flex-nowrap', 'overflow-hidden')
+    expect(hints).toHaveClass('flex-wrap')
     expect(hints).not.toHaveTextContent('Search in')
     expect(screen.getByPlaceholderText('Search, or type # @ / ? to narrow…')).toBeInTheDocument()
     // NeoTetris is the only (and the active) project: nothing to switch to, so Enter can't switch.

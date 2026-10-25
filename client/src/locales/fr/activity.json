@@ -27,7 +27,7 @@
     "retryRejected": "Nouvelle tentative rejetée",
     "retryRejectedWithError": "Nouvelle tentative rejetée : {{error}}",
     "retryFailed": "Échec de la nouvelle tentative : {{message}}",
-    "skipped": "Couche de contrat ignorée — ticket enregistré sans elle",
+    "skipped": "Couche de contrat ignorée — spec enregistrée sans elle",
     "reason": "Raison : {{reason}}",
     "added": "Couche de contrat ajoutée · {{title}}"
   },

@@ -34,8 +34,8 @@ describe('ModelBreakdown', () => {
       { model: 'sonnet', count: 50, costUsd: 2 },
     ])
     render(<ModelBreakdown data={data} loading={false} onSelectModel={() => {}} activeModel={undefined} />)
-    expect(screen.getByText('opus')).toBeInTheDocument()
-    expect(screen.getByText('sonnet')).toBeInTheDocument()
+    expect(screen.getByText('Claude Opus')).toBeInTheDocument()
+    expect(screen.getByText('Claude Sonnet')).toBeInTheDocument()
     expect(screen.getByText(/\$8\.00 · 10/)).toBeInTheDocument()
   })
 
@@ -52,7 +52,7 @@ describe('ModelBreakdown', () => {
     const onSelect = vi.fn()
     const data = emptyData([{ model: 'opus', count: 10, costUsd: 8 }])
     render(<ModelBreakdown data={data} loading={false} onSelectModel={onSelect} activeModel={undefined} />)
-    fireEvent.click(screen.getByText('opus').closest('button')!)
+    fireEvent.click(screen.getByText('Claude Opus').closest('button')!)
     expect(onSelect).toHaveBeenCalledWith('opus', 'claude')
   })
 
@@ -60,7 +60,7 @@ describe('ModelBreakdown', () => {
     const onSelect = vi.fn()
     const data = emptyData([{ model: 'gpt-5.5', provider: 'codex', count: 4, costUsd: 1.2, estimatedCostUsd: 1.2 }])
     render(<ModelBreakdown data={data} loading={false} onSelectModel={onSelect} activeModel={undefined} />)
-    fireEvent.click(screen.getByText('gpt-5.5').closest('button')!)
+    fireEvent.click(screen.getByText('GPT-5.5').closest('button')!)
     expect(onSelect).toHaveBeenCalledWith('gpt-5.5', 'codex')
   })
 
@@ -83,7 +83,7 @@ describe('ModelBreakdown', () => {
       { model: 'sonnet', count: 50, costUsd: 2 },
     ])
     render(<ModelBreakdown data={data} loading={false} onSelectModel={() => {}} activeModel="opus" />)
-    const button = screen.getByText('opus').closest('button')!
+    const button = screen.getByText('Claude Opus').closest('button')!
     expect(button.className).toMatch(/accent-highlight/)
   })
 

@@ -259,7 +259,7 @@
   "builtInBadge": "Built-in",
   "run": {
     "title": "Run {{name}}",
-    "subtitle": "Launch this loop on a project (no ticket needed).",
+    "subtitle": "Launch this loop on a project (no spec needed).",
     "project": "Project",
     "provider": "Provider",
     "model": "Model",
@@ -314,7 +314,7 @@
     },
     "factory_openspec": {
       "name": "OpenSpec Lifecycle",
-      "description": "Ticket-to-archive OpenSpec lifecycle: generate artifacts (opsx:ff) → implement (opsx:apply) → verify (opsx:verify); on FAIL loop back and amend the same change, on PASS archive it unattended."
+      "description": "Spec-to-archive OpenSpec lifecycle: generate artifacts (opsx:ff) → implement (opsx:apply) → verify (opsx:verify); on FAIL loop back and amend the same change, on PASS archive it unattended."
     },
     "factory_revision": {
       "name": "Revision",

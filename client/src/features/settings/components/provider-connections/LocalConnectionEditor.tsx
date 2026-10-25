@@ -91,7 +91,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
             {persisted && !renaming && <button type="button" className="inline-flex items-center gap-1 text-xs text-accent-primary hover:underline" onClick={() => setRenaming(true)}><Pencil className="h-3 w-3" aria-hidden />{t('providers.rename')}</button>}
           </div>
           <Input id={`${uid}-id`} value={provider.id} readOnly={!renaming} aria-readonly={!renaming} title={!renaming ? t('providers.idLocked') : undefined} className={cn(!renaming && 'text-muted-foreground')} onChange={(e) => onChange({ ...provider, id: e.target.value })} />
-          {renaming && persisted && <p className="text-xs text-muted-foreground/80">{t('providers.renameHint')}</p>}
+          {renaming && persisted && <p className="text-xs text-muted-foreground">{t('providers.renameHint')}</p>}
         </div>
         <label className={labelClass} htmlFor={`${uid}-label`}>{t('providers.label')}
           <Input id={`${uid}-label`} value={provider.label ?? ''} placeholder={t('providers.labelPlaceholder')} onChange={(e) => onChange({ ...provider, label: e.target.value || undefined })} />
@@ -110,7 +110,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
       <div className="space-y-2">
         <p className="text-xs text-muted-foreground">{t('providers.discoveredModels')}</p>
         {models.length === 0
-          ? <p className="text-xs text-muted-foreground/70">{t('providers.noModels')}</p>
+          ? <p className="text-xs text-muted-foreground">{t('providers.noModels')}</p>
           : <ul className="flex flex-wrap gap-1.5" aria-label={t('providers.discoveredModels')}>
             {models.map((model) => <li key={model}>
               <button type="button" onClick={() => { setCustomModel(false); onChange({ ...provider, defaultModel: model }) }}
@@ -156,7 +156,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
 
       <label className="flex cursor-pointer items-start gap-2 text-xs" htmlFor={`${uid}-effort`}>
         <input id={`${uid}-effort`} type="checkbox" role="switch" aria-checked={Boolean(provider.supportsReasoningEffort)} className="mt-0.5 accent-accent-primary" checked={Boolean(provider.supportsReasoningEffort)} onChange={(e) => onChange({ ...provider, supportsReasoningEffort: e.target.checked || undefined })} />
-        <span><span className="text-foreground">{t('providers.reasoningEffort')}</span><span className="block text-xs text-muted-foreground">{t('providers.reasoningEffortHint')}</span>{!provider.supportsReasoningEffort && <span className="block text-xs text-muted-foreground/70">{t('providers.reasoningEffortRailHint')}</span>}</span>
+        <span><span className="text-foreground">{t('providers.reasoningEffort')}</span><span className="block text-xs text-muted-foreground">{t('providers.reasoningEffortHint')}</span>{!provider.supportsReasoningEffort && <span className="block text-xs text-muted-foreground">{t('providers.reasoningEffortRailHint')}</span>}</span>
       </label>
 
       <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">
@@ -168,7 +168,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
             <Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden />{isSmallModelPreset(provider) ? t('providers.presetSmallModelApplied') : t('providers.presetSmallModel')}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground/70">{t('providers.presetSmallModelHint')}</p>
+        <p className="text-xs text-muted-foreground">{t('providers.presetSmallModelHint')}</p>
       </div>
 
       <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">

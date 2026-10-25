@@ -32,7 +32,7 @@
     "subtitle": "Where the spend goes: cost, tokens and activity by model, spec and engine.",
     "all": "All",
     "engine": "Engine",
-    "ticketChip": "ticket #{{id}} ·  ✕",
+    "ticketChip": "spec #{{id}} ·  ✕",
     "failedToLoad": "Analytics couldn’t be loaded. Try again.",
     "modelChip": "Model: {{model}}",
     "clearModelFilter": "Clear model filter",
@@ -63,7 +63,8 @@
     "emptyState": "No invocations yet for this filter window.",
     "segmentTitle": "{{label}}: {{value}}",
     "legendBilled": "Billed",
-    "legendEstimated": "Estimated"
+    "legendEstimated": "Estimated",
+    "apiEquivalent": "API-equivalent estimate"
   },
   "providerCard": {
     "title": "By provider",
@@ -119,15 +120,15 @@
     "costPartiallyUnavailable_other": "Plot includes priced runs only; {{count}} runs have unavailable cost."
   },
   "topTickets": {
-    "title": "Top tickets",
-    "empty": "No ticket activity in this period.",
+    "title": "Top specs",
+    "empty": "No spec activity in this period.",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "Unattributed",
-    "deletedTicket": "deleted ticket #{{id}}",
+    "deletedTicket": "deleted spec #{{id}}",
     "costUnavailable": "cost unavailable",
-    "costUnavailableTooltip": "None of this ticket's runs exposed cost telemetry.",
+    "costUnavailableTooltip": "None of this spec's runs exposed cost telemetry.",
     "costPartiallyUnavailable": "{{count}} unavailable",
-    "costPartiallyUnavailableTooltip": "Known subtotal only; some runs for this ticket have unavailable cost."
+    "costPartiallyUnavailableTooltip": "Known subtotal only; some runs for this spec have unavailable cost."
   },
   "table": {
     "title": "All invocations",
@@ -140,7 +141,7 @@
     "aborted": "Aborted",
     "empty": "No invocations match the current filters.",
     "colSurface": "Surface",
-    "colTicket": "Ticket",
+    "colTicket": "Spec",
     "colCost": "Cost",
     "colTurns": "Turns",
     "colTokens": "Tokens",
@@ -230,7 +231,6 @@
     "loading": "Loading recorded usage…",
     "total": "Recorded events: {{count}}",
     "last": "Last event:",
-    "evidence": "These counters alone do not prove that legacy compatibility can be retired.",
     "kinds": {
       "legacy_loop_traversal": "Classic loops",
       "queue_manager_slash": "Queued commands",
@@ -274,7 +274,7 @@
     "estimatedShare": "{{share}} estimated",
     "unpriced": "{{count}} unpriced",
     "note": "Delivered = reached review or beyond. Average cost uses deliveries with a recorded cost (provider-reported unless marked estimated); unpriced deliveries are excluded, never counted as $0. Rounds come from reviewer/fixer loop steps. — means unknown.",
-    "escapedUntracked": "Escaped defects are not tracked yet: link a bug ticket to the delivery that introduced it (\"Regression of\" in the ticket) to start counting them.",
+    "escapedUntracked": "Escaped defects are not tracked yet: link a bug spec to the delivery that introduced it (\"Regression of\" in the spec) to start counting them.",
     "columns": {
       "loop": "Loop",
       "delivered": "Delivered",

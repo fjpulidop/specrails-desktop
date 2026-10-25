@@ -8,11 +8,19 @@ const summary = (total: number) => ({ total, byKind: { legacy_loop_traversal: to
 const response = (value: unknown, ok = true) => ({ ok, json: async () => value } as Response)
 afterEach(() => vi.unstubAllGlobals())
 
-it('shows observed counts and keeps a zero distinct from retirement evidence', async () => {
+it('renders nothing while the recorded count is zero', async () => {
   const fetch = vi.fn().mockResolvedValue(response(summary(0))); vi.stubGlobal('fetch', fetch)
+  const { container } = render(<LegacyWorkflowUsage projectId="a" />)
+  await waitFor(() => expect(fetch).toHaveBeenCalled())
+  await act(async () => { await Promise.resolve() })
+  expect(container).toBeEmptyDOMElement()
+})
+
+it('shows observed counts without internal retirement copy', async () => {
+  const fetch = vi.fn().mockResolvedValue(response(summary(4))); vi.stubGlobal('fetch', fetch)
   render(<LegacyWorkflowUsage projectId="a" />)
-  expect(await screen.findByText('legacyUsage.total 0')).toBeInTheDocument()
-  expect(screen.getByText('legacyUsage.evidence')).toBeInTheDocument()
+  expect(await screen.findByText('legacyUsage.total 4')).toBeInTheDocument()
+  expect(screen.queryByText('legacyUsage.evidence')).not.toBeInTheDocument()
   expect(fetch).toHaveBeenCalledWith('/api/projects/current/analytics/legacy-launches', expect.objectContaining({ signal: expect.any(AbortSignal) }))
   fetch.mockResolvedValue(response(summary(7)))
   fireEvent.click(screen.getByRole('button'))

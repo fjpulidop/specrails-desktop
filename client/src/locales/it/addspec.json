@@ -15,7 +15,7 @@
     "modeDescription": {
       "quick": "Descrivi la funzionalità o la modifica. Allega mockup, brief o dati per più contesto.",
       "explore": "Descrivi un'idea abbozzata. L'assistente IA selezionato ti aiuterà a darle forma attraverso la conversazione — decidi tu quando confermare.",
-      "raw": "Il tuo prompt, così com'è — salvato come ticket spec. Nessuna AI per ora; trascinalo su un rail per realizzarlo."
+      "raw": "Il tuo prompt, così com'è — salvato come spec. Nessuna AI per ora; trascinala su un rail per realizzarla."
     },
     "editorPlaceholder": {
       "quick": "es. Aggiungi un toggle per la dark mode nella pagina impostazioni che memorizzi la preferenza dell'utente...",
@@ -130,7 +130,7 @@
       "contract": "contract"
     },
     "checks": {
-      "specrailsLabel": "ticket specrails",
+      "specrailsLabel": "spec specrails",
       "openspecLabel": "spec openspec",
       "fullLabel": "Codebase completo",
       "mcpLabel": "MCP del progetto",

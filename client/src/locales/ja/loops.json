@@ -259,7 +259,7 @@
   "builtInBadge": "組み込み",
   "run": {
     "title": "{{name}} を実行",
-    "subtitle": "このループをプロジェクトで実行します（チケット不要）。",
+    "subtitle": "このループをプロジェクトで実行します（スペック不要）。",
     "project": "プロジェクト",
     "provider": "プロバイダー",
     "model": "モデル",
@@ -314,7 +314,7 @@
     },
     "factory_openspec": {
       "name": "OpenSpec ライフサイクル",
-      "description": "チケットからアーカイブまでの OpenSpec ライフサイクル: アーティファクト生成 (opsx:ff) → 実装 (opsx:apply) → 検証 (opsx:verify)。FAIL なら同じ change を修正しに戻り、PASS なら無人でアーカイブします。"
+      "description": "スペックからアーカイブまでの OpenSpec ライフサイクル: アーティファクト生成 (opsx:ff) → 実装 (opsx:apply) → 検証 (opsx:verify)。FAIL なら同じ change を修正しに戻り、PASS なら無人でアーカイブします。"
     },
     "factory_revision": {
       "name": "修正",

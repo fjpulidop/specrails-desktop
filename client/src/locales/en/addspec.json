@@ -15,7 +15,7 @@
     "modeDescription": {
       "quick": "Describe the feature or change. Attach mockups, briefs, or data for more context.",
       "explore": "Describe a rough idea. The selected AI assistant will help you shape it through conversation — you decide when to commit.",
-      "raw": "Your prompt, as-is — saved as a spec ticket. No AI runs now; drag it to a rail to build it."
+      "raw": "Your prompt, as-is — saved as a spec. No AI runs now; drag it to a rail to build it."
     },
     "editorPlaceholder": {
       "quick": "e.g. Add a dark mode toggle to the settings page that persists the user's preference...",
@@ -130,7 +130,7 @@
       "contract": "contract"
     },
     "checks": {
-      "specrailsLabel": "specrails tickets",
+      "specrailsLabel": "specrails specs",
       "openspecLabel": "openspec specs",
       "fullLabel": "Full codebase",
       "mcpLabel": "Project MCPs",

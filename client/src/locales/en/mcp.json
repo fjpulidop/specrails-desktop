@@ -24,11 +24,11 @@
     "read": "Read",
     "readHelp": "Browse projects, specs, and analytics. Always allowed.",
     "write": "Write",
-    "writeHelp": "Create and edit specs and tickets.",
+    "writeHelp": "Create and edit specs.",
     "aiSpawn": "AI spawn",
     "aiSpawnHelp": "Launch AI rails and jobs that run the CLI.",
     "destructive": "Destructive",
-    "destructiveHelp": "Delete specs, tickets, and other project data.",
+    "destructiveHelp": "Delete specs and other project data.",
     "updateFailed": "Could not update permissions: {{message}}"
   },
   "config": {

@@ -56,7 +56,7 @@ Las aristas conectan los pasos en orden. El **Loop Decider** tiene dos salidas e
 
 Dentro de cualquier AI Step o Decider puedes referenciar:
 
-- **Datos de spec** — `{{spec.title}}`, `{{spec.description}}`, `{{spec.ids}}` (los IDs de ticket del rail). Se rellenan a partir de la(s) spec(s) del rail en tiempo de ejecución.
+- **Datos de spec** — `{{spec.title}}`, `{{spec.description}}`, `{{spec.ids}}` (los IDs de spec del rail). Se rellenan a partir de la(s) spec(s) del rail en tiempo de ejecución.
 - **Comandos mágicos** — `{{cmd:implement}}` y compañía se expanden al comando de pipeline correspondiente.
 - **Constantes** — `{{const:NAME}}` toma de la **biblioteca de constantes** global (arrástralas desde la paleta). Los centinelas integrados, como los marcadores PASS/FAIL de verificación, están siempre disponibles; puedes añadir los tuyos y reutilizarlos en todos los loops.
 
@@ -74,7 +74,7 @@ Un loop que nunca para gastaría dinero para siempre, así que cada ejecución t
 El builder te ayuda a dejar un loop correcto antes de que se ejecute siquiera:
 
 - **Validación en vivo** — los problemas (sin Start, un paso huérfano, un prompt vacío, un Decider con ramas faltantes) se señalan en el lienzo y en un panel de problemas.
-- **Vista previa de dry-run** — resuelve el texto exacto de cada paso (datos de spec, constantes y comandos todos expandidos) **sin lanzar nada**, así que ves con precisión qué enviaría cada paso.
+- **Vista previa de simulación** — resuelve el texto exacto de cada paso (datos de spec, constantes y comandos todos expandidos) **sin lanzar nada**, así que ves con precisión qué enviaría cada paso.
 - **Auto-arrange** — ordena el lienzo en vertical, horizontal o como cuadrícula; tu elección se guarda por loop.
 - **Copiar / pegar** — `Cmd/Ctrl + C` / `V` para copiar pasos dentro de un loop o entre loops.
 - **Importar / exportar** — guarda loops en un archivo `.json` e impórtalos de vuelta (los nombres duplicados se omiten, el resto se importa).
@@ -90,7 +90,7 @@ Para ejecutar un loop personalizado:
 2. En la cabecera del rail, abre el **selector de Loop** y elige tu loop publicado.
 3. Pulsa **▶ Play**.
 
-La ejecución se transmite en vivo en la vista **Jobs** con las mismas métricas y el mismo seguimiento de coste que cualquier trabajo de rail — y su log estrena un **explorador de pasos** dedicado: un mapa en vivo de tu grafo con una caja plegable por paso, que sigue al paso en ejecución mientras el loop avanza (ver [La vista de Detalle del trabajo](the-job-detail-view)). En Claude, cada **Paso de IA** es además una sesión en vivo: envíale mensajes desde el compositor del detalle del job para dirigirlo a mitad de paso (entre pasos el compositor espera brevemente, y **Asentar este paso** hace avanzar el loop con lo que el paso produjo). Un loop que se detiene porque alcanzó su tope de iteraciones o de coste se reporta con ese resultado en lugar de un éxito a secas.
+La ejecución se transmite en vivo en la vista **Trabajos** con las mismas métricas y el mismo seguimiento de coste que cualquier trabajo de rail — y su log estrena un **explorador de pasos** dedicado: un mapa en vivo de tu grafo con una caja plegable por paso, que sigue al paso en ejecución mientras el loop avanza (ver [La vista de Detalle del trabajo](the-job-detail-view)). En Claude, cada **Paso de IA** es además una sesión en vivo: envíale mensajes desde el compositor del detalle del trabajo para dirigirlo a mitad de paso (entre pasos el compositor espera brevemente, y **Asentar este paso** hace avanzar el loop con lo que el paso produjo). Un loop que se detiene porque alcanzó su tope de iteraciones o de coste se reporta con ese resultado en lugar de un éxito a secas.
 
 > **Aviso mientras se ejecuta un loop.** No puedes editar ni borrar un loop mientras una de sus ejecuciones está en curso — detén la ejecución primero.
 

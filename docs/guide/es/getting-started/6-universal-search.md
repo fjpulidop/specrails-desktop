@@ -1,6 +1,6 @@
 # Búsqueda universal (⌘K)
 
-Pulsa **⌘K** (**Ctrl+K** en Windows y Linux) para buscar casi todo en Specrails desde un solo sitio: misiones, specs, registros de jobs, archivos, ajustes y esta guía. Escribe una consulta normal para buscar misiones, proyectos, specs y jobs recientes como siempre, o empieza con un **prefijo** para buscar solo en una fuente.
+Pulsa **⌘K** (**Ctrl+K** en Windows y Linux) para buscar casi todo en Specrails desde un solo sitio: misiones, specs, registros de trabajos, archivos, ajustes y esta guía. Escribe una consulta normal para buscar misiones, proyectos, specs y trabajos recientes como siempre, o empieza con un **prefijo** para buscar solo en una fuente.
 
 ## Prefijos
 
@@ -10,7 +10,7 @@ Pulsa **⌘K** (**Ctrl+K** en Windows y Linux) para buscar casi todo en Specrail
 | `@` | Misiones: título y contenido de la conversación. | La misión |
 | `/` | Ajustes (de Desktop y del proyecto) por nombre o por cómo los llamarías. | La ventana de ajustes en ese bloque, visible y con el foco |
 | `f:` | Archivos del proyecto, por nombre o ruta. | El archivo en el explorador de código |
-| `log:` | Registros de jobs: comandos, nombres de loops, títulos de fases y diagnósticos de fallo. | El job |
+| `log:` | Registros de trabajos: comandos, nombres de loops, títulos de fases y diagnósticos de fallo. | El trabajo |
 | `?` | Esta guía: títulos de páginas y encabezados. | La guía en ese encabezado |
 
 Al escribir un prefijo se convierte en una **etiqueta** dentro de la caja de búsqueda y la caja conserva solo tu consulta. Pulsa **Retroceso** con la caja vacía (o haz clic en la × de la etiqueta) para quitar el ámbito. Con la caja vacía, la paleta lista los prefijos bajo la caja; haz clic en uno para empezar. `>` sigue listando acciones, como antes.
@@ -23,7 +23,7 @@ Los resultados muestran un fragmento corto alrededor de la primera coincidencia,
 
 `/` conoce los bloques principales de ajustes, en tu idioma: tema, idioma, editor, presupuestos, notificaciones, webhooks, actualizaciones, rama, entorno, telemetría, reglas y más. Los ajustes del proyecto se ofrecen cuando hay un proyecto abierto. Elige uno y se abre la ventana correcta en ese bloque. Sin prefijo, una coincidencia fuerte (tres o más caracteres) añade hasta tres ajustes a los resultados normales. `/budget` también encuentra el panel de Presupuesto (límites, proyección, y si…), donde viven los límites semanal y mensual. Un comando con barra como `/implement` aparece bajo los ajustes, en su propio grupo, así que el prefijo `/` nunca lo oculta.
 
-## Registros de jobs
+## Registros de trabajos
 
 `log:` busca en un índice compacto, no en la salida cruda de una ejecución: el comando, el nombre del loop, los títulos de las fases y el diagnóstico breve de una ejecución fallida, bloqueada o atascada. Nunca guarda flujos de tokens ni la salida de herramientas, así que se mantiene pequeño y rápido. Se guarda por proyecto y contiene las ejecuciones más recientes.
 

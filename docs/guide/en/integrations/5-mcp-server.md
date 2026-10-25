@@ -47,16 +47,16 @@ Untick **Destructive** and it can build all night without ever deleting anything
 > *"Check all my projects. Tell me which have specs in the backlog and no rail running, and start the highest-priority one in each."*
 
 **Hands-free while you code.** Drive Specrails from your editor or by voice, without switching windows:
-> *"Launch rail 0 in Freestyle mode with Opus for ticket #42 and tell me when it's done."*
+> *"Launch rail 0 in Freestyle mode with Opus for spec #42 and tell me when it's done."*
 
 **Ask about cost and history.** Your analytics, in plain language:
-> *"Where did I spend the most on AI this week, by project and by model? Show me the five most expensive tickets."*
+> *"Where did I spend the most on AI this week, by project and by model? Show me the five most expensive specs."*
 
 **Your daily standup.**
 > *"Write my standup: which rails ran yesterday, what completed, what failed, total cost — as bullets ready to paste into Slack."*
 
 **Understand the code.** No editor needed:
-> *"Which files did ticket #38 touch? Summarise in one line what changed in each."*
+> *"Which files did spec #38 touch? Summarise in one line what changed in each."*
 
 Because your assistant reads the built-in guide first, you rarely need to name tools or specs — describe the outcome and it works out the calls.
 

@@ -48,19 +48,19 @@
   },
   "card": {
     "deleteSpec": "删除 spec #{{id}}",
-    "ticketFallbackLabel": "工单 #{{id}}",
+    "ticketFallbackLabel": "规格 #{{id}}",
     "dependsOn": "依赖 {{count}} 项",
     "continueEditing": "继续编辑",
     "continueEditingTitle": "继续编辑此 spec",
     "moveToRail": "放入 rail"
   },
   "emptyState": {
-    "noTickets": "暂无工单",
-    "noTicketsHint": "创建第一个工单，或运行 product backlog 命令来填充工单",
-    "createFirst": "创建第一个工单"
+    "noTickets": "暂无规格",
+    "noTicketsHint": "创建第一个规格，或运行 product backlog 命令来填充规格",
+    "createFirst": "创建第一个规格"
   },
   "errors": {
-    "loadFailed": "加载工单失败"
+    "loadFailed": "加载规格失败"
   },
   "listView": {
     "status": {
@@ -82,14 +82,14 @@
       "labels": "标签",
       "updated": "更新时间"
     },
-    "noMatch": "没有符合筛选条件的工单",
+    "noMatch": "没有符合筛选条件的规格",
     "clearFilters": "清除筛选",
     "loadMore": "加载更多（剩余 {{count}} 个）"
   },
   "gridView": {
-    "emptyTodo": "没有待办工单",
-    "emptyInProgress": "没有进行中的工单",
-    "emptyDone": "没有已完成的工单",
+    "emptyTodo": "没有待办规格",
+    "emptyInProgress": "没有进行中的规格",
+    "emptyDone": "没有已完成的规格",
     "cancelledSection": "已取消（{{count}}）"
   },
   "statusFilter": {
@@ -113,7 +113,7 @@
     "descending": "降序",
     "modes": {
       "default": "默认",
-      "ticketId": "工单 #",
+      "ticketId": "规格 #",
       "priority": "优先级",
       "jiraKey": "Jira 工单 #"
     }
@@ -162,7 +162,7 @@
     "filesLikely": "可能涉及的文件",
     "moreFiles_one": "另有 {{count}} 个文件",
     "moreFiles_other": "另有 {{count}} 个文件",
-    "modelCost": "{{model}} · ${{cost}}",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · 未报告成本",
     "unavailable": "无法分诊",
     "unavailableDetail": "没有可用于分诊的模型（{{reason}}）。",

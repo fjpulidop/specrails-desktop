@@ -24,7 +24,7 @@ Cuando lanzas un rail, Specrails elige un perfil en este orden:
 2. Tu **preferencia por desarrollador** — un perfil que has marcado como tu default personal para este proyecto (es local a ti y no se commitea).
 3. El perfil **`default`** del proyecto.
 
-El perfil se *toma como snapshot en el lanzamiento*, así que cada rail de un lote puede correr un perfil distinto, y cambiar un perfil más tarde nunca reescribe los jobs que ya empezaron.
+El perfil se *toma como snapshot en el lanzamiento*, así que cada rail de un lote puede correr un perfil distinto, y cambiar un perfil más tarde nunca reescribe los trabajos que ya empezaron.
 
 ## Seleccionar un perfil por rail
 

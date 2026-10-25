@@ -15,15 +15,15 @@
     "title": "Telemetría del pipeline",
     "description": "Captura el uso de tokens, la duración de las fases y la actividad de los subagentes para exportar diagnósticos. Activada por defecto.",
     "toggleLabel": "Activar telemetría del pipeline",
-    "toggleDescription": "Cuando está activa, los datos OTEL de los jobs del pipeline se capturan en local. Usa el botón <mono>Exportar diagnóstico</mono> en cualquier tarjeta de job para descargarlos.",
+    "toggleDescription": "Cuando está activa, los datos OTEL de los trabajos del pipeline se capturan en local. Usa el botón <mono>Exportar diagnóstico</mono> en cualquier tarjeta de trabajo para descargarlos.",
     "enabled": "Telemetría del pipeline activada",
     "disabled": "Telemetría del pipeline desactivada",
     "saveFailed": "No se pudo guardar el ajuste de telemetría"
   },
   "prePrompt": {
     "title": "Pre-prompt de rail",
-    "description": "Instrucciones extra específicas del proyecto que se añaden a los jobs de rail implement, después del contexto del ticket y antes de la ejecución.",
-    "label": "Pre-prompt",
+    "description": "Instrucciones extra específicas del proyecto que se añaden a los trabajos de rail implement, después del contexto de la spec y antes de la ejecución.",
+    "label": "Instrucción previa",
     "placeholder": "Ejemplo: Prefiere cambios incrementales, mantén las migraciones retrocompatibles y añade tests para cada cambio de rail.",
     "helper": "Úsalo para directrices estables del proyecto que deban acompañar cada ejecución de implementación en rail.",
     "saveButton": "Guardar pre-prompt",
@@ -47,12 +47,12 @@
     "description": "Define un límite de gasto diario para este proyecto. La cola se pausa automáticamente al alcanzar el límite.",
     "dailyLabel": "Límite diario",
     "dailyHelper": "El gasto se cuenta sobre las últimas 24 horas. La cola se pausa al alcanzar el límite.",
-    "perJobLabel": "Alerta de coste por job (USD)",
-    "perJobHelper": "Avisa cuando un único job de este proyecto supere este importe.",
+    "perJobLabel": "Alerta de coste por trabajo (USD)",
+    "perJobHelper": "Avisa cuando un único trabajo de este proyecto supere este importe.",
     "perJobPlaceholder": "p. ej. 0.50",
     "invalidNumber": "Introduce un número positivo o déjalo en blanco para desactivar",
-    "perJobAlertDisabled": "Alerta de coste por job desactivada",
-    "alertSet": "Alerta configurada para jobs de más de ${{amount}}",
+    "perJobAlertDisabled": "Alerta de coste por trabajo desactivada",
+    "alertSet": "Alerta configurada para trabajos de más de {{amount}}",
     "saveThresholdFailed": "No se pudo guardar el umbral",
     "dailyCurrent": "Ahora mismo: {{amount}} al día",
     "dailyNone": "Sin límite diario"
@@ -83,11 +83,11 @@
     "budgetAlertsHeading": "Presupuesto y alertas",
     "dailyBudgetLabel": "Límite diario de Desktop",
     "dailyBudgetHelper": "Límite global de gasto diario en todos los proyectos. Las colas se pausan automáticamente al superarlo.",
-    "perJobHelper": "Avisa cuando un único job supere este importe. Déjalo en blanco para desactivarlo.",
+    "perJobHelper": "Avisa cuando un único trabajo supere este importe. Déjalo en blanco para desactivarlo.",
     "costAlertsDisabled": "Alertas de coste desactivadas",
     "projectRemoved": "Proyecto eliminado",
     "projectRemoveFailed": "No se pudo eliminar el proyecto",
-    "onboardingHeading": "Onboarding",
+    "onboardingHeading": "Primeros pasos",
     "platformTour": "Tour de la plataforma",
     "platformTourDescription": "Vuelve a ver el asistente de bienvenida para repasar las funciones clave.",
     "replayTour": "Repetir tour",
@@ -109,7 +109,7 @@
   },
   "notifications": {
     "heading": "Notificaciones del sistema",
-    "description": "Muestra notificaciones nativas de escritorio cuando los jobs se completan o fallan. Las notificaciones solo aparecen cuando la pestaña no tiene el foco.",
+    "description": "Muestra notificaciones nativas de escritorio cuando los trabajos se completan o fallan. Las notificaciones solo aparecen cuando la pestaña no tiene el foco.",
     "enableLabel": "Activar notificaciones del sistema",
     "notifyOn": "Notificar en:",
     "filterAll": "Todos (completados y fallidos)",
@@ -121,8 +121,8 @@
   "webhooks": {
     "heading": "Webhooks salientes",
     "description": "Notifica a herramientas externas (Slack, Zapier, CI/CD) los eventos de Desktop. Las peticiones se firman con <code>X-Specrails-Signature</code> cuando hay un secreto configurado.",
-    "eventJobCompleted": "Job completado",
-    "eventJobFailed": "Job fallido",
+    "eventJobCompleted": "Trabajo completado",
+    "eventJobFailed": "Trabajo fallido",
     "eventDailyBudgetExceeded": "Límite diario superado",
     "disable": "Desactivar",
     "enable": "Activar",
@@ -309,7 +309,7 @@
   },
   "worktreeEnv": {
     "title": "Entorno de worktrees",
-    "description": "Elige los nombres de variables de entorno que este proyecto pasa a jobs de rail y worktrees aislados de loops. Solo se guardan nombres; los valores se leen al iniciar la ejecución, recuperándolos del login shell si faltan en el proceso de escritorio.",
+    "description": "Elige los nombres de variables de entorno que este proyecto pasa a trabajos de rail y worktrees aislados de loops. Solo se guardan nombres; los valores se leen al iniciar la ejecución, recuperándolos del login shell si faltan en el proceso de escritorio.",
     "label": "Variable de entorno",
     "placeholder": "NODE_AUTH_TOKEN",
     "helper": "Pulsa Enter o Añadir. Puedes pegar varios nombres separados por comas o espacios.",
@@ -347,7 +347,7 @@
   },
   "agentEnv": {
     "title": "Entorno de los agentes",
-    "description": "Elige qué variables de entorno reciben los agentes de este proyecto: jobs de rail, loops, misiones, chats y asistentes de specs.",
+    "description": "Elige qué variables de entorno reciben los agentes de este proyecto: trabajos de rail, loops, misiones, chats y asistentes de specs.",
     "modes": {
       "inherit": {
         "label": "Heredar (predeterminado)",
@@ -426,7 +426,7 @@
   },
   "agentAudit": {
     "title": "Registro de acciones de agentes",
-    "description": "Un registro por proyecto de lo que los agentes leyeron, escribieron, ejecutaron, llamaron por MCP o descargaron — exportable en JSONL o CSV desde cada job y el paquete de revisión.",
+    "description": "Un registro por proyecto de lo que los agentes leyeron, escribieron, ejecutaron, llamaron por MCP o descargaron — exportable en JSONL o CSV desde cada trabajo y el paquete de revisión.",
     "retentionLabel": "Conservar entradas durante",
     "daysUnit": "días",
     "caveat": "Las entradas antiguas se eliminan al arrancar y a diario. Las lecturas son tan completas como el stream de cada proveedor; nunca se guardan contenidos ni valores de entorno.",
@@ -451,12 +451,12 @@
   },
   "anchoring": {
     "title": "Anclaje en proyectos existentes",
-    "description": "Comportamientos opcionales que ayudan a que los runs respeten lo que el proyecto ya hace. Cada uno necesita un Core que lo soporte.",
+    "description": "Comportamientos opcionales que ayudan a que las ejecuciones respeten lo que el proyecto ya hace. Cada uno necesita un Core que lo soporte.",
     "coreRequired": "El Core instalado aún no lo soporta. Actualiza Core para activarlo.",
     "saveFailed": "No se pudo guardar el ajuste",
     "jiraPostClarifications": {
       "label": "Publicar las aclaraciones del arquitecto en Jira",
-      "description": "Cuando un run se pausa con preguntas del arquitecto, o continúa con supuestos, se publican como comentario en la issue de Jira enlazada. Una respuesta allí se registra en la spec como aclaración.",
+      "description": "Cuando una ejecución se pausa con preguntas del arquitecto, o continúa con supuestos, se publican como comentario en la issue de Jira enlazada. Una respuesta allí se registra en la spec como aclaración.",
       "enabled": "Las aclaraciones se publicarán en Jira",
       "disabled": "Las aclaraciones se quedarán en Specrails"
     },
@@ -525,7 +525,7 @@
   "accessibility": {
     "density": {
       "title": "Densidad",
-      "description": "Cuánto espacio ocupan las tarjetas y las filas. Se aplica al tablero, a la lista de jobs y a la historia del job. Una vista guardada del tablero mantiene su propio diseño.",
+      "description": "Cuánto espacio ocupan las tarjetas y las filas. Se aplica al tablero, a la lista de trabajos y a la historia del trabajo. Una vista guardada del tablero mantiene su propio diseño.",
       "comfortable": "Cómoda",
       "comfortableHint": "Tarjetas y filas con aire",
       "compact": "Compacta",

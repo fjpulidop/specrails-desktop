@@ -90,12 +90,12 @@
   },
   "costAlerts": {
     "costAlertTitle": "Alerte de coût",
-    "costAlertDescription": "Coût du job : {{cost}} $ — le seuil est de {{threshold}} $",
+    "costAlertDescription": "Coût du job : {{cost}} — le seuil est de {{threshold}}",
     "dailyBudgetTitle": "Budget quotidien dépassé",
-    "dailyBudgetDescription": "{{spent}} $ dépensés sur {{budget}} $ aujourd'hui. File d'attente en pause.",
+    "dailyBudgetDescription": "{{spent}} dépensés sur {{budget}} aujourd'hui. File d'attente en pause.",
     "desktopBudgetTitle": "Budget quotidien de Desktop dépassé",
-    "desktopBudgetDescription": "Dépense totale de Desktop : {{spent}} $ sur {{budget}} $. File d'attente en pause.",
-    "bannerMessage": "Budget quotidien dépassé — {{spent}} $ dépensés sur {{budget}} $. La file d'attente est en pause.",
+    "desktopBudgetDescription": "Dépense totale de Desktop : {{spent}} sur {{budget}}. File d'attente en pause.",
+    "bannerMessage": "Budget quotidien dépassé — {{spent}} dépensés sur {{budget}}. La file d'attente est en pause.",
     "dismiss": "Ignorer"
   },
   "errorBoundary": {

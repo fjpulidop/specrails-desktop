@@ -1,6 +1,6 @@
 # Operate Specrails by chatting (Agent Chat)
 
-The **Agent Chat** is a copilot that lives *inside* Specrails and can drive the whole app for you. Instead of clicking through projects, specs, rails and analytics, you just ask: *"how many jobs succeeded this week?"*, *"create a spec for social login in the API project"*, *"launch the three highest-priority tickets and tell me when they finish"*. It carries out the work by calling Specrails' own tools — the same ones the [MCP server](./5-mcp-server.md) exposes — while you watch the dashboard update live behind it.
+The **Agent Chat** is a copilot that lives *inside* Specrails and can drive the whole app for you. Instead of clicking through projects, specs, rails and analytics, you just ask: *"how many jobs succeeded this week?"*, *"create a spec for social login in the API project"*, *"launch the three highest-priority specs and tell me when they finish"*. It carries out the work by calling Specrails' own tools — the same ones the [MCP server](./5-mcp-server.md) exposes — while you watch the dashboard update live behind it.
 
 > **Not to be confused with the pipeline agents.** The *Agents* section (Architect → Developer → Reviewer) is about *how a rail implements a spec*. The **Agent Chat** is a single assistant that *operates the app itself*. Different thing, same word.
 

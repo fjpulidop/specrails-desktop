@@ -24,11 +24,11 @@
     "read": "读取",
     "readHelp": "浏览项目、规格和分析。始终允许。",
     "write": "写入",
-    "writeHelp": "创建和编辑规格与工单。",
+    "writeHelp": "创建和编辑规格。",
     "aiSpawn": "启动 AI",
     "aiSpawnHelp": "启动运行 CLI 的 AI rails 和任务。",
     "destructive": "破坏性操作",
-    "destructiveHelp": "删除规格、工单和其他项目数据。",
+    "destructiveHelp": "删除规格和其他项目数据。",
     "updateFailed": "无法更新权限：{{message}}"
   },
   "config": {

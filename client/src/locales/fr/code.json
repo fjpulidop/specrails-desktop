@@ -152,7 +152,7 @@
     "loadingEditor": "Chargement de l'éditeur…"
   },
   "ticketFiles": {
-    "title": "Fichiers touchés par ce ticket",
+    "title": "Fichiers touchés par cette spec",
     "jobTitle": "Job {{jobId}}",
     "loading": "Chargement des fichiers enregistrés…",
     "loadFailed": "Impossible de charger les fichiers enregistrés.",

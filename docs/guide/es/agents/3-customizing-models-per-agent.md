@@ -18,7 +18,7 @@ Los valores de modelo son alias — para Claude son `opus`, `sonnet` y `haiku` (
 - Deja el modelo de un agente **en blanco** para que recurra al default propio del rol — en el trío base son el proveedor y el modelo configurados en **Ajustes → Motor de agentes**; un agente personalizado recurre al frontmatter de su archivo.
 - Asígnalo explícitamente para sobrescribirlo solo en este perfil.
 
-Guarda, y el próximo rail lanzado con ese perfil usará los nuevos modelos. Los jobs que ya están en marcha conservan su snapshot.
+Guarda, y el próximo rail lanzado con ese perfil usará los nuevos modelos. Los trabajos que ya están en marcha conservan su snapshot.
 
 ## Crear perfiles como `fast` y `max`
 
@@ -53,7 +53,7 @@ Todo esto se junta en el lanzamiento: en la cabecera del rail, elige `fast`, `ma
 
 ## Una nota sobre seguridad
 
-Eliminar un perfil es seguro para el trabajo en marcha: los jobs que ya se lanzaron con él conservan su snapshot, y los lanzamientos futuros simplemente recurren al orden de resolución. Experimenta sin miedo.
+Eliminar un perfil es seguro para el trabajo en marcha: los trabajos que ya se lanzaron con él conservan su snapshot, y los lanzamientos futuros simplemente recurren al orden de resolución. Experimenta sin miedo.
 
 ## A dónde ir después
 

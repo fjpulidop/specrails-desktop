@@ -105,4 +105,10 @@ describe('SpendingTimeline', () => {
     expect(screen.queryByText(/No spend in this period/i)).not.toBeInTheDocument()
     expect(screen.getByTestId('bar-chart')).toBeInTheDocument()
   })
+
+  it('labels the axis in the viewer language ("25 Sep"), not a raw MM-DD slice', () => {
+    render(<SpendingTimeline data={emptyData([day('2026-09-25', { jobsCostUsd: 1, totalCostUsd: 1 })])} loading={false} />)
+    const chart = JSON.parse(screen.getByTestId('bar-chart').getAttribute('data-chart')!)
+    expect(chart[0].date).toBe('25 Sep')
+  })
 })

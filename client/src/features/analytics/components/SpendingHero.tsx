@@ -3,6 +3,8 @@ import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import type { SpendingResponse, Surface, Period } from '../types/spending'
 import { SURFACE_LABEL, SURFACE_ACCENT } from '../types/spending'
 import { formatUsd as fmtUsd } from '../lib/format'
+import { formatTokens as fmtTokens } from '../../../lib/format-tokens'
+import { isPlanBilledSpend, useBilling } from '../lib/use-billing'
 import { CostValue } from './CostValue'
 import { Skeleton } from '../../../components/ui/skeleton'
 
@@ -14,12 +16,6 @@ interface Props {
   period?: Period
 }
 
-function fmtTokens(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}k`
-  return `${v}`
-}
-
 const SURFACES: Surface[] = [
   'job', 'explore-spec', 'quick-spec', 'ai-edit', 'chat-sidebar',
   'spec-launcher', 'proposal', 'agent-studio', 'setup', 'smash', 'file-summary', 'loop', 'flow', 'triage',
@@ -27,6 +23,7 @@ const SURFACES: Surface[] = [
 
 export function SpendingHero({ data, loading, period }: Props) {
   const { t } = useTranslation('analytics')
+  const billing = useBilling()
   if (loading && !data) {
     return <Skeleton className="h-44" />
   }
@@ -73,6 +70,9 @@ export function SpendingHero({ data, loading, period }: Props) {
   })
   // Human window label so the headline can never be read as an all-time total.
   const windowLabel = period ? t(`windowLabels.${period}`) : null
+  // Every provider in the window is plan-billed: the dollar figure is an API-equivalent estimate,
+  // never money that was charged, and says so right under the number.
+  const planBilled = billing.ready && billing.snapshot != null && total > 0 && !costUnavailable && isPlanBilledSpend(data.byProvider, billing)
 
   return (
     <section aria-labelledby="spending-hero-title" className="rounded-xl border border-border/50 bg-card p-5">
@@ -88,7 +88,7 @@ export function SpendingHero({ data, loading, period }: Props) {
               data-testid={costUnavailable ? 'hero-cost-unavailable' : undefined}
               title={costUnavailable ? t('hero.costUnavailableTooltip') : undefined}
             >
-              <CostValue usd={total} estimated={hasEstimatedCost} unavailable={costUnavailable} />
+              <CostValue usd={total} estimated={hasEstimatedCost} unavailable={costUnavailable} className={planBilled ? 'text-muted-foreground' : undefined} />
             </div>
             {delta !== null && (
               <span className={`inline-flex items-center gap-0.5 text-label ${
@@ -99,19 +99,22 @@ export function SpendingHero({ data, loading, period }: Props) {
               </span>
             )}
           </div>
+          {planBilled && (
+            <p className="text-caption text-muted-foreground mt-0.5" data-testid="hero-api-equivalent">{t('hero.apiEquivalent')}</p>
+          )}
           <div className="text-xs text-muted-foreground mt-1 num flex items-center gap-2">
             <span>{t('hero.invocations', { count: totalRuns })}</span>
             {usageUnavailable ? (
               <span
                 data-testid="hero-usage-unavailable"
-                className="text-muted-foreground italic"
+                className="text-muted-foreground"
                 title={t('hero.usageUnavailableTooltip')}
               >
                 {t('hero.usageUnavailable')}
               <span className="sr-only"> ({t('hero.usageUnavailableTooltip')})</span></span>
             ) : usagePartiallyUnavailable && totalTokens != null ? (
               <span
-                className="text-muted-foreground italic"
+                className="text-muted-foreground"
                 title={t('hero.usagePartiallyUnavailableTooltip')}
               >
                 {t('hero.usagePartiallyUnavailable', {
@@ -129,7 +132,7 @@ export function SpendingHero({ data, loading, period }: Props) {
             ) : null}
             {costUnavailable && (
               <span
-                className="text-muted-foreground italic"
+                className="text-muted-foreground"
                 title={t('hero.costUnavailableTooltip')}
               >
                 {t('hero.costUnavailable')}
@@ -138,7 +141,7 @@ export function SpendingHero({ data, loading, period }: Props) {
             {costPartiallyUnavailable && (
               <span
                 data-testid="hero-cost-partial"
-                className="text-muted-foreground italic"
+                className="text-muted-foreground"
                 title={t('hero.costPartiallyUnavailableTooltip')}
               >
                 {t('hero.costPartiallyUnavailable', { count: unpricedRuns })}
@@ -146,7 +149,7 @@ export function SpendingHero({ data, loading, period }: Props) {
             )}
             {hasEstimatedCost && (
               <span
-                className="text-caption text-muted-foreground italic"
+                className="text-caption text-muted-foreground"
                 title={t('hero.includesEstimatedTooltip', { amount: fmtUsd(totalEstimated) })}
               >
                 {t('hero.includesEstimated', { amount: fmtUsd(totalEstimated) })}

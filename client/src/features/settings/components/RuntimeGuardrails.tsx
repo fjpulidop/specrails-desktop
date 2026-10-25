@@ -106,7 +106,7 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
                   <div className="min-w-0 flex-1">
                     <p id={labelId} className={cn('text-label', !enabled && 'text-muted-foreground line-through decoration-muted-foreground/50')}>{title}</p>
                     <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{description}</p>
-                    {why && <p className="mt-0.5 text-xs italic leading-4 text-muted-foreground/70">{why}</p>}
+                    {why && <p className="mt-0.5 text-xs italic leading-4 text-muted-foreground">{why}</p>}
                   </div>
                 </li>
               })}

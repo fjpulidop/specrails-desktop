@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { SpendingResponse } from '../types/spending'
+import { formatUsd } from '../lib/format'
+import { ModelName } from './ModelName'
 import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
@@ -63,7 +65,7 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
                   }`}
                 >
                   <div className="flex items-center justify-between text-label mb-1 num">
-                    <span className="truncate font-medium">{m.model}</span>
+                    <span className="truncate font-medium"><ModelName slug={m.model} /></span>
                     <span
                       className="text-muted-foreground"
                       data-testid={costUnavailable ? 'model-cost-unavailable' : undefined}
@@ -81,9 +83,9 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
                         ? t('models.costUnavailableWithRuns', { count: m.count })
                         : (
                           <>
-                            {isEstimated ? '~' : ''}${m.costUsd.toFixed(2)} · {m.count}
+                            {isEstimated ? '~' : ''}{formatUsd(m.costUsd)} · {m.count}
                             {costPartiallyUnavailable && (
-                              <span className="ml-1 italic">
+                              <span className="ml-1">
                                 {t('models.costPartiallyUnavailable', { count: unpricedCount })}
                               </span>
                             )}
@@ -106,7 +108,7 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
               <div className="w-full rounded-md px-2 py-1.5">
                 <div className="flex items-center justify-between text-label mb-1 num">
                   <span className="truncate font-medium text-muted-foreground">{t('models.others')}</span>
-                  <span className="text-muted-foreground">${othersCost.toFixed(2)}</span>
+                  <span className="text-muted-foreground">{formatUsd(othersCost)}</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-background-deep overflow-hidden">
                   <div

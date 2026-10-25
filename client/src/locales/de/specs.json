@@ -48,19 +48,19 @@
   },
   "card": {
     "deleteSpec": "Spec #{{id}} löschen",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "dependsOn": "Hängt von {{count}} ab",
     "continueEditing": "Weiter bearbeiten",
     "continueEditingTitle": "Diese Spec weiter bearbeiten",
     "moveToRail": "Auf Rail verschieben"
   },
   "emptyState": {
-    "noTickets": "Noch keine Tickets",
-    "noTicketsHint": "Erstelle dein erstes Ticket oder führe einen Product-Backlog-Befehl aus, um Tickets zu befüllen",
-    "createFirst": "Erstes Ticket erstellen"
+    "noTickets": "Noch keine Specs",
+    "noTicketsHint": "Erstelle deine erste Spec oder führe einen Product-Backlog-Befehl aus, um Specs zu befüllen",
+    "createFirst": "Erste Spec erstellen"
   },
   "errors": {
-    "loadFailed": "Tickets konnten nicht geladen werden"
+    "loadFailed": "Specs konnten nicht geladen werden"
   },
   "listView": {
     "status": {
@@ -82,14 +82,14 @@
       "labels": "Labels",
       "updated": "Aktualisiert"
     },
-    "noMatch": "Keine Tickets entsprechen deinen Filtern",
+    "noMatch": "Keine Specs entsprechen deinen Filtern",
     "clearFilters": "Filter zurücksetzen",
     "loadMore": "Mehr laden ({{count}} verbleibend)"
   },
   "gridView": {
-    "emptyTodo": "Keine offenen Tickets",
+    "emptyTodo": "Keine offenen Specs",
     "emptyInProgress": "Nichts in Arbeit",
-    "emptyDone": "Keine abgeschlossenen Tickets",
+    "emptyDone": "Keine abgeschlossenen Specs",
     "cancelledSection": "Abgebrochen ({{count}})"
   },
   "statusFilter": {
@@ -113,7 +113,7 @@
     "descending": "Absteigend",
     "modes": {
       "default": "Standard",
-      "ticketId": "Ticket #",
+      "ticketId": "Spec #",
       "priority": "Priorität",
       "jiraKey": "Jira-Ticket #"
     }
@@ -162,7 +162,7 @@
     "filesLikely": "Wahrscheinliche Dateien",
     "moreFiles_one": "+{{count}} weitere Datei",
     "moreFiles_other": "+{{count}} weitere Dateien",
-    "modelCost": "{{model}} · {{cost}} $",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · Kosten nicht gemeldet",
     "unavailable": "Triage n. v.",
     "unavailableDetail": "Für die Triage ist kein Modell verfügbar ({{reason}}).",

@@ -932,7 +932,7 @@ export function ExploreSpecShell({
             data-testid="explore-conversation"
           >
             {!conversation && editTicket && (
-              <div className="text-xs text-muted-foreground/70 italic px-1 py-2">
+              <div className="text-xs text-muted-foreground italic px-1 py-2">
                 {t('shell.editModeIntro')}
               </div>
             )}

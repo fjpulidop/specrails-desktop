@@ -58,7 +58,7 @@ describe('TicketSpendingLine', () => {
     expect(screen.getByText(/3m/)).toBeInTheDocument()
     expect(screen.getByText(/2 jobs/)).toBeInTheDocument()
     const button = screen.getByRole('button') as HTMLButtonElement
-    expect(button.getAttribute('aria-label')).toBe('View ticket spending in Analytics')
+    expect(button.getAttribute('aria-label')).toBe('View spec spending in Analytics')
 
     // Clicking navigates and closes the modal
     fireEvent.click(button)

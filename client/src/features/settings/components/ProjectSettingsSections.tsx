@@ -733,7 +733,7 @@ export function ProjectBudgetSection() {
     if (parsed === undefined) return
     void savePatch(
       { jobCostThresholdUsd: parsed },
-      parsed == null ? t('budget.perJobAlertDisabled') : t('budget.alertSet', { amount: parsed }),
+      parsed == null ? t('budget.perJobAlertDisabled') : t('budget.alertSet', { amount: formatUsd(parsed) }),
       'budget.saveThresholdFailed',
       setIsSavingJobThreshold,
     )

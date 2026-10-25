@@ -152,7 +152,7 @@
     "loadingEditor": "A carregar editor…"
   },
   "ticketFiles": {
-    "title": "Ficheiros alterados por este ticket",
+    "title": "Ficheiros alterados por esta spec",
     "jobTitle": "Job {{jobId}}",
     "loading": "Carregando arquivos registrados…",
     "loadFailed": "Não foi possível carregar os arquivos registrados.",

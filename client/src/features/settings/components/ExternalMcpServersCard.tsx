@@ -64,7 +64,7 @@ function providerPillClass(active: boolean): string {
   return `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-label transition-all duration-150 disabled:opacity-50 ${
     active
       ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
-      : 'border-border/60 bg-transparent text-muted-foreground/70 hover:border-border hover:text-foreground hover:bg-muted/30'
+      : 'border-border/60 bg-transparent text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/30'
   }`
 }
 

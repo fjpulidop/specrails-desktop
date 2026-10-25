@@ -24,11 +24,11 @@
     "read": "Lectura",
     "readHelp": "Explorar proyectos, especificaciones y analíticas. Siempre permitido.",
     "write": "Escritura",
-    "writeHelp": "Crear y editar especificaciones y tickets.",
+    "writeHelp": "Crear y editar specs.",
     "aiSpawn": "Lanzar IA",
     "aiSpawnHelp": "Lanzar rails y trabajos de IA que ejecutan la CLI.",
     "destructive": "Destructivo",
-    "destructiveHelp": "Eliminar especificaciones, tickets y otros datos del proyecto.",
+    "destructiveHelp": "Eliminar specs y otros datos del proyecto.",
     "updateFailed": "No se pudieron actualizar los permisos: {{message}}"
   },
   "config": {

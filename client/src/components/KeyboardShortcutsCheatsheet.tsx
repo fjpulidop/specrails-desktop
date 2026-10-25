@@ -179,9 +179,9 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
                         <BookOpen className="size-3.5 shrink-0" aria-hidden />
                         <span className="min-w-0 truncate" aria-hidden>
                           {match.title}
-                          {match.heading && <span className="text-muted-foreground/80"> › {match.heading}</span>}
+                          {match.heading && <span className="text-muted-foreground"> › {match.heading}</span>}
                         </span>
-                        <span className="ml-auto shrink-0 text-caption text-muted-foreground/80" aria-hidden>{match.categoryName}</span>
+                        <span className="ml-auto shrink-0 text-caption text-muted-foreground" aria-hidden>{match.categoryName}</span>
                       </button>
                     </li>
                   ))}

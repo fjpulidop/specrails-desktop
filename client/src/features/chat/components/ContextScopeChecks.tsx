@@ -111,7 +111,7 @@ export function ContextScopeChecks({
           {effectiveLabel}
         </span>
         {!open && showSummary ? (
-          <span className="text-xs normal-case tracking-normal text-muted-foreground/80">
+          <span className="text-xs normal-case tracking-normal text-muted-foreground">
             {summary} · {tier}
           </span>
         ) : null}

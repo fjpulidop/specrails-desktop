@@ -27,7 +27,7 @@
     "retryRejected": "Nuovo tentativo rifiutato",
     "retryRejectedWithError": "Nuovo tentativo rifiutato: {{error}}",
     "retryFailed": "Nuovo tentativo non riuscito: {{message}}",
-    "skipped": "Contract layer saltato — ticket salvato senza",
+    "skipped": "Contract layer saltato — spec salvata senza",
     "reason": "Motivo: {{reason}}",
     "added": "Contract layer aggiunto · {{title}}"
   },

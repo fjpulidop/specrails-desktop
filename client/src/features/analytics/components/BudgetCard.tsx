@@ -11,9 +11,9 @@ import { API_ORIGIN } from '../../../lib/origin'
 import { getApiBase } from '../../../lib/api'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
-import { fetchUsageSnapshot, isMeteredBilled } from '../../../lib/launch-forecast'
 import { cn } from '../../../lib/utils'
 import { formatUsd } from '../lib/format'
+import { isPlanBilledSpend, useBilling, type Billing } from '../lib/use-billing'
 import {
   CAP_PERIODS, barLevel, barPercent, fetchBudgetOverview, periodSpentUsd, projectionPassesCap,
   type BarLevel, type BudgetOverview, type CapConfig, type CapPeriod, type PeriodSpend,
@@ -48,24 +48,9 @@ function resetLabel(iso: string): string | null {
   return Number.isNaN(at.getTime()) ? null : format(at, 'PP', { locale: getDateFnsLocale() })
 }
 
-interface Billing { ready: boolean; snapshot: unknown }
-
-/** Subscription-usage snapshot: decides which providers may show dollars. Unknown = no dollars. */
-function useBilling(): Billing {
-  const [state, setState] = useState<Billing>(() => { const source = fetchUsageSnapshot(); return { ready: source.fresh !== null, snapshot: source.fresh } })
-  useEffect(() => {
-    const source = fetchUsageSnapshot()
-    if (source.fresh) { setState({ ready: true, snapshot: source.fresh }); return }
-    let cancelled = false
-    void source.load().then((snapshot) => { if (!cancelled) setState({ ready: true, snapshot }) }, () => { if (!cancelled) setState({ ready: true, snapshot: null }) })
-    return () => { cancelled = true }
-  }, [])
-  return state
-}
-
 /** Plan-billed spend has no dollar meaning: every provider with spend in the period is not positively metered. */
 function planOnly(spend: PeriodSpend, billing: Billing): boolean {
-  return spend.byProvider.length > 0 && spend.byProvider.every((row) => !isMeteredBilled(billing.snapshot, row.provider))
+  return isPlanBilledSpend(spend.byProvider, billing)
 }
 
 /**

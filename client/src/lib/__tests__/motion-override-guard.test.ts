@@ -84,4 +84,12 @@ describe('Motion setting overrides the OS preference everywhere', () => {
     // …and the authored animation itself is unconditional.
     expect(globals).toMatch(/@utility animate-rail-travel \{\s*animation: rail-travel/)
   })
+
+  it('collapses all motion when the OS asks to reduce and the setting is "system", sparing spinners', () => {
+    const block = blocks.find((b) => b.file === 'globals.css' && b.kind === 'reduce' && b.body.includes('animation-iteration-count: 1 !important') && b.body.includes('.animate-spin'))
+    expect(block).toBeTruthy()
+    expect(block!.body.trimStart().startsWith(':root:not([data-motion="full"])')).toBe(true)
+    expect(block!.body).toMatch(/\.animate-spin \{[^}]*animation-iteration-count: infinite !important/)
+    expect(block!.body).toMatch(/transition-duration: 0\.01ms !important/)
+  })
 })

@@ -40,9 +40,9 @@
     "openReview": "Ouvrir la revue",
     "viewJob": "Voir le job",
     "toast": {
-      "updated": "Ticket mis à jour",
-      "updateFailed": "Échec de la mise à jour du ticket",
-      "deleteFailed": "Échec de la suppression du ticket"
+      "updated": "Spec mise à jour",
+      "updateFailed": "Échec de la mise à jour de la spec",
+      "deleteFailed": "Échec de la suppression de la spec"
     },
     "compare": "Comparer",
     "compareTooltip": "Comparer avec une autre spec",
@@ -54,7 +54,7 @@
     "effort": "Effort",
     "assignee": "Assigné à",
     "continueEditing": "Continuer l'édition",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "spendingLineHint": "Tout ce qui a été dépensé pour cette spec jusqu’ici : coût total · tours de l’agent (un + à la fin signifie que certaines exécutions n’ont pas signalé leurs tours) · temps actif · exécutions par type (p. ex. « 1 quick, 3 loops » = une génération Quick de la spec et trois exécutions de loop). Cliquez pour l’ouvrir dans Analytics."
   },
   "contractLayer": {
@@ -69,8 +69,8 @@
     "noRails": "Aucun rail disponible."
   },
   "contextMenu": {
-    "ariaLabel": "Actions du ticket",
-    "deleteTicket": "Supprimer le ticket",
+    "ariaLabel": "Actions de la spec",
+    "deleteTicket": "Supprimer la spec",
     "changeStatus": "Changer le statut",
     "statusOptions": "Options de statut",
     "setPriority": "Définir la priorité",
@@ -82,14 +82,14 @@
     "postit": "Vue post-it"
   },
   "createModal": {
-    "title": "Créer un ticket",
-    "titlePlaceholder": "Titre du ticket…",
+    "title": "Créer une spec",
+    "titlePlaceholder": "Titre de la spec…",
     "labelsPlaceholder": "Saisissez pour ajouter des labels…",
     "create": "Créer",
     "creating": "Création…",
     "toast": {
-      "created": "Ticket créé",
-      "createFailed": "Échec de la création du ticket"
+      "created": "Spec créée",
+      "createFailed": "Échec de la création de la spec"
     },
     "description": "Ajoutez une spec au tableau à la main. Elle démarre dans le statut choisi et pourra être affinée ou déplacée vers un rail plus tard."
   },
@@ -101,7 +101,7 @@
     "empty": "Aucune autre spec à comparer"
   },
   "spendingLine": {
-    "ariaLabel": "Voir les dépenses du ticket dans Analytics",
+    "ariaLabel": "Voir les dépenses de la spec dans Analytics",
     "turns_one": "{{count}} tour d'agent",
     "turns_other": "{{count}} tours d'agent",
     "turnsAtLeast_one": "{{count}}+ tour d'agent",
@@ -109,15 +109,15 @@
     "active": "{{duration}} actif",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimé à partir de la table de tarifs locale — ce fournisseur ne signale pas le coût de manière native.",
-    "costUnavailableTooltip": "Aucune invocation de ce ticket n'a exposé de télémétrie de coût.",
+    "costUnavailableTooltip": "Aucune invocation de cette spec n'a exposé de télémétrie de coût.",
     "costPartiallyUnavailableTooltip": "Sous-total des coûts connus uniquement ; certaines invocations n'ont pas exposé leur coût.",
-    "turnsUnavailableTooltip": "La télémétrie des tours est indisponible pour ce ticket.",
+    "turnsUnavailableTooltip": "La télémétrie des tours est indisponible pour cette spec.",
     "turnsPartiallyUnavailableTooltip": "Sous-total des tours connus uniquement ; certaines invocations n'ont pas exposé leur télémétrie des tours."
   },
   "toasts": {
-    "newTicket": "Nouveau ticket : {{title}}",
-    "newTicketsAdded_one": "{{count}} nouveau ticket ajouté depuis la product discovery",
-    "newTicketsAdded_other": "{{count}} nouveaux tickets ajoutés depuis la product discovery"
+    "newTicket": "Nouvelle spec : {{title}}",
+    "newTicketsAdded_one": "{{count}} nouvelle spec ajoutée depuis la product discovery",
+    "newTicketsAdded_other": "{{count}} nouvelles specs ajoutées depuis la product discovery"
   },
   "addenda": {
     "title": "Addenda",

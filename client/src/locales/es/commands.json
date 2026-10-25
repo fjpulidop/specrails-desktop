@@ -9,7 +9,7 @@
       "projects": "Proyectos",
       "missions": "Misiones",
       "spec": "Spec",
-      "jobs": "Jobs",
+      "jobs": "Trabajos",
       "navigation": "Navegación",
       "actions": "Acciones",
       "recentActions": "Acciones recientes",
@@ -17,11 +17,11 @@
       "settings": "Ajustes",
       "specs": "Specs",
       "files": "Archivos",
-      "logs": "Registros de jobs",
+      "logs": "Registros de trabajos",
       "docs": "Guía"
     },
     "nav": {
-      "dashboard": "Dashboard",
+      "dashboard": "Tablero",
       "desktopAnalytics": "Analíticas de Desktop",
       "projectAnalytics": "Analíticas del proyecto",
       "activityFeed": "Actividad",
@@ -179,8 +179,8 @@
         "prompt": "Escribe un nombre o una ruta de archivo."
       },
       "logs": {
-        "label": "Registros de jobs",
-        "placeholder": "Busca comandos, fases y fallos de jobs…",
+        "label": "Registros de trabajos",
+        "placeholder": "Busca comandos, fases y fallos de trabajos…",
         "prompt": "Escribe para buscar qué hicieron tus ejecuciones y por qué fallaron."
       },
       "docs": {
@@ -369,9 +369,9 @@
       "others": "Otros"
     },
     "displayNames": {
-      "proposeSpec": "Custom-Propose",
-      "updateBacklog": "Auto-propose",
-      "productBacklog": "Auto-Select Specs"
+      "proposeSpec": "Propuesta a medida",
+      "updateBacklog": "Propuesta automática",
+      "productBacklog": "Selección automática de specs"
     },
     "emptyState": {
       "title": "No hay comandos instalados",
@@ -399,11 +399,11 @@
       "toggleLeftSidebar": "Mostrar/ocultar barra lateral izquierda",
       "toggleTerminal": "Mostrar/ocultar panel del terminal",
       "toggleAgent": "Mostrar/ocultar chat del agente",
-      "navigateProjectPageWithAgents": "Ir a una página del proyecto (Dashboard/Jobs/Analíticas/Agentes/Ajustes)",
-      "navigateProjectPage": "Ir a una página del proyecto (Dashboard/Jobs/Analíticas/Ajustes)",
+      "navigateProjectPageWithAgents": "Ir a una página del proyecto (Tablero/Trabajos/Analíticas/Agentes/Ajustes)",
+      "navigateProjectPage": "Ir a una página del proyecto (Tablero/Trabajos/Analíticas/Ajustes)",
       "switchProject": "Cambiar de proyecto por posición",
-      "goDashboard": "Ir al Dashboard",
-      "goActivity": "Ir a Actividad / Jobs",
+      "goDashboard": "Ir al tablero",
+      "goActivity": "Ir a Actividad / Trabajos",
       "goAnalytics": "Ir a Analíticas",
       "goSettings": "Ir a Ajustes",
       "nextItem": "Siguiente elemento de la lista",
@@ -472,8 +472,8 @@
     }
   },
   "notifications": {
-    "jobCompleted": "Job completado",
-    "jobFailed": "Job fallido",
+    "jobCompleted": "Trabajo completado",
+    "jobFailed": "Trabajo fallido",
     "jobStuck": "La ejecución parece atascada",
     "jobStuckBody_one": "Sin actividad desde {{count}} minuto — ábrela para comprobarlo",
     "jobStuckBody_other": "Sin actividad desde {{count}} minutos — ábrela para comprobarlo",
@@ -482,8 +482,8 @@
     "jobStuckStopped": "Ejecución detenida",
     "jobStuckStopFailed": "No se pudo detener la ejecución",
     "providerLimit": "Límite de uso del proveedor alcanzado",
-    "providerLimitBody": "{{provider}} rechazó la petición: límite de uso alcanzado — se restablece {{resetsAt}}. El run se ha detenido; vuelve a lanzarlo o usa Recuperar y reintentar tras el reinicio.",
-    "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. El run se ha detenido; vuelve a lanzarlo cuando se restablezca el límite."
+    "providerLimitBody": "{{provider}} rechazó la petición: límite de uso alcanzado — se restablece {{resetsAt}}. La ejecución se ha detenido; vuelve a lanzarla o usa Recuperar y reintentar tras el reinicio.",
+    "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. La ejecución se ha detenido; vuelve a lanzarla cuando se restablezca el límite."
   },
   "templates": {
     "emptyState": {
@@ -504,8 +504,8 @@
     },
     "confirmDelete": "¿Eliminar la plantilla \"{{name}}\"?",
     "toasts": {
-      "queuedJobs_one": "{{count}} job encolado desde \"{{name}}\"",
-      "queuedJobs_other": "{{count}} jobs encolados desde \"{{name}}\"",
+      "queuedJobs_one": "{{count}} trabajo encolado desde \"{{name}}\"",
+      "queuedJobs_other": "{{count}} trabajos encolados desde \"{{name}}\"",
       "deleted": "Plantilla \"{{name}}\" eliminada"
     },
     "errors": {

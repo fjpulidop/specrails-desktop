@@ -140,7 +140,7 @@
     },
     "deleteDialog": {
       "title": "¿Eliminar el perfil «{{name}}»?",
-      "description": "Esta acción no se puede deshacer. Los jobs ya lanzados con este perfil conservan su snapshot; los próximos lanzamientos usarán el orden de resolución."
+      "description": "Esta acción no se puede deshacer. Los trabajos ya lanzados con este perfil conservan su snapshot; los próximos lanzamientos usarán el orden de resolución."
     },
     "empty": {
       "title": "Aún no hay perfiles",
@@ -163,12 +163,12 @@
   "usage": {
     "title": "Uso de perfiles",
     "windowLabel": "{{days}}d",
-    "subtitleEmpty": "Jobs lanzados por perfil en la ventana seleccionada.",
-    "subtitle": "Jobs lanzados por perfil en los últimos {{count}} días.",
-    "empty": "Aún no hay jobs con perfil.",
-    "jobsTooltip": "jobs",
-    "jobsLabel_one": "job",
-    "jobsLabel_other": "jobs",
+    "subtitleEmpty": "Trabajos lanzados por perfil en la ventana seleccionada.",
+    "subtitle": "Trabajos lanzados por perfil en los últimos {{count}} días.",
+    "empty": "Aún no hay trabajos con perfil.",
+    "jobsTooltip": "trabajos",
+    "jobsLabel_one": "trabajo",
+    "jobsLabel_other": "trabajos",
     "successRateTooltip": "tasa de éxito",
     "okSuffix": "ok",
     "avgDurationTooltip": "duración media",

@@ -9,6 +9,7 @@ import { Button } from '../../../components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { formatUsd } from '../../../lib/format-usd'
 
 /** Running SUM of every completed turn's REAL usage (from job.turn_done /
  *  job.finalized — never an estimate). */
@@ -303,7 +304,7 @@ export function InteractiveJobComposer({
             <span className="num">
               {t('detail.interactive.liveTotals', {
                 turns: state.totals.num_turns ?? t('completion.unavailable'),
-                cost: state.totals.total_cost_usd?.toFixed(4) ?? t('completion.unavailable'),
+                cost: state.totals.total_cost_usd != null ? formatUsd(state.totals.total_cost_usd) : t('completion.unavailable'),
               })}
             </span>
           )}

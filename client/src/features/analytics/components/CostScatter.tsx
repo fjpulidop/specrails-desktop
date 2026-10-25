@@ -132,7 +132,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
       {costPartiallyUnavailable && (
         <div
           data-testid="scatter-cost-partial-notice"
-          className="mb-2 text-caption text-muted-foreground/80 italic"
+          className="mb-2 text-caption text-muted-foreground"
         >
           {t('scatter.costPartiallyUnavailable', { count: unpricedRuns })}
         </div>

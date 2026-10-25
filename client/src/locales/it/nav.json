@@ -90,12 +90,12 @@
   },
   "costAlerts": {
     "costAlertTitle": "Avviso di costo",
-    "costAlertDescription": "Costo del job ${{cost}} — la soglia è ${{threshold}}",
+    "costAlertDescription": "Costo del job {{cost}} — la soglia è {{threshold}}",
     "dailyBudgetTitle": "Budget giornaliero superato",
-    "dailyBudgetDescription": "Spesi ${{spent}} su ${{budget}} oggi. Coda in pausa.",
+    "dailyBudgetDescription": "Spesi {{spent}} su {{budget}} oggi. Coda in pausa.",
     "desktopBudgetTitle": "Budget giornaliero di Desktop superato",
-    "desktopBudgetDescription": "Spesa totale di Desktop ${{spent}} su ${{budget}}. Coda in pausa.",
-    "bannerMessage": "Budget giornaliero superato — spesi ${{spent}} su ${{budget}}. La coda è in pausa.",
+    "desktopBudgetDescription": "Spesa totale di Desktop {{spent}} su {{budget}}. Coda in pausa.",
+    "bannerMessage": "Budget giornaliero superato — spesi {{spent}} su {{budget}}. La coda è in pausa.",
     "dismiss": "Ignora"
   },
   "errorBoundary": {

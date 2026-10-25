@@ -27,7 +27,7 @@
     "retryRejected": "再試行が拒否されました",
     "retryRejectedWithError": "再試行が拒否されました: {{error}}",
     "retryFailed": "再試行に失敗しました: {{message}}",
-    "skipped": "Contract Layer をスキップしました — チケットはそれなしで保存されました",
+    "skipped": "Contract Layer をスキップしました — スペックはそれなしで保存されました",
     "reason": "理由: {{reason}}",
     "added": "Contract Layer を追加しました · {{title}}"
   },

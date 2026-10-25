@@ -40,9 +40,9 @@
     "openReview": "Open review",
     "viewJob": "View job",
     "toast": {
-      "updated": "Ticket updated",
-      "updateFailed": "Failed to update ticket",
-      "deleteFailed": "Failed to delete ticket"
+      "updated": "Spec updated",
+      "updateFailed": "Failed to update spec",
+      "deleteFailed": "Failed to delete spec"
     },
     "compare": "Compare",
     "compareTooltip": "Compare with another spec",
@@ -54,7 +54,7 @@
     "effort": "Effort",
     "assignee": "Assignee",
     "continueEditing": "Continue Editing",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "spendingLineHint": "Everything spent on this spec so far: total cost · agent turns (a trailing + means some runs did not report turns) · active time · runs by kind (e.g. “1 quick, 3 loops” = one Quick spec generation and three loop runs). Click to open it in Analytics."
   },
   "contractLayer": {
@@ -69,8 +69,8 @@
     "noRails": "No rails available."
   },
   "contextMenu": {
-    "ariaLabel": "Ticket actions",
-    "deleteTicket": "Delete ticket",
+    "ariaLabel": "Spec actions",
+    "deleteTicket": "Delete spec",
     "changeStatus": "Change status",
     "statusOptions": "Status options",
     "setPriority": "Set priority",
@@ -82,14 +82,14 @@
     "postit": "Post-it view"
   },
   "createModal": {
-    "title": "Create Ticket",
-    "titlePlaceholder": "Ticket title...",
+    "title": "Create Spec",
+    "titlePlaceholder": "Spec title...",
     "labelsPlaceholder": "Type to add labels...",
     "create": "Create",
     "creating": "Creating...",
     "toast": {
-      "created": "Ticket created",
-      "createFailed": "Failed to create ticket"
+      "created": "Spec created",
+      "createFailed": "Failed to create spec"
     },
     "description": "Add a spec to the board by hand. It starts in the status you pick and can be refined or moved to a rail later."
   },
@@ -101,7 +101,7 @@
     "empty": "No other specs to compare"
   },
   "spendingLine": {
-    "ariaLabel": "View ticket spending in Analytics",
+    "ariaLabel": "View spec spending in Analytics",
     "turns_one": "{{count}} agent turn",
     "turns_other": "{{count}} agent turns",
     "turnsAtLeast_one": "{{count}}+ agent turn",
@@ -109,15 +109,15 @@
     "active": "{{duration}} active",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimated from the local pricing table — this provider does not report cost natively.",
-    "costUnavailableTooltip": "None of this ticket's invocations exposed cost telemetry.",
+    "costUnavailableTooltip": "None of this spec's invocations exposed cost telemetry.",
     "costPartiallyUnavailableTooltip": "Known cost subtotal only; some invocations did not expose cost telemetry.",
-    "turnsUnavailableTooltip": "Turn telemetry is unavailable for this ticket.",
+    "turnsUnavailableTooltip": "Turn telemetry is unavailable for this spec.",
     "turnsPartiallyUnavailableTooltip": "Known turn subtotal only; some invocations did not expose turn telemetry."
   },
   "toasts": {
-    "newTicket": "New ticket: {{title}}",
-    "newTicketsAdded_one": "{{count}} new ticket added from product discovery",
-    "newTicketsAdded_other": "{{count}} new tickets added from product discovery"
+    "newTicket": "New spec: {{title}}",
+    "newTicketsAdded_one": "{{count}} new spec added from product discovery",
+    "newTicketsAdded_other": "{{count}} new specs added from product discovery"
   },
   "addenda": {
     "title": "Addenda",

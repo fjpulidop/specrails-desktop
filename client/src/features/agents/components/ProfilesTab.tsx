@@ -391,7 +391,7 @@ export function ProfilesTab() {
               <Plus className="w-3.5 h-3.5 mr-1.5" /> {t('profiles.empty.blankButton')}
             </Button>
           </div>
-          <div className="text-caption text-muted-foreground/70 mt-3">
+          <div className="text-caption text-muted-foreground mt-3">
             <Trans
               t={t}
               i18nKey="profiles.empty.migrateExplainer"

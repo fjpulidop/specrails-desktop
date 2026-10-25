@@ -2,7 +2,7 @@
   "feed": {
     "title": "Actividad",
     "emptyTitle": "Aún no hay actividad",
-    "emptyHint": "Los eventos de los jobs aparecerán aquí cuando se ejecuten",
+    "emptyHint": "Los eventos de los trabajos aparecerán aquí cuando se ejecuten",
     "allLoaded": "Toda la actividad cargada",
     "typeStarted": "Iniciado",
     "phaseCommand": "Fase: {{phase}} → {{state}}",
@@ -27,7 +27,7 @@
     "retryRejected": "Reintento rechazado",
     "retryRejectedWithError": "Reintento rechazado: {{error}}",
     "retryFailed": "Reintento fallido: {{message}}",
-    "skipped": "Contract Layer omitido — el ticket se ha guardado sin él",
+    "skipped": "Contract Layer omitido — la spec se ha guardado sin él",
     "reason": "Motivo: {{reason}}",
     "added": "Contract Layer añadido · {{title}}"
   },
@@ -93,7 +93,7 @@
     "description": "SMASH divide esta spec en Sub-Specs más pequeñas que se pueden implementar y revisar de una en una. La spec original pasa a ser su épica."
   },
   "family": {
-    "subSpecsHeader": "Sub-Specs ({{count}})",
+    "subSpecsHeader": "Subspecs ({{count}})",
     "emptySubSpecs": "No hay Sub-Specs. Usa Re-SMASH para regenerarlas.",
     "familyHeader_one": "Familia ({{count}} Sub-Spec)",
     "familyHeader_other": "Familia ({{count}} Sub-Specs)",
@@ -103,7 +103,7 @@
     "priority": "Prioridad: {{p}}"
   },
   "epicChildren": {
-    "header": "Sub-Specs ({{count}})",
+    "header": "Subspecs ({{count}})",
     "empty": "No hay Sub-Specs. Este Epic se vació — usa Re-SMASH para regenerarlas.",
     "step": "· paso {{order}} de {{total}}"
   }

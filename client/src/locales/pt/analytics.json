@@ -32,7 +32,7 @@
     "subtitle": "Para onde vai o gasto: custo, tokens e atividade por modelo, spec e motor.",
     "all": "Tudo",
     "engine": "Motor",
-    "ticketChip": "ticket #{{id}} ·  ✕",
+    "ticketChip": "spec #{{id}} ·  ✕",
     "failedToLoad": "Não foi possível carregar as análises. Tente novamente.",
     "modelChip": "Modelo: {{model}}",
     "clearModelFilter": "Limpar filtro de modelo",
@@ -63,7 +63,8 @@
     "emptyState": "Ainda não há invocações para esta janela de filtros.",
     "segmentTitle": "{{label}}: {{value}}",
     "legendBilled": "Faturado",
-    "legendEstimated": "Estimado"
+    "legendEstimated": "Estimado",
+    "apiEquivalent": "Estimativa equivalente em API"
   },
   "providerCard": {
     "title": "Por fornecedor",
@@ -119,15 +120,15 @@
     "costPartiallyUnavailable_other": "O gráfico inclui apenas execuções com custo; custo indisponível: {{count}}."
   },
   "topTickets": {
-    "title": "Top tickets",
-    "empty": "Sem atividade de tickets neste período.",
+    "title": "Top specs",
+    "empty": "Sem atividade de specs neste período.",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "Sem atribuição",
-    "deletedTicket": "ticket eliminado #{{id}}",
+    "deletedTicket": "spec eliminada #{{id}}",
     "costUnavailable": "custo indisponível",
-    "costUnavailableTooltip": "Nenhuma execução deste ticket forneceu telemetria de custo.",
+    "costUnavailableTooltip": "Nenhuma execução desta spec forneceu telemetria de custo.",
     "costPartiallyUnavailable": "indisponíveis: {{count}}",
-    "costPartiallyUnavailableTooltip": "Apenas o subtotal conhecido; algumas execuções deste ticket têm custo indisponível."
+    "costPartiallyUnavailableTooltip": "Apenas o subtotal conhecido; algumas execuções desta spec têm custo indisponível."
   },
   "table": {
     "title": "Todas as invocações",
@@ -140,7 +141,7 @@
     "aborted": "Abortadas",
     "empty": "Nenhuma invocação corresponde aos filtros atuais.",
     "colSurface": "Superfície",
-    "colTicket": "Ticket",
+    "colTicket": "Spec",
     "colCost": "Custo",
     "colTurns": "Turnos",
     "colTokens": "Tokens",
@@ -230,7 +231,6 @@
     "loading": "A carregar utilização registada…",
     "total": "Eventos registados: {{count}}",
     "last": "Último evento:",
-    "evidence": "Estes contadores, por si só, não comprovam que a compatibilidade anterior possa ser removida.",
     "kinds": {
       "legacy_loop_traversal": "Loops clássicos",
       "queue_manager_slash": "Comandos em fila",
@@ -274,7 +274,7 @@
     "estimatedShare": "{{share}} estimado",
     "unpriced": "{{count}} sem custo",
     "note": "Entregue = chegou à revisão ou além. O custo médio usa entregas com custo registrado (informado pelo provedor, salvo quando marcado como estimado); entregas sem custo são excluídas, nunca contadas como US$ 0. As rodadas vêm dos passos reviewer/fixer do loop. — significa desconhecido.",
-    "escapedUntracked": "Defeitos escapados ainda não são rastreados: vincule um ticket de bug à entrega que o introduziu («Regressão de» no ticket) para começar a contá-los.",
+    "escapedUntracked": "Defeitos escapados ainda não são rastreados: vincule uma spec de bug à entrega que o introduziu («Regressão de» na spec) para começar a contá-los.",
     "columns": {
       "loop": "Loop",
       "delivered": "Entregues",

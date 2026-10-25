@@ -9,6 +9,7 @@ import { useChat, ChatContext } from '../features/chat/hooks/useChat'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import { type DesktopProject } from '../hooks/useDesktop'
 import { FEATURE_CHAT_ENABLED } from '../lib/feature-flags'
+import { formatUsd } from '../lib/format-usd'
 
 interface ProjectLayoutProps {
   project: DesktopProject
@@ -32,15 +33,15 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
       if (msg.type === 'cost_alert') {
         toast.warning(t('costAlerts.costAlertTitle'), {
           description: t('costAlerts.costAlertDescription', {
-            cost: (msg.cost ?? 0).toFixed(4),
-            threshold: (msg.threshold ?? 0).toFixed(2),
+            cost: formatUsd(msg.cost ?? 0),
+            threshold: formatUsd(msg.threshold ?? 0),
           }),
         })
       } else if (msg.type === 'daily_budget_exceeded') {
         toast.error(t('costAlerts.dailyBudgetTitle'), {
           description: t('costAlerts.dailyBudgetDescription', {
-            spent: (msg.dailySpend ?? 0).toFixed(2),
-            budget: (msg.budget ?? 0).toFixed(2),
+            spent: formatUsd(msg.dailySpend ?? 0),
+            budget: formatUsd(msg.budget ?? 0),
           }),
           duration: Infinity,
         })
@@ -48,8 +49,8 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
       } else if (msg.type === 'desktop_daily_budget_exceeded') {
         toast.error(t('costAlerts.desktopBudgetTitle'), {
           description: t('costAlerts.desktopBudgetDescription', {
-            spent: (msg.desktopDailySpend ?? 0).toFixed(2),
-            budget: (msg.desktopBudget ?? 0).toFixed(2),
+            spent: formatUsd(msg.desktopDailySpend ?? 0),
+            budget: formatUsd(msg.desktopBudget ?? 0),
           }),
           duration: Infinity,
         })
@@ -70,8 +71,8 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
           <div className="flex items-center justify-between px-4 py-2 bg-destructive/10 border-b border-destructive/20 text-xs">
             <span className="text-destructive font-medium">
               {t('costAlerts.bannerMessage', {
-                spent: budgetExceeded.dailySpend.toFixed(2),
-                budget: budgetExceeded.budget.toFixed(2),
+                spent: formatUsd(budgetExceeded.dailySpend),
+                budget: formatUsd(budgetExceeded.budget),
               })}
             </span>
             <button

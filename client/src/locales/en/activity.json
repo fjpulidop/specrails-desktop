@@ -27,7 +27,7 @@
     "retryRejected": "Retry rejected",
     "retryRejectedWithError": "Retry rejected: {{error}}",
     "retryFailed": "Retry failed: {{message}}",
-    "skipped": "Contract layer skipped — ticket saved without it",
+    "skipped": "Contract layer skipped — spec saved without it",
     "reason": "Reason: {{reason}}",
     "added": "Contract layer added · {{title}}"
   },
