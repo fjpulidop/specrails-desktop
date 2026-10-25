@@ -81,6 +81,7 @@ import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
 import { useStreamingConversationIds } from '../features/missions/hooks/useAgentLive'
+import { useOpenMission } from '../features/missions/hooks/useOpenMission'
 import { searchMissions, type MissionSearchHit } from '../features/missions/lib/agent-api'
 import {
   groupOrderForMode,
@@ -224,6 +225,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       ? t('palette.sidebar.unpinRight')
       : t('palette.sidebar.pinRightOpen')
   const navigate = useNavigate()
+  const openMission = useOpenMission()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const places = usePlaceHistory()
@@ -338,10 +340,11 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
 
   const handleSelectMission = useCallback((conversationId: string) => {
     setOpen(false)
-    void selectConversation(conversationId)
     // On the board the mission lives in the floating panel — surface it.
-    if (uiMode !== 'agent') openAgentPanel()
-  }, [selectConversation, openAgentPanel, uiMode])
+    if (uiMode !== 'agent') { void selectConversation(conversationId); openAgentPanel() }
+    // Mission mode: also leaves /settings, /docs… so the mission is actually visible.
+    else openMission(conversationId)
+  }, [selectConversation, openAgentPanel, openMission, uiMode])
 
   const handleSelectCommand = useCallback(async (slug: string) => {
     setOpen(false)

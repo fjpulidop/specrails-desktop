@@ -32,9 +32,10 @@ vi.mock('../../hooks/useDesktop', () => ({
 
 vi.mock('../../lib/api', () => ({ getApiBase: () => '/api/projects/p1' }))
 
+const navigate = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
-  return { ...actual, useNavigate: () => vi.fn() }
+  return { ...actual, useNavigate: () => navigate }
 })
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -193,6 +194,22 @@ describe('CommandPalette — missions', () => {
     expect(selectConversation).toHaveBeenCalledWith('c-tetris')
     expect(openAgentPanel).not.toHaveBeenCalled()
     await waitFor(() => expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument())
+  })
+
+  it('leaves /settings for the mission surface in Agent Mode, and stays put on a normal route', async () => {
+    const user = userEvent.setup()
+    const first = render(<CommandPalette />, { route: '/settings' })
+    await openPalette(user)
+    await user.click(screen.getByText('Tetris rewrite'))
+    expect(selectConversation).toHaveBeenCalledWith('c-tetris')
+    expect(navigate).toHaveBeenCalledWith('/')
+    first.unmount()
+
+    navigate.mockClear()
+    render(<CommandPalette />, { route: '/' })
+    await openPalette(user)
+    await user.click(screen.getByText('Tetris rewrite'))
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   it('Enter on the board opens the mission AND the floating panel', async () => {

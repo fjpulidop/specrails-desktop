@@ -1,6 +1,6 @@
 import { isTauri } from '../lib/tauri-shell'
 import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
-import { useMissionSplitViews } from '../features/missions/context/MissionSplitViewsContext'
+import { useOpenMission } from '../features/missions/hooks/useOpenMission'
 import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
 import { announce } from '../lib/announce'
 import { OPEN_PROJECT_SETTINGS_EVENT, type OpenProjectSettingsDetail } from '../lib/app-settings-events'
@@ -850,13 +850,8 @@ export function ArcSidebar({
     })
   }
 
-  const splitViews = useMissionSplitViews()
-  const handleSelectConversation = (id: string) => {
-    if (!splitViews.focusExisting(id)) { splitViews.showPrimary(); void agentChat.selectConversation(id) }
-    // A global route (/loops, /docs) occupies the center in Agent Mode — leave
-    // it so the selected thread is actually visible on the agent surface.
-    if (onGlobalRoute) navigate('/')
-  }
+  // Also leaves a global route (/loops, /docs, /settings) so the thread is visible on the agent surface.
+  const handleSelectConversation = useOpenMission()
 
   const handleDeleteConversation = (id: string) => {
     agentChat.deleteConversation(id).catch(() => {
