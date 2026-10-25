@@ -26,6 +26,7 @@ import i18n from '../../../lib/i18n'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { API_ORIGIN } from '../../../lib/origin'
 
+import { notifyError } from '../../../lib/notify-error'
 export type SmashStage = 'analyzing' | 'identifying' | 'ordering'
 
 const STAGE_LABEL_KEY: Record<SmashStage, string> = {
@@ -61,15 +62,10 @@ async function fireRetry(projectId: string, ticketId: number): Promise<void> {
       toast.loading(i18n.t('activity:smash.retrying'), { id: toastIdFor(ticketId) })
     } else {
       const body = await res.json().catch(() => ({})) as { error?: string; reason?: string }
-      toast.error(
-        body.reason
-          ? i18n.t('activity:smash.couldNotRetryWithReason', { reason: body.reason })
-          : i18n.t('activity:smash.couldNotRetry'),
-        { id: toastIdFor(ticketId) },
-      )
+      notifyError(i18n.t('activity:smash.couldNotRetry'), { detail: body.reason, id: toastIdFor(ticketId) })
     }
   } catch (err) {
-    toast.error(i18n.t('activity:smash.retryFailed', { message: (err as Error).message }), { id: toastIdFor(ticketId) })
+    notifyError(i18n.t('activity:smash.retryFailed'), { detail: (err as Error).message, id: toastIdFor(ticketId) })
   }
 }
 
@@ -88,15 +84,10 @@ async function fireUndo(
       toast.success(i18n.t('activity:smash.undone'), { id: toastIdFor(ticketId), duration: 3000 })
     } else {
       const body = await res.json().catch(() => ({})) as { error?: string; reason?: string }
-      toast.error(
-        body.reason
-          ? i18n.t('activity:smash.undoFailedWithReason', { reason: body.reason })
-          : i18n.t('activity:smash.undoFailed'),
-        { id: toastIdFor(ticketId) },
-      )
+      notifyError(i18n.t('activity:smash.undoFailed'), { detail: body.reason, id: toastIdFor(ticketId) })
     }
   } catch (err) {
-    toast.error(i18n.t('activity:smash.undoFailedWithReason', { reason: (err as Error).message }), { id: toastIdFor(ticketId) })
+    notifyError(i18n.t('activity:smash.undoFailed'), { detail: (err as Error).message, id: toastIdFor(ticketId) })
   }
 }
 
@@ -193,9 +184,9 @@ export function SmashTrackerProvider({ children }: { children: ReactNode }) {
       reason === 'model_error' ? i18n.t('activity:smash.failReason.modelError') :
       reason === 'crashed' ? i18n.t('activity:smash.failReason.crashed') :
       i18n.t('activity:smash.failReason.generic', { reason })
-    toast.error(i18n.t('activity:smash.couldNotComplete'), {
+    notifyError(i18n.t('activity:smash.couldNotComplete'), {
       id: toastIdFor(ticketId),
-      description: human,
+      detail: human,
       action: {
         label: i18n.t('common:actions.retry'),
         onClick: () => void fireRetry(projectId, ticketId),

@@ -36,7 +36,8 @@
     "onReviewNotLaunchable": "Uma spec deste rail aguarda revisão da PR. Decida sobre a PR antes de lançar.",
     "launchRepositoryHasNoCommits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar uma cópia isolada do projeto.",
     "railDeletePrPending": "{{rail}} tem uma decisão de PR pendente — resolva-a antes de remover o rail",
-    "railDeleteLastRail": "Um projeto precisa de pelo menos um rail — este não pode ser removido"
+    "railDeleteLastRail": "Um projeto precisa de pelo menos um rail — este não pode ser removido",
+    "openJob": "Abrir job"
   },
   "railPr": {
     "operation": {
@@ -102,7 +103,7 @@
     "implementationFailed": "Implementação falhou",
     "implementationFailedHint": "A execução de implementação falhou. Abra o log da execução e descarte este cartão antes de relançar.",
     "prFailed": "PR falhou",
-    "prFailedDetail": "PR falhou: {{detail}}",
+    "prFailedDetail": "PR falhou",
     "createDegraded": "Não foi possível publicar a PR — {{detail}}. Tente novamente quando estiver resolvido.",
     "createPr": "Criar PR",
     "createPrTooltip": "→ {{base}}",
@@ -149,7 +150,7 @@
     "commitMissingRetry": "O commit da entrega não está mais na PR. Você pode tentar o push novamente.",
     "prVerifiedWaiting": "Commit {{sha}} verificado · aguardando merge",
     "alreadyResolved": "Já resolvida noutro lugar",
-    "ghFailed": "GitHub CLI falhou: {{detail}}",
+    "ghFailed": "GitHub CLI falhou",
     "actionFailed": "Não foi possível aplicar a decisão da PR",
     "mergedToast": "Merge da PR concluído — specs movidas para Concluído",
     "discardedToast": "PR descartada — specs devolvidas a Specs",
@@ -164,7 +165,7 @@
     "mergeLocalConfirmBody": "As branches entregues serão integradas em {{base}} localmente. As alterações existentes são preservadas; alterações sobrepostas podem precisar de resolução antes da integração.",
     "mergeLocalBlockedDirty": "Não é possível integrar: as alterações locais em {{base}} sobrepõem-se à entrega. Faça commit ou stash dessas alterações e tente novamente.",
     "mergeLocalBlockedBranch": "Não é possível integrar: seu checkout está em {{current}}, não em {{base}}. Mude para {{base}} e tente de novo.",
-    "mergeLocalFailed": "O merge local falhou: {{detail}}",
+    "mergeLocalFailed": "O merge local falhou",
     "mergedLocally": "Integrado em {{base}} localmente",
     "discardStackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho.",
     "reviewChangesRequested": "Alterações solicitadas",

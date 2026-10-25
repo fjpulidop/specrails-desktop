@@ -14,6 +14,7 @@ import { reportBulk } from '../../specs/lib/bulk-report'
 import { moveJiraSpecToStatus } from '../../specs/lib/ticket-status-moves'
 import type { LocalTicket, TicketPriority } from '../../../types'
 
+import { notifyError } from '../../../lib/notify-error'
 /** Terminal outcome of one rail launch (mirrors the dashboard's per-rail launch). */
 export type BulkLaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped' | 'budget' | 'reviewLimit' | 'noCommits'
 
@@ -140,7 +141,7 @@ export function useSpecBulkActions(deps: Deps): { handlers: SpecBulkHandlers; di
     if (tally.failed > 0) parts.push(tDashboard('launchAll.failedCount', { count: tally.failed }))
     const description = parts.length > 0 ? parts.join(' · ') : undefined
     if (tally.launched > 0) toast.success(tDashboard('toasts.launchAllSummary', { count: tally.launched }), description ? { description } : undefined)
-    else toast.error(tDashboard('toasts.launchAllFailed'), description ? { description } : undefined)
+    else notifyError(tDashboard('toasts.launchAllFailed'), description ? { detail: description } : undefined)
   }, [moveToRail, rails, launchRail, t, tDashboard])
 
   const handlers = useMemo<SpecBulkHandlers>(() => ({

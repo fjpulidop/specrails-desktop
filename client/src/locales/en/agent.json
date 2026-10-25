@@ -481,7 +481,14 @@
       "discardedToast": "Restored branch discarded. Your changes are still safe in the stash.",
       "blockedBringBack": "Could not bring the changes back to {{branch}} safely.",
       "notReady": "The restored branch is not ready yet."
-    }
+    },
+    "failed": {
+      "createPr": "Couldn't create the PR",
+      "mergeLocal": "Couldn't integrate locally",
+      "discard": "Couldn't discard the result",
+      "publish": "Couldn't publish the PR"
+    },
+    "moreActions": "More actions"
   },
   "specDraft": {
     "heading": "Spec draft",

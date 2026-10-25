@@ -36,7 +36,8 @@
     "onReviewNotLaunchable": "Eine Spec auf diesem Rail wartet auf die PR-Prüfung. Triff die PR-Entscheidung vor dem Start.",
     "launchRepositoryHasNoCommits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails eine isolierte Kopie des Projekts anlegen kann.",
     "railDeletePrPending": "{{rail}} hat eine ausstehende PR-Entscheidung – triff sie, bevor du die Rail entfernst",
-    "railDeleteLastRail": "Ein Projekt braucht mindestens eine Rail – diese kann nicht entfernt werden"
+    "railDeleteLastRail": "Ein Projekt braucht mindestens eine Rail – diese kann nicht entfernt werden",
+    "openJob": "Job öffnen"
   },
   "railPr": {
     "operation": {
@@ -102,7 +103,7 @@
     "implementationFailed": "Implementierung fehlgeschlagen",
     "implementationFailedHint": "Der Implementierungslauf ist fehlgeschlagen. Öffne das Run-Protokoll und verwirf diese Karte vor einem erneuten Start.",
     "prFailed": "PR fehlgeschlagen",
-    "prFailedDetail": "PR fehlgeschlagen: {{detail}}",
+    "prFailedDetail": "PR fehlgeschlagen",
     "createDegraded": "PR konnte nicht veröffentlicht werden — {{detail}}. Nach Behebung erneut versuchen.",
     "createPr": "PR erstellen",
     "createPrTooltip": "→ {{base}}",
@@ -149,7 +150,7 @@
     "commitMissingRetry": "Der Liefer-Commit ist nicht mehr in der PR enthalten. Der Push kann erneut versucht werden.",
     "prVerifiedWaiting": "Commit {{sha}} verifiziert · wartet auf Merge",
     "alreadyResolved": "Bereits anderweitig erledigt",
-    "ghFailed": "GitHub CLI fehlgeschlagen: {{detail}}",
+    "ghFailed": "GitHub CLI fehlgeschlagen",
     "actionFailed": "PR-Entscheidung konnte nicht angewendet werden",
     "mergedToast": "PR gemergt — Specs nach Fertig verschoben",
     "discardedToast": "PR verworfen — Specs zurück in Specs",
@@ -164,7 +165,7 @@
     "mergeLocalConfirmBody": "Die gelieferten Branches werden lokal in {{base}} zusammengeführt. Vorhandene Änderungen bleiben erhalten; überlappende Änderungen müssen gegebenenfalls vor der Integration aufgelöst werden.",
     "mergeLocalBlockedDirty": "Integration nicht möglich: Lokale Änderungen auf {{base}} überschneiden sich mit der Lieferung. Committe oder stashe diese Änderungen und versuche es erneut.",
     "mergeLocalBlockedBranch": "Integration nicht möglich: dein Checkout steht auf {{current}}, nicht auf {{base}}. Wechsle zu {{base}} und versuche es erneut.",
-    "mergeLocalFailed": "Lokaler Merge fehlgeschlagen: {{detail}}",
+    "mergeLocalFailed": "Lokaler Merge fehlgeschlagen",
     "mergedLocally": "Lokal in {{base}} integriert",
     "discardStackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit.",
     "reviewChangesRequested": "Änderungen angefordert",

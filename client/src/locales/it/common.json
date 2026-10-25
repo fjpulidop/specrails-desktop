@@ -242,7 +242,8 @@
       "inbox": "l’elenco «Da gestire»",
       "specsBoard": "le spec e il backlog",
       "specTimeline": "la cronologia e il passaggio di consegne di una spec",
-      "accessibility": "accessibilità e personalizzazione"
+      "accessibility": "accessibilità e personalizzazione",
+      "prDecision": "le opzioni di consegna"
     }
   },
   "forecast": {

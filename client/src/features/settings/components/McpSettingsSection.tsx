@@ -8,6 +8,7 @@ import { API_ORIGIN } from '../../../lib/origin'
 import { ExternalMcpServersCard } from './ExternalMcpServersCard'
 import { SettingsCard } from './SettingsCard'
 
+import { notifyError } from '../../../lib/notify-error'
 interface McpStatus {
   enabled: boolean
   running: boolean
@@ -122,10 +123,9 @@ export function McpSettingsSection() {
       // re-read the full status to keep the tier + token UI authoritative.
       await loadStatus()
     } catch (e) {
-      toast.error(
-        status.enabled
-          ? t('enable.disableFailed', { message: (e as Error).message })
-          : t('enable.enableFailed', { message: (e as Error).message })
+      notifyError(
+        status.enabled ? t('enable.disableFailed') : t('enable.enableFailed'),
+        { detail: (e as Error).message, retry: () => void toggleEnabled() },
       )
     } finally {
       setBusy(false)
@@ -150,7 +150,7 @@ export function McpSettingsSection() {
         const data = (await r.json()) as { tiers: McpStatus['tiers'] }
         setStatus((prev) => (prev ? { ...prev, tiers: data.tiers } : prev))
       } catch (e) {
-        toast.error(t('tiers.updateFailed', { message: (e as Error).message }))
+        notifyError(t('tiers.updateFailed'), { detail: (e as Error).message })
       } finally {
         setBusy(false)
       }
@@ -165,7 +165,7 @@ export function McpSettingsSection() {
       setCopied('config')
       window.setTimeout(() => setCopied((c) => (c === 'config' ? null : c)), 1500)
     } else {
-      toast.error(t('config.copyFailed'))
+      notifyError(t('config.copyFailed'))
     }
   }, [config, t])
 
@@ -179,10 +179,10 @@ export function McpSettingsSection() {
         setCopied('token')
         window.setTimeout(() => setCopied((c) => (c === 'token' ? null : c)), 1500)
       } else {
-        toast.error(t('config.copyFailed'))
+        notifyError(t('config.copyFailed'))
       }
     } catch {
-      toast.error(t('config.copyFailed'))
+      notifyError(t('config.copyFailed'))
     }
   }, [t])
 
@@ -194,7 +194,7 @@ export function McpSettingsSection() {
       await loadStatus()
       toast.success(t('token.regenerated'))
     } catch (e) {
-      toast.error(t('token.regenerateFailed', { message: (e as Error).message }))
+      notifyError(t('token.regenerateFailed'), { detail: (e as Error).message })
     } finally {
       setBusy(false)
     }

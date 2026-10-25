@@ -1,7 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, RotateCw, X, Crop, Loader2, Globe, AlertTriangle, Monitor, Tablet, Smartphone, Maximize2, Network, Ratio, ChevronRight, Lock, ExternalLink } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '../../../../components/ui/button'
 import { useBrowserCaptureSession } from './useBrowserCaptureSession'
 import { useBrowserViewport } from './useBrowserViewport'
@@ -25,6 +24,7 @@ import {
   type PointerInputCoalescer,
 } from '../../lib/browser-capture'
 
+import { notifyError } from '../../../../lib/notify-error'
 /**
  * Detect Tauri-on-Mac. The overlay is portaled to <body> as `fixed inset-0`, so it
  * covers the custom titlebar and the native traffic-light controls (close/min/max)
@@ -297,7 +297,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
       // sonner toast here is painted under the capture-layer portal and never seen.
       const detail = err instanceof Error ? err.message : String(err)
       setCaptureError(detail)
-      toast.error(t('modal.toast.captureFailed'))
+      notifyError(t('modal.toast.captureFailed'))
     } finally {
       setCapturing(false)
       setSelecting(false)

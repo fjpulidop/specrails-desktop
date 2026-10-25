@@ -242,7 +242,8 @@
       "inbox": "die Liste „Offen“",
       "specsBoard": "Specs und das Backlog",
       "specTimeline": "den Spec-Verlauf und die Übergabe",
-      "accessibility": "Barrierefreiheit und Anpassung"
+      "accessibility": "Barrierefreiheit und Anpassung",
+      "prDecision": "die Lieferoptionen"
     }
   },
   "forecast": {

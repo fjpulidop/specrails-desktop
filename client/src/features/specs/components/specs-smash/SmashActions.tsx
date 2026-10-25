@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { Split } from 'lucide-react'
 
 import { Button } from '../../../../components/ui/button'
@@ -11,6 +10,7 @@ import { SmashConfirmModal, type SmashMode } from './SmashConfirmModal'
 import { isSmashCapable } from '../../../providers/lib/provider-capabilities'
 import type { LocalTicket } from '../../../../types'
 
+import { notifyError } from '../../../../lib/notify-error'
 const CONTRACT_LAYER_MARKER = '## Contract Layer'
 
 export function ticketCanSmash(ticket: LocalTicket, featureFlagOn: boolean): boolean {
@@ -115,7 +115,7 @@ export function SmashActions({
         })
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string; reason?: string }
-          toast.error(
+          notifyError(
             body.reason
               ? t('smash.couldNotStartWithReason', { reason: body.reason })
               : t('smash.couldNotStart'),
@@ -125,7 +125,7 @@ export function SmashActions({
         // Toast lifecycle is driven by SmashTrackerContext from WS events.
         setModalOpen(false)
       } catch (err) {
-        toast.error(t('smash.smashFailed', { message: (err as Error).message }))
+        notifyError(t('smash.smashFailed'), { detail: (err as Error).message })
       } finally {
         setSubmitting(false)
       }
@@ -145,12 +145,12 @@ export function SmashActions({
             method: 'DELETE',
           })
           if (!delRes.ok) {
-            toast.error(t('smash.couldNotDeleteChildren'))
+            notifyError(t('smash.couldNotDeleteChildren'))
             setSubmitting(false)
             return
           }
         } catch (err) {
-          toast.error(t('smash.deleteFailed', { message: (err as Error).message }))
+          notifyError(t('smash.deleteFailed'), { detail: (err as Error).message })
           setSubmitting(false)
           return
         }

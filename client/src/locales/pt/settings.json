@@ -9,7 +9,7 @@
     "title": "Definições do projeto"
   },
   "errors": {
-    "saveFailed": "Falha ao guardar: {{message}}"
+    "saveFailed": "Falha ao guardar"
   },
   "telemetry": {
     "title": "Telemetria do pipeline",
@@ -213,7 +213,7 @@
     "showThenScan": "Depois de o seu telemóvel ler isto, toque em “Ler código do telemóvel” e aponte a câmara para o telemóvel.",
     "scanAnswer": "Ler código do telemóvel",
     "scanning": "Aponte a câmara para o código no seu telemóvel…",
-    "cameraFailed": "Câmara indisponível: {{message}}",
+    "cameraFailed": "Câmara indisponível",
     "notAnswer": "Esse QR não é uma resposta de emparelhamento.",
     "connecting": "A ligar…",
     "paired": "✓ Emparelhado",
@@ -258,7 +258,7 @@
     "loading": "Carregando canal…",
     "scope": "Aplica-se ao Specrails Desktop e ao framework specrails-core.",
     "saved": "Canal de atualização: {{channel}}",
-    "saveFailed": "Não foi possível alterar o canal de atualização: {{message}}",
+    "saveFailed": "Não foi possível alterar o canal de atualização",
     "latest": {
       "label": "Mais recente",
       "description": "Cada versão assim que é publicada. Novidades e correções primeiro."
@@ -278,7 +278,7 @@
     "autoHint": "Verificação automática ao iniciar e a cada 6 horas.",
     "unavailable": "Atualizações estão disponíveis apenas no app desktop.",
     "toastUpToDate": "O Specrails Desktop está atualizado",
-    "toastCheckFailed": "Falha ao verificar atualizações: {{message}}",
+    "toastCheckFailed": "Falha ao verificar atualizações",
     "stableUnavailable": "Nenhuma versão foi promovida ao canal Estável ainda. Mude para Mais recente ou tente novamente mais tarde."
   },
   "projectDialog": {

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { repositoryApiBase } from '../../projects/lib/project-repositories'
 import { modelsForProvider } from '../../loops/lib/loop-run-models'
 import { isLocalEngineId, providerLabel } from '../../providers/lib/provider-capabilities'
@@ -9,6 +8,7 @@ import { Input } from '../../../components/ui/input'
 import { ProviderTabs } from './ProviderTabs'
 import { SettingsSelect } from './SettingsSelect'
 
+import { notifyError } from '../../../lib/notify-error'
 /**
  * Spec triage engine (launch-triage): the `triage` entry of the project's
  * loop-role engines (`GET/PUT /agent-runtime/loop-roles`). Absent ⇒ the
@@ -70,7 +70,7 @@ export function useTriageEngine(projectId: string): { engine: RoleEngine | null 
     } catch (err) {
       current.current = previous
       setRoles(previous)
-      toast.error(err instanceof Error && err.message ? err.message : t('triageEngine.saveFailed'))
+      notifyError(t('triageEngine.saveFailed'), { detail: err instanceof Error ? err.message : undefined })
     } finally { setSaving(false) }
   }
 

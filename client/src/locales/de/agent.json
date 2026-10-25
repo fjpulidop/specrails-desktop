@@ -481,7 +481,14 @@
       "discardedToast": "Wiederhergestellter Branch verworfen. Deine Änderungen sind weiterhin sicher im Stash.",
       "blockedBringBack": "Die Änderungen konnten nicht sicher nach {{branch}} zurückgeholt werden.",
       "notReady": "Der wiederhergestellte Branch ist noch nicht bereit."
-    }
+    },
+    "failed": {
+      "createPr": "Der PR konnte nicht erstellt werden",
+      "mergeLocal": "Lokale Integration fehlgeschlagen",
+      "discard": "Das Ergebnis konnte nicht verworfen werden",
+      "publish": "Der PR konnte nicht veröffentlicht werden"
+    },
+    "moreActions": "Weitere Aktionen"
   },
   "specDraft": {
     "heading": "Spec-Entwurf",

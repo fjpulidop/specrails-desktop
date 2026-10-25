@@ -58,10 +58,11 @@ export function notifyError(title: string, opts: NotifyErrorOptions = {}): strin
   const recovery = retry
     ? { label: i18n.t('common:actions.retry'), onClick: retry }
     : action
-  return toast.error(title, {
+  const options = {
     ...(description !== undefined ? { description } : {}),
     ...(recovery ? { action: recovery } : {}),
     ...(duration !== undefined ? { duration } : {}),
     ...(id !== undefined ? { id } : {}),
-  })
+  }
+  return Object.keys(options).length > 0 ? toast.error(title, options) : toast.error(title)
 }

@@ -77,6 +77,7 @@ import { toast } from 'sonner'
 import * as agentApi from '../../lib/agent-api'
 import type { AgentPrDecisionEnvelope } from '../../lib/agent-api'
 import { AgentPrDecisionCard } from '../AgentPrDecisionCard'
+import { getAction } from './pr-card-actions'
 
 const SHA = 'c'.repeat(40)
 const stash = (over: Partial<NonNullable<AgentPrDecisionEnvelope['localStash']>> = {}): NonNullable<AgentPrDecisionEnvelope['localStash']> => ({
@@ -221,7 +222,7 @@ describe('AgentPrDecisionCard — integrate toasts with local changes', () => {
   const integrate = async (localChanges: unknown) => {
     global.fetch = vi.fn(async () => httpRes(200, { ok: true, decision: 'merged', merged: true, local: true, localChanges })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env({ decision: 'on_review', statusCode: 'ready_for_review' })} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Integrate locally' }))
+    fireEvent.click(getAction('Integrate locally'))
     await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-merge-local-confirm-btn')) })
   }
 

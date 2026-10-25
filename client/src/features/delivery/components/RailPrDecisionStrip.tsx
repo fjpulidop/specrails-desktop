@@ -18,6 +18,7 @@ import { LoopChip, useLoopLabel } from './LoopChip'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 
+import { notifyError } from '../../../lib/notify-error'
 interface RailPrDecisionStripProps {
   decision: RailPrStateSnapshot
   density: 'normal' | 'compact'
@@ -173,20 +174,20 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         if (res.error === 'stale_decision') {
           toast.info(t('railPr.alreadyResolved'))
         } else {
-          toast.error(t('railPr.actionFailed'), { description: res.detail ?? res.error })
+          notifyError(t('railPr.actionFailed'), { detail: res.detail ?? res.error })
         }
         return
       }
       if (res.status === 502) {
         if (res.error === 'merge_failed') {
-          toast.error(t('railPr.mergeLocalFailed', { detail: res.detail ?? '' }))
+          notifyError(t('railPr.mergeLocalFailed'), { detail: res.detail ?? '' })
           return
         }
-        toast.error(t('railPr.ghFailed', { detail: res.detail ?? res.error ?? '' }))
+        notifyError(t('railPr.ghFailed'), { detail: res.detail ?? res.error ?? '' })
         return
       }
       if (!res.ok) {
-        toast.error(t('railPr.actionFailed'))
+        notifyError(t('railPr.actionFailed'))
         return
       }
       if (res.snapshot && res.snapshotApplication && res.snapshotApplication !== 'accepted') {
@@ -227,14 +228,14 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       // delivery failure) — say so, carrying the underlying git/gh detail when
       // the server relayed one; the broadcast flips the strip to Retry.
       if (action === 'create-pr' && res.decision === 'pr_failed') {
-        toast.error(res.detail ? t('railPr.prFailedDetail', { detail: res.detail }) : t('railPr.prFailed'))
+        notifyError(t('railPr.prFailed'), { detail: res.detail })
         return
       }
       // …or land on a DEGRADED pr_draft (pushed / local-only — no PR exists):
       // surface WHY (the git stderr detail) so the user knows what to fix
       // before hitting Retry instead of a silent pill flip.
       if (action === 'create-pr' && res.decision === 'pr_draft' && !res.prUrl && res.detail) {
-        toast.error(t('railPr.createDegraded', { detail: res.detail }))
+        notifyError(t('railPr.createDegraded', { detail: res.detail }))
       }
       if (action === 'poll-merge' && res.deliveryVerified === false) {
         toast.warning(t('railPr.commitMissingRetry'))

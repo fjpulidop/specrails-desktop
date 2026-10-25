@@ -56,6 +56,7 @@ import { MODAL_FLOAT_VIEWPORT_MIN } from '../../../lib/viewport'
 import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../../../components/ui/ResizeGrips'
 
+import { notifyError } from '../../../lib/notify-error'
 const COMPARE_VIEWPORT_MIN = MODAL_FLOAT_VIEWPORT_MIN
 const DRAG_SNAP_THRESHOLD = 0.20 // 20% of viewport width
 
@@ -329,7 +330,7 @@ export function TicketDetailModal({
       toast.success(t('detailModal.toast.updated'))
       onClose()
     } else {
-      toast.error(t('detailModal.toast.updateFailed'))
+      notifyError(t('detailModal.toast.updateFailed'))
     }
   }, [title, description, priority, labels, repositoryIds, regressionOf, nonGoals, ticket, onSave, onClose, t])
 
@@ -344,7 +345,7 @@ export function TicketDetailModal({
     }
     setDeleting(false)
     if (!ok) {
-      toast.error(t('detailModal.toast.deleteFailed'))
+      notifyError(t('detailModal.toast.deleteFailed'))
       return
     }
     onClose()

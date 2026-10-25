@@ -1,5 +1,4 @@
 import { PageHeader } from '../../../components/ui/page-header'
-import { toast } from 'sonner'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { isPluginWindowRoute, openPluginWindow } from '../lib/plugin-windows'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
@@ -37,6 +36,7 @@ import type { ConnectionState } from '../../integrations/lib/jira-api'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { EmptyState } from '../../../components/ui/empty-state'
 
+import { notifyError } from '../../../lib/notify-error'
 type ScopeFilter = 'all' | 'global' | 'project'
 type Provider = 'codex' | 'claude'
 type HeadroomPhase = 'idle' | 'installing' | 'installed' | 'starting-proxy' | 'active' | 'failed'
@@ -440,7 +440,7 @@ export default function PluginsPage({ onWindowOpened, inDialog = false }: { onWi
           title={t('plugins.page.title')}
           description={t('plugins.page.subtitle')}
           actions={<>
-          {!isPluginWindowRoute() && <button type="button" onClick={() => void openPluginWindow().then(() => onWindowOpened?.()).catch((error: unknown) => toast.error(t('plugins.page.openWindowFailed'), { description: error instanceof Error ? error.message : undefined }))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {!isPluginWindowRoute() && <button type="button" onClick={() => void openPluginWindow().then(() => onWindowOpened?.()).catch((error: unknown) => notifyError(t('plugins.page.openWindowFailed'), { detail: error instanceof Error ? error.message : undefined }))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />{t('plugins.page.openWindow')}
           </button>}
           <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs">

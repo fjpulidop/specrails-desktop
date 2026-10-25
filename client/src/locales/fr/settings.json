@@ -9,7 +9,7 @@
     "title": "Paramètres du projet"
   },
   "errors": {
-    "saveFailed": "Échec de l'enregistrement : {{message}}"
+    "saveFailed": "Échec de l'enregistrement"
   },
   "telemetry": {
     "title": "Télémétrie du pipeline",
@@ -213,7 +213,7 @@
     "showThenScan": "Une fois que votre téléphone l'a scanné, appuyez sur « Scanner le code du téléphone » et pointez la caméra vers votre téléphone.",
     "scanAnswer": "Scanner le code du téléphone",
     "scanning": "Pointez la caméra vers le code sur votre téléphone…",
-    "cameraFailed": "Caméra indisponible : {{message}}",
+    "cameraFailed": "Caméra indisponible",
     "notAnswer": "Ce QR code n'est pas une réponse d'appairage.",
     "connecting": "Connexion…",
     "paired": "✓ Appairé",
@@ -258,7 +258,7 @@
     "loading": "Chargement du canal…",
     "scope": "S'applique à Specrails Desktop et au framework specrails-core.",
     "saved": "Canal de mise à jour : {{channel}}",
-    "saveFailed": "Impossible de changer le canal de mise à jour : {{message}}",
+    "saveFailed": "Impossible de changer le canal de mise à jour",
     "latest": {
       "label": "Dernière",
       "description": "Chaque version dès sa sortie. Nouveautés et correctifs en premier."
@@ -278,7 +278,7 @@
     "autoHint": "Vérification automatique au lancement et toutes les 6 heures.",
     "unavailable": "Les mises à jour ne sont disponibles que dans l'app de bureau.",
     "toastUpToDate": "Specrails Desktop est à jour",
-    "toastCheckFailed": "Échec de la recherche de mises à jour : {{message}}",
+    "toastCheckFailed": "Échec de la recherche de mises à jour",
     "stableUnavailable": "Aucune version n'a encore été promue sur le canal Stable. Passez à Dernière ou réessayez plus tard."
   },
   "projectDialog": {

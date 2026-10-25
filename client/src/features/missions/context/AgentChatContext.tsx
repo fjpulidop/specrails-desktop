@@ -16,7 +16,6 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { toast } from 'sonner'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { FEATURE_AGENT_CHAT } from '../../../lib/feature-flags'
 import { preferredProvider } from '../../providers/lib/provider-capabilities'
@@ -59,6 +58,7 @@ import { deliveryAttention, mergeAttention, type MissionAttentionKind } from '..
 import { useMissionRunAttention } from './MissionExtensionsContext'
 import { hasUnsettledPrCard, railStateDiffersFromCard, usePrCardResync } from './usePrCardResync'
 
+import { notifyError } from '../../../lib/notify-error'
 export type AgentVisibility = 'hidden' | 'open' | 'minimized'
 export type PrDecisionSnapshotApplication = 'accepted' | 'stale' | 'untracked'
 
@@ -436,6 +436,12 @@ const KNOWN_TURN_ERRORS: ReadonlyArray<readonly [string, string]> = [
 ]
 
 /** A Core failure the user can act on reads in their language; others keep the server text. */
+/** Toast form of a turn failure: always a localized headline; the server's own text stays secondary. */
+export function describeAgentErrorToast(msg: Pick<WsAgentMsg, 'error' | 'code' | 'provider'>): { title: string; detail?: string } {
+  const explained = msg.code === 'policy_unenforceable' || (!!msg.error && KNOWN_TURN_ERRORS.some(([text]) => msg.error!.includes(text)))
+  return explained ? { title: describeAgentError(msg) } : { title: i18n.t('agent:turnErrors.generic'), detail: msg.error || undefined }
+}
+
 export function describeAgentError(msg: Pick<WsAgentMsg, 'error' | 'code' | 'provider'>): string {
   if (msg.code === 'policy_unenforceable') {
     const provider = msg.provider ? msg.provider.charAt(0).toUpperCase() + msg.provider.slice(1) : ''
@@ -948,7 +954,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
           turnTools: p.liveTools.length ? p.liveTools : p.turnTools,
         }))
         const err = describeAgentError(msg)
-        if (!fixedConversationId) toast.error(err)
+        if (!fixedConversationId) { const { title, detail } = describeAgentErrorToast(msg); notifyError(title, { detail }) }
         // Also surface it inline so it's visible in the conversation.
         if (isActive) {
           setMessages((m) => [
@@ -1515,7 +1521,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         patchLive(conv.id, (p) => ({ ...p, isStreaming: false, streamingText: '', liveTools: [] }))
         setMessages((current) => current.filter((message) => message.id !== userBubble.id))
       }
-      toast.error(i18n.t('agent:errors.sendFailed'), { description: e instanceof Error ? e.message : undefined })
+      notifyError(i18n.t('agent:errors.sendFailed'), { detail: e instanceof Error ? e.message : undefined })
       return { accepted: false, conversationId: conv.id }
     }
   }, [active, materializeDraftConversation, patchLive, liveStore, reconcileActiveTurns])
@@ -1530,7 +1536,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       // the provider stopped while it can still spend tokens and mutate state.
       patchLive(active.id, () => null)
     } catch (err) {
-      toast.error(i18n.t('agent:errors.stopFailed'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(i18n.t('agent:errors.stopFailed'), { detail: err instanceof Error ? err.message : undefined })
     }
   }, [active, patchLive])
 
@@ -1787,7 +1793,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       await enableMcp()
       await refreshMcp()
     } catch (err) {
-      toast.error(i18n.t('agent:errors.mcpEnableFailed'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(i18n.t('agent:errors.mcpEnableFailed'), { detail: err instanceof Error ? err.message : undefined })
     } finally {
       setEnablingMcp(false)
     }

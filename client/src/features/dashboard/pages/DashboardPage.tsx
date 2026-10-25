@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   DndContext,
   DragOverlay,
@@ -564,7 +565,7 @@ export default function DashboardPage() {
       } else {
         const data = await res.json().catch(() => ({ error: '' })) as { error?: string; maxRails?: number }
         if (data.error === 'rail_limit_reached') {
-          toast.error(t('toasts.railLimitReached', { max: data.maxRails ?? MAX_RAILS }))
+          notifyError(t('toasts.railLimitReached', { max: data.maxRails ?? MAX_RAILS }))
           return
         }
       }
@@ -610,9 +611,9 @@ export default function DashboardPage() {
       // and say exactly which guard refused the delete.
       const body = (await res.json().catch(() => null)) as { error?: unknown } | null
       const code = typeof body?.error === 'string' ? body.error : null
-      if (code === 'rail_active') toast.error(t('toasts.railRunningStopFirst', { rail: rail.label }))
-      else if (code === 'pr_decision_pending') toast.error(t('toasts.railDeletePrPending', { rail: rail.label }))
-      else if (res.status === 400 || code === 'cannot_delete_last_rail') toast.error(t('toasts.railDeleteLastRail'))
+      if (code === 'rail_active') notifyError(t('toasts.railRunningStopFirst', { rail: rail.label }))
+      else if (code === 'pr_decision_pending') notifyError(t('toasts.railDeletePrPending', { rail: rail.label }))
+      else if (res.status === 400 || code === 'cannot_delete_last_rail') notifyError(t('toasts.railDeleteLastRail'))
       else notifyError(t('toasts.railDeleteFailed'), { retry: () => void handleDeleteRail(railId) })
     } catch {
       // Unknown server state: keep the rail visible until a successful retry
@@ -641,6 +642,12 @@ export default function DashboardPage() {
   // ── WebSocket: listen for rail.job_completed to reset rail status ────────────
   const activeProjectIdRef = useRef(activeProjectId)
   useEffect(() => { activeProjectIdRef.current = activeProjectId }, [activeProjectId])
+  // Recovery links of the rail toasts read these through refs: the WS handler must not re-register on every route change.
+  const navigate = useNavigate()
+  const navigateRef = useRef(navigate)
+  navigateRef.current = navigate
+  const railPrDecisionsRef = useRef(railPrDecisions)
+  railPrDecisionsRef.current = railPrDecisions
 
   const handleRailWsMessage = useCallback((msg: unknown) => {
     const m = msg as {
@@ -649,6 +656,9 @@ export default function DashboardPage() {
       mode?: string; jobId?: string; loopRunId?: string; active?: boolean
     }
     if (m.projectId !== activeProjectIdRef.current) return
+    const openJobAction = (jobId: string | undefined) => jobId
+      ? { label: t('toasts.openJob'), onClick: () => navigateRef.current(`/jobs/${encodeURIComponent(jobId)}`) }
+      : undefined
     if (m.type === 'runtime.continuation') {
       if (m.railIndex == null) return
       const railId = railIdFromIndex(m.railIndex)
@@ -722,7 +732,13 @@ export default function DashboardPage() {
       if (typeof ticketId === 'number' && state) {
         setRailWorktrees((prev) => applyWorktreeProgress(prev, idx, ticketId, state))
         if (state === 'needs-review') {
-          toast.error(t('toasts.railWorktreeNeedsReview', { n: idx + 1, ticket: ticketId }))
+          let reviewPath: string | null = null
+          for (const d of railPrDecisionsRef.current.values()) {
+            if (d.ticketIds.includes(ticketId)) { reviewPath = `/review/${encodeURIComponent(d.prDeliveryId)}`; break }
+          }
+          notifyError(t('toasts.railWorktreeNeedsReview', { n: idx + 1, ticket: ticketId }), {
+            ...(reviewPath ? { action: { label: t('railPr.openReview'), onClick: () => navigateRef.current(reviewPath!) } } : {}),
+          })
         }
       }
       return
@@ -737,7 +753,7 @@ export default function DashboardPage() {
       if (m.status === 'completed') {
         toast.info(t('toasts.railCompleted', { n: targetIndex + 1 }))
       } else if (m.status === 'failed' || m.status === 'zombie_terminated') {
-        toast.error(t('toasts.railFailed', { n: targetIndex + 1 }))
+        notifyError(t('toasts.railFailed', { n: targetIndex + 1 }), { action: openJobAction(m.jobId ?? m.loopRunId) })
       } else {
         toast.info(t('toasts.railEnded', { n: targetIndex + 1, status: m.status ?? 'finished' }))
       }
@@ -751,7 +767,7 @@ export default function DashboardPage() {
       if (m.status === 'success') {
         toast.info(t('toasts.railCompleted', { n: targetIndex + 1 }))
       } else if (m.status === 'failed' || m.status === 'max-iterations') {
-        toast.error(t('toasts.railFailed', { n: targetIndex + 1 }))
+        notifyError(t('toasts.railFailed', { n: targetIndex + 1 }), { action: openJobAction(m.jobId ?? m.loopRunId) })
       } else {
         toast.info(t('toasts.railEnded', { n: targetIndex + 1, status: m.status ?? 'finished' }))
       }
@@ -959,7 +975,7 @@ export default function DashboardPage() {
     const sourceRail = rails.find((r) => r.ticketIds.includes(ticketId))
     if (!sourceRail) return
     if (sourceRail.status === 'running') {
-      toast.error(t('toasts.railRunningStopFirst', { rail: sourceRail.label }))
+      notifyError(t('toasts.railRunningStopFirst', { rail: sourceRail.label }))
       return
     }
     updateRails((prev) => prev.map((r) =>
@@ -1123,7 +1139,7 @@ export default function DashboardPage() {
       else if (destContainer === 'specs') {
         const sourceRail = rails.find((r) => r.id === sourceContainer)
         if (sourceRail?.status === 'running') {
-          toast.error(t('toasts.railRunningStopFirst', { rail: sourceRail.label }))
+          notifyError(t('toasts.railRunningStopFirst', { rail: sourceRail.label }))
           return
         }
         updateRails((prev) =>
@@ -1252,7 +1268,7 @@ export default function DashboardPage() {
     if (isRolesEngine(aiEngine)) {
       const current = rails.find((r) => r.id === railId)
       if (current && (current.mode === 'freestyle' || current.selectedLoopId === 'factory:freestyle')) {
-        toast.error(t('rail.rolesNoFreestyle'))
+        notifyError(t('rail.rolesNoFreestyle'))
         return
       }
       updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, aiEngine, profileName: null } : r)))
@@ -1364,7 +1380,7 @@ export default function DashboardPage() {
         if (!projectId) return
         void createInitialCommit(projectId).then((result) => {
           if (result.ok) toast.success(t('common:initialCommit.createdRelaunch'))
-          else toast.error(initialCommitErrorMessage(t, result.code))
+          else notifyError(initialCommitErrorMessage(t, result.code))
         })
       },
     }
@@ -1396,7 +1412,7 @@ export default function DashboardPage() {
     )
     const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode, rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open')), recommendedLoopId)
     if (!launchLoopId) {
-      if (!silent) toast.error(t('railControls.pickLoop'))
+      if (!silent) notifyError(t('railControls.pickLoop'))
       return 'failed'
     }
     // Hybrid per-role engines: the server resolves every role itself, so the
@@ -1488,24 +1504,24 @@ export default function DashboardPage() {
         // Review WIP limit reached: nothing spawned; decide a delivery first.
         const wip = res.status === 409 ? readReviewWipRejection(data) : null
         if (wip) {
-          if (!silent) toast.error(reviewWipRejectionMessage(t, wip), { description: reviewWipActionMessage(t), duration: 10000 })
+          if (!silent) notifyError(reviewWipRejectionMessage(t, wip), { detail: reviewWipActionMessage(t), duration: 10000 })
           return 'reviewLimit'
         }
         // Unborn HEAD in a repository the launch must isolate: nothing spawned.
         if (res.status === 409 && data.error === 'repository_has_no_commits') {
-          if (!silent) toast.error(t('toasts.launchRepositoryHasNoCommits'), { duration: 10000, action: initialCommitAction() })
+          if (!silent) notifyError(t('toasts.launchRepositoryHasNoCommits'), { duration: 10000, action: initialCommitAction() })
           return 'noCommits'
         }
         // The active Core runs only definitions (Core 7): the loop must be converted.
         if (res.status === 409 && data.error === 'legacy_engine_unavailable') {
-          if (!silent) toast.error(t('toasts.launchLegacyEngineUnavailable'), { duration: 10000 })
+          if (!silent) notifyError(t('toasts.launchLegacyEngineUnavailable'), { duration: 10000 })
           return 'failed'
         }
         // Per-rail spec cap: the rail carries more specs than a single launch
         // may take — the user must split them across rails (max 3 per rail).
         if (res.status === 400 && data.error === 'rail_ticket_cap_exceeded') {
           if (!silent) {
-            toast.error(t('toasts.launchTicketCap', {
+            notifyError(t('toasts.launchTicketCap', {
               max: (data as { max?: number }).max ?? 3,
               count: (data as { ticketCount?: number }).ticketCount ?? 0,
             }))
@@ -1518,8 +1534,8 @@ export default function DashboardPage() {
         const targetCodes = ['invalid_target_pr', 'target_pr_requires_pr_mode', 'target_pr_not_found', 'target_pr_not_open', 'target_pr_fork', 'target_pr_invalid', 'target_pr_unfetchable']
         if (typeof data.error === 'string' && targetCodes.includes(data.error)) {
           if (!silent) {
-            toast.error(t(`targetPr.errors.${data.error}`), {
-              description: (data as { detail?: string }).detail,
+            notifyError(t(`targetPr.errors.${data.error}`), {
+              detail: (data as { detail?: string }).detail,
               duration: 10000,
             })
           }
@@ -1628,7 +1644,7 @@ export default function DashboardPage() {
     if (launched > 0) {
       toast.success(t('toasts.launchAllSummary', { count: launched }), description || noCommits > 0 ? { description, ...action } : undefined)
     } else {
-      toast.error(t('toasts.launchAllFailed'), description || noCommits > 0 ? { description, ...action } : undefined)
+      notifyError(t('toasts.launchAllFailed'), { detail: description, ...(noCommits > 0 ? action : { retry: () => void runLaunchAll() }) })
     }
   }
 
@@ -1741,7 +1757,8 @@ export default function DashboardPage() {
             onTicketClick={setDetailTicket}
             onTicketCreated={(ticket) => { setDetailTicket(ticket); refetch() }}
             onTicketDelete={(id) => {
-              void Promise.resolve(deleteTicket(id)).then((ok) => { if (!ok) toast.error(t('errors.deleteFailed')) })
+              const attemptDelete = (): void => { void Promise.resolve(deleteTicket(id)).then((ok) => { if (!ok) notifyError(t('errors.deleteFailed'), { retry: attemptDelete }) }) }
+              attemptDelete()
             }}
             onTicketStatusChange={(id, status) => { void updateTicketStatus(id, status) }}
             onTicketPriorityChange={(id, priority) => { void updateTicketPriority(id, priority) }}

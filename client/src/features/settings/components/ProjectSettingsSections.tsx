@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../
 import { Skeleton } from '../../../components/ui/skeleton'
 import { HelpHint } from '../../../components/HelpHint'
 
+import { notifyError } from '../../../lib/notify-error'
 // ─── Project settings sections ────────────────────────────────────────────────
 // Self-contained cards (own fetch + save against the ACTIVE project's API base)
 // shared by the /settings route page and the Agent-Mode ProjectSettingsDialog.
@@ -73,7 +74,7 @@ export function ProjectTelemetrySection() {
       toast.success(enabled ? t('telemetry.enabled') : t('telemetry.disabled'))
     } catch (err) {
       setTelemetryEnabled(prev)
-      toast.error(t('telemetry.saveFailed'), { description: (err as Error).message })
+      notifyError(t('telemetry.saveFailed'), { detail: (err as Error).message, retry: () => void saveToggle(enabled) })
     } finally {
       setIsSaving(false)
     }
@@ -156,7 +157,7 @@ export function ProjectIntegrationBranchSection() {
       toast.success(t('integrationBranch.saved'))
       await reload()
     } catch (err) {
-      toast.error(t('integrationBranch.saveFailed'), { description: (err as Error).message })
+      notifyError(t('integrationBranch.saveFailed'), { detail: (err as Error).message, retry: () => void save() })
     } finally {
       setIsSaving(false)
     }
@@ -390,7 +391,7 @@ export function ProjectWorktreeEnvSection() {
       // Saved names are re-warmed on the server; refresh their statuses.
       void loadStatus('GET')
     } catch (err) {
-      toast.error(t('worktreeEnv.saveFailed'), { description: (err as Error).message })
+      notifyError(t('worktreeEnv.saveFailed'), { detail: (err as Error).message, retry: () => void save() })
     } finally {
       setIsSaving(false)
     }
@@ -623,7 +624,7 @@ export function ProjectPrePromptsSection() {
       setPrePrompt(savedValue)
       toast.success(savedValue.trim() === '' ? t('prePrompt.cleared') : t('prePrompt.saved'))
     } catch (err) {
-      toast.error(t('prePrompt.saveFailed'), { description: (err as Error).message })
+      notifyError(t('prePrompt.saveFailed'), { detail: (err as Error).message, retry: () => void savePrePrompt() })
     } finally {
       setIsSavingPrePrompt(false)
     }
@@ -643,7 +644,7 @@ export function ProjectPrePromptsSection() {
       setFreestylePrePrompt(savedValue)
       toast.success(savedValue.trim() === '' ? t('freestylePrePrompt.resetToDefault') : t('freestylePrePrompt.saved'))
     } catch (err) {
-      toast.error(t('freestylePrePrompt.saveFailed'), { description: (err as Error).message })
+      notifyError(t('freestylePrePrompt.saveFailed'), { detail: (err as Error).message, retry: () => void saveFreestylePrePrompt() })
     } finally {
       setIsSavingFreestylePrePrompt(false)
     }
@@ -713,7 +714,7 @@ export function ProjectBudgetSection() {
       if (!res.ok) throw new Error('Failed to save')
       toast.success(okMsg)
     } catch (err) {
-      toast.error(t(failKey), { description: (err as Error).message })
+      notifyError(t(failKey), { detail: (err as Error).message, retry: () => void savePatch(body, okMsg, failKey, setSaving) })
     } finally {
       setSaving(false)
     }
@@ -722,7 +723,7 @@ export function ProjectBudgetSection() {
   function parseAmount(raw: string): number | null | undefined {
     const parsed = raw.trim() === '' ? null : parseFloat(raw)
     if (parsed !== null && (isNaN(parsed) || parsed <= 0)) {
-      toast.error(t('budget.invalidNumber'))
+      notifyError(t('budget.invalidNumber'))
       return undefined
     }
     return parsed
@@ -828,7 +829,7 @@ export function ProjectReviewWipSection() {
   async function save(raw: string) {
     const limit = parseReviewWipLimitInput(raw)
     if (limit === undefined) {
-      toast.error(t('reviewWip.invalid', { max: REVIEW_WIP_LIMIT_MAX }))
+      notifyError(t('reviewWip.invalid', { max: REVIEW_WIP_LIMIT_MAX }))
       return
     }
     setSaving(true)
@@ -847,7 +848,7 @@ export function ProjectReviewWipSection() {
       notifyReviewWipLimitChanged(limit)
       toast.success(limit === null ? t('reviewWip.removed') : t('reviewWip.saved', { count: limit }))
     } catch (err) {
-      toast.error(t('reviewWip.saveFailed'), { description: (err as Error).message })
+      notifyError(t('reviewWip.saveFailed'), { detail: (err as Error).message, retry: () => void save(raw) })
     } finally {
       setSaving(false)
     }
@@ -925,7 +926,7 @@ export function ProjectAgentAuditSection() {
   async function save() {
     const parsed = Number(days.trim())
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > AUDIT_RETENTION_MAX_DAYS) {
-      toast.error(t('agentAudit.invalidDays', { max: AUDIT_RETENTION_MAX_DAYS }))
+      notifyError(t('agentAudit.invalidDays', { max: AUDIT_RETENTION_MAX_DAYS }))
       return
     }
     setIsSaving(true)
@@ -941,7 +942,7 @@ export function ProjectAgentAuditSection() {
       }
       toast.success(t('agentAudit.saved', { count: parsed }))
     } catch (err) {
-      toast.error(t('agentAudit.saveFailed'), { description: (err as Error).message })
+      notifyError(t('agentAudit.saveFailed'), { detail: (err as Error).message, retry: () => void save() })
     } finally {
       setIsSaving(false)
     }

@@ -242,7 +242,8 @@
       "inbox": "“待处理”列表",
       "specsBoard": "规格与待办列表",
       "specTimeline": "规格时间线与交接",
-      "accessibility": "无障碍与个性化"
+      "accessibility": "无障碍与个性化",
+      "prDecision": "交付选项"
     }
   },
   "forecast": {

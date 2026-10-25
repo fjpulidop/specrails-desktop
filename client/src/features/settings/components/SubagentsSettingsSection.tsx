@@ -14,6 +14,7 @@ import { providerLabel, reasoningEffortsForProvider, defaultReasoningEffortForPr
 import { modelsForProvider, defaultModelForProvider } from '../../loops/lib/loop-run-models'
 import { Skeleton } from '../../../components/ui/skeleton'
 
+import { notifyError } from '../../../lib/notify-error'
 // ─── "Allow sub-agents" ───────────────────────────────────────────────────────
 // Off by default. A project's setting applies to its conversational agents
 // (missions, explore, refinements), never to Implement pipelines; the app-wide
@@ -83,7 +84,7 @@ function useSubagentSettings(url: string | null, method: 'PATCH' | 'PUT'): Subag
       toast.success(next ? t('subagents.enabled') : t('subagents.disabled'))
     } catch (err) {
       setEnabledState(!next)
-      toast.error(t('subagents.saveFailed'), { description: (err as Error).message })
+      notifyError(t('subagents.saveFailed'), { detail: (err as Error).message })
     } finally {
       setSaving(false)
     }
@@ -100,7 +101,7 @@ function useSubagentSettings(url: string | null, method: 'PATCH' | 'PUT'): Subag
       }
     } catch (err) {
       setRuntimeState(previous)
-      toast.error(t('subagents.saveFailed'), { description: (err as Error).message })
+      notifyError(t('subagents.saveFailed'), { detail: (err as Error).message })
     } finally {
       setSaving(false)
     }

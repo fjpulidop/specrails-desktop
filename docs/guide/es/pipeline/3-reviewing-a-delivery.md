@@ -22,6 +22,16 @@ Selecciona líneas pulsando sus números (Mayús-clic amplía el rango), elige *
 
 **Abrir en el editor** abre el archivo, en la línea seleccionada, en VS Code, Cursor o un IDE de JetBrains. Elige el editor en **Ajustes → Código → Editor**. El archivo se abre desde tu propia copia del proyecto, donde puede que la rama de la revisión no esté activa.
 
+## Elige qué pasa con una entrega {#pr-decision}
+
+Una ejecución terminada te pide una sola cosa: qué hacer con su resultado. La tarjeta muestra un botón principal para el siguiente paso (crear el PR, publicarlo o verificarlo) y, a su lado, **Revisar**, que abre el paquete de revisión en lenguaje claro. Todo lo demás está en **Más acciones**:
+
+- **Cambiar a la rama** pone la rama en la carpeta de tu proyecto para que la pruebes.
+- **Integrar en local** fusiona el resultado en tu rama base en este equipo. No necesita GitHub y confirmas antes.
+- **Descartar** elimina el resultado y su rama. Confirmas antes.
+
+Si una acción falla, el aviso dice qué no se pudo hacer y ofrece **Reintentar**.
+
 ## Teclado
 
 | Tecla | Acción |

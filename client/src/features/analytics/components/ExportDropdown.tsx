@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Download } from 'lucide-react'
-import { toast } from 'sonner'
 
+import { notifyError } from '../../../lib/notify-error'
 export interface ExportDropdownProps {
   /** Base URL for the export endpoint, e.g. `${getApiBase()}/analytics/export` */
   baseUrl: string
@@ -74,7 +74,7 @@ export function ExportDropdown({ baseUrl, params, label, disabled }: ExportDropd
       URL.revokeObjectURL(objectUrl)
     } catch (err) {
       console.warn('[ExportDropdown] download failed:', err)
-      toast.error(t('export.failed'))
+      notifyError(t('export.failed'))
     } finally {
       setDownloading(false)
     }

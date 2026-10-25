@@ -8,6 +8,7 @@ import { PairWebCompanionModal } from './PairWebCompanionModal'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { SettingsCard } from './SettingsCard'
 
+import { notifyError } from '../../../lib/notify-error'
 interface MobileStatus {
   enabled: boolean
   running: boolean
@@ -85,7 +86,7 @@ export function MobileAccessSection() {
       }
       setStatus((await r.json()) as MobileStatus)
     } catch (e) {
-      toast.error(
+      notifyError(
         status.enabled
           ? t('mobile.disableFailed', { message: (e as Error).message })
           : t('mobile.enableFailed', { message: (e as Error).message })

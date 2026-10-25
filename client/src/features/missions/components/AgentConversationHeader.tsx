@@ -13,6 +13,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { cn } from '../../../lib/utils'
 import type { AgentConversation, AgentMessage } from '../lib/agent-api'
 
+import { notifyError } from '../../../lib/notify-error'
 type TranscriptProject = {
   name?: string | null
   path?: string | null
@@ -134,7 +135,7 @@ export function AgentConversationHeader() {
     try {
       await renameConversation(active.id, draft)
     } catch {
-      toast.error(t('header.renameFailed'))
+      notifyError(t('header.renameFailed'))
     }
   }, [active, draft, renameConversation, t])
 
@@ -145,7 +146,7 @@ export function AgentConversationHeader() {
       setCopied(key)
       setTimeout(() => setCopied((c) => (c === key ? null : c)), 1400)
     } catch {
-      toast.error(t('header.copyFailed'))
+      notifyError(t('header.copyFailed'))
     }
   }, [t])
 
@@ -158,7 +159,7 @@ export function AgentConversationHeader() {
       toast.success(t('header.copyTranscriptSuccess', { defaultValue: 'Transcript copied' }))
       setTimeout(() => setCopied((c) => (c === 'transcript' ? null : c)), 1400)
     } catch {
-      toast.error(t('header.copyTranscriptFailed', { defaultValue: 'Could not copy transcript' }))
+      notifyError(t('header.copyTranscriptFailed', { defaultValue: 'Could not copy transcript' }))
     }
   }, [active, messages, project, t])
 
@@ -178,7 +179,7 @@ export function AgentConversationHeader() {
       URL.revokeObjectURL(objectUrl)
       toast.success(t('header.exportTranscriptSuccess', { defaultValue: 'Transcript export started' }))
     } catch {
-      toast.error(t('header.exportTranscriptFailed', { defaultValue: 'Could not export transcript' }))
+      notifyError(t('header.exportTranscriptFailed', { defaultValue: 'Could not export transcript' }))
     }
   }, [active, messages, project, t])
 
@@ -193,7 +194,7 @@ export function AgentConversationHeader() {
       if (closePane) { closePane(); return }
       startNewConversation(active.pinned_project_id)
     } catch {
-      toast.error(t('header.deleteFailed'))
+      notifyError(t('header.deleteFailed'))
     }
   }, [active, closePane, deleteConversation, startNewConversation, t])
 

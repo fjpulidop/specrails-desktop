@@ -25,6 +25,7 @@ import {
   type LoopTemplateSummary,
 } from '../lib/loops-api'
 
+import { notifyError } from '../../../lib/notify-error'
 const STATUS_BADGE: Record<LoopDefinition['status'], string> = {
   draft: 'bg-accent-secondary/15 text-accent-secondary ring-accent-secondary/40',
   published: 'bg-accent-success/15 text-accent-success ring-accent-success/40',
@@ -124,7 +125,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
     try {
       const backup = await loopsApi.legacyGraph(loop.id)
       downloadLoops([{ ...loop, name: t('actions.originalCopyName', { name: loop.name }), graph: backup.graph }])
-    } catch { toast.error(t('errors.exportLegacy')) }
+    } catch { notifyError(t('errors.exportLegacy')) }
   }, [downloadLoops, t])
 
   const reload = useCallback(async () => {
@@ -134,7 +135,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
       setLoops(ls)
       setTemplates(ts)
     } catch {
-      toast.error(t('errors.load'))
+      notifyError(t('errors.load'))
     } finally {
       setLoading(false)
     }
@@ -154,7 +155,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
       if (!imported.length && !skipped.length) toast.warning(t('import.invalid'))
     } catch (err) {
       const code = err instanceof Error ? err.message : ''
-      toast.error(code === 'invalid-json' || code === 'no-loops' ? t('import.invalid') : t('errors.save'))
+      notifyError(code === 'invalid-json' || code === 'no-loops' ? t('import.invalid') : t('errors.save'))
     }
   }, [reload, t])
 
@@ -168,7 +169,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
       const loop = await loopsApi.create({ name: t('newLoopName') })
       openBuilder(loop.id)
     } catch {
-      toast.error(t('errors.save'))
+      notifyError(t('errors.save'))
     }
   }, [t, openBuilder])
 
@@ -178,7 +179,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
         const loop = await loopsApi.fromTemplate(templateId)
         openBuilder(loop.id)
       } catch {
-        toast.error(t('errors.save'))
+        notifyError(t('errors.save'))
       }
     },
     [t, openBuilder]
@@ -197,7 +198,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
         navigate(`/jobs/${loopRunId}`)
         toast.success(t('run.launched', { name: loop.name }))
       } catch {
-        toast.error(t('errors.save'))
+        notifyError(t('errors.save'))
       }
     },
     [runLoop, navigate, setActiveProjectId, t]
@@ -209,8 +210,8 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
         await loopsApi.publish(id)
         await reload()
       } catch (err) {
-        if (err instanceof LoopPublishError) toast.error(t('errors.publishInvalid'))
-        else toast.error(t('errors.save'))
+        if (err instanceof LoopPublishError) notifyError(t('errors.publishInvalid'))
+        else notifyError(t('errors.save'))
       }
     },
     [t, reload]
@@ -222,7 +223,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
         await loopsApi.unpublish(id)
         await reload()
       } catch {
-        toast.error(t('errors.save'))
+        notifyError(t('errors.save'))
       }
     },
     [t, reload]
@@ -234,7 +235,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
         await loopsApi.duplicate(id)
         await reload()
       } catch {
-        toast.error(t('errors.save'))
+        notifyError(t('errors.save'))
       }
     },
     [t, reload]
@@ -250,7 +251,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
       await reload()
       toast.success(t('builder.builtin.restored'))
     } catch {
-      toast.error(t('errors.save'))
+      notifyError(t('errors.save'))
     }
   }, [confirmRestoreId, t, reload])
 
@@ -265,7 +266,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
       await loopsApi.remove(id)
       await reload()
     } catch {
-      toast.error(t('errors.save'))
+      notifyError(t('errors.save'))
     }
   }, [confirmDeleteId, t, reload])
 
@@ -295,7 +296,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
           title={t('title')}
           description={t('subtitle')}
           actions={<>
-            {!isLoopWindowRoute() && <button type="button" onClick={() => void openLoopWindow(activeProjectId).then(() => onWindowOpened?.()).catch(error => toast.error(t('window.openFailed'), { description: error instanceof Error ? error.message : undefined }))} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-border hover:bg-muted">
+            {!isLoopWindowRoute() && <button type="button" onClick={() => void openLoopWindow(activeProjectId).then(() => onWindowOpened?.()).catch(error => notifyError(t('window.openFailed'), { detail: error instanceof Error ? error.message : undefined }))} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-border hover:bg-muted">
               <ExternalLink className="w-3.5 h-3.5" />{t('window.open')}
             </button>}
             {selectedIds.size > 0 && (

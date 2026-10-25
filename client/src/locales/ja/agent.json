@@ -481,7 +481,14 @@
       "discardedToast": "復元したブランチを破棄しました。変更は引き続き stash に安全に保存されています。",
       "blockedBringBack": "変更を {{branch}} に安全に戻せませんでした。",
       "notReady": "復元したブランチはまだ準備ができていません。"
-    }
+    },
+    "failed": {
+      "createPr": "PR を作成できませんでした",
+      "mergeLocal": "ローカルに統合できませんでした",
+      "discard": "結果を破棄できませんでした",
+      "publish": "PR を公開できませんでした"
+    },
+    "moreActions": "その他の操作"
   },
   "specDraft": {
     "heading": "スペック下書き",

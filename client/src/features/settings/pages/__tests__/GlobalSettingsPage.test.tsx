@@ -559,7 +559,7 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     await user.type(screen.getByPlaceholderText(/https:\/\/hooks\.example\.com/), 'https://example.com/hook')
     await user.click(screen.getByRole('button', { name: /add webhook/i }))
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Invalid URL')
+      expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Invalid URL' })
     })
   })
 

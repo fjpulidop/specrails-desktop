@@ -242,7 +242,8 @@
       "inbox": "「対応待ち」リスト",
       "specsBoard": "スペックとバックログ",
       "specTimeline": "スペックのタイムラインと引き継ぎ",
-      "accessibility": "アクセシビリティとカスタマイズ"
+      "accessibility": "アクセシビリティとカスタマイズ",
+      "prDecision": "納品オプション"
     }
   },
   "forecast": {

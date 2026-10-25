@@ -36,7 +36,8 @@
     "onReviewNotLaunchable": "Une spec de ce rail attend une revue de PR. Prenez la décision sur la PR avant de lancer.",
     "launchRepositoryHasNoCommits": "Ce dépôt n’a encore aucun commit. Faites un premier commit pour que Specrails puisse créer une copie isolée du projet.",
     "railDeletePrPending": "{{rail}} a une décision de PR en attente — tranchez-la avant de retirer le rail",
-    "railDeleteLastRail": "Un projet a besoin d'au moins un rail — celui-ci ne peut pas être retiré"
+    "railDeleteLastRail": "Un projet a besoin d'au moins un rail — celui-ci ne peut pas être retiré",
+    "openJob": "Ouvrir le job"
   },
   "railPr": {
     "operation": {
@@ -102,7 +103,7 @@
     "implementationFailed": "Échec de l’implémentation",
     "implementationFailedHint": "Le run d’implémentation a échoué. Ouvrez le journal du run, puis abandonnez cette carte avant de relancer.",
     "prFailed": "PR en échec",
-    "prFailedDetail": "PR en échec : {{detail}}",
+    "prFailedDetail": "PR en échec",
     "createDegraded": "Impossible de publier la PR — {{detail}}. Réessayez une fois le problème résolu.",
     "createPr": "Créer la PR",
     "createPrTooltip": "→ {{base}}",
@@ -149,7 +150,7 @@
     "commitMissingRetry": "Le commit de livraison n’est plus présent dans la PR. Vous pouvez réessayer le push.",
     "prVerifiedWaiting": "Commit {{sha}} vérifié · en attente du merge",
     "alreadyResolved": "Déjà résolue ailleurs",
-    "ghFailed": "GitHub CLI a échoué : {{detail}}",
+    "ghFailed": "GitHub CLI a échoué",
     "actionFailed": "Impossible d'appliquer la décision de la PR",
     "mergedToast": "PR fusionnée — specs passées en Terminé",
     "discardedToast": "PR abandonnée — specs renvoyées vers Specs",
@@ -164,7 +165,7 @@
     "mergeLocalConfirmBody": "Les branches livrées seront fusionnées dans {{base}} localement. Les modifications existantes sont préservées ; les modifications qui se chevauchent peuvent nécessiter une résolution avant l’intégration.",
     "mergeLocalBlockedDirty": "Intégration impossible : les modifications locales sur {{base}} chevauchent la livraison. Commitez ou remisez ces modifications, puis réessayez.",
     "mergeLocalBlockedBranch": "Impossible d'intégrer : votre checkout est sur {{current}}, pas sur {{base}}. Passez sur {{base}}, puis réessayez.",
-    "mergeLocalFailed": "La fusion locale a échoué : {{detail}}",
+    "mergeLocalFailed": "La fusion locale a échoué",
     "mergedLocally": "Intégré dans {{base}} en local",
     "discardStackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail.",
     "reviewChangesRequested": "Modifications demandées",

@@ -22,6 +22,16 @@ Wähle Zeilen per Klick auf ihre Nummern (Umschalt-Klick erweitert den Bereich),
 
 **Im Editor öffnen** öffnet die Datei an der ausgewählten Zeile in VS Code, Cursor oder einer JetBrains-IDE. Den Editor wählst du unter **Einstellungen → Code → Editor**. Die Datei öffnet sich aus deinem eigenen Checkout des Projekts, in dem der Review-Branch möglicherweise nicht ausgecheckt ist.
 
+## Entscheiden, was mit einer Lieferung geschieht {#pr-decision}
+
+Ein abgeschlossener Lauf fragt dich nur eines: Was soll mit dem Ergebnis passieren? Die Karte zeigt eine Hauptschaltfläche für den nächsten Schritt (PR erstellen, veröffentlichen oder prüfen) und daneben **Prüfen**, das das verständliche Review-Paket öffnet. Alles andere liegt hinter **Weitere Aktionen**:
+
+- **Branch auschecken** legt den Branch in deinem Projektordner ab, damit du ihn ausprobieren kannst.
+- **Lokal integrieren** führt das Ergebnis auf diesem Computer in deinen Basis-Branch zusammen. GitHub ist nicht nötig, und du bestätigst vorher.
+- **Verwerfen** entfernt das Ergebnis und seinen Branch. Du bestätigst vorher.
+
+Schlägt eine Aktion fehl, nennt die Meldung, was nicht geklappt hat, und bietet **Wiederholen** an.
+
 ## Tastatur
 
 | Taste | Aktion |

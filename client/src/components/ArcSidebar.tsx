@@ -8,7 +8,6 @@ import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { PanelLeft, FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
@@ -29,6 +28,7 @@ import { useMissionSessions } from '../features/missions/context/MissionSessions
 import type { AgentConversation } from '../features/missions/lib/agent-api'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
 
+import { notifyError } from '../lib/notify-error'
 const ProjectSettingsDialog = lazy(() =>
   import('../features/settings/components/ProjectSettingsDialog').then((m) => ({ default: m.ProjectSettingsDialog })),
 )
@@ -847,7 +847,7 @@ export function ArcSidebar({
 
   const handleDeleteConversation = (id: string) => {
     agentChat.deleteConversation(id).catch(() => {
-      toast.error(tAgent('deleteFailed'))
+      notifyError(tAgent('deleteFailed'))
     })
   }
 

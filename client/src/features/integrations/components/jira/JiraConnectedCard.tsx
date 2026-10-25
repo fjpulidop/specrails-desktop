@@ -9,6 +9,7 @@ import { JiraOutboxPanel } from './JiraOutboxPanel'
 import { jiraApi, type ConnectionState, type JiraStatusOption, type SpecLogicalState } from '../../lib/jira-api'
 import { JiraStatusSelect } from './JiraStatusSelect'
 
+import { notifyError } from '../../../../lib/notify-error'
 const STATE_KEYS: SpecLogicalState[] = ['todo', 'in_progress', 'on_review', 'done', 'cancelled']
 const STATE_LABEL: Record<SpecLogicalState, string> = {
   todo: 'todo',
@@ -80,7 +81,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
     } catch (e) {
       if (!alive.current) return
       setDiscardStatus(prev)
-      toast.error(errMsg(e, t))
+      notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     }
   }
 
@@ -98,7 +99,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
     } catch (e) {
       if (!alive.current) return
       setStatusMap(prev)
-      toast.error(errMsg(e, t))
+      notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     }
   }
 
@@ -112,7 +113,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
     } catch (e) {
       if (!alive.current) return
       setEnabled(!next)
-      toast.error(errMsg(e, t))
+      notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     } finally {
       if (alive.current) setBusy(false)
     }
@@ -126,7 +127,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
       toast.success(t('status.syncedToast', { count: r.upserted }))
       setOutboxRefresh((value) => value + 1)
     } catch (e) {
-      if (alive.current) toast.error(errMsg(e, t))
+      if (alive.current) notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     } finally {
       if (alive.current) setSyncing(false)
     }
@@ -141,7 +142,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
       toast.success(t('status.disconnectedToast'))
       onChanged()
     } catch (e) {
-      if (alive.current) toast.error(errMsg(e, t))
+      if (alive.current) notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     } finally {
       if (alive.current) setBusy(false)
     }
@@ -242,6 +243,3 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
   )
 }
 
-function errMsg(e: unknown, t: (k: string) => string): string {
-  return e instanceof Error ? e.message : t('errors.generic')
-}

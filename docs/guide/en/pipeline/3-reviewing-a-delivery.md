@@ -22,6 +22,16 @@ Select lines by clicking their numbers (Shift-click extends the range), then cho
 
 **Open in editor** opens the file, at the selected line, in VS Code, Cursor or a JetBrains IDE. Choose the editor in **Settings → Code → Editor**. The file opens from your own checkout of the project, where the review branch may not be checked out.
 
+## Choose what happens to a delivery {#pr-decision}
+
+A finished run asks you one thing: what to do with its result. The card shows one main button for the next step (create the PR, publish it or verify it) and, next to it, **Review**, which opens the plain-language review packet. Everything else sits behind **More actions**:
+
+- **Checkout** puts the branch in your project folder so you can try it.
+- **Integrate locally** merges the result into your base branch on this computer. It needs no GitHub, and you confirm first.
+- **Discard** drops the result and its branch. You confirm first.
+
+If an action fails, the notice names what could not be done and offers **Retry**.
+
 ## Keyboard
 
 | Key | Action |

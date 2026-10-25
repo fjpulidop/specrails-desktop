@@ -317,7 +317,8 @@
       "autoOn": "Auto-continue on — the next rails launch on their own",
       "autoOff": "Auto-continue off — you'll be asked before each next rail",
       "autoFailed": "Could not update the chain",
-      "integrating": "integrating this spec before launching the next"
+      "integrating": "integrating this spec before launching the next",
+      "cancelFailed": "Couldn't cancel the chain"
     },
     "toast": {
       "launched": "{{milestone}} launched — spec 1 of {{n}} is on its rail; the next specs follow automatically, one rail each",

@@ -99,6 +99,7 @@ import { Kbd } from './ui/kbd'
 import { replayTour } from '../lib/onboarding-events'
 import { RailTrack } from './brand/RailTrack'
 
+import { notifyError } from '../lib/notify-error'
 interface PageFrame {
   actionId: string
   page: ArgPage
@@ -355,7 +356,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       toast.success(t('toasts.queued', { name: slug }))
       navigate(`/jobs/${data.jobId}`)
     } catch (err) {
-      toast.error(t('errors.spawnFailed'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(t('errors.spawnFailed'), { detail: err instanceof Error ? err.message : undefined })
     }
   }, [navigate, t])
 
@@ -477,7 +478,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             navigate(`/jobs/${loopRunId}`)
             toast.success(tLoops('run.launched', { name }))
           })
-          .catch(() => { toast.error(tLoops('errors.save')) })
+          .catch(() => { notifyError(tLoops('errors.save')) })
       },
     },
   }

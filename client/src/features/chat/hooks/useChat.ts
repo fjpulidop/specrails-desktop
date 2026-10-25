@@ -3,9 +3,9 @@ import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import type { ChatConversationSummary, ChatMessage } from '../../../types'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop } from '../../../hooks/useDesktop'
-import { toast } from 'sonner'
 import i18n from '../../../lib/i18n'
 
+import { notifyError } from '../../../lib/notify-error'
 const PANEL_OPEN_KEY = 'specrails.chatPanelOpen'
 
 export interface ChatConversation {
@@ -302,7 +302,7 @@ export function useChat(): UseChatReturn {
             : c
         )
       )
-      toast.error(i18n.t('chat:errors.sendFailed'))
+      notifyError(i18n.t('chat:errors.sendFailed'))
     }
   }, [])
 

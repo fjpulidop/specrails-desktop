@@ -15,8 +15,8 @@
     "activeSessions_other": "{{count}} 个活动会话",
     "turnOn": "开启",
     "turnOff": "关闭",
-    "enableFailed": "无法开启 MCP 服务器：{{message}}",
-    "disableFailed": "无法关闭 MCP 服务器：{{message}}"
+    "enableFailed": "无法开启 MCP 服务器",
+    "disableFailed": "无法关闭 MCP 服务器"
   },
   "tiers": {
     "heading": "权限层级",
@@ -29,7 +29,7 @@
     "aiSpawnHelp": "启动运行 CLI 的 AI rails 和任务。",
     "destructive": "破坏性操作",
     "destructiveHelp": "删除规格和其他项目数据。",
-    "updateFailed": "无法更新权限：{{message}}"
+    "updateFailed": "无法更新权限"
   },
   "config": {
     "heading": "客户端配置",
@@ -47,7 +47,7 @@
     "regenerate": "重新生成",
     "regenerateConfirm": "重新生成访问令牌？任何使用旧令牌的客户端都将停止工作，直到你更新其配置。",
     "regenerated": "访问令牌已重新生成",
-    "regenerateFailed": "无法重新生成令牌：{{message}}",
+    "regenerateFailed": "无法重新生成令牌",
     "regenerateConfirmTitle": "重新生成访问令牌？"
   },
   "tray": {

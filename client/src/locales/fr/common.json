@@ -242,7 +242,8 @@
       "inbox": "la liste « À traiter »",
       "specsBoard": "les specs et le backlog",
       "specTimeline": "la chronologie et la passation d’une spec",
-      "accessibility": "l'accessibilité et la personnalisation"
+      "accessibility": "l'accessibilité et la personnalisation",
+      "prDecision": "les options de livraison"
     }
   },
   "forecast": {

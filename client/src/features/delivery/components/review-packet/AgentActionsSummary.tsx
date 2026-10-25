@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { Download, FileText, Globe, PencilLine, Plug, TerminalSquare } from 'lucide-react'
 import { getApiBase } from '../../../../lib/api'
 import type { AgentActionKind, PacketAgentActions } from '../../../../types'
 
+import { notifyError } from '../../../../lib/notify-error'
 const KIND_ORDER: AgentActionKind[] = ['read', 'write', 'exec', 'mcp', 'network']
 
 const KIND_ICON: Record<AgentActionKind, typeof FileText> = {
@@ -42,7 +42,7 @@ export function AgentActionsSummary({ actions }: { actions: PacketAgentActions }
       anchor.remove()
       URL.revokeObjectURL(url)
     } catch (error) {
-      toast.error(t('agentActions.downloadFailed'), { description: (error as Error).message })
+      notifyError(t('agentActions.downloadFailed'), { detail: (error as Error).message })
     } finally {
       setBusy(null)
     }

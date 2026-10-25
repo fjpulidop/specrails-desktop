@@ -7,6 +7,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Skeleton } from '../../../components/ui/skeleton'
 
+import { notifyError } from '../../../lib/notify-error'
 // ─── Agent environment mode (inherit | minimal) ───────────────────────────────
 // `inherit` (default) forwards the Desktop environment to agents unchanged.
 // `minimal` forwards only a fixed allowlist, Specrails' own variables, the
@@ -92,7 +93,7 @@ export function ProjectAgentEnvModeSection() {
       toast.success(t(`agentEnv.saved.${next}`))
     } catch (err) {
       if (projectId === activeProjectRef.current) setMode(previous)
-      toast.error(t('agentEnv.saveFailed'), { description: (err as Error).message })
+      notifyError(t('agentEnv.saveFailed'), { detail: (err as Error).message })
     } finally {
       setSaving(false)
     }

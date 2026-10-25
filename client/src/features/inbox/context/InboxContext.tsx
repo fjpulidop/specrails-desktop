@@ -18,6 +18,7 @@ import {
   type Dismissals, type InboxGroup, type InboxItem, type SnoozeChoice,
 } from '../lib/inbox-model'
 
+import { notifyError } from '../../../lib/notify-error'
 /** WS events that can change what needs the person; any of them nudges a refetch. */
 const NUDGE_TYPES = new Set(['rail.pr_state', 'rail.job_completed', 'rail.job_stopped', 'job.stuck', 'jira.outbox_changed'])
 const NUDGE_DEBOUNCE_MS = 400
@@ -221,9 +222,9 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       // The run's per-run soft cap stands: the person answers Continue / Raise.
       if (alive.current) setRunCapPrompt({ item, budget: outcome.budget })
     } else if (outcome.kind === 'over-budget') {
-      toast.error(t('toast.stillOverBudget'), { description: dailyBudgetActionMessage(t as never, outcome.budget) })
+      notifyError(t('toast.stillOverBudget'), { detail: dailyBudgetActionMessage(t as never, outcome.budget) })
     } else {
-      toast.error(t(item.action === 'resume-run' ? 'toast.resumeFailed' : 'toast.retryFailed'), { description: outcome.detail })
+      notifyError(t(item.action === 'resume-run' ? 'toast.resumeFailed' : 'toast.retryFailed'), { detail: outcome.detail })
     }
     void refresh()
   }, [openItem, refresh, t])

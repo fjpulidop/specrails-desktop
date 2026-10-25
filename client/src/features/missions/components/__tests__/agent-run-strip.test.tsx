@@ -378,9 +378,12 @@ describe('run strip (floating panel)', () => {
 
     await waitFor(() => expect(fullCards()).toHaveLength(1))
     expect(strip()).toBeNull()
-    expect(screen.getAllByRole('button', { name: 'Checkout' })).toHaveLength(1)
+    // One primary button; Checkout and Discard sit behind the card's single "More actions" menu.
     expect(screen.getAllByRole('button', { name: 'Verify PR' })).toHaveLength(1)
-    expect(screen.getAllByRole('button', { name: 'Discard' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'More actions' })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    expect(screen.getAllByRole('menuitem', { name: /^Checkout/ })).toHaveLength(1)
+    expect(screen.getAllByRole('menuitem', { name: /^Discard/ })).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'Discard local result' })).toBeNull()
   })
 
@@ -401,7 +404,7 @@ describe('run strip (floating panel)', () => {
     await openPanel()
     expect(within(s).getAllByRole('button', { name: 'Create PR' })).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'Retry push' })).toBeNull()
-    expect(screen.getAllByRole('button', { name: 'Discard' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'More actions' })).toHaveLength(1)
     expect(screen.getByText('A newer implementation run replaced this card.')).toBeInTheDocument()
   })
 

@@ -1,6 +1,5 @@
 import { useCallback, useId, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { FileMinus2, FilePlus2, FileText, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button } from '../../../../components/ui/button'
@@ -11,6 +10,7 @@ import { providerSupportsPureOutput } from '../../../providers/lib/provider-capa
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useSharedWebSocket } from '../../../../hooks/useSharedWebSocket'
 
+import { notifyError } from '../../../../lib/notify-error'
 export interface StoryEntry {
   provenanceId: number
   jobId: string | null
@@ -167,7 +167,7 @@ function ConstructionStoryInner({ relPath, height, onOpenTicket, onFilterJob, on
         return
       }
       if (!res.ok || !json.ok) {
-        toast.error(t('story.explainFailed'))
+        notifyError(t('story.explainFailed'))
         setExplainState((prev) => {
           const next = { ...prev }
           delete next[entry.provenanceId]
@@ -184,7 +184,7 @@ function ConstructionStoryInner({ relPath, height, onOpenTicket, onFilterJob, on
       })
     } catch {
       if (!alive.current || controller.signal.aborted) return
-      toast.error(t('story.explainFailed'))
+      notifyError(t('story.explainFailed'))
       setExplainState((prev) => {
         const next = { ...prev }
         delete next[entry.provenanceId]

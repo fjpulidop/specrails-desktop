@@ -51,6 +51,7 @@ import {
 import { serializeSelection, parseNodeClipboard, cloneForPaste } from '../lib/loop-clipboard'
 import { validateBuilderGraph, severityByNode, type IssueSeverity } from '../lib/loop-validate'
 
+import { notifyError } from '../../../lib/notify-error'
 // Per-node validation severity (error/warning), provided by BuilderInner so the
 // node component can ring itself without prop-drilling through React Flow.
 const NodeValidationContext = createContext<Map<string, IssueSeverity>>(new Map())
@@ -254,7 +255,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     loopsApi
       .get(id)
       .then((loop) => { if (!cancelled) applyLoop(loop) })
-      .catch(() => toast.error(t('errors.load')))
+      .catch(() => notifyError(t('errors.load')))
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [id, applyLoop, t])
@@ -269,7 +270,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       setPublicationErrors([])
       toast.success(t('builder.builtin.restored'))
     } catch (err) {
-      toast.error(t('errors.save'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(t('errors.save'), { detail: err instanceof Error ? err.message : undefined })
     }
   }, [id, applyLoop, t])
 
@@ -443,7 +444,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       const { steps } = await loopsApi.previewLoop(graph)
       setPreview(steps)
     } catch {
-      toast.error(t('builder.preview.error'))
+      notifyError(t('builder.preview.error'))
     } finally {
       setPreviewing(false)
     }
@@ -460,7 +461,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     } catch (err) {
       // Surface the server reason (e.g. "Loop is running; stop the run before
       // editing") instead of an opaque generic — far easier to diagnose.
-      toast.error(t('errors.save'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(t('errors.save'), { detail: err instanceof Error ? err.message : undefined })
       return false
     } finally {
       setSaving(false)
@@ -478,9 +479,9 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     } catch (err) {
       if (err instanceof LoopPublishError) {
         setPublicationErrors(err.errors); setShowProblems(true)
-        toast.error(t('errors.publishInvalid'))
+        notifyError(t('errors.publishInvalid'))
       } else {
-        toast.error(t('errors.save'), { description: err instanceof Error ? err.message : undefined })
+        notifyError(t('errors.save'), { detail: err instanceof Error ? err.message : undefined })
       }
     }
   }, [id, save, leaveBuilder, t])
@@ -541,7 +542,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
                   <DropdownMenuItem disabled={saving} onSelect={() => void save().then(async ok => {
                     if (!ok || !id) return
                     try { await openLoopWindow(activeProjectId, id); if (onWindowOpened) onWindowOpened(); else leaveBuilder() }
-                    catch (error) { toast.error(t('window.openFailed'), { description: error instanceof Error ? error.message : undefined }) }
+                    catch (error) { notifyError(t('window.openFailed'), { detail: error instanceof Error ? error.message : undefined }) }
                   })}>
                     <ExternalLink className="w-3.5 h-3.5" aria-hidden />{t('window.open')}
                   </DropdownMenuItem>
@@ -943,7 +944,7 @@ function LoopConstantsManager({ open, onClose, constants, onChanged }: {
       await onChanged()
       setPendingDelete(null)
     } catch {
-      toast.error(t('errors.save'))
+      notifyError(t('errors.save'))
     } finally {
       setDeleting(false)
     }
@@ -977,7 +978,7 @@ function LoopConstantsManager({ open, onClose, constants, onChanged }: {
               <ConstantRow
                 key={c.id}
                 c={c}
-                onSave={(v) => void loopsApi.updateConstant(c.id, v).then(onChanged).catch(() => toast.error(t('errors.save')))}
+                onSave={(v) => void loopsApi.updateConstant(c.id, v).then(onChanged).catch(() => notifyError(t('errors.save')))}
                 onDelete={() => setPendingDelete(c)}
               />
             ))}

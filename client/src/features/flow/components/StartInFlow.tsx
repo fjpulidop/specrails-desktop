@@ -10,7 +10,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { Loader2, Waves } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -24,6 +23,7 @@ import { FlowApiError, flowApi, flowRepositoryChoice, isOpenFlow, type Flow } fr
 import { flowErrorMessage } from '../lib/flow-failure'
 import { useFlowRepositoryPrompt, type FlowRepositoryPrompt } from './FlowRepositoryPrompt'
 
+import { notifyError } from '../../../lib/notify-error'
 export type StartInFlowSpec = Pick<LocalTicket, 'id' | 'title' | 'status' | 'metadata' | 'origin_conversation_id' | 'repositoryIds'>
 
 export type StartInFlowBlock = 'noProject' | 'loading' | 'unavailable' | 'inFlow' | 'closed' | 'running' | 'onRail' | 'missionInFlow'
@@ -108,7 +108,7 @@ export function useStartInFlow(spec: StartInFlowSpec, rail: { running: boolean }
       return flow
     } catch (error) {
       const { message, detail } = flowErrorMessage(t, error)
-      toast.error(t('flow.startFromSpec.failed', { id: spec.id }), { description: detail && detail !== message ? `${message} ${detail}` : message })
+      notifyError(t('flow.startFromSpec.failed', { id: spec.id }), { detail: detail && detail !== message ? `${message} ${detail}` : message })
       if (error instanceof FlowApiError && error.code === 'feature_unavailable') ctx.loadAvailability(projectId, true)
       return null
     } finally {

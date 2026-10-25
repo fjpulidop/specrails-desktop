@@ -11,6 +11,7 @@ import { type DesktopProject } from '../hooks/useDesktop'
 import { FEATURE_CHAT_ENABLED } from '../lib/feature-flags'
 import { formatUsd } from '../lib/format-usd'
 
+import { notifyError } from '../lib/notify-error'
 interface ProjectLayoutProps {
   project: DesktopProject
 }
@@ -38,8 +39,8 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
           }),
         })
       } else if (msg.type === 'daily_budget_exceeded') {
-        toast.error(t('costAlerts.dailyBudgetTitle'), {
-          description: t('costAlerts.dailyBudgetDescription', {
+        notifyError(t('costAlerts.dailyBudgetTitle'), {
+          detail: t('costAlerts.dailyBudgetDescription', {
             spent: formatUsd(msg.dailySpend ?? 0),
             budget: formatUsd(msg.budget ?? 0),
           }),
@@ -47,8 +48,8 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
         })
         setBudgetExceeded({ dailySpend: msg.dailySpend ?? 0, budget: msg.budget ?? 0 })
       } else if (msg.type === 'desktop_daily_budget_exceeded') {
-        toast.error(t('costAlerts.desktopBudgetTitle'), {
-          description: t('costAlerts.desktopBudgetDescription', {
+        notifyError(t('costAlerts.desktopBudgetTitle'), {
+          detail: t('costAlerts.desktopBudgetDescription', {
             spent: formatUsd(msg.desktopDailySpend ?? 0),
             budget: formatUsd(msg.desktopBudget ?? 0),
           }),

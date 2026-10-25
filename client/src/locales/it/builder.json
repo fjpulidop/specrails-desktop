@@ -317,7 +317,8 @@
       "autoOn": "Continuazione automatica attiva — i prossimi rail partono da soli",
       "autoOff": "Continuazione automatica disattivata — ti verrà chiesto prima di ogni rail",
       "autoFailed": "Impossibile aggiornare la catena",
-      "integrating": "integrazione di questa spec prima di avviare la successiva"
+      "integrating": "integrazione di questa spec prima di avviare la successiva",
+      "cancelFailed": "Impossibile annullare la catena"
     },
     "toast": {
       "launched": "{{milestone}} lanciato — la spec 1 di {{n}} è sul suo rail; le spec successive seguono automaticamente, un rail ciascuna",

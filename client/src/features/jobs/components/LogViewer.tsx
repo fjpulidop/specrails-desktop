@@ -17,6 +17,7 @@ import { LogTicketRef, remarkLogTicketRefs, renderLogLineWithTicketRefs } from '
 import { useLogTicketActions } from '../hooks/useLogTicketActions'
 import { formatUsd } from '../../analytics/lib/format'
 
+import { notifyError } from '../../../lib/notify-error'
 // ─── Types ────────────────────────────────────────────────────────────────────
 // FormattedLine / parseEvent / mergeAssistantLines / applyDiffDetection / LogLine
 // are exported so the loop-step explorer (components/loop-log/) reuses the EXACT
@@ -292,7 +293,7 @@ export function LogViewer({ events, isLoading, projectId }: LogViewerProps) {
             navigator.clipboard.writeText(text).then(() => {
               toast.success(t('logViewer.copySuccess'))
             }).catch(() => {
-              toast.error(t('logViewer.copyFailed'))
+              notifyError(t('logViewer.copyFailed'))
             })
           }}
         >

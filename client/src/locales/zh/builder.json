@@ -317,7 +317,8 @@
       "autoOn": "已开启自动继续 — 后续轨道将自动启动",
       "autoOff": "已关闭自动继续 — 每条轨道启动前都会询问",
       "autoFailed": "无法更新链",
-      "integrating": "正在集成此规格，然后再启动下一个"
+      "integrating": "正在集成此规格，然后再启动下一个",
+      "cancelFailed": "无法取消该链"
     },
     "toast": {
       "launched": "{{milestone}} 已启动 — 第 1/{{n}} 个规格已在其轨道上；后续规格将自动跟进，每个一条轨道",

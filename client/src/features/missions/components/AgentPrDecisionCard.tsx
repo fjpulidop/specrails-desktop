@@ -59,6 +59,8 @@ import type { MissionRunCardSummary, MissionRunVitalsSnapshot } from './mission-
 import { PRIMARY_ACTION, RunPrimaryButton } from './run-primary'
 import { formatUsd } from '../../analytics/lib/format'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { HelpHint } from '../../../components/HelpHint'
+import { OverflowActions, type OverflowActionItem } from '../../../components/ui/overflow-actions'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
@@ -452,6 +454,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const [confirmingMergeLocal, setConfirmingMergeLocal] = useState(false)
   const [confirmingNoChangesDone, setConfirmingNoChangesDone] = useState(false)
   const [confirmingRefine, setConfirmingRefine] = useState(false)
+  // Refine runs the discard action under the hood: only the button the person pressed spins.
+  const [refining, setRefining] = useState(false)
   const [confirmingRecoverAndRetry, setConfirmingRecoverAndRetry] = useState(false)
   // HTTP action snapshots render immediately; the persisted message/WS update
   // replaces this override and keeps pinning/history placement authoritative.
@@ -638,6 +642,17 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     }
   }
 
+  /** The failed action named in the headline ("Couldn't create the PR"), not a generic "Action failed". */
+  const failedTitle = (action: AgentPrDecisionAction): string => {
+    switch (action) {
+      case 'create-pr': case 'reopen': return t('prCard.failed.createPr')
+      case 'merge-local': return t('prCard.failed.mergeLocal')
+      case 'discard': case 'dismiss': return t('prCard.failed.discard')
+      case 'publish': return t('prCard.failed.publish')
+      default: return t('prCard.actionFailed')
+    }
+  }
+
   const act = async (action: AgentPrDecisionAction, repositoryId?: string) => {
     if (checkingOut || busy || envelope.operation) return
     if (hasRepositoryDeliveries && !repositoryId && ['create-pr', 'merge-local', 'publish', 'poll-merge', 'reopen', 'acknowledge-no-changes'].includes(action)) return
@@ -681,7 +696,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           ? t('prCard.mergeLocalBlockedDirty', { base: r.base || targetBase })
           : t('prCard.mergeLocalBlockedBranch', { base: r.base || targetBase, current: r.current ?? '?' }))
       } else if (r.kind === 'failed') {
-        notifyError(t('prCard.actionFailed'), { detail: r.detail, retry: () => void act(action, repositoryId) })
+        notifyError(failedTitle(action), { detail: r.detail, retry: () => void act(action, repositoryId) })
       } else if (r.kind === 'ok' && action === 'recover-and-retry') {
         if (r.deliveryVerified) {
           const sha = (r.verifiedSha ?? r.snapshot?.deliverySha ?? '').slice(0, 8)
@@ -718,7 +733,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         notifyGitChanged(envelope.projectId)
       }
     } catch (e) {
-      notifyError(t('prCard.actionFailed'), { detail: e instanceof Error ? e.message : undefined, retry: () => void act(action, repositoryId) })
+      notifyError(failedTitle(action), { detail: e instanceof Error ? e.message : undefined, retry: () => void act(action, repositoryId) })
     } finally {
       setBusy(null)
     }
@@ -1283,21 +1298,6 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     : null
 
   const checkoutBranch = prDeliveryCheckoutBranch(envelope)
-  const checkoutAction = checkoutBranch && !hasRepositoryDeliveries && (
-    <button
-      type="button"
-      onClick={() => void checkoutPrBranch()}
-      disabled={anyBusy}
-      data-testid="agent-pr-checkout"
-      data-agent-interactive
-      title={t('prCard.checkoutTooltip', { branch: checkoutBranch })}
-      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-caption font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
-    >
-      {checkingOut ? spinner : <GitBranch className="h-3 w-3" />}
-      {t('prCard.checkout')}
-    </button>
-  )
-
   const inspectLocalResultAction = presentation.recoveryWorktreePaths.length > 0 && (
     <button
       type="button"
@@ -1360,25 +1360,36 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     </RunPrimaryButton>
   ))
 
-  // Remote-less acceptance (no PR exists yet): merge into the base locally.
-  const mergeLocalAction = !hasRepositoryDeliveries && (
-    <button
-      type="button"
-      onClick={() => setConfirmingMergeLocal(true)}
-      disabled={anyBusy}
-      data-testid="agent-pr-merge-local"
-      data-agent-interactive
-      title={t('prCard.mergeLocalTooltip', { base: envelope.baseBranch })}
-      className="inline-flex items-center gap-1 rounded-md border border-accent-success/40 bg-accent-success/10 px-2 py-1 text-caption font-medium text-accent-success transition-colors hover:bg-accent-success/20 disabled:pointer-events-none disabled:opacity-50"
-    >
-      {busy === 'merge-local' && spinner}
-      {t('prCard.mergeLocal')}
-    </button>
-  )
+  // Secondary actions live behind ONE "More actions" menu: the card keeps a single
+  // primary button (and at most the review packet as a quiet secondary).
+  const moreActions = (opts: { merge?: boolean } = {}) => {
+    const items: OverflowActionItem[] = []
+    if (checkoutBranch && !hasRepositoryDeliveries) {
+      items.push({
+        id: 'checkout', testId: 'agent-pr-checkout', label: t('prCard.checkout'),
+        hint: t('prCard.checkoutTooltip', { branch: checkoutBranch }),
+        icon: checkingOut ? spinner : <GitBranch className="h-3 w-3" />,
+        onSelect: () => void checkoutPrBranch(), disabled: anyBusy,
+      })
+    }
+    // Remote-less acceptance (no PR exists yet): merge into the base locally.
+    if (opts.merge && !hasRepositoryDeliveries) {
+      items.push({
+        id: 'merge-local', testId: 'agent-pr-merge-local', label: t('prCard.mergeLocal'),
+        hint: t('prCard.mergeLocalTooltip', { base: envelope.baseBranch }),
+        icon: busy === 'merge-local' ? spinner : <GitMerge className="h-3 w-3" />,
+        onSelect: () => setConfirmingMergeLocal(true), disabled: anyBusy,
+      })
+    }
+    items.push(presentation.continuation
+      ? { id: 'dismiss', testId: 'agent-pr-dismiss', label: t('prCard.dismiss'), onSelect: () => setConfirmingDismiss(true), disabled: anyBusy }
+      : { id: 'discard', testId: 'agent-pr-discard', label: t('prCard.discard'), onSelect: () => setConfirmingDiscard(true), disabled: anyBusy, destructive: true })
+    return <OverflowActions label={t('prCard.moreActions')} items={items} disabled={anyBusy} testId="agent-pr-more" />
+  }
 
   const discardAction = (
     <button type="button" onClick={() => setConfirmingDiscard(true)} disabled={anyBusy} data-agent-interactive className={ghostBtn}>
-      {busy === 'discard' && spinner}
+      {busy === 'discard' && !refining && spinner}
       {t('prCard.discard')}
     </button>
   )
@@ -1392,7 +1403,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
 
   const discardLocalAction = (
     <button type="button" onClick={() => setConfirmingDiscardLocal(true)} disabled={anyBusy} data-agent-interactive className={ghostBtn}>
-      {busy === 'discard' && spinner}
+      {busy === 'discard' && !refining && spinner}
       {t('prCard.discardLocalResult')}
     </button>
   )
@@ -1407,7 +1418,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
 
   const refineAction = (
     <button type="button" onClick={() => setConfirmingRefine(true)} disabled={anyBusy} data-agent-interactive className={ghostBtn}>
-      {busy === 'discard' && spinner}
+      {refining && spinner}
       {t('prCard.refine')}
     </button>
   )
@@ -1478,6 +1489,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       <div className="flex items-center gap-2">
         <Icon className={cn('h-4 w-4 shrink-0', iconTone)} />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{title}</span>
+        {!terminal && <HelpHint topic="prDecision" />}
         <span className="max-w-[140px] shrink-0 truncate text-label text-foreground/70" title={projectName}>
           {projectName}
         </span>
@@ -1702,70 +1714,57 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           )}
           {!terminal && presentation.retryablePush && (
             <div className="flex items-center gap-1.5">
-              {checkoutAction}
               {primaryAction('create-pr', t('prCard.retryPush'))}
-              {presentation.continuation ? dismissAction : discardAction}
+              {moreActions()}
             </div>
           )}
           {!terminal && presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
-              {checkoutAction}
               {primaryAction('create-pr', t('prCard.retryPr'))}
-              {mergeLocalAction}
-              {presentation.continuation ? dismissAction : discardAction}
+              {moreActions({ merge: true })}
             </div>
           )}
           {!terminal && presentation.closed && (
             <div className="flex items-center gap-1.5">
-              {checkoutAction}
               {primaryAction('reopen', t('prCard.reopen'))}
-              {presentation.continuation ? dismissAction : discardAction}
+              {moreActions()}
             </div>
           )}
           {!terminal && partialCreatePending && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
-              {checkoutAction}
               {primaryAction('create-pr', t('prCard.createPartialPr', { count: presentation.deliverableCount }))}
-              {presentation.continuation ? dismissAction : discardAction}
+              {moreActions()}
             </div>
           )}
           {decision === 'on_review' && !presentation.noChanges && !presentation.partial && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
-              {reviewPacketAction}
-              {checkoutAction}
               {primaryAction('create-pr', t('prCard.createPr'))}
-              {mergeLocalAction}
-              {presentation.continuation ? dismissAction : discardAction}
+              {reviewPacketAction}
+              {moreActions({ merge: true })}
             </div>
           )}
           {decision === 'pr_draft' && !degradedDraft && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
-              {checkoutAction}
               {primaryAction('publish', t('prCard.publish'))}
-              {presentation.continuation ? dismissAction : discardAction}
+              {moreActions()}
             </div>
           )}
           {degradedDraft && !partialCreatePending && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
-              {checkoutAction}
               {primaryAction('create-pr', t('prCard.retryPr'))}
-              {mergeLocalAction}
-              {presentation.continuation ? dismissAction : discardAction}
+              {moreActions({ merge: true })}
             </div>
           )}
           {decision === 'pr_ready' && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
-              {checkoutAction}
               {primaryAction('poll-merge', t('prCard.verifyPr'))}
-              {presentation.continuation ? dismissAction : discardAction}
+              {moreActions()}
             </div>
           )}
           {decision === 'pr_failed' && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
-              {checkoutAction}
               {primaryAction('create-pr', t('prCard.retry'))}
-              {!prUrl && mergeLocalAction}
-              {presentation.continuation ? dismissAction : discardAction}
+              {moreActions({ merge: !prUrl })}
             </div>
           )}
           {decision === 'implementation_failed' && presentation.implementationFailed && flowOutcome === null && (
@@ -1907,7 +1906,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         description={t('prCard.confirm.refineBody')}
         confirmLabel={t('prCard.refine')}
         confirmDisabled={anyBusy}
-        onConfirm={() => { setConfirmingRefine(false); void act('discard') }}
+        onConfirm={() => { setConfirmingRefine(false); setRefining(true); void act('discard').finally(() => setRefining(false)) }}
       />
       {logModal}
     </div>

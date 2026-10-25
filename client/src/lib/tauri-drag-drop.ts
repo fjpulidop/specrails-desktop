@@ -1,10 +1,10 @@
-import { toast } from 'sonner'
 import i18n from './i18n'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { isTauri } from './tauri-shell'
 import { quotePathList, windowsShellHint } from './shell-quote'
 
+import { notifyError } from './notify-error'
 export interface DragDropController {
   dispose: () => void
 }
@@ -52,7 +52,7 @@ export async function registerTauriDragDrop(
       const rect = active.viewportEl.getBoundingClientRect()
       if (!isDropPositionInsideRect(pos, rect, window.devicePixelRatio || 1)) return
       try { active.writeText(quotePathList(paths, isWindows, windowsShellHint(active.shell))) }
-      catch { toast.error(i18n.t('terminal:errors.pathPasteUnsafe')) }
+      catch { notifyError(i18n.t('terminal:errors.pathPasteUnsafe')) }
     }
 
     const webview = (() => { try { return getCurrentWebview() } catch { return null } })()

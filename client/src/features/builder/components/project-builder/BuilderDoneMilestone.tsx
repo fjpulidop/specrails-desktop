@@ -9,6 +9,7 @@ import { FEATURE_REVIEW_PACKET } from '../../../../lib/feature-flags'
 import { cancelChain, resumeChain, saveMilestoneAutoAdvance, setChainAutoAdvance } from '../../lib/milestone-launch'
 import { MilestoneCard } from './MilestoneProgressCard'
 
+import { notifyError } from '../../../../lib/notify-error'
 // The Builder done screen after "Launch Milestone 1" (premium-milestone-
 // progress D5): the LIVE milestone card for the project just created —
 // server-derived counts, rails with their decisions, the launch chain — so
@@ -32,7 +33,7 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
     try {
       const r = await resumeChain(projectId, chainId)
       if (r.ok) toast.success(t('milestoneProgress.chain.resumed'))
-      else toast.error(t('milestoneProgress.chain.resumeFailed'), { description: r.detail ?? r.error })
+      else notifyError(t('milestoneProgress.chain.resumeFailed'), { detail: r.detail ?? r.error })
     } finally { setChainBusy(false) }
   }, [projectId, t])
 
@@ -44,7 +45,7 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
         saveMilestoneAutoAdvance(on)
         toast.success(t(on ? 'milestoneProgress.chain.autoOn' : 'milestoneProgress.chain.autoOff'))
       } else {
-        toast.error(t('milestoneProgress.chain.autoFailed'), { description: r.detail ?? r.error })
+        notifyError(t('milestoneProgress.chain.autoFailed'), { detail: r.detail ?? r.error })
       }
     } finally { setChainBusy(false) }
   }, [projectId, t])
@@ -54,7 +55,7 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
     try {
       const r = await cancelChain(projectId, chainId)
       if (r.ok) toast.success(t('milestoneProgress.chain.cancelledToast'))
-      else toast.error(r.detail ?? r.error)
+      else notifyError(t('milestoneProgress.chain.cancelFailed'), { detail: r.detail ?? r.error })
     } finally { setChainBusy(false) }
   }, [projectId, t])
 

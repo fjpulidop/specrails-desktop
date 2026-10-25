@@ -9,7 +9,7 @@
     "title": "プロジェクト設定"
   },
   "errors": {
-    "saveFailed": "保存に失敗しました: {{message}}"
+    "saveFailed": "保存に失敗しました"
   },
   "telemetry": {
     "title": "パイプラインテレメトリ",
@@ -213,7 +213,7 @@
     "showThenScan": "スマートフォンでこれをスキャンしたら、「スマートフォンのコードをスキャン」をタップし、カメラをスマートフォンに向けてください。",
     "scanAnswer": "スマートフォンのコードをスキャン",
     "scanning": "カメラをスマートフォンのコードに向けてください…",
-    "cameraFailed": "カメラを利用できません: {{message}}",
+    "cameraFailed": "カメラを利用できません",
     "notAnswer": "その QR はペアリング応答ではありません。",
     "connecting": "接続中…",
     "paired": "✓ ペアリング済み",
@@ -258,7 +258,7 @@
     "loading": "チャネルを読み込み中…",
     "scope": "Specrails Desktop と specrails-core フレームワークの両方に適用されます。",
     "saved": "アップデートチャネル: {{channel}}",
-    "saveFailed": "アップデートチャネルを変更できませんでした: {{message}}",
+    "saveFailed": "アップデートチャネルを変更できませんでした",
     "latest": {
       "label": "最新",
       "description": "リリースされたらすぐに受け取ります。新機能と修正をいち早く。"
@@ -278,7 +278,7 @@
     "autoHint": "起動時と6時間ごとに自動確認します。",
     "unavailable": "アップデートはデスクトップアプリでのみ利用できます。",
     "toastUpToDate": "Specrails Desktop は最新です",
-    "toastCheckFailed": "アップデートの確認に失敗しました: {{message}}",
+    "toastCheckFailed": "アップデートの確認に失敗しました",
     "stableUnavailable": "安定版チャネルに昇格したリリースはまだありません。最新に切り替えるか、後でもう一度お試しください。"
   },
   "projectDialog": {

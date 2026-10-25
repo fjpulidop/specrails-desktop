@@ -23,6 +23,7 @@ import { MilestoneGenerateShell } from './MilestoneGenerateShell'
 import { providerSupportsToolPolicy } from '../../../providers/lib/provider-capabilities'
 import { SIDEBAR_FLYOUT_ATTR } from '../../../../hooks/useSidebarHoverIntent'
 
+import { notifyError } from '../../../../lib/notify-error'
 const PANEL_ID = 'builder-sidebar-panel'
 
 // Builder sidebar re-entry (add-project-builder D5/D6, premium-milestone-
@@ -139,7 +140,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
       } else if (result.reason === 'rail_limit_reached') {
         toast.warning(t('milestoneProgress.toast.railLimitReached', { milestone: label }))
       } else {
-        toast.error(t('done.launchFailed'), { description: result.detail ?? result.error })
+        notifyError(t('done.launchFailed'), { detail: result.detail ?? result.error })
       }
     } finally {
       setLaunching(false)
@@ -157,7 +158,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
         saveMilestoneAutoAdvance(on)
         toast.success(t(on ? 'milestoneProgress.chain.autoOn' : 'milestoneProgress.chain.autoOff'))
       } else {
-        toast.error(t('milestoneProgress.chain.autoFailed'), { description: r.detail ?? r.error })
+        notifyError(t('milestoneProgress.chain.autoFailed'), { detail: r.detail ?? r.error })
       }
     } finally {
       setChainBusy(false)
@@ -170,7 +171,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     try {
       const r = await resumeChain(activeProjectId, chainId)
       if (r.ok) toast.success(t('milestoneProgress.chain.resumed'))
-      else toast.error(t('milestoneProgress.chain.resumeFailed'), { description: r.detail ?? r.error })
+      else notifyError(t('milestoneProgress.chain.resumeFailed'), { detail: r.detail ?? r.error })
     } finally {
       setChainBusy(false)
     }
@@ -182,7 +183,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     try {
       const r = await cancelChain(activeProjectId, chainId)
       if (r.ok) toast.success(t('milestoneProgress.chain.cancelledToast'))
-      else toast.error(r.detail ?? r.error)
+      else notifyError(t('milestoneProgress.chain.cancelFailed'), { detail: r.detail ?? r.error })
     } finally {
       setChainBusy(false)
     }

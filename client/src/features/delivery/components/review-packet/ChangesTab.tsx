@@ -34,6 +34,7 @@ import { AskAgentForm, type AskTicketOption } from './changes/AskAgentForm'
 import { ChangesFileTree } from './changes/ChangesFileTree'
 import { DiffView } from './changes/DiffView'
 
+import { notifyError } from '../../../../lib/notify-error'
 type Loadable<T> = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: T }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -253,14 +254,14 @@ export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
       const res = await fetch(`${getApiBase()}/tickets/${ticketId}/addenda`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
-      if (!res.ok) { toast.error(t('packet:changes.ask.failed')); return }
+      if (!res.ok) { notifyError(t('packet:changes.ask.failed')); return }
       toast.success(t('packet:changes.ask.created', { id: ticketId }), {
         action: { label: t('packet:changes.ask.open'), onClick: () => openTicketDetail(ticketId) },
       })
       setAsk(null)
       setSelection(null)
     } catch {
-      toast.error(t('packet:changes.ask.failed'))
+      notifyError(t('packet:changes.ask.failed'))
     } finally {
       setAsking(false)
     }
@@ -272,7 +273,7 @@ export function ChangesTab({ prDeliveryId, repositoryId, tickets, active }: {
     const opened = await openInEditor(editor, joinProjectPath(available.root, file.path), line).catch(() => false)
     if (opened) return
     // Never fail silently: say which editor, and where to change it.
-    toast.error(t('packet:changes.editor.failed', { editor: editorName }), {
+    notifyError(t('packet:changes.editor.failed', { editor: editorName }), {
       action: { label: t('settings:openSettings'), onClick: () => openAppSettings('code', 'editor') },
     })
   }

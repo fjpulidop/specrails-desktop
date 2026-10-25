@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { MessagesSquare, ChevronDown, Check, Search, Plus, Trash2, X } from 'lucide-react'
-import { toast } from 'sonner'
 import { compactRelativeTime, absoluteTime } from '../../../lib/relative-time'
 import { useMissionSessions } from '../context/MissionSessionsContext'
 import { useAgentChat } from '../context/AgentChatContext'
@@ -10,6 +9,7 @@ import { useQueuedCounts, useStreamingConversationIds } from '../hooks/useAgentL
 import type { AgentConversation } from '../lib/agent-api'
 import { LiveDot } from '../../../components/ui/live-dot'
 
+import { notifyError } from '../../../lib/notify-error'
 /** Search only earns its row once the list is big enough to need it. */
 const SEARCH_THRESHOLD = 8
 /** An armed inline delete-confirm reverts on its own after this long. */
@@ -133,7 +133,7 @@ export function AgentMissionSelector() {
         // else: context already reset to the EMPTY compose state.
       }
     } catch {
-      toast.error(t('mission.deleteFailed'))
+      notifyError(t('mission.deleteFailed'))
     }
   }
 

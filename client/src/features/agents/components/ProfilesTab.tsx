@@ -16,6 +16,7 @@ import {
   type ProviderProfileCatalog,
 } from './types'
 
+import { notifyError } from '../../../lib/notify-error'
 const FALLBACK_CATALOG: ProviderProfileCatalog = {
   models: MODEL_ALIASES.map((value) => ({ value, label: value })),
   defaultModel: 'sonnet',
@@ -167,7 +168,7 @@ export function ProfilesTab() {
     } catch (e) {
       const message = (e as Error).message
       setError(message)
-      toast.error(t('profiles.toasts.migrationFailed'), { description: message })
+      notifyError(t('profiles.toasts.migrationFailed'), { detail: message })
     } finally {
       setSaving(false)
     }
@@ -198,7 +199,7 @@ export function ProfilesTab() {
       } catch (e) {
         const message = (e as Error).message
         setError(message)
-        toast.error(t('profiles.toasts.createFailed'), { description: message })
+        notifyError(t('profiles.toasts.createFailed'), { detail: message })
       } finally {
         setSaving(false)
       }
@@ -232,7 +233,7 @@ export function ProfilesTab() {
       } catch (e) {
         const message = (e as Error).message
         setError(message)
-        toast.error(t('profiles.toasts.duplicateFailed'), { description: message })
+        notifyError(t('profiles.toasts.duplicateFailed'), { detail: message })
       } finally {
         setSaving(false)
       }
@@ -260,7 +261,7 @@ export function ProfilesTab() {
       } catch (e) {
         const message = (e as Error).message
         setError(message)
-        toast.error(t('profiles.toasts.deleteFailed'), { description: message })
+        notifyError(t('profiles.toasts.deleteFailed'), { detail: message })
       } finally {
         setSaving(false)
       }
@@ -302,7 +303,7 @@ export function ProfilesTab() {
     } catch (e) {
       const message = (e as Error).message
       setError(message)
-      toast.error(t('profiles.toasts.saveFailed'), { description: message })
+      notifyError(t('profiles.toasts.saveFailed'), { detail: message })
     } finally {
       setSaving(false)
     }

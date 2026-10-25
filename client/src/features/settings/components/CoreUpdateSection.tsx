@@ -7,6 +7,7 @@ import { UPDATE_CHANNEL_CHANGED_EVENT } from '../../../lib/app-updater'
 import { Button } from '../../../components/ui/button'
 import { SettingsCard } from './SettingsCard'
 
+import { notifyError } from '../../../lib/notify-error'
 interface CoreUpdateStatus {
   available: boolean
   currentVersion: string | null
@@ -91,7 +92,7 @@ export function CoreUpdateSection() {
         if (resetTimer.current) clearTimeout(resetTimer.current)
         resetTimer.current = setTimeout(() => setPhase(null), 2500)
       } else if (p === 'error') {
-        toast.error(t('coreUpdate.updateFailed'), { description: msg.message ? String(msg.message) : undefined })
+        notifyError(t('coreUpdate.updateFailed'), { detail: msg.message ? String(msg.message) : undefined })
         void refreshRef.current()
         if (resetTimer.current) clearTimeout(resetTimer.current)
         resetTimer.current = setTimeout(() => setPhase(null), 4000)
@@ -115,7 +116,7 @@ export function CoreUpdateSection() {
       setStatus(data)
       if (!data.updateAvailable) toast.success(t('coreUpdate.toastUpToDate'))
     } catch (err) {
-      toast.error(t('coreUpdate.checkFailed'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(t('coreUpdate.checkFailed'), { detail: err instanceof Error ? err.message : undefined })
     } finally {
       setChecking(false)
     }
@@ -140,7 +141,7 @@ export function CoreUpdateSection() {
       // Success/failure arrives over WS (core_update.progress).
     } catch (err) {
       setPhase(null)
-      toast.error(t('coreUpdate.updateFailed'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(t('coreUpdate.updateFailed'), { detail: err instanceof Error ? err.message : undefined })
     }
   }, [t])
 

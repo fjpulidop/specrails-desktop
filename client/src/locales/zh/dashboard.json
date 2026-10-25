@@ -36,7 +36,8 @@
     "onReviewNotLaunchable": "该 Rail 上有 Spec 正在等待 PR 评审，请先处理 PR 决定再启动。",
     "launchRepositoryHasNoCommits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。",
     "railDeletePrPending": "{{rail}} 有待处理的 PR 决定，请先处理再移除该 rail",
-    "railDeleteLastRail": "项目至少需要一个 rail，无法移除此 rail"
+    "railDeleteLastRail": "项目至少需要一个 rail，无法移除此 rail",
+    "openJob": "打开任务"
   },
   "railPr": {
     "operation": {
@@ -102,7 +103,7 @@
     "implementationFailed": "实现失败",
     "implementationFailedHint": "实现运行失败。请打开运行日志，然后在重新启动前丢弃此卡片。",
     "prFailed": "PR 失败",
-    "prFailedDetail": "PR 失败：{{detail}}",
+    "prFailedDetail": "PR 失败",
     "createDegraded": "无法发布 PR — {{detail}}。解决后请重试。",
     "createPr": "创建 PR",
     "createPrTooltip": "→ {{base}}",
@@ -149,7 +150,7 @@
     "commitMissingRetry": "交付提交已不在 PR 中。你可以重新尝试推送。",
     "prVerifiedWaiting": "提交 {{sha}} 已验证 · 等待合并",
     "alreadyResolved": "已在其他地方处理",
-    "ghFailed": "GitHub CLI 失败：{{detail}}",
+    "ghFailed": "GitHub CLI 失败",
     "actionFailed": "无法应用 PR 决定",
     "mergedToast": "PR 已合并 — 规格已移至完成",
     "discardedToast": "PR 已丢弃 — 规格已退回 Specs",
@@ -164,7 +165,7 @@
     "mergeLocalConfirmBody": "交付的分支将在本地合并到 {{base}}。现有更改会被保留；重叠的更改可能需要先解决才能集成。",
     "mergeLocalBlockedDirty": "无法集成：{{base}} 上的本地更改与交付内容重叠。请先提交或暂存这些更改，然后重试。",
     "mergeLocalBlockedBranch": "无法集成：当前检出在 {{current}}，而不是 {{base}}。请切换到 {{base}} 后重试。",
-    "mergeLocalFailed": "本地合并失败：{{detail}}",
+    "mergeLocalFailed": "本地合并失败",
     "mergedLocally": "已在本地集成到 {{base}}",
     "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。",
     "reviewChangesRequested": "需要修改",

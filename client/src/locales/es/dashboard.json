@@ -36,7 +36,8 @@
     "onReviewNotLaunchable": "Una spec de este rail está pendiente de revisión de PR. Decide sobre la PR antes de lanzar.",
     "launchRepositoryHasNoCommits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear una copia aislada del proyecto.",
     "railDeletePrPending": "{{rail}} tiene una decisión de PR pendiente: resuélvela antes de quitar el rail",
-    "railDeleteLastRail": "Un proyecto necesita al menos un rail: este no se puede quitar"
+    "railDeleteLastRail": "Un proyecto necesita al menos un rail: este no se puede quitar",
+    "openJob": "Abrir trabajo"
   },
   "railPr": {
     "operation": {
@@ -82,7 +83,7 @@
     "implementationFailed": "Implementación fallida",
     "implementationFailedHint": "La ejecución de implementación ha fallado. Abre el log de la ejecución y descarta esta card antes de relanzar.",
     "prFailed": "PR fallida",
-    "prFailedDetail": "PR fallida: {{detail}}",
+    "prFailedDetail": "PR fallida",
     "createDegraded": "No se pudo publicar la PR — {{detail}}. Reintenta cuando esté resuelto.",
     "createPr": "Crear PR",
     "createPrTooltip": "→ {{base}}",
@@ -131,7 +132,7 @@
     "commitMissingRetry": "El commit de la entrega ya no está en la PR. Puedes reintentar el push.",
     "prVerifiedWaiting": "Commit {{sha}} verificado · pendiente de merge",
     "alreadyResolved": "Ya resuelta en otro sitio",
-    "ghFailed": "GitHub CLI falló: {{detail}}",
+    "ghFailed": "GitHub CLI falló",
     "actionFailed": "No se pudo aplicar la decisión de la PR",
     "mergedToast": "Merge de la PR completado — las specs han pasado a Hecho",
     "discardedToast": "PR descartada — las specs han vuelto a Specs",
@@ -150,7 +151,7 @@
     "mergeLocalConfirmBody": "Las ramas entregadas se fusionarán en {{base}} localmente. Se conservan los cambios existentes; si se solapan, puede ser necesario resolverlos antes de integrar.",
     "mergeLocalBlockedDirty": "No se puede integrar: los cambios locales en {{base}} se solapan con la entrega. Haz commit o stash de esos cambios y reintenta.",
     "mergeLocalBlockedBranch": "No se puede integrar: tu checkout está en {{current}}, no en {{base}}. Cambia a {{base}} y reintenta.",
-    "mergeLocalFailed": "La fusión local falló: {{detail}}",
+    "mergeLocalFailed": "La fusión local falló",
     "mergedLocally": "Integrado en {{base}} en local",
     "viewRunLog": "Ver el registro de ejecución de {{ref}}",
     "cleanupIncomplete_one": "La limpieza está incompleta ({{count}} aviso)",

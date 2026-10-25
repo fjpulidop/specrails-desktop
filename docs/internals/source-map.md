@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1342 source/build files. Nearby tests are linked where names
+Includes 1343 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -81,6 +81,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [input.tsx](../../client/src/components/ui/input.tsx)
 - [kbd.tsx](../../client/src/components/ui/kbd.tsx) · [test](../../client/src/components/ui/__tests__/kbd.test.tsx)
 - [live-dot.tsx](../../client/src/components/ui/live-dot.tsx)
+- [overflow-actions.tsx](../../client/src/components/ui/overflow-actions.tsx)
 - [page-header.tsx](../../client/src/components/ui/page-header.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
 - [skeleton.tsx](../../client/src/components/ui/skeleton.tsx)

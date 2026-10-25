@@ -9,6 +9,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { projectRepositories, repositoryApiBase } from '../../projects/lib/project-repositories'
 import { LiveDot } from '../../../components/ui/live-dot'
 
+import { notifyError } from '../../../lib/notify-error'
 interface GitWorktree {
   path: string
   branch: string | null
@@ -182,7 +183,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
       if (!res.ok) {
         // git refused (dirty tree, unknown branch, …) and touched NOTHING —
         // surface its exact reason and re-sync the strip with the real state.
-        toast.error(t('git.switchFailed'), { description: data.error })
+        notifyError(t('git.switchFailed'), { detail: data.error })
         void refresh()
         return
       }
@@ -196,7 +197,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
       toast.success(t('git.switched', { branch }))
     } catch {
       if (!mountedRef.current || scopeRef.current.epoch !== scopeEpoch) return
-      toast.error(t('git.switchFailed'))
+      notifyError(t('git.switchFailed'))
       void refresh()
     } finally {
       if (mountedRef.current && scopeRef.current.epoch === scopeEpoch) setSwitching(false)

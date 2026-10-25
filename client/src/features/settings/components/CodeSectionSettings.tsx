@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { FEATURE_CODE_EXPLORER } from '../../../lib/feature-flags'
 import { LANGUAGE_IDS, LANGUAGES, type LanguageId } from '../../../lib/i18n'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { SettingsCard } from './SettingsCard'
 
+import { notifyError } from '../../../lib/notify-error'
 /**
  * Languages the Code explorer summariser accepts. Options come from the
  * shared 8-entry `LANGUAGES` registry so names stay in sync with the UI
@@ -53,7 +53,7 @@ export function CodeSectionSettings() {
       const updated = (await res.json()) as CodeExplorerSettings
       setSettings(updated)
     } catch (err) {
-      toast.error(t('errors.saveFailed', { message: (err as Error).message }))
+      notifyError(t('errors.saveFailed'), { detail: (err as Error).message })
       setSettings(settings)
     } finally {
       setSaving(false)

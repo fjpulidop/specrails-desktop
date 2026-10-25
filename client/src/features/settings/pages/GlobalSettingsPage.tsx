@@ -46,6 +46,7 @@ import {
   type OsNotificationFilter,
 } from '../../../hooks/useOsNotifications'
 
+import { notifyError } from '../../../lib/notify-error'
 type WebhookEvent = 'job.completed' | 'job.failed' | 'daily_budget_exceeded'
 
 const WEBHOOK_EVENTS: { value: WebhookEvent; labelKey: string }[] = [
@@ -239,7 +240,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
     try {
       const parsed = costAlertThreshold.trim() === '' ? null : parseFloat(costAlertThreshold)
       if (parsed !== null && (isNaN(parsed) || parsed <= 0)) {
-        toast.error(t('budget.invalidNumber'))
+        notifyError(t('budget.invalidNumber'))
         return false
       }
       const res = await fetch('/api/settings', {
@@ -252,9 +253,9 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         toast.success(parsed == null ? t('desktop.costAlertsDisabled') : t('budget.alertSet', { amount: formatUsd(parsed) }))
         return true
       }
-      toast.error(t('budget.saveThresholdFailed'))
+      notifyError(t('budget.saveThresholdFailed'))
     } catch {
-      toast.error(t('budget.saveThresholdFailed'))
+      notifyError(t('budget.saveThresholdFailed'))
     }
     return false
   }
@@ -274,17 +275,17 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
       await removeProject(id)
       toast.success(t('desktop.projectRemoved'))
     } catch (err) {
-      toast.error(t('desktop.projectRemoveFailed'), { description: (err as Error).message })
+      notifyError(t('desktop.projectRemoveFailed'), { detail: (err as Error).message })
     }
   }
 
   async function handleAddWebhook() {
     if (!newWebhookUrl.trim()) {
-      toast.error(t('webhooks.urlRequired'))
+      notifyError(t('webhooks.urlRequired'))
       return
     }
     if (newWebhookEvents.length === 0) {
-      toast.error(t('webhooks.selectEvent'))
+      notifyError(t('webhooks.selectEvent'))
       return
     }
     setIsAddingWebhook(true)
@@ -302,10 +303,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         await loadWebhooks()
       } else {
         const err = await res.json() as { error?: string }
-        toast.error(err.error ?? t('webhooks.addFailed'))
+        notifyError(t('webhooks.addFailed'), { detail: err.error })
       }
     } catch {
-      toast.error(t('webhooks.addFailed'))
+      notifyError(t('webhooks.addFailed'))
     } finally {
       setIsAddingWebhook(false)
     }
@@ -318,10 +319,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
       })
-      if (!res.ok) toast.error(t('webhooks.updateFailed'))
+      if (!res.ok) notifyError(t('webhooks.updateFailed'))
       await loadWebhooks()
     } catch {
-      toast.error(t('webhooks.updateFailed'))
+      notifyError(t('webhooks.updateFailed'))
     }
   }
 
@@ -332,10 +333,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         toast.success(t('webhooks.removed'))
         await loadWebhooks()
       } else {
-        toast.error(t('webhooks.removeFailed'))
+        notifyError(t('webhooks.removeFailed'))
       }
     } catch {
-      toast.error(t('webhooks.removeFailed'))
+      notifyError(t('webhooks.removeFailed'))
     }
   }
 
@@ -345,10 +346,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
       if (res.ok) {
         toast.success(t('webhooks.testPingSent'))
       } else {
-        toast.error(t('webhooks.testPingFailed'))
+        notifyError(t('webhooks.testPingFailed'))
       }
     } catch {
-      toast.error(t('webhooks.testPingFailed'))
+      notifyError(t('webhooks.testPingFailed'))
     }
   }
 

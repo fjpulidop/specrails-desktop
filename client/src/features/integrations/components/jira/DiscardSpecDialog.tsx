@@ -5,6 +5,7 @@ import { ArrowRight } from 'lucide-react'
 import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
 import { jiraApi } from '../../lib/jira-api'
 
+import { notifyError } from '../../../../lib/notify-error'
 export interface DiscardSpecDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -38,7 +39,7 @@ export function DiscardSpecDialog({ open, onOpenChange, ticket, discardStatus, o
       setComment('')
       onDiscarded?.()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('errors.generic'))
+      notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     } finally {
       setBusy(false)
     }

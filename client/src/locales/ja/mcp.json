@@ -15,8 +15,8 @@
     "activeSessions_other": "{{count}} 件のアクティブセッション",
     "turnOn": "オンにする",
     "turnOff": "オフにする",
-    "enableFailed": "MCP サーバーを有効にできませんでした: {{message}}",
-    "disableFailed": "MCP サーバーを無効にできませんでした: {{message}}"
+    "enableFailed": "MCP サーバーを有効にできませんでした",
+    "disableFailed": "MCP サーバーを無効にできませんでした"
   },
   "tiers": {
     "heading": "権限ティア",
@@ -29,7 +29,7 @@
     "aiSpawnHelp": "CLI を実行する AI レールとジョブを起動します。",
     "destructive": "破壊的操作",
     "destructiveHelp": "スペックとその他のプロジェクトデータを削除します。",
-    "updateFailed": "権限を更新できませんでした: {{message}}"
+    "updateFailed": "権限を更新できませんでした"
   },
   "config": {
     "heading": "クライアント設定",
@@ -47,7 +47,7 @@
     "regenerate": "再生成",
     "regenerateConfirm": "アクセストークンを再生成しますか？古いトークンを使用しているクライアントは、設定を更新するまで動作しなくなります。",
     "regenerated": "アクセストークンを再生成しました",
-    "regenerateFailed": "トークンを再生成できませんでした: {{message}}",
+    "regenerateFailed": "トークンを再生成できませんでした",
     "regenerateConfirmTitle": "アクセストークンを再生成しますか？"
   },
   "tray": {

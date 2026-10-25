@@ -63,6 +63,7 @@ import { backgroundProcessKey } from '../../background/lib/background-processes-
 import { useAvailableProviders } from '../../providers/hooks/useAvailableProviders'
 import { isPublicProvider, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
 
+import { notifyError } from '../../../lib/notify-error'
 function replaceInlineRange(
   text: string,
   references: AgentInlineReference[],
@@ -391,7 +392,7 @@ export function AgentComposer({
         conversation = await materializeDraftConversation()
         adoptNewMissionDrafts(conversation.id)
       } catch (err) {
-        toast.error(t('workspace.uploadFailed'), { description: err instanceof Error ? err.message : undefined })
+        notifyError(t('workspace.uploadFailed'), { detail: err instanceof Error ? err.message : undefined })
         setUploading(false)
         return
       }
@@ -399,7 +400,7 @@ export function AgentComposer({
     // Unsupported images are rejected as ONE toast for the whole drop/pick.
     const rejectedImages = supportsImage ? 0 : files.filter((f) => f.type.startsWith('image/')).length
     if (rejectedImages > 0) {
-      toast.error(rejectedImages === 1 ? t('imagesUnsupported') : t('imagesUnsupportedCount', { count: rejectedImages }))
+      notifyError(rejectedImages === 1 ? t('imagesUnsupported') : t('imagesUnsupportedCount', { count: rejectedImages }))
     }
     for (const f of files) {
       if (!supportsImage && f.type.startsWith('image/')) continue
@@ -407,7 +408,7 @@ export function AgentComposer({
         const att = await uploadAgentAttachment(conversation.id, f)
         setAttachmentDraft(conversation.id, (prev) => [...prev, att])
       } catch (err) {
-        toast.error(t('workspace.uploadFailed'), { description: err instanceof Error ? err.message : undefined })
+        notifyError(t('workspace.uploadFailed'), { detail: err instanceof Error ? err.message : undefined })
       }
     }
     setUploading(false)
@@ -417,7 +418,7 @@ export function AgentComposer({
       if (active) await deleteAgentAttachment(active.id, id)
       setAttachmentDraft(draftKey, (prev) => prev.filter((a) => a.id !== id))
     } catch (err) {
-      toast.error(t('errors.removeAttachmentFailed'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(t('errors.removeAttachmentFailed'), { detail: err instanceof Error ? err.message : undefined })
     }
   }
 
@@ -522,7 +523,7 @@ export function AgentComposer({
       }
     } catch {
       // Stay in edit mode with the text intact — the user can retry Enter.
-      toast.error(t('queueEdit.saveFailed'))
+      notifyError(t('queueEdit.saveFailed'))
     }
   }
   // Drain race: the slot being edited left the queue (its turn started, or the
@@ -582,7 +583,7 @@ export function AgentComposer({
       setComposerSubmission(targetKey, null)
     } catch (error) {
       restoreSubmittedComposerDraft(draftKey, submitted)
-      toast.error(t('errors.sendFailed'), { description: error instanceof Error && error.message ? error.message : t('errors.sendFailedHint') })
+      notifyError(t('errors.sendFailed'), { detail: error instanceof Error && error.message ? error.message : t('errors.sendFailedHint') })
     } finally {
       submittingRef.current = false
       setSubmitting(false)
@@ -931,9 +932,9 @@ export function AgentComposer({
               models={models} model={effectiveModel} efforts={efforts} effort={effort}
               defaultEffort={defaultReasoningEffortForProvider(provider, effectiveModel) ?? ''}
               status={providerCatalog.status} customModelAliases={customModelAliases}
-              onProvider={value => { void setProvider(value).catch(() => toast.error(t('errors.providerSwitchFailed'))) }}
-              onModel={value => { void setModel(value).catch(() => toast.error(t('errors.modelSwitchFailed'))) }}
-              onEffort={value => { void setEffort(value).catch(() => toast.error(t('errors.effortSwitchFailed'))) }} />
+              onProvider={value => { void setProvider(value).catch(() => notifyError(t('errors.providerSwitchFailed'))) }}
+              onModel={value => { void setModel(value).catch(() => notifyError(t('errors.modelSwitchFailed'))) }}
+              onEffort={value => { void setEffort(value).catch(() => notifyError(t('errors.effortSwitchFailed'))) }} />
         {/* Stop remains separate from Send/Save so typing never hides it. */}
         {isStreaming && (
           <button type="button" onClick={() => void abort()} aria-label={t('stop')} title={t('stop')}

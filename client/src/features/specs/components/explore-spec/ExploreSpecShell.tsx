@@ -32,6 +32,7 @@ import { ExploreReviewOverlay, EMPTY_REVIEW_BASELINE, type ReviewProposed } from
 import type { LocalTicket, Attachment } from '../../../../types'
 import { keyboardLabel } from '../../../../lib/keyboard-label'
 
+import { notifyError } from '../../../../lib/notify-error'
 function isMacTauriOverlay(): boolean {
   if (typeof window === 'undefined') return false
   if (!('__TAURI_INTERNALS__' in window)) return false
@@ -654,14 +655,14 @@ export function ExploreSpecShell({
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(err.error || t('shell.toasts.saveDraftFailed'))
+        notifyError(t('shell.toasts.saveDraftFailed'), { detail: err.error })
         return false
       }
       const data = await res.json() as { ticket: LocalTicket }
       toast.success(t('shell.toasts.draftSaved', { id: data.ticket.id, title: data.ticket.title }))
       return true
     } catch {
-      toast.error(t('shell.toasts.draftNetworkError'))
+      notifyError(t('shell.toasts.draftNetworkError'))
       return false
     }
   }, [conversationId, activeProjectId, draft.title, draft.description, draft.labels, draft.repositoryIds, editTicket, t])
@@ -698,7 +699,7 @@ export function ExploreSpecShell({
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({})) as { error?: string }
-          toast.error(err.error || t('shell.toasts.updateSpecFailed'))
+          notifyError(t('shell.toasts.updateSpecFailed'), { detail: err.error })
           return
         }
         const data = await res.json() as { ticket: LocalTicket }
@@ -736,7 +737,7 @@ export function ExploreSpecShell({
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(err.error || t('shell.toasts.createSpecFailed'))
+        notifyError(t('shell.toasts.createSpecFailed'), { detail: err.error })
         return
       }
       const data = await res.json() as { ticket: LocalTicket }
@@ -744,7 +745,7 @@ export function ExploreSpecShell({
       onTicketCreated?.(data.ticket)
       onClose()
     } catch (err) {
-      toast.error(t('shell.toasts.createNetworkError'))
+      notifyError(t('shell.toasts.createNetworkError'))
     } finally {
       setIsCreating(false)
       unmarkSpecGenInFlight(activeProjectId)
@@ -995,8 +996,8 @@ export function ExploreSpecShell({
                 setHasComposerText(text.length > 0)
                 setComposerText(text)
               }}
-              onUnsupportedFile={(f) => toast.error(t('shell.toasts.unsupportedFileType', { name: f.name }))}
-              onUploadError={(err, f) => toast.error(t('shell.toasts.uploadFailed', { name: f.name, message: err.message }))}
+              onUnsupportedFile={(f) => notifyError(t('shell.toasts.unsupportedFileType', { name: f.name }))}
+              onUploadError={(err, f) => notifyError(t('shell.toasts.uploadFailed', { name: f.name, message: err.message }))}
               onAttachmentRemoved={(a) => {
                 fetch(`${API_ORIGIN}/api/projects/${activeProjectId}/tickets/${pendingSpecId}/attachments/${a.id}`, { method: 'DELETE' }).catch(() => {})
                 // Drop from the accumulated list immediately so the panel

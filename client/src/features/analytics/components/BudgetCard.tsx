@@ -20,6 +20,7 @@ import {
 } from '../lib/budget'
 import { WhatIfPanel } from './WhatIfPanel'
 
+import { notifyError } from '../../../lib/notify-error'
 type Scope = 'project' | 'desktop'
 type Field = CapPeriod | 'run'
 const FIELDS: readonly Field[] = [...CAP_PERIODS, 'run']
@@ -202,7 +203,7 @@ function CapGroup({ scope, overview, config, billing, plan, onSaved }: GroupProp
       toast.success(t('budget.saved'))
       onSaved()
     } catch (err) {
-      toast.error(t('budget.saveFailed'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(t('budget.saveFailed'), { detail: err instanceof Error ? err.message : undefined })
     } finally {
       setSaving(false)
     }

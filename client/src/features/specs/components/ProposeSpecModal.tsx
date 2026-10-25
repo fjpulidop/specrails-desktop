@@ -34,6 +34,7 @@ import { BrowserCaptureModal } from '../../browser/components/browser-capture/Br
 import { CapturedDomPanel } from '../../browser/components/browser-capture/CapturedDomPanel'
 import { isBrowserCaptureEnabled, type CaptureResult, type CapturedDom } from '../../browser/lib/browser-capture'
 
+import { notifyError } from '../../../lib/notify-error'
 interface BrowserCaptureBreakpoint {
   key: string
   attachmentId: string
@@ -368,7 +369,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
         })
         if (!res.ok) {
           submittedRef.current = false
-          toast.error(t('proposeModal.toast.createFailed'))
+          notifyError(t('proposeModal.toast.createFailed'))
           return
         }
         const data = await res.json().catch(() => ({})) as { ticket?: { id?: number } }
@@ -378,7 +379,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
       } catch (err) {
         submittedRef.current = false
         console.error('[ProposeSpec] from-prompt failed:', err)
-        toast.error(t('proposeModal.toast.createFailed'))
+        notifyError(t('proposeModal.toast.createFailed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -391,7 +392,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
     // and folded into Claude's context for the first turn.
     if (mode === 'explore') {
       if (!onExploreLaunch) {
-        toast.error(t('proposeModal.toast.exploreNotWired'))
+        notifyError(t('proposeModal.toast.exploreNotWired'))
         return
       }
       submittedRef.current = true // suppress attachment cleanup on close
@@ -448,11 +449,11 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
         })
       } catch (err) {
         console.error('[ProposeSpec] generate-spec fetch threw:', err)
-        toast.error(t('proposeModal.toast.failedToStart', { projectName }), { id: toastId })
+        notifyError(t('proposeModal.toast.failedToStart', { projectName }), { id: toastId })
         return
       }
       if (!res.ok) {
-        toast.error(t('proposeModal.toast.failedToStart', { projectName }), { id: toastId })
+        notifyError(t('proposeModal.toast.failedToStart', { projectName }), { id: toastId })
         return
       }
       const data = await res.json() as { requestId: string }
@@ -539,8 +540,8 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
                 setAttachmentCount((c) => Math.max(0, c - 1))
                 fetch(`${API_ORIGIN}/api/projects/${activeProjectIdRef.current}/tickets/${pendingSpecId}/attachments/${a.id}`, { method: 'DELETE' }).catch(() => {})
               }}
-              onUnsupportedFile={(f) => toast.error(t('proposeModal.toast.unsupportedFileType', { name: f.name }))}
-              onUploadError={(err, f) => toast.error(t('proposeModal.toast.uploadFailed', { name: f.name, message: err.message }))}
+              onUnsupportedFile={(f) => notifyError(t('proposeModal.toast.unsupportedFileType', { name: f.name }))}
+              onUploadError={(err, f) => notifyError(t('proposeModal.toast.uploadFailed', { name: f.name, message: err.message }))}
               onSubmit={handleSubmit}
               footerExtra={mode !== 'free' && browserCaptureEnabled && activeProjectId ? (
                 <button

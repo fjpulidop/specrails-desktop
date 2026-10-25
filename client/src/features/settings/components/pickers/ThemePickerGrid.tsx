@@ -1,9 +1,9 @@
 import { Check } from 'lucide-react'
-import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { useThemeOptional } from '../../context/ThemeContext'
 import { THEME_IDS, THEMES, type ThemeId } from '../../lib/themes'
 
+import { notifyError } from '../../../../lib/notify-error'
 /**
  * Theme card grid shared by the Settings Appearance section and the
  * onboarding wizard. One card per built-in theme — rendered from the
@@ -25,8 +25,8 @@ export function ThemePickerGrid() {
     try {
       await setTheme(id)
     } catch (err) {
-      toast.error(tr('appearance.updateFailed'), {
-        description: err instanceof Error ? err.message : undefined,
+      notifyError(tr('appearance.updateFailed'), {
+        detail: err instanceof Error ? err.message : undefined,
       })
     }
   }

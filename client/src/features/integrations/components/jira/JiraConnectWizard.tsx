@@ -13,6 +13,7 @@ import {
   type SpecLogicalState,
 } from '../../lib/jira-api'
 
+import { notifyError } from '../../../../lib/notify-error'
 type WizardStep = 1 | 2 | 3 | 4
 type TestState = 'idle' | 'testing' | 'ok' | 'error'
 
@@ -95,7 +96,7 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
     } catch (e) {
       if (!alive.current) return
       setTestState('error')
-      setTestError(errMsg(e, t))
+      setTestError(e instanceof Error ? e.message : t('errors.generic'))
     }
   }
 
@@ -107,7 +108,7 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
       if (!alive.current) return
       setProjects(list)
     } catch (e) {
-      if (alive.current) toast.error(errMsg(e, t))
+      if (alive.current) notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     } finally {
       if (alive.current) setLoadingProjects(false)
     }
@@ -164,7 +165,7 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
       toast.success(t('status.connected', { key: selectedKey.trim() }))
       onConnected()
     } catch (e) {
-      if (alive.current) toast.error(errMsg(e, t))
+      if (alive.current) notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     } finally {
       if (alive.current) setConnecting(false)
     }
@@ -335,6 +336,3 @@ function Row({ label, value }: { label: string; value: string }) {
   )
 }
 
-function errMsg(e: unknown, t: (k: string) => string): string {
-  return e instanceof Error ? e.message : t('errors.generic')
-}

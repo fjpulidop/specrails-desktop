@@ -36,7 +36,8 @@
     "onReviewNotLaunchable": "A spec on this rail is awaiting PR review. Resolve the PR decision before launching.",
     "launchRepositoryHasNoCommits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.",
     "railDeletePrPending": "{{rail}} has a pending PR decision — resolve it before removing the rail",
-    "railDeleteLastRail": "A project needs at least one rail — this one can't be removed"
+    "railDeleteLastRail": "A project needs at least one rail — this one can't be removed",
+    "openJob": "Open job"
   },
   "railPr": {
     "operation": {
@@ -82,7 +83,7 @@
     "implementationFailed": "Implementation failed",
     "implementationFailedHint": "The implementation run failed. Open the run log, then discard this card before relaunching.",
     "prFailed": "PR failed",
-    "prFailedDetail": "PR failed: {{detail}}",
+    "prFailedDetail": "PR failed",
     "createDegraded": "Couldn't publish the PR — {{detail}}. Retry when resolved.",
     "createPr": "Create PR",
     "createPrTooltip": "→ {{base}}",
@@ -131,7 +132,7 @@
     "commitMissingRetry": "The delivery commit is no longer in the PR. Retry push is available again.",
     "prVerifiedWaiting": "Commit {{sha}} verified · waiting for merge",
     "alreadyResolved": "Already resolved elsewhere",
-    "ghFailed": "GitHub CLI failed: {{detail}}",
+    "ghFailed": "GitHub CLI failed",
     "actionFailed": "Couldn't apply the PR decision",
     "mergedToast": "PR merged — specs moved to Done",
     "discardedToast": "PR discarded — specs returned to Specs",
@@ -150,7 +151,7 @@
     "mergeLocalConfirmBody": "The delivered branches will be merged into {{base}} locally. Existing changes are preserved; overlapping edits may require resolution before integration.",
     "mergeLocalBlockedDirty": "Cannot integrate: local changes on {{base}} overlap the delivery. Commit or stash those changes, then retry.",
     "mergeLocalBlockedBranch": "Cannot integrate: your checkout is on {{current}}, not {{base}}. Check out {{base}}, then retry.",
-    "mergeLocalFailed": "Local merge failed: {{detail}}",
+    "mergeLocalFailed": "Local merge failed",
     "mergedLocally": "Integrated into {{base}} locally",
     "viewRunLog": "View run log for {{ref}}",
     "cleanupIncomplete_one": "Cleanup is incomplete ({{count}} warning)",

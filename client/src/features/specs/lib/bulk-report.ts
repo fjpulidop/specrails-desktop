@@ -1,5 +1,6 @@
 import { toast } from 'sonner'
 
+import { notifyError } from '../../../lib/notify-error'
 type T = (key: string, options?: Record<string, unknown>) => string
 
 export type BulkKind = 'moved' | 'labeled' | 'prioritized' | 'railed' | 'deleted'
@@ -19,7 +20,7 @@ export function reportBulk(t: T, kind: BulkKind, result: { ok: number; failed: n
     return
   }
   if (ok === 0) {
-    toast.error(t('bulk.failedAll', { count: failed }))
+    notifyError(t('bulk.failedAll', { count: failed }))
     return
   }
   toast.warning(t('bulk.partial', { ok, failed, total: ok + failed }))

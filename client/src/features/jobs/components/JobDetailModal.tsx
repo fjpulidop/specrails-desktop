@@ -41,6 +41,7 @@ import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 
+import { notifyError } from '../../../lib/notify-error'
 /** Short, human-readable job id for the title ("#1a2b3c4d"). */
 function shortJobId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id
@@ -249,7 +250,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
       } else {
         // Surface EVERY failure with detail (the quota incident hid a failing
         // request behind a generic toast — never mask what the server said).
-        toast.error(t('modal.toast.cancelFailed'), { description: outcome.error })
+        notifyError(t('modal.toast.cancelFailed'), { detail: outcome.error })
       }
     } finally {
       setIsCanceling(false)

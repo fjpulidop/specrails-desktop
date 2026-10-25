@@ -19,6 +19,7 @@ import {
 } from '../lib/spec-addenda-core'
 import { Button } from '../../../components/ui/button'
 
+import { notifyError } from '../../../lib/notify-error'
 // ─── Spec addenda section (spec-addenda) ─────────────────────────────────────
 // The premium in-modal surface for iterating on a spec WITHOUT editing its
 // description: a list of structured notes with their lifecycle pill, an inline
@@ -95,13 +96,13 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
       const body = (await res.json().catch(() => ({}))) as ApiErrorBody & { ticket?: LocalTicket; addendum?: SpecAddendum }
       if (!res.ok) {
         if (body.error === 'addendum_in_flight') toast.info(t('addenda.toast.inFlight'))
-        else toast.error(body.detail ? `${t('addenda.toast.failed')}: ${body.detail}` : t('addenda.toast.failed'))
+        else notifyError(t('addenda.toast.failed'), { detail: body.detail })
         return false
       }
       applyResponse(body)
       return true
     } catch {
-      toast.error(t('addenda.toast.failed'))
+      notifyError(t('addenda.toast.failed'))
       return false
     } finally {
       setBusy(false)

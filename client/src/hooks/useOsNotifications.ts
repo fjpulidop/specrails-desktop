@@ -7,6 +7,7 @@ import { useUiMode } from '../context/UiModeContext'
 import { requestMissionOpenRun } from '../features/missions/components/agent-run-failure'
 import { requestOpenInbox } from '../lib/inbox-events'
 
+import { notifyError } from '../lib/notify-error'
 interface WsJob {
   id: string
   status: string
@@ -162,9 +163,9 @@ export function useOsNotifications({
       ? i18n.t('commands:notifications.providerLimitBody', { provider: providerName, resetsAt })
       : i18n.t('commands:notifications.providerLimitBodyNoReset', { provider: providerName })
     const title = i18n.t('commands:notifications.providerLimit')
-    toast.error(title, {
+    notifyError(title, {
       id: `provider-limit:${runId}`,
-      description: `${projectName ? `[${projectName}] ` : ''}${body}${message ? ` · ${message}` : ''}`,
+      detail: `${projectName ? `[${projectName}] ` : ''}${body}${message ? ` · ${message}` : ''}`,
       duration: 60_000,
     })
     if (typeof Notification === 'undefined') return
@@ -240,7 +241,7 @@ export function useOsNotifications({
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       toast.success(i18n.t('commands:notifications.jobStuckStopped'), { id: `job-stuck:${jobId}` })
     } catch {
-      toast.error(i18n.t('commands:notifications.jobStuckStopFailed'), { id: `job-stuck:${jobId}` })
+      notifyError(i18n.t('commands:notifications.jobStuckStopFailed'), { id: `job-stuck:${jobId}` })
     }
   }
 

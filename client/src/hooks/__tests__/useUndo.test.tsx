@@ -161,7 +161,7 @@ describe('useUndo / UndoProvider', () => {
     expect(toastFn.error).toHaveBeenLastCalledWith("Couldn't undo that", expect.anything())
     act(() => { api.pushUndo({ label: 'y', undo: () => { throw new UndoBlockedError('That rail is running') } }) })
     await act(async () => { lastToast().options.action.onClick() })
-    expect(toastFn.error).toHaveBeenLastCalledWith('That rail is running', expect.anything())
+    expect(toastFn.error).toHaveBeenLastCalledWith("Couldn't undo that", expect.objectContaining({ description: 'That rail is running' }))
   })
 
   it('is a harmless no-op without a provider', () => {

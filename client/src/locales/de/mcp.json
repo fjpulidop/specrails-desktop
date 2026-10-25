@@ -15,8 +15,8 @@
     "activeSessions_other": "{{count}} aktive Sitzungen",
     "turnOn": "Einschalten",
     "turnOff": "Ausschalten",
-    "enableFailed": "MCP-Server konnte nicht aktiviert werden: {{message}}",
-    "disableFailed": "MCP-Server konnte nicht deaktiviert werden: {{message}}"
+    "enableFailed": "MCP-Server konnte nicht aktiviert werden",
+    "disableFailed": "MCP-Server konnte nicht deaktiviert werden"
   },
   "tiers": {
     "heading": "Berechtigungsstufen",
@@ -29,7 +29,7 @@
     "aiSpawnHelp": "KI-Rails und Jobs starten, die die CLI ausführen.",
     "destructive": "Destruktiv",
     "destructiveHelp": "Specs und andere Projektdaten löschen.",
-    "updateFailed": "Berechtigungen konnten nicht aktualisiert werden: {{message}}"
+    "updateFailed": "Berechtigungen konnten nicht aktualisiert werden"
   },
   "config": {
     "heading": "Client-Konfiguration",
@@ -47,7 +47,7 @@
     "regenerate": "Neu generieren",
     "regenerateConfirm": "Zugriffstoken neu generieren? Jeder Client, der das alte Token verwendet, funktioniert nicht mehr, bis Sie seine Konfiguration aktualisieren.",
     "regenerated": "Zugriffstoken neu generiert",
-    "regenerateFailed": "Token konnte nicht neu generiert werden: {{message}}",
+    "regenerateFailed": "Token konnte nicht neu generiert werden",
     "regenerateConfirmTitle": "Zugriffstoken neu generieren?"
   },
   "tray": {

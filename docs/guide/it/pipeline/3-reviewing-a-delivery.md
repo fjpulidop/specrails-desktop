@@ -22,6 +22,16 @@ Seleziona le righe cliccando sui loro numeri (Maiusc-clic estende l'intervallo),
 
 **Apri nell'editor** apre il file, alla riga selezionata, in VS Code, Cursor o in un IDE JetBrains. Scegli l'editor in **Impostazioni → Codice → Editor**. Il file si apre dalla tua copia del progetto, dove il branch della revisione potrebbe non essere attivo.
 
+## Scegliere cosa succede a una consegna {#pr-decision}
+
+Un'esecuzione conclusa ti chiede una sola cosa: cosa fare del risultato. La scheda mostra un pulsante principale per il passo successivo (creare la PR, pubblicarla o verificarla) e, accanto, **Rivedi**, che apre il pacchetto di revisione in linguaggio semplice. Tutto il resto è sotto **Altre azioni**:
+
+- **Passa al branch** porta il branch nella cartella del progetto così puoi provarlo.
+- **Integra in locale** unisce il risultato al branch di base su questo computer. Non serve GitHub e confermi prima.
+- **Scarta** elimina il risultato e il suo branch. Confermi prima.
+
+Se un'azione fallisce, l'avviso dice cosa non è andato a buon fine e offre **Riprova**.
+
 ## Tastiera
 
 | Tasto | Azione |

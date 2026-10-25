@@ -481,7 +481,14 @@
       "discardedToast": "Branch restaurado descartado. As suas alterações continuam seguras no stash.",
       "blockedBringBack": "Não foi possível trazer as alterações de volta para {{branch}} em segurança.",
       "notReady": "O branch restaurado ainda não está pronto."
-    }
+    },
+    "failed": {
+      "createPr": "Não foi possível criar o PR",
+      "mergeLocal": "Não foi possível integrar localmente",
+      "discard": "Não foi possível descartar o resultado",
+      "publish": "Não foi possível publicar o PR"
+    },
+    "moreActions": "Mais ações"
   },
   "specDraft": {
     "heading": "Rascunho da spec",

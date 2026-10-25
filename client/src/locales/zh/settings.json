@@ -9,7 +9,7 @@
     "title": "项目设置"
   },
   "errors": {
-    "saveFailed": "保存失败：{{message}}"
+    "saveFailed": "保存失败"
   },
   "telemetry": {
     "title": "流水线遥测",
@@ -213,7 +213,7 @@
     "showThenScan": "手机扫描此码后，点按“扫描手机的二维码”，并将摄像头对准手机。",
     "scanAnswer": "扫描手机的二维码",
     "scanning": "请将摄像头对准手机上的二维码…",
-    "cameraFailed": "摄像头不可用：{{message}}",
+    "cameraFailed": "摄像头不可用",
     "notAnswer": "该二维码不是配对应答。",
     "connecting": "正在连接…",
     "paired": "✓ 已配对",
@@ -258,7 +258,7 @@
     "loading": "正在加载通道…",
     "scope": "同时适用于 Specrails Desktop 和 specrails-core 框架。",
     "saved": "更新通道：{{channel}}",
-    "saveFailed": "无法更改更新通道：{{message}}",
+    "saveFailed": "无法更改更新通道",
     "latest": {
       "label": "最新",
       "description": "每个版本发布后立即获取。最先获得新功能和修复。"
@@ -278,7 +278,7 @@
     "autoHint": "启动时及每 6 小时自动检查。",
     "unavailable": "更新仅在桌面应用中可用。",
     "toastUpToDate": "Specrails Desktop 已是最新",
-    "toastCheckFailed": "检查更新失败: {{message}}",
+    "toastCheckFailed": "检查更新失败",
     "stableUnavailable": "尚未有版本被提升到稳定通道。请切换到最新，或稍后再试。"
   },
   "projectDialog": {

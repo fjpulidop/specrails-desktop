@@ -30,6 +30,7 @@ vi.mock('../../../jobs/components/job-run/useRuntimeRuns', () => ({
 import { AgentPrDecisionCard, deriveMissionRunStatus } from '../AgentPrDecisionCard'
 import { FOCUS_PR_CARD_EVENT } from '../agent-run-failure'
 import type { AgentPrDecisionEnvelope } from '../../lib/agent-api'
+import { queryMoreItem } from './pr-card-actions'
 
 const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelope => ({
   kind: 'pr_decision', prDeliveryId: 'run:r1', railIndex: 1, projectId: 'p1', baseBranch: 'main', ticketIds: [4],
@@ -128,8 +129,8 @@ describe('run-only card (shared-cwd launch)', () => {
     expect(card.getAttribute('data-run-only')).toBe('true')
     expect(screen.getByTestId('mission-run-status').getAttribute('data-status')).toBe('succeeded')
     expect(screen.getByTestId('mission-run-no-delivery')).toBeInTheDocument()
-    expect(screen.queryByTestId('agent-pr-merge-local')).toBeNull()
-    expect(screen.queryByTestId('agent-pr-checkout')).toBeNull()
+    expect(queryMoreItem('agent-pr-merge-local')).toBeNull()
+    expect(queryMoreItem('agent-pr-checkout')).toBeNull()
     expect(screen.getByTestId('mission-run-relaunch')).toBeInTheDocument()
     expect(screen.getByTestId('mission-run-dismiss')).toBeInTheDocument()
     // Runtime polling is NOT armed for a green settled run.

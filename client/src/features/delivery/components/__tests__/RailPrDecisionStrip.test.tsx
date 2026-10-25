@@ -357,7 +357,7 @@ describe('RailPrDecisionStrip interactions', () => {
     renderStrip(snapshot({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/4', prNumber: 4 }), act)
     fireEvent.click(screen.getByTestId('rail-pr-publish'))
     expect(act).toHaveBeenCalledWith('publish', 'pr_draft', 'del-1')
-    await waitFor(() => expect(mockToast.error).toHaveBeenCalledWith(expect.stringContaining('gh: not logged in')))
+    await waitFor(() => expect(mockToast.error).toHaveBeenCalledWith('GitHub CLI failed', { description: 'gh: not logged in' }))
   })
 
   it('poll-merge with merged:false → subtle not-merged-yet toast', async () => {
@@ -560,8 +560,7 @@ describe('RailPrDecisionStrip interactions', () => {
     })
     renderStrip(snapshot({ decision: 'pr_failed' }), act)
     fireEvent.click(screen.getByTestId('rail-pr-create'))
-    await waitFor(() => expect(mockToast.error).toHaveBeenCalledWith(expect.stringContaining('no longer exists locally')))
-    expect(mockToast.error).toHaveBeenCalledWith(expect.stringMatching(/^PR failed: /))
+    await waitFor(() => expect(mockToast.error).toHaveBeenCalledWith('PR failed', { description: expect.stringContaining('no longer exists locally') }))
   })
 
   it('create-pr degrading to pr_draft without a PR (pushed/local-only) → error toast with the git detail', async () => {

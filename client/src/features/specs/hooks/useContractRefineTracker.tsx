@@ -18,6 +18,7 @@ import { API_ORIGIN } from '../../../lib/origin'
 import { providerSupportsContractRefine } from '../../providers/lib/provider-capabilities'
 import type { LocalTicket } from '../../../types'
 
+import { notifyError } from '../../../lib/notify-error'
 const CONTRACT_LAYER_MARKER = '\n\n---\n\n## Contract Layer\n\n'
 
 function toastIdFor(ticketId: number | string): string {
@@ -33,15 +34,10 @@ async function fireRetry(projectId: string, ticketId: number): Promise<void> {
       toast.loading(i18n.t('activity:contractRefine.refining'), { id: toastIdFor(ticketId) })
     } else {
       const body = await res.json().catch(() => ({})) as { error?: string }
-      toast.error(
-        body.error
-          ? i18n.t('activity:contractRefine.retryRejectedWithError', { error: body.error })
-          : i18n.t('activity:contractRefine.retryRejected'),
-        { id: toastIdFor(ticketId) },
-      )
+      notifyError(i18n.t('activity:contractRefine.retryRejected'), { detail: body.error, id: toastIdFor(ticketId) })
     }
   } catch (err) {
-    toast.error(i18n.t('activity:contractRefine.retryFailed', { message: (err as Error).message }), { id: toastIdFor(ticketId) })
+    notifyError(i18n.t('activity:contractRefine.retryFailed'), { detail: (err as Error).message, id: toastIdFor(ticketId) })
   }
 }
 
@@ -66,9 +62,9 @@ export function ContractRefineTrackerProvider({ children }: { children: ReactNod
           onClick: () => void fireRetry(projectId, ticketId),
         }
       : undefined
-    toast.error(i18n.t('activity:contractRefine.skipped'), {
+    notifyError(i18n.t('activity:contractRefine.skipped'), {
       id: toastIdFor(ticketId),
-      description: i18n.t('activity:contractRefine.reason', { reason }),
+      detail: i18n.t('activity:contractRefine.reason', { reason }),
       ...(retryAction ? { action: retryAction } : {}),
       duration: 15_000,
     })

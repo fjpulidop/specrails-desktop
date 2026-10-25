@@ -242,7 +242,8 @@
       "inbox": "the Needs you inbox",
       "specsBoard": "specs and the backlog",
       "specTimeline": "the spec timeline and hand-off",
-      "accessibility": "accessibility and personalisation"
+      "accessibility": "accessibility and personalisation",
+      "prDecision": "the delivery options"
     }
   },
   "forecast": {

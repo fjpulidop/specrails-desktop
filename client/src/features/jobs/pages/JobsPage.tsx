@@ -21,6 +21,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { PageHeader } from '../../../components/ui/page-header'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 
+import { notifyError } from '../../../lib/notify-error'
 const PROPOSAL_STATUS_LABEL_KEYS: Record<string, string> = {
   input: 'page.proposal.status.input',
   exploring: 'page.proposal.status.exploring',
@@ -153,10 +154,10 @@ export default function JobsPage() {
         toast.success(t('page.proposalDeleted'))
         await refreshProposals()
       } else {
-        toast.error(t('page.proposalDeleteFailed'))
+        notifyError(t('page.proposalDeleteFailed'))
       }
     } catch {
-      toast.error(t('page.proposalDeleteFailed'))
+      notifyError(t('page.proposalDeleteFailed'))
     }
   }, [refreshProposals, t])
 

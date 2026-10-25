@@ -8,7 +8,6 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { ChevronDown, Globe, Loader2, Monitor, Square } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { openExternalUrl } from '../../../lib/tauri-shell'
@@ -16,6 +15,7 @@ import type { BackgroundProcess } from '../../../types'
 import { useBackgroundProcesses } from '../../background/context/BackgroundProcessesContext'
 import type { Flow } from '../lib/flow-api'
 
+import { notifyError } from '../../../lib/notify-error'
 const LIVE = new Set<BackgroundProcess['status']>(['starting', 'running', 'stopping'])
 
 /** The newest live process of this Flow that announced an address. */
@@ -58,7 +58,7 @@ export function FlowAppPreview({ flow, compact }: { flow: Flow; compact: boolean
 
   const stop = () => {
     setOpen(false)
-    void kill(app).catch((error: unknown) => toast.error(t('flow.preview.stopFailed'), { description: error instanceof Error ? error.message : undefined }))
+    void kill(app).catch((error: unknown) => notifyError(t('flow.preview.stopFailed'), { detail: error instanceof Error ? error.message : undefined }))
   }
 
   return (

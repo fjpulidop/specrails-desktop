@@ -38,6 +38,7 @@ import { useDesktop } from '../../../../hooks/useDesktop'
 import { useDefinitionFork } from '../../hooks/useDefinitionFork'
 import { LiveDot } from '../../../../components/ui/live-dot'
 
+import { notifyError } from '../../../../lib/notify-error'
 export interface LoopStepExplorerProps {
   events: EventRow[]
   /** Job status — drives running/interrupted derivation and the follow pill. */
@@ -191,7 +192,7 @@ export function LoopStepExplorer({
       navigator.clipboard
         .writeText(text)
         .then(() => toast.success(t('loopExplorer.copied')))
-        .catch(() => toast.error(t('logViewer.copyFailed')))
+        .catch(() => notifyError(t('logViewer.copyFailed')))
     },
     [t],
   )
@@ -206,7 +207,7 @@ export function LoopStepExplorer({
     navigator.clipboard
       .writeText(parts.join('\n'))
       .then(() => toast.success(t('logViewer.copySuccess')))
-      .catch(() => toast.error(t('logViewer.copyFailed')))
+      .catch(() => notifyError(t('logViewer.copyFailed')))
   }, [t])
 
   // ── Derived UI data ───────────────────────────────────────────────────────

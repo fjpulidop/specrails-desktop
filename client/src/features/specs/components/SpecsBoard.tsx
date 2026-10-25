@@ -85,6 +85,7 @@ import {
 import type { LocalTicket } from '../../../types'
 import { HelpHint } from '../../../components/HelpHint'
 
+import { notifyError } from '../../../lib/notify-error'
 interface SpecsBoardProps {
   /** Pre-ordered, pre-filtered active tickets (ordering + filtering owned by parent). */
   tickets: LocalTicket[]
@@ -836,7 +837,7 @@ export function SpecsBoard({
     // The link carries the view's state: a saved view only exists in this machine's storage.
     const link = buildViewLink(activeProjectId, view)
     const done = () => toast.success(t('views.linkCopied'))
-    const fail = () => toast.error(t('views.linkCopyFailed'))
+    const fail = () => notifyError(t('views.linkCopyFailed'))
     try {
       if (!navigator.clipboard) { fail(); return }
       void navigator.clipboard.writeText(link).then(done, fail)

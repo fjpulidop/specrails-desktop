@@ -481,7 +481,14 @@
       "discardedToast": "已丢弃恢复的分支。你的更改仍安全保存在 stash 中。",
       "blockedBringBack": "无法安全地将更改带回 {{branch}}。",
       "notReady": "恢复的分支尚未就绪。"
-    }
+    },
+    "failed": {
+      "createPr": "无法创建 PR",
+      "mergeLocal": "无法在本地集成",
+      "discard": "无法丢弃结果",
+      "publish": "无法发布 PR"
+    },
+    "moreActions": "更多操作"
   },
   "specDraft": {
     "heading": "规格草稿",

@@ -481,7 +481,14 @@
       "discardedToast": "Branche restaurée supprimée. Vos modifications restent en sécurité dans le stash.",
       "blockedBringBack": "Impossible de ramener les modifications sur {{branch}} en toute sécurité.",
       "notReady": "La branche restaurée n'est pas encore prête."
-    }
+    },
+    "failed": {
+      "createPr": "Impossible de créer la PR",
+      "mergeLocal": "Impossible d'intégrer en local",
+      "discard": "Impossible d'abandonner le résultat",
+      "publish": "Impossible de publier la PR"
+    },
+    "moreActions": "Plus d'actions"
   },
   "specDraft": {
     "heading": "Brouillon de spec",

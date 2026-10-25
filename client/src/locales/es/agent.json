@@ -481,7 +481,14 @@
       "discardedToast": "Rama restaurada descartada. Tus cambios siguen a salvo en el stash.",
       "blockedBringBack": "No se pudieron traer los cambios de vuelta a {{branch}} de forma segura.",
       "notReady": "La rama restaurada aún no está lista."
-    }
+    },
+    "failed": {
+      "createPr": "No se pudo crear el PR",
+      "mergeLocal": "No se pudo integrar en local",
+      "discard": "No se pudo descartar el resultado",
+      "publish": "No se pudo publicar el PR"
+    },
+    "moreActions": "Más acciones"
   },
   "specDraft": {
     "heading": "Borrador de spec",

@@ -21,6 +21,7 @@ import { CostValue } from '../../analytics/components/CostValue'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 import { DateInput } from '../../../components/ui/date-input'
 
+import { notifyError } from '../../../lib/notify-error'
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
 
 const STATUS_BADGE: Record<JobStatus, { variant: BadgeVariant; labelKey: string; tooltipKey: string }> = {
@@ -190,10 +191,10 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
         setClearTo('')
         onJobsCleared?.()
       } else {
-        toast.error(t('recent.toast.clearFailed'))
+        notifyError(t('recent.toast.clearFailed'))
       }
     } catch {
-      toast.error(t('recent.toast.networkError'))
+      notifyError(t('recent.toast.networkError'))
     } finally {
       setIsClearing(false)
     }

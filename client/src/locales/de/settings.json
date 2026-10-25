@@ -9,7 +9,7 @@
     "title": "Projekteinstellungen"
   },
   "errors": {
-    "saveFailed": "Speichern fehlgeschlagen: {{message}}"
+    "saveFailed": "Speichern fehlgeschlagen"
   },
   "telemetry": {
     "title": "Pipeline-Telemetrie",
@@ -213,7 +213,7 @@
     "showThenScan": "Nachdem Ihr Smartphone dies gescannt hat, tippen Sie auf „Code des Smartphones scannen“ und richten Sie die Kamera auf Ihr Smartphone.",
     "scanAnswer": "Code des Smartphones scannen",
     "scanning": "Richten Sie die Kamera auf den Code auf Ihrem Smartphone…",
-    "cameraFailed": "Kamera nicht verfügbar: {{message}}",
+    "cameraFailed": "Kamera nicht verfügbar",
     "notAnswer": "Dieser QR-Code ist keine Kopplungsantwort.",
     "connecting": "Verbinden…",
     "paired": "✓ Gekoppelt",
@@ -258,7 +258,7 @@
     "loading": "Kanal wird geladen…",
     "scope": "Gilt für Specrails Desktop und das specrails-core-Framework.",
     "saved": "Update-Kanal: {{channel}}",
-    "saveFailed": "Update-Kanal konnte nicht geändert werden: {{message}}",
+    "saveFailed": "Update-Kanal konnte nicht geändert werden",
     "latest": {
       "label": "Neueste",
       "description": "Jede Version sofort nach Veröffentlichung. Neue Funktionen und Korrekturen zuerst."
@@ -278,7 +278,7 @@
     "autoHint": "Wird beim Start und alle 6 Stunden automatisch geprüft.",
     "unavailable": "App-Updates sind nur in der Desktop-App verfügbar.",
     "toastUpToDate": "Specrails Desktop ist aktuell",
-    "toastCheckFailed": "Update-Prüfung fehlgeschlagen: {{message}}",
+    "toastCheckFailed": "Update-Prüfung fehlgeschlagen",
     "stableUnavailable": "Für den Kanal Stabil wurde noch keine Version freigegeben. Wechsle zu Neueste oder versuche es später erneut."
   },
   "projectDialog": {

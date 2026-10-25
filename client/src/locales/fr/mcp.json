@@ -15,8 +15,8 @@
     "activeSessions_other": "{{count}} sessions actives",
     "turnOn": "Activer",
     "turnOff": "Désactiver",
-    "enableFailed": "Impossible d'activer le serveur MCP : {{message}}",
-    "disableFailed": "Impossible de désactiver le serveur MCP : {{message}}"
+    "enableFailed": "Impossible d'activer le serveur MCP",
+    "disableFailed": "Impossible de désactiver le serveur MCP"
   },
   "tiers": {
     "heading": "Niveaux de permission",
@@ -29,7 +29,7 @@
     "aiSpawnHelp": "Lancer des rails et des tâches d'IA qui exécutent la CLI.",
     "destructive": "Destructif",
     "destructiveHelp": "Supprimer des specs et d'autres données du projet.",
-    "updateFailed": "Impossible de mettre à jour les permissions : {{message}}"
+    "updateFailed": "Impossible de mettre à jour les permissions"
   },
   "config": {
     "heading": "Configuration du client",
@@ -47,7 +47,7 @@
     "regenerate": "Régénérer",
     "regenerateConfirm": "Régénérer le jeton d'accès ? Tout client utilisant l'ancien jeton cessera de fonctionner jusqu'à ce que vous mettiez à jour sa configuration.",
     "regenerated": "Jeton d'accès régénéré",
-    "regenerateFailed": "Impossible de régénérer le jeton : {{message}}",
+    "regenerateFailed": "Impossible de régénérer le jeton",
     "regenerateConfirmTitle": "Régénérer le jeton d’accès ?"
   },
   "tray": {

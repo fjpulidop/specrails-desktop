@@ -22,6 +22,16 @@ Selecione linhas clicando nos números (Shift-clique amplia o intervalo), escolh
 
 **Abrir no editor** abre o arquivo, na linha selecionada, no VS Code, no Cursor ou em uma IDE da JetBrains. Escolha o editor em **Configurações → Código → Editor**. O arquivo abre a partir da sua própria cópia do projeto, onde a branch da revisão pode não estar ativa.
 
+## Escolha o que acontece com uma entrega {#pr-decision}
+
+Uma execução concluída pede uma só coisa: o que fazer com o resultado. O cartão mostra um botão principal para o próximo passo (criar o PR, publicá-lo ou verificá-lo) e, ao lado, **Revisar**, que abre o pacote de revisão em linguagem simples. Todo o resto fica em **Mais ações**:
+
+- **Mudar para o branch** coloca o branch na pasta do seu projeto para você testá-lo.
+- **Integrar localmente** mescla o resultado no seu branch base neste computador. Não precisa de GitHub e você confirma antes.
+- **Descartar** remove o resultado e o seu branch. Você confirma antes.
+
+Se uma ação falhar, o aviso diz o que não deu certo e oferece **Repetir**.
+
 ## Teclado
 
 | Tecla | Ação |

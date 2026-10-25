@@ -2,6 +2,7 @@ import { toast } from 'sonner'
 import type { LocalTicket, TicketStatus } from '../../../types'
 import { jiraApi } from '../../integrations/lib/jira-api'
 
+import { notifyError } from '../../../lib/notify-error'
 /**
  * Manual status targets of a spec. `draft` (Explore-owned) and `on_review`
  * (pipeline-owned, PR-decision semantics) are never offered as TARGETS.
@@ -38,7 +39,7 @@ export async function moveJiraSpecToStatus(
     if (!opts?.quiet) toast.success(tj('moveToStatus.queued', { status }))
     return true
   } catch {
-    if (!opts?.quiet) toast.error(tj('moveToStatus.failed'))
+    if (!opts?.quiet) notifyError(tj('moveToStatus.failed'))
     return false
   }
 }

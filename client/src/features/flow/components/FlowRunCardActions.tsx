@@ -19,6 +19,7 @@ import { RunPrimaryButton } from '../../missions/components/run-primary'
 import { useFlowContext } from '../context/FlowContext'
 import { flowErrorMessage } from '../lib/flow-failure'
 
+import { notifyError } from '../../../lib/notify-error'
 type Pending = 'return' | 'relaunch' | null
 
 const BUTTON = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-label font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:pointer-events-none disabled:opacity-50'
@@ -50,7 +51,7 @@ export function FlowRunCardActions({ projectId, prDeliveryId, decision, statusCo
       const text = t(kind === 'return' ? 'flow.review.returnFailed' : 'flow.review.relaunchFailed', { detail: message })
       setError(text)
       // The strip can run Back to Flow with the card hidden: say it where the person looks too.
-      toast.error(text)
+      notifyError(text)
     } finally {
       setPending(null)
     }

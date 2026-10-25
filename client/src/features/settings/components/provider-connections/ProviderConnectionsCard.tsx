@@ -15,6 +15,7 @@ import { CliProviderRow } from './CliProviderRow'
 import { LocalEngineCard } from './LocalEngineCard'
 import { OverflowMenu } from './OverflowMenu'
 
+import { notifyError } from '../../../../lib/notify-error'
 interface Row { key: number; provider: RuntimeProvider; persisted: boolean }
 
 let nextKey = 1
@@ -102,7 +103,7 @@ export function ProviderConnectionsCard() {
     } catch (err) {
       const message = (err as Error).message || t('saveFailed')
       if (mounted.current) setError(message)
-      toast.error(t('saveFailed'), { description: message })
+      notifyError(t('saveFailed'), { detail: message })
     } finally {
       if (mounted.current) setBusy(false)
     }

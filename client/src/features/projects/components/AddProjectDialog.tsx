@@ -23,6 +23,7 @@ import { usePrerequisites } from '../hooks/usePrerequisites'
 import { PrerequisitesPanel } from './PrerequisitesPanel'
 import { InstallInstructionsModal } from './InstallInstructionsModal'
 
+import { notifyError } from '../../../lib/notify-error'
 interface AddProjectDialogProps {
   open: boolean
   onClose: () => void
@@ -83,7 +84,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   async function handleAdd() {
     const trimmedPath = projectPath.trim()
     if (!trimmedPath) {
-      toast.error(t('addProject.errors.pathRequired'))
+      notifyError(t('addProject.errors.pathRequired'))
       return
     }
 
@@ -101,7 +102,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
       toast.success(t('addProject.toasts.registered', { name: data.project.name }))
       resetAndClose()
     } catch (err) {
-      toast.error(t('addProject.errors.addFailed'), { description: (err as Error).message })
+      notifyError(t('addProject.errors.addFailed'), { detail: (err as Error).message })
     } finally {
       setIsAdding(false)
     }

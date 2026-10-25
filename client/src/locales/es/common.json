@@ -242,7 +242,8 @@
       "inbox": "la bandeja de pendientes",
       "specsBoard": "las specs y el backlog",
       "specTimeline": "la cronología y el traspaso de una spec",
-      "accessibility": "accesibilidad y personalización"
+      "accessibility": "accesibilidad y personalización",
+      "prDecision": "las opciones de entrega"
     }
   },
   "forecast": {

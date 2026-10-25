@@ -22,6 +22,16 @@ Sélectionnez des lignes en cliquant sur leurs numéros (Maj-clic étend la plag
 
 **Ouvrir dans l'éditeur** ouvre le fichier, à la ligne sélectionnée, dans VS Code, Cursor ou un IDE JetBrains. Choisissez l'éditeur dans **Réglages → Code → Éditeur**. Le fichier s'ouvre depuis votre propre copie du projet, où la branche de la revue n'est peut-être pas extraite.
 
+## Choisir ce qu'il advient d'une livraison {#pr-decision}
+
+Une exécution terminée ne vous demande qu'une chose : que faire de son résultat. La carte affiche un bouton principal pour l'étape suivante (créer la PR, la publier ou la vérifier) et, à côté, **Relire**, qui ouvre le dossier de relecture en langage clair. Tout le reste se trouve sous **Plus d'actions** :
+
+- **Changer de branche** place la branche dans le dossier de votre projet pour que vous l'essayiez.
+- **Intégrer en local** fusionne le résultat dans votre branche de base sur cet ordinateur. Pas besoin de GitHub, et vous confirmez d'abord.
+- **Abandonner** supprime le résultat et sa branche. Vous confirmez d'abord.
+
+Si une action échoue, la notification dit ce qui n'a pas pu être fait et propose **Réessayer**.
+
 ## Clavier
 
 | Touche | Action |

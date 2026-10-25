@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Check, Globe, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { API_ORIGIN } from '../../../lib/origin'
 
+import { notifyError } from '../../../lib/notify-error'
 /** Mirror of the server-side registry types (server/external-mcp.ts). */
 interface ExternalMcpTransport {
   command: string
@@ -132,7 +132,7 @@ export function ExternalMcpServersCard() {
       } catch (e) {
         setPayload(prev)
         const code = (e as Error).message
-        toast.error(t([`external.errors.${code}`, 'external.updateFailed'] as unknown as string))
+        notifyError(t([`external.errors.${code}`, 'external.updateFailed'] as unknown as string))
         return false
       } finally {
         setBusy(false)

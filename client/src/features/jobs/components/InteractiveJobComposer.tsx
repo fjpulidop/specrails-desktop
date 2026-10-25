@@ -11,6 +11,7 @@ import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { LiveDot } from '../../../components/ui/live-dot'
 import { formatUsd } from '../../../lib/format-usd'
 
+import { notifyError } from '../../../lib/notify-error'
 /** Running SUM of every completed turn's REAL usage (from job.turn_done /
  *  job.finalized — never an estimate). */
 export interface InteractiveJobTotals {
@@ -220,10 +221,10 @@ export function InteractiveJobComposer({
         dispatch({ type: 'blocked' })
       } else {
         const data = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(t('detail.toast.sendFailed'), { description: data.error })
+        notifyError(t('detail.toast.sendFailed'), { detail: data.error })
       }
     } catch {
-      toast.error(t('detail.toast.networkError'))
+      notifyError(t('detail.toast.networkError'))
     } finally {
       setSending(false)
     }
@@ -248,11 +249,11 @@ export function InteractiveJobComposer({
         dispatch({ type: 'finalize-reject' })
       } else {
         const data = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(t('detail.toast.finalizeFailed'), { description: data.error })
+        notifyError(t('detail.toast.finalizeFailed'), { detail: data.error })
         dispatch({ type: 'finalize-reject' })
       }
     } catch {
-      toast.error(t('detail.toast.networkError'))
+      notifyError(t('detail.toast.networkError'))
       dispatch({ type: 'finalize-reject' })
     }
   }

@@ -47,7 +47,7 @@ describe('ProjectSubagentsSection', () => {
     const toggle = await screen.findByRole('switch', { name: 'Allow sub-agents in this project' })
     expect(toggle).toHaveAttribute('aria-checked', 'true')
     fireEvent.click(toggle)
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not save the sub-agent setting', expect.anything()))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not save the sub-agent setting'))
     expect(toggle).toHaveAttribute('aria-checked', 'true')
   })
 })

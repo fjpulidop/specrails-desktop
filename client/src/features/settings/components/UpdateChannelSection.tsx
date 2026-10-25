@@ -5,6 +5,7 @@ import { ShieldCheck, Sparkles } from 'lucide-react'
 import { SettingsCard } from './SettingsCard'
 import { readUpdateChannel, saveUpdateChannel, type UpdateChannel } from '../../../lib/app-updater'
 
+import { notifyError } from '../../../lib/notify-error'
 const CHANNELS: Array<{ value: UpdateChannel; icon: typeof Sparkles }> = [
   { value: 'latest', icon: Sparkles },
   { value: 'stable', icon: ShieldCheck },
@@ -36,7 +37,7 @@ export function UpdateChannelSection() {
       toast.success(t('updateChannel.saved', { channel: t(`updateChannel.${next}.label`) }))
     } catch (err) {
       setChannel(previous)
-      toast.error(t('updateChannel.saveFailed', { message: (err as Error).message }))
+      notifyError(t('updateChannel.saveFailed'), { detail: (err as Error).message })
     } finally {
       setSaving(false)
     }

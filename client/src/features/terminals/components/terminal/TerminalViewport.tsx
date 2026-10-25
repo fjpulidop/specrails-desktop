@@ -1,4 +1,3 @@
-import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTerminals } from '../../context/TerminalsContext'
@@ -11,6 +10,7 @@ import { writeClipboardText } from '../../../../lib/tauri-clipboard'
 import { PromptGutter } from './PromptGutter'
 import { CommandTimingBadge } from './CommandTimingBadge'
 
+import { notifyError } from '../../../../lib/notify-error'
 interface TerminalViewportProps {
   activeId: string | null
 }
@@ -67,7 +67,7 @@ export function TerminalViewport({ activeId }: TerminalViewportProps) {
     if (paths.length === 0) return false
     const isWindows = typeof navigator !== 'undefined' && /Win/i.test(navigator.platform || '')
     try { return writeToActiveTerminal(quotePathList(paths, isWindows, windowsShellHint(activeId ? terminals.getShell?.(activeId) : null))) }
-    catch { toast.error(t('errors.pathPasteUnsafe')); return false }
+    catch { notifyError(t('errors.pathPasteUnsafe')); return false }
   }, [term, writeToActiveTerminal, activeId, terminals, t])
 
   const handleContextMenu = useCallback((ev: React.MouseEvent) => {
@@ -94,7 +94,7 @@ export function TerminalViewport({ activeId }: TerminalViewportProps) {
         ev.stopPropagation()
         const isWindows = typeof navigator !== 'undefined' && /Win/i.test(navigator.platform || '')
         try { writeToActiveTerminal(quotePathList(paths, isWindows, windowsShellHint(activeId ? terminals.getShell?.(activeId) : null))) }
-        catch { toast.error(t('errors.pathPasteUnsafe')) }
+        catch { notifyError(t('errors.pathPasteUnsafe')) }
         return
       }
     }
@@ -217,8 +217,8 @@ export function TerminalViewport({ activeId }: TerminalViewportProps) {
           hasReveal={tauri}
           onClose={() => setMenu(null)}
           onOpenSearch={() => setSearchOpen(true)}
-          onReveal={(p) => { void revealItemInDir(p).catch(() => toast.error(t('errors.nativeActionFailed'))) }}
-          onSaveScrollback={() => { if (term) void saveScrollbackToFile(term).catch(() => toast.error(t('errors.nativeActionFailed'))) }}
+          onReveal={(p) => { void revealItemInDir(p).catch(() => notifyError(t('errors.nativeActionFailed'))) }}
+          onSaveScrollback={() => { if (term) void saveScrollbackToFile(term).catch(() => notifyError(t('errors.nativeActionFailed'))) }}
         />
       )}
     </div>

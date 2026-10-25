@@ -317,7 +317,8 @@
       "autoOn": "Automatisches Fortfahren an — die nächsten Rails starten von selbst",
       "autoOff": "Automatisches Fortfahren aus — vor jedem Rail wird gefragt",
       "autoFailed": "Kette konnte nicht aktualisiert werden",
-      "integrating": "diese Spec wird integriert, bevor die nächste startet"
+      "integrating": "diese Spec wird integriert, bevor die nächste startet",
+      "cancelFailed": "Die Kette konnte nicht abgebrochen werden"
     },
     "toast": {
       "launched": "{{milestone}} gestartet – Spec 1 von {{n}} läuft auf seinem Rail; die nächsten Specs folgen automatisch, je ein Rail",

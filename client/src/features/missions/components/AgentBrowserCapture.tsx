@@ -12,6 +12,7 @@ import { uploadAgentAttachment } from '../lib/agent-api'
 import { dataUrlToFile } from '../../../lib/data-url'
 import type { CaptureResult } from '../../browser/lib/browser-capture'
 
+import { notifyError } from '../../../lib/notify-error'
 /**
  * Agent Browser tool — native browsing and same-page Retina capture on macOS,
  * with the instrumented browser as the fallback on unsupported runtimes. A capture
@@ -64,8 +65,8 @@ export function AgentBrowserCapture({ projectId, conversationId }: { projectId: 
       toast.success(t('workspace.browserCaptured'))
       closeBrowser()
     } catch (err) {
-      toast.error(t('workspace.uploadFailed'), {
-        description: err instanceof Error ? err.message : undefined,
+      notifyError(t('workspace.uploadFailed'), {
+        detail: err instanceof Error ? err.message : undefined,
       })
       throw err
     } finally { setUploading(false) }

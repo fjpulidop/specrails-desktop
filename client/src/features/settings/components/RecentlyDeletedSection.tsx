@@ -17,6 +17,7 @@ import {
 import { useAgentChat } from '../../missions/context/AgentChatContext'
 import { SettingsCard } from './SettingsCard'
 
+import { notifyError } from '../../../lib/notify-error'
 type Target =
   | { kind: 'spec'; id: number; title: string }
   | { kind: 'mission'; id: string; title: string }
@@ -82,7 +83,7 @@ function RecentlyDeleted({ projectId }: { projectId: string }) {
       toast.success(t('recent.restored', { title: target.title }))
       await load()
     } catch {
-      toast.error(t('recent.restoreFailed'))
+      notifyError(t('recent.restoreFailed'))
     } finally {
       if (alive.current) setBusyKey(null)
     }
@@ -98,7 +99,7 @@ function RecentlyDeleted({ projectId }: { projectId: string }) {
       setConfirming(null)
       await load()
     } catch {
-      toast.error(t('recent.deleteFailed'))
+      notifyError(t('recent.deleteFailed'))
     } finally {
       if (alive.current) setBusyKey(null)
     }

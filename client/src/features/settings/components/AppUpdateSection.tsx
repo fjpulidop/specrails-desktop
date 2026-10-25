@@ -13,6 +13,7 @@ import {
   showDesktopUpdateToast,
 } from '../../../hooks/useDesktopUpdateNotifier'
 
+import { notifyError } from '../../../lib/notify-error'
 type CheckResult = 'up-to-date' | 'update-available' | null
 
 /**
@@ -55,8 +56,8 @@ export function AppUpdateSection() {
         toast.success(t('appUpdate.toastUpToDate'))
       }
     } catch (err) {
-      if (isStableChannelUnavailable(err)) toast.error(t('appUpdate.stableUnavailable'))
-      else toast.error(t('appUpdate.toastCheckFailed', { message: err instanceof Error ? err.message : String(err) }))
+      if (isStableChannelUnavailable(err)) notifyError(t('appUpdate.stableUnavailable'))
+      else notifyError(t('appUpdate.toastCheckFailed'), { detail: err instanceof Error ? err.message : String(err) })
     } finally {
       setChecking(false)
     }

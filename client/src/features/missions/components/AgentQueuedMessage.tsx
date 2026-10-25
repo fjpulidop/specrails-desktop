@@ -7,6 +7,7 @@ import type { AgentAttachment } from '../lib/agent-api'
 import { AgentAttachmentChips, AgentContextInlineTokens } from './AgentMessage'
 import { AgentDeliveryReceipt } from './AgentDeliveryReceipt'
 
+import { notifyError } from '../../../lib/notify-error'
 /** Queue actions never interrupt the running turn or alter the composer's draft. */
 export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }: {
   item: AgentQueuedItem
@@ -63,7 +64,7 @@ export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }
       }
     } catch {
       // Failed actions retain the queued text, metadata and any unsaved edit.
-      toast.error(t('queue.actionFailed'))
+      notifyError(t('queue.actionFailed'))
     } finally {
       busyRef.current = false
       setBusy(false)

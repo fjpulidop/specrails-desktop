@@ -20,6 +20,7 @@ import { deriveReadiness } from '../../lib/blueprint-readiness'
 import { providerSupportsToolPolicy } from '../../../providers/lib/provider-capabilities'
 import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
 
+import { notifyError } from '../../../../lib/notify-error'
 // "Generate M<n>" (add-project-builder D7): PROJECT-level grounded milestone
 // generation. Spawns through the existing ChatManager (kind='milestone' —
 // real code reading available), reuses the blueprint-draft protocol, and
@@ -125,11 +126,11 @@ export function MilestoneGenerateShell({
           body: JSON.stringify({ text: seed }),
         }).catch(() => {
           setBusy(false)
-          toast.error(t('errors.turnFailed'))
+          notifyError(t('errors.turnFailed'))
         })
       })
       .catch(() => {
-        if (!cancelled) toast.error(t('errors.startFailed'))
+        if (!cancelled) notifyError(t('errors.startFailed'))
       })
     return () => { cancelled = true }
   }, [open, conversationId, milestoneId, milestone, label, generationAvailable, t])
@@ -161,7 +162,7 @@ export function MilestoneGenerateShell({
       } else if (msg.type === 'chat_error') {
         setStreamBuffer(null)
         setBusy(false)
-        toast.error(t('errors.turnFailed'), { description: String(msg.error ?? '') })
+        notifyError(t('errors.turnFailed'), { detail: String(msg.error ?? '') })
       }
     })
     return () => unregisterHandler(id)
@@ -185,7 +186,7 @@ export function MilestoneGenerateShell({
         body: JSON.stringify({ text: trimmed }),
       }).catch(() => {
         setBusy(false)
-        toast.error(t('errors.turnFailed'))
+        notifyError(t('errors.turnFailed'))
       })
     },
     [busy, t],
@@ -220,10 +221,10 @@ export function MilestoneGenerateShell({
         } else {
           const body = await r.json().catch(() => ({}))
           const failure = body as { error?: string; detail?: string }
-          toast.error(t('milestone.commitFailed'), { description: failure.detail ?? failure.error })
+          notifyError(t('milestone.commitFailed'), { detail: failure.detail ?? failure.error })
         }
       })
-      .catch(() => toast.error(t('milestone.commitFailed')))
+      .catch(() => notifyError(t('milestone.commitFailed')))
       .finally(() => setCommitting(false))
   }, [draft, rawDraft, specQuality.valid, committing, milestoneId, label, onClose, onCommitted, t])
 

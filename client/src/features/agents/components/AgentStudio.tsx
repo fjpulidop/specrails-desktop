@@ -8,6 +8,7 @@ import { Input } from '../../../components/ui/input'
 import { ConfirmDialog } from './PromptDialog'
 import { AgentRoleFields } from './AgentRoleFields'
 
+import { notifyError } from '../../../lib/notify-error'
 interface AgentVersion {
   version: number
   body: string
@@ -261,8 +262,8 @@ export function AgentStudio({
     } catch (e) {
       const message = (e as Error).message
       setError(message)
-      toast.error(isCreate ? t('studio.toasts.createFailed') : t('studio.toasts.saveFailed'), {
-        description: message,
+      notifyError(isCreate ? t('studio.toasts.createFailed') : t('studio.toasts.saveFailed'), {
+        detail: message,
       })
     } finally {
       setSaving(false)
@@ -288,7 +289,7 @@ export function AgentStudio({
     } catch (e) {
       const message = (e as Error).message
       setError(message)
-      toast.error(t('studio.toasts.deleteFailed'), { description: message })
+      notifyError(t('studio.toasts.deleteFailed'), { detail: message })
     } finally {
       setSaving(false)
     }

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogDes
 import { Button } from '../../../components/ui/button'
 import { encodeOffer, decodeAnswer } from '../../integrations/lib/companion-signal'
 
+import { notifyError } from '../../../lib/notify-error'
 type Phase = 'loading' | 'offer' | 'scanning' | 'connecting' | 'paired'
 
 /** Serverless WebRTC pairing for the web companion (specrails.dev/companion-app):
@@ -43,7 +44,7 @@ export function PairWebCompanionModal({ open, onClose, onPaired }: { open: boole
     async (token: string) => {
       const ans = await decodeAnswer(token)
       if (!ans) {
-        toast.error(t('pairWeb.notAnswer'))
+        notifyError(t('pairWeb.notAnswer'))
         return
       }
       stopCamera()
@@ -140,14 +141,14 @@ export function PairWebCompanionModal({ open, onClose, onPaired }: { open: boole
   async function startScan(): Promise<void> {
     setError(null)
     if (!navigator.mediaDevices?.getUserMedia) {
-      toast.error(t('pairWeb.cameraFailed', { message: 'unsupported' }))
+      notifyError(t('pairWeb.cameraFailed'), { detail: 'unsupported' })
       return
     }
     try {
       streamRef.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       setPhase('scanning')
     } catch (e) {
-      toast.error(t('pairWeb.cameraFailed', { message: (e as Error).message }))
+      notifyError(t('pairWeb.cameraFailed'), { detail: (e as Error).message })
       setPhase('offer')
     }
   }

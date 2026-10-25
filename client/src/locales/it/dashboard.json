@@ -36,7 +36,8 @@
     "onReviewNotLaunchable": "Una spec di questo rail è in attesa della revisione della PR. Decidi sulla PR prima di lanciare.",
     "launchRepositoryHasNoCommits": "Questo repository non ha ancora commit. Fai un primo commit perché Specrails possa creare una copia isolata del progetto.",
     "railDeletePrPending": "{{rail}} ha una decisione sulla PR in sospeso: risolvila prima di rimuovere il rail",
-    "railDeleteLastRail": "Un progetto ha bisogno di almeno un rail: questo non può essere rimosso"
+    "railDeleteLastRail": "Un progetto ha bisogno di almeno un rail: questo non può essere rimosso",
+    "openJob": "Apri il job"
   },
   "railPr": {
     "operation": {
@@ -102,7 +103,7 @@
     "implementationFailed": "Implementazione non riuscita",
     "implementationFailedHint": "Il run di implementazione non è riuscito. Apri il log del run, poi scarta questa scheda prima di rilanciare.",
     "prFailed": "PR non riuscita",
-    "prFailedDetail": "PR non riuscita: {{detail}}",
+    "prFailedDetail": "PR non riuscita",
     "createDegraded": "Impossibile pubblicare la PR — {{detail}}. Riprova una volta risolto.",
     "createPr": "Crea PR",
     "createPrTooltip": "→ {{base}}",
@@ -149,7 +150,7 @@
     "commitMissingRetry": "Il commit di consegna non è più presente nella PR. Puoi riprovare il push.",
     "prVerifiedWaiting": "Commit {{sha}} verificato · in attesa del merge",
     "alreadyResolved": "Già risolta altrove",
-    "ghFailed": "GitHub CLI non riuscita: {{detail}}",
+    "ghFailed": "GitHub CLI non riuscita",
     "actionFailed": "Impossibile applicare la decisione sulla PR",
     "mergedToast": "Merge della PR effettuato — le spec sono passate a Completato",
     "discardedToast": "PR scartata — le spec sono tornate in Specs",
@@ -164,7 +165,7 @@
     "mergeLocalConfirmBody": "I branch consegnati saranno uniti a {{base}} localmente. Le modifiche esistenti vengono preservate; quelle sovrapposte potrebbero richiedere una risoluzione prima dell’integrazione.",
     "mergeLocalBlockedDirty": "Impossibile integrare: le modifiche locali su {{base}} si sovrappongono alla consegna. Esegui il commit o lo stash di queste modifiche e riprova.",
     "mergeLocalBlockedBranch": "Impossibile integrare: il tuo checkout è su {{current}}, non su {{base}}. Passa a {{base}} e riprova.",
-    "mergeLocalFailed": "Merge locale fallito: {{detail}}",
+    "mergeLocalFailed": "Merge locale fallito",
     "mergedLocally": "Integrato in {{base}} in locale",
     "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro.",
     "reviewChangesRequested": "Modifiche richieste",

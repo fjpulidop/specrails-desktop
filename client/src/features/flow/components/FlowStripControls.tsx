@@ -27,6 +27,7 @@ import { FlowChangesDialog } from './FlowChangesDialog'
 import { FlowCloseDialog } from './FlowCloseDialog'
 import { FlowDiscardDialog } from './FlowDiscardDialog'
 
+import { notifyError } from '../../../lib/notify-error'
 export interface FlowBarControl {
   id: string
   label: string
@@ -138,7 +139,7 @@ function useFlowAction(projectId: string, flow: Flow) {
     } catch (error) {
       // Localized by code; the server's own detail is only the secondary line.
       const { message, detail } = flowErrorMessage(t, error)
-      toast.error(message, detail ? { description: detail } : undefined)
+      notifyError(message, detail ? { detail } : undefined)
       return false
     } finally {
       setBusy(null)

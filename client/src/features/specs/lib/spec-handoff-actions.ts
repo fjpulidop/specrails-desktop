@@ -6,6 +6,7 @@ import { fetchUsageSnapshot, planProviderIds } from '../../../lib/launch-forecas
 import { saveTextFile } from '../../../lib/save-text-file'
 import { writeClipboardText } from '../../../lib/tauri-clipboard'
 
+import { notifyError } from '../../../lib/notify-error'
 export type HandoffFormat = 'md' | 'html' | 'pr'
 
 export interface HandoffDocument {
@@ -46,9 +47,9 @@ export async function exportHandoff(ticketId: number, format: 'md' | 'html', t: 
     const doc = await fetchHandoff(ticketId, format)
     const result = await saveTextFile(doc.filename, doc.body, doc.contentType)
     if (result === 'saved') toast.success(t('timeline.export.saved', { id: ticketId }), { description: redactionNote(t, doc.redactions) })
-    else if (result === 'failed') toast.error(t('timeline.export.failed'))
+    else if (result === 'failed') notifyError(t('timeline.export.failed'))
   } catch {
-    toast.error(t('timeline.export.failed'))
+    notifyError(t('timeline.export.failed'))
   }
 }
 
@@ -58,9 +59,9 @@ export async function copyPrDescription(ticketId: number, t: TFunction): Promise
   try {
     doc = await fetchHandoff(ticketId, 'pr')
   } catch {
-    toast.error(t('timeline.export.failed'))
+    notifyError(t('timeline.export.failed'))
     return
   }
   if (await writeClipboardText(doc.body)) toast.success(t('timeline.export.copied', { id: ticketId }), { description: redactionNote(t, doc.redactions) })
-  else toast.error(t('timeline.export.copyFailed'))
+  else notifyError(t('timeline.export.copyFailed'))
 }

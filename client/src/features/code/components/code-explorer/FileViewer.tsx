@@ -14,6 +14,7 @@ import { MarkdownPreview } from './MarkdownPreview'
 import { ConstructionStory } from './ConstructionStory'
 import { RecordedDiff } from './RecordedDiff'
 
+import { notifyError } from '../../../../lib/notify-error'
 function isMarkdown(relPath: string, language?: string): boolean {
   if (language === 'markdown' || language === 'md') return true
   return /\.(md|mdx|markdown)$/i.test(relPath)
@@ -315,7 +316,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
         if (msg.type === 'file.summary_updated') setRegenerating(false)
         fetchFile()
       } else if (msg.type === 'file.summary_failed' && msg.path === relPathRef.current) {
-        toast.error(msg.reason ?? t('summary.generationFailed'))
+        notifyError(t('summary.generationFailed'), { detail: msg.reason })
         setRegenerating(false)
       } else if (msg.type === 'file.summary_skipped' && msg.path === relPathRef.current) {
         if (msg.reason) toast(t('summary.skipped', { reason: msg.reason }))
@@ -345,7 +346,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
       if (!res.ok) {
         setRegenerating(false)
         const skipped = typeof json.skipped === 'string' ? json.skipped : null
-        toast.error(skipped ? t('summary.skipped', { reason: skipped }) : t('summary.generationFailed'))
+        notifyError(skipped ? t('summary.skipped', { reason: skipped }) : t('summary.generationFailed'))
         return
       }
       if (json.skipped === 'budget') {
@@ -365,7 +366,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
     } catch {
       if (alive.current && !controller.signal.aborted) {
         setRegenerating(false)
-        toast.error(t('summary.generationFailed'))
+        notifyError(t('summary.generationFailed'))
       }
     } finally { postControllers.current.delete(controller) }
   }, [aiTransformsAvailable, fetchFile, relPath, t])
@@ -380,7 +381,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
       await navigator.clipboard.writeText(abs)
       toast.success(t('viewer.pathCopied'))
     } catch {
-      toast.error(t('viewer.copyPathFailed'))
+      notifyError(t('viewer.copyPathFailed'))
     }
   }, [file, relPath, t])
 

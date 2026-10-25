@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useDesktop } from './useDesktop'
 import { isMacKeyboard } from '../lib/keyboard-label'
 
+import { notifyError } from '../lib/notify-error'
 /**
  * Undo instead of confirm (QW2). A reversible action applies immediately and
  * calls `pushUndo`: a toast offers "Undo" for {@link UNDO_WINDOW_MS}, and
@@ -100,7 +101,7 @@ export function UndoProvider({ children }: { children: ReactNode }) {
       toast.success(tRef.current('undone', { label: entry.label }), { id: entry.id, duration: 2500 })
       return true
     } catch (err) {
-      toast.error(err instanceof UndoBlockedError ? err.message : tRef.current('failed'), { id: entry.id })
+      notifyError(tRef.current('failed'), { id: entry.id, ...(err instanceof UndoBlockedError ? { detail: err.message } : {}) })
       return false
     }
   }, [drop])

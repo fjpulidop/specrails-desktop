@@ -36,6 +36,7 @@ export const HELP_TOPICS = {
   loopBuilder: { category: 'pipeline', slug: 'the-loop-builder', anchor: 'loop-builder' },
   accessibility: { category: 'settings', slug: 'accessibility', anchor: 'accessibility' },
   shortcuts: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'shortcuts' },
+  prDecision: { category: 'pipeline', slug: 'reviewing-a-delivery', anchor: 'pr-decision' },
   inbox: { category: 'getting-started', slug: 'the-dashboard-tour', anchor: 'shortcuts' },
 } as const satisfies Record<string, DocsTarget & { anchor: string }>
 

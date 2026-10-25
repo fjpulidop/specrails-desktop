@@ -15,8 +15,8 @@
     "activeSessions_other": "{{count}} sessioni attive",
     "turnOn": "Attiva",
     "turnOff": "Disattiva",
-    "enableFailed": "Impossibile attivare il server MCP: {{message}}",
-    "disableFailed": "Impossibile disattivare il server MCP: {{message}}"
+    "enableFailed": "Impossibile attivare il server MCP",
+    "disableFailed": "Impossibile disattivare il server MCP"
   },
   "tiers": {
     "heading": "Livelli di permesso",
@@ -29,7 +29,7 @@
     "aiSpawnHelp": "Avviare rail e lavori di IA che eseguono la CLI.",
     "destructive": "Distruttivo",
     "destructiveHelp": "Eliminare spec e altri dati del progetto.",
-    "updateFailed": "Impossibile aggiornare i permessi: {{message}}"
+    "updateFailed": "Impossibile aggiornare i permessi"
   },
   "config": {
     "heading": "Configurazione del client",
@@ -47,7 +47,7 @@
     "regenerate": "Rigenera",
     "regenerateConfirm": "Rigenerare il token di accesso? Qualsiasi client che usa il vecchio token smetterà di funzionare finché non ne aggiorni la configurazione.",
     "regenerated": "Token di accesso rigenerato",
-    "regenerateFailed": "Impossibile rigenerare il token: {{message}}",
+    "regenerateFailed": "Impossibile rigenerare il token",
     "regenerateConfirmTitle": "Rigenerare il token di accesso?"
   },
   "tray": {

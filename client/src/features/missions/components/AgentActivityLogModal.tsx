@@ -8,6 +8,7 @@ import type { AgentLiveTool } from '../context/AgentChatContext'
 import { toolChipLabel } from './AgentActivityChip'
 import { LiveDot } from '../../../components/ui/live-dot'
 
+import { notifyError } from '../../../lib/notify-error'
 /**
  * Execution-log modal opened from the agent activity chip: every tool call of
  * the current (or last settled) turn, with bounded input/output previews and
@@ -52,7 +53,7 @@ export function AgentActivityLogModal({
       await navigator.clipboard.writeText(tools.map(formatEntry).join('\n\n'))
       toast.success(t('activity.copySuccess'))
     } catch {
-      toast.error(t('activity.copyFailed'))
+      notifyError(t('activity.copyFailed'))
     }
   }
 
@@ -119,7 +120,7 @@ function ActivityEntry({ entry, formatted }: { entry: AgentLiveTool; formatted: 
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      toast.error(t('activity.copyFailed'))
+      notifyError(t('activity.copyFailed'))
     }
   }
 

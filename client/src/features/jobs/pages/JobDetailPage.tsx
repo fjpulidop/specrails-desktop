@@ -29,6 +29,7 @@ import { humaniseCommand, humaniseJobCrumb, ticketTitlesOf } from '../lib/humani
 import { formatCommandForProvider } from '../../../lib/format-command'
 import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 
+import { notifyError } from '../../../lib/notify-error'
 export default function JobDetailPage() {
   const { t } = useTranslation('jobs')
   const { t: tNarration } = useTranslation('narration')
@@ -301,9 +302,9 @@ export default function JobDetailPage() {
       toast.success(t('detail.toast.cancelSignalSent'), { description: t('detail.toast.cancelSignalSentDescription') })
     } else if (outcome.httpStatus === null) {
       // Transport-level failure — same toast the old try/catch produced.
-      toast.error(t('detail.toast.networkError'))
+      notifyError(t('detail.toast.networkError'))
     } else {
-      toast.error(t('detail.toast.failed'), { description: outcome.error })
+      notifyError(t('detail.toast.failed'), { detail: outcome.error })
     }
   }
 
@@ -328,7 +329,7 @@ export default function JobDetailPage() {
       a.remove()
       URL.revokeObjectURL(url)
     } catch (err) {
-      toast.error(t('detail.toast.exportFailed'), { description: (err as Error).message })
+      notifyError(t('detail.toast.exportFailed'), { detail: (err as Error).message })
     }
   }
 
@@ -371,7 +372,7 @@ export default function JobDetailPage() {
       toast.success(t('detail.toast.jobRequeued'))
       navigate(`/jobs/${data.jobId}`)
     } catch (err) {
-      toast.error(t('detail.actionFailed'), { description: err instanceof Error ? err.message : undefined })
+      notifyError(t('detail.actionFailed'), { detail: err instanceof Error ? err.message : undefined })
     } finally {
       rerunInFlightRef.current = false
       setIsRerunning(false)

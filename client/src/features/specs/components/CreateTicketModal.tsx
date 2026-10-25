@@ -8,6 +8,7 @@ import type { TicketStatus, TicketPriority } from '../../../types'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
 import { RegressionOfPicker, isBugTicket } from './RegressionOfPicker'
 
+import { notifyError } from '../../../lib/notify-error'
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface CreateTicketModalProps {
@@ -96,7 +97,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
       toast.success(t('createModal.toast.created'))
       onClose()
     } else {
-      toast.error(t('createModal.toast.createFailed'))
+      notifyError(t('createModal.toast.createFailed'))
     }
   }, [title, description, status, priority, labels, repositoryIds, regressionOf, onCreate, onClose, t])
 

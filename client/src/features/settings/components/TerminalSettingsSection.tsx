@@ -17,6 +17,7 @@ import {
 import { dispatchTerminalSettingsUpdated } from '../lib/terminal-settings-events'
 import { SettingsSelect } from './SettingsSelect'
 
+import { notifyError } from '../../../lib/notify-error'
 interface Props {
   /** Desktop mode edits desktop_settings; project mode edits a per-project override layer. */
   mode: 'desktop' | 'project'
@@ -149,7 +150,7 @@ export function TerminalSettingsSection({ mode }: Props) {
         toast.success(t('terminal.saved'))
       }
     } catch (err) {
-      toast.error(t('errors.saveFailed', { message: (err as Error).message }))
+      notifyError(t('errors.saveFailed'), { detail: (err as Error).message })
     } finally {
       setSaving(false)
     }
