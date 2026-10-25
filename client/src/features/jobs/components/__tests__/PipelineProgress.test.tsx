@@ -35,11 +35,11 @@ describe('PipelineProgress', () => {
     expect(anySpinning).toBe(false)
   })
 
-  it('shows running icon (Loader2 with animate-spin) for running phase', () => {
+  it('shows the travelling rail pill (not a spinner) for the running phase', () => {
     const phases: PhaseMap = { architect: 'running' }
     render(<PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} />)
-    const spinningEl = document.querySelector('.animate-spin')
-    expect(spinningEl).toBeInTheDocument()
+    expect(document.querySelector('[data-testid="rail-track"]')).toBeInTheDocument()
+    expect(document.querySelector('.animate-spin')).toBeNull()
   })
 
   it('renders connector lines between phases', () => {

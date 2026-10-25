@@ -1,4 +1,5 @@
 import { localizeStatusDetail } from '../../../lib/pr-status-detail'
+import { LiveDot } from '../../../components/ui/live-dot'
 import { getApiBase } from '../../../lib/api'
 import { HelpHint } from '../../../components/HelpHint'
 import { RailTrack } from '../../../components/brand/RailTrack'
@@ -729,7 +730,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   if (existingPrIteration) {
     pill = (
       <span className={`${pillBase} border-accent-info/30 bg-accent-info/10 text-accent-info`}>
-        <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
+        <LiveDot tone="info" size="xs" aria-hidden />
         {t('railPr.iteratingPr')}
       </span>
     )

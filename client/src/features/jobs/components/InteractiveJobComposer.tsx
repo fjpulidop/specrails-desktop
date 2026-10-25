@@ -1,7 +1,7 @@
 import { useEffect, useId, useReducer, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { CheckCircle2, Hourglass, Loader2, Send } from 'lucide-react'
+import { CheckCircle2, Hourglass, Send } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { cn } from '../../../lib/utils'
@@ -280,7 +280,7 @@ export function InteractiveJobComposer({
             </span>
           ) : state.streaming ? (
             <span className="inline-flex items-center gap-1.5">
-              <Loader2 className="h-3 w-3 animate-spin text-accent-primary" />
+              <LiveDot tone="primary" size="xs" aria-hidden />
               <span className="relative">
                 {workingLabel}
                 <span aria-hidden className="title-shimmer pointer-events-none absolute inset-0">

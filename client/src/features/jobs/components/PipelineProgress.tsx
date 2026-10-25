@@ -1,4 +1,5 @@
-import { CheckCircle2, Loader2, XCircle, Circle } from 'lucide-react'
+import { CheckCircle2, XCircle, Circle } from 'lucide-react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { cn } from '../../../lib/utils'
 import type { PhaseDefinition } from '../../../types'
@@ -82,7 +83,7 @@ function PhaseNode({ state }: { state: PhaseState }) {
               : 'bg-muted/20',
       )}
     >
-      {state === 'running' && <Loader2 className="w-6 h-6 text-accent-info animate-spin" />}
+      {state === 'running' && <span aria-hidden><RailTrack running className="w-6" /></span>}
       {state === 'done' && <CheckCircle2 className="w-6 h-6 text-accent-success" />}
       {state === 'error' && <XCircle className="w-6 h-6 text-destructive" />}
       {state === 'idle' && <Circle className="w-6 h-6 text-muted-foreground opacity-20" />}

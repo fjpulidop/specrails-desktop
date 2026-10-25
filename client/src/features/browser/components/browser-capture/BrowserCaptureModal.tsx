@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, RotateCw, X, Crop, Loader2, Globe, AlertTriangle, Monitor, Tablet, Smartphone, Maximize2, Network, Ratio, ChevronRight, Lock, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RotateCw, X, Crop, Globe, AlertTriangle, Monitor, Tablet, Smartphone, Maximize2, Network, Ratio, ChevronRight, Lock, ExternalLink } from 'lucide-react'
 import { Button } from '../../../../components/ui/button'
 import { useBrowserCaptureSession } from './useBrowserCaptureSession'
 import { useBrowserViewport } from './useBrowserViewport'
@@ -580,12 +580,12 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
 
             {status === 'connecting' && (
               <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" /> {t('modal.status.opening')}
+                <LiveDot tone="info" size="md" aria-hidden /> {t('modal.status.opening')}
               </div>
             )}
             {capturing && (
               <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-foreground bg-background-deep/40">
-                <Loader2 className="w-4 h-4 animate-spin" /> {t('modal.status.capturing')}
+                <LiveDot tone="info" size="md" aria-hidden /> {t('modal.status.capturing')}
               </div>
             )}
           </>

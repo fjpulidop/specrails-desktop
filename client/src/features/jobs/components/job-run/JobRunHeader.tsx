@@ -1,6 +1,7 @@
 import { RuntimeRecovery } from '../../../settings/components/RuntimeRecovery'
+import { RailTrack } from '../../../../components/brand/RailTrack'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ChevronDown, Loader2, MessageCircleQuestion } from 'lucide-react'
+import { ChevronDown, MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '../../../../lib/utils'
@@ -219,7 +220,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         )}
         {liveLine && (
           <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
-            {isRunning && <Loader2 className="w-3 h-3 shrink-0 text-accent-info animate-spin" aria-hidden />}
+            {isRunning && <span aria-hidden className="shrink-0"><RailTrack running className="w-8" /></span>}
             <span className="truncate" data-testid="job-run-activity">{liveLine}</span>
           </span>
         )}

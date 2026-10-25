@@ -12,6 +12,7 @@
  *  · A state the three verbs cannot describe honestly renders the existing
  *    fine-grained controls instead (see packet-verbs' fineControlOnly).
  */
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -299,7 +300,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   if (loading && !packet) {
     return (
       <div role="status" className="flex h-full items-center justify-center text-muted-foreground">
-        <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+        <RailTrack running className="mr-3 w-16 shrink-0" />
         {t('common:states.loading')}
       </div>
     )
@@ -449,7 +450,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           </p>
         ) : verbs.inFlight ? (
           <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
+            <RailTrack running className="w-12 shrink-0" />
             {t('stillWorking')}
           </p>
         ) : verbs.terminal ? (
