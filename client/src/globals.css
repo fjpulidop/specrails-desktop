@@ -81,7 +81,7 @@
   --color-primary-foreground:   hsl(231 15% 18%);
   --color-secondary:            hsl(232 14% 31%);
   --color-secondary-foreground: hsl(60 30% 96%);
-  --color-muted:                hsl(232 14% 31%);
+  --color-muted:                hsl(232 14% 25%);
   --color-muted-foreground:     hsl(225 27% 76%);  /* ≥4.5:1 on cards (6.1:1), muted and the background */
   --color-accent:               hsl(232 14% 31%);
   --color-accent-foreground:    hsl(60 30% 96%);
@@ -250,7 +250,7 @@
   --color-primary-foreground:     hsl(154 30% 5%);
   --color-secondary:              hsl(154 22% 16%);
   --color-secondary-foreground:   hsl(150 100% 86%);
-  --color-muted:                  hsl(154 22% 16%);
+  --color-muted:                  hsl(154 22% 14%);
   --color-muted-foreground:       hsl(150 40% 55%);
   --color-accent:                 hsl(154 22% 16%);
   --color-accent-foreground:      hsl(150 100% 86%);
@@ -327,7 +327,7 @@
   --color-primary-foreground:     hsl(220 8% 8%);
   --color-secondary:              hsl(220 7% 16%);
   --color-secondary-foreground:   hsl(220 8% 92%);
-  --color-muted:                  hsl(220 7% 16%);
+  --color-muted:                  hsl(220 7% 13%);
   --color-muted-foreground:       hsl(220 6% 60%);
   --color-accent:                 hsl(220 7% 16%);
   --color-accent-foreground:      hsl(220 8% 92%);
@@ -646,6 +646,11 @@ select {
 :root[data-motion="reduce"] .animate-rail-travel { animation: none; opacity: 1; transform: translateX(var(--rail-progress, 0%)); }
 :root[data-motion="reduce"] .animate-rail-arrive { animation: none; transform: translateX(var(--rail-distance, 100%)); }
 :root[data-motion="reduce"] .title-shimmer { animation: none; }
+/* Spinners convey "working": they keep turning at a calm pace (same exception as the OS rule below). */
+:root[data-motion="reduce"] .animate-spin {
+  animation-duration: 1.6s !important;
+  animation-iteration-count: infinite !important;
+}
 
 /* "System" follows the OS (reaudit-8 #7): with prefers-reduced-motion and no explicit "full"
  * override, authored motion collapses to instant exactly like the explicit "reduce" setting.
@@ -1256,26 +1261,6 @@ select {
  * queue/history retain their status colors. */
 [data-mission-composer].border-border\/30 {
   border-color: var(--color-border);
-}
-
-/* Global reduced-motion fallback: collapse every animation and transition to
- * a single near-instant frame. Spinners keep turning (slowly) because they
- * communicate ongoing work rather than decorate. */
-@media (prefers-reduced-motion: reduce) {
-  :root:not([data-motion="full"]) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-
-    .animate-spin {
-      animation-duration: 1s !important;
-      animation-iteration-count: infinite !important;
-    }
-  }
 }
 
 /* ─── Modal standard: one entrance, one exit (docs/internals/modal-standard.md) ───

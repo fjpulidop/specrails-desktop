@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { tourStore } from './tour-store'
 import { formatUsd } from '../../lib/format-usd'
+import { formatTokens } from '../../lib/format-tokens'
 
 /** Approximate height of a RailRow header row (traffic lights + label + controls).
  *  The card-in-rail must sit BELOW this so it doesn't overlap the rail title. */
@@ -693,8 +694,7 @@ function TourSummaryCard({ done, progress }: { done: boolean; progress: number }
   const durationLabel = `${mins}m ${secs.toString().padStart(2, '0')}s`
   const costLabel = formatUsd(6.2408 * progress)
   const turnsLabel = `${Math.round(16 * progress)}`
-  const tokensValue = 5.9 * progress
-  const tokensLabel = tokensValue >= 0.1 ? `${tokensValue.toFixed(1)}k` : '0'
+  const tokensLabel = formatTokens(Math.round(5900 * progress))
 
   return (
     <div

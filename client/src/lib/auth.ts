@@ -70,10 +70,23 @@ const inflightReads = new Map<string, Promise<Response>>()
 function shareInflightRead(key: string, run: () => Promise<Response>): Promise<Response> {
   let shared = inflightReads.get(key)
   if (!shared) {
-    shared = run().finally(() => { inflightReads.delete(key) })
+    const started: Promise<Response> = run().finally(() => {
+      // Only forget our own entry: after an invalidation a newer read owns the key.
+      if (inflightReads.get(key) === started) inflightReads.delete(key)
+    })
+    shared = started
     inflightReads.set(key, shared)
   }
   return shared.then((res) => (typeof res.clone === 'function' ? res.clone() : res))
+}
+
+/**
+ * Forget every read in flight so the next identical read starts fresh. A refetch
+ * triggered by a live (WebSocket) event must not join a read that began BEFORE the
+ * change it is reacting to, or it would hand back the old data.
+ */
+export function invalidateInflightReads(): void {
+  inflightReads.clear()
 }
 
 export function installFetchInterceptor(): void {

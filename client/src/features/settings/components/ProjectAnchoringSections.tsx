@@ -241,8 +241,8 @@ export function ProjectRulesSection() {
         {!busy && data.lastRun && !data.lastRun.ok ? (
           <div role="alert" className="space-y-1 rounded-md border border-accent-warning/40 bg-accent-warning/5 p-2.5 text-xs" data-testid="rules-last-run-failed">
             <p className="font-medium text-foreground">{t(data.lastRun.trigger === 'setup' ? 'rules.lastRun.setupFailed' : 'rules.lastRun.manualFailed', { date: new Date(data.lastRun.at).toLocaleString(i18n.language) })}</p>
-            {data.lastRun.output ? <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-foreground/75">{data.lastRun.output.split('\n').slice(-6).join('\n')}</pre> : null}
-            <p className="text-foreground/75">{t('rules.lastRun.retryHint')}</p>
+            {data.lastRun.output ? <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">{data.lastRun.output.split('\n').slice(-6).join('\n')}</pre> : null}
+            <p className="text-muted-foreground">{t('rules.lastRun.retryHint')}</p>
           </div>
         ) : null}
         {!busy && data.lastRun?.ok && data.lastRun.trigger === 'setup' ? <p className="text-xs text-muted-foreground" data-testid="rules-last-run-setup">{t('rules.lastRun.setupDone')}</p> : null}

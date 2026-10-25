@@ -106,7 +106,7 @@ describe('AgentRailLaunchCard launch forecast', () => {
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
   })
 
-  it('does not launch when today\'s budget is reached: the dialog offers Raise cap, never Launch anyway', async () => {
+  it('does not launch when today\'s budget is reached: the dialog offers Raise limit, never Launch anyway', async () => {
     resetLaunchForecastCache()
     const reached = { ...forecast, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
     mockFetch({ '/launch-forecast': () => ({ status: 200, body: reached }) })
@@ -125,7 +125,7 @@ describe('AgentRailLaunchCard launch forecast', () => {
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
     try {
       fireEvent.click(screen.getByTestId('rail-card-play'))
-      fireEvent.click(within(await screen.findByTestId('launch-over-budget-dialog')).getByRole('button', { name: 'Raise cap' }))
+      fireEvent.click(within(await screen.findByTestId('launch-over-budget-dialog')).getByRole('button', { name: 'Raise limit' }))
       expect(opened).toHaveBeenCalledTimes(1)
     } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
     expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)

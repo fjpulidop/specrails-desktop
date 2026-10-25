@@ -81,7 +81,7 @@ export function FlowRunCardActions({ projectId, prDeliveryId, decision, statusCo
         title={t('flow.review.relaunchHint')}
         aria-describedby={`${hintId}-relaunch`}
         onClick={() => void act('relaunch')}
-        className={cn(BUTTON, 'border-border/60 bg-surface/60 text-foreground/75 hover:border-accent-flow/40 hover:bg-accent-flow/10 hover:text-accent-flow')}
+        className={cn(BUTTON, 'border-border/60 bg-surface/60 text-muted-foreground hover:border-accent-flow/40 hover:bg-accent-flow/10 hover:text-accent-flow')}
       >
         {pending === 'relaunch' ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
         {t('flow.review.relaunch')}

@@ -454,4 +454,30 @@ describe('installFetchInterceptor — shared in-flight reads', () => {
       expect(await (await before).json()).toEqual({ version: 'stale' })
     } finally { restore() }
   })
+
+  it('invalidateInflightReads: a refetch triggered by a live event never joins an older read, and the old one does not evict the new', async () => {
+    let releaseFirst!: () => void
+    const gate = new Promise<void>((resolve) => { releaseFirst = resolve })
+    let call = 0
+    const raw = vi.fn(async () => {
+      call++
+      if (call === 1) { await gate; return okJson({ version: 'stale' }) }
+      return okJson({ version: 'fresh' })
+    })
+    const restore = await install(raw)
+    try {
+      const { invalidateInflightReads } = await import('../auth')
+      const before = fetch('/api/projects/p1/specs')
+      invalidateInflightReads() // a WS event announced a change
+      const refetch = fetch('/api/projects/p1/specs')
+      releaseFirst()
+      expect(await (await refetch).json()).toEqual({ version: 'fresh' })
+      expect(await (await before).json()).toEqual({ version: 'stale' })
+      // The finished stale read must not have deleted the fresh read's slot: a joiner still shares it.
+      raw.mockClear()
+      const a = fetch('/api/projects/p1/specs'); const b = fetch('/api/projects/p1/specs')
+      await Promise.all([a, b])
+      expect(raw).toHaveBeenCalledTimes(1)
+    } finally { restore() }
+  })
 })

@@ -327,6 +327,7 @@
     "deleteFailed": "无法删除该规格"
   },
   "board": {
-    "pageTitle": "{{project}}：看板"
+    "pageTitle": "{{project}}：看板",
+    "pageTitleBare": "看板"
   }
 }

@@ -393,7 +393,7 @@ describe('AgentMessage per-bubble timestamp', () => {
     expect(time!.getAttribute('title')).toBeTruthy() // consultable full date+time
     // Quiet but above the type/contrast floor (12px, 60%).
     expect(time!.className).toContain('text-xs')
-    expect(time!.className).toContain('text-foreground/60')
+    expect(time!.className).toContain('text-muted-foreground')
   })
 
   it('shows only HH:mm for a message sent today', () => {

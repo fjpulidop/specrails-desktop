@@ -718,20 +718,20 @@ export function AgentComposer({
         >
           <Pencil className="h-3 w-3 shrink-0" />
           <span className="font-medium">{t('queueEdit.editing', { n: editIdx + 1, m: queuedMessages.length })}</span>
-          <span className="truncate text-foreground/70">{t('queueEdit.hint')}</span>
+          <span className="truncate text-muted-foreground">{t('queueEdit.hint')}</span>
           <button
             type="button"
             onClick={() => exitQueueEdit('restore')}
             aria-label={t('queueEdit.cancel')}
             title={t('queueEdit.cancel')}
-            className="ml-auto rounded-sm p-0.5 text-foreground/70 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+            className="ml-auto rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
           >
             <X className="h-3 w-3" />
           </button>
         </div>
       )}
       {inHistory && (
-        <div className="mb-1 flex items-center gap-1.5 px-1 text-xs text-foreground/70">
+        <div className="mb-1 flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
           <History className="h-3 w-3" />
           {t('history.hint')}
         </div>
@@ -875,7 +875,7 @@ export function AgentComposer({
             }
             title={inQueueEdit ? t('queueEdit.hint') : inHistory ? t('history.hint') : undefined}
             className={`min-h-[2.5rem] max-h-64 min-w-0 w-full resize-none overflow-y-auto bg-transparent text-sm outline-none ${
-              inHistory ? 'italic text-foreground/50' : 'text-foreground'
+              inHistory ? 'italic text-muted-foreground' : 'text-foreground'
             }`}
           />
         </div>

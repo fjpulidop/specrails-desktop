@@ -48,7 +48,7 @@ export function BackgroundProcessChip({
             <button type="button" onClick={() => onOpen(process)} aria-label={t('backgroundProcess.open', { command: process.command })}
               className="inline-flex min-w-0 max-w-[340px] items-center gap-1.5 rounded-l-lg px-2 py-1 transition-colors hover:bg-background/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
               <Terminal className="h-3 w-3 shrink-0" aria-hidden />
-              <span className={`shrink-0 ${process.status === 'failed' ? 'text-destructive' : 'text-foreground/70'}`}>
+              <span className={`shrink-0 ${process.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}`}>
                 {t(`backgroundProcess.status.${busy ? 'stopping' : process.status}`)}
               </span>
               <span className="min-w-0 truncate font-medium">{process.command}</span>

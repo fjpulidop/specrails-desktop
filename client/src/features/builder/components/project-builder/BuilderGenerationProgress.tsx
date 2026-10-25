@@ -4,6 +4,7 @@ import { Sparkles, Wrench } from 'lucide-react'
 import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
 import { LiveDot } from '../../../../components/ui/live-dot'
 
+import { RailTrack } from '../../../../components/brand/RailTrack'
 // Live generation feedback (harden-project-builder-snapshots). While the M1
 // batch streams in, the raw JSON is hidden by the tail cut — so for up to a
 // minute the user used to stare at a static "Thinking…" chip. This surfaces
@@ -39,7 +40,7 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
 
   return (
     <div
-      className="inline-flex max-w-full flex-col gap-1.5 rounded-xl border border-border/50 bg-surface/60 px-3 py-2 text-xs text-foreground/80"
+      className="inline-flex max-w-full flex-col gap-1.5 rounded-xl border border-border/50 bg-surface/60 px-3 py-2 text-xs text-foreground"
       data-testid="builder-generation-progress"
       data-phase={repairing ? 'repairing' : generation ? `generation-${generation.phase}` : 'generating'}
       role="status"
@@ -81,14 +82,7 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
           </AnimatePresence>
         )}
       </div>
-      <div className="h-1 w-56 max-w-full overflow-hidden rounded-full bg-border/40" aria-hidden>
-        <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-accent-primary/70 to-accent-highlight/80"
-          initial={{ width: '6%' }}
-          animate={{ width: `${Math.round(ratio * 100)}%` }}
-          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-        />
-      </div>
+      <RailTrack progress={Math.max(0.06, ratio)} className="w-56 max-w-full" />
     </div>
   )
 }

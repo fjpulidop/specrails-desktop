@@ -25,7 +25,8 @@
     "settings": "{{name}} の設定",
     "assembling": "ワークスペースを準備中…",
     "assembleFailed": "ワークスペースの準備に失敗 — クリックして再試行",
-    "retrySetup": "セットアップを再試行"
+    "retrySetup": "セットアップを再試行",
+    "removeConfirmHint": "もう一度押すと {{project}} を削除します"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
@@ -42,8 +43,8 @@
     "sectionProjects": "プロジェクト"
   },
   "globalSurfaceModal": {
-    "loopsDescription": "Loops は Mission のモーダルとして開いています。",
-    "pluginsDescription": "Plugins は Mission のモーダルとして開いています。",
+    "loopsDescription": "Loops は Mission のウィンドウで開いています。",
+    "pluginsDescription": "Plugins は Mission のウィンドウで開いています。",
     "reviewDescription": "レビューパケットはミッションのモーダルとして開いています。"
   },
   "rightSidebar": {

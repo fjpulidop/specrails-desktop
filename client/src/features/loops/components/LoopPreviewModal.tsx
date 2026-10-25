@@ -50,7 +50,7 @@ export function LoopPreviewModal({
                   ? 'border-accent-info/40 bg-accent-info/10 text-accent-info'
                   : loop.status === 'published'
                     ? 'border-accent-success/40 bg-accent-success/10 text-accent-success'
-                    : 'border-border/60 bg-surface/60 text-foreground/70',
+                    : 'border-border/60 bg-surface/60 text-muted-foreground',
               )}
             >
               {loop.builtin

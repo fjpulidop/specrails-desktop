@@ -83,7 +83,7 @@ export function NonGoalsSection({ value, onChange, disabled }: NonGoalsSectionPr
       ) : value.length > 0 ? (
         <ul className="rounded-lg border border-border/40 bg-muted/10 px-3 py-2 space-y-1">
           {value.map((item) => (
-            <li key={item} className="flex items-start gap-2 text-xs text-foreground/90">
+            <li key={item} className="flex items-start gap-2 text-xs text-foreground">
               <span aria-hidden="true" className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-muted-foreground/60" />
               <span className="min-w-0 break-words">{item}</span>
             </li>

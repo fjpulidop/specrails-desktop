@@ -455,7 +455,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
           <PackageOpen className="mt-0.5 h-4 w-4 shrink-0 text-accent-warning" />
           <div className="flex-1">
             <p className="font-medium">{t('noProvider.title')}</p>
-            <p className="mt-0.5 text-foreground/70">{t('noProvider.body')}</p>
+            <p className="mt-0.5 text-muted-foreground">{t('noProvider.body')}</p>
           </div>
         </div>
       )}
@@ -490,9 +490,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
           className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4"
         >
           {committedMessages.length === 0 && !isStreaming && (
-            <div className="flex h-full flex-col items-center justify-center text-center text-foreground/50">
-              <Bot className="mb-2 h-8 w-8 text-accent-primary/60" />
-              <p className="text-sm font-medium text-foreground/70">{emptyTitle}</p>
+            <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
+              <Bot className="mb-2 h-8 w-8 text-accent-primary" />
+              <p className="text-sm font-medium text-muted-foreground">{emptyTitle}</p>
               <p className="mt-1 max-w-[280px] text-xs">{t('emptyHint')}</p>
             </div>
           )}

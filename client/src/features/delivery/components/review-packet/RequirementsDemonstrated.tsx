@@ -44,7 +44,7 @@ export function RequirementsDemonstrated({ section, multiTicket }: { section: Pa
           <ul className="mt-1 space-y-1" data-testid="packet-requirements-undemonstrated">
             {missing.map((item) => (
               <li key={`${item.ticketId}:${item.id}`} className="flex flex-wrap items-baseline gap-x-1.5 text-xs">
-                <span className={`font-mono text-caption ${item.touched ? 'text-accent-warning' : 'text-foreground/80'}`}>{item.id}</span>
+                <span className={`font-mono text-caption ${item.touched ? 'text-accent-warning' : 'text-foreground'}`}>{item.id}</span>
                 <span className="text-muted-foreground">{t(`requirements.reason.${item.reason}`)}</span>
                 {item.touched ? <span className="rounded-full border border-accent-warning/40 px-1.5 text-caption text-accent-warning">{t('requirements.touchedBadge')}</span> : null}
                 {ticket(item.ticketId)}

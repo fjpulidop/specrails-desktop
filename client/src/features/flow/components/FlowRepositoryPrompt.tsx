@@ -84,9 +84,9 @@ function FlowRepositoryDialog({ request, onSettle }: { request: FlowRepositoryRe
           <DialogDescription>{t('flow.startFromSpec.repository.body')}</DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-3">
-          <p className="flex min-w-0 items-center gap-1.5 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs text-foreground/90">
-            <FileText className="h-3.5 w-3.5 shrink-0 text-foreground/70" aria-hidden />
-            <span className="shrink-0 font-mono text-foreground/70">{t('flow.entry.existingSpec.label', { id: request.spec.id })}</span>
+          <p className="flex min-w-0 items-center gap-1.5 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs text-foreground">
+            <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="shrink-0 font-mono text-muted-foreground">{t('flow.entry.existingSpec.label', { id: request.spec.id })}</span>
             <span className="min-w-0 truncate font-medium" title={request.spec.title}>{request.spec.title}</span>
           </p>
           <FlowRepositoryPicker

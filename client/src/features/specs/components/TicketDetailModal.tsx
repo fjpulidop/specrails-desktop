@@ -767,7 +767,7 @@ export function TicketDetailModal({
                       <span
                         key={id}
                         data-chip=""
-                        className="inline-flex h-5 items-center rounded px-1.5 text-caption font-mono bg-accent/60 text-foreground/70"
+                        className="inline-flex h-5 items-center rounded px-1.5 text-caption font-mono bg-accent/60 text-muted-foreground"
                       >
                         #{id}
                       </span>
@@ -804,7 +804,7 @@ export function TicketDetailModal({
                     className="w-full inline-flex items-center gap-1.5 rounded border border-accent-highlight/40 bg-accent-highlight/5 px-2 py-1.5 text-left text-xs hover:bg-accent-highlight/10 transition-colors"
                   >
                     <span className="font-mono text-accent-highlight shrink-0">{ticket.jira_epic_key}</span>
-                    {ticket.jira_epic_name && <span className="truncate text-foreground/80">{ticket.jira_epic_name}</span>}
+                    {ticket.jira_epic_name && <span className="truncate text-foreground">{ticket.jira_epic_name}</span>}
                   </button>
                 </div>
               )}
@@ -899,7 +899,7 @@ export function TicketDetailModal({
                     <span
                       key={label}
                       data-chip=""
-                      className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-caption font-medium bg-accent/60 text-foreground/70 group"
+                      className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-caption font-medium bg-accent/60 text-muted-foreground group"
                     >
                       {label}
                       <button
@@ -947,7 +947,7 @@ export function TicketDetailModal({
                               e.preventDefault()
                               addLabel(suggestion)
                             }}
-                            className="w-full text-left px-2 py-1 text-xs hover:bg-accent/50 text-foreground/80"
+                            className="w-full text-left px-2 py-1 text-xs hover:bg-accent/50 text-foreground"
                           >
                             {suggestion}
                           </button>
@@ -992,7 +992,7 @@ export function TicketDetailModal({
                   <span className="text-label text-muted-foreground block mb-0.5">
                     {t('detailModal.effort')}
                   </span>
-                  <span className="text-xs text-foreground/70">{ticket.metadata.effort_level}</span>
+                  <span className="text-xs text-muted-foreground">{ticket.metadata.effort_level}</span>
                 </div>
               )}
 
@@ -1001,7 +1001,7 @@ export function TicketDetailModal({
                   <span className="text-label text-muted-foreground block mb-0.5">
                     {t('detailModal.assignee')}
                   </span>
-                  <span className="text-xs text-foreground/70">{ticket.assignee}</span>
+                  <span className="text-xs text-muted-foreground">{ticket.assignee}</span>
                 </div>
               )}
             </div>
@@ -1448,7 +1448,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
       role="button"
       style={{ cursor: 'pointer' }}
     >
-      <div className="prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-foreground prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-control text-foreground/90">
+      <div className="prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-foreground prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-control text-foreground">
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{userPart}</ReactMarkdown>
       </div>
       {contract && (
@@ -1457,13 +1457,13 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
           className="mt-3 rounded-md border border-border/40 bg-muted/10 px-2 py-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <summary className="cursor-pointer text-label text-foreground/80 select-none flex items-center gap-2">
+          <summary className="cursor-pointer text-label text-foreground select-none flex items-center gap-2">
             {t('contractLayer.title')}
-            <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-caption text-foreground/60">
+            <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-caption text-muted-foreground">
               {t('contractLayer.populated', { n: countContractSubsections(contract) })}
             </span>
           </summary>
-          <div className="mt-2 prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-foreground prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-control text-foreground/90">
+          <div className="mt-2 prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-foreground prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-control text-foreground">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{contract}</ReactMarkdown>
           </div>
         </details>

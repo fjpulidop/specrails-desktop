@@ -101,7 +101,7 @@ describe('AgentRuntimeRuns', () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValueOnce(response({}, false))
     render(<AgentRuntimeRuns projectId="p1" />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load saved executions')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load saved runs')
     vi.mocked(fetch).mockResolvedValueOnce(response({ runs: [run()] }))
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     await screen.findByRole('button', { name: 'Resume' })
@@ -110,7 +110,7 @@ describe('AgentRuntimeRuns', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Original worktree is unavailable')
     vi.mocked(fetch).mockResolvedValueOnce(response({}, false))
     await user.click(screen.getByRole('button', { name: 'Resume' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not update this execution')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not update this run')
   })
 
   it('recovers an interrupted approved archive before presenting another approval action', async () => {
@@ -155,7 +155,7 @@ describe('AgentRuntimeRuns', () => {
     let finish!: (value: Response) => void
     vi.mocked(fetch).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
     const view = render(<AgentRuntimeRuns projectId="p1" />)
-    expect(screen.getByText('No saved runtime executions.')).toBeInTheDocument()
+    expect(screen.getByText('No saved runtime runs.')).toBeInTheDocument()
     view.unmount()
     await act(async () => finish(response({ runs: [run()] })))
     render(<AgentRuntimeRuns projectId="p2" />)

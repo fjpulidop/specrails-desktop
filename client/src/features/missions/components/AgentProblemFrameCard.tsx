@@ -43,7 +43,7 @@ function Reading({ label, value, testId, onSelect, disabled }: ReadingProps) {
   const body = (
     <>
       <div className="text-label text-muted-foreground">{label}</div>
-      <div className="text-xs leading-5 text-foreground/90">{value.reading}</div>
+      <div className="text-xs leading-5 text-foreground">{value.reading}</div>
       {value.touches.length > 0 && (
         <div className="flex flex-col gap-1 pt-0.5">
           <div className="text-label text-muted-foreground">
@@ -53,9 +53,9 @@ function Reading({ label, value, testId, onSelect, disabled }: ReadingProps) {
             {value.touches.map((path, i) => (
               <span
                 key={`${i}-${path}`}
-                className="inline-flex max-w-full items-center gap-1 rounded border border-border/50 bg-background-deep/40 px-1.5 py-0.5 font-mono text-caption text-foreground/65"
+                className="inline-flex max-w-full items-center gap-1 rounded border border-border/50 bg-background-deep/40 px-1.5 py-0.5 font-mono text-caption text-muted-foreground"
               >
-                <FileCode2 className="h-2.5 w-2.5 shrink-0 text-accent-info/70" />
+                <FileCode2 className="h-2.5 w-2.5 shrink-0 text-accent-info" />
                 <span className="truncate">{path}</span>
               </span>
             ))}
@@ -96,7 +96,7 @@ function Reading({ label, value, testId, onSelect, disabled }: ReadingProps) {
       <span
         aria-hidden
         className={cn(
-          'mt-0.5 inline-flex items-center gap-1 text-label text-accent-primary/80 transition-opacity',
+          'mt-0.5 inline-flex items-center gap-1 text-label text-accent-primary transition-opacity',
           disabled
             ? 'opacity-0'
             : 'opacity-0 group-hover/reading:opacity-100 group-focus-visible/reading:opacity-100',
@@ -116,7 +116,7 @@ function Bullets({ label, items }: { label: string; items: string[] }) {
       <div className="text-label text-muted-foreground">{label}</div>
       <ul className="flex flex-col gap-0.5">
         {items.map((item, i) => (
-          <li key={`${i}-${item}`} className="flex items-start gap-1.5 text-xs leading-5 text-foreground/70">
+          <li key={`${i}-${item}`} className="flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
             <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-foreground/30" />
             <span className="min-w-0">{item}</span>
           </li>
@@ -150,7 +150,7 @@ export function AgentProblemFrameCard({ frame, isLatest, isStreaming, onSelect }
       data-testid="agent-problem-frame-card"
       className="my-1 overflow-hidden rounded-xl border border-accent-info/25 bg-card/80 shadow-lg"
     >
-      <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent-info/[0.06] px-3.5 py-2 text-xs font-semibold text-accent-info/90">
+      <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent-info/[0.06] px-3.5 py-2 text-xs font-semibold text-accent-info">
         <Compass className="h-3 w-3" />
         {t('problemFrame.heading')}
       </div>
@@ -174,12 +174,12 @@ export function AgentProblemFrameCard({ frame, isLatest, isStreaming, onSelect }
         </div>
 
         <div className="flex items-start gap-2 rounded-lg border border-accent-primary/25 bg-accent-primary/[0.07] px-2.5 py-2">
-          <CircleHelp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary/80" />
+          <CircleHelp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" />
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-accent-primary/80">
+            <div className="text-xs font-semibold text-accent-primary">
               {t('problemFrame.discriminator')}
             </div>
-            <div className="mt-0.5 text-xs leading-5 text-foreground/90">{frame.discriminator}</div>
+            <div className="mt-0.5 text-xs leading-5 text-foreground">{frame.discriminator}</div>
           </div>
         </div>
 
@@ -201,7 +201,7 @@ export function AgentProblemFramePending() {
   return (
     <span
       data-testid="agent-problem-frame-pending"
-      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-info/25 bg-accent-info/10 px-2.5 py-1 text-xs text-accent-info/90"
+      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-info/25 bg-accent-info/10 px-2.5 py-1 text-xs text-accent-info"
     >
       <Compass className="h-3 w-3 motion-safe:animate-pulse" />
       {t('problemFrame.framing')}

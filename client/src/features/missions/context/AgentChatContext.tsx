@@ -530,6 +530,12 @@ export function retainOptimisticRows(current: AgentMessage[], persisted: AgentMe
   })
 }
 
+/** A renamed mission must also read renamed when it is repainted from the revisit cache. */
+function patchCachedTitle(cache: Map<string, ConversationSnapshot>, id: string, title: string | null): void {
+  const cached = cache.get(id)
+  if (cached) cache.set(id, { ...cached, conversation: { ...cached.conversation, title } })
+}
+
 /** A snapshot read in flight, stamped with the WS event version it started at. */
 interface InflightSnapshot { promise: Promise<ConversationSnapshot>; versionAtStart: number }
 
@@ -630,6 +636,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   }
   const deliveredMessageIdsRef = useRef(new Set<string>())
   const conversationEventVersionRef = useRef(new Map<string, number>())
+  // Revisit cache (stale-while-revalidate, see loadConversation) and the reads in flight.
+  const conversationCacheRef = useRef(new Map<string, ConversationSnapshot>())
+  const inflightConversationRef = useRef(new Map<string, InflightSnapshot>())
   const queueClearVersionRef = useRef(new Map<string, number>())
   const transcriptEventsRef = useRef(new Map<string, AgentMessage[]>())
   const draftMaterializeRef = useRef<Promise<AgentConversation> | null>(null)
@@ -833,6 +842,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         const title = (msg as { title?: string }).title ?? null
         setConversations((cs) => cs.map((c) => (c.id === msg.conversationId ? { ...c, title } : c)))
         setActive((a) => (a && a.id === msg.conversationId ? { ...a, title } : a))
+        patchCachedTitle(conversationCacheRef.current, msg.conversationId, title)
         return
       }
       const convId = msg.conversationId
@@ -1095,8 +1105,6 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   // (or hovered) paints a revisit at once; a fresh read reconciles right after.
   // Only the transcript/identity is cached — live turn state, queue and cards are
   // owned by the WS stream and the live store, which never go stale.
-  const conversationCacheRef = useRef(new Map<string, ConversationSnapshot>())
-  const inflightConversationRef = useRef(new Map<string, InflightSnapshot>())
   const activeRef = useRef(active)
   activeRef.current = active
   const shownIdRef = useRef<string | null>(null)
@@ -1767,12 +1775,14 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return c
     }))
     setActive((a) => (a && a.id === id ? { ...a, title } : a))
+    patchCachedTitle(conversationCacheRef.current, id, title)
     try {
       await patchAgentConversation(id, { title })
     } catch (err) {
       // Revert the optimistic write.
       setConversations((cs) => cs.map((c) => (c.id === id ? { ...c, title: prev ?? null } : c)))
       setActive((a) => (a && a.id === id ? { ...a, title: prev ?? null } : a))
+      patchCachedTitle(conversationCacheRef.current, id, prev ?? null)
       throw err
     }
   }, [])

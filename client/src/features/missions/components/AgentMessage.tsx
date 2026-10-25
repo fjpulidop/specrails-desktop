@@ -47,7 +47,7 @@ const MD = cn(
   '[&_code]:rounded-control [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-foreground',
   '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface [&_pre]:p-3',
   '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground',
-  '[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-accent-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-foreground/80',
+  '[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-accent-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-foreground',
   '[&_hr]:my-3 [&_hr]:border-border/60',
   // Premium tables
   '[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-lg',
@@ -94,7 +94,7 @@ function CopyButton({ text, timestampIso }: { text: string; timestampIso?: strin
       onClick={onCopy}
       aria-label={label}
       title={label}
-      className="rounded-md p-1 text-foreground/60 opacity-0 transition-opacity hover:bg-surface hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover:opacity-100"
+      className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-surface hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover:opacity-100"
       data-agent-interactive
     >
       {copied ? <Check className="h-3 w-3 text-accent-success" aria-hidden /> : <Copy className="h-3 w-3" aria-hidden />}
@@ -119,7 +119,7 @@ function AgentCodeBlock({ children }: { children?: ReactNode }) {
   return (
     <div className="group/code relative" data-testid="agent-code-block">
       {language && (
-        <span className="pointer-events-none absolute left-3 top-1.5 select-none font-mono text-xs text-foreground/60" data-testid="agent-code-language">
+        <span className="pointer-events-none absolute left-3 top-1.5 select-none font-mono text-xs text-muted-foreground" data-testid="agent-code-language">
           {language}
         </span>
       )}
@@ -128,7 +128,7 @@ function AgentCodeBlock({ children }: { children?: ReactNode }) {
         onClick={() => void copy(preRef.current?.textContent ?? '')}
         aria-label={label}
         title={label}
-        className="absolute right-1.5 top-1 rounded-md p-1 text-foreground/60 opacity-0 transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover/code:opacity-100"
+        className="absolute right-1.5 top-1 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover/code:opacity-100"
         data-agent-interactive
       >
         {copied ? <Check className="h-3.5 w-3.5 text-accent-success" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
@@ -156,7 +156,7 @@ function MessageTime({ iso }: { iso?: string }) {
     <time
       dateTime={d.toISOString()}
       title={format(d, 'PPpp', { locale })}
-      className="shrink-0 select-none text-xs leading-none tabular-nums text-foreground/60 transition-colors duration-200 group-hover:text-foreground/75"
+      className="shrink-0 select-none text-xs leading-none tabular-nums text-muted-foreground transition-colors duration-200 group-hover:text-muted-foreground"
     >
       {format(d, isToday(d) ? 'HH:mm' : 'MMM d, HH:mm', { locale })}
     </time>
@@ -299,12 +299,12 @@ export function AgentAttachmentChips({
               onClick={() => setSelected(attachment)}
               title={attachment.filename}
               aria-label={image ? t('attachment.openPreview', { name: attachment.filename }) : t('attachment.openDownload', { name: attachment.filename })}
-              className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-border/60 bg-background/45 px-2 py-1 text-left text-xs text-foreground/75 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/10 hover:text-foreground"
+              className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-border/60 bg-background/45 px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/10 hover:text-foreground"
               data-agent-interactive
             >
               <Icon className="h-3.5 w-3.5 shrink-0 text-accent-primary" />
               <span className="min-w-0 flex-1 truncate">{attachment.filename}</span>
-              {attachment.size > 0 && <span className="shrink-0 text-xs text-foreground/60">{formatBytes(attachment.size)}</span>}
+              {attachment.size > 0 && <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(attachment.size)}</span>}
             </button>
           )
         })}
@@ -331,7 +331,7 @@ function contextTone(kind: string): string {
   if (kind === 'job' || kind === 'trace') return 'border-accent-info/30 bg-accent-info/10 text-accent-info'
   if (kind === 'spec') return 'border-accent-highlight/30 bg-accent-highlight/10 text-accent-highlight'
   if (kind === 'project' || kind === 'alias') return 'border-accent-primary/30 bg-accent-primary/10 text-accent-primary'
-  return 'border-border/60 bg-surface/70 text-foreground/80'
+  return 'border-border/60 bg-surface/70 text-foreground'
 }
 
 function AgentContextInlineChip({ refItem }: { refItem: AgentContextReference }) {
@@ -686,10 +686,10 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
               onClick={() => onPickOption?.(option)}
               title={i < 9 ? t('options.shortcut', { n: i + 1 }) : undefined}
               aria-keyshortcuts={i < 9 ? `Alt+${i + 1}` : undefined}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-xs text-foreground/80 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-xs text-foreground transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
               data-agent-interactive
             >
-              {i < 9 && <span aria-hidden className="text-xs tabular-nums text-foreground/60">{i + 1}</span>}
+              {i < 9 && <span aria-hidden className="text-xs tabular-nums text-muted-foreground">{i + 1}</span>}
               {option}
             </button>
           ))}
@@ -700,7 +700,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
           {body.trim() && <CopyButton text={body} timestampIso={createdAt} />}
           {createdAt && <MessageTime iso={createdAt} />}
           {modeMark && (
-            <span className="inline-flex shrink-0 select-none items-center gap-1 text-caption leading-none text-foreground/70" data-testid="agent-message-mode-mark" title={modeMark.description} style={{ '--turn-mode-accent': modeAccent(modeMark) } as CSSProperties}>
+            <span className="inline-flex shrink-0 select-none items-center gap-1 text-caption leading-none text-muted-foreground" data-testid="agent-message-mode-mark" title={modeMark.description} style={{ '--turn-mode-accent': modeAccent(modeMark) } as CSSProperties}>
               {modeMark.icon && <modeMark.icon className="h-3 w-3 shrink-0 text-[color:var(--turn-mode-accent)]" aria-hidden />}
               {modeMark.label}
             </span>

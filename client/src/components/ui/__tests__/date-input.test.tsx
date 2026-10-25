@@ -14,7 +14,7 @@ describe('DateInput', () => {
     const input = screen.getByLabelText('From')
     expect(input).toHaveAttribute('type', 'date')
     expect(input).toHaveAttribute('lang', 'en')
-    expect(input).toHaveClass('h-7', 'rounded-control', 'border-input', 'bg-input', 'text-caption')
+    expect(input).toHaveClass('h-7', 'rounded-control', 'border-border', 'bg-input', 'text-caption')
   })
 
   it('keeps the local YYYY-MM-DD value contract', () => {

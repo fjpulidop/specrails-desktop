@@ -320,9 +320,9 @@
     "paused": "Implementation paused",
     "pausedForRun": "Paused on {{ref}}",
     "resume": "Resume",
-    "stopExecution": "Stop execution",
+    "stopExecution": "Stop run",
     "stopExecutionSent": "Stop signal sent",
-    "stopExecutionFailed": "Could not stop execution",
+    "stopExecutionFailed": "Couldn't stop the run",
     "partialSummary": "{{succeeded}} of {{total}} completed; {{failed}} failed",
     "unit": {
       "failed": "implementation failed",
@@ -547,7 +547,7 @@
   },
   "emptyTitleCodeRain": "What should we build next?",
   "activity": {
-    "title": "Execution log",
+    "title": "Run log",
     "live": "Live",
     "empty": "No tool activity in this turn yet.",
     "output": "Output",
@@ -556,7 +556,7 @@
     "copyEntry": "Copy entry",
     "copySuccess": "Log copied to clipboard",
     "copyFailed": "Could not copy the log",
-    "openLog": "View execution log",
+    "openLog": "View run log",
     "close": "Close",
     "tool": {
       "terminal": "Terminal",
@@ -616,7 +616,7 @@
       "button": "Processes",
       "title": "Mission processes",
       "open": "View process history",
-      "description": "Browse active processes and saved logs from earlier executions.",
+      "description": "Browse active processes and saved logs from earlier runs.",
       "search": "Search command or repository…",
       "refresh": "Refresh history",
       "close": "Close process history",

@@ -37,8 +37,8 @@ describe('daily budget copy (rail-loop-budget-guard)', () => {
     expect(dailyBudgetPausedMessage(t, { ...week, scope: 'desktop', period: 'month' })).toBe('Paused on the app-wide monthly budget ($52.50 of $50.00). Raise it, then resume.')
     expect(dailyBudgetActionMessage(t, week)).toMatch(/^Raise or clear the budget in Analytics ▸ Budget, or wait for the reset \(.+\)\.$/)
     const run = { scope: 'project' as const, period: 'run' as const, budgetUsd: 5, spentUsd: 5.2, resetsAt: null }
-    expect(dailyBudgetPausedMessage(t, run)).toBe('Paused at the per-run cap ($5.20 of $5.00). Continue without it or raise it.')
-    expect(dailyBudgetExceededMessage(t, run)).toContain('Per-run cap reached')
-    expect(dailyBudgetActionMessage(t, run)).toBe('Continue without the cap, or raise it, then resume.')
+    expect(dailyBudgetPausedMessage(t, run)).toBe('Paused at the per-run limit ($5.20 of $5.00). Continue without it or raise it.')
+    expect(dailyBudgetExceededMessage(t, run)).toContain('Per-run limit reached')
+    expect(dailyBudgetActionMessage(t, run)).toBe('Continue without the limit, or raise it, then resume.')
   })
 })

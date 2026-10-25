@@ -121,7 +121,7 @@ describe('SettingsPage', () => {
     })
   })
 
-  it('shows the daily cap as a read-only summary with a link to Analytics ▸ Budget, not a second editor', async () => {
+  it('shows the daily limit as a read-only summary with a link to Analytics ▸ Budget, not a second editor', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ ...mockConfig, dailyBudgetUsd: 5 }),
@@ -129,7 +129,7 @@ describe('SettingsPage', () => {
     render(<SettingsPage />)
     expect(await screen.findByTestId('project-daily-budget-summary')).toHaveTextContent('Currently $5.00 a day')
     expect(screen.queryByPlaceholderText(/e\.g\. 5\.00/i)).toBeNull()
-    expect(screen.getByText('Caps are edited in Analytics ▸ Budget.')).toBeInTheDocument()
+    expect(screen.getByText('Limits are edited in Analytics ▸ Budget.')).toBeInTheDocument()
     const opened = vi.fn()
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
     try {

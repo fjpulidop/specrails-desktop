@@ -267,7 +267,7 @@ function DiffBullet<T extends string>({ entry }: { entry: ArrayDiffEntry<T> }) {
     )
   }
   return (
-    <li className="text-foreground/90 list-disc list-inside" aria-label={t('reviewOverlay.unchanged')}>
+    <li className="text-foreground list-disc list-inside" aria-label={t('reviewOverlay.unchanged')}>
       {entry.value}
     </li>
   )

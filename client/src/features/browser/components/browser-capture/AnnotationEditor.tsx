@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpRight, Square, Type, Droplet, Hash, Undo2, Redo2, Check, ArrowLeft, X, Loader2 } from 'lucide-react'
 import { Button } from '../../../../components/ui/button'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
 import { uploadCaptureImage, type CaptureResult } from '../../lib/browser-capture'
 import { dataUrlToFile } from '../../../../lib/data-url'
 import {
@@ -272,14 +273,15 @@ export function ImageAnnotationEditor({ screenshotDataUrl, responsive, macOverla
     }
   }, [objects, flatten, screenshotDataUrl, onConfirm])
 
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const handleCancel = useCallback(() => {
-    if (objects.length > 0 && !window.confirm(t('editor.discardConfirm'))) return
+    if (objects.length > 0) { setConfirmingDiscard(true); return }
     onCancel()
-  }, [objects.length, onCancel, t])
+  }, [objects.length, onCancel])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (busy) return
+      if (busy || confirmingDiscard) return
       const meta = e.metaKey || e.ctrlKey
       if (meta && e.key.toLowerCase() === 'z') { e.preventDefault(); dispatch({ type: e.shiftKey ? 'redo' : 'undo' }); return }
       if (meta && e.key === 'Enter') { e.preventDefault(); void handleConfirm(); return }
@@ -290,7 +292,7 @@ export function ImageAnnotationEditor({ screenshotDataUrl, responsive, macOverla
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [busy, handleConfirm, handleCancel])
+  }, [busy, confirmingDiscard, handleConfirm, handleCancel])
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -416,6 +418,15 @@ export function ImageAnnotationEditor({ screenshotDataUrl, responsive, macOverla
           <Check className="w-3.5 h-3.5" /> {objects.length > 0 ? (confirmLabel ?? t('editor.createSpec')) : t('editor.skipContinue')}
         </Button>
       </div>
+      <ConfirmDialog
+        open={confirmingDiscard}
+        onOpenChange={setConfirmingDiscard}
+        title={t('editor.discardConfirm')}
+        confirmLabel={t('common:actions.discard')}
+        testId="annotation-discard-confirm"
+        confirmTestId="annotation-discard-confirm-btn"
+        onConfirm={() => { setConfirmingDiscard(false); onCancel() }}
+      />
     </div>
   )
 }

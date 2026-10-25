@@ -32,7 +32,7 @@ export function WelcomeScreen({ onAddProject }: WelcomeScreenProps) {
             components={{ spec: <span className="text-accent-primary" />, rails: <span className="text-accent-secondary" /> }}
           />
         </h2>
-        <p className="text-strong text-foreground/80 max-w-sm">{t('welcome.tagline')}</p>
+        <p className="text-strong text-foreground max-w-sm">{t('welcome.tagline')}</p>
         <p className="text-caption text-muted-foreground max-w-sm">
           {t('welcome.description')}
         </p>

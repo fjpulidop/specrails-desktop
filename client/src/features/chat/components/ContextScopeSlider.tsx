@@ -19,6 +19,7 @@ import {
 } from '../types/context-scope'
 import { formatUsd } from '../../../lib/format-usd'
 import { HelpHint } from '../../../components/HelpHint'
+import { formatTokens } from '../../../lib/format-tokens'
 
 interface Preset {
   id: 'minimal' | 'light' | 'standard' | 'rich' | 'max' | 'desktop'
@@ -104,9 +105,8 @@ interface ContextScopeSliderProps {
   smashCapable?: boolean
 }
 
-function formatTokens(n: number): string {
-  if (n >= 1000) return `~${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k tok`
-  return `~${n} tok`
+function formatTokenEstimate(n: number): string {
+  return `~${formatTokens(n)} tok`
 }
 
 function formatCost(n: number): string {
@@ -206,7 +206,7 @@ export function ContextScopeSlider({
   const tier = tierFromScope(value)
   const numericLine = budgetError || !budget
     ? t('contextScope.estimateUnavailable', { tier })
-    : `${tier} · ${formatTokens(estimateInputTokens(value, budget))} · ${formatCost(estimateCostUsd(value, budget, model))} · ${timeHintForTier(tier)}`
+    : `${tier} · ${formatTokenEstimate(estimateInputTokens(value, budget))} · ${formatCost(estimateCostUsd(value, budget, model))} · ${timeHintForTier(tier)}`
 
   return (
     <div className="space-y-2 select-none" data-testid="context-scope-slider">
@@ -284,7 +284,7 @@ export function ContextScopeSlider({
       </p>
       {value.contractRefine && smashCapable && (
         <div
-          className="flex items-start gap-1.5 rounded-md border border-accent-highlight/40 bg-accent-highlight/10 px-2 py-1.5 text-xs text-foreground/80"
+          className="flex items-start gap-1.5 rounded-md border border-accent-highlight/40 bg-accent-highlight/10 px-2 py-1.5 text-xs text-foreground"
           data-testid="scope-smash-hint"
         >
           <span aria-hidden className="text-accent-highlight">⊢→</span>

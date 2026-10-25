@@ -70,6 +70,24 @@ describe('glossary: English', () => {
   })
 })
 
+describe('glossary: one word per concept (reaudit-9 #9)', () => {
+  it('English names the spend ceiling a "limit" and a unit of work a "run": never "cap" or "execution"', () => {
+    expect(offenders('en', /\b(caps?|executions?)\b/i, () => false)).toEqual([])
+  })
+
+  for (const lang of ['en', 'es', 'fr', 'de', 'it', 'pt', 'zh', 'ja']) {
+    it(`${lang}: "ticket" appears only for Jira issues, in every translated value`, () => {
+      expect(offenders(lang, /\bticket|工单|チケット/i, (r) => JIRA_TICKET(r) || /jira/i.test(r.id + r.text))).toEqual([])
+    })
+  }
+
+  it('Spanish writes "specs", not "especificaciones", and the deleted flag agrees with its noun', () => {
+    expect(offenders('es', /\bespecificaci[oó]n(es)?\b/i, () => false)).toEqual([])
+    const analytics = JSON.parse(fs.readFileSync(path.join(LOCALES_DIR, 'es/analytics.json'), 'utf8'))
+    expect(analytics.table.deleted).toBe('(eliminada)')
+  })
+})
+
 describe('glossary: other locales keep the spec noun where they translated it', () => {
   for (const lang of ['fr', 'de', 'it', 'pt', 'zh', 'ja']) {
     it(`${lang}: the spec-list empty state no longer says ticket`, () => {

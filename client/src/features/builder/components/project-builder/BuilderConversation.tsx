@@ -103,7 +103,7 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
             className={cn('w-full', variant === 'inline' ? 'max-w-[680px]' : 'max-w-[560px]')}
           >
             <div className="mb-4 text-center">
-              <Sparkles className="mx-auto h-7 w-7 text-accent-primary/60" />
+              <Sparkles className="mx-auto h-7 w-7 text-accent-primary" />
               <p className="mt-2 text-sm font-medium">{t('shell.emptyTitle')}</p>
               <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">{t('shell.emptyHint')}</p>
             </div>

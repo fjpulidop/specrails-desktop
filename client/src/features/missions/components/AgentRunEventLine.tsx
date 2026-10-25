@@ -12,7 +12,7 @@ import { cn } from '../../../lib/utils'
 export type RunEventTone = 'neutral' | 'failed' | 'warning' | 'success' | 'flow'
 
 const ICON_TONE: Readonly<Record<RunEventTone, string>> = Object.freeze({
-  neutral: 'text-foreground/60',
+  neutral: 'text-muted-foreground',
   failed: 'text-destructive',
   warning: 'text-accent-warning',
   success: 'text-accent-success',
@@ -41,12 +41,12 @@ export function AgentRunEventLine({
   const body = (
     <>
       <Icon className={cn('h-3.5 w-3.5 shrink-0', ICON_TONE[tone])} aria-hidden />
-      <span className="min-w-0 truncate text-foreground/80">{children}</span>
-      {detail && <span className="min-w-0 truncate text-foreground/75">{detail}</span>}
+      <span className="min-w-0 truncate text-foreground">{children}</span>
+      {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
       {onActivate && expanded !== undefined && (
         <ChevronRight
           aria-hidden
-          className={cn('ml-auto h-3 w-3 shrink-0 text-foreground/55 transition-transform duration-200 motion-reduce:transition-none', expanded && 'rotate-90')}
+          className={cn('ml-auto h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none', expanded && 'rotate-90')}
         />
       )}
     </>

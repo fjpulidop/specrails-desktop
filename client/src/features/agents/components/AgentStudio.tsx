@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Save, Trash2, History, ArrowLeft, AlertCircle, FlaskConical, Loader2, Wand2 } from 'lucide-react'
+import { Save, Trash2, History, ArrowLeft, AlertCircle, FlaskConical, Wand2 } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { getApiBase } from '../../../lib/api'
@@ -9,6 +9,7 @@ import { ConfirmDialog } from './PromptDialog'
 import { AgentRoleFields } from './AgentRoleFields'
 
 import { notifyError } from '../../../lib/notify-error'
+import { RailTrack } from '../../../components/brand/RailTrack'
 interface AgentVersion {
   version: number
   body: string
@@ -400,7 +401,7 @@ export function AgentStudio({
               )}
               {refineDraftLoading && (
                 <span className="inline-flex items-center gap-1 text-caption text-muted-foreground">
-                  <Loader2 className="w-3 h-3 animate-spin" /> {t('studio.loadingAiDraft')}
+                  <RailTrack running className="w-10" /> {t('studio.loadingAiDraft')}
                 </span>
               )}
             </div>
@@ -531,7 +532,7 @@ export function AgentStudio({
                 >
                   {testing ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> {t('studio.testPane.running')}
+                      <RailTrack running className="mr-1.5 w-8" /> {t('studio.testPane.running')}
                     </>
                   ) : (
                     <>

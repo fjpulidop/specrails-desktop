@@ -47,7 +47,7 @@ const STATUS_PILL: Record<SpecAddendumStatus, string> = {
   dismissed: 'border-border bg-muted/30 text-muted-foreground',
 }
 
-const MARKDOWN_CLASS = 'prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-xs prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-caption prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs'
+const MARKDOWN_CLASS = 'prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-xs prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-caption prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground text-xs'
 
 interface FormState { kind: SpecAddendumKind; title: string; body: string }
 const EMPTY_FORM: FormState = { kind: 'change-request', title: '', body: '' }
@@ -249,7 +249,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
                 {editingThis ? renderForm() : (
                   <>
                     <div className="flex items-start gap-2">
-                      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary/80" />
+                      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" />
                       <button
                         type="button"
                         onClick={() => toggleExpanded(a.id)}
@@ -257,7 +257,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
                         aria-expanded={isOpen}
                       >
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className={`text-label text-foreground/90 ${a.status === 'dismissed' ? 'line-through' : ''}`}>{a.title}</span>
+                          <span className={`text-label text-foreground ${a.status === 'dismissed' ? 'line-through' : ''}`}>{a.title}</span>
                           <span className="rounded-full border border-border/50 px-1.5 py-px text-caption text-muted-foreground">{t(`addenda.kind.${a.kind}`)}</span>
                           <span className={`rounded-full border px-1.5 py-px text-caption font-medium ${STATUS_PILL[a.status]}`} title={t(`addenda.statusHint.${a.status}`)} data-testid="spec-addendum-status">
                             {t(`addenda.status.${a.status}`)}

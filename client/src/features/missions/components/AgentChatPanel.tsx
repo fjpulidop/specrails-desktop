@@ -77,7 +77,7 @@ export function AgentChatPanel() {
             />
             <Bot className="h-4 w-4 shrink-0 text-accent-primary" />
           </span>
-          <span className="shrink-0 text-sm font-medium text-foreground/80">
+          <span className="shrink-0 text-sm font-medium text-foreground">
             {builder ? tBuilder('mode.title') : t('title')}
           </span>
           {/* Builder mode hides (never unmounts) the agent's project/mission
@@ -98,15 +98,15 @@ export function AgentChatPanel() {
           )}
           <div className="ml-auto flex items-center gap-1.5">
             {!builder && (
-              <button type="button" onClick={() => startNewConversation(null)} title={t('newConversation')} data-agent-interactive className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground">
+              <button type="button" onClick={() => startNewConversation(null)} title={t('newConversation')} data-agent-interactive className="rounded-md p-1 text-muted-foreground hover:bg-surface hover:text-foreground">
                 <Plus className="h-4 w-4" />
               </button>
             )}
             <MissionWindowAction />
-            <button type="button" onClick={() => setMaximized((m) => !m)} aria-label={maximized ? t('restore') : t('maximize')} title={maximized ? t('restore') : t('maximize')} data-agent-interactive className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground">
+            <button type="button" onClick={() => setMaximized((m) => !m)} aria-label={maximized ? t('restore') : t('maximize')} title={maximized ? t('restore') : t('maximize')} data-agent-interactive className="rounded-md p-1 text-muted-foreground hover:bg-surface hover:text-foreground">
               {maximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
-            <button type="button" onClick={minimize} aria-label={t('minimize')} title={t('minimize')} data-agent-interactive className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground">
+            <button type="button" onClick={minimize} aria-label={t('minimize')} title={t('minimize')} data-agent-interactive className="rounded-md p-1 text-muted-foreground hover:bg-surface hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           </div>

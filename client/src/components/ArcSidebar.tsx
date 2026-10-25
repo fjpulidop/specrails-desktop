@@ -1,9 +1,10 @@
 import { isTauri } from '../lib/tauri-shell'
 import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
 import { useMissionSplitViews } from '../features/missions/context/MissionSplitViewsContext'
-import { keyboardLabel } from '../lib/keyboard-label'
+import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
+import { announce } from '../lib/announce'
 import { OPEN_PROJECT_SETTINGS_EVENT, type OpenProjectSettingsDetail } from '../lib/app-settings-events'
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -29,9 +30,6 @@ import type { AgentConversation } from '../features/missions/lib/agent-api'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
 
 import { notifyError } from '../lib/notify-error'
-const ProjectSettingsDialog = lazy(() =>
-  import('../features/settings/components/ProjectSettingsDialog').then((m) => ({ default: m.ProjectSettingsDialog })),
-)
 
 const TREE_EXPAND_KEY = 'specrails-desktop:agentTreeExpanded'
 /** How long a destructive "Remove?" / "Delete?" confirmation stays armed. */
@@ -422,11 +420,16 @@ function ProjectItem({
   // the hover X, so keyboard and screen-reader users never need that X as a Tab stop.
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   const menuItemRef = useRef<HTMLButtonElement | null>(null)
+  const rowButtonRef = useRef<HTMLButtonElement | null>(null)
   useEffect(() => {
     if (!menuAt) return
     menuItemRef.current?.focus()
     const close = () => setMenuAt(null)
-    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { ev.stopPropagation(); close() } }
+    // Closing from the keyboard hands focus back to the row it came from.
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') { ev.stopPropagation(); close(); rowButtonRef.current?.focus() }
+      else if (ev.key === 'Tab') { ev.preventDefault(); close(); rowButtonRef.current?.focus() }
+    }
     document.addEventListener('pointerdown', close)
     document.addEventListener('keydown', onKey, true)
     window.addEventListener('blur', close)
@@ -444,6 +447,8 @@ function ProjectItem({
       onRemove()
     } else {
       setConfirming(true)
+      // Second step of the two-step removal: say it, the X turning into "Sure?" is silent for a screen reader.
+      announce(t('projects.removeConfirmHint', { project: project.name }))
       confirmTimerRef.current = setTimeout(() => {
         setConfirming(false)
         confirmTimerRef.current = null
@@ -487,7 +492,7 @@ function ProjectItem({
       data-testid="project-monogram"
       className={cn(
         'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-caption font-semibold leading-none',
-        isActive ? 'text-foreground' : 'bg-muted text-foreground/85',
+        isActive ? 'text-foreground' : 'bg-muted text-foreground',
         liveCue && 'text-accent-primary',
       )}
       style={isActive ? { background: 'color-mix(in srgb, var(--color-accent-primary) 15%, transparent)' } as CSSProperties : undefined}
@@ -504,7 +509,14 @@ function ProjectItem({
   return (
     <div>
       <div
-        onContextMenu={(e) => { e.preventDefault(); setMenuAt({ x: e.clientX, y: e.clientY }) }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          // Opened from the keyboard (Menu key, Shift+F10) there is no pointer: anchor to the row.
+          if (e.clientX === 0 && e.clientY === 0) {
+            const rect = e.currentTarget.getBoundingClientRect()
+            setMenuAt({ x: rect.left + 8, y: rect.bottom })
+          } else setMenuAt({ x: e.clientX, y: e.clientY })
+        }}
         className={cn(
           'group relative flex items-center gap-1 w-full h-8 rounded-md transition-colors duration-150',
           expanded ? 'pr-2' : 'justify-center',
@@ -517,8 +529,10 @@ function ProjectItem({
         <button
           type="button"
           onClick={onSelect}
-          onKeyDown={(e) => { if (e.key === 'Delete') { e.preventDefault(); requestRemove() } }}
-          aria-keyshortcuts="Delete"
+          ref={rowButtonRef}
+          // The Mac keyboard's delete key reports Backspace; there is no forward Delete.
+          onKeyDown={(e) => { if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); requestRemove() } }}
+          aria-keyshortcuts={isMacKeyboard() ? 'Backspace' : 'Delete'}
           className={cn(
             'flex-1 min-w-0 flex items-center gap-2 h-full rounded-md text-left',
             expanded ? 'pl-2' : 'justify-center',
@@ -636,7 +650,7 @@ function ProjectItem({
             ref={menuItemRef}
             type="button"
             role="menuitem"
-            onClick={() => { setMenuAt(null); requestRemove() }}
+            onClick={() => { setMenuAt(null); rowButtonRef.current?.focus(); requestRemove() }}
             className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none"
           >
             <X className="h-3 w-3" aria-hidden />
@@ -745,7 +759,9 @@ export function ArcSidebar({
   const location = useLocation()
   const onLoopsRoute = location.pathname.startsWith('/loops')
   const onPluginsRoute = location.pathname.startsWith('/plugins')
-  const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs')
+  // Project settings are a ROUTE in both modes; in Mission mode it takes over the centre like Docs.
+  const onSettingsRoute = location.pathname.startsWith('/settings')
+  const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs') || onSettingsRoute
   const { leftMode, effectiveLeftMode, cycleLeftMode, setLeftMode } = useSidebarPin()
   const { uiMode, requestedMode, toggleUiMode } = useUiMode()
   const agentChat = useAgentChat()
@@ -790,21 +806,18 @@ export function ArcSidebar({
 
   const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
   const favoriteTreeOpen = expandedTree.has(FAVORITES_KEY)
-  // Per-project settings modal (Agent Mode hover gear on a project folder).
-  const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
-  const [projectSettingsSection, setProjectSettingsSection] = useState<string | undefined>()
-  const [projectSettingsSettingId, setProjectSettingsSettingId] = useState<string | undefined>()
-  // ⌘K "Open project settings ▸ <section>" (lib/app-settings-events).
+  // Project settings (hover gear on a project folder, ⌘K "Open project settings ▸ …") are the /settings route.
+  const openProjectSettingsRoute = useCallback((settingId?: string) => {
+    navigate(settingId ? `/settings?setting=${encodeURIComponent(settingId)}` : '/settings')
+  }, [navigate])
   useEffect(() => {
     const onOpen = (event: Event) => {
       const detail = (event as CustomEvent<OpenProjectSettingsDetail>).detail
-      setProjectSettingsSection(detail?.section)
-      setProjectSettingsSettingId(detail?.settingId)
-      setProjectSettingsOpen(true)
+      openProjectSettingsRoute(detail?.settingId)
     }
     window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
     return () => window.removeEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
-  }, [])
+  }, [openProjectSettingsRoute])
   // Default-expand the active project the first time we enter Agent Mode.
   useEffect(() => {
     if (!agentMode || !activeProjectId) return
@@ -1249,7 +1262,7 @@ export function ArcSidebar({
                 // opening a project's settings selects it first (same semantics
                 // as clicking the folder).
                 setActiveProjectId(project.id)
-                setProjectSettingsOpen(true)
+                openProjectSettingsRoute()
               } : undefined}
             />
           )
@@ -1295,11 +1308,6 @@ export function ArcSidebar({
         </button>
       </div>
 
-      {projectSettingsOpen && (
-        <Suspense fallback={null}>
-          <ProjectSettingsDialog open initialSection={projectSettingsSection} initialSettingId={projectSettingsSettingId} onClose={() => { setProjectSettingsOpen(false); setProjectSettingsSection(undefined); setProjectSettingsSettingId(undefined) }} />
-        </Suspense>
-      )}
     </div>
     </aside>
   )

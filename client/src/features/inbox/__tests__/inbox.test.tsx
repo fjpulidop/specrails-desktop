@@ -324,7 +324,7 @@ describe('Primary actions call the real handlers', () => {
     const row = (await screen.findAllByTestId('inbox-row')).find((r) => r.getAttribute('data-item-id') === 'p2:budget:r2')!
     fireEvent.click(within(row).getByTestId('inbox-primary'))
     const dialog = await screen.findByTestId('run-cap-dialog')
-    expect(dialog).toHaveTextContent('Paused at the per-run cap ($5.20 of $5.00)')
+    expect(dialog).toHaveTextContent('Paused at the per-run limit ($5.20 of $5.00)')
     expect(h.toast.error).not.toHaveBeenCalled()
     expect(screen.getByTestId('run-cap-amount')).toHaveValue(10.2)
     fireEvent.click(screen.getByTestId('run-cap-ignore'))
@@ -354,7 +354,7 @@ describe('Primary actions call the real handlers', () => {
     expect(bodies).toEqual([{}, { runCapUsd: 8 }])
   })
 
-  it('a reached cap lists in the app\'s words with Raise cap, which opens the Budget panel', async () => {
+  it('a reached cap lists in the app\'s words with Raise limit, which opens the Budget panel', async () => {
     items = [mk({
       id: 'p1:budget:cap-project-week', kind: 'budget', title: 'Project weekly budget reached', action: 'raise-cap', subjectId: 'project:week',
       conversationId: null, version: 'cap:50:x', cap: { scope: 'project', period: 'week', budgetUsd: 50, spentUsd: 52.5, resetsAt: '2026-10-26T00:00:00.000Z' },
@@ -364,9 +364,9 @@ describe('Primary actions call the real handlers', () => {
     mount('/?inbox=1')
     const row = (await screen.findAllByTestId('inbox-row'))[0]
     expect(row).toHaveTextContent('Project weekly budget reached')
-    expect(row).toHaveTextContent('Budget cap reached')
+    expect(row).toHaveTextContent('Spend limit reached')
     expect(row).toHaveTextContent('$52.50 of $50.00 spent')
-    expect(within(row).getByTestId('inbox-primary')).toHaveTextContent('Raise cap')
+    expect(within(row).getByTestId('inbox-primary')).toHaveTextContent('Raise limit')
     fireEvent.click(within(row).getByTestId('inbox-primary'))
     await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
     window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened)

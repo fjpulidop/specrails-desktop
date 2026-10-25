@@ -248,7 +248,7 @@ describe('CommandPalette — scoped search', () => {
     expect(screen.queryByTestId('palette-group-slash-commands')).toBeNull()
   })
 
-  it('/budget finds the Budget panel (weekly and monthly caps live there) and opens it', async () => {
+  it('/budget finds the Budget panel (weekly and monthly limits live there) and opens it', async () => {
     const opened = vi.fn()
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
     try {
@@ -258,7 +258,7 @@ describe('CommandPalette — scoped search', () => {
       await user.type(input, '/weekly')
       // "weekly" is only a keyword of the panel: no settings block carries it.
       const row = await screen.findByTestId('palette-setting-action-budget.open')
-      expect(row).toHaveTextContent('Open Budget (caps, projection, what-if)')
+      expect(row).toHaveTextContent('Open Budget (limits, projection, what-if)')
       await user.click(row)
       expect(opened).toHaveBeenCalledTimes(1)
       expect(screen.queryByRole('combobox')).not.toBeInTheDocument()

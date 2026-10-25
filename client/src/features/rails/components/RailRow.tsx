@@ -332,6 +332,18 @@ export function RailRow({
     }
   }, [showSwipeDelete])
 
+  // Keyboard path to delete: Delete / Backspace on the focused rail (the jiggle mode needs a long press).
+  const handleRowKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.target !== e.currentTarget || !canDelete) return
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return
+    e.preventDefault()
+    e.stopPropagation()
+    onDelete()
+  }, [canDelete, onDelete])
+  const rowFocusProps = canDelete
+    ? { tabIndex: 0, role: 'group' as const, 'aria-label': label, 'aria-keyshortcuts': 'Delete Backspace', onKeyDown: handleRowKeyDown }
+    : {}
+
   const handleDeleteClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     setShowSwipeDelete(false)
@@ -355,12 +367,13 @@ export function RailRow({
         ref={setNodeRef}
         data-testid={`rail-row-compact-${id}`}
         data-density="compact"
+        {...rowFocusProps}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onClick={handleClick}
         style={railJiggleStyle}
-        className={`group relative flex flex-col gap-1.5 rounded-xl border bg-card p-2.5 transition-all ${
+        className={`group relative flex flex-col gap-1.5 rounded-xl border bg-card p-2.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ${
           isOver
             ? 'border-accent-info/60 shadow-2'
             : ticketDragActive
@@ -410,7 +423,7 @@ export function RailRow({
                   setEditing(false)
                 }}
                 onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
-                className="flex-1 min-w-0 text-label bg-transparent border-b border-accent-info/60 outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground/90 px-0.5"
+                className="flex-1 min-w-0 text-label bg-transparent border-b border-accent-info/60 outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground px-0.5"
                 autoFocus
               />
             </form>
@@ -424,7 +437,7 @@ export function RailRow({
                 setEditing(true)
                 setTimeout(() => inputRef.current?.select(), 0)
               }}
-              className="flex-1 min-w-0 text-left text-label text-foreground/90 hover:text-foreground truncate"
+              className="flex-1 min-w-0 text-left text-label text-foreground hover:text-foreground truncate"
               title={label}
             >
               {label}
@@ -585,7 +598,8 @@ export function RailRow({
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl"
+      className="relative overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60"
+      {...rowFocusProps}
       onClick={handleClick}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -669,7 +683,7 @@ export function RailRow({
                     setEditing(false)
                   }}
                   onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false) } }}
-                  className="w-24 text-label bg-transparent border-b border-primary/50 outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground/80 px-0.5"
+                  className="w-24 text-label bg-transparent border-b border-primary/50 outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground px-0.5"
                   autoFocus
                 />
               </form>
@@ -684,7 +698,7 @@ export function RailRow({
                   setEditing(true)
                   setTimeout(() => inputRef.current?.select(), 0)
                 }}
-                className="text-label text-foreground/80 hover:text-foreground hover:underline decoration-dotted underline-offset-2 cursor-text transition-colors"
+                className="text-label text-foreground hover:text-foreground hover:underline decoration-dotted underline-offset-2 cursor-text transition-colors"
               >
                 {label}
               </button>

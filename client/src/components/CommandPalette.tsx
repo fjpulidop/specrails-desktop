@@ -457,10 +457,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       navigate,
       setUiMode,
       openAppSettings,
-      // Mission mode hosts project settings as a modal; Board mode shows the same sections on /settings.
-      openProjectSettings: (section, settingId) => {
-        if (uiMode === 'agent') openProjectSettings(section, settingId)
-        else navigate(settingId ? `/settings?setting=${encodeURIComponent(settingId)}` : '/settings')
+      // Project settings are the /settings route in both modes.
+      openProjectSettings: (_section, settingId) => {
+        navigate(settingId ? `/settings?setting=${encodeURIComponent(settingId)}` : '/settings')
       },
       newMission: () => {
         startNewConversation(activeProjectId)

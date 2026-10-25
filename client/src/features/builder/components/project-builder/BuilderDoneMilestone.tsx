@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
 import { useMilestoneProgress } from '../../hooks/useMilestoneProgress'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { FEATURE_REVIEW_PACKET } from '../../../../lib/feature-flags'
@@ -10,6 +9,7 @@ import { cancelChain, resumeChain, saveMilestoneAutoAdvance, setChainAutoAdvance
 import { MilestoneCard } from './MilestoneProgressCard'
 
 import { notifyError } from '../../../../lib/notify-error'
+import { RailTrack } from '../../../../components/brand/RailTrack'
 // The Builder done screen after "Launch Milestone 1" (premium-milestone-
 // progress D5): the LIVE milestone card for the project just created —
 // server-derived counts, rails with their decisions, the launch chain — so
@@ -62,7 +62,7 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
   if (hasBlueprint === null && !m1) {
     return (
       <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground" data-testid="builder-done-milestone-loading">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+        <RailTrack running className="w-24" />
       </div>
     )
   }

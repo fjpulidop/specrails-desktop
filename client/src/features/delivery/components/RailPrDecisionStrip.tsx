@@ -318,7 +318,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const primaryBtn = `inline-flex items-center gap-1 rounded-control font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
     compact ? 'px-2 py-1 text-label' : 'px-2.5 py-1 text-label'
   }`
-  const secondaryBtn = `inline-flex items-center gap-1 rounded-control font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+  const secondaryBtn = `inline-flex items-center gap-1 rounded-control font-medium border border-border/60 text-muted-foreground hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
     compact ? 'px-2 py-1 text-label' : 'px-2.5 py-1 text-label'
   }`
   const ghostBtn = `inline-flex items-center gap-1 rounded-control text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
@@ -362,7 +362,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const branchChip = decision.branch ? (
     <span
       data-testid="rail-pr-branch"
-      className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-md font-mono border border-border/60 bg-surface/60 text-foreground/70 ${
+      className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-md font-mono border border-border/60 bg-surface/60 text-muted-foreground ${
         compact ? 'px-1 py-0.5 text-caption' : 'px-1.5 py-0.5 text-caption'
       }`}
     >
@@ -452,7 +452,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       disabled={busy}
       title={t('railPr.checkoutTooltip', { branch: checkoutBranch })}
       onClick={(e) => { e.stopPropagation(); void runCheckout() }}
-      className={`inline-flex items-center gap-1 rounded-control font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+      className={`inline-flex items-center gap-1 rounded-control font-medium border border-border/60 text-muted-foreground hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
         compact ? 'px-1.5 py-0.5 text-label' : 'px-2 py-0.5 text-label'
       }`}
     >
@@ -952,7 +952,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       {actions}
       {decision.deliverySha && (
         <span
-          className={`${pillBase} ${decision.deliveryOutcome === 'delivered' ? 'border-accent-success/30 bg-accent-success/10 text-accent-success' : 'border-border/60 bg-surface/60 text-foreground/60'} font-mono`}
+          className={`${pillBase} ${decision.deliveryOutcome === 'delivered' ? 'border-accent-success/30 bg-accent-success/10 text-accent-success' : 'border-border/60 bg-surface/60 text-muted-foreground'} font-mono`}
           data-testid="rail-pr-delivery-sha"
           title={decision.deliverySha}
         >
@@ -964,7 +964,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       {unitEvidence}
       {!compact && d !== 'building' ? <TopRiskLine summary={decision.riskSummary} className="basis-full" /> : null}
       {statusLabel && (
-        <span className={`${pillBase} border-border/60 bg-surface/60 text-foreground/55`} data-testid="rail-pr-status-code">
+        <span className={`${pillBase} border-border/60 bg-surface/60 text-muted-foreground`} data-testid="rail-pr-status-code">
           {statusLabel}
         </span>
       )}
@@ -983,8 +983,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
             <p data-testid="rail-pr-recovery-unavailable">{t('railPr.recoveryUnavailableBody')}</p>
           )}
           {presentation.recoveryUnavailable && decision.statusDetail && !interruptedOperationDetail && (
-            <details className="mt-1 text-foreground/60" data-testid="rail-pr-recovery-technical-detail">
-              <summary className="cursor-pointer font-medium text-foreground/70">{t('railPr.recoveryDetailSummary')}</summary>
+            <details className="mt-1 text-muted-foreground" data-testid="rail-pr-recovery-technical-detail">
+              <summary className="cursor-pointer font-medium text-muted-foreground">{t('railPr.recoveryDetailSummary')}</summary>
               <p className="mt-1 break-words">{decision.statusDetail}</p>
             </details>
           )}
@@ -992,7 +992,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
           {presentation.cleanupWarnings.length > 0 && (
             <div className={recoveredInterruptedOperation || (!interruptedOperationDetail && decision.statusDetail) ? 'mt-1' : undefined}>
               <p className="font-medium">{t('railPr.cleanupIncomplete', { count: presentation.cleanupWarnings.length })}</p>
-              <ul className="mt-0.5 list-disc pl-4 text-foreground/60">
+              <ul className="mt-0.5 list-disc pl-4 text-muted-foreground">
                 {presentation.cleanupWarnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}
               </ul>
             </div>
@@ -1002,14 +1002,14 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
 
       {presentation.safetyArchives.length > 0 && (
         <details
-          className={`basis-full rounded-md border border-accent-info/25 bg-accent-info/5 text-foreground/65 ${compact ? 'px-1.5 py-1 text-caption' : 'px-2 py-1.5 text-caption'}`}
+          className={`basis-full rounded-md border border-accent-info/25 bg-accent-info/5 text-muted-foreground ${compact ? 'px-1.5 py-1 text-caption' : 'px-2 py-1.5 text-caption'}`}
           data-testid="rail-pr-safety-archives"
         >
           <summary className="cursor-pointer font-medium text-accent-info">
             {t('railPr.safetyArchiveTitle', { count: presentation.safetyArchives.length })}
           </summary>
           <p className="mt-1">{t('railPr.safetyArchiveHint')}</p>
-          <ul className="mt-1 space-y-0.5 font-mono text-[0.9em] text-foreground/55">
+          <ul className="mt-1 space-y-0.5 font-mono text-[0.9em] text-muted-foreground">
             {presentation.safetyArchives.map((archive) => (
               <li key={archive} className="break-all">{archive}</li>
             ))}

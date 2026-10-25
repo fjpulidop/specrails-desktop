@@ -41,7 +41,7 @@
         "exploring": "Exploration",
         "review": "Prête pour révision",
         "refining": "Affinage",
-        "creatingIssue": "Création du ticket",
+        "creatingIssue": "Création de l'issue",
         "created": "Créée",
         "cancelled": "Annulée",
         "unknown": "Statut inconnu : {{status}}"

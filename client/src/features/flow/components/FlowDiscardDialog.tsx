@@ -32,7 +32,7 @@ export function FlowDiscardDialog({ open, busy, branch = null, totals = null, on
       confirmLabel={<>{busy ? null : <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />}{t('flow.discard.confirm')}</>}
       onConfirm={onConfirm}
     >
-      <ul className="space-y-1 rounded-lg border border-destructive/25 bg-destructive/[0.05] px-3 py-2 text-xs text-foreground/80" data-testid="flow-discard-loss">
+      <ul className="space-y-1 rounded-lg border border-destructive/25 bg-destructive/[0.05] px-3 py-2 text-xs text-foreground" data-testid="flow-discard-loss">
         <li className="flex items-center gap-1.5 tabular-nums" data-testid="flow-discard-files">
           {totals
             ? totals.files > 0
@@ -46,7 +46,7 @@ export function FlowDiscardDialog({ open, busy, branch = null, totals = null, on
         </li>
         {branch && (
           <li className="flex min-w-0 items-center gap-1.5">
-            <GitBranch className="h-3 w-3 shrink-0 text-foreground/70" aria-hidden />
+            <GitBranch className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
             <span className="truncate font-mono" title={branch}>{branch}</span>
           </li>
         )}

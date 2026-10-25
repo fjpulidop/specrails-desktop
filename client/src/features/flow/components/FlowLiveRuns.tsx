@@ -47,7 +47,7 @@ import { flowOpenRunTone } from '../lib/flow-run-tone'
 import { FlowHandOffCard } from './FlowHandOffCard'
 import { FlowPanel, FlowStripControls, flowStripHeadline, useFlowLiveStats } from './FlowStripControls'
 
-const FLOW_QUIET_BUTTON = 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-label font-medium text-foreground/80 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
+const FLOW_QUIET_BUTTON = 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-label font-medium text-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
 
 /** How long the strip waits for the handed-off run to show before it stops spinning. */
 export const HAND_OFF_SHOW_TIMEOUT_MS = 45_000

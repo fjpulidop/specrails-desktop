@@ -49,13 +49,13 @@
     "noContent": "No content available.",
     "pathCopied": "Path copied",
     "copyPathFailed": "Could not copy path",
-    "budgetPrompt": "Override the budget cap?",
+    "budgetPrompt": "Override the budget limit?",
     "edit": "Edit",
     "save": "Save",
     "saving": "Saving…",
     "saved": "File saved",
     "saveFailed": "Save failed",
-    "budgetPromptBody": "The AI budget cap for file summaries has been reached. Regenerating anyway runs one more summary beyond the cap.",
+    "budgetPromptBody": "The AI budget limit for file summaries has been reached. Regenerating anyway runs one more summary beyond the limit.",
     "budgetPromptConfirm": "Regenerate anyway"
   },
   "summary": {

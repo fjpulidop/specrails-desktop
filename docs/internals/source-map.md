@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1343 source/build files. Nearby tests are linked where names
+Includes 1342 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -781,7 +781,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [PairWebCompanionModal.tsx](../../client/src/features/settings/components/PairWebCompanionModal.tsx)
 - [ProjectAnchoringSections.tsx](../../client/src/features/settings/components/ProjectAnchoringSections.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectAnchoringSections.test.tsx)
 - [ProjectRepositoriesSection.tsx](../../client/src/features/settings/components/ProjectRepositoriesSection.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectRepositoriesSection.test.tsx)
-- [ProjectSettingsDialog.tsx](../../client/src/features/settings/components/ProjectSettingsDialog.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectSettingsDialog.test.tsx)
 - [ProjectSettingsSections.tsx](../../client/src/features/settings/components/ProjectSettingsSections.tsx)
 - [ProviderTabs.tsx](../../client/src/features/settings/components/ProviderTabs.tsx)
 - [RecentlyDeletedSection.tsx](../../client/src/features/settings/components/RecentlyDeletedSection.tsx) · [test](../../client/src/features/settings/components/__tests__/RecentlyDeletedSection.test.tsx)

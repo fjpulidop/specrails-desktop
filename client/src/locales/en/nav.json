@@ -25,7 +25,8 @@
     "settings": "Settings for {{name}}",
     "assembling": "Setting up workspace…",
     "assembleFailed": "Workspace setup failed — click to retry",
-    "retrySetup": "Retry setup"
+    "retrySetup": "Retry setup",
+    "removeConfirmHint": "Press again to remove {{project}}"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
@@ -42,8 +43,8 @@
     "sectionProjects": "Projects"
   },
   "globalSurfaceModal": {
-    "loopsDescription": "Loops are open as a Mission modal.",
-    "pluginsDescription": "Plugins are open as a Mission modal.",
+    "loopsDescription": "Loops are open in the mission window.",
+    "pluginsDescription": "Plugins are open in the mission window.",
     "reviewDescription": "The review packet is open as a Mission modal."
   },
   "rightSidebar": {

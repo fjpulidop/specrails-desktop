@@ -28,7 +28,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <MessageSquareWarning className={cn('h-3.5 w-3.5 shrink-0', isReview ? 'text-accent-review' : 'text-accent-warning')} aria-hidden />
-        <span className="font-medium text-foreground/90">{t(`runCard.review.title.${review.reason}`)}</span>
+        <span className="font-medium text-foreground">{t(`runCard.review.title.${review.reason}`)}</span>
         {review.score !== null && (
           <span className={cn('rounded-full border px-2 py-px font-mono text-caption', isReview ? 'border-accent-review/40 bg-accent-review/10 text-accent-review' : 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning')} data-testid="mission-flow-review-score">
             {t('runCard.review.score', { score: Math.round(review.score) })}
@@ -36,7 +36,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
         )}
       </div>
       {review.summary && (
-        <p className="mt-1 line-clamp-3 break-words leading-4 text-foreground/70" title={review.summary}>{review.summary}</p>
+        <p className="mt-1 line-clamp-3 break-words leading-4 text-muted-foreground" title={review.summary}>{review.summary}</p>
       )}
       {review.issues.length > 0 && (
         <div className="mt-1.5">
@@ -44,9 +44,9 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
             <ListChecks className="h-3 w-3" aria-hidden />
             {t('runCard.review.issues', { count: review.issues.length + review.issuesOmitted })}
           </p>
-          <ol className="mt-1 list-decimal space-y-1 pl-4 marker:text-foreground/60" data-testid="mission-flow-review-issues">
+          <ol className="mt-1 list-decimal space-y-1 pl-4 marker:text-muted-foreground" data-testid="mission-flow-review-issues">
             {visible.map((issue, index) => (
-              <li key={index} className="break-words leading-4 text-foreground/75">{issue}</li>
+              <li key={index} className="break-words leading-4 text-muted-foreground">{issue}</li>
             ))}
           </ol>
           {(hidden > 0 || expanded) && review.issues.length > FLOW_REVIEW_VISIBLE_ISSUES && (
@@ -61,7 +61,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
             </button>
           )}
           {review.issuesOmitted > 0 && (
-            <p className="mt-0.5 text-caption text-foreground/70">{t('runCard.review.omitted', { count: review.issuesOmitted })}</p>
+            <p className="mt-0.5 text-caption text-muted-foreground">{t('runCard.review.omitted', { count: review.issuesOmitted })}</p>
           )}
         </div>
       )}
@@ -76,7 +76,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
           ))}
         </div>
       )}
-      {!hideNext && <p className="mt-1.5 leading-4 text-foreground/70">{t('runCard.review.next')}</p>}
+      {!hideNext && <p className="mt-1.5 leading-4 text-muted-foreground">{t('runCard.review.next')}</p>}
       {children && <div className="mt-2 flex flex-wrap items-center gap-1.5">{children}</div>}
     </div>
   )

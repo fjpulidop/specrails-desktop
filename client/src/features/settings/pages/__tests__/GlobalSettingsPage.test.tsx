@@ -409,7 +409,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
   })
 
-  it('shows the app-wide daily cap read-only and links to Analytics ▸ Budget instead of editing it', async () => {
+  it('shows the app-wide daily limit read-only and links to Analytics ▸ Budget instead of editing it', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
     const requests: Array<{ url: string; method?: string }> = []
@@ -426,7 +426,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     render(<GlobalSettingsPage open={true} onClose={onClose} />)
     expect(await screen.findByText('Currently $10.00 a day')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/e\.g\. 10\.00/i)).toBeNull()
-    expect(screen.getByText('Caps are edited in Analytics ▸ Budget.')).toBeInTheDocument()
+    expect(screen.getByText('Limits are edited in Analytics ▸ Budget.')).toBeInTheDocument()
     const opened = vi.fn()
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
     try {
@@ -434,13 +434,13 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
       expect(opened).toHaveBeenCalledTimes(1)
       expect(onClose).toHaveBeenCalled()
     } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
-    // Nothing on this pane writes the daily cap any more.
+    // Nothing on this pane writes the daily limit any more.
     expect(requests.some((r) => r.method === 'PATCH')).toBe(false)
   })
 
-  it('says there is no daily cap when none is set', async () => {
+  it('says there is no daily limit when none is set', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    expect(await screen.findByText('No daily cap set')).toBeInTheDocument()
+    expect(await screen.findByText('No daily limit set')).toBeInTheDocument()
   })
 })
 

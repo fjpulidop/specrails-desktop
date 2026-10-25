@@ -211,7 +211,7 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
         {loading && !lines.length ? <p role="status" className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><span aria-hidden className="w-16 shrink-0"><RailTrack running /></span>{t('backgroundProcess.loading')}</p> : filtered.length ? filtered.map(entry => <div key={entry.sequence} data-log-source={entry.source} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 hover:bg-muted/20">
           <span className="select-none whitespace-nowrap tabular-nums text-muted-foreground">{new Date(entry.at).toLocaleTimeString(i18n.language, { hour12: false })}</span>
           <span className={`select-none ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-muted-foreground'}`}>{entry.source}</span>
-          <span className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-foreground/90'}`}>{entry.line || '\u00a0'}</span>
+          <span className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-foreground'}`}>{entry.line || '\u00a0'}</span>
         </div>) : !failed && <p className="py-12 text-center font-sans text-xs text-muted-foreground">{t(lines.length ? 'backgroundProcess.noMatches' : 'backgroundProcess.empty')}</p>}
       </DialogBody>
       <DialogFooter className="text-xs text-muted-foreground" start={<span>{t('backgroundProcess.lineCount', { count: filtered.length, total: lines.length })}</span>}><span>{t('backgroundProcess.exportHint')}</span></DialogFooter>

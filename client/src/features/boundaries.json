@@ -381,7 +381,6 @@
       "components/AgentRuntimeMetrics.tsx",
       "components/AgentRuntimeRuns.tsx",
       "components/CustomRuntimeRoles.tsx",
-      "components/ProjectSettingsDialog.tsx",
       "components/RuntimeEfficiencyControls.tsx",
       "components/RuntimeExecutionEvidence.tsx",
       "components/RuntimeGuardrails.tsx",

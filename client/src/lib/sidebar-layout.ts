@@ -9,6 +9,8 @@
  *  surfaces over the current mission in Agent Mode. */
 export function isGlobalRoute(pathname: string, uiMode: string): boolean {
   if (pathname.startsWith('/docs')) return true
+  // Project settings are a route; in Mission mode it replaces the mission surface (no modal twin).
+  if (uiMode === 'agent' && pathname.startsWith('/settings')) return true
   return uiMode !== 'agent' && (pathname.startsWith('/loops') || pathname.startsWith('/plugins'))
 }
 

@@ -45,7 +45,7 @@ const PRIORITY_PILL: Record<BlueprintSpecPriority, string> = {
   critical: 'border-destructive/35 bg-destructive/15 text-destructive',
   high: 'border-accent-warning/35 bg-accent-warning/15 text-accent-warning',
   medium: 'border-accent-info/35 bg-accent-info/15 text-accent-info',
-  low: 'border-border/60 bg-surface/70 text-foreground/60',
+  low: 'border-border/60 bg-surface/70 text-muted-foreground',
 }
 
 export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose }: BlueprintSpecModalProps) {
@@ -111,7 +111,7 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
           <section aria-labelledby="blueprint-spec-criteria-heading" data-testid="blueprint-spec-acceptance-criteria">
             <h3
               id="blueprint-spec-criteria-heading"
-              className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-foreground/80"
+              className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-foreground"
             >
               <span>{t('specModal.acceptanceCriteria')}</span>
               <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-surface px-2 text-caption tabular-nums text-muted-foreground">
@@ -123,7 +123,7 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
                 {spec.acceptanceCriteria.map((criterion, criterionIndex) => (
                   <li
                     key={`${criterionIndex}-${criterion}`}
-                    className="flex items-start gap-2 text-sm leading-6 text-foreground/85"
+                    className="flex items-start gap-2 text-sm leading-6 text-foreground"
                     data-testid={`blueprint-spec-criterion-${criterionIndex}`}
                   >
                     <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-accent-success" aria-hidden />

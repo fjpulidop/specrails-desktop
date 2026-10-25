@@ -249,7 +249,7 @@ export function SpecCard({
           title={t(flowLabel.state === 'paused' ? 'badges.inFlowPausedTitle' : 'badges.inFlowTitle')}
           className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-caption font-semibold transition-colors disabled:cursor-default ${
             flowLabel.state === 'paused'
-              ? 'border-border/60 bg-surface/60 text-foreground/60 hover:border-foreground/30'
+              ? 'border-border/60 bg-surface/60 text-muted-foreground hover:border-foreground/30'
               : 'border-accent-info/50 bg-accent-info/10 text-accent-info hover:bg-accent-info/20'
           }`}
         >

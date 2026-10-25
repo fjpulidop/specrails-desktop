@@ -17,7 +17,7 @@ export const DateInput = React.forwardRef<HTMLInputElement, Omit<React.InputHTML
         type="date"
         lang={i18n.language}
         className={cn(
-          'h-7 rounded-control border border-input bg-input px-2 text-caption text-foreground [color-scheme:inherit]',
+          'h-7 rounded-control border border-border bg-input px-2 text-caption text-foreground [color-scheme:inherit]',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           className,
         )}

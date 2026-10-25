@@ -134,7 +134,7 @@
     "title": "Todas as invocações",
     "statusFilterAria": "Filtro de estado",
     "minCostFilterAria": "Filtro de custo mínimo",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "Todos os estados",
     "success": "Sucesso",
     "failed": "Falhadas",

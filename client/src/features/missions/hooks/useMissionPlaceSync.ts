@@ -37,6 +37,13 @@ function liveSearch(routerSearch: string): string {
   return typeof state?.idx === 'number' ? window.location.search : routerSearch
 }
 
+/** Same rule for the path: writing the mission param onto a trailing router path would navigate back to the old page. */
+function livePathname(routerPathname: string): string {
+  if (typeof window === 'undefined') return routerPathname
+  const state = window.history.state as { idx?: unknown } | null
+  return typeof state?.idx === 'number' ? window.location.pathname : routerPathname
+}
+
 export function useMissionPlaceSync(): void {
   const chat = useAgentChat()
   const { uiMode } = useUiMode()
@@ -107,7 +114,7 @@ export function useMissionPlaceSync(): void {
     if (activeId) params.set(MISSION_PARAM, activeId)
     else params.delete(MISSION_PARAM)
     const search = params.toString()
-    const to = { pathname: loc.pathname, search: search ? `?${search}` : '' }
+    const to = { pathname: livePathname(loc.pathname), search: search ? `?${search}` : '' }
     const prevState = (loc.state && typeof loc.state === 'object' ? loc.state : {}) as Record<string, unknown>
     if (changed && consumeUserPlaceIntent()) {
       navigateRef.current(to, { state: { ...prevState, [PLACE_PUSH_STATE]: MISSION_PARAM } })

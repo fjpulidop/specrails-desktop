@@ -90,7 +90,7 @@ function buildPill(attachment: Attachment): HTMLSpanElement {
   close.type = 'button'
   close.setAttribute('aria-label', i18n.t('attachments:removeFile', { name: attachment.filename }))
   close.dataset.role = 'pill-remove'
-  close.className = 'text-accent-foreground/60 hover:text-destructive transition-colors leading-none'
+  close.className = 'text-accent-foreground hover:text-destructive transition-colors leading-none'
   close.textContent = '×'
   pill.appendChild(label)
   pill.appendChild(close)

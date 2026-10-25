@@ -79,7 +79,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
                       <ExternalLink className="w-3 h-3 shrink-0" />
                     </button>
                   ) : (
-                    <span className="text-foreground/80 whitespace-pre-line" title={d.title}>{d.text}</span>
+                    <span className="text-foreground whitespace-pre-line" title={d.title}>{d.text}</span>
                   )}
                 </div>
               )
@@ -108,7 +108,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
                   >
                     <GitPullRequest className="w-3 h-3 mt-0.5 shrink-0 text-accent-info" />
                     <span className="min-w-0 flex-1">
-                      <span className="truncate text-foreground/80 block">{pr.title}</span>
+                      <span className="truncate text-foreground block">{pr.title}</span>
                       <span className="text-caption text-muted-foreground">
                         {pr.status}{pr.sourceBranch ? ` · ${pr.sourceBranch} → ${pr.destBranch ?? ''}` : ''}
                       </span>
@@ -132,7 +132,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
                     data-testid="jira-dev-branch"
                   >
                     <GitBranch className="w-3 h-3 shrink-0 text-accent-info" />
-                    <span className="truncate font-mono text-foreground/80">{b.name}</span>
+                    <span className="truncate font-mono text-foreground">{b.name}</span>
                     {b.repo && <span className="text-caption text-muted-foreground truncate">{b.repo}</span>}
                   </button>
                 ))}
@@ -154,7 +154,7 @@ export function JiraSpecDetailsPanel({ localId }: { localId: number }) {
                   >
                     <GitCommit className="w-3 h-3 shrink-0 text-accent-info" />
                     <span className="font-mono text-caption text-muted-foreground shrink-0">{c.displayId}</span>
-                    <span className="truncate text-foreground/80">{c.message}</span>
+                    <span className="truncate text-foreground">{c.message}</span>
                   </button>
                 ))}
               </div>

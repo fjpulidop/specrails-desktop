@@ -73,7 +73,7 @@ export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }
 
   return (
     <div className="flex justify-end" data-testid="agent-queued-message" data-queue-id={item.queueId}>
-      <div className="min-w-0 max-w-[85%] rounded-2xl rounded-br-sm border border-dashed border-border/70 bg-foreground/[0.03] text-sm text-foreground/75">
+      <div className="min-w-0 max-w-[85%] rounded-2xl rounded-br-sm border border-dashed border-border/70 bg-foreground/[0.03] text-sm text-muted-foreground">
         <div className="space-y-1 px-3.5 py-2">
           <div className="whitespace-pre-wrap"><AgentContextInlineTokens content={item.text} contextRefs={item.contextRefs} /></div>
           <AgentAttachmentChips conversationId={conversationId} attachments={attachments} />

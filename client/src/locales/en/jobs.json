@@ -333,7 +333,7 @@
   },
   "completion": {
     "title": "Run result",
-    "execution": "Execution",
+    "execution": "Run",
     "implementation": "Implementation",
     "validation": "Validation",
     "archive": "Archive",
@@ -347,7 +347,7 @@
     "supplementary": "Supplementary",
     "attempts": "Attempts: {{count}}",
     "phaseCostUnavailable": "Cost per Core phase is unavailable; provider usage is attributed to loop steps.",
-    "noCoreEvidence": "Acceptance evidence unavailable. Execution success alone does not confirm spec completion.",
+    "noCoreEvidence": "Acceptance evidence unavailable. Run success alone does not confirm spec completion.",
     "status": {
       "success": "Succeeded",
       "failed": "Failed",

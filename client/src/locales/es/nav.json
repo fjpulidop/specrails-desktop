@@ -25,7 +25,8 @@
     "settings": "Ajustes de {{name}}",
     "assembling": "Preparando workspace…",
     "assembleFailed": "Fallo al preparar el workspace — clic para reintentar",
-    "retrySetup": "Reintentar configuración"
+    "retrySetup": "Reintentar configuración",
+    "removeConfirmHint": "Pulsa otra vez para quitar {{project}}"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

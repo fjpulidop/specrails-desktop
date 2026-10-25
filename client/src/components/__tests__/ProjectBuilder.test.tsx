@@ -731,7 +731,9 @@ describe('BlueprintReadiness (writing state)', () => {
     expect(screen.getByTestId('readiness-step-specs')).toHaveAttribute('data-state', 'writing')
     expect(screen.getByTestId('readiness-step-specs')).toHaveTextContent('2 of 8 written')
     expect(screen.getByTestId('readiness-step-audit')).toHaveTextContent('after the specs are written')
-    expect(screen.getByTestId('readiness-step-specs').querySelector('svg')).toHaveClass('animate-spin')
+    // "Being written" is a live lamp, never a spinner.
+    expect(screen.getByTestId('readiness-step-specs').querySelector('svg.animate-spin')).toBeNull()
+    expect(screen.getByTestId('readiness-step-specs').querySelector('[data-live-ring], span.rounded-full')).not.toBeNull()
     expect(screen.queryByTestId('readiness-issues')).toBeNull()
     expect(screen.getByText(/The Builder is writing every spec in full/)).toBeInTheDocument()
   })

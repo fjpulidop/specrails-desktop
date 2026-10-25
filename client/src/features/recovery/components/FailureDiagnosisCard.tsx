@@ -65,7 +65,7 @@ function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {
     <div data-testid="failure-environment" className="space-y-1.5 rounded-control border border-border/50 bg-background/40 px-3 py-2 text-body">
       {blocker ? (
         <>
-          <p className="text-foreground/85">{blocker.reason}</p>
+          <p className="text-foreground">{blocker.reason}</p>
           {command && (
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
@@ -81,13 +81,13 @@ function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {
                 </button>
                 {copied && <span role="status" className="text-caption text-accent-success">{t('environment.copied')}</span>}
               </div>
-              <pre className="mt-0.5 whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground/80">{command}{blocker.cwd ? `  # ${t('environment.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
+              <pre className="mt-0.5 whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground">{command}{blocker.cwd ? `  # ${t('environment.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
             </div>
           )}
           <p><span className="font-medium">{t('environment.requiredAction')}:</span> {blocker.requiredAction}</p>
         </>
       ) : (
-        <p className="text-foreground/85">{diagnosis.detail ?? t('environment.generic')}</p>
+        <p className="text-foreground">{diagnosis.detail ?? t('environment.generic')}</p>
       )}
       <p className="text-caption text-muted-foreground">{t('environment.then')}</p>
     </div>
@@ -145,7 +145,7 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], classN
       {unknown && logTail.length > 0 && (
         <details open className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
           <summary className="cursor-pointer text-caption font-medium text-muted-foreground">{t('logTail.title')}</summary>
-          <pre data-testid="failure-log-tail" className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground/80">{logTail.join('\n')}</pre>
+          <pre data-testid="failure-log-tail" className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground">{logTail.join('\n')}</pre>
         </details>
       )}
 

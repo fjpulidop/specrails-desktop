@@ -35,7 +35,7 @@ export interface LocalStashNoticeProps {
 
 const actionClass = 'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors disabled:cursor-default disabled:opacity-60'
 const primaryClass = `${actionClass} border-accent-warning/45 bg-accent-warning/15 text-foreground hover:bg-accent-warning/25`
-const quietClass = `${actionClass} border-border/60 text-foreground/70 hover:bg-muted/40 hover:text-foreground`
+const quietClass = `${actionClass} border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground`
 
 export function LocalStashNotice({ stash, onRestore, onBringBack, onDiscardBranch, pendingAction = null, disabled = false }: LocalStashNoticeProps) {
   const { t } = useTranslation('agent')
@@ -82,14 +82,14 @@ export function LocalStashNotice({ stash, onRestore, onBringBack, onDiscardBranc
           : <Archive className="h-3.5 w-3.5 shrink-0" aria-hidden />}
         {t('prCard.localStash.title')}
       </p>
-      <p className="mt-1 leading-4 text-foreground/75" data-testid="local-stash-body">{body}</p>
+      <p className="mt-1 leading-4 text-muted-foreground" data-testid="local-stash-body">{body}</p>
       {restore?.status === 'failed' && restore.detail && (
         <p className="mt-1 break-words text-caption text-muted-foreground" data-testid="local-restore-detail">{restore.detail}</p>
       )}
       {conflict && restore?.status !== 'ready' && conflictFiles.length > 0 && (
         <div className="mt-1">
           <p className="text-caption text-muted-foreground">{t('prCard.localStash.files')}</p>
-          <ul className="mt-0.5 space-y-0.5 font-mono text-caption text-foreground/70" data-testid="local-stash-files">
+          <ul className="mt-0.5 space-y-0.5 font-mono text-caption text-muted-foreground" data-testid="local-stash-files">
             {conflictFiles.map((file) => <li key={file} className="break-all">{file}</li>)}
           </ul>
         </div>
@@ -97,7 +97,7 @@ export function LocalStashNotice({ stash, onRestore, onBringBack, onDiscardBranc
       {restore?.status === 'ready' && restore.files.length > 0 && (
         <div className="mt-1">
           <p className="text-caption text-muted-foreground">{t('prCard.localStash.restoredFiles', vars)}</p>
-          <ul className="mt-0.5 space-y-0.5 font-mono text-caption text-foreground/70" data-testid="local-restore-files">
+          <ul className="mt-0.5 space-y-0.5 font-mono text-caption text-muted-foreground" data-testid="local-restore-files">
             {restore.files.map((file) => (
               <li key={file.path} className="flex items-baseline justify-between gap-2">
                 <span className="min-w-0 break-all">{file.path}</span>
@@ -117,7 +117,7 @@ export function LocalStashNotice({ stash, onRestore, onBringBack, onDiscardBranc
         </p>
       )}
       {held && (
-        <code className="mt-1.5 block break-all rounded bg-background/60 px-1.5 py-0.5 font-mono text-caption text-foreground/80" data-testid="local-stash-name">
+        <code className="mt-1.5 block break-all rounded bg-background/60 px-1.5 py-0.5 font-mono text-caption text-foreground" data-testid="local-stash-name">
           {stash.name || stash.sha}
         </code>
       )}

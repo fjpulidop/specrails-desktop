@@ -100,7 +100,7 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
         </span>
       </div>
       {rows.length === 0 ? (
-        <p className="text-xs text-foreground/75 italic">{emptyMessage}</p>
+        <p className="text-xs text-muted-foreground italic">{emptyMessage}</p>
       ) : (
         <ul className="flex flex-col gap-0.5">
           {rows.map((row) => {
@@ -128,7 +128,7 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
                   {isEpicRow ? (
                     <ArrowUp className="w-3 h-3 text-accent-highlight flex-shrink-0" aria-hidden />
                   ) : (
-                    <span className="text-caption tabular-nums text-foreground/70 w-3 text-center flex-shrink-0">
+                    <span className="text-caption tabular-nums text-muted-foreground w-3 text-center flex-shrink-0">
                       {row.execution_order ?? '–'}
                     </span>
                   )}
@@ -139,7 +139,7 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
                   {row.priority && <span className="sr-only">{t('family.priority', { p: row.priority })}</span>}
                   <span
                     className={`text-caption truncate ${
-                      isCurrent ? 'text-foreground font-medium' : 'text-foreground/80'
+                      isCurrent ? 'text-foreground font-medium' : 'text-foreground'
                     }`}
                     title={row.title}
                   >

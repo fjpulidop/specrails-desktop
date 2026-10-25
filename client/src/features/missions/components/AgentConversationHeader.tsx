@@ -233,7 +233,7 @@ export function AgentConversationHeader() {
             <span className="max-w-[42%] shrink-0 truncate text-label text-muted-foreground" title={project.path}>
               {project.name || project.path}
             </span>
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/25" aria-hidden />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           </>
         )}
         {editing ? (
@@ -255,7 +255,7 @@ export function AgentConversationHeader() {
             type="button"
             onDoubleClick={startRename}
             title={t('header.renameHint')}
-            className="min-w-0 truncate text-left font-medium text-foreground/85"
+            className="min-w-0 truncate text-left font-medium text-foreground"
           >
             {title}
           </button>
@@ -275,8 +275,8 @@ export function AgentConversationHeader() {
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((o) => !o)}
         className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground/45 transition-colors hover:bg-surface hover:text-foreground/80',
-          menuOpen && 'bg-surface text-foreground/80',
+          'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface hover:text-foreground',
+          menuOpen && 'bg-surface text-foreground',
         )}
       >
         <MoreVertical className="h-4 w-4" />
@@ -297,7 +297,7 @@ export function AgentConversationHeader() {
               // Inline confirm — stays in the menu; confirm deletes + returns to
               // the "+ New Mission" screen, cancel drops back to the menu.
               <div className="p-2" data-testid="agent-conv-delete-confirm">
-                <p className="px-1 pb-2.5 text-xs leading-relaxed text-foreground/70">
+                <p className="px-1 pb-2.5 text-xs leading-relaxed text-muted-foreground">
                   {t('header.deleteConfirm')}
                 </p>
                 <div className="flex gap-1.5">
@@ -312,7 +312,7 @@ export function AgentConversationHeader() {
                   <button
                     type="button"
                     onClick={() => setConfirmingDelete(false)}
-                    className="flex-1 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-surface/80"
+                    className="flex-1 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-surface/80"
                   >
                     {t('common:actions.cancel')}
                   </button>
@@ -325,9 +325,9 @@ export function AgentConversationHeader() {
               role="menuitem"
               data-testid="agent-conv-rename"
               onClick={startRename}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
             >
-              <Pencil className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+              <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               {t('header.rename')}
             </button>
             <button
@@ -335,12 +335,12 @@ export function AgentConversationHeader() {
               role="menuitem"
               data-testid="agent-conv-favorite"
               onClick={toggleFavorite}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
             >
               <Heart
                 className={cn(
                   'h-3.5 w-3.5 shrink-0',
-                  isFavorite ? 'text-accent-primary' : 'text-foreground/50',
+                  isFavorite ? 'text-accent-primary' : 'text-muted-foreground',
                 )}
                 fill={isFavorite ? 'currentColor' : 'none'}
               />
@@ -353,9 +353,9 @@ export function AgentConversationHeader() {
               // Idle missions delete at once (Undo restores them); a mission with a
               // turn in flight still asks first, because stopping that turn can't be undone.
               onClick={() => { if (active && streamingConversationIds.has(active.id)) setConfirmingDelete(true); else void doDelete() }}
-              className="group/del flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-destructive/10 hover:text-destructive"
+              className="group/del flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
             >
-              <Trash2 className="h-3.5 w-3.5 shrink-0 text-foreground/50 group-hover/del:text-destructive" />
+              <Trash2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover/del:text-destructive" />
               {t('header.delete')}
             </button>
 
@@ -366,12 +366,12 @@ export function AgentConversationHeader() {
               role="menuitem"
               data-testid="agent-conv-copy-transcript"
               onClick={() => void handleCopyTranscript()}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
             >
               {copied === 'transcript' ? (
                 <Check className="h-3.5 w-3.5 shrink-0 text-accent-success" />
               ) : (
-                <Copy className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+                <Copy className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               )}
               <span className="min-w-0 flex-1 truncate text-left">{t('header.copyTranscript', { defaultValue: 'Copy transcript' })}</span>
             </button>
@@ -380,9 +380,9 @@ export function AgentConversationHeader() {
               role="menuitem"
               data-testid="agent-conv-export-transcript"
               onClick={handleExportTranscript}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
             >
-              <Download className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+              <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate text-left">{t('header.exportTranscript', { defaultValue: 'Export transcript (.txt)' })}</span>
             </button>
 
@@ -394,12 +394,12 @@ export function AgentConversationHeader() {
                   role="menuitem"
                   data-testid={`agent-conv-copy-${item.id}`}
                   onClick={() => void copy(item.value, item.id)}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
                 >
                   {copied === item.id ? (
                     <Check className="h-3.5 w-3.5 shrink-0 text-accent-success" />
                   ) : (
-                    <Copy className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+                    <Copy className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   )}
                   <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
                 </button>

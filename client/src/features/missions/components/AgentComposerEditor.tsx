@@ -206,7 +206,7 @@ function chipTone(kind: AgentContextChip['kind']): string {
   if (kind === 'job' || kind === 'trace') return 'border-accent-info/30 bg-accent-info/10 text-accent-info'
   if (kind === 'project' || kind === 'alias') return 'border-accent-primary/30 bg-accent-primary/10 text-accent-primary'
   if (kind === 'rail') return 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
-  return 'border-border/60 bg-surface/70 text-foreground/80'
+  return 'border-border/60 bg-surface/70 text-foreground'
 }
 
 function renderContents(document: Document, value: string, references: AgentInlineReference[], disabled: boolean, removeLabel: (label: string) => string): DocumentFragment {
@@ -229,7 +229,7 @@ function renderContents(document: Document, value: string, references: AgentInli
     pill.append(glyph, label)
     if (reference.chip.status) {
       const status = document.createElement('span')
-      status.className = 'text-foreground/70'
+      status.className = 'text-muted-foreground'
       status.textContent = reference.chip.status
       pill.append(status)
     }
@@ -239,7 +239,7 @@ function renderContents(document: Document, value: string, references: AgentInli
     remove.disabled = disabled ?? false
     remove.dataset.removeReference = reference.key
     remove.setAttribute('aria-label', removeLabel(reference.chip.label))
-    remove.className = 'rounded-sm px-0.5 text-foreground/70 hover:bg-background/60 hover:text-foreground'
+    remove.className = 'rounded-sm px-0.5 text-muted-foreground hover:bg-background/60 hover:text-foreground'
     remove.textContent = '×'
     pill.append(remove)
     fragment.append(pill)

@@ -101,7 +101,7 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
       ? t('flow.handOff.line', { rail, count: fileCount })
       : t('flow.handOff.lineNoCount', { rail }),
     details: (
-      <p data-testid="flow-hand-off-recap" className="text-label leading-4 tabular-nums text-foreground/75">
+      <p data-testid="flow-hand-off-recap" className="text-label leading-4 tabular-nums text-muted-foreground">
         {t('flow.bar.files', { count: totals?.files ?? 0 })}
         {totals && totals.files > 0 && <> <span className="text-accent-success">+{totals.additions}</span> <span className="text-destructive">−{totals.deletions}</span></>}
         {' · '}
@@ -110,13 +110,13 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
       </p>
     ),
     lineAside: (
-      <span data-testid="flow-hand-off-cost" className="tabular-nums text-foreground/75">
+      <span data-testid="flow-hand-off-cost" className="tabular-nums text-muted-foreground">
         {' · '}{costWords}
         {partialWords && <span className="sr-only"> ({partialWords})</span>}
       </span>
     ),
     lineNote: partialWords
-      ? <p data-testid="flow-hand-off-cost-partial" className="text-label leading-4 text-foreground/75">* {partialWords}</p>
+      ? <p data-testid="flow-hand-off-cost-partial" className="text-label leading-4 text-muted-foreground">* {partialWords}</p>
       : null,
     note: engine.fallbackFrom ? t('flow.handOff.engineFallback', { provider: providerLabel(engine.fallbackFrom) }) : null,
     playLabel: t('flow.handOff.launch'),

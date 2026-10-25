@@ -67,19 +67,19 @@ describe('RailRow play with the daily budget reached', () => {
   const reached = { ...body, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
   const play = () => screen.getByTitle('Play')
 
-  it.each(['normal', 'compact'] as const)('refuses to launch and offers Raise cap instead of Launch anyway (%s)', async (density) => {
+  it.each(['normal', 'compact'] as const)('refuses to launch and offers Raise limit instead of Launch anyway (%s)', async (density) => {
     mockApi(reached)
     const onToggle = vi.fn()
     renderRow({ density, onToggle })
     await screen.findByRole('button', { name: 'Daily budget reached' })
     fireEvent.click(play())
     const dialog = await screen.findByTestId('launch-over-budget-dialog')
-    expect(dialog).toHaveTextContent('This cap is used up, so the launch would be refused. Raise the cap or wait for the reset.')
+    expect(dialog).toHaveTextContent('This limit is used up, so the launch would be refused. Raise the limit or wait for the reset.')
     expect(within(dialog).queryByRole('button', { name: 'Launch anyway' })).toBeNull()
     const opened = vi.fn()
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
     try {
-      fireEvent.click(within(dialog).getByRole('button', { name: 'Raise cap' }))
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Raise limit' }))
       expect(opened).toHaveBeenCalledTimes(1)
     } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
     expect(onToggle).not.toHaveBeenCalled()

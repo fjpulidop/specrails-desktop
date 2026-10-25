@@ -107,7 +107,7 @@ describe('SettingsPage - extended coverage', () => {
     })
   })
 
-  it('renders the Budget section with the daily cap read-only (the one editor is Analytics ▸ Budget)', async () => {
+  it('renders the Budget section with the daily limit read-only (the one editor is Analytics ▸ Budget)', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
     render(<SettingsPage />)
     await waitFor(() => {
@@ -189,7 +189,7 @@ describe('SettingsPage - extended coverage', () => {
     })
   })
 
-  it('does not write the daily cap from Settings any more: it only links to the Budget panel', async () => {
+  it('does not write the daily limit from Settings any more: it only links to the Budget panel', async () => {
     const user = userEvent.setup()
     const requests: Array<{ url: string; method: string }> = []
     global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 import { getApiBase } from '../../../lib/api'
 
 const kinds = ['legacy_loop_traversal', 'queue_manager_slash', 'merge_back'] as const
@@ -48,13 +49,12 @@ export function LegacyWorkflowUsage({ projectId }: { projectId: string }) {
     </div>
     <p className="text-xs text-muted-foreground">{t('legacyUsage.scope')}</p>
     {failed && <p role="status" className="text-xs text-destructive">{t('legacyUsage.unavailable')}</p>}
-    {!summary && loading && <p role="status" className="text-xs text-muted-foreground">{t('legacyUsage.loading')}</p>}
     {summary && <>
       <p className="text-sm">{t('legacyUsage.total', { count: summary.total })}</p>
       <dl className="grid gap-2 text-xs sm:grid-cols-3">
         {kinds.map(kind => <div key={kind}><dt className="text-muted-foreground">{t(`legacyUsage.kinds.${kind}`)}</dt><dd className="font-mono num">{summary.byKind[kind]}</dd></div>)}
       </dl>
-      {summary.lastAt && <p className="text-xs text-muted-foreground">{t('legacyUsage.last')} <time dateTime={summary.lastAt}>{new Date(summary.lastAt).toLocaleString()}</time></p>}
+      {summary.lastAt && <p className="text-xs text-muted-foreground">{t('legacyUsage.last')} <time dateTime={summary.lastAt}>{new Date(summary.lastAt).toLocaleString(i18n.language)}</time></p>}
     </>}
   </section>
 }

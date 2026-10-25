@@ -134,7 +134,7 @@
     "title": "全部调用",
     "statusFilterAria": "状态筛选",
     "minCostFilterAria": "最低成本筛选",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "全部状态",
     "success": "成功",
     "failed": "失败",

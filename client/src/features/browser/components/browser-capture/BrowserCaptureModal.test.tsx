@@ -140,7 +140,6 @@ describe('BrowserCaptureModal capture destination', () => {
 
   it('lets the dirty editor decide Escape and ignores backdrop clicks instead of discarding markup', async () => {
     const callbacks = props()
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
     render(<BrowserCaptureModal {...callbacks} />)
     selectRegion()
     await screen.findByTestId('annotation-confirm')
@@ -150,7 +149,8 @@ describe('BrowserCaptureModal capture destination', () => {
     // Escape reaches both Radix (document) and the editor (window): only the
     // editor decides, the surface stays open.
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
-    expect(window.confirm).toHaveBeenCalledTimes(1)
+    // The discard question is an in-app dialog (never a native confirm).
+    expect(await screen.findByTestId('annotation-discard-confirm')).toBeInTheDocument()
     fireEvent.pointerDown(document.querySelector('[data-capture-scrim]')!)
     fireEvent.click(document.querySelector('[data-capture-scrim]')!)
     expect(callbacks.onClose).not.toHaveBeenCalled()

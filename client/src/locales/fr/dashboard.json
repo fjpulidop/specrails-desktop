@@ -327,6 +327,7 @@
     "deleteFailed": "Impossible de supprimer la spec"
   },
   "board": {
-    "pageTitle": "{{project}} : tableau"
+    "pageTitle": "{{project}} : tableau",
+    "pageTitleBare": "Tableau"
   }
 }

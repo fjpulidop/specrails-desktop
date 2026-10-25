@@ -43,4 +43,14 @@ describe('splitStreamedMarkdown', () => {
     const { tail } = splitStreamedMarkdown(text)
     expect(tail.endsWith('Streaming now')).toBe(true)
   })
+
+  it('a 4-backtick fence is not closed by a 3-backtick line inside it', () => {
+    const inner = '```ts\nconst x = 1\n```\n\n\nstill inside the outer fence\n\n'
+    const outer = `\`\`\`\`md\n${inner.repeat(40)}\`\`\`\`\n\n`
+    const text = `${para(0)}${para(1)}${outer}${para(2)}${para(3)}`
+    const { stable, tail } = splitStreamedMarkdown(text)
+    expect([...stable, tail].join('')).toBe(text)
+    // No chunk may start or end inside the 4-backtick fence.
+    for (const chunk of [...stable, tail]) expect((chunk.match(/^`{4}/gm) ?? []).length % 2).toBe(0)
+  })
 })

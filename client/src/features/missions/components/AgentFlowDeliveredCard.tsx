@@ -50,8 +50,8 @@ export function parseFlowDeliveredRow(content: string): FlowDeliveredRow | null 
 
 function Line({ icon: Icon, children, tone = 'default', testId }: { icon: typeof CheckCircle2; children: React.ReactNode; tone?: 'default' | 'muted'; testId: string }) {
   return (
-    <li className={cn('flex min-w-0 items-start gap-1.5 leading-4', tone === 'muted' ? 'text-foreground/70' : 'text-foreground/75')} data-testid={testId}>
-      <Icon className="mt-px h-3 w-3 shrink-0 text-accent-success/80" aria-hidden />
+    <li className={cn('flex min-w-0 items-start gap-1.5 leading-4', tone === 'muted' ? 'text-muted-foreground' : 'text-muted-foreground')} data-testid={testId}>
+      <Icon className="mt-px h-3 w-3 shrink-0 text-accent-success" aria-hidden />
       <span className="min-w-0 break-words">{children}</span>
     </li>
   )
@@ -69,7 +69,7 @@ export function AgentFlowDeliveredCard({ row }: { row: FlowDeliveredRow }) {
       aria-label={t('flowDelivered.title')}
       className="rounded-xl border border-accent-success/30 bg-accent-success/[0.05] px-3 py-2 text-xs"
     >
-      <p className="flex items-center gap-2 font-medium text-foreground/85">
+      <p className="flex items-center gap-2 font-medium text-foreground">
         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
         {t('flowDelivered.title')}
       </p>

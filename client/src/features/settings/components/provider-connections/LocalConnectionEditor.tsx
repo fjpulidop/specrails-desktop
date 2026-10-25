@@ -76,7 +76,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
     <div className="space-y-4" data-testid={`local-connection-${provider.id}`}>
       <div className="flex flex-wrap items-center gap-2">
         <ConnectionStatusPill state={pill} latencyMs={status?.latencyMs} />
-        {status?.error && pill !== 'reachable' && <span className="truncate text-xs text-destructive/90" title={status.error}>{status.error}</span>}
+        {status?.error && pill !== 'reachable' && <span className="truncate text-xs text-destructive" title={status.error}>{status.error}</span>}
         <div className="ml-auto flex items-center gap-2">
           <TestConnectionButton baseUrl={provider.baseUrl} apiKeyEnv={provider.apiKeyEnv} onStart={() => { setProbing(true); setTestError('') }} onResult={applyTest} onError={(message) => { setProbing(false); setTestError(message) }} />
           <Button type="button" variant="ghost" size="sm" onClick={onRemove}>{t('providers.remove')}</Button>

@@ -92,10 +92,10 @@ export function AgentFlowReturnCard({ row, conversationId = null }: { row: FlowR
                     statusDetail={row.failure.statusDetail} repositoryName={null} returned surface="return" busy={false} />
                 </div>
               )
-              : <p className="mt-1.5 leading-4 text-foreground/65">{t('flowReturn.noFindings')}</p>}
+              : <p className="mt-1.5 leading-4 text-muted-foreground">{t('flowReturn.noFindings')}</p>}
           {derivation && gap && (
             <div className="mt-2 rounded-md border border-border/50 bg-surface/40 px-2.5 py-2 text-caption" data-testid="agent-flow-return-coverage">
-              <p className="flex items-center gap-1.5 font-medium text-foreground/80">
+              <p className="flex items-center gap-1.5 font-medium text-foreground">
                 <FileQuestion className="h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />
                 {t('flowReturn.coverage', { explained: derivation.explained, files: derivation.files })}
               </p>
@@ -103,19 +103,19 @@ export function AgentFlowReturnCard({ row, conversationId = null }: { row: FlowR
                 <>
                   <p className="mt-1 text-label text-muted-foreground">{t('flowReturn.unexplained')}</p>
                   <ul className="mt-0.5 space-y-0.5" data-testid="agent-flow-return-unexplained">
-                    {files.map((file) => <li key={file} className="truncate font-mono text-caption text-foreground/70" title={file}>{file}</li>)}
+                    {files.map((file) => <li key={file} className="truncate font-mono text-caption text-muted-foreground" title={file}>{file}</li>)}
                   </ul>
                   {(hiddenFiles > 0 || allFiles) && derivation.unexplainedFiles.length > VISIBLE_FILES && (
                     <button type="button" data-agent-interactive onClick={() => setAllFiles((value) => !value)} className="mt-1 text-caption font-medium text-accent-info hover:underline">
                       {allFiles ? t('runCard.review.showLess') : t('runCard.review.showAll', { count: derivation.unexplainedFiles.length })}
                     </button>
                   )}
-                  {derivation.unexplainedOmitted > 0 && <p className="mt-0.5 text-caption text-foreground/70">{t('flowReturn.moreFiles', { count: derivation.unexplainedOmitted })}</p>}
+                  {derivation.unexplainedOmitted > 0 && <p className="mt-0.5 text-caption text-muted-foreground">{t('flowReturn.moreFiles', { count: derivation.unexplainedOmitted })}</p>}
                 </>
               )}
             </div>
           )}
-          <p className="mt-1.5 leading-4 text-foreground/70">{t('flowReturn.next')}</p>
+          <p className="mt-1.5 leading-4 text-muted-foreground">{t('flowReturn.next')}</p>
         </div>
       )}
     </section>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RailTrack } from '../../../../components/brand/RailTrack'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Check, Send, Loader2, Minus, Sparkles, X, Plug, Globe, Ratio } from 'lucide-react'
+import { ArrowLeft, Check, Send, Minus, Sparkles, X, Plug, Globe, Ratio } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -897,7 +897,7 @@ export function ExploreSpecShell({
             title={!draft.title.trim() ? t('shell.createSpecDisabledTitle') : undefined}
           >
             {isCreating ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <RailTrack running className="w-8" />
             ) : ready ? (
               <Sparkles className="w-3.5 h-3.5" />
             ) : (

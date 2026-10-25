@@ -94,18 +94,18 @@ const HEADER_ICON: Record<AgentPrDecisionEnvelope['decision'], typeof GitBranch>
 }
 
 const HEADER_ICON_TONE: Record<AgentPrDecisionEnvelope['decision'], string> = {
-  building: 'text-accent-primary/70',
+  building: 'text-accent-primary',
   on_review: 'text-accent-review',
   pr_draft: 'text-accent-info',
   pr_ready: 'text-accent-info',
   no_changes: 'text-accent-success',
   completed: 'text-accent-success',
   pr_closed: 'text-accent-warning',
-  superseded: 'text-foreground/40',
+  superseded: 'text-muted-foreground',
   implementation_failed: 'text-destructive',
   pr_failed: 'text-destructive',
   merged: 'text-accent-success',
-  discarded: 'text-foreground/40',
+  discarded: 'text-muted-foreground',
 }
 
 function OutcomeEvidence({ envelope, hideFailedUnits = false }: { envelope: AgentPrDecisionEnvelope; hideFailedUnits?: boolean }) {
@@ -244,8 +244,8 @@ const RUN_STATUS_TONE: Record<MissionRunStatus, string> = {
   succeeded: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
   failed: 'border-destructive/40 bg-destructive/10 text-destructive',
   stalled: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
-  cancelled: 'border-border/60 bg-surface/60 text-foreground/70',
-  unknown: 'border-border/60 bg-surface/60 text-foreground/70',
+  cancelled: 'border-border/60 bg-surface/60 text-muted-foreground',
+  unknown: 'border-border/60 bg-surface/60 text-muted-foreground',
   changes_requested: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
   returned: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
 }
@@ -291,16 +291,16 @@ function RunFailureBlock({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
           </span>
         )}
         {failure?.stepId && (
-          <span className="rounded-full border border-border/60 bg-surface/60 px-2 py-px font-mono text-caption text-foreground/70">
+          <span className="rounded-full border border-border/60 bg-surface/60 px-2 py-px font-mono text-caption text-muted-foreground">
             {t('runCard.failure.step', { step: failure.stepId })}
           </span>
         )}
       </div>
       {detail && (
-        <p className="mt-1 break-words leading-4 text-foreground/70" data-testid="mission-run-failure-detail">{detail}</p>
+        <p className="mt-1 break-words leading-4 text-muted-foreground" data-testid="mission-run-failure-detail">{detail}</p>
       )}
       {unitFailures.length > 0 && (
-        <ul className="mt-1 space-y-0.5 font-mono text-caption text-foreground/70">
+        <ul className="mt-1 space-y-0.5 font-mono text-caption text-muted-foreground">
           {unitFailures.map((u) => (
             <li key={`${u.ticketId}-${u.code}`}>{t('runCard.failure.unit', { ticket: u.ticketId, code: u.code })}</li>
           ))}
@@ -996,7 +996,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       <RunPrimaryButton primary={{ id: 'relaunch', label: t('runCard.actions.relaunch'), kind: 'outward', rank: 5 }} data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
         title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
         onClick={() => void relaunch()}
-        className={cn(runActionBtn, 'border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
+        className={cn(runActionBtn, 'border-border/60 text-muted-foreground hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
         {relaunching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
         {t('runCard.actions.relaunch')}
       </RunPrimaryButton>
@@ -1032,7 +1032,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     <p className="mt-1 text-label text-destructive" data-testid="mission-run-runtime-error">{runtime.error}</p>
   ) : null
   const phaseLine = FEATURE_MISSION_RAIL_CARDS && liveRun?.nextStep ? (
-    <span className="inline-flex min-w-0 items-center gap-1 truncate text-label text-foreground/70" data-testid="mission-run-phase">
+    <span className="inline-flex min-w-0 items-center gap-1 truncate text-label text-muted-foreground" data-testid="mission-run-phase">
       <Activity className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
       <span className="truncate">{liveRun.nextStep}</span>
     </span>
@@ -1053,7 +1053,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         ref={cardRef}
       {...focusRegion}
         data-testid="agent-pr-decision-card"
-        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/70 shadow-lg transition-shadow', embedded && EMBEDDED_CARD, flashClass)}
+        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-muted-foreground shadow-lg transition-shadow', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
           {buildingPaused
@@ -1071,7 +1071,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           </span>
           {FEATURE_MISSION_RAIL_CARDS && <MissionRunStatusPill status={runStatus} />}
           {FEATURE_MISSION_RAIL_CARDS && (
-            <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-foreground/70">
+            <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-muted-foreground">
               {envelope.railName ? envelope.railName : t('prCard.rail', { index: envelope.railIndex + 1 })}
             </span>
           )}
@@ -1107,9 +1107,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             )}
             <span
               title={t('git.branch')}
-              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-caption text-foreground/70"
+              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-caption text-muted-foreground"
             >
-              <GitBranch className="h-3 w-3 shrink-0 text-accent-primary/70" />
+              <GitBranch className="h-3 w-3 shrink-0 text-accent-primary" />
               <span className="truncate">{envelope.branch}</span>
             <span className="sr-only"> ({t('git.branch')})</span></span>
           </div>
@@ -1155,7 +1155,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         {runChips && <div className="pl-[22px]">{runChips}</div>}
         {/* Flow → Spec says what it does in its title; the generic PR hint is noise there. */}
         {envelope.loopId !== FLOW_SPEC_LOOP_ID && (
-          <p className="mt-1 pl-[22px] text-label leading-4 text-foreground/70">
+          <p className="mt-1 pl-[22px] text-label leading-4 text-muted-foreground">
             {runOnly ? t('runCard.noDeliveryHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
           </p>
         )}
@@ -1183,18 +1183,18 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       >
         <div className="flex items-center gap-2">
           {RunOnlyIcon
-            ? <RunOnlyIcon className={cn('h-4 w-4 shrink-0', runStatus === 'succeeded' ? 'text-accent-success' : runStatus === 'failed' || runStatus === 'stalled' ? 'text-destructive' : 'text-foreground/50')} />
+            ? <RunOnlyIcon className={cn('h-4 w-4 shrink-0', runStatus === 'succeeded' ? 'text-accent-success' : runStatus === 'failed' || runStatus === 'stalled' ? 'text-destructive' : 'text-muted-foreground')} />
             : <RailTrack running className="w-10 shrink-0" />}
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{t(`runCard.title.${runStatus}`)}</span>
           <MissionRunStatusPill status={runStatus} />
-          <span className="max-w-[140px] shrink-0 truncate text-label text-foreground/70" title={projectName}>{projectName}</span>
-          <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-foreground/70">
+          <span className="max-w-[140px] shrink-0 truncate text-label text-muted-foreground" title={projectName}>{projectName}</span>
+          <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-muted-foreground">
             {envelope.railName ? envelope.railName : t('prCard.rail', { index: envelope.railIndex + 1 })}
           </span>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption text-foreground/70">
-            <Ticket className="h-3 w-3 text-accent-secondary/80" />
+          <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption text-muted-foreground">
+            <Ticket className="h-3 w-3 text-accent-secondary" />
             {t('prCard.specCount', { count: envelope.ticketIds.length })}
           </span>
           {ticketChips}
@@ -1203,7 +1203,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         {runChips}
         <OutcomeEvidence envelope={envelope} />
         {(runFailure || runStatus === 'failed' || runStatus === 'stalled') && (diagnosisCard ?? <RunFailureBlock envelope={envelope} />)}
-        <p className="mt-2 flex items-start gap-1.5 text-label leading-4 text-foreground/70" data-testid="mission-run-no-delivery">
+        <p className="mt-2 flex items-start gap-1.5 text-label leading-4 text-muted-foreground" data-testid="mission-run-no-delivery">
           <GitBranch className="mt-px h-3 w-3 shrink-0 opacity-60" aria-hidden />
           <span>{t('runCard.noDeliveryNote')}</span>
         </p>
@@ -1219,7 +1219,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           {runStatus !== 'running' && runStatus !== 'paused' && relaunchAction}
           {runStatus !== 'running' && runStatus !== 'paused' && decision !== 'discarded' && (
             <button type="button" onClick={() => setConfirmingDismiss(true)} disabled={runOnlyBusy} data-agent-interactive data-testid="mission-run-dismiss"
-              className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-xs text-foreground/70 transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive disabled:cursor-default disabled:opacity-60">
+              className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive disabled:cursor-default disabled:opacity-60">
               {busy === 'dismiss' && <Loader2 className="h-3 w-3 animate-spin" />}
               {t('prCard.dismiss')}
             </button>
@@ -1274,7 +1274,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const primaryBtn = PRIMARY_ACTION
   const ghostBtn = cn(
     'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors disabled:cursor-default disabled:opacity-60',
-    'border-border/60 text-foreground/70 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive',
+    'border-border/60 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive',
   )
 
   const anyBusy = busy !== null || checkingOut || envelope.operation != null
@@ -1306,7 +1306,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       data-testid="agent-pr-inspect-local-result"
       data-agent-interactive
       title={t('prCard.inspectLocalResultTooltip')}
-      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-caption font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-caption font-medium text-muted-foreground transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
     >
       <FolderOpen className="h-3 w-3" aria-hidden />
       {t('prCard.inspectLocalResult')}
@@ -1340,7 +1340,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       disabled={anyBusy}
       data-testid="agent-pr-recheck-recovery"
       data-agent-interactive
-      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-caption font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-caption font-medium text-muted-foreground transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
     >
       {busy === 'recover-and-retry' ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
       {t('prCard.recheckRecovery')}
@@ -1490,10 +1490,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         <Icon className={cn('h-4 w-4 shrink-0', iconTone)} />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{title}</span>
         {!terminal && <HelpHint topic="prDecision" />}
-        <span className="max-w-[140px] shrink-0 truncate text-label text-foreground/70" title={projectName}>
+        <span className="max-w-[140px] shrink-0 truncate text-label text-muted-foreground" title={projectName}>
           {projectName}
         </span>
-        <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-foreground/70">
+        <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-muted-foreground">
           {t('prCard.rail', { index: envelope.railIndex + 1 })}
         </span>
       </div>
@@ -1518,15 +1518,15 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {!hasRepositoryDeliveries && <span
           title={t('prCard.base')}
-          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-caption text-foreground/70"
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-caption text-muted-foreground"
         >
-          <GitBranch className="h-3 w-3 text-accent-primary/70" />
+          <GitBranch className="h-3 w-3 text-accent-primary" />
           {'→ '}
           {envelope.baseBranch}
         <span className="sr-only"> ({t('prCard.base')})</span></span>}
         <LoopChip loopId={envelope.loopId} loopName={envelope.loopName} />
-        <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption text-foreground/70">
-          <Ticket className="h-3 w-3 text-accent-secondary/80" />
+        <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption text-muted-foreground">
+          <Ticket className="h-3 w-3 text-accent-secondary" />
           {t('prCard.specCount', { count: envelope.ticketIds.length })}
         </span>
         {ticketChips}
@@ -1539,7 +1539,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-caption',
               envelope.deliveryOutcome === 'delivered'
                 ? 'border-accent-success/35 bg-accent-success/10 text-accent-success'
-                : 'border-border/60 bg-surface/60 text-foreground/70',
+                : 'border-border/60 bg-surface/60 text-muted-foreground',
             )}
           >
             <CheckCircle2 className="h-3 w-3" />
@@ -1594,15 +1594,15 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               ? t('prCard.recoveryUnavailableBody')
               : t(presentation.partial ? 'prCard.partialDeliveryBlockedNote' : 'prCard.deliveryBlockedNote')}
             {envelope.statusDetail && !interruptedOperationDetail && !presentation.recoveryUnavailable
-              ? <span className="mt-0.5 block text-foreground/70">{envelope.statusDetail}</span>
+              ? <span className="mt-0.5 block text-muted-foreground">{envelope.statusDetail}</span>
               : null}
           </span>
         </p>
       )}
 
       {!terminal && presentation.recoveryUnavailable && envelope.statusDetail && !interruptedOperationDetail && (
-        <details className="mt-1.5 text-label leading-4 text-foreground/70" data-testid="agent-pr-recovery-technical-detail">
-          <summary className="cursor-pointer font-medium text-foreground/75">{t('prCard.recoveryDetailSummary')}</summary>
+        <details className="mt-1.5 text-label leading-4 text-muted-foreground" data-testid="agent-pr-recovery-technical-detail">
+          <summary className="cursor-pointer font-medium text-muted-foreground">{t('prCard.recoveryDetailSummary')}</summary>
           <p className="mt-1 break-words">{envelope.statusDetail}</p>
         </details>
       )}
@@ -1612,13 +1612,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
             {t('prCard.retryPushNote')}
-            {envelope.statusDetail && !interruptedOperationDetail ? <span className="mt-0.5 block text-foreground/70">{envelope.statusDetail}</span> : null}
+            {envelope.statusDetail && !interruptedOperationDetail ? <span className="mt-0.5 block text-muted-foreground">{envelope.statusDetail}</span> : null}
           </span>
         </p>
       )}
 
       {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && flowOutcome === null && (
-        <p className="mt-1 text-label leading-4 text-foreground/70" data-testid="agent-pr-status-detail">
+        <p className="mt-1 text-label leading-4 text-muted-foreground" data-testid="agent-pr-status-detail">
           {envelope.statusDetail}
         </p>
       )}
@@ -1634,7 +1634,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {presentation.cleanupWarnings.length > 0 && (
         <div className="mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/10 px-2 py-1.5 text-label text-accent-warning" data-testid="agent-pr-cleanup-warning">
           <p className="font-medium">{t('prCard.cleanupIncomplete', { count: presentation.cleanupWarnings.length })}</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-foreground/75">
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
             {presentation.cleanupWarnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}
           </ul>
         </div>
@@ -1651,7 +1651,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
 
       {presentation.safetyArchives.length > 0 && (
         <details
-          className="mt-2 rounded-md border border-accent-info/25 bg-accent-info/5 px-2 py-1.5 text-label text-foreground/75"
+          className="mt-2 rounded-md border border-accent-info/25 bg-accent-info/5 px-2 py-1.5 text-label text-muted-foreground"
           data-agent-interactive
           data-testid="agent-pr-safety-archives"
         >
@@ -1659,7 +1659,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             {t('prCard.safetyArchiveTitle', { count: presentation.safetyArchives.length })}
           </summary>
           <p className="mt-1 leading-4">{t('prCard.safetyArchiveHint')}</p>
-          <ul className="mt-1 space-y-0.5 font-mono text-caption text-foreground/70">
+          <ul className="mt-1 space-y-0.5 font-mono text-caption text-muted-foreground">
             {presentation.safetyArchives.map((archive) => (
               <li key={archive} className="break-all">{archive}</li>
             ))}
@@ -1792,7 +1792,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             </p>
           )}
           {decision === 'discarded' && (
-            <p className="flex items-center gap-1.5 text-xs text-foreground/70">
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <XCircle className="h-3.5 w-3.5" />
               {t('prCard.discardedNote')}
             </p>
@@ -1804,7 +1804,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             </p>
           )}
           {decision === 'superseded' && (
-            <p className="flex items-center gap-1.5 text-xs text-foreground/70">
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <GitPullRequest className="h-3.5 w-3.5" />
               {t('prCard.supersededNote')}
             </p>

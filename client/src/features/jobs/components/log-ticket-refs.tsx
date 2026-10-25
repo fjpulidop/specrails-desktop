@@ -50,7 +50,7 @@ export function LogTicketRef({ ticketId, onOpen, children }: LogTicketRefProps) 
       }}
       title={label}
       aria-label={label}
-      className="inline cursor-pointer p-0 align-baseline text-accent-primary/90 underline decoration-accent-primary/50 decoration-dotted underline-offset-2 transition-colors hover:text-accent-primary hover:decoration-solid"
+      className="inline cursor-pointer p-0 align-baseline text-accent-primary underline decoration-accent-primary/50 decoration-dotted underline-offset-2 transition-colors hover:text-accent-primary hover:decoration-solid"
     >
       {children}
     </button>

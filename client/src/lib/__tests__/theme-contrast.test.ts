@@ -88,25 +88,41 @@ describe('theme contrast', () => {
       expect(contrast(tokens.foreground, tokens.muted)).toBeGreaterThanOrEqual(4.5)
       expect(contrast(tokens['muted-foreground'], tokens.muted)).toBeGreaterThanOrEqual(4.5)
     })
+
+    it(`${name}: accent and destructive text reach 4.5:1 on the muted surface`, () => {
+      const failures: string[] = []
+      for (const fg of TEXT) {
+        if (!tokens[fg] || !tokens.muted) continue
+        const ratio = contrast(tokens[fg], tokens.muted)
+        if (ratio < 4.5) failures.push(`${fg} on muted: ${ratio.toFixed(2)}`)
+      }
+      expect(failures).toEqual([])
+    })
   }
 })
 
-function tsxFiles(dir: string, out: string[] = []): string[] {
+function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name === '__tests__') continue
     const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) tsxFiles(full, out)
-    else if (entry.name.endsWith('.tsx')) out.push(full)
+    if (entry.isDirectory()) sourceFiles(full, out)
+    else if (/\.(ts|tsx)$/.test(entry.name) && !/\.test\.(ts|tsx)$/.test(entry.name)) out.push(full)
   }
   return out
 }
 
-describe('muted-foreground text never fades with an alpha', () => {
-  it('has no text-/placeholder:text-muted-foreground/<alpha> in any component', () => {
+/** Text colour utilities with an alpha: the faded result is below 4.5:1 in several themes. */
+const FADED_TEXT = /(?<![\w-])(?:[a-z-]+:)*text-(?:foreground|muted-foreground|destructive|accent-[a-z]+)\/\d/
+/** Files that may fade text on purpose (decorative, aria-hidden). Keep empty; justify any entry. */
+const FADED_TEXT_ALLOWLIST = new Set<string>()
+
+describe('text never fades with an alpha', () => {
+  it('has no text-/placeholder:text-<foreground|muted|destructive|accent>/<alpha> in any source', () => {
     const offenders: string[] = []
-    for (const file of tsxFiles(SRC)) {
-      const src = fs.readFileSync(file, 'utf8')
-      if (/text-muted-foreground\/\d/.test(src)) offenders.push(path.relative(SRC, file))
+    for (const file of sourceFiles(SRC)) {
+      const rel = path.relative(SRC, file)
+      if (FADED_TEXT_ALLOWLIST.has(rel)) continue
+      if (FADED_TEXT.test(fs.readFileSync(file, 'utf8'))) offenders.push(rel)
     }
     expect(offenders).toEqual([])
   })

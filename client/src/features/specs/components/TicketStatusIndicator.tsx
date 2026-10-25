@@ -46,7 +46,7 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
     pulsing: false,
   },
   cancelled: {
-    dotClass: 'text-destructive/70',
+    dotClass: 'text-destructive',
     textClass: 'text-muted-foreground',
     labelKey: 'status.cancelled',
     pulsing: false,

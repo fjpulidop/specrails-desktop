@@ -62,7 +62,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
               <Icon className={cn('w-3 h-3 shrink-0', textAccent)} />
               <span
                 className={cn(
-                  'max-w-[120px] truncate font-medium text-foreground/90',
+                  'max-w-[120px] truncate font-medium text-foreground',
                   chip.state === 'running' && 'title-shimmer',
                 )}
               >

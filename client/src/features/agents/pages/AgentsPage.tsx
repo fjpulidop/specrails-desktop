@@ -87,7 +87,7 @@ export default function AgentsPage() {
             <div className="font-medium text-accent-warning">
               {t('page.banner.title', { required: coreStatus!.required })}
             </div>
-            <div className="text-foreground/80 mt-0.5">
+            <div className="text-foreground mt-0.5">
               <Trans
                 t={t}
                 i18nKey="page.banner.body"

@@ -134,7 +134,7 @@
     "title": "すべての呼び出し",
     "statusFilterAria": "ステータスフィルター",
     "minCostFilterAria": "最小コストフィルター",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "すべてのステータス",
     "success": "成功",
     "failed": "失敗",

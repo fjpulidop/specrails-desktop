@@ -118,35 +118,40 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
       {conversations.length > 0 && (
         <div role="tablist" className="flex shrink-0 items-center gap-0 border-b border-border/30 overflow-x-auto">
           {conversations.map((conv, i) => (
-            <div
-              key={conv.id}
-              className={cn(
-                'group flex min-w-0 flex-1 cursor-pointer items-center gap-1 px-2.5 py-1.5',
-                'text-caption transition-colors',
-                i === activeTabIndex
-                  ? 'border-b-2 border-accent-primary text-foreground'
-                  : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
-              )}
-              onClick={() => setActiveTabIndex(i)}
-              onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setActiveTabIndex(i) } }}
-              role="tab"
-              tabIndex={0}
-              aria-selected={i === activeTabIndex}
-            >
-              <span className="truncate max-w-[70px]">
-                {conv.title ?? t('panel.tabTitle', { n: i + 1 })}
-              </span>
-              {conv.isStreaming && (
-                <LiveDot tone="primary" size="xs" aria-hidden />
-              )}
+            // The close button is a sibling of the tab, not inside it: a control nested in role="tab" has no accessible name or focus of its own.
+            <div key={conv.id} className="group flex min-w-0 flex-1 items-center">
+              <div
+                className={cn(
+                  'flex min-w-0 flex-1 cursor-pointer items-center gap-1 px-2.5 py-1.5',
+                  'text-caption transition-colors',
+                  i === activeTabIndex
+                    ? 'border-b-2 border-accent-primary text-foreground'
+                    : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
+                )}
+                onClick={() => setActiveTabIndex(i)}
+                onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setActiveTabIndex(i) } }}
+                role="tab"
+                tabIndex={0}
+                aria-selected={i === activeTabIndex}
+              >
+                <span className="truncate max-w-[70px]">
+                  {conv.title ?? t('panel.tabTitle', { n: i + 1 })}
+                </span>
+                {conv.isStreaming && (
+                  <LiveDot tone="primary" size="xs" aria-hidden />
+                )}
+              </div>
               <button
-                className="ml-auto shrink-0 hidden group-hover:block text-muted-foreground hover:text-foreground"
+                type="button"
+                aria-label={t('header.deleteConversation')}
+                title={t('header.deleteConversation')}
+                className="mr-1 shrink-0 rounded-sm px-1 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 group-hover:opacity-100"
                 onClick={(e) => {
                   e.stopPropagation()
                   deleteConversation(conv.id)
                 }}
               >
-                ×
+                <span aria-hidden>×</span>
               </button>
             </div>
           ))}

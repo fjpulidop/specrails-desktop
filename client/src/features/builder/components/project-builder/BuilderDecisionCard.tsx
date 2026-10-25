@@ -63,7 +63,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
         <span
           className={cn(
             'flex items-center gap-1.5 text-xs font-semibold',
-            settled ? 'text-accent-success/90' : 'text-accent-primary/90',
+            settled ? 'text-accent-success' : 'text-accent-primary',
           )}
         >
           {settled ? <Check className="h-3 w-3" aria-hidden /> : <Sparkles className="h-3 w-3" aria-hidden />}

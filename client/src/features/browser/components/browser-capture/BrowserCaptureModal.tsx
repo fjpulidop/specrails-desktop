@@ -549,7 +549,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
         {status === 'error' ? (
           <div className="flex flex-col items-center gap-2 text-center max-w-md px-6">
             <AlertTriangle className="w-8 h-8 text-accent-warning" />
-            <p className="text-sm text-foreground/90">{errorMsg ?? t('modal.error.unavailable')}</p>
+            <p className="text-sm text-foreground">{errorMsg ?? t('modal.error.unavailable')}</p>
             <p className="text-xs text-muted-foreground"><Trans i18nKey="modal.error.devHint" t={t} components={{ cmd: <code className="font-mono" /> }} /></p>
           </div>
         ) : (
@@ -618,7 +618,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
                 type="button"
                 onClick={() => onBreadcrumbClick(seg)}
                 title={seg.selector}
-                className={`shrink-0 font-mono px-1 rounded hover:bg-card/60 transition-colors ${i === activePath.length - 1 ? 'text-accent-info font-medium' : 'text-foreground/70'}`}
+                className={`shrink-0 font-mono px-1 rounded hover:bg-card/60 transition-colors ${i === activePath.length - 1 ? 'text-accent-info font-medium' : 'text-muted-foreground'}`}
               >
                 {seg.label}
               </button>

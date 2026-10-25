@@ -31,10 +31,10 @@ export function FlowCloseDialog({ open, busy, branch = null, onOpenChange, onCon
       confirmLabel={<>{busy ? null : <LogOut className="mr-1.5 h-3.5 w-3.5" aria-hidden />}{t('flow.close.confirm')}</>}
       onConfirm={onConfirm}
     >
-      <ul className="space-y-1 rounded-lg border border-border/60 bg-surface/60 px-3 py-2 text-xs text-foreground/80" data-testid="flow-close-kept">
+      <ul className="space-y-1 rounded-lg border border-border/60 bg-surface/60 px-3 py-2 text-xs text-foreground" data-testid="flow-close-kept">
         {branch && (
           <li className="flex min-w-0 items-center gap-1.5">
-            <GitBranch className="h-3 w-3 shrink-0 text-foreground/70" aria-hidden />
+            <GitBranch className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
             <span className="shrink-0">{t('flow.close.keptBranch')}</span>
             <span className="truncate font-mono" title={branch}>{branch}</span>
           </li>

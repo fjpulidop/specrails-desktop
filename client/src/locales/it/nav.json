@@ -25,7 +25,8 @@
     "settings": "Impostazioni di {{name}}",
     "assembling": "Preparazione del workspace…",
     "assembleFailed": "Preparazione del workspace non riuscita — clicca per riprovare",
-    "retrySetup": "Riprova configurazione"
+    "retrySetup": "Riprova configurazione",
+    "removeConfirmHint": "Premi di nuovo per rimuovere {{project}}"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
@@ -42,8 +43,8 @@
     "sectionProjects": "Progetti"
   },
   "globalSurfaceModal": {
-    "loopsDescription": "Loops è aperto come modale Mission.",
-    "pluginsDescription": "Plugins è aperto come modale Mission.",
+    "loopsDescription": "Loops è aperto nella finestra Mission.",
+    "pluginsDescription": "Plugins è aperto nella finestra Mission.",
     "reviewDescription": "Il pacchetto di revisione è aperto come modale di missione."
   },
   "rightSidebar": {

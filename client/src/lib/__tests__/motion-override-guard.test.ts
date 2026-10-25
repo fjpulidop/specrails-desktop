@@ -92,4 +92,11 @@ describe('Motion setting overrides the OS preference everywhere', () => {
     expect(block!.body).toMatch(/\.animate-spin \{[^}]*animation-iteration-count: infinite !important/)
     expect(block!.body).toMatch(/transition-duration: 0\.01ms !important/)
   })
+
+  it('has ONE global reduced-motion collapse for the OS rule, and spinners keep turning under both settings', () => {
+    const css = fs.readFileSync(path.join(SRC, 'globals.css'), 'utf8')
+    const collapses = css.match(/@media \(prefers-reduced-motion: reduce\) \{\s*:root:not\(\[data-motion="full"\]\) \{\s*\*,/g) ?? []
+    expect(collapses).toHaveLength(1)
+    expect(css).toMatch(/:root\[data-motion="reduce"\] \.animate-spin \{[^}]*animation-iteration-count: infinite !important/)
+  })
 })

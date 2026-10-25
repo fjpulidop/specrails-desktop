@@ -1,6 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '../../test-utils'
+import { useLocation } from 'react-router-dom'
 import { ArcSidebar } from '../ArcSidebar'
 import type { DesktopProject } from '../../hooks/useDesktop'
 import type { AgentConversation } from '../../features/missions/lib/agent-api'
@@ -24,10 +25,6 @@ vi.mock('../../hooks/useDesktop', () => ({
   }),
 }))
 
-vi.mock('../../features/settings/components/ProjectSettingsDialog', () => ({
-  ProjectSettingsDialog: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="project-settings-dialog" /> : null,
-}))
 
 const mockToggleUiMode = vi.fn()
 vi.mock('../../context/UiModeContext', () => ({
@@ -301,11 +298,13 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(overlay?.className).toContain('opacity-100')
   })
 
-  it('hover gear opens the project settings modal and selects the project', async () => {
-    renderExpanded()
+  it('hover gear opens the project settings ROUTE (one container, not a modal twin) and selects the project', async () => {
+    function Where() { return <span data-testid="where">{useLocation().pathname}</span> }
+    render(<><ArcSidebar {...defaultProps} /><Where /></>)
     fireEvent.click(screen.getByRole('button', { name: 'Settings for Project Alpha' }))
     expect(mockSetActiveProjectId).toHaveBeenCalledWith('proj-1')
-    expect(await screen.findByTestId('project-settings-dialog')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent('/settings')
+    expect(screen.queryByTestId('project-settings-dialog')).toBeNull()
     // The gear never selects the row itself.
     expect(mockSelectConversation).not.toHaveBeenCalled()
   })

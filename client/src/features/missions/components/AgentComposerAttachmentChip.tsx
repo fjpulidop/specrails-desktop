@@ -80,7 +80,7 @@ export function AgentComposerAttachmentChip({
 
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-caption text-foreground/80"
+      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-caption text-foreground"
       data-testid="composer-attachment-pill"
     >
       <Paperclip className="h-3 w-3 text-accent-primary" />

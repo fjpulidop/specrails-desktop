@@ -64,7 +64,7 @@ function AgentEmptyStarters() {
       selection.addRange(range)
     })
   }
-  const chip = 'u-enter inline-flex h-8 items-center gap-1.5 rounded-control border border-border/60 px-3 text-label text-foreground/80 transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
+  const chip = 'u-enter inline-flex h-8 items-center gap-1.5 rounded-control border border-border/60 px-3 text-label text-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
   return (
     <div className="mt-3 flex flex-col items-center gap-2" data-testid="agent-empty-starters">
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -78,7 +78,7 @@ function AgentEmptyStarters() {
           {t('starter.plan')}
         </button>
       </div>
-      <p className="text-center text-xs text-foreground/70">{t('emptyLegend')}</p>
+      <p className="text-center text-xs text-muted-foreground">{t('emptyLegend')}</p>
     </div>
   )
 }

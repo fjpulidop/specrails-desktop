@@ -327,6 +327,7 @@
     "deleteFailed": "No se pudo eliminar la spec"
   },
   "board": {
-    "pageTitle": "{{project}}: tablero"
+    "pageTitle": "{{project}}: tablero",
+    "pageTitleBare": "Tablero"
   }
 }

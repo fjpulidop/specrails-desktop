@@ -13,7 +13,6 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/AgentRuntimeMetrics.tsx](components/AgentRuntimeMetrics.tsx)
 - [components/AgentRuntimeRuns.tsx](components/AgentRuntimeRuns.tsx)
 - [components/CustomRuntimeRoles.tsx](components/CustomRuntimeRoles.tsx)
-- [components/ProjectSettingsDialog.tsx](components/ProjectSettingsDialog.tsx)
 - [components/RuntimeEfficiencyControls.tsx](components/RuntimeEfficiencyControls.tsx)
 - [components/RuntimeExecutionEvidence.tsx](components/RuntimeExecutionEvidence.tsx)
 - [components/RuntimeGuardrails.tsx](components/RuntimeGuardrails.tsx)

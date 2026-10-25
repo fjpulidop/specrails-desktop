@@ -55,7 +55,7 @@ export function DeliveryArrival({ deliveryId, prNumber, prUrl, onOpen, compact =
         data-agent-interactive
         data-testid={linkTestId}
         className={cn(
-          'num font-semibold leading-none text-accent-info transition-colors hover:text-accent-info/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50 rounded-sm',
+          'num font-semibold leading-none text-accent-info transition-colors hover:text-accent-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50 rounded-sm',
           compact ? 'text-strong' : 'text-display',
         )}
       >

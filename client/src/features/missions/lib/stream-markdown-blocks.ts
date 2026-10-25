@@ -32,7 +32,9 @@ export function splitStreamedMarkdown(text: string): StreamChunks {
   if (text.length < STREAM_SPLIT_MIN_CHARS) return { stable: [], tail: text }
   const stable: string[] = []
   let chunkStart = 0
-  let fence: string | null = null
+  // The open fence: its character and length. A fence closes only on a run of the same
+  // character at least as long (a 4-backtick fence may carry a 3-backtick fence inside).
+  let fence: { ch: string; len: number } | null = null
   let offset = 0
   let blankBefore = false
   const lines = text.split('\n')
@@ -43,8 +45,8 @@ export function splitStreamedMarkdown(text: string): StreamChunks {
     const fenceMatch = FENCE.exec(line)
     if (fenceMatch) {
       const marker = fenceMatch[1]
-      if (fence === null) fence = marker[0]
-      else if (marker[0] === fence && line.trim().replace(/[`~]/g, '') === '') fence = null
+      if (fence === null) fence = { ch: marker[0], len: marker.length }
+      else if (marker[0] === fence.ch && marker.length >= fence.len && line.trim().replace(/[`~]/g, '') === '') fence = null
       blankBefore = false
       continue
     }

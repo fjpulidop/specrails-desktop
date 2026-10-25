@@ -524,14 +524,14 @@ export const LogLine = memo(function LogLine({
             prose-ul:my-1 prose-ol:my-1 prose-li:my-0
             prose-code:text-accent-info prose-code:text-caption prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
             prose-pre:my-1 prose-pre:bg-muted/30 prose-pre:rounded-md prose-pre:p-2 prose-pre:text-caption
-            prose-strong:text-foreground prose-em:text-foreground/70
+            prose-strong:text-foreground prose-em:text-muted-foreground
             prose-a:text-accent-primary prose-a:no-underline hover:prose-a:underline
             prose-table:my-2 prose-table:text-caption
             prose-thead:border-border prose-thead:bg-muted/30
-            prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:font-semibold prose-th:text-foreground/90
+            prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:font-semibold prose-th:text-foreground
             prose-td:px-3 prose-td:py-1.5 prose-td:border-border
             prose-tr:border-border
-            text-foreground/80"
+            text-foreground"
         >
           <ReactMarkdown
             remarkPlugins={remarkPlugins}
@@ -560,13 +560,13 @@ export const LogLine = memo(function LogLine({
             line.type === 'tool-use'    && 'text-accent-info text-caption',
             line.type === 'stderr'      && 'text-accent-warning',
             line.type === 'result'      && 'text-accent-success font-medium',
-            line.type === 'log'         && 'text-foreground/60',
-            line.type === 'plain'       && 'text-foreground/70',
+            line.type === 'log'         && 'text-muted-foreground',
+            line.type === 'plain'       && 'text-muted-foreground',
             line.type === 'tool-result' && 'text-muted-foreground',
             isDiffAdd    && 'text-accent-success',
             isDiffRemove && 'text-destructive',
-            isDiffMeta   && 'text-accent-primary/80',
-            isDiffHunk   && 'text-accent-info/80',
+            isDiffMeta   && 'text-accent-primary',
+            isDiffHunk   && 'text-accent-info',
           )}
         >
           {plainContent}

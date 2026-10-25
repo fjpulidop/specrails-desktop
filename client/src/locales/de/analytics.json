@@ -134,7 +134,7 @@
     "title": "Alle Aufrufe",
     "statusFilterAria": "Statusfilter",
     "minCostFilterAria": "Mindestkosten-Filter",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "Alle Status",
     "success": "Erfolgreich",
     "failed": "Fehlgeschlagen",

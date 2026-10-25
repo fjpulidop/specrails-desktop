@@ -236,7 +236,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
                   {t('prerequisites.bundledBadge')}
                 </span>
               )}
-              <span className={cn('text-muted-foreground', isCorrupted && 'text-destructive/80')}>
+              <span className={cn('text-muted-foreground', isCorrupted && 'text-destructive')}>
                 — {formatVersionLabel(item, t)}
               </span>
             </li>

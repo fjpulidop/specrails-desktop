@@ -111,17 +111,17 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
       </div>
       <div className="space-y-3 px-3.5 py-3">
         {offer.ticketId ? (
-          <p data-testid="flow-offer-spec" className="flex min-w-0 items-baseline gap-1.5 text-sm text-foreground/90">
-            <span className="shrink-0 font-mono text-xs text-foreground/70">{t('flow.entry.existingSpec.label', { id: offer.ticketId })}</span>
+          <p data-testid="flow-offer-spec" className="flex min-w-0 items-baseline gap-1.5 text-sm text-foreground">
+            <span className="shrink-0 font-mono text-xs text-muted-foreground">{t('flow.entry.existingSpec.label', { id: offer.ticketId })}</span>
             <span className="min-w-0 truncate" title={offer.title ?? offer.idea}>{offer.title ?? offer.idea}</span>
           </p>
         ) : (
-          <p className="text-sm text-foreground/90">{offer.idea}</p>
+          <p className="text-sm text-foreground">{offer.idea}</p>
         )}
         {offer.reason && (
           <div data-testid="flow-offer-reason" className="text-xs leading-5">
-            <p className="font-medium text-foreground/75">{t('flow.offer.why')}</p>
-            <p className="text-foreground/70">{offer.reason}</p>
+            <p className="font-medium text-muted-foreground">{t('flow.offer.why')}</p>
+            <p className="text-muted-foreground">{offer.reason}</p>
           </div>
         )}
         <div className="grid gap-2 sm:grid-cols-2">
@@ -147,16 +147,16 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
                   <Icon className={cn('h-3.5 w-3.5', mode === 'flow' ? 'text-accent-flow' : 'text-accent-primary')} aria-hidden />
                   {t(`flow.offer.mode.${mode}.title`)}
                 </span>
-                <span className="text-xs leading-4 text-foreground/70">{t(`flow.offer.mode.${mode}.${offer.ticketId ? 'hintExisting' : 'hint'}`)}</span>
+                <span className="text-xs leading-4 text-muted-foreground">{t(`flow.offer.mode.${mode}.${offer.ticketId ? 'hintExisting' : 'hint'}`)}</span>
               </button>
             )
           })}
         </div>
         <div className="flex items-center justify-between gap-2">
-          <p id={hintId} className="min-w-0 text-xs text-foreground/70" data-testid="flow-offer-streaming-hint">
+          <p id={hintId} className="min-w-0 text-xs text-muted-foreground" data-testid="flow-offer-streaming-hint">
             {isStreaming ? t('flow.offer.waitForReply') : null}
           </p>
-          <button type="button" data-agent-interactive data-testid="flow-offer-dismiss" disabled={disabled} onClick={() => void dismiss()} className="shrink-0 rounded-md px-2 py-0.5 text-xs text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:opacity-50">
+          <button type="button" data-agent-interactive data-testid="flow-offer-dismiss" disabled={disabled} onClick={() => void dismiss()} className="shrink-0 rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:opacity-50">
             {t('flow.offer.notNow')}
           </button>
         </div>
@@ -215,7 +215,7 @@ function FlowOfferStub({ intent, handOff, flow, conversationId }: { intent: Agen
       data-testid={`flow-offer-stub-${dismissed ? 'dismissed' : chosen ?? 'accepted'}`}
       className={cn(
         'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
-        dismissed ? 'border-border/50 bg-surface/40 text-foreground/70' : chosen === 'flow' ? 'border-accent-flow/30 bg-accent-flow/[0.06] text-foreground/80' : 'border-accent-primary/30 bg-accent-primary/[0.06] text-foreground/80',
+        dismissed ? 'border-border/50 bg-surface/40 text-muted-foreground' : chosen === 'flow' ? 'border-accent-flow/30 bg-accent-flow/[0.06] text-foreground' : 'border-accent-primary/30 bg-accent-primary/[0.06] text-foreground',
       )}
     >
       <Icon className={cn('h-3.5 w-3.5 shrink-0', chosen === 'flow' && !dismissed ? 'text-accent-flow' : dismissed ? '' : 'text-accent-primary')} aria-hidden />

@@ -63,7 +63,7 @@ export function FreestyleLaunchDialog({ open, railLabel, specCount, provider = '
         </DialogHeader>
 
         <DialogBody className="space-y-4">
-          <p className="text-label text-foreground/80" data-testid="freestyle-launch-context">
+          <p className="text-label text-foreground" data-testid="freestyle-launch-context">
             {t('freestyleDialog.context', { rail: railLabel, count: specCount })}
             {model ? ` · ${model}` : ''}
           </p>

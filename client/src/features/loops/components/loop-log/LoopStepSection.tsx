@@ -77,7 +77,7 @@ function DetailField({ label, value, copyLabel }: { label: string; value: string
           )}
         </button>
       </div>
-      <pre className="mt-0.5 text-caption font-mono leading-relaxed text-foreground/75 whitespace-pre-wrap break-words">
+      <pre className="mt-0.5 text-caption font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap break-words">
         {value}
       </pre>
     </div>
@@ -215,7 +215,7 @@ function LoopStepSectionInner({
             </span>
           )}
           {status === 'failed' && end?.exitCode != null && end.exitCode !== 0 && (
-            <span className="text-caption text-destructive/70 font-mono shrink-0">
+            <span className="text-caption text-destructive font-mono shrink-0">
               {t('activeJob.exitCode', { code: end.exitCode })}
             </span>
           )}
@@ -349,7 +349,7 @@ function LoopSetupSectionInner({ lines, collapsed, filter, onToggle, setRef, onO
             !collapsed && 'rotate-90',
           )}
         />
-        <Play className="w-3.5 h-3.5 text-accent-success/70 shrink-0" />
+        <Play className="w-3.5 h-3.5 text-accent-success shrink-0" />
         <span className="text-caption font-semibold text-muted-foreground leading-none">
           {t('loopExplorer.setup')}
         </span>

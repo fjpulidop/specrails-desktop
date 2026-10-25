@@ -617,7 +617,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         data-testid={launched ? 'agent-rail-launch-stub-launched' : 'agent-rail-launch-stub-dismissed'}
         className={cn(
           'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
-          launched ? 'border-accent-success/30 bg-accent-success/[0.06] text-foreground/80' : 'border-border/50 bg-surface/40 text-foreground/50',
+          launched ? 'border-accent-success/30 bg-accent-success/[0.06] text-foreground' : 'border-border/50 bg-surface/40 text-muted-foreground',
         )}
       >
         {launched ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent-success" /> : <Ban className="h-3.5 w-3.5 shrink-0" />}
@@ -626,7 +626,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             ? t('railCard.stub.launched', { rail: typeof decided.railIndex === 'number' ? decided.railIndex + 1 : '?' })
             : t('railCard.stub.dismissed')}
           {' '}
-          <span className="text-foreground/50">{proposal.ticketIds.map((id) => `#${id}`).join(' ')}</span>
+          <span className="text-muted-foreground">{proposal.ticketIds.map((id) => `#${id}`).join(' ')}</span>
         </span>
         {launched && (
           <button
@@ -635,7 +635,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             data-testid="agent-rail-launch-focus-card"
             title={t('railCard.stub.goToCardTitle')}
             onClick={focusCard}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-card/70 px-2 py-0.5 text-caption font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:text-foreground"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-card/70 px-2 py-0.5 text-caption font-medium text-muted-foreground transition-colors hover:border-accent-primary/40 hover:text-foreground"
           >
             <Pin className="h-3 w-3" />
             {t('railCard.stub.goToCard')}
@@ -696,11 +696,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     )
     return (
       <div role="group" aria-label={handOff.heading} data-testid="agent-rail-launch-card" data-hand-off="true" className="space-y-2 px-0.5 text-xs">
-        <p data-testid="rail-card-hand-off-line" className="text-body text-foreground/90">
+        <p data-testid="rail-card-hand-off-line" className="text-body text-foreground">
           {handOff.summary(railWords)}
           {handOff.lineAside}
         </p>
-        {handOff.note && <p data-testid="rail-card-hand-off-note" className="text-label leading-4 text-foreground/75">{handOff.note}</p>}
+        {handOff.note && <p data-testid="rail-card-hand-off-note" className="text-label leading-4 text-muted-foreground">{handOff.note}</p>}
         {handOff.lineNote}
         {forecastEl}
         {launchGuard.dialog}
@@ -711,7 +711,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             <div className="min-w-0 flex-1">
               <div className="font-medium">{t(`railCard.errors.${inlineError.error}`, { defaultValue: inlineError.error })}</div>
               {inlineError.detail && <div>{inlineError.detail}</div>}
-              {inlineError.action && <div className="text-foreground/75">{inlineError.action}</div>}
+              {inlineError.action && <div className="text-muted-foreground">{inlineError.action}</div>}
               {inlineError.error === 'repository_has_no_commits' && projectId && (
                 <InitialCommitButton projectId={projectId} className="mt-1.5" onCreated={() => setInlineError(null)} />
               )}
@@ -729,13 +729,13 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             aria-expanded={howOpen}
             aria-controls={howId}
             onClick={() => setHowOpen((value) => !value)}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-label text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-label text-muted-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
           >
             <ChevronRight className={cn('h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none', howOpen && 'rotate-90')} aria-hidden />
             {t('railCard.handOff.changeHow')}
           </button>
           <HelpHint topic="flowHandOff" />
-          <span className="min-w-0 flex-1 text-label text-foreground/70" data-testid="rail-card-hand-off-status">
+          <span className="min-w-0 flex-1 text-label text-muted-foreground" data-testid="rail-card-hand-off-status">
             {blockReason && !inlineError ? blockReason : null}
           </span>
           <button
@@ -744,7 +744,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             data-testid="rail-card-dismiss"
             disabled={!!busy}
             onClick={() => void dismiss()}
-            className="rounded-md px-2 py-1 text-xs text-foreground/75 transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50"
+            className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50"
           >
             {handOff.dismissLabel}
           </button>
@@ -782,7 +782,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
                 aria-label={createsRail ? t('railCard.fields.newRailName') : t('railCard.fields.railName')}
                 placeholder={createsRail ? t('railCard.fields.newRailName') : t('railCard.fields.railName')}
                 onChange={(e) => patch({ railName: e.target.value })}
-                className="h-7 min-w-[120px] flex-1 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/55 focus:border-accent-primary/50"
+                className="h-7 min-w-[120px] flex-1 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-accent-primary/50"
               />
             )}
           </div>
@@ -805,7 +805,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   }
 
   const statusPill = loading
-    ? { tone: 'border-border/60 bg-surface/60 text-foreground/50', label: t('railCard.status.loading') }
+    ? { tone: 'border-border/60 bg-surface/60 text-muted-foreground', label: t('railCard.status.loading') }
     : blockReason
       ? { tone: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning', label: t('railCard.status.blocked') }
       : { tone: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary', label: t('railCard.status.ready') }
@@ -823,11 +823,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     >
       {/* Header: identity + status pill */}
       <div className="flex items-center gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
-        <span className="flex shrink-0 items-center gap-1.5 text-caption font-semibold text-accent-primary/90">
+        <span className="flex shrink-0 items-center gap-1.5 text-caption font-semibold text-accent-primary">
           <Rocket className="h-3 w-3" />
           {t('railCard.heading')}
         </span>
-        <span className="min-w-0 flex-1 truncate text-caption text-foreground/55">
+        <span className="min-w-0 flex-1 truncate text-caption text-muted-foreground">
           {validTicketIds.map((id) => `#${id}`).join(' ')}
         </span>
         <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-caption font-medium', statusPill.tone)}>
@@ -841,19 +841,19 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         {triagedSpecs.length > 0 ? (
           <ul className="space-y-1" data-testid="rail-card-triage">
             {triagedSpecs.map(({ id, triage }) => (
-              <li key={id} className="flex min-w-0 items-start gap-1.5 text-xs text-foreground/70">
-                <Gauge className="mt-0.5 h-3 w-3 shrink-0 text-accent-info/80" aria-label={t('railCard.triageLabel')} />
-                <span className="shrink-0 font-mono text-foreground/55">#{id}</span>
+              <li key={id} className="flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
+                <Gauge className="mt-0.5 h-3 w-3 shrink-0 text-accent-info" aria-label={t('railCard.triageLabel')} />
+                <span className="shrink-0 font-mono text-muted-foreground">#{id}</span>
                 <span className="min-w-0">
                   <TriageSummaryLine triage={triage} className="text-accent-info" />
-                  {triage.rationale && <span className="block italic text-foreground/60">{triage.rationale}</span>}
+                  {triage.rationale && <span className="block italic text-muted-foreground">{triage.rationale}</span>}
                 </span>
               </li>
             ))}
           </ul>
         ) : proposal.rationale && (
-          <p className="flex items-start gap-1.5 text-xs italic text-foreground/60">
-            <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-accent-primary/70" />
+          <p className="flex items-start gap-1.5 text-xs italic text-muted-foreground">
+            <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-accent-primary" />
             <span>{proposal.rationale}</span>
           </p>
         )}
@@ -878,7 +878,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               maxLength={60}
               placeholder={createsRail ? t('railCard.fields.newRailName') : t('railCard.fields.railName')}
               onChange={(e) => patch({ railName: e.target.value })}
-              className="h-7 min-w-[120px] flex-1 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/60 focus:border-accent-primary/50"
+              className="h-7 min-w-[120px] flex-1 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-accent-primary/50"
             />
           )}
         </div>
@@ -908,7 +908,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
                   aria-label={t('railCard.fields.removeSpec', { id })}
                   disabled={loading || !!busy}
                   onClick={() => changeTickets(config.ticketIds.filter((x) => x !== id))}
-                  className="rounded-full p-0.5 text-accent-primary/60 hover:bg-accent-primary/20 hover:text-accent-primary"
+                  className="rounded-full p-0.5 text-accent-primary hover:bg-accent-primary/20 hover:text-accent-primary"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -934,8 +934,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               label={t('railCard.repositories.launch')} hint={t('railCard.repositories.launchHint')} />
             <div className="space-y-1.5 border-t border-border/40 pt-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-caption text-foreground/55">{t('railCard.repositories.assignments')}</p>
-                <button type="button" data-agent-interactive disabled={!!busy || !!scopeEdit} className="inline-flex items-center gap-1 text-caption text-foreground/60 hover:text-accent-primary disabled:opacity-40" onClick={() => setRefreshVersion(version => version + 1)}>
+                <p className="text-caption text-muted-foreground">{t('railCard.repositories.assignments')}</p>
+                <button type="button" data-agent-interactive disabled={!!busy || !!scopeEdit} className="inline-flex items-center gap-1 text-caption text-muted-foreground hover:text-accent-primary disabled:opacity-40" onClick={() => setRefreshVersion(version => version + 1)}>
                   <RefreshCw className="h-3 w-3" />{t('railCard.repositories.refresh')}
                 </button>
               </div>
@@ -946,8 +946,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
                 return <div key={id} className="space-y-2" data-testid={`rail-card-spec-scope-${id}`}>
                   <div className="flex items-center gap-2 text-caption">
                     <span className="shrink-0 text-accent-primary" title={ticket.title}>#{id}</span>
-                    <span className="min-w-0 flex-1 break-words text-foreground/75">{specRepositories(ticket, repositories).map(repositoryName).join(' · ')}</span>
-                    <button type="button" data-agent-interactive aria-label={t('railCard.repositories.editSpec', { id })} disabled={!!busy || !!scopeEdit} className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-foreground/60 hover:bg-accent-primary/10 hover:text-accent-primary disabled:opacity-40"
+                    <span className="min-w-0 flex-1 break-words text-muted-foreground">{specRepositories(ticket, repositories).map(repositoryName).join(' · ')}</span>
+                    <button type="button" data-agent-interactive aria-label={t('railCard.repositories.editSpec', { id })} disabled={!!busy || !!scopeEdit} className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-muted-foreground hover:bg-accent-primary/10 hover:text-accent-primary disabled:opacity-40"
                       onClick={() => { setScopeEdit({ ticketId: id, repositoryIds: specRepositories(ticket, repositories) }); setInlineError(null) }}>
                       <Pencil className="h-3 w-3" />{t('railCard.repositories.edit')}
                     </button>
@@ -956,7 +956,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
                     <RepositoryScopeSelector showSingle repositories={repositories} value={scopeEdit.repositoryIds} onChange={repositoryIds => setScopeEdit({ ticketId: id, repositoryIds })} disabled={!!busy}
                       label={t('railCard.repositories.spec', { id })} hint={t('railCard.repositories.saveHint')} />
                     <div className="flex justify-end gap-2">
-                      <button type="button" data-agent-interactive disabled={!!busy} className="rounded px-2 py-1 text-xs text-foreground/65 hover:bg-surface" onClick={() => { setScopeEdit(null); setInlineError(null) }}>{t('railCard.repositories.cancel')}</button>
+                      <button type="button" data-agent-interactive disabled={!!busy} className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-surface" onClick={() => { setScopeEdit(null); setInlineError(null) }}>{t('railCard.repositories.cancel')}</button>
                       <button type="button" data-agent-interactive disabled={!!busy || !validEdit} className="inline-flex items-center gap-1 rounded bg-accent-primary/15 px-2 py-1 text-xs text-accent-primary hover:bg-accent-primary/25 disabled:opacity-40" onClick={() => void saveScope()}>
                         {busy === 'scope' && <Loader2 className="h-3 w-3 animate-spin" />}{t('railCard.repositories.save')}
                       </button>
@@ -971,11 +971,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         )}
         {droppedTickets.length > 0 && <Note tone="muted" text={t('railCard.notes.specsDropped', { ids: droppedTickets.map((id) => `#${id}`).join(', ') })} />}
         {openAddendaTotal > 0 && (
-          <div data-testid="rail-card-addenda" className="flex items-start gap-1.5 rounded-lg border border-accent-primary/25 bg-accent-primary/[0.05] px-2.5 py-1.5 text-caption text-foreground/75">
-            <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary/80" />
+          <div data-testid="rail-card-addenda" className="flex items-start gap-1.5 rounded-lg border border-accent-primary/25 bg-accent-primary/[0.05] px-2.5 py-1.5 text-caption text-muted-foreground">
+            <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" />
             <span>
               {t('railCard.addenda.rides', { count: openAddendaTotal })}{' '}
-              <span className="text-foreground/50">{openAddendaTitles.join(' · ')}</span>
+              <span className="text-muted-foreground">{openAddendaTitles.join(' · ')}</span>
             </span>
           </div>
         )}
@@ -1001,8 +1001,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
 
         {/* Delivery target (optional). */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <label className="inline-flex items-center gap-1 text-foreground/60">
-            <GitPullRequest className="h-3.5 w-3.5 text-accent-primary/70" />
+          <label className="inline-flex items-center gap-1 text-muted-foreground">
+            <GitPullRequest className="h-3.5 w-3.5 text-accent-primary" />
             <span className="sr-only">{t('railCard.fields.targetPr')}</span>
             <input
               type="number"
@@ -1014,11 +1014,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               placeholder={t('railCard.fields.targetPr')}
               disabled={!!busy}
               onChange={(e) => patch({ targetPrNumber: e.target.value ? Math.max(1, Math.floor(Number(e.target.value))) : null })}
-              className="h-7 w-28 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/60 focus:border-accent-primary/50"
+              className="h-7 w-28 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-accent-primary/50"
             />
           </label>
-          <label className="inline-flex items-center gap-1 text-foreground/60">
-            <GitBranch className="h-3.5 w-3.5 text-accent-primary/70" />
+          <label className="inline-flex items-center gap-1 text-muted-foreground">
+            <GitBranch className="h-3.5 w-3.5 text-accent-primary" />
             <span className="sr-only">{t('railCard.fields.baseBranch')}</span>
             <input
               type="text"
@@ -1028,7 +1028,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               placeholder={t('railCard.fields.baseBranch')}
               disabled={!!busy}
               onChange={(e) => patch({ baseBranch: e.target.value })}
-              className="h-7 w-40 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/60 focus:border-accent-primary/50"
+              className="h-7 w-40 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-accent-primary/50"
             />
           </label>
         </div>
@@ -1036,35 +1036,35 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         {config.followUp && (
           <div data-testid="rail-card-follow-up" className="rounded-lg border border-accent-primary/25 bg-accent-primary/[0.05] px-2.5 py-2 text-xs">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 font-medium text-foreground/85">
-                <MessageSquareText className="h-3.5 w-3.5 text-accent-primary/80" />
+              <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                <MessageSquareText className="h-3.5 w-3.5 text-accent-primary" />
                 {t('railCard.followUp.title', { count: config.followUp.comments.length })}
               </span>
-              <span className="text-foreground/55">{config.followUp.scope.objective}</span>
+              <span className="text-muted-foreground">{config.followUp.scope.objective}</span>
             </div>
             <ul className="mt-1.5 space-y-1">
               {config.followUp.comments.map((comment) => (
-                <li key={comment.id} className="flex gap-2 text-foreground/75">
-                  <span className="shrink-0 rounded bg-surface/70 px-1 font-mono text-caption text-foreground/60">{comment.id}</span>
+                <li key={comment.id} className="flex gap-2 text-muted-foreground">
+                  <span className="shrink-0 rounded bg-surface/70 px-1 font-mono text-caption text-muted-foreground">{comment.id}</span>
                   <span className="min-w-0">
                     {comment.path ? <span className="font-mono text-caption text-accent-info">{comment.path}{comment.line ? `:${comment.line}` : ''} · </span> : null}
                     <span className="line-clamp-2">{comment.body}</span>
-                    <span className="ml-1 text-caption text-foreground/45">{t(`railCard.followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}</span>
+                    <span className="ml-1 text-caption text-muted-foreground">{t(`railCard.followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}</span>
                   </span>
                 </li>
               ))}
             </ul>
             {config.followUp.scope.excludedChanges.length > 0 && (
-              <div className="mt-1.5 text-foreground/60">
+              <div className="mt-1.5 text-muted-foreground">
                 <span className="font-medium">{t('railCard.followUp.excluded')}:</span> {config.followUp.scope.excludedChanges.join(' · ')}
               </div>
             )}
             {config.followUp.scope.verification.length > 0 && (
-              <div className="mt-1 text-foreground/60">
+              <div className="mt-1 text-muted-foreground">
                 <span className="font-medium">{t('railCard.followUp.verification')}:</span> {config.followUp.scope.verification.join(' · ')}
               </div>
             )}
-            <div className="mt-1.5 text-caption text-foreground/45">{t('railCard.followUp.specUntouched')}</div>
+            <div className="mt-1.5 text-caption text-muted-foreground">{t('railCard.followUp.specUntouched')}</div>
           </div>
         )}
 
@@ -1073,8 +1073,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <div className="min-w-0 flex-1">
               <div className="font-medium">{t(`railCard.errors.${inlineError.error}`, { defaultValue: inlineError.error })}</div>
-              {inlineError.detail && <div className="text-destructive/80">{inlineError.detail}</div>}
-              {inlineError.action && <div className="text-foreground/70">{inlineError.action}</div>}
+              {inlineError.detail && <div className="text-destructive">{inlineError.detail}</div>}
+              {inlineError.action && <div className="text-muted-foreground">{inlineError.action}</div>}
               {inlineError.error === 'repository_has_no_commits' && projectId && (
                 // After the commit the error clears and Play launches again.
                 <InitialCommitButton projectId={projectId} className="mt-1.5" onCreated={() => setInlineError(null)} />
@@ -1090,7 +1090,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         {forecastEl}
         {launchGuard.dialog}
         <div className="flex items-center justify-between gap-2 pt-0.5">
-          <span className="min-w-0 flex-1 text-caption text-foreground/45">
+          <span className="min-w-0 flex-1 text-caption text-muted-foreground">
             {blockReason ?? t('railCard.playHint')}
           </span>
           <button
@@ -1099,7 +1099,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             data-testid="rail-card-dismiss"
             disabled={!!busy}
             onClick={() => void dismiss()}
-            className="rounded-md px-2 py-1 text-xs text-foreground/60 transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50"
+            className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50"
           >
             {t('railCard.dismiss')}
           </button>
@@ -1130,7 +1130,7 @@ function Note({ tone, text, action }: { tone: 'warning' | 'muted'; text: string;
     <div
       className={cn(
         'flex items-center gap-2 rounded-lg border px-2.5 py-1 text-caption',
-        tone === 'warning' ? 'border-accent-warning/35 bg-accent-warning/10 text-accent-warning' : 'border-border/50 bg-surface/40 text-foreground/55',
+        tone === 'warning' ? 'border-accent-warning/35 bg-accent-warning/10 text-accent-warning' : 'border-border/50 bg-surface/40 text-muted-foreground',
       )}
     >
       {tone === 'warning' && <AlertTriangle className="h-3 w-3 shrink-0" />}
@@ -1162,9 +1162,9 @@ export function AgentRailLaunchUnreadable({ excerpts }: { excerpts: string[] }) 
     <div
       data-testid="agent-rail-launch-unreadable"
       title={excerpts.join('\n')}
-      className="my-1 inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-surface/40 px-2.5 py-1 text-caption text-foreground/55"
+      className="my-1 inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-surface/40 px-2.5 py-1 text-caption text-muted-foreground"
     >
-      <AlertTriangle className="h-3 w-3 shrink-0 text-accent-warning/80" />
+      <AlertTriangle className="h-3 w-3 shrink-0 text-accent-warning" />
       {t('railCard.unreadable', { count: excerpts.length })}
     </div>
   )

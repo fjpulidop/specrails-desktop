@@ -125,7 +125,7 @@ describe('rankSettings', () => {
   it('also offers the Budget panel action when the query names a cap (/budget, /weekly, /monthly), only with a project', () => {
     for (const q of ['budget', 'weekly', 'monthly', 'cap']) {
       const rows = rankAll(t, q, { hasProject: true, cap: 8 })
-      expect(rows.find((r) => r.kind === 'action'), q).toMatchObject({ kind: 'action', actionId: 'budget.open', label: 'Open Budget (caps, projection, what-if)' })
+      expect(rows.find((r) => r.kind === 'action'), q).toMatchObject({ kind: 'action', actionId: 'budget.open', label: 'Open Budget (limits, projection, what-if)' })
     }
     expect(rankAll(t, 'weekly', { hasProject: false, cap: 8 }).some((r) => r.kind === 'action')).toBe(false)
     expect(rankAll(t, 'webhook', { hasProject: true, cap: 8 }).some((r) => r.kind === 'action')).toBe(false)

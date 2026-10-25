@@ -141,7 +141,7 @@ function Callout({ accent, label, children }: { accent: Accent; label?: string; 
   return (
     <div className={cn('rounded-lg border p-3', accent.softBorder, accent.softBg)}>
       {label && <p className="text-xs font-semibold text-foreground mb-1">{label}</p>}
-      <div className="text-xs text-foreground/90 leading-relaxed">{children}</div>
+      <div className="text-xs text-foreground leading-relaxed">{children}</div>
     </div>
   )
 }
@@ -533,7 +533,7 @@ function buildSteps(t: TFunction): StepConfig[] {
               [t('onboarding.providers.table.agentProfiles'), t('common:states.yes'), '—'],
             ].map((row) => (
               <div key={row[0]} className="grid grid-cols-[1.4fr_1fr_1fr] border-t border-border/30">
-                <div className="px-3 py-2 text-foreground/90">{row[0]}</div>
+                <div className="px-3 py-2 text-foreground">{row[0]}</div>
                 <div className="px-3 py-2 text-center text-muted-foreground">{row[1]}</div>
                 <div className="px-3 py-2 text-center text-muted-foreground">{row[2]}</div>
               </div>

@@ -47,7 +47,7 @@ export function BuilderRecentBlueprints({ items, loading, disabled = false, onRe
     >
       <div className="mb-2 flex items-center gap-2 px-1">
         <History className="h-3.5 w-3.5 text-accent-secondary" aria-hidden />
-        <h3 className="text-xs font-semibold text-foreground/80">{t('recent.title')}</h3>
+        <h3 className="text-xs font-semibold text-foreground">{t('recent.title')}</h3>
         {loading && <LiveDot tone="muted" size="xs" className="ml-auto" aria-hidden />}
       </div>
       <ul className="space-y-1">

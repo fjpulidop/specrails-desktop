@@ -37,7 +37,7 @@ const SEGMENT_TONE: Record<SegmentKey, string> = {
 }
 
 const STATE_TONE: Record<MilestoneState, string> = {
-  planned: 'border-border/60 bg-surface/60 text-foreground/60',
+  planned: 'border-border/60 bg-surface/60 text-muted-foreground',
   committed: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
   running: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
   delivered: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',

@@ -198,6 +198,18 @@ A streamed token must never re-render anything but the text it extends. The rule
   router's React state commits as a transition. `useMissionPlaceSync` acts on the real
   URL and never reads a trailing router state as Back/Forward, so a cached revisit is
   not pulled back to the mission just left.
+- **Invariants the store depends on** (guarded by
+  [`streaming-store-regressions.test.tsx`](components/__tests__/streaming-store-regressions.test.tsx)):
+  a snapshot read (a hover prefetch included) is stamped with the WS event version it
+  started at and never writes live state if any event arrived since; the `LiveTail`
+  lingers until the deferred transcript has painted the turn's final row (hand-off in
+  one commit, no blank frame); interactive cards in settled rows (option chips aside)
+  read the conversation's streaming flag through `useIsConversationStreaming`, so old
+  rows stay memoised yet an old Flow offer is disabled mid-turn; a mission reopened
+  mid-history lays rows out fully (no `content-visibility` estimates under a restored
+  scroll offset); a revalidation keeps the optimistic `local-u-` / `err-` rows the
+  server has not echoed (`retainOptimisticRows`) and drops them once the persisted copy
+  arrives. `lib/auth.ts` read-sharing is invalidated on every WS event.
 - **Not adopted, on measurement:** a Web Worker for markdown (parse is ~20 % of a
   streaming frame after chunking; AST transfer would cost more than it saves) and list
   virtualisation of the transcript (rows are heterogeneous cards with sub-agent

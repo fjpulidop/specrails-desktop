@@ -64,12 +64,12 @@ describe('OnboardingWizard', () => {
     }
   })
 
-  it('shows "Get Started" on the last step and dismisses on click', () => {
+  it('shows "Get started" on the last step and dismisses on click', () => {
     render(<OnboardingWizard open={true} onClose={onClose} />)
     for (let i = 0; i < STEP_TITLES.length - 1; i++) {
       fireEvent.click(screen.getByTestId('onboarding-next'))
     }
-    expect(screen.getByText('Get Started')).toBeTruthy()
+    expect(screen.getByText('Get started')).toBeTruthy()
     fireEvent.click(screen.getByTestId('onboarding-next'))
     expect(onClose).toHaveBeenCalled()
     // Completing the whole tour counts as "seen".

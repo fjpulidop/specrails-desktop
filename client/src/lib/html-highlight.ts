@@ -58,5 +58,5 @@ export const HL_CLASS: Record<HlTokenType, string> = {
   attr: 'text-accent-secondary',
   value: 'text-accent-success',
   punct: 'text-muted-foreground',
-  text: 'text-foreground/80',
+  text: 'text-foreground',
 }

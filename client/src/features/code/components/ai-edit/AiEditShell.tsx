@@ -6,7 +6,6 @@ import {
   Sparkles,
   ArrowLeft,
   Check,
-  Loader2,
   ExternalLink,
   AlertTriangle,
   Minus,
@@ -21,6 +20,7 @@ import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
 import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from '../../../../components/ui/dialog'
 import { DIALOG_LAYER_CLASS } from '../../../../lib/layers'
 
+import { RailTrack } from '../../../../components/brand/RailTrack'
 /**
  * Detect Tauri-on-Mac so we can reserve ~80px on the left for the native
  * traffic-light controls (close/min/max). Web build returns false → no padding.
@@ -460,7 +460,7 @@ function SuggestionChips({
             key={chip}
             type="button"
             onClick={() => onPick(chip)}
-            className="text-xs px-3 py-1.5 rounded-full border border-border bg-card/40 hover:border-accent-primary/50 hover:bg-accent-primary/10 hover:text-accent-primary text-foreground/80 transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+            className="text-xs px-3 py-1.5 rounded-full border border-border bg-card/40 hover:border-accent-primary/50 hover:bg-accent-primary/10 hover:text-accent-primary text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           >
             {chip}
           </button>
@@ -475,13 +475,13 @@ function StreamingPanel({ streamingText }: { streamingText?: string }) {
   return (
     <div className="rounded-xl border border-accent-primary/30 bg-accent-primary/5 p-4">
       {streamingText ? (
-        <div className="text-xs font-mono whitespace-pre-wrap break-words text-foreground/80 max-h-64 overflow-y-auto leading-relaxed">
+        <div className="text-xs font-mono whitespace-pre-wrap break-words text-foreground max-h-64 overflow-y-auto leading-relaxed">
           {stripMarkers(streamingText)}
           <span className="inline-block w-1.5 h-3 bg-accent-primary motion-safe:animate-pulse align-middle ml-0.5" />
         </div>
       ) : (
         <div className="text-xs text-muted-foreground italic flex items-center gap-1.5">
-          <Loader2 className="w-3 h-3 animate-spin" />
+          <RailTrack running className="w-10" />
           {t('shell.workingOnRefinement')}
         </div>
       )}
@@ -519,7 +519,7 @@ function CurrentBodyDisclosure({ body, label }: { body: string; label: string })
         {label}
       </button>
       {open && (
-        <pre className="mt-2 p-3 rounded-md bg-muted/40 border border-border text-xs font-mono whitespace-pre-wrap break-words max-h-72 overflow-y-auto text-foreground/80">
+        <pre className="mt-2 p-3 rounded-md bg-muted/40 border border-border text-xs font-mono whitespace-pre-wrap break-words max-h-72 overflow-y-auto text-foreground">
           {body}
         </pre>
       )}
@@ -630,7 +630,7 @@ function ChatTurn({ turn }: { turn: AiEditHistoryTurn }) {
         <div className="flex items-center gap-1.5 font-medium mb-1 text-accent-info">
           <Sparkles className="w-3 h-3" /> {t('shell.autoTestResult')}
         </div>
-        <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
+        <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground max-h-48 overflow-y-auto">
           {turn.content}
         </pre>
       </div>
@@ -746,7 +746,7 @@ export function WordDiffView({ hunks }: { hunks: DiffHunk[] }) {
   return (
     <pre className="font-mono text-xs leading-5 whitespace-pre-wrap break-words">
       {hunks.map((h, i) => {
-        if (h.type === 'eq') return <span key={i} className="text-foreground/70">{h.text}</span>
+        if (h.type === 'eq') return <span key={i} className="text-muted-foreground">{h.text}</span>
         if (h.type === 'add') {
           return (
             <span
@@ -913,7 +913,7 @@ export function PlainComposer({
           className="absolute bottom-2.5 right-2.5 p-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition-opacity"
         >
           {disabled ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <RailTrack running className="w-8" />
           ) : (
             <SendIcon />
           )}

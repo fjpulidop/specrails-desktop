@@ -32,7 +32,7 @@ import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useR
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
-import { AlertTriangle, BellRing, ChevronUp, Info, Loader2, Pause } from 'lucide-react'
+import { AlertTriangle, BellRing, ChevronUp, Info, Pause } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { keyboardLabel } from '../../../lib/keyboard-label'
 import { formatRunElapsed } from '../../jobs/hooks/useRunVitals'
@@ -62,7 +62,7 @@ export const RUN_STRIP_PRIMARY = PRIMARY_ACTION
 /** A quiet control inside the strip (switcher, overflow). Type rule: strip
  *  text and controls are 12px; only compact chips/pills may stay 11px (≥/70). */
 const QUIET_CONTROL =
-  'inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-label text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
+  'inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-label text-muted-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
 
 interface StripEntry {
   key: string
@@ -94,11 +94,11 @@ const MARK_CLASS = 'h-3.5 w-3.5 shrink-0'
 
 /** The state's own shape (never color alone). */
 function StateGlyph({ tone, quiet, className }: { tone: MissionRunTone; quiet: boolean; className: string }) {
-  if (tone === 'launching') return <Loader2 className={cn(className, 'text-foreground/70 motion-safe:animate-spin')} aria-hidden />
+  if (tone === 'launching') return <LiveDot tone="muted" size="sm" className={cn(className, 'h-2 w-2')} aria-hidden />
   if (tone === 'decision') return <BellRing className={cn(className, 'text-accent-primary')} aria-hidden />
   if (tone === 'failed') return <AlertTriangle className={cn(className, 'text-destructive')} aria-hidden />
   if (tone === 'paused') return <Pause className={cn(className, 'text-accent-warning')} aria-hidden />
-  if (tone === 'info') return <Info className={cn(className, 'text-foreground/70')} aria-hidden />
+  if (tone === 'info') return <Info className={cn(className, 'text-muted-foreground')} aria-hidden />
   return (
     <span className={cn('inline-flex shrink-0 items-center justify-center', className)} aria-hidden>
       <LiveDot tone="info" pulsing={!quiet} />
@@ -144,7 +144,7 @@ function NeedsYouMark() {
 }
 
 function Dot() {
-  return <span aria-hidden className="text-foreground/25">·</span>
+  return <span aria-hidden className="text-muted-foreground">·</span>
 }
 
 /** Launching: the data slots exist but have nothing yet. */
@@ -759,12 +759,12 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       <span className="sr-only">{t(`runStrip.state.${selected.tone}`)} </span>
       <span
         data-testid="mission-run-strip-headline"
-        className={cn('min-w-0 truncate text-label font-medium', selected.tone === 'failed' ? 'text-destructive' : 'text-foreground/85')}
+        className={cn('min-w-0 truncate text-label font-medium', selected.tone === 'failed' ? 'text-destructive' : 'text-foreground')}
       >
         {selected.headline}
       </span>
       {selected.meta && (
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-label tabular-nums text-foreground/75" data-testid="mission-run-strip-meta">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-label tabular-nums text-muted-foreground" data-testid="mission-run-strip-meta">
           {selected.meta}
         </span>
       )}
@@ -843,7 +843,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
               {toggleContent}
               <ChevronUp
                 aria-hidden
-                className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-foreground/40 transition-transform duration-200 group-hover:text-foreground/70 motion-reduce:transition-none', panelOpen && 'rotate-180')}
+                className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-muted-foreground motion-reduce:transition-none', panelOpen && 'rotate-180')}
               />
             </button>
           ) : (
@@ -873,7 +873,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           {entries.length > 0 && (
             <div role="group" aria-label={t('runStrip.switcher')} className="relative flex shrink-0 items-center gap-0.5 border-l border-border/50 pl-1.5" data-testid="mission-run-strip-switcher">
               {entries.length === 1 ? (
-                <span className="max-w-[11rem] truncate px-1 text-label text-foreground/75" title={selected.label} data-testid="mission-run-strip-label">{selected.label}</span>
+                <span className="max-w-[11rem] truncate px-1 text-label text-muted-foreground" title={selected.label} data-testid="mission-run-strip-label">{selected.label}</span>
               ) : (
                 <>
                   {[selected, ...inlineOthers].map((entry) => (
@@ -928,12 +928,12 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
                               data-run-key={entry.key}
                               onClick={() => switchTo(entry.key)}
                               title={`${entry.label} · ${entry.headlineText}`}
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-label text-foreground/85 hover:bg-surface focus:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-label text-foreground hover:bg-surface focus:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                             >
                               <ToneDot tone={entry.tone} />
                               <span className="min-w-0 flex-1 truncate">{entry.label}</span>
                               {needsYou.has(entry.key) && <NeedsYouMark />}
-                              <span className="max-w-[12rem] truncate text-foreground/70">{entry.headlineText}</span>
+                              <span className="max-w-[12rem] truncate text-muted-foreground">{entry.headlineText}</span>
                             </button>
                           ))}
                         </div>

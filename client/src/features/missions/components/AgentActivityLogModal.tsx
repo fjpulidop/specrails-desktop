@@ -149,7 +149,7 @@ function ActivityEntry({ entry, formatted }: { entry: AgentLiveTool; formatted: 
         </button>
       </div>
       {entry.input && (
-        <pre className="mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-md bg-background-deep/60 px-2 py-1.5 font-mono text-xs leading-relaxed text-foreground/80">
+        <pre className="mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-md bg-background-deep/60 px-2 py-1.5 font-mono text-xs leading-relaxed text-foreground">
           {entry.input}
         </pre>
       )}
@@ -161,7 +161,7 @@ function ActivityEntry({ entry, formatted }: { entry: AgentLiveTool; formatted: 
           <pre
             className={cn(
               'max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md px-2 py-1.5 font-mono text-xs leading-relaxed',
-              entry.isError ? 'bg-destructive/10 text-destructive' : 'bg-background-deep/60 text-foreground/80',
+              entry.isError ? 'bg-destructive/10 text-destructive' : 'bg-background-deep/60 text-foreground',
             )}
           >
             {entry.output || '∅'}

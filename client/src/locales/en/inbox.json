@@ -18,10 +18,10 @@
     "question": "Waiting for your answer",
     "failed": "Failed",
     "blocked": "Blocked",
-    "budget": "Paused at budget",
+    "budget": "Paused: spend limit reached",
     "jira": "Jira sync failed",
     "failedNoCause": "Stopped before delivery",
-    "capReached": "Budget cap reached"
+    "capReached": "Spend limit reached"
   },
   "actions": {
     "open": "Open",
@@ -29,7 +29,7 @@
     "answer": "Answer",
     "resume": "Resume",
     "retry": "Retry",
-    "raiseCap": "Raise cap"
+    "raiseCap": "Raise limit"
   },
   "working": "Working…",
   "rowLabel": "{{action}}: {{title}}",

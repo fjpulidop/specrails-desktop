@@ -23,7 +23,7 @@ function HostBlockerBlock({ blocker }: { blocker: LoopHostBlocker }) {
       <span>{t('core.hostBlocked')}</span>
       <span className="ml-auto rounded-full border border-accent-warning/40 px-1.5 py-0.5 text-xs font-semibold">{t(`core.blockerKind.${blocker.kind}`, { defaultValue: blocker.kind })}</span>
     </p>
-    {blocker.reason && <p className="text-foreground/80">{blocker.reason}</p>}
+    {blocker.reason && <p className="text-foreground">{blocker.reason}</p>}
     {command && <div className="min-w-0">
       <div className="flex items-center gap-1.5">
         <span className="text-xs font-semibold text-muted-foreground">{t('core.failingCommand')}</span>
@@ -32,7 +32,7 @@ function HostBlockerBlock({ blocker }: { blocker: LoopHostBlocker }) {
         </button>
         {copied && <span className="text-caption text-accent-success">{t('core.copiedCommand')}</span>}
       </div>
-      <pre className="mt-0.5 font-mono text-caption leading-relaxed text-foreground/80 whitespace-pre-wrap break-words">{command}{blocker.cwd ? `  # ${t('core.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
+      <pre className="mt-0.5 font-mono text-caption leading-relaxed text-foreground whitespace-pre-wrap break-words">{command}{blocker.cwd ? `  # ${t('core.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
     </div>}
     <p><span className="font-medium">{t('core.requiredAction')}:</span> {blocker.requiredAction}</p>
   </div>
@@ -48,18 +48,18 @@ export function LoopCompletionSummary({ result }: { result: LoopCompletion }) {
     {result.completion ? <div className="space-y-1">
       <p className={result.completion.ok ? 'text-accent-success' : 'text-accent-warning'}>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</p>
       <p>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</p>
-      {result.completion.blocker ? <HostBlockerBlock blocker={result.completion.blocker} /> : result.completion.reasons.map((reason,index) => <p key={index} className="text-foreground/70">{reason}</p>)}
+      {result.completion.blocker ? <HostBlockerBlock blocker={result.completion.blocker} /> : result.completion.reasons.map((reason,index) => <p key={index} className="text-muted-foreground">{reason}</p>)}
     </div> : core ? <>
       <dl className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {(['implementation', 'validation', 'archive', 'delivery'] as const).map(key => <div key={key}>
-          <dt className="text-foreground/70">{t(`completion.${key}`)}</dt>
+          <dt className="text-muted-foreground">{t(`completion.${key}`)}</dt>
           <dd className={core.completion[key] === 'with-exceptions' || core.completion[key] === 'blocked' ? 'text-accent-warning font-medium' : 'font-medium'}>{status(core.completion[key])}</dd>
         </div>)}
       </dl>
       <details>
         <summary className="cursor-pointer">{t('completion.evidence')}</summary>
         <div className="space-y-2 pt-2 break-words">
-          <p className="text-foreground/70">{t('completion.snapshot', { change: core.change, at: core.recordedAt })}</p>
+          <p className="text-muted-foreground">{t('completion.snapshot', { change: core.change, at: core.recordedAt })}</p>
           {core.completion.reasons.map((reason, i) => <p key={`reason-${i}`}>{reason}</p>)}
           {core.exceptions.map((exception, i) => <div key={`exception-${i}`}>
             <p className="font-medium">{exception.requirement}</p>
@@ -69,13 +69,13 @@ export function LoopCompletionSummary({ result }: { result: LoopCompletion }) {
           {core.checks.map((check, i) => <div key={`check-${i}`}>
             <p className="font-medium">{check.name}: {status(check.status)} ({t(check.required ? 'completion.required' : 'completion.supplementary')})</p>
             <p>{check.scope} — {check.limitations}</p>
-            <p className="text-foreground/70">{check.evidence.join('; ')}</p>
+            <p className="text-muted-foreground">{check.evidence.join('; ')}</p>
           </div>)}
           {core.findings.map((finding, i) => <p key={`finding-${i}`}>{finding}</p>)}
           {core.phases.map(phase => <p key={phase.name}>{phase.name}: {status(phase.status)} · {phase.durationMs == null ? t('completion.unavailable') : `${(phase.durationMs / 1000).toFixed(1)}s`} · {phase.attempts == null ? t('completion.unavailable') : t('completion.attempts', { count: phase.attempts })}</p>)}
-          <p className="text-foreground/70">{t('completion.phaseCostUnavailable')}</p>
+          <p className="text-muted-foreground">{t('completion.phaseCostUnavailable')}</p>
         </div>
       </details>
-    </> : <p className="text-foreground/70">{t('completion.noCoreEvidence')}</p>}
+    </> : <p className="text-muted-foreground">{t('completion.noCoreEvidence')}</p>}
   </section>
 }

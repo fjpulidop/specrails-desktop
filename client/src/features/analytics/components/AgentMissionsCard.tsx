@@ -72,7 +72,7 @@ export function AgentMissionsCard({ data, loading }: Props) {
         <ul className="mt-3 space-y-1 border-t border-border/40 pt-2">
           {topConversations.map((c) => (
             <li key={c.conversationId ?? 'unknown'} className="flex items-center gap-2 text-xs">
-              <span className="min-w-0 flex-1 truncate text-foreground/85">
+              <span className="min-w-0 flex-1 truncate text-foreground">
                 {c.title?.trim() || t('agentMissions.untitled')}
               </span>
               <span className="shrink-0 text-caption text-muted-foreground">

@@ -4,9 +4,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { isMeteredBilled } from '../../../lib/launch-forecast'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { formatUsd } from '../lib/format'
+import { modelLabel } from '../../../lib/model-label'
 import { fetchWhatIf, parseRefKey, refKey, toCents, type ModelRef, type WhatIfOverview, type WhatIfResult } from '../lib/budget'
 
-const refLabel = (ref: ModelRef): string => `${providerLabel(ref.provider)} · ${ref.model}`
+const refLabel = (ref: ModelRef): string => `${providerLabel(ref.provider)} · ${modelLabel(ref.model).text}`
 
 interface ResultProps {
   result: WhatIfResult

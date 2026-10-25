@@ -80,7 +80,7 @@ function Count({ value, selected, text, measure }: CountProps) {
   return (
     <span
       data-testid={measure ? undefined : `specs-status-count-${value}`}
-      className={cn('tabular-nums text-xs', selected ? 'text-foreground/70' : 'text-muted-foreground')}
+      className={cn('tabular-nums text-xs', selected ? 'text-muted-foreground' : 'text-muted-foreground')}
     >
       {text}
     </span>

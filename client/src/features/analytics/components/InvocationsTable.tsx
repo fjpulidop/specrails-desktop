@@ -115,7 +115,7 @@ export function InvocationsTable({
             type="number"
             step="0.01"
             min="0"
-            placeholder={t('table.minCostPlaceholder')}
+            placeholder={t('table.minCostPlaceholder', { amount: formatUsd(0) })}
             value={tableFilters.minCostUsd ?? ''}
             onChange={(e) => {
               const n = e.target.value === '' ? undefined : parseFloat(e.target.value)

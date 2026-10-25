@@ -61,7 +61,7 @@ export function SmashConfirmModal({
       <DialogContent size="form" layer="stacked" showCloseButton={false} data-testid="smash-confirm-modal">
         <DialogHeader icon={<Split />}>
           <DialogTitle>{t('smashModal.title')}</DialogTitle>
-          <p className="truncate text-label text-foreground/80" title={ticketTitle} data-testid="smash-confirm-modal-ticket">
+          <p className="truncate text-label text-foreground" title={ticketTitle} data-testid="smash-confirm-modal-ticket">
             {ticketTitle}
           </p>
           <DialogDescription>{t('smashModal.description')}</DialogDescription>
@@ -117,7 +117,7 @@ export function SmashConfirmModal({
                     </div>
                     <ul className="space-y-0.5">
                       {meta.bulletKeys.map((b) => (
-                        <li key={b} className="text-xs text-foreground/70 leading-snug">
+                        <li key={b} className="text-xs text-muted-foreground leading-snug">
                           • {t(b)}
                         </li>
                       ))}

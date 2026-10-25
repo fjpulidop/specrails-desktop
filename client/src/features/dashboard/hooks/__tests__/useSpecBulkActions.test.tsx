@@ -155,7 +155,7 @@ describe('useSpecBulkActions (CD4)', () => {
         { projectId: 'p1', loopId: 'factory:implement', provider: 'rail-2' },
       ])
       expect(screen.getByTestId('launch-all-forecast-total')).toHaveTextContent('2 runs · usually $3–$7 in total')
-      expect(screen.getByTestId('launch-all-may-pause')).toHaveTextContent('This may reach a budget cap and pause some runs.')
+      expect(screen.getByTestId('launch-all-may-pause')).toHaveTextContent('This may reach a budget limit and pause some runs.')
     })
 
     it('says nothing extra when the batch has no dollars to sum (plan billing) and the cap is safe', () => {

@@ -257,7 +257,7 @@ describe('AnalyticsPage', () => {
     })
   })
 
-  // "Raise cap" lands on ?panel=budget: the filter-persisting effect used to rewrite the URL and cancel the scroll.
+  // "Raise limit" lands on ?panel=budget: the filter-persisting effect used to rewrite the URL and cancel the scroll.
   describe('?panel=budget landing', () => {
     function LocationProbe() {
       const location = useLocation()

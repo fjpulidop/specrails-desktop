@@ -17,12 +17,12 @@ const PRIORITY_PILL: Record<SpecDraftPriority, string> = {
   critical: 'border-destructive/35 bg-destructive/15 text-destructive',
   high: 'border-accent-warning/35 bg-accent-warning/15 text-accent-warning',
   medium: 'border-accent-info/35 bg-accent-info/15 text-accent-info',
-  low: 'border-border/60 bg-surface/70 text-foreground/60',
+  low: 'border-border/60 bg-surface/70 text-muted-foreground',
 }
 
 // Compact markdown styling for the description body (the five ## sections).
 const DESC_MD = cn(
-  'text-xs leading-6 text-foreground/85',
+  'text-xs leading-6 text-foreground',
   '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
   '[&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:text-label [&_h2]:font-semibold [&_h2]:text-muted-foreground [&_h2:first-child]:mt-0',
   '[&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-xs [&_h3]:font-semibold',
@@ -49,7 +49,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
     >
       {/* Header: identity + priority */}
       <div className="flex items-center justify-between gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-primary/90">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-primary">
           <Sparkles className="h-3 w-3" />
           {t('specDraft.heading')}
         </span>
@@ -73,7 +73,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
             {draft.labels.map((label, i) => (
               <span
                 key={`${i}-${label}`}
-                className="rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-caption text-foreground/70"
+                className="rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-caption text-muted-foreground"
               >
                 {label}
               </span>
@@ -113,8 +113,8 @@ export function AgentSpecDraftCard({ draft }: Props) {
             </div>
             <ul className="flex flex-col gap-1">
               {criteria.map((c, i) => (
-                <li key={`${i}-${c}`} className="flex items-start gap-1.5 text-xs leading-5 text-foreground/85">
-                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success/80" />
+                <li key={`${i}-${c}`} className="flex items-start gap-1.5 text-xs leading-5 text-foreground">
+                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" />
                   <span>{c}</span>
                 </li>
               ))}
@@ -133,7 +133,7 @@ export function AgentSpecDraftPending() {
   return (
     <span
       data-testid="agent-spec-draft-pending"
-      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-primary/25 bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary/90"
+      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-primary/25 bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary"
     >
       <Sparkles className="h-3 w-3 motion-safe:animate-pulse" />
       {t('specDraft.drafting')}

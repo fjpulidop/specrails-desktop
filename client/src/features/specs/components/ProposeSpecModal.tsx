@@ -676,7 +676,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
                             type="button"
                             aria-label={t('proposeModal.raw.removeLabel', { label })}
                             onClick={() => setLabels((ls) => ls.filter((l) => l !== label))}
-                            className="text-accent-info/60 hover:text-accent-info"
+                            className="text-accent-info hover:text-accent-info"
                           >
                             ×
                           </button>
@@ -713,7 +713,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
             {mode !== 'free' && (
               <details className="group rounded-lg border border-border/40 bg-card/30" data-testid="context-disclosure">
                 <summary
-                  className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-body text-foreground/90 marker:content-none [&::-webkit-details-marker]:hidden"
+                  className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-body text-foreground marker:content-none [&::-webkit-details-marker]:hidden"
                   data-testid="context-disclosure-summary"
                 >
                   <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden />

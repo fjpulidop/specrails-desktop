@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, X, FileText, Layers, ListChecks, Loader2 } from 'lucide-react'
+import { Check, X, FileText, Layers, ListChecks } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import {
   deriveDimensions,
@@ -29,7 +29,7 @@ const PRIORITY_PILL: Record<BlueprintSpecPriority, string> = {
   critical: 'border-destructive/35 bg-destructive/15 text-destructive',
   high: 'border-accent-warning/35 bg-accent-warning/15 text-accent-warning',
   medium: 'border-accent-info/35 bg-accent-info/15 text-accent-info',
-  low: 'border-border/60 bg-surface/70 text-foreground/60',
+  low: 'border-border/60 bg-surface/70 text-muted-foreground',
 }
 
 export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: BlueprintPanelProps) {
@@ -61,7 +61,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-4" data-testid="blueprint-panel">
       <div className="space-y-1.5">
-        <h3 className="flex items-center gap-2 text-xs font-semibold text-foreground/80">
+        <h3 className="flex items-center gap-2 text-xs font-semibold text-foreground">
           {t('panel.title')}
           {snapshot?.status === 'repairing' && (
             <LiveDot tone="info" size="xs" aria-hidden data-testid="panel-repairing" />
@@ -95,7 +95,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
 
       {blueprint && blueprint.assumptions.length > 0 && (
         <div className="space-y-1.5">
-          <h4 className="text-xs font-semibold text-foreground/80">
+          <h4 className="text-xs font-semibold text-foreground">
             {t('panel.assumptions')}
           </h4>
           <ul className="space-y-0.5">
@@ -110,7 +110,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
 
       {blueprint && blueprint.m1Specs.length > 0 && (
         <div className="space-y-1.5">
-          <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
             <Layers className="h-3 w-3" />
             {t('panel.m1Specs', { count: blueprint.m1Specs.length })}
             <span
@@ -171,7 +171,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                           data-testid={`m1-spec-unwritten-${i}`}
                         >
                           {snapshot?.status === 'generating'
-                            ? <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden />
+                            ? <LiveDot tone="info" size="xs" aria-hidden />
                             : <ListChecks className="h-2.5 w-2.5" aria-hidden />}
                           {t(snapshot?.status === 'generating' ? 'panel.specWriting' : 'panel.specPendingBody')}
                         </span>
@@ -205,7 +205,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
 
       {blueprint && blueprint.milestones.length > 1 && (
         <div className="space-y-1">
-          <h4 className="text-xs font-semibold text-foreground/80">
+          <h4 className="text-xs font-semibold text-foreground">
             {t('panel.laterMilestones')}
           </h4>
           {blueprint.milestones.slice(1).map((m) => (

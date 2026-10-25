@@ -54,7 +54,7 @@ describe('LiveAnnouncer', () => {
     expect(region().textContent).toContain('Rail 1: run failed')
     act(() => { vi.advanceTimersByTime(THROTTLE_MS + 1) })
     send({ type: 'loop.run_paused', projectId: 'p1', railIndex: 2, loopRunId: 'r1', pauseKind: 'budget_paused', ticketIds: [7] })
-    expect(region().textContent).toContain('Rail 3: run paused, a budget cap was reached')
+    expect(region().textContent).toContain('Rail 3: run paused, a budget limit was reached')
     await act(async () => { vi.advanceTimersByTime(THROTTLE_MS + 1); await setLanguage('es') })
     send({ type: 'rail.job_started', projectId: 'p1', railIndex: 0, jobId: 'j3', ticketIds: [9] })
     expect(region().textContent).toContain('Rail 1: #9 iniciada')

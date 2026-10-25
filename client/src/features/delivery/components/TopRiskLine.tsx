@@ -16,7 +16,7 @@ export function TopRiskLine({ summary, className = '' }: { summary: PrDeliveryRi
     <div className={`flex min-w-0 items-center gap-1.5 text-caption ${className}`} data-testid="top-risk-line" title={top.ref ?? undefined}>
       <span className="shrink-0 text-muted-foreground">{t('brief.topRisk')}</span>
       <SeverityChip severity={top.severity} />
-      <span className="min-w-0 truncate text-foreground/90">{top.whatToLookAt}</span>
+      <span className="min-w-0 truncate text-foreground">{top.whatToLookAt}</span>
       {total > 1 ? <span className="shrink-0 text-muted-foreground">{t('brief.moreRisks', { count: total - 1 })}</span> : null}
     </div>
   )

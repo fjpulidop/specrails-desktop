@@ -327,6 +327,7 @@
     "deleteFailed": "Impossibile eliminare la spec"
   },
   "board": {
-    "pageTitle": "{{project}}: bacheca"
+    "pageTitle": "{{project}}: bacheca",
+    "pageTitleBare": "Bacheca"
   }
 }

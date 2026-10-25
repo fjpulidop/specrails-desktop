@@ -157,7 +157,7 @@
     "mode": {
       "reference": {
         "title": "Referencia",
-        "hint": "@ proyectos, especificaciones, misiones"
+        "hint": "@ proyectos, specs, misiones"
       },
       "trace": {
         "title": "Traza",
@@ -170,7 +170,7 @@
     },
     "plus": {
       "reference": "Referencia",
-      "referenceHint": "Proyectos, especificaciones, misiones",
+      "referenceHint": "Proyectos, specs, misiones",
       "trace": "Traza",
       "traceHint": "Trabajos, ejecuciones, IDs",
       "action": "Acción",

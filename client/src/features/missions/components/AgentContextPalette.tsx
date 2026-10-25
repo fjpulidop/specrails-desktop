@@ -6,7 +6,6 @@ import {
   FileText,
   GitPullRequest,
   Hash,
-  Loader2,
   Paperclip,
   Plus,
   Search,
@@ -19,6 +18,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as Rea
 import { useTranslation } from 'react-i18next'
 import type { AgentContextChip, AgentContextKind, AgentPaletteItem, AgentPaletteMode } from '../lib/agent-context-palette'
 
+import { LiveDot } from '../../../components/ui/live-dot'
 const modeIcon: Record<AgentPaletteMode, LucideIcon> = {
   reference: AtSign,
   trace: Hash,
@@ -50,7 +50,7 @@ function chipTone(kind: AgentContextKind): string {
   if (kind === 'action') return 'border-accent-highlight/30 bg-accent-highlight/10 text-accent-highlight'
   if (kind === 'project' || kind === 'alias') return 'border-accent-primary/30 bg-accent-primary/10 text-accent-primary'
   if (kind === 'rail') return 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
-  return 'border-border/60 bg-surface/70 text-foreground/80'
+  return 'border-border/60 bg-surface/70 text-foreground'
 }
 
 /** Below this much room above its anchor a composer popover opens BELOW it
@@ -115,12 +115,12 @@ export function AgentComposerContextChips({
           >
             <Icon className="h-3 w-3 shrink-0" />
             <span className="truncate font-medium">{chip.label}</span>
-            {chip.status && <span className="text-foreground/70">{chip.status}</span>}
+            {chip.status && <span className="text-muted-foreground">{chip.status}</span>}
             <button
               type="button"
               onClick={() => onRemove(chip)}
               aria-label={t('palette.remove', { label: chip.label })}
-              className="rounded-sm text-foreground/70 hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+              className="rounded-sm text-muted-foreground hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
             >
               <X className="h-3 w-3" />
             </button>
@@ -168,20 +168,20 @@ export function AgentContextPalette({
       className={`absolute ${placement === 'below' ? 'top-[calc(100%+0.5rem)]' : 'bottom-[calc(100%+0.5rem)]'} left-0 right-0 z-30 overflow-hidden rounded-lg border border-border/70 bg-popover shadow-xl shadow-black/15`}
     >
       <div ref={headerRef} className="flex items-center gap-2 border-b border-border/60 px-2.5 py-2">
-        <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-surface text-foreground/70">
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-surface text-muted-foreground">
           <ModeIcon className="h-3.5 w-3.5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-label text-foreground">{modeGlyph(mode)} {t(`palette.mode.${mode}.title`)}</div>
-          <div className="truncate text-xs text-foreground/65">
+          <div className="truncate text-xs text-muted-foreground">
             {query ? t('palette.filtering', { query }) : t(`palette.mode.${mode}.hint`)}
           </div>
         </div>
-        <div className="hidden text-xs text-foreground/65 sm:block">{t('palette.keyboard')}</div>
+        <div className="hidden text-xs text-muted-foreground sm:block">{t('palette.keyboard')}</div>
       </div>
       {items.length === 0 ? (
-        <div role="status" className="flex items-center gap-2 px-3 py-3 text-xs text-foreground/70">
-          <Search className="h-3.5 w-3.5 text-foreground/60" aria-hidden />
+        <div role="status" className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
+          <Search className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
           <span>{query ? t('palette.noMatchesFor', { query }) : t('palette.noMatches')}</span>
         </div>
       ) : (
@@ -214,11 +214,11 @@ export function AgentContextPalette({
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => onSelect(item)}
                   className={`flex w-full items-center gap-2 px-2.5 py-2 text-left transition-colors ${
-                    active ? 'bg-accent-primary/10 text-foreground' : 'text-foreground/80 hover:bg-surface/70'
+                    active ? 'bg-accent-primary/10 text-foreground' : 'text-foreground hover:bg-surface/70'
                   }`}
                 >
                   <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
-                    active ? 'bg-background text-accent-primary' : 'bg-surface text-foreground/50'
+                    active ? 'bg-background text-accent-primary' : 'bg-surface text-muted-foreground'
                   }`}>
                     <Icon className="h-3.5 w-3.5" aria-hidden />
                   </span>
@@ -226,13 +226,13 @@ export function AgentContextPalette({
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate text-sm font-medium">{item.title}</span>
                       {item.risk && (
-                        <span className="shrink-0 rounded-sm border border-border/60 px-1 py-0.5 text-caption text-foreground/70">
+                        <span className="shrink-0 rounded-sm border border-border/60 px-1 py-0.5 text-caption text-muted-foreground">
                           {item.risk}
                         </span>
                       )}
                     </span>
                     {(item.subtitle || item.detail) && (
-                      <span className="mt-0.5 block truncate text-xs text-foreground/65">
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                         {item.subtitle}{item.subtitle && item.detail ? ' · ' : ''}{item.detail}
                       </span>
                     )}
@@ -323,7 +323,7 @@ export function AgentPlusMenu({
   }
 
   const itemClass = 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface focus:bg-surface focus:outline-none disabled:cursor-not-allowed disabled:opacity-45'
-  const hintClass = 'block truncate text-xs text-foreground/65'
+  const hintClass = 'block truncate text-xs text-muted-foreground'
 
   return (
     <div ref={rootRef} className="relative flex shrink-0 items-center">
@@ -336,7 +336,7 @@ export function AgentPlusMenu({
         aria-expanded={open}
         title={t('palette.addContextAction')}
         data-agent-interactive
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:opacity-50"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:opacity-50"
       >
         <Plus className="h-4 w-4" />
       </button>
@@ -383,8 +383,8 @@ export function AgentPlusMenu({
             data-testid="agent-plus-file-attachment"
           >
             {uploading
-              ? <Loader2 className="h-4 w-4 animate-spin text-accent-primary motion-reduce:animate-none" aria-hidden />
-              : <Paperclip className="h-4 w-4 text-foreground/60" aria-hidden />}
+              ? <LiveDot tone="primary" size="sm" aria-hidden />
+              : <Paperclip className="h-4 w-4 text-muted-foreground" aria-hidden />}
             <span className="min-w-0 flex-1">
               <span className="block font-medium">{t('palette.plus.fileAttachment')}</span>
               <span className={hintClass}>{uploading ? t('composer.uploading') : t('palette.plus.fileAttachmentHint')}</span>
@@ -399,7 +399,7 @@ export function AgentPlusMenu({
             className={itemClass}
             data-testid="agent-plus-browser-capture"
           >
-            <Camera className="h-4 w-4 text-foreground/60" aria-hidden />
+            <Camera className="h-4 w-4 text-muted-foreground" aria-hidden />
             <span className="min-w-0 flex-1">
               <span className="block font-medium">{t('palette.plus.browserCapture')}</span>
               <span className={hintClass}>{t('palette.plus.browserCaptureHint')}</span>

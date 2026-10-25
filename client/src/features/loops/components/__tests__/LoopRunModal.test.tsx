@@ -171,7 +171,7 @@ describe('LoopRunModal with the daily budget reached', () => {
   beforeEach(() => resetLaunchForecastCache())
   const forecast = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
 
-  it('does not execute while the budget is reached: Raise cap opens the budget panel', async () => {
+  it('does not execute while the budget is reached: Raise limit opens the budget panel', async () => {
     global.fetch = vi.fn().mockImplementation(async (url: string) =>
       String(url).includes('/launch-forecast') ? { ok: true, json: async () => forecast } : { ok: true, json: async () => ({}) }) as typeof fetch
     const onExecute = vi.fn()
@@ -183,7 +183,7 @@ describe('LoopRunModal with the daily budget reached', () => {
     const opened = vi.fn()
     window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
     try {
-      fireEvent.click(within(confirm).getByRole('button', { name: 'Raise cap' }))
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Raise limit' }))
       expect(opened).toHaveBeenCalledTimes(1)
     } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
     expect(onExecute).not.toHaveBeenCalled()

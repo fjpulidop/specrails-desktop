@@ -10,11 +10,11 @@ const PILL_TONE: Record<AgentPrDecisionValue, string> = {
   no_changes: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
   completed: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
   pr_closed: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
-  superseded: 'border-border/60 bg-surface/60 text-foreground/40',
+  superseded: 'border-border/60 bg-surface/60 text-muted-foreground',
   implementation_failed: 'border-destructive/40 bg-destructive/10 text-destructive',
   pr_failed: 'border-destructive/40 bg-destructive/10 text-destructive',
   merged: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
-  discarded: 'border-border/60 bg-surface/60 text-foreground/50',
+  discarded: 'border-border/60 bg-surface/60 text-muted-foreground',
 }
 
 /** Compact decision-state pill (the project builder's milestone rows). */

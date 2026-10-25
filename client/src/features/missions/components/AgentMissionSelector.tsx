@@ -195,7 +195,7 @@ export function AgentMissionSelector() {
       >
         <MessagesSquare className="h-3.5 w-3.5 shrink-0 text-accent-primary" />
         <span className="min-w-0 max-w-[150px] truncate">{triggerLabel}</span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       </button>
 
       <AnimatePresence>
@@ -209,13 +209,13 @@ export function AgentMissionSelector() {
           >
             {showSearch && (
               <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
-                <Search className="h-3.5 w-3.5 text-foreground/40" />
+                <Search className="h-3.5 w-3.5 text-muted-foreground" />
                 <input
                   autoFocus
                   value={query}
                   onChange={(e) => { setQuery(e.target.value); setHighlighted(0) }}
                   placeholder={t('mission.searchPlaceholder')}
-                  className="w-full bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-foreground/40"
+                  className="w-full bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
                 />
               </div>
             )}
@@ -244,7 +244,7 @@ export function AgentMissionSelector() {
               </motion.div>
               {filtered.length > 0 && <div className="mx-3 my-1 h-px bg-border/50" aria-hidden />}
               {filtered.length === 0 && query.trim() !== '' && (
-                <div className="px-3 py-2 text-xs text-foreground/40">{t('mission.noMatches')}</div>
+                <div className="px-3 py-2 text-xs text-muted-foreground">{t('mission.noMatches')}</div>
               )}
               {filtered.map((c, i) => (
                 <MissionRow
@@ -331,7 +331,7 @@ function MissionRow({
           data-testid="mission-confirm-no"
           onClick={(e) => { e.stopPropagation(); onCancelDelete() }}
           aria-label={t('mission.cancelDelete')}
-          className="rounded-md p-1 text-foreground/60 hover:bg-surface"
+          className="rounded-md p-1 text-muted-foreground hover:bg-surface"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -355,7 +355,7 @@ function MissionRow({
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <span
-        className="shrink-0 tabular-nums text-xs text-foreground/40"
+        className="shrink-0 tabular-nums text-xs text-muted-foreground"
         title={absoluteTime(conversation.updated_at)}
       >
         {compactRelativeTime(conversation.updated_at)}
@@ -372,7 +372,7 @@ function MissionRow({
           data-testid={`mission-queued-${conversation.id}`}
           aria-label={t('mission.queuedBadge', { n: queuedCount })}
           title={t('mission.queuedBadge', { n: queuedCount })}
-          className="shrink-0 rounded-full border border-border/60 bg-surface px-1.5 text-caption font-semibold leading-4 text-foreground/60"
+          className="shrink-0 rounded-full border border-border/60 bg-surface px-1.5 text-caption font-semibold leading-4 text-muted-foreground"
         >
           {queuedCount}
         </span>
@@ -383,7 +383,7 @@ function MissionRow({
         data-testid={`mission-delete-${conversation.id}`}
         onClick={(e) => { e.stopPropagation(); onArmDelete() }}
         aria-label={t('mission.delete', { title: label })}
-        className="shrink-0 rounded-md p-0.5 text-foreground/50 opacity-0 transition-opacity hover:bg-surface hover:text-destructive focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
+        className="shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface hover:text-destructive focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>

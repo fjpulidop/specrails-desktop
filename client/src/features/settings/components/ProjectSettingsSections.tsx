@@ -19,7 +19,7 @@ import { HelpHint } from '../../../components/HelpHint'
 import { notifyError } from '../../../lib/notify-error'
 // ─── Project settings sections ────────────────────────────────────────────────
 // Self-contained cards (own fetch + save against the ACTIVE project's API base)
-// shared by the /settings route page and the Agent-Mode ProjectSettingsDialog.
+// rendered by the /settings route page (the single container for project settings in both modes).
 // Extracted verbatim from SettingsPage — same endpoints, toasts and copy.
 
 interface ProjectSettingsPayload {

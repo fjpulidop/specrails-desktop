@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   CircleDashed,
-  Loader2,
   RefreshCw,
   Rocket,
   Sparkles,
@@ -18,6 +17,11 @@ import { localizeQualityIssue, type ReadinessReport, type ReadinessStep } from '
 import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
 import { LiveDot } from '../../../../components/ui/live-dot'
 
+
+/** "Being written" is a live lamp, not a spinner. */
+function WritingDot({ className }: { className?: string }) {
+  return <LiveDot tone="info" size="sm" aria-hidden className={className} />
+}
 // The commit gate, made legible (harden-project-builder-snapshots). Replaces
 // the single raw English sentence under a greyed-out button with:
 //   1. three human steps — blueprint · specs · audit — each ✓ / ○ / ⚠ with a
@@ -43,18 +47,18 @@ interface BlueprintReadinessProps {
   showPrimary?: boolean
 }
 
-const STEP_ICON: Record<ReadinessStep['state'], typeof Check> = {
+const STEP_ICON: Record<ReadinessStep['state'], typeof Check | typeof WritingDot> = {
   done: Check,
   pending: CircleDashed,
   blocked: AlertTriangle,
-  writing: Loader2,
+  writing: WritingDot,
 }
 
 const STEP_TONE: Record<ReadinessStep['state'], string> = {
   done: 'text-accent-success',
   pending: 'text-muted-foreground',
   blocked: 'text-accent-warning',
-  writing: 'text-accent-info animate-spin',
+  writing: 'text-accent-info',
 }
 
 export function BlueprintReadiness({
@@ -133,15 +137,15 @@ export function BlueprintReadiness({
               <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{t('snapshot.rejected.title')}</p>
-                <p className="text-accent-warning/90">{t(`snapshot.rejected.${snapshot.reason}`)}</p>
+                <p className="text-accent-warning">{t(`snapshot.rejected.${snapshot.reason}`)}</p>
                 {snapshot.repairAttempted && (
-                  <p className="mt-0.5 text-caption text-accent-warning/80">{t('snapshot.rejected.autoRepairFailed')}</p>
+                  <p className="mt-0.5 text-caption text-accent-warning">{t('snapshot.rejected.autoRepairFailed')}</p>
                 )}
               </div>
             </div>
             {snapshot.detail && (
               <p
-                className="line-clamp-2 break-all font-mono text-caption leading-4 text-foreground/60"
+                className="line-clamp-2 break-all font-mono text-caption leading-4 text-muted-foreground"
                 title={snapshot.detail}
                 data-testid="snapshot-rejected-detail"
               >
@@ -176,7 +180,7 @@ export function BlueprintReadiness({
               <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{t('snapshot.halted.title')}</p>
-                <p className="text-accent-warning/90">
+                <p className="text-accent-warning">
                   {t('snapshot.halted.detail', { written: specsStep?.params?.written ?? 0, total: specsStep?.params?.count ?? 0 })}
                 </p>
               </div>
@@ -218,7 +222,7 @@ export function BlueprintReadiness({
             type="button"
             onClick={() => setIssuesOpen((o) => !o)}
             aria-expanded={issuesOpen}
-            className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-caption font-medium text-foreground/80 hover:bg-surface/70"
+            className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-caption font-medium text-foreground hover:bg-surface/70"
             data-testid="readiness-issues-toggle"
           >
             <Wrench className="h-3 w-3 text-accent-warning" aria-hidden />

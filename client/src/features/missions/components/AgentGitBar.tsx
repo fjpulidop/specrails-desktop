@@ -49,11 +49,11 @@ function AgentGitBranchOverride({ branch, label }: { branch: string; label: stri
     void navigator.clipboard?.writeText(branch).then(() => toast.success(t('git.branchCopied')), () => undefined)
   }
   return (
-    <div data-testid="agent-git-bar-override" className="mt-1.5 flex min-w-0 items-center gap-1.5 px-2 text-xs text-foreground/70">
+    <div data-testid="agent-git-bar-override" className="mt-1.5 flex min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
       <GitBranch className="h-3 w-3 shrink-0 text-accent-info" aria-hidden />
       <span className="shrink-0 rounded-full border border-accent-info/35 bg-accent-info/10 px-1.5 py-px text-caption font-medium text-accent-info">{label}</span>
-      <span className="min-w-0 truncate font-mono text-foreground/75" title={branch}>{branch}</span>
-      <button type="button" onClick={copy} aria-label={t('git.copyBranch')} title={t('git.copyBranch')} className="shrink-0 rounded p-0.5 text-foreground/60 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
+      <span className="min-w-0 truncate font-mono text-muted-foreground" title={branch}>{branch}</span>
+      <button type="button" onClick={copy} aria-label={t('git.copyBranch')} title={t('git.copyBranch')} className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
         <Copy className="h-3 w-3" />
       </button>
     </div>
@@ -263,12 +263,12 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div ref={rootRef} className="relative mt-1.5 flex min-w-0 items-center gap-2 px-1 text-xs text-foreground/70" data-agent-interactive>
+    <div ref={rootRef} className="relative mt-1.5 flex min-w-0 items-center gap-2 px-1 text-xs text-muted-foreground" data-agent-interactive>
       {showRepositories && <div className="relative min-w-0 shrink-0">
         <button ref={repositoryTriggerRef} type="button" aria-label={t('git.repository')} aria-haspopup="listbox" aria-expanded={repositoryOpen} disabled={switching}
           onClick={() => { setRepositoryOpen(value => !value); setOpen(false) }}
           className="flex max-w-[180px] items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-1.5 py-0.5 text-foreground hover:bg-surface disabled:opacity-50">
-          <FolderGit2 className="h-3 w-3 shrink-0 text-accent-primary/70" />
+          <FolderGit2 className="h-3 w-3 shrink-0 text-accent-primary" />
           <span className="truncate">{repository?.name ?? t('git.repositoryUnavailable')}</span>
           <ChevronDown className="h-3 w-3 shrink-0" />
         </button>
@@ -298,11 +298,11 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
         className="flex max-w-[220px] shrink-0 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-1.5 py-0.5 text-xs text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:opacity-50"
       >
         {switching
-          ? <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-primary/70 motion-reduce:animate-none" />
-          : <GitBranch className="h-3 w-3 shrink-0 text-accent-primary/70" />}
+          ? <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-primary motion-reduce:animate-none" />
+          : <GitBranch className="h-3 w-3 shrink-0 text-accent-primary" />}
         <span className="min-w-0 truncate">{currentLabel}</span>
         {info.dirty && <span aria-hidden className="-ml-1 shrink-0 text-accent-warning">*</span>}
-        <ChevronDown className="h-3 w-3 shrink-0 text-foreground/60" />
+        <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
       </button>}
 
       <AnimatePresence>
@@ -317,7 +317,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
             onKeyDown={onBranchKeyDown}
           >
             <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
-              <Search className="h-3.5 w-3.5 text-foreground/60" aria-hidden />
+              <Search className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
               <input
                 autoFocus
                 value={query}
@@ -329,7 +329,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
             </div>
             <div ref={branchListRef} className="max-h-64 overflow-y-auto py-1" role="listbox" aria-label={t('git.branch')}>
               {filtered.length === 0 && (
-                <div className="px-3 py-2 text-xs text-foreground/65">{t('git.noMatches')}</div>
+                <div className="px-3 py-2 text-xs text-muted-foreground">{t('git.noMatches')}</div>
               )}
               {switchable.map((b, i) => (
                 <motion.button
@@ -343,7 +343,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
                   transition={{ duration: 0.14, delay: Math.min(i * 0.02, 0.16) }}
                   className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-foreground hover:bg-surface/70 focus:bg-surface/70 focus:outline-none"
                 >
-                  <GitBranch className="h-3.5 w-3.5 shrink-0 text-accent-primary/70" />
+                  <GitBranch className="h-3.5 w-3.5 shrink-0 text-accent-primary" />
                   <span className="min-w-0 flex-1 truncate font-mono text-xs">{b}</span>
                   {b === info.branch && <Check className="h-3.5 w-3.5 shrink-0 text-accent-primary" />}
                 </motion.button>
@@ -368,12 +368,12 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
                         title={t('git.copyWorktreePath')}
                         className="group flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-foreground hover:bg-surface/70 focus:bg-surface/70 focus:outline-none"
                       >
-                        <FolderGit2 className="h-3.5 w-3.5 shrink-0 text-accent-secondary/80" />
+                        <FolderGit2 className="h-3.5 w-3.5 shrink-0 text-accent-secondary" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-mono text-xs">{b}</span>
-                          <span className="block truncate text-xs text-foreground/65">{w.path}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{w.path}</span>
                         </span>
-                        <Copy className="h-3 w-3 shrink-0 text-foreground/30 opacity-0 transition-opacity group-hover:opacity-100" />
+                        <Copy className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                       </motion.button>
                     )
                   })}
@@ -394,7 +394,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
       )}
       {info?.lastCommit && (
         <span className="min-w-0 flex-1 truncate" title={`${info.lastCommit.hash} · ${info.lastCommit.subject}`}>
-          <span className="font-mono text-foreground/60">{info.lastCommit.hash}</span>
+          <span className="font-mono text-muted-foreground">{info.lastCommit.hash}</span>
           {' · '}
           {info.lastCommit.subject}
         </span>

@@ -165,7 +165,7 @@ function ContextMenuPortal({
         aria-haspopup="menu"
         aria-expanded={activeSubmenu === 'status'}
         className={cn(
-          'relative flex w-full items-center justify-between gap-2 px-3 py-2 cursor-pointer select-none text-foreground/80 hover:bg-accent/50 hover:text-foreground transition-colors',
+          'relative flex w-full items-center justify-between gap-2 px-3 py-2 cursor-pointer select-none text-foreground hover:bg-accent/50 hover:text-foreground transition-colors',
           activeSubmenu === 'status' && 'bg-accent/50 text-foreground'
         )}
         onMouseEnter={() => onSetSubmenu('status')}
@@ -213,7 +213,7 @@ function ContextMenuPortal({
         aria-haspopup="menu"
         aria-expanded={activeSubmenu === 'priority'}
         className={cn(
-          'relative flex w-full items-center justify-between gap-2 px-3 py-2 cursor-pointer select-none text-foreground/80 hover:bg-accent/50 hover:text-foreground transition-colors',
+          'relative flex w-full items-center justify-between gap-2 px-3 py-2 cursor-pointer select-none text-foreground hover:bg-accent/50 hover:text-foreground transition-colors',
           activeSubmenu === 'priority' && 'bg-accent/50 text-foreground'
         )}
         onMouseEnter={() => onSetSubmenu('priority')}

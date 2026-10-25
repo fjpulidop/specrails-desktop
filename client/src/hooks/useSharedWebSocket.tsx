@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import { getDesktopTokenProtocol, refreshDesktopToken } from '../lib/auth'
+import { getDesktopTokenProtocol, invalidateInflightReads, refreshDesktopToken } from '../lib/auth'
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 
@@ -83,6 +83,9 @@ export function SharedWebSocketProvider({ url, children }: { url: string; childr
         } catch {
           return
         }
+        // A live event means something changed: handlers that refetch in reaction must
+        // not share a read that started before it (stale-by-construction).
+        invalidateInflightReads()
         // Fan-out to all registered handlers. Each invocation is isolated in a
         // try/catch so one throwing handler never starves the later-registered
         // ones (the Map is insertion-ordered) — see BUG-CLIENT-01.

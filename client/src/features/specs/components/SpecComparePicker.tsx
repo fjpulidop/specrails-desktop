@@ -127,7 +127,7 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
                         {tk.labels.slice(0, 3).map((label) => (
                           <span
                             key={label}
-                            className="inline-flex items-center rounded px-1 py-0.5 text-caption bg-accent/40 text-foreground/60"
+                            className="inline-flex items-center rounded px-1 py-0.5 text-caption bg-accent/40 text-muted-foreground"
                           >
                             {label}
                           </span>

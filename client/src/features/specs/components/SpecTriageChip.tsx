@@ -6,6 +6,7 @@ import { cn } from '../../../lib/utils'
 import { anyTriage, recalculateSpecTriage, type SpecTriage, type SpecTriageReady } from '../lib/spec-triage'
 import type { LocalTicket } from '../../../types'
 import { formatUsd } from '../../../lib/format-usd'
+import { modelLabel } from '../../../lib/model-label'
 
 /** Built-in loop ids → their existing rail labels (dashboard namespace). */
 const FACTORY_LABEL_KEYS: Record<string, string> = {
@@ -83,7 +84,7 @@ export function SpecTriageChip({ ticket, onRecalculate }: Props) {
       onClick={recalculate}
       onPointerDown={stop}
       disabled={busy}
-      className="mt-1.5 inline-flex items-center gap-1 rounded border border-border/60 px-1.5 py-0.5 text-caption text-foreground/80 hover:bg-muted/60 disabled:opacity-60"
+      className="mt-1.5 inline-flex items-center gap-1 rounded border border-border/60 px-1.5 py-0.5 text-caption text-foreground hover:bg-muted/60 disabled:opacity-60"
       data-testid={`triage-recalculate-${ticket.id}`}
     >
       {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <RefreshCw className="h-3 w-3" aria-hidden />}
@@ -144,7 +145,7 @@ export function SpecTriageChip({ ticket, onRecalculate }: Props) {
               <div className="font-medium text-foreground">
                 {t('triage.recommends', { loop: triageLoopLabel(t, triage) })}
               </div>
-              {triage.rationale && <p className="text-foreground/75">{triage.rationale}</p>}
+              {triage.rationale && <p className="text-muted-foreground">{triage.rationale}</p>}
               <div className="flex flex-wrap gap-1 pt-0.5">
                 {triage.publicInterfaces && <Flag icon={Plug} label={t('triage.flags.publicInterfaces')} />}
                 {triage.dataModel && <Flag icon={Database} label={t('triage.flags.dataModel')} />}
@@ -156,7 +157,7 @@ export function SpecTriageChip({ ticket, onRecalculate }: Props) {
               {triage.filesLikely.length > 0 && (
                 <div className="pt-0.5">
                   <div className="text-label text-muted-foreground">{t('triage.filesLikely')}</div>
-                  <ul className="font-mono text-caption text-foreground/70">
+                  <ul className="font-mono text-caption text-muted-foreground">
                     {triage.filesLikely.slice(0, 5).map((f) => <li key={f} className="truncate">{f}</li>)}
                     {triage.filesLikely.length > 5 && <li>{t('triage.moreFiles', { count: triage.filesLikely.length - 5 })}</li>}
                   </ul>
@@ -164,12 +165,12 @@ export function SpecTriageChip({ ticket, onRecalculate }: Props) {
               )}
               <div className="text-caption text-muted-foreground">
                 {triage.costUsd != null
-                  ? t('triage.modelCost', { model: triage.model, cost: formatUsd(triage.costUsd) })
-                  : t('triage.modelOnly', { model: triage.model })}
+                  ? t('triage.modelCost', { model: modelLabel(triage.model).text, cost: formatUsd(triage.costUsd) })
+                  : t('triage.modelOnly', { model: modelLabel(triage.model).text })}
               </div>
             </>
           ) : (
-            <p className="text-foreground/75">
+            <p className="text-muted-foreground">
               {triage.status === 'failed' ? t('triage.failedDetail', { error: triage.error }) : t('triage.unavailableDetail', { reason: triage.reason })}
             </p>
           )}

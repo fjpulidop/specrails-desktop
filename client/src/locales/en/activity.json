@@ -35,7 +35,7 @@
     "stage": {
       "analyzing": "Analyzing spec…",
       "identifying": "Identifying subtasks…",
-      "ordering": "Ordering execution…"
+      "ordering": "Ordering the run…"
     },
     "onTitled": "SMASH on “{{title}}”",
     "onThisSpec": "SMASH on this spec",

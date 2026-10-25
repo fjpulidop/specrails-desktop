@@ -812,7 +812,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   collapsed and labelled as the plan (honesty contract). */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-foreground">#{section.ticketId}</span>
-                {section.title ? <span className="text-foreground/80">{section.title}</span> : null}
+                {section.title ? <span className="text-foreground">{section.title}</span> : null}
                 {(() => { const key = outcomeKey(section); return (
                   <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-caption font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
                     {t(`outcome.${key}`)}
@@ -836,7 +836,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               )}
               {section.solution ? (
                 <details className="group mt-2 rounded-md border border-border/50 bg-background-deep/30 px-3 py-2">
-                  <summary className="cursor-pointer select-none text-label text-muted-foreground group-open:text-foreground/80">
+                  <summary className="cursor-pointer select-none text-label text-muted-foreground group-open:text-foreground">
                     {t('planned.title')}
                   </summary>
                   <p className="mt-1 text-xs italic text-muted-foreground">{t('planned.caveat')}</p>

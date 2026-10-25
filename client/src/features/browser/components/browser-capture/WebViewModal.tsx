@@ -245,7 +245,7 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
           {status === 'error' ? (
             <div className="flex flex-col items-center gap-2 text-center max-w-md px-6">
               <AlertTriangle className="w-8 h-8 text-accent-warning" />
-              <p className="text-sm text-foreground/90">{errorMsg ?? t('modal.error.unavailable')}</p>
+              <p className="text-sm text-foreground">{errorMsg ?? t('modal.error.unavailable')}</p>
             </div>
           ) : (
             <canvas

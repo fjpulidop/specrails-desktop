@@ -72,10 +72,10 @@ export function FlowAppPreview({ flow, compact }: { flow: Flow; compact: boolean
           disabled={stopping}
           title={t('flow.preview.openTitle', { url: primary })}
           aria-label={t('flow.preview.openTitle', { url: primary })}
-          className="inline-flex h-full items-center gap-1.5 rounded-l-md pl-2 pr-1.5 text-label font-medium text-foreground/85 transition-colors hover:bg-accent-success/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-success disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-full items-center gap-1.5 rounded-l-md pl-2 pr-1.5 text-label font-medium text-foreground transition-colors hover:bg-accent-success/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-success disabled:cursor-not-allowed disabled:opacity-60"
         >
           {stopping
-            ? <Loader2 className="h-3 w-3 animate-spin text-foreground/60" aria-hidden />
+            ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-hidden />
             : <span className="flow-app-dot inline-block h-1.5 w-1.5 rounded-full" data-testid="flow-app-dot" aria-hidden />}
           <span className={cn(compact && 'sr-only')}>{stopping ? t('flow.preview.stopping') : t('flow.preview.open')}</span>
         </button>
@@ -90,7 +90,7 @@ export function FlowAppPreview({ flow, compact }: { flow: Flow; compact: boolean
           title={t('flow.preview.more')}
           onClick={() => setOpen((value) => !value)}
           className={cn(
-            'inline-flex h-full items-center rounded-r-md border-l border-accent-success/25 px-1 text-foreground/60 transition-colors hover:bg-accent-success/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-success',
+            'inline-flex h-full items-center rounded-r-md border-l border-accent-success/25 px-1 text-muted-foreground transition-colors hover:bg-accent-success/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-success',
             open && 'bg-accent-success/15 text-foreground',
           )}
         >

@@ -165,7 +165,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** One live-summary entry in the Rails context row. */
 function SummaryItem({ dot, label, testId, pulse = false }: { dot: string; label: string; testId: string; pulse?: boolean }) {
   return (
-    <span data-testid={testId} className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground/90">
+    <span data-testid={testId} className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground">
       <LiveDot size="xs" dotClassName={dot} pulsing={pulse} aria-hidden />
       {label}
     </span>

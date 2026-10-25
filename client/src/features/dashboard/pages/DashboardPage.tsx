@@ -1739,7 +1739,10 @@ export default function DashboardPage() {
     <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div ref={dashboardContainerRef} className="relative z-0 flex h-full overflow-hidden">
         {isGalaxy && <Starfield />}
-        <h1 className="sr-only">{t('board.pageTitle', { project: projects.find((pr) => pr.id === activeProjectId)?.name ?? '' })}</h1>
+        <h1 className="sr-only">{(() => {
+          const projectName = projects.find((pr) => pr.id === activeProjectId)?.name
+          return projectName ? t('board.pageTitle', { project: projectName }) : t('board.pageTitleBare')
+        })()}</h1>
         {/* Left panel: Specs board */}
         <div
           className="relative z-10 min-w-0 flex flex-col overflow-hidden"

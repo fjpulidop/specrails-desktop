@@ -55,7 +55,7 @@ describe('BudgetCard', () => {
     // No cap on the day: spend only, no bar level.
     const day = await row('project', 'day')
     expect(day).toHaveAttribute('data-level', 'none')
-    expect(within(day).getByTestId('budget-spent-project-day')).toHaveTextContent('$2.00 · no cap')
+    expect(within(day).getByTestId('budget-spent-project-day')).toHaveTextContent('$2.00 · no limit')
     expect(within(await row('project', 'month')).getByText(/about \$6.00 of it priced from the app’s price list, not reported/)).toBeInTheDocument()
     expect(await row('desktop', 'month')).toHaveAttribute('data-level', 'ok')
   })
@@ -69,14 +69,14 @@ describe('BudgetCard', () => {
     expect(within(week).getByText('Reached')).toHaveClass('text-accent-warning')
   })
 
-  it('labels the month-end projection as an estimate and warns when it passes the monthly cap', async () => {
+  it('labels the month-end projection as an estimate and warns when it passes the monthly limit', async () => {
     ;(project.projection as Record<string, number>).projectedUsd = 180
     render(<BudgetCard projectId="p1" />)
     const block = await screen.findByTestId('budget-projection')
     expect(within(block).getByText('Estimate')).toBeInTheDocument()
     expect(within(block).getByTestId('budget-projection-value')).toHaveTextContent('≈ $180.00')
     expect(block).toHaveTextContent('14-day average $10.00/day × 6 days left + $120.00 so far')
-    expect(screen.getByTestId('budget-projection-over')).toHaveTextContent('pass the $150.00 monthly cap')
+    expect(screen.getByTestId('budget-projection-over')).toHaveTextContent('pass the $150.00 monthly limit')
   })
 
   it('says there is not enough history instead of projecting from nothing', async () => {
@@ -92,7 +92,7 @@ describe('BudgetCard', () => {
     const week = await row('project', 'week')
     await waitFor(() => expect(within(week).getByTestId('budget-spent-project-week')).toHaveTextContent('Turns: 30'))
     expect(within(week).getByTestId('budget-spent-project-week')).not.toHaveTextContent('$')
-    // Today (no cap) reads like the other rows, not "$0.00 · no cap" beside "Turns".
+    // Today (no cap) reads like the other rows, not "$0.00 · no limit" beside "Turns".
     expect(within(await row('project', 'day')).getByTestId('budget-spent-project-day')).toHaveTextContent('Turns: 30')
     expect(week).toHaveTextContent('Claude: 5h 42% · weekly 18%')
     // The note appears once, under the title, not in every row.
@@ -105,8 +105,8 @@ describe('BudgetCard', () => {
     const details = screen.getByTestId('budget-caps-metered-project')
     expect(details.tagName).toBe('DETAILS')
     expect(details).not.toHaveAttribute('open')
-    expect(details).toHaveTextContent('Dollar caps (metered providers)')
-    expect(within(week).queryByLabelText('Project weekly cap (USD)')).toBeNull()
+    expect(details).toHaveTextContent('Dollar limits (metered providers)')
+    expect(within(week).queryByLabelText('Project weekly limit (USD)')).toBeNull()
   })
 
   it('names each provider once when several plan providers have usage windows', async () => {
@@ -154,16 +154,16 @@ describe('BudgetCard', () => {
 
   it('saves only the caps that changed, per scope, and clears with an empty field', async () => {
     render(<BudgetCard projectId="p1" />)
-    const input = await screen.findByLabelText('Project monthly cap (USD)')
+    const input = await screen.findByLabelText('Project monthly limit (USD)')
     expect(screen.getByTestId('budget-save-project')).toBeDisabled()
     fireEvent.change(input, { target: { value: '200' } })
-    fireEvent.change(screen.getByLabelText('Project per-run cap (USD)'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('Project per-run limit (USD)'), { target: { value: '' } })
     fireEvent.click(screen.getByTestId('budget-save-project'))
     await waitFor(() => expect(patches).toHaveLength(1))
     expect(patches[0]).toEqual({ url: '/api/projects/p1/budget', body: { monthlyBudgetUsd: 200, runCapUsd: null } })
     expect(h.toast.success).toHaveBeenCalledWith('Budget saved')
 
-    fireEvent.change(screen.getByLabelText('App-wide weekly cap (USD)'), { target: { value: '75.5' } })
+    fireEvent.change(screen.getByLabelText('App-wide weekly limit (USD)'), { target: { value: '75.5' } })
     fireEvent.click(screen.getByTestId('budget-save-desktop'))
     await waitFor(() => expect(patches).toHaveLength(2))
     expect(patches[1].body).toEqual({ desktopWeeklyBudgetUsd: 75.5 })
@@ -172,10 +172,10 @@ describe('BudgetCard', () => {
 
   it('refuses a non-positive amount inline under the input, without calling the server', async () => {
     render(<BudgetCard projectId="p1" />)
-    const input = await screen.findByLabelText('Project weekly cap (USD)')
+    const input = await screen.findByLabelText('Project weekly limit (USD)')
     fireEvent.change(input, { target: { value: '-3' } })
     fireEvent.click(screen.getByTestId('budget-save-project'))
-    const error = await screen.findByText('Enter an amount above zero, or leave it empty for no cap.')
+    const error = await screen.findByText('Enter an amount above zero, or leave it empty for no limit.')
     expect(error).toHaveAttribute('role', 'alert')
     expect(input).toHaveAttribute('aria-invalid', 'true')
     expect(input.getAttribute('aria-describedby')).toBe(error.id)
@@ -183,7 +183,7 @@ describe('BudgetCard', () => {
     expect(patches).toHaveLength(0)
     // Editing the field clears its error.
     fireEvent.change(input, { target: { value: '30' } })
-    expect(screen.queryByText('Enter an amount above zero, or leave it empty for no cap.')).toBeNull()
+    expect(screen.queryByText('Enter an amount above zero, or leave it empty for no limit.')).toBeNull()
     expect(input).not.toHaveAttribute('aria-invalid')
   })
 

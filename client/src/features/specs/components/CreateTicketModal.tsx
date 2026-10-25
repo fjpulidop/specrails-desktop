@@ -195,7 +195,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
                 <span
                   key={label}
                   data-chip=""
-                  className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-caption font-medium bg-accent/60 text-foreground/70"
+                  className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-caption font-medium bg-accent/60 text-muted-foreground"
                 >
                   {label}
                   <button
@@ -233,7 +233,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
                         e.preventDefault()
                         addLabel(suggestion)
                       }}
-                      className="w-full text-left px-2 py-1 text-xs hover:bg-accent/50 text-foreground/80"
+                      className="w-full text-left px-2 py-1 text-xs hover:bg-accent/50 text-foreground"
                     >
                       {suggestion}
                     </button>

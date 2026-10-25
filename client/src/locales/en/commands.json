@@ -143,7 +143,7 @@
       "deleteSelectedN_other": "Delete {{count}} selected specs",
       "saveView": "Save current view",
       "switchView": "Switch view",
-      "openBudget": "Open Budget (caps, projection, what-if)",
+      "openBudget": "Open Budget (limits, projection, what-if)",
       "openBudgetKeywords": "budget, cap, limit, weekly, monthly, spend, cost",
       "exportHandoffN": "Export hand-off for #{{id}}",
       "copyPrDescriptionN": "Copy PR description for #{{id}}",

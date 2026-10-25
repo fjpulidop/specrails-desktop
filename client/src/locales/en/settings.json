@@ -22,7 +22,7 @@
   },
   "prePrompt": {
     "title": "Rail Pre-prompt",
-    "description": "Extra project-specific instructions appended to implement rail jobs after the spec context and before execution.",
+    "description": "Extra project-specific instructions appended to implement rail jobs after the spec context and before the run.",
     "label": "Pre-prompt",
     "placeholder": "Example: Prefer incremental changes, keep migrations backward compatible, and add tests for every rail change.",
     "helper": "Use this for stable project guidance that should accompany every rail implementation run.",
@@ -44,9 +44,9 @@
   },
   "budget": {
     "title": "Budget",
-    "description": "Set a daily spend cap for this project. The queue auto-pauses when the limit is hit.",
-    "dailyLabel": "Daily cap",
-    "dailyHelper": "Spend is counted over the last 24 hours. The queue pauses when the cap is reached.",
+    "description": "Set a daily spend limit for this project. The queue auto-pauses when the limit is hit.",
+    "dailyLabel": "Daily limit",
+    "dailyHelper": "Spend is counted over the last 24 hours. The queue pauses when the limit is reached.",
     "perJobLabel": "Per-job cost alert (USD)",
     "perJobHelper": "Alert when a single job in this project exceeds this amount.",
     "perJobPlaceholder": "e.g. 0.50",
@@ -55,7 +55,7 @@
     "alertSet": "Alert set for jobs over {{amount}}",
     "saveThresholdFailed": "Failed to save threshold",
     "dailyCurrent": "Currently {{amount}} a day",
-    "dailyNone": "No daily cap set"
+    "dailyNone": "No daily limit set"
   },
   "desktop": {
     "nav": {
@@ -81,7 +81,7 @@
     "techUrlSaved": "specrails-tech URL saved",
     "techUrlSaveFailed": "Failed to save URL",
     "budgetAlertsHeading": "Budget & Alerts",
-    "dailyBudgetLabel": "Desktop daily cap",
+    "dailyBudgetLabel": "Desktop daily limit",
     "dailyBudgetHelper": "Global daily spend limit across all projects. Queues auto-pause when exceeded.",
     "perJobHelper": "Alert when a single job exceeds this amount. Leave blank to disable.",
     "costAlertsDisabled": "Cost alerts disabled",
@@ -105,7 +105,7 @@
     },
     "unsavedChanges": "Unsaved changes",
     "dailyBudgetCurrent": "Currently {{amount}} a day",
-    "dailyBudgetNone": "No daily cap set"
+    "dailyBudgetNone": "No daily limit set"
   },
   "notifications": {
     "heading": "OS Notifications",
@@ -169,7 +169,7 @@
     "heading": "Code section",
     "summaryLanguage": "Summary language",
     "monthlyBudget": "Monthly budget (USD)",
-    "budgetHelper": "Cap on `surface=file-summary` spend per calendar month. User-initiated regenerations can override."
+    "budgetHelper": "Limit on `surface=file-summary` spend per calendar month. User-initiated regenerations can override."
   },
   "appearance": {
     "taglines": {
@@ -438,7 +438,7 @@
   },
   "reviewWip": {
     "title": "Review limit",
-    "description": "Cap how many deliveries can wait for your review at once, so new work does not pile up faster than you can decide it.",
+    "description": "Limit how many deliveries can wait for your review at once, so new work does not pile up faster than you can decide it.",
     "label": "Deliveries waiting for review",
     "help": "We suggest {{suggested}}: enough to keep rails busy while you review. Running deliveries, undecided ones and open PRs created by the app count. Changes to an existing delivery are always allowed. Leave it empty for no limit.",
     "placeholder": "No limit",
@@ -519,7 +519,7 @@
       "jetbrains": "JetBrains IDE"
     }
   },
-  "budgetMoved": "Caps are edited in Analytics ▸ Budget.",
+  "budgetMoved": "Limits are edited in Analytics ▸ Budget.",
   "openBudget": "Open Budget",
   "openSettings": "Open Settings",
   "accessibility": {

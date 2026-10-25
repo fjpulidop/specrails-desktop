@@ -319,7 +319,7 @@ function StoryCard({
           {entry.summary ? (
             <>
               {entry.summaryStale && <span className="text-caption text-accent-warning">{t('summary.stale')}</span>}
-              <p className="text-sm leading-relaxed text-foreground/90" data-testid="story-contribution">{entry.summary}</p>
+              <p className="text-sm leading-relaxed text-foreground" data-testid="story-contribution">{entry.summary}</p>
               {entry.summaryGeneratedAt && <time className="mt-1 block text-caption text-muted-foreground" dateTime={entry.summaryGeneratedAt}>{format(new Date(entry.summaryGeneratedAt), 'PPp', { locale: getDateFnsLocale() })}</time>}
               {entry.summaryStale && canExplain && (state === 'budget'
                 ? <span className="mt-1 inline-flex items-center gap-2 text-caption text-accent-warning"><span>{t('story.budgetReached')}</span><Button type="button" variant="outline" size="sm" onClick={() => onExplain(true)}>{t('story.generateAnyway')}</Button></span>

@@ -340,8 +340,8 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
                   {(() => {
                     const friendly = humaniseCommand(job.command, ticketTitlesOf(job.tickets))
                     return friendly
-                      ? <span className="min-w-0 truncate text-xs text-foreground/80" title={job.command}>{friendly}</span>
-                      : <code className="min-w-0 truncate font-mono text-xs text-foreground/80">{job.command}</code>
+                      ? <span className="min-w-0 truncate text-xs text-foreground" title={job.command}>{friendly}</span>
+                      : <code className="min-w-0 truncate font-mono text-xs text-foreground">{job.command}</code>
                   })()}
                   <span className="shrink-0 text-xs">
                     {activityTime

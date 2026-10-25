@@ -35,17 +35,17 @@ export function FlowRunFailure({
       data-returned={returned ? 'true' : 'false'}
       className={cn('text-label', !embedded && 'mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/[0.06] px-2.5 py-2')}
     >
-      <p className="flex items-start gap-1.5 font-medium leading-4 text-foreground/90">
+      <p className="flex items-start gap-1.5 font-medium leading-4 text-foreground">
         <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />
         <span data-testid="flow-run-failure-headline">{t(`flow.failure.step.${step}`)}</span>
       </p>
       {causeLine && (
-        <p className="mt-1 break-words pl-5 leading-4 text-foreground/75" data-testid="flow-run-failure-cause">
-          <span className="text-foreground/75">{t('flow.failure.cause')} </span>
+        <p className="mt-1 break-words pl-5 leading-4 text-muted-foreground" data-testid="flow-run-failure-cause">
+          <span className="text-muted-foreground">{t('flow.failure.cause')} </span>
           {causeLine}
         </p>
       )}
-      <p className="mt-1 pl-5 leading-4 text-foreground/75" data-testid="flow-run-failure-next">
+      <p className="mt-1 pl-5 leading-4 text-muted-foreground" data-testid="flow-run-failure-next">
         {t(returned ? 'flow.failure.nextReturned' : 'flow.failure.next')}
       </p>
       {!embedded && (
@@ -62,16 +62,16 @@ export function FlowRunFailure({
         )
       )}
       {technical.length > 0 && (
-        <details className="group mt-1.5 pl-5 text-label leading-4 text-foreground/75" data-testid="flow-run-failure-technical">
-          <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded font-medium text-foreground/75 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 [&::-webkit-details-marker]:hidden">
+        <details className="group mt-1.5 pl-5 text-label leading-4 text-muted-foreground" data-testid="flow-run-failure-technical">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 [&::-webkit-details-marker]:hidden">
             <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
             {t('flow.failure.technical.title')}
           </summary>
           <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
             {technical.map(([label, value]) => (
               <div key={label} className="contents">
-                <dt className="text-foreground/75">{label}</dt>
-                <dd className="min-w-0 break-words font-mono text-foreground/80">{value}</dd>
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="min-w-0 break-words font-mono text-foreground">{value}</dd>
               </div>
             ))}
           </dl>

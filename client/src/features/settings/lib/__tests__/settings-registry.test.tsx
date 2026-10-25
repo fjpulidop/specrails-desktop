@@ -2,14 +2,14 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../../../../test-utils'
 import GlobalSettingsPage from '../../pages/GlobalSettingsPage'
-import { ProjectSettingsDialog } from '../../components/ProjectSettingsDialog'
+import SettingsPage from '../../pages/SettingsPage'
 import { PROJECT_PANE_ANCHORS, PROJECT_SETTINGS_SECTIONS } from '../../components/project-settings-sections'
 import { SETTINGS_REGISTRY, isAppSettingsSection } from '../settings-registry'
 import { PROJECT_SETTINGS_SECTION_IDS } from '../project-settings-section-ids'
 import { findSettingAnchor, focusSettingAnchor } from '../setting-anchor'
 
 // The ⌘K `/` scope trusts this registry: every entry must resolve to a mounted
-// `data-setting-id` in the dialog it names, and no anchor may be unlisted.
+// `data-setting-id` in the page it names, and no anchor may be unlisted.
 
 vi.mock('sonner', () => ({ toast: { promise: vi.fn(), error: vi.fn(), success: vi.fn() } }))
 vi.mock('../../../../lib/api', () => ({ getApiBase: () => '/api/projects/p1' }))
@@ -35,7 +35,7 @@ function anchorIds(): string[] {
 beforeEach(() => {
   vi.clearAllMocks()
   global.fetch = vi.fn().mockImplementation((url: string) => {
-    const body = String(url).includes('/api/webhooks') ? { webhooks: [] } : String(url).includes('/api/budget') ? { desktopDailyBudgetUsd: null, costToday: 0, budgetUtilizationPct: null } : {}
+    const body = String(url).endsWith('/config') ? { project: { name: 'acme-api', repo: null } } : String(url).includes('/api/webhooks') ? { webhooks: [] } : String(url).includes('/api/budget') ? { desktopDailyBudgetUsd: null, costToday: 0, budgetUtilizationPct: null } : {}
     return Promise.resolve({ ok: true, json: async () => body })
   })
 })
@@ -51,7 +51,7 @@ describe('settings registry', () => {
   })
 
   it('every project entry resolves to a mounted anchor inside its own section, and every project anchor is registered', async () => {
-    render(<ProjectSettingsDialog open onClose={vi.fn()} />)
+    render(<SettingsPage />)
     const project = SETTINGS_REGISTRY.filter((e) => e.scope === 'project')
     await waitFor(() => {
       for (const entry of project) expect(document.querySelector(`[data-setting-id="${entry.id}"]`), `dead id: ${entry.id}`).toBeTruthy()
@@ -83,7 +83,7 @@ describe('settings registry', () => {
   })
 
   it('lands on the project setting: switches nothing else, flashes the block and focuses its control', async () => {
-    render(<ProjectSettingsDialog open onClose={vi.fn()} initialSection="budget" initialSettingId="projectBudget" />)
+    render(<SettingsPage />, { route: '/settings?setting=projectBudget' })
     await waitFor(() => {
       const el = document.querySelector('[data-setting-id="projectBudget"]') as HTMLElement
       expect(el).toHaveAttribute('data-setting-flash', 'true')

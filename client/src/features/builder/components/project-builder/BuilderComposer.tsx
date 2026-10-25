@@ -42,7 +42,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
           a mission action ("+ New mission" / picking a mission) or Esc. */}
       <div className="mb-3 flex items-center gap-2 px-1">
         <Hammer className="h-4 w-4 text-accent-primary" />
-        <span className="text-sm font-medium text-foreground/80">{t('mode.title')}</span>
+        <span className="text-sm font-medium text-foreground">{t('mode.title')}</span>
       </div>
 
       {/* Selector row — the SAME primitives as the mission composer. */}
@@ -117,7 +117,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
           placeholder={t('shell.inputPlaceholder')}
           aria-label={t('shell.inputPlaceholder')}
           data-agent-interactive
-          className="min-h-[3.25rem] max-h-64 min-w-[12rem] flex-1 resize-y bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-foreground/40"
+          className="min-h-[3.25rem] max-h-64 min-w-[12rem] flex-1 resize-y bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
           data-testid="builder-input"
         />
         <button

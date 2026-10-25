@@ -38,7 +38,7 @@ export function PacketBaseline({ entries, multiTicket }: { entries: Baseline[]; 
               {module.length > 0 ? (
                 <p className="text-xs text-muted-foreground">
                   {t('baseline.module')}{' '}
-                  <span className="font-mono text-caption text-foreground/80">{module.join(', ')}</span>
+                  <span className="font-mono text-caption text-foreground">{module.join(', ')}</span>
                   {entry.uncovered.length > module.length ? ` ${t('baseline.more', { count: entry.uncovered.length - module.length })}` : ''}
                 </p>
               ) : null}
@@ -46,7 +46,7 @@ export function PacketBaseline({ entries, multiTicket }: { entries: Baseline[]; 
                 <p className="text-xs text-muted-foreground">
                   {t('baseline.spec')}{' '}
                   {entry.capabilities.map((item) => (
-                    <span key={item.capability} className="mr-2 font-mono text-caption text-foreground/80">
+                    <span key={item.capability} className="mr-2 font-mono text-caption text-foreground">
                       {t('baseline.capability', { capability: item.capability, requirements: item.requirements, demonstrated: item.demonstrated })}
                     </span>
                   ))}

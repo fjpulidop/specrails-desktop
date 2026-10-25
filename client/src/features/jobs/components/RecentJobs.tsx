@@ -448,7 +448,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
                 {job.pipeline_id && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Link2 className="w-3 h-3 text-accent-primary/60 shrink-0" />
+                      <Link2 className="w-3 h-3 text-accent-primary shrink-0" />
                     </TooltipTrigger>
                     <TooltipContent>
                       {t('recent.pipelinePart')}
@@ -461,8 +461,8 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
                   const friendly = humaniseCommand(job.command, ticketTitles)
                   const raw = formatCommandForProvider(job.command, activeProvider)
                   return friendly
-                    ? <span className="text-xs text-foreground/80 truncate" title={raw}>{friendly}</span>
-                    : <code className="text-xs text-foreground/80 truncate">{raw}</code>
+                    ? <span className="text-xs text-foreground truncate" title={raw}>{friendly}</span>
+                    : <code className="text-xs text-foreground truncate">{raw}</code>
                 })()}
               </div>
 

@@ -130,27 +130,27 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
         <span id="flow-entry-title" className="text-strong text-foreground">{t('flow.entry.heading')}</span>
       </div>
       <div className="space-y-3 px-3.5 py-3">
-        <p className="flex items-start gap-2 text-xs leading-5 text-foreground/80">
+        <p className="flex items-start gap-2 text-xs leading-5 text-foreground">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
           <span>{t('flow.entry.body')}</span>
         </p>
         {ticketId ? (
           // An existing spec: the Flow works on it, so the card names the spec, not an idea.
           <div data-testid="flow-entry-spec" className="space-y-1 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs">
-            <p className="flex min-w-0 items-center gap-1.5 text-foreground/90">
-              <FileText className="h-3.5 w-3.5 shrink-0 text-foreground/70" aria-hidden />
-              <span className="shrink-0 font-mono text-foreground/70">{t('flow.entry.existingSpec.label', { id: ticketId })}</span>
+            <p className="flex min-w-0 items-center gap-1.5 text-foreground">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="shrink-0 font-mono text-muted-foreground">{t('flow.entry.existingSpec.label', { id: ticketId })}</span>
               <span className="min-w-0 truncate font-medium" title={title ?? idea}>{title ?? idea}</span>
             </p>
-            <p className="leading-5 text-foreground/70">{t('flow.entry.existingSpec.note')}</p>
+            <p className="leading-5 text-muted-foreground">{t('flow.entry.existingSpec.note')}</p>
           </div>
         ) : (
-          <blockquote data-testid="flow-entry-idea" className="line-clamp-4 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs italic text-foreground/80">
-            {title ? <span className="mb-0.5 block not-italic font-medium text-foreground/90">{title}</span> : null}
+          <blockquote data-testid="flow-entry-idea" className="line-clamp-4 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs italic text-foreground">
+            {title ? <span className="mb-0.5 block not-italic font-medium text-foreground">{title}</span> : null}
             {idea}
           </blockquote>
         )}
-        <p className="flex items-center gap-1.5 text-xs text-foreground/70">
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <GitBranch className="h-3 w-3 shrink-0" aria-hidden />
           {provider ? t('flow.entry.provider', { provider: providerLabel(provider) }) : t('flow.entry.providerUnknown')}
           <HelpHint topic="flowMode" variant="link" className="ml-auto" />
@@ -170,12 +170,12 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
             <p id={blockReasonId} className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />{blockReason}</p>
             {blockedByOpenFlow && openFlowId && (
               <button type="button" data-agent-interactive data-testid="flow-entry-open-flow" onClick={() => focusFlowBar(openFlowId)}
-                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-label text-foreground/80 underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50">
+                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-label text-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50">
                 {t('flow.entry.blocked.goToFlow')}
               </button>
             )}
             {missing.length > 0 && (
-              <ul className="mt-1 list-disc space-y-0.5 pl-6 text-foreground/70">
+              <ul className="mt-1 list-disc space-y-0.5 pl-6 text-muted-foreground">
                 {missing.map((label) => <li key={label}>{label}</li>)}
               </ul>
             )}
@@ -187,7 +187,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
           <InitialCommitButton projectId={projectId} onCreated={() => void startFlow()} />
         )}
         <div className="flex items-center justify-end gap-2">
-          <button type="button" data-agent-interactive onClick={onCancel} disabled={busy} className="rounded-md px-2.5 py-1 text-xs text-foreground/75 transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50">
+          <button type="button" data-agent-interactive onClick={onCancel} disabled={busy} className="rounded-md px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50">
             {t('flow.entry.cancel')}
           </button>
           <button
