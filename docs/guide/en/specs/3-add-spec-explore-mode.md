@@ -22,7 +22,7 @@ As you converse, a draft pane shows the spec as it currently stands — title, d
 
 This is the heart of Explore mode: you're never staring at a blank form. You're always looking at a real, evolving spec.
 
-## How much the AI sees: the context slider
+## How much the AI sees: the context slider {#context-scope}
 
 Before the AI answers, you decide how much of your project it can see. A context preset slider lets you trade speed for depth:
 
@@ -43,7 +43,7 @@ If you want finer control, click **Fine-tune** to flip the underlying options by
 
 - **Create Spec** — promotes the live draft to a real spec with status **Todo**. (When you're editing an existing spec, this button reads **Update Spec** instead and patches that spec in place.)
 - **Review →** — opens a Review overlay that shows the proposed spec diffed against the baseline before you commit, so there are no surprises.
-- **Save as Draft** — persists the conversation as a draft ticket so you can pick it up later. Available as soon as you've sent at least one message. See below.
+- **Save as Draft** — persists the conversation as a draft spec so you can pick it up later. Available as soon as you've sent at least one message. See below.
 - **Minimize** — parks the conversation as a chip in the minimized-chats dock at the bottom-left. Click the chip any time to drop right back into the conversation — nothing is lost.
 - **Discard** — throws the conversation away (asks for confirmation first).
 

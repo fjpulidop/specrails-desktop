@@ -3,7 +3,18 @@ import { existsSync } from 'node:fs'
 import { loadCoreAgentRuntime, findCoreAgentRuntimeEntry, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { AgentRuntimeConfigError, agentRuntimeConfigPath, loadAgentRuntimeConfig, saveAgentRuntimeConfig, validateAgentRuntimeConfig, loadRuntimeProviders, coreConnectionFieldGates } from './agent-runtime-settings'
 import { stripDesktopConnectionFields, forCoreRuntime } from './agent-runtime-settings'
-import { suggestVerificationCommands } from './agent-runtime-verification-suggestions'
+import { suggestVerificationCommands, type VerificationSuggestion } from './agent-runtime-verification-suggestions'
+import { corePhase3Capabilities } from './core-capabilities'
+import { readProjectRulesInventory } from '../../project-rules/runtime/rules-store'
+import { gateToVerificationCommand, type ProjectRulesInventory } from '../../project-rules/domain'
+
+/** The inventory's gates as verification suggestions (plain commands only). */
+export function rulesGateSuggestions(inventory: ProjectRulesInventory | null, repositoryId: string): VerificationSuggestion[] {
+  return (inventory?.gates ?? []).flatMap((gate) => {
+    const command = gateToVerificationCommand(gate)
+    return command ? [{ repositoryId, ...command, reason: `project rules gate "${gate.id}" (${gate.kind})` }] : []
+  })
+}
 import { getProjectRepositories } from '../../../project-repositories'
 import { fillDefaultRoleModels, workflowRoleDefaults } from './agent-runtime-effective-config'
 
@@ -68,11 +79,19 @@ export function registerAgentRuntimeSettingsRoutes({ router, ctx }: Pick<Project
   /** Offline detection of each repository's own checks; never invokes a model.
    *  Verification stays optional: the architect proposes commands for uncovered
    *  repositories at run time, and Core admits repositories without any check. */
-  router.get('/:projectId/agent-runtime/verification-suggestions', (req, res) => {
+  router.get('/:projectId/agent-runtime/verification-suggestions', async (req, res) => {
     try {
       const project = ctx(req).project
       const repositories = getProjectRepositories(project).map((repository) => ({ id: repository.id, name: repository.name, path: repository.path, workspacePath: repository.workspacePath, workspacePaths: repository.workspacePaths }))
-      res.json({ repositories: repositories.map(({ id, name }) => ({ id, name })), suggestions: suggestVerificationCommands(repositories) })
+      // Project rules (task 4.4): the gates Core's inventory discovered come
+      // first, so they become the default plan of a project with no checks.
+      const primary = getProjectRepositories(project).find((repository) => repository.isPrimary) ?? repositories[0]
+      const gates = primary && (await corePhase3Capabilities()).rulesInventory
+        ? rulesGateSuggestions(readProjectRulesInventory(project), primary.id) : []
+      const detected = suggestVerificationCommands(repositories)
+      const key = (item: { repositoryId: string; command: string; args: string[] }) => JSON.stringify([item.repositoryId, item.command, item.args])
+      const seen = new Set(gates.map(key))
+      res.json({ repositories: repositories.map(({ id, name }) => ({ id, name })), suggestions: [...gates, ...detected.filter((item) => !seen.has(key(item)))] })
     } catch {
       res.status(500).json({ error: 'verification_suggestions_failed', message: 'Could not inspect the project repositories' })
     }

@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { Eye, Loader2, Pause, Play, X as XIcon, Layers, ArrowRight, Ban, Flag, Zap } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { formatElapsed } from '../../../../lib/format-duration'
-import { PrDecisionPill } from '../../../missions/components/AgentPrPinnedDock'
+import { PrDecisionPill } from '../../../missions/components/AgentPrDecisionPill'
 import type { AgentPrDecisionValue } from '../../../missions/lib/agent-api'
+import { LiveDot } from '../../../../components/ui/live-dot'
 import {
   chainAtCheckpoint,
   chainIsLive,
@@ -30,13 +31,13 @@ import {
 const SEGMENT_TONE: Record<SegmentKey, string> = {
   done: 'bg-accent-success',
   onReview: 'bg-accent-warning',
-  inProgress: 'bg-accent-info animate-pulse',
+  inProgress: 'bg-accent-info motion-safe:animate-pulse',
   failed: 'bg-destructive',
   todo: 'bg-muted-foreground/25',
 }
 
 const STATE_TONE: Record<MilestoneState, string> = {
-  planned: 'border-border/60 bg-surface/60 text-foreground/60',
+  planned: 'border-border/60 bg-surface/60 text-muted-foreground',
   committed: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
   running: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
   delivered: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
@@ -57,7 +58,7 @@ export function MilestoneProgressBar({ counts, className }: { counts: MilestoneC
         <div
           key={s.key}
           data-segment={s.key}
-          className={cn('h-full transition-all duration-500', SEGMENT_TONE[s.key])}
+          className={cn('h-full transition-all duration-200', SEGMENT_TONE[s.key])}
           style={{ width: `${s.pct}%` }}
           title={`${t(`milestoneProgress.legend.${s.key}`)} · ${s.count}`}
         />
@@ -72,7 +73,7 @@ export function MilestoneStatePill({ state }: { state: MilestoneState }) {
     <span
       data-testid="milestone-state-pill"
       data-state={state}
-      className={cn('inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide', STATE_TONE[state])}
+      className={cn('inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-caption font-semibold', STATE_TONE[state])}
     >
       {t(`milestoneProgress.state.${state}`)}
     </span>
@@ -111,33 +112,33 @@ export function MilestoneRailRow({ rail, now, onReview, onOpenRail }: MilestoneR
       data-rail-index={rail.railIndex}
     >
       {rail.chunkIndex != null && (
-        <span className="shrink-0 rounded bg-muted/70 px-1 py-px text-[9px] font-mono tabular-nums text-muted-foreground" title={t('milestoneProgress.rail.chunk', { k: rail.chunkIndex })}>
+        <span className="shrink-0 rounded bg-muted/70 px-1 py-px text-caption font-mono tabular-nums text-muted-foreground" title={t('milestoneProgress.rail.chunk', { k: rail.chunkIndex })}>
           {rail.chunkIndex}
-        </span>
+        <span className="sr-only"> ({t('milestoneProgress.rail.chunk', { k: rail.chunkIndex })})</span></span>
       )}
       <button
         type="button"
         onClick={() => onOpenRail?.(rail.railIndex)}
-        className="min-w-0 flex-1 truncate text-left text-[11px] font-medium hover:underline"
+        className="min-w-0 flex-1 truncate text-left text-caption font-medium hover:underline"
         title={t('milestoneProgress.rail.open')}
       >
         {name}
       </button>
       {rail.active ? (
-        <span className="flex shrink-0 items-center gap-1 text-[10px] text-accent-info" data-testid="milestone-rail-running">
-          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+        <span className="flex shrink-0 items-center gap-1 text-caption text-accent-info" data-testid="milestone-rail-running">
+          <LiveDot tone="info" size="xs" aria-hidden />
           {elapsed != null ? t('milestoneProgress.rail.running', { elapsed: formatElapsed(elapsed) }) : t('milestoneProgress.state.running')}
         </span>
       ) : decision ? (
         <PrDecisionPill decision={decision as AgentPrDecisionValue} />
       ) : (
-        <span className="text-[10px] text-muted-foreground">{t('milestoneProgress.rail.noDelivery')}</span>
+        <span className="text-caption text-muted-foreground">{t('milestoneProgress.rail.noDelivery')}</span>
       )}
       {reviewable && rail.delivery && (
         <button
           type="button"
           onClick={() => onReview?.(rail.delivery!.id)}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-primary hover:bg-accent-primary/20"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-1.5 py-0.5 text-caption font-medium text-accent-primary hover:bg-accent-primary/20"
           data-testid="milestone-rail-review"
         >
           <Eye className="h-3 w-3" aria-hidden />
@@ -177,7 +178,7 @@ export function MilestoneAutoAdvanceToggle({
       onClick={() => onChange(!checked)}
       title={hint}
       className={cn(
-        'group inline-flex items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-[10px] transition-colors disabled:opacity-50',
+        'group inline-flex items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-caption transition-colors disabled:opacity-50',
         checked ? 'border-accent-success/40 bg-accent-success/10 text-accent-success' : 'border-border/50 text-muted-foreground hover:text-foreground',
         compact ? 'py-0.5' : 'w-full',
       )}
@@ -195,7 +196,7 @@ export function MilestoneAutoAdvanceToggle({
       </span>
       {checked ? <Zap className="h-3 w-3 shrink-0" aria-hidden /> : <Flag className="h-3 w-3 shrink-0" aria-hidden />}
       <span className="min-w-0 flex-1 truncate font-medium">{t('milestoneProgress.chain.autoAdvance')}</span>
-      {!compact && <span className="hidden truncate text-[9px] font-normal text-muted-foreground group-hover:inline">{hint}</span>}
+      {!compact && <span className="hidden truncate text-caption font-normal text-muted-foreground group-hover:inline">{hint}</span>}
     </button>
   )
 }
@@ -222,7 +223,7 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
   return (
     <div
       className={cn(
-        'rounded-md border px-2 py-1.5 text-[10px]',
+        'rounded-md border px-2 py-1.5 text-caption',
         paused
           ? 'border-accent-warning/40 bg-accent-warning/5'
           : checkpoint
@@ -353,16 +354,16 @@ export function MilestoneCard({ progress, actions, chainBusy, onReview, onOpenRa
   return (
     <div className={cn('rounded-md border border-border/30 px-2 py-1.5', className)} data-testid="milestone-card" data-milestone={progress.n} data-state={progress.state}>
       <div className="flex items-center gap-2">
-        <span className="rounded bg-accent-primary/10 px-1.5 py-px text-[9px] font-semibold text-accent-primary">
+        <span className="rounded bg-accent-primary/10 px-1.5 py-px text-caption font-semibold text-accent-primary">
           {milestoneLabelFor(progress.n)}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-medium">{progress.title}</span>
+        <span className="min-w-0 flex-1 truncate text-caption font-medium">{progress.title}</span>
         <MilestoneStatePill state={progress.state} />
       </div>
       {counts.total > 0 && (
         <>
           <MilestoneProgressBar counts={counts} className="mt-1.5" />
-          <div className="mt-1 flex items-center justify-between gap-2 text-[10px] tabular-nums text-muted-foreground">
+          <div className="mt-1 flex items-center justify-between gap-2 text-caption tabular-nums text-muted-foreground">
             <span data-testid="milestone-counts">
               {t('milestoneProgress.counts', { delivered: deliveredCount(counts), total: counts.total, done: counts.done })}
             </span>
@@ -371,7 +372,7 @@ export function MilestoneCard({ progress, actions, chainBusy, onReview, onOpenRa
             )}
           </div>
           {counts.failed > 0 && (
-            <p className="mt-0.5 text-[10px] text-destructive" data-testid="milestone-failed-note">
+            <p className="mt-0.5 text-caption text-destructive" data-testid="milestone-failed-note">
               {t('milestoneProgress.failedNote', { count: counts.failed })}
             </p>
           )}

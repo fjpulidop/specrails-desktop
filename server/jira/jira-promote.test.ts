@@ -421,3 +421,40 @@ describe('durable create outbox op (enqueuePromote)', () => {
   })
 })
 
+
+describe('durable update of a linked spec (enqueueSpecUpdate, Flow from an existing spec)', () => {
+  let db: DbInstance
+  let projectPath: string
+
+  beforeEach(() => {
+    db = initDb(':memory:')
+    setSecretStore({ encrypt: (s) => `e:${s}`, decrypt: (s) => s.slice(2) })
+    projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-update-op-'))
+  })
+
+  afterEach(() => {
+    setSecretStore(null)
+    fs.rmSync(projectPath, { recursive: true, force: true })
+  })
+
+  it('updates the existing issue with the rewritten spec, once per key, and never creates an issue', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 5, 'Rewritten title')
+    insertLinkWithId(db, { localId: 5, jiraIssueId: '10001', jiraKey: 'PROJ-7', jiraProjectId: '1', deployment: 'cloud' })
+    const { impl, calls } = makeFetch([{ match: (u: string, m: string) => m === 'PUT' && u.includes('/issue/10001'), res: fakeResponse(204, {}) }])
+    const mgr = new JiraSyncManager({ db, projectId: 'p1', projectPath, broadcast: (() => {}) as any, fetchImpl: impl, startTimers: false })
+    expect(mgr.enqueueSpecUpdate(5, 'flow:f1:update')).toBe('enqueued')
+    expect(mgr.enqueueSpecUpdate(5, 'flow:f1:update')).toBe('enqueued')
+    expect(listOutbox(db)).toHaveLength(1)
+    expect(listOutbox(db)[0]).toMatchObject({ opType: 'update', jiraIssueId: '10001', idempotencyKey: 'flow:f1:update' })
+    const raw = (listOutbox(db)[0] as unknown as { payload: unknown }).payload
+    const payload = (typeof raw === 'string' ? JSON.parse(raw) : raw) as { fields: { summary: string } }
+    expect(payload.fields.summary).toBe('Rewritten title')
+    await mgr.drainOnce()
+    expect(listOutbox(db, { state: 'done' })).toHaveLength(1)
+    expect(calls.filter((c) => c.method === 'PUT' && c.url.includes('/issue/10001'))).toHaveLength(1)
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/issue'))).toHaveLength(0)
+    seedTicket(projectPath, 6, 'Unlinked')
+    expect(mgr.enqueueSpecUpdate(6, 'flow:f2:update')).toBe('not_linked')
+  })
+})

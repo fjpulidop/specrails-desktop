@@ -84,7 +84,7 @@ export function TerminalContextMenu({ x, y, term, cwd, hasReveal, onClose, onOpe
       role="menu"
       data-terminal-context-menu
       style={{ position: 'fixed', left: flippedX, top: flippedY, minWidth: 200 }}
-      className="bg-[#1f1f29] border border-[#44475a] rounded-md shadow-lg py-1 z-50 text-sm"
+      className="bg-popover border border-border rounded-md shadow-lg py-1 z-50 text-sm"
     >
       <Item onClick={copy} disabled={!hasSelection} label={t('common:actions.copy')} shortcut={modifier + 'C'} />
       <Item onClick={paste} label={t('contextMenu.paste')} shortcut={modifier + 'V'} />
@@ -110,16 +110,16 @@ function Item({ onClick, label, shortcut, disabled }: { onClick: () => void; lab
       role="menuitem"
       onClick={() => { if (!disabled) onClick() }}
       disabled={disabled}
-      className={`w-full text-left px-3 py-1.5 flex justify-between items-center ${disabled ? 'text-[#6272a4] cursor-not-allowed' : 'text-[#f8f8f2] hover:bg-[#44475a]'}`}
+      className={`w-full text-left px-3 py-1.5 flex justify-between items-center ${disabled ? 'text-muted-foreground cursor-not-allowed' : 'text-popover-foreground hover:bg-accent'}`}
     >
       <span>{label}</span>
-      {shortcut && <span className="text-xs text-[#6272a4] tabular-nums">{shortcut}</span>}
+      {shortcut && <span className="text-xs text-muted-foreground tabular-nums">{shortcut}</span>}
     </button>
   )
 }
 
 function Divider() {
-  return <div className="my-1 border-t border-[#44475a]" />
+  return <div className="my-1 border-t border-border" />
 }
 
 function truncate(s: string, n: number): string {

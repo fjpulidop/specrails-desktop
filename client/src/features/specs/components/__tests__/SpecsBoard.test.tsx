@@ -1,8 +1,9 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '../../../../test-utils'
+import { render, screen, fireEvent, act, within } from '../../../../test-utils'
 import { SpecsBoard } from '../SpecsBoard'
 import type { LocalTicket } from '../../../../types'
+import { getPaletteSurface } from '../../../../lib/palette-bridge'
 
 // Mock DnD kit — SpecsBoard uses useDroppable + SortableContext
 vi.mock('@dnd-kit/core', () => ({
@@ -30,8 +31,8 @@ vi.mock('@dnd-kit/utilities', () => ({
 }))
 
 vi.mock('../ProposeSpecModal', () => ({
-  ProposeSpecModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
-    open ? <div data-testid="propose-spec-modal"><button onClick={onClose}>close modal</button></div> : null,
+  ProposeSpecModal: ({ open, onClose, initialMode }: { open: boolean; onClose: () => void; initialMode?: string }) =>
+    open ? <div data-testid="propose-spec-modal" data-mode={initialMode}><button onClick={onClose}>close modal</button></div> : null,
 }))
 
 function makeTicket(overrides: Partial<LocalTicket> = {}): LocalTicket {
@@ -62,24 +63,24 @@ describe('SpecsBoard', () => {
 
   it('renders the Specs heading', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    expect(screen.getByText('Spec')).toBeInTheDocument()
+    expect(screen.getByText('Specs')).toBeInTheDocument()
   })
 
   it('renders Add Spec button', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    expect(screen.getByRole('button', { name: /^Add$/i })).toBeInTheDocument()
+    expect(screen.getByTestId('specs-new-spec')).toBeInTheDocument()
   })
 
   it('shows empty state when no tickets', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
     expect(screen.getByText('No specs yet')).toBeInTheDocument()
-    expect(screen.getByText(/Click "\+ Add" to get started/i)).toBeInTheDocument()
+    expect(screen.getByText(/Click "New spec" to get started/i)).toBeInTheDocument()
   })
 
   it('shows load error with Retry instead of the empty state', () => {
     const onRetry = vi.fn()
     render(<SpecsBoard tickets={[]} isLoading={false} error="request failed" onRetry={onRetry} onTicketClick={onTicketClick} />)
-    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load tickets')
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load specs')
     expect(screen.queryByText('No specs yet')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
@@ -162,7 +163,7 @@ describe('SpecsBoard', () => {
 
   it('shows loading skeletons when isLoading is true', () => {
     render(<SpecsBoard tickets={[]} isLoading={true} onTicketClick={onTicketClick} />)
-    const skeletons = document.querySelectorAll('.animate-pulse')
+    const skeletons = document.querySelectorAll('[class*="animate-pulse"]')
     expect(skeletons.length).toBeGreaterThan(0)
   })
 
@@ -176,27 +177,24 @@ describe('SpecsBoard', () => {
     expect(screen.getByText('Spec Two')).toBeInTheDocument()
   })
 
-  it('shows ticket count badge when there are tickets', () => {
+  it('announces the spec count on the All status segment (no duplicate header pill)', () => {
     const tickets = [makeTicket({ id: 1 }), makeTicket({ id: 2 }), makeTicket({ id: 3 })]
     render(<SpecsBoard tickets={tickets} isLoading={false} onTicketClick={onTicketClick} />)
-    // Scope to the header count badge (the ToDo/Done tabs also render counts).
-    const heading = screen.getByText('Spec')
-    const headerDiv = heading.closest('div.flex')!
-    expect(headerDiv.querySelector('.rounded-full')).toHaveTextContent('3')
+    expect(screen.getByTestId('specs-status-count-all')).toHaveTextContent('3')
+    const row1 = screen.getByText('Specs').closest('[data-row="primary"]')!
+    expect(row1.querySelector('.rounded-full')).toBeNull()
   })
 
-  it('does not show active specs count badge when no tickets', () => {
+  it('shows zero counts (not hidden) and no filter row when there are no specs', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    // The Specs header should not show a count badge for 0 active tickets
-    const heading = screen.getByText('Spec')
-    const headerDiv = heading.closest('div.flex')!
-    expect(headerDiv.querySelector('.rounded-full')).toBeNull()
+    expect(screen.getByTestId('specs-status-count-all')).toHaveTextContent('0')
+    expect(screen.queryByTestId('specs-active-filters')).toBeNull()
   })
 
   it('opens ProposeSpecModal when Add Spec is clicked', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
     expect(screen.queryByTestId('propose-spec-modal')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /^Add$/i }))
+    fireEvent.click(screen.getByTestId('specs-new-spec'))
     expect(screen.getByTestId('propose-spec-modal')).toBeInTheDocument()
   })
 
@@ -206,9 +204,26 @@ describe('SpecsBoard', () => {
     expect(screen.getByTestId('propose-spec-modal')).toBeInTheDocument()
   })
 
+  it('⌘K New spec opens the same modal, Explore opens it in Explore, and closing resets to Quick', () => {
+    render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
+    const surface = getPaletteSurface('specs')!
+    act(() => surface.openNewSpec('explore'))
+    expect(screen.getByTestId('propose-spec-modal')).toHaveAttribute('data-mode', 'explore')
+    fireEvent.click(screen.getByText('close modal'))
+    act(() => getPaletteSurface('specs')!.openNewSpec('quick'))
+    expect(screen.getByTestId('propose-spec-modal')).toHaveAttribute('data-mode', 'quick')
+  })
+
+  it('unregisters its ⌘K surface on unmount', () => {
+    const { unmount } = render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
+    expect(getPaletteSurface('specs')).not.toBeNull()
+    unmount()
+    expect(getPaletteSurface('specs')).toBeNull()
+  })
+
   it('closes ProposeSpecModal when onClose is called', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    fireEvent.click(screen.getByRole('button', { name: /^Add$/i }))
+    fireEvent.click(screen.getByTestId('specs-new-spec'))
     expect(screen.getByTestId('propose-spec-modal')).toBeInTheDocument()
     fireEvent.click(screen.getByText('close modal'))
     expect(screen.queryByTestId('propose-spec-modal')).not.toBeInTheDocument()
@@ -251,5 +266,67 @@ describe('SpecsBoard', () => {
     )
     fireEvent.click(screen.getByLabelText('Toggle sort direction'))
     expect(onSortChange).toHaveBeenCalledWith('ticket-id', 'asc')
+  })
+
+  it('does not show the "No specs yet" hint when only done specs exist', () => {
+    render(
+      <SpecsBoard
+        tickets={[]}
+        doneTickets={[makeTicket({ id: 9, title: 'Shipped', status: 'done' })]}
+        isLoading={false}
+        onTicketClick={onTicketClick}
+      />,
+      { route: '/?status=all' },
+    )
+    expect(screen.queryByText('No specs yet')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Click "New spec" to get started/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Done · 1')).toBeInTheDocument()
+  })
+
+  it('deletes at once from jiggle mode: no confirm (Undo is the safety net)', () => {
+    vi.useFakeTimers()
+    try {
+      const onTicketDelete = vi.fn()
+      const { container } = render(
+        <SpecsBoard
+          tickets={[makeTicket({ id: 1, title: 'Doomed' })]}
+          isLoading={false}
+          onTicketClick={onTicketClick}
+          onTicketDelete={onTicketDelete}
+        />,
+      )
+      const card = container.querySelector('[data-ticket-id="1"]') as HTMLElement
+      fireEvent.pointerDown(card)
+      act(() => { vi.advanceTimersByTime(800) })
+      fireEvent.click(screen.getByTestId('spec-card-delete-1'))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(onTicketDelete).toHaveBeenCalledWith(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('SpecsBoard — filtered-empty Clear filters', () => {
+  it('offers Clear filters when a status filter hides every spec, and restores the default view', () => {
+    const onTicketClick = vi.fn()
+    render(
+      <SpecsBoard tickets={[makeTicket({ id: 7, title: 'Hidden spec' })]} isLoading={false} onTicketClick={onTicketClick} />,
+      { route: '/?status=draft' },
+    )
+    expect(screen.queryByText('Hidden spec')).toBeNull()
+    fireEvent.click(screen.getByTestId('specs-board-clear-filters'))
+    expect(screen.getByText('Hidden spec')).toBeInTheDocument()
+    expect(screen.queryByTestId('specs-board-clear-filters')).toBeNull()
+  })
+
+  it('does not offer Clear filters on a genuinely empty board', () => {
+    render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={vi.fn()} />)
+    expect(screen.queryByTestId('specs-board-clear-filters')).toBeNull()
+  })
+
+  it('labels the board landmark with its title', () => {
+    render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={vi.fn()} />)
+    expect(screen.getByRole('region', { name: /spec/i })).toBeInTheDocument()
   })
 })

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { moduleReferences } from './module-references.mjs'
+import { readmeIsCurrent, updateReadme } from './client-feature-readme.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const source = path.join(root, 'client/src')
@@ -51,13 +52,25 @@ const manifest = Object.fromEntries(names.map(name => [name, {
   publicEntries: sorted(features[name].publicEntries), dependencies: sorted(features[name].dependencies),
 }]))
 const output = JSON.stringify(manifest, null, 2) + '\n'
+const readmePath = name => path.join(featureRoot, name, 'README.md')
+const readReadme = name => (fs.existsSync(readmePath(name)) ? fs.readFileSync(readmePath(name), 'utf8') : null)
 if (process.argv.includes('--write')) {
   fs.writeFileSync(manifestPath, output)
+  // Only the generated block of each README is rewritten; hand-written
+  // sections around it are preserved (scripts/client-feature-readme.mjs).
   for (const name of names) {
-    const { publicEntries, dependencies } = manifest[name]
-    fs.writeFileSync(path.join(featureRoot, name, 'README.md'), `# ${name}\n\nThis capability owns its UI, state, feature utilities and adjacent tests.\nShared rendering primitives, API origin/auth and project cache remain outside features.\n\n## Public subpaths\n\nThese are the explicit entry points consumed by application composition or other\nfeatures. Keep imports focused on a subpath so importing a model does not eagerly\nload every UI component. Changes to this surface require updating the boundary manifest.\n\n${publicEntries.map(file => `- [${file}](${file})`).join('\n') || 'No external consumers.'}\n\n## Feature dependencies\n\n${dependencies.map(dep => `- [${dep}](../${dep}/README.md)`).join('\n') || 'No direct feature dependencies.'}\n\nDependencies record existing collaboration; they do not claim every feature is\nindependent or that this is a hexagonal frontend. Pure models should not gain\nReact, network or native-shell dependencies. Bind effects in hooks and adapters.\n\nRun the adjacent tests with \`npm run test --prefix client -- src/features/${name}\`.\nFor moves, update imports and mocks together, then run client coverage and typecheck.\nValidate navigation with \`node scripts/audit-client-features.mjs --check\`.\n`)
+    const current = readReadme(name)
+    const next = updateReadme(current, name, manifest[name])
+    if (next !== current) fs.writeFileSync(readmePath(name), next)
   }
-} else if (!fs.existsSync(manifestPath) || fs.readFileSync(manifestPath, 'utf8').replace(/\r\n/g, '\n') !== output) {
-  console.error('Client feature boundaries changed. Review the public subpaths/dependencies and regenerate with --write.')
-  process.exitCode = 1
+} else {
+  if (!fs.existsSync(manifestPath) || fs.readFileSync(manifestPath, 'utf8').replace(/\r\n/g, '\n') !== output) {
+    console.error('Client feature boundaries changed. Review the public subpaths/dependencies and regenerate with --write.')
+    process.exitCode = 1
+  }
+  const stale = names.filter(name => !readmeIsCurrent(readReadme(name), name, manifest[name]))
+  if (stale.length) {
+    console.error(`Generated README blocks are out of date: ${stale.map(name => `features/${name}/README.md`).join(', ')}. Regenerate with --write (hand-written sections are kept).`)
+    process.exitCode = 1
+  }
 }

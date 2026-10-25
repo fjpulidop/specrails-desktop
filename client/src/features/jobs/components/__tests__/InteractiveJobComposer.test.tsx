@@ -132,7 +132,7 @@ describe('InteractiveJobComposer', () => {
       pushWs({ type: 'job.turn_done', jobId: 'j1', totals: TOTALS })
       // 3 turns · $0.1234
       expect(screen.getByText(/3 turns/)).toBeInTheDocument()
-      expect(screen.getByText(/\$0\.1234/)).toBeInTheDocument()
+      expect(screen.getByText(/\$0\.12/)).toBeInTheDocument()
       // The queued prompt began streaming — indicator gone, still working.
       expect(screen.queryByText(/queued message/)).not.toBeInTheDocument()
       expect(screen.getAllByText('Agent working…').length).toBeGreaterThan(0)

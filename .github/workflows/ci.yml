@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: fjpulidop/specrails-core
-          ref: 1f688038f063f1abf15d28a6c8273b37ef940bef  # Core main: interrupt delivery, reviewer brief, derive-change, journal redaction (#442)
+          ref: 8e969c6d7c65b2253d63d6a0cbaaae148cc8ff21  # Core 6.7.0 release commit (contract 5.9)
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1

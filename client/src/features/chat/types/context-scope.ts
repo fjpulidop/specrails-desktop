@@ -48,10 +48,10 @@ export function tierFromScope(scope: ContextScope): Tier {
 
 export function submitAccentForTier(tier: Tier): string {
   switch (tier) {
-    case 'Light': return 'bg-accent-success text-white hover:bg-accent-success/90'
-    case 'Medium': return 'bg-accent-info text-white hover:bg-accent-info/90'
-    case 'Heavy': return 'bg-accent-warning text-white hover:bg-accent-warning/90'
-    case 'Deep': return 'bg-accent-secondary text-white hover:bg-accent-secondary/90'
+    case 'Light': return 'bg-accent-success text-background hover:bg-accent-success/90'
+    case 'Medium': return 'bg-accent-info text-background hover:bg-accent-info/90'
+    case 'Heavy': return 'bg-accent-warning text-background hover:bg-accent-warning/90'
+    case 'Deep': return 'bg-accent-secondary text-background hover:bg-accent-secondary/90'
   }
 }
 

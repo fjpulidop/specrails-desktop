@@ -1,4 +1,4 @@
-# Code explorer
+# Code explorer {#code-explorer}
 
 The **Code** section gives you a friendly, read-only window into your repository — designed especially for people who want to understand what the AI has been building without living in an editor. You get a file tree on the left, a code viewer on the right, and, above the code, a plain-language summary of what each file actually does.
 
@@ -10,7 +10,7 @@ Open it from the right sidebar (**Code**), and like everything else it's scoped 
 
 The left pane is a virtualised tree of your project's files — fast even on large repos. It respects your `.gitignore` and a built-in deny-list, so you see the files that matter, not a sea of build artifacts and `node_modules`.
 
-Next to files you'll notice **provenance chips** — little markers that tell you a file was *touched by AI*. This is the heart of the Code explorer: Specrails records which files each pipeline job created or modified, and ties them back to the ticket that prompted the work. So you can answer, at a glance, "did the AI write this, or did I?"
+Next to files you'll notice **provenance chips** — little markers that tell you a file was *touched by AI*. This is the heart of the Code explorer: Specrails records which files each pipeline job created or modified, and ties them back to the spec that prompted the work. So you can answer, at a glance, "did the AI write this, or did I?"
 
 At the top of the tree there's a filter:
 
@@ -39,17 +39,17 @@ You can also choose the **summary language** (English or Spanish) in the global 
 
 ## The construction story
 
-Beneath the code viewer lives the **construction story** — a chronological timeline of every spec and job that built the file you're looking at. Each chapter is a card: which spec intervened (with its live status), when, whether the file was created, modified or deleted, and how big the change was (lines added and removed). Click a spec card to open that ticket's detail. Loop-based rails record their file touches too, so work done in isolated worktrees shows up in the story just like regular pipeline jobs.
+Beneath the code viewer lives the **construction story** — a chronological timeline of every spec and job that built the file you're looking at. Each chapter is a card: which spec intervened (with its live status), when, whether the file was created, modified or deleted, and how big the change was (lines added and removed). Click a spec card to open that spec's detail. Loop-based rails record their file touches too, so work done in isolated worktrees shows up in the story just like regular pipeline jobs.
 
 For any chapter you can ask for a plain-language explanation: press **Explain this change** and the app writes one to three sentences describing what that specific change contributed to the file — no code, no jargon. Explanations share the same monthly budget as file summaries, and until one is generated the card falls back to the honest facts it knows: the kind of change, the spec, and the date. Prefer the raw data? A **Story / Log** toggle switches to the classic touch-history list with on-demand diffs. The same story panel appears in Agent Mode's **Files** pane.
 
 ## Connecting code back to specs
 
-The provenance link runs both ways. Inside the Code explorer, clicking a ticket chip on a file opens that ticket's detail. And from the other direction, the **ticket detail** view has a *Files touched by this ticket* section — click a file there and you jump straight into the Code explorer with it open. It closes the loop between "here's the spec we wrote" and "here's the code that came out of it."
+The provenance link runs both ways. Inside the Code explorer, clicking a spec chip on a file opens that spec's detail. And from the other direction, the **spec detail** view has a *Files touched by this spec* section — click a file there and you jump straight into the Code explorer with it open. It closes the loop between "here's the spec we wrote" and "here's the code that came out of it."
 
 ## What it doesn't do (yet)
 
-To set expectations clearly, this first version intentionally leaves a few things out: in-app editing, per-symbol or directory-level summaries, a narrative diff view, and conversational "ask the AI about this file." Provenance attributes a file to its primary ticket only. These are the kinds of things that may grow over time.
+To set expectations clearly, this first version intentionally leaves a few things out: in-app editing, per-symbol or directory-level summaries, a narrative diff view, and conversational "ask the AI about this file." Provenance attributes a file to its primary spec only. These are the kinds of things that may grow over time.
 
 ## Turning it off
 

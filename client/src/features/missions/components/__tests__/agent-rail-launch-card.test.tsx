@@ -19,6 +19,8 @@ import type { AgentMessage as ApiAgentMessage, AgentMessageIntent } from '../../
 import type { ProjectRepository } from '../../../projects/lib/project-repositories'
 import { StrictMode } from 'react'
 import { setActiveProjectId } from '../../../../lib/api'
+import { resetLaunchForecastCache } from '../../../../lib/launch-forecast'
+import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
 
 vi.mock('../../../jobs/components/JobDetailModal', () => ({
   JobDetailModal: ({ jobId, projectId, onClose }: { jobId: string; projectId?: string; onClose: () => void }) => (
@@ -89,6 +91,53 @@ function renderCard(over: Partial<RailLaunchProposal> = {}, intent: AgentMessage
     <AgentRailLaunchCard proposal={proposal(over)} proposalIndex={0} messageId="m1" conversationId="c1" projectId={projectId} intent={intent} />,
   )
 }
+
+describe('AgentRailLaunchCard launch forecast', () => {
+  const forecast = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: null }
+
+  it('forecasts what Play would start (loop and engine), above the actions', async () => {
+    resetLaunchForecastCache()
+    mockFetch({ '/launch-forecast': () => ({ status: 200, body: forecast }) })
+    renderCard({ loopId: 'factory:implement', aiEngine: 'codex' })
+    expect(await screen.findByText('Usually 6–9 min for runs like this')).toBeInTheDocument()
+    const url = calls.find((c) => c.url.includes('/launch-forecast'))!.url
+    expect(url).toMatch(/\/projects\/p1\/launch-forecast\?loopId=factory%3Aimplement&provider=codex$/)
+    // It never changes what Play sends.
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+  })
+
+  it('does not launch when today\'s budget is reached: the dialog offers Raise limit, never Launch anyway', async () => {
+    resetLaunchForecastCache()
+    const reached = { ...forecast, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
+    mockFetch({ '/launch-forecast': () => ({ status: 200, body: reached }) })
+    renderCard({ loopId: 'factory:implement', aiEngine: 'codex' })
+    await screen.findByRole('button', { name: 'Daily limit reached' })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    const dialog = await screen.findByTestId('launch-over-budget-dialog')
+    expect(dialog).toHaveTextContent('the launch would be refused')
+    expect(within(dialog).queryByRole('button', { name: 'Launch anyway' })).toBeNull()
+    expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByTestId('launch-over-budget-dialog')).toBeNull())
+    expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
+    const opened = vi.fn()
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+    try {
+      fireEvent.click(screen.getByTestId('rail-card-play'))
+      fireEvent.click(within(await screen.findByTestId('launch-over-budget-dialog')).getByRole('button', { name: 'Raise limit' }))
+      expect(opened).toHaveBeenCalledTimes(1)
+    } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
+    expect(calls.some((c) => /\/rails\/\d+\/launch$/.test(c.url))).toBe(false)
+  })
+
+  it('says nothing once the launch is decided', async () => {
+    resetLaunchForecastCache()
+    mockFetch({ '/launch-forecast': () => ({ status: 200, body: forecast }) })
+    renderCard({}, { kind: 'rail-launch', proposalIndex: 0, status: 'dismissed', at: '2026-09-18T00:00:00Z' } as AgentMessageIntent)
+    await waitFor(() => expect(screen.queryByTestId('launch-forecast')).toBeNull())
+  })
+})
 
 describe('AgentRailLaunchCard', () => {
   it('shows saved historical assignments even in a single-repository project', async () => {
@@ -490,16 +539,16 @@ describe('AgentRailLaunchCard', () => {
     expect(calls.some((c) => c.url.endsWith('/rails/2/launch'))).toBe(true)
   })
 
-  it('renders a daily budget 409 with localized amounts and remedy instead of the server detail', async () => {
+  it('renders a daily limit 409 with localized amounts and remedy instead of the server detail', async () => {
     mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'daily_budget_exceeded', scope: 'project', budgetUsd: 10, spentUsd: 12.4, resetsAt: null, detail: 'SERVER ENGLISH', action: 'SERVER ACTION' } }) })
     renderCard()
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
     await waitFor(() => expect(screen.getByTestId('rail-card-error')).toBeInTheDocument())
     const error = screen.getByTestId('rail-card-error')
-    expect(error).toHaveTextContent('Daily budget reached — nothing was launched.')
-    expect(error).toHaveTextContent('Project daily budget reached ($12.40 of $10.00)')
-    expect(error).toHaveTextContent('Project settings ▸ Budget')
+    expect(error).toHaveTextContent('Daily limit reached. Nothing was launched.')
+    expect(error).toHaveTextContent('Project daily limit reached ($12.40 of $10.00)')
+    expect(error).toHaveTextContent('Analytics ▸ Spend limits')
     expect(error).not.toHaveTextContent('SERVER ENGLISH')
     expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
   })
@@ -511,11 +560,53 @@ describe('AgentRailLaunchCard', () => {
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
     await waitFor(() => expect(screen.getByTestId('rail-card-error')).toBeInTheDocument())
     const error = screen.getByTestId('rail-card-error')
-    expect(error).toHaveTextContent('Review limit reached — nothing was launched.')
+    expect(error).toHaveTextContent('Review limit reached. Nothing was launched.')
     expect(error).toHaveTextContent('2 deliveries are waiting for review (limit 2)')
     expect(error).toHaveTextContent('Project settings ▸ Review limit')
     expect(error).not.toHaveTextContent('SERVER ENGLISH')
     expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
+  })
+
+  it('renders repository_has_no_commits as a localized message without the raw Git detail', async () => {
+    mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'repository_has_no_commits', detail: 'fatal: invalid reference: HEAD' } }) })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    const error = await screen.findByTestId('rail-card-error')
+    expect(error).toHaveTextContent('This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.')
+    expect(error).not.toHaveTextContent('invalid reference')
+  })
+
+  it('offers Create initial commit next to repository_has_no_commits and clears the error so Play can relaunch', async () => {
+    let launches = 0
+    mockFetch({
+      '/rails/1/launch': () => (++launches === 1
+        ? { status: 409, body: { error: 'repository_has_no_commits', detail: 'raw' } }
+        : { status: 202, body: { loopRunIds: ['run-1'], railIndex: 1, mode: 'implement', isolated: true } }),
+      '/git/initial-commit': () => ({ status: 201, body: { sha: 'c'.repeat(40), repositoryId: 'primary' } }),
+    })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await act(async () => { fireEvent.click(await screen.findByTestId('initial-commit-create')) })
+    await waitFor(() => expect(screen.queryByTestId('rail-card-error')).not.toBeInTheDocument())
+    const commit = calls.find((c) => c.url.endsWith('/api/projects/p1/git/initial-commit'))!
+    expect(commit.init?.method).toBe('POST')
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(launches).toBe(2))
+  })
+
+  it('explains a missing Git identity when the initial commit is refused', async () => {
+    mockFetch({
+      '/rails/1/launch': () => ({ status: 409, body: { error: 'repository_has_no_commits', detail: 'raw' } }),
+      '/git/initial-commit': () => ({ status: 409, body: { error: 'git_identity_missing', detail: 'raw identity' } }),
+    })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await act(async () => { fireEvent.click(await screen.findByTestId('initial-commit-create')) })
+    expect(await screen.findByTestId('initial-commit-error')).toHaveTextContent('Git has no author identity. Set user.name and user.email first.')
+    expect(screen.getByTestId('rail-card-error')).toBeInTheDocument()
   })
 
   it('renders a 409 inline and stays editable', async () => {
@@ -596,6 +687,19 @@ describe('useRailLaunchProposals', () => {
     act(() => recordLocalIntent('a', { kind: 'rail-launch', proposalIndex: 0, status: 'dismissed', at: 'x' }))
     rerender({ m: messages })
     expect(result.current.pinned.map((p) => p.messageId)).toEqual(['c'])
+  })
+
+  it('drops a proposal whose specs launched later through another door (Flow hand-off)', () => {
+    const handOff: AgentMessageIntent = { kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', at: 'x', railIndex: 0, config: { ticketIds: [4] } }
+    const messages = [
+      msg('p', fence({ ticketIds: [4] }), { intents: [handOff] }),
+      msg('q', fence({ ticketIds: [5] })),
+      msg('r', 'flow', { intents: [{ ...handOff, config: { ticketIds: [7] } }] }),
+      msg('s', fence({ ticketIds: [7] })),
+    ]
+    const { result } = renderHook(() => useRailLaunchProposals(messages))
+    // #4 handed off in its own message; #7's hand-off came BEFORE its proposal, so that one stays.
+    expect(result.current.pinned.map((p) => p.messageId)).toEqual(['q', 's'])
   })
 })
 

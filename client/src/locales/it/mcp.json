@@ -15,8 +15,8 @@
     "activeSessions_other": "{{count}} sessioni attive",
     "turnOn": "Attiva",
     "turnOff": "Disattiva",
-    "enableFailed": "Impossibile attivare il server MCP: {{message}}",
-    "disableFailed": "Impossibile disattivare il server MCP: {{message}}"
+    "enableFailed": "Impossibile attivare il server MCP",
+    "disableFailed": "Impossibile disattivare il server MCP"
   },
   "tiers": {
     "heading": "Livelli di permesso",
@@ -24,12 +24,12 @@
     "read": "Lettura",
     "readHelp": "Esplorare progetti, specifiche e analisi. Sempre consentito.",
     "write": "Scrittura",
-    "writeHelp": "Creare e modificare specifiche e ticket.",
+    "writeHelp": "Creare e modificare spec.",
     "aiSpawn": "Avvio IA",
     "aiSpawnHelp": "Avviare rail e lavori di IA che eseguono la CLI.",
     "destructive": "Distruttivo",
-    "destructiveHelp": "Eliminare specifiche, ticket e altri dati del progetto.",
-    "updateFailed": "Impossibile aggiornare i permessi: {{message}}"
+    "destructiveHelp": "Eliminare spec e altri dati del progetto.",
+    "updateFailed": "Impossibile aggiornare i permessi"
   },
   "config": {
     "heading": "Configurazione del client",
@@ -47,7 +47,8 @@
     "regenerate": "Rigenera",
     "regenerateConfirm": "Rigenerare il token di accesso? Qualsiasi client che usa il vecchio token smetterà di funzionare finché non ne aggiorni la configurazione.",
     "regenerated": "Token di accesso rigenerato",
-    "regenerateFailed": "Impossibile rigenerare il token: {{message}}"
+    "regenerateFailed": "Impossibile rigenerare il token",
+    "regenerateConfirmTitle": "Rigenerare il token di accesso?"
   },
   "tray": {
     "open": "Apri",
@@ -93,6 +94,9 @@
       "unknown_provider": "Provider sconosciuto nella matrice di attivazione",
       "invalid_entry": "Voce di server malformata",
       "invalid_body": "Richiesta malformata"
-    }
+    },
+    "removeConfirmTitle": "Rimuovere {{name}}?",
+    "removeConfirmBody": "L’agente di missione smette di caricare questo server per tutti i provider. Un server rilevato resta nella configurazione del tuo provider IA e può essere riattivato.",
+    "formProviderToggle": "Attiva per {{provider}}"
   }
 }

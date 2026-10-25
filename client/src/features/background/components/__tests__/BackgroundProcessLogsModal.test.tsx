@@ -34,7 +34,7 @@ describe('BackgroundProcessLogsModal', () => {
     expect(screen.getByText('Warning: fixture only')).toBeInTheDocument()
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'missing' } })
     expect(screen.getByText('No matching output.')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Close logs' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(view.onClose).toHaveBeenCalledOnce()
     expect(view.onKill).not.toHaveBeenCalled()
   })

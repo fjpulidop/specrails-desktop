@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   DndContext,
   DragOverlay,
@@ -16,6 +17,8 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { toast } from 'sonner'
+import { notifyError } from '../../../lib/notify-error'
+import { openBudgetPanel } from '../../../lib/app-settings-events'
 import { useTranslation } from 'react-i18next'
 import { useTickets } from '../../specs/hooks/useTickets'
 import { SpecsBoard } from '../../specs/components/SpecsBoard'
@@ -26,7 +29,11 @@ import { useRailMetrics } from '../../rails/context/RailMetricsContext'
 import { useRailPrDecisions } from '../../delivery/context/RailPrDecisionContext'
 import { DashboardSplitter } from '../components/DashboardSplitter'
 import { useDashboardSplit } from '../hooks/useDashboardSplit'
+import { useSpecBulkActions } from '../hooks/useSpecBulkActions'
 import { TicketDetailModal } from '../../specs/components/TicketDetailModal'
+import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
+import { usePlaceParam } from '../../../hooks/usePlaceParam'
+import { SPEC_PARAM } from '../../../lib/places'
 import { CreateTicketModal } from '../../specs/components/CreateTicketModal'
 import { FreestyleLaunchDialog } from '../../rails/components/FreestyleLaunchDialog'
 import { LaunchAllDialog } from '../../rails/components/LaunchAllDialog'
@@ -47,21 +54,30 @@ import {
 import { isSafeCustomModelAlias } from '../../providers/lib/model-alias'
 import { railIdFromIndex, railIndexFromId, MAX_RAILS } from '../../rails/lib/rail-id'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
+import { useUndo, UndoBlockedError } from '../../../hooks/useUndo'
+import { useA11yPrefs } from '../../../lib/a11y-prefs'
+import { useRegisterPaletteSurface } from '../../../lib/palette-bridge'
+import { useJiraConnection } from '../../integrations/hooks/useJiraConnection'
+import { jiraApi } from '../../integrations/lib/jira-api'
+import { MANUAL_STATUS_TARGETS, STATUS_LABEL_KEY, isJiraBackedTicket, moveJiraSpecToStatus } from '../../specs/lib/ticket-status-moves'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useSpecGenTracker } from '../../specs/hooks/useSpecGenTracker'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { Starfield } from '../../settings/components/theme-effects/Starfield'
-import type { LocalTicket, RailPrStateSnapshot } from '../../../types'
+import type { LocalTicket, RailPrStateSnapshot, TicketStatus } from '../../../types'
 import type { RailMode, RailStatus } from '../../rails/components/RailControls'
 import type { SpecSortMode, SpecSortDir } from '../../specs/types/spec-sort'
 import { applySpecSort, loadSpecSort, saveSpecSort } from '../../specs/lib/spec-sort'
 import {
   loadSpecsViewTier,
+  hasStoredSpecsViewTier,
   saveSpecsViewTier,
+  SPECS_VIEW_TIER_RESET_EVENT,
   type SpecsViewTier,
 } from '../../specs/lib/specs-view-tier'
-import { insertAt, resolveDestContainer } from '../lib/dashboard-dnd'
+import { insertAt, resolveDestContainer, restoreTicketToRail } from '../lib/dashboard-dnd'
 import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
+import { createInitialCommit, initialCommitErrorMessage } from '../../../lib/initial-commit'
 import { pendingReviewFromDecisions, railLaunchAddsReviewWip, readReviewWipRejection, reviewWipActionMessage, reviewWipCapacity, reviewWipRejectionMessage, useReviewWipLimit } from '../../../lib/review-wip'
 
 const INITIAL_RAILS: RailState[] = [
@@ -98,7 +114,7 @@ function ticketHasContinuablePr(ticketId: number, decisions: ReadonlyMap<number,
 /** Why a rail is excluded from a Launch-all batch. */
 type LaunchAllSkipReason = 'running' | 'empty' | 'pendingDecision' | 'onReview' | 'reviewLimit'
 /** Per-rail terminal outcome of a (batched) launch attempt. */
-type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped' | 'budget' | 'reviewLimit'
+type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped' | 'budget' | 'reviewLimit' | 'noCommits'
 
 function loadSpecOrder(projectId: string | null): number[] | null {
   if (!projectId) return null
@@ -160,16 +176,37 @@ function saveRails(projectId: string | null, rails: RailState[]) {
 
 export default function DashboardPage() {
   const { t } = useTranslation('dashboard')
+  const { t: tUndo } = useTranslation('undo')
+  const { t: tTickets } = useTranslation('tickets')
+  const { t: tJira } = useTranslation('jira')
+  const jira = useJiraConnection()
+  const { pushUndo } = useUndo()
   const { activeProjectId, projects } = useDesktop()
   const isGalaxy = useActiveTheme().id === 'galaxy'
   const railProviders = (() => {
     const p = projects.find((pr) => pr.id === activeProjectId)
     return p ? projectProviders(p) : ['claude']
   })()
-  const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds } = useTickets()
+  const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds, bulkDelete, bulkUpdateStatus, bulkUpdatePriority, bulkUpdateLabels } = useTickets()
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { specToOpen, clearSpecToOpen } = useSpecGenTracker()
-  const [detailTicket, setDetailTicket] = useState<LocalTicket | null>(null)
+  // The spec detail modal is a place: `?spec=<id>` (Back closes it, a link reopens it).
+  // The ticket object seeds a spec created a moment ago, before the list refetch lands.
+  const specParam = usePlaceParam(SPEC_PARAM)
+  const { claimSpecHost } = useTicketDetailModal()
+  useEffect(() => claimSpecHost(), [claimSpecHost])
+  const [detailSeed, setDetailSeed] = useState<LocalTicket | null>(null)
+  const specId = specParam.value !== null && /^\d+$/.test(specParam.value) ? Number(specParam.value) : null
+  const detailTicket = specId === null
+    ? null
+    : tickets.find((ticket) => ticket.id === specId) ?? (detailSeed?.id === specId ? detailSeed : null)
+  const { open: openSpecParam, close: closeSpecParam } = specParam
+  const setDetailTicket = useCallback((ticket: LocalTicket | null) => {
+    if (ticket) {
+      setDetailSeed(ticket)
+      openSpecParam(String(ticket.id))
+    } else closeSpecParam()
+  }, [openSpecParam, closeSpecParam])
   const [createTicketOpen, setCreateTicketOpen] = useState(false)
   // Rail pending an freestyle-launch confirmation (variable-cost warning modal).
   const [freestyleConfirm, setFreestyleConfirm] = useState<{ railId: string } | null>(null)
@@ -218,6 +255,22 @@ export default function DashboardPage() {
     setSortMode(s.mode)
     setSortDir(s.dir)
     setViewTier(loadSpecsViewTier(activeProjectId))
+  }, [activeProjectId])
+
+  // The app Density setting is the default tier until the project (or a saved view) picks one.
+  const appDensity = useA11yPrefs().density
+  useEffect(() => {
+    if (!hasStoredSpecsViewTier(activeProjectId)) setViewTier(loadSpecsViewTier(activeProjectId))
+  }, [activeProjectId, appDensity])
+
+  // Settings ▸ Density ▸ "Use this for the board too" drops this project's own tier.
+  useEffect(() => {
+    const onReset = (e: Event) => {
+      const projectId = (e as CustomEvent<{ projectId?: string }>).detail?.projectId
+      if (projectId === activeProjectId) setViewTier(loadSpecsViewTier(activeProjectId))
+    }
+    window.addEventListener(SPECS_VIEW_TIER_RESET_EVENT, onReset)
+    return () => window.removeEventListener(SPECS_VIEW_TIER_RESET_EVENT, onReset)
   }, [activeProjectId])
 
   const handleSortChange = useCallback((mode: SpecSortMode, dir: SpecSortDir) => {
@@ -467,6 +520,9 @@ export default function DashboardPage() {
     })
   }, [activeProjectId])
 
+  const railsRef = useRef(rails)
+  railsRef.current = rails
+
   // Persist-aware rails updater
   const updateRails = useCallback((updater: (prev: RailState[]) => RailState[]) => {
     setRails((prev) => {
@@ -509,7 +565,7 @@ export default function DashboardPage() {
       } else {
         const data = await res.json().catch(() => ({ error: '' })) as { error?: string; maxRails?: number }
         if (data.error === 'rail_limit_reached') {
-          toast.error(t('toasts.railLimitReached', { max: data.maxRails ?? MAX_RAILS }))
+          notifyError(t('toasts.railLimitReached', { max: data.maxRails ?? MAX_RAILS }))
           return
         }
       }
@@ -551,12 +607,18 @@ export default function DashboardPage() {
       // 404 = the server never knew this rail (legacy local-only) — still drop it.
       if (res.ok || res.status === 404) { removeLocally(); return }
       // 409 rail_active / pr_decision_pending, 400 last-rail:
-      // the server knows something this board doesn't — keep the rail visible.
-      toast.error(t('toasts.railDeleteFailed'))
+      // the server knows something this board doesn't — keep the rail visible
+      // and say exactly which guard refused the delete.
+      const body = (await res.json().catch(() => null)) as { error?: unknown } | null
+      const code = typeof body?.error === 'string' ? body.error : null
+      if (code === 'rail_active') notifyError(t('toasts.railRunningStopFirst', { rail: rail.label }))
+      else if (code === 'pr_decision_pending') notifyError(t('toasts.railDeletePrPending', { rail: rail.label }))
+      else if (res.status === 400 || code === 'cannot_delete_last_rail') notifyError(t('toasts.railDeleteLastRail'))
+      else notifyError(t('toasts.railDeleteFailed'), { retry: () => void handleDeleteRail(railId) })
     } catch {
       // Unknown server state: keep the rail visible until a successful retry
       // or refresh reconciles it. Optimistic removal here can desync the board.
-      toast.error(t('toasts.railDeleteFailed'))
+      notifyError(t('toasts.railDeleteFailed'), { retry: () => void handleDeleteRail(railId) })
     }
   }, [rails, updateRails, updateSpecOrder, t])
 
@@ -580,6 +642,12 @@ export default function DashboardPage() {
   // ── WebSocket: listen for rail.job_completed to reset rail status ────────────
   const activeProjectIdRef = useRef(activeProjectId)
   useEffect(() => { activeProjectIdRef.current = activeProjectId }, [activeProjectId])
+  // Recovery links of the rail toasts read these through refs: the WS handler must not re-register on every route change.
+  const navigate = useNavigate()
+  const navigateRef = useRef(navigate)
+  navigateRef.current = navigate
+  const railPrDecisionsRef = useRef(railPrDecisions)
+  railPrDecisionsRef.current = railPrDecisions
 
   const handleRailWsMessage = useCallback((msg: unknown) => {
     const m = msg as {
@@ -588,6 +656,9 @@ export default function DashboardPage() {
       mode?: string; jobId?: string; loopRunId?: string; active?: boolean
     }
     if (m.projectId !== activeProjectIdRef.current) return
+    const openJobAction = (jobId: string | undefined) => jobId
+      ? { label: t('toasts.openJob'), onClick: () => navigateRef.current(`/jobs/${encodeURIComponent(jobId)}`) }
+      : undefined
     if (m.type === 'runtime.continuation') {
       if (m.railIndex == null) return
       const railId = railIdFromIndex(m.railIndex)
@@ -661,7 +732,13 @@ export default function DashboardPage() {
       if (typeof ticketId === 'number' && state) {
         setRailWorktrees((prev) => applyWorktreeProgress(prev, idx, ticketId, state))
         if (state === 'needs-review') {
-          toast.error(t('toasts.railWorktreeNeedsReview', { n: idx + 1, ticket: ticketId }))
+          let reviewPath: string | null = null
+          for (const d of railPrDecisionsRef.current.values()) {
+            if (d.ticketIds.includes(ticketId)) { reviewPath = `/review/${encodeURIComponent(d.prDeliveryId)}`; break }
+          }
+          notifyError(t('toasts.railWorktreeNeedsReview', { n: idx + 1, ticket: ticketId }), {
+            ...(reviewPath ? { action: { label: t('railPr.openReview'), onClick: () => navigateRef.current(reviewPath!) } } : {}),
+          })
         }
       }
       return
@@ -676,7 +753,7 @@ export default function DashboardPage() {
       if (m.status === 'completed') {
         toast.info(t('toasts.railCompleted', { n: targetIndex + 1 }))
       } else if (m.status === 'failed' || m.status === 'zombie_terminated') {
-        toast.error(t('toasts.railFailed', { n: targetIndex + 1 }))
+        notifyError(t('toasts.railFailed', { n: targetIndex + 1 }), { action: openJobAction(m.jobId ?? m.loopRunId) })
       } else {
         toast.info(t('toasts.railEnded', { n: targetIndex + 1, status: m.status ?? 'finished' }))
       }
@@ -690,7 +767,7 @@ export default function DashboardPage() {
       if (m.status === 'success') {
         toast.info(t('toasts.railCompleted', { n: targetIndex + 1 }))
       } else if (m.status === 'failed' || m.status === 'max-iterations') {
-        toast.error(t('toasts.railFailed', { n: targetIndex + 1 }))
+        notifyError(t('toasts.railFailed', { n: targetIndex + 1 }), { action: openJobAction(m.jobId ?? m.loopRunId) })
       } else {
         toast.info(t('toasts.railEnded', { n: targetIndex + 1, status: m.status ?? 'finished' }))
       }
@@ -862,18 +939,20 @@ export default function DashboardPage() {
   // path (`handleDragEnd`) and by the `Move to Rail` popover on the
   // dashboard postit tier. Idempotent: re-assigning to the same rail is a
   // no-op; assigning to a different rail moves the ticket atomically.
-  const handleMoveTicketToRail = useCallback((ticketId: number, railId: string) => {
+  // `quiet` (a bulk move) skips the per-spec toasts; the caller reports one summary.
+  const handleMoveTicketToRail = useCallback((ticketId: number, railId: string, opts?: { quiet?: boolean }): boolean => {
+    const quiet = opts?.quiet === true
     const targetRail = rails.find((r) => r.id === railId)
-    if (!targetRail) return
+    if (!targetRail) return false
     // On-review specs are frozen unless they already have a draft/published PR
     // head that a relaunch can continue.
     if (tickets.find((tk) => tk.id === ticketId)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(ticketId, railPrDecisions, tickets))) {
-      toast.info(t('toasts.onReviewCannotMoveToRail'))
-      return
+      if (!quiet) toast.info(t('toasts.onReviewCannotMoveToRail'))
+      return false
     }
     if (targetRail.ticketIds.includes(ticketId)) {
-      toast.info(t('toasts.alreadyOnRail', { rail: targetRail.label }))
-      return
+      if (!quiet) toast.info(t('toasts.alreadyOnRail', { rail: targetRail.label }))
+      return false
     }
     updateSpecOrder((prev) => (prev ?? specTickets.map((t) => t.id)).filter((id) => id !== ticketId))
     updateRails((prev) => prev.map((r) => {
@@ -885,7 +964,8 @@ export default function DashboardPage() {
       }
       return r
     }))
-    toast.success(t('toasts.movedToRail', { rail: targetRail.label }))
+    if (!quiet) toast.success(t('toasts.movedToRail', { rail: targetRail.label }))
+    return true
   }, [rails, tickets, specTickets, updateRails, updateSpecOrder, t, railPrDecisions, railPrDecisionsHydrated])
 
   // Reverse of `handleMoveTicketToRail`: remove a ticket from whatever rail
@@ -895,7 +975,7 @@ export default function DashboardPage() {
     const sourceRail = rails.find((r) => r.ticketIds.includes(ticketId))
     if (!sourceRail) return
     if (sourceRail.status === 'running') {
-      toast.error(t('toasts.railRunningStopFirst', { rail: sourceRail.label }))
+      notifyError(t('toasts.railRunningStopFirst', { rail: sourceRail.label }))
       return
     }
     updateRails((prev) => prev.map((r) =>
@@ -905,8 +985,25 @@ export default function DashboardPage() {
       const current = prev ?? specTickets.map((t) => t.id)
       return current.includes(ticketId) ? current : [...current, ticketId]
     })
-    toast.success(t('toasts.removedFromRail', { rail: sourceRail.label }))
-  }, [rails, specTickets, updateRails, updateSpecOrder, t])
+    const wasAt = sourceRail.ticketIds.indexOf(ticketId)
+    const shown = pushUndo({
+      projectId: activeProjectId,
+      label: tUndo('removedFromRail', { id: ticketId, rail: sourceRail.label }),
+      undo: () => {
+        // The rail may have started since: a running rail never takes a spec back.
+        const restored = restoreTicketToRail(railsRef.current, sourceRail.id, ticketId, wasAt)
+        if (!restored.ok) {
+          throw new UndoBlockedError(tUndo(restored.reason === 'rail_running' ? 'railRunning' : 'failed', { id: ticketId }))
+        }
+        updateRails((prev) => {
+          const next = restoreTicketToRail(prev, sourceRail.id, ticketId, wasAt)
+          return next.ok ? next.rails : prev
+        })
+        updateSpecOrder((prev) => (prev ?? specTickets.map((tk) => tk.id)).filter((id) => id !== ticketId))
+      },
+    })
+    if (!shown) toast.success(t('toasts.removedFromRail', { rail: sourceRail.label }))
+  }, [rails, specTickets, updateRails, updateSpecOrder, t, tUndo, pushUndo, activeProjectId])
 
   // ── DnD helpers ──────────────────────────────────────────────────────────────
   const findContainer = useCallback(
@@ -1042,7 +1139,7 @@ export default function DashboardPage() {
       else if (destContainer === 'specs') {
         const sourceRail = rails.find((r) => r.id === sourceContainer)
         if (sourceRail?.status === 'running') {
-          toast.error(t('toasts.railRunningStopFirst', { rail: sourceRail.label }))
+          notifyError(t('toasts.railRunningStopFirst', { rail: sourceRail.label }))
           return
         }
         updateRails((prev) =>
@@ -1171,7 +1268,7 @@ export default function DashboardPage() {
     if (isRolesEngine(aiEngine)) {
       const current = rails.find((r) => r.id === railId)
       if (current && (current.mode === 'freestyle' || current.selectedLoopId === 'factory:freestyle')) {
-        toast.error(t('rail.rolesNoFreestyle'))
+        notifyError(t('rail.rolesNoFreestyle'))
         return
       }
       updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, aiEngine, profileName: null } : r)))
@@ -1251,7 +1348,7 @@ export default function DashboardPage() {
         updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'idle', activeJobId: undefined } : r)))
         toast.info(t('toasts.railStopped', { rail: rail.label }))
       } catch {
-        toast.error(t('toasts.stopFailed'))
+        notifyError(t('toasts.stopFailed'), { retry: () => void handleToggle(railId) })
       }
       return
     }
@@ -1273,9 +1370,27 @@ export default function DashboardPage() {
     await doLaunchRail(railId)
   }
 
-  async function doLaunchRail(railId: string, opts?: { silent?: boolean }): Promise<LaunchOutcome> {
+  // "Create initial commit" from a repository_has_no_commits toast: one empty
+  // commit in the primary repository, then the user relaunches.
+  function initialCommitAction() {
+    const projectId = activeProjectId
+    return {
+      label: t('common:initialCommit.action'),
+      onClick: () => {
+        if (!projectId) return
+        void createInitialCommit(projectId).then((result) => {
+          if (result.ok) toast.success(t('common:initialCommit.createdRelaunch'))
+          else notifyError(initialCommitErrorMessage(t, result.code))
+        })
+      },
+    }
+  }
+
+  // `rail` (a bulk launch) is the rail as it will be once the spec lands on it: React has not
+  // committed that assignment yet, so the closure's `rails` would still show it empty.
+  async function doLaunchRail(railId: string, opts?: { silent?: boolean; rail?: RailState }): Promise<LaunchOutcome> {
     const silent = opts?.silent ?? false
-    const rail = rails.find((r) => r.id === railId)
+    const rail = opts?.rail ?? rails.find((r) => r.id === railId)
     const railIndex = serverRailIndex(railId)
     if (!rail || railIndex === -1) return 'failed'
     if (rail.ticketIds.length === 0) return 'skipped'
@@ -1297,7 +1412,7 @@ export default function DashboardPage() {
     )
     const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode, rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open')), recommendedLoopId)
     if (!launchLoopId) {
-      if (!silent) toast.error(t('railControls.pickLoop'))
+      if (!silent) notifyError(t('railControls.pickLoop'))
       return 'failed'
     }
     // Hybrid per-role engines: the server resolves every role itself, so the
@@ -1327,7 +1442,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ ticketIds: rail.ticketIds }),
       })
     } catch {
-      if (!silent) toast.error(t('toasts.syncTicketsFailed'))
+      if (!silent) notifyError(t('toasts.syncTicketsFailed'), { retry: () => void doLaunchRail(railId, opts) })
       return 'failed'
     }
 
@@ -1378,26 +1493,35 @@ export default function DashboardPage() {
         const budget = res.status === 409 ? readDailyBudgetRejection(data) : null
         if (budget) {
           if (!silent) {
-            toast.error(dailyBudgetExceededMessage(t, budget), { description: dailyBudgetActionMessage(t, budget), duration: 10000 })
+            notifyError(dailyBudgetExceededMessage(t, budget), {
+              detail: dailyBudgetActionMessage(t, budget),
+              duration: 10000,
+              action: { label: t('common:budget.raiseCap'), onClick: openBudgetPanel },
+            })
           }
           return 'budget'
         }
         // Review WIP limit reached: nothing spawned; decide a delivery first.
         const wip = res.status === 409 ? readReviewWipRejection(data) : null
         if (wip) {
-          if (!silent) toast.error(reviewWipRejectionMessage(t, wip), { description: reviewWipActionMessage(t), duration: 10000 })
+          if (!silent) notifyError(reviewWipRejectionMessage(t, wip), { detail: reviewWipActionMessage(t), duration: 10000 })
           return 'reviewLimit'
+        }
+        // Unborn HEAD in a repository the launch must isolate: nothing spawned.
+        if (res.status === 409 && data.error === 'repository_has_no_commits') {
+          if (!silent) notifyError(t('toasts.launchRepositoryHasNoCommits'), { duration: 10000, action: initialCommitAction() })
+          return 'noCommits'
         }
         // The active Core runs only definitions (Core 7): the loop must be converted.
         if (res.status === 409 && data.error === 'legacy_engine_unavailable') {
-          if (!silent) toast.error(t('toasts.launchLegacyEngineUnavailable'), { duration: 10000 })
+          if (!silent) notifyError(t('toasts.launchLegacyEngineUnavailable'), { duration: 10000 })
           return 'failed'
         }
         // Per-rail spec cap: the rail carries more specs than a single launch
         // may take — the user must split them across rails (max 3 per rail).
         if (res.status === 400 && data.error === 'rail_ticket_cap_exceeded') {
           if (!silent) {
-            toast.error(t('toasts.launchTicketCap', {
+            notifyError(t('toasts.launchTicketCap', {
               max: (data as { max?: number }).max ?? 3,
               count: (data as { ticketCount?: number }).ticketCount ?? 0,
             }))
@@ -1410,14 +1534,14 @@ export default function DashboardPage() {
         const targetCodes = ['invalid_target_pr', 'target_pr_requires_pr_mode', 'target_pr_not_found', 'target_pr_not_open', 'target_pr_fork', 'target_pr_invalid', 'target_pr_unfetchable']
         if (typeof data.error === 'string' && targetCodes.includes(data.error)) {
           if (!silent) {
-            toast.error(t(`targetPr.errors.${data.error}`), {
-              description: (data as { detail?: string }).detail,
+            notifyError(t(`targetPr.errors.${data.error}`), {
+              detail: (data as { detail?: string }).detail,
               duration: 10000,
             })
           }
           return 'failed'
         }
-        if (!silent) toast.error(data.error || t('toasts.launchFailed'))
+        if (!silent) notifyError(t('toasts.launchFailed'), { detail: data.error, retry: () => void doLaunchRail(railId, opts) })
         return 'failed'
       }
       // Implement/freestyle return { jobId }; loop mode returns { loopRunIds }.
@@ -1450,7 +1574,7 @@ export default function DashboardPage() {
       }
       return 'launched'
     } catch {
-      if (!silent) toast.error(t('toasts.launchNetworkError'))
+      if (!silent) notifyError(t('toasts.launchNetworkError'), { retry: () => void doLaunchRail(railId, opts) })
       return 'failed'
     }
   }
@@ -1484,6 +1608,7 @@ export default function DashboardPage() {
     let skippedLate = 0
     let overBudget = 0
     let overReviewLimit = 0
+    let noCommits = 0
     for (const s of settled) {
       const v: LaunchOutcome = s.status === 'fulfilled' ? s.value : 'failed'
       if (v === 'launched') launched++
@@ -1491,6 +1616,7 @@ export default function DashboardPage() {
       else if (v === 'skipped') skippedLate++
       else if (v === 'budget') overBudget++
       else if (v === 'reviewLimit') overReviewLimit++
+      else if (v === 'noCommits') noCommits++
       else failed++
     }
     // One compact summary toast: launched count + per-reason skip breakdown.
@@ -1511,19 +1637,101 @@ export default function DashboardPage() {
     }
     if (skippedLate > 0) parts.push(t('launchAll.skipInFlight', { count: skippedLate }))
     if (overBudget > 0) parts.push(t('launchAll.skipBudget', { count: overBudget }))
+    if (noCommits > 0) parts.push(t('toasts.launchRepositoryHasNoCommits'))
     if (failed > 0) parts.push(t('launchAll.failedCount', { count: failed }))
     const description = parts.length > 0 ? parts.join(' · ') : undefined
+    const action = noCommits > 0 ? { action: initialCommitAction() } : {}
     if (launched > 0) {
-      toast.success(t('toasts.launchAllSummary', { count: launched }), description ? { description } : undefined)
+      toast.success(t('toasts.launchAllSummary', { count: launched }), description || noCommits > 0 ? { description, ...action } : undefined)
     } else {
-      toast.error(t('toasts.launchAllFailed'), description ? { description } : undefined)
+      notifyError(t('toasts.launchAllFailed'), { detail: description, ...(noCommits > 0 ? action : { retry: () => void runLaunchAll() }) })
     }
   }
 
   const activeTicket = activeId !== null ? ticketMap.get(activeId) : undefined
 
   const dashboardContainerRef = useRef<HTMLDivElement | null>(null)
-  const { leftWidth, enabled: splitterEnabled, beginDrag, resetToDefault } = useDashboardSplit(activeProjectId, dashboardContainerRef)
+  // ⌘K board actions (Launch on rail, Move to, Open review). Every action calls
+  // the handlers the buttons call: the rail's own launch gates (handleToggle ->
+  // freestyle / target-PR confirms, review WIP, on-review freeze), the board's
+  // status move (with Undo) and the Jira-backed workflow move.
+  const pendingPaletteLaunch = useRef<{ ticketId: number; railId: string } | null>(null)
+  useEffect(() => {
+    const pending = pendingPaletteLaunch.current
+    if (!pending) return
+    const rail = rails.find((r) => r.id === pending.railId)
+    if (rail?.ticketIds.includes(pending.ticketId)) {
+      pendingPaletteLaunch.current = null
+      void handleToggle(pending.railId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rails])
+  const paletteLaunchBlocker = (ticketId: number): string | null => {
+    const ticket = tickets.find((tk) => tk.id === ticketId)
+    if (!ticket) return t('toasts.onReviewNotLaunchable')
+    if (ticket.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(ticketId, railPrDecisions, tickets))) return t('toasts.onReviewNotLaunchable')
+    return null
+  }
+  useRegisterPaletteSurface('board', {
+    specs: () => tickets.filter((tk) => tk.status !== 'done' && tk.status !== 'cancelled').map((tk) => ({ id: tk.id, title: tk.title, status: tk.status })),
+    rails: (ticketId) => rails.map((r) => ({ id: r.id, label: r.label, running: r.status === 'running', hasSpec: r.ticketIds.includes(ticketId) })),
+    launchBlocker: paletteLaunchBlocker,
+    launchOnRail: (ticketId, railId) => {
+      if (paletteLaunchBlocker(ticketId) !== null) return
+      const rail = rails.find((r) => r.id === railId)
+      if (!rail) return
+      if (rail.ticketIds.includes(ticketId)) { void handleToggle(railId); return }
+      pendingPaletteLaunch.current = { ticketId, railId }
+      setTimeout(() => { if (pendingPaletteLaunch.current?.ticketId === ticketId) pendingPaletteLaunch.current = null }, 3000)
+      handleMoveTicketToRail(ticketId, railId)
+    },
+    statusOptions: async (ticketId) => {
+      const ticket = tickets.find((tk) => tk.id === ticketId)
+      if (!ticket) return []
+      if (isJiraBackedTicket(ticket, jira.connected)) {
+        const { statuses } = await jiraApi.listStatuses()
+        return statuses.map((s) => ({ id: s.name, label: s.name, current: s.name === (ticket.jira_status ?? '') }))
+      }
+      const targets = MANUAL_STATUS_TARGETS.includes(ticket.status) ? MANUAL_STATUS_TARGETS : [ticket.status, ...MANUAL_STATUS_TARGETS]
+      return targets.map((st) => ({ id: st, label: tTickets(STATUS_LABEL_KEY[st]), current: st === ticket.status }))
+    },
+    moveStatus: (ticketId, optionId) => {
+      const ticket = tickets.find((tk) => tk.id === ticketId)
+      if (!ticket) return
+      if (isJiraBackedTicket(ticket, jira.connected)) void moveJiraSpecToStatus(ticketId, optionId, tJira)
+      else void updateTicketStatus(ticketId, optionId as TicketStatus)
+    },
+    reviewPath: (ticketId) => {
+      const ticket = tickets.find((tk) => tk.id === ticketId)
+      if (!ticket || ticket.status !== 'on_review') return null
+      for (const d of railPrDecisions.values()) {
+        if (d.ticketIds.includes(ticketId)) return `/review/${encodeURIComponent(d.prDeliveryId)}`
+      }
+      return null
+    },
+  })
+
+  // Board multi-select (CD4): bulk bar handlers + the launch confirmation they open.
+  const railDecisionIndex = (railId: string) => railIndexFromId(railId) ?? rails.findIndex((r) => r.id === railId)
+  const bulkActions = useSpecBulkActions({
+    rails,
+    jiraConnected: jira.connected,
+    allLabels: allTicketLabels,
+    store: { bulkDelete, bulkUpdateStatus, bulkUpdatePriority, bulkUpdateLabels },
+    moveToRail: handleMoveTicketToRail,
+    launchRail: (railId, rail) => doLaunchRail(railId, { silent: true, rail }),
+    gates: {
+      blockerOf: paletteLaunchBlocker,
+      hasPendingDecision: (railId) => railPrDecisions.has(railDecisionIndex(railId)),
+      takesReviewSlot: (railId) => railLaunchAddsReviewWip(railDecisionIndex(railId), railPrDecisions),
+      reviewCapacity: reviewWipCapacity(reviewWipLimit, pendingReview.length),
+    },
+    forecastQueryOf: (rail) => (activeProjectId && !isRolesEngine(rail.aiEngine)
+      ? { projectId: activeProjectId, loopId: effectiveLoopId(rail.selectedLoopId, rail.mode), provider: railProvider(rail) }
+      : null),
+  })
+
+  const { leftWidth, enabled: splitterEnabled, beginDrag, resetToDefault, nudge: nudgeSplit } = useDashboardSplit(activeProjectId, dashboardContainerRef)
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
 
   return (
@@ -1531,6 +1739,10 @@ export default function DashboardPage() {
     <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div ref={dashboardContainerRef} className="relative z-0 flex h-full overflow-hidden">
         {isGalaxy && <Starfield />}
+        <h1 className="sr-only">{(() => {
+          const projectName = projects.find((pr) => pr.id === activeProjectId)?.name
+          return projectName ? t('board.pageTitle', { project: projectName }) : t('board.pageTitleBare')
+        })()}</h1>
         {/* Left panel: Specs board */}
         <div
           className="relative z-10 min-w-0 flex flex-col overflow-hidden"
@@ -1547,7 +1759,10 @@ export default function DashboardPage() {
             onRetry={() => { void refetch() }}
             onTicketClick={setDetailTicket}
             onTicketCreated={(ticket) => { setDetailTicket(ticket); refetch() }}
-            onTicketDelete={(id) => deleteTicket(id)}
+            onTicketDelete={(id) => {
+              const attemptDelete = (): void => { void Promise.resolve(deleteTicket(id)).then((ok) => { if (!ok) notifyError(t('errors.deleteFailed'), { retry: attemptDelete }) }) }
+              attemptDelete()
+            }}
             onTicketStatusChange={(id, status) => { void updateTicketStatus(id, status) }}
             onTicketPriorityChange={(id, priority) => { void updateTicketPriority(id, priority) }}
             contractRefiningIds={contractRefiningIds}
@@ -1559,6 +1774,7 @@ export default function DashboardPage() {
             rails={rails}
             onMoveToRail={handleMoveTicketToRail}
             continuableReviewTicketIds={continuableReviewTicketIds}
+            bulk={bulkActions.handlers}
           />
         </div>
 
@@ -1569,6 +1785,7 @@ export default function DashboardPage() {
             viewport={viewportWidth}
             onPointerDown={beginDrag}
             onReset={resetToDefault}
+            onNudge={nudgeSplit}
           />
         )}
 
@@ -1615,11 +1832,11 @@ export default function DashboardPage() {
       <DragOverlay dropAnimation={{ duration: 180, easing: 'ease' }}>
         {activeTicket ? (
           viewTier === 'postit' ? (
-            <div className="flex flex-col gap-2 rounded-xl border border-accent-info/40 bg-card/95 shadow-xl shadow-black/30 backdrop-blur-sm p-3 rotate-1 scale-[1.02] pointer-events-none w-[260px] min-h-[180px]">
+            <div className="flex flex-col gap-2 rounded-xl border border-accent-info/40 bg-card shadow-xl shadow-black/30 p-3 rotate-1 scale-[1.02] pointer-events-none w-[260px] min-h-[180px]">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[10px] font-mono text-muted-foreground/60">#{activeTicket.id}</span>
+                <span className="text-caption font-mono text-muted-foreground">#{activeTicket.id}</span>
                 {activeTicket.priority && (
-                  <span className="h-4 px-1.5 rounded-full text-[9px] font-medium uppercase bg-muted/40 text-foreground">
+                  <span className="h-5 px-1.5 rounded-full text-caption font-medium bg-muted/40 text-foreground">
                     {activeTicket.priority}
                   </span>
                 )}
@@ -1628,20 +1845,20 @@ export default function DashboardPage() {
                 {activeTicket.title}
               </h3>
               {activeTicket.short_summary && activeTicket.short_summary.trim().length > 0 && (
-                <p className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-3 italic">
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 italic">
                   {activeTicket.short_summary}
                 </p>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary/40 bg-card/95 shadow-xl shadow-black/20 backdrop-blur-sm rotate-1 scale-[1.03] pointer-events-none">
-              <span className="text-[10px] font-mono text-muted-foreground/50 shrink-0">#{activeTicket.id}</span>
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary/40 bg-card shadow-xl shadow-black/20 rotate-1 scale-[1.03] pointer-events-none">
+              <span className="text-caption font-mono text-muted-foreground shrink-0">#{activeTicket.id}</span>
               <span className="flex-1 text-sm truncate max-w-[240px]">{activeTicket.title}</span>
             </div>
           )
         ) : activeRailDragLabel ? (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/40 bg-card/95 shadow-xl shadow-black/20 backdrop-blur-sm rotate-[0.5deg] scale-[1.02] pointer-events-none">
-            <span className="text-xs font-medium">{activeRailDragLabel}</span>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/40 bg-card shadow-xl shadow-black/20 rotate-[0.5deg] scale-[1.02] pointer-events-none">
+            <span className="text-label">{activeRailDragLabel}</span>
           </div>
         ) : null}
       </DragOverlay>
@@ -1680,6 +1897,8 @@ export default function DashboardPage() {
         onClose={() => setCreateTicketOpen(false)}
         onCreate={createTicket}
       />
+
+      {bulkActions.dialogs}
 
       <LaunchAllDialog
         open={launchAllConfirm}

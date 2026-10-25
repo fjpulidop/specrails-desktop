@@ -1,4 +1,4 @@
-# Le spec e il backlog
+# Le spec e il backlog {#specs-backlog}
 
 Una **spec** è l'unità di lavoro che la pipeline AI realizza. Puoi immaginarla come un ticket: un titolo, una descrizione di ciò che vuoi ottenere, una priorità ed eventuali etichette. Quando avvii la pipeline, gli agenti AI leggono la spec e agiscono su di essa — quindi una spec chiara è di gran lunga l'input più importante per ottenere un buon risultato.
 
@@ -13,7 +13,27 @@ La board ha due modalità di visualizzazione, che si alternano con un toggle nel
 - **Vista post-it** (quella predefinita) — riquadri in stile card con brevi riepiloghi.
 - **Vista elenco** — righe compatte su una sola riga.
 
-Il **selettore di stati** della toolbar mostra ogni stato come chip dedicato con un conteggio in tempo reale — più due gruppi intelligenti: **Attive** (il predefinito — tutto ciò che è ancora in movimento: bozze, da fare, in corso e in revisione) e **Tutti** (tutto, con Completato fissato in fondo). La scelta viene ricordata per progetto e riflessa nell'URL, così un refresh o un link condiviso ripristina esattamente la stessa vista. Nei progetti collegati a Jira compare in più un menu a tendina **stato Jira**, che elenca gli stati *reali* del workflow della board (i nomi grezzi, es. "Code Review", ciascuno con il proprio conteggio in tempo reale) raggruppati sotto lo stato a cui mappano — si combina con i chip di stato. Puoi anche filtrare per **etichetta**, oltre a ordinare per **Predefinito**, **Ticket #** o **Priorità** (ciascuno con un toggle crescente/decrescente).
+La toolbar delle Spec ha due righe. La prima contiene un campo di **ricerca** (premi `/` per raggiungerlo; cerca per titolo, `#numero`, etichetta o chiave Jira), un unico pulsante **Filtri**, i controlli di ordinamento e vista, e **Nuova spec**. La seconda riga è il **selettore di stati**: ogni stato come segmento dedicato con un conteggio in tempo reale, più due gruppi intelligenti, **Attive** (il predefinito: tutto ciò che è ancora in movimento, cioè bozze, da fare, in corso e in revisione) e **Tutti** (tutto, con Completato fissato in fondo). Quando la colonna è stretta, gli stati meno usati si raccolgono in un menu **Altro**, e lo stato scelto resta sempre visibile. La scelta viene ricordata per progetto e riflessa nell'URL, così un refresh o un link condiviso ripristina esattamente la stessa vista. **Filtri** apre un unico pannello con una sezione per dimensione: **etichette** (selezione multipla) e, nei progetti collegati a Jira, **epic**, **sprint** e **stato Jira** (gli stati *reali* del workflow della board, es. "Code Review", raggruppati sotto lo stato a cui mappano e combinati con il selettore di stati). Finché una ricerca o un filtro restringe la board, una terza riga mostra ciascuno come chip rimovibile, indica "x di y" spec e offre **Cancella tutto** (che mantiene lo stato scelto). Ordina per **Predefinito**, **Ticket #** o **Priorità**, ciascuno con un toggle crescente/decrescente.
+
+### Selezionare più spec
+
+Fai la triage in blocco invece di una spec alla volta. Premi `x` su una scheda a fuoco, fai clic su una scheda con `Ctrl`/`⌘`, oppure fai clic con `Maiusc` per selezionare un intervallo (un intervallo resta dentro una colonna: le spec attive o il gruppo Completate). `Ctrl`/`⌘`+`A` seleziona l'intera colonna in cui ti trovi e `Esc` deseleziona tutto. Ogni scheda mostra una casella al passaggio del mouse o quando ha il fuoco, e quelle selezionate hanno il bordo evidenziato. Nessuno di questi tasti agisce mentre scrivi nel campo di ricerca.
+
+Appena una spec è selezionata, in basso nella board compare una barra mobile con il conteggio e le azioni:
+
+- **Sposta in** cambia lo stato. Le spec locali ricevono gli stati locali; quelle che arrivano da Jira ricevono i veri stati del workflow della board Jira e passano dalla stessa coda Jira di uno spostamento singolo.
+- **Etichetta** aggiunge un'etichetta alla selezione, oppure ne rimuove una presente nelle spec.
+- **Priorità** imposta la stessa priorità per tutte.
+- **Aggiungi a un rail** mette la selezione su un rail.
+- **Avvia tutto** assegna a ogni spec selezionata un rail libero tutto suo e le avvia in parallelo, dopo la stessa conferma e lo stesso controllo del budget giornaliero di *Avvia tutto* dei rail. Le spec che non possono ancora partire (per esempio in revisione senza PR aperta) o che non trovano un rail libero vengono saltate e contate nel riepilogo.
+- **Elimina** le sposta in *Eliminate di recente*.
+- **Deseleziona** (o `Esc`) scarta la selezione.
+
+Eliminazione e modifiche di stato, etichette o priorità si annullano in un solo passaggio: un unico avviso *Annulla* (o `⌘Z`) ripristina ogni spec modificata. Se alcune falliscono, un solo avviso indica quante sono riuscite e quante no. La selezione contiene solo spec visibili: un filtro che nasconde una spec selezionata la toglie dalla selezione.
+
+### Viste salvate
+
+Il pulsante **Viste**, accanto a **Filtri**, salva la board così com'è ora: il selettore di stato, i filtri, l'ordinamento e la densità (non il testo di ricerca). Scegli **Salva la vista attuale…**, dalle un nome («Pronte da avviare», «Sprint 42», «Fallite questa settimana») e scegliila poi dallo stesso menu. **Gestisci le viste…** rinomina una vista, la aggiorna con la board attuale, ne copia il link o la elimina. Le viste appartengono al progetto. Un link copiato (`?view=…`) applica la vista quando viene aperto in questa app, e la palette dei comandi (`⌘K`) può salvare la vista attuale o passare a un'altra.
 
 ## Stati
 
@@ -38,7 +58,7 @@ Le bozze sono l'unica eccezione: una bozza può non avere *alcuna* priorità, pe
 
 ## Creare una spec
 
-Per creare una spec, clicca su **Aggiungi** (il pulsante Più nella toolbar della SpecsBoard). Si apre il dialog **Aggiungi spec**, con diversi modi di lavorare:
+Per creare una spec, clicca su **Nuova spec** (il pulsante Più nella toolbar della SpecsBoard). Si apre il dialog **Aggiungi spec**, con diversi modi di lavorare:
 
 - **Modalità Quick** — descrivi ciò che vuoi e l'AI scrive la spec completa in un colpo solo. Vedi [Aggiungi spec — Modalità Quick](add-spec-quick-mode.md).
 - **Modalità Explore** — conversi con l'AI, che ti aiuta a dare forma alla spec turno dopo turno. Vedi [Aggiungi spec — Modalità Explore](add-spec-explore-mode.md).
@@ -53,6 +73,20 @@ Quando una spec ha già del lavoro alle spalle — una PR in revisione, una funz
 ## Rivedere una consegna: cosa guardare per primo
 
 Quando un'esecuzione termina, il suo pacchetto di revisione si apre con **Cosa guardare**: la breve nota del revisore IA che elenca prima i punti più rischiosi (alto, poi medio, poi basso, ciascuno con file e riga), il comportamento che cambia, le regole su cui la modifica si appoggia, i percorsi di codice che nessun test esercita e i controlli che solo una persona può fare. Gli stessi rischi, percorsi senza test e controlli compaiono in un breve blocco in cima alla pull request, e la scheda della missione mostra il rischio principale in una riga. La nota aiuta la revisione, non è un risultato di verifica: non blocca mai Accetta. Le esecuzioni fatte con uno Specrails Core precedente non hanno la nota e il loro pacchetto resta come prima.
+
+## Annulla e Eliminati di recente {#recently-deleted}
+
+Eliminare una spec, spostarla in un altro stato, cambiarne le etichette o toglierla da un rail avviene subito: nessun "Sei sicuro?" prima. Al suo posto, una notifica offre **Annulla** per circa otto secondi, e **⌘Z** (**Ctrl+Z** su Windows e Linux) fa lo stesso finché non stai scrivendo in un campo. Annulla vale per progetto: cambiando progetto la finestra si chiude.
+
+Una spec eliminata (e una missione eliminata) non sparisce. Va in **Impostazioni → Eliminati di recente**, nelle impostazioni del progetto, dove puoi **Ripristinarla** per 30 giorni o **Eliminarla definitivamente**, che chiede prima conferma. Dopo 30 giorni viene rimossa per sempre. Scartare lavoro non pushato, chiudere con la forza una pull request e rimuovere un progetto chiedono ancora conferma, perché non si possono annullare. Una spec collegata a Jira si sposta ancora con **Sposta in** invece di essere eliminata.
+
+## La cronologia della spec e il passaggio di consegne {#spec-timeline}
+
+Apri una spec e passa alla scheda **Cronologia** per leggere tutta la sua storia in un unico posto: le modifiche e gli addenda, le missioni che l’hanno toccata, ogni esecuzione con le sue fasi e le azioni dell’agente, gli eventi della pull request e il verdetto del revisore con i suoi rilievi. Le voci sono raggruppate per giorno, i chip filtrano per tipo e ogni voce rimanda alla missione, all’esecuzione o alla revisione da cui proviene. I gruppi lunghi (fasi, azioni dell’agente, turni di missione) sono compressi con un contatore e si espandono sul posto.
+
+Il costo compare accanto alla voce che lo ha generato, con i due tipi tenuti separati: una cifra riportata dal provider e una stimata dalla tabella prezzi locale (segnata «stim.»). Se un provider è fatturato tramite abbonamento, la cronologia e le esportazioni mostrano i turni, mai i dollari; un’esecuzione che non ha riportato costo semplicemente non ne mostra.
+
+**Esporta passaggio di consegne** (il menu accanto alle schede, o ⌘K → *Esporta passaggio di #N*) scrive un file Markdown o una pagina HTML autonoma con il riepilogo, le decisioni (addenda, chiarimenti, verdetti del revisore), le statistiche del diff, il costo e ciò che resta aperto (addenda aperti e rilievi di revisione non risolti). **Copia come descrizione della PR** (anche in ⌘K) mette negli appunti una versione più breve in Markdown. Le intestazioni seguono la lingua dell’app. Tutto passa per la stessa oscuratura dei segreti usata dall’audit delle azioni dell’agente, e la notifica ti dice quando qualcosa è stato oscurato.
 
 ## Dove andare adesso
 

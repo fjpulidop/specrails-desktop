@@ -9,6 +9,7 @@ import { Input } from '../../../components/ui/input'
 const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -22,6 +23,7 @@ import { usePrerequisites } from '../hooks/usePrerequisites'
 import { PrerequisitesPanel } from './PrerequisitesPanel'
 import { InstallInstructionsModal } from './InstallInstructionsModal'
 
+import { notifyError } from '../../../lib/notify-error'
 interface AddProjectDialogProps {
   open: boolean
   onClose: () => void
@@ -82,7 +84,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   async function handleAdd() {
     const trimmedPath = projectPath.trim()
     if (!trimmedPath) {
-      toast.error(t('addProject.errors.pathRequired'))
+      notifyError(t('addProject.errors.pathRequired'))
       return
     }
 
@@ -100,7 +102,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
       toast.success(t('addProject.toasts.registered', { name: data.project.name }))
       resetAndClose()
     } catch (err) {
-      toast.error(t('addProject.errors.addFailed'), { description: (err as Error).message })
+      notifyError(t('addProject.errors.addFailed'), { detail: (err as Error).message })
     } finally {
       setIsAdding(false)
     }
@@ -124,15 +126,12 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   if (step === 'choose') {
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FolderOpen className="w-4 h-4" />
-              {t('addProject.title')}
-            </DialogTitle>
+        <DialogContent size="form">
+          <DialogHeader icon={<FolderOpen />}>
+            <DialogTitle>{t('addProject.title')}</DialogTitle>
             <DialogDescription>{t('addProject.chooser.description')}</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-2">
+          <DialogBody className="grid grid-cols-2 gap-3">
             <button
               type="button"
               data-testid="chooser-existing"
@@ -141,7 +140,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
             >
               <FolderGit2 className="h-5 w-5 text-accent-info" />
               <span className="text-sm font-medium">{t('addProject.chooser.existingTitle')}</span>
-              <span className="text-[11px] text-muted-foreground">{t('addProject.chooser.existingDescription')}</span>
+              <span className="text-xs text-muted-foreground">{t('addProject.chooser.existingDescription')}</span>
             </button>
             <button
               type="button"
@@ -151,9 +150,9 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
             >
               <Sparkles className="h-5 w-5 text-accent-highlight" />
               <span className="text-sm font-medium">{t('addProject.chooser.newTitle')}</span>
-              <span className="text-[11px] text-muted-foreground">{t('addProject.chooser.newDescription')}</span>
+              <span className="text-xs text-muted-foreground">{t('addProject.chooser.newDescription')}</span>
             </button>
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
     )
@@ -161,24 +160,27 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        movableResizable
-        className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-2xl overflow-x-hidden"
-        data-testid="existing-project-dialog"
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FolderOpen className="w-4 h-4" />
-            {t('addProject.title')}
-          </DialogTitle>
+      <DialogContent size="wide" data-testid="existing-project-dialog">
+        <DialogHeader icon={<FolderOpen />}>
+          <DialogTitle>{t('addProject.title')}</DialogTitle>
           <DialogDescription>
             {t('addProject.description')}
           </DialogDescription>
         </DialogHeader>
 
+        <DialogBody className="space-y-4 overflow-x-hidden">
         {noProviderAvailable && (
           <p className="text-xs text-destructive bg-destructive/10 rounded-md p-2">
-            {t('addProject.noProviderDetected')}
+            {t('addProject.noProviderDetected')}{' '}
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs"
+              onClick={() => setInstallModalOpen(true)}
+            >
+              {t('prerequisites.moreInfo')}
+            </Button>
           </p>
         )}
 
@@ -190,13 +192,14 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
           onRefresh={prereqRecheck}
         />
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium">
+            <label htmlFor="add-project-path" className="text-label">
               {t('addProject.pathLabel')} <span className="text-destructive">*</span>
             </label>
             <div className="flex gap-2">
               <Input
+                id="add-project-path"
                 placeholder={t('addProject.pathPlaceholder')}
                 value={projectPath}
                 onChange={(e) => setProjectPath(e.target.value)}
@@ -211,6 +214,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
                   size="icon"
                   className="shrink-0"
                   title={t('addProject.browseForFolder')}
+                  aria-label={t('addProject.browseForFolder')}
                   onClick={async () => {
                     try {
                       const { open } = await import('@tauri-apps/plugin-dialog')
@@ -218,7 +222,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
                       if (typeof selected === 'string' && selected) {
                         setProjectPath(selected)
                         if (!projectName) {
-                          setProjectName(selected.split('/').filter(Boolean).pop() ?? '')
+                          setProjectName(selected.split(/[\\/]/).filter(Boolean).pop() ?? '')
                         }
                       }
                     } catch {
@@ -230,63 +234,72 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
                 </Button>
               )}
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {t('addProject.pathHint')}
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium">
+            <label htmlFor="add-project-name" className="text-label">
               {t('addProject.nameLabel')} <span className="text-muted-foreground">{t('addProject.optional')}</span>
             </label>
             <Input
+              id="add-project-name"
               placeholder={t('addProject.namePlaceholder')}
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleAdd() }}
             />
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {t('addProject.nameHint')}
             </p>
           </div>
 
-          <label className="block space-y-1.5 text-xs font-medium">{t('common:repositories.workspacePath')}
-            <textarea className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={workspacePaths} disabled={isAdding} onChange={(event) => setWorkspacePaths(event.target.value)} placeholder={projectPath} />
-            <span className="block font-normal text-muted-foreground">{t('common:repositories.workspaceHint')}</span>
-          </label>
-          <fieldset className="space-y-2" disabled={isAdding}>
-            <legend className="text-xs font-medium">{t('common:repositories.additional')}</legend>
-            <p className="text-xs text-muted-foreground">{t('common:repositories.sharedBacklog')}</p>
-            {additionalPaths.map((path, index) => (
-              <div key={index} className="flex gap-2">
-                <Input aria-label={t('common:repositories.folderNumber', { number: index + 2 })} value={path}
-                  placeholder={t('addProject.pathPlaceholder')}
-                  onChange={(event) => setAdditionalPaths((paths) => paths.map((value, i) => i === index ? event.target.value : value))} />
-                <Button type="button" variant="ghost" size="icon" aria-label={t('common:repositories.removeFolder')}
-                  onClick={() => setAdditionalPaths((paths) => paths.filter((_, i) => i !== index))}><X className="h-4 w-4" /></Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={async () => {
-              if (IS_TAURI) {
-                try {
-                  const { open } = await import('@tauri-apps/plugin-dialog')
-                  const selected = await open({ directory: true, multiple: true })
-                  if (selected) setAdditionalPaths((paths) => [...paths, ...(Array.isArray(selected) ? selected : [selected])])
-                  return
-                } catch { /* Manual entry remains available. */ }
-              }
-              setAdditionalPaths((paths) => [...paths, ''])
-            }}><Plus className="mr-1 h-3.5 w-3.5" />{t('common:repositories.addFolder')}</Button>
-          </fieldset>
+          {/* Multi-repository fields are progressive: most projects are one repo. */}
+          <details className="group rounded-md border border-border/40 px-3 py-2" data-testid="add-project-advanced">
+            <summary className="cursor-pointer select-none text-label text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {t('common:repositories.advanced')}
+            </summary>
+            <div className="mt-3 space-y-4">
+              <label className="block space-y-1.5 text-label">{t('common:repositories.workspacePath')}
+                <textarea className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={workspacePaths} disabled={isAdding} onChange={(event) => setWorkspacePaths(event.target.value)} placeholder={projectPath} />
+                <span className="block font-normal text-muted-foreground">{t('common:repositories.workspaceHint')}</span>
+              </label>
+              <fieldset className="space-y-2" disabled={isAdding}>
+                <legend className="text-label">{t('common:repositories.additional')}</legend>
+                <p className="text-xs text-muted-foreground">{t('common:repositories.sharedBacklog')}</p>
+                {additionalPaths.map((path, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input aria-label={t('common:repositories.folderNumber', { number: index + 2 })} value={path}
+                      placeholder={t('addProject.pathPlaceholder')}
+                      onChange={(event) => setAdditionalPaths((paths) => paths.map((value, i) => i === index ? event.target.value : value))} />
+                    <Button type="button" variant="ghost" size="icon" aria-label={t('common:repositories.removeFolder')}
+                      onClick={() => setAdditionalPaths((paths) => paths.filter((_, i) => i !== index))}><X className="h-4 w-4" /></Button>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" onClick={async () => {
+                  if (IS_TAURI) {
+                    try {
+                      const { open } = await import('@tauri-apps/plugin-dialog')
+                      const selected = await open({ directory: true, multiple: true })
+                      if (selected) setAdditionalPaths((paths) => [...paths, ...(Array.isArray(selected) ? selected : [selected])])
+                      return
+                    } catch { /* Manual entry remains available. */ }
+                  }
+                  setAdditionalPaths((paths) => [...paths, ''])
+                }}><Plus className="mr-1 h-3.5 w-3.5" />{t('common:repositories.addFolder')}</Button>
+              </fieldset>
+            </div>
+          </details>
 
         </div>
+        </DialogBody>
 
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={resetAndClose} disabled={isAdding}>
+          <Button variant="ghost" onClick={resetAndClose} disabled={isAdding}>
             {t('common:actions.cancel')}
           </Button>
           <Button
-            size="sm"
             onClick={handleAdd}
             disabled={isAdding || !projectPath.trim() || prereqsBlock || prereqLoading}
             title={prereqsBlock ? missingToolsLabel ?? undefined : undefined}

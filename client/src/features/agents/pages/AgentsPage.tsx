@@ -10,6 +10,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { openAppSettings } from '../../../lib/app-settings-events'
 
 type Tab = 'profiles' | 'usage' | 'catalog'
+const TABS: readonly Tab[] = ['profiles', 'usage', 'catalog']
 
 interface CoreVersionStatus {
   version: string | null
@@ -80,26 +81,26 @@ export default function AgentsPage() {
   return (
     <div className="flex flex-col h-full">
       {showUpgradeBanner && (
-        <div className="flex-shrink-0 flex items-start gap-3 px-6 py-3 border-b border-yellow-500/30 aurora-light:border-accent-warning/30 bg-yellow-500/10 aurora-light:bg-accent-warning/10">
-          <AlertTriangle className="w-4 h-4 text-yellow-500 aurora-light:text-accent-warning mt-0.5 flex-shrink-0" />
+        <div className="flex-shrink-0 flex items-start gap-3 px-6 py-3 border-b border-accent-warning/30 bg-accent-warning/10">
+          <AlertTriangle className="w-4 h-4 text-accent-warning mt-0.5 flex-shrink-0" aria-hidden />
           <div className="text-xs">
-            <div className="font-medium text-yellow-500 aurora-light:text-accent-warning">
+            <div className="font-medium text-accent-warning">
               {t('page.banner.title', { required: coreStatus!.required })}
             </div>
-            <div className="text-yellow-500/80 aurora-light:text-accent-warning mt-0.5">
+            <div className="text-foreground mt-0.5">
               <Trans
                 t={t}
                 i18nKey="page.banner.body"
                 values={{
                   version: coreStatus!.version ?? t('page.banner.unknownVersion'),
                 }}
-                components={{ code: <code className="px-1 rounded bg-yellow-500/20 aurora-light:bg-accent-warning/20" /> }}
+                components={{ code: <code className="px-1 rounded bg-accent-warning/20" /> }}
               />
             </div>
             <button
               type="button"
               onClick={() => openAppSettings('updates')}
-              className="mt-1.5 font-medium text-yellow-500 underline underline-offset-2 hover:text-yellow-400 aurora-light:text-accent-warning"
+              className="mt-1.5 rounded-sm font-medium text-accent-warning underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {t('page.banner.openUpdates')}
             </button>
@@ -115,21 +116,38 @@ export default function AgentsPage() {
             {t('page.subtitle')}
           </p>
         </div>
-        <div className="flex items-center gap-1 px-4 pt-3">
-          <TabButton active={tab === 'profiles'} onClick={() => setTab('profiles')}>
-            {t('page.tabs.profiles')}
-          </TabButton>
-          <TabButton active={tab === 'usage'} onClick={() => setTab('usage')}>
-            {t('page.tabs.usage')}
-          </TabButton>
-          <TabButton active={tab === 'catalog'} onClick={() => setTab('catalog')}>
-            {t('page.tabs.catalog')}
-          </TabButton>
+        <div
+          role="tablist"
+          aria-label={t('page.title')}
+          className="flex items-center gap-1 px-4 pt-3"
+          onKeyDown={(e) => {
+            const idx = TABS.indexOf(tab)
+            let next: Tab | null = null
+            if (e.key === 'ArrowRight') next = TABS[(idx + 1) % TABS.length]
+            else if (e.key === 'ArrowLeft') next = TABS[(idx - 1 + TABS.length) % TABS.length]
+            else if (e.key === 'Home') next = TABS[0]
+            else if (e.key === 'End') next = TABS[TABS.length - 1]
+            if (!next) return
+            e.preventDefault()
+            setTab(next)
+            document.getElementById(`agents-tab-${next}`)?.focus()
+          }}
+        >
+          {TABS.map((id) => (
+            <TabButton key={id} id={id} active={tab === id} onClick={() => setTab(id)}>
+              {t(`page.tabs.${id}`)}
+            </TabButton>
+          ))}
         </div>
       </div>
 
       {/* Body */}
-      <div className="flex-1 min-w-0 overflow-auto">
+      <div
+        role="tabpanel"
+        id={`agents-tabpanel-${tab}`}
+        aria-labelledby={`agents-tab-${tab}`}
+        className="flex-1 min-w-0 overflow-auto"
+      >
         {tab === 'profiles' && <ProfilesTab />}
         {tab === 'usage' && <UsageTab />}
         {tab === 'catalog' && <AgentsCatalogTab />}
@@ -147,10 +165,12 @@ function UsageTab() {
 }
 
 function TabButton({
+  id,
   active,
   children,
   onClick,
 }: {
+  id: Tab
   active: boolean
   children: React.ReactNode
   onClick: () => void
@@ -158,9 +178,14 @@ function TabButton({
   return (
     <button
       type="button"
+      role="tab"
+      id={`agents-tab-${id}`}
+      aria-selected={active}
+      aria-controls={`agents-tabpanel-${id}`}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={
-        'h-8 px-3 text-xs font-medium rounded-t-md border-b-2 transition-colors ' +
+        'h-8 px-3 text-label border-b-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
         (active
           ? 'text-foreground border-foreground'
           : 'text-muted-foreground border-transparent hover:text-foreground hover:border-border')

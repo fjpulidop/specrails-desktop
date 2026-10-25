@@ -1,0 +1,71 @@
+{
+  "headline": {
+    "tests_failed": {
+      "phaseRounds_one": "{{phase}}フェーズでテストが失敗しました（修正 {{count}} 回後）",
+      "phaseRounds_other": "{{phase}}フェーズでテストが失敗しました（修正 {{count}} 回後）",
+      "rounds_one": "テストが失敗しました（修正 {{count}} 回後）",
+      "rounds_other": "テストが失敗しました（修正 {{count}} 回後）",
+      "phase": "{{phase}}フェーズでテストが失敗しました",
+      "plain": "テストが失敗しました"
+    },
+    "provider_limit": "AI プロバイダーの利用上限に達しました",
+    "environment": "環境でチェックを実行できません",
+    "blocked": {
+      "phase": "実行が{{phase}}フェーズで止まっています",
+      "plain": "実行が止まっています"
+    },
+    "timeout": {
+      "phase": "{{phase}}フェーズが時間切れになりました",
+      "plain": "実行が時間切れになりました"
+    },
+    "tool_inactivity": {
+      "phase": "{{phase}}フェーズでエージェントの動きが止まりました",
+      "plain": "エージェントの動きが止まりました"
+    },
+    "crash": {
+      "phase": "{{phase}}フェーズでエージェントが予期せず停止しました",
+      "plain": "エージェントが予期せず停止しました"
+    },
+    "unknown": "原因は不明です"
+  },
+  "why": {
+    "provider_limit": {
+      "reset": "{{resetAt}} にリセットされます。リセット後に再開してください。",
+      "noReset": "上限がリセットされるのを待ってから再開してください。"
+    },
+    "environment": "変更そのものに問題はありません。先にマシン側の対応が必要です。",
+    "tests_failed": "修正の後もチェックが失敗しています。",
+    "blocked": "上限または判断待ちで止まりました。クラッシュではありません。",
+    "timeout": "終了する前に制限時間に達しました。",
+    "tool_inactivity": "ツールの使用も返信も長時間ありませんでした。",
+    "crash": "実行中にプロバイダーのプロセスまたは接続が切れました。",
+    "unknown": "止まった理由がわからないため、推測はしません。"
+  },
+  "remedies": {
+    "label": "復旧の方法"
+  },
+  "remedy": {
+    "resume": "再開",
+    "resumeFrom": "{{phase}}から再開",
+    "retry": "もう一度実行",
+    "editSpec": "スペックを編集して再起動",
+    "fixEnvironment": "環境を修復",
+    "openLogs": "失敗箇所のログを開く"
+  },
+  "environment": {
+    "command": "コマンド",
+    "copy": "コマンドをコピー",
+    "copied": "コピーしました",
+    "inDirectory": "{{cwd}} 内",
+    "requiredAction": "必要な操作",
+    "generic": "実行を続けるには、環境の対応が必要です。",
+    "then": "対応が済んだら、実行を再開してください。"
+  },
+  "logTail": {
+    "title": "ログの末尾"
+  },
+  "logs": {
+    "notFound": "表示できるログはまだありません"
+  },
+  "technicalDetails": "技術的な詳細"
+}

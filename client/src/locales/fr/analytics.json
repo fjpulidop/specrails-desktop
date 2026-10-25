@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "Affinage",
-    "smash": "SMASH",
+    "smash": "Découpage",
     "fileSummary": "Résumés de fichiers",
     "loop": "Loops",
     "chatSidebar": "Chat",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} exécutions",
   "page": {
     "title": "Analytics",
+    "subtitle": "Où va la dépense : coût, tokens et activité par modèle, spec et moteur.",
     "all": "Tout",
     "engine": "Moteur",
-    "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Échec du chargement : {{error}}",
+    "ticketChip": "spec #{{id}} ·  ✕",
+    "failedToLoad": "Impossible de charger les analyses. Réessayez.",
     "modelChip": "Modèle : {{model}}",
     "clearModelFilter": "Effacer le filtre de modèle",
-    "localEngine": "local"
+    "localEngine": "local",
+    "moreBreakdowns": "Plus de répartitions"
   },
   "hero": {
     "spending": "Dépenses",
@@ -46,22 +48,27 @@
     "tokensTooltip": "Total des tokens = entrée fraîche + sortie + lecture cache + création cache, sur toutes les invocations de cette période.",
     "usageUnavailable": "· utilisation des tokens indisponible",
     "usageUnavailableTooltip": "Le fournisseur a terminé ces invocations sans exposer de télémétrie des tokens.",
-    "usagePartiallyUnavailable": "· {{tokens}} tokens connus ; sans données : {{count}}",
+    "usagePartiallyUnavailable_one": "· {{tokens}} tokens connus ; sans données : {{count}}",
+    "usagePartiallyUnavailable_other": "· {{tokens}} tokens connus ; sans données : {{count}}",
     "usagePartiallyUnavailableTooltip": "Sous-total connu uniquement ; certaines invocations n'exposent pas de télémétrie des tokens.",
     "costUnavailable": "coût indisponible",
     "costUnavailableTooltip": "Le fournisseur a terminé ces invocations sans exposer assez de télémétrie pour déterminer leur coût.",
-    "costPartiallyUnavailable": "· sous-total connu ; sans coût : {{count}}",
+    "costPartiallyUnavailable_one": "· sous-total connu ; sans coût : {{count}}",
+    "costPartiallyUnavailable_other": "· sous-total connu ; sans coût : {{count}}",
     "costPartiallyUnavailableTooltip": "Sous-total connu uniquement ; certaines invocations n'exposent pas assez de télémétrie pour déterminer leur coût.",
     "includesEstimated": "· inclut ~{{amount}} estimés",
     "includesEstimatedTooltip": "Inclut {{amount}} de coût estimé pour les fournisseurs sans champ de coût natif (ex. codex via la table de tarifs locale).",
     "trackingStarted": "Suivi démarré le {{date}}",
     "trackingStartedFallback": "Le suivi démarre à la première invocation",
     "emptyState": "Aucune invocation pour cette période de filtrage.",
-    "segmentTitle": "{{label}} : {{value}}"
+    "segmentTitle": "{{label}} : {{value}}",
+    "legendBilled": "Facturé",
+    "legendEstimated": "Estimé",
+    "apiEquivalent": "Estimation équivalente en API"
   },
   "providerCard": {
     "title": "Par fournisseur",
-    "description": "Répartition du coût entre les CLI IA de ce projet. Le préfixe <tilde>~</tilde> marque les lignes dont le coût est estimé à partir de la table de tarifs locale (le fournisseur ne le rapporte pas nativement).",
+    "description": "<tilde>~</tilde> = estimé d’après les tarifs locaux.",
     "noCost": "Aucun coût enregistré sur cette période.",
     "segmentTitle": "{{label}} : {{value}} ({{count}})",
     "costUnavailable": "coût indisponible",
@@ -109,31 +116,32 @@
     "costLabel": "coût",
     "truncated": "Affichage de {{shown}} sur {{total}} — le point le plus coûteux est conservé, mais les points précédents sont masqués",
     "costUnavailable": "Des invocations ont été enregistrées, mais aucune télémétrie de coût n'est disponible pour le graphique.",
-    "costPartiallyUnavailable": "Le graphique ne contient que les exécutions tarifées ; coûts indisponibles : {{count}}."
+    "costPartiallyUnavailable_one": "Le graphique ne contient que les exécutions tarifées ; coûts indisponibles : {{count}}.",
+    "costPartiallyUnavailable_other": "Le graphique ne contient que les exécutions tarifées ; coûts indisponibles : {{count}}."
   },
   "topTickets": {
-    "title": "Top tickets",
-    "empty": "Aucune activité de ticket sur cette période.",
+    "title": "Top specs",
+    "empty": "Aucune activité de spec sur cette période.",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "Non attribué",
-    "deletedTicket": "ticket supprimé #{{id}}",
+    "deletedTicket": "spec supprimée #{{id}}",
     "costUnavailable": "coût indisponible",
-    "costUnavailableTooltip": "Aucune exécution de ce ticket n'a exposé de télémétrie de coût.",
+    "costUnavailableTooltip": "Aucune exécution de cette spec n'a exposé de télémétrie de coût.",
     "costPartiallyUnavailable": "indisponibles : {{count}}",
-    "costPartiallyUnavailableTooltip": "Sous-total connu uniquement ; certaines exécutions de ce ticket ont un coût indisponible."
+    "costPartiallyUnavailableTooltip": "Sous-total connu uniquement ; certaines exécutions de cette spec ont un coût indisponible."
   },
   "table": {
     "title": "Toutes les invocations",
     "statusFilterAria": "Filtre de statut",
     "minCostFilterAria": "Filtre de coût minimum",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "Tous les statuts",
     "success": "Succès",
     "failed": "Échec",
     "aborted": "Interrompu",
     "empty": "Aucune invocation ne correspond aux filtres actuels.",
     "colSurface": "Surface",
-    "colTicket": "Ticket",
+    "colTicket": "Spec",
     "colCost": "Coût",
     "colTurns": "Tours",
     "colTokens": "Tokens",
@@ -170,7 +178,7 @@
   "desktop": {
     "title": "Analytics de Desktop",
     "refreshAria": "Actualiser les analytics",
-    "failedToLoad": "Échec du chargement des analytics : {{error}}",
+    "failedToLoad": "Impossible de charger les analyses de Desktop. Essayez d’actualiser.",
     "totalCost": "Coût total",
     "costToday": "{{value}} aujourd'hui",
     "costTodayUnavailable": "coût indisponible aujourd'hui",
@@ -193,12 +201,11 @@
     "includesEstimatedTooltip": "Inclut {{amount}} de coût estimé par la table de tarifs (codex/gemini), non facturé par le fournisseur.",
     "includesEstimatedShort": "incl. estimé",
     "timelineEstimatedTooltip": "Certains jours incluent un coût estimé par la table de tarifs (codex/gemini) marqué d'un ~.",
-    "estimatedBadge": "est.",
-    "projectEstimatedTooltip": "{{amount}} du coût de ce projet est une estimation par table de tarifs (codex/gemini), non facturé par le fournisseur.",
     "statusBarEstimatedTooltip": "Inclut un coût estimé par la table de tarifs (codex/gemini), non facturé par le fournisseur.",
     "costUnavailable": "Des invocations ont été enregistrées, mais la télémétrie de coût est indisponible.",
     "costUnavailableShort": "indisponible",
-    "costPartiallyUnavailable": "Sous-total des coûts connus ; invocations sans coût : {{count}}."
+    "costPartiallyUnavailable_one": "Sous-total des coûts connus ; invocations sans coût : {{count}}.",
+    "costPartiallyUnavailable_other": "Sous-total des coûts connus ; invocations sans coût : {{count}}."
   },
   "windowLabels": {
     "7d": "7 derniers jours",
@@ -224,7 +231,6 @@
     "loading": "Chargement de l’utilisation enregistrée…",
     "total": "Événements enregistrés : {{count}}",
     "last": "Dernier événement :",
-    "evidence": "Ces compteurs seuls ne prouvent pas que la compatibilité antérieure peut être retirée.",
     "kinds": {
       "legacy_loop_traversal": "Boucles classiques",
       "queue_manager_slash": "Commandes en attente",
@@ -268,7 +274,7 @@
     "estimatedShare": "{{share}} estimé",
     "unpriced": "{{count}} sans coût",
     "note": "Livré = a atteint la revue ou au-delà. Le coût moyen utilise les livraisons au coût enregistré (fourni par le fournisseur sauf mention estimée) ; les livraisons sans coût sont exclues, jamais comptées à 0 $. Les tours viennent des étapes reviewer/fixer du loop. — signifie inconnu.",
-    "escapedUntracked": "Les défauts échappés ne sont pas encore suivis : liez un ticket de bug à la livraison qui l’a introduit (« Régression de » dans le ticket) pour commencer à les compter.",
+    "escapedUntracked": "Les défauts échappés ne sont pas encore suivis : liez une spec de bug à la livraison qui l’a introduit (« Régression de » dans la spec) pour commencer à les compter.",
     "columns": {
       "loop": "Loop",
       "delivered": "Livrées",
@@ -283,5 +289,79 @@
       "requirementsDemonstrated": "Exigences démontrées",
       "triageAccuracy": "Précision du triage"
     }
+  },
+  "budget": {
+    "title": "Budget",
+    "loadFailed": "Impossible de charger le budget.",
+    "estimate": "Estimation",
+    "scope": {
+      "project": "Ce projet",
+      "desktop": "Tous les projets (global)"
+    },
+    "period": {
+      "day": "Aujourd’hui",
+      "week": "Cette semaine",
+      "month": "Ce mois",
+      "run": "Par exécution"
+    },
+    "capLabel": {
+      "project": {
+        "day": "Plafond quotidien du projet (USD)",
+        "week": "Plafond hebdomadaire du projet (USD)",
+        "month": "Plafond mensuel du projet (USD)",
+        "run": "Plafond par exécution du projet (USD)"
+      },
+      "desktop": {
+        "day": "Plafond quotidien global (USD)",
+        "week": "Plafond hebdomadaire global (USD)",
+        "month": "Plafond mensuel global (USD)",
+        "run": "Plafond par exécution global (USD)"
+      }
+    },
+    "noCap": "Sans plafond",
+    "spentOf": "{{spent}} sur {{cap}}",
+    "spentNoCap": "{{spent}} · sans plafond",
+    "turns": "Tours : {{n}}",
+    "reached": "Atteint",
+    "nearing": "Proche",
+    "planNote": "Facturation par forfait : pas de coût en dollars par usage, on affiche donc les tours et les limites",
+    "estimatedPart": "dont environ {{amount}} calculés avec la grille de prix de l’app, non communiqués",
+    "resets": "réinitialisation {{time}}",
+    "runHint": "Une exécution se met en pause et demande quand son propre coût atteint ce montant. Le plus bas entre le plafond du projet et le plafond global s’applique.",
+    "saved": "Budget enregistré",
+    "saveFailed": "Impossible d’enregistrer le budget",
+    "invalidNumber": "Saisissez un montant supérieur à zéro, ou laissez vide pour ne pas avoir de plafond.",
+    "projection": {
+      "title": "Projection de fin de mois",
+      "basis": "moyenne sur {{days}} jours {{avg}}/jour × {{remaining}} jours restants + {{mtd}} à ce jour",
+      "none": "Historique insuffisant pour une projection.",
+      "overCap": "À ce rythme, vous dépasseriez le plafond mensuel de {{cap}}.",
+      "planNone": "Avec la facturation par forfait, il n’y a pas de coût en dollars par usage : aucun montant de fin de mois à projeter."
+    },
+    "whatIf": {
+      "title": "Et si : chiffrer avec un autre modèle",
+      "description": "Recalcule l’usage de tokens enregistré sur les {{days}} derniers jours avec un autre modèle, d’après la grille de prix de l’app. Une estimation, pas une facture.",
+      "from": "Exécuté avec",
+      "to": "À la place",
+      "choose": "Choisir un modèle",
+      "runs": "{{n}} exécutions",
+      "noPricing": "Pas de tarif pour {{model}}",
+      "empty": "Aucun usage de modèle enregistré sur cette période.",
+      "planNote": "Ce travail passe par un forfait : il n’y a pas de coût en dollars par usage à comparer. Les tokens sont affichés à la place.",
+      "tokens": "Tokens : {{input}} en entrée · {{output}} en sortie",
+      "compare": "≈ {{current}} actuellement → ≈ {{whatIf}} à la place",
+      "saves": "≈ {{amount}} de moins",
+      "costs": "≈ {{amount}} de plus",
+      "same": "À peu près pareil",
+      "skipped": "{{n}} exécutions sans usage de tokens ou sans tarif sont exclues.",
+      "recorded": "Coût enregistré pour ces exécutions : {{amount}}.",
+      "roleNote": "L’usage est enregistré par modèle, pas par rôle : choisissez le modèle sur lequel tourne votre rôle."
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "session",
+      "weekly": "hebdo"
+    },
+    "capsMetered": "Plafonds en dollars (fournisseurs à l’usage)"
   }
 }

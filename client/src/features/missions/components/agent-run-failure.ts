@@ -8,6 +8,7 @@
 
 import type { AgentContextReference } from '../lib/agent-context-palette'
 import type { AgentMessage } from '../lib/agent-api'
+import { prefersReducedMotion } from '../../../lib/a11y-prefs'
 
 export interface RunFailureRow {
   kind: 'run-failure'
@@ -56,14 +57,36 @@ export function systemBriefingRunId(message: Pick<AgentMessage, 'role' | 'contex
 }
 
 // ── Focus bus ─────────────────────────────────────────────────────────────────
-// Dispatched by: the run-failure marker ("Open card"), the launch card's
-// launched stub ("View run"). Listened by: every mounted AgentPrDecisionCard,
-// which scrolls itself into view + flashes when it matches.
+// Dispatched by: the history's event lines (launched, failed), the launch
+// card's launched stub ("Go to card"), the Flow offer's "View run". Listened
+// by: the run strip, which shows the matching live run and opens its panel
+// (a hidden card cannot take focus) and re-dispatches; a settled Flow → Spec
+// event line, which expands its card and re-dispatches; and every mounted
+// AgentPrDecisionCard, which scrolls itself into view, takes keyboard focus
+// and pulses when it matches.
 export const FOCUS_PR_CARD_EVENT = 'specrails:focus-pr-card'
 
 export interface FocusPrCardDetail {
   prDeliveryId?: string | null
   runIds?: string[]
+  /** Scope to one mission (split panes show several); absent = any. */
+  conversationId?: string | null
+  /** Set by the strip / an event line when it re-dispatches after expanding: never handled twice. */
+  expanded?: boolean
+}
+
+/** True when a focus request is not scoped to another conversation. */
+export function focusInConversation(detail: FocusPrCardDetail | null | undefined, conversationId: string): boolean {
+  return !detail?.conversationId || detail.conversationId === conversationId
+}
+
+/** Smooth unless the person asked the OS for reduced motion. */
+export function focusScrollBehavior(): ScrollBehavior {
+  try {
+    return prefersReducedMotion() ? 'auto' : 'smooth'
+  } catch {
+    return 'smooth'
+  }
 }
 
 export function focusPrCard(detail: FocusPrCardDetail): void {
@@ -77,6 +100,22 @@ export function focusMatchesCard(detail: FocusPrCardDetail | null | undefined, c
   if (detail.prDeliveryId && detail.prDeliveryId === card.prDeliveryId) return true
   const runs = card.runIds ?? []
   return (detail.runIds ?? []).some((id) => runs.includes(id) || `run:${id}` === card.prDeliveryId)
+}
+
+// ── Run strip bus ─────────────────────────────────────────────────────────────
+// Opens a run of the strip that has no delivery id (an undecided launch
+// proposal) from its history line.
+export const OPEN_RUN_STRIP_EVENT = 'specrails:open-run-strip'
+
+export interface OpenRunStripDetail {
+  conversationId: string | null
+  /** The strip entry key (mission-run-strip.ts). */
+  key: string
+}
+
+export function openRunStrip(detail: OpenRunStripDetail): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent<OpenRunStripDetail>(OPEN_RUN_STRIP_EVENT, { detail }))
 }
 
 // ── Mission-mode notification routing ────────────────────────────────────────

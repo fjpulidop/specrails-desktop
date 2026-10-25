@@ -16,7 +16,8 @@
     "cancelDownload": "暂不",
     "loading": "正在准备文件…",
     "loadFailed": "无法加载附件",
-    "loadError": "无法加载附件：{{error}}"
+    "loadError": "无法加载附件：{{error}}",
+    "remove": "移除 {{name}}"
   },
   "maximize": "最大化",
   "restore": "还原",
@@ -24,7 +25,7 @@
   "close": "关闭",
   "newConversation": "新任务",
   "emptyTitle": "这次的任务是什么？",
-  "emptyHint": "先选择一个项目，然后提问。智能体工作时看板会实时更新。",
+  "emptyHint": "可以询问关于此项目的任何问题——智能体可以读取内容、规划规格并启动 rail。",
   "thinking": "思考中…",
   "connecting": "连接中…",
   "consultingCode": "正在查询应用…",
@@ -43,7 +44,7 @@
   },
   "queue": {
     "queued": "已排队",
-    "send": "发送消息",
+    "send": "将消息加入队列",
     "sendHint": "排队等待下一轮。点击队列中消息的“调整方向”，即可在不中断模型的情况下发送。",
     "placeholder": "向队列添加消息…",
     "delivered": "已送达智能体",
@@ -56,7 +57,8 @@
     "more": "消息选项",
     "edit": "编辑",
     "actionConflict": "该消息正在送达或已不在队列中。",
-    "actionFailed": "无法更新队列中的消息，请重试。"
+    "actionFailed": "无法更新队列中的消息，请重试。",
+    "removed": "已删除排队消息"
   },
   "receipt": {
     "sent": "已发送给智能体",
@@ -120,7 +122,10 @@
     },
     "lockedTitle": "需要更高的级别",
     "lockedBody": "该操作需要「{{level}}」级别。你当前处于「{{current}}」。",
-    "raiseHint": "⇧⇥ 提升级别，或换一种方式询问。"
+    "raiseHint": "⇧⇥ 提升级别，或换一种方式询问。",
+    "confirmAutonomous": "切换到自主",
+    "autonomousWarning": "自主级别可以删除内容并终止进程。",
+    "skipAutonomousHint": "再次按 ⇧⇥ 返回“观察”。"
   },
   "approval": {
     "title": "确认操作",
@@ -188,15 +193,15 @@
     "queuedBadge": "{{n}} 条排队",
     "delete": "删除任务 \"{{title}}\"",
     "deleteConfirm": "删除？",
-    "deleteLiveConfirm": "代理正在工作 — 仍要删除？",
+    "deleteLiveConfirm": "代理正在工作。仍要删除吗？",
     "confirmDelete": "确认删除",
     "cancelDelete": "保留任务",
     "deleteFailed": "无法删除任务"
   },
   "noProvider": {
     "title": "未安装 AI 提供方",
-    "body": "智能体需要在你的机器上安装 Claude 或 Codex。安装其中之一后重新打开智能体即可开始对话。",
-    "placeholder": "请安装 AI 提供方以使用智能体…"
+    "body": "智能体需要一个 AI 提供方（Claude、Codex、Gemini 或本地引擎）。安装或连接一个后，重新打开智能体。",
+    "placeholder": "连接一个 AI 提供方以使用智能体…"
   },
   "degraded": {
     "title": "Specrails MCP 已关闭",
@@ -223,7 +228,7 @@
   "switchToAgent": "切换到任务中心",
   "switchToKanban": "切换到看板",
   "search": "搜索",
-  "home": "主页",
+  "home": "未分配的任务",
   "favoriteMissions": "收藏任务",
   "untitled": "未命名",
   "workspace": {
@@ -252,8 +257,8 @@
   "confirmDeleteConversation": "确认删除「{{title}}」",
   "addFavoriteConversation": "将「{{title}}」添加到收藏",
   "removeFavoriteConversation": "从收藏中移除「{{title}}」",
-  "confirmShort": "确认？",
-  "imagesUnsupported": "该提供商暂不支持读取图片 — 请附加文本文件",
+  "confirmShort": "删除？",
+  "imagesUnsupported": "该提供商暂不支持读取图片。请改为附加文本文件",
   "effort": {
     "label": "推理强度",
     "minimal": "最小",
@@ -279,7 +284,7 @@
     },
     "markDone": "标记为完成",
     "refine": "细化",
-    "completedNote": "已确认 — spec 已移至完成",
+    "completedNote": "已确认。spec 已移至完成",
     "partialSummary": "{{total}} 个中 {{succeeded}} 个完成，{{failed}} 个失败",
     "unit": {
       "failed": "实现失败",
@@ -296,8 +301,8 @@
     "title": {
       "no_changes": "无需更改",
       "partial": "部分实现完成",
-      "delivery_blocked": "实现完成 — 交付需要处理",
-      "update_failed": "实现完成 — 更新失败",
+      "delivery_blocked": "实现完成：交付需要处理",
+      "update_failed": "实现完成：更新失败",
       "pr_closed": "PR 已关闭但未合并",
       "superseded": "已被较新的运行取代",
       "existing_pr_updated": "现有 PR 已更新",
@@ -312,7 +317,13 @@
       "implementation_failed": "实现失败",
       "pr_failed": "PR 创建失败",
       "merged": "PR 已合并",
-      "discarded": "已丢弃"
+      "discarded": "已丢弃",
+      "review_changes_requested": "审阅者要求修改",
+      "returned_to_flow": "已回到 Flow",
+      "flowSpecChanges": "尚未就绪：审阅者要求修改",
+      "flowSpecDelivered": "你的 Flow 已成为经过评审的 PR",
+      "flowSpecFailed": "移交已停止",
+      "flowSpecBuilding": "正在把你的 Flow 变成经过评审的 PR"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
@@ -354,8 +365,8 @@
     "verifyPr": "验证 PR",
     "discard": "丢弃",
     "confirmDiscard": "确认丢弃？",
-    "mergedNote": "已合并 — Spec 已移至完成",
-    "discardedNote": "已丢弃 — Spec 已退回待办",
+    "mergedNote": "已合并。Spec 已移至完成",
+    "discardedNote": "已丢弃。Spec 已退回待办",
     "implementationFailedNote": "实现运行在生成可交付内容前失败。请打开运行日志查看失败原因，然后在重新启动前丢弃此卡片。",
     "dismiss": "关闭后续任务",
     "discardLocalResult": "丢弃本地结果",
@@ -380,7 +391,7 @@
       "recoverAndRetryTitle": "提交并推送已保留的结果？",
       "recoverAndRetryBody": "Specrails 只会使用 {{branch}} 对应的隔离 worktree 或已记录且可快进的分支。必要时，它会提交可交付文件；仅当 PR 仍以预期的源分支和目标分支保持打开状态时，才会推送这个精确提交。不会触碰项目主目录及其中尚未提交的更改。",
       "recheckRecoveryTitle": "再次检查此计算机？",
-      "recheckRecoveryBody": "Specrails 将在此克隆中重新扫描属于 {{branch}} 交付的 worktree、分支、refs、reflogs 和孤立 Git 对象。如果能证明唯一结果，它可以提交隔离的更改并重试精确 push。不会触碰主项目文件夹。",
+      "recheckRecoveryBody": "我们将检查此次交付是否还有可恢复的内容。不会删除任何内容。",
       "noChangesDoneTitle": "将这些 spec 标记为完成？",
       "noChangesDoneBody": "实现已确认无需更改代码。spec 将移至完成，并清理无更改的 worktree。",
       "refineTitle": "细化这些 spec？",
@@ -394,11 +405,12 @@
       "dismissTitle": "关闭此后续任务？",
       "dismissBody": "此后续卡片将被关闭。仅在仍可安全删除时才会移除其专用 worktree；否则将保留并显示警告。现有 PR、分支和审查状态不会改变。",
       "discardLocalTitle": "丢弃本地结果？",
-      "discardLocalBody": "仅在仍可安全删除时才会移除可恢复的本地迭代；如果它已发生变化，将保留并显示警告。任何现有 PR 及其分支都不会改变。已删除的结果无法恢复。"
+      "discardLocalBody": "仅在仍可安全删除时才会移除可恢复的本地迭代；如果它已发生变化，将保留并显示警告。任何现有 PR 及其分支都不会改变。已删除的结果无法恢复。",
+      "recheckRecoveryTechnical": "Specrails 将在此克隆中重新扫描属于 {{branch}} 交付的 worktree、分支、refs、reflogs 和孤立 Git 对象。如果能证明唯一结果，它可以提交隔离的更改并重试精确 push。不会触碰主项目文件夹。"
     },
     "degraded": {
-      "pushed": "分支已推送，但无法创建 PR — 请重试以完成。",
-      "localOnly": "更改已在本地组装但未推送 — 请重试以发布 PR。"
+      "pushed": "分支已推送，但无法创建 PR。请重试以完成。",
+      "localOnly": "更改已在本地组装但未推送。请重试以发布 PR。"
     },
     "alreadyResolved": "已在其他地方处理",
     "actionFailed": "操作失败",
@@ -408,15 +420,8 @@
     "viewLog": "查看 {{ref}} 的运行日志",
     "runElapsedAria": "已运行 {{elapsed}}",
     "runCostAria": "已花费 {{cost}}",
+    "focusRegion": "实现卡片 · {{rail}} {{tickets}}",
     "pinned": {
-      "label": "已固定",
-      "marker": "实现卡片 — 已固定在上方",
-      "collapse": "最小化固定卡片",
-      "expand": "展开固定卡片",
-      "expandCard": "展开此卡片",
-      "collapseCard": "最小化此卡片",
-      "collapsed_one": "实现卡片",
-      "collapsed_other": "{{count}} 张实现卡片",
       "state": {
         "completed": "已完成",
         "no_changes": "无更改",
@@ -439,7 +444,53 @@
     "mergedLocally": "已在本地集成到 {{base}}",
     "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。",
     "resumeFromStep": "从 {{step}} 继续",
-    "resumeFromStepHint": "被中断的 {{step}} 步骤将从头重新运行；磁盘上已有的工作会保留。"
+    "resumeFromStepHint": "被中断的 {{step}} 步骤将从头重新运行；磁盘上已有的工作会保留。",
+    "retryDelivery": "重试交付",
+    "retryDeliveryHint": "只在此运行的分支上重复最后一步（提交、推送和 PR），不会重做任何 AI 工作。",
+    "retryDeliverySent": "正在重试交付…",
+    "retryDeliveryFailed": "无法重试交付",
+    "mergedLocallyRestored": "已保存你的本地更改，集成了 {{tickets}}，并已恢复这些更改。",
+    "mergedLocallyStashConflict": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；Specrails 正在一个单独的分支上恢复它们。",
+    "mergedLocallyStashKept": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；准备好后再恢复。",
+    "localStash": {
+      "title": "你的本地更改已保存为 stash",
+      "conflictBody": "在集成结果上重新应用时发生冲突，因此 {{branch}} 保持为集成后的状态。恢复它们即可在单独的分支上重试。",
+      "savedBody": "这些更改尚未恢复。请在检出 {{branch}} 时恢复。",
+      "files": "冲突的文件",
+      "restore": "恢复我的更改",
+      "restoring": "正在恢复…",
+      "copy": "复制 stash 名称",
+      "copied": "已复制 stash 名称",
+      "restoredToast": "你的本地更改已回到 {{branch}}。",
+      "stillConflicting": "你的本地更改仍与 {{branch}} 冲突；它们仍安全保存在 stash 中。",
+      "released": "该 stash 已不存在，没有可恢复的内容。",
+      "blockedBranch": "请先检出 {{base}}（当前在 {{current}}），然后再恢复。",
+      "blockedDirty": "其中一些文件在保存后又被修改了。请先提交或移走这些编辑，然后再恢复。",
+      "failed": "无法恢复你的本地更改",
+      "restoringBody": "在集成结果上重新应用时发生冲突，因此 {{branch}} 保持为集成后的状态。Specrails 正在单独的 worktree 中的 {{restoreBranch}} 上恢复它们，并在那里解决冲突。",
+      "readyBodyClean": "你的更改已在 {{restoreBranch}} 上恢复并提交；在那里应用时没有冲突。请检查后将它们带回 {{branch}}。",
+      "readyBodyResolved": "你的更改已在 {{restoreBranch}} 上恢复并提交，冲突已自动解决。请检查后将它们带回 {{branch}}。",
+      "failedBody": "Specrails 未能在 {{restoreBranch}} 上完成恢复。它们仍安全保存在 stash 中；请丢弃该分支或再次恢复。",
+      "restoredFiles": "已在 {{restoreBranch}} 上恢复",
+      "binary": "二进制",
+      "managedNote": "由 Specrails 管理的生成文件保留了集成版本：{{files}}",
+      "bringBack": "带回 {{branch}}",
+      "bringingBack": "正在带回…",
+      "discardBranch": "丢弃恢复的分支",
+      "discarding": "正在丢弃…",
+      "broughtBackToast": "你的本地更改已回到 {{branch}}。",
+      "discardedToast": "已丢弃恢复的分支。你的更改仍安全保存在 stash 中。",
+      "blockedBringBack": "无法安全地将更改带回 {{branch}}。",
+      "notReady": "恢复的分支尚未就绪。"
+    },
+    "failed": {
+      "createPr": "无法创建 PR",
+      "mergeLocal": "无法在本地集成",
+      "discard": "无法丢弃结果",
+      "publish": "无法发布 PR",
+      "generic": "交付已停止。请查看技术详情。"
+    },
+    "moreActions": "更多操作"
   },
   "specDraft": {
     "heading": "规格草稿",
@@ -465,12 +516,12 @@
     "openPullRequest": "打开 PR #{{id}}",
     "openJob": "打开任务 {{id}}",
     "openLoop": "打开循环 {{id}}",
-    "ticketNotFound": "未找到 Spec #{{id}} — 可能已被删除",
+    "ticketNotFound": "未找到 Spec #{{id}}，可能已被删除",
     "pullRequestUrlMissing": "PR #{{id}} 被引用但没有 URL",
     "pullRequestNotFound": "在此项目中找不到 PR #{{id}}",
-    "jobNotFound": "未找到任务 — 可能已被删除",
-    "loopNotFound": "未找到循环 — 可能已被删除",
-    "lookupFailed": "无法验证该引用 — 请重试"
+    "jobNotFound": "未找到任务，可能已被删除",
+    "loopNotFound": "未找到循环，可能已被删除",
+    "lookupFailed": "无法验证该引用，请重试"
   },
   "header": {
     "untitled": "未命名任务",
@@ -508,7 +559,18 @@
     "copySuccess": "日志已复制到剪贴板",
     "copyFailed": "无法复制日志",
     "openLog": "查看执行日志",
-    "close": "关闭"
+    "close": "关闭",
+    "tool": {
+      "terminal": "终端",
+      "reading": "正在读取",
+      "searching": "正在搜索",
+      "editing": "正在编辑",
+      "web": "网页",
+      "agent": "智能体",
+      "agentNamed": "智能体 · {{description}}",
+      "mcp": "MCP · {{name}}",
+      "mcpTool": "MCP 工具"
+    }
   },
   "backgroundProcess": {
     "open": "查看 {{command}} 的日志",
@@ -594,14 +656,13 @@
     "heading": "Rail 启动",
     "rail": "Rail {{index}}",
     "newRail": "新建 Rail",
-    "play": "Play",
+    "play": "启动",
     "launching": "正在启动…",
     "dismiss": "忽略",
-    "playHint": "随意调整后，按 Play 以你自己的授权启动。",
+    "playHint": "随意调整后，按“启动”以你自己的授权启动。",
     "pending": "正在准备启动提案…",
     "unreadable_one": "无法读取代理的启动提案。",
     "unreadable_other": "无法读取 {{count}} 个启动提案。",
-    "pinnedMarker": "启动提案已固定在输入框上方",
     "effortDefault": "默认推理强度",
     "profileNone": "无配置文件",
     "status": {
@@ -631,12 +692,12 @@
       "baseBranch": "基础分支"
     },
     "notes": {
-      "railMissing": "Rail {{index}} 已不存在 — 请选择其他 Rail 或新建一个。",
-      "railBusy": "Rail {{index}} 当前{{state}} — 无法在此启动。",
+      "railMissing": "Rail {{index}} 已不存在。请选择其他 Rail 或新建一个。",
+      "railBusy": "Rail {{index}} 当前{{state}}，无法在此启动。",
       "useFree": "使用 Rail {{index}}",
       "specsDropped": "已不在此项目中：{{ids}}",
-      "engineStale": "本机未检测到 {{engine}} — 将使用 {{fallback}}。",
-      "modelStale": "{{model}} 不可用 — 将使用 {{fallback}}。"
+      "engineStale": "本机未检测到 {{engine}}，将使用 {{fallback}}。",
+      "modelStale": "{{model}} 不可用，将使用 {{fallback}}。"
     },
     "block": {
       "noProject": "此任务未固定到任何项目。",
@@ -655,14 +716,15 @@
       "scope_save_failed": "无法保存规格的仓库。",
       "repository_scope_incomplete": "本次运行缺少规格所需的仓库。请检查上方的分配。",
       "rail_not_empty": "该轨道已有 spec",
-      "flow_freeze_failed": "无法保存 Flow 的 worktree",
-      "flow_head_mismatch": "交接期间 Flow 的 worktree 发生了变化",
-      "flow_already_handed_off": "此 Flow 已交接",
-      "flow_handoff_not_adopted": "轨道没有接管 Flow 的 worktree",
+      "flow_freeze_failed": "无法为移交保存 Flow 的更改",
+      "flow_head_mismatch": "移交过程中 Flow 发生了变化。请重试",
+      "flow_already_handed_off": "此 Flow 已交给 Rail",
+      "flow_handoff_not_adopted": "Rail 已启动，但没有接管你 Flow 的更改",
       "illegal_transition": "Flow 的状态已发生变化",
       "feature_unavailable": "Flow 不可用",
-      "daily_budget_exceeded": "已达到每日预算——未启动任何任务。",
-      "review_wip_limit_reached": "已达到评审上限——未启动任何任务。"
+      "daily_budget_exceeded": "已达到每日预算，未启动任何任务。",
+      "review_wip_limit_reached": "已达到评审上限，未启动任何任务。",
+      "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。"
     },
     "stub": {
       "launched": "已启动 → Rail {{rail}}",
@@ -676,7 +738,7 @@
       "title": "解决 PR 上的 {{count}} 条评审意见",
       "excluded": "不要改动",
       "verification": "验证",
-      "specUntouched": "不会编辑 spec 及其 Jira 描述——范围随本次运行一起传递。",
+      "specUntouched": "不会编辑 spec 及其 Jira 描述。范围随本次运行一起传递。",
       "source": {
         "pasted": "粘贴",
         "github": "来自 GitHub"
@@ -703,7 +765,11 @@
       "retry": "重新加载",
       "checkScope": "运行前请检查仓库选择。"
     },
-    "triageLabel": "分诊"
+    "triageLabel": "分诊",
+    "handOff": {
+      "newRail": "新建的 Rail",
+      "changeHow": "更改方式"
+    }
   },
   "runCard": {
     "status": {
@@ -713,7 +779,9 @@
       "failed": "已失败",
       "stalled": "已停滞",
       "cancelled": "已取消",
-      "unknown": "未知"
+      "unknown": "未知",
+      "changes_requested": "需要修改",
+      "returned": "已回到 Flow"
     },
     "title": {
       "running": "正在项目检出目录中实现…",
@@ -722,10 +790,12 @@
       "failed": "实现失败",
       "stalled": "实现已停滞",
       "cancelled": "运行已取消",
-      "unknown": "运行状态未知"
+      "unknown": "运行状态未知",
+      "changes_requested": "审阅者要求修改",
+      "returned": "已回到 Flow"
     },
-    "noDeliveryNote": "无 PR 阶段 — 此项目没有 git 仓库或提交，因此工作已直接落在项目文件夹中。",
-    "noDeliveryHint": "直接在项目文件夹中运行（没有 git 仓库或提交 — 不会提议 PR）。",
+    "noDeliveryNote": "无 PR 阶段：此项目没有 git 仓库或提交，因此工作已直接落在项目文件夹中。",
+    "noDeliveryHint": "直接在项目文件夹中运行（没有 git 仓库或提交，因此不会提议 PR）。",
     "failure": {
       "title": "停止原因",
       "step": "步骤 {{step}}",
@@ -737,13 +807,28 @@
       "recover": "恢复并重试",
       "relaunch": "重新启动"
     },
-    "relaunchSent": "Rail {{index}} 已重新启动 — 新卡片将跟踪此运行。",
+    "relaunchSent": "Rail {{index}} 已重新启动。新卡片将跟踪此运行。",
     "relaunchFailed": "无法重新启动该 Rail",
-    "relaunchBlockedActive": "该 Rail 仍有活动的运行"
+    "relaunchBlockedActive": "该 Rail 仍有活动的运行",
+    "review": {
+      "title": {
+        "review": "审阅者要求修改",
+        "check": "检查仍未通过"
+      },
+      "score": "评分 {{score}}",
+      "issues_one": "{{count}} 个问题",
+      "issues_other": "{{count}} 个问题",
+      "showAll": "显示全部（{{count}}）",
+      "showLess": "收起",
+      "omitted_one": "运行的评审中另有 {{count}} 项",
+      "omitted_other": "运行的评审中另有 {{count}} 项",
+      "failingChecks": "失败",
+      "check": "{{command}} · 退出码 {{code}}",
+      "next": "自动修正轮次没有解决这些问题。回到 Flow 与智能体一起解决，或从相同的 Flow 分支重新启动。",
+      "returned": "已回到 Flow：你的更改已连同评审返回其 Flow。请在 Flow 条带中继续。"
+    }
   },
   "runFailure": {
-    "marker": "Rail {{rail}} 失败：{{code}}",
-    "openCard": "打开卡片",
     "briefing": {
       "title": "自动故障简报"
     }
@@ -862,7 +947,6 @@
     "sendHint": "停止当前步骤，立即把你的消息交给智能体"
   },
   "flow": {
-    "gitLabel": "Flow worktree",
     "missing": {
       "sessions": "Core 智能体会话已关闭或不可用",
       "flowSessions": "你的 Specrails Core 还不能打断正在运行的智能体",
@@ -874,90 +958,154 @@
       "feature_unavailable": "当前安装的 Specrails Core 不支持 Flow。",
       "flow_already_open": "此任务已有一个 Flow。请先恢复或丢弃它。",
       "illegal_transition": "Flow 的状态已发生变化。请刷新后重试。",
-      "flow_worktree_missing": "Flow 的 worktree 已不存在。继续之前请先检查。",
+      "flow_worktree_missing": "此 Flow 的项目副本已不存在。继续之前请检查 Flow 分支。",
+      "flow_repository_required": "选择此 Flow 运行所在的仓库。",
+      "flow_repository_not_git": "Flow 需要 Git 仓库来创建分支；普通文件夹不行。请选择一个 Git 仓库。",
+      "flow_repository_unknown": "该仓库已不属于此项目。请选择其他仓库。",
+      "flow_repository_missing": "此 Flow 的仓库在该项目中已不可用。",
       "rail_not_empty": "该轨道已有 spec。请选择一个空闲且为空的轨道。",
-      "flow_already_handed_off": "此 Flow 已交给某个轨道。",
-      "flow_freeze_failed": "无法为交接保存 Flow 的 worktree。",
-      "flow_head_mismatch": "交接期间 worktree 发生了变化。请重试。",
-      "flow_handoff_not_adopted": "轨道启动时没有接管 Flow 的 worktree。"
+      "flow_already_handed_off": "此 Flow 已交给 Rail。",
+      "flow_freeze_failed": "无法为移交保存 Flow 的更改。",
+      "flow_head_mismatch": "移交过程中 Flow 发生了变化。请重试。",
+      "flow_handoff_not_adopted": "Rail 已启动，但没有接管你 Flow 的更改。",
+      "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。",
+      "flow_not_found": "此 Flow 已不存在。",
+      "flow_failed": "Flow 遇到意外错误，请重试。",
+      "conversation_not_found": "此任务已不存在。",
+      "conversation_not_pinned": "启动 Flow 前，请先将此任务固定到项目。",
+      "flow_not_handed_off": "此 Flow 已不再等待该运行。",
+      "flow_rail_unknown": "该运行的 Rail 未知。请从 Flow 条带重新交给 Rail。",
+      "flow_return_busy": "该运行正忙于其他操作，请稍后重试。",
+      "flow_return_not_allowed": "只有在交付前停止的移交才能回到其 Flow。",
+      "flow_return_not_found": "该运行不是 Flow 移交。",
+      "flow_return_worktree_mismatch": "该运行没有接管此 Flow 的更改。",
+      "spec_in_flow": "该规格已在 Flow 中。打开其任务以继续。",
+      "spec_on_rail": "该规格在某条轨道上。请先将其移出轨道，再在 Flow 中开始。",
+      "spec_running": "该规格正在轨道上运行。请等待运行结束。",
+      "spec_closed": "该规格已完成或已取消。重新打开后才能在 Flow 中处理。",
+      "spec_not_found": "该规格已不存在。",
+      "invalid_ticket_id": "无法识别该规格。"
     },
     "entry": {
       "heading": "开始 Flow",
-      "body": "Specrails 会创建一个隔离的 worktree，智能体可以在其中编写代码。你的主分支不会被改动。",
-      "provider": "智能体使用 {{provider}} 工作，只在 worktree 内写入。",
-      "providerUnknown": "智能体只在 worktree 内写入。",
+      "body": "Specrails 会在专属的 Flow 分支上创建项目的独立副本，智能体可以在其中编写代码。你的主分支不会被改动。",
+      "provider": "智能体使用 {{provider}}，只在 Flow 的副本中写入。",
+      "providerUnknown": "智能体只在 Flow 的副本中写入。",
+      "repository": {
+        "label": "仓库",
+        "hint": "Flow 在此仓库的独立副本中工作。",
+        "choose": "选择此 Flow 运行所在的仓库",
+        "loading": "正在加载仓库…",
+        "loadFailed": "无法加载项目的仓库。请重试。",
+        "suggested": "由智能体建议",
+        "noGit": "此项目没有 Git 仓库。Flow 需要它来创建分支。"
+      },
       "blocked": {
         "noProject": "将此任务固定到某个项目后才能使用 Flow。",
         "open": "此任务已有一个 Flow。",
         "missing": "Flow 需要更新版本的 Specrails Core：",
-        "unavailable": "Flow 目前不可用。"
+        "unavailable": "Flow 目前不可用。",
+        "goToFlow": "前往该 Flow"
       },
       "cancel": "取消",
       "start": "开始 Flow",
-      "starting": "正在开始…"
+      "starting": "正在开始…",
+      "existingSpec": {
+        "label": "规格 #{{id}}",
+        "note": "Flow 基于该规格工作，代理从它开始。交付时，规格会根据所构建内容重写；当前文本会作为评论保留。"
+      }
     },
     "offer": {
       "heading": "你想怎样构建它？",
-      "recommended": "推荐",
       "notNow": "暂不",
       "implementReply": "我们先写 spec，再运行 Implement。",
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "在隔离的 worktree 中与智能体一起构建，spec 在最后生成。"
+          "hint": "在独立的 Flow 分支上一起构建；spec 最后再写。",
+          "hintExisting": "在独立的 Flow 分支上一起构建该规格；规格会根据所构建的内容重写。"
         },
         "implement": {
-          "title": "Spec + Implement",
-          "hint": "先确定 spec，再交给轨道执行。"
+          "title": "Spec + 实现",
+          "hint": "先确定 spec，再交给轨道执行。",
+          "hintExisting": "按现有内容将该规格交给轨道。"
         }
       },
       "stub": {
         "flow": "你选择了 Flow",
         "implement": "你选择了 spec + Implement",
         "dismissed": "已忽略建议",
-        "handedOff": "Flow 已交给轨道 {{rail}}",
-        "overrode": "推荐：{{mode}}",
+        "handedOff": "Flow 已交给 Rail {{rail}}",
         "state": {
           "active": "Flow 进行中",
           "paused": "Flow 已暂停",
-          "handed_off": "Flow 已交给轨道",
+          "handed_off": "Flow 已交给 Rail",
           "delivered": "Flow 已完成",
           "discarded": "Flow 已丢弃",
-          "needs-review": "Flow 需要检查"
-        }
-      }
+          "needs-review": "Flow 需要检查",
+          "closed": "Flow 已关闭（保留分支）"
+        },
+        "viewRun": "查看运行"
+      },
+      "why": "智能体为何询问",
+      "waitForReply": "智能体完成这条回复后即可选择。",
+      "implementExistingReply": "在轨道上实现规格 #{{id}}。"
     },
     "bar": {
-      "label": "Flow 控制",
       "controls": "Flow 操作",
       "viewChanges": "查看更改",
       "resume": "恢复 Flow",
-      "pause": "暂停",
+      "pause": "暂停 Flow",
       "discard": "丢弃",
-      "thisIsIt": "就是这样",
       "discarded": "已丢弃 Flow",
       "files_one": "{{count}} 个文件",
       "files_other": "{{count}} 个文件",
-      "filesTitle": "Flow worktree 中更改的文件",
+      "filesTitle": "Flow 分支上更改的文件",
       "costTitle": "此 Flow 各轮的实际费用（以提供商计费为准）",
       "costPartial_one": "{{count}} 轮没有提供商报告的费用，未计入",
       "costPartial_other": "{{count}} 轮没有提供商报告的费用，未计入",
-      "needsReview": "Flow 的 worktree 丢失。没有删除任何内容；继续之前请检查分支。",
-      "pausedNote": "已暂停。worktree 和 spec 会保留，随时可以恢复。",
+      "needsReview": "此 Flow 的项目副本丢失。没有删除任何内容；继续之前请检查 Flow 分支。",
+      "pausedNote": "已暂停。你的更改和 spec 都会保留；随时可以继续。",
       "state": {
         "active": "Flow",
         "paused": "Flow 已暂停",
         "needs-review": "Flow 需要检查",
-        "handed_off": "已交接",
+        "handed_off": "已交给 Rail",
         "delivered": "已完成",
-        "discarded": "已丢弃"
-      }
+        "discarded": "已丢弃",
+        "closed": "已关闭"
+      },
+      "disabled": {
+        "settling": "请等待 Flow 保存完状态",
+        "busy": "请等待当前操作完成",
+        "noSpec": "Flow 的 spec 尚未就绪"
+      },
+      "viewChangesStats": "查看更改 · {{files}}，+{{additions}} −{{deletions}}",
+      "handOff": "交给 Rail",
+      "close": "关闭此 Flow",
+      "closed": "Flow 已关闭，分支已保留。"
+    },
+    "preview": {
+      "open": "预览",
+      "openTitle": "在浏览器中打开 {{url}} 上的应用",
+      "stopping": "正在停止…",
+      "more": "应用操作",
+      "local": "在此电脑上打开",
+      "network": "在局域网中打开",
+      "localOnly": "仅可从此电脑访问。如需在手机上打开，请让智能体以局域网公开方式重新启动。",
+      "stop": "停止应用",
+      "stopFailed": "无法停止应用"
     },
     "discard": {
       "title": "丢弃这个 Flow？",
-      "body": "worktree、其分支和临时 spec 都会被删除，且无法撤销。",
+      "body": "丢弃会删除以下全部内容，且无法撤销：",
       "cancel": "保留 Flow",
-      "confirm": "丢弃 Flow"
+      "confirm": "丢弃 Flow",
+      "lossFiles_one": "{{count}} 个已更改文件",
+      "lossFiles_other": "{{count}} 个已更改文件",
+      "lossNoChanges": "尚无已更改文件",
+      "lossUnknown": "Flow 分支上的所有更改",
+      "lossSpec": "看板上的占位 spec"
     },
     "changes": {
       "title": "Flow 更改",
@@ -975,11 +1123,299 @@
       }
     },
     "handOff": {
-      "heading": "Flow → Spec",
-      "rationale": "由轨道接管 Flow 的 worktree，推导 spec，并运行验证和审查。",
-      "loop": "Flow → Spec",
+      "heading": "把这个 Flow 变成经过评审的 PR",
+      "loop": "Flow 移交",
       "launch": "启动",
-      "notYet": "暂不"
+      "notYet": "暂不",
+      "engineFallback": "{{provider}} 无法在此设备上运行 Flow 移交，因此已选择该 Rail 的默认引擎。",
+      "cost": "目前已花费 {{cost}}",
+      "costUnknown": "尚无计费成本",
+      "line_one": "{{rail}} 会把你更改的 1 个文件变成经过评审的 PR。即使失败，你的工作也不会丢失。",
+      "line_other": "{{rail}} 会把你更改的 {{count}} 个文件变成经过评审的 PR。即使失败，你的工作也不会丢失。",
+      "lineNoCount": "{{rail}} 会把你的更改变成经过评审的 PR。即使失败，你的工作也不会丢失。"
+    },
+    "review": {
+      "backToFlow": "回到 Flow",
+      "backToFlowHint": "以相同的更改重新打开此 Flow；智能体会在下一轮收到评审",
+      "relaunch": "重新运行",
+      "relaunchHint": "使用相同的 Flow 分支、Rail 和引擎重试",
+      "returned": "已回到 Flow。智能体已收到评审。",
+      "relaunched": "已在 Rail {{index}} 上重新启动",
+      "returnFailed": "无法回到 Flow：{{detail}}",
+      "relaunchFailed": "无法重新启动：{{detail}}",
+      "backToFlowFailureHint": "以相同的更改重新打开此 Flow；智能体会在下一轮收到错误",
+      "returnedFailure": "已回到 Flow。智能体已收到错误。"
+    },
+    "failure": {
+      "step": {
+        "derive": "无法根据你的更改编写 spec",
+        "verify": "无法验证你的更改",
+        "review": "评审未能完成",
+        "fix": "自动修复未能完成",
+        "archive": "无法归档完成的 spec",
+        "settle": "无法交还结果",
+        "unknown": "移交在完成前停止了"
+      },
+      "cause": "原因：",
+      "next": "你的工作完好无损。回到 Flow 后，智能体会收到该错误。",
+      "nextReturned": "你的工作完好无损。已回到 Flow，智能体已收到该错误。",
+      "returned": "已回到 Flow",
+      "technical": {
+        "title": "技术细节",
+        "repository": "仓库",
+        "step": "步骤",
+        "status": "状态",
+        "failure": "失败",
+        "detail": "详情"
+      }
+    },
+    "announce": {
+      "active": "Flow 已启用：智能体在 Flow 分支上写入。",
+      "paused": "Flow 已暂停。",
+      "needs-review": "Flow 需要检查：它的项目副本丢失了。",
+      "handed_off": "Flow 已交给 Rail。",
+      "delivered": "Flow 已交付。",
+      "discarded": "Flow 已丢弃。",
+      "returned": "已回到 Flow：工作连同移交中发现的问题一起返回。",
+      "closed": "Flow 已关闭，分支已保留。"
+    },
+    "strip": {
+      "label": "Flow",
+      "ready": "可以变成 PR 了",
+      "launching": "正在交给 Rail…",
+      "launchingOn": "正在交给 {{rail}}…",
+      "stillHandingOff": "仍在交给 {{rail}}…",
+      "refresh": "刷新",
+      "step": {
+        "derive": "正在根据你的更改编写 spec",
+        "verify": "正在验证你的更改",
+        "review": "正在评审更改",
+        "fix": "正在按评审意见修复",
+        "archive": "正在归档完成的 spec",
+        "settle": "正在交还结果"
+      },
+      "headline": "{{state}} · {{files}}"
+    },
+    "mode": {
+      "chip": "Flow",
+      "description": "Flow 模式：智能体在 Flow 分支上写入，而不是你的主分支",
+      "placeholder": "告诉智能体要在这个 Flow 中修改什么…"
+    },
+    "panel": {
+      "branch": "分支",
+      "changes": "更改",
+      "cost": "目前成本",
+      "actions": "更多 Flow 操作"
+    },
+    "close": {
+      "title": "关闭此 Flow？",
+      "body": "对话将退出 Flow。不会删除任何内容：",
+      "keptBranch": "保留分支：",
+      "keptSpec": "规格保留在看板上，但不再显示“Flow 中”标签",
+      "cancel": "暂不",
+      "confirm": "关闭 Flow，保留分支"
+    },
+    "startFromSpec": {
+      "action": "在 Flow 中开始",
+      "hint": "在任务中与代理在独立的 Flow 分支上构建该规格",
+      "starting": "正在启动 Flow…",
+      "failed": "规格 #{{id}} 无法在 Flow 中开始",
+      "repository": {
+        "title": "这个 Flow 在哪里运行？",
+        "body": "此项目有多个 Git 仓库。Flow 会在你所选仓库的独立副本中、在自己的分支上工作。",
+        "fromSpec": "规格中指定"
+      },
+      "blocked": {
+        "noProject": "打开一个项目以使用 Flow",
+        "unavailable": "已安装的 Specrails Core 不支持 Flow",
+        "inFlow": "已在 Flow 中",
+        "closed": "已完成或已取消的规格无法在 Flow 中开始",
+        "running": "正在轨道上运行",
+        "onRail": "在轨道上：请先将其移出",
+        "missionInFlow": "该任务已有 Flow"
+      }
     }
+  },
+  "flowReturn": {
+    "title": "审阅者的要求",
+    "noFindings": "移交在交付前停止；你的更改已完好地回到此 Flow。",
+    "coverage": "spec 说明了 {{files}} 个已更改文件中的 {{explained}} 个",
+    "unexplained": "未被任何需求说明的文件",
+    "moreFiles_one": "另有 {{count}} 个文件",
+    "moreFiles_other": "另有 {{count}} 个文件",
+    "next": "Flow 智能体现在开始处理；你可以随时引导或停止它。",
+    "automaticTurn": "自动轮次 · 回到 Flow",
+    "titleFailure": "移交停止的原因"
+  },
+  "turnErrors": {
+    "providerInactivity": "提供方长时间没有响应，本轮已结束。请重新发送消息以继续。",
+    "toolInactivity": "某个工具运行过久且提供方没有任何活动，本轮已结束。请重新发送消息以继续，或让智能体拆分该步骤。",
+    "generic": "智能体本轮执行失败。"
+  },
+  "flowDelivered": {
+    "title": "Flow 已交付",
+    "pr": "打开 PR",
+    "prNumber": "PR #{{number}}",
+    "specRewritten": "已根据你构建的内容重写 spec",
+    "specKept": "spec 重写未完成；已保留其草稿",
+    "change": "spec 变更 {{change}}",
+    "changeArchived": "spec 变更 {{change}} 已归档",
+    "jira": "Jira 工单 {{key}}",
+    "jiraPending": "正在创建 Jira 工单"
+  },
+  "runStrip": {
+    "launching": "正在 {{rail}} 上启动…",
+    "running": "工作中",
+    "paused": "已暂停。等待你处理",
+    "pausedReason": "已暂停：{{reason}}",
+    "decision": {
+      "approval": "等待你的批准",
+      "changes": "审阅者要求修改",
+      "on_review": "可供你评审",
+      "pr_draft": "草稿 PR 已可发布",
+      "no_changes": "已完成，没有更改",
+      "pr_closed": "PR 未合并即被关闭",
+      "generic": "等待你的决定"
+    },
+    "failed": {
+      "generic": "因错误而停止",
+      "implementation_failed": "实现失败",
+      "stalled": "运行停滞",
+      "stuck": "运行卡住了",
+      "provider_limit": "已达到提供商的用量上限",
+      "launch_failed": "运行无法启动",
+      "delivery_failed": "无法交付结果",
+      "push_failed": "无法推送分支",
+      "pr_failed": "无法创建 PR"
+    },
+    "progressAria": "已完成 {{done}}/{{total}} 个运行",
+    "costTitle": "到目前为止提供商实际计费的成本",
+    "costPartial": "部分运行尚无计费成本，未计入",
+    "costNone": "暂无计费成本",
+    "state": {
+      "launching": "启动中：",
+      "running": "运行中：",
+      "decision": "等待你：",
+      "failed": "失败：",
+      "paused": "已暂停：",
+      "info": "供参考："
+    },
+    "proposal": "提议为 {{tickets}} 启动",
+    "proposalNoTickets": "已提议启动",
+    "proposalLabel": "提议",
+    "panelLabel": "{{run}} 详情",
+    "showDetails": "显示详情",
+    "withShortcut": "{{label}}（{{keys}}）",
+    "cycleHint": "切换运行：{{keys}}",
+    "hideDetails": "隐藏详情",
+    "switcher": "进行中的运行",
+    "more": "更多运行（{{count}}）",
+    "announce": {
+      "settled": "{{run}} 已结束",
+      "shown": "正在显示 {{run}}：{{state}}",
+      "needsYou": "{{run}} 需要你处理"
+    },
+    "event": {
+      "launched": "已在 {{run}} 上启动",
+      "failed": "{{run}} 失败：{{reason}}",
+      "openRun": "查看运行",
+      "proposed": "已提议启动。等待你处理",
+      "backToFlow": "回到 Flow",
+      "flowReturned": "{{run}} 已把工作退回 Flow",
+      "delivered": "已交付：PR {{pr}}",
+      "deliveredNoPr": "已在 {{run}} 上交付",
+      "superseded": "{{run}} 已被更新的运行取代",
+      "discarded": "{{run}} 已被丢弃",
+      "changes": "{{run}}：审阅者要求修改"
+    },
+    "needsYou": "需要你处理",
+    "opensCard": "打开该运行的卡片，在那里确认",
+    "open": {
+      "decision": "打开决定",
+      "failed": "查看失败原因",
+      "paused": "查看暂停原因"
+    },
+    "attention": {
+      "failed": "需要处理：有运行失败"
+    }
+  },
+  "flowBoundary": {
+    "entered": "进入 Flow",
+    "left": "离开 Flow",
+    "turnMark": "Flow",
+    "reason": {
+      "started": "已开始",
+      "returned": "从 Rail 返回",
+      "handed_off": "已交给 Rail",
+      "discarded": "已丢弃",
+      "closed": "已关闭，分支已保留"
+    }
+  },
+  "unread": "未读",
+  "unreadCount": "{{count}} 条未读",
+  "live": "代理工作中",
+  "deleteFailed": "无法删除该任务，请重试。",
+  "modeSwitch": {
+    "label": "界面模式",
+    "mission": "任务",
+    "board": "看板",
+    "current": "当前模式：{{mode}}。点击切换。"
+  },
+  "errors": {
+    "sendFailed": "无法发送消息。",
+    "stopFailed": "无法停止智能体。",
+    "mcpEnableFailed": "无法启用 MCP。",
+    "removeAttachmentFailed": "无法移除附件。",
+    "sendFailedHint": "你的文本已放回输入框，按 Enter 重试。",
+    "providerSwitchFailed": "无法切换提供方，之前的提供方仍在使用中。",
+    "modelSwitchFailed": "无法切换模型，之前的模型仍在使用中。",
+    "effortSwitchFailed": "无法切换推理强度，之前的设置仍在使用中。"
+  },
+  "composer": {
+    "ariaLabel": "发送给智能体的消息",
+    "dropFiles": "拖放文件以添加附件",
+    "uploading": "正在上传…"
+  },
+  "conversation": {
+    "ariaLabel": "任务对话",
+    "agentWorking": "智能体正在工作…",
+    "agentReplied": "智能体已回复",
+    "newMessages": "新消息"
+  },
+  "message": {
+    "you": "你",
+    "agent": "智能体"
+  },
+  "options": {
+    "groupLabel": "建议回复",
+    "shortcut": "Alt+{{n}}"
+  },
+  "copied": "已复制",
+  "copyCode": "复制代码",
+  "composerReplyPlaceholder": "回复，或输入 @ 引用…",
+  "sendHint": "发送 (Enter) · 换行 (Shift+Enter)",
+  "undo": "撤销",
+  "imagesUnsupportedCount": "该提供方暂不支持读取图片，{{count}} 张图片未添加",
+  "starter": {
+    "reference": "引用规格",
+    "action": "运行操作",
+    "plan": "规划新规格",
+    "planSpec": "帮我规划一个新规格："
+  },
+  "emptyLegend": "⇧⇥ 更改智能体的权限 · ↑ 调出上一条提示",
+  "delivery": {
+    "arrived": "已送达评审 — PR #{{number}}",
+    "arrivedNoNumber": "已送达评审",
+    "openPr": "打开 PR"
+  },
+  "missionHome": {
+    "greeting": "{{project}} 接下来要交付什么?",
+    "greetingNoProject": "接下来要交付什么?",
+    "statusTodo_one": "{{count}} 项待办",
+    "statusTodo_other": "{{count}} 项待办",
+    "statusReview_one": "{{count}} 项等待评审",
+    "statusReview_other": "{{count}} 项等待评审",
+    "statusRunning_one": "{{count}} 项运行中",
+    "statusRunning_other": "{{count}} 项运行中"
   }
 }

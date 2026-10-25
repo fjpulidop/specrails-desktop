@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react'
-import { X, CheckCircle2, XCircle } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatTokens as formatTokensCompact } from '../../../lib/format-tokens'
 import { getApiBase } from '../../../lib/api'
-import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
-import { ResizeGrips } from '../../../components/ui/ResizeGrips'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { CostValue } from '../../analytics/components/CostValue'
 import type { JobCompareEntry, JobCompareResponse } from '../../../types'
 
 interface JobComparisonModalProps {
   jobIds: [string, string]
   onClose: () => void
+  /** Per-job "cost is a pricing-table estimate" flags, in `jobIds` order. */
+  estimatedCost?: [boolean, boolean]
 }
 
 function formatDuration(ms: number | null): string {
@@ -18,23 +22,15 @@ function formatDuration(ms: number | null): string {
   return `${Math.floor(secs / 60)}m ${secs % 60}s`
 }
 
-function formatCost(cost: number | null): string {
-  if (cost == null) return '—'
-  if (cost === 0) return '$0'
-  if (cost < 0.01) return `$${cost.toFixed(4)}`
-  return `$${cost.toFixed(3)}`
-}
-
 function formatTokens(n: number | null): string {
   if (n == null) return '—'
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
+  return formatTokensCompact(n)
 }
 
 interface RowProps {
   label: string
-  a: string
-  b: string
+  a: ReactNode
+  b: ReactNode
   highlight?: 'a' | 'b' | null
 }
 
@@ -42,8 +38,8 @@ function CompareRow({ label, a, b, highlight }: RowProps) {
   return (
     <div className="grid grid-cols-3 gap-2 py-2 border-b border-border/20 last:border-0 text-xs">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`font-mono text-right ${highlight === 'a' ? 'text-emerald-400 aurora-light:text-accent-success font-semibold' : ''}`}>{a}</span>
-      <span className={`font-mono text-right ${highlight === 'b' ? 'text-emerald-400 aurora-light:text-accent-success font-semibold' : ''}`}>{b}</span>
+      <span className={`num text-right ${highlight === 'a' ? 'text-accent-success font-semibold' : ''}`}>{a}</span>
+      <span className={`num text-right ${highlight === 'b' ? 'text-accent-success font-semibold' : ''}`}>{b}</span>
     </div>
   )
 }
@@ -54,12 +50,11 @@ function pickBetter(aVal: number | null, bVal: number | null, lowerIsBetter = tr
   return lowerIsBetter ? (aVal < bVal ? 'a' : 'b') : (aVal > bVal ? 'a' : 'b')
 }
 
-export function JobComparisonModal({ jobIds, onClose }: JobComparisonModalProps) {
+export function JobComparisonModal({ jobIds, onClose, estimatedCost }: JobComparisonModalProps) {
   const { t } = useTranslation('jobs')
   const [data, setData] = useState<JobCompareResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -80,65 +75,54 @@ export function JobComparisonModal({ jobIds, onClose }: JobComparisonModalProps)
   function header(job: JobCompareEntry, idx: number) {
     return (
       <div className="text-center space-y-1">
-        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{t('comparison.jobN', { n: idx + 1 })}</p>
-        <code className="text-[10px] text-foreground/70 block truncate max-w-[160px] mx-auto">
+        <p className="text-label text-muted-foreground">{t('comparison.jobN', { n: idx + 1 })}</p>
+        <code className="text-xs text-foreground block truncate max-w-[160px] mx-auto">
           {job.command}
         </code>
-        <div className="flex items-center justify-center gap-1 text-[10px]">
+        <div className="flex items-center justify-center gap-1 text-xs">
           {job.status === 'completed'
-            ? <CheckCircle2 className="w-3 h-3 text-emerald-400 aurora-light:text-accent-success" />
-            : <XCircle className="w-3 h-3 text-rose-400 aurora-light:text-destructive" />
+            ? <CheckCircle2 className="w-3 h-3 text-accent-success" aria-hidden />
+            : <XCircle className="w-3 h-3 text-destructive" aria-hidden />
           }
-          <span className="capitalize text-muted-foreground">{t(`statusLabel.${job.status}`, { defaultValue: job.status })}</span>
+          <span className="text-muted-foreground">{t(`statusLabel.${job.status}`, { defaultValue: job.status })}</span>
         </div>
-        <p className="text-[10px] text-muted-foreground font-mono">{job.id.slice(0, 8)}</p>
+        <p className="text-xs text-muted-foreground font-mono">{job.id.slice(0, 8)}</p>
       </div>
     )
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={guardBackdrop(onClose)}
-    >
-      <div
-        ref={panelRef}
-        className="w-full max-w-lg rounded-xl border border-border/30 bg-popover p-5 shadow-xl space-y-4 mx-4"
-        onClick={(e) => e.stopPropagation()}
-        style={panelStyle}
-      >
-        {/* Header */}
-        <div
-          className={`flex items-center justify-between ${isFloating ? 'cursor-grab active:cursor-grabbing' : ''}`}
-          {...headerHandleProps}
-        >
-          <h2 className="text-sm font-semibold">{t('comparison.title')}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent size="form">
+        <DialogHeader>
+          <DialogTitle>{t('comparison.title')}</DialogTitle>
+          <DialogDescription>{t('comparison.description')}</DialogDescription>
+        </DialogHeader>
+
+        <DialogBody className="space-y-4">
 
         {loading && (
-          <div className="space-y-2">
+          <div role="status" aria-busy="true" aria-label={t('comparison.loading')} className="space-y-2">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-8 bg-muted/20 rounded animate-pulse" />
+              <div key={i} className="h-8 bg-muted/20 rounded motion-safe:animate-pulse" />
             ))}
           </div>
         )}
 
         {error && (
-          <p className="text-xs text-red-400 aurora-light:text-destructive">{t('comparison.loadFailed', { error })}</p>
+          <p role="alert" className="text-xs text-destructive" title={error}>{t('comparison.loadFailed')}</p>
         )}
 
         {data && (() => {
           const [a, b] = data.jobs
 
           const durationHighlight = pickBetter(a.durationMs, b.durationMs, true)
-          const costHighlight = pickBetter(a.totalCostUsd, b.totalCostUsd, true)
+          const aEstimated = estimatedCost?.[0] ?? false
+          const bEstimated = estimatedCost?.[1] ?? false
+          // An estimate is not comparable with a billed cost: no "better" mark.
+          const costHighlight = aEstimated || bEstimated
+            ? null
+            : pickBetter(a.totalCostUsd, b.totalCostUsd, true)
           const tokensHighlight = pickBetter(
             a.tokensOut != null ? a.tokensOut : null,
             b.tokensOut != null ? b.tokensOut : null,
@@ -163,8 +147,8 @@ export function JobComparisonModal({ jobIds, onClose }: JobComparisonModalProps)
               />
               <CompareRow
                 label={t('comparison.cost')}
-                a={formatCost(a.totalCostUsd)}
-                b={formatCost(b.totalCostUsd)}
+                a={<CostValue usd={a.totalCostUsd} estimated={aEstimated} />}
+                b={<CostValue usd={b.totalCostUsd} estimated={bEstimated} />}
                 highlight={costHighlight}
               />
               <CompareRow
@@ -201,13 +185,8 @@ export function JobComparisonModal({ jobIds, onClose }: JobComparisonModalProps)
           )
         })()}
 
-        {data && (
-          <p className="text-[10px] text-muted-foreground/60 text-center">
-            {t('comparison.betterValueHint')}
-          </p>
-        )}
-      </div>
-      <ResizeGrips handles={resizeHandles} />
-    </div>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   )
 }

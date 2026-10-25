@@ -1,8 +1,8 @@
 {
   "palette": {
     "label": "Paleta de comandos",
-    "searchPlaceholder": "Pesquisar projetos, comandos, jobs...",
-    "searchPlaceholderAgent": "Pesquisar missões, projetos, jobs...",
+    "searchPlaceholder": "Pesquise, ou digite # @ / ? para filtrar…",
+    "searchPlaceholderAgent": "Pesquise, ou digite # @ / ? para filtrar…",
     "noResults": "Nenhum resultado encontrado.",
     "activeBadge": "ativo",
     "groups": {
@@ -10,7 +10,15 @@
       "missions": "Missões",
       "spec": "Spec",
       "jobs": "Jobs",
-      "navigation": "Navegação"
+      "navigation": "Navegação",
+      "actions": "Ações",
+      "recentActions": "Ações recentes",
+      "recentPlaces": "Lugares recentes",
+      "settings": "Configurações",
+      "specs": "Specs",
+      "files": "Arquivos",
+      "logs": "Logs de jobs",
+      "docs": "Guia"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -18,7 +26,8 @@
       "projectAnalytics": "Análises do projeto",
       "activityFeed": "Feed de atividade",
       "desktopSettings": "Definições do Desktop",
-      "docs": "Docs"
+      "docs": "Docs",
+      "replayTour": "Rever o tour"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "Recolher barra lateral esquerda (manter afixada)",
@@ -31,10 +40,317 @@
     "footer": {
       "navigate": "navegar",
       "select": "selecionar",
-      "close": "fechar"
+      "close": "fechar",
+      "actions": "ações",
+      "back": "voltar",
+      "removeScope": "remover escopo"
     },
     "missions": {
       "home": "Início"
+    },
+    "dialogTitle": "Pesquisar e executar ações",
+    "dialogDescription": "Digite para filtrar e pressione Enter para abrir o resultado destacado.",
+    "actions": {
+      "verbs": "novo,nova,criar,adicionar,lançar,executar,mover,abrir,trocar,alternar,ir,entregar,pausar,retomar,desfazer,mostrar,iniciar,restaurar,new,launch,move,open,switch,run,toggle,go,undo,selecionar,salvar,limpar,excluir,select,save,clear,delete",
+      "back": "Voltar",
+      "newSpec": "Nova spec",
+      "newSpecExplore": "Nova spec (Explorar)",
+      "launchSpec": "Lançar spec em um rail",
+      "launchSpecN": "Lançar #{{id}} em um rail",
+      "moveSpec": "Mover spec para",
+      "moveSpecN": "Mover #{{id}} para",
+      "openReview": "Abrir revisão",
+      "openReviewN": "Abrir revisão de #{{id}}",
+      "handOffFlow": "Entregar o Flow",
+      "pauseFlow": "Pausar o Flow",
+      "resumeFlow": "Retomar o Flow",
+      "newMission": "Nova missão",
+      "switchTheme": "Trocar tema",
+      "switchToMission": "Mudar para o modo Missão",
+      "switchToBoard": "Mudar para o modo Quadro",
+      "openAppSettings": "Abrir configurações do app",
+      "openProjectSettings": "Abrir configurações do projeto",
+      "switchProject": "Trocar de projeto",
+      "runLoop": "Executar loop",
+      "toggleLeftSidebar": "Alternar barra lateral esquerda",
+      "toggleRightSidebar": "Alternar barra lateral direita",
+      "goBack": "Voltar",
+      "goForward": "Avançar",
+      "undoLast": "Desfazer: {{label}}",
+      "recentlyDeleted": "Excluídos recentemente",
+      "pages": {
+        "railTitle": "Rail para #{{id}}",
+        "railPlaceholder": "Escolha um rail...",
+        "railRunning": "em execução",
+        "railHasSpec": "já está aqui",
+        "noRails": "Nenhum rail disponível.",
+        "statusTitle": "Mover #{{id}} para",
+        "statusPlaceholder": "Escolha um status...",
+        "noStatuses": "Nenhum status disponível.",
+        "current": "atual",
+        "specTitle": "Escolha uma spec",
+        "specPlaceholder": "Buscar specs...",
+        "noSpecs": "Nenhuma spec correspondente.",
+        "themeTitle": "Tema",
+        "themePlaceholder": "Escolha um tema...",
+        "noThemes": "Nenhum tema disponível.",
+        "appSettingsTitle": "Configurações do app",
+        "projectSettingsTitle": "Configurações do projeto",
+        "sectionPlaceholder": "Escolha uma seção...",
+        "noSections": "Nenhuma seção.",
+        "projectTitle": "Projetos",
+        "projectPlaceholder": "Escolha um projeto...",
+        "noProjects": "Nenhum outro projeto.",
+        "loopTitle": "Loops que você pode executar agora",
+        "loopPlaceholder": "Escolha um loop...",
+        "noLoops": "Nenhum loop pode rodar sem uma spec.",
+        "loading": "Carregando...",
+        "loadFailed": "Não foi possível carregar as opções.",
+        "statusSelectedTitle": "Mover a seleção para",
+        "labelSelectedTitle": "Adicionar uma etiqueta à seleção",
+        "labelPlaceholder": "Escolha uma etiqueta...",
+        "noLabels": "Nenhuma etiqueta para adicionar.",
+        "prioritySelectedTitle": "Prioridade da seleção",
+        "priorityPlaceholder": "Escolha uma prioridade...",
+        "noPriorities": "Nenhuma prioridade disponível.",
+        "railSelectedTitle": "Rail para a seleção",
+        "viewTitle": "Visões salvas",
+        "viewPlaceholder": "Escolha uma visão...",
+        "noViews": "Nenhuma visão salva."
+      },
+      "openInbox": "Abrir Pendências",
+      "openInboxCount": "Abrir Pendências ({{count}})",
+      "opensOptions": "abre opções",
+      "selectAll": "Selecionar tudo na coluna",
+      "clearSelection": "Limpar a seleção",
+      "moveSelected": "Mover as specs selecionadas para",
+      "moveSelectedN_one": "Mover {{count}} spec selecionada para",
+      "moveSelectedN_other": "Mover {{count}} specs selecionadas para",
+      "labelSelected": "Adicionar etiqueta às specs selecionadas",
+      "labelSelectedN_one": "Adicionar etiqueta a {{count}} spec selecionada",
+      "labelSelectedN_other": "Adicionar etiqueta a {{count}} specs selecionadas",
+      "prioritySelected": "Definir a prioridade das specs selecionadas",
+      "prioritySelectedN_one": "Definir a prioridade de {{count}} spec selecionada",
+      "prioritySelectedN_other": "Definir a prioridade de {{count}} specs selecionadas",
+      "railSelected": "Adicionar as specs selecionadas a um rail",
+      "railSelectedN_one": "Adicionar {{count}} spec selecionada a um rail",
+      "railSelectedN_other": "Adicionar {{count}} specs selecionadas a um rail",
+      "launchSelected": "Lançar as specs selecionadas",
+      "launchSelectedN_one": "Lançar {{count}} spec selecionada",
+      "launchSelectedN_other": "Lançar {{count}} specs selecionadas",
+      "deleteSelected": "Excluir as specs selecionadas",
+      "deleteSelectedN_one": "Excluir {{count}} spec selecionada",
+      "deleteSelectedN_other": "Excluir {{count}} specs selecionadas",
+      "saveView": "Salvar a visão atual",
+      "switchView": "Trocar de visão",
+      "openBudget": "Abrir Orçamento (limites, projeção, e se…)",
+      "openBudgetKeywords": "orçamento, limite, semanal, mensal, gasto, custo, budget",
+      "exportHandoffN": "Exportar passagem de #{{id}}",
+      "copyPrDescriptionN": "Copiar descrição de PR de #{{id}}",
+      "exportHandoff": "Exportar passagem",
+      "copyPrDescription": "Copiar descrição de PR",
+      "moveFocusedSpec": "Mover a spec em foco…"
+    },
+    "scopes": {
+      "remove": "Remover escopo",
+      "needsProject": "Abra um projeto para buscar aqui.",
+      "searching": "Buscando…",
+      "failed": "A busca não está disponível agora.",
+      "empty": "Nada encontrado para “{{query}}”.",
+      "specs": {
+        "label": "Specs",
+        "placeholder": "Busque specs por título, descrição, etiquetas ou notas…",
+        "prompt": "Digite para buscar specs."
+      },
+      "missions": {
+        "label": "Missões",
+        "placeholder": "Busque missões por título ou conteúdo…",
+        "prompt": "Digite para buscar missões."
+      },
+      "settings": {
+        "label": "Configurações",
+        "placeholder": "Buscar configurações…",
+        "prompt": "Digite para buscar configurações.",
+        "commandsFallback": "Comandos que correspondem a “/{{query}}”"
+      },
+      "files": {
+        "label": "Arquivos",
+        "placeholder": "Encontre um arquivo por nome ou caminho…",
+        "prompt": "Digite um nome ou caminho de arquivo."
+      },
+      "logs": {
+        "label": "Logs de jobs",
+        "placeholder": "Busque comandos, fases e falhas de jobs…",
+        "prompt": "Digite para buscar o que suas execuções fizeram e por que falharam."
+      },
+      "docs": {
+        "label": "Guia",
+        "placeholder": "Buscar no guia…",
+        "prompt": "Digite para buscar no guia."
+      }
+    },
+    "specs": {
+      "fields": {
+        "id": "Número da spec",
+        "title": "Título",
+        "summary": "Resumo",
+        "description": "Descrição",
+        "label": "Etiqueta",
+        "nonGoal": "Fora do escopo",
+        "addendum": "Adendo",
+        "comment": "Comentário"
+      }
+    },
+    "logs": {
+      "fields": {
+        "command": "Comando",
+        "loop": "Loop",
+        "phase": "Fase",
+        "failure": "Falha",
+        "detail": "Detalhe"
+      }
+    },
+    "settings": {
+      "appScope": "Configurações do Desktop",
+      "projectScope": "Configurações do projeto",
+      "entries": {
+        "theme": {
+          "label": "Aparência e tema",
+          "keywords": "tema, escuro, claro, cores, aparência, visual, theme"
+        },
+        "language": {
+          "label": "Idioma",
+          "keywords": "idioma, língua, tradução, language, locale"
+        },
+        "effects": {
+          "label": "Efeitos visuais",
+          "keywords": "efeitos, animação, movimento, estrelas, fundo, effects"
+        },
+        "editor": {
+          "label": "Editor",
+          "keywords": "editor, vscode, abrir no editor, ide, cursor"
+        },
+        "codeSection": {
+          "label": "Explorador de código",
+          "keywords": "código, explorador, arquivos, sintaxe, destaque, code"
+        },
+        "terminalApp": {
+          "label": "Painel de terminal (Desktop)",
+          "keywords": "terminal, console, shell, fonte, copiar ao selecionar"
+        },
+        "providers": {
+          "label": "Provedores de IA e conexões",
+          "keywords": "provedor, claude, codex, gemini, chave de api, login, motor, local, provider"
+        },
+        "subagentsApp": {
+          "label": "Sub-agentes (Desktop)",
+          "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, subagents"
+        },
+        "mobileCompanion": {
+          "label": "App móvel complementar",
+          "keywords": "móvel, celular, companion, telefone, parear, qr, ipad, remoto, mobile"
+        },
+        "registeredProjects": {
+          "label": "Projetos registrados",
+          "keywords": "projetos, remover projeto, repositórios, registrados, projects"
+        },
+        "budgetAlerts": {
+          "label": "Orçamento diário e alertas de custo",
+          "keywords": "orçamento, diário, custo, gasto, limite, alerta, dinheiro, budget"
+        },
+        "notifications": {
+          "label": "Notificações do sistema",
+          "keywords": "notificações, avisos, som, notifications"
+        },
+        "webhooks": {
+          "label": "Webhooks de saída",
+          "keywords": "webhook, http, slack, discord, eventos, notificar"
+        },
+        "updateChannel": {
+          "label": "Canal de atualizações",
+          "keywords": "canal, atualizações, beta, estável, versão, update channel"
+        },
+        "appUpdate": {
+          "label": "Atualizações do Specrails Desktop",
+          "keywords": "atualizar, atualização, versão, update, upgrade"
+        },
+        "coreUpdate": {
+          "label": "Atualizações do Specrails Core",
+          "keywords": "core, atualizar, versão, framework, specrails-core"
+        },
+        "about": {
+          "label": "Informações do Desktop",
+          "keywords": "sobre, info, porta, banco de dados, versão, about"
+        },
+        "repositories": {
+          "label": "Repositórios",
+          "keywords": "repositório, repo, espaço de trabalho, pasta, git, multi-repo, principal"
+        },
+        "prePrompt": {
+          "label": "Pré-prompt do rail",
+          "keywords": "pré-prompt, preprompt, instruções, prompt, rail, freestyle"
+        },
+        "verificationCommands": {
+          "label": "Comandos de verificação",
+          "keywords": "verificação, comando de teste, lint, typecheck, build, setup, comandos"
+        },
+        "subagentsProject": {
+          "label": "Sub-agentes (projeto)",
+          "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, projeto"
+        },
+        "integrationBranch": {
+          "label": "Branch de integração",
+          "keywords": "branch, integração, main, branch base, git, destino do merge"
+        },
+        "worktreeEnv": {
+          "label": "Ambiente do worktree",
+          "keywords": "worktree, ambiente, env, variáveis, .env, dependências, instalar"
+        },
+        "agentEnv": {
+          "label": "Ambiente do agente",
+          "keywords": "ambiente do agente, modo env, variáveis, segredos, isolado"
+        },
+        "projectBudget": {
+          "label": "Orçamento diário do projeto",
+          "keywords": "orçamento, diário, custo, gasto, limite, pausar, budget"
+        },
+        "reviewLimit": {
+          "label": "Limite de revisão",
+          "keywords": "limite de revisão, wip, em revisão, pull requests, fila"
+        },
+        "telemetry": {
+          "label": "Telemetria do pipeline",
+          "keywords": "telemetria, rastreamento, logs, diagnóstico, métricas, telemetry"
+        },
+        "agentAudit": {
+          "label": "Auditoria de ações dos agentes",
+          "keywords": "auditoria, ações dos agentes, registro, chamadas de ferramentas, histórico, audit"
+        },
+        "anchoring": {
+          "label": "Ancoragem de projeto existente",
+          "keywords": "ancoragem, projeto existente, convenções, linha de base, varredura, anchoring"
+        },
+        "projectRules": {
+          "label": "Regras do projeto",
+          "keywords": "regras, convenções, portões, verificações, agents.md, rules"
+        },
+        "terminalProject": {
+          "label": "Painel de terminal (projeto)",
+          "keywords": "terminal, console, shell, terminal do projeto, fonte"
+        },
+        "recentlyDeleted": {
+          "label": "Excluídos recentemente",
+          "keywords": "excluídos, lixeira, restaurar, recuperar, deleted, trash"
+        },
+        "density": {
+          "label": "Densidade",
+          "keywords": "densidade, compacta, confortável, espaçamento, linhas, cartões, acessibilidade, density"
+        },
+        "reduceMotion": {
+          "label": "Reduzir movimento",
+          "keywords": "reduzir movimento, animação, acessibilidade, vestibular, calma, transições, motion"
+        }
+      }
     }
   },
   "toasts": {
@@ -73,7 +389,8 @@
     "categories": {
       "general": "Geral",
       "navigation": "Navegação",
-      "actions": "Ações"
+      "actions": "Ações",
+      "missions": "Missões"
     },
     "items": {
       "showCheatsheet": "Mostrar atalhos de teclado",
@@ -90,8 +407,31 @@
       "goAnalytics": "Ir para Análises",
       "goSettings": "Ir para Definições",
       "nextItem": "Item seguinte na lista",
-      "prevItem": "Item anterior na lista"
-    }
+      "prevItem": "Item anterior na lista",
+      "runStripFocus": "Ir para a faixa de execuções da missão (pressione de novo para mostrar ou ocultar os detalhes)",
+      "runStripCycle": "Execução anterior / próxima na faixa (fora dos campos de texto)",
+      "runStripBack": "Sair da faixa de execuções e voltar para onde você estava",
+      "flowPause": "Pausar ou retomar o Flow (com a faixa de execuções em foco)",
+      "flowHandOff": "Passar o Flow a um rail (com a faixa de execuções em foco)",
+      "historyBackForward": "Voltar / avançar para o lugar anterior ou seguinte",
+      "undoLast": "Desfazer a última alteração",
+      "openInbox": "Abrir Pendências",
+      "reviewFiles": "Revisão: arquivo alterado seguinte / anterior",
+      "reviewAnnotations": "Revisão: anotação seguinte / anterior",
+      "reviewViewed": "Revisão: marcar o arquivo como visto",
+      "boardSelect": "Quadro: selecionar / desmarcar a spec em foco",
+      "boardSelectClick": "Quadro: clique alterna uma spec, Shift+clique seleciona um intervalo",
+      "boardSelectColumn": "Quadro: selecionar todas as specs da coluna",
+      "boardClearSelection": "Quadro: limpar a seleção",
+      "boardMove": "Quadro: mover a spec em foco (estado ou rail)"
+    },
+    "searchLabel": "Pesquisar atalhos e guias",
+    "searchPlaceholder": "Pesquisar atalhos e guias…",
+    "noShortcuts": "Nenhum atalho corresponde a “{{query}}”.",
+    "guidesHeading": "No guia",
+    "openGuide": "Abrir guia: {{title}}",
+    "noGuides": "Nenhum guia corresponde a “{{query}}”.",
+    "searching": "Pesquisando no guia…"
   },
   "update": {
     "title": {

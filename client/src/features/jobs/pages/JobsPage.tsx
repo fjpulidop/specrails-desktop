@@ -4,20 +4,24 @@ import { AgentRuntimeRuns } from '../../settings/components/AgentRuntimeRuns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { toast } from 'sonner'
+import { ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { usePipeline } from '../hooks/usePipeline'
 import { useProjectCache } from '../../../hooks/useProjectCache'
 import { RecentJobs } from '../components/RecentJobs'
 import { ExportDropdown } from '../../analytics/components/ExportDropdown'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { Badge } from '../../../components/ui/badge'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import type { JobSummary } from '../../../types'
 import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { PageHeader } from '../../../components/ui/page-header'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 
+import { notifyError } from '../../../lib/notify-error'
 const PROPOSAL_STATUS_LABEL_KEYS: Record<string, string> = {
   input: 'page.proposal.status.input',
   exploring: 'page.proposal.status.exploring',
@@ -64,6 +68,26 @@ export default function JobsPage() {
     })
     return () => unregisterHandler('jobs-runtime-continuation')
   }, [activeProjectId, refreshJobs, registerHandler, unregisterHandler])
+
+  // Spec titles so a row can read "Implement · #15 Title". Best effort: any
+  // failure leaves the verbatim command in place.
+  const { data: ticketTitles } = useProjectCache<Record<number, string>>({
+    namespace: 'jobs-ticket-titles',
+    projectId: activeProjectId,
+    initialValue: {},
+    fetcher: async ({ projectId, signal }) => {
+      try {
+        const res = await fetch(`${projectApiBase(projectId)}/tickets`, { signal, cache: 'no-store' })
+        if (!res.ok) return {}
+        const data = await res.json() as { tickets?: Array<{ id: number; title?: string }> } | Array<{ id: number; title?: string }>
+        const list = Array.isArray(data) ? data : data.tickets ?? []
+        return Object.fromEntries(list.filter(x => x && typeof x.title === 'string').map(x => [x.id, x.title as string]))
+      } catch {
+        return {}
+      }
+    },
+    pollInterval: 60_000,
+  })
 
   const {
     data: proposals,
@@ -129,26 +153,42 @@ export default function JobsPage() {
       if (res.ok) {
         toast.success(t('page.proposalDeleted'))
         await refreshProposals()
+      } else {
+        notifyError(t('page.proposalDeleteFailed'))
       }
-    } catch { /* ignore */ }
+    } catch {
+      notifyError(t('page.proposalDeleteFailed'))
+    }
   }, [refreshProposals, t])
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-sm font-semibold">{t('page.title')}</h1>
-        <ExportDropdown
-          baseUrl={`${getApiBase()}/jobs/export`}
-          label={t('page.exportJobs')}
-        />
-      </div>
+  // The detail dialog's Delete routes through the same confirmation the list
+  // row uses (recent.deleteProposalConfirm.*) — never a one-click delete.
+  const [confirmDeleteProposalId, setConfirmDeleteProposalId] = useState<string | null>(null)
 
-      {activeProjectId && <details className="mb-4 rounded-lg border border-border" onToggle={event => setShowRuntimeHistory(event.currentTarget.open)}>
-        <summary className="cursor-pointer p-3 text-sm">{t('agentRuntime:runs.title')}</summary>
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <PageHeader
+        className="mb-4"
+        title={t('page.title')}
+        description={t('page.subtitle')}
+        actions={
+          <ExportDropdown
+            baseUrl={`${getApiBase()}/jobs/export`}
+            label={t('page.exportJobs')}
+          />
+        }
+      />
+
+      {activeProjectId && <details className="group mb-4 rounded-lg border border-border" onToggle={event => setShowRuntimeHistory(event.currentTarget.open)}>
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground motion-safe:transition-transform motion-safe:duration-150 group-open:rotate-90" aria-hidden />
+          {t('agentRuntime:runs.title')}
+        </summary>
         {showRuntimeHistory && <AgentRuntimeRuns projectId={activeProjectId} />}
       </details>}
       <RecentJobs
         jobs={jobs}
+        ticketTitles={ticketTitles}
         isLoading={jobsFirstLoad || proposalsFirstLoad || jobsRefreshing || proposalsRefreshing}
         error={jobsError ?? proposalsError}
         onRetry={() => { void Promise.all([refreshJobs(), refreshProposals()]) }}
@@ -158,51 +198,65 @@ export default function JobsPage() {
       />
 
       <Dialog open={detailProposal !== null} onOpenChange={(o) => !o && setDetailProposal(null)}>
-        <DialogContent className="max-w-3xl glass-card">
+        <DialogContent size="wide" showCloseButton={false}>
           {detailProposal && (
             <>
-              <DialogHeader>
-                <div className="flex items-center gap-2">
-                  <DialogTitle className="flex-1 min-w-0">{t('page.proposal.title')}</DialogTitle>
+              <DialogHeader
+                actions={(
                   <Badge variant={detailProposal.status === 'created' ? 'success' : detailProposal.status === 'cancelled' ? 'destructive' : 'secondary'}>
                     {t(PROPOSAL_STATUS_LABEL_KEYS[detailProposal.status] ?? 'page.proposal.status.unknown', { status: detailProposal.status })}
                   </Badge>
-                </div>
+                )}
+              >
+                <DialogTitle>{t('page.proposal.title')}</DialogTitle>
+                {/* The consequence-free summary of this proposal: the idea it came from. */}
+                <DialogDescription className="italic">{detailProposal.idea}</DialogDescription>
               </DialogHeader>
-              <div className="text-xs text-muted-foreground bg-muted/20 rounded px-2 py-1 italic">
-                {detailProposal.idea}
-              </div>
-              {detailProposal.result_markdown ? (
-                <div className="max-h-[400px] overflow-y-auto rounded-lg px-3 py-2 text-xs bg-muted/40">
-                  <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{detailProposal.result_markdown}</ReactMarkdown>
+              <DialogBody className="space-y-3">
+                {detailProposal.result_markdown ? (
+                  <div className="rounded-lg px-3 py-2 text-xs bg-muted/40">
+                    <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-xs prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{detailProposal.result_markdown}</ReactMarkdown>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground py-4 text-center">{t('page.proposal.noContent')}</p>
-              )}
-              {detailProposal.issue_url && (
-                <div className="text-xs">
-                  {t('page.proposal.githubIssue')}{' '}
-                  <a href={detailProposal.issue_url} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">
-                    {detailProposal.issue_url}
-                  </a>
-                </div>
-              )}
-              <DialogFooter>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => { handleProposalDelete(detailProposal.id); setDetailProposal(null) }}
-                >
-                  {t('common:actions.delete')}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setDetailProposal(null)}>{t('common:actions.close')}</Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground py-4 text-center">{t('page.proposal.noContent')}</p>
+                )}
+                {detailProposal.issue_url && (
+                  <div className="text-xs">
+                    {t('page.proposal.githubIssue')}{' '}
+                    <a href={detailProposal.issue_url} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">
+                      {detailProposal.issue_url}
+                    </a>
+                  </div>
+                )}
+              </DialogBody>
+              <DialogFooter
+                start={(
+                  <Button variant="destructive" onClick={() => setConfirmDeleteProposalId(detailProposal.id)}>
+                    {t('common:actions.delete')}
+                  </Button>
+                )}
+              >
+                <Button variant="ghost" onClick={() => setDetailProposal(null)}>{t('common:actions.close')}</Button>
               </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDeleteProposalId !== null}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteProposalId(null) }}
+        title={t('recent.deleteProposalConfirm.title')}
+        description={t('recent.deleteProposalConfirm.description')}
+        onConfirm={() => {
+          const id = confirmDeleteProposalId
+          setConfirmDeleteProposalId(null)
+          setDetailProposal(null)
+          if (id) void handleProposalDelete(id)
+        }}
+      />
     </div>
   )
 }

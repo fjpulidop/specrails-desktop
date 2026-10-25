@@ -63,7 +63,7 @@ function TicketRow({ ticket, onClick }: { ticket: TicketRef; onClick: () => void
   const { t } = useTranslation('jobs')
   const isDeleted = ticket.title == null
   const chipBase =
-    'inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-mono tabular-nums shrink-0'
+    'inline-flex items-center px-1.5 py-0.5 rounded-md text-caption font-mono num shrink-0'
 
   if (isDeleted) {
     return (
@@ -73,7 +73,7 @@ function TicketRow({ ticket, onClick }: { ticket: TicketRef; onClick: () => void
           title={t('ticketHeader.deletedTooltip')}
         >
           {t('ticketHeader.deletedTicket', { id: ticket.id })}
-        </span>
+        <span className="sr-only"> ({t('ticketHeader.deletedTooltip')})</span></span>
       </div>
     )
   }

@@ -75,6 +75,17 @@ function readSavedProjectId(): string | null {
   try { return localStorage.getItem(ACTIVE_PROJECT_KEY) } catch { return null }
 }
 
+// A reload on a history entry keeps its `?p=<projectId>` place marker (written
+// when a project switch pushes its entry): that project wins over the last
+// saved one, so a reload after Back across a switch stays on the entry's project.
+const URL_PROJECT_ID: string | null = (() => {
+  try { return new URLSearchParams(window.location.search).get('p') } catch { return null }
+})()
+
+function readInitialProjectId(): string | null {
+  return URL_PROJECT_ID ?? readSavedProjectId()
+}
+
 export function DesktopProvider({ children, isolated = false }: { children: ReactNode; isolated?: boolean }) {
   // A mission window has its own project context and must not rewrite main's selection.
   const persistSelection = useCallback((id: string | null) => { if (!isolated) writeSavedProjectId(id) }, [isolated])
@@ -127,7 +138,7 @@ export function DesktopProvider({ children, isolated = false }: { children: Reac
       const incoming = data.projects
       setActiveProjectIdRaw((prev) => {
         if (prev && incoming.some((project) => project.id === prev)) return prev
-        const saved = isolated ? null : readSavedProjectId()
+        const saved = isolated ? null : readInitialProjectId()
         const next = saved && incoming.some((project) => project.id === saved) ? saved : null
         persistSelection(next)
         setApiActiveProjectId(next)
@@ -199,7 +210,7 @@ export function DesktopProvider({ children, isolated = false }: { children: Reac
         } else {
           // B22: on first resolution prefer the persisted last-active project,
           // falling back to the first project when it's gone / unset.
-          const saved = isolated ? null : readSavedProjectId()
+          const saved = isolated ? null : readInitialProjectId()
           next = (saved && incoming.find((p) => p.id === saved))
             ? saved
             : (!isolated && incoming.length > 0 ? incoming[0].id : null)

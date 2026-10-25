@@ -24,13 +24,13 @@ export function RepositoryScopeSelector({ value, onChange, disabled = false, rep
     const members = repositories.filter(member => selected.includes(member.id) && (member.workspacePaths?.length || member.workspacePath))
     if (!members.length) return null
     return <fieldset className="space-y-2" disabled={disabled}>
-      <legend className="text-xs font-medium">{t('repositories.launchWorkspaces')}</legend>
+      <legend className="text-label">{t('repositories.launchWorkspaces')}</legend>
       <p className="text-xs text-muted-foreground">{t('repositories.launchWorkspaceHint')}</p>
       {members.map(member => {
         const paths = member.workspacePaths ?? [member.workspacePath!]
         const chosen = workspaceSelection?.[member.id] ?? paths
         return <div key={member.id} className="space-y-1">
-          <span className="text-xs font-medium">{member.name}</span>
+          <span className="text-label">{member.name}</span>
           {paths.map(path => <label key={path} className="flex items-center gap-2 text-xs" title={path}>
             <input type="checkbox" data-agent-interactive checked={chosen.includes(path)} disabled={disabled || (chosen.length === 1 && chosen[0] === path)} onChange={event => onWorkspaceChange?.({ ...Object.fromEntries(Object.entries(workspaceSelection ?? {}).filter(([id]) => selected.includes(id))), [member.id]: event.target.checked ? [...chosen, path] : chosen.filter(item => item !== path) })} />
             <span className="break-all">{path}</span>
@@ -41,7 +41,7 @@ export function RepositoryScopeSelector({ value, onChange, disabled = false, rep
   }
   if (!showSingle && repositories.length <= 1 && !hasMissingSelection) return null
   return <fieldset className="space-y-2" disabled={disabled}>
-    <legend className="mb-1 text-xs font-medium">{label ?? t('repositories.specScope')}</legend>
+    <legend className="mb-1 text-label">{label ?? t('repositories.specScope')}</legend>
     <p className="text-xs text-muted-foreground">{hint ?? t('repositories.scopeHint')}</p>
     <div className="flex flex-wrap gap-2">
       {repositories.map((repository) => <label key={repository.id} title={repository.workspacePaths?.join('\n') ?? repository.workspacePath ?? repository.path} className="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs">

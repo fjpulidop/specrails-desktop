@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} modifiche su {{total}} sono pronte",
     "noChanges": "Non c'era nulla da cambiare",
     "failed": "Non è stato possibile completarlo",
-    "failedPartial": "È stato completato solo in parte"
+    "failedPartial": "È stato completato solo in parte",
+    "generic": "Rivedi la modifica consegnata"
   },
   "confidence": {
     "pill": "Fiducia del revisore IA {{overall}}/100",
@@ -20,7 +21,8 @@
   },
   "cost": {
     "thisBuild": "Questo lavoro è costato {{amount}}",
-    "allVersions": "Tutte le versioni insieme: {{amount}}"
+    "allVersions": "Tutte le versioni insieme: {{amount}}",
+    "baselinePart": " · di cui {{amount}} di baseline"
   },
   "accept": {
     "create-pr": "Accetta e apri una pull request",
@@ -41,7 +43,9 @@
   },
   "discard": {
     "label": "Butta via",
-    "stackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro."
+    "stackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro.",
+    "confirmTitle": "Buttare via questa consegna?",
+    "confirmBody": "La consegna e le sue modifiche vengono scartate. L'operazione non può essere annullata."
   },
   "watchOut": {
     "title": "Da guardare prima di accettare"
@@ -242,5 +246,155 @@
     "run": "Esecuzione {{id}}",
     "download": "{{format}}",
     "downloadFailed": "Impossibile scaricare le azioni dell'agente"
+  },
+  "requirements": {
+    "title": "Requisiti dimostrati {{demonstrated}}/{{total}}",
+    "touched": "Toccati da questa modifica: {{demonstrated}}/{{total}} dimostrati",
+    "caveat": "Misurato da Specrails: un requisito conta quando un test etichettato con il suo id è stato eseguito in una verifica riuscita. Indicativo; non cambia la revisione.",
+    "caveatNoReceipt": "Parte di questa traccia non ha una ricevuta di verifica, quindi quei requisiti non possono ancora contare come dimostrati.",
+    "undemonstratedTitle_one": "{{count}} requisito non dimostrato",
+    "undemonstratedTitle_other": "{{count}} requisiti non dimostrati",
+    "demonstratedTitle_one": "{{count}} requisito dimostrato",
+    "demonstratedTitle_other": "{{count}} requisiti dimostrati",
+    "reason": {
+      "no-test": "nessun test etichettato",
+      "not-executed": "il test etichettato non è stato eseguito",
+      "failed": "il test etichettato è fallito"
+    },
+    "touchedBadge": "modificato qui",
+    "untagged_one": "{{count}} etichetta di test non corrisponde a nessun requisito ({{tags}}): un refuso o un requisito rinominato.",
+    "untagged_other": "{{count}} etichette di test non corrispondono a nessun requisito ({{tags}}): refusi o requisiti rinominati.",
+    "showAll_one": "Mostra altri {{count}}",
+    "showAll_other": "Mostra altri {{count}}",
+    "showLess": "Mostra meno"
+  },
+  "baseline": {
+    "title": "Spec creata dove è passato il lavoro",
+    "status": {
+      "planned": "Baseline pianificata: {{requirements}} requisiti as-built, {{tests}} test di caratterizzazione",
+      "passed": "Baseline dimostrata sul codice invariato: {{requirements}} requisiti as-built, {{tests}} test di caratterizzazione",
+      "failed": "Baseline bloccata: i test di caratterizzazione non sono passati sul codice invariato, quindi il modulo non è stato modificato",
+      "violated": "Baseline bloccata: il passo di baseline ha modificato codice diverso dai test, quindi il run si è fermato",
+      "not-needed": "Nessuna baseline necessaria: le spec coprono già il codice toccato da questa modifica"
+    },
+    "module": "Modulo descritto:",
+    "more_one": "e {{count}} altro file",
+    "more_other": "e altri {{count}} file",
+    "spec": "Spec as-built:",
+    "capability": "{{capability}} ({{demonstrated}}/{{requirements}} dimostrati)",
+    "cost": "Costo della baseline {{amount}} in {{turns}} turni, contato a parte rispetto alla modifica",
+    "costUnknown": "Costo della baseline non riportato dal provider",
+    "caveat": "I test di caratterizzazione descrivono il comportamento attuale; Core li ha eseguiti sul codice invariato prima di qualsiasi modifica."
+  },
+  "humanEyes": {
+    "title_one": "Serve un occhio umano: {{count}} regola del progetto",
+    "title_other": "Serve un occhio umano: {{count}} regole del progetto",
+    "caveat": "Regole scritte per questo progetto che nessun controllo automatico può far rispettare. Verificale tu prima di accettare."
+  },
+  "tabs": {
+    "label": "Viste della revisione",
+    "overview": "Panoramica",
+    "changes": "Modifiche"
+  },
+  "changes": {
+    "tab": "Modifiche",
+    "loading": "Caricamento delle modifiche…",
+    "error": "Impossibile caricare le modifiche.",
+    "refresh": "Ricarica le modifiche",
+    "empty": "Questa consegna non ha modificato alcun file.",
+    "unavailable": {
+      "not_a_repository": "La cartella del progetto non è un repository Git, quindi non c'è nulla da confrontare.",
+      "no_branch": "Questa consegna non ha ancora un branch da confrontare.",
+      "head_missing": "Il branch della consegna non esiste più in questo repository.",
+      "base_missing": "Il branch su cui si basava questa consegna non esiste più, quindi le modifiche non si possono misurare.",
+      "git_failed": "Git non è riuscito a produrre le modifiche di questa consegna."
+    },
+    "summary": "File modificati: {{count}}",
+    "viewedCount": "{{viewed}} di {{total}} visti",
+    "truncatedList": "Vengono mostrati solo i primi {{count}} file.",
+    "source": "Modifiche da",
+    "sourceDelivery": "Intera consegna",
+    "sourceTicket": "Spec #{{id}}",
+    "tree": {
+      "label": "File modificati"
+    },
+    "status": {
+      "added": "Aggiunto",
+      "modified": "Modificato",
+      "deleted": "Eliminato",
+      "renamed": "Rinominato",
+      "copied": "Copiato",
+      "typechange": "Tipo modificato"
+    },
+    "renamedFrom": "Rinominato da {{path}}",
+    "binaryShort": "binario",
+    "binary": "File binario: non c'è un diff di testo da mostrare.",
+    "noTextChanges": "Nessuna modifica di riga (sono cambiati solo il nome o la modalità del file).",
+    "fileError": "Impossibile caricare il diff di questo file.",
+    "largeDiff": "Vengono mostrate le prime {{shown}} di {{total}} righe modificate.",
+    "loadFull": "Carica il diff completo del file",
+    "viewed": {
+      "mark": "Segna come visto",
+      "unmark": "Visto",
+      "changedSince": "Modificato da quando l'hai visto"
+    },
+    "mode": {
+      "label": "Layout del diff",
+      "unified": "Unificato",
+      "split": "Affiancato"
+    },
+    "diff": {
+      "region": "Diff di {{path}}"
+    },
+    "line": {
+      "select": "Seleziona la riga {{n}}",
+      "selectOld": "Seleziona la riga originale {{n}}",
+      "added": "aggiunta",
+      "removed": "rimossa"
+    },
+    "selection": {
+      "clear": "Cancella la selezione"
+    },
+    "ask": {
+      "button": "Chiedi una modifica all'agente",
+      "title": "Cosa deve cambiare in",
+      "placeholder": "Descrivi la modifica che vuoi…",
+      "ticket": "Spec",
+      "submit": "Aggiungi alla spec",
+      "hint": "Salvato come feedback di revisione sulla spec; la prossima esecuzione su di essa lo riceverà.",
+      "created": "Aggiunto alla spec #{{id}} come feedback di revisione.",
+      "open": "Apri la spec",
+      "failed": "Impossibile aggiungere la nota alla spec."
+    },
+    "editor": {
+      "open": "Apri in {{editor}}",
+      "rootRepository": "Apre il file nella tua copia del progetto; il branch della revisione potrebbe non essere attivo lì.",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      },
+      "failed": "Impossibile aprire {{editor}}. È installato? Cambialo in Impostazioni ▸ Codice."
+    },
+    "annotations": {
+      "title": "Non legate a una riga ({{count}})",
+      "ask": "Chiedi una modifica all'agente",
+      "source": {
+        "reviewer-finding": "Rilievo del revisore",
+        "review-risk": "Rischio da verificare",
+        "review-untested": "Non coperto dai test",
+        "follow-up-comment": "Commento di revisione"
+      },
+      "severity": {
+        "high": "Alta",
+        "medium": "Media",
+        "low": "Bassa"
+      }
+    },
+    "keys": {
+      "files": "file",
+      "annotations": "annotazioni",
+      "viewed": "segna come visto"
+    }
   }
 }

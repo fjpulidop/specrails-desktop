@@ -1,0 +1,131 @@
+{
+  "entry": {
+    "try": "Experimente num projeto de exemplo",
+    "cost": "Olhar é grátis. Executar uma spec custa cerca de {{usd}} (≈ estimativa).",
+    "local": "Olhar é grátis. Corre no teu motor local, sem custo de API.",
+    "recordedOnly": "Ainda não há nenhum fornecedor de IA pronto, por isso podes ver uma execução gravada."
+  },
+  "dialog": {
+    "title": "Experimenta o Specrails num projeto de exemplo",
+    "description": "Um jogo pequeno e três specs já escritas. Vais ver uma spec percorrer um rail até um pacote de revisão, sem tocar no teu próprio código.",
+    "gets": {
+      "repo": "Um pequeno jogo web ({{name}}) no seu próprio repositório git",
+      "specs": "Três specs já escritas no teu quadro",
+      "nothingRuns": "Nada corre até carregares em Executar"
+    },
+    "folder": "Pasta",
+    "folderHint": "Criada aqui, dentro da tua pasta pessoal. Uma pasta existente nunca é substituída.",
+    "choose": "Escolher pasta",
+    "chooseTitle": "Escolhe onde criar o exemplo",
+    "runLater": "Quando executares uma spec mais tarde",
+    "localAlso": "O teu motor local ({{engine}}) também está disponível, sem custo de API.",
+    "noProvider": "Ainda não há nenhum fornecedor de IA pronto. Podes criar o exemplo e ver uma execução gravada na mesma.",
+    "notSignedIn": "O teu fornecedor de IA está instalado mas sem sessão iniciada. Podes criar o exemplo e ver uma execução gravada na mesma.",
+    "create": "Criar projeto de exemplo",
+    "creating": "A criar…",
+    "errors": {
+      "path_exists": "Essa pasta já existe. Escolhe outra.",
+      "outside_home": "O exemplo tem de ficar dentro da tua pasta pessoal.",
+      "generic": "Não foi possível criar o projeto de exemplo. Tenta novamente."
+    }
+  },
+  "cost": {
+    "minutes": "cerca de {{low}}–{{high}} min",
+    "local": "Sem custo de API: corre no teu motor local · {{time}} (estimativa)",
+    "plan": "Usa o teu plano, sem custo extra · {{time}} (estimativa)",
+    "metered": "≈ {{usd}} · {{time}} (estimativa)",
+    "unknown": "≈ {{usd}} se faturado por utilização · {{time}} (estimativa)",
+    "using": "Modo rápido com {{model}} em {{provider}}",
+    "cap": "Pára e pergunta antes de ultrapassar {{cap}}."
+  },
+  "guide": {
+    "label": "Guia do projeto de exemplo",
+    "stepCount": "Passo {{current}} de {{total}}",
+    "dismiss": "Fechar guia",
+    "back": "Anterior",
+    "next": "Seguinte",
+    "done": "Concluído",
+    "ending": "Esse é o ciclo completo. Agora aplica-o ao teu próprio código.",
+    "addOwn": "Agora adiciona o teu próprio projeto",
+    "remove": "Remover exemplo"
+  },
+  "steps": {
+    "spec": {
+      "title": "A spec",
+      "body": "Estas três specs foram escritas para ti. Cada uma diz o que construir e como saber que está concluída."
+    },
+    "rail": {
+      "title": "O rail",
+      "body": "Um rail leva uma spec até uma alteração concluída: escreve-a, testa-a e pára para ti. Inicia a primeira."
+    },
+    "review": {
+      "title": "A revisão",
+      "body": "Nada é integrado sozinho. Quando a execução termina, um pacote de revisão mostra o que mudou e deixa-te aceitar ou descartar."
+    }
+  },
+  "run": {
+    "noProvider": "Não há nenhum fornecedor de IA pronto neste computador, por isso ainda não é possível uma execução real. Uma execução gravada mostra o mesmo percurso.",
+    "notSignedIn": "O teu fornecedor de IA não tem sessão iniciada, por isso ainda não é possível uma execução real. Uma execução gravada mostra o mesmo percurso.",
+    "watchRecording": "Ver uma execução gravada",
+    "recheck": "Verificar novamente",
+    "recordingNote": "É uma gravação: nada corre e nada é cobrado.",
+    "started": "Iniciada. Demora cerca de {{low}}–{{high}} min; acompanha-a no rail.",
+    "engine": "Executar em",
+    "engineLocal": "Motor local ({{provider}})",
+    "engineCloud": "{{provider}}",
+    "cta": "Executar a primeira spec",
+    "launching": "A iniciar…",
+    "preparing": "A preparar o espaço de trabalho do projeto. Demora só um momento.",
+    "workspaceFailed": "Não foi possível preparar o espaço de trabalho.",
+    "retryWorkspace": "Tentar novamente",
+    "overBudget": "O orçamento de hoje já foi atingido. Aumenta-o em Análises ▸ Orçamento e tenta novamente.",
+    "failed": "Não foi possível iniciar a execução. Tenta novamente.",
+    "failedDetail": "Não foi possível iniciar a execução: {{detail}}"
+  },
+  "pill": {
+    "label": "Projeto de exemplo",
+    "showGuide": "Mostrar guia"
+  },
+  "remove": {
+    "title": "Remover o projeto de exemplo?",
+    "description": "Sai dos teus projetos. A pasta fica no disco, a menos que a elimines abaixo.",
+    "deleteFolder": "Eliminar também a pasta do exemplo",
+    "irreversible": "Eliminar ficheiros não pode ser desfeito.",
+    "confirm": "Remover exemplo",
+    "confirmDelete": "Remover e eliminar pasta",
+    "failed": "Não foi possível remover o projeto de exemplo."
+  },
+  "toast": {
+    "created": "O projeto de exemplo «{{name}}» está pronto",
+    "reopened": "Projeto de exemplo «{{name}}» aberto",
+    "removed": "Projeto de exemplo removido",
+    "removedDeleted": "Projeto de exemplo e a sua pasta removidos"
+  },
+  "recording": {
+    "title": "Uma execução gravada",
+    "description": "Como é uma primeira execução concluída, da spec ao pacote de revisão.",
+    "badge": "Gravação: nada está a correr e nada é cobrado",
+    "logLabel": "Registo da execução gravada",
+    "lines": {
+      "setup": "Preparação do ambiente",
+      "specPhase": "Fase: escrever a alteração",
+      "specDone": "Alteração escrita para «Adicionar um botão Reiniciar»",
+      "implementPhase": "Fase: implementar",
+      "implementDone": "A compilação passa · 4 ficheiros modificados",
+      "testPhase": "Fase: testes",
+      "testDone": "5 testes a passar",
+      "reviewPhase": "Fase: revisão",
+      "shipped": "PRONTO PARA REVISÃO · confiança 91/100"
+    },
+    "packet": {
+      "title": "Pacote de revisão (gravado)",
+      "summary": "{{tests}} testes a passar · confiança {{confidence}}/100. A alteração está pronta para a tua decisão.",
+      "decision": "Numa execução real decides aqui: aceitar a alteração ou descartá-la. Nada é integrado sem ti."
+    },
+    "replay": "Repetir",
+    "close": "Fechar"
+  },
+  "help": {
+    "replayTour": "Rever o tour"
+  }
+}

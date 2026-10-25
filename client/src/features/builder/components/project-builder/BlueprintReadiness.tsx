@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   CircleDashed,
-  Loader2,
   RefreshCw,
   Rocket,
   Sparkles,
@@ -16,7 +15,13 @@ import { Button } from '../../../../components/ui/button'
 import { cn } from '../../../../lib/utils'
 import { localizeQualityIssue, type ReadinessReport, type ReadinessStep } from '../../lib/blueprint-readiness'
 import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
+
+/** "Being written" is a live lamp, not a spinner. */
+function WritingDot({ className }: { className?: string }) {
+  return <LiveDot tone="info" size="sm" aria-hidden className={className} />
+}
 // The commit gate, made legible (harden-project-builder-snapshots). Replaces
 // the single raw English sentence under a greyed-out button with:
 //   1. three human steps — blueprint · specs · audit — each ✓ / ○ / ⚠ with a
@@ -42,18 +47,18 @@ interface BlueprintReadinessProps {
   showPrimary?: boolean
 }
 
-const STEP_ICON: Record<ReadinessStep['state'], typeof Check> = {
+const STEP_ICON: Record<ReadinessStep['state'], typeof Check | typeof WritingDot> = {
   done: Check,
   pending: CircleDashed,
   blocked: AlertTriangle,
-  writing: Loader2,
+  writing: WritingDot,
 }
 
 const STEP_TONE: Record<ReadinessStep['state'], string> = {
   done: 'text-accent-success',
-  pending: 'text-muted-foreground/50',
+  pending: 'text-muted-foreground',
   blocked: 'text-accent-warning',
-  writing: 'text-accent-info animate-spin',
+  writing: 'text-accent-info',
 }
 
 export function BlueprintReadiness({
@@ -85,7 +90,7 @@ export function BlueprintReadiness({
           return (
             <li
               key={step.key}
-              className="flex items-start gap-2 text-[11px] leading-4"
+              className="flex items-start gap-2 text-caption leading-4"
               data-testid={`readiness-step-${step.key}`}
               data-state={step.state}
             >
@@ -109,10 +114,10 @@ export function BlueprintReadiness({
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="flex items-center gap-2 rounded-md border border-accent-info/30 bg-accent-info/10 px-2.5 py-1.5 text-[11px] text-accent-info"
+            className="flex items-center gap-2 rounded-md border border-accent-info/30 bg-accent-info/10 px-2.5 py-1.5 text-caption text-accent-info"
             data-testid="snapshot-repairing"
           >
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+            <LiveDot tone="info" size="xs" aria-hidden />
             <span className="min-w-0 flex-1">
               {t(`snapshot.repairing.${snapshot.kind}`)}
               {snapshot.manual ? '' : ` · ${t('snapshot.repairing.automatic')}`}
@@ -128,19 +133,19 @@ export function BlueprintReadiness({
             className="space-y-1.5 rounded-md border border-accent-warning/35 bg-accent-warning/10 p-2.5"
             data-testid="snapshot-rejected"
           >
-            <div className="flex items-start gap-2 text-[11px] leading-4 text-accent-warning">
+            <div className="flex items-start gap-2 text-caption leading-4 text-accent-warning">
               <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{t('snapshot.rejected.title')}</p>
-                <p className="text-accent-warning/90">{t(`snapshot.rejected.${snapshot.reason}`)}</p>
+                <p className="text-accent-warning">{t(`snapshot.rejected.${snapshot.reason}`)}</p>
                 {snapshot.repairAttempted && (
-                  <p className="mt-0.5 text-[10px] text-accent-warning/80">{t('snapshot.rejected.autoRepairFailed')}</p>
+                  <p className="mt-0.5 text-caption text-accent-warning">{t('snapshot.rejected.autoRepairFailed')}</p>
                 )}
               </div>
             </div>
             {snapshot.detail && (
               <p
-                className="line-clamp-2 break-all font-mono text-[10px] leading-4 text-foreground/60"
+                className="line-clamp-2 break-all font-mono text-caption leading-4 text-muted-foreground"
                 title={snapshot.detail}
                 data-testid="snapshot-rejected-detail"
               >
@@ -171,11 +176,11 @@ export function BlueprintReadiness({
             className="space-y-1.5 rounded-md border border-accent-warning/35 bg-accent-warning/10 p-2.5"
             data-testid="snapshot-halted"
           >
-            <div className="flex items-start gap-2 text-[11px] leading-4 text-accent-warning">
+            <div className="flex items-start gap-2 text-caption leading-4 text-accent-warning">
               <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{t('snapshot.halted.title')}</p>
-                <p className="text-accent-warning/90">
+                <p className="text-accent-warning">
                   {t('snapshot.halted.detail', { written: specsStep?.params?.written ?? 0, total: specsStep?.params?.count ?? 0 })}
                 </p>
               </div>
@@ -201,7 +206,7 @@ export function BlueprintReadiness({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+            className="flex items-center gap-1.5 text-caption text-muted-foreground"
             data-testid="snapshot-repaired"
           >
             <Sparkles className="h-3 w-3 text-accent-success" aria-hidden />
@@ -217,7 +222,7 @@ export function BlueprintReadiness({
             type="button"
             onClick={() => setIssuesOpen((o) => !o)}
             aria-expanded={issuesOpen}
-            className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] font-medium text-foreground/80 hover:bg-surface/70"
+            className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-caption font-medium text-foreground hover:bg-surface/70"
             data-testid="readiness-issues-toggle"
           >
             <Wrench className="h-3 w-3 text-accent-warning" aria-hidden />
@@ -227,9 +232,9 @@ export function BlueprintReadiness({
           {issuesOpen && (
             <ul className="max-h-40 space-y-1 overflow-y-auto border-t border-border/30 px-2.5 py-2">
               {readiness.issues.map((issue, i) => (
-                <li key={`${issue.specIndex}-${issue.field}-${issue.code}-${i}`} className="flex items-start gap-1.5 text-[10px] leading-4 text-muted-foreground">
+                <li key={`${issue.specIndex}-${issue.field}-${issue.code}-${i}`} className="flex items-start gap-1.5 text-caption leading-4 text-muted-foreground">
                   {issue.specIndex !== null && (
-                    <span className="shrink-0 rounded bg-accent-primary/10 px-1 font-mono text-[9px] text-accent-primary">
+                    <span className="shrink-0 rounded bg-accent-primary/10 px-1 font-mono text-caption text-accent-primary">
                       #{issue.specIndex + 1}
                     </span>
                   )}
@@ -270,7 +275,7 @@ export function BlueprintReadiness({
             {primaryLabel}
           </Button>
           {!readiness.ready && firstBlocker && !repairing && !rejected && !halted && (
-            <p className="mt-1.5 text-center text-[10px] text-muted-foreground" data-testid="readiness-hint">
+            <p className="mt-1.5 text-center text-caption text-muted-foreground" data-testid="readiness-hint">
               {t(`readiness.hints.${firstBlocker.key}.${firstBlocker.state}`, firstBlocker.params)}
             </p>
           )}

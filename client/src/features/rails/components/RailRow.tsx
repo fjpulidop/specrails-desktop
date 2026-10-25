@@ -9,6 +9,8 @@ import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { GripVertical, Trash2, ArrowLeft, Layers } from 'lucide-react'
 import { RailControls, type RailMode, type RailStatus } from './RailControls'
+import { LaunchForecast } from '../../../components/LaunchForecast'
+import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
 import { deriveRailMode, effectiveLoopId, offeredRecommendation } from '../lib/rail-loops'
 import { recommendedLoopForTickets } from '../../specs/lib/spec-triage'
 import { SpecCard } from '../../specs/components/SpecCard'
@@ -18,6 +20,9 @@ import { RailModelSelector, type FreestyleModel } from '../../agents/components/
 import { RailLoopSelector } from '../../agents/components/RailLoopSelector'
 import { RailExecutionInfo } from './RailExecutionInfo'
 import { RailEffortSelector, type ReasoningEffort } from '../../agents/components/RailEffortSelector'
+import { LiveDot } from '../../../components/ui/live-dot'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { RailPrDecisionStrip } from '../../delivery/components/RailPrDecisionStrip'
 import { RailTargetPrSelector, type RailTargetPr } from './RailTargetPrSelector'
 import { railIndexFromId } from '../lib/rail-id'
@@ -113,6 +118,9 @@ interface RailRowProps {
   launchBlockedReason?: string | null
 }
 
+/** Controls inside a rail row that keep the browser's own mouse behavior (native menu, selection, clicks). */
+const CONTROL_SELECTOR = 'button, input, textarea, select, a, [contenteditable]'
+
 export function RailRow({
   id, label, tickets, mode, status, activeJobId, profileName, aiEngine, freestyleModel, loopModel, providers,
   loopAvailable, selectedLoopId, reasoningEffort, targetPr, worktreeSummary, prDecision, onPrDecision, onPrCheckout, executionMetric, jiggleMode,
@@ -168,7 +176,7 @@ export function RailRow({
     <span
       data-testid="rail-roles-chip"
       title={t('agents:railSelectors.rolesChipTitle')}
-      className="inline-flex items-center gap-1 h-5 px-1.5 text-[10px] rounded border border-accent-primary/40 bg-accent-primary/10 text-accent-primary whitespace-nowrap"
+      className="inline-flex items-center gap-1 h-5 px-1.5 text-caption rounded border border-accent-primary/40 bg-accent-primary/10 text-accent-primary whitespace-nowrap"
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
@@ -193,6 +201,15 @@ export function RailRow({
   // has no profiles, so it can't trigger an empty row — it rides along the
   // second row when one exists, else stays inline on the top row.
   const hasSelectorRow = showEngineSel || showModelSel || showLoopModelSel || showLoopSel || showRolesChip
+  // Launch forecast ("Usually 6-9 min · $2-4 for runs like this"): only for an idle rail
+  // with specs and one engine that will run it (the hybrid roles engine has none).
+  const forecastApplies = status !== 'running' && tickets.length > 0 && !rolesEngine && !!activeProjectId
+  const forecastEl = forecastApplies
+    ? <LaunchForecast projectId={activeProjectId} loopId={railLoopId} provider={effectiveProvider} perSpec={tickets.length > 1} hideWhenInsufficient className="px-0.5" />
+    : null
+  // A launch while today's budget is already used up asks first (the run would pause).
+  const launchGuard = useLaunchBudgetGuard(forecastApplies && activeProjectId && effectiveProvider ? { projectId: activeProjectId, loopId: railLoopId, provider: effectiveProvider } : null)
+  const guardedToggle = () => { if (status === 'running') onToggle(); else launchGuard.guard(onToggle) }
   // Compact-tier right-click context menu state. `{ticketId, x, y}` while
   // open, `null` otherwise. Closed by outside-click, Escape, or selection.
   const [ticketCtxMenu, setTicketCtxMenu] = useState<{ ticketId: number; x: number; y: number } | null>(null)
@@ -213,6 +230,32 @@ export function RailRow({
       document.removeEventListener('keydown', onKey)
     }
   }, [ticketCtxMenu])
+  // Deleting a rail loses its provider/loop/PR settings and can't be undone client-side:
+  // the keyboard shortcut and the context menu both ask first.
+  const [railCtxMenu, setRailCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // Closing the menu or the confirmation hands focus back to the rail row it came from (not to <body>).
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const deleteUiWasOpenRef = useRef(false)
+  useEffect(() => {
+    const open = railCtxMenu !== null || confirmingDelete
+    if (!open && deleteUiWasOpenRef.current) returnFocusRef.current?.focus?.({ preventScroll: true })
+    deleteUiWasOpenRef.current = open
+  }, [railCtxMenu, confirmingDelete])
+  useEffect(() => {
+    if (!railCtxMenu) return
+    function onPointer(e: PointerEvent) {
+      if ((e.target as Element | null)?.closest('[role="menu"]')) return
+      setRailCtxMenu(null)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setRailCtxMenu(null) }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [railCtxMenu])
   const { isOver, setNodeRef } = useDroppable({ id })
   // True whenever a ticket (numeric id) is being dragged anywhere in the
   // dashboard's DndContext — used to surface a subtle "available drop target"
@@ -294,10 +337,19 @@ export function RailRow({
 
   // ── Mouse handlers (long press only — no mouse swipe) ─────────────────────
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only start long press on the rail header area, not on buttons
-    if ((e.target as HTMLElement).closest('button')) return
+    // Only start long press on the rail header area, not on controls: the rename input keeps its
+    // native menu (cut / copy / paste) and its text selection, like `handleRowContextMenu`.
+    if ((e.target as HTMLElement).closest(CONTROL_SELECTOR)) return
+    // Right-click: the rail's own menu (ticket pills open theirs and stop the event first).
+    // Opened on mousedown because the Tauri webview suppresses `contextmenu`.
+    if (e.button === 2 && canDelete) {
+      e.preventDefault()
+      returnFocusRef.current = (e.target as HTMLElement).closest<HTMLElement>('[role="group"]')
+      setRailCtxMenu({ x: e.clientX, y: e.clientY })
+      return
+    }
     startLongPress()
-  }, [startLongPress])
+  }, [startLongPress, canDelete])
 
   const handleMouseUp = useCallback(() => {
     // Only clear the timer — don't exit jiggle mode (it persists after release)
@@ -319,6 +371,58 @@ export function RailRow({
     }
   }, [showSwipeDelete])
 
+  // Keyboard path to delete: Delete / Backspace on the focused rail (the jiggle mode needs a long press).
+  const handleRowKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.target !== e.currentTarget || !canDelete) return
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return
+    e.preventDefault()
+    e.stopPropagation()
+    setConfirmingDelete(true)
+  }, [canDelete])
+  const handleRowContextMenu = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    // Keep the OS menu on controls (inputs, buttons); everywhere else the rail has its own.
+    if ((e.target as HTMLElement).closest(CONTROL_SELECTOR)) return
+    e.preventDefault()
+  }, [])
+  const rowFocusProps = canDelete
+    ? { tabIndex: 0, role: 'group' as const, 'aria-label': label, 'aria-keyshortcuts': 'Delete Backspace', onKeyDown: handleRowKeyDown, onContextMenu: handleRowContextMenu }
+    : {}
+
+  const railDeleteUi = (
+    <>
+      {railCtxMenu && canDelete && createPortal(
+        <div
+          role="menu"
+          data-testid={`rail-context-menu-${id}`}
+          className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-popover shadow-xl shadow-black/40 p-1"
+          style={{ top: Math.min(railCtxMenu.y, window.innerHeight - 60), left: Math.min(railCtxMenu.x, window.innerWidth - 180) }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            autoFocus
+            onClick={(e) => { e.stopPropagation(); setRailCtxMenu(null); setConfirmingDelete(true) }}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none transition-colors"
+          >
+            <Trash2 className="w-3 h-3" aria-hidden />
+            {t('railRow.deleteMenuItem')}
+          </button>
+        </div>,
+        document.body,
+      )}
+      <ConfirmDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        title={t('railRow.deleteConfirm.title', { label })}
+        description={t('railRow.deleteConfirm.body')}
+        confirmLabel={t('railRow.deleteMenuItem')}
+        onConfirm={() => { setConfirmingDelete(false); onDelete() }}
+        testId={`rail-delete-confirm-${id}`}
+      />
+    </>
+  )
+
   const handleDeleteClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     setShowSwipeDelete(false)
@@ -338,44 +442,45 @@ export function RailRow({
 
   if (density === 'compact') {
     return (
+      <>
       <div
         ref={setNodeRef}
         data-testid={`rail-row-compact-${id}`}
         data-density="compact"
+        {...rowFocusProps}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onClick={handleClick}
         style={railJiggleStyle}
-        className={`group relative flex flex-col gap-1.5 rounded-xl border bg-card p-2.5 transition-all ${
+        className={`group relative flex flex-col gap-1.5 rounded-xl border bg-card p-2.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ${
           isOver
-            ? 'border-accent-info/60 shadow-[0_0_0_1px_hsl(var(--accent-info)/0.35),0_0_14px_hsl(var(--accent-info)/0.18)]'
+            ? 'border-accent-info/60 shadow-2'
             : ticketDragActive
               ? 'border-dashed border-accent-info/35'
               : isRunning
                 ? 'border-accent-success/40 shadow-sm'
                 : 'border-border/40 hover:border-accent-info/30 hover:shadow-md'
-        } ${jiggleMode && canDelete ? 'animate-jiggle' : ''}`}
+        } ${jiggleMode && canDelete ? 'motion-safe:animate-jiggle' : ''}`}
       >
         {/* Header line: drag grip + status dot + label */}
         <div className="flex items-center gap-1.5 min-w-0">
           <button
             type="button"
-            className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/70 transition-colors shrink-0"
+            className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            aria-label={t('railRow.dragHandle', { label })}
             {...dragHandleListeners}
             {...dragHandleAttributes}
           >
             <GripVertical className="w-3 h-3" />
           </button>
-          <div
-            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-300 ${
-              isRunning
-                ? 'bg-accent-success shadow-[0_0_4px_hsl(var(--accent-success)/0.8)] animate-pulse'
-                : status === 'failed'
-                  ? 'bg-accent-warning shadow-[0_0_4px_hsl(var(--accent-warning)/0.6)]'
-                  : 'bg-muted-foreground/25'
-            }`}
-            aria-hidden
+          <LiveDot
+            size="xs"
+            tone={isRunning ? 'success' : status === 'failed' ? 'destructive' : 'muted'}
+            pulsing={isRunning}
+            className={!isRunning && status !== 'failed' ? 'opacity-40' : undefined}
+            role="img"
+            aria-label={t(`railRow.status.${status}`)}
           />
           {editing ? (
             <form
@@ -398,7 +503,7 @@ export function RailRow({
                   setEditing(false)
                 }}
                 onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
-                className="flex-1 min-w-0 text-xs font-medium bg-transparent border-b border-accent-info/60 outline-none text-foreground/90 px-0.5"
+                className="flex-1 min-w-0 text-label bg-transparent border-b border-accent-info/60 outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground px-0.5"
                 autoFocus
               />
             </form>
@@ -412,7 +517,7 @@ export function RailRow({
                 setEditing(true)
                 setTimeout(() => inputRef.current?.select(), 0)
               }}
-              className="flex-1 min-w-0 text-left text-xs font-medium text-foreground/90 hover:text-foreground truncate"
+              className="flex-1 min-w-0 text-left text-label text-foreground hover:text-foreground truncate"
               title={label}
             >
               {label}
@@ -448,7 +553,7 @@ export function RailRow({
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 title={`#${ticket.id} ${ticket.title}`}
-                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium border border-accent-info/30 bg-accent-info/10 text-accent-info hover:bg-accent-info/20 hover:border-accent-info/60 transition-colors"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-caption font-mono font-medium border border-accent-info/30 bg-accent-info/10 text-accent-info hover:bg-accent-info/20 hover:border-accent-info/60 transition-colors"
               >
                 #{ticket.id}
               </button>
@@ -465,7 +570,7 @@ export function RailRow({
           <div
             role="menu"
             data-testid={`rail-row-compact-context-menu-${id}`}
-            className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-card/95 backdrop-blur shadow-xl shadow-black/40 p-1"
+            className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-popover shadow-xl shadow-black/40 p-1"
             style={{
               top: Math.min(ticketCtxMenu.y, window.innerHeight - 60),
               left: Math.min(ticketCtxMenu.x, window.innerWidth - 180),
@@ -525,9 +630,10 @@ export function RailRow({
             freestyleAvailable={freestyleAvailable}
             loopAvailable={loopAvailable}
             onModeChange={onModeChange}
-            onToggle={onToggle}
+            onToggle={guardedToggle}
             launchBlockedReason={launchBlockedReason}
           />
+          {forecastEl}
         </div>
 
         {/* Live execution metrics (elapsed · steps · lines) — same WS source as Jobs */}
@@ -535,7 +641,7 @@ export function RailRow({
 
         {/* Parallel/isolated merge-back progress */}
         {worktreeSummary && (worktreeSummary.merged > 0 || worktreeSummary.needsReview > 0) && (
-          <div className="mt-1 flex items-center gap-2 text-[10px]" data-testid="rail-worktree-summary">
+          <div className="mt-1 flex items-center gap-2 text-caption" data-testid="rail-worktree-summary">
             {worktreeSummary.merged > 0 && (
               <span className="text-accent-success">{t('railControls.worktreesMerged', { count: worktreeSummary.merged })}</span>
             )}
@@ -546,6 +652,7 @@ export function RailRow({
         )}
 
         {workspacePicker}
+        {launchGuard.dialog}
         {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
         {/* Ask-first PR decision strip (safe-pr-review-flow) */}
         {prDecision && onPrDecision && (
@@ -566,12 +673,16 @@ export function RailRow({
           </button>
         )}
       </div>
+      {railDeleteUi}
+      </>
     )
   }
 
   return (
+    <>
     <div
-      className="relative overflow-hidden rounded-xl"
+      className="relative overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60"
+      {...rowFocusProps}
       onClick={handleClick}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -582,14 +693,14 @@ export function RailRow({
     >
       {/* Swipe-revealed delete button (behind the rail) */}
       {canDelete && (showSwipeDelete || swipeX < 0) && (
-        <div className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-red-500/90 rounded-r-xl z-0">
+        <div className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-destructive rounded-r-xl z-0">
           <button
             type="button"
             onClick={handleDeleteClick}
-            className="flex flex-col items-center gap-1 text-white"
+            className="flex flex-col items-center gap-1 text-destructive-foreground"
           >
             <Trash2 className="w-5 h-5" />
-            <span className="text-[9px] font-medium">{t('common:actions.delete')}</span>
+            <span className="text-caption font-medium">{t('common:actions.delete')}</span>
           </button>
         </div>
       )}
@@ -599,35 +710,39 @@ export function RailRow({
           regardless of the page-background gradient behind it. */}
       <div
         className={`relative z-10 flex flex-col rounded-xl border overflow-hidden bg-card ${
-          jiggleMode && canDelete ? 'animate-jiggle' : ''
+          jiggleMode && canDelete ? 'motion-safe:animate-jiggle' : ''
         } ${
           isOver
-            ? 'border-primary/50 shadow-[0_0_0_1px_hsl(var(--primary)/0.25),0_0_12px_hsl(var(--primary)/0.08)]'
+            ? 'border-primary/50 shadow-2'
             : 'border-border/40 hover:border-border/60'
         }`}
         style={{
           transform: swipeX < 0 ? `translateX(${swipeX}px)` : undefined,
-          transition: swiping ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)',
+          transition: swiping ? 'none' : 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
           ...(railJigglePhaseMs !== undefined ? { animationDelay: `${railJigglePhaseMs}ms` } : {}),
         }}
       >
         {/* Row header — name + mode/play on top, secondary selectors on a
             recessed config strip below so nothing crams together. */}
-        <div className="flex flex-col border-b border-border/30 bg-gradient-to-r from-muted/30 to-transparent shrink-0">
+        <div className="flex flex-col border-b border-border/30 bg-muted/20 shrink-0">
           <div className="flex items-center justify-between gap-2 px-3 py-1.5">
           <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
-              className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors -ml-1"
+              className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors -ml-1"
+              aria-label={t('railRow.dragHandle', { label })}
               {...dragHandleListeners}
               {...dragHandleAttributes}
             >
               <GripVertical className="w-3.5 h-3.5" />
             </button>
-            <div
-              className={`w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-300 ${
-                status === 'running' ? 'bg-emerald-400 shadow-[0_0_4px_hsl(142_70%_56%/0.8)] animate-pulse' : status === 'failed' ? 'bg-amber-400 shadow-[0_0_4px_hsl(38_92%_50%/0.6)]' : 'bg-muted-foreground/25'
-              }`}
+            <LiveDot
+              size="xs"
+              tone={isRunning ? 'success' : status === 'failed' ? 'destructive' : 'muted'}
+              pulsing={isRunning}
+              className={!isRunning && status !== 'failed' ? 'opacity-40' : undefined}
+              role="img"
+              aria-label={t(`railRow.status.${status}`)}
             />
             {editing ? (
               <form
@@ -639,7 +754,7 @@ export function RailRow({
                   setEditing(false)
                 }}
               >
-                <span className="text-xs font-medium text-foreground/50">Rail </span>
+                <span className="text-label text-muted-foreground">Rail </span>
                 <input
                   ref={inputRef}
                   type="text"
@@ -651,7 +766,7 @@ export function RailRow({
                     setEditing(false)
                   }}
                   onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false) } }}
-                  className="w-24 text-xs font-medium bg-transparent border-b border-primary/50 outline-none text-foreground/80 px-0.5"
+                  className="w-24 text-label bg-transparent border-b border-primary/50 outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground px-0.5"
                   autoFocus
                 />
               </form>
@@ -666,13 +781,13 @@ export function RailRow({
                   setEditing(true)
                   setTimeout(() => inputRef.current?.select(), 0)
                 }}
-                className="text-xs font-medium text-foreground/80 hover:text-foreground hover:underline decoration-dotted underline-offset-2 cursor-text transition-colors"
+                className="text-label text-foreground hover:text-foreground hover:underline decoration-dotted underline-offset-2 cursor-text transition-colors"
               >
                 {label}
               </button>
             )}
             {tickets.length > 0 && (
-              <span className="text-[9px] text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="text-caption tabular-nums text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5 leading-none">
                 {tickets.length}
               </span>
             )}
@@ -683,13 +798,14 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} launchBlockedReason={launchBlockedReason} />
+            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={guardedToggle} launchBlockedReason={launchBlockedReason} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button
                 type="button"
                 onClick={handleDeleteClick}
-                className="w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600 transition-colors"
+                aria-label={t('railRow.deleteRail', { label })}
+                className="w-5 h-5 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm hover:opacity-90 transition-opacity"
               >
                 <Trash2 className="w-3 h-3" />
               </button>
@@ -697,13 +813,16 @@ export function RailRow({
           </div>
           </div>
 
+          {forecastEl && <div className="px-3 pb-1.5">{forecastEl}</div>}
+
           {/* Live execution metrics (elapsed · steps · lines) — same WS source as Jobs */}
+          {isRunning && <RailTrack running className="mx-3 mb-1" aria-label={t('railRow.status.running')} />}
           {isRunning && executionMetric && (
             <div className="px-3 pb-1"><RailExecutionInfo metric={executionMetric} /></div>
           )}
           {/* Parallel/isolated merge-back progress */}
           {worktreeSummary && (worktreeSummary.merged > 0 || worktreeSummary.needsReview > 0) && (
-            <div className="px-3 pb-1 flex items-center gap-2 text-[10px]">
+            <div className="px-3 pb-1 flex items-center gap-2 text-caption">
               {worktreeSummary.merged > 0 && (
                 <span className="text-accent-success">{t('railControls.worktreesMerged', { count: worktreeSummary.merged })}</span>
               )}
@@ -714,6 +833,7 @@ export function RailRow({
           )}
 
           {workspacePicker}
+          {launchGuard.dialog}
           {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
           {/* Ask-first PR decision strip (safe-pr-review-flow) */}
           {prDecision && onPrDecision && (
@@ -771,15 +891,16 @@ export function RailRow({
         >
           {tickets.length === 0 ? (
             <div
-              className={`h-10 flex items-center justify-center rounded-lg border border-dashed transition-all duration-150 ${
+              data-testid="rail-drop-track"
+              className={`h-10 flex items-center justify-center rounded-card border-y transition-colors duration-150 ${
                 isOver
-                  ? 'border-accent-info/60 text-accent-info/80 bg-accent-info/[0.06]'
+                  ? 'border-accent-info/60 text-accent-info'
                   : ticketDragActive
-                    ? 'border-accent-info/35 text-accent-info/60'
-                    : 'border-border/25 text-muted-foreground/30'
+                    ? 'border-accent-info/35 text-accent-info'
+                    : 'border-border text-muted-foreground'
               }`}
             >
-              <span className="text-[10px] select-none">{isOver ? t('railRow.dropHere') : ticketDragActive ? t('railRow.dropOnThisRail') : t('railRow.dragSpecsHere')}</span>
+              <span className="text-xs select-none">{isOver ? t('railRow.dropHere') : ticketDragActive ? t('railRow.dropOnThisRail') : t('railRow.dropHint')}</span>
             </div>
           ) : (
             <SortableContext items={tickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -813,7 +934,7 @@ export function RailRow({
           <div
             role="menu"
             data-testid={`rail-row-normal-context-menu-${id}`}
-            className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-card/95 backdrop-blur shadow-xl shadow-black/40 p-1"
+            className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-popover shadow-xl shadow-black/40 p-1"
             style={{
               top: Math.min(ticketCtxMenu.y, window.innerHeight - 60),
               left: Math.min(ticketCtxMenu.x, window.innerWidth - 180),
@@ -838,5 +959,7 @@ export function RailRow({
         )}
       </div>
     </div>
+    {railDeleteUi}
+    </>
   )
 }

@@ -5,7 +5,8 @@
   "emptySettled": "No activity was recorded for this run.",
   "waiting": {
     "range": "Runs like this have taken {{low}}–{{high}} min (last {{count}})",
-    "elapsed": "Running for {{minutes}} min"
+    "elapsed": "Running for {{minutes}} min",
+    "took": "Took {{minutes}} min"
   },
   "aiNote": "Built from what actually happened during the run.",
   "step": {
@@ -25,7 +26,33 @@
     "stalled": "Step {{step}} stalled — no activity for {{idleMinutes}} min, so the app stopped it",
     "startResume": "Step {{step}}: {{title}} — resuming after a stall",
     "providerLimit": "Step {{step}} stopped — the provider's usage limit was reached",
-    "recovered": "Step {{step}} completed after resuming"
+    "recovered": "Step {{step}} completed after resuming",
+    "durationSec": "{{seconds}}s",
+    "durationMin": "{{minutes}} min"
+  },
+  "steps": {
+    "architect": "Design the change",
+    "confidence": "Check confidence",
+    "validate": "Validate the plan",
+    "freeze": "Lock the plan",
+    "initialize-corrections": "Prepare fixes",
+    "developer": "Implement",
+    "developer-blocker": "Check for blockers",
+    "tasks": "Work through tasks",
+    "verify": "Verify",
+    "review": "Review",
+    "ship": "Ship",
+    "reviewer": "Review the change",
+    "review-policy": "Apply review policy",
+    "correction-context": "Gather what needs fixing",
+    "capture-review": "Record the review",
+    "correction-budget": "Check retry budget",
+    "begin-correction": "Start a fix round",
+    "fixer": "Fix what was reported",
+    "correction-blocker": "Check for blockers",
+    "correction-progress": "Track fix progress",
+    "approval-policy": "Apply the approval decision",
+    "verify-archive": "Verify the archived change"
   },
   "decision": {
     "another": "Not done yet — going round again",
@@ -71,7 +98,7 @@
       "archive": "Archiving the reviewed change",
       "stopped": "The runtime stopped: {{target}}",
       "corrections": "Continuing the remaining tasks (developer)",
-      "resumed": "Resuming the saved execution",
+      "resumed": "Resuming the saved run",
       "blocked": "The host environment blocked the run: {{target}}"
     },
     "check": {
@@ -82,5 +109,8 @@
       "invalidated": "Previous result invalidated: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "Fix round {{round}} of {{total}}",
+  "checks_one": "+1 check",
+  "checks_other": "+{{count}} checks"
 }

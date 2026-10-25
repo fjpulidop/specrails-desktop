@@ -45,7 +45,7 @@ export function SubscriptionUsageFooter() {
             ?? provider.windows.find(window => window.scope === 'account')
             ?? provider.windows[0]
           const percent = provider.spend ? provider.spend.usedPercent === null ? '—' : formatSpendPercent(provider.spend.usedPercent, i18n.language) : window.usedPercent === null ? '—' : `${window.usedPercent}%`
-          return <span key={provider.providerId} className="flex items-center gap-1.5" title={provider.providerId === 'claude' ? 'Claude' : 'Codex'}><UsageProviderIcon provider={provider.providerId} className="h-3.5 w-3.5 shrink-0 text-white" /><span>{provider.providerId === 'claude' ? 'Claude' : 'Codex'}</span><span className="tabular-nums">{percent}</span></span>
+          return <span key={provider.providerId} className="flex items-center gap-1.5" title={provider.providerId === 'claude' ? 'Claude' : 'Codex'}><UsageProviderIcon provider={provider.providerId} className="h-3.5 w-3.5 shrink-0 text-foreground" /><span>{provider.providerId === 'claude' ? 'Claude' : 'Codex'}</span><span className="num">{percent}</span>{(() => { const pct = provider.spend ? provider.spend.usedPercent : window.usedPercent; return pct === null || pct === undefined ? null : <span aria-hidden="true" data-testid="usage-meter" className="relative h-[3px] w-6 overflow-hidden rounded-full bg-muted"><span className={`absolute inset-y-0 left-0 rounded-full ${pct >= 90 ? 'bg-destructive' : pct >= 75 ? 'bg-accent-warning' : 'bg-accent-primary'}`} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></span> })()}</span>
         })}</span>
       </button>
     </Dialog.Trigger>

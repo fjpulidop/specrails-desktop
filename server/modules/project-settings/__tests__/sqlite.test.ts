@@ -35,14 +35,13 @@ describe('SQLite settings repository contract', () => {
 })
 
 describe('allowSubagents persistence', () => {
-  it('defaults to off, persists per project and clears its row when turned off', () => {
+  it('defaults to on, persists per project and records an explicit opt-out', () => {
     const first = setup(), second = setup()
-    expect(first.service.getSettings().allowSubagents).toBe(false)
+    expect(first.service.getSettings().allowSubagents).toBe(true)
+    expect(first.service.updateSettings({ allowSubagents: false }).allowSubagents).toBe(false)
+    expect(second.service.getSettings().allowSubagents).toBe(true)
+    expect(first.db.prepare("SELECT value FROM queue_state WHERE key = 'config.allow_subagents'").get()).toEqual({ value: 'false' })
     expect(first.service.updateSettings({ allowSubagents: true }).allowSubagents).toBe(true)
-    expect(second.service.getSettings().allowSubagents).toBe(false)
-    first.service.updateSettings({ allowSubagents: false })
-    expect(first.db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.allow_subagents'").get()).toBeUndefined()
-    expect(first.service.getSettings().allowSubagents).toBe(false)
   })
 })
 
@@ -112,5 +111,19 @@ describe('agentAuditRetentionDays persistence', () => {
     const { db, service } = setup()
     db.prepare("INSERT INTO queue_state (key, value) VALUES ('config.agent_audit_retention_days', 'forever')").run()
     expect(service.getSettings().agentAuditRetentionDays).toBe(30)
+  })
+})
+
+describe('phase-3 switch persistence', () => {
+  let db: DbInstance | undefined
+  afterEach(() => { db?.close(); db = undefined })
+  it('stores each switch only while it is on, default off', () => {
+    db = initDb(':memory:')
+    const service = createProjectSettingsService(createSqliteProjectSettingsRepository(db))
+    expect(service.getSettings()).toMatchObject({ jiraPostClarifications: false, baselineOnTouch: false })
+    expect(service.updateSettings({ jiraPostClarifications: true, baselineOnTouch: true })).toMatchObject({ jiraPostClarifications: true, baselineOnTouch: true })
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM queue_state WHERE key IN ('config.jira_post_clarifications','config.baseline_on_touch')`).get()).toEqual({ n: 2 })
+    service.updateSettings({ jiraPostClarifications: false, baselineOnTouch: false })
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM queue_state WHERE key IN ('config.jira_post_clarifications','config.baseline_on_touch')`).get()).toEqual({ n: 0 })
   })
 })

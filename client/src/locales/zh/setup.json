@@ -87,24 +87,26 @@
     "corrupted": {
       "title": "应用包已损坏",
       "description": "一个或多个内置工具（Node.js、Git）无法通过验证。",
-      "body": "此工具随 Specrails 应用内置，无法单独安装。如果你看到此消息，说明应用包可能已损坏，请重新安装 Specrails。"
+      "body": "此工具随 Specrails 应用内置，无法单独安装。如果你看到此消息，说明应用包可能已损坏，请重新安装 Specrails。",
+      "download": "下载最新版本"
     }
   },
   "welcome": {
     "title": "欢迎使用 <spec>spec</spec><rails>rails</rails>",
+    "tagline": "输入规格，输出经过评审的拉取请求。",
     "description": "Specrails 让你在一个界面中管理多个项目。添加第一个项目即可开始。",
     "addFirstProject": "添加你的第一个项目",
     "jiraHint": "将每个项目连接到各自的 Jira 看板——规格在两个方向保持同步。",
     "mcpHint": "通过安全的本地 MCP 服务器把外部 AI 工具接入 Specrails：默认开启，在设置 → MCP 中管理。",
     "agentChatHint": "通过聊天操作 Specrails——内置 agent 通过本地 MCP 为你处理 specs、rails 和分析。可从气泡或按 ⌘⇧A 打开。",
-    "localEnginesHint": "只有本地模型？在 设置 → Specrails Agents 中添加一个兼容 OpenAI 的端点，rails、聊天、任务等所有界面都会默认使用它。"
+    "localEnginesHint": "只有本地模型？在 设置 → Specrails Agents 中添加一个兼容 OpenAI 的端点，rails、聊天、任务等所有界面都会默认使用它。",
+    "replayTour": "重播导览"
   },
   "onboarding": {
     "productTour": "产品导览",
     "stepCount": "第 {{current}} 步，共 {{total}} 步",
     "goToStep": "前往第 {{step}} 步：{{label}}",
     "stepLabel": "第 {{step}} 步",
-    "dontShowAgain": "不再显示",
     "skipTour": "跳过导览",
     "getStarted": "开始使用",
     "flow": {
@@ -197,7 +199,7 @@
       "smashLabel": "SMASH 拆解大史诗",
       "smashBody": "一键把大规格拆成一组更小的子规格；每个子项的卡片上带有简短摘要。",
       "draftsLabel": "草稿与继续编辑",
-      "draftsBody": "把进行中的探索存为草稿工单，稍后继续；任何规格都可在探索中重新打开继续打磨。"
+      "draftsBody": "把进行中的探索存为草稿规格，稍后继续；任何规格都可在探索中重新打开继续打磨。"
     },
     "rails": {
       "nav": "轨道与审阅",
@@ -245,9 +247,9 @@
       "subtitle": "每次计费调用都被记录并可视化",
       "intro": "每次 AI 调用都会记录生命周期和提供方。未报告的用量或成本会保持不可用。",
       "analyticsLabel": "分析页面",
-      "analyticsBody": "消耗速率概览、每日时间线、热门工单、模型分布，以及成本-轮次散点图。可按周期（7 天 / 30 天 / 90 天 / 全部）和来源筛选。",
-      "perTicketLabel": "按工单统计支出",
-      "perTicketBody": "每个 spec 的详情会显示其成本和轮次，并可深链到按该工单筛选的分析页面。",
+      "analyticsBody": "消耗速率概览、每日时间线、热门规格、模型分布，以及成本-轮次散点图。可按周期（7 天 / 30 天 / 90 天 / 全部）和来源筛选。",
+      "perTicketLabel": "按规格统计支出",
+      "perTicketBody": "每个 spec 的详情会显示其成本和轮次，并可深链到按该规格筛选的分析页面。",
       "honestLabel": "诚实的数字",
       "honestBody": "Claude 成本来自提供方；Codex 的估算值以 <mono>~</mono> 标注。",
       "budgetsLabel": "预算与告警",
@@ -288,9 +290,6 @@
       "pairBody": "在手机上打开 specrails.dev/companion-app，然后在这里前往设置 → 移动伴侣 → 配对网页伴侣，按照屏幕提示操作。"
     },
     "moveFast": {
-      "nav": "快速上手",
-      "title": "以思考的速度移动",
-      "subtitle": "键盘优先，处处可用",
       "paletteLabel": "命令面板",
       "paletteShortcut": "<f>在任意位置按</f> <mod>{{mod}}</mod> <m>+</m> <k>K</k>",
       "paletteBody": "切换项目、运行规格命令、跳转任意页面并查找最近任务，全部支持模糊搜索。",

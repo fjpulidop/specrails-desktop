@@ -28,6 +28,8 @@ export interface CoreSessionTurnContext {
   mcpServers: McpServerSpec[]
   /** Provider session to continue when the Core session does not exist yet (pre-Core missions). */
   legacyProviderSessionRef?: string | null
+  /** A new session generation (provider switch / closed session): the turn must seed it with the conversation history. */
+  freshSession?: boolean
   metadata?: Record<string, unknown>
   /** Appended to the system prompt (e.g. how to delegate sub-agents in this mission). */
   systemPromptAddendum?: string
@@ -36,6 +38,16 @@ export interface CoreSessionTurnContext {
    * new turn and reports the summed usage of every turn it covered. */
   inputDelivery?: 'steer' | 'interrupt'
   onHandle?: (handle: TurnHandle | null) => void
+}
+
+/** The Core session cannot take this turn: opened by another driver, or closed. Nothing was sent. */
+export class SessionDriverMismatchError extends Error {
+  readonly code: 'session_driver_mismatch' | 'session_closed'
+  constructor(sessionId: string, actual: string | null, expected: string) {
+    super(actual ? `Core session ${sessionId} runs on ${actual}, not ${expected}` : `Session ${sessionId} is closed`)
+    this.name = 'SessionDriverMismatchError'
+    this.code = actual ? 'session_driver_mismatch' : 'session_closed'
+  }
 }
 
 /** The complete session policy sent to Core (`session.update` replaces policy as a whole). */
@@ -214,11 +226,18 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
     try {
       // Open or resume the conversation's Core session, then align its configuration.
       const config = { model: opts?.model, ...(opts?.reasoning_effort ? { effort: String(opts.reasoning_effort) } : {}), ...(opts?.systemPrompt || context.systemPromptAddendum ? { systemPrompt: [opts?.systemPrompt, context.systemPromptAddendum].filter(Boolean).join('\n\n') } : {}), policy: sessionPolicyFor(context) }
-      let snapshot: { lastSeq?: number }
+      let snapshot: { lastSeq?: number; driver?: string; status?: string }
       try {
-        snapshot = (await client.request<{ snapshot: { lastSeq: number } }>('session.open', { resume: { sessionId } })).snapshot
+        snapshot = (await client.request<{ snapshot: { lastSeq: number; driver?: string; status?: string } }>('session.open', { resume: { sessionId } })).snapshot
+        // A Core session keeps the driver it was opened with: never send this
+        // turn (and this provider's model) to another provider's session.
+        if (snapshot?.driver && snapshot.driver !== context.driver) {
+          throw new SessionDriverMismatchError(sessionId, snapshot.driver, context.driver)
+        }
+        if (snapshot?.status === 'closed') throw new SessionDriverMismatchError(sessionId, null, context.driver)
         await client.request('session.update', { sessionId, ...config })
       } catch (error) {
+        if (error instanceof SessionDriverMismatchError) throw error
         if (!isSessionRequestError(error, 'session_not_found')) throw error
         snapshot = (await client.request<{ snapshot: { lastSeq: number } }>('session.open', {
           sessionId,
@@ -244,7 +263,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
       })
       await catchUp()
     } catch (error) {
-      finish(1, { error: error instanceof Error ? error.message : String(error), ...(isSessionRequestError(error) && error.code ? { errorCode: error.code } : {}) })
+      finish(1, { error: error instanceof Error ? error.message : String(error), ...(error instanceof SessionDriverMismatchError ? { errorCode: error.code } : isSessionRequestError(error) && error.code ? { errorCode: error.code } : {}) })
     }
     return done
   }

@@ -33,7 +33,8 @@
     "expand": "展开",
     "collapse": "收起",
     "viewAll": "查看全部",
-    "learnMore": "了解更多"
+    "learnMore": "了解更多",
+    "clear": "清除"
   },
   "states": {
     "loading": "加载中…",
@@ -82,7 +83,10 @@
     "cleanup_incomplete": "清理未完成",
     "status_failed": "worktree 状态检查失败",
     "ref_mismatch": "分支引用不匹配",
-    "restart_pending": "等待工作流恢复"
+    "restart_pending": "等待工作流恢复",
+    "review_changes_requested": "审阅者要求修改",
+    "returned_to_flow": "已退回 Flow",
+    "local_changes_attention": "已集成 — 本地更改需要处理"
   },
   "prRecovery": {
     "inProgress": "项目恢复仍在进行中。你的交付内容是安全的，请稍后重试。",
@@ -129,7 +133,8 @@
     "workspacePath": "代码工作目录",
     "workspaceHint": "可选。每行一个目录，可为绝对路径或相对于仓库的路径。留空则使用仓库目录。Implement、Quick SDD 和 Freestyle 会验证每个列出的目录。",
     "launchWorkspaces": "本次运行的工作目录",
-    "launchWorkspaceHint": "代码更改和测试仅限这些目录。请为每个受影响的仓库至少选择一个工作目录。"
+    "launchWorkspaceHint": "代码更改和测试仅限这些目录。请为每个受影响的仓库至少选择一个工作目录。",
+    "advanced": "多仓库设置"
   },
   "repositoryDelivery": {
     "building": "实现中",
@@ -146,20 +151,155 @@
     "pr_failed": "交付失败"
   },
   "budget": {
-    "exceededProject": "已达到项目每日预算（${{spent}} / ${{budget}}）。未启动任何任务。",
-    "exceededDesktop": "已达到全局每日预算（${{spent}} / ${{budget}}）。未启动任何任务。",
-    "whereProject": "项目设置 ▸ 预算",
-    "whereDesktop": "设置 ▸ 预算",
+    "exceededProject": "已达到项目每日预算（{{spent}} / {{budget}}）。未启动任何任务。",
+    "exceededDesktop": "已达到全局每日预算（{{spent}} / {{budget}}）。未启动任何任务。",
+    "whereProject": "分析 ▸ 预算",
+    "whereDesktop": "分析 ▸ 预算",
     "action": "请在{{where}}中提高或清除预算，或等待每日重置。",
     "actionWithReset": "请在{{where}}中提高或清除预算，或等待重置（{{time}}）。",
-    "pausedProject": "因项目每日预算已暂停（${{spent}} / ${{budget}}）。提高预算后继续。",
-    "pausedDesktop": "因全局每日预算已暂停（${{spent}} / ${{budget}}）。提高预算后继续。",
+    "pausedProject": "因项目每日预算已暂停（{{spent}} / {{budget}}）。提高预算后继续。",
+    "pausedDesktop": "因全局每日预算已暂停（{{spent}} / {{budget}}）。提高预算后继续。",
     "resume": "继续",
-    "stillExceeded": "每日预算仍已用尽。"
+    "stillExceeded": "每日预算仍已用尽。",
+    "exceededRun": "已达到单次运行上限（{{spent}} / {{budget}}）。该运行已暂停。",
+    "pausedRun": "已在单次运行上限处暂停（{{spent}} / {{budget}}）。可取消上限后继续，或调高上限。",
+    "actionRun": "取消上限继续，或调高上限，然后恢复。",
+    "exceededProject_week": "已达到项目每周预算（{{spent}} / {{budget}}）。未启动任何任务。",
+    "exceededProject_month": "已达到项目每月预算（{{spent}} / {{budget}}）。未启动任何任务。",
+    "exceededDesktop_week": "已达到全局每周预算（{{spent}} / {{budget}}）。未启动任何任务。",
+    "exceededDesktop_month": "已达到全局每月预算（{{spent}} / {{budget}}）。未启动任何任务。",
+    "pausedProject_week": "已因项目每周预算暂停（{{spent}} / {{budget}}）。请调高后恢复。",
+    "pausedProject_month": "已因项目每月预算暂停（{{spent}} / {{budget}}）。请调高后恢复。",
+    "pausedDesktop_week": "已因全局每周预算暂停（{{spent}} / {{budget}}）。请调高后恢复。",
+    "pausedDesktop_month": "已因全局每月预算暂停（{{spent}} / {{budget}}）。请调高后恢复。",
+    "whereProject_week": "分析 ▸ 预算",
+    "whereProject_month": "分析 ▸ 预算",
+    "whereDesktop_week": "分析 ▸ 预算",
+    "whereDesktop_month": "分析 ▸ 预算",
+    "stillExceeded_week": "每周预算仍已用尽。",
+    "stillExceeded_month": "每月预算仍已用尽。",
+    "runCap": {
+      "title": "运行已在其上限处暂停",
+      "raise": "调高上限并继续",
+      "continue": "取消上限并继续",
+      "raiseTo": "将上限调高到（USD）",
+      "mustExceed": "必须高于已花费的 {{spent}}"
+    },
+    "raiseCap": "提高上限",
+    "stillExceeded_run": "单次运行上限仍已用尽。"
   },
   "reviewWip": {
     "reached_one": "已达到评审上限:{{count}} 个交付正在等待评审(上限 {{limit}})。未启动任何任务。",
     "reached_other": "已达到评审上限:{{count}} 个交付正在等待评审(上限 {{limit}})。未启动任何任务。",
     "action": "请处理一个待决交付(创建 PR、合并或丢弃),或在项目设置 ▸ 评审上限中提高上限。"
+  },
+  "initialCommit": {
+    "action": "创建初始提交",
+    "creating": "正在创建初始提交…",
+    "createdRelaunch": "已创建初始提交。请再次启动该 Rail。",
+    "errors": {
+      "git_identity_missing": "Git 没有作者身份。请先设置 user.name 和 user.email。",
+      "repository_has_commits": "此仓库已有提交。",
+      "generic": "无法创建初始提交。"
+    }
+  },
+  "loopChip": {
+    "implement": "Implement",
+    "sddQuick": "SDD Quick",
+    "freestyle": "Freestyle",
+    "flowSpec": "Flow 移交",
+    "unknown": "循环",
+    "title": "循环：{{name}}"
+  },
+  "estimated": "估算",
+  "help": {
+    "learnMore": "了解更多",
+    "learnMoreAbout": "了解更多：{{topic}}",
+    "topics": {
+      "themes": "主题与外观",
+      "codeExplorer": "代码浏览器",
+      "integratedTerminal": "集成终端",
+      "agents": "代理",
+      "aiProviders": "AI 提供方",
+      "mcpServer": "MCP 服务器",
+      "mobileCompanion": "手机伴侣应用",
+      "plugins": "插件",
+      "existingProjects": "在现有项目中工作",
+      "projectRules": "项目规则",
+      "updates": "更新",
+      "providerCapabilities": "提供方能力",
+      "projectEnvironment": "项目环境",
+      "telemetry": "流水线遥测",
+      "dailyBudget": "每日预算",
+      "recentlyDeleted": "最近删除的项目",
+      "railLoops": "轨道运行的内容",
+      "flowMode": "Flow",
+      "flowHandOff": "交接 Flow",
+      "contextScope": "上下文滑块",
+      "launchForecast": "启动预估",
+      "loopBuilder": "Loop Builder",
+      "shortcuts": "键盘快捷键",
+      "inbox": "“待处理”列表",
+      "specsBoard": "规格与待办列表",
+      "specTimeline": "规格时间线与交接",
+      "accessibility": "无障碍与个性化",
+      "prDecision": "交付选项"
+    }
+  },
+  "forecast": {
+    "label": "启动预估",
+    "usually": "同类运行通常 {{time}} · {{cost}}",
+    "usuallyTime": "同类运行通常 {{time}}",
+    "minutesRange": "{{low}}–{{high}} 分钟",
+    "minutesSingle": "{{value}} 分钟",
+    "insufficient": "历史记录尚不足",
+    "insufficientHint": "在此项目和引擎上，至少需要 {{count}} 次已完成的同类运行。",
+    "estimateHint": "根据过去 {{count}} 次运行估算 — 不是已计费的费用",
+    "estimateHintCost": "根据过去 {{count}} 次运行估算（费用取自 {{costCount}} 次）— 不是已计费的费用",
+    "budgetCaution": "可能因预算而暂停",
+    "budgetReached": "已达到每日预算",
+    "budgetCautionHint": "今天的花费加上此估算的上限可能达到每日预算。打开预算面板。",
+    "budgetReachedHint": "今天的花费已达到每日预算，在重置或提高预算之前将拒绝启动。打开预算面板。",
+    "perSpec": "每个规格",
+    "budgetReached_week": "已达到每周预算",
+    "budgetReached_month": "已达到每月预算",
+    "budgetReachedHint_week": "本周支出已达到每周预算，因此在重置或调高之前将拒绝启动。打开预算面板。",
+    "budgetReachedHint_month": "本月支出已达到每月预算，因此在重置或调高之前将拒绝启动。打开预算面板。",
+    "budgetCautionHint_week": "本周支出加上此估算的上限，可能会达到每周预算。打开预算面板。",
+    "budgetCautionHint_month": "本月支出加上此估算的上限，可能会达到每月预算。打开预算面板。",
+    "launchBlocked": "此上限已用完，启动将被拒绝。请调高上限或等待重置。",
+    "launchBlocked_week": "本周的上限已用完，启动将被拒绝。请调高上限或等待重置。",
+    "launchBlocked_month": "本月的上限已用完，启动将被拒绝。请调高上限或等待重置。",
+    "raiseCap": "调高上限"
+  },
+  "a11y": {
+    "announce": {
+      "started": "运行已开始",
+      "startedRail": "Rail {{rail}}:运行已开始",
+      "pausedBudget": "运行已暂停:已达支出上限",
+      "pausedLimit": "运行已暂停:已达提供商限额",
+      "needsYou": "有运行需要你处理",
+      "needsYouRail": "Rail {{rail}}:有运行需要你处理",
+      "failed": "运行失败",
+      "failedRail": "Rail {{rail}}:运行失败",
+      "finished": "运行已完成",
+      "finishedRail": "Rail {{rail}}:运行已完成",
+      "stopped": "运行已停止",
+      "stoppedRail": "Rail {{rail}}:运行已停止",
+      "reviewReady": "审阅已就绪",
+      "reviewReadyRail": "Rail {{rail}}:审阅已就绪",
+      "pausedBudgetRail": "Rail {{rail}}:运行已暂停,已达支出上限",
+      "pausedLimitRail": "Rail {{rail}}:运行已暂停,已达提供商限额",
+      "startedSpec": "Rail {{rail}}:#{{id}} 已开始",
+      "finishedSpec": "Rail {{rail}}:#{{id}} 已完成",
+      "failedSpec": "Rail {{rail}}:#{{id}} 失败",
+      "stoppedSpec": "Rail {{rail}}:#{{id}} 已停止",
+      "needsYouSpec": "Rail {{rail}}:#{{id}} 需要你处理",
+      "reviewReadySpec": "Rail {{rail}}:#{{id}} 的审阅已就绪"
+    }
+  },
+  "errors": {
+    "technicalDetails": "技术详情",
+    "copyDetails": "复制详情"
   }
 }

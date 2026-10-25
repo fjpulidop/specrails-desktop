@@ -1,4 +1,5 @@
 import type { JobRow, EventRow, JobStatus } from '../types'
+import { safeIndexJob, safeIndexJobPhase, safeRemoveJobSearch } from './job-search'
 import type { DbInstance, NewJob, QueuedJobRecord, InteractiveTurnUsage, JobResult, AppEvent, ListJobsOpts } from './types'
 
 export function createJob(db: DbInstance, job: NewJob): void {
@@ -15,6 +16,7 @@ export function createJob(db: DbInstance, job: NewJob): void {
     db.prepare('DELETE FROM queued_jobs WHERE id = ?').run(job.id)
   })
   promote()
+  safeIndexJob(db, job.id)
 }
 
 /** Idempotently persist a job that has been admitted but has not started. */
@@ -169,6 +171,7 @@ export function finishJob(
     result.session_id ?? null,
     jobId,
   )
+  safeIndexJob(db, jobId)
 }
 
 export function appendEvent(
@@ -191,6 +194,7 @@ export function upsertPhase(
   db.prepare(
     'INSERT OR REPLACE INTO job_phases (job_id, phase, state, updated_at) VALUES (?, ?, ?, ?)'
   ).run(jobId, phase, state, new Date().toISOString())
+  safeIndexJobPhase(db, jobId, phase)
 }
 
 export function listJobs(
@@ -287,6 +291,7 @@ export function deleteJob(db: DbInstance, jobId: string): void {
     db.prepare('DELETE FROM telemetry_summaries WHERE jobId = ?').run(id)
     db.prepare('DELETE FROM job_profiles WHERE job_id = ?').run(id)
     db.prepare('DELETE FROM file_provenance WHERE job_id = ?').run(id)
+    safeRemoveJobSearch(db, { jobId: id })
     db.prepare('DELETE FROM jobs WHERE id = ?').run(id)
   })
   tx(jobId)
@@ -329,6 +334,7 @@ export function purgeJobs(
     db.prepare(`DELETE FROM telemetry_summaries WHERE jobId IN (${sel})`).run(...params)
     db.prepare(`DELETE FROM job_profiles WHERE job_id IN (${sel})`).run(...params)
     db.prepare(`DELETE FROM file_provenance WHERE job_id IN (${sel})`).run(...params)
+    safeRemoveJobSearch(db, { selectIds: sel, params })
     // Clear inbound FK references from NON-purged jobs to purged jobs.
     db.prepare(`UPDATE jobs SET depends_on_job_id = NULL WHERE depends_on_job_id IN (${sel})`).run(...params)
     return db.prepare(`DELETE FROM jobs WHERE ${where}`).run(...params).changes

@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor, act } from '../../../../test-utils'
+const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn() }))
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), toast), Toaster: () => null }))
 import { AgentRuntimeRuns } from '../AgentRuntimeRuns'
 
 const run = (overrides = {}) => ({ runId: 'run-1', status: 'paused', nextStep: 'archive', canResume: true, canCancel: false, active: false, recoverableSteps: [], ...overrides })
 const response = (data: unknown, ok = true) => ({ ok, json: async () => data }) as Response
-beforeEach(() => { vi.clearAllMocks(); global.fetch = vi.fn().mockResolvedValue(response({ runs: [] })) })
+beforeEach(() => { vi.clearAllMocks(); Object.values(toast).forEach((f) => f.mockClear()); global.fetch = vi.fn().mockResolvedValue(response({ runs: [] })) })
 
 describe('AgentRuntimeRuns', () => {
   it('recovers v2 through the definition lifecycle with exact attempt IDs', async () => {
@@ -101,16 +103,24 @@ describe('AgentRuntimeRuns', () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValueOnce(response({}, false))
     render(<AgentRuntimeRuns projectId="p1" />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load saved executions')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load saved runs')
     vi.mocked(fetch).mockResolvedValueOnce(response({ runs: [run()] }))
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     await screen.findByRole('button', { name: 'Resume' })
     vi.mocked(fetch).mockResolvedValueOnce(response({ message: 'Original worktree is unavailable' }, false))
     await user.click(screen.getByRole('button', { name: 'Resume' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Original worktree is unavailable')
+    // An action failure is a toast with a localized headline, never the load banner.
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+    expect(toast.error).toHaveBeenLastCalledWith('Could not update this run.', expect.objectContaining({ description: 'Original worktree is unavailable', action: expect.objectContaining({ label: 'Retry' }) }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // Retry repeats the ACTION (a second resume POST), not a list reload.
+    const retry = toast.error.mock.calls[0][1].action.onClick as () => void
+    vi.mocked(fetch).mockClear()
     vi.mocked(fetch).mockResolvedValueOnce(response({}, false))
-    await user.click(screen.getByRole('button', { name: 'Resume' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not update this execution')
+    act(() => retry())
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/run-1/resume', expect.objectContaining({ method: 'POST' })))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(2))
+    expect(toast.error).toHaveBeenLastCalledWith('Could not update this run.', expect.not.objectContaining({ description: expect.anything() }))
   })
 
   it('recovers an interrupted approved archive before presenting another approval action', async () => {
@@ -142,7 +152,7 @@ describe('AgentRuntimeRuns', () => {
     await user.type(screen.getByLabelText('Your answer'), 'Retry')
     vi.mocked(fetch).mockResolvedValueOnce(response({ error: 'answer_required', message: 'Answer first' }, false))
     await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Answer first')
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not update this run.', expect.objectContaining({ description: 'Answer first' })))
     expect(screen.getByLabelText('Your answer')).toHaveValue('Retry')
     // An interrupted answer step is recovered before asking again.
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'interrupted', recoverableSteps: ['architect'], pendingQuestion: question })] }))
@@ -155,7 +165,7 @@ describe('AgentRuntimeRuns', () => {
     let finish!: (value: Response) => void
     vi.mocked(fetch).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
     const view = render(<AgentRuntimeRuns projectId="p1" />)
-    expect(screen.getByText('No saved runtime executions.')).toBeInTheDocument()
+    expect(screen.getByText('No saved runtime runs.')).toBeInTheDocument()
     view.unmount()
     await act(async () => finish(response({ runs: [run()] })))
     render(<AgentRuntimeRuns projectId="p2" />)

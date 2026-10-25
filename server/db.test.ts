@@ -418,6 +418,70 @@ describe('db', () => {
       }
     })
 
+    it('migration 81 rebuilds flow_sessions with a closed state, preserving rows, columns and indexes', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-flow-closed-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        // The pre-81 shape: migration 74's CHECK plus the columns of 78-80.
+        db.exec(`
+          DROP TABLE flow_sessions;
+          CREATE TABLE flow_sessions (
+            id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, ticket_id INTEGER,
+            state TEXT NOT NULL CHECK (state IN ('active','paused','handed_off','delivered','discarded','needs-review')),
+            branch TEXT, worktree_path TEXT, base_sha TEXT, head_sha TEXT, core_session_id TEXT, rail_index INTEGER, delivery_id TEXT,
+            step TEXT CHECK (step IS NULL OR step IN ('start:ticket','start:worktree','start:session','handoff:freeze','handoff:launch')),
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL, return_briefing TEXT, derived_changes TEXT, repository_id TEXT
+          );
+        `)
+        db.prepare(`INSERT INTO flow_sessions (id, conversation_id, ticket_id, state, branch, worktree_path, delivery_id, step, created_at, updated_at, return_briefing, derived_changes, repository_id)
+          VALUES ('f1', 'c1', 7, 'paused', 'flow/7', '/wt/f1', 'd1', NULL, 't1', 't2', 'brief', '["chg"]', 'repo-b')`).run()
+        db.prepare("INSERT INTO flow_sessions (id, conversation_id, state, created_at, updated_at) VALUES ('f2', 'c2', 'needs-review', 't', 't')").run()
+        expect(() => db.prepare("INSERT INTO flow_sessions (id, conversation_id, state, created_at, updated_at) VALUES ('x', 'c3', 'closed', 't', 't')").run()).toThrow(/CHECK/)
+        db.prepare('DELETE FROM schema_migrations WHERE version = 81').run()
+        db.close(); db = initDb(dbPath)
+
+        expect(db.prepare("SELECT * FROM flow_sessions WHERE id = 'f1'").get()).toEqual(expect.objectContaining({
+          conversation_id: 'c1', ticket_id: 7, state: 'paused', branch: 'flow/7', worktree_path: '/wt/f1', delivery_id: 'd1',
+          created_at: 't1', updated_at: 't2', return_briefing: 'brief', derived_changes: '["chg"]', repository_id: 'repo-b',
+        }))
+        db.prepare("UPDATE flow_sessions SET state = 'closed' WHERE id = 'f2'").run()
+        expect(db.prepare("SELECT state FROM flow_sessions WHERE id = 'f2'").get()).toEqual({ state: 'closed' })
+        expect(() => db.prepare("INSERT INTO flow_sessions (id, conversation_id, state, created_at, updated_at) VALUES ('y', 'c1', 'active', 't', 't')").run()).toThrow(/UNIQUE/)
+        expect(() => db.prepare("UPDATE flow_sessions SET state = 'flying' WHERE id = 'f2'").run()).toThrow(/CHECK/)
+        const indexes = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'flow_sessions'").all() as Array<{ name: string }>).map((row) => row.name)
+        expect(indexes).toEqual(expect.arrayContaining(['idx_flow_sessions_open_conversation', 'idx_flow_sessions_conversation', 'idx_flow_sessions_ticket', 'idx_flow_sessions_delivery']))
+        expect(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'flow_sessions_v81'").get()).toEqual({ n: 0 })
+        // Restart-safe: rerunning the rebuild keeps everything.
+        db.prepare('DELETE FROM schema_migrations WHERE version = 81').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare('SELECT COUNT(*) AS n FROM flow_sessions').get()).toEqual({ n: 2 })
+        expect(db.prepare("SELECT state FROM flow_sessions WHERE id = 'f2'").get()).toEqual({ state: 'closed' })
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('migration 82 adds the nullable spec_origin of a Flow (existing spec) and is restart-safe', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-flow-origin-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.prepare("INSERT INTO flow_sessions (id, conversation_id, state, created_at, updated_at) VALUES ('old', 'c1', 'paused', 't', 't')").run()
+        db.exec('ALTER TABLE flow_sessions DROP COLUMN spec_origin')
+        db.prepare('DELETE FROM schema_migrations WHERE version = 82').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare("SELECT spec_origin FROM flow_sessions WHERE id = 'old'").get()).toEqual({ spec_origin: null })
+        db.prepare("INSERT INTO flow_sessions (id, conversation_id, state, spec_origin, created_at, updated_at) VALUES ('new', 'c2', 'active', 'existing', 't', 't')").run()
+        expect(() => db.prepare("UPDATE flow_sessions SET spec_origin = 'other' WHERE id = 'new'").run()).toThrow(/CHECK/)
+        db.prepare('DELETE FROM schema_migrations WHERE version = 82').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare("SELECT spec_origin FROM flow_sessions WHERE id = 'new'").get()).toEqual({ spec_origin: 'existing' })
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 71 adds nullable relaunch options without changing historical rows and is restart-safe', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-relaunch-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')

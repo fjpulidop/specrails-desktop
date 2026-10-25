@@ -3,10 +3,10 @@ import { ChevronRight, Split } from 'lucide-react'
 import type { LocalTicket, TicketPriority } from '../../../../types'
 
 const PRIORITY_DOT: Record<TicketPriority, string> = {
-  critical: 'bg-red-400',
-  high: 'bg-orange-400',
-  medium: 'bg-yellow-400',
-  low: 'bg-slate-400',
+  critical: 'bg-destructive',
+  high: 'bg-accent-warning',
+  medium: 'bg-accent-warning/60',
+  low: 'bg-muted-foreground/60',
 }
 
 export interface EpicChildrenSectionProps {
@@ -36,7 +36,7 @@ export function EpicChildrenSection({ epicId, allTickets, onOpenChild }: EpicChi
   if (children.length === 0) {
     return (
       <div
-        className="rounded-md border border-dashed border-border/40 bg-muted/10 px-3 py-2 text-xs text-foreground/60"
+        className="rounded-md border border-dashed border-border/40 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
         data-testid="epic-children-empty"
       >
         {t('epicChildren.empty')}
@@ -46,7 +46,7 @@ export function EpicChildrenSection({ epicId, allTickets, onOpenChild }: EpicChi
 
   return (
     <div className="rounded-md border border-accent-highlight/40 bg-accent-highlight/5 px-3 py-2" data-testid="epic-children-section">
-      <div className="flex items-center gap-2 text-xs font-medium text-foreground mb-2">
+      <div className="flex items-center gap-2 text-label text-foreground mb-2">
         <Split className="w-3.5 h-3.5 text-accent-highlight" aria-hidden />
         <span>{t('epicChildren.header', { count: children.length })}</span>
       </div>
@@ -59,7 +59,7 @@ export function EpicChildrenSection({ epicId, allTickets, onOpenChild }: EpicChi
               className="w-full flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/30 transition-colors text-left"
               data-testid={`epic-child-row-${child.id}`}
             >
-              <span className="text-[10px] text-foreground/50 tabular-nums w-6 flex-shrink-0">
+              <span className="text-caption text-muted-foreground tabular-nums w-6 flex-shrink-0">
                 {child.execution_order ?? '–'}
               </span>
               <span
@@ -69,7 +69,7 @@ export function EpicChildrenSection({ epicId, allTickets, onOpenChild }: EpicChi
                 aria-hidden
               />
               <span className="flex-1 text-xs text-foreground truncate">{child.title}</span>
-              <ChevronRight className="w-3.5 h-3.5 text-foreground/40 flex-shrink-0" aria-hidden />
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" aria-hidden />
             </button>
           </li>
         ))}
@@ -104,7 +104,7 @@ export function EpicBreadcrumb({ epic, childExecutionOrder, totalChildren, onOpe
         ← {epic.title}
       </button>
       {childExecutionOrder != null && totalChildren > 0 && (
-        <span className="text-foreground/60">
+        <span className="text-muted-foreground">
           {t('epicChildren.step', { order: childExecutionOrder, total: totalChildren })}
         </span>
       )}

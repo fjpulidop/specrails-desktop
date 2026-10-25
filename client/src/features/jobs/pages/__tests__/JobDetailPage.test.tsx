@@ -110,7 +110,7 @@ describe('JobDetailPage', () => {
   it('shows loading state initially', () => {
     global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
     const { container } = render(<JobDetailPage />)
-    const pulseElements = container.querySelectorAll('.animate-pulse')
+    const pulseElements = container.querySelectorAll('[class*="animate-pulse"]')
     expect(pulseElements.length).toBeGreaterThan(0)
   })
 
@@ -132,18 +132,19 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
   })
 
-  it('shows breadcrumb with job id', async () => {
+  it('shows a humanised breadcrumb and keeps the job id in its tooltip', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ job: mockJob, events: mockEvents }),
+      json: async () => ({ job: { ...mockJob, command: '/specrails:implement #15' }, events: mockEvents }),
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByText(/Job #job-abc1/i)).toBeInTheDocument()
+      const crumb = screen.getByText('Implement · #15', { selector: '[aria-current="page"]' })
+      expect(crumb).toHaveAttribute('title', expect.stringMatching(/Job #job-abc1/i))
     })
   })
 
@@ -277,7 +278,7 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Jobs/i })).toBeInTheDocument()
     })
   })
 
@@ -288,7 +289,7 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Re-execute/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Run again/i })).toBeInTheDocument()
     })
   })
 
@@ -300,8 +301,29 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Re-execute/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Run again/i })).toBeInTheDocument()
     })
+  })
+
+  it('offers "Run again" once, in the diagnosis card, when a failed job has a diagnosis with the retry remedy', async () => {
+    const diagnosis = { kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: null, blocker: null, source: 'desktop', remedies: ['retry', 'open-logs'] }
+    const failedJob = { ...mockJob, status: 'failed' as const, failureDiagnosis: diagnosis }
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: failedJob, events: [] }) })
+    render(<JobDetailPage />)
+    const card = await screen.findByTestId('failure-diagnosis-card')
+    expect(screen.getAllByRole('button', { name: /Run again/i })).toHaveLength(1)
+    expect(card).toContainElement(screen.getByRole('button', { name: /Run again/i }))
+  })
+
+  it('keeps the header "Run again" when the diagnosis does not offer the retry', async () => {
+    const diagnosis = { kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: null, blocker: null, source: 'desktop', remedies: ['open-logs'] }
+    const failedJob = { ...mockJob, status: 'failed' as const, failureDiagnosis: diagnosis }
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: failedJob, events: [] }) })
+    render(<JobDetailPage />)
+    const card = await screen.findByTestId('failure-diagnosis-card')
+    const buttons = screen.getAllByRole('button', { name: /Run again/i })
+    expect(buttons).toHaveLength(1)
+    expect(card).not.toContainElement(buttons[0])
   })
 
   it('does not show Re-execute button for running jobs', async () => {
@@ -314,7 +336,7 @@ describe('JobDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
     })
-    expect(screen.queryByRole('button', { name: /Re-execute/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Run again/i })).not.toBeInTheDocument()
   })
 
   it('Re-execute spawns new job and navigates to new job detail', async () => {
@@ -325,10 +347,10 @@ describe('JobDetailPage', () => {
 
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Re-execute/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Run again/i })).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: /Re-execute/i }))
+    await user.click(screen.getByRole('button', { name: /Run again/i }))
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/spawn',
@@ -357,7 +379,7 @@ describe('JobDetailPage', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'kimi-rerun' }) })
 
     render(<JobDetailPage />)
-    await user.click(await screen.findByRole('button', { name: /Re-execute/i }))
+    await user.click(await screen.findByRole('button', { name: /Run again/i }))
 
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[1] as [string, RequestInit]
     const payload = JSON.parse(String(init.body)) as Record<string, unknown>
@@ -375,7 +397,7 @@ describe('JobDetailPage', () => {
       .mockImplementationOnce(() => pendingSpawn)
 
     render(<JobDetailPage />)
-    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    const button = await screen.findByRole('button', { name: /Run again/i })
     fireEvent.click(button)
     fireEvent.click(button)
 
@@ -393,7 +415,7 @@ describe('JobDetailPage', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'new-job-2' }) })
 
     render(<JobDetailPage />)
-    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    const button = await screen.findByRole('button', { name: /Run again/i })
     await user.click(button)
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-1'))
     await user.click(button)

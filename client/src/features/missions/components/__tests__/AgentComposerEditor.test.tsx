@@ -30,6 +30,39 @@ function mount(value = 'implementemos el #1 después', references = [reference(1
 }
 
 describe('AgentComposerEditor', () => {
+  it('normalizes an editor that only holds line breaks to empty so the placeholder returns', () => {
+    const { box, onChange } = mount('hola', [])
+    // What Chromium leaves after select-all + Delete in some states: empty
+    // blocks that read as "\n" although nothing is visible.
+    box.innerHTML = '<div><br></div><div><br></div>'
+    fireEvent.input(box)
+    expect(onChange).toHaveBeenLastCalledWith('', [], 0)
+    expect(box).toHaveAttribute('data-empty', 'true')
+    expect(box.childNodes).toHaveLength(0)
+  })
+
+  it('keeps a real multi-line draft (text around the line breaks) untouched', () => {
+    const { box, onChange } = mount('hola', [])
+    box.innerHTML = 'uno<div>dos</div>'
+    fireEvent.input(box)
+    expect(onChange).toHaveBeenLastCalledWith('uno\ndos', [], expect.any(Number))
+    expect(box).toHaveAttribute('data-empty', 'false')
+  })
+
+  it('exposes a stable accessible name and the palette combobox wiring', () => {
+    const props = { references: [], onChange: vi.fn(), onSelect: vi.fn(), onKeyDown: vi.fn(), onPaste: vi.fn() }
+    const { rerender } = render(<AgentComposerEditor {...props} value="" placeholder="Which mission?" ariaLabel="Message to the agent" />)
+    const box = screen.getByRole('textbox', { name: 'Message to the agent' })
+    expect(box).toHaveAttribute('data-placeholder', 'Which mission?')
+    expect(box).toHaveAttribute('aria-autocomplete', 'list')
+    expect(box).toHaveAttribute('aria-expanded', 'false')
+    expect(box).not.toHaveAttribute('aria-activedescendant')
+    rerender(<AgentComposerEditor {...props} value="@" placeholder="Which mission?" ariaLabel="Message to the agent" ariaExpanded ariaControls="palette-1" ariaActiveDescendant="palette-1-opt-2" />)
+    expect(box).toHaveAttribute('aria-expanded', 'true')
+    expect(box).toHaveAttribute('aria-controls', 'palette-1')
+    expect(box).toHaveAttribute('aria-activedescendant', 'palette-1-opt-2')
+  })
+
   it('does not resurrect sent text when composition ends after an external clear', () => {
     const onChange = vi.fn()
     const props = { references: [], onChange, onSelect: vi.fn(), onKeyDown: vi.fn(), onPaste: vi.fn() }

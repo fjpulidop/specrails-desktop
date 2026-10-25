@@ -52,6 +52,9 @@ describe('ProjectErrorBoundary', () => {
       </ProjectErrorBoundary>
     )
     expect(screen.getByText('Test render error')).toBeInTheDocument()
+    // The raw message sits behind a collapsed "Technical details" disclosure.
+    expect(screen.getByText('Test render error').closest('details')).not.toBeNull()
+    expect(screen.getByText('Technical details')).toBeInTheDocument()
   })
 
   it('renders Retry button when error occurs', () => {

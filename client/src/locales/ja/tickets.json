@@ -6,7 +6,7 @@
     "low": "低"
   },
   "ticketStatus": {
-    "todo": "Todo",
+    "todo": "未着手",
     "inProgress": "進行中",
     "done": "完了",
     "cancelled": "キャンセル",
@@ -27,22 +27,22 @@
     "priority": "優先度",
     "labels": "ラベル",
     "markdownPlaceholder": "Markdown で説明...",
-    "supportsMarkdown": "Markdown 対応"
+    "supportsMarkdown": "Markdown 対応",
+    "removeLabel": "ラベル {{label}} を削除"
   },
   "meta": {
     "createdAgo": "{{time}}に作成",
     "updatedAgo": "{{time}}に更新"
   },
   "untitled": "無題",
-  "deleteDialog": {
-    "title": "チケットを削除",
-    "body": "<strong>#{{id}} {{title}}</strong> を削除してもよろしいですか？この操作は元に戻せません。"
-  },
   "detailModal": {
+    "moreActions": "その他の操作",
+    "openReview": "レビューを開く",
+    "viewJob": "ジョブを表示",
     "toast": {
-      "updated": "チケットを更新しました",
-      "updateFailed": "チケットの更新に失敗しました",
-      "deleteFailed": "チケットの削除に失敗しました"
+      "updated": "スペックを更新しました",
+      "updateFailed": "スペックの更新に失敗しました",
+      "deleteFailed": "スペックの削除に失敗しました"
     },
     "compare": "比較",
     "compareTooltip": "別のスペックと比較",
@@ -54,7 +54,8 @@
     "effort": "工数",
     "assignee": "担当者",
     "continueEditing": "編集を続ける",
-    "ticketFallbackLabel": "チケット #{{id}}"
+    "ticketFallbackLabel": "スペック #{{id}}",
+    "spendingLineHint": "これまでにこのスペックで使った内容: 合計コスト · エージェントのターン数（末尾の + は一部の実行がターン数を報告しなかったことを示します）· アクティブ時間 · 種類別の実行数（例:「1 quick, 3 loops」= Quick によるスペック生成 1 回とループ実行 3 回）。クリックすると Analytics で開きます。"
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -68,8 +69,8 @@
     "noRails": "利用可能なレールがありません。"
   },
   "contextMenu": {
-    "ariaLabel": "チケット操作",
-    "deleteTicket": "チケットを削除",
+    "ariaLabel": "スペック操作",
+    "deleteTicket": "スペックを削除",
     "changeStatus": "ステータスを変更",
     "statusOptions": "ステータスオプション",
     "setPriority": "優先度を設定",
@@ -81,15 +82,16 @@
     "postit": "付箋表示"
   },
   "createModal": {
-    "title": "チケットを作成",
-    "titlePlaceholder": "チケットのタイトル...",
+    "title": "スペックを作成",
+    "titlePlaceholder": "スペックのタイトル...",
     "labelsPlaceholder": "入力してラベルを追加...",
     "create": "作成",
     "creating": "作成中...",
     "toast": {
-      "created": "チケットを作成しました",
-      "createFailed": "チケットの作成に失敗しました"
-    }
+      "created": "スペックを作成しました",
+      "createFailed": "スペックの作成に失敗しました"
+    },
+    "description": "スペックを手動でボードに追加します。選択したステータスから始まり、後で改善したりレールへ移動したりできます。"
   },
   "comparePicker": {
     "title": "比較対象を選択…",
@@ -99,21 +101,23 @@
     "empty": "比較できる他のスペックはありません"
   },
   "spendingLine": {
-    "ariaLabel": "アナリティクスでチケットの支出を表示",
-    "turns_one": "{{count}} ターン",
-    "turns_other": "{{count}} ターン",
+    "ariaLabel": "アナリティクスでスペックの支出を表示",
+    "turns_one": "エージェント {{count}} ターン",
+    "turns_other": "エージェント {{count}} ターン",
+    "turnsAtLeast_one": "エージェント {{count}}+ ターン",
+    "turnsAtLeast_other": "エージェント {{count}}+ ターン",
     "active": "アクティブ {{duration}}",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "ローカルの料金表からの推定値 — このプロバイダーはコストをネイティブに報告しません。",
-    "costUnavailableTooltip": "このチケットの呼び出しではコストのテレメトリが提供されませんでした。",
+    "costUnavailableTooltip": "このスペックの呼び出しではコストのテレメトリが提供されませんでした。",
     "costPartiallyUnavailableTooltip": "既知のコスト小計のみです。一部の呼び出しではコストのテレメトリが提供されませんでした。",
-    "turnsUnavailableTooltip": "このチケットではターンのテレメトリを利用できません。",
+    "turnsUnavailableTooltip": "このスペックではターンのテレメトリを利用できません。",
     "turnsPartiallyUnavailableTooltip": "既知のターン小計のみです。一部の呼び出しではターンのテレメトリが提供されませんでした。"
   },
   "toasts": {
-    "newTicket": "新しいチケット: {{title}}",
-    "newTicketsAdded_one": "プロダクトディスカバリーから {{count}} 件の新しいチケットを追加しました",
-    "newTicketsAdded_other": "プロダクトディスカバリーから {{count}} 件の新しいチケットを追加しました"
+    "newTicket": "新しいスペック: {{title}}",
+    "newTicketsAdded_one": "プロダクトディスカバリーから {{count}} 件の新しいスペックを追加しました",
+    "newTicketsAdded_other": "プロダクトディスカバリーから {{count}} 件の新しいスペックを追加しました"
   },
   "addenda": {
     "title": "補足",
@@ -187,5 +191,137 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "不明な納品（{{id}}）"
+  },
+  "nonGoals": {
+    "title": "対象外",
+    "ariaLabel": "対象外（1行に1項目）",
+    "placeholder": "このスペックで意図的に変更・提供しないこと（1行に1項目）",
+    "onePerLine": "1行に1項目",
+    "add": "このスペックの対象外を追加"
+  },
+  "split": {
+    "label": "スペックを比較",
+    "resize": "パネルのサイズを変更"
+  },
+  "timeline": {
+    "tabs": {
+      "aria": "スペックのセクション",
+      "details": "詳細",
+      "timeline": "タイムライン"
+    },
+    "filters": {
+      "aria": "種類で絞り込み"
+    },
+    "kinds": {
+      "spec_edit": "スペック",
+      "addendum": "補足",
+      "mission_turn": "ミッション",
+      "job": "実行",
+      "phase": "フェーズ",
+      "audit": "エージェント操作",
+      "pr_event": "PR",
+      "review": "レビュー"
+    },
+    "loading": "タイムラインを読み込み中…",
+    "error": "タイムラインを読み込めませんでした。",
+    "retry": "再試行",
+    "loadMore": "古い項目を表示",
+    "empty": {
+      "title": "このスペックにはまだ何も起きていません",
+      "description": "編集、補足、ミッション、実行、PR イベント、レビューの判定が発生するたびにここに表示されます。",
+      "filtered": "この種類の項目はありません。",
+      "refresh": "更新"
+    },
+    "today": "今日",
+    "yesterday": "昨日",
+    "expand": "詳細を表示",
+    "collapse": "詳細を隠す",
+    "actors": {
+      "user": "あなた",
+      "mcp": "外部クライアント",
+      "system": "システム",
+      "agent": "エージェント"
+    },
+    "tone": {
+      "failure": "失敗",
+      "review": "要レビュー",
+      "ok": "完了"
+    },
+    "events": {
+      "spec_created": "スペックを作成",
+      "spec_updated": "スペックを編集",
+      "spec_comment": "コメントを追加",
+      "spec_ai_ai-edit": "AI で編集",
+      "spec_ai_quick-spec": "Quick で生成",
+      "spec_ai_smash": "サブスペックに分割",
+      "spec_ai_triage": "トリアージ済み",
+      "spec_ai_spec-launcher": "AI で起動",
+      "addendum_created": "補足を追加",
+      "addendum_applied": "補足を適用",
+      "addendum_in_flight": "補足を実行中",
+      "addendum_dismissed": "補足を破棄",
+      "job_run": "実行",
+      "pr_delivery_started": "デリバリー開始",
+      "pr_ready_for_review": "レビュー待ち",
+      "pr_published": "プルリクエストを公開",
+      "pr_merged": "マージ済み",
+      "pr_failed": "デリバリー失敗",
+      "pr_discarded": "デリバリーを破棄",
+      "pr_superseded": "デリバリーを置換",
+      "review_approved": "レビュアーが承認",
+      "review_changes_requested": "レビュアーが変更を依頼",
+      "review_failed": "検証失敗",
+      "review_recorded": "レビューを記録",
+      "mission_turns_one": "ミッション {{count}} ターン",
+      "mission_turns_other": "ミッション {{count}} ターン",
+      "phase_group_one": "{{count}} フェーズ",
+      "phase_group_other": "{{count}} フェーズ",
+      "audit_group_one": "エージェント操作 {{count}} 件",
+      "audit_group_other": "エージェント操作 {{count}} 件"
+    },
+    "phaseFailed": "{{count}} 件失敗",
+    "findings_one": "指摘 {{count}} 件",
+    "findings_other": "指摘 {{count}} 件",
+    "cost": {
+      "billed": "{{amount}}",
+      "estimated": "約 {{amount}}（推定）",
+      "billedTitle": "プロバイダーが報告",
+      "estimatedTitle": "ローカルの料金表からの推定で、請求額ではありません",
+      "turns_one": "{{count}} ターン",
+      "turns_other": "{{count}} ターン"
+    },
+    "links": {
+      "mission": "ミッションを開く",
+      "job": "実行を開く",
+      "review": "レビューを開く",
+      "pr": "プルリクエストを開く",
+      "spec": "このスペック"
+    },
+    "export": {
+      "menu": "引き継ぎをエクスポート",
+      "markdown": "引き継ぎ（Markdown）",
+      "html": "引き継ぎ（HTML）",
+      "copyPr": "PR の説明としてコピー",
+      "saved": "#{{id}} の引き継ぎを保存しました",
+      "copied": "#{{id}} の PR 説明をコピーしました",
+      "failed": "引き継ぎを作成できませんでした。",
+      "copyFailed": "クリップボードにコピーできませんでした。",
+      "redacted_one": "機密に見える値を {{count}} 件伏せました。",
+      "redacted_other": "機密に見える値を {{count}} 件伏せました。"
+    },
+    "agentRoles": {
+      "reviewer": "レビュアー",
+      "loop": "レール",
+      "triage": "トリアージ",
+      "quick-spec": "クイックスペック",
+      "explore-spec": "探索",
+      "mission": "ミッション",
+      "job": "ジョブ",
+      "ai-edit": "AI 編集",
+      "smash": "分割",
+      "spec-launcher": "スペック起動",
+      "chat-sidebar": "チャット",
+      "flow": "Flow"
+    }
   }
 }

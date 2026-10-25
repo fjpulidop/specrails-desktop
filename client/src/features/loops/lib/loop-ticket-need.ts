@@ -1,4 +1,4 @@
-import type { LoopGraph } from './loops-api'
+import type { LoopDefinition, LoopGraph } from './loops-api'
 
 /**
  * Whether a loop "needs a ticket" — it references a `{{spec.*}}` token or one of
@@ -21,4 +21,13 @@ export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
     if (SPEC_TOKEN.test(text) || TICKET_CMD.test(text)) return true
   }
   return Object.values(graph.components ?? {}).some(component => loopNeedsTicket(component))
+}
+
+/**
+ * The user's own loops a rail can run: published, spec-consuming, and not one of the
+ * seeded rows that mirror a built-in (`builtinId`), which pickers already list as
+ * built-ins — including them shows e.g. "Freestyle" twice.
+ */
+export function railRunnableCustomLoops(loops: LoopDefinition[]): LoopDefinition[] {
+  return loops.filter((l) => !l.builtinId && l.status === 'published' && loopNeedsTicket(l.graph))
 }

@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen } from '../../../../test-utils'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '../../../../test-utils'
+import { resetLaunchForecastCache } from '../../../../lib/launch-forecast'
 import { SpendingHero } from '../SpendingHero'
 import type { SpendingResponse } from '../../types/spending'
 
@@ -22,7 +23,7 @@ const baseData: SpendingResponse = {
 describe('SpendingHero', () => {
   it('renders skeleton when loading and no data', () => {
     const { container } = render(<SpendingHero data={null} loading />)
-    expect(container.querySelector('.animate-pulse')).toBeTruthy()
+    expect(container.querySelector('[data-skeleton]')).toBeTruthy()
   })
 
   it('renders empty state when no runs', () => {
@@ -119,39 +120,17 @@ describe('SpendingHero', () => {
     expect(screen.getByText('File summaries')).toBeInTheDocument()
   })
 
-  describe('HIGH-9 · count-up race', () => {
-    afterEach(() => vi.restoreAllMocks())
-
-    it('cancels the in-flight count-up so a fresher total is never overwritten by the stale frame', () => {
-      const rafCallbacks: Array<(t: number) => void> = []
-      let nextId = 1
-      const cancelled: number[] = []
-      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-        rafCallbacks.push(cb as (t: number) => void)
-        return nextId++
-      })
-      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
-        cancelled.push(id as number)
-      })
-
-      const dataA: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 28 } }
-      const dataB: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 40 } }
-
-      const { rerender } = render(<SpendingHero data={dataA} loading={false} />)
-      // First non-zero arrival scheduled a count-up frame (not yet run).
-      expect(rafCallbacks.length).toBe(1)
-
-      // Fresh data lands mid-animation.
-      rerender(<SpendingHero data={dataB} loading={false} />)
-      // The scheduled stale frame was cancelled and the headline reflects $40.
-      expect(cancelled).toContain(1)
+  describe('honest first paint', () => {
+    it('never renders a $0.00 placeholder before the real total: skeleton, then the figure', () => {
+      const { rerender, container } = render(<SpendingHero data={null} loading={true} />)
+      expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
+      expect(container.textContent).not.toMatch(/\$/)
+      const data: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 40 } }
+      rerender(<SpendingHero data={data} loading={false} />)
       expect(screen.getByText('$40.00')).toBeInTheDocument()
-
-      // Even if the stale frame still fires, the generation guard must abandon
-      // it so it cannot write $28 back over the fresh total.
-      rafCallbacks[0](1_000_000)
-      expect(screen.getByText('$40.00')).toBeInTheDocument()
-      expect(screen.queryByText('$28.00')).not.toBeInTheDocument()
+      const fresher: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 41 } }
+      rerender(<SpendingHero data={fresher} loading={false} />)
+      expect(screen.getByText('$41.00')).toBeInTheDocument()
     })
   })
 
@@ -180,5 +159,40 @@ describe('SpendingHero', () => {
     render(<SpendingHero data={data} loading={false} />)
     // The unknown surface is still itemised (neutral fallback label = raw id).
     expect(screen.getByText('future-surface')).toBeInTheDocument()
+  })
+
+  describe('plan-billed periods', () => {
+    const planData: SpendingResponse = { ...baseData, byProvider: [{ provider: 'claude', count: 42, costUsd: 12.34, estimatedCostUsd: 0 } as never] }
+    const mockUsage = (providers: unknown[] | null) => {
+      global.fetch = vi.fn(async () => ({ ok: providers !== null, json: async () => ({ providers }) })) as never
+    }
+    beforeEach(() => resetLaunchForecastCache())
+
+    it('labels the dollar figure as an API-equivalent estimate when every provider is plan-billed', async () => {
+      mockUsage([{ providerId: 'claude', availability: 'available', plan: 'max', windows: [], spend: null }])
+      render(<SpendingHero data={planData} loading={false} />)
+      expect(await screen.findByTestId('hero-api-equivalent')).toHaveTextContent('API-equivalent estimate')
+    })
+
+    it('stays quiet for metered (API-key) billing', async () => {
+      mockUsage([{ providerId: 'claude', availability: 'unsupported-auth', plan: null, windows: [], spend: null }])
+      render(<SpendingHero data={planData} loading={false} />)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+      expect(screen.queryByTestId('hero-api-equivalent')).not.toBeInTheDocument()
+    })
+
+    it('does not guess when the billing snapshot is unavailable', async () => {
+      mockUsage(null)
+      render(<SpendingHero data={planData} loading={false} />)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+      expect(screen.queryByTestId('hero-api-equivalent')).not.toBeInTheDocument()
+    })
+  })
+
+  it('formats token counts with the active locale instead of raw "5424.9k"', () => {
+    const data: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalTokens: 5_424_900 } }
+    render(<SpendingHero data={data} loading={false} />)
+    expect(screen.getByText(/5\.4M/)).toBeInTheDocument()
+    expect(screen.queryByText(/5424/)).not.toBeInTheDocument()
   })
 })

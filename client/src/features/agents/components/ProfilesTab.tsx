@@ -16,6 +16,7 @@ import {
   type ProviderProfileCatalog,
 } from './types'
 
+import { notifyError } from '../../../lib/notify-error'
 const FALLBACK_CATALOG: ProviderProfileCatalog = {
   models: MODEL_ALIASES.map((value) => ({ value, label: value })),
   defaultModel: 'sonnet',
@@ -167,7 +168,7 @@ export function ProfilesTab() {
     } catch (e) {
       const message = (e as Error).message
       setError(message)
-      toast.error(t('profiles.toasts.migrationFailed'), { description: message })
+      notifyError(t('profiles.toasts.migrationFailed'), { detail: message })
     } finally {
       setSaving(false)
     }
@@ -198,7 +199,7 @@ export function ProfilesTab() {
       } catch (e) {
         const message = (e as Error).message
         setError(message)
-        toast.error(t('profiles.toasts.createFailed'), { description: message })
+        notifyError(t('profiles.toasts.createFailed'), { detail: message })
       } finally {
         setSaving(false)
       }
@@ -232,7 +233,7 @@ export function ProfilesTab() {
       } catch (e) {
         const message = (e as Error).message
         setError(message)
-        toast.error(t('profiles.toasts.duplicateFailed'), { description: message })
+        notifyError(t('profiles.toasts.duplicateFailed'), { detail: message })
       } finally {
         setSaving(false)
       }
@@ -260,7 +261,7 @@ export function ProfilesTab() {
       } catch (e) {
         const message = (e as Error).message
         setError(message)
-        toast.error(t('profiles.toasts.deleteFailed'), { description: message })
+        notifyError(t('profiles.toasts.deleteFailed'), { detail: message })
       } finally {
         setSaving(false)
       }
@@ -302,7 +303,7 @@ export function ProfilesTab() {
     } catch (e) {
       const message = (e as Error).message
       setError(message)
-      toast.error(t('profiles.toasts.saveFailed'), { description: message })
+      notifyError(t('profiles.toasts.saveFailed'), { detail: message })
     } finally {
       setSaving(false)
     }
@@ -391,14 +392,14 @@ export function ProfilesTab() {
               <Plus className="w-3.5 h-3.5 mr-1.5" /> {t('profiles.empty.blankButton')}
             </Button>
           </div>
-          <div className="text-[11px] text-muted-foreground/70 mt-3">
+          <div className="text-caption text-muted-foreground mt-3">
             <Trans
               t={t}
               i18nKey="profiles.empty.migrateExplainer"
               components={{ code: <code className="text-foreground" /> }}
             />
           </div>
-          {error && <div className="mt-3 text-xs text-red-400 aurora-light:text-destructive">{error}</div>}
+          {error && <div className="mt-3 text-xs text-destructive">{error}</div>}
         </div>
       </div>
       </>
@@ -413,10 +414,10 @@ export function ProfilesTab() {
       <aside className="w-64 flex-shrink-0 border-r border-border flex flex-col">
         <div className="p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <div className="text-label text-muted-foreground">
               {t('profiles.sidebar.title')}
             </div>
-            <Button size="sm" variant="ghost" onClick={createNew} disabled={saving}>
+            <Button size="sm" variant="ghost" onClick={createNew} disabled={saving} aria-label={t('profiles.sidebar.new')} title={t('profiles.sidebar.new')}>
               <Plus className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -459,7 +460,7 @@ export function ProfilesTab() {
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="truncate font-medium">{p.name}</span>
                   {p.isDefault && (
-                    <span className="text-[10px] text-muted-foreground">{t('profiles.sidebar.teamDefault')}</span>
+                    <span className="text-caption text-muted-foreground">{t('profiles.sidebar.teamDefault')}</span>
                   )}
                 </div>
                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -477,7 +478,7 @@ export function ProfilesTab() {
                   {!p.isDefault && (
                     <button
                       type="button"
-                      className="p-1 hover:bg-red-500/20 text-red-400 aurora-light:text-destructive rounded"
+                      className="p-1 hover:bg-destructive/20 text-destructive rounded"
                       title={t('common:actions.delete')}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -495,9 +496,9 @@ export function ProfilesTab() {
       </aside>
 
       {/* Right: editor */}
-      <main className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto">
         {error && (
-          <div className="mx-4 mt-4 px-3 py-2 text-xs rounded border border-red-500/30 aurora-light:border-destructive/30 bg-red-500/10 aurora-light:bg-destructive/10 text-red-400 aurora-light:text-destructive">
+          <div className="mx-4 mt-4 px-3 py-2 text-xs rounded border border-destructive/30 bg-destructive/10 text-destructive">
             {error}
           </div>
         )}
@@ -526,7 +527,7 @@ export function ProfilesTab() {
                 </Button>
                 {saving && <span className="text-xs text-muted-foreground">{t('common:states.saving')}</span>}
                 {validationIssues.length > 0 && (
-                  <span className="text-xs text-yellow-500 aurora-light:text-accent-warning">
+                  <span className="text-xs text-accent-warning">
                     {t('profiles.editorFooter.issuesToResolve', { count: validationIssues.length })}
                   </span>
                 )}
@@ -538,7 +539,7 @@ export function ProfilesTab() {
             <p className="text-sm text-muted-foreground">{t('profiles.selectPrompt')}</p>
           </div>
         )}
-      </main>
+      </div>
       </div>
     </div>
   )

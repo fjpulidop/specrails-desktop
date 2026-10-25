@@ -1,6 +1,6 @@
 import { createQueueBudgetStorage } from '../adapters/budget-storage'
 import { isLegacySlashCommand, recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
-import { enforceDailyBudgets, localDayStartIso } from '..'
+import { enforceDailyBudgets, localDayStartIso, type CapStatus } from '..'
 import { createDurableUsageReader } from '../adapters/usage-reader'
 import { normalizePendingQueue, isDependencySatisfied, recordJobInvocations, recoverJobUsage, sanitizeRecoveredResult, type JobAccountingInput } from '..'
 import { ChildProcess } from 'child_process'
@@ -53,6 +53,7 @@ import { InteractiveJobSession, type SettleInfo, type InteractiveSpawnSpec } fro
 import type { CommandInfo } from '../../../config'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from '../../../attachment-manager'
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
+import { descriptionWithNonGoals } from '../../specs/domain/non-goals'
 import { broadcastSpecAddendaChange, claimSpecAddendaForRun } from '../../specs/runtime/spec-addenda'
 import { binaryOnPath } from '../../../binary-probe'
 import { ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
@@ -289,6 +290,7 @@ export class QueueManager {
 
   private _getCostAlertThreshold: (() => number | null) | null
   private _getDesktopDailyBudget: (() => { budget: number | null; totalSpend: number }) | null
+  private _getPeriodCapBreaches: (() => CapStatus[]) | null
   private _adapter: ProviderAdapter
   /** Effective model to use when spawning processes. For Claude the adapter
    *  reads its own config; this is the override that gets passed via `--model`.
@@ -408,6 +410,9 @@ export class QueueManager {
       zombieTimeoutMs?: number
       getCostAlertThreshold?: () => number | null
       getDesktopDailyBudget?: () => { budget: number | null; totalSpend: number }
+      /** Weekly/monthly caps (project + app-wide) that are reached right now.
+       *  Enforced exactly like the daily budget: the queue pauses. */
+      getPeriodCapBreaches?: () => CapStatus[]
       /** Agent actions audit (batched, never blocking). Absent ⇒ no audit rows. */
       agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
       provider?: ProviderId
@@ -477,6 +482,7 @@ export class QueueManager {
 
     this._getCostAlertThreshold = options?.getCostAlertThreshold ?? null
     this._getDesktopDailyBudget = options?.getDesktopDailyBudget ?? null
+    this._getPeriodCapBreaches = options?.getPeriodCapBreaches ?? null
     this._adapter = getAdapter(options?.provider ?? 'claude')
     this._resolvedModel = options?.resolvedModel ?? null
     this._agentDefaults = options?.agentDefaults ?? null
@@ -1569,6 +1575,21 @@ export class QueueManager {
           }
         },
       })
+      // Weekly/monthly caps: same effect as the daily budget (pause + event),
+      // reported with the period so a webhook/UI can say which cap was reached.
+      for (const cap of this._getPeriodCapBreaches?.() ?? []) {
+        if (!cap.exhausted || cap.period === 'day') continue
+        const wasPaused = this._paused
+        this._paused = true
+        if (!wasPaused) storage.pause()
+        if (cap.scope === 'project') {
+          this._broadcast({ type: 'daily_budget_exceeded', projectId: '', dailySpend: cap.spentUsd, budget: cap.budgetUsd, queuePaused: true, period: cap.period })
+          try { this._onBudgetExceeded?.('daily_budget_exceeded', { dailySpend: cap.spentUsd, budget: cap.budgetUsd, queuePaused: true, period: cap.period }) } catch { /* webhook delivery is best-effort */ }
+        } else {
+          this._broadcast({ type: 'desktop_daily_budget_exceeded', projectId: '', desktopDailySpend: cap.spentUsd, desktopBudget: cap.budgetUsd, queuePaused: true, period: cap.period })
+          try { this._onBudgetExceeded?.('desktop_daily_budget_exceeded', { desktopDailySpend: cap.spentUsd, desktopBudget: cap.budgetUsd, queuePaused: true, period: cap.period }) } catch { /* webhook delivery is best-effort */ }
+        }
+      }
     } catch (err) {
       console.error('[queue-manager] daily-budget enforcement failed (db unavailable?):', err)
     }
@@ -1651,7 +1672,7 @@ export class QueueManager {
         for (const ticketId of ticketIds) {
           const ticket = store.tickets[String(ticketId)]
           if (!ticket) continue
-          const body = (ticket.description ?? '').trim()
+          const body = descriptionWithNonGoals(ticket.description, ticket.nonGoals).trim()
           specs.push(`# Spec #${ticketId}: ${ticket.title}\n\n${body || '_(no description)_'}`)
         }
       } catch (err) {
@@ -2710,14 +2731,18 @@ export class QueueManager {
     // ─── Relocate-artifacts spawn env ──────────────────────────────────────
     // Merge SPECRAILS_REPO_DIR (+ workspace/tickets/state/etc.) so stage-3
     // `${SPECRAILS_REPO_DIR:-.}` re-pointing drives source/openspec/git I/O back
-    // into the repo. Per provider: gemini trusts the workspace cwd; codex gets
-    // NO CODEX_HOME override (all-or-nothing incl. auth → breaks the rail) and
-    // relies on cwd-based discovery from the workspace. Legacy ⇒ empty env, no-op.
+    // into the repo. Per provider: codex gets NO CODEX_HOME override
+    // (all-or-nothing incl. auth → breaks the rail) and relies on cwd-based
+    // discovery from the workspace. Legacy ⇒ empty env, no-op.
+    // Gemini trusts its spawn cwd in BOTH layouts (the workspace when
+    // relocated, the repo or rail worktree otherwise): headless `gemini -p`
+    // in an untrusted folder ignores the project's settings and subagents.
+    // The loop path gets the same through the runtime bridge (coreProviderEnv).
+    if (adapter.id === 'gemini') {
+      spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
+    }
     if (execution.relocated) {
       spawnEnv = { ...spawnEnv, ...execution.env }
-      if (adapter.id === 'gemini') {
-        spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
-      }
       // openspec PATH shim (claude rails only): prepend a per-job shim dir that
       // re-points every BARE `openspec` call at the repo working tree, so a
       // skill- or un-wrapped-template-driven `openspec <verb>` from the workspace

@@ -10,35 +10,42 @@
       "pinnedOpen": "收起右侧边栏（保持固定）",
       "pinnedCollapsed": "取消固定右侧边栏",
       "unpinned": "固定并展开右侧边栏"
-    }
+    },
+    "resize": "调整侧边栏大小"
   },
   "projects": {
     "addProject": "添加项目",
     "remove": "移除 {{name}}",
     "confirmRemove": "确认移除 {{name}}",
-    "confirmShort": "确认？",
+    "confirmShort": "移除？",
     "added": "已添加项目：{{name}}",
     "removed": "项目已移除",
     "expand": "展开 {{name}}",
     "collapse": "折叠 {{name}}",
     "settings": "{{name}} 的设置",
     "assembling": "正在准备工作区…",
-    "assembleFailed": "工作区准备失败 — 点击重试"
+    "assembleFailed": "工作区准备失败 — 点击重试",
+    "retrySetup": "重试设置",
+    "removeConfirmHint": "再按一次以移除 {{project}}"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "文档",
-    "analytics": "分析",
+    "analytics": "所有项目分析",
     "companion": "Companion",
-    "settings": "设置",
+    "settings": "应用设置",
     "plugins": "插件",
-    "review": "审阅"
+    "review": "审阅",
+    "landmark": "项目与任务",
+    "resize": "调整侧边栏大小",
+    "sectionTools": "工作区",
+    "sectionProjects": "项目"
   },
   "globalSurfaceModal": {
-    "loopsDescription": "Loops 已作为 Mission 模态窗口打开。",
-    "pluginsDescription": "Plugins 已作为 Mission 模态窗口打开。",
-    "reviewDescription": "审阅包已作为任务模态窗口打开。"
+    "loopsDescription": "Loops 已在 Mission 窗口中打开。",
+    "pluginsDescription": "Plugins 已在 Mission 窗口中打开。",
+    "reviewDescription": "审阅包已在任务窗口中打开。"
   },
   "rightSidebar": {
     "projectTitle": "项目",
@@ -48,7 +55,8 @@
     "agents": "Agent",
     "code": "代码",
     "integrations": "集成",
-    "settings": "设置"
+    "settings": "项目设置",
+    "landmark": "项目导航"
   },
   "navbar": {
     "home": "首页",
@@ -67,26 +75,36 @@
     "connectionRestored": "连接已恢复"
   },
   "titleBar": {
-    "searchShortcut": "搜索 (⌘K)",
+    "searchShortcut": "搜索 ({{shortcut}})",
     "searchPlaceholder": "搜索…",
     "minimizeWindow": "最小化窗口",
     "maximizeWindow": "最大化窗口",
     "closeWindow": "关闭窗口",
-    "restoreWindow": "还原窗口"
+    "restoreWindow": "还原窗口",
+    "history": "导航历史",
+    "back": "后退",
+    "forward": "前进",
+    "backTo": "后退到 {{place}}",
+    "forwardTo": "前进到 {{place}}",
+    "backMenu": "之前的位置",
+    "forwardMenu": "之后的位置",
+    "searchIn": "在 {{project}} 中搜索"
   },
   "costAlerts": {
     "costAlertTitle": "成本警报",
-    "costAlertDescription": "任务成本 ${{cost}} — 阈值为 ${{threshold}}",
+    "costAlertDescription": "任务成本 {{cost}} — 阈值为 {{threshold}}",
     "dailyBudgetTitle": "已超出每日预算",
-    "dailyBudgetDescription": "今日已花费 ${{spent}}，预算 ${{budget}}。队列已暂停。",
+    "dailyBudgetDescription": "今日已花费 {{spent}}，预算 {{budget}}。队列已暂停。",
     "desktopBudgetTitle": "已超出 Desktop 每日预算",
-    "desktopBudgetDescription": "Desktop 总花费 ${{spent}}，预算 ${{budget}}。队列已暂停。",
-    "bannerMessage": "已超出每日预算 — 已花费 ${{spent}}，预算 ${{budget}}。队列已暂停。",
+    "desktopBudgetDescription": "Desktop 总花费 {{spent}}，预算 {{budget}}。队列已暂停。",
+    "bannerMessage": "已超出每日预算 — 已花费 {{spent}}，预算 {{budget}}。队列已暂停。",
     "dismiss": "忽略"
   },
   "errorBoundary": {
     "title": "出错了",
-    "occurredIn": "<strong>{{name}}</strong> 中发生了错误"
+    "occurredIn": "<strong>{{name}}</strong> 中发生了错误",
+    "description": "此视图已停止工作。重试即可重新加载；你的其他工作不受影响。",
+    "details": "技术详情"
   },
   "healthWidget": {
     "healthLabel": "健康度",
@@ -123,5 +141,41 @@
     "active": "防止自动睡眠，屏幕仍可关闭。",
     "inactive": "允许正常睡眠。",
     "failed": "无法更改睡眠状态。"
+  },
+  "skipToContent": "跳到主要内容",
+  "places": {
+    "routes": {
+      "dashboard": "仪表板",
+      "jobs": "作业",
+      "analytics": "分析",
+      "activity": "活动",
+      "agents": "智能体",
+      "code": "代码",
+      "integrations": "集成",
+      "settings": "项目设置",
+      "docs": "文档",
+      "loops": "循环",
+      "plugins": "插件"
+    },
+    "spec": "规格 #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "任务",
+    "missionTitled": "任务 · {{title}}",
+    "job": "作业 {{id}}",
+    "review": "评审包",
+    "inbox": "待处理",
+    "overlays": {
+      "loops": "循环",
+      "plugins": "插件",
+      "docs": "文档",
+      "analytics": "所有项目的分析"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "该规格已不存在，已跳过。",
+      "mission": "该任务已不存在，已跳过。",
+      "job": "该作业已不存在，已跳过。",
+      "review": "该评审包已不存在，已跳过。"
+    }
   }
 }

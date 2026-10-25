@@ -1,4 +1,4 @@
-# Faites connaissance avec les agents
+# Faites connaissance avec les agents {#agents}
 
 Quand vous lancez un rail **Implement**, Specrails ne confie pas votre spec à une seule IA en croisant les doigts. Il fait tourner une petite équipe d'*agents* spécialisés, chacun avec une mission précise, dans un ordre bien pensé. Cette page vous présente qui compose cette équipe et le rôle de chacun.
 

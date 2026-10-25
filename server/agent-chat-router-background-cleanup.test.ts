@@ -24,17 +24,35 @@ afterEach(() => {
   db.close()
 })
 
-it('kills background chip processes when deleting their owning agent conversation', async () => {
-  const conversation = createAgentConversation(db, { provider: 'claude' })
-  const abort = vi.fn(() => true)
+function appFor(abort: () => boolean) {
   const app = express()
   app.use(express.json())
   app.use('/api/agent', createAgentChatRouter({
     manager: { abort, closeCoreSession: async () => {} } as unknown as AgentChatManager,
     desktopDb: db,
   }))
+  return app
+}
 
-  const res = await request(app).delete(`/api/agent/conversations/${conversation.id}`)
+it('soft delete stops live background processes but keeps the mission and its history restorable', async () => {
+  const conversation = createAgentConversation(db, { provider: 'claude' })
+  const abort = vi.fn(() => true)
+
+  const res = await request(appFor(abort)).delete(`/api/agent/conversations/${conversation.id}`)
+
+  expect(res.status).toBe(200)
+  expect(res.body.restorable).toBe(true)
+  expect(abort).toHaveBeenCalledWith(conversation.id)
+  expect(killBackgroundProcessesForChat).toHaveBeenCalledWith(conversation.id)
+  expect(purgeBackgroundProcessHistory).not.toHaveBeenCalled()
+  expect(getAgentConversation(db, conversation.id)?.deleted_at).toBeTruthy()
+})
+
+it('permanent delete kills background chip processes and purges their history', async () => {
+  const conversation = createAgentConversation(db, { provider: 'claude' })
+  const abort = vi.fn(() => true)
+
+  const res = await request(appFor(abort)).delete(`/api/agent/conversations/${conversation.id}?permanent=1`)
 
   expect(res.status).toBe(200)
   expect(abort).toHaveBeenCalledWith(conversation.id)

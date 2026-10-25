@@ -30,6 +30,20 @@ export const DEMO_PROJECT: DesktopProject = {
   last_seen_at: '2026-04-17T12:00:00Z',
 }
 
+/** A small, plausible Budget panel overview (one provider, a weekly and a monthly cap, a projection). */
+const demoPeriod = (usd: number) => ({ startsAt: '2026-10-19T00:00:00.000Z', resetsAt: '2026-10-26T00:00:00.000Z', usd, estimatedUsd: 0, byProvider: [{ provider: 'claude', usd, estimatedUsd: 0, invocations: 12, turns: 140 }] })
+const demoBudgetCaps = {
+  generatedAt: '2026-10-25T12:00:00.000Z',
+  spend: { day: demoPeriod(1.4), week: demoPeriod(9.2), month: demoPeriod(31) },
+  projection: { estimate: true, trailingDays: 14, avgDailyUsd: 1.2, monthToDateUsd: 31, remainingDays: 6, projectedUsd: 38.2 },
+  config: { day: null, week: 20, month: 60, run: 3 },
+  appConfig: { day: null, week: null, month: null, run: null },
+  caps: [
+    { scope: 'project', period: 'week', budgetUsd: 20, spentUsd: 9.2, exhausted: false, resetsAt: '2026-10-26T00:00:00.000Z' },
+    { scope: 'project', period: 'month', budgetUsd: 60, spentUsd: 31, exhausted: false, resetsAt: '2026-11-01T00:00:00.000Z' },
+  ],
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -71,6 +85,7 @@ const routes: Array<[RegExp, () => Response]> = [
   [projectScoped('config$'), () => json(demoConfig)],
   [projectScoped('rails(\\/|\\?|$)'), () => json({ rails: [], activeJobs: {} })],
   [projectScoped('chat'), () => json({ conversations: [] })],
+  [projectScoped('budget\\/caps'), () => json(demoBudgetCaps)],
 
   // Catch-all for any other /api call
   [/\/api\//, () => json({})],

@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "Refinamento",
-    "smash": "SMASH",
+    "smash": "Divisão",
     "fileSummary": "Resumos de ficheiros",
     "loop": "Loops",
     "chatSidebar": "Chat",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} execuções",
   "page": {
     "title": "Analytics",
+    "subtitle": "Para onde vai o gasto: custo, tokens e atividade por modelo, spec e motor.",
     "all": "Tudo",
     "engine": "Motor",
-    "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Falha ao carregar: {{error}}",
+    "ticketChip": "spec #{{id}} ·  ✕",
+    "failedToLoad": "Não foi possível carregar as análises. Tente novamente.",
     "modelChip": "Modelo: {{model}}",
     "clearModelFilter": "Limpar filtro de modelo",
-    "localEngine": "local"
+    "localEngine": "local",
+    "moreBreakdowns": "Mais detalhamentos"
   },
   "hero": {
     "spending": "Gastos",
@@ -46,22 +48,27 @@
     "tokensTooltip": "Total de tokens = input novo + output + leitura de cache + criação de cache em todas as invocações desta janela.",
     "usageUnavailable": "· utilização de tokens indisponível",
     "usageUnavailableTooltip": "O fornecedor concluiu estas invocações, mas não forneceu telemetria de tokens.",
-    "usagePartiallyUnavailable": "· {{tokens}} tokens conhecidos; sem dados: {{count}}",
+    "usagePartiallyUnavailable_one": "· {{tokens}} tokens conhecidos; sem dados: {{count}}",
+    "usagePartiallyUnavailable_other": "· {{tokens}} tokens conhecidos; sem dados: {{count}}",
     "usagePartiallyUnavailableTooltip": "Apenas o subtotal conhecido de tokens; algumas invocações não forneceram telemetria de tokens.",
     "costUnavailable": "custo indisponível",
     "costUnavailableTooltip": "O fornecedor concluiu estas invocações, mas não forneceu telemetria suficiente para determinar o custo.",
-    "costPartiallyUnavailable": "· subtotal conhecido; sem custo: {{count}}",
+    "costPartiallyUnavailable_one": "· subtotal conhecido; sem custo: {{count}}",
+    "costPartiallyUnavailable_other": "· subtotal conhecido; sem custo: {{count}}",
     "costPartiallyUnavailableTooltip": "Apenas o subtotal conhecido de custo; algumas invocações não forneceram telemetria suficiente para determinar o custo.",
     "includesEstimated": "· inclui ~{{amount}} estimado",
     "includesEstimatedTooltip": "Inclui {{amount}} de custo estimado de fornecedores sem campo de custo nativo (p. ex. codex através da tabela de preços local).",
     "trackingStarted": "Registo iniciado em {{date}}",
     "trackingStartedFallback": "O registo começa na primeira invocação",
     "emptyState": "Ainda não há invocações para esta janela de filtros.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Faturado",
+    "legendEstimated": "Estimado",
+    "apiEquivalent": "Estimativa equivalente em API"
   },
   "providerCard": {
     "title": "Por fornecedor",
-    "description": "Como o custo se divide entre as CLIs de IA deste projeto. O prefixo <tilde>~</tilde> assinala as linhas em que o custo é estimado a partir da tabela de preços local (o fornecedor não o reporta nativamente).",
+    "description": "<tilde>~</tilde> = estimado com preços locais.",
     "noCost": "Ainda não há custo registado nesta janela.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "custo indisponível",
@@ -109,31 +116,32 @@
     "costLabel": "custo",
     "truncated": "Mostrando {{shown}} de {{total}} — o ponto mais caro é mantido, mas os pontos anteriores ficam ocultos",
     "costUnavailable": "Foram registadas invocações, mas não existe telemetria de custo disponível para representar.",
-    "costPartiallyUnavailable": "O gráfico inclui apenas execuções com custo; custo indisponível: {{count}}."
+    "costPartiallyUnavailable_one": "O gráfico inclui apenas execuções com custo; custo indisponível: {{count}}.",
+    "costPartiallyUnavailable_other": "O gráfico inclui apenas execuções com custo; custo indisponível: {{count}}."
   },
   "topTickets": {
-    "title": "Top tickets",
-    "empty": "Sem atividade de tickets neste período.",
+    "title": "Top specs",
+    "empty": "Sem atividade de specs neste período.",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "Sem atribuição",
-    "deletedTicket": "ticket eliminado #{{id}}",
+    "deletedTicket": "spec eliminada #{{id}}",
     "costUnavailable": "custo indisponível",
-    "costUnavailableTooltip": "Nenhuma execução deste ticket forneceu telemetria de custo.",
+    "costUnavailableTooltip": "Nenhuma execução desta spec forneceu telemetria de custo.",
     "costPartiallyUnavailable": "indisponíveis: {{count}}",
-    "costPartiallyUnavailableTooltip": "Apenas o subtotal conhecido; algumas execuções deste ticket têm custo indisponível."
+    "costPartiallyUnavailableTooltip": "Apenas o subtotal conhecido; algumas execuções desta spec têm custo indisponível."
   },
   "table": {
     "title": "Todas as invocações",
     "statusFilterAria": "Filtro de estado",
     "minCostFilterAria": "Filtro de custo mínimo",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "Todos os estados",
     "success": "Sucesso",
     "failed": "Falhadas",
     "aborted": "Abortadas",
     "empty": "Nenhuma invocação corresponde aos filtros atuais.",
     "colSurface": "Superfície",
-    "colTicket": "Ticket",
+    "colTicket": "Spec",
     "colCost": "Custo",
     "colTurns": "Turnos",
     "colTokens": "Tokens",
@@ -170,7 +178,7 @@
   "desktop": {
     "title": "Analytics do Desktop",
     "refreshAria": "Atualizar analytics",
-    "failedToLoad": "Falha ao carregar as analytics: {{error}}",
+    "failedToLoad": "Não foi possível carregar as análises do Desktop. Tente atualizar.",
     "totalCost": "Custo total",
     "costToday": "{{value}} hoje",
     "costTodayUnavailable": "custo indisponível hoje",
@@ -193,12 +201,11 @@
     "includesEstimatedTooltip": "Inclui {{amount}} de custo estimado pela tabela de preços (codex/gemini), não faturado pelo provedor.",
     "includesEstimatedShort": "incl. estimado",
     "timelineEstimatedTooltip": "Alguns dias incluem custo estimado pela tabela de preços (codex/gemini) marcado com ~.",
-    "estimatedBadge": "est.",
-    "projectEstimatedTooltip": "{{amount}} do custo deste projeto é uma estimativa pela tabela de preços (codex/gemini), não faturado pelo provedor.",
     "statusBarEstimatedTooltip": "Inclui custo estimado pela tabela de preços (codex/gemini), não faturado pelo provedor.",
     "costUnavailable": "Foram registadas invocações, mas a telemetria de custo está indisponível.",
     "costUnavailableShort": "indisponível",
-    "costPartiallyUnavailable": "Subtotal de custo conhecido; invocações sem custo: {{count}}."
+    "costPartiallyUnavailable_one": "Subtotal de custo conhecido; invocações sem custo: {{count}}.",
+    "costPartiallyUnavailable_other": "Subtotal de custo conhecido; invocações sem custo: {{count}}."
   },
   "windowLabels": {
     "7d": "Últimos 7 dias",
@@ -224,7 +231,6 @@
     "loading": "A carregar utilização registada…",
     "total": "Eventos registados: {{count}}",
     "last": "Último evento:",
-    "evidence": "Estes contadores, por si só, não comprovam que a compatibilidade anterior possa ser removida.",
     "kinds": {
       "legacy_loop_traversal": "Loops clássicos",
       "queue_manager_slash": "Comandos em fila",
@@ -268,7 +274,7 @@
     "estimatedShare": "{{share}} estimado",
     "unpriced": "{{count}} sem custo",
     "note": "Entregue = chegou à revisão ou além. O custo médio usa entregas com custo registrado (informado pelo provedor, salvo quando marcado como estimado); entregas sem custo são excluídas, nunca contadas como US$ 0. As rodadas vêm dos passos reviewer/fixer do loop. — significa desconhecido.",
-    "escapedUntracked": "Defeitos escapados ainda não são rastreados: vincule um ticket de bug à entrega que o introduziu («Regressão de» no ticket) para começar a contá-los.",
+    "escapedUntracked": "Defeitos escapados ainda não são rastreados: vincule uma spec de bug à entrega que o introduziu («Regressão de» na spec) para começar a contá-los.",
     "columns": {
       "loop": "Loop",
       "delivered": "Entregues",
@@ -283,5 +289,79 @@
       "requirementsDemonstrated": "Requisitos demonstrados",
       "triageAccuracy": "Acerto da triagem"
     }
+  },
+  "budget": {
+    "title": "Orçamento",
+    "loadFailed": "Não foi possível carregar o orçamento.",
+    "estimate": "Estimativa",
+    "scope": {
+      "project": "Este projeto",
+      "desktop": "Todos os projetos (global)"
+    },
+    "period": {
+      "day": "Hoje",
+      "week": "Esta semana",
+      "month": "Este mês",
+      "run": "Por execução"
+    },
+    "capLabel": {
+      "project": {
+        "day": "Limite diário do projeto (USD)",
+        "week": "Limite semanal do projeto (USD)",
+        "month": "Limite mensal do projeto (USD)",
+        "run": "Limite por execução do projeto (USD)"
+      },
+      "desktop": {
+        "day": "Limite diário global (USD)",
+        "week": "Limite semanal global (USD)",
+        "month": "Limite mensal global (USD)",
+        "run": "Limite por execução global (USD)"
+      }
+    },
+    "noCap": "Sem limite",
+    "spentOf": "{{spent}} de {{cap}}",
+    "spentNoCap": "{{spent}} · sem limite",
+    "turns": "Turnos: {{n}}",
+    "reached": "Atingido",
+    "nearing": "Perto do limite",
+    "planNote": "Cobrança por plano: não há custo em dólares por uso, então são exibidos turnos e limites",
+    "estimatedPart": "cerca de {{amount}} calculados pela tabela de preços do app, não informados",
+    "resets": "reinicia {{time}}",
+    "runHint": "Uma execução pausa e pergunta quando o próprio custo chega a este valor. Vale o menor entre o limite do projeto e o global.",
+    "saved": "Orçamento salvo",
+    "saveFailed": "Não foi possível salvar o orçamento",
+    "invalidNumber": "Informe um valor maior que zero, ou deixe vazio para não ter limite.",
+    "projection": {
+      "title": "Projeção para o fim do mês",
+      "basis": "média de {{days}} dias {{avg}}/dia × {{remaining}} dias restantes + {{mtd}} até agora",
+      "none": "Ainda não há histórico suficiente para projetar.",
+      "overCap": "Nesse ritmo você passaria do limite mensal de {{cap}}.",
+      "planNone": "Com cobrança por plano não há custo em dólares por uso, então não há valor de fim de mês para projetar."
+    },
+    "whatIf": {
+      "title": "E se: calcular com outro modelo",
+      "description": "Recalcula o uso de tokens registrado nos últimos {{days}} dias com outro modelo, usando a tabela de preços do app. Uma estimativa, não uma fatura.",
+      "from": "Executado com",
+      "to": "Em vez disso",
+      "choose": "Escolha um modelo",
+      "runs": "{{n}} execuções",
+      "noPricing": "Sem preço para {{model}}",
+      "empty": "Nenhum uso de modelo registrado neste período.",
+      "planNote": "Este trabalho roda em um plano, então não há custo em dólares por uso para comparar. Os tokens são exibidos no lugar.",
+      "tokens": "Tokens: {{input}} de entrada · {{output}} de saída",
+      "compare": "≈ {{current}} agora → ≈ {{whatIf}} em vez disso",
+      "saves": "≈ {{amount}} a menos",
+      "costs": "≈ {{amount}} a mais",
+      "same": "Praticamente igual",
+      "skipped": "{{n}} execuções sem uso de tokens ou sem preço ficaram de fora.",
+      "recorded": "Custo registrado destas execuções: {{amount}}.",
+      "roleNote": "O uso é registrado por modelo, não por papel: escolha o modelo em que seu papel roda."
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "sessão",
+      "weekly": "semanal"
+    },
+    "capsMetered": "Limites em dólares (provedores por uso)"
   }
 }

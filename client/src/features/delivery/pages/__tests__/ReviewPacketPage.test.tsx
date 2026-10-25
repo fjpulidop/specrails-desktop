@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react'
 import React from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReviewPacket, ReviewPacketResponse } from '../../../../types'
@@ -31,6 +31,14 @@ const mockNotifyGitChanged = vi.fn()
 vi.mock('../../../code/lib/git-refresh', () => ({ notifyGitChanged: (id: string) => mockNotifyGitChanged(id) }))
 
 import ReviewPacketPage from '../ReviewPacketPage'
+
+/** Pick a repository from the Radix repository Select (pointer-open, then click the option). */
+function chooseRepository(name: string) {
+  const trigger = screen.getByRole('combobox')
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+  fireEvent.click(screen.getByRole('option', { name }))
+}
+
 
 function packet(over: Partial<ReviewPacket> = {}): ReviewPacket {
   return {
@@ -106,6 +114,13 @@ function renderPage(entry = '/review/del-1') {
   )
 }
 
+/** Discard is destructive: it asks first, then runs through the confirm. */
+async function discardThroughConfirm() {
+  fireEvent.click(await screen.findByTestId('packet-discard'))
+  const dialog = await screen.findByRole('dialog')
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Throw this away' }))
+}
+
 // The stubbed fetch is GLOBAL: without restoring it, a later test file sharing
 // this worker inherits the stub and its own data loads silently return packets.
 const realFetch = globalThis.fetch
@@ -114,6 +129,47 @@ beforeEach(() => {
   mockAct.mockResolvedValue({ status: 200, ok: true, decision: 'pr_draft' })
 })
 afterEach(() => { globalThis.fetch = realFetch })
+
+describe('ReviewPacketPage — Overview / Changes tabs', () => {
+  it('keeps Overview as the default and loads the changes only when the tab is opened', async () => {
+    respond({})
+    renderPage()
+    const overview = await screen.findByRole('tab', { name: 'Overview' })
+    expect(overview).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'false')
+    expect(vi.mocked(fetch).mock.calls.some((c) => String(c[0]).includes('/changes'))).toBe(false)
+    expect(document.getElementById('packet-panel-changes')).toHaveAttribute('hidden')
+  })
+
+  it('opens the Changes tab from ?tab=changes and asks the server for the delivery changes', async () => {
+    respond({})
+    renderPage('/review/del-1?tab=changes')
+    expect(await screen.findByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true')
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.some((c) => String(c[0]) === '/api/projects/proj-1/rails/pr-deliveries/del-1/changes')).toBe(true))
+  })
+
+  it('keeps one page width across tabs; only the Overview panel is held to a reading measure', async () => {
+    respond({})
+    renderPage()
+    const article = (await screen.findByRole('tab', { name: 'Overview' })).closest('article') as HTMLElement
+    expect(article).toHaveClass('max-w-7xl')
+    expect(article.className).not.toMatch(/max-w-3xl/)
+    expect(screen.getByTestId('packet-overview-panel')).toHaveClass('max-w-3xl', 'mx-auto')
+    fireEvent.click(screen.getByRole('tab', { name: 'Changes' }))
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true'))
+    // The header does not move when the tab changes.
+    expect(article).toHaveClass('max-w-7xl')
+    expect(screen.getByTestId('packet-overview-panel')).toHaveClass('hidden')
+  })
+
+  it('switches tabs with the arrow keys', async () => {
+    respond({})
+    renderPage()
+    const overview = await screen.findByRole('tab', { name: 'Overview' })
+    fireEvent.keyDown(overview, { key: 'ArrowRight' })
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true'))
+  })
+})
 
 describe('ReviewPacketPage — above the fold', () => {
   it('requests a revision of the grouped generation while reviewing an individual repository', async () => {
@@ -233,7 +289,9 @@ describe('ReviewPacketPage — repository evidence identity', () => {
 
   function responseFor(repositoryId: string, headline = `${repositoryId} evidence`): Response {
     return { ok: true, status: 200, json: async () => ({
-      packet: packet({ prDeliveryId: `child-${repositoryId}`, headlineCode: headline }),
+      // Unknown headline codes fall back to the generic headline, so the
+      // per-repository identity is carried by the section title instead.
+      packet: packet({ prDeliveryId: `child-${repositoryId}`, sections: [{ ...packet().sections[0]!, title: headline }] }),
       acceptCapability: { target: 'create-pr', hasRemote: true, ghAuthenticated: true, irreversible: false, reasonCode: 'pr-capable' },
       snapshot: { prDeliveryId: 'del-1', railIndex: 0, decision: 'on_review', repositoryDeliveries: ['web', 'api'].map((id) => ({
         repositoryId: id, deliveryId: `child-${id}`, name: id, path: `/tmp/${id}`,
@@ -247,15 +305,15 @@ describe('ReviewPacketPage — repository evidence identity', () => {
     let finishApi!: (response: Response) => void
     const requests = mockPacketFetch(responseFor('web'), () => new Promise<Response>((resolve) => { finishApi = resolve }))
     renderPage('/review/del-1?repositoryId=web')
-    expect(await screen.findByText('web evidence')).toBeInTheDocument()
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'api' } })
-    expect(screen.queryByText('web evidence')).not.toBeInTheDocument()
+    expect(await screen.findByText(/web evidence/)).toBeInTheDocument()
+    chooseRepository('api')
+    expect(screen.queryByText(/web evidence/)).not.toBeInTheDocument()
     expect(screen.queryByTestId('packet-accept')).not.toBeInTheDocument()
     expect(screen.queryByTestId('repository-deliveries')).not.toBeInTheDocument()
     expect(mockAct).not.toHaveBeenCalled()
     expect(mockCheckout).not.toHaveBeenCalled()
     await act(async () => { finishApi(responseFor('api')) })
-    expect(await screen.findByText('api evidence')).toBeInTheDocument()
+    expect(await screen.findByText(/api evidence/)).toBeInTheDocument()
     // Keep the post-action refresh pending so the test only checks the dispatch.
     requests.mockImplementationOnce(() => new Promise<Response>(() => {}))
     await act(async () => { fireEvent.click(screen.getByTestId('packet-accept')) })
@@ -269,12 +327,12 @@ describe('ReviewPacketPage — repository evidence identity', () => {
     const requests = mockPacketFetch(responseFor('web'), () => new Promise<Response>((resolve) => { finishApi = resolve }))
     renderPage('/review/del-1?repositoryId=web')
     fireEvent.click(await screen.findByTestId('packet-accept'))
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'api' } })
+    chooseRepository('api')
     await act(async () => { finishAction({ status: 200, ok: true }) })
     expect(requests).toHaveBeenCalledTimes(2)
     await act(async () => { finishApi(responseFor('api')) })
-    expect(await screen.findByText('api evidence')).toBeInTheDocument()
-    expect(screen.queryByText('web evidence')).not.toBeInTheDocument()
+    expect(await screen.findByText(/api evidence/)).toBeInTheDocument()
+    expect(screen.queryByText(/web evidence/)).not.toBeInTheDocument()
   })
 
   it('ignores an old action after leaving and returning to the same repository', async () => {
@@ -284,13 +342,13 @@ describe('ReviewPacketPage — repository evidence identity', () => {
     const requests = mockPacketFetch(responseFor('web'), responseFor('api'), () => new Promise<Response>((resolve) => { finishNewWeb = resolve }))
     renderPage('/review/del-1?repositoryId=web')
     fireEvent.click(await screen.findByTestId('packet-accept'))
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'api' } })
-    await screen.findByText('api evidence')
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'web' } })
+    chooseRepository('api')
+    await screen.findByText(/api evidence/)
+    chooseRepository('web')
     await act(async () => { finishAction({ status: 200, ok: true }) })
     expect(requests).toHaveBeenCalledTimes(3)
     await act(async () => { finishNewWeb(responseFor('web', 'current web evidence')) })
-    expect(await screen.findByText('current web evidence')).toBeInTheDocument()
+    expect(await screen.findByText(/current web evidence/)).toBeInTheDocument()
     expect(mockNotifyGitChanged).not.toHaveBeenCalled()
   })
 })
@@ -344,7 +402,7 @@ describe('ReviewPacketPage — decision verbs', () => {
     respond({})
     mockAct.mockResolvedValue({ status: 409, ok: false, error: 'stale_decision' })
     renderPage()
-    fireEvent.click(await screen.findByTestId('packet-discard'))
+    await discardThroughConfirm()
     expect(await screen.findByText('Someone already answered this.')).toBeInTheDocument()
   })
 
@@ -352,7 +410,7 @@ describe('ReviewPacketPage — decision verbs', () => {
     respond({})
     mockAct.mockResolvedValue({ status: 502, ok: false, error: 'gh failed' })
     renderPage()
-    fireEvent.click(await screen.findByTestId('packet-discard'))
+    await discardThroughConfirm()
     expect(await screen.findByText('That action did not go through.')).toBeInTheDocument()
     expect(mockNotifyGitChanged).not.toHaveBeenCalled()
   })
@@ -361,7 +419,7 @@ describe('ReviewPacketPage — decision verbs', () => {
     respond({})
     mockAct.mockResolvedValue({ status: 409, ok: false, error: 'delivery_not_verified' })
     renderPage()
-    fireEvent.click(await screen.findByTestId('packet-discard'))
+    await discardThroughConfirm()
     expect(await screen.findByText('That action did not go through.')).toBeInTheDocument()
     expect(screen.queryByText('Someone already answered this.')).not.toBeInTheDocument()
   })
@@ -383,6 +441,17 @@ describe('ReviewPacketPage — decision verbs', () => {
     renderPage()
     expect(await screen.findByText('Still working on this…')).toBeInTheDocument()
     expect(screen.queryByTestId('packet-accept')).not.toBeInTheDocument()
+  })
+
+  it('asks before discarding and does nothing when the user backs out', async () => {
+    respond({})
+    renderPage()
+    fireEvent.click(await screen.findByTestId('packet-discard'))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(/cannot be undone/i)).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(mockAct).not.toHaveBeenCalled()
   })
 
   it('offers acknowledge-not-discard on a nothing-changed delivery', async () => {
@@ -515,6 +584,23 @@ describe('ReviewPacketPage — failures', () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch
     renderPage()
     expect(await screen.findByText('The review could not be loaded.')).toBeInTheDocument()
+  })
+
+  it('retries a failed load and offers no retry for a missing review', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('offline'))
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    renderPage()
+    await screen.findByText('The review could not be loaded.')
+    const calls = fetchMock.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(calls))
+  })
+
+  it('does not offer Retry when the review does not exist', async () => {
+    respond({}, 404)
+    renderPage()
+    await screen.findByText('This review could not be found.')
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
   })
 
   it('navigates back to the board', async () => {

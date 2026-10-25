@@ -1,4 +1,4 @@
-# The Loop Builder
+# The Loop Builder {#loop-builder}
 
 ## Core workflows
 
@@ -55,7 +55,7 @@ Edges connect the steps in order. The **Loop Decider** has two labelled outputs 
 
 Inside any AI Step or Decider you can reference:
 
-- **Spec data** — `{{spec.title}}`, `{{spec.description}}`, `{{spec.ids}}` (the rail's ticket IDs). Filled in from the spec(s) on the rail at run time.
+- **Spec data** — `{{spec.title}}`, `{{spec.description}}`, `{{spec.ids}}` (the rail's spec IDs). Filled in from the spec(s) on the rail at run time.
 - **Magic commands** — `{{cmd:implement}}` and friends expand to the matching pipeline command.
 - **Constants** — `{{const:NAME}}` pulls from the global **constants library** (drag them in from the palette). Built-in sentinels like the verification PASS/FAIL markers are always available; you can add your own and reuse them across every loop.
 

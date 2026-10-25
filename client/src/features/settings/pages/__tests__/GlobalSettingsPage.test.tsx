@@ -1,8 +1,9 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '../../../../test-utils'
+import { render, screen, waitFor, fireEvent, within } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import GlobalSettingsPage from '../GlobalSettingsPage'
+import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -88,22 +89,99 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
   })
 
-  it('renders Manage registered projects description', async () => {
+  it('renders the Desktop-wide preferences description', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText(/Manage registered projects/i)).toBeInTheDocument()
+      expect(screen.getByText('Appearance, AI providers, updates and Desktop-wide preferences.')).toBeInTheDocument()
     })
   })
 
-  it('renders loading skeleton before fetch resolves', async () => {
-    // Delay resolution so we catch the loading state
+  it('groups the section nav under Personal, Agents and System and marks the active item', async () => {
+    const user = userEvent.setup()
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
+    for (const group of ['Personal', 'Agents', 'System']) {
+      expect(within(nav).getByRole('group', { name: group })).toBeInTheDocument()
+    }
+    expect(within(nav).getByRole('button', { name: 'Appearance' })).toHaveAttribute('aria-current', 'page')
+    await user.click(within(nav).getByRole('button', { name: 'Webhooks' }))
+    expect(within(nav).getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('button', { name: 'Appearance' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('spaces nav group labels more above than below (mt-4 / mb-1), first group flush', async () => {
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    await screen.findByRole('navigation', { name: 'Settings sections' })
+    const labels = screen.getAllByTestId(/^settings-nav-group-label-/)
+    expect(labels.length).toBeGreaterThan(1)
+    expect(labels[0]).toHaveClass('mt-0', 'mb-1', 'text-label')
+    for (const label of labels.slice(1)) {
+      expect(label).toHaveClass('mt-4', 'mb-1', 'text-label')
+      expect(label.className).not.toMatch(/text-\[11px\]/)
+    }
+  })
+
+  it('is a workspace modal with a single scrolling body', async () => {
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveAttribute('data-dialog-size', 'workspace')
+    expect(dialog.querySelector('[data-dialog-body]')).not.toBeNull()
+    expect(within(dialog).getAllByRole('button', { name: 'Close' })).toHaveLength(1)
+  })
+
+  it('returns focus to the remounted Settings trigger (found by aria-label) on close', async () => {
+    const user = userEvent.setup()
+    // The sidebar trigger re-renders with a new key while the modal is open —
+    // the original node is gone when the modal closes.
+    function Harness() {
+      const [open, setOpen] = React.useState(false)
+      const [generation, setGeneration] = React.useState(0)
+      // Re-key the trigger shortly after the modal mounted (like the sidebar re-render).
+      React.useEffect(() => {
+        if (!open) return
+        const id = setTimeout(() => setGeneration((g) => g + 1), 20)
+        return () => clearTimeout(id)
+      }, [open])
+      return (
+        <>
+          <button key={generation} type="button" aria-label="App settings" onClick={() => setOpen(true)}>
+            gear
+          </button>
+          <GlobalSettingsPage open={open} onClose={() => setOpen(false)} />
+        </>
+      )
+    }
+    render(<Harness />)
+    const original = screen.getByRole('button', { name: 'App settings' })
+    await user.click(original)
+    await screen.findByRole('dialog')
+    await waitFor(() => expect(original.isConnected).toBe(false))
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'App settings', hidden: true }))
+    })
+  })
+
+  it('shows the replay tour action in the Appearance pane', async () => {
+    const onOpenOnboarding = vi.fn()
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} onOpenOnboarding={onOpenOnboarding} />)
+    fireEvent.click(await screen.findByTestId('replay-onboarding'))
+    expect(onOpenOnboarding).toHaveBeenCalledTimes(1)
+  })
+
+  it('masks the webhook signing secret', async () => {
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    const secret = await screen.findByPlaceholderText('Signing secret (optional)')
+    expect(secret).toHaveAttribute('type', 'password')
+    expect(secret).toHaveAttribute('autocomplete', 'off')
+  })
+
+  it('renders the panes immediately and shows an em dash for the port before settings resolve', async () => {
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    // Dialog renders into portal (document.body), use document.querySelector
-    await waitFor(() => {
-      const skeleton = document.querySelector('.animate-pulse')
-      expect(skeleton).not.toBeNull()
-    })
+    expect(await screen.findByText('Registered Projects')).toBeInTheDocument()
+    expect(screen.getByText('Port').nextElementSibling).toHaveTextContent('—')
   })
 
   it('renders Registered Projects section after load', async () => {
@@ -178,6 +256,9 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: /remove/i }))
+    // Removal is destructive: it only happens after the confirmation dialog.
+    expect(mockRemoveProject).not.toHaveBeenCalled()
+    fireEvent.click(within(await screen.findByRole('dialog', { name: /Remove .*\?/ })).getByRole('button', { name: 'Remove' }))
 
     await waitFor(() => {
       expect(mockRemoveProject).toHaveBeenCalledWith('p1')
@@ -205,6 +286,9 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: /remove/i }))
+    // Removal is destructive: it only happens after the confirmation dialog.
+    expect(mockRemoveProject).not.toHaveBeenCalled()
+    fireEvent.click(within(await screen.findByRole('dialog', { name: /Remove .*\?/ })).getByRole('button', { name: 'Remove' }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
@@ -260,10 +344,10 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
   })
 
 
-  it('renders Budget & Alerts section', async () => {
+  it('renders Spend limits & alerts section', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Budget & Alerts')).toBeInTheDocument()
+      expect(screen.getByText('Spend limits & alerts')).toBeInTheDocument()
       expect(screen.getByPlaceholderText(/e\.g\. 0\.50/i)).toBeInTheDocument()
     })
   })
@@ -282,25 +366,28 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
     const input = screen.getByPlaceholderText(/e\.g\. 0\.50/i) as HTMLInputElement
     await user.type(input, '0.50')
-    await user.click(screen.getAllByRole('button', { name: /save/i })[1])
+    expect(screen.getByTestId('advanced-save-bar')).toHaveAttribute('data-sticky', 'true')
+    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Alert set for jobs over $0.5')
+      expect(toast.success).toHaveBeenCalledWith('Alert set for jobs over $0.50')
     })
   })
 
   it('disables cost alert when threshold is blank', async () => {
     const user = userEvent.setup()
     const { toast } = await import('sonner')
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => desktopSettings })          // GET settings
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ webhooks: [] }) })   // GET webhooks
-      .mockResolvedValueOnce({ ok: true, json: async () => budgetResponse })       // GET budget
-      .mockResolvedValue({ ok: true, json: async () => defaultTerminalSettings })  // catch-all
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 0\.50/i)).toBeInTheDocument()
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/api/settings')) {
+        return Promise.resolve({ ok: true, json: async () => ({ ...desktopSettings, costAlertThresholdUsd: 2 }) })
+      }
+      return defaultFetchMock(url)
     })
-    await user.click(screen.getAllByRole('button', { name: /save/i })[1])
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    const input = await screen.findByPlaceholderText(/e\.g\. 0\.50/i) as HTMLInputElement
+    await waitFor(() => expect(input.value).toBe('2'))
+    expect(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i })).toBeDisabled()
+    await user.clear(input)
+    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Cost alerts disabled')
     })
@@ -316,79 +403,44 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
     const input = screen.getByPlaceholderText(/e\.g\. 0\.50/i) as HTMLInputElement
     await user.type(input, '-1')
-    await user.click(screen.getAllByRole('button', { name: /save/i })[1])
+    await user.click(within(screen.getByTestId('advanced-save-bar')).getByRole('button', { name: /save/i }))
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Enter a positive number or leave blank to disable')
     })
   })
 
-  it('renders desktop daily budget input', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 10\.00/i)).toBeInTheDocument()
-    })
-  })
-
-  it('saves desktop daily budget successfully', async () => {
+  it('shows the app-wide daily limit read-only and links to Analytics ▸ Spend limits instead of editing it', async () => {
     const user = userEvent.setup()
-    const { toast } = await import('sonner')
+    const onClose = vi.fn()
+    const requests: Array<{ url: string; method?: string }> = []
     global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      requests.push({ url: String(url), method: opts?.method })
       if (typeof url === 'string' && url.includes('/api/webhooks')) {
         return Promise.resolve({ ok: true, json: async () => ({ webhooks: [] }) })
       }
       if (typeof url === 'string' && url.includes('/api/budget')) {
-        if (opts?.method === 'PATCH') {
-          return Promise.resolve({ ok: true })
-        }
-        return Promise.resolve({ ok: true, json: async () => budgetResponse })
-      }
-      return Promise.resolve({ ok: true, json: async () => desktopSettings })
-    })
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 10\.00/i)).toBeInTheDocument()
-    })
-    const input = screen.getByPlaceholderText(/e\.g\. 10\.00/i) as HTMLInputElement
-    await user.type(input, '10')
-    // Find the Save buttons — desktop budget save comes before cost alert save
-    // Filter out the (disabled) Terminal Panel Save button from the new
-    // section so positional indexing matches the original test layout.
-    const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
-      .filter((b) => !(b as HTMLButtonElement).disabled)
-    // Click the desktop budget Save (second save after specrails-tech URL)
-    await user.click(saveButtons[saveButtons.length - 2])
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Desktop daily budget set to $10')
-    })
-  })
-
-  it('removes desktop daily budget when input is blank', async () => {
-    const user = userEvent.setup()
-    const { toast } = await import('sonner')
-    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      if (typeof url === 'string' && url.includes('/api/webhooks')) {
-        return Promise.resolve({ ok: true, json: async () => ({ webhooks: [] }) })
-      }
-      if (typeof url === 'string' && url.includes('/api/budget')) {
-        if (opts?.method === 'PATCH') {
-          return Promise.resolve({ ok: true })
-        }
         return Promise.resolve({ ok: true, json: async () => ({ desktopDailyBudgetUsd: 10 }) })
       }
       return Promise.resolve({ ok: true, json: async () => desktopSettings })
     })
+    render(<GlobalSettingsPage open={true} onClose={onClose} />)
+    expect(await screen.findByText('Currently $10.00 a day')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(/e\.g\. 10\.00/i)).toBeNull()
+    expect(screen.getByText('Limits are edited in Analytics ▸ Spend limits.')).toBeInTheDocument()
+    const opened = vi.fn()
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+    try {
+      await user.click(screen.getByTestId('settings-open-budget'))
+      expect(opened).toHaveBeenCalledTimes(1)
+      expect(onClose).toHaveBeenCalled()
+    } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
+    // Nothing on this pane writes the daily limit any more.
+    expect(requests.some((r) => r.method === 'PATCH')).toBe(false)
+  })
+
+  it('says there is no daily limit when none is set', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 10\.00/i)).toBeInTheDocument()
-    })
-    const input = screen.getByPlaceholderText(/e\.g\. 10\.00/i) as HTMLInputElement
-    await user.clear(input)
-    const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
-      .filter((b) => !(b as HTMLButtonElement).disabled)
-    await user.click(saveButtons[saveButtons.length - 2])
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Desktop daily budget removed')
-    })
+    expect(await screen.findByText('No daily limit set')).toBeInTheDocument()
   })
 })
 
@@ -507,7 +559,7 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     await user.type(screen.getByPlaceholderText(/https:\/\/hooks\.example\.com/), 'https://example.com/hook')
     await user.click(screen.getByRole('button', { name: /add webhook/i }))
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Invalid URL')
+      expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Invalid URL', action: expect.objectContaining({ label: 'Retry' }) })
     })
   })
 
@@ -532,9 +584,9 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     })
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByTitle('Disable')).toBeInTheDocument()
+      expect(screen.getByRole('switch', { name: 'Enable' })).toHaveAttribute('aria-checked', 'true')
     })
-    await user.click(screen.getByTitle('Disable'))
+    await user.click(screen.getByRole('switch', { name: 'Enable' }))
     // Patch call should have been made
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/webhooks/wh-1'),
@@ -556,9 +608,13 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     })
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByTitle('Remove')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
     })
-    await user.click(screen.getByTitle('Remove'))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Remove webhook?' })
+    expect(dialog).toHaveTextContent('https://example.com/hook will stop receiving Desktop events.')
+    expect(global.fetch).not.toHaveBeenCalledWith(expect.stringContaining('/api/webhooks/wh-1'), expect.objectContaining({ method: 'DELETE' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Webhook removed')
     })
@@ -578,9 +634,9 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     })
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByTitle('Send test ping')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Send test ping' })).toBeInTheDocument()
     })
-    await user.click(screen.getByTitle('Send test ping'))
+    await user.click(screen.getByRole('button', { name: 'Send test ping' }))
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Test ping sent')
     })
@@ -592,8 +648,8 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     await waitFor(() => {
       expect(screen.getByText('Outbound Webhooks')).toBeInTheDocument()
     })
-    // Find the "Daily budget exceeded" checkbox and toggle it
-    const checkbox = screen.getByRole('checkbox', { name: /daily budget exceeded/i })
+    // Find the "Daily limit exceeded" checkbox and toggle it
+    const checkbox = screen.getByRole('checkbox', { name: /daily limit exceeded/i })
     expect((checkbox as HTMLInputElement).checked).toBe(false)
     await user.click(checkbox)
     expect((checkbox as HTMLInputElement).checked).toBe(true)

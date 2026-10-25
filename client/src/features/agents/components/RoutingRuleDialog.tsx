@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -62,7 +63,7 @@ export function RoutingRuleDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
-      <DialogContent movableResizable className="max-w-md">
+      <DialogContent size="form">
         <DialogHeader>
           <DialogTitle>{mode === 'edit' ? t('routingRule.editTitle') : t('routingRule.addTitle')}</DialogTitle>
           <DialogDescription>
@@ -71,9 +72,9 @@ export function RoutingRuleDialog({
               : t('routingRule.addDescription')}
           </DialogDescription>
         </DialogHeader>
-        <div className="py-2 space-y-3">
+        <DialogBody className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label className="block text-label text-muted-foreground mb-1">
               {t('routingRule.tagsLabel')}
             </label>
             <Input
@@ -84,11 +85,11 @@ export function RoutingRuleDialog({
               aria-label={t('routingRule.tagsLabel')}
               className="text-sm font-mono"
             />
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               <Trans t={t} i18nKey="routingRule.tagsHint" components={{ code: <code /> }} />
             </p>
             {invalidTags.length > 0 && (
-              <p className="text-[11px] text-red-400 aurora-light:text-destructive mt-1">
+              <p className="text-xs text-destructive mt-1">
                 {t('routingRule.invalidTags', {
                   count: invalidTags.length,
                   tags: invalidTags.join(', '),
@@ -97,7 +98,7 @@ export function RoutingRuleDialog({
             )}
           </div>
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label className="block text-label text-muted-foreground mb-1">
               {t('routingRule.routeToLabel')}
             </label>
             <select
@@ -110,17 +111,16 @@ export function RoutingRuleDialog({
                 <option key={a} value={a}>{a}</option>
               ))}
             </select>
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {t('routingRule.routeToHint')}
             </p>
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          <Button variant="ghost" onClick={onCancel}>
             {t('common:actions.cancel')}
           </Button>
           <Button
-            size="sm"
             onClick={() => onConfirm(parsedTags, agent)}
             disabled={!canConfirm}
           >

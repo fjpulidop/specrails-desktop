@@ -10,15 +10,13 @@ import {
   type SegmentStatus,
 } from './loop-log-model'
 import { loopNodeIcon, LOOP_NODE_TEXT_ACCENT } from './loop-node-visuals'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
 function PulseDot({ className }: { className?: string }) {
   return (
-    <span className={cn('relative flex h-2 w-2 shrink-0', className)}>
-      <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-primary opacity-60" />
-      <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-primary" />
-    </span>
+    <LiveDot size="sm" className={className} />
   )
 }
 
@@ -36,7 +34,7 @@ function sectionBody(
 ) {
   if (visible.length === 0) {
     return (
-      <p className="px-4 py-2 text-[10px] text-muted-foreground/40 italic">
+      <p className="px-4 py-2 text-caption text-muted-foreground italic">
         {filter ? t('logViewer.noMatchingLines') : t('logViewer.noOutput')}
       </p>
     )
@@ -62,7 +60,7 @@ function DetailField({ label, value, copyLabel }: { label: string; value: string
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-1.5">
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+        <span className="text-xs font-semibold text-muted-foreground">
           {label}
         </span>
         <button
@@ -70,7 +68,7 @@ function DetailField({ label, value, copyLabel }: { label: string; value: string
           onClick={() => void copy()}
           aria-label={`${copyLabel} — ${label}`}
           title={copyLabel}
-          className="p-0.5 text-muted-foreground/40 hover:text-foreground transition-colors cursor-pointer"
+          className="p-0.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           {copied ? (
             <Check className="w-2.5 h-2.5 text-accent-success" />
@@ -79,7 +77,7 @@ function DetailField({ label, value, copyLabel }: { label: string; value: string
           )}
         </button>
       </div>
-      <pre className="mt-0.5 text-[10px] font-mono leading-relaxed text-foreground/75 whitespace-pre-wrap break-words">
+      <pre className="mt-0.5 text-caption font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap break-words">
         {value}
       </pre>
     </div>
@@ -129,7 +127,7 @@ function LoopStepSectionInner({
       data-status={status}
       data-step-index={meta.index}
       className={cn(
-        'mt-3 rounded-md overflow-hidden border animate-in fade-in duration-200',
+        'mt-3 rounded-md overflow-hidden border u-fade',
         status === 'running' && 'border-accent-primary/40',
         status === 'failed' && 'border-destructive/30',
         status === 'stalled' && 'border-dashed border-destructive/40',
@@ -152,21 +150,21 @@ function LoopStepSectionInner({
         >
           <ChevronRight
             className={cn(
-              'w-3 h-3 text-primary/60 shrink-0 transition-transform duration-150',
+              'w-3 h-3 text-muted-foreground shrink-0 transition-transform duration-150',
               !collapsed && 'rotate-90',
             )}
           />
-          <span className="text-[10px] font-mono tabular-nums text-muted-foreground/60 shrink-0 w-5 text-right">
+          <span className="text-caption font-mono tabular-nums text-muted-foreground shrink-0 w-5 text-right">
             {meta.index}
           </span>
           <Icon className={cn('w-3.5 h-3.5 shrink-0', accent)} />
-          <span className="text-[12px] font-semibold text-foreground leading-none truncate">
+          <span className="text-label font-semibold text-foreground leading-none truncate">
             {stepDisplayTitle(meta)}
           </span>
-          {meta.branch && <span className="max-w-40 truncate font-mono text-[10px] text-muted-foreground" title={meta.scopeId}>{meta.branch}</span>}
-          {status === 'paused' && <span className="text-[10px] text-accent-warning">{t('loopExplorer.paused', { defaultValue: 'Paused' })}</span>}
+          {meta.branch && <span className="max-w-40 truncate font-mono text-caption text-muted-foreground" title={meta.scopeId}>{meta.branch}</span>}
+          {status === 'paused' && <span className="text-caption text-accent-warning">{t('loopExplorer.paused', { defaultValue: 'Paused' })}</span>}
           {meta.iteration != null && meta.iteration >= 1 && (
-            <span className="shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground tabular-nums">
+            <span className="shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 text-caption font-medium text-muted-foreground tabular-nums">
               {t('loopExplorer.iterationBadge', { count: meta.iteration })}
             </span>
           )}
@@ -176,7 +174,7 @@ function LoopStepSectionInner({
             <span className="flex items-center gap-1.5 min-w-0 shrink-0 max-w-[40%]">
               <PulseDot />
               {lastActivity && (
-                <span className="title-shimmer text-[10px] truncate">
+                <span className="title-shimmer text-caption truncate">
                   {t(`statusPanel.activity.${lastActivity.actionKey}`, {
                     arg: lastActivity.actionArg ?? '',
                   })}
@@ -187,24 +185,24 @@ function LoopStepSectionInner({
           {status === 'ok' && <Check className="w-3.5 h-3.5 text-accent-success shrink-0" />}
           {status === 'failed' && end?.reason === 'provider_limit' && (
             <span
-              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-destructive"
+              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-label text-destructive"
               title={t('loopExplorer.providerLimitHint')}
               data-testid="loop-step-provider-limit"
             >
               {t('loopExplorer.providerLimit')}
-            </span>
+            <span className="sr-only"> ({t('loopExplorer.providerLimitHint')})</span></span>
           )}
           {status === 'failed' && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
           {status === 'stalled' && (
             <span
-              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-destructive"
+              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-label text-destructive"
               title={end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined}
             >
               {t('loopExplorer.stalled')}
-            </span>
+            {(end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined) ? <span className="sr-only"> ({end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined})</span> : null}</span>
           )}
           {status === 'interrupted' && (
-            <span className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-accent-warning">
+            <span className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-label text-accent-warning">
               {t('loopExplorer.interrupted')}
             </span>
           )}
@@ -212,16 +210,16 @@ function LoopStepSectionInner({
           <span className="flex-1" />
 
           {end?.durationMs != null && (
-            <span className="text-[10px] text-muted-foreground/50 font-mono tabular-nums shrink-0">
+            <span className="text-caption text-muted-foreground font-mono tabular-nums shrink-0">
               {formatStepDuration(end.durationMs)}
             </span>
           )}
           {status === 'failed' && end?.exitCode != null && end.exitCode !== 0 && (
-            <span className="text-[10px] text-destructive/70 font-mono shrink-0">
+            <span className="text-caption text-destructive font-mono shrink-0">
               {t('activeJob.exitCode', { code: end.exitCode })}
             </span>
           )}
-          <span className="text-[10px] text-muted-foreground/40 shrink-0">
+          <span className="text-caption text-muted-foreground shrink-0">
             {t('logViewer.phaseLines', { count: lines.length })}
           </span>
         </button>
@@ -239,7 +237,7 @@ function LoopStepSectionInner({
               'px-2 flex items-center transition-colors cursor-pointer',
               detailOpen
                 ? 'text-foreground bg-primary/10'
-                : 'text-muted-foreground/40 hover:text-foreground hover:bg-primary/10',
+                : 'text-muted-foreground hover:text-foreground hover:bg-primary/10',
             )}
           >
             <Info className="w-3 h-3" />
@@ -251,7 +249,7 @@ function LoopStepSectionInner({
           onClick={() => onCopy(segment.key)}
           aria-label={t('loopExplorer.copyStep')}
           title={t('loopExplorer.copyStep')}
-          className="px-2.5 flex items-center text-muted-foreground/40 hover:text-foreground hover:bg-primary/10 transition-colors cursor-pointer"
+          className="px-2.5 flex items-center text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-colors cursor-pointer"
         >
           <Copy className="w-3 h-3" />
         </button>
@@ -262,7 +260,7 @@ function LoopStepSectionInner({
         <div
           data-testid="loop-step-detail"
           className={cn(
-            'px-4 py-2.5 space-y-2.5 bg-muted/10 border-b animate-in fade-in duration-150',
+            'px-4 py-2.5 space-y-2.5 bg-muted/10 border-b u-fade',
             status === 'failed' ? 'border-destructive/20' : 'border-primary/10',
           )}
         >
@@ -347,16 +345,16 @@ function LoopSetupSectionInner({ lines, collapsed, filter, onToggle, setRef, onO
       >
         <ChevronRight
           className={cn(
-            'w-3 h-3 text-muted-foreground/60 shrink-0 transition-transform duration-150',
+            'w-3 h-3 text-muted-foreground shrink-0 transition-transform duration-150',
             !collapsed && 'rotate-90',
           )}
         />
-        <Play className="w-3.5 h-3.5 text-accent-success/70 shrink-0" />
-        <span className="text-[11px] font-semibold text-muted-foreground leading-none uppercase tracking-wide">
+        <Play className="w-3.5 h-3.5 text-accent-success shrink-0" />
+        <span className="text-caption font-semibold text-muted-foreground leading-none">
           {t('loopExplorer.setup')}
         </span>
         <span className="flex-1" />
-        <span className="text-[10px] text-muted-foreground/40 shrink-0">
+        <span className="text-caption text-muted-foreground shrink-0">
           {t('logViewer.phaseLines', { count: lines.length })}
         </span>
       </button>

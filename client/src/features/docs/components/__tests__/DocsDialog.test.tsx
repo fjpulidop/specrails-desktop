@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
 import { render } from '../../../../test-utils'
+import userEvent from '@testing-library/user-event'
 
 // Render children, and (when DocsDialog passes a custom `a` component) a couple
 // of fixed links so the in-modal link-navigation handler is exercised.
@@ -78,6 +79,17 @@ describe('DocsDialog', () => {
       const items = screen.getAllByText(/documentation/i)
       expect(items.length).toBeGreaterThanOrEqual(1)
     })
+  })
+
+  it('has Help ▸ Replay tour: closes the guide and asks the shell to reopen the platform tour', async () => {
+    const onClose = vi.fn()
+    const onReplay = vi.fn()
+    window.addEventListener('specrails:replay-tour', onReplay)
+    render(<DocsDialog open={true} onClose={onClose} />)
+    await userEvent.setup().click(await screen.findByTestId('docs-replay-tour'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onReplay).toHaveBeenCalledTimes(1)
+    window.removeEventListener('specrails:replay-tour', onReplay)
   })
 
   it('renders category names from API', async () => {
@@ -214,6 +226,61 @@ describe('DocsDialog', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Documentation will appear here/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('modal standard', () => {
+    const twoCategories = {
+      categories: [
+        { name: 'Getting started', slug: 'getting-started', docs: [{ title: 'What is specrails', slug: 'what-is-specrails' }, { title: 'Install', slug: 'install' }] },
+        { name: 'Pipeline', slug: 'pipeline', docs: [{ title: 'Rails and jobs', slug: 'rails-and-jobs' }] },
+      ],
+    }
+
+    it('shows an 8-row sidebar skeleton (not a spinner) while the index loads', async () => {
+      let resolveIndex: (v: unknown) => void = () => {}
+      ;(global.fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(new Promise((r) => { resolveIndex = r }))
+      render(<DocsDialog open={true} onClose={vi.fn()} />)
+      const skeleton = await screen.findByTestId('docs-sidebar-skeleton')
+      expect(skeleton).toHaveAttribute('role', 'status')
+      expect(skeleton.querySelectorAll('[data-skeleton-row]')).toHaveLength(8)
+      expect(skeleton.querySelector('.animate-spin')).toBeNull()
+      resolveIndex({ ok: true, json: async () => twoCategories })
+      await waitFor(() => expect(screen.queryByTestId('docs-sidebar-skeleton')).not.toBeInTheDocument())
+    })
+
+    it('describes what the docs are and lands on the first guide (no index page duplicating the sidebar)', async () => {
+      ;(global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ ok: true, json: async () => twoCategories })
+        .mockResolvedValue({ ok: true, json: async () => ({ title: 'What is specrails', content: 'Intro body', category: 'getting-started', slug: 'what-is-specrails' }) })
+      render(<DocsDialog open={true} onClose={vi.fn()} />)
+      const dialog = await screen.findByRole('dialog', { name: 'Documentation' })
+      await waitFor(() => expect(dialog).toHaveAccessibleDescription('3 guides bundled with this version'))
+      await waitFor(() =>
+        expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/docs/getting-started/what-is-specrails')),
+      )
+      expect(await screen.findByText('Intro body')).toBeInTheDocument()
+      // Each guide is listed once (sidebar only).
+      expect(screen.getAllByRole('button', { name: 'Install' })).toHaveLength(1)
+      expect(screen.getByRole('button', { name: 'What is specrails' })).toHaveAttribute('aria-current', 'page')
+    })
+
+    it('filters the sidebar by guide title and reports no matches', async () => {
+      const user = userEvent.setup()
+      ;(global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ ok: true, json: async () => twoCategories })
+        .mockResolvedValue({ ok: true, json: async () => ({ title: 'x', content: 'x', category: 'getting-started', slug: 'what-is-specrails' }) })
+      render(<DocsDialog open={true} onClose={vi.fn()} />)
+      const filter = await screen.findByRole('searchbox', { name: 'Filter guides' })
+      // The filter is the initial focus.
+      await waitFor(() => expect(filter).toHaveFocus())
+      await user.type(filter, 'jobs')
+      expect(screen.getByRole('button', { name: 'Rails and jobs' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Install' })).not.toBeInTheDocument()
+      expect(screen.queryByText('Getting started')).not.toBeInTheDocument()
+      await user.clear(filter)
+      await user.type(filter, 'zzz')
+      expect(screen.getByText('No guides match “zzz”.')).toBeInTheDocument()
     })
   })
 })

@@ -17,12 +17,12 @@ export const FACTORY_LOOP_ID: Record<Exclude<RailMode, 'loop'>, string> = {
  * Loops section feature is off. `labelKey` reuses the existing `railControls.*`
  * i18n; `requiresFreestyle` hides Freestyle when the active adapter lacks it.
  */
-export const FACTORY_RAIL_LOOPS: { id: string; labelKey: string; requiresFreestyle?: boolean; requiresLoops?: boolean }[] = [
-  { id: 'factory:implement', labelKey: 'railControls.implement' },
-  { id: 'factory:freestyle', labelKey: 'railControls.freestyle', requiresFreestyle: true },
+export const FACTORY_RAIL_LOOPS: { id: string; labelKey: string; descriptionKey: string; requiresFreestyle?: boolean; requiresLoops?: boolean }[] = [
+  { id: 'factory:implement', labelKey: 'railControls.implement', descriptionKey: 'railControls.loopDescriptions.implement' },
+  { id: 'factory:freestyle', labelKey: 'railControls.freestyle', descriptionKey: 'railControls.loopDescriptions.freestyle', requiresFreestyle: true },
   // Graph-native built-in: runs only through the LoopRunManager, so it is
   // offered only while the Loops feature is enabled.
-  { id: 'factory:sdd-quick-openspec', labelKey: 'railControls.openspec', requiresLoops: true },
+  { id: 'factory:sdd-quick-openspec', labelKey: 'railControls.openspec', descriptionKey: 'railControls.loopDescriptions.openspec', requiresLoops: true },
 ]
 
 /** The factory loop id a legacy `mode` maps to ('' for the custom `loop` mode). */

@@ -6,10 +6,11 @@
     "updateFailed": "言語設定を保存できませんでした"
   },
   "page": {
-    "title": "プロジェクト設定"
+    "title": "プロジェクト設定",
+    "loadFailed": "プロジェクト設定を読み込めませんでした"
   },
   "errors": {
-    "saveFailed": "保存に失敗しました: {{message}}"
+    "saveFailed": "保存に失敗しました"
   },
   "telemetry": {
     "title": "パイプラインテレメトリ",
@@ -22,7 +23,7 @@
   },
   "prePrompt": {
     "title": "レールのプレプロンプト",
-    "description": "implement のレールジョブで、チケットコンテキストの後・実行前に追加されるプロジェクト固有の指示です。",
+    "description": "implement のレールジョブで、スペックコンテキストの後・実行前に追加されるプロジェクト固有の指示です。",
     "label": "プレプロンプト",
     "placeholder": "例: 段階的な変更を優先し、マイグレーションの後方互換性を保ち、レールの変更ごとにテストを追加すること。",
     "helper": "すべてのレール実装の実行に常に添えたい、安定したプロジェクト指針に使用してください。",
@@ -45,19 +46,17 @@
   "budget": {
     "title": "予算",
     "description": "このプロジェクトの1日あたりの支出上限を設定します。上限に達するとキューは自動で一時停止します。",
-    "dailyLabel": "日次予算（USD）",
-    "dailyHelper": "無効にするには空欄のままにします。支出は過去24時間で計算されます。",
-    "dailyPlaceholder": "例: 5.00",
+    "dailyLabel": "日次上限",
+    "dailyHelper": "支出は過去24時間で集計されます。上限に達するとキューは一時停止します。",
     "perJobLabel": "ジョブ単位のコストアラート（USD）",
     "perJobHelper": "このプロジェクトの単一ジョブがこの金額を超えたときにアラートします。",
     "perJobPlaceholder": "例: 0.50",
     "invalidNumber": "正の数値を入力するか、無効にするには空欄のままにしてください",
-    "dailyRemoved": "日次予算を削除しました",
-    "dailySet": "日次予算を ${{amount}} に設定しました",
     "perJobAlertDisabled": "ジョブ単位のコストアラートを無効にしました",
-    "alertSet": "${{amount}} を超えるジョブにアラートを設定しました",
-    "saveBudgetFailed": "予算の保存に失敗しました",
-    "saveThresholdFailed": "しきい値の保存に失敗しました"
+    "alertSet": "{{amount}} を超えるジョブにアラートを設定しました",
+    "saveThresholdFailed": "しきい値の保存に失敗しました",
+    "dailyCurrent": "現在 1 日 {{amount}}",
+    "dailyNone": "1 日の上限は未設定"
   },
   "desktop": {
     "nav": {
@@ -76,32 +75,38 @@
       "subscriptionUsage": "サブスクリプション使用量"
     },
     "title": "Desktop 設定",
-    "description": "登録済みプロジェクトの管理と Desktop 情報の表示。",
+    "description": "外観、AI プロバイダー、アップデート、Desktop 全体の設定。",
     "registeredProjects": "登録済みプロジェクト",
     "noProjects": "登録されたプロジェクトはまだありません",
     "techUrlDescription": "specrails-tech API のベース URL（デフォルト: http://localhost:3000）",
     "techUrlSaved": "specrails-tech の URL を保存しました",
     "techUrlSaveFailed": "URL の保存に失敗しました",
     "budgetAlertsHeading": "予算とアラート",
-    "dailyBudgetLabel": "Desktop 日次予算（USD）",
+    "dailyBudgetLabel": "Desktop 日次上限",
     "dailyBudgetHelper": "全プロジェクト共通のグローバルな日次支出上限。超過するとキューは自動で一時停止します。",
-    "dailyBudgetPlaceholder": "例: 10.00",
     "perJobHelper": "単一ジョブがこの金額を超えたときにアラートします。無効にするには空欄のままにします。",
     "costAlertsDisabled": "コストアラートを無効にしました",
-    "dailyBudgetRemoved": "Desktop の日次予算を削除しました",
-    "dailyBudgetSet": "Desktop の日次予算を ${{amount}} に設定しました",
-    "dailyBudgetSaveFailed": "Desktop の日次予算の保存に失敗しました",
     "projectRemoved": "プロジェクトを削除しました",
     "projectRemoveFailed": "プロジェクトの削除に失敗しました",
     "onboardingHeading": "オンボーディング",
     "platformTour": "プラットフォームツアー",
     "platformTourDescription": "ウェルカムウィザードを再生して主要機能を確認します。",
     "replayTour": "ツアーを再生",
-    "terminalPanelHeading": "ターミナルパネル",
     "infoHeading": "Desktop 情報",
     "infoPort": "ポート",
     "infoProjects": "プロジェクト",
-    "infoDb": "Desktop DB"
+    "infoDb": "Desktop DB",
+    "removeProjectConfirmTitle": "{{name}} を削除しますか？",
+    "removeProjectConfirmBody": "{{name}} の Specrails への登録が解除され、実行中の作業は停止します。ディスク上のリポジトリのファイルは削除されません。後でフォルダーを再度追加できます。",
+    "navLabel": "設定セクション",
+    "navGroups": {
+      "personal": "個人",
+      "agents": "エージェント",
+      "system": "システム"
+    },
+    "unsavedChanges": "未保存の変更",
+    "dailyBudgetCurrent": "現在 1 日 {{amount}}",
+    "dailyBudgetNone": "1 日の上限は未設定"
   },
   "notifications": {
     "heading": "OS 通知",
@@ -120,8 +125,6 @@
     "eventJobCompleted": "ジョブ完了",
     "eventJobFailed": "ジョブ失敗",
     "eventDailyBudgetExceeded": "日次予算超過",
-    "statusOn": "オン",
-    "statusOff": "オフ",
     "disable": "無効化",
     "enable": "有効化",
     "sendTestPing": "テスト ping を送信",
@@ -136,7 +139,10 @@
     "removed": "Webhook を削除しました",
     "removeFailed": "Webhook の削除に失敗しました",
     "testPingSent": "テスト ping を送信しました",
-    "testPingFailed": "テスト ping の送信に失敗しました"
+    "testPingFailed": "テスト ping の送信に失敗しました",
+    "removeConfirmTitle": "Webhook を削除しますか？",
+    "removeConfirmBody": "{{url}} は Desktop のイベントを受信しなくなります。",
+    "urlLabel": "Webhook URL"
   },
   "terminal": {
     "title": "ターミナルパネル",
@@ -170,7 +176,7 @@
     "taglines": {
       "dracula": "オリジナル — 紫がかったダークにネオンのアクセント",
       "aurora-light": "プレミアムライト — Linear風のインディゴと温かみのあるオフホワイト",
-      "obsidian-dark": "プレミアムダーク — 青みがかった漆黒にエレクトリックなアクセント",
+      "obsidian-dark": "グラファイト・プロ — ニュートラルなほぼ黒に、落ち着いた紫のアクセントひとつ",
       "specrails": "ブランドテーマ — 深いネイビーインディゴに鮮やかなシアン",
       "code-rain": "蛍光ターミナル — 緑がかった漆黒にソフトミント",
       "galaxy": "深宇宙のブルーと輝くブレードの軌跡"
@@ -182,7 +188,7 @@
   },
   "mobile": {
     "heading": "モバイルコンパニオン",
-    "description": "スマートフォンの SpecRails Companion アプリから Specrails を操作します。通信は 100% ローカルネットワーク経由です。デフォルトはオフです。",
+    "description": "スマートフォンの SpecRails Companion アプリから Specrails を操作します。通信は 100% ローカルネットワーク経由です。デフォルトはオフです。ペアリング済みのスマートフォンは、MCP の権限レベルが許す範囲で、受信トレイから質問への回答、再開、再試行、ドラフト PR の作成ができます。マージ、破棄、設定はこのコンピューターでのみ行えます。",
     "accessOn": "モバイルアクセス オン",
     "accessOff": "モバイルアクセス オフ",
     "listeningOnPort": "ポート {{port}} で待機中",
@@ -193,12 +199,13 @@
     "reset": "リセット",
     "resetConfirm": "モバイル ID をリセットしますか？ペアリング済みのすべてのデバイスが無効化され、再ペアリングが必要になります。",
     "identityReset": "モバイル ID をリセットしました",
-    "enableFailed": "モバイルアクセスを有効にできませんでした: {{message}}",
-    "disableFailed": "モバイルアクセスを無効にできませんでした: {{message}}",
+    "enableFailed": "モバイルアクセスを有効にできませんでした",
+    "disableFailed": "モバイルアクセスを無効にできませんでした",
     "windowsFirewall": "初回有効化時に Windows ファイアウォールが SpecRails サーバーの許可を求めます — 「プライベートネットワークで許可」を選択してください。",
     "pairedDevices": "ペアリング済みデバイス",
     "noDevices": "ペアリングされたデバイスはまだありません。",
-    "revokeDevice": "{{name}} を無効化"
+    "revokeDevice": "{{name}} を無効化",
+    "resetConfirmTitle": "モバイル ID をリセットしますか？"
   },
   "pairWeb": {
     "title": "Web コンパニオンをペアリング",
@@ -207,7 +214,7 @@
     "showThenScan": "スマートフォンでこれをスキャンしたら、「スマートフォンのコードをスキャン」をタップし、カメラをスマートフォンに向けてください。",
     "scanAnswer": "スマートフォンのコードをスキャン",
     "scanning": "カメラをスマートフォンのコードに向けてください…",
-    "cameraFailed": "カメラを利用できません: {{message}}",
+    "cameraFailed": "カメラを利用できません",
     "notAnswer": "その QR はペアリング応答ではありません。",
     "connecting": "接続中…",
     "paired": "✓ ペアリング済み",
@@ -231,10 +238,7 @@
     "affectsAll": "すべてのプロジェクトに適用 — 再起動不要。",
     "unavailable": "このビルドではコアの更新は利用できません。",
     "toastDone": "Specrails Core を {{version}} に更新しました",
-    "toastError": "コアの更新に失敗しました: {{message}}",
     "toastUpToDate": "Specrails Core は最新です",
-    "toastCheckFailed": "更新の確認に失敗しました: {{message}}",
-    "loadFailed": "Core の状態を更新できませんでした。再試行",
     "runtime": "ランタイム: {{version}}",
     "bundled": "Desktop 同梱: {{version}}",
     "sources": {
@@ -245,14 +249,17 @@
       "global": "外部 CLI"
     },
     "repair": "{{version}} への更新を完了",
-    "stableFallback": "specrails-core にはまだ安定版がないため、Core は当面最新に従います。"
+    "stableFallback": "specrails-core にはまだ安定版がないため、Core は当面最新に従います。",
+    "updateFailed": "Core の更新に失敗しました",
+    "checkFailed": "アップデートの確認に失敗しました",
+    "loadError": "Core の状態を更新できませんでした。"
   },
   "updateChannel": {
     "heading": "アップデートチャネル",
     "loading": "チャネルを読み込み中…",
     "scope": "Specrails Desktop と specrails-core フレームワークの両方に適用されます。",
     "saved": "アップデートチャネル: {{channel}}",
-    "saveFailed": "アップデートチャネルを変更できませんでした: {{message}}",
+    "saveFailed": "アップデートチャネルを変更できませんでした",
     "latest": {
       "label": "最新",
       "description": "リリースされたらすぐに受け取ります。新機能と修正をいち早く。"
@@ -272,12 +279,12 @@
     "autoHint": "起動時と6時間ごとに自動確認します。",
     "unavailable": "アップデートはデスクトップアプリでのみ利用できます。",
     "toastUpToDate": "Specrails Desktop は最新です",
-    "toastCheckFailed": "アップデートの確認に失敗しました: {{message}}",
+    "toastCheckFailed": "アップデートの確認に失敗しました",
     "stableUnavailable": "安定版チャネルに昇格したリリースはまだありません。最新に切り替えるか、後でもう一度お試しください。"
   },
   "projectDialog": {
     "title": "{{name}} — 設定",
-    "description": "プロジェクト設定：プロンプト、ブランチ、環境、予算、テレメトリ、ターミナル。",
+    "description": "プロジェクト設定：プロンプト、ブランチ、環境、予算、テレメトリ、ルール、ターミナル。",
     "nav": {
       "general": "一般",
       "branch": "ブランチ",
@@ -286,8 +293,11 @@
       "telemetry": "テレメトリ",
       "terminal": "ターミナル",
       "agentRuntime": "検証コマンド",
-      "subagents": "サブエージェント"
-    }
+      "subagents": "サブエージェント",
+      "rules": "ルール",
+      "recentlyDeleted": "最近削除した項目"
+    },
+    "navLabel": "プロジェクト設定セクション"
   },
   "integrationBranch": {
     "title": "統合ブランチ",
@@ -439,5 +449,100 @@
     "saved_other": "レビュー上限を {{count}} に設定しました",
     "removed": "レビュー上限を解除しました",
     "saveFailed": "レビュー上限を保存できませんでした"
+  },
+  "anchoring": {
+    "title": "既存プロジェクトへの定着",
+    "description": "プロジェクトの既存の振る舞いを実行が尊重するためのオプション機能です。各機能には対応する Core が必要です。",
+    "coreRequired": "インストール済みの Core はまだ対応していません。有効にするには Core を更新してください。",
+    "saveFailed": "設定を保存できませんでした",
+    "jiraPostClarifications": {
+      "label": "アーキテクトの確認事項を Jira に投稿",
+      "description": "アーキテクトの質問で実行が一時停止したとき、または前提を置いて続行したときに、リンクされた Jira 課題にコメントとして投稿します。そこへの返信は確認事項としてスペックに記録されます。",
+      "enabled": "確認事項を Jira に投稿します",
+      "disabled": "確認事項は Specrails 内にとどめます"
+    },
+    "baselineOnTouch": {
+      "label": "変更時のベースライン",
+      "description": "どのスペックにも記述されていないコードに変更が及ぶ場合、まず特性テスト（変更前のコードで実証）と最小限の現状スペックを作成します。コストが追加され、別途表示されます。",
+      "enabled": "変更時のベースラインを有効にしました",
+      "disabled": "変更時のベースラインを無効にしました"
+    }
+  },
+  "rules": {
+    "title": "プロジェクトルール",
+    "description": "プロジェクトが既に実行しているチェックと文書化された各ルールを、「適用済み」「自動化可能」「人による確認のみ」に分類します。「人による確認のみ」のルールは各レビューパケットに表示されます。",
+    "rerun": "インベントリを再実行",
+    "running": "インベントリ実行中…",
+    "coreRequired": "インストール済みの Core はルールインベントリに対応していません。実行するには Core を更新してください。",
+    "missing": "インベントリはまだありません。実行すると、プロジェクトのゲートとルールが一覧表示されます。",
+    "invalid": "ルールファイルを読み込めませんでした：{{message}}",
+    "inventoryDone": "ルールインベントリを更新しました",
+    "inventoryFailed": "ルールインベントリに失敗しました",
+    "specCreated": "スペック #{{id}} を作成しました",
+    "specFailed": "スペックを作成できませんでした",
+    "status": {
+      "automatable": "自動化可能",
+      "humanOnly": "人による確認のみ",
+      "enforcedBy": "適用済み",
+      "unclassified": "未分類"
+    },
+    "generatedAt": "{{date}} に生成",
+    "gates_other": "ゲート {{count}} 件",
+    "gatesHint": "検証チェックが未設定の場合、単純なゲートコマンドがエージェントランタイム設定で最初に提案されます。",
+    "enforcedBy": "{{check}} により適用",
+    "proposedCheck": "提案されたチェック：{{check}}",
+    "createSpec": "スペックを作成",
+    "dropped_other": "形式に合わない {{count}} 件の項目をスキップしました",
+    "classification": {
+      "offline": "ルールはオフラインで収集され、まだ分類されていません。プロバイダーを設定してインベントリを再実行してください。",
+      "unavailable": "ルールを分類するプロバイダーが設定されていません。",
+      "failed": "ルールの分類に失敗しました。",
+      "empty": "文書化されたルールが見つかりませんでした。",
+      "unknown": "ルールは分類されていません。"
+    },
+    "gates_one": "ゲート {{count}} 件",
+    "dropped_one": "形式に合わない {{count}} 件の項目をスキップしました",
+    "autoRunning": "セットアップ後のインベントリを実行中です。完了するとこの一覧が更新されます。",
+    "lastRun": {
+      "setupFailed": "セットアップ後の自動インベントリが失敗しました ({{date}})。",
+      "manualFailed": "前回のインベントリ実行が失敗しました ({{date}})。",
+      "retryHint": "上記の原因を解決してから、インベントリを再実行してください。",
+      "setupDone": "セットアップ後に自動でインベントリを作成しました。"
+    }
+  },
+  "editorSection": {
+    "heading": "エディター",
+    "description": "レビューパケットの「エディターで開く」で使うエディターです。このコンピューターに保存されます。",
+    "label": "ファイルを開くエディター",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "JetBrains IDE"
+    }
+  },
+  "budgetMoved": "上限は 分析 ▸ 予算 で編集します。",
+  "openBudget": "予算を開く",
+  "openSettings": "設定を開く",
+  "accessibility": {
+    "density": {
+      "title": "表示密度",
+      "description": "カードや行が占める余白の大きさです。ボード、ジョブ一覧、ジョブのストーリーに適用されます。保存したボードビューは独自のレイアウトを保ちます。",
+      "comfortable": "ゆったり",
+      "comfortableHint": "余裕のあるカードと行",
+      "compact": "コンパクト",
+      "compactHint": "画面に多くのスペックと行を表示",
+      "resetBoard": "ボードにも適用する",
+      "resetBoardDone": "このプロジェクトのボードもこの設定に従います。"
+    },
+    "motion": {
+      "title": "視覚効果を減らす",
+      "description": "OSの設定とは別に、Specrails内のアニメーションとトランジションをオフにします。",
+      "system": "システムに従う",
+      "systemHint": "OSの設定を使用",
+      "reduce": "減らす",
+      "reduceHint": "常に落ち着いた表示:アニメーションなし",
+      "full": "フルモーション",
+      "fullHint": "OSが控えめを求めてもアニメーションを表示"
+    }
   }
 }

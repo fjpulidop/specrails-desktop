@@ -58,3 +58,11 @@ it('freezes a fresh delta target and briefs every Implement role without mutatin
   }
   expect(input).toEqual(original)
 })
+
+it('forwards the project runtime switches (baseline on touch) read at launch', async () => {
+  const input = request(); delete input.graph.config.legacyDeciderRole
+  await createLoopExecutors({ env: {}, projectRuntime: () => ({ baselineOnTouch: true }) }).runDefinition!({ ...callbacks, request: input, runId: 'run' })
+  expect(vi.mocked(runAgentRuntimeInvocation).mock.calls[0][0]).toMatchObject({ projectRuntime: { baselineOnTouch: true } })
+  await createLoopExecutors({ env: {} }).runDefinition!({ ...callbacks, request: input, runId: 'run-2' })
+  expect(vi.mocked(runAgentRuntimeInvocation).mock.calls[1][0].projectRuntime).toBeUndefined()
+})

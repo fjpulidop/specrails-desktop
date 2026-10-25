@@ -48,7 +48,7 @@ function makeTicket(id: number, title: string, labels: string[]): LocalTicket {
 }
 
 function openLabelDropdown() {
-  fireEvent.click(screen.getByTestId('spec-label-filter-dropdown'))
+  if (!screen.queryByTestId('specs-filters-panel')) fireEvent.click(screen.getByTestId('specs-filters-trigger'))
   return screen.getByTestId('spec-label-filter-panel')
 }
 
@@ -64,7 +64,7 @@ describe('SpecsBoard label filter dropdown', () => {
     ]
     render(<SpecsBoard tickets={tickets} isLoading={false} onTicketClick={onTicketClick} />)
     const panel = openLabelDropdown()
-    expect(within(panel).getByText('All')).toBeInTheDocument()
+    expect(within(panel).getByText('All labels')).toBeInTheDocument()
     expect(within(panel).getByText('auth')).toBeInTheDocument()
     expect(within(panel).getByText('api')).toBeInTheDocument()
     expect(within(panel).getByText('ui')).toBeInTheDocument()
@@ -121,14 +121,14 @@ describe('SpecsBoard label filter dropdown', () => {
     const panel = openLabelDropdown()
     fireEvent.click(within(panel).getByText('auth'))
     expect(screen.queryByText('Api one')).toBeNull()
-    fireEvent.click(within(panel).getByText('All'))
+    fireEvent.click(within(panel).getByText('All labels'))
     expect(screen.getByText('Api one')).toBeInTheDocument()
   })
 
-  it('renders the dropdown trigger even when no tickets carry labels', () => {
+  it('renders the Filters trigger even when no tickets carry labels', () => {
     const tickets = [makeTicket(1, 'Plain one', []), makeTicket(2, 'Plain two', [])]
     render(<SpecsBoard tickets={tickets} isLoading={false} onTicketClick={onTicketClick} />)
-    expect(screen.getByTestId('spec-label-filter-dropdown')).toBeInTheDocument()
+    expect(screen.getByTestId('specs-filters-trigger')).toBeInTheDocument()
     const panel = openLabelDropdown()
     expect(within(panel).getByText('No labels in this project.')).toBeInTheDocument()
   })
@@ -141,9 +141,10 @@ describe('SpecsBoard label filter dropdown', () => {
     const { container } = render(
       <SpecsBoard tickets={tickets} isLoading={false} onTicketClick={onTicketClick} />,
     )
-    expect(container.querySelector('[data-testid="spec-label-filter-dropdown"]')!.outerHTML).not.toMatch(/dracula-/)
+    expect(container.querySelector('[data-testid="specs-filters-trigger"]')!.outerHTML).not.toMatch(/dracula-/)
     openLabelDropdown()
-    const panel = container.querySelector('[data-testid="spec-label-filter-panel"]')!
+    // The panel is portalled to <body>, outside the render container.
+    const panel = screen.getByTestId('specs-filters-panel')
     expect(panel.outerHTML).not.toMatch(/dracula-/)
   })
 })

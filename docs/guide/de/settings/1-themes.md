@@ -1,4 +1,4 @@
-# Themes
+# Themes {#themes}
 
 Gestalte Specrails so, wie es dir gefällt. Die App bringt fünf sorgfältig abgestimmte Themes mit, zwischen denen du jederzeit blitzschnell wechseln kannst – ohne Neustart, ohne Neukompilieren, ganz ohne Konfiguration.
 

@@ -1,7 +1,7 @@
 {
   "heading": "Servidor MCP",
   "explainer": {
-    "what": "Un servidor MCP (Model Context Protocol) permite que herramientas de IA externas —como Claude Desktop, Cursor o cualquier cliente MCP— se comuniquen directamente con Specrails. Pueden explorar tus proyectos, leer especificaciones y, si lo permites, lanzar trabajos, todo a través de una única conexión local segura.",
+    "what": "Un servidor MCP (Model Context Protocol) permite que herramientas de IA externas —como Claude Desktop, Cursor o cualquier cliente MCP— se comuniquen directamente con Specrails. Pueden explorar tus proyectos, leer specs y, si lo permites, lanzar trabajos, todo a través de una única conexión local segura.",
     "how": "Está activado por defecto: copia la configuración de cliente de abajo en tu herramienta de IA. Specrails solo escucha en tu propia máquina; nada queda expuesto a internet.",
     "grants": "Todos los niveles de permiso están activados por defecto. Desmarca un nivel para restringir lo que pueden hacer los clientes, una capacidad cada vez."
   },
@@ -15,21 +15,21 @@
     "activeSessions_other": "{{count}} sesiones activas",
     "turnOn": "Activar",
     "turnOff": "Desactivar",
-    "enableFailed": "No se pudo activar el servidor MCP: {{message}}",
-    "disableFailed": "No se pudo desactivar el servidor MCP: {{message}}"
+    "enableFailed": "No se pudo activar el servidor MCP",
+    "disableFailed": "No se pudo desactivar el servidor MCP"
   },
   "tiers": {
     "heading": "Niveles de permiso",
     "description": "Cada nivel que un cliente puede usar. Lectura siempre está activa; el resto están activados por defecto: desactiva cualquiera para restringir a los clientes.",
     "read": "Lectura",
-    "readHelp": "Explorar proyectos, especificaciones y analíticas. Siempre permitido.",
+    "readHelp": "Explorar proyectos, specs y analíticas. Siempre permitido.",
     "write": "Escritura",
-    "writeHelp": "Crear y editar especificaciones y tickets.",
+    "writeHelp": "Crear y editar specs.",
     "aiSpawn": "Lanzar IA",
     "aiSpawnHelp": "Lanzar rails y trabajos de IA que ejecutan la CLI.",
     "destructive": "Destructivo",
-    "destructiveHelp": "Eliminar especificaciones, tickets y otros datos del proyecto.",
-    "updateFailed": "No se pudieron actualizar los permisos: {{message}}"
+    "destructiveHelp": "Eliminar specs y otros datos del proyecto.",
+    "updateFailed": "No se pudieron actualizar los permisos"
   },
   "config": {
     "heading": "Configuración del cliente",
@@ -47,7 +47,8 @@
     "regenerate": "Regenerar",
     "regenerateConfirm": "¿Regenerar el token de acceso? Cualquier cliente que use el token antiguo dejará de funcionar hasta que actualices su configuración.",
     "regenerated": "Token de acceso regenerado",
-    "regenerateFailed": "No se pudo regenerar el token: {{message}}"
+    "regenerateFailed": "No se pudo regenerar el token",
+    "regenerateConfirmTitle": "¿Regenerar el token de acceso?"
   },
   "tray": {
     "open": "Abrir",
@@ -93,6 +94,9 @@
       "unknown_provider": "Proveedor desconocido en la matriz de activación",
       "invalid_entry": "Entrada de servidor malformada",
       "invalid_body": "Petición malformada"
-    }
+    },
+    "removeConfirmTitle": "¿Eliminar {{name}}?",
+    "removeConfirmBody": "El agente de misión deja de cargar este servidor para todos los proveedores. Un servidor detectado sigue en la configuración de tu proveedor de IA y puede volver a activarse.",
+    "formProviderToggle": "Activar para {{provider}}"
   }
 }

@@ -10,14 +10,43 @@
  * than the base utility so it reliably wins. */
 @custom-variant aurora-light ([data-theme="aurora-light"] &);
 
+/* Motion variants that obey the in-app Motion setting (Settings > Accessibility,
+ * mirrored on <html data-motion="system|reduce|full">). Tailwind's built-ins only
+ * read the OS preference, which made "Full motion" apply to JS motion but not to
+ * CSS. Same rule for every hand-written `prefers-reduced-motion` block below:
+ *   - "reduce" always reduces, "full" always animates,
+ *   - "system" (no attribute) follows the OS. */
+@custom-variant motion-safe {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="reduce"]) & {
+      @slot;
+    }
+  }
+  :root[data-motion="full"] & {
+    @slot;
+  }
+}
+@custom-variant motion-reduce {
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion="full"]) & {
+      @slot;
+    }
+  }
+  :root[data-motion="reduce"] & {
+    @slot;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
  * Theme system
  *
- * Four first-class themes selectable via `<html data-theme="...">`:
- *   - dracula        (default — legacy palette, byte-equivalent visuals)
+ * Six first-class themes selectable via `<html data-theme="...">`:
+ *   - dracula        (legacy palette; the base `@theme` block below carries these values)
  *   - aurora-light   (premium light, Linear-ish frío profesional)
  *   - obsidian-dark  (premium dark, Tokyo-Night-ish negro-azulado)
- *   - code-rain         (phosphor terminal — green-tinted near-black)
+ *   - code-rain      (phosphor terminal — green-tinted near-black)
+ *   - specrails      (brand near-black; the runtime default, see DEFAULT_THEME)
+ *   - galaxy         (deep-space near-black)
  *
  * Components use SEMANTIC tokens only (e.g. `text-accent-primary`,
  * `bg-surface`, `border-border`). Brand-named tokens (`dracula-*`) MUST NOT
@@ -44,7 +73,7 @@
   /* shadcn semantic tokens */
   --color-background:           hsl(231 15% 18%);
   --color-foreground:           hsl(60 30% 96%);
-  --color-card:                 hsl(232 14% 31%);
+  --color-card:                 hsl(232 14% 24%);
   --color-card-foreground:      hsl(60 30% 96%);
   --color-popover:              hsl(231 15% 18%);
   --color-popover-foreground:   hsl(60 30% 96%);
@@ -52,25 +81,26 @@
   --color-primary-foreground:   hsl(231 15% 18%);
   --color-secondary:            hsl(232 14% 31%);
   --color-secondary-foreground: hsl(60 30% 96%);
-  --color-muted:                hsl(232 14% 31%);
-  --color-muted-foreground:     hsl(225 27% 51%);
+  --color-muted:                hsl(232 14% 30%);
+  --color-muted-foreground:     hsl(225 27% 76%);  /* ≥4.5:1 on cards (6.1:1), muted and the background */
   --color-accent:               hsl(232 14% 31%);
   --color-accent-foreground:    hsl(60 30% 96%);
-  --color-destructive:          hsl(0 100% 67%);
-  --color-destructive-foreground: hsl(60 30% 96%);
+  --color-destructive:          hsl(0 100% 80%);
+  --color-destructive-foreground: hsl(231 15% 18%);  /* theme background: ≥4.5:1 on the light red */
   --color-border:               hsl(225 27% 51% / 0.3);
   --color-input:                hsl(232 14% 31%);
   --color-ring:                 hsl(265 89% 78%);
-  --radius:                     0.75rem;
 
   /* Brand-mirror semantic tokens (used when shadcn token is too generic) */
-  --color-accent-primary:    hsl(265 89% 78%);  /* purple */
+  --color-accent-primary:    hsl(265 89% 81%);  /* purple */
   --color-accent-info:       hsl(191 97% 77%);  /* cyan */
+  --color-accent-flow:       hsl(170 70% 62%);  /* teal — Flow mode, distinct from info (running) cyan */
   --color-accent-success:    hsl(135 94% 65%);  /* green */
-  --color-accent-secondary:  hsl(326 100% 74%); /* pink */
+  --color-accent-secondary:  hsl(326 100% 78%); /* pink */
   --color-accent-warning:    hsl(31 100% 71%);  /* orange */
+  --color-accent-review:     hsl(326 100% 84%);  /* review lamp — the theme's pink (primary is violet) */
   --color-accent-highlight:  hsl(65 92% 76%);   /* yellow */
-  --color-surface:           hsl(232 14% 31%);  /* elevated surface (cards-on-card) */
+  --color-surface:           hsl(232 14% 24%);  /* elevated surface (cards-on-card) */
   --color-background-deep:   hsl(234 16% 14%);  /* deep background (sidebars, code blocks) */
 
   /* Theme-driven decorative tokens (used by hljs, prose, scrollbar, sonner) */
@@ -80,7 +110,84 @@
   --color-prose-table-header:     hsl(232 14% 31% / 0.5);
   --color-toast-shadow:           hsl(231 15% 6% / 0.5);
   --glass-card-opacity:           30%;
+
+  /* Modal scrims (modal standard): one dialog scrim, one media scrim. */
+  --color-scrim:                  rgb(0 0 0 / 0.6);
+  --color-scrim-media:            rgb(0 0 0 / 0.85);
+
+  /* ─── Premium tokens (type, radius, elevation, motion) ─── */
+  /* Type scale: role-based. Utilities: text-caption … text-display-xl (11px is the floor; there is no smaller role). */
+  --text-caption:                     0.6875rem;   /* 11px */
+  --text-caption--line-height:        1rem;
+  --text-label:                       0.75rem;     /* 12px */
+  --text-label--line-height:          1rem;
+  --text-label--font-weight:          500;
+  --text-body:                        0.8125rem;   /* 13px */
+  --text-body--line-height:           1.25rem;
+  --text-strong:                      0.875rem;    /* 14px */
+  --text-strong--line-height:         1.25rem;
+  --text-strong--font-weight:         600;
+  --text-strong--letter-spacing:      -0.005em;
+  --text-title:                       1rem;        /* 16px */
+  --text-title--line-height:          1.375rem;
+  --text-title--font-weight:          600;
+  --text-title--letter-spacing:       -0.01em;
+  --text-headline:                    1.25rem;     /* 20px */
+  --text-headline--line-height:       1.625rem;
+  --text-headline--font-weight:       600;
+  --text-headline--letter-spacing:    -0.015em;
+  --text-display:                     1.75rem;     /* 28px */
+  --text-display--line-height:        2rem;
+  --text-display--font-weight:        600;
+  --text-display--letter-spacing:     -0.02em;
+  --text-display-xl:                  2.5rem;      /* 40px */
+  --text-display-xl--line-height:     2.75rem;
+  --text-display-xl--font-weight:     600;
+  --text-display-xl--letter-spacing:  -0.025em;
+  --color-rail-end:                   var(--color-accent-secondary);  /* rail pill gradient end */
+  --font-display:                     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;  /* code-rain overrides with mono */
+
+  /* Radius roles (per-theme overridable). Utilities: rounded-control/card/panel/pill. */
+  --radius-control:  6px;
+  --radius-card:     10px;
+  --radius-panel:    14px;
+  --radius-pill:     9999px;
+
+  /* Legacy Tailwind radius/shadow scale aliased to the roles, so any
+     rounded-sm…3xl / shadow-sm…2xl utility resolves to a role value. */
+  --radius-sm:  var(--radius-control);
+  --radius-md:  var(--radius-control);
+  --radius-lg:  var(--radius-card);
+  --radius-xl:  var(--radius-panel);
+  --radius-2xl: var(--radius-panel);
+  --radius-3xl: var(--radius-panel);
+
+  /* Elevation roles. Utilities: shadow-1/2/3. */
+  --shadow-color:         hsl(234 16% 6% / 0.45);
+  --shadow-color-strong:  hsl(234 16% 4% / 0.6);
+  --edge-highlight:       inset 0 1px 0 hsl(0 0% 100% / 0.04);
+  --shadow-1: 0 1px 2px var(--shadow-color), var(--edge-highlight);
+  --shadow-2: 0 6px 16px -4px var(--shadow-color), var(--edge-highlight);
+  --shadow-3: 0 24px 64px -16px var(--shadow-color-strong), 0 0 0 1px var(--color-border);
+  --shadow-sm:  var(--shadow-1);
+  --shadow-md:  var(--shadow-2);
+  --shadow-lg:  var(--shadow-2);
+  --shadow-xl:  var(--shadow-3);
+  --shadow-2xl: var(--shadow-3);
+
+  /* Motion */
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:   cubic-bezier(0.4, 0, 1, 1);
+  --ease-rail: cubic-bezier(0.22, 0.9, 0.25, 1);
+  --duration-instant: 100ms;
+  --duration-fast:    150ms;
+  --duration-base:    200ms;
+  --duration-slow:    300ms;
+  --duration-peak:    640ms;
 }
+
+/* Dracula is the base block above: declare its native color-scheme on the root. */
+:root { color-scheme: dark; }
 
 /* ─── Aurora Light (premium light theme) ─── */
 [data-theme="aurora-light"] {
@@ -98,7 +205,7 @@
   --color-muted-foreground:       hsl(225 16% 35%);  /* darker: readable secondary text on light bg */
   --color-accent:                 hsl(220 18% 92%);
   --color-accent-foreground:      hsl(230 28% 14%);
-  --color-destructive:            hsl(0 72% 50%);
+  --color-destructive:            hsl(0 72% 46%);
   --color-destructive-foreground: hsl(220 25% 99%);
   --color-border:                 hsl(225 14% 86%);
   --color-input:                  hsl(220 18% 94%);
@@ -106,10 +213,12 @@
 
   --color-accent-primary:    hsl(255 70% 50%);  /* indigo — slightly deeper for text contrast */
   --color-accent-info:       hsl(205 58% 40%);  /* muted steel-blue — not neon, readable on light bg */
-  --color-accent-success:    hsl(150 65% 33%);  /* emerald */
+  --color-accent-flow:       hsl(172 72% 26%);  /* deep teal — readable on light bg */
+  --color-accent-success:    hsl(150 65% 28%);  /* emerald — deep enough for text on light bg */
   --color-accent-secondary:  hsl(330 72% 45%);  /* magenta-pink, deeper for readability on light */
-  --color-accent-warning:    hsl(32 90% 40%);   /* amber — darker so text reads on light bg */
-  --color-accent-highlight:  hsl(40 85% 36%);   /* gold/bronze — readable on light bg */
+  --color-accent-warning:    hsl(32 90% 32%);   /* amber — darker so text reads on light bg (≥4.5:1) */
+  --color-accent-review:     hsl(330 72% 45%);  /* review lamp — the theme's pink (primary is violet) */
+  --color-accent-highlight:  hsl(40 85% 30%);   /* gold/bronze — readable on light bg */
   --color-surface:            hsl(220 22% 96%);
   --color-background-deep:    hsl(220 18% 94%);
 
@@ -118,7 +227,15 @@
   --color-prose-table-stripe:    hsl(220 18% 96% / 0.6);
   --color-prose-table-header:    hsl(220 18% 92% / 0.8);
   --color-toast-shadow:          hsl(225 30% 30% / 0.18);
+  --color-scrim:                 rgb(15 15 40 / 0.35);  /* lighter scrim on the light theme */
   --glass-card-opacity:          92%;
+
+  color-scheme: light;
+  --shadow-color:        hsl(225 30% 30% / 0.14);
+  --shadow-color-strong: hsl(225 30% 25% / 0.24);
+  --edge-highlight:      inset 0 0 0 0 transparent;  /* no top-edge light on paper */
+  --shadow-1: 0 1px 2px var(--shadow-color), 0 0 0 1px hsl(225 14% 86% / 0.5);
+  --radius-panel: 12px;
 }
 
 /* ─── Code Rain (phosphor terminal — green-tinted near-black) ─── */
@@ -133,21 +250,23 @@
   --color-primary-foreground:     hsl(154 30% 5%);
   --color-secondary:              hsl(154 22% 16%);
   --color-secondary-foreground:   hsl(150 100% 86%);
-  --color-muted:                  hsl(154 22% 16%);
+  --color-muted:                  hsl(154 22% 18%);
   --color-muted-foreground:       hsl(150 40% 55%);
   --color-accent:                 hsl(154 22% 16%);
   --color-accent-foreground:      hsl(150 100% 86%);
-  --color-destructive:            hsl(351 100% 65%);  /* rose — the red pill */
-  --color-destructive-foreground: hsl(150 100% 96%);
+  --color-destructive:            hsl(351 100% 71%);  /* rose — the red pill */
+  --color-destructive-foreground: hsl(154 30% 5%);    /* theme background */
   --color-border:                 hsl(154 40% 28% / 0.55);
   --color-input:                  hsl(154 22% 16%);
   --color-ring:                   hsl(144 100% 50%);
 
   --color-accent-primary:    hsl(144 100% 50%);   /* phosphor green */
   --color-accent-info:       hsl(174 56% 56%);    /* teal */
+  --color-accent-flow:       hsl(200 85% 66%);  /* sky blue — the one non-green mode accent */
   --color-accent-success:    hsl(145 100% 70%);   /* light mint-green */
-  --color-accent-secondary:  hsl(153 100% 33%);   /* deep terminal green */
+  --color-accent-secondary:  hsl(153 100% 36%);   /* deep terminal green */
   --color-accent-warning:    hsl(35 100% 64%);    /* amber */
+  --color-accent-review:     hsl(270 80% 74%);  /* review lamp — violet, keeps amber for caution/cost */
   --color-accent-highlight:  hsl(51 100% 50%);    /* gold */
   --color-surface:           hsl(154 28% 9%);
   --color-background-deep:   hsl(154 30% 3%);
@@ -162,6 +281,14 @@
   /* Signature glow — phosphor halo on the primary accent. Resolved by the
    * `filter:` rule below so component code stays theme-agnostic. */
   --code-rain-glow: drop-shadow(0 0 10px hsl(144 100% 50% / 0.4));
+
+  color-scheme: dark;
+  --shadow-color:        hsl(154 40% 2% / 0.6);
+  --shadow-color-strong: hsl(154 40% 1% / 0.75);
+  --radius-control: 2px;
+  --radius-card:    3px;
+  --radius-panel:   4px;
+  --font-display:   ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 /* Apply the code-rain glow only when the user has not requested reduced motion.
@@ -169,51 +296,68 @@
  * elements — keeps the phosphor halo where it matters without taxing every
  * surface or fighting Tailwind's `ring-*` utilities. */
 @media (prefers-reduced-motion: no-preference) {
-  [data-theme="code-rain"] button:focus-visible,
-  [data-theme="code-rain"] a:focus-visible,
-  [data-theme="code-rain"] [role="button"]:focus-visible,
-  [data-theme="code-rain"] [role="radio"]:focus-visible {
+  :root:not([data-motion="reduce"]) {
+    &[data-theme="code-rain"] button:focus-visible,
+    &[data-theme="code-rain"] a:focus-visible,
+    &[data-theme="code-rain"] [role="button"]:focus-visible,
+    &[data-theme="code-rain"] [role="radio"]:focus-visible {
+      filter: var(--code-rain-glow);
+    }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
+  &[data-theme="code-rain"] button:focus-visible,
+  &[data-theme="code-rain"] a:focus-visible,
+  &[data-theme="code-rain"] [role="button"]:focus-visible,
+  &[data-theme="code-rain"] [role="radio"]:focus-visible {
     filter: var(--code-rain-glow);
   }
 }
 
 /* ─── Obsidian Dark (premium dark theme — distinct from Dracula) ─── */
 [data-theme="obsidian-dark"] {
-  --color-background:             hsl(222 18% 8%);   /* near-black, blue-tinted */
-  --color-foreground:             hsl(220 18% 92%);
-  --color-card:                   hsl(222 16% 12%);
-  --color-card-foreground:        hsl(220 18% 92%);
-  --color-popover:                hsl(222 18% 8%);
-  --color-popover-foreground:     hsl(220 18% 92%);
-  --color-primary:                hsl(265 80% 72%);  /* saturated purple, glows */
-  --color-primary-foreground:     hsl(222 18% 8%);
-  --color-secondary:              hsl(222 14% 16%);
-  --color-secondary-foreground:   hsl(220 18% 92%);
-  --color-muted:                  hsl(222 14% 16%);
-  --color-muted-foreground:       hsl(220 12% 60%);
-  --color-accent:                 hsl(222 14% 16%);
-  --color-accent-foreground:      hsl(220 18% 92%);
-  --color-destructive:            hsl(0 78% 62%);
-  --color-destructive-foreground: hsl(220 18% 92%);
-  --color-border:                 hsl(220 12% 24% / 0.7);
-  --color-input:                  hsl(222 14% 16%);
-  --color-ring:                   hsl(265 80% 72%);
+  --color-background:             hsl(220 8% 8%);   /* near-black, blue-tinted */
+  --color-foreground:             hsl(220 8% 92%);
+  --color-card:                   hsl(220 7% 12%);
+  --color-card-foreground:        hsl(220 8% 92%);
+  --color-popover:                hsl(220 8% 8%);
+  --color-popover-foreground:     hsl(220 8% 92%);
+  --color-primary:                hsl(258 55% 70%);  /* saturated purple, glows */
+  --color-primary-foreground:     hsl(220 8% 8%);
+  --color-secondary:              hsl(220 7% 16%);
+  --color-secondary-foreground:   hsl(220 8% 92%);
+  --color-muted:                  hsl(220 7% 18%);
+  --color-muted-foreground:       hsl(220 6% 60%);
+  --color-accent:                 hsl(220 7% 16%);
+  --color-accent-foreground:      hsl(220 8% 92%);
+  --color-destructive:            hsl(0 66% 67%);
+  --color-destructive-foreground: hsl(220 8% 8%);   /* theme background */
+  --color-border:                 hsl(220 8% 24% / 0.7);
+  --color-input:                  hsl(220 7% 16%);
+  --color-ring:                   hsl(258 55% 70%);
 
-  --color-accent-primary:    hsl(265 80% 72%);  /* purple */
-  --color-accent-info:       hsl(192 90% 62%);  /* electric cyan */
-  --color-accent-success:    hsl(150 70% 55%);  /* emerald */
-  --color-accent-secondary:  hsl(330 80% 68%);  /* magenta */
-  --color-accent-warning:    hsl(35 95% 62%);   /* amber */
-  --color-accent-highlight:  hsl(50 95% 65%);   /* gold */
-  --color-surface:            hsl(222 16% 12%);
-  --color-background-deep:    hsl(222 20% 5%);
+  --color-accent-primary:    hsl(258 55% 70%);  /* purple */
+  --color-accent-info:       hsl(192 76% 62%);  /* electric cyan */
+  --color-accent-flow:       hsl(168 56% 55%);  /* teal */
+  --color-accent-success:    hsl(150 60% 55%);  /* emerald */
+  --color-accent-secondary:  hsl(330 68% 68%);  /* magenta */
+  --color-accent-warning:    hsl(35 81% 62%);   /* amber */
+  --color-accent-review:     hsl(330 68% 68%);  /* review lamp — the theme's pink (primary is violet) */
+  --color-accent-highlight:  hsl(50 81% 65%);   /* gold */
+  --color-surface:            hsl(220 7% 12%);
+  --color-background-deep:    hsl(220 8% 5%);
 
-  --color-scrollbar-thumb:       hsl(220 12% 40% / 0.45);
-  --color-scrollbar-thumb-hover: hsl(220 12% 50% / 0.65);
-  --color-prose-table-stripe:    hsl(222 14% 16% / 0.5);
-  --color-prose-table-header:    hsl(222 14% 16% / 0.8);
-  --color-toast-shadow:          hsl(222 30% 2% / 0.6);
+  --color-scrollbar-thumb:       hsl(220 8% 40% / 0.45);
+  --color-scrollbar-thumb-hover: hsl(220 8% 50% / 0.65);
+  --color-prose-table-stripe:    hsl(220 7% 16% / 0.5);
+  --color-prose-table-header:    hsl(220 7% 16% / 0.8);
+  --color-toast-shadow:          hsl(220 12% 2% / 0.6);
   --glass-card-opacity:          30%;
+
+  color-scheme: dark;
+  --shadow-color:        hsl(220 12% 2% / 0.55);
+  --shadow-color-strong: hsl(220 12% 1% / 0.7);
 }
 
 /* ─── SpecRails (brand theme — near-black #06060c, saturated cyan) ─────────────
@@ -239,16 +383,18 @@
   --color-accent-foreground:      hsl(240 20% 95%);
   --color-destructive:            hsl(12 80% 55%);
   --color-destructive-foreground: hsl(240 33% 4%);
-  --color-border:                 hsl(240 25% 100% / 0.11);
+  --color-border:                 hsl(240 25% 100% / 0.14);
   --color-input:                  hsl(238 22% 15%);
   --color-ring:                   hsl(187 100% 44%);
 
   --color-accent-primary:    hsl(187 100% 44%);  /* cyan */
-  --color-accent-info:       hsl(191 97% 55%);   /* electric cyan */
+  --color-accent-info:       hsl(234 92% 76%);   /* periwinkle — running, kept apart from the cyan primary */
+  --color-accent-flow:       hsl(170 78% 50%);  /* teal, between success and the cyan primary */
   --color-accent-success:    hsl(152 78% 48%);   /* emerald */
   --color-accent-secondary:  hsl(280 45% 62%);   /* violet */
   --color-accent-warning:    hsl(42 92% 58%);    /* amber */
-  --color-accent-highlight:  hsl(248 75% 67%);   /* indigo */
+  --color-accent-review:     hsl(322 55% 72%);  /* review lamp — orchid pink, keeps amber for caution/cost */
+  --color-accent-highlight:  hsl(248 75% 70%);   /* indigo */
   --color-surface:           hsl(238 28% 11%);   /* bg3 #131324 — elevated cards-on-card */
   --color-background-deep:   hsl(240 40% 2%);
 
@@ -258,6 +404,10 @@
   --color-prose-table-header:    hsl(238 28% 11% / 0.85);
   --color-toast-shadow:          hsl(240 40% 1% / 0.7);
   --glass-card-opacity:          34%;
+
+  color-scheme: dark;
+  --shadow-color:        hsl(240 40% 2% / 0.55);
+  --shadow-color-strong: hsl(240 40% 1% / 0.7);
 }
 
 /* ─── Galaxy (deep-space dark — saturated blue/dark-side-red/gold/core-green) ────
@@ -279,17 +429,19 @@
   --color-muted-foreground:       hsl(215 15% 60%);
   --color-accent:                 hsl(220 16% 12%);
   --color-accent-foreground:      hsl(210 30% 94%);
-  --color-destructive:            hsl(355 92% 56%);   /* dark-side red */
-  --color-destructive-foreground: hsl(210 30% 97%);
+  --color-destructive:            hsl(355 92% 59%);   /* dark-side red */
+  --color-destructive-foreground: hsl(220 20% 4%);    /* theme background */
   --color-border:                 hsl(210 12% 65% / 0.16);
   --color-input:                  hsl(220 16% 12%);
   --color-ring:                   hsl(212 100% 62%);
 
   --color-accent-primary:    hsl(212 100% 62%);  /* light-side blue */
-  --color-accent-info:       hsl(212 100% 62%);  /* same hue as primary — ticket-directed */
+  --color-accent-info:       hsl(201 95% 68%);   /* sky — running, kept apart from the blue primary */
+  --color-accent-flow:       hsl(266 85% 74%);  /* violet — teal would collide with SpecRails hues */
   --color-accent-success:    hsl(140 65% 50%);   /* core green */
   --color-accent-secondary:  hsl(210 12% 65%);   /* steel steel-gray/silver */
   --color-accent-warning:    hsl(28 95% 56%);    /* pulse orange */
+  --color-accent-review:     hsl(300 40% 72%);  /* review lamp — orchid, keeps amber for caution/cost */
   --color-accent-highlight:  hsl(55 90% 56%);    /* signal gold */
   --color-surface:           hsl(220 18% 10%);
   --color-background-deep:   hsl(220 24% 2%);
@@ -304,6 +456,12 @@
   /* Signature glow — saturated blue blade halo. Resolved by the `filter:` rule
    * below so component code stays theme-agnostic. */
   --galaxy-glow: drop-shadow(0 0 10px hsl(212 100% 62% / 0.45));
+
+  color-scheme: dark;
+  --shadow-color:        hsl(220 30% 2% / 0.55);
+  --shadow-color-strong: hsl(220 30% 1% / 0.7);
+  /* Signature: blue blade to signal gold (rail pill gradient end) */
+  --color-rail-end: hsl(55 90% 56%);  /* = accent-highlight */
 }
 
 /* Apply the Galaxy glow only when the user has not requested reduced
@@ -311,10 +469,32 @@
  * code-rain glow rule above — kept as its own rule block so both themes stay
  * independently scoped. */
 @media (prefers-reduced-motion: no-preference) {
-  [data-theme="galaxy"] button:focus-visible,
-  [data-theme="galaxy"] a:focus-visible,
-  [data-theme="galaxy"] [role="button"]:focus-visible,
-  [data-theme="galaxy"] [role="radio"]:focus-visible {
+  :root:not([data-motion="reduce"]) {
+    &[data-theme="galaxy"] button:focus-visible,
+    &[data-theme="galaxy"] a:focus-visible,
+    &[data-theme="galaxy"] [role="button"]:focus-visible,
+    &[data-theme="galaxy"] [role="radio"]:focus-visible {
+      filter: var(--galaxy-glow);
+    }
+
+    /* Blade-glow border treatment — zero new markup. Rides on hooks the app
+     * already emits: react-router's `aria-current="page"` on the active nav
+     * link, and the existing `border-accent-primary` "active/selected" utility
+     * applied conditionally by ~19 components (see design.md Decision D3). */
+    &[data-theme="galaxy"] a[aria-current="page"],
+    &[data-theme="galaxy"] .border-accent-primary {
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 55%, transparent),
+        0 0 12px color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
+    }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
+  &[data-theme="galaxy"] button:focus-visible,
+  &[data-theme="galaxy"] a:focus-visible,
+  &[data-theme="galaxy"] [role="button"]:focus-visible,
+  &[data-theme="galaxy"] [role="radio"]:focus-visible {
     filter: var(--galaxy-glow);
   }
 
@@ -322,8 +502,8 @@
    * already emits: react-router's `aria-current="page"` on the active nav
    * link, and the existing `border-accent-primary` "active/selected" utility
    * applied conditionally by ~19 components (see design.md Decision D3). */
-  [data-theme="galaxy"] a[aria-current="page"],
-  [data-theme="galaxy"] .border-accent-primary {
+  &[data-theme="galaxy"] a[aria-current="page"],
+  &[data-theme="galaxy"] .border-accent-primary {
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 55%, transparent),
       0 0 12px color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
@@ -345,10 +525,17 @@ select {
     box-sizing: border-box;
   }
 
+  /* Display roles pick up the theme display face (--font-display). */
+  .text-headline,
+  .text-display,
+  .text-display-xl {
+    font-family: var(--font-display);
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: 'DM Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code', monospace;
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-size: 13px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -388,6 +575,27 @@ select {
     scrollbar-width: thin;
     scrollbar-color: var(--color-scrollbar-thumb) transparent;
   }
+
+  /* Browser surfaces carry the theme: a base focus ring for every interactive
+   * element (zero specificity, so component `focus-visible:*` utilities still
+   * win), native control accents, text selection and the caret. */
+  :where(button, a, [role="button"], [role="tab"], [role="switch"], [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  :root {
+    accent-color: var(--color-accent-primary);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-foreground);
+  }
+
+  body {
+    caret-color: var(--color-primary);
+  }
 }
 
 /* Glassmorphism card */
@@ -396,6 +604,69 @@ select {
   border-radius: 0.5rem;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Density (BB4) ─────────────────────────────────────────────────────────
+ * One app setting (Settings ▸ Appearance) mirrored to <html data-density>.
+ * Board cards, the jobs list and the job story read these variables instead of
+ * forking per component. "comfortable" is the shipped metric. A saved board
+ * view still overrides the board tier (post-it vs row) on top of this default. */
+:root {
+  --density-card-y: 0.625rem;
+  --density-postit-pad: 0.75rem;
+  --density-postit-min: 180px;
+  --density-row-y: 0.5rem;
+  --density-round-gap: 0.5rem;
+  --density-station-gap: 0.375rem;
+}
+:root[data-density="compact"] {
+  --density-card-y: 0.25rem;
+  --density-postit-pad: 0.5rem;
+  --density-postit-min: 140px;
+  --density-row-y: 0.125rem;
+  --density-round-gap: 0.25rem;
+  --density-station-gap: 0.125rem;
+}
+
+/* ── Reduce motion override (BB4) ──────────────────────────────────────────
+ * Settings ▸ Appearance ▸ Reduce motion = "Reduce" sets <html data-motion="reduce">
+ * regardless of the OS: animations and transitions collapse to instant, and the
+ * authored rail motion lands on its static end state (same as the OS rule). JS
+ * motion honours the same choice through hooks/useReducedMotion. */
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+:root[data-motion="reduce"] .animate-rail-travel { animation: none; opacity: 1; transform: translateX(var(--rail-progress, 0%)); }
+:root[data-motion="reduce"] .animate-rail-arrive { animation: none; transform: translateX(var(--rail-distance, 100%)); }
+:root[data-motion="reduce"] .title-shimmer { animation: none; }
+/* Spinners convey "working": they keep turning at a calm pace (same exception as the OS rule below). */
+:root[data-motion="reduce"] .animate-spin {
+  animation-duration: 1.6s !important;
+  animation-iteration-count: infinite !important;
+}
+
+/* "System" follows the OS (reaudit-8 #7): with prefers-reduced-motion and no explicit "full"
+ * override, authored motion collapses to instant exactly like the explicit "reduce" setting.
+ * Spinners are the exception: they convey "working", so they keep turning at a calm pace. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    .animate-spin {
+      animation-duration: 1.6s !important;
+      animation-iteration-count: infinite !important;
+    }
+  }
 }
 
 /* Jiggle animation for rail delete mode (iOS-style) */
@@ -436,42 +707,49 @@ select {
   animation: title-shimmer-sweep 1.3s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .title-shimmer { animation: none; }
-}
-
-@keyframes conversation-unread-breathe {
-  0%, 100% {
-    filter: drop-shadow(0 0 0 color-mix(in srgb, var(--color-destructive) 0%, transparent));
-  }
-  50% {
-    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-destructive) 72%, transparent));
+  :root:not([data-motion="full"]) {
+    .title-shimmer { animation: none; }
   }
 }
 
+/* Unread mission icon: the accent colour, steady. A breathing destructive glow
+   read as an error; the unread dot after the title carries the cue too. */
 .conversation-unread-glow {
-  color: var(--color-destructive);
+  color: var(--color-accent-primary);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .conversation-unread-glow {
-    animation: conversation-unread-breathe 0.9s ease-in-out infinite;
-  }
+
+/* Tabular figures for costs, tokens, durations and counts. */
+@utility num {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum", "zero";
 }
 
+/* Rail travel: the spec pill moving along a track (RailMark / RailTrack).
+   The pill is positioned by the consumer; --rail-distance sets the run. */
+@keyframes rail-travel {
+  0%   { transform: translateX(0); opacity: 0; }
+  12%  { opacity: 1; }
+  100% { transform: translateX(var(--rail-distance, 100%)); opacity: 1; }
+}
+/* Arrival: decelerate into the end station, settle with a small scale. */
+@keyframes rail-arrive {
+  0%   { transform: translateX(calc(var(--rail-distance, 100%) * 0.82)); }
+  100% { transform: translateX(var(--rail-distance, 100%)); }
+}
+@utility animate-rail-travel {
+  animation: rail-travel 1.6s var(--ease-rail) infinite;
+}
+@utility animate-rail-arrive {
+  animation: rail-arrive var(--duration-peak) var(--ease-rail) forwards;
+}
 @media (prefers-reduced-motion: reduce) {
-  .conversation-unread-glow {
-    animation: none;
-    filter: none;
+  :root:not([data-motion="full"]) {
+    /* Static pill at its progress position; arrive becomes instant. */
+    .animate-rail-travel { animation: none; opacity: 1; transform: translateX(var(--rail-progress, 0%)); }
+    .animate-rail-arrive { animation: none; transform: translateX(var(--rail-distance, 100%)); }
   }
 }
-
-/* Glow effects — theme-aware via CSS-var-driven box-shadow */
-@utility glow-primary    { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-primary) 22%, transparent); }
-@utility glow-secondary  { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-secondary) 22%, transparent); }
-@utility glow-info       { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-info) 22%, transparent); }
-@utility glow-success    { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-success) 22%, transparent); }
-@utility glow-warning    { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-warning) 22%, transparent); }
-@utility glow-highlight  { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-highlight) 22%, transparent); }
 
 /* ── Highlight.js — theme-aware syntax colours (drive from CSS vars) ─────── */
 .hljs                       { background: transparent; color: var(--color-foreground); }
@@ -500,21 +778,12 @@ select {
 .hljs-emphasis              { font-style: italic; }
 .hljs-strong                { font-weight: 700; }
 
-/* Command palette (cmdk) */
-[cmdk-overlay] {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: hsl(0 0% 0% / 0.6);
-  backdrop-filter: blur(4px);
-}
-
+/* Command palette (cmdk). The overlay itself is styled by the modal standard
+   classes in CommandPalette.tsx (shared scrim token + base layer). */
 [cmdk-group-heading] {
   padding: 4px 8px;
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--color-muted-foreground);
 }
 
@@ -781,59 +1050,15 @@ select {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Toast loading halo. Sonner's default loading state shows an inline spinner
- * inside the toast; we suppress that (see App.tsx `ToastLoadingSpinner`) and
- * instead spin a conic-gradient ring around the entire toast card. The ring
- * is painted via a ::before pseudo, masked to a thin border to keep the
- * glass-card chrome visible underneath.
+ * Toast loading state. Sonner's default loading spinner is suppressed (see
+ * App.tsx `ToastLoadingSpinner`); a loading toast is marked by a static
+ * accent hairline border. No spinning halo: motion stays on the work, not the chrome.
  * ──────────────────────────────────────────────────────────────────────────── */
-/* Toast loading halo. Sonner's default loading state shows an inline spinner
- * inside the toast; we suppress that (see App.tsx `ToastLoadingSpinner`) and
- * instead spin a conic-gradient ring around the entire toast card. */
-[data-sonner-toast][data-type="loading"] {
-  position: relative;
-  overflow: visible !important;
-}
 [data-sonner-toast][data-type="loading"] [data-icon] {
   display: none;
 }
-@property --toast-halo-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-[data-sonner-toast][data-type="loading"]::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 0.65rem;
-  padding: 2px;
-  background: conic-gradient(from var(--toast-halo-angle), transparent 0deg, var(--accent) 80deg, transparent 160deg, transparent 360deg);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  animation: toast-halo-spin 1.4s linear infinite;
-  pointer-events: none;
-}
-[data-sonner-toast][data-type="loading"]::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  z-index: -1;
-  border-radius: 0.65rem;
-  border: 1px solid var(--accent);
-  opacity: 0.25;
-  pointer-events: none;
-}
-@keyframes toast-halo-spin {
-  to { --toast-halo-angle: 360deg; }
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-sonner-toast][data-type="loading"]::before {
-    animation: none;
-    background: var(--accent);
-    opacity: 0.4;
-  }
+[data-sonner-toast][data-type="loading"] {
+  border-color: var(--accent) !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -927,6 +1152,21 @@ select {
 @keyframes u-check-draw {
   to { stroke-dashoffset: 0; }
 }
+/* Arrival peak: the check draws in once the pill has settled. */
+.u-arrive-check path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: u-check-draw 420ms var(--ease-out) calc(var(--duration-peak) * 0.7) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    .u-arrive-check path { animation: none; stroke-dashoffset: 0; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="reduce"] {
+  .u-arrive-check path { animation: none; stroke-dashoffset: 0; }
+}
 .u-update-card[data-state='ready'] .u-badge {
   animation: u-pop 0.3s ease-out;
 }
@@ -937,6 +1177,24 @@ select {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    .u-update-card .u-glow,
+    .u-update-card[data-state='downloading'] .u-glow,
+    .u-update-card[data-state='installing'] .u-glow,
+    .u-update-card[data-state='ready'] .u-glow,
+    .u-update-card .u-shimmer,
+    .u-update-card .u-indeterminate,
+    .u-update-card .u-spin,
+    .u-update-card[data-state='ready'] .u-badge {
+      animation: none;
+    }
+    .u-update-card .u-shimmer { display: none; }
+    .u-update-card .u-indeterminate { left: 0; width: 100%; opacity: 0.5; }
+    .u-update-card .u-check path { stroke-dashoffset: 0; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="reduce"] {
   .u-update-card .u-glow,
   .u-update-card[data-state='downloading'] .u-glow,
   .u-update-card[data-state='installing'] .u-glow,
@@ -997,20 +1255,154 @@ select {
   to { transform: rotate(360deg); }
 }
 
-/* Mission composer: one flat surface, clearly separated from the canvas.
- * Only the default outline changes; queue/history retain their status colors. */
-[data-theme="aurora-light"] [data-mission-composer] {
-  background-color: hsl(225 20% 92%);
-  box-shadow: 0 6px 24px hsl(230 28% 14% / 0.08);
-}
-[data-theme="obsidian-dark"] [data-mission-composer] {
-  background-color: hsl(225 18% 17%);
-  box-shadow: 0 6px 24px hsl(225 30% 3% / 0.25);
-}
-[data-theme="specrails"] [data-mission-composer] {
-  background-color: hsl(238 24% 14%);
-  box-shadow: 0 6px 24px hsl(240 40% 2% / 0.3);
-}
-:is([data-theme="aurora-light"], [data-theme="obsidian-dark"], [data-theme="specrails"]) [data-mission-composer].border-border\/30 {
+/* Mission composer: elevation comes from the layer-3 tokens
+ * (bg-surface + shadow-2 + rounded-panel on the element). The default outline
+ * is promoted to the full border so the raised surface reads on every theme;
+ * queue/history retain their status colors. */
+[data-mission-composer].border-border\/30 {
   border-color: var(--color-border);
+}
+
+/* ─── Modal standard: one entrance, one exit (docs/internals/modal-standard.md) ───
+   Fade + 0.98 scale using the standalone `scale` property so it composes with
+   Tailwind v4's `translate` centering. Radix waits for the exit animation
+   before unmounting. Floating (resized) panels set `animation: none` inline. */
+@keyframes modal-panel-enter {
+  from { opacity: 0; scale: 0.98; }
+  to   { opacity: 1; scale: 1; }
+}
+@keyframes modal-panel-exit {
+  from { opacity: 1; scale: 1; }
+  to   { opacity: 0; scale: 0.98; }
+}
+@keyframes modal-scrim-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-scrim-exit  { from { opacity: 1; } to { opacity: 0; } }
+
+.modal-panel[data-state="open"]   { animation: modal-panel-enter 180ms cubic-bezier(0.16, 1, 0.3, 1); }
+.modal-panel[data-state="closed"] { animation: modal-panel-exit 120ms ease-in forwards; }
+.modal-scrim[data-state="open"]   { animation: modal-scrim-enter 180ms ease-out; }
+.modal-scrim[data-state="closed"] { animation: modal-scrim-exit 120ms ease-in forwards; }
+/* Non-Radix surfaces (no data-state) opt in with the bare class. */
+.modal-enter { animation: modal-panel-enter 180ms cubic-bezier(0.16, 1, 0.3, 1); }
+.modal-scrim-enter { animation: modal-scrim-enter 180ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    .modal-panel, .modal-scrim, .modal-enter, .modal-scrim-enter { animation: none !important; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="reduce"] {
+  .modal-panel, .modal-scrim, .modal-enter, .modal-scrim-enter { animation: none !important; }
+}
+
+/* ─── Premium primitives (B1): skeleton, live lamp, enter motion ─── */
+@keyframes skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.u-skeleton {
+  background-color: color-mix(in srgb, var(--color-foreground) 7%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .u-skeleton {
+      background-image: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--color-foreground) 8%, transparent) 50%,
+        transparent 100%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.4s linear infinite;
+    }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
+  .u-skeleton {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--color-foreground) 8%, transparent) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.4s linear infinite;
+  }
+}
+
+/* Live lamp: soft 2s opacity ring instead of animate-ping. */
+@keyframes lamp-ring {
+  0%   { opacity: 0.5; transform: scale(1); }
+  70%  { opacity: 0;   transform: scale(2.2); }
+  100% { opacity: 0;   transform: scale(2.2); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .u-lamp-ring { animation: lamp-ring 2s var(--ease-out) infinite; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
+  .u-lamp-ring { animation: lamp-ring 2s var(--ease-out) infinite; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    .u-lamp-ring { display: none; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="reduce"] {
+  .u-lamp-ring { display: none; }
+}
+
+/* Three-dot opacity wave (typing / thinking). */
+@keyframes dot-wave {
+  0%, 60%, 100% { opacity: 0.3; }
+  30%           { opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .u-dot-wave { animation: dot-wave 1.2s var(--ease-out) infinite; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
+  .u-dot-wave { animation: dot-wave 1.2s var(--ease-out) infinite; }
+}
+
+/* Enter motion: 200ms opacity + 4px rise from an already-visible default. */
+@keyframes u-enter-up   { from { opacity: 0; translate: 0 4px; }  to { opacity: 1; translate: 0 0; } }
+@keyframes u-enter-down { from { opacity: 0; translate: 0 -4px; } to { opacity: 1; translate: 0 0; } }
+@keyframes u-fade       { from { opacity: 0; } to { opacity: 1; } }
+@keyframes u-fade-out   { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .u-enter      { animation: u-enter-up var(--duration-base) var(--ease-out) both; }
+    .u-enter-down { animation: u-enter-down var(--duration-base) var(--ease-out) both; }
+    .u-fade       { animation: u-fade var(--duration-fast) var(--ease-out) both; }
+    /* Radix popovers/tooltips/menus: animate on open, quick fade on close. */
+    .u-pop[data-state="open"]   { animation: u-enter-up var(--duration-fast) var(--ease-out) both; }
+    .u-pop[data-state="open"][data-side="bottom"] { animation-name: u-enter-down; }
+    .u-pop[data-state="closed"] { animation: u-fade-out var(--duration-instant) var(--ease-in) both; }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
+  .u-enter      { animation: u-enter-up var(--duration-base) var(--ease-out) both; }
+  .u-enter-down { animation: u-enter-down var(--duration-base) var(--ease-out) both; }
+  .u-fade       { animation: u-fade var(--duration-fast) var(--ease-out) both; }
+  /* Radix popovers/tooltips/menus: animate on open, quick fade on close. */
+  .u-pop[data-state="open"]   { animation: u-enter-up var(--duration-fast) var(--ease-out) both; }
+  .u-pop[data-state="open"][data-side="bottom"] { animation-name: u-enter-down; }
+  .u-pop[data-state="closed"] { animation: u-fade-out var(--duration-instant) var(--ease-in) both; }
+}
+
+/* ⌘K "/" landing: the settings block the palette just opened (settings/lib/setting-anchor.ts).
+   A steady outline, no animation, so it reads the same with reduced motion. */
+[data-setting-flash='true'] {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-card);
 }

@@ -5,15 +5,18 @@
     "emptyNoSpecs": "スペックはまだありません",
     "emptyNoLabelMatch": "アクティブなラベルに一致するスペックはありません",
     "emptyNoActiveSpecs": "アクティブなスペックはありません",
-    "emptyHint": "「+ 追加」をクリックして開始",
+    "emptyHint": "「新規スペック」をクリックして開始",
     "dropToMarkDone": "ドロップして完了にする",
     "emptyNoDoneLabelMatch": "アクティブなラベルに一致する完了スペックはありません",
     "emptyNoCompleted": "完了したスペックはまだありません",
     "emptyNoStatusMatch": "選択したステータスに一致するスペックはありません",
-    "untitledSpec": "無題のスペック"
+    "untitledSpec": "無題のスペック",
+    "doneHeading": "完了 · {{count}}",
+    "clearFilters": "フィルターをクリア",
+    "emptyNoSearchMatch": "「{{query}}」に一致するスペックはありません"
   },
   "status": {
-    "todo": "Todo",
+    "todo": "未着手",
     "inProgress": "進行中",
     "onReview": "レビュー中",
     "onReviewHint": "実装済み — ドラフト PR があなたのレビュー判断を待っています",
@@ -45,25 +48,24 @@
   },
   "card": {
     "deleteSpec": "スペック #{{id}} を削除",
-    "deleteTicket": "チケット #{{id}} を削除",
-    "ticketFallbackLabel": "チケット #{{id}}",
+    "ticketFallbackLabel": "スペック #{{id}}",
     "dependsOn": "{{count}} 件に依存",
     "continueEditing": "編集を続ける",
     "continueEditingTitle": "このスペックの編集を続ける",
     "moveToRail": "レールに移動"
   },
   "emptyState": {
-    "noTickets": "チケットはまだありません",
-    "noTicketsHint": "最初のチケットを作成するか、プロダクトバックログコマンドを実行してチケットを生成してください",
-    "createFirst": "最初のチケットを作成"
+    "noTickets": "スペックはまだありません",
+    "noTicketsHint": "最初のスペックを作成するか、プロダクトバックログコマンドを実行してスペックを生成してください",
+    "createFirst": "最初のスペックを作成"
   },
   "errors": {
-    "loadFailed": "チケットの読み込みに失敗しました"
+    "loadFailed": "スペックの読み込みに失敗しました"
   },
   "listView": {
     "status": {
       "draft": "下書き",
-      "todo": "Todo",
+      "todo": "未着手",
       "inProgress": "進行中",
       "onReview": "レビュー中",
       "done": "完了",
@@ -80,20 +82,22 @@
       "labels": "ラベル",
       "updated": "更新"
     },
-    "noMatch": "フィルターに一致するチケットはありません",
+    "noMatch": "フィルターに一致するスペックはありません",
     "clearFilters": "フィルターをクリア",
     "loadMore": "さらに読み込む（残り {{count}} 件）"
   },
   "gridView": {
-    "emptyTodo": "未着手のチケットはありません",
+    "emptyTodo": "未着手のスペックはありません",
     "emptyInProgress": "進行中のものはありません",
-    "emptyDone": "完了したチケットはありません",
+    "emptyDone": "完了したスペックはありません",
     "cancelledSection": "キャンセル ({{count}})"
   },
   "statusFilter": {
     "ariaLabel": "ステータスで絞り込み",
     "all": "すべて",
-    "active": "アクティブ"
+    "active": "アクティブ",
+    "more": "その他",
+    "moreSelected": "ステータス: {{status}}。別のステータスを選択"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Jira ステータスで絞り込み",
@@ -109,7 +113,7 @@
     "descending": "降順",
     "modes": {
       "default": "デフォルト",
-      "ticketId": "チケット #",
+      "ticketId": "スペック #",
       "priority": "優先度",
       "jiraKey": "Jira チケット #"
     }
@@ -121,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "ラベルで絞り込み",
-    "all": "すべて",
+    "all": "すべてのラベル",
     "empty": "このプロジェクトにラベルはありません。",
     "selected_one": "{{count}} 件のラベル",
     "selected_other": "{{count}} 件のラベル",
@@ -155,15 +159,157 @@
       "securitySurface": "セキュリティ",
       "none": "公開 API・データ・セキュリティへの影響なし"
     },
-    "flowHint": "Flow を推奨",
     "filesLikely": "関係しそうなファイル",
     "moreFiles_one": "他 {{count}} 件",
     "moreFiles_other": "他 {{count}} 件",
-    "modelCost": "{{model}} · ${{cost}}",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · コスト未報告",
     "unavailable": "トリアージ不可",
     "unavailableDetail": "トリアージに使えるモデルがありません ({{reason}})。",
     "failed": "トリアージ失敗",
     "failedDetail": "トリアージを完了できませんでした: {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "新規スペック",
+    "newSpecTooltip": "新規スペック (⌘↵)"
+  },
+  "search": {
+    "placeholder": "スペックを検索",
+    "ariaLabel": "タイトル・番号・ラベル・Jiraキーでスペックを検索",
+    "clear": "検索をクリア"
+  },
+  "filters": {
+    "trigger": "フィルター",
+    "triggerActive_one": "フィルター（{{count}} 件適用中）",
+    "triggerActive_other": "フィルター（{{count}} 件適用中）",
+    "title": "フィルター",
+    "sections": {
+      "labels": "ラベル",
+      "epic": "エピック",
+      "sprint": "スプリント",
+      "jiraStatus": "Jira ステータス"
+    },
+    "clearSection": "クリア",
+    "clearAll": "すべてクリア",
+    "done": "完了",
+    "findLabel": "ラベルを検索",
+    "removeChip": "フィルターを解除: {{label}}",
+    "resultCount": "{{total}} 件中 {{shown}} 件",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "検索:「{{query}}」",
+      "label": "ラベル: {{label}}",
+      "epic": "エピック: {{name}}",
+      "sprint": "スプリント: {{name}}",
+      "jiraStatus": "Jira: {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "並べ替えと表示",
+    "menuLabel": "並べ替えと表示のオプション",
+    "sortBy": "並べ替え",
+    "direction": "順序",
+    "view": "表示"
+  },
+  "bulk": {
+    "toolbarLabel_one": "一括操作、{{count}}件のスペックを選択中",
+    "toolbarLabel_other": "一括操作、{{count}}件のスペックを選択中",
+    "count_one": "{{count}}件を選択",
+    "count_other": "{{count}}件を選択",
+    "listLabel": "スペック(複数選択)",
+    "selectSpec": "スペック #{{id}} を選択",
+    "moveTo": "移動先",
+    "label": "ラベル",
+    "priority": "優先度",
+    "addToRail": "レールに追加",
+    "launchAll": "選択を起動",
+    "delete": "削除",
+    "clear": "選択解除",
+    "clearTitle": "選択を解除(Esc)",
+    "statusLocal_one": "ステータス · {{count}}件",
+    "statusLocal_other": "ステータス · {{count}}件",
+    "statusJira_one": "Jiraステータス · {{count}}件",
+    "statusJira_other": "Jiraステータス · {{count}}件",
+    "loadingStatuses": "Jiraのステータスを読み込み中…",
+    "statusesFailed": "Jiraのステータスを読み込めませんでした",
+    "noStatuses": "利用できるステータスがありません",
+    "labelAdd": "ラベルを追加",
+    "labelRemove": "ラベルを外す",
+    "noLabels": "このプロジェクトにはまだラベルがありません",
+    "noRails": "利用できるレールがありません",
+    "railRunning": "実行中",
+    "railSpecs_one": "{{count}}件",
+    "railSpecs_other": "{{count}}件",
+    "result": {
+      "moved_one": "スペック{{count}}件を移動しました",
+      "moved_other": "スペック{{count}}件を移動しました",
+      "labeled_one": "スペック{{count}}件のラベルを更新しました",
+      "labeled_other": "スペック{{count}}件のラベルを更新しました",
+      "prioritized_one": "スペック{{count}}件の優先度を変更しました",
+      "prioritized_other": "スペック{{count}}件の優先度を変更しました",
+      "railed_one": "スペック{{count}}件をレールに追加しました",
+      "railed_other": "スペック{{count}}件をレールに追加しました",
+      "deleted_one": "スペック{{count}}件を削除しました",
+      "deleted_other": "スペック{{count}}件を削除しました"
+    },
+    "partial": "{{total}}件中{{ok}}件が完了 · {{failed}}件が失敗",
+    "failedAll_one": "スペック{{count}}件を更新できませんでした",
+    "failedAll_other": "スペック{{count}}件を更新できませんでした",
+    "launch": {
+      "none": "選択したスペックは、今は起動できません",
+      "skipBlocked_one": "{{count}}件はまだ起動できません",
+      "skipBlocked_other": "{{count}}件はまだ起動できません",
+      "skipNoRail_one": "{{count}}件は空きレールなし",
+      "skipNoRail_other": "{{count}}件は空きレールなし",
+      "skipReviewLimit_one": "{{count}}件はレビュー上限で保留",
+      "skipReviewLimit_other": "{{count}}件はレビュー上限で保留"
+    },
+    "more": "その他"
+  },
+  "views": {
+    "trigger": "ビュー",
+    "triggerActive": "ビュー、現在: {{name}}",
+    "menuLabel": "保存したビュー",
+    "empty": "保存したビューはまだありません",
+    "saveCurrent": "現在のビューを保存…",
+    "manage": "ビューを管理…",
+    "saveTitle": "ビューを保存",
+    "saveDescription": "現在のステータス、フィルター、並び順、表示密度を、このプロジェクト用に保存します。",
+    "nameLabel": "名前",
+    "namePlaceholder": "起動準備完了",
+    "save": "保存",
+    "saved": "ビュー「{{name}}」を保存しました",
+    "updated": "ボードの内容でビューを更新しました",
+    "manageTitle": "ビューを管理",
+    "manageDescription": "ビューの名前変更、現在のボードでの更新、リンクのコピー、削除ができます。ビューはこのプロジェクトに属します。",
+    "rename": "名前を変更",
+    "updateFromCurrent": "現在のボードで更新",
+    "upToDate": "すでにボードと一致しています",
+    "copyLink": "リンクをコピー",
+    "delete": "ビューを削除",
+    "done": "完了",
+    "linkCopied": "リンクをコピーしました",
+    "linkCopyFailed": "リンクをコピーできませんでした",
+    "linkMissing": "このビューはこのプロジェクトにありません",
+    "deleted": "ビュー「{{name}}」を削除しました",
+    "linkOtherProject": "このビューは {{project}} のものです。",
+    "openInProject": "{{project}} で開く"
+  },
+  "movePicker": {
+    "titleOne": "スペック #{{id}} を移動",
+    "titleMany": "{{count}} 件のスペックを移動",
+    "description": "ステータスまたはレールを選びます。カードをドラッグするのと同じ操作です。",
+    "statusHeading": "ステータス",
+    "railHeading": "レール",
+    "jiraLoading": "Jiraのステータスを読み込み中…",
+    "jiraFailed": "Jiraのステータスを読み込めませんでした。",
+    "jiraStatus": "{{status}}(Jira)",
+    "noRails": "レールはまだありません。",
+    "running": "実行中",
+    "hintNavigate": "移動",
+    "hintChoose": "選択",
+    "hintClose": "閉じる",
+    "current": "現在",
+    "descriptionOne": "「{{title}}」。ステータスまたはレールを選んでください。"
   }
 }

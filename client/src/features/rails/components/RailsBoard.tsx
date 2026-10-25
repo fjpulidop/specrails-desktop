@@ -4,7 +4,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { Layers, Plus, Rocket } from 'lucide-react'
 import { RailRow } from './RailRow'
-import { railIdFromIndex, railIndexFromId } from '../lib/rail-id'
+import { MAX_RAILS, railIdFromIndex, railIndexFromId } from '../lib/rail-id'
 import type { RailMode, RailStatus } from './RailControls'
 import type { FreestyleModel } from '../../agents/components/RailModelSelector'
 import type { ReasoningEffort } from '../../agents/components/RailEffortSelector'
@@ -14,6 +14,18 @@ import type { RailExecMetric } from '../context/RailMetricsContext'
 import type { RailPrActResult, RailPrCheckoutResult } from '../../delivery/context/RailPrDecisionContext'
 import { ReviewWipBadge } from './ReviewWipBadge'
 import { railLaunchAddsReviewWip, reviewWipReached, type PendingReview } from '../../../lib/review-wip'
+import { cn } from '../../../lib/utils'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
+import {
+  BoardToolbar,
+  BoardToolbarRow,
+  BoardToolbarSpacer,
+  BoardToolbarTitle,
+  ToolbarCountBadge,
+  toolbarButtonClass,
+} from '../../../components/ui/board-toolbar'
+import { useElementWidth } from '../../../hooks/useElementWidth'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 export const RAIL_SORT_PREFIX = '__rail:'
 export function railSortId(railId: string) { return `${RAIL_SORT_PREFIX}${railId}` }
@@ -150,14 +162,54 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
   )
 }
 
+/** One live-summary entry in the Rails context row. */
+function SummaryItem({ dot, label, testId, pulse = false }: { dot: string; label: string; testId: string; pulse?: boolean }) {
+  return (
+    <span data-testid={testId} className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground">
+      <LiveDot size="xs" dotClassName={dot} pulsing={pulse} aria-hidden />
+      {label}
+    </span>
+  )
+}
+
+/**
+ * Toolbar button with a tooltip that still works while the button is
+ * disabled (disabled buttons swallow pointer events, so the tooltip anchors to
+ * a focusable wrapper and the reason is also exposed to assistive tech).
+ */
+function TooltipButton({ tooltip, disabled, reasonId, children }: { tooltip: string; disabled: boolean; reasonId: string; children: React.ReactElement }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {disabled ? (
+          <span tabIndex={0} className="inline-flex shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-describedby={reasonId}>
+            {children}
+            <span id={reasonId} className="sr-only">{tooltip}</span>
+          </span>
+        ) : (
+          children
+        )}
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
 export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onWorkspaceSelectionChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount, launchAllHeld = 0, reviewWip }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
-  const activeRails = rails.filter((r) => r.status === 'running').length
+  const running = rails.filter((r) => r.status === 'running').length
+  const failed = rails.filter((r) => r.status === 'failed').length
+  const ready = launchAllCount ?? 0
+  const atLimit = rails.length >= MAX_RAILS
+  const launchEnabled = ready > 0 || launchAllHeld > 0
+  const [row1Ref, row1W] = useElementWidth<HTMLDivElement>()
+  const iconOnly = row1W !== null && row1W < 340
+  const addIconOnly = row1W !== null && row1W < 400
   const [jiggleMode, setJiggleMode] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLElement>(null)
   const [density, setDensity] = useState<'normal' | 'compact'>('normal')
 
   // Observe the panel's own width and switch to the compact rail layout when
@@ -200,17 +252,77 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
   const railLabelFor = (railIndex: number) => rails.find((r, pos) => (railIndexFromId(r.id) ?? pos) === railIndex)?.label ?? `Rail ${railIndex + 1}`
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full" data-density={density} onClick={handleBackgroundClick}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 h-12 border-b border-border/40 shrink-0">
-        <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-accent-secondary">{t('railsBoard.title')}</h2>
-          {activeRails > 0 && (
-            <span className="text-[10px] text-emerald-400 aurora-light:text-accent-success bg-emerald-400/10 aurora-light:bg-accent-success/10 rounded-full px-1.5 py-0.5 font-medium whitespace-nowrap">
-              {t('railsBoard.runningCount', { count: activeRails })}
-            </span>
+    <section ref={containerRef} aria-labelledby="rails-board-title" className="flex flex-col h-full" data-density={density} onClick={handleBackgroundClick}>
+      {/* Toolbar — rows 1 and 2 line up with the Specs toolbar. Row 1: title,
+          Add rail, Launch all (the primary, right-most). Row 2: live run
+          summary plus the review WIP badge. */}
+      <BoardToolbar data-testid="rails-toolbar">
+        <BoardToolbarRow size="primary" ref={row1Ref}>
+          <BoardToolbarTitle id="rails-board-title" icon={Layers} hideIconBelow={iconOnly}>
+            {t('railsBoard.title')}
+          </BoardToolbarTitle>
+          <BoardToolbarSpacer />
+          <TooltipButton
+            tooltip={atLimit ? t('railsBoard.addRailLimit', { max: MAX_RAILS }) : t('railsBoard.addRail')}
+            disabled={atLimit}
+            reasonId="rails-add-reason"
+          >
+            <button
+              type="button"
+              disabled={atLimit}
+              onClick={(e) => { e.stopPropagation(); onAddRail() }}
+              data-testid="rails-add"
+              aria-label={addIconOnly ? t('railsBoard.addRail') : undefined}
+              className={cn(toolbarButtonClass, addIconOnly && 'w-8 px-0')}
+            >
+              <Plus className="w-3.5 h-3.5" aria-hidden />
+              {!addIconOnly && t('railsBoard.addRail')}
+            </button>
+          </TooltipButton>
+          {onLaunchAll && (
+            <TooltipButton
+              tooltip={launchEnabled ? t('railsBoard.launchAllTitle') : t('railsBoard.launchAllNoneReady')}
+              disabled={!launchEnabled}
+              reasonId="rails-launch-all-reason"
+            >
+              <button
+                type="button"
+                disabled={!launchEnabled}
+                onClick={(e) => { e.stopPropagation(); onLaunchAll() }}
+                data-testid="rails-launch-all"
+                aria-label={iconOnly ? t('railsBoard.launchAll') : undefined}
+                className={launchEnabled
+                  ? 'inline-flex items-center gap-1.5 h-8 px-3 shrink-0 rounded-md text-xs font-semibold whitespace-nowrap bg-accent-success text-background hover:bg-accent-success/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background'
+                  : toolbarButtonClass}
+              >
+                <Rocket className="w-3.5 h-3.5" aria-hidden />
+                {!iconOnly && t('railsBoard.launchAll')}
+                {ready > 0 && <ToolbarCountBadge count={ready} tone="success" data-testid="rails-launch-all-count" />}
+              </button>
+            </TooltipButton>
           )}
+        </BoardToolbarRow>
+        <BoardToolbarRow size="secondary">
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="rails-summary"
+            className="flex items-center gap-3 min-w-0 overflow-hidden text-xs text-muted-foreground tabular-nums"
+          >
+            {running > 0 && (
+              <SummaryItem dot="bg-accent-success" label={t('railsBoard.summary.running', { count: running })} testId="rails-summary-running" pulse />
+            )}
+            {ready > 0 && (
+              <SummaryItem dot="bg-accent-primary" label={t('railsBoard.summary.ready', { count: ready })} testId="rails-summary-ready" />
+            )}
+            {failed > 0 && (
+              <SummaryItem dot="bg-destructive" label={t('railsBoard.summary.failed', { count: failed })} testId="rails-summary-failed" />
+            )}
+            <span data-testid="rails-summary-total" className="whitespace-nowrap">
+              {t('railsBoard.summary.total', { count: rails.length })}
+            </span>
+          </div>
+          <BoardToolbarSpacer />
           {wipLimit !== null && (
             <ReviewWipBadge
               limit={wipLimit}
@@ -219,35 +331,8 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
               ticketTitle={(id) => ticketMap.get(id)?.title}
             />
           )}
-        </div>
-        <div className="flex items-center gap-2">
-          {onLaunchAll && (
-            <button
-              type="button"
-              disabled={(launchAllCount ?? 0) === 0 && launchAllHeld === 0}
-              onClick={(e) => { e.stopPropagation(); onLaunchAll() }}
-              title={t('railsBoard.launchAllTitle')}
-              className="flex items-center gap-1.5 h-7 px-2.5 text-xs font-semibold rounded-md border border-emerald-400/50 text-emerald-400 aurora-light:text-accent-success aurora-light:border-accent-success/50 bg-gradient-to-r from-emerald-400/10 to-accent-primary/10 hover:from-emerald-400/20 hover:to-accent-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-emerald-400/10 disabled:hover:to-accent-primary/10"
-            >
-              <Rocket className="w-3.5 h-3.5" />
-              {t('railsBoard.launchAll')}
-              {(launchAllCount ?? 0) > 0 && (
-                <span className="text-[10px] font-mono rounded-full bg-emerald-400/15 px-1.5 py-0.5 leading-none">
-                  {launchAllCount}
-                </span>
-              )}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onAddRail() }}
-            className="flex items-center gap-1 h-7 px-2.5 text-xs font-medium rounded-md border border-accent-primary/50 text-accent-primary hover:bg-accent-primary/10 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {t('common:actions.add')}
-          </button>
-        </div>
-      </div>
+        </BoardToolbarRow>
+      </BoardToolbar>
 
       {/* Rail rows */}
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2.5">
@@ -316,6 +401,6 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
           })}
         </SortableContext>
       </div>
-    </div>
+    </section>
   )
 }

@@ -1,0 +1,84 @@
+{
+  "title": "Offen",
+  "subtitle_one": "{{count}} Eintrag wartet auf dich",
+  "subtitle_other": "{{count}} Einträge warten auf dich",
+  "subtitleEmpty": "Nichts wartet auf dich",
+  "loading": "Projekte werden geprüft …",
+  "empty": {
+    "title": "Nichts braucht dich",
+    "description": "Reviews, Rückfragen und Fehler aus allen Projekten erscheinen hier, sobald sie auftreten."
+  },
+  "error": {
+    "title": "Die Liste „Offen“ konnte nicht geladen werden",
+    "description": "Die App konnte deine Projekte nicht lesen. Versuche es gleich noch einmal.",
+    "retry": "Erneut versuchen"
+  },
+  "kinds": {
+    "review": "Review bereit",
+    "question": "Wartet auf deine Antwort",
+    "failed": "Fehlgeschlagen",
+    "blocked": "Blockiert",
+    "budget": "Wegen Budget pausiert",
+    "jira": "Jira-Sync fehlgeschlagen",
+    "failedNoCause": "Vor der Auslieferung gestoppt",
+    "capReached": "Budgetlimit erreicht"
+  },
+  "actions": {
+    "open": "Öffnen",
+    "openReview": "Review öffnen",
+    "answer": "Antworten",
+    "resume": "Fortsetzen",
+    "retry": "Wiederholen",
+    "raiseCap": "Limit erhöhen"
+  },
+  "working": "Läuft …",
+  "rowLabel": "{{action}}: {{title}}",
+  "snooze": {
+    "label": "Zurückstellen",
+    "hour": "1 Stunde",
+    "tomorrow": "Bis morgen",
+    "cancel": "Abbrechen"
+  },
+  "snoozeItem": "{{title}} zurückstellen",
+  "snoozeFor": "{{title}} zurückstellen für",
+  "done": "Erledigt",
+  "doneItem": "{{title}} als erledigt markieren",
+  "age": {
+    "now": "gerade eben",
+    "ago": "vor {{age}}"
+  },
+  "button": {
+    "withCount_one": "Offen: {{count}}",
+    "withCount_other": "Offen: {{count}}",
+    "empty": "Offen: nichts",
+    "title": "{{label}} ({{shortcut}})"
+  },
+  "toast": {
+    "resumed": "Lauf fortgesetzt",
+    "retried": "Wiederholung eingeplant",
+    "resumeFailed": "Lauf konnte nicht fortgesetzt werden",
+    "retryFailed": "Jira-Update konnte nicht wiederholt werden",
+    "stillOverBudget": "Tagesbudget weiterhin überschritten",
+    "done": "Als erledigt markiert",
+    "snoozed": "Zurückgestellt bis {{when}}",
+    "undo": "Rückgängig",
+    "stillOverBudget_week": "Wochenbudget weiterhin überschritten",
+    "stillOverBudget_month": "Monatsbudget weiterhin überschritten"
+  },
+  "cap": {
+    "title": {
+      "project": {
+        "day": "Tagesbudget des Projekts erreicht",
+        "week": "Wochenbudget des Projekts erreicht",
+        "month": "Monatsbudget des Projekts erreicht"
+      },
+      "desktop": {
+        "day": "Globales Tagesbudget erreicht",
+        "week": "Globales Wochenbudget erreicht",
+        "month": "Globales Monatsbudget erreicht"
+      }
+    },
+    "detail": "{{spent}} von {{budget}} ausgegeben"
+  },
+  "stale": "Aktualisierung fehlgeschlagen – die letzte Liste wird angezeigt."
+}

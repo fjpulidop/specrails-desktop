@@ -53,18 +53,18 @@ export function LocalEngineCard({ provider, status, persisted, invalid = false, 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="truncate text-sm font-medium text-foreground">{name}</span>
-            {provider.label?.trim() && <span className="font-mono text-[10px] text-muted-foreground/60">{provider.id}</span>}
+            {provider.label?.trim() && <span className="font-mono text-xs text-muted-foreground">{provider.id}</span>}
             <ConnectionStatusPill state={pillStateFor(status)} latencyMs={status?.latencyMs} />
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
             <span className="truncate font-mono">{provider.baseUrl || '—'}</span>
-            <span aria-hidden className="text-muted-foreground/40">·</span>
+            <span aria-hidden className="text-muted-foreground">·</span>
             <span className="tabular-nums">{t('providers.models', { count: modelCount })}</span>
-            <span aria-hidden className="text-muted-foreground/40">·</span>
-            <span className={cn('rounded-full border px-1.5 py-px text-[10px] font-medium', loop === 'compact' ? 'border-accent-secondary/30 bg-accent-secondary/10 text-accent-secondary' : 'border-border bg-muted/40 text-muted-foreground')} data-testid="agent-loop-chip">
+            <span aria-hidden className="text-muted-foreground">·</span>
+            <span data-chip className={cn('inline-flex h-5 items-center rounded-full border px-1.5 text-caption font-medium', loop === 'compact' ? 'border-accent-secondary/30 bg-accent-secondary/10 text-accent-secondary' : 'border-border bg-muted/40 text-muted-foreground')} data-testid="agent-loop-chip">
               {t(`providers.agentLoop_${loop}`)}
             </span>
-            <span className="tabular-nums" title={t('providers.contextWindow')}>{formatContextWindow(provider.contextWindowTokens)} ctx</span>
+            <span className="tabular-nums" title={t('providers.contextWindow')}>{formatContextWindow(provider.contextWindowTokens)} ctx<span className="sr-only"> ({t('providers.contextWindow')})</span></span>
           </div>
         </div>
         <button

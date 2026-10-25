@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · インタラクティブ",
     "backAriaLabel": "戻る (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · インタラクティブ",
-    "editingEyebrow": "スペック編集中 · #{{id}}",
     "newSpecPlaceholder": "新しいスペック…",
     "contextPill": "コンテキスト: {{scopes}}",
     "contextPillTitle": "この Explore セッションで有効なコンテキストスコープ",
@@ -41,7 +39,7 @@
       "specCreated": "スペックを作成しました — #{{id}} {{title}}",
       "createNetworkError": "スペック作成中にネットワークエラーが発生しました",
       "unsupportedFileType": "未対応のファイル形式: {{name}}",
-      "uploadFailed": "{{name}} のアップロードに失敗しました: {{message}}"
+      "uploadFailed": "{{name}} のアップロードに失敗しました"
     },
     "fromWebsite": "ウェブサイトから",
     "fromWebsiteTitle": "実際のウェブページを開き、範囲を選択してスペックに変換",
@@ -73,7 +71,13 @@
     "criterionAriaLabel": "受け入れ基準 {{number}}",
     "removeCriterionAriaLabel": "基準 {{number}} を削除",
     "addCriterion": "基準を追加",
-    "addCriterionAriaLabel": "受け入れ基準を追加"
+    "addCriterionAriaLabel": "受け入れ基準を追加",
+    "nonGoalsLabel": "対象外",
+    "nonGoalPlaceholder": "このスペックで扱わないこと",
+    "nonGoalAriaLabel": "対象外項目 {{number}}",
+    "removeNonGoalAriaLabel": "対象外項目 {{number}} を削除",
+    "addNonGoalAriaLabel": "対象外項目を追加",
+    "addNonGoal": "項目を追加"
   },
   "priority": {
     "low": "低",
@@ -83,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "変更をレビュー",
-    "eyebrow": "変更をレビュー · explore-spec",
     "heading": "コミット前に確認",
     "titleLabel": "タイトル",
     "priorityLabel": "優先度",

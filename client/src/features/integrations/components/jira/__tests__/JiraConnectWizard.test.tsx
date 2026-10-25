@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../../../../test-utils'
+import userEvent from '@testing-library/user-event'
+
+/** Open a Radix select trigger and choose the option with the given name. */
+async function pick(trigger: HTMLElement, name: string) {
+  const user = userEvent.setup()
+  await user.click(trigger)
+  await user.click(await screen.findByRole('option', { name }))
+}
 
 const toastError = vi.fn()
 vi.mock('sonner', () => ({ toast: { error: (m: string) => toastError(m), success: vi.fn() } }))
@@ -112,9 +120,9 @@ describe('JiraConnectWizard', () => {
     await goToMappingStep()
 
     // The On Review row renders between In Progress and Done, same pattern as the others.
-    const onReview = screen.getByLabelText('On Review') as HTMLSelectElement
-    expect(onReview.value).toBe('')
-    fireEvent.change(onReview, { target: { value: 'In Review' } })
+    const onReview = screen.getByRole('combobox', { name: 'On Review' })
+    expect(onReview).toHaveTextContent('Automatic (by category)')
+    await pick(onReview, 'In Review')
 
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
     fireEvent.click(screen.getByRole('button', { name: /^connect$/i }))
@@ -138,7 +146,7 @@ describe('JiraConnectWizard', () => {
     await goToMappingStep()
 
     // Map another state but leave On Review on the automatic option.
-    fireEvent.change(screen.getByLabelText('Backlog / To Do'), { target: { value: 'To Do' } })
+    await pick(screen.getByRole('combobox', { name: 'Backlog / To Do' }), 'To Do')
 
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
     fireEvent.click(screen.getByRole('button', { name: /^connect$/i }))
@@ -150,14 +158,16 @@ describe('JiraConnectWizard', () => {
     expect(sent.statusMap).not.toHaveProperty('on_review')
   })
 
-  it('surfaces a toast and keeps Next disabled when the connection test fails', async () => {
+  it('shows the failure inline under the token field and keeps Next disabled when the connection test fails', async () => {
     api.test.mockRejectedValue(new Error('Invalid email or token'))
     render(<JiraConnectWizard onConnected={vi.fn()} />)
     fireEvent.change(screen.getByPlaceholderText(/your-company\.atlassian\.net/i), { target: { value: 'https://acme.atlassian.net' } })
     const tokenInput = document.querySelector('input[type="password"]') as HTMLInputElement
     fireEvent.change(tokenInput, { target: { value: 'bad' } })
     fireEvent.click(screen.getByRole('button', { name: /test connection/i }))
-    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Invalid email or token'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or token')
+    expect(tokenInput).toHaveAttribute('aria-invalid', 'true')
+    expect(toastError).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: /^next$/i })).toBeDisabled()
   })
 
@@ -169,7 +179,9 @@ describe('JiraConnectWizard', () => {
     await goToMappingStep()
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load Jira statuses")
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    await waitFor(() => expect((screen.getByLabelText('Backlog / To Do') as HTMLSelectElement).options).toHaveLength(4))
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Backlog / To Do' }))
+    expect(await screen.findAllByRole('option')).toHaveLength(4)
   })
 })

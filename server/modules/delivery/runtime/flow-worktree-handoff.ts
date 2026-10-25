@@ -21,6 +21,10 @@ export interface FlowAdoption {
 
 export interface RequiredFlowWorktree {
   flowId: string
+  /** The project repository the Flow worktree belongs to: a non-primary Git
+   * member launches as that ONE repository (a single-repository group whose
+   * parent delivery the Flow adopts). Absent ⇒ the primary repository. */
+  repositoryId?: string | null
   branch: string
   worktreePath: string
   /** HEAD the Flow froze before the hand-off; the mount must expose exactly it. */
@@ -30,6 +34,10 @@ export interface RequiredFlowWorktree {
   /** Bounded conversation summary (user messages and decisions) that the
    * Flow -> Spec loop hands Core's derive-change piece. */
   summary?: string
+  /** The OpenSpec change this Flow's earlier Flow -> Spec run derived (still
+   * active in the worktree): the run re-derives it in place. Null/absent ⇒ the
+   * first derivation, named after the spec title. */
+  changeId?: string | null
   /** Runs inside the launch transaction that inserts the `rail_worktrees` row.
    * Throwing aborts the transaction and the launch. */
   adopt(adoption: FlowAdoption): void

@@ -2,7 +2,6 @@
   "studio": {
     "loadingAgent": "Cargando agente…",
     "modeCreate": "Nuevo agente personalizado",
-    "modeEdit": "Editar agente personalizado",
     "create": "Crear",
     "unsaved": "● sin guardar",
     "resumeAiEdit": "Reanudar AI Edit",
@@ -59,7 +58,9 @@
       "header": "Historial de versiones",
       "empty": "No hay versiones anteriores registradas para este agente.",
       "restoreHint": "Haz clic en una versión para restaurar su cuerpo en el editor (aún tendrás que guardar)."
-    }
+    },
+    "idLabel": "ID del agente",
+    "defaultDescription": "Breve descripción de cuándo usar este agente."
   },
   "refine": {
     "eyebrow": "AI Edit",

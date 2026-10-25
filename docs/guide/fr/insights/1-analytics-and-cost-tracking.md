@@ -78,3 +78,15 @@ Les exports respectent les filtres de période et de surface actuellement appliq
 ## Toujours à jour
 
 Pas besoin d'actualiser. Quand une nouvelle invocation est enregistrée n'importe où dans le projet, le tableau de bord ouvert se recharge discrètement un instant plus tard, pour que la jauge de consommation suive le rythme du travail à mesure qu'il se termine.
+
+## Budgets quotidiens {#daily-budget}
+
+Définissez un budget quotidien pour plafonner ce qu’une journée peut coûter. Tous les plafonds (quotidien, hebdomadaire, mensuel et par exécution) se modifient au même endroit : **Analyses → Budget**. **Réglages → Avancé** et **Réglages du projet → Budget** n’affichent que le plafond quotidien actuel, avec un bouton **Ouvrir Budget** qui y mène.
+
+Quand la dépense enregistrée du jour atteint un budget, la file se met en pause d’elle-même, les rails et les exécutions de loops refusent de démarrer avec *Budget quotidien atteint*, et une exécution de loop en cours s’arrête entre deux étapes, en pause à cause du budget. Augmentez ou supprimez le budget, ou attendez la réinitialisation quotidienne, puis reprenez.
+
+Le budget du projet compte votre journée locale ; celui de toute l’app compte la journée UTC. L’alerte de coût par job est un réglage distinct.
+
+**Plafonds hebdomadaires, mensuels et par exécution.** Les plafonds plus longs fonctionnent de la même façon. Ouvrez **Analyses → Budget** pour définir un plafond **hebdomadaire** et un plafond **mensuel**, par projet et pour toute l’app, ainsi qu’un **plafond souple par exécution** (*mettre en pause et demander à X $*). Les semaines commencent le lundi et les mois le 1er, à l’heure locale. Un plafond hebdomadaire ou mensuel met les files en pause, refuse les lancements et suspend les loops en cours exactement comme le budget quotidien ; relevez-le ou supprimez-le là, ou attendez la réinitialisation. Quand le coût communiqué d’une exécution atteint le plafond par exécution, elle se met en pause et **Reprendre** demande s’il faut continuer sans le plafond ou le relever. Atteindre un plafond ajoute aussi un élément **Relever le plafond** à la boîte de réception.
+
+Le panneau Budget montre aujourd’hui, cette semaine et ce mois face à chaque plafond. Sa **projection** de fin de mois est une estimation (la moyenne des 14 derniers jours complets multipliée par les jours restants, plus ce que vous avez déjà dépensé), jamais ajoutée à la dépense facturée. **Et si** recalcule les 30 derniers jours d’usage de tokens enregistré avec un autre modèle, d’après la grille de prix de l’app, et indique *Pas de tarif* pour un modèle sans prix. Avec un forfait d’abonnement, il n’y a pas de coût en dollars par usage : le panneau affiche alors les tours et les limites du forfait.

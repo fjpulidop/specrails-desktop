@@ -1,11 +1,17 @@
 import { useSidebarPin } from '../context/SidebarPinContext'
-import { keyboardLabel } from '../lib/keyboard-label'
+import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router-dom'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Copy, Minus, PanelLeft, PanelRight, Search, Square, X } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
 import { useUiMode } from '../context/UiModeContext'
+import { hasRightSidebar } from '../lib/sidebar-layout'
+import { cn } from '../lib/utils'
+import { PlaceNavButtons } from './PlaceNavButtons'
+import { Kbd } from './ui/kbd'
+import { InboxButton } from '../features/inbox/components/InboxButton'
 
 // ─── Detect Tauri environment ─────────────────────────────────────────────────
 
@@ -72,18 +78,23 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
 
   function handleClick() {
     window.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true })
+      new KeyboardEvent('keydown', isMacKeyboard() ? { key: 'k', metaKey: true, bubbles: true } : { key: 'k', ctrlKey: true, bubbles: true })
     )
   }
 
   // Agent Mode hides the pill with a fade (stays mounted so the CSS transition
   // runs BOTH ways: fade-out entering agent, fade-in returning to kanban).
+  // The visible text is the project name, so the accessible name leads with it (WCAG 2.5.3
+  // label-in-name) and says what the control does; the shortcut is exposed via
+  // aria-keyshortcuts (per platform) and the hover title.
   return (
     <button
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      aria-label={t('titleBar.searchShortcut')}
+      aria-keyshortcuts={isMacKeyboard() ? 'Meta+K' : 'Control+K'}
+      aria-label={projectName ? t('titleBar.searchIn', { project: projectName }) : undefined}
+      title={t('titleBar.searchShortcut', { shortcut: keyboardLabel('⌘K') })}
       aria-hidden={hidden || undefined}
       tabIndex={hidden ? -1 : undefined}
       style={{
@@ -101,12 +112,12 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
         gap: 5,
         paddingLeft: 8,
         paddingRight: 8,
-        borderRadius: 9999,
+        borderRadius: 'var(--radius-control)',
         border: '1px solid color-mix(in srgb, var(--color-border) 70%, transparent)',
         cursor: 'pointer',
         background: hovered
           ? 'color-mix(in srgb, var(--color-accent) 82%, transparent)'
-          : 'color-mix(in srgb, var(--color-surface) 72%, transparent)',
+          : 'color-mix(in srgb, var(--color-surface) 60%, transparent)',
         color: projectName ? 'var(--color-foreground)' : 'var(--color-muted-foreground)',
         fontSize: 12,
         fontWeight: 400,
@@ -133,6 +144,9 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
       >
         {projectName ?? t('titleBar.searchPlaceholder')}
       </span>
+      <Kbd aria-hidden="true" className="ml-1 shrink-0 opacity-70">
+        {keyboardLabel('⌘K')}
+      </Kbd>
     </button>
   )
 }
@@ -169,16 +183,44 @@ function SidebarWindowButton({ side }: { side: 'left' | 'right' }) {
   const key = mode === 'pinned-open' ? 'pinnedOpen' : mode === 'pinned-collapsed' ? 'pinnedCollapsed' : 'unpinned'
   const label = t(`sidebarPin.${side}.${key}`)
   const Icon = side === 'left' ? PanelLeft : PanelRight
-  return <button type="button" aria-label={label} title={t('sidebarPin.withShortcut', { label, shortcut: keyboardLabel(side === 'left' ? '⌥⌘B' : '⌘B') })} onClick={side === 'left' ? cycleLeftMode : cycleRightMode} className="flex h-6 w-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline focus-visible:outline-ring" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}><Icon className="h-4 w-4" /></button>
+  const pinned = mode !== 'unpinned'
+  // ⌘B = left sidebar, ⌥⌘B = right sidebar (VS Code / Cursor convention).
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={pinned}
+      title={t('sidebarPin.withShortcut', { label, shortcut: keyboardLabel(side === 'left' ? '⌘B' : '⌥⌘B') })}
+      onClick={side === 'left' ? cycleLeftMode : cycleRightMode}
+      className={cn(
+        'flex h-6 w-7 shrink-0 items-center justify-center rounded focus-visible:outline focus-visible:outline-ring',
+        pinned ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+      )}
+      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  )
+}
+
+/** The right sidebar button only exists while a right sidebar is mounted
+ *  (none on global routes, nor on the board without an active project). */
+function useRightSidebarMounted(): boolean {
+  const { pathname } = useLocation()
+  const { uiMode } = useUiMode()
+  const { activeProjectId, projects } = useDesktop()
+  const hasActiveProject = !!activeProjectId && projects.some((p) => p.id === activeProjectId)
+  return hasRightSidebar({ uiMode, pathname, hasActiveProject })
 }
 
 function MacTitleBar() {
   const { projects, activeProjectId } = useDesktop()
   const { uiMode } = useUiMode()
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
+  const showRight = useRightSidebarMounted()
 
   return (
-    <div
+    <header
       data-tauri-drag-region
       style={{
         position: 'relative',
@@ -192,10 +234,13 @@ function MacTitleBar() {
         borderBottom: '1px solid var(--color-border)',
       }}
     >
-      <div className="ml-[80px] flex items-center gap-2"><SidebarWindowButton side="left" /></div>
+      <div className="ml-[80px] flex items-center gap-2"><SidebarWindowButton side="left" /><PlaceNavButtons /></div>
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
-      <div className="ml-auto mr-2"><SidebarWindowButton side="right" /></div>
-    </div>
+      <div className="ml-auto mr-2 flex items-center gap-1">
+        <InboxButton />
+        {showRight && <SidebarWindowButton side="right" />}
+      </div>
+    </header>
   )
 }
 
@@ -204,6 +249,7 @@ function DefaultTitleBar() {
   const { projects, activeProjectId } = useDesktop()
   const { uiMode } = useUiMode()
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
+  const showRight = useRightSidebarMounted()
   const appWindow = useMemo(() => getCurrentWindow(), [])
   const [maximized, setMaximized] = useState(false)
   useEffect(() => {
@@ -238,7 +284,7 @@ function DefaultTitleBar() {
   }, [appWindow])
 
   return (
-    <div
+    <header
       data-tauri-drag-region
       style={{
         position: 'relative',
@@ -258,7 +304,7 @@ function DefaultTitleBar() {
           both modes keeps the in-flow children identical. */}
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
 
-      <div className="flex items-center gap-2"><SidebarWindowButton side="left" /></div>
+      <div className="flex items-center gap-2"><SidebarWindowButton side="left" /><PlaceNavButtons /></div>
 
       {/* Right: native-feeling window controls for frameless Windows/Linux */}
       <div
@@ -271,7 +317,8 @@ function DefaultTitleBar() {
           WebkitAppRegion: 'no-drag',
         } as React.CSSProperties}
       >
-        <SidebarWindowButton side="right" />
+        <InboxButton />
+        {showRight && <SidebarWindowButton side="right" />}
         <WinButton
           onClick={handleMinimize}
           icon={<Minus size={14} strokeWidth={1.8} />}
@@ -290,6 +337,6 @@ function DefaultTitleBar() {
           ariaLabel={t('titleBar.closeWindow')}
         />
       </div>
-    </div>
+    </header>
   )
 }

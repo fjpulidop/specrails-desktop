@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
-import { Maximize2, Minimize2, X, Loader2, Briefcase } from 'lucide-react'
+import { Maximize2, Minimize2, X, Briefcase } from 'lucide-react'
 import { repositoryApiBase } from '../../projects/lib/project-repositories'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { cn } from '../../../lib/utils'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
+import { usePlaceParam } from '../../../hooks/usePlaceParam'
+import { JOB_PARAM } from '../../../lib/places'
 import { useProjectCache } from '../../../hooks/useProjectCache'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -14,6 +17,7 @@ import { jobActivityTimestamp, parseJobTimestamp } from '../../jobs/lib/job-time
 import { Badge } from '../../../components/ui/badge'
 import { JobDetailModal } from '../../jobs/components/JobDetailModal'
 import type { JobSummary } from '../../../types'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 const MIN_PANE = 360
 const DEFAULT_PANE = 480
@@ -40,14 +44,17 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
   const provider = projects.find((p) => p.id === projectId)?.provider
   const [width, setWidth] = useState(DEFAULT_PANE)
   const [maximized, setMaximized] = useState(false)
-  const [detailJobId, setDetailJobId] = useState<string | null>(null)
+  // The open job is a place: `?job=<id>` (Back closes it, a link reopens it).
+  const jobParam = usePlaceParam(JOB_PARAM)
+  const detailJobId = jobParam.value
+  const { open: openJobParam, close: closeJobParam } = jobParam
   // A Mission-mode notification click asked for a run (mission-rail-cards):
   // open it here instead of leaving the mission for the routed jobs page.
   useEffect(() => {
     if (!requestedJobId) return
-    setDetailJobId(requestedJobId)
+    openJobParam(requestedJobId)
     clearRequestedJob()
-  }, [requestedJobId, clearRequestedJob])
+  }, [requestedJobId, clearRequestedJob, openJobParam])
 
   const { data: jobs, isFirstLoad, refresh } = useProjectCache<JobSummary[]>({
     namespace: 'agent-jobs',
@@ -121,23 +128,23 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
         )}
       </div>
       <div className="flex items-center gap-2 border-b border-border/60 bg-surface/40 px-3 py-1.5">
-        <span className="text-xs font-medium text-foreground/70">{t('workspace.jobs')}</span>
+        <span className="text-label text-muted-foreground">{t('workspace.jobs')}</span>
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
             onClick={() => setMaximized((m) => !m)}
             aria-label={maximized ? t('restore') : t('maximize')}
             title={maximized ? t('restore') : t('maximize')}
-            className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground"
+            className="rounded-md p-1 text-muted-foreground hover:bg-surface hover:text-foreground"
           >
             {maximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
           <button
             type="button"
-            onClick={closeJobsPane}
+            onClick={() => { closeJobParam(); closeJobsPane() }}
             aria-label={t('workspace.closeJobs')}
             title={t('workspace.closeJobs')}
-            className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground"
+            className="rounded-md p-1 text-muted-foreground hover:bg-surface hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -147,7 +154,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {isFirstLoad ? (
           <div className="flex h-24 items-center justify-center text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <RailTrack running className="w-16 shrink-0" />
           </div>
         ) : jobs.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
@@ -160,7 +167,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
               <li key={job.id}>
                 <button
                   type="button"
-                  onClick={() => setDetailJobId(job.id)}
+                  onClick={() => openJobParam(job.id)}
                   className={cn(
                     'flex w-full flex-col gap-1 rounded-lg border border-border/50 bg-surface/30 px-2.5 py-2 text-left transition-colors',
                     'hover:border-accent-primary/40 hover:bg-surface/60',
@@ -170,8 +177,8 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
                     <Badge variant={STATUS_VARIANT[job.status] ?? 'queued'}>
                       {tJobs(`statusLabel.${job.status in STATUS_VARIANT ? job.status : 'queued'}`)}
                     </Badge>
-                    {job.status === 'running' && <Loader2 className="h-3 w-3 animate-spin text-accent-primary" />}
-                    <span className="ml-auto text-[10px] text-muted-foreground">
+                    {job.status === 'running' && <LiveDot tone="primary" size="xs" aria-hidden />}
+                    <span className="ml-auto text-caption text-muted-foreground">
                       {(() => {
                         const timestamp = parseJobTimestamp(jobActivityTimestamp(job))
                         return timestamp
@@ -180,7 +187,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
                       })()}
                     </span>
                   </div>
-                  <code className="truncate font-mono text-xs text-foreground/85">
+                  <code className="truncate font-mono text-xs text-foreground">
                     {formatCommandForProvider(job.command, provider)}
                   </code>
                 </button>
@@ -191,7 +198,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
       </div>
 
       {detailJobId && (
-        <JobDetailModal jobId={detailJobId} projectId={projectId} onClose={() => setDetailJobId(null)} />
+        <JobDetailModal jobId={detailJobId} projectId={projectId} onClose={closeJobParam} />
       )}
     </div>
   )

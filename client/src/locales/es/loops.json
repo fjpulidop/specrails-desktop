@@ -60,7 +60,8 @@
     "select": "Seleccionar {{name}}",
     "exportLegacy": "Exportar grafo original",
     "originalCopyName": "Original: {{name}}",
-    "convert": "Convertir a Core"
+    "convert": "Convertir a Core",
+    "more": "Más acciones"
   },
   "card": {
     "nodes_one": "{{count}} nodo",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Tope de iteraciones del Loop Decider — el loop se detiene al alcanzarlo aunque no se cumpla el objetivo. Evita bucles infinitos.",
       "timeoutHint": "Límite de tiempo real de toda la ejecución, en minutos. Si se supera, la ejecución se detiene y se marca como fallida — una red de seguridad junto a las iteraciones máximas. 0 desactiva este límite de tiempo; los demás presupuestos y la cancelación siguen activos.",
       "maxCost": "Coste máx ($)",
-      "maxCostHint": "Presupuesto opcional en USD para toda la ejecución. Se comprueba ENTRE pasos (el coste de un paso solo se sabe al terminarlo), así que el loop para antes del siguiente paso cuando el total lo supera — puede pasarse un paso. En proveedores no-Claude el coste es estimado. Vacío = sin tope."
+      "maxCostHint": "Límite opcional en USD para toda la ejecución. Se comprueba ENTRE pasos (el coste de un paso solo se sabe al terminarlo), así que el loop para antes del siguiente paso cuando el total lo supera — puede pasarse un paso. En proveedores no-Claude el coste es estimado. Vacío = sin tope.",
+      "title": "Límites de ejecución"
     },
     "nodes": {
       "start": "Inicio",
@@ -146,7 +148,10 @@
       "name": "NOMBRE",
       "value": "valor",
       "add": "Añadir",
-      "builtinBadge": "Integradas"
+      "builtinBadge": "Integradas",
+      "deleteConfirmTitle": "¿Eliminar la constante {{name}}?",
+      "deleteConfirmBody": "Las constantes se comparten entre todos los loops. Los pasos que aún la usen dejarán de resolverla.",
+      "description": "Valores reutilizables compartidos por todos los loops. Insértalos en un paso como token; se resuelven al ejecutar."
     },
     "paste": {
       "done_one": "{{count}} paso pegado",
@@ -166,11 +171,15 @@
       "DEAD_END": "Este paso no tiene conexión de salida.",
       "MIXED_ENGINES": "No mezcles pasos antiguos con piezas de Core.",
       "CORE_OUTCOMES": "Conecta resultados distintos y válidos.",
-      "CORE_PIECE": "Selecciona una pieza y sus parámetros."
+      "CORE_PIECE": "Selecciona una pieza y sus parámetros.",
+      "severity": {
+        "error": "Error",
+        "warning": "Advertencia"
+      }
     },
     "preview": {
       "label": "Previsualizar",
-      "title": "Previsualización (dry-run)",
+      "title": "Previsualización (simulación)",
       "sampleNote": "Los valores del spec son de ejemplo; comandos y constantes se resuelven tal cual en ejecución.",
       "empty": "No hay pasos que previsualizar.",
       "error": "Falló la previsualización"
@@ -231,7 +240,14 @@
       "agentTaskDefault": "Ejecuta la tarea definida para este paso usando el contexto del workflow.",
       "legacyImplementation": "Este paso conserva las fases de una versión anterior. Para definir tu propio paso, añade un Paso agente. En los loops integrados, Restaurar original carga el nuevo flujo."
     },
-    "loopSettings": "Ajustes avanzados"
+    "loopSettings": "Ajustes avanzados",
+    "nameLabel": "Nombre del loop",
+    "unsaved": {
+      "title": "¿Guardar los cambios antes de salir?",
+      "body": "Este loop tiene cambios sin guardar. Si los descartas, se perderán.",
+      "save": "Guardar y salir",
+      "discard": "Descartar cambios"
+    }
   },
   "preview": {
     "steps": "Pasos",
@@ -243,14 +259,17 @@
   "builtInBadge": "Integrado",
   "run": {
     "title": "Ejecutar {{name}}",
-    "subtitle": "Lanza este loop en un proyecto (sin ticket).",
+    "subtitle": "Lanza este loop en un proyecto (sin spec).",
     "project": "Proyecto",
     "provider": "Proveedor",
     "model": "Modelo",
     "effort": "Esfuerzo de razonamiento",
     "execute": "Ejecutar",
     "noProjects": "No hay proyectos disponibles.",
-    "launched": "Ejecutando {{name}}"
+    "launched": "Ejecutando {{name}}",
+    "runCap": "Pausar y preguntar en (USD)",
+    "runCapPlaceholder": "Valor del proyecto",
+    "runCapHint": "Opcional. La ejecución se pausa cuando su coste llega a este importe y pregunta si continuar."
   },
   "catalog": {
     "ship-and-green": {
@@ -294,12 +313,16 @@
       "description": "Entrega la spec directamente al modelo con total libertad — sin pipeline, trabaja como un agente de código normal, y después verifica + refina hasta quedar en verde. Solo Claude."
     },
     "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
-      "description": "Ciclo OpenSpec de ticket a archivo: genera artefactos (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); con FAIL vuelve atrás y enmienda el mismo change, con PASS lo archiva sin intervención."
+      "name": "Ciclo de vida de OpenSpec",
+      "description": "Ciclo OpenSpec de spec a archivo: genera artefactos (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); con FAIL vuelve atrás y enmienda el mismo change, con PASS lo archiva sin intervención."
     },
     "factory_revision": {
       "name": "Revisión",
       "description": "Aplica el único cambio que pediste sobre el trabajo ya entregado, hace que el revisor lo vuelva a puntuar y verifica hasta que esté verde. No replanifica desde cero."
+    },
+    "drift-sweep": {
+      "name": "Barrido de drift",
+      "description": "Solo lectura: compara lo que afirma la spec de cada capacidad con lo que hace el código y lista cada contradicción con fichero:línea. No cambia nada; ejecútalo cuando quieras."
     }
   },
   "import": {
@@ -360,6 +383,9 @@
     }
   },
   "window": {
-    "open": "Abrir en ventana"
-  }
+    "open": "Abrir en ventana",
+    "openFailed": "No se pudo abrir la ventana del loop"
+  },
+  "confirmDeleteTitle": "¿Eliminar «{{name}}»?",
+  "confirmDeleteAction": "Eliminar loop"
 }

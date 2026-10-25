@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import type { SpendingResponse } from '../types/spending'
 import { SURFACE_LABEL } from '../types/spending'
+import { formatUsd } from '../lib/format'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   data: SpendingResponse | null
@@ -11,16 +13,16 @@ interface Props {
 export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-40 rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <Skeleton className="h-40" />
   }
   if (!data) return null
   const list = data.topTickets
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
-      <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">{t('topTickets.title')}</h2>
+      <h2 className="text-strong mb-3">{t('topTickets.title')}</h2>
       {list.length === 0 ? (
-        <div className="h-32 flex items-center justify-center text-xs text-muted-foreground/70">{t('topTickets.empty')}</div>
+        <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">{t('topTickets.empty')}</div>
       ) : (
         <ul className="divide-y divide-border/30">
           {list.map((tk, i) => {
@@ -48,9 +50,9 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-sm truncate">{label}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">{breakdown || '—'}</div>
+                    <div className="text-caption text-muted-foreground truncate">{breakdown || '—'}</div>
                   </div>
-                  <div className="text-right tabular-nums">
+                  <div className="text-right num">
                     <div
                       className="text-sm font-medium"
                       title={
@@ -63,14 +65,14 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                     >
                       {costUnavailable
                         ? t('topTickets.costUnavailable')
-                        : `$${tk.totalCostUsd.toFixed(2)}`}
+                        : formatUsd(tk.totalCostUsd)}
                     </div>
                     {costPartiallyUnavailable && (
-                      <div className="text-[10px] text-muted-foreground italic">
+                      <div className="text-caption text-muted-foreground">
                         {t('topTickets.costPartiallyUnavailable', { count: unpricedCount })}
                       </div>
                     )}
-                    <div className="text-[10px] text-muted-foreground">{t('runs', { count: tk.totalRuns })}</div>
+                    <div className="text-caption text-muted-foreground">{t('runs', { count: tk.totalRuns })}</div>
                   </div>
                 </button>
               </li>

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import type { ProjectRoutesDeps } from './project-router-helpers'
-import { getProjectGitInfo, checkoutProjectBranch } from './project-git'
+import { getProjectGitInfo, checkoutProjectBranch, createInitialCommit } from './project-git'
 import { runGitDiagnostic, isGitDiagnosticAction, GIT_DIAGNOSTIC_ACTIONS } from './git-diagnostics'
 import { defaultExec } from './modules/delivery/runtime/pr-publisher'
 import { withRepoLock } from './repo-lock'
@@ -143,6 +143,34 @@ export function registerGitRoutes(deps: ProjectRoutesDeps): void {
       }
       console.error('[project-git] checkout failed:', err)
       res.status(500).json({ error: 'Checkout failed' })
+    }
+  })
+  // "Create initial commit" for a repository with an unborn HEAD (shown next to
+  // `repository_has_no_commits`). Primary repository only; an empty commit with
+  // zero files, under the repository lock. 409 when it already has commits or
+  // Git has no author identity.
+  router.post('/:projectId/git/initial-commit', async (req: Request, res: Response) => {
+    const repository = requireGit(req, res, undefined)
+    if (!repository) return
+    const project = ctx(req).project
+    try {
+      const admission = captureProcessAdmission(project.id)
+      const result = await withRepoLock(repository.path, async () => {
+        admission.assertCurrent()
+        return createInitialCommit(repository.path)
+      })
+      if (!result.ok) {
+        res.status(result.code === 'initial_commit_failed' ? 500 : 409).json({ error: result.code, detail: result.detail, repositoryId: repository.id })
+        return
+      }
+      res.status(201).json({ sha: result.sha, repositoryId: repository.id })
+    } catch (err) {
+      if (err instanceof ProcessAdmissionClosedError) {
+        res.status(409).json({ error: 'project_recovery_in_progress' })
+        return
+      }
+      console.error('[project-git] initial commit failed:', err)
+      res.status(500).json({ error: 'initial_commit_failed', detail: err instanceof Error ? err.message : String(err) })
     }
   })
 }

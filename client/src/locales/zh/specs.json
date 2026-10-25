@@ -5,12 +5,15 @@
     "emptyNoSpecs": "暂无 spec",
     "emptyNoLabelMatch": "没有符合所选标签的 spec",
     "emptyNoActiveSpecs": "没有进行中的 spec",
-    "emptyHint": "点击“+ 添加”开始",
+    "emptyHint": "点击\"新建 Spec\"开始",
     "dropToMarkDone": "拖放至此标记为完成",
     "emptyNoDoneLabelMatch": "没有符合所选标签的已完成 spec",
     "emptyNoCompleted": "暂无已完成的 spec",
     "emptyNoStatusMatch": "没有符合所选状态的 spec",
-    "untitledSpec": "未命名 spec"
+    "untitledSpec": "未命名 spec",
+    "doneHeading": "已完成 · {{count}}",
+    "clearFilters": "清除筛选",
+    "emptyNoSearchMatch": "没有匹配\"{{query}}\"的 Spec"
   },
   "status": {
     "todo": "待办",
@@ -45,20 +48,19 @@
   },
   "card": {
     "deleteSpec": "删除 spec #{{id}}",
-    "deleteTicket": "删除工单 #{{id}}",
-    "ticketFallbackLabel": "工单 #{{id}}",
+    "ticketFallbackLabel": "规格 #{{id}}",
     "dependsOn": "依赖 {{count}} 项",
     "continueEditing": "继续编辑",
     "continueEditingTitle": "继续编辑此 spec",
-    "moveToRail": "放入 Rail"
+    "moveToRail": "放入 rail"
   },
   "emptyState": {
-    "noTickets": "暂无工单",
-    "noTicketsHint": "创建第一个工单，或运行 product backlog 命令来填充工单",
-    "createFirst": "创建第一个工单"
+    "noTickets": "暂无规格",
+    "noTicketsHint": "创建第一个规格，或运行 product backlog 命令来填充规格",
+    "createFirst": "创建第一个规格"
   },
   "errors": {
-    "loadFailed": "加载工单失败"
+    "loadFailed": "加载规格失败"
   },
   "listView": {
     "status": {
@@ -80,20 +82,22 @@
       "labels": "标签",
       "updated": "更新时间"
     },
-    "noMatch": "没有符合筛选条件的工单",
+    "noMatch": "没有符合筛选条件的规格",
     "clearFilters": "清除筛选",
     "loadMore": "加载更多（剩余 {{count}} 个）"
   },
   "gridView": {
-    "emptyTodo": "没有待办工单",
-    "emptyInProgress": "没有进行中的工单",
-    "emptyDone": "没有已完成的工单",
+    "emptyTodo": "没有待办规格",
+    "emptyInProgress": "没有进行中的规格",
+    "emptyDone": "没有已完成的规格",
     "cancelledSection": "已取消（{{count}}）"
   },
   "statusFilter": {
     "ariaLabel": "按状态筛选",
     "all": "全部",
-    "active": "活跃"
+    "active": "活跃",
+    "more": "更多",
+    "moreSelected": "状态：{{status}}。选择其他状态"
   },
   "jiraStatusFilter": {
     "ariaLabel": "按 Jira 状态筛选",
@@ -109,7 +113,7 @@
     "descending": "降序",
     "modes": {
       "default": "默认",
-      "ticketId": "工单 #",
+      "ticketId": "规格 #",
       "priority": "优先级",
       "jiraKey": "Jira 工单 #"
     }
@@ -121,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "按标签筛选",
-    "all": "全部",
+    "all": "全部标签",
     "empty": "此项目没有标签。",
     "selected_one": "{{count}} 个标签",
     "selected_other": "{{count}} 个标签",
@@ -155,15 +159,157 @@
       "securitySurface": "安全",
       "none": "不影响公共 API、数据或安全"
     },
-    "flowHint": "建议使用 Flow",
     "filesLikely": "可能涉及的文件",
     "moreFiles_one": "另有 {{count}} 个文件",
     "moreFiles_other": "另有 {{count}} 个文件",
-    "modelCost": "{{model}} · ${{cost}}",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · 未报告成本",
     "unavailable": "无法分诊",
     "unavailableDetail": "没有可用于分诊的模型（{{reason}}）。",
     "failed": "分诊失败",
     "failedDetail": "无法完成分诊：{{error}}"
+  },
+  "toolbar": {
+    "newSpec": "新建 Spec",
+    "newSpecTooltip": "新建 Spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "搜索 Spec",
+    "ariaLabel": "按标题、编号、标签或 Jira 键搜索 Spec",
+    "clear": "清除搜索"
+  },
+  "filters": {
+    "trigger": "筛选",
+    "triggerActive_one": "筛选，{{count}} 项生效",
+    "triggerActive_other": "筛选，{{count}} 项生效",
+    "title": "筛选",
+    "sections": {
+      "labels": "标签",
+      "epic": "史诗",
+      "sprint": "冲刺",
+      "jiraStatus": "Jira 状态"
+    },
+    "clearSection": "清除",
+    "clearAll": "全部清除",
+    "done": "完成",
+    "findLabel": "查找标签",
+    "removeChip": "移除筛选：{{label}}",
+    "resultCount": "{{shown}} / {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "搜索：\"{{query}}\"",
+      "label": "标签：{{label}}",
+      "epic": "史诗：{{name}}",
+      "sprint": "冲刺：{{name}}",
+      "jiraStatus": "Jira：{{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "排序与视图",
+    "menuLabel": "排序与视图选项",
+    "sortBy": "排序方式",
+    "direction": "方向",
+    "view": "视图"
+  },
+  "bulk": {
+    "toolbarLabel_one": "批量操作,已选择 {{count}} 个规格",
+    "toolbarLabel_other": "批量操作,已选择 {{count}} 个规格",
+    "count_one": "已选 {{count}} 个",
+    "count_other": "已选 {{count}} 个",
+    "listLabel": "规格(多选)",
+    "selectSpec": "选择规格 #{{id}}",
+    "moveTo": "移至",
+    "label": "标签",
+    "priority": "优先级",
+    "addToRail": "加入轨道",
+    "launchAll": "启动所选",
+    "delete": "删除",
+    "clear": "取消选择",
+    "clearTitle": "取消选择(Esc)",
+    "statusLocal_one": "状态 · {{count}} 个规格",
+    "statusLocal_other": "状态 · {{count}} 个规格",
+    "statusJira_one": "Jira 状态 · {{count}} 个规格",
+    "statusJira_other": "Jira 状态 · {{count}} 个规格",
+    "loadingStatuses": "正在加载 Jira 状态…",
+    "statusesFailed": "无法加载 Jira 状态",
+    "noStatuses": "没有可用的状态",
+    "labelAdd": "添加标签",
+    "labelRemove": "移除标签",
+    "noLabels": "此项目还没有标签",
+    "noRails": "没有可用的轨道",
+    "railRunning": "运行中",
+    "railSpecs_one": "{{count}} 个规格",
+    "railSpecs_other": "{{count}} 个规格",
+    "result": {
+      "moved_one": "已移动 {{count}} 个规格",
+      "moved_other": "已移动 {{count}} 个规格",
+      "labeled_one": "已更新 {{count}} 个规格的标签",
+      "labeled_other": "已更新 {{count}} 个规格的标签",
+      "prioritized_one": "已更改 {{count}} 个规格的优先级",
+      "prioritized_other": "已更改 {{count}} 个规格的优先级",
+      "railed_one": "已将 {{count}} 个规格加入轨道",
+      "railed_other": "已将 {{count}} 个规格加入轨道",
+      "deleted_one": "已删除 {{count}} 个规格",
+      "deleted_other": "已删除 {{count}} 个规格"
+    },
+    "partial": "{{total}} 个中完成 {{ok}} 个 · {{failed}} 个失败",
+    "failedAll_one": "无法更新 {{count}} 个规格",
+    "failedAll_other": "无法更新 {{count}} 个规格",
+    "launch": {
+      "none": "所选规格目前都无法启动",
+      "skipBlocked_one": "{{count}} 个暂时无法启动",
+      "skipBlocked_other": "{{count}} 个暂时无法启动",
+      "skipNoRail_one": "{{count}} 个没有空闲轨道",
+      "skipNoRail_other": "{{count}} 个没有空闲轨道",
+      "skipReviewLimit_one": "{{count}} 个因评审上限被暂缓",
+      "skipReviewLimit_other": "{{count}} 个因评审上限被暂缓"
+    },
+    "more": "更多"
+  },
+  "views": {
+    "trigger": "视图",
+    "triggerActive": "视图,当前:{{name}}",
+    "menuLabel": "已保存的视图",
+    "empty": "还没有已保存的视图",
+    "saveCurrent": "保存当前视图…",
+    "manage": "管理视图…",
+    "saveTitle": "保存视图",
+    "saveDescription": "为此项目保存当前的状态、筛选、排序和密度。",
+    "nameLabel": "名称",
+    "namePlaceholder": "可以启动",
+    "save": "保存",
+    "saved": "已保存视图“{{name}}”",
+    "updated": "已用当前看板更新视图",
+    "manageTitle": "管理视图",
+    "manageDescription": "重命名视图、用当前看板更新它、复制链接或删除。视图属于此项目。",
+    "rename": "重命名",
+    "updateFromCurrent": "用当前看板更新",
+    "upToDate": "已与当前看板一致",
+    "copyLink": "复制链接",
+    "delete": "删除视图",
+    "done": "完成",
+    "linkCopied": "链接已复制",
+    "linkCopyFailed": "无法复制链接",
+    "linkMissing": "此项目中没有该视图",
+    "deleted": "已删除视图“{{name}}”",
+    "linkOtherProject": "此视图属于 {{project}}。",
+    "openInProject": "在 {{project}} 中打开"
+  },
+  "movePicker": {
+    "titleOne": "移动规格 #{{id}}",
+    "titleMany": "移动 {{count}} 个规格",
+    "description": "选择一个状态或一条 Rail,效果等同于把卡片拖过去。",
+    "statusHeading": "状态",
+    "railHeading": "Rail",
+    "jiraLoading": "正在加载 Jira 状态…",
+    "jiraFailed": "无法加载 Jira 状态。",
+    "jiraStatus": "{{status}}(Jira)",
+    "noRails": "还没有 Rail。",
+    "running": "运行中",
+    "hintNavigate": "移动",
+    "hintChoose": "选择",
+    "hintClose": "关闭",
+    "current": "当前",
+    "descriptionOne": "“{{title}}”。选择一个状态或一条 rail。"
   }
 }

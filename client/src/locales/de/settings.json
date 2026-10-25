@@ -6,10 +6,11 @@
     "updateFailed": "Spracheinstellung konnte nicht gespeichert werden"
   },
   "page": {
-    "title": "Projekteinstellungen"
+    "title": "Projekteinstellungen",
+    "loadFailed": "Die Projektkonfiguration konnte nicht geladen werden"
   },
   "errors": {
-    "saveFailed": "Speichern fehlgeschlagen: {{message}}"
+    "saveFailed": "Speichern fehlgeschlagen"
   },
   "telemetry": {
     "title": "Pipeline-Telemetrie",
@@ -22,7 +23,7 @@
   },
   "prePrompt": {
     "title": "Rail-Pre-Prompt",
-    "description": "Zusätzliche projektspezifische Anweisungen, die an implement-Rail-Jobs angehängt werden – nach dem Ticket-Kontext und vor der Ausführung.",
+    "description": "Zusätzliche projektspezifische Anweisungen, die an implement-Rail-Jobs angehängt werden – nach dem Spec-Kontext und vor der Ausführung.",
     "label": "Pre-Prompt",
     "placeholder": "Beispiel: Bevorzuge inkrementelle Änderungen, halte Migrationen abwärtskompatibel und füge Tests für jede Rail-Änderung hinzu.",
     "helper": "Für stabile Projektleitlinien, die jeden Rail-Implementierungslauf begleiten sollen.",
@@ -45,19 +46,17 @@
   "budget": {
     "title": "Budget",
     "description": "Tagesausgabenlimit für dieses Projekt festlegen. Die Queue pausiert automatisch, wenn das Limit erreicht ist.",
-    "dailyLabel": "Tagesbudget (USD)",
-    "dailyHelper": "Leer lassen zum Deaktivieren. Ausgaben werden über die letzten 24 Stunden berechnet.",
-    "dailyPlaceholder": "z. B. 5.00",
+    "dailyLabel": "Tageslimit",
+    "dailyHelper": "Die Ausgaben werden über die letzten 24 Stunden gezählt. Die Queue pausiert, sobald das Limit erreicht ist.",
     "perJobLabel": "Kostenalarm pro Job (USD)",
     "perJobHelper": "Alarm, wenn ein einzelner Job in diesem Projekt diesen Betrag überschreitet.",
     "perJobPlaceholder": "z. B. 0.50",
     "invalidNumber": "Positive Zahl eingeben oder leer lassen zum Deaktivieren",
-    "dailyRemoved": "Tagesbudget entfernt",
-    "dailySet": "Tagesbudget auf ${{amount}} gesetzt",
     "perJobAlertDisabled": "Kostenalarm pro Job deaktiviert",
-    "alertSet": "Alarm für Jobs über ${{amount}} gesetzt",
-    "saveBudgetFailed": "Budget konnte nicht gespeichert werden",
-    "saveThresholdFailed": "Schwellenwert konnte nicht gespeichert werden"
+    "alertSet": "Alarm für Jobs über {{amount}} gesetzt",
+    "saveThresholdFailed": "Schwellenwert konnte nicht gespeichert werden",
+    "dailyCurrent": "Aktuell {{amount}} pro Tag",
+    "dailyNone": "Kein Tageslimit gesetzt"
   },
   "desktop": {
     "nav": {
@@ -76,32 +75,38 @@
       "subscriptionUsage": "Abonnementnutzung"
     },
     "title": "Desktop-Einstellungen",
-    "description": "Registrierte Projekte verwalten und Desktop-Informationen einsehen.",
+    "description": "Darstellung, KI-Anbieter, Updates und Desktop-weite Einstellungen.",
     "registeredProjects": "Registrierte Projekte",
     "noProjects": "Noch keine Projekte registriert",
     "techUrlDescription": "Basis-URL für die specrails-tech-API (Standard: http://localhost:3000)",
     "techUrlSaved": "specrails-tech-URL gespeichert",
     "techUrlSaveFailed": "URL konnte nicht gespeichert werden",
     "budgetAlertsHeading": "Budget & Alarme",
-    "dailyBudgetLabel": "Desktop-Tagesbudget (USD)",
+    "dailyBudgetLabel": "Desktop-Tageslimit",
     "dailyBudgetHelper": "Globales Tagesausgabenlimit über alle Projekte. Queues pausieren automatisch bei Überschreitung.",
-    "dailyBudgetPlaceholder": "z. B. 10.00",
     "perJobHelper": "Alarm, wenn ein einzelner Job diesen Betrag überschreitet. Leer lassen zum Deaktivieren.",
     "costAlertsDisabled": "Kostenalarme deaktiviert",
-    "dailyBudgetRemoved": "Desktop-Tagesbudget entfernt",
-    "dailyBudgetSet": "Desktop-Tagesbudget auf ${{amount}} gesetzt",
-    "dailyBudgetSaveFailed": "Desktop-Tagesbudget konnte nicht gespeichert werden",
     "projectRemoved": "Projekt entfernt",
     "projectRemoveFailed": "Projekt konnte nicht entfernt werden",
     "onboardingHeading": "Onboarding",
     "platformTour": "Plattform-Tour",
     "platformTourDescription": "Den Willkommensassistenten erneut abspielen, um die wichtigsten Funktionen zu sehen.",
     "replayTour": "Tour erneut abspielen",
-    "terminalPanelHeading": "Terminal-Panel",
     "infoHeading": "Desktop-Informationen",
     "infoPort": "Port",
     "infoProjects": "Projekte",
-    "infoDb": "Desktop-DB"
+    "infoDb": "Desktop-DB",
+    "removeProjectConfirmTitle": "{{name}} entfernen?",
+    "removeProjectConfirmBody": "{{name}} wird aus Specrails abgemeldet und laufende Arbeit wird gestoppt. Die Repository-Dateien auf der Festplatte werden nicht gelöscht; du kannst den Ordner später erneut hinzufügen.",
+    "navLabel": "Einstellungsbereiche",
+    "navGroups": {
+      "personal": "Persönlich",
+      "agents": "Agenten",
+      "system": "System"
+    },
+    "unsavedChanges": "Ungespeicherte Änderungen",
+    "dailyBudgetCurrent": "Aktuell {{amount}} pro Tag",
+    "dailyBudgetNone": "Kein Tageslimit gesetzt"
   },
   "notifications": {
     "heading": "OS-Benachrichtigungen",
@@ -120,8 +125,6 @@
     "eventJobCompleted": "Job abgeschlossen",
     "eventJobFailed": "Job fehlgeschlagen",
     "eventDailyBudgetExceeded": "Tagesbudget überschritten",
-    "statusOn": "an",
-    "statusOff": "aus",
     "disable": "Deaktivieren",
     "enable": "Aktivieren",
     "sendTestPing": "Test-Ping senden",
@@ -136,7 +139,10 @@
     "removed": "Webhook entfernt",
     "removeFailed": "Webhook konnte nicht entfernt werden",
     "testPingSent": "Test-Ping gesendet",
-    "testPingFailed": "Test-Ping konnte nicht gesendet werden"
+    "testPingFailed": "Test-Ping konnte nicht gesendet werden",
+    "removeConfirmTitle": "Webhook entfernen?",
+    "removeConfirmBody": "{{url}} erhält keine Desktop-Ereignisse mehr.",
+    "urlLabel": "Webhook-URL"
   },
   "terminal": {
     "title": "Terminal-Panel",
@@ -170,7 +176,7 @@
     "taglines": {
       "dracula": "Das Original — dunkel mit Violettstich und lebhaften Neon-Akzenten",
       "aurora-light": "Premium hell — Linear-inspiriertes Indigo auf warmem Cremeweiß",
-      "obsidian-dark": "Premium dunkel — fast schwarz mit Blaustich und elektrischen Akzenten",
+      "obsidian-dark": "Graphit Pro — neutrales Fast-Schwarz mit einem gedämpften Violett-Akzent",
       "specrails": "Marken-Theme — tiefes Marine-Indigo mit satten Cyan-Akzenten",
       "code-rain": "Phosphor-Terminal — sanftes Mint auf grünlichem Fast-Schwarz",
       "galaxy": "Tiefraum-Blau mit einer leuchtenden Klingenspur"
@@ -182,7 +188,7 @@
   },
   "mobile": {
     "heading": "Mobile Companion",
-    "description": "Steuern Sie Specrails über die SpecRails Companion-App auf Ihrem Smartphone – zu 100 % über Ihr lokales Netzwerk. Standardmäßig aus.",
+    "description": "Steuern Sie Specrails über die SpecRails Companion-App auf Ihrem Smartphone – zu 100 % über Ihr lokales Netzwerk. Standardmäßig aus. Ein gekoppeltes Smartphone kann im Posteingang Fragen beantworten, fortsetzen, wiederholen und Entwurfs-PRs erstellen, soweit die MCP-Berechtigungsstufen es erlauben; Zusammenführen, Verwerfen und Einstellungen bleiben auf diesem Computer.",
     "accessOn": "Mobilzugriff an",
     "accessOff": "Mobilzugriff aus",
     "listeningOnPort": "Lauscht auf Port {{port}}",
@@ -193,12 +199,13 @@
     "reset": "Zurücksetzen",
     "resetConfirm": "Mobile Identität zurücksetzen? Alle gekoppelten Geräte werden widerrufen und müssen neu gekoppelt werden.",
     "identityReset": "Mobile Identität zurückgesetzt",
-    "enableFailed": "Mobilzugriff konnte nicht aktiviert werden: {{message}}",
-    "disableFailed": "Mobilzugriff konnte nicht deaktiviert werden: {{message}}",
+    "enableFailed": "Mobilzugriff konnte nicht aktiviert werden",
+    "disableFailed": "Mobilzugriff konnte nicht deaktiviert werden",
     "windowsFirewall": "Die Windows-Firewall fragt beim ersten Aktivieren, ob der SpecRails-Server zugelassen werden soll – wählen Sie „In privaten Netzwerken zulassen“.",
     "pairedDevices": "Gekoppelte Geräte",
     "noDevices": "Noch keine Geräte gekoppelt.",
-    "revokeDevice": "{{name}} widerrufen"
+    "revokeDevice": "{{name}} widerrufen",
+    "resetConfirmTitle": "Mobile Identität zurücksetzen?"
   },
   "pairWeb": {
     "title": "Web-Companion koppeln",
@@ -207,7 +214,7 @@
     "showThenScan": "Nachdem Ihr Smartphone dies gescannt hat, tippen Sie auf „Code des Smartphones scannen“ und richten Sie die Kamera auf Ihr Smartphone.",
     "scanAnswer": "Code des Smartphones scannen",
     "scanning": "Richten Sie die Kamera auf den Code auf Ihrem Smartphone…",
-    "cameraFailed": "Kamera nicht verfügbar: {{message}}",
+    "cameraFailed": "Kamera nicht verfügbar",
     "notAnswer": "Dieser QR-Code ist keine Kopplungsantwort.",
     "connecting": "Verbinden…",
     "paired": "✓ Gekoppelt",
@@ -231,10 +238,7 @@
     "affectsAll": "Gilt für alle Projekte — kein Neustart nötig.",
     "unavailable": "Core-Updates sind in diesem Build nicht verfügbar.",
     "toastDone": "Specrails Core auf {{version}} aktualisiert",
-    "toastError": "Core-Update fehlgeschlagen: {{message}}",
     "toastUpToDate": "Specrails Core ist aktuell",
-    "toastCheckFailed": "Update-Prüfung fehlgeschlagen: {{message}}",
-    "loadFailed": "Core-Status konnte nicht geladen werden. Erneut versuchen",
     "runtime": "Laufzeit: {{version}}",
     "bundled": "In Desktop enthalten: {{version}}",
     "sources": {
@@ -245,14 +249,17 @@
       "global": "Externe CLI"
     },
     "repair": "Update auf {{version}} abschließen",
-    "stableFallback": "specrails-core hat noch keine stabile Version, daher folgt Core vorerst Neueste."
+    "stableFallback": "specrails-core hat noch keine stabile Version, daher folgt Core vorerst Neueste.",
+    "updateFailed": "Core-Update fehlgeschlagen",
+    "checkFailed": "Update-Prüfung fehlgeschlagen",
+    "loadError": "Core-Status konnte nicht aktualisiert werden."
   },
   "updateChannel": {
     "heading": "Update-Kanal",
     "loading": "Kanal wird geladen…",
     "scope": "Gilt für Specrails Desktop und das specrails-core-Framework.",
     "saved": "Update-Kanal: {{channel}}",
-    "saveFailed": "Update-Kanal konnte nicht geändert werden: {{message}}",
+    "saveFailed": "Update-Kanal konnte nicht geändert werden",
     "latest": {
       "label": "Neueste",
       "description": "Jede Version sofort nach Veröffentlichung. Neue Funktionen und Korrekturen zuerst."
@@ -272,12 +279,12 @@
     "autoHint": "Wird beim Start und alle 6 Stunden automatisch geprüft.",
     "unavailable": "App-Updates sind nur in der Desktop-App verfügbar.",
     "toastUpToDate": "Specrails Desktop ist aktuell",
-    "toastCheckFailed": "Update-Prüfung fehlgeschlagen: {{message}}",
+    "toastCheckFailed": "Update-Prüfung fehlgeschlagen",
     "stableUnavailable": "Für den Kanal Stabil wurde noch keine Version freigegeben. Wechsle zu Neueste oder versuche es später erneut."
   },
   "projectDialog": {
     "title": "{{name}} — Einstellungen",
-    "description": "Projektkonfiguration: Prompts, Branch, Umgebung, Budget, Telemetrie und Terminal.",
+    "description": "Projektkonfiguration: Prompts, Branch, Umgebung, Budget, Telemetrie, Regeln und Terminal.",
     "nav": {
       "general": "Allgemein",
       "branch": "Branch",
@@ -286,8 +293,11 @@
       "telemetry": "Telemetrie",
       "terminal": "Terminal",
       "agentRuntime": "Verifikationsbefehle",
-      "subagents": "Sub-Agenten"
-    }
+      "subagents": "Sub-Agenten",
+      "rules": "Regeln",
+      "recentlyDeleted": "Zuletzt gelöscht"
+    },
+    "navLabel": "Bereiche der Projekteinstellungen"
   },
   "integrationBranch": {
     "title": "Integrationszweig",
@@ -439,5 +449,100 @@
     "saved_other": "Review-Limit auf {{count}} gesetzt",
     "removed": "Review-Limit entfernt",
     "saveFailed": "Das Review-Limit konnte nicht gespeichert werden"
+  },
+  "anchoring": {
+    "title": "Verankerung in bestehenden Projekten",
+    "description": "Optionale Verhaltensweisen, die Läufen helfen, das bestehende Projekt zu respektieren. Jede braucht einen Core, der sie unterstützt.",
+    "coreRequired": "Der installierte Core unterstützt das noch nicht. Aktualisiere Core, um es zu aktivieren.",
+    "saveFailed": "Einstellung konnte nicht gespeichert werden",
+    "jiraPostClarifications": {
+      "label": "Klärungsfragen des Architekten in Jira posten",
+      "description": "Wenn ein Lauf mit Fragen des Architekten pausiert oder mit Annahmen fortfährt, werden sie als Kommentar im verknüpften Jira-Vorgang gepostet. Eine Antwort dort wird an der Spec als Klärung festgehalten.",
+      "enabled": "Klärungen werden in Jira gepostet",
+      "disabled": "Klärungen bleiben in Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline bei Berührung",
+      "description": "Wenn eine Änderung Code erreicht, den keine Spec beschreibt, zuerst Charakterisierungstests (am unveränderten Code bestätigt) und eine minimale Ist-Spec schreiben. Verursacht Kosten, die separat ausgewiesen werden.",
+      "enabled": "Baseline bei Berührung aktiviert",
+      "disabled": "Baseline bei Berührung deaktiviert"
+    }
+  },
+  "rules": {
+    "title": "Projektregeln",
+    "description": "Die Prüfungen, die das Projekt bereits ausführt, und jede schriftliche Regel, eingestuft als durchgesetzt, automatisierbar oder nur manuell prüfbar. Manuell zu prüfende Regeln erscheinen in jedem Review-Paket.",
+    "rerun": "Inventur erneut ausführen",
+    "running": "Inventur läuft…",
+    "coreRequired": "Der installierte Core unterstützt die Regelinventur nicht. Aktualisiere Core, um sie auszuführen.",
+    "missing": "Noch keine Inventur. Führe sie aus, um die Gates und Regeln des Projekts aufzulisten.",
+    "invalid": "Die Regeldatei konnte nicht gelesen werden: {{message}}",
+    "inventoryDone": "Regelinventur aktualisiert",
+    "inventoryFailed": "Die Regelinventur ist fehlgeschlagen",
+    "specCreated": "Spec #{{id}} erstellt",
+    "specFailed": "Spec konnte nicht erstellt werden",
+    "status": {
+      "automatable": "Automatisierbar",
+      "humanOnly": "Nur manuell",
+      "enforcedBy": "Durchgesetzt",
+      "unclassified": "Nicht eingestuft"
+    },
+    "generatedAt": "Erstellt {{date}}",
+    "gates_one": "{{count}} Gate",
+    "gates_other": "{{count}} Gates",
+    "gatesHint": "Einfache Gate-Befehle werden in den Agent-Runtime-Einstellungen zuerst als Verifikationsprüfungen angeboten, wenn keine konfiguriert sind.",
+    "enforcedBy": "Durchgesetzt durch {{check}}",
+    "proposedCheck": "Vorgeschlagene Prüfung: {{check}}",
+    "createSpec": "Spec erstellen",
+    "dropped_one": "{{count}} Eintrag passte nicht zum Format und wurde übersprungen",
+    "dropped_other": "{{count}} Einträge passten nicht zum Format und wurden übersprungen",
+    "classification": {
+      "offline": "Die Regeln wurden offline erfasst und sind noch nicht eingestuft. Führe die Inventur mit einem konfigurierten Anbieter erneut aus.",
+      "unavailable": "Es ist kein Anbieter zum Einstufen der Regeln konfiguriert.",
+      "failed": "Das Einstufen der Regeln ist fehlgeschlagen.",
+      "empty": "Es wurden keine schriftlichen Regeln gefunden.",
+      "unknown": "Die Regeln sind nicht eingestuft."
+    },
+    "autoRunning": "Das Inventar läuft nach der Einrichtung. Diese Liste wird aktualisiert, sobald es fertig ist.",
+    "lastRun": {
+      "setupFailed": "Das automatische Inventar nach der Einrichtung ist fehlgeschlagen ({{date}}).",
+      "manualFailed": "Der letzte Inventarlauf ist fehlgeschlagen ({{date}}).",
+      "retryHint": "Behebe die oben gezeigte Ursache und starte das Inventar erneut.",
+      "setupDone": "Nach der Einrichtung automatisch inventarisiert."
+    }
+  },
+  "editorSection": {
+    "heading": "Editor",
+    "description": "Der Editor, den „Im Editor öffnen“ im Prüfpaket verwendet. Wird auf diesem Computer gespeichert.",
+    "label": "Dateien öffnen in",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "JetBrains-IDE"
+    }
+  },
+  "budgetMoved": "Limits werden unter Analysen ▸ Budget bearbeitet.",
+  "openBudget": "Budget öffnen",
+  "openSettings": "Einstellungen öffnen",
+  "accessibility": {
+    "density": {
+      "title": "Dichte",
+      "description": "Wie viel Platz Karten und Zeilen einnehmen. Gilt für das Board, die Job-Liste und die Job-Story. Eine gespeicherte Board-Ansicht behält ihr eigenes Layout.",
+      "comfortable": "Komfortabel",
+      "comfortableHint": "Großzügige Karten und Zeilen",
+      "compact": "Kompakt",
+      "compactHint": "Mehr Specs und Zeilen auf dem Bildschirm",
+      "resetBoard": "Auch für das Board verwenden",
+      "resetBoardDone": "Das Board dieses Projekts folgt jetzt dieser Einstellung."
+    },
+    "motion": {
+      "title": "Bewegung reduzieren",
+      "description": "Schaltet Animationen und Übergänge in Specrails aus, unabhängig von deinem Betriebssystem.",
+      "system": "System folgen",
+      "systemHint": "Nutzt die Einstellung deines Betriebssystems",
+      "reduce": "Reduzieren",
+      "reduceHint": "Immer ruhig: keine Animation",
+      "full": "Volle Bewegung",
+      "fullHint": "Animiert auch, wenn das System weniger verlangt"
+    }
   }
 }

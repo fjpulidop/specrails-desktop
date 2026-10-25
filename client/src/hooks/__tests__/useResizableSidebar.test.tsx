@@ -34,6 +34,17 @@ describe('useResizableSidebar (imperative, jank-free)', () => {
     expect(panelWidth(getByTestId)).toBe('240px')
   })
 
+  it('publishes the width the left sidebar reserves as --sidebar-width (the right one does not)', () => {
+    document.documentElement.style.removeProperty('--sidebar-width')
+    const right = render(<Host side="right" />)
+    expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('')
+    right.unmount()
+    const { rerender } = render(<Host />)
+    expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('240px')
+    rerender(<Host expanded={false} />)
+    expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('44px')
+  })
+
   it('applies the collapsed rail width when collapsed', () => {
     const { getByTestId } = render(<Host expanded={false} />)
     expect(panelWidth(getByTestId)).toBe('44px')
@@ -90,5 +101,29 @@ describe('useResizableSidebar (imperative, jank-free)', () => {
     fireEvent.keyDown(getByTestId('grip'), { key: 'Home' })
     expect(getByTestId('w').textContent).toBe('240')
     expect(localStorage.getItem(KEY)).toBe('240')
+  })
+
+  it('an overlaying (undocked) panel expands while its in-flow wrapper keeps the rail width', () => {
+    function Overlay({ docked }: { docked: boolean }) {
+      const r = useResizableSidebar('test', { side: 'left', defaultWidth: 240, min: 200, max: 460, collapsedWidth: 44, expanded: true, docked })
+      return (
+        <div ref={r.wrapperRef} data-testid="wrapper">
+          <div ref={r.panelRef} data-testid="panel">
+            <div data-testid="grip" onPointerDown={r.onGripPointerDown} tabIndex={0} />
+          </div>
+        </div>
+      )
+    }
+    const { getByTestId, rerender } = render(<Overlay docked={false} />)
+    expect(getByTestId('panel').style.width).toBe('240px')
+    expect(getByTestId('wrapper').style.width).toBe('44px')
+    // Docked (pinned-open): the wrapper reserves the width and follows a drag.
+    rerender(<Overlay docked />)
+    expect(getByTestId('wrapper').style.width).toBe('240px')
+    fireEvent.pointerDown(getByTestId('grip'), { button: 0, clientX: 300, pointerId: 1 })
+    act(() => { window.dispatchEvent(pointer('pointermove', 340)) })
+    expect(getByTestId('panel').style.width).toBe('280px')
+    expect(getByTestId('wrapper').style.width).toBe('280px')
+    act(() => { window.dispatchEvent(pointer('pointerup', 340)) })
   })
 })

@@ -1,5 +1,6 @@
 import { isPluginWindowRoute } from './features/plugins/lib/plugin-windows'
 import { isLoopWindowRoute } from './features/loops/lib/loop-windows'
+import { MotionConfig } from 'motion/react'
 import { MissionWindowsProvider } from './features/missions/context/MissionWindowsContext'
 import { isMissionWindowRoute } from './features/missions/lib/mission-windows'
 import { MissionWindowBindings } from './features/missions/components/MissionWindowBindings'
@@ -10,16 +11,20 @@ import { createPortal } from 'react-dom'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
-import { Puzzle, Workflow, X, Eye } from 'lucide-react'
+import { UndoProvider } from './hooks/useUndo'
+import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
-import { OPEN_APP_SETTINGS_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
+import { OPEN_DOCS_EVENT, type DocsTarget, type OpenDocsDetail } from './lib/docs-events'
+import { REPLAY_TOUR_EVENT } from './lib/onboarding-events'
+import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
 import DashboardPage from './features/dashboard/pages/DashboardPage'
 import SettingsPage from './features/settings/pages/SettingsPage'
 import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from './components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog'
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
 import { TitleBar } from './components/TitleBar'
+import { RailMark } from './components/brand/RailMark'
 import { ThemeEffectLayer } from './features/settings/components/theme-effects/ThemeEffectLayer'
 
 // Lazy-loaded pages — never visible at initial render
@@ -42,6 +47,7 @@ import { ProjectLayout } from './components/ProjectLayout'
 import { ProjectErrorBoundary } from './features/projects/components/ProjectErrorBoundary'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { OnboardingWizard, hasSeenOnboarding } from './features/projects/components/OnboardingWizard'
+import { SampleGuide } from './features/onboarding/components/SampleGuide'
 import { ArcSidebar } from './components/ArcSidebar'
 import { ProjectRightSidebar } from './components/ProjectRightSidebar'
 import { AddProjectDialog } from './features/projects/components/AddProjectDialog'
@@ -58,13 +64,14 @@ import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
 import { useTrayLabels } from './hooks/useTrayLabels'
 import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMenu'
 import { WS_URL } from './lib/ws-url'
+import { hasRightSidebar, isGlobalRoute } from './lib/sidebar-layout'
 import { TerminalsProvider, useTerminals, useProjectTerminals } from './features/terminals/context/TerminalsContext'
 import { usePipeline } from './features/jobs/hooks/usePipeline'
 import { BottomPanel } from './features/terminals/components/terminal/BottomPanel'
 import { StatusBar } from './components/StatusBar'
 import { PanelChevronButton } from './features/terminals/components/terminal/PanelChevronButton'
 import { useUiMode } from './context/UiModeContext'
-import { AgentWorkspaceProvider } from './features/missions/context/AgentWorkspaceContext'
+import { AgentWorkspaceProvider, useAgentWorkspace } from './features/missions/context/AgentWorkspaceContext'
 import { AgentWorkspaceSidebar } from './features/missions/components/AgentWorkspaceSidebar'
 import { AgentModeSurface } from './features/missions/components/AgentModeSurface'
 import { AgentBrowserCaptureHost } from './features/missions/components/AgentBrowserCaptureHost'
@@ -72,6 +79,8 @@ import { RailMetricsProvider } from './features/rails/context/RailMetricsContext
 import { RailPrDecisionProvider } from './features/delivery/context/RailPrDecisionContext'
 import { MinimizedChatsProvider, } from './features/missions/context/MinimizedChatsContext'
 import { FlowMissionsBridge } from './features/flow/components/FlowMissionsBridge'
+import { FLOW_SPEC_EXTENSIONS } from './features/flow/components/StartInFlow'
+import { SpecExtensionsProvider } from './features/specs/context/SpecExtensionsContext'
 import { AgentChatProvider, useAgentChat } from './features/missions/context/AgentChatContext'
 import { BackgroundProcessesProvider } from './features/background/context/BackgroundProcessesContext'
 import { TicketDetailModalProvider } from './features/specs/context/TicketDetailModalContext'
@@ -79,43 +88,40 @@ import { WebViewModalProvider } from './features/browser/context/WebViewModalCon
 import { useCompareUrlSync } from './features/jobs/hooks/useCompareUrlSync'
 import { useMilestoneNotifications } from './features/builder/hooks/useMilestoneNotifications'
 import { dropLegacySequentialPlans } from './features/builder/lib/milestone-launch'
+import { useA11yPrefs } from './lib/a11y-prefs'
+import { LiveAnnouncer } from './components/LiveAnnouncer'
 import { ThemeProvider, useTheme } from './features/settings/context/ThemeContext'
 import { LanguageProvider } from './features/settings/context/LanguageContext'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT, FEATURE_REVIEW_PACKET } from './lib/feature-flags'
 import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/global-route-mode-transition'
+import { PlaceHistoryProvider, usePlaceHistory } from './hooks/usePlaceHistory'
+import { InboxProvider, useInbox } from './features/inbox/context/InboxContext'
+import { InboxDialog } from './features/inbox/components/InboxDialog'
+import { usePlaceParam } from './hooks/usePlaceParam'
+import { useMissionPlaceSync } from './features/missions/hooks/useMissionPlaceSync'
+import { JOB_PARAM, MISSION_PARAM, OVERLAY_PARAM, PLACE_PUSH_STATE, PROJECT_PARAM, REVIEW_PARAM, jobIdFromPath, type OverlayKind } from './lib/places'
 
 const STATUSBAR_HEIGHT_PX = 28
 
-function GlobalSurfaceDialogChrome({
-  surface,
-  onClose,
-}: {
-  surface: GlobalModalSurface
-  onClose: () => void
-}) {
+/**
+ * Standard dialog header for the full-screen global surfaces (Loops, Plugins,
+ * Review packet) shown over a mission: icon + DialogTitle + the visible close
+ * button that `DialogHeader` renders, with a screen-reader description.
+ */
+function GlobalSurfaceDialogHeader({ surface }: { surface: GlobalModalSurface }) {
   const { t } = useTranslation('nav')
   const title = surface === 'loops' ? t('arcSidebar.loops') : surface === 'review' ? t('arcSidebar.review') : t('arcSidebar.plugins')
+  const description = surface === 'loops'
+    ? t('globalSurfaceModal.loopsDescription')
+    : surface === 'review'
+      ? t('globalSurfaceModal.reviewDescription')
+      : t('globalSurfaceModal.pluginsDescription')
   const Icon = surface === 'loops' ? Workflow : surface === 'review' ? Eye : Puzzle
-
   return (
-    <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border bg-popover/95 px-3">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-accent-primary/20 bg-accent-primary/10 text-accent-primary">
-          <Icon className="h-3.5 w-3.5" />
-        </span>
-        <span className="truncate text-xs font-medium text-foreground">{title}</span>
-      </div>
-      <div className="flex shrink-0 items-center">
-        <button
-          type="button"
-          onClick={onClose}
-          className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-popover"
-          aria-label={t('common:actions.close')}
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
+    <DialogHeader icon={<Icon />}>
+      <DialogTitle>{title}</DialogTitle>
+      <DialogDescription className="sr-only">{description}</DialogDescription>
+    </DialogHeader>
   )
 }
 
@@ -139,9 +145,23 @@ function isNonProjectRoute(path: string): boolean {
 const LEGACY_ROUTE_MEMORY_KEY = 'specrails-desktop:routeMemory'
 try { localStorage.removeItem(LEGACY_ROUTE_MEMORY_KEY) } catch { /* ignore */ }
 
-function useProjectRouteMemory(activeProjectId: string | null) {
+// A page reload (dev refresh, webview reload) keeps the current surface; only a
+// genuine cold start resets to Dashboard. Navigation timing tells them apart.
+const RESTORED_BY_RELOAD = (() => {
+  try {
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+    return nav?.type === 'reload'
+  } catch {
+    return false
+  }
+})()
+
+export function useProjectRouteMemory(activeProjectId: string | null) {
   const location = useLocation()
   const navigate = useNavigate()
+  const places = usePlaceHistory()
+  const placesRef = useRef(places)
+  placesRef.current = places
 
   // Map of projectId → last visited path. In-memory only: deliberately not
   // persisted, so a cold start always lands on Dashboard ('/') for every
@@ -164,19 +184,26 @@ function useProjectRouteMemory(activeProjectId: string | null) {
   useEffect(() => {
     if (didColdStartReset.current) return
     didColdStartReset.current = true
-    if (location.pathname !== '/') {
+    if (location.pathname !== '/' && !RESTORED_BY_RELOAD) {
       navigate('/', { replace: true })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
+    // The history entry we are on may belong to ANOTHER project (Back/Forward
+    // just restored it, the project switch follows): its route is not the
+    // outgoing project's route and must not be saved as such.
+    const entryProject = placesRef.current?.getCurrentEntryProjectId() ?? null
+    const entryIsOutgoing = !entryProject || entryProject === prevProjectId.current
+
     // Save the current route for the outgoing project — but never a global
     // (non-project) route like /loops or /docs, which would otherwise be
     // restored as that project's surface on the next switch.
     if (
       prevProjectId.current &&
       prevProjectId.current !== activeProjectId &&
+      entryIsOutgoing &&
       !isNonProjectRoute(location.pathname)
     ) {
       routeMemory.current.set(prevProjectId.current, location.pathname)
@@ -185,19 +212,36 @@ function useProjectRouteMemory(activeProjectId: string | null) {
     // Restore route for the incoming project (defaults to Dashboard '/' when
     // no in-session memory exists, or when the remembered route is a global one).
     if (activeProjectId && activeProjectId !== prevProjectId.current) {
-      const savedRoute = routeMemory.current.get(activeProjectId)
-      const targetRoute = savedRoute && !isNonProjectRoute(savedRoute) ? savedRoute : '/'
-      if (location.pathname !== targetRoute) {
-        navigate(targetRoute, { replace: true })
+      const restoredByHistory = placesRef.current?.consumeProjectRestore(activeProjectId) ?? false
+      if (!restoredByHistory) {
+        const savedRoute = routeMemory.current.get(activeProjectId)
+        const firstResolution = prevProjectId.current === null
+        const keepReloadedRoute = RESTORED_BY_RELOAD && firstResolution && !savedRoute
+        const targetRoute = savedRoute && !isNonProjectRoute(savedRoute)
+          ? savedRoute
+          : keepReloadedRoute ? location.pathname : '/'
+        if (firstResolution) {
+          if (location.pathname !== targetRoute) navigate(targetRoute, { replace: true })
+        } else {
+          // A project switch is a place: PUSH an entry carrying `?p=<project>`
+          // (and the selected mission) so Back returns to the previous project.
+          const params = new URLSearchParams()
+          const mission = new URLSearchParams(location.search).get(MISSION_PARAM)
+          if (mission) params.set(MISSION_PARAM, mission)
+          params.set(PROJECT_PARAM, activeProjectId)
+          navigate({ pathname: targetRoute, search: `?${params.toString()}` }, { state: { [PLACE_PUSH_STATE]: PROJECT_PARAM } })
+        }
       }
     }
 
     prevProjectId.current = activeProjectId
-  }, [activeProjectId, location.pathname, navigate])
+  }, [activeProjectId, location.pathname, location.search, navigate])
 
   // Continuously update the in-memory map for the active project so a project
   // switch restores precisely the last surface the user was on.
   useEffect(() => {
+    const entryProject = placesRef.current?.getCurrentEntryProjectId() ?? null
+    if (entryProject && entryProject !== activeProjectId) return // a restored entry of another project
     if (activeProjectId && location.pathname !== '/' && !isNonProjectRoute(location.pathname)) {
       routeMemory.current.set(activeProjectId, location.pathname)
     }
@@ -214,36 +258,162 @@ function DesktopApp() {
   const location = useLocation()
   const terminals = useTerminals()
   const agentChat = useAgentChat()
+  const inbox = useInbox()
   const { uiMode } = useUiMode()
 
   // Two-way sync between split-view comparison state and ?compare=… URL params.
   useCompareUrlSync()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<AppSettingsSection>('appearance')
+  const [settingsSettingId, setSettingsSettingId] = useState<string | undefined>()
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Pages inside features (e.g. the Agents upgrade banner) open a specific
   // app-settings section through a window event (see lib/app-settings-events).
   useEffect(() => {
     const onOpen = (event: Event) => {
-      const section = (event as CustomEvent<OpenAppSettingsDetail>).detail?.section
+      const detail = (event as CustomEvent<OpenAppSettingsDetail>).detail
+      const section = detail?.section
       if (!section) return
       setSettingsSection(section)
+      setSettingsSettingId(detail.settingId)
       setSettingsOpen(true)
     }
     window.addEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
     return () => window.removeEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
   }, [])
-  const [analyticsOpen, setAnalyticsOpen] = useState(false)
+  // "Raise cap" (inbox, launch forecast) lands on the project's Analytics Budget panel.
+  useEffect(() => {
+    // One frame later: the per-project route memory commits after the event and would overwrite an
+    // immediate navigation (a cold load of /analytics?panel=budget otherwise ended on /).
+    let frame = 0
+    const onOpenBudget = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => navigate({ pathname: '/analytics', search: `?${BUDGET_PANEL_PARAM}=budget` }))
+    }
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, onOpenBudget)
+    return () => { cancelAnimationFrame(frame); window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, onOpenBudget) }
+  }, [navigate])
+  // Full-page modals are PLACES: `?overlay=loops|plugins|docs|analytics` (and
+  // `?review=<id>` / `?job=<id>`), pushed on open so Back closes them. Analytics
+  // and Docs are URL-driven in both modes; Loops/Plugins/Review are modals only
+  // in Mission mode (Board mode shows them as routes) so their open flags stay
+  // state, kept in step with the URL below.
+  const places = usePlaceHistory()
+  const overlay = usePlaceParam(OVERLAY_PARAM)
+  const reviewParam = usePlaceParam(REVIEW_PARAM)
+  const jobParam = usePlaceParam(JOB_PARAM)
+  const uiModeRef = useRef(uiMode)
+  uiModeRef.current = uiMode
+  const overlayValueRef = useRef(overlay.value)
+  overlayValueRef.current = overlay.value
+  const reviewValueRef = useRef(reviewParam.value)
+  reviewValueRef.current = reviewParam.value
+  const { open: openOverlay, close: closeOverlayParam } = overlay
+  const { close: closeReviewParam } = reviewParam
+  const closeOverlay = useCallback((kind: OverlayKind) => {
+    if (overlayValueRef.current === kind) closeOverlayParam()
+  }, [closeOverlayParam])
+  const analyticsOpen = overlay.value === 'analytics'
+  const setAnalyticsOpen = useCallback((open: boolean) => {
+    if (open) openOverlay('analytics')
+    else closeOverlay('analytics')
+  }, [openOverlay, closeOverlay])
+  const docsOpen = overlay.value === 'docs'
   const [loopsOpen, setLoopsOpen] = useState(false)
   const [loopBuilderId, setLoopBuilderId] = useState<string | null>(null)
   const [pluginsOpen, setPluginsOpen] = useState(false)
-  const closeLoops = useCallback(() => { setLoopsOpen(false); setLoopBuilderId(null) }, [])
+  const resetLoops = useCallback(() => { setLoopsOpen(false); setLoopBuilderId(null) }, [])
+  const closeLoops = useCallback(() => {
+    if (uiModeRef.current === 'agent' && overlayValueRef.current === 'loops') {
+      setLoopBuilderId(null)
+      closeOverlayParam()
+    } else resetLoops()
+  }, [closeOverlayParam, resetLoops])
+  const closePlugins = useCallback(() => {
+    if (uiModeRef.current === 'agent' && overlayValueRef.current === 'plugins') closeOverlayParam()
+    else setPluginsOpen(false)
+  }, [closeOverlayParam])
   // Mission-mode review packet (a Board ROUTE elsewhere): the delivery id open as a modal.
   const [reviewDeliveryId, setReviewDeliveryId] = useState<string | null>(null)
-  const [docsOpen, setDocsOpen] = useState(false)
+  const closeReview = useCallback(() => {
+    if (reviewValueRef.current) closeReviewParam()
+    else setReviewDeliveryId(null)
+  }, [closeReviewParam])
   // Stable onClose so memoised DocsDialog doesn't re-render every DesktopApp render.
-  const closeDocs = useCallback(() => setDocsOpen(false), [])
+  // A "Learn more" hint asks for the guide at a section (`lib/docs-events.ts`).
+  // The target is not part of the place (`?overlay=docs` is); it is dropped on close.
+  const [docsTarget, setDocsTarget] = useState<(DocsTarget & { nonce: number }) | null>(null)
+  const docsNonceRef = useRef(0)
+  const closeDocs = useCallback(() => {
+    setDocsTarget(null)
+    closeOverlay('docs')
+  }, [closeOverlay])
+  // Closed by Back/Forward or a place change: the next plain open must not replay it.
+  useEffect(() => { if (!docsOpen) setDocsTarget(null) }, [docsOpen])
+  useEffect(() => {
+    const onOpenDocs = (event: Event) => {
+      const target = (event as CustomEvent<OpenDocsDetail>).detail?.target ?? null
+      setDocsTarget(target ? { ...target, nonce: ++docsNonceRef.current } : null)
+      if (overlayValueRef.current !== 'docs') openOverlay('docs')
+    }
+    window.addEventListener(OPEN_DOCS_EVENT, onOpenDocs)
+    return () => window.removeEventListener(OPEN_DOCS_EVENT, onOpenDocs)
+  }, [openOverlay])
+
+  // URL → modal flags, edge-triggered on the param changing (Back/Forward,
+  // reload, an open that already wrote the URL). Opening never reads the flag
+  // back, so the two sides cannot fight.
+  const prevOverlayRef = useRef<string | null>(null)
+  useEffect(() => {
+    const value = overlay.value
+    if (prevOverlayRef.current === value) return
+    prevOverlayRef.current = value
+    if (uiMode !== 'agent') return
+    if (value === 'loops') { setPluginsOpen(false); setLoopsOpen(true) }
+    else if (value === 'plugins') { resetLoops(); setPluginsOpen(true) }
+    else { resetLoops(); setPluginsOpen(false) }
+  }, [overlay.value, uiMode, resetLoops])
+  const prevReviewRef = useRef<string | null>(null)
+  useEffect(() => {
+    const value = reviewParam.value
+    if (prevReviewRef.current === value) return
+    prevReviewRef.current = value
+    setReviewDeliveryId(value)
+  }, [reviewParam.value])
+
+  // Restoring an entry in the OTHER mode's form: a place is never lost, but
+  // Back/Forward must not flip the mode. Board mode shows jobs/loops/plugins as
+  // routes; Mission mode shows `/jobs/:id` as the job modal.
+  useEffect(() => {
+    if (uiMode === 'kanban') {
+      if (jobParam.value) navigate(`/jobs/${encodeURIComponent(jobParam.value)}`, { replace: true })
+      else if (overlay.value === 'loops') navigate('/loops', { replace: true })
+      else if (overlay.value === 'plugins') navigate('/plugins', { replace: true })
+    } else {
+      const id = jobIdFromPath(location.pathname)
+      if (id) {
+        const params = new URLSearchParams(location.search)
+        params.set(JOB_PARAM, id)
+        navigate({ pathname: '/', search: `?${params.toString()}` }, { replace: true })
+      }
+    }
+  }, [uiMode, jobParam.value, overlay.value, location.pathname, location.search, navigate])
+  const workspace = useAgentWorkspace()
+  const workspaceRef = useRef(workspace)
+  workspaceRef.current = workspace
+  useEffect(() => {
+    if (uiMode === 'agent' && jobParam.value && !workspaceRef.current.jobsPaneOpen) workspaceRef.current.openJobsPane()
+  }, [uiMode, jobParam.value])
+
+  // Selected mission ⇄ ?mission=<id>.
+  useMissionPlaceSync()
   const [onboardingOpen, setOnboardingOpen] = useState(() => !hasSeenOnboarding())
+  // Help ▸ Replay tour (Docs dialog, ⌘K) reopens the platform tour without importing the shell.
+  useEffect(() => {
+    const onReplay = () => setOnboardingOpen(true)
+    window.addEventListener(REPLAY_TOUR_EVENT, onReplay)
+    return () => window.removeEventListener(REPLAY_TOUR_EVENT, onReplay)
+  }, [])
 
   // Remember which page each project was on
   useProjectRouteMemory(activeProjectId)
@@ -266,6 +436,7 @@ function DesktopApp() {
     onOpenCheatsheet: openCheatsheet,
     onToggleLeftSidebar: cycleLeftMode,
     onToggleRightSidebar: cycleRightMode,
+    onToggleInbox: inbox?.toggleInbox,
     onSwitchProject: (index) => {
       const project = projects[index - 1]
       if (project) setActiveProjectId(project.id)
@@ -289,6 +460,8 @@ function DesktopApp() {
     // In Agent Mode the floating panel/bubble are suppressed — toggling would
     // invisibly mutate state (ensureActive clobbers the EMPTY compose screen).
     onToggleAgentChat: FEATURE_AGENT_CHAT && uiMode !== 'agent' ? () => agentChat.toggle() : undefined,
+    onNavigateBack: places ? places.back : undefined,
+    onNavigateForward: places ? places.forward : undefined,
   })
 
   // OS notifications for job completions/failures
@@ -304,12 +477,10 @@ function DesktopApp() {
   useEffect(() => { dropLegacySequentialPlans() }, [])
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
-  const onLoopsRoute = location.pathname.startsWith('/loops')
-  const onPluginsRoute = location.pathname.startsWith('/plugins')
-  const onDocsRoute = location.pathname.startsWith('/docs')
   // Docs remains an in-place global route in both modes. Loops and Plugins are
   // board pages in Kanban mode and modal surfaces over the current mission.
-  const onGlobalRoute = onDocsRoute || (uiMode !== 'agent' && (onLoopsRoute || onPluginsRoute))
+  const onGlobalRoute = isGlobalRoute(location.pathname, uiMode)
+  const showRightSidebar = hasRightSidebar({ uiMode, pathname: location.pathname, hasActiveProject: !!activeProject })
 
   useLayoutEffect(() => {
     const transition = getGlobalRouteModeTransition({
@@ -322,11 +493,20 @@ function DesktopApp() {
     if (!transition) return
 
     if (transition.kind === 'modalize') {
+      // The route entry the user just pushed (/review/x, /loops, /plugins) is
+      // rewritten in place to its modal form, so it stays ONE place in history.
+      const modalUrl = (param: string, value: string) => {
+        const params = new URLSearchParams(location.search)
+        params.set(param, value)
+        return { pathname: transition.backgroundPath, search: `?${params.toString()}` }
+      }
       if (transition.surface === 'review') {
         // The review packet opens OVER the mission — the conversation the user
         // is in stays exactly where it is (no New Mission reset).
-        if (transition.reviewDeliveryId) setReviewDeliveryId(transition.reviewDeliveryId)
-        if (location.pathname !== transition.backgroundPath) {
+        if (transition.reviewDeliveryId) {
+          setReviewDeliveryId(transition.reviewDeliveryId)
+          navigate(modalUrl(REVIEW_PARAM, transition.reviewDeliveryId), { replace: true })
+        } else if (location.pathname !== transition.backgroundPath) {
           navigate(transition.backgroundPath, { replace: true })
         }
         return
@@ -335,19 +515,17 @@ function DesktopApp() {
         setPluginsOpen(false)
         setLoopsOpen(true)
         setLoopBuilderId(transition.loopBuilderId ?? null)
-        if (location.pathname !== transition.backgroundPath) navigate(transition.backgroundPath, { replace: true })
+        navigate(modalUrl(OVERLAY_PARAM, 'loops'), { replace: true })
         return
       } else {
-        closeLoops()
+        resetLoops()
         setPluginsOpen(true)
       }
-      if (location.pathname !== transition.backgroundPath) {
-        navigate(transition.backgroundPath, { replace: true })
-      }
+      navigate(modalUrl(OVERLAY_PARAM, 'plugins'), { replace: true })
       return
     }
 
-    closeLoops()
+    resetLoops()
     setPluginsOpen(false)
     setReviewDeliveryId(null)
     if (location.pathname !== transition.path) {
@@ -357,7 +535,7 @@ function DesktopApp() {
     activeProjectId,
     location.pathname,
     navigate,
-    closeLoops,
+    resetLoops,
     loopsOpen,
     pluginsOpen,
     reviewDeliveryId,
@@ -403,8 +581,8 @@ function DesktopApp() {
   if (isLoading) {
     return (
       <div className="flex h-full">
-        <div className="w-11 border-r border-border bg-card/50 animate-pulse flex-shrink-0" />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="w-11 border-r border-border bg-background flex-shrink-0" />
+        <div className="flex-1 flex items-center justify-center" role="status" aria-live="polite">
           <p className="text-sm text-muted-foreground">{t('states.loading')}</p>
         </div>
       </div>
@@ -412,15 +590,23 @@ function DesktopApp() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden font-sans">
+    <div className="flex h-full overflow-hidden">
+      {/* Skip link — first focusable element; jumps past the sidebar chrome. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:rounded focus:bg-popover focus:px-3 focus:py-2 focus:text-sm focus:text-foreground focus:shadow-lg"
+      >
+        {t('nav:skipToContent')}
+      </a>
+
       {/* Arc-style collapsible sidebar */}
       <ArcSidebar
         onOpenCompanion={() => { setSettingsSection('mobile'); setSettingsOpen(true) }}
         onAddProject={() => setAddDialogOpen(true)}
-        onOpenLoops={() => { if (uiMode === 'agent') setLoopsOpen(true); else navigate('/loops') }}
-        onOpenPlugins={() => { if (uiMode === 'agent') setPluginsOpen(true); else navigate('/plugins') }}
+        onOpenLoops={() => { if (uiMode === 'agent') openOverlay('loops'); else navigate('/loops') }}
+        onOpenPlugins={() => { if (uiMode === 'agent') openOverlay('plugins'); else navigate('/plugins') }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
-        onOpenDocs={() => setDocsOpen(true)}
+        onOpenDocs={() => openOverlay('docs')}
         onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
       />
 
@@ -429,19 +615,19 @@ function DesktopApp() {
         {/* Project switching progress bar */}
         {isSwitchingProject && (
           <div
-            className="h-0.5 w-full bg-accent-primary/70 animate-pulse shrink-0"
+            className="h-0.5 w-full bg-accent-primary/70 motion-safe:animate-pulse shrink-0"
             data-testid="project-switching-bar"
           />
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden focus:outline-none">
           {uiMode === 'agent' && !onGlobalRoute ? (
             // Agent Mode replaces the routed dashboard; Docs still falls through
             // to <Routes>; Loops and Plugins open modals with an optional window action.
             <AgentModeSurface />
           ) : (
-            <Suspense fallback={<div className="flex-1 flex items-center justify-center"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center" role="status" aria-label={t('states.loading')}><RailMark size={64} state="travel" /></div>}>
               <Routes>
                 <Route path="/docs" element={<DocsPage />} />
                 <Route path="/docs/:category/:slug" element={<DocsPage />} />
@@ -478,7 +664,7 @@ function DesktopApp() {
               </Routes>
             </Suspense>
           )}
-        </div>
+        </main>
 
         {/* Hoisted terminal panel — single instance shared by both modes.
             Footer status/chevron chrome is Kanban-only; in Agent Mode the
@@ -498,48 +684,53 @@ function DesktopApp() {
 
       {/* Right sidebar — full height. In Agent Mode this is the "On workspace"
           toolbar; in Kanban it's the project sidebar. Hidden on global routes. */}
-      {uiMode === 'agent'
-        ? !onGlobalRoute && <AgentWorkspaceSidebar />
-        : activeProject && !onGlobalRoute && <ProjectRightSidebar />}
+      {showRightSidebar && (uiMode === 'agent' ? <AgentWorkspaceSidebar /> : <ProjectRightSidebar />)}
 
       {/* New-project path (reskin): the chooser's New card puts the AGENT into
           builder mode (floating panel in board mode; mission surface + sidebar
           transform in Agent Mode) — no standalone overlay. */}
+      <SampleGuide onAddProject={() => setAddDialogOpen(true)} />
       <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} onOpenBuilder={() => agentChat.builderMode.enter()} />
-      <SettingsDialog initialSection={settingsSection} open={settingsOpen} onClose={() => setSettingsOpen(false)} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
+      <SettingsDialog initialSection={settingsSection} initialSettingId={settingsSettingId} open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsSettingId(undefined) }} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
-          <div className="flex-1 overflow-auto">
-            <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
-              <DesktopAnalyticsPage />
-            </Suspense>
-          </div>
+        <DialogContent size="workspace" data-testid="analytics-modal">
+          {/* The analytics page renders the standard header itself, so its
+              visible heading is the DialogTitle (one string, no sr-only twin). */}
+          <Suspense
+            fallback={(
+              <>
+                <DialogHeader>
+                  <DialogTitle>{t('analytics:desktop.title')}</DialogTitle>
+                  <DialogDescription className="sr-only">{t('states.loading')}</DialogDescription>
+                </DialogHeader>
+                <DialogBody><p className="text-sm text-muted-foreground">{t('states.loading')}</p></DialogBody>
+              </>
+            )}
+          >
+            <DesktopAnalyticsPage inDialog />
+          </Suspense>
         </DialogContent>
       </Dialog>
 
 
       <Dialog open={loopsOpen} onOpenChange={open => { if (!open) closeLoops() }}>
-        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col" data-testid="loops-modal">
-          <DialogTitle className="sr-only">{t('nav:arcSidebar.loops')}</DialogTitle>
-          <DialogDescription className="sr-only">{t('nav:globalSurfaceModal.loopsDescription')}</DialogDescription>
-          <GlobalSurfaceDialogChrome surface="loops" onClose={closeLoops} />
-          <div className="flex-1 min-h-0 overflow-auto">
+        <DialogContent size="fullscreen" data-testid="loops-modal">
+          <GlobalSurfaceDialogHeader surface="loops" />
+          <DialogBody className="p-0 overflow-auto">
             <Suspense fallback={null}>
               {loopBuilderId ? <LoopBuilderPage loopId={loopBuilderId} onExit={() => setLoopBuilderId(null)} onWindowOpened={closeLoops} />
-                : <LoopsPage onOpenBuilder={setLoopBuilderId} onWindowOpened={closeLoops} />}
+                : <LoopsPage onOpenBuilder={setLoopBuilderId} onWindowOpened={closeLoops} inDialog />}
             </Suspense>
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
-      <Dialog open={pluginsOpen} onOpenChange={setPluginsOpen}>
-        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col" data-testid="plugins-modal">
-          <DialogTitle className="sr-only">{t('nav:arcSidebar.plugins')}</DialogTitle>
-          <DialogDescription className="sr-only">{t('nav:globalSurfaceModal.pluginsDescription')}</DialogDescription>
-          <GlobalSurfaceDialogChrome surface="plugins" onClose={() => setPluginsOpen(false)} />
-          <div className="flex-1 min-h-0 overflow-auto">
-            <Suspense fallback={null}><PluginsPage onWindowOpened={() => setPluginsOpen(false)} /></Suspense>
-          </div>
+      <Dialog open={pluginsOpen} onOpenChange={(open) => { if (!open) closePlugins() }}>
+        <DialogContent size="fullscreen" data-testid="plugins-modal">
+          <GlobalSurfaceDialogHeader surface="plugins" />
+          <DialogBody className="p-0 overflow-auto">
+            <Suspense fallback={null}><PluginsPage onWindowOpened={closePlugins} inDialog /></Suspense>
+          </DialogBody>
         </DialogContent>
       </Dialog>
 
@@ -547,18 +738,14 @@ function DesktopApp() {
           the mission (the Review buttons navigate to /review/:id, which Mission
           mode has no routed dashboard to render). */}
       {FEATURE_REVIEW_PACKET && (
-        <Dialog open={reviewDeliveryId !== null} onOpenChange={(open) => { if (!open) setReviewDeliveryId(null) }}>
-          <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col" data-testid="review-packet-modal">
-            <DialogTitle className="sr-only">{t('nav:arcSidebar.review')}</DialogTitle>
-            <DialogDescription className="sr-only">
-              {t('nav:globalSurfaceModal.reviewDescription')}
-            </DialogDescription>
-            <GlobalSurfaceDialogChrome surface="review" onClose={() => setReviewDeliveryId(null)} />
-            <div className="flex-1 overflow-auto">
+        <Dialog open={reviewDeliveryId !== null} onOpenChange={(open) => { if (!open) closeReview() }}>
+          <DialogContent size="fullscreen" data-testid="review-packet-modal">
+            <GlobalSurfaceDialogHeader surface="review" />
+            <DialogBody className="p-0 overflow-auto">
               <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
-                {reviewDeliveryId && <ReviewPacketPage prDeliveryId={reviewDeliveryId} onClose={() => setReviewDeliveryId(null)} />}
+                {reviewDeliveryId && <ReviewPacketPage prDeliveryId={reviewDeliveryId} onClose={closeReview} />}
               </Suspense>
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}
@@ -566,16 +753,20 @@ function DesktopApp() {
 
 
       <Suspense fallback={null}>
-        <DocsDialog open={docsOpen} onClose={closeDocs} />
+        <DocsDialog open={docsOpen} onClose={closeDocs} target={docsTarget} />
       </Suspense>
 
       <CommandPalette
         onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
-        onOpenDocs={() => setDocsOpen(true)}
+        onOpenDocs={() => openOverlay('docs')}
       />
       <KeyboardShortcutsCheatsheet open={cheatsheetOpen} onOpenChange={setCheatsheetOpen} />
-      <OnboardingWizard open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
+      <OnboardingWizard
+        open={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        onFinish={() => { if (projects.length === 0) setAddDialogOpen(true) }}
+      />
     </div>
   )
 }
@@ -617,8 +808,50 @@ function ToastLoadingSpinner() {
   return <span aria-hidden style={{ display: 'none' }} />
 }
 
+// Any open modal surface: a standard `DialogContent` (carries
+// `data-dialog-size`), a raw-Radix modal on the shared scrim (`.modal-scrim`),
+// or a hand-rolled `aria-modal` dialog. Non-modal popovers (`role=dialog`
+// without aria-modal, e.g. Move to rail) do not count.
+const OPEN_MODAL_SELECTOR = [
+  '[data-dialog-size][data-state="open"]',
+  '.modal-scrim[data-state="open"]',
+  '[role="dialog"][aria-modal="true"]',
+].join(', ')
+
+/**
+ * True while any modal dialog is open. Toasts move to the top-right then, so
+ * they never cover a modal's sticky footer (Next / Save / Delete live at the
+ * bottom-right of every dialog).
+ */
+function useAnyModalDialogOpen(): boolean {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined') return
+    let frame = 0
+    const check = () => {
+      frame = 0
+      setOpen(document.querySelector(OPEN_MODAL_SELECTOR) !== null)
+    }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(check) }
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-state', 'aria-modal'],
+    })
+    check()
+    return () => {
+      observer.disconnect()
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [])
+  return open
+}
+
 function ThemedToaster() {
   const { theme } = useTheme()
+  const modalOpen = useAnyModalDialogOpen()
   const accent = theme.previewSwatches.accents[0]
   const success = theme.status.completed
   const danger = theme.status.failed
@@ -630,10 +863,12 @@ function ThemedToaster() {
   // body-portalled modal layers (Radix dialogs z-50, JobDetailModal z-[65],
   // TicketDetailModal z-[68], browser-capture z-[80]) no matter its own
   // z-index. At body level its max z-index wins over every modal — toasts are
-  // always on top.
+  // always on top (globals.css pins [data-sonner-toaster] above the toast
+  // layer, LAYERS.toast). While a modal is open they move to the top-right,
+  // clear of the dialog footer.
   return createPortal(
     <Toaster
-      position="bottom-right"
+      position={modalOpen ? 'top-right' : 'bottom-right'}
       className="specrails-toaster"
       theme={theme.scheme}
       gap={8}
@@ -657,15 +892,16 @@ function ThemedToaster() {
           title: 'font-medium text-sm',
           description: 'text-muted-foreground mt-0.5',
           actionButton:
-            'text-[11px] px-2.5 py-1 rounded-md bg-accent-primary text-white hover:bg-accent-primary/90 whitespace-nowrap shrink-0 self-start',
+            'text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 whitespace-nowrap shrink-0 self-start',
           cancelButton:
-            'text-[11px] px-2.5 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 whitespace-nowrap shrink-0 self-start',
+            'text-caption px-2.5 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 whitespace-nowrap shrink-0 self-start',
           closeButton:
             'text-muted-foreground hover:text-foreground rounded-md p-0.5',
-          success: 'border-l-4 border-l-[var(--toast-success-border)]',
-          error: 'border-l-4 border-l-[var(--toast-error-border)]',
-          warning: 'border-l-4 border-l-[var(--toast-warning-border)]',
-          info: 'border-l-4 border-l-[var(--toast-info-border)]',
+          // Full 1px tinted border (no coloured side stripe on alerts).
+          success: 'border-[color:var(--toast-success-border)]!',
+          error: 'border-[color:var(--toast-error-border)]!',
+          warning: 'border-[color:var(--toast-warning-border)]!',
+          info: 'border-[color:var(--toast-info-border)]!',
           loading: '',
         },
       }}
@@ -681,7 +917,17 @@ function MainDesktopUpdateNotifier() {
   return null
 }
 
-export default function App() {
+/** Back/Forward place history for the main window (mission windows have their own fixed surface). */
+function PlaceHistoryOwner({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
+  return enabled ? <PlaceHistoryProvider>{children}</PlaceHistoryProvider> : <>{children}</>
+}
+
+/** The "Needs you" inbox exists in the main window only (it navigates the main window's places). */
+function InboxOwner({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
+  return enabled ? <InboxProvider>{children}<InboxDialog /></InboxProvider> : <>{children}</>
+}
+
+function AppRoutes() {
   const secondary = isMissionWindowRoute()
   useSuppressNativeContextMenu()
   if (isLoopWindowRoute() || isPluginWindowRoute()) return (
@@ -723,12 +969,15 @@ export default function App() {
             <ThemeEffectLayer />
             <DesktopProvider isolated={secondary}>
               <UiModeProvider initialMode={secondary ? 'agent' : undefined} persist={!secondary}>
+              <PlaceHistoryOwner enabled={!secondary}>
               {!secondary && <MainDesktopUpdateNotifier />}
               {/* Custom frameless titlebar inside DesktopProvider so it can read active project */}
+              <UndoProvider>
               <SpecGenTrackerProvider>
                 <ContractRefineTrackerProvider>
                 <SmashTrackerProvider>
                 <SidebarPinProvider>
+                  <InboxOwner enabled={!secondary}>
                   <TitleBar />
                   <TerminalsProviderWithDesktop>
                     <RailMetricsProviderWithDesktop>
@@ -742,6 +991,8 @@ export default function App() {
                       <MissionWindowsProvider secondary={secondary}>
                       {/* Flow mode plugs into missions through their extension seam. */}
                       <FlowMissionsBridge>
+                      {/* Flow also plugs into specs ("Start in Flow") through their seam. */}
+                      <SpecExtensionsProvider value={FLOW_SPEC_EXTENSIONS}>
                       <AgentChatProvider>
                         <BackgroundProcessesProvider>
                         <TicketDetailModalProvider>
@@ -750,11 +1001,13 @@ export default function App() {
                             <MissionWindowError />
                             {secondary ? <MissionWindowSurface /> : <DesktopApp />}
                             <AgentBrowserCaptureHost />
+                            <LiveAnnouncer />
                             <ThemedToaster />
                           </WebViewModalProvider>
                         </TicketDetailModalProvider>
                         </BackgroundProcessesProvider>
                       </AgentChatProvider>
+                      </SpecExtensionsProvider>
                       </FlowMissionsBridge>
                       </MissionWindowsProvider>
                       </AgentWorkspaceProvider>
@@ -762,10 +1015,13 @@ export default function App() {
                     </RailPrDecisionProviderWithDesktop>
                     </RailMetricsProviderWithDesktop>
                   </TerminalsProviderWithDesktop>
+                  </InboxOwner>
                 </SidebarPinProvider>
                 </SmashTrackerProvider>
                 </ContractRefineTrackerProvider>
               </SpecGenTrackerProvider>
+              </UndoProvider>
+              </PlaceHistoryOwner>
               </UiModeProvider>
             </DesktopProvider>
             </LanguageProvider>
@@ -773,5 +1029,16 @@ export default function App() {
         </SharedWebSocketProvider>
       </div>
     </div>
+  )
+}
+
+export default function App() {
+  // One reduced-motion policy for every `motion` component in the app: the
+  // Settings override (system / reduce / full) combined with the OS value.
+  const { motion } = useA11yPrefs()
+  return (
+    <MotionConfig reducedMotion={motion === 'reduce' ? 'always' : motion === 'full' ? 'never' : 'user'}>
+      <AppRoutes />
+    </MotionConfig>
   )
 }

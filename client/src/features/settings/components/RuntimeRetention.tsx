@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LoadError } from '../../../components/ui/load-error'
 import { Button } from '../../../components/ui/button'
 import { repositoryApiBase } from '../../projects/lib/project-repositories'
 interface RetentionReport {
@@ -16,6 +17,7 @@ export function RuntimeRetention(props: { projectId: string; onChanged(): void }
 function RetentionForm({ projectId, onChanged }: { projectId: string; onChanged(): void }) {
   const { t } = useTranslation('agentRuntime')
   const [open, setOpen] = useState(false), [days, setDays] = useState(''), [saved, setSaved] = useState<string | undefined>()
+  const [reloadKey, setReloadKey] = useState(0)
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [report, setReport] = useState<RetentionReport | null>(null)
   const mounted = useRef(true), pending = useRef(false)
   const endpoint = `${repositoryApiBase(projectId)}/agent-runtime/retention`
@@ -30,7 +32,7 @@ function RetentionForm({ projectId, onChanged }: { projectId: string; onChanged(
       if (!abort.signal.aborted) { const value = body.policy.days === null ? '' : String(body.policy.days); setDays(value); setSaved(value) }
     }).catch(() => { if (!abort.signal.aborted) setError(t('retention.failed')) })
     return () => abort.abort()
-  }, [open, saved, endpoint, t])
+  }, [open, saved, endpoint, t, reloadKey])
   const valid = days === '' || /^\d+$/.test(days) && Number(days) >= 1 && Number(days) <= 3650
   async function action(kind: 'save' | 'preview' | 'collect') {
     if (pending.current) return
@@ -74,7 +76,9 @@ function RetentionForm({ projectId, onChanged }: { projectId: string; onChanged(
         {report.runs.length > 20 && <p>{t('retention.more', { count: report.runs.length - 20 })}</p>}
         {report.errors.map((message, index) => <p key={index} className="text-destructive">{message}</p>)}
       </div>}
-      {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+      {error && (saved === undefined
+        ? <LoadError message={error} onRetry={() => setReloadKey((k) => k + 1)} />
+        : <p role="alert" className="text-xs text-destructive">{error}</p>)}
     </div>}
   </details>
 }

@@ -22,7 +22,7 @@
     "queuedOnRailDescription": "El rail está en ejecución",
     "railStopped": "{{rail}} detenido",
     "stopFailed": "No se pudo detener el rail",
-    "syncTicketsFailed": "No se pudieron sincronizar los tickets del rail",
+    "syncTicketsFailed": "No se pudieron sincronizar las specs del rail",
     "launchFailed": "No se pudo lanzar el rail",
     "launchNetworkError": "Error de red al lanzar el rail",
     "railLaunched": "{{rail}} lanzado",
@@ -31,9 +31,13 @@
     "railWorktreeNeedsReview": "Rail {{n}}: la spec #{{ticket}} necesita revisión tras el merge",
     "railWorktreesNoGit": "Aislamiento por worktrees no disponible: el proyecto no es un repositorio git — ejecutando en modo compartido.",
     "railWorktreesNoCommits": "Aislamiento por worktrees no disponible: el repositorio aún no tiene commits — haz un commit inicial y relanza.",
-    "railWorktreesError": "La aislación por worktrees falló — este run continúa SIN el flujo de revisión por PR (sin tarjeta de implementación). Mira el detalle del error abajo.",
+    "railWorktreesError": "La aislación por worktrees falló — esta ejecución continúa SIN el flujo de revisión por PR (sin tarjeta de implementación). Mira el detalle del error abajo.",
     "onReviewCannotMoveToRail": "Esta spec está pendiente de revisión de PR — resuelve primero la decisión de la PR",
-    "onReviewNotLaunchable": "Una spec de este rail está pendiente de revisión de PR — resuelve la decisión de la PR antes de lanzar"
+    "onReviewNotLaunchable": "Una spec de este rail está pendiente de revisión de PR. Decide sobre la PR antes de lanzar.",
+    "launchRepositoryHasNoCommits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear una copia aislada del proyecto.",
+    "railDeletePrPending": "{{rail}} tiene una decisión de PR pendiente: resuélvela antes de quitar el rail",
+    "railDeleteLastRail": "Un proyecto necesita al menos un rail: este no se puede quitar",
+    "openJob": "Abrir trabajo"
   },
   "railPr": {
     "operation": {
@@ -77,15 +81,16 @@
     "iteratingPr": "Actualizando PR",
     "prReady": "PR lista",
     "implementationFailed": "Implementación fallida",
-    "implementationFailedHint": "El run de implementación ha fallado. Abre el log del run y descarta esta card antes de relanzar.",
+    "implementationFailedHint": "La ejecución de implementación ha fallado. Abre el log de la ejecución y descarta esta card antes de relanzar.",
     "prFailed": "PR fallida",
-    "prFailedDetail": "PR fallida: {{detail}}",
+    "prFailedDetail": "PR fallida",
     "createDegraded": "No se pudo publicar la PR — {{detail}}. Reintenta cuando esté resuelto.",
     "createPr": "Crear PR",
     "createPrTooltip": "→ {{base}}",
     "publish": "Publicar",
     "publishTooltip": "Abre la PR en borrador para la revisión del equipo",
     "checkout": "Cambiar a la rama",
+    "moreActions": "Más acciones",
     "checkoutTooltip": "Cambia la carpeta principal del proyecto a {{branch}}",
     "checkoutSuccess": "Checkout en {{branch}}",
     "checkoutFailed": "No se pudo hacer checkout de la rama de implementación",
@@ -107,14 +112,14 @@
     "recoveryStillBlocked": "La recuperación local aún requiere atención",
     "recheckRecovery": "Comprobar de nuevo",
     "recheckRecoveryConfirmTitle": "¿Volver a comprobar este equipo?",
-    "recheckRecoveryConfirmBody": "Specrails volverá a examinar en este clon el worktree, la rama, las refs, los reflogs y los objetos Git huérfanos pertenecientes a la entrega de {{branch}}. Si demuestra un único resultado, podrá confirmar los cambios aislados y reintentar el push exacto. No tocará la carpeta principal del proyecto.",
+    "recheckRecoveryConfirmBody": "Comprobaremos si aún se puede recuperar algo de esta entrega. No se borra nada.",
     "recoveryUnavailable": "No se pudo verificar la recuperación en este equipo",
-    "recoveryUnavailableBody": "Specrails no pudo demostrar de forma segura un único resultado perteneciente a la entrega en este clon. No se ha cambiado ni eliminado nada. Revisa el detalle de la fase y los registros de ejecución. Si el run se ejecutó en otro equipo, abre Specrails allí y vuelve a comprobar.",
+    "recoveryUnavailableBody": "Specrails no pudo demostrar de forma segura un único resultado perteneciente a la entrega en este clon. No se ha cambiado ni eliminado nada. Revisa el detalle de la fase y los registros de ejecución. Si se ejecutó en otro equipo, abre Specrails allí y vuelve a comprobar.",
     "recoveryDetailSummary": "Detalle técnico de recuperación",
     "discard": "Descartar",
     "dismiss": "Cerrar seguimiento",
     "discardLocalResult": "Descartar resultado local",
-    "discardTooltip": "Cierra la entrega y devuelve sus tickets a Specs; el trabajo local modificado se conserva",
+    "discardTooltip": "Cierra la entrega y devuelve sus specs a Specs; el trabajo local modificado se conserva",
     "retryPr": "Reintentar PR",
     "retry": "Reintentar",
     "checkMerge": "Comprobar merge",
@@ -127,15 +132,15 @@
     "commitMissingRetry": "El commit de la entrega ya no está en la PR. Puedes reintentar el push.",
     "prVerifiedWaiting": "Commit {{sha}} verificado · pendiente de merge",
     "alreadyResolved": "Ya resuelta en otro sitio",
-    "ghFailed": "GitHub CLI falló: {{detail}}",
+    "ghFailed": "GitHub CLI falló",
     "actionFailed": "No se pudo aplicar la decisión de la PR",
-    "mergedToast": "Merge de la PR completado — los tickets han pasado a Hecho",
-    "discardedToast": "PR descartada — los tickets han vuelto a Specs",
+    "mergedToast": "Merge de la PR completado — las specs han pasado a Hecho",
+    "discardedToast": "PR descartada — las specs han vuelto a Specs",
     "decisionPending": "Este rail tiene una decisión de PR pendiente — créala, publícala o descártala antes de relanzar",
     "discardConfirmTitle": "¿Descartar esta entrega?",
-    "discardConfirmBody": "La PR se cerrará sin eliminar su rama remota. Solo se eliminarán las ramas y los worktrees locales que pertenezcan a SpecRails y sigan en su commit registrado; cualquier recurso modificado se conservará y se mostrará un aviso. Los tickets volverán al backlog de Specs. Los recursos locales eliminados no se pueden recuperar.",
+    "discardConfirmBody": "La PR se cerrará sin eliminar su rama remota. Solo se eliminarán las ramas y los worktrees locales que pertenezcan a SpecRails y sigan en su commit registrado; cualquier recurso modificado se conservará y se mostrará un aviso. Las specs volverán al backlog de Specs. Los recursos locales eliminados no se pueden recuperar.",
     "implementationFailedDiscardTitle": "¿Descartar esta entrega fallida?",
-    "implementationFailedDiscardBody": "Se cerrará la tarjeta y sus tickets volverán a Specs. El trabajo local y las ramas se conservarán para su inspección. Solo se podrán eliminar los recursos cuya limpieza sea segura.",
+    "implementationFailedDiscardBody": "Se cerrará la tarjeta y sus specs volverán a Specs. El trabajo local y las ramas se conservarán para su inspección. Solo se podrán eliminar los recursos cuya limpieza sea segura.",
     "dismissConfirmTitle": "¿Cerrar este seguimiento?",
     "dismissConfirmBody": "Se cerrará esta tarjeta de seguimiento. Su worktree solo se eliminará si sigue siendo seguro hacerlo; de lo contrario, se conservará y verás un aviso. La PR existente, su rama y su estado de revisión no cambiarán.",
     "discardLocalConfirmTitle": "¿Descartar el resultado local?",
@@ -146,7 +151,7 @@
     "mergeLocalConfirmBody": "Las ramas entregadas se fusionarán en {{base}} localmente. Se conservan los cambios existentes; si se solapan, puede ser necesario resolverlos antes de integrar.",
     "mergeLocalBlockedDirty": "No se puede integrar: los cambios locales en {{base}} se solapan con la entrega. Haz commit o stash de esos cambios y reintenta.",
     "mergeLocalBlockedBranch": "No se puede integrar: tu checkout está en {{current}}, no en {{base}}. Cambia a {{base}} y reintenta.",
-    "mergeLocalFailed": "La fusión local falló: {{detail}}",
+    "mergeLocalFailed": "La fusión local falló",
     "mergedLocally": "Integrado en {{base}} en local",
     "viewRunLog": "Ver el registro de ejecución de {{ref}}",
     "cleanupIncomplete_one": "La limpieza está incompleta ({{count}} aviso)",
@@ -162,14 +167,39 @@
       "noChanges": "sin cambios",
       "succeeded": "lista"
     },
-    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo."
+    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
+    "reviewChangesRequested": "Cambios solicitados",
+    "reviewChangesRequestedHint": "El paso de Flow a un rail aún necesita cambios. Abre su tarjeta de misión para volver a Flow o relanzar.",
+    "mergedLocallyRestored": "Guardé tus cambios locales, integré {{tickets}} y los restauré.",
+    "mergedLocallyStashConflict": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; Specrails los está restaurando en una rama aparte.",
+    "mergedLocallyStashKept": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; restáuralos cuando quieras.",
+    "failed": {
+      "generic": "La entrega se detuvo. Mira los detalles técnicos."
+    },
+    "relaunch": "Relanzar",
+    "resume": "Reanudar",
+    "relaunchBlocked": "El rail todavía tiene una ejecución activa",
+    "relaunchSent": "Relanzando el rail",
+    "relaunchFailed": "No se pudo relanzar el rail",
+    "recheckRecoveryConfirmTechnical": "Specrails volverá a examinar en este clon el worktree, la rama, las refs, los reflogs y los objetos Git huérfanos pertenecientes a la entrega de {{branch}}. Si demuestra un único resultado, podrá confirmar los cambios aislados y reintentar el push exacto. No tocará la carpeta principal del proyecto."
   },
   "railsBoard": {
     "title": "Rails",
-    "runningCount_one": "{{count}} en ejecución",
-    "runningCount_other": "{{count}} en ejecución",
     "launchAll": "Lanzar todos",
-    "launchAllTitle": "Lanza en paralelo todos los rails listos — cada ejecución se aísla en su propio worktree de git"
+    "launchAllTitle": "Lanza en paralelo todos los rails listos — cada ejecución se aísla en su propio worktree de git",
+    "addRail": "Añadir rail",
+    "addRailLimit": "Límite de rails alcanzado (máx. {{max}})",
+    "launchAllNoneReady": "Ningún rail está listo. Arrastra una spec a un rail o pulsa M sobre una tarjeta enfocada.",
+    "summary": {
+      "running_one": "{{count}} en ejecución",
+      "running_other": "{{count}} en ejecución",
+      "ready_one": "{{count}} listo",
+      "ready_other": "{{count}} listos",
+      "failed_one": "{{count}} fallido",
+      "failed_other": "{{count}} fallidos",
+      "total_one": "{{count}} rail",
+      "total_other": "{{count}} rails"
+    }
   },
   "launchAll": {
     "skipRunning_one": "{{count}} ya en ejecución",
@@ -184,7 +214,7 @@
     "skipInFlight_other": "{{count}} omitidos (specs ya en curso)",
     "failedCount_one": "{{count}} fallido",
     "failedCount_other": "{{count}} fallidos",
-    "skipBudget": "{{count}} por encima del presupuesto diario",
+    "skipBudget": "{{count}} por encima del límite diario",
     "skipReviewLimit_one": "{{count}} retenido por el límite de revisión",
     "skipReviewLimit_other": "{{count}} retenidos por el límite de revisión"
   },
@@ -207,10 +237,13 @@
     "reviewLimitNone_one": "{{count}} rail abriría una entrega nueva, así que no se lanza nada. Decide antes una entrega pendiente.",
     "reviewLimitNone_other": "{{count}} rails abrirían entregas nuevas, así que no se lanza nada. Decide antes una entrega pendiente.",
     "reviewLimitPartial_one": "Solo {{launched}} pueden empezar ahora; {{count}} rail espera a que decidas una entrega.",
-    "reviewLimitPartial_other": "Solo {{launched}} pueden empezar ahora; {{count}} rails esperan a que decidas una entrega."
+    "reviewLimitPartial_other": "Solo {{launched}} pueden empezar ahora; {{count}} rails esperan a que decidas una entrega.",
+    "forecastTotal_one": "{{count}} ejecución · normalmente {{cost}} en total",
+    "forecastTotal_other": "{{count}} ejecuciones · normalmente {{cost}} en total",
+    "mayPause": "Podría alcanzar un límite de gasto y pausar algunas ejecuciones."
   },
   "railControls": {
-    "viewJobLog": "Ver log del job",
+    "viewJobLog": "Ver log del trabajo",
     "log": "Log",
     "implement": "Implement",
     "freestyle": "Freestyle",
@@ -221,7 +254,7 @@
     "effortTitle": "Esfuerzo de razonamiento",
     "stop": "Detener",
     "play": "Iniciar",
-    "failedRetry": "El job ha fallado — haz clic para reintentar",
+    "failedRetry": "El trabajo ha fallado — haz clic para reintentar",
     "addSpecsFirst": "Añade primero specs a este rail",
     "builtInLoops": "Integrados",
     "customLoops": "Loops personalizados",
@@ -231,14 +264,30 @@
     "execLines": "{{count}} líneas",
     "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Recomendado",
-    "recommendedOption": "{{label}} · recomendado"
+    "recommendedOption": "{{label}} · recomendado",
+    "loopDescriptions": {
+      "implement": "Planifica, construye y revisa cada spec, y luego prepara la entrega.",
+      "freestyle": "El proveedor elegido construye la spec por su cuenta, sin pipeline.",
+      "openspec": "Escribe un cambio OpenSpec para la spec, lo construye y lo archiva."
+    }
   },
   "railRow": {
     "moveToSpecs": "Mover a Specs",
     "deleteRail": "Eliminar {{label}}",
     "dropHere": "Suelta aquí",
     "dropOnThisRail": "Suelta en este rail",
-    "dragSpecsHere": "Arrastra specs aquí"
+    "dropHint": "Suelta una spec en este rail",
+    "dragHandle": "Reordenar {{label}}",
+    "status": {
+      "idle": "Inactivo",
+      "running": "En ejecución",
+      "failed": "Fallido"
+    },
+    "deleteMenuItem": "Eliminar rail",
+    "deleteConfirm": {
+      "title": "¿Eliminar {{label}}?",
+      "body": "Sus specs vuelven a la lista. Se pierden el proveedor, el loop y los ajustes de PR de este rail."
+    }
   },
   "freestyleDialog": {
     "title": "Lanzar en modo Freestyle",
@@ -250,7 +299,8 @@
     "autonomyBody": "{{provider}} trabaja por su cuenta con agentes nativos y flujos dinámicos.",
     "costTitle": "Coste variable.",
     "costBody": "El gasto depende de lo que {{provider}} decida hacer — puede ser mayor de lo esperado.",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "gloss": "Freestyle entrega cada spec directamente a {{provider}}: una ejecución autónoma por spec, sin el pipeline de planificación y revisión de OpenSpec."
   },
   "useRails": {
     "fetchFailed": "No se pudieron obtener los rails: {{status}}"
@@ -291,5 +341,12 @@
     "panelReached": "Se ha alcanzado el límite de {{limit}}. Decide una de estas (Crear PR, fusionar o descartar) para lanzar trabajo nuevo. Los cambios sobre estas entregas siguen permitidos.",
     "empty": "No hay nada esperando revisión.",
     "playBlocked": "Límite de revisión alcanzado ({{pending}}/{{limit}} en espera). Decide una entrega para lanzar trabajo nuevo."
+  },
+  "errors": {
+    "deleteFailed": "No se pudo eliminar la spec"
+  },
+  "board": {
+    "pageTitle": "{{project}}: tablero",
+    "pageTitleBare": "Tablero"
   }
 }

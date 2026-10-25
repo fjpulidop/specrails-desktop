@@ -6,10 +6,11 @@
     "updateFailed": "Não foi possível guardar a preferência de idioma"
   },
   "page": {
-    "title": "Definições do projeto"
+    "title": "Definições do projeto",
+    "loadFailed": "Não foi possível carregar a configuração do projeto"
   },
   "errors": {
-    "saveFailed": "Falha ao guardar: {{message}}"
+    "saveFailed": "Falha ao guardar"
   },
   "telemetry": {
     "title": "Telemetria do pipeline",
@@ -22,7 +23,7 @@
   },
   "prePrompt": {
     "title": "Pre-prompt de rail",
-    "description": "Instruções extra específicas do projeto, acrescentadas aos jobs de rail implement depois do contexto do ticket e antes da execução.",
+    "description": "Instruções extra específicas do projeto, acrescentadas aos jobs de rail implement depois do contexto da spec e antes da execução.",
     "label": "Pre-prompt",
     "placeholder": "Exemplo: Prefira alterações incrementais, mantenha as migrações retrocompatíveis e adicione testes a cada alteração de rail.",
     "helper": "Use isto para orientações estáveis do projeto que devem acompanhar cada execução de implementação em rail.",
@@ -45,19 +46,17 @@
   "budget": {
     "title": "Orçamento",
     "description": "Defina um limite de gasto diário para este projeto. A fila pausa automaticamente quando o limite é atingido.",
-    "dailyLabel": "Orçamento diário (USD)",
-    "dailyHelper": "Deixe em branco para desativar. O gasto é calculado sobre as últimas 24 horas.",
-    "dailyPlaceholder": "ex.: 5.00",
+    "dailyLabel": "Limite diário",
+    "dailyHelper": "O gasto é contado sobre as últimas 24 horas. A fila pausa quando o limite é atingido.",
     "perJobLabel": "Alerta de custo por job (USD)",
     "perJobHelper": "Alertar quando um único job deste projeto excede este valor.",
     "perJobPlaceholder": "ex.: 0.50",
     "invalidNumber": "Introduza um número positivo ou deixe em branco para desativar",
-    "dailyRemoved": "Orçamento diário removido",
-    "dailySet": "Orçamento diário definido como ${{amount}}",
     "perJobAlertDisabled": "Alerta de custo por job desativado",
-    "alertSet": "Alerta definido para jobs acima de ${{amount}}",
-    "saveBudgetFailed": "Falha ao guardar o orçamento",
-    "saveThresholdFailed": "Falha ao guardar o limiar"
+    "alertSet": "Alerta definido para jobs acima de {{amount}}",
+    "saveThresholdFailed": "Falha ao guardar o limiar",
+    "dailyCurrent": "Atualmente {{amount}} por dia",
+    "dailyNone": "Sem limite diário"
   },
   "desktop": {
     "nav": {
@@ -76,32 +75,38 @@
       "subscriptionUsage": "Uso de assinaturas"
     },
     "title": "Definições do Desktop",
-    "description": "Faça a gestão dos projetos registados e consulte informações do Desktop.",
+    "description": "Aparência, fornecedores de IA, atualizações e preferências gerais do Desktop.",
     "registeredProjects": "Projetos registados",
     "noProjects": "Ainda não há projetos registados",
     "techUrlDescription": "URL base para a API specrails-tech (predefinição: http://localhost:3000)",
     "techUrlSaved": "URL do specrails-tech guardado",
     "techUrlSaveFailed": "Falha ao guardar o URL",
     "budgetAlertsHeading": "Orçamento e alertas",
-    "dailyBudgetLabel": "Orçamento diário do Desktop (USD)",
+    "dailyBudgetLabel": "Limite diário do Desktop",
     "dailyBudgetHelper": "Limite global de gasto diário em todos os projetos. As filas pausam automaticamente quando é excedido.",
-    "dailyBudgetPlaceholder": "ex.: 10.00",
     "perJobHelper": "Alertar quando um único job excede este valor. Deixe em branco para desativar.",
     "costAlertsDisabled": "Alertas de custo desativados",
-    "dailyBudgetRemoved": "Orçamento diário do Desktop removido",
-    "dailyBudgetSet": "Orçamento diário do Desktop definido como ${{amount}}",
-    "dailyBudgetSaveFailed": "Falha ao guardar o orçamento diário do Desktop",
     "projectRemoved": "Projeto removido",
     "projectRemoveFailed": "Falha ao remover o projeto",
     "onboardingHeading": "Onboarding",
     "platformTour": "Tour da plataforma",
     "platformTourDescription": "Repita o assistente de boas-vindas para rever as funcionalidades principais.",
     "replayTour": "Repetir tour",
-    "terminalPanelHeading": "Painel de terminal",
     "infoHeading": "Informações do Desktop",
     "infoPort": "Porta",
     "infoProjects": "Projetos",
-    "infoDb": "BD do Desktop"
+    "infoDb": "BD do Desktop",
+    "removeProjectConfirmTitle": "Remover {{name}}?",
+    "removeProjectConfirmBody": "{{name}} deixa de estar registado no Specrails e o trabalho em curso para. Os ficheiros do repositório no disco não são apagados; pode voltar a adicionar a pasta mais tarde.",
+    "navLabel": "Secções das definições",
+    "navGroups": {
+      "personal": "Pessoal",
+      "agents": "Agentes",
+      "system": "Sistema"
+    },
+    "unsavedChanges": "Alterações não guardadas",
+    "dailyBudgetCurrent": "Atualmente {{amount}} por dia",
+    "dailyBudgetNone": "Sem limite diário"
   },
   "notifications": {
     "heading": "Notificações do SO",
@@ -120,8 +125,6 @@
     "eventJobCompleted": "Job concluído",
     "eventJobFailed": "Job falhado",
     "eventDailyBudgetExceeded": "Orçamento diário excedido",
-    "statusOn": "ligado",
-    "statusOff": "desligado",
     "disable": "Desativar",
     "enable": "Ativar",
     "sendTestPing": "Enviar ping de teste",
@@ -136,7 +139,10 @@
     "removed": "Webhook removido",
     "removeFailed": "Falha ao remover o webhook",
     "testPingSent": "Ping de teste enviado",
-    "testPingFailed": "Falha ao enviar o ping de teste"
+    "testPingFailed": "Falha ao enviar o ping de teste",
+    "removeConfirmTitle": "Remover o webhook?",
+    "removeConfirmBody": "{{url}} deixará de receber eventos do Desktop.",
+    "urlLabel": "URL do webhook"
   },
   "terminal": {
     "title": "Painel de terminal",
@@ -170,7 +176,7 @@
     "taglines": {
       "dracula": "O original — escuro com tom púrpura e acentos néon vivos",
       "aurora-light": "Claro premium — índigo inspirado no Linear sobre branco quente",
-      "obsidian-dark": "Escuro premium — quase preto com tom azulado e acentos elétricos",
+      "obsidian-dark": "Grafite pro — quase preto neutro com um único acento violeta suave",
       "specrails": "Tema da marca — azul-marinho-índigo profundo com acentos ciano saturados",
       "code-rain": "Terminal de fósforo — menta suave sobre quase preto esverdeado",
       "galaxy": "Azul de espaço profundo com um rastro brilhante de lâmina"
@@ -182,7 +188,7 @@
   },
   "mobile": {
     "heading": "Companion móvel",
-    "description": "Controle o Specrails a partir da app SpecRails Companion no seu telemóvel, 100% através da sua rede local. Desativado por omissão.",
+    "description": "Controle o Specrails a partir da app SpecRails Companion no seu telemóvel, 100% através da sua rede local. Desativado por omissão. Um telemóvel emparelhado pode responder a perguntas, retomar, repetir e criar PR em rascunho a partir da caixa de entrada, dentro do que os níveis de permissão MCP permitirem; integrar, descartar e as definições ficam neste computador.",
     "accessOn": "Acesso móvel ligado",
     "accessOff": "Acesso móvel desligado",
     "listeningOnPort": "À escuta na porta {{port}}",
@@ -193,12 +199,13 @@
     "reset": "Repor",
     "resetConfirm": "Repor a identidade móvel? Todos os dispositivos emparelhados serão revogados e terão de emparelhar novamente.",
     "identityReset": "Identidade móvel reposta",
-    "enableFailed": "Não foi possível ativar o acesso móvel: {{message}}",
-    "disableFailed": "Não foi possível desativar o acesso móvel: {{message}}",
+    "enableFailed": "Não foi possível ativar o acesso móvel",
+    "disableFailed": "Não foi possível desativar o acesso móvel",
     "windowsFirewall": "A Firewall do Windows pedirá para permitir o servidor SpecRails na primeira ativação — escolha “Permitir em redes privadas”.",
     "pairedDevices": "Dispositivos emparelhados",
     "noDevices": "Ainda não há dispositivos emparelhados.",
-    "revokeDevice": "Revogar {{name}}"
+    "revokeDevice": "Revogar {{name}}",
+    "resetConfirmTitle": "Repor a identidade móvel?"
   },
   "pairWeb": {
     "title": "Emparelhar companion web",
@@ -207,7 +214,7 @@
     "showThenScan": "Depois de o seu telemóvel ler isto, toque em “Ler código do telemóvel” e aponte a câmara para o telemóvel.",
     "scanAnswer": "Ler código do telemóvel",
     "scanning": "Aponte a câmara para o código no seu telemóvel…",
-    "cameraFailed": "Câmara indisponível: {{message}}",
+    "cameraFailed": "Câmara indisponível",
     "notAnswer": "Esse QR não é uma resposta de emparelhamento.",
     "connecting": "A ligar…",
     "paired": "✓ Emparelhado",
@@ -231,10 +238,7 @@
     "affectsAll": "Aplica-se a todos os projetos — sem reiniciar.",
     "unavailable": "As atualizações do core não estão disponíveis nesta versão.",
     "toastDone": "Specrails Core atualizado para {{version}}",
-    "toastError": "Falha na atualização do core: {{message}}",
     "toastUpToDate": "O Specrails Core está atualizado",
-    "toastCheckFailed": "Falha ao verificar atualizações: {{message}}",
-    "loadFailed": "Não foi possível atualizar o estado do Core. Tentar novamente",
     "runtime": "Motor: {{version}}",
     "bundled": "Incluído no Desktop: {{version}}",
     "sources": {
@@ -245,14 +249,17 @@
       "global": "CLI externa"
     },
     "repair": "Concluir atualização {{version}}",
-    "stableFallback": "O specrails-core ainda não tem versão estável, então o Core segue Mais recente por enquanto."
+    "stableFallback": "O specrails-core ainda não tem versão estável, então o Core segue Mais recente por enquanto.",
+    "updateFailed": "Falha ao atualizar o Core",
+    "checkFailed": "Falha ao procurar atualizações",
+    "loadError": "Não foi possível atualizar o estado do Core."
   },
   "updateChannel": {
     "heading": "Canal de atualização",
     "loading": "Carregando canal…",
     "scope": "Aplica-se ao Specrails Desktop e ao framework specrails-core.",
     "saved": "Canal de atualização: {{channel}}",
-    "saveFailed": "Não foi possível alterar o canal de atualização: {{message}}",
+    "saveFailed": "Não foi possível alterar o canal de atualização",
     "latest": {
       "label": "Mais recente",
       "description": "Cada versão assim que é publicada. Novidades e correções primeiro."
@@ -272,12 +279,12 @@
     "autoHint": "Verificação automática ao iniciar e a cada 6 horas.",
     "unavailable": "Atualizações estão disponíveis apenas no app desktop.",
     "toastUpToDate": "O Specrails Desktop está atualizado",
-    "toastCheckFailed": "Falha ao verificar atualizações: {{message}}",
+    "toastCheckFailed": "Falha ao verificar atualizações",
     "stableUnavailable": "Nenhuma versão foi promovida ao canal Estável ainda. Mude para Mais recente ou tente novamente mais tarde."
   },
   "projectDialog": {
     "title": "{{name}} — Configurações",
-    "description": "Configuração do projeto: prompts, branch, ambiente, orçamento, telemetria e terminal.",
+    "description": "Configuração do projeto: prompts, branch, ambiente, orçamento, telemetria, regras e terminal.",
     "nav": {
       "general": "Geral",
       "branch": "Branch",
@@ -286,8 +293,11 @@
       "telemetry": "Telemetria",
       "terminal": "Terminal",
       "agentRuntime": "Comandos de verificação",
-      "subagents": "Subagentes"
-    }
+      "subagents": "Subagentes",
+      "rules": "Regras",
+      "recentlyDeleted": "Excluídos recentemente"
+    },
+    "navLabel": "Secções das definições do projeto"
   },
   "integrationBranch": {
     "title": "Ramo de integração",
@@ -394,22 +404,22 @@
       "explainScope": "Cada projeto tem sua própria configuração nas configurações do projeto. Missões com subagentes em execução aplicam a mudança quando eles terminam."
     },
     "runtime": {
-      "label": "Executar sub-agentes com",
+      "label": "Executar subagentes com",
       "same": "Igual ao agente da missão",
-      "sameHint": "Os sub-agentes usam o provedor, o modelo e o esforço do agente da missão, iniciados nativamente pelo próprio CLI.",
-      "chosenHint": "Missões em {{provider}} iniciam os próprios sub-agentes com este modelo. Com qualquer outro provedor, o Specrails os inicia em {{provider}}.",
-      "providerLabel": "Provedor dos sub-agentes",
-      "modelLabel": "Modelo dos sub-agentes",
-      "effortLabel": "Esforço dos sub-agentes",
-      "claudeEffortHint": "Os sub-agentes próprios do Claude ignoram o esforço; ele se aplica quando o Specrails os inicia.",
-      "saved": "Os sub-agentes agora rodam com {{provider}}",
-      "reset": "Os sub-agentes voltam a seguir o agente da missão",
+      "sameHint": "Os subagentes usam o provedor, o modelo e o esforço do agente da missão, iniciados nativamente pelo próprio CLI.",
+      "chosenHint": "Missões em {{provider}} iniciam os próprios subagentes com este modelo. Com qualquer outro provedor, o Specrails os inicia em {{provider}}.",
+      "providerLabel": "Provedor dos subagentes",
+      "modelLabel": "Modelo dos subagentes",
+      "effortLabel": "Esforço dos subagentes",
+      "claudeEffortHint": "Os subagentes próprios do Claude ignoram o esforço; ele se aplica quando o Specrails os inicia.",
+      "saved": "Os subagentes agora rodam com {{provider}}",
+      "reset": "Os subagentes voltam a seguir o agente da missão",
       "confirm": {
-        "title": "Executar os sub-agentes com {{provider}}?",
-        "body": "Em missões com outro provedor, os sub-agentes deixam de ser nativos: o Specrails inicia cada um como uma sessão própria do {{provider}} em vez do CLI da missão.",
-        "cost": "Mais lento e possivelmente mais caro: cada sub-agente começa a frio, sem o cache de prompt que compartilharia com o agente da missão.",
-        "control": "Mais controle e flexibilidade: combine provedores, escolha modelo e esforço, veja o custo real de cada sub-agente e deixe-os trabalhando após a resposta da missão.",
-        "native": "Missões que já usam {{provider}} mantêm sub-agentes nativos, agora com este modelo e esforço.",
+        "title": "Executar os subagentes com {{provider}}?",
+        "body": "Em missões com outro provedor, os subagentes deixam de ser nativos: o Specrails inicia cada um como uma sessão própria do {{provider}} em vez do CLI da missão.",
+        "cost": "Mais lento e possivelmente mais caro: cada subagente começa a frio, sem o cache de prompt que compartilharia com o agente da missão.",
+        "control": "Mais controle e flexibilidade: combine provedores, escolha modelo e esforço, veja o custo real de cada subagente e deixe-os trabalhando após a resposta da missão.",
+        "native": "Missões que já usam {{provider}} mantêm subagentes nativos, agora com este modelo e esforço.",
         "cancel": "Manter igual à missão",
         "accept": "Usar {{provider}}"
       }
@@ -439,5 +449,100 @@
     "saved_other": "Limite de revisão definido em {{count}}",
     "removed": "Limite de revisão removido",
     "saveFailed": "Não foi possível salvar o limite de revisão"
+  },
+  "anchoring": {
+    "title": "Ancoragem em projetos existentes",
+    "description": "Comportamentos opcionais que ajudam as execuções a respeitar o que o projeto já faz. Cada um precisa de um Core que o suporte.",
+    "coreRequired": "O Core instalado ainda não suporta isto. Atualize o Core para ativar.",
+    "saveFailed": "Não foi possível salvar a configuração",
+    "jiraPostClarifications": {
+      "label": "Publicar esclarecimentos do arquiteto no Jira",
+      "description": "Quando uma execução pausa com perguntas do arquiteto, ou segue com suposições, elas são publicadas como comentário na issue do Jira vinculada. Uma resposta lá é registrada na spec como esclarecimento.",
+      "enabled": "Os esclarecimentos serão publicados no Jira",
+      "disabled": "Os esclarecimentos ficarão no Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline ao tocar",
+      "description": "Quando uma mudança alcança código que nenhuma spec descreve, primeiro são escritos testes de caracterização (comprovados no código inalterado) e uma spec as-built mínima. Adiciona custo, mostrado à parte.",
+      "enabled": "Baseline ao tocar ativado",
+      "disabled": "Baseline ao tocar desativado"
+    }
+  },
+  "rules": {
+    "title": "Regras do projeto",
+    "description": "As verificações que o projeto já executa e cada regra escrita, classificada como aplicada, automatizável ou somente humana. As regras somente humanas aparecem em cada pacote de revisão.",
+    "rerun": "Refazer inventário",
+    "running": "Inventariando…",
+    "coreRequired": "O Core instalado não suporta o inventário de regras. Atualize o Core para executá-lo.",
+    "missing": "Ainda não há inventário. Execute-o para listar os gates e as regras do projeto.",
+    "invalid": "Não foi possível ler o arquivo de regras: {{message}}",
+    "inventoryDone": "Inventário de regras atualizado",
+    "inventoryFailed": "O inventário de regras falhou",
+    "specCreated": "Spec #{{id}} criada",
+    "specFailed": "Não foi possível criar a spec",
+    "status": {
+      "automatable": "Automatizável",
+      "humanOnly": "Somente humana",
+      "enforcedBy": "Aplicada",
+      "unclassified": "Não classificada"
+    },
+    "generatedAt": "Gerado {{date}}",
+    "gates_one": "{{count}} gate",
+    "gates_other": "{{count}} gates",
+    "gatesHint": "Comandos de gate simples são oferecidos primeiro como verificações nas configurações do agent runtime quando nenhuma está configurada.",
+    "enforcedBy": "Aplicada por {{check}}",
+    "proposedCheck": "Verificação proposta: {{check}}",
+    "createSpec": "Criar spec",
+    "dropped_one": "{{count}} entrada não seguia o formato e foi ignorada",
+    "dropped_other": "{{count}} entradas não seguiam o formato e foram ignoradas",
+    "classification": {
+      "offline": "As regras foram inventariadas offline e ainda não estão classificadas. Refaça o inventário com um provedor configurado.",
+      "unavailable": "Nenhum provedor está configurado para classificar as regras.",
+      "failed": "A classificação das regras falhou.",
+      "empty": "Nenhuma regra escrita foi encontrada.",
+      "unknown": "As regras não estão classificadas."
+    },
+    "autoRunning": "O inventário está em execução após a configuração. Esta lista é atualizada quando terminar.",
+    "lastRun": {
+      "setupFailed": "O inventário automático após a configuração falhou ({{date}}).",
+      "manualFailed": "A última execução do inventário falhou ({{date}}).",
+      "retryHint": "Corrija a causa mostrada acima e execute o inventário novamente.",
+      "setupDone": "Inventariado automaticamente após a configuração."
+    }
+  },
+  "editorSection": {
+    "heading": "Editor",
+    "description": "O editor que «Abrir no editor» usa no pacote de revisão. Fica salvo neste computador.",
+    "label": "Abrir arquivos em",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "IDE da JetBrains"
+    }
+  },
+  "budgetMoved": "Os limites são editados em Análises ▸ Orçamento.",
+  "openBudget": "Abrir Orçamento",
+  "openSettings": "Abrir configurações",
+  "accessibility": {
+    "density": {
+      "title": "Densidade",
+      "description": "Quanto espaço ocupam os cartões e as linhas. Aplica-se ao quadro, à lista de jobs e à história do job. Uma vista guardada do quadro mantém o seu próprio layout.",
+      "comfortable": "Confortável",
+      "comfortableHint": "Cartões e linhas arejados",
+      "compact": "Compacta",
+      "compactHint": "Mais specs e linhas no ecrã",
+      "resetBoard": "Usar também no quadro",
+      "resetBoardDone": "O quadro deste projeto passa a segui-la."
+    },
+    "motion": {
+      "title": "Reduzir movimento",
+      "description": "Desativa animações e transições dentro do Specrails, independentemente do seu sistema operativo.",
+      "system": "Seguir o sistema",
+      "systemHint": "Usa a definição do seu SO",
+      "reduce": "Reduzir",
+      "reduceHint": "Sempre calmo: sem animação",
+      "full": "Movimento total",
+      "fullHint": "Anima mesmo que o SO peça menos"
+    }
   }
 }

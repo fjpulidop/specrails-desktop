@@ -3,6 +3,7 @@ import { applyNumberedMigrations } from '../util/sqlite-migrations'
 import { migrateMultiRepoExecution } from '../modules/delivery/runtime/multi-repo-execution-store'
 import { migrateRepositoryProvenance } from '../project-repository-provenance'
 import { migrateFileStoryMetadata } from '../modules/code/runtime/file-story'
+import { createJobSearchSchema, rebuildJobSearchIndex } from './job-search'
 
 // ─── Migrations ──────────────────────────────────────────────────────────────
 
@@ -1813,6 +1814,148 @@ const MIGRATIONS: Migration[] = [
     const cols = new Set((db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((r) => r.name))
     if (!cols.has('recommended_loop')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN recommended_loop TEXT`)
     if (!cols.has('chosen_loop')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN chosen_loop TEXT`)
+  },
+
+  // Migration 77: architect clarifications on Jira (feedback-2026-10 task 3.2).
+  // One row per clarifications comment Desktop posted on a linked issue (the
+  // questions a run paused on, or the assumptions it proceeded with). The poll
+  // imports later human replies on that issue as `clarification` addenda;
+  // `imported_comment_ids` keeps the import idempotent across restarts.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS jira_clarification_threads (
+        id                   TEXT PRIMARY KEY,
+        run_id               TEXT NOT NULL,
+        ticket_id            INTEGER NOT NULL,
+        jira_issue_id        TEXT NOT NULL,
+        kind                 TEXT NOT NULL CHECK (kind IN ('questions','assumptions')),
+        marker               TEXT NOT NULL,
+        state                TEXT NOT NULL CHECK (state IN ('open','answered','closed')),
+        imported_comment_ids TEXT NOT NULL DEFAULT '[]',
+        created_at           TEXT NOT NULL,
+        updated_at           TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_jira_clarification_threads_open ON jira_clarification_threads(state, created_at);
+    `)
+  },
+
+  // Migration 78: Back to Flow (feedback-2026-10 Flow → Spec repair). When a
+  // Flow → Spec delivery stopped with requested changes and its worktree went
+  // back to the Flow, the review the agent must address in its NEXT turn.
+  // Cleared once a turn delivered it (or the Flow is handed off again).
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('return_briefing')) db.exec('ALTER TABLE flow_sessions ADD COLUMN return_briefing TEXT')
+  },
+
+  // Migration 79: the OpenSpec change ids this Flow's own Flow → Spec runs
+  // derived (JSON array, most recent last). A returned worktree still carries
+  // that active change: the next freeze allows it and the next run re-derives
+  // it in place instead of creating another.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('derived_changes')) db.exec('ALTER TABLE flow_sessions ADD COLUMN derived_changes TEXT')
+  },
+
+  // Migration 80: the project repository a Flow runs in (workspace projects
+  // and multi-repository projects). NULL ⇒ the primary repository at the
+  // project root, exactly as every Flow before it.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('repository_id')) db.exec('ALTER TABLE flow_sessions ADD COLUMN repository_id TEXT')
+  },
+
+  // Migration 81: a real `closed` Flow state. Closing a needs-review Flow keeps
+  // its branch (nothing is released), which `discarded` (worktree and branch
+  // removed) misrepresented. SQLite cannot alter a CHECK constraint, so the
+  // table is rebuilt with every row, column and index preserved (flow_sessions
+  // has no triggers and no foreign keys). Rows closed before this migration
+  // stay `discarded`: nothing durable tells them apart.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (cols.size === 0) return
+    const value = (column: string): string => (cols.has(column) ? column : 'NULL')
+    db.exec(`
+      DROP TABLE IF EXISTS flow_sessions_v81;
+      CREATE TABLE flow_sessions_v81 (
+        id              TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        ticket_id       INTEGER,
+        state           TEXT NOT NULL CHECK (state IN ('active','paused','handed_off','delivered','discarded','closed','needs-review')),
+        branch          TEXT,
+        worktree_path   TEXT,
+        base_sha        TEXT,
+        head_sha        TEXT,
+        core_session_id TEXT,
+        rail_index      INTEGER,
+        delivery_id     TEXT,
+        step            TEXT CHECK (step IS NULL OR step IN ('start:ticket','start:worktree','start:session','handoff:freeze','handoff:launch')),
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL,
+        return_briefing TEXT,
+        derived_changes TEXT,
+        repository_id   TEXT
+      );
+      INSERT INTO flow_sessions_v81 (id, conversation_id, ticket_id, state, branch, worktree_path, base_sha, head_sha,
+        core_session_id, rail_index, delivery_id, step, created_at, updated_at, return_briefing, derived_changes, repository_id)
+      SELECT id, conversation_id, ticket_id, state, branch, worktree_path, base_sha, head_sha,
+        core_session_id, rail_index, delivery_id, step, created_at, updated_at,
+        ${value('return_briefing')}, ${value('derived_changes')}, ${value('repository_id')}
+      FROM flow_sessions ORDER BY rowid;
+      DROP TABLE flow_sessions;
+      ALTER TABLE flow_sessions_v81 RENAME TO flow_sessions;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_flow_sessions_open_conversation
+        ON flow_sessions(conversation_id) WHERE state IN ('active','paused');
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_conversation ON flow_sessions(conversation_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_ticket ON flow_sessions(ticket_id);
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_delivery ON flow_sessions(delivery_id);
+    `)
+  },
+
+  // Migration 82: where a Flow's spec came from. 'existing' ⇒ the person's own
+  // spec started in Flow (restored on discard, never deleted; its original
+  // content is kept as a comment before the settlement rewrites it). NULL ⇒
+  // the Flow's placeholder spec, exactly as every Flow before it.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('spec_origin')) db.exec("ALTER TABLE flow_sessions ADD COLUMN spec_origin TEXT CHECK (spec_origin IS NULL OR spec_origin IN ('placeholder','existing'))")
+  },
+
+  // Migration 83: rail_pr_deliveries.local_stash — JSON LocalStashRecord of the
+  // user's own uncommitted changes that "Integrate locally" saved as a git stash
+  // (by commit sha) before advancing the target branch. Durable so a restart
+  // between stash and restore re-applies them; NULL on every other delivery.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(rail_pr_deliveries)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('local_stash')) db.exec('ALTER TABLE rail_pr_deliveries ADD COLUMN local_stash TEXT')
+  },
+
+  // Migration 84: loop_runs.failure_diagnosis — JSON FailureDiagnosis of a run
+  // that ended failed / blocked / stalled (Core's contract 5.8 classification,
+  // or the one Desktop derived from its own signals). NULL for every other run
+  // and for runs that finished before this column; readers re-derive then.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('failure_diagnosis')) db.exec('ALTER TABLE loop_runs ADD COLUMN failure_diagnosis TEXT')
+  },
+
+  // Migration 85: loop_runs.run_cap_usd — the per-run soft cap ("pause and ask
+  // at $X") the run was launched with, as raised or waived on a resume. NULL ⇒
+  // never set (the project/app default applies); 0 ⇒ explicitly no cap for
+  // this run. Persisted so a restart keeps the choice the person made.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('run_cap_usd')) db.exec('ALTER TABLE loop_runs ADD COLUMN run_cap_usd REAL')
+  },
+
+  // Migration 86: job-log search (CD6). An FTS5 trigram index over job
+  // commands, loop names, phase titles and failure-diagnosis kind/detail —
+  // never raw token streams (see db/job-search.ts). The index is derived data:
+  // this migration creates it and runs the idempotent backfill; settle/phase
+  // events keep it current afterwards.
+  (db) => {
+    createJobSearchSchema(db)
+    rebuildJobSearchIndex(db)
   },
 
 ]

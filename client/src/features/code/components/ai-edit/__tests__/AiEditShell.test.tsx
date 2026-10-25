@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import {
   AiEditShell,
   PlainComposer,
@@ -8,6 +9,11 @@ import {
   computeWordDiff,
   type AiEditHistoryTurn,
 } from '../AiEditShell'
+
+/** Escape goes through Radix's document listener (top layer only). */
+function pressEscape() {
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+}
 
 function renderShell(overrides: Partial<React.ComponentProps<typeof AiEditShell>> = {}) {
   return render(
@@ -126,9 +132,9 @@ describe('AiEditShell composing phase', () => {
   it('Escape closes directly without a confirm dialog', () => {
     const onClose = vi.fn()
     renderShell({ onClose })
-    fireEvent.keyDown(window, { key: 'Escape' })
+    pressEscape()
     expect(onClose).toHaveBeenCalledTimes(1)
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Discard refinement?' })).toBeNull()
   })
 
   it('header back button closes directly in composing', () => {
@@ -144,6 +150,26 @@ describe('AiEditShell composing phase', () => {
     fireEvent.keyDown(window, { key: 'a' })
     expect(onKeyDown).toHaveBeenCalledTimes(1)
     expect(onKeyDown.mock.calls[0][0].key).toBe('a')
+  })
+
+  it('traps Tab focus inside the shell dialog', async () => {
+    const outside = document.createElement('button')
+    outside.textContent = 'outside'
+    document.body.appendChild(outside)
+    outside.focus()
+    renderShell({ secondaryAction: { label: 'Open in Studio', onClick: vi.fn() } })
+    const shell = screen.getByRole('dialog', { name: 'AI Edit · sr-developer' })
+    await waitFor(() => expect(shell.contains(document.activeElement)).toBe(true))
+    const user = userEvent.setup()
+    for (let i = 0; i < 12; i++) {
+      await user.tab()
+      expect(shell.contains(document.activeElement)).toBe(true)
+    }
+    for (let i = 0; i < 4; i++) {
+      await user.tab({ shift: true })
+      expect(shell.contains(document.activeElement)).toBe(true)
+    }
+    outside.remove()
   })
 
   it('restores focus to the previously focused element on unmount', () => {
@@ -177,11 +203,25 @@ describe('AiEditShell streaming phase', () => {
     const onDiscard = vi.fn()
     const onClose = vi.fn()
     renderShell({ uiPhase: 'streaming', onDiscard, onClose })
-    fireEvent.keyDown(window, { key: 'Escape' })
-    const dialog = screen.getByRole('alertdialog', { name: 'Discard changes?' })
-    expect(within(dialog).getByText('Discard refinement?')).toBeInTheDocument()
+    pressEscape()
+    const dialog = screen.getByRole('dialog', { name: 'Discard refinement?' })
+    expect(within(dialog).getByText('The current draft will be cancelled and not applied.')).toBeInTheDocument()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Keep editing' }))
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Discard refinement?' })).toBeNull()
+    expect(onDiscard).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('Escape on the discard confirm closes only the confirm, not the shell', async () => {
+    const onDiscard = vi.fn()
+    const onClose = vi.fn()
+    renderShell({ uiPhase: 'streaming', onDiscard, onClose })
+    pressEscape()
+    const confirm = screen.getByRole('dialog', { name: 'Discard refinement?' })
+    await waitFor(() => expect(confirm.contains(document.activeElement)).toBe(true))
+    pressEscape()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Discard refinement?' })).toBeNull())
+    expect(screen.getByRole('dialog', { name: 'AI Edit · sr-developer' })).toBeInTheDocument()
     expect(onDiscard).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
   })
@@ -189,11 +229,11 @@ describe('AiEditShell streaming phase', () => {
   it('confirming the dialog calls onDiscard', () => {
     const onDiscard = vi.fn()
     renderShell({ uiPhase: 'streaming', onDiscard })
-    fireEvent.keyDown(window, { key: 'Escape' })
-    const dialog = screen.getByRole('alertdialog')
+    pressEscape()
+    const dialog = screen.getByRole('dialog', { name: 'Discard refinement?' })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Discard' }))
     expect(onDiscard).toHaveBeenCalledTimes(1)
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Discard refinement?' })).toBeNull()
   })
 })
 
@@ -274,8 +314,8 @@ describe('AiEditShell reviewing phase (split layout)', () => {
   it('Escape opens the discard confirm dialog while reviewing', () => {
     const onClose = vi.fn()
     renderShell({ ...reviewingProps, onClose })
-    fireEvent.keyDown(window, { key: 'Escape' })
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    pressEscape()
+    expect(screen.getByRole('dialog', { name: 'Discard refinement?' })).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()
   })
 
@@ -337,9 +377,9 @@ describe('AiEditShell applied phase', () => {
   it('Escape closes directly when applied (no confirm dialog)', () => {
     const onClose = vi.fn()
     renderShell({ uiPhase: 'applied', onClose })
-    fireEvent.keyDown(window, { key: 'Escape' })
+    pressEscape()
     expect(onClose).toHaveBeenCalledTimes(1)
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Discard refinement?' })).toBeNull()
   })
 })
 

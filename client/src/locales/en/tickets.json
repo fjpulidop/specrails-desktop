@@ -27,22 +27,22 @@
     "priority": "Priority",
     "labels": "Labels",
     "markdownPlaceholder": "Markdown description...",
-    "supportsMarkdown": "Supports markdown"
+    "supportsMarkdown": "Supports markdown",
+    "removeLabel": "Remove label {{label}}"
   },
   "meta": {
     "createdAgo": "Created {{time}}",
     "updatedAgo": "Updated {{time}}"
   },
   "untitled": "Untitled",
-  "deleteDialog": {
-    "title": "Delete ticket",
-    "body": "Are you sure you want to delete <strong>#{{id}} {{title}}</strong>? This action cannot be undone."
-  },
   "detailModal": {
+    "moreActions": "More actions",
+    "openReview": "Open review",
+    "viewJob": "View job",
     "toast": {
-      "updated": "Ticket updated",
-      "updateFailed": "Failed to update ticket",
-      "deleteFailed": "Failed to delete ticket"
+      "updated": "Spec updated",
+      "updateFailed": "Failed to update spec",
+      "deleteFailed": "Failed to delete spec"
     },
     "compare": "Compare",
     "compareTooltip": "Compare with another spec",
@@ -54,22 +54,23 @@
     "effort": "Effort",
     "assignee": "Assignee",
     "continueEditing": "Continue Editing",
-    "ticketFallbackLabel": "Ticket #{{id}}"
+    "ticketFallbackLabel": "Spec #{{id}}",
+    "spendingLineHint": "Everything spent on this spec so far: total cost · agent turns (a trailing + means some runs did not report turns) · active time · runs by kind (e.g. “1 quick, 3 loops” = one Quick spec generation and three loop runs). Click to open it in Analytics."
   },
   "contractLayer": {
     "title": "Contract Layer",
     "populated": "{{n}}/5 populated"
   },
   "rail": {
-    "moveToRail": "Move to Rail",
-    "removeFromRail": "Remove from Rail",
+    "moveToRail": "Move to rail",
+    "removeFromRail": "Remove from rail",
     "currentlyOn": "Currently on {{rail}}",
     "popoverTitle": "Move to rail",
     "noRails": "No rails available."
   },
   "contextMenu": {
-    "ariaLabel": "Ticket actions",
-    "deleteTicket": "Delete ticket",
+    "ariaLabel": "Spec actions",
+    "deleteTicket": "Delete spec",
     "changeStatus": "Change status",
     "statusOptions": "Status options",
     "setPriority": "Set priority",
@@ -81,15 +82,16 @@
     "postit": "Post-it view"
   },
   "createModal": {
-    "title": "Create Ticket",
-    "titlePlaceholder": "Ticket title...",
+    "title": "Create Spec",
+    "titlePlaceholder": "Spec title...",
     "labelsPlaceholder": "Type to add labels...",
     "create": "Create",
     "creating": "Creating...",
     "toast": {
-      "created": "Ticket created",
-      "createFailed": "Failed to create ticket"
-    }
+      "created": "Spec created",
+      "createFailed": "Failed to create spec"
+    },
+    "description": "Add a spec to the board by hand. It starts in the status you pick and can be refined or moved to a rail later."
   },
   "comparePicker": {
     "title": "Compare with…",
@@ -99,21 +101,23 @@
     "empty": "No other specs to compare"
   },
   "spendingLine": {
-    "ariaLabel": "View ticket spending in Analytics",
-    "turns_one": "{{count}} turn",
-    "turns_other": "{{count}} turns",
+    "ariaLabel": "View spec spending in Analytics",
+    "turns_one": "{{count}} agent turn",
+    "turns_other": "{{count}} agent turns",
+    "turnsAtLeast_one": "{{count}}+ agent turn",
+    "turnsAtLeast_other": "{{count}}+ agent turns",
     "active": "{{duration}} active",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimated from the local pricing table — this provider does not report cost natively.",
-    "costUnavailableTooltip": "None of this ticket's invocations exposed cost telemetry.",
+    "costUnavailableTooltip": "None of this spec's invocations exposed cost telemetry.",
     "costPartiallyUnavailableTooltip": "Known cost subtotal only; some invocations did not expose cost telemetry.",
-    "turnsUnavailableTooltip": "Turn telemetry is unavailable for this ticket.",
+    "turnsUnavailableTooltip": "Turn telemetry is unavailable for this spec.",
     "turnsPartiallyUnavailableTooltip": "Known turn subtotal only; some invocations did not expose turn telemetry."
   },
   "toasts": {
-    "newTicket": "New ticket: {{title}}",
-    "newTicketsAdded_one": "{{count}} new ticket added from product discovery",
-    "newTicketsAdded_other": "{{count}} new tickets added from product discovery"
+    "newTicket": "New spec: {{title}}",
+    "newTicketsAdded_one": "{{count}} new spec added from product discovery",
+    "newTicketsAdded_other": "{{count}} new specs added from product discovery"
   },
   "addenda": {
     "title": "Addenda",
@@ -187,5 +191,137 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Unknown delivery ({{id}})"
+  },
+  "nonGoals": {
+    "title": "Out of scope",
+    "ariaLabel": "Out of scope, one item per line",
+    "placeholder": "What this spec deliberately does not change or deliver. One item per line",
+    "onePerLine": "One item per line",
+    "add": "Add what this spec leaves out"
+  },
+  "split": {
+    "label": "Compare specs",
+    "resize": "Resize panels"
+  },
+  "timeline": {
+    "tabs": {
+      "aria": "Spec sections",
+      "details": "Details",
+      "timeline": "Timeline"
+    },
+    "filters": {
+      "aria": "Filter by kind"
+    },
+    "kinds": {
+      "spec_edit": "Spec",
+      "addendum": "Addenda",
+      "mission_turn": "Missions",
+      "job": "Runs",
+      "phase": "Phases",
+      "audit": "Agent actions",
+      "pr_event": "PR",
+      "review": "Review"
+    },
+    "loading": "Loading the timeline…",
+    "error": "Could not load the timeline.",
+    "retry": "Try again",
+    "loadMore": "Show older",
+    "empty": {
+      "title": "Nothing has happened to this spec yet",
+      "description": "Edits, addenda, missions, runs, PR events and review verdicts appear here as they happen.",
+      "filtered": "No entries of this kind.",
+      "refresh": "Refresh"
+    },
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "expand": "Show details",
+    "collapse": "Hide details",
+    "actors": {
+      "user": "You",
+      "mcp": "External client",
+      "system": "System",
+      "agent": "Agent"
+    },
+    "tone": {
+      "failure": "Failed",
+      "review": "Needs review",
+      "ok": "Done"
+    },
+    "events": {
+      "spec_created": "Spec created",
+      "spec_updated": "Spec edited",
+      "spec_comment": "Comment added",
+      "spec_ai_ai-edit": "Edited with AI",
+      "spec_ai_quick-spec": "Generated with Quick",
+      "spec_ai_smash": "Smashed into sub-specs",
+      "spec_ai_triage": "Triaged",
+      "spec_ai_spec-launcher": "Launched with AI",
+      "addendum_created": "Addendum added",
+      "addendum_applied": "Addendum applied",
+      "addendum_in_flight": "Addendum in flight",
+      "addendum_dismissed": "Addendum dismissed",
+      "job_run": "Run",
+      "pr_delivery_started": "Delivery started",
+      "pr_ready_for_review": "Ready for review",
+      "pr_published": "Pull request published",
+      "pr_merged": "Merged",
+      "pr_failed": "Delivery failed",
+      "pr_discarded": "Delivery discarded",
+      "pr_superseded": "Delivery replaced",
+      "review_approved": "Reviewer approved",
+      "review_changes_requested": "Reviewer requested changes",
+      "review_failed": "Verification failed",
+      "review_recorded": "Review recorded",
+      "mission_turns_one": "{{count}} mission turn",
+      "mission_turns_other": "{{count}} mission turns",
+      "phase_group_one": "{{count}} phase",
+      "phase_group_other": "{{count}} phases",
+      "audit_group_one": "{{count}} agent action",
+      "audit_group_other": "{{count}} agent actions"
+    },
+    "phaseFailed": "{{count}} failed",
+    "findings_one": "{{count}} finding",
+    "findings_other": "{{count}} findings",
+    "cost": {
+      "billed": "{{amount}}",
+      "estimated": "~{{amount}} est.",
+      "billedTitle": "Reported by the provider",
+      "estimatedTitle": "Estimated from the local pricing table, not billed",
+      "turns_one": "{{count}} turn",
+      "turns_other": "{{count}} turns"
+    },
+    "links": {
+      "mission": "Open mission",
+      "job": "Open run",
+      "review": "Open review",
+      "pr": "Open pull request",
+      "spec": "This spec"
+    },
+    "export": {
+      "menu": "Export hand-off",
+      "markdown": "Hand-off as Markdown",
+      "html": "Hand-off as HTML bundle",
+      "copyPr": "Copy as PR description",
+      "saved": "Hand-off for #{{id}} saved",
+      "copied": "PR description for #{{id}} copied",
+      "failed": "Could not build the hand-off.",
+      "copyFailed": "Could not copy to the clipboard.",
+      "redacted_one": "{{count}} secret-like value was redacted.",
+      "redacted_other": "{{count}} secret-like values were redacted."
+    },
+    "agentRoles": {
+      "reviewer": "Reviewer",
+      "loop": "Rail",
+      "triage": "Triage",
+      "quick-spec": "Quick spec",
+      "explore-spec": "Explore",
+      "mission": "Mission",
+      "job": "Job",
+      "ai-edit": "AI edit",
+      "smash": "Split",
+      "spec-launcher": "Spec launcher",
+      "chat-sidebar": "Chat",
+      "flow": "Flow"
+    }
   }
 }

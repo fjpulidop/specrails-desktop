@@ -180,6 +180,18 @@ describe('durable mission inputs', () => {
     expect(decorateAgentInputMessages(db, [])).toEqual([])
   })
 
+  it('carries the client queue id on the persisted row so an optimistic bubble can be matched by id', () => {
+    put('First', 'q-first'); put('Second', 'q-second')
+    const delivered = deliverAgentInput(db, conversationId, 'q-second')!
+    expect(delivered.queue_id).toBe('q-second')
+    const decorated = decorateAgentInputMessages(db, listAgentMessages(db, conversationId))
+    expect(decorated).toHaveLength(1)
+    expect(decorated[0]).toMatchObject({ id: delivered.id, queue_id: 'q-second' })
+    // Ordinary history has no queue id.
+    const ordinary = addAgentMessage(db, { conversationId, role: 'assistant', content: 'Plain' })
+    expect(decorateAgentInputMessages(db, [ordinary])[0]).not.toHaveProperty('queue_id')
+  })
+
   it('persists sent before provider handoff and advances receipts on the same original message', () => {
     const original = put().input
     expect(original.receipt).toBe('sent')
@@ -290,7 +302,7 @@ it('migrations27–28 upgrade an existing desktop database without rewriting its
     db.exec('DROP TABLE agent_inputs; DELETE FROM schema_migrations WHERE version >= 27')
     db.close(); db = initDesktopDb(file)
     expect(listAgentMessages(db, conversation.id)).toEqual([legacy])
-    expect(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 34 })
+    expect(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 37 })
     expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'project_repositories'").get()).toBeTruthy()
     expect(enqueueAgentInput(db, { conversationId: conversation.id, queueId: 'after-upgrade', text: 'New update' }).created).toBe(true)
     db.close(); db = initDesktopDb(file)
@@ -325,7 +337,7 @@ it('migration28 adds receipts in place and backfills only accepted legacy inputs
     const oldIndexes = db.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'agent_inputs' ORDER BY name").all()
     const oldRootPage = db.prepare("SELECT rootpage FROM sqlite_master WHERE type = 'table' AND name = 'agent_inputs'").get()
     db.close(); db = initDesktopDb(file)
-    expect(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 34 })
+    expect(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 37 })
     expect(db.prepare("SELECT rootpage FROM sqlite_master WHERE type = 'table' AND name = 'agent_inputs'").get()).toEqual(oldRootPage)
     expect(db.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'agent_inputs' ORDER BY name").all()).toEqual(oldIndexes)
     const upgradedRows = db.prepare('SELECT * FROM agent_inputs ORDER BY rowid').all() as Array<Record<string, unknown>>

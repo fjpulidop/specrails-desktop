@@ -54,11 +54,11 @@ describe('TicketSpendingLine', () => {
     })
     render(<TicketSpendingLine ticketId={42} />)
     await waitFor(() => expect(screen.getByText(/\$4\.20/)).toBeInTheDocument())
-    expect(screen.getByText(/12 turns/)).toBeInTheDocument()
+    expect(screen.getByText(/12 agent turns/)).toBeInTheDocument()
     expect(screen.getByText(/3m/)).toBeInTheDocument()
     expect(screen.getByText(/2 jobs/)).toBeInTheDocument()
     const button = screen.getByRole('button') as HTMLButtonElement
-    expect(button.getAttribute('aria-label')).toBe('View ticket spending in Analytics')
+    expect(button.getAttribute('aria-label')).toBe('View spec spending in Analytics')
 
     // Clicking navigates and closes the modal
     fireEvent.click(button)
@@ -150,7 +150,7 @@ describe('TicketSpendingLine', () => {
     })
     render(<TicketSpendingLine ticketId={78} />)
     await waitFor(() => expect(screen.getByText('≥$1.50')).toBeInTheDocument())
-    expect(screen.getByText(/≥3 turns/)).toBeInTheDocument()
+    expect(screen.getByText(/3\+ agent turns/)).toBeInTheDocument()
   })
 
   it('renders nothing when fetch fails', async () => {

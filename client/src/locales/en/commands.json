@@ -1,8 +1,8 @@
 {
   "palette": {
     "label": "Command palette",
-    "searchPlaceholder": "Search projects, commands, jobs...",
-    "searchPlaceholderAgent": "Search missions, projects, jobs...",
+    "searchPlaceholder": "Search, or type # @ / ? to narrow…",
+    "searchPlaceholderAgent": "Search, or type # @ / ? to narrow…",
     "noResults": "No results found.",
     "activeBadge": "active",
     "groups": {
@@ -10,7 +10,15 @@
       "missions": "Missions",
       "spec": "Spec",
       "jobs": "Jobs",
-      "navigation": "Navigation"
+      "navigation": "Navigation",
+      "actions": "Actions",
+      "recentActions": "Recent actions",
+      "recentPlaces": "Recent places",
+      "settings": "Settings",
+      "specs": "Specs",
+      "files": "Files",
+      "logs": "Job logs",
+      "docs": "Guide"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -18,7 +26,8 @@
       "projectAnalytics": "Project Analytics",
       "activityFeed": "Activity Feed",
       "desktopSettings": "Desktop Settings",
-      "docs": "Docs"
+      "docs": "Docs",
+      "replayTour": "Replay tour"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "Collapse left sidebar (keep pinned)",
@@ -31,10 +40,317 @@
     "footer": {
       "navigate": "navigate",
       "select": "select",
-      "close": "close"
+      "close": "close",
+      "actions": "actions",
+      "back": "back",
+      "removeScope": "remove scope"
     },
     "missions": {
       "home": "Home"
+    },
+    "dialogTitle": "Search and run actions",
+    "dialogDescription": "Type to filter, then press Enter to open the highlighted result.",
+    "actions": {
+      "verbs": "new,create,add,launch,run,move,open,switch,change,toggle,go,hand,pause,resume,undo,show,start,restore,select,save,clear,delete",
+      "back": "Back",
+      "newSpec": "New spec",
+      "newSpecExplore": "New spec (Explore)",
+      "launchSpec": "Launch spec on rail",
+      "launchSpecN": "Launch #{{id}} on rail",
+      "moveSpec": "Move spec to",
+      "moveSpecN": "Move #{{id}} to",
+      "openReview": "Open review",
+      "openReviewN": "Open review for #{{id}}",
+      "handOffFlow": "Hand off Flow",
+      "pauseFlow": "Pause Flow",
+      "resumeFlow": "Resume Flow",
+      "newMission": "New mission",
+      "switchTheme": "Switch theme",
+      "switchToMission": "Switch to Mission mode",
+      "switchToBoard": "Switch to Board mode",
+      "openAppSettings": "Open app settings",
+      "openProjectSettings": "Open project settings",
+      "switchProject": "Switch project",
+      "runLoop": "Run loop",
+      "toggleLeftSidebar": "Toggle left sidebar",
+      "toggleRightSidebar": "Toggle right sidebar",
+      "goBack": "Go back",
+      "goForward": "Go forward",
+      "undoLast": "Undo: {{label}}",
+      "recentlyDeleted": "Recently deleted",
+      "pages": {
+        "railTitle": "Rail for #{{id}}",
+        "railPlaceholder": "Pick a rail...",
+        "railRunning": "running",
+        "railHasSpec": "already here",
+        "noRails": "No rails available.",
+        "statusTitle": "Move #{{id}} to",
+        "statusPlaceholder": "Pick a status...",
+        "noStatuses": "No statuses available.",
+        "current": "current",
+        "specTitle": "Pick a spec",
+        "specPlaceholder": "Search specs...",
+        "noSpecs": "No matching specs.",
+        "themeTitle": "Theme",
+        "themePlaceholder": "Pick a theme...",
+        "noThemes": "No themes available.",
+        "appSettingsTitle": "App settings",
+        "projectSettingsTitle": "Project settings",
+        "sectionPlaceholder": "Pick a section...",
+        "noSections": "No sections.",
+        "projectTitle": "Projects",
+        "projectPlaceholder": "Pick a project...",
+        "noProjects": "No other projects.",
+        "loopTitle": "Loops you can run now",
+        "loopPlaceholder": "Pick a loop...",
+        "noLoops": "No loops can run without a spec.",
+        "loading": "Loading...",
+        "loadFailed": "Could not load the options.",
+        "statusSelectedTitle": "Move the selection to",
+        "labelSelectedTitle": "Add a label to the selection",
+        "labelPlaceholder": "Pick a label...",
+        "noLabels": "No labels to add.",
+        "prioritySelectedTitle": "Priority for the selection",
+        "priorityPlaceholder": "Pick a priority...",
+        "noPriorities": "No priorities available.",
+        "railSelectedTitle": "Rail for the selection",
+        "viewTitle": "Saved views",
+        "viewPlaceholder": "Pick a view...",
+        "noViews": "No saved views."
+      },
+      "openInbox": "Open inbox",
+      "openInboxCount": "Open inbox ({{count}} waiting)",
+      "opensOptions": "opens options",
+      "selectAll": "Select all in column",
+      "clearSelection": "Clear selection",
+      "moveSelected": "Move selected specs to",
+      "moveSelectedN_one": "Move {{count}} selected spec to",
+      "moveSelectedN_other": "Move {{count}} selected specs to",
+      "labelSelected": "Add label to selected specs",
+      "labelSelectedN_one": "Add label to {{count}} selected spec",
+      "labelSelectedN_other": "Add label to {{count}} selected specs",
+      "prioritySelected": "Set priority of selected specs",
+      "prioritySelectedN_one": "Set priority of {{count}} selected spec",
+      "prioritySelectedN_other": "Set priority of {{count}} selected specs",
+      "railSelected": "Add selected specs to a rail",
+      "railSelectedN_one": "Add {{count}} selected spec to a rail",
+      "railSelectedN_other": "Add {{count}} selected specs to a rail",
+      "launchSelected": "Launch selected specs",
+      "launchSelectedN_one": "Launch {{count}} selected spec",
+      "launchSelectedN_other": "Launch {{count}} selected specs",
+      "deleteSelected": "Delete selected specs",
+      "deleteSelectedN_one": "Delete {{count}} selected spec",
+      "deleteSelectedN_other": "Delete {{count}} selected specs",
+      "saveView": "Save current view",
+      "switchView": "Switch view",
+      "openBudget": "Open Spend limits (limits, projection, what-if)",
+      "openBudgetKeywords": "budget, cap, limit, weekly, monthly, spend, cost",
+      "exportHandoffN": "Export hand-off for #{{id}}",
+      "copyPrDescriptionN": "Copy PR description for #{{id}}",
+      "exportHandoff": "Export hand-off",
+      "copyPrDescription": "Copy PR description",
+      "moveFocusedSpec": "Move focused spec…"
+    },
+    "scopes": {
+      "remove": "Remove scope",
+      "needsProject": "Open a project to search here.",
+      "searching": "Searching…",
+      "failed": "Search is unavailable right now.",
+      "empty": "Nothing found for “{{query}}”.",
+      "specs": {
+        "label": "Specs",
+        "placeholder": "Search specs by title, description, labels or notes…",
+        "prompt": "Type to search specs."
+      },
+      "missions": {
+        "label": "Missions",
+        "placeholder": "Search missions by title or content…",
+        "prompt": "Type to search missions."
+      },
+      "settings": {
+        "label": "Settings",
+        "placeholder": "Search settings…",
+        "prompt": "Type to search settings.",
+        "commandsFallback": "Commands matching “/{{query}}”"
+      },
+      "files": {
+        "label": "Files",
+        "placeholder": "Find a file by name or path…",
+        "prompt": "Type a file name or path."
+      },
+      "logs": {
+        "label": "Job logs",
+        "placeholder": "Search job commands, phases and failures…",
+        "prompt": "Type to search what your runs did and why they failed."
+      },
+      "docs": {
+        "label": "Guide",
+        "placeholder": "Search the guide…",
+        "prompt": "Type to search the guide."
+      }
+    },
+    "specs": {
+      "fields": {
+        "id": "Spec number",
+        "title": "Title",
+        "summary": "Summary",
+        "description": "Description",
+        "label": "Label",
+        "nonGoal": "Out of scope",
+        "addendum": "Addendum",
+        "comment": "Comment"
+      }
+    },
+    "logs": {
+      "fields": {
+        "command": "Command",
+        "loop": "Loop",
+        "phase": "Phase",
+        "failure": "Failure",
+        "detail": "Detail"
+      }
+    },
+    "settings": {
+      "appScope": "Desktop settings",
+      "projectScope": "Project settings",
+      "entries": {
+        "theme": {
+          "label": "Appearance and theme",
+          "keywords": "theme, dark, light, colors, appearance, look"
+        },
+        "language": {
+          "label": "Language",
+          "keywords": "language, locale, translation, idioma"
+        },
+        "effects": {
+          "label": "Visual effects",
+          "keywords": "effects, animation, motion, starfield, background"
+        },
+        "editor": {
+          "label": "Editor",
+          "keywords": "editor, vscode, open in editor, ide, cursor"
+        },
+        "codeSection": {
+          "label": "Code explorer",
+          "keywords": "code, explorer, files, syntax, highlight"
+        },
+        "terminalApp": {
+          "label": "Terminal panel (Desktop)",
+          "keywords": "terminal, shell, font, renderer, copy on select"
+        },
+        "providers": {
+          "label": "AI providers and connections",
+          "keywords": "provider, claude, codex, gemini, api key, login, engine, local"
+        },
+        "subagentsApp": {
+          "label": "Sub-agents (Desktop)",
+          "keywords": "sub-agents, subagents, native, delegated, parallel"
+        },
+        "mobileCompanion": {
+          "label": "Mobile companion",
+          "keywords": "mobile, companion, phone, pair, qr, ipad, remote"
+        },
+        "registeredProjects": {
+          "label": "Registered projects",
+          "keywords": "projects, remove project, repositories, registered"
+        },
+        "budgetAlerts": {
+          "label": "Daily limit and cost alerts",
+          "keywords": "budget, daily, cost, spend, limit, alert, usd, money"
+        },
+        "notifications": {
+          "label": "OS notifications",
+          "keywords": "notifications, alerts, sound, desktop notifications"
+        },
+        "webhooks": {
+          "label": "Outbound webhooks",
+          "keywords": "webhook, http, slack, discord, events, notify"
+        },
+        "updateChannel": {
+          "label": "Update channel",
+          "keywords": "update channel, beta, stable, release"
+        },
+        "appUpdate": {
+          "label": "Specrails Desktop updates",
+          "keywords": "update, upgrade, version, desktop update"
+        },
+        "coreUpdate": {
+          "label": "Specrails Core updates",
+          "keywords": "core, update, version, framework, specrails-core"
+        },
+        "about": {
+          "label": "Desktop information",
+          "keywords": "about, info, port, database, version"
+        },
+        "repositories": {
+          "label": "Repositories",
+          "keywords": "repository, repo, workspace, folder, git, multi-repo, primary"
+        },
+        "prePrompt": {
+          "label": "Rail pre-prompt",
+          "keywords": "pre-prompt, preprompt, instructions, prompt, rail, freestyle"
+        },
+        "verificationCommands": {
+          "label": "Verification commands",
+          "keywords": "verification, test command, lint, typecheck, build, setup, commands"
+        },
+        "subagentsProject": {
+          "label": "Sub-agents (project)",
+          "keywords": "sub-agents, subagents, native, delegated, parallel, project"
+        },
+        "integrationBranch": {
+          "label": "Integration branch",
+          "keywords": "branch, integration, main, base branch, git, merge target"
+        },
+        "worktreeEnv": {
+          "label": "Worktree environment",
+          "keywords": "worktree, environment, env, variables, .env, dependencies, install"
+        },
+        "agentEnv": {
+          "label": "Agent environment",
+          "keywords": "agent environment, env mode, variables, secrets, isolated"
+        },
+        "projectBudget": {
+          "label": "Project daily limit",
+          "keywords": "budget, daily, cost, spend, limit, pause, usd"
+        },
+        "reviewLimit": {
+          "label": "Review limit",
+          "keywords": "review limit, wip, on review, pull requests, queue"
+        },
+        "telemetry": {
+          "label": "Pipeline telemetry",
+          "keywords": "telemetry, tracing, logs, diagnostics, metrics"
+        },
+        "agentAudit": {
+          "label": "Agent actions audit",
+          "keywords": "audit, agent actions, log, tool calls, history"
+        },
+        "anchoring": {
+          "label": "Existing-project anchoring",
+          "keywords": "anchoring, existing project, conventions, baseline, scan"
+        },
+        "projectRules": {
+          "label": "Project rules",
+          "keywords": "rules, conventions, gates, checks, agents.md, guardrails"
+        },
+        "terminalProject": {
+          "label": "Terminal panel (project)",
+          "keywords": "terminal, shell, project terminal, font"
+        },
+        "recentlyDeleted": {
+          "label": "Recently deleted",
+          "keywords": "deleted, trash, restore, undelete, recycle"
+        },
+        "density": {
+          "label": "Density",
+          "keywords": "density, compact, comfortable, spacing, rows, cards, accessibility"
+        },
+        "reduceMotion": {
+          "label": "Reduce motion",
+          "keywords": "reduce motion, animation, accessibility, vestibular, calm, transitions"
+        }
+      }
     }
   },
   "toasts": {
@@ -73,7 +389,8 @@
     "categories": {
       "general": "General",
       "navigation": "Navigation",
-      "actions": "Actions"
+      "actions": "Actions",
+      "missions": "Missions"
     },
     "items": {
       "showCheatsheet": "Show keyboard shortcuts",
@@ -90,8 +407,31 @@
       "goAnalytics": "Go to Analytics",
       "goSettings": "Go to Settings",
       "nextItem": "Next item in list",
-      "prevItem": "Previous item in list"
-    }
+      "prevItem": "Previous item in list",
+      "runStripFocus": "Jump to the mission's run strip (press again to show or hide details)",
+      "runStripCycle": "Previous / next run in the run strip (outside text fields)",
+      "runStripBack": "Leave the run strip, back to where you were",
+      "flowPause": "Pause or resume the Flow (run strip focused)",
+      "flowHandOff": "Hand off the Flow (run strip focused)",
+      "historyBackForward": "Go back / forward to the previous place",
+      "undoLast": "Undo the last change",
+      "openInbox": "Open the Needs you inbox",
+      "reviewFiles": "Review: next / previous changed file",
+      "reviewAnnotations": "Review: next / previous annotation",
+      "reviewViewed": "Review: mark the file viewed",
+      "boardSelect": "Board: select / deselect the focused spec",
+      "boardSelectClick": "Board: click toggles a spec, Shift+click selects a range",
+      "boardSelectColumn": "Board: select every spec in the column",
+      "boardClearSelection": "Board: clear the selection",
+      "boardMove": "Board: move the focused spec (status or rail)"
+    },
+    "searchLabel": "Search shortcuts and guides",
+    "searchPlaceholder": "Search shortcuts and guides…",
+    "noShortcuts": "No shortcut matches “{{query}}”.",
+    "guidesHeading": "From the guide",
+    "openGuide": "Open guide: {{title}}",
+    "noGuides": "No guide matches “{{query}}”.",
+    "searching": "Searching the guide…"
   },
   "update": {
     "title": {

@@ -1,4 +1,4 @@
-# Specrails von jeder KI aus steuern (MCP-Server)
+# Specrails von jeder KI aus steuern (MCP-Server) {#mcp-server}
 
 > **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude and Codex. It includes verified bridge discovery, registration and read-only checks.
 

@@ -49,12 +49,14 @@
     "noContent": "No content available.",
     "pathCopied": "Path copied",
     "copyPathFailed": "Could not copy path",
-    "budgetPrompt": "Override the budget cap?",
+    "budgetPrompt": "Override the spend limit?",
     "edit": "Edit",
     "save": "Save",
     "saving": "Saving…",
     "saved": "File saved",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "budgetPromptBody": "The AI spend limit for file summaries has been reached. Regenerating anyway runs one more summary beyond the limit.",
+    "budgetPromptConfirm": "Regenerate anyway"
   },
   "summary": {
     "generationFailed": "Summary generation failed",
@@ -99,7 +101,7 @@
     "explaining": "Explaining…",
     "explainFailed": "Could not generate the explanation",
     "explainUnavailable": "AI explanation is unavailable because the selected provider cannot enforce safe pure-output mode.",
-    "budgetReached": "Monthly AI budget reached.",
+    "budgetReached": "Monthly AI spend limit reached.",
     "generateAnyway": "Generate anyway",
     "explainedBy": "Explained by {{model}}",
     "linesAdded": "Lines added",
@@ -150,7 +152,7 @@
     "loadingEditor": "Loading editor…"
   },
   "ticketFiles": {
-    "title": "Files touched by this ticket",
+    "title": "Files touched by this spec",
     "jobTitle": "Job {{jobId}}",
     "loading": "Loading recorded files…",
     "loadFailed": "Could not load recorded files.",

@@ -1,6 +1,8 @@
 import * as path from 'path'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from '../../runtime/rail-worktree-release'
-import { getPrDelivery, toPrDeliverySnapshot, type RailPrDeliveryRow } from '../../runtime/rail-pr-store'
+import { getPrDelivery, setPrDeliveryLocalStash, toPrDeliverySnapshot, type LocalStashRecord, type RailPrDeliveryRow } from '../../runtime/rail-pr-store'
+import { changedPathsBetween, listUserDirtyPaths, pathsOverlap, recordAfterRestore, restoreLocalChanges, saveLocalChanges } from '../../runtime/local-stash'
+import { handleConflictingRestore, localChangesBody } from './local-changes'
 import { newId } from '../../../../ids'
 import { withRepoLock } from '../../../../repo-lock'
 import { isValidBranchName } from '../../../../integration-branch'
@@ -85,7 +87,9 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
 
   // Snapshot branch/HEAD before assembly. Local edits are allowed: the final
   // non-forced fast-forward leaves unrelated work intact and Git atomically
-  // refuses any overwrite, including ignored files.
+  // refuses any overwrite, including ignored files. Uncommitted work that
+  // overlaps the delivery is saved as a stash first and restored afterwards
+  // (proactive-local-integration) — never discarded.
   const head = await deps.git.run(['symbolic-ref', '--quiet', 'HEAD'], targetRepo)
   const currentBranch = head.code === 0 ? head.stdout.trim().replace(/^refs\/heads\//, '') : ''
   if (currentBranch !== integrationTarget) {
@@ -220,22 +224,62 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
       return { status: 409, body: { error: 'merge_local_blocked', reason: changedReason, base: integrationTarget } }
     }
 
-    const advanced = await deps.git.run(['merge', '--ff-only', '--no-overwrite-ignore', assembledSha], targetRepo)
+    // The person's uncommitted work that overlaps the delivery is saved as a
+    // stash (by commit sha, recorded durably BEFORE the branch moves) so the
+    // fast-forward can run; it is re-applied right after.
+    let stash: LocalStashRecord | null = null
+    const saveStash = async (): Promise<PrDecisionResult | null> => {
+      const saved = await saveLocalChanges({ git: deps.git, repo: targetRepo, branch: integrationTarget, deliveryId: row.id, ticketIds: snap.ticketIds })
+      if (!saved.ok) {
+        return { status: 409, body: { error: 'merge_local_blocked', reason: 'dirty', base: integrationTarget, detail: saved.detail } }
+      }
+      stash = saved.record
+      setPrDeliveryLocalStash(deps.db, row.id, saved.record)
+      return null
+    }
+    const dirty = await listUserDirtyPaths(deps.git, targetRepo)
+    if (dirty && dirty.length > 0) {
+      const changed = await changedPathsBetween(deps.git, targetRepo, startingSha, assembledSha)
+      if (!changed || pathsOverlap(dirty, changed)) {
+        const blocked = await saveStash()
+        if (blocked) { await removeAssembly(); return blocked }
+      }
+    }
+    const fastForward = () => deps.git.run(['merge', '--ff-only', '--no-overwrite-ignore', assembledSha], targetRepo)
+    const refusedByLocalChanges = (r: { stdout: string; stderr: string }) => /would be overwritten|local changes|untracked working tree/i.test(`${r.stderr}\n${r.stdout}`)
+    let advanced = await fastForward()
+    if (advanced.code !== 0 && !stash && refusedByLocalChanges(advanced) && (dirty === null || dirty.length > 0)) {
+      // Git saw an overlap the path comparison did not (e.g. case folding):
+      // take the same stash path, then retry once.
+      const blocked = await saveStash()
+      if (blocked) { await removeAssembly(); return blocked }
+      advanced = await fastForward()
+    }
     if (advanced.code !== 0) {
       await removeAssembly()
-      if (/would be overwritten|local changes|untracked working tree/i.test(`${advanced.stderr}\n${advanced.stdout}`)) {
+      // The branch did not move: put the saved work straight back.
+      let localChanges: Record<string, unknown> | undefined
+      const failedStash = stash as LocalStashRecord | null
+      if (failedStash) {
+        const current: LocalStashRecord = failedStash
+        const next = recordAfterRestore(current, await restoreLocalChanges(deps.git, current))
+        setPrDeliveryLocalStash(deps.db, row.id, next)
+        localChanges = localChangesBody(next)
+      }
+      if (refusedByLocalChanges(advanced)) {
         return {
           status: 409,
           body: {
             error: 'merge_local_blocked', reason: 'dirty', base: integrationTarget,
             detail: (advanced.stderr.trim() || advanced.stdout.trim()).slice(0, 1200),
+            ...(localChanges ? { localChanges } : {}),
           },
         }
       }
       const detail = (advanced.stderr.trim() || advanced.stdout.trim()).split('\n')[0] || `exit ${advanced.code}`
       const conflict = persistAssemblyFailure(`advancing '${integrationTarget}': ${detail}`)
       if (conflict) return conflict
-      return { status: 502, body: { error: 'merge_failed', detail: `advancing '${integrationTarget}': ${detail}` } }
+      return { status: 502, body: { error: 'merge_failed', detail: `advancing '${integrationTarget}': ${detail}`, ...(localChanges ? { localChanges } : {}) } }
     }
     const [acceptedBranch, acceptedHead, acceptedBase] = await Promise.all([
       deps.git.run(['symbolic-ref', '--quiet', 'HEAD'], targetRepo),
@@ -253,12 +297,29 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
       safetyArchiveRecorder(deps, row)(assemblyPath)
       const detail = `The integration checkout changed during the final advance. The assembled result is preserved at ${assemblyPath}.`
       cleanupWarnings.push(detail)
+      // Never re-apply onto a checkout someone else just moved: the saved
+      // work stays recorded (`saved`) for Restore / startup recovery.
+      const savedStash = stash as LocalStashRecord | null
+      if (savedStash) cleanupWarnings.push(`Your local changes are saved as the stash "${savedStash.name}".`)
       const conflict = casTransition(deps, row, row.decision, { cleanupWarnings, statusCode: 'delivery_failed', statusDetail: detail })
       if (conflict) return conflict
       finalizeTransition(deps, row.id)
       return { status: 409, body: { error: 'merge_local_blocked', reason: 'head_changed', base: integrationTarget, detail } }
     }
     await removeAssembly()
+
+    // Re-apply the saved work onto the integrated tree. A conflict rolls back
+    // only the stash's own paths and KEEPS the stash; Specrails then restores
+    // it on its own branch + worktree (the mission is only informed).
+    let restoredStash: LocalStashRecord | null = null
+    const advancedStash = stash as LocalStashRecord | null
+    if (advancedStash) {
+      const restore = await restoreLocalChanges(deps.git, advancedStash)
+      if (restore.state !== 'blocked') cleanupWarnings.push(...restore.warnings)
+      restoredStash = recordAfterRestore(advancedStash, restore)
+      setPrDeliveryLocalStash(deps.db, row.id, restoredStash)
+    }
+    const localChangesNeedAttention = !!restoredStash && (restoredStash.state === 'needs_attention' || restoredStash.state === 'saved')
 
     // Post-advance sweep: the work now lives on
     // the integration branch, so the launch's worktrees + branches are spent.
@@ -281,7 +342,7 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
       decidedAt: decisionInstant(row),
       mergedAt: new Date().toISOString(),
       deliveryOutcome: 'delivered',
-      statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'merged',
+      statusCode: localChangesNeedAttention ? 'local_changes_attention' : cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'merged',
       cleanupWarnings,
     }, {
       deliveryId: row.id,
@@ -294,7 +355,8 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
     applyTerminalTicketEffect(deps, row, 'merged', cleanupWarnings)
     finalizeTransition(deps, row.id)
     await sweepMergedChainAncestors(deps, row)
-    return { status: 200, body: { ok: true, decision: 'merged', merged: true, local: true } }
+    if (restoredStash?.state === 'needs_attention') handleConflictingRestore(deps, row, restoredStash, integrationTarget)
+    return { status: 200, body: { ok: true, decision: 'merged', merged: true, local: true, ...(restoredStash ? { localChanges: localChangesBody(restoredStash) } : {}) } }
   } finally {
     // Runner exceptions (spawn failures/timeouts) must release the temporary
     // assembly as well. A failed non-force removal leaves a recorded archive.

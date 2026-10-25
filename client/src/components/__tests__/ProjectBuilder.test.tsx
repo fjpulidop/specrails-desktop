@@ -1,7 +1,7 @@
 import React from 'react'
 import { premiumDescription, premiumCriteria } from '../../lib/__tests__/premium-spec-fixture'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { cleanup, render, screen, waitFor } from '../../test-utils'
+import { cleanup, render, screen, waitFor, within } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { AddProjectDialog } from '../../features/projects/components/AddProjectDialog'
 import { BlueprintPanel } from '../../features/builder/components/project-builder/BlueprintPanel'
@@ -191,7 +191,9 @@ describe('BlueprintPanel', () => {
     expect(screen.getAllByTestId(/^blueprint-spec-criterion-/)).toHaveLength(6)
     expect(modal).toHaveTextContent('When the persistence layer is unavailable (foundation)')
     expect(modal).toHaveTextContent('end-to-end tests cover the happy path')
-    await user.click(screen.getByTestId('blueprint-spec-modal-close'))
+    // Entity layer: it must sit above the floating agent panel (z-60).
+    expect(modal).toHaveAttribute('data-dialog-layer', 'entity')
+    await user.click(within(modal).getByRole('button', { name: 'Close' }))
     expect(screen.queryByTestId('blueprint-spec-modal')).not.toBeInTheDocument()
   })
 })
@@ -729,7 +731,9 @@ describe('BlueprintReadiness (writing state)', () => {
     expect(screen.getByTestId('readiness-step-specs')).toHaveAttribute('data-state', 'writing')
     expect(screen.getByTestId('readiness-step-specs')).toHaveTextContent('2 of 8 written')
     expect(screen.getByTestId('readiness-step-audit')).toHaveTextContent('after the specs are written')
-    expect(screen.getByTestId('readiness-step-specs').querySelector('svg')).toHaveClass('animate-spin')
+    // "Being written" is a live lamp, never a spinner.
+    expect(screen.getByTestId('readiness-step-specs').querySelector('svg.animate-spin')).toBeNull()
+    expect(screen.getByTestId('readiness-step-specs').querySelector('[data-live-ring], span.rounded-full')).not.toBeNull()
     expect(screen.queryByTestId('readiness-issues')).toBeNull()
     expect(screen.getByText(/The Builder is writing every spec in full/)).toBeInTheDocument()
   })

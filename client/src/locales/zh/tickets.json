@@ -27,22 +27,22 @@
     "priority": "优先级",
     "labels": "标签",
     "markdownPlaceholder": "Markdown 描述…",
-    "supportsMarkdown": "支持 Markdown"
+    "supportsMarkdown": "支持 Markdown",
+    "removeLabel": "移除标签 {{label}}"
   },
   "meta": {
     "createdAgo": "创建于 {{time}}",
     "updatedAgo": "更新于 {{time}}"
   },
   "untitled": "未命名",
-  "deleteDialog": {
-    "title": "删除工单",
-    "body": "确定要删除 <strong>#{{id}} {{title}}</strong> 吗？此操作无法撤销。"
-  },
   "detailModal": {
+    "moreActions": "更多操作",
+    "openReview": "打开评审",
+    "viewJob": "查看作业",
     "toast": {
-      "updated": "工单已更新",
-      "updateFailed": "更新工单失败",
-      "deleteFailed": "删除工单失败"
+      "updated": "规格已更新",
+      "updateFailed": "更新规格失败",
+      "deleteFailed": "删除规格失败"
     },
     "compare": "对比",
     "compareTooltip": "与另一个 spec 对比",
@@ -54,22 +54,23 @@
     "effort": "工作量",
     "assignee": "负责人",
     "continueEditing": "继续编辑",
-    "ticketFallbackLabel": "工单 #{{id}}"
+    "ticketFallbackLabel": "规格 #{{id}}",
+    "spendingLineHint": "到目前为止在此规格上的全部消耗：总成本 · 智能体轮次（末尾的 + 表示部分运行未报告轮次）· 活跃时间 · 按类型统计的运行（例如“1 quick, 3 loops”= 一次 Quick 规格生成和三次 loop 运行）。点击可在 Analytics 中打开。"
   },
   "contractLayer": {
     "title": "Contract Layer",
     "populated": "已填充 {{n}}/5"
   },
   "rail": {
-    "moveToRail": "放入 Rail",
-    "removeFromRail": "从 Rail 移除",
+    "moveToRail": "放入 rail",
+    "removeFromRail": "从 rail 移除",
     "currentlyOn": "当前位于 {{rail}}",
     "popoverTitle": "放入 rail",
     "noRails": "没有可用的 rail。"
   },
   "contextMenu": {
-    "ariaLabel": "工单操作",
-    "deleteTicket": "删除工单",
+    "ariaLabel": "规格操作",
+    "deleteTicket": "删除规格",
     "changeStatus": "更改状态",
     "statusOptions": "状态选项",
     "setPriority": "设置优先级",
@@ -81,15 +82,16 @@
     "postit": "便签视图"
   },
   "createModal": {
-    "title": "创建工单",
-    "titlePlaceholder": "工单标题…",
+    "title": "创建规格",
+    "titlePlaceholder": "规格标题…",
     "labelsPlaceholder": "输入以添加标签…",
     "create": "创建",
     "creating": "正在创建…",
     "toast": {
-      "created": "工单已创建",
-      "createFailed": "创建工单失败"
-    }
+      "created": "规格已创建",
+      "createFailed": "创建规格失败"
+    },
+    "description": "手动向看板添加一个规格。它会以你选择的状态开始，之后可以继续完善或移到 rail。"
   },
   "comparePicker": {
     "title": "选择对比对象…",
@@ -99,21 +101,23 @@
     "empty": "没有其他可对比的 spec"
   },
   "spendingLine": {
-    "ariaLabel": "在分析页查看此工单的支出",
-    "turns_one": "{{count}} 轮",
-    "turns_other": "{{count}} 轮",
+    "ariaLabel": "在分析页查看此规格的支出",
+    "turns_one": "{{count}} 轮智能体交互",
+    "turns_other": "{{count}} 轮智能体交互",
+    "turnsAtLeast_one": "{{count}}+ 轮智能体交互",
+    "turnsAtLeast_other": "{{count}}+ 轮智能体交互",
     "active": "活跃 {{duration}}",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。",
-    "costUnavailableTooltip": "此工单的所有调用均未提供成本遥测数据。",
+    "costUnavailableTooltip": "此规格的所有调用均未提供成本遥测数据。",
     "costPartiallyUnavailableTooltip": "仅显示已知成本小计；部分调用未提供成本遥测数据。",
-    "turnsUnavailableTooltip": "此工单的轮次遥测数据不可用。",
+    "turnsUnavailableTooltip": "此规格的轮次遥测数据不可用。",
     "turnsPartiallyUnavailableTooltip": "仅显示已知轮次小计；部分调用未提供轮次遥测数据。"
   },
   "toasts": {
-    "newTicket": "新工单：{{title}}",
-    "newTicketsAdded_one": "已从产品发现新增 {{count}} 个工单",
-    "newTicketsAdded_other": "已从产品发现新增 {{count}} 个工单"
+    "newTicket": "新规格：{{title}}",
+    "newTicketsAdded_one": "已从产品发现新增 {{count}} 个规格",
+    "newTicketsAdded_other": "已从产品发现新增 {{count}} 个规格"
   },
   "addenda": {
     "title": "附录",
@@ -187,5 +191,137 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "未知交付（{{id}}）"
+  },
+  "nonGoals": {
+    "title": "不在范围内",
+    "ariaLabel": "不在范围内，每行一项",
+    "placeholder": "此规格有意不更改或不交付的内容，每行一项",
+    "onePerLine": "每行一项",
+    "add": "添加此规格不涵盖的内容"
+  },
+  "split": {
+    "label": "比较规格",
+    "resize": "调整面板大小"
+  },
+  "timeline": {
+    "tabs": {
+      "aria": "规格分区",
+      "details": "详情",
+      "timeline": "时间线"
+    },
+    "filters": {
+      "aria": "按类型筛选"
+    },
+    "kinds": {
+      "spec_edit": "规格",
+      "addendum": "补充",
+      "mission_turn": "任务",
+      "job": "运行",
+      "phase": "阶段",
+      "audit": "智能体操作",
+      "pr_event": "PR",
+      "review": "评审"
+    },
+    "loading": "正在加载时间线…",
+    "error": "无法加载时间线。",
+    "retry": "重试",
+    "loadMore": "显示更早的",
+    "empty": {
+      "title": "此规格尚无任何记录",
+      "description": "编辑、补充、任务、运行、PR 事件和评审结论会在发生时显示在这里。",
+      "filtered": "没有此类条目。",
+      "refresh": "刷新"
+    },
+    "today": "今天",
+    "yesterday": "昨天",
+    "expand": "显示详情",
+    "collapse": "隐藏详情",
+    "actors": {
+      "user": "你",
+      "mcp": "外部客户端",
+      "system": "系统",
+      "agent": "智能体"
+    },
+    "tone": {
+      "failure": "失败",
+      "review": "待评审",
+      "ok": "完成"
+    },
+    "events": {
+      "spec_created": "规格已创建",
+      "spec_updated": "规格已编辑",
+      "spec_comment": "已添加评论",
+      "spec_ai_ai-edit": "已用 AI 编辑",
+      "spec_ai_quick-spec": "已用 Quick 生成",
+      "spec_ai_smash": "已拆分为子规格",
+      "spec_ai_triage": "已分诊",
+      "spec_ai_spec-launcher": "已用 AI 启动",
+      "addendum_created": "已添加补充",
+      "addendum_applied": "补充已应用",
+      "addendum_in_flight": "补充进行中",
+      "addendum_dismissed": "补充已忽略",
+      "job_run": "运行",
+      "pr_delivery_started": "交付已开始",
+      "pr_ready_for_review": "可供评审",
+      "pr_published": "拉取请求已发布",
+      "pr_merged": "已合并",
+      "pr_failed": "交付失败",
+      "pr_discarded": "交付已丢弃",
+      "pr_superseded": "交付已被取代",
+      "review_approved": "评审已批准",
+      "review_changes_requested": "评审要求修改",
+      "review_failed": "验证失败",
+      "review_recorded": "已记录评审",
+      "mission_turns_one": "{{count}} 轮任务交互",
+      "mission_turns_other": "{{count}} 轮任务交互",
+      "phase_group_one": "{{count}} 个阶段",
+      "phase_group_other": "{{count}} 个阶段",
+      "audit_group_one": "{{count}} 个智能体操作",
+      "audit_group_other": "{{count}} 个智能体操作"
+    },
+    "phaseFailed": "{{count}} 个失败",
+    "findings_one": "{{count}} 项发现",
+    "findings_other": "{{count}} 项发现",
+    "cost": {
+      "billed": "{{amount}}",
+      "estimated": "约 {{amount}}（估算）",
+      "billedTitle": "由提供方报告",
+      "estimatedTitle": "按本地价格表估算，非实际计费",
+      "turns_one": "{{count}} 轮",
+      "turns_other": "{{count}} 轮"
+    },
+    "links": {
+      "mission": "打开任务",
+      "job": "打开运行",
+      "review": "打开评审",
+      "pr": "打开拉取请求",
+      "spec": "此规格"
+    },
+    "export": {
+      "menu": "导出交接",
+      "markdown": "交接（Markdown）",
+      "html": "交接（HTML）",
+      "copyPr": "复制为 PR 描述",
+      "saved": "已保存 #{{id}} 的交接",
+      "copied": "已复制 #{{id}} 的 PR 描述",
+      "failed": "无法生成交接文档。",
+      "copyFailed": "无法复制到剪贴板。",
+      "redacted_one": "已隐去 {{count}} 个疑似机密的值。",
+      "redacted_other": "已隐去 {{count}} 个疑似机密的值。"
+    },
+    "agentRoles": {
+      "reviewer": "评审",
+      "loop": "Rail",
+      "triage": "分诊",
+      "quick-spec": "快速 Spec",
+      "explore-spec": "探索",
+      "mission": "任务",
+      "job": "作业",
+      "ai-edit": "AI 编辑",
+      "smash": "拆分",
+      "spec-launcher": "Spec 启动器",
+      "chat-sidebar": "聊天",
+      "flow": "Flow"
+    }
   }
 }

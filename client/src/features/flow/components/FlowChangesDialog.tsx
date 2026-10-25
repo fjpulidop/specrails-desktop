@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileMinus2, FilePen, FilePlus2, FileQuestion, Files, Loader2, RefreshCw } from 'lucide-react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { cn } from '../../../lib/utils'
 import { flowApi, type Flow, type FlowDiff, type FlowDiffFile } from '../lib/flow-api'
 
@@ -43,43 +43,47 @@ export function FlowChangesDialog({ projectId, flow, initial, onClose }: { proje
   const files = diff?.files ?? []
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent movableResizable className="z-[70] max-w-xl" overlayClassName="z-[70]" data-testid="flow-changes-dialog">
-        <DialogHeader>
+      {/* Opened from the Flow strip, which can sit inside the floating chat (z-60): stacked layer. */}
+      <DialogContent size="wide" layer="stacked" data-testid="flow-changes-dialog">
+        <DialogHeader
+          actions={(
+            <button type="button" onClick={() => setVersion((v) => v + 1)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-surface hover:text-foreground">
+              {state === 'loading' ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <RefreshCw className="h-3 w-3" aria-hidden />}
+              {t('flow.changes.refresh')}
+            </button>
+          )}
+        >
           <DialogTitle>{t('flow.changes.title')}</DialogTitle>
           <DialogDescription>
             {flow.branch ? t('flow.changes.subtitle', { branch: flow.branch }) : t('flow.changes.subtitleNoBranch')}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex items-center justify-between gap-2 text-xs text-foreground/65">
-          <span className="tabular-nums" data-testid="flow-changes-totals">
+        <DialogBody className="space-y-3">
+          <p className="text-xs tabular-nums text-muted-foreground" data-testid="flow-changes-totals">
             {t('flow.bar.files', { count: diff?.totals.files ?? 0 })}
             {diff && <> · <span className="text-accent-success">+{diff.totals.additions}</span> <span className="text-destructive">−{diff.totals.deletions}</span></>}
-          </span>
-          <button type="button" onClick={() => setVersion((v) => v + 1)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-surface hover:text-foreground">
-            {state === 'loading' ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <RefreshCw className="h-3 w-3" aria-hidden />}
-            {t('flow.changes.refresh')}
-          </button>
-        </div>
-        {state === 'error' && !diff && <p role="alert" className="text-xs text-destructive">{t('flow.changes.loadFailed')}</p>}
-        {state !== 'error' && files.length === 0 && state === 'ready' && (
-          <p className="rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-xs text-foreground/50">{t('flow.changes.empty')}</p>
-        )}
-        {files.length > 0 && (
-          <ul className="max-h-[50vh] divide-y divide-border/40 overflow-y-auto rounded-lg border border-border/50" aria-label={t('flow.changes.title')}>
-            {files.map((file) => {
-              const Icon = STATUS_ICON[file.status] ?? FilePen
-              return (
-                <li key={file.path} className="flex items-center gap-2 px-3 py-1.5 text-xs" data-testid="flow-changes-file">
-                  <Icon className={cn('h-3.5 w-3.5 shrink-0', STATUS_TONE[file.status])} aria-hidden />
-                  <span className="sr-only">{t(`flow.changes.status.${file.status}`)}</span>
-                  <span className="min-w-0 flex-1 truncate font-mono text-foreground/85" title={file.path}>{file.path}</span>
-                  <span className="shrink-0 tabular-nums text-accent-success">{file.additions === null ? '—' : `+${file.additions}`}</span>
-                  <span className="shrink-0 tabular-nums text-destructive">{file.deletions === null ? '—' : `−${file.deletions}`}</span>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+          </p>
+          {state === 'error' && !diff && <p role="alert" className="text-xs text-destructive">{t('flow.changes.loadFailed')}</p>}
+          {state !== 'error' && files.length === 0 && state === 'ready' && (
+            <p className="rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-xs text-muted-foreground">{t('flow.changes.empty')}</p>
+          )}
+          {files.length > 0 && (
+            <ul className="divide-y divide-border/40 rounded-lg border border-border/50" aria-label={t('flow.changes.title')}>
+              {files.map((file) => {
+                const Icon = STATUS_ICON[file.status] ?? FilePen
+                return (
+                  <li key={file.path} className="flex items-center gap-2 px-3 py-1.5 text-xs" data-testid="flow-changes-file">
+                    <Icon className={cn('h-3.5 w-3.5 shrink-0', STATUS_TONE[file.status])} aria-hidden />
+                    <span className="sr-only">{t(`flow.changes.status.${file.status}`)}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-foreground" title={file.path}>{file.path}</span>
+                    <span className="shrink-0 tabular-nums text-accent-success">{file.additions === null ? '—' : `+${file.additions}`}</span>
+                    <span className="shrink-0 tabular-nums text-destructive">{file.deletions === null ? '—' : `−${file.deletions}`}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

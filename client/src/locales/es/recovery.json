@@ -1,0 +1,71 @@
+{
+  "headline": {
+    "tests_failed": {
+      "phaseRounds_one": "Las pruebas fallaron en la fase {{phase}} tras {{count}} ronda de correcciones",
+      "phaseRounds_other": "Las pruebas fallaron en la fase {{phase}} tras {{count}} rondas de correcciones",
+      "rounds_one": "Las pruebas fallaron tras {{count}} ronda de correcciones",
+      "rounds_other": "Las pruebas fallaron tras {{count}} rondas de correcciones",
+      "phase": "Las pruebas fallaron en la fase {{phase}}",
+      "plain": "Las pruebas fallaron"
+    },
+    "provider_limit": "Se alcanzó el límite de uso del proveedor de IA",
+    "environment": "El entorno no puede ejecutar las comprobaciones",
+    "blocked": {
+      "phase": "La ejecución está bloqueada en la fase {{phase}}",
+      "plain": "La ejecución está bloqueada"
+    },
+    "timeout": {
+      "phase": "La fase {{phase}} se quedó sin tiempo",
+      "plain": "La ejecución se quedó sin tiempo"
+    },
+    "tool_inactivity": {
+      "phase": "El agente se quedó en silencio en la fase {{phase}}",
+      "plain": "El agente se quedó en silencio"
+    },
+    "crash": {
+      "phase": "El agente se detuvo inesperadamente en la fase {{phase}}",
+      "plain": "El agente se detuvo inesperadamente"
+    },
+    "unknown": "Causa desconocida"
+  },
+  "why": {
+    "provider_limit": {
+      "reset": "Se restablece {{resetAt}}. Reanuda cuando lo haga.",
+      "noReset": "Espera a que se restablezca el límite y reanuda."
+    },
+    "environment": "El problema no está en el cambio. La máquina necesita algo antes.",
+    "tests_failed": "Las comprobaciones siguen fallando tras las correcciones.",
+    "blocked": "Lo detuvo un límite o una decisión. No se cayó.",
+    "timeout": "Llegó a su límite de tiempo antes de terminar.",
+    "tool_inactivity": "Dejó de usar herramientas y de responder durante demasiado tiempo.",
+    "crash": "El proceso del proveedor o su conexión murió a mitad de la ejecución.",
+    "unknown": "La app no sabe por qué se detuvo y no va a adivinarlo."
+  },
+  "remedies": {
+    "label": "Formas de recuperarse"
+  },
+  "remedy": {
+    "resume": "Reanudar",
+    "resumeFrom": "Reanudar desde {{phase}}",
+    "retry": "Ejecutar de nuevo",
+    "editSpec": "Editar la spec y relanzar",
+    "fixEnvironment": "Arreglar el entorno",
+    "openLogs": "Abrir el registro en el fallo"
+  },
+  "environment": {
+    "command": "Comando",
+    "copy": "Copiar comando",
+    "copied": "Copiado",
+    "inDirectory": "en {{cwd}}",
+    "requiredAction": "Acción necesaria",
+    "generic": "El entorno necesita atención antes de que la ejecución pueda continuar.",
+    "then": "Cuando esté hecho, reanuda la ejecución."
+  },
+  "logTail": {
+    "title": "Final del registro"
+  },
+  "logs": {
+    "notFound": "Aún no hay registro que mostrar"
+  },
+  "technicalDetails": "Detalles técnicos"
+}

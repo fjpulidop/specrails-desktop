@@ -39,3 +39,5 @@ Verás:
 Eso es toda la puesta en marcha: ninguna cuenta que crear, ningún registro. specrails funciona por completo en tu máquina.
 
 Haz clic en **Añadir tu primer proyecto** y continúa con [Añadir tu primer proyecto](adding-your-first-project).
+
+O empieza con el [proyecto de ejemplo](try-the-sample-project): un pequeño juego y tres specs ya escritas, con el coste indicado de antemano.

@@ -4,8 +4,9 @@ import { useMissionWindows } from '../context/MissionWindowsContext'
 import { useMissionViewRevision } from '../lib/mission-view-state'
 import { Suspense, lazy, useEffect, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { composerDrafts, composerReferenceDrafts, writeComposerDraft, NEW_MISSION_DRAFT_KEY } from '../lib/agent-composer-drafts'
 import { useTranslation } from 'react-i18next'
-import { motion, MotionConfig } from 'motion/react'
+import { motion } from 'motion/react'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -13,6 +14,7 @@ import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { Starfield } from '../../settings/components/theme-effects/Starfield'
 import { AgentConversationView } from './AgentConversationView'
 import { AgentComposer } from './AgentComposer'
+import { MissionHomeHeader } from './MissionHomeHeader'
 import { BuilderConversation } from '../../builder/components/project-builder/BuilderConversation'
 
 const AgentModeCodePane = lazy(() =>
@@ -36,6 +38,51 @@ function EmptyPaneClose() {
   return closePane ? <button type="button" aria-label={t('split.close')} title={t('split.close')} onClick={closePane} className="absolute right-2 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button> : null
 }
 
+/**
+ * The empty state teaches the composer's three moves (reference, act, plan)
+ * and its two shortcuts, in one quiet row under the card. A starter appends
+ * its trigger to the new-mission draft and returns focus to the editor, so
+ * `@` and `/` open their palette exactly as if typed.
+ */
+function AgentEmptyStarters() {
+  const { t } = useTranslation('agent')
+  const insert = (text: string, event: React.MouseEvent<HTMLButtonElement>): void => {
+    const draft = composerDrafts.get(NEW_MISSION_DRAFT_KEY) ?? ''
+    const next = `${draft}${draft && !/\s$/.test(draft) ? ' ' : ''}${text}`
+    writeComposerDraft(NEW_MISSION_DRAFT_KEY, next, composerReferenceDrafts.get(NEW_MISSION_DRAFT_KEY) ?? [])
+    const scope = event.currentTarget.closest('[data-agent-empty-composer]')
+    requestAnimationFrame(() => {
+      const editor = scope?.querySelector<HTMLElement>('[data-mission-composer] [role="textbox"]')
+      if (!editor) return
+      editor.focus()
+      const selection = editor.ownerDocument.getSelection()
+      if (!selection) return
+      const range = editor.ownerDocument.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    })
+  }
+  const chip = 'u-enter inline-flex h-8 items-center gap-1.5 rounded-control border border-border/60 px-3 text-label text-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
+  return (
+    <div className="mt-3 flex flex-col items-center gap-2" data-testid="agent-empty-starters">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <button type="button" className={chip} style={{ animationDelay: '0ms' }} onClick={(e) => insert('@', e)}>
+          <span aria-hidden className="font-mono text-accent-primary">@</span>{t('starter.reference')}
+        </button>
+        <button type="button" className={chip} style={{ animationDelay: '24ms' }} onClick={(e) => insert('/', e)}>
+          <span aria-hidden className="font-mono text-accent-highlight">/</span>{t('starter.action')}
+        </button>
+        <button type="button" className={chip} style={{ animationDelay: '48ms' }} onClick={(e) => insert(t('starter.planSpec'), e)}>
+          {t('starter.plan')}
+        </button>
+      </div>
+      <p className="text-center text-xs text-muted-foreground">{t('emptyLegend')}</p>
+    </div>
+  )
+}
+
 function ConversationLayout({ splitPane, children }: { splitPane: boolean; children: ReactNode }) {
   return splitPane ? <>{children}</> : <MissionSplitLayout>{children}</MissionSplitLayout>
 }
@@ -43,7 +90,7 @@ function ConversationLayout({ splitPane, children }: { splitPane: boolean; child
 export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } = {}) {
   const composerLayoutId = useMissionPaneLayoutId()
   const { active, refreshConversations, builderMode } = useAgentChat()
- const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen } = useAgentWorkspace()
+  const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
   const windows = useMissionWindows()
   const revision = useMissionViewRevision(active?.id ?? '__new-mission__')
@@ -59,15 +106,16 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
   // The inline Code pane can accompany BOTH the EMPTY composer and an ACTIVE
   // thread — it only needs an active project (its own store is per-conversation,
   // falling back to a Home key when no conversation is open yet).
-  const showCode = codePaneOpen && !!activeProjectId && !external
+  // At most one side pane at a time (the context keeps them exclusive; this
+  // guards any stale combination in the order jobs → code → analytics).
   const showJobs = jobsPaneOpen && !!activeProjectId && !external
-  const showAnalytics = analyticsPaneOpen && !!activeProjectId && !external
+  const showCode = !showJobs && codePaneOpen && !!activeProjectId && !external
+  const showAnalytics = !showJobs && !showCode && analyticsPaneOpen && !!activeProjectId && !external
 
   return (
-    <MotionConfig reducedMotion="user">
     <div data-agent-mode-surface className="relative z-0 flex h-full w-full overflow-hidden bg-background">
       {isGalaxy && <Starfield />}
-      <div className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex h-full min-w-[360px] flex-1 flex-col overflow-hidden">
         {/* Radial glow — always mounted so EMPTY⇄ACTIVE crossfades instead of popping. */}
         <motion.div
           aria-hidden
@@ -99,13 +147,16 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{
-                duration: 0.28,
-                ease: [0.34, 1.56, 0.64, 1],
+                duration: 0.24,
+                ease: [0.16, 1, 0.3, 1],
                 layout: { type: 'spring', stiffness: 350, damping: 34 },
               }}
               className="w-full max-w-[960px]"
+              data-agent-empty-composer
             >
+              <MissionHomeHeader />
               <AgentComposer autoFocus />
+              <AgentEmptyStarters />
             </motion.div>
           </div>
         ) : (
@@ -138,6 +189,5 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
       {/* Browser capture mounts globally in AgentBrowserCaptureHost (App root)
           so the board-mode floating panel can open it too. */}
     </div>
-    </MotionConfig>
   )
 }

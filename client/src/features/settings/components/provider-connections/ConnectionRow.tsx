@@ -4,6 +4,7 @@ import { Server, TerminalSquare } from 'lucide-react'
 import { RUNTIME_CLI_PROVIDERS, runtimeProviderDisplayName, type RuntimeProvider } from '../../lib/agent-runtime'
 import { Input } from '../../../../components/ui/input'
 import { Button } from '../../../../components/ui/button'
+import { SettingsSelect } from '../SettingsSelect'
 
 interface Props {
   provider: RuntimeProvider
@@ -11,7 +12,6 @@ interface Props {
   onRemove: () => void
 }
 
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
 
 /**
  * LEGACY plain connection row (VITE_FEATURE_LOCAL_ENGINES off): editable id,
@@ -27,13 +27,13 @@ export function ConnectionRow({ provider, onChange, onRemove }: Props) {
       <legend className="flex items-center gap-2 px-1.5 text-sm font-medium">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
         {runtimeProviderDisplayName(provider)}
-        <span className="rounded-full border border-border bg-muted/40 px-2 py-px text-[10px] font-normal uppercase tracking-wide text-muted-foreground">{t(local ? 'providers.localBadge' : 'providers.cliBadge')}</span>
+        <span data-chip className="inline-flex h-5 items-center rounded-full border border-border bg-muted/40 px-2 text-caption font-normal text-muted-foreground">{t(local ? 'providers.localBadge' : 'providers.cliBadge')}</span>
       </legend>
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-xs">{t('providers.id')}<Input value={provider.id} onChange={(e) => onChange({ ...provider, id: e.target.value })} /></label>
           {provider.kind === 'cli'
-            ? <label className="space-y-1 text-xs">{t('providers.command')}<select className={selectClass} value={provider.cli} onChange={(e) => onChange({ ...provider, cli: e.target.value as typeof provider.cli })}>{RUNTIME_CLI_PROVIDERS.filter(isPublicProvider).map((cli) => <option key={cli} value={cli}>{t(`cliNames.${cli}`)}</option>)}</select></label>
+            ? <label className="space-y-1 text-xs">{t('providers.command')}<SettingsSelect aria-label={t('providers.command')} value={provider.cli} onChange={(value) => onChange({ ...provider, cli: value as typeof provider.cli })} options={RUNTIME_CLI_PROVIDERS.filter(isPublicProvider).map((cli) => ({ value: cli, label: t(`cliNames.${cli}`) }))} /></label>
             : <>
               <label className="space-y-1 text-xs">{t('providers.baseUrl')}<Input type="url" value={provider.baseUrl} onChange={(e) => onChange({ ...provider, baseUrl: e.target.value })} /></label>
               <label className="space-y-1 text-xs">{t('providers.apiKeyEnv')}<Input value={provider.apiKeyEnv ?? ''} onChange={(e) => onChange({ ...provider, apiKeyEnv: e.target.value || undefined })} /></label>

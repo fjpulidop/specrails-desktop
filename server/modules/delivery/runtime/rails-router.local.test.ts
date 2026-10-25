@@ -72,6 +72,16 @@ describe('rails-router launch on a local engine', () => {
     expect(arg.runtimeProviderOverride).toEqual({ provider: 'local', model: 'qwen3.5-9b:latest' })
   })
 
+  it('passes a per-launch runCapUsd to the run (the sample first run is cost-bounded) and omits it otherwise', async () => {
+    const capped = await request(app(['claude', 'local'])).post('/rails/0/launch').send({ mode: 'loop', loopId: 'loop-1', aiEngine: 'claude', model: 'haiku', runCapUsd: 1 })
+    expect(capped.status).toBe(202)
+    expect((run.mock.calls[0][0] as Record<string, unknown>).runCapUsd).toBe(1)
+    setRailTickets(db, 1, [8], 'loop')
+    const plain = await request(app(['claude', 'local'])).post('/rails/1/launch').send({ mode: 'loop', loopId: 'loop-1', aiEngine: 'claude', model: 'haiku' })
+    expect(plain.status).toBe(202)
+    expect(run.mock.calls[1][0]).not.toHaveProperty('runCapUsd')
+  })
+
   it('strips effort from an explicit body override on a local engine and keeps the mismatch guard', async () => {
     const ok = await request(app(['claude', 'local'])).post('/rails/0/launch').send({ mode: 'loop', loopId: 'loop-1', aiEngine: 'local', runtimeProviderOverride: { provider: 'local', model: 'm', effort: 'high' } })
     expect(ok.status).toBe(202)

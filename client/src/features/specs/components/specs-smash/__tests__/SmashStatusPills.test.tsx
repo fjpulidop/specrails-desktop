@@ -22,7 +22,7 @@ describe('SmashStatusPills', () => {
 
   it('renders the ordering pill', () => {
     render(<SmashStatusPills stage="ordering" />)
-    expect(screen.getByText(/Ordering execution/)).toBeInTheDocument()
+    expect(screen.getByText(/Ordering the run/)).toBeInTheDocument()
   })
 
   it('updates label when stage prop transitions immediately with minDisplayMs=0', async () => {
@@ -31,7 +31,7 @@ describe('SmashStatusPills', () => {
     rerender(<SmashStatusPills stage="ordering" minDisplayMs={0} />)
     // The async setTimeout(0) fires on next tick — wait for it.
     await waitFor(() => {
-      expect(screen.getByText(/Ordering execution/)).toBeInTheDocument()
+      expect(screen.getByText(/Ordering the run/)).toBeInTheDocument()
     }, { timeout: 1000 })
   })
 })

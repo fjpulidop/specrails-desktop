@@ -126,11 +126,12 @@ describe('ExploreSpecShell', () => {
     expect(opts.attachments).toBeUndefined()
   })
 
-  it('renders eyebrow and dialog role for accessibility', async () => {
+  it('renders the dialog role and the new-spec title for accessibility', async () => {
     const ws = makeFakeWs()
     render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText(/EXPLORE SPEC/i)).toBeInTheDocument()
+    // No visible eyebrow; the sr-only Radix title names the dialog.
+    expect(screen.queryByText(/EXPLORE SPEC/i, { ignore: 'script, style, .sr-only' })).toBeNull()
   })
 
   it('shows the loading state until the conversation is bootstrapped', () => {
@@ -142,7 +143,8 @@ describe('ExploreSpecShell', () => {
   it('Esc on bare-initial overlay closes without confirm', async () => {
     const ws = makeFakeWs()
     render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
-    fireEvent.keyDown(window, { key: 'Escape' })
+    // Radix owns Escape (document-level), so dispatch from the focused node.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
   })
 
@@ -159,7 +161,7 @@ describe('ExploreSpecShell', () => {
     render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
     // Wait for the conversation to actually be looked up (assistant message in DOM)
     await screen.findByText('response')
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
   })
 

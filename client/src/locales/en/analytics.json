@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "Refine",
-    "smash": "SMASH",
+    "smash": "Split",
     "fileSummary": "File summaries",
     "loop": "Loops",
     "chatSidebar": "Chat",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} runs",
   "page": {
     "title": "Analytics",
+    "subtitle": "Where the spend goes: cost, tokens and activity by model, spec and engine.",
     "all": "All",
     "engine": "Engine",
-    "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Failed to load: {{error}}",
+    "ticketChip": "spec #{{id}} ·  ✕",
+    "failedToLoad": "Analytics couldn’t be loaded. Try again.",
     "modelChip": "Model: {{model}}",
     "clearModelFilter": "Clear model filter",
-    "localEngine": "local"
+    "localEngine": "local",
+    "moreBreakdowns": "More breakdowns"
   },
   "hero": {
     "spending": "Spending",
@@ -46,22 +48,27 @@
     "tokensTooltip": "Total tokens = fresh input + output + cache-read + cache-create across all invocations in this window.",
     "usageUnavailable": "· token usage unavailable",
     "usageUnavailableTooltip": "The provider completed these invocations but did not expose token telemetry.",
-    "usagePartiallyUnavailable": "· {{tokens}} known tokens; {{count}} run(s) unavailable",
+    "usagePartiallyUnavailable_one": "· {{tokens}} known tokens; {{count}} run unavailable",
+    "usagePartiallyUnavailable_other": "· {{tokens}} known tokens; {{count}} runs unavailable",
     "usagePartiallyUnavailableTooltip": "Known token subtotal only; some invocations did not expose token telemetry.",
     "costUnavailable": "cost unavailable",
     "costUnavailableTooltip": "The provider completed these invocations but did not expose enough telemetry to determine their cost.",
-    "costPartiallyUnavailable": "· known subtotal; {{count}} run(s) without cost",
+    "costPartiallyUnavailable_one": "· known subtotal; {{count}} run without cost",
+    "costPartiallyUnavailable_other": "· known subtotal; {{count}} runs without cost",
     "costPartiallyUnavailableTooltip": "Known cost subtotal only; some invocations did not expose enough telemetry to determine cost.",
     "includesEstimated": "· includes ~{{amount}} estimated",
     "includesEstimatedTooltip": "Includes {{amount}} of estimated cost from providers without a native cost field (e.g. codex via the local pricing table).",
     "trackingStarted": "Tracking started {{date}}",
     "trackingStartedFallback": "Tracking started on first invocation",
     "emptyState": "No invocations yet for this filter window.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Billed",
+    "legendEstimated": "Estimated",
+    "apiEquivalent": "API-equivalent estimate"
   },
   "providerCard": {
     "title": "By provider",
-    "description": "How cost splits across the AI CLIs in this project. The <tilde>~</tilde> prefix marks rows where cost is estimated from the local pricing table (the provider does not report it natively).",
+    "description": "<tilde>~</tilde> = estimated from local pricing.",
     "noCost": "No cost recorded yet in this window.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "cost unavailable",
@@ -109,31 +116,32 @@
     "costLabel": "cost",
     "truncated": "Showing {{shown}} of {{total}} — the costliest point is kept, but earlier points are hidden",
     "costUnavailable": "Invocations were recorded, but no cost telemetry is available to plot.",
-    "costPartiallyUnavailable": "Plot includes priced runs only; {{count}} run(s) have unavailable cost."
+    "costPartiallyUnavailable_one": "Plot includes priced runs only; {{count}} run has unavailable cost.",
+    "costPartiallyUnavailable_other": "Plot includes priced runs only; {{count}} runs have unavailable cost."
   },
   "topTickets": {
-    "title": "Top tickets",
-    "empty": "No ticket activity in this period.",
+    "title": "Top specs",
+    "empty": "No spec activity in this period.",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "Unattributed",
-    "deletedTicket": "deleted ticket #{{id}}",
+    "deletedTicket": "deleted spec #{{id}}",
     "costUnavailable": "cost unavailable",
-    "costUnavailableTooltip": "None of this ticket's runs exposed cost telemetry.",
+    "costUnavailableTooltip": "None of this spec's runs exposed cost telemetry.",
     "costPartiallyUnavailable": "{{count}} unavailable",
-    "costPartiallyUnavailableTooltip": "Known subtotal only; some runs for this ticket have unavailable cost."
+    "costPartiallyUnavailableTooltip": "Known subtotal only; some runs for this spec have unavailable cost."
   },
   "table": {
     "title": "All invocations",
     "statusFilterAria": "Status filter",
     "minCostFilterAria": "Minimum cost filter",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "All status",
     "success": "Success",
     "failed": "Failed",
     "aborted": "Aborted",
     "empty": "No invocations match the current filters.",
     "colSurface": "Surface",
-    "colTicket": "Ticket",
+    "colTicket": "Spec",
     "colCost": "Cost",
     "colTurns": "Turns",
     "colTokens": "Tokens",
@@ -170,7 +178,7 @@
   "desktop": {
     "title": "Desktop Analytics",
     "refreshAria": "Refresh analytics",
-    "failedToLoad": "Failed to load analytics: {{error}}",
+    "failedToLoad": "Desktop analytics couldn’t be loaded. Try refreshing.",
     "totalCost": "Total Cost",
     "costToday": "{{value}} today",
     "costTodayUnavailable": "cost unavailable today",
@@ -193,12 +201,11 @@
     "includesEstimatedTooltip": "Includes {{amount}} of rate-card estimated cost (codex/gemini), not provider-billed.",
     "includesEstimatedShort": "incl. estimated",
     "timelineEstimatedTooltip": "Some days include rate-card estimated cost (codex/gemini) marked with ~.",
-    "estimatedBadge": "est.",
-    "projectEstimatedTooltip": "{{amount}} of this project's cost is a rate-card estimate (codex/gemini), not provider-billed.",
     "statusBarEstimatedTooltip": "Includes rate-card estimated cost (codex/gemini), not provider-billed.",
     "costUnavailable": "Invocations were recorded, but cost telemetry is unavailable.",
     "costUnavailableShort": "unavailable",
-    "costPartiallyUnavailable": "Known cost subtotal; {{count}} invocation(s) unavailable."
+    "costPartiallyUnavailable_one": "Known cost subtotal; {{count}} invocation unavailable.",
+    "costPartiallyUnavailable_other": "Known cost subtotal; {{count}} invocations unavailable."
   },
   "windowLabels": {
     "7d": "Last 7 days",
@@ -224,7 +231,6 @@
     "loading": "Loading recorded usage…",
     "total": "Recorded events: {{count}}",
     "last": "Last event:",
-    "evidence": "These counters alone do not prove that legacy compatibility can be retired.",
     "kinds": {
       "legacy_loop_traversal": "Classic loops",
       "queue_manager_slash": "Queued commands",
@@ -268,7 +274,7 @@
     "estimatedShare": "{{share}} estimated",
     "unpriced": "{{count}} unpriced",
     "note": "Delivered = reached review or beyond. Average cost uses deliveries with a recorded cost (provider-reported unless marked estimated); unpriced deliveries are excluded, never counted as $0. Rounds come from reviewer/fixer loop steps. — means unknown.",
-    "escapedUntracked": "Escaped defects are not tracked yet: link a bug ticket to the delivery that introduced it (\"Regression of\" in the ticket) to start counting them.",
+    "escapedUntracked": "Escaped defects are not tracked yet: link a bug spec to the delivery that introduced it (\"Regression of\" in the spec) to start counting them.",
     "columns": {
       "loop": "Loop",
       "delivered": "Delivered",
@@ -283,5 +289,79 @@
       "requirementsDemonstrated": "Requirements demonstrated",
       "triageAccuracy": "Triage accuracy"
     }
+  },
+  "budget": {
+    "title": "Spend limits",
+    "loadFailed": "Couldn’t load the spend limits.",
+    "estimate": "Estimate",
+    "scope": {
+      "project": "This project",
+      "desktop": "All projects (app-wide)"
+    },
+    "period": {
+      "day": "Today",
+      "week": "This week",
+      "month": "This month",
+      "run": "Per run"
+    },
+    "capLabel": {
+      "project": {
+        "day": "Project daily limit (USD)",
+        "week": "Project weekly limit (USD)",
+        "month": "Project monthly limit (USD)",
+        "run": "Project per-run limit (USD)"
+      },
+      "desktop": {
+        "day": "App-wide daily limit (USD)",
+        "week": "App-wide weekly limit (USD)",
+        "month": "App-wide monthly limit (USD)",
+        "run": "App-wide per-run limit (USD)"
+      }
+    },
+    "noCap": "No limit",
+    "spentOf": "{{spent}} of {{cap}}",
+    "spentNoCap": "{{spent}} · no limit",
+    "turns": "Turns: {{n}}",
+    "reached": "Reached",
+    "nearing": "Nearing",
+    "planNote": "Plan billing: no dollar cost per use, so turns and limits are shown",
+    "estimatedPart": "about {{amount}} of it priced from the app’s price list, not reported",
+    "resets": "resets {{time}}",
+    "runHint": "A run pauses and asks when its own cost reaches this amount. The lower of the project and app-wide limits applies.",
+    "saved": "Spend limits saved",
+    "saveFailed": "Couldn’t save the spend limits",
+    "invalidNumber": "Enter an amount above zero, or leave it empty for no limit.",
+    "projection": {
+      "title": "Month-end projection",
+      "basis": "{{days}}-day average {{avg}}/day × {{remaining}} days left + {{mtd}} so far",
+      "none": "Not enough history yet for a projection.",
+      "overCap": "At this pace you would pass the {{cap}} monthly limit.",
+      "planNone": "Plan billing has no per-use dollar cost, so there is no month-end amount to project."
+    },
+    "whatIf": {
+      "title": "What if: price it on another model",
+      "description": "Re-prices the last {{days}} days of recorded token usage with another model, using the app’s price list. An estimate, not a bill.",
+      "from": "Currently ran on",
+      "to": "Instead",
+      "choose": "Choose a model",
+      "runs": "{{n}} runs",
+      "noPricing": "No pricing for {{model}}",
+      "empty": "No recorded model usage in this window.",
+      "planNote": "This work runs on a plan, so there is no dollar cost per use to compare. Tokens are shown instead.",
+      "tokens": "Tokens: {{input}} in · {{output}} out",
+      "compare": "≈ {{current}} now → ≈ {{whatIf}} instead",
+      "saves": "≈ {{amount}} less",
+      "costs": "≈ {{amount}} more",
+      "same": "About the same",
+      "skipped": "{{n}} runs without token usage or a price are left out.",
+      "recorded": "Recorded cost for these runs: {{amount}}.",
+      "roleNote": "Usage is recorded per model, not per role: pick the model your role runs on."
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "session",
+      "weekly": "weekly"
+    },
+    "capsMetered": "Dollar limits (metered providers)"
   }
 }

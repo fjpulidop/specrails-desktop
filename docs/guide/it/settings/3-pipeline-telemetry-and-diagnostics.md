@@ -1,4 +1,4 @@
-# Telemetria della pipeline e diagnostica
+# Telemetria della pipeline e diagnostica {#telemetry}
 
 La telemetria registra i dati diagnostici della pipeline in locale. È **attivata per impostazione predefinita** nei progetti senza una preferenza salvata. Puoi disattivarla per progetto; le scelte salvate esplicitamente vengono rispettate.
 

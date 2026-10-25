@@ -17,6 +17,7 @@ import { FACTORY_REVISION_LOOP_ID } from '../../loops/runtime/loop-factory'
 import { parseVerificationSentinel, type SentinelVerdict } from '../../execution/runtime/verification-sentinel'
 export { parseVerificationSentinel, type SentinelVerdict } from '../../execution/runtime/verification-sentinel'
 import { parseReviewBriefRecord, reviewBriefFromReviewerOutput, REVIEW_BRIEF_FILE, type DeliveryReviewBriefRecord } from './review-brief'
+import { baselineCapabilities, readBaseline, readSpecTrace, type DeliveryBaseline, type DeliveryBaselineCost, type DeliverySpecTrace } from './run-records'
 
 /** Bounded tail of the verify step's raw output persisted per unit. */
 export const VERIFY_TAIL_CAP = 4096
@@ -89,6 +90,9 @@ export interface DeliveryDerivation {
   transcriptTurnsUsed: number
 }
 
+/** One reviewer finding's anchor in the change (repository-relative path, 1-based lines). */
+export interface DeliveryFindingLocation { finding: number; path: string; line?: number; endLine?: number }
+
 /** Evidence read from the programmatic runtime's pipeline dir
  *  (`<workspace>/.specrails/pipeline/<runId>/`). Absent for legacy loops. */
 export interface DeliveryRuntimeEvidence {
@@ -97,6 +101,8 @@ export interface DeliveryRuntimeEvidence {
   commands: DeliveryRuntimeCommand[]
   checks: DeliveryRuntimeCheck[]
   findings: string[]
+  /** Where reviewer findings apply (Core contract 5.9 `acceptance.findingLocations`); `finding` indexes `findings`. Absent when Core named none. */
+  findingLocations?: DeliveryFindingLocation[]
   review: DeliveryRuntimeReview | null
   /** Flow -> Spec derivation coverage (absent for every other loop). */
   derivation?: DeliveryDerivation | null
@@ -121,7 +127,16 @@ export interface DeliveryUnitEvidence {
    *  active Core does not announce the capability or no verdict recorded one —
    *  older evidence rows therefore stay byte-identical. */
   reviewBrief?: DeliveryReviewBriefRecord
+  /** Requirement traceability report (Core `specTrace: 1`). Absent without the
+   *  capability or before the first passing verification. */
+  specTrace?: DeliverySpecTrace
+  /** Baseline-on-touch record (Core `baselineOnTouch: 1`). Absent without the
+   *  capability or when the setting was off for the run. */
+  baseline?: DeliveryBaseline
 }
+
+/** A human-only project rule (`.specrails/rules.json`, Core `rulesInventory: 1`). */
+export interface DeliveryHumanRule { text: string; source: string | null }
 
 export interface DeliverySettleEvidence {
   schemaVersion: 1
@@ -130,6 +145,9 @@ export interface DeliverySettleEvidence {
   harvest: 'ok' | 'partial' | 'failed'
   harvestedAt: string
   units: DeliveryUnitEvidence[]
+  /** "Needs human eyes": the project's human-only rules frozen at settle
+   *  (absent without the rules inventory capability or an inventory). */
+  humanRules?: DeliveryHumanRule[]
 }
 
 export interface EvidenceHarvestUnit {
@@ -147,6 +165,9 @@ export interface EvidenceHarvestUnit {
   /** The programmatic runtime's pipeline dir for this run
    *  (`<workspace>/.specrails/pipeline/<runId>`), when the caller knows it. */
   runtimeDir?: string | null
+  /** Where Core's phase-3 run records live when `runtimeDir` is not given
+   *  (recovered settlements); defaults to `runtimeDir`. */
+  recordsDir?: string | null
 }
 
 export interface EvidenceHarvestIO {
@@ -162,6 +183,14 @@ export interface EvidenceHarvestIO {
   /** True only when the active Core announces `reviewBrief: 1`. Without it the
    *  brief is never read and the evidence record is exactly as before. */
   reviewBrief?: boolean
+  /** Core `specTrace: 1`: read `spec-trace.json` per unit. */
+  specTrace?: boolean
+  /** Core `baselineOnTouch: 1`: read `baseline.json` per unit. */
+  baselineOnTouch?: boolean
+  /** Baseline spend of a run (efficiencySummary.baseline), when known. */
+  baselineCost?: (runId: string) => DeliveryBaselineCost | null
+  /** Human-only project rules to freeze into the evidence (Core `rulesInventory: 1`). */
+  humanRules?: DeliveryHumanRule[] | null
 }
 
 interface ParsedStep {
@@ -513,6 +542,21 @@ export function harvestDeliveryEvidence(
         unitErrored = true
       }
     }
+    const recordsDir = unit.recordsDir ?? unit.runtimeDir
+    if (recordsDir && (io.specTrace || io.baselineOnTouch)) {
+      try {
+        const trace = io.specTrace ? readSpecTrace(recordsDir, fsIo) : null
+        if (trace) evidence.specTrace = trace
+        const baseline = io.baselineOnTouch ? readBaseline(recordsDir, fsIo) : null
+        if (baseline) {
+          baseline.capabilities = baselineCapabilities(trace)
+          baseline.cost = unit.runId ? io.baselineCost?.(unit.runId) ?? null : null
+          evidence.baseline = baseline
+        }
+      } catch {
+        unitErrored = true
+      }
+    }
     if (unitErrored) errored++
     return evidence
   })
@@ -521,6 +565,7 @@ export function harvestDeliveryEvidence(
     harvest: units.length > 0 && errored === units.length ? 'failed' : errored > 0 ? 'partial' : 'ok',
     harvestedAt: (io.now?.() ?? new Date()).toISOString(),
     units: harvested,
+    ...(io.humanRules?.length ? { humanRules: io.humanRules.slice(0, 100) } : {}),
   }
 }
 
@@ -589,13 +634,39 @@ export function readRuntimeEvidence(runtimeDir: string, runId: string, fsIo: Evi
     checks.push({ name, status: str(raw.status, 40) ?? 'unknown', required: raw.required === true, hostRun, evidence, scope: str(raw.scope), limitations: str(raw.limitations) })
   }
   const findings = strList(acceptance?.findings, 6)
+  const findingLocations = readFindingLocations(acceptance?.findings, acceptance?.findingLocations, 6)
   const checkpoint = readJson(fsIo, path.join(runtimeDir, 'agent-workflow', runId, 'checkpoint.json'))
   const steps = isRecord(checkpoint) && isRecord(checkpoint.state) && isRecord(checkpoint.state.steps) ? checkpoint.state.steps : null
   const reviewer = steps && isRecord(steps.reviewer) ? steps.reviewer : null
   const output = reviewer && isRecord(reviewer.output) ? reviewer.output : null
   const review = parseRuntimeReview(output)
   if (commands.length === 0 && checks.length === 0 && findings.length === 0 && !review) return null
-  return { commands, checks, findings, review }
+  return { commands, checks, findings, ...(findingLocations.length ? { findingLocations } : {}), review }
+}
+
+/**
+ * Core's `acceptance.findingLocations` (contract 5.9), re-indexed onto the kept
+ * findings and re-validated: an anchor is advisory, so a malformed one (or one
+ * for a finding the cap dropped) disappears instead of failing the harvest.
+ * Older Core never writes the field, so older runs read as unanchored.
+ */
+export function readFindingLocations(rawFindings: unknown, rawLocations: unknown, cap: number): DeliveryFindingLocation[] {
+  if (!Array.isArray(rawFindings) || !Array.isArray(rawLocations)) return []
+  const kept: number[] = []
+  rawFindings.forEach((entry, index) => { if (typeof entry === 'string' && entry.trim() && kept.length < cap) kept.push(index) })
+  const seen = new Set<number>()
+  const out: DeliveryFindingLocation[] = []
+  for (const raw of rawLocations) {
+    if (!isRecord(raw)) continue
+    const position = typeof raw.finding === 'number' ? kept.indexOf(raw.finding) : -1
+    const filePath = typeof raw.path === 'string' ? raw.path.trim().replace(/\\/g, '/').replace(/^\.\//, '') : ''
+    if (position < 0 || seen.has(position) || !filePath || filePath.length > 500 || filePath.startsWith('/') || /^[A-Za-z]:/.test(filePath) || filePath.includes('\0') || filePath.split('/').includes('..')) continue
+    const line = typeof raw.line === 'number' && Number.isInteger(raw.line) && raw.line >= 1 ? raw.line : undefined
+    const endLine = line !== undefined && typeof raw.endLine === 'number' && Number.isInteger(raw.endLine) && raw.endLine > line ? raw.endLine : undefined
+    seen.add(position)
+    out.push({ finding: position, path: filePath, ...(line !== undefined ? { line } : {}), ...(endLine !== undefined ? { endLine } : {}) })
+  }
+  return out
 }
 
 /** A reviewer verdict stays AI-reported; it cannot create host verification. */
@@ -745,7 +816,7 @@ export function healRuntimeEvidence(
   pipelineDir: string,
   fsIo: Partial<EvidenceFsIO> = {},
   definitionStatuses: ReadonlyMap<string, DefinitionRunProbe> = new Map(),
-  options: { reviewBrief?: boolean } = {},
+  options: { reviewBrief?: boolean; refreshMissingReview?: boolean } = {},
 ): DeliverySettleEvidence | null {
   const io: EvidenceFsIO = {
     readFile: fsIo.readFile ?? ((p) => fs.readFileSync(p, 'utf8')),
@@ -774,12 +845,15 @@ export function healRuntimeEvidence(
   return changed ? { ...evidence, units } : null
 
   function healUnitRuntime(unit: DeliveryUnitEvidence): DeliveryUnitEvidence {
-    if (!unit.runId || unit.runtime) return unit
+    // `refreshMissingReview`: a unit harvested without the reviewer verdict
+    // (e.g. the retained ledger was unreadable at settle) reads it again.
+    const refresh = options.refreshMissingReview === true && !!unit.runtime && !unit.runtime.review
+    if (!unit.runId || unit.runtime && !refresh) return unit
     const definition = definitionStatuses.get(unit.runId)
-    if (definition?.status === 'unavailable' || !definition && unit.runtime !== undefined) return unit
+    if (definition?.status === 'unavailable' || !definition && unit.runtime !== undefined && !refresh) return unit
     let runtime: DeliveryRuntimeEvidence | null = null
     try { runtime = definition ? projectDefinitionRuntimeEvidence(definition, unit.reviewerStepId) : readRuntimeEvidence(path.join(pipelineDir, unit.runId), unit.runId, io) } catch { runtime = null }
-    if (!runtime) return unit
+    if (!runtime || refresh && !runtime.review) return unit
     changed = true
     const confidence = unit.confidence ?? (runtime.review && runtime.review.score !== null
       ? { changeName: null, overall: runtime.review.score, aspects: runtime.review.aspects, flags: runtime.review.issues, raw: null }

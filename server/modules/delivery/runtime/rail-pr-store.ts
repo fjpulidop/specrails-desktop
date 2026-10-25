@@ -14,6 +14,7 @@ import type { DbInstance } from '../../../db'
 import type { OverlayCleanupEvidence } from '../../../worktree-overlay'
 import type { DeliverySettleEvidence } from './delivery-evidence'
 import { summarizeReviewBriefs } from './review-brief'
+import { legacyFlowReviewReclassification, readFlowReviewOutcome, type FlowReviewOutcome } from './flow-review-outcome'
 import type { PrDecisionCardEnvelope, PrDeliveryRiskSummary, RailPrStateMessage } from '../../../types'
 import { newId } from '../../../ids'
 import { readExecutionManifest, type RunExecutionManifest, type RepositoryDeliverySnapshot } from './multi-repo-execution-store'
@@ -181,8 +182,173 @@ export interface RailPrDeliveryRow {
   follow_up: string | null
   /** JSON SpecAddendaSnapshotEntry[] frozen at launch (migration 63); NULL when the specs carried no addenda. */
   spec_addenda: string | null
+  /** JSON LocalStashRecord (migration 83): the user's uncommitted work saved
+   * by "Integrate locally"; NULL when nothing was stashed. */
+  local_stash?: string | null
   created_at: string
   updated_at: string
+}
+
+/**
+ * The user's own uncommitted work that "Integrate locally" saved as a git
+ * stash before advancing the target branch (proactive-local-integration).
+ * The stash is identified by its COMMIT sha — never `stash@{n}`, which shifts
+ * whenever anyone stashes — and is only dropped after a clean apply.
+ *  - `saved`: stashed, not yet restored (integration running, or interrupted;
+ *    startup recovery re-applies it).
+ *  - `restored`: applied cleanly and dropped.
+ *  - `needs_attention`: the apply conflicted with the integrated result; the
+ *    integrated tree was restored and the stash is KEPT for the agent / user.
+ *  - `released`: the stash entry is no longer present (the person applied or
+ *    dropped it themselves); Specrails holds nothing anymore.
+ */
+export type LocalStashState = 'saved' | 'restored' | 'needs_attention' | 'released'
+
+export interface LocalStashRecord {
+  sha: string
+  /** The stash message (`specrails: before integrating #… (<deliveryId>)`). */
+  name: string
+  /** The checkout the stash was taken from and must be restored into. */
+  checkoutPath: string
+  /** The branch that checkout was on (the integration target). */
+  branch: string
+  state: LocalStashState
+  /** Where the agent re-applies a conflicting stash (`specrails/restore-local-<short>`). */
+  restoreBranch: string | null
+  /** Bounded list of paths whose restore conflicted. */
+  conflictPaths: string[]
+  /** Specrails' own restoration of a conflicting stash on `restoreBranch` in
+   * a separate worktree (absent until a conflict needed one). */
+  restore?: LocalRestoreBranchRecord | null
+  savedAt: string
+  updatedAt: string
+}
+
+/**
+ * Server-side restoration of a conflicting stash (never delegated to the
+ * read-only mission agent): Specrails applies the stash on a new branch cut
+ * from the integrated target in its own worktree and commits it there.
+ *  - `resolving`: conflicts remain; the write-capable resolver runs, confined
+ *    to that worktree.
+ *  - `ready`: the restored changes are committed on the branch; the person
+ *    reviews them and may bring them back (nothing touched the target yet).
+ *  - `failed`: the branch could not be prepared or resolved; the stash is
+ *    still kept and the branch can be discarded.
+ *  - `brought_back`: fast-forwarded into the target on the person's click.
+ *  - `discarded`: the person discarded the branch; the stash is still kept.
+ */
+export type LocalRestoreBranchStatus = 'resolving' | 'ready' | 'failed' | 'brought_back' | 'discarded'
+
+export interface LocalRestoreFileChange { path: string; added: number | null; removed: number | null }
+
+export interface LocalRestoreBranchRecord {
+  status: LocalRestoreBranchStatus
+  branch: string
+  /** Absolute restore worktree (never on the wire). */
+  worktreePath: string
+  /** The integrated target commit the branch was cut from. */
+  baseSha: string | null
+  /** The restore commit the person reviews / brings back. */
+  commitSha: string | null
+  /** How the conflicts went away: none remained, or the resolver handled them. */
+  resolvedBy: 'clean' | 'resolver' | null
+  /** Specrails-managed generated files that took the integrated version. */
+  managedPaths: string[]
+  /** Conflicts left for the resolver (bounded). */
+  conflictPaths: string[]
+  /** What the restore commit changes against `baseSha` (bounded review). */
+  files: LocalRestoreFileChange[]
+  detail: string | null
+  updatedAt: string
+}
+
+/** The wire shape (no filesystem path). */
+export type LocalStashSnapshot = Omit<LocalStashRecord, 'checkoutPath' | 'restore'> & {
+  restore?: Omit<LocalRestoreBranchRecord, 'worktreePath'>
+}
+
+const RESTORE_STATUSES: ReadonlySet<string> = new Set(['resolving', 'ready', 'failed', 'brought_back', 'discarded'])
+const strings = (v: unknown, max: number): string[] => Array.isArray(v) ? v.filter((p): p is string => typeof p === 'string').slice(0, max) : []
+
+function readRestoreBranch(raw: unknown): LocalRestoreBranchRecord | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const v = raw as Partial<LocalRestoreBranchRecord>
+  if (typeof v.status !== 'string' || !RESTORE_STATUSES.has(v.status) || typeof v.branch !== 'string' || !v.branch) return null
+  const sha = (x: unknown) => typeof x === 'string' && /^[0-9a-f]{40,64}$/i.test(x) ? x : null
+  const count = (x: unknown) => typeof x === 'number' && Number.isFinite(x) ? x : null
+  return {
+    status: v.status as LocalRestoreBranchStatus,
+    branch: v.branch,
+    worktreePath: typeof v.worktreePath === 'string' ? v.worktreePath : '',
+    baseSha: sha(v.baseSha),
+    commitSha: sha(v.commitSha),
+    resolvedBy: v.resolvedBy === 'clean' || v.resolvedBy === 'resolver' ? v.resolvedBy : null,
+    managedPaths: strings(v.managedPaths, 50),
+    conflictPaths: strings(v.conflictPaths, 20),
+    files: Array.isArray(v.files)
+      ? v.files.filter((f): f is LocalRestoreFileChange => !!f && typeof (f as LocalRestoreFileChange).path === 'string')
+        .slice(0, 50).map((f) => ({ path: f.path, added: count(f.added), removed: count(f.removed) }))
+      : [],
+    detail: typeof v.detail === 'string' ? v.detail : null,
+    updatedAt: typeof v.updatedAt === 'string' ? v.updatedAt : '',
+  }
+}
+
+const LOCAL_STASH_STATES: ReadonlySet<string> = new Set(['saved', 'restored', 'needs_attention', 'released'])
+
+export function readLocalStash(raw: string | null | undefined): LocalStashRecord | null {
+  if (!raw) return null
+  try {
+    const value = JSON.parse(raw) as Partial<LocalStashRecord> | null
+    if (!value || typeof value.sha !== 'string' || !/^[0-9a-f]{40,64}$/i.test(value.sha)) return null
+    if (typeof value.state !== 'string' || !LOCAL_STASH_STATES.has(value.state)) return null
+    return {
+      sha: value.sha,
+      name: typeof value.name === 'string' ? value.name : '',
+      checkoutPath: typeof value.checkoutPath === 'string' ? value.checkoutPath : '',
+      branch: typeof value.branch === 'string' ? value.branch : '',
+      state: value.state as LocalStashState,
+      restoreBranch: typeof value.restoreBranch === 'string' ? value.restoreBranch : null,
+      conflictPaths: Array.isArray(value.conflictPaths) ? value.conflictPaths.filter((p): p is string => typeof p === 'string').slice(0, 20) : [],
+      restore: readRestoreBranch(value.restore),
+      savedAt: typeof value.savedAt === 'string' ? value.savedAt : '',
+      updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : '',
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Persist the local-stash record independently of the decision lease, like a
+ * safety archive: it points at the person's own work, so a raced decision CAS
+ * must never be able to lose it. Optionally move `status_code` off/onto
+ * `local_changes_attention` in the same statement (only from `fromStatus`).
+ */
+export function setPrDeliveryLocalStash(
+  db: DbInstance,
+  id: string,
+  record: LocalStashRecord,
+  status?: { from: PrDeliveryStatusCode; to: PrDeliveryStatusCode },
+): boolean {
+  const value = JSON.stringify({ ...record, conflictPaths: record.conflictPaths.slice(0, 20) })
+  if (status) {
+    db.prepare(`
+      UPDATE rail_pr_deliveries
+         SET status_code = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}
+       WHERE id = ? AND status_code = ?
+    `).run(status.to, id, status.from)
+  }
+  return db.prepare(`
+    UPDATE rail_pr_deliveries
+       SET local_stash = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}
+     WHERE id = ?
+  `).run(value, id).changes > 0
+}
+
+/** Every delivery that still references a stash Specrails must restore or keep. */
+export function listPrDeliveriesWithLocalStash(db: DbInstance): RailPrDeliveryRow[] {
+  return db.prepare(`SELECT * FROM rail_pr_deliveries WHERE local_stash IS NOT NULL ORDER BY created_at`).all() as RailPrDeliveryRow[]
 }
 
 export interface CreatePrDeliveryInput {
@@ -962,6 +1128,10 @@ export interface PrDeliverySnapshot {
   specAddenda: SpecAddendaSnapshotEntry[] | null
   /** Reviewer risk brief summary from settle evidence; absent without a brief. */
   riskSummary?: PrDeliveryRiskSummary
+  /** Flow → Spec stopped with requested changes: the reviewer's issues and failing checks (absent otherwise). */
+  flowReview?: FlowReviewOutcome
+  /** "Integrate locally" saved the person's uncommitted work as a stash (absent otherwise). */
+  localStash?: LocalStashSnapshot
   createdAt: string
   updatedAt: string
 }
@@ -993,7 +1163,11 @@ export function updatePrDeliverySettleEvidence(db: DbInstance, id: string, evide
 }
 
 export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot {
-  const units = parseJsonArray<DeliverBranchRecord>(row.branches)
+  const storedUnits = parseJsonArray<DeliverBranchRecord>(row.branches)
+  // A Flow → Spec delivery settled as a generic failure whose evidence shows
+  // requested changes reads exactly like one settled as such today.
+  const legacyFlowReview = legacyFlowReviewReclassification(row, storedUnits)
+  const units = legacyFlowReview?.units ?? storedUnits
   return {
     ...(row.execution_manifest ? { executionManifest: readExecutionManifest(row.execution_manifest), repositoryDeliveries: parseJsonArray<RepositoryDeliverySnapshot>(row.repository_deliveries ?? '[]') } : {}),
     id: row.id,
@@ -1009,8 +1183,8 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     decision: row.decision,
     implementationOutcome: row.implementation_outcome ?? 'unknown',
     deliveryOutcome: row.delivery_outcome ?? 'unknown',
-    statusCode: row.status_code ?? null,
-    statusDetail: row.status_detail ?? null,
+    statusCode: legacyFlowReview?.statusCode ?? row.status_code ?? null,
+    statusDetail: legacyFlowReview?.statusDetail ?? row.status_detail ?? null,
     deliverySha: row.delivery_sha ?? null,
     isContinuation: row.is_continuation === 1,
     supersedesDeliveryId: row.supersedes_delivery_id ?? null,
@@ -1031,6 +1205,18 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     followUp: readFollowUp(row.follow_up),
     specAddenda: readSpecAddendaSnapshot(row.spec_addenda),
     ...(() => { const riskSummary = readDeliveryRiskSummary(row.settle_evidence); return riskSummary ? { riskSummary } : {} })(),
+    ...(() => { const flowReview = legacyFlowReview?.flowReview ?? readFlowReviewOutcome(row); return flowReview ? { flowReview } : {} })(),
+    ...(() => {
+      const stash = readLocalStash(row.local_stash)
+      if (!stash) return {}
+      const { checkoutPath: _checkoutPath, restore, ...rest } = stash
+      const localStash: LocalStashSnapshot = { ...rest }
+      if (restore) {
+        const { worktreePath: _worktreePath, ...wire } = restore
+        localStash.restore = wire
+      }
+      return { localStash }
+    })(),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -1072,6 +1258,10 @@ export function toRailPrStateMessage(projectId: string, snap: PrDeliverySnapshot
     runIds: snap.runIds,
     originConversationId: snap.originConversationId,
     ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
+    ...(snap.flowReview ? { flowReview: snap.flowReview } : {}),
+    ...(snap.localStash ? { localStash: snap.localStash } : {}),
+    loopId: snap.loopId,
+    loopName: snap.loopName || null,
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
   }
@@ -1111,6 +1301,10 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     branch: snap.branch,
     runIds: snap.runIds,
     ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
+    ...(snap.flowReview ? { flowReview: snap.flowReview } : {}),
+    ...(snap.localStash ? { localStash: snap.localStash } : {}),
+    loopId: snap.loopId,
+    loopName: snap.loopName || null,
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
     // mission-rail-cards: coarse phase so the card renders the run header

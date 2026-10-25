@@ -1,9 +1,9 @@
 import { Check } from 'lucide-react'
-import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { useThemeOptional } from '../../context/ThemeContext'
 import { THEME_IDS, THEMES, type ThemeId } from '../../lib/themes'
 
+import { notifyError } from '../../../../lib/notify-error'
 /**
  * Theme card grid shared by the Settings Appearance section and the
  * onboarding wizard. One card per built-in theme — rendered from the
@@ -25,8 +25,9 @@ export function ThemePickerGrid() {
     try {
       await setTheme(id)
     } catch (err) {
-      toast.error(tr('appearance.updateFailed'), {
-        description: err instanceof Error ? err.message : undefined,
+      notifyError(tr('appearance.updateFailed'), {
+        detail: err instanceof Error ? err.message : undefined,
+        retry: () => void handleSelect(id),
       })
     }
   }
@@ -49,32 +50,53 @@ export function ThemePickerGrid() {
             disabled={isUpdating}
             onClick={() => void handleSelect(id)}
             className={
-              'group relative overflow-hidden rounded-lg border text-left transition-all ' +
+              'group relative overflow-hidden rounded-card border text-left transition-all ' +
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ' +
               'disabled:opacity-60 disabled:cursor-not-allowed ' +
               (selected
                 ? 'border-accent-primary ring-1 ring-accent-primary shadow-[0_0_0_1px_var(--color-accent-primary)] '
-                : 'border-border hover:border-accent-primary/40 hover:shadow-md ')
+                : 'border-border hover:border-accent-primary/40 hover:shadow-2 ')
             }
             data-testid={`theme-card-${id}`}
             data-selected={selected ? 'true' : 'false'}
           >
-            {/* Preview swatch */}
+            {/* Live mini rail: the theme's own track, lamps and travelling pill */}
             <div
-              className="h-20 w-full flex items-end gap-1 p-2"
+              className="relative h-20 w-full"
               style={{
                 background:
                   `linear-gradient(135deg, ${t.previewSwatches.background} 0%, ${t.previewSwatches.background} 60%, color-mix(in srgb, ${t.previewSwatches.accents[0]} 18%, ${t.previewSwatches.background}) 100%)`,
               }}
               aria-hidden="true"
+              data-testid={`theme-rail-${id}`}
             >
-              {t.previewSwatches.accents.map((c, i) => (
+              <span
+                className="absolute left-3 right-3 top-[38%] h-px"
+                style={{ background: `color-mix(in srgb, ${t.previewSwatches.foreground} 22%, transparent)` }}
+              />
+              <span
+                className="absolute top-[38%] h-1.5 w-8 -translate-y-1/2 rounded-full"
+                style={{
+                  left: '42%',
+                  background: `linear-gradient(90deg, ${t.previewSwatches.accents[0]}, ${t.previewSwatches.railEnd ?? t.previewSwatches.accents[1]})`,
+                }}
+              />
+              {[12, 50, 88].map((at, i) => (
                 <span
-                  key={i}
-                  className="h-3 w-3 rounded-full ring-1 ring-black/10"
-                  style={{ background: c }}
+                  key={at}
+                  className="absolute top-[38%] h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    left: `${at}%`,
+                    background: i === 0 ? t.status.completed : i === 1 ? t.status.running : t.status.queued,
+                    boxShadow: `0 0 0 2px ${t.previewSwatches.background}`,
+                  }}
                 />
               ))}
+              <div className="absolute bottom-2 left-3 flex items-center gap-1">
+                {t.previewSwatches.accents.map((c, i) => (
+                  <span key={i} className="h-2 w-2 rounded-full ring-1 ring-black/10" style={{ background: c }} />
+                ))}
+              </div>
             </div>
             {/* Body */}
             <div className="p-3 space-y-1 bg-card">
@@ -87,7 +109,7 @@ export function ThemePickerGrid() {
                   />
                 )}
               </div>
-              <p className="text-[10px] text-muted-foreground leading-tight">
+              <p className="text-xs text-muted-foreground leading-tight">
                 {tr(`appearance.taglines.${id}`, { defaultValue: t.tagline })}
               </p>
             </div>

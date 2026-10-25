@@ -107,13 +107,14 @@ describe('SettingsPage - extended coverage', () => {
     })
   })
 
-  it('renders Budget section with daily budget input', async () => {
+  it('renders the Budget section with the daily limit read-only (the one editor is Analytics ▸ Spend limits)', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
     render(<SettingsPage />)
     await waitFor(() => {
-      expect(screen.getByText('Budget')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText(/e\.g\. 5\.00/i)).toBeInTheDocument()
+      expect(screen.getAllByText('Spend limits').length).toBeGreaterThan(0)
+      expect(screen.getByTestId('project-daily-budget-summary')).toBeInTheDocument()
     })
+    expect(screen.queryByPlaceholderText(/e\.g\. 5\.00/i)).toBeNull()
   })
 
   it('loads prePrompt from project settings', async () => {
@@ -188,81 +189,26 @@ describe('SettingsPage - extended coverage', () => {
     })
   })
 
-  it('saves daily budget successfully', async () => {
+  it('does not write the daily limit from Settings any more: it only links to the Budget panel', async () => {
     const user = userEvent.setup()
-    const { toast } = await import('sonner')
-    // URL+method routed (order-independent) so any additional mount-time fetch
-    // (e.g. the Jira settings section's GET /jira/connection) cannot shift a
-    // brittle mockResolvedValueOnce sequence.
+    const requests: Array<{ url: string; method: string }> = []
     global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
       const u = String(url)
       const method = opts?.method ?? 'GET'
-      if (u.endsWith('/budget') && method === 'PATCH') return Promise.resolve({ ok: true, json: async () => ({}) })
-      if (u.endsWith('/config')) return Promise.resolve({ ok: true, json: async () => mockConfig })
-      if (u.endsWith('/budget')) return Promise.resolve({ ok: true, json: async () => ({}) })
-      if (u.endsWith('/settings')) return Promise.resolve({ ok: true, json: async () => ({ pipelineTelemetryEnabled: false, orchestratorModel: 'sonnet' }) })
-      return Promise.resolve({ ok: true, json: async () => ({ agents: [] }), text: async () => '{}' })
-    })
-    render(<SettingsPage />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 5\.00/i)).toBeInTheDocument()
-    })
-    const budgetInput = screen.getByPlaceholderText(/e\.g\. 5\.00/i) as HTMLInputElement
-    await user.type(budgetInput, '5.00')
-    // First enabled Save button is the daily budget Save (Orchestrator Save is disabled)
-    const saveBtn = screen.getAllByRole('button', { name: /^save$/i }).find(
-      (btn) => !(btn as HTMLButtonElement).disabled
-    )!
-    await user.click(saveBtn)
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Daily budget set to $5')
-    })
-  })
-
-  it('shows error when daily budget is invalid (zero)', async () => {
-    const user = userEvent.setup()
-    const { toast } = await import('sonner')
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
-    render(<SettingsPage />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 5\.00/i)).toBeInTheDocument()
-    })
-    const budgetInput = screen.getByPlaceholderText(/e\.g\. 5\.00/i) as HTMLInputElement
-    await user.type(budgetInput, '-1')
-    const saveBtn = screen.getAllByRole('button', { name: /^save$/i }).find(
-      (btn) => !(btn as HTMLButtonElement).disabled
-    )!
-    await user.click(saveBtn)
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Enter a positive number or leave blank to disable')
-    })
-  })
-
-  it('removes daily budget when input is blank', async () => {
-    const user = userEvent.setup()
-    const { toast } = await import('sonner')
-    // URL+method routed (order-independent) — see note in the save test above.
-    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      const u = String(url)
-      const method = opts?.method ?? 'GET'
-      if (u.endsWith('/budget') && method === 'PATCH') return Promise.resolve({ ok: true, json: async () => ({}) })
+      requests.push({ url: u, method })
       if (u.endsWith('/config')) return Promise.resolve({ ok: true, json: async () => ({ ...mockConfig, dailyBudgetUsd: 5.0 }) })
       if (u.endsWith('/budget')) return Promise.resolve({ ok: true, json: async () => ({ dailyBudgetUsd: 5.0 }) })
       if (u.endsWith('/settings')) return Promise.resolve({ ok: true, json: async () => ({ pipelineTelemetryEnabled: false, orchestratorModel: 'sonnet' }) })
       return Promise.resolve({ ok: true, json: async () => ({ agents: [] }), text: async () => '{}' })
     })
     render(<SettingsPage />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/e\.g\. 5\.00/i)).toBeInTheDocument()
-    })
-    const budgetInput = screen.getByPlaceholderText(/e\.g\. 5\.00/i) as HTMLInputElement
-    await user.clear(budgetInput)
-    const saveBtn = screen.getAllByRole('button', { name: /^save$/i }).find(
-      (btn) => !(btn as HTMLButtonElement).disabled
-    )!
-    await user.click(saveBtn)
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Daily budget removed')
-    })
+    expect(await screen.findByText('Currently $5.00 a day')).toBeInTheDocument()
+    const opened = vi.fn()
+    window.addEventListener('specrails:open-budget-panel', opened)
+    try {
+      await user.click(screen.getByTestId('project-open-budget'))
+      expect(opened).toHaveBeenCalledTimes(1)
+    } finally { window.removeEventListener('specrails:open-budget-panel', opened) }
+    expect(requests.filter((r) => r.url.endsWith('/budget') && r.method === 'PATCH')).toEqual([])
   })
 })

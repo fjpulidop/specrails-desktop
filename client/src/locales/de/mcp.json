@@ -15,8 +15,8 @@
     "activeSessions_other": "{{count}} aktive Sitzungen",
     "turnOn": "Einschalten",
     "turnOff": "Ausschalten",
-    "enableFailed": "MCP-Server konnte nicht aktiviert werden: {{message}}",
-    "disableFailed": "MCP-Server konnte nicht deaktiviert werden: {{message}}"
+    "enableFailed": "MCP-Server konnte nicht aktiviert werden",
+    "disableFailed": "MCP-Server konnte nicht deaktiviert werden"
   },
   "tiers": {
     "heading": "Berechtigungsstufen",
@@ -24,12 +24,12 @@
     "read": "Lesen",
     "readHelp": "Projekte, Spezifikationen und Analysen durchsuchen. Immer erlaubt.",
     "write": "Schreiben",
-    "writeHelp": "Spezifikationen und Tickets erstellen und bearbeiten.",
+    "writeHelp": "Specs erstellen und bearbeiten.",
     "aiSpawn": "KI starten",
     "aiSpawnHelp": "KI-Rails und Jobs starten, die die CLI ausführen.",
     "destructive": "Destruktiv",
-    "destructiveHelp": "Spezifikationen, Tickets und andere Projektdaten löschen.",
-    "updateFailed": "Berechtigungen konnten nicht aktualisiert werden: {{message}}"
+    "destructiveHelp": "Specs und andere Projektdaten löschen.",
+    "updateFailed": "Berechtigungen konnten nicht aktualisiert werden"
   },
   "config": {
     "heading": "Client-Konfiguration",
@@ -47,7 +47,8 @@
     "regenerate": "Neu generieren",
     "regenerateConfirm": "Zugriffstoken neu generieren? Jeder Client, der das alte Token verwendet, funktioniert nicht mehr, bis Sie seine Konfiguration aktualisieren.",
     "regenerated": "Zugriffstoken neu generiert",
-    "regenerateFailed": "Token konnte nicht neu generiert werden: {{message}}"
+    "regenerateFailed": "Token konnte nicht neu generiert werden",
+    "regenerateConfirmTitle": "Zugriffstoken neu generieren?"
   },
   "tray": {
     "open": "Öffnen",
@@ -93,6 +94,9 @@
       "unknown_provider": "Unbekannter Provider in der Aktivierungsmatrix",
       "invalid_entry": "Fehlerhafter Servereintrag",
       "invalid_body": "Fehlerhafte Anfrage"
-    }
+    },
+    "removeConfirmTitle": "{{name}} entfernen?",
+    "removeConfirmBody": "Der Missions-Agent lädt diesen Server für keinen Anbieter mehr. Ein erkannter Server bleibt in der Konfiguration deines KI-Anbieters und kann wieder aktiviert werden.",
+    "formProviderToggle": "Für {{provider}} aktivieren"
   }
 }

@@ -1,14 +1,17 @@
 import { useEffect, useId, useReducer, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { CheckCircle2, Hourglass, Loader2, Send } from 'lucide-react'
+import { CheckCircle2, Hourglass, Send } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
+import { LiveDot } from '../../../components/ui/live-dot'
+import { formatUsd } from '../../../lib/format-usd'
 
+import { notifyError } from '../../../lib/notify-error'
 /** Running SUM of every completed turn's REAL usage (from job.turn_done /
  *  job.finalized — never an estimate). */
 export interface InteractiveJobTotals {
@@ -218,10 +221,10 @@ export function InteractiveJobComposer({
         dispatch({ type: 'blocked' })
       } else {
         const data = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(t('detail.toast.sendFailed'), { description: data.error })
+        notifyError(t('detail.toast.sendFailed'), { detail: data.error })
       }
     } catch {
-      toast.error(t('detail.toast.networkError'))
+      notifyError(t('detail.toast.networkError'))
     } finally {
       setSending(false)
     }
@@ -246,11 +249,11 @@ export function InteractiveJobComposer({
         dispatch({ type: 'finalize-reject' })
       } else {
         const data = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(t('detail.toast.finalizeFailed'), { description: data.error })
+        notifyError(t('detail.toast.finalizeFailed'), { detail: data.error })
         dispatch({ type: 'finalize-reject' })
       }
     } catch {
-      toast.error(t('detail.toast.networkError'))
+      notifyError(t('detail.toast.networkError'))
       dispatch({ type: 'finalize-reject' })
     }
   }
@@ -263,12 +266,12 @@ export function InteractiveJobComposer({
       data-testid="interactive-job-composer"
       className={cn(
         'shrink-0 border-t px-3 py-2 space-y-1.5',
-        'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300',
+        'u-enter',
         variant === 'glass' ? 'border-border/30 bg-surface/30' : 'border-border/40 bg-surface/40',
       )}
     >
       {/* Status row: state pill · queued indicator · live totals · settle action */}
-      <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-between gap-3 text-caption text-muted-foreground">
         <span className="flex min-w-0 items-center gap-2">
           {waiting ? (
             <span className="inline-flex items-center gap-1.5">
@@ -277,7 +280,7 @@ export function InteractiveJobComposer({
             </span>
           ) : state.streaming ? (
             <span className="inline-flex items-center gap-1.5">
-              <Loader2 className="h-3 w-3 animate-spin text-accent-primary" />
+              <LiveDot tone="primary" size="xs" aria-hidden />
               <span className="relative">
                 {workingLabel}
                 <span aria-hidden className="title-shimmer pointer-events-none absolute inset-0">
@@ -287,22 +290,22 @@ export function InteractiveJobComposer({
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent-success motion-safe:animate-pulse" />
+              <LiveDot tone="success" size="xs" aria-hidden />
               {t('detail.interactive.ready')}
             </span>
           )}
           {state.queued > 0 && (
-            <span className="rounded-full border border-accent-info/30 bg-accent-info/10 px-1.5 py-px text-[10px] tabular-nums text-accent-info motion-safe:animate-in motion-safe:fade-in">
+            <span className="rounded-full border border-accent-info/30 bg-accent-info/10 px-1.5 py-px text-caption num text-accent-info u-fade">
               {t('detail.interactive.queued', { count: state.queued })}
             </span>
           )}
         </span>
         <span className="flex shrink-0 items-center gap-3">
           {state.totals && (
-            <span className="tabular-nums">
+            <span className="num">
               {t('detail.interactive.liveTotals', {
                 turns: state.totals.num_turns ?? t('completion.unavailable'),
-                cost: state.totals.total_cost_usd?.toFixed(4) ?? t('completion.unavailable'),
+                cost: state.totals.total_cost_usd != null ? formatUsd(state.totals.total_cost_usd) : t('completion.unavailable'),
               })}
             </span>
           )}
@@ -330,9 +333,9 @@ export function InteractiveJobComposer({
                   onClick={() => void handleFinalize()}
                   disabled={state.finalizing || waiting}
                   className={cn(
-                    'text-[11px] underline-offset-2 transition-colors',
+                    'text-caption underline-offset-2 transition-colors',
                     waiting
-                      ? 'cursor-not-allowed text-muted-foreground/40'
+                      ? 'cursor-not-allowed text-muted-foreground'
                       : 'text-muted-foreground hover:text-accent-success hover:underline',
                   )}
                 >
@@ -369,7 +372,7 @@ export function InteractiveJobComposer({
         </div>
       )}
       {mode === 'auto' && !pending.length && (
-        <p className="text-[11px] leading-snug text-muted-foreground/60">
+        <p className="text-caption leading-snug text-muted-foreground">
           {waiting ? t('detail.interactive.waitingForStep') : t('detail.interactive.autoHint')}
         </p>
       )}

@@ -36,6 +36,7 @@ export const FAILURE_CODE_LABELS: Record<string, string> = {
   stuck: 'the run appears stuck (no activity checkpoint for a long time)',
   cancelled: 'the run was cancelled',
   push_failed: 'pushing the branch failed',
+  review_changes_requested: 'the reviewer still requested changes after the automatic correction rounds (Flow → Spec)',
 }
 
 export function describeFailureCode(code: string): string {
@@ -82,14 +83,20 @@ export function buildFailureBriefing(input: FailureBriefingInput): string {
   if (r?.pendingApproval) options.push('a step is waiting for approval')
   if (r?.canResume) options.push('Resume (continue from the saved runtime state)')
   if (r?.recoverableSteps?.length) options.push(`Recover & retry the interrupted step(s): ${r.recoverableSteps.join(', ')}`)
-  options.push('Relaunch (a fresh run on the same rail)')
-  options.push('Discard')
+  if (input.failure.code === 'review_changes_requested') {
+    // Flow -> Spec: the worktree can go back to its Flow instead of being discarded.
+    options.push('Back to Flow (reopen the Flow on the same worktree; the agent receives the review)')
+    options.push('Relaunch (Flow → Spec again on the same worktree)')
+  } else {
+    options.push('Relaunch (a fresh run on the same rail)')
+    options.push('Discard')
+  }
   lines.push('')
   lines.push(`The card in this mission offers: ${options.join('; ')}.`)
   if (input.hasDelivery === false) lines.push('This run had no git isolation (shared project folder) — there is no PR phase.')
   if (input.prDeliveryId) lines.push(`Delivery id: ${input.prDeliveryId}.`)
   lines.push('')
-  lines.push('Conduct: explain the failure in at most 6 short lines, name the ONE next action you recommend and why, and stop. Do NOT relaunch, resume or discard by yourself — the user decides on the card. Read specrails_jobs runtime_diagnose and, as needed, get / runtime_evidence before recommending recovery. canResume is not proof that retry fixes the cause. The next action may be diagnosis or a targeted repair, not a card button. If the same failure recurred, identify what must change before another attempt; do not default to Relaunch. This six-line limit applies only to this automatic turn.')
+  lines.push('Conduct: explain the failure in at most 6 short lines, name the ONE next action you recommend and why, and stop. Do NOT relaunch, resume or discard by yourself — the user decides on the card. Read specrails_jobs runtime_diagnose (its `reviewer` field carries the reviewer verdict: approved, score, issues, summary, failing host checks and, for Flow → Spec, derivation coverage — quote it instead of guessing) and, as needed, get / runtime_evidence before recommending recovery. canResume is not proof that retry fixes the cause. The next action may be diagnosis or a targeted repair, not a card button. If the same failure recurred, identify what must change before another attempt; do not default to Relaunch. This six-line limit applies only to this automatic turn.')
   return lines.join('\n')
 }
 

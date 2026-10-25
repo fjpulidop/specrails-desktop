@@ -26,7 +26,6 @@ import type { TerminalSettings } from '../../settings/lib/terminal-settings-type
 import { DEFAULT_TERMINAL_SETTINGS, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, clampFontSize } from '../../settings/lib/terminal-settings-types'
 import { ingestMark, disposeSession as disposeMarksSession, getMarks } from '../../../lib/command-mark-store'
 import { notifyCommandFinished, shouldNotify } from '../lib/terminal-notifications'
-import { toast } from 'sonner'
 import i18n from '../../../lib/i18n'
 import { API_ORIGIN } from '../../../lib/origin'
 import { WS_URL } from '../../../lib/ws-url'
@@ -35,6 +34,7 @@ import { useThemeOptional } from '../../settings/context/ThemeContext'
 import { getActiveTheme } from '../../settings/lib/theme-palette'
 import { readClipboardText, writeClipboardText } from '../../../lib/tauri-clipboard'
 
+import { notifyError } from '../../../lib/notify-error'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type PanelVisibility = 'hidden' | 'restored' | 'maximized'
@@ -352,7 +352,7 @@ export function TerminalsProvider({ children, activeProjectId }: ProviderProps) 
         // (the "+ button does nothing" symptom).
         let reason = ''
         try { reason = ((await res.json()) as { error?: string })?.error ?? '' } catch { /* non-JSON body */ }
-        toast.error(
+        notifyError(
           reason === 'terminal_limit_exceeded' ? i18n.t('terminal:errors.limitReached', { max: TERMINAL_MAX_PER_PROJECT })
             : reason === 'terminal_spawn_failed' ? i18n.t('terminal:errors.spawnFailed')
             : reason === 'terminal_name_invalid' ? i18n.t('terminal:errors.invalidName')
@@ -376,7 +376,7 @@ export function TerminalsProvider({ children, activeProjectId }: ProviderProps) 
       }))
       return session
     } catch {
-      toast.error(i18n.t('terminal:errors.serverUnreachable'))
+      notifyError(i18n.t('terminal:errors.serverUnreachable'))
       return null
     }
   }, [updateProject])
@@ -862,7 +862,7 @@ function ensureXtermForSession(
       h.term.write(`\r\n\x1b[2m${exitedText}\x1b[0m\r\n`)
     } catch { /* ignore */ }
     if (early && !h.gotUserInput) {
-      toast.error(i18n.t('terminal:errors.exitedImmediately'))
+      notifyError(i18n.t('terminal:errors.exitedImmediately'))
     }
   }
 

@@ -126,6 +126,19 @@ describe('AgentChatManager PR-decision card (safe-pr-review-flow)', () => {
     expect(events[1]).toMatchObject({ conversationId: conv.id, decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7' })
   })
 
+  it('a Flow → Spec card returned to its Flow keeps the failure it stopped with', () => {
+    const conv = createAgentConversation(db, {})
+    const runtime = { status: 'failed', currentStep: 'derive', canResume: false, recoverableSteps: [], pendingApproval: false, at: 't', failure: { code: 'implementation_failed', detail: 'OpenSpec 1.14.3 required; found 1.4.1', stepId: 'derive' } } as PrDecisionCardEnvelope['runtime']
+    mgr.postPrDecisionCard(conv.id, envelope({ decision: 'implementation_failed', statusCode: 'implementation_failed', runtime }))
+    mgr.updatePrDecisionCard(conv.id, envelope({ decision: 'discarded', statusCode: 'returned_to_flow', statusDetail: 'Returned to Flow' }))
+    const stored = JSON.parse(listAgentMessages(db, conv.id).find((m) => m.role === 'system')!.content) as PrDecisionCardEnvelope
+    expect(stored).toMatchObject({ decision: 'discarded', statusCode: 'returned_to_flow', runtime })
+    expect(decisionBroadcasts(broadcast).at(-1)).toMatchObject({ statusCode: 'returned_to_flow', runtime })
+    // Any other transition replaces the card as before.
+    mgr.updatePrDecisionCard(conv.id, envelope({ decision: 'discarded', statusCode: 'cancelled' }))
+    expect(JSON.parse(listAgentMessages(db, conv.id).find((m) => m.role === 'system')!.content)).not.toHaveProperty('runtime')
+  })
+
   it('postPrDecisionCard is idempotent for one delivery instead of appending a duplicate card', () => {
     const conv = createAgentConversation(db, {})
     mgr.postPrDecisionCard(conv.id, envelope({ decision: 'pr_failed' }))

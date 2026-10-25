@@ -44,12 +44,14 @@ import {
 } from './rail-pr-store'
 import { classifyLoopEffect } from '../../loops/runtime/loop-effect'
 import { composeReviewPacket } from './review-packet'
+import { composeDeliveryChanges, composeFileDiff } from './delivery-changes'
 import { readSettleEvidence, healRuntimeEvidence, coreAnnouncesReviewBrief } from './delivery-evidence'
 import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
-import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
+import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS, runBringBackLocalChanges, runDiscardRestoreBranch, runRestoreLocalChanges } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
+import { RepositoryHasNoCommitsError } from './isolated-worktree'
 import { FlowHandOffNotReadyError, FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 
 /** The Flow -> Spec loop only runs from a Flow hand-off (arch section 4.8). */
@@ -576,6 +578,10 @@ export function createRailsRouter(): Router {
     // Non-string values fail the VALID_MODES check below.
     let mode = normalizeRailMode(req.body?.mode ?? 'implement') as string
     const { repositoryIds: rawRepositoryIds, workspaceSelection: rawWorkspaceSelection, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch, followUp: rawFollowUp } = req.body ?? {}
+    // Per-launch soft cap (USD): > 0 caps this run, 0 waives the default. The
+    // sample-project first run sends it so a newcomer's first run is cost-bounded.
+    const rawRunCap: unknown = req.body?.runCapUsd
+    const runCapUsd = typeof rawRunCap === 'number' && Number.isFinite(rawRunCap) && rawRunCap >= 0 ? rawRunCap : undefined
     // PR review follow-up (pr-follow-up-fixes): a typed, bounded, FROZEN scope
     // for "resolve these review comments". It rides the delivery row and every
     // ai-step prompt — never the spec, whose description Jira-linked projects
@@ -1176,8 +1182,13 @@ export function createRailsRouter(): Router {
         if (requiresRepositoryIsolation && !useIsolation) {
           res.status(409).json({ error: 'repository_isolation_required', detail: 'Selected repositories require worktree isolation for this loop.' }); return
         }
-        if (flowWorktree && (!useIsolation || requiresRepositoryIsolation)) {
-          res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off runs only on its own worktree of the primary repository.' }); return
+        // A Flow runs in exactly its own repository: the primary (no group), or
+        // the one non-primary member its worktree belongs to.
+        const flowRepositoryScope = !flowWorktree ? true : flowWorktree.repositoryId
+          ? repositoryIds.length === 1 && repositoryIds[0] === flowWorktree.repositoryId
+          : !requiresRepositoryIsolation
+        if (flowWorktree && (!useIsolation || !flowRepositoryScope)) {
+          res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off runs only on its own worktree, in the repository it belongs to.' }); return
         }
         if (relaunchSource?.delivery && !useIsolation) {
           res.status(409).json({ error: 'relaunch_isolation_required', detail: 'The original attempt was isolated; its retry must also use an isolated worktree.',
@@ -1243,6 +1254,7 @@ export function createRailsRouter(): Router {
                 provider: loopProvider, model: loopModel, effort, scope,
                 ...(deciderEngine ? { deciderEngine } : {}),
                 profileName: resolvedProfile,
+                ...(runCapUsd !== undefined ? { runCapUsd } : {}),
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
                 ...(baseBranch ? { baseBranch } : {}),
@@ -1287,6 +1299,9 @@ export function createRailsRouter(): Router {
               // Explicit-target validation failures are the USER's answer being
               // unusable — fail closed with the machine-readable code; never
               // fall back to a fresh shared-cwd run next to the designated PR.
+              if (err instanceof RepositoryHasNoCommitsError) {
+                res.status(409).json({ error: err.code, detail: err.message }); return
+              }
               if (err instanceof FlowWorktreeMismatchError) {
                 res.status(409).json({ error: err.code, detail: err.message }); return
               }
@@ -1405,6 +1420,7 @@ export function createRailsRouter(): Router {
               effort,
               ...(deciderEngine ? { deciderEngine } : {}),
               profileName: resolvedProfile,
+              ...(runCapUsd !== undefined ? { runCapUsd } : {}),
               ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
             })
             .then((r) => {
@@ -1655,6 +1671,59 @@ export function createRailsRouter(): Router {
     }
   })
 
+  // GET /rails/pr-deliveries/:id/changes[?repositoryId=&source=] — the review
+  // packet's Changes tab: the delivery's head vs its merge-base with the base
+  // branch (file list + counts + hashes) and the annotations the delivery already
+  // holds. GET .../changes/file?path=&full=1 parses ONE file lazily. Read-only;
+  // `path` is a lookup key against the diff's own listing, never a pathspec.
+  const changesScope = (req: Request, res: Response): { c: ProjectContext; row: NonNullable<ReturnType<typeof getPrDelivery>>; repoDir: string; repositoryId: string | null; source: string | null } | null => {
+    if (!isReviewPacketEnabled()) { res.status(404).json({ error: 'Not Found' }); return null }
+    const c = ctx(req)
+    let row = getPrDelivery(c.db, req.params.prDeliveryId as string)
+    if (!row) { res.status(404).json({ error: 'Delivery not found' }); return null }
+    const parent = row.parent_delivery_id ? getPrDelivery(c.db, row.parent_delivery_id) : row
+    if (!parent) { res.status(404).json({ error: 'Delivery group not found' }); return null }
+    const repositoryId = req.query.repositoryId
+    if (repositoryId !== undefined && (typeof repositoryId !== 'string' || !repositoryId)) { res.status(400).json({ error: 'Invalid repositoryId' }); return null }
+    const source = req.query.source
+    if (source !== undefined && (typeof source !== 'string' || !/^(delivery|ticket:\d+)$/.test(source))) { res.status(400).json({ error: 'Invalid source' }); return null }
+    if (repositoryId) {
+      row = listRepositoryDeliveries(c.db, parent.id).find((child) => child.repository_id === repositoryId)
+      if (!row) { res.status(404).json({ error: 'Repository not in this delivery' }); return null }
+    }
+    const manifest = readExecutionManifest(parent.execution_manifest)
+    const frozen = row.repository_id ? manifest?.repositories.find((repository) => repository.repositoryId === row!.repository_id && repository.sourcePath === row!.repository_path) : undefined
+    if (row.parent_delivery_id && !frozen) { res.status(409).json({ error: 'Repository delivery has no frozen source path' }); return null }
+    return { c, row, repoDir: frozen?.sourcePath ?? c.project.path, repositoryId: frozen?.repositoryId ?? null, source: source ?? null }
+  }
+
+  router.get('/pr-deliveries/:prDeliveryId/changes', async (req: Request, res: Response) => {
+    const scope = changesScope(req, res)
+    if (!scope) return
+    try {
+      const changes = await composeDeliveryChanges({ row: scope.row, repoDir: scope.repoDir, sourceId: scope.source, repositoryId: scope.repositoryId })
+      res.json({ prDeliveryId: scope.row.id, repositoryId: scope.repositoryId, changes })
+    } catch (err) {
+      console.error('[rails-router] changes composition failed:', err)
+      res.status(500).json({ error: 'changes composition failed' })
+    }
+  })
+
+  router.get('/pr-deliveries/:prDeliveryId/changes/file', async (req: Request, res: Response) => {
+    const scope = changesScope(req, res)
+    if (!scope) return
+    const filePath = req.query.path
+    if (typeof filePath !== 'string' || !filePath || filePath.length > 1000 || filePath.includes('\0')) { res.status(400).json({ error: 'Invalid path' }); return }
+    try {
+      const result = await composeFileDiff({ row: scope.row, repoDir: scope.repoDir, sourceId: scope.source, repositoryId: scope.repositoryId, path: filePath, full: req.query.full === '1' })
+      if (!result.ok) { res.status(result.status).json({ error: result.error }); return }
+      res.json({ prDeliveryId: scope.row.id, diff: result.diff })
+    } catch (err) {
+      console.error('[rails-router] file diff failed:', err)
+      res.status(500).json({ error: 'file diff failed' })
+    }
+  })
+
   // POST /rails/pr-decision — the ONE decision action (safe-pr-review-flow) both
   // surfaces (dashboard rail row + agent-chat card) call on a rail_pr_deliveries
   // row: create-pr | publish | discard/dismiss | poll/reopen | merge-local |
@@ -1730,6 +1799,50 @@ export function createRailsRouter(): Router {
       res.status(500).json({ error: 'pr-decision failed', detail: (err as Error).message })
     }
   })
+
+  // POST /rails/pr-local-changes/{restore,bring-back,discard-branch} — the
+  // person's uncommitted work "Integrate locally" saved as a stash (by commit
+  // sha). "restore" re-applies it (a clean apply drops it; a conflict keeps it
+  // and Specrails restores it on its own branch + worktree). "bring-back"
+  // fast-forwards the target to the reviewed restore commit and only then
+  // drops the stash; "discard-branch" removes the restore branch, keeping the
+  // stash. Each takes the repository lock and refuses while a decision lease
+  // is held (proactive-local-integration).
+  const localChangesActions = {
+    restore: runRestoreLocalChanges,
+    'bring-back': runBringBackLocalChanges,
+    'discard-branch': runDiscardRestoreBranch,
+  } as const
+  for (const [action, run] of Object.entries(localChangesActions)) {
+    router.post(`/pr-local-changes/${action}`, async (req: Request, res: Response) => {
+      const c = ctx(req)
+      const { prDeliveryId } = req.body ?? {}
+      if (typeof prDeliveryId !== 'string' || !prDeliveryId) {
+        res.status(400).json({ error: 'prDeliveryId is required' }); return
+      }
+      try {
+        const admission = captureProcessAdmission(c.project.id)
+        const result = await run({
+          db: c.db,
+          project: { id: c.project.id, slug: c.project.slug, path: c.project.path },
+          git: defaultGitRunner,
+          exec: defaultExec,
+          broadcast: c.broadcast,
+          jiraSyncManager: c.jiraSyncManager,
+          assertAdmission: () => admission.assertCurrent(),
+        }, prDeliveryId)
+        const current = getPrDelivery(c.db, prDeliveryId)
+        const shown = current?.parent_delivery_id ? getPrDelivery(c.db, current.parent_delivery_id) : current
+        res.status(result.status).json({ ...result.body, ...(shown ? { snapshot: toPrDeliverySnapshot(shown) } : {}) })
+      } catch (err) {
+        if (err instanceof ProcessAdmissionClosedError) {
+          res.status(409).json({ error: 'project_recovery_in_progress' }); return
+        }
+        console.error(`[rails-router] local changes ${action} error:`, err)
+        res.status(500).json({ error: `${action} failed`, detail: (err as Error).message })
+      }
+    })
+  }
 
   // POST /rails/pr-checkout — move the user's main checkout to the delivered PR
   // branch. This is intentionally separate from PR decisions: it does not accept,

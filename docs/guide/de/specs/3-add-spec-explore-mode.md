@@ -22,7 +22,7 @@ Während du dich unterhältst, zeigt ein Entwurfsbereich die Spec in ihrem aktue
 
 Das ist das Herzstück des Explore-Modus: Du starrst nie auf ein leeres Formular. Du blickst immer auf eine echte, sich entwickelnde Spec.
 
-## Wie viel die KI sieht: der Kontext-Schieberegler
+## Wie viel die KI sieht: der Kontext-Schieberegler {#context-scope}
 
 Bevor die KI antwortet, entscheidest du, wie viel von deinem Projekt sie sehen darf. Ein Schieberegler mit Kontext-Presets lässt dich Geschwindigkeit gegen Tiefe abwägen:
 

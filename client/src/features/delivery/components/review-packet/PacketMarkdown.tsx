@@ -48,10 +48,10 @@ export function PacketMarkdown({ children, muted = false, className }: { childre
       className={cn(
         'prose prose-invert prose-sm max-w-none leading-relaxed',
         'prose-p:my-1.5 prose-headings:mt-3 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold',
-        'prose-strong:text-foreground prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-li:marker:text-accent-primary/70',
+        'prose-strong:text-foreground prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-li:marker:text-accent-primary',
         'prose-pre:my-2 prose-pre:rounded-lg prose-pre:border prose-pre:border-border/50 prose-pre:bg-background-deep/60 prose-pre:text-xs',
         'prose-blockquote:border-accent-primary/40 prose-blockquote:text-muted-foreground prose-hr:border-border/50',
-        muted ? 'text-muted-foreground' : 'text-foreground/85',
+        muted ? 'text-muted-foreground' : 'text-foreground',
         className,
       )}
     >

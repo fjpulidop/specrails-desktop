@@ -190,10 +190,10 @@
     "answerLabel": "Tu respuesta",
     "answerPlaceholder": "Responde a la pregunta; el arquitecto continúa con ella.",
     "answer": "Responder y reanudar",
-    "viewLog": "Ver log del job",
+    "viewLog": "Ver log del trabajo",
     "implementation": "Implementación",
     "preserveProgress": "Continúa desde la fase indicada, conservando el trabajo anterior y la configuración guardada.",
-    "reviewDelivery": "Implementación completada. Revisa el resultado en el log de este job antes de preparar la entrega; esta continuación no lo ha publicado.",
+    "reviewDelivery": "Implementación completada. Revisa el resultado en el log de este trabajo antes de preparar la entrega; esta continuación no lo ha publicado.",
     "prepareDelivery": "Preparar entrega",
     "dismiss": "Descartar",
     "selectRecovery": "Selecciona los intentos interrumpidos que quieres recuperar"
@@ -243,7 +243,7 @@
   },
   "prompts": {
     "title": "Prompts de los agentes",
-    "description": "Consulta y edita las instrucciones de cada rol. Son comunes a todos los proyectos y proveedores; los cambios se aplican a los nuevos jobs. Los jobs reanudados conservan sus prompts originales.",
+    "description": "Consulta y edita las instrucciones de cada rol. Son comunes a todos los proyectos y proveedores; los cambios se aplican a los nuevos trabajos. Los trabajos reanudados conservan sus prompts originales.",
     "definition": "Definición de {{role}}",
     "default": "Valor de fábrica",
     "custom": "Personalizado",
@@ -627,5 +627,16 @@
     "body": "El desarrollador y el revisor usan ahora el mismo proveedor. Es solo una sugerencia: no cambia nada a menos que la apliques.",
     "apply": "Aplicar",
     "dismiss": "Descartar"
+  },
+  "triageEngine": {
+    "title": "Motor del triaje de specs",
+    "hint": "El triaje lee cada spec nueva o editada y recomienda el loop con el que lanzarla. Es una llamada breve y estructurada por spec. Por defecto usa el proveedor principal del proyecto con su modelo más barato.",
+    "provider": "Proveedor del triaje",
+    "inherit": "Proveedor principal",
+    "model": "Modelo",
+    "cheapestModel": "Modelo más barato (por defecto)",
+    "loading": "Cargando el motor del triaje…",
+    "loadFailed": "No se pudo leer el motor del triaje. El triaje sigue usando el proveedor principal; vuelve a abrir estos ajustes para reintentarlo.",
+    "saveFailed": "No se guardó el motor del triaje. Se mantiene la elección anterior."
   }
 }

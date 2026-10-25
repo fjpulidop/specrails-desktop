@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation, Trans } from 'react-i18next'
-import { Split, Zap, X } from 'lucide-react'
+import { Split, Zap } from 'lucide-react'
 
 import { Button } from '../../../../components/ui/button'
-import { useMovableResizableModal } from '../../../../hooks/useMovableResizableModal'
-import { ResizeGrips } from '../../../../components/ui/ResizeGrips'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog'
 
 export type SmashMode = 'simple' | 'full'
 
@@ -56,60 +54,30 @@ export function SmashConfirmModal({
 }: SmashConfirmModalProps) {
   const { t } = useTranslation('activity')
   const [mode, setMode] = useState<SmashMode>('simple')
-  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } =
-    useMovableResizableModal()
 
-  if (!open) return null
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next && !submitting) onCancel() }}>
+      {/* Opened from Spec detail (an entity modal), so it climbs to `stacked`. */}
+      <DialogContent size="form" layer="stacked" showCloseButton={false} data-testid="smash-confirm-modal">
+        <DialogHeader icon={<Split />}>
+          <DialogTitle>{t('smashModal.title')}</DialogTitle>
+          <p className="truncate text-label text-foreground" title={ticketTitle} data-testid="smash-confirm-modal-ticket">
+            {ticketTitle}
+          </p>
+          <DialogDescription>{t('smashModal.description')}</DialogDescription>
+        </DialogHeader>
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      data-testid="smash-confirm-modal"
-    >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={guardBackdrop(onCancel)} />
-      <div
-        ref={panelRef}
-        className="relative w-full max-w-lg m-4 rounded-xl glass-card border border-border/30 animate-in fade-in zoom-in-95 duration-150"
-        style={panelStyle}
-      >
-        {/* Header */}
-        <div
-          {...headerHandleProps}
-          className={`flex items-start justify-between gap-3 px-5 py-4 border-b border-border/30 ${isFloating ? 'cursor-grab active:cursor-grabbing' : ''}`}
-        >
-          <div className="flex items-start gap-2 min-w-0">
-            <Split className="w-5 h-5 text-accent-highlight shrink-0 mt-0.5" aria-hidden />
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground">
-                {t('smashModal.title')}
-              </h2>
-              <p className="text-[11px] text-muted-foreground truncate" title={ticketTitle}>
-                {ticketTitle}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors shrink-0"
-            aria-label={t('common:actions.close')}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
+        <DialogBody className="space-y-3">
         {/* Re-SMASH warning */}
         {isReSmash && childrenCount > 0 && (
-          <div className="mx-5 mt-4 rounded-md border border-accent-warning/40 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
+          <div className="rounded-md border border-accent-warning/40 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
             <Trans t={t} i18nKey="smashModal.reSmashWarning" count={childrenCount} />
           </div>
         )}
 
         {/* Mode picker */}
-        <div className="px-5 py-4 space-y-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+        <div className="space-y-3">
+          <p className="text-label text-muted-foreground">
             {t('smashModal.modePickerLabel')}
           </p>
           {(['simple', 'full'] as SmashMode[]).map((m) => {
@@ -139,17 +107,17 @@ export function SmashConfirmModal({
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                      <span className="flex items-center gap-1.5 text-strong text-foreground">
                         {m === 'full' && <Zap className="w-3.5 h-3.5 text-accent-highlight" aria-hidden />}
                         {t(meta.titleKey)}
                       </span>
-                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                      <span className="text-xs text-muted-foreground tabular-nums">
                         {t(meta.etaKey)}
                       </span>
                     </div>
                     <ul className="space-y-0.5">
                       {meta.bulletKeys.map((b) => (
-                        <li key={b} className="text-[11px] text-foreground/70 leading-snug">
+                        <li key={b} className="text-xs text-muted-foreground leading-snug">
                           • {t(b)}
                         </li>
                       ))}
@@ -160,14 +128,13 @@ export function SmashConfirmModal({
             )
           })}
         </div>
+        </DialogBody>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border/30 bg-surface/20">
-          <Button variant="ghost" size="sm" onClick={onCancel} disabled={submitting}>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel} disabled={submitting}>
             {t('common:actions.cancel')}
           </Button>
           <Button
-            size="sm"
             onClick={() => onConfirm(mode)}
             disabled={submitting}
             data-testid="smash-confirm-modal-continue"
@@ -175,10 +142,8 @@ export function SmashConfirmModal({
             <Split className="w-3.5 h-3.5 mr-1.5" />
             {submitting ? t('smashModal.starting') : isReSmash ? t('smashModal.confirmReSmash') : t('smashModal.smash')}
           </Button>
-        </div>
-      </div>
-      <ResizeGrips handles={resizeHandles} />
-    </div>,
-    document.body,
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

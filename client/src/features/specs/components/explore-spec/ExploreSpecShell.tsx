@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { RailTrack } from '../../../../components/brand/RailTrack'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Check, Send, Loader2, Minus, Sparkles, X, Plug, Globe, Ratio } from 'lucide-react'
+import { ArrowLeft, Check, Send, Minus, Sparkles, X, Plug, Globe, Ratio } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button } from '../../../../components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../../components/ui/dialog'
+import { DialogLayerProvider } from '../../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
+import { DIALOG_LAYER_CLASS } from '../../../../lib/layers'
 import { useChatContext, type ChatConversation } from '../../../chat/hooks/useChat'
 import { providerLabel } from '../../../providers/lib/provider-capabilities'
 import { useSpecDraftStream } from '../../hooks/useSpecDraftStream'
@@ -27,7 +30,9 @@ import { ExploreStatusPills } from './ExploreStatusPills'
 import { useSmoothStream } from './useSmoothStream'
 import { ExploreReviewOverlay, EMPTY_REVIEW_BASELINE, type ReviewProposed } from './ExploreReviewOverlay'
 import type { LocalTicket, Attachment } from '../../../../types'
+import { keyboardLabel } from '../../../../lib/keyboard-label'
 
+import { notifyError } from '../../../../lib/notify-error'
 function isMacTauriOverlay(): boolean {
   if (typeof window === 'undefined') return false
   if (!('__TAURI_INTERNALS__' in window)) return false
@@ -138,6 +143,8 @@ export interface EditTicketSeed {
   repositoryIds?: string[]
   priority: 'low' | 'medium' | 'high' | 'critical' | null
   acceptanceCriteria: string[]
+  /** The ticket's non-goals (3.2); seeded so an in-place edit keeps them. */
+  nonGoals?: string[]
   /** Current ticket status. When `'draft'`, the primary commit PUBLISHES the
    *  draft — it flips the ticket to a real spec (`status='todo'`) via
    *  `from-draft` instead of PATCHing in place — and the button reads
@@ -464,6 +471,7 @@ export function ExploreSpecShell({
           repositoryIds: editTicket.repositoryIds,
           priority: editTicket.priority ?? 'medium',
           acceptanceCriteria: editTicket.acceptanceCriteria,
+          nonGoals: editTicket.nonGoals ?? [],
         }
       : undefined,
   )
@@ -647,14 +655,14 @@ export function ExploreSpecShell({
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(err.error || t('shell.toasts.saveDraftFailed'))
+        notifyError(t('shell.toasts.saveDraftFailed'), { detail: err.error })
         return false
       }
       const data = await res.json() as { ticket: LocalTicket }
       toast.success(t('shell.toasts.draftSaved', { id: data.ticket.id, title: data.ticket.title }))
       return true
     } catch {
-      toast.error(t('shell.toasts.draftNetworkError'))
+      notifyError(t('shell.toasts.draftNetworkError'))
       return false
     }
   }, [conversationId, activeProjectId, draft.title, draft.description, draft.labels, draft.repositoryIds, editTicket, t])
@@ -683,11 +691,15 @@ export function ExploreSpecShell({
         ...(draft.repositoryIds ? { repositoryIds: draft.repositoryIds } : {}),
             priority: draft.priority,
             acceptanceCriteria: draft.acceptanceCriteria.filter((c) => c.trim().length > 0),
+            // Sent only when the ticket was seeded with its non-goals (or the
+            // draft has some), so an older caller never clears them by omission.
+            ...(editTicket.nonGoals !== undefined || (draft.nonGoals ?? []).some((c) => c.trim())
+              ? { nonGoals: (draft.nonGoals ?? []).filter((c) => c.trim().length > 0) } : {}),
           }),
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({})) as { error?: string }
-          toast.error(err.error || t('shell.toasts.updateSpecFailed'))
+          notifyError(t('shell.toasts.updateSpecFailed'), { detail: err.error })
           return
         }
         const data = await res.json() as { ticket: LocalTicket }
@@ -706,6 +718,9 @@ export function ExploreSpecShell({
         ...(draft.repositoryIds ? { repositoryIds: draft.repositoryIds } : {}),
           priority: draft.priority,
           acceptanceCriteria: draft.acceptanceCriteria.filter((c) => c.trim().length > 0),
+          // Non-goals (3.2): sent only when the draft has some, so the server's
+          // `## Out of Scope` fallback still applies to older drafts.
+          ...((draft.nonGoals ?? []).some((c) => c.trim()) ? { nonGoals: (draft.nonGoals ?? []).filter((c) => c.trim().length > 0) } : {}),
           // Server migrates pendingSpecId/<id>/* → ticket/<realId>/* so the
           // attachments uploaded during the conversation end up bound to the
           // freshly-created ticket.
@@ -722,7 +737,7 @@ export function ExploreSpecShell({
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(err.error || t('shell.toasts.createSpecFailed'))
+        notifyError(t('shell.toasts.createSpecFailed'), { detail: err.error })
         return
       }
       const data = await res.json() as { ticket: LocalTicket }
@@ -730,24 +745,16 @@ export function ExploreSpecShell({
       onTicketCreated?.(data.ticket)
       onClose()
     } catch (err) {
-      toast.error(t('shell.toasts.createNetworkError'))
+      notifyError(t('shell.toasts.createNetworkError'))
     } finally {
       setIsCreating(false)
       unmarkSpecGenInFlight(activeProjectId)
     }
   }, [isCreating, draft, activeProjectId, onTicketCreated, onClose, pendingSpecId, editTicket, isRealSpecEdit, conversationId, t])
 
-  // Esc -> request close. (⌘⏎ is handled inside RichAttachmentEditor.)
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        requestClose()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [requestClose])
+  // Esc -> request close (Radix `onEscapeKeyDown` below, so a nested layer —
+  // the close prompt, Review overlay, browser capture — consumes it first).
+  // (⌘⏎ is handled inside RichAttachmentEditor.)
 
   // Push live state up so the parent can auto-minimize this shell when
   // another minimized session is restored (mutual-exclusion rule), and so
@@ -773,23 +780,40 @@ export function ExploreSpecShell({
 
   const macPadLeft = isMacTauriOverlay() ? 'pl-[88px]' : 'pl-4'
 
-  return createPortal(
+  // Full-screen shell with its own geometry and key handling, built on the raw
+  // Radix primitives: FocusScope trap + `hideOthers` + focus return. The
+  // backdrop is decorative — an outside press never closes the shell (it can
+  // hold an unsaved conversation); Esc / Back go through `requestClose`.
+  return (
+    <DialogPrimitive.Root open>
+      <DialogPrimitive.Portal>
     <div
-      className="fixed inset-0 z-50 flex p-3 pt-10 sm:p-6 sm:pt-12 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
+      className={`modal-scrim-enter fixed inset-0 ${DIALOG_LAYER_CLASS.base} flex p-3 pt-10 sm:p-6 sm:pt-12 bg-scrim backdrop-blur-sm`}
       data-testid="explore-spec-backdrop"
     >
-      <div
+      <DialogPrimitive.Content
         ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('shell.dialogAriaLabel')}
-        className="m-auto w-full h-full max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-2xl overflow-hidden"
+        aria-describedby={undefined}
+        data-testid="explore-spec-shell"
+        className="modal-enter relative m-auto w-full h-full max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-xl overflow-hidden outline-none"
         style={panelStyle}
+        onOpenAutoFocus={(e) => {
+          // The composer is the primary input; never land on the Back button.
+          e.preventDefault()
+          composerRef.current?.focus()
+        }}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault()
+          requestClose()
+        }}
       >
+      <DialogPrimitive.Title className="sr-only">{t('shell.dialogAriaLabel')}</DialogPrimitive.Title>
+      <DialogLayerProvider layer="base">
       {/* Header */}
       <div
         {...headerHandleProps}
-        className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60 backdrop-blur-sm${isFloating ? ' cursor-grab active:cursor-grabbing' : ''}`}
+        className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card${isFloating ? ' cursor-grab active:cursor-grabbing' : ''}`}
       >
         <button
           type="button"
@@ -798,21 +822,22 @@ export function ExploreSpecShell({
           aria-label={t('shell.backAriaLabel')}
         >
           <ArrowLeft className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
-          <div className="text-left min-w-0">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 leading-none">
-              {editTicket ? t('shell.editingEyebrow', { id: editTicket.id }) : t('shell.exploreEyebrow')}
-            </div>
-            <span className="text-sm font-medium text-foreground truncate block">
+          <span className="flex items-baseline gap-1.5 text-left min-w-0 text-sm font-medium text-foreground">
+            {editTicket && (
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">#{editTicket.id}</span>
+            )}
+            <span className="truncate">
               {draft.title || seedDraftTitle || t('shell.newSpecPlaceholder')}
             </span>
-          </div>
+          </span>
         </button>
         <div className="flex items-center gap-2">
           {contextScope ? (
             <span
               data-testid="explore-context-pill"
               title={t('shell.contextPillTitle')}
-              className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border/50 bg-card/60 text-[10px] text-muted-foreground"
+              data-chip
+              className="hidden md:inline-flex h-5 items-center gap-1 px-2 rounded-full border border-border/50 bg-card/60 text-caption text-muted-foreground"
             >
               {t('shell.contextPill', {
                 scopes: [
@@ -822,7 +847,7 @@ export function ExploreSpecShell({
                   contextScope.mcp && 'mcp',
                 ].filter(Boolean).join(', ') || t('shell.contextScopeMinimal'),
               })}
-            </span>
+            <span className="sr-only"> ({t('shell.contextPillTitle')})</span></span>
           ) : null}
           <Button
             size="sm"
@@ -854,7 +879,7 @@ export function ExploreSpecShell({
           )}
           {jira.connected && !isRealSpecEdit && (
             <span
-              className="inline-flex items-center gap-1.5 text-[11px] text-accent-info mr-1"
+              className="inline-flex items-center gap-1.5 text-xs text-accent-info mr-1"
               data-testid="jira-create-indicator"
               title={tj('addSpec.willCreate', { key: jira.jiraProjectKey ?? '' })}
             >
@@ -872,7 +897,7 @@ export function ExploreSpecShell({
             title={!draft.title.trim() ? t('shell.createSpecDisabledTitle') : undefined}
           >
             {isCreating ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <RailTrack running className="w-8" />
             ) : ready ? (
               <Sparkles className="w-3.5 h-3.5" />
             ) : (
@@ -908,13 +933,13 @@ export function ExploreSpecShell({
             data-testid="explore-conversation"
           >
             {!conversation && editTicket && (
-              <div className="text-xs text-muted-foreground/70 italic px-1 py-2">
+              <div className="text-xs text-muted-foreground italic px-1 py-2">
                 {t('shell.editModeIntro')}
               </div>
             )}
             {!conversation && !editTicket && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <RailTrack running className="w-16 shrink-0" />
                 {t('shell.startingConversation')}
               </div>
             )}
@@ -946,7 +971,7 @@ export function ExploreSpecShell({
                   key={chip}
                   type="button"
                   onClick={() => sendComposer(chip)}
-                  className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-card/40 hover:bg-card/80 hover:border-primary/40 transition-colors"
+                  className="text-xs px-2.5 py-1 rounded-full border border-border/60 bg-card/40 hover:bg-card/80 hover:border-primary/40 transition-colors"
                 >
                   {chip}
                 </button>
@@ -971,8 +996,8 @@ export function ExploreSpecShell({
                 setHasComposerText(text.length > 0)
                 setComposerText(text)
               }}
-              onUnsupportedFile={(f) => toast.error(t('shell.toasts.unsupportedFileType', { name: f.name }))}
-              onUploadError={(err, f) => toast.error(t('shell.toasts.uploadFailed', { name: f.name, message: err.message }))}
+              onUnsupportedFile={(f) => notifyError(t('shell.toasts.unsupportedFileType', { name: f.name }))}
+              onUploadError={(err, f) => notifyError(t('shell.toasts.uploadFailed', { name: f.name }), { detail: err.message })}
               onAttachmentRemoved={(a) => {
                 fetch(`${API_ORIGIN}/api/projects/${activeProjectId}/tickets/${pendingSpecId}/attachments/${a.id}`, { method: 'DELETE' }).catch(() => {})
                 // Drop from the accumulated list immediately so the panel
@@ -1005,7 +1030,7 @@ export function ExploreSpecShell({
                     <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/5 p-2 space-y-1.5">
                       {c.breakpoints ? (
                         <div className="space-y-1.5" data-testid="explore-capture-breakpoints">
-                          <div className="flex items-center gap-1 text-[10px] font-medium text-accent-highlight">
+                          <div className="flex items-center gap-1 text-label text-accent-highlight">
                             <Ratio className="w-3 h-3 shrink-0" />
                             {t('shell.captureResponsiveSizes', { count: c.breakpoints.length })}
                           </div>
@@ -1017,7 +1042,7 @@ export function ExploreSpecShell({
                                   alt={`${b.key} (${b.width}px)`}
                                   className="max-h-28 w-auto max-w-[9rem] object-contain rounded border border-border/60 bg-background-deep block"
                                 />
-                                <span className="text-[10px] text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
+                                <span className="text-xs text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
                               </div>
                             ))}
                           </div>
@@ -1030,7 +1055,7 @@ export function ExploreSpecShell({
                         />
                       )}
                       {c.dom.url && c.dom.url !== 'about:blank' && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title={c.dom.url}>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={c.dom.url}>
                           <Globe className="w-3 h-3 shrink-0" />
                           <span className="truncate">{c.dom.url}</span>
                         </div>
@@ -1055,7 +1080,7 @@ export function ExploreSpecShell({
                   data-testid="explore-stop-button"
                 >
                   {t('shell.stop')}
-                  <span className="text-[10px] opacity-70 ml-1">⌘⏎</span>
+                  <span data-chip className="inline-flex h-5 items-center text-caption ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               ) : (
                 <Button
@@ -1066,7 +1091,7 @@ export function ExploreSpecShell({
                 >
                   <Send className="w-3.5 h-3.5" />
                   {t('shell.send')}
-                  <span className="text-[10px] opacity-70 ml-1">⌘⏎</span>
+                  <span data-chip className="inline-flex h-5 items-center text-caption ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               )}
             </div>
@@ -1075,10 +1100,10 @@ export function ExploreSpecShell({
 
         {/* Draft column — breathes subtly while assistant is thinking so the
             user knows the panel will update once the turn settles. */}
-        <div className={`relative min-h-0 transition-opacity duration-500 ${conversation?.isStreaming ? 'opacity-90' : 'opacity-100'}`}>
+        <div className={`relative min-h-0 transition-opacity duration-200 ${conversation?.isStreaming ? 'opacity-90' : 'opacity-100'}`}>
           {conversation?.isStreaming && (
             <div className="absolute top-0 inset-x-0 h-0.5 overflow-hidden pointer-events-none z-10">
-              <div className="h-full bg-primary/40 animate-pulse" />
+              <div className="h-full bg-primary/40 motion-safe:animate-pulse" />
             </div>
           )}
           <SpecDraftPanel
@@ -1098,38 +1123,28 @@ export function ExploreSpecShell({
       </div>
 
       {/* Close prompt — Save as Draft / Discard / Cancel */}
-      <Dialog open={confirmDiscard} onOpenChange={(o) => !o && setConfirmDiscard(false)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('shell.closePrompt.title')}</DialogTitle>
-            <DialogDescription>
-              {t('shell.closePrompt.description')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button variant="ghost" size="sm" onClick={() => setConfirmDiscard(false)} data-testid="close-prompt-cancel">
-              {t('common:actions.cancel')}
-            </Button>
-            <Button variant="destructive" size="sm" onClick={onClose} data-testid="close-prompt-discard">
-              {t('common:actions.discard')}
-            </Button>
-            <Button
-              size="sm"
-              onClick={async () => {
-                const ok = await handleSaveAsDraft()
-                setConfirmDiscard(false)
-                if (ok) onClose()
-              }}
-              autoFocus
-              data-testid="close-prompt-save-draft"
-            >
-              {t('shell.saveAsDraft')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      </div>
-      <ResizeGrips handles={resizeHandles} />
+      <ConfirmDialog
+        open={confirmDiscard}
+        onOpenChange={(o) => { if (!o) setConfirmDiscard(false) }}
+        tone="default"
+        title={t('shell.closePrompt.title')}
+        description={t('shell.closePrompt.description')}
+        confirmLabel={t('shell.saveAsDraft')}
+        onConfirm={async () => {
+          const ok = await handleSaveAsDraft()
+          setConfirmDiscard(false)
+          if (ok) onClose()
+        }}
+        secondaryAction={(
+          <Button variant="destructive" onClick={onClose} data-testid="close-prompt-discard">
+            {t('common:actions.discard')}
+          </Button>
+        )}
+        testId="explore-close-prompt"
+        cancelTestId="close-prompt-cancel"
+        confirmTestId="close-prompt-save-draft"
+      />
+      <ResizeGrips handles={resizeHandles} placement="inset" />
       {REVIEW_ENABLED && reviewOpen && (
         <ExploreReviewOverlay
           baseline={editTicket
@@ -1168,8 +1183,11 @@ export function ExploreSpecShell({
           confirmLabel={isEditingExisting ? t('shell.updateSpec') : t('shell.createSpec')}
         />
       )}
-    </div>,
-    document.body,
+      </DialogLayerProvider>
+      </DialogPrimitive.Content>
+    </div>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
@@ -1218,11 +1236,11 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${isUser ? 'bg-primary/10 text-foreground' : 'bg-card/60 border border-border/40'}`}>
         <div className="flex items-baseline justify-between gap-3 mb-1">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
+          <div className="text-label text-muted-foreground">
             {isUser ? t('shell.you') : providerLabel(provider)}
           </div>
           {timeLabel && (
-            <div className="text-[10px] text-muted-foreground/50 font-mono tabular-nums">
+            <div className="text-xs text-muted-foreground font-mono tabular-nums">
               {timeLabel}
             </div>
           )}
@@ -1230,7 +1248,7 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
         {isUser ? (
           <div className="whitespace-pre-wrap break-words">
             {visible}
-            {streaming && <span className="inline-block w-1 h-3 bg-primary/60 ml-0.5 animate-pulse align-baseline" />}
+            {streaming && <span className="inline-block w-1 h-3 bg-primary/60 ml-0.5 motion-safe:animate-pulse align-baseline" />}
           </div>
         ) : (
           <div className={[
@@ -1246,7 +1264,7 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
             // Bolded prose gets the accent colour — keeps Claude's emphasis
             // visible and on-brand across themes.
             '[&_strong]:text-accent-primary [&_strong]:font-semibold',
-            '[&_code]:rounded [&_code]:bg-background/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-accent-primary [&_code]:text-[12px]',
+            '[&_code]:rounded [&_code]:bg-background/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-accent-primary [&_code]:text-label',
             '[&_pre]:rounded [&_pre]:bg-background/60 [&_pre]:p-2 [&_pre]:my-2',
             '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
             '[&_a]:text-accent-primary [&_a]:underline',
@@ -1254,7 +1272,7 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
             '[&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold',
           ].join(' ')}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{visible}</ReactMarkdown>
-            {streaming && <span className="inline-block w-1 h-3 bg-primary/60 ml-0.5 animate-pulse align-baseline" />}
+            {streaming && <span className="inline-block w-1 h-3 bg-primary/60 ml-0.5 motion-safe:animate-pulse align-baseline" />}
           </div>
         )}
       </div>

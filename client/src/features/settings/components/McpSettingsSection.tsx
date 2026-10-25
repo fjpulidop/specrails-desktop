@@ -3,9 +3,12 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Plug, Copy, Check, RefreshCw } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { API_ORIGIN } from '../../../lib/origin'
 import { ExternalMcpServersCard } from './ExternalMcpServersCard'
+import { SettingsCard } from './SettingsCard'
 
+import { notifyError } from '../../../lib/notify-error'
 interface McpStatus {
   enabled: boolean
   running: boolean
@@ -80,6 +83,7 @@ export function McpSettingsSection() {
   const [status, setStatus] = useState<McpStatus | null>(null)
   const [config, setConfig] = useState<McpConfig | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [copied, setCopied] = useState<'config' | 'token' | null>(null)
 
   const loadStatus = useCallback(async () => {
@@ -119,10 +123,9 @@ export function McpSettingsSection() {
       // re-read the full status to keep the tier + token UI authoritative.
       await loadStatus()
     } catch (e) {
-      toast.error(
-        status.enabled
-          ? t('enable.disableFailed', { message: (e as Error).message })
-          : t('enable.enableFailed', { message: (e as Error).message })
+      notifyError(
+        status.enabled ? t('enable.disableFailed') : t('enable.enableFailed'),
+        { detail: (e as Error).message, retry: () => void toggleEnabled() },
       )
     } finally {
       setBusy(false)
@@ -147,7 +150,7 @@ export function McpSettingsSection() {
         const data = (await r.json()) as { tiers: McpStatus['tiers'] }
         setStatus((prev) => (prev ? { ...prev, tiers: data.tiers } : prev))
       } catch (e) {
-        toast.error(t('tiers.updateFailed', { message: (e as Error).message }))
+        notifyError(t('tiers.updateFailed'), { detail: (e as Error).message, retry: () => void toggleTier(key) })
       } finally {
         setBusy(false)
       }
@@ -162,7 +165,7 @@ export function McpSettingsSection() {
       setCopied('config')
       window.setTimeout(() => setCopied((c) => (c === 'config' ? null : c)), 1500)
     } else {
-      toast.error(t('config.copyFailed'))
+      notifyError(t('config.copyFailed'))
     }
   }, [config, t])
 
@@ -176,15 +179,14 @@ export function McpSettingsSection() {
         setCopied('token')
         window.setTimeout(() => setCopied((c) => (c === 'token' ? null : c)), 1500)
       } else {
-        toast.error(t('config.copyFailed'))
+        notifyError(t('config.copyFailed'))
       }
     } catch {
-      toast.error(t('config.copyFailed'))
+      notifyError(t('config.copyFailed'))
     }
   }, [t])
 
   const regenerateToken = useCallback(async () => {
-    if (!window.confirm(t('token.regenerateConfirm'))) return
     setBusy(true)
     try {
       const r = await fetch(`${API_ORIGIN}/api/mcp-admin/regenerate-token`, { method: 'POST' })
@@ -192,13 +194,13 @@ export function McpSettingsSection() {
       await loadStatus()
       toast.success(t('token.regenerated'))
     } catch (e) {
-      toast.error(t('token.regenerateFailed', { message: (e as Error).message }))
+      notifyError(t('token.regenerateFailed'), { detail: (e as Error).message, retry: () => void regenerateToken() })
     } finally {
       setBusy(false)
     }
   }, [loadStatus, t])
 
-  if (!status) return <div className="h-20 bg-muted/30 rounded-lg animate-pulse" />
+  if (!status) return <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="h-20 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
 
   const tierRows: { key: TierKey; label: string; help: string }[] = [
     { key: 'write', label: t('tiers.write'), help: t('tiers.writeHelp') },
@@ -207,12 +209,12 @@ export function McpSettingsSection() {
   ]
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-        <Plug className="h-3.5 w-3.5" /> {t('heading')}
-      </h3>
-      <p className="text-sm text-muted-foreground">{t('explainer.what')}</p>
-      <p className="text-xs text-muted-foreground/80">{t('explainer.how')}</p>
+    <div className="space-y-5">
+      <SettingsCard
+        title={<span className="flex items-center gap-2"><Plug className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> {t('heading')}</span>}
+        description={t('explainer.what')}
+      >
+      <p className="text-xs text-muted-foreground">{t('explainer.how')}</p>
 
       {/* Enable toggle */}
       <div className="flex items-center justify-between rounded-lg border border-border p-3">
@@ -243,14 +245,14 @@ export function McpSettingsSection() {
           {/* Permission tiers */}
           <div className="space-y-2 rounded-lg border border-border p-3">
             <div className="text-xs font-semibold text-foreground">{t('tiers.heading')}</div>
-            <p className="text-[11px] text-muted-foreground/80">{t('explainer.grants')}</p>
+            <p className="text-xs text-muted-foreground">{t('explainer.grants')}</p>
 
             {/* Read — always on, disabled */}
             <label className="flex items-start gap-2 opacity-70">
-              <input type="checkbox" checked disabled className="mt-0.5" aria-label={t('tiers.read')} />
+              <input type="checkbox" checked disabled className="mt-0.5 h-4 w-4" aria-label={t('tiers.read')} />
               <span className="min-w-0">
-                <span className="text-xs font-medium">{t('tiers.read')}</span>
-                <span className="block text-[10px] text-muted-foreground">{t('tiers.readHelp')}</span>
+                <span className="text-label">{t('tiers.read')}</span>
+                <span className="block text-xs text-muted-foreground">{t('tiers.readHelp')}</span>
               </span>
             </label>
 
@@ -261,12 +263,12 @@ export function McpSettingsSection() {
                   checked={status.tiers[row.key]}
                   disabled={busy}
                   onChange={() => void toggleTier(row.key)}
-                  className="mt-0.5"
+                  className="mt-0.5 h-4 w-4"
                   aria-label={row.label}
                 />
                 <span className="min-w-0">
-                  <span className="text-xs font-medium">{row.label}</span>
-                  <span className="block text-[10px] text-muted-foreground">{row.help}</span>
+                  <span className="text-label">{row.label}</span>
+                  <span className="block text-xs text-muted-foreground">{row.help}</span>
                 </span>
               </label>
             ))}
@@ -277,25 +279,26 @@ export function McpSettingsSection() {
             <div className="space-y-2 rounded-lg border border-border p-3">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-semibold text-foreground">{t('config.heading')}</div>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => void copyConfig()}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                  className="h-7 gap-1.5"
                   data-testid="mcp-copy-config"
                 >
                   {copied === 'config' ? (
                     <>
-                      <Check className="h-3 w-3 text-accent-success" /> {t('config.configCopied')}
+                      <Check className="h-3 w-3 text-accent-success" aria-hidden /> {t('config.configCopied')}
                     </>
                   ) : (
                     <>
-                      <Copy className="h-3 w-3" /> {t('config.copyConfig')}
+                      <Copy className="h-3 w-3" aria-hidden /> {t('config.copyConfig')}
                     </>
                   )}
-                </button>
+                </Button>
               </div>
-              <p className="text-[11px] text-muted-foreground/80">{t('config.description')}</p>
-              <pre className="overflow-x-auto rounded-md bg-muted/40 p-2 text-[10px] leading-relaxed text-foreground">
+              <p className="text-xs text-muted-foreground">{t('config.description')}</p>
+              <pre className="overflow-x-auto rounded-md bg-muted/40 p-2 text-xs leading-relaxed text-foreground">
                 {buildClientConfig(config)}
               </pre>
             </div>
@@ -304,47 +307,62 @@ export function McpSettingsSection() {
           {/* Access token */}
           <div className="space-y-2 rounded-lg border border-border p-3">
             <div className="text-xs font-semibold text-foreground">{t('token.heading')}</div>
-            <p className="text-[11px] text-muted-foreground/80">{t('token.description')}</p>
+            <p className="text-xs text-muted-foreground">{t('token.description')}</p>
             <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+              <span className="font-mono text-xs text-muted-foreground tabular-nums">
                 {t('token.hint', { hint: status.tokenHint })}
               </span>
               <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => void copyToken()}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                  className="h-7 gap-1.5"
                   data-testid="mcp-copy-token"
                 >
                   {copied === 'token' ? (
                     <>
-                      <Check className="h-3 w-3 text-accent-success" /> {t('token.tokenCopied')}
+                      <Check className="h-3 w-3 text-accent-success" aria-hidden /> {t('token.tokenCopied')}
                     </>
                   ) : (
                     <>
-                      <Copy className="h-3 w-3" /> {t('token.copyToken')}
+                      <Copy className="h-3 w-3" aria-hidden /> {t('token.copyToken')}
                     </>
                   )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void regenerateToken()}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmRegenerate(true)}
                   disabled={busy}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  className="h-7 gap-1.5"
                   data-testid="mcp-regenerate-token"
                 >
-                  <RefreshCw className="h-3 w-3" /> {t('token.regenerate')}
-                </button>
+                  <RefreshCw className="h-3 w-3" aria-hidden /> {t('token.regenerate')}
+                </Button>
               </div>
             </div>
           </div>
         </>
       )}
+      </SettingsCard>
 
       {/* External MCP servers for the MISSION agent — the inverse concern of the
           panel above (app AS consumer, not app AS server), so it renders
           regardless of the embedded server's enabled state. */}
       <ExternalMcpServersCard />
+
+      <ConfirmDialog
+        open={confirmRegenerate}
+        onOpenChange={setConfirmRegenerate}
+        title={t('token.regenerateConfirmTitle')}
+        description={t('token.regenerateConfirm')}
+        confirmLabel={t('token.regenerate')}
+        onConfirm={() => {
+          setConfirmRegenerate(false)
+          void regenerateToken()
+        }}
+      />
     </div>
   )
 }

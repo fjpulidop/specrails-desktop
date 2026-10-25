@@ -4,6 +4,7 @@ import type { BackgroundProcess } from '../../../types'
 import { backgroundProcessKey, listBackgroundProcesses, stopBackgroundProcess } from '../lib/background-processes-api'
 import { useAgentChat } from '../../missions/context/AgentChatContext'
 import { useDesktop } from '../../../hooks/useDesktop'
+import i18n from '../../../lib/i18n'
 
 export interface BackgroundProcessView extends BackgroundProcess { stopError?: string }
 interface BackgroundProcessesContextValue {
@@ -119,7 +120,7 @@ export function BackgroundProcessesProvider({ children }: { children: ReactNode 
     } catch (error) {
       // Offline/failed reads cannot prove the process stopped. Focus and WS
       // reconnection retry this snapshot without discarding its visible state.
-      if (!signal?.aborted && sequence === hydrationSequence.current && mounted.current) setHistoryError(error instanceof Error ? error.message : 'Could not load process history')
+      if (!signal?.aborted && sequence === hydrationSequence.current && mounted.current) setHistoryError(error instanceof Error ? error.message : i18n.t('agent:backgroundProcess.history.loadFailed'))
     } finally {
       if (hydrationRequest.current?.sequence === sequence) hydrationRequest.current = null
       if (sequence === hydrationSequence.current && mounted.current) setHistoryLoading(false)
@@ -185,7 +186,7 @@ export function BackgroundProcessesProvider({ children }: { children: ReactNode 
         && Date.now() >= stopConfirmationStarted.current.get(key)! + BACKGROUND_STOP_CONFIRMATION_MS)
       for (const key of expired) stopConfirmationExpired.current.add(key)
       if (expired.length) commitRecords(previous => previous.map(process => expired.includes(backgroundProcessKey(process)) && !terminal.has(process.status)
-        ? { ...process, stopError: process.stopError ?? 'The process has not confirmed that it stopped. You can retry.' } : process))
+        ? { ...process, stopError: process.stopError ?? i18n.t('agent:backgroundProcess.stopFailed') } : process))
       if (keys.some(key => !stopConfirmationExpired.current.has(key))) void hydrate(controller.signal)
       schedule()
     }
@@ -224,7 +225,7 @@ export function BackgroundProcessesProvider({ children }: { children: ReactNode 
           const newer = (changedAt.current.get(key) ?? 0) > requestRevision
           changedAt.current.set(key, ++revision.current)
           commitRecords(previous => previous.map(item => backgroundProcessKey(item) !== key || terminal.has(item.status) ? item
-            : { ...item, status: newer ? item.status : before.status, stopError: error instanceof Error ? error.message : 'Could not stop the process' }))
+            : { ...item, status: newer ? item.status : before.status, stopError: error instanceof Error ? error.message : i18n.t('agent:backgroundProcess.stopFailed') }))
         }
         throw error
       } finally {

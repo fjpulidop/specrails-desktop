@@ -1,11 +1,14 @@
 import { isTauri } from '../lib/tauri-shell'
 import { keyboardLabel } from '../lib/keyboard-label'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LayoutDashboard, Briefcase, BarChart3, Code2, Settings, PanelRight } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useSidebarPin } from '../context/SidebarPinContext'
+import { useResizableSidebar } from '../hooks/useResizableSidebar'
+import { useSidebarHoverIntent } from '../hooks/useSidebarHoverIntent'
+import { SidebarResizeGrip } from './SidebarResizeGrip'
 import { FEATURE_CODE_EXPLORER } from '../lib/feature-flags'
 import { BuilderSidebarEntry } from '../features/builder/components/project-builder/BuilderSidebarEntry'
 
@@ -15,11 +18,23 @@ const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned
   'unpinned': 'sidebarPin.right.unpinned',
 }
 
+const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2'
+
 export function ProjectRightSidebar() {
   const { t } = useTranslation('nav')
-  const { rightMode, cycleRightMode } = useSidebarPin()
-  const [hovered, setHovered] = useState(false)
-  const expanded = rightMode === 'pinned-open' || (rightMode === 'unpinned' && hovered)
+  const { rightMode, effectiveRightMode, cycleRightMode } = useSidebarPin()
+  const unpinned = effectiveRightMode === 'unpinned'
+  const docked = effectiveRightMode === 'pinned-open'
+  const [dragging, setDragging] = useState(false)
+  const hover = useSidebarHoverIntent({ enabled: unpinned, dragging })
+  const expanded = docked || (unpinned && hover.hovered)
+  // Same chrome as the Agent-Mode workspace rail: drag-resizable (208px default),
+  // 44px collapsed; a hover-expanded unpinned rail overlays the content.
+  const resize = useResizableSidebar('right-project', {
+    side: 'right', defaultWidth: 208, min: 180, max: 460, collapsedWidth: 44, expanded, docked,
+  })
+  useEffect(() => { setDragging(resize.dragging) }, [resize.dragging])
+  const overlaying = expanded && !docked
   const lit = rightMode !== 'unpinned'
   const pinLabel = t(RIGHT_PIN_LABEL_KEY[rightMode])
 
@@ -38,43 +53,64 @@ export function ProjectRightSidebar() {
   ]
 
   return (
-    <div
-      className={cn(
-        'relative flex flex-col h-full border-l border-border bg-background flex-shrink-0',
-        'transition-all duration-200 ease-in-out overflow-hidden',
-        expanded ? 'w-44' : 'w-11'
-      )}
-      onMouseEnter={() => { if (rightMode === 'unpinned') setHovered(true) }}
-      onMouseLeave={() => { if (rightMode === 'unpinned') setHovered(false) }}
+    <aside
+      ref={resize.wrapperRef}
+      aria-label={t('rightSidebar.landmark')}
+      className="relative h-full flex-shrink-0 transition-[width] duration-200 ease-in-out"
+      {...hover.handlers}
     >
-      {/* Header */}
+    <div
+      ref={resize.panelRef}
+      data-testid="project-right-sidebar-panel"
+      data-overlay={overlaying || undefined}
+      className={cn(
+        'absolute inset-y-0 right-0 z-30 flex flex-col border-l border-border bg-background overflow-hidden',
+        'transition-[width,box-shadow] duration-200 ease-in-out',
+        overlaying && 'shadow-xl',
+      )}
+    >
+      {expanded && (
+        <SidebarResizeGrip
+          side="right"
+          dragging={resize.dragging}
+          width={resize.width}
+          min={180}
+          max={460}
+          label={t('sidebarPin.resize')}
+          onPointerDown={resize.onGripPointerDown}
+          onKeyDown={resize.onGripKeyDown}
+        />
+      )}
+      {/* Header (browser only — the desktop title bar carries the pin button) */}
       {!isTauri() && <div className={cn(
         'flex items-center h-12 border-b border-border flex-shrink-0',
         expanded ? 'px-3 justify-between' : 'justify-center'
       )}>
         {expanded && (
-          <span className="font-mono text-sm font-bold whitespace-nowrap overflow-hidden text-accent-secondary">
+          <span className="text-xs font-medium whitespace-nowrap overflow-hidden text-muted-foreground">
             {t('rightSidebar.projectTitle')}
           </span>
         )}
-        {!isTauri() && <button
+        <button
           type="button"
           onClick={cycleRightMode}
           className={cn(
             'flex items-center justify-center w-7 h-7 rounded-md transition-colors',
             lit
               ? 'text-foreground bg-muted'
-              : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50'
+              : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/50',
+            FOCUS_RING,
           )}
           aria-label={pinLabel}
-          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌘B') })}
+          aria-pressed={lit}
+          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌥⌘B') })}
         >
           <PanelRight className="w-4 h-4" />
-        </button>}
+        </button>
       </div>}
 
       {/* Nav items */}
-      <nav className="flex-1 py-2 px-1.5 space-y-0.5">
+      <nav aria-label={t('rightSidebar.projectTitle')} className="flex-1 py-2 px-1.5 space-y-0.5">
         <BuilderSidebarEntry expanded={expanded} />
         {navItems.map(({ to, end, icon: Icon, label }) => (
           <NavLink
@@ -86,15 +122,22 @@ export function ProjectRightSidebar() {
               expanded ? 'px-2' : 'px-0 justify-center',
               isActive
                 ? 'bg-muted text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+              FOCUS_RING,
             )}
             title={!expanded ? label : undefined}
+            aria-label={!expanded ? label : undefined}
           >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            {expanded && <span className="text-xs truncate">{label}</span>}
+            {({ isActive }) => (
+              <>
+                <Icon className={cn('w-4 h-4 flex-shrink-0', isActive && 'text-accent-primary')} aria-hidden />
+                {expanded && <span className="text-xs truncate">{label}</span>}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
     </div>
+    </aside>
   )
 }

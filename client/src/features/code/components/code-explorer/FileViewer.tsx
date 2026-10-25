@@ -1,5 +1,4 @@
 import { useCallback, useId, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronUp, FileMinus2, FilePlus2, FileText, GitCommitHorizontal } from 'lucide-react'
@@ -8,14 +7,14 @@ import { providerSupportsPureOutput } from '../../../providers/lib/provider-capa
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useSharedWebSocket } from '../../../../hooks/useSharedWebSocket'
 import { useTicketDetailModal } from '../../../specs/context/TicketDetailModalContext'
-import { useMovableResizableModal } from '../../../../hooks/useMovableResizableModal'
-import { ResizeGrips } from '../../../../components/ui/ResizeGrips'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
 import { CodeViewerMonaco } from './CodeViewerMonaco'
 import { SummaryHeader, type SummaryPayload } from './SummaryHeader'
 import { MarkdownPreview } from './MarkdownPreview'
 import { ConstructionStory } from './ConstructionStory'
 import { RecordedDiff } from './RecordedDiff'
 
+import { notifyError } from '../../../../lib/notify-error'
 function isMarkdown(relPath: string, language?: string): boolean {
   if (language === 'markdown' || language === 'md') return true
   return /\.(md|mdx|markdown)$/i.test(relPath)
@@ -169,7 +168,6 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
   const { openTicketDetail } = useTicketDetailModal()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const instanceId = useId()
-  const budgetModal = useMovableResizableModal({ allowMove: false })
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const [file, setFile] = useState<FileResponse | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -318,7 +316,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
         if (msg.type === 'file.summary_updated') setRegenerating(false)
         fetchFile()
       } else if (msg.type === 'file.summary_failed' && msg.path === relPathRef.current) {
-        toast.error(msg.reason ?? t('summary.generationFailed'))
+        notifyError(t('summary.generationFailed'), { detail: msg.reason })
         setRegenerating(false)
       } else if (msg.type === 'file.summary_skipped' && msg.path === relPathRef.current) {
         if (msg.reason) toast(t('summary.skipped', { reason: msg.reason }))
@@ -348,7 +346,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
       if (!res.ok) {
         setRegenerating(false)
         const skipped = typeof json.skipped === 'string' ? json.skipped : null
-        toast.error(skipped ? t('summary.skipped', { reason: skipped }) : t('summary.generationFailed'))
+        notifyError(skipped ? t('summary.skipped', { reason: skipped }) : t('summary.generationFailed'))
         return
       }
       if (json.skipped === 'budget') {
@@ -368,7 +366,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
     } catch {
       if (alive.current && !controller.signal.aborted) {
         setRegenerating(false)
-        toast.error(t('summary.generationFailed'))
+        notifyError(t('summary.generationFailed'))
       }
     } finally { postControllers.current.delete(controller) }
   }, [aiTransformsAvailable, fetchFile, relPath, t])
@@ -383,7 +381,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
       await navigator.clipboard.writeText(abs)
       toast.success(t('viewer.pathCopied'))
     } catch {
-      toast.error(t('viewer.copyPathFailed'))
+      notifyError(t('viewer.copyPathFailed'))
     }
   }, [file, relPath, t])
 
@@ -432,7 +430,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
 
   if (viewMode === 'source' && loading && !file) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground animate-pulse">
+      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground motion-safe:animate-pulse">
         {t('viewer.loadingFile')}
       </div>
     )
@@ -446,7 +444,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
           <button
             type="button"
             onClick={toggleSummaryCollapsed}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           >
             <ChevronDown className="h-3.5 w-3.5" />
             {t('viewer.showSummary')}
@@ -467,7 +465,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
           <button aria-pressed={viewMode === 'source'} onClick={() => setViewMode('source')} className="rounded px-2 py-1 text-xs hover:bg-muted">{t('reader.currentFile', { defaultValue: 'Current file' })}</button>
           {recordedJobId && <button aria-pressed={viewMode === 'recorded'} onClick={() => setViewMode('recorded')} className="rounded px-2 py-1 text-xs hover:bg-muted">{t('reader.recordedChange', { defaultValue: 'Recorded change' })}</button>}
           {viewMode === 'source' && markdown && file?.content !== undefined && !file.binary && !file.tooLarge && (
-            <div className="flex items-center gap-1 text-[11px]" role="group" aria-label={t('viewer.markdownViewMode')}>
+            <div className="flex items-center gap-1 text-caption" role="group" aria-label={t('viewer.markdownViewMode')}>
               <button
                 type="button"
                 onClick={() => setMarkdownMode('preview')}
@@ -495,7 +493,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-caption text-muted-foreground">
           {file?.language && <span>{file.language}</span>}
           {typeof file?.sizeBytes === 'number' && <span>{(file.sizeBytes / 1024).toFixed(1)} KB</span>}
           <button disabled={loading} onClick={() => { void fetchFile() }} className="rounded px-2 py-1 hover:bg-muted disabled:opacity-50">{t('reader.refresh', { defaultValue: 'Refresh source' })}</button>
@@ -551,7 +549,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
             title={historyCollapsed ? undefined : t('resizer.hint')}
             data-testid="code-history-resizer"
           >
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-caption font-medium text-muted-foreground">
               {historyMode === 'story'
                 ? t('story.title', { count: provenance.length })
                 : t('history.title', { count: provenance.length })}
@@ -569,8 +567,8 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
                     onClick={() => changeHistoryMode('story')}
                     aria-pressed={historyMode === 'story'}
                     className={historyMode === 'story'
-                      ? 'rounded px-2 py-0.5 text-[10px] bg-accent-primary/20 text-accent-primary'
-                      : 'rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground'}
+                      ? 'rounded px-2 py-0.5 text-caption bg-accent-primary/20 text-accent-primary'
+                      : 'rounded px-2 py-0.5 text-caption text-muted-foreground hover:text-foreground'}
                   >
                     {t('story.modeStory')}
                   </button>
@@ -579,8 +577,8 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
                     onClick={() => changeHistoryMode('log')}
                     aria-pressed={historyMode === 'log'}
                     className={historyMode === 'log'
-                      ? 'rounded px-2 py-0.5 text-[10px] bg-accent-primary/20 text-accent-primary'
-                      : 'rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground'}
+                      ? 'rounded px-2 py-0.5 text-caption bg-accent-primary/20 text-accent-primary'
+                      : 'rounded px-2 py-0.5 text-caption text-muted-foreground hover:text-foreground'}
                   >
                     {t('story.modeLog')}
                   </button>
@@ -590,7 +588,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={toggleHistoryCollapsed}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               >
                 {historyCollapsed ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 {historyCollapsed ? t('history.show') : t('history.hide')}
@@ -618,42 +616,16 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
         </>
       )}
 
-      {budgetPromptOpen && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          role="dialog"
-          aria-modal="true"
-          data-testid="budget-prompt"
-          onClick={budgetModal.guardBackdrop(() => setBudgetPromptOpen(false))}
-        >
-          <div
-            ref={budgetModal.panelRef}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-card border border-border rounded-lg p-4 w-80 flex flex-col gap-3"
-            style={budgetModal.panelStyle}
-          >
-            <p className="text-sm text-foreground">{t('viewer.budgetPrompt')}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setBudgetPromptOpen(false)}
-                className="text-xs px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground"
-              >
-                {t('common:actions.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setBudgetPromptOpen(false); handleRegenerate(true) }}
-                className="text-xs px-3 py-1.5 rounded-md bg-accent-primary text-white"
-              >
-                {t('common:actions.confirm')}
-              </button>
-            </div>
-          </div>
-          <ResizeGrips handles={budgetModal.resizeHandles} />
-        </div>,
-        document.body,
-      )}
+      <ConfirmDialog
+        open={budgetPromptOpen}
+        onOpenChange={setBudgetPromptOpen}
+        testId="budget-prompt"
+        title={t('viewer.budgetPrompt')}
+        description={t('viewer.budgetPromptBody')}
+        confirmLabel={t('viewer.budgetPromptConfirm')}
+        tone="default"
+        onConfirm={() => { setBudgetPromptOpen(false); void handleRegenerate(true) }}
+      />
     </div>
   )
 }
@@ -710,7 +682,7 @@ function ProvenanceTimeline({
                     <button
                       type="button"
                       onClick={() => toggleDiff(row, diffKey)}
-                      className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                      className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-caption text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       {t('history.diff')}
                     </button>
@@ -719,14 +691,14 @@ function ProvenanceTimeline({
                     <button
                       type="button"
                       onClick={() => onOpenTicket(row.ticketId!)}
-                      className="shrink-0 rounded bg-accent-primary/15 px-1.5 py-0.5 text-[10px] text-accent-primary hover:bg-accent-primary/25"
+                      className="shrink-0 rounded bg-accent-primary/15 px-1.5 py-0.5 text-caption text-accent-primary hover:bg-accent-primary/25"
                       title={t('history.openSpec', { ticketId: row.ticketId })}
                     >
                       {t('history.specChip', { ticketId: row.ticketId })}
                     </button>
                   )}
                 </span>
-                <time className="text-[11px] text-muted-foreground" dateTime={new Date(row.at).toISOString()}>
+                <time className="text-caption text-muted-foreground" dateTime={new Date(row.at).toISOString()}>
                   {new Date(row.at).toLocaleString()}
                 </time>
               </div>

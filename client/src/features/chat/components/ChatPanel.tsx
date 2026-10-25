@@ -7,6 +7,7 @@ import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import type { UseChatReturn } from '../hooks/useChat'
 import type { DesktopProject } from '../../../hooks/useDesktop'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 const MIN_WIDTH = 240
 const MAX_WIDTH = 720
@@ -76,14 +77,18 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
   if (!isPanelOpen) {
     return (
       <div
-        className="flex w-10 shrink-0 cursor-pointer flex-col items-center border-l border-border/30 bg-background/80 backdrop-blur-sm pt-6"
+        className="flex w-10 shrink-0 cursor-pointer flex-col items-center border-l border-border/30 bg-background pt-6"
         onClick={togglePanel}
+        onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); togglePanel() } }}
+        role="button"
+        tabIndex={0}
+        aria-label={t('panel.openChat')}
         title={t('panel.openChat')}
       >
         <div className="relative">
           <MessageSquare className="w-4 h-4 text-accent-primary" />
           {activeStreamCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent-secondary text-[8px] font-bold text-white">
+            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 px-0.5 items-center justify-center rounded-full bg-primary text-caption font-bold leading-none text-primary-foreground">
               {activeStreamCount}
             </span>
           )}
@@ -111,33 +116,42 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
 
       {/* Tab bar */}
       {conversations.length > 0 && (
-        <div className="flex shrink-0 items-center gap-0 border-b border-border/30 overflow-x-auto">
+        <div role="tablist" className="flex shrink-0 items-center gap-0 border-b border-border/30 overflow-x-auto">
           {conversations.map((conv, i) => (
-            <div
-              key={conv.id}
-              className={cn(
-                'group flex min-w-0 flex-1 cursor-pointer items-center gap-1 px-2.5 py-1.5',
-                'text-[10px] transition-colors',
-                i === activeTabIndex
-                  ? 'border-b-2 border-accent-primary text-foreground'
-                  : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
-              )}
-              onClick={() => setActiveTabIndex(i)}
-            >
-              <span className="truncate max-w-[70px]">
-                {conv.title ?? t('panel.tabTitle', { n: i + 1 })}
-              </span>
-              {conv.isStreaming && (
-                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent-primary" />
-              )}
+            // The close button is a sibling of the tab, not inside it: a control nested in role="tab" has no accessible name or focus of its own.
+            <div key={conv.id} className="group flex min-w-0 flex-1 items-center">
+              <div
+                className={cn(
+                  'flex min-w-0 flex-1 cursor-pointer items-center gap-1 px-2.5 py-1.5',
+                  'text-caption transition-colors',
+                  i === activeTabIndex
+                    ? 'border-b-2 border-accent-primary text-foreground'
+                    : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
+                )}
+                onClick={() => setActiveTabIndex(i)}
+                onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setActiveTabIndex(i) } }}
+                role="tab"
+                tabIndex={0}
+                aria-selected={i === activeTabIndex}
+              >
+                <span className="truncate max-w-[70px]">
+                  {conv.title ?? t('panel.tabTitle', { n: i + 1 })}
+                </span>
+                {conv.isStreaming && (
+                  <LiveDot tone="primary" size="xs" aria-hidden />
+                )}
+              </div>
               <button
-                className="ml-auto shrink-0 hidden group-hover:block text-muted-foreground hover:text-foreground"
+                type="button"
+                aria-label={t('header.deleteConversation')}
+                title={t('header.deleteConversation')}
+                className="mr-1 shrink-0 rounded-sm px-1 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 group-hover:opacity-100"
                 onClick={(e) => {
                   e.stopPropagation()
                   deleteConversation(conv.id)
                 }}
               >
-                ×
+                <span aria-hidden>×</span>
               </button>
             </div>
           ))}
@@ -171,11 +185,11 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
           {project && (
             <div className="flex flex-col items-center gap-1 text-center">
-              <p className="text-xs font-medium text-foreground">{project.name}</p>
-              <p className="text-[10px] text-muted-foreground/60 max-w-[180px] truncate">{project.path}</p>
+              <p className="text-label text-foreground">{project.name}</p>
+              <p className="text-caption text-muted-foreground max-w-[180px] truncate">{project.path}</p>
             </div>
           )}
-          <p className="text-xs text-muted-foreground/70">
+          <p className="text-xs text-muted-foreground">
             {project ? t('panel.startConversation') : t('panel.noConversations')}
           </p>
           {project && (
@@ -185,7 +199,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
                 return (
                   <button
                     key={key}
-                    className="rounded-md border border-border/30 px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:border-accent-primary/40 hover:text-foreground transition-colors"
+                    className="rounded-md border border-border/30 px-2.5 py-1.5 text-left text-caption text-muted-foreground hover:border-accent-primary/40 hover:text-foreground transition-colors"
                     onClick={() => startWithMessage(suggestion)}
                   >
                     {suggestion}
@@ -208,7 +222,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
   // Maximized: fixed overlay covering full viewport
   if (isMaximized) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md border-l border-border/30">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background border-l border-border/30">
         {panelContent}
       </div>
     )
@@ -217,7 +231,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
   // Normal: sidebar panel with draggable left border
   return (
     <div
-      className="relative flex shrink-0 flex-col border-l border-border/30 bg-background/80 backdrop-blur-sm"
+      className="relative flex shrink-0 flex-col border-l border-border/30 bg-background"
       style={{ width: panelWidth }}
     >
       {/* Drag handle — left border */}

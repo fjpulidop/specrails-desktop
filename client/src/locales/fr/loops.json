@@ -60,7 +60,8 @@
     "select": "Sélectionner {{name}}",
     "exportLegacy": "Exporter le graphe d’origine",
     "originalCopyName": "Original : {{name}}",
-    "convert": "Convertir vers Core"
+    "convert": "Convertir vers Core",
+    "more": "Plus d’actions"
   },
   "card": {
     "nodes_one": "{{count}} nœud",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Plafond d'itérations du Loop Decider — la boucle s'arrête une fois atteint, même si l'objectif n'est pas rempli. Évite les boucles infinies.",
       "timeoutHint": "Limite de temps réel pour toute l'exécution, en minutes. Si dépassée, l'exécution est arrêtée et marquée échouée — un filet de sécurité avec le nombre max d'itérations. 0 désactive cette limite de temps ; les autres budgets et l’annulation restent actifs.",
       "maxCost": "Coût max ($)",
-      "maxCostHint": "Budget USD optionnel pour toute l’exécution. Vérifié ENTRE les étapes (le coût d’une étape n’est connu qu’à sa fin), la boucle s’arrête avant l’étape suivante une fois le total dépassé — peut dépasser d’une étape. Pour les fournisseurs non-Claude, le coût est estimé. Vide = aucune limite."
+      "maxCostHint": "Budget USD optionnel pour toute l’exécution. Vérifié ENTRE les étapes (le coût d’une étape n’est connu qu’à sa fin), la boucle s’arrête avant l’étape suivante une fois le total dépassé — peut dépasser d’une étape. Pour les fournisseurs non-Claude, le coût est estimé. Vide = aucune limite.",
+      "title": "Limites d’exécution"
     },
     "nodes": {
       "start": "Début",
@@ -146,7 +148,10 @@
       "name": "NOM",
       "value": "valeur",
       "add": "Ajouter",
-      "builtinBadge": "Intégrées"
+      "builtinBadge": "Intégrées",
+      "deleteConfirmTitle": "Supprimer la constante {{name}} ?",
+      "deleteConfirmBody": "Les constantes sont partagées par toutes les boucles. Les étapes qui y font encore référence ne pourront plus la résoudre.",
+      "description": "Valeurs réutilisables partagées par toutes les boucles. Insérez-en une dans une étape sous forme de jeton ; elle est résolue à l’exécution."
     },
     "paste": {
       "done_one": "{{count}} étape collée",
@@ -166,7 +171,11 @@
       "DEAD_END": "Cette étape n'a aucune connexion sortante.",
       "MIXED_ENGINES": "Ne mélangez pas les anciennes étapes et les étapes Core.",
       "CORE_OUTCOMES": "Reliez des résultats distincts et valides.",
-      "CORE_PIECE": "Sélectionnez une étape et ses paramètres."
+      "CORE_PIECE": "Sélectionnez une étape et ses paramètres.",
+      "severity": {
+        "error": "Erreur",
+        "warning": "Avertissement"
+      }
     },
     "preview": {
       "label": "Aperçu",
@@ -193,7 +202,7 @@
       "tooDeep": "La valeur contient trop de niveaux.",
       "pieces": {
         "prompt": "Prompt",
-        "role-turn": "Agent step",
+        "role-turn": "Étape d'agent",
         "decider": "Décision",
         "condition": "Condition",
         "verify": "Vérifier",
@@ -209,8 +218,8 @@
         "implementation": "Implémentation",
         "end": "Fin",
         "assign": "Définir des variables",
-        "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract",
+        "implementation-step": "Étape d'implémentation",
+        "artifact-contract": "Vérifier les artefacts",
         "derive-change": "Dériver le changement"
       },
       "groups": {
@@ -228,10 +237,17 @@
         "increment": "Ajuster les compteurs"
       },
       "requiredContinue": "Continuer tant que cette condition est remplie",
-      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
-      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+      "agentTaskDefault": "Exécute la tâche définie pour cette étape en utilisant le contexte du workflow.",
+      "legacyImplementation": "Cette étape conserve des phases d'une version antérieure. Ajoutez une étape d'agent pour définir votre propre étape. Pour les loops intégrés, « Restaurer l'original » charge le nouveau workflow."
     },
-    "loopSettings": "Advanced settings"
+    "loopSettings": "Paramètres avancés",
+    "nameLabel": "Nom de la boucle",
+    "unsaved": {
+      "title": "Enregistrer les modifications avant de quitter ?",
+      "body": "Cette boucle contient des modifications non enregistrées. Si vous les abandonnez, elles seront perdues.",
+      "save": "Enregistrer et quitter",
+      "discard": "Abandonner les modifications"
+    }
   },
   "preview": {
     "steps": "Étapes",
@@ -243,14 +259,17 @@
   "builtInBadge": "Intégré",
   "run": {
     "title": "Exécuter {{name}}",
-    "subtitle": "Lance ce loop sur un projet (sans ticket).",
+    "subtitle": "Lance ce loop sur un projet (sans spec).",
     "project": "Projet",
     "provider": "Fournisseur",
     "model": "Modèle",
     "effort": "Effort de raisonnement",
     "execute": "Exécuter",
     "noProjects": "Aucun projet disponible.",
-    "launched": "Exécution de {{name}}"
+    "launched": "Exécution de {{name}}",
+    "runCap": "Mettre en pause et demander à (USD)",
+    "runCapPlaceholder": "Valeur du projet",
+    "runCapHint": "Facultatif. L’exécution se met en pause quand son coût atteint ce montant et demande s’il faut continuer."
   },
   "catalog": {
     "ship-and-green": {
@@ -294,12 +313,16 @@
       "description": "Confie la spec directement au modèle en toute liberté — sans pipeline, il travaille comme un agent de code classique, puis vérifie + affine jusqu'au vert. Claude uniquement."
     },
     "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
-      "description": "Cycle OpenSpec du ticket à l'archive : générer les artefacts (opsx:ff) → implémenter (opsx:apply) → vérifier (opsx:verify) ; en cas de FAIL, reboucle et amende le même change ; en cas de PASS, archive sans intervention."
+      "name": "Cycle de vie OpenSpec",
+      "description": "Cycle OpenSpec de la spec à l'archive : générer les artefacts (opsx:ff) → implémenter (opsx:apply) → vérifier (opsx:verify) ; en cas de FAIL, reboucle et amende le même change ; en cas de PASS, archive sans intervention."
     },
     "factory_revision": {
       "name": "Révision",
       "description": "Applique l'unique changement demandé par-dessus le travail déjà livré, fait re-noter par le relecteur, puis vérifie jusqu'au vert. Aucune replanification."
+    },
+    "drift-sweep": {
+      "name": "Balayage de dérive",
+      "description": "Lecture seule : compare ce qu'affirme la spec de chaque capacité avec ce que fait le code et liste chaque contradiction avec fichier:ligne. Ne modifie rien ; à lancer à la demande."
     }
   },
   "import": {
@@ -360,6 +383,9 @@
     }
   },
   "window": {
-    "open": "Open in window"
-  }
+    "open": "Ouvrir dans une fenêtre",
+    "openFailed": "Impossible d’ouvrir la fenêtre de la boucle"
+  },
+  "confirmDeleteTitle": "Supprimer « {{name}} » ?",
+  "confirmDeleteAction": "Supprimer la boucle"
 }

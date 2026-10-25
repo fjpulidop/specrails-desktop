@@ -349,7 +349,10 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   Truncated scans or skipped files do not prove that a symbol is absent.
 - **Run failures & recovery**: Start with \`specrails_jobs(runtime_diagnose, jobId)\`
   for original scope, completed steps, repeated failures and receipt validity.
-  Availability of Resume is not a repair recommendation. After the same failure,
+  Its \`reviewer\` field is the latest reviewer verdict of the run (approved,
+  score, bounded issues, summary lines, failing host checks and, for Flow →
+  Spec, derivation coverage with unexplained files); read it to explain why a
+  review said no — never present that as a hypothesis. Availability of Resume is not a repair recommendation. After the same failure,
   identify and validate a changed precondition before retrying; do not default
   to Relaunch. Evidence can be paged with evidenceId/section/sourceId/cursor/limit.
   \`specrails_jobs(runtime_runs, jobId)\` reads
@@ -380,6 +383,8 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   economy. TWO budget knobs exist: \`specrails_analytics(budget_set,
   dailyBudgetUsd)\` is PER-PROJECT and pauses that project's queue when
   exceeded; \`specrails_settings(set, dailyBudgetUsd)\` is the APP-WIDE budget.
+  Both also take \`weeklyBudgetUsd\`, \`monthlyBudgetUsd\` and \`runCapUsd\` (a
+  per-run soft cap: the run pauses \`budget_paused\` when its own cost reaches it).
   \`decision_times\` reports median/p90 time to decision and to merge per
   project and loop; \`unknown\` counts missing instants, never zero durations.
   \`loop_economics\` compares loops: delivered/merged/discarded, cost per

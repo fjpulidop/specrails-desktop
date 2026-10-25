@@ -52,8 +52,22 @@ describe('AgentsPage core upgrade banner', () => {
     expect(seen).toEqual([{ section: 'updates' }])
   })
 
+  it('exposes the sections as a keyboard-navigable tablist', async () => {
+    mockCoreVersion({ version: '6.7.0', required: '4.1.0', profileAware: true })
+    render(<AgentsPage />)
+    const tablist = await screen.findByRole('tablist')
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(3)
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', tabs[0].id)
+    tabs[0].focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(screen.getAllByRole('tab')[1]).toHaveAttribute('aria-selected', 'true')
+    expect(tablist).toBeInTheDocument()
+  })
+
   it('shows no banner when the workspace is profile-aware', async () => {
-    mockCoreVersion({ version: '6.6.5', required: '4.1.0', profileAware: true })
+    mockCoreVersion({ version: '6.7.0', required: '4.1.0', profileAware: true })
     render(<AgentsPage />)
     expect(await screen.findByTestId('profiles-tab')).toBeInTheDocument()
     await new Promise((resolve) => setTimeout(resolve, 0))

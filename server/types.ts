@@ -718,6 +718,8 @@ export interface DailyBudgetExceededMessage {
   dailySpend: number
   budget: number
   queuePaused: boolean
+  /** Which cap was reached; absent = the daily budget. */
+  period?: 'week' | 'month'
 }
 
 export interface DesktopDailyBudgetExceededMessage {
@@ -726,6 +728,7 @@ export interface DesktopDailyBudgetExceededMessage {
   desktopDailySpend: number
   desktopBudget: number
   queuePaused: boolean
+  period?: 'week' | 'month'
 }
 
 export interface PipelineStatusMessage {
@@ -796,7 +799,9 @@ export interface FlowSessionWire {
   id: string
   conversationId: string
   ticketId: number | null
-  state: 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'needs-review'
+  state: 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'closed' | 'needs-review'
+  /** `existing`: started from the person's own spec (absent ⇒ placeholder). */
+  specOrigin?: 'placeholder' | 'existing'
   branch: string | null
   worktreePath: string | null
   baseSha: string | null
@@ -846,6 +851,45 @@ export interface PrDeliveryRiskSummary {
   lowCount: number
   top: { severity: 'high' | 'medium' | 'low'; area: string | null; whatToLookAt: string; ref: string | null } | null
   diagnostic: boolean
+}
+
+/** Flow → Spec stopped with requested changes (`review_changes_requested`):
+ *  the reviewer's latest verdict and the failing host checks, bounded. */
+export interface PrDeliveryFlowReview {
+  reason: 'review' | 'check'
+  summary: string | null
+  issues: string[]
+  issuesOmitted: number
+  score: number | null
+  failingChecks: Array<{ command: string; exitCode: number | null }>
+}
+
+/** The person's uncommitted work saved as a stash by "Integrate locally". */
+export interface PrDeliveryLocalStash {
+  sha: string
+  name: string
+  branch: string
+  state: 'saved' | 'restored' | 'needs_attention' | 'released'
+  restoreBranch: string | null
+  conflictPaths: string[]
+  /** Specrails' own server-side restoration on `restoreBranch` (absent until a conflict needed it). */
+  restore?: PrDeliveryLocalRestore
+  savedAt: string
+  updatedAt: string
+}
+
+/** Server-side restoration of a conflicting stash on its own branch + worktree. */
+export interface PrDeliveryLocalRestore {
+  status: 'resolving' | 'ready' | 'failed' | 'brought_back' | 'discarded'
+  branch: string
+  baseSha: string | null
+  commitSha: string | null
+  resolvedBy: 'clean' | 'resolver' | null
+  managedPaths: string[]
+  conflictPaths: string[]
+  files: Array<{ path: string; added: number | null; removed: number | null }>
+  detail: string | null
+  updatedAt: string
 }
 
 export interface RailPrStateMessage {
@@ -905,6 +949,13 @@ export interface RailPrStateMessage {
   originConversationId: string | null
   /** Reviewer risk brief summary (absent without a brief). */
   riskSummary?: PrDeliveryRiskSummary
+  /** Flow → Spec requested changes (absent otherwise). */
+  flowReview?: PrDeliveryFlowReview
+  /** "Integrate locally" stashed the person's uncommitted work (absent otherwise). */
+  localStash?: PrDeliveryLocalStash
+  /** The loop that produced this delivery (id + display name at launch); absent on pre-loop-chip rows. */
+  loopId?: string | null
+  loopName?: string | null
 }
 
 /**
@@ -972,7 +1023,7 @@ export interface LoopRunPausedMessage {
   /** Absent for a human-decision pause. `budget_paused`: the daily budget ran
    *  out between AI steps; resume once the budget allows it. */
   pauseKind?: 'budget_paused'
-  budget?: { scope: 'project' | 'desktop'; budgetUsd: number; spentUsd: number; resetsAt: string }
+  budget?: { scope: 'project' | 'desktop'; period?: 'week' | 'month' | 'run'; budgetUsd: number; spentUsd: number; resetsAt: string | null }
 }
 
 export interface LoopRunResumedMessage {
@@ -1362,7 +1413,7 @@ export type WsMessage =
   | { type: 'agent_conversation_created'; conversationId: string; timestamp: string }
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage | AgentSteeredMessage | AgentInputReceiptMessage
   | AgentQueueEditedMessage | AgentQueueRemovedMessage
-  | AgentPrDecisionMessage | AgentRunFailureMessage
+  | AgentPrDecisionMessage | AgentRunFailureMessage | AgentSystemRowMessage
   | BlueprintStreamMessage | BlueprintDoneMessage | BlueprintErrorMessage | BlueprintRepairingMessage | BlueprintGeneratingMessage
   | BlueprintCommitProgressMessage | BlueprintCommitDoneMessage | BlueprintCommitFailedMessage
   | BlueprintMilestoneProgressMessage | BlueprintMilestoneCompletedMessage | MilestoneChainChangedMessage | LoopProviderLimitMessage
@@ -1734,6 +1785,13 @@ export interface PrDecisionCardEnvelope {
   runtime?: MissionRunRuntime | null
   /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
   riskSummary?: PrDeliveryRiskSummary
+  /** Flow → Spec requested changes: issues + failing checks, Back to Flow / Relaunch (absent otherwise). */
+  flowReview?: PrDeliveryFlowReview
+  /** "Integrate locally" stashed the person's uncommitted work (absent otherwise). */
+  localStash?: PrDeliveryLocalStash
+  /** The loop that produced this delivery (id + display name at launch); absent on pre-loop-chip rows. */
+  loopId?: string | null
+  loopName?: string | null
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'
@@ -1781,6 +1839,17 @@ export interface AgentRunFailureMessage extends RunFailureRow {
   conversationId: string
   messageId: string
   timestamp: string
+}
+
+/** An app-authored system row (e.g. the Back to Flow review card) was appended to a conversation. */
+export interface AgentSystemRowMessage {
+  type: 'agent_system_row'
+  conversationId: string
+  messageId: string
+  kind: string
+  dedupeKey: string
+  timestamp: string
+  [field: string]: unknown
 }
 
 /**

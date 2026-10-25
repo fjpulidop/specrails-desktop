@@ -15,7 +15,7 @@ it('loads only when opened and requires an explicit preview before deleting hist
   expect(screen.queryByRole('button', { name: 'Delete expired history' })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Preview cleanup' }))
   expect(await screen.findByText(/Eligible: 1 histories and 1 unused Core versions/)).toBeInTheDocument()
-  expect(screen.getByText(/Active execution/)).toBeInTheDocument()
+  expect(screen.getByText(/Active run/)).toBeInTheDocument()
   expect(fetch).toHaveBeenLastCalledWith('/api/projects/p1/agent-runtime/retention/collect', expect.objectContaining({ body: '{"dryRun":true}' }))
   await user.click(screen.getByRole('button', { name: 'Delete expired history' }))
   await waitFor(() => expect(changed).toHaveBeenCalledOnce())

@@ -134,12 +134,13 @@ describe('SpecCard', () => {
     expect(card).toHaveAttribute('tabIndex', '0')
   })
 
-  it('shows a breathing Contract badge while Contract Layer is being refined', () => {
+  it('shows a static Contract ring + badge while Contract Layer is being refined', () => {
     render(<SpecCard ticket={makeTicket()} onClick={onClickMock} contractRefining />)
     expect(screen.getByText('Contract')).toBeInTheDocument()
     const card = screen.getByText('Build the feature').closest('[role="button"]')!
     expect(card).toHaveAttribute('data-contract-refining', 'true')
-    expect(card).toHaveClass('animate-pulse')
+    expect(card).toHaveClass('ring-1')
+    expect(card.className).not.toMatch(/animate-pulse/)
     expect(screen.queryByText('medium')).not.toBeInTheDocument()
   })
 
@@ -207,7 +208,7 @@ describe('SpecCard', () => {
       expect(screen.queryByText('high')).not.toBeInTheDocument()
     })
 
-    it('marks the card with data-on-review and uses the accent-warning token', () => {
+    it('marks the card with data-on-review and uses the accent-review token', () => {
       render(
         <SpecCard
           ticket={makeTicket({ status: 'on_review' })}
@@ -216,7 +217,7 @@ describe('SpecCard', () => {
       )
       const card = screen.getByText('Build the feature').closest('[role="button"]')!
       expect(card).toHaveAttribute('data-on-review', 'true')
-      expect(card.outerHTML).toMatch(/accent-warning/)
+      expect(card.outerHTML).toMatch(/accent-review/)
       expect(card.outerHTML).not.toMatch(/dracula-/)
     })
 
@@ -307,7 +308,7 @@ describe('SpecCard', () => {
     it('applies the animate-jiggle class when jiggleMode is true', () => {
       render(<SpecCard ticket={makeTicket()} onClick={onClickMock} jiggleMode={true} onDelete={vi.fn()} />)
       const card = screen.getByText('Build the feature').closest('[role="button"]')!
-      expect(card).toHaveClass('animate-jiggle')
+      expect(card).toHaveClass('motion-safe:animate-jiggle')
       expect(card).toHaveAttribute('data-jiggle', 'true')
     })
 
@@ -412,8 +413,11 @@ describe('SpecCard spec addenda badge', () => {
       expect(screen.getByTestId('flow-badge-42')).toHaveTextContent('Flow paused')
     })
 
-    it('hides the label once delivered, without metadata, or on a rail (handed off)', () => {
+    it('hides the label once delivered or closed, without metadata, or on a rail (handed off)', () => {
       const { rerender } = render(<SpecCard ticket={makeTicket({ metadata: { flow: { state: 'delivered', conversationId: 'c1' } } })} onClick={onClickMock} />)
+      expect(screen.queryByTestId('flow-badge-42')).toBeNull()
+      // A needs-review Flow closed with its branch kept releases the spec too.
+      rerender(<SpecCard ticket={makeTicket({ metadata: { flow: { state: 'closed', conversationId: 'c1' } } })} onClick={onClickMock} />)
       expect(screen.queryByTestId('flow-badge-42')).toBeNull()
       rerender(<SpecCard ticket={makeTicket()} onClick={onClickMock} />)
       expect(screen.queryByTestId('flow-badge-42')).toBeNull()
@@ -422,3 +426,57 @@ describe('SpecCard spec addenda badge', () => {
     })
   })
 })
+
+describe('SpecCard selection (CD4)', () => {
+  const sel = (selected: boolean, active = false) => ({ selected, active, onSelect: vi.fn() })
+
+  it('is a plain button without a selection', () => {
+    render(<SpecCard ticket={makeTicket()} onClick={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /Build the feature/ })).toHaveAttribute('data-ticket-id', '42')
+    expect(screen.queryByRole('checkbox')).toBeNull()
+  })
+
+  it('becomes an option with aria-selected and a checkbox, and shows the selected state', () => {
+    const { rerender } = render(<SpecCard ticket={makeTicket()} onClick={vi.fn()} selection={sel(false)} />)
+    const card = document.querySelector('[data-ticket-id="42"]')!
+    expect(card).toHaveAttribute('role', 'option')
+    expect(card).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('checkbox', { name: 'Select spec #42' })).toHaveAttribute('aria-checked', 'false')
+    rerender(<SpecCard ticket={makeTicket()} onClick={vi.fn()} selection={sel(true, true)} />)
+    expect(card).toHaveAttribute('aria-selected', 'true')
+    expect(card.className).toContain('border-accent-primary')
+    expect(screen.getByRole('checkbox')).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('⌘-click and Shift-click go to the selection, not to onClick', () => {
+    const onClick = vi.fn()
+    const selection = sel(false)
+    render(<SpecCard ticket={makeTicket()} onClick={onClick} selection={selection} />)
+    const card = document.querySelector('[data-ticket-id="42"]')!
+    fireEvent.click(card, { metaKey: true })
+    fireEvent.click(card, { shiftKey: true })
+    expect(selection.onSelect.mock.calls.map((c) => c[1])).toEqual(['toggle', 'range'])
+    expect(onClick).not.toHaveBeenCalled()
+    fireEvent.click(card)
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('has no checkbox and no selection gesture in jiggle (delete) mode', () => {
+    const onClick = vi.fn()
+    const selection = sel(false)
+    render(<SpecCard ticket={makeTicket()} onClick={onClick} selection={selection} jiggleMode />)
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    fireEvent.click(document.querySelector('[data-ticket-id="42"]')!, { metaKey: true })
+    expect(selection.onSelect).not.toHaveBeenCalled()
+  })
+
+  it('Space on the checkbox toggles without opening the spec', () => {
+    const onClick = vi.fn()
+    const selection = sel(false)
+    render(<SpecCard ticket={makeTicket()} onClick={onClick} selection={selection} />)
+    fireEvent.keyDown(screen.getByRole('checkbox'), { key: ' ' })
+    expect(selection.onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 42 }), 'toggle')
+    expect(onClick).not.toHaveBeenCalled()
+  })
+})
+

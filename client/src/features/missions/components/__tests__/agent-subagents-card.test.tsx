@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { AgentSubagentsCard } from '../AgentSubagentsCard'
 import { AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from '../AgentSessionIndicators'
 import type { AgentSubagent } from '../../lib/agent-api'
+import { getAction } from './pr-card-actions'
 
 const node = (over: Partial<AgentSubagent> = {}): AgentSubagent => ({
   subagentId: 'sa-1', parentId: null, kind: 'background', agentType: 'Explore', description: 'Scan the repo',
@@ -230,7 +231,7 @@ describe('AgentSessionNotices', () => {
     const onDismiss = vi.fn()
     const { container, rerender } = render(<AgentSessionNotices notices={[{ id: 'n3', code: 'provider.retrying', level: 'info', message: 'Rate limited, retrying', scope: null }]} onDismiss={onDismiss} />)
     expect(screen.getByRole('status')).toHaveTextContent('Rate limited, retrying')
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    fireEvent.click(getAction('Dismiss'))
     expect(onDismiss).toHaveBeenCalledWith('n3')
     rerender(<AgentSessionNotices notices={[]} onDismiss={onDismiss} />)
     expect(container).toBeEmptyDOMElement()

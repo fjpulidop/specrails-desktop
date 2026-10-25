@@ -9,6 +9,7 @@ import { readRuntimeExpiration } from '../../agent-runtime/runtime/agent-runtime
 import path from 'path'
 import { existsSync, realpathSync } from 'node:fs'
 import type { DbInstance } from '../../../db'
+import { safeIndexJob } from '../../../db/job-search'
 import type { LoopRunRequest } from './loop-run-manager'
 
 export type LoopRunStatus = 'running' | 'paused' | 'completed'
@@ -52,6 +53,8 @@ export interface LoopRunRow {
   fork_of?: string | null
   fork_cut_json?: string | null
   restart_reason?: string | null
+  /** JSON FailureDiagnosis of a failed / blocked / stalled run (migration 84). */
+  failure_diagnosis?: string | null
 }
 
 export interface DefinitionRunMetadata {
@@ -331,6 +334,7 @@ export function createLoopRun(db: DbInstance, input: CreateLoopRunInput): LoopRu
     input.iterationLimit,
     input.startedAt,
   )
+  safeIndexJob(db, input.id)
   return getLoopRun(db, input.id)!
 }
 
@@ -392,6 +396,8 @@ export function finishLoopRunAndJob(
     job: LoopJobTerminalTotals
     callbackOutcome?: LoopRunOutcome
     outcomeFinalized?: boolean
+    /** Serialized FailureDiagnosis, written in the same commit as the outcome. */
+    failureDiagnosis?: string | null
   },
 ): LoopTerminalRecoveryPayload | undefined {
   const tx = db.transaction(() => {
@@ -400,9 +406,9 @@ export function finishLoopRunAndJob(
     updateLoopRunCounters(db, id, opts.counters)
     db.prepare(`
       UPDATE loop_runs
-         SET status = 'completed', final_outcome = ?, finished_at = ?
+         SET status = 'completed', final_outcome = ?, finished_at = ?, failure_diagnosis = ?
        WHERE id = ?
-    `).run(opts.outcome, opts.finishedAt, id)
+    `).run(opts.outcome, opts.finishedAt, opts.failureDiagnosis ?? null, id)
     db.prepare(`
       UPDATE jobs
          SET exit_code = ?, status = ?, finished_at = ?,
@@ -448,6 +454,7 @@ export function finishLoopRunAndJob(
       opts.job.numTurns,
       id,
     )
+    safeIndexJob(db, id)
     const payload: LoopTerminalRecoveryPayload = {
       version: 1,
       runId: id,
@@ -693,12 +700,13 @@ export function updateLoopRunCounters(db: DbInstance, id: string, counters: Part
 export function finishLoopRun(
   db: DbInstance,
   id: string,
-  opts: { outcome: LoopRunOutcome; finishedAt: string; counters?: Partial<LoopRunCounters> }
+  opts: { outcome: LoopRunOutcome; finishedAt: string; counters?: Partial<LoopRunCounters>; failureDiagnosis?: string | null }
 ): LoopRunRow | undefined {
   if (opts.counters) updateLoopRunCounters(db, id, opts.counters)
   db.prepare(
-    `UPDATE loop_runs SET status = 'completed', final_outcome = ?, finished_at = ? WHERE id = ?`
-  ).run(opts.outcome, opts.finishedAt, id)
+    `UPDATE loop_runs SET status = 'completed', final_outcome = ?, finished_at = ?, failure_diagnosis = ? WHERE id = ?`
+  ).run(opts.outcome, opts.finishedAt, opts.failureDiagnosis ?? null, id)
+  safeIndexJob(db, id)
   return getLoopRun(db, id)
 }
 
@@ -717,6 +725,16 @@ export function resumeLoopRun(db: DbInstance, id: string): LoopRunRow | undefine
 
 export function getLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
   return db.prepare('SELECT * FROM loop_runs WHERE id = ?').get(id) as LoopRunRow | undefined
+}
+
+/** The run's own per-run soft cap: undefined = never set, 0 = waived, > 0 = the cap. */
+export function readLoopRunCap(db: DbInstance, id: string): number | undefined {
+  const row = db.prepare('SELECT run_cap_usd FROM loop_runs WHERE id = ?').get(id) as { run_cap_usd: number | null } | undefined
+  return row?.run_cap_usd == null ? undefined : row.run_cap_usd
+}
+
+export function writeLoopRunCap(db: DbInstance, id: string, capUsd: number): void {
+  db.prepare('UPDATE loop_runs SET run_cap_usd = ? WHERE id = ?').run(capUsd, id)
 }
 
 /** Activity-step count for one event, mirroring the client's deriveFrameActivity

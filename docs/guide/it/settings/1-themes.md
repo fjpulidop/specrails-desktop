@@ -1,4 +1,4 @@
-# Temi
+# Temi {#themes}
 
 Dai a Specrails l'aspetto che preferisci. L'app include cinque temi rifiniti a mano tra cui passare all'istante — senza riavvii, senza ricompilazioni, senza niente da configurare.
 

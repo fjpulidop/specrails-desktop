@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, RotateCw, Globe, X, AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button } from '../../../../components/ui/button'
-import { NativeBrowserModal } from './NativeBrowserPane'
+import { CaptureDialogShell, NativeBrowserModal, forwardsKey } from './NativeBrowserPane'
 import { isNativeBrowserAvailable } from '../../lib/native-browser'
 import { useBrowserCaptureSession } from './useBrowserCaptureSession'
 import { useBrowserViewport } from './useBrowserViewport'
+import { LiveDot } from '../../../../components/ui/live-dot'
 import {
   mapPointToViewport,
   createPointerInputCoalescer,
@@ -76,7 +76,11 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
   const { canvasRef, viewport, status, errorMsg, url: pageUrl, title, popup, popupError, setViewport } = session
   const [addressValue, setAddressValue] = useState(url)
   const containerRef = useRef<HTMLDivElement | null>(null)
-  useBrowserViewport(containerRef, setViewport, open)
+  // The Radix portal mounts its content one commit after this component, so
+  // track the surface element and only start measuring once it exists.
+  const [surface, setSurface] = useState<HTMLDivElement | null>(null)
+  const surfaceRef = useCallback((node: HTMLDivElement | null) => { containerRef.current = node; setSurface(node) }, [])
+  useBrowserViewport(containerRef, setViewport, open && surface !== null)
 
   // Browse input coalescer (same rationale as BrowserCaptureModal): pointermove
   // newest-wins + wheel deltas summed, ≤1 of each per animation frame.
@@ -94,14 +98,6 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
   // Navigation controls and address refer to the page currently being viewed.
   const visibleUrl = popup?.active ? popup.url ?? 'about:blank' : pageUrl ?? ''
   useEffect(() => { setAddressValue(visibleUrl) }, [visibleUrl, popup?.active])
-
-  // Esc closes the modal.
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
 
   const toViewport = useCallback((clientX: number, clientY: number) => {
     const r = canvasRef.current?.getBoundingClientRect()
@@ -155,7 +151,9 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
     }
     const ev: BrowserInputEvent = { type: 'key', action: 'down', key: e.key, code: e.code, text: !meta && e.key.length === 1 ? e.key : undefined }
     session.forwardInput(ev)
-    if (e.key === 'Tab' || e.key === ' ' || e.key.startsWith('Arrow')) e.preventDefault()
+    // Forwarded to the page: keep the host from acting on it, including the
+    // dialog FocusScope's Tab wrap-around on Content.
+    if (forwardsKey(e.key)) { e.preventDefault(); e.stopPropagation() }
   }, [session])
   const onKeyUp = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') return
@@ -166,20 +164,9 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
 
   if (!open || typeof document === 'undefined') return null
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[80] bg-background-deep/60 backdrop-blur-md pointer-events-auto"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      data-testid="webview-modal"
-    >
-      {/* Large modal (visible app rim), matching BrowserCaptureModal's shell. */}
-      <div
-        className="absolute inset-x-[4%] inset-y-[3.5%] flex flex-col border border-border/70 rounded-2xl bg-background-deep overflow-hidden shadow-2xl ring-1 ring-black/20"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('modal.dialogLabel')}
-        onClick={(e) => e.stopPropagation()}
-      >
+  // Esc and a scrim click close the modal (Radix, capture layer).
+  return (
+    <CaptureDialogShell label={t('modal.dialogLabel')} onClose={onClose} testId="webview-modal">
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/50 bg-surface/80 shrink-0">
           <div className="flex items-center gap-1">
@@ -188,7 +175,7 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
             <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t('modal.nav.reload')} onClick={() => session.navigate('reload')}><RotateCw className="w-4 h-4" /></Button>
           </div>
           <form className="flex-1 flex items-center gap-2 min-w-0" onSubmit={(e) => { e.preventDefault(); go() }}>
-            <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1">
+            <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1 focus-within:ring-2 focus-within:ring-ring">
               <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <input
                 value={addressValue}
@@ -196,7 +183,7 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); go() } }}
                 placeholder={t('modal.address.placeholder')}
                 aria-label={t('modal.address.label')}
-                className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+                className="flex-1 min-w-0 bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring text-sm"
               />
             </div>
             <Button type="submit" size="sm" variant="secondary" className="shrink-0" disabled={status === 'error'}>{t('modal.address.go')}</Button>
@@ -205,11 +192,8 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
         </div>
 
         {/* Status line */}
-        <div className="px-3 py-1 text-[11px] text-muted-foreground truncate shrink-0 flex items-center gap-2">
-          <span
-            className={`inline-block w-2 h-2 rounded-full shrink-0 ${status === 'ready' ? 'bg-accent-success' : status === 'error' ? 'bg-destructive' : 'bg-accent-warning animate-pulse'}`}
-            aria-hidden
-          />
+        <div className="px-3 py-1 text-xs text-muted-foreground truncate shrink-0 flex items-center gap-2">
+          <LiveDot tone={status === 'ready' ? 'success' : status === 'error' ? 'destructive' : 'warning'} pulsing={status !== 'ready' && status !== 'error'} aria-hidden />
           <span className="truncate">
             {status === 'connecting' ? t('modal.status.connecting') : status === 'error' ? (errorMsg ?? t('modal.status.unavailable')) : popup?.active ? t('popup.loginWindow', { origin: popupOriginLabel(popup.url) }) : (title || '')}
           </span>
@@ -252,8 +236,8 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
         {/* Viewport (browse-only) */}
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
         <div
-          ref={containerRef}
-          className="relative flex-1 min-h-0 overflow-hidden flex items-center justify-center outline-none"
+          ref={surfaceRef}
+          className="relative flex-1 min-h-0 overflow-hidden flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           tabIndex={0}
           onKeyDown={onKeyDown}
           onKeyUp={onKeyUp}
@@ -261,7 +245,7 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
           {status === 'error' ? (
             <div className="flex flex-col items-center gap-2 text-center max-w-md px-6">
               <AlertTriangle className="w-8 h-8 text-accent-warning" />
-              <p className="text-sm text-foreground/90">{errorMsg ?? t('modal.error.unavailable')}</p>
+              <p className="text-sm text-foreground">{errorMsg ?? t('modal.error.unavailable')}</p>
             </div>
           ) : (
             <canvas
@@ -276,8 +260,6 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
             />
           )}
         </div>
-      </div>
-    </div>,
-    document.body,
+    </CaptureDialogShell>
   )
 }

@@ -12,7 +12,7 @@ describe('SpecSortControl', () => {
 
   it('shows direction arrow when mode is ticket-id', () => {
     render(<SpecSortControl mode="ticket-id" dir="desc" onChange={() => {}} />)
-    expect(screen.getByLabelText('Sort mode')).toHaveTextContent('Ticket #')
+    expect(screen.getByLabelText('Sort mode')).toHaveTextContent('Spec #')
     expect(screen.getByLabelText('Toggle sort direction')).toBeInTheDocument()
   })
 

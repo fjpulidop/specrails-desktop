@@ -1,4 +1,4 @@
-# 认识这些 Agent
+# 认识这些 Agent {#agents}
 
 当你启动一条 **Implement** rail 时，Specrails 并不会把你的 spec 丢给某一个 AI、然后听天由命。它会让一支精干的专职 *Agent* 团队上阵——每个 Agent 只负责一件事，并按精心设计的顺序协作。这一页就来介绍这支团队里都有谁、各自又在做什么。
 

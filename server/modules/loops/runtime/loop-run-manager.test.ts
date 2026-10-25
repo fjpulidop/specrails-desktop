@@ -2716,6 +2716,16 @@ describe('LoopRunManager idle stall (premium-milestone-progress)', () => {
     // The invocation is recorded as failed, never as successful work.
     const rows = db.prepare("SELECT status FROM ai_invocations WHERE surface = 'loop'").all() as Array<{ status: string }>
     expect(rows.map((r) => r.status)).toEqual(['failed'])
+    // The cause is persisted with the outcome (failure recovery cockpit): the inbox and Job detail read it.
+    const stored = JSON.parse((db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get('run-limit') as { failure_diagnosis: string }).failure_diagnosis)
+    expect(stored).toMatchObject({ kind: 'provider_limit', confidence: 'high', resetAt: '3am (Europe/Madrid)', source: 'desktop' })
+  })
+
+  it('persists no diagnosis for a successful run', async () => {
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), makeExecutors({}), () => 1000)
+    const res = await mgr.run({ ...baseReq(), runId: 'run-fine' })
+    expect(res.outcome).not.toBe('failed')
+    if (res.outcome === 'success') expect((db.prepare('SELECT failure_diagnosis FROM loop_runs WHERE id = ?').get('run-fine') as { failure_diagnosis: string | null }).failure_diagnosis).toBeNull()
   })
 
   it('the limit is detected on the one-shot text too, and a plain error result (no limit text) fails the step and feeds fail-fast', async () => {

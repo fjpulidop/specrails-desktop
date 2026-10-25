@@ -24,6 +24,20 @@ export interface PrDecisionDeps {
   }
   /** Agent-chat accessor (default: the process-wide registry). Null-safe. */
   agentChat?: () => { updatePrDecisionCard(conversationId: string, envelope: PrDecisionCardEnvelope): void } | null
+  /** Mission agent accessor for automatic briefing turns (default: the
+   * process-wide agent-chat registry). Null-safe; never fatal. */
+  missionAgent?: () => {
+    startAutomaticTurn(conversationId: string, text: string, opts: { turnKey: string; label: string }): Promise<'started' | 'skipped'>
+  } | null
+  /** Write-capable conflict resolver confined to a stash-restore worktree
+   * (default: the AI merge-resolver, see runtime/local-restore-resolver). */
+  localRestoreResolver?: (input: {
+    worktreePath: string
+    branch: string
+    targetBranch: string
+    conflictPaths: readonly string[]
+    stashName: string
+  }) => Promise<void>
   /** Ticket-store file override (tests) — default resolves via workspace-resolution. */
   ticketFile?: string
   /** Temporary local-integration worktree root override (tests). */

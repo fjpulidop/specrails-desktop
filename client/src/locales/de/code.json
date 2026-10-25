@@ -54,7 +54,9 @@
     "save": "Speichern",
     "saving": "Speichern…",
     "saved": "Datei gespeichert",
-    "saveFailed": "Speichern fehlgeschlagen"
+    "saveFailed": "Speichern fehlgeschlagen",
+    "budgetPromptBody": "Das KI-Budgetlimit für Dateizusammenfassungen ist erreicht. Wenn du trotzdem neu erzeugst, läuft eine weitere Zusammenfassung über dem Limit.",
+    "budgetPromptConfirm": "Trotzdem neu erzeugen"
   },
   "summary": {
     "generationFailed": "Generierung der Zusammenfassung fehlgeschlagen",
@@ -150,7 +152,7 @@
     "loadingEditor": "Editor wird geladen…"
   },
   "ticketFiles": {
-    "title": "Von diesem Ticket bearbeitete Dateien",
+    "title": "Von dieser Spec bearbeitete Dateien",
     "jobTitle": "Job {{jobId}}",
     "loading": "Aufgezeichnete Dateien werden geladen…",
     "loadFailed": "Aufgezeichnete Dateien konnten nicht geladen werden.",

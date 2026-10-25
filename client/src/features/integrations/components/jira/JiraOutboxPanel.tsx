@@ -1,10 +1,10 @@
 import { useCallback, useContext, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { Button } from '../../../../components/ui/button'
 import { SharedWebSocketContext } from '../../../../hooks/useSharedWebSocket'
 import { jiraApi, type OutboxCounts, type OutboxOp } from '../../lib/jira-api'
 
+import { notifyError } from '../../../../lib/notify-error'
 interface Props {
   projectId: string
   baseUrl: string
@@ -63,7 +63,7 @@ export function JiraOutboxPanel({ projectId, baseUrl, apiBase, initialCounts, re
       else await jiraApi.retryOutbox(id)
       if (alive.current) await loadDead()
     } catch (error) {
-      if (alive.current) toast.error(error instanceof Error ? error.message : t('errors.generic'))
+      if (alive.current) notifyError(t('errors.generic'), { detail: error instanceof Error ? error.message : undefined })
     } finally {
       if (alive.current) setRetrying((previous) => { const next = new Set(previous); next.delete(id); return next })
     }

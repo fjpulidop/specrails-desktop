@@ -8,7 +8,7 @@ Specrails actúa como **capa de sincronización** entre Jira y tu proyecto. La i
 
 - Cuando lanzas un rail, Specrails mueve el issue de Jira vinculado a **En progreso**.
 - Cuando un trabajo termina, Specrails transiciona el issue: si tuvo éxito, lo mueve a tu estado de **revisión** mapeado y solo llega a **Hecho** cuando se mergea la PR de entrega o aceptas el resultado local; si falló, vuelve a **Por hacer** con un comentario de finalización que incluye resultado, id de ejecución, coste, duración y el cambio de estado en Jira.
-- Si pides cambios de seguimiento cuando el issue de Jira ya está en revisión, Specrails intenta continuar la rama de la PR abierta existente para ese ticket en lugar de crear una rama nueva. Si tu estado de revisión de Jira no está mapeado explícitamente y todavía aparece localmente como **En progreso**, Specrails puede continuar igualmente la PR cuando la clave de Jira coincide con la pull request abierta.
+- Si pides cambios de seguimiento cuando el issue de Jira ya está en revisión, Specrails intenta continuar la rama de la PR abierta existente para esa spec en lugar de crear una rama nueva. Si tu estado de revisión de Jira no está mapeado explícitamente y todavía aparece localmente como **En progreso**, Specrails puede continuar igualmente la PR cuando la clave de Jira coincide con la pull request abierta.
 - Periódicamente, Specrails **sondea** Jira en busca de cambios que cualquiera haya hecho en el tablero y los refleja de vuelta en tus specs.
 
 Todas las escrituras pasan por un outbox duradero y a prueba de fallos, así que un tropiezo puntual de Jira nunca rompe un trabajo: la actualización simplemente se reintenta.

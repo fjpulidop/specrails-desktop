@@ -1,4 +1,4 @@
-# 更新
+# 更新 {#updates}
 
 Specrails 会保持两样东西为最新：**Specrails Desktop** 应用本身，以及项目使用的 **specrails-core** 框架。两者都在 **设置 ▸ 更新** 中。
 

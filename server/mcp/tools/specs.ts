@@ -16,7 +16,7 @@ const AI_SPAWN_ACTIONS = new Set(['create', 'generate', 'ai_edit', 'contract_ref
 // using its actual side effects, not the synchronous HTTP response alone.
 const WRITE_ACTIONS = new Set([
   'update', 'from_prompt', 'save_draft', 'commit_draft', 'cancel_ai_edit',
-  'add_addendum', 'update_addendum', 'dismiss_addendum', 'reopen_addendum',
+  'add_addendum', 'update_addendum', 'dismiss_addendum', 'reopen_addendum', 'restore',
 ])
 
 function resolveSpecsTier(action: string, args: Record<string, unknown>): McpTier {
@@ -53,7 +53,7 @@ export function specsTools(): McpToolSpec[] {
         'Manage the spec/ticket backlog for a project (the local-tickets.json store). ' +
         'Actions: list, get, ' +
         'create (ai-spawn — THE way to add a spec: routes through Quick Add Spec, so the specrails agent generates a structured spec with AI from the user request, exactly matching the app\'s "Add Spec → Quick" flow; pass the request as title/description, it becomes the idea; async), ' +
-        'update, delete (destructive), ' +
+        'update, delete (destructive; a soft delete: the spec moves to Recently deleted for 30 days), restore (write; bring a deleted spec back), ' +
         'from_prompt (verbatim insert, no AI — use ONLY when you already have a complete finished spec to store as-is; ' +
         'cannot set acceptanceCriteria or shortSummary — prefer commit_draft for structured specs), ' +
         'save_draft (persist an Explore conversation as a draft), ' +
@@ -90,6 +90,7 @@ export function specsTools(): McpToolSpec[] {
             'create',
             'update',
             'delete',
+            'restore',
             'from_prompt',
             'save_draft',
             'commit_draft',
@@ -121,7 +122,7 @@ export function specsTools(): McpToolSpec[] {
           .number()
           .int()
           .optional()
-          .describe('Numeric ticket id (get/update/delete/contract_refine/smash/smash_undo/delete_epic_children/spending_summary/files_touched/ai_edit/list_addenda/add_addendum/update_addendum/dismiss_addendum/reopen_addendum/delete_addendum)'),
+          .describe('Numeric ticket id (get/update/delete/restore/contract_refine/smash/smash_undo/delete_epic_children/spending_summary/files_touched/ai_edit/list_addenda/add_addendum/update_addendum/dismiss_addendum/reopen_addendum/delete_addendum)'),
 
         // ── list filters ─────────────────────────────────────────────────
         status: z
@@ -475,6 +476,8 @@ export function specsTools(): McpToolSpec[] {
           // ── destructive ────────────────────────────────────────────────
           case 'delete':
             return apiCall(ctx, 'DELETE', `${base}/tickets/${requireId()}`)
+          case 'restore':
+            return apiCall(ctx, 'POST', `${base}/tickets/${requireId()}/restore`)
           case 'smash_undo': {
             if (!args.smashedAt) throw new Error('smash_undo requires the "smashedAt" timestamp.')
             return apiCall(ctx, 'POST', `${base}/tickets/${requireId()}/smash/undo`, {

@@ -74,8 +74,34 @@ Core journal ──session.event──▶ SessionEventPump ──ProjectionOp[]�
   and cursor (`agent_session_cursors`), and continuation turns as messages with
   `turn_origin` `subagent`/`system` plus invocations with `origin`. User turns
   are settled by the mission manager.
+- A conversation can own more than one Core session: its own (id = the
+  conversation id) and, in Flow, `flow:<flowId>`. Each is projected by its own
+  `MissionSessionProjector`: the cursor is keyed by `(conversation_id,
+  core_session_id)` and every sub-agent row records `core_session_id`
+  (desktop migration 35). The Flow projector bills its continuation turns and
+  delegated sub-agents with `surface: 'flow'` (so they land in
+  `GET /flow/:flowId/cost` and the mission's `flowCostUsd`), and tags its
+  WebSocket messages with `coreSessionId`. The client keys them by
+  conversation, so the sub-agents card shows a Flow's agents while in Flow;
+  the resident state it receives is the conversation's across its sessions.
+- A Core session keeps the driver that opened it, so the mission's own session
+  has generations (desktop migration 36, `agent_core_sessions`): generation 0
+  keeps the conversation id, generation n is `<conversationId>:g<n>`, and the
+  table records the provider the current generation was opened with. A turn on
+  another provider (after a switch, also after a restart) or on a closed
+  session closes the current generation and opens the next one, seeded with
+  the conversation history through the fresh-session prompt path. The runner
+  also verifies the driver Core reports when it resumes a session; a mismatch
+  or a closed session (`session_driver_mismatch` / `session_closed`, nothing
+  sent) renews once and retries. A model or effort change on the same provider
+  stays in the session (`session.update`). Later generations project as the
+  mission's own (untagged broadcasts, `agent-chat` billing, ids keyed by the
+  generation's session id).
 - Continuation turns get a deterministic invocation id, so replay never records
-  a turn twice. `POST /api/agent/conversations/:id/session/rebuild` resets the
+  a turn twice. Ids of a Flow session include its session id
+  (`core-turn:<conversation>:flow:<flowId>:<turn>`,
+  `core-subagent:<conversation>:flow:<flowId>:<subagent>:<seq>`), so the two
+  sessions never collide; a rebuild replays every session of the conversation. `POST /api/agent/conversations/:id/session/rebuild` resets the
   derived rows and replays the journal silently (see the
   [API reference](api-reference.md)).
 

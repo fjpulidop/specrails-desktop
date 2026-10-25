@@ -1,3 +1,5 @@
+import { useMissionConversationMode } from '../context/MissionExtensionsContext'
+import { MissionModeBadge } from './MissionModeBadge'
 import { useMissionPaneClose } from '../context/MissionSplitViewsContext'
 import { MissionWindowAction } from './MissionWindowAction'
 import { useState, useRef, useEffect, useCallback } from 'react'
@@ -6,10 +8,12 @@ import { motion, AnimatePresence } from 'motion/react'
 import { MoreVertical, Pencil, Copy, Check, ChevronRight, Trash2, Heart, Download, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAgentChat } from '../context/AgentChatContext'
+import { useStreamingConversationIds } from '../hooks/useAgentLive'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { cn } from '../../../lib/utils'
 import type { AgentConversation, AgentMessage } from '../lib/agent-api'
 
+import { notifyError } from '../../../lib/notify-error'
 type TranscriptProject = {
   name?: string | null
   path?: string | null
@@ -79,6 +83,7 @@ export function AgentConversationHeader() {
   const closePane = useMissionPaneClose()
   const { t } = useTranslation('agent')
   const { active, messages, renameConversation, deleteConversation, startNewConversation, favoriteConversationIds, toggleFavoriteConversation } = useAgentChat()
+  const streamingConversationIds = useStreamingConversationIds()
   const { projects } = useDesktop()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -92,6 +97,7 @@ export function AgentConversationHeader() {
     ? projects.find((p) => p.id === active.pinned_project_id) ?? null
     : null
   const title = active?.title?.trim() || t('header.untitled')
+  const headerBadge = useMissionConversationMode(active?.id ?? null, active?.pinned_project_id ?? null)?.headerBadge ?? null
   const isFavorite = active ? favoriteConversationIds.has(active.id) : false
 
   // Close the menu on outside-click / Esc.
@@ -129,7 +135,7 @@ export function AgentConversationHeader() {
     try {
       await renameConversation(active.id, draft)
     } catch {
-      toast.error(t('header.renameFailed'))
+      notifyError(t('header.renameFailed'))
     }
   }, [active, draft, renameConversation, t])
 
@@ -140,7 +146,7 @@ export function AgentConversationHeader() {
       setCopied(key)
       setTimeout(() => setCopied((c) => (c === key ? null : c)), 1400)
     } catch {
-      toast.error(t('header.copyFailed'))
+      notifyError(t('header.copyFailed'))
     }
   }, [t])
 
@@ -153,7 +159,7 @@ export function AgentConversationHeader() {
       toast.success(t('header.copyTranscriptSuccess', { defaultValue: 'Transcript copied' }))
       setTimeout(() => setCopied((c) => (c === 'transcript' ? null : c)), 1400)
     } catch {
-      toast.error(t('header.copyTranscriptFailed', { defaultValue: 'Could not copy transcript' }))
+      notifyError(t('header.copyTranscriptFailed', { defaultValue: 'Could not copy transcript' }))
     }
   }, [active, messages, project, t])
 
@@ -173,7 +179,7 @@ export function AgentConversationHeader() {
       URL.revokeObjectURL(objectUrl)
       toast.success(t('header.exportTranscriptSuccess', { defaultValue: 'Transcript export started' }))
     } catch {
-      toast.error(t('header.exportTranscriptFailed', { defaultValue: 'Could not export transcript' }))
+      notifyError(t('header.exportTranscriptFailed', { defaultValue: 'Could not export transcript' }))
     }
   }, [active, messages, project, t])
 
@@ -188,7 +194,7 @@ export function AgentConversationHeader() {
       if (closePane) { closePane(); return }
       startNewConversation(active.pinned_project_id)
     } catch {
-      toast.error(t('header.deleteFailed'))
+      notifyError(t('header.deleteFailed'))
     }
   }, [active, closePane, deleteConversation, startNewConversation, t])
 
@@ -224,10 +230,10 @@ export function AgentConversationHeader() {
       <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
         {project && (
           <>
-            <span className="max-w-[42%] shrink-0 truncate font-mono text-[12px] text-foreground/35" title={project.path}>
-              {project.path}
+            <span className="max-w-[42%] shrink-0 truncate text-label text-muted-foreground" title={project.path}>
+              {project.name || project.path}
             </span>
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/25" aria-hidden />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           </>
         )}
         {editing ? (
@@ -249,11 +255,13 @@ export function AgentConversationHeader() {
             type="button"
             onDoubleClick={startRename}
             title={t('header.renameHint')}
-            className="min-w-0 flex-1 truncate text-left font-medium text-foreground/85"
+            className="min-w-0 truncate text-left font-medium text-foreground"
           >
             {title}
           </button>
         )}
+        {!editing && headerBadge && <MissionModeBadge badge={headerBadge} variant="header" />}
+        <span className="flex-1" aria-hidden />
       </div>
 
       <MissionWindowAction />
@@ -267,8 +275,8 @@ export function AgentConversationHeader() {
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((o) => !o)}
         className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground/45 transition-colors hover:bg-surface hover:text-foreground/80',
-          menuOpen && 'bg-surface text-foreground/80',
+          'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface hover:text-foreground',
+          menuOpen && 'bg-surface text-foreground',
         )}
       >
         <MoreVertical className="h-4 w-4" />
@@ -283,13 +291,13 @@ export function AgentConversationHeader() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.14, ease: 'easeOut' }}
-            className="absolute right-3 top-11 z-50 min-w-[220px] overflow-hidden rounded-xl border border-border/50 bg-card/95 p-1 shadow-2xl backdrop-blur-xl"
+            className="absolute right-3 top-11 z-50 min-w-[220px] overflow-hidden rounded-xl border border-border/50 bg-popover p-1 shadow-2xl"
           >
             {confirmingDelete ? (
               // Inline confirm — stays in the menu; confirm deletes + returns to
               // the "+ New Mission" screen, cancel drops back to the menu.
               <div className="p-2" data-testid="agent-conv-delete-confirm">
-                <p className="px-1 pb-2.5 text-xs leading-relaxed text-foreground/70">
+                <p className="px-1 pb-2.5 text-xs leading-relaxed text-muted-foreground">
                   {t('header.deleteConfirm')}
                 </p>
                 <div className="flex gap-1.5">
@@ -297,14 +305,14 @@ export function AgentConversationHeader() {
                     type="button"
                     data-testid="agent-conv-delete-confirm-btn"
                     onClick={() => void doDelete()}
-                    className="flex-1 rounded-lg bg-destructive/90 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-destructive"
+                    className="flex-1 rounded-lg bg-destructive px-2.5 py-1.5 text-label text-destructive-foreground transition-colors hover:bg-destructive/90"
                   >
                     {t('header.delete')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmingDelete(false)}
-                    className="flex-1 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-surface/80"
+                    className="flex-1 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-surface/80"
                   >
                     {t('common:actions.cancel')}
                   </button>
@@ -317,9 +325,9 @@ export function AgentConversationHeader() {
               role="menuitem"
               data-testid="agent-conv-rename"
               onClick={startRename}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
             >
-              <Pencil className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+              <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               {t('header.rename')}
             </button>
             <button
@@ -327,12 +335,12 @@ export function AgentConversationHeader() {
               role="menuitem"
               data-testid="agent-conv-favorite"
               onClick={toggleFavorite}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
             >
               <Heart
                 className={cn(
                   'h-3.5 w-3.5 shrink-0',
-                  isFavorite ? 'text-accent-primary' : 'text-foreground/50',
+                  isFavorite ? 'text-accent-primary' : 'text-muted-foreground',
                 )}
                 fill={isFavorite ? 'currentColor' : 'none'}
               />
@@ -342,10 +350,12 @@ export function AgentConversationHeader() {
               type="button"
               role="menuitem"
               data-testid="agent-conv-delete"
-              onClick={() => setConfirmingDelete(true)}
-              className="group/del flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-destructive/10 hover:text-destructive"
+              // Idle missions delete at once (Undo restores them); a mission with a
+              // turn in flight still asks first, because stopping that turn can't be undone.
+              onClick={() => { if (active && streamingConversationIds.has(active.id)) setConfirmingDelete(true); else void doDelete() }}
+              className="group/del flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
             >
-              <Trash2 className="h-3.5 w-3.5 shrink-0 text-foreground/50 group-hover/del:text-destructive" />
+              <Trash2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover/del:text-destructive" />
               {t('header.delete')}
             </button>
 
@@ -356,12 +366,12 @@ export function AgentConversationHeader() {
               role="menuitem"
               data-testid="agent-conv-copy-transcript"
               onClick={() => void handleCopyTranscript()}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
             >
               {copied === 'transcript' ? (
                 <Check className="h-3.5 w-3.5 shrink-0 text-accent-success" />
               ) : (
-                <Copy className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+                <Copy className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               )}
               <span className="min-w-0 flex-1 truncate text-left">{t('header.copyTranscript', { defaultValue: 'Copy transcript' })}</span>
             </button>
@@ -370,9 +380,9 @@ export function AgentConversationHeader() {
               role="menuitem"
               data-testid="agent-conv-export-transcript"
               onClick={handleExportTranscript}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
             >
-              <Download className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+              <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate text-left">{t('header.exportTranscript', { defaultValue: 'Export transcript (.txt)' })}</span>
             </button>
 
@@ -384,12 +394,12 @@ export function AgentConversationHeader() {
                   role="menuitem"
                   data-testid={`agent-conv-copy-${item.id}`}
                   onClick={() => void copy(item.value, item.id)}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-surface/80"
                 >
                   {copied === item.id ? (
                     <Check className="h-3.5 w-3.5 shrink-0 text-accent-success" />
                   ) : (
-                    <Copy className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+                    <Copy className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   )}
                   <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
                 </button>

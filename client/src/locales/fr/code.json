@@ -54,7 +54,9 @@
     "save": "Enregistrer",
     "saving": "Enregistrement…",
     "saved": "Fichier enregistré",
-    "saveFailed": "Échec de l'enregistrement"
+    "saveFailed": "Échec de l'enregistrement",
+    "budgetPromptBody": "Le plafond du budget IA pour les résumés de fichiers est atteint. Régénérer quand même lance un résumé supplémentaire au-delà du plafond.",
+    "budgetPromptConfirm": "Régénérer quand même"
   },
   "summary": {
     "generationFailed": "Échec de la génération du résumé",
@@ -150,7 +152,7 @@
     "loadingEditor": "Chargement de l'éditeur…"
   },
   "ticketFiles": {
-    "title": "Fichiers touchés par ce ticket",
+    "title": "Fichiers touchés par cette spec",
     "jobTitle": "Job {{jobId}}",
     "loading": "Chargement des fichiers enregistrés…",
     "loadFailed": "Impossible de charger les fichiers enregistrés.",

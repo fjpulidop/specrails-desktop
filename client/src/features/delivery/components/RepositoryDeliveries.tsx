@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { RailPrDecisionAction } from '../../../types'
 import type { RepositoryDeliverySnapshot } from '../../projects/types/multi-repo'
 import { Button } from '../../../components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 
 /** Each action retains the parent generation and explicitly identifies its repository. */
 export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, onCheckout }: {
@@ -52,21 +52,21 @@ export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, on
         </div>
       </section>
     })}
-    <Dialog open={!!confirmRepository} onOpenChange={(open) => { if (!open) setConfirmation(null) }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t(confirmation?.action === 'merge-local' ? 'railPr.mergeLocalConfirmTitle' : 'railPr.markDoneConfirmTitle')}</DialogTitle>
-          <DialogDescription>{confirmRepository?.name} · {t(confirmation?.action === 'merge-local' ? 'railPr.mergeLocalConfirmBody' : 'railPr.markDoneConfirmBody', { base: confirmRepository?.integrationBranch ?? confirmRepository?.baseBranch })}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setConfirmation(null)}>{t('common:actions.cancel')}</Button>
-          <Button disabled={busy || !confirmRepository} onClick={() => {
-            const captured = confirmation
-            setConfirmation(null)
-            if (captured && captured.deliveryId === deliveryId && confirmRepository) void onAct(captured.action, captured.repositoryId)
-          }}>{t('common:actions.confirm')}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={!!confirmRepository}
+      onOpenChange={(open) => { if (!open) setConfirmation(null) }}
+      tone="default"
+      testId="repository-delivery-confirm-dialog"
+      confirmTestId="repository-delivery-confirm"
+      title={t(confirmation?.action === 'merge-local' ? 'railPr.mergeLocalConfirmTitle' : 'railPr.markDoneConfirmTitle')}
+      description={<>{confirmRepository?.name} · {t(confirmation?.action === 'merge-local' ? 'railPr.mergeLocalConfirmBody' : 'railPr.markDoneConfirmBody', { base: confirmRepository?.integrationBranch ?? confirmRepository?.baseBranch })}</>}
+      confirmLabel={t(confirmation?.action === 'merge-local' ? 'railPr.mergeLocal' : 'railPr.markDone')}
+      confirmDisabled={busy || !confirmRepository}
+      onConfirm={() => {
+        const captured = confirmation
+        setConfirmation(null)
+        if (captured && captured.deliveryId === deliveryId && confirmRepository) void onAct(captured.action, captured.repositoryId)
+      }}
+    />
   </div>
 }

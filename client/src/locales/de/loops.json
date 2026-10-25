@@ -60,7 +60,8 @@
     "select": "{{name}} auswählen",
     "exportLegacy": "Ursprünglichen Graphen exportieren",
     "originalCopyName": "Original: {{name}}",
-    "convert": "In Core umwandeln"
+    "convert": "In Core umwandeln",
+    "more": "Weitere Aktionen"
   },
   "card": {
     "nodes_one": "{{count}} Knoten",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Obergrenze für Loop-Decider-Iterationen — der Loop stoppt beim Erreichen, auch wenn das Ziel nicht erfüllt ist. Verhindert Endlosschleifen.",
       "timeoutHint": "Echtzeit-Limit für den gesamten Lauf, in Minuten. Bei Überschreitung wird der Lauf gestoppt und als fehlgeschlagen markiert — ein Sicherheitsnetz neben den max. Iterationen. 0 deaktiviert dieses Zeitlimit; andere Budgets und der Abbruch bleiben wirksam.",
       "maxCost": "Max. Kosten ($)",
-      "maxCostHint": "Optionales USD-Budget für den gesamten Lauf. Wird ZWISCHEN Schritten geprüft (die Kosten eines Schritts stehen erst nach dessen Ende fest), der Loop stoppt vor dem nächsten Schritt, sobald die Summe es überschreitet — kann um einen Schritt überschreiten. Bei Nicht-Claude-Anbietern sind die Kosten geschätzt. Leer = kein Limit."
+      "maxCostHint": "Optionales USD-Budget für den gesamten Lauf. Wird ZWISCHEN Schritten geprüft (die Kosten eines Schritts stehen erst nach dessen Ende fest), der Loop stoppt vor dem nächsten Schritt, sobald die Summe es überschreitet — kann um einen Schritt überschreiten. Bei Nicht-Claude-Anbietern sind die Kosten geschätzt. Leer = kein Limit.",
+      "title": "Ausführungslimits"
     },
     "nodes": {
       "start": "Start",
@@ -146,7 +148,10 @@
       "name": "NAME",
       "value": "Wert",
       "add": "Hinzufügen",
-      "builtinBadge": "Integriert"
+      "builtinBadge": "Integriert",
+      "deleteConfirmTitle": "Konstante {{name}} löschen?",
+      "deleteConfirmBody": "Konstanten werden von allen Loops geteilt. Schritte, die noch auf diese verweisen, können sie nicht mehr auflösen.",
+      "description": "Wiederverwendbare Werte, die alle Loops teilen. Als Token in einen Schritt einfügen; sie werden zur Laufzeit aufgelöst."
     },
     "paste": {
       "done_one": "{{count}} Schritt eingefügt",
@@ -166,7 +171,11 @@
       "DEAD_END": "Dieser Schritt hat keine ausgehende Verbindung.",
       "MIXED_ENGINES": "Core-Workflows dürfen keine alten Schritte enthalten.",
       "CORE_OUTCOMES": "Verbinde unterschiedliche gültige Ergebnisse.",
-      "CORE_PIECE": "Wähle einen Schritt und seine Parameter."
+      "CORE_PIECE": "Wähle einen Schritt und seine Parameter.",
+      "severity": {
+        "error": "Fehler",
+        "warning": "Warnung"
+      }
     },
     "preview": {
       "label": "Vorschau",
@@ -193,7 +202,7 @@
       "tooDeep": "Der Wert ist zu tief verschachtelt.",
       "pieces": {
         "prompt": "Prompt",
-        "role-turn": "Agent step",
+        "role-turn": "Agentenschritt",
         "decider": "Entscheidung",
         "condition": "Bedingung",
         "verify": "Prüfen",
@@ -209,8 +218,8 @@
         "implementation": "Implementierung",
         "end": "Ende",
         "assign": "Variablen setzen",
-        "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract",
+        "implementation-step": "Implementierungsschritt",
+        "artifact-contract": "Artefakte prüfen",
         "derive-change": "Änderung ableiten"
       },
       "groups": {
@@ -228,10 +237,17 @@
         "increment": "Zähler anpassen"
       },
       "requiredContinue": "Fortsetzen, solange diese Bedingung erfüllt ist",
-      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
-      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+      "agentTaskDefault": "Führe die für diesen Schritt definierte Aufgabe mit dem Workflow-Kontext aus.",
+      "legacyImplementation": "Dieser Schritt behält Phasen aus einer früheren Version. Füge einen Agentenschritt hinzu, um deinen eigenen Schritt zu definieren. Bei integrierten Loops lädt „Original wiederherstellen“ den neuen Workflow."
     },
-    "loopSettings": "Advanced settings"
+    "loopSettings": "Erweiterte Einstellungen",
+    "nameLabel": "Name des Loops",
+    "unsaved": {
+      "title": "Änderungen vor dem Verlassen speichern?",
+      "body": "Dieser Loop hat ungespeicherte Änderungen. Wenn du sie verwirfst, gehen sie verloren.",
+      "save": "Speichern und verlassen",
+      "discard": "Änderungen verwerfen"
+    }
   },
   "preview": {
     "steps": "Schritte",
@@ -243,14 +259,17 @@
   "builtInBadge": "Integriert",
   "run": {
     "title": "{{name}} ausführen",
-    "subtitle": "Diesen Loop auf einem Projekt starten (kein Ticket nötig).",
+    "subtitle": "Diesen Loop auf einem Projekt starten (keine Spec nötig).",
     "project": "Projekt",
     "provider": "Anbieter",
     "model": "Modell",
     "effort": "Reasoning-Aufwand",
     "execute": "Ausführen",
     "noProjects": "Keine Projekte verfügbar.",
-    "launched": "{{name}} wird ausgeführt"
+    "launched": "{{name}} wird ausgeführt",
+    "runCap": "Pausieren und nachfragen bei (USD)",
+    "runCapPlaceholder": "Projektstandard",
+    "runCapHint": "Optional. Der Lauf pausiert, wenn seine Kosten diesen Betrag erreichen, und fragt, ob er fortgesetzt werden soll."
   },
   "catalog": {
     "ship-and-green": {
@@ -294,12 +313,16 @@
       "description": "Übergibt die Spec direkt an das Modell mit voller Freiheit — ohne Pipeline, es arbeitet wie ein normaler Coding-Agent, dann verifizieren + verfeinern bis alles grün ist. Nur Claude."
     },
     "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
-      "description": "OpenSpec-Lebenszyklus vom Ticket bis zum Archiv: Artefakte generieren (opsx:ff) → implementieren (opsx:apply) → verifizieren (opsx:verify); bei FAIL zurück und denselben Change nachbessern, bei PASS unbeaufsichtigt archivieren."
+      "name": "OpenSpec-Lebenszyklus",
+      "description": "OpenSpec-Lebenszyklus von der Spec bis zum Archiv: Artefakte generieren (opsx:ff) → implementieren (opsx:apply) → verifizieren (opsx:verify); bei FAIL zurück und denselben Change nachbessern, bei PASS unbeaufsichtigt archivieren."
     },
     "factory_revision": {
       "name": "Überarbeitung",
       "description": "Wendet die eine erbetene Änderung auf bereits gelieferte Arbeit an, lässt sie vom Reviewer neu bewerten und prüft bis grün. Keine Neuplanung."
+    },
+    "drift-sweep": {
+      "name": "Drift-Prüfung",
+      "description": "Nur lesend: vergleicht, was die Spec jeder Capability behauptet, mit dem, was der Code tut, und listet jeden Widerspruch mit Datei:Zeile. Ändert nichts; bei Bedarf ausführen."
     }
   },
   "import": {
@@ -360,6 +383,9 @@
     }
   },
   "window": {
-    "open": "Open in window"
-  }
+    "open": "In Fenster öffnen",
+    "openFailed": "Das Loop-Fenster konnte nicht geöffnet werden"
+  },
+  "confirmDeleteTitle": "„{{name}}“ löschen?",
+  "confirmDeleteAction": "Loop löschen"
 }

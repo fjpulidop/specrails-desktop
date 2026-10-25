@@ -33,7 +33,8 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "viewAll": "View all",
-    "learnMore": "Learn more"
+    "learnMore": "Learn more",
+    "clear": "Clear"
   },
   "states": {
     "loading": "Loading…",
@@ -82,10 +83,13 @@
     "cleanup_incomplete": "Cleanup incomplete",
     "status_failed": "Worktree status check failed",
     "ref_mismatch": "Branch reference mismatch",
-    "restart_pending": "Waiting for workflow recovery"
+    "restart_pending": "Waiting for workflow recovery",
+    "review_changes_requested": "Reviewer requested changes",
+    "returned_to_flow": "Returned to Flow",
+    "local_changes_attention": "Integrated — local changes need attention"
   },
   "prRecovery": {
-    "inProgress": "Project recovery is still in progress. Your delivery is safe — retry in a moment.",
+    "inProgress": "Project recovery is still in progress. Your delivery is safe. Retry in a moment.",
     "interrupted": "A previous delivery action was interrupted during restart. Your work was preserved; review the current state and retry when ready."
   },
   "modal": {
@@ -129,7 +133,8 @@
     "workspacePath": "Code workspace path",
     "workspaceHint": "Optional. One directory per line, absolute or relative to this repository. Empty uses the repository folder. Implement, Quick SDD and Freestyle verify each listed code workspace.",
     "launchWorkspaces": "Workspaces for this run",
-    "launchWorkspaceHint": "Code changes and tests are scoped to these folders. Select at least one workspace for each affected repository."
+    "launchWorkspaceHint": "Code changes and tests are scoped to these folders. Select at least one workspace for each affected repository.",
+    "advanced": "Multi-repository setup"
   },
   "repositoryDelivery": {
     "building": "Building",
@@ -146,20 +151,155 @@
     "pr_failed": "Delivery failed"
   },
   "budget": {
-    "exceededProject": "Project daily budget reached (${{spent}} of ${{budget}}). Nothing was launched.",
-    "exceededDesktop": "App-wide daily budget reached (${{spent}} of ${{budget}}). Nothing was launched.",
-    "whereProject": "Project settings ▸ Budget",
-    "whereDesktop": "Settings ▸ Budget",
-    "action": "Raise or clear the budget in {{where}}, or wait for the daily reset.",
-    "actionWithReset": "Raise or clear the budget in {{where}}, or wait for the reset ({{time}}).",
-    "pausedProject": "Paused on the project daily budget (${{spent}} of ${{budget}}). Raise it, then resume.",
-    "pausedDesktop": "Paused on the app-wide daily budget (${{spent}} of ${{budget}}). Raise it, then resume.",
+    "exceededProject": "Project daily limit reached ({{spent}} of {{budget}}). Nothing was launched.",
+    "exceededDesktop": "App-wide daily limit reached ({{spent}} of {{budget}}). Nothing was launched.",
+    "whereProject": "Analytics ▸ Spend limits",
+    "whereDesktop": "Analytics ▸ Spend limits",
+    "action": "Raise or clear the limit in {{where}}, or wait for the daily reset.",
+    "actionWithReset": "Raise or clear the limit in {{where}}, or wait for the reset ({{time}}).",
+    "pausedProject": "Paused on the project daily limit ({{spent}} of {{budget}}). Raise it, then resume.",
+    "pausedDesktop": "Paused on the app-wide daily limit ({{spent}} of {{budget}}). Raise it, then resume.",
     "resume": "Resume",
-    "stillExceeded": "The daily budget is still exhausted."
+    "stillExceeded": "The daily limit is still reached.",
+    "exceededRun": "Per-run limit reached ({{spent}} of {{budget}}). The run is paused.",
+    "pausedRun": "Paused at the per-run limit ({{spent}} of {{budget}}). Continue without it or raise it.",
+    "actionRun": "Continue without the limit, or raise it, then resume.",
+    "exceededProject_week": "Project weekly limit reached ({{spent}} of {{budget}}). Nothing was launched.",
+    "exceededProject_month": "Project monthly limit reached ({{spent}} of {{budget}}). Nothing was launched.",
+    "exceededDesktop_week": "App-wide weekly limit reached ({{spent}} of {{budget}}). Nothing was launched.",
+    "exceededDesktop_month": "App-wide monthly limit reached ({{spent}} of {{budget}}). Nothing was launched.",
+    "pausedProject_week": "Paused on the project weekly limit ({{spent}} of {{budget}}). Raise it, then resume.",
+    "pausedProject_month": "Paused on the project monthly limit ({{spent}} of {{budget}}). Raise it, then resume.",
+    "pausedDesktop_week": "Paused on the app-wide weekly limit ({{spent}} of {{budget}}). Raise it, then resume.",
+    "pausedDesktop_month": "Paused on the app-wide monthly limit ({{spent}} of {{budget}}). Raise it, then resume.",
+    "whereProject_week": "Analytics ▸ Spend limits",
+    "whereProject_month": "Analytics ▸ Spend limits",
+    "whereDesktop_week": "Analytics ▸ Spend limits",
+    "whereDesktop_month": "Analytics ▸ Spend limits",
+    "stillExceeded_week": "The weekly limit is still reached.",
+    "stillExceeded_month": "The monthly limit is still reached.",
+    "runCap": {
+      "title": "Run paused at its limit",
+      "raise": "Raise limit and continue",
+      "continue": "Continue without limit",
+      "raiseTo": "Raise the limit to (USD)",
+      "mustExceed": "Must be above the {{spent}} already spent"
+    },
+    "raiseCap": "Raise limit",
+    "stillExceeded_run": "The per-run limit is still reached."
   },
   "reviewWip": {
     "reached_one": "Review limit reached: {{count}} delivery is waiting for review (limit {{limit}}). Nothing was launched.",
     "reached_other": "Review limit reached: {{count}} deliveries are waiting for review (limit {{limit}}). Nothing was launched.",
     "action": "Decide a pending delivery (Create PR, merge or discard) or raise the limit in Project settings ▸ Review limit."
+  },
+  "initialCommit": {
+    "action": "Create initial commit",
+    "creating": "Creating initial commit…",
+    "createdRelaunch": "Initial commit created. Launch the rail again.",
+    "errors": {
+      "git_identity_missing": "Git has no author identity. Set user.name and user.email first.",
+      "repository_has_commits": "This repository already has commits.",
+      "generic": "The initial commit could not be created."
+    }
+  },
+  "loopChip": {
+    "implement": "Implement",
+    "sddQuick": "SDD Quick",
+    "freestyle": "Freestyle",
+    "flowSpec": "Flow hand-off",
+    "unknown": "Loop",
+    "title": "Loop: {{name}}"
+  },
+  "estimated": "estimated",
+  "help": {
+    "learnMore": "Learn more",
+    "learnMoreAbout": "Learn more about {{topic}}",
+    "topics": {
+      "themes": "themes and appearance",
+      "codeExplorer": "the code explorer",
+      "integratedTerminal": "the integrated terminal",
+      "agents": "agents",
+      "aiProviders": "AI providers",
+      "mcpServer": "the MCP server",
+      "mobileCompanion": "the mobile companion",
+      "plugins": "plugins",
+      "existingProjects": "working in an existing project",
+      "projectRules": "project rules",
+      "updates": "updates",
+      "providerCapabilities": "provider capabilities",
+      "projectEnvironment": "the project environment",
+      "telemetry": "pipeline telemetry",
+      "dailyBudget": "daily limits",
+      "recentlyDeleted": "recently deleted items",
+      "railLoops": "what a rail runs",
+      "flowMode": "Flow",
+      "flowHandOff": "handing off a Flow",
+      "contextScope": "the context slider",
+      "launchForecast": "the launch forecast",
+      "loopBuilder": "the Loop Builder",
+      "shortcuts": "keyboard shortcuts",
+      "inbox": "the Needs you inbox",
+      "specsBoard": "specs and the backlog",
+      "specTimeline": "the spec timeline and hand-off",
+      "accessibility": "accessibility and personalisation",
+      "prDecision": "the delivery options"
+    }
+  },
+  "forecast": {
+    "label": "Launch forecast",
+    "usually": "Usually {{time}} · {{cost}} for runs like this",
+    "usuallyTime": "Usually {{time}} for runs like this",
+    "minutesRange": "{{low}}–{{high}} min",
+    "minutesSingle": "{{value}} min",
+    "insufficient": "Not enough history yet",
+    "insufficientHint": "Needs at least {{count}} finished runs like this in this project and engine.",
+    "estimateHint": "Estimate from {{count}} past runs — not billed cost",
+    "estimateHintCost": "Estimate from {{count}} past runs (cost from {{costCount}}) — not billed cost",
+    "budgetCaution": "May pause at the limit",
+    "budgetReached": "Daily limit reached",
+    "budgetCautionHint": "Today’s spend plus the top of this estimate could reach your daily limit. Open the spend limits panel.",
+    "budgetReachedHint": "Today’s spend has reached your daily limit, so a launch is refused until it resets or you raise it. Open the spend limits panel.",
+    "perSpec": "per spec",
+    "budgetReached_week": "Weekly limit reached",
+    "budgetReached_month": "Monthly limit reached",
+    "budgetReachedHint_week": "This week’s spend has reached your weekly limit, so a launch is refused until it resets or you raise it. Open the spend limits panel.",
+    "budgetReachedHint_month": "This month’s spend has reached your monthly limit, so a launch is refused until it resets or you raise it. Open the spend limits panel.",
+    "budgetCautionHint_week": "This week’s spend plus the top of this estimate could reach your weekly limit. Open the spend limits panel.",
+    "budgetCautionHint_month": "This month’s spend plus the top of this estimate could reach your monthly limit. Open the spend limits panel.",
+    "launchBlocked": "This limit is used up, so the launch would be refused. Raise the limit or wait for the reset.",
+    "launchBlocked_week": "This week’s limit is used up, so the launch would be refused. Raise the limit or wait for the reset.",
+    "launchBlocked_month": "This month’s limit is used up, so the launch would be refused. Raise the limit or wait for the reset.",
+    "raiseCap": "Raise limit"
+  },
+  "a11y": {
+    "announce": {
+      "started": "Run started",
+      "startedRail": "Rail {{rail}}: run started",
+      "pausedBudget": "Run paused: a spend limit was reached",
+      "pausedLimit": "Run paused: the provider limit was reached",
+      "needsYou": "A run needs you",
+      "needsYouRail": "Rail {{rail}}: a run needs you",
+      "failed": "Run failed",
+      "failedRail": "Rail {{rail}}: run failed",
+      "finished": "Run finished",
+      "finishedRail": "Rail {{rail}}: run finished",
+      "stopped": "Run stopped",
+      "stoppedRail": "Rail {{rail}}: run stopped",
+      "reviewReady": "Review ready",
+      "reviewReadyRail": "Rail {{rail}}: review ready",
+      "pausedBudgetRail": "Rail {{rail}}: run paused, a spend limit was reached",
+      "pausedLimitRail": "Rail {{rail}}: run paused, the provider limit was reached",
+      "startedSpec": "Rail {{rail}}: #{{id}} started",
+      "finishedSpec": "Rail {{rail}}: #{{id}} finished",
+      "failedSpec": "Rail {{rail}}: #{{id}} failed",
+      "stoppedSpec": "Rail {{rail}}: #{{id}} stopped",
+      "needsYouSpec": "Rail {{rail}}: #{{id}} needs you",
+      "reviewReadySpec": "Rail {{rail}}: #{{id}} review ready"
+    }
+  },
+  "errors": {
+    "technicalDetails": "Technical details",
+    "copyDetails": "Copy details"
   }
 }

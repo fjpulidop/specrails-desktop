@@ -1,4 +1,5 @@
-import { Outlet } from 'react-router-dom'
+import { useLocation, useOutlet } from 'react-router-dom'
+import { AnimatePresence, motion } from 'motion/react'
 import { toast } from 'sonner'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -8,13 +9,17 @@ import { useChat, ChatContext } from '../features/chat/hooks/useChat'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import { type DesktopProject } from '../hooks/useDesktop'
 import { FEATURE_CHAT_ENABLED } from '../lib/feature-flags'
+import { formatUsd } from '../lib/format-usd'
 
+import { notifyError } from '../lib/notify-error'
 interface ProjectLayoutProps {
   project: DesktopProject
 }
 
 export function ProjectLayout({ project }: ProjectLayoutProps) {
   const { t } = useTranslation('nav')
+  const location = useLocation()
+  const outlet = useOutlet()
   const chat = useChat()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const [budgetExceeded, setBudgetExceeded] = useState<{ dailySpend: number; budget: number } | null>(null)
@@ -29,24 +34,24 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
       if (msg.type === 'cost_alert') {
         toast.warning(t('costAlerts.costAlertTitle'), {
           description: t('costAlerts.costAlertDescription', {
-            cost: (msg.cost ?? 0).toFixed(4),
-            threshold: (msg.threshold ?? 0).toFixed(2),
+            cost: formatUsd(msg.cost ?? 0),
+            threshold: formatUsd(msg.threshold ?? 0),
           }),
         })
       } else if (msg.type === 'daily_budget_exceeded') {
-        toast.error(t('costAlerts.dailyBudgetTitle'), {
-          description: t('costAlerts.dailyBudgetDescription', {
-            spent: (msg.dailySpend ?? 0).toFixed(2),
-            budget: (msg.budget ?? 0).toFixed(2),
+        notifyError(t('costAlerts.dailyBudgetTitle'), {
+          detail: t('costAlerts.dailyBudgetDescription', {
+            spent: formatUsd(msg.dailySpend ?? 0),
+            budget: formatUsd(msg.budget ?? 0),
           }),
           duration: Infinity,
         })
         setBudgetExceeded({ dailySpend: msg.dailySpend ?? 0, budget: msg.budget ?? 0 })
       } else if (msg.type === 'desktop_daily_budget_exceeded') {
-        toast.error(t('costAlerts.desktopBudgetTitle'), {
-          description: t('costAlerts.desktopBudgetDescription', {
-            spent: (msg.desktopDailySpend ?? 0).toFixed(2),
-            budget: (msg.desktopBudget ?? 0).toFixed(2),
+        notifyError(t('costAlerts.desktopBudgetTitle'), {
+          detail: t('costAlerts.desktopBudgetDescription', {
+            spent: formatUsd(msg.desktopDailySpend ?? 0),
+            budget: formatUsd(msg.desktopBudget ?? 0),
           }),
           duration: Infinity,
         })
@@ -67,8 +72,8 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
           <div className="flex items-center justify-between px-4 py-2 bg-destructive/10 border-b border-destructive/20 text-xs">
             <span className="text-destructive font-medium">
               {t('costAlerts.bannerMessage', {
-                spent: budgetExceeded.dailySpend.toFixed(2),
-                budget: budgetExceeded.budget.toFixed(2),
+                spent: formatUsd(budgetExceeded.dailySpend),
+                budget: formatUsd(budgetExceeded.budget),
               })}
             </span>
             <button
@@ -81,9 +86,19 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
           </div>
         )}
         <div className="flex flex-1 overflow-hidden min-h-0">
-          <main className="flex-1 overflow-auto">
-            <Outlet />
-          </main>
+          <div data-testid="project-content" data-project-content className="flex-1 overflow-auto">
+            <AnimatePresence initial={false}>
+              <motion.div
+                key={location.pathname}
+                className="h-full"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {outlet}
+              </motion.div>
+            </AnimatePresence>
+          </div>
           {FEATURE_CHAT_ENABLED && <ChatPanel chat={chat} project={project} />}
         </div>
       </div>

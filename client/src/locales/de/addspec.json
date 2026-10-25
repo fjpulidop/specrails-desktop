@@ -15,7 +15,7 @@
     "modeDescription": {
       "quick": "Beschreibe das Feature oder die Änderung. Hänge Mockups, Briefings oder Daten für mehr Kontext an.",
       "explore": "Beschreibe eine grobe Idee. Der ausgewählte KI-Assistent hilft dir, sie im Gespräch zu formen – du entscheidest, wann committet wird.",
-      "raw": "Dein Prompt, unverändert – als Spec-Ticket gespeichert. Es läuft jetzt keine KI; zieh es auf eine Rail, um es zu bauen."
+      "raw": "Dein Prompt, unverändert – als Spec gespeichert. Es läuft jetzt keine KI; zieh sie auf eine Rail, um sie zu bauen."
     },
     "editorPlaceholder": {
       "quick": "z. B. Einen Dark-Mode-Toggle auf der Einstellungsseite ergänzen, der die Nutzerpräferenz speichert…",
@@ -59,8 +59,11 @@
       "generating": "Wird generiert…",
       "failedToStart": "{{projectName}} · Start fehlgeschlagen",
       "unsupportedFileType": "Nicht unterstützter Dateityp: {{name}}",
-      "uploadFailed": "Upload fehlgeschlagen für {{name}}: {{message}}"
-    }
+      "uploadFailed": "Upload fehlgeschlagen für {{name}}"
+    },
+    "contextSummary": "Kontext: {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "Kontext: {{preset}}",
+    "costEstimateTitle": "Geschätzte Kosten für die Erstellung dieser Spec mit dem gewählten Modell und Kontext"
   },
   "featureProposal": {
     "title": "Feature vorschlagen",
@@ -127,7 +130,7 @@
       "contract": "contract"
     },
     "checks": {
-      "specrailsLabel": "specrails-Tickets",
+      "specrailsLabel": "specrails-Specs",
       "openspecLabel": "openspec-Specs",
       "fullLabel": "Gesamte Codebasis",
       "mcpLabel": "Projekt-MCPs",
@@ -139,7 +142,8 @@
       "providerUnsupported": "Für {{provider}} nicht verfügbar",
       "contractLabel": "Mit Contract Layer anreichern",
       "contractHint": "Verfeinerung nach dem Commit · aktiviert SMASH"
-    }
+    },
+    "costTier": "Kostenstufe: {{tier}}"
   },
   "aiEngine": {
     "label": "KI-Engine",

@@ -4,7 +4,7 @@
     "quickSpec": "クイック",
     "exploreSpec": "Explore",
     "aiEdit": "リファイン",
-    "smash": "SMASH",
+    "smash": "分割",
     "fileSummary": "ファイル要約",
     "loop": "Loops",
     "chatSidebar": "チャット",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} 回の実行",
   "page": {
     "title": "アナリティクス",
+    "subtitle": "支出の内訳：モデル・スペック・エンジン別のコスト、トークン、アクティビティ。",
     "all": "すべて",
     "engine": "エンジン",
-    "ticketChip": "チケット #{{id}} ·  ✕",
-    "failedToLoad": "読み込みに失敗しました: {{error}}",
+    "ticketChip": "スペック #{{id}} ·  ✕",
+    "failedToLoad": "分析を読み込めませんでした。もう一度お試しください。",
     "modelChip": "モデル：{{model}}",
     "clearModelFilter": "モデルフィルターをクリア",
-    "localEngine": "ローカル"
+    "localEngine": "ローカル",
+    "moreBreakdowns": "その他の内訳"
   },
   "hero": {
     "spending": "支出",
@@ -46,22 +48,27 @@
     "tokensTooltip": "合計トークン = この期間の全呼び出しにおける新規入力 + 出力 + キャッシュ読み取り + キャッシュ作成の合計。",
     "usageUnavailable": "· トークン使用量は利用できません",
     "usageUnavailableTooltip": "プロバイダーはこれらの呼び出しを完了しましたが、トークンのテレメトリを提供しませんでした。",
-    "usagePartiallyUnavailable": "· 既知のトークン {{tokens}}；{{count}} 件はデータなし",
+    "usagePartiallyUnavailable_one": "· 既知のトークン {{tokens}}；{{count}} 件はデータなし",
+    "usagePartiallyUnavailable_other": "· 既知のトークン {{tokens}}；{{count}} 件はデータなし",
     "usagePartiallyUnavailableTooltip": "既知のトークン小計のみです。一部の呼び出しではトークンのテレメトリが提供されませんでした。",
     "costUnavailable": "コスト利用不可",
     "costUnavailableTooltip": "プロバイダーはこれらの呼び出しを完了しましたが、コストを特定するための十分なテレメトリを提供しませんでした。",
-    "costPartiallyUnavailable": "· 既知の小計；{{count}} 件はコスト不明",
+    "costPartiallyUnavailable_one": "· 既知の小計；{{count}} 件はコスト不明",
+    "costPartiallyUnavailable_other": "· 既知の小計；{{count}} 件はコスト不明",
     "costPartiallyUnavailableTooltip": "既知のコスト小計のみです。一部の呼び出しではコストを特定するための十分なテレメトリが提供されませんでした。",
     "includesEstimated": "· 約 {{amount}} の推定値を含む",
     "includesEstimatedTooltip": "ネイティブのコストフィールドを持たないプロバイダーからの推定コスト {{amount}} を含みます（例: ローカル料金表で算出する codex）。",
     "trackingStarted": "トラッキング開始: {{date}}",
     "trackingStartedFallback": "最初の呼び出しからトラッキングを開始",
     "emptyState": "このフィルター期間の呼び出しはまだありません。",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "請求済み",
+    "legendEstimated": "推定",
+    "apiEquivalent": "API 換算の推定値"
   },
   "providerCard": {
     "title": "プロバイダー別",
-    "description": "このプロジェクトの AI CLI 間でのコストの内訳。<tilde>~</tilde> プレフィックスは、コストがローカル料金表からの推定値である行を示します（プロバイダーがネイティブに報告しない場合）。",
+    "description": "<tilde>~</tilde> = ローカル料金表からの推定値。",
     "noCost": "この期間に記録されたコストはまだありません。",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "コスト利用不可",
@@ -109,31 +116,32 @@
     "costLabel": "コスト",
     "truncated": "{{total}} 件中 {{shown}} 件を表示 — 最もコストの高いポイントは保持されますが、それ以前のポイントは非表示になります",
     "costUnavailable": "呼び出しは記録されていますが、プロットできるコストのテレメトリがありません。",
-    "costPartiallyUnavailable": "プロットにはコストが判明している実行のみ含まれます。{{count}} 件はコストを利用できません。"
+    "costPartiallyUnavailable_one": "プロットにはコストが判明している実行のみ含まれます。{{count}} 件はコストを利用できません。",
+    "costPartiallyUnavailable_other": "プロットにはコストが判明している実行のみ含まれます。{{count}} 件はコストを利用できません。"
   },
   "topTickets": {
-    "title": "上位チケット",
-    "empty": "この期間のチケットアクティビティはありません。",
+    "title": "上位スペック",
+    "empty": "この期間のスペックアクティビティはありません。",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "未割り当て",
-    "deletedTicket": "削除済みチケット #{{id}}",
+    "deletedTicket": "削除済みスペック #{{id}}",
     "costUnavailable": "コスト利用不可",
-    "costUnavailableTooltip": "このチケットの実行ではコストのテレメトリが提供されませんでした。",
+    "costUnavailableTooltip": "このスペックの実行ではコストのテレメトリが提供されませんでした。",
     "costPartiallyUnavailable": "{{count}} 件は利用不可",
-    "costPartiallyUnavailableTooltip": "既知の小計のみです。このチケットの一部の実行ではコストを利用できません。"
+    "costPartiallyUnavailableTooltip": "既知の小計のみです。このスペックの一部の実行ではコストを利用できません。"
   },
   "table": {
     "title": "すべての呼び出し",
     "statusFilterAria": "ステータスフィルター",
     "minCostFilterAria": "最小コストフィルター",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "すべてのステータス",
     "success": "成功",
     "failed": "失敗",
     "aborted": "中断",
     "empty": "現在のフィルターに一致する呼び出しはありません。",
     "colSurface": "サーフェス",
-    "colTicket": "チケット",
+    "colTicket": "スペック",
     "colCost": "コスト",
     "colTurns": "ターン",
     "colTokens": "トークン",
@@ -170,7 +178,7 @@
   "desktop": {
     "title": "Desktop アナリティクス",
     "refreshAria": "アナリティクスを更新",
-    "failedToLoad": "アナリティクスの読み込みに失敗しました: {{error}}",
+    "failedToLoad": "Desktop の分析を読み込めませんでした。更新してください。",
     "totalCost": "合計コスト",
     "costToday": "本日 {{value}}",
     "costTodayUnavailable": "本日のコストは利用不可",
@@ -193,12 +201,11 @@
     "includesEstimatedTooltip": "料金表による推定コスト {{amount}} を含みます（codex/gemini）。プロバイダー請求ではありません。",
     "includesEstimatedShort": "推定含む",
     "timelineEstimatedTooltip": "一部の日には ~ で示された料金表による推定コスト（codex/gemini）が含まれます。",
-    "estimatedBadge": "推定",
-    "projectEstimatedTooltip": "このプロジェクトのコストのうち {{amount}} は料金表による推定値です（codex/gemini）。プロバイダー請求ではありません。",
     "statusBarEstimatedTooltip": "料金表による推定コスト（codex/gemini）を含みます。プロバイダー請求ではありません。",
     "costUnavailable": "呼び出しは記録されていますが、コストのテレメトリは利用できません。",
     "costUnavailableShort": "利用不可",
-    "costPartiallyUnavailable": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。"
+    "costPartiallyUnavailable_one": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。",
+    "costPartiallyUnavailable_other": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。"
   },
   "windowLabels": {
     "7d": "過去 7 日間",
@@ -224,7 +231,6 @@
     "loading": "記録された使用状況を読み込み中…",
     "total": "記録されたイベント: {{count}}",
     "last": "最終イベント:",
-    "evidence": "これらの件数だけでは、従来の互換性を廃止できることの証明にはなりません。",
     "kinds": {
       "legacy_loop_traversal": "従来のループ",
       "queue_manager_slash": "キュー内のコマンド",
@@ -268,7 +274,7 @@
     "estimatedShare": "推定 {{share}}",
     "unpriced": "コスト不明 {{count}} 件",
     "note": "納品 = レビューに到達した以降の状態。平均コストはコストが記録された納品のみで算出します（推定と表示されたもの以外はプロバイダー報告値）。コスト不明の納品は除外され、$0 として数えません。ラウンド数はループの reviewer/fixer ステップから算出します。— は不明を意味します。",
-    "escapedUntracked": "流出欠陥はまだ記録されていません。バグチケットを原因となった納品に紐付ける（チケットの「回帰元」）と集計が始まります。",
+    "escapedUntracked": "流出欠陥はまだ記録されていません。バグスペックを原因となった納品に紐付ける（スペックの「回帰元」）と集計が始まります。",
     "columns": {
       "loop": "ループ",
       "delivered": "納品",
@@ -283,5 +289,79 @@
       "requirementsDemonstrated": "実証された要件",
       "triageAccuracy": "トリアージ精度"
     }
+  },
+  "budget": {
+    "title": "予算",
+    "loadFailed": "予算を読み込めませんでした。",
+    "estimate": "見積もり",
+    "scope": {
+      "project": "このプロジェクト",
+      "desktop": "すべてのプロジェクト（アプリ全体）"
+    },
+    "period": {
+      "day": "今日",
+      "week": "今週",
+      "month": "今月",
+      "run": "実行ごと"
+    },
+    "capLabel": {
+      "project": {
+        "day": "プロジェクトの 1 日の上限（USD）",
+        "week": "プロジェクトの週間上限（USD）",
+        "month": "プロジェクトの月間上限（USD）",
+        "run": "プロジェクトの実行ごとの上限（USD）"
+      },
+      "desktop": {
+        "day": "アプリ全体の 1 日の上限（USD）",
+        "week": "アプリ全体の週間上限（USD）",
+        "month": "アプリ全体の月間上限（USD）",
+        "run": "アプリ全体の実行ごとの上限（USD）"
+      }
+    },
+    "noCap": "上限なし",
+    "spentOf": "{{spent}} / {{cap}}",
+    "spentNoCap": "{{spent}} · 上限なし",
+    "turns": "ターン数: {{n}}",
+    "reached": "到達",
+    "nearing": "上限間近",
+    "planNote": "プラン課金: 利用ごとのドル費用はないため、ターン数と利用枠を表示しています",
+    "estimatedPart": "うち約 {{amount}} はプロバイダーの報告ではなく、アプリの料金表から算出",
+    "resets": "{{time}} にリセット",
+    "runHint": "実行そのもののコストがこの金額に達すると、一時停止して確認します。プロジェクトとアプリ全体の上限のうち、低い方が適用されます。",
+    "saved": "予算を保存しました",
+    "saveFailed": "予算を保存できませんでした",
+    "invalidNumber": "0 より大きい金額を入力してください。上限なしにするには空にします。",
+    "projection": {
+      "title": "月末の予測",
+      "basis": "{{days}} 日平均 {{avg}}/日 × 残り {{remaining}} 日 + これまでの {{mtd}}",
+      "none": "予測するための履歴がまだ足りません。",
+      "overCap": "このペースでは月間上限 {{cap}} を超えます。",
+      "planNone": "プラン課金では利用ごとのドル費用がないため、月末の金額は予測しません。"
+    },
+    "whatIf": {
+      "title": "もしも: 別のモデルで計算",
+      "description": "記録された過去 {{days}} 日のトークン使用量を、アプリの料金表を使って別のモデルで再計算します。請求額ではなく見積もりです。",
+      "from": "現在の実行モデル",
+      "to": "代わりに",
+      "choose": "モデルを選択",
+      "runs": "{{n}} 回の実行",
+      "noPricing": "{{model}} の料金がありません",
+      "empty": "この期間に記録されたモデルの使用はありません。",
+      "planNote": "この作業はプランで実行されるため、比較できる利用ごとのドル費用はありません。代わりにトークンを表示します。",
+      "tokens": "トークン: 入力 {{input}} · 出力 {{output}}",
+      "compare": "現在 約 {{current}} → 代わりに 約 {{whatIf}}",
+      "saves": "約 {{amount}} 少ない",
+      "costs": "約 {{amount}} 多い",
+      "same": "ほぼ同じ",
+      "skipped": "トークン使用量または料金がない {{n}} 回の実行は除外しています。",
+      "recorded": "これらの実行で記録されたコスト: {{amount}}。",
+      "roleNote": "使用量はロールごとではなくモデルごとに記録されます。ロールが使うモデルを選んでください。"
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "セッション",
+      "weekly": "週間"
+    },
+    "capsMetered": "ドル上限（従量課金のプロバイダー）"
   }
 }

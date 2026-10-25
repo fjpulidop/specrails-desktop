@@ -11,7 +11,7 @@ vi.mock('./contract-refine-runner', () => ({ runContractRefineForQuick: mockRefi
 
 import { spawn as mockSpawn } from 'child_process'
 import { initDb, type DbInstance } from '../../../db'
-import { readStore } from './ticket-store'
+import { mutateStore, readStore } from './ticket-store'
 import {
   buildSpecGenerationPrompts, generateSpecFromText, resolveSpecGenerationToolPolicy,
   SpecGenerationToolPolicyError, type SpecGenerationDeps,
@@ -91,8 +91,36 @@ describe('spec generation use case', () => {
       labels: ['spec-proposal', 'ui', 'settings'],
       shortSummary: 'Adds a dark mode toggle.',
       description: '## Problem Statement\nToo bright.\n\n## Acceptance Criteria\n1. A toggle exists',
+      nonGoals: [],
     })
-    expect(parseGeneratedSpec('no headings', 'fallback')).toMatchObject({ title: 'fallback', priority: 'medium', labels: ['spec-proposal'] })
+    expect(parseGeneratedSpec('no headings', 'fallback')).toMatchObject({ title: 'fallback', priority: 'medium', labels: ['spec-proposal'], nonGoals: [] })
+  })
+
+  it('moves the Out of Scope section into nonGoals and keeps it out of the description', () => {
+    const withScope = SPEC.replace('## Acceptance Criteria', '## Out of Scope\n- Per-page themes\n- High contrast mode\n\n## Acceptance Criteria')
+    const parsed = parseGeneratedSpec(withScope, 'fallback')
+    expect(parsed.nonGoals).toEqual(['Per-page themes', 'High contrast mode'])
+    expect(parsed.description).toBe('## Problem Statement\nToo bright.\n\n## Acceptance Criteria\n1. A toggle exists')
+  })
+
+  it('asks the model for non-goals in the spec-gen prompt', () => {
+    expect(buildSpecGenerationPrompts({ project: deps.project, text: 'idea', scope }).systemPrompt).toMatch(/## Out of Scope\n\[Bullet list of 1-5 non-goals/)
+  })
+
+  it('stores generated non-goals on a new ticket and keeps existing ones on a rewrite without the section', async () => {
+    const withScope = SPEC.replace('## Acceptance Criteria', '## Out of Scope\n- Per-page themes\n\n## Acceptance Criteria')
+    const child = mockChild()
+    const done = generateSpecFromText(deps, { text: 'dark mode', provider: 'claude', model: 'sonnet', scope })
+    await finish(child, withScope)
+    expect(await done).toMatchObject({ ok: true, kind: 'created' })
+    expect(readStore(storePath).tickets['2'].nonGoals).toEqual(['Per-page themes'])
+
+    mutateStore(storePath, (s) => { s.tickets['1'].nonGoals = ['Keep me out'] })
+    const rewrite = mockChild()
+    const rewriting = generateSpecFromText(deps, { text: 'x', provider: 'claude', model: 'sonnet', scope, ticketId: 1 })
+    await finish(rewrite, SPEC)
+    expect(await rewriting).toMatchObject({ ok: true, kind: 'rewritten' })
+    expect(readStore(storePath).tickets['1'].nonGoals).toEqual(['Keep me out'])
   })
 
   it('builds the spec-gen system prompt with the required format and scope rules', () => {

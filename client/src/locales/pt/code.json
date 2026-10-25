@@ -54,7 +54,9 @@
     "save": "Salvar",
     "saving": "Salvando…",
     "saved": "Arquivo salvo",
-    "saveFailed": "Falha ao salvar"
+    "saveFailed": "Falha ao salvar",
+    "budgetPromptBody": "O limite de orçamento de IA para resumos de arquivos foi atingido. Regenerar mesmo assim executa mais um resumo além do limite.",
+    "budgetPromptConfirm": "Regenerar mesmo assim"
   },
   "summary": {
     "generationFailed": "Falha na geração do resumo",
@@ -150,7 +152,7 @@
     "loadingEditor": "A carregar editor…"
   },
   "ticketFiles": {
-    "title": "Ficheiros alterados por este ticket",
+    "title": "Ficheiros alterados por esta spec",
     "jobTitle": "Job {{jobId}}",
     "loading": "Carregando arquivos registrados…",
     "loadFailed": "Não foi possível carregar os arquivos registrados.",

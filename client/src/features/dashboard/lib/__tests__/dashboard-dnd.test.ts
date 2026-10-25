@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { insertAt, resolveDestContainer } from '../dashboard-dnd'
+import { insertAt, resolveDestContainer, restoreTicketToRail } from '../dashboard-dnd'
 
 const RAIL_SORT_PREFIX = '__rail:'
 const isRailSortId = (id: string | number): id is string =>
@@ -86,5 +86,30 @@ describe('resolveDestContainer', () => {
     expect(
       resolveDestContainer('mystery', containerIds, findTicketContainer, isRailSortId, extractRailId),
     ).toBeNull()
+  })
+})
+
+describe('restoreTicketToRail (undo of "remove from rail")', () => {
+  const rails = [
+    { id: 'rail-1', status: 'idle', ticketIds: [1, 3] },
+    { id: 'rail-2', status: 'running', ticketIds: [9] },
+  ]
+
+  it('puts the spec back at its previous position', () => {
+    const r = restoreTicketToRail(rails, 'rail-1', 2, 1)
+    expect(r.ok && r.rails[0].ticketIds).toEqual([1, 2, 3])
+    expect(r.ok && r.rails[1]).toBe(rails[1])
+  })
+
+  it('clamps an out-of-range position and is idempotent', () => {
+    const r = restoreTicketToRail(rails, 'rail-1', 2, 99)
+    expect(r.ok && r.rails[0].ticketIds).toEqual([1, 3, 2])
+    const again = restoreTicketToRail(r.ok ? r.rails : [], 'rail-1', 2, 0)
+    expect(again.ok && again.rails[0].ticketIds).toEqual([1, 3, 2])
+  })
+
+  it('refuses a rail that started running, or no longer exists', () => {
+    expect(restoreTicketToRail(rails, 'rail-2', 4, 0)).toEqual({ ok: false, reason: 'rail_running' })
+    expect(restoreTicketToRail(rails, 'rail-x', 4, 0)).toEqual({ ok: false, reason: 'rail_missing' })
   })
 })

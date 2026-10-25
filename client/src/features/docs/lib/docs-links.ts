@@ -28,3 +28,37 @@ export function resolveDocHref(
   if (stack.length === 1) return { category: currentCategory, slug: stack[0] }
   return { category: stack[stack.length - 2], slug: stack[stack.length - 1] }
 }
+
+const HEADING_ANCHOR = /\s*\{#([a-z0-9][a-z0-9-]*)\}\s*$/i
+
+/** Prefix of every heading id the guide renders (keeps them clear of app ids). */
+export const DOC_ANCHOR_PREFIX = 'doc-'
+
+/**
+ * Split an explicit heading anchor off a heading's text: `Daily budgets {#daily-budget}`
+ * is the visible title "Daily budgets" and the anchor `daily-budget`. The same
+ * syntax is what the server strips from page titles and reports in search.
+ */
+export function parseHeadingAnchor(text: string): { text: string; anchor: string | null } {
+  const match = HEADING_ANCHOR.exec(text)
+  if (!match) return { text, anchor: null }
+  return { text: text.slice(0, match.index), anchor: match[1].toLowerCase() }
+}
+
+/** The element a docs target points at inside a rendered page, or null. */
+export function findDocAnchor(
+  container: ParentNode,
+  target: { anchor?: string | null; heading?: string | null },
+): HTMLElement | null {
+  if (target.anchor) {
+    const byAnchor = container.querySelector<HTMLElement>(`[id="${DOC_ANCHOR_PREFIX}${target.anchor.replace(/"/g, '')}"]`)
+    if (byAnchor) return byAnchor
+  }
+  if (target.heading) {
+    const wanted = target.heading.trim()
+    for (const heading of Array.from(container.querySelectorAll<HTMLElement>('h1, h2, h3, h4'))) {
+      if (heading.textContent?.trim() === wanted) return heading
+    }
+  }
+  return null
+}

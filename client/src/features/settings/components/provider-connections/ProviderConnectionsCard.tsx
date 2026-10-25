@@ -1,3 +1,5 @@
+import { LoadError } from '../../../../components/ui/load-error'
+import { TechnicalDetail } from '../../../../components/ui/technical-detail'
 import { isPublicProvider } from '../../../providers/lib/provider-capabilities'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +17,7 @@ import { CliProviderRow } from './CliProviderRow'
 import { LocalEngineCard } from './LocalEngineCard'
 import { OverflowMenu } from './OverflowMenu'
 
+import { notifyError } from '../../../../lib/notify-error'
 interface Row { key: number; provider: RuntimeProvider; persisted: boolean }
 
 let nextKey = 1
@@ -31,11 +34,13 @@ function rowsFrom(providers: RuntimeProvider[], persisted: boolean): Row[] {
  */
 export function ProviderConnectionsCard() {
   const { t } = useTranslation('agentRuntime')
+  const { t: tc } = useTranslation('common')
   const legacy = !isLocalEnginesEnabled()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [saved, setSaved] = useState<RuntimeProvider[] | null>(null)
   const [status, setStatus] = useState<Record<string, RuntimeProviderStatus>>({})
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
   const [busy, setBusy] = useState(false)
   const [invalidKeys, setInvalidKeys] = useState<Set<number>>(() => new Set())
   const mounted = useRef(true)
@@ -50,7 +55,7 @@ export function ProviderConnectionsCard() {
       setRows(rowsFrom(data.providers, true)); setSaved(data.providers); setStatus(data.status ?? {})
     }).catch((err: Error) => { if (!cancelled) setError(err.message) })
     return () => { cancelled = true; mounted.current = false }
-  }, [t])
+  }, [t, reloadKey])
 
   const draft = useMemo(() => rows?.map((row) => row.provider) ?? null, [rows])
   const dirty = draft !== null && saved !== null && JSON.stringify(draft) !== JSON.stringify(saved)
@@ -102,7 +107,7 @@ export function ProviderConnectionsCard() {
     } catch (err) {
       const message = (err as Error).message || t('saveFailed')
       if (mounted.current) setError(message)
-      toast.error(t('saveFailed'), { description: message })
+      notifyError(t('saveFailed'), { detail: message, retry: () => void save() })
     } finally {
       if (mounted.current) setBusy(false)
     }
@@ -127,13 +132,19 @@ export function ProviderConnectionsCard() {
             <Cpu className="h-5 w-5" aria-hidden />
           </span>
           <div className="min-w-0">
-            <h2 id="provider-connections-title" className="text-base font-semibold tracking-tight">{t('providers.globalTitle')}</h2>
+            <h2 id="provider-connections-title" className="text-title tracking-tight">{t('providers.globalTitle')}</h2>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t('providers.globalHint')}</p>
           </div>
         </div>
       </div>
 
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {error && !rows && (
+        <>
+          <LoadError message={t('loadFailed')} onRetry={() => { setError(''); setReloadKey((k) => k + 1) }} />
+          <TechnicalDetail summary={tc('errors.technicalDetails')} className="text-xs">{error}</TechnicalDetail>
+        </>
+      )}
+      {error && rows && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {!rows && !error && <p role="status" className="text-sm text-muted-foreground">{t('loading')}</p>}
 
       {rows && legacy && (
@@ -191,10 +202,10 @@ export function ProviderConnectionsCard() {
       {/* Save bar — sticky at the bottom of the scrolling pane while there is something to save. */}
       {rows && (
         <div className={cn(
-          'flex flex-wrap items-center justify-end gap-3 rounded-xl px-3 py-2 transition-all',
-          dirty && 'sticky bottom-0 z-20 border border-accent-warning/30 bg-card/95 shadow-lg backdrop-blur',
+          'flex flex-wrap items-center justify-end gap-3 rounded-xl px-3 py-2 transition-colors duration-200',
+          dirty && 'sticky bottom-0 z-20 border border-accent-warning/30 bg-popover shadow-lg',
         )} data-testid="provider-save-bar" data-sticky={dirty}>
-          {dirty && <span className="mr-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-accent-warning/30 bg-accent-warning/10 px-2.5 text-[11px] font-medium text-accent-warning" role="status"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-warning" />{t('providers.unsaved')}</span>}
+          {dirty && <span className="mr-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-accent-warning/30 bg-accent-warning/10 px-2.5 text-label text-accent-warning" role="status"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-warning" />{t('providers.unsaved')}</span>}
           {invalid && <p className="text-xs text-destructive">{t('providers.fixBeforeSave')}</p>}
           <Button disabled={busy || invalid || !dirty} className="gap-1.5" onClick={() => void save()}><Save className="h-3.5 w-3.5" aria-hidden />{t(busy ? 'saving' : 'save')}</Button>
         </div>
@@ -208,11 +219,11 @@ function GroupHeading({ icon, title, hint, count, action }: { icon: ReactNode; t
   return (
     <div className="flex flex-wrap items-end justify-between gap-2 px-0.5">
       <div>
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {icon}{title}
-          <span className="rounded-full border border-border bg-muted/40 px-1.5 py-px text-[10px] font-medium tabular-nums">{count}</span>
+        <h3 className="flex items-center gap-1.5 text-strong text-foreground">
+          <span className="text-muted-foreground">{icon}</span>{title}
+          <span data-chip className="inline-flex h-5 items-center rounded-full border border-border bg-muted/40 px-1.5 text-caption font-medium tabular-nums text-muted-foreground">{count}</span>
         </h3>
-        <p className="mt-0.5 text-[11px] text-muted-foreground/80">{hint}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
       </div>
       {action}
     </div>

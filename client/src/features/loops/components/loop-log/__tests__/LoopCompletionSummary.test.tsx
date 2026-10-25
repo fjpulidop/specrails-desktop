@@ -22,7 +22,7 @@ describe('completion summary', () => {
   })
   it('does not manufacture acceptance when runtime evidence is unavailable', () => {
     render(<LoopCompletionSummary result={{ ...result, core: null }} />)
-    expect(screen.getByText(/Execution success alone does not confirm ticket completion/)).toBeInTheDocument()
+    expect(screen.getByText(/Run success alone does not confirm spec completion/)).toBeInTheDocument()
     expect(screen.queryByText('Verified')).not.toBeInTheDocument()
   })
   it('rejects malformed persisted evidence without crashing history rendering', () => {

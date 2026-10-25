@@ -1,19 +1,37 @@
-# Specs y el backlog
+# Specs y el backlog {#specs-backlog}
 
-Una **spec** es la unidad de trabajo que implementa el pipeline de IA. Piénsala como un ticket: un título, una descripción de lo que quieres conseguir, una prioridad y, opcionalmente, etiquetas. Cuando lanzas el pipeline, los agentes de IA leen la spec y actúan en consecuencia, así que una spec clara es la pieza más importante para obtener un buen resultado.
-
-A veces a las specs se las llama **tickets** en la app: las dos palabras significan lo mismo.
+Una **spec** es la unidad de trabajo que implementa el pipeline de IA. Piénsala como un breve encargo: un título, una descripción de lo que quieres conseguir, una prioridad y, opcionalmente, etiquetas. Cuando lanzas el pipeline, los agentes de IA leen la spec y actúan en consecuencia, así que una spec clara es la pieza más importante para obtener un buen resultado.
 
 ## El tablero
 
-Cada proyecto se abre en su **Dashboard**, que muestra el **SpecsBoard**: la lista de todas las specs del proyecto. Este es tu backlog. Desde aquí creas specs nuevas, defines su prioridad, las arrastras a un rail para implementarlas y ves cómo cambia su estado a medida que avanza el trabajo.
+Cada proyecto se abre en su **Tablero**, que muestra el **SpecsBoard**: la lista de todas las specs del proyecto. Este es tu backlog. Desde aquí creas specs nuevas, defines su prioridad, las arrastras a un rail para implementarlas y ves cómo cambia su estado a medida que avanza el trabajo.
 
 El tablero tiene dos modos de vista, que se cambian con un botón de la barra de herramientas y se recuerdan por proyecto:
 
 - **Vista post-it** (la predeterminada): tarjetas con resúmenes breves.
 - **Vista de lista**: filas compactas de una sola línea.
 
-El **selector de estados** de la barra de herramientas muestra cada estado como su propio chip con un contador en vivo — más dos grupos inteligentes: **Activas** (el valor por defecto — todo lo que sigue en movimiento: borradores, por hacer, en curso y en revisión) y **Todos** (todo, con Hecho fijado al final). Tu selección se recuerda por proyecto y se refleja en la URL, así que un refresco o un enlace compartido restaura la vista exacta. En proyectos conectados a Jira aparece además un desplegable de **estado de Jira**, que lista los estados *reales* del flujo de trabajo del tablero (sus nombres tal cual, p. ej. "Code Review", cada uno con su contador en vivo) agrupados bajo el estado al que mapean — se combina con los chips de estado. También puedes filtrar por **etiqueta**, y ordenar por **Por defecto**, **Ticket #** o **Prioridad** (cada uno con un interruptor ascendente/descendente).
+La barra de herramientas de Specs tiene dos filas. La primera reúne un campo de **búsqueda** (pulsa `/` para ir a él; busca por título, `#número`, etiqueta o clave de Jira), un único botón **Filtros**, los controles de orden y vista, y **Nueva spec**. La segunda fila es el **selector de estados**: cada estado como su propio segmento con un contador en vivo, más dos grupos inteligentes, **Activas** (el valor por defecto: todo lo que sigue en movimiento, es decir borradores, por hacer, en curso y en revisión) y **Todos** (todo, con Hecho fijado al final). Cuando la columna es estrecha, los estados menos usados se pliegan en un menú **Más**, y el estado elegido siempre queda visible. Tu selección se recuerda por proyecto y se refleja en la URL, así que un refresco o un enlace compartido restaura la vista exacta. **Filtros** abre un único panel con una sección por dimensión: **etiquetas** (selección múltiple) y, en proyectos conectados a Jira, **épica**, **sprint** y **estado de Jira** (los estados *reales* del flujo del tablero, p. ej. "Code Review", agrupados bajo el estado al que mapean y combinados con el selector de estados). Mientras una búsqueda o un filtro acota el tablero, una tercera fila muestra cada uno como un chip que puedes quitar, indica "x de y" specs y ofrece **Quitar todo** (que conserva el estado elegido). Ordena por **Por defecto**, **Spec #** o **Prioridad**, cada uno con un interruptor ascendente/descendente.
+
+### Seleccionar varias specs
+
+Clasifica en bloque en lugar de una spec cada vez. Pulsa `x` sobre una tarjeta enfocada, haz clic con `Ctrl`/`⌘` sobre una tarjeta, o clic con `Mayús` para seleccionar un rango (un rango se queda dentro de una columna: las specs activas o el grupo Hecho). `Ctrl`/`⌘`+`A` selecciona toda la columna en la que estás y `Esc` quita la selección. Cada tarjeta muestra una casilla al pasar el ratón o enfocarla, y las seleccionadas tienen el borde resaltado. Ninguna de estas teclas actúa mientras escribes en el campo de búsqueda.
+
+En cuanto hay una spec seleccionada, aparece una barra flotante al pie del tablero con el recuento y las acciones:
+
+- **Mover a** cambia el estado. Las specs locales usan los estados locales; las que vienen de Jira usan los estados reales del flujo del tablero de Jira y se mueven por la misma cola de Jira que un movimiento individual.
+- **Etiqueta** añade una etiqueta a la selección, o quita una que las specs ya tengan.
+- **Prioridad** fija una misma prioridad para todas.
+- **Añadir a un rail** coloca la selección en un rail.
+- **Lanzar todo** da a cada spec seleccionada su propio rail libre y las arranca en paralelo, tras la misma confirmación y comprobación del presupuesto diario que *Lanzar todo* de los rails. Las specs que aún no se pueden lanzar (por ejemplo, en revisión sin PR abierta) o que no encuentran un rail libre se omiten y se cuentan en el resumen.
+- **Eliminar** las envía a *Eliminadas recientemente*.
+- **Quitar** (o `Esc`) descarta la selección.
+
+Eliminar y cambiar estado, etiquetas o prioridad se deshacen en un solo paso: un único aviso *Deshacer* (o `⌘Z`) restaura todas las specs que cambió. Si algunas fallan, un solo aviso indica cuántas funcionaron y cuántas no. La selección solo contiene specs que ves: un filtro que oculta una spec seleccionada la saca de la selección.
+
+### Vistas guardadas
+
+El botón **Vistas**, junto a **Filtros**, guarda el tablero tal como lo tienes ahora: el selector de estado, los filtros, el orden y la densidad (no el texto de búsqueda). Elige **Guardar la vista actual…**, ponle nombre («Listas para lanzar», «Sprint 42», «Fallidas esta semana») y selecciónala después desde el mismo menú. **Gestionar vistas…** renombra una vista, la actualiza con el tablero tal como está, copia su enlace o la elimina. Las vistas pertenecen al proyecto. Un enlace copiado (`?view=…`) aplica la vista al abrirlo en esta aplicación, y la paleta de comandos (`⌘K`) puede guardar la vista actual o cambiar a otra.
 
 ## Estados
 
@@ -38,7 +56,7 @@ Los borradores son la única excepción: un borrador puede *no* tener ninguna pr
 
 ## Crear una spec
 
-Para crear una spec, haz clic en **Añadir** (el botón Más de la barra de herramientas del SpecsBoard). Se abre el diálogo **Añadir spec** con varias formas de trabajar:
+Para crear una spec, haz clic en **Nueva spec** (el botón Más de la barra de herramientas del SpecsBoard). Se abre el diálogo **Añadir spec** con varias formas de trabajar:
 
 - **Modo Quick**: describes lo que quieres y la IA escribe la spec completa de una sola vez. Consulta [Añadir spec — Modo Quick](add-spec-quick-mode.md).
 - **Modo Explore**: conversas con la IA y esta te ayuda a dar forma a la spec turno a turno. Consulta [Añadir spec — Modo Explore](add-spec-explore-mode.md).
@@ -53,6 +71,20 @@ Cuando una spec ya tiene trabajo detrás (una PR en revisión, una funcionalidad
 ## Revisar una entrega: qué mirar primero
 
 Cuando termina una ejecución, su paquete de revisión empieza por **Qué mirar**: el breve resumen del revisor de IA con los puntos más arriesgados primero (alto, luego medio y luego bajo, cada uno con fichero y línea), el comportamiento que cambia, las reglas en las que se apoya el cambio, las rutas de código que ningún test ejercita y las comprobaciones que solo puede hacer una persona. Los mismos riesgos, rutas sin test y comprobaciones aparecen en un bloque corto al principio de la pull request, y la tarjeta de la misión muestra el riesgo principal en una línea. El resumen es una ayuda para revisar, no un resultado de verificación: nunca bloquea Aceptar. Las ejecuciones hechas con un Specrails Core anterior no tienen resumen y su paquete se ve como antes.
+
+## Deshacer y Eliminado recientemente {#recently-deleted}
+
+Eliminar una spec, moverla a otro estado, cambiar sus etiquetas o sacarla de un rail ocurre al instante: no hay un "¿Seguro?" previo. En su lugar, un aviso ofrece **Deshacer** durante unos ocho segundos, y **⌘Z** (**Ctrl+Z** en Windows y Linux) hace lo mismo mientras no estés escribiendo en un campo. Deshacer es por proyecto: al cambiar de proyecto se cierra la ventana.
+
+Una spec eliminada (y una misión eliminada) no desaparece. Pasa a **Ajustes → Eliminado recientemente** en los ajustes del proyecto, donde puedes **Restaurarla** durante 30 días o **Eliminarla definitivamente**, que sí pregunta antes. Pasados 30 días se borra para siempre. Descartar trabajo sin enviar, cerrar a la fuerza una pull request y quitar un proyecto siguen preguntando antes, porque no se pueden revertir. Una spec respaldada por Jira se sigue moviendo con **Mover a** en lugar de eliminarse.
+
+## La cronología de la spec y el traspaso {#spec-timeline}
+
+Abre una spec y pasa a la pestaña **Cronología** para leer toda su historia en un solo sitio: las ediciones y adendas, las misiones que la tocaron, cada ejecución con sus fases y acciones del agente, los eventos de la pull request y el veredicto del revisor con sus hallazgos. Las entradas se agrupan por día, los chips filtran por tipo y cada entrada enlaza a la misión, ejecución o revisión de la que viene. Los grupos largos (fases, acciones del agente, turnos de misión) se pliegan con un contador y se despliegan en el sitio.
+
+El coste aparece junto a la entrada que lo generó, con los dos tipos separados: una cifra informada por el proveedor y otra estimada con la tabla de precios local (marcada «est.»). Si un proveedor se factura mediante un plan, la cronología y las exportaciones muestran turnos, nunca dólares; una ejecución que no informó coste simplemente no lo muestra.
+
+**Exportar traspaso** (el menú junto a las pestañas, o ⌘K → *Exportar traspaso de #N*) genera un archivo Markdown o una página HTML autocontenida con el resumen, las decisiones (adendas, aclaraciones, veredictos del revisor), las estadísticas del diff, el coste y lo que sigue abierto (adendas abiertas y hallazgos de revisión sin resolver). **Copiar como descripción de PR** (también en ⌘K) pone en el portapapeles una versión más corta en Markdown. Los encabezados siguen el idioma de la aplicación. Todo pasa por la misma ocultación de secretos que usa la auditoría de acciones del agente, y el aviso te dice cuándo se ocultó algo.
 
 ## Adónde ir después
 

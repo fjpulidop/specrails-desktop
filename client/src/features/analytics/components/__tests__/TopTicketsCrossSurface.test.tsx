@@ -14,7 +14,7 @@ function emptyData(): SpendingResponse {
 describe('TopTicketsCrossSurface', () => {
   it('renders empty state', () => {
     render(<TopTicketsCrossSurface data={emptyData()} loading={false} onSelectTicket={() => {}} />)
-    expect(screen.getByText(/No ticket activity/i)).toBeInTheDocument()
+    expect(screen.getByText(/No spec activity/i)).toBeInTheDocument()
   })
 
   it('renders top tickets and dispatches click', () => {
@@ -48,7 +48,7 @@ describe('TopTicketsCrossSurface', () => {
       },
     ]
     render(<TopTicketsCrossSurface data={data} loading={false} onSelectTicket={onSelect} />)
-    expect(screen.getByText(/deleted ticket #99/)).toBeInTheDocument()
+    expect(screen.getByText(/deleted spec #99/)).toBeInTheDocument()
   })
 
   it('renders unavailable rather than $0.00 for an all-Kimi ticket', () => {

@@ -21,7 +21,10 @@
   },
   "sidebar": {
     "rename": "Rinomina {{name}}",
-    "close": "Chiudi {{name}}"
+    "close": "Chiudi {{name}}",
+    "label": "Sessioni terminale",
+    "closeRunningConfirm": "Chiudere «{{name}}» mentre un comando è in esecuzione?",
+    "closeRunningBody": "Il comando in esecuzione verrà interrotto e il suo output non salvato andrà perso."
   },
   "emptyState": {
     "noTerminals": "Ancora nessun terminale per questo progetto.",

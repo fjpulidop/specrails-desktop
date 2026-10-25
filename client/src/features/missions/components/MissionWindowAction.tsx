@@ -12,7 +12,7 @@ export function MissionWindowAction() {
   const pending = windows.isPending(active.id)
   const label = t(secondary ? 'window.attach' : 'window.detach')
   return <button type="button" data-agent-interactive disabled={pending} title={label} aria-label={label}
-    className="rounded-md p-1.5 text-foreground/60 hover:bg-surface hover:text-foreground disabled:opacity-40"
+    className="rounded-md p-1.5 text-muted-foreground hover:bg-surface hover:text-foreground disabled:opacity-40"
     onClick={() => { void (secondary ? windows.attach() : windows.detach(active.pinned_project_id, active.id)) }}>
     {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : secondary ? <ArrowDownLeft className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
   </button>

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../lib/utils'
 import type { AnalyticsPeriod } from '../../../types'
+import { DateInput } from '../../../components/ui/date-input'
 
 interface PeriodSelectorProps {
   period: AnalyticsPeriod
@@ -53,7 +54,7 @@ export function PeriodSelector({ period, from, to, onChange }: PeriodSelectorPro
             key={preset.value}
             onClick={() => handlePreset(preset.value)}
             className={cn(
-              'h-7 px-3 rounded-md text-xs font-medium transition-colors',
+              'h-7 px-3 rounded-md text-label transition-colors',
               period === preset.value
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent'
@@ -66,20 +67,16 @@ export function PeriodSelector({ period, from, to, onChange }: PeriodSelectorPro
 
       {period === 'custom' && (
         <div className="flex items-center gap-2">
-          <input
-            type="date"
+          <DateInput
             value={from}
             onChange={(e) => handleFromChange(e.target.value)}
             aria-label={t('periods.startDate')}
-            className="h-7 px-2 rounded-md text-xs bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <span className="text-xs text-muted-foreground">{t('periods.to')}</span>
-          <input
-            type="date"
+          <DateInput
             value={to}
             onChange={(e) => handleToChange(e.target.value)}
             aria-label={t('periods.endDate')}
-            className="h-7 px-2 rounded-md text-xs bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       )}

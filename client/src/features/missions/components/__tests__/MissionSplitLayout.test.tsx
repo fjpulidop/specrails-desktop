@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '../../../../tes
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { AgentChatProvider, useAgentChat } from '../../context/AgentChatContext'
+import { useActiveLive } from '../../hooks/useAgentLive'
 import { useMissionPaneClose, useMissionPaneLayoutId } from '../../context/MissionSplitViewsContext'
 import { MissionSplitLayout } from '../MissionSplitLayout'
 import { MissionConversationMenu } from '../MissionConversationMenu'
@@ -33,12 +34,13 @@ vi.mock('../AgentModeSurface', () => ({ AgentModeSurface: () => <Pane /> }))
 
 function Pane() {
   const chat = useAgentChat()
+  const live = useActiveLive()
   const close = useMissionPaneClose()
   const layoutId = useMissionPaneLayoutId()
   return <div data-testid={`pane-${chat.active?.id}`} data-layout-id={layoutId}>
     <span>{chat.active?.title}</span>
     {close && <button onClick={close}>Close {chat.active?.title}</button>}
-    <output data-testid={`stream-${chat.active?.id}`}>{chat.streamingText}</output>
+    <output data-testid={`stream-${chat.active?.id}`}>{live.streamingText}</output>
     <AgentComposer />
   </div>
 }
@@ -71,7 +73,7 @@ it('adds conversations without replacing the current one, isolates drafts and li
   await waitFor(() => expect(api.sendAgentMessage).toHaveBeenCalledWith('c2', 'Second input', expect.anything()))
   expect(primaryEditor).toHaveTextContent('Unsent first draft')
   act(() => { for (const handler of ws.handlers.values()) handler({ type: 'agent_stream', conversationId: 'c2', delta: 'Second stream' }) })
-  expect(screen.getByTestId('stream-c2')).toHaveTextContent('Second stream')
+  await waitFor(() => expect(screen.getByTestId('stream-c2')).toHaveTextContent('Second stream'))
   expect(screen.getByTestId('stream-c1')).toBeEmptyDOMElement()
   // Already visible conversations offer no redundant split action.
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Open c2' }))

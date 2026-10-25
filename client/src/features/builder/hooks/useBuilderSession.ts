@@ -22,6 +22,7 @@ import {
   reasoningEffortsForProvider,
 } from '../../providers/lib/provider-capabilities'
 
+import { notifyError } from '../../../lib/notify-error'
 // Builder session logic (reskin-project-builder-into-agent-panel D1) —
 // extracted from the retired ProjectBuilderShell so the agent surfaces (the
 // floating panel, the Agent Mode surface, and the workspace sidebar) can all
@@ -510,7 +511,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
         setStreamBuffer(null)
         setBusy(false)
         setSnapshot((prev) => (prev.status === 'repairing' || prev.status === 'generating' ? { status: 'idle' } : prev))
-        toast.error(t('errors.turnFailed'), { description: String(msg.error ?? '') })
+        notifyError(t('errors.turnFailed'), { detail: String(msg.error ?? '') })
       } else if (msg.type === 'blueprint.commit_progress' && isOurCommit) {
         const step = String(msg.step)
         const status = msg.status as BuilderCommitStep['status']
@@ -531,7 +532,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       } else if (msg.type === 'blueprint.commit_failed' && isOurCommit) {
         submittingRef.current = false
         setSubmitting(false)
-        toast.error(t('errors.commitFailed'), { description: String(msg.error ?? '') })
+        notifyError(t('errors.commitFailed'), { detail: String(msg.error ?? '') })
         setPhase('commit')
         setCommitError('commit_failed')
         setCommitErrorDetail(String(msg.error ?? ''))
@@ -551,7 +552,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       void ensureConversation().then((conv) => {
         if (!conv) {
           setBusy(false)
-          toast.error(t('errors.startFailed'))
+          notifyError(t('errors.startFailed'))
           return
         }
         return fetch(`/api/blueprint/conversations/${conv}/send`, {
@@ -567,12 +568,12 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
           .then((r) => {
             if (!r.ok && r.status !== 202) {
               setBusy(false)
-              toast.error(t('errors.turnFailed'))
+              notifyError(t('errors.turnFailed'))
             }
           })
           .catch(() => {
             setBusy(false)
-            toast.error(t('errors.turnFailed'))
+            notifyError(t('errors.turnFailed'))
           })
       })
     },
@@ -618,7 +619,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       setCommitSteps([])
       setDraft('')
     } catch {
-      toast.error(t('recent.resumeFailed'))
+      notifyError(t('recent.resumeFailed'))
     } finally {
       setResuming(false)
     }
@@ -630,7 +631,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       if (!r.ok && r.status !== 404) throw new Error(`HTTP ${r.status}`)
       setRecent((prev) => prev.filter((c) => c.id !== id))
     } catch {
-      toast.error(t('recent.discardFailed'))
+      notifyError(t('recent.discardFailed'))
     }
   }, [t])
 
@@ -648,12 +649,12 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       const body = (await r.json().catch(() => ({}))) as { error?: string }
       setBusy(false)
       if (body.error === 'nothing_to_repair') toast.info(t('snapshot.nothingToRepair'))
-      else if (body.error === 'no_session') toast.error(t('snapshot.noSession'))
+      else if (body.error === 'no_session') notifyError(t('snapshot.noSession'))
       else if (body.error === 'streaming') toast.info(t('snapshot.alreadyStreaming'))
-      else toast.error(t('errors.turnFailed'))
+      else notifyError(t('errors.turnFailed'))
     } catch {
       setBusy(false)
-      toast.error(t('errors.turnFailed'))
+      notifyError(t('errors.turnFailed'))
     }
   }, [busy, effort, t])
 
@@ -730,7 +731,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       } else if (result.reason === 'rail_limit_reached') {
         toast.warning(t('milestoneProgress.toast.railLimitReached', { milestone: label }))
       } else {
-        toast.error(t('done.launchFailed'), { description: result.detail ?? result.error })
+        notifyError(t('done.launchFailed'), { detail: result.detail ?? result.error })
       }
     } finally {
       setLaunching(false)

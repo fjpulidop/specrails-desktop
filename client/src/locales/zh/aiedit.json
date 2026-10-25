@@ -46,10 +46,11 @@
   },
   "refine": {
     "serverError": "服务器错误（{{status}}）",
-    "connectionFailed": "连接失败：{{message}}",
+    "connectionFailed": "连接失败",
     "applyFailed": "应用失败（{{status}}）",
     "loadAgentFailed": "加载 Agent 失败（{{status}}）",
     "loadSessionFailed": "加载会话失败（{{status}}）",
-    "rehydrateFailed": "恢复会话失败：{{message}}"
+    "rehydrateFailed": "恢复会话失败",
+    "failed": "优化失败"
   }
 }

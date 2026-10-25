@@ -1,4 +1,4 @@
-# Provider AI (Claude, Codex)
+# Provider AI (Claude, Codex) {#ai-providers}
 
 ## I due provider
 

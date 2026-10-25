@@ -1,13 +1,18 @@
 import { isTauri } from '../lib/tauri-shell'
 import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
-import { useMissionSplitViews } from '../features/missions/context/MissionSplitViewsContext'
-import { keyboardLabel } from '../lib/keyboard-label'
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
+import { useOpenMission } from '../features/missions/hooks/useOpenMission'
+import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
+import { announce } from '../lib/announce'
+import { OPEN_PROJECT_SETTINGS_EVENT, type OpenProjectSettingsDetail } from '../lib/app-settings-events'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle } from 'lucide-react'
+import { PanelLeft, FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
+import { useSidebarHoverIntent } from '../hooks/useSidebarHoverIntent'
 import { SidebarResizeGrip } from './SidebarResizeGrip'
 import { compactRelativeTime, absoluteTime } from '../lib/relative-time'
 import { useAssembleProgress } from '../features/jobs/hooks/useAssembleProgress'
@@ -16,15 +21,36 @@ import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
+import { useStreamingConversationIds } from '../features/missions/hooks/useAgentLive'
+import { useMissionConversationMarks } from '../features/missions/context/MissionExtensionsContext'
+import { MissionAttentionMark, MissionModeRowMark } from '../features/missions/components/MissionModeBadge'
+import { motion } from 'motion/react'
 import { useMissionSessions } from '../features/missions/context/MissionSessionsContext'
 import type { AgentConversation } from '../features/missions/lib/agent-api'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
 
-const ProjectSettingsDialog = lazy(() =>
-  import('../features/settings/components/ProjectSettingsDialog').then((m) => ({ default: m.ProjectSettingsDialog })),
-)
+import { notifyError } from '../lib/notify-error'
 
 const TREE_EXPAND_KEY = 'specrails-desktop:agentTreeExpanded'
+/** How long a destructive "Remove?" / "Delete?" confirmation stays armed. */
+const CONFIRM_RESET_MS = 5000
+/** Keyboard focus ring shared by every row button in the sidebar. */
+/** Selection marker: a 2 px pill on the inner edge that glides between nav items. */
+function NavRailIndicator() {
+  return (
+    <motion.span
+      layoutId="arc-nav-rail"
+      aria-hidden="true"
+      data-testid="nav-rail-indicator"
+      className="pointer-events-none absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-accent-primary"
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+    />
+  )
+}
+
+const ROW_FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2'
+/** Expanded-sidebar group label ("Workspace", "Projects"). 12px per the app's text floor. */
+const SECTION_LABEL = 'px-2 pt-2 pb-1 text-label font-medium text-muted-foreground'
 
 function loadExpanded(): Set<string> {
   try {
@@ -45,6 +71,73 @@ function saveExpanded(s: Set<string>): void {
  *  already-mounted CommandPalette opens (works on Windows/Linux via ctrlKey). */
 function openCommandPalette(): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }))
+}
+
+/** A collapsed-rail project tile: the initials of its first two words
+ *  ("specrails-desktop" → "SD"), or its first two letters/digits for a single
+ *  word, so neighbouring projects stay distinguishable at 44px. */
+/**
+ * Attention badge on a collapsed rail icon: pinned to the tile's top-right
+ * corner, with a background-coloured cut-out so it reads as a badge instead
+ * of a dot sitting on the monogram's letters.
+ */
+const COLLAPSED_BADGE = 'pointer-events-none absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full bg-background p-[2px] leading-none'
+
+export function projectMonogram(name: string): string {
+  const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
+  const chars = (words[0] ?? '').match(/[\p{L}\p{N}]/gu) ?? []
+  return chars.slice(0, 2).join('').toUpperCase() || '?'
+}
+
+/** Mission state rolled up over a group of conversations (a project, Home,
+ *  Favorites) so a closed or collapsed group still shows what waits inside. */
+interface MissionRollup {
+  needsAttention: boolean
+  hasFailed: boolean
+  isLive: boolean
+  unreadCount: number
+}
+
+function rollupMissions(
+  conversations: readonly AgentConversation[],
+  sets: {
+    attention?: ReadonlySet<string>
+    attentionKinds?: ReadonlyMap<string, 'decision' | 'failed'>
+    live?: ReadonlySet<string>
+    unread?: ReadonlySet<string>
+  },
+): MissionRollup {
+  let needsAttention = false
+  let hasFailed = false
+  let isLive = false
+  let unreadCount = 0
+  for (const c of conversations) {
+    if (sets.attention?.has(c.id)) {
+      needsAttention = true
+      if (sets.attentionKinds?.get(c.id) === 'failed') hasFailed = true
+    }
+    if (sets.live?.has(c.id)) isLive = true
+    if (sets.unread?.has(c.id)) unreadCount += 1
+  }
+  return { needsAttention, hasFailed, isLive, unreadCount }
+}
+
+/** The rolled-up marks next to a closed group's label (expanded rail). */
+function RollupMarks({ rollup }: { rollup: MissionRollup }) {
+  const { t } = useTranslation('agent')
+  return (
+    <>
+      {rollup.needsAttention && <MissionAttentionMark kind={rollup.hasFailed ? 'failed' : 'decision'} />}
+      {!rollup.needsAttention && rollup.unreadCount > 0 && (
+        <span className="inline-flex shrink-0 items-center" data-testid="rollup-unread">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-primary" />
+          <span className="sr-only">{t('unreadCount', { count: rollup.unreadCount })}</span>
+        </span>
+      )}
+      {rollup.isLive && <span className="sr-only">{t('live')}</span>}
+    </>
+  )
 }
 
 /** Sentinel key for the Home (null-pinned) conversation group. */
@@ -78,6 +171,12 @@ function ConversationRow({
   const { t } = useTranslation('agent')
   const label = conversation.title?.trim() || t('untitled')
   const [confirming, setConfirming] = useState(false)
+  // Marks next to the title: a delivery waits for the person; the mission is in Flow.
+  const chat = useAgentChat()
+  const attention = chat.attentionConversationIds?.has(conversation.id) ?? false
+  const attentionKind = chat.attentionKinds?.get(conversation.id) ?? 'decision'
+  const markRefs = useMemo(() => [{ id: conversation.id, pinned_project_id: conversation.pinned_project_id ?? null }], [conversation.id, conversation.pinned_project_id])
+  const modeMark = useMissionConversationMarks(markRefs).get(conversation.id) ?? null
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Keep the shimmer overlay mounted briefly after the turn ends so its
@@ -94,9 +193,24 @@ function ConversationRow({
     prevStreamingRef.current = streaming
   }, [streaming])
 
+  // Intent to open (hover/focus, or the press before the click): warm the
+  // mission's snapshot so the click paints at once.
+  const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prefetchConversation = chat.prefetchConversation
+  const armPrefetch = (delayMs: number) => {
+    if (!prefetchConversation || active) return
+    if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current)
+    prefetchTimerRef.current = setTimeout(() => { prefetchTimerRef.current = null; prefetchConversation(conversation.id) }, delayMs)
+  }
+  const cancelPrefetch = () => {
+    if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current)
+    prefetchTimerRef.current = null
+  }
+
   useEffect(() => {
     return () => {
       if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+      if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current)
     }
   }, [])
 
@@ -111,7 +225,7 @@ function ConversationRow({
       confirmTimerRef.current = setTimeout(() => {
         setConfirming(false)
         confirmTimerRef.current = null
-      }, 3000)
+      }, CONFIRM_RESET_MS)
     }
   }
 
@@ -120,62 +234,77 @@ function ConversationRow({
     onToggleFavorite?.()
   }
 
-  function handleSelectKeyDown(e: React.KeyboardEvent) {
-    // Keys pressed on the inner delete button must reach IT, not select the row.
-    if (e.target !== e.currentTarget) return
-    if (e.key !== 'Enter' && e.key !== ' ') return
-    e.preventDefault()
-    onSelect()
-  }
-
   return (
     <MissionConversationMenu conversationId={conversation.id}>
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={handleSelectKeyDown}
       className={cn(
-        'group relative flex items-center gap-2 w-full h-7 rounded-md transition-colors',
-        expanded ? 'pl-7 pr-2' : 'px-0 justify-center',
+        'group relative flex items-center gap-1 w-full h-7 rounded-md transition-colors',
+        expanded ? 'pr-2' : 'justify-center',
         active
           ? 'bg-muted text-foreground'
           : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
       )}
-      title={!expanded ? label : undefined}
-      aria-current={active ? 'true' : undefined}
     >
-      <MessageSquare
+      <button
+        type="button"
+        onClick={onSelect}
+        onPointerEnter={() => armPrefetch(120)}
+        onPointerLeave={cancelPrefetch}
+        onFocus={() => armPrefetch(120)}
+        onBlur={cancelPrefetch}
+        onPointerDown={() => armPrefetch(0)}
         className={cn(
-          'w-3.5 h-3.5 flex-shrink-0',
-          active && 'text-accent-primary',
-          // Secondary live cue alongside the title shimmer.
-          streaming && !unread && 'text-accent-primary animate-pulse',
-          unread && 'text-destructive conversation-unread-glow',
+          'flex-1 min-w-0 flex items-center gap-2 h-full rounded-md text-left',
+          expanded ? 'pl-7' : 'justify-center',
+          ROW_FOCUS,
         )}
-      />
+        title={!expanded ? label : undefined}
+        aria-label={!expanded ? label : undefined}
+        aria-current={active ? 'true' : undefined}
+      >
+        <MessageSquare
+          aria-hidden
+          className={cn(
+            'w-3.5 h-3.5 flex-shrink-0',
+            active && 'text-accent-primary',
+            // Secondary live cue alongside the title shimmer.
+            streaming && !unread && 'text-accent-primary motion-safe:animate-pulse',
+            unread && 'conversation-unread-glow',
+          )}
+        />
+        {expanded && (
+          <>
+            <span className={cn('relative text-xs truncate min-w-0 text-left', unread && 'font-medium text-foreground')}>
+              {label}
+              {(streaming || fading) && (
+                <span
+                  aria-hidden
+                  className={cn(
+                    'title-shimmer pointer-events-none absolute inset-0 truncate transition-opacity duration-700',
+                    streaming ? 'opacity-100' : 'opacity-0',
+                  )}
+                >
+                  {label}
+                </span>
+              )}
+            </span>
+            {unread && <span aria-hidden className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent-primary" data-testid="conversation-unread-dot" />}
+            <span className="flex-1" aria-hidden />
+            {modeMark && <MissionModeRowMark badge={modeMark} />}
+            {attention && <MissionAttentionMark kind={attentionKind} />}
+            {unread && <span className="sr-only">{t('unread')}</span>}
+            {streaming && <span className="sr-only">{t('live')}</span>}
+          </>
+        )}
+      </button>
       {expanded && (
         <>
-          <span className="relative text-[11px] truncate flex-1 text-left">
-            {label}
-            {(streaming || fading) && (
-              <span
-                aria-hidden
-                className={cn(
-                  'title-shimmer pointer-events-none absolute inset-0 truncate transition-opacity duration-700',
-                  streaming ? 'opacity-100' : 'opacity-0',
-                )}
-              >
-                {label}
-              </span>
-            )}
-          </span>
           {/* Compact "time since last interaction" (Cursor style) — swaps out
-              for the delete action on hover so the row never shows both. */}
+              for the row actions on hover or keyboard focus. */}
           <span
             className={cn(
-              'flex-shrink-0 text-[10px] tabular-nums text-muted-foreground/45',
-              confirming ? 'hidden' : 'group-hover:hidden',
+              'flex-shrink-0 text-xs tabular-nums text-muted-foreground',
+              confirming ? 'hidden' : 'group-hover:hidden group-focus-within:hidden',
             )}
             title={absoluteTime(conversation.updated_at)}
           >
@@ -185,28 +314,30 @@ function ConversationRow({
             type="button"
             onClick={handleFavoriteClick}
             className={cn(
-              'flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted',
+              'flex flex-shrink-0 items-center justify-center w-5 h-5 rounded-sm transition-[color,background-color,opacity] hover:bg-muted',
+              ROW_FOCUS,
               favorite
-                ? 'flex w-3.5 h-3.5 text-accent-primary hover:text-accent-primary'
-                : 'hidden group-hover:flex w-3.5 h-3.5 text-muted-foreground/60 hover:text-accent-primary',
+                ? 'text-accent-primary hover:text-accent-primary'
+                : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-accent-primary',
             )}
             aria-label={favorite ? t('removeFavoriteConversation', { title: label }) : t('addFavoriteConversation', { title: label })}
             title={favorite ? t('removeFavoriteConversation', { title: label }) : t('addFavoriteConversation', { title: label })}
           >
-            <Heart className="w-2.5 h-2.5" fill={favorite ? 'currentColor' : 'none'} />
+            <Heart className="w-3 h-3" fill={favorite ? 'currentColor' : 'none'} />
           </button>
           <button
             type="button"
             onClick={handleDeleteClick}
             className={cn(
-              'flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted',
+              'flex flex-shrink-0 items-center justify-center rounded-sm transition-[color,background-color,opacity] hover:bg-muted',
+              ROW_FOCUS,
               confirming
-                ? 'flex px-1 h-4 text-[10px] text-destructive bg-destructive/10 hover:bg-destructive/20'
-                : 'hidden group-hover:flex w-3.5 h-3.5 text-muted-foreground/60 hover:text-foreground'
+                ? 'px-1.5 h-5 text-caption font-medium text-destructive bg-destructive/10 hover:bg-destructive/20'
+                : 'w-5 h-5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-foreground',
             )}
             aria-label={confirming ? t('confirmDeleteConversation', { title: label }) : t('deleteConversation', { title: label })}
           >
-            {confirming ? t('confirmShort') : <X className="w-2.5 h-2.5" />}
+            {confirming ? t('confirmShort') : <X className="w-3 h-3" />}
           </button>
         </>
       )}
@@ -239,6 +370,8 @@ function ProjectItem({
   activeConversationId = null,
   streamingConversationIds,
   unreadConversationIds,
+  attentionConversationIds,
+  attentionKinds,
   onSelectConversation,
   onToggleConversationFavorite,
   onDeleteConversation,
@@ -261,6 +394,9 @@ function ProjectItem({
    *  their title shimmer, not just the focused one. */
   streamingConversationIds?: ReadonlySet<string>
   unreadConversationIds?: ReadonlySet<string>
+  /** Missions waiting for the person (decision) or with a failed run. */
+  attentionConversationIds?: ReadonlySet<string>
+  attentionKinds?: ReadonlyMap<string, 'decision' | 'failed'>
   onSelectConversation?: (id: string) => void
   onToggleConversationFavorite?: (id: string) => void
   onDeleteConversation?: (id: string) => void
@@ -280,126 +416,249 @@ function ProjectItem({
     }
   }, [])
 
-  function handleRemoveClick(e: React.MouseEvent) {
-    e.stopPropagation()
+  // Context menu (right-click, the Menu key or Shift+F10) offers the same two-step removal as
+  // the hover X, so keyboard and screen-reader users never need that X as a Tab stop.
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
+  const menuItemRef = useRef<HTMLButtonElement | null>(null)
+  const rowButtonRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    if (!menuAt) return
+    menuItemRef.current?.focus()
+    const close = () => setMenuAt(null)
+    // Closing from the keyboard hands focus back to the row it came from.
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') { ev.stopPropagation(); close(); rowButtonRef.current?.focus() }
+      else if (ev.key === 'Tab') { ev.preventDefault(); close(); rowButtonRef.current?.focus() }
+    }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', onKey, true)
+    window.addEventListener('blur', close)
+    return () => {
+      document.removeEventListener('pointerdown', close)
+      document.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('blur', close)
+    }
+  }, [menuAt])
+
+  function requestRemove() {
     if (confirming) {
       if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
       setConfirming(false)
       onRemove()
     } else {
       setConfirming(true)
+      // Second step of the two-step removal: say it, the X turning into "Sure?" is silent for a screen reader.
+      announce(t('projects.removeConfirmHint', { project: project.name }))
       confirmTimerRef.current = setTimeout(() => {
         setConfirming(false)
         confirmTimerRef.current = null
-      }, 3000)
+      }, CONFIRM_RESET_MS)
     }
   }
 
-  function handleSelectKeyDown(e: React.KeyboardEvent) {
-    // Keys pressed on inner buttons (chevron / remove) must reach THEM, not select the row.
-    if (e.target !== e.currentTarget) return
-    if (e.key !== 'Enter' && e.key !== ' ') return
-    e.preventDefault()
-    onSelect()
+  function handleRemoveClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    requestRemove()
   }
 
+  // Mission state of this project's conversations, shown on the project row
+  // whenever its tree is not on screen (closed, or the rail is collapsed).
+  const rollup = useMemo(
+    () => agentMode
+      ? rollupMissions(conversations, {
+          attention: attentionConversationIds,
+          attentionKinds,
+          live: streamingConversationIds,
+          unread: unreadConversationIds,
+        })
+      : { needsAttention: false, hasFailed: false, isLive: false, unreadCount: 0 },
+    [agentMode, conversations, attentionConversationIds, attentionKinds, streamingConversationIds, unreadConversationIds],
+  )
+  const treeVisible = treeOpen && expanded
+  const liveCue = rollup.isLive && !treeVisible
+
   const showChevron = agentMode && hasTree && expanded
-  const projectIcon = (
+  const projectIcon = expanded ? (
     <FolderOpen
+      aria-hidden
       className={cn(
         'flex-shrink-0 w-4 h-4',
-        isActive && 'text-accent-primary'
+        (isActive || liveCue) && 'text-accent-primary',
       )}
     />
+  ) : (
+    <span
+      aria-hidden
+      data-testid="project-monogram"
+      className={cn(
+        'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-caption font-semibold leading-none',
+        isActive ? 'text-foreground' : 'bg-muted text-foreground',
+        liveCue && 'text-accent-primary',
+      )}
+      style={isActive ? { background: 'color-mix(in srgb, var(--color-accent-primary) 15%, transparent)' } as CSSProperties : undefined}
+    >
+      {projectMonogram(project.name)}
+    </span>
+  )
+  const collapsedBadge = !expanded && rollup.needsAttention && (
+    <span className={COLLAPSED_BADGE} data-testid="project-attention-badge">
+      <MissionAttentionMark kind={rollup.hasFailed ? 'failed' : 'decision'} />
+    </span>
   )
 
   return (
     <div>
       <div
-        role="button"
-        tabIndex={0}
-        onClick={onSelect}
-        onKeyDown={handleSelectKeyDown}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          // Opened from the keyboard (Menu key, Shift+F10) there is no pointer: anchor to the row.
+          if (e.clientX === 0 && e.clientY === 0) {
+            const rect = e.currentTarget.getBoundingClientRect()
+            setMenuAt({ x: rect.left + 8, y: rect.bottom })
+          } else setMenuAt({ x: e.clientX, y: e.clientY })
+        }}
         className={cn(
-          'group relative flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-          expanded ? 'px-2' : 'px-0 justify-center',
+          'group relative flex items-center gap-1 w-full h-8 rounded-md transition-colors duration-150',
+          expanded ? 'pr-2' : 'justify-center',
           isActive
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
         )}
-        title={!expanded ? project.name : undefined}
-        aria-current={isActive ? 'page' : undefined}
       >
-        {showChevron ? (
-          <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
-            <span className="flex transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
+        {isActive && <NavRailIndicator />}
+        <button
+          type="button"
+          onClick={onSelect}
+          ref={rowButtonRef}
+          // The Mac keyboard's delete key reports Backspace; there is no forward Delete.
+          onKeyDown={(e) => { if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); requestRemove() } }}
+          aria-keyshortcuts={isMacKeyboard() ? 'Backspace' : 'Delete'}
+          className={cn(
+            'flex-1 min-w-0 flex items-center gap-2 h-full rounded-md text-left',
+            expanded ? 'pl-2' : 'justify-center',
+            ROW_FOCUS,
+          )}
+          title={!expanded ? project.name : undefined}
+          aria-label={!expanded ? project.name : undefined}
+          aria-current={isActive ? 'page' : undefined}
+          data-project-row={project.id}
+        >
+          <span className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
+            <span className={cn('flex', showChevron && 'transition-opacity group-hover:opacity-0 group-focus-within:opacity-0')}>
               {projectIcon}
             </span>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onToggleTree?.() }}
-              className="absolute inset-0 hidden items-center justify-center rounded-sm hover:bg-muted group-hover:flex group-focus-within:flex"
-              aria-label={treeOpen ? t('projects.collapse', { name: project.name }) : t('projects.expand', { name: project.name })}
-              aria-expanded={treeOpen}
-            >
-              {treeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            </button>
+            {collapsedBadge}
           </span>
-        ) : (
-          projectIcon
+          {expanded && (
+            <>
+              <span className="text-xs truncate min-w-0 text-left">{project.name}</span>
+              {!treeVisible && <RollupMarks rollup={rollup} />}
+              <span className="flex-1" aria-hidden />
+            </>
+          )}
+        </button>
+        {showChevron && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleTree?.() }}
+            className={cn(
+              'absolute left-1.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-sm hover:bg-muted',
+              'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100',
+              ROW_FOCUS,
+            )}
+            aria-label={treeOpen ? t('projects.collapse', { name: project.name }) : t('projects.expand', { name: project.name })}
+            aria-expanded={treeOpen}
+          >
+            {treeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </button>
+        )}
+        {assembleStatus === 'assembling' && (
+          <span
+            role="status"
+            className={cn(
+              'flex-shrink-0 h-1.5 w-1.5 rounded-full bg-accent-info motion-safe:animate-pulse',
+              !expanded && 'absolute bottom-1 right-1',
+            )}
+            title={t('projects.assembling')}
+            data-testid="assemble-indicator"
+          >
+            <span className="sr-only">{t('projects.assembling')}</span>
+          </span>
+        )}
+        {assembleStatus === 'failed' && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRetryAssemble?.() }}
+            className={cn(
+              'flex flex-shrink-0 items-center justify-center gap-1 rounded text-accent-warning bg-accent-warning/10 hover:bg-accent-warning/20 transition-colors',
+              ROW_FOCUS,
+              expanded ? 'h-5 px-1.5 text-caption font-medium' : 'absolute -bottom-0.5 right-0 h-4 w-4',
+            )}
+            title={t('projects.assembleFailed')}
+            data-testid="assemble-retry"
+            aria-label={t('projects.assembleFailed')}
+          >
+            <RotateCw className="h-3 w-3" aria-hidden />
+            {expanded && <span>{t('projects.retrySetup')}</span>}
+          </button>
         )}
         {expanded && (
           <>
-            <span className="text-xs truncate flex-1 text-left">{project.name}</span>
-            {assembleStatus === 'assembling' && (
-              <span
-                className="flex-shrink-0 h-1.5 w-1.5 rounded-full bg-accent-info animate-pulse"
-                title={t('projects.assembling')}
-                data-testid="assemble-indicator"
-                aria-label={t('projects.assembling')}
-              />
-            )}
-            {assembleStatus === 'failed' && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onRetryAssemble?.() }}
-                className="flex-shrink-0 h-2 w-2 rounded-full bg-accent-warning hover:ring-2 hover:ring-accent-warning/40 transition-shadow"
-                title={t('projects.assembleFailed')}
-                data-testid="assemble-retry"
-                aria-label={t('projects.assembleFailed')}
-              />
-            )}
             {onOpenProjectSettings && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onOpenProjectSettings() }}
                 className={cn(
-                  'flex-shrink-0 flex items-center justify-center rounded-sm transition-all w-3.5 h-3.5',
-                  'opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-muted',
+                  'flex-shrink-0 flex items-center justify-center rounded-sm transition-all w-5 h-5',
+                  'opacity-0 group-hover:opacity-50 group-focus-within:opacity-60 focus-visible:!opacity-100 hover:!opacity-100 hover:bg-muted',
+                  ROW_FOCUS,
                 )}
                 aria-label={t('projects.settings', { name: project.name })}
                 title={t('projects.settings', { name: project.name })}
               >
-                <Settings className="w-2.5 h-2.5" />
+                <Settings className="w-3 h-3" />
               </button>
             )}
             <button
               type="button"
+              tabIndex={-1}
               onClick={handleRemoveClick}
               className={cn(
                 'flex-shrink-0 flex items-center justify-center rounded-sm transition-all',
-                'opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-muted',
+                ROW_FOCUS,
                 confirming
-                  ? 'opacity-100 px-1 h-4 text-[10px] text-destructive bg-destructive/10 hover:bg-destructive/20'
-                  : 'w-3.5 h-3.5'
+                  ? 'opacity-100 px-1.5 h-5 text-caption font-medium text-destructive bg-destructive/10 hover:bg-destructive/20'
+                  : 'w-5 h-5 opacity-0 group-hover:opacity-50 group-focus-within:opacity-60 focus-visible:!opacity-100 hover:!opacity-100 hover:bg-muted'
               )}
               aria-label={confirming ? t('projects.confirmRemove', { name: project.name }) : t('projects.remove', { name: project.name })}
             >
-              {confirming ? t('projects.confirmShort') : <X className="w-2.5 h-2.5" />}
+              {confirming ? t('projects.confirmShort') : <X className="w-3 h-3" />}
             </button>
           </>
         )}
       </div>
+      {menuAt && createPortal(
+        <div
+          role="menu"
+          aria-label={project.name}
+          data-testid="project-row-menu"
+          style={{ position: 'fixed', left: menuAt.x, top: menuAt.y }}
+          className="z-[80] min-w-40 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-3"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            ref={menuItemRef}
+            type="button"
+            role="menuitem"
+            onClick={() => { setMenuAt(null); rowButtonRef.current?.focus(); requestRemove() }}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none"
+          >
+            <X className="h-3 w-3" aria-hidden />
+            {t('projects.remove', { name: project.name })}
+          </button>
+        </div>,
+        document.body,
+      )}
       {agentMode && treeOpen && expanded && conversations.length > 0 && (
         <div className="mt-0.5 space-y-0.5">
           {conversations.map((c) => (
@@ -418,6 +677,62 @@ function ProjectItem({
         </div>
       )}
     </div>
+  )
+}
+
+/** Header row of a virtual conversation group (Favorites, Home). The icon
+ *  swaps for a disclosure chevron on hover/focus in the expanded rail. */
+function GroupHeader({
+  icon,
+  label,
+  open,
+  expanded,
+  rollup,
+  onClick,
+}: {
+  icon: (cls: string) => React.ReactNode
+  label: string
+  open: boolean
+  expanded: boolean
+  rollup: MissionRollup
+  onClick: () => void
+}) {
+  const treeVisible = open && expanded
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'group flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+        'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+        expanded ? 'px-2' : 'px-0 justify-center',
+        ROW_FOCUS,
+      )}
+      aria-label={label}
+      aria-expanded={open}
+      title={!expanded ? label : undefined}
+    >
+      <span className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
+        {expanded
+          ? (
+              <>
+                {icon(cn('h-4 w-4 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0', rollup.isLive && !treeVisible && 'text-accent-primary'))}
+                <span className="absolute inset-0 hidden items-center justify-center group-hover:flex group-focus-visible:flex">
+                  {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                </span>
+              </>
+            )
+          : icon(cn('w-4 h-4 flex-shrink-0', rollup.isLive && 'text-accent-primary'))}
+        {!expanded && rollup.needsAttention && (
+          <span className={COLLAPSED_BADGE}>
+            <MissionAttentionMark kind={rollup.hasFailed ? 'failed' : 'decision'} />
+          </span>
+        )}
+      </span>
+      {expanded && <span className="text-xs truncate min-w-0 text-left">{label}</span>}
+      {!treeVisible && <RollupMarks rollup={expanded ? rollup : { ...rollup, needsAttention: false, unreadCount: 0 }} />}
+      {expanded && <span className="flex-1" aria-hidden />}
+    </button>
   )
 }
 
@@ -444,15 +759,18 @@ export function ArcSidebar({
   const location = useLocation()
   const onLoopsRoute = location.pathname.startsWith('/loops')
   const onPluginsRoute = location.pathname.startsWith('/plugins')
-  const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs')
-  const { leftMode, cycleLeftMode } = useSidebarPin()
-  const { uiMode, toggleUiMode } = useUiMode()
+  // Project settings are a ROUTE in both modes; in Mission mode it takes over the centre like Docs.
+  const onSettingsRoute = location.pathname.startsWith('/settings')
+  const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs') || onSettingsRoute
+  const { leftMode, effectiveLeftMode, cycleLeftMode, setLeftMode } = useSidebarPin()
+  const { uiMode, requestedMode, toggleUiMode } = useUiMode()
   const agentChat = useAgentChat()
   // A mission is live while a turn streams or its agents work in the background.
   const { backgroundConversationIds } = useMissionSessions()
+  const streamingConversationIds = useStreamingConversationIds()
   const liveConversationIds = useMemo(
-    () => backgroundConversationIds.size === 0 ? agentChat.streamingConversationIds : new Set([...agentChat.streamingConversationIds, ...backgroundConversationIds]),
-    [agentChat.streamingConversationIds, backgroundConversationIds],
+    () => backgroundConversationIds.size === 0 ? streamingConversationIds : new Set([...streamingConversationIds, ...backgroundConversationIds]),
+    [streamingConversationIds, backgroundConversationIds],
   )
   const agentMode = uiMode === 'agent'
 
@@ -477,12 +795,29 @@ export function ArcSidebar({
     [agentChat.conversations, agentChat.favoriteConversationIds],
   )
   const homeConversations = grouped.get(HOME_KEY) ?? []
+  const rollupSets = {
+    attention: agentChat.attentionConversationIds,
+    attentionKinds: agentChat.attentionKinds,
+    live: liveConversationIds,
+    unread: agentChat.unreadConversationIds,
+  }
+  const favoritesRollup = rollupMissions(favoriteConversations, rollupSets)
+  const homeRollup = rollupMissions(homeConversations, rollupSets)
 
   const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
   const favoriteTreeOpen = expandedTree.has(FAVORITES_KEY)
-  // Per-project settings modal (Agent Mode hover gear on a project folder).
-  const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
-  const [settingsExpanded, setSettingsExpanded] = useState(false)
+  // Project settings (hover gear on a project folder, ⌘K "Open project settings ▸ …") are the /settings route.
+  const openProjectSettingsRoute = useCallback((settingId?: string) => {
+    navigate(settingId ? `/settings?setting=${encodeURIComponent(settingId)}` : '/settings')
+  }, [navigate])
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const detail = (event as CustomEvent<OpenProjectSettingsDetail>).detail
+      openProjectSettingsRoute(detail?.settingId)
+    }
+    window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
+  }, [openProjectSettingsRoute])
   // Default-expand the active project the first time we enter Agent Mode.
   useEffect(() => {
     if (!agentMode || !activeProjectId) return
@@ -505,18 +840,22 @@ export function ArcSidebar({
       return next
     })
   }
-
-  const splitViews = useMissionSplitViews()
-  const handleSelectConversation = (id: string) => {
-    if (!splitViews.focusExisting(id)) { splitViews.showPrimary(); void agentChat.selectConversation(id) }
-    // A global route (/loops, /docs) occupies the center in Agent Mode — leave
-    // it so the selected thread is actually visible on the agent surface.
-    if (onGlobalRoute) navigate('/')
+  const openTree = (key: string) => {
+    setExpandedTree((prev) => {
+      if (prev.has(key)) return prev
+      const next = new Set(prev)
+      next.add(key)
+      saveExpanded(next)
+      return next
+    })
   }
+
+  // Also leaves a global route (/loops, /docs, /settings) so the thread is visible on the agent surface.
+  const handleSelectConversation = useOpenMission()
 
   const handleDeleteConversation = (id: string) => {
     agentChat.deleteConversation(id).catch(() => {
-      /* network failure — the list refresh on next open reconciles */
+      notifyError(tAgent('deleteFailed'))
     })
   }
 
@@ -536,6 +875,14 @@ export function ArcSidebar({
     // never navigates routes (the center is the agent surface, not a route).
     if (agentMode) {
       setActiveProjectId(projectId)
+      if (!expanded) {
+        // Collapsed rail (including a pinned sidebar auto-collapsed in a narrow
+        // window): reveal the project's mission list instead of toggling a tree
+        // nobody can see.
+        hover.setHovered(true)
+        openTree(projectId)
+        return
+      }
       toggleTree(projectId)
       return
     }
@@ -551,22 +898,58 @@ export function ArcSidebar({
     // which navigates to that project's last surface (off any global route).
     setActiveProjectId(projectId)
   }
-  const [hovered, setHovered] = useState(false)
-  const expanded = leftMode === 'pinned-open' || (leftMode === 'unpinned' && hovered)
-  // Drag-resizable width (persisted), applied imperatively through the panel ref
-  // — 240px (w-60) expanded, 44px (w-11) collapsed rail. The mouseleave guard
-  // below keeps `hovered` true during a drag so an unpinned rail can't collapse
-  // out from under the resize.
+
+  // `effectiveLeftMode` is the rendered mode: a pinned-open sidebar behaves as
+  // unpinned in a narrow window. `leftMode` stays the user's (persisted) choice.
+  const unpinned = effectiveLeftMode === 'unpinned'
+  const docked = effectiveLeftMode === 'pinned-open'
+  // Drag-resizable width (persisted), applied imperatively through the panel
+  // ref — 300px expanded, 44px (w-11) collapsed rail.
+  const [dragging, setDragging] = useState(false)
+  const hover = useSidebarHoverIntent({ enabled: unpinned, dragging })
+  const expanded = docked || (unpinned && hover.hovered)
+  // The in-flow wrapper only reserves the expanded width when pinned open; a
+  // hover-expanded unpinned panel overlays the content instead of reflowing it.
+  // The hover-intent hook keeps the panel open during a drag.
   const resize = useResizableSidebar('left-arc', {
-    side: 'left', defaultWidth: 300, min: 200, max: 460, collapsedWidth: 44, expanded,
+    side: 'left', defaultWidth: 300, min: 200, max: 460, collapsedWidth: 44, expanded, docked,
   })
+  useEffect(() => { setDragging(resize.dragging) }, [resize.dragging])
+  // Esc closes the hover/flyout overlay of a collapsed or unpinned sidebar and
+  // returns focus to the active project's row (focus first: the focus handler
+  // re-opens the overlay, the explicit close right after wins).
+  const closeFlyout = hover.setHovered
+  const overlayOpen = unpinned && hover.hovered
+  useEffect(() => {
+    if (!overlayOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const row = activeProjectId
+        ? document.querySelector<HTMLElement>(`[data-project-row="${CSS.escape(activeProjectId)}"]`)
+        : null
+      row?.focus()
+      closeFlyout(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [overlayOpen, activeProjectId, closeFlyout])
+  const overlaying = expanded && !docked
   const lit = leftMode !== 'unpinned'
   const pinLabel = t(LEFT_PIN_LABEL_KEY[leftMode])
 
+  /** Collapsed rail: a group header opens the sidebar (pinned) on that group. */
+  const expandOnGroup = (key: string) => {
+    if (expanded) { toggleTree(key); return }
+    setLeftMode('pinned-open')
+    // A narrow window renders pinned-open as an overlay: open it now as well.
+    hover.setHovered(true)
+    openTree(key)
+  }
+
   const navItems = [
-    ...(onOpenCompanion ? [{ label: t('arcSidebar.companion'), icon: Smartphone, action: onOpenCompanion }] : []),
-    { label: t('arcSidebar.analytics'), icon: BarChart2, action: onOpenAnalytics },
+    { label: t('arcSidebar.analytics'), icon: BarChart3, action: onOpenAnalytics },
     { label: t('arcSidebar.docs'), icon: BookOpen, action: onOpenDocs },
+    ...(onOpenCompanion ? [{ label: t('arcSidebar.companion'), icon: Smartphone, action: onOpenCompanion }] : []),
   ]
 
   async function handleRemove(project: DesktopProject) {
@@ -577,17 +960,44 @@ export function ArcSidebar({
     }
   }
 
+  function handleModeRadioKeyDown(e: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
+    e.preventDefault()
+    // Two radios: any arrow lands on the OTHER one. Focus it directly instead of
+    // waiting for the transition to repaint aria-checked (the focus would stay on
+    // the old radio and the next arrow would flip back).
+    toggleUiMode()
+    const other = e.currentTarget.parentElement?.querySelector<HTMLElement>('[role="radio"]:not([data-mode="' + e.currentTarget.dataset.mode + '"])')
+    other?.focus()
+  }
+
+  const rowClass = (activeRow: boolean) => cn(
+    'relative flex items-center gap-2 w-full h-8 rounded-md transition-colors duration-150',
+    expanded ? 'px-2' : 'px-0 justify-center',
+    activeRow
+      ? 'bg-muted text-foreground'
+      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+    ROW_FOCUS,
+  )
+
   return (
+    <aside
+      ref={resize.wrapperRef}
+      aria-label={t('arcSidebar.landmark')}
+      className="relative h-full flex-shrink-0 transition-[width] duration-200 ease-in-out"
+      {...hover.handlers}
+    >
     <div
       ref={resize.panelRef}
+      data-testid="arc-sidebar-panel"
+      data-overlay={overlaying || undefined}
       className={cn(
-        'relative flex flex-col h-full border-r border-border bg-background flex-shrink-0 overflow-hidden',
+        'absolute inset-y-0 left-0 z-30 flex flex-col border-r border-border bg-background overflow-hidden',
         // Width is set imperatively by useResizableSidebar (px). The transition
         // animates collapse/expand + keyboard nudges; a drag turns it off itself.
-        'transition-[width] duration-200 ease-in-out',
+        'transition-[width,box-shadow] duration-200 ease-in-out',
+        overlaying && 'shadow-xl',
       )}
-      onMouseEnter={() => { if (leftMode === 'unpinned') setHovered(true) }}
-      onMouseLeave={() => { if (leftMode === 'unpinned' && !resize.dragging) setHovered(false) }}
     >
       {expanded && (
         <SidebarResizeGrip
@@ -596,12 +1006,12 @@ export function ArcSidebar({
           width={resize.width}
           min={200}
           max={460}
-          label={t('arcSidebar.resize', { defaultValue: 'Resize sidebar' })}
+          label={t('arcSidebar.resize')}
           onPointerDown={resize.onGripPointerDown}
           onKeyDown={resize.onGripKeyDown}
         />
       )}
-      {/* Header */}
+      {/* Header (browser only — the desktop title bar carries the pin button) */}
       {!isTauri() && <div
         className={cn(
           'flex items-center h-12 border-b border-border flex-shrink-0',
@@ -609,27 +1019,29 @@ export function ArcSidebar({
         )}
       >
         {expanded && (
-          <span className="font-mono text-sm font-bold whitespace-nowrap overflow-hidden text-accent-primary">
+          <span className="text-xs font-medium whitespace-nowrap overflow-hidden text-muted-foreground">
             {t('arcSidebar.desktopTitle')}
           </span>
         )}
-        {!isTauri() && <button
+        <button
           type="button"
           onClick={cycleLeftMode}
           className={cn(
             'flex items-center justify-center w-7 h-7 rounded-md transition-colors flex-shrink-0',
             lit
               ? 'text-foreground bg-muted'
-              : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50'
+              : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/50',
+            ROW_FOCUS,
           )}
           aria-label={pinLabel}
-          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌥⌘B') })}
+          aria-pressed={lit}
+          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌘B') })}
         >
           <PanelLeft className="w-4 h-4" />
-        </button>}
+        </button>
       </div>}
 
-      {/* Agent Mode cluster — Switch (both modes), New agent + Search (agent) */}
+      {/* Agent Mode cluster — mode switch (both modes), New agent + Search (agent) */}
       {FEATURE_AGENT_MODE && (
         <div className="py-2 px-1.5 space-y-0.5 border-b border-border">
           {agentMode && (
@@ -644,6 +1056,7 @@ export function ArcSidebar({
                 'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
                 'bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25',
                 expanded ? 'px-2' : 'px-0 justify-center',
+                ROW_FOCUS,
               )}
               aria-label={tAgent('newAgent')}
               title={!expanded ? tAgent('newAgent') : undefined}
@@ -652,35 +1065,61 @@ export function ArcSidebar({
               {expanded && <span className="text-xs whitespace-nowrap">{tAgent('newAgent')}</span>}
             </button>
           )}
-          <button
-            type="button"
-            onClick={toggleUiMode}
-            className={cn(
-              'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-              'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-              expanded ? 'px-2' : 'px-0 justify-center',
-            )}
-            aria-label={agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')}
-            title={agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')}
-          >
-            {agentMode
-              ? <LayoutGrid className="w-4 h-4 flex-shrink-0" />
-              : <Bot className="w-4 h-4 flex-shrink-0 text-accent-primary" />}
-            {expanded && (
-              <span className="min-w-0 truncate text-xs">
-                {agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')}
-              </span>
-            )}
-          </button>
+          {expanded ? (
+            <div
+              role="radiogroup"
+              aria-label={tAgent('modeSwitch.label')}
+              className="grid grid-cols-2 gap-0.5 rounded-md border border-border p-0.5"
+              data-testid="ui-mode-switch"
+            >
+              {([
+                { mode: 'agent', label: tAgent('modeSwitch.mission'), Icon: Bot },
+                { mode: 'kanban', label: tAgent('modeSwitch.board'), Icon: LayoutGrid },
+              ] as const).map(({ mode, label, Icon }) => {
+                const checked = (requestedMode ?? uiMode) === mode
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="radio"
+                    data-mode={mode}
+                    aria-checked={checked}
+                    tabIndex={checked ? 0 : -1}
+                    onClick={() => { if (!checked) toggleUiMode() }}
+                    onKeyDown={handleModeRadioKeyDown}
+                    className={cn(
+                      'flex h-7 min-w-0 items-center justify-center gap-1.5 rounded px-2 text-xs transition-colors',
+                      checked
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                      ROW_FOCUS,
+                    )}
+                  >
+                    <Icon className={cn('w-3.5 h-3.5 flex-shrink-0', checked && 'text-accent-primary')} aria-hidden />
+                    <span className="truncate">{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={toggleUiMode}
+              className={rowClass(false)}
+              aria-label={tAgent('modeSwitch.current', { mode: agentMode ? tAgent('modeSwitch.mission') : tAgent('modeSwitch.board') })}
+              title={tAgent('modeSwitch.current', { mode: agentMode ? tAgent('modeSwitch.mission') : tAgent('modeSwitch.board') })}
+              data-testid="ui-mode-switch"
+            >
+              {agentMode
+                ? <Bot className="w-4 h-4 flex-shrink-0 text-accent-primary" />
+                : <LayoutGrid className="w-4 h-4 flex-shrink-0 text-accent-primary" />}
+            </button>
+          )}
           {agentMode && (
             <button
               type="button"
               onClick={openCommandPalette}
-              className={cn(
-                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-                'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                expanded ? 'px-2' : 'px-0 justify-center',
-              )}
+              className={rowClass(false)}
               aria-label={tAgent('search')}
               title={!expanded ? tAgent('search') : undefined}
             >
@@ -691,77 +1130,52 @@ export function ArcSidebar({
         </div>
       )}
 
-      {/* Loops — global section, above the project list with a separator below */}
+      {/* Loops + Plugins — global tools, above the project list */}
       {FEATURE_LOOPS_SECTION && (
         <>
-          <div className="py-2 px-1.5">
+          <nav aria-label={t('arcSidebar.sectionTools')} className="py-2 px-1.5">
+            {expanded && <div className={SECTION_LABEL} aria-hidden>{t('arcSidebar.sectionTools')}</div>}
             <button
               type="button"
               onClick={onOpenLoops}
-              className={cn(
-                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-                expanded ? 'px-2' : 'px-0 justify-center',
-                onLoopsRoute
-                  ? 'bg-muted text-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
+              className={rowClass(onLoopsRoute)}
               aria-label={t('arcSidebar.loops')}
               aria-current={onLoopsRoute ? 'page' : undefined}
               title={!expanded ? t('arcSidebar.loops') : undefined}
             >
-          <Workflow className={cn('w-4 h-4 flex-shrink-0', onLoopsRoute && 'text-accent-primary')} />
-          {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.loops')}</span>}
-        </button>
-        <button
-          type="button"
-          onClick={onOpenPlugins}
-          className={cn(
-            'mt-0.5 flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-            expanded ? 'px-2' : 'px-0 justify-center',
-            onPluginsRoute
-              ? 'bg-muted text-foreground'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-          )}
-          aria-label={t('arcSidebar.plugins')}
-          aria-current={onPluginsRoute ? 'page' : undefined}
-          title={!expanded ? t('arcSidebar.plugins') : undefined}
-        >
-          <Puzzle className={cn('w-4 h-4 flex-shrink-0', onPluginsRoute && 'text-accent-primary')} />
-          {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.plugins')}</span>}
-        </button>
-      </div>
+              {onLoopsRoute && <NavRailIndicator />}
+              <Workflow className={cn('w-4 h-4 flex-shrink-0', onLoopsRoute && 'text-accent-primary')} />
+              {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.loops')}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={onOpenPlugins}
+              className={cn('mt-0.5', rowClass(onPluginsRoute))}
+              aria-label={t('arcSidebar.plugins')}
+              aria-current={onPluginsRoute ? 'page' : undefined}
+              title={!expanded ? t('arcSidebar.plugins') : undefined}
+            >
+              {onPluginsRoute && <NavRailIndicator />}
+              <Puzzle className={cn('w-4 h-4 flex-shrink-0', onPluginsRoute && 'text-accent-primary')} />
+              {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.plugins')}</span>}
+            </button>
+          </nav>
           <div className="border-t border-border" aria-hidden />
         </>
       )}
 
       {/* Projects list */}
-      <div className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
+      <nav aria-label={t('arcSidebar.sectionProjects')} className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
         {agentMode && favoriteConversations.length > 0 && (
           <div className="mb-2 space-y-0.5 border-b border-border/70 pb-2">
-            <button
-              type="button"
-              onClick={() => toggleTree(FAVORITES_KEY)}
-              className={cn(
-                'group flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-                'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                expanded ? 'px-2' : 'px-0 justify-center',
-              )}
-              aria-label={tAgent('favoriteMissions')}
-              aria-expanded={favoriteTreeOpen}
-              title={!expanded ? tAgent('favoriteMissions') : undefined}
-            >
-              {expanded
-                ? (
-                    <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
-                      <Heart className="h-4 w-4 fill-current text-accent-primary transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
-                      <span className="absolute inset-0 hidden items-center justify-center group-hover:flex group-focus-visible:flex">
-                        {favoriteTreeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                      </span>
-                    </span>
-                  )
-                : <Heart className="w-4 h-4 flex-shrink-0 fill-current text-accent-primary" />}
-              {expanded && <span className="text-xs truncate flex-1 text-left">{tAgent('favoriteMissions')}</span>}
-            </button>
+            <GroupHeader
+              icon={(cls) => <Heart aria-hidden className={cn(cls, 'fill-current text-accent-primary')} />}
+              label={tAgent('favoriteMissions')}
+              open={favoriteTreeOpen}
+              expanded={expanded}
+              rollup={favoritesRollup}
+              onClick={() => expandOnGroup(FAVORITES_KEY)}
+            />
             {favoriteTreeOpen && expanded && (
               <div className="mt-0.5 space-y-0.5">
                 {favoriteConversations.map((c) => (
@@ -782,33 +1196,18 @@ export function ArcSidebar({
             )}
           </div>
         )}
+        {expanded && <div className={SECTION_LABEL} aria-hidden>{t('arcSidebar.sectionProjects')}</div>}
         {/* Home group (agent mode) — conversations with no pinned project */}
         {agentMode && homeConversations.length > 0 && (
           <div>
-            <button
-              type="button"
-              onClick={() => toggleTree(HOME_KEY)}
-              className={cn(
-                'group flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-                'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                expanded ? 'px-2' : 'px-0 justify-center',
-              )}
-              aria-label={tAgent('home')}
-              aria-expanded={expandedTree.has(HOME_KEY)}
-              title={!expanded ? tAgent('home') : undefined}
-            >
-              {expanded
-                ? (
-                    <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
-                      <Home className="h-4 w-4 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
-                      <span className="absolute inset-0 hidden items-center justify-center group-hover:flex group-focus-visible:flex">
-                        {expandedTree.has(HOME_KEY) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                      </span>
-                    </span>
-                  )
-                : <Home className="w-4 h-4 flex-shrink-0" />}
-              {expanded && <span className="text-xs truncate flex-1 text-left">{tAgent('home')}</span>}
-            </button>
+            <GroupHeader
+              icon={(cls) => <Home aria-hidden className={cls} />}
+              label={tAgent('home')}
+              open={expandedTree.has(HOME_KEY)}
+              expanded={expanded}
+              rollup={homeRollup}
+              onClick={() => expandOnGroup(HOME_KEY)}
+            />
             {expandedTree.has(HOME_KEY) && expanded && (
               <div className="mt-0.5 space-y-0.5">
                 {homeConversations.map((c) => (
@@ -846,6 +1245,8 @@ export function ArcSidebar({
               activeConversationId={agentChat.active?.id ?? null}
               streamingConversationIds={liveConversationIds}
               unreadConversationIds={agentChat.unreadConversationIds}
+              attentionConversationIds={agentChat.attentionConversationIds}
+              attentionKinds={agentChat.attentionKinds}
               onSelectConversation={handleSelectConversation}
               onToggleConversationFavorite={handleToggleFavoriteConversation}
               onDeleteConversation={handleDeleteConversation}
@@ -856,7 +1257,7 @@ export function ArcSidebar({
                 // opening a project's settings selects it first (same semantics
                 // as clicking the folder).
                 setActiveProjectId(project.id)
-                setProjectSettingsOpen(true)
+                openProjectSettingsRoute()
               } : undefined}
             />
           )
@@ -866,78 +1267,43 @@ export function ArcSidebar({
         <button
           type="button"
           onClick={onAddProject}
-          className={cn(
-            'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-            'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-            expanded ? 'px-2' : 'px-0 justify-center'
-          )}
+          className={rowClass(false)}
           aria-label={t('projects.addProject')}
           title={!expanded ? t('projects.addProject') : undefined}
         >
           <Plus className="w-4 h-4 flex-shrink-0" />
           {expanded && <span className="text-xs whitespace-nowrap">{t('projects.addProject')}</span>}
         </button>
+      </nav>
+
+      {/* App-level tools + settings */}
+      <div className="border-t border-border py-2 px-1.5 space-y-0.5">
+        {navItems.map(({ label, icon: Icon, action }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={action}
+            className={rowClass(false)}
+            aria-label={label}
+            title={!expanded ? label : undefined}
+          >
+            <Icon className="w-4 h-4 flex-shrink-0" />
+            {expanded && <span className="text-xs truncate">{label}</span>}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={rowClass(false)}
+          aria-label={t('arcSidebar.settings')}
+          title={!expanded ? t('arcSidebar.settings') : undefined}
+        >
+          <Settings className="w-4 h-4 flex-shrink-0" />
+          {expanded && <span className="text-xs truncate">{t('arcSidebar.settings')}</span>}
+        </button>
       </div>
 
-
-      {/* Desktop tools disclosure */}
-      <div className="border-t border-border py-2 px-1.5">
-        <div className="flex items-center rounded-md text-muted-foreground">
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            aria-label={t('arcSidebar.settings')}
-            title={t('arcSidebar.settings')}
-            className={cn(
-              'flex items-center gap-2 flex-1 min-w-0 h-8 rounded-md hover:text-foreground hover:bg-muted/50 focus-visible:outline focus-visible:outline-ring',
-              expanded ? 'px-2' : 'justify-center',
-            )}
-          >
-            <Settings className="w-4 h-4 flex-shrink-0" />
-            {expanded && <span className="text-left text-xs">{t('arcSidebar.settings')}</span>}
-          </button>
-          <button
-            type="button"
-            onClick={() => setSettingsExpanded((open) => !open)}
-            aria-label={t(settingsExpanded ? 'common:actions.collapse' : 'common:actions.expand')}
-            aria-expanded={settingsExpanded}
-            aria-controls="sidebar-desktop-tools"
-            title={t(settingsExpanded ? 'common:actions.collapse' : 'common:actions.expand')}
-            className={cn(
-              'flex items-center justify-center h-8 shrink-0 rounded-md hover:text-foreground hover:bg-muted/50 focus-visible:outline focus-visible:outline-ring',
-              expanded ? 'w-8' : 'w-3.5',
-            )}
-          >
-            <ChevronRight className={cn('w-3 h-3 transition-transform', settingsExpanded && 'rotate-90')} />
-          </button>
-        </div>
-        {settingsExpanded && (
-          <div id="sidebar-desktop-tools" role="group" aria-label={t('arcSidebar.settings')} className="flex flex-col gap-0.5 mt-1">
-            {navItems.map(({ label, icon: Icon, action }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={action}
-                className={cn(
-                  'flex items-center gap-2 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 focus-visible:outline focus-visible:outline-ring',
-                  expanded ? 'pl-5 pr-2' : 'w-8 justify-center self-center',
-                )}
-                aria-label={label}
-                title={label}
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                {expanded && <span className="text-xs">{label}</span>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {projectSettingsOpen && (
-        <Suspense fallback={null}>
-          <ProjectSettingsDialog open onClose={() => setProjectSettingsOpen(false)} />
-        </Suspense>
-      )}
     </div>
+    </aside>
   )
 }

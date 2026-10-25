@@ -1,6 +1,12 @@
 import { randomUUID } from 'crypto'
 import type { DbInstance } from '../../../db'
 import { normalizeLevel, type AgentTierLevel } from '../../missions/runtime/agent-tier'
+import {
+  FALLBACK_SCAN_ROWS, MARK_END, MARK_START, TRIGRAM_MIN_CHARS,
+  foldSearchText, ftsPhrase, parseMarkedSnippet, windowMarked, type SearchSnippet,
+} from '../../../util/search-snippet'
+
+export { foldSearchText }
 
 // ─── App-global agent chat persistence (design D2) ────────────────────────────
 //
@@ -20,6 +26,8 @@ export interface AgentConversation {
   /** Reasoning effort for spawns (null = default "medium"). Validated against
    *  the provider's `capabilities.reasoningEfforts` at the router. */
   reasoning_effort: string | null
+  /** Soft-delete stamp ("Recently deleted"); null = live. */
+  deleted_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -52,7 +60,8 @@ export interface AgentMessage {
  * `proposalIndex` (0-based order of ```rail-launch blocks in the message) was
  * launched (→ runIds / railIndex / the FINAL edited config) or dismissed.
  * `flow-offer`: the Flow-or-Implement offer was accepted (`chosenMode`) or
- * dismissed, with the agent's `recommendedMode`. `flow-hand-off`: the Flow of
+ * dismissed (`recommendedMode` only on legacy decisions: Flow and Implement no
+ * longer compete, so the card never records one). `flow-hand-off`: the Flow of
  * that offer was handed to a rail (the launch card's decision). Decisions are
  * unique per (kind, proposalIndex).
  */
@@ -198,6 +207,7 @@ interface AgentConversationRaw {
   pinned_project_id: string | null
   tier_level: number
   reasoning_effort: string | null
+  deleted_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -235,7 +245,7 @@ export function getAgentConversation(db: DbInstance, id: string): AgentConversat
 export function listAgentConversations(db: DbInstance, limit = 100): AgentConversation[] {
   return (
     db
-      .prepare('SELECT * FROM agent_conversations ORDER BY updated_at DESC LIMIT ?')
+      .prepare('SELECT * FROM agent_conversations WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?')
       .all(limit) as AgentConversationRaw[]
   ).map((r) => mapConversation(r)!)
 }
@@ -267,8 +277,40 @@ export function updateAgentConversation(
   return getAgentConversation(db, id)
 }
 
+/** Hard delete: the permanent step (purge / "Delete permanently"). Prefer {@link softDeleteAgentConversation}. */
 export function deleteAgentConversation(db: DbInstance, id: string): void {
   db.prepare('DELETE FROM agent_conversations WHERE id = ?').run(id)
+}
+
+/** 30 days: how long a deleted mission stays restorable. */
+export const AGENT_TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+
+/** Hide a mission and start its restore window. Idempotent: a repeat keeps the first stamp. */
+export function softDeleteAgentConversation(db: DbInstance, id: string, now: Date = new Date()): boolean {
+  const result = db
+    .prepare('UPDATE agent_conversations SET deleted_at = COALESCE(deleted_at, ?) WHERE id = ?')
+    .run(now.toISOString(), id)
+  return result.changes > 0
+}
+
+/** Undo a soft delete. Idempotent; returns the live row, or undefined when it no longer exists. */
+export function restoreAgentConversation(db: DbInstance, id: string): AgentConversation | undefined {
+  db.prepare('UPDATE agent_conversations SET deleted_at = NULL WHERE id = ?').run(id)
+  return getAgentConversation(db, id)
+}
+
+/** Soft-deleted missions (newest deletion first), optionally of one pinned project. */
+export function listDeletedAgentConversations(db: DbInstance, pinnedProjectId?: string): AgentConversation[] {
+  const rows = pinnedProjectId === undefined
+    ? db.prepare('SELECT * FROM agent_conversations WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC').all()
+    : db.prepare('SELECT * FROM agent_conversations WHERE deleted_at IS NOT NULL AND pinned_project_id = ? ORDER BY deleted_at DESC').all(pinnedProjectId)
+  return (rows as AgentConversationRaw[]).map((r) => mapConversation(r)!)
+}
+
+/** Ids of missions deleted longer ago than the retention window. */
+export function listExpiredAgentConversationIds(db: DbInstance, now: Date = new Date(), retentionMs: number = AGENT_TRASH_RETENTION_MS): string[] {
+  const cutoff = new Date(now.getTime() - retentionMs).toISOString()
+  return (db.prepare('SELECT id FROM agent_conversations WHERE deleted_at IS NOT NULL AND deleted_at <= ?').all(cutoff) as Array<{ id: string }>).map((r) => r.id)
 }
 
 export function addAgentMessage(
@@ -355,10 +397,7 @@ export function updateAgentMessageContent(db: DbInstance, messageId: string, con
 // ─── Mission search (search-missions-in-palette) ──────────────────────────────
 
 /** A highlighted excerpt: plain text plus `[start, end)` ranges to mark. */
-export interface MissionSearchSnippet {
-  text: string
-  ranges: Array<[number, number]>
-}
+export type MissionSearchSnippet = SearchSnippet
 
 export interface MissionSearchHit {
   conversation: AgentConversation
@@ -372,65 +411,6 @@ export interface MissionSearchHit {
 
 export const MISSION_SEARCH_DEFAULT_LIMIT = 20
 export const MISSION_SEARCH_MAX_LIMIT = 50
-/** The trigram tokenizer matches nothing below three characters; shorter
- *  queries take the bounded substring scan instead. */
-const TRIGRAM_MIN_CHARS = 3
-/** Rows the substring fallback inspects at most (newest first). */
-const FALLBACK_SCAN_ROWS = 400
-/** Characters kept on each side of the first match in a snippet window. */
-const FALLBACK_CONTEXT = 60
-const MARK_START = '\u0001'
-const MARK_END = '\u0002'
-
-/** Lowercase + strip combining diacritics, mirroring the index tokenizer so a
- *  title compare and a content compare agree on what "matches". */
-export function foldSearchText(value: string): string {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-}
-
-/** Quote a raw user query as one FTS5 phrase so operators/punctuation in it
- *  never become syntax; a trigram phrase is a plain substring match. */
-function ftsPhrase(query: string): string {
-  return `"${query.replace(/"/g, '""')}"`
-}
-
-/**
- * Cut a marked full-content string (`highlight()` output, or the substring
- * fallback's own marking) down to a window of ~${FALLBACK_CONTEXT} characters on
- * each side of the FIRST match, with ellipses where text was dropped and
- * whitespace collapsed. Markers outside the window are simply cut away;
- * `parseMarkedSnippet` tolerates a dangling one.
- */
-function windowMarked(marked: string): string {
-  const at = marked.indexOf(MARK_START)
-  if (at < 0) return marked.slice(0, FALLBACK_CONTEXT * 2).replace(/\s+/g, ' ')
-  const close = marked.indexOf(MARK_END, at)
-  const matchEnd = close < 0 ? marked.length : close + 1
-  const start = Math.max(0, at - FALLBACK_CONTEXT)
-  const end = Math.min(marked.length, matchEnd + FALLBACK_CONTEXT)
-  const prefix = start > 0 ? '…' : ''
-  const suffix = end < marked.length ? '…' : ''
-  return prefix + marked.slice(start, end).replace(/\s+/g, ' ') + suffix
-}
-
-/** Turn a marked window into plain text + `[start, end)` highlight ranges. */
-function parseMarkedSnippet(marked: string): MissionSearchSnippet {
-  let text = ''
-  const ranges: Array<[number, number]> = []
-  let open = -1
-  for (const ch of marked) {
-    if (ch === MARK_START) {
-      open = text.length
-    } else if (ch === MARK_END) {
-      if (open >= 0 && text.length > open) ranges.push([open, text.length])
-      open = -1
-    } else {
-      text += ch
-    }
-  }
-  return { text, ranges }
-}
-
 interface ContentHitRow {
   conversation_id: string
   message_id: string
@@ -500,7 +480,7 @@ export function searchAgentConversations(db: DbInstance, rawQuery: string, limit
   const cap = Math.max(1, Math.min(MISSION_SEARCH_MAX_LIMIT, Math.floor(limit)))
 
   const conversations = (
-    db.prepare('SELECT * FROM agent_conversations ORDER BY updated_at DESC').all() as AgentConversationRaw[]
+    db.prepare('SELECT * FROM agent_conversations WHERE deleted_at IS NULL ORDER BY updated_at DESC').all() as AgentConversationRaw[]
   ).map((r) => mapConversation(r)!)
   const byId = new Map(conversations.map((c) => [c.id, c]))
 

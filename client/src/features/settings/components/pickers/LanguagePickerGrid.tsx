@@ -1,9 +1,9 @@
 import { Check } from 'lucide-react'
-import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { useLanguageOptional } from '../../context/LanguageContext'
 import { LANGUAGE_IDS, LANGUAGES, type LanguageId } from '../../../../lib/i18n'
 
+import { notifyError } from '../../../../lib/notify-error'
 /**
  * Language card grid shared by the Settings Language section and the
  * onboarding wizard. One card per supported language — rendered from the
@@ -24,8 +24,9 @@ export function LanguagePickerGrid() {
     try {
       await setLanguage(id)
     } catch (err) {
-      toast.error(t('language.updateFailed'), {
-        description: err instanceof Error ? err.message : undefined,
+      notifyError(t('language.updateFailed'), {
+        detail: err instanceof Error ? err.message : undefined,
+        retry: () => void handleSelect(id),
       })
     }
   }
@@ -60,7 +61,7 @@ export function LanguagePickerGrid() {
           >
             <span className="min-w-0">
               <span className="block text-xs font-semibold truncate">{lang.nativeName}</span>
-              <span className="block text-[10px] text-muted-foreground truncate">
+              <span className="block text-xs text-muted-foreground truncate">
                 {lang.englishName}
               </span>
             </span>

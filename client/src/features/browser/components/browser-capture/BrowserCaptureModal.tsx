@@ -1,12 +1,12 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, RotateCw, X, Crop, Loader2, Globe, AlertTriangle, Monitor, Tablet, Smartphone, Maximize2, Network, Ratio, ChevronRight, Lock, ExternalLink } from 'lucide-react'
-import { toast } from 'sonner'
+import { ArrowLeft, ArrowRight, RotateCw, X, Crop, Globe, AlertTriangle, Monitor, Tablet, Smartphone, Maximize2, Network, Ratio, ChevronRight, Lock, ExternalLink } from 'lucide-react'
 import { Button } from '../../../../components/ui/button'
 import { useBrowserCaptureSession } from './useBrowserCaptureSession'
 import { useBrowserViewport } from './useBrowserViewport'
 import { AnnotationEditor } from './AnnotationEditor'
+import { CaptureDialogShell, forwardsKey } from './NativeBrowserPane'
+import { LiveDot } from '../../../../components/ui/live-dot'
 import {
   mapPointToViewport,
   mapRectToDisplay,
@@ -24,6 +24,7 @@ import {
   type PointerInputCoalescer,
 } from '../../lib/browser-capture'
 
+import { notifyError } from '../../../../lib/notify-error'
 /**
  * Detect Tauri-on-Mac. The overlay is portaled to <body> as `fixed inset-0`, so it
  * covers the custom titlebar and the native traffic-light controls (close/min/max)
@@ -88,7 +89,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
   // When set, a single capture is frozen and the markup editor is shown over it.
   const [markup, setMarkup] = useState<CaptureResult | null>(null)
   // Last capture error, shown as a visible banner INSIDE the modal (a sonner toast
-  // would be occluded by this z-[80] portal, so a failure looked like "nothing
+  // would be occluded by this capture-layer portal, so a failure looked like "nothing
   // happened"). Cleared when a new selection starts or a capture succeeds.
   const [captureError, setCaptureError] = useState<string | null>(null)
   // Breadcrumb lock: when the user steps up/down the DOM tree (arrows / clicking a
@@ -132,25 +133,25 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
 
   const { setViewport } = session
   const fixedViewport = preset === 'fit' ? undefined : { width: PRESET_DIMS[preset].w, height: PRESET_DIMS[preset].h }
-  useBrowserViewport(containerRef, setViewport, open && !markup, fixedViewport)
+  // The Radix portal mounts its content one commit after this component, so
+  // track the surface element and only start measuring once it exists.
+  const [surface, setSurface] = useState<HTMLDivElement | null>(null)
+  const surfaceRef = useCallback((node: HTMLDivElement | null) => { containerRef.current = node; setSurface(node) }, [])
+  useBrowserViewport(containerRef, setViewport, open && !markup && surface !== null, fixedViewport)
   const applyPreset = useCallback((p: ViewportPreset) => {
     setPreset(p)
     if (p !== 'fit') setViewport(PRESET_DIMS[p].w, PRESET_DIMS[p].h)
   }, [setViewport])
 
-  // The editor owns Escape (including its dirty-confirmation and save guard).
-  // Running both listeners used to close the browser even when discard was denied.
-  useEffect(() => {
-    if (!open || markup) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (selecting) { setSelecting(false); setBox(null); setLocked(null) }
-        else onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, markup, selecting, onClose])
+  // Escape (Radix, see CaptureDialogShell): the editor owns it while
+  // annotating (including its dirty-confirmation and save guard) — closing here
+  // too used to close the browser even when discard was denied. In select mode
+  // Escape leaves select mode first; otherwise it closes the browser.
+  const onEscape = useCallback((): boolean => {
+    if (markup) return false
+    if (selecting) { setSelecting(false); setBox(null); setLocked(null); return false }
+    return true
+  }, [markup, selecting])
 
   // Breadcrumb navigation: ↑ = parent, ↓ = child of the locked-or-hovered element.
   // Locks the selection to the resolved element until the cursor moves again.
@@ -260,7 +261,9 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     // Don't type the letter of an unhandled ⌘/Ctrl combo (e.g. ⌘A) into the page.
     const ev: BrowserInputEvent = { type: 'key', action: 'down', key: e.key, code: e.code, text: !meta && e.key.length === 1 ? e.key : undefined }
     session.forwardInput(ev)
-    if (e.key === 'Tab' || e.key === ' ' || e.key.startsWith('Arrow')) e.preventDefault()
+    // Forwarded to the page: keep the host from acting on it, including the
+    // dialog FocusScope's Tab wrap-around on Content.
+    if (forwardsKey(e.key)) { e.preventDefault(); e.stopPropagation() }
   }, [selecting, session])
 
   const onKeyUp = useCallback((e: React.KeyboardEvent) => {
@@ -291,10 +294,10 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
       }
     } catch (err) {
       // Surface the REAL failure (with its HTTP status) inside the modal — a
-      // sonner toast here is painted under the z-[80] portal and never seen.
+      // sonner toast here is painted under the capture-layer portal and never seen.
       const detail = err instanceof Error ? err.message : String(err)
       setCaptureError(detail)
-      toast.error(t('modal.toast.captureFailed'))
+      notifyError(t('modal.toast.captureFailed'))
     } finally {
       setCapturing(false)
       setSelecting(false)
@@ -357,12 +360,6 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     }
   }, [box, toViewport, hoverRect, runCapture])
 
-  const onBackdropClick = useCallback((e: React.MouseEvent) => {
-    // While annotating, closing goes through the editor's Cancel action so a
-    // backdrop click cannot discard markup or interrupt an attachment upload.
-    if (e.target === e.currentTarget && !markup) onClose()
-  }, [onClose, markup])
-
   if (!open || typeof document === 'undefined') return null
 
   const selectionStyle = box
@@ -386,23 +383,18 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
 
   const macOverlay = isMacTauriOverlay()
 
-  return createPortal(
-    // Translucent backdrop gutter — clicking it closes the capture modal and
-    // returns to Add Spec. The Add Spec modal stays mounted underneath.
-    <div
-      className="fixed inset-0 z-[80] bg-background-deep/60 backdrop-blur-md pointer-events-auto"
-      onClick={onBackdropClick}
+  // Translucent scrim gutter — clicking it closes the capture modal and
+  // returns to Add Spec (which stays mounted underneath). While annotating,
+  // closing goes through the editor's Cancel action so a scrim click cannot
+  // discard markup or interrupt an attachment upload.
+  return (
+    <CaptureDialogShell
+      label={t('modal.dialogLabel')}
+      onClose={onClose}
+      onEscape={onEscape}
+      scrimDismisses={!markup}
+      testId="browser-capture-modal"
     >
-      {/* Large MODAL panel (not full-bleed): a visible rim of the app around it
-          keeps the browser readable as part of Specrails. stopPropagation so
-          only clicking the gutter (outside this div) triggers backdrop close. */}
-      <div
-        className="absolute inset-x-[4%] inset-y-[3.5%] flex flex-col border border-border/70 rounded-2xl bg-background-deep overflow-hidden shadow-2xl ring-1 ring-black/20"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('modal.dialogLabel')}
-        onClick={(e) => e.stopPropagation()}
-      >
       {markup ? (
         <AnnotationEditor
           result={markup}
@@ -435,7 +427,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           className="flex-1 flex items-center gap-2 min-w-0"
           onSubmit={(e) => { e.preventDefault(); go() }}
         >
-          <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1">
+          <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1 focus-within:ring-2 focus-within:ring-ring">
             <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <input
               value={addressValue}
@@ -443,7 +435,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); go() } }}
               placeholder={t('modal.address.placeholder')}
               aria-label={t('modal.address.label')}
-              className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+              className="flex-1 min-w-0 bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring text-sm"
             />
           </div>
           <Button type="submit" size="sm" variant="secondary" className="shrink-0" disabled={status === 'error'}>{t('modal.address.go')}</Button>
@@ -469,7 +461,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           aria-pressed={captureNetwork}
           title={captureNetwork ? t('modal.network.titleOn') : t('modal.network.titleOff')}
           onClick={() => setCaptureNetwork((v) => !v)}
-          className={`hidden md:inline-flex items-center gap-1 h-7 px-2 rounded-md border text-[11px] shrink-0 transition-colors ${captureNetwork ? 'border-accent-info/40 bg-accent-info/10 text-accent-info' : 'border-border/50 text-muted-foreground hover:text-foreground hover:bg-card/60'}`}
+          className={`hidden md:inline-flex items-center gap-1 h-7 px-2 rounded-md border text-xs shrink-0 transition-colors ${captureNetwork ? 'border-accent-info/40 bg-accent-info/10 text-accent-info' : 'border-border/50 text-muted-foreground hover:text-foreground hover:bg-card/60'}`}
         >
           <Network className="w-3.5 h-3.5" />
           {t('modal.network.button')}
@@ -480,7 +472,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           aria-pressed={captureAllSizes}
           title={captureAllSizes ? t('modal.allSizes.titleOn') : t('modal.allSizes.titleOff')}
           onClick={() => setCaptureAllSizes((v) => !v)}
-          className={`hidden md:inline-flex items-center gap-1 h-7 px-2 rounded-md border text-[11px] shrink-0 transition-colors ${captureAllSizes ? 'border-accent-highlight/40 bg-accent-highlight/10 text-accent-highlight' : 'border-border/50 text-muted-foreground hover:text-foreground hover:bg-card/60'}`}
+          className={`hidden md:inline-flex items-center gap-1 h-7 px-2 rounded-md border text-xs shrink-0 transition-colors ${captureAllSizes ? 'border-accent-highlight/40 bg-accent-highlight/10 text-accent-highlight' : 'border-border/50 text-muted-foreground hover:text-foreground hover:bg-card/60'}`}
         >
           <Ratio className="w-3.5 h-3.5" />
           {t('modal.allSizes.button')}
@@ -499,11 +491,8 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
         <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t('modal.closeBrowser')} onClick={onClose}><X className="w-4 h-4" /></Button>
       </div>
 
-      <div className="px-3 py-1 text-[11px] text-muted-foreground truncate shrink-0 flex items-center gap-2">
-        <span
-          className={`inline-block w-2 h-2 rounded-full shrink-0 ${status === 'ready' ? 'bg-accent-success' : status === 'error' ? 'bg-destructive' : 'bg-accent-warning animate-pulse'}`}
-          aria-hidden
-        />
+      <div className="px-3 py-1 text-xs text-muted-foreground truncate shrink-0 flex items-center gap-2">
+        <LiveDot tone={status === 'ready' ? 'success' : status === 'error' ? 'destructive' : 'warning'} pulsing={status !== 'ready' && status !== 'error'} aria-hidden />
         <span className="truncate">
           {status === 'connecting' ? t('modal.status.connecting') : status === 'error' ? (errorMsg ?? t('modal.status.unavailable')) : popup?.active ? t('popup.loginWindow', { origin: popupOriginLabel(popup.url) }) : (title || '')}
         </span>
@@ -551,8 +540,8 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           to fit instead of overflowing at its intrinsic pixel size. */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
       <div
-        ref={containerRef}
-        className="relative flex-1 min-h-0 overflow-hidden flex items-center justify-center outline-none"
+        ref={surfaceRef}
+        className="relative flex-1 min-h-0 overflow-hidden flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         tabIndex={0}
         onKeyDown={onKeyDown}
         onKeyUp={onKeyUp}
@@ -560,7 +549,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
         {status === 'error' ? (
           <div className="flex flex-col items-center gap-2 text-center max-w-md px-6">
             <AlertTriangle className="w-8 h-8 text-accent-warning" />
-            <p className="text-sm text-foreground/90">{errorMsg ?? t('modal.error.unavailable')}</p>
+            <p className="text-sm text-foreground">{errorMsg ?? t('modal.error.unavailable')}</p>
             <p className="text-xs text-muted-foreground"><Trans i18nKey="modal.error.devHint" t={t} components={{ cmd: <code className="font-mono" /> }} /></p>
           </div>
         ) : (
@@ -591,12 +580,12 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
 
             {status === 'connecting' && (
               <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" /> {t('modal.status.opening')}
+                <LiveDot tone="info" size="md" aria-hidden /> {t('modal.status.opening')}
               </div>
             )}
             {capturing && (
               <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-foreground bg-background-deep/40">
-                <Loader2 className="w-4 h-4 animate-spin" /> {t('modal.status.capturing')}
+                <LiveDot tone="info" size="md" aria-hidden /> {t('modal.status.capturing')}
               </div>
             )}
           </>
@@ -620,34 +609,32 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
       </div>
 
       {selecting && activePath && activePath.length > 0 && (
-        <div className="flex items-center gap-1 px-3 py-1.5 border-t border-border/40 bg-surface/70 shrink-0 overflow-x-auto text-[11px]">
+        <div className="flex items-center gap-1 px-3 py-1.5 border-t border-border/40 bg-surface/70 shrink-0 overflow-x-auto text-xs">
           {locked ? <Lock className="w-3 h-3 shrink-0 text-accent-info" /> : null}
           {activePath.map((seg, i) => (
             <Fragment key={`${seg.selector}-${i}`}>
-              {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground/50 shrink-0" />}
+              {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />}
               <button
                 type="button"
                 onClick={() => onBreadcrumbClick(seg)}
                 title={seg.selector}
-                className={`shrink-0 font-mono px-1 rounded hover:bg-card/60 transition-colors ${i === activePath.length - 1 ? 'text-accent-info font-medium' : 'text-foreground/70'}`}
+                className={`shrink-0 font-mono px-1 rounded hover:bg-card/60 transition-colors ${i === activePath.length - 1 ? 'text-accent-info font-medium' : 'text-muted-foreground'}`}
               >
                 {seg.label}
               </button>
             </Fragment>
           ))}
-          <span className="text-muted-foreground/60 shrink-0 ml-auto pl-2 hidden md:inline">{t('modal.breadcrumb.hint')}</span>
+          <span className="text-muted-foreground shrink-0 ml-auto pl-2 hidden md:inline">{t('modal.breadcrumb.hint')}</span>
         </div>
       )}
 
       {selecting && (
-        <div className="px-3 py-1.5 text-center text-[11px] text-muted-foreground border-t border-border/40 shrink-0">
+        <div className="px-3 py-1.5 text-center text-xs text-muted-foreground border-t border-border/40 shrink-0">
           {t('modal.select.hint')}
         </div>
       )}
       </>
       )}
-      </div>
-    </div>,
-    document.body,
+    </CaptureDialogShell>
   )
 }

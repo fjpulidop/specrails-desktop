@@ -12,6 +12,11 @@ interface Options {
   collapsedWidth: number
   /** Expanded ⇒ the resizable width applies; collapsed ⇒ the rail width. */
   expanded: boolean
+  /** Whether the IN-FLOW wrapper (`wrapperRef`) reserves the expanded width.
+   *  A hover-expanded, unpinned sidebar overlays the content: its panel grows
+   *  while the wrapper stays at the rail width, so the main column never
+   *  reflows. Defaults to `expanded`. */
+  docked?: boolean
 }
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
@@ -44,6 +49,8 @@ export function useResizableSidebar(id: string, opts: Options) {
   const [dragging, setDragging] = useState(false)
 
   const panelRef = useRef<HTMLDivElement | null>(null)
+  /** Optional in-flow wrapper around an overlaying panel (see `docked`). */
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
   const widthRef = useRef(width)
   widthRef.current = width
   const draggingRef = useRef(false)
@@ -56,11 +63,18 @@ export function useResizableSidebar(id: string, opts: Options) {
   // expanded/collapsed state flips — but never while a drag owns the element.
   // The element keeps its CSS `transition` (className) so collapse/expand + a
   // keyboard nudge animate smoothly; a drag sets `transition:none` for itself.
+  const docked = opts.docked ?? opts.expanded
   useLayoutEffect(() => {
+    if (draggingRef.current) return
     const el = panelRef.current
-    if (!el || draggingRef.current) return
-    el.style.width = `${opts.expanded ? width : opts.collapsedWidth}px`
-  }, [width, opts.expanded, opts.collapsedWidth])
+    if (el) el.style.width = `${opts.expanded ? width : opts.collapsedWidth}px`
+    const wrapper = wrapperRef.current
+    if (wrapper) wrapper.style.width = `${docked ? width : opts.collapsedWidth}px`
+    // The left sidebar publishes the width it reserves, so floating surfaces
+    // (the sample guide) can sit at the foot of the WORKSPACE instead of the
+    // bottom-right corner shared by toasts and the agent chat button.
+    if (opts.side === 'left') document.documentElement.style.setProperty('--sidebar-width', `${docked ? width : opts.collapsedWidth}px`)
+  }, [width, opts.expanded, opts.collapsedWidth, docked, opts.side])
 
   const onGripPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0 || !optsRef.current.expanded) return
@@ -76,6 +90,8 @@ export function useResizableSidebar(id: string, opts: Options) {
     // Kill the CSS transition so the panel tracks the pointer 1:1 (no easing
     // lag), and lock the cursor + selection globally for the whole gesture.
     el.style.transition = 'none'
+    const wrapper = wrapperRef.current
+    if (wrapper) wrapper.style.transition = 'none'
     const prevCursor = document.body.style.cursor
     const prevSelect = document.body.style.userSelect
     document.body.style.cursor = 'col-resize'
@@ -89,12 +105,14 @@ export function useResizableSidebar(id: string, opts: Options) {
       live = clamp(startW + delta, o.min, o.max)
       // Imperative, per-frame-cheap: one style write, no React work.
       el.style.width = `${live}px`
+      if (wrapper && (o.docked ?? o.expanded)) wrapper.style.width = `${live}px`
     }
     const onUp = () => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
       el.style.transition = ''
+      if (wrapper) wrapper.style.transition = ''
       document.body.style.cursor = prevCursor
       document.body.style.userSelect = prevSelect
       draggingRef.current = false
@@ -122,5 +140,5 @@ export function useResizableSidebar(id: string, opts: Options) {
     try { localStorage.setItem(storageKey, String(Math.round(next))) } catch { /* ignore */ }
   }, [storageKey])
 
-  return { width, dragging, panelRef, onGripPointerDown, onGripKeyDown }
+  return { width, dragging, panelRef, wrapperRef, onGripPointerDown, onGripKeyDown }
 }

@@ -1,8 +1,14 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
 import { SidebarPinProvider } from '../../context/SidebarPinContext'
-import { TitleBar } from '../TitleBar'
+import { TitleBar as TitleBarComponent } from '../TitleBar'
+
+function TitleBar({ path = '/' }: { path?: string } = {}): ReactElement {
+  return <MemoryRouter initialEntries={[path]}><TitleBarComponent /></MemoryRouter>
+}
 
 const mocks = vi.hoisted(() => ({
   minimize: vi.fn(),
@@ -45,15 +51,36 @@ describe('TitleBar', () => {
     expect(container.firstChild).toBeNull()
   })
 
+  it('labels the search shortcut for the keyboard in use (Ctrl on Windows and Linux)', () => {
+    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+    render(<TitleBar />)
+    expect(screen.getByTitle('Search (Ctrl+K)')).toBeInTheDocument()
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+  })
+
+  it('exposes the platform shortcut and a name that leads with the visible project name', () => {
+    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+    const { unmount } = render(<TitleBar />)
+    const pill = screen.getByRole('button', { name: 'Search Project One' })
+    expect(pill).toHaveAttribute('aria-keyshortcuts', 'Control+K')
+    unmount()
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+    render(<TitleBar />)
+    expect(screen.getByRole('button', { name: 'Search Project One' })).toHaveAttribute('aria-keyshortcuts', 'Meta+K')
+  })
+
   it('uses theme tokens for the macOS overlay titlebar', () => {
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
     render(<TitleBar />)
 
-    const titlebar = screen.getByLabelText('Search (⌘K)').parentElement as HTMLElement
+    const pill = screen.getByTitle('Search (⌘K)')
+    expect(pill).toHaveAttribute('aria-keyshortcuts', 'Meta+K')
+    const titlebar = pill.parentElement as HTMLElement
+    expect(titlebar.tagName).toBe('HEADER')
     expect(titlebar.style.background).toBe('var(--color-background-deep)')
     expect(titlebar.style.borderBottom).toBe('1px solid var(--color-border)')
     expect(titlebar.style.height).toBe('36px')
-    expect(screen.getByLabelText('Search (⌘K)')).toHaveStyle({
+    expect(pill).toHaveStyle({
       color: 'var(--color-foreground)',
     })
   })
@@ -82,13 +109,32 @@ describe('TitleBar', () => {
     localStorage.clear()
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
     render(<SidebarPinProvider><TitleBar /></SidebarPinProvider>)
-    const left = screen.getByRole('button', { name: 'Pin left sidebar open' })
+    // New users start with the left sidebar pinned open.
+    const left = screen.getByRole('button', { name: 'Collapse left sidebar (keep pinned)' })
     expect(left).not.toHaveAttribute('data-tauri-drag-region')
+    expect(left).toHaveAttribute('aria-pressed', 'true')
+    expect(left.getAttribute('title')).toContain('⌘B')
+    expect(left.getAttribute('title')).not.toContain('⌥')
     fireEvent.click(left)
-    expect(screen.getByRole('button', { name: 'Collapse left sidebar (keep pinned)' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Pin right sidebar open' }))
+    expect(screen.getByRole('button', { name: 'Unpin left sidebar' })).toBeInTheDocument()
+    const right = screen.getByRole('button', { name: 'Pin right sidebar open' })
+    expect(right).toHaveAttribute('aria-pressed', 'false')
+    expect(right.getAttribute('title')).toContain('⌥⌘B')
+    fireEvent.click(right)
     expect(screen.getByRole('button', { name: 'Collapse right sidebar (keep pinned)' })).toBeInTheDocument()
     localStorage.clear()
+  })
+
+  it('hides the right sidebar button where no right sidebar is mounted', () => {
+    localStorage.clear()
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+    const { unmount } = render(<SidebarPinProvider><TitleBar path="/docs" /></SidebarPinProvider>)
+    expect(screen.queryByRole('button', { name: 'Pin right sidebar open' })).not.toBeInTheDocument()
+    unmount()
+    mocks.useDesktop.mockReturnValue({ projects: [], activeProjectId: null })
+    render(<SidebarPinProvider><TitleBar /></SidebarPinProvider>)
+    expect(screen.queryByRole('button', { name: 'Pin right sidebar open' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Collapse left sidebar (keep pinned)' })).toBeInTheDocument()
   })
 
   it('uses theme tokens for default window controls', () => {

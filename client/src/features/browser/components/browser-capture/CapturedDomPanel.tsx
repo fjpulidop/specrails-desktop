@@ -78,13 +78,13 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
           type="button"
           onClick={() => setOpenPanel((v) => !v)}
           aria-expanded={openPanel}
-          className="flex items-center gap-2 flex-1 min-w-0 text-left text-foreground/90 hover:text-foreground transition-colors"
+          className="flex items-center gap-2 flex-1 min-w-0 text-left text-foreground hover:text-foreground transition-colors"
         >
           <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${openPanel ? 'rotate-90' : ''}`} />
           <Code2 className="w-3.5 h-3.5 shrink-0 text-accent-secondary" />
           <span className="truncate font-medium">{t('domPanel.header', { title: dom.title || host })}</span>
         </button>
-        <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+        <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
           {t('domPanel.badge.elements', { count: summary.nodeCount })}{dom.css ? ' · CSS' : ''}{hasTokens ? ` · ${t('domPanel.badge.tokens')}` : ''}{hasNetwork ? ` · ${t('domPanel.badge.requests', { count: requests.length })}` : ''}{summary.truncated ? ` · ${t('domPanel.badge.truncated')}` : ''}
         </span>
         {onRemove && (
@@ -92,7 +92,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
             type="button"
             onClick={onRemove}
             aria-label={t('domPanel.removeLabel')}
-            className="shrink-0 text-muted-foreground/60 hover:text-destructive transition-colors"
+            className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -100,11 +100,11 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
       </div>
       {openPanel && (
         <div className="border-t border-accent-secondary/30">
-          <div className="px-3 py-1.5 text-[10px] text-muted-foreground truncate" title={dom.url}>
+          <div className="px-3 py-1.5 text-caption text-muted-foreground truncate" title={dom.url}>
             {dom.url}
           </div>
           <pre
-            className="max-h-64 overflow-auto px-3 pb-3 text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono"
+            className="max-h-64 overflow-auto px-3 pb-3 text-caption leading-relaxed whitespace-pre-wrap break-words font-mono"
             data-testid="captured-dom-html"
           >
             {dom.html ? <HighlightedHtml html={dom.html} /> : t('domPanel.noMarkup')}
@@ -115,7 +115,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                 type="button"
                 onClick={() => setOpenCss((v) => !v)}
                 aria-expanded={openCss}
-                className="flex items-center gap-2 w-full px-3 py-2 text-left text-foreground/90 hover:text-foreground transition-colors"
+                className="flex items-center gap-2 w-full px-3 py-2 text-left text-foreground hover:text-foreground transition-colors"
               >
                 <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${openCss ? 'rotate-90' : ''}`} />
                 <Palette className="w-3.5 h-3.5 shrink-0 text-accent-highlight" />
@@ -123,7 +123,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
               </button>
               {openCss && (
                 <pre
-                  className="max-h-64 overflow-auto px-3 pb-3 text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono text-accent-success/90"
+                  className="max-h-64 overflow-auto px-3 pb-3 text-caption leading-relaxed whitespace-pre-wrap break-words font-mono text-accent-success"
                   data-testid="captured-dom-css"
                 >
                   {dom.css}
@@ -137,7 +137,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                 type="button"
                 onClick={() => setOpenTokens((v) => !v)}
                 aria-expanded={openTokens}
-                className="flex items-center gap-2 w-full px-3 py-2 text-left text-foreground/90 hover:text-foreground transition-colors"
+                className="flex items-center gap-2 w-full px-3 py-2 text-left text-foreground hover:text-foreground transition-colors"
               >
                 <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${openTokens ? 'rotate-90' : ''}`} />
                 <Pipette className="w-3.5 h-3.5 shrink-0 text-accent-highlight" />
@@ -150,7 +150,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                       {tokens.palette.map((c, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground/80"
+                          className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 font-mono text-caption text-foreground"
                         >
                           {/* Swatch colour is captured data (not a layout/brand token) → inline style is intentional. */}
                           <span className="inline-block w-3 h-3 rounded-sm border border-border/40" style={{ background: c }} aria-hidden />
@@ -160,24 +160,24 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                     </div>
                   )}
                   {anchorRows.length > 0 && (
-                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px]">
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-caption">
                       {anchorRows.map(([k, v]) => (
                         <Fragment key={k}>
                           <dt className="text-muted-foreground">{k}</dt>
-                          <dd className="text-accent-success/90 break-all">{v}</dd>
+                          <dd className="text-accent-success break-all">{v}</dd>
                         </Fragment>
                       ))}
                     </dl>
                   )}
                   {tokens.fonts.length > 0 && (
-                    <div className="text-[11px] text-muted-foreground">
-                      {t('domPanel.fonts')} <span className="font-mono text-foreground/80 break-all">{tokens.fonts.join(', ')}</span>
+                    <div className="text-caption text-muted-foreground">
+                      {t('domPanel.fonts')} <span className="font-mono text-foreground break-all">{tokens.fonts.join(', ')}</span>
                     </div>
                   )}
                   <button
                     type="button"
                     onClick={copyTokens}
-                    className="text-[10px] text-accent-info hover:underline"
+                    className="text-caption text-accent-info hover:underline"
                   >
                     {copied ? t('domPanel.copied') : t('domPanel.copyJson')}
                   </button>
@@ -191,7 +191,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                 type="button"
                 onClick={() => setOpenNet((v) => !v)}
                 aria-expanded={openNet}
-                className="flex items-center gap-2 w-full px-3 py-2 text-left text-foreground/90 hover:text-foreground transition-colors"
+                className="flex items-center gap-2 w-full px-3 py-2 text-left text-foreground hover:text-foreground transition-colors"
               >
                 <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${openNet ? 'rotate-90' : ''}`} />
                 <Network className="w-3.5 h-3.5 shrink-0 text-accent-info" />
@@ -200,17 +200,17 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
               {openNet && (
                 <div className="max-h-64 overflow-auto px-3 pb-3 space-y-1.5" data-testid="captured-dom-network">
                   {requests.map((r, i) => (
-                    <div key={i} className="font-mono text-[11px] leading-snug">
+                    <div key={i} className="font-mono text-caption leading-snug">
                       <div className="flex items-baseline gap-2">
                         <span className="text-accent-highlight shrink-0">{r.method}</span>
-                        <span className={`shrink-0 tabular-nums ${r.failed ? 'text-destructive' : (r.status ?? 0) >= 400 ? 'text-accent-warning' : 'text-accent-success/90'}`}>
+                        <span className={`shrink-0 tabular-nums ${r.failed ? 'text-destructive' : (r.status ?? 0) >= 400 ? 'text-accent-warning' : 'text-accent-success'}`}>
                           {r.failed ? 'ERR' : r.status ?? '…'}
                         </span>
-                        <span className="truncate flex-1 text-foreground/80" title={r.url}>{reqLabel(r.url)}</span>
+                        <span className="truncate flex-1 text-foreground" title={r.url}>{reqLabel(r.url)}</span>
                         {r.durationMs != null && <span className="shrink-0 text-muted-foreground tabular-nums">{r.durationMs}ms</span>}
                       </div>
                       {r.responseShape && (
-                        <div className="pl-4 text-accent-info/80 break-all whitespace-pre-wrap">→ {r.responseShape}</div>
+                        <div className="pl-4 text-accent-info break-all whitespace-pre-wrap">→ {r.responseShape}</div>
                       )}
                     </div>
                   ))}

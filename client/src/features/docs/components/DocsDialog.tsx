@@ -1,307 +1,130 @@
-import { useState, useEffect, useRef, memo, useCallback } from 'react'
+import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
-import { BookOpen, ChevronRight, FileText, Loader2 } from 'lucide-react'
+import { BookOpen, FileText, GraduationCap, Search } from 'lucide-react'
+import { Button } from '../../../components/ui/button'
+import { replayTour } from '../../../lib/onboarding-events'
 import { cn } from '../../../lib/utils'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
-import { resolveDocHref } from '../lib/docs-links'
-import 'highlight.js/styles/atom-one-dark.css'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface DocEntry {
-  title: string
-  slug: string
-}
-
-interface DocCategory {
-  name: string
-  slug: string
-  docs: DocEntry[]
-}
-
-interface DocsIndex {
-  categories: DocCategory[]
-}
-
-interface DocContent {
-  title: string
-  content: string
-  category: string
-  slug: string
-}
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
+import { Input } from '../../../components/ui/input'
+import { DocView, docsUrl, type DocCategory, type DocScrollRequest, type DocsIndex } from './DocView'
+import type { DocsTarget } from '../../../lib/docs-events'
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
+
+/** Case-insensitive title filter; categories without a match are hidden. */
+function filterDocCategories(categories: DocCategory[], query: string): DocCategory[] {
+  const q = query.trim().toLocaleLowerCase()
+  if (!q) return categories
+  return categories
+    .map((cat) => ({ ...cat, docs: cat.docs.filter((doc) => doc.title.toLocaleLowerCase().includes(q)) }))
+    .filter((cat) => cat.docs.length > 0)
+}
 
 function DocsSidebar({
   categories,
   activeCategory,
   activeSlug,
   onSelect,
-  onHome,
+  filterRef,
 }: {
   categories: DocCategory[]
   activeCategory?: string
   activeSlug?: string
   onSelect: (category: string, slug: string) => void
-  onHome: () => void
+  filterRef: React.RefObject<HTMLInputElement | null>
 }) {
   const { t } = useTranslation('integrations')
+  const [query, setQuery] = useState('')
+  const visible = useMemo(() => filterDocCategories(categories, query), [categories, query])
+  const filtering = query.trim().length > 0
   // Mirrors the Settings dialog's left nav grammar: rounded-lg rows, xs text,
   // accent-primary/15 active state, muted hover.
   return (
-    <nav className="w-48 shrink-0 space-y-4 overflow-y-auto border-r border-border pr-2">
-      <button
-        onClick={onHome}
-        className={cn(
-          'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
-          !activeCategory && !activeSlug
-            ? 'bg-accent-primary/15 font-medium text-foreground'
-            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+    <div className="flex w-56 shrink-0 flex-col border-r border-border/40">
+      <div className="shrink-0 p-3 pb-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            ref={filterRef}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('docs.filterPlaceholder')}
+            aria-label={t('docs.filterPlaceholder')}
+            data-testid="docs-filter"
+            className="pl-8"
+          />
+        </div>
+      </div>
+      <nav aria-label={t('docs.navLabel')} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 pb-3">
+        {filtering && visible.length === 0 && (
+          <p className="px-2.5 text-xs text-muted-foreground" role="status">{t('docs.filterNoResults', { query: query.trim() })}</p>
         )}
-      >
-        <BookOpen className="w-3.5 h-3.5 shrink-0" />
-        <span className="truncate">{t('docs.title')}</span>
-      </button>
-
-      {categories.map((cat) => (
-        <div key={cat.slug} className="space-y-0.5">
-          <div className="px-2.5 mb-1 flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {cat.name}
-            </span>
-            {cat.docs.length > 0 && (
-              <span className="text-[9px] font-medium text-muted-foreground/60 bg-muted/40 rounded px-1 py-0.5 leading-none">
-                {cat.docs.length}
-              </span>
+        {visible.map((cat) => (
+          <div key={cat.slug} className="space-y-0.5">
+            <div className="px-2.5 mb-1 flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-muted-foreground">
+                {cat.name}
+              </h2>
+              {cat.docs.length > 0 && (
+                <span className="text-label tabular-nums text-muted-foreground bg-muted/40 rounded px-1 py-0.5 leading-none">
+                  {cat.docs.length}
+                </span>
+              )}
+            </div>
+            {cat.docs.length === 0 ? (
+              <p className="px-2.5 text-xs text-muted-foreground italic">{t('docs.sidebarEmpty')}</p>
+            ) : (
+              <ul className="space-y-0.5">
+                {cat.docs.map((doc) => {
+                  const isActive = activeCategory === cat.slug && activeSlug === doc.slug
+                  return (
+                    <li key={doc.slug}>
+                      <button
+                        onClick={() => onSelect(cat.slug, doc.slug)}
+                        title={doc.title}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
+                          isActive
+                            ? 'bg-accent-primary/15 font-medium text-foreground'
+                            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+                        )}
+                      >
+                        <FileText className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{doc.title}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
             )}
           </div>
-          {cat.docs.length === 0 ? (
-            <p className="px-2.5 text-xs text-muted-foreground italic">{t('docs.sidebarEmpty')}</p>
-          ) : (
-            <ul className="space-y-0.5">
-              {cat.docs.map((doc) => {
-                const isActive = activeCategory === cat.slug && activeSlug === doc.slug
-                return (
-                  <li key={doc.slug}>
-                    <button
-                      onClick={() => onSelect(cat.slug, doc.slug)}
-                      title={doc.title}
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
-                        isActive
-                          ? 'bg-accent-primary/15 font-medium text-foreground'
-                          : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-                      )}
-                    >
-                      <FileText className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{doc.title}</span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
-      ))}
-    </nav>
-  )
-}
-
-// ─── Index view ───────────────────────────────────────────────────────────────
-
-function DocsIndexView({
-  categories,
-  onSelect,
-}: {
-  categories: DocCategory[]
-  onSelect: (category: string, slug: string) => void
-}) {
-  const { t } = useTranslation('integrations')
-  const total = categories.reduce((sum, c) => sum + c.docs.length, 0)
-  const nonEmptyCategories = categories.filter((c) => c.docs.length > 0).length
-
-  // Mirrors a Settings section pane: uppercase xs section headings + bordered
-  // rounded-md list rows (same grammar as the Settings "Projects" list).
-  return (
-    <div className="max-w-2xl mx-auto py-2 px-1 space-y-5">
-      <p className="text-[11px] text-muted-foreground">
-        {total === 0
-          ? t('docs.indexEmpty')
-          : t('docs.summary', {
-              documents: t('docs.documentCount', { count: total }),
-              categories: t('docs.categoryCount', { count: nonEmptyCategories }),
-            })}
-      </p>
-
-      {categories.map((cat) => (
-        <div key={cat.slug} className="space-y-2">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {cat.name}
-          </h2>
-          {cat.docs.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic pl-2">{t('docs.categoryEmpty')}</p>
-          ) : (
-            <ul className="space-y-2">
-              {cat.docs.map((doc) => (
-                <li key={doc.slug}>
-                  <button
-                    onClick={() => onSelect(cat.slug, doc.slug)}
-                    className="w-full flex items-center gap-3 p-2.5 rounded-md border border-border text-left transition-colors hover:bg-muted/40 group"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className="text-xs font-medium text-foreground truncate">{doc.title}</span>
-                    <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ))}
+        ))}
+      </nav>
     </div>
   )
 }
 
-// ─── Document view ────────────────────────────────────────────────────────────
-
-// Memoized markdown renderer — only re-renders when the actual content
-// (or the current category, which scopes relative links) changes, so navigating
-// between cached docs doesn't re-parse / re-highlight.
-const MemoMarkdown = memo(function MemoMarkdown({
-  content,
-  currentCategory,
-  onNavigateDoc,
-}: {
-  content: string
-  currentCategory: string
-  onNavigateDoc: (category: string, slug: string) => void
-}) {
+/** Eight placeholder rows in the sidebar's shape while the index loads. */
+function DocsSidebarSkeleton({ label }: { label: string }) {
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight]}
-      components={{
-        a({ href, children, ...props }) {
-          const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-            if (!href) return
-            // External links open in the system browser, never inside the webview.
-            if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-              e.preventDefault()
-              window.open(href, '_blank', 'noopener,noreferrer')
-              return
-            }
-            if (href.startsWith('#')) return // in-page anchor — let it scroll
-            // Internal guide link: NEVER let the router follow it (that bounces
-            // to the dashboard + closes the modal). Resolve + navigate in-modal.
-            e.preventDefault()
-            const target = resolveDocHref(href, currentCategory)
-            if (target) onNavigateDoc(target.category, target.slug)
-          }
-          return (
-            <a href={href} onClick={handleClick} {...props}>
-              {children}
-            </a>
-          )
-        },
-      }}
+    <div
+      className="flex w-56 shrink-0 flex-col gap-2 border-r border-border/40 p-3"
+      role="status"
+      aria-label={label}
+      data-testid="docs-sidebar-skeleton"
     >
-      {content}
-    </ReactMarkdown>
-  )
-})
-
-function DocView({
-  category,
-  slug,
-  lang,
-  onNotFound,
-  onNavigate,
-  scrollContainerRef,
-}: {
-  category: string
-  slug: string
-  lang: string
-  onNotFound: () => void
-  onNavigate: (category: string, slug: string) => void
-  scrollContainerRef: React.RefObject<HTMLElement | null>
-}) {
-  // Stale-while-revalidate: keep the previous doc on screen until the new
-  // fetch resolves so navigation between docs doesn't flicker.
-  const { t } = useTranslation('integrations')
-  const [doc, setDoc] = useState<DocContent | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  // Track the latest request so a slow earlier fetch can't overwrite a newer
-  // one when the user clicks through the sidebar quickly.
-  const requestRef = useRef(0)
-
-  useEffect(() => {
-    const requestId = ++requestRef.current
-    setError(null)
-
-    fetch(`/api/docs/${category}/${slug}?lang=${encodeURIComponent(lang)}`)
-      .then(async (res) => {
-        if (res.status === 404) {
-          onNotFound()
-          return
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then((data: DocContent | undefined) => {
-        if (requestId !== requestRef.current) return // stale
-        if (data) {
-          setDoc(data)
-          // Reset scroll so the new doc starts at the top without a jarring
-          // mid-document offset carried over from the previous doc.
-          if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0
-        }
-      })
-      .catch((err: unknown) => {
-        if (requestId !== requestRef.current) return
-        setError(err instanceof Error ? err.message : t('docs.loadError'))
-      })
-  }, [category, slug, lang, onNotFound, scrollContainerRef])
-
-  // Full-screen spinner only on the very first load (no previous content).
-  if (!doc && !error) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (error && !doc) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-sm text-destructive">{error}</p>
-      </div>
-    )
-  }
-
-  if (!doc) return null
-
-  return (
-    <article className="max-w-2xl mx-auto py-2 px-1">
-      <div
-        className="prose prose-sm max-w-none
-          prose-headings:text-foreground prose-headings:font-bold
-          prose-p:text-foreground/90
-          prose-a:text-accent-primary prose-a:no-underline hover:prose-a:underline
-          prose-strong:text-foreground
-          prose-code:text-accent-info prose-code:bg-card prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
-          prose-pre:bg-card prose-pre:border prose-pre:border-border prose-pre:rounded-md prose-pre:p-0 prose-pre:overflow-x-auto
-          prose-blockquote:border-l-accent-primary prose-blockquote:text-muted-foreground
-          prose-hr:border-border
-          prose-th:text-foreground prose-td:text-foreground/90
-          prose-li:text-foreground/90"
-      >
-        <MemoMarkdown content={doc.content} currentCategory={doc.category} onNavigateDoc={onNavigate} />
-      </div>
-    </article>
+      <div className="h-8 rounded-md bg-muted/40 motion-safe:animate-pulse" />
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div
+          key={i}
+          data-skeleton-row=""
+          className="h-6 rounded-lg bg-muted/40 motion-safe:animate-pulse"
+          style={{ width: `${[70, 85, 60, 90, 75, 65, 80, 55][i]}%` }}
+        />
+      ))}
+    </div>
   )
 }
 
@@ -310,26 +133,60 @@ function DocView({
 interface DocsDialogProps {
   open: boolean
   onClose: () => void
+  /** Land on this page/section (a "Learn more" hint or a cheatsheet result). `nonce` re-fires the same target. */
+  target?: (DocsTarget & { nonce: number }) | null
 }
 
-function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
+function DocsDialogImpl({ open, onClose, target = null }: DocsDialogProps) {
   const { t, i18n } = useTranslation('integrations')
+  const { t: tOnboarding } = useTranslation('onboarding')
   const lang = i18n.language || 'en'
   const [index, setIndex] = useState<DocsIndex | null>(null)
   const [indexLoading, setIndexLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState<string | undefined>()
   const [activeSlug, setActiveSlug] = useState<string | undefined>()
-  const scrollRef = useRef<HTMLElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const filterRef = useRef<HTMLInputElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  // Land on the first guide once per index load (no index page that repeats
+  // the sidebar). A 404 clears the selection without re-landing (no loop).
+  const landedRef = useRef(false)
+  const [scrollRequest, setScrollRequest] = useState<DocScrollRequest | null>(null)
+
+  // A hint asked for a specific page/section: select it (even before the index
+  // has loaded, so the first-guide landing below stands down) and scroll there.
+  useEffect(() => {
+    if (!open) {
+      setScrollRequest(null)
+      return
+    }
+    if (!target) return
+    setActiveCategory(target.category)
+    setActiveSlug(target.slug)
+    setScrollRequest({ category: target.category, slug: target.slug, anchor: target.anchor, heading: target.heading, nonce: target.nonce })
+  }, [open, target])
 
   useEffect(() => {
     if (!open) return
     setIndexLoading(true)
-    fetch(`/api/docs?lang=${encodeURIComponent(lang)}`)
+    landedRef.current = false
+    fetch(docsUrl(`?lang=${encodeURIComponent(lang)}`))
       .then((res) => res.json())
       .then((data: DocsIndex) => setIndex(data))
       .catch(() => setIndex({ categories: [] }))
       .finally(() => setIndexLoading(false))
   }, [open, lang])
+
+  useEffect(() => {
+    if (indexLoading || !index || landedRef.current) return
+    landedRef.current = true
+    if (activeCategory && activeSlug) return
+    const first = index.categories.find((c) => c.docs.length > 0)
+    if (first) {
+      setActiveCategory(first.slug)
+      setActiveSlug(first.docs[0].slug)
+    }
+  }, [index, indexLoading, activeCategory, activeSlug])
 
   // Stabilise these handlers so `DocView`'s useEffect deps don't change every
   // parent re-render — otherwise every DesktopApp render (job streaming, WS
@@ -339,59 +196,101 @@ function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
     setActiveSlug(slug)
   }, [])
 
-  const handleHome = useCallback(() => {
+  const handleNotFound = useCallback(() => {
     setActiveCategory(undefined)
     setActiveSlug(undefined)
   }, [])
 
+  useEffect(() => {
+    if (!open || indexLoading) return
+    const active = document.activeElement
+    if (active === contentRef.current || active === document.body) filterRef.current?.focus()
+  }, [open, indexLoading])
+
+  const categories = index?.categories ?? []
+  const total = categories.reduce((sum, c) => sum + c.docs.length, 0)
   const isDocView = Boolean(activeCategory && activeSlug)
 
-  // Same skeleton as the Settings dialog: fixed-size content, visible icon
-  // header, left nav + scrollable pane separated by the same gap.
+  // Same skeleton as the Settings dialog: workspace size, icon header, left
+  // nav + scrollable pane (full-bleed split body, each pane scrolls itself).
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent movableResizable className="flex max-w-5xl w-[92vw] h-[82vh] flex-col overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4" />
-            {t('docs.title')}
-          </DialogTitle>
+      <DialogContent
+        size="workspace"
+        // Reachable from hints inside floating panels (chat, Flow), which sit
+        // above the base layer: the guide must open over them, not behind.
+        layer="stacked"
+        movableResizable
+        persistKey="specrails.modal.docs"
+        data-testid="docs-modal"
+        ref={contentRef}
+        // Start in the filter: the sidebar is the way into every guide. While
+        // the index still loads, park focus on the panel; the effect above
+        // moves it to the filter once the sidebar mounts.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          ;(filterRef.current ?? contentRef.current)?.focus()
+        }}
+      >
+        <DialogHeader
+          icon={<BookOpen />}
+          actions={
+            // Help ▸ Replay tour: the platform tour is re-opened from here (and ⌘K), not from the Welcome screen.
+            <Button variant="ghost" size="sm" className="gap-1.5" data-testid="docs-replay-tour" onClick={() => { onClose(); replayTour() }}>
+              <GraduationCap className="size-3.5" aria-hidden />
+              {tOnboarding('help.replayTour')}
+            </Button>
+          }
+        >
+          <DialogTitle>{t('docs.title')}</DialogTitle>
           <DialogDescription>
-            {t('docs.dialogDescription')}
+            {indexLoading
+              ? t('docs.loading')
+              : total > 0
+                ? t('docs.guideCount', { count: total })
+                : t('docs.dialogDescription')}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex min-h-0 flex-1 gap-5 py-2">
-          {/* Sidebar */}
+        <DialogBody className="flex p-0 overflow-hidden">
           {indexLoading ? (
-            <div className="w-48 shrink-0 border-r border-border flex items-center justify-center">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-            </div>
+            <DocsSidebarSkeleton label={t('docs.loading')} />
           ) : (
-            <DocsSidebar
-              categories={index?.categories ?? []}
-              activeCategory={activeCategory}
-              activeSlug={activeSlug}
-              onSelect={handleSelect}
-              onHome={handleHome}
-            />
+            total > 0 && (
+              <DocsSidebar
+                categories={categories}
+                activeCategory={activeCategory}
+                activeSlug={activeSlug}
+                onSelect={handleSelect}
+                filterRef={filterRef}
+              />
+            )
           )}
 
           {/* Content */}
-          <main ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto pr-1">
+          <div
+            ref={scrollRef}
+            role="region"
+            aria-label={t('docs.title')}
+            className="min-w-0 flex-1 overflow-y-auto px-5 py-4"
+          >
             {isDocView && activeCategory && activeSlug ? (
               <DocView
                 category={activeCategory}
                 slug={activeSlug}
                 lang={lang}
-                onNotFound={handleHome}
+                onNotFound={handleNotFound}
                 onNavigate={handleSelect}
                 scrollContainerRef={scrollRef}
+                scrollRequest={scrollRequest}
+                className="py-2 px-1"
               />
+            ) : indexLoading ? null : total === 0 ? (
+              <p className="mx-auto max-w-2xl text-body text-muted-foreground">{t('docs.indexEmpty')}</p>
             ) : (
-              index && <DocsIndexView categories={index.categories} onSelect={handleSelect} />
+              <p role="alert" className="mx-auto max-w-2xl text-sm text-destructive">{t('docs.loadError')}</p>
             )}
-          </main>
-        </div>
+          </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

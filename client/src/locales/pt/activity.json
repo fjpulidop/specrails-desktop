@@ -26,8 +26,8 @@
     "refining": "A refinar contrato…",
     "retryRejected": "Repetição rejeitada",
     "retryRejectedWithError": "Repetição rejeitada: {{error}}",
-    "retryFailed": "Falha ao repetir: {{message}}",
-    "skipped": "Contract layer ignorada — ticket guardado sem ela",
+    "retryFailed": "Falha ao repetir",
+    "skipped": "Contract layer ignorada — spec guardada sem ela",
     "reason": "Motivo: {{reason}}",
     "added": "Contract layer adicionada · {{title}}"
   },
@@ -44,11 +44,11 @@
     "undoAction": "Anular",
     "undone": "SMASH anulado",
     "undoFailed": "Falha ao anular",
-    "undoFailedWithReason": "Falha ao anular: {{reason}}",
+    "undoFailedWithReason": "Falha ao anular",
     "retrying": "A repetir o SMASH…",
     "couldNotRetry": "Não foi possível repetir",
     "couldNotRetryWithReason": "Não foi possível repetir: {{reason}}",
-    "retryFailed": "Falha ao repetir: {{message}}",
+    "retryFailed": "Falha ao repetir",
     "couldNotComplete": "O SMASH não foi concluído",
     "failReason": {
       "invalidOutput": "O agente devolveu um resultado inválido",
@@ -59,11 +59,11 @@
     },
     "couldNotStart": "Não foi possível iniciar o SMASH",
     "couldNotStartWithReason": "Não foi possível iniciar o SMASH: {{reason}}",
-    "smashFailed": "O SMASH falhou: {{message}}",
+    "smashFailed": "O SMASH falhou",
     "couldNotDeleteChildren": "Não foi possível eliminar as Sub-Specs atuais",
-    "deleteFailed": "Falha ao eliminar: {{message}}",
-    "smashButton": "SMASH: dividir Spec em Sub-Specs",
-    "reSmashButton": "Re-SMASH"
+    "deleteFailed": "Falha ao eliminar",
+    "smashButton": "Dividir em sub-specs",
+    "reSmashButton": "Dividir novamente em sub-specs"
   },
   "smashModal": {
     "title": "SMASH: dividir Spec em Sub-Specs",
@@ -89,7 +89,8 @@
     },
     "starting": "A iniciar…",
     "confirmReSmash": "Confirmar Re-SMASH",
-    "smash": "SMASH"
+    "smash": "SMASH",
+    "description": "O SMASH divide esta spec em Sub-Specs menores que podem ser implementadas e revisadas uma de cada vez. A spec original passa a ser o Epic delas."
   },
   "family": {
     "subSpecsHeader": "Sub-Specs ({{count}})",
@@ -98,7 +99,8 @@
     "familyHeader_other": "Família ({{count}} Sub-Specs)",
     "noSiblings": "Sem irmãs.",
     "openParentEpic": "Abrir Epic pai {{title}}",
-    "openSubSpec": "Abrir Sub-Spec {{title}}"
+    "openSubSpec": "Abrir Sub-Spec {{title}}",
+    "priority": "Prioridade: {{p}}"
   },
   "epicChildren": {
     "header": "Sub-Specs ({{count}})",

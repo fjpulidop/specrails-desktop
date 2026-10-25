@@ -11,7 +11,8 @@
     "partial": "{{total}} 件のうち {{succeeded}} 件が完了",
     "noChanges": "変更は不要でした",
     "failed": "完了できませんでした",
-    "failedPartial": "一部しか完了できませんでした"
+    "failedPartial": "一部しか完了できませんでした",
+    "generic": "納品された変更を確認してください"
   },
   "confidence": {
     "pill": "AI レビュアーの確信度 {{overall}}/100",
@@ -20,7 +21,8 @@
   },
   "cost": {
     "thisBuild": "この作業の費用 {{amount}}",
-    "allVersions": "全バージョン合計：{{amount}}"
+    "allVersions": "全バージョン合計：{{amount}}",
+    "baselinePart": "（うちベースライン {{amount}}）"
   },
   "accept": {
     "create-pr": "承認してプルリクエストを作成",
@@ -41,7 +43,9 @@
   },
   "discard": {
     "label": "破棄する",
-    "stackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。"
+    "stackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。",
+    "confirmTitle": "この成果物を破棄しますか？",
+    "confirmBody": "この成果物とその変更は破棄されます。元に戻すことはできません。"
   },
   "watchOut": {
     "title": "承認する前に確認したい点"
@@ -242,5 +246,155 @@
     "run": "実行 {{id}}",
     "download": "{{format}}",
     "downloadFailed": "エージェントのアクションをダウンロードできませんでした"
+  },
+  "requirements": {
+    "title": "実証済みの要件 {{demonstrated}}/{{total}}",
+    "touched": "この変更で触れた要件：{{demonstrated}}/{{total}} 実証済み",
+    "caveat": "Specrails による計測：要件 ID のタグが付いたテストが成功した検証で実行された場合に数えます。参考情報であり、レビュー結果は変わりません。",
+    "caveatNoReceipt": "このトレースの一部には検証レシートがないため、それらの要件はまだ実証済みとして数えられません。",
+    "undemonstratedTitle_other": "未実証の要件 {{count}} 件",
+    "demonstratedTitle_other": "実証済みの要件 {{count}} 件",
+    "reason": {
+      "no-test": "タグ付きテストなし",
+      "not-executed": "タグ付きテストが実行されていない",
+      "failed": "タグ付きテストが失敗"
+    },
+    "touchedBadge": "ここで変更",
+    "untagged_other": "どの要件にも一致しないテストタグが {{count}} 件あります（{{tags}}）：誤記か名前が変わった要件です。",
+    "showAll_other": "さらに {{count}} 件表示",
+    "showLess": "表示を減らす",
+    "undemonstratedTitle_one": "未実証の要件 {{count}} 件",
+    "demonstratedTitle_one": "実証済みの要件 {{count}} 件",
+    "untagged_one": "どの要件にも一致しないテストタグが {{count}} 件あります（{{tags}}）：誤記か名前が変わった要件です。",
+    "showAll_one": "さらに {{count}} 件表示"
+  },
+  "baseline": {
+    "title": "作業が触れた箇所にスペックを作成",
+    "status": {
+      "planned": "ベースライン計画済み：現状要件 {{requirements}} 件、特性テスト {{tests}} 件",
+      "passed": "変更前のコードでベースラインを実証：現状要件 {{requirements}} 件、特性テスト {{tests}} 件",
+      "failed": "ベースラインでブロック：変更前のコードで特性テストが通らなかったため、モジュールは編集されていません",
+      "violated": "ベースラインでブロック：ベースライン工程がテスト以外のコードを編集したため、実行を停止しました",
+      "not-needed": "ベースライン不要：この変更が触れるコードは既存のスペックでカバーされています"
+    },
+    "module": "記述したモジュール：",
+    "more_other": "ほか {{count}} ファイル",
+    "spec": "現状スペック：",
+    "capability": "{{capability}}（{{demonstrated}}/{{requirements}} 実証済み）",
+    "cost": "ベースラインのコスト {{amount}}（{{turns}} ターン）、変更とは別に集計",
+    "costUnknown": "プロバイダーがベースラインのコストを報告していません",
+    "caveat": "特性テストは現在の動作を記述します。Core は編集前に変更前のコードでそれらを実行しました。",
+    "more_one": "ほか {{count}} ファイル"
+  },
+  "humanEyes": {
+    "title_other": "人の目による確認が必要：プロジェクトルール {{count}} 件",
+    "caveat": "このプロジェクト向けに書かれた、自動チェックでは強制できないルールです。承認する前にご自身で確認してください。",
+    "title_one": "人の目による確認が必要：プロジェクトルール {{count}} 件"
+  },
+  "tabs": {
+    "label": "レビューの表示",
+    "overview": "概要",
+    "changes": "変更"
+  },
+  "changes": {
+    "tab": "変更",
+    "loading": "変更を読み込み中…",
+    "error": "変更を読み込めませんでした。",
+    "refresh": "変更を再読み込み",
+    "empty": "この納品ではファイルが変更されていません。",
+    "unavailable": {
+      "not_a_repository": "プロジェクトフォルダーが Git リポジトリではないため、比較できるものがありません。",
+      "no_branch": "この納品には、まだ比較するブランチがありません。",
+      "head_missing": "この納品のブランチはこのリポジトリにもう存在しません。",
+      "base_missing": "この納品の基点となったブランチがもう存在しないため、変更を測定できません。",
+      "git_failed": "Git がこの納品の変更を取得できませんでした。"
+    },
+    "summary": "変更されたファイル: {{count}}",
+    "viewedCount": "{{total}} 件中 {{viewed}} 件を確認済み",
+    "truncatedList": "最初の {{count}} ファイルのみ表示しています。",
+    "source": "変更の対象",
+    "sourceDelivery": "納品全体",
+    "sourceTicket": "スペック #{{id}}",
+    "tree": {
+      "label": "変更されたファイル"
+    },
+    "status": {
+      "added": "追加",
+      "modified": "変更",
+      "deleted": "削除",
+      "renamed": "名前変更",
+      "copied": "コピー",
+      "typechange": "種類の変更"
+    },
+    "renamedFrom": "{{path}} から名前変更",
+    "binaryShort": "バイナリ",
+    "binary": "バイナリファイル: 表示できるテキスト差分はありません。",
+    "noTextChanges": "行の変更はありません（ファイル名またはモードのみ変更）。",
+    "fileError": "このファイルの差分を読み込めませんでした。",
+    "largeDiff": "変更された {{total}} 行のうち最初の {{shown}} 行を表示しています。",
+    "loadFull": "ファイル全体の差分を読み込む",
+    "viewed": {
+      "mark": "確認済みにする",
+      "unmark": "確認済み",
+      "changedSince": "確認後に変更されました"
+    },
+    "mode": {
+      "label": "差分のレイアウト",
+      "unified": "統合",
+      "split": "並べて表示"
+    },
+    "diff": {
+      "region": "{{path}} の差分"
+    },
+    "line": {
+      "select": "{{n}} 行目を選択",
+      "selectOld": "元の {{n}} 行目を選択",
+      "added": "追加",
+      "removed": "削除"
+    },
+    "selection": {
+      "clear": "選択を解除"
+    },
+    "ask": {
+      "button": "エージェントに変更を依頼",
+      "title": "変更してほしい内容:",
+      "placeholder": "希望する変更を書いてください…",
+      "ticket": "追加先のスペック",
+      "submit": "スペックに追加",
+      "hint": "レビューフィードバックとしてスペックに保存され、次回の実行に反映されます。",
+      "created": "レビューフィードバックとしてスペック #{{id}} に追加しました。",
+      "open": "スペックを開く",
+      "failed": "メモをスペックに追加できませんでした。"
+    },
+    "editor": {
+      "open": "{{editor}} で開く",
+      "rootRepository": "お使いのプロジェクトのチェックアウトでファイルを開きます。レビュー対象のブランチがそこでチェックアウトされていない場合があります。",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      },
+      "failed": "{{editor}} を開けませんでした。インストールされていますか？ 設定 ▸ コード で変更できます。"
+    },
+    "annotations": {
+      "title": "行に紐づかないもの（{{count}}）",
+      "ask": "エージェントに変更を依頼",
+      "source": {
+        "reviewer-finding": "レビュアーの指摘",
+        "review-risk": "確認すべきリスク",
+        "review-untested": "テストの対象外",
+        "follow-up-comment": "レビューコメント"
+      },
+      "severity": {
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      }
+    },
+    "keys": {
+      "files": "ファイル",
+      "annotations": "注釈",
+      "viewed": "確認済みにする"
+    }
   }
 }

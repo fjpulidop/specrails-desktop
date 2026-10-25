@@ -38,7 +38,7 @@ export function MissionConversationMenu({ conversationId, children, onOpen }: {
   }, [position])
   return <div ref={root} onContextMenu={event => {
     event.preventDefault(); event.stopPropagation()
-    trigger.current = root.current?.querySelector<HTMLElement>('[tabindex="0"]') ?? null
+    trigger.current = root.current?.querySelector<HTMLElement>('button') ?? null
     if (visible) { setPosition(null); return }
     setPosition({ x: event.clientX, y: event.clientY })
   }} onKeyDown={event => {

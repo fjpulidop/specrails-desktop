@@ -2,12 +2,14 @@ import { useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { isLocalEngineId } from '../../providers/lib/provider-capabilities'
 import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '../lib/mission-view-state'
-import { ExternalLink } from 'lucide-react'
-import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ArrowDown, ExternalLink } from 'lucide-react'
+import { Suspense, lazy, memo, startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { Bot, ShieldAlert, PackageOpen, Pin } from 'lucide-react'
+import { useReducedMotion } from '../../../hooks/useReducedMotion'
+import { Bot, ShieldAlert, PackageOpen, Rocket } from 'lucide-react'
 import { useAgentChat } from '../context/AgentChatContext'
+import { useActiveLive, useActiveQueued, useIsStreaming } from '../hooks/useAgentLive'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { useSmoothStream } from '../../specs/components/explore-spec/useSmoothStream'
 import { useAgentRefActions } from '../hooks/useAgentRefActions'
@@ -19,10 +21,17 @@ import { AgentMessage } from './AgentMessage'
 import { AgentQueuedMessage } from './AgentQueuedMessage'
 import { AgentComposer } from './AgentComposer'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
-import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
+import { AgentRunStrip } from './AgentRunStrip'
+import { AgentRunEventLine } from './AgentRunEventLine'
+import { AgentRunLaunchedLine, AgentSettledRunLine } from './AgentRunHistoryLines'
+import { proposalRunKey } from './mission-run-strip'
+import { FLOW_SPEC_LOOP_ID } from '../../delivery/components/LoopChip'
 import { AgentConversationHeader } from './AgentConversationHeader'
 import { derivePrCards, isPrEnvelopePinned } from './agent-pr-pinning'
-import { parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
+import { openRunStrip, parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
+import { AgentFlowReturnCard, parseFlowReturnBriefingRow } from './AgentFlowReturnCard'
+import { AgentFlowDeliveredCard, parseFlowDeliveredRow } from './AgentFlowDeliveredCard'
+import { AgentFlowBoundaryLine, flowTurnMessageIds, parseFlowBoundaryRow } from './AgentFlowBoundaryLine'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
@@ -30,9 +39,12 @@ import { AgentSubagentsCard } from './AgentSubagentsCard'
 import { AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from './AgentSessionIndicators'
 import { useMissionSession, useMissionSessions } from '../context/MissionSessionsContext'
 import { placeUnanchoredSubagents, subagentsForTurn, unanchoredSubagents } from '../lib/mission-sessions'
-import { writeComposerDraft } from '../lib/agent-composer-drafts'
+import { composerDrafts, writeComposerDraft } from '../lib/agent-composer-drafts'
+import { useGuardedTierCycle } from '../hooks/useGuardedTierCycle'
+import { extractAgentOptions } from './agent-options'
+import { promoteAgentProtocolFences } from './agent-fence-promotion'
 import type { AgentSubagent } from '../lib/agent-api'
-import { useMissionConversationMode, useMissionExtensions } from '../context/MissionExtensionsContext'
+import { useMissionConversationMode, useMissionTurnMark, type MissionModeBadge } from '../context/MissionExtensionsContext'
 
 // Only loads when a job-ref chip is actually clicked — keeps the conversation
 // chunk free of the log-explorer stack.
@@ -83,7 +95,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <ExternalLink className="h-8 w-8 text-accent-primary" />
         <p className="text-sm text-muted-foreground">{t('window.detached')}</p>
-        <button type="button" onClick={() => { void windows.focus(active.id) }} className="rounded-md bg-accent-primary px-4 py-2 text-sm text-white">{t('window.focus')}</button>
+        <button type="button" onClick={() => { void windows.focus(active.id) }} className="rounded-md bg-accent-primary px-4 py-2 text-sm text-background hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background">{t('window.focus')}</button>
       </div>
     </div>
   )
@@ -93,21 +105,109 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
   </div>
 }
 
+const NO_ROWS: AgentMessageRow[] = []
+/** Rows mounted on the first paint of a long mission; the rest backfill in a transition. */
+const INITIAL_ROWS = 24
+/** Older rows skip layout and paint until scrolled near (content-visibility). */
+const RECENT_ROWS_FULL_RENDER = 12
+/** Rows that follow the in-flight flag; older ones never depend on it. */
+const RECENT_STREAMING_AWARE_ROWS = 4
+
+type AgentMessageRow = ReturnType<typeof useAgentChat>['messages'][number]
+type AgentMessageProps = Parameters<typeof AgentMessage>[0]
+
+/** Rows re-render only when their data changes: function props are stable by
+ *  construction (see onPickOption) and arrays compare by content. */
+function sameMessageProps(a: AgentMessageProps, b: AgentMessageProps): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof AgentMessageProps>
+  for (const key of keys) {
+    const x = a[key]
+    const y = b[key]
+    if (Object.is(x, y)) continue
+    if (typeof x === 'function' && typeof y === 'function') continue
+    if (Array.isArray(x) && Array.isArray(y) && x.length === y.length && x.every((item, index) => Object.is(item, y[index]))) continue
+    return false
+  }
+  return true
+}
+const MemoAgentMessage = memo(AgentMessage, sameMessageProps)
+
+/**
+ * The in-flight turn: streamed text, the activity chip. The ONLY part of the
+ * conversation that re-renders per streamed frame.
+ */
+function LiveTail({ tolerantFences, agentDescription, onOpenActivity, onGrew, committedLastId, renderedLastId }: {
+  tolerantFences: boolean
+  agentDescription: string | null
+  onOpenActivity: () => void
+  onGrew: () => void
+  /** Newest row of the committed transcript (it already has the turn's final row). */
+  committedLastId: string | undefined
+  /** Newest row the deferred transcript has painted so far. */
+  renderedLastId: string | undefined
+}) {
+  const live = useActiveLive()
+  const smoothed = useSmoothStream(live.streamingText, live.isStreaming)
+  const firstRun = useRef(true)
+  const held = useRef('')
+  const toolCount = live.liveTools.length
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return }
+    onGrew()
+  }, [onGrew, smoothed, toolCount])
+  if (live.isStreaming) held.current = smoothed
+  // Hand-off: the turn settled and its final row is committed, but the deferred
+  // transcript has not painted it yet. Keep the last streamed text on screen
+  // until that row exists, so the answer never blinks out for a frame (and the
+  // height never dips). The tail leaves in the SAME commit the row arrives in.
+  const settling = !live.isStreaming && held.current !== '' && committedLastId !== renderedLastId
+  if (!live.isStreaming && !settling) {
+    held.current = ''
+    return null
+  }
+  if (settling) {
+    return <div className="space-y-2" data-testid="agent-live-tail-settling"><AgentMessage role="assistant" content={held.current} streaming tolerantFences={tolerantFences} /></div>
+  }
+  return (
+    <div className="space-y-2">
+      {smoothed && <AgentMessage role="assistant" content={smoothed} streaming tolerantFences={tolerantFences} />}
+      <AgentActivityChip
+        tool={toolCount ? live.liveTools[toolCount - 1].tool : null}
+        agentDescription={agentDescription}
+        onClick={onOpenActivity}
+      />
+    </div>
+  )
+}
+
+/** The execution log: live tools while the turn runs, the finished turn's after it. */
+function ActivityLog({ onClose }: { onClose: () => void }) {
+  const live = useActiveLive()
+  return <AgentActivityLogModal tools={live.liveTools.length > 0 ? live.liveTools : live.turnTools} streaming={live.isStreaming} onClose={onClose} />
+}
+
 function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' }) {
   const composerLayoutId = useMissionPaneLayoutId()
+  const reduced = useReducedMotion()
   const { t } = useTranslation('agent')
   const {
-    active, messages, streamingText, isStreaming, liveTools, turnTools, queuedMessages,
-    mcpEnabled, enablingMcp, enableMcpServer, providersReady, cycleTier, send,
+    active, messages: committedMessages, mcpEnabled, enablingMcp, enableMcpServer, providersReady, send,
   } = useAgentChat()
+  // Live turn state is read through its own subscriptions (hooks/useAgentLive):
+  // a streamed token re-renders the tail below, never this component.
+  const isStreaming = useIsStreaming()
+  const queuedMessages = useActiveQueued()
+  // Opening a mission paints its header, composer and run strip first; the
+  // transcript follows as an interruptible low-priority render (windowed to the
+  // newest rows, then backfilled) so a long history never blocks the switch.
+  const messages = useDeferredValue(committedMessages, NO_ROWS)
+  const cycleTier = useGuardedTierCycle()
   // Execution-log modal (opened from the activity chip). While streaming it
   // shows the LIVE turn's tools; after settle it keeps showing the finished
   // turn's activity (turnTools) so an open modal never blanks at agent_done.
   const [activityOpen, setActivityOpen] = useState(false)
   const [queueEditRequest, setQueueEditRequest] = useState<{ conversationId: string; queueId: string; revision: number }>()
-  const activityTools = liveTools.length > 0 ? liveTools : turnTools
   const scrollRef = useRef<HTMLDivElement>(null)
-  const smoothed = useSmoothStream(streamingText, isStreaming)
 
   // Ticket/job reference chips resolve against the CONVERSATION's pinned
   // project (it may differ from the active one). Home/app-global missions have
@@ -156,10 +256,14 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   const emptyTitle = useActiveTheme().id === 'code-rain' ? t('emptyTitleCodeRain') : t('emptyTitle')
 
   // PR-decision envelopes parsed ONCE per message-state change (`messages`
-  // identity is stable across streaming frames — no per-frame reparse). Pinned
-  // cards (attention-demanding decisions) surface in the dock above the
-  // composer; their history slot renders a slim reference marker instead.
+  // identity is stable across streaming frames — no per-frame reparse). Live
+  // deliveries show in the run strip above the composer; their history slot
+  // renders a one-line "launched" event instead.
   const prCards = useMemo(() => derivePrCards(messages), [messages])
+  // Agent turns produced while the conversation was in Flow (between boundaries).
+  const flowTurns = useMemo(() => flowTurnMessageIds(messages), [messages])
+  const extensionTurnMark = useMissionTurnMark()
+  const turnMark = useMemo<MissionModeBadge>(() => extensionTurnMark ?? { label: t('flowBoundary.turnMark') }, [extensionTurnMark, t])
   // Undecided agent launch proposals (mission-rail-cards) pin next to the PR cards.
   const railProposals = useRailLaunchProposals(messages)
   // Core sessions: sub-agents anchor under the message of the turn that launched
@@ -187,52 +291,171 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // Stick-to-bottom: only auto-scroll while the user is already near the bottom.
   const savedScroll = active ? readMissionScroll(active.id) : null
   const pinnedRef = useRef(savedScroll?.atBottom ?? true)
+  // Rendered mirror of pinnedRef (scrolled up ⇒ the jump-to-latest pill can show)
+  // and whether something arrived below the fold since the user scrolled away.
+  const [detached, setDetached] = useState(!(savedScroll?.atBottom ?? true))
+  // Windowed first paint: only the newest rows mount at once, the rest backfills
+  // in a transition. A mission reopened mid-history needs the full height to
+  // restore its scroll position, so it renders everything straight away.
+  const [backfilled, setBackfilled] = useState(() => !(savedScroll?.atBottom ?? true))
+  // Decided once, when the transcript first arrives: rows added later never hide older ones.
+  const windowedRef = useRef<boolean | null>(null)
+  if (windowedRef.current === null && messages.length > 0) windowedRef.current = messages.length > INITIAL_ROWS
+  const windowed = windowedRef.current === true && !backfilled
+  const windowStart = windowed ? messages.length - INITIAL_ROWS : 0
+  const backfillAnchor = useRef<{ height: number; top: number } | null>(null)
+  useEffect(() => {
+    if (!windowed) return
+    const frame = requestAnimationFrame(() => {
+      const el = scrollRef.current
+      backfillAnchor.current = el ? { height: el.scrollHeight, top: el.scrollTop } : null
+      startTransition(() => setBackfilled(true))
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [windowed])
+  // Older rows mount ABOVE the viewport: keep the distance to the bottom unchanged.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const anchor = backfillAnchor.current
+    if (!el || !anchor || !backfilled) return
+    backfillAnchor.current = null
+    el.scrollTop = anchor.top + (el.scrollHeight - anchor.height)
+  }, [backfilled])
+  // Decided once per opening: a mission reopened mid-history keeps every row
+  // fully laid out. WebKit does not scroll-anchor around content-visibility rows
+  // that are still estimated, so a restored pixel offset would land on the wrong row.
+  const [skipContentVisibility] = useState(() => !!savedScroll && !savedScroll.atBottom)
+  const [unseen, setUnseen] = useState(false)
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (el && savedScroll) el.scrollTop = savedScroll.atBottom ? el.scrollHeight : savedScroll.top
+    // Late layout (the run strip mounting, sub-agent cards, markdown images)
+    // must not leave a mission that opened at the bottom a few pixels short.
+    let frame = 0
+    let observer: ResizeObserver | null = null
+    let settle: ReturnType<typeof setTimeout> | null = null
+    if (el && (savedScroll?.atBottom ?? true)) {
+      const toBottom = (): void => { if (pinnedRef.current) el.scrollTop = el.scrollHeight }
+      frame = requestAnimationFrame(toBottom)
+      if (typeof ResizeObserver !== 'undefined') {
+        observer = new ResizeObserver(toBottom)
+        observer.observe(el)
+        for (const child of Array.from(el.children)) observer.observe(child)
+        settle = setTimeout(() => { observer?.disconnect(); observer = null }, 500)
+      }
+    }
     return () => {
+      cancelAnimationFrame(frame)
+      observer?.disconnect()
+      if (settle) clearTimeout(settle)
       if (el && active) saveMissionScroll(active.id, { top: el.scrollTop, atBottom: pinnedRef.current })
     }
   }, [active?.id])
+  // The transcript arrives after the first paint: a mission saved mid-history
+  // restores its scroll position once its rows exist.
+  const restoredRows = useRef(false)
+  useLayoutEffect(() => {
+    if (restoredRows.current || messages.length === 0) return
+    restoredRows.current = true
+    const el = scrollRef.current
+    if (el && savedScroll && !savedScroll.atBottom) el.scrollTop = savedScroll.top
+    else if (el && pinnedRef.current) el.scrollTop = el.scrollHeight
+  }, [messages.length])
   const onMessagesScroll = () => {
     const el = scrollRef.current
     if (!el) return
     pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+    setDetached(!pinnedRef.current)
+    if (pinnedRef.current) setUnseen(false)
     if (active) saveMissionScroll(active.id, { top: el.scrollTop, atBottom: pinnedRef.current })
   }
-  useEffect(() => {
-    if (!pinnedRef.current) return
+  const contentMounted = useRef(false)
+  // Something grew below the fold (a row, the streaming tail, a chip): follow it
+  // when the person is at the bottom, else flag it on the jump pill.
+  const onContentGrew = useCallback(() => {
+    if (!contentMounted.current) {
+      contentMounted.current = true
+      if (!pinnedRef.current) return
+    }
+    if (!pinnedRef.current) {
+      setUnseen(true)
+      return
+    }
     scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight, behavior: 'auto' })
-  }, [messages.length, smoothed, liveTools.length, queuedMessages.length])
+  }, [])
+  useEffect(onContentGrew, [onContentGrew, messages.length, queuedMessages.length, liveSubagentCards.length, session?.notices.length])
+  const jumpToLatest = () => {
+    const el = scrollRef.current
+    if (!el) return
+    pinnedRef.current = true
+    setDetached(false)
+    setUnseen(false)
+    el.scrollTo?.({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' })
+    if (!el.scrollTo) el.scrollTop = el.scrollHeight
+  }
+  const showJumpPill = detached && (isStreaming || unseen)
+
+  // Screen readers hear the turn boundaries, never every streamed frame.
+  const [liveAnnouncement, setLiveAnnouncement] = useState('')
+  const wasStreamingRef = useRef(isStreaming)
+  useEffect(() => {
+    const was = wasStreamingRef.current
+    wasStreamingRef.current = isStreaming
+    if (isStreaming && !was) setLiveAnnouncement(t('conversation.agentWorking'))
+    else if (!isStreaming && was && committedMessages[committedMessages.length - 1]?.role === 'assistant') setLiveAnnouncement(t('conversation.agentReplied'))
+  }, [isStreaming, committedMessages, t])
+
+  // Alt+1…9 answers the newest message's suggested replies (the numbered
+  // chips) while the composer is empty — same gating as the chips themselves.
+  const lastMessage = messages[messages.length - 1]
+  const pickableOptions = useMemo(() => {
+    if (!lastMessage || lastMessage.role !== 'assistant') return null
+    const content = isLocalEngineId(active?.provider) ? promoteAgentProtocolFences(lastMessage.content) : lastMessage.content
+    return extractAgentOptions(content).options ?? null
+  }, [lastMessage, active?.provider])
 
   // Shift+Tab anywhere in the view (incl. the composer) cycles the tier ladder.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.shiftKey && (e.key === 'Tab' || e.code === 'Tab')) {
       e.preventDefault()
       e.stopPropagation()
-      void cycleTier()
+      cycleTier()
+      return
+    }
+    if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^Digit[1-9]$/.test(e.code)) {
+      const options = pickableOptions
+      const canPick = !!options && (!isStreaming || !!conversationMode?.interruptWhileBusy)
+      const draftEmpty = !active || !(composerDrafts.get(active.id) ?? '').trim()
+      const option = canPick && draftEmpty ? options[Number(e.code.slice(5)) - 1] : undefined
+      if (option === undefined) return
+      e.preventDefault()
+      e.stopPropagation()
+      void send(option, isStreaming && conversationMode?.interruptWhileBusy ? { deliveryMode: 'interrupt' } : undefined)
     }
   }
 
   // Mission extensions (Flow mode): surface attributes + a dock above the composer.
-  const { ConversationDock } = useMissionExtensions()
   const conversationMode = useMissionConversationMode(active?.id ?? null, refsProjectId)
+  // One stable handler for every row (rows are memoised): reads the latest state.
+  const pickRef = useRef<(option: string) => void>(() => {})
+  pickRef.current = (option) => void send(option, isStreaming && conversationMode?.interruptWhileBusy ? { deliveryMode: 'interrupt' } : undefined)
+  const onPickOption = useCallback((option: string) => pickRef.current(option), [])
 
   const inline = variant === 'inline'
   // The inline surface caps the conversation column so it reads like Cursor's
   // centered thread on wide screens; the floating panel fills its own frame.
   const threadClass = inline
-    ? 'mx-auto flex w-full max-w-[1040px] min-h-0 flex-1 flex-col overflow-hidden'
+    ? 'mx-auto flex w-full max-w-[992px] min-h-0 flex-1 flex-col overflow-hidden'
     : 'flex min-h-0 flex-1 flex-col overflow-hidden'
 
   return (
-    <div className={`flex h-full min-h-0 flex-col overflow-hidden ${inline ? '' : ''}`} onKeyDown={onKeyDown} data-mission-surface {...conversationMode?.attributes}>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden" onKeyDown={onKeyDown} data-mission-surface {...conversationMode?.attributes}>
       {providersReady === false && (
         <div className="flex items-start gap-2 border-b border-border/50 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
           <PackageOpen className="mt-0.5 h-4 w-4 shrink-0 text-accent-warning" />
           <div className="flex-1">
             <p className="font-medium">{t('noProvider.title')}</p>
-            <p className="mt-0.5 text-foreground/70">{t('noProvider.body')}</p>
+            <p className="mt-0.5 text-muted-foreground">{t('noProvider.body')}</p>
           </div>
         </div>
       )}
@@ -240,7 +463,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
         <div className="flex items-center gap-2 border-b border-border/50 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
           <ShieldAlert className="h-4 w-4 shrink-0 text-accent-warning" />
           <span className="flex-1">{t('degraded.body')}</span>
-          <button type="button" onClick={() => void enableMcpServer()} disabled={enablingMcp} className="rounded-md bg-accent-primary px-2 py-1 text-xs font-medium text-white disabled:opacity-60">
+          <button type="button" onClick={() => void enableMcpServer()} disabled={enablingMcp} className="rounded-md bg-accent-primary px-2 py-1 text-label text-background hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-60">
             {enablingMcp ? t('degraded.enabling') : t('degraded.enable')}
           </button>
         </div>
@@ -254,22 +477,27 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
       <div className={threadClass}>
         {/* Inline: the thread eases in once while the composer card morphs into
             place below — conversation switches keep it mounted (no re-fade). */}
+        <div className="relative flex min-h-0 flex-1 flex-col">
         <motion.div
           ref={scrollRef}
           onScroll={onMessagesScroll}
           initial={inline ? { opacity: 0, y: 8 } : false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
+          role="log"
+          aria-label={t('conversation.ariaLabel')}
+          aria-relevant="additions"
           className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4"
         >
-          {messages.length === 0 && !isStreaming && (
-            <div className="flex h-full flex-col items-center justify-center text-center text-foreground/50">
-              <Bot className="mb-2 h-8 w-8 text-accent-primary/60" />
-              <p className="text-sm font-medium text-foreground/70">{emptyTitle}</p>
+          {committedMessages.length === 0 && !isStreaming && (
+            <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
+              <Bot className="mb-2 h-8 w-8 text-accent-primary" />
+              <p className="text-sm font-medium text-muted-foreground">{emptyTitle}</p>
               <p className="mt-1 max-w-[280px] text-xs">{t('emptyHint')}</p>
             </div>
           )}
-          {messages.map((m, i) => {
+          {messages.slice(windowStart).map((m, offset) => {
+            const i = windowStart + offset
             // `system` rows are app-authored records, not chat bubbles. Some
             // render as inline cards (the PR-decision card, safe-pr-review-flow);
             // others are pure bookkeeping and render as nothing at all — the
@@ -282,8 +510,20 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // (the run card itself carries the recovery actions).
               if (FEATURE_MISSION_RAIL_CARDS) {
                 const failure = parseRunFailureRow(m.content)
-                if (failure) return <AgentRunFailureMarker key={m.id} row={failure} />
+                if (failure) {
+                  const failedEnvelope = failure.prDeliveryId ? prCards.byDeliveryId.get(failure.prDeliveryId) ?? null : null
+                  return <AgentRunFailureMarker key={m.id} row={failure} conversationId={m.conversation_id} envelope={failedEnvelope} />
+                }
               }
+              // Back to Flow: what the reviewer asked for (server-authored, once per delivery).
+              const flowReturn = parseFlowReturnBriefingRow(m.content)
+              if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} conversationId={m.conversation_id} />
+              // Flow delivered: the closing summary (server-authored, once per Flow).
+              const flowDelivered = parseFlowDeliveredRow(m.content)
+              if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} />
+              // Entered / left Flow: one event line at the boundary.
+              const flowBoundary = parseFlowBoundaryRow(m.content)
+              if (flowBoundary) return <AgentFlowBoundaryLine key={m.id} row={flowBoundary} />
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
                 if (prCards.duplicateMessageIds.has(m.id)) return null
@@ -293,21 +533,15 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 }
                 return null
               }
-              // While the card demands attention it lives PINNED above the
-              // composer — its chronological slot keeps a slim reference marker
-              // (no double render). Unpinning returns the full card here.
+              // While the run is live, the strip above the composer shows it:
+              // its history slot only says it was launched (and opens it).
               if (isPrEnvelopePinned(envelope)) {
-                return (
-                  <div
-                    key={m.id}
-                    data-testid="agent-pr-pinned-marker"
-                    className="flex items-center gap-2 rounded-lg border border-border/40 bg-surface/30 px-3 py-1.5 text-[11px] text-foreground/45 backdrop-blur-sm"
-                  >
-                    <Pin className="h-3 w-3 shrink-0 text-accent-primary/50" />
-                    <span className="min-w-0 flex-1 truncate">{t('prCard.pinned.marker')}</span>
-                    <PrDecisionPill decision={envelope.decision} />
-                  </div>
-                )
+                return <AgentRunLaunchedLine key={m.id} envelope={envelope} conversationId={m.conversation_id} />
+              }
+              // A settled Flow → Spec run: its outcome line (the Flow's closing
+              // summary is the full card of that story); expands in place.
+              if (envelope.loopId === FLOW_SPEC_LOOP_ID) {
+                return <AgentSettledRunLine key={m.id} envelope={envelope} conversationId={m.conversation_id} />
               }
               return <AgentPrDecisionCard key={m.id} envelope={envelope} conversationId={m.conversation_id} />
             }
@@ -320,9 +554,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             const turnSubagents = m.role === 'assistant' ? subagentsForTurn(session, m.core_turn_id) : []
             const continuation = m.role === 'assistant' && (m.turn_origin === 'subagent' || m.turn_origin === 'system') ? m.turn_origin : null
             return (
-              <div key={m.id} className="space-y-1">
+              <div key={m.id} className={!skipContentVisibility && i < messages.length - RECENT_ROWS_FULL_RENDER ? 'space-y-1 [content-visibility:auto] [contain-intrinsic-size:auto_120px]' : 'space-y-1'}>
               {continuation && <AgentTurnOriginLabel origin={continuation} />}
-              <AgentMessage
+              <MemoAgentMessage
                 role={m.role}
                 content={m.content}
                 messageId={m.id}
@@ -330,14 +564,19 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 railProposalsPinned={railPinned}
                 tolerantFences={isLocalEngineId(active?.provider)}
                 createdAt={m.created_at}
+                modeMark={flowTurns.has(m.id) ? turnMark : null}
                 // Option chips are clickable only on the newest settled message —
-                // a streaming turn suppresses them everywhere.
-                isLast={!isStreaming && i === messages.length - 1}
+                // a streaming turn suppresses them everywhere, except in a mode
+                // that interrupts while busy (Flow): there a pick cuts the turn.
+                isLast={(!isStreaming || !!conversationMode?.interruptWhileBusy) && i === messages.length - 1}
                 // Problem-frame readings stay affordable (but disabled) while a
                 // turn streams, so the card doesn't silently go static mid-turn.
                 isLatest={i === messages.length - 1}
-                isStreaming={isStreaming}
-                onPickOption={(option) => void send(option)}
+                // Only the newest rows act on "a turn is in flight" (frame readings, extension
+                // cards): older rows keep a constant prop so a turn starting or ending does not
+                // re-render (re-parse) the whole transcript.
+                isStreaming={isStreaming && i >= messages.length - RECENT_STREAMING_AWARE_ROWS}
+                onPickOption={onPickOption}
                 refsProjectId={refsProjectId}
                 onOpenRef={onOpenRef}
                 contextRefs={m.context_refs}
@@ -346,32 +585,32 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 conversationId={m.conversation_id}
                 attachments={(m.attachment_ids ?? []).map((id) => attachmentById.get(id)).filter((att): att is AgentAttachment => !!att)}
               />
-              {railPinned && (
-                // The proposal card is pinned above the composer while it awaits
-                // Play / Dismiss — its chronological slot keeps a slim marker.
-                <div
-                  data-testid="agent-rail-launch-pinned-marker"
-                  className="flex items-center gap-2 rounded-lg border border-border/40 bg-surface/30 px-3 py-1.5 text-[11px] text-foreground/45 backdrop-blur-sm"
+              {railPinned && railProposals.pinned.filter((p) => p.messageId === m.id).map((p) => (
+                // The proposal waits in the run strip for Play / Dismiss — its
+                // chronological slot says it was proposed (and opens it).
+                <AgentRunEventLine
+                  key={`proposal:${p.proposalIndex}`}
+                  icon={Rocket}
+                  testId="agent-rail-launch-proposed-line"
+                  actionLabel={t('runStrip.event.openRun')}
+                  onActivate={() => openRunStrip({ conversationId: m.conversation_id, key: proposalRunKey(p.messageId, p.proposalIndex) })}
                 >
-                  <Pin className="h-3 w-3 shrink-0 text-accent-primary/50" />
-                  <span className="min-w-0 flex-1 truncate">{t('railCard.pinnedMarker')}</span>
-                </div>
-              )}
+                  {t('runStrip.event.proposed')}
+                </AgentRunEventLine>
+              ))}
               {subagentCard(turnSubagents, `subagents:${m.id}`)}
               {(placement.afterMessage.get(m.id) ?? []).map((group, index) => subagentCard(group, `subagents:${m.id}:${index}`))}
               </div>
             )
           })}
-          {isStreaming && (
-            <div className="space-y-2">
-              {smoothed && <AgentMessage role="assistant" content={smoothed} streaming tolerantFences={isLocalEngineId(active?.provider)} />}
-              <AgentActivityChip
-                tool={liveTools.length ? liveTools[liveTools.length - 1].tool : null}
-                agentDescription={[...liveSubagentCards].reverse().find((node) => node.phase === 'running')?.description ?? null}
-                onClick={() => setActivityOpen(true)}
-              />
-            </div>
-          )}
+          <LiveTail
+            tolerantFences={isLocalEngineId(active?.provider)}
+            agentDescription={[...liveSubagentCards].reverse().find((node) => node.phase === 'running')?.description ?? null}
+            onOpenActivity={() => setActivityOpen(true)}
+            onGrew={onContentGrew}
+            committedLastId={committedMessages[committedMessages.length - 1]?.id}
+            renderedLastId={messages[messages.length - 1]?.id}
+          />
           {subagentCard(liveSubagentCards, 'subagents:live')}
           {session?.backgroundTurn && !isStreaming && <AgentBackgroundTurn turn={session.backgroundTurn} />}
           {active && session && session.notices.length > 0 && (
@@ -392,26 +631,50 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             </div>
           )}
         </motion.div>
-
-        {/* Pinned implementation-card slot — always visible above the composer
-            while any delivery demands attention; animates away on unpin. */}
-        <AnimatePresence initial={false}>
-          {active && (prCards.pinned.length > 0 || railProposals.pinned.length > 0) && (
-            <AgentPrPinnedDock
-              key="agent-pr-pinned-dock"
-              pinned={prCards.pinned}
-              proposals={railProposals.pinned}
-              projectId={refsProjectId}
-              conversationId={active.id}
-              inline={inline}
-            />
+        <div className="sr-only" role="status" aria-live="polite" data-testid="agent-conversation-live">{liveAnnouncement}</div>
+        <AnimatePresence>
+          {showJumpPill && (
+            <motion.button
+              key="jump-to-latest"
+              type="button"
+              onClick={jumpToLatest}
+              data-testid="agent-jump-to-latest"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="absolute bottom-2 left-1/2 z-10 inline-flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 text-label text-foreground shadow-md shadow-black/10 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+            >
+              <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+              {t('conversation.newMessages')}
+            </motion.button>
           )}
         </AnimatePresence>
+        </div>
 
-        {/* Extension dock (Flow bar / hand-off card): above the composer. */}
-        {active && ConversationDock && (
-          <ConversationDock conversationId={active.id} projectId={refsProjectId} inline={inline} />
-        )}
+        {/* The run strip: the ONE live view of this mission's runs (launch
+            proposals, deliveries, the extension's Flow). Its panel opens the
+            run's full card above it, over the conversation. */}
+        <AnimatePresence initial={false}>
+          {active && (
+            <motion.div
+              key="mission-run-strip"
+              initial={reduced ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduced ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: 6 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="shrink-0"
+            >
+              <AgentRunStrip
+                conversationId={active.id}
+                projectId={refsProjectId}
+                inline={inline}
+                deliveries={prCards.pinned}
+                proposals={railProposals.pinned}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {inline ? (
           // Docked composer card — same visual language as the EMPTY hero card
@@ -424,7 +687,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               className="relative mx-auto w-full max-w-[960px]"
               data-testid="agent-composer-dock"
             >
-              <AgentComposer queueEditRequest={queueEditRequest} />
+              <AgentComposer showModeBadge={false} queueEditRequest={queueEditRequest} />
             </motion.div>
           </div>
         ) : (
@@ -454,13 +717,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
 
       {/* Activity chip clicked: the turn's execution log (tool calls with
           input/output previews + copy affordances). Same z-[65] portal tier. */}
-      {activityOpen && (
-        <AgentActivityLogModal
-          tools={activityTools}
-          streaming={isStreaming}
-          onClose={() => setActivityOpen(false)}
-        />
-      )}
+      {activityOpen && <ActivityLog onClose={() => setActivityOpen(false)} />}
     </div>
   )
 }

@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} of {{total}} changes are ready",
     "noChanges": "Nothing needed changing",
     "failed": "This could not be completed",
-    "failedPartial": "Only part of this could be completed"
+    "failedPartial": "Only part of this could be completed",
+    "generic": "Review the delivered change"
   },
   "confidence": {
     "pill": "AI reviewer confidence {{overall}}/100",
@@ -20,7 +21,8 @@
   },
   "cost": {
     "thisBuild": "This build cost {{amount}}",
-    "allVersions": "All versions together: {{amount}}"
+    "allVersions": "All versions together: {{amount}}",
+    "baselinePart": " · baseline {{amount}} of it"
   },
   "accept": {
     "create-pr": "Accept and open a pull request",
@@ -41,7 +43,9 @@
   },
   "discard": {
     "label": "Throw this away",
-    "stackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work."
+    "stackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work.",
+    "confirmTitle": "Throw this delivery away?",
+    "confirmBody": "The delivery and its changes are thrown away. This cannot be undone."
   },
   "watchOut": {
     "title": "Worth a look before you accept"
@@ -106,7 +110,7 @@
     "actionFailed": "That action did not go through.",
     "revisionStale": "This was just resolved elsewhere — reload to see where it stands.",
     "revisionFailed": "The change could not be started. Your text was kept.",
-    "revisionBudget": "The daily budget is exhausted, so the change was not started. Your text was kept."
+    "revisionBudget": "The daily limit is exhausted, so the change was not started. Your text was kept."
   },
   "versions": {
     "title": "Earlier versions ({{count}})",
@@ -242,5 +246,155 @@
     "run": "Run {{id}}",
     "download": "{{format}}",
     "downloadFailed": "Could not download the agent actions"
+  },
+  "requirements": {
+    "title": "Requirements demonstrated {{demonstrated}}/{{total}}",
+    "touched": "Touched by this change: {{demonstrated}}/{{total}} demonstrated",
+    "caveat": "Measured by Specrails: a requirement counts when a test tagged with its id ran in a passing verification. Advisory; it does not change the review.",
+    "caveatNoReceipt": "No verification receipt backs part of this trace, so those requirements cannot count as demonstrated yet.",
+    "undemonstratedTitle_one": "{{count}} requirement not demonstrated",
+    "undemonstratedTitle_other": "{{count}} requirements not demonstrated",
+    "demonstratedTitle_one": "{{count}} requirement demonstrated",
+    "demonstratedTitle_other": "{{count}} requirements demonstrated",
+    "reason": {
+      "no-test": "no tagged test",
+      "not-executed": "tagged test did not run",
+      "failed": "tagged test failed"
+    },
+    "touchedBadge": "changed here",
+    "untagged_one": "{{count}} test tag matches no requirement ({{tags}}): a typo or a renamed requirement.",
+    "untagged_other": "{{count}} test tags match no requirement ({{tags}}): typos or renamed requirements.",
+    "showAll_one": "Show {{count}} more",
+    "showAll_other": "Show {{count}} more",
+    "showLess": "Show less"
+  },
+  "baseline": {
+    "title": "Spec created where the work passed",
+    "status": {
+      "planned": "Baseline planned: {{requirements}} as-built requirements, {{tests}} characterization tests",
+      "passed": "Baseline proven on the unchanged code: {{requirements}} as-built requirements, {{tests}} characterization tests",
+      "failed": "Baseline blocked: the characterization tests did not pass on the unchanged code, so the module was not edited",
+      "violated": "Baseline blocked: the baseline step edited code other than tests, so the run stopped",
+      "not-needed": "No baseline needed: specs already cover the code this change touches"
+    },
+    "module": "Module described:",
+    "more_one": "and {{count}} more file",
+    "more_other": "and {{count}} more files",
+    "spec": "As-built spec:",
+    "capability": "{{capability}} ({{demonstrated}}/{{requirements}} demonstrated)",
+    "cost": "Baseline cost {{amount}} over {{turns}} turns, counted apart from the change",
+    "costUnknown": "Baseline cost not reported by the provider",
+    "caveat": "Characterization tests describe today's behaviour; Core ran them on the unchanged code before any edit."
+  },
+  "humanEyes": {
+    "title_one": "Needs human eyes: {{count}} project rule",
+    "title_other": "Needs human eyes: {{count}} project rules",
+    "caveat": "Rules written for this project that no automated check can enforce. Check them yourself before accepting."
+  },
+  "tabs": {
+    "label": "Review views",
+    "overview": "Overview",
+    "changes": "Changes"
+  },
+  "changes": {
+    "tab": "Changes",
+    "loading": "Loading the changes…",
+    "error": "The changes could not be loaded.",
+    "refresh": "Reload the changes",
+    "empty": "This delivery changed no files.",
+    "unavailable": {
+      "not_a_repository": "The project folder is not a Git repository, so there is nothing to compare.",
+      "no_branch": "This delivery has no branch to compare yet.",
+      "head_missing": "The delivery's branch no longer exists in this repository.",
+      "base_missing": "The branch this delivery was based on no longer exists, so the changes cannot be measured.",
+      "git_failed": "Git could not produce the changes for this delivery."
+    },
+    "summary": "Files changed: {{count}}",
+    "viewedCount": "{{viewed}} of {{total}} viewed",
+    "truncatedList": "Showing the first {{count}} files only.",
+    "source": "Changes from",
+    "sourceDelivery": "Whole delivery",
+    "sourceTicket": "Spec #{{id}}",
+    "tree": {
+      "label": "Changed files"
+    },
+    "status": {
+      "added": "Added",
+      "modified": "Modified",
+      "deleted": "Deleted",
+      "renamed": "Renamed",
+      "copied": "Copied",
+      "typechange": "Type changed"
+    },
+    "renamedFrom": "Renamed from {{path}}",
+    "binaryShort": "binary",
+    "binary": "Binary file: there is no text diff to show.",
+    "noTextChanges": "No line changes (only the file's name or mode changed).",
+    "fileError": "This file's diff could not be loaded.",
+    "largeDiff": "Showing the first {{shown}} of {{total}} changed lines.",
+    "loadFull": "Load full file diff",
+    "viewed": {
+      "mark": "Mark as viewed",
+      "unmark": "Viewed",
+      "changedSince": "Changed since you viewed it"
+    },
+    "mode": {
+      "label": "Diff layout",
+      "unified": "Unified",
+      "split": "Split"
+    },
+    "diff": {
+      "region": "Diff of {{path}}"
+    },
+    "line": {
+      "select": "Select line {{n}}",
+      "selectOld": "Select original line {{n}}",
+      "added": "added",
+      "removed": "removed"
+    },
+    "selection": {
+      "clear": "Clear the selection"
+    },
+    "ask": {
+      "button": "Ask agent for a change",
+      "title": "Change to make in",
+      "placeholder": "Describe the change you want…",
+      "ticket": "Spec",
+      "submit": "Add to spec",
+      "hint": "Saved as review feedback on the spec; the next run on it is briefed with it.",
+      "created": "Added to spec #{{id}} as review feedback.",
+      "open": "Open spec",
+      "failed": "The note could not be added to the spec."
+    },
+    "editor": {
+      "open": "Open in {{editor}}",
+      "rootRepository": "Opens the file in your checkout of the project; the review branch may not be checked out there.",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      },
+      "failed": "Couldn’t open {{editor}}. Is it installed? Change it in Settings ▸ Code."
+    },
+    "annotations": {
+      "title": "Not tied to a line ({{count}})",
+      "ask": "Ask agent for a change",
+      "source": {
+        "reviewer-finding": "Reviewer finding",
+        "review-risk": "Risk to check",
+        "review-untested": "Not covered by tests",
+        "follow-up-comment": "Review comment"
+      },
+      "severity": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
+    },
+    "keys": {
+      "files": "files",
+      "annotations": "annotations",
+      "viewed": "mark viewed"
+    }
   }
 }

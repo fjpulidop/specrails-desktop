@@ -21,7 +21,10 @@
   },
   "sidebar": {
     "rename": "重命名 {{name}}",
-    "close": "关闭 {{name}}"
+    "close": "关闭 {{name}}",
+    "label": "终端会话",
+    "closeRunningConfirm": "要在命令运行时关闭“{{name}}”吗？",
+    "closeRunningBody": "正在运行的命令将被停止，未保存的输出将丢失。"
   },
   "emptyState": {
     "noTerminals": "此项目还没有终端。",

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -7,15 +7,11 @@ import {
   MessageSquare,
   Zap,
   Globe,
-  Scissors,
-  Save,
-  Columns2,
   Workflow,
   Repeat,
   GitBranch,
   Bot,
   Gauge,
-  FolderOpen,
   Coins,
   DollarSign,
   Wallet,
@@ -23,10 +19,8 @@ import {
   Boxes,
   Terminal,
   FileCode,
-  Plug,
   Palette,
   Layers,
-  Command,
   Keyboard,
   Rocket,
   ShieldCheck,
@@ -44,7 +38,11 @@ import {
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { cn } from '../../../lib/utils'
+import { RailMark } from '../../../components/brand/RailMark'
 import { Button } from '../../../components/ui/button'
+import { DIALOG_PANEL_CLASS, DIALOG_SCRIM_CLASS, DialogCloseButton, DialogLayerProvider } from '../../../components/ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../../../lib/layers'
+import { modalOverlayStyle } from '../../../lib/modal-safe-area'
 import { LanguagePickerGrid } from '../../settings/components/pickers/LanguagePickerGrid'
 import { ThemePickerGrid } from '../../settings/components/pickers/ThemePickerGrid'
 import { COMPANION_WEB_URL } from '../../integrations/lib/companion'
@@ -86,75 +84,30 @@ const ALT = isMac ? '⌥' : 'Alt'
 interface Accent {
   text: string
   bar: string
-  glow: string
   btn: string
   softBorder: string
   softBg: string
   chipBg: string
 }
 
-const ACCENTS: Record<string, Accent> = {
+// The tour uses ONE accent (the primary) on every step: colour marks the
+// current position and the primary action, not each step's identity.
+const ACCENTS = {
   primary: {
     text: 'text-accent-primary',
     bar: 'bg-accent-primary',
-    glow: 'glow-primary',
-    btn: 'bg-accent-primary hover:bg-accent-primary/90 text-primary-foreground',
+    btn: 'bg-primary hover:bg-primary/90 text-primary-foreground',
     softBorder: 'border-accent-primary/30',
     softBg: 'bg-accent-primary/5',
     chipBg: 'bg-accent-primary/10 text-accent-primary',
   },
-  info: {
-    text: 'text-accent-info',
-    bar: 'bg-accent-info',
-    glow: 'glow-info',
-    btn: 'bg-accent-info hover:bg-accent-info/90 text-primary-foreground',
-    softBorder: 'border-accent-info/30',
-    softBg: 'bg-accent-info/5',
-    chipBg: 'bg-accent-info/10 text-accent-info',
-  },
-  success: {
-    text: 'text-accent-success',
-    bar: 'bg-accent-success',
-    glow: 'glow-success',
-    btn: 'bg-accent-success hover:bg-accent-success/90 text-primary-foreground',
-    softBorder: 'border-accent-success/30',
-    softBg: 'bg-accent-success/5',
-    chipBg: 'bg-accent-success/10 text-accent-success',
-  },
-  secondary: {
-    text: 'text-accent-secondary',
-    bar: 'bg-accent-secondary',
-    glow: 'glow-secondary',
-    btn: 'bg-accent-secondary hover:bg-accent-secondary/90 text-primary-foreground',
-    softBorder: 'border-accent-secondary/30',
-    softBg: 'bg-accent-secondary/5',
-    chipBg: 'bg-accent-secondary/10 text-accent-secondary',
-  },
-  warning: {
-    text: 'text-accent-warning',
-    bar: 'bg-accent-warning',
-    glow: 'glow-warning',
-    btn: 'bg-accent-warning hover:bg-accent-warning/90 text-primary-foreground',
-    softBorder: 'border-accent-warning/30',
-    softBg: 'bg-accent-warning/5',
-    chipBg: 'bg-accent-warning/10 text-accent-warning',
-  },
-  highlight: {
-    text: 'text-accent-highlight',
-    bar: 'bg-accent-highlight',
-    glow: 'glow-highlight',
-    btn: 'bg-accent-highlight hover:bg-accent-highlight/90 text-primary-foreground',
-    softBorder: 'border-accent-highlight/30',
-    softBg: 'bg-accent-highlight/5',
-    chipBg: 'bg-accent-highlight/10 text-accent-highlight',
-  },
-}
+} satisfies Record<string, Accent>
 
 // ─── Reusable bits ────────────────────────────────────────────────────────────
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded border border-border/60 bg-card/80 font-mono text-[11px] text-foreground shadow-sm">
+    <kbd data-chip="" className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded border border-border/60 bg-card/80 font-mono text-caption text-foreground shadow-sm">
       {children}
     </kbd>
   )
@@ -177,7 +130,7 @@ function Feature({
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[13px] font-semibold text-foreground leading-tight">{label}</p>
+        <p className="text-strong text-foreground leading-tight">{label}</p>
         <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{children}</p>
       </div>
     </div>
@@ -187,15 +140,15 @@ function Feature({
 function Callout({ accent, label, children }: { accent: Accent; label?: string; children: React.ReactNode }) {
   return (
     <div className={cn('rounded-lg border p-3', accent.softBorder, accent.softBg)}>
-      {label && <p className={cn('text-[10px] font-semibold uppercase tracking-wider mb-1.5', accent.text)}>{label}</p>}
-      <div className="text-xs text-foreground/90 leading-relaxed">{children}</div>
+      {label && <p className="text-xs font-semibold text-foreground mb-1">{label}</p>}
+      <div className="text-xs text-foreground leading-relaxed">{children}</div>
     </div>
   )
 }
 
 function FlowStrip({ steps }: { steps: { label: string; cls: string }[] }) {
   return (
-    <div className="flex items-center gap-2 flex-wrap text-[13px] font-medium">
+    <div className="flex items-center gap-2 flex-wrap text-body font-medium">
       {steps.map((s, i) => (
         <span key={s.label} className="flex items-center gap-2">
           <span className={s.cls}>{s.label}</span>
@@ -203,6 +156,21 @@ function FlowStrip({ steps }: { steps: { label: string; cls: string }[] }) {
         </span>
       ))}
     </div>
+  )
+}
+
+/** Overflow beyond a step's four feature cards: one compact list. */
+function MoreList({ items }: { items: { label: string; body: React.ReactNode }[] }) {
+  return (
+    <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1 leading-relaxed">
+      {items.map((item) => (
+        <li key={item.label}>
+          <span className="font-medium text-foreground">{item.label}</span>
+          {' — '}
+          {item.body}
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -254,7 +222,7 @@ function CompanionDownloadCard({
         <QRCodeSVG value={url} size={72} />
       </div>
       <div className="min-w-0 space-y-1">
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground leading-tight">
+        <p className="flex items-center gap-1.5 text-strong text-foreground leading-tight">
           {icon}
           {label}
         </p>
@@ -281,11 +249,11 @@ function CompanionStepBody() {
       <p className="text-sm text-muted-foreground leading-relaxed">
         <Trans t={t} i18nKey="onboarding.companion.intro" components={{ b: <span className="text-foreground font-medium" /> }} />
       </p>
-      <Callout accent={ACCENTS.success} label={t('onboarding.companion.localLabel')}>
+      <Callout accent={ACCENTS.primary} label={t('onboarding.companion.localLabel')}>
         {t('onboarding.companion.localBody')}
       </Callout>
       <div className="space-y-2">
-        <p className="text-[13px] font-semibold text-foreground">{t('onboarding.companion.downloadLabel')}</p>
+        <p className="text-strong text-foreground">{t('onboarding.companion.downloadLabel')}</p>
         <p className="text-xs text-muted-foreground">{t('onboarding.companion.downloadHint')}</p>
         <CompanionDownloadCard
           icon={<Smartphone className="w-4 h-4 shrink-0" aria-hidden="true" />}
@@ -294,7 +262,7 @@ function CompanionStepBody() {
           testId="companion-web-link"
         />
       </div>
-      <Feature icon={<QrCode className="w-4 h-4" />} label={t('onboarding.companion.pairLabel')} accent={ACCENTS.success}>
+      <Feature icon={<QrCode className="w-4 h-4" />} label={t('onboarding.companion.pairLabel')} accent={ACCENTS.primary}>
         {t('onboarding.companion.pairBody')}
       </Feature>
     </div>
@@ -306,7 +274,6 @@ function CompanionStepBody() {
 interface StepConfig {
   navLabel: string
   icon: React.ReactNode
-  accent: Accent
   title: string
   subtitle: string
   content: React.ReactNode
@@ -319,7 +286,6 @@ function buildSteps(t: TFunction): StepConfig[] {
     {
       navLabel: t('onboarding.language.nav'),
       icon: <Languages className="w-6 h-6" />,
-      accent: ACCENTS.info,
       title: t('onboarding.language.title'),
       subtitle: t('onboarding.language.subtitle'),
       content: <LanguageStepBody />,
@@ -329,7 +295,6 @@ function buildSteps(t: TFunction): StepConfig[] {
     {
       navLabel: t('onboarding.theme.nav'),
       icon: <Palette className="w-6 h-6" />,
-      accent: ACCENTS.highlight,
       title: t('onboarding.theme.title'),
       subtitle: t('onboarding.theme.subtitle'),
       content: <ThemeStepBody />,
@@ -339,7 +304,6 @@ function buildSteps(t: TFunction): StepConfig[] {
     {
       navLabel: t('onboarding.welcome.nav'),
       icon: <Sparkles className="w-6 h-6" />,
-      accent: ACCENTS.primary,
       title: t('onboarding.welcome.title'),
       subtitle: t('onboarding.welcome.subtitle'),
       content: (
@@ -356,7 +320,7 @@ function buildSteps(t: TFunction): StepConfig[] {
                 { label: t('onboarding.flow.review'), cls: 'text-accent-secondary' },
               ]}
             />
-            <p className="mt-2 text-[11px] text-muted-foreground">
+            <p className="mt-2 text-xs text-muted-foreground">
               <Trans t={t} i18nKey="onboarding.welcome.flowCaption" components={b} />
             </p>
           </Callout>
@@ -385,7 +349,6 @@ function buildSteps(t: TFunction): StepConfig[] {
           {
             navLabel: t('onboarding.mission.nav'),
             icon: <Bot className="w-6 h-6" />,
-            accent: ACCENTS.primary,
             title: t('onboarding.mission.title'),
             subtitle: t('onboarding.mission.subtitle'),
             content: (
@@ -422,7 +385,6 @@ function buildSteps(t: TFunction): StepConfig[] {
           {
             navLabel: t('onboarding.builder.nav'),
             icon: <Hammer className="w-6 h-6" />,
-            accent: ACCENTS.highlight,
             title: t('onboarding.builder.title'),
             subtitle: t('onboarding.builder.subtitle'),
             content: (
@@ -430,7 +392,7 @@ function buildSteps(t: TFunction): StepConfig[] {
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   <Trans t={t} i18nKey="onboarding.builder.intro" components={b} />
                 </p>
-                <Callout accent={ACCENTS.highlight} label={t('onboarding.builder.flowLabel')}>
+                <Callout accent={ACCENTS.primary} label={t('onboarding.builder.flowLabel')}>
                   <FlowStrip
                     steps={[
                       { label: t('onboarding.flow.blueprint'), cls: 'text-accent-info' },
@@ -439,19 +401,19 @@ function buildSteps(t: TFunction): StepConfig[] {
                       { label: t('onboarding.flow.milestones'), cls: 'text-accent-secondary' },
                     ]}
                   />
-                  <p className="mt-2 text-[11px] text-muted-foreground">{t('onboarding.builder.flowCaption')}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{t('onboarding.builder.flowCaption')}</p>
                 </Callout>
                 <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
-                  <Feature icon={<Wand2 className="w-4 h-4" />} label={t('onboarding.builder.cardsLabel')} accent={ACCENTS.highlight}>
+                  <Feature icon={<Wand2 className="w-4 h-4" />} label={t('onboarding.builder.cardsLabel')} accent={ACCENTS.primary}>
                     {t('onboarding.builder.cardsBody')}
                   </Feature>
-                  <Feature icon={<FileCode className="w-4 h-4" />} label={t('onboarding.builder.specsLabel')} accent={ACCENTS.highlight}>
+                  <Feature icon={<FileCode className="w-4 h-4" />} label={t('onboarding.builder.specsLabel')} accent={ACCENTS.primary}>
                     {t('onboarding.builder.specsBody')}
                   </Feature>
-                  <Feature icon={<Rocket className="w-4 h-4" />} label={t('onboarding.builder.milestonesLabel')} accent={ACCENTS.highlight}>
+                  <Feature icon={<Rocket className="w-4 h-4" />} label={t('onboarding.builder.milestonesLabel')} accent={ACCENTS.primary}>
                     <Trans t={t} i18nKey="onboarding.builder.milestonesBody" components={b} />
                   </Feature>
-                  <Feature icon={<Gauge className="w-4 h-4" />} label={t('onboarding.builder.progressLabel')} accent={ACCENTS.highlight}>
+                  <Feature icon={<Gauge className="w-4 h-4" />} label={t('onboarding.builder.progressLabel')} accent={ACCENTS.primary}>
                     {t('onboarding.builder.progressBody')}
                   </Feature>
                 </div>
@@ -465,7 +427,6 @@ function buildSteps(t: TFunction): StepConfig[] {
     {
       navLabel: t('onboarding.authorSpecs.nav'),
       icon: <MessageSquare className="w-6 h-6" />,
-      accent: ACCENTS.info,
       title: t('onboarding.authorSpecs.title'),
       subtitle: t('onboarding.authorSpecs.subtitle'),
       content: (
@@ -474,27 +435,27 @@ function buildSteps(t: TFunction): StepConfig[] {
             <Trans t={t} i18nKey="onboarding.authorSpecs.intro" components={b} />
           </p>
           <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
-            <Feature icon={<Bot className="w-4 h-4" />} label={t('onboarding.authorSpecs.agentLabel')} accent={ACCENTS.info}>
+            <Feature icon={<Bot className="w-4 h-4" />} label={t('onboarding.authorSpecs.agentLabel')} accent={ACCENTS.primary}>
               {t('onboarding.authorSpecs.agentBody')}
             </Feature>
-            <Feature icon={<MessageSquare className="w-4 h-4" />} label={t('onboarding.authorSpecs.exploreLabel')} accent={ACCENTS.info}>
+            <Feature icon={<MessageSquare className="w-4 h-4" />} label={t('onboarding.authorSpecs.exploreLabel')} accent={ACCENTS.primary}>
               {t('onboarding.authorSpecs.exploreBody')}
             </Feature>
-            <Feature icon={<Zap className="w-4 h-4" />} label={t('onboarding.authorSpecs.quickLabel')} accent={ACCENTS.info}>
+            <Feature icon={<Zap className="w-4 h-4" />} label={t('onboarding.authorSpecs.quickLabel')} accent={ACCENTS.primary}>
               {t('onboarding.authorSpecs.quickBody')}
             </Feature>
-            <Feature icon={<Globe className="w-4 h-4" />} label={t('onboarding.authorSpecs.websiteLabel')} accent={ACCENTS.info}>
+            <Feature icon={<Globe className="w-4 h-4" />} label={t('onboarding.authorSpecs.websiteLabel')} accent={ACCENTS.primary}>
               {t('onboarding.authorSpecs.websiteBody')}
             </Feature>
-            <Feature icon={<Scissors className="w-4 h-4" />} label={t('onboarding.authorSpecs.smashLabel')} accent={ACCENTS.info}>
-              {t('onboarding.authorSpecs.smashBody')}
-            </Feature>
-            <Feature icon={<Save className="w-4 h-4" />} label={t('onboarding.authorSpecs.draftsLabel')} accent={ACCENTS.info}>
-              {t('onboarding.authorSpecs.draftsBody')}
-            </Feature>
           </div>
+          <MoreList
+            items={[
+              { label: t('onboarding.authorSpecs.smashLabel'), body: t('onboarding.authorSpecs.smashBody') },
+              { label: t('onboarding.authorSpecs.draftsLabel'), body: t('onboarding.authorSpecs.draftsBody') },
+            ]}
+          />
           {FEATURE_JIRA && (
-            <Callout accent={ACCENTS.info} label={t('onboarding.jira.label')}>
+            <Callout accent={ACCENTS.primary} label={t('onboarding.jira.label')}>
               <Trans t={t} i18nKey="onboarding.jira.body" components={b} />
             </Callout>
           )}
@@ -506,7 +467,6 @@ function buildSteps(t: TFunction): StepConfig[] {
     {
       navLabel: t('onboarding.rails.nav'),
       icon: <Workflow className="w-6 h-6" />,
-      accent: ACCENTS.success,
       title: t('onboarding.rails.title'),
       subtitle: t('onboarding.rails.subtitle'),
       content: (
@@ -514,7 +474,7 @@ function buildSteps(t: TFunction): StepConfig[] {
           <p className="text-sm text-muted-foreground leading-relaxed">
             <Trans t={t} i18nKey="onboarding.rails.intro" components={{ ...b, play: <span className="text-accent-warning font-medium" /> }} />
           </p>
-          <Callout accent={ACCENTS.success} label={t('onboarding.rails.jobLabel')}>
+          <Callout accent={ACCENTS.primary} label={t('onboarding.rails.jobLabel')}>
             <FlowStrip
               steps={[
                 { label: t('onboarding.flow.architect'), cls: 'text-accent-info' },
@@ -523,28 +483,28 @@ function buildSteps(t: TFunction): StepConfig[] {
                 { label: t('onboarding.flow.yourReview'), cls: 'text-accent-secondary' },
               ]}
             />
-            <p className="mt-2 text-[11px] text-muted-foreground">{t('onboarding.rails.flowCaption')}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t('onboarding.rails.flowCaption')}</p>
           </Callout>
           <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
-            <Feature icon={<GitBranch className="w-4 h-4" />} label={t('onboarding.rails.reviewLabel')} accent={ACCENTS.success}>
+            <Feature icon={<GitBranch className="w-4 h-4" />} label={t('onboarding.rails.reviewLabel')} accent={ACCENTS.primary}>
               <Trans t={t} i18nKey="onboarding.rails.reviewBody" components={b} />
             </Feature>
-            <Feature icon={<Eye className="w-4 h-4" />} label={t('onboarding.rails.packetLabel')} accent={ACCENTS.success}>
+            <Feature icon={<Eye className="w-4 h-4" />} label={t('onboarding.rails.packetLabel')} accent={ACCENTS.primary}>
               {t('onboarding.rails.packetBody')}
             </Feature>
-            <Feature icon={<MessageSquare className="w-4 h-4" />} label={t('onboarding.rails.steerLabel')} accent={ACCENTS.success}>
+            <Feature icon={<MessageSquare className="w-4 h-4" />} label={t('onboarding.rails.steerLabel')} accent={ACCENTS.primary}>
               {t('onboarding.rails.steerBody')}
             </Feature>
-            <Feature icon={<Repeat className="w-4 h-4" />} label={t('onboarding.rails.loopsLabel')} accent={ACCENTS.success}>
+            <Feature icon={<Repeat className="w-4 h-4" />} label={t('onboarding.rails.loopsLabel')} accent={ACCENTS.primary}>
               <Trans t={t} i18nKey="onboarding.rails.loopsBody" components={b} />
             </Feature>
-            <Feature icon={<Bot className="w-4 h-4" />} label={t('onboarding.rails.profilesLabel')} accent={ACCENTS.success}>
-              {t('onboarding.rails.profilesBody')}
-            </Feature>
-            <Feature icon={<FolderOpen className="w-4 h-4" />} label={t('onboarding.rails.isolationLabel')} accent={ACCENTS.success}>
-              {t('onboarding.rails.isolationBody')}
-            </Feature>
           </div>
+          <MoreList
+            items={[
+              { label: t('onboarding.rails.profilesLabel'), body: t('onboarding.rails.profilesBody') },
+              { label: t('onboarding.rails.isolationLabel'), body: t('onboarding.rails.isolationBody') },
+            ]}
+          />
         </div>
       ),
     },
@@ -553,7 +513,6 @@ function buildSteps(t: TFunction): StepConfig[] {
     {
       navLabel: t('onboarding.providers.nav'),
       icon: <Bot className="w-6 h-6" />,
-      accent: ACCENTS.secondary,
       title: t('onboarding.providers.title'),
       subtitle: t('onboarding.providers.subtitle'),
       content: (
@@ -563,24 +522,24 @@ function buildSteps(t: TFunction): StepConfig[] {
           </p>
           <div className="rounded-lg border border-border/40 overflow-hidden text-xs">
             <div className="grid grid-cols-[1.4fr_1fr_1fr] bg-card/40">
-              <div className="px-3 py-2 font-semibold text-muted-foreground">{t('onboarding.providers.table.capability')}</div>
-              <div className="px-3 py-2 font-semibold text-accent-secondary text-center">Claude Code</div>
-              <div className="px-3 py-2 font-semibold text-accent-success text-center">Codex CLI</div>
+              <div className="px-3 py-2 font-semibold text-foreground">{t('onboarding.providers.table.capability')}</div>
+              <div className="px-3 py-2 font-semibold text-foreground text-center">Claude Code</div>
+              <div className="px-3 py-2 font-semibold text-foreground text-center">Codex CLI</div>
             </div>
             {[
-              [t('onboarding.providers.table.streamingResume'), t('onboarding.providers.table.native'), t('onboarding.providers.table.native'), t('onboarding.providers.table.native'), t('onboarding.providers.table.native')],
-              [t('onboarding.providers.table.costReporting'), t('onboarding.providers.table.providerBilled'), t('onboarding.providers.table.estimated'), t('onboarding.providers.table.estimated'), t('onboarding.providers.table.unavailable')],
-              [t('onboarding.providers.table.telemetry'), t('onboarding.providers.table.native'), t('onboarding.providers.table.synthesized'), t('onboarding.providers.table.native'), t('onboarding.providers.table.synthesized')],
-              [t('onboarding.providers.table.agentProfiles'), t('common:states.yes'), '—', '—', t('common:states.yes')],
+              [t('onboarding.providers.table.streamingResume'), t('onboarding.providers.table.native'), t('onboarding.providers.table.native')],
+              [t('onboarding.providers.table.costReporting'), t('onboarding.providers.table.providerBilled'), t('onboarding.providers.table.estimated')],
+              [t('onboarding.providers.table.telemetry'), t('onboarding.providers.table.native'), t('onboarding.providers.table.synthesized')],
+              [t('onboarding.providers.table.agentProfiles'), t('common:states.yes'), '—'],
             ].map((row) => (
               <div key={row[0]} className="grid grid-cols-[1.4fr_1fr_1fr] border-t border-border/30">
-                <div className="px-3 py-2 text-foreground/90">{row[0]}</div>
+                <div className="px-3 py-2 text-foreground">{row[0]}</div>
                 <div className="px-3 py-2 text-center text-muted-foreground">{row[1]}</div>
                 <div className="px-3 py-2 text-center text-muted-foreground">{row[2]}</div>
               </div>
             ))}
           </div>
-          <Callout accent={ACCENTS.secondary} label={t('onboarding.providers.calloutLabel')}>
+          <Callout accent={ACCENTS.primary} label={t('onboarding.providers.calloutLabel')}>
             <Trans t={t} i18nKey="onboarding.providers.calloutBody" components={{ ...b, mono: <span className="font-mono" /> }} />
           </Callout>
         </div>
@@ -591,7 +550,6 @@ function buildSteps(t: TFunction): StepConfig[] {
     {
       navLabel: t('onboarding.cost.nav'),
       icon: <Coins className="w-6 h-6" />,
-      accent: ACCENTS.warning,
       title: t('onboarding.cost.title'),
       subtitle: t('onboarding.cost.subtitle'),
       content: (
@@ -600,16 +558,16 @@ function buildSteps(t: TFunction): StepConfig[] {
             <Trans t={t} i18nKey="onboarding.cost.intro" components={b} />
           </p>
           <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
-            <Feature icon={<Gauge className="w-4 h-4" />} label={t('onboarding.cost.analyticsLabel')} accent={ACCENTS.warning}>
+            <Feature icon={<Gauge className="w-4 h-4" />} label={t('onboarding.cost.analyticsLabel')} accent={ACCENTS.primary}>
               {t('onboarding.cost.analyticsBody')}
             </Feature>
-            <Feature icon={<Receipt className="w-4 h-4" />} label={t('onboarding.cost.perTicketLabel')} accent={ACCENTS.warning}>
+            <Feature icon={<Receipt className="w-4 h-4" />} label={t('onboarding.cost.perTicketLabel')} accent={ACCENTS.primary}>
               {t('onboarding.cost.perTicketBody')}
             </Feature>
-            <Feature icon={<DollarSign className="w-4 h-4" />} label={t('onboarding.cost.honestLabel')} accent={ACCENTS.warning}>
+            <Feature icon={<DollarSign className="w-4 h-4" />} label={t('onboarding.cost.honestLabel')} accent={ACCENTS.primary}>
               <Trans t={t} i18nKey="onboarding.cost.honestBody" components={{ mono: <span className="font-mono" /> }} />
             </Feature>
-            <Feature icon={<Wallet className="w-4 h-4" />} label={t('onboarding.cost.budgetsLabel')} accent={ACCENTS.warning}>
+            <Feature icon={<Wallet className="w-4 h-4" />} label={t('onboarding.cost.budgetsLabel')} accent={ACCENTS.primary}>
               {t('onboarding.cost.budgetsBody')}
             </Feature>
           </div>
@@ -617,62 +575,21 @@ function buildSteps(t: TFunction): StepConfig[] {
       ),
     },
 
-    // 10 — Workspace
-    {
-      navLabel: t('onboarding.workspace.nav'),
-      icon: <Boxes className="w-6 h-6" />,
-      accent: ACCENTS.highlight,
-      title: t('onboarding.workspace.title'),
-      subtitle: t('onboarding.workspace.subtitle'),
-      content: (
-        <div className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
-            <Feature icon={<Terminal className="w-4 h-4" />} label={t('onboarding.workspace.terminalLabel')} accent={ACCENTS.highlight}>
-              <Trans t={t} i18nKey="onboarding.workspace.terminalBody" values={{ mod: MOD }} components={{ mod: <Kbd>{MOD}</Kbd>, j: <Kbd>J</Kbd> }} />
-            </Feature>
-            <Feature icon={<FileCode className="w-4 h-4" />} label={t('onboarding.workspace.codeLabel')} accent={ACCENTS.highlight}>
-              {t('onboarding.workspace.codeBody')}
-            </Feature>
-            <Feature icon={<Globe className="w-4 h-4" />} label={t('onboarding.workspace.browserLabel')} accent={ACCENTS.highlight}>
-              {t('onboarding.workspace.browserBody')}
-            </Feature>
-            <Feature icon={<Plug className="w-4 h-4" />} label={t('onboarding.workspace.integrationsLabel')} accent={ACCENTS.highlight}>
-              {t('onboarding.workspace.integrationsBody')}
-            </Feature>
-            <Feature icon={<Palette className="w-4 h-4" />} label={t('onboarding.workspace.themesLabel')} accent={ACCENTS.highlight}>
-              {t('onboarding.workspace.themesBody')}
-            </Feature>
-            <Feature icon={<Layers className="w-4 h-4" />} label={t('onboarding.workspace.chatsLabel')} accent={ACCENTS.highlight}>
-              {t('onboarding.workspace.chatsBody')}
-            </Feature>
-            <Feature icon={<Columns2 className="w-4 h-4" />} label={t('onboarding.workspace.compareLabel')} accent={ACCENTS.highlight}>
-              {t('onboarding.workspace.compareBody')}
-            </Feature>
-            <Feature icon={<Rocket className="w-4 h-4" />} label={t('onboarding.workspace.desktopLabel')} accent={ACCENTS.highlight}>
-              {t('onboarding.workspace.desktopBody')}
-            </Feature>
-          </div>
-        </div>
-      ),
-    },
-
-    // 11 — Companion mobile app
+    // 10 — Companion mobile app
     {
       navLabel: t('onboarding.companion.nav'),
       icon: <Smartphone className="w-6 h-6" />,
-      accent: ACCENTS.success,
       title: t('onboarding.companion.title'),
       subtitle: t('onboarding.companion.subtitle'),
       content: <CompanionStepBody />,
     },
 
-    // 12 — Move fast / get started
+    // 11 — Workspace + move fast (the tour ends here, then "Get started")
     {
-      navLabel: t('onboarding.moveFast.nav'),
-      icon: <Command className="w-6 h-6" />,
-      accent: ACCENTS.primary,
-      title: t('onboarding.moveFast.title'),
-      subtitle: t('onboarding.moveFast.subtitle'),
+      navLabel: t('onboarding.workspace.nav'),
+      icon: <Boxes className="w-6 h-6" />,
+      title: t('onboarding.workspace.title'),
+      subtitle: t('onboarding.workspace.subtitle'),
       content: (
         <div className="space-y-4">
           <Callout accent={ACCENTS.primary} label={t('onboarding.moveFast.paletteLabel')}>
@@ -686,26 +603,33 @@ function buildSteps(t: TFunction): StepConfig[] {
             </div>
             {t('onboarding.moveFast.paletteBody')}
           </Callout>
-          <div className="grid sm:grid-cols-2 gap-x-5 gap-y-3">
-            <Feature icon={<Bot className="w-4 h-4" />} label={t('onboarding.moveFast.agentLabel')} accent={ACCENTS.primary}>
-              <Trans t={t} i18nKey="onboarding.moveFast.agentBody" values={{ mod: MOD }} components={{ mod: <Kbd>{MOD}</Kbd>, shift: <Kbd>Shift</Kbd>, a: <Kbd>A</Kbd>, tab: <Kbd>Tab</Kbd> }} />
+          <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
+            <Feature icon={<Terminal className="w-4 h-4" />} label={t('onboarding.workspace.terminalLabel')} accent={ACCENTS.primary}>
+              <Trans t={t} i18nKey="onboarding.workspace.terminalBody" values={{ mod: MOD }} components={{ mod: <Kbd>{MOD}</Kbd>, j: <Kbd>J</Kbd> }} />
             </Feature>
-            <Feature icon={<Terminal className="w-4 h-4" />} label={t('onboarding.moveFast.terminalLabel')} accent={ACCENTS.primary}>
-              <Trans t={t} i18nKey="onboarding.moveFast.terminalBody" values={{ mod: MOD }} components={{ mod: <Kbd>{MOD}</Kbd>, j: <Kbd>J</Kbd> }} />
+            <Feature icon={<FileCode className="w-4 h-4" />} label={t('onboarding.workspace.codeLabel')} accent={ACCENTS.primary}>
+              {t('onboarding.workspace.codeBody')}
+            </Feature>
+            <Feature icon={<Globe className="w-4 h-4" />} label={t('onboarding.workspace.browserLabel')} accent={ACCENTS.primary}>
+              {t('onboarding.workspace.browserBody')}
             </Feature>
             <Feature icon={<Keyboard className="w-4 h-4" />} label={t('onboarding.moveFast.shortcutsLabel')} accent={ACCENTS.primary}>
               <Trans t={t} i18nKey="onboarding.moveFast.shortcutsBody" components={{ q: <Kbd>?</Kbd> }} />
             </Feature>
-            <Feature icon={<MessageSquare className="w-4 h-4" />} label={t('onboarding.moveFast.chatLabel')} accent={ACCENTS.primary}>
-              <Trans t={t} i18nKey="onboarding.moveFast.chatBody" values={{ mod: MOD }} components={{ mod: <Kbd>{MOD}</Kbd>, bkey: <Kbd>B</Kbd> }} />
-            </Feature>
-            <Feature icon={<FolderOpen className="w-4 h-4" />} label={t('onboarding.moveFast.projectsLabel')} accent={ACCENTS.primary}>
-              <Trans t={t} i18nKey="onboarding.moveFast.projectsBody" values={{ alt: ALT, mod: MOD }} components={{ alt: <Kbd>{ALT}</Kbd>, mod: <Kbd>{MOD}</Kbd>, bkey: <Kbd>B</Kbd> }} />
-            </Feature>
-            <Feature icon={<Command className="w-4 h-4" />} label={t('onboarding.moveFast.pagesLabel')} accent={ACCENTS.primary}>
-              <Trans t={t} i18nKey="onboarding.moveFast.pagesBody" values={{ alt: ALT, mod: MOD }} components={{ alt: <Kbd>{ALT}</Kbd>, mod: <Kbd>{MOD}</Kbd>, n: <Kbd>1–9</Kbd> }} />
-            </Feature>
           </div>
+          <MoreList
+            items={[
+              { label: t('onboarding.moveFast.agentLabel'), body: <Trans t={t} i18nKey="onboarding.moveFast.agentBody" values={{ mod: MOD }} components={{ mod: <Kbd>{MOD}</Kbd>, shift: <Kbd>Shift</Kbd>, a: <Kbd>A</Kbd>, tab: <Kbd>Tab</Kbd> }} /> },
+              { label: t('onboarding.moveFast.chatLabel'), body: <Trans t={t} i18nKey="onboarding.moveFast.chatBody" values={{ mod: MOD }} components={{ mod: <Kbd>{MOD}</Kbd>, bkey: <Kbd>B</Kbd> }} /> },
+              { label: t('onboarding.moveFast.projectsLabel'), body: <Trans t={t} i18nKey="onboarding.moveFast.projectsBody" values={{ alt: ALT, mod: MOD }} components={{ alt: <Kbd>{ALT}</Kbd>, mod: <Kbd>{MOD}</Kbd>, bkey: <Kbd>B</Kbd> }} /> },
+              { label: t('onboarding.moveFast.pagesLabel'), body: <Trans t={t} i18nKey="onboarding.moveFast.pagesBody" values={{ alt: ALT, mod: MOD }} components={{ alt: <Kbd>{ALT}</Kbd>, mod: <Kbd>{MOD}</Kbd>, n: <Kbd>1–9</Kbd> }} /> },
+              { label: t('onboarding.workspace.integrationsLabel'), body: t('onboarding.workspace.integrationsBody') },
+              { label: t('onboarding.workspace.themesLabel'), body: t('onboarding.workspace.themesBody') },
+              { label: t('onboarding.workspace.chatsLabel'), body: t('onboarding.workspace.chatsBody') },
+              { label: t('onboarding.workspace.compareLabel'), body: t('onboarding.workspace.compareBody') },
+              { label: t('onboarding.workspace.desktopLabel'), body: t('onboarding.workspace.desktopBody') },
+            ]}
+          />
           <Callout accent={ACCENTS.primary}>
             <Trans t={t} i18nKey="onboarding.moveFast.outro" components={b} />
           </Callout>
@@ -720,30 +644,35 @@ function buildSteps(t: TFunction): StepConfig[] {
 interface OnboardingWizardProps {
   open: boolean
   onClose: () => void
+  /** Called after "Get started" on the last step (e.g. open Add Project when there is none). */
+  onFinish?: () => void
 }
 
-export function OnboardingWizard({ open, onClose }: OnboardingWizardProps) {
+export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardProps) {
   const { t } = useTranslation('setup')
   const [step, setStep] = useState(0)
-  const [dontShowAgain, setDontShowAgain] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const nextRef = useRef<HTMLButtonElement>(null)
 
   const steps = useMemo(() => buildSteps(t), [t])
   const current = steps[step]
   const isFirst = step === 0
   const isLast = step === steps.length - 1
 
+  // Leaving the tour at any point counts as "seen"; Settings can replay it.
   const handleClose = useCallback(() => {
-    if (dontShowAgain) dismissOnboarding()
-    setStep(0)
-    onClose()
-  }, [dontShowAgain, onClose])
-
-  // Completing the whole tour counts as "seen".
-  const handleFinish = useCallback(() => {
     dismissOnboarding()
     setStep(0)
     onClose()
   }, [onClose])
+
+  // Completing the whole tour counts as "seen" and hands off to the next step.
+  const handleFinish = useCallback(() => {
+    dismissOnboarding()
+    setStep(0)
+    onClose()
+    onFinish?.()
+  }, [onClose, onFinish])
 
   const handleNext = useCallback(() => {
     if (isLast) handleFinish()
@@ -755,29 +684,39 @@ export function OnboardingWizard({ open, onClose }: OnboardingWizardProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose() }}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay style={modalOverlayStyle()} className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.base)} />
         <DialogPrimitive.Content
+          ref={contentRef}
           // Fixed height (not just max-h) so EVERY step is exactly the same size —
           // the dialog never resizes between steps, which keeps the footer's
-          // Back / Next / Skip buttons pinned in the same place. Wider + taller
-          // than before for a roomier tour; the per-step body scrolls internally
-          // when it overflows instead of growing the dialog.
-          className="fixed left-[50%] top-[50%] z-50 flex flex-col w-[calc(100vw-2rem)] max-w-5xl h-[min(88vh,820px)] translate-x-[-50%] translate-y-[-50%] overflow-hidden border border-border/30 bg-popover shadow-2xl backdrop-blur-xl sm:rounded-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          // Back / Next / Skip buttons pinned in the same place. The tour's
+          // two-pane geometry is product-specific (not a size token); the
+          // per-step body scrolls internally instead of growing the dialog.
+          className={cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.base, 'w-[calc(100vw-2rem)] max-w-5xl h-[min(88vh,820px)]')}
           data-testid="onboarding-wizard"
           aria-describedby="onboarding-description"
+          // Start on the step's primary choice — the selected language on
+          // step 1, otherwise Next — never on Close (Enter would end the tour).
+          onOpenAutoFocus={(e) => {
+            const root = contentRef.current
+            const target = root?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? nextRef.current
+            if (!target) return
+            e.preventDefault()
+            target.focus()
+          }}
         >
-          {/* Accent glow bar */}
-          <div className={cn('h-1 w-full shrink-0 transition-all duration-500', current.accent.bar)} />
+          <DialogLayerProvider layer="base">
+          <DialogCloseButton data-testid="onboarding-close" className="absolute right-3 top-3 z-20" />
 
           <div className="flex min-h-0 flex-1">
             {/* ── Left step navigation ── */}
             <nav className="hidden md:flex w-60 shrink-0 flex-col border-r border-border/30 bg-card/20 p-4">
               <div className="px-2 mb-5">
-                <p className="text-sm font-bold tracking-tight">
-                  <span className="text-accent-primary">spec</span>
-                  <span className="text-accent-secondary">rails</span>
+                <p className="flex items-center gap-2 text-strong text-foreground">
+                  <RailMark size={20} />
+                  Specrails
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{t('onboarding.productTour')}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('onboarding.productTour')}</p>
               </div>
               <ol className="space-y-0.5 min-h-0 overflow-y-auto">
                 {steps.map((s, i) => {
@@ -792,14 +731,15 @@ export function OnboardingWizard({ open, onClose }: OnboardingWizardProps) {
                         aria-current={isActive ? 'step' : undefined}
                         className={cn(
                           'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors',
-                          isActive ? cn('bg-card/70', s.accent.text) : 'text-muted-foreground hover:bg-card/40 hover:text-foreground'
+                          isActive ? cn('bg-card/70', ACCENTS.primary.text) : 'text-muted-foreground hover:bg-card/40 hover:text-foreground'
                         )}
                       >
                         <span
+                          data-chip=""
                           className={cn(
-                            'grid place-items-center w-5 h-5 shrink-0 rounded-full text-[10px] font-bold border',
+                            'grid place-items-center w-5 h-5 shrink-0 rounded-full text-caption font-bold border',
                             isActive
-                              ? cn(s.accent.bar, 'text-primary-foreground border-transparent')
+                              ? cn(ACCENTS.primary.bar, 'text-primary-foreground border-transparent')
                               : isDone
                                 ? 'bg-accent-success/15 text-accent-success border-accent-success/30'
                                 : 'border-border/50 text-muted-foreground'
@@ -807,13 +747,13 @@ export function OnboardingWizard({ open, onClose }: OnboardingWizardProps) {
                         >
                           {isDone ? <Check className="w-3 h-3" /> : i + 1}
                         </span>
-                        <span className="text-xs font-medium truncate">{s.navLabel}</span>
+                        <span className="text-label truncate">{s.navLabel}</span>
                       </button>
                     </li>
                   )
                 })}
               </ol>
-              <div className="mt-auto px-2.5 pt-4 text-[10px] text-muted-foreground">
+              <div className="mt-auto px-2.5 pt-4 text-xs text-muted-foreground">
                 {t('onboarding.stepCount', { current: step + 1, total: steps.length })}
               </div>
             </nav>
@@ -822,12 +762,12 @@ export function OnboardingWizard({ open, onClose }: OnboardingWizardProps) {
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex-1 overflow-y-auto p-6 sm:p-7">
                 {/* Header */}
-                <div className={cn('flex items-center gap-3.5 mb-5', current.accent.text)}>
-                  <div className={cn('grid place-items-center w-12 h-12 shrink-0 rounded-xl border border-border/30 bg-card/40', current.accent.glow)}>
+                <div className={cn('flex items-center gap-3.5 mb-5 pr-8', ACCENTS.primary.text)}>
+                  <div className={cn('grid place-items-center w-12 h-12 shrink-0 rounded-card border border-border/30 bg-card/40 shadow-1')}>
                     {current.icon}
                   </div>
                   <div className="min-w-0">
-                    <DialogPrimitive.Title className="text-lg font-bold leading-tight text-foreground">
+                    <DialogPrimitive.Title className="text-headline text-foreground">
                       {current.title}
                     </DialogPrimitive.Title>
                     <p id="onboarding-description" className="text-xs text-muted-foreground mt-0.5">
@@ -837,7 +777,7 @@ export function OnboardingWizard({ open, onClose }: OnboardingWizardProps) {
                 </div>
 
                 {/* Mobile progress (left nav hidden) */}
-                <div className="md:hidden flex items-center gap-1.5 mb-5">
+                <div className="md:hidden flex items-center gap-1.5 px-2 mb-5">
                   {steps.map((s, i) => (
                     <button
                       key={s.navLabel}
@@ -845,7 +785,7 @@ export function OnboardingWizard({ open, onClose }: OnboardingWizardProps) {
                       onClick={() => setStep(i)}
                       aria-label={t('onboarding.stepLabel', { step: i + 1 })}
                       aria-current={i === step ? 'step' : undefined}
-                      className={cn('h-1.5 rounded-full transition-all', i === step ? cn('w-6', s.accent.bar) : 'w-1.5 bg-muted-foreground/30')}
+                      className={cn('-m-2 box-content h-1.5 rounded-full bg-clip-content p-2 transition-[width] duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', i === step ? cn('w-6', ACCENTS.primary.bar) : 'w-1.5 bg-muted-foreground/30')}
                     />
                   ))}
                 </div>
@@ -855,43 +795,24 @@ export function OnboardingWizard({ open, onClose }: OnboardingWizardProps) {
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between gap-3 border-t border-border/30 px-6 sm:px-7 py-3.5">
-                <div className="flex-1 min-w-0">
-                  {isFirst && (
-                    <label className="inline-flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={dontShowAgain}
-                        onChange={(e) => setDontShowAgain(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded"
-                        data-testid="onboarding-dismiss-checkbox"
-                      />
-                      <span className="text-[11px] text-muted-foreground group-hover:text-foreground transition-colors">
-                        {t('onboarding.dontShowAgain')}
-                      </span>
-                    </label>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {isFirst ? (
-                    <Button variant="ghost" size="sm" onClick={handleClose} className="text-xs text-muted-foreground" data-testid="onboarding-skip">
-                      {t('onboarding.skipTour')}
-                    </Button>
-                  ) : (
-                    <Button variant="ghost" size="sm" onClick={handleBack} className="text-xs" data-testid="onboarding-back">
-                      <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-                      {t('common:actions.back')}
-                    </Button>
-                  )}
-                  <Button size="sm" onClick={handleNext} className={cn('text-xs', current.accent.btn)} data-testid="onboarding-next">
-                    {isLast ? t('onboarding.getStarted') : t('common:actions.next')}
-                    {!isLast && <ArrowRight className="w-3.5 h-3.5 ml-1" />}
+              <div className="flex items-center justify-end gap-2 border-t border-border/30 px-6 sm:px-7 py-3.5">
+                <Button variant="ghost" onClick={handleClose} className="text-muted-foreground mr-auto" data-testid="onboarding-skip">
+                  {t('onboarding.skipTour')}
+                </Button>
+                {!isFirst && (
+                  <Button variant="ghost" onClick={handleBack} data-testid="onboarding-back">
+                    <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                    {t('common:actions.back')}
                   </Button>
-                </div>
+                )}
+                <Button ref={nextRef} onClick={handleNext} data-testid="onboarding-next">
+                  {isLast ? t('onboarding.getStarted') : t('common:actions.next')}
+                  {!isLast && <ArrowRight className="w-3.5 h-3.5 ml-1" />}
+                </Button>
               </div>
             </div>
           </div>
+          </DialogLayerProvider>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

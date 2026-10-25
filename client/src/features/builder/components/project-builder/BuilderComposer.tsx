@@ -42,7 +42,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
           a mission action ("+ New mission" / picking a mission) or Esc. */}
       <div className="mb-3 flex items-center gap-2 px-1">
         <Hammer className="h-4 w-4 text-accent-primary" />
-        <span className="text-sm font-medium text-foreground/80">{t('mode.title')}</span>
+        <span className="text-sm font-medium text-foreground">{t('mode.title')}</span>
       </div>
 
       {/* Selector row — the SAME primitives as the mission composer. */}
@@ -82,7 +82,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
             type="button"
             onClick={session.surpriseMe}
             disabled={!builderAvailable || session.busy || !session.conversationReady}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-accent-highlight/40 bg-accent-highlight/10 px-3 py-1 text-[11px] text-accent-highlight transition-colors hover:bg-accent-highlight/20 disabled:opacity-40"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-accent-highlight/40 bg-accent-highlight/10 px-3 py-1 text-caption text-accent-highlight transition-colors hover:bg-accent-highlight/20 disabled:opacity-40"
             data-testid="surprise-me"
           >
             <Sparkles className="h-3 w-3" />
@@ -117,7 +117,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
           placeholder={t('shell.inputPlaceholder')}
           aria-label={t('shell.inputPlaceholder')}
           data-agent-interactive
-          className="min-h-[3.25rem] max-h-64 min-w-[12rem] flex-1 resize-y bg-transparent text-sm text-foreground outline-none placeholder:text-foreground/40"
+          className="min-h-[3.25rem] max-h-64 min-w-[12rem] flex-1 resize-y bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
           data-testid="builder-input"
         />
         <button
@@ -125,7 +125,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
           onClick={sendInput}
           disabled={!builderAvailable || session.busy || !session.draft.trim() || !session.conversationReady}
           aria-label={tAgent('send')}
-          className="rounded-lg bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
+          className="rounded-control bg-primary p-1.5 text-primary-foreground transition-opacity disabled:opacity-40"
           data-testid="builder-send"
         >
           <SendHorizontal className="h-4 w-4" />

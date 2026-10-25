@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} de {{total}} alterações estão prontas",
     "noChanges": "Não era preciso alterar nada",
     "failed": "Isto não pôde ser concluído",
-    "failedPartial": "Só parte pôde ser concluída"
+    "failedPartial": "Só parte pôde ser concluída",
+    "generic": "Revise a alteração entregue"
   },
   "confidence": {
     "pill": "Confiança do revisor IA {{overall}}/100",
@@ -20,7 +21,8 @@
   },
   "cost": {
     "thisBuild": "Este trabalho custou {{amount}}",
-    "allVersions": "Todas as versões juntas: {{amount}}"
+    "allVersions": "Todas as versões juntas: {{amount}}",
+    "baselinePart": " · {{amount}} de baseline"
   },
   "accept": {
     "create-pr": "Aceitar e abrir um pull request",
@@ -41,7 +43,9 @@
   },
   "discard": {
     "label": "Descartar isto",
-    "stackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho."
+    "stackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho.",
+    "confirmTitle": "Descartar esta entrega?",
+    "confirmBody": "A entrega e as suas alterações são descartadas. Esta ação não pode ser desfeita."
   },
   "watchOut": {
     "title": "Vale a pena ver antes de aceitar"
@@ -242,5 +246,155 @@
     "run": "Execução {{id}}",
     "download": "{{format}}",
     "downloadFailed": "Não foi possível baixar as ações do agente"
+  },
+  "requirements": {
+    "title": "Requisitos demonstrados {{demonstrated}}/{{total}}",
+    "touched": "Tocados por esta mudança: {{demonstrated}}/{{total}} demonstrados",
+    "caveat": "Medido pelo Specrails: um requisito conta quando um teste marcado com o seu id rodou numa verificação aprovada. Indicativo; não altera a revisão.",
+    "caveatNoReceipt": "Parte deste rastreio não tem recibo de verificação, então esses requisitos ainda não podem contar como demonstrados.",
+    "undemonstratedTitle_one": "{{count}} requisito não demonstrado",
+    "undemonstratedTitle_other": "{{count}} requisitos não demonstrados",
+    "demonstratedTitle_one": "{{count}} requisito demonstrado",
+    "demonstratedTitle_other": "{{count}} requisitos demonstrados",
+    "reason": {
+      "no-test": "sem teste marcado",
+      "not-executed": "o teste marcado não rodou",
+      "failed": "o teste marcado falhou"
+    },
+    "touchedBadge": "alterado aqui",
+    "untagged_one": "{{count}} marcação de teste não corresponde a nenhum requisito ({{tags}}): um erro de digitação ou um requisito renomeado.",
+    "untagged_other": "{{count}} marcações de teste não correspondem a nenhum requisito ({{tags}}): erros de digitação ou requisitos renomeados.",
+    "showAll_one": "Mostrar mais {{count}}",
+    "showAll_other": "Mostrar mais {{count}}",
+    "showLess": "Mostrar menos"
+  },
+  "baseline": {
+    "title": "Spec criada por onde o trabalho passou",
+    "status": {
+      "planned": "Baseline planejado: {{requirements}} requisitos as-built, {{tests}} testes de caracterização",
+      "passed": "Baseline comprovado no código inalterado: {{requirements}} requisitos as-built, {{tests}} testes de caracterização",
+      "failed": "Baseline bloqueado: os testes de caracterização não passaram no código inalterado, então o módulo não foi editado",
+      "violated": "Baseline bloqueado: a etapa de baseline editou código que não era de teste, então a execução parou",
+      "not-needed": "Não é preciso baseline: as specs já cobrem o código que esta mudança toca"
+    },
+    "module": "Módulo descrito:",
+    "more_one": "e mais {{count}} arquivo",
+    "more_other": "e mais {{count}} arquivos",
+    "spec": "Spec as-built:",
+    "capability": "{{capability}} ({{demonstrated}}/{{requirements}} demonstrados)",
+    "cost": "Custo do baseline {{amount}} em {{turns}} turnos, contado à parte da mudança",
+    "costUnknown": "Custo do baseline não informado pelo provedor",
+    "caveat": "Os testes de caracterização descrevem o comportamento atual; o Core os executou no código inalterado antes de qualquer edição."
+  },
+  "humanEyes": {
+    "title_one": "Precisa de olhos humanos: {{count}} regra do projeto",
+    "title_other": "Precisa de olhos humanos: {{count}} regras do projeto",
+    "caveat": "Regras escritas para este projeto que nenhuma verificação automática consegue impor. Confira-as você mesmo antes de aceitar."
+  },
+  "tabs": {
+    "label": "Visões da revisão",
+    "overview": "Resumo",
+    "changes": "Alterações"
+  },
+  "changes": {
+    "tab": "Alterações",
+    "loading": "Carregando as alterações…",
+    "error": "Não foi possível carregar as alterações.",
+    "refresh": "Recarregar as alterações",
+    "empty": "Esta entrega não alterou nenhum arquivo.",
+    "unavailable": {
+      "not_a_repository": "A pasta do projeto não é um repositório Git, então não há o que comparar.",
+      "no_branch": "Esta entrega ainda não tem uma branch para comparar.",
+      "head_missing": "A branch da entrega não existe mais neste repositório.",
+      "base_missing": "A branch em que esta entrega se baseou não existe mais, então as alterações não podem ser medidas.",
+      "git_failed": "O Git não conseguiu gerar as alterações desta entrega."
+    },
+    "summary": "Arquivos alterados: {{count}}",
+    "viewedCount": "{{viewed}} de {{total}} vistos",
+    "truncatedList": "Mostrando apenas os primeiros {{count}} arquivos.",
+    "source": "Alterações de",
+    "sourceDelivery": "Entrega inteira",
+    "sourceTicket": "Spec #{{id}}",
+    "tree": {
+      "label": "Arquivos alterados"
+    },
+    "status": {
+      "added": "Adicionado",
+      "modified": "Modificado",
+      "deleted": "Excluído",
+      "renamed": "Renomeado",
+      "copied": "Copiado",
+      "typechange": "Tipo alterado"
+    },
+    "renamedFrom": "Renomeado de {{path}}",
+    "binaryShort": "binário",
+    "binary": "Arquivo binário: não há diff de texto para mostrar.",
+    "noTextChanges": "Sem alterações de linhas (só o nome ou o modo do arquivo mudou).",
+    "fileError": "Não foi possível carregar o diff deste arquivo.",
+    "largeDiff": "Mostrando as primeiras {{shown}} de {{total}} linhas alteradas.",
+    "loadFull": "Carregar o diff completo do arquivo",
+    "viewed": {
+      "mark": "Marcar como visto",
+      "unmark": "Visto",
+      "changedSince": "Alterado desde que você viu"
+    },
+    "mode": {
+      "label": "Layout do diff",
+      "unified": "Unificado",
+      "split": "Dividido"
+    },
+    "diff": {
+      "region": "Diff de {{path}}"
+    },
+    "line": {
+      "select": "Selecionar a linha {{n}}",
+      "selectOld": "Selecionar a linha original {{n}}",
+      "added": "adicionada",
+      "removed": "removida"
+    },
+    "selection": {
+      "clear": "Limpar a seleção"
+    },
+    "ask": {
+      "button": "Pedir uma mudança ao agente",
+      "title": "O que deve mudar em",
+      "placeholder": "Descreva a mudança que você quer…",
+      "ticket": "Spec",
+      "submit": "Adicionar à spec",
+      "hint": "Salvo como feedback de revisão na spec; a próxima execução dela o receberá.",
+      "created": "Adicionado à spec #{{id}} como feedback de revisão.",
+      "open": "Abrir spec",
+      "failed": "Não foi possível adicionar a nota à spec."
+    },
+    "editor": {
+      "open": "Abrir no {{editor}}",
+      "rootRepository": "Abre o arquivo na sua cópia do projeto; a branch da revisão pode não estar ativa lá.",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      },
+      "failed": "Não foi possível abrir {{editor}}. Está instalado? Altere em Configurações ▸ Código."
+    },
+    "annotations": {
+      "title": "Sem linha associada ({{count}})",
+      "ask": "Pedir uma mudança ao agente",
+      "source": {
+        "reviewer-finding": "Achado do revisor",
+        "review-risk": "Risco a verificar",
+        "review-untested": "Sem cobertura de testes",
+        "follow-up-comment": "Comentário de revisão"
+      },
+      "severity": {
+        "high": "Alta",
+        "medium": "Média",
+        "low": "Baixa"
+      }
+    },
+    "keys": {
+      "files": "arquivos",
+      "annotations": "anotações",
+      "viewed": "marcar como visto"
+    }
   }
 }

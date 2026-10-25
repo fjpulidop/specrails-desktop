@@ -7,11 +7,14 @@ import { newId as uuidv4 } from './ids'
 import type { ProjectContext } from './project-registry'
 import {
   getConversation,
-  deleteConversation, getMessages, setQuickContractRefineLast
+  getMessages, setQuickContractRefineLast
 } from './db'
 import { getAdapter } from './providers'
+import { extractOutOfScopeSection, validateNonGoals } from './modules/specs/domain/non-goals'
 import { runContractRefine, runContractRefineForQuick } from './modules/specs/runtime/contract-refine-runner'
 import { isExploreContractRefineKillSwitchActive, splitDescriptionAtContractLayer } from './modules/conversations/runtime/explore-contract-refine'
+import { softDeleteTicket, restoreTicket, listTrashedTickets, purgeTrashedTicket, TRASH_RETENTION_DAYS, TRASH_RETENTION_MS } from './modules/specs/runtime/ticket-trash'
+import { finalizeTrashedTicket, purgeProjectTrash } from './modules/specs/runtime/ticket-trash-service'
 import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './modules/specs/runtime/smash-runner'
 import { isSpecsSmashKillSwitchActive } from './modules/conversations/runtime/explore-smash'
 import { recordInvocation, updateTicketIdForConversation } from './modules/accounting/runtime/ai-invocations'
@@ -54,6 +57,7 @@ import { captureProcessAdmission } from './process-admission'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
 import multer from 'multer'
+import { registerSpecTimelineRoutes } from './modules/specs/adapters/timeline-http'
 import { attachmentManager, isSupportedUploadedFile, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import {
   type ProjectRoutesDeps,
@@ -63,6 +67,9 @@ import {
   formatDescriptionWithCriteria,
   resolveDefaultSpecModel
 } from './project-router-helpers'
+
+/** The client's Undo window (8 s) plus margin: outbound Jira writes of undoable edits wait this long. */
+const UNDO_WINDOW_HOLD_MS = 10_000
 
 type TicketBoundProviderResult =
   | { ok: true; provider: string }
@@ -184,6 +191,84 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     } catch (err) {
       console.error('[project-router] ticket list error:', err)
       res.status(500).json({ error: 'Failed to read tickets' })
+    }
+  })
+
+  // ─── Recently deleted (soft-deleted specs) ───────────────────────────────────
+  // Registered before GET /tickets/:id so `trash` is not read as a ticket id.
+
+  const trashDeps = (req: Request) => {
+    const c = ctx(req)
+    return {
+      ticketStorePath: () => ticketPath(req),
+      db: c.db,
+      deleteAttachments: (key: string) => attachmentManager.deleteAll(c.project.slug, key),
+      forgetExploreConversation: (conversationId: string) => {
+        c.chatManager?.forgetSpecDraft(conversationId)
+        c.chatManager?.forgetExploreLifecycle(conversationId)
+      },
+    }
+  }
+
+  // GET /:projectId/tickets/trash — "Recently deleted" specs (newest first).
+  router.get('/:projectId/tickets/trash', async (req: Request, res: Response) => {
+    try {
+      await purgeProjectTrash(trashDeps(req))
+      const items = listTrashedTickets(ticketPath(req)).map((e) => ({
+        ticket: e.ticket,
+        deletedAt: e.deleted_at,
+        purgeAt: new Date(Date.parse(e.deleted_at) + TRASH_RETENTION_MS).toISOString(),
+      }))
+      res.json({ items, retentionDays: TRASH_RETENTION_DAYS })
+    } catch (err) {
+      console.error('[project-router] ticket trash list error:', err)
+      res.status(500).json({ error: 'Failed to read recently deleted specs' })
+    }
+  })
+
+  // POST /:projectId/tickets/:id/restore — Undo a delete. Idempotent.
+  router.post('/:projectId/tickets/:id/restore', (req: Request, res: Response) => {
+    const ticketId = req.params.id as string
+    if (!/^\d+$/.test(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket ID' }); return
+    }
+    try {
+      const result = restoreTicket(ticketPath(req), Number(ticketId))
+      if (!result) {
+        res.status(404).json({ error: 'Ticket not found in recently deleted' }); return
+      }
+      const { broadcast, ticketWatcher, project } = ctx(req)
+      if (!result.alreadyLive) {
+        ticketWatcher.notifyDesktopWrite(result.revision)
+        const now = new Date().toISOString()
+        broadcast({ type: 'ticket_created', ticket: result.ticket, projectId: project.id, timestamp: now } as unknown as TicketCreatedMessage)
+        for (const child of result.readoptedChildren) {
+          broadcast({ type: 'ticket_updated', ticket: child, projectId: project.id, timestamp: now } as unknown as TicketCreatedMessage)
+        }
+      }
+      res.json({ ok: true, ticket: result.ticket, revision: result.revision, alreadyLive: result.alreadyLive })
+    } catch (err) {
+      console.error('[project-router] ticket restore error:', err)
+      res.status(500).json({ error: 'Failed to restore ticket' })
+    }
+  })
+
+  // DELETE /:projectId/tickets/trash/:id — "Delete permanently" (the one confirmed step).
+  router.delete('/:projectId/tickets/trash/:id', async (req: Request, res: Response) => {
+    const ticketId = req.params.id as string
+    if (!/^\d+$/.test(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket ID' }); return
+    }
+    try {
+      const entry = purgeTrashedTicket(ticketPath(req), Number(ticketId))
+      if (!entry) {
+        res.status(404).json({ error: 'Ticket not found in recently deleted' }); return
+      }
+      await finalizeTrashedTicket(trashDeps(req), entry)
+      res.json({ ok: true })
+    } catch (err) {
+      console.error('[project-router] ticket permanent delete error:', err)
+      res.status(500).json({ error: 'Failed to delete ticket permanently' })
     }
   })
 
@@ -544,6 +629,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           .filter((c) => c.length > 0)
       : []
     const priority = isValidPriority(body.priority) ? body.priority : 'medium'
+    const draftNonGoals = body.nonGoals === undefined ? null : validateNonGoals(body.nonGoals)
+    if (draftNonGoals && !draftNonGoals.ok) {
+      res.status(400).json({ error: draftNonGoals.error }); return
+    }
     // Optional assignee/prerequisites/metadata (same normalization as the
     // PATCH /tickets/:id route) so an MCP commit_draft is a true one-shot
     // insert — no follow-up update call needed for these fields.
@@ -597,6 +686,12 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (bodyShortSummary === null) {
       bodyShortSummary = deriveFallbackShortSummary(rawTitle, descriptionForStore)
     }
+    // Non-goals (3.2): an explicit `nonGoals` list wins; otherwise a draft's
+    // `## Out of Scope` section moves into the field. Either way the section
+    // leaves the description so the ticket shows it once, under it.
+    const outOfScope = extractOutOfScopeSection(descriptionForStore)
+    const nonGoalsForStore = draftNonGoals?.ok ? draftNonGoals.nonGoals : outOfScope.nonGoals
+    if (draftNonGoals?.ok || outOfScope.nonGoals.length > 0) descriptionForStore = outOfScope.description
 
     try {
       const filePath = ticketPath(req)
@@ -634,6 +729,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           flipTarget.priority = priority
           flipTarget.title = rawTitle
           flipTarget.description = descriptionForStore
+          if (nonGoalsForStore.length > 0 || draftNonGoals?.ok) flipTarget.nonGoals = nonGoalsForStore
           if (labels.length > 0) flipTarget.labels = labels
           // PATCH-route semantics: apply only when the field was supplied;
           // metadata merges keys instead of replacing the object.
@@ -689,6 +785,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           parent_epic_id: null,
           execution_order: null,
           short_summary: bodyShortSummary,
+          ...(nonGoalsForStore.length ? { nonGoals: nonGoalsForStore } : {}),
           created_at: now,
           updated_at: now,
           created_by: 'sr-explore-spec',
@@ -1230,9 +1327,13 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
   // POST /:projectId/tickets — Create new ticket
   router.post('/:projectId/tickets', (req: Request, res: Response) => {
-    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, source } = req.body ?? {}
+    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, source, nonGoals: rawNonGoals } = req.body ?? {}
     if (!title || typeof title !== 'string' || !title.trim()) {
       res.status(400).json({ error: 'title is required' }); return
+    }
+    const createNonGoals = rawNonGoals === undefined ? null : validateNonGoals(rawNonGoals)
+    if (createNonGoals && !createNonGoals.ok) {
+      res.status(400).json({ error: createNonGoals.error }); return
     }
     const createRegression = normalizeRegressionOfMetadata(typeof rawMetadata === 'object' && rawMetadata !== null ? rawMetadata : {})
     if (!createRegression.ok) {
@@ -1271,6 +1372,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           parent_epic_id: null,
           execution_order: null,
           short_summary: null,
+          ...(createNonGoals?.ok && createNonGoals.nonGoals.length ? { nonGoals: createNonGoals.nonGoals } : {}),
           created_at: now,
           updated_at: now,
           created_by: source === 'mcp' ? 'mcp' : 'hub', // 'hub' = legacy on-disk wire value (tickets.json, shared with specrails-core) — do not rename
@@ -1317,6 +1419,9 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (failure === 'in_flight') { res.status(409).json({ error: 'addendum_in_flight', detail: 'the addendum is frozen inside a running job; wait for it to settle' }); return }
     res.status(409).json({ error: 'addendum_applied', detail: 'an applied addendum is history; reopen it or add a new one' })
   }
+
+  // GET /:projectId/tickets/:ticketId/timeline and /handoff — the spec lifecycle projection and its export.
+  registerSpecTimelineRoutes(router, { ctx, ticketPath })
 
   // GET /:projectId/tickets/:id/addenda — list a spec's addenda
   router.get('/:projectId/tickets/:id/addenda', (req: Request, res: Response) => {
@@ -1449,7 +1554,11 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (!/^\d+$/.test(ticketId)) {
       res.status(400).json({ error: 'Invalid ticket ID' }); return
     }
-    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, acceptanceCriteria, short_summary } = req.body ?? {}
+    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, acceptanceCriteria, short_summary, nonGoals: rawNonGoals } = req.body ?? {}
+    const patchNonGoals = rawNonGoals === undefined ? null : validateNonGoals(rawNonGoals)
+    if (patchNonGoals && !patchNonGoals.ok) {
+      res.status(400).json({ error: patchNonGoals.error }); return
+    }
     if (status !== undefined && !isValidStatus(status)) {
       res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, on_review, done, cancelled' }); return
     }
@@ -1490,6 +1599,11 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           ticket.description = formatDescriptionWithCriteria(ticket.description ?? '', acceptanceCriteria as string[])
         }
         if (status !== undefined) ticket.status = status
+        // Non-goals (3.2): local-only (never a Jira write-back); [] / null clear.
+        if (patchNonGoals?.ok) {
+          if (patchNonGoals.nonGoals.length) ticket.nonGoals = patchNonGoals.nonGoals
+          else delete ticket.nonGoals
+        }
         if (priority !== undefined) ticket.priority = nextPriority as Ticket['priority']
         if (labels !== undefined && Array.isArray(labels)) ticket.labels = labels.filter((l: unknown) => typeof l === 'string')
         if (assignee !== undefined) ticket.assignee = typeof assignee === 'string' ? assignee : null
@@ -1530,7 +1644,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         if (description !== undefined || acceptanceCriteria !== undefined) changes.description = u.description
         if (priority !== undefined) changes.priority = u.priority ?? null
         if (labels !== undefined) changes.labels = u.labels
-        if (Object.keys(changes).length > 0) jiraSyncManager?.onSpecEdited(Number(ticketId), changes)
+        // A label-only edit is undoable for a few seconds in the UI: hold its Jira
+        // write past that window so an undone change never reaches Jira.
+        const labelsOnly = Object.keys(changes).length === 1 && changes.labels !== undefined
+        if (Object.keys(changes).length > 0) jiraSyncManager?.onSpecEdited(Number(ticketId), changes, labelsOnly ? { holdMs: UNDO_WINDOW_HOLD_MS } : {})
       } catch (e) {
         console.error('[project-router] jira write-back enqueue failed:', e)
       }
@@ -1805,80 +1922,36 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
   })
 
   // DELETE /:projectId/tickets/:id — Delete ticket
+  // DELETE /:projectId/tickets/:id — soft delete: the spec moves to "Recently
+  // deleted" (restorable for 30 days). Attachments, its Explore draft
+  // conversation and the Jira link stay untouched until the entry is purged or
+  // deleted permanently, so Undo is lossless and Jira never sees a transient
+  // delete (a spec delete has never written to Jira).
   router.delete('/:projectId/tickets/:id', (req: Request, res: Response) => {
     const ticketId = req.params.id as string
     if (!/^\d+$/.test(ticketId)) {
       res.status(400).json({ error: 'Invalid ticket ID' }); return
     }
     try {
-      const filePath = ticketPath(req)
-      let found = false
-      let orphanedConversationId: string | null = null
-      const orphanedChildren: Ticket[] = []
-      const numericId = Number(ticketId)
-      const store = mutateStore(filePath, (s) => {
-        const t = s.tickets[ticketId]
-        if (!t) return
-        // If this is a draft and no other ticket references the same
-        // origin_conversation_id, mark it for cascade delete.
-        if (t.status === 'draft' && t.origin_conversation_id) {
-          const otherRefs = Object.values(s.tickets).some(
-            (other) => other.id !== t.id && other.origin_conversation_id === t.origin_conversation_id,
-          )
-          if (!otherRefs) orphanedConversationId = t.origin_conversation_id
-        }
-        // SMASH: when deleting an épica, orphan its children (set
-        // parent_epic_id/execution_order to null) rather than cascade-delete.
-        if (t.is_epic) {
-          const now = new Date().toISOString()
-          for (const childId of Object.keys(s.tickets)) {
-            const child = s.tickets[childId]
-            if (child.parent_epic_id === numericId) {
-              child.parent_epic_id = null
-              child.execution_order = null
-              child.updated_at = now
-              orphanedChildren.push(child)
-            }
-          }
-        }
-        delete s.tickets[ticketId]
-        found = true
-      })
-      if (!found) {
+      const result = softDeleteTicket(ticketPath(req), Number(ticketId))
+      if (!result) {
         res.status(404).json({ error: 'Ticket not found' }); return
       }
-      const { broadcast, ticketWatcher, db, chatManager } = ctx(req)
-      ticketWatcher.notifyDesktopWrite(store.revision)
-      // Cascade-delete attachments for this ticket
-      attachmentManager.deleteAll(ctx(req).project.slug, ticketId).catch((e) => {
-        console.error('[project-router] attachment cascade delete failed:', e)
-      })
-      // Cascade-delete the orphaned Explore conversation, if any.
-      if (orphanedConversationId) {
-        try {
-          const conv = getConversation(db, orphanedConversationId)
-          if (conv && (conv as { kind?: string }).kind === 'explore') {
-            deleteConversation(db, orphanedConversationId)
-            chatManager?.forgetSpecDraft(orphanedConversationId)
-            chatManager?.forgetExploreLifecycle(orphanedConversationId)
-          }
-        } catch (err) {
-          console.error('[project-router] orphan conversation cleanup failed:', err)
-        }
-      }
+      const { broadcast, ticketWatcher, project } = ctx(req)
+      ticketWatcher.notifyDesktopWrite(result.revision)
       // Broadcast ticket_updated for each orphaned child so observers see them
       // as regular tickets (no longer attached to the deleted épica).
-      for (const child of orphanedChildren) {
+      for (const child of result.orphanedChildren) {
         broadcast({
           type: 'ticket_updated',
           ticket: child,
-          projectId: ctx(req).project.id,
+          projectId: project.id,
           timestamp: new Date().toISOString(),
         } as unknown as TicketCreatedMessage)
       }
-      const msg: TicketDeletedMessage = { type: 'ticket_deleted', ticketId: Number(ticketId), projectId: ctx(req).project.id, timestamp: new Date().toISOString() }
+      const msg: TicketDeletedMessage = { type: 'ticket_deleted', ticketId: Number(ticketId), projectId: project.id, timestamp: new Date().toISOString() }
       broadcast(msg)
-      res.json({ ok: true, revision: store.revision })
+      res.json({ ok: true, revision: result.revision, restorable: true })
     } catch (err) {
       console.error('[project-router] ticket delete error:', err)
       res.status(500).json({ error: 'Failed to delete ticket' })

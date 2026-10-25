@@ -26,8 +26,8 @@
     "refining": "コントラクトをリファイン中…",
     "retryRejected": "再試行が拒否されました",
     "retryRejectedWithError": "再試行が拒否されました: {{error}}",
-    "retryFailed": "再試行に失敗しました: {{message}}",
-    "skipped": "Contract Layer をスキップしました — チケットはそれなしで保存されました",
+    "retryFailed": "再試行に失敗しました",
+    "skipped": "Contract Layer をスキップしました — スペックはそれなしで保存されました",
     "reason": "理由: {{reason}}",
     "added": "Contract Layer を追加しました · {{title}}"
   },
@@ -44,11 +44,11 @@
     "undoAction": "元に戻す",
     "undone": "SMASH を元に戻しました",
     "undoFailed": "元に戻せませんでした",
-    "undoFailedWithReason": "元に戻せませんでした: {{reason}}",
+    "undoFailedWithReason": "元に戻せませんでした",
     "retrying": "SMASH を再試行中…",
     "couldNotRetry": "再試行できませんでした",
     "couldNotRetryWithReason": "再試行できませんでした: {{reason}}",
-    "retryFailed": "再試行に失敗しました: {{message}}",
+    "retryFailed": "再試行に失敗しました",
     "couldNotComplete": "SMASH を完了できませんでした",
     "failReason": {
       "invalidOutput": "エージェントが無効な出力を返しました",
@@ -59,11 +59,11 @@
     },
     "couldNotStart": "SMASH を開始できませんでした",
     "couldNotStartWithReason": "SMASH を開始できませんでした: {{reason}}",
-    "smashFailed": "SMASH に失敗しました: {{message}}",
+    "smashFailed": "SMASH に失敗しました",
     "couldNotDeleteChildren": "現在のサブスペックを削除できませんでした",
-    "deleteFailed": "削除に失敗しました: {{message}}",
-    "smashButton": "スペックをサブスペックに SMASH",
-    "reSmashButton": "再 SMASH"
+    "deleteFailed": "削除に失敗しました",
+    "smashButton": "サブスペックに分割",
+    "reSmashButton": "サブスペックに再分割"
   },
   "smashModal": {
     "title": "スペックをサブスペックに SMASH",
@@ -89,7 +89,8 @@
     },
     "starting": "開始中…",
     "confirmReSmash": "再 SMASH を確認",
-    "smash": "SMASH"
+    "smash": "SMASH",
+    "description": "SMASH はこのスペックを、1 つずつ実装・レビューできる小さなサブスペックに分割します。元のスペックはそれらの Epic になります。"
   },
   "family": {
     "subSpecsHeader": "サブスペック ({{count}})",
@@ -98,7 +99,8 @@
     "familyHeader_other": "ファミリー (サブスペック {{count}} 件)",
     "noSiblings": "兄弟スペックはありません。",
     "openParentEpic": "親エピック {{title}} を開く",
-    "openSubSpec": "サブスペック {{title}} を開く"
+    "openSubSpec": "サブスペック {{title}} を開く",
+    "priority": "優先度: {{p}}"
   },
   "epicChildren": {
     "header": "サブスペック ({{count}})",

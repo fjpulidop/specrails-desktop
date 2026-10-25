@@ -46,10 +46,11 @@
   },
   "refine": {
     "serverError": "Erreur serveur ({{status}})",
-    "connectionFailed": "Échec de la connexion : {{message}}",
+    "connectionFailed": "Échec de la connexion",
     "applyFailed": "Échec de l'application ({{status}})",
     "loadAgentFailed": "Échec du chargement de l'agent ({{status}})",
     "loadSessionFailed": "Échec du chargement de la session ({{status}})",
-    "rehydrateFailed": "Échec de la restauration de la session : {{message}}"
+    "rehydrateFailed": "Échec de la restauration de la session",
+    "failed": "Le raffinement a échoué"
   }
 }

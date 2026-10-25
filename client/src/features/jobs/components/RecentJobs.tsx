@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { formatTokens as formatTokensCompact } from '../../../lib/format-tokens'
 import { getApiBase } from '../../../lib/api'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { formatDistanceToNow } from 'date-fns'
@@ -8,21 +9,24 @@ import { Trash2, ClipboardList, GitCompareArrows, Link2, AlertTriangle } from 'l
 import { toast } from 'sonner'
 import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog'
+import { EmptyState } from '../../../components/ui/empty-state'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { JobComparisonModal } from './JobComparisonModal'
 import type { JobSummary, JobStatus, JobPriority } from '../../../types'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { humaniseCommand } from '../lib/humanise-command'
 import { formatCommandForProvider } from '../../../lib/format-command'
-import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
-import { ResizeGrips } from '../../../components/ui/ResizeGrips'
+import { CostValue } from '../../analytics/components/CostValue'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
+import { DateInput } from '../../../components/ui/date-input'
 
+import { notifyError } from '../../../lib/notify-error'
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
 
 const STATUS_BADGE: Record<JobStatus, { variant: BadgeVariant; labelKey: string; tooltipKey: string }> = {
   running: { variant: 'running', labelKey: 'statusLabel.running', tooltipKey: 'statusTooltip.running' },
-  completed: { variant: 'success', labelKey: 'statusLabel.done', tooltipKey: 'statusTooltip.completed' },
+  completed: { variant: 'success', labelKey: 'statusLabel.completed', tooltipKey: 'statusTooltip.completed' },
   failed: { variant: 'failed', labelKey: 'statusLabel.failed', tooltipKey: 'statusTooltip.failed' },
   canceled: { variant: 'canceled', labelKey: 'statusLabel.canceled', tooltipKey: 'statusTooltip.canceled' },
   queued: { variant: 'queued', labelKey: 'statusLabel.queued', tooltipKey: 'statusTooltip.queuedToRun' },
@@ -33,16 +37,10 @@ const STATUS_BADGE: Record<JobStatus, { variant: BadgeVariant; labelKey: string;
 const ALL_STATUSES: JobStatus[] = ['running', 'completed', 'failed', 'canceled', 'zombie_terminated', 'queued', 'skipped']
 
 const PRIORITY_STYLES: Record<JobPriority, { className: string; labelKey: string }> = {
-  critical: { className: 'bg-red-500/15 aurora-light:bg-destructive/10 text-red-400 aurora-light:text-destructive border-red-500/30 aurora-light:border-destructive/30', labelKey: 'recent.priority.critical' },
-  high: { className: 'bg-orange-500/15 aurora-light:bg-accent-warning/10 text-orange-400 aurora-light:text-accent-warning border-orange-500/30 aurora-light:border-accent-warning/30', labelKey: 'recent.priority.high' },
+  critical: { className: 'bg-destructive/10 text-destructive border-destructive/30', labelKey: 'recent.priority.critical' },
+  high: { className: 'bg-accent-warning/10 text-accent-warning border-accent-warning/30', labelKey: 'recent.priority.high' },
   normal: { className: '', labelKey: 'recent.priority.normal' },
-  low: { className: 'bg-gray-500/15 aurora-light:bg-muted text-gray-400 aurora-light:text-muted-foreground border-gray-500/30 aurora-light:border-border', labelKey: 'recent.priority.low' },
-}
-
-function formatCost(cost: number | null | undefined): string | null {
-  if (cost == null || cost === 0) return null
-  if (cost < 0.01) return `$${cost.toFixed(4)}`
-  return `$${cost.toFixed(3)}`
+  low: { className: 'bg-muted text-muted-foreground border-border', labelKey: 'recent.priority.low' },
 }
 
 /** Wall-clock duration from started_at / finished_at timestamps */
@@ -64,8 +62,7 @@ function formatWallDuration(startedAt: string | null, finishedAt: string | null 
 
 function formatTokens(n: number | null | undefined): string | null {
   if (n == null || n === 0) return null
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
+  return formatTokensCompact(n)
 }
 
 function formatRelTime(dateStr: string | null): string {
@@ -109,6 +106,8 @@ export function isWithinLocalDayRange(startedAt: string | null, from: string, to
 
 interface RecentJobsProps {
   jobs: JobSummary[]
+  /** Spec titles by ticket id, used to read a command as "Implement · #15 Title". */
+  ticketTitles?: Record<number, string>
   isLoading?: boolean
   error?: string | null
   onRetry?: () => void
@@ -119,7 +118,7 @@ interface RecentJobsProps {
 
 const PAGE_SIZE = 10
 
-export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onProposalClick, onProposalDelete }: RecentJobsProps) {
+export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJobsCleared, onProposalClick, onProposalDelete }: RecentJobsProps) {
   const { t } = useTranslation('jobs')
   const navigate = useNavigate()
   const { activeProjectId, projects } = useDesktop()
@@ -136,9 +135,6 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
   const [compareMode, setCompareMode] = useState(false)
   const [compareSelection, setCompareSelection] = useState<string[]>([])
   const [compareJobIds, setCompareJobIds] = useState<[string, string] | null>(null)
-
-  // Movable + resizable geometry for the clear-history confirm modal.
-  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
 
   // Reset display limit when jobs list changes (new job added, etc.)
   useEffect(() => {
@@ -195,10 +191,10 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
         setClearTo('')
         onJobsCleared?.()
       } else {
-        toast.error(t('recent.toast.clearFailed'))
+        notifyError(t('recent.toast.clearFailed'))
       }
     } catch {
-      toast.error(t('recent.toast.networkError'))
+      notifyError(t('recent.toast.networkError'))
     } finally {
       setIsClearing(false)
     }
@@ -222,9 +218,9 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
 
   if (isLoading && jobs.length === 0) {
     return (
-      <div className="rounded-lg border border-border/40 bg-card/50 p-4 space-y-1">
+      <div role="status" aria-busy="true" aria-label={t('recent.loading')} className="rounded-lg border border-border/40 bg-card/50 p-4 space-y-1">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-9 bg-muted/30 rounded-md animate-pulse" />
+          <div key={i} className="h-9 bg-muted/30 rounded-md motion-safe:animate-pulse" />
         ))}
       </div>
     )
@@ -232,13 +228,14 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
 
   if (jobs.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border/40 bg-card/50 p-8 text-center space-y-2">
-        <ClipboardList className="w-8 h-8 text-muted-foreground/30 mx-auto" />
-        <p className="text-sm font-medium text-muted-foreground">{t('recent.emptyTitle')}</p>
-        <p className="text-xs text-muted-foreground/60">
-          {t('recent.emptyDescription')}
-        </p>
-      </div>
+      <EmptyState
+        icon={<ClipboardList className="h-4 w-4" />}
+        title={t('recent.emptyTitle')}
+        description={t('recent.emptyDescription')}
+        action={<Button type="button" variant="outline" size="sm" onClick={() => navigate('/')}>{t('recent.emptyCta')}</Button>}
+        learnMore="railLoops"
+        data-testid="recent-jobs-empty"
+      />
     )
   }
 
@@ -251,7 +248,8 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
           <button
             type="button"
             onClick={() => setStatusFilter(null)}
-            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+            aria-pressed={statusFilter === null}
+            className={`px-2 py-0.5 rounded text-caption font-medium capitalize transition-colors ${
               statusFilter === null
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -267,7 +265,8 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                 key={s}
                 type="button"
                 onClick={() => setStatusFilter(statusFilter === s ? null : s)}
-                className={`px-2 py-0.5 rounded text-[10px] font-medium capitalize transition-colors ${
+                aria-pressed={statusFilter === s}
+                className={`px-2 py-0.5 rounded text-caption font-medium capitalize transition-colors ${
                   statusFilter === s
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -280,25 +279,23 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
         </div>
 
         <div className="flex items-center gap-2">
-          <input
-            type="date"
+          <DateInput
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-6 rounded border border-border bg-input px-1.5 text-[10px] text-foreground"
             title={t('recent.fromDate')}
+            aria-label={t('recent.fromDate')}
           />
-          <input
-            type="date"
+          <DateInput
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-6 rounded border border-border bg-input px-1.5 text-[10px] text-foreground"
             title={t('recent.toDate')}
+            aria-label={t('recent.toDate')}
           />
           {(dateFrom || dateTo) && (
             <button
               type="button"
               onClick={() => { setDateFrom(''); setDateTo('') }}
-              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              className="text-caption text-muted-foreground hover:text-foreground transition-colors"
             >
               {t('recent.clear')}
             </button>
@@ -310,6 +307,8 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                 size="sm"
                 className={`h-6 w-6 p-0 transition-colors ${compareMode ? 'text-foreground bg-accent' : 'text-muted-foreground hover:text-foreground'}`}
                 onClick={toggleCompareMode}
+                aria-label={compareMode ? t('recent.exitCompareMode') : t('recent.compareTwoJobs')}
+                aria-pressed={compareMode}
               >
                 <GitCompareArrows className="w-3.5 h-3.5" />
               </Button>
@@ -323,6 +322,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                 size="sm"
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                 onClick={() => setShowClearModal(true)}
+                aria-label={t('recent.clearJobs')}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </Button>
@@ -334,7 +334,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
 
       {/* Compare mode banner */}
       {compareMode && (
-        <div className="flex items-center justify-between rounded-md bg-accent/40 px-3 py-1.5 text-[10px] text-muted-foreground">
+        <div className="flex items-center justify-between rounded-md bg-accent/40 px-3 py-1.5 text-xs text-muted-foreground">
           <span>
             {compareSelection.length === 0 && t('recent.selectTwoToCompare')}
             {compareSelection.length === 1 && t('recent.selectOneMore')}
@@ -343,7 +343,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
           {compareSelection.length === 2 && (
             <button
               type="button"
-              className="text-[10px] font-medium text-foreground hover:underline"
+              className="text-label text-foreground hover:underline"
               onClick={() => setCompareJobIds(compareSelection as [string, string])}
             >
               {t('recent.compareAction')}
@@ -353,7 +353,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
       )}
 
       {/* Column headers */}
-      <div className="flex items-center gap-3 px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+      <div className="flex items-center gap-3 px-3 py-1 text-caption font-medium text-muted-foreground">
         <span className="w-14">{t('recent.colStatus')}</span>
         <span className="flex-1 min-w-0">{t('recent.colCommand')}</span>
         <div className="flex items-center gap-3 shrink-0">
@@ -368,7 +368,6 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
       <div className="space-y-0.5">
         {filteredJobs.slice(0, displayLimit).map((job) => {
           const statusInfo = STATUS_BADGE[job.status] ?? STATUS_BADGE.queued
-          const cost = formatCost(job.total_cost_usd)
           const duration = formatWallDuration(job.started_at, job.finished_at)
           const tokens = formatTokens(
             ((job.tokens_in ?? 0) +
@@ -399,7 +398,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
               key={job.id}
               role="button"
               tabIndex={0}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors cursor-pointer group ${
+              className={`flex items-center gap-3 px-3 py-(--density-row-y) rounded-md transition-colors cursor-pointer group ${
                 isSelected
                   ? 'bg-accent/70 ring-1 ring-border'
                   : isDisabled
@@ -427,7 +426,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
 
               {/* Priority badge (only for non-normal) */}
               {job.priority && job.priority !== 'normal' && (
-                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium border ${PRIORITY_STYLES[job.priority].className}`}>
+                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-caption font-medium border ${PRIORITY_STYLES[job.priority].className}`}>
                   {t(PRIORITY_STYLES[job.priority].labelKey)}
                 </span>
               )}
@@ -436,7 +435,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
               {job.profile_name && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium border border-accent-primary/40 bg-accent-primary/10 text-accent-primary/90">
+                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-caption font-medium border border-accent-primary/40 bg-accent-primary/10 text-accent-primary">
                       {job.profile_name}
                     </span>
                   </TooltipTrigger>
@@ -449,7 +448,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                 {job.pipeline_id && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Link2 className="w-3 h-3 text-accent-primary/60 shrink-0" />
+                      <Link2 className="w-3 h-3 text-accent-primary shrink-0" />
                     </TooltipTrigger>
                     <TooltipContent>
                       {t('recent.pipelinePart')}
@@ -458,25 +457,35 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                     </TooltipContent>
                   </Tooltip>
                 )}
-                <code className="text-xs text-foreground/80 truncate">
-                  {formatCommandForProvider(job.command, activeProvider)}
-                </code>
+                {(() => {
+                  const friendly = humaniseCommand(job.command, ticketTitles)
+                  const raw = formatCommandForProvider(job.command, activeProvider)
+                  return friendly
+                    ? <span className="text-xs text-foreground truncate" title={raw}>{friendly}</span>
+                    : <code className="text-xs text-foreground truncate">{raw}</code>
+                })()}
               </div>
 
               {/* Meta */}
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground shrink-0">
-                <span className="w-14 text-right">{duration ?? '—'}</span>
-                <span className="w-12 text-right">{tokens ? `${tokens}` : '—'}</span>
-                <span className="w-12 text-right">{cost ?? '—'}</span>
-                <span className="w-20 text-right">
+              <div className="flex items-center gap-3 text-caption num text-muted-foreground shrink-0">
+                <span className="w-14 text-right whitespace-nowrap" title={t('recent.colDuration')}>{duration ?? '—'}<span className="sr-only"> ({t('recent.colDuration')})</span></span>
+                <span className="w-12 text-right" title={t('recent.colTokens')}>{tokens ? `${tokens}` : '—'}<span className="sr-only"> ({t('recent.colTokens')})</span></span>
+                <span className="w-12 text-right" title={t('recent.colCost')}>
+                  <CostValue
+                    usd={job.total_cost_usd || null}
+                    estimated={Boolean(job.total_cost_usd_estimated)}
+                  />
+                <span className="sr-only"> ({t('recent.colCost')})</span></span>
+                <span className="w-20 text-right whitespace-nowrap" title={t('recent.colStarted')}>
                   {job.status === 'queued' ? '—' : formatRelTime(job.started_at)}
-                </span>
+                <span className="sr-only"> ({t('recent.colStarted')})</span></span>
                 {isProposal && proposalId && (
                   <button
                     type="button"
                     className="w-4 h-4 md:opacity-0 md:group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteProposalId(proposalId) }}
                     title={t('recent.deleteProposal')}
+                    aria-label={t('recent.deleteProposal')}
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -493,115 +502,72 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
           <button
             type="button"
             onClick={() => setDisplayLimit((prev) => prev + PAGE_SIZE)}
-            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-3 py-1 rounded hover:bg-accent/50"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1 rounded hover:bg-accent/50"
           >
             {t('recent.loadMore', { count: filteredJobs.length - displayLimit })}
           </button>
         </div>
       )}
 
-      {/* Clear jobs modal */}
-      {showClearModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={guardBackdrop(() => setShowClearModal(false))}>
-          <div
-            ref={panelRef}
-            className="w-80 rounded-xl border border-border/30 bg-popover p-4 shadow-lg space-y-4"
-            onClick={(e) => e.stopPropagation()}
-            style={panelStyle}
-          >
-            <div
-              {...headerHandleProps}
-              className={isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
-            >
-              <h3 className="text-sm font-semibold">{t('recent.clearModal.title')}</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {t('recent.clearModal.jobsInHistory', { count: jobs.length })}
-              </p>
-            </div>
-
-            <Button
-              variant="destructive"
-              size="sm"
-              className="w-full"
-              disabled={isClearing}
-              onClick={() => handleClear('all')}
-            >
-              {t('recent.clearModal.clearAll', { count: jobs.length })}
-            </Button>
-
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">{t('recent.clearModal.orByRange')}</p>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={clearFrom}
-                  onChange={(e) => setClearFrom(e.target.value)}
-                  className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
-                  placeholder={t('recent.clearModal.fromPlaceholder')}
-                />
-                <input
-                  type="date"
-                  value={clearTo}
-                  onChange={(e) => setClearTo(e.target.value)}
-                  className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
-                  placeholder={t('recent.clearModal.toPlaceholder')}
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                disabled={isClearing || (!clearFrom && !clearTo)}
-                onClick={() => handleClear('range')}
-              >
-                {(clearFrom || clearTo) ? t('recent.clearModal.clearInRange', { count: clearRangeCount }) : t('recent.clearModal.clearRange')}
-              </Button>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => setShowClearModal(false)}
-            >
-              {t('common:actions.cancel')}
-            </Button>
-          </div>
-          <ResizeGrips handles={resizeHandles} />
+      {/* Clear jobs confirmation (range controls ride in the body) */}
+      <ConfirmDialog
+        open={showClearModal}
+        onOpenChange={setShowClearModal}
+        title={t('recent.clearModal.title')}
+        description={t('recent.clearModal.jobsInHistory', { count: jobs.length })}
+        confirmLabel={t('recent.clearModal.clearAll', { count: jobs.length })}
+        busy={isClearing}
+        onConfirm={() => handleClear('all')}
+      >
+        <p className="text-xs text-muted-foreground">{t('recent.clearModal.orByRange')}</p>
+        <div className="flex gap-2">
+          <DateInput
+            value={clearFrom}
+            onChange={(e) => setClearFrom(e.target.value)}
+            className="flex-1"
+            placeholder={t('recent.clearModal.fromPlaceholder')}
+            aria-label={t('recent.clearModal.fromPlaceholder')}
+          />
+          <DateInput
+            value={clearTo}
+            onChange={(e) => setClearTo(e.target.value)}
+            className="flex-1"
+            placeholder={t('recent.clearModal.toPlaceholder')}
+            aria-label={t('recent.clearModal.toPlaceholder')}
+          />
         </div>
-      )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={isClearing || (!clearFrom && !clearTo)}
+          onClick={() => handleClear('range')}
+        >
+          {(clearFrom || clearTo) ? t('recent.clearModal.clearInRange', { count: clearRangeCount }) : t('recent.clearModal.clearRange')}
+        </Button>
+      </ConfirmDialog>
 
       {/* Delete proposal confirmation */}
-      <Dialog open={confirmDeleteProposalId !== null} onOpenChange={(o) => !o && setConfirmDeleteProposalId(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('recent.deleteProposalConfirm.title')}</DialogTitle>
-            <DialogDescription>
-              {t('recent.deleteProposalConfirm.description')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteProposalId(null)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                if (confirmDeleteProposalId) onProposalDelete?.(confirmDeleteProposalId)
-                setConfirmDeleteProposalId(null)
-              }}
-            >
-              {t('common:actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmDeleteProposalId !== null}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteProposalId(null) }}
+        title={t('recent.deleteProposalConfirm.title')}
+        description={t('recent.deleteProposalConfirm.description')}
+        confirmLabel={t('common:actions.delete')}
+        onConfirm={() => {
+          if (confirmDeleteProposalId) onProposalDelete?.(confirmDeleteProposalId)
+          setConfirmDeleteProposalId(null)
+        }}
+      />
 
       {/* Job comparison modal */}
       {compareJobIds && (
         <JobComparisonModal
           jobIds={compareJobIds}
+          estimatedCost={[
+            Boolean(jobs.find((j) => j.id === compareJobIds[0])?.total_cost_usd_estimated),
+            Boolean(jobs.find((j) => j.id === compareJobIds[1])?.total_cost_usd_estimated),
+          ]}
           onClose={() => {
             setCompareJobIds(null)
             setCompareSelection([])

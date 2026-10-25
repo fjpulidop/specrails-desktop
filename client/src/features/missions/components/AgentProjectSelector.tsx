@@ -142,9 +142,9 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
         aria-controls={listboxId}
         className={AGENT_SELECTOR_TRIGGER_CLASS}
       >
-        {current ? <Folder className="h-3.5 w-3.5 text-accent-primary" /> : <Home className="h-3.5 w-3.5 text-foreground/70" />}
+        {current ? <Folder className="h-3.5 w-3.5 text-accent-primary" /> : <Home className="h-3.5 w-3.5 text-muted-foreground" />}
         <span className="max-w-[160px] truncate">{current ? current.name : t('project.home')}</span>
-        <ChevronDown className="h-3.5 w-3.5 text-foreground/50" />
+        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
       </button>
 
       {createPortal(<AnimatePresence>
@@ -160,7 +160,7 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
             className={`fixed z-[100] flex w-64 max-w-[calc(100vw-16px)] flex-col ${AGENT_SELECTOR_POPOVER_CLASS}`}
           >
             <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
-              <Search className="h-3.5 w-3.5 text-foreground/40" />
+              <Search className="h-3.5 w-3.5 text-muted-foreground" />
               <input
                 autoFocus
                 value={query}
@@ -172,7 +172,7 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
                 aria-autocomplete="list"
                 aria-controls={listboxId}
                 aria-activedescendant={highlighted >= 0 ? `${listboxId}-option-${highlighted}` : undefined}
-                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-foreground/40"
+                className="w-full bg-transparent text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
               />
             </div>
             <div
@@ -181,7 +181,7 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
               aria-label={t('project.allProjects')}
               className="min-h-0 max-h-72 overflow-y-auto py-1"
             >
-              <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-foreground/40">{t('project.recents')}</div>
+              <div className="px-3 py-1 text-label text-muted-foreground">{t('project.recents')}</div>
               <Row
                 id={`${listboxId}-option-0`}
                 icon={<Home className="h-4 w-4" />}

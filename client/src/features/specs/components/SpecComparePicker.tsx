@@ -15,10 +15,10 @@ interface SpecComparePickerProps {
 }
 
 const PRIORITY_STYLES: Record<TicketPriority, string> = {
-  critical: 'bg-red-500/15 aurora-light:bg-destructive/10 text-red-400 aurora-light:text-destructive border-red-500/30 aurora-light:border-destructive/30',
-  high: 'bg-orange-500/15 aurora-light:bg-accent-warning/10 text-orange-400 aurora-light:text-accent-warning border-orange-500/30 aurora-light:border-accent-warning/30',
+  critical: 'bg-destructive/10 text-destructive border-destructive/30',
+  high: 'bg-accent-warning/10 text-accent-warning border-accent-warning/30',
   medium: '',
-  low: 'bg-gray-500/15 aurora-light:bg-muted text-gray-400 aurora-light:text-muted-foreground border-gray-500/30 aurora-light:border-border',
+  low: 'bg-muted text-muted-foreground border-border',
 }
 
 function formatRelTime(dateStr: string): string {
@@ -66,7 +66,7 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
       <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
         <TicketIcon className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="text-xs font-semibold text-foreground">{t('comparePicker.title')}</span>
-        <span className="text-[10px] text-muted-foreground">{t('comparePicker.count', { n: filtered.length })}</span>
+        <span className="text-caption text-muted-foreground">{t('comparePicker.count', { n: filtered.length })}</span>
       </div>
 
       {/* Search */}
@@ -78,7 +78,7 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('comparePicker.searchPlaceholder')}
-            className="w-full h-7 rounded border border-border bg-input pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:border-accent-primary/60"
+            className="w-full h-7 rounded border border-border bg-input pl-7 pr-2 text-caption text-foreground placeholder:text-muted-foreground outline-none focus:border-accent-primary/60"
           />
         </div>
       </div>
@@ -87,7 +87,7 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
       <div className="flex-1 overflow-y-auto" data-testid="spec-compare-picker-list">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8 gap-2">
-            <TicketIcon className="w-6 h-6 text-muted-foreground/40" />
+            <TicketIcon className="w-6 h-6 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">
               {search.trim() ? t('comparePicker.noMatches') : t('comparePicker.empty')}
             </p>
@@ -105,10 +105,10 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
                   <TicketStatusDot status={tk.status} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono text-muted-foreground">#{tk.id}</span>
+                      <span className="text-caption font-mono text-muted-foreground">#{tk.id}</span>
                       {tk.priority && PRIORITY_STYLES[tk.priority] && (
                         <span
-                          className={`inline-flex items-center rounded px-1 py-0.5 text-[9px] font-medium border ${PRIORITY_STYLES[tk.priority]}`}
+                          className={`inline-flex items-center rounded px-1 py-0.5 text-caption font-medium border ${PRIORITY_STYLES[tk.priority]}`}
                         >
                           {t(`priority.${tk.priority}`)}
                         </span>
@@ -118,7 +118,7 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
                       {tk.title || t('untitled')}
                     </p>
                     {tk.description && (
-                      <p className="mt-0.5 text-[10px] text-muted-foreground line-clamp-1">
+                      <p className="mt-0.5 text-caption text-muted-foreground line-clamp-1">
                         {tk.description.slice(0, 120)}
                       </p>
                     )}
@@ -127,17 +127,17 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
                         {tk.labels.slice(0, 3).map((label) => (
                           <span
                             key={label}
-                            className="inline-flex items-center rounded px-1 py-0.5 text-[9px] bg-accent/40 text-foreground/60"
+                            className="inline-flex items-center rounded px-1 py-0.5 text-caption bg-accent/40 text-muted-foreground"
                           >
                             {label}
                           </span>
                         ))}
                         {tk.labels.length > 3 && (
-                          <span className="text-[9px] text-muted-foreground">+{tk.labels.length - 3}</span>
+                          <span className="text-caption text-muted-foreground">+{tk.labels.length - 3}</span>
                         )}
                       </div>
                     )}
-                    <p className="mt-1 text-[9px] text-muted-foreground">
+                    <p className="mt-1 text-caption text-muted-foreground">
                       {t('meta.updatedAgo', { time: formatRelTime(tk.updated_at) })}
                     </p>
                   </div>

@@ -33,7 +33,22 @@
       "noMatch": "Nenhum template corresponde aos seus filtros.",
       "clearFilters": "Limpar filtros",
       "openInStudio": "Abrir no Studio →",
-      "tip": "Dica: clique numa tag em qualquer cartão para filtrar por essa tag."
+      "tip": "Dica: clique numa tag em qualquer cartão para filtrar por essa tag.",
+      "categories": {
+        "software-engineering": "Engenharia de software",
+        "testing-qa": "Testes e QA",
+        "data-analytics": "Dados e análise",
+        "security-compliance": "Segurança e conformidade",
+        "product-design": "Produto e design",
+        "business-operations": "Negócio e operações",
+        "marketing-growth": "Marketing e crescimento",
+        "science-research": "Ciência e investigação",
+        "education": "Educação",
+        "health-medicine": "Saúde e medicina",
+        "legal": "Jurídico",
+        "arts-creative": "Artes e criatividade",
+        "management-leadership": "Gestão e liderança"
+      }
     },
     "generate": {
       "title": "Gerar um agente personalizado",
@@ -43,14 +58,15 @@
       "descriptionPlaceholder": "p. ex. Rever alterações de Terraform/IaC e assinalar configurações de segurança incorretas, permissões IAM excessivas e buckets S3 públicos antes do merge. Conservador e conciso.",
       "note": "O Claude vai redigir um corpo <code>.md</code> completo. Poderá revê-lo no Studio e editá-lo antes de guardar. Isto lança uma invocação única do claude e pode demorar até 90 segundos.",
       "generating": "A gerar…",
-      "generateButton": "Gerar"
+      "generateButton": "Gerar",
+      "dialogDescription": "Descreva o agente de que precisa e o Claude cria um rascunho para você revisar no Studio antes de salvar."
     },
     "empty": {
       "title": "Ainda não há agentes personalizados",
       "body": "Os papéis base (architect, developer, reviewer) são definidos pelo runtime do specrails-core e não precisam de instalação. Crie um agente personalizado para ampliar a sua equipa."
     },
     "actions": {
-      "template": "Template",
+      "template": "Modelo",
       "templateTitle": "Começar a partir de um template",
       "generate": "Gerar",
       "generateWithClaude": "Gerar com o Claude",
@@ -135,7 +151,8 @@
     },
     "sidebar": {
       "title": "Perfis",
-      "teamDefault": "(predefinição da equipa)"
+      "teamDefault": "(predefinição da equipa)",
+      "new": "Novo perfil"
     },
     "editorFooter": {
       "fixValidationIssues": "Corrija os problemas de validação antes de guardar",

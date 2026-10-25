@@ -216,6 +216,69 @@ two surfaces disagree about what the same person had chosen. With
 `VITE_FEATURE_NARRATED_PROGRESS=false` both surfaces render byte-identically to
 their pre-change behaviour, with no toggle at all.
 
+## Changes tab (in-app diff review)
+
+The packet has two tabs, **Overview** (everything above) and **Changes**
+(`?tab=changes`). The Changes tab answers "what did it change, and what did the
+reviewer flag where?" without leaving the app. It is read-only and agent-directed:
+there are no person-to-person threads; human review stays on GitHub.
+
+**Server** (`server/modules/delivery/runtime/delivery-changes.ts`, routes in
+`rails-router.ts`, endpoints in the [API reference](api-reference.md)):
+
+- Source: the delivery head (settled `delivery_sha`, else the assembled branch;
+  per-unit `finalSha`/branch when there is none) against its **merge-base** with
+  `base_branch`, so a base that moved on does not leak in. A multi-repository
+  delivery resolves the repository's frozen source path like the packet.
+- Git is the hardened, cwd-scoped reader (`gitExecEnv`, `--literal-pathspecs`,
+  `--no-ext-diff --no-textconv`), only `diff` / `merge-base` / `rev-parse`. A ref
+  from the database that starts with `-` is refused; the file endpoint only
+  accepts a path the diff itself lists.
+- The list is `--raw -z` (status, blob ids) joined with `--numstat -z` (counts;
+  `-`/`-` = binary). `hash` = old+new blob ids, so it changes exactly when the
+  file's diff does. One file is parsed lazily; past 4000 lines it returns a
+  capped diff with `truncated` and the client offers "Load full file diff".
+- Annotations (`collectAnnotations`) are read from durable rows only: the
+  reviewer's `acceptance.findings`, anchored by **Core contract 5.9**
+  `acceptance.findingLocations` (`{ finding, path, line?, endLine? }`, validated
+  and re-indexed by `readFindingLocations` in `delivery-evidence.ts`, stored in
+  the runtime evidence as `findingLocations`); review-brief risks whose `ref` is a
+  bare `path[:line[-end]]` and `untested` files; and the comments of a PR
+  follow-up that carry a path/line. Anything without a location keeps
+  `location: null`.
+
+**Client** (`client/src/features/delivery/components/review-packet/ChangesTab.tsx`,
+model in `lib/changes-model.ts`):
+
+- File tree (ARIA `tree`, virtualised) with status letter, `+`/`−` and a viewed
+  tick; the diff (unified or split, persisted per viewer) is a virtualised row
+  list, one file at a time. Numbers in the gutter are buttons; Shift extends.
+- Annotations render under their line. One that names a file but a line outside
+  the displayed hunks pins to the file header; one that names no file of the
+  change (or no place at all, e.g. every finding from an older run) is listed
+  above the tree. Nothing is dropped.
+- "Ask agent for a change" files a **spec addendum** (`review-feedback`, the
+  existing carrier: `POST /tickets/:id/addenda`) containing `path:lines`, the
+  selected snippet and the note, then toasts with a link to the spec. It does
+  not launch a run; the next run on the spec is briefed with it
+  ([spec addenda](spec-addenda.md)). "Ask for changes" on the Overview starts one.
+- "Open in editor" builds `vscode://file/<abs>:<line>`, `cursor://file/…` or
+  `idea://open?file=…&line=…` (`client/src/lib/open-in-editor.ts`) and hands it to
+  the shell opener; the editor is a per-machine preference in Settings ▸ Code
+  (default VS Code). The Tauri `shell:allow-open` scope allows those three
+  schemes. The file path is the retained worktree when it still exists
+  (`rootKind: 'worktree'`), else the project checkout, where the review branch
+  may not be checked out.
+- "Viewed" marks live in `localStorage` per viewer, project, delivery and file,
+  keyed to the file's `hash`; a changed diff reads as unviewed again ("Changed
+  since you viewed it").
+- Keys (not while typing): `j`/`k` files, `n`/`p` annotations, `v` viewed; all in
+  the cheatsheet. Annotation cards are focusable.
+
+Limits: the diff is the committed state; uncommitted edits are not shown. Past
+2000 files the list is truncated (flagged). Split layout clips very long lines
+instead of scrolling horizontally.
+
 ## Flags
 
 - `SPECRAILS_REVIEW_PACKET=false` → the packet route 404s.
@@ -294,3 +357,29 @@ repaired derivation supersedes the rejected one.
 
 The draft PR body adds one line (`buildDerivationLine`):
 `> Derived from a Flow session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`
+
+## 2026-10-22 — Requirements demonstrated, baseline and "Needs human eyes"
+
+Three advisory sections, each gated on a Core capability and absent (`null`)
+otherwise, so older packets read exactly as before. They render after "What to
+look at"; none ever gates a decision. Source and rules in
+[existing-project anchoring](existing-project-anchoring.md).
+
+- **Needs human eyes** (`packet.needsHumanEyes`, Core `rulesInventory: 1`): the
+  project's `humanOnly` rules from `.specrails/rules.json`, frozen into
+  `settle_evidence.humanRules` when the delivery settles.
+- **Requirements demonstrated X/Y** (`packet.requirementsDemonstrated`, Core
+  `specTrace: 1`): `settle_evidence.units[].specTrace` (Core's
+  `spec-trace.json`) merged across units. Lists undemonstrated requirements
+  first (the ones this change touches are flagged), then demonstrated ones with
+  their first tagged test, then tags that match no requirement. App-verified:
+  Core crossed test tags with the verification receipt; a trace without a
+  receipt says so.
+- **Spec created where the work passed** (`packet.baseline`, Core
+  `baselineOnTouch: 1`): one entry per unit whose run planned a baseline
+  (`baseline.json`): status (`planned`, `passed`, `failed`, `violated`), the
+  module described, the as-built requirements per capability with how many are
+  demonstrated, Core's reason when it blocked, and the baseline's own cost.
+  The cost line in the header adds "baseline $X of it" when every baseline
+  reported a cost.
+

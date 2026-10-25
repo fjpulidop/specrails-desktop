@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Paperclip, X, Loader2 } from 'lucide-react'
+import { Paperclip, X } from 'lucide-react'
 import { fetchAgentAttachmentBlob, type AgentAttachment } from '../lib/agent-api'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 function isImageAttachment(attachment: AgentAttachment): boolean {
   return attachment.mimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(attachment.filename)
@@ -61,13 +62,14 @@ export function AgentComposerAttachmentChip({
           <img src={objectUrl} alt={attachment.filename} className="h-full w-full object-cover" />
         ) : (
           <span className="flex h-full w-full items-center justify-center">
-            <Loader2 className="h-4 w-4 animate-spin text-foreground/40" />
+            <LiveDot tone="muted" size="sm" aria-hidden />
           </span>
         )}
         <button
           type="button"
           onClick={onRemove}
           aria-label={removeLabel}
+          title={removeLabel}
           className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
         >
           <X className="h-3 w-3" />
@@ -78,12 +80,12 @@ export function AgentComposerAttachmentChip({
 
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-[11px] text-foreground/80"
+      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-caption text-foreground"
       data-testid="composer-attachment-pill"
     >
       <Paperclip className="h-3 w-3 text-accent-primary" />
       <span className="max-w-[160px] truncate">{attachment.filename}</span>
-      <button type="button" onClick={onRemove} aria-label={removeLabel} className="rounded-sm hover:bg-muted">
+      <button type="button" onClick={onRemove} aria-label={removeLabel} title={removeLabel} className="rounded-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
         <X className="h-3 w-3" />
       </button>
     </span>

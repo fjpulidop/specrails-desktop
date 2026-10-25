@@ -20,6 +20,7 @@ import { deriveReadiness } from '../../lib/blueprint-readiness'
 import { providerSupportsToolPolicy } from '../../../providers/lib/provider-capabilities'
 import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
 
+import { notifyError } from '../../../../lib/notify-error'
 // "Generate M<n>" (add-project-builder D7): PROJECT-level grounded milestone
 // generation. Spawns through the existing ChatManager (kind='milestone' —
 // real code reading available), reuses the blueprint-draft protocol, and
@@ -125,11 +126,11 @@ export function MilestoneGenerateShell({
           body: JSON.stringify({ text: seed }),
         }).catch(() => {
           setBusy(false)
-          toast.error(t('errors.turnFailed'))
+          notifyError(t('errors.turnFailed'))
         })
       })
       .catch(() => {
-        if (!cancelled) toast.error(t('errors.startFailed'))
+        if (!cancelled) notifyError(t('errors.startFailed'))
       })
     return () => { cancelled = true }
   }, [open, conversationId, milestoneId, milestone, label, generationAvailable, t])
@@ -161,7 +162,7 @@ export function MilestoneGenerateShell({
       } else if (msg.type === 'chat_error') {
         setStreamBuffer(null)
         setBusy(false)
-        toast.error(t('errors.turnFailed'), { description: String(msg.error ?? '') })
+        notifyError(t('errors.turnFailed'), { detail: String(msg.error ?? '') })
       }
     })
     return () => unregisterHandler(id)
@@ -185,7 +186,7 @@ export function MilestoneGenerateShell({
         body: JSON.stringify({ text: trimmed }),
       }).catch(() => {
         setBusy(false)
-        toast.error(t('errors.turnFailed'))
+        notifyError(t('errors.turnFailed'))
       })
     },
     [busy, t],
@@ -220,10 +221,10 @@ export function MilestoneGenerateShell({
         } else {
           const body = await r.json().catch(() => ({}))
           const failure = body as { error?: string; detail?: string }
-          toast.error(t('milestone.commitFailed'), { description: failure.detail ?? failure.error })
+          notifyError(t('milestone.commitFailed'), { detail: failure.detail ?? failure.error })
         }
       })
-      .catch(() => toast.error(t('milestone.commitFailed')))
+      .catch(() => notifyError(t('milestone.commitFailed')))
       .finally(() => setCommitting(false))
   }, [draft, rawDraft, specQuality.valid, committing, milestoneId, label, onClose, onCommitted, t])
 
@@ -233,10 +234,10 @@ export function MilestoneGenerateShell({
 
   if (!generationAvailable) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm" data-testid="milestone-shell">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background" data-testid="milestone-shell">
         <header className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
           <Hammer className="h-4 w-4 text-accent-primary" />
-          <h1 className="text-sm font-semibold">{t('milestone.title', { label })}</h1>
+          <h1 className="text-strong">{t('milestone.title', { label })}</h1>
           <button
             type="button"
             onClick={onClose}
@@ -258,10 +259,10 @@ export function MilestoneGenerateShell({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm" data-testid="milestone-shell">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background" data-testid="milestone-shell">
       <header className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
         <Hammer className="h-4 w-4 text-accent-primary" />
-        <h1 className="text-sm font-semibold">{t('milestone.title', { label })}</h1>
+        <h1 className="text-strong">{t('milestone.title', { label })}</h1>
         {milestone && <span className="text-xs text-muted-foreground">{milestone.title}</span>}
         <button
           type="button"
@@ -291,7 +292,7 @@ export function MilestoneGenerateShell({
             {streamBuffer !== null && (
               <div className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-surface/70 px-3 py-2 text-xs leading-relaxed">
                 {cutUnterminatedBlock(streamBuffer)}
-                <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-accent-primary/70 align-middle" />
+                <span className="ml-0.5 inline-block h-3 w-1.5 motion-safe:animate-pulse bg-accent-primary/70 align-middle" />
               </div>
             )}
             {generation.generating && (
@@ -312,7 +313,7 @@ export function MilestoneGenerateShell({
               placeholder={t('milestone.inputPlaceholder')}
               className="min-h-[2.5rem] flex-1 resize-none rounded-md border border-border/40 bg-surface/50 px-3 py-2 text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
-            <Button size="sm" onClick={() => send(input)} disabled={busy || !input.trim() || !conversationId}>
+            <Button size="sm" onClick={() => send(input)} disabled={busy || !input.trim() || !conversationId} aria-label={t('milestone.send')}>
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             </Button>
           </div>

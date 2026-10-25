@@ -1,4 +1,7 @@
 import { execFile } from 'child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { gitExecEnv } from './modules/code/runtime/file-provenance'
 import { isValidBranchName } from './integration-branch'
 
@@ -292,4 +295,66 @@ export async function checkoutProjectReviewBranch(
   // already where the user can inspect/fix it. Surface only hard checkout errors.
   await git(repoDir, ['pull', '--ff-only']).catch(() => {})
   return { ok: true }
+}
+
+// ─── Initial commit for an unborn repository ─────────────────────────────────
+//
+// Backs "Create initial commit" next to `repository_has_no_commits`. Runs only
+// `git commit --allow-empty -m "Initial commit"`, against a throwaway empty
+// index, so the commit has zero files and nothing the user staged (or left in
+// the working tree) is added or touched. Refuses a repository that already has
+// commits and never invents an author identity.
+
+export type InitialCommitResult =
+  | { ok: true; sha: string }
+  | { ok: false; code: 'not_a_git_repository' | 'repository_has_commits' | 'git_identity_missing' | 'initial_commit_failed'; detail: string }
+
+const IDENTITY_MISSING_RE = /author identity unknown|committer identity unknown|unable to auto-detect email|empty ident name|please tell me who you are/i
+
+async function gitConfigValue(repoDir: string, key: string): Promise<string> {
+  try { return await git(repoDir, ['config', '--get', key]) } catch { return '' }
+}
+
+async function hasGitIdentity(repoDir: string): Promise<boolean> {
+  const env = process.env
+  const name = (env.GIT_AUTHOR_NAME && env.GIT_COMMITTER_NAME) || await gitConfigValue(repoDir, 'user.name')
+  const email = (env.GIT_AUTHOR_EMAIL && env.GIT_COMMITTER_EMAIL) || env.EMAIL || await gitConfigValue(repoDir, 'user.email')
+  return !!name.trim() && !!email.trim()
+}
+
+export async function createInitialCommit(repoDir: string): Promise<InitialCommitResult> {
+  try {
+    await git(repoDir, ['rev-parse', '--is-inside-work-tree'])
+  } catch {
+    return { ok: false, code: 'not_a_git_repository', detail: 'The project folder is not a Git repository.' }
+  }
+  let unborn = false
+  try {
+    await git(repoDir, ['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'])
+  } catch {
+    try { await git(repoDir, ['symbolic-ref', '-q', 'HEAD']); unborn = true } catch { /* detached or unreadable */ }
+  }
+  if (!unborn) return { ok: false, code: 'repository_has_commits', detail: 'This repository already has commits.' }
+  if (!(await hasGitIdentity(repoDir))) {
+    return { ok: false, code: 'git_identity_missing', detail: 'Git has no author identity. Set user.name and user.email first.' }
+  }
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-initial-commit-'))
+  try {
+    // A missing index file is an empty index: the commit tree is empty.
+    const env = { ...gitExecEnv(), GIT_INDEX_FILE: path.join(scratch, 'index') }
+    const result = await new Promise<{ code: number; stderr: string }>((resolve) => {
+      execFile('git', ['commit', '--allow-empty', '-m', 'Initial commit'], { cwd: repoDir, env, timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER, windowsHide: true },
+        (err, _stdout, stderr) => resolve({ code: err ? 1 : 0, stderr: String(stderr || (err ? err.message : '')).trim() }))
+    })
+    if (result.code !== 0) {
+      if (IDENTITY_MISSING_RE.test(result.stderr)) {
+        return { ok: false, code: 'git_identity_missing', detail: 'Git has no author identity. Set user.name and user.email first.' }
+      }
+      return { ok: false, code: 'initial_commit_failed', detail: result.stderr.slice(0, 400) || 'git commit failed' }
+    }
+    const sha = await git(repoDir, ['rev-parse', '--verify', 'HEAD^{commit}'])
+    return { ok: true, sha }
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true })
+  }
 }

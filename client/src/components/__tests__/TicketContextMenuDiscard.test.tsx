@@ -39,7 +39,7 @@ describe('TicketContextMenu — Jira discard', () => {
     fireEvent.contextMenu(screen.getByText('Target'))
     expect(screen.getByTestId('jira-move-to-menuitem')).toBeDefined()
     expect(screen.getByText('Move to Cancelled')).toBeDefined()
-    expect(screen.queryByText('Delete ticket')).toBeNull()
+    expect(screen.queryByText('Delete spec')).toBeNull()
   })
 
   it('opens the discard dialog when the move-to item is clicked', () => {
@@ -52,7 +52,7 @@ describe('TicketContextMenu — Jira discard', () => {
   it('keeps the normal Delete for a non-Jira ticket', () => {
     renderMenu({ ...jiraTicket, source: 'manual', jira_key: null })
     fireEvent.contextMenu(screen.getByText('Target'))
-    expect(screen.getByText('Delete ticket')).toBeDefined()
+    expect(screen.getByText('Delete spec')).toBeDefined()
     expect(screen.queryByTestId('jira-move-to-menuitem')).toBeNull()
   })
 
@@ -60,7 +60,7 @@ describe('TicketContextMenu — Jira discard', () => {
     jiraState.discardStatus = null
     renderMenu(jiraTicket)
     fireEvent.contextMenu(screen.getByText('Target'))
-    expect(screen.getByText('Delete ticket')).toBeDefined()
+    expect(screen.getByText('Delete spec')).toBeDefined()
     expect(screen.queryByTestId('jira-move-to-menuitem')).toBeNull()
   })
 })

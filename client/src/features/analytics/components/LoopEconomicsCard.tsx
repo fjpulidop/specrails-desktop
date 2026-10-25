@@ -4,6 +4,7 @@ import { Scale } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import type { Period } from '../types/spending'
 import { durationParts, type DecisionTimeGroup } from './DecisionTimesCard'
+import { CostValue } from './CostValue'
 
 export interface LoopEconomicsGroup {
   hasData: boolean
@@ -32,7 +33,7 @@ export interface LoopEconomicsGroup {
     fixerPerDelivery: number | null
   }
   escapedDefects: number | null
-  requirementsDemonstrated: { demonstrated: number; total: number } | null
+  requirementsDemonstrated: { demonstrated: number; total: number; deliveries?: number } | null
   triageAccuracy: { matched: number; total: number } | null
 }
 
@@ -63,12 +64,6 @@ export function parseLoopEconomics(value: unknown): LoopEconomicsResponse {
   if (!body || !validGroup(body.project) || !Array.isArray(body.byLoop) ||
     body.byLoop.some((loop) => !validGroup(loop) || typeof loop.loopName !== 'string')) throw new Error('Invalid loop economics')
   return body
-}
-
-function fmtUsd(value: number): string {
-  if (value >= 100) return `$${value.toFixed(0)}`
-  if (value >= 0.01) return `$${value.toFixed(2)}`
-  return `$${value.toFixed(4)}`
 }
 
 const fmtRatio = (value: number) => (Math.round(value * 10) / 10).toString()
@@ -129,12 +124,12 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
     const share = group.cost.estimatedShare
     return (
       <span className="inline-flex flex-col items-end leading-tight">
-        <span>{fmtUsd(group.cost.avgCostUsd)}</span>
+        <CostValue usd={group.cost.avgCostUsd} estimated={share !== null && share > 0} />
         {share !== null && share > 0 && (
-          <span className="text-[10px] text-amber-600 dark:text-amber-400">{t('loopEconomics.estimatedShare', { share: fmtPercent(share) })}</span>
+          <span className="text-caption text-accent-warning">{t('loopEconomics.estimatedShare', { share: fmtPercent(share) })}</span>
         )}
         {group.cost.unpricedDeliveries > 0 && (
-          <span className="text-[10px] text-muted-foreground">{t('loopEconomics.unpriced', { count: group.cost.unpricedDeliveries })}</span>
+          <span className="text-caption text-muted-foreground">{t('loopEconomics.unpriced', { count: group.cost.unpricedDeliveries })}</span>
         )}
       </span>
     )
@@ -157,7 +152,12 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
     value(group.rounds.reviewPerDelivery === null ? null : fmtRatio(group.rounds.reviewPerDelivery)),
     value(group.rounds.fixerPerDelivery === null ? null : fmtRatio(group.rounds.fixerPerDelivery)),
     group.escapedDefects === null ? noData : group.escapedDefects,
-    group.requirementsDemonstrated === null ? noData : `${group.requirementsDemonstrated.demonstrated}/${group.requirementsDemonstrated.total}`,
+    group.requirementsDemonstrated === null ? noData : (
+      <span key="r">
+        {group.requirementsDemonstrated.demonstrated}/{group.requirementsDemonstrated.total}
+        {group.requirementsDemonstrated.total > 0 && <span className="text-muted-foreground"> · {fmtPercent(group.requirementsDemonstrated.demonstrated / group.requirementsDemonstrated.total)}</span>}
+      </span>
+    ),
     group.triageAccuracy === null ? noData : `${group.triageAccuracy.matched}/${group.triageAccuracy.total}`,
   ]
 
@@ -165,8 +165,8 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
     <section className="rounded-xl border border-border/50 bg-card p-4 space-y-3" aria-label={t('loopEconomics.title')} data-testid="loop-economics-card">
       <div className="flex items-center gap-2">
         <Scale className="h-4 w-4 text-accent-highlight" aria-hidden="true" />
-        <h3 className="text-sm font-medium">{t('loopEconomics.title')}</h3>
-        <span className="text-[10px] text-muted-foreground">{t('loopEconomics.subtitle')}</span>
+        <h3 className="text-strong">{t('loopEconomics.title')}</h3>
+        <span className="text-caption text-muted-foreground">{t('loopEconomics.subtitle')}</span>
       </div>
       {failed && <p role="status" className="text-xs text-destructive">{t('loopEconomics.unavailable')}</p>}
       {!data && loading && <p role="status" className="text-xs text-muted-foreground">{t('loopEconomics.loading')}</p>}
@@ -190,16 +190,16 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
                 <tr key={loop.loopId ?? `name:${loop.loopName}`} className="border-t border-border/30" data-testid="loop-economics-row">
                   <th scope="row" className="py-1.5 pr-3 text-left font-normal whitespace-nowrap">{loop.loopName || t('loopEconomics.unnamedLoop')}</th>
                   {loop.hasData
-                    ? cells(loop).map((cell, index) => <td key={columns[index]} className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">{cell}</td>)
+                    ? cells(loop).map((cell, index) => <td key={columns[index]} className="py-1.5 pr-3 text-right num whitespace-nowrap">{cell}</td>)
                     : <td colSpan={columns.length} className="py-1.5 pr-3 text-left text-muted-foreground">{t('loopEconomics.noData')}</td>}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-muted-foreground">{t('loopEconomics.note')}</p>
+        <p className="text-xs text-muted-foreground">{t('loopEconomics.note')}</p>
         {data.sources.escapedDefects === 'untracked' && (
-          <p className="text-[11px] text-muted-foreground" data-testid="loop-economics-untracked">{t('loopEconomics.escapedUntracked')}</p>
+          <p className="text-xs text-muted-foreground" data-testid="loop-economics-untracked">{t('loopEconomics.escapedUntracked')}</p>
         )}
       </>}
     </section>

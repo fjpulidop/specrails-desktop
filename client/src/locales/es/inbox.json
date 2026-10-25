@@ -1,0 +1,84 @@
+{
+  "title": "Pendientes",
+  "subtitle_one": "{{count}} elemento te espera",
+  "subtitle_other": "{{count}} elementos te esperan",
+  "subtitleEmpty": "Nada te espera",
+  "loading": "Revisando tus proyectos…",
+  "empty": {
+    "title": "Nada te necesita",
+    "description": "Las revisiones, preguntas y fallos de todos los proyectos aparecen aquí en cuanto ocurren."
+  },
+  "error": {
+    "title": "No se pudieron cargar los pendientes",
+    "description": "La app no pudo leer tus proyectos. Inténtalo de nuevo en un momento.",
+    "retry": "Reintentar"
+  },
+  "kinds": {
+    "review": "Revisión lista",
+    "question": "Esperando tu respuesta",
+    "failed": "Falló",
+    "blocked": "Bloqueado",
+    "budget": "Pausado por un límite",
+    "jira": "Falló la sincronización con Jira",
+    "failedNoCause": "Se detuvo antes de entregar",
+    "capReached": "Límite alcanzado"
+  },
+  "actions": {
+    "open": "Abrir",
+    "openReview": "Abrir revisión",
+    "answer": "Responder",
+    "resume": "Reanudar",
+    "retry": "Reintentar",
+    "raiseCap": "Subir límite"
+  },
+  "working": "Procesando…",
+  "rowLabel": "{{action}}: {{title}}",
+  "snooze": {
+    "label": "Posponer",
+    "hour": "1 hora",
+    "tomorrow": "Hasta mañana",
+    "cancel": "Cancelar"
+  },
+  "snoozeItem": "Posponer {{title}}",
+  "snoozeFor": "Posponer {{title}} durante",
+  "done": "Hecho",
+  "doneItem": "Marcar {{title}} como hecho",
+  "age": {
+    "now": "ahora mismo",
+    "ago": "hace {{age}}"
+  },
+  "button": {
+    "withCount_one": "Pendientes: {{count}}",
+    "withCount_other": "Pendientes: {{count}}",
+    "empty": "Pendientes: nada",
+    "title": "{{label}} ({{shortcut}})"
+  },
+  "toast": {
+    "resumed": "Ejecución reanudada",
+    "retried": "Reintento en cola",
+    "resumeFailed": "No se pudo reanudar la ejecución",
+    "retryFailed": "No se pudo reintentar la actualización de Jira",
+    "stillOverBudget": "Sigues por encima del límite diario",
+    "done": "Marcado como hecho",
+    "snoozed": "Pospuesto hasta {{when}}",
+    "undo": "Deshacer",
+    "stillOverBudget_week": "Sigue superado el límite semanal",
+    "stillOverBudget_month": "Sigue superado el límite mensual"
+  },
+  "cap": {
+    "title": {
+      "project": {
+        "day": "Límite diario del proyecto alcanzado",
+        "week": "Límite semanal del proyecto alcanzado",
+        "month": "Límite mensual del proyecto alcanzado"
+      },
+      "desktop": {
+        "day": "Límite diario global alcanzado",
+        "week": "Límite semanal global alcanzado",
+        "month": "Límite mensual global alcanzado"
+      }
+    },
+    "detail": "{{spent}} de {{budget}} gastados"
+  },
+  "stale": "No se pudo actualizar; se muestra la última lista."
+}

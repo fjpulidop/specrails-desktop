@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · interaktiv",
     "backAriaLabel": "Zurück (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · interaktiv",
-    "editingEyebrow": "SPEC BEARBEITEN · #{{id}}",
     "newSpecPlaceholder": "Neue Spec…",
     "contextPill": "Kontext: {{scopes}}",
     "contextPillTitle": "Aktiver Kontextumfang für diese Explore-Session",
@@ -41,7 +39,7 @@
       "specCreated": "Spec erstellt – #{{id}} {{title}}",
       "createNetworkError": "Netzwerkfehler beim Erstellen der Spec",
       "unsupportedFileType": "Nicht unterstützter Dateityp: {{name}}",
-      "uploadFailed": "Upload fehlgeschlagen für {{name}}: {{message}}"
+      "uploadFailed": "Upload fehlgeschlagen für {{name}}"
     },
     "fromWebsite": "Von einer Website",
     "fromWebsiteTitle": "Öffne eine echte Webseite, wähle einen Bereich aus und mach daraus eine Spec",
@@ -73,7 +71,13 @@
     "criterionAriaLabel": "Akzeptanzkriterium {{number}}",
     "removeCriterionAriaLabel": "Kriterium {{number}} entfernen",
     "addCriterion": "Kriterium hinzufügen",
-    "addCriterionAriaLabel": "Akzeptanzkriterium hinzufügen"
+    "addCriterionAriaLabel": "Akzeptanzkriterium hinzufügen",
+    "nonGoalsLabel": "Nicht im Umfang",
+    "nonGoalPlaceholder": "Etwas, das diese Spec ausklammert",
+    "nonGoalAriaLabel": "Nicht im Umfang, Eintrag {{number}}",
+    "removeNonGoalAriaLabel": "Eintrag {{number}} außerhalb des Umfangs entfernen",
+    "addNonGoalAriaLabel": "Eintrag außerhalb des Umfangs hinzufügen",
+    "addNonGoal": "Eintrag hinzufügen"
   },
   "priority": {
     "low": "niedrig",
@@ -83,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "Änderungen prüfen",
-    "eyebrow": "Änderungen prüfen · explore-spec",
     "heading": "Vor dem Commit bestätigen",
     "titleLabel": "Titel",
     "priorityLabel": "Priorität",

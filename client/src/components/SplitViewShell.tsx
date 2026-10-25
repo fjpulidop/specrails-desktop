@@ -1,8 +1,12 @@
 import { modalOverlayStyle } from '../lib/modal-safe-area'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { useTranslation } from 'react-i18next'
 import { TicketDetailModal } from '../features/specs/components/TicketDetailModal'
 import { SpecComparePicker } from '../features/specs/components/SpecComparePicker'
+import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from './ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../lib/layers'
+import { cn } from '../lib/utils'
 import type { LocalTicket } from '../types'
 import type { CompareSide, SplitState } from '../features/specs/context/TicketDetailModalContext'
 
@@ -49,6 +53,7 @@ export function SplitViewShell({
   onSetRatio,
   onExitSplit: _onExitSplit,
 }: SplitViewShellProps) {
+  const { t } = useTranslation('tickets')
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerId: number; element: HTMLElement } | null>(null)
   const [animating, setAnimating] = useState(true)
@@ -166,22 +171,52 @@ export function SplitViewShell({
     )
   }
 
+  // Escape (Radix) closes both panels — except while typing (the panels'
+  // inline editors own Escape to cancel an edit). Nested dialogs (confirms,
+  // Selects) are their own Radix layers and consume Escape first.
+  const handleEscapeKeyDown = useCallback((e: KeyboardEvent) => {
+    const target = e.target instanceof HTMLElement ? e.target : null
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) e.preventDefault()
+  }, [])
+
+  // Focus return: Radix only refocuses a `DialogTrigger`; the shell is opened
+  // from Spec detail's Compare button / drag gesture, which unmounts with it.
+  const [returnTarget] = useState<HTMLElement | null>(() => {
+    if (typeof document === 'undefined') return null
+    const el = document.activeElement
+    return el instanceof HTMLElement && el !== document.body ? el : null
+  })
+  const handleCloseAutoFocus = useCallback((e: Event) => {
+    e.preventDefault()
+    if (returnTarget?.isConnected) returnTarget.focus()
+  }, [returnTarget])
+
   const leftPct = (state.splitRatio * 100).toFixed(2)
   const rightPct = ((1 - state.splitRatio) * 100).toFixed(2)
 
-  return createPortal(
-    <div
+  // A Radix modal on the `entity` layer (same as standalone Spec detail):
+  // focus trap, hideOthers, focus return, Escape stacking.
+  return (
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onCloseAll() }}>
+    <DialogPrimitive.Portal>
+    <DialogPrimitive.Overlay style={modalOverlayStyle()} className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.entity)} />
+    <DialogPrimitive.Content
       ref={containerRef}
       data-testid="split-view-shell"
+      data-dialog-layer="entity"
+      aria-describedby={undefined}
       style={modalOverlayStyle()}
-      className="fixed inset-0 z-[68] flex"
+      className={cn('fixed inset-0 flex outline-none', DIALOG_LAYER_CLASS.entity)}
       onClick={handleBackdropClick}
+      onEscapeKeyDown={handleEscapeKeyDown}
+      onCloseAutoFocus={handleCloseAutoFocus}
     >
-      <div className="absolute inset-0 bg-black/70 pointer-events-none" aria-hidden />
+      <DialogPrimitive.Title className="sr-only">{t('split.label')}</DialogPrimitive.Title>
+      <DialogLayerProvider layer="entity">
       <div
         className="relative flex w-full h-full"
         style={{
-          transition: animating ? 'opacity 280ms cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
+          transition: animating ? 'opacity 280ms cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
         }}
       >
         {/* Left panel */}
@@ -190,7 +225,7 @@ export function SplitViewShell({
           className="relative h-full overflow-hidden"
           style={{
             width: `${leftPct}%`,
-            transition: animating ? 'width 280ms cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
+            transition: animating ? 'width 280ms cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
           }}
         >
           <div className="h-full flex items-center justify-center p-2">
@@ -205,6 +240,7 @@ export function SplitViewShell({
           data-testid="split-divider"
           role="separator"
           aria-orientation="vertical"
+          aria-label={t('split.resize')}
           aria-valuenow={Math.round(state.splitRatio * 100)}
           aria-valuemin={Math.round(MIN_RATIO * 100)}
           aria-valuemax={Math.round(MAX_RATIO * 100)}
@@ -220,7 +256,7 @@ export function SplitViewShell({
           className="relative h-full overflow-hidden"
           style={{
             width: `${rightPct}%`,
-            transition: animating ? 'width 280ms cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
+            transition: animating ? 'width 280ms cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
           }}
         >
           <div className="h-full flex items-center justify-center p-2">
@@ -230,7 +266,9 @@ export function SplitViewShell({
           </div>
         </div>
       </div>
-    </div>,
-    document.body,
+      </DialogLayerProvider>
+    </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }

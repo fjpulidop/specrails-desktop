@@ -1,4 +1,4 @@
-# Mises à jour
+# Mises à jour {#updates}
 
 Specrails tient à jour deux choses : l'application **Specrails Desktop** elle-même et le framework **specrails-core** utilisé par vos projets. Les deux se trouvent dans **Paramètres ▸ Mises à jour**.
 

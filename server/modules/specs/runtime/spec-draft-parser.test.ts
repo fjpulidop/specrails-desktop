@@ -166,3 +166,19 @@ describe('repository scope in draft streams', () => {
     expect(parsed.blocks[0].partial.repositoryIds).toBeUndefined()
   })
 })
+
+describe('spec-draft non-goals', () => {
+  it('parses nonGoals as a string list and ignores malformed values', () => {
+    const ok = parseSpecDraftBlocks('x\n```spec-draft\n{"title":"T","nonGoals":["Mobile",3,"Exports"]}\n```')
+    expect(ok.blocks[0].partial.nonGoals).toEqual(['Mobile', 'Exports'])
+    const bad = parseSpecDraftBlocks('```spec-draft\n{"title":"T","nonGoals":"Mobile"}\n```')
+    expect(bad.blocks[0].partial).not.toHaveProperty('nonGoals')
+  })
+
+  it('merges nonGoals into the conversation draft and reports the change', () => {
+    const state = applyBlocks(undefined, parseSpecDraftBlocks('```spec-draft\n{"title":"T","nonGoals":["Mobile"]}\n```').blocks)
+    expect(state.draft.nonGoals).toEqual(['Mobile'])
+    expect(state.lastChangedFields).toContain('nonGoals')
+    expect(mergeDraft(state.draft, { title: 'U' }).nonGoals).toEqual(['Mobile'])
+  })
+})

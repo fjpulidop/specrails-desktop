@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
@@ -15,6 +15,9 @@ import {
   MousePointer2,
 } from 'lucide-react'
 import { Button } from '../../../../components/ui/button'
+import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from '../../../../components/ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../../../../lib/layers'
+import { cn } from '../../../../lib/utils'
 import { ImageAnnotationEditor } from './AnnotationEditor'
 import {
   nativeBrowser,
@@ -26,6 +29,7 @@ import {
   type PaneBounds,
 } from '../../lib/native-browser'
 import { openExternalUrl } from '../../../../lib/tauri-shell'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 // A supplied owner survives renderer handoff. Effect cleanup must not close a
 // newer StrictMode/re-mounted lease of that same native webview.
@@ -36,6 +40,82 @@ function sequencePaneOperation<T>(ownerId: string, operation: () => Promise<T>):
   paneOperations.set(ownerId, next)
   void next.finally(() => { if (paneOperations.get(ownerId) === next) paneOperations.delete(ownerId) }).catch(() => {})
   return next
+}
+
+interface CaptureDialogShellProps {
+  /** Accessible name (rendered as an sr-only Radix title). */
+  label: string
+  onClose: () => void
+  /**
+   * Escape handler. Return `false` to keep the surface open (e.g. an inner
+   * mode — selection, annotation — consumes Escape first). Omit to close.
+   */
+  onEscape?: () => boolean
+  /** When false, a click on the scrim does not close the surface. */
+  scrimDismisses?: boolean
+  /** Entrance animation. Off for the native pane: its hole is measured with
+   *  getBoundingClientRect on open, which a scale animation would distort. */
+  animated?: boolean
+  testId?: string
+  children: React.ReactNode
+}
+
+/**
+ * Shared Radix shell for the three browser-capture surfaces (browser capture,
+ * web view, native browser pane) on the `capture` layer: FocusScope trap,
+ * `hideOthers`, Escape stacking and focus return to whatever opened it.
+ *
+ * The surfaces forward keys to the remote page on purpose (Tab, Space,
+ * arrows). A forwarded key handler must call `stopPropagation()` so the
+ * FocusScope's own Tab handling on Content never sees it (see `forwardsKey`).
+ */
+export function CaptureDialogShell({ label, onClose, onEscape, scrimDismisses = true, animated = true, testId, children }: CaptureDialogShellProps) {
+  // Radix modal dialogs only refocus a `DialogTrigger`; these surfaces open
+  // from arbitrary buttons/links, so remember what was focused at mount.
+  const [opener] = useState<HTMLElement | null>(() =>
+    typeof document !== 'undefined' && document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement
+      : null,
+  )
+  return (
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay data-capture-scrim="" className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.capture)} />
+        <DialogPrimitive.Content
+          data-testid={testId}
+          aria-describedby={undefined}
+          // Large modal (visible app rim) rather than full-bleed, so the browser
+          // reads as part of Specrails; geometry is specific to these surfaces.
+          className={cn(
+            'fixed inset-x-[4%] inset-y-[3.5%] flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-background-deep shadow-xl ring-1 ring-black/20 outline-none',
+            animated && 'modal-panel',
+            DIALOG_LAYER_CLASS.capture,
+          )}
+          onEscapeKeyDown={(e) => { if (onEscape && onEscape() === false) e.preventDefault() }}
+          // Only a press on the scrim itself dismisses — never a toast or other
+          // out-of-tree UI, which would silently drop the browsing session.
+          onPointerDownOutside={(e) => {
+            const target = e.target as Element | null
+            if (!scrimDismisses || !target?.hasAttribute?.('data-capture-scrim')) e.preventDefault()
+          }}
+          onCloseAutoFocus={(e) => {
+            if (opener?.isConnected) {
+              e.preventDefault()
+              opener.focus()
+            }
+          }}
+        >
+          <DialogPrimitive.Title className="sr-only">{label}</DialogPrimitive.Title>
+          <DialogLayerProvider layer="capture">{children}</DialogLayerProvider>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
+/** Keys the capture surfaces forward to the remote page instead of the host. */
+export function forwardsKey(key: string): boolean {
+  return key === 'Tab' || key === ' ' || key.startsWith('Arrow')
 }
 
 interface NativeBrowserModalProps {
@@ -62,8 +142,9 @@ interface NativeBrowserModalProps {
  * inside that hole — no screencast, no input round-trips, real cookies.
  *
  * The child webview is a separate native surface: app HTML can never render
- * above its rectangle, which is why this pane only exists inside this topmost
- * full-screen modal (z-[80]) and the chrome lives outside the hole rect.
+ * above its rectangle, which is why this pane only exists inside this
+ * full-screen modal on the `capture` layer and the chrome lives outside the
+ * hole rect.
  *
  * Lifecycle and geometry are exercised with IPC fakes; actual native rendering
  * and Retina snapshots are checked in the macOS smoke fixture.
@@ -313,16 +394,6 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
     })
   }
 
-  // Esc closes the modal (the native pane owns keyboard focus while browsing,
-  // but Esc reaches us whenever the chrome has focus).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !previewRef.current) onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   const go = useCallback(() => {
     const normalized = normalizeAddress(addressValue)
     if (!normalized) return
@@ -337,24 +408,19 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
 
   if (typeof document === 'undefined') return null
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[80] bg-background-deep/60 backdrop-blur-md pointer-events-auto"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !preview) onClose()
-      }}
-      data-testid="native-browser-modal"
+  // Esc closes the modal (the native pane owns keyboard focus while browsing,
+  // but Esc reaches us whenever the chrome has focus). While annotating, the
+  // editor owns Escape. The native child webview only covers the hole div, so
+  // the rim + chrome stay interactive.
+  return (
+    <CaptureDialogShell
+      label={t('modal.dialogLabel')}
+      onClose={onClose}
+      onEscape={() => !previewRef.current}
+      scrimDismisses={!preview}
+      animated={false}
+      testId="native-browser-modal"
     >
-      {/* Large modal (visible app rim), matching BrowserCaptureModal's shell.
-          The native child webview only covers the hole div, so the rim + chrome
-          stay interactive. */}
-      <div
-        className="absolute inset-x-[4%] inset-y-[3.5%] flex flex-col border border-border/70 rounded-2xl bg-background-deep overflow-hidden shadow-2xl ring-1 ring-black/20"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('modal.dialogLabel')}
-        onClick={(e) => e.stopPropagation()}
-      >
         {/* Toolbar */}
         {!preview && <>
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/50 bg-surface/80 shrink-0">
@@ -370,7 +436,7 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
               go()
             }}
           >
-            <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1">
+            <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1 focus-within:ring-2 focus-within:ring-ring">
               <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <input
                 value={addressValue}
@@ -385,7 +451,7 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
                 }}
                 placeholder={t('modal.address.placeholder')}
                 aria-label={t('modal.address.label')}
-                className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+                className="flex-1 min-w-0 bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring text-sm"
               />
             </div>
             <Button type="submit" size="sm" variant="secondary" className="shrink-0">{t('modal.address.go')}</Button>
@@ -400,13 +466,10 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
         </div>
 
         {/* Status line */}
-        <div className="px-3 py-1 text-[11px] text-muted-foreground truncate shrink-0 flex items-center gap-2">
-          <span
-            className={`inline-block w-2 h-2 rounded-full shrink-0 ${loading ? 'bg-accent-warning animate-pulse' : 'bg-accent-success'}`}
-            aria-hidden
-          />
+        <div className="px-3 py-1 text-xs text-muted-foreground truncate shrink-0 flex items-center gap-2">
+          <LiveDot tone={loading ? 'warning' : 'success'} pulsing={loading} aria-hidden />
           <span className="truncate">{title || currentUrl}</span>
-          <span className="ml-auto shrink-0 rounded-full border border-accent-success/30 bg-accent-success/10 text-accent-success px-2 py-px text-[10px] font-medium">
+          <span data-chip="" className="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-accent-success/30 bg-accent-success/10 text-accent-success px-2 text-caption font-medium">
             {t('native.badge')}
           </span>
         </div>
@@ -444,8 +507,6 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
             </div>
           )}
         </div>
-      </div>
-    </div>,
-    document.body,
+    </CaptureDialogShell>
   )
 }

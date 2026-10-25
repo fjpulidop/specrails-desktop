@@ -1,10 +1,24 @@
 import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { FEATURE_CODE_EXPLORER } from '../../../lib/feature-flags'
+import { LANGUAGE_IDS, LANGUAGES, type LanguageId } from '../../../lib/i18n'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
+import { SettingsCard } from './SettingsCard'
+
+import { notifyError } from '../../../lib/notify-error'
+/**
+ * Languages the Code explorer summariser accepts. Options come from the
+ * shared 8-entry `LANGUAGES` registry so names stay in sync with the UI
+ * language picker; the server allow-list (`/api/code-explorer-settings`)
+ * currently accepts only these ids.
+ */
+const SUMMARY_LANGUAGE_IDS: readonly LanguageId[] = ['en', 'es']
+const SUMMARY_LANGUAGES = LANGUAGE_IDS.filter((id) => SUMMARY_LANGUAGE_IDS.includes(id)).map((id) => LANGUAGES[id])
+
+type SummaryLanguage = 'en' | 'es'
 
 interface CodeExplorerSettings {
-  language: 'en' | 'es'
+  language: SummaryLanguage
   monthlyBudgetUsd: number
 }
 
@@ -39,7 +53,7 @@ export function CodeSectionSettings() {
       const updated = (await res.json()) as CodeExplorerSettings
       setSettings(updated)
     } catch (err) {
-      toast.error(t('errors.saveFailed', { message: (err as Error).message }))
+      notifyError(t('errors.saveFailed'), { detail: (err as Error).message, retry: () => void patch(next) })
       setSettings(settings)
     } finally {
       setSaving(false)
@@ -47,46 +61,46 @@ export function CodeSectionSettings() {
   }
 
   if (!settings) {
-    return <div className="h-20 bg-muted/30 rounded-lg animate-pulse" />
+    return <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="h-20 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
   }
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        {t('codeSection.heading')}
-      </h3>
-      <div className="rounded-md border border-border p-3 space-y-3">
-        <label className="flex items-center justify-between gap-3 text-xs">
-          <span className="text-muted-foreground">{t('codeSection.summaryLanguage')}</span>
-          <select
-            value={settings.language}
-            disabled={saving}
-            onChange={(e) => patch({ language: e.target.value as 'en' | 'es' })}
-            className="bg-background border border-border rounded px-2 py-1 text-xs"
-          >
-            <option value="en">English</option>
-            <option value="es">Español</option>
-          </select>
-        </label>
-        <label className="flex items-center justify-between gap-3 text-xs">
-          <span className="text-muted-foreground">{t('codeSection.monthlyBudget')}</span>
-          <input
-            type="number"
-            min={0}
-            step={0.5}
-            value={settings.monthlyBudgetUsd}
-            disabled={saving}
-            onChange={(e) => {
-              const v = parseFloat(e.target.value)
-              if (!isNaN(v) && v >= 0) patch({ monthlyBudgetUsd: v })
-            }}
-            className="bg-background border border-border rounded px-2 py-1 text-xs w-24 text-right"
-          />
-        </label>
-        <p className="text-[10px] text-muted-foreground/70">
-          {t('codeSection.budgetHelper')}
-        </p>
+    <SettingsCard title={t('codeSection.heading')}>
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span id="code-summary-language-label" className="text-muted-foreground">{t('codeSection.summaryLanguage')}</span>
+        <Select
+          value={settings.language}
+          disabled={saving}
+          onValueChange={(value) => void patch({ language: value as SummaryLanguage })}
+        >
+          <SelectTrigger className="h-7 w-40" aria-labelledby="code-summary-language-label">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SUMMARY_LANGUAGES.map((lang) => (
+              <SelectItem key={lang.id} value={lang.id} className="text-xs">{lang.nativeName}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-    </div>
+      <label className="flex items-center justify-between gap-3 text-xs">
+        <span className="text-muted-foreground">{t('codeSection.monthlyBudget')}</span>
+        <input
+          type="number"
+          min={0}
+          step={0.5}
+          value={settings.monthlyBudgetUsd}
+          disabled={saving}
+          onChange={(e) => {
+            const v = parseFloat(e.target.value)
+            if (!isNaN(v) && v >= 0) void patch({ monthlyBudgetUsd: v })
+          }}
+          className="bg-background border border-border rounded px-2 py-1 text-xs w-24 text-right"
+        />
+      </label>
+      <p className="text-xs text-muted-foreground">
+        {t('codeSection.budgetHelper')}
+      </p>
+    </SettingsCard>
   )
 }

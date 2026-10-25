@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { LoopMigrationPanel } from '../components/LoopMigrationPanel'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp, RotateCcw } from 'lucide-react'
+import { PageHeader } from '../../../components/ui/page-header'
+import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp, RotateCcw, MoreHorizontal } from 'lucide-react'
 import { buildExportEnvelope, parseImportFile, exportFilename } from '../lib/loop-export'
 import { filterTemplates, categoryCounts } from '../lib/loop-template-filter'
 import { TemplatePreviewModal } from '../components/TemplatePreviewModal'
@@ -14,8 +15,9 @@ import { LegacyConversionModal } from '../components/LegacyConversionModal'
 import { loopNeedsTicket } from '../lib/loop-ticket-need'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
 import { cn } from '../../../lib/utils'
-import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { Button } from '../../../components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import {
   loopsApi,
   LoopPublishError,
@@ -23,6 +25,7 @@ import {
   type LoopTemplateSummary,
 } from '../lib/loops-api'
 
+import { notifyError } from '../../../lib/notify-error'
 const STATUS_BADGE: Record<LoopDefinition['status'], string> = {
   draft: 'bg-accent-secondary/15 text-accent-secondary ring-accent-secondary/40',
   published: 'bg-accent-success/15 text-accent-success ring-accent-success/40',
@@ -32,8 +35,9 @@ function StatusBadge({ status }: { status: LoopDefinition['status'] }) {
   const { t } = useTranslation('loops')
   return (
     <span
+      data-chip=""
       className={cn(
-        'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ring-1 ring-inset',
+        'inline-flex h-5 items-center px-1.5 rounded text-caption font-medium ring-1 ring-inset',
         STATUS_BADGE[status]
       )}
     >
@@ -47,9 +51,11 @@ export interface LoopsPageProps {
    *  the main application. */
   onOpenBuilder?: (id: string) => void
   onWindowOpened?: () => void
+  /** Shown inside a dialog that already titles itself. */
+  inDialog?: boolean
 }
 
-export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPageProps = {}) {
+export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = false }: LoopsPageProps = {}) {
   const { t } = useTranslation('loops')
   const navigate = useNavigate()
   // Template / built-in name+description are authored in English on the server;
@@ -119,7 +125,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
     try {
       const backup = await loopsApi.legacyGraph(loop.id)
       downloadLoops([{ ...loop, name: t('actions.originalCopyName', { name: loop.name }), graph: backup.graph }])
-    } catch { toast.error(t('errors.exportLegacy')) }
+    } catch { notifyError(t('errors.exportLegacy'), { retry: () => void downloadLegacyGraph(loop) }) }
   }, [downloadLoops, t])
 
   const reload = useCallback(async () => {
@@ -129,7 +135,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
       setLoops(ls)
       setTemplates(ts)
     } catch {
-      toast.error(t('errors.load'))
+      notifyError(t('errors.load'), { retry: () => void reload() })
     } finally {
       setLoading(false)
     }
@@ -149,7 +155,8 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
       if (!imported.length && !skipped.length) toast.warning(t('import.invalid'))
     } catch (err) {
       const code = err instanceof Error ? err.message : ''
-      toast.error(code === 'invalid-json' || code === 'no-loops' ? t('import.invalid') : t('errors.save'))
+      if (code === 'invalid-json' || code === 'no-loops') notifyError(t('import.invalid'))
+      else notifyError(t('errors.save'), { retry: () => void handleImportFile(file) })
     }
   }, [reload, t])
 
@@ -163,7 +170,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
       const loop = await loopsApi.create({ name: t('newLoopName') })
       openBuilder(loop.id)
     } catch {
-      toast.error(t('errors.save'))
+      notifyError(t('errors.save'), { retry: () => void handleNew() })
     }
   }, [t, openBuilder])
 
@@ -173,7 +180,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
         const loop = await loopsApi.fromTemplate(templateId)
         openBuilder(loop.id)
       } catch {
-        toast.error(t('errors.save'))
+        notifyError(t('errors.save'), { retry: () => void handleUseTemplate(templateId) })
       }
     },
     [t, openBuilder]
@@ -182,17 +189,17 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
   // Launch a ticket-less loop standalone against a chosen project, then jump to
   // its job log (switching the active project to that target).
   const handleRunExecute = useCallback(
-    async ({ projectId, provider, model, effort, repositoryIds }: { projectId: string; provider?: string; model?: string; effort?: string; repositoryIds?: string[] }) => {
+    async ({ projectId, provider, model, effort, repositoryIds, runCapUsd }: { projectId: string; provider?: string; model?: string; effort?: string; repositoryIds?: string[]; runCapUsd?: number }) => {
       const loop = runLoop
       if (!loop) return
       setRunLoop(null)
       try {
-        const { loopRunId } = await loopsApi.runStandalone(projectId, loop.id, { aiEngine: provider, model, reasoning_effort: effort, ...(repositoryIds ? { repositoryIds } : {}) })
+        const { loopRunId } = await loopsApi.runStandalone(projectId, loop.id, { aiEngine: provider, model, reasoning_effort: effort, ...(repositoryIds ? { repositoryIds } : {}), ...(runCapUsd !== undefined ? { runCapUsd } : {}) })
         setActiveProjectId(projectId)
         navigate(`/jobs/${loopRunId}`)
         toast.success(t('run.launched', { name: loop.name }))
       } catch {
-        toast.error(t('errors.save'))
+        notifyError(t('errors.save'), { retry: () => void handleRunExecute({ projectId, provider, model, effort, repositoryIds, runCapUsd }) })
       }
     },
     [runLoop, navigate, setActiveProjectId, t]
@@ -204,8 +211,8 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
         await loopsApi.publish(id)
         await reload()
       } catch (err) {
-        if (err instanceof LoopPublishError) toast.error(t('errors.publishInvalid'))
-        else toast.error(t('errors.save'))
+        if (err instanceof LoopPublishError) notifyError(t('errors.publishInvalid'))
+        else notifyError(t('errors.save'), { retry: () => void handlePublish(id) })
       }
     },
     [t, reload]
@@ -217,7 +224,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
         await loopsApi.unpublish(id)
         await reload()
       } catch {
-        toast.error(t('errors.save'))
+        notifyError(t('errors.save'), { retry: () => void handleUnpublish(id) })
       }
     },
     [t, reload]
@@ -229,7 +236,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
         await loopsApi.duplicate(id)
         await reload()
       } catch {
-        toast.error(t('errors.save'))
+        notifyError(t('errors.save'), { retry: () => void handleDuplicate(id) })
       }
     },
     [t, reload]
@@ -245,7 +252,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
       await reload()
       toast.success(t('builder.builtin.restored'))
     } catch {
-      toast.error(t('errors.save'))
+      notifyError(t('errors.save'), { retry: () => void doRestore() })
     }
   }, [confirmRestoreId, t, reload])
 
@@ -260,9 +267,14 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
       await loopsApi.remove(id)
       await reload()
     } catch {
-      toast.error(t('errors.save'))
+      notifyError(t('errors.save'), { retry: () => void doDelete() })
     }
   }, [confirmDeleteId, t, reload])
+
+  const openWindow = useCallback(async (): Promise<void> => {
+    try { await openLoopWindow(activeProjectId); onWindowOpened?.() }
+    catch (error) { notifyError(t('window.openFailed'), { detail: error instanceof Error ? error.message : undefined, retry: () => void openWindow() }) }
+  }, [activeProjectId, onWindowOpened, t])
 
   // Built-ins are listed in their own section and never duplicated below.
   const builtIns = loops.filter((l) => l.builtinId)
@@ -282,25 +294,22 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-2.5">
-            <Workflow className="w-5 h-5 text-accent-primary" />
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">{t('title')}</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">{t('subtitle')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {!isLoopWindowRoute() && <button type="button" onClick={() => void openLoopWindow(activeProjectId).then(() => onWindowOpened?.()).catch(error => toast.error(String(error)))} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-border hover:bg-muted">
+        <PageHeader
+          className="mb-6"
+          titleHidden={inDialog}
+          title={t('title')}
+          description={t('subtitle')}
+          actions={<>
+            {!isLoopWindowRoute() && <button type="button" onClick={() => void openWindow()} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-border hover:bg-muted">
               <ExternalLink className="w-3.5 h-3.5" />{t('window.open')}
             </button>}
             {selectedIds.size > 0 && (
               <button
                 type="button"
                 onClick={() => downloadLoops(loops.filter((l) => selectedIds.has(l.id)))}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-border text-foreground hover:bg-muted"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-label border border-border text-foreground hover:bg-muted"
               >
                 <FileDown className="w-3.5 h-3.5" />
                 {t('actions.export')} ({selectedIds.size})
@@ -309,7 +318,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
             <button
               type="button"
               onClick={() => importInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-border text-foreground hover:bg-muted"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-label border border-border text-foreground hover:bg-muted"
             >
               <FileUp className="w-3.5 h-3.5" />
               {t('actions.import')}
@@ -328,26 +337,31 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
             <button
               type="button"
               onClick={handleNew}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium bg-accent-primary text-white hover:bg-accent-primary/90"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-label bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="w-3.5 h-3.5" />
               {t('newLoop')}
             </button>
-          </div>
-        </div>
+          </>}
+        />
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">…</p>
+          <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="space-y-3" data-testid="loops-loading">
+            <div className="h-3 w-24 rounded bg-muted/40 motion-safe:animate-pulse" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[0, 1, 2].map((i) => <div key={i} className="h-28 rounded-lg border border-border bg-card motion-safe:animate-pulse" />)}
+            </div>
+          </div>
         ) : (
           <div className="space-y-8">
-            {drafts.length === 0 && published.length === 0 && (
+            {loops.length === 0 && (
               <div className="rounded-lg border border-dashed border-border p-8 text-center">
                 <p className="text-sm font-medium text-foreground">{t('empty.title')}</p>
                 <p className="text-xs text-muted-foreground mt-1">{t('empty.body')}</p>
               </div>
             )}
 
-            {loops.length > 0 && <LoopMigrationPanel onConvert={id => { const loop = loops.find(item => item.id === id); if (loop) setConversionLoop(loop) }} />}
+            {loops.some(loop => !loop.graph.nodes.some(node => node.type === 'core')) && <LoopMigrationPanel onConvert={id => { const loop = loops.find(item => item.id === id); if (loop) setConversionLoop(loop) }} />}
 
             {published.length > 0 && (
               <Section title={t('sections.published')}>
@@ -412,7 +426,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
             {templates.length > 0 && (
               <section>
                 <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('sections.templates')}</h2>
+                  <h2 className="text-xs font-semibold text-muted-foreground">{t('sections.templates')}</h2>
                   <input
                     type="search"
                     value={templateQuery}
@@ -420,7 +434,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                     placeholder={t('gallery.search')}
                     aria-label={t('gallery.search')}
                     data-testid="template-search"
-                    className="h-7 w-48 max-w-full rounded-md border border-border bg-surface/40 px-2.5 text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                    className="h-7 w-48 max-w-full rounded-md border border-border bg-surface/40 px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary"
                   />
                 </div>
 
@@ -435,7 +449,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                         aria-pressed={active}
                         onClick={() => toggleCategory(category)}
                         className={cn(
-                          'inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] border transition-colors',
+                          'inline-flex items-center gap-1 h-6 px-2 rounded-full text-xs border transition-colors',
                           active
                             ? 'border-accent-primary bg-accent-primary/15 text-accent-primary'
                             : 'border-border bg-surface/40 text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -450,7 +464,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                     <button
                       type="button"
                       onClick={clearTemplateFilter}
-                      className="inline-flex items-center h-6 px-2 rounded-full text-[11px] text-accent-primary hover:underline"
+                      className="inline-flex items-center h-6 px-2 rounded-full text-xs text-accent-primary hover:underline"
                     >
                       {t('gallery.clearFilter')}
                     </button>
@@ -473,10 +487,10 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                         data-testid="template-card"
                       >
                         <div className="flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5 text-accent-highlight flex-shrink-0" />
+                          <Sparkles className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                           <span className="text-sm font-medium text-foreground truncate">{locName(tmpl.id, tmpl.name)}</span>
                           {tmpl.category && (
-                            <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] bg-accent-info/15 text-accent-info flex-shrink-0">
+                            <span data-chip="" className="ml-auto inline-flex h-5 items-center px-1.5 rounded text-caption bg-accent-info/15 text-accent-info flex-shrink-0">
                               {t(`categories.${tmpl.category}`, { defaultValue: tmpl.category })}
                             </span>
                           )}
@@ -484,16 +498,16 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                         <p className="text-xs text-muted-foreground flex-1">{locDesc(tmpl.id, tmpl.description)}</p>
                         <div className="flex flex-wrap items-center gap-1">
                           {loopNeedsTicket(tmpl.graph) ? (
-                            <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-secondary/15 text-accent-secondary">
+                            <span title={t('gallery.needsSpecHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-muted text-muted-foreground">
                               {t('gallery.needsSpec')}
-                            </span>
+                            <span className="sr-only"> ({t('gallery.needsSpecHint')})</span></span>
                           ) : (
-                            <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-success/15 text-accent-success">
+                            <span title={t('gallery.standaloneHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-accent-success/15 text-accent-success">
                               {t('gallery.standalone')}
-                            </span>
+                            <span className="sr-only"> ({t('gallery.standaloneHint')})</span></span>
                           )}
                           {tmpl.tags.map((tag) => (
-                            <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{tag}</span>
+                            <span key={tag} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-muted text-muted-foreground">{tag}</span>
                           ))}
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -525,46 +539,27 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
       </div>
 
       {/* In-app delete confirm (replaces the native window.confirm). */}
-      <Dialog open={confirmDeleteId !== null} onOpenChange={(o) => { if (!o) setConfirmDeleteId(null) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="w-4 h-4 text-destructive" />
-              {loops.find((l) => l.id === confirmDeleteId)?.name ?? t('actions.delete')}
-            </DialogTitle>
-            <DialogDescription>{t('confirmDelete')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button variant="destructive" onClick={() => void doDelete()}>
-              {t('common:actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteId(null) }}
+        title={t('confirmDeleteTitle', { name: loops.find((l) => l.id === confirmDeleteId)?.name ?? '' })}
+        description={t('confirmDelete')}
+        confirmLabel={t('confirmDeleteAction')}
+        confirmTestId="confirm-delete-loop"
+        onConfirm={() => doDelete()}
+      />
 
       {/* Restore-original confirm for an edited built-in. */}
-      <Dialog open={confirmRestoreId !== null} onOpenChange={(o) => { if (!o) setConfirmRestoreId(null) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RotateCcw className="w-4 h-4" />
-              {t('builder.builtin.confirmTitle')}
-            </DialogTitle>
-            <DialogDescription>{t('builder.builtin.confirmBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmRestoreId(null)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button data-testid="confirm-restore-builtin" onClick={() => void doRestore()}>
-              {t('actions.restoreBuiltin')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmRestoreId !== null}
+        onOpenChange={(o) => { if (!o) setConfirmRestoreId(null) }}
+        title={t('builder.builtin.confirmTitle')}
+        description={t('builder.builtin.confirmBody')}
+        confirmLabel={t('actions.restoreBuiltin')}
+        tone="default"
+        confirmTestId="confirm-restore-builtin"
+        onConfirm={() => doRestore()}
+      />
 
       {/* Read-only preview of a starter template before cloning it (fromTemplate). */}
       <TemplatePreviewModal
@@ -595,7 +590,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{title}</h2>
+      <h2 className="text-xs font-semibold text-muted-foreground mb-2">{title}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{children}</div>
     </section>
   )
@@ -652,7 +647,7 @@ function LoopCard({
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {builtIn && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground" data-testid="builtin-badge">
+            <span data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-muted text-muted-foreground" data-testid="builtin-badge">
               {t('builtInBadge')}
             </span>
           )}
@@ -663,17 +658,31 @@ function LoopCard({
         {t('card.nodes', { count: nodeCount })}
         {builtIn && loop.builtinModified && <span className="ml-1.5 text-accent-secondary">· {t('card.builtinModified')}</span>}
       </p>
-      <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex items-center gap-1">
         {onRun && <CardButton icon={Play} label={t('actions.run')} onClick={onRun} />}
         <CardButton icon={Pencil} label={t('actions.edit')} onClick={onEdit} />
-        {onPublish && <CardButton icon={Upload} label={t('actions.publish')} onClick={onPublish} />}
-        {onUnpublish && <CardButton icon={Download} label={t('actions.unpublish')} onClick={onUnpublish} />}
-        <CardButton icon={Copy} label={t('actions.duplicate')} onClick={onDuplicate} />
-        <CardButton icon={FileDown} label={t('actions.export')} onClick={onExport} />
-        {onExportLegacy && <CardButton icon={FileDown} label={t('actions.exportLegacy')} onClick={onExportLegacy} />}
-        {onConvert && <CardButton icon={Workflow} label={t('actions.convert')} onClick={onConvert} />}
-        {onRestore && <CardButton icon={RotateCcw} label={t('actions.restoreBuiltin')} onClick={onRestore} />}
-        {onDelete && <CardButton icon={Trash2} label={t('actions.delete')} onClick={onDelete} danger />}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={t('actions.more')}
+            title={t('actions.more')}
+            className="ml-auto inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <MoreHorizontal className="w-3.5 h-3.5" aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onPublish && <DropdownMenuItem onSelect={onPublish}><Upload className="w-3.5 h-3.5" aria-hidden />{t('actions.publish')}</DropdownMenuItem>}
+            {onUnpublish && <DropdownMenuItem onSelect={onUnpublish}><Download className="w-3.5 h-3.5" aria-hidden />{t('actions.unpublish')}</DropdownMenuItem>}
+            <DropdownMenuItem onSelect={onDuplicate}><Copy className="w-3.5 h-3.5" aria-hidden />{t('actions.duplicate')}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onExport}><FileDown className="w-3.5 h-3.5" aria-hidden />{t('actions.export')}</DropdownMenuItem>
+            {onExportLegacy && <DropdownMenuItem onSelect={onExportLegacy}><FileDown className="w-3.5 h-3.5" aria-hidden />{t('actions.exportLegacy')}</DropdownMenuItem>}
+            {onConvert && <DropdownMenuItem onSelect={onConvert}><Workflow className="w-3.5 h-3.5" aria-hidden />{t('actions.convert')}</DropdownMenuItem>}
+            {onRestore && <DropdownMenuItem onSelect={onRestore}><RotateCcw className="w-3.5 h-3.5" aria-hidden />{t('actions.restoreBuiltin')}</DropdownMenuItem>}
+            {onDelete && <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem destructive onSelect={onDelete}><Trash2 className="w-3.5 h-3.5" aria-hidden />{t('actions.delete')}</DropdownMenuItem>
+            </>}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   )
@@ -683,27 +692,15 @@ function CardButton({
   icon: Icon,
   label,
   onClick,
-  danger,
 }: {
   icon: typeof Pencil
   label: string
   onClick: () => void
-  danger?: boolean
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className={cn(
-        'inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors',
-        danger
-          ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-      )}
-    >
-      <Icon className="w-3.5 h-3.5" />
-    </button>
+    <Button type="button" variant="ghost" size="sm" onClick={onClick} className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground">
+      <Icon className="w-3.5 h-3.5" aria-hidden />
+      {label}
+    </Button>
   )
 }

@@ -29,7 +29,7 @@ const TONE_CLASSES: Record<Tone, ToneClasses> = {
     idle: 'bg-accent-primary/10 text-accent-primary border-accent-primary/20',
     hover: 'hover:bg-accent-primary/20 hover:border-accent-primary/35',
     active: 'bg-accent-primary/25 text-accent-primary border-accent-primary/60 ring-1 ring-accent-primary/30',
-    count: 'text-accent-primary/60',
+    count: 'text-accent-primary',
     ring: 'focus-visible:ring-accent-primary/50',
   },
   'accent-info': {
@@ -37,7 +37,7 @@ const TONE_CLASSES: Record<Tone, ToneClasses> = {
     idle: 'bg-accent-info/10 text-accent-info border-accent-info/20',
     hover: 'hover:bg-accent-info/20 hover:border-accent-info/35',
     active: 'bg-accent-info/25 text-accent-info border-accent-info/60 ring-1 ring-accent-info/30',
-    count: 'text-accent-info/60',
+    count: 'text-accent-info',
     ring: 'focus-visible:ring-accent-info/50',
   },
   'accent-success': {
@@ -45,7 +45,7 @@ const TONE_CLASSES: Record<Tone, ToneClasses> = {
     idle: 'bg-accent-success/10 text-accent-success border-accent-success/20',
     hover: 'hover:bg-accent-success/20 hover:border-accent-success/35',
     active: 'bg-accent-success/25 text-accent-success border-accent-success/60 ring-1 ring-accent-success/30',
-    count: 'text-accent-success/60',
+    count: 'text-accent-success',
     ring: 'focus-visible:ring-accent-success/50',
   },
   'accent-secondary': {
@@ -53,7 +53,7 @@ const TONE_CLASSES: Record<Tone, ToneClasses> = {
     idle: 'bg-accent-secondary/10 text-accent-secondary border-accent-secondary/20',
     hover: 'hover:bg-accent-secondary/20 hover:border-accent-secondary/35',
     active: 'bg-accent-secondary/25 text-accent-secondary border-accent-secondary/60 ring-1 ring-accent-secondary/30',
-    count: 'text-accent-secondary/60',
+    count: 'text-accent-secondary',
     ring: 'focus-visible:ring-accent-secondary/50',
   },
   'accent-warning': {
@@ -61,7 +61,7 @@ const TONE_CLASSES: Record<Tone, ToneClasses> = {
     idle: 'bg-accent-warning/10 text-accent-warning border-accent-warning/20',
     hover: 'hover:bg-accent-warning/20 hover:border-accent-warning/35',
     active: 'bg-accent-warning/25 text-accent-warning border-accent-warning/60 ring-1 ring-accent-warning/30',
-    count: 'text-accent-warning/60',
+    count: 'text-accent-warning',
     ring: 'focus-visible:ring-accent-warning/50',
   },
   'accent-highlight': {
@@ -69,7 +69,7 @@ const TONE_CLASSES: Record<Tone, ToneClasses> = {
     idle: 'bg-accent-highlight/10 text-accent-highlight border-accent-highlight/20',
     hover: 'hover:bg-accent-highlight/20 hover:border-accent-highlight/35',
     active: 'bg-accent-highlight/25 text-accent-highlight border-accent-highlight/60 ring-1 ring-accent-highlight/30',
-    count: 'text-accent-highlight/60',
+    count: 'text-accent-highlight',
     ring: 'focus-visible:ring-accent-highlight/50',
   },
 }
@@ -138,7 +138,7 @@ export function SpecLabelFilterStrip({ tickets, active, onToggle, onClear }: Spe
           type="button"
           onClick={onClear}
           data-testid="spec-label-filter-clear"
-          className="shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-medium border border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+          className="shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-full text-caption font-medium border border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
         >
           <X className="w-2.5 h-2.5" />
           <span>{active.size}</span>
@@ -157,7 +157,7 @@ export function SpecLabelFilterStrip({ tickets, active, onToggle, onClear }: Spe
             aria-pressed={isActive}
             onClick={() => onToggle(label)}
             className={[
-              'shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1',
+              'shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-full text-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-1',
               cls.base,
               isActive ? cls.active : `${cls.idle} ${cls.hover}`,
               cls.ring,

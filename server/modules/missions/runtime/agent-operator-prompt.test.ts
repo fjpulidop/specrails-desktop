@@ -505,13 +505,29 @@ describe('Flow or Implement offer (flow-mode)', () => {
 
   it('teaches the flow-offer fence, the routing criterion and the no-insist rule', () => {
     expect(FLOW_OFFER_SECTION).toContain('```flow-offer')
-    for (const key of ['"idea"', '"reason"', '"recommended"']) expect(FLOW_OFFER_SECTION).toContain(key)
-    expect(FLOW_OFFER_SECTION).toMatch(/Exploratory, visual, or the shape is uncertain[\s\S]*recommend Flow/)
+    for (const key of ['"idea"', '"reason"']) expect(FLOW_OFFER_SECTION).toContain(key)
+    // Flow and Implement never compete: the agent explains, it never recommends.
+    expect(FLOW_OFFER_SECTION).not.toContain('"recommended"')
+    expect(FLOW_OFFER_SECTION).not.toMatch(/recommend (Flow|spec)/)
+    expect(FLOW_OFFER_SECTION).toContain('never recommend, rank or favour one of them')
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('never recommend, rank or favour either')
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).not.toContain('recommended')
+    expect(FLOW_OFFER_SECTION).toMatch(/Exploratory, visual, or the shape is uncertain/)
     expect(FLOW_OFFER_SECTION).toMatch(/Well defined[\s\S]*spec \+ Implement/)
     expect(FLOW_OFFER_SECTION).toContain('one suggestion per idea')
     expect(FLOW_OFFER_SECTION).toContain('never insist after')
     expect(FLOW_OFFER_SECTION).toContain('does NOT need a\nproblem-frame card')
     expect(FLOW_OFFER_SECTION).toContain('Never start a Flow yourself')
+  })
+
+  it('offers both modes neutrally for an EXISTING spec with its ticketId (prompt text changed consciously)', async () => {
+    expect(FLOW_OFFER_SECTION).toContain('**An existing spec.**')
+    expect(FLOW_OFFER_SECTION).toContain('`ticketId` is that spec\'s\nnumeric id')
+    expect(FLOW_OFFER_SECTION).toContain('Flow then works on THAT spec (no new spec is created)')
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('ticketId = the id of that spec')
+    const { detectProtocolShape } = await import('./agent-fence-promotion')
+    const example = FLOW_OFFER_SECTION.split('`{ "idea": "Calmer onboarding"')[1]!.split('`')[0]
+    expect(detectProtocolShape(JSON.parse(`{ "idea": "Calmer onboarding"${example}`))).toBe('flow-offer')
   })
 
   it('the offer block parses with the fence-promotion shape (example is valid JSON)', async () => {

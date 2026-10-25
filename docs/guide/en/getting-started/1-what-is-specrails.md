@@ -8,7 +8,7 @@ Instead of copy-pasting prompts back and forth, you describe what you want as a 
 
 The heart of specrails is a simple idea: **the best way to get good code out of AI is to start from a clear spec.**
 
-A *spec* is a short, structured description of one piece of work — a feature, a fix, a refactor. You can write one in seconds, or shape one through a guided chat that asks the right questions and drafts it for you. Each spec becomes a **ticket** on your project board, just like a task in any issue tracker.
+A *spec* is a short, structured description of one piece of work — a feature, a fix, a refactor. You can write one in seconds, or shape one through a guided chat that asks the right questions and drafts it for you. Each spec becomes a **spec** on your project board, just like a task in any issue tracker.
 
 From there, you hand the spec to the pipeline and let the AI do the heavy lifting.
 

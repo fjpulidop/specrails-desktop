@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "Raffinamento",
-    "smash": "SMASH",
+    "smash": "Suddivisione",
     "fileSummary": "Riepiloghi file",
     "loop": "Loops",
     "chatSidebar": "Chat",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} esecuzioni",
   "page": {
     "title": "Analytics",
+    "subtitle": "Dove va la spesa: costo, token e attività per modello, spec e motore.",
     "all": "Tutti",
     "engine": "Engine",
-    "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Caricamento non riuscito: {{error}}",
+    "ticketChip": "spec #{{id}} ·  ✕",
+    "failedToLoad": "Impossibile caricare le analisi. Riprova.",
     "modelChip": "Modello: {{model}}",
     "clearModelFilter": "Rimuovi filtro modello",
-    "localEngine": "locale"
+    "localEngine": "locale",
+    "moreBreakdowns": "Altre ripartizioni"
   },
   "hero": {
     "spending": "Spesa",
@@ -46,22 +48,27 @@
     "tokensTooltip": "Token totali = input nuovo + output + lettura cache + creazione cache su tutte le invocazioni in questa finestra.",
     "usageUnavailable": "· utilizzo dei token non disponibile",
     "usageUnavailableTooltip": "Il provider ha completato queste invocazioni senza esporre la telemetria dei token.",
-    "usagePartiallyUnavailable": "· {{tokens}} token noti; senza dati: {{count}}",
+    "usagePartiallyUnavailable_one": "· {{tokens}} token noti; senza dati: {{count}}",
+    "usagePartiallyUnavailable_other": "· {{tokens}} token noti; senza dati: {{count}}",
     "usagePartiallyUnavailableTooltip": "Solo subtotale noto; alcune invocazioni non espongono la telemetria dei token.",
     "costUnavailable": "costo non disponibile",
     "costUnavailableTooltip": "Il provider ha completato queste invocazioni senza esporre telemetria sufficiente per determinarne il costo.",
-    "costPartiallyUnavailable": "· subtotale noto; senza costo: {{count}}",
+    "costPartiallyUnavailable_one": "· subtotale noto; senza costo: {{count}}",
+    "costPartiallyUnavailable_other": "· subtotale noto; senza costo: {{count}}",
     "costPartiallyUnavailableTooltip": "Solo subtotale noto; alcune invocazioni non espongono telemetria sufficiente per determinarne il costo.",
     "includesEstimated": "· include ~{{amount}} stimati",
     "includesEstimatedTooltip": "Include {{amount}} di costo stimato da provider senza un campo di costo nativo (es. codex tramite la tabella prezzi locale).",
     "trackingStarted": "Tracciamento iniziato il {{date}}",
     "trackingStartedFallback": "Il tracciamento inizia alla prima invocazione",
     "emptyState": "Ancora nessuna invocazione per questa finestra di filtri.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Fatturato",
+    "legendEstimated": "Stimato",
+    "apiEquivalent": "Stima equivalente in API"
   },
   "providerCard": {
     "title": "Per provider",
-    "description": "Come si ripartisce il costo tra le CLI AI di questo progetto. Il prefisso <tilde>~</tilde> indica le righe in cui il costo è stimato dalla tabella prezzi locale (il provider non lo riporta nativamente).",
+    "description": "<tilde>~</tilde> = stimato dai prezzi locali.",
     "noCost": "Ancora nessun costo registrato in questa finestra.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "costo non disponibile",
@@ -109,31 +116,32 @@
     "costLabel": "costo",
     "truncated": "Visualizzati {{shown}} di {{total}} — il punto più costoso viene mantenuto, ma i punti precedenti sono nascosti",
     "costUnavailable": "Sono state registrate invocazioni, ma non sono disponibili dati di costo da rappresentare.",
-    "costPartiallyUnavailable": "Il grafico include solo le esecuzioni con costo; costo non disponibile: {{count}}."
+    "costPartiallyUnavailable_one": "Il grafico include solo le esecuzioni con costo; costo non disponibile: {{count}}.",
+    "costPartiallyUnavailable_other": "Il grafico include solo le esecuzioni con costo; costo non disponibile: {{count}}."
   },
   "topTickets": {
-    "title": "Top ticket",
-    "empty": "Nessuna attività sui ticket in questo periodo.",
+    "title": "Top spec",
+    "empty": "Nessuna attività sulle spec in questo periodo.",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "Non attribuito",
-    "deletedTicket": "ticket eliminato #{{id}}",
+    "deletedTicket": "spec eliminata #{{id}}",
     "costUnavailable": "costo non disponibile",
-    "costUnavailableTooltip": "Nessuna esecuzione di questo ticket ha esposto telemetria dei costi.",
+    "costUnavailableTooltip": "Nessuna esecuzione di questa spec ha esposto telemetria dei costi.",
     "costPartiallyUnavailable": "non disponibili: {{count}}",
-    "costPartiallyUnavailableTooltip": "Solo subtotale noto; alcune esecuzioni di questo ticket non hanno un costo disponibile."
+    "costPartiallyUnavailableTooltip": "Solo subtotale noto; alcune esecuzioni di questa spec non hanno un costo disponibile."
   },
   "table": {
     "title": "Tutte le invocazioni",
     "statusFilterAria": "Filtro stato",
     "minCostFilterAria": "Filtro costo minimo",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "Tutti gli stati",
     "success": "Riuscita",
     "failed": "Fallita",
     "aborted": "Interrotta",
     "empty": "Nessuna invocazione corrisponde ai filtri attuali.",
     "colSurface": "Origine",
-    "colTicket": "Ticket",
+    "colTicket": "Spec",
     "colCost": "Costo",
     "colTurns": "Turni",
     "colTokens": "Token",
@@ -170,7 +178,7 @@
   "desktop": {
     "title": "Analytics di Desktop",
     "refreshAria": "Aggiorna le analytics",
-    "failedToLoad": "Impossibile caricare le analytics: {{error}}",
+    "failedToLoad": "Impossibile caricare le analisi di Desktop. Prova ad aggiornare.",
     "totalCost": "Costo totale",
     "costToday": "{{value}} oggi",
     "costTodayUnavailable": "costo non disponibile oggi",
@@ -193,12 +201,11 @@
     "includesEstimatedTooltip": "Include {{amount}} di costo stimato da tabella prezzi (codex/gemini), non fatturato dal provider.",
     "includesEstimatedShort": "incl. stimato",
     "timelineEstimatedTooltip": "Alcuni giorni includono un costo stimato da tabella prezzi (codex/gemini) contrassegnato con ~.",
-    "estimatedBadge": "stim.",
-    "projectEstimatedTooltip": "{{amount}} del costo di questo progetto è una stima da tabella prezzi (codex/gemini), non fatturato dal provider.",
     "statusBarEstimatedTooltip": "Include un costo stimato da tabella prezzi (codex/gemini), non fatturato dal provider.",
     "costUnavailable": "Sono state registrate invocazioni, ma la telemetria dei costi non è disponibile.",
     "costUnavailableShort": "non disponibile",
-    "costPartiallyUnavailable": "Subtotale dei costi noti; invocazioni senza costo: {{count}}."
+    "costPartiallyUnavailable_one": "Subtotale dei costi noti; invocazioni senza costo: {{count}}.",
+    "costPartiallyUnavailable_other": "Subtotale dei costi noti; invocazioni senza costo: {{count}}."
   },
   "windowLabels": {
     "7d": "Ultimi 7 giorni",
@@ -224,7 +231,6 @@
     "loading": "Caricamento dell’utilizzo registrato…",
     "total": "Eventi registrati: {{count}}",
     "last": "Ultimo evento:",
-    "evidence": "Questi contatori da soli non dimostrano che la compatibilità precedente possa essere rimossa.",
     "kinds": {
       "legacy_loop_traversal": "Loop classici",
       "queue_manager_slash": "Comandi in coda",
@@ -268,7 +274,7 @@
     "estimatedShare": "{{share}} stimato",
     "unpriced": "{{count}} senza costo",
     "note": "Consegnato = ha raggiunto la revisione o oltre. Il costo medio usa le consegne con costo registrato (fornito dal provider salvo se indicato come stimato); le consegne senza costo sono escluse, mai contate come 0 $. I round derivano dagli step reviewer/fixer del loop. — significa sconosciuto.",
-    "escapedUntracked": "I difetti sfuggiti non sono ancora tracciati: collega un ticket di bug alla consegna che lo ha introdotto («Regressione di» nel ticket) per iniziare a contarli.",
+    "escapedUntracked": "I difetti sfuggiti non sono ancora tracciati: collega una spec di bug alla consegna che lo ha introdotto («Regressione di» nella spec) per iniziare a contarli.",
     "columns": {
       "loop": "Loop",
       "delivered": "Consegnate",
@@ -283,5 +289,79 @@
       "requirementsDemonstrated": "Requisiti dimostrati",
       "triageAccuracy": "Accuratezza del triage"
     }
+  },
+  "budget": {
+    "title": "Budget",
+    "loadFailed": "Impossibile caricare il budget.",
+    "estimate": "Stima",
+    "scope": {
+      "project": "Questo progetto",
+      "desktop": "Tutti i progetti (globale)"
+    },
+    "period": {
+      "day": "Oggi",
+      "week": "Questa settimana",
+      "month": "Questo mese",
+      "run": "Per esecuzione"
+    },
+    "capLabel": {
+      "project": {
+        "day": "Limite giornaliero del progetto (USD)",
+        "week": "Limite settimanale del progetto (USD)",
+        "month": "Limite mensile del progetto (USD)",
+        "run": "Limite per esecuzione del progetto (USD)"
+      },
+      "desktop": {
+        "day": "Limite giornaliero globale (USD)",
+        "week": "Limite settimanale globale (USD)",
+        "month": "Limite mensile globale (USD)",
+        "run": "Limite per esecuzione globale (USD)"
+      }
+    },
+    "noCap": "Nessun limite",
+    "spentOf": "{{spent}} su {{cap}}",
+    "spentNoCap": "{{spent}} · nessun limite",
+    "turns": "Turni: {{n}}",
+    "reached": "Raggiunto",
+    "nearing": "Vicino al limite",
+    "planNote": "Fatturazione a piano: nessun costo in dollari per uso, quindi si mostrano turni e limiti",
+    "estimatedPart": "circa {{amount}} calcolati con il listino prezzi dell’app, non riportati",
+    "resets": "si azzera {{time}}",
+    "runHint": "Un’esecuzione si mette in pausa e chiede quando il suo costo raggiunge questo importo. Vale il più basso tra il limite del progetto e quello globale.",
+    "saved": "Budget salvato",
+    "saveFailed": "Impossibile salvare il budget",
+    "invalidNumber": "Inserisci un importo maggiore di zero, oppure lascia vuoto per nessun limite.",
+    "projection": {
+      "title": "Proiezione a fine mese",
+      "basis": "media di {{days}} giorni {{avg}}/giorno × {{remaining}} giorni rimasti + {{mtd}} finora",
+      "none": "Storico ancora insufficiente per una proiezione.",
+      "overCap": "Di questo passo supereresti il limite mensile di {{cap}}.",
+      "planNone": "Con la fatturazione a piano non c’è un costo in dollari per uso, quindi non c’è un importo di fine mese da proiettare."
+    },
+    "whatIf": {
+      "title": "E se: calcolarlo con un altro modello",
+      "description": "Ricalcola l’uso di token registrato negli ultimi {{days}} giorni con un altro modello, usando il listino prezzi dell’app. Una stima, non una fattura.",
+      "from": "Eseguito con",
+      "to": "Invece",
+      "choose": "Scegli un modello",
+      "runs": "{{n}} esecuzioni",
+      "noPricing": "Nessun prezzo per {{model}}",
+      "empty": "Nessun uso di modelli registrato in questo periodo.",
+      "planNote": "Questo lavoro gira su un piano, quindi non c’è un costo in dollari per uso da confrontare. Si mostrano i token.",
+      "tokens": "Token: {{input}} in ingresso · {{output}} in uscita",
+      "compare": "≈ {{current}} ora → ≈ {{whatIf}} invece",
+      "saves": "≈ {{amount}} in meno",
+      "costs": "≈ {{amount}} in più",
+      "same": "Più o meno uguale",
+      "skipped": "{{n}} esecuzioni senza uso di token o senza prezzo sono escluse.",
+      "recorded": "Costo registrato per queste esecuzioni: {{amount}}.",
+      "roleNote": "L’uso è registrato per modello, non per ruolo: scegli il modello su cui gira il tuo ruolo."
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "sessione",
+      "weekly": "settimanale"
+    },
+    "capsMetered": "Limiti in dollari (provider a consumo)"
   }
 }

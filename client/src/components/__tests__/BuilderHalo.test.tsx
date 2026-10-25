@@ -3,12 +3,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '../../test-utils'
 import { BuilderHalo } from '../../features/builder/components/project-builder/BuilderHalo'
 
-// useReducedMotion is mocked per-test: jsdom has no matchMedia-driven updates.
+// The app's useReducedMotion (override + OS) is mocked per-test: jsdom has no matchMedia-driven updates.
 const reducedMotionMock = vi.hoisted(() => ({ value: false }))
-vi.mock('motion/react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('motion/react')>()
-  return { ...actual, useReducedMotion: () => reducedMotionMock.value }
-})
+vi.mock('../../hooks/useReducedMotion', () => ({ useReducedMotion: () => reducedMotionMock.value }))
 
 afterEach(() => {
   reducedMotionMock.value = false

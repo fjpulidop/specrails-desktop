@@ -42,9 +42,9 @@ Your top models by spend (up to ten). Click any model to filter the whole dashbo
 
 Each point is one invocation, plotting cost against the number of turns. Outliers — the expensive, many-turn runs — jump right out. (The scatter shows your most recent 500 points to stay responsive.)
 
-### Top tickets
+### Top specs
 
-Your ten most expensive tickets across *all* surfaces combined, so a ticket that cost a little in Explore and a lot in a job shows its true total. Deleted tickets and unattributed runs get their own buckets so nothing silently vanishes from the totals.
+Your ten most expensive specs across *all* surfaces combined, so a spec that cost a little in Explore and a lot in a job shows its true total. Deleted specs and unattributed runs get their own buckets so nothing silently vanishes from the totals.
 
 ### Raw invocations table
 
@@ -56,19 +56,19 @@ The sticky header at the top carries the two primary filters — **period** and 
 
 A note on accuracy: failed and aborted runs are kept out of *cost averages* (they'd skew the per-run numbers) but they still count toward your total run count and failure rate. So the averages stay clean while the reliability picture stays complete.
 
-## Per-ticket cost
+## Per-spec cost
 
-You don't have to come to the Analytics page to see what a spec cost. Open any ticket and, if it has any spend attached, you'll see a one-line summary right under the title:
+You don't have to come to the Analytics page to see what a spec cost. Open any spec and, if it has any spend attached, you'll see a one-line summary right under the title:
 
 > $0.42 · 6 turns · 1m 12s active · breakdown
 
-Click it and you land on the Analytics page already filtered to that ticket. It's the quickest path from "what did this feature cost me?" to the full breakdown.
+Click it and you land on the Analytics page already filtered to that spec. It's the quickest path from "what did this feature cost me?" to the full breakdown.
 
 ## Exporting your data
 
 When you need the numbers outside the app — a spreadsheet, a finance report, your own analysis — use the **Export** dropdown. It offers four formats:
 
-- **Summary CSV** — a multi-section file with totals, the daily timeline, by-surface, by-model, and top tickets.
+- **Summary CSV** — a multi-section file with totals, the daily timeline, by-surface, by-model, and top specs.
 - **Summary JSON** — the same summary, structured.
 - **Raw CSV** — every invocation row (up to 10,000; it notes if it had to truncate).
 - **Raw JSON** — the same raw rows, structured.
@@ -78,3 +78,15 @@ Exports respect whatever period and surface filters you currently have applied, 
 ## Staying live
 
 You don't need to refresh. When a new invocation is recorded anywhere in the project, the open dashboard quietly refetches itself a moment later, so the burn meter keeps pace with work as it finishes.
+
+## Daily limits {#daily-budget}
+
+Set a daily limit to cap what a day can cost. Every cap, daily, weekly, monthly and per-run, is edited in one place: **Analytics → Spend limits**. **Settings → Advanced** and **Project settings → Spend limits** only show the current daily cap, with an **Open Spend limits** button that takes you there.
+
+When the day's recorded spend reaches a limit, the queue pauses itself, rails and loop runs refuse to launch with *Daily limit reached*, and a loop run already in progress parks between steps, paused at the limit. Raise or clear the limit, or wait for the daily reset, and then resume.
+
+The project limit counts your local day; the app-wide limit counts the UTC day. The per-job cost alert is a separate setting.
+
+**Weekly, monthly and per-run caps.** Longer caps work the same way. Open **Analytics → Spend limits** to set a **weekly** and a **monthly** cap, per project and for the whole app, and a **per-run soft cap** (*pause and ask at $X*). Weeks start on Monday and months on the 1st, in your local time. A weekly or monthly cap pauses queues, refuses launches and parks running loops exactly like the daily limit; raise or clear it there, or wait for the reset. When a run's own reported cost reaches the per-run cap it pauses, and **Resume** asks whether to continue without the cap or raise it. Reaching any cap also adds a **Raise cap** item to the inbox.
+
+The Spend limits panel shows today, this week and this month against each cap. Its month-end **projection** is an estimate (the average of the last 14 completed days times the days left, plus what you have spent), never added to billed spend. **What-if** re-prices the last 30 days of recorded token usage on another model with the app's price list, and says *No pricing* for a model it has no price for. On a subscription plan there is no dollar cost per use, so the panel shows turns and plan limits instead of dollars.

@@ -1,16 +1,27 @@
 import React from 'react'
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '../../test-utils'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, screen, fireEvent, act } from '../../test-utils'
 import { ProjectRightSidebar } from '../ProjectRightSidebar'
 
 beforeEach(() => {
   window.localStorage.clear()
+  vi.useRealTimers()
 })
 
 describe('ProjectRightSidebar', () => {
-  it('renders nav items', () => {
+  it('renders nav items inside a labelled landmark', () => {
     render(<ProjectRightSidebar />)
-    expect(screen.getByRole('navigation')).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: 'Project navigation' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Project' })).toBeInTheDocument()
+    // Collapsed rail: icon-only links keep an accessible name.
+    expect(screen.getByRole('link', { name: 'Project settings' })).toBeInTheDocument()
+  })
+
+  it('is drag-resizable when expanded', () => {
+    window.localStorage.setItem('specrails-desktop:sidebar-mode:right', 'pinned-open')
+    const { container } = render(<ProjectRightSidebar />)
+    expect(screen.getByTestId('sidebar-resize-grip-right')).toBeInTheDocument()
+    expect((container.querySelector('aside') as HTMLElement).style.width).toBe('208px')
   })
 
   it('renders pin button in unpinned default state', () => {
@@ -34,16 +45,23 @@ describe('ProjectRightSidebar', () => {
     expect(screen.getByRole('button', { name: /Unpin right sidebar/i })).toBeInTheDocument()
   })
 
-  it('expands on mouse enter when unpinned', () => {
+  it('expands on hover intent when unpinned, overlaying the content', () => {
+    vi.useFakeTimers()
     const { container } = render(<ProjectRightSidebar />)
     fireEvent.mouseEnter(container.firstChild as Element)
+    act(() => { vi.advanceTimersByTime(150) })
     expect(screen.getByText('Project')).toBeInTheDocument()
+    expect((container.firstChild as HTMLElement).style.width).toBe('44px')
+    expect(screen.getByTestId('project-right-sidebar-panel')).toHaveAttribute('data-overlay', 'true')
   })
 
   it('collapses on mouse leave when unpinned', () => {
+    vi.useFakeTimers()
     const { container } = render(<ProjectRightSidebar />)
     fireEvent.mouseEnter(container.firstChild as Element)
+    act(() => { vi.advanceTimersByTime(150) })
     fireEvent.mouseLeave(container.firstChild as Element)
+    act(() => { vi.advanceTimersByTime(250) })
     expect(screen.queryByText('Project')).not.toBeInTheDocument()
   })
 

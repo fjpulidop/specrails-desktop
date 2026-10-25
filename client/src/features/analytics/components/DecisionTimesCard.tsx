@@ -108,15 +108,15 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
 
   const tile = (label: string, stats: DurationStats, testId: string) => (
     <div className="rounded-lg border border-border/40 bg-background/40 p-3" data-testid={testId}>
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-caption text-muted-foreground">{label}</p>
       <div className="mt-1 flex items-baseline gap-3">
-        <span className="text-2xl font-semibold tabular-nums tracking-tight">{fmt(stats.medianMs)}</span>
+        <span className="text-2xl font-semibold num tracking-tight">{fmt(stats.medianMs)}</span>
         <span className="text-xs text-muted-foreground">{t('decisionTimes.median')}</span>
       </div>
-      <p className="text-xs text-muted-foreground tabular-nums">
+      <p className="text-xs text-muted-foreground num">
         {t('decisionTimes.p90')} <span className="text-foreground">{fmt(stats.p90Ms)}</span>
       </p>
-      <p className="mt-2 text-[11px] text-muted-foreground tabular-nums">
+      <p className="mt-2 text-caption text-muted-foreground num">
         {t('decisionTimes.counts', { measured: stats.measured, pending: stats.pending, unknown: stats.unknown })}
       </p>
     </div>
@@ -126,8 +126,8 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
     <section className="rounded-xl border border-border/50 bg-card p-4 space-y-3" aria-label={t('decisionTimes.title')} data-testid="decision-times-card">
       <div className="flex items-center gap-2">
         <Timer className="h-4 w-4 text-accent-highlight" aria-hidden="true" />
-        <h3 className="text-sm font-medium">{t('decisionTimes.title')}</h3>
-        <span className="text-[10px] text-muted-foreground">{t('decisionTimes.subtitle')}</span>
+        <h3 className="text-strong">{t('decisionTimes.title')}</h3>
+        <span className="text-caption text-muted-foreground">{t('decisionTimes.subtitle')}</span>
       </div>
       {failed && <p role="status" className="text-xs text-destructive">{t('decisionTimes.unavailable')}</p>}
       {!data && loading && <p role="status" className="text-xs text-muted-foreground">{t('decisionTimes.loading')}</p>}
@@ -155,16 +155,16 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
                 {data.byLoop.map((loop) => (
                   <tr key={loop.loopId ?? `name:${loop.loopName}`} className="border-t border-border/30">
                     <th scope="row" className="py-1.5 pr-3 text-left font-normal">{loop.loopName || t('decisionTimes.unnamedLoop')}</th>
-                    <td className="py-1.5 pr-3 text-right tabular-nums">{loop.deliveries}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums">{fmt(loop.toDecision.medianMs)} · {fmt(loop.toDecision.p90Ms)}</td>
-                    <td className="py-1.5 text-right tabular-nums">{fmt(loop.toMerge.medianMs)} · {fmt(loop.toMerge.p90Ms)}</td>
+                    <td className="py-1.5 pr-3 text-right num">{loop.deliveries}</td>
+                    <td className="py-1.5 pr-3 text-right num">{fmt(loop.toDecision.medianMs)} · {fmt(loop.toDecision.p90Ms)}</td>
+                    <td className="py-1.5 text-right num">{fmt(loop.toMerge.medianMs)} · {fmt(loop.toMerge.p90Ms)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-        <p className="text-[11px] text-muted-foreground">{t('decisionTimes.note')}</p>
+        <p className="text-caption text-muted-foreground">{t('decisionTimes.note')}</p>
       </>}
     </section>
   )

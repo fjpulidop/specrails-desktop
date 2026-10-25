@@ -44,6 +44,19 @@ export function purgeProjectCache(projectId: string): void {
   }
 }
 
+/** Read a project-scoped cache entry without subscribing (undefined when absent). */
+export function readProjectCache<T>(projectId: string | null, namespace: string): T | undefined {
+  if (!projectId) return undefined
+  const key = cacheKey(projectId, namespace)
+  return globalCache.has(key) ? (globalCache.get(key) as T) : undefined
+}
+
+/** Seed/update a project-scoped cache entry for hooks that own their own fetching. */
+export function writeProjectCache<T>(projectId: string | null, namespace: string, value: T): void {
+  if (!projectId) return
+  globalCache.set(cacheKey(projectId, namespace), value)
+}
+
 interface UseProjectCacheOptions<T> {
   /** Unique namespace for this cache (e.g., 'commands', 'jobs', 'analytics') */
   namespace: string

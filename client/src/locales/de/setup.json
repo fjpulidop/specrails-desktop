@@ -87,24 +87,26 @@
     "corrupted": {
       "title": "App-Bundle beschädigt",
       "description": "Mindestens ein mitgeliefertes Tool (Node.js, Git) konnte nicht verifiziert werden.",
-      "body": "Dieses Tool ist in der Specrails-App enthalten und kann nicht separat installiert werden. Wenn Sie diese Meldung sehen, ist das App-Bundle möglicherweise beschädigt. Bitte installieren Sie Specrails neu."
+      "body": "Dieses Tool ist in der Specrails-App enthalten und kann nicht separat installiert werden. Wenn Sie diese Meldung sehen, ist das App-Bundle möglicherweise beschädigt. Bitte installieren Sie Specrails neu.",
+      "download": "Neueste Version herunterladen"
     }
   },
   "welcome": {
     "title": "Willkommen bei <spec>spec</spec><rails>rails</rails>",
+    "tagline": "Specs rein, geprüfte Pull Requests raus.",
     "description": "Specrails verwaltet mehrere Projekte über eine einzige Oberfläche. Fügen Sie Ihr erstes Projekt hinzu, um loszulegen.",
     "addFirstProject": "Erstes Projekt hinzufügen",
     "jiraHint": "Verbinde jedes Projekt mit seinem eigenen Jira-Board — Specs bleiben in beide Richtungen synchron.",
     "mcpHint": "Verbinde externe KI-Tools über einen sicheren lokalen MCP-Server mit Specrails: standardmäßig an, verwalte ihn unter Einstellungen → MCP.",
     "agentChatHint": "Steuere Specrails per Chat — ein integrierter Agent verwaltet Specs, Rails und Analysen für dich über den lokalen MCP. Öffne ihn über die Blase oder mit ⌘⇧A.",
-    "localEnginesHint": "Nur ein lokales Modell? Füge unter Einstellungen → Specrails Agents einen OpenAI-kompatiblen Endpoint hinzu — Rails, Chat und Missionen laufen dann standardmäßig darauf."
+    "localEnginesHint": "Nur ein lokales Modell? Füge unter Einstellungen → Specrails Agents einen OpenAI-kompatiblen Endpoint hinzu — Rails, Chat und Missionen laufen dann standardmäßig darauf.",
+    "replayTour": "Tour erneut abspielen"
   },
   "onboarding": {
     "productTour": "Produkttour",
     "stepCount": "Schritt {{current}} von {{total}}",
     "goToStep": "Zu Schritt {{step}}: {{label}}",
     "stepLabel": "Schritt {{step}}",
-    "dontShowAgain": "Nicht mehr anzeigen",
     "skipTour": "Tour überspringen",
     "getStarted": "Loslegen",
     "flow": {
@@ -197,7 +199,7 @@
       "smashLabel": "Ein großes Epic SMASHen",
       "smashBody": "Zerlege eine große Spec mit einem Klick in eine Familie kleinerer Sub-Specs; jedes Kind trägt eine Kurzfassung auf seiner Karte.",
       "draftsLabel": "Entwürfe & Weiterbearbeiten",
-      "draftsBody": "Parke eine laufende Exploration als Entwurfs-Ticket und mach später weiter; öffne jede Spec wieder in Explore, um sie zu verfeinern."
+      "draftsBody": "Parke eine laufende Exploration als Entwurfs-Spec und mach später weiter; öffne jede Spec wieder in Explore, um sie zu verfeinern."
     },
     "rails": {
       "nav": "Rails & Review",
@@ -245,9 +247,9 @@
       "subtitle": "Jeder kostenpflichtige Aufruf, erfasst und visualisiert",
       "intro": "Jeder KI-Aufruf erfasst Lebenszyklus und Anbieter. Nicht gemeldete Nutzungs- und Kostendaten bleiben nicht verfügbar.",
       "analyticsLabel": "Analytics-Seite",
-      "analyticsBody": "Ein Burn-Rate-Hero, Tages-Timeline, Top-Tickets, Modellaufschlüsselung und ein Kosten-vs.-Turns-Scatter. Filtern nach Zeitraum (7d / 30d / 90d / Alle) und nach Bereich.",
-      "perTicketLabel": "Ausgaben pro Ticket",
-      "perTicketBody": "Die Detailansicht jeder Spec zeigt, was sie gekostet hat und wie viele Turns sie brauchte – mit Deep-Link in die auf dieses Ticket gefilterte Analytics-Ansicht.",
+      "analyticsBody": "Ein Burn-Rate-Hero, Tages-Timeline, Top-Specs, Modellaufschlüsselung und ein Kosten-vs.-Turns-Scatter. Filtern nach Zeitraum (7d / 30d / 90d / Alle) und nach Bereich.",
+      "perTicketLabel": "Ausgaben pro Spec",
+      "perTicketBody": "Die Detailansicht jeder Spec zeigt, was sie gekostet hat und wie viele Turns sie brauchte – mit Deep-Link in die auf diese Spec gefilterte Analytics-Ansicht.",
       "honestLabel": "Ehrliche Zahlen",
       "honestBody": "Claude-Kosten werden vom Anbieter gemeldet; Codex können geschätzt und mit <mono>~</mono> markiert werden.",
       "budgetsLabel": "Budgets & Alarme",
@@ -288,9 +290,6 @@
       "pairBody": "Öffnen Sie auf Ihrem Smartphone specrails.dev/companion-app und gehen Sie dann hier zu Einstellungen → Mobiler Companion → Web-Companion koppeln und folgen Sie den Schritten am Bildschirm."
     },
     "moveFast": {
-      "nav": "Schnell sein",
-      "title": "Bewege dich in Gedankengeschwindigkeit",
-      "subtitle": "Tastatur zuerst, überall",
       "paletteLabel": "Befehlspalette",
       "paletteShortcut": "<f>Drücke</f> <mod>{{mod}}</mod> <m>+</m> <k>K</k> <m>überall</m>",
       "paletteBody": "Projekte wechseln, Spec-Befehle ausführen, zu jeder Seite springen und aktuelle Jobs finden, alles mit unscharfer Suche.",

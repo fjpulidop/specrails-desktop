@@ -1,6 +1,6 @@
 <!-- guide-revision: mission-first-v1 -->
 
-# Conecta un proveedor de IA
+# Conecta un proveedor de IA {#ai-providers}
 
 Specrails coordina tus CLI autenticadas de Claude o Codex. Su instalación, la cuenta y la facturación del modelo son independientes de la aplicación.
 

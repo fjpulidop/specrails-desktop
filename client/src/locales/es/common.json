@@ -33,7 +33,8 @@
     "expand": "Expandir",
     "collapse": "Contraer",
     "viewAll": "Ver todo",
-    "learnMore": "Más información"
+    "learnMore": "Más información",
+    "clear": "Borrar"
   },
   "states": {
     "loading": "Cargando…",
@@ -82,7 +83,10 @@
     "cleanup_incomplete": "Limpieza incompleta",
     "status_failed": "Falló la comprobación del estado del worktree",
     "ref_mismatch": "La referencia de la rama no coincide",
-    "restart_pending": "Esperando la recuperación del workflow"
+    "restart_pending": "Esperando la recuperación del workflow",
+    "review_changes_requested": "El revisor solicitó cambios",
+    "returned_to_flow": "Devuelto a Flow",
+    "local_changes_attention": "Integrado — los cambios locales necesitan atención"
   },
   "prRecovery": {
     "inProgress": "La recuperación del proyecto sigue en curso. Tu entrega está a salvo; vuelve a intentarlo en unos instantes.",
@@ -129,7 +133,8 @@
     "workspacePath": "Ruta del workspace de código",
     "workspaceHint": "Opcional. Una carpeta por línea, absoluta o relativa a este repositorio. Vacío usa la carpeta del repositorio. Implement, Quick SDD y Freestyle verifican cada workspace de código indicado.",
     "launchWorkspaces": "Workspaces de esta ejecución",
-    "launchWorkspaceHint": "Los cambios de código y los tests se limitan a estas carpetas. Selecciona al menos un workspace por repositorio afectado."
+    "launchWorkspaceHint": "Los cambios de código y los tests se limitan a estas carpetas. Selecciona al menos un workspace por repositorio afectado.",
+    "advanced": "Configuración multirrepositorio"
   },
   "repositoryDelivery": {
     "building": "Implementando",
@@ -146,20 +151,155 @@
     "pr_failed": "Entrega fallida"
   },
   "budget": {
-    "exceededProject": "Presupuesto diario del proyecto alcanzado (${{spent}} de ${{budget}}). No se ha lanzado nada.",
-    "exceededDesktop": "Presupuesto diario global alcanzado (${{spent}} de ${{budget}}). No se ha lanzado nada.",
-    "whereProject": "Ajustes del proyecto ▸ Presupuesto",
-    "whereDesktop": "Ajustes ▸ Presupuesto",
-    "action": "Sube o elimina el presupuesto en {{where}}, o espera al reinicio diario.",
-    "actionWithReset": "Sube o elimina el presupuesto en {{where}}, o espera al reinicio ({{time}}).",
-    "pausedProject": "En pausa por el presupuesto diario del proyecto (${{spent}} de ${{budget}}). Súbelo y reanuda.",
-    "pausedDesktop": "En pausa por el presupuesto diario global (${{spent}} de ${{budget}}). Súbelo y reanuda.",
+    "exceededProject": "Límite diario del proyecto alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
+    "exceededDesktop": "Límite diario global alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
+    "whereProject": "Analíticas ▸ Presupuesto",
+    "whereDesktop": "Analíticas ▸ Presupuesto",
+    "action": "Sube o elimina el límite en {{where}}, o espera al reinicio diario.",
+    "actionWithReset": "Sube o elimina el límite en {{where}}, o espera al reinicio ({{time}}).",
+    "pausedProject": "En pausa por el límite diario del proyecto ({{spent}} de {{budget}}). Súbelo y reanuda.",
+    "pausedDesktop": "En pausa por el límite diario global ({{spent}} de {{budget}}). Súbelo y reanuda.",
     "resume": "Reanudar",
-    "stillExceeded": "El presupuesto diario sigue agotado."
+    "stillExceeded": "El límite diario sigue agotado.",
+    "exceededRun": "Límite por ejecución alcanzado ({{spent}} de {{budget}}). La ejecución está en pausa.",
+    "pausedRun": "En pausa en el límite por ejecución ({{spent}} de {{budget}}). Continúa sin él o súbelo.",
+    "actionRun": "Continúa sin el límite, o súbelo, y reanuda.",
+    "exceededProject_week": "Límite semanal del proyecto alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
+    "exceededProject_month": "Límite mensual del proyecto alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
+    "exceededDesktop_week": "Límite semanal global alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
+    "exceededDesktop_month": "Límite mensual global alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
+    "pausedProject_week": "En pausa por el límite semanal del proyecto ({{spent}} de {{budget}}). Súbelo y reanuda.",
+    "pausedProject_month": "En pausa por el límite mensual del proyecto ({{spent}} de {{budget}}). Súbelo y reanuda.",
+    "pausedDesktop_week": "En pausa por el límite semanal global ({{spent}} de {{budget}}). Súbelo y reanuda.",
+    "pausedDesktop_month": "En pausa por el límite mensual global ({{spent}} de {{budget}}). Súbelo y reanuda.",
+    "whereProject_week": "Analíticas ▸ Presupuesto",
+    "whereProject_month": "Analíticas ▸ Presupuesto",
+    "whereDesktop_week": "Analíticas ▸ Presupuesto",
+    "whereDesktop_month": "Analíticas ▸ Presupuesto",
+    "stillExceeded_week": "El límite semanal sigue agotado.",
+    "stillExceeded_month": "El límite mensual sigue agotado.",
+    "runCap": {
+      "title": "Ejecución en pausa en su límite",
+      "raise": "Subir el límite y continuar",
+      "continue": "Continuar sin límite",
+      "raiseTo": "Subir el límite a (USD)",
+      "mustExceed": "Debe superar los {{spent}} ya gastados"
+    },
+    "raiseCap": "Subir límite",
+    "stillExceeded_run": "El límite por ejecución sigue agotado."
   },
   "reviewWip": {
     "reached_one": "Límite de revisión alcanzado: {{count}} entrega espera revisión (límite {{limit}}). No se ha lanzado nada.",
     "reached_other": "Límite de revisión alcanzado: {{count}} entregas esperan revisión (límite {{limit}}). No se ha lanzado nada.",
     "action": "Decide una entrega pendiente (Crear PR, fusionar o descartar) o sube el límite en Ajustes del proyecto ▸ Límite de revisión."
+  },
+  "initialCommit": {
+    "action": "Crear commit inicial",
+    "creating": "Creando commit inicial…",
+    "createdRelaunch": "Commit inicial creado. Vuelve a lanzar el rail.",
+    "errors": {
+      "git_identity_missing": "Git no tiene identidad de autor. Configura user.name y user.email primero.",
+      "repository_has_commits": "Este repositorio ya tiene commits.",
+      "generic": "No se pudo crear el commit inicial."
+    }
+  },
+  "loopChip": {
+    "implement": "Implement",
+    "sddQuick": "SDD Quick",
+    "freestyle": "Freestyle",
+    "flowSpec": "Paso de Flow a un rail",
+    "unknown": "Loop",
+    "title": "Loop: {{name}}"
+  },
+  "estimated": "estimado",
+  "help": {
+    "learnMore": "Más información",
+    "learnMoreAbout": "Más información sobre {{topic}}",
+    "topics": {
+      "themes": "los temas y la apariencia",
+      "codeExplorer": "el explorador de código",
+      "integratedTerminal": "la terminal integrada",
+      "agents": "los agentes",
+      "aiProviders": "los proveedores de IA",
+      "mcpServer": "el servidor MCP",
+      "mobileCompanion": "la app móvil complementaria",
+      "plugins": "los plugins",
+      "existingProjects": "trabajar en un proyecto existente",
+      "projectRules": "las reglas del proyecto",
+      "updates": "las actualizaciones",
+      "providerCapabilities": "las capacidades de cada proveedor",
+      "projectEnvironment": "el entorno del proyecto",
+      "telemetry": "la telemetría del pipeline",
+      "dailyBudget": "los límites de gasto",
+      "recentlyDeleted": "los elementos eliminados recientemente",
+      "railLoops": "lo que ejecuta un rail",
+      "flowMode": "Flow",
+      "flowHandOff": "entregar un Flow",
+      "contextScope": "el control deslizante de contexto",
+      "launchForecast": "la previsión de lanzamiento",
+      "loopBuilder": "el Loop Builder",
+      "shortcuts": "los atajos de teclado",
+      "inbox": "la bandeja de pendientes",
+      "specsBoard": "las specs y el backlog",
+      "specTimeline": "la cronología y el traspaso de una spec",
+      "accessibility": "accesibilidad y personalización",
+      "prDecision": "las opciones de entrega"
+    }
+  },
+  "forecast": {
+    "label": "Previsión de lanzamiento",
+    "usually": "Normalmente {{time}} · {{cost}} en ejecuciones como esta",
+    "usuallyTime": "Normalmente {{time}} en ejecuciones como esta",
+    "minutesRange": "{{low}}–{{high}} min",
+    "minutesSingle": "{{value}} min",
+    "insufficient": "Aún no hay suficiente historial",
+    "insufficientHint": "Necesita al menos {{count}} ejecuciones terminadas como esta en este proyecto y motor.",
+    "estimateHint": "Estimación basada en {{count}} ejecuciones anteriores; no es coste facturado",
+    "estimateHintCost": "Estimación basada en {{count}} ejecuciones anteriores (coste de {{costCount}}); no es coste facturado",
+    "budgetCaution": "Puede pausarse por el límite",
+    "budgetReached": "Límite diario alcanzado",
+    "budgetCautionHint": "El gasto de hoy más el extremo alto de esta estimación podría alcanzar tu límite diario. Abre el panel de presupuesto.",
+    "budgetReachedHint": "El gasto de hoy ha alcanzado tu límite diario, así que no se lanzará nada hasta el reinicio o hasta que lo subas. Abre el panel de presupuesto.",
+    "perSpec": "por spec",
+    "budgetReached_week": "Límite semanal alcanzado",
+    "budgetReached_month": "Límite mensual alcanzado",
+    "budgetReachedHint_week": "El gasto de esta semana ha alcanzado tu límite semanal, así que se rechaza un lanzamiento hasta que se reinicie o lo subas. Abre el panel de presupuesto.",
+    "budgetReachedHint_month": "El gasto de este mes ha alcanzado tu límite mensual, así que se rechaza un lanzamiento hasta que se reinicie o lo subas. Abre el panel de presupuesto.",
+    "budgetCautionHint_week": "El gasto de esta semana más el extremo alto de esta estimación podría alcanzar tu límite semanal. Abre el panel de presupuesto.",
+    "budgetCautionHint_month": "El gasto de este mes más el extremo alto de esta estimación podría alcanzar tu límite mensual. Abre el panel de presupuesto.",
+    "launchBlocked": "Este límite está agotado, así que el lanzamiento se rechazaría. Súbelo o espera al reinicio.",
+    "launchBlocked_week": "El límite de esta semana está agotado, así que el lanzamiento se rechazaría. Súbelo o espera al reinicio.",
+    "launchBlocked_month": "El límite de este mes está agotado, así que el lanzamiento se rechazaría. Súbelo o espera al reinicio.",
+    "raiseCap": "Subir límite"
+  },
+  "a11y": {
+    "announce": {
+      "started": "Ejecución iniciada",
+      "startedRail": "Rail {{rail}}: ejecución iniciada",
+      "pausedBudget": "Ejecución en pausa: se alcanzó un límite de gasto",
+      "pausedLimit": "Ejecución en pausa: se alcanzó el límite del proveedor",
+      "needsYou": "Una ejecución te necesita",
+      "needsYouRail": "Rail {{rail}}: una ejecución te necesita",
+      "failed": "La ejecución falló",
+      "failedRail": "Rail {{rail}}: la ejecución falló",
+      "finished": "Ejecución terminada",
+      "finishedRail": "Rail {{rail}}: ejecución terminada",
+      "stopped": "Ejecución detenida",
+      "stoppedRail": "Rail {{rail}}: ejecución detenida",
+      "reviewReady": "Revisión lista",
+      "reviewReadyRail": "Rail {{rail}}: revisión lista",
+      "pausedBudgetRail": "Rail {{rail}}: ejecución en pausa, se alcanzó un límite de gasto",
+      "pausedLimitRail": "Rail {{rail}}: ejecución en pausa, se alcanzó el límite del proveedor",
+      "startedSpec": "Rail {{rail}}: #{{id}} iniciada",
+      "finishedSpec": "Rail {{rail}}: #{{id}} terminada",
+      "failedSpec": "Rail {{rail}}: #{{id}} falló",
+      "stoppedSpec": "Rail {{rail}}: #{{id}} detenida",
+      "needsYouSpec": "Rail {{rail}}: #{{id}} te necesita",
+      "reviewReadySpec": "Rail {{rail}}: revisión de #{{id}} lista"
+    }
+  },
+  "errors": {
+    "technicalDetails": "Detalles técnicos",
+    "copyDetails": "Copiar detalles"
   }
 }

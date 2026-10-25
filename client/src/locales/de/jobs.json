@@ -1,13 +1,12 @@
 {
   "statusLabel": {
-    "running": "läuft",
-    "completed": "abgeschlossen",
-    "done": "fertig",
-    "failed": "fehlgeschlagen",
-    "canceled": "abgebrochen",
-    "queued": "in Warteschlange",
+    "running": "Läuft",
+    "completed": "Abgeschlossen",
+    "failed": "Fehlgeschlagen",
+    "canceled": "Abgebrochen",
+    "queued": "In Warteschlange",
     "zombie": "Zombie",
-    "skipped": "übersprungen"
+    "skipped": "Übersprungen"
   },
   "statusTooltip": {
     "running": "Job wird gerade ausgeführt",
@@ -30,6 +29,7 @@
   },
   "page": {
     "title": "Jobs",
+    "subtitle": "Jeder Lauf in diesem Projekt – mit Kosten, Dauer und Ergebnis.",
     "exportJobs": "Jobs exportieren",
     "proposalDeleted": "Vorschlag gelöscht",
     "proposal": {
@@ -46,10 +46,12 @@
         "cancelled": "Abgebrochen",
         "unknown": "Unbekannter Status: {{status}}"
       }
-    }
+    },
+    "proposalDeleteFailed": "Der Vorschlag konnte nicht gelöscht werden. Versuche es erneut."
   },
   "detail": {
     "breadcrumbDashboard": "Dashboard",
+    "breadcrumbJobs": "Jobs",
     "breadcrumbJob": "Job #{{id}}",
     "notFound": "Job nicht gefunden",
     "notFoundDescription": "Die Job-ID „{{id}}“ existiert nicht",
@@ -72,7 +74,7 @@
       "working": "Agent arbeitet…",
       "placeholder": "Sende eine Nachricht an den laufenden Job…",
       "send": "Senden",
-      "liveTotals": "{{turns}} Turns · ${{cost}}",
+      "liveTotals": "{{turns}} Turns · {{cost}}",
       "autoHint": "Dieser Job folgt seinem Plan und endet von selbst — Nachrichten sind optionale Steuerung.",
       "wrapUp": "Jetzt abschließen",
       "wrapUpTooltip": "Beendet die Session jetzt — der Job wird mit der bisher erzeugten Arbeit abgeschlossen, Tokens und Kosten jedes Turns fließen in die Summe ein.",
@@ -101,7 +103,9 @@
       "sendFailed": "Nachricht konnte nicht gesendet werden",
       "wrapUpScheduled": "Job wird abgeschlossen…",
       "wrapUpStepScheduled": "Schritt wird abgeschlossen — der Loop geht mit dem Erzeugten weiter"
-    }
+    },
+    "actionFailed": "Die Aktion konnte nicht abgeschlossen werden",
+    "breadcrumbAria": "Brotkrümelnavigation"
   },
   "statusPanel": {
     "inProgress": "Job läuft",
@@ -154,7 +158,7 @@
     "showMore": "+ {{count}} weitere",
     "showLess": "Weniger anzeigen",
     "deletedTicket": "#{{id}} (gelöscht)",
-    "deletedTooltip": "Ticket existiert nicht mehr"
+    "deletedTooltip": "Spec existiert nicht mehr"
   },
   "modal": {
     "notFound": "Job nicht gefunden",
@@ -172,12 +176,15 @@
       "stopSignalSentDescription": "Der Lauf stoppt an der nächsten Schrittgrenze",
       "cancelFailed": "Abbrechen fehlgeschlagen",
       "networkError": "Netzwerkfehler"
-    }
+    },
+    "title": "{{kind}}-Job · #{{id}}",
+    "titleLoop": "Loop-Lauf · #{{id}}",
+    "titleGeneric": "Job · #{{id}}"
   },
   "comparison": {
     "title": "Job-Vergleich",
     "jobN": "Job {{n}}",
-    "loadFailed": "Vergleich konnte nicht geladen werden: {{error}}",
+    "loadFailed": "Vergleich konnte nicht geladen werden. Versuche es erneut.",
     "duration": "Dauer",
     "cost": "Kosten",
     "tokensOut": "Ausgabe-Tokens",
@@ -185,7 +192,9 @@
     "cacheRead": "Cache-Read",
     "model": "Modell",
     "phasesDone": "Abgeschlossene Phasen",
-    "betterValueHint": "Grün hervorgehoben = besserer Wert"
+    "betterValueHint": "Grün hervorgehoben = besserer Wert",
+    "loading": "Vergleich wird geladen…",
+    "description": "Dauer, Kosten und Token-Verbrauch beider Läufe nebeneinander. Grün markiert den besseren Wert."
   },
   "recent": {
     "emptyTitle": "Noch keine Jobs",
@@ -204,7 +213,7 @@
     "readyToCompare": "Bereit – auf Vergleichen klicken",
     "compareAction": "Vergleichen →",
     "colStatus": "Status",
-    "colCommand": "Befehl",
+    "colCommand": "Aufgabe",
     "colDuration": "Dauer",
     "colTokens": "Tokens",
     "colCost": "Kosten",
@@ -242,7 +251,9 @@
       "cleared_other": "{{count}} Jobs gelöscht",
       "clearFailed": "Jobs konnten nicht gelöscht werden",
       "networkError": "Netzwerkfehler"
-    }
+    },
+    "emptyCta": "Spec-Board öffnen",
+    "loading": "Jobs werden geladen…"
   },
   "activeJob": {
     "none": "Kein aktiver Job",
@@ -317,7 +328,8 @@
     "noOutput": "Keine Ausgabe",
     "completed": "Abgeschlossen",
     "turns_one": "{{count}} Turn",
-    "turns_other": "{{count}} Turns"
+    "turns_other": "{{count}} Turns",
+    "copyAll": "Alle Logzeilen kopieren"
   },
   "completion": {
     "title": "Ausführungsergebnis",

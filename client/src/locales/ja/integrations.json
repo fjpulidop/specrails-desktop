@@ -53,7 +53,7 @@
   },
   "docs": {
     "title": "ドキュメント",
-    "dialogDescription": "同梱の Specrails ドキュメントを閲覧できます。サイドバーでガイドを切り替えてください。",
+    "dialogDescription": "このバージョンに同梱されている Specrails ユーザーガイドです。",
     "sidebarEmpty": "ドキュメントはまだありません",
     "indexEmpty": "ドキュメントはここに表示されます。ユーザーガイドはアプリに同梱され docs/guide/ にあります。~/.specrails/docs/guide/ 以下に Markdown ファイルを置くとカスタマイズできます。",
     "categoryEmpty": "このカテゴリにはまだドキュメントがありません。",
@@ -62,7 +62,14 @@
     "categoryCount_one": "{{count}} カテゴリ",
     "categoryCount_other": "{{count}} カテゴリ",
     "summary": "{{categories}}にわたって{{documents}}。",
-    "loadError": "ドキュメントの読み込みに失敗しました"
+    "loadError": "このドキュメントを読み込めませんでした。",
+    "loading": "ドキュメントを読み込み中…",
+    "errorDetails": "詳細",
+    "navLabel": "ドキュメントのセクション",
+    "guideCount_one": "このバージョンに同梱のガイド {{count}} 件",
+    "guideCount_other": "このバージョンに同梱のガイド {{count}} 件",
+    "filterPlaceholder": "ガイドを絞り込む",
+    "filterNoResults": "「{{query}}」に一致するガイドはありません。"
   },
   "jiraCard": {
     "title": "Jira",
@@ -85,7 +92,10 @@
       "subtitle": "グローバルツールとプロジェクト連携を 1 か所で管理します。",
       "readyCount_one": "{{count}} 件準備完了",
       "readyCount_other": "{{count}} 件準備完了",
-      "openWindow": "Open in window"
+      "attentionCount_one": "{{count}} 件は要確認",
+      "attentionCount_other": "{{count}} 件は要確認",
+      "openWindow": "ウィンドウで開く",
+      "openWindowFailed": "プラグインウィンドウを開けませんでした"
     },
     "search": {
       "placeholder": "プラグインを検索"
@@ -93,7 +103,8 @@
     "filters": {
       "all": "すべて",
       "global": "グローバル",
-      "project": "プロジェクト"
+      "project": "プロジェクト",
+      "label": "スコープ"
     },
     "sections": {
       "installed": "インストール済み",
@@ -121,10 +132,12 @@
     },
     "actions": {
       "install": "インストール",
-      "installing": "インストール中",
       "manage": "管理",
       "review": "確認",
-      "cancel": "キャンセル"
+      "cancel": "キャンセル",
+      "installBusy": "インストール中…",
+      "configureBusy": "設定中…",
+      "reviewBusy": "確認中…"
     },
     "status": {
       "attention": "要確認",
@@ -293,7 +306,8 @@
       "description": "このプロジェクトスコープのプラグインを設定するプロジェクトを選択してください。",
       "chooseProject": "プロジェクトを選択",
       "requiresClaudeProvider": "Claude プロバイダーが必要",
-      "selectProjectToContinue": "続行するプロジェクトを選択してください。"
+      "selectProjectToContinue": "続行するプロジェクトを選択してください。",
+      "requiresSupportedProvider": "Claude または Codex が必要です"
     },
     "serena": {
       "loading": "Serena を読み込み中…",
@@ -301,7 +315,8 @@
       "description": "プロジェクトローカルの MCP 設定とプラグイン状態をインストールします。他のプロジェクトは変更されません。",
       "status": "ステータス: {{status}}",
       "files": "ファイル",
-      "prerequisites": "前提条件"
+      "prerequisites": "前提条件",
+      "provider": "AI プロバイダー"
     },
     "projectStatus": {
       "installed": "インストール済み",
@@ -313,6 +328,13 @@
     "diagnostics": {
       "title": "Headroom 診断",
       "description": "Specrails 管理の Headroom インストールとプロキシの技術ステータス。"
+    },
+    "jira": {
+      "loading": "Jira を読み込み中…",
+      "titleForProject": "{{name}} の Jira",
+      "configuredDescription": "Jira プロジェクト、ステータスのマッピング、破棄ステータス、同期、接続状態を管理します。",
+      "loadFailed": "現在の Jira 設定を読み込めませんでした: {{message}}",
+      "notConfiguredDescription": "このプロジェクトを Jira に接続します。"
     }
   }
 }

@@ -12,15 +12,19 @@
  *  · A state the three verbs cannot describe honestly renders the existing
  *    fine-grained controls instead (see packet-verbs' fineControlOnly).
  */
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, ArrowLeft, Ban, Check, ChevronDown, ChevronRight,
-  CircleDollarSign, FileDiff, GitPullRequest, History, Loader2, MessageSquare, SendHorizontal, ShieldCheck, Sparkles,
+  CircleDollarSign, FileDiff, GitPullRequest, History, Loader2, MessageSquare, RefreshCw, SendHorizontal, ShieldCheck, Sparkles,
 } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
+import { Button } from '../../../components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useRailPrDecisions } from '../context/RailPrDecisionContext'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
@@ -29,12 +33,17 @@ import { PacketMarkdown } from '../components/review-packet/PacketMarkdown'
 import { AgentActionsSummary } from '../components/review-packet/AgentActionsSummary'
 import { WhatToLookAt } from '../components/review-packet/WhatToLookAt'
 import { PacketDerivation } from '../components/review-packet/PacketDerivation'
+import { RequirementsDemonstrated } from '../components/review-packet/RequirementsDemonstrated'
+import { PacketBaseline } from '../components/review-packet/PacketBaseline'
+import { NeedsHumanEyes } from '../components/review-packet/NeedsHumanEyes'
+import { ChangesTab } from '../components/review-packet/ChangesTab'
 import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/pr-delivery'
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
 import type {
   AcceptCapability, PacketProofItem, PacketTicketSection, ProofTier, ReviewPacket, ReviewPacketResponse,
 } from '../../../types'
+import { formatUsd } from '../../../lib/format-usd'
 
 const TIER_ORDER: ProofTier[] = ['app-verified', 'ai-reported', 'reviewer-score']
 
@@ -59,7 +68,7 @@ function ProofRow({ item }: { item: PacketProofItem }) {
         {t(item.code, { ...(item.values ?? {}), defaultValue: item.code })}
       </span>
       {item.rawExcerpt ? (
-        <pre className="max-h-32 overflow-auto rounded border border-border/60 bg-background-deep/60 p-2 text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap">
+        <pre className="max-h-32 overflow-auto rounded border border-border/60 bg-background-deep/60 p-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
           {item.rawExcerpt}
         </pre>
       ) : null}
@@ -125,6 +134,9 @@ interface ReviewPacketPageProps {
   onClose?: () => void
 }
 
+/** Radix Select forbids an empty item value; this sentinel means "all repositories". */
+const ALL_REPOSITORIES = '__all__'
+
 export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   const params = useParams<{ prDeliveryId: string }>()
   const prDeliveryId = props.prDeliveryId ?? params.prDeliveryId
@@ -132,6 +144,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const repositoryId = searchParams.get('repositoryId')
+  const tab: 'overview' | 'changes' = searchParams.get('tab') === 'changes' ? 'changes' : 'overview'
   const requestRevision = useRef(0)
   const goBack = props.onClose ?? (() => navigate('/'))
   const { activeProjectId } = useDesktop()
@@ -156,6 +169,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   const error = currentLoaded?.error ?? null
   const [pending, setPending] = useState<PacketVerb | null>(null)
   const [confirmIrreversible, setConfirmIrreversible] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [revisionNote, setRevisionNote] = useState('')
   const [revising, setRevising] = useState(false)
@@ -285,8 +299,8 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
 
   if (loading && !packet) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+      <div role="status" className="flex h-full items-center justify-center text-muted-foreground">
+        <RailTrack running className="mr-3 w-16 shrink-0" />
         {t('common:states.loading')}
       </div>
     )
@@ -299,13 +313,17 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         <p className="text-sm text-muted-foreground">
           {t(error === 'notFound' ? 'error.notFound' : 'error.loadFailed')}
         </p>
-        <button
-          type="button"
-          onClick={goBack}
-          className="rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface"
-        >
-          {t('backToBoard')}
-        </button>
+        <div className="flex items-center gap-2">
+          {error !== 'notFound' && (
+            <Button type="button" onClick={() => void load()} className="gap-1.5">
+              <RefreshCw className="size-3.5" aria-hidden />
+              {t('common:actions.retry')}
+            </Button>
+          )}
+          <Button type="button" variant="outline" onClick={goBack}>
+            {t('backToBoard')}
+          </Button>
+        </div>
       </div>
     )
   }
@@ -314,12 +332,19 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
     .map((tier) => ({ tier, items: packet.proof.filter((item) => item.tier === tier) }))
     .filter((group) => group.items.length > 0)
 
+  // Baseline-on-touch spend, reported apart (only when every baseline reported a cost).
+  const baselineCosts = (packet.baseline ?? []).map((entry) => entry.cost?.costUsd ?? null)
+  const baselineCostUsd = baselineCosts.length > 0 && baselineCosts.every((value) => value !== null)
+    ? baselineCosts.reduce<number>((sum, value) => sum + (value ?? 0), 0) : null
   const costLabel = packet.cost.totalUsd === null
     ? '—'
-    : `${packet.cost.estimated ? '~' : ''}$${packet.cost.totalUsd.toFixed(2)}`
+    : `${packet.cost.estimated ? '~' : ''}${formatUsd(packet.cost.totalUsd)}`
 
+  // Rendered inside the App shell's <main> (route) or a modal, so the page is a
+  // labelled <article> rather than a second <main> landmark. The article keeps ONE width for both tabs
+  // (switching tabs must not move the header); only the Overview panel is held to a reading measure.
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
+    <article aria-labelledby="review-packet-headline" className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
       <button
         type="button"
         onClick={goBack}
@@ -330,17 +355,28 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       </button>
 
       {delivery?.repositoryDeliveries?.length ? <>
-        <label className="flex items-center gap-2 text-xs">{t('common:repositories.select')}
-          <select value={repositoryId ?? ''} onChange={(event) => {
-            const next = new URLSearchParams(searchParams)
-            if (event.target.value) next.set('repositoryId', event.target.value)
-            else next.delete('repositoryId')
-            setSearchParams(next, { replace: true })
-          }} className="rounded border border-border bg-background px-2 py-1">
-            <option value="">{t('common:repositories.all')}</option>
-            {delivery.repositoryDeliveries.map((repository) => <option key={repository.repositoryId} value={repository.repositoryId}>{repository.name}</option>)}
-          </select>
-        </label>
+        <div className="flex items-center gap-2 text-xs">
+          <span id="review-packet-repository-label">{t('common:repositories.select')}</span>
+          <Select
+            value={repositoryId ?? ALL_REPOSITORIES}
+            onValueChange={(value) => {
+              const next = new URLSearchParams(searchParams)
+              if (value !== ALL_REPOSITORIES) next.set('repositoryId', value)
+              else next.delete('repositoryId')
+              setSearchParams(next, { replace: true })
+            }}
+          >
+            <SelectTrigger aria-labelledby="review-packet-repository-label" className="h-7 w-auto min-w-[10rem] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_REPOSITORIES}>{t('common:repositories.all')}</SelectItem>
+              {delivery.repositoryDeliveries.map((repository) => (
+                <SelectItem key={repository.repositoryId} value={repository.repositoryId}>{repository.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <RepositoryDeliveries deliveryId={delivery.prDeliveryId} repositories={delivery.repositoryDeliveries} busy={operationBusy}
           onAct={async (action, id) => {
             if (operationBusy || !isCurrentScope()) return
@@ -366,12 +402,12 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
 
       {/* ── Above the fold: verdict, confidence, decision ──────────────────── */}
       <div className="rounded-xl border border-border/70 bg-surface/60 p-5 shadow-sm">
-        <h1 className="text-lg font-semibold text-foreground">
+        <h1 id="review-packet-headline" className="text-lg font-semibold text-foreground">
           {t(packet.headlineCode, {
             count: packet.totalCount,
             succeeded: packet.succeededCount,
             total: packet.totalCount,
-            defaultValue: packet.headlineCode,
+            defaultValue: t('headline.generic'),
           })}
         </h1>
 
@@ -382,7 +418,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               title={t('confidence.tooltip')}
             >
               {t('confidence.pill', { overall: packet.confidence.overall })}
-            </span>
+            <span className="sr-only"> ({t('confidence.tooltip')})</span></span>
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-muted-foreground">
               {t('confidence.unavailable')}
@@ -391,6 +427,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <CircleDollarSign className="size-3.5" aria-hidden />
             {t('cost.thisBuild', { amount: costLabel })}
+            {baselineCostUsd !== null ? (
+              <span className="text-muted-foreground" data-testid="packet-cost-baseline">{t('cost.baselinePart', { amount: formatUsd(baselineCostUsd) })}</span>
+            ) : null}
           </span>
           {packet.prUrl ? (
             <a
@@ -411,7 +450,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           </p>
         ) : verbs.inFlight ? (
           <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
+            <RailTrack running className="w-12 shrink-0" />
             {t('stillWorking')}
           </p>
         ) : verbs.terminal ? (
@@ -423,15 +462,16 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 <div className="flex w-full flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
                   <p className="text-xs text-foreground">{t('accept.irreversibleWarning')}</p>
                   <div className="flex gap-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="destructive"
                       onClick={() => void runVerb('accept')}
                       disabled={operationBusy}
-                      className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                      className="text-sm"
                       data-testid="packet-accept-confirm"
                     >
                       {t('accept.irreversibleConfirm')}
-                    </button>
+                    </Button>
                     <button
                       type="button"
                       onClick={() => setConfirmIrreversible(false)}
@@ -442,19 +482,19 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   </div>
                 </div>
               ) : (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     if (verbs.requiresIrreversibleConfirm) setConfirmIrreversible(true)
                     else void runVerb('accept')
                   }}
                   disabled={operationBusy}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-accent-success px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                  className="gap-1.5 text-sm bg-accent-success text-background hover:bg-accent-success/90"
                   data-testid="packet-accept"
                 >
                   {pending === 'accept' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
                   {t(`accept.${verbs.acceptMeaning ?? 'generic'}`)}
-                </button>
+                </Button>
               )
             ) : null}
 
@@ -475,7 +515,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
             {verbs.verbs.includes('discard') ? (
               <button
                 type="button"
-                onClick={() => void runVerb('discard')}
+                onClick={() => setConfirmDiscard(true)}
                 disabled={operationBusy}
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface disabled:opacity-50"
                 data-testid="packet-discard"
@@ -496,9 +536,27 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           <p className="mt-3 text-xs text-accent-warning">{t(`error.${actionError}`)}</p>
         ) : null}
 
+        <ConfirmDialog
+          open={confirmDiscard}
+          onOpenChange={setConfirmDiscard}
+          title={t('discard.confirmTitle')}
+          description={
+            <>
+              {t('discard.confirmBody')}
+              {isStackedHead ? <span className="mt-2 block">{t('discard.stackedNote')}</span> : null}
+            </>
+          }
+          confirmLabel={t('discard.label')}
+          busy={operationBusy}
+          onConfirm={() => {
+            setConfirmDiscard(false)
+            void runVerb('discard')
+          }}
+        />
+
         {askingChanges ? (
           <div className="mt-4 flex flex-col gap-2 rounded-md border border-border/70 bg-background-deep/40 p-3">
-            <label htmlFor="packet-revision-note" className="text-xs font-medium text-foreground">
+            <label htmlFor="packet-revision-note" className="text-label text-foreground">
               {t('requestChanges.prompt')}
             </label>
             <textarea
@@ -511,18 +569,19 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               data-testid="packet-revision-input"
             />
             <div className="flex items-center gap-2">
-              <button
+              <Button
                 type="button"
+                variant="default"
                 onClick={() => void submitRevision()}
                 disabled={operationBusy || revisionNote.trim().length === 0}
-                className="inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                className="gap-1.5 text-sm"
                 data-testid="packet-revision-submit"
               >
                 {revising ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <SendHorizontal className="size-4" aria-hidden />}
                 {t('requestChanges.submit')}
-              </button>
+              </Button>
               {/* No duration promise: nothing measured yet for revision runs. */}
-              <span className="text-[11px] text-muted-foreground">{t('requestChanges.hint')}</span>
+              <span className="text-xs text-muted-foreground">{t('requestChanges.hint')}</span>
             </div>
             {revisionError ? (
               <p className="text-xs text-accent-warning">{t(`error.${revisionError}`)}</p>
@@ -531,11 +590,63 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         ) : null}
       </div>
 
+      {/* ── Overview / Changes: the packet's two views of the same delivery ─── */}
+      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border/60" data-testid="packet-tabs">
+        {(['overview', 'changes'] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            id={`packet-tab-${value}`}
+            aria-selected={tab === value}
+            aria-controls={`packet-panel-${value}`}
+            tabIndex={tab === value ? 0 : -1}
+            onClick={() => {
+              const next = new URLSearchParams(searchParams)
+              if (value === 'changes') next.set('tab', 'changes'); else next.delete('tab')
+              setSearchParams(next, { replace: true })
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
+              event.preventDefault()
+              const next = new URLSearchParams(searchParams)
+              if (value === 'overview') next.set('tab', 'changes'); else next.delete('tab')
+              setSearchParams(next, { replace: true })
+              requestAnimationFrame(() => document.getElementById(`packet-tab-${value === 'overview' ? 'changes' : 'overview'}`)?.focus())
+            }}
+            className={`-mb-px border-b-2 px-3 py-2 text-label ${tab === value ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          >
+            {t(`tabs.${value}`)}
+          </button>
+        ))}
+      </div>
+
+      <div id="packet-panel-changes" role="tabpanel" aria-labelledby="packet-tab-changes" hidden={tab !== 'changes'}>
+        <ChangesTab
+          prDeliveryId={delivery?.prDeliveryId ?? packet.prDeliveryId}
+          repositoryId={repositoryId}
+          active={tab === 'changes'}
+          tickets={packet.ticketIds.map((ticketId) => { const title = packet.sections.find((section) => section.ticketId === ticketId)?.title; return { ticketId, label: title ? `#${ticketId} ${title}` : `#${ticketId}` } })}
+        />
+      </div>
+
+      <div id="packet-panel-overview" role="tabpanel" aria-labelledby="packet-tab-overview" className={tab === 'changes' ? 'hidden' : 'mx-auto flex w-full max-w-3xl flex-col gap-4'} data-testid="packet-overview-panel">
       {/* ── What to look at: the reviewer's risk brief, first after the verdict.
           Absent for runs without a brief, so older packets read as before. */}
       {packet.whatToLookAt ? (
         <WhatToLookAt brief={packet.whatToLookAt} multiTicket={packet.ticketIds.length > 1} />
       ) : null}
+
+      {/* ── Needs human eyes: the project's human-only rules (rules inventory) */}
+      {packet.needsHumanEyes?.length ? <NeedsHumanEyes rules={packet.needsHumanEyes} /> : null}
+
+      {/* ── Requirements demonstrated X/Y (spec trace) ─────────────────────── */}
+      {packet.requirementsDemonstrated ? (
+        <RequirementsDemonstrated section={packet.requirementsDemonstrated} multiTicket={packet.ticketIds.length > 1} />
+      ) : null}
+
+      {/* ── Spec created where the work passed (baseline on touch) ─────────── */}
+      {packet.baseline?.length ? <PacketBaseline entries={packet.baseline} multiTicket={packet.ticketIds.length > 1} /> : null}
 
       {packet.driftNudges.length > 0 ? (
         <div className="rounded-lg border border-accent-highlight/30 bg-accent-highlight/5 p-4" data-testid="packet-drift-nudges">
@@ -545,7 +656,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               <li key={nudge.code}>{t(nudge.code, { ...nudge.values, defaultValue: nudge.code })}</li>
             ))}
           </ul>
-          <p className="mt-2 text-[11px] text-muted-foreground">{t('drift.advisory')}</p>
+          <p className="mt-2 text-xs text-muted-foreground">{t('drift.advisory')}</p>
         </div>
       ) : null}
 
@@ -562,12 +673,12 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                     {t('versions.label', { version: version.version })}
                   </span>
                   {version.current ? (
-                    <span className="rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 text-[10px] text-accent-primary">
+                    <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 text-caption text-accent-primary">
                       {t('versions.current')}
                     </span>
                   ) : null}
-                  <span className="text-[11px] text-muted-foreground">
-                    {version.costUsd === null ? '—' : `${version.costEstimated ? '~' : ''}$${version.costUsd.toFixed(2)}`}
+                  <span className="text-xs text-muted-foreground">
+                    {version.costUsd === null ? '—' : `${version.costEstimated ? '~' : ''}${formatUsd(version.costUsd)}`}
                   </span>
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -580,7 +691,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
             {t('cost.allVersions', {
               amount: packet.chainCostUsd === null
                 ? '—'
-                : `${packet.chainCostEstimated ? '~' : ''}$${packet.chainCostUsd.toFixed(2)}`,
+                : `${packet.chainCostEstimated ? '~' : ''}${formatUsd(packet.chainCostUsd)}`,
             })}
           </p>
         </Section>
@@ -632,12 +743,12 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               return (
                 <li key={comment.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-surface/70 px-1 font-mono text-[10px] text-muted-foreground">{comment.id}</span>
+                    <span data-chip="" className="inline-flex h-5 items-center rounded bg-surface/70 px-1 font-mono text-caption text-muted-foreground">{comment.id}</span>
                     {comment.path ? <span className="font-mono text-xs text-accent-info">{comment.path}{comment.line ? `:${comment.line}` : ''}</span> : null}
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${FOLLOW_UP_PILL[verdictKey]}`} data-testid="packet-follow-up-verdict">
+                    <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-caption font-medium ${FOLLOW_UP_PILL[verdictKey]}`} data-testid="packet-follow-up-verdict">
                       {t(`followUp.verdict.${verdictKey}`)}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">{t(`followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}{comment.author ? ` · ${comment.author}` : ''}</span>
+                    <span className="text-xs text-muted-foreground">{t(`followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}{comment.author ? ` · ${comment.author}` : ''}</span>
                   </div>
                   <PacketMarkdown muted className="mt-1">{comment.body}</PacketMarkdown>
                   {report ? (
@@ -671,9 +782,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 <li key={entry.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-accent-primary">#{entry.ticketId}</span>
-                    <span className="rounded-full border border-border/50 px-1.5 py-px text-[10px] text-muted-foreground">{t(`addenda.kind.${entry.kind}`)}</span>
+                    <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border/50 px-1.5 text-caption text-muted-foreground">{t(`addenda.kind.${entry.kind}`)}</span>
                     <span className="font-medium">{entry.title}</span>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${pill}`} data-testid="packet-addenda-verdict">
+                    <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-caption font-medium ${pill}`} data-testid="packet-addenda-verdict">
                       {t(`addenda.verdict.${verdictKey}`)}
                     </span>
                   </div>
@@ -702,9 +813,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   collapsed and labelled as the plan (honesty contract). */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-foreground">#{section.ticketId}</span>
-                {section.title ? <span className="text-foreground/80">{section.title}</span> : null}
+                {section.title ? <span className="text-foreground">{section.title}</span> : null}
                 {(() => { const key = outcomeKey(section); return (
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
+                  <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-caption font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
                     {t(`outcome.${key}`)}
                   </span>
                 ) })()}
@@ -726,10 +837,10 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               )}
               {section.solution ? (
                 <details className="group mt-2 rounded-md border border-border/50 bg-background-deep/30 px-3 py-2">
-                  <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground group-open:text-foreground/80">
+                  <summary className="cursor-pointer select-none text-label text-muted-foreground group-open:text-foreground">
                     {t('planned.title')}
                   </summary>
-                  <p className="mt-1 text-[11px] italic text-muted-foreground/80">{t('planned.caveat')}</p>
+                  <p className="mt-1 text-xs italic text-muted-foreground">{t('planned.caveat')}</p>
                   <PacketMarkdown className="mt-2">{section.solutionOverflow ?? section.solution}</PacketMarkdown>
                 </details>
               ) : (
@@ -744,7 +855,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         <Section
           title={t('sections.whatTheAgentDid')}
           badge={(
-            <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+            <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border bg-background-deep/50 px-2 text-caption tabular-nums text-muted-foreground">
               {t('agentActions.total', { count: packet.agentActions.total })}
             </span>
           )}
@@ -756,7 +867,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       <Section
         title={t('sections.howItWasChecked')}
         badge={packet.evidenceUnavailable ? (
-          <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+          <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border bg-background-deep/50 px-2 text-caption text-muted-foreground">
             {t('proof.evidenceUnavailable')}
           </span>
         ) : undefined}
@@ -766,11 +877,11 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
             const Icon = TIER_ICON[tier]
             return (
               <div key={tier} className={`rounded-md border px-3 py-2 ${TIER_ACCENT[tier]}`}>
-                <h3 className="mb-1 flex items-center gap-1.5 text-xs font-medium">
+                <h3 className="mb-1 flex items-center gap-1.5 text-label">
                   <Icon className="size-3.5" aria-hidden />
                   {t(`tier.${tier}.title`)}
                 </h3>
-                <p className="mb-2 text-[11px] opacity-80">{t(`tier.${tier}.caveat`)}</p>
+                <p className="mb-2 text-xs">{t(`tier.${tier}.caveat`)}</p>
                 <ul className="space-y-1">
                   {items.map((item, index) => <ProofRow key={`${item.code}-${index}`} item={item} />)}
                 </ul>
@@ -779,6 +890,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           })}
         </div>
       </Section>
-    </div>
+      </div>
+    </article>
   )
 }

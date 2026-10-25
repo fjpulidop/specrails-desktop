@@ -15,7 +15,7 @@ import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, r
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, lstatSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { treeKillSafe as treeKill, windowsSpawnEnv } from '../../../util/win-spawn'
 import { getAdapter } from '../../../providers'
@@ -28,7 +28,7 @@ import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
 import { terminalResultError } from '../../../providers/terminal-result'
 import { readClaudeBackgroundTasks } from '../../../providers/claude-background-tasks'
 import { FOREGROUND_RULE } from './loop-constants'
-import { FLOW_SUMMARY_FILE, FLOW_SUMMARY_LIMIT_BYTES } from './loop-flow-spec-recipe'
+import { FLOW_SUMMARY_FILE, FLOW_SUMMARY_LIMIT_BYTES, flowChangeId, type FlowChangeIdHolder } from './loop-flow-spec-recipe'
 import type { RunExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from '../../delivery/runtime/rail-isolation'
@@ -173,6 +173,34 @@ function aiStepExtraArgs(adapter: ProviderAdapter, cwd: string, repoDir: string 
  * the first file. Oversized input is truncated at the byte bound (the builder
  * already bounds it; this is the last line of defence).
  */
+/** Who holds `openspec/changes/<id>` in a Flow worktree (see FlowChangeIdHolder). Read-only. */
+export function flowChangeHolder(cwd: string, baseSha: string | null, id: string): FlowChangeIdHolder {
+  const changes = join(cwd, 'openspec', 'changes')
+  try {
+    const archive = join(changes, 'archive')
+    if (existsSync(archive) && readdirSync(archive).some((name) => name === id || name.endsWith(`-${id}`))) return 'taken'
+    if (!existsSync(join(changes, id))) return 'free'
+    if (!baseSha) return 'taken'
+    // Present at the Flow base: someone else's change. Absent there: this Flow's own earlier derivation.
+    execFileSync('git', ['cat-file', '-e', `${baseSha}:openspec/changes/${id}`], { cwd, stdio: 'ignore', timeout: 5_000, windowsHide: true })
+    return 'taken'
+  } catch {
+    return existsSync(join(changes, id)) ? 'own' : 'free'
+  }
+}
+
+/**
+ * The change a Flow -> Spec run derives: the Flow's own earlier change when it
+ * is still active in the worktree and absent at the Flow base (re-derived in
+ * place, whatever its name — legacy `ticket-<n>-addenda-…` included);
+ * otherwise a new one named after the spec title.
+ */
+export function flowDerivationChangeId(cwd: string, flow: { baseSha: string | null; changeId?: string | null }, title: string | null | undefined): string {
+  const own = flow.changeId
+  if (own && /^[a-z0-9][a-z0-9._-]{0,127}$/i.test(own) && !own.includes('..') && own !== 'archive' && flowChangeHolder(cwd, flow.baseSha, own) === 'own') return own
+  return flowChangeId(title, (id) => flowChangeHolder(cwd, flow.baseSha, id))
+}
+
 export function writeFlowSummary(pipelineDir: string, summary: string): void {
   const file = join(pipelineDir, FLOW_SUMMARY_FILE)
   if (lstatSync(file, { throwIfNoEntry: false })) return
@@ -207,6 +235,9 @@ export function createLoopExecutors(
     sourcePath?: () => string | undefined
     /** Value-free run-log warning for unresolved project environment names. */
     environmentNotice?: () => string | null
+    /** Project-level Core runtime switches read at launch (feedback-2026-10
+     *  phase 3). The bridge forwards each one only when Core announces it. */
+    projectRuntime?: () => { baselineOnTouch?: boolean }
   } = {},
 ): LoopExecutors {
   // Core-hosted work may launch any configured role provider, so it receives
@@ -246,6 +277,11 @@ export function createLoopExecutors(
       const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
       await runAgentRuntimeControl({ kind: 'cancel', runId, contextPath, requestId, ...host })
     },
+    async pauseDefinition({ runId, contextPath, requestId, reason }) {
+      const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
+      const paused = await runAgentRuntimeControl({ kind: 'pause', runId, contextPath, requestId, reason, ...host })
+      return { outcome: paused.outcome }
+    },
     async assertDefinitionSupport(graph) {
       const runtime = await loadCoreAgentRuntime()
       if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) throw new Error('engine_unsupported: Update Core to run workflow definitions')
@@ -274,7 +310,11 @@ export function createLoopExecutors(
         const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,approve:input.approve,recover:input.recover,interruptId:input.interruptId,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
-      const seeded = seedChangeId({ ...request, runId })
+      // Flow -> Spec derives ONE change for code that already exists: it is named
+      // after the spec title (never addenda), and no delta briefing applies.
+      const seeded = request.flowDerivation
+        ? { id: flowDerivationChangeId(request.cwd, request.flowDerivation, request.spec?.title), source: 'flow' as const }
+        : seedChangeId({ ...request, runId })
       const delta = seeded && (seeded.source === 'addenda' || seeded.source === 'revision')
         ? `DELTA OPENSPEC TARGET: ${seeded.id}. Use ONLY openspec/changes/${seeded.id}/; create it if missing. Inspect the current branch before planning. For delivered work, plan and implement ONLY the attached addenda or delivery change request, preserving existing behavior outside the delta. For work not yet implemented, implement the full spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Report each addendum id with concrete files and test evidence.`
         : undefined
@@ -288,6 +328,7 @@ export function createLoopExecutors(
       const result = await runAgentRuntimeInvocation({
         contextPath: core.contextPath, cwd: request.cwd, env: core.env,
         configPath: runtimeConfigPath(request.cwd), engineVersion: 2,
+        projectRuntime: opts.projectRuntime?.(),
         loopConfig: request.graph.config.agents,
         change: seeded?.id ?? runtimeChangeName(runId),
         resume: input.resume, answer: input.answer, approve: input.approve, interruptId: input.interruptId,
@@ -374,7 +415,7 @@ export function createLoopExecutors(
         // never silently replay an interrupted mutating phase.
         return runAgentRuntimeInvocation({
           contextPath: core.contextPath, cwd, env: { ...programmaticStepEnv(resolveEnv(), repoDir, executionManifest), SPECRAILS_EXECUTION_CONTEXT: core.contextPath }, configPath: runtimeConfigPath(cwd),
-          change: runtimeChangeName(coreRun.runId), resume: admitted,
+          change: runtimeChangeName(coreRun.runId), resume: admitted, projectRuntime: opts.projectRuntime?.(),
           defaultProvider: provider, providerOverride: runtimeProviderOverride,
           onLine, onRawLine, onSpawn, timeoutMs: aiStepTimeoutMs,
         })

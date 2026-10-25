@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
 
 import type { SmashStage } from '../../context/SmashTrackerContext'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 /**
  * Status pill stack rendered while a SMASH spawn is in flight against a
@@ -62,7 +62,7 @@ export function SmashStatusPills({ stage, minDisplayMs = MIN_DISPLAY_MS }: Smash
       aria-live="polite"
       data-testid="smash-status-pills"
     >
-      <Loader2 className="h-4 w-4 animate-spin text-accent-highlight" aria-hidden />
+      <LiveDot dotClassName="bg-accent-highlight" size="sm" aria-hidden />
       <div className="flex items-center gap-1.5">
         {(['analyzing', 'identifying', 'ordering'] as SmashStage[]).map((s) => {
           const reached = STAGE_ORDER[s] <= idx

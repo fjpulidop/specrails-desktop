@@ -15,8 +15,8 @@
     "activeSessions_other": "{{count}} sessions actives",
     "turnOn": "Activer",
     "turnOff": "Désactiver",
-    "enableFailed": "Impossible d'activer le serveur MCP : {{message}}",
-    "disableFailed": "Impossible de désactiver le serveur MCP : {{message}}"
+    "enableFailed": "Impossible d'activer le serveur MCP",
+    "disableFailed": "Impossible de désactiver le serveur MCP"
   },
   "tiers": {
     "heading": "Niveaux de permission",
@@ -24,12 +24,12 @@
     "read": "Lecture",
     "readHelp": "Parcourir les projets, les spécifications et les analyses. Toujours autorisé.",
     "write": "Écriture",
-    "writeHelp": "Créer et modifier des spécifications et des tickets.",
+    "writeHelp": "Créer et modifier des specs.",
     "aiSpawn": "Lancer l'IA",
     "aiSpawnHelp": "Lancer des rails et des tâches d'IA qui exécutent la CLI.",
     "destructive": "Destructif",
-    "destructiveHelp": "Supprimer des spécifications, des tickets et d'autres données du projet.",
-    "updateFailed": "Impossible de mettre à jour les permissions : {{message}}"
+    "destructiveHelp": "Supprimer des specs et d'autres données du projet.",
+    "updateFailed": "Impossible de mettre à jour les permissions"
   },
   "config": {
     "heading": "Configuration du client",
@@ -47,7 +47,8 @@
     "regenerate": "Régénérer",
     "regenerateConfirm": "Régénérer le jeton d'accès ? Tout client utilisant l'ancien jeton cessera de fonctionner jusqu'à ce que vous mettiez à jour sa configuration.",
     "regenerated": "Jeton d'accès régénéré",
-    "regenerateFailed": "Impossible de régénérer le jeton : {{message}}"
+    "regenerateFailed": "Impossible de régénérer le jeton",
+    "regenerateConfirmTitle": "Régénérer le jeton d’accès ?"
   },
   "tray": {
     "open": "Ouvrir",
@@ -93,6 +94,9 @@
       "unknown_provider": "Fournisseur inconnu dans la matrice d'activation",
       "invalid_entry": "Entrée de serveur malformée",
       "invalid_body": "Requête malformée"
-    }
+    },
+    "removeConfirmTitle": "Supprimer {{name}} ?",
+    "removeConfirmBody": "L’agent de mission ne charge plus ce serveur pour aucun fournisseur. Un serveur détecté reste dans la configuration de votre fournisseur d’IA et peut être réactivé.",
+    "formProviderToggle": "Activer pour {{provider}}"
   }
 }

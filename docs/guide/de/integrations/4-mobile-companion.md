@@ -1,4 +1,4 @@
-# Der mobile Companion
+# Der mobile Companion {#mobile-companion}
 
 Specrails hat eine Companion-App fürs Smartphone, mit der du deine Rails im Blick behältst, während du nicht am Schreibtisch sitzt — Jobs laufen sehen, ihren Abschluss verfolgen und auf dem Laufenden bleiben, ohne vor dem Dashboard zu sitzen.
 

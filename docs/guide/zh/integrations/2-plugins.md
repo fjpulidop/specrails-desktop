@@ -1,4 +1,4 @@
-# 插件（Integrations）
+# 插件（Integrations） {#plugins}
 
 **Integrations** 板块是按项目划分的可选插件市场，用来扩展 AI 能做的事。每个项目都独立决定自己想要哪些插件——在一个项目里安装插件，绝不会动到另一个项目。
 

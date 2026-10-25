@@ -1,6 +1,6 @@
 <!-- guide-revision: mission-first-v1 -->
 
-# Connect an AI provider
+# Connect an AI provider {#ai-providers}
 
 Specrails coordinates your authenticated Claude or Codex CLI. Provider installation, account access and model billing remain separate from the application.
 

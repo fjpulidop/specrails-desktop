@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
+import { useReducedMotion } from '../../../../hooks/useReducedMotion'
 import { ArrowRight, Check, Rocket, Sparkles, Wand2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '../../../../lib/utils'
@@ -36,7 +37,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
   const Icon = settled ? Check : ICON[kind]
   const time = createdAt ? safeTime(createdAt) : null
   const shell = cn(
-    'group relative my-1 w-full max-w-lg overflow-hidden rounded-xl border text-left shadow-lg backdrop-blur',
+    'group relative my-1 w-full max-w-lg overflow-hidden rounded-xl border text-left shadow-lg',
     settled
       ? 'border-accent-success/25 bg-card/60'
       : 'border-accent-primary/25 bg-card/80 transition-colors hover:border-accent-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-60',
@@ -47,10 +48,10 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
       <span
         aria-hidden
         className={cn(
-          'pointer-events-none absolute inset-0 bg-gradient-to-br via-transparent transition-opacity',
+          'pointer-events-none absolute inset-0 transition-opacity',
           settled
-            ? 'from-accent-success/[0.06] to-accent-success/[0.03] opacity-100'
-            : 'from-accent-primary/[0.08] to-accent-highlight/[0.08] opacity-70 group-hover:opacity-100',
+            ? 'bg-accent-success/5 opacity-100'
+            : 'bg-accent-primary/5 opacity-70 group-hover:opacity-100',
         )}
       />
       <div
@@ -61,14 +62,14 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
       >
         <span
           className={cn(
-            'flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest',
-            settled ? 'text-accent-success/90' : 'text-accent-primary/90',
+            'flex items-center gap-1.5 text-xs font-semibold',
+            settled ? 'text-accent-success' : 'text-accent-primary',
           )}
         >
           {settled ? <Check className="h-3 w-3" aria-hidden /> : <Sparkles className="h-3 w-3" aria-hidden />}
           {settled ? t('decisionCard.settledLabel') : t(`decisionCard.${kind}.label`)}
         </span>
-        <span className="text-[10px] text-muted-foreground" data-testid="builder-decision-card-meta">
+        <span className="text-caption text-muted-foreground" data-testid="builder-decision-card-meta">
           {settled ? time : t(`decisionCard.${kind}.hint`)}
         </span>
       </div>
@@ -78,13 +79,13 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
             'flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-inner',
             settled
               ? 'bg-accent-success/15 text-accent-success'
-              : 'bg-gradient-to-br from-accent-primary/25 to-accent-highlight/25 text-accent-primary',
+              : 'bg-accent-primary/15 text-accent-primary',
           )}
         >
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold leading-snug text-foreground">
+          <span className="block text-strong leading-snug text-foreground">
             {t(settled ? `decisionCard.${kind}.settledTitle` : `decisionCard.${kind}.title`)}
           </span>
           <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
@@ -92,7 +93,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
           </span>
         </span>
         {!settled && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-primary/15 px-2.5 py-1 text-[11px] font-medium text-accent-primary transition-colors group-hover:bg-accent-primary/25">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-primary/15 px-2.5 py-1 text-caption font-medium text-accent-primary transition-colors group-hover:bg-accent-primary/25">
             {t(`decisionCard.${kind}.cta`)}
             <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
           </span>

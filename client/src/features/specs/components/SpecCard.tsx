@@ -4,17 +4,13 @@ import { openAddenda } from '../lib/spec-addenda-core'
 import { specFlowLabel } from '../lib/spec-flow'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, AlertTriangle, Layers, Waves } from 'lucide-react'
+import { Trash2, AlertTriangle, ArrowUp, Layers, Waves } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
 import { SpecTriageChip } from './SpecTriageChip'
-import type { LocalTicket, TicketPriority } from '../../../types'
-
-const PRIORITY_VARIANT: Record<TicketPriority, 'destructive' | 'default' | 'warning' | 'outline'> = {
-  critical: 'destructive',
-  high: 'default',
-  medium: 'warning',
-  low: 'outline',
-}
+import type { LocalTicket } from '../../../types'
+import { PriorityBadge } from './PriorityBadge'
+import { SpecSelectCheckbox, SELECTED_CARD_CLASS, type CardSelection } from './SpecSelectCheckbox'
+import { gestureOfClick } from '../lib/board-selection'
 
 const LONG_PRESS_MS = 700
 
@@ -39,6 +35,8 @@ interface SpecCardProps {
   onOpenFlow?: (conversationId: string) => void
   /** Rendered inside a rail: a Flow spec there was handed off, so no "In Flow" label. */
   onRail?: boolean
+  /** Multi-select state from the specs board (absent in a rail). */
+  selection?: CardSelection
 }
 
 export function SpecCard({
@@ -55,6 +53,7 @@ export function SpecCard({
   onDelete,
   onOpenFlow,
   onRail = false,
+  selection,
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
   const openAddendaCount = openAddenda(ticket.addenda).length
@@ -100,6 +99,14 @@ export function SpecCard({
   }, [clearLongPress])
 
   const handleClick = useCallback((e: React.MouseEvent) => {
+    // ⌘/Ctrl-click toggles the spec in the board selection, Shift-click extends a range.
+    const gesture = selection && !jiggleMode ? gestureOfClick(e) : null
+    if (selection && gesture) {
+      e.preventDefault()
+      e.stopPropagation()
+      selection.onSelect(ticket, gesture)
+      return
+    }
     if (longPressFiredRef.current) {
       // Suppress the click that follows a successful long-press so the modal
       // doesn't open the moment we enter jiggle mode.
@@ -114,7 +121,7 @@ export function SpecCard({
       return
     }
     onClick(ticket)
-  }, [jiggleMode, onClick, ticket])
+  }, [jiggleMode, onClick, ticket, selection])
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -134,18 +141,18 @@ export function SpecCard({
 
   const isDraft = ticket.status === 'draft'
   const isOnReview = ticket.status === 'on_review'
-  const baseClass = 'relative flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors group touch-none'
+  const baseClass = 'relative flex items-center gap-2 px-3 py-(--density-card-y) rounded-lg border transition-colors group touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/60'
   // No grab cursor when the card cannot actually be dragged.
   const cursorClass = jiggleMode || (isOnReview && !allowOnReviewDrag) ? '' : 'cursor-grab active:cursor-grabbing'
   const variantClass = isDraft
     ? 'border-dashed border-accent-secondary/50 bg-accent-secondary/10 hover:bg-accent-secondary/15 hover:border-accent-secondary/70'
     : isOnReview
-      ? 'border-accent-warning/40 bg-accent-warning/5 hover:bg-accent-warning/10 hover:border-accent-warning/60'
+      ? 'border-border/40 bg-card/60 hover:bg-card/80 hover:border-border/60'
       : contractRefining
-        ? 'border-accent-highlight/70 bg-card/70 shadow-lg shadow-accent-highlight/20 animate-pulse'
+        ? 'border-accent-highlight/70 bg-card/70 ring-1 ring-accent-highlight/50'
         : 'border-border/40 bg-card/60 hover:bg-card/80 hover:border-border/60'
-  const jiggleClass = jiggleMode ? 'animate-jiggle' : ''
-  const cardClass = `${baseClass} ${cursorClass} ${variantClass} ${jiggleClass}`
+  const jiggleClass = jiggleMode ? 'motion-safe:animate-jiggle' : ''
+  const cardClass = `${baseClass} ${cursorClass} ${selection?.selected ? SELECTED_CARD_CLASS : variantClass} ${jiggleClass}`
 
   return (
     <div
@@ -165,16 +172,34 @@ export function SpecCard({
       onPointerUp={handlePointerUpOrLeave}
       onPointerLeave={handlePointerUpOrLeave}
       onPointerCancel={handlePointerUpOrLeave}
-      role="button"
+      role={selection ? 'option' : 'button'}
+      aria-selected={selection ? selection.selected : undefined}
       tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && !jiggleMode && onClick(ticket)}
+      // Enter opens the spec; other keys (Space to lift) reach dnd-kit's
+      // keyboard sensor, which this explicit onKeyDown would otherwise shadow.
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          if (!jiggleMode) onClick(ticket)
+          return
+        }
+        if (!dragFrozen) listeners?.onKeyDown?.(e)
+      }}
     >
-      <span className="text-[10px] font-mono text-foreground shrink-0">#{ticket.id}</span>
+      {selection && !jiggleMode && (
+        <SpecSelectCheckbox
+          ticket={ticket}
+          selection={selection}
+          className="absolute -left-2.5 top-1/2 z-10 -translate-y-1/2"
+          onToggle={() => selection.onSelect(ticket, 'toggle')}
+        />
+      )}
+      <span className="text-caption font-mono text-foreground shrink-0">#{ticket.id}</span>
       <span className="flex-1 text-sm truncate text-foreground">{ticket.title}</span>
       {ticket.is_epic ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 border-accent-highlight/60 text-accent-highlight bg-accent-highlight/10"
+          className="text-caption shrink-0 border-accent-highlight/60 text-accent-highlight bg-accent-highlight/10"
           data-testid={`epic-badge-${ticket.id}`}
         >
           {t('badges.epicWithCount', { count: epicChildrenCount ?? 0 })}
@@ -195,11 +220,12 @@ export function SpecCard({
               onOpenParentEpic?.(ticket.parent_epic_id as number)
             }
           }}
-          className="inline-flex items-center rounded-md border border-accent-secondary/40 text-accent-secondary bg-accent-secondary/5 hover:bg-accent-secondary/15 hover:border-accent-secondary/60 px-1.5 py-0.5 text-[9px] font-medium shrink-0 max-w-[12rem] truncate transition-colors cursor-pointer"
+          className="inline-flex items-center gap-0.5 rounded-md border border-accent-secondary/40 text-accent-secondary bg-accent-secondary/5 hover:bg-accent-secondary/15 hover:border-accent-secondary/60 px-1.5 py-0.5 text-caption font-medium shrink-0 max-w-[12rem] truncate transition-colors cursor-pointer"
           title={t('badges.openParentEpicTitle', { id: ticket.parent_epic_id, title: parentEpicTitle })}
           data-testid={`epic-child-pill-${ticket.id}`}
         >
-          ↑ #{ticket.parent_epic_id} {parentEpicTitle}
+          <ArrowUp className="w-2.5 h-2.5 shrink-0" aria-hidden />
+          <span className="truncate">#{ticket.parent_epic_id} {parentEpicTitle}</span>
         </button>
       ) : null}
       {flowLabel ? (
@@ -221,9 +247,9 @@ export function SpecCard({
           data-flow-label={flowLabel.state}
           data-testid={`flow-badge-${ticket.id}`}
           title={t(flowLabel.state === 'paused' ? 'badges.inFlowPausedTitle' : 'badges.inFlowTitle')}
-          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold transition-colors disabled:cursor-default ${
+          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-caption font-semibold transition-colors disabled:cursor-default ${
             flowLabel.state === 'paused'
-              ? 'border-border/60 bg-surface/60 text-foreground/60 hover:border-foreground/30'
+              ? 'border-border/60 bg-surface/60 text-muted-foreground hover:border-foreground/30'
               : 'border-accent-info/50 bg-accent-info/10 text-accent-info hover:bg-accent-info/20'
           }`}
         >
@@ -234,28 +260,28 @@ export function SpecCard({
       {ticket.needs_review ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 gap-1 border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+          className="text-caption shrink-0 gap-1 border-accent-warning/60 text-accent-warning bg-accent-warning/10"
           title={t('badges.needsReviewTitle')}
           data-testid={`needs-review-badge-${ticket.id}`}
         >
           <AlertTriangle className="w-2.5 h-2.5" aria-hidden />
           {t('badges.review')}
-        </Badge>
+        <span className="sr-only"> ({t('badges.needsReviewTitle')})</span></Badge>
       ) : null}
       {ticket.source === 'free-prompt' ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 uppercase border-accent-info/50 text-accent-info"
+          className="text-caption shrink-0 border-accent-info/50 text-accent-info"
           title={t('badges.rawTitle')}
           data-testid={`raw-badge-${ticket.id}`}
         >
           {t('badges.raw')}
-        </Badge>
+        <span className="sr-only"> ({t('badges.rawTitle')})</span></Badge>
       ) : null}
       {ticket.jira_key ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 font-mono border-accent-info/50 text-accent-info"
+          className="text-caption shrink-0 font-mono border-accent-info/50 text-accent-info"
           title={ticket.jira_key}
           data-testid={`jira-badge-${ticket.id}`}
         >
@@ -265,39 +291,37 @@ export function SpecCard({
       {openAddendaCount > 0 ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 border-accent-primary/50 text-accent-primary bg-accent-primary/10 gap-0.5"
+          className="text-caption shrink-0 border-accent-primary/50 text-accent-primary bg-accent-primary/10 gap-0.5"
           title={t('badges.addendaTitle', { count: openAddendaCount })}
           data-testid={`addenda-badge-${ticket.id}`}
         >
           <Layers className="h-2.5 w-2.5" />
           {openAddendaCount}
-        </Badge>
+        <span className="sr-only"> ({t('badges.addendaTitle', { count: openAddendaCount })})</span></Badge>
       ) : null}
       {!jiggleMode && <SpecTriageChip ticket={ticket} />}
       {isDraft ? (
-        <Badge variant="outline" className="text-[9px] shrink-0 border-accent-secondary/60 text-accent-secondary">
+        <Badge variant="outline" className="text-caption shrink-0 border-accent-secondary/60 text-accent-secondary">
           {t('common:status.draft')}
         </Badge>
       ) : isOnReview ? (
         <Badge
-          variant="outline"
-          className="text-[9px] shrink-0 border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+          variant="review"
+          className="text-caption shrink-0"
           title={t('status.onReviewHint')}
           data-testid={`on-review-badge-${ticket.id}`}
         >
           {t('common:status.onReview')}
-        </Badge>
+        <span className="sr-only"> ({t('status.onReviewHint')})</span></Badge>
       ) : contractRefining ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 border-accent-highlight/70 text-accent-highlight bg-accent-highlight/10"
+          className="text-caption shrink-0 border-accent-highlight/70 text-accent-highlight bg-accent-highlight/10"
         >
           {t('badges.contract')}
         </Badge>
       ) : ticket.priority ? (
-        <Badge variant={PRIORITY_VARIANT[ticket.priority]} className="text-[9px] shrink-0">
-          {t(`priority.${ticket.priority}`)}
-        </Badge>
+        <PriorityBadge priority={ticket.priority} />
       ) : null}
 
       {/* Jiggle-mode delete button */}
@@ -306,7 +330,7 @@ export function SpecCard({
           type="button"
           onClick={handleDelete}
           onPointerDown={(e) => e.stopPropagation()}
-          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors z-10"
+          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-md hover:bg-destructive/90 transition-colors z-10"
           title={t('card.deleteSpec', { id: ticket.id })}
           aria-label={t('card.deleteSpec', { id: ticket.id })}
           data-testid={`spec-card-delete-${ticket.id}`}

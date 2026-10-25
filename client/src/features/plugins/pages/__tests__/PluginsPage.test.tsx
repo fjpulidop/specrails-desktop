@@ -194,20 +194,23 @@ describe('PluginsPage', () => {
 
     await waitFor(() => expect(screen.getAllByText('Headroom AI').length).toBeGreaterThan(0))
     expect(screen.getByText('Available')).toBeInTheDocument()
-    expect(screen.getByText('Global')).toBeInTheDocument()
+    expect(screen.getByText('Applies across Specrails')).toBeInTheDocument()
     expect(screen.getByText('Project-local')).toBeInTheDocument()
     expect(screen.getAllByText('Jira').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Serena').length).toBeGreaterThan(0)
 
-    fireEvent.click(screen.getByRole('button', { name: /^global$/i }))
-    expect(screen.getByText('Global')).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: 'Scope' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'All' })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByRole('radio', { name: /^global$/i }))
+    expect(screen.getByRole('radio', { name: /^global$/i })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText('Applies across Specrails')).toBeInTheDocument()
     expect(screen.queryByText('Project-local')).not.toBeInTheDocument()
     expect(screen.getByText('Optimize Codex and Claude launches through Headroom AI.')).toBeInTheDocument()
     expect(screen.queryByText('Sync project specs with a Jira board, status mapping, and completion comments.')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /^project$/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /^project$/i }))
     expect(screen.getByText('Project-local')).toBeInTheDocument()
-    expect(screen.queryByText('Global')).not.toBeInTheDocument()
+    expect(screen.queryByText('Applies across Specrails')).not.toBeInTheDocument()
     expect(screen.getAllByText('Jira').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Serena').length).toBeGreaterThan(0)
     expect(screen.queryByText('Optimize Codex and Claude launches through Headroom AI.')).not.toBeInTheDocument()
@@ -435,4 +438,22 @@ it('opens the Plugins window and dismisses its modal only after success', async 
   await waitFor(() => expect(dismiss).toHaveBeenCalledOnce())
 })
 
+  it('renders Headroom provider routes as accessible switches', async () => {
+    const state = headroomState({
+      installed: true,
+      installSource: 'managed',
+      version: '0.30.0',
+      executablePath: '/Users/test/.specrails/tools/bin/headroom',
+      activeProviders: { codex: true, claude: false },
+      detectedRoutes: { codex: true, claude: false },
+    }) as ReturnType<typeof headroomState>
+    installFetchMock(state)
+
+    render(<PluginsPage />)
+    fireEvent.click(await screen.findByRole('button', { name: /Manage/i }))
+
+    const codex = await screen.findByRole('switch', { name: 'codex' })
+    expect(codex).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: 'claude' })).toHaveAttribute('aria-checked', 'false')
+  })
 })

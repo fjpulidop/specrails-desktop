@@ -273,4 +273,15 @@ describe('CreateTicketModal', () => {
       })
     })
   })
+
+  describe('modal standard anatomy', () => {
+    it('is a fixed form-size dialog with a description and the title field focused', async () => {
+      render(<CreateTicketModal {...makeDefaultProps()} />)
+      const dialog = screen.getByRole('dialog')
+      expect(dialog).toHaveAttribute('data-dialog-size', 'form')
+      expect(dialog.className).not.toContain('glass-card')
+      expect(dialog).toHaveAccessibleDescription(/by hand/i)
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByPlaceholderText(/spec title/i)))
+    })
+  })
 })

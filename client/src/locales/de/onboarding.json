@@ -1,0 +1,131 @@
+{
+  "entry": {
+    "try": "Am Beispielprojekt ausprobieren",
+    "cost": "Zuschauen ist kostenlos. Eine Spec auszuführen kostet etwa {{usd}} (≈ Schätzung).",
+    "local": "Zuschauen ist kostenlos. Läuft auf deiner lokalen Engine, ohne API-Kosten.",
+    "recordedOnly": "Noch ist kein KI-Anbieter bereit – du kannst stattdessen einen aufgezeichneten Lauf ansehen."
+  },
+  "dialog": {
+    "title": "Specrails an einem Beispielprojekt ausprobieren",
+    "description": "Ein kleines Spiel und drei fertige Specs. Du siehst, wie eine Spec über eine Rail zu einem Review-Paket wandert, ohne deinen eigenen Code anzufassen.",
+    "gets": {
+      "repo": "Ein kleines Web-Spiel ({{name}}) in einem eigenen Git-Repository",
+      "specs": "Drei fertige Specs auf deinem Board",
+      "nothingRuns": "Nichts läuft, bis du auf Ausführen drückst"
+    },
+    "folder": "Ordner",
+    "folderHint": "Wird hier in deinem Home-Ordner angelegt. Ein vorhandener Ordner wird nie überschrieben.",
+    "choose": "Ordner wählen",
+    "chooseTitle": "Wähle, wo das Beispiel angelegt wird",
+    "runLater": "Wenn du später eine Spec ausführst",
+    "localAlso": "Deine lokale Engine ({{engine}}) steht ebenfalls bereit, ohne API-Kosten.",
+    "noProvider": "Noch ist kein KI-Anbieter bereit. Du kannst das Beispiel trotzdem anlegen und einen aufgezeichneten Lauf ansehen.",
+    "notSignedIn": "Dein KI-Anbieter ist installiert, aber nicht angemeldet. Du kannst das Beispiel trotzdem anlegen und einen aufgezeichneten Lauf ansehen.",
+    "create": "Beispielprojekt anlegen",
+    "creating": "Wird angelegt…",
+    "errors": {
+      "path_exists": "Dieser Ordner existiert bereits. Wähle einen anderen.",
+      "outside_home": "Das Beispiel muss in deinem Home-Ordner liegen.",
+      "generic": "Das Beispielprojekt konnte nicht angelegt werden. Versuche es erneut."
+    }
+  },
+  "cost": {
+    "minutes": "etwa {{low}}–{{high}} Min.",
+    "local": "Keine API-Kosten: läuft auf deiner lokalen Engine · {{time}} (Schätzung)",
+    "plan": "Nutzt dein Abo, keine Zusatzkosten · {{time}} (Schätzung)",
+    "metered": "≈ {{usd}} · {{time}} (Schätzung)",
+    "unknown": "≈ {{usd}} bei nutzungsabhängiger Abrechnung · {{time}} (Schätzung)",
+    "using": "Schnellmodus mit {{model}} bei {{provider}}",
+    "cap": "Er pausiert und fragt nach, bevor {{cap}} überschritten wird."
+  },
+  "guide": {
+    "label": "Anleitung zum Beispielprojekt",
+    "stepCount": "Schritt {{current}} von {{total}}",
+    "dismiss": "Anleitung schließen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "done": "Fertig",
+    "ending": "Das ist der ganze Kreislauf. Richte ihn jetzt auf deinen eigenen Code.",
+    "addOwn": "Jetzt eigenes Projekt hinzufügen",
+    "remove": "Beispiel entfernen"
+  },
+  "steps": {
+    "spec": {
+      "title": "Die Spec",
+      "body": "Diese drei Specs sind für dich geschrieben. Jede sagt, was zu bauen ist und woran man erkennt, dass sie fertig ist."
+    },
+    "rail": {
+      "title": "Die Rail",
+      "body": "Eine Rail bringt eine Spec bis zur fertigen Änderung: Sie schreibt sie, testet sie und hält dann für dich an. Starte die erste."
+    },
+    "review": {
+      "title": "Das Review",
+      "body": "Nichts wird von allein gemergt. Wenn der Lauf endet, zeigt ein Review-Paket, was sich geändert hat, und lässt dich es annehmen oder verwerfen."
+    }
+  },
+  "run": {
+    "noProvider": "Auf diesem Rechner ist kein KI-Anbieter bereit, ein echter Lauf ist also noch nicht möglich. Ein aufgezeichneter Lauf zeigt denselben Weg.",
+    "notSignedIn": "Dein KI-Anbieter ist nicht angemeldet, ein echter Lauf ist also noch nicht möglich. Ein aufgezeichneter Lauf zeigt denselben Weg.",
+    "watchRecording": "Aufgezeichneten Lauf ansehen",
+    "recheck": "Erneut prüfen",
+    "recordingNote": "Das ist eine Aufzeichnung: Nichts läuft und nichts wird berechnet.",
+    "started": "Gestartet. Dauert etwa {{low}}–{{high}} Min.; verfolge es in der Rail.",
+    "engine": "Ausführen auf",
+    "engineLocal": "Lokale Engine ({{provider}})",
+    "engineCloud": "{{provider}}",
+    "cta": "Erste Spec ausführen",
+    "launching": "Startet…",
+    "preparing": "Der Arbeitsbereich des Projekts wird vorbereitet. Das dauert nur einen Moment.",
+    "workspaceFailed": "Der Arbeitsbereich konnte nicht vorbereitet werden.",
+    "retryWorkspace": "Erneut versuchen",
+    "overBudget": "Das heutige Budget ist bereits erreicht. Erhöhe es unter Analysen ▸ Budget und versuche es erneut.",
+    "failed": "Der Lauf konnte nicht gestartet werden. Versuche es erneut.",
+    "failedDetail": "Der Lauf konnte nicht gestartet werden: {{detail}}"
+  },
+  "pill": {
+    "label": "Beispielprojekt",
+    "showGuide": "Anleitung anzeigen"
+  },
+  "remove": {
+    "title": "Beispielprojekt entfernen?",
+    "description": "Es verschwindet aus deinen Projekten. Der Ordner bleibt auf der Festplatte, außer du löschst ihn unten.",
+    "deleteFolder": "Beispielordner auch löschen",
+    "irreversible": "Das Löschen von Dateien kann nicht rückgängig gemacht werden.",
+    "confirm": "Beispiel entfernen",
+    "confirmDelete": "Entfernen und Ordner löschen",
+    "failed": "Das Beispielprojekt konnte nicht entfernt werden."
+  },
+  "toast": {
+    "created": "Beispielprojekt „{{name}}“ ist bereit",
+    "reopened": "Beispielprojekt „{{name}}“ geöffnet",
+    "removed": "Beispielprojekt entfernt",
+    "removedDeleted": "Beispielprojekt und sein Ordner entfernt"
+  },
+  "recording": {
+    "title": "Ein aufgezeichneter Lauf",
+    "description": "So sieht ein fertiger erster Lauf aus, von der Spec bis zum Review-Paket.",
+    "badge": "Aufzeichnung: Nichts läuft und nichts wird berechnet",
+    "logLabel": "Protokoll des aufgezeichneten Laufs",
+    "lines": {
+      "setup": "Umgebung einrichten",
+      "specPhase": "Phase: Änderung schreiben",
+      "specDone": "Änderung für „Neustart-Button hinzufügen“ geschrieben",
+      "implementPhase": "Phase: Implementieren",
+      "implementDone": "Build erfolgreich · 4 Dateien geändert",
+      "testPhase": "Phase: Tests",
+      "testDone": "5 Tests bestanden",
+      "reviewPhase": "Phase: Review",
+      "shipped": "BEREIT FÜR REVIEW · Zuversicht 91/100"
+    },
+    "packet": {
+      "title": "Review-Paket (aufgezeichnet)",
+      "summary": "{{tests}} Tests bestanden · Zuversicht {{confidence}}/100. Die Änderung wartet auf deine Entscheidung.",
+      "decision": "Bei einem echten Lauf entscheidest du hier: Änderung annehmen oder verwerfen. Ohne dich wird nichts gemergt."
+    },
+    "replay": "Wiederholen",
+    "close": "Schließen"
+  },
+  "help": {
+    "replayTour": "Tour wiederholen"
+  }
+}

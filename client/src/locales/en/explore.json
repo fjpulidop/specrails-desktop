@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · interactive",
     "backAriaLabel": "Back (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · interactive",
-    "editingEyebrow": "EDITING SPEC · #{{id}}",
     "newSpecPlaceholder": "New spec…",
     "contextPill": "Context: {{scopes}}",
     "contextPillTitle": "Active context scope for this Explore session",
@@ -41,7 +39,7 @@
       "specCreated": "Spec created — #{{id}} {{title}}",
       "createNetworkError": "Network error creating spec",
       "unsupportedFileType": "Unsupported file type: {{name}}",
-      "uploadFailed": "Upload failed for {{name}}: {{message}}"
+      "uploadFailed": "Upload failed for {{name}}"
     },
     "fromWebsite": "From a website",
     "fromWebsiteTitle": "Open a real web page, select an area, and turn it into a spec",
@@ -73,7 +71,13 @@
     "criterionAriaLabel": "Acceptance criterion {{number}}",
     "removeCriterionAriaLabel": "Remove criterion {{number}}",
     "addCriterion": "Add criterion",
-    "addCriterionAriaLabel": "Add acceptance criterion"
+    "addCriterionAriaLabel": "Add acceptance criterion",
+    "nonGoalsLabel": "Out of scope",
+    "nonGoalPlaceholder": "Something this spec leaves out",
+    "nonGoalAriaLabel": "Out-of-scope item {{number}}",
+    "removeNonGoalAriaLabel": "Remove out-of-scope item {{number}}",
+    "addNonGoalAriaLabel": "Add an out-of-scope item",
+    "addNonGoal": "Add item"
   },
   "priority": {
     "low": "low",
@@ -83,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "Review changes",
-    "eyebrow": "Review changes · explore-spec",
     "heading": "Confirm before commit",
     "titleLabel": "Title",
     "priorityLabel": "Priority",

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import type { JobSummary } from '../../../../types'
 
 vi.mock('../../../../lib/api', () => ({ getApiBase: () => '/api/projects/p1' }))
@@ -49,11 +50,19 @@ beforeEach(() => {
   mockFirstLoad = false
 })
 
-function renderPane(projectId = 'p1') {
+function LocationProbe() {
+  const location = useLocation()
+  return <output data-testid="location">{location.pathname}{location.search}</output>
+}
+
+function renderPane(projectId = 'p1', initialEntry = '/') {
   return render(
-    <AgentWorkspaceProvider>
-      <AgentModeJobsPane projectId={projectId} />
-    </AgentWorkspaceProvider>,
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <AgentWorkspaceProvider>
+        <AgentModeJobsPane projectId={projectId} />
+      </AgentWorkspaceProvider>
+      <LocationProbe />
+    </MemoryRouter>,
   )
 }
 
@@ -66,8 +75,8 @@ describe('AgentModeJobsPane', () => {
     renderPane()
     expect(screen.getByText('/specrails:implement #12')).toBeInTheDocument()
     expect(screen.getByText('/specrails:implement #9')).toBeInTheDocument()
-    expect(screen.getByText('running')).toBeInTheDocument()
-    expect(screen.getByText('completed')).toBeInTheDocument()
+    expect(screen.getByText('Running')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
   })
 
   it('opens the near-fullscreen execution modal on job click and closes it', () => {
@@ -87,10 +96,10 @@ describe('AgentModeJobsPane', () => {
     expect(screen.getByText('No jobs yet — ask the agent to launch one')).toBeInTheDocument()
   })
 
-  it('shows a spinner during the first load', () => {
+  it('shows the rail track during the first load', () => {
     mockFirstLoad = true
     const { container } = renderPane()
-    expect(container.querySelector('.animate-spin')).toBeInTheDocument()
+    expect(container.querySelector('[data-testid="rail-track"]')).toBeInTheDocument()
   })
 
   it('maximize covers the whole surface (absolute inset-0), restore returns to the split', () => {
@@ -103,5 +112,22 @@ describe('AgentModeJobsPane', () => {
     fireEvent.click(screen.getByLabelText('Restore'))
     expect(pane.className).not.toContain('absolute')
     expect(pane.style.width).toBe('480px')
+  })
+
+  it('writes the open job to ?job= (a place), so Back closes it and a link reopens it', () => {
+    mockJobs = [job('j-42', 'running', '/specrails:implement #7')]
+    renderPane()
+    fireEvent.click(screen.getByText('/specrails:implement #7'))
+    expect(screen.getByTestId('location')).toHaveTextContent('/?job=j-42')
+    fireEvent.click(screen.getByText('close-modal'))
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/)
+    expect(screen.queryByTestId('job-modal')).not.toBeInTheDocument()
+  })
+
+  it('opens the job named by the URL (deep link / Forward)', () => {
+    mockJobs = [job('j-42', 'running', '/specrails:implement #7')]
+    renderPane('p1', '/?job=j-42')
+    expect(screen.getByTestId('job-modal')).toBeInTheDocument()
+    expect(screen.getByText('j-42')).toBeInTheDocument()
   })
 })

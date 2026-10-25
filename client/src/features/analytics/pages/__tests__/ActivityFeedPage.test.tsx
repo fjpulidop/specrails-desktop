@@ -89,7 +89,7 @@ describe('ActivityFeedPage', () => {
     mockLoading = true
     mockItems = []
     const { container } = render(<ActivityFeedPage />)
-    const spinner = container.querySelector('.animate-spin')
+    const spinner = container.querySelector('[data-testid="rail-track"]')
     expect(spinner).toBeInTheDocument()
   })
 
@@ -137,7 +137,7 @@ describe('ActivityFeedPage', () => {
   it('renders cost in USD when costUsd is not null', () => {
     mockItems = [baseItems[0]] // costUsd: 0.0123
     render(<ActivityFeedPage />)
-    expect(screen.getByText('$0.0123')).toBeInTheDocument()
+    expect(screen.getByText('$0.01')).toBeInTheDocument()
   })
 
   it('does not render cost when costUsd is null', () => {
@@ -190,7 +190,7 @@ describe('ActivityFeedPage', () => {
     const { container } = render(<ActivityFeedPage />)
     // Shows items AND loading spinner at the bottom
     expect(screen.getByText('/specrails:implement --spec SPEA-001')).toBeInTheDocument()
-    const spinners = container.querySelectorAll('.animate-spin')
+    const spinners = container.querySelectorAll('[data-testid="rail-track"]')
     expect(spinners.length).toBeGreaterThanOrEqual(1)
   })
 

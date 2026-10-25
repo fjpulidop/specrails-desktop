@@ -16,6 +16,8 @@ export interface BackgroundProcess {
   error?: string
   repositoryId?: string
   repositoryName?: string
+  /** The Flow whose worktree this process runs in (Specrails stops it with the Flow). */
+  flowId?: string
   recoveredAt?: number
   persistenceError?: string
   status: BackgroundProcessStatus
@@ -73,6 +75,8 @@ export interface JobSummary {
    *  'finalize' = idles until the human Finalizes (freestyle); 'auto' = the job
    *  settles itself on quiescence (implement / loops — steering is optional).
    *  null/absent = no live session (finished, kill-switch off, legacy payload). */
+  /** Why a failed / blocked job stopped, with ranked remedies (GET /jobs/:id only; absent on other jobs). Read with `readFailureDiagnosis`. */
+  failureDiagnosis?: unknown
   interactiveSettleMode?: 'finalize' | 'auto' | null
   /** True when a resident session is accepting turns RIGHT NOW. Loop runs flip
    *  this between ai-steps (no session ⇒ POST /messages would 409); live flips
@@ -89,6 +93,9 @@ export interface JobSummary {
    * undefined elsewhere. `title === null` means the ticket no longer exists.
    */
   tickets?: Array<{ id: number; title: string | null }>
+  /** First spec the job refers to and its title (list endpoint only; absent when the spec is gone). */
+  ticketId?: number
+  ticketTitle?: string
 }
 
 export interface EventRow {
@@ -412,6 +419,13 @@ export interface RailPrStateSnapshot {
   originConversationId: string | null
   /** Reviewer risk brief summary (absent without a brief). */
   riskSummary?: PrDeliveryRiskSummary
+  /** Flow → Spec stopped with requested changes (absent otherwise). */
+  flowReview?: PrDeliveryFlowReview
+  /** "Integrate locally" saved the person's uncommitted work as a stash (absent otherwise). */
+  localStash?: PrDeliveryLocalStash
+  /** The loop that produced this delivery (absent on older snapshots). */
+  loopId?: string | null
+  loopName?: string | null
   /** Durable generation ordering evidence for stale-snapshot arbitration. */
   createdAt?: string
   updatedAt?: string
@@ -456,13 +470,16 @@ export interface LocalTicket {
     /** Escaped-defect link: id of the delivery that introduced this bug. */
     regressionOf?: string
     /** Flow mode: the placeholder spec of a Flow. `active`/`paused` show the
-     *  board's "In Flow" label; `delivered` hides it. */
+     *  board's "In Flow" label; `delivered` and `closed` (a needs-review Flow
+     *  closed with its branch kept) hide it. */
     flow?: {
       conversationId?: string
       flowId?: string
-      state?: 'active' | 'paused' | 'delivered'
+      state?: 'active' | 'paused' | 'delivered' | 'closed'
       startedAt?: string
       chosenMode?: 'flow' | 'implement'
+      /** `existing`: the person's own spec started in Flow (restored on discard). */
+      origin?: 'existing'
     }
     /** Spec triage (launch-triage, schema 1.5): see features/specs/lib/spec-triage. */
     triage?: import('./features/specs/lib/spec-triage').SpecTriage
@@ -477,7 +494,7 @@ export interface LocalTicket {
   created_at: string
   updated_at: string
   created_by: string
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow'
+  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow' | 'rules'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), present only for Jira-sourced specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue. */
@@ -502,6 +519,9 @@ export interface LocalTicket {
   needs_review?: boolean
   /** Spec addenda: structured iteration notes next to the description (see lib/spec-addenda-core). */
   addenda?: SpecAddendum[]
+  /** Non-goals ("Out of scope", feedback-2026-10 task 3.2): shown under the
+   *  description; absent on older tickets. */
+  nonGoals?: string[]
 }
 
 // ─── Review packet (nontech-review-experience) ────────────────────────────────
@@ -575,6 +595,49 @@ export interface PrDeliveryRiskSummary {
   diagnostic: boolean
 }
 
+/** The person's uncommitted work "Integrate locally" saved as a git stash
+ *  (by commit sha); mirrors server PrDeliveryLocalStash. `needs_attention`:
+ *  re-applying it conflicted, so the stash is kept. */
+export interface PrDeliveryLocalStash {
+  sha: string
+  name: string
+  branch: string
+  state: 'saved' | 'restored' | 'needs_attention' | 'released'
+  restoreBranch: string | null
+  conflictPaths: string[]
+  /** Specrails' own server-side restoration on `restoreBranch` (absent until a conflict needed it). */
+  restore?: PrDeliveryLocalRestore
+  savedAt: string
+  updatedAt: string
+}
+
+/** Server-side restoration of a conflicting stash on its own branch + worktree;
+ *  mirrors server PrDeliveryLocalRestore. Nothing reaches the target branch
+ *  until the person brings it back. */
+export interface PrDeliveryLocalRestore {
+  status: 'resolving' | 'ready' | 'failed' | 'brought_back' | 'discarded'
+  branch: string
+  baseSha: string | null
+  commitSha: string | null
+  resolvedBy: 'clean' | 'resolver' | null
+  managedPaths: string[]
+  conflictPaths: string[]
+  files: Array<{ path: string; added: number | null; removed: number | null }>
+  detail: string | null
+  updatedAt: string
+}
+
+/** Flow → Spec stopped with requested changes; mirrors server PrDeliveryFlowReview.
+ *  `review`: the latest review rejected the work; `check`: the host checks still fail. */
+export interface PrDeliveryFlowReview {
+  reason: 'review' | 'check'
+  summary: string | null
+  issues: string[]
+  issuesOmitted: number
+  score: number | null
+  failingChecks: Array<{ command: string; exitCode: number | null }>
+}
+
 /** "What to look at": the reviewer's advisory brief merged across units (server PacketWhatToLookAt). */
 export interface PacketWhatToLookAt {
   risks: Array<{ ticketId: number; severity: ReviewRiskSeverity; area: string | null; whatToLookAt: string; ref: string | null }>
@@ -634,6 +697,39 @@ export interface ReviewPacket {
   derivation?: PacketDerivation | null
   /** Flow deliveries only: settlement effects (spec rewrite, Jira). */
   flowSettlement?: PacketFlowSettlement | null
+  /** "Requirements demonstrated X/Y" (Core specTrace); absent on older servers. */
+  requirementsDemonstrated?: PacketRequirementsDemonstrated | null
+  /** "Spec created where the work passed" (Core baselineOnTouch), one entry per unit. */
+  baseline?: PacketBaseline[] | null
+  /** "Needs human eyes": the project's human-only rules frozen at settle. */
+  needsHumanEyes?: Array<{ text: string; source: string | null }> | null
+}
+
+export interface PacketTraceTestRef { file: string; line: number | null }
+
+export interface PacketRequirementsDemonstrated {
+  demonstrated: number
+  total: number
+  touched: number
+  touchedDemonstrated: number
+  demonstratedList: Array<{ ticketId: number; id: string; name: string; tests: PacketTraceTestRef[] }>
+  undemonstratedList: Array<{ ticketId: number; id: string; name: string; reason: 'no-test' | 'not-executed' | 'failed'; touched: boolean }>
+  untaggedList: Array<{ ticketId: number; tag: string; file: string; line: number | null }>
+  withoutReceipt: boolean
+}
+
+export interface PacketBaseline {
+  ticketId: number
+  status: 'not-needed' | 'planned' | 'passed' | 'failed' | 'violated'
+  change: string | null
+  recordedAt: string | null
+  uncovered: string[]
+  covered: number
+  tests: string[]
+  receiptId: string | null
+  reason: string | null
+  capabilities: Array<{ capability: string; requirements: number; demonstrated: number }>
+  cost: { invocations: number; costUsd: number | null; inputTokens: number | null; outputTokens: number | null } | null
 }
 
 export type AgentActionKind = 'read' | 'write' | 'exec' | 'mcp' | 'network'

@@ -72,6 +72,6 @@ describe('ProjectReviewWipSection (review-wip-limit)', () => {
     const input = await screen.findByTestId('review-wip-input')
     fireEvent.change(input, { target: { value: '4' } })
     fireEvent.click(screen.getByTestId('review-wip-save'))
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not save the review limit', { description: 'reviewWipLimit must be an integer' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not save the review limit', expect.objectContaining({ description: 'reviewWipLimit must be an integer' })))
   })
 })

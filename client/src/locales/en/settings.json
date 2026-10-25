@@ -6,10 +6,11 @@
     "updateFailed": "Could not save the language preference"
   },
   "page": {
-    "title": "Project Settings"
+    "title": "Project Settings",
+    "loadFailed": "Couldn't load the project configuration"
   },
   "errors": {
-    "saveFailed": "Failed to save: {{message}}"
+    "saveFailed": "Failed to save"
   },
   "telemetry": {
     "title": "Pipeline Telemetry",
@@ -22,7 +23,7 @@
   },
   "prePrompt": {
     "title": "Rail Pre-prompt",
-    "description": "Extra project-specific instructions appended to implement rail jobs after the ticket context and before execution.",
+    "description": "Extra project-specific instructions appended to implement rail jobs after the spec context and before the run.",
     "label": "Pre-prompt",
     "placeholder": "Example: Prefer incremental changes, keep migrations backward compatible, and add tests for every rail change.",
     "helper": "Use this for stable project guidance that should accompany every rail implementation run.",
@@ -43,21 +44,19 @@
     "saveFailed": "Failed to save Freestyle pre-prompt"
   },
   "budget": {
-    "title": "Budget",
-    "description": "Set a daily spend cap for this project. The queue auto-pauses when the limit is hit.",
-    "dailyLabel": "Daily budget (USD)",
-    "dailyHelper": "Leave blank to disable. Spend is calculated over the last 24 hours.",
-    "dailyPlaceholder": "e.g. 5.00",
+    "title": "Spend limits",
+    "description": "Set a daily spend limit for this project. The queue auto-pauses when the limit is hit.",
+    "dailyLabel": "Daily limit",
+    "dailyHelper": "Spend is counted over the last 24 hours. The queue pauses when the limit is reached.",
     "perJobLabel": "Per-job cost alert (USD)",
     "perJobHelper": "Alert when a single job in this project exceeds this amount.",
     "perJobPlaceholder": "e.g. 0.50",
     "invalidNumber": "Enter a positive number or leave blank to disable",
-    "dailyRemoved": "Daily budget removed",
-    "dailySet": "Daily budget set to ${{amount}}",
     "perJobAlertDisabled": "Per-job cost alert disabled",
-    "alertSet": "Alert set for jobs over ${{amount}}",
-    "saveBudgetFailed": "Failed to save budget",
-    "saveThresholdFailed": "Failed to save threshold"
+    "alertSet": "Alert set for jobs over {{amount}}",
+    "saveThresholdFailed": "Failed to save threshold",
+    "dailyCurrent": "Currently {{amount}} a day",
+    "dailyNone": "No daily limit set"
   },
   "desktop": {
     "nav": {
@@ -76,32 +75,38 @@
       "subscriptionUsage": "Subscription usage"
     },
     "title": "Desktop Settings",
-    "description": "Manage registered projects and view Desktop information.",
+    "description": "Appearance, AI providers, updates and Desktop-wide preferences.",
     "registeredProjects": "Registered Projects",
     "noProjects": "No projects registered yet",
     "techUrlDescription": "Base URL for the specrails-tech API (default: http://localhost:3000)",
     "techUrlSaved": "specrails-tech URL saved",
     "techUrlSaveFailed": "Failed to save URL",
-    "budgetAlertsHeading": "Budget & Alerts",
-    "dailyBudgetLabel": "Desktop daily budget (USD)",
+    "budgetAlertsHeading": "Spend limits & alerts",
+    "dailyBudgetLabel": "Desktop daily limit",
     "dailyBudgetHelper": "Global daily spend limit across all projects. Queues auto-pause when exceeded.",
-    "dailyBudgetPlaceholder": "e.g. 10.00",
     "perJobHelper": "Alert when a single job exceeds this amount. Leave blank to disable.",
     "costAlertsDisabled": "Cost alerts disabled",
-    "dailyBudgetRemoved": "Desktop daily budget removed",
-    "dailyBudgetSet": "Desktop daily budget set to ${{amount}}",
-    "dailyBudgetSaveFailed": "Failed to save Desktop daily budget",
     "projectRemoved": "Project removed",
     "projectRemoveFailed": "Failed to remove project",
     "onboardingHeading": "Onboarding",
     "platformTour": "Platform Tour",
     "platformTourDescription": "Replay the welcome wizard to review key features.",
     "replayTour": "Replay Tour",
-    "terminalPanelHeading": "Terminal Panel",
     "infoHeading": "Desktop Information",
     "infoPort": "Port",
     "infoProjects": "Projects",
-    "infoDb": "Desktop DB"
+    "infoDb": "Desktop DB",
+    "removeProjectConfirmTitle": "Remove {{name}}?",
+    "removeProjectConfirmBody": "{{name}} is unregistered from Specrails and its running work stops. The repository files on disk are not deleted; you can add the folder again later.",
+    "navLabel": "Settings sections",
+    "navGroups": {
+      "personal": "Personal",
+      "agents": "Agents",
+      "system": "System"
+    },
+    "unsavedChanges": "Unsaved changes",
+    "dailyBudgetCurrent": "Currently {{amount}} a day",
+    "dailyBudgetNone": "No daily limit set"
   },
   "notifications": {
     "heading": "OS Notifications",
@@ -119,9 +124,7 @@
     "description": "Notify external tools (Slack, Zapier, CI/CD) on Desktop events. Requests are signed via <code>X-Specrails-Signature</code> when a secret is set.",
     "eventJobCompleted": "Job completed",
     "eventJobFailed": "Job failed",
-    "eventDailyBudgetExceeded": "Daily budget exceeded",
-    "statusOn": "on",
-    "statusOff": "off",
+    "eventDailyBudgetExceeded": "Daily limit exceeded",
     "disable": "Disable",
     "enable": "Enable",
     "sendTestPing": "Send test ping",
@@ -136,7 +139,10 @@
     "removed": "Webhook removed",
     "removeFailed": "Failed to remove webhook",
     "testPingSent": "Test ping sent",
-    "testPingFailed": "Failed to send test ping"
+    "testPingFailed": "Failed to send test ping",
+    "removeConfirmTitle": "Remove webhook?",
+    "removeConfirmBody": "{{url}} will stop receiving Desktop events.",
+    "urlLabel": "Webhook URL"
   },
   "terminal": {
     "title": "Terminal panel",
@@ -163,14 +169,14 @@
   "codeSection": {
     "heading": "Code section",
     "summaryLanguage": "Summary language",
-    "monthlyBudget": "Monthly budget (USD)",
-    "budgetHelper": "Cap on `surface=file-summary` spend per calendar month. User-initiated regenerations can override."
+    "monthlyBudget": "Monthly limit (USD)",
+    "budgetHelper": "Limit on `surface=file-summary` spend per calendar month. User-initiated regenerations can override."
   },
   "appearance": {
     "taglines": {
       "dracula": "The original — dark purple-tinted with vivid neon accents",
       "aurora-light": "Premium light — Linear-inspired indigo on warm off-white",
-      "obsidian-dark": "Premium dark — near-black blue-tinted with electric accents",
+      "obsidian-dark": "Graphite pro — neutral near-black with one muted violet accent",
       "specrails": "Brand theme — deep navy-indigo with saturated cyan accents",
       "code-rain": "Phosphor terminal — soft mint on green-tinted near-black",
       "galaxy": "Deep-space blue with a glowing blade trail"
@@ -182,7 +188,7 @@
   },
   "mobile": {
     "heading": "Mobile companion",
-    "description": "Control Specrails from the SpecRails Companion app on your phone, 100% over your local network. Off by default.",
+    "description": "Control Specrails from the SpecRails Companion app on your phone, 100% over your local network. Off by default. A paired phone can answer questions, resume, retry and create draft PRs from the inbox, as far as the MCP permission tiers allow; merging, discarding and settings stay on this computer.",
     "accessOn": "Mobile access on",
     "accessOff": "Mobile access off",
     "listeningOnPort": "Listening on port {{port}}",
@@ -193,12 +199,13 @@
     "reset": "Reset",
     "resetConfirm": "Reset the mobile identity? Every paired device will be revoked and must pair again.",
     "identityReset": "Mobile identity reset",
-    "enableFailed": "Could not enable mobile access: {{message}}",
-    "disableFailed": "Could not disable mobile access: {{message}}",
+    "enableFailed": "Could not enable mobile access",
+    "disableFailed": "Could not disable mobile access",
     "windowsFirewall": "Windows Firewall will ask to allow the SpecRails server on first enable — choose “Allow on private networks”.",
     "pairedDevices": "Paired devices",
     "noDevices": "No devices paired yet.",
-    "revokeDevice": "Revoke {{name}}"
+    "revokeDevice": "Revoke {{name}}",
+    "resetConfirmTitle": "Reset mobile identity?"
   },
   "pairWeb": {
     "title": "Pair web companion",
@@ -207,7 +214,7 @@
     "showThenScan": "After your phone scans this, tap “Scan phone's code” and point the camera at your phone.",
     "scanAnswer": "Scan phone's code",
     "scanning": "Point the camera at the code on your phone…",
-    "cameraFailed": "Camera unavailable: {{message}}",
+    "cameraFailed": "Camera unavailable",
     "notAnswer": "That QR isn't a pairing answer.",
     "connecting": "Connecting…",
     "paired": "✓ Paired",
@@ -231,10 +238,7 @@
     "affectsAll": "Applies to all projects — no restart needed.",
     "unavailable": "Core updates aren't available in this build.",
     "toastDone": "Specrails Core updated to {{version}}",
-    "toastError": "Core update failed: {{message}}",
     "toastUpToDate": "Specrails Core is up to date",
-    "toastCheckFailed": "Update check failed: {{message}}",
-    "loadFailed": "Could not refresh Core status. Retry",
     "runtime": "Runtime: {{version}}",
     "bundled": "Included in Desktop: {{version}}",
     "sources": {
@@ -245,14 +249,17 @@
       "global": "External CLI"
     },
     "repair": "Finish updating {{version}}",
-    "stableFallback": "specrails-core has no stable release yet, so Core follows Latest for now."
+    "stableFallback": "specrails-core has no stable release yet, so Core follows Latest for now.",
+    "updateFailed": "Core update failed",
+    "checkFailed": "Update check failed",
+    "loadError": "Could not refresh Core status."
   },
   "updateChannel": {
     "heading": "Update channel",
     "loading": "Loading channel…",
     "scope": "Applies to Specrails Desktop and the specrails-core framework.",
     "saved": "Update channel set to {{channel}}",
-    "saveFailed": "Could not change the update channel: {{message}}",
+    "saveFailed": "Could not change the update channel",
     "latest": {
       "label": "Latest",
       "description": "Every release as soon as it ships. Newest features and fixes first."
@@ -272,22 +279,25 @@
     "autoHint": "Checks automatically at launch and every 6 hours.",
     "unavailable": "App updates are only available in the desktop app.",
     "toastUpToDate": "Specrails Desktop is up to date",
-    "toastCheckFailed": "Update check failed: {{message}}",
+    "toastCheckFailed": "Update check failed",
     "stableUnavailable": "No release has been promoted to the Stable channel yet. Switch to Latest or try again later."
   },
   "projectDialog": {
     "title": "{{name}} — Settings",
-    "description": "Project-level configuration: prompts, branch, environment, budget, telemetry and terminal.",
+    "description": "Project-level configuration: prompts, branch, environment, limit, telemetry, rules and terminal.",
     "nav": {
       "general": "General",
       "branch": "Branch",
       "environment": "Environment",
-      "budget": "Budget",
+      "budget": "Spend limits",
       "telemetry": "Telemetry",
       "terminal": "Terminal",
       "agentRuntime": "Verification commands",
-      "subagents": "Sub-agents"
-    }
+      "subagents": "Sub-agents",
+      "rules": "Rules",
+      "recentlyDeleted": "Recently deleted"
+    },
+    "navLabel": "Project settings sections"
   },
   "integrationBranch": {
     "title": "Integration branch",
@@ -429,7 +439,7 @@
   },
   "reviewWip": {
     "title": "Review limit",
-    "description": "Cap how many deliveries can wait for your review at once, so new work does not pile up faster than you can decide it.",
+    "description": "Limit how many deliveries can wait for your review at once, so new work does not pile up faster than you can decide it.",
     "label": "Deliveries waiting for review",
     "help": "We suggest {{suggested}}: enough to keep rails busy while you review. Running deliveries, undecided ones and open PRs created by the app count. Changes to an existing delivery are always allowed. Leave it empty for no limit.",
     "placeholder": "No limit",
@@ -439,5 +449,100 @@
     "saved_other": "Review limit set to {{count}}",
     "removed": "Review limit removed",
     "saveFailed": "Could not save the review limit"
+  },
+  "anchoring": {
+    "title": "Existing-project anchoring",
+    "description": "Optional behaviours that help runs respect what the project already does. Each one needs a Core that supports it.",
+    "coreRequired": "The installed Core does not support this yet. Update Core to enable it.",
+    "saveFailed": "Could not save the setting",
+    "jiraPostClarifications": {
+      "label": "Post architect clarifications to Jira",
+      "description": "When a run pauses with the architect's questions, or proceeds on assumptions, post them as a comment on the linked Jira issue. A reply there is recorded on the spec as a clarification.",
+      "enabled": "Clarifications will be posted to Jira",
+      "disabled": "Clarifications will stay in Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline on touch",
+      "description": "When a change reaches code no spec describes, first write characterization tests (proven on the unchanged code) and a minimal as-built spec. Adds cost, reported apart.",
+      "enabled": "Baseline on touch enabled",
+      "disabled": "Baseline on touch disabled"
+    }
+  },
+  "rules": {
+    "title": "Project rules",
+    "description": "The checks this project already runs and every written rule, classified as enforced, automatable or human-only. Human-only rules appear in each review packet.",
+    "rerun": "Re-run inventory",
+    "running": "Running inventory…",
+    "coreRequired": "The installed Core does not support the rules inventory. Update Core to run it.",
+    "missing": "No inventory yet. Run it to list the project's gates and rules.",
+    "invalid": "The rules file could not be read: {{message}}",
+    "inventoryDone": "Rules inventory updated",
+    "inventoryFailed": "The rules inventory failed",
+    "specCreated": "Spec #{{id}} created",
+    "specFailed": "Could not create the spec",
+    "status": {
+      "automatable": "Automatable",
+      "humanOnly": "Human only",
+      "enforcedBy": "Enforced",
+      "unclassified": "Unclassified"
+    },
+    "generatedAt": "Generated {{date}}",
+    "gates_one": "{{count}} gate",
+    "gates_other": "{{count}} gates",
+    "gatesHint": "Plain gate commands are offered first as verification checks in the agent runtime settings when none are configured.",
+    "enforcedBy": "Enforced by {{check}}",
+    "proposedCheck": "Proposed check: {{check}}",
+    "createSpec": "Create spec",
+    "dropped_one": "{{count}} entry did not match the format and was skipped",
+    "dropped_other": "{{count}} entries did not match the format and were skipped",
+    "classification": {
+      "offline": "Rules were inventoried offline and are not classified yet. Re-run the inventory with a configured provider.",
+      "unavailable": "No provider is configured to classify the rules.",
+      "failed": "Classifying the rules failed.",
+      "empty": "No written rules were found.",
+      "unknown": "The rules are not classified."
+    },
+    "autoRunning": "The inventory is running after setup. This list updates when it finishes.",
+    "lastRun": {
+      "setupFailed": "The automatic inventory after setup failed ({{date}}).",
+      "manualFailed": "The last inventory run failed ({{date}}).",
+      "retryHint": "Fix the cause shown above, then re-run the inventory.",
+      "setupDone": "Inventoried automatically after setup."
+    }
+  },
+  "editorSection": {
+    "heading": "Editor",
+    "description": "The editor that “Open in editor” uses in the review packet. Stored on this computer.",
+    "label": "Open files in",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "JetBrains IDE"
+    }
+  },
+  "budgetMoved": "Limits are edited in Analytics ▸ Spend limits.",
+  "openBudget": "Open Spend limits",
+  "openSettings": "Open Settings",
+  "accessibility": {
+    "density": {
+      "title": "Density",
+      "description": "How much room cards and rows take. Applies to the board, the jobs list and the job story. A saved board view still keeps its own layout.",
+      "comfortable": "Comfortable",
+      "comfortableHint": "Roomy cards and rows",
+      "compact": "Compact",
+      "compactHint": "More specs and rows on screen",
+      "resetBoard": "Use this for the board too",
+      "resetBoardDone": "The board of this project now follows it."
+    },
+    "motion": {
+      "title": "Reduce motion",
+      "description": "Turn animations and transitions off inside Specrails, independently of your operating system.",
+      "system": "Follow system",
+      "systemHint": "Use your OS setting",
+      "reduce": "Reduce",
+      "reduceHint": "Always calm: no animation",
+      "full": "Full motion",
+      "fullHint": "Animate even if the OS asks for less"
+    }
   }
 }

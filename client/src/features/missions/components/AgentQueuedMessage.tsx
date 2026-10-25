@@ -7,6 +7,7 @@ import type { AgentAttachment } from '../lib/agent-api'
 import { AgentAttachmentChips, AgentContextInlineTokens } from './AgentMessage'
 import { AgentDeliveryReceipt } from './AgentDeliveryReceipt'
 
+import { notifyError } from '../../../lib/notify-error'
 /** Queue actions never interrupt the running turn or alter the composer's draft. */
 export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }: {
   item: AgentQueuedItem
@@ -15,7 +16,7 @@ export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }
   onEdit: (queueId: string) => void
 }) {
   const { t } = useTranslation('agent')
-  const { steerQueuedMessage, removeQueuedMessage } = useAgentChat()
+  const { steerQueuedMessage, removeQueuedMessage, send } = useAgentChat()
   const [menuOpen, setMenuOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
@@ -45,9 +46,25 @@ export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }
     try {
       const result = await (action === 'steer' ? steerQueuedMessage(item.queueId) : removeQueuedMessage(item.queueId))
       if (result === 'conflict') toast.info(t('queue.actionConflict'))
+      else if (action === 'remove') {
+        // Deleting is one click — give it one click back. Undo re-sends the
+        // same text and metadata; while a turn streams that re-queues it.
+        const { text, contextRefs, attachmentIds } = item
+        toast.success(t('queue.removed'), {
+          action: {
+            label: t('undo'),
+            onClick: () => {
+              void send(text, {
+                ...(contextRefs?.length ? { contextRefs } : {}),
+                ...(attachmentIds?.length ? { attachmentIds } : {}),
+              })
+            },
+          },
+        })
+      }
     } catch {
       // Failed actions retain the queued text, metadata and any unsaved edit.
-      toast.error(t('queue.actionFailed'))
+      notifyError(t('queue.actionFailed'))
     } finally {
       busyRef.current = false
       setBusy(false)
@@ -56,7 +73,7 @@ export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }
 
   return (
     <div className="flex justify-end" data-testid="agent-queued-message" data-queue-id={item.queueId}>
-      <div className="min-w-0 max-w-[85%] rounded-2xl rounded-br-sm border border-dashed border-border/70 bg-foreground/[0.03] text-sm text-foreground/75">
+      <div className="min-w-0 max-w-[85%] rounded-2xl rounded-br-sm border border-dashed border-border/70 bg-foreground/[0.03] text-sm text-muted-foreground">
         <div className="space-y-1 px-3.5 py-2">
           <div className="whitespace-pre-wrap"><AgentContextInlineTokens content={item.text} contextRefs={item.contextRefs} /></div>
           <AgentAttachmentChips conversationId={conversationId} attachments={attachments} />
@@ -64,7 +81,7 @@ export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }
         <div className="flex items-center justify-end gap-1 border-t border-border/40 px-2 py-1.5">
           <div className="mr-auto pl-1.5"><AgentDeliveryReceipt receipt={item.deliveryReceipt ?? 'sent'} /></div>
           <button type="button" disabled={locked} onClick={() => void perform('steer')} title={t('queue.steerHint')}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium hover:bg-foreground/5 disabled:opacity-40">
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-label hover:bg-foreground/5 disabled:opacity-40">
             <CornerUpRight className="h-3.5 w-3.5" />{t('queue.steer')}
           </button>
           <button type="button" disabled={locked} onClick={() => void perform('remove')} aria-label={t('queue.remove')} title={t('queue.remove')}

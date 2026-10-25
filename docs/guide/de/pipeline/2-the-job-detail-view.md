@@ -107,6 +107,18 @@ Wenn [Telemetrie](../settings/customizing) für den Job aktiviert war, erscheint
 
 Praktisch, um einen Lauf mit einem Teammitglied zu teilen oder einen präzisen Fehlerbericht einzureichen.
 
+## Wenn ein Lauf fehlschlägt
+
+Wenn ein Job fehlschlägt, stoppt oder blockiert ist, beginnt der Endzustand mit einer **Diagnosekarte**, die in klaren Worten sagt, was passiert ist, zum Beispiel *Tests sind in der Phase Reviewer nach 4 Korrekturrunden fehlgeschlagen*, und warum, wenn die App es weiß:
+
+- **Tests fehlgeschlagen**: Die Prüfungen schlagen nach den Korrekturrunden weiter fehl.
+- **Anbieterlimit**: Das Nutzungslimit des KI-Anbieters ist erreicht. Die Karte nennt den Zeitpunkt des Zurücksetzens in den Worten des Anbieters.
+- **Umgebung**: Der Rechner kann die Prüfungen nicht ausführen (Zugangsdaten, fehlendes Werkzeug, fehlschlagender Setup-Befehl). *Umgebung reparieren* zeigt genau, was auszuführen oder zu ändern ist.
+- **Blockiert**, **Zeit überschritten**, **stumm geblieben** und **unerwartet gestoppt** nennen das Limit oder den Prozess, der den Lauf angehalten hat.
+- **Unbekannte Ursache**: Die App rät nicht. Sie zeigt das Ende des Protokolls, damit du es selbst lesen kannst.
+
+Unter der Diagnose stehen bis zu drei gereihte Abhilfen, und nur solche, die hier funktionieren können: **Fortsetzen ab** der angehaltenen Phase, **Erneut ausführen**, **Spec bearbeiten und neu starten** (die Nachträge der Spec tragen deine Änderung in den nächsten Lauf), **Umgebung reparieren** und **Protokoll am Fehler öffnen**. Dieselbe Ursache erscheint als einzeilige Bezeichnung im [Liste „Offen“](../getting-started/the-dashboard-tour), und die Lauf-Karte der Mission zeigt dieselbe Karte.
+
 ## Wie es weitergeht
 
 - [Rails & Jobs](rails-and-jobs) — Starten und Einreihen in die Queue.

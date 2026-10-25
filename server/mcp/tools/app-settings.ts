@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setDesktopSetting } from '../../desktop-db'
+import { DESKTOP_CAP_KEYS } from '../../modules/execution/adapters/budget-storage'
 import type { McpToolSpec } from './types'
 import { isMcpEnabled, isTierEnabled } from '../mcp-tiers'
 import { apiCall } from './types'
@@ -44,6 +45,9 @@ export function appTools(): McpToolSpec[] {
           .nullable()
           .optional()
           .describe('APP-WIDE daily budget cap USD across all projects; null clears it. Per-project caps live in specrails_analytics(budget_set).'),
+        weeklyBudgetUsd: z.number().min(0).nullable().optional().describe('APP-WIDE weekly cap USD across all projects (week starts Monday local); null clears it.'),
+        monthlyBudgetUsd: z.number().min(0).nullable().optional().describe('APP-WIDE monthly cap USD across all projects (local calendar month); null clears it.'),
+        runCapUsd: z.number().min(0).nullable().optional().describe('APP-WIDE default per-run soft cap USD: a loop run pauses when its provider-reported cost reaches it; null clears it.'),
         costAlertThresholdUsd: z.number().min(0).nullable().optional(),
         projectId: z.string().optional().describe('get: also report this project\'s "Allow sub-agents" setting'),
         summaryLanguage: z
@@ -80,6 +84,9 @@ export function appTools(): McpToolSpec[] {
             theme,
             language: getDesktopSetting(db, 'ui_language') ?? null,
             dailyBudgetUsd: num(getDesktopSetting(db, 'desktop_daily_budget_usd')),
+            weeklyBudgetUsd: num(getDesktopSetting(db, DESKTOP_CAP_KEYS.week)),
+            monthlyBudgetUsd: num(getDesktopSetting(db, DESKTOP_CAP_KEYS.month)),
+            runCapUsd: num(getDesktopSetting(db, DESKTOP_CAP_KEYS.run)),
             costAlertThresholdUsd: num(getDesktopSetting(db, 'cost_alert_threshold_usd')),
             // Code Explorer settings (same keys + defaults as GET /api/code-explorer-settings)
             summaryLanguage: getDesktopSetting(db, 'summary_language') === 'es' ? 'es' : 'en',
@@ -110,6 +117,9 @@ export function appTools(): McpToolSpec[] {
         if (args.dailyBudgetUsd !== undefined) {
           writeNumOrClear(db, 'desktop_daily_budget_usd', args.dailyBudgetUsd as number | null)
           changed.push('dailyBudgetUsd')
+        }
+        for (const [field, key] of [['weeklyBudgetUsd', DESKTOP_CAP_KEYS.week], ['monthlyBudgetUsd', DESKTOP_CAP_KEYS.month], ['runCapUsd', DESKTOP_CAP_KEYS.run]] as const) {
+          if (args[field] !== undefined) { writeNumOrClear(db, key, args[field] as number | null); changed.push(field) }
         }
         if (args.costAlertThresholdUsd !== undefined) {
           writeNumOrClear(db, 'cost_alert_threshold_usd', args.costAlertThresholdUsd as number | null)
@@ -172,5 +182,5 @@ function writeNumOrClear(db: Parameters<typeof setDesktopSetting>[0], key: strin
 
 async function projectSubagentSettings(ctx: Parameters<typeof apiCall>[0], projectId: string) {
   const settings = (await apiCall(ctx, 'GET', `/projects/${encodeURIComponent(projectId)}/settings`)) as { allowSubagents?: boolean; subagentRuntime?: unknown }
-  return { projectAllowSubagents: settings.allowSubagents === true, projectSubagentRuntime: settings.subagentRuntime ?? null }
+  return { projectAllowSubagents: settings.allowSubagents !== false, projectSubagentRuntime: settings.subagentRuntime ?? null }
 }

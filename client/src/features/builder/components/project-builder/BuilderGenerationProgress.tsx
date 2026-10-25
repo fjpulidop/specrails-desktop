@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
-import { Loader2, Sparkles, Wrench } from 'lucide-react'
+import { Sparkles, Wrench } from 'lucide-react'
 import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
+import { RailTrack } from '../../../../components/brand/RailTrack'
 // Live generation feedback (harden-project-builder-snapshots). While the M1
 // batch streams in, the raw JSON is hidden by the tail cut — so for up to a
 // minute the user used to stare at a static "Thinking…" chip. This surfaces
@@ -38,14 +40,14 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
 
   return (
     <div
-      className="inline-flex max-w-full flex-col gap-1.5 rounded-xl border border-border/50 bg-surface/60 px-3 py-2 text-xs text-foreground/80"
+      className="inline-flex max-w-full flex-col gap-1.5 rounded-xl border border-border/50 bg-surface/60 px-3 py-2 text-xs text-foreground"
       data-testid="builder-generation-progress"
       data-phase={repairing ? 'repairing' : generation ? `generation-${generation.phase}` : 'generating'}
       role="status"
       aria-live="polite"
     >
       <div className="flex items-center gap-2">
-        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-info" aria-hidden />
+        <LiveDot tone="info" size="xs" aria-hidden />
         <Icon className="h-3 w-3 shrink-0 text-accent-primary" aria-hidden />
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
@@ -60,7 +62,7 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
           </motion.span>
         </AnimatePresence>
         {generation && generation.totalTurns > 0 && (
-          <span className="rounded-full bg-muted/60 px-2 py-px font-mono text-[10px] text-muted-foreground" data-testid="builder-generation-turn">
+          <span className="rounded-full bg-muted/60 px-2 py-px font-mono text-caption text-muted-foreground" data-testid="builder-generation-turn">
             {t('generation.turn', { turn: generation.turn, total: generation.totalTurns })}
           </span>
         )}
@@ -72,7 +74,7 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.14 }}
-              className="rounded-full bg-accent-primary/10 px-2 py-px font-mono text-[10px] text-accent-primary"
+              className="rounded-full bg-accent-primary/10 px-2 py-px font-mono text-caption text-accent-primary"
               data-testid="builder-generation-count"
             >
               {t('generation.specCount', { n: specsStarted })}
@@ -80,14 +82,7 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
           </AnimatePresence>
         )}
       </div>
-      <div className="h-1 w-56 max-w-full overflow-hidden rounded-full bg-border/40" aria-hidden>
-        <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-accent-primary/70 to-accent-highlight/80"
-          initial={{ width: '6%' }}
-          animate={{ width: `${Math.round(ratio * 100)}%` }}
-          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-        />
-      </div>
+      <RailTrack progress={Math.max(0.06, ratio)} className="w-56 max-w-full" />
     </div>
   )
 }

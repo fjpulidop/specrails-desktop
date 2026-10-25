@@ -5,7 +5,8 @@
   "emptySettled": "Für diesen Lauf wurde keine Aktivität erfasst.",
   "waiting": {
     "range": "Solche Läufe dauerten {{low}}–{{high}} min (letzte {{count}})",
-    "elapsed": "Läuft seit {{minutes}} min"
+    "elapsed": "Läuft seit {{minutes}} min",
+    "took": "Dauerte {{minutes}} min"
   },
   "aiNote": "Aus dem erstellt, was während des Laufs tatsächlich passiert ist.",
   "step": {
@@ -25,7 +26,33 @@
     "stalled": "Schritt {{step}} hing – {{idleMinutes}} Min. ohne Aktivität, daher hat die App ihn beendet",
     "startResume": "Schritt {{step}}: {{title}} – Fortsetzung nach einem Hänger",
     "providerLimit": "Schritt {{step}} gestoppt — das Nutzungslimit des Anbieters ist erreicht",
-    "recovered": "Schritt {{step}} nach dem Fortsetzen abgeschlossen"
+    "recovered": "Schritt {{step}} nach dem Fortsetzen abgeschlossen",
+    "durationSec": "{{seconds}} s",
+    "durationMin": "{{minutes}} Min."
+  },
+  "steps": {
+    "architect": "Änderung entwerfen",
+    "confidence": "Vertrauen prüfen",
+    "validate": "Plan validieren",
+    "freeze": "Plan festlegen",
+    "initialize-corrections": "Korrekturen vorbereiten",
+    "developer": "Umsetzen",
+    "developer-blocker": "Blocker prüfen",
+    "tasks": "Aufgaben abarbeiten",
+    "verify": "Verifizieren",
+    "review": "Prüfen",
+    "ship": "Ausliefern",
+    "reviewer": "Änderung prüfen",
+    "review-policy": "Prüfrichtlinie anwenden",
+    "correction-context": "Zu behebende Punkte sammeln",
+    "capture-review": "Prüfergebnis festhalten",
+    "correction-budget": "Wiederholungsbudget prüfen",
+    "begin-correction": "Korrekturrunde starten",
+    "fixer": "Gemeldete Punkte beheben",
+    "correction-blocker": "Auf Blocker prüfen",
+    "correction-progress": "Fortschritt der Korrekturen verfolgen",
+    "approval-policy": "Freigabeentscheidung anwenden",
+    "verify-archive": "Archivierte Änderung prüfen"
   },
   "decision": {
     "another": "Noch nicht fertig — nächste Runde",
@@ -82,5 +109,8 @@
       "invalidated": "Vorheriges Ergebnis ungültig: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "Korrekturrunde {{round}} von {{total}}",
+  "checks_one": "+1 Prüfung",
+  "checks_other": "+{{count}} Prüfungen"
 }

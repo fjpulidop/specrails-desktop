@@ -19,6 +19,7 @@ import { appendEvent } from './db'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
 import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
+import { getLaunchForecast } from './modules/execution/runtime/launch-forecast'
 import { loadConstantMap } from './modules/loops/runtime/loop-constants'
 import { getAdapter, hasAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
 import { isReasoningEffortValidForModel } from './providers/runtime'
@@ -28,6 +29,7 @@ import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from
 import { resolveProjectExecution } from './workspace-resolution'
 import { referencesUnsupportedProviderCommand } from './modules/loops/runtime/loop-command-catalog'
 import { newId } from './ids'
+import { readRunDiagnosis } from './modules/recovery/adapters/sqlite'
 import type { ReasoningEffort } from './providers/types'
 import { getProjectRepositories, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from './project-repositories'
 import { launchMultiRepositoryRail } from './modules/delivery/runtime/multi-repo-execution'
@@ -56,7 +58,12 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     // rail-loop-budget-guard: a resident run paused on the daily budget (either
     // engine) resumes in place once the budget allows the next step.
     if (run && run.project_id === c.project.id && c.loopRunManager.budgetPause?.(runId)) {
-      const resumed = c.loopRunManager.resumeBudgetPause(runId)
+      // A per-run soft cap is answered explicitly: `{ runCap: 'ignore' }` continues
+      // without it, `{ runCapUsd: n }` raises it. Anything else leaves it standing.
+      const body = (req.body ?? {}) as { runCap?: unknown; runCapUsd?: unknown }
+      const choice = body.runCap === 'ignore' ? { ignore: true as const }
+        : typeof body.runCapUsd === 'number' && Number.isFinite(body.runCapUsd) && body.runCapUsd > 0 ? { raiseTo: body.runCapUsd } : undefined
+      const resumed = c.loopRunManager.resumeBudgetPause(runId, choice)
       if (resumed.status === 'over_budget') { res.status(409).json(resumed.rejection); return }
       if (resumed.status === 'resumed') { res.status(202).json({ loopRunId: runId, resumed: true }); return }
     }
@@ -191,11 +198,14 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       !run.provider
       || !hasAdapter(run.provider)
       || getAdapter(run.provider).capabilities.reportsUsage !== false
+    const { failure_diagnosis: _stored, ...publicRun } = run
+    const failureDiagnosis = (() => { try { return readRunDiagnosis(c.db, run.id) } catch { return null } })()
     res.json({
       loopRun: usageAvailable
-        ? { ...run, usage_available: true }
+        ? { ...publicRun, failureDiagnosis, usage_available: true }
         : {
-            ...run,
+            ...publicRun,
+            failureDiagnosis,
             total_cost_usd: null,
             total_tokens: null,
             usage_available: false,
@@ -219,11 +229,39 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     res.json({ range, minSamples: MIN_DURATION_SAMPLES })
   })
 
+  // Launch forecast ("Usually 6-9 min · $2-4 for runs like this"): the same
+  // measured samples as run-duration-range, narrowed to the provider about to
+  // run, plus a provider-reported cost band and the tightest daily budget's
+  // headroom. Read-only. `time`/`cost` are null below the sample floor — the
+  // caller MUST say "Not enough history yet", never guess. Costs here are an
+  // estimate from past runs, never a billed figure.
+  router.get('/:projectId/launch-forecast', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const text = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null)
+    const loopId = text(req.query.loopId)
+    const command = text(req.query.command)
+    const provider = text(req.query.provider)
+    if (!loopId && !command) {
+      res.status(400).json({ error: 'loopId or command is required' }); return
+    }
+    if (provider && !/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(provider)) {
+      res.status(400).json({ error: 'provider is invalid' }); return
+    }
+    const forecast = getLaunchForecast(c.db, c.project.id, {
+      loopId,
+      commandShape: command ? jobCommandShape(command) : null,
+      provider,
+    })
+    res.json({ ...forecast, budget: c.dailyBudgetHeadroom?.() ?? null })
+  })
+
   router.post('/:projectId/loop-runs', async (req: Request, res: Response) => {
     if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
     const c = ctx(req)
     const body = req.body ?? {}
     const { loopId, aiEngine, provider: providerAlias, reasoning_effort, model: requestedModel } = body
+    // Per-launch override of the per-run soft cap: a number > 0 caps this run, 0 waives the default.
+    const runCapUsd = typeof body.runCapUsd === 'number' && Number.isFinite(body.runCapUsd) && body.runCapUsd >= 0 ? body.runCapUsd : undefined
 
     if (typeof loopId !== 'string' || !loopId) {
       res.status(400).json({ error: 'loopId is required' }); return
@@ -372,6 +410,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
         provider,
         model,
         effort,
+        ...(runCapUsd !== undefined ? { runCapUsd } : {}),
       })
       .then((r) => c.onLoopRunFinished(r.runId, r.outcome, r.stallReason ? { stallReason: r.stallReason } : undefined))
       .catch((err) => {

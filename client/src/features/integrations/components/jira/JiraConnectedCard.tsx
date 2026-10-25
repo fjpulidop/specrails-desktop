@@ -2,10 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../../components/ui/button'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
+import { Switch } from '../../../../components/ui/switch'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { JiraOutboxPanel } from './JiraOutboxPanel'
 import { jiraApi, type ConnectionState, type JiraStatusOption, type SpecLogicalState } from '../../lib/jira-api'
+import { JiraStatusSelect } from './JiraStatusSelect'
 
+import { notifyError } from '../../../../lib/notify-error'
 const STATE_KEYS: SpecLogicalState[] = ['todo', 'in_progress', 'on_review', 'done', 'cancelled']
 const STATE_LABEL: Record<SpecLogicalState, string> = {
   todo: 'todo',
@@ -35,6 +39,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
   const [enabled, setEnabled] = useState(connection.enabled)
   const [syncing, setSyncing] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [outboxRefresh, setOutboxRefresh] = useState(0)
   const [statuses, setStatuses] = useState<JiraStatusOption[]>([])
   const [discardStatus, setDiscardStatus] = useState(connection.discardStatus ?? '')
@@ -76,7 +81,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
     } catch (e) {
       if (!alive.current) return
       setDiscardStatus(prev)
-      toast.error(errMsg(e, t))
+      notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     }
   }
 
@@ -94,7 +99,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
     } catch (e) {
       if (!alive.current) return
       setStatusMap(prev)
-      toast.error(errMsg(e, t))
+      notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     }
   }
 
@@ -108,7 +113,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
     } catch (e) {
       if (!alive.current) return
       setEnabled(!next)
-      toast.error(errMsg(e, t))
+      notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     } finally {
       if (alive.current) setBusy(false)
     }
@@ -122,14 +127,13 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
       toast.success(t('status.syncedToast', { count: r.upserted }))
       setOutboxRefresh((value) => value + 1)
     } catch (e) {
-      if (alive.current) toast.error(errMsg(e, t))
+      if (alive.current) notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     } finally {
       if (alive.current) setSyncing(false)
     }
   }
 
   async function disconnect() {
-    if (!window.confirm(t('status.disconnectConfirm'))) return
     setBusy(true)
     try {
       if (apiBase) await jiraApi.disconnect(apiBase)
@@ -138,7 +142,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
       toast.success(t('status.disconnectedToast'))
       onChanged()
     } catch (e) {
-      if (alive.current) toast.error(errMsg(e, t))
+      if (alive.current) notifyError(t('errors.generic'), { detail: e instanceof Error ? e.message : undefined })
     } finally {
       if (alive.current) setBusy(false)
     }
@@ -163,17 +167,13 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
           <p className="text-sm font-medium">{t('status.enabledLabel')}</p>
           <p className="text-xs text-muted-foreground">{enabled ? t('status.enabledHelp') : t('status.pausedHelp')}</p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
+        <Switch
+          checked={enabled}
+          onCheckedChange={() => void toggle()}
+          onClassName="bg-accent-success"
           aria-label={t('status.enabledLabel')}
           disabled={busy}
-          onClick={toggle}
-          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${enabled ? 'bg-accent-success' : 'bg-input'}`}
-        >
-          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-background shadow-sm transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-        </button>
+        />
       </div>
 
       <div className="rounded-md border border-border p-3" data-testid="jira-status-map">
@@ -190,20 +190,15 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
           {STATE_KEYS.map((s) => (
             <label key={s} className="flex items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">{t(`mapping.${STATE_LABEL[s]}`)}</span>
-              <select
+              <JiraStatusSelect
                 value={statusMap[s] ?? ''}
-                onChange={(e) => void changeStatusMap(s, e.target.value)}
-                className="w-44 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                onChange={(value) => void changeStatusMap(s, value)}
+                statuses={statuses}
+                emptyLabel={t('mapping.auto')}
+                className="w-44"
+                aria-label={t(`mapping.${STATE_LABEL[s]}`)}
                 data-testid={`jira-statusmap-${s}`}
-              >
-                <option value="">{t('mapping.auto')}</option>
-                {statuses.map((st) => (
-                  <option key={st.id} value={st.name}>{st.name}</option>
-                ))}
-                {statusMap[s] && !statuses.some((st) => st.name === statusMap[s]) && (
-                  <option value={statusMap[s]}>{statusMap[s]}</option>
-                )}
-              </select>
+              />
             </label>
           ))}
         </div>
@@ -212,36 +207,39 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
       <div className="rounded-md border border-border p-3">
         <p className="text-sm font-medium">{t('discard.configLabel')}</p>
         <p className="mt-0.5 mb-2 text-xs text-muted-foreground">{t('discard.configHelp')}</p>
-        <select
+        <JiraStatusSelect
           value={discardStatus}
-          onChange={(e) => void changeDiscardStatus(e.target.value)}
-          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+          onChange={(value) => void changeDiscardStatus(value)}
+          statuses={statuses}
+          emptyLabel={t('discard.configNone')}
+          aria-label={t('discard.configLabel')}
           data-testid="jira-discard-status-select"
-        >
-          <option value="">{t('discard.configNone')}</option>
-          {statuses.map((st) => (
-            <option key={st.id} value={st.name}>{st.name}</option>
-          ))}
-          {discardStatus && !statuses.some((s) => s.name === discardStatus) && (
-            <option value={discardStatus}>{discardStatus}</option>
-          )}
-        </select>
+        />
       </div>
 
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={syncNow} disabled={syncing}>
           {syncing ? t('status.syncing') : t('status.syncNow')}
         </Button>
-        <Button variant="ghost" size="sm" onClick={disconnect} disabled={busy} className="text-destructive">
+        <Button variant="ghost" size="sm" onClick={() => setConfirmDisconnect(true)} disabled={busy} className="text-destructive">
           {t('status.disconnect')}
         </Button>
       </div>
 
       <JiraOutboxPanel projectId={connection.projectId} baseUrl={connection.baseUrl} apiBase={apiBase} initialCounts={state.outbox} refreshToken={outboxRefresh} />
+
+      <ConfirmDialog
+        open={confirmDisconnect}
+        onOpenChange={setConfirmDisconnect}
+        title={t('status.disconnectConfirmTitle')}
+        description={t('status.disconnectConfirm')}
+        confirmLabel={t('status.disconnect')}
+        onConfirm={() => {
+          setConfirmDisconnect(false)
+          void disconnect()
+        }}
+      />
     </div>
   )
 }
 
-function errMsg(e: unknown, t: (k: string) => string): string {
-  return e instanceof Error ? e.message : t('errors.generic')
-}

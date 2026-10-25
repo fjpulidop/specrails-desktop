@@ -137,6 +137,10 @@ export interface NotifyMissionRunFailureInput extends RunCardIdentity {
   outputTail?: string | null
   hasDelivery?: boolean
   prDeliveryId?: string | null
+  /** True ⇒ update the card only: another owner posts its own trace and
+   * briefs the agent (a failed Flow → Spec run goes back to its Flow, whose
+   * return card and automatic turn carry the failure). Default false. */
+  cardOnly?: boolean
 }
 
 export interface NotifyMissionRunFailureResult {
@@ -163,6 +167,7 @@ export async function notifyMissionRunFailure(input: NotifyMissionRunFailureInpu
     : buildRunCardEnvelope(input, { phase: 'settled', decision: input.failure.code === 'cancelled' ? 'discarded' : 'implementation_failed', runtime, statusCode: input.failure.code, statusDetail: input.failure.detail })
   let card = false
   try { mgr.updatePrDecisionCard(origin, envelope); card = true } catch (err) { console.error('[mission-run] card update failed:', err) }
+  if (input.cardOnly) return { card, row: null, turn: 'skipped' }
   const rowPayload: RunFailureRow = {
     kind: 'run-failure', runId: input.runId, railIndex: input.railIndex, projectId: input.projectId,
     prDeliveryId: envelope.prDeliveryId, ticketIds: input.ticketIds,

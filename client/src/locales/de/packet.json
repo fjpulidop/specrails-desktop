@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} von {{total}} Änderungen sind fertig",
     "noChanges": "Es musste nichts geändert werden",
     "failed": "Das konnte nicht abgeschlossen werden",
-    "failedPartial": "Nur ein Teil konnte abgeschlossen werden"
+    "failedPartial": "Nur ein Teil konnte abgeschlossen werden",
+    "generic": "Prüfe die gelieferte Änderung"
   },
   "confidence": {
     "pill": "Sicherheit des KI-Reviewers {{overall}}/100",
@@ -20,7 +21,8 @@
   },
   "cost": {
     "thisBuild": "Diese Arbeit kostete {{amount}}",
-    "allVersions": "Alle Versionen zusammen: {{amount}}"
+    "allVersions": "Alle Versionen zusammen: {{amount}}",
+    "baselinePart": " · davon Baseline {{amount}}"
   },
   "accept": {
     "create-pr": "Annehmen und Pull Request öffnen",
@@ -41,7 +43,9 @@
   },
   "discard": {
     "label": "Verwerfen",
-    "stackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit."
+    "stackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit.",
+    "confirmTitle": "Diese Lieferung verwerfen?",
+    "confirmBody": "Die Lieferung und ihre Änderungen werden verworfen. Das lässt sich nicht rückgängig machen."
   },
   "watchOut": {
     "title": "Vor dem Annehmen ansehen"
@@ -242,5 +246,155 @@
     "run": "Lauf {{id}}",
     "download": "{{format}}",
     "downloadFailed": "Die Agentenaktionen konnten nicht heruntergeladen werden"
+  },
+  "requirements": {
+    "title": "Nachgewiesene Anforderungen {{demonstrated}}/{{total}}",
+    "touched": "Von dieser Änderung berührt: {{demonstrated}}/{{total}} nachgewiesen",
+    "caveat": "Von Specrails gemessen: Eine Anforderung zählt, wenn ein mit ihrer ID markierter Test in einer erfolgreichen Verifikation lief. Nur ein Hinweis; die Prüfung ändert sich nicht.",
+    "caveatNoReceipt": "Hinter einem Teil dieser Spur steht kein Verifikationsbeleg, daher zählen diese Anforderungen noch nicht als nachgewiesen.",
+    "undemonstratedTitle_one": "{{count}} Anforderung nicht nachgewiesen",
+    "undemonstratedTitle_other": "{{count}} Anforderungen nicht nachgewiesen",
+    "demonstratedTitle_one": "{{count}} Anforderung nachgewiesen",
+    "demonstratedTitle_other": "{{count}} Anforderungen nachgewiesen",
+    "reason": {
+      "no-test": "kein markierter Test",
+      "not-executed": "markierter Test lief nicht",
+      "failed": "markierter Test schlug fehl"
+    },
+    "touchedBadge": "hier geändert",
+    "untagged_one": "{{count}} Test-Markierung passt zu keiner Anforderung ({{tags}}): Tippfehler oder umbenannte Anforderung.",
+    "untagged_other": "{{count}} Test-Markierungen passen zu keiner Anforderung ({{tags}}): Tippfehler oder umbenannte Anforderungen.",
+    "showAll_one": "{{count}} weitere anzeigen",
+    "showAll_other": "{{count}} weitere anzeigen",
+    "showLess": "Weniger anzeigen"
+  },
+  "baseline": {
+    "title": "Spec für den Code erstellt, den die Arbeit berührt hat",
+    "status": {
+      "planned": "Baseline geplant: {{requirements}} Ist-Anforderungen, {{tests}} Charakterisierungstests",
+      "passed": "Baseline am unveränderten Code bestätigt: {{requirements}} Ist-Anforderungen, {{tests}} Charakterisierungstests",
+      "failed": "Baseline blockiert: Die Charakterisierungstests liefen am unveränderten Code nicht durch, daher wurde das Modul nicht bearbeitet",
+      "violated": "Baseline blockiert: Der Baseline-Schritt hat Code außer Tests geändert, daher wurde der Lauf gestoppt",
+      "not-needed": "Keine Baseline nötig: Specs decken den berührten Code bereits ab"
+    },
+    "module": "Beschriebenes Modul:",
+    "more_one": "und {{count}} weitere Datei",
+    "more_other": "und {{count}} weitere Dateien",
+    "spec": "Ist-Spec:",
+    "capability": "{{capability}} ({{demonstrated}}/{{requirements}} nachgewiesen)",
+    "cost": "Baseline-Kosten {{amount}} in {{turns}} Turns, getrennt von der Änderung gezählt",
+    "costUnknown": "Baseline-Kosten vom Anbieter nicht gemeldet",
+    "caveat": "Charakterisierungstests beschreiben das heutige Verhalten; Core hat sie vor jeder Änderung am unveränderten Code ausgeführt."
+  },
+  "humanEyes": {
+    "title_one": "Menschliche Prüfung nötig: {{count}} Projektregel",
+    "title_other": "Menschliche Prüfung nötig: {{count}} Projektregeln",
+    "caveat": "Für dieses Projekt geschriebene Regeln, die keine automatische Prüfung durchsetzen kann. Prüfe sie selbst, bevor du annimmst."
+  },
+  "tabs": {
+    "label": "Ansichten der Prüfung",
+    "overview": "Übersicht",
+    "changes": "Änderungen"
+  },
+  "changes": {
+    "tab": "Änderungen",
+    "loading": "Änderungen werden geladen…",
+    "error": "Die Änderungen konnten nicht geladen werden.",
+    "refresh": "Änderungen neu laden",
+    "empty": "Diese Lieferung hat keine Dateien geändert.",
+    "unavailable": {
+      "not_a_repository": "Der Projektordner ist kein Git-Repository, daher gibt es nichts zu vergleichen.",
+      "no_branch": "Diese Lieferung hat noch keinen Branch zum Vergleichen.",
+      "head_missing": "Der Branch der Lieferung existiert in diesem Repository nicht mehr.",
+      "base_missing": "Der Branch, auf dem diese Lieferung basierte, existiert nicht mehr; die Änderungen lassen sich nicht messen.",
+      "git_failed": "Git konnte die Änderungen dieser Lieferung nicht ermitteln."
+    },
+    "summary": "Geänderte Dateien: {{count}}",
+    "viewedCount": "{{viewed}} von {{total}} angesehen",
+    "truncatedList": "Es werden nur die ersten {{count}} Dateien angezeigt.",
+    "source": "Änderungen von",
+    "sourceDelivery": "Gesamte Lieferung",
+    "sourceTicket": "Spec #{{id}}",
+    "tree": {
+      "label": "Geänderte Dateien"
+    },
+    "status": {
+      "added": "Hinzugefügt",
+      "modified": "Geändert",
+      "deleted": "Gelöscht",
+      "renamed": "Umbenannt",
+      "copied": "Kopiert",
+      "typechange": "Typ geändert"
+    },
+    "renamedFrom": "Umbenannt von {{path}}",
+    "binaryShort": "binär",
+    "binary": "Binärdatei: Es gibt keinen Text-Diff.",
+    "noTextChanges": "Keine Zeilenänderungen (nur Name oder Modus der Datei wurden geändert).",
+    "fileError": "Der Diff dieser Datei konnte nicht geladen werden.",
+    "largeDiff": "Angezeigt werden die ersten {{shown}} von {{total}} geänderten Zeilen.",
+    "loadFull": "Vollständigen Datei-Diff laden",
+    "viewed": {
+      "mark": "Als angesehen markieren",
+      "unmark": "Angesehen",
+      "changedSince": "Seit dem Ansehen geändert"
+    },
+    "mode": {
+      "label": "Diff-Darstellung",
+      "unified": "Vereint",
+      "split": "Geteilt"
+    },
+    "diff": {
+      "region": "Diff von {{path}}"
+    },
+    "line": {
+      "select": "Zeile {{n}} auswählen",
+      "selectOld": "Ursprüngliche Zeile {{n}} auswählen",
+      "added": "hinzugefügt",
+      "removed": "entfernt"
+    },
+    "selection": {
+      "clear": "Auswahl aufheben"
+    },
+    "ask": {
+      "button": "Änderung beim Agenten anfragen",
+      "title": "Was soll sich ändern in",
+      "placeholder": "Beschreibe die gewünschte Änderung…",
+      "ticket": "Spec",
+      "submit": "Zur Spec hinzufügen",
+      "hint": "Wird als Review-Feedback an der Spec gespeichert; der nächste Lauf dazu erhält es.",
+      "created": "Als Review-Feedback zu Spec #{{id}} hinzugefügt.",
+      "open": "Spec öffnen",
+      "failed": "Die Notiz konnte nicht zur Spec hinzugefügt werden."
+    },
+    "editor": {
+      "open": "In {{editor}} öffnen",
+      "rootRepository": "Öffnet die Datei in deinem Checkout des Projekts; der Review-Branch ist dort womöglich nicht ausgecheckt.",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      },
+      "failed": "{{editor}} konnte nicht geöffnet werden. Ist es installiert? Ändere es unter Einstellungen ▸ Code."
+    },
+    "annotations": {
+      "title": "Keiner Zeile zugeordnet ({{count}})",
+      "ask": "Änderung beim Agenten anfragen",
+      "source": {
+        "reviewer-finding": "Befund des Reviewers",
+        "review-risk": "Zu prüfendes Risiko",
+        "review-untested": "Nicht durch Tests abgedeckt",
+        "follow-up-comment": "Review-Kommentar"
+      },
+      "severity": {
+        "high": "Hoch",
+        "medium": "Mittel",
+        "low": "Niedrig"
+      }
+    },
+    "keys": {
+      "files": "Dateien",
+      "annotations": "Anmerkungen",
+      "viewed": "als angesehen markieren"
+    }
   }
 }

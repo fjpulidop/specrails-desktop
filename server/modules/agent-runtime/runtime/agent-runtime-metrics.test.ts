@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyRuntimeSelectionOrigins, readRuntimeEfficiency, readRuntimeEfficiencySummary, type EfficiencyTotals } from './agent-runtime-metrics'
+import { applyRuntimeSelectionOrigins, readRuntimeBaselineSpend, readRuntimeEfficiency, readRuntimeEfficiencySummary, type EfficiencyTotals } from './agent-runtime-metrics'
 import summaryContract from '../../../schemas/fixtures/runtime-efficiency-summary.v1.json'
 
 const total: EfficiencyTotals = { attempts: 1, measuredAttempts: 1, durationMs: 1000, agentDurationMs: 800, providerCalls: 1, toolCalls: 2, inputTokens: 100, outputTokens: 10, costUsd: null, uncachedInputTokens: 20, cacheReadInputTokens: 80, cacheWriteInputTokens: null }
@@ -52,4 +52,17 @@ it('accepts packaged Core summary fixtures without a sibling checkout and strips
   expect(readRuntimeEfficiencySummary(contract.fixtures['incomplete-metrics'])!.invocations.complete).toBe(false)
   expect(readRuntimeEfficiencySummary(contract.fixtures.reuse)!.checks.durationMs).toBe(0)
   expect(readRuntimeEfficiencySummary(contract.fixtures['unavailable-evidence'])!.checks.executed).toBeNull()
+})
+
+it('accepts the contract 5.7 baseline invocation kind and keeps the baseline spend apart', () => {
+  const fixture = Object.values(summaryContract.fixtures)[0] as Record<string, any>
+  const withBaseline = { ...fixture, invocations: { ...fixture.invocations, byKind: { ...fixture.invocations.byKind, baseline: 2 } }, baseline: { invocations: 2, roles: ['architect', 'developer', 7], costUsd: 0.5, inputTokens: null, outputTokens: 10 } }
+  const parsed = readRuntimeEfficiencySummary(withBaseline)
+  expect(parsed?.invocations.byKind.baseline).toBe(2)
+  expect(parsed?.baseline).toEqual({ invocations: 2, roles: ['architect', 'developer'], costUsd: 0.5, inputTokens: null, outputTokens: 10 })
+  expect(readRuntimeEfficiencySummary({ ...withBaseline, invocations: { ...withBaseline.invocations, byKind: { ...withBaseline.invocations.byKind, baseline: -1 } } })).toBeUndefined()
+  expect(readRuntimeEfficiencySummary({ ...fixture, invocations: { ...fixture.invocations, byKind: { ...fixture.invocations.byKind, other: 1 } } })).toBeUndefined()
+  expect(readRuntimeEfficiencySummary(fixture)?.baseline).toBeUndefined()
+  expect(readRuntimeBaselineSpend({ invocations: 1.5 })).toBeUndefined()
+  expect(readRuntimeBaselineSpend(null)).toBeUndefined()
 })

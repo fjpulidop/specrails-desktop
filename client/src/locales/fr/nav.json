@@ -10,35 +10,42 @@
       "pinnedOpen": "Replier la barre latérale droite (garder épinglée)",
       "pinnedCollapsed": "Désépingler la barre latérale droite",
       "unpinned": "Épingler la barre latérale droite ouverte"
-    }
+    },
+    "resize": "Redimensionner la barre latérale"
   },
   "projects": {
     "addProject": "Ajouter un projet",
     "remove": "Supprimer {{name}}",
     "confirmRemove": "Confirmer la suppression de {{name}}",
-    "confirmShort": "confirmer ?",
+    "confirmShort": "Retirer ?",
     "added": "Projet ajouté : {{name}}",
     "removed": "Projet supprimé",
     "expand": "Développer {{name}}",
     "collapse": "Réduire {{name}}",
     "settings": "Paramètres de {{name}}",
     "assembling": "Préparation du workspace…",
-    "assembleFailed": "Échec de préparation du workspace — cliquer pour réessayer"
+    "assembleFailed": "Échec de préparation du workspace — cliquer pour réessayer",
+    "retrySetup": "Relancer la configuration",
+    "removeConfirmHint": "Appuyez de nouveau pour retirer {{project}}"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "Docs",
-    "analytics": "Analytics",
+    "analytics": "Analytics de tous les projets",
     "companion": "Companion",
-    "settings": "Paramètres",
+    "settings": "Paramètres de l'app",
     "plugins": "Plugins",
-    "review": "Revue"
+    "review": "Revue",
+    "landmark": "Projets et missions",
+    "resize": "Redimensionner la barre latérale",
+    "sectionTools": "Espace de travail",
+    "sectionProjects": "Projets"
   },
   "globalSurfaceModal": {
-    "loopsDescription": "Loops est ouvert comme modal Mission.",
-    "pluginsDescription": "Plugins est ouvert comme modal Mission.",
-    "reviewDescription": "Le dossier de revue est ouvert en modal de mission."
+    "loopsDescription": "Loops est ouvert dans la fenêtre Mission.",
+    "pluginsDescription": "Plugins est ouvert dans la fenêtre Mission.",
+    "reviewDescription": "Le dossier de revue est ouvert dans la fenêtre de la mission."
   },
   "rightSidebar": {
     "projectTitle": "Projet",
@@ -48,7 +55,8 @@
     "agents": "Agents",
     "code": "Code",
     "integrations": "Intégrations",
-    "settings": "Paramètres"
+    "settings": "Paramètres du projet",
+    "landmark": "Navigation du projet"
   },
   "navbar": {
     "home": "Accueil",
@@ -67,26 +75,36 @@
     "connectionRestored": "Connexion rétablie"
   },
   "titleBar": {
-    "searchShortcut": "Rechercher (⌘K)",
+    "searchShortcut": "Rechercher ({{shortcut}})",
     "searchPlaceholder": "Rechercher…",
     "minimizeWindow": "Réduire la fenêtre",
     "maximizeWindow": "Agrandir la fenêtre",
     "closeWindow": "Fermer la fenêtre",
-    "restoreWindow": "Restaurer la fenêtre"
+    "restoreWindow": "Restaurer la fenêtre",
+    "history": "Historique de navigation",
+    "back": "Précédent",
+    "forward": "Suivant",
+    "backTo": "Retour à {{place}}",
+    "forwardTo": "Avancer vers {{place}}",
+    "backMenu": "Lieux précédents",
+    "forwardMenu": "Lieux suivants",
+    "searchIn": "Rechercher dans {{project}}"
   },
   "costAlerts": {
     "costAlertTitle": "Alerte de coût",
-    "costAlertDescription": "Coût du job : {{cost}} $ — le seuil est de {{threshold}} $",
+    "costAlertDescription": "Coût du job : {{cost}} — le seuil est de {{threshold}}",
     "dailyBudgetTitle": "Budget quotidien dépassé",
-    "dailyBudgetDescription": "{{spent}} $ dépensés sur {{budget}} $ aujourd'hui. File d'attente en pause.",
+    "dailyBudgetDescription": "{{spent}} dépensés sur {{budget}} aujourd'hui. File d'attente en pause.",
     "desktopBudgetTitle": "Budget quotidien de Desktop dépassé",
-    "desktopBudgetDescription": "Dépense totale de Desktop : {{spent}} $ sur {{budget}} $. File d'attente en pause.",
-    "bannerMessage": "Budget quotidien dépassé — {{spent}} $ dépensés sur {{budget}} $. La file d'attente est en pause.",
+    "desktopBudgetDescription": "Dépense totale de Desktop : {{spent}} sur {{budget}}. File d'attente en pause.",
+    "bannerMessage": "Budget quotidien dépassé — {{spent}} dépensés sur {{budget}}. La file d'attente est en pause.",
     "dismiss": "Ignorer"
   },
   "errorBoundary": {
     "title": "Une erreur est survenue",
-    "occurredIn": "Une erreur s'est produite dans <strong>{{name}}</strong>"
+    "occurredIn": "Une erreur s'est produite dans <strong>{{name}}</strong>",
+    "description": "Cette vue a cessé de fonctionner. Réessayez pour la recharger ; le reste de votre travail n’est pas affecté.",
+    "details": "Détails techniques"
   },
   "healthWidget": {
     "healthLabel": "santé",
@@ -123,5 +141,41 @@
     "active": "Empêche la veille automatique. L’écran peut s’éteindre.",
     "inactive": "Veille normale autorisée.",
     "failed": "Impossible de modifier la veille."
+  },
+  "skipToContent": "Aller au contenu principal",
+  "places": {
+    "routes": {
+      "dashboard": "Tableau de bord",
+      "jobs": "Tâches",
+      "analytics": "Analytique",
+      "activity": "Activité",
+      "agents": "Agents",
+      "code": "Code",
+      "integrations": "Intégrations",
+      "settings": "Paramètres du projet",
+      "docs": "Documentation",
+      "loops": "Loops",
+      "plugins": "Plugins"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Mission",
+    "missionTitled": "Mission · {{title}}",
+    "job": "Tâche {{id}}",
+    "review": "Paquet de revue",
+    "inbox": "À traiter",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugins",
+      "docs": "Documentation",
+      "analytics": "Analytique de tous les projets"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "Cette spec n'existe plus, elle a été ignorée.",
+      "mission": "Cette mission n'existe plus, elle a été ignorée.",
+      "job": "Cette tâche n'existe plus, elle a été ignorée.",
+      "review": "Ce paquet de revue n'existe plus, il a été ignoré."
+    }
   }
 }

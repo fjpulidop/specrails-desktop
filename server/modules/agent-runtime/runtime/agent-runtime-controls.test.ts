@@ -214,6 +214,19 @@ describe('agent runtime lifecycle', () => {
     expect(listLoopStepRecoveries(db)).toEqual([])
   })
 
+  it('carries the reviewer verdict in the diagnosis, live and historical (read-only, never throws)', async () => {
+    const reviewer = vi.fn(async () => ({ source: 'retained-run' as const, review: { approved: false, score: 58, issues: ['Tag the tests'], issuesOmitted: 0, summary: 'Blocked', scopedReviewCount: 1 }, failingChecks: [{ command: 'npm test', exitCode: 1 }], derivation: null, flowOutcome: 'review' as const }))
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, reviewer })
+    status.mockResolvedValue({ runId: 'run-1', status: 'failed', nextStep: 'reviewer', steps: {}, recentFailures: [] })
+    expect(await service.diagnose('run-1')).toMatchObject({ reviewer: { review: { approved: false, score: 58, issues: ['Tag the tests'] }, failingChecks: [{ command: 'npm test' }] } })
+    expect(reviewer).toHaveBeenCalledWith('run-1')
+    fs.unlinkSync(contextPath)
+    expect(await service.diagnose('run-1')).toMatchObject({ recommendation: 'inspect_saved_evidence', reviewer: { review: { score: 58 } } })
+    reviewer.mockRejectedValueOnce(new Error('core gone'))
+    expect(await service.diagnose('run-1')).toMatchObject({ reviewer: null })
+    expect(execute).not.toHaveBeenCalled()
+  })
+
   it('keeps unknown history unknown and distinguishes approval, interruptions and delivery', async () => {
     expect(await service.diagnose('run-1')).toMatchObject({ recommendation: 'inspect_and_approve', repeatFailureCount: null })
     status.mockResolvedValue({ runId: 'run-1', status: 'interrupted', nextStep: 'developer', steps: { developer: { status: 'interrupted' } } })

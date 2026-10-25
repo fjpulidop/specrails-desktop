@@ -1,0 +1,131 @@
+{
+  "entry": {
+    "try": "Provalo su un progetto di esempio",
+    "cost": "Dare un'occhiata è gratis. Eseguire una spec costa circa {{usd}} (≈ stima).",
+    "local": "Dare un'occhiata è gratis. Gira sul tuo motore locale, senza costi API.",
+    "recordedOnly": "Nessun provider di IA è ancora pronto, quindi puoi guardare un'esecuzione registrata."
+  },
+  "dialog": {
+    "title": "Prova Specrails su un progetto di esempio",
+    "description": "Un piccolo gioco e tre spec già pronte. Vedrai una spec percorrere un rail fino a un pacchetto di revisione, senza toccare il tuo codice.",
+    "gets": {
+      "repo": "Un piccolo gioco web ({{name}}) nel suo repository git",
+      "specs": "Tre spec già pronte sulla tua bacheca",
+      "nothingRuns": "Non viene eseguito nulla finché non premi Esegui"
+    },
+    "folder": "Cartella",
+    "folderHint": "Creata qui, nella tua cartella personale. Una cartella esistente non viene mai sovrascritta.",
+    "choose": "Scegli cartella",
+    "chooseTitle": "Scegli dove creare l'esempio",
+    "runLater": "Quando eseguirai una spec più avanti",
+    "localAlso": "Anche il tuo motore locale ({{engine}}) è disponibile, senza costi API.",
+    "noProvider": "Nessun provider di IA è ancora pronto. Puoi comunque creare l'esempio e guardare un'esecuzione registrata.",
+    "notSignedIn": "Il tuo provider di IA è installato ma non ha effettuato l'accesso. Puoi comunque creare l'esempio e guardare un'esecuzione registrata.",
+    "create": "Crea progetto di esempio",
+    "creating": "Creazione…",
+    "errors": {
+      "path_exists": "Quella cartella esiste già. Scegline un'altra.",
+      "outside_home": "L'esempio deve trovarsi nella tua cartella personale.",
+      "generic": "Impossibile creare il progetto di esempio. Riprova."
+    }
+  },
+  "cost": {
+    "minutes": "circa {{low}}–{{high}} min",
+    "local": "Nessun costo API: gira sul tuo motore locale · {{time}} (stima)",
+    "plan": "Usa il tuo piano, nessun costo extra · {{time}} (stima)",
+    "metered": "≈ {{usd}} · {{time}} (stima)",
+    "unknown": "≈ {{usd}} se fatturato a consumo · {{time}} (stima)",
+    "using": "Modalità rapida con {{model}} su {{provider}}",
+    "cap": "Si ferma e chiede prima di superare {{cap}}."
+  },
+  "guide": {
+    "label": "Guida del progetto di esempio",
+    "stepCount": "Passo {{current}} di {{total}}",
+    "dismiss": "Chiudi la guida",
+    "back": "Indietro",
+    "next": "Avanti",
+    "done": "Fatto",
+    "ending": "Questo è tutto il ciclo. Ora applicalo al tuo codice.",
+    "addOwn": "Ora aggiungi il tuo progetto",
+    "remove": "Rimuovi l'esempio"
+  },
+  "steps": {
+    "spec": {
+      "title": "La spec",
+      "body": "Queste tre spec sono scritte per te. Ognuna dice cosa costruire e come capire che è finita."
+    },
+    "rail": {
+      "title": "Il rail",
+      "body": "Un rail porta una spec fino a una modifica completa: la scrive, la testa e poi si ferma per te. Avvia la prima."
+    },
+    "review": {
+      "title": "La revisione",
+      "body": "Nulla viene unito da solo. Quando l'esecuzione finisce, un pacchetto di revisione mostra cosa è cambiato e ti lascia accettarlo o scartarlo."
+    }
+  },
+  "run": {
+    "noProvider": "Su questo computer nessun provider di IA è pronto, quindi un'esecuzione reale non è ancora possibile. Un'esecuzione registrata mostra lo stesso percorso.",
+    "notSignedIn": "Il tuo provider di IA non ha effettuato l'accesso, quindi un'esecuzione reale non è ancora possibile. Un'esecuzione registrata mostra lo stesso percorso.",
+    "watchRecording": "Guarda un'esecuzione registrata",
+    "recheck": "Controlla di nuovo",
+    "recordingNote": "È una registrazione: nulla viene eseguito e nulla viene addebitato.",
+    "started": "Avviata. Richiede circa {{low}}–{{high}} min; seguila nel rail.",
+    "engine": "Esegui su",
+    "engineLocal": "Motore locale ({{provider}})",
+    "engineCloud": "{{provider}}",
+    "cta": "Esegui la prima spec",
+    "launching": "Avvio…",
+    "preparing": "Preparazione dello spazio di lavoro del progetto. Ci vuole un attimo.",
+    "workspaceFailed": "Impossibile preparare lo spazio di lavoro.",
+    "retryWorkspace": "Riprova",
+    "overBudget": "Il budget di oggi è già stato raggiunto. Aumentalo in Analisi ▸ Budget, poi riprova.",
+    "failed": "Impossibile avviare l'esecuzione. Riprova.",
+    "failedDetail": "Impossibile avviare l'esecuzione: {{detail}}"
+  },
+  "pill": {
+    "label": "Progetto di esempio",
+    "showGuide": "Mostra la guida"
+  },
+  "remove": {
+    "title": "Rimuovere il progetto di esempio?",
+    "description": "Esce dai tuoi progetti. La cartella resta sul disco, a meno che tu non la elimini qui sotto.",
+    "deleteFolder": "Elimina anche la cartella dell'esempio",
+    "irreversible": "L'eliminazione dei file non può essere annullata.",
+    "confirm": "Rimuovi l'esempio",
+    "confirmDelete": "Rimuovi ed elimina la cartella",
+    "failed": "Impossibile rimuovere il progetto di esempio."
+  },
+  "toast": {
+    "created": "Il progetto di esempio «{{name}}» è pronto",
+    "reopened": "Progetto di esempio «{{name}}» aperto",
+    "removed": "Progetto di esempio rimosso",
+    "removedDeleted": "Progetto di esempio e relativa cartella rimossi"
+  },
+  "recording": {
+    "title": "Un'esecuzione registrata",
+    "description": "Come appare una prima esecuzione completata, dalla spec al pacchetto di revisione.",
+    "badge": "Registrazione: nulla è in esecuzione e nulla viene addebitato",
+    "logLabel": "Registro dell'esecuzione registrata",
+    "lines": {
+      "setup": "Preparazione dell'ambiente",
+      "specPhase": "Fase: scrivere la modifica",
+      "specDone": "Modifica scritta per «Aggiungere un pulsante Ricomincia»",
+      "implementPhase": "Fase: implementare",
+      "implementDone": "La build passa · 4 file modificati",
+      "testPhase": "Fase: test",
+      "testDone": "5 test superati",
+      "reviewPhase": "Fase: revisione",
+      "shipped": "PRONTO PER LA REVISIONE · fiducia 91/100"
+    },
+    "packet": {
+      "title": "Pacchetto di revisione (registrato)",
+      "summary": "{{tests}} test superati · fiducia {{confidence}}/100. La modifica attende la tua decisione.",
+      "decision": "In un'esecuzione reale decidi qui: accettare la modifica o scartarla. Nulla viene unito senza di te."
+    },
+    "replay": "Riproduci di nuovo",
+    "close": "Chiudi"
+  },
+  "help": {
+    "replayTour": "Rivedi il tour"
+  }
+}

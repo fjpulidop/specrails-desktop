@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, Terminal as TerminalIcon, X } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { getMarks } from '../../../../lib/command-mark-store'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
 import type { TerminalRef } from '../../context/TerminalsContext'
 
 interface TerminalSidebarProps {
@@ -13,8 +15,10 @@ interface TerminalSidebarProps {
 }
 
 export function TerminalSidebar({ sessions, activeId, onActivate, onRename, onKill }: TerminalSidebarProps) {
+  const { t } = useTranslation('terminal')
   return (
     <aside
+      aria-label={t('sidebar.label')}
       className={cn(
         'w-44 shrink-0 border-l border-border/40 bg-background/70',
         'overflow-y-auto',
@@ -48,6 +52,7 @@ function SidebarItem({ session, active, onActivate, onRename, onKill }: SidebarI
   const { t } = useTranslation('terminal')
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(session.name)
+  const [confirmClose, setConfirmClose] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -70,6 +75,14 @@ function SidebarItem({ session, active, onActivate, onRename, onKill }: SidebarI
     setEditing(true)
   }
 
+  // Busy = shell integration reported a command that has started (pre-exec)
+  // but not finished (post-exec). Idle prompts close without friction; shells
+  // without integration never report busy, so they also close directly.
+  function requestKill() {
+    if (getMarks(session.id).openPreExec) setConfirmClose(true)
+    else onKill()
+  }
+
   function cancel() {
     setEditing(false)
     setDraft(session.name)
@@ -77,44 +90,51 @@ function SidebarItem({ session, active, onActivate, onRename, onKill }: SidebarI
 
   return (
     <li className="relative group px-1">
+      {/* The row is a plain container: the session button and the row actions
+          are siblings, never interactive elements nested in a button. */}
       <div
-        role="button"
-        tabIndex={0}
-        aria-pressed={active}
-        onClick={() => { if (!editing) onActivate() }}
-        onKeyDown={(e) => {
-          if (editing) return
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate() }
-        }}
         onDoubleClick={startEditing}
         className={cn(
-          'flex items-center gap-2 px-2 py-1.5 rounded-md text-xs cursor-pointer select-none',
+          'flex items-center gap-1 pr-1 rounded-md text-xs select-none',
           'transition-colors duration-120',
           active
-            ? 'bg-border/40 text-foreground border-l-2 border-accent-primary/70 pl-[calc(0.5rem-2px)]'
+            ? 'bg-accent-primary/10 text-foreground'
             : 'text-muted-foreground hover:bg-border/20 hover:text-foreground',
         )}
       >
-        <TerminalIcon className="h-3 w-3 shrink-0" />
         {editing ? (
-          <input
-            ref={inputRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); commit() }
-              if (e.key === 'Escape') { e.preventDefault(); cancel() }
-            }}
-            onBlur={commit}
-            onClick={(e) => e.stopPropagation()}
-            maxLength={64}
-            className={cn(
-              'flex-1 min-w-0 bg-background/60 border border-border/40 rounded px-1',
-              'text-xs text-foreground outline-none focus:ring-1 focus:ring-accent-primary/60',
-            )}
-          />
+          <div className="flex flex-1 min-w-0 items-center gap-2 py-1.5 pl-2">
+            <TerminalIcon className="h-3 w-3 shrink-0" aria-hidden />
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); commit() }
+                if (e.key === 'Escape') { e.preventDefault(); cancel() }
+              }}
+              onBlur={commit}
+              onClick={(e) => e.stopPropagation()}
+              maxLength={64}
+              className={cn(
+                'flex-1 min-w-0 bg-background/60 border border-border/40 rounded px-1',
+                'text-xs text-foreground outline-none focus:ring-1 focus:ring-accent-primary/60',
+              )}
+            />
+          </div>
         ) : (
-          <span className="flex-1 truncate">{session.name}</span>
+          <button
+            type="button"
+            onClick={onActivate}
+            aria-current={active ? 'true' : undefined}
+            className={cn(
+              'flex flex-1 min-w-0 items-center gap-2 py-1.5 pl-2 rounded-md text-left cursor-pointer',
+              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2',
+            )}
+          >
+            <TerminalIcon className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="flex-1 truncate">{session.name}</span>
+          </button>
         )}
         {!editing && (
           <button
@@ -123,8 +143,8 @@ function SidebarItem({ session, active, onActivate, onRename, onKill }: SidebarI
             title={t('sidebar.rename', { name: session.name })}
             onClick={(e) => { e.stopPropagation(); startEditing() }}
             className={cn(
-              'inline-flex items-center justify-center h-4 w-4 rounded',
-              'text-muted-foreground opacity-0 group-hover:opacity-100',
+              'inline-flex shrink-0 items-center justify-center h-5 w-5 rounded',
+              'text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100',
               'hover:bg-border/40 hover:text-foreground',
               'transition-opacity duration-120',
               active && 'opacity-70',
@@ -137,10 +157,10 @@ function SidebarItem({ session, active, onActivate, onRename, onKill }: SidebarI
           type="button"
           aria-label={t('sidebar.close', { name: session.name })}
           title={t('sidebar.close', { name: session.name })}
-          onClick={(e) => { e.stopPropagation(); onKill() }}
+          onClick={(e) => { e.stopPropagation(); requestKill() }}
           className={cn(
-            'inline-flex items-center justify-center h-4 w-4 rounded',
-            'text-muted-foreground opacity-0 group-hover:opacity-100',
+            'inline-flex shrink-0 items-center justify-center h-5 w-5 rounded',
+            'text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100',
             'hover:bg-destructive/20 hover:text-destructive',
             'transition-opacity duration-120',
             active && 'opacity-70',
@@ -149,6 +169,14 @@ function SidebarItem({ session, active, onActivate, onRename, onKill }: SidebarI
           <X className="h-3 w-3" />
         </button>
       </div>
+      <ConfirmDialog
+        open={confirmClose}
+        onOpenChange={setConfirmClose}
+        title={t('sidebar.closeRunningConfirm', { name: session.name })}
+        description={t('sidebar.closeRunningBody')}
+        confirmLabel={t('common:actions.close')}
+        onConfirm={() => { setConfirmClose(false); onKill() }}
+      />
     </li>
   )
 }

@@ -15,7 +15,7 @@
     "modeDescription": {
       "quick": "Décrivez la fonctionnalité ou le changement. Joignez des maquettes, des briefs ou des données pour plus de contexte.",
       "explore": "Décrivez une idée approximative. L’assistant IA sélectionné vous aidera à la façonner par la conversation — vous décidez quand la valider.",
-      "raw": "Votre prompt, tel quel — enregistré comme ticket de spec. Aucune IA n'est lancée maintenant ; glissez-le sur un rail pour le construire."
+      "raw": "Votre prompt, tel quel — enregistré comme spec. Aucune IA n'est lancée maintenant ; glissez-la sur un rail pour la construire."
     },
     "editorPlaceholder": {
       "quick": "ex. Ajouter un toggle de mode sombre à la page des réglages, qui persiste la préférence de l'utilisateur…",
@@ -59,8 +59,11 @@
       "generating": "Génération…",
       "failedToStart": "{{projectName}} · Échec du démarrage",
       "unsupportedFileType": "Type de fichier non pris en charge : {{name}}",
-      "uploadFailed": "Échec de l'upload de {{name}} : {{message}}"
-    }
+      "uploadFailed": "Échec de l'upload de {{name}}"
+    },
+    "contextSummary": "Contexte : {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "Contexte : {{preset}}",
+    "costEstimateTitle": "Coût estimé de la génération de cette spec avec le modèle et le contexte choisis"
   },
   "featureProposal": {
     "title": "Proposer une fonctionnalité",
@@ -127,7 +130,7 @@
       "contract": "contract"
     },
     "checks": {
-      "specrailsLabel": "tickets specrails",
+      "specrailsLabel": "specs specrails",
       "openspecLabel": "specs openspec",
       "fullLabel": "Codebase complet",
       "mcpLabel": "MCP du projet",
@@ -139,7 +142,8 @@
       "providerUnsupported": "Indisponible pour {{provider}}",
       "contractLabel": "Enrichir avec le Contract Layer",
       "contractHint": "affinage post-commit · active SMASH"
-    }
+    },
+    "costTier": "Niveau de coût : {{tier}}"
   },
   "aiEngine": {
     "label": "Moteur IA",

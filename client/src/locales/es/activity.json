@@ -2,7 +2,7 @@
   "feed": {
     "title": "Actividad",
     "emptyTitle": "Aún no hay actividad",
-    "emptyHint": "Los eventos de los jobs aparecerán aquí cuando se ejecuten",
+    "emptyHint": "Los eventos de los trabajos aparecerán aquí cuando se ejecuten",
     "allLoaded": "Toda la actividad cargada",
     "typeStarted": "Iniciado",
     "phaseCommand": "Fase: {{phase}} → {{state}}",
@@ -26,8 +26,8 @@
     "refining": "Refinando contrato…",
     "retryRejected": "Reintento rechazado",
     "retryRejectedWithError": "Reintento rechazado: {{error}}",
-    "retryFailed": "Reintento fallido: {{message}}",
-    "skipped": "Contract Layer omitido — el ticket se ha guardado sin él",
+    "retryFailed": "Reintento fallido",
+    "skipped": "Contract Layer omitido — la spec se ha guardado sin él",
     "reason": "Motivo: {{reason}}",
     "added": "Contract Layer añadido · {{title}}"
   },
@@ -44,11 +44,11 @@
     "undoAction": "Deshacer",
     "undone": "SMASH deshecho",
     "undoFailed": "No se pudo deshacer",
-    "undoFailedWithReason": "No se pudo deshacer: {{reason}}",
+    "undoFailedWithReason": "No se pudo deshacer",
     "retrying": "Reintentando SMASH…",
     "couldNotRetry": "No se pudo reintentar",
     "couldNotRetryWithReason": "No se pudo reintentar: {{reason}}",
-    "retryFailed": "Reintento fallido: {{message}}",
+    "retryFailed": "Reintento fallido",
     "couldNotComplete": "SMASH no pudo completarse",
     "failReason": {
       "invalidOutput": "El agente devolvió una salida no válida",
@@ -59,11 +59,11 @@
     },
     "couldNotStart": "No se pudo iniciar SMASH",
     "couldNotStartWithReason": "No se pudo iniciar SMASH: {{reason}}",
-    "smashFailed": "SMASH falló: {{message}}",
+    "smashFailed": "SMASH falló",
     "couldNotDeleteChildren": "No se pudieron eliminar las Sub-Specs actuales",
-    "deleteFailed": "Error al eliminar: {{message}}",
-    "smashButton": "SMASH: dividir la spec en Sub-Specs",
-    "reSmashButton": "Re-SMASH"
+    "deleteFailed": "Error al eliminar",
+    "smashButton": "Dividir en sub-specs",
+    "reSmashButton": "Volver a dividir en sub-specs"
   },
   "smashModal": {
     "title": "SMASH: dividir la spec en Sub-Specs",
@@ -89,19 +89,21 @@
     },
     "starting": "Iniciando…",
     "confirmReSmash": "Confirmar Re-SMASH",
-    "smash": "SMASH"
+    "smash": "SMASH",
+    "description": "SMASH divide esta spec en Sub-Specs más pequeñas que se pueden implementar y revisar de una en una. La spec original pasa a ser su épica."
   },
   "family": {
-    "subSpecsHeader": "Sub-Specs ({{count}})",
+    "subSpecsHeader": "Subspecs ({{count}})",
     "emptySubSpecs": "No hay Sub-Specs. Usa Re-SMASH para regenerarlas.",
     "familyHeader_one": "Familia ({{count}} Sub-Spec)",
     "familyHeader_other": "Familia ({{count}} Sub-Specs)",
     "noSiblings": "No hay specs hermanas.",
     "openParentEpic": "Abrir Epic padre {{title}}",
-    "openSubSpec": "Abrir Sub-Spec {{title}}"
+    "openSubSpec": "Abrir Sub-Spec {{title}}",
+    "priority": "Prioridad: {{p}}"
   },
   "epicChildren": {
-    "header": "Sub-Specs ({{count}})",
+    "header": "Subspecs ({{count}})",
     "empty": "No hay Sub-Specs. Este Epic se vació — usa Re-SMASH para regenerarlas.",
     "step": "· paso {{order}} de {{total}}"
   }

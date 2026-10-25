@@ -38,7 +38,7 @@ That's it. The rail spins up an AI CLI process in the right execution context an
 | **Profile picker** | Which provider-scoped agent profile runs (Claude rails). Only appears once the effective provider has at least one profile. |
 | **▶ Play / ■ Stop** | Start or cancel. |
 
-### What a rail runs: Loops
+### What a rail runs: Loops {#rail-loops}
 
 A rail runs a **Loop** — the recipe for the work. Two loops are **built in** and cover the common cases:
 
@@ -85,7 +85,26 @@ If something looks wrong:
 - **Auto-pause on budget** — set a daily budget and the queue pauses itself when that day's spend hits the cap.
 - **Everything** — quit the desktop app, or run `specrails-desktop stop`.
 
+## Integrate locally with uncommitted changes
+
+**Integrate locally** merges an approved delivery into your integration branch (for example `main`) on this computer, without a PR. You do not need a clean checkout first:
+
+- Uncommitted changes that do not touch the delivered files simply stay where they are.
+- If your changes touch the same files, Specrails saves them as a git stash named `specrails: before integrating #N (…)`, integrates, and puts them back. The toast reads *Saved your local changes, integrated #N, and restored them.*
+- If putting them back conflicts with the integrated code, Specrails leaves the branch exactly as integrated and **keeps the stash** — nothing is lost. The card shows *Your local changes are saved as a stash* with the conflicting files, **Restore my changes** (try again, for example after you changed the code) and the stash name to copy. Specrails then restores them itself on a new branch `specrails/restore-local-<id>` in a separate worktree: if they apply cleanly there it commits them; otherwise an AI conflict resolver works only inside that worktree, keeping both your intent and the integrated code, and Specrails commits the result. The card lists the restored files; **Bring them back to <branch>** moves them onto your branch (only then is the stash dropped) and **Discard the restored branch** removes the branch and keeps the stash. A mission is only told what happened; it never has to run anything. OpenSpec skills and commands that Specrails generates (for example `.claude/skills/openspec-*/SKILL.md`) are not treated as your changes: on a conflict they keep the integrated version.
+- Ignored files are never stashed: if one of them collides with the delivery, Specrails asks you to move it first.
+- If the app stops between saving and restoring, it restores your changes the next time the project opens (only while the same branch is checked out).
+
+## Time and cost forecast {#launch-forecast}
+
+Before you press Launch, a rail can show how long runs like this usually take and, where it is meaningful, what they usually cost, for example *Usually 6–9 min · $2–4 for runs like this*.
+
+The range is the middle half of your own history: the 25th to 75th percentile of completed runs in this project that used the same loop or command and the same engine. It needs at least 5 comparable runs. Until then the line reads *Not enough history yet* instead of a guess. Only costs the provider reported are used; estimated costs are left out. It is an estimate, never a bill.
+
+The dollar figure shows only when the engine is known to bill per use (for example an API key). On a subscription plan, or while the billing mode is not known yet, only the time shows. When the rail holds several specs the band is for one spec and says *(per spec)*. If today's spend plus the top of the range could reach your daily budget, the line adds *May pause at budget* with a link to the budget settings. If today's budget is already used up, Launch asks you to confirm first, because the run would pause until it resets.
+
+
 ## Where to go next
 
 - [The Loop Builder](the-loop-builder) — what a rail runs, and how to build your own loops.
-- [The Job Detail view](the-job-detail-view) — phases, live metrics, ticket cards.
+- [The Job Detail view](the-job-detail-view) — phases, live metrics, spec cards.

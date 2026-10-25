@@ -1,12 +1,12 @@
+import { TechnicalDetail } from '../../../../components/ui/technical-detail'
 import { keyboardLabel } from '../../../../lib/keyboard-label'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import {
   Sparkles,
   ArrowLeft,
   Check,
-  Loader2,
   ExternalLink,
   AlertTriangle,
   Minus,
@@ -17,7 +17,11 @@ import {
 import { Button } from '../../../../components/ui/button'
 import { useMovableResizableModal } from '../../../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../../../../components/ui/ResizeGrips'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
+import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from '../../../../components/ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../../../../lib/layers'
 
+import { RailTrack } from '../../../../components/brand/RailTrack'
 /**
  * Detect Tauri-on-Mac so we can reserve ~80px on the left for the native
  * traffic-light controls (close/min/max). Web build returns false → no padding.
@@ -45,6 +49,7 @@ export interface AiEditShellProps {
   /** Current high-level state of the flow. */
   uiPhase: AiEditUiPhase
   errorMessage?: string | null
+  errorDetail?: string | null
   applyConflict?: 'disk_changed' | 'name_changed' | null
 
   // ─── Header ──────────────────────────────────────────────────────────────
@@ -122,15 +127,22 @@ export interface AiEditShellProps {
  *
  * Owns: layout, header chrome, keyboard shortcuts (⌘⏎/Esc), discard confirmation,
  * focus trap. Delegates: composer rendering, diff rendering, state/actions.
+ *
+ * Built on the Radix dialog primitives (base layer): FocusScope trap,
+ * `hideOthers`, Escape stacking (the discard confirm closes before the shell).
  */
 export function AiEditShell(props: AiEditShellProps) {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
-  const previousFocusRef = useRef<Element | null>(null)
+  // Captured during the first render: Radix moves focus into the panel in a
+  // child effect, before this component's own effects run.
+  const [openerFocus] = useState<Element | null>(() =>
+    typeof document !== 'undefined' ? document.activeElement : null,
+  )
+  const previousFocusRef = useRef<Element | null>(openerFocus)
   const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating } =
     useMovableResizableModal()
 
   useEffect(() => {
-    previousFocusRef.current = document.activeElement
     return () => {
       const el = previousFocusRef.current
       if (el && el instanceof HTMLElement) el.focus()
@@ -150,13 +162,11 @@ export function AiEditShell(props: AiEditShellProps) {
     props.onDiscard()
   }, [props])
 
+  // Escape is routed through Radix (`onEscapeKeyDown`) so an open discard
+  // confirm consumes it first; the window listener keeps the other shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        requestDiscard()
-        return
-      }
+      if (e.key === 'Escape') return
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         if (props.uiPhase === 'reviewing' && props.canApply && !props.applyConflict) {
           e.preventDefault()
@@ -176,19 +186,30 @@ export function AiEditShell(props: AiEditShellProps) {
     props.uiPhase === 'error'
   const isSplit = props.uiPhase === 'reviewing' || props.uiPhase === 'applied'
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex p-3 pt-10 sm:p-6 sm:pt-12 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
+  return (
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) requestDiscard() }}>
+    <DialogPrimitive.Portal>
+    <DialogPrimitive.Overlay
+      className={`${DIALOG_SCRIM_CLASS} ${DIALOG_LAYER_CLASS.base}`}
       data-testid="ai-edit-backdrop"
-    >
-    <div
+    />
+    <DialogPrimitive.Content
       ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${props.eyebrow} · ${props.targetLabel}`}
-      className="m-auto w-full h-full max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-2xl overflow-hidden"
+      aria-describedby={undefined}
+      // Full-window workspace (top gutter clears the titlebar), capped at
+      // 1600px: geometry specific to the AI Edit takeover.
+      className={`modal-panel fixed inset-x-3 top-10 bottom-3 sm:inset-x-6 sm:top-12 sm:bottom-6 mx-auto max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-xl overflow-hidden outline-none ${DIALOG_LAYER_CLASS.base}`}
       style={panelStyle}
+      onEscapeKeyDown={(e) => { e.preventDefault(); requestDiscard() }}
+      // A click outside never discards an AI edit; close via Esc, back or Discard.
+      onPointerDownOutside={(e) => e.preventDefault()}
+      onCloseAutoFocus={(e) => {
+        // Focus return is owned by previousFocusRef (unmount effect above).
+        e.preventDefault()
+      }}
     >
+    <DialogPrimitive.Title className="sr-only">{`${props.eyebrow} · ${props.targetLabel}`}</DialogPrimitive.Title>
+    <DialogLayerProvider layer="base">
       <Header
         eyebrow={props.eyebrow}
         targetLabel={props.targetLabel}
@@ -216,6 +237,7 @@ export function AiEditShell(props: AiEditShellProps) {
           baseBody={props.baseBody}
           baseBodyDisclosureLabel={props.baseBodyDisclosureLabel}
           errorMessage={props.errorMessage}
+          errorDetail={props.errorDetail}
         />
       )}
 
@@ -226,16 +248,16 @@ export function AiEditShell(props: AiEditShellProps) {
         />
       )}
 
-      {confirmDiscard && (
-        <ConfirmDiscardDialog
-          onCancel={() => setConfirmDiscard(false)}
-          onConfirm={confirmDiscardAndClose}
-        />
-      )}
-    </div>
-    <ResizeGrips handles={resizeHandles} />
-    </div>,
-    document.body,
+      <ConfirmDiscardDialog
+        open={confirmDiscard}
+        onCancel={() => setConfirmDiscard(false)}
+        onConfirm={confirmDiscardAndClose}
+      />
+    </DialogLayerProvider>
+    <ResizeGrips handles={resizeHandles} placement="inset" />
+    </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
@@ -271,7 +293,7 @@ function Header({
   return (
     <div
       {...headerHandleProps}
-      className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60 backdrop-blur-sm${
+      className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60${
         isFloating ? ' cursor-grab active:cursor-grabbing' : ''
       }`}
     >
@@ -283,7 +305,7 @@ function Header({
       >
         <ArrowLeft className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
         <div className="text-left min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 leading-none">
+          <div className="text-label text-muted-foreground leading-none">
             {eyebrow}
           </div>
           {targetLabelMono ? (
@@ -317,7 +339,7 @@ function Header({
         {showApply && (
           <Button size="sm" onClick={onApply} className="gap-1.5">
             <Check className="w-3.5 h-3.5" /> {t('shell.apply')}
-            <span className="text-[10px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+            <span className="text-xs ml-1">{keyboardLabel('⌘⏎')}</span>
           </Button>
         )}
       </div>
@@ -340,6 +362,7 @@ function FocusedColumn({
   baseBody,
   baseBodyDisclosureLabel,
   errorMessage,
+  errorDetail,
 }: {
   uiPhase: AiEditUiPhase
   headline: string
@@ -353,6 +376,7 @@ function FocusedColumn({
   baseBody?: string
   baseBodyDisclosureLabel?: string
   errorMessage?: string | null
+  errorDetail?: string | null
 }) {
   const { t } = useTranslation('aiedit')
   const showChips =
@@ -369,12 +393,12 @@ function FocusedColumn({
             className={
               'inline-flex items-center justify-center w-10 h-10 rounded-full ring-1 mx-auto ' +
               (isError
-                ? 'bg-red-500/10 aurora-light:bg-destructive/10 ring-red-500/30 aurora-light:ring-destructive/30'
+                ? 'bg-destructive/10 ring-destructive/30'
                 : 'bg-accent-primary/15 ring-accent-primary/30')
             }
           >
             {isError ? (
-              <AlertTriangle className="w-5 h-5 text-red-400 aurora-light:text-destructive" />
+              <AlertTriangle className="w-5 h-5 text-destructive" />
             ) : (
               <Sparkles className="w-5 h-5 text-accent-primary" />
             )}
@@ -386,6 +410,9 @@ function FocusedColumn({
             <p className="text-sm text-muted-foreground max-w-md mx-auto font-mono break-words">
               {errorMessage}
             </p>
+          )}
+          {isError && errorDetail && (
+            <TechnicalDetail summary={t('common:errors.technicalDetails')} className="mx-auto max-w-md text-xs">{errorDetail}</TechnicalDetail>
           )}
           {!isError && description && (
             <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
@@ -432,7 +459,7 @@ function SuggestionChips({
   const { t } = useTranslation('aiedit')
   return (
     <div className="space-y-2">
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70">
+      <div className="text-label text-muted-foreground">
         {t('shell.quickPrompts')}
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -441,7 +468,7 @@ function SuggestionChips({
             key={chip}
             type="button"
             onClick={() => onPick(chip)}
-            className="text-xs px-3 py-1.5 rounded-full border border-border bg-card/40 hover:border-accent-primary/50 hover:bg-accent-primary/10 hover:text-accent-primary text-foreground/80 transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+            className="text-xs px-3 py-1.5 rounded-full border border-border bg-card/40 hover:border-accent-primary/50 hover:bg-accent-primary/10 hover:text-accent-primary text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           >
             {chip}
           </button>
@@ -456,13 +483,13 @@ function StreamingPanel({ streamingText }: { streamingText?: string }) {
   return (
     <div className="rounded-xl border border-accent-primary/30 bg-accent-primary/5 p-4">
       {streamingText ? (
-        <div className="text-xs font-mono whitespace-pre-wrap break-words text-foreground/80 max-h-64 overflow-y-auto leading-relaxed">
+        <div className="text-xs font-mono whitespace-pre-wrap break-words text-foreground max-h-64 overflow-y-auto leading-relaxed">
           {stripMarkers(streamingText)}
-          <span className="inline-block w-1.5 h-3 bg-accent-primary animate-pulse align-middle ml-0.5" />
+          <span className="inline-block w-1.5 h-3 bg-accent-primary motion-safe:animate-pulse align-middle ml-0.5" />
         </div>
       ) : (
         <div className="text-xs text-muted-foreground italic flex items-center gap-1.5">
-          <Loader2 className="w-3 h-3 animate-spin" />
+          <RailTrack running className="w-10" />
           {t('shell.workingOnRefinement')}
         </div>
       )}
@@ -475,7 +502,7 @@ function ConversationHistory({ history }: { history: AiEditHistoryTurn[] }) {
   if (history.length === 0) return null
   return (
     <div className="space-y-2">
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70">
+      <div className="text-label text-muted-foreground">
         {t('shell.history')}
       </div>
       <div className="space-y-2">
@@ -500,7 +527,7 @@ function CurrentBodyDisclosure({ body, label }: { body: string; label: string })
         {label}
       </button>
       {open && (
-        <pre className="mt-2 p-3 rounded-md bg-muted/40 border border-border text-[11px] font-mono whitespace-pre-wrap break-words max-h-72 overflow-y-auto text-foreground/80">
+        <pre className="mt-2 p-3 rounded-md bg-muted/40 border border-border text-xs font-mono whitespace-pre-wrap break-words max-h-72 overflow-y-auto text-foreground">
           {body}
         </pre>
       )}
@@ -572,7 +599,7 @@ function ChatColumn({
           <button
             type="button"
             onClick={secondaryAction.onClick}
-            className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground py-1.5 rounded hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+            className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground py-1.5 rounded hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           >
             {secondaryAction.icon ?? <ExternalLink className="w-3 h-3" />}
             {secondaryAction.label}
@@ -586,7 +613,7 @@ function ChatColumn({
 function DefaultAppliedNotice() {
   const { t } = useTranslation('aiedit')
   return (
-    <div className="rounded-md border border-green-500/40 aurora-light:border-accent-success/40 bg-green-500/10 aurora-light:bg-accent-success/10 p-3 text-xs text-green-300 aurora-light:text-accent-success flex items-center gap-2">
+    <div className="rounded-md border border-accent-success/40 bg-accent-success/10 p-3 text-xs text-accent-success flex items-center gap-2">
       <Check className="w-3.5 h-3.5" />
       {t('shell.applied')}
     </div>
@@ -598,7 +625,7 @@ function ChatTurn({ turn }: { turn: AiEditHistoryTurn }) {
   if (turn.role === 'user') {
     return (
       <div className="flex flex-col items-end">
-        <div className="text-[10px] text-muted-foreground mb-1">{t('shell.you')}</div>
+        <div className="text-xs text-muted-foreground mb-1">{t('shell.you')}</div>
         <div className="max-w-[90%] rounded-2xl rounded-br-sm bg-accent-primary/15 text-foreground text-sm px-3 py-2 whitespace-pre-wrap break-words">
           {turn.content}
         </div>
@@ -611,7 +638,7 @@ function ChatTurn({ turn }: { turn: AiEditHistoryTurn }) {
         <div className="flex items-center gap-1.5 font-medium mb-1 text-accent-info">
           <Sparkles className="w-3 h-3" /> {t('shell.autoTestResult')}
         </div>
-        <pre className="text-[11px] font-mono whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
+        <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground max-h-48 overflow-y-auto">
           {turn.content}
         </pre>
       </div>
@@ -619,7 +646,7 @@ function ChatTurn({ turn }: { turn: AiEditHistoryTurn }) {
   }
   return (
     <div className="flex flex-col items-start">
-      <div className="text-[10px] text-muted-foreground mb-1 inline-flex items-center gap-1">
+      <div className="text-xs text-muted-foreground mb-1 inline-flex items-center gap-1">
         <Sparkles className="w-3 h-3 text-accent-primary" /> {t('shell.ai')}
       </div>
       <div className="max-w-[90%] rounded-2xl rounded-bl-sm border border-border bg-muted/30 text-xs px-3 py-2 text-muted-foreground italic">
@@ -647,7 +674,7 @@ function DiffPane({
         <span className="text-xs font-mono text-muted-foreground truncate">
           {label ?? t('shell.proposedChanges')}
         </span>
-        <span className="text-[10px] text-muted-foreground">{t('shell.wordLevelDiff')}</span>
+        <span className="text-xs text-muted-foreground">{t('shell.wordLevelDiff')}</span>
       </div>
       {applyConflict === 'disk_changed' && (
         <ConflictBanner
@@ -682,7 +709,7 @@ function ConflictBanner({
   return (
     <div
       role="alert"
-      className="flex items-start justify-between gap-3 px-4 py-2 border-b border-yellow-500/40 aurora-light:border-accent-warning/40 bg-yellow-500/10 aurora-light:bg-accent-warning/10 text-yellow-200 aurora-light:text-accent-warning text-xs"
+      className="flex items-start justify-between gap-3 px-4 py-2 border-b border-accent-warning/40 bg-accent-warning/10 text-accent-warning text-xs"
     >
       <div className="flex items-start gap-2 min-w-0">
         <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
@@ -694,38 +721,25 @@ function ConflictBanner({
 }
 
 function ConfirmDiscardDialog({
+  open,
   onCancel,
   onConfirm,
 }: {
+  open: boolean
   onCancel: () => void
   onConfirm: () => void
 }) {
   const { t } = useTranslation('aiedit')
   return (
-    <div
-      role="alertdialog"
-      aria-modal="true"
-      aria-label={t('shell.discardDialog.ariaLabel')}
-      className="absolute inset-0 z-10 flex items-center justify-center bg-black/40"
-    >
-      <div className="rounded-lg border border-border bg-card p-5 max-w-sm shadow-xl">
-        <div className="flex items-center gap-2 mb-2">
-          <AlertTriangle className="w-4 h-4 text-yellow-400 aurora-light:text-accent-warning" />
-          <h2 className="text-sm font-medium">{t('shell.discardDialog.title')}</h2>
-        </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          {t('shell.discardDialog.body')}
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            {t('shell.discardDialog.keepEditing')}
-          </Button>
-          <Button size="sm" onClick={onConfirm}>
-            {t('common:actions.discard')}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(next) => { if (!next) onCancel() }}
+      title={t('shell.discardDialog.title')}
+      description={t('shell.discardDialog.body')}
+      cancelLabel={t('shell.discardDialog.keepEditing')}
+      confirmLabel={t('common:actions.discard')}
+      onConfirm={onConfirm}
+    />
   )
 }
 
@@ -740,13 +754,13 @@ export function WordDiffView({ hunks }: { hunks: DiffHunk[] }) {
   return (
     <pre className="font-mono text-xs leading-5 whitespace-pre-wrap break-words">
       {hunks.map((h, i) => {
-        if (h.type === 'eq') return <span key={i} className="text-foreground/70">{h.text}</span>
+        if (h.type === 'eq') return <span key={i} className="text-muted-foreground">{h.text}</span>
         if (h.type === 'add') {
           return (
             <span
               key={i}
               data-hunk="add"
-              className="bg-green-500/20 aurora-light:bg-accent-success/15 text-green-200 aurora-light:text-accent-success rounded px-0.5 ring-1 ring-green-500/30 aurora-light:ring-accent-success/30"
+              className="bg-accent-success/15 text-accent-success rounded px-0.5 ring-1 ring-accent-success/30"
             >
               <span aria-hidden="true">+ </span>
               {h.text}
@@ -757,7 +771,7 @@ export function WordDiffView({ hunks }: { hunks: DiffHunk[] }) {
           <span
             key={i}
             data-hunk="del"
-            className="bg-red-500/20 aurora-light:bg-destructive/15 text-red-200 aurora-light:text-destructive line-through rounded px-0.5 ring-1 ring-red-500/30 aurora-light:ring-destructive/30"
+            className="bg-destructive/15 text-destructive line-through rounded px-0.5 ring-1 ring-destructive/30"
           >
             <span aria-hidden="true">− </span>
             {h.text}
@@ -891,7 +905,7 @@ export function PlainComposer({
           rows={3}
           disabled={disabled}
           autoFocus={autoFocus}
-          className="w-full text-sm p-3 pr-14 bg-transparent resize-none focus:outline-none disabled:opacity-50 placeholder:text-muted-foreground/60"
+          className="w-full text-sm p-3 pr-14 bg-transparent resize-none focus:outline-none disabled:opacity-50 placeholder:text-muted-foreground"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
@@ -904,20 +918,20 @@ export function PlainComposer({
           onClick={onSubmit}
           disabled={!value.trim() || disabled}
           aria-label={t('shell.composer.sendAriaLabel')}
-          className="absolute bottom-2.5 right-2.5 p-2 rounded-md bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none transition-opacity"
+          className="absolute bottom-2.5 right-2.5 p-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition-opacity"
         >
           {disabled ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <RailTrack running className="w-8" />
           ) : (
             <SendIcon />
           )}
         </button>
       </div>
-      <div className="flex items-center justify-end text-[11px] text-muted-foreground/70">
+      <div className="flex items-center justify-end text-xs text-muted-foreground">
         <span>
-          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-mono">{keyboardLabel('⌘⏎')}</kbd> {t('shell.composer.kbdSubmit')}
+          <kbd data-chip="" className="inline-flex h-5 items-center px-1.5 rounded bg-muted/60 text-caption font-mono">{keyboardLabel('⌘⏎')}</kbd> {t('shell.composer.kbdSubmit')}
           <span className="mx-1.5">·</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-mono">Esc</kbd> {t('shell.composer.kbdCancel')}
+          <kbd data-chip="" className="inline-flex h-5 items-center px-1.5 rounded bg-muted/60 text-caption font-mono">Esc</kbd> {t('shell.composer.kbdCancel')}
         </span>
       </div>
     </div>

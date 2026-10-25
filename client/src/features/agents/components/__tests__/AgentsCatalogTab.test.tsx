@@ -112,4 +112,20 @@ describe('AgentsCatalogTab', () => {
     expect(screen.getByText(/defined by the specrails-core runtime and need no installation/)).toBeInTheDocument()
     expect(screen.queryByText(/npx specrails-core/)).not.toBeInTheDocument()
   })
+
+  it('renders template cards with a named open button, translated category and tag filter buttons', async () => {
+    render(<AgentsCatalogTab />)
+    await screen.findByRole('button', { name: /sr-developer/ })
+
+    await userEvent.click(screen.getAllByRole('button', { name: /^Template$/ })[0])
+
+    const open = await screen.findByRole('button', { name: 'Security Reviewer' })
+    expect(open.tagName).toBe('BUTTON')
+    expect(screen.getAllByRole('button', { name: /Software Engineering/ }).length).toBeGreaterThan(0)
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'owasp' })[0])
+    expect(screen.getByText('Tag filter:')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Security Reviewer' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Data Analyst' })).not.toBeInTheDocument()
+  })
 })

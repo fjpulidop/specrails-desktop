@@ -1,16 +1,19 @@
 {
   "board": {
-    "title": "Spec",
+    "title": "Specs",
     "dropHere": "Drop here",
     "emptyNoSpecs": "No specs yet",
     "emptyNoLabelMatch": "No specs match the active labels",
     "emptyNoActiveSpecs": "No active specs",
-    "emptyHint": "Click \"+ Add\" to get started",
+    "emptyHint": "Click \"New spec\" to get started",
     "dropToMarkDone": "Drop to mark as done",
     "emptyNoDoneLabelMatch": "No done specs match the active labels",
     "emptyNoCompleted": "No completed specs yet",
     "emptyNoStatusMatch": "No specs match the selected status",
-    "untitledSpec": "Untitled spec"
+    "untitledSpec": "Untitled spec",
+    "doneHeading": "Done · {{count}}",
+    "clearFilters": "Clear filters",
+    "emptyNoSearchMatch": "No specs match \"{{query}}\""
   },
   "status": {
     "todo": "Todo",
@@ -45,20 +48,19 @@
   },
   "card": {
     "deleteSpec": "Delete spec #{{id}}",
-    "deleteTicket": "Delete ticket #{{id}}",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "dependsOn": "Depends on {{count}}",
     "continueEditing": "Continue Editing",
     "continueEditingTitle": "Continue editing this spec",
-    "moveToRail": "Move to Rail"
+    "moveToRail": "Move to rail"
   },
   "emptyState": {
-    "noTickets": "No tickets yet",
-    "noTicketsHint": "Create your first ticket or run a product backlog command to populate tickets",
-    "createFirst": "Create your first ticket"
+    "noTickets": "No specs yet",
+    "noTicketsHint": "Create your first spec or run a product backlog command to populate specs",
+    "createFirst": "Create your first spec"
   },
   "errors": {
-    "loadFailed": "Failed to load tickets"
+    "loadFailed": "Failed to load specs"
   },
   "listView": {
     "status": {
@@ -80,20 +82,22 @@
       "labels": "Labels",
       "updated": "Updated"
     },
-    "noMatch": "No tickets match your filters",
+    "noMatch": "No specs match your filters",
     "clearFilters": "Clear filters",
     "loadMore": "Load more ({{count}} remaining)"
   },
   "gridView": {
-    "emptyTodo": "No tickets to do",
+    "emptyTodo": "No specs to do",
     "emptyInProgress": "Nothing in progress",
-    "emptyDone": "No completed tickets",
+    "emptyDone": "No completed specs",
     "cancelledSection": "Cancelled ({{count}})"
   },
   "statusFilter": {
     "ariaLabel": "Filter by status",
     "all": "All",
-    "active": "Active"
+    "active": "Active",
+    "more": "More",
+    "moreSelected": "Status: {{status}}. Choose another status"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Filter by Jira status",
@@ -109,7 +113,7 @@
     "descending": "Descending",
     "modes": {
       "default": "Default",
-      "ticketId": "Ticket #",
+      "ticketId": "Spec #",
       "priority": "Priority",
       "jiraKey": "Jira Ticket #"
     }
@@ -121,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "Filter by labels",
-    "all": "All",
+    "all": "All labels",
     "empty": "No labels in this project.",
     "selected_one": "{{count}} label",
     "selected_other": "{{count}} labels",
@@ -155,15 +159,157 @@
       "securitySurface": "Security",
       "none": "No public API, data or security impact"
     },
-    "flowHint": "Flow suggested",
     "filesLikely": "Likely files",
     "moreFiles_one": "+{{count}} more file",
     "moreFiles_other": "+{{count}} more files",
-    "modelCost": "{{model}} · ${{cost}}",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · cost not reported",
     "unavailable": "Triage n/a",
     "unavailableDetail": "No model is available for triage ({{reason}}).",
     "failed": "Triage failed",
     "failedDetail": "The triage could not be completed: {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "New spec",
+    "newSpecTooltip": "New spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "Search specs",
+    "ariaLabel": "Search specs by title, number, label or Jira key",
+    "clear": "Clear search"
+  },
+  "filters": {
+    "trigger": "Filters",
+    "triggerActive_one": "Filters, {{count}} active",
+    "triggerActive_other": "Filters, {{count}} active",
+    "title": "Filters",
+    "sections": {
+      "labels": "Labels",
+      "epic": "Epic",
+      "sprint": "Sprint",
+      "jiraStatus": "Jira status"
+    },
+    "clearSection": "Clear",
+    "clearAll": "Clear all",
+    "done": "Done",
+    "findLabel": "Find a label",
+    "removeChip": "Remove filter: {{label}}",
+    "resultCount": "{{shown}} of {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "Search: \"{{query}}\"",
+      "label": "Label: {{label}}",
+      "epic": "Epic: {{name}}",
+      "sprint": "Sprint: {{name}}",
+      "jiraStatus": "Jira: {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "Sort and view",
+    "menuLabel": "Sort and view options",
+    "sortBy": "Sort by",
+    "direction": "Direction",
+    "view": "View"
+  },
+  "bulk": {
+    "toolbarLabel_one": "Bulk actions, {{count}} spec selected",
+    "toolbarLabel_other": "Bulk actions, {{count}} specs selected",
+    "count_one": "{{count}} selected",
+    "count_other": "{{count}} selected",
+    "listLabel": "Specs, multi-select",
+    "selectSpec": "Select spec #{{id}}",
+    "moveTo": "Move to",
+    "label": "Label",
+    "priority": "Priority",
+    "addToRail": "Add to rail",
+    "launchAll": "Launch selected",
+    "delete": "Delete",
+    "clear": "Clear",
+    "clearTitle": "Clear the selection (Esc)",
+    "statusLocal_one": "Status · {{count}} spec",
+    "statusLocal_other": "Status · {{count}} specs",
+    "statusJira_one": "Jira status · {{count}} spec",
+    "statusJira_other": "Jira status · {{count}} specs",
+    "loadingStatuses": "Loading Jira statuses…",
+    "statusesFailed": "Couldn’t load the Jira statuses",
+    "noStatuses": "No statuses available",
+    "labelAdd": "Add label",
+    "labelRemove": "Remove label",
+    "noLabels": "No labels in this project yet",
+    "noRails": "No rails available",
+    "railRunning": "running",
+    "railSpecs_one": "{{count}} spec",
+    "railSpecs_other": "{{count}} specs",
+    "result": {
+      "moved_one": "Moved {{count}} spec",
+      "moved_other": "Moved {{count}} specs",
+      "labeled_one": "Labels updated on {{count}} spec",
+      "labeled_other": "Labels updated on {{count}} specs",
+      "prioritized_one": "Priority changed on {{count}} spec",
+      "prioritized_other": "Priority changed on {{count}} specs",
+      "railed_one": "Added {{count}} spec to the rail",
+      "railed_other": "Added {{count}} specs to the rail",
+      "deleted_one": "Deleted {{count}} spec",
+      "deleted_other": "Deleted {{count}} specs"
+    },
+    "partial": "{{ok}} of {{total}} done · {{failed}} failed",
+    "failedAll_one": "Couldn’t update {{count}} spec",
+    "failedAll_other": "Couldn’t update {{count}} specs",
+    "launch": {
+      "none": "None of the selected specs can launch right now",
+      "skipBlocked_one": "{{count}} can’t launch yet",
+      "skipBlocked_other": "{{count}} can’t launch yet",
+      "skipNoRail_one": "{{count}} has no free rail",
+      "skipNoRail_other": "{{count}} have no free rail",
+      "skipReviewLimit_one": "{{count}} held by the review limit",
+      "skipReviewLimit_other": "{{count}} held by the review limit"
+    },
+    "more": "More"
+  },
+  "views": {
+    "trigger": "Views",
+    "triggerActive": "Views, current: {{name}}",
+    "menuLabel": "Saved views",
+    "empty": "No saved views yet",
+    "saveCurrent": "Save current view…",
+    "manage": "Manage views…",
+    "saveTitle": "Save view",
+    "saveDescription": "Saves the status, filters, sort and density as they are now, for this project.",
+    "nameLabel": "Name",
+    "namePlaceholder": "Ready to launch",
+    "save": "Save",
+    "saved": "Saved view “{{name}}”",
+    "updated": "View updated from the board",
+    "manageTitle": "Manage views",
+    "manageDescription": "Rename a view, update it from the board as it is now, copy its link or delete it. Views belong to this project.",
+    "rename": "Rename",
+    "updateFromCurrent": "Update from the board",
+    "upToDate": "Already matches the board",
+    "copyLink": "Copy link",
+    "delete": "Delete view",
+    "done": "Done",
+    "linkCopied": "Link copied",
+    "linkCopyFailed": "Couldn’t copy the link",
+    "linkMissing": "That view doesn’t exist in this project",
+    "deleted": "View “{{name}}” deleted",
+    "linkOtherProject": "This view belongs to {{project}}.",
+    "openInProject": "Open in {{project}}"
+  },
+  "movePicker": {
+    "titleOne": "Move spec #{{id}}",
+    "titleMany": "Move {{count}} specs",
+    "description": "Pick a status or a rail. Same as dragging the card there.",
+    "statusHeading": "Status",
+    "railHeading": "Rail",
+    "jiraLoading": "Loading Jira statuses…",
+    "jiraFailed": "Could not load the Jira statuses.",
+    "jiraStatus": "{{status}} (Jira)",
+    "noRails": "No rails yet.",
+    "running": "Running",
+    "hintNavigate": "move",
+    "hintChoose": "choose",
+    "hintClose": "close",
+    "current": "Current",
+    "descriptionOne": "“{{title}}”. Pick a status or a rail."
   }
 }

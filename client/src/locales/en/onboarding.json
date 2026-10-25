@@ -1,0 +1,131 @@
+{
+  "entry": {
+    "try": "Try it on a sample project",
+    "cost": "Looking around is free. Running a spec costs about {{usd}} (≈ estimate).",
+    "local": "Looking around is free. Runs on your local engine, with no API cost.",
+    "recordedOnly": "No AI provider is ready yet, so you can watch a recorded run instead."
+  },
+  "dialog": {
+    "title": "Try Specrails on a sample project",
+    "description": "A tiny game and three ready-made specs. You will see a spec travel down a rail to a Review packet, without touching your own code.",
+    "gets": {
+      "repo": "A small web game ({{name}}) in its own git repository",
+      "specs": "Three ready-made specs on your board",
+      "nothingRuns": "Nothing runs until you press Run"
+    },
+    "folder": "Folder",
+    "folderHint": "Created here, inside your home folder. An existing folder is never overwritten.",
+    "choose": "Choose folder",
+    "chooseTitle": "Choose where to create the sample",
+    "runLater": "When you run a spec later",
+    "localAlso": "Your local engine ({{engine}}) is also available, with no API cost.",
+    "noProvider": "No AI provider is ready yet. You can still create the sample and watch a recorded run.",
+    "notSignedIn": "Your AI provider is installed but not signed in. You can still create the sample and watch a recorded run.",
+    "create": "Create sample project",
+    "creating": "Creating…",
+    "errors": {
+      "path_exists": "That folder already exists. Choose another one.",
+      "outside_home": "The sample must be inside your home folder.",
+      "generic": "Couldn't create the sample project. Try again."
+    }
+  },
+  "cost": {
+    "minutes": "about {{low}}–{{high}} min",
+    "local": "No API cost: runs on your local engine · {{time}} (estimate)",
+    "plan": "Uses your plan, no extra charge · {{time}} (estimate)",
+    "metered": "≈ {{usd}} · {{time}} (estimate)",
+    "unknown": "≈ {{usd}} if billed per use · {{time}} (estimate)",
+    "using": "Quick mode with {{model}} on {{provider}}",
+    "cap": "It pauses and asks before passing {{cap}}."
+  },
+  "guide": {
+    "label": "Sample project guide",
+    "stepCount": "Step {{current}} of {{total}}",
+    "dismiss": "Dismiss guide",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "ending": "That is the whole loop. Now point it at your own code.",
+    "addOwn": "Now add your own project",
+    "remove": "Remove sample"
+  },
+  "steps": {
+    "spec": {
+      "title": "The spec",
+      "body": "These three specs are written for you. Each says what to build and how to know it is done."
+    },
+    "rail": {
+      "title": "The rail",
+      "body": "A rail takes one spec through to a finished change: it writes it, tests it, then stops for you. Start the first one."
+    },
+    "review": {
+      "title": "The review",
+      "body": "Nothing is merged on its own. When the run ends, a Review packet shows what changed and lets you accept or discard it."
+    }
+  },
+  "run": {
+    "noProvider": "No AI provider is ready on this machine, so a real run isn't possible yet. A recorded run shows the same path.",
+    "notSignedIn": "Your AI provider isn't signed in, so a real run isn't possible yet. A recorded run shows the same path.",
+    "watchRecording": "Watch a recorded run",
+    "recheck": "Check again",
+    "recordingNote": "It is a recording: nothing runs and nothing is charged.",
+    "started": "Started. It takes about {{low}}–{{high}} min; follow it in the rail.",
+    "engine": "Run on",
+    "engineLocal": "Local engine ({{provider}})",
+    "engineCloud": "{{provider}}",
+    "cta": "Run the first spec",
+    "launching": "Starting…",
+    "preparing": "Preparing the project's workspace. This only takes a moment.",
+    "workspaceFailed": "The workspace could not be prepared.",
+    "retryWorkspace": "Try again",
+    "overBudget": "Today's limit is already reached. Raise it in Analytics ▸ Spend limits, then try again.",
+    "failed": "Couldn't start the run. Try again.",
+    "failedDetail": "Couldn't start the run: {{detail}}"
+  },
+  "pill": {
+    "label": "Sample project",
+    "showGuide": "Show guide"
+  },
+  "remove": {
+    "title": "Remove the sample project?",
+    "description": "It leaves your projects. The folder stays on disk unless you delete it below.",
+    "deleteFolder": "Also delete the sample folder",
+    "irreversible": "Deleting files cannot be undone.",
+    "confirm": "Remove sample",
+    "confirmDelete": "Remove and delete folder",
+    "failed": "Couldn't remove the sample project."
+  },
+  "toast": {
+    "created": "Sample project “{{name}}” is ready",
+    "reopened": "Opened the sample project “{{name}}”",
+    "removed": "Sample project removed",
+    "removedDeleted": "Sample project and its folder removed"
+  },
+  "recording": {
+    "title": "A recorded run",
+    "description": "What a finished first run looks like, from the spec to the Review packet.",
+    "badge": "Recording: nothing is running and nothing is charged",
+    "logLabel": "Recorded run log",
+    "lines": {
+      "setup": "Environment setup",
+      "specPhase": "Phase: write the change",
+      "specDone": "Change written for “Add a Restart button”",
+      "implementPhase": "Phase: implement",
+      "implementDone": "Build passes · 4 files modified",
+      "testPhase": "Phase: tests",
+      "testDone": "5 tests passing",
+      "reviewPhase": "Phase: review",
+      "shipped": "READY FOR REVIEW · confidence 91/100"
+    },
+    "packet": {
+      "title": "Review packet (recorded)",
+      "summary": "{{tests}} tests passing · confidence {{confidence}}/100. The change is ready for your decision.",
+      "decision": "In a real run you decide here: accept the change or discard it. Nothing is merged without you."
+    },
+    "replay": "Replay",
+    "close": "Close"
+  },
+  "help": {
+    "replayTour": "Replay tour"
+  }
+}

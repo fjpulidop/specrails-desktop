@@ -1,24 +1,33 @@
 {
   "palette": {
     "label": "Paleta de comandos",
-    "searchPlaceholder": "Buscar proyectos, comandos, jobs...",
-    "searchPlaceholderAgent": "Buscar misiones, proyectos, jobs...",
-    "noResults": "Sin resultados.",
+    "searchPlaceholder": "Busca, o escribe # @ / ? para acotar…",
+    "searchPlaceholderAgent": "Busca, o escribe # @ / ? para acotar…",
+    "noResults": "Sin resultados",
     "activeBadge": "activo",
     "groups": {
       "projects": "Proyectos",
       "missions": "Misiones",
       "spec": "Spec",
-      "jobs": "Jobs",
-      "navigation": "Navegación"
+      "jobs": "Trabajos",
+      "navigation": "Navegación",
+      "actions": "Acciones",
+      "recentActions": "Acciones recientes",
+      "recentPlaces": "Lugares recientes",
+      "settings": "Ajustes",
+      "specs": "Specs",
+      "files": "Archivos",
+      "logs": "Registros de trabajos",
+      "docs": "Guía"
     },
     "nav": {
-      "dashboard": "Dashboard",
+      "dashboard": "Tablero",
       "desktopAnalytics": "Analíticas de Desktop",
       "projectAnalytics": "Analíticas del proyecto",
       "activityFeed": "Actividad",
       "desktopSettings": "Ajustes de Desktop",
-      "docs": "Docs"
+      "docs": "Docs",
+      "replayTour": "Repetir el tour"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "Contraer barra lateral izquierda (mantener anclada)",
@@ -31,10 +40,317 @@
     "footer": {
       "navigate": "navegar",
       "select": "seleccionar",
-      "close": "cerrar"
+      "close": "cerrar",
+      "actions": "acciones",
+      "back": "volver",
+      "removeScope": "quitar ámbito"
     },
     "missions": {
       "home": "Inicio"
+    },
+    "dialogTitle": "Buscar y ejecutar acciones",
+    "dialogDescription": "Escribe para filtrar y pulsa Intro para abrir el resultado resaltado.",
+    "actions": {
+      "verbs": "nuevo,nueva,crear,añadir,lanzar,ejecutar,mover,abrir,cambiar,alternar,ir,entregar,pausar,reanudar,deshacer,mostrar,iniciar,restaurar,new,launch,move,open,switch,run,toggle,go,undo,seleccionar,guardar,quitar,eliminar,select,save,clear,delete",
+      "back": "Atrás",
+      "newSpec": "Nueva spec",
+      "newSpecExplore": "Nueva spec (Explorar)",
+      "launchSpec": "Lanzar spec en un rail",
+      "launchSpecN": "Lanzar #{{id}} en un rail",
+      "moveSpec": "Mover spec a",
+      "moveSpecN": "Mover #{{id}} a",
+      "openReview": "Abrir revisión",
+      "openReviewN": "Abrir revisión de #{{id}}",
+      "handOffFlow": "Entregar Flow",
+      "pauseFlow": "Pausar Flow",
+      "resumeFlow": "Reanudar Flow",
+      "newMission": "Nueva misión",
+      "switchTheme": "Cambiar tema",
+      "switchToMission": "Cambiar a modo Misión",
+      "switchToBoard": "Cambiar a modo Tablero",
+      "openAppSettings": "Abrir ajustes de la app",
+      "openProjectSettings": "Abrir ajustes del proyecto",
+      "switchProject": "Cambiar de proyecto",
+      "runLoop": "Ejecutar loop",
+      "toggleLeftSidebar": "Alternar barra lateral izquierda",
+      "toggleRightSidebar": "Alternar barra lateral derecha",
+      "goBack": "Ir atrás",
+      "goForward": "Ir adelante",
+      "undoLast": "Deshacer: {{label}}",
+      "recentlyDeleted": "Eliminados recientemente",
+      "pages": {
+        "railTitle": "Rail para #{{id}}",
+        "railPlaceholder": "Elige un rail…",
+        "railRunning": "en ejecución",
+        "railHasSpec": "ya está aquí",
+        "noRails": "No hay rails disponibles.",
+        "statusTitle": "Mover #{{id}} a",
+        "statusPlaceholder": "Elige un estado…",
+        "noStatuses": "No hay estados disponibles.",
+        "current": "actual",
+        "specTitle": "Elige una spec",
+        "specPlaceholder": "Buscar specs…",
+        "noSpecs": "Ninguna spec coincide.",
+        "themeTitle": "Tema",
+        "themePlaceholder": "Elige un tema…",
+        "noThemes": "No hay temas disponibles.",
+        "appSettingsTitle": "Ajustes de la app",
+        "projectSettingsTitle": "Ajustes del proyecto",
+        "sectionPlaceholder": "Elige una sección…",
+        "noSections": "No hay secciones.",
+        "projectTitle": "Proyectos",
+        "projectPlaceholder": "Elige un proyecto…",
+        "noProjects": "No hay otros proyectos.",
+        "loopTitle": "Loops que puedes ejecutar ahora",
+        "loopPlaceholder": "Elige un loop…",
+        "noLoops": "Ningún loop puede ejecutarse sin una spec.",
+        "loading": "Cargando…",
+        "loadFailed": "No se pudieron cargar las opciones.",
+        "statusSelectedTitle": "Mover la selección a",
+        "labelSelectedTitle": "Añadir una etiqueta a la selección",
+        "labelPlaceholder": "Elige una etiqueta...",
+        "noLabels": "No hay etiquetas que añadir.",
+        "prioritySelectedTitle": "Prioridad de la selección",
+        "priorityPlaceholder": "Elige una prioridad...",
+        "noPriorities": "No hay prioridades disponibles.",
+        "railSelectedTitle": "Rail para la selección",
+        "viewTitle": "Vistas guardadas",
+        "viewPlaceholder": "Elige una vista...",
+        "noViews": "No hay vistas guardadas."
+      },
+      "openInbox": "Abrir Pendientes",
+      "openInboxCount": "Abrir Pendientes ({{count}})",
+      "opensOptions": "abre opciones",
+      "selectAll": "Seleccionar todo en la columna",
+      "clearSelection": "Quitar la selección",
+      "moveSelected": "Mover las specs seleccionadas a",
+      "moveSelectedN_one": "Mover {{count}} spec seleccionada a",
+      "moveSelectedN_other": "Mover {{count}} specs seleccionadas a",
+      "labelSelected": "Añadir etiqueta a las specs seleccionadas",
+      "labelSelectedN_one": "Añadir etiqueta a {{count}} spec seleccionada",
+      "labelSelectedN_other": "Añadir etiqueta a {{count}} specs seleccionadas",
+      "prioritySelected": "Cambiar la prioridad de las specs seleccionadas",
+      "prioritySelectedN_one": "Cambiar la prioridad de {{count}} spec seleccionada",
+      "prioritySelectedN_other": "Cambiar la prioridad de {{count}} specs seleccionadas",
+      "railSelected": "Añadir las specs seleccionadas a un rail",
+      "railSelectedN_one": "Añadir {{count}} spec seleccionada a un rail",
+      "railSelectedN_other": "Añadir {{count}} specs seleccionadas a un rail",
+      "launchSelected": "Lanzar las specs seleccionadas",
+      "launchSelectedN_one": "Lanzar {{count}} spec seleccionada",
+      "launchSelectedN_other": "Lanzar {{count}} specs seleccionadas",
+      "deleteSelected": "Eliminar las specs seleccionadas",
+      "deleteSelectedN_one": "Eliminar {{count}} spec seleccionada",
+      "deleteSelectedN_other": "Eliminar {{count}} specs seleccionadas",
+      "saveView": "Guardar la vista actual",
+      "switchView": "Cambiar de vista",
+      "openBudget": "Abrir Presupuesto (límites, proyección, y si…)",
+      "openBudgetKeywords": "presupuesto, límite, semanal, mensual, gasto, coste, budget",
+      "exportHandoffN": "Exportar traspaso de #{{id}}",
+      "copyPrDescriptionN": "Copiar descripción de PR de #{{id}}",
+      "exportHandoff": "Exportar traspaso",
+      "copyPrDescription": "Copiar descripción de PR",
+      "moveFocusedSpec": "Mover la spec enfocada…"
+    },
+    "scopes": {
+      "remove": "Quitar ámbito",
+      "needsProject": "Abre un proyecto para buscar aquí.",
+      "searching": "Buscando…",
+      "failed": "La búsqueda no está disponible ahora.",
+      "empty": "No se encontró nada para «{{query}}».",
+      "specs": {
+        "label": "Specs",
+        "placeholder": "Busca specs por título, descripción, etiquetas o notas…",
+        "prompt": "Escribe para buscar specs."
+      },
+      "missions": {
+        "label": "Misiones",
+        "placeholder": "Busca misiones por título o contenido…",
+        "prompt": "Escribe para buscar misiones."
+      },
+      "settings": {
+        "label": "Ajustes",
+        "placeholder": "Buscar ajustes…",
+        "prompt": "Escribe para buscar ajustes.",
+        "commandsFallback": "Comandos que coinciden con «/{{query}}»"
+      },
+      "files": {
+        "label": "Archivos",
+        "placeholder": "Encuentra un archivo por nombre o ruta…",
+        "prompt": "Escribe un nombre o una ruta de archivo."
+      },
+      "logs": {
+        "label": "Registros de trabajos",
+        "placeholder": "Busca comandos, fases y fallos de trabajos…",
+        "prompt": "Escribe para buscar qué hicieron tus ejecuciones y por qué fallaron."
+      },
+      "docs": {
+        "label": "Guía",
+        "placeholder": "Buscar en la guía…",
+        "prompt": "Escribe para buscar en la guía."
+      }
+    },
+    "specs": {
+      "fields": {
+        "id": "Número de spec",
+        "title": "Título",
+        "summary": "Resumen",
+        "description": "Descripción",
+        "label": "Etiqueta",
+        "nonGoal": "Fuera de alcance",
+        "addendum": "Adenda",
+        "comment": "Comentario"
+      }
+    },
+    "logs": {
+      "fields": {
+        "command": "Comando",
+        "loop": "Loop",
+        "phase": "Fase",
+        "failure": "Fallo",
+        "detail": "Detalle"
+      }
+    },
+    "settings": {
+      "appScope": "Ajustes de Desktop",
+      "projectScope": "Ajustes del proyecto",
+      "entries": {
+        "theme": {
+          "label": "Apariencia y tema",
+          "keywords": "tema, oscuro, claro, colores, apariencia, aspecto, theme"
+        },
+        "language": {
+          "label": "Idioma",
+          "keywords": "idioma, lengua, traducción, language, locale"
+        },
+        "effects": {
+          "label": "Efectos visuales",
+          "keywords": "efectos, animación, movimiento, estrellas, fondo, effects"
+        },
+        "editor": {
+          "label": "Editor",
+          "keywords": "editor, vscode, abrir en el editor, ide, cursor"
+        },
+        "codeSection": {
+          "label": "Explorador de código",
+          "keywords": "código, explorador, archivos, sintaxis, resaltado, code"
+        },
+        "terminalApp": {
+          "label": "Panel de terminal (Desktop)",
+          "keywords": "terminal, consola, shell, fuente, tipografía, copiar al seleccionar"
+        },
+        "providers": {
+          "label": "Proveedores de IA y conexiones",
+          "keywords": "proveedor, claude, codex, gemini, clave api, inicio de sesión, motor, local, provider"
+        },
+        "subagentsApp": {
+          "label": "Sub-agentes (Desktop)",
+          "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, subagents"
+        },
+        "mobileCompanion": {
+          "label": "App móvil complementaria",
+          "keywords": "móvil, companion, teléfono, emparejar, qr, ipad, remoto, mobile"
+        },
+        "registeredProjects": {
+          "label": "Proyectos registrados",
+          "keywords": "proyectos, quitar proyecto, repositorios, registrados, projects"
+        },
+        "budgetAlerts": {
+          "label": "Límite diario y alertas de coste",
+          "keywords": "presupuesto, diario, coste, gasto, límite, alerta, dinero, budget"
+        },
+        "notifications": {
+          "label": "Notificaciones del sistema",
+          "keywords": "notificaciones, avisos, sonido, notifications"
+        },
+        "webhooks": {
+          "label": "Webhooks salientes",
+          "keywords": "webhook, http, slack, discord, eventos, notificar"
+        },
+        "updateChannel": {
+          "label": "Canal de actualizaciones",
+          "keywords": "canal, actualizaciones, beta, estable, versión, update channel"
+        },
+        "appUpdate": {
+          "label": "Actualizaciones de Specrails Desktop",
+          "keywords": "actualizar, actualización, versión, update, upgrade"
+        },
+        "coreUpdate": {
+          "label": "Actualizaciones de Specrails Core",
+          "keywords": "core, actualizar, versión, framework, specrails-core"
+        },
+        "about": {
+          "label": "Información de Desktop",
+          "keywords": "acerca de, info, puerto, base de datos, versión, about"
+        },
+        "repositories": {
+          "label": "Repositorios",
+          "keywords": "repositorio, repo, espacio de trabajo, carpeta, git, multi-repo, principal"
+        },
+        "prePrompt": {
+          "label": "Pre-prompt del rail",
+          "keywords": "pre-prompt, preprompt, instrucciones, prompt, rail, freestyle"
+        },
+        "verificationCommands": {
+          "label": "Comandos de verificación",
+          "keywords": "verificación, comando de test, lint, typecheck, build, setup, comandos"
+        },
+        "subagentsProject": {
+          "label": "Sub-agentes (proyecto)",
+          "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, proyecto"
+        },
+        "integrationBranch": {
+          "label": "Rama de integración",
+          "keywords": "rama, integración, main, rama base, git, destino del merge, branch"
+        },
+        "worktreeEnv": {
+          "label": "Entorno del worktree",
+          "keywords": "worktree, entorno, env, variables, .env, dependencias, instalar"
+        },
+        "agentEnv": {
+          "label": "Entorno del agente",
+          "keywords": "entorno del agente, modo env, variables, secretos, aislado"
+        },
+        "projectBudget": {
+          "label": "Límite diario del proyecto",
+          "keywords": "presupuesto, diario, coste, gasto, límite, pausar, budget"
+        },
+        "reviewLimit": {
+          "label": "Límite de revisión",
+          "keywords": "límite de revisión, wip, en revisión, pull requests, cola"
+        },
+        "telemetry": {
+          "label": "Telemetría del pipeline",
+          "keywords": "telemetría, trazas, registros, diagnóstico, métricas, telemetry"
+        },
+        "agentAudit": {
+          "label": "Auditoría de acciones de agentes",
+          "keywords": "auditoría, acciones de agentes, registro, llamadas a herramientas, historial, audit"
+        },
+        "anchoring": {
+          "label": "Anclaje de proyecto existente",
+          "keywords": "anclaje, proyecto existente, convenciones, línea base, escaneo, anchoring"
+        },
+        "projectRules": {
+          "label": "Reglas del proyecto",
+          "keywords": "reglas, convenciones, puertas, comprobaciones, agents.md, rules"
+        },
+        "terminalProject": {
+          "label": "Panel de terminal (proyecto)",
+          "keywords": "terminal, consola, shell, terminal del proyecto, fuente"
+        },
+        "recentlyDeleted": {
+          "label": "Eliminados recientemente",
+          "keywords": "eliminados, papelera, restaurar, recuperar, deleted, trash"
+        },
+        "density": {
+          "label": "Densidad",
+          "keywords": "densidad, compacta, cómoda, espaciado, filas, tarjetas, accesibilidad, density"
+        },
+        "reduceMotion": {
+          "label": "Reducir movimiento",
+          "keywords": "reducir movimiento, animación, accesibilidad, vestibular, calma, transiciones, motion"
+        }
+      }
     }
   },
   "toasts": {
@@ -53,9 +369,9 @@
       "others": "Otros"
     },
     "displayNames": {
-      "proposeSpec": "Custom-Propose",
-      "updateBacklog": "Auto-propose",
-      "productBacklog": "Auto-Select Specs"
+      "proposeSpec": "Propuesta a medida",
+      "updateBacklog": "Propuesta automática",
+      "productBacklog": "Selección automática de specs"
     },
     "emptyState": {
       "title": "No hay comandos instalados",
@@ -73,7 +389,8 @@
     "categories": {
       "general": "General",
       "navigation": "Navegación",
-      "actions": "Acciones"
+      "actions": "Acciones",
+      "missions": "Misiones"
     },
     "items": {
       "showCheatsheet": "Mostrar atajos de teclado",
@@ -82,16 +399,39 @@
       "toggleLeftSidebar": "Mostrar/ocultar barra lateral izquierda",
       "toggleTerminal": "Mostrar/ocultar panel del terminal",
       "toggleAgent": "Mostrar/ocultar chat del agente",
-      "navigateProjectPageWithAgents": "Ir a una página del proyecto (Dashboard/Jobs/Analíticas/Agentes/Ajustes)",
-      "navigateProjectPage": "Ir a una página del proyecto (Dashboard/Jobs/Analíticas/Ajustes)",
+      "navigateProjectPageWithAgents": "Ir a una página del proyecto (Tablero/Trabajos/Analíticas/Agentes/Ajustes)",
+      "navigateProjectPage": "Ir a una página del proyecto (Tablero/Trabajos/Analíticas/Ajustes)",
       "switchProject": "Cambiar de proyecto por posición",
-      "goDashboard": "Ir al Dashboard",
-      "goActivity": "Ir a Actividad / Jobs",
+      "goDashboard": "Ir al tablero",
+      "goActivity": "Ir a Actividad / Trabajos",
       "goAnalytics": "Ir a Analíticas",
       "goSettings": "Ir a Ajustes",
       "nextItem": "Siguiente elemento de la lista",
-      "prevItem": "Elemento anterior de la lista"
-    }
+      "prevItem": "Elemento anterior de la lista",
+      "runStripFocus": "Ir a la franja de ejecuciones de la misión (púlsalo otra vez para ver u ocultar los detalles)",
+      "runStripCycle": "Ejecución anterior / siguiente en la franja (fuera de los campos de texto)",
+      "runStripBack": "Salir de la franja de ejecuciones y volver a donde estabas",
+      "flowPause": "Pausar o reanudar el Flow (con la franja de ejecuciones enfocada)",
+      "flowHandOff": "Pasar el Flow a un rail (con la franja de ejecuciones enfocada)",
+      "historyBackForward": "Volver al lugar anterior o avanzar al siguiente",
+      "undoLast": "Deshacer el último cambio",
+      "openInbox": "Abrir Pendientes",
+      "reviewFiles": "Revisión: archivo cambiado siguiente / anterior",
+      "reviewAnnotations": "Revisión: anotación siguiente / anterior",
+      "reviewViewed": "Revisión: marcar el archivo como visto",
+      "boardSelect": "Tablero: seleccionar / deseleccionar la spec enfocada",
+      "boardSelectClick": "Tablero: clic alterna una spec, Mayús+clic selecciona un rango",
+      "boardSelectColumn": "Tablero: seleccionar todas las specs de la columna",
+      "boardClearSelection": "Tablero: quitar la selección",
+      "boardMove": "Tablero: mover la spec enfocada (estado o rail)"
+    },
+    "searchLabel": "Buscar atajos y guías",
+    "searchPlaceholder": "Buscar atajos y guías…",
+    "noShortcuts": "Ningún atajo coincide con «{{query}}».",
+    "guidesHeading": "De la guía",
+    "openGuide": "Abrir guía: {{title}}",
+    "noGuides": "Ninguna guía coincide con «{{query}}».",
+    "searching": "Buscando en la guía…"
   },
   "update": {
     "title": {
@@ -132,8 +472,8 @@
     }
   },
   "notifications": {
-    "jobCompleted": "Job completado",
-    "jobFailed": "Job fallido",
+    "jobCompleted": "Trabajo completado",
+    "jobFailed": "Trabajo fallido",
     "jobStuck": "La ejecución parece atascada",
     "jobStuckBody_one": "Sin actividad desde {{count}} minuto — ábrela para comprobarlo",
     "jobStuckBody_other": "Sin actividad desde {{count}} minutos — ábrela para comprobarlo",
@@ -142,8 +482,8 @@
     "jobStuckStopped": "Ejecución detenida",
     "jobStuckStopFailed": "No se pudo detener la ejecución",
     "providerLimit": "Límite de uso del proveedor alcanzado",
-    "providerLimitBody": "{{provider}} rechazó la petición: límite de uso alcanzado — se restablece {{resetsAt}}. El run se ha detenido; vuelve a lanzarlo o usa Recuperar y reintentar tras el reinicio.",
-    "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. El run se ha detenido; vuelve a lanzarlo cuando se restablezca el límite."
+    "providerLimitBody": "{{provider}} rechazó la petición: límite de uso alcanzado — se restablece {{resetsAt}}. La ejecución se ha detenido; vuelve a lanzarla o usa Recuperar y reintentar tras el reinicio.",
+    "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. La ejecución se ha detenido; vuelve a lanzarla cuando se restablezca el límite."
   },
   "templates": {
     "emptyState": {
@@ -164,8 +504,8 @@
     },
     "confirmDelete": "¿Eliminar la plantilla \"{{name}}\"?",
     "toasts": {
-      "queuedJobs_one": "{{count}} job encolado desde \"{{name}}\"",
-      "queuedJobs_other": "{{count}} jobs encolados desde \"{{name}}\"",
+      "queuedJobs_one": "{{count}} trabajo encolado desde \"{{name}}\"",
+      "queuedJobs_other": "{{count}} trabajos encolados desde \"{{name}}\"",
       "deleted": "Plantilla \"{{name}}\" eliminada"
     },
     "errors": {

@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { resetLaunchForecastCache } from '../../../../lib/launch-forecast'
+import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
 import { LoopRunModal, type RunModalProject } from '../LoopRunModal'
 
 const PROJECTS: RunModalProject[] = [
@@ -143,5 +145,47 @@ describe('LoopRunModal', () => {
   it('disables Execute when there are no projects', () => {
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={[]} onClose={() => {}} onExecute={() => {}} />)
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: /Execute/i })).toBeDisabled()
+  })
+})
+
+describe('LoopRunModal launch forecast', () => {
+  it('forecasts the loop for the chosen project and engine, and follows a project change', async () => {
+    const { TooltipProvider } = await import('../../../../components/ui/tooltip')
+    const { resetLaunchForecastCache } = await import('../../../../lib/launch-forecast')
+    resetLaunchForecastCache()
+    const body = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: null }
+    const calls: string[] = []
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      calls.push(String(url))
+      return String(url).includes('/launch-forecast') ? { ok: true, json: async () => body } : { ok: true, json: async () => ({}) }
+    }) as typeof fetch
+    render(<TooltipProvider><LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={() => {}} /></TooltipProvider>)
+    expect(await screen.findByText('Usually 6–9 min for runs like this')).toBeInTheDocument()
+    expect(calls.find((u) => u.includes('/launch-forecast'))).toMatch(/\/api\/projects\/p1\/launch-forecast\?loopId=l1&provider=claude$/)
+    fireEvent.change(screen.getByTestId('run-project-select'), { target: { value: 'p3' } })
+    await vi.waitFor(() => expect(calls.some((u) => /\/projects\/p3\/launch-forecast\?loopId=l1&provider=kimi$/.test(u))).toBe(true))
+  })
+})
+
+describe('LoopRunModal with the daily limit reached', () => {
+  beforeEach(() => resetLaunchForecastCache())
+  const forecast = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: { scope: 'project', budgetUsd: 10, spentUsd: 10, exhausted: false, resetsAt: null } }
+
+  it('does not execute while the budget is reached: Raise limit opens the spend limits panel', async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string) =>
+      String(url).includes('/launch-forecast') ? { ok: true, json: async () => forecast } : { ok: true, json: async () => ({}) }) as typeof fetch
+    const onExecute = vi.fn()
+    render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
+    await screen.findByRole('button', { name: 'Daily limit reached' })
+    fireEvent.click(screen.getByRole('button', { name: /Execute/i }))
+    const confirm = await screen.findByTestId('launch-over-budget-dialog')
+    expect(onExecute).not.toHaveBeenCalled()
+    const opened = vi.fn()
+    window.addEventListener(OPEN_BUDGET_PANEL_EVENT, opened)
+    try {
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Raise limit' }))
+      expect(opened).toHaveBeenCalledTimes(1)
+    } finally { window.removeEventListener(OPEN_BUDGET_PANEL_EVENT, opened) }
+    expect(onExecute).not.toHaveBeenCalled()
   })
 })

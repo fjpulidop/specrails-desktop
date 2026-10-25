@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { render, screen, fireEvent, act } from '../../../../test-utils'
+import { render, screen, fireEvent, act, within } from '../../../../test-utils'
 import { AgentRuntimeSettingsSection } from '../AgentRuntimeSettingsSection'
 import { formatVerificationCommand, parseVerificationCommand, type AgentRuntimeConfig } from '../../lib/agent-runtime'
 import type { DesktopProject } from '../../../../hooks/useDesktop'
@@ -181,7 +181,7 @@ describe('AgentRuntimeSettingsSection', () => {
     expect(saved.verification).toEqual([])
     expect(screen.getByTestId('runtime-save-pill')).toHaveAttribute('data-unsaved', 'false')
 
-    await user.click(setup.querySelectorAll('button')[2] as HTMLButtonElement) // first row's Remove
+    await user.click(within(setup).getAllByRole('button', { name: 'Remove' })[0]) // first row's Remove
     expect(screen.getAllByLabelText('Setup command')).toHaveLength(1)
     expect(screen.getByDisplayValue('npx playwright install chromium')).toBeInTheDocument()
     expect(screen.getByTestId('runtime-save-pill')).toHaveAttribute('data-unsaved', 'true')

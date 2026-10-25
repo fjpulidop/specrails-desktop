@@ -204,6 +204,31 @@ describe('QueueManager', () => {
     })
   })
 
+  describe('gemini workspace trust', () => {
+    it('trusts the spawn cwd of a legacy (non-relocated) gemini rail job too', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/gemini'))
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'queue-gemini-trust-'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const geminiQueue = new QueueManager(broadcast, undefined, [], root, { provider: 'gemini' })
+      try {
+        geminiQueue.enqueue('/specrails:implement #9 --yes', 'normal')
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        const [binary, , options] = vi.mocked(mockSpawn).mock.calls[0] as [string, string[], { env: NodeJS.ProcessEnv }]
+        expect(binary).toBe('gemini')
+        expect(options.env.GEMINI_CLI_TRUST_WORKSPACE).toBe('true')
+        // Legacy layout: no relocation env leaks in.
+        expect(options.env).not.toHaveProperty('SPECRAILS_REPO_DIR')
+        child.stdout.push(null)
+        child.stderr.push(null)
+        child.emit('close', 0)
+      } finally {
+        geminiQueue.shutdown()
+        fs.rmSync(root, { recursive: true, force: true })
+      }
+    })
+  })
+
   // ─── cancel ───────────────────────────────────────────────────────────────
 
   describe('cancel', () => {
@@ -1912,6 +1937,29 @@ describe('QueueManager', () => {
       db.close()
     })
 
+    it('pauses the queue at a weekly or monthly cap before spawning, tagging the event with its period (CD5)', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockUuidV4).mockReturnValue('weekly-cap-job' as any)
+      const db = initDb(':memory:')
+      const onBudgetExceeded = vi.fn()
+      const cap = (scope: 'project' | 'desktop', period: 'week' | 'month', exhausted: boolean) =>
+        ({ scope, period, budgetUsd: 10, spentUsd: exhausted ? 11 : 1, exhausted, resetsAt: '2026-11-01T00:00:00.000Z' })
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, {
+        getPeriodCapBreaches: () => [cap('project', 'week', true), cap('desktop', 'month', true), cap('project', 'month', false)],
+        onBudgetExceeded,
+      })
+
+      qmWithDb.enqueue('/implement')
+
+      expect(qmWithDb.isPaused()).toBe(true)
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+      expect(onBudgetExceeded).toHaveBeenCalledWith('daily_budget_exceeded', expect.objectContaining({ dailySpend: 11, budget: 10, period: 'week' }))
+      expect(onBudgetExceeded).toHaveBeenCalledWith('desktop_daily_budget_exceeded', expect.objectContaining({ desktopDailySpend: 11, period: 'month' }))
+      // A cap that is not reached never pauses.
+      expect(onBudgetExceeded).toHaveBeenCalledTimes(2)
+      db.close()
+    })
+
     it('emits cost_alert for per-project cost threshold', async () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()
@@ -2815,6 +2863,30 @@ describe('QueueManager', () => {
         expect(prompt).toContain('Toggle theme in settings')
         // The slash command itself must NOT be sent as the prompt.
         expect(prompt).not.toContain('/specrails:freestyle')
+      } finally {
+        fs.rmSync(projectDir, { recursive: true, force: true })
+      }
+    })
+
+    it('freestyle: appends the spec non-goals as an Out of Scope section', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('freestyle-nongoals' as any)
+      const projectDir = makeProjectDirWithTickets({
+        '8': {
+          id: 8, title: 'Exports', description: 'CSV export of the board',
+          status: 'todo', priority: 'high', labels: [], assignee: null,
+          prerequisites: [], metadata: {}, nonGoals: ['PDF export'],
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+          created_by: 'user', source: 'manual',
+        },
+      })
+      try {
+        const qm = new QueueManager(broadcast, undefined, [], projectDir, { provider: 'claude' })
+        qm.enqueue('/specrails:freestyle #8 --yes')
+        const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+        expect(spawnArgs[spawnArgs.indexOf('-p') + 1]).toContain('CSV export of the board\n\n## Out of Scope\n- PDF export')
       } finally {
         fs.rmSync(projectDir, { recursive: true, force: true })
       }

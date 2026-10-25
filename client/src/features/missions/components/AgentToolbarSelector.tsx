@@ -5,7 +5,7 @@ export const AGENT_SELECTOR_TRIGGER_CLASS =
   'flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-medium text-foreground outline-none transition-colors hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-50'
 
 export const AGENT_SELECTOR_POPOVER_CLASS =
-  'overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl'
+  'overflow-hidden rounded-xl border border-border/60 bg-popover shadow-2xl'
 
 export const AGENT_SELECTOR_ROW_CLASS =
   'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-foreground outline-none hover:bg-surface/70 focus-visible:bg-surface/70'
@@ -61,7 +61,7 @@ export function AgentToolbarSelector({
           className="max-w-[160px] truncate"
         />
         <SelectPrimitive.Icon asChild>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
 
@@ -72,9 +72,9 @@ export function AgentToolbarSelector({
           align="start"
           sideOffset={4}
           collisionPadding={8}
-          className={`z-[80] min-w-[12rem] max-w-[20rem] ${AGENT_SELECTOR_POPOVER_CLASS} data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1`}
+          className={`z-[80] min-w-[12rem] max-w-[20rem] u-pop ${AGENT_SELECTOR_POPOVER_CLASS}`}
         >
-          <SelectPrimitive.ScrollUpButton className="flex items-center justify-center py-1 text-foreground/50">
+          <SelectPrimitive.ScrollUpButton className="flex items-center justify-center py-1 text-muted-foreground">
             <ChevronUp className="h-3.5 w-3.5" />
           </SelectPrimitive.ScrollUpButton>
           <SelectPrimitive.Viewport className="max-h-72 py-1">
@@ -97,7 +97,7 @@ export function AgentToolbarSelector({
               )
             })}
           </SelectPrimitive.Viewport>
-          <SelectPrimitive.ScrollDownButton className="flex items-center justify-center py-1 text-foreground/50">
+          <SelectPrimitive.ScrollDownButton className="flex items-center justify-center py-1 text-muted-foreground">
             <ChevronDown className="h-3.5 w-3.5" />
           </SelectPrimitive.ScrollDownButton>
         </SelectPrimitive.Content>

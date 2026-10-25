@@ -1,8 +1,8 @@
 {
   "palette": {
     "label": "命令面板",
-    "searchPlaceholder": "搜索项目、命令、任务...",
-    "searchPlaceholderAgent": "搜索任务、项目、作业...",
+    "searchPlaceholder": "搜索，或输入 # @ / ? 缩小范围…",
+    "searchPlaceholderAgent": "搜索，或输入 # @ / ? 缩小范围…",
     "noResults": "未找到结果。",
     "activeBadge": "当前",
     "groups": {
@@ -10,7 +10,15 @@
       "missions": "任务",
       "spec": "Spec",
       "jobs": "任务",
-      "navigation": "导航"
+      "navigation": "导航",
+      "actions": "操作",
+      "recentActions": "最近的操作",
+      "recentPlaces": "最近的位置",
+      "settings": "设置",
+      "specs": "Spec",
+      "files": "文件",
+      "logs": "作业日志",
+      "docs": "指南"
     },
     "nav": {
       "dashboard": "仪表盘",
@@ -18,7 +26,8 @@
       "projectAnalytics": "项目分析",
       "activityFeed": "活动流",
       "desktopSettings": "Desktop 设置",
-      "docs": "文档"
+      "docs": "文档",
+      "replayTour": "重新播放导览"
     },
     "sidebar": {
       "collapseLeftKeepPinned": "收起左侧边栏（保持固定）",
@@ -31,10 +40,317 @@
     "footer": {
       "navigate": "导航",
       "select": "选择",
-      "close": "关闭"
+      "close": "关闭",
+      "actions": "操作",
+      "back": "返回",
+      "removeScope": "移除范围"
     },
     "missions": {
       "home": "主页"
+    },
+    "dialogTitle": "搜索并运行操作",
+    "dialogDescription": "输入以筛选，然后按 Enter 打开高亮的结果。",
+    "actions": {
+      "verbs": "新建,创建,添加,启动,运行,移动,打开,切换,转到,交接,暂停,继续,撤销,显示,开始,恢复,new,launch,move,open,switch,run,toggle,go,undo,选择,保存,取消选择,删除,select,save,clear,delete",
+      "back": "返回",
+      "newSpec": "新建 Spec",
+      "newSpecExplore": "新建 Spec（探索）",
+      "launchSpec": "在 Rail 上启动 Spec",
+      "launchSpecN": "在 Rail 上启动 #{{id}}",
+      "moveSpec": "将 Spec 移动到",
+      "moveSpecN": "将 #{{id}} 移动到",
+      "openReview": "打开评审",
+      "openReviewN": "打开 #{{id}} 的评审",
+      "handOffFlow": "交接 Flow",
+      "pauseFlow": "暂停 Flow",
+      "resumeFlow": "继续 Flow",
+      "newMission": "新建任务",
+      "switchTheme": "切换主题",
+      "switchToMission": "切换到任务模式",
+      "switchToBoard": "切换到看板模式",
+      "openAppSettings": "打开应用设置",
+      "openProjectSettings": "打开项目设置",
+      "switchProject": "切换项目",
+      "runLoop": "运行 Loop",
+      "toggleLeftSidebar": "切换左侧边栏",
+      "toggleRightSidebar": "切换右侧边栏",
+      "goBack": "后退",
+      "goForward": "前进",
+      "undoLast": "撤销：{{label}}",
+      "recentlyDeleted": "最近删除",
+      "pages": {
+        "railTitle": "#{{id}} 的 Rail",
+        "railPlaceholder": "选择 Rail...",
+        "railRunning": "运行中",
+        "railHasSpec": "已在此处",
+        "noRails": "没有可用的 Rail。",
+        "statusTitle": "将 #{{id}} 移动到",
+        "statusPlaceholder": "选择状态...",
+        "noStatuses": "没有可用的状态。",
+        "current": "当前",
+        "specTitle": "选择 Spec",
+        "specPlaceholder": "搜索 Spec...",
+        "noSpecs": "没有匹配的 Spec。",
+        "themeTitle": "主题",
+        "themePlaceholder": "选择主题...",
+        "noThemes": "没有可用的主题。",
+        "appSettingsTitle": "应用设置",
+        "projectSettingsTitle": "项目设置",
+        "sectionPlaceholder": "选择分区...",
+        "noSections": "没有分区。",
+        "projectTitle": "项目",
+        "projectPlaceholder": "选择项目...",
+        "noProjects": "没有其他项目。",
+        "loopTitle": "现在可运行的 Loop",
+        "loopPlaceholder": "选择 Loop...",
+        "noLoops": "没有无需 Spec 即可运行的 Loop。",
+        "loading": "加载中...",
+        "loadFailed": "无法加载选项。",
+        "statusSelectedTitle": "将所选内容移至",
+        "labelSelectedTitle": "为所选内容添加标签",
+        "labelPlaceholder": "选择标签...",
+        "noLabels": "没有可添加的标签。",
+        "prioritySelectedTitle": "所选内容的优先级",
+        "priorityPlaceholder": "选择优先级...",
+        "noPriorities": "没有可用的优先级。",
+        "railSelectedTitle": "所选内容使用的轨道",
+        "viewTitle": "已保存的视图",
+        "viewPlaceholder": "选择视图...",
+        "noViews": "没有已保存的视图。"
+      },
+      "openInbox": "打开待处理",
+      "openInboxCount": "打开待处理（{{count}}）",
+      "opensOptions": "打开选项",
+      "selectAll": "选择该列全部",
+      "clearSelection": "取消选择",
+      "moveSelected": "将所选规格移至",
+      "moveSelectedN_one": "将所选的 {{count}} 个规格移至",
+      "moveSelectedN_other": "将所选的 {{count}} 个规格移至",
+      "labelSelected": "为所选规格添加标签",
+      "labelSelectedN_one": "为所选的 {{count}} 个规格添加标签",
+      "labelSelectedN_other": "为所选的 {{count}} 个规格添加标签",
+      "prioritySelected": "设置所选规格的优先级",
+      "prioritySelectedN_one": "设置所选 {{count}} 个规格的优先级",
+      "prioritySelectedN_other": "设置所选 {{count}} 个规格的优先级",
+      "railSelected": "将所选规格加入轨道",
+      "railSelectedN_one": "将所选的 {{count}} 个规格加入轨道",
+      "railSelectedN_other": "将所选的 {{count}} 个规格加入轨道",
+      "launchSelected": "启动所选规格",
+      "launchSelectedN_one": "启动所选的 {{count}} 个规格",
+      "launchSelectedN_other": "启动所选的 {{count}} 个规格",
+      "deleteSelected": "删除所选规格",
+      "deleteSelectedN_one": "删除所选的 {{count}} 个规格",
+      "deleteSelectedN_other": "删除所选的 {{count}} 个规格",
+      "saveView": "保存当前视图",
+      "switchView": "切换视图",
+      "openBudget": "打开预算（上限、预测、假设分析）",
+      "openBudgetKeywords": "预算, 上限, 限额, 每周, 每月, 支出, 成本, budget",
+      "exportHandoffN": "导出 #{{id}} 的交接",
+      "copyPrDescriptionN": "复制 #{{id}} 的 PR 描述",
+      "exportHandoff": "导出交接",
+      "copyPrDescription": "复制 PR 描述",
+      "moveFocusedSpec": "移动聚焦的规格…"
+    },
+    "scopes": {
+      "remove": "移除范围",
+      "needsProject": "请先打开一个项目再在此搜索。",
+      "searching": "正在搜索…",
+      "failed": "搜索暂时不可用。",
+      "empty": "未找到与“{{query}}”相关的内容。",
+      "specs": {
+        "label": "Spec",
+        "placeholder": "按标题、描述、标签或备注搜索 Spec…",
+        "prompt": "输入以搜索 Spec。"
+      },
+      "missions": {
+        "label": "任务",
+        "placeholder": "按标题或内容搜索任务…",
+        "prompt": "输入以搜索任务。"
+      },
+      "settings": {
+        "label": "设置",
+        "placeholder": "搜索设置…",
+        "prompt": "输入以搜索设置。",
+        "commandsFallback": "与“/{{query}}”匹配的命令"
+      },
+      "files": {
+        "label": "文件",
+        "placeholder": "按名称或路径查找文件…",
+        "prompt": "输入文件名或路径。"
+      },
+      "logs": {
+        "label": "作业日志",
+        "placeholder": "搜索作业命令、阶段和失败原因…",
+        "prompt": "输入以搜索运行做了什么以及为何失败。"
+      },
+      "docs": {
+        "label": "指南",
+        "placeholder": "搜索指南…",
+        "prompt": "输入以搜索指南。"
+      }
+    },
+    "specs": {
+      "fields": {
+        "id": "Spec 编号",
+        "title": "标题",
+        "summary": "摘要",
+        "description": "描述",
+        "label": "标签",
+        "nonGoal": "不在范围内",
+        "addendum": "补充说明",
+        "comment": "评论"
+      }
+    },
+    "logs": {
+      "fields": {
+        "command": "命令",
+        "loop": "循环",
+        "phase": "阶段",
+        "failure": "失败",
+        "detail": "详情"
+      }
+    },
+    "settings": {
+      "appScope": "Desktop 设置",
+      "projectScope": "项目设置",
+      "entries": {
+        "theme": {
+          "label": "外观与主题",
+          "keywords": "主题, 深色, 浅色, 颜色, 外观, theme"
+        },
+        "language": {
+          "label": "语言",
+          "keywords": "语言, 区域, 翻译, language, locale"
+        },
+        "effects": {
+          "label": "视觉效果",
+          "keywords": "效果, 动画, 动态, 星空, 背景, effects"
+        },
+        "editor": {
+          "label": "编辑器",
+          "keywords": "编辑器, vscode, 在编辑器中打开, ide, cursor"
+        },
+        "codeSection": {
+          "label": "代码浏览器",
+          "keywords": "代码, 浏览器, 文件, 语法, 高亮, code"
+        },
+        "terminalApp": {
+          "label": "终端面板（Desktop）",
+          "keywords": "终端, 控制台, shell, 字体, 选中即复制"
+        },
+        "providers": {
+          "label": "AI 提供方与连接",
+          "keywords": "提供方, 供应商, claude, codex, gemini, api 密钥, 登录, 引擎, 本地, provider"
+        },
+        "subagentsApp": {
+          "label": "子代理（Desktop）",
+          "keywords": "子代理, subagents, 原生, 委派, 并行"
+        },
+        "mobileCompanion": {
+          "label": "移动伴侣应用",
+          "keywords": "移动, 手机, 伴侣, 配对, 二维码, ipad, 远程, mobile, companion"
+        },
+        "registeredProjects": {
+          "label": "已注册的项目",
+          "keywords": "项目, 移除项目, 仓库, 已注册, projects"
+        },
+        "budgetAlerts": {
+          "label": "每日预算与成本提醒",
+          "keywords": "预算, 每日, 成本, 花费, 限额, 提醒, 金额, budget"
+        },
+        "notifications": {
+          "label": "系统通知",
+          "keywords": "通知, 提醒, 声音, notifications"
+        },
+        "webhooks": {
+          "label": "出站 Webhook",
+          "keywords": "webhook, http, slack, discord, 事件, 通知"
+        },
+        "updateChannel": {
+          "label": "更新通道",
+          "keywords": "通道, 更新, 测试版, 稳定版, 版本, update channel"
+        },
+        "appUpdate": {
+          "label": "Specrails Desktop 更新",
+          "keywords": "更新, 升级, 版本, update, upgrade"
+        },
+        "coreUpdate": {
+          "label": "Specrails Core 更新",
+          "keywords": "core, 更新, 版本, 框架, specrails-core"
+        },
+        "about": {
+          "label": "Desktop 信息",
+          "keywords": "关于, 信息, 端口, 数据库, 版本, about"
+        },
+        "repositories": {
+          "label": "仓库",
+          "keywords": "仓库, repo, 工作区, 文件夹, git, 多仓库, 主仓库"
+        },
+        "prePrompt": {
+          "label": "Rail 预提示词",
+          "keywords": "预提示词, pre-prompt, 指令, 提示词, rail, freestyle"
+        },
+        "verificationCommands": {
+          "label": "验证命令",
+          "keywords": "验证, 测试命令, lint, typecheck, 构建, setup, 命令"
+        },
+        "subagentsProject": {
+          "label": "子代理（项目）",
+          "keywords": "子代理, subagents, 原生, 委派, 并行, 项目"
+        },
+        "integrationBranch": {
+          "label": "集成分支",
+          "keywords": "分支, 集成, main, 基础分支, git, 合并目标, branch"
+        },
+        "worktreeEnv": {
+          "label": "Worktree 环境",
+          "keywords": "worktree, 环境, env, 变量, .env, 依赖, 安装"
+        },
+        "agentEnv": {
+          "label": "代理环境",
+          "keywords": "代理环境, env 模式, 变量, 密钥, 隔离"
+        },
+        "projectBudget": {
+          "label": "项目每日预算",
+          "keywords": "预算, 每日, 成本, 花费, 限额, 暂停, budget"
+        },
+        "reviewLimit": {
+          "label": "评审上限",
+          "keywords": "评审上限, wip, 待评审, pull request, 队列"
+        },
+        "telemetry": {
+          "label": "流水线遥测",
+          "keywords": "遥测, 追踪, 日志, 诊断, 指标, telemetry"
+        },
+        "agentAudit": {
+          "label": "代理操作审计",
+          "keywords": "审计, 代理操作, 日志, 工具调用, 历史, audit"
+        },
+        "anchoring": {
+          "label": "现有项目锚定",
+          "keywords": "锚定, 现有项目, 约定, 基线, 扫描, anchoring"
+        },
+        "projectRules": {
+          "label": "项目规则",
+          "keywords": "规则, 约定, 关卡, 检查, agents.md, rules"
+        },
+        "terminalProject": {
+          "label": "终端面板（项目）",
+          "keywords": "终端, 控制台, shell, 项目终端, 字体"
+        },
+        "recentlyDeleted": {
+          "label": "最近删除",
+          "keywords": "已删除, 回收站, 恢复, 还原, deleted, trash"
+        },
+        "density": {
+          "label": "密度",
+          "keywords": "密度, 紧凑, 舒适, 间距, 行, 卡片, 无障碍, density"
+        },
+        "reduceMotion": {
+          "label": "减少动态效果",
+          "keywords": "减少动态效果, 动画, 无障碍, 前庭, 平静, 过渡, motion"
+        }
+      }
     }
   },
   "toasts": {
@@ -73,7 +389,8 @@
     "categories": {
       "general": "通用",
       "navigation": "导航",
-      "actions": "操作"
+      "actions": "操作",
+      "missions": "任务"
     },
     "items": {
       "showCheatsheet": "显示键盘快捷键",
@@ -90,8 +407,31 @@
       "goAnalytics": "前往分析",
       "goSettings": "前往设置",
       "nextItem": "列表中的下一项",
-      "prevItem": "列表中的上一项"
-    }
+      "prevItem": "列表中的上一项",
+      "runStripFocus": "跳到任务的运行条（再按一次显示或隐藏详情）",
+      "runStripCycle": "运行条中的上一个 / 下一个运行（在文本框之外）",
+      "runStripBack": "离开运行条，回到原来的位置",
+      "flowPause": "暂停或继续 Flow（运行条获得焦点时）",
+      "flowHandOff": "将 Flow 交给 Rail（运行条获得焦点时）",
+      "historyBackForward": "后退 / 前进到上一个或下一个位置",
+      "undoLast": "撤销上一次更改",
+      "openInbox": "打开待处理",
+      "reviewFiles": "评审：下一个 / 上一个变更文件",
+      "reviewAnnotations": "评审：下一条 / 上一条批注",
+      "reviewViewed": "评审：将文件标记为已查看",
+      "boardSelect": "看板:选择 / 取消选择当前聚焦的规格",
+      "boardSelectClick": "看板:点击切换规格,Shift+点击选择范围",
+      "boardSelectColumn": "看板:选择该列中的所有规格",
+      "boardClearSelection": "看板:取消选择",
+      "boardMove": "看板:移动当前聚焦的规格(状态或 Rail)"
+    },
+    "searchLabel": "搜索快捷键和指南",
+    "searchPlaceholder": "搜索快捷键和指南…",
+    "noShortcuts": "没有与“{{query}}”匹配的快捷键。",
+    "guidesHeading": "来自指南",
+    "openGuide": "打开指南：{{title}}",
+    "noGuides": "没有与“{{query}}”匹配的指南。",
+    "searching": "正在搜索指南…"
   },
   "update": {
     "title": {

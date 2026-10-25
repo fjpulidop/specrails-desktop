@@ -56,6 +56,32 @@ describe('UiModeContext', () => {
     expect(localStorage.getItem('specrails-desktop:uiMode')).toBe('agent')
   })
 
+  it('requestedMode answers at once and two quick toggles resolve against the last request', () => {
+    function Radios() {
+      const { uiMode, requestedMode, isPending, toggleUiMode, setUiMode } = useUiMode()
+      return (
+        <div>
+          <span data-testid="shown">{uiMode}</span>
+          <span data-testid="asked">{requestedMode}</span>
+          <span data-testid="pending">{String(isPending)}</span>
+          <button onClick={() => { toggleUiMode(); toggleUiMode() }}>double</button>
+          <button onClick={() => { toggleUiMode() }}>single</button>
+          <button onClick={() => setUiMode('kanban', { immediate: true })}>now</button>
+        </div>
+      )
+    }
+    render(<UiModeProvider><Radios /></UiModeProvider>)
+    act(() => { screen.getByText('single').click() })
+    expect(screen.getByTestId('asked').textContent).toBe('kanban')
+    expect(screen.getByTestId('shown').textContent).toBe('kanban')
+    act(() => { screen.getByText('double').click() })
+    // kanban -> agent -> kanban, not two flips of the same stale value.
+    expect(screen.getByTestId('asked').textContent).toBe('kanban')
+    expect(screen.getByTestId('pending').textContent).toBe('false')
+    act(() => { screen.getByText('now').click() })
+    expect(screen.getByTestId('shown').textContent).toBe('kanban')
+  })
+
   it('useUiMode outside provider returns kanban + no-op setter', () => {
     render(<Probe />)
     expect(screen.getByTestId('mode').textContent).toBe('kanban')

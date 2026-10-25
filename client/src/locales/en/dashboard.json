@@ -22,7 +22,7 @@
     "queuedOnRailDescription": "Rail is currently running",
     "railStopped": "{{rail}} stopped",
     "stopFailed": "Failed to stop rail",
-    "syncTicketsFailed": "Failed to sync rail tickets",
+    "syncTicketsFailed": "Failed to sync rail specs",
     "launchFailed": "Failed to launch rail",
     "launchNetworkError": "Network error launching rail",
     "railLaunched": "{{rail}} launched",
@@ -33,7 +33,11 @@
     "railWorktreesNoCommits": "Worktree isolation unavailable: the repository has no commits yet — make an initial commit, then relaunch.",
     "railWorktreesError": "Worktree isolation failed — this run continues WITHOUT the PR review flow (no implementation card). See the error detail below.",
     "onReviewCannotMoveToRail": "This spec is awaiting PR review — resolve the PR decision first",
-    "onReviewNotLaunchable": "A spec on this rail is awaiting PR review — resolve the PR decision before launching"
+    "onReviewNotLaunchable": "A spec on this rail is awaiting PR review. Resolve the PR decision before launching.",
+    "launchRepositoryHasNoCommits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.",
+    "railDeletePrPending": "{{rail}} has a pending PR decision — resolve it before removing the rail",
+    "railDeleteLastRail": "A project needs at least one rail — this one can't be removed",
+    "openJob": "Open job"
   },
   "railPr": {
     "operation": {
@@ -79,13 +83,14 @@
     "implementationFailed": "Implementation failed",
     "implementationFailedHint": "The implementation run failed. Open the run log, then discard this card before relaunching.",
     "prFailed": "PR failed",
-    "prFailedDetail": "PR failed: {{detail}}",
+    "prFailedDetail": "PR failed",
     "createDegraded": "Couldn't publish the PR — {{detail}}. Retry when resolved.",
     "createPr": "Create PR",
     "createPrTooltip": "→ {{base}}",
     "publish": "Publish",
     "publishTooltip": "Open this draft PR for team review",
     "checkout": "Checkout",
+    "moreActions": "More actions",
     "checkoutTooltip": "Check out {{branch}} in the main project folder",
     "checkoutSuccess": "Checked out {{branch}}",
     "checkoutFailed": "Could not check out the implementation branch",
@@ -107,14 +112,14 @@
     "recoveryStillBlocked": "Local recovery still needs attention",
     "recheckRecovery": "Check again",
     "recheckRecoveryConfirmTitle": "Check this computer again?",
-    "recheckRecoveryConfirmBody": "Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for {{branch}}. If it proves one result, it may commit isolated changes and retry the exact push. Your main project folder will not be touched.",
+    "recheckRecoveryConfirmBody": "We’ll check whether anything from this delivery can still be recovered. Nothing is deleted.",
     "recoveryUnavailable": "Recovery could not be verified on this computer",
     "recoveryUnavailableBody": "Specrails could not safely prove one delivery-owned result in this clone. Nothing was changed or removed. Inspect the stage detail and run logs. If the run executed on another computer, open Specrails there, then check again.",
     "recoveryDetailSummary": "Technical recovery detail",
     "discard": "Discard",
     "dismiss": "Dismiss follow-up",
     "discardLocalResult": "Discard local result",
-    "discardTooltip": "Close the delivery and return its tickets to Specs; changed local work is preserved",
+    "discardTooltip": "Close the delivery and return its specs to Specs; changed local work is preserved",
     "retryPr": "Retry PR",
     "retry": "Retry",
     "checkMerge": "Check merge",
@@ -127,15 +132,15 @@
     "commitMissingRetry": "The delivery commit is no longer in the PR. Retry push is available again.",
     "prVerifiedWaiting": "Commit {{sha}} verified · waiting for merge",
     "alreadyResolved": "Already resolved elsewhere",
-    "ghFailed": "GitHub CLI failed: {{detail}}",
+    "ghFailed": "GitHub CLI failed",
     "actionFailed": "Couldn't apply the PR decision",
-    "mergedToast": "PR merged — tickets moved to Done",
-    "discardedToast": "PR discarded — tickets returned to Specs",
+    "mergedToast": "PR merged — specs moved to Done",
+    "discardedToast": "PR discarded — specs returned to Specs",
     "decisionPending": "This rail has a pending PR decision — create, publish or discard it before relaunching",
     "discardConfirmTitle": "Discard this delivery?",
-    "discardConfirmBody": "The PR will be closed without deleting its remote branch. Only SpecRails-owned local branches and worktrees that are still at their recorded commit will be removed; anything changed will be preserved with a warning. The tickets will return to the Specs backlog. Removed local resources cannot be recovered.",
+    "discardConfirmBody": "The PR will be closed without deleting its remote branch. Only SpecRails-owned local branches and worktrees that are still at their recorded commit will be removed; anything changed will be preserved with a warning. The specs will return to the Specs backlog. Removed local resources cannot be recovered.",
     "implementationFailedDiscardTitle": "Discard this failed delivery?",
-    "implementationFailedDiscardBody": "The card will be cleared and its tickets will return to Specs. Local work and branches will be kept for inspection. Only resources proven safe to clean up may be removed.",
+    "implementationFailedDiscardBody": "The card will be cleared and its specs will return to Specs. Local work and branches will be kept for inspection. Only resources proven safe to clean up may be removed.",
     "dismissConfirmTitle": "Dismiss this follow-up?",
     "dismissConfirmBody": "This follow-up card will be cleared. Its owned worktree will be removed only if it is still safe; otherwise it will be preserved with a warning. The existing PR, its branch, and review state will remain unchanged.",
     "discardLocalConfirmTitle": "Discard the local result?",
@@ -146,7 +151,7 @@
     "mergeLocalConfirmBody": "The delivered branches will be merged into {{base}} locally. Existing changes are preserved; overlapping edits may require resolution before integration.",
     "mergeLocalBlockedDirty": "Cannot integrate: local changes on {{base}} overlap the delivery. Commit or stash those changes, then retry.",
     "mergeLocalBlockedBranch": "Cannot integrate: your checkout is on {{current}}, not {{base}}. Check out {{base}}, then retry.",
-    "mergeLocalFailed": "Local merge failed: {{detail}}",
+    "mergeLocalFailed": "Local merge failed",
     "mergedLocally": "Integrated into {{base}} locally",
     "viewRunLog": "View run log for {{ref}}",
     "cleanupIncomplete_one": "Cleanup is incomplete ({{count}} warning)",
@@ -162,14 +167,39 @@
       "noChanges": "no changes",
       "succeeded": "ready"
     },
-    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work."
+    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work.",
+    "reviewChangesRequested": "Changes requested",
+    "reviewChangesRequestedHint": "The Flow hand-off still needs changes. Open its mission card to go back to Flow or relaunch.",
+    "mergedLocallyRestored": "Saved your local changes, integrated {{tickets}}, and restored them.",
+    "mergedLocallyStashConflict": "Integrated {{tickets}}. Your local changes are safe in a stash; Specrails is restoring them on a separate branch.",
+    "mergedLocallyStashKept": "Integrated {{tickets}}. Your local changes are safe in a stash; restore them when you're ready.",
+    "failed": {
+      "generic": "Delivery stopped. See technical details."
+    },
+    "relaunch": "Relaunch",
+    "resume": "Resume",
+    "relaunchBlocked": "The rail still has an active run",
+    "relaunchSent": "Relaunching the rail",
+    "relaunchFailed": "Couldn't relaunch the rail",
+    "recheckRecoveryConfirmTechnical": "Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for {{branch}}. If it proves one result, it may commit isolated changes and retry the exact push. Your main project folder will not be touched."
   },
   "railsBoard": {
     "title": "Rails",
-    "runningCount_one": "{{count}} running",
-    "runningCount_other": "{{count}} running",
     "launchAll": "Launch all",
-    "launchAllTitle": "Launch every ready rail in parallel — each run is isolated in its own git worktree"
+    "launchAllTitle": "Launch every ready rail in parallel — each run is isolated in its own git worktree",
+    "addRail": "Add rail",
+    "addRailLimit": "Rail limit reached ({{max}} max)",
+    "launchAllNoneReady": "No rail is ready. Drag a spec onto a rail, or press M on a focused card.",
+    "summary": {
+      "running_one": "{{count}} running",
+      "running_other": "{{count}} running",
+      "ready_one": "{{count}} ready",
+      "ready_other": "{{count}} ready",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed",
+      "total_one": "{{count}} rail",
+      "total_other": "{{count}} rails"
+    }
   },
   "launchAll": {
     "skipRunning_one": "{{count}} already running",
@@ -184,7 +214,7 @@
     "skipInFlight_other": "{{count}} skipped (specs already in flight)",
     "failedCount_one": "{{count}} failed",
     "failedCount_other": "{{count}} failed",
-    "skipBudget": "{{count}} over the daily budget",
+    "skipBudget": "{{count}} over the daily limit",
     "skipReviewLimit_one": "{{count}} held by the review limit",
     "skipReviewLimit_other": "{{count}} held by the review limit"
   },
@@ -207,7 +237,10 @@
     "reviewLimitNone_one": "{{count}} rail would open a new delivery, so nothing launches. Decide a pending delivery first.",
     "reviewLimitNone_other": "{{count}} rails would open new deliveries, so nothing launches. Decide a pending delivery first.",
     "reviewLimitPartial_one": "Only {{launched}} can start now; {{count}} rail waits until a delivery is decided.",
-    "reviewLimitPartial_other": "Only {{launched}} can start now; {{count}} rails wait until a delivery is decided."
+    "reviewLimitPartial_other": "Only {{launched}} can start now; {{count}} rails wait until a delivery is decided.",
+    "forecastTotal_one": "{{count}} run · usually {{cost}} in total",
+    "forecastTotal_other": "{{count}} runs · usually {{cost}} in total",
+    "mayPause": "This may reach a spend limit and pause some runs."
   },
   "railControls": {
     "viewJobLog": "View job log",
@@ -231,14 +264,30 @@
     "execLines": "{{count}} lines",
     "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Recommended",
-    "recommendedOption": "{{label}} · recommended"
+    "recommendedOption": "{{label}} · recommended",
+    "loopDescriptions": {
+      "implement": "Plans, builds and reviews each spec, then prepares the delivery.",
+      "freestyle": "The chosen provider builds the spec on its own, with no pipeline.",
+      "openspec": "Writes an OpenSpec change for the spec, builds it, then archives it."
+    }
   },
   "railRow": {
     "moveToSpecs": "Move to Specs",
     "deleteRail": "Delete {{label}}",
     "dropHere": "Drop here",
     "dropOnThisRail": "Drop on this rail",
-    "dragSpecsHere": "Drag specs here"
+    "dropHint": "Drop a spec onto this rail",
+    "dragHandle": "Reorder {{label}}",
+    "status": {
+      "idle": "Idle",
+      "running": "Running",
+      "failed": "Failed"
+    },
+    "deleteMenuItem": "Delete rail",
+    "deleteConfirm": {
+      "title": "Delete {{label}}?",
+      "body": "Its specs go back to the backlog. This rail's provider, loop and PR settings are lost."
+    }
   },
   "freestyleDialog": {
     "title": "Launch in Freestyle mode",
@@ -250,7 +299,8 @@
     "autonomyBody": "{{provider}} works on its own using native agents and dynamic workflows.",
     "costTitle": "Variable cost.",
     "costBody": "Spend depends on what {{provider}} decides to do — it can be higher than expected.",
-    "continue": "Continue"
+    "continue": "Continue",
+    "gloss": "Freestyle hands each spec straight to {{provider}}: one autonomous run per spec, without the OpenSpec plan-and-review pipeline."
   },
   "useRails": {
     "fetchFailed": "Failed to fetch rails: {{status}}"
@@ -291,5 +341,12 @@
     "panelReached": "The limit of {{limit}} is reached. Decide one of these (Create PR, merge or discard) to launch new work. Changes to these deliveries are still allowed.",
     "empty": "Nothing is waiting for review.",
     "playBlocked": "Review limit reached ({{pending}}/{{limit}} waiting). Decide a delivery to launch new work."
+  },
+  "errors": {
+    "deleteFailed": "Could not delete the spec"
+  },
+  "board": {
+    "pageTitle": "{{project}} — Board",
+    "pageTitleBare": "Board"
   }
 }

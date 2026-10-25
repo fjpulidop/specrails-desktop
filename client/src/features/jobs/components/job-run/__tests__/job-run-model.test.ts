@@ -125,10 +125,10 @@ describe('resolveActivityLabel', () => {
 describe('finalMetricsFor', () => {
   const job: JobSummary = { id: 'j', command: 'x', started_at: null, status: 'completed', total_cost_usd: 0.0234, tokens_in: 5000, tokens_out: 3000, num_turns: 8 }
   it('formats the authoritative figures', () => {
-    expect(finalMetricsFor(job)).toEqual({ cost: '$0.0234', turns: '8', tokens: '8.0k' })
+    expect(finalMetricsFor(job)).toEqual({ cost: '$0.02', turns: '8', tokens: '8.0k' })
   })
   it('prefixes ~ for an estimated cost and includes cache tokens', () => {
-    expect(finalMetricsFor({ ...job, total_cost_usd_estimated: 1, tokens_cache_read: 90_000, tokens_cache_create: 2_000 })).toEqual({ cost: '~$0.0234', turns: '8', tokens: '100.0k' })
+    expect(finalMetricsFor({ ...job, total_cost_usd_estimated: 1, tokens_cache_read: 90_000, tokens_cache_create: 2_000 })).toEqual({ cost: '~$0.02', turns: '8', tokens: '100.0k' })
   })
   it('returns null (never 0) when the provider reported nothing', () => {
     expect(finalMetricsFor({ ...job, total_cost_usd: null, tokens_in: null, tokens_out: null, num_turns: null })).toEqual({ cost: null, turns: null, tokens: null })
@@ -160,7 +160,7 @@ describe('pipeline totals', () => {
     expect(totals.costEstimated).toBe(true)
     expect(totals.costUnavailable).toBe(false)
     expect(totals.nullTokenCount).toBe(1)
-    expect(formatPipelineCost(totals)).toBe('~≥$1.0000')
+    expect(formatPipelineCost(totals)).toBe('~≥$1.00')
     expect(formatPipelineTokens(totals)).toBe('≥1.5k')
   })
   it('renders unavailable instead of $0/0k for an all-Kimi pipeline', () => {
@@ -173,7 +173,7 @@ describe('pipeline totals', () => {
   })
   it('renders a clean total when every phase reported', () => {
     const totals = computePipelineTotals([base, { ...base, id: 'b' }])!
-    expect(formatPipelineCost(totals)).toBe('$2.0000')
+    expect(formatPipelineCost(totals)).toBe('$2.00')
     expect(formatPipelineTokens(totals)).toBe('3.0k')
   })
 })

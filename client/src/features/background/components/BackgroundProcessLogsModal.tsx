@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Content as DialogContent } from '@radix-ui/react-dialog'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
-import { AlertCircle, ArrowDownToLine, ArrowLeft, Check, Copy, Download, Loader2, Pause, Play, Search, Square, Terminal, X } from 'lucide-react'
-import { Dialog, DialogClose, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from '../../../components/ui/dialog'
+import { AlertCircle, ArrowDownToLine, ArrowLeft, Check, Copy, Download, Loader2, Pause, Play, Search, Square, Terminal } from 'lucide-react'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { backgroundProcessKey, getBackgroundProcessLogs } from '../lib/background-processes-api'
 import { isBackgroundProcessFinished, useBackgroundProcessElapsed } from './BackgroundProcessChip'
 import { BackgroundProcessAppLinks } from './BackgroundProcessAppLinks'
@@ -44,9 +44,9 @@ export function boundedBackgroundLogs(lines: readonly LogLine[]): { lines: LogLi
   return { lines: retained.reverse(), truncated }
 }
 
-function formatLogLine(entry: LogLine): string {
+function formatLogLine(entry: LogLine, locale?: string): string {
   const at = new Date(entry.at)
-  return `[${Number.isNaN(at.getTime()) ? '—' : at.toLocaleTimeString(undefined, { hour12: false })}] [${entry.source}] ${entry.line}`
+  return `[${Number.isNaN(at.getTime()) ? '—' : at.toLocaleTimeString(locale, { hour12: false })}] [${entry.source}] ${entry.line}`
 }
 
 export function BackgroundProcessLogsModal({ process, onClose, onKill, onBack }: {
@@ -65,7 +65,7 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
   onKill: (process: BackgroundProcess) => Promise<void> | void
   onBack?: () => void
 }) {
-  const { t } = useTranslation('agent')
+  const { t, i18n } = useTranslation('agent')
   const scope = backgroundProcessKey(process)
   const processRef = useRef(process)
   processRef.current = process
@@ -132,7 +132,7 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
     const needle = query.toLocaleLowerCase()
     return lines.filter(entry => (source === 'all' || source === entry.source) && (!needle || entry.line.toLocaleLowerCase().includes(needle)))
   }, [lines, query, source])
-  const visibleText = useMemo(() => filtered.map(formatLogLine).join('\n'), [filtered])
+  const visibleText = useMemo(() => filtered.map(entry => formatLogLine(entry, i18n.language)).join('\n'), [filtered, i18n.language])
   useEffect(() => {
     if (follow && !paused && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
   }, [filtered, follow, paused])
@@ -162,65 +162,59 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
   const control = 'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border/60 px-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:cursor-not-allowed disabled:opacity-40'
 
   return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-    <DialogPortal>
-      <DialogOverlay className="z-[80]" />
-      <DialogContent data-testid="background-process-logs-modal" className="fixed left-1/2 top-1/2 z-[81] flex h-[min(780px,88vh)] w-[calc(100vw-2rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border/50 bg-popover text-foreground shadow-2xl focus:outline-none">
-        <header className="flex items-start gap-3 border-b border-border/50 px-4 py-3">
-          {onBack && <button type="button" onClick={onBack} aria-label={t('backgroundProcess.history.back')} title={t('backgroundProcess.history.back')} className="rounded-md p-1 text-muted-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"><ArrowLeft className="h-4 w-4" aria-hidden /></button>}
-          <Terminal className="mt-0.5 h-5 w-5 shrink-0 text-accent-info" aria-hidden />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <DialogTitle className="text-sm font-semibold">{t('backgroundProcess.logsTitle')}</DialogTitle>
-              <span data-testid="background-process-status" className={`rounded-full px-2 py-0.5 text-[11px] ${displayedProcess.status === 'failed' ? 'bg-destructive/10 text-destructive' : finished ? 'bg-muted text-muted-foreground' : 'bg-accent-info/10 text-accent-info'}`}>
-                {t(`backgroundProcess.status.${busy ? 'stopping' : displayedProcess.status}`)}
-              </span>
-              <span className="font-mono text-xs text-muted-foreground">{elapsed}</span>
-            </div>
-            <DialogDescription className="mt-1 text-xs text-muted-foreground">{t('backgroundProcess.logsDescription')}</DialogDescription>
-          </div>
-          <DialogClose className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary" aria-label={t('backgroundProcess.close')}><X className="h-4 w-4" /></DialogClose>
-        </header>
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 border-b border-border/50 px-4 py-3 text-xs">
-          <dt className="text-muted-foreground">{t('backgroundProcess.command')}</dt><dd className="break-all font-mono">{sanitizeBackgroundLog(displayedProcess.command)}</dd>
-          <dt className="text-muted-foreground">{t('backgroundProcess.directory')}</dt><dd className="break-all font-mono text-muted-foreground">{sanitizeBackgroundLog(displayedProcess.cwd)}</dd>
-          {(displayedProcess.repositoryName || displayedProcess.repositoryId) && <><dt className="text-muted-foreground">{t('backgroundProcess.repository')}</dt><dd className="break-all text-muted-foreground">{sanitizeBackgroundLog(displayedProcess.repositoryName ?? displayedProcess.repositoryId ?? '')}</dd></>}
-          <dt className="text-muted-foreground">PID</dt><dd className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-muted-foreground"><span>{displayedProcess.pid}</span>{displayedProcess.exitCode != null && <span>{t('backgroundProcess.exitCode', { code: displayedProcess.exitCode })}</span>}{displayedProcess.signal && <span>{t('backgroundProcess.signal', { signal: displayedProcess.signal })}</span>}</dd>
-        </dl>
-        {!finished && <BackgroundProcessAppLinks process={displayedProcess.appUrls ? displayedProcess : process} />}
-        {displayedProcess.error && <p role="alert" className="border-b border-border/40 bg-destructive/5 px-4 py-2 text-xs text-destructive">{sanitizeBackgroundLog(displayedProcess.error).slice(0, 1000)}</p>}
-        {displayedProcess.status === 'interrupted' && <p role="status" className="border-b border-border/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">{t('backgroundProcess.interruptedHint')}</p>}
-        {displayedProcess.persistenceError && <p role="alert" className="border-b border-border/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">{t('backgroundProcess.persistenceFailed')}</p>}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border/50 px-4 py-2.5">
-          <label className="relative min-w-[150px] flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" aria-hidden />
-            <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t('backgroundProcess.search')} aria-label={t('backgroundProcess.search')}
-              className="h-8 w-full rounded-md border border-border/60 bg-background/50 pl-8 pr-2 text-xs outline-none focus:border-accent-primary/60" />
-          </label>
-          <select aria-label={t('backgroundProcess.source')} value={source} onChange={event => setSource(event.target.value as typeof source)} className="h-8 rounded-md border border-border/60 bg-background px-2 text-xs outline-none focus:border-accent-primary/60">
-            <option value="all">{t('backgroundProcess.allSources')}</option><option value="stdout">stdout</option><option value="stderr">stderr</option>
-          </select>
-          {!finished && <button type="button" className={control} aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}{t(paused ? 'backgroundProcess.resume' : 'backgroundProcess.pause')}</button>}
-          <button type="button" className={`${control} ${follow ? 'border-accent-info/40 text-accent-info' : ''}`} aria-pressed={follow} onClick={() => setFollow(value => !value)}><ArrowDownToLine className="h-3.5 w-3.5" aria-hidden />{t('backgroundProcess.follow')}</button>
-          <button type="button" className={control} disabled={!filtered.length} onClick={() => void copy()} aria-label={t('backgroundProcess.copy')} title={t('backgroundProcess.copy')}>{exportState === 'copied' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button>
-          <button type="button" className={control} disabled={!filtered.length} onClick={download} aria-label={t('backgroundProcess.download')} title={t('backgroundProcess.download')}><Download className="h-3.5 w-3.5" /></button>
-          {!finished && <button type="button" className={`${control} text-destructive`} disabled={busy} onClick={() => void stop()}>{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Square className="h-3.5 w-3.5" aria-hidden />}{t(busy ? 'backgroundProcess.status.stopping' : 'backgroundProcess.stop')}</button>}
+    {/* Capture layer: process logs open over the browser capture / web view surfaces. */}
+    <DialogContent size="workspace" layer="capture" data-testid="background-process-logs-modal">
+      <DialogHeader icon={<Terminal className="text-accent-info" />}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {onBack && <button type="button" onClick={onBack} aria-label={t('backgroundProcess.history.back')} title={t('backgroundProcess.history.back')} className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"><ArrowLeft className="h-4 w-4" aria-hidden /></button>}
+          <DialogTitle>{t('backgroundProcess.logsTitle')}</DialogTitle>
+          <span data-testid="background-process-status" data-chip="" className={`inline-flex h-5 items-center rounded-full px-2 text-caption ${displayedProcess.status === 'failed' ? 'bg-destructive/10 text-destructive' : finished ? 'bg-muted text-muted-foreground' : 'bg-accent-info/10 text-accent-info'}`}>
+            {t(`backgroundProcess.status.${busy ? 'stopping' : displayedProcess.status}`)}
+          </span>
+          <span className="font-mono text-xs text-muted-foreground">{elapsed}</span>
         </div>
-        {truncated && <p role="status" className="border-b border-border/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-600 dark:text-amber-400">{t('backgroundProcess.truncated')}</p>}
-        {paused && !finished && <p role="status" className="border-b border-border/40 bg-muted/20 px-4 py-2 text-xs text-muted-foreground">{t('backgroundProcess.paused')}</p>}
-        {failed && <div role="alert" className="flex items-center gap-2 border-b border-border/40 bg-destructive/5 px-4 py-2 text-xs text-destructive"><AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="flex-1">{t('backgroundProcess.loadFailed')}</span><button type="button" className={control} onClick={() => { setPaused(false); setRetry(value => value + 1) }}>{t('backgroundProcess.retry')}</button></div>}
-        {(stopFailed || process.stopError) && <p role="alert" className="bg-destructive/5 px-4 py-2 text-xs text-destructive">{t('backgroundProcess.stopFailed')}</p>}
-        {exportState && <p role={exportState === 'failed' ? 'alert' : 'status'} className="px-4 py-1 text-xs text-muted-foreground">{t(exportState === 'copied' ? 'backgroundProcess.copied' : 'backgroundProcess.exportFailed')}</p>}
-        <div ref={listRef} data-testid="background-process-log-output" aria-label={t('backgroundProcess.output')} role="region" tabIndex={0}
-          onScroll={event => { const node = event.currentTarget; if (node.scrollHeight - node.clientHeight - node.scrollTop > 40) setFollow(false) }}
-          className="min-h-0 flex-1 overflow-auto bg-background/80 px-3 py-3 font-mono text-[11px] leading-5 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary/50">
-          {loading && !lines.length ? <p role="status" className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t('backgroundProcess.loading')}</p> : filtered.length ? filtered.map(entry => <div key={entry.sequence} data-log-source={entry.source} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 hover:bg-muted/20">
-            <span className="select-none whitespace-nowrap text-[10px] text-muted-foreground/70">{new Date(entry.at).toLocaleTimeString(undefined, { hour12: false })}</span>
-            <span className={`select-none text-[10px] ${entry.source === 'stderr' ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground/60'}`}>{entry.source}</span>
-            <span className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${entry.source === 'stderr' ? 'text-amber-700 dark:text-amber-200' : 'text-foreground/90'}`}>{entry.line || '\u00a0'}</span>
-          </div>) : !failed && <p className="py-12 text-center font-sans text-xs text-muted-foreground">{t(lines.length ? 'backgroundProcess.noMatches' : 'backgroundProcess.empty')}</p>}
-        </div>
-        <footer className="flex flex-wrap justify-between gap-1 border-t border-border/50 px-4 py-2 text-[10px] text-muted-foreground"><span>{t('backgroundProcess.lineCount', { count: filtered.length, total: lines.length })}</span><span>{t('backgroundProcess.exportHint')}</span></footer>
-      </DialogContent>
-    </DialogPortal>
+        <DialogDescription>{t('backgroundProcess.logsDescription')}</DialogDescription>
+      </DialogHeader>
+      <dl className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 border-b border-border/50 px-5 py-3 text-xs">
+        <dt className="text-muted-foreground">{t('backgroundProcess.command')}</dt><dd className="break-all font-mono">{sanitizeBackgroundLog(displayedProcess.command)}</dd>
+        <dt className="text-muted-foreground">{t('backgroundProcess.directory')}</dt><dd className="break-all font-mono text-muted-foreground">{sanitizeBackgroundLog(displayedProcess.cwd)}</dd>
+        {(displayedProcess.repositoryName || displayedProcess.repositoryId) && <><dt className="text-muted-foreground">{t('backgroundProcess.repository')}</dt><dd className="break-all text-muted-foreground">{sanitizeBackgroundLog(displayedProcess.repositoryName ?? displayedProcess.repositoryId ?? '')}</dd></>}
+        <dt className="text-muted-foreground">PID</dt><dd className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-muted-foreground"><span>{displayedProcess.pid}</span>{displayedProcess.exitCode != null && <span>{t('backgroundProcess.exitCode', { code: displayedProcess.exitCode })}</span>}{displayedProcess.signal && <span>{t('backgroundProcess.signal', { signal: displayedProcess.signal })}</span>}</dd>
+      </dl>
+      {!finished && <BackgroundProcessAppLinks process={displayedProcess.appUrls ? displayedProcess : process} />}
+      {displayedProcess.error && <p role="alert" className="shrink-0 border-b border-border/40 bg-destructive/5 px-5 py-2 text-xs text-destructive">{sanitizeBackgroundLog(displayedProcess.error).slice(0, 1000)}</p>}
+      {displayedProcess.status === 'interrupted' && <p role="status" className="shrink-0 border-b border-border/40 bg-accent-warning/5 px-5 py-2 text-xs text-accent-warning">{t('backgroundProcess.interruptedHint')}</p>}
+      {displayedProcess.persistenceError && <p role="alert" className="shrink-0 border-b border-border/40 bg-accent-warning/5 px-5 py-2 text-xs text-accent-warning">{t('backgroundProcess.persistenceFailed')}</p>}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 px-5 py-2.5">
+        <label className="relative min-w-[150px] flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" aria-hidden />
+          <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t('backgroundProcess.search')} aria-label={t('backgroundProcess.search')}
+            className="h-8 w-full rounded-md border border-border/60 bg-background/50 pl-8 pr-2 text-xs outline-none focus:border-accent-primary/60" />
+        </label>
+        <select aria-label={t('backgroundProcess.source')} value={source} onChange={event => setSource(event.target.value as typeof source)} className="h-8 rounded-md border border-border/60 bg-background px-2 text-xs outline-none focus:border-accent-primary/60">
+          <option value="all">{t('backgroundProcess.allSources')}</option><option value="stdout">stdout</option><option value="stderr">stderr</option>
+        </select>
+        {!finished && <button type="button" className={control} aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}{t(paused ? 'backgroundProcess.resume' : 'backgroundProcess.pause')}</button>}
+        <button type="button" className={`${control} ${follow ? 'border-accent-info/40 text-accent-info' : ''}`} aria-pressed={follow} onClick={() => setFollow(value => !value)}><ArrowDownToLine className="h-3.5 w-3.5" aria-hidden />{t('backgroundProcess.follow')}</button>
+        <button type="button" className={control} disabled={!filtered.length} onClick={() => void copy()} aria-label={t('backgroundProcess.copy')} title={t('backgroundProcess.copy')}>{exportState === 'copied' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button>
+        <button type="button" className={control} disabled={!filtered.length} onClick={download} aria-label={t('backgroundProcess.download')} title={t('backgroundProcess.download')}><Download className="h-3.5 w-3.5" /></button>
+        {!finished && <button type="button" className={`${control} text-destructive`} disabled={busy} onClick={() => void stop()}>{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Square className="h-3.5 w-3.5" aria-hidden />}{t(busy ? 'backgroundProcess.status.stopping' : 'backgroundProcess.stop')}</button>}
+      </div>
+      {truncated && <p role="status" className="shrink-0 border-b border-border/40 bg-accent-warning/5 px-5 py-2 text-xs text-accent-warning">{t('backgroundProcess.truncated')}</p>}
+      {paused && !finished && <p role="status" className="shrink-0 border-b border-border/40 bg-muted/20 px-5 py-2 text-xs text-muted-foreground">{t('backgroundProcess.paused')}</p>}
+      {failed && <div role="alert" className="flex shrink-0 items-center gap-2 border-b border-border/40 bg-destructive/5 px-5 py-2 text-xs text-destructive"><AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="flex-1">{t('backgroundProcess.loadFailed')}</span><button type="button" className={control} onClick={() => { setPaused(false); setRetry(value => value + 1) }}>{t('backgroundProcess.retry')}</button></div>}
+      {(stopFailed || process.stopError) && <p role="alert" className="shrink-0 bg-destructive/5 px-5 py-2 text-xs text-destructive">{t('backgroundProcess.stopFailed')}</p>}
+      {exportState && <p role={exportState === 'failed' ? 'alert' : 'status'} className="shrink-0 px-5 py-1 text-xs text-muted-foreground">{t(exportState === 'copied' ? 'backgroundProcess.copied' : 'backgroundProcess.exportFailed')}</p>}
+      <DialogBody ref={listRef} data-testid="background-process-log-output" aria-label={t('backgroundProcess.output')} role="region" tabIndex={0}
+        onScroll={event => { const node = event.currentTarget; if (node.scrollHeight - node.clientHeight - node.scrollTop > 40) setFollow(false) }}
+        className="overflow-auto bg-background/80 px-3 py-3 font-mono text-xs leading-5 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary/50">
+        {loading && !lines.length ? <p role="status" className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><span aria-hidden className="w-16 shrink-0"><RailTrack running /></span>{t('backgroundProcess.loading')}</p> : filtered.length ? filtered.map(entry => <div key={entry.sequence} data-log-source={entry.source} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 hover:bg-muted/20">
+          <span className="select-none whitespace-nowrap tabular-nums text-muted-foreground">{new Date(entry.at).toLocaleTimeString(i18n.language, { hour12: false })}</span>
+          <span className={`select-none ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-muted-foreground'}`}>{entry.source}</span>
+          <span className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-foreground'}`}>{entry.line || '\u00a0'}</span>
+        </div>) : !failed && <p className="py-12 text-center font-sans text-xs text-muted-foreground">{t(lines.length ? 'backgroundProcess.noMatches' : 'backgroundProcess.empty')}</p>}
+      </DialogBody>
+      <DialogFooter className="text-xs text-muted-foreground" start={<span>{t('backgroundProcess.lineCount', { count: filtered.length, total: lines.length })}</span>}><span>{t('backgroundProcess.exportHint')}</span></DialogFooter>
+    </DialogContent>
   </Dialog>
 }

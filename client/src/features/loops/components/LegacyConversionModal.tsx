@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { LoopPublishError, loopsApi, type LoopDefinition } from '../lib/loops-api'
 
@@ -28,10 +28,11 @@ export function LegacyConversionModal({ loop, projects, onClose, onConverted }: 
     finally { setBusy(false) }
   }
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose() }}>
-    <DialogContent><DialogHeader>
+    <DialogContent size="form" showCloseButton={false}><DialogHeader>
       <DialogTitle>{t('conversion.title', { name: loop.name })}</DialogTitle>
       <DialogDescription>{t('conversion.description')}</DialogDescription>
     </DialogHeader>
+      <DialogBody className="space-y-3">
       {needsRepository && <label className="flex flex-col gap-2 text-sm">{t('conversion.repository')}
         <select className="rounded border border-border bg-background p-2" value={selection} onChange={event => setSelection(event.target.value)} disabled={busy}>
           <option value="">{t('conversion.selectRepository')}</option>
@@ -39,8 +40,9 @@ export function LegacyConversionModal({ loop, projects, onClose, onConverted }: 
         </select>
       </label>}
       {error && <p role="alert" className="whitespace-pre-wrap text-sm text-destructive">{error}</p>}
+      </DialogBody>
       <DialogFooter>
-        <Button variant="outline" disabled={busy} onClick={onClose}>{t('common:actions.cancel')}</Button>
+        <Button variant="ghost" disabled={busy} onClick={onClose}>{t('common:actions.cancel')}</Button>
         <Button disabled={busy || (needsRepository && !selected)} onClick={() => void convert()}>{t(busy ? 'conversion.pending' : 'conversion.submit')}</Button>
       </DialogFooter>
     </DialogContent>

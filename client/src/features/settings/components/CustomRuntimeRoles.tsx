@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
 import { CUSTOM_ROLE_ID, RUNTIME_ROLES, type RuntimeRoleDescriptor } from '../lib/agent-runtime'
+import { SettingsSelect } from './SettingsSelect'
 
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
 export function CustomRuntimeRoles({ roles = {}, provider, supported, onChange, renderEngine, visibleRoleIds, manageRoles = true }: {
   manageRoles?: boolean
   visibleRoleIds?: string[]
@@ -32,10 +32,10 @@ export function CustomRuntimeRoles({ roles = {}, provider, supported, onChange, 
         <fieldset disabled={!supported} className="space-y-3">
           {renderEngine(key)}
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1 text-xs">{t('customRoles.access')}<select className={selectClass} value={role.access} onChange={event => update({ access: event.target.value as RuntimeRoleDescriptor['access'] })}><option value="read">{t('customRoles.read')}</option><option value="write">{t('customRoles.write')}</option></select></label>
-            <label className="space-y-1 text-xs">{t('customRoles.artifacts')}<select className={selectClass} value={role.artifacts} onChange={event => update({ artifacts: event.target.value as RuntimeRoleDescriptor['artifacts'] })}><option value="none">{t('customRoles.none')}</option><option value="tasks-checkboxes">{t('customRoles.tasks')}</option><option value="all">{t('customRoles.all')}</option></select></label>
+            <label className="space-y-1 text-xs">{t('customRoles.access')}<SettingsSelect aria-label={t('customRoles.access')} value={role.access} onChange={value => update({ access: value as RuntimeRoleDescriptor['access'] })} options={[{ value: 'read', label: t('customRoles.read') }, { value: 'write', label: t('customRoles.write') }]} /></label>
+            <label className="space-y-1 text-xs">{t('customRoles.artifacts')}<SettingsSelect aria-label={t('customRoles.artifacts')} value={role.artifacts} onChange={value => update({ artifacts: value as RuntimeRoleDescriptor['artifacts'] })} options={[{ value: 'none', label: t('customRoles.none') }, { value: 'tasks-checkboxes', label: t('customRoles.tasks') }, { value: 'all', label: t('customRoles.all') }]} /></label>
           </div>
-          <label className="block space-y-1 text-xs">{t('customRoles.skill')}<select className={selectClass} value={role.openspecSkill ?? ''} onChange={event => update({ openspecSkill: (event.target.value || undefined) as RuntimeRoleDescriptor['openspecSkill'] })}><option value="">{t('customRoles.noSkill')}</option>{['openspec-ff-change', 'openspec-apply-change', 'openspec-verify-change'].map(skill => <option key={skill} value={skill}>{skill}</option>)}</select></label>
+          <label className="block space-y-1 text-xs">{t('customRoles.skill')}<SettingsSelect aria-label={t('customRoles.skill')} value={role.openspecSkill ?? ''} onChange={value => update({ openspecSkill: (value || undefined) as RuntimeRoleDescriptor['openspecSkill'] })} options={[{ value: '', label: t('customRoles.noSkill') }, ...['openspec-ff-change', 'openspec-apply-change', 'openspec-verify-change'].map(skill => ({ value: skill, label: skill }))]} /></label>
           <label className="block space-y-1 text-xs">{t('customRoles.prompt')}<textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={role.prompt ?? ''} rows={5} maxLength={20000} onChange={event => update({ prompt: event.target.value || undefined })} /></label>
         </fieldset>
       </fieldset>

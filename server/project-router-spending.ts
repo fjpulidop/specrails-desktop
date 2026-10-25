@@ -7,6 +7,10 @@ import { resolveProjectExecution } from './workspace-resolution'
 import { getTicketSpendingSummary } from './modules/accounting/runtime/ai-invocations'
 import { getSpending, getInvocations, parseSpendingFilters, getAgentMissionSpending } from './modules/accounting/runtime/spending'
 import { getDecisionTimes } from './modules/accounting/runtime/decision-times'
+import { clampDays, computeWhatIf } from './modules/accounting/runtime/what-if'
+import { readSpendOverview } from './modules/execution/runtime/budget-overview'
+import { readDesktopCaps, readProjectCaps, writeProjectCap, type ProjectCapKey } from './modules/execution/adapters/budget-storage'
+import { getDesktopSetting } from './desktop-db'
 import { getLoopEconomics, listRecentDeliveries, type KnownLoop, type RegressionLink } from './modules/accounting/runtime/loop-economics'
 import { readStore, listRegressionLinks } from './modules/specs/runtime/ticket-store'
 import { listLoops } from './modules/loops/runtime/loops-store'
@@ -456,8 +460,12 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       const budgetUtilizationPct = dailyBudgetUsd != null && dailyBudgetUsd > 0 && unpricedRuns === 0
         ? (costToday / dailyBudgetUsd) * 100
         : null
+      const caps = readProjectCaps(db)
       res.json({
         dailyBudgetUsd,
+        weeklyBudgetUsd: caps.week,
+        monthlyBudgetUsd: caps.month,
+        runCapUsd: caps.run,
         jobCostThresholdUsd,
         costToday,
         pricedRuns: costRow.pricedRuns,
@@ -470,9 +478,19 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
     }
   })
 
+  // Caps beyond the daily budget (CD5). `null` clears, a number > 0 sets; anything
+  // else is a 400 (the historical daily/job fields keep their silent-ignore).
+  const NEW_CAP_FIELDS: Array<[string, ProjectCapKey]> = [['weeklyBudgetUsd', 'week'], ['monthlyBudgetUsd', 'month'], ['runCapUsd', 'run']]
+
   router.patch('/:projectId/budget', (req: Request, res: Response) => {
     const { dailyBudgetUsd, jobCostThresholdUsd } = req.body ?? {}
     const { db } = ctx(req)
+    for (const [field] of NEW_CAP_FIELDS) {
+      const value = (req.body ?? {})[field]
+      if (value !== undefined && value !== null && !(typeof value === 'number' && Number.isFinite(value) && value > 0)) {
+        res.status(400).json({ error: 'invalid_cap', field }); return
+      }
+    }
     try {
       if (dailyBudgetUsd !== undefined) {
         if (dailyBudgetUsd === null) {
@@ -480,6 +498,10 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
         } else if (typeof dailyBudgetUsd === 'number' && dailyBudgetUsd > 0) {
           db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.daily_budget_usd', ?)`).run(String(dailyBudgetUsd))
         }
+      }
+      for (const [field, key] of NEW_CAP_FIELDS) {
+        const value = (req.body ?? {})[field]
+        if (value !== undefined) writeProjectCap(db, key, value as number | null)
       }
       if (jobCostThresholdUsd !== undefined) {
         if (jobCostThresholdUsd === null) {
@@ -492,6 +514,47 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
     } catch (err) {
       console.error('[project-router] budget patch error:', err)
       res.status(500).json({ error: 'Failed to update budget' })
+    }
+  })
+
+  // Budget panel read model: every cap with its spend (project and app-wide, the
+  // same read the gate uses), spend per period split by provider, and the
+  // month-end projection (an estimate from the trailing burn).
+  router.get('/:projectId/budget/caps', (req: Request, res: Response) => {
+    const c = ctx(req)
+    try {
+      const at = new Date()
+      res.json({
+        ...readSpendOverview([{ db: c.db, projectId: c.project.id }], at),
+        config: readProjectCaps(c.db),
+        appConfig: readDesktopCaps((key) => getDesktopSetting(registry.desktopDb, key)),
+        caps: c.budgetCaps?.(at) ?? [],
+      })
+    } catch (err) {
+      console.error('[project-router] budget caps error:', err)
+      res.status(500).json({ error: 'budget_caps_unavailable' })
+    }
+  })
+
+  // What-if pricing: re-price this project's recorded usage of one model as if
+  // another model had run it. Estimate only; a model without a rate card is
+  // reported (`noPricing`), never guessed.
+  router.get('/:projectId/budget/what-if', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const text = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null)
+    const ref = (spec: string | null): { provider: string; model: string } | null => {
+      if (!spec) return null
+      const at = spec.indexOf(':')
+      return at > 0 && at < spec.length - 1 ? { provider: spec.slice(0, at), model: spec.slice(at + 1) } : null
+    }
+    const fromSpec = text(req.query.from), toSpec = text(req.query.to)
+    const from = ref(fromSpec), to = ref(toSpec)
+    if ((fromSpec || toSpec) && (!from || !to)) { res.status(400).json({ error: 'invalid_model_ref' }); return }
+    try {
+      res.json(computeWhatIf(c.db, c.project.id, clampDays(req.query.days), from && to ? { from, to } : null))
+    } catch (err) {
+      console.error('[project-router] what-if error:', err)
+      res.status(500).json({ error: 'what_if_unavailable' })
     }
   })
 

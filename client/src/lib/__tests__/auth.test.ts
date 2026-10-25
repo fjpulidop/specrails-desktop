@@ -391,3 +391,93 @@ describe('auth', () => {
     })
   })
 })
+
+describe('installFetchInterceptor — shared in-flight reads', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  async function install(raw: ReturnType<typeof vi.fn>) {
+    const original = window.fetch
+    window.fetch = raw as unknown as typeof fetch
+    const { installFetchInterceptor } = await import('../auth')
+    installFetchInterceptor()
+    return () => { window.fetch = original }
+  }
+  const okJson = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
+
+  it('collapses concurrent identical reads into one request, each caller keeping its own body', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const raw = vi.fn(async () => { await gate; return okJson({ tickets: [1] }) })
+    const restore = await install(raw)
+    try {
+      const a = fetch('/api/projects/p1/tickets')
+      const b = fetch('/api/projects/p1/tickets')
+      const other = fetch('/api/projects/p2/tickets') // another project is never merged
+      release()
+      const [ra, rb] = await Promise.all([a, b, other])
+      expect(raw).toHaveBeenCalledTimes(2)
+      expect(await ra.json()).toEqual({ tickets: [1] })
+      expect(await rb.json()).toEqual({ tickets: [1] })
+    } finally { restore() }
+  })
+
+  it('does not share reads that carry an abort signal, and never serves a finished read again', async () => {
+    const raw = vi.fn(async () => okJson({ ok: true }))
+    const restore = await install(raw)
+    try {
+      const controller = new AbortController()
+      await Promise.all([fetch('/api/x', { signal: controller.signal }), fetch('/api/x', { signal: controller.signal })])
+      expect(raw).toHaveBeenCalledTimes(2)
+      raw.mockClear()
+      await fetch('/api/y'); await fetch('/api/y')
+      expect(raw).toHaveBeenCalledTimes(2)
+    } finally { restore() }
+  })
+
+  it('a read started after a mutation never joins one that began before it', async () => {
+    let releaseFirst!: () => void
+    const gate = new Promise<void>((resolve) => { releaseFirst = resolve })
+    let call = 0
+    const raw = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      if (init?.method === 'POST') return okJson({})
+      call++
+      if (call === 1) { await gate; return okJson({ version: 'stale' }) }
+      return okJson({ version: 'fresh' })
+    })
+    const restore = await install(raw)
+    try {
+      const before = fetch('/api/projects/p1/tickets')
+      await fetch('/api/projects/p1/tickets', { method: 'POST', body: '{}' })
+      const after = await fetch('/api/projects/p1/tickets')
+      expect(await after.json()).toEqual({ version: 'fresh' })
+      releaseFirst()
+      expect(await (await before).json()).toEqual({ version: 'stale' })
+    } finally { restore() }
+  })
+
+  it('invalidateInflightReads: a refetch triggered by a live event never joins an older read, and the old one does not evict the new', async () => {
+    let releaseFirst!: () => void
+    const gate = new Promise<void>((resolve) => { releaseFirst = resolve })
+    let call = 0
+    const raw = vi.fn(async () => {
+      call++
+      if (call === 1) { await gate; return okJson({ version: 'stale' }) }
+      return okJson({ version: 'fresh' })
+    })
+    const restore = await install(raw)
+    try {
+      const { invalidateInflightReads } = await import('../auth')
+      const before = fetch('/api/projects/p1/specs')
+      invalidateInflightReads() // a WS event announced a change
+      const refetch = fetch('/api/projects/p1/specs')
+      releaseFirst()
+      expect(await (await refetch).json()).toEqual({ version: 'fresh' })
+      expect(await (await before).json()).toEqual({ version: 'stale' })
+      // The finished stale read must not have deleted the fresh read's slot: a joiner still shares it.
+      raw.mockClear()
+      const a = fetch('/api/projects/p1/specs'); const b = fetch('/api/projects/p1/specs')
+      await Promise.all([a, b])
+      expect(raw).toHaveBeenCalledTimes(1)
+    } finally { restore() }
+  })
+})

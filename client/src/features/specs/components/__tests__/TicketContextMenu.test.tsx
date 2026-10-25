@@ -60,17 +60,17 @@ describe('TicketContextMenu', () => {
       </TicketContextMenu>
     )
     fireEvent.contextMenu(screen.getByText('Target'))
-    expect(screen.getByRole('menu', { name: 'Ticket actions' })).toBeDefined()
+    expect(screen.getByRole('menu', { name: 'Spec actions' })).toBeDefined()
   })
 
-  it('menu contains "Delete ticket" option', () => {
+  it('menu contains "Delete spec" option', () => {
     render(
       <TicketContextMenu {...makeDefaultProps()}>
         <span>Target</span>
       </TicketContextMenu>
     )
     fireEvent.contextMenu(screen.getByText('Target'))
-    expect(screen.getByText('Delete ticket')).toBeDefined()
+    expect(screen.getByText('Delete spec')).toBeDefined()
   })
 
   it('menu contains "Change status" option', () => {
@@ -93,20 +93,7 @@ describe('TicketContextMenu', () => {
     expect(screen.getByText('Set priority')).toBeDefined()
   })
 
-  it('clicking "Delete ticket" shows confirmation dialog', () => {
-    render(
-      <TicketContextMenu {...makeDefaultProps()}>
-        <span>Target</span>
-      </TicketContextMenu>
-    )
-    fireEvent.contextMenu(screen.getByText('Target'))
-    fireEvent.click(screen.getByText('Delete ticket'))
-    // Confirmation dialog should appear — multiple "Delete" buttons exist now (menu + dialog confirm)
-    // The dialog adds a second Delete button; if count > 1, dialog is shown
-    expect(screen.getAllByText('Delete ticket').length).toBeGreaterThan(0)
-  })
-
-  it('confirming delete calls onDelete with ticket id', () => {
+  it('clicking "Delete spec" deletes at once, without a confirmation dialog', () => {
     const onDelete = vi.fn()
     render(
       <TicketContextMenu {...makeDefaultProps({ onDelete })}>
@@ -114,11 +101,9 @@ describe('TicketContextMenu', () => {
       </TicketContextMenu>
     )
     fireEvent.contextMenu(screen.getByText('Target'))
-    fireEvent.click(screen.getByText('Delete ticket'))
-    // Click the destructive "Delete" button in the dialog
-    const deleteButtons = screen.getAllByText('Delete')
-    // The last "Delete" button in the dialog footer is the confirm button
-    fireEvent.click(deleteButtons[deleteButtons.length - 1])
+    fireEvent.click(screen.getByText('Delete spec'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(onDelete).toHaveBeenCalledTimes(1)
     expect(onDelete).toHaveBeenCalledWith(1)
   })
 
@@ -129,10 +114,10 @@ describe('TicketContextMenu', () => {
       </TicketContextMenu>
     )
     fireEvent.contextMenu(screen.getByText('Target'))
-    expect(screen.getByRole('menu', { name: 'Ticket actions' })).toBeDefined()
+    expect(screen.getByRole('menu', { name: 'Spec actions' })).toBeDefined()
 
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('menu', { name: 'Ticket actions' })).toBeNull()
+    expect(screen.queryByRole('menu', { name: 'Spec actions' })).toBeNull()
   })
 
   describe('on_review ticket', () => {
@@ -180,5 +165,19 @@ describe('TicketContextMenu', () => {
       fireEvent.click(Array.from(submenu.querySelectorAll('[role="menuitem"]')).find((b) => b.textContent === 'Done')!)
       expect(onStatusChange).toHaveBeenCalledWith(1, 'done')
     })
+  })
+
+  it('shows extra actions (Start in Flow) first, and they can close the menu', () => {
+    const extra = vi.fn((close: () => void) => <button role="menuitem" type="button" onClick={close}>Start in Flow</button>)
+    render(
+      <TicketContextMenu {...makeDefaultProps()} extraItems={extra}>
+        <span>Target</span>
+      </TicketContextMenu>,
+    )
+    fireEvent.contextMenu(screen.getByText('Target'))
+    const items = screen.getAllByRole('menuitem')
+    expect(items[0]).toHaveTextContent('Start in Flow')
+    fireEvent.click(items[0]!)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })

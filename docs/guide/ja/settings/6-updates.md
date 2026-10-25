@@ -1,4 +1,4 @@
-# アップデート
+# アップデート {#updates}
 
 Specrails は 2 つのものを最新に保ちます。**Specrails Desktop** アプリ本体と、プロジェクトが使う **specrails-core** フレームワークです。どちらも **設定 ▸ 更新** にあります。
 

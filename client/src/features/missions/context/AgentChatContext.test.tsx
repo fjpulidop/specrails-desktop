@@ -88,6 +88,7 @@ vi.mock('sonner', () => ({
 import * as agentApi from '../lib/agent-api'
 import type { AgentPrDecisionEnvelope } from '../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from './AgentChatContext'
+import { useActiveLive } from '../hooks/useAgentLive'
 
 const prEnvelope = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelope => ({
   kind: 'pr_decision', prDeliveryId: 'd1', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [1],
@@ -112,22 +113,25 @@ function setDocumentVisibility(value: DocumentVisibilityState): void {
 
 function Harness() {
   const agentChat = useAgentChat()
+  const live = useActiveLive()
   const [applyResult, setApplyResult] = useState('')
   return (
     <div>
       <span data-testid="conversation-ids">{agentChat.conversations.map(c => c.id).join(',')}</span>
       <span data-testid="active-id">{agentChat.active?.id ?? ''}</span>
       <span data-testid="unread-ids">{[...agentChat.unreadConversationIds].sort().join(',')}</span>
+      <span data-testid="attention-ids">{[...agentChat.attentionConversationIds].sort().join(',')}</span>
+      <span data-testid="attention-kinds">{[...(agentChat.attentionKinds ?? new Map())].map(([id, kind]) => `${id}=${kind}`).sort().join(',')}</span>
       <span data-testid="pr-deliveries">{agentChat.messages.flatMap((message) => {
         const envelope = message.role === 'system' ? agentApi.parsePrDecisionEnvelope(message.content) : null
         return envelope ? [`${envelope.prDeliveryId}:${envelope.decision}`] : []
       }).join(',')}</span>
       <span data-testid="apply-result">{applyResult}</span>
-      <span data-testid="streaming">{String(agentChat.isStreaming)}</span>
-      <span data-testid="stream-text">{agentChat.streamingText}</span>
-      <span data-testid="pending-inputs">{JSON.stringify(agentChat.queuedMessages)}</span>
+      <span data-testid="streaming">{String(live.isStreaming)}</span>
+      <span data-testid="stream-text">{live.streamingText}</span>
+      <span data-testid="pending-inputs">{JSON.stringify(live.queued)}</span>
       <span data-testid="transcript-data">{JSON.stringify(agentChat.messages)}</span>
-      <span data-testid="live-tools">{JSON.stringify(agentChat.liveTools)}</span>
+      <span data-testid="live-tools">{JSON.stringify(live.liveTools)}</span>
       <span data-testid="message-text">{agentChat.messages.map((message) => message.content).join('|')}</span>
       <span data-testid="favorites">{[...agentChat.favoriteConversationIds].sort().join(',')}</span>
       <span data-testid="draft-provider">{agentChat.draftProvider}</span>
@@ -547,6 +551,34 @@ describe('AgentChatContext unread conversations', () => {
   })
 })
 
+describe('AgentChatContext attention (waiting for the person)', () => {
+  it('marks a background conversation whose delivery waits for a decision, and clears it once decided', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    const ws = (decision: string) => ({ type: 'agent_pr_decision', conversationId: 'c2', kind: 'pr_decision', prDeliveryId: 'd9', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [3], decision, prUrl: null, prNumber: null, prState: 'none', branch: null, runIds: [] })
+    await act(async () => { wsHandler!(ws('building')) })
+    expect(screen.getByTestId('attention-ids').textContent).toBe('')
+    await act(async () => { wsHandler!(ws('on_review')) })
+    expect(screen.getByTestId('attention-ids').textContent).toBe('c2')
+    expect(screen.getByTestId('attention-kinds').textContent).toBe('c2=decision')
+    await act(async () => { wsHandler!(ws('discarded')) })
+    expect(screen.getByTestId('attention-ids').textContent).toBe('')
+  })
+
+  it('the open conversation’s own rows decide its mark', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv1,
+      messages: [{ id: 's1', conversation_id: 'c1', role: 'system', created_at: '', content: JSON.stringify({ kind: 'pr_decision', prDeliveryId: 'd1', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [3], decision: 'implementation_failed', prUrl: null, prNumber: null, prState: 'none', branch: null, runIds: [] }) }],
+    } as never)
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('attention-ids').textContent).toBe('c1'))
+    // A failed run is told apart from a waiting decision.
+    expect(screen.getByTestId('attention-kinds').textContent).toBe('c1=failed')
+  })
+})
+
 describe('AgentChatContext authoritative PR snapshots', () => {
   it('updates an authoritative snapshot when its delivery still belongs to the active thread', async () => {
     vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv1, messages: [prMessage('c1')] })
@@ -892,5 +924,127 @@ describe('AgentChatContext native window ownership', () => {
     act(() => { window.dispatchEvent(new StorageEvent('storage', { key: 'specrails-desktop:favorite-agent-conversations' })) })
     expect(screen.getByTestId('favorites')).toHaveTextContent('c2')
     expect(screen.getByTestId('favorites')).not.toHaveTextContent('c1')
+  })
+})
+
+describe('self-healing mission cards (missed broadcasts)', () => {
+  const building = prMessage('c1', prEnvelope({ decision: 'building', updatedAt: '2026-10-22T19:34:21.000Z' }), 'card')
+  const settled = prMessage('c1', prEnvelope({ decision: 'on_review', updatedAt: '2026-10-22T19:42:38.429Z' }), 'card')
+
+  it('a missed card broadcast heals on reconnect', async () => {
+    let persisted = building
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: api.conv1, messages: [persisted] }))
+    wsConnectionStatus = 'disconnected'
+    const view = render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:building'))
+    persisted = settled // settled server-side while the socket was down: no broadcast reached us
+    wsConnectionStatus = 'connected'
+    view.rerender(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+  })
+
+  it('a missed card broadcast heals when the window becomes visible again', async () => {
+    let persisted = building
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: api.conv1, messages: [persisted] }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:building'))
+    persisted = settled
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+  })
+
+  it('a rail.pr_state that disagrees with the card re-reads the cards; a matching one does not', async () => {
+    let persisted = building
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: api.conv1, messages: [persisted] }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:building'))
+    const calls = vi.mocked(agentApi.getAgentConversation).mock.calls.length
+    await act(async () => { wsHandler?.({ type: 'rail.pr_state', projectId: 'p1', prDeliveryId: 'd1', decision: 'building' }) })
+    await act(async () => { wsHandler?.({ type: 'rail.pr_state', projectId: 'other', prDeliveryId: 'd1', decision: 'on_review' }) })
+    expect(vi.mocked(agentApi.getAgentConversation).mock.calls.length).toBe(calls)
+    persisted = settled
+    await act(async () => { wsHandler?.({ type: 'rail.pr_state', projectId: 'p1', prDeliveryId: 'd1', decision: 'on_review' }) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+  })
+
+  it('keeps a card broadcast that lands while the conversation load is in flight', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => {
+      await gate
+      return { conversation: api.conv1, messages: [building] }
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    act(() => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(agentApi.getAgentConversation).toHaveBeenCalled())
+    await act(async () => {
+      wsHandler?.({ type: 'agent_pr_decision', conversationId: 'c1', ...prEnvelope({ decision: 'on_review', updatedAt: '2026-10-22T19:42:38.429Z' }) })
+    })
+    await act(async () => { release() })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+    expect(screen.getByTestId('pr-deliveries')).not.toHaveTextContent('building')
+  })
+})
+
+describe('revisiting a mission (stale-while-revalidate)', () => {
+  const row = (id: string, content: string) => ({ id, conversation_id: 'c1', role: 'assistant' as const, content, created_at: '' })
+
+  it('paints the snapshot of a mission already opened before the fresh read lands, then reconciles', async () => {
+    let c1Reads = 0
+    let releaseSecondRead!: () => void
+    const gate = new Promise<void>((resolve) => { releaseSecondRead = resolve })
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => {
+      if (id === 'c2') return { conversation: api.conv2, messages: [] }
+      c1Reads++
+      if (c1Reads === 2) await gate
+      return { conversation: api.conv1, messages: c1Reads === 1 ? [row('a', 'first')] : [row('a', 'first'), row('b', 'fresh')] }
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('select-c1')) })
+    await waitFor(() => expect(screen.getByTestId('message-text')).toHaveTextContent('first'))
+    await act(async () => { fireEvent.click(screen.getByText('select-c2')) })
+    await waitFor(() => expect(screen.getByTestId('active-id')).toHaveTextContent('c2'))
+    // A reply lands while the person is away: it must survive the cached snapshot.
+    await act(async () => { wsHandler?.({ type: 'agent_done', conversationId: 'c1', messageId: 'while-away', fullText: 'arrived while away' }) })
+
+    await act(async () => { fireEvent.click(screen.getByText('select-c1')) })
+    // The second read is still in flight and the mission is already on screen.
+    expect(screen.getByTestId('active-id')).toHaveTextContent('c1')
+    expect(screen.getByTestId('message-text')).toHaveTextContent('first')
+    expect(screen.getByTestId('message-text')).toHaveTextContent('arrived while away')
+    await act(async () => { releaseSecondRead() })
+    await waitFor(() => expect(screen.getByTestId('message-text')).toHaveTextContent('fresh'))
+    expect(c1Reads).toBe(2)
+  })
+
+  it('shares one read between concurrent opens of the same mission', async () => {
+    let reads = 0
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => {
+      reads++
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      return { conversation: api.conv1, messages: [row('a', 'one')] }
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => {
+      fireEvent.click(screen.getByText('select-c1'))
+      fireEvent.click(screen.getByText('select-c1'))
+    })
+    await waitFor(() => expect(screen.getByTestId('message-text')).toHaveTextContent('one'))
+    expect(reads).toBe(1)
+  })
+})
+
+describe('describeAgentError (known Core turn failures)', () => {
+  it('reads the inactivity limits in the person\'s language and keeps unknown server text', async () => {
+    const { describeAgentError } = await import('./AgentChatContext')
+    expect(describeAgentError({ error: 'Core session turn failed: No provider activity before the inactivity limit' }))
+      .toBe('The provider stopped responding for too long, so the turn ended. Send your message again to continue.')
+    expect(describeAgentError({ error: 'A tool call produced no provider activity before the tool inactivity limit' }))
+      .toBe('A tool ran too long without any provider activity, so the turn ended. Send your message again to continue, or ask the agent to split the step.')
+    expect(describeAgentError({ error: 'quota exceeded' })).toBe('quota exceeded')
+    expect(describeAgentError({})).toBe('The agent turn failed.')
   })
 })

@@ -52,7 +52,7 @@ export function RailModelSelector({
           options={models}
           ariaLabel={label}
           testId={testId}
-          className="h-5 w-48 border-border/50 px-1 text-[10px] text-muted-foreground hover:text-foreground"
+          className="h-6 w-48 border-border/50 px-1 text-caption text-muted-foreground hover:text-foreground"
           onCommit={onChange}
         />
       ) : (
@@ -61,7 +61,7 @@ export function RailModelSelector({
           aria-label={label}
           data-testid={testId}
           onChange={(e) => onChange(e.target.value as FreestyleModel)}
-          className="h-5 text-[10px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
+          className="h-6 text-caption rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
         >
           {models.map((model) => (
             <option key={model.value} value={model.value}>

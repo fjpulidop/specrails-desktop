@@ -78,3 +78,15 @@ Exporte berücksichtigen die aktuell angewendeten Zeitraum- und Surface-Filter, 
 ## Immer live
 
 Du musst nicht neu laden. Sobald irgendwo im Projekt ein neuer Aufruf erfasst wird, lädt sich das geöffnete Dashboard kurz darauf still neu, sodass der Burn-Meter mit der Arbeit Schritt hält, während sie fertig wird.
+
+## Tagesbudgets {#daily-budget}
+
+Mit einem Tagesbudget begrenzt du, was ein Tag kosten darf. Alle Limits (täglich, wöchentlich, monatlich und pro Lauf) bearbeitest du an einer Stelle: **Analysen → Budget**. **Einstellungen → Erweitert** und **Projekteinstellungen → Budget** zeigen nur das aktuelle Tageslimit, mit einer Schaltfläche **Budget öffnen**, die dorthin führt.
+
+Erreichen die erfassten Tagesausgaben ein Budget, pausiert die Warteschlange sich selbst, Rails und Loop-Läufe starten nicht mehr und melden *Tagesbudget erreicht*, und ein laufender Loop-Lauf hält zwischen zwei Schritten an, pausiert durch das Budget. Erhöhe oder entferne das Budget oder warte auf das tägliche Zurücksetzen und setze dann fort.
+
+Das Projektbudget zählt deinen lokalen Tag, das app-weite Budget den UTC-Tag. Die Kostenwarnung pro Job ist eine eigene Einstellung.
+
+**Wochen-, Monats- und Lauf-Limits.** Längere Limits funktionieren genauso. Unter **Analysen → Budget** legst du ein **Wochen-** und ein **Monatslimit** fest, pro Projekt und für die ganze App, sowie ein **weiches Limit pro Lauf** (*pausieren und nachfragen bei X $*). Wochen beginnen am Montag und Monate am 1., in deiner Ortszeit. Ein Wochen- oder Monatslimit pausiert Warteschlangen, lehnt Starts ab und hält laufende Loops an – genau wie das Tagesbudget; erhöhe oder entferne es dort oder warte auf das Zurücksetzen. Erreichen die gemeldeten Kosten eines Laufs das Limit pro Lauf, pausiert er, und **Fortsetzen** fragt, ob er ohne das Limit weiterlaufen oder das Limit erhöht werden soll. Jedes erreichte Limit legt außerdem einen Eintrag **Limit erhöhen** im Posteingang an.
+
+Das Budget-Panel zeigt heute, diese Woche und diesen Monat gegenüber jedem Limit. Die **Prognose** zum Monatsende ist eine Schätzung (der Schnitt der letzten 14 vollständigen Tage mal die verbleibenden Tage plus das bisher Ausgegebene) und wird nie zu abgerechneten Ausgaben addiert. **Was wäre, wenn** berechnet die erfassten Token der letzten 30 Tage mit einem anderen Modell neu, anhand der Preisliste der App, und meldet *Kein Preis* für ein Modell ohne Preis. Bei einem Abo gibt es keine Dollarkosten pro Nutzung; das Panel zeigt dann Turns und Abo-Limits statt Dollar.

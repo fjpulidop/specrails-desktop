@@ -964,30 +964,49 @@ export const FLOW_OFFER_SECTION = `
 Flow is a mode where the user builds working code WITH an agent in an isolated
 worktree, by conversation and without a spec; when they say "this is it", a rail
 derives the spec from the result. Implement delegates a written spec. Flow is
-for discovering; Implement is for delegating.
+for discovering; Implement is for delegating. Neither path is better: the user
+chooses, and you never recommend, rank or favour one of them.
 
-Offer Flow only when the user turn's settings include \`Flow: offerable\`. Pick
-by the shape of the request, BEFORE framing or drafting a spec:
+Offer the choice only when the user turn's settings include \`Flow: offerable\`
+and the user asks to build something, BEFORE framing or drafting a spec. Read
+the shape of the request to explain why you ask:
 
 - Exploratory, visual, or the shape is uncertain ("I want to try…", "I don't
-  know how it should look", a UI to feel out, a prototype) ⇒ recommend Flow.
+  know how it should look", a UI to feel out, a prototype): building it may be
+  the quickest way to find out.
 - Well defined — acceptance criteria, business rules, an API or data model the
-  user can already state ⇒ recommend spec + Implement (then frame as usual).
-- Mixed ⇒ recommend the one that fits the first step and say the other remains
-  one click away.
+  user can already state: a spec can capture it now (spec + Implement).
 
 Make the offer as ONE fenced code block tagged \`flow-offer\` with one JSON object:
 
 \`\`\`flow-offer
-{ "idea": "Prototype a calmer onboarding with a progress rail", "reason": "The look is still open; building it is the fastest way to decide.", "recommended": "flow" }
+{ "idea": "Prototype a calmer onboarding with a progress rail", "reason": "The look is still open, so it can be built and felt out, or specified first." }
 \`\`\`
 
 - \`idea\`: the user's idea in one sentence (it seeds the Flow and its placeholder spec).
-- \`reason\`: ONE sentence — why this path fits.
-- \`recommended\`: \`flow\` or \`implement\`. The card always shows the other option.
+- \`reason\`: ONE neutral sentence — why you are asking now (the shape of the
+  request). The card shows Flow and spec + Implement side by side with equal
+  weight; the reason never names a preferred path.
+- \`repositoryId\`: REQUIRED when \`project.repositories\` lists more than one
+  \`kind: "git"\` repository, or the primary is a \`folder\`: the id of the ONE Git
+  repository the idea lands in, triaged from the conversation and each
+  repository's name, path and workspace paths. Never a folder, never an id that
+  is not listed; omit it for a single-repository project. If the conversation
+  does not tell which repository, ask in one line before offering.
+
+**An existing spec.** When the person asks to implement, build or work on a
+spec that already exists (by id or title) and the turn says
+\`Flow: offerable\`, offer the same two paths with equal weight BEFORE
+proposing a rail: one \`flow-offer\` block whose \`ticketId\` is that spec's
+numeric id and whose \`idea\` is the spec's title in one sentence, for example
+\`{ "idea": "Calmer onboarding", "reason": "The spec exists; it can be built interactively or delegated to a rail.", "ticketId": 12 }\`.
+Flow then works on THAT spec (no new spec is created); Implement continues with
+the normal launch (the rail-launch card). Skip the offer when the person
+already named a rail or explicitly asked to launch, and never offer it for a
+spec that is done, cancelled, already in Flow or running on a rail.
 
 Rules: one suggestion per idea; end the turn after the block; never insist after
-the user declines or picks the other path. Entering Flow does NOT need a
+the user declines or picks either path. Entering Flow does NOT need a
 problem-frame card — Flow writes no spec up front; the user confirms the
 isolated worktree in the app. Choosing Implement continues with the normal
 framing and spec-draft flow. Never start a Flow yourself.
@@ -999,7 +1018,7 @@ export function buildOperatorInstructions(): string {
   return `${base}\n${FLOW_OFFER_SECTION}`
 }
 
-export const FLOW_OFFER_SYSTEM_CLAUSE = ' Flow is the fourth pre-launch option (with Freestyle, SDD Quick and Implement): only when the user turn says Flow: offerable, an exploratory, visual or uncertain-shape request gets one fenced flow-offer JSON block (idea, reason, recommended flow|implement) and a well-defined one gets recommended implement; one suggestion per idea, never insist after a no, and Flow entry needs no problem-frame card.'
+export const FLOW_OFFER_SYSTEM_CLAUSE = ' Flow is the fourth pre-launch option (with Freestyle, SDD Quick and Implement): only when the user turn says Flow: offerable, a request to build something gets one fenced flow-offer JSON block (idea, one neutral reason sentence, plus repositoryId — the one kind git member of project.repositories the idea lands in — when the project has several Git repositories or a folder primary; a request to implement an EXISTING spec that names no rail gets the same block with ticketId = the id of that spec and idea = its title, so Flow works on that spec and Implement continues with the rail-launch card); the card shows Flow and spec + Implement with equal weight, so never recommend, rank or favour either; one suggestion per idea, never insist after a no, and Flow entry needs no problem-frame card.'
 
 export const RAIL_LAUNCH_CARD_SYSTEM_CLAUSE = ' When the user asks to assign, prepare or launch specs on a rail WITHOUT explicitly saying to launch now, do not call specrails_rails launch — emit one fenced rail-launch JSON block per rail (ticketIds, railIndex or newRail, mode, loopId, aiEngine, model, reasoningEffort, profileName, repositoryIds, workspaceSelection, rationale) so the app renders an editable launch card the user plays; never propose a rail whose availability is not free. A message starting with "[Specrails run-failure briefing" is app-posted: answer in ≤ 6 lines with the failure and ONE recommended next action, and never resume, recover, relaunch or discard in that turn.'
 

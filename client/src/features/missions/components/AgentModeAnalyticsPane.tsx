@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useState } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
-import { Maximize2, Minimize2, X, Loader2 } from 'lucide-react'
+import { Maximize2, Minimize2, X } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
 
@@ -61,14 +62,14 @@ export function AgentModeAnalyticsPane() {
         )}
       </div>
       <div className="flex items-center gap-2 border-b border-border/60 bg-surface/40 px-3 py-1.5">
-        <span className="text-xs font-medium text-foreground/70">{t('workspace.analytics')}</span>
+        <span className="text-label text-muted-foreground">{t('workspace.analytics')}</span>
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
             onClick={() => setMaximized((m) => !m)}
             aria-label={maximized ? t('restore') : t('maximize')}
             title={maximized ? t('restore') : t('maximize')}
-            className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground"
+            className="rounded-md p-1 text-muted-foreground hover:bg-surface hover:text-foreground"
           >
             {maximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
@@ -77,7 +78,7 @@ export function AgentModeAnalyticsPane() {
             onClick={closeAnalyticsPane}
             aria-label={t('workspace.closeAnalytics')}
             title={t('workspace.closeAnalytics')}
-            className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground"
+            className="rounded-md p-1 text-muted-foreground hover:bg-surface hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -88,7 +89,7 @@ export function AgentModeAnalyticsPane() {
         <Suspense
           fallback={
             <div className="flex h-24 items-center justify-center text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <RailTrack running className="w-16 shrink-0" />
             </div>
           }
         >

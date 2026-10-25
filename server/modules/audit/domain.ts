@@ -102,6 +102,28 @@ export function redactCommand(command: string): string {
     .replace(TOKEN_SHAPES, '***')
 }
 
+const NAMED_SECRET_ASSIGNMENT = /\b([A-Za-z0-9_.-]*(?:api[_-]?key|token|secret|passw(?:or)?d|access[_-]?key|private[_-]?key|client[_-]?secret|credentials?))(\s*[=:]\s*)("[^"]*"|'[^']*'|[^\s"',;)]+)/gi
+const PEM_BLOCK = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g
+const STRICT_BEARER = /\b(Bearer)\s+[A-Za-z0-9._~+/=-]{16,}/g
+
+/**
+ * Remove obvious secrets from prose (spec text, addenda, reviewer findings,
+ * exported hand-off documents). Shares the audit's token shapes, URL
+ * credentials and header rules, but is prose-safe: the command-only rules that
+ * would mangle ordinary words ("Token refresh", `NODE_ENV=production`) are not
+ * applied, and a `name = value` assignment is redacted only when the name
+ * itself says secret. Returns the text unchanged when nothing matched.
+ */
+export function redactProse(text: string): string {
+  return text
+    .replace(PEM_BLOCK, '***')
+    .replace(URL_CREDENTIALS, '$1***@')
+    .replace(AUTH_HEADER, '$1$2***')
+    .replace(STRICT_BEARER, '$1 ***')
+    .replace(NAMED_SECRET_ASSIGNMENT, (_m, name: string, sep: string) => `${name}${sep}***`)
+    .replace(TOKEN_SHAPES, '***')
+}
+
 /** URL without query string, fragment or credentials (queries can carry keys). */
 export function redactUrl(raw: string): string {
   const trimmed = raw.trim()

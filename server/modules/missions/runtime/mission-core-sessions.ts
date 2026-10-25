@@ -6,7 +6,8 @@ import { hostSupportsFlowSessions, resolveSubagentRuntime, type CoreSessionsAvai
 import type { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import type { AgentAuditRecorder } from '../../audit'
 import { getAgentConversation, type AgentConversation } from '../../agents/runtime/agent-store'
-import { ensureSessionCursor, getSessionCursor, listSubagents, resetSessionProjection } from './agent-session-store'
+import { conversationSessionState, ensureSessionCursor, getMissionCoreSession, getSessionCursor, isMissionCoreSessionId, listSessionCursors, listSubagents, missionCoreSessionId, renewMissionCoreSession, resetSessionProjection, setMissionCoreSessionProvider } from './agent-session-store'
+import { FLOW_SUBAGENTS_ADDENDUM } from './agent-flow-prompt'
 import { sessionPolicyFor, type CoreSessionTurnContext, type TurnHandle } from './core-session-runner'
 import { MissionSessionProjector } from './mission-session-projector'
 import { missionSessionBoundary } from './mission-tool-policy'
@@ -41,6 +42,8 @@ export interface MissionCoreSessionsDeps {
 
 export const GLOBAL_SCOPE = 'global'
 
+type SessionContext = Pick<CoreSessionTurnContext, 'policy' | 'mcpServers'> & { conversationId: string; projectId: string | null; scope: string; provider: string; drivers: DriverDescriptor[]; delegation: boolean; flow: boolean }
+
 /**
  * Missions' side of Core agent sessions: decides whether a turn runs in Core,
  * keeps each mission's session tracked and projected, and owns the lifetime of
@@ -53,9 +56,16 @@ export class MissionCoreSessions {
   private readonly handles = new Map<string, TurnHandle>()
   /** Missions with a turn being prepared or running: their capability belongs to that turn. */
   private readonly activeTurns = new Set<string>()
+  /** Core sessions with a projector: the mission's (its conversation id) and Flow sessions (`flow:<flowId>`). */
   private readonly tracked = new Set<string>()
-  /** Last turn context per mission: the policy its session runs with. */
-  private readonly contexts = new Map<string, Pick<CoreSessionTurnContext, 'policy' | 'mcpServers'> & { projectId: string | null; scope: string; provider: string; drivers: DriverDescriptor[]; delegation: boolean }>()
+  /** Last turn context per Core session: the policy it runs with. */
+  private readonly contexts = new Map<string, SessionContext>()
+  /** The Core session the conversation's latest turn ran in (sub-agent tools act on it). */
+  private readonly current = new Map<string, string>()
+  /** Core sessions closed (Flow pause/hand-off/renewal, mission generation renewal): never sent another turn. */
+  private readonly closedSessions = new Set<string>()
+  /** Tracked Core session → the conversation that owns it (every mission generation and Flow session). */
+  private readonly owners = new Map<string, string>()
 
   constructor(private readonly deps: MissionCoreSessionsDeps) {}
 
@@ -92,7 +102,20 @@ export class MissionCoreSessions {
     if (!drivers.some((driver) => driver.id === adapter.id)) return null
 
     const conversationId = conversation.id
-    if (!this.tracked.has(conversationId)) await this.track(scope, conversationId, this.deps.broadcast)
+    // A Core session is bound to the driver that opened it: a provider switch
+    // (or a session Core closed) continues in the mission's next generation.
+    const state = getMissionCoreSession(this.deps.db, conversationId)
+    let sessionId = missionCoreSessionId(conversationId, state.generation)
+    const openedWith = state.provider ?? this.contexts.get(sessionId)?.provider ?? null
+    let renewed = false
+    if ((openedWith && openedWith !== adapter.id) || this.closedSessions.has(sessionId)) {
+      sessionId = await this.renewMissionSession(conversation, adapter.id, openedWith && openedWith !== adapter.id ? 'provider_changed' : 'session_closed')
+      renewed = true
+    } else if (!state.provider) {
+      setMissionCoreSessionProvider(this.deps.db, conversationId, adapter.id)
+    }
+    if (!this.tracked.has(sessionId)) await this.track(scope, conversationId, sessionId, this.deps.broadcast)
+    this.current.set(conversationId, sessionId)
 
     // Rotate the capability the resident bridge presents; the previous one is revoked.
     const mcpServers = prepareAgentMcpSpec({ conversationId, port: this.deps.port, capability: turn.capability, external: turn.external })
@@ -112,15 +135,18 @@ export class MissionCoreSessions {
       mcp: { inheritUserScope: true },
       subagentRuntime: this.subagentRuntime(conversation, adapter.id, drivers, delegation),
     }
-    this.contexts.set(conversationId, { policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope, provider: adapter.id, drivers, delegation })
+    this.contexts.set(sessionId, { conversationId, policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope, provider: adapter.id, drivers, delegation, flow: false })
     return {
-      sessionId: conversationId,
+      sessionId,
       client,
       driver: adapter.id,
       policy,
       mcpServers,
       ...(policy.subagentRuntime?.mode === 'delegated' ? { systemPromptAddendum: delegationGuidance(policy.subagentRuntime) } : {}),
-      legacyProviderSessionRef: conversation.session_id ?? null,
+      // A new generation starts clean: the turn seeds it with the conversation
+      // history (never another provider's thread).
+      legacyProviderSessionRef: renewed ? null : (getAgentConversation(this.deps.db, conversationId) ?? conversation).session_id ?? null,
+      ...(renewed ? { freshSession: true } : {}),
       metadata: { conversationId, surface: 'mission' },
       onHandle: (handle) => {
         if (handle) { this.handles.set(conversationId, handle); return }
@@ -154,30 +180,46 @@ export class MissionCoreSessions {
 
   /**
    * A Flow turn: its own Core session (`flow:<flowId>`) with the worktree as
-   * cwd, workspace-write permissions, default tools and the same Specrails MCP
-   * the mission presents. Sub-agents are disabled: the Flow session is not
-   * projected like the mission's, so their usage could not be accounted.
+   * cwd, the rail write-role permissions (FLOW_SESSION_BOUNDARY), default tools and the same Specrails MCP
+   * the mission presents. Sub-agents follow the mission's project policy
+   * ("Allow sub-agents", "Run sub-agents with"); they inherit the session's cwd
+   * and permissions (Core gives delegated children the parent's cwd). The Flow
+   * session has its own projection (cursor, sub-agents, usage billed `flow`).
    */
   private async prepareFlowTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[]; plugins?: AgentMcpServerSpec[]; flow: FlowTurn }): Promise<CoreSessionTurnContext> {
-    const { client } = await this.assertFlowSupport(conversation, adapter.id)
+    const { scope, client } = await this.assertFlowSupport(conversation, adapter.id)
     const conversationId = conversation.id
+    const sessionId = turn.flow.coreSessionId
+    if (!this.tracked.has(sessionId)) await this.track(scope, conversationId, sessionId, this.deps.broadcast)
+    this.current.set(conversationId, sessionId)
     const mcpServers = prepareAgentMcpSpec({ conversationId, port: this.deps.port, capability: turn.capability, external: turn.external })
     for (const plugin of turn.plugins ?? []) if (!mcpServers.some((server) => server.name === plugin.name)) mcpServers.push(plugin)
     const previous = this.capabilities.get(conversationId)
     this.capabilities.set(conversationId, turn.capability)
     this.activeTurns.add(conversationId)
     if (previous && previous !== turn.capability) this.deps.revokeCapability(previous)
+    const drivers = client.initialize?.drivers ?? []
+    const delegation = client.initialize?.capabilities?.delegation === 1
+    const subagents = this.subagentPolicy(conversation)
     const policy: SessionPolicyInput = {
-      subagents: 'disabled',
+      subagents,
       ...turn.flow.policy,
       mcp: { inheritUserScope: true },
+      ...(subagents === 'enabled' ? { subagentRuntime: this.subagentRuntime(conversation, adapter.id, drivers, delegation) } : {}),
     }
+    this.contexts.set(sessionId, { conversationId, policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope, provider: adapter.id, drivers, delegation, flow: true })
+    const addendum = subagents !== 'enabled'
+      ? null
+      : policy.subagentRuntime?.mode === 'delegated'
+        ? `${FLOW_SUBAGENTS_ADDENDUM}\n\n${delegationGuidance(policy.subagentRuntime)}`
+        : FLOW_SUBAGENTS_ADDENDUM
     return {
-      sessionId: turn.flow.coreSessionId,
+      sessionId,
       client,
       driver: adapter.id,
       policy,
       mcpServers,
+      ...(addendum ? { systemPromptAddendum: addendum } : {}),
       inputDelivery: 'interrupt',
       metadata: { conversationId, surface: 'flow', flowId: turn.flow.flowId },
       onHandle: (handle) => {
@@ -188,9 +230,51 @@ export class MissionCoreSessions {
     }
   }
 
-  /** Close a Flow's Core session (pause, discard, hand-off). Core keeps its
-   * journal; a later turn resumes it. Never throws. */
+  /**
+   * Whether a Flow's Core session can take this turn: not closed, and opened
+   * (if at all in this process) with the same provider — a Core session is
+   * bound to the driver it was opened with.
+   */
+  flowSessionUsable(coreSessionId: string, providerId: string): boolean {
+    if (this.closedSessions.has(coreSessionId)) return false
+    const context = this.contexts.get(coreSessionId)
+    return !context || !context.flow || context.provider === providerId
+  }
+
+  /** The mission's own current Core session id (its latest generation). */
+  missionSessionId(conversationId: string): string {
+    return missionCoreSessionId(conversationId, getMissionCoreSession(this.deps.db, conversationId).generation)
+  }
+
+  /**
+   * Move the mission to a new Core session opened with `provider`: the current
+   * generation is closed in Core (its journal stays for the projection) and is
+   * never sent another turn. Called between turns only. Returns the new id.
+   */
+  async renewMissionSession(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, provider: string, reason: string): Promise<string> {
+    const previous = this.missionSessionId(conversation.id)
+    const next = missionCoreSessionId(conversation.id, renewMissionCoreSession(this.deps.db, conversation.id, provider).generation)
+    this.closedSessions.add(previous)
+    if (this.current.get(conversation.id) === previous) this.current.delete(conversation.id)
+    this.contexts.delete(previous)
+    console.log(`[agent-chat] mission ${conversation.id} continues in Core session ${next} (${reason})`)
+    try {
+      const client = await this.deps.registry.acquire(this.scopeOf(conversation))
+      await client.request('session.close', { sessionId: previous, reason })
+    } catch (error) {
+      const code = (error as { code?: string }).code
+      if (code !== 'session_not_found' && code !== 'session_closed') console.warn(`[agent-chat] could not close Core session ${previous}: ${(error as Error).message}`)
+    }
+    return next
+  }
+
+  /** Close a Flow's Core session (pause, discard, hand-off, renewal). Core keeps
+   * its journal for the projection; the session never takes another turn. Never throws. */
   async closeFlowSession(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, coreSessionId: string, reason: string): Promise<void> {
+    this.closedSessions.add(coreSessionId)
+    // Later sub-agent tools act on the mission again; the projection keeps
+    // following the Flow session (background sub-agents may still settle).
+    if (this.current.get(conversation.id) === coreSessionId) this.current.delete(conversation.id)
     try {
       const client = await this.deps.registry.acquire(this.scopeOf(conversation))
       await client.request('session.close', { sessionId: coreSessionId, reason })
@@ -207,21 +291,24 @@ export class MissionCoreSessions {
    * the change as deferred, which the mission shows with "Stop agents and apply now".
    */
   async refreshSubagentPolicy(scope: { projectId: string | null }): Promise<void> {
-    for (const [conversationId, context] of [...this.contexts]) {
-      if (context.projectId !== scope.projectId || !this.tracked.has(conversationId)) continue
-      const conversation = getAgentConversation(this.deps.db, conversationId)
+    for (const [sessionId, context] of [...this.contexts]) {
+      if (context.projectId !== scope.projectId || !this.tracked.has(sessionId)) continue
+      const conversation = getAgentConversation(this.deps.db, context.conversationId)
       if (!conversation) continue
       const subagents = this.subagentPolicy(conversation)
-      const subagentRuntime = this.subagentRuntime(conversation, context.provider, context.drivers, context.delegation)
+      const subagentRuntime = context.flow && subagents !== 'enabled'
+        ? undefined
+        : this.subagentRuntime(conversation, context.provider, context.drivers, context.delegation)
       if (subagents === context.policy.subagents && JSON.stringify(subagentRuntime) === JSON.stringify(context.policy.subagentRuntime)) continue
-      const next = { ...context, policy: { ...context.policy, subagents, subagentRuntime } }
-      this.contexts.set(conversationId, next)
+      const { subagentRuntime: _previous, ...rest } = context.policy
+      const next = { ...context, policy: { ...rest, subagents, ...(subagentRuntime ? { subagentRuntime } : {}) } }
+      this.contexts.set(sessionId, next)
       try {
         const client = await this.deps.registry.acquire(context.scope)
-        await client.request('session.update', { sessionId: conversationId, policy: sessionPolicyFor(next) })
+        await client.request('session.update', { sessionId, policy: sessionPolicyFor(next) })
       } catch (error) {
         // The next turn sends the policy again; nothing is lost.
-        console.warn(`[agent-chat] could not update the sub-agent policy of ${conversationId}: ${(error as Error).message}`)
+        console.warn(`[agent-chat] could not update the sub-agent policy of ${sessionId}: ${(error as Error).message}`)
       }
     }
   }
@@ -268,37 +355,60 @@ export class MissionCoreSessions {
     removeAgentCapabilityFile(conversationId)
   }
 
-  /** True when this mission's sub-agents are launched by Core (another provider). */
-  delegates(conversationId: string): boolean {
-    return this.contexts.get(conversationId)?.policy.subagentRuntime?.mode === 'delegated'
+  /** The Core session the conversation's sub-agent tools act on: its Flow's while a Flow turn ran last. */
+  private sessionOf(conversationId: string): string {
+    return this.current.get(conversationId) ?? this.missionSessionId(conversationId)
   }
 
-  /** Launch a sub-agent on the configured provider (delegated runtime only). */
+  /** True when this mission's sub-agents (or its Flow's, while in Flow) are launched by Core (another provider). */
+  delegates(conversationId: string): boolean {
+    return this.contexts.get(this.sessionOf(conversationId))?.policy.subagentRuntime?.mode === 'delegated'
+  }
+
+  /** Launch a sub-agent on the configured provider (delegated runtime only), in the current session. */
   async delegate(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, params: { description: string; prompt: string; agentType?: string; contextTurns?: number }): Promise<{ subagentId: string }> {
-    this.assertDelegates(conversation.id)
+    const sessionId = this.assertDelegates(conversation.id)
     const client = await this.deps.registry.acquire(this.scopeOf(conversation))
-    return client.request<{ subagentId: string }>('session.delegate', { sessionId: conversation.id, ...params })
+    return client.request<{ subagentId: string }>('session.delegate', { sessionId, ...params })
   }
 
   /** Results of delegated sub-agents that finished (or what still runs at the timeout). */
   async waitSubagents(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, subagentIds: string[] | undefined, timeoutMs: number): Promise<{ results: Array<{ subagentId: string; description: string; status: string; result: string }>; running: string[] }> {
-    this.assertDelegates(conversation.id)
+    const sessionId = this.assertDelegates(conversation.id)
     const client = await this.deps.registry.acquire(this.scopeOf(conversation))
-    return client.request('session.waitSubagents', { sessionId: conversation.id, ...(subagentIds ? { subagentIds } : {}), timeoutMs })
+    return client.request('session.waitSubagents', { sessionId, ...(subagentIds ? { subagentIds } : {}), timeoutMs })
   }
 
-  private assertDelegates(conversationId: string): void {
-    if (!this.tracked.has(conversationId) || !this.delegates(conversationId)) {
+  private assertDelegates(conversationId: string): string {
+    const sessionId = this.sessionOf(conversationId)
+    if (!this.tracked.has(sessionId) || !this.delegates(conversationId)) {
       throw new Error('This mission does not delegate sub-agents: its agent launches them with its own tool, or sub-agents are off.')
     }
+    return sessionId
   }
 
-  /** Stop sub-agents of a mission's Core session (all when `subagentIds` is omitted). */
+  /** Stop sub-agents of a mission's Core sessions (its own and its Flow's; all when `subagentIds` is omitted). */
   async stopSubagents(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, subagentIds?: string[]): Promise<string[]> {
-    if (!this.tracked.has(conversation.id)) return []
+    const sessions = this.sessionsOf(conversation.id)
+    if (sessions.length === 0) return []
+    // Route each id to the session that launched it.
+    const owner = new Map(listSubagents(this.deps.db, conversation.id).map((row) => [row.subagentId, row.coreSessionId]))
     const client = await this.deps.registry.acquire(this.scopeOf(conversation))
-    const result = await client.request<{ stopped: string[] }>('session.stopSubagents', { sessionId: conversation.id, ...(subagentIds ? { subagentIds } : {}) })
-    return result.stopped ?? []
+    const stopped: string[] = []
+    for (const sessionId of sessions) {
+      const ids = subagentIds?.filter((id) => (owner.get(id) ?? conversation.id) === sessionId)
+      if (ids && ids.length === 0) continue
+      const result = await client.request<{ stopped: string[] }>('session.stopSubagents', { sessionId, ...(ids ? { subagentIds: ids } : {}) })
+      stopped.push(...(result.stopped ?? []))
+    }
+    return stopped
+  }
+
+  /** Tracked Core sessions of a conversation (its own first). */
+  private sessionsOf(conversationId: string): string[] {
+    const mission = this.missionSessionId(conversationId)
+    const others = [...this.owners].filter(([sessionId, owner]) => owner === conversationId && sessionId !== mission).map(([sessionId]) => sessionId)
+    return [mission, ...others].filter((sessionId) => this.tracked.has(sessionId))
   }
 
   /**
@@ -310,40 +420,48 @@ export class MissionCoreSessions {
   async rebuildProjection(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>): Promise<{ lastSeq: number; subagents: number } | null> {
     const scope = this.scopeOf(conversation)
     const conversationId = conversation.id
-    if (!getSessionCursor(this.deps.db, conversationId)) return null
-    this.deps.registry.untrack(scope, conversationId)
-    this.tracked.delete(conversationId)
-    resetSessionProjection(this.deps.db, conversationId)
-    let muted = true
-    try {
-      await this.track(scope, conversationId, (message) => { if (!muted) this.deps.broadcast(message) })
-    } finally {
-      muted = false
+    // Every Core session of the mission (its own and its Flows'), each from its own journal.
+    const cursors = listSessionCursors(this.deps.db, conversationId)
+    if (cursors.length === 0) return null
+    let lastSeq = 0
+    for (const { coreSessionId } of cursors) {
+      this.deps.registry.untrack(scope, coreSessionId)
+      this.tracked.delete(coreSessionId)
+      resetSessionProjection(this.deps.db, conversationId, coreSessionId)
+      let muted = true
+      try {
+        await this.track(scope, conversationId, coreSessionId, (message) => { if (!muted) this.deps.broadcast(message) })
+      } finally {
+        muted = false
+      }
+      if (coreSessionId === this.missionSessionId(conversationId)) lastSeq = getSessionCursor(this.deps.db, conversationId, coreSessionId)?.lastSeq ?? 0
     }
-    const cursor = getSessionCursor(this.deps.db, conversationId)
+    const state = conversationSessionState(this.deps.db, conversationId)
     const subagents = listSubagents(this.deps.db, conversationId)
     const timestamp = new Date().toISOString()
-    if (cursor) this.deps.broadcast({ type: 'agent_resident_state', conversationId, phase: cursor.residentPhase, liveSubagents: cursor.liveSubagents, processAlive: cursor.processAlive, timestamp })
+    if (state) this.deps.broadcast({ type: 'agent_resident_state', conversationId, phase: state.residentPhase, liveSubagents: state.liveSubagents, processAlive: state.processAlive, timestamp })
     for (const { conversationId: _owner, ...subagent } of subagents) this.deps.broadcast({ type: 'agent_subagent', conversationId, subagent, timestamp })
-    return { lastSeq: cursor?.lastSeq ?? 0, subagents: subagents.length }
+    return { lastSeq, subagents: subagents.length }
   }
 
-  private async track(scope: string, conversationId: string, broadcast: MissionCoreSessionsDeps['broadcast']): Promise<void> {
-    ensureSessionCursor(this.deps.db, conversationId, conversationId, scope)
+  /** Project one Core session of a conversation: a generation of its own (billed `agent-chat`) or a Flow's (billed `flow`). */
+  private async track(scope: string, conversationId: string, sessionId: string, broadcast: MissionCoreSessionsDeps['broadcast']): Promise<void> {
+    ensureSessionCursor(this.deps.db, conversationId, sessionId, scope)
+    this.owners.set(sessionId, conversationId)
     const projector = new MissionSessionProjector(conversationId, {
       db: this.deps.db,
       broadcast,
       adapterFor: this.deps.adapterFor,
       onProcessEnded: (id) => this.releaseCapability(id),
       ...(this.deps.agentAudit ? { agentAudit: this.deps.agentAudit } : {}),
-    })
+    }, sessionId === conversationId ? {} : isMissionCoreSessionId(conversationId, sessionId) ? { coreSessionId: sessionId, mission: true } : { coreSessionId: sessionId, surface: 'flow' })
     try {
-      await this.deps.registry.track(scope, conversationId, projector, () => {})
+      await this.deps.registry.track(scope, sessionId, projector, () => {})
     } catch (error) {
       // A session that does not exist yet has nothing to replay; tracking starts empty.
       if ((error as { code?: string }).code !== 'session_not_found') throw error
     }
-    this.tracked.add(conversationId)
+    this.tracked.add(sessionId)
   }
 
   /** Conversation deleted: close its Core session and drop all local state. */
@@ -351,15 +469,34 @@ export class MissionCoreSessions {
     const scope = this.scopeOf(conversation)
     this.handles.delete(conversation.id)
     this.activeTurns.delete(conversation.id)
-    this.contexts.delete(conversation.id)
+    this.current.delete(conversation.id)
+    // Every session of the conversation stops being projected; Flow sessions are
+    // closed in Core by the Flow module, the mission's current generation here.
+    // (The conversation row may already be gone: derive the sessions from what is tracked.)
+    const toClose: string[] = []
+    for (const [sessionId, context] of [...this.contexts]) if (context.conversationId === conversation.id) this.contexts.delete(sessionId)
+    for (const [sessionId, owner] of [...this.owners]) {
+      if (owner !== conversation.id) continue
+      this.owners.delete(sessionId)
+      if (!this.tracked.delete(sessionId)) continue
+      this.deps.registry.untrack(scope, sessionId)
+      if (isMissionCoreSessionId(conversation.id, sessionId) && !this.closedSessions.has(sessionId)) toClose.push(sessionId)
+    }
     this.releaseCapability(conversation.id, { force: true })
-    if (!this.tracked.delete(conversation.id)) return
-    this.deps.registry.untrack(scope, conversation.id)
+    if (toClose.length === 0) return
+    let client
     try {
-      const client = await this.deps.registry.acquire(scope)
-      await client.request('session.close', { sessionId: conversation.id, reason: 'conversation_deleted' })
+      client = await this.deps.registry.acquire(scope)
     } catch (error) {
-      console.warn(`[agent-chat] could not close Core session ${conversation.id}: ${(error as Error).message}`)
+      console.warn(`[agent-chat] could not close Core sessions of ${conversation.id}: ${(error as Error).message}`)
+      return
+    }
+    for (const sessionId of toClose) {
+      try {
+        await client.request('session.close', { sessionId, reason: 'conversation_deleted' })
+      } catch (error) {
+        console.warn(`[agent-chat] could not close Core session ${sessionId}: ${(error as Error).message}`)
+      }
     }
   }
 
@@ -368,7 +505,9 @@ export class MissionCoreSessions {
     this.handles.clear()
     this.activeTurns.clear()
     this.contexts.clear()
+    this.current.clear()
     this.tracked.clear()
+    this.owners.clear()
   }
 }
 

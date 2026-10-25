@@ -51,7 +51,7 @@ const server = http.createServer(async (request, response) => {
     if (role === 'architect' && !hasTools) {
       const files = [
         ['proposal', 'proposal.md', '## Why\nCreate the result.\n## What Changes\n- Add result.\n## Capabilities\n### New Capabilities\n- `paired-runtime`: result behavior.\n### Modified Capabilities\nNone.\n## Impact\nresult.txt'],
-        ['design', 'design.md', '# Design\nWrite UTF-8 result.txt.'],
+        ['design', 'design.md', '# Design\nWrite UTF-8 result.txt.\n\n## Non-Goals\n- Any other file.'],
         ['specs', 'specs/paired-runtime/spec.md', '## ADDED Requirements\n### Requirement: Fixture result\nThe system SHALL provide ready.\n#### Scenario: Result\n- **WHEN** implementation completes\n- **THEN** result.txt contains ready\n'],
         ['tasks', 'tasks.md', '- [ ] 1. Write the fixture result\n'],
       ]

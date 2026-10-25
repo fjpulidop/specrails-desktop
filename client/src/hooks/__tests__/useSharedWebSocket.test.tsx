@@ -7,6 +7,7 @@ import { getDesktopTokenProtocol, refreshDesktopToken } from '../../lib/auth'
 vi.mock('../../lib/auth', () => ({
   getDesktopTokenProtocol: vi.fn(() => undefined),
   refreshDesktopToken: vi.fn(async () => true),
+  invalidateInflightReads: vi.fn(),
 }))
 
 // ─── Mock WebSocket ────────────────────────────────────────────────────────────

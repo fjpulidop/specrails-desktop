@@ -2,7 +2,6 @@
   "studio": {
     "loadingAgent": "Chargement de l'agent…",
     "modeCreate": "Nouvel agent personnalisé",
-    "modeEdit": "Modifier l'agent personnalisé",
     "create": "Créer",
     "unsaved": "● non enregistré",
     "resumeAiEdit": "Reprendre l'Édition IA",
@@ -59,7 +58,9 @@
       "header": "Historique des versions",
       "empty": "Aucune version antérieure enregistrée pour cet agent.",
       "restoreHint": "Cliquez sur une version pour restaurer son corps dans l'éditeur (il faudra ensuite Enregistrer)."
-    }
+    },
+    "idLabel": "ID de l'agent",
+    "defaultDescription": "Brève description du moment où utiliser cet agent."
   },
   "refine": {
     "eyebrow": "Édition IA",

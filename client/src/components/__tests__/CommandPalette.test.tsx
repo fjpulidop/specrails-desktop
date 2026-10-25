@@ -135,10 +135,22 @@ describe('CommandPalette', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
 
+    // The open project (Alpha) is not offered as a switch; the others are.
     await waitFor(() => {
-      expect(screen.getByText('Project Alpha')).toBeInTheDocument()
       expect(screen.getByText('Project Beta')).toBeInTheDocument()
     })
+    expect(screen.queryByText('Project Alpha')).not.toBeInTheDocument()
+  })
+
+  it('never preselects a project switch when opened: the project group trails the rest', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette />)
+    await user.keyboard('{Meta>}k{/Meta}')
+    await screen.findByText('Project Beta')
+    const selected = document.querySelector('[cmdk-item][data-selected="true"]')
+    expect(selected?.textContent ?? '').not.toContain('Project Beta')
+    const groups = Array.from(document.querySelectorAll('[cmdk-group-heading]')).map((el) => el.textContent)
+    expect(groups.at(-1)).toBe('Projects')
   })
 
   it('shows commands after data loads', async () => {
@@ -185,6 +197,8 @@ describe('CommandPalette', () => {
     render(<CommandPalette />)
 
     await user.keyboard('{Meta>}k{/Meta}')
+    // Typing a name finds even the open project, and says it is the active one.
+    await user.type(await screen.findByPlaceholderText(/search/i), 'alpha')
 
     await waitFor(() => {
       expect(screen.getByText('active')).toBeInTheDocument()
@@ -199,7 +213,7 @@ describe('CommandPalette', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
     await waitFor(() => {
-      expect(screen.getByText('Project Alpha')).toBeInTheDocument()
+      expect(screen.getByText('Project Beta')).toBeInTheDocument()
     })
 
     const input = screen.getByPlaceholderText(/search/i)
@@ -341,6 +355,22 @@ describe('CommandPalette', () => {
     expect(onOpenDocs).toHaveBeenCalled()
   })
 
+  it('offers Help ▸ Replay tour, which asks the shell to reopen the platform tour', async () => {
+    const onReplay = vi.fn()
+    window.addEventListener('specrails:replay-tour', onReplay)
+    const user = userEvent.setup()
+    render(<CommandPalette onOpenDocs={vi.fn()} />)
+
+    await user.keyboard('{Meta>}k{/Meta}')
+    await waitFor(() => {
+      expect(screen.getByText('Replay tour')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('Replay tour'))
+    expect(onReplay).toHaveBeenCalledTimes(1)
+    window.removeEventListener('specrails:replay-tour', onReplay)
+  })
+
   // ─── Error handling ───────────────────────────────────────────────────────
 
   it('shows error toast when command spawn fails', async () => {
@@ -377,7 +407,7 @@ describe('CommandPalette', () => {
     await user.click(screen.getByText('Implement'))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Budget exceeded')
+      expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Budget exceeded' })
     })
   })
 
@@ -391,7 +421,7 @@ describe('CommandPalette', () => {
 
     // Projects from context should still show even if fetch fails
     await waitFor(() => {
-      expect(screen.getByText('Project Alpha')).toBeInTheDocument()
+      expect(screen.getByText('Project Beta')).toBeInTheDocument()
       expect(screen.getByText('Dashboard')).toBeInTheDocument()
     })
   })
@@ -429,16 +459,20 @@ describe('CommandPalette', () => {
     render(<CommandPalette />)
 
     await user.keyboard('{Meta>}k{/Meta}')
+    // The sidebar toggles are registry actions now (QW1): find them by query.
+    await user.type(screen.getByPlaceholderText(/search/i), 'sidebar')
     await waitFor(() => {
-      expect(screen.getByText('Pin left sidebar open')).toBeInTheDocument()
+      // New users start with the left sidebar pinned open.
+      expect(screen.getByText('Collapse left sidebar (keep pinned)')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('Pin left sidebar open'))
+    await user.click(screen.getByText('Collapse left sidebar (keep pinned)'))
 
     // Palette closes; reopen and verify the label advanced one step in the cycle
     await user.keyboard('{Meta>}k{/Meta}')
+    await user.type(screen.getByPlaceholderText(/search/i), 'sidebar')
     await waitFor(() => {
-      expect(screen.getByText('Collapse left sidebar (keep pinned)')).toBeInTheDocument()
+      expect(screen.getByText('Unpin left sidebar')).toBeInTheDocument()
     })
   })
 
@@ -454,5 +488,21 @@ describe('CommandPalette', () => {
       expect(screen.getByText('select')).toBeInTheDocument()
       expect(screen.getByText('close')).toBeInTheDocument()
     })
+  })
+
+  // ─── Accessibility (modal standard) ────────────────────────────────────────
+
+  it('names the dialog via a real Radix title (aria-labelledby is non-empty)', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette />)
+    await user.keyboard('{Meta>}k{/Meta}')
+    const dialog = await screen.findByRole('dialog', { name: 'Search and run actions' })
+    const labelledBy = dialog.getAttribute('aria-labelledby')
+    expect(labelledBy).toBeTruthy()
+    expect(document.getElementById(labelledBy!)).toHaveTextContent('Search and run actions')
+    expect(dialog).toHaveAccessibleDescription(/press Enter to open the highlighted result/)
+    // Standard form-size panel on the shared scrim.
+    expect(dialog).toHaveClass('max-w-lg')
+    expect(document.querySelector('[cmdk-overlay]')).toHaveClass('modal-scrim')
   })
 })

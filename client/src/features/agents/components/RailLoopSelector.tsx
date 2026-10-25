@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Workflow } from 'lucide-react'
 import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
-import { loopNeedsTicket } from '../../loops/lib/loop-ticket-need'
+import { railRunnableCustomLoops } from '../../loops/lib/loop-ticket-need'
 import { FACTORY_RAIL_LOOPS } from '../../rails/lib/rail-loops'
+import { HelpHint } from '../../../components/HelpHint'
 
 /**
  * Unified Loop picker for the rail header (rails-as-loops). Lists the built-in
@@ -45,7 +46,7 @@ export function RailLoopSelector({
       // Standalone loops are launched from the Loops page "Run" instead.
       .then((ls) => {
         if (cancelled) return
-        setPublished(ls.filter((l) => !l.builtinId && l.status === 'published' && loopNeedsTicket(l.graph)))
+        setPublished(railRunnableCustomLoops(ls))
         setBuiltinRows(new Map(ls.filter((l) => l.builtinId).map((l) => [l.builtinId!, l])))
       })
       .catch(() => { /* leave empty; built-in loops still available */ })
@@ -59,7 +60,14 @@ export function RailLoopSelector({
     (f) => (freestyleAvailable || !f.requiresFreestyle) && (loopsEnabled || !f.requiresLoops),
   )
 
+  // One line on what the picked loop does: the factory text, else the loop's own description.
+  const factory = builtIn.find((f) => f.id === value)
+  const description = factory
+    ? (builtinRows.get(factory.id)?.builtinModified ? builtinRows.get(factory.id)!.description : null) ?? t(factory.descriptionKey)
+    : published.find((l) => l.id === value)?.description ?? null
+
   return (
+    <div className="flex min-w-0 flex-col gap-0.5">
     <div
       className="inline-flex items-center"
       title={recommendedId && value === recommendedId ? `${t('railControls.loopTitle')} · ${t('railControls.recommended')}` : t('railControls.loopTitle')}
@@ -67,6 +75,7 @@ export function RailLoopSelector({
       onClick={(e) => e.stopPropagation()}
     >
       <Workflow className="w-3 h-3 text-muted-foreground mr-1" />
+      <HelpHint topic="railLoops" className="mr-0.5 size-5" />
       <select
         value={value ?? ''}
         disabled={disabled}
@@ -74,7 +83,7 @@ export function RailLoopSelector({
         data-testid="rail-loop-selector"
         data-recommended={recommendedId && value === recommendedId ? 'true' : undefined}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-5 text-[10px] rounded border bg-transparent hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-[160px] ${recommendedId && value === recommendedId ? 'border-accent-info/50 text-accent-info' : 'border-border/50 text-muted-foreground'}`}
+        className={`h-6 text-caption rounded border bg-transparent hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-[160px] ${recommendedId && value === recommendedId ? 'border-accent-info/50 text-accent-info' : 'border-border/50 text-muted-foreground'}`}
       >
         <option value="" disabled>{t('railControls.pickLoop')}</option>
         <optgroup label={t('railControls.builtInLoops')}>
@@ -90,6 +99,8 @@ export function RailLoopSelector({
           </optgroup>
         )}
       </select>
+    </div>
+    {description ? <p className="max-w-[200px] truncate text-caption text-muted-foreground" title={description} data-testid="rail-loop-description">{description}</p> : null}
     </div>
   )
 }

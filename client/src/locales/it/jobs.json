@@ -1,13 +1,12 @@
 {
   "statusLabel": {
-    "running": "in esecuzione",
-    "completed": "completato",
-    "done": "concluso",
-    "failed": "fallito",
-    "canceled": "annullato",
-    "queued": "in coda",
-    "zombie": "zombie",
-    "skipped": "saltato"
+    "running": "In esecuzione",
+    "completed": "Completato",
+    "failed": "Fallito",
+    "canceled": "Annullato",
+    "queued": "In coda",
+    "zombie": "Zombie",
+    "skipped": "Saltato"
   },
   "statusTooltip": {
     "running": "Il job è in esecuzione",
@@ -30,6 +29,7 @@
   },
   "page": {
     "title": "Job",
+    "subtitle": "Ogni esecuzione di questo progetto, con costo, durata ed esito.",
     "exportJobs": "Esporta job",
     "proposalDeleted": "Proposta eliminata",
     "proposal": {
@@ -46,10 +46,12 @@
         "cancelled": "Annullata",
         "unknown": "Stato sconosciuto: {{status}}"
       }
-    }
+    },
+    "proposalDeleteFailed": "Impossibile eliminare la proposta. Riprova."
   },
   "detail": {
     "breadcrumbDashboard": "Dashboard",
+    "breadcrumbJobs": "Job",
     "breadcrumbJob": "Job #{{id}}",
     "notFound": "Job non trovato",
     "notFoundDescription": "L'ID job \"{{id}}\" non esiste",
@@ -59,7 +61,7 @@
     "exportDiagnostic": "Esporta diagnostica",
     "exportDiagnosticAria": "Esporta bundle diagnostico",
     "exportDiagnosticTooltip": "Scarica uno ZIP con telemetria, log e riepilogo di questo job",
-    "reExecute": "Riesegui",
+    "reExecute": "Esegui di nuovo",
     "reExecuteTooltip": "Avvia un nuovo job con lo stesso comando",
     "cancelJob": "Annulla job",
     "cancelJobTooltip": "Invia SIGTERM al processo in esecuzione. Il job verrà contrassegnato come annullato.",
@@ -72,7 +74,7 @@
       "working": "L'agente sta lavorando…",
       "placeholder": "Invia un messaggio al job in esecuzione…",
       "send": "Invia",
-      "liveTotals": "{{turns}} turni · ${{cost}}",
+      "liveTotals": "{{turns}} turni · {{cost}}",
       "autoHint": "Questo job segue il suo piano e termina da solo — i messaggi sono indicazioni opzionali.",
       "wrapUp": "Concludi ora",
       "wrapUpTooltip": "Termina la sessione ora — il job si completa con il lavoro prodotto finora, con i token e il costo di ogni turno sommati al totale.",
@@ -101,7 +103,9 @@
       "sendFailed": "Impossibile inviare il messaggio",
       "wrapUpScheduled": "Conclusione del job…",
       "wrapUpStepScheduled": "Chiusura del passo — il loop avanza con quanto prodotto"
-    }
+    },
+    "actionFailed": "Impossibile completare l’azione",
+    "breadcrumbAria": "Percorso di navigazione"
   },
   "statusPanel": {
     "inProgress": "Job in corso",
@@ -154,7 +158,7 @@
     "showMore": "+ altri {{count}}",
     "showLess": "Mostra meno",
     "deletedTicket": "#{{id}} (eliminato)",
-    "deletedTooltip": "Il ticket non esiste più"
+    "deletedTooltip": "La spec non esiste più"
   },
   "modal": {
     "notFound": "Job non trovato",
@@ -172,12 +176,15 @@
       "stopSignalSentDescription": "L'esecuzione si fermerà al prossimo confine di step",
       "cancelFailed": "Annullamento non riuscito",
       "networkError": "Errore di rete"
-    }
+    },
+    "title": "Job {{kind}} · #{{id}}",
+    "titleLoop": "Esecuzione del loop · #{{id}}",
+    "titleGeneric": "Job · #{{id}}"
   },
   "comparison": {
     "title": "Confronto job",
     "jobN": "Job {{n}}",
-    "loadFailed": "Impossibile caricare il confronto: {{error}}",
+    "loadFailed": "Impossibile caricare il confronto. Riprova.",
     "duration": "Durata",
     "cost": "Costo",
     "tokensOut": "Token in uscita",
@@ -185,7 +192,9 @@
     "cacheRead": "Lettura cache",
     "model": "Modello",
     "phasesDone": "Fasi completate",
-    "betterValueHint": "Le evidenziazioni verdi indicano il valore migliore"
+    "betterValueHint": "Le evidenziazioni verdi indicano il valore migliore",
+    "loading": "Caricamento del confronto…",
+    "description": "Durata, costo e uso dei token delle due esecuzioni a confronto. Il verde indica il valore migliore."
   },
   "recent": {
     "emptyTitle": "Ancora nessun job",
@@ -204,7 +213,7 @@
     "readyToCompare": "Pronto — clicca Confronta",
     "compareAction": "Confronta →",
     "colStatus": "Stato",
-    "colCommand": "Comando",
+    "colCommand": "Attività",
     "colDuration": "Durata",
     "colTokens": "Token",
     "colCost": "Costo",
@@ -242,7 +251,9 @@
       "cleared_other": "{{count}} job cancellati",
       "clearFailed": "Impossibile cancellare i job",
       "networkError": "Errore di rete"
-    }
+    },
+    "emptyCta": "Apri la bacheca delle spec",
+    "loading": "Caricamento dei job…"
   },
   "activeJob": {
     "none": "Nessun job attivo",
@@ -317,7 +328,8 @@
     "noOutput": "Nessun output",
     "completed": "Completato",
     "turns_one": "{{count}} turno",
-    "turns_other": "{{count}} turni"
+    "turns_other": "{{count}} turni",
+    "copyAll": "Copia tutte le righe del log"
   },
   "completion": {
     "title": "Risultato dell’esecuzione",
@@ -335,7 +347,7 @@
     "supplementary": "Supplementare",
     "attempts": "Tentativi: {{count}}",
     "phaseCostUnavailable": "Il costo per fase di Core non è disponibile; il consumo del fornitore è attribuito ai passaggi del ciclo.",
-    "noCoreEvidence": "Prove di accettazione non disponibili. Il successo dell’esecuzione da solo non conferma il completamento del ticket.",
+    "noCoreEvidence": "Prove di accettazione non disponibili. Il successo dell’esecuzione da solo non conferma il completamento della spec.",
     "status": {
       "success": "Riuscita",
       "failed": "Fallita",

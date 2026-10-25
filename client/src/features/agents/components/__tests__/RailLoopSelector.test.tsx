@@ -23,6 +23,11 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
     expect(within(sel).queryByRole('option', { name: 'Batch' })).not.toBeInTheDocument()
   })
 
+  it('says in one line what the picked loop does', () => {
+    render(<RailLoopSelector value="factory:implement" onChange={() => {}} loopsEnabled={false} />)
+    expect(screen.getByTestId('rail-loop-description')).toHaveTextContent('Plans, builds and reviews each spec')
+  })
+
   it('hides the provider-owned Freestyle built-in when the capability is unavailable', () => {
     render(<RailLoopSelector value={null} onChange={() => {}} freestyleAvailable={false} loopsEnabled={false} />)
     const sel = screen.getByTestId('rail-loop-selector')

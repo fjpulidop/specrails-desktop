@@ -5,12 +5,15 @@
     "emptyNoSpecs": "Ancora nessuna spec",
     "emptyNoLabelMatch": "Nessuna spec corrisponde alle etichette attive",
     "emptyNoActiveSpecs": "Nessuna spec attiva",
-    "emptyHint": "Clicca \"+ Aggiungi\" per iniziare",
+    "emptyHint": "Clicca \"Nuova spec\" per iniziare",
     "dropToMarkDone": "Rilascia per contrassegnare come completata",
     "emptyNoDoneLabelMatch": "Nessuna spec completata corrisponde alle etichette attive",
     "emptyNoCompleted": "Ancora nessuna spec completata",
     "emptyNoStatusMatch": "Nessuna spec corrisponde allo stato selezionato",
-    "untitledSpec": "Spec senza titolo"
+    "untitledSpec": "Spec senza titolo",
+    "doneHeading": "Completate · {{count}}",
+    "clearFilters": "Cancella filtri",
+    "emptyNoSearchMatch": "Nessuna spec corrisponde a \"{{query}}\""
   },
   "status": {
     "todo": "Da fare",
@@ -45,20 +48,19 @@
   },
   "card": {
     "deleteSpec": "Elimina spec #{{id}}",
-    "deleteTicket": "Elimina ticket #{{id}}",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "dependsOn": "Dipende da {{count}}",
     "continueEditing": "Continua a modificare",
     "continueEditingTitle": "Continua a modificare questa spec",
     "moveToRail": "Sposta su un rail"
   },
   "emptyState": {
-    "noTickets": "Ancora nessun ticket",
-    "noTicketsHint": "Crea il tuo primo ticket o esegui un comando di product backlog per popolare i ticket",
-    "createFirst": "Crea il tuo primo ticket"
+    "noTickets": "Ancora nessuna spec",
+    "noTicketsHint": "Crea la tua prima spec o esegui un comando di product backlog per popolare le spec",
+    "createFirst": "Crea la tua prima spec"
   },
   "errors": {
-    "loadFailed": "Impossibile caricare i ticket"
+    "loadFailed": "Impossibile caricare le spec"
   },
   "listView": {
     "status": {
@@ -80,20 +82,22 @@
       "labels": "Etichette",
       "updated": "Aggiornato"
     },
-    "noMatch": "Nessun ticket corrisponde ai filtri",
+    "noMatch": "Nessuna spec corrisponde ai filtri",
     "clearFilters": "Cancella filtri",
     "loadMore": "Carica altri ({{count}} rimanenti)"
   },
   "gridView": {
-    "emptyTodo": "Nessun ticket da fare",
+    "emptyTodo": "Nessuna spec da fare",
     "emptyInProgress": "Niente in corso",
-    "emptyDone": "Nessun ticket completato",
+    "emptyDone": "Nessuna spec completata",
     "cancelledSection": "Annullati ({{count}})"
   },
   "statusFilter": {
     "ariaLabel": "Filtra per stato",
     "all": "Tutti",
-    "active": "Attive"
+    "active": "Attive",
+    "more": "Altro",
+    "moreSelected": "Stato: {{status}}. Scegli un altro stato"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Filtra per stato Jira",
@@ -109,7 +113,7 @@
     "descending": "Decrescente",
     "modes": {
       "default": "Predefinito",
-      "ticketId": "Ticket #",
+      "ticketId": "Spec #",
       "priority": "Priorità",
       "jiraKey": "Ticket Jira #"
     }
@@ -121,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "Filtra per etichette",
-    "all": "Tutte",
+    "all": "Tutte le etichette",
     "empty": "Nessuna etichetta in questo progetto.",
     "selected_one": "{{count}} etichetta",
     "selected_other": "{{count}} etichette",
@@ -155,15 +159,157 @@
       "securitySurface": "Sicurezza",
       "none": "Nessun impatto su API pubblica, dati o sicurezza"
     },
-    "flowHint": "Flow suggerito",
     "filesLikely": "File probabili",
     "moreFiles_one": "+{{count}} altro file",
     "moreFiles_other": "+{{count}} altri file",
-    "modelCost": "{{model}} · ${{cost}}",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · costo non riportato",
     "unavailable": "Triage n/d",
     "unavailableDetail": "Nessun modello disponibile per il triage ({{reason}}).",
     "failed": "Triage non riuscito",
     "failedDetail": "Impossibile completare il triage: {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "Nuova spec",
+    "newSpecTooltip": "Nuova spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "Cerca spec",
+    "ariaLabel": "Cerca spec per titolo, numero, etichetta o chiave Jira",
+    "clear": "Cancella ricerca"
+  },
+  "filters": {
+    "trigger": "Filtri",
+    "triggerActive_one": "Filtri, {{count}} attivo",
+    "triggerActive_other": "Filtri, {{count}} attivi",
+    "title": "Filtri",
+    "sections": {
+      "labels": "Etichette",
+      "epic": "Epic",
+      "sprint": "Sprint",
+      "jiraStatus": "Stato Jira"
+    },
+    "clearSection": "Cancella",
+    "clearAll": "Cancella tutto",
+    "done": "Fatto",
+    "findLabel": "Trova etichetta",
+    "removeChip": "Rimuovi filtro: {{label}}",
+    "resultCount": "{{shown}} di {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "Ricerca: \"{{query}}\"",
+      "label": "Etichetta: {{label}}",
+      "epic": "Epic: {{name}}",
+      "sprint": "Sprint: {{name}}",
+      "jiraStatus": "Jira: {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "Ordinamento e vista",
+    "menuLabel": "Opzioni di ordinamento e vista",
+    "sortBy": "Ordina per",
+    "direction": "Direzione",
+    "view": "Vista"
+  },
+  "bulk": {
+    "toolbarLabel_one": "Azioni di gruppo, {{count}} spec selezionata",
+    "toolbarLabel_other": "Azioni di gruppo, {{count}} spec selezionate",
+    "count_one": "{{count}} selezionata",
+    "count_other": "{{count}} selezionate",
+    "listLabel": "Spec, selezione multipla",
+    "selectSpec": "Seleziona la spec n. {{id}}",
+    "moveTo": "Sposta in",
+    "label": "Etichetta",
+    "priority": "Priorità",
+    "addToRail": "Aggiungi a un rail",
+    "launchAll": "Avvia selezione",
+    "delete": "Elimina",
+    "clear": "Deseleziona",
+    "clearTitle": "Deseleziona tutto (Esc)",
+    "statusLocal_one": "Stato · {{count}} spec",
+    "statusLocal_other": "Stato · {{count}} spec",
+    "statusJira_one": "Stato Jira · {{count}} spec",
+    "statusJira_other": "Stato Jira · {{count}} spec",
+    "loadingStatuses": "Caricamento degli stati Jira…",
+    "statusesFailed": "Impossibile caricare gli stati Jira",
+    "noStatuses": "Nessuno stato disponibile",
+    "labelAdd": "Aggiungi etichetta",
+    "labelRemove": "Rimuovi etichetta",
+    "noLabels": "Questo progetto non ha ancora etichette",
+    "noRails": "Nessun rail disponibile",
+    "railRunning": "in esecuzione",
+    "railSpecs_one": "{{count}} spec",
+    "railSpecs_other": "{{count}} spec",
+    "result": {
+      "moved_one": "{{count}} spec spostata",
+      "moved_other": "{{count}} spec spostate",
+      "labeled_one": "Etichette aggiornate su {{count}} spec",
+      "labeled_other": "Etichette aggiornate su {{count}} spec",
+      "prioritized_one": "Priorità modificata su {{count}} spec",
+      "prioritized_other": "Priorità modificata su {{count}} spec",
+      "railed_one": "{{count}} spec aggiunta al rail",
+      "railed_other": "{{count}} spec aggiunte al rail",
+      "deleted_one": "{{count}} spec eliminata",
+      "deleted_other": "{{count}} spec eliminate"
+    },
+    "partial": "{{ok}} su {{total}} completate · {{failed}} non riuscite",
+    "failedAll_one": "Impossibile aggiornare {{count}} spec",
+    "failedAll_other": "Impossibile aggiornare {{count}} spec",
+    "launch": {
+      "none": "Nessuna delle spec selezionate può essere avviata ora",
+      "skipBlocked_one": "{{count}} non può ancora essere avviata",
+      "skipBlocked_other": "{{count}} non possono ancora essere avviate",
+      "skipNoRail_one": "{{count}} senza rail libero",
+      "skipNoRail_other": "{{count}} senza rail libero",
+      "skipReviewLimit_one": "{{count}} trattenuta dal limite di revisione",
+      "skipReviewLimit_other": "{{count}} trattenute dal limite di revisione"
+    },
+    "more": "Altro"
+  },
+  "views": {
+    "trigger": "Viste",
+    "triggerActive": "Viste, attuale: {{name}}",
+    "menuLabel": "Viste salvate",
+    "empty": "Nessuna vista salvata per ora",
+    "saveCurrent": "Salva la vista attuale…",
+    "manage": "Gestisci le viste…",
+    "saveTitle": "Salva vista",
+    "saveDescription": "Salva stato, filtri, ordinamento e densità così come sono ora, per questo progetto.",
+    "nameLabel": "Nome",
+    "namePlaceholder": "Pronte da avviare",
+    "save": "Salva",
+    "saved": "Vista «{{name}}» salvata",
+    "updated": "Vista aggiornata dalla bacheca",
+    "manageTitle": "Gestisci le viste",
+    "manageDescription": "Rinomina una vista, aggiornala con la bacheca attuale, copia il suo link o eliminala. Le viste appartengono a questo progetto.",
+    "rename": "Rinomina",
+    "updateFromCurrent": "Aggiorna dalla bacheca",
+    "upToDate": "Corrisponde già alla bacheca",
+    "copyLink": "Copia link",
+    "delete": "Elimina vista",
+    "done": "Fine",
+    "linkCopied": "Link copiato",
+    "linkCopyFailed": "Impossibile copiare il link",
+    "linkMissing": "Questa vista non esiste in questo progetto",
+    "deleted": "Vista “{{name}}” eliminata",
+    "linkOtherProject": "Questa vista appartiene a {{project}}.",
+    "openInProject": "Apri in {{project}}"
+  },
+  "movePicker": {
+    "titleOne": "Sposta la spec #{{id}}",
+    "titleMany": "Sposta {{count}} spec",
+    "description": "Scegli uno stato o un rail. Equivale a trascinarvi la scheda.",
+    "statusHeading": "Stato",
+    "railHeading": "Rail",
+    "jiraLoading": "Caricamento degli stati Jira…",
+    "jiraFailed": "Impossibile caricare gli stati Jira.",
+    "jiraStatus": "{{status}} (Jira)",
+    "noRails": "Ancora nessun rail.",
+    "running": "In corso",
+    "hintNavigate": "spostarsi",
+    "hintChoose": "scegliere",
+    "hintClose": "chiudere",
+    "current": "Attuale",
+    "descriptionOne": "«{{title}}». Scegli uno stato o un rail."
   }
 }

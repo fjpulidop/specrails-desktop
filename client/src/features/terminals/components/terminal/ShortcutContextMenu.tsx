@@ -39,13 +39,13 @@ export function ShortcutContextMenu({ x, y, label, onSelect, onClose }: Props) {
       role="menu"
       data-shortcut-context-menu
       style={{ position: 'fixed', left: flippedX, top: flippedY, minWidth: 200 }}
-      className="bg-[#1f1f29] border border-[#44475a] rounded-md shadow-lg py-1 z-50 text-sm"
+      className="bg-popover border border-border rounded-md shadow-lg py-1 z-50 text-sm"
     >
       <button
         type="button"
         role="menuitem"
         onClick={() => { onSelect(); onClose() }}
-        className="w-full text-left px-3 py-1.5 text-[#f8f8f2] hover:bg-[#44475a]"
+        className="w-full text-left px-3 py-1.5 text-popover-foreground hover:bg-accent"
       >
         {label}
       </button>

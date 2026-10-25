@@ -83,6 +83,30 @@ describe('DiscardSpecDialog', () => {
     expect(onDiscarded).not.toHaveBeenCalled()
   })
 
+  it('uses the shared ConfirmDialog: confirm size, comment in the body, non-destructive primary focused', async () => {
+    render(<DiscardSpecDialog {...makeProps()} />)
+    const dialog = screen.getByTestId('jira-discard-dialog')
+    expect(dialog).toHaveAttribute('data-dialog-size', 'confirm')
+    expect(dialog.querySelector('[data-dialog-body]')).toContainElement(screen.getByTestId('jira-discard-comment'))
+    const confirm = screen.getByTestId('jira-discard-confirm')
+    expect(confirm.className).not.toMatch(/destructive/)
+    const footerButtons = Array.from(dialog.querySelectorAll('[data-dialog-footer] button'))
+    expect(footerButtons[0]).toHaveTextContent('Cancel')
+    expect(footerButtons[footerButtons.length - 1]).toBe(confirm)
+    await waitFor(() => expect(document.activeElement).toBe(confirm))
+  })
+
+  it('disables both actions while the move is in flight', async () => {
+    let resolve: (v: unknown) => void = () => {}
+    ;(jiraApi.discardSpec as ReturnType<typeof vi.fn>).mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    render(<DiscardSpecDialog {...makeProps()} />)
+    fireEvent.click(screen.getByTestId('jira-discard-confirm'))
+    await waitFor(() => expect(screen.getByTestId('jira-discard-confirm')).toBeDisabled())
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    resolve({ ok: true })
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+  })
+
   it('surfaces an error toast when discardSpec rejects', async () => {
     ;(jiraApi.discardSpec as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('boom'))
     const onDiscarded = vi.fn()

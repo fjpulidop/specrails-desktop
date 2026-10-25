@@ -17,6 +17,9 @@ import {
   estimateCostUsd, estimateInputTokens, tierFromScope, timeHintForTier,
   type ContextBudget, type ContextScope,
 } from '../types/context-scope'
+import { formatUsd } from '../../../lib/format-usd'
+import { HelpHint } from '../../../components/HelpHint'
+import { formatTokens } from '../../../lib/format-tokens'
 
 interface Preset {
   id: 'minimal' | 'light' | 'standard' | 'rich' | 'max' | 'desktop'
@@ -102,14 +105,12 @@ interface ContextScopeSliderProps {
   smashCapable?: boolean
 }
 
-function formatTokens(n: number): string {
-  if (n >= 1000) return `~${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k tok`
-  return `~${n} tok`
+function formatTokenEstimate(n: number): string {
+  return `~${formatTokens(n)} tok`
 }
 
 function formatCost(n: number): string {
-  if (n < 0.01) return `~$${n.toFixed(4)}`
-  return `~$${n.toFixed(2)}`
+  return `~${formatUsd(n)}`
 }
 
 export function ContextScopeSlider({
@@ -205,27 +206,29 @@ export function ContextScopeSlider({
   const tier = tierFromScope(value)
   const numericLine = budgetError || !budget
     ? t('contextScope.estimateUnavailable', { tier })
-    : `${tier} · ${formatTokens(estimateInputTokens(value, budget))} · ${formatCost(estimateCostUsd(value, budget, model))} · ${timeHintForTier(tier)}`
+    : `${tier} · ${formatTokenEstimate(estimateInputTokens(value, budget))} · ${formatCost(estimateCostUsd(value, budget, model))} · ${timeHintForTier(tier)}`
 
   return (
     <div className="space-y-2 select-none" data-testid="context-scope-slider">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+          <span className="text-label text-muted-foreground font-semibold">
             {t('contextScope.heading')}
           </span>
+          <HelpHint topic="contextScope" />
           {isCustom ? (
             <span
-              className="rounded-full bg-accent-warning/15 px-2 py-0.5 text-[10px] font-semibold text-accent-warning"
+              className="inline-flex h-5 items-center rounded-full bg-accent-warning/15 px-2 text-caption font-semibold text-accent-warning"
+              data-chip
               data-testid="scope-custom-pill"
             >
               {t('contextScope.custom')}
             </span>
           ) : null}
         </div>
-        <span className="text-[11px] font-medium text-foreground" data-testid="context-awareness-tier">{tier}</span>
+        <span className="text-label text-foreground" data-testid="context-awareness-tier">{t('contextScope.costTier', { tier })}</span>
       </div>
-      <div className="flex justify-between text-[10px] font-medium text-muted-foreground">
+      <div className="flex justify-between text-label text-muted-foreground">
         {visiblePresets.map((p, i) => (
           <button
             key={p.id}
@@ -276,12 +279,12 @@ export function ContextScopeSlider({
           style={{ left: `${thumbPct * 100}%` }}
         />
       </div>
-      <p className="text-[10px] text-muted-foreground" data-testid="scope-cost-line">
+      <p className="text-xs text-muted-foreground" data-testid="scope-cost-line">
         {costLine} · {numericLine}
       </p>
       {value.contractRefine && smashCapable && (
         <div
-          className="flex items-start gap-1.5 rounded-md border border-accent-highlight/40 bg-accent-highlight/10 px-2 py-1.5 text-[10px] text-foreground/80"
+          className="flex items-start gap-1.5 rounded-md border border-accent-highlight/40 bg-accent-highlight/10 px-2 py-1.5 text-xs text-foreground"
           data-testid="scope-smash-hint"
         >
           <span aria-hidden className="text-accent-highlight">⊢→</span>

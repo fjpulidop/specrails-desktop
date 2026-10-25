@@ -7,12 +7,14 @@ import { API_ORIGIN } from '../../../lib/origin'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
-import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { Switch } from '../../../components/ui/switch'
 import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
 import { providerLabel, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
 import { modelsForProvider, defaultModelForProvider } from '../../loops/lib/loop-run-models'
+import { Skeleton } from '../../../components/ui/skeleton'
 
+import { notifyError } from '../../../lib/notify-error'
 // ─── "Allow sub-agents" ───────────────────────────────────────────────────────
 // Off by default. A project's setting applies to its conversational agents
 // (missions, explore, refinements), never to Implement pipelines; the app-wide
@@ -61,7 +63,7 @@ function useSubagentSettings(url: string | null, method: 'PATCH' | 'PUT'): Subag
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { allowSubagents?: boolean; subagentRuntime?: SubagentRuntimeSetting | null } | null) => {
         if (cancelled || !data) return
-        setEnabledState(data.allowSubagents === true)
+        setEnabledState(data.allowSubagents !== false)
         setRuntimeState(data.subagentRuntime ?? null)
       })
       .catch(() => {})
@@ -82,7 +84,7 @@ function useSubagentSettings(url: string | null, method: 'PATCH' | 'PUT'): Subag
       toast.success(next ? t('subagents.enabled') : t('subagents.disabled'))
     } catch (err) {
       setEnabledState(!next)
-      toast.error(t('subagents.saveFailed'), { description: (err as Error).message })
+      notifyError(t('subagents.saveFailed'), { detail: (err as Error).message, retry: () => void setEnabled(next) })
     } finally {
       setSaving(false)
     }
@@ -99,7 +101,7 @@ function useSubagentSettings(url: string | null, method: 'PATCH' | 'PUT'): Subag
       }
     } catch (err) {
       setRuntimeState(previous)
-      toast.error(t('subagents.saveFailed'), { description: (err as Error).message })
+      notifyError(t('subagents.saveFailed'), { detail: (err as Error).message, retry: () => void setRuntime(next) })
     } finally {
       setSaving(false)
     }
@@ -143,8 +145,8 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
   return (
     <div className="space-y-3 rounded-lg border border-border/40 p-3" data-testid="subagent-runtime">
       <div className="space-y-0.5">
-        <p className="text-xs font-medium">{t('subagents.runtime.label')}</p>
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-label">{t('subagents.runtime.label')}</p>
+        <p className="text-xs text-muted-foreground">
           {runtime ? t('subagents.runtime.chosenHint', { provider: providerLabel(runtime.provider) }) : t('subagents.runtime.sameHint')}
         </p>
       </div>
@@ -180,28 +182,27 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
         )}
       </div>
       {runtime?.provider === 'claude' && efforts.length > 0 && (
-        <p className="text-[10px] text-muted-foreground">{t('subagents.runtime.claudeEffortHint')}</p>
+        <p className="text-xs text-muted-foreground">{t('subagents.runtime.claudeEffortHint')}</p>
       )}
 
-      <Dialog open={confirming !== null} onOpenChange={(open) => { if (!open) setConfirming(null) }}>
-        <DialogContent className="max-w-md" data-testid="subagent-runtime-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('subagents.runtime.confirm.title', { provider: confirmLabel })}</DialogTitle>
-            <DialogDescription>{t('subagents.runtime.confirm.body', { provider: confirmLabel })}</DialogDescription>
-          </DialogHeader>
-          <ul className="space-y-2 text-[11px] leading-relaxed text-muted-foreground">
-            <li className="flex gap-2"><Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />{t('subagents.runtime.confirm.cost')}</li>
-            <li className="flex gap-2"><Shuffle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" aria-hidden />{t('subagents.runtime.confirm.control')}</li>
-            <li className="flex gap-2"><Zap className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t('subagents.runtime.confirm.native', { provider: confirmLabel })}</li>
-          </ul>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirming(null)}>{t('subagents.runtime.confirm.cancel')}</Button>
-            <Button size="sm" data-testid="subagent-runtime-confirm-accept" onClick={() => { const provider = confirming!; setConfirming(null); onChange(choose(provider)) }}>
-              {t('subagents.runtime.confirm.accept', { provider: confirmLabel })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => { if (!open) setConfirming(null) }}
+        tone="default"
+        testId="subagent-runtime-confirm"
+        confirmTestId="subagent-runtime-confirm-accept"
+        title={t('subagents.runtime.confirm.title', { provider: confirmLabel })}
+        description={t('subagents.runtime.confirm.body', { provider: confirmLabel })}
+        cancelLabel={t('subagents.runtime.confirm.cancel')}
+        confirmLabel={t('subagents.runtime.confirm.accept', { provider: confirmLabel })}
+        onConfirm={() => { const provider = confirming!; setConfirming(null); onChange(choose(provider)) }}
+      >
+        <ul className="space-y-2 text-xs leading-relaxed text-muted-foreground">
+          <li className="flex gap-2"><Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />{t('subagents.runtime.confirm.cost')}</li>
+          <li className="flex gap-2"><Shuffle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" aria-hidden />{t('subagents.runtime.confirm.control')}</li>
+          <li className="flex gap-2"><Zap className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t('subagents.runtime.confirm.native', { provider: confirmLabel })}</li>
+        </ul>
+      </ConfirmDialog>
     </div>
   )
 }
@@ -209,7 +210,7 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
 function SubagentsCard({ scope, state }: { scope: 'project' | 'global'; state: SubagentSettingsState }) {
   const { t } = useTranslation('settings')
   const { enabled, runtime, loaded, saving } = state
-  if (!loaded) return <div className="h-40 animate-pulse rounded-lg bg-muted/30" data-testid="section-skeleton" />
+  if (!loaded) return <Skeleton className="h-40 rounded-lg" data-testid="section-skeleton" />
   const label = t(`subagents.${scope}.toggleLabel`)
   return (
     <Card data-testid={`subagents-settings-${scope}`}>
@@ -223,23 +224,18 @@ function SubagentsCard({ scope, state }: { scope: 'project' | 'global'; state: S
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-0.5">
-            <p className="text-xs font-medium">{label}</p>
-            <p className="text-[10px] text-muted-foreground">{enabled ? t('subagents.stateOn') : t('subagents.stateOff')}</p>
+            <p className="text-label">{label}</p>
+            <p className="text-xs text-muted-foreground">{enabled ? t('subagents.stateOn') : t('subagents.stateOff')}</p>
           </div>
-          <button
-            type="button"
-            role="switch"
+          <Switch
+            checked={enabled}
+            onCheckedChange={(next) => state.setEnabled(next)}
             aria-label={label}
-            aria-checked={enabled}
             disabled={saving}
-            onClick={() => state.setEnabled(!enabled)}
-            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 ${enabled ? 'bg-primary' : 'bg-input'}`}
-          >
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-background shadow-sm transition-transform motion-reduce:transition-none ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-          </button>
+          />
         </div>
         {enabled && <SubagentRuntimePicker runtime={runtime} saving={saving} onChange={state.setRuntime} />}
-        <ul className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3 text-[11px] leading-relaxed text-muted-foreground">
+        <ul className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground">
           <li className="flex gap-2"><Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t('subagents.explainParallel')}</li>
           <li className="flex gap-2"><Coins className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t('subagents.explainCost')}</li>
           <li className="flex gap-2"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t(`subagents.${scope}.explainScope`)}</li>

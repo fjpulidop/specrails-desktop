@@ -30,6 +30,7 @@ import { formatElapsed, readPendingSpecs, savePendingSpec, removePendingSpec } f
 import { markSpecGenInFlight, unmarkSpecGenInFlight } from '../lib/spec-gen-suppression'
 import type { LocalTicket } from '../../../types'
 
+import { notifyError } from '../../../lib/notify-error'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /** Spec registration — ProposeSpecModal passes this to the tracker on submit. */
@@ -138,7 +139,7 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
 
   const errorToast = useCallback((spec: TrackedSpec, message?: string) => {
     resolveSpec(spec)
-    toast.error(`${spec.projectName} · ${message ?? i18n.t('activity:specGen.errorGenerating')}`, { id: spec.toastId })
+    notifyError(`${spec.projectName} · ${i18n.t('activity:specGen.errorGenerating')}`, { id: spec.toastId, detail: message })
   }, [resolveSpec])
 
   // ── Explore mode: poll for new ticket ──────────────────────────────────────
@@ -331,7 +332,7 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
           clearInterval(timerId)
           removePendingSpec(p.id)
           unmarkSpecGenInFlight(p.projectId)
-          toast.error(`${p.projectName} · ${i18n.t('activity:specGen.couldNotConfirm')}`, { id: toastId })
+          notifyError(`${p.projectName} · ${i18n.t('activity:specGen.couldNotConfirm')}`, { id: toastId })
         }
       }
       attempt()

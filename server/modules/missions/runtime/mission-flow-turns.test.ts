@@ -21,7 +21,7 @@ vi.mock('../../../attachment-manager', () => ({
 }))
 
 import { spawn as mockSpawn } from 'child_process'
-import { initDesktopDb } from '../../../desktop-db'
+import { initDesktopDb, sumFlowInvocations } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import '../../../providers'
 import { getAdapter } from '../../../providers/registry'
@@ -30,7 +30,8 @@ import { SessionRequestError, type InitializeResult, type SessionEvent, type Ses
 import { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import { addAgentMessage, createAgentConversation, getAgentConversation, updateAgentConversation } from '../../agents/runtime/agent-store'
 import { AgentChatManager } from './agent-chat-manager'
-import { FLOW_SYSTEM_PROMPT } from './agent-flow-prompt'
+import { FLOW_SUBAGENTS_ADDENDUM, FLOW_SYSTEM_PROMPT } from './agent-flow-prompt'
+import { listSessionCursors, listSubagents } from './agent-session-store'
 import { FLOW_SESSION_BOUNDARY, type FlowTurn } from './flow-turn-context'
 import { MissionCoreSessions } from './mission-core-sessions'
 
@@ -44,6 +45,8 @@ class FakeCoreHost implements SessionHostClient {
   }
   requests: Array<{ method: string; params: Record<string, unknown> }> = []
   journals = new Map<string, SessionEventEnvelope[]>()
+  /** Sessions Core closed (pause, hand-off): open/send refuse them, like Core. */
+  closed = new Set<string>()
   turn = 0
   /** Hold the first turn open so mid-turn input can be tested. */
   holdTurn = false
@@ -52,7 +55,13 @@ class FakeCoreHost implements SessionHostClient {
   async request<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     this.requests.push({ method, params })
     const sessionId = String((params.resume as { sessionId?: string } | undefined)?.sessionId ?? params.sessionId ?? '')
+    if (this.closed.has(sessionId) && (method === 'session.open' || method === 'session.send')) {
+      throw new SessionRequestError(`Session ${sessionId} is closed`, { code: 'session_closed', retryable: false })
+    }
     switch (method) {
+      case 'session.close':
+        this.closed.add(sessionId)
+        return {} as T
       case 'session.open':
         if (params.resume) {
           if (!this.journals.has(sessionId)) throw new SessionRequestError('Unknown session', { code: 'session_not_found', retryable: false })
@@ -119,6 +128,8 @@ describe('Flow turns in missions', () => {
   let manager: AgentChatManager
   let broadcasts: Array<Record<string, unknown>>
   let flow: FlowTurn | null
+  let allowSubagents: boolean
+  let runtimeChoice: { provider: string; model: string } | null
 
   beforeEach(() => {
     _resetAgentCapabilitiesForTest()
@@ -136,11 +147,16 @@ describe('Flow turns in missions', () => {
     host = new FakeCoreHost()
     broadcasts = []
     flow = null
+    allowSubagents = false
+    runtimeChoice = null
     manager = new AgentChatManager((message) => broadcasts.push(message as unknown as Record<string, unknown>), db, 4200, null)
     const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
     manager.setCoreSessions(new MissionCoreSessions({
       db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
       availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+      // The project's "Allow sub-agents" (default off) and "Run sub-agents with".
+      subagentPolicy: () => allowSubagents ? 'enabled' : 'disabled',
+      subagentRuntime: () => runtimeChoice,
     }))
     manager.setFlowTurnContext({ forConversation: () => flow })
   })
@@ -159,13 +175,14 @@ describe('Flow turns in missions', () => {
     await manager.sendMessage(conversation.id, 'hello')
     await waitFor(() => doneCount() === 1)
     expect(opens()[0]!.params).toMatchObject({ sessionId: conversation.id, cwd: '/tmp/agent-cwd-test', metadata: { surface: 'mission' } })
-    expect((opens()[0]!.params.policy as { permissions: string }).permissions).not.toBe('workspace-write')
+    // The read-only mission boundary (PR #793): bypass + read-only tools, never the Flow boundary.
+    expect(opens()[0]!.params.policy).toMatchObject({ permissions: 'bypass', tools: { mode: 'read-only' } })
     expect(String(opens()[0]!.params.systemPrompt)).not.toContain('Specrails Flow')
     expect(db.prepare('SELECT surface FROM agent_invocations WHERE conversation_id = ?').all(conversation.id)).toEqual([{ surface: 'agent-chat' }])
     expect(manager.isFlowActive(conversation.id)).toBe(false)
   })
 
-  it('a Flow turn runs in its own Core session in the worktree with workspace-write and the Flow persona', async () => {
+  it('a Flow turn runs in its own Core session in the worktree with the rail write-role permissions and the Flow persona', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     updateAgentConversation(db, conversation.id, { session_id: 'mission-provider-session' })
     addAgentMessage(db, { conversationId: conversation.id, role: 'user', content: 'earlier mission question' })
@@ -177,9 +194,10 @@ describe('Flow turns in missions', () => {
     expect(open).toMatchObject({
       sessionId: 'flow:f1', cwd: '/wt/f1/ticket-7', driver: 'claude', systemPrompt: FLOW_SYSTEM_PROMPT,
       metadata: { conversationId: conversation.id, surface: 'flow', flowId: 'f1' },
-      policy: { subagents: 'disabled', permissions: 'workspace-write', tools: { mode: 'default' }, mcp: { inheritUserScope: true, servers: [expect.objectContaining({ name: 'specrails' })] } },
+      policy: { subagents: 'disabled', permissions: 'bypass', tools: { mode: 'default' }, mcp: { inheritUserScope: true, servers: [expect.objectContaining({ name: 'specrails' })] } },
     })
     expect(open.providerSessionRef).toBeUndefined()
+    expect(String(open.systemPrompt)).not.toContain('Sub-agents in Flow')
     const firstPrompt = String((host.requests.find((request) => request.method === 'session.send')!.params.input as { text: string }).text)
     expect(firstPrompt).toContain('Flow: worktree="/wt/f1/ticket-7" branch=feat/7-idea')
     expect(firstPrompt).toContain('earlier mission question')
@@ -193,6 +211,25 @@ describe('Flow turns in missions', () => {
     const sends = host.requests.filter((request) => request.method === 'session.send')
     expect(String((sends.at(-1)!.params.input as { text: string }).text)).not.toContain('earlier mission question')
     expect(host.requests.filter((request) => request.method === 'session.open' && request.params.resume).at(-1)!.params).toMatchObject({ resume: { sessionId: 'flow:f1' } })
+  })
+
+  it.each([
+    ['claude', 'haiku'],
+    ['codex', 'gpt-5'],
+  ])('a %s Flow turn runs without interactive approvals (Core: claude skip-permissions, codex danger-full-access); its mission turn stays read-only', async (provider, model) => {
+    host.initialize = { ...host.initialize, drivers: [{ ...host.initialize.drivers[0]!, id: provider, displayName: provider }] }
+    const conversation = createAgentConversation(db, { provider, model })
+    await manager.sendMessage(conversation.id, 'explain the project')
+    await waitFor(() => doneCount() === 1)
+    const mission = opens()[0]!.params
+    expect(mission).toMatchObject({ sessionId: conversation.id, driver: provider })
+    expect(mission.policy).not.toMatchObject({ permissions: 'bypass', tools: { mode: 'default' } })
+    expect((mission.policy as { tools?: { mode: string } }).tools?.mode === 'read-only' || (mission.policy as { permissions: string }).permissions === 'read-only').toBe(true)
+    flow = flowTurn()
+    await manager.sendMessage(conversation.id, 'start the app')
+    await waitFor(() => doneCount() === 2)
+    const open = opens().find((request) => request.params.sessionId === 'flow:f1')!.params
+    expect(open).toMatchObject({ driver: provider, cwd: '/wt/f1/ticket-7', policy: { permissions: 'bypass', tools: { mode: 'default' } } })
   })
 
   it('mid-turn input in Flow interrupts the running turn (no session.interrupt first)', async () => {
@@ -234,6 +271,157 @@ describe('Flow turns in missions', () => {
     expect(host.requests.find((request) => request.method === 'session.close')?.params).toEqual({ sessionId: 'flow:f1', reason: 'flow_closed' })
   })
 
+  it('Back to Flow: the review rides the next USER turn once (system prompt unchanged), then the Flow clears it', async () => {
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    const briefingDelivered = vi.fn(async () => { flow = flowTurn() })
+    flow = { ...flowTurn(), briefing: '[Back from Flow → Spec — automatic context, not typed by the user]\nIssues to address:\n1. Tag the tests' }
+    manager.setFlowTurnContext({ forConversation: () => flow, briefingDelivered })
+    await manager.sendMessage(conversation.id, 'ok, lets fix it')
+    await waitFor(() => doneCount() === 1)
+    const send = host.requests.find((request) => request.method === 'session.send')!
+    const text = String((send.params.input as { text: string }).text)
+    expect(text).toContain('1. Tag the tests')
+    expect(text.indexOf('Back from Flow → Spec')).toBeLessThan(text.indexOf('ok, lets fix it'))
+    expect(String(opens()[0]!.params.systemPrompt)).not.toContain('Back from Flow')
+    await waitFor(() => briefingDelivered.mock.calls.length === 1)
+    expect(briefingDelivered).toHaveBeenCalledWith(conversation.id, 'f1')
+    await manager.sendMessage(conversation.id, 'next')
+    await waitFor(() => doneCount() === 2)
+    const last = host.requests.filter((request) => request.method === 'session.send').at(-1)!
+    expect(String((last.params.input as { text: string }).text)).not.toContain('Back from Flow')
+  })
+
+  describe('Flow session renewal (closed session, provider switch)', () => {
+    /** The Flow side of renewal: commits a new generation and returns its turn. */
+    function renewingContext(seed: FlowTurn) {
+      let generation = 0
+      flow = seed
+      const renewSession = vi.fn(async (_conversationId: string, flowId: string) => {
+        flow = { ...flow!, flowId, coreSessionId: `flow:${flowId}:g${++generation}` }
+        return flow
+      })
+      manager.setFlowTurnContext({ forConversation: () => flow, renewSession, briefingDelivered: async () => { if (flow) flow = { ...flow, briefing: undefined } } })
+      return renewSession
+    }
+
+    it('hand-off → Back to Flow → send: a session Core closed is reopened as a new one and the turn retried once, never a user-facing error', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      addAgentMessage(db, { conversationId: conversation.id, role: 'user', content: 'make the bricks explode' })
+      const renewSession = renewingContext({ ...flowTurn(), briefing: '[Back from Flow → Spec]\n1. Tag the tests' })
+      // Core closed `flow:f1` at hand-off; this process never saw it (restart).
+      host.journals.set('flow:f1', [])
+      host.closed.add('flow:f1')
+      await manager.sendMessage(conversation.id, 'arregla lo que pidió el reviewer')
+      await waitFor(() => doneCount() === 1)
+      expect(renewSession).toHaveBeenCalledTimes(1)
+      expect(broadcasts.some((message) => message.type === 'agent_error')).toBe(false)
+      const send = host.requests.filter((request) => request.method === 'session.send').at(-1)!
+      expect(send.params.sessionId).toBe('flow:f1:g1')
+      const text = String((send.params.input as { text: string }).text)
+      // The new session is seeded: the conversation so far and the pending review.
+      expect(text).toContain('make the bricks explode')
+      expect(text).toContain('1. Tag the tests')
+      expect(opens().map((request) => request.params.sessionId)).toContain('flow:f1:g1')
+      // Accounting under the new session; exactly one invocation for the turn.
+      expect(db.prepare('SELECT surface FROM agent_invocations WHERE conversation_id = ?').all(conversation.id)).toEqual(expect.arrayContaining([{ surface: 'flow' }]))
+      expect(listSessionCursors(db, conversation.id).map((cursor) => cursor.coreSessionId)).toContain('flow:f1:g1')
+    })
+
+    it('a session closed by this process (pause) is never sent to: renewal happens before the turn', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const renewSession = renewingContext(flowTurn())
+      await manager.closeFlowSession(conversation.id, 'flow:f1', 'flow_paused')
+      await manager.sendMessage(conversation.id, 'continue')
+      await waitFor(() => doneCount() === 1)
+      expect(renewSession).toHaveBeenCalledTimes(1)
+      expect(host.requests.filter((request) => request.method === 'session.send').every((request) => request.params.sessionId !== 'flow:f1')).toBe(true)
+    })
+
+    it('a provider switch mid-Flow opens a new session for the new driver, seeded with the conversation; usage lands under it', async () => {
+      host.initialize = { ...host.initialize, drivers: [...host.initialize.drivers, { ...host.initialize.drivers[0]!, id: 'codex', displayName: 'Codex' }] }
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const renewSession = renewingContext(flowTurn())
+      await manager.sendMessage(conversation.id, 'build the trail')
+      await waitFor(() => doneCount() === 1)
+      expect(renewSession).not.toHaveBeenCalled()
+      updateAgentConversation(db, conversation.id, { provider: 'codex', model: 'gpt-5' })
+      await manager.sendMessage(conversation.id, 'now the shockwave')
+      await waitFor(() => doneCount() === 2)
+      expect(renewSession).toHaveBeenCalledTimes(1)
+      const open = opens().find((request) => request.params.sessionId === 'flow:f1:g1')!.params
+      expect(open).toMatchObject({ driver: 'codex', cwd: '/wt/f1/ticket-7' })
+      const text = String((host.requests.filter((request) => request.method === 'session.send').at(-1)!.params.input as { text: string }).text)
+      expect(text).toContain('build the trail')
+      expect(host.requests.find((request) => request.method === 'session.close')?.params).toMatchObject({ sessionId: 'flow:f1' })
+      expect(listSessionCursors(db, conversation.id).map((cursor) => cursor.coreSessionId)).toEqual(expect.arrayContaining(['flow:f1', 'flow:f1:g1']))
+    })
+
+    it('without a renewal port a closed session still fails visibly (no loop)', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      host.journals.set('flow:f1', [])
+      host.closed.add('flow:f1')
+      await manager.sendMessage(conversation.id, 'continue')
+      await waitFor(() => broadcasts.some((message) => message.type === 'agent_error'))
+      expect(host.requests.filter((request) => request.method === 'session.open' && request.params.sessionId === 'flow:f1').length + host.requests.filter((request) => request.method === 'session.open' && (request.params.resume as { sessionId?: string } | undefined)?.sessionId === 'flow:f1').length).toBeLessThanOrEqual(2)
+    })
+  })
+
+  describe('Back to Flow: the review card and the automatic Flow turn', () => {
+    const card = { kind: 'flow-return-briefing', flowId: 'f1', deliveryId: 'd1', reason: 'review', score: 58, issues: ['Tag the tests'], issuesOmitted: 0, failingChecks: [], summary: null, derivation: null }
+
+    it('posts the card once per delivery, durably (a restarted manager does not duplicate it)', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      expect(manager.postSystemRow(conversation.id, card, 'flow-return-briefing:d1')).toEqual(expect.any(String))
+      expect(manager.postSystemRow(conversation.id, card, 'flow-return-briefing:d1')).toBeNull()
+      const restarted = new AgentChatManager(() => {}, db, 4200, null)
+      expect(restarted.postSystemRow(conversation.id, card, 'flow-return-briefing:d1')).toBeNull()
+      await restarted.shutdown()
+      const rows = db.prepare("SELECT content FROM agent_messages WHERE conversation_id = ? AND role = 'system'").all(conversation.id) as Array<{ content: string }>
+      expect(rows).toHaveLength(1)
+      expect(JSON.parse(rows[0]!.content)).toMatchObject({ kind: 'flow-return-briefing', deliveryId: 'd1', issues: ['Tag the tests'] })
+      expect(broadcasts.filter((message) => message.type === 'agent_system_row')).toHaveLength(1)
+    })
+
+    it('starts ONE automatic Flow turn carrying the briefing through the normal Flow path; repeats and restarts never duplicate it', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const briefingDelivered = vi.fn(async () => { flow = flowTurn() })
+      flow = { ...flowTurn(), briefing: '[Back from Flow → Spec — automatic context, not typed by the user]\nIssues to address:\n1. Tag the tests' }
+      manager.setFlowTurnContext({ forConversation: () => flow, briefingDelivered })
+      await expect(manager.startAutomaticTurn(conversation.id, 'Back to Flow: say what you will fix, then fix it.', { turnKey: 'flow-return:d1', label: 'Back to Flow' })).resolves.toBe('started')
+      await waitFor(() => doneCount() === 1)
+      const send = host.requests.find((request) => request.method === 'session.send')!
+      expect(send.params.sessionId).toBe('flow:f1')
+      const text = String((send.params.input as { text: string }).text)
+      expect(text).toContain('1. Tag the tests')
+      expect(text).toContain('Back to Flow: say what you will fix')
+      await waitFor(() => briefingDelivered.mock.calls.length === 1)
+      // Accounted as a Flow turn; rendered as an automatic briefing, not the person's speech.
+      expect(db.prepare("SELECT surface FROM agent_invocations WHERE conversation_id = ? AND surface = 'flow'").all(conversation.id)).toHaveLength(1)
+      const user = db.prepare("SELECT context_refs FROM agent_messages WHERE conversation_id = ? AND role = 'user'").get(conversation.id) as { context_refs: string }
+      expect(JSON.parse(user.context_refs)[0]).toMatchObject({ kind: 'system-briefing', id: 'flow-return:d1', metadata: { automatic: true } })
+      await expect(manager.startAutomaticTurn(conversation.id, 'again', { turnKey: 'flow-return:d1', label: 'Back to Flow' })).resolves.toBe('skipped')
+      const restarted = new AgentChatManager(() => {}, db, 4200, null)
+      await expect(restarted.startAutomaticTurn(conversation.id, 'again', { turnKey: 'flow-return:d1', label: 'Back to Flow' })).resolves.toBe('skipped')
+      await restarted.shutdown()
+      expect(host.requests.filter((request) => request.method === 'session.send')).toHaveLength(1)
+    })
+
+    it('the automatic turn can be interrupted like any turn', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      host.holdTurn = true
+      await manager.startAutomaticTurn(conversation.id, 'Back to Flow: fix it.', { turnKey: 'flow-return:d2', label: 'Back to Flow' })
+      await waitFor(() => broadcasts.some((message) => message.type === 'agent_stream'))
+      expect(manager.abort(conversation.id)).toBe(true)
+      await waitFor(() => host.requests.some((request) => request.method === 'session.interrupt'))
+      // Core settles the interrupted turn.
+      host.emit('flow:f1', [{ type: 'turn.completed', turnId: `t${host.turn}`, status: 'interrupted', text: 'partial', usage }])
+      await waitFor(() => !manager.isBusy(conversation.id))
+      expect(broadcasts.some((message) => message.type === 'agent_error')).toBe(false)
+    })
+  })
+
   it('tells the operator on the USER turn when Flow is offerable (system prompt unchanged)', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     manager.setFlowTurnContext({ forConversation: () => null, offerable: async () => true })
@@ -256,5 +444,99 @@ describe('Flow turns in missions', () => {
     await manager.sendMessage(conversation.id, 'hello')
     await waitFor(() => doneCount() === 1)
     expect(opens()[0]!.params).toMatchObject({ sessionId: conversation.id })
+  })
+
+  describe('sub-agents in Flow', () => {
+    const subagentEvents = (prefix: string): Body[] => [
+      { type: 'subagent.started', subagentId: `${prefix}-a1`, parentId: null, kind: 'background', description: `${prefix} effect`, delegated: { driver: 'codex', model: 'gpt-5' } },
+      { type: 'subagent.usage', subagentId: `${prefix}-a1`, usage: { ...usage, costUsd: 0.5 }, billing: 'separate' },
+      { type: 'subagent.phase', subagentId: `${prefix}-a1`, phase: 'idle' },
+      { type: 'turn.started', turnId: `${prefix}-bg`, origin: 'subagent', inputIds: [], trigger: { subagentIds: [`${prefix}-a1`] } } as Body,
+      { type: 'turn.completed', turnId: `${prefix}-bg`, status: 'completed', text: `${prefix} integrated`, usage: { ...usage, costUsd: 0.1 } },
+    ]
+
+    it('policy off keeps Flow sub-agents disabled with no addendum', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      await manager.sendMessage(conversation.id, 'build')
+      await waitFor(() => doneCount() === 1)
+      const open = opens()[0]!.params
+      expect(open.policy).toMatchObject({ subagents: 'disabled' })
+      expect((open.policy as Record<string, unknown>).subagentRuntime).toBeUndefined()
+      expect(open.systemPrompt).toBe(FLOW_SYSTEM_PROMPT)
+    })
+
+    it('policy on (native) enables them in the worktree session and appends the static Flow addendum', async () => {
+      allowSubagents = true
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      await manager.sendMessage(conversation.id, 'build')
+      await waitFor(() => doneCount() === 1)
+      const open = opens()[0]!.params
+      expect(open).toMatchObject({ sessionId: 'flow:f1', cwd: '/wt/f1/ticket-7', policy: { subagents: 'enabled', permissions: 'bypass', subagentRuntime: { mode: 'native' } } })
+      // Persona first, byte-identical; the addendum is separate and static.
+      expect(open.systemPrompt).toBe(`${FLOW_SYSTEM_PROMPT}\n\n${FLOW_SUBAGENTS_ADDENDUM}`)
+      expect(String(open.systemPrompt)).not.toContain('subagent_start')
+    })
+
+    it('policy on (delegated) delegates in the Flow session; Core gives children its cwd', async () => {
+      allowSubagents = true
+      runtimeChoice = { provider: 'codex', model: 'gpt-5' }
+      host.initialize = {
+        ...host.initialize,
+        capabilities: { ...host.initialize.capabilities, delegation: 1 },
+        drivers: [...host.initialize.drivers, { ...host.initialize.drivers[0]!, id: 'codex', displayName: 'Codex' }],
+      }
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      await manager.sendMessage(conversation.id, 'build')
+      await waitFor(() => doneCount() === 1)
+      const open = opens()[0]!.params
+      expect(open.policy).toMatchObject({ subagents: 'enabled', subagentRuntime: { mode: 'delegated', driver: 'codex', model: 'gpt-5' } })
+      expect(String(open.systemPrompt)).toContain(FLOW_SUBAGENTS_ADDENDUM)
+      expect(String(open.systemPrompt)).toContain('sub-agents run on codex (gpt-5)')
+      // The delegate request names the Flow session only: Core opens the child
+      // with the parent session's cwd (the worktree) and permissions.
+      await manager.delegateSubagent(conversation.id, { description: 'Trail', prompt: 'Add a particle trail' })
+      expect(host.requests.find((request) => request.method === 'session.delegate')!.params).toEqual({ sessionId: 'flow:f1', description: 'Trail', prompt: 'Add a particle trail' })
+    })
+
+    it('projects the Flow session apart from the mission session: sub-agents and usage land in Flow cost only, exactly once', async () => {
+      allowSubagents = true
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      // A normal mission turn first: the mission's own session is tracked too.
+      await manager.sendMessage(conversation.id, 'plan it')
+      await waitFor(() => doneCount() === 1)
+      flow = flowTurn()
+      await manager.sendMessage(conversation.id, 'build it')
+      await waitFor(() => doneCount() === 2)
+
+      host.emit('flow:f1', subagentEvents('flow'))
+      host.emit(conversation.id, subagentEvents('mission'))
+      await waitFor(() => listSubagents(db, conversation.id).length === 2 && broadcasts.filter((m) => m.type === 'agent_turn_done').length === 2)
+
+      expect(listSubagents(db, conversation.id, 'flow:f1').map((row) => row.subagentId)).toEqual(['flow-a1'])
+      expect(listSubagents(db, conversation.id, conversation.id).map((row) => row.subagentId)).toEqual(['mission-a1'])
+      expect(listSessionCursors(db, conversation.id).map((cursor) => cursor.coreSessionId)).toEqual([conversation.id, 'flow:f1'])
+      const rows = db.prepare("SELECT id, surface, origin, total_cost_usd FROM agent_invocations WHERE conversation_id = ? AND origin != 'user' ORDER BY id").all(conversation.id)
+      expect(rows).toEqual([
+        { id: `core-subagent:${conversation.id}:flow:f1:flow-a1:${host.journals.get('flow:f1')!.find((e) => e.event.type === 'subagent.usage')!.seq}`, surface: 'flow', origin: 'subagent', total_cost_usd: 0.5 },
+        { id: `core-subagent:${conversation.id}:mission-a1:${host.journals.get(conversation.id)!.find((e) => e.event.type === 'subagent.usage')!.seq}`, surface: 'agent-chat', origin: 'subagent', total_cost_usd: 0.5 },
+        { id: `core-turn:${conversation.id}:flow:f1:flow-bg`, surface: 'flow', origin: 'subagent', total_cost_usd: 0.1 },
+        { id: `core-turn:${conversation.id}:mission-bg`, surface: 'agent-chat', origin: 'subagent', total_cost_usd: 0.1 },
+      ])
+      // Flow cost (the cost route and flowCostUsd read this) = Flow user turn + its sub-agent + its continuation.
+      expect(sumFlowInvocations(db, { conversationId: conversation.id, from: '1970-01-01', to: null })).toMatchObject({ costUsd: 0.02 + 0.5 + 0.1, turns: 3 })
+      // Flow broadcasts carry the session so the client can tell them apart.
+      expect(broadcasts.find((m) => m.type === 'agent_subagent' && (m.subagent as { subagentId: string }).subagentId === 'flow-a1')).toMatchObject({ conversationId: conversation.id, coreSessionId: 'flow:f1' })
+      expect(broadcasts.find((m) => m.type === 'agent_subagent' && (m.subagent as { subagentId: string }).subagentId === 'mission-a1')).not.toHaveProperty('coreSessionId')
+
+      // Rebuild replays both journals without recording anything twice.
+      const before = db.prepare('SELECT COUNT(*) AS n FROM agent_invocations').get()
+      await manager.rebuildSessionProjection(conversation.id)
+      expect(db.prepare('SELECT COUNT(*) AS n FROM agent_invocations').get()).toEqual(before)
+      expect(listSubagents(db, conversation.id).map((row) => [row.coreSessionId, row.subagentId])).toEqual(expect.arrayContaining([[conversation.id, 'mission-a1'], ['flow:f1', 'flow-a1']]))
+      expect(listSubagents(db, conversation.id)).toHaveLength(2)
+    })
   })
 })

@@ -15,8 +15,8 @@
     "activeSessions_other": "{{count}} sessões ativas",
     "turnOn": "Ativar",
     "turnOff": "Desativar",
-    "enableFailed": "Não foi possível ativar o servidor MCP: {{message}}",
-    "disableFailed": "Não foi possível desativar o servidor MCP: {{message}}"
+    "enableFailed": "Não foi possível ativar o servidor MCP",
+    "disableFailed": "Não foi possível desativar o servidor MCP"
   },
   "tiers": {
     "heading": "Níveis de permissão",
@@ -24,12 +24,12 @@
     "read": "Leitura",
     "readHelp": "Explorar projetos, especificações e análises. Sempre permitido.",
     "write": "Escrita",
-    "writeHelp": "Criar e editar especificações e tickets.",
+    "writeHelp": "Criar e editar specs.",
     "aiSpawn": "Iniciar IA",
     "aiSpawnHelp": "Iniciar rails e trabalhos de IA que executam a CLI.",
     "destructive": "Destrutivo",
-    "destructiveHelp": "Eliminar especificações, tickets e outros dados do projeto.",
-    "updateFailed": "Não foi possível atualizar as permissões: {{message}}"
+    "destructiveHelp": "Eliminar specs e outros dados do projeto.",
+    "updateFailed": "Não foi possível atualizar as permissões"
   },
   "config": {
     "heading": "Configuração do cliente",
@@ -47,7 +47,8 @@
     "regenerate": "Regenerar",
     "regenerateConfirm": "Regenerar o token de acesso? Qualquer cliente que use o token antigo deixará de funcionar até você atualizar a sua configuração.",
     "regenerated": "Token de acesso regenerado",
-    "regenerateFailed": "Não foi possível regenerar o token: {{message}}"
+    "regenerateFailed": "Não foi possível regenerar o token",
+    "regenerateConfirmTitle": "Regenerar o token de acesso?"
   },
   "tray": {
     "open": "Abrir",
@@ -93,6 +94,9 @@
       "unknown_provider": "Provedor desconhecido na matriz de ativação",
       "invalid_entry": "Entrada de servidor malformada",
       "invalid_body": "Requisição malformada"
-    }
+    },
+    "removeConfirmTitle": "Remover {{name}}?",
+    "removeConfirmBody": "O agente de missão deixa de carregar este servidor para todos os fornecedores. Um servidor detetado permanece na configuração do seu fornecedor de IA e pode ser reativado.",
+    "formProviderToggle": "Ativar para {{provider}}"
   }
 }

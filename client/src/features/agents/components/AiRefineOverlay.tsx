@@ -124,6 +124,7 @@ export function AiRefineOverlay({
     <AiEditShell
       uiPhase={uiPhase}
       errorMessage={r.state.errorMessage}
+      errorDetail={r.state.errorDetail}
       applyConflict={r.state.applyConflict}
       eyebrow={t('refine.eyebrow')}
       targetLabel={agentId}
@@ -155,7 +156,7 @@ export function AiRefineOverlay({
       baseBodyDisclosureLabel={t('refine.viewCurrentBody')}
       appliedNotice={
         r.state.appliedVersion !== null ? (
-          <div className="rounded-md border border-green-500/40 aurora-light:border-accent-success/40 bg-green-500/10 aurora-light:bg-accent-success/10 p-3 text-xs text-green-300 aurora-light:text-accent-success">
+          <div className="rounded-md border border-accent-success/40 bg-accent-success/10 p-3 text-xs text-accent-success">
             {t('refine.appliedAsVersion', { version: r.state.appliedVersion })}
           </div>
         ) : undefined

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+  'inline-flex items-center rounded-pill border px-2 py-0.5 text-caption font-medium transition-colors duration-[var(--duration-fast)]',
   {
     variants: {
       variant: {
@@ -11,12 +11,13 @@ const badgeVariants = cva(
         secondary: 'border-transparent bg-secondary text-secondary-foreground',
         destructive: 'border-transparent bg-destructive text-destructive-foreground',
         outline: 'text-foreground',
-        success: 'border-transparent bg-emerald-500/20 aurora-light:bg-accent-success/10 text-emerald-400 aurora-light:text-accent-success border-emerald-500/30 aurora-light:border-accent-success/30',
-        warning: 'border-transparent bg-amber-500/20 aurora-light:bg-accent-warning/10 text-amber-400 aurora-light:text-accent-warning border-amber-500/30 aurora-light:border-accent-warning/30',
-        running: 'border-transparent bg-blue-500/20 aurora-light:bg-accent-info/10 text-blue-400 aurora-light:text-accent-info border-blue-500/30 aurora-light:border-accent-info/30',
-        queued: 'border-transparent bg-slate-500/20 aurora-light:bg-muted text-slate-400 aurora-light:text-muted-foreground border-slate-500/30 aurora-light:border-border',
-        failed: 'border-transparent bg-red-500/20 aurora-light:bg-destructive/10 text-red-400 aurora-light:text-destructive border-red-500/30 aurora-light:border-destructive/30',
-        canceled: 'border-transparent bg-slate-600/20 aurora-light:bg-muted text-slate-500 aurora-light:text-muted-foreground border-slate-600/30 aurora-light:border-border',
+        success: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-success border-accent-success/30',
+        warning: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-warning border-accent-warning/30',
+        running: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-info border-accent-info/30',
+        queued: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-muted-foreground border-border',
+        review: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-accent-review border-accent-review/30',
+        failed: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-destructive border-destructive/30',
+        canceled: 'gap-1.5 before:content-[\'\'] before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-current bg-transparent text-muted-foreground border-border',
       },
     },
     defaultVariants: {

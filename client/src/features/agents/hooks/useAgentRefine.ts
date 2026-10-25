@@ -50,6 +50,8 @@ export interface AgentRefineState {
   testResult: AutoTestResult | null
   appliedVersion: number | null
   errorMessage: string | null
+  /** The server's own words behind `errorMessage` (kept for support, shown behind a disclosure). */
+  errorDetail: string | null
   applyConflict: 'disk_changed' | 'name_changed' | null
 }
 
@@ -62,7 +64,7 @@ type Action =
   | { type: 'TEST_RESULT'; refineId: string; result: AutoTestResult }
   | { type: 'APPLIED'; refineId: string; version: number }
   | { type: 'CANCELLED'; refineId: string }
-  | { type: 'ERROR'; refineId: string | null; message: string }
+  | { type: 'ERROR'; refineId: string | null; message: string; detail?: string }
   | { type: 'CONFLICT'; refineId: string; reason: 'disk_changed' | 'name_changed' }
   | { type: 'TOGGLE_AUTO_TEST'; enabled: boolean }
   | { type: 'REHYDRATE'; payload: Partial<AgentRefineState> }
@@ -81,6 +83,7 @@ const initialState: AgentRefineState = {
   testResult: null,
   appliedVersion: null,
   errorMessage: null,
+  errorDetail: null,
   applyConflict: null,
 }
 
@@ -105,6 +108,7 @@ function reducer(state: AgentRefineState, action: Action): AgentRefineState {
         phase: 'reading',
         streamingText: '',
         errorMessage: null,
+        errorDetail: null,
         applyConflict: null,
         history: [...state.history, action.userTurn],
       }
@@ -144,7 +148,7 @@ function reducer(state: AgentRefineState, action: Action): AgentRefineState {
       return { ...state, uiState: 'cancelled' }
     case 'ERROR':
       if (action.refineId !== null && state.refineId !== action.refineId) return state
-      return { ...state, uiState: 'error', errorMessage: action.message }
+      return { ...state, uiState: 'error', errorMessage: action.message, errorDetail: action.detail ?? null }
     case 'CONFLICT':
       if (state.refineId !== action.refineId) return state
       return { ...state, applyConflict: action.reason }
@@ -242,7 +246,7 @@ export function useAgentRefine(projectId: string | null): {
           dispatch({ type: 'CANCELLED', refineId })
           break
         case 'agent_refine_error':
-          dispatch({ type: 'ERROR', refineId, message: msg.error as string })
+          dispatch({ type: 'ERROR', refineId, message: t('refine.failed'), detail: typeof msg.error === 'string' ? msg.error : undefined })
           break
       }
     })
@@ -271,7 +275,7 @@ export function useAgentRefine(projectId: string | null): {
       )
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string }
-        dispatch({ type: 'ERROR', refineId: null, message: data.error ?? t('refine.serverError', { status: res.status }) })
+        dispatch({ type: 'ERROR', refineId: null, message: t('refine.serverError', { status: res.status }), detail: data.error })
         return
       }
       const data = await res.json() as { refineId: string }
@@ -283,7 +287,7 @@ export function useAgentRefine(projectId: string | null): {
         userTurn: { role: 'user', content: instruction, timestamp: Date.now() },
       })
     } catch (err) {
-      dispatch({ type: 'ERROR', refineId: null, message: t('refine.connectionFailed', { message: (err as Error).message }) })
+      dispatch({ type: 'ERROR', refineId: null, message: t('refine.connectionFailed'), detail: (err as Error).message })
     }
   }, [state.autoTest, t])
 
@@ -307,10 +311,10 @@ export function useAgentRefine(projectId: string | null): {
       )
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string }
-        dispatch({ type: 'ERROR', refineId, message: data.error ?? t('refine.serverError', { status: res.status }) })
+        dispatch({ type: 'ERROR', refineId, message: t('refine.serverError', { status: res.status }), detail: data.error })
       }
     } catch (err) {
-      dispatch({ type: 'ERROR', refineId, message: t('refine.connectionFailed', { message: (err as Error).message }) })
+      dispatch({ type: 'ERROR', refineId, message: t('refine.connectionFailed'), detail: (err as Error).message })
     }
   }, [t])
 
@@ -348,13 +352,13 @@ export function useAgentRefine(projectId: string | null): {
       }
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string }
-        dispatch({ type: 'ERROR', refineId, message: data.error ?? t('refine.applyFailed', { status: res.status }) })
+        dispatch({ type: 'ERROR', refineId, message: t('refine.applyFailed', { status: res.status }), detail: data.error })
         return
       }
       const data = await res.json() as { version: number }
       dispatch({ type: 'APPLIED', refineId, version: data.version })
     } catch (err) {
-      dispatch({ type: 'ERROR', refineId, message: t('refine.connectionFailed', { message: (err as Error).message }) })
+      dispatch({ type: 'ERROR', refineId, message: t('refine.connectionFailed'), detail: (err as Error).message })
     }
   }, [t])
 
@@ -403,7 +407,7 @@ export function useAgentRefine(projectId: string | null): {
         },
       })
     } catch (err) {
-      dispatch({ type: 'ERROR', refineId: null, message: t('refine.rehydrateFailed', { message: (err as Error).message }) })
+      dispatch({ type: 'ERROR', refineId: null, message: t('refine.rehydrateFailed'), detail: (err as Error).message })
     }
   }, [t])
 

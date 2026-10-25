@@ -3,6 +3,7 @@ import type { EventRow } from '../../../../types'
 import { act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, within } from '../../../../test-utils'
+import userEvent from '@testing-library/user-event'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -150,7 +151,7 @@ describe('JobDetailModal', () => {
       expect(screen.getByText('/specrails:queued')).toBeInTheDocument()
     })
     expect(screen.queryByText(/1970|Invalid Date/i)).not.toBeInTheDocument()
-    expect(screen.getByText('queued')).toBeInTheDocument()
+    expect(screen.getByText('Queued')).toBeInTheDocument()
   })
 
   it('an explicit projectId scopes every fetch to THAT project (agent-chat refs)', async () => {
@@ -199,7 +200,7 @@ describe('JobDetailModal', () => {
   it('renders status badge for completed job', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
   })
 
@@ -207,7 +208,7 @@ describe('JobDetailModal', () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
     await waitFor(() => {
-      expect(screen.getByText('$0.0234')).toBeInTheDocument()
+      expect(screen.getAllByText('$0.02').length).toBeGreaterThan(0)
     })
   })
 
@@ -242,43 +243,83 @@ describe('JobDetailModal', () => {
     })
   })
 
-  it('calls onClose when backdrop is clicked', async () => {
+  it('calls onClose when the scrim is pressed', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
-    const backdrop = document.querySelector('.absolute.inset-0') as HTMLElement
-    if (backdrop) {
-      fireEvent.click(backdrop)
-      expect(onClose).toHaveBeenCalled()
-    }
+    await screen.findByText('/specrails:implement --spec SPEA-001')
+    const scrim = document.querySelector('.modal-scrim') as HTMLElement
+    expect(scrim).not.toBeNull()
+    fireEvent.pointerDown(scrim)
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
   })
 
-  it('calls onClose when X button is clicked', async () => {
+  it('has ONE close button, in the header row, that closes the modal', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
-    await waitFor(() => {
-      expect(screen.getByText('/specrails:implement --spec SPEA-001')).toBeInTheDocument()
-    })
-    // Find the X close button (last button in header)
-    const buttons = document.querySelectorAll('button')
-    const xButton = Array.from(buttons).find((btn) =>
-      btn.querySelector('svg') && btn.getAttribute('aria-label') !== 'Cancel'
-    )
-    if (xButton) {
-      fireEvent.click(xButton)
-      expect(onClose).toHaveBeenCalled()
-    }
-  })
-
-  it('calls onClose when Escape key is pressed', async () => {
-    render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
-    fireEvent.keyDown(window, { key: 'Escape' })
+    await screen.findByText('/specrails:implement --spec SPEA-001')
+    const closes = screen.getAllByRole('button', { name: 'Close' })
+    expect(closes).toHaveLength(1)
+    expect(closes[0].closest('[data-dialog-header]')).not.toBeNull()
+    fireEvent.click(closes[0])
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('keeps the log open when a foreground dialog has handled Escape', () => {
+  it('titles the modal with a human name and keeps the raw command as the subtitle', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
-    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
-    event.preventDefault()
-    fireEvent(window, event)
-    expect(onClose).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('dialog', { name: 'Implement job · #job-abc1' })
+    expect(within(dialog).getByText('/specrails:implement --spec SPEA-001').tagName).toBe('CODE')
+  })
+
+  it('keeps a meaningful title while loading', () => {
+    global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch
+    render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+    expect(screen.getByRole('dialog', { name: 'Job · #job-abc1' })).toBeInTheDocument()
+  })
+
+  it('sits on the entity layer with the standard scrim', async () => {
+    render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.getAttribute('data-dialog-layer')).toBe('entity')
+    expect(dialog.className).toContain('z-[65]')
+    const scrim = document.querySelector('.modal-scrim') as HTMLElement
+    expect(scrim.className).toContain('bg-scrim')
+    expect(scrim.className).not.toMatch(/bg-black\//)
+  })
+
+  it('calls onClose when Escape is pressed (Radix dismiss)', async () => {
+    render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+    await screen.findByText('/specrails:implement --spec SPEA-001')
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+  })
+
+  it('traps Tab focus inside the panel', async () => {
+    const user = userEvent.setup()
+    render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+    const dialog = await screen.findByRole('dialog')
+    await screen.findByText('/specrails:implement --spec SPEA-001')
+    for (let i = 0; i < 12; i++) {
+      await user.tab()
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    }
+  })
+
+  it('returns focus to the trigger on close', async () => {
+    const user = userEvent.setup()
+    function Harness() {
+      const [open, setOpen] = React.useState(false)
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>Open job</button>
+          {open && <JobDetailModal jobId="job-abc123" onClose={() => setOpen(false)} />}
+        </>
+      )
+    }
+    render(<Harness />)
+    const trigger = screen.getByRole('button', { name: 'Open job' })
+    trigger.focus()
+    await user.click(trigger)
+    await screen.findByText('/specrails:implement --spec SPEA-001')
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
   })
 
   it('shows Cancel button when job is running', async () => {
@@ -299,7 +340,7 @@ describe('JobDetailModal', () => {
   it('does not show Cancel button when job is completed', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
     expect(screen.queryByRole('button', { name: /^cancel$/i })).not.toBeInTheDocument()
   })
@@ -345,7 +386,7 @@ describe('JobDetailModal', () => {
     })
   })
 
-  it('renders the cancel-confirm IN-PORTAL inside the z-[65] modal (never a body-portalled Radix dialog behind it)', async () => {
+  it('opens the cancel confirm as a stacked ConfirmDialog; Escape dismisses it first, not the modal', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ job: mockRunningJob, events: [], phaseDefinitions: [] }),
@@ -355,16 +396,21 @@ describe('JobDetailModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
 
     const confirm = await screen.findByTestId('job-cancel-confirm')
-    // The confirm lives WITHIN the modal's own z-[65] portal container — so it
-    // shares that stacking context and sits above the panel, instead of a
-    // Radix Dialog portalled to <body> at z-50 (which rendered BEHIND the modal).
-    const modalRoot = document.querySelector('.fixed.inset-0.z-\\[65\\]')
-    expect(modalRoot).not.toBeNull()
-    expect(modalRoot!.contains(confirm)).toBe(true)
+    // Nested inside the entity (65) modal, the confirm climbs to `stacked` (70).
+    expect(confirm.getAttribute('data-dialog-layer')).toBe('stacked')
+    expect(confirm.className).toContain('z-[70]')
+    // Standard confirm anatomy: ghost "Keep running" then the destructive verb.
+    await waitFor(() => expect(document.activeElement).toBe(within(confirm).getByRole('button', { name: 'Cancel job' })))
+
     // Escape dismisses the confirm first, NOT the whole modal.
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByTestId('job-cancel-confirm')).not.toBeInTheDocument())
     expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByTestId('job-detail-modal')).toBeInTheDocument()
+
+    // A second Escape then closes the modal itself.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
   })
 
   it('"Cancel job" button calls the cancel action and refetches on success', async () => {
@@ -483,7 +529,7 @@ describe('JobDetailModal', () => {
     })
     render(<JobDetailModal jobId="job-running" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('running')).toBeInTheDocument()
+      expect(screen.getByText('Running')).toBeInTheDocument()
     })
   })
 
@@ -498,7 +544,7 @@ describe('JobDetailModal', () => {
     })
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('zombie')).toBeInTheDocument()
+      expect(screen.getByText('Zombie')).toBeInTheDocument()
     })
   })
 
@@ -539,7 +585,7 @@ describe('JobDetailModal', () => {
     })
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
     expect(screen.queryByText(/^\$/)).not.toBeInTheDocument()
   })
@@ -555,7 +601,7 @@ describe('JobDetailModal', () => {
     })
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
     expect(screen.queryByText(/\ds$/)).not.toBeInTheDocument()
   })
@@ -730,7 +776,7 @@ describe('JobDetailModal', () => {
       })
       render(<JobDetailModal jobId="job-running" onClose={onClose} />)
       await waitFor(() => {
-        expect(screen.getByText('running')).toBeInTheDocument()
+        expect(screen.getByText('Running')).toBeInTheDocument()
       })
       expect(screen.queryByTestId('interactive-job-composer')).not.toBeInTheDocument()
       // Regression: `job.interactive` is a SQLite 0/1 number, so the composer
@@ -750,7 +796,7 @@ describe('JobDetailModal', () => {
       })
       render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
       await waitFor(() => {
-        expect(screen.getByText('completed')).toBeInTheDocument()
+        expect(screen.getByText('Completed')).toBeInTheDocument()
       })
       expect(screen.queryByTestId('interactive-job-composer')).not.toBeInTheDocument()
     })

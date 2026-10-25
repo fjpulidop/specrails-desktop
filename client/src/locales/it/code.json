@@ -54,7 +54,9 @@
     "save": "Salva",
     "saving": "Salvataggio…",
     "saved": "File salvato",
-    "saveFailed": "Salvataggio non riuscito"
+    "saveFailed": "Salvataggio non riuscito",
+    "budgetPromptBody": "Il limite di budget IA per i riepiloghi dei file è stato raggiunto. Rigenerando comunque viene eseguito un altro riepilogo oltre il limite.",
+    "budgetPromptConfirm": "Rigenera comunque"
   },
   "summary": {
     "generationFailed": "Generazione del riepilogo non riuscita",
@@ -150,7 +152,7 @@
     "loadingEditor": "Caricamento editor…"
   },
   "ticketFiles": {
-    "title": "File toccati da questo ticket",
+    "title": "File toccati da questa spec",
     "jobTitle": "Job {{jobId}}",
     "loading": "Caricamento file registrati…",
     "loadFailed": "Impossibile caricare i file registrati.",

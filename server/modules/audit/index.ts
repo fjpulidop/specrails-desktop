@@ -26,6 +26,7 @@ export {
   normaliseTarget,
   parseAgentAuditFormat,
   redactCommand,
+  redactProse,
   redactUrl,
   retentionCutoff,
   type AgentActionCounts,

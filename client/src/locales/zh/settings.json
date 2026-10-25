@@ -6,10 +6,11 @@
     "updateFailed": "无法保存语言偏好"
   },
   "page": {
-    "title": "项目设置"
+    "title": "项目设置",
+    "loadFailed": "无法加载项目配置"
   },
   "errors": {
-    "saveFailed": "保存失败：{{message}}"
+    "saveFailed": "保存失败"
   },
   "telemetry": {
     "title": "流水线遥测",
@@ -22,7 +23,7 @@
   },
   "prePrompt": {
     "title": "Rail 前置提示词",
-    "description": "追加到 implement rail 任务中的项目专属附加指令，位于工单上下文之后、开始执行之前。",
+    "description": "追加到 implement rail 任务中的项目专属附加指令，位于规格上下文之后、开始执行之前。",
     "label": "前置提示词",
     "placeholder": "示例：优先采用增量修改，保持迁移向后兼容，并为每次 rail 变更添加测试。",
     "helper": "用于应随每次 rail 实现运行附带的稳定项目指引。",
@@ -45,19 +46,17 @@
   "budget": {
     "title": "预算",
     "description": "为此项目设置每日支出上限。达到上限时队列自动暂停。",
-    "dailyLabel": "每日预算（USD）",
-    "dailyHelper": "留空表示禁用。支出按最近 24 小时计算。",
-    "dailyPlaceholder": "如 5.00",
+    "dailyLabel": "每日上限",
+    "dailyHelper": "支出按最近 24 小时计算。达到上限后队列会暂停。",
     "perJobLabel": "单任务成本告警（USD）",
     "perJobHelper": "当此项目中的单个任务超过此金额时告警。",
     "perJobPlaceholder": "如 0.50",
     "invalidNumber": "请输入正数，或留空以禁用",
-    "dailyRemoved": "已移除每日预算",
-    "dailySet": "每日预算已设为 ${{amount}}",
     "perJobAlertDisabled": "已禁用单任务成本告警",
-    "alertSet": "已设置任务超过 ${{amount}} 时告警",
-    "saveBudgetFailed": "保存预算失败",
-    "saveThresholdFailed": "保存阈值失败"
+    "alertSet": "已设置任务超过 {{amount}} 时告警",
+    "saveThresholdFailed": "保存阈值失败",
+    "dailyCurrent": "当前每日 {{amount}}",
+    "dailyNone": "未设置每日上限"
   },
   "desktop": {
     "nav": {
@@ -76,32 +75,38 @@
       "subscriptionUsage": "订阅用量"
     },
     "title": "Desktop 设置",
-    "description": "管理已注册的项目并查看 Desktop 信息。",
+    "description": "外观、AI 提供商、更新以及 Desktop 全局偏好设置。",
     "registeredProjects": "已注册项目",
     "noProjects": "尚未注册任何项目",
     "techUrlDescription": "specrails-tech API 的基础 URL（默认：http://localhost:3000）",
     "techUrlSaved": "specrails-tech URL 已保存",
     "techUrlSaveFailed": "保存 URL 失败",
     "budgetAlertsHeading": "预算与告警",
-    "dailyBudgetLabel": "Desktop 每日预算（USD）",
+    "dailyBudgetLabel": "Desktop 每日上限",
     "dailyBudgetHelper": "所有项目的全局每日支出上限。超出后队列自动暂停。",
-    "dailyBudgetPlaceholder": "如 10.00",
     "perJobHelper": "当单个任务超过此金额时告警。留空表示禁用。",
     "costAlertsDisabled": "已禁用成本告警",
-    "dailyBudgetRemoved": "已移除 Desktop 每日预算",
-    "dailyBudgetSet": "Desktop 每日预算已设为 ${{amount}}",
-    "dailyBudgetSaveFailed": "保存 Desktop 每日预算失败",
     "projectRemoved": "项目已移除",
     "projectRemoveFailed": "移除项目失败",
     "onboardingHeading": "新手引导",
     "platformTour": "平台导览",
     "platformTourDescription": "重播欢迎向导，回顾核心功能。",
     "replayTour": "重播导览",
-    "terminalPanelHeading": "终端面板",
     "infoHeading": "Desktop 信息",
     "infoPort": "端口",
     "infoProjects": "项目",
-    "infoDb": "Desktop 数据库"
+    "infoDb": "Desktop 数据库",
+    "removeProjectConfirmTitle": "移除 {{name}}？",
+    "removeProjectConfirmBody": "{{name}} 将从 Specrails 中取消注册，正在运行的工作会停止。磁盘上的仓库文件不会被删除，之后可以重新添加该文件夹。",
+    "navLabel": "设置分区",
+    "navGroups": {
+      "personal": "个人",
+      "agents": "智能体",
+      "system": "系统"
+    },
+    "unsavedChanges": "未保存的更改",
+    "dailyBudgetCurrent": "当前每日 {{amount}}",
+    "dailyBudgetNone": "未设置每日上限"
   },
   "notifications": {
     "heading": "系统通知",
@@ -120,8 +125,6 @@
     "eventJobCompleted": "任务完成",
     "eventJobFailed": "任务失败",
     "eventDailyBudgetExceeded": "超出每日预算",
-    "statusOn": "开",
-    "statusOff": "关",
     "disable": "禁用",
     "enable": "启用",
     "sendTestPing": "发送测试 ping",
@@ -136,7 +139,10 @@
     "removed": "Webhook 已移除",
     "removeFailed": "移除 Webhook 失败",
     "testPingSent": "测试 ping 已发送",
-    "testPingFailed": "发送测试 ping 失败"
+    "testPingFailed": "发送测试 ping 失败",
+    "removeConfirmTitle": "移除 Webhook？",
+    "removeConfirmBody": "{{url}} 将不再接收 Desktop 事件。",
+    "urlLabel": "Webhook URL"
   },
   "terminal": {
     "title": "终端面板",
@@ -170,7 +176,7 @@
     "taglines": {
       "dracula": "经典原版 — 紫色调暗色主题，霓虹色点缀鲜明",
       "aurora-light": "高级浅色 — 受 Linear 启发的靛蓝配暖白底色",
-      "obsidian-dark": "高级深色 — 近黑蓝调配电光色点缀",
+      "obsidian-dark": "石墨专业版 — 中性近黑底色，仅一抹柔和紫色点缀",
       "specrails": "品牌主题 — 深海军靛蓝配饱和青色点缀",
       "code-rain": "磷光终端 — 绿黑底色上的柔和薄荷绿",
       "galaxy": "深空蓝配上发光的光刃轨迹"
@@ -182,7 +188,7 @@
   },
   "mobile": {
     "heading": "移动伴侣",
-    "description": "通过手机上的 SpecRails Companion 应用控制 Specrails，完全经由本地网络。默认关闭。",
+    "description": "通过手机上的 SpecRails Companion 应用控制 Specrails，完全经由本地网络。默认关闭。已配对的手机可以在收件箱中回答问题、恢复、重试并创建草稿 PR，具体取决于 MCP 权限级别；合并、丢弃和设置仍只能在这台电脑上操作。",
     "accessOn": "移动访问已开启",
     "accessOff": "移动访问已关闭",
     "listeningOnPort": "正在监听端口 {{port}}",
@@ -193,12 +199,13 @@
     "reset": "重置",
     "resetConfirm": "确定要重置移动身份吗？所有已配对设备都将被吊销，必须重新配对。",
     "identityReset": "移动身份已重置",
-    "enableFailed": "无法启用移动访问：{{message}}",
-    "disableFailed": "无法禁用移动访问：{{message}}",
+    "enableFailed": "无法启用移动访问",
+    "disableFailed": "无法禁用移动访问",
     "windowsFirewall": "首次启用时，Windows 防火墙会询问是否允许 SpecRails 服务器——请选择“允许在专用网络上”。",
     "pairedDevices": "已配对设备",
     "noDevices": "尚无已配对设备。",
-    "revokeDevice": "吊销 {{name}}"
+    "revokeDevice": "吊销 {{name}}",
+    "resetConfirmTitle": "重置移动端身份？"
   },
   "pairWeb": {
     "title": "配对网页伴侣",
@@ -207,7 +214,7 @@
     "showThenScan": "手机扫描此码后，点按“扫描手机的二维码”，并将摄像头对准手机。",
     "scanAnswer": "扫描手机的二维码",
     "scanning": "请将摄像头对准手机上的二维码…",
-    "cameraFailed": "摄像头不可用：{{message}}",
+    "cameraFailed": "摄像头不可用",
     "notAnswer": "该二维码不是配对应答。",
     "connecting": "正在连接…",
     "paired": "✓ 已配对",
@@ -231,10 +238,7 @@
     "affectsAll": "适用于所有项目 — 无需重启。",
     "unavailable": "此版本不支持核心更新。",
     "toastDone": "Specrails Core 已更新到 {{version}}",
-    "toastError": "核心更新失败：{{message}}",
     "toastUpToDate": "Specrails Core 已是最新",
-    "toastCheckFailed": "检查更新失败：{{message}}",
-    "loadFailed": "无法刷新 Core 状态。重试",
     "runtime": "运行时：{{version}}",
     "bundled": "Desktop 内置：{{version}}",
     "sources": {
@@ -245,14 +249,17 @@
       "global": "外部 CLI"
     },
     "repair": "完成 {{version}} 更新",
-    "stableFallback": "specrails-core 尚无稳定版本，因此 Core 暂时跟随最新。"
+    "stableFallback": "specrails-core 尚无稳定版本，因此 Core 暂时跟随最新。",
+    "updateFailed": "Core 更新失败",
+    "checkFailed": "检查更新失败",
+    "loadError": "无法刷新 Core 状态。"
   },
   "updateChannel": {
     "heading": "更新通道",
     "loading": "正在加载通道…",
     "scope": "同时适用于 Specrails Desktop 和 specrails-core 框架。",
     "saved": "更新通道：{{channel}}",
-    "saveFailed": "无法更改更新通道：{{message}}",
+    "saveFailed": "无法更改更新通道",
     "latest": {
       "label": "最新",
       "description": "每个版本发布后立即获取。最先获得新功能和修复。"
@@ -272,12 +279,12 @@
     "autoHint": "启动时及每 6 小时自动检查。",
     "unavailable": "更新仅在桌面应用中可用。",
     "toastUpToDate": "Specrails Desktop 已是最新",
-    "toastCheckFailed": "检查更新失败: {{message}}",
+    "toastCheckFailed": "检查更新失败",
     "stableUnavailable": "尚未有版本被提升到稳定通道。请切换到最新，或稍后再试。"
   },
   "projectDialog": {
     "title": "{{name}} — 设置",
-    "description": "项目级配置：提示词、分支、环境、预算、遥测和终端。",
+    "description": "项目级配置：提示词、分支、环境、预算、遥测、规则和终端。",
     "nav": {
       "general": "常规",
       "branch": "分支",
@@ -286,8 +293,11 @@
       "telemetry": "遥测",
       "terminal": "终端",
       "agentRuntime": "验证命令",
-      "subagents": "子代理"
-    }
+      "subagents": "子代理",
+      "rules": "规则",
+      "recentlyDeleted": "最近删除"
+    },
+    "navLabel": "项目设置分区"
   },
   "integrationBranch": {
     "title": "集成分支",
@@ -439,5 +449,100 @@
     "saved_other": "评审上限已设为 {{count}}",
     "removed": "已移除评审上限",
     "saveFailed": "无法保存评审上限"
+  },
+  "anchoring": {
+    "title": "在现有项目中落地",
+    "description": "帮助运行尊重项目既有做法的可选行为。每一项都需要支持它的 Core。",
+    "coreRequired": "已安装的 Core 尚不支持此功能。请更新 Core 以启用。",
+    "saveFailed": "无法保存设置",
+    "jiraPostClarifications": {
+      "label": "将架构师的澄清问题发布到 Jira",
+      "description": "当运行因架构师的问题而暂停，或基于假设继续时，将其作为评论发布到关联的 Jira 工单。在那里的回复会作为澄清记录到规格上。",
+      "enabled": "澄清问题将发布到 Jira",
+      "disabled": "澄清问题将保留在 Specrails 中"
+    },
+    "baselineOnTouch": {
+      "label": "触及时建立基线",
+      "description": "当变更触及没有任何规格描述的代码时，先编写特征测试（在未修改的代码上证明）和一份最小的现状规格。会增加成本，并单独显示。",
+      "enabled": "已启用触及时建立基线",
+      "disabled": "已停用触及时建立基线"
+    }
+  },
+  "rules": {
+    "title": "项目规则",
+    "description": "项目已运行的检查，以及每条书面规则，分为已强制执行、可自动化或仅限人工。仅限人工的规则会出现在每个评审包中。",
+    "rerun": "重新盘点",
+    "running": "正在盘点…",
+    "coreRequired": "已安装的 Core 不支持规则盘点。请更新 Core 后再运行。",
+    "missing": "尚无盘点结果。运行它以列出项目的关卡和规则。",
+    "invalid": "无法读取规则文件：{{message}}",
+    "inventoryDone": "规则盘点已更新",
+    "inventoryFailed": "规则盘点失败",
+    "specCreated": "已创建规格 #{{id}}",
+    "specFailed": "无法创建规格",
+    "status": {
+      "automatable": "可自动化",
+      "humanOnly": "仅限人工",
+      "enforcedBy": "已强制执行",
+      "unclassified": "未分类"
+    },
+    "generatedAt": "生成于 {{date}}",
+    "gates_other": "{{count}} 个关卡",
+    "gatesHint": "未配置验证检查时，简单的关卡命令会在 Agent Runtime 设置中优先作为验证检查提供。",
+    "enforcedBy": "由 {{check}} 强制执行",
+    "proposedCheck": "建议的检查：{{check}}",
+    "createSpec": "创建规格",
+    "dropped_other": "{{count}} 个条目不符合格式，已跳过",
+    "classification": {
+      "offline": "规则是离线盘点的，尚未分类。请在配置提供方后重新盘点。",
+      "unavailable": "未配置用于分类规则的提供方。",
+      "failed": "规则分类失败。",
+      "empty": "未找到书面规则。",
+      "unknown": "规则尚未分类。"
+    },
+    "gates_one": "{{count}} 个关卡",
+    "dropped_one": "{{count}} 个条目不符合格式，已跳过",
+    "autoRunning": "正在设置后运行清单。完成后此列表会更新。",
+    "lastRun": {
+      "setupFailed": "设置后的自动清单失败（{{date}}）。",
+      "manualFailed": "上次清单运行失败（{{date}}）。",
+      "retryHint": "修复上面显示的原因，然后重新运行清单。",
+      "setupDone": "已在设置后自动生成清单。"
+    }
+  },
+  "editorSection": {
+    "heading": "编辑器",
+    "description": "评审包中“在编辑器中打开”所使用的编辑器。保存在这台电脑上。",
+    "label": "打开文件的编辑器",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "JetBrains IDE"
+    }
+  },
+  "budgetMoved": "上限在 分析 ▸ 预算 中编辑。",
+  "openBudget": "打开预算",
+  "openSettings": "打开设置",
+  "accessibility": {
+    "density": {
+      "title": "密度",
+      "description": "卡片和行占用的空间。适用于看板、作业列表和作业过程。已保存的看板视图保留自己的布局。",
+      "comfortable": "舒适",
+      "comfortableHint": "宽松的卡片和行",
+      "compact": "紧凑",
+      "compactHint": "屏幕上显示更多规格和行",
+      "resetBoard": "同时用于看板",
+      "resetBoardDone": "此项目的看板现在遵循该设置。"
+    },
+    "motion": {
+      "title": "减少动态效果",
+      "description": "在 Specrails 内关闭动画和过渡,与操作系统设置无关。",
+      "system": "跟随系统",
+      "systemHint": "使用操作系统的设置",
+      "reduce": "减少",
+      "reduceHint": "始终平静:无动画",
+      "full": "完整动效",
+      "fullHint": "即使系统要求减少也播放动画"
+    }
   }
 }

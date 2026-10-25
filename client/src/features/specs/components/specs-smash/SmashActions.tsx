@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { Split } from 'lucide-react'
 
 import { Button } from '../../../../components/ui/button'
@@ -11,6 +10,7 @@ import { SmashConfirmModal, type SmashMode } from './SmashConfirmModal'
 import { isSmashCapable } from '../../../providers/lib/provider-capabilities'
 import type { LocalTicket } from '../../../../types'
 
+import { notifyError } from '../../../../lib/notify-error'
 const CONTRACT_LAYER_MARKER = '## Contract Layer'
 
 export function ticketCanSmash(ticket: LocalTicket, featureFlagOn: boolean): boolean {
@@ -28,6 +28,14 @@ export interface SmashActionsProps {
   featureFlagOn: boolean
   /** When true and épica has children, the action is "Re-SMASH" with confirm. */
   childrenCount: number
+  /**
+   * Overflow-menu mode: the trigger lives in the parent's "more" menu. The
+   * parent bumps `openRequest` to open the confirm modal and learns through
+   * `onAvailableChange` whether the action applies to this spec at all.
+   */
+  hideButton?: boolean
+  openRequest?: number
+  onAvailableChange?: (available: boolean) => void
 }
 
 /**
@@ -40,6 +48,9 @@ export function SmashActions({
   provider,
   featureFlagOn,
   childrenCount,
+  hideButton = false,
+  openRequest = 0,
+  onAvailableChange,
 }: SmashActionsProps) {
   const { t } = useTranslation('activity')
   const inflight = useSmashInflight(ticket.id)
@@ -86,6 +97,10 @@ export function SmashActions({
   const showReSmash = isEpic && smashEnabled
   const isReSmash = isEpic && childrenCount > 0
 
+  const available = showInitial || showReSmash
+  useEffect(() => { onAvailableChange?.(available) }, [available, onAvailableChange])
+  useEffect(() => { if (openRequest > 0 && available) setModalOpen(true) }, [openRequest, available])
+
   const fireSmash = useCallback(
     async (mode: SmashMode) => {
       // Defence in depth: a stale modal or caller mistake must never dispatch
@@ -100,7 +115,7 @@ export function SmashActions({
         })
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string; reason?: string }
-          toast.error(
+          notifyError(
             body.reason
               ? t('smash.couldNotStartWithReason', { reason: body.reason })
               : t('smash.couldNotStart'),
@@ -110,7 +125,7 @@ export function SmashActions({
         // Toast lifecycle is driven by SmashTrackerContext from WS events.
         setModalOpen(false)
       } catch (err) {
-        toast.error(t('smash.smashFailed', { message: (err as Error).message }))
+        notifyError(t('smash.smashFailed'), { detail: (err as Error).message })
       } finally {
         setSubmitting(false)
       }
@@ -130,12 +145,12 @@ export function SmashActions({
             method: 'DELETE',
           })
           if (!delRes.ok) {
-            toast.error(t('smash.couldNotDeleteChildren'))
+            notifyError(t('smash.couldNotDeleteChildren'))
             setSubmitting(false)
             return
           }
         } catch (err) {
-          toast.error(t('smash.deleteFailed', { message: (err as Error).message }))
+          notifyError(t('smash.deleteFailed'), { detail: (err as Error).message })
           setSubmitting(false)
           return
         }
@@ -158,16 +173,18 @@ export function SmashActions({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => setModalOpen(true)}
-        className="border-accent-highlight/40 text-accent-highlight hover:bg-accent-highlight/10"
-        data-testid={showReSmash ? 'resmash-button' : 'smash-button'}
-      >
-        <Split className="w-3.5 h-3.5 mr-1.5" />
-        {showReSmash ? t('smash.reSmashButton') : t('smash.smashButton')}
-      </Button>
+      {!hideButton && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setModalOpen(true)}
+          className="border-accent-highlight/40 text-accent-highlight hover:bg-accent-highlight/10"
+          data-testid={showReSmash ? 'resmash-button' : 'smash-button'}
+        >
+          <Split className="w-3.5 h-3.5 mr-1.5" />
+          {showReSmash ? t('smash.reSmashButton') : t('smash.smashButton')}
+        </Button>
+      )}
       <SmashConfirmModal
         open={modalOpen}
         ticketTitle={ticket.title}

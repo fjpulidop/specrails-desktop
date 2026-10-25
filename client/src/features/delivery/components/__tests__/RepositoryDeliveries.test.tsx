@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '../../../../test-utils'
+import { render, screen, fireEvent, within, waitFor } from '../../../../test-utils'
 import { RepositoryDeliveries } from '../RepositoryDeliveries'
 import type { RepositoryDeliverySnapshot } from '../../../projects/types/multi-repo'
 import { coerceRailPrStateSnapshot } from '../../lib/pr-delivery'
@@ -36,7 +36,7 @@ describe('grouped repository delivery controls', () => {
     expect(api.getByText('implementation → main')).toBeInTheDocument()
   })
 
-  it('confirms the actual integration destination and drops stale generation confirmations', () => {
+  it('confirms the actual integration destination and drops stale generation confirmations', async () => {
     const onAct = vi.fn().mockResolvedValue({ ok: true })
     const repositories = [member('api')]
     const view = render(<RepositoryDeliveries deliveryId="parent-1" repositories={repositories} busy={false} onAct={onAct} />)
@@ -46,7 +46,13 @@ describe('grouped repository delivery controls', () => {
     view.rerender(<RepositoryDeliveries deliveryId="parent-2" repositories={repositories} busy={false} onAct={onAct} />)
     expect(screen.queryByRole('dialog')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /integrate locally|merge locally/i }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /confirm/i }))
+    const dialog = screen.getByRole('dialog')
+    // Non-destructive confirm: default-tone primary that names the verb, focused on open.
+    const confirm = within(dialog).getByTestId('repository-delivery-confirm')
+    expect(confirm).toHaveTextContent(/integrate locally/i)
+    expect(confirm.className).not.toMatch(/bg-destructive/)
+    await waitFor(() => expect(confirm).toHaveFocus())
+    fireEvent.click(confirm)
     expect(onAct).toHaveBeenCalledWith('merge-local', 'api')
   })
 

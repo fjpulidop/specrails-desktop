@@ -1,0 +1,84 @@
+{
+  "title": "Needs you",
+  "subtitle_one": "{{count}} item is waiting for you",
+  "subtitle_other": "{{count}} items are waiting for you",
+  "subtitleEmpty": "Nothing is waiting for you",
+  "loading": "Checking your projects…",
+  "empty": {
+    "title": "Nothing needs you",
+    "description": "Reviews, questions and failures from every project show up here as they happen."
+  },
+  "error": {
+    "title": "Couldn't load the inbox",
+    "description": "The app couldn't read your projects. Try again in a moment.",
+    "retry": "Try again"
+  },
+  "kinds": {
+    "review": "Review ready",
+    "question": "Waiting for your answer",
+    "failed": "Failed",
+    "blocked": "Blocked",
+    "budget": "Paused: spend limit reached",
+    "jira": "Jira sync failed",
+    "failedNoCause": "Stopped before delivery",
+    "capReached": "Spend limit reached"
+  },
+  "actions": {
+    "open": "Open",
+    "openReview": "Open review",
+    "answer": "Answer",
+    "resume": "Resume",
+    "retry": "Retry",
+    "raiseCap": "Raise limit"
+  },
+  "working": "Working…",
+  "rowLabel": "{{action}}: {{title}}",
+  "snooze": {
+    "label": "Snooze",
+    "hour": "1 hour",
+    "tomorrow": "Until tomorrow",
+    "cancel": "Cancel"
+  },
+  "snoozeItem": "Snooze {{title}}",
+  "snoozeFor": "Snooze {{title}} for",
+  "done": "Done",
+  "doneItem": "Mark {{title}} as done",
+  "age": {
+    "now": "just now",
+    "ago": "{{age}} ago"
+  },
+  "button": {
+    "withCount_one": "Inbox, {{count}} item needs you",
+    "withCount_other": "Inbox, {{count}} items need you",
+    "empty": "Inbox, nothing needs you",
+    "title": "{{label}} ({{shortcut}})"
+  },
+  "toast": {
+    "resumed": "Run resumed",
+    "retried": "Retry queued",
+    "resumeFailed": "Couldn't resume the run",
+    "retryFailed": "Couldn't retry the Jira update",
+    "stillOverBudget": "Still over the daily limit",
+    "done": "Marked done",
+    "snoozed": "Snoozed until {{when}}",
+    "undo": "Undo",
+    "stillOverBudget_week": "Still over the weekly limit",
+    "stillOverBudget_month": "Still over the monthly limit"
+  },
+  "cap": {
+    "title": {
+      "project": {
+        "day": "Project daily limit reached",
+        "week": "Project weekly limit reached",
+        "month": "Project monthly limit reached"
+      },
+      "desktop": {
+        "day": "App-wide daily limit reached",
+        "week": "App-wide weekly limit reached",
+        "month": "App-wide monthly limit reached"
+      }
+    },
+    "detail": "{{spent}} of {{budget}} spent"
+  },
+  "stale": "Couldn't refresh — showing the last list."
+}

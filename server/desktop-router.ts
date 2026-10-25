@@ -1,4 +1,9 @@
 import { parseSubagentRuntimeSetting } from './modules/project-settings'
+import { registerInboxRoutes } from './modules/inbox/adapters/http'
+import { registerOnboardingRoutes } from './modules/onboarding/adapters/http'
+import { loadPresetCandidates } from './modules/onboarding/adapters/providers'
+import { createSampleFiles, createSampleGit, createSampleSpecs, createSampleState } from './modules/onboarding/adapters/runtime'
+import { SAMPLE_CATALOG } from './modules/onboarding/catalog'
 import { registerUsageRoutes } from './modules/subscription-usage/adapters/http'
 import type { UsageService } from './modules/subscription-usage/runtime/usage-service'
 import { registerRuntimeRolePromptRoutes } from './runtime-role-prompts-router'
@@ -14,6 +19,8 @@ import type { ProjectRegistry } from './project-registry'
 import { RepositoryValidationError, inspectRepositoryPath, assertDistinctRepositories, getProjectRepositories, resolveRepositoryProject, type ProjectRepositoryInput } from './project-repositories'
 import { GLOBAL_ALLOW_SUBAGENTS_KEY, getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setGlobalSubagentRuntime, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook, getUpdateChannel, setUpdateChannel } from './desktop-db'
 import type { WebhookEvent } from './desktop-db'
+import { DESKTOP_CAP_KEYS, readDesktopCaps } from './modules/execution/adapters/budget-storage'
+import { readSpendOverview } from './modules/execution/runtime/budget-overview'
 import { WebhookManager } from './webhook-manager'
 import { CoreUpdateManager } from './core-update-manager'
 import { API_VERSION } from './api-version'
@@ -370,6 +377,49 @@ export function createDesktopRouter(
 ): Router {
   const router = Router()
   if (usageService) registerUsageRoutes(router, usageService)
+  // "Needs you" inbox: read-only projection across projects (modules/inbox).
+  registerInboxRoutes(router, registry)
+  // Sample-project first run (modules/onboarding): create/remove the bundled
+  // sample project and report launch readiness. Registered before the
+  // `/projects` routes below; it shares their registration side effects.
+  registerOnboardingRoutes(router, {
+    samples: SAMPLE_CATALOG,
+    files: createSampleFiles(),
+    git: createSampleGit(),
+    specs: createSampleSpecs(),
+    state: createSampleState({
+      get: (key) => getDesktopSetting(registry.desktopDb, key),
+      set: (key, value) => setDesktopSetting(registry.desktopDb, key, value),
+    }),
+    providers: ({ refresh }) => loadPresetCandidates(refresh),
+    projects: {
+      register: ({ path: projectPath, name }) => {
+        const canonicalPath = canonicalizePath(path.resolve(projectPath))
+        const detectedNow: string[] = getDetectedIdsSync() ?? []
+        const providers = detectedNow.length > 0 ? [...detectedNow] : ['claude']
+        const slug = allocateSlug(name, new Set(listProjects(registry.desktopDb).map((p) => p.slug)))
+        const id = randomUUID()
+        const ctx = registry.addProject({ id, slug, name, path: canonicalPath, provider: providers[0], providers, repositories: [], workspacePaths: undefined })
+        broadcast({ type: 'desktop.project_added', project: ctx.project, timestamp: new Date().toISOString() })
+        // Same silent, non-blocking workspace assembly as POST /projects.
+        try {
+          if (!isWorkspacePopulated(workspacePathFor(slug))) ctx.setupManager.startSilentAssemble(id, canonicalPath, slug, providers)
+        } catch (err) {
+          console.warn('[desktop] sample silent assemble launch failed (non-fatal):', err)
+        }
+        return { id, name: ctx.project.name, path: canonicalPath }
+      },
+      unregister: (projectId) => {
+        registry.removeProject(projectId)
+        broadcast({ type: 'desktop.project_removed', projectId, timestamp: new Date().toISOString() })
+      },
+      isRegistered: (projectId) => registry.getProjectRow(projectId) !== undefined,
+      get: (projectId) => {
+        const row = registry.getProjectRow(projectId)
+        return row ? { id: row.id, name: row.name, path: row.path } : null
+      },
+    },
+  })
 
   // Loops (global, cross-project library) — /api/loops*. Registered here so the
   // routes live on the global `/api` router (loops are NOT project-scoped). The
@@ -916,8 +966,12 @@ export function createDesktopRouter(
       desktopDailyBudgetUsd != null && desktopDailyBudgetUsd > 0 && unpricedRuns === 0
       ? (costToday / desktopDailyBudgetUsd) * 100
       : null
+    const caps = readDesktopCaps((key) => getDesktopSetting(registry.desktopDb, key))
     res.json({
       desktopDailyBudgetUsd,
+      desktopWeeklyBudgetUsd: caps.week,
+      desktopMonthlyBudgetUsd: caps.month,
+      runCapUsd: caps.run,
       costAlertThresholdUsd,
       costToday,
       pricedRuns,
@@ -929,6 +983,19 @@ export function createDesktopRouter(
   // PATCH /api/budget — update app-level budget settings
   router.patch('/budget', (req, res) => {
     const { desktopDailyBudgetUsd, costAlertThresholdUsd } = req.body ?? {}
+    // Caps beyond the daily budget (CD5): null clears, a number > 0 sets, anything else is a 400.
+    const capFields: Array<[string, string]> = [['desktopWeeklyBudgetUsd', DESKTOP_CAP_KEYS.week], ['desktopMonthlyBudgetUsd', DESKTOP_CAP_KEYS.month], ['runCapUsd', DESKTOP_CAP_KEYS.run]]
+    for (const [field] of capFields) {
+      const value = (req.body ?? {})[field]
+      if (value !== undefined && value !== null && !(typeof value === 'number' && Number.isFinite(value) && value > 0)) {
+        res.status(400).json({ error: 'invalid_cap', field }); return
+      }
+    }
+    for (const [field, key] of capFields) {
+      const value = (req.body ?? {})[field]
+      if (value === null) registry.desktopDb.prepare('DELETE FROM desktop_settings WHERE key = ?').run(key)
+      else if (typeof value === 'number') setDesktopSetting(registry.desktopDb, key, String(value))
+    }
     if (desktopDailyBudgetUsd !== undefined) {
       if (desktopDailyBudgetUsd === null) {
         registry.desktopDb.prepare('DELETE FROM desktop_settings WHERE key = ?').run('desktop_daily_budget_usd')
@@ -944,6 +1011,23 @@ export function createDesktopRouter(
       }
     }
     res.json({ ok: true })
+  })
+
+  // GET /api/budget/caps — app-wide Budget panel read model: the app-wide caps
+  // with their spend (all projects combined), spend per period split by
+  // provider and the month-end projection (an estimate).
+  router.get('/budget/caps', (_req, res) => {
+    try {
+      const at = new Date()
+      res.json({
+        ...readSpendOverview(registry.listContexts().map((c) => ({ db: c.db, projectId: c.project.id })), at),
+        config: readDesktopCaps((key) => getDesktopSetting(registry.desktopDb, key)),
+        caps: registry.desktopCapStatuses(at),
+      })
+    } catch (err) {
+      console.error('[desktop-router] budget caps error:', err)
+      res.status(500).json({ error: 'budget_caps_unavailable' })
+    }
   })
 
   // ─── Agent routes ────────────────────────────────────────────────────────────

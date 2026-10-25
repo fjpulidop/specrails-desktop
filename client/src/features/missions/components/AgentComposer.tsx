@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { SendHorizontal, History, Square, X, Check, Pencil, Terminal, Zap } from 'lucide-react'
+import { SendHorizontal, History, Square, X, Check, Pencil, ListTree, Zap, Paperclip } from 'lucide-react'
 import { useAgentChat } from '../context/AgentChatContext'
+import { useActiveQueued, useIsStreaming } from '../hooks/useAgentLive'
+import { useGuardedTierCycle } from '../hooks/useGuardedTierCycle'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
 import { useBackgroundProcesses } from '../../background/context/BackgroundProcessesContext'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -46,6 +48,7 @@ import {
 import type { BackgroundProcess, JobSummary, LocalTicket } from '../../../types'
 import { AgentProjectSelector } from './AgentProjectSelector'
 import { AgentTierChip } from './AgentTierChip'
+import { MissionModeBadge } from './MissionModeBadge'
 import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentRuntimeSelector } from './AgentRuntimeSelector'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
@@ -60,6 +63,7 @@ import { backgroundProcessKey } from '../../background/lib/background-processes-
 import { useAvailableProviders } from '../../providers/hooks/useAvailableProviders'
 import { isPublicProvider, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
 
+import { notifyError } from '../../../lib/notify-error'
 function replaceInlineRange(
   text: string,
   references: AgentInlineReference[],
@@ -100,6 +104,7 @@ const EMPTY_ATTACHMENTS: AgentAttachment[] = []
 export function AgentComposer({
   autoFocus = false,
   hideProjectSelector = false,
+  showModeBadge = true,
   queueEditRequest,
 }: {
   autoFocus?: boolean
@@ -107,16 +112,25 @@ export function AgentComposer({
    *  (next to the Agent title), so the composer's own copy is hidden. Agent
    *  Mode keeps the composer selector on the EMPTY compose screen. */
   hideProjectSelector?: boolean
+  /** The inline Agent-Mode dock passes false: its mission header already names
+   *  the conversation mode (Flow), so the control row stays light. The EMPTY
+   *  composer and the floating panel (no header) keep the badge. */
+  showModeBadge?: boolean
   queueEditRequest?: { conversationId: string; queueId: string; revision: number }
 }) {
   const { t } = useTranslation('agent')
   const {
-    active, messages, conversations, isStreaming, providersReady, draftPinnedProjectId,
+    active, messages, conversations, providersReady, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    send, abort, cycleTier, setProvider, setModel, setPinnedProject, materializeDraftConversation,
-    queuedMessages: allQueuedMessages, editQueuedMessage, wasQueueConsumed,
+    send, abort, setProvider, setModel, setPinnedProject, materializeDraftConversation,
+    editQueuedMessage, wasQueueConsumed,
   } = useAgentChat()
+  const isStreaming = useIsStreaming()
+  const allQueuedMessages = useActiveQueued()
   const queuedMessages = useMemo(() => allQueuedMessages.filter((item) => item.deliveryMode !== 'steer'), [allQueuedMessages])
+  const cycleTier = useGuardedTierCycle()
+  const paletteId = useId()
+  const [dragOver, setDragOver] = useState(false)
   const { pendingCaptures, consumePendingCaptures, openBrowser } = useAgentWorkspace()
   const { processes: backgroundProcesses, history: backgroundProcessHistory = backgroundProcesses, historyLoading = false, historyError = null, refreshHistory, kill: killBackgroundProcess } = useBackgroundProcesses()
   const [selectedProcess, setSelectedProcess] = useState<BackgroundProcess | null>(null)
@@ -216,6 +230,7 @@ export function AgentComposer({
   // strip shows the worktree branch.
   const conversationMode = useMissionConversationMode(active?.id ?? null, active?.pinned_project_id ?? null)
   const interrupting = isStreaming && !!conversationMode?.interruptWhileBusy
+  const composerMode = conversationMode?.composer ?? null
 
   const fileQuery = paletteTrigger?.mode === 'reference' ? paletteTrigger.query.trim() : ''
   const fileQueryKey = `${pinnedProjectId ?? ''}:${fileQuery}`
@@ -377,21 +392,23 @@ export function AgentComposer({
         conversation = await materializeDraftConversation()
         adoptNewMissionDrafts(conversation.id)
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : t('workspace.uploadFailed'))
+        notifyError(t('workspace.uploadFailed'), { detail: err instanceof Error ? err.message : undefined })
         setUploading(false)
         return
       }
     }
+    // Unsupported images are rejected as ONE toast for the whole drop/pick.
+    const rejectedImages = supportsImage ? 0 : files.filter((f) => f.type.startsWith('image/')).length
+    if (rejectedImages > 0) {
+      notifyError(rejectedImages === 1 ? t('imagesUnsupported') : t('imagesUnsupportedCount', { count: rejectedImages }))
+    }
     for (const f of files) {
-      if (!supportsImage && f.type.startsWith('image/')) {
-        toast.error(t('imagesUnsupported'))
-        continue
-      }
+      if (!supportsImage && f.type.startsWith('image/')) continue
       try {
         const att = await uploadAgentAttachment(conversation.id, f)
         setAttachmentDraft(conversation.id, (prev) => [...prev, att])
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : t('workspace.uploadFailed'))
+        notifyError(t('workspace.uploadFailed'), { detail: err instanceof Error ? err.message : undefined })
       }
     }
     setUploading(false)
@@ -401,7 +418,7 @@ export function AgentComposer({
       if (active) await deleteAgentAttachment(active.id, id)
       setAttachmentDraft(draftKey, (prev) => prev.filter((a) => a.id !== id))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to remove attachment.')
+      notifyError(t('errors.removeAttachmentFailed'), { detail: err instanceof Error ? err.message : undefined })
     }
   }
 
@@ -506,7 +523,7 @@ export function AgentComposer({
       }
     } catch {
       // Stay in edit mode with the text intact — the user can retry Enter.
-      toast.error(t('queueEdit.saveFailed'))
+      notifyError(t('queueEdit.saveFailed'))
     }
   }
   // Drain race: the slot being edited left the queue (its turn started, or the
@@ -566,7 +583,7 @@ export function AgentComposer({
       setComposerSubmission(targetKey, null)
     } catch (error) {
       restoreSubmittedComposerDraft(draftKey, submitted)
-      toast.error(error instanceof Error ? error.message : t('queueEdit.saveFailed'))
+      notifyError(t('errors.sendFailed'), { detail: error instanceof Error && error.message ? error.message : t('errors.sendFailedHint') })
     } finally {
       submittingRef.current = false
       setSubmitting(false)
@@ -589,7 +606,7 @@ export function AgentComposer({
     if (e.key === 'Tab' && e.shiftKey) {
       e.preventDefault()
       e.stopPropagation() // the view wrapper also listens — don't cycle twice
-      void cycleTier()
+      cycleTier()
       return
     }
     if (paletteOpen) {
@@ -697,24 +714,24 @@ export function AgentComposer({
       {inQueueEdit && editingItem && (
         <div
           data-testid="queue-edit-chip"
-          className="mb-1 flex items-center gap-1.5 rounded-md border border-accent-highlight/30 bg-accent-highlight/10 px-2 py-1 text-[11px] text-accent-highlight"
+          className="mb-1 flex items-center gap-1.5 rounded-md border border-accent-highlight/30 bg-accent-highlight/10 px-2 py-1 text-xs text-accent-highlight"
         >
           <Pencil className="h-3 w-3 shrink-0" />
           <span className="font-medium">{t('queueEdit.editing', { n: editIdx + 1, m: queuedMessages.length })}</span>
-          <span className="truncate text-foreground/45">{t('queueEdit.hint')}</span>
+          <span className="truncate text-muted-foreground">{t('queueEdit.hint')}</span>
           <button
             type="button"
             onClick={() => exitQueueEdit('restore')}
             aria-label={t('queueEdit.cancel')}
             title={t('queueEdit.cancel')}
-            className="ml-auto rounded-sm p-0.5 text-foreground/50 hover:bg-muted hover:text-foreground"
+            className="ml-auto rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
           >
             <X className="h-3 w-3" />
           </button>
         </div>
       )}
       {inHistory && (
-        <div className="mb-1 flex items-center gap-1.5 px-1 text-[11px] text-foreground/50">
+        <div className="mb-1 flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
           <History className="h-3 w-3" />
           {t('history.hint')}
         </div>
@@ -726,7 +743,7 @@ export function AgentComposer({
               key={a.id}
               conversationId={activeId}
               attachment={a}
-              removeLabel={t('close')}
+              removeLabel={t('attachment.remove', { name: a.filename })}
               onRemove={() => removeAttachment(a.id)}
             />
           ))}
@@ -734,7 +751,6 @@ export function AgentComposer({
       )}
       {(compactProcesses.length > 0) && (
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-
           {compactProcesses.map((process, index) => (
             <BackgroundProcessChip
               key={backgroundProcessKey(process)}
@@ -749,20 +765,46 @@ export function AgentComposer({
       <div
         data-testid="agent-composer-box"
         data-mission-composer
-        className={`relative flex flex-col gap-2 rounded-3xl border bg-card px-3 py-3 ${
-          inQueueEdit ? 'border-accent-highlight/50' : inHistory ? 'border-accent-info/40' : 'border-border/30'
+        data-composer-mode={composerMode ? 'extension' : undefined}
+        data-drag-over={dragOver || undefined}
+        className={`relative flex flex-col gap-2 rounded-panel border bg-surface px-3 py-3 shadow-2 transition-colors ${
+          dragOver
+            ? 'border-dashed border-accent-primary bg-accent-primary/5'
+            : inQueueEdit ? 'border-accent-highlight/50' : inHistory ? 'border-dashed border-foreground/35'
+              : 'border-border/30 focus-within:border-accent-primary/50 focus-within:ring-1 focus-within:ring-accent-primary/20'
         }`}
-        onDragOver={(e) => { if (canAttach) { e.preventDefault() } }}
+        onDragOver={(e) => {
+          if (!canAttach) return
+          e.preventDefault()
+          if (!dragOver && Array.from(e.dataTransfer?.types ?? []).includes('Files')) setDragOver(true)
+        }}
+        onDragLeave={(e) => {
+          // Leaving into a child is not leaving the drop target.
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+          setDragOver(false)
+        }}
         onDrop={(e) => {
+          setDragOver(false)
           if (!canAttach) return
           e.preventDefault()
           const files = Array.from(e.dataTransfer.files)
           if (files.length) void uploadFiles(files)
         }}
       >
-        <AgentThinkingHalo active={isStreaming} radius="1.5rem" inset={-1} />
+        {dragOver && (
+          <div
+            aria-hidden
+            data-testid="agent-composer-drop-hint"
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center gap-2 rounded-3xl bg-card/85 text-sm font-medium text-accent-primary"
+          >
+            <Paperclip className="h-4 w-4" />
+            {t('composer.dropFiles')}
+          </div>
+        )}
+        <AgentThinkingHalo active={isStreaming} radius="calc(var(--radius-panel) + 1px)" inset={-1} />
         {paletteOpen && (
           <AgentContextPalette
+            paletteId={paletteId}
             items={visiblePaletteItems}
             mode={paletteTrigger.mode}
             query={paletteTrigger.query}
@@ -818,10 +860,22 @@ export function AgentComposer({
               if (files.length) { e.preventDefault(); void uploadFiles(files) }
             }}
             disabled={blocked}
-            placeholder={blocked ? t('noProvider.placeholder') : interrupting ? t('interrupt.placeholder') : isStreaming ? t('queue.placeholder') : t(`missionPlaceholders.${welcomeIndex}`, { defaultValue: t('composerPlaceholder') })}
+            ariaLabel={t('composer.ariaLabel')}
+            ariaExpanded={paletteOpen}
+            ariaControls={paletteOpen ? paletteId : undefined}
+            ariaActiveDescendant={paletteOpen && visiblePaletteItems.length > 0 ? `${paletteId}-opt-${activePaletteIndex}` : undefined}
+            placeholder={
+              blocked ? t('noProvider.placeholder')
+                : interrupting ? t('interrupt.placeholder')
+                  : isStreaming ? t('queue.placeholder')
+                    : composerMode?.placeholder
+                      // A mission in progress asks for a reply; only the EMPTY
+                      // compose screen invites a new mission.
+                      ?? (active ? t('composerReplyPlaceholder') : t(`missionPlaceholders.${welcomeIndex}`, { defaultValue: t('composerPlaceholder') }))
+            }
             title={inQueueEdit ? t('queueEdit.hint') : inHistory ? t('history.hint') : undefined}
             className={`min-h-[2.5rem] max-h-64 min-w-0 w-full resize-none overflow-y-auto bg-transparent text-sm outline-none ${
-              inHistory ? 'italic text-foreground/50' : 'text-foreground'
+              inHistory ? 'italic text-muted-foreground' : 'text-foreground'
             }`}
           />
         </div>
@@ -846,8 +900,27 @@ export function AgentComposer({
             openBrowser()
           }}
         />}
-          <AgentTierChip compact level={active?.tier_level ?? draftTierLevel} onCycle={() => void cycleTier()} />
-          {activeId && backgroundProjectId && <button type="button" onClick={() => setProcessHistoryScope({ chatId: activeId, projectId: backgroundProjectId })} aria-label={t('backgroundProcess.history.open')} title={t('backgroundProcess.history.open')} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md p-1.5 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"><Terminal className="h-4 w-4" aria-hidden /></button>}        {active === null && !hideProjectSelector && (
+          <AgentTierChip compact level={active?.tier_level ?? draftTierLevel} onCycle={cycleTier} />
+          {composerMode && (active === null || showModeBadge) && <MissionModeBadge badge={composerMode.badge} variant="composer" testId="agent-composer-mode-chip" />}
+          {activeId && backgroundProjectId && (
+            <button
+              type="button"
+              onClick={() => setProcessHistoryScope({ chatId: activeId, projectId: backgroundProjectId })}
+              aria-label={t('backgroundProcess.history.open')}
+              title={t('backgroundProcess.history.open')}
+              data-testid="agent-composer-processes"
+              className="relative inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-1.5 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+            >
+              <ListTree className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="hidden @min-[640px]:inline">{t('backgroundProcess.history.button')}</span>
+              {backgroundProcesses.length > 0 && (
+                <span aria-hidden className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-info/15 px-1 text-caption font-medium tabular-nums text-accent-info">
+                  {backgroundProcesses.length}
+                </span>
+              )}
+            </button>
+          )}
+          {active === null && !hideProjectSelector && (
           <div className="flex min-w-0 items-center overflow-hidden [&_button]:h-8 [&_button]:text-sm [&_button_span]:max-w-20 @max-[640px]:[&_button_span]:hidden"><AgentProjectSelector
             pinnedProjectId={draftPinnedProjectId}
             onSelect={(id) => void setPinnedProject(id)}
@@ -859,13 +932,13 @@ export function AgentComposer({
               models={models} model={effectiveModel} efforts={efforts} effort={effort}
               defaultEffort={defaultReasoningEffortForProvider(provider, effectiveModel) ?? ''}
               status={providerCatalog.status} customModelAliases={customModelAliases}
-              onProvider={value => { void setProvider(value).catch(() => toast.error(t('error.generic'))) }}
-              onModel={value => { void setModel(value).catch(() => toast.error(t('error.generic'))) }}
-              onEffort={value => { void setEffort(value).catch(() => toast.error(t('error.generic'))) }} />
+              onProvider={value => { void setProvider(value).catch(() => notifyError(t('errors.providerSwitchFailed'))) }}
+              onModel={value => { void setModel(value).catch(() => notifyError(t('errors.modelSwitchFailed'))) }}
+              onEffort={value => { void setEffort(value).catch(() => notifyError(t('errors.effortSwitchFailed'))) }} />
         {/* Stop remains separate from Send/Save so typing never hides it. */}
         {isStreaming && (
           <button type="button" onClick={() => void abort()} aria-label={t('stop')} title={t('stop')}
-            className="inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-destructive p-1.5 text-white transition-colors hover:opacity-90">
+            className="inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-destructive p-1.5 text-destructive-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card">
             <Square className="h-4 w-4" fill="currentColor" />
           </button>
         )}
@@ -876,7 +949,7 @@ export function AgentComposer({
             disabled={blocked || !input.trim()}
             aria-label={t('queueEdit.save')}
             title={t('queueEdit.save')}
-            className="inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-highlight p-1.5 text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-highlight p-1.5 text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Check className="h-4 w-4" />
           </button>
@@ -888,7 +961,7 @@ export function AgentComposer({
             aria-label={t('interrupt.send')}
             title={t('interrupt.sendHint')}
             data-testid="agent-composer-interrupt"
-            className="relative inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-highlight p-1.5 text-background transition-colors hover:opacity-90 disabled:opacity-40"
+            className="relative inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-highlight p-1.5 text-background transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Zap className="h-4 w-4" />
           </button>
@@ -899,7 +972,7 @@ export function AgentComposer({
             disabled={blocked || !hasDraft || submitting}
             aria-label={t('queue.send')}
             title={t('queue.sendHint')}
-            className="relative inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-info p-1.5 text-white transition-colors hover:opacity-90"
+            className="relative inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-info p-1.5 text-background transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <SendHorizontal className="h-4 w-4" />
           </button>
@@ -909,7 +982,8 @@ export function AgentComposer({
             onClick={submit}
             disabled={blocked || !hasDraft || submitting}
             aria-label={t('send')}
-            className="inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
+            title={t('sendHint')}
+            className="inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-primary p-1.5 text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <SendHorizontal className="h-4 w-4" />
           </button>
@@ -918,8 +992,9 @@ export function AgentComposer({
         </div>
       </div>
       {/* Git strip: current branch (switchable) + last commit of the mission's
-          pinned project. Hidden without a project or outside a git repo. */}
-      {gitProjectId && <AgentGitBar projectId={gitProjectId} branchOverride={conversationMode?.gitBranch ?? null} />}
+          pinned project. Hidden without a project, outside a git repo, or when
+          the conversation's extension shows its own branch (the Flow bar). */}
+      {gitProjectId && !conversationMode?.hideGitStrip && <AgentGitBar projectId={gitProjectId} branchOverride={conversationMode?.gitBranch ?? null} />}
       {selectedProcess && selectedProcess.chatId === activeId && selectedProcess.projectId === backgroundProjectId && (
         <BackgroundProcessLogsModal
           process={backgroundProcessHistory.find(process => backgroundProcessKey(process) === backgroundProcessKey(selectedProcess)) ?? selectedProcess}

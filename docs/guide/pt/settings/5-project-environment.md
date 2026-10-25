@@ -1,4 +1,4 @@
-# Ambiente do projeto
+# Ambiente do projeto {#project-environment}
 
 Alguns projetos precisam de uma credencial durante a execução, como `NODE_AUTH_TOKEN` para pacotes npm privados. Em **Configurações do projeto → Ambiente**, adicione os **nomes** das variáveis de que seus rails e loops precisam. O Specrails guarda apenas os nomes, nunca os valores.
 

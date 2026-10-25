@@ -7,7 +7,7 @@ import request from 'supertest'
 import { initDb, type DbInstance } from '../../../db'
 import {
   aggregateLoopEconomics, countLoopRounds, getLoopEconomics, isDelivered, listRecentDeliveries,
-  summarizeInvocationCost, type LoopEconomicsDelivery, type LoopEconomicsDeliveryRow,
+  requirementsFromSettleEvidence, summarizeInvocationCost, type LoopEconomicsDelivery, type LoopEconomicsDeliveryRow,
 } from './loop-economics'
 import { recordInvocation } from './ai-invocations'
 import { registerSpendingRoutes } from '../../../project-router-spending'
@@ -198,6 +198,17 @@ describe('getLoopEconomics + GET /analytics/loop-economics', () => {
     expect(result.project).toMatchObject({ delivered: 3, merged: 1, discarded: 1, escapedDefects: 1 })
   })
 
+  it('fills requirements demonstrated from the settle evidence spec traces', () => {
+    const evidence = (requirements: number, demonstrated: number) => JSON.stringify({ units: [{ specTrace: { requirements, demonstrated: Array.from({ length: demonstrated }, (_, i) => ({ id: `c/r${i}` })) } }] })
+    db.prepare(`UPDATE rail_pr_deliveries SET settle_evidence = ? WHERE id = 'a'`).run(evidence(4, 3))
+    db.prepare(`UPDATE rail_pr_deliveries SET settle_evidence = ? WHERE id = 'b'`).run(evidence(2, 0))
+    const result = getLoopEconomics(db, { period: '7d' })
+    expect(result.sources.requirementsDemonstrated).toBe('measured')
+    expect(result.byLoop[0].requirementsDemonstrated).toEqual({ demonstrated: 3, total: 6, deliveries: 2 })
+    expect(result.byLoop[1].requirementsDemonstrated).toBeNull()
+    expect(result.project.requirementsDemonstrated).toEqual({ demonstrated: 3, total: 6, deliveries: 2 })
+  })
+
   it('serves the documented shape, reads regression links from tickets and validates the period', async () => {
     let res = await request(app).get('/api/projects/p/analytics/loop-economics?period=7d')
     expect(res.status).toBe(200)
@@ -232,5 +243,14 @@ describe('getLoopEconomics + GET /analytics/loop-economics', () => {
     const res = await request(app).get('/api/projects/p/analytics/loop-economics/deliveries?limit=1')
     expect(res.status).toBe(200)
     expect(res.body.deliveries).toEqual([{ id: 'q', loopId: 'factory:sdd-quick', loopName: 'SDD Quick', decision: 'on_review', ticketIds: [1], createdAt: expect.any(String) }])
+  })
+})
+
+describe('requirementsFromSettleEvidence', () => {
+  it('sums unit traces and keeps unknown null', () => {
+    expect(requirementsFromSettleEvidence(null)).toBeNull()
+    expect(requirementsFromSettleEvidence('{"units":[{"runId":"r"}]}')).toBeNull()
+    expect(requirementsFromSettleEvidence('{"specTrace": broken')).toBeNull()
+    expect(requirementsFromSettleEvidence(JSON.stringify({ units: [{ specTrace: { requirements: 3, demonstrated: [{}, {}] } }, { specTrace: { requirements: 'x', demonstrated: [{}] } }, { specTrace: { demonstrated: 'no' } }] }))).toEqual({ demonstrated: 3, total: 4 })
   })
 })

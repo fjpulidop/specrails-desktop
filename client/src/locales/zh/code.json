@@ -54,7 +54,9 @@
     "save": "保存",
     "saving": "保存中…",
     "saved": "文件已保存",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "budgetPromptBody": "文件摘要的 AI 预算上限已用完。仍然重新生成会在上限之外再运行一次摘要。",
+    "budgetPromptConfirm": "仍然重新生成"
   },
   "summary": {
     "generationFailed": "摘要生成失败",
@@ -150,7 +152,7 @@
     "loadingEditor": "正在加载编辑器…"
   },
   "ticketFiles": {
-    "title": "此工单改动的文件",
+    "title": "此规格改动的文件",
     "jobTitle": "任务 {{jobId}}",
     "loading": "正在加载已记录的文件…",
     "loadFailed": "无法加载已记录的文件。",

@@ -1,4 +1,4 @@
-# The mobile companion
+# The mobile companion {#mobile-companion}
 
 Specrails has a companion phone app so you can keep an eye on your rails while you're away from your desk — watch jobs run, see them finish, and stay in the loop without sitting in front of the dashboard.
 

@@ -16,7 +16,7 @@ const LOOPS: TriageLoopOption[] = [
 
 const ANSWER = JSON.stringify({
   size: 'S', filesLikely: ['server/a.ts'], publicInterfaces: false, dataModel: false, securitySurface: false,
-  recommendedLoop: 'factory:sdd-quick-openspec', recommendedMode: 'implement', rationale: 'Single file', confidence: 'high',
+  recommendedLoop: 'factory:sdd-quick-openspec', rationale: 'Single file', confidence: 'high',
 })
 
 function result(text = ANSWER): TriageModelResult {
@@ -49,7 +49,6 @@ describe('SpecTriageService', () => {
   const service = (overrides: Partial<SpecTriageDeps> = {}) => new SpecTriageService({
     project: { id: 'p1', slug: 'p1', path: dir, provider: 'claude', providers: ['claude'] },
     db, ticketsPath: () => file, broadcast, notifyDesktopWrite: notify,
-    flowAvailable: async () => false,
     resolveEngine: () => ({ ok: true, engine: { provider: 'claude', model: 'haiku' } }),
     runModel, repoMap: () => null, loops: () => LOOPS, autoEnabled: () => true, debounceMs: 5,
     now: () => new Date('2026-10-22T10:00:00.000Z'),
@@ -178,7 +177,7 @@ describe('SpecTriageService', () => {
 describe('hashTriageInputs', () => {
   const inputs = (engine: string | null): TriageInputs => ({
     promptVersion: TRIAGE_PROMPT_VERSION, ticket: triageTicketText({ title: 'T', labels: ['b', 'a'] }), repoMap: null,
-    similarFiles: [], loops: LOOPS, flowAvailable: false, engine,
+    similarFiles: [], loops: LOOPS, engine,
   })
   it('is stable and sensitive to the engine', () => {
     expect(hashTriageInputs(inputs('claude:haiku'))).toBe(hashTriageInputs({ ...inputs('claude:haiku'), ticket: triageTicketText({ labels: ['a', 'b'], title: 'T' }) }))

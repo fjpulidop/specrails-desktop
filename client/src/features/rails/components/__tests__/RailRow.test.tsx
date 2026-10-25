@@ -40,7 +40,7 @@ describe('RailRow', () => {
 
   it('shows empty drop zone when no tickets', () => {
     renderRailRow()
-    expect(screen.getByText('Drag specs here')).toBeInTheDocument()
+    expect(screen.getByText('Drop a spec onto this rail')).toBeInTheDocument()
   })
 
   it('clicking label enters edit mode', () => {
@@ -104,14 +104,10 @@ describe('RailRow', () => {
 
   it('delete button calls onDelete in jiggle mode', () => {
     const onDelete = vi.fn()
-    const { container } = renderRailRow({ ...defaultProps, jiggleMode: true, onDelete })
-    // Jiggle delete button has only a Trash2 icon, no text — find by svg
-    const svgs = container.querySelectorAll('button svg')
-    const deleteBtn = Array.from(svgs).map(s => s.closest('button')!).find(
-      b => b.classList.contains('bg-red-500')
-    )
-    expect(deleteBtn).toBeDefined()
-    fireEvent.click(deleteBtn!)
+    renderRailRow({ ...defaultProps, jiggleMode: true, onDelete })
+    // The icon-only jiggle delete is named for assistive tech.
+    const deleteBtn = screen.getByRole('button', { name: /^delete /i })
+    fireEvent.click(deleteBtn)
     expect(onDelete).toHaveBeenCalled()
   })
 
@@ -137,7 +133,7 @@ describe('RailRow', () => {
 
     it('omits the drop zone in compact mode', () => {
       renderRailRow({ ...defaultProps, density: 'compact' } as any)
-      expect(screen.queryByText('Drag specs here')).not.toBeInTheDocument()
+      expect(screen.queryByText('Drop a spec onto this rail')).not.toBeInTheDocument()
     })
 
     it('renders clickable id pills for each assigned ticket and opens via onTicketClick', () => {
@@ -302,5 +298,74 @@ describe('RailRow spec triage preselection (launch-triage)', () => {
   it('never preselects a loop the picker does not offer', () => {
     renderRailRow({ ...base, tickets: [triaged(1, 'factory:sdd-quick-openspec')] } as any)
     expect(screen.getByTestId('rail-loop-selector')).toHaveValue('factory:implement')
+  })
+})
+
+describe('RailRow status dot', () => {
+  it('names the rail status for assistive tech (not colour-only)', () => {
+    renderRailRow({ ...defaultProps, status: 'failed' as never })
+    expect(screen.getByRole('img', { name: 'Failed' }).querySelector('.bg-destructive')).not.toBeNull()
+  })
+
+  it('reports an idle rail', () => {
+    renderRailRow()
+    expect(screen.getByRole('img', { name: 'Idle' })).toBeInTheDocument()
+  })
+
+  describe('deleting without losing the rail by accident', () => {
+    it('Backspace / Delete on the focused rail asks first and only deletes on confirm', () => {
+      const onDelete = vi.fn()
+      renderRailRow({ ...defaultProps, onDelete })
+      const row = screen.getByRole('group', { name: 'Rail 1' })
+      fireEvent.keyDown(row, { key: 'Backspace' })
+      expect(onDelete).not.toHaveBeenCalled()
+      const dialog = screen.getByTestId('rail-delete-confirm-rail-1')
+      expect(within(dialog).getByText('Delete Rail 1?')).toBeInTheDocument()
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete rail' }))
+      expect(onDelete).toHaveBeenCalledTimes(1)
+    })
+
+    it('cancelling the confirmation keeps the rail', () => {
+      const onDelete = vi.fn()
+      renderRailRow({ ...defaultProps, onDelete })
+      fireEvent.keyDown(screen.getByRole('group', { name: 'Rail 1' }), { key: 'Delete' })
+      fireEvent.click(within(screen.getByTestId('rail-delete-confirm-rail-1')).getByRole('button', { name: 'Cancel' }))
+      expect(onDelete).not.toHaveBeenCalled()
+    })
+
+    it('right-click opens a rail menu whose Delete rail item also confirms first', () => {
+      const onDelete = vi.fn()
+      renderRailRow({ ...defaultProps, onDelete })
+      fireEvent.mouseDown(screen.getByRole('group', { name: 'Rail 1' }), { button: 2 })
+      fireEvent.click(within(screen.getByTestId('rail-context-menu-rail-1')).getByRole('menuitem', { name: 'Delete rail' }))
+      expect(onDelete).not.toHaveBeenCalled()
+      expect(screen.getByTestId('rail-delete-confirm-rail-1')).toBeInTheDocument()
+    })
+
+    it('right-click on the rename input keeps the native menu (no Delete rail menu)', () => {
+      renderRailRow({ ...defaultProps, onDelete: vi.fn() })
+      fireEvent.click(screen.getByRole('button', { name: 'Rail 1' }))
+      const input = screen.getByRole('textbox')
+      expect(fireEvent.mouseDown(input, { button: 2 })).toBe(true)
+      expect(screen.queryByTestId('rail-context-menu-rail-1')).not.toBeInTheDocument()
+      expect(fireEvent.contextMenu(input)).toBe(true)
+    })
+
+    it('hands focus back to the rail row when the menu and its confirmation close', () => {
+      renderRailRow({ ...defaultProps, onDelete: vi.fn() })
+      const row = screen.getByRole('group', { name: 'Rail 1' })
+      fireEvent.mouseDown(row, { button: 2 })
+      fireEvent.click(within(screen.getByTestId('rail-context-menu-rail-1')).getByRole('menuitem', { name: 'Delete rail' }))
+      fireEvent.click(within(screen.getByTestId('rail-delete-confirm-rail-1')).getByRole('button', { name: 'Cancel' }))
+      expect(document.activeElement).toBe(row)
+    })
+
+    it('a running rail has neither the shortcut nor the menu', () => {
+      renderRailRow({ ...defaultProps, status: 'running' as const })
+      // A running rail is not focusable as a deletable group at all.
+      expect(screen.queryByRole('group', { name: 'Rail 1' })).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rail-delete-confirm-rail-1')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rail-context-menu-rail-1')).not.toBeInTheDocument()
+    })
   })
 })

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -15,6 +14,7 @@ import {
 } from '../../../providers/lib/provider-capabilities'
 import { modelsForProvider } from '../../../loops/lib/loop-run-models'
 import { CustomModelAliasInput } from '../../../providers/components/CustomModelAliasInput'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 export interface SpecModelOption {
   value: string
@@ -76,7 +76,7 @@ export function SpecModelPicker({
       >
         {loading ? (
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-            <Loader2 className="w-3 h-3 animate-spin" />
+            <LiveDot tone="muted" size="xs" aria-hidden />
             {t('common:states.loading')}
           </span>
         ) : (

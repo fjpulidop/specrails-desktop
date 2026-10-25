@@ -27,22 +27,22 @@
     "priority": "Prioridad",
     "labels": "Etiquetas",
     "markdownPlaceholder": "Descripción en Markdown...",
-    "supportsMarkdown": "Admite Markdown"
+    "supportsMarkdown": "Admite Markdown",
+    "removeLabel": "Quitar la etiqueta {{label}}"
   },
   "meta": {
     "createdAgo": "Creado {{time}}",
     "updatedAgo": "Actualizado {{time}}"
   },
   "untitled": "Sin título",
-  "deleteDialog": {
-    "title": "Eliminar ticket",
-    "body": "¿Seguro que quieres eliminar <strong>#{{id}} {{title}}</strong>? Esta acción no se puede deshacer."
-  },
   "detailModal": {
+    "moreActions": "Más acciones",
+    "openReview": "Abrir revisión",
+    "viewJob": "Ver trabajo",
     "toast": {
-      "updated": "Ticket actualizado",
-      "updateFailed": "No se pudo actualizar el ticket",
-      "deleteFailed": "No se pudo eliminar el ticket"
+      "updated": "Spec actualizada",
+      "updateFailed": "No se pudo actualizar la spec",
+      "deleteFailed": "No se pudo eliminar la spec"
     },
     "compare": "Comparar",
     "compareTooltip": "Comparar con otra spec",
@@ -54,7 +54,8 @@
     "effort": "Esfuerzo",
     "assignee": "Asignado a",
     "continueEditing": "Seguir editando",
-    "ticketFallbackLabel": "Ticket #{{id}}"
+    "ticketFallbackLabel": "Spec #{{id}}",
+    "spendingLineHint": "Todo lo gastado en esta spec hasta ahora: coste total · turnos del agente (un + al final indica que algunas ejecuciones no informaron turnos) · tiempo activo · ejecuciones por tipo (p. ej. «1 quick, 3 loops» = una generación Quick de la spec y tres ejecuciones de loop). Haz clic para abrirlo en Analíticas."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -68,8 +69,8 @@
     "noRails": "No hay rails disponibles."
   },
   "contextMenu": {
-    "ariaLabel": "Acciones del ticket",
-    "deleteTicket": "Eliminar ticket",
+    "ariaLabel": "Acciones de la spec",
+    "deleteTicket": "Eliminar spec",
     "changeStatus": "Cambiar estado",
     "statusOptions": "Opciones de estado",
     "setPriority": "Establecer prioridad",
@@ -81,15 +82,16 @@
     "postit": "Vista post-it"
   },
   "createModal": {
-    "title": "Crear ticket",
-    "titlePlaceholder": "Título del ticket...",
+    "title": "Crear spec",
+    "titlePlaceholder": "Título de la spec...",
     "labelsPlaceholder": "Escribe para añadir etiquetas...",
     "create": "Crear",
     "creating": "Creando...",
     "toast": {
-      "created": "Ticket creado",
-      "createFailed": "No se pudo crear el ticket"
-    }
+      "created": "Spec creada",
+      "createFailed": "No se pudo crear la spec"
+    },
+    "description": "Añade una spec al tablero a mano. Empieza en el estado que elijas y podrás refinarla o moverla a un rail más tarde."
   },
   "comparePicker": {
     "title": "Comparar con…",
@@ -99,21 +101,23 @@
     "empty": "No hay otras specs para comparar"
   },
   "spendingLine": {
-    "ariaLabel": "Ver el gasto del ticket en Analíticas",
-    "turns_one": "{{count}} turno",
-    "turns_other": "{{count}} turnos",
+    "ariaLabel": "Ver el gasto de la spec en Analíticas",
+    "turns_one": "{{count}} turno del agente",
+    "turns_other": "{{count}} turnos del agente",
+    "turnsAtLeast_one": "{{count}}+ turno del agente",
+    "turnsAtLeast_other": "{{count}}+ turnos del agente",
     "active": "{{duration}} activo",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimado a partir de la tabla de precios local — este proveedor no informa el coste de forma nativa.",
-    "costUnavailableTooltip": "Ninguna invocación de este ticket expuso telemetría de coste.",
+    "costUnavailableTooltip": "Ninguna invocación de esta spec expuso telemetría de coste.",
     "costPartiallyUnavailableTooltip": "Solo subtotal de coste conocido; algunas invocaciones no expusieron telemetría.",
-    "turnsUnavailableTooltip": "La telemetría de turnos no está disponible para este ticket.",
+    "turnsUnavailableTooltip": "La telemetría de turnos no está disponible para esta spec.",
     "turnsPartiallyUnavailableTooltip": "Solo subtotal de turnos conocido; algunas invocaciones no expusieron telemetría."
   },
   "toasts": {
-    "newTicket": "Nuevo ticket: {{title}}",
-    "newTicketsAdded_one": "{{count}} ticket nuevo añadido desde product discovery",
-    "newTicketsAdded_other": "{{count}} tickets nuevos añadidos desde product discovery"
+    "newTicket": "Nueva spec: {{title}}",
+    "newTicketsAdded_one": "{{count}} spec nueva añadida desde product discovery",
+    "newTicketsAdded_other": "{{count}} specs nuevas añadidas desde product discovery"
   },
   "addenda": {
     "title": "Anexos",
@@ -136,7 +140,7 @@
     },
     "statusHint": {
       "open": "Viaja con el próximo lanzamiento de esta spec",
-      "in_flight": "Reclamado por un job en ejecución — congelado hasta que termine",
+      "in_flight": "Reclamado por un trabajo en ejecución — congelado hasta que termine",
       "applied": "Entregado por una ejecución completada",
       "dismissed": "Retirado — no se inyecta"
     },
@@ -187,5 +191,137 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Entrega desconocida ({{id}})"
+  },
+  "nonGoals": {
+    "title": "Fuera de alcance",
+    "ariaLabel": "Fuera de alcance, un elemento por línea",
+    "placeholder": "Lo que esta spec deliberadamente no cambia ni entrega. Un elemento por línea",
+    "onePerLine": "Un elemento por línea",
+    "add": "Añade lo que esta spec deja fuera"
+  },
+  "split": {
+    "label": "Comparar specs",
+    "resize": "Redimensionar paneles"
+  },
+  "timeline": {
+    "tabs": {
+      "aria": "Secciones de la spec",
+      "details": "Detalles",
+      "timeline": "Cronología"
+    },
+    "filters": {
+      "aria": "Filtrar por tipo"
+    },
+    "kinds": {
+      "spec_edit": "Spec",
+      "addendum": "Adendas",
+      "mission_turn": "Misiones",
+      "job": "Ejecuciones",
+      "phase": "Fases",
+      "audit": "Acciones",
+      "pr_event": "PR",
+      "review": "Revisión"
+    },
+    "loading": "Cargando la cronología…",
+    "error": "No se pudo cargar la cronología.",
+    "retry": "Reintentar",
+    "loadMore": "Mostrar anteriores",
+    "empty": {
+      "title": "Aún no ha pasado nada con esta spec",
+      "description": "Las ediciones, adendas, misiones, ejecuciones, eventos de PR y veredictos de revisión aparecen aquí a medida que ocurren.",
+      "filtered": "No hay entradas de este tipo.",
+      "refresh": "Actualizar"
+    },
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "expand": "Mostrar detalles",
+    "collapse": "Ocultar detalles",
+    "actors": {
+      "user": "Tú",
+      "mcp": "Cliente externo",
+      "system": "Sistema",
+      "agent": "Agente"
+    },
+    "tone": {
+      "failure": "Falló",
+      "review": "Requiere revisión",
+      "ok": "Hecho"
+    },
+    "events": {
+      "spec_created": "Spec creada",
+      "spec_updated": "Spec editada",
+      "spec_comment": "Comentario añadido",
+      "spec_ai_ai-edit": "Editada con IA",
+      "spec_ai_quick-spec": "Generada con Quick",
+      "spec_ai_smash": "Dividida en sub-specs",
+      "spec_ai_triage": "Clasificada",
+      "spec_ai_spec-launcher": "Lanzada con IA",
+      "addendum_created": "Adenda añadida",
+      "addendum_applied": "Adenda aplicada",
+      "addendum_in_flight": "Adenda en curso",
+      "addendum_dismissed": "Adenda descartada",
+      "job_run": "Ejecución",
+      "pr_delivery_started": "Entrega iniciada",
+      "pr_ready_for_review": "Lista para revisar",
+      "pr_published": "Pull request publicada",
+      "pr_merged": "Fusionada",
+      "pr_failed": "Entrega fallida",
+      "pr_discarded": "Entrega descartada",
+      "pr_superseded": "Entrega sustituida",
+      "review_approved": "El revisor aprobó",
+      "review_changes_requested": "El revisor pidió cambios",
+      "review_failed": "La verificación falló",
+      "review_recorded": "Revisión registrada",
+      "mission_turns_one": "{{count}} turno de misión",
+      "mission_turns_other": "{{count}} turnos de misión",
+      "phase_group_one": "{{count}} fase",
+      "phase_group_other": "{{count}} fases",
+      "audit_group_one": "{{count}} acción del agente",
+      "audit_group_other": "{{count}} acciones del agente"
+    },
+    "phaseFailed": "{{count}} con fallo",
+    "findings_one": "{{count}} hallazgo",
+    "findings_other": "{{count}} hallazgos",
+    "cost": {
+      "billed": "{{amount}}",
+      "estimated": "~{{amount}} estimado",
+      "billedTitle": "Informado por el proveedor",
+      "estimatedTitle": "Estimado con la tabla de precios local, no facturado",
+      "turns_one": "{{count}} turno",
+      "turns_other": "{{count}} turnos"
+    },
+    "links": {
+      "mission": "Abrir misión",
+      "job": "Abrir ejecución",
+      "review": "Abrir revisión",
+      "pr": "Abrir pull request",
+      "spec": "Esta spec"
+    },
+    "export": {
+      "menu": "Exportar traspaso",
+      "markdown": "Traspaso en Markdown",
+      "html": "Traspaso en HTML",
+      "copyPr": "Copiar como descripción de PR",
+      "saved": "Traspaso de #{{id}} guardado",
+      "copied": "Descripción de PR de #{{id}} copiada",
+      "failed": "No se pudo generar el traspaso.",
+      "copyFailed": "No se pudo copiar al portapapeles.",
+      "redacted_one": "Se ocultó {{count}} valor que parecía un secreto.",
+      "redacted_other": "Se ocultaron {{count}} valores que parecían secretos."
+    },
+    "agentRoles": {
+      "reviewer": "Revisor",
+      "loop": "Rail",
+      "triage": "Triaje",
+      "quick-spec": "Spec rápida",
+      "explore-spec": "Explorar",
+      "mission": "Misión",
+      "job": "Trabajo",
+      "ai-edit": "Edición con IA",
+      "smash": "División",
+      "spec-launcher": "Lanzador de specs",
+      "chat-sidebar": "Chat",
+      "flow": "Flow"
+    }
   }
 }

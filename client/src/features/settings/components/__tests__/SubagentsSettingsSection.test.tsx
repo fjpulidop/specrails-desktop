@@ -47,7 +47,7 @@ describe('ProjectSubagentsSection', () => {
     const toggle = await screen.findByRole('switch', { name: 'Allow sub-agents in this project' })
     expect(toggle).toHaveAttribute('aria-checked', 'true')
     fireEvent.click(toggle)
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not save the sub-agent setting', expect.anything()))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not save the sub-agent setting', expect.objectContaining({ action: expect.objectContaining({ label: 'Retry' }) })))
     expect(toggle).toHaveAttribute('aria-checked', 'true')
   })
 })
@@ -99,6 +99,25 @@ describe('Run sub-agents with', () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Sub-agents now run with Claude'))
     expect(lastBody(calls)).toEqual({ subagentRuntime: { provider: 'claude', model: 'sonnet', effort: 'medium' } })
     expect(screen.getByText(/Claude's own sub-agents ignore effort/)).toBeInTheDocument()
+  })
+
+  it('renders the warning with the shared ConfirmDialog anatomy (non-destructive, confirm focused)', async () => {
+    respond({ allowSubagents: true, subagentRuntime: null })
+    render(<ProjectSubagentsSection />)
+    fireEvent.keyDown(await screen.findByTestId('subagent-runtime-provider'), { key: 'ArrowDown' })
+    fireEvent.click(await screen.findByRole('option', { name: 'Codex' }))
+    const dialog = await screen.findByTestId('subagent-runtime-confirm')
+    expect(dialog).toHaveAttribute('data-dialog-size', 'confirm')
+    // The trade-off list lives in the dialog body, at the 12px floor.
+    const body = dialog.querySelector('[data-dialog-body]')
+    expect(body?.querySelector('ul')).toHaveClass('text-xs')
+    const accept = screen.getByTestId('subagent-runtime-confirm-accept')
+    // tone="default": switching runtimes is not destructive.
+    expect(accept.className).not.toMatch(/destructive/)
+    // Cancel (ghost) comes before the primary, and the primary takes focus.
+    const footerButtons = Array.from(dialog.querySelectorAll('[data-dialog-footer] button'))
+    expect(footerButtons.map((b) => b.textContent)).toEqual(['Keep same as mission', accept.textContent])
+    await waitFor(() => expect(document.activeElement).toBe(accept))
   })
 
   it('saves nothing when the warning is dismissed', async () => {

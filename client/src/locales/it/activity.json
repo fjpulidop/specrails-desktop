@@ -26,8 +26,8 @@
     "refining": "Rifinitura del contract…",
     "retryRejected": "Nuovo tentativo rifiutato",
     "retryRejectedWithError": "Nuovo tentativo rifiutato: {{error}}",
-    "retryFailed": "Nuovo tentativo non riuscito: {{message}}",
-    "skipped": "Contract layer saltato — ticket salvato senza",
+    "retryFailed": "Nuovo tentativo non riuscito",
+    "skipped": "Contract layer saltato — spec salvata senza",
     "reason": "Motivo: {{reason}}",
     "added": "Contract layer aggiunto · {{title}}"
   },
@@ -44,11 +44,11 @@
     "undoAction": "Annulla",
     "undone": "SMASH annullato",
     "undoFailed": "Annullamento non riuscito",
-    "undoFailedWithReason": "Annullamento non riuscito: {{reason}}",
+    "undoFailedWithReason": "Annullamento non riuscito",
     "retrying": "Nuovo tentativo di SMASH…",
     "couldNotRetry": "Impossibile riprovare",
     "couldNotRetryWithReason": "Impossibile riprovare: {{reason}}",
-    "retryFailed": "Nuovo tentativo non riuscito: {{message}}",
+    "retryFailed": "Nuovo tentativo non riuscito",
     "couldNotComplete": "Impossibile completare SMASH",
     "failReason": {
       "invalidOutput": "L'agente ha restituito un output non valido",
@@ -59,11 +59,11 @@
     },
     "couldNotStart": "Impossibile avviare SMASH",
     "couldNotStartWithReason": "Impossibile avviare SMASH: {{reason}}",
-    "smashFailed": "SMASH non riuscito: {{message}}",
+    "smashFailed": "SMASH non riuscito",
     "couldNotDeleteChildren": "Impossibile eliminare le Sub-Spec attuali",
-    "deleteFailed": "Eliminazione non riuscita: {{message}}",
-    "smashButton": "SMASH della spec in Sub-Spec",
-    "reSmashButton": "Re-SMASH"
+    "deleteFailed": "Eliminazione non riuscita",
+    "smashButton": "Dividi in sub-spec",
+    "reSmashButton": "Ridividi in sub-spec"
   },
   "smashModal": {
     "title": "SMASH della spec in Sub-Spec",
@@ -89,7 +89,8 @@
     },
     "starting": "Avvio…",
     "confirmReSmash": "Conferma Re-SMASH",
-    "smash": "SMASH"
+    "smash": "SMASH",
+    "description": "SMASH suddivide questa spec in Sub-Spec più piccole da implementare e revisionare una alla volta. La spec originale diventa la loro Epic."
   },
   "family": {
     "subSpecsHeader": "Sub-Spec ({{count}})",
@@ -98,7 +99,8 @@
     "familyHeader_other": "Famiglia ({{count}} Sub-Spec)",
     "noSiblings": "Nessuna Sub-Spec correlata.",
     "openParentEpic": "Apri l'Epic padre {{title}}",
-    "openSubSpec": "Apri la Sub-Spec {{title}}"
+    "openSubSpec": "Apri la Sub-Spec {{title}}",
+    "priority": "Priorità: {{p}}"
   },
   "epicChildren": {
     "header": "Sub-Spec ({{count}})",

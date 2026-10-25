@@ -1,6 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { useTickets } from '../hooks/useTickets'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { usePlaceHistory } from '../../../hooks/usePlaceHistory'
+import { usePlaceParam } from '../../../hooks/usePlaceParam'
+import { SPEC_PARAM } from '../../../lib/places'
 import { SplitViewShell } from '../../../components/SplitViewShell'
 import { TicketDetailModal } from '../components/TicketDetailModal'
 import { MODAL_FLOAT_VIEWPORT_MIN } from '../../../lib/viewport'
@@ -97,6 +101,12 @@ interface TicketDetailModalContextValue {
    *  active-project bound, so a true cross-project modal is not possible. */
   openTicketDetailInProject: (projectId: string, ticketId: number) => void
   closeTicketDetail: () => void
+  /**
+   * A surface that renders the spec modal itself (the Dashboard, with rail
+   * actions) claims it: the provider then only keeps `?spec=` and its own state
+   * in step and does not mount a second modal. Returns the release function.
+   */
+  claimSpecHost: () => () => void
   enterSplit: (side: CompareSide, ticketId?: number) => void
   setComparedTicket: (ticketId: number | null, side: CompareSide) => void
   exitSplit: () => void
@@ -110,13 +120,36 @@ const COMPARE_VIEWPORT_MIN = MODAL_FLOAT_VIEWPORT_MIN
 
 export function TicketDetailModalProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reduceSplit, INITIAL_STATE)
-  const { tickets, updateTicket, deleteTicket } = useTickets()
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const { tickets, updateTicket, deleteTicket, isLoading: ticketsLoading, error: ticketsError } = useTickets()
   const { activeProjectId, setActiveProjectId } = useDesktop()
+  const places = usePlaceHistory()
+  // The spec modal is a place: `?spec=<id>`, pushed on open so Back closes it.
+  const specParam = usePlaceParam(SPEC_PARAM)
+  const specId = specParam.value !== null && /^\d+$/.test(specParam.value) ? Number(specParam.value) : null
+  const [hostClaims, setHostClaims] = useState(0)
+  const claimSpecHost = useCallback(() => {
+    setHostClaims((n) => n + 1)
+    return () => setHostClaims((n) => n - 1)
+  }, [])
 
   // Cross-project open in flight (agent-chat ref chips): the ticket to open
   // once the active project lands on `projectId`. Completed (or dropped) by
   // the switch effect below.
+  const pendingSpecUrlRef = useRef<{ id: number; key: string } | null>(null)
+  const locationKeyRef = useRef('')
+  const location = useLocation()
+  locationKeyRef.current = location.key
+  const flushPendingSpecUrl = (force: boolean) => {
+    const pending = pendingSpecUrlRef.current
+    if (!pending || (!force && locationKeyRef.current === pending.key)) return
+    pendingSpecUrlRef.current = null
+    specOpenRef.current(String(pending.id))
+  }
   const pendingCrossProjectRef = useRef<{ projectId: string; ticketId: number } | null>(null)
+  const specIdRef = useRef<number | null>(null)
+  specIdRef.current = specId
 
   // M22: this provider sits ABOVE the project-keyed route boundary, so an open
   // modal / split-view survives a project switch. Ticket ids are per-project
@@ -132,24 +165,92 @@ export function TicketDetailModalProvider({ children }: { children: ReactNode })
       pendingCrossProjectRef.current = null
       if (pending.projectId === activeProjectId) {
         dispatch({ type: 'openCentered', id: pending.ticketId })
+        // The project switch pushes its own place first; write `?spec=` once
+        // that location has rendered (see the flush effect below).
+        pendingSpecUrlRef.current = { id: pending.ticketId, key: locationKeyRef.current }
+        // Fallback when the switch produced no new entry.
+        setTimeout(() => flushPendingSpecUrl(true), 400)
       }
+    } else if (specIdRef.current !== null && places) {
+      // Back / Forward restored an entry of THIS project: its spec modal comes
+      // back. A plain switch leaves the URL on the outgoing project's entry,
+      // whose spec id must not be re-bound to this project's tickets.
+      const owner = places.getCurrentEntryProjectId()
+      if (owner && owner === activeProjectId) dispatch({ type: 'openCentered', id: specIdRef.current })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectId])
 
-  const openTicketDetail = useCallback((id: number) => dispatch({ type: 'openCentered', id }), [])
+  const specOpenRef = useRef(specParam.open)
+  specOpenRef.current = specParam.open
+  const specCloseRef = useRef(specParam.close)
+  specCloseRef.current = specParam.close
+  // Back / Forward / deep link → modal. Edge-triggered on the param itself so
+  // an open in flight (state set, URL not rendered yet) is never closed again.
+  const prevSpecIdRef = useRef<number | null>(null)
+  useEffect(() => {
+    // Flush a cross-project open once the project switch's own entry rendered.
+    flushPendingSpecUrl(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
+  useEffect(() => {
+    if (prevSpecIdRef.current === specId) return
+    prevSpecIdRef.current = specId
+    if (stateRef.current.originSide !== null) return // split view owns the display
+    if (specId === null) dispatch({ type: 'closeAll' })
+    else dispatch({ type: 'openCentered', id: specId })
+  }, [specId])
+
+  // The spec the URL names was deleted (or never existed): the history skips it.
+  const ticketsRef = useRef(tickets)
+  ticketsRef.current = tickets
+  const reportMissing = places?.reportMissing
+  const entryProjectOf = places?.getCurrentEntryProjectId
+  useEffect(() => {
+    if (specId === null || !reportMissing || ticketsLoading || ticketsError) return
+    if (tickets.some((t) => t.id === specId)) return
+    const owner = entryProjectOf?.() ?? null
+    if (owner && owner !== activeProjectId) return // the project of that entry is still loading
+    // Let a just-created spec reach the list before judging it missing.
+    const timer = setTimeout(() => {
+      if (!ticketsRef.current.some((t) => t.id === specId)) reportMissing('spec')
+    }, 1200)
+    return () => clearTimeout(timer)
+  }, [specId, tickets, ticketsLoading, ticketsError, activeProjectId, reportMissing, entryProjectOf])
+
+  // Spec titles label the history targets.
+  const registerLabelResolver = places?.registerLabelResolver
+  const activeProjectIdRef = useRef(activeProjectId)
+  activeProjectIdRef.current = activeProjectId
+  useEffect(() => {
+    if (!registerLabelResolver) return
+    return registerLabelResolver((kind, id, projectId) => {
+      if (kind !== 'spec' || (projectId && projectId !== activeProjectIdRef.current)) return null
+      const ticket = ticketsRef.current.find((t) => String(t.id) === id)
+      return ticket?.title?.trim() ? ticket.title : null
+    })
+  }, [registerLabelResolver])
+
+  const openTicketDetail = useCallback((id: number) => {
+    dispatch({ type: 'openCentered', id })
+    specOpenRef.current(String(id))
+  }, [])
 
   const openTicketDetailInProject = useCallback(
     (projectId: string, ticketId: number) => {
       if (projectId === activeProjectId) {
-        dispatch({ type: 'openCentered', id: ticketId })
+        openTicketDetail(ticketId)
         return
       }
       pendingCrossProjectRef.current = { projectId, ticketId }
       setActiveProjectId(projectId)
     },
-    [activeProjectId, setActiveProjectId],
+    [activeProjectId, setActiveProjectId, openTicketDetail],
   )
-  const closeTicketDetail = useCallback(() => dispatch({ type: 'closeAll' }), [])
+  const closeTicketDetail = useCallback(() => {
+    dispatch({ type: 'closeAll' })
+    specCloseRef.current()
+  }, [])
   const enterSplit = useCallback(
     (side: CompareSide, ticketId?: number) => {
       // Authoritative boundary for every split entry point (button, drag, URL
@@ -192,13 +293,14 @@ export function TicketDetailModalProvider({ children }: { children: ReactNode })
       openTicketDetail,
       openTicketDetailInProject,
       closeTicketDetail,
+      claimSpecHost,
       enterSplit,
       setComparedTicket,
       exitSplit,
       setSplitRatio,
       state,
     }),
-    [openTicketDetail, openTicketDetailInProject, closeTicketDetail, enterSplit, setComparedTicket, exitSplit, setSplitRatio, state],
+    [openTicketDetail, openTicketDetailInProject, closeTicketDetail, claimSpecHost, enterSplit, setComparedTicket, exitSplit, setSplitRatio, state],
   )
 
   const inSplit = state.originSide !== null
@@ -206,7 +308,7 @@ export function TicketDetailModalProvider({ children }: { children: ReactNode })
   return (
     <TicketDetailModalContext.Provider value={value}>
       {children}
-      {!inSplit && leftTicket && (
+      {!inSplit && leftTicket && hostClaims === 0 && (
         <TicketDetailModal
           key={leftTicket.id}
           ticket={leftTicket}
@@ -253,6 +355,7 @@ export function useTicketDetailModal(): TicketDetailModalContextValue {
         }
       },
       closeTicketDetail: () => {},
+      claimSpecHost: () => () => {},
       enterSplit: () => {},
       setComparedTicket: () => {},
       exitSplit: () => {},

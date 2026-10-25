@@ -1,4 +1,4 @@
-# Escolher um motor por rail
+# Escolher um motor por rail {#provider-capabilities}
 
 ## Quando o seletor aparece
 

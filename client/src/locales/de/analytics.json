@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "Verfeinern",
-    "smash": "SMASH",
+    "smash": "Aufteilen",
     "fileSummary": "Dateizusammenfassungen",
     "loop": "Loops",
     "chatSidebar": "Chat",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} Läufe",
   "page": {
     "title": "Analytics",
+    "subtitle": "Wohin das Budget fließt: Kosten, Tokens und Aktivität nach Modell, Spec und Engine.",
     "all": "Alle",
     "engine": "Engine",
-    "ticketChip": "Ticket #{{id}} ·  ✕",
-    "failedToLoad": "Laden fehlgeschlagen: {{error}}",
+    "ticketChip": "Spec #{{id}} ·  ✕",
+    "failedToLoad": "Analysen konnten nicht geladen werden. Versuche es erneut.",
     "modelChip": "Modell: {{model}}",
     "clearModelFilter": "Modellfilter zurücksetzen",
-    "localEngine": "lokal"
+    "localEngine": "lokal",
+    "moreBreakdowns": "Weitere Aufschlüsselungen"
   },
   "hero": {
     "spending": "Ausgaben",
@@ -46,22 +48,27 @@
     "tokensTooltip": "Tokens gesamt = neue Eingabe + Ausgabe + Cache-Read + Cache-Create über alle Aufrufe in diesem Zeitraum.",
     "usageUnavailable": "· Token-Nutzung nicht verfügbar",
     "usageUnavailableTooltip": "Der Anbieter hat diese Aufrufe abgeschlossen, aber keine Token-Telemetrie bereitgestellt.",
-    "usagePartiallyUnavailable": "· {{tokens}} bekannte Tokens; ohne Daten: {{count}}",
+    "usagePartiallyUnavailable_one": "· {{tokens}} bekannte Tokens; ohne Daten: {{count}}",
+    "usagePartiallyUnavailable_other": "· {{tokens}} bekannte Tokens; ohne Daten: {{count}}",
     "usagePartiallyUnavailableTooltip": "Nur bekannte Token-Zwischensumme; einige Aufrufe haben keine Token-Telemetrie bereitgestellt.",
     "costUnavailable": "Kosten nicht verfügbar",
     "costUnavailableTooltip": "Der Anbieter hat diese Aufrufe abgeschlossen, aber nicht genügend Telemetrie zur Kostenermittlung bereitgestellt.",
-    "costPartiallyUnavailable": "· bekannte Zwischensumme; ohne Kosten: {{count}}",
+    "costPartiallyUnavailable_one": "· bekannte Zwischensumme; ohne Kosten: {{count}}",
+    "costPartiallyUnavailable_other": "· bekannte Zwischensumme; ohne Kosten: {{count}}",
     "costPartiallyUnavailableTooltip": "Nur bekannte Kosten-Zwischensumme; einige Aufrufe haben nicht genügend Telemetrie zur Kostenermittlung bereitgestellt.",
     "includesEstimated": "· enthält ~{{amount}} geschätzt",
     "includesEstimatedTooltip": "Enthält {{amount}} geschätzte Kosten von Providern ohne natives Kostenfeld (z. B. codex über die lokale Preistabelle).",
     "trackingStarted": "Tracking gestartet am {{date}}",
     "trackingStartedFallback": "Tracking beginnt mit dem ersten Aufruf",
     "emptyState": "Noch keine Aufrufe für diesen Filterzeitraum.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Abgerechnet",
+    "legendEstimated": "Geschätzt",
+    "apiEquivalent": "Schätzung als API-Äquivalent"
   },
   "providerCard": {
     "title": "Nach Provider",
-    "description": "So verteilen sich die Kosten auf die KI-CLIs in diesem Projekt. Das Präfix <tilde>~</tilde> markiert Zeilen, deren Kosten über die lokale Preistabelle geschätzt sind (der Provider meldet sie nicht nativ).",
+    "description": "<tilde>~</tilde> = geschätzt anhand lokaler Preise.",
     "noCost": "Noch keine Kosten in diesem Zeitraum erfasst.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "Kosten nicht verfügbar",
@@ -109,31 +116,32 @@
     "costLabel": "Kosten",
     "truncated": "Zeige {{shown}} von {{total}} — der teuerste Punkt bleibt erhalten, frühere Punkte werden ausgeblendet",
     "costUnavailable": "Aufrufe wurden erfasst, aber es sind keine Kostendaten zum Darstellen verfügbar.",
-    "costPartiallyUnavailable": "Das Diagramm enthält nur Aufrufe mit Kosten; Kosten nicht verfügbar: {{count}}."
+    "costPartiallyUnavailable_one": "Das Diagramm enthält nur Aufrufe mit Kosten; Kosten nicht verfügbar: {{count}}.",
+    "costPartiallyUnavailable_other": "Das Diagramm enthält nur Aufrufe mit Kosten; Kosten nicht verfügbar: {{count}}."
   },
   "topTickets": {
-    "title": "Top-Tickets",
-    "empty": "Keine Ticket-Aktivität in diesem Zeitraum.",
+    "title": "Top-Specs",
+    "empty": "Keine Spec-Aktivität in diesem Zeitraum.",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "Nicht zugeordnet",
-    "deletedTicket": "gelöschtes Ticket #{{id}}",
+    "deletedTicket": "gelöschte Spec #{{id}}",
     "costUnavailable": "Kosten nicht verfügbar",
-    "costUnavailableTooltip": "Keiner der Aufrufe dieses Tickets hat Kostentelemetrie bereitgestellt.",
+    "costUnavailableTooltip": "Keiner der Aufrufe dieser Spec hat Kostentelemetrie bereitgestellt.",
     "costPartiallyUnavailable": "nicht verfügbar: {{count}}",
-    "costPartiallyUnavailableTooltip": "Nur bekannte Zwischensumme; für einige Aufrufe dieses Tickets sind keine Kosten verfügbar."
+    "costPartiallyUnavailableTooltip": "Nur bekannte Zwischensumme; für einige Aufrufe dieser Spec sind keine Kosten verfügbar."
   },
   "table": {
     "title": "Alle Aufrufe",
     "statusFilterAria": "Statusfilter",
     "minCostFilterAria": "Mindestkosten-Filter",
-    "minCostPlaceholder": "≥ $0.00",
+    "minCostPlaceholder": "≥ {{amount}}",
     "allStatus": "Alle Status",
     "success": "Erfolgreich",
     "failed": "Fehlgeschlagen",
     "aborted": "Abgebrochen",
     "empty": "Keine Aufrufe entsprechen den aktuellen Filtern.",
-    "colSurface": "Surface",
-    "colTicket": "Ticket",
+    "colSurface": "Oberfläche",
+    "colTicket": "Spec",
     "colCost": "Kosten",
     "colTurns": "Turns",
     "colTokens": "Tokens",
@@ -170,7 +178,7 @@
   "desktop": {
     "title": "Desktop-Analytics",
     "refreshAria": "Analytics aktualisieren",
-    "failedToLoad": "Analytics konnten nicht geladen werden: {{error}}",
+    "failedToLoad": "Desktop-Analysen konnten nicht geladen werden. Versuche zu aktualisieren.",
     "totalCost": "Gesamtkosten",
     "costToday": "{{value}} heute",
     "costTodayUnavailable": "Kosten heute nicht verfügbar",
@@ -193,12 +201,11 @@
     "includesEstimatedTooltip": "Enthält {{amount}} geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "includesEstimatedShort": "inkl. geschätzt",
     "timelineEstimatedTooltip": "Einige Tage enthalten geschätzte Kosten aus der Preistabelle (codex/gemini), markiert mit ~.",
-    "estimatedBadge": "gesch.",
-    "projectEstimatedTooltip": "{{amount}} der Kosten dieses Projekts sind eine Schätzung aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "statusBarEstimatedTooltip": "Enthält geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "costUnavailable": "Aufrufe wurden erfasst, aber die Kostentelemetrie ist nicht verfügbar.",
     "costUnavailableShort": "nicht verfügbar",
-    "costPartiallyUnavailable": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}."
+    "costPartiallyUnavailable_one": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}.",
+    "costPartiallyUnavailable_other": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}."
   },
   "windowLabels": {
     "7d": "Letzte 7 Tage",
@@ -224,7 +231,6 @@
     "loading": "Erfasste Nutzung wird geladen…",
     "total": "Erfasste Ereignisse: {{count}}",
     "last": "Letztes Ereignis:",
-    "evidence": "Diese Zähler allein belegen nicht, dass ältere Kompatibilität entfernt werden kann.",
     "kinds": {
       "legacy_loop_traversal": "Klassische Loops",
       "queue_manager_slash": "Befehle in der Warteschlange",
@@ -268,7 +274,7 @@
     "estimatedShare": "{{share}} geschätzt",
     "unpriced": "{{count}} ohne Kosten",
     "note": "Geliefert = hat das Review erreicht oder mehr. Die Durchschnittskosten nutzen Lieferungen mit erfassten Kosten (vom Anbieter gemeldet, sofern nicht als geschätzt markiert); Lieferungen ohne Kosten werden ausgeschlossen, nie als 0 $ gezählt. Runden stammen aus Reviewer-/Fixer-Schritten. — bedeutet unbekannt.",
-    "escapedUntracked": "Entgangene Fehler werden noch nicht erfasst: Verknüpfe ein Bug-Ticket mit der Lieferung, die ihn eingeführt hat („Regression von“ im Ticket), um sie zu zählen.",
+    "escapedUntracked": "Entgangene Fehler werden noch nicht erfasst: Verknüpfe eine Bug-Spec mit der Lieferung, die ihn eingeführt hat („Regression von“ in der Spec), um sie zu zählen.",
     "columns": {
       "loop": "Loop",
       "delivered": "Geliefert",
@@ -283,5 +289,79 @@
       "requirementsDemonstrated": "Nachgewiesene Anforderungen",
       "triageAccuracy": "Triage-Treffer"
     }
+  },
+  "budget": {
+    "title": "Budget",
+    "loadFailed": "Das Budget konnte nicht geladen werden.",
+    "estimate": "Schätzung",
+    "scope": {
+      "project": "Dieses Projekt",
+      "desktop": "Alle Projekte (global)"
+    },
+    "period": {
+      "day": "Heute",
+      "week": "Diese Woche",
+      "month": "Dieser Monat",
+      "run": "Pro Lauf"
+    },
+    "capLabel": {
+      "project": {
+        "day": "Tageslimit des Projekts (USD)",
+        "week": "Wochenlimit des Projekts (USD)",
+        "month": "Monatslimit des Projekts (USD)",
+        "run": "Limit pro Lauf des Projekts (USD)"
+      },
+      "desktop": {
+        "day": "Globales Tageslimit (USD)",
+        "week": "Globales Wochenlimit (USD)",
+        "month": "Globales Monatslimit (USD)",
+        "run": "Globales Limit pro Lauf (USD)"
+      }
+    },
+    "noCap": "Kein Limit",
+    "spentOf": "{{spent}} von {{cap}}",
+    "spentNoCap": "{{spent}} · kein Limit",
+    "turns": "Turns: {{n}}",
+    "reached": "Erreicht",
+    "nearing": "Fast erreicht",
+    "planNote": "Abrechnung über ein Abo: keine Dollarkosten pro Nutzung, deshalb werden Turns und Limits angezeigt",
+    "estimatedPart": "davon etwa {{amount}} anhand der Preisliste der App berechnet, nicht gemeldet",
+    "resets": "wird {{time}} zurückgesetzt",
+    "runHint": "Ein Lauf pausiert und fragt nach, wenn seine eigenen Kosten diesen Betrag erreichen. Es gilt das niedrigere von Projekt- und App-weitem Limit.",
+    "saved": "Budget gespeichert",
+    "saveFailed": "Das Budget konnte nicht gespeichert werden",
+    "invalidNumber": "Gib einen Betrag über null ein oder lass das Feld leer für kein Limit.",
+    "projection": {
+      "title": "Prognose zum Monatsende",
+      "basis": "{{days}}-Tage-Schnitt {{avg}}/Tag × {{remaining}} verbleibende Tage + {{mtd}} bisher",
+      "none": "Noch nicht genug Verlauf für eine Prognose.",
+      "overCap": "In diesem Tempo würdest du das Monatslimit von {{cap}} überschreiten.",
+      "planNone": "Bei Abrechnung über ein Abo fallen keine Dollarkosten pro Nutzung an, daher gibt es keinen Betrag zum Monatsende zu prognostizieren."
+    },
+    "whatIf": {
+      "title": "Was wäre, wenn: mit einem anderen Modell berechnen",
+      "description": "Berechnet die erfasste Token-Nutzung der letzten {{days}} Tage mit einem anderen Modell neu, anhand der Preisliste der App. Eine Schätzung, keine Rechnung.",
+      "from": "Bisher gelaufen auf",
+      "to": "Stattdessen",
+      "choose": "Modell wählen",
+      "runs": "{{n}} Läufe",
+      "noPricing": "Kein Preis für {{model}}",
+      "empty": "In diesem Zeitraum wurde keine Modellnutzung erfasst.",
+      "planNote": "Diese Arbeit läuft über ein Abo, es gibt also keine Dollarkosten pro Nutzung zum Vergleichen. Stattdessen werden Tokens angezeigt.",
+      "tokens": "Tokens: {{input}} Eingabe · {{output}} Ausgabe",
+      "compare": "≈ {{current}} jetzt → ≈ {{whatIf}} stattdessen",
+      "saves": "≈ {{amount}} weniger",
+      "costs": "≈ {{amount}} mehr",
+      "same": "Ungefähr gleich",
+      "skipped": "{{n}} Läufe ohne Token-Nutzung oder Preis bleiben unberücksichtigt.",
+      "recorded": "Erfasste Kosten dieser Läufe: {{amount}}.",
+      "roleNote": "Die Nutzung wird pro Modell erfasst, nicht pro Rolle: Wähle das Modell, auf dem deine Rolle läuft."
+    },
+    "providerWindow": "{{provider}}: {{windows}}",
+    "windowLabel": {
+      "session": "Sitzung",
+      "weekly": "wöchentlich"
+    },
+    "capsMetered": "Dollar-Limits (nutzungsbasierte Anbieter)"
   }
 }

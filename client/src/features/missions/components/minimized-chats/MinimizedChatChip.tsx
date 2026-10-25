@@ -47,7 +47,7 @@ export function MinimizedChatChip({
         <div className="text-sm font-medium text-foreground truncate">
           {visibleLabel}
         </div>
-        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+        <div className="text-caption text-muted-foreground mt-0.5 truncate">
           {t('chip.continueEditing', { projectName })}
         </div>
       </button>

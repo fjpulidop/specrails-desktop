@@ -8,7 +8,7 @@
       "name": "bundled-core-stage",
       "version": "0.0.0",
       "dependencies": {
-        "specrails-core": "6.6.5"
+        "specrails-core": "6.7.0"
       }
     },
     "node_modules/@cfworker/json-schema": {
@@ -384,15 +384,15 @@
       }
     },
     "node_modules/@langchain/core": {
-      "version": "1.2.14",
-      "resolved": "https://registry.npmjs.org/@langchain/core/-/core-1.2.14.tgz",
-      "integrity": "sha512-NP+FZMDO8kzVf79kiVHByveErVbTc1kUm0OvJuASxy5dt2xo/m7mi4O0npskU71A9h0vke3YUDYEciiAsXdCoA==",
+      "version": "1.2.18",
+      "resolved": "https://registry.npmjs.org/@langchain/core/-/core-1.2.18.tgz",
+      "integrity": "sha512-ccwixbasSfP0ZGEUsN0/qdA1PK3GBzA1fwSi7PlQpvnT78/chR5FAKcodsvSk8imUNP/SWWeWnBG2VDrR1JLJQ==",
       "license": "MIT",
       "dependencies": {
         "@cfworker/json-schema": "^4.0.2",
         "@standard-schema/spec": "^1.1.0",
         "js-tiktoken": "^1.0.12",
-        "langsmith": ">=0.5.0 <1.0.0",
+        "langsmith": ">=0.11.0 <1.0.0",
         "mustache": "^4.2.0",
         "p-queue": "^6.6.2",
         "zod": "^3.25.76 || ^4"
@@ -402,13 +402,13 @@
       }
     },
     "node_modules/@langchain/langgraph": {
-      "version": "1.4.18",
-      "resolved": "https://registry.npmjs.org/@langchain/langgraph/-/langgraph-1.4.18.tgz",
-      "integrity": "sha512-yrMMJ9hk2NVMD2xU2WoVrgFawAU6s/RzEl/dX9BhlyxZHazo1wHY35z4K2BIBzTUh4z3giCzrUoqRAqW2CWpWg==",
+      "version": "1.5.1",
+      "resolved": "https://registry.npmjs.org/@langchain/langgraph/-/langgraph-1.5.1.tgz",
+      "integrity": "sha512-3eGahcGgqlzHhG9FxEMFjfSPvI7As0APmd47HQdF1og2vLjMA1PQpTrmCnlLWcgLCrRflUvYqzS/FDMMh2saFA==",
       "license": "MIT",
       "dependencies": {
-        "@langchain/langgraph-checkpoint": "^1.1.5",
-        "@langchain/langgraph-sdk": "~1.12.0",
+        "@langchain/langgraph-checkpoint": "^1.2.0",
+        "@langchain/langgraph-sdk": "~1.12.5",
         "@langchain/protocol": "^0.0.19",
         "@standard-schema/spec": "1.1.0"
       },
@@ -421,9 +421,9 @@
       }
     },
     "node_modules/@langchain/langgraph-checkpoint": {
-      "version": "1.1.5",
-      "resolved": "https://registry.npmjs.org/@langchain/langgraph-checkpoint/-/langgraph-checkpoint-1.1.5.tgz",
-      "integrity": "sha512-BwDwl5VeTOh6CVuiIPgsUgfK51vTJDMSbFcSCUfjJWsl8/DPdK/mbv+ejxJstkSk/BlSPMP4JfXWcN6jD2ea2Q==",
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/@langchain/langgraph-checkpoint/-/langgraph-checkpoint-1.2.0.tgz",
+      "integrity": "sha512-a9F1tO/bKGS4AlLR0FVa859oImD0iQiQLAAPkP66Nnp7a5dXPgys2IpzdJQ9slKiVznsSAFjxxNCmM25dBOvWA==",
       "license": "MIT",
       "engines": {
         "node": ">=18"
@@ -433,12 +433,12 @@
       }
     },
     "node_modules/@langchain/langgraph-sdk": {
-      "version": "1.12.5",
-      "resolved": "https://registry.npmjs.org/@langchain/langgraph-sdk/-/langgraph-sdk-1.12.5.tgz",
-      "integrity": "sha512-zVaUOzduWHXtxOaI6w95m+JzUQN+2zyf3dKqaqrMVhIFO6rGVe7UvA14NBhBLizK1GsZIlEO3cHQfIAYQamUAg==",
+      "version": "1.12.7",
+      "resolved": "https://registry.npmjs.org/@langchain/langgraph-sdk/-/langgraph-sdk-1.12.7.tgz",
+      "integrity": "sha512-+tIY6oVDDt9e3LnDKs4Qqe3nFJSY7amDUofro7me0kZ8QbaJhFViQL0LaX30SQhIaHuCLZYMRIluhuFSOPjF8g==",
       "license": "MIT",
       "dependencies": {
-        "@langchain/protocol": "^0.0.19",
+        "@langchain/protocol": "^0.0.20",
         "@types/json-schema": "^7.0.15",
         "p-queue": "^9.0.1",
         "p-retry": "^7.1.1"
@@ -456,6 +456,12 @@
           "optional": true
         }
       }
+    },
+    "node_modules/@langchain/langgraph-sdk/node_modules/@langchain/protocol": {
+      "version": "0.0.20",
+      "resolved": "https://registry.npmjs.org/@langchain/protocol/-/protocol-0.0.20.tgz",
+      "integrity": "sha512-sxlkDG2/HGyjDFLTJ8B/o3oglRjOv8iLCFgrV0550/Vym3V6RZ0SUjAQFe8jrLQw8ZXjERy3swJp5OODBSrUYA==",
+      "license": "MIT"
     },
     "node_modules/@langchain/langgraph-sdk/node_modules/eventemitter3": {
       "version": "5.0.4",
@@ -498,9 +504,9 @@
       "license": "MIT"
     },
     "node_modules/@modelcontextprotocol/sdk": {
-      "version": "1.31.0",
-      "resolved": "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.31.0.tgz",
-      "integrity": "sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw==",
+      "version": "1.32.1",
+      "resolved": "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.32.1.tgz",
+      "integrity": "sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw==",
       "license": "MIT",
       "dependencies": {
         "@hono/node-server": "^1.19.9 || ^2.0.5",
@@ -608,9 +614,9 @@
       }
     },
     "node_modules/argparse": {
-      "version": "3.0.3",
-      "resolved": "https://registry.npmjs.org/argparse/-/argparse-3.0.3.tgz",
-      "integrity": "sha512-Sn98ftV3KfsO8xfLPHG6oT8y+b0yvbrLgZjgPDXsharNY15tTAjqIsIju4S32nl6/iEUNNE4v+yL2Zhm8ooP3w==",
+      "version": "3.0.4",
+      "resolved": "https://registry.npmjs.org/argparse/-/argparse-3.0.4.tgz",
+      "integrity": "sha512-fwWK3Zq22l4XJJjx5mcBHGikIk+hJqO+32dPm0Jur7+rtG5x1scOjSfdT9ZKeWHPpsya/l0HHK4tDImBkTrtvA==",
       "funding": [
         {
           "type": "github",
@@ -653,18 +659,18 @@
       "license": "MIT"
     },
     "node_modules/body-parser": {
-      "version": "2.3.0",
-      "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-2.3.0.tgz",
-      "integrity": "sha512-2cGmJupaNgg+QUwVLAucDuWuoMZ6EX9iHDRswZ5lsNYEmwPaRknMPCLZz07yTzVq/83p4o/wzbDZbBrTvGGTIw==",
+      "version": "2.4.0",
+      "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-2.4.0.tgz",
+      "integrity": "sha512-Ifk1KcLrxaGt1occQagQNFNNOqRt1LFuehEnHHzB8Z6cRgIxRU1TBaiIsUiCdA+gy5PL7Y1IX31DNKkRmxtXjQ==",
       "license": "MIT",
       "dependencies": {
         "bytes": "^3.1.2",
-        "content-type": "^2.0.0",
+        "content-type": "^2.1.0",
         "debug": "^4.4.3",
         "http-errors": "^2.0.1",
-        "iconv-lite": "^0.7.2",
+        "iconv-lite": "^0.7.3",
         "on-finished": "^2.4.1",
-        "qs": "^6.15.2",
+        "qs": "^6.16.1",
         "raw-body": "^3.0.2",
         "type-is": "^2.1.0"
       },
@@ -1281,9 +1287,9 @@
       }
     },
     "node_modules/hono": {
-      "version": "4.13.13",
-      "resolved": "https://registry.npmjs.org/hono/-/hono-4.13.13.tgz",
-      "integrity": "sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==",
+      "version": "4.13.14",
+      "resolved": "https://registry.npmjs.org/hono/-/hono-4.13.14.tgz",
+      "integrity": "sha512-yhRLQ21U6qa9Hsu2N7Qcbh8tE+WKEcoErjIo56LeSGiGXGp9sA7UpE86Ui9uexb61KakiGwuHMn2QdV7w6i6kQ==",
       "license": "MIT",
       "engines": {
         "node": ">=16.9.0"
@@ -1332,9 +1338,9 @@
       "license": "ISC"
     },
     "node_modules/ip-address": {
-      "version": "10.7.4",
-      "resolved": "https://registry.npmjs.org/ip-address/-/ip-address-10.7.4.tgz",
-      "integrity": "sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg==",
+      "version": "10.7.5",
+      "resolved": "https://registry.npmjs.org/ip-address/-/ip-address-10.7.5.tgz",
+      "integrity": "sha512-t2v0rkILYv9WXmSL7TpAaU3HXgaFYOPUcH3QHgwQ++gpJuH3bqyMy4Fvt/DJCTKwzH3Cf+bAp5W/mFL39KPLzA==",
       "license": "MIT",
       "engines": {
         "node": ">= 12"
@@ -1450,9 +1456,9 @@
       "license": "BSD-2-Clause"
     },
     "node_modules/langsmith": {
-      "version": "0.11.0",
-      "resolved": "https://registry.npmjs.org/langsmith/-/langsmith-0.11.0.tgz",
-      "integrity": "sha512-NMyaEhfHKAVPdXR8jqP1in4BAr2RhJTmBsH+ZzhvBDTxWUsuaprnJxkRe/3NY5d2+wCaPtzbDK2Myhh6vg2q7w==",
+      "version": "0.11.1",
+      "resolved": "https://registry.npmjs.org/langsmith/-/langsmith-0.11.1.tgz",
+      "integrity": "sha512-wcJKmXnJK6sKRTDm/eJ4ZAtsdSyjaQBu2VM9Hw6UZXBFzbICldlpNOcdDFbSIGzWr/kE7deV9kAVuxcE6V5vtg==",
       "license": "MIT",
       "dependencies": {
         "p-queue": "6.6.2"
@@ -1644,15 +1650,19 @@
       }
     },
     "node_modules/on-finished": {
-      "version": "2.4.1",
-      "resolved": "https://registry.npmjs.org/on-finished/-/on-finished-2.4.1.tgz",
-      "integrity": "sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==",
+      "version": "2.4.2",
+      "resolved": "https://registry.npmjs.org/on-finished/-/on-finished-2.4.2.tgz",
+      "integrity": "sha512-ATWUv387i+nLD49EiDoOft5scf32Vsdz3ktrQJG9bi7jRFmaXTssvyvj1EmeKVVgvesbqUtvQQvaS2TpTukAZQ==",
       "license": "MIT",
       "dependencies": {
         "ee-first": "1.1.1"
       },
       "engines": {
         "node": ">= 0.8"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/express"
       }
     },
     "node_modules/once": {
@@ -2085,22 +2095,22 @@
       }
     },
     "node_modules/specrails-core": {
-      "version": "6.6.5",
-      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-6.6.5.tgz",
-      "integrity": "sha512-y1QR74HMBzXA7WOyO3dgXQPXdfPYjjNZgw4dS1KP89E8yGS2C3isg8jly1LjNlO1jZ9AtzvlJJktZltfUubAzA==",
+      "version": "6.7.0",
+      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-6.7.0.tgz",
+      "integrity": "sha512-pF1TWCHbDrFj+4mCO07MHyfqERZx/EXkPEzzfmHKNPVLh2vYTNIB4B8einik1+zNWSTaEe/858cyfpapmUvnGw==",
       "license": "MIT",
       "dependencies": {
         "@fission-ai/openspec": "1.14.3",
-        "@langchain/core": "1.2.14",
-        "@langchain/langgraph": "1.4.18",
-        "@langchain/langgraph-checkpoint": "1.1.5",
-        "@modelcontextprotocol/sdk": "1.31.0",
+        "@langchain/core": "1.2.18",
+        "@langchain/langgraph": "1.5.1",
+        "@langchain/langgraph-checkpoint": "1.2.0",
+        "@modelcontextprotocol/sdk": "1.32.1",
         "ajv": "^8.20.0",
         "cross-spawn": "7.0.6",
         "js-yaml": "^5.4.3",
         "picocolors": "^1.1.1",
         "semver": "^7.8.5",
-        "zod": "4.6.5"
+        "zod": "4.6.7"
       },
       "bin": {
         "specrails-core": "bin/specrails-core.mjs"
@@ -2284,9 +2294,9 @@
       }
     },
     "node_modules/zod": {
-      "version": "4.6.5",
-      "resolved": "https://registry.npmjs.org/zod/-/zod-4.6.5.tgz",
-      "integrity": "sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==",
+      "version": "4.6.7",
+      "resolved": "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz",
+      "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==",
       "license": "MIT",
       "funding": {
         "url": "https://github.com/sponsors/colinhacks"

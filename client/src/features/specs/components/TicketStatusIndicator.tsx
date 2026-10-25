@@ -2,13 +2,13 @@ import { Check, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../lib/utils'
 import type { TicketStatus } from '../../../types'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 interface StatusConfig {
   dotClass: string
   textClass: string
-  borderClass: string
   /** i18n key (resolved with the `specs` namespace as default). */
   labelKey: string
   pulsing: boolean
@@ -18,42 +18,36 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
   draft: {
     dotClass: 'bg-accent-secondary/60',
     textClass: 'text-accent-secondary',
-    borderClass: 'border-l-[3px] border-dashed border-accent-secondary/50 pl-3',
     labelKey: 'common:status.draft',
     pulsing: false,
   },
   todo: {
-    dotClass: 'bg-slate-500/70',
+    dotClass: 'bg-muted-foreground/70',
     textClass: 'text-muted-foreground',
-    borderClass: 'border-l-[3px] border-dashed border-slate-500/40 pl-3',
     labelKey: 'status.todo',
     pulsing: false,
   },
   in_progress: {
-    dotClass: 'bg-blue-400 aurora-light:bg-accent-info',
+    dotClass: 'bg-accent-info',
     textClass: 'text-foreground font-semibold',
-    borderClass: 'border-l-[3px] border-solid border-blue-500 pl-3',
     labelKey: 'status.inProgress',
     pulsing: true,
   },
   on_review: {
-    dotClass: 'bg-accent-warning/80',
-    textClass: 'text-accent-warning',
-    borderClass: 'border-l-[3px] border-solid border-accent-warning/60 pl-3',
+    dotClass: 'bg-accent-review',
+    textClass: 'text-accent-review',
     labelKey: 'status.onReview',
     pulsing: false,
   },
   done: {
-    dotClass: 'text-emerald-400 aurora-light:text-accent-success',
-    textClass: 'text-emerald-400/80 aurora-light:text-accent-success',
-    borderClass: 'border-l-[3px] border-solid border-emerald-500 pl-3',
+    dotClass: 'text-accent-success',
+    textClass: 'text-accent-success',
     labelKey: 'status.done',
     pulsing: false,
   },
   cancelled: {
-    dotClass: 'text-red-400/60 aurora-light:text-destructive/70',
-    textClass: 'text-muted-foreground/50',
-    borderClass: 'pl-3',
+    dotClass: 'text-destructive',
+    textClass: 'text-muted-foreground',
     labelKey: 'status.cancelled',
     pulsing: false,
   },
@@ -68,9 +62,11 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
 export interface TicketStatusDotProps {
   status: TicketStatus
   className?: string
+  /** Set false to render the in-progress dot static (nothing is moving). */
+  pulsing?: boolean
 }
 
-export function TicketStatusDot({ status, className }: TicketStatusDotProps) {
+export function TicketStatusDot({ status, className, pulsing = true }: TicketStatusDotProps) {
   const { t } = useTranslation('specs')
   const cfg = STATUS_CONFIG[status]
 
@@ -92,25 +88,14 @@ export function TicketStatusDot({ status, className }: TicketStatusDotProps) {
     )
   }
 
-  if (cfg.pulsing) {
+  if (cfg.pulsing && pulsing) {
     return (
-      <span
-        className={cn('relative flex shrink-0 h-2.5 w-2.5', className)}
+      <LiveDot
+        size="md"
+        dotClassName={cfg.dotClass}
+        className={className}
         aria-label={t('status.inProgress')}
-      >
-        <span
-          className={cn(
-            'animate-ping absolute inline-flex h-full w-full rounded-full opacity-60',
-            cfg.dotClass
-          )}
-        />
-        <span
-          className={cn(
-            'relative inline-flex rounded-full h-2.5 w-2.5',
-            cfg.dotClass
-          )}
-        />
-      </span>
+      />
     )
   }
 
@@ -140,48 +125,17 @@ export function TicketStatusBadge({ status, className }: TicketStatusBadgeProps)
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border',
-        status === 'todo' && 'bg-slate-500/10 border-slate-500/30 text-slate-400 aurora-light:bg-muted aurora-light:border-border aurora-light:text-muted-foreground',
-        status === 'in_progress' && 'bg-blue-500/10 border-blue-500/30 text-blue-400 aurora-light:bg-accent-info/10 aurora-light:border-accent-info/30 aurora-light:text-accent-info',
-        status === 'on_review' && 'bg-accent-warning/10 border-accent-warning/30 text-accent-warning',
-        status === 'done' && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 aurora-light:bg-accent-success/10 aurora-light:border-accent-success/30 aurora-light:text-accent-success',
-        status === 'cancelled' && 'bg-red-500/10 border-red-500/30 text-red-400/60 aurora-light:bg-destructive/10 aurora-light:border-destructive/30 aurora-light:text-destructive/70',
+        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-medium border',
+        status === 'todo' && 'bg-muted border-border text-muted-foreground',
+        status === 'in_progress' && 'bg-accent-info/10 border-accent-info/30 text-accent-info',
+        status === 'on_review' && 'bg-accent-review/10 border-accent-review/30 text-accent-review',
+        status === 'done' && 'bg-accent-success/10 border-accent-success/30 text-accent-success',
+        status === 'cancelled' && 'bg-destructive/10 border-destructive/30 text-destructive',
         className
       )}
     >
       <TicketStatusDot status={status} />
       {t(cfg.labelKey)}
     </span>
-  )
-}
-
-// ─── TicketStatusRow ──────────────────────────────────────────────────────────
-
-/**
- * Wrapper div that applies the left-border visual treatment based on status.
- * Wrap list rows, grid cards, or post-its with this to get consistent
- * status styling across all view modes. Accepts any HTMLDivElement attributes,
- * so it can be used as a clickable row (role="button", tabIndex, onClick).
- *
- * @example
- * <TicketStatusRow status="in_progress" role="button" tabIndex={0} onClick={open}>
- *   <TicketTitle>My ticket</TicketTitle>
- * </TicketStatusRow>
- */
-export interface TicketStatusRowProps extends React.HTMLAttributes<HTMLDivElement> {
-  status: TicketStatus
-}
-
-export function TicketStatusRow({ status, className, children, ...props }: TicketStatusRowProps) {
-  const cfg = STATUS_CONFIG[status]
-
-  return (
-    <div
-      className={cn(cfg.borderClass, className)}
-      data-ticket-status={status}
-      {...props}
-    >
-      {children}
-    </div>
   )
 }

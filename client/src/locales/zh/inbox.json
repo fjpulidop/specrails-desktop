@@ -1,0 +1,84 @@
+{
+  "title": "待处理",
+  "subtitle_one": "有 {{count}} 项在等你",
+  "subtitle_other": "有 {{count}} 项在等你",
+  "subtitleEmpty": "没有等你处理的事项",
+  "loading": "正在检查你的项目…",
+  "empty": {
+    "title": "暂无待处理事项",
+    "description": "所有项目的评审、提问和失败都会在发生时出现在这里。"
+  },
+  "error": {
+    "title": "无法加载待处理列表",
+    "description": "应用无法读取你的项目，请稍后重试。",
+    "retry": "重试"
+  },
+  "kinds": {
+    "review": "评审就绪",
+    "question": "等待你的回答",
+    "failed": "失败",
+    "blocked": "已阻塞",
+    "budget": "因预算暂停",
+    "jira": "Jira 同步失败",
+    "failedNoCause": "在交付前停止",
+    "capReached": "已达到预算上限"
+  },
+  "actions": {
+    "open": "打开",
+    "openReview": "打开评审",
+    "answer": "回答",
+    "resume": "继续",
+    "retry": "重试",
+    "raiseCap": "调高上限"
+  },
+  "working": "处理中…",
+  "rowLabel": "{{action}}：{{title}}",
+  "snooze": {
+    "label": "稍后提醒",
+    "hour": "1 小时",
+    "tomorrow": "明天再说",
+    "cancel": "取消"
+  },
+  "snoozeItem": "稍后提醒 {{title}}",
+  "snoozeFor": "将 {{title}} 推迟",
+  "done": "完成",
+  "doneItem": "将 {{title}} 标记为完成",
+  "age": {
+    "now": "刚刚",
+    "ago": "{{age}}前"
+  },
+  "button": {
+    "withCount_one": "待处理：{{count}}",
+    "withCount_other": "待处理：{{count}}",
+    "empty": "待处理：无",
+    "title": "{{label}}（{{shortcut}}）"
+  },
+  "toast": {
+    "resumed": "运行已继续",
+    "retried": "已加入重试队列",
+    "resumeFailed": "无法继续该运行",
+    "retryFailed": "无法重试 Jira 更新",
+    "stillOverBudget": "仍超出每日预算",
+    "done": "已标记为完成",
+    "snoozed": "已推迟到 {{when}}",
+    "undo": "撤销",
+    "stillOverBudget_week": "仍超出每周预算",
+    "stillOverBudget_month": "仍超出每月预算"
+  },
+  "cap": {
+    "title": {
+      "project": {
+        "day": "已达到项目每日预算",
+        "week": "已达到项目每周预算",
+        "month": "已达到项目每月预算"
+      },
+      "desktop": {
+        "day": "已达到全局每日预算",
+        "week": "已达到全局每周预算",
+        "month": "已达到全局每月预算"
+      }
+    },
+    "detail": "已花费 {{spent}} / {{budget}}"
+  },
+  "stale": "无法刷新，当前显示的是上一次的列表。"
+}

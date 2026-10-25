@@ -87,24 +87,26 @@
     "corrupted": {
       "title": "Bundle de la app dañado",
       "description": "No se pudieron verificar una o más herramientas incluidas (Node.js, Git).",
-      "body": "Esta herramienta viene incluida con la app Specrails y no puede instalarse por separado. Si ves este mensaje, el bundle de la app puede estar dañado. Reinstala Specrails."
+      "body": "Esta herramienta viene incluida con la app Specrails y no puede instalarse por separado. Si ves este mensaje, el bundle de la app puede estar dañado. Reinstala Specrails.",
+      "download": "Descargar la última versión"
     }
   },
   "welcome": {
     "title": "Bienvenido a <spec>spec</spec><rails>rails</rails>",
+    "tagline": "Specs dentro, pull requests revisadas fuera.",
     "description": "Specrails gestiona varios proyectos desde una única interfaz. Añade tu primer proyecto para empezar.",
     "addFirstProject": "Añade tu primer proyecto",
     "jiraHint": "Conecta cada proyecto a su propio tablero de Jira — las specs se sincronizan en ambos sentidos.",
     "mcpHint": "Conecta herramientas de IA externas a Specrails mediante un servidor MCP local seguro: activado por defecto, gestiónalo en Ajustes → MCP.",
     "agentChatHint": "Opera Specrails conversando — un agente integrado gestiona specs, rails y analíticas por ti a través del MCP local. Ábrelo desde la burbuja o con ⌘⇧A.",
-    "localEnginesHint": "¿Solo un modelo local? Añade un endpoint compatible con OpenAI en Ajustes → Specrails Agents y todas las superficies — rails, chat, misiones — lo usarán por defecto."
+    "localEnginesHint": "¿Solo un modelo local? Añade un endpoint compatible con OpenAI en Ajustes → Specrails Agents y todas las superficies — rails, chat, misiones — lo usarán por defecto.",
+    "replayTour": "Repetir tour"
   },
   "onboarding": {
     "productTour": "Tour del producto",
     "stepCount": "Paso {{current}} de {{total}}",
     "goToStep": "Ir al paso {{step}}: {{label}}",
     "stepLabel": "Paso {{step}}",
-    "dontShowAgain": "No volver a mostrar",
     "skipTour": "Saltar el tour",
     "getStarted": "Empezar",
     "flow": {
@@ -145,7 +147,7 @@
       "missionLabel": "Modo Misión: el predeterminado",
       "missionBody": "Una conversación gobierna toda la app: el agente redacta specs, lanza rails, consulta el gasto y te entrega tarjetas de decisión. <b>Tú hablas, él opera.</b>",
       "boardLabel": "Modo Tablero: a un clic",
-      "boardBody": "El panel clásico: tablero de specs, rails, jobs, analítica. Cambia entre ambos con el interruptor de la barra lateral izquierda: <b>mismos proyectos, mismos datos</b>.",
+      "boardBody": "La vista clásica: tablero de specs, rails, trabajos, analítica. Cambia entre ambos con el interruptor de la barra lateral izquierda: <b>mismos proyectos, mismos datos</b>.",
       "localNote": "<b>100 % local · un solo usuario · sin cuentas.</b> Todo corre en tu máquina. Tu código nunca sale del portátil a menos que <i>tú</i> lances un agente sobre él.",
       "tourNote": "Este recorrido rápido repasa todo lo que puede hacer la app: unos dos minutos."
     },
@@ -159,9 +161,9 @@
       "levelsLabel": "Tú llevas la correa",
       "levelsBody": "Un nivel en vivo, <b>Observar → Editar → Operar → Autónomo</b>, que se recorre con <shift>Shift</shift> <tab>Tab</tab>, limita hasta dónde puede llegar. Nunca actúa por encima del nivel que fijes.",
       "cardsLabel": "Tarjetas de decisión",
-      "cardsBody": "Los lanzamientos aparecen como tarjetas en vivo fijadas sobre el composer: progreso del rail y luego Crear PR / Integrar en local / Descartar, con una Revisión en lenguaje llano. Los números de spec, jobs y loops de las respuestas son clicables.",
+      "cardsBody": "Los lanzamientos aparecen como tarjetas en vivo fijadas sobre el composer: progreso del rail y luego Crear PR / Integrar en local / Descartar, con una Revisión en lenguaje llano. Los números de spec, trabajos y loops de las respuestas son clicables.",
       "workspaceLabel": "Un workspace al lado",
-      "workspaceBody": "La barra lateral derecha abre Blueprint, Jobs, Analítica, un navegador integrado, la terminal y el explorador de código junto a la conversación, sin cambiar de contexto.",
+      "workspaceBody": "La barra lateral derecha abre Blueprint, Trabajos, Analítica, un navegador integrado, la terminal y el explorador de código junto a la conversación, sin cambiar de contexto.",
       "mcpLabel": "Funciona sobre el MCP local",
       "mcpBody": "El agente trabaja a través del servidor MCP embebido de Specrails, <b>activado por defecto</b> y solo en loopback. Ese mismo servidor permite que tus propias herramientas (Claude Desktop, Cursor…) manejen Specrails; gestiónalo en Ajustes → MCP."
     },
@@ -197,21 +199,21 @@
       "smashLabel": "SMASH a una épica",
       "smashBody": "Explota una spec grande en una familia de sub-specs más pequeñas con un clic; cada hija lleva un resumen breve en su tarjeta.",
       "draftsLabel": "Borradores y seguir editando",
-      "draftsBody": "Aparca una exploración en curso como ticket borrador y retómala después; reabre cualquier spec en Explorar para seguir refinándola."
+      "draftsBody": "Aparca una exploración en curso como spec borrador y retómala después; reabre cualquier spec en Explorar para seguir refinándola."
     },
     "rails": {
       "nav": "Rails y revisión",
       "title": "Ejecuta la pipeline sobre rails",
       "subtitle": "Carriles aislados y una revisión que de verdad se puede leer",
-      "intro": "Los <b>rails</b> son carriles de ejecución: hasta doce, creados bajo demanda. Suelta specs en un rail y pulsa <play>▶ Play</play>, o <b>Lanzar todo</b> los rails libres en paralelo. Cada run trabaja en su propio worktree de git, nunca en tu checkout.",
-      "jobLabel": "Qué hace cada run",
+      "intro": "Los <b>rails</b> son carriles de ejecución: hasta doce, creados bajo demanda. Suelta specs en un rail y pulsa <play>▶ Play</play>, o <b>Lanzar todo</b> los rails libres en paralelo. Cada ejecución trabaja en su propio worktree de git, nunca en tu checkout.",
+      "jobLabel": "Qué hace cada ejecución",
       "flowCaption": "Cada fase se transmite en vivo. Al final el trabajo se queda en su rama y la app te pregunta qué hacer: Specrails produce PRs, nunca fusiona por su cuenta.",
       "reviewLabel": "Revisión de PR que pregunta primero",
       "reviewBody": "Las specs terminadas quedan <b>En revisión</b>. Tú eliges: crear un PR en borrador, integrar en local (sin remoto) o descartar. Fusionar las pasa a Hecho.",
       "packetLabel": "Paquete de revisión",
       "packetBody": "Una página en lenguaje llano por entrega: qué se pidió, qué cambió, qué informa la IA frente a lo que la app verificó, el coste, con Aceptar / Pedir cambios / Descartar.",
-      "steerLabel": "Dirige a mitad de run",
-      "steerBody": "Los runs de Claude son interactivos: pregunta o redirige mientras trabajan, y sigue un progreso narrado en lugar de logs en crudo.",
+      "steerLabel": "Dirige a mitad de la ejecución",
+      "steerBody": "Las ejecuciones de Claude son interactivos: pregunta o redirige mientras trabajan, y sigue un progreso narrado en lugar de logs en crudo.",
       "loopsLabel": "Construye tus propios loops",
       "loopsBody": "<b>Loops</b> es un constructor visual: encadena pasos de IA, comandos de shell y un <b>Loop Decider</b> que repite hasta cumplir el objetivo. Implement y Freestyle vienen listos para usar.",
       "profilesLabel": "Perfiles de agente y defaults",
@@ -245,16 +247,16 @@
       "subtitle": "Cada invocación facturable, registrada y visualizada",
       "intro": "Cada invocación de IA registra su ciclo de vida y proveedor. El uso y el coste quedan no disponibles cuando el proveedor no los informa.",
       "analyticsLabel": "Página de analítica",
-      "analyticsBody": "Un hero de burn-rate, línea temporal diaria, top de tickets, desglose por modelo y un scatter de coste frente a turnos. Filtra por periodo (7d / 30d / 90d / Todo) y por superficie.",
-      "perTicketLabel": "Gasto por ticket",
-      "perTicketBody": "El detalle de cada spec muestra cuánto costó y cuántos turnos llevó, con enlace directo a la analítica filtrada por ese ticket.",
+      "analyticsBody": "Un hero de burn-rate, línea temporal diaria, top de specs, desglose por modelo y un scatter de coste frente a turnos. Filtra por periodo (7d / 30d / 90d / Todo) y por superficie.",
+      "perTicketLabel": "Gasto por spec",
+      "perTicketBody": "El detalle de cada spec muestra cuánto costó y cuántos turnos llevó, con enlace directo a la analítica filtrada por esa spec.",
       "honestLabel": "Números honestos",
       "honestBody": "El coste de Claude es el facturado por el proveedor; el coste de Codex puede estimarse y se marca con <mono>~</mono>.",
       "budgetsLabel": "Presupuestos y alertas",
-      "budgetsBody": "Define un presupuesto diario y una alerta de coste por job; la aplicación pausa la cola automáticamente cuando cruzas la línea. Exporta lo que quieras a CSV o JSON."
+      "budgetsBody": "Define un límite diario y una alerta de coste por trabajo; la aplicación pausa la cola automáticamente cuando cruzas la línea. Exporta lo que quieras a CSV o JSON."
     },
     "workspace": {
-      "nav": "Workspace",
+      "nav": "Espacio de trabajo",
       "title": "Hazlo tu workspace",
       "subtitle": "Todo lo que necesitas sin salir de la ventana",
       "terminalLabel": "Panel de terminal",
@@ -278,7 +280,7 @@
       "nav": "Compañera móvil",
       "title": "Llévate Specrails contigo",
       "subtitle": "Specrails Companion — tus pipelines, en tu teléfono",
-      "intro": "<b>Specrails Companion</b> es una app web en specrails.dev/companion-app — ábrela en tu teléfono (o añádela a tu pantalla de inicio) para navegar por el tablero de specs, lanzar y detener rails, seguir los logs de los jobs en directo y echar un vistazo a la analítica. Sin instalación, sin tienda de apps.",
+      "intro": "<b>Specrails Companion</b> es una app web en specrails.dev/companion-app — ábrela en tu teléfono (o añádela a tu pantalla de inicio) para navegar por el tablero de specs, lanzar y detener rails, seguir los logs de los trabajos en directo y echar un vistazo a la analítica. Sin instalación, sin tienda de apps.",
       "localLabel": "100 % local, como todo lo demás",
       "localBody": "Tu teléfono se conecta directamente a este ordenador — peer-to-peer y cifrado (WebRTC). Sin servidores intermedios en la nube, sin cuentas, y tu código nunca sale de tus dispositivos.",
       "downloadLabel": "Ábrela en tu teléfono",
@@ -288,12 +290,9 @@
       "pairBody": "En tu teléfono abre specrails.dev/companion-app y luego, aquí, ve a Ajustes → Compañera móvil → Emparejar compañera web y sigue los pasos en pantalla."
     },
     "moveFast": {
-      "nav": "Ve rápido",
-      "title": "Muévete a la velocidad del pensamiento",
-      "subtitle": "Teclado primero, en todas partes",
       "paletteLabel": "Paleta de comandos",
       "paletteShortcut": "<f>Pulsa</f> <mod>{{mod}}</mod> <m>+</m> <k>K</k> <m>en cualquier sitio</m>",
-      "paletteBody": "Cambia de proyecto, ejecuta comandos de spec, salta a cualquier página y encuentra jobs recientes, todo con búsqueda difusa.",
+      "paletteBody": "Cambia de proyecto, ejecuta comandos de spec, salta a cualquier página y encuentra trabajos recientes, todo con búsqueda difusa.",
       "agentLabel": "Agente",
       "agentBody": "Muestra u oculta el agente con <mod>{{mod}}</mod> <shift>Shift</shift> <a>A</a>; recorre su nivel con <shift>Shift</shift> <tab>Tab</tab>.",
       "terminalLabel": "Panel de terminal",
@@ -310,7 +309,7 @@
     },
     "jira": {
       "label": "Integración con Jira",
-      "body": "Respalda cualquier proyecto con un <b>tablero de Jira</b> — cada spec es un issue de Jira, sincronizado en ambos sentidos: el estado sigue al rail y se publica un comentario al terminar un job. Configúralo por proyecto al añadirlo, o cuando quieras en Ajustes."
+      "body": "Respalda cualquier proyecto con un <b>tablero de Jira</b> — cada spec es un issue de Jira, sincronizado en ambos sentidos: el estado sigue al rail y se publica un comentario al terminar un trabajo. Configúralo por proyecto al añadirlo, o cuando quieras en Ajustes."
     }
   }
 }

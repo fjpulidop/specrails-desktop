@@ -1,4 +1,4 @@
-# Atualizações
+# Atualizações {#updates}
 
 O Specrails mantém duas coisas atualizadas: o próprio app **Specrails Desktop** e o framework **specrails-core** usado pelos seus projetos. Ambos ficam em **Configurações ▸ Atualizações**.
 

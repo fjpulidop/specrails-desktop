@@ -53,7 +53,7 @@
   },
   "docs": {
     "title": "Documentation",
-    "dialogDescription": "Parcourez la documentation incluse de Specrails. Utilisez la barre latérale pour passer d'un guide à l'autre.",
+    "dialogDescription": "Le guide utilisateur de Specrails fourni avec cette version.",
     "sidebarEmpty": "Pas encore de docs",
     "indexEmpty": "La documentation apparaîtra ici. Le guide utilisateur est fourni avec l’app sous docs/guide/ ; déposez des fichiers Markdown sous ~/.specrails/docs/guide/ pour la personnaliser.",
     "categoryEmpty": "Aucun document dans cette catégorie pour l'instant.",
@@ -62,7 +62,14 @@
     "categoryCount_one": "{{count}} catégorie",
     "categoryCount_other": "{{count}} catégories",
     "summary": "{{documents}} répartis dans {{categories}}.",
-    "loadError": "Échec du chargement du document"
+    "loadError": "Impossible de charger ce document.",
+    "loading": "Chargement de la documentation…",
+    "errorDetails": "Détails",
+    "navLabel": "Sections de la documentation",
+    "guideCount_one": "{{count}} guide fourni avec cette version",
+    "guideCount_other": "{{count}} guides fournis avec cette version",
+    "filterPlaceholder": "Filtrer les guides",
+    "filterNoResults": "Aucun guide ne correspond à « {{query}} »."
   },
   "jiraCard": {
     "title": "Jira",
@@ -85,23 +92,27 @@
       "subtitle": "Outils globaux et intégrations de projet, gérés au même endroit.",
       "readyCount_one": "{{count}} prêt",
       "readyCount_other": "{{count}} prêts",
-      "openWindow": "Open in window"
+      "attentionCount_one": "{{count}} à vérifier",
+      "attentionCount_other": "{{count}} à vérifier",
+      "openWindow": "Ouvrir dans une fenêtre",
+      "openWindowFailed": "Impossible d’ouvrir la fenêtre des plugins"
     },
     "search": {
       "placeholder": "Rechercher des plugins"
     },
     "filters": {
-      "all": "tous",
-      "global": "globaux",
-      "project": "projet"
+      "all": "Tous",
+      "global": "Globaux",
+      "project": "Projet",
+      "label": "Portée"
     },
     "sections": {
       "installed": "Installés",
       "available": "Disponibles"
     },
     "scope": {
-      "global": "global",
-      "project": "projet"
+      "global": "Global",
+      "project": "Projet"
     },
     "groups": {
       "global": {
@@ -121,10 +132,12 @@
     },
     "actions": {
       "install": "Installer",
-      "installing": "Installation",
       "manage": "Gérer",
       "review": "Examiner",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "installBusy": "Installation…",
+      "configureBusy": "Configuration…",
+      "reviewBusy": "Vérification…"
     },
     "status": {
       "attention": "attention requise",
@@ -293,7 +306,8 @@
       "description": "Sélectionnez le projet où ce plugin local au projet doit être configuré.",
       "chooseProject": "Choisir un projet",
       "requiresClaudeProvider": "Nécessite le fournisseur Claude",
-      "selectProjectToContinue": "Sélectionnez un projet pour continuer."
+      "selectProjectToContinue": "Sélectionnez un projet pour continuer.",
+      "requiresSupportedProvider": "Nécessite Claude ou Codex"
     },
     "serena": {
       "loading": "Chargement de Serena…",
@@ -301,7 +315,8 @@
       "description": "Installe la configuration MCP et l’état du plugin localement au projet. Les autres projets ne sont pas touchés.",
       "status": "Statut : {{status}}",
       "files": "Fichiers",
-      "prerequisites": "Prérequis"
+      "prerequisites": "Prérequis",
+      "provider": "Fournisseur d'IA"
     },
     "projectStatus": {
       "installed": "installé",
@@ -313,6 +328,13 @@
     "diagnostics": {
       "title": "Diagnostics Headroom",
       "description": "État technique de l’installation Headroom gérée par Specrails et du proxy."
+    },
+    "jira": {
+      "loading": "Chargement de Jira…",
+      "titleForProject": "Jira pour {{name}}",
+      "configuredDescription": "Gérez le projet Jira, le mappage des statuts, le statut d'abandon, la synchronisation et l'état de la connexion.",
+      "loadFailed": "Impossible de charger la configuration Jira actuelle : {{message}}",
+      "notConfiguredDescription": "Connectez ce projet à Jira."
     }
   }
 }

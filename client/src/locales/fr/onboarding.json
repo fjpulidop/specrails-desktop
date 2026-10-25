@@ -1,0 +1,131 @@
+{
+  "entry": {
+    "try": "Essayer sur un projet exemple",
+    "cost": "Regarder est gratuit. Exécuter une spec coûte environ {{usd}} (≈ estimation).",
+    "local": "Regarder est gratuit. S'exécute sur votre moteur local, sans coût d'API.",
+    "recordedOnly": "Aucun fournisseur d'IA n'est prêt pour l'instant ; vous pouvez regarder une exécution enregistrée."
+  },
+  "dialog": {
+    "title": "Essayer Specrails sur un projet exemple",
+    "description": "Un petit jeu et trois specs toutes prêtes. Vous verrez une spec parcourir un rail jusqu'à un paquet de revue, sans toucher à votre propre code.",
+    "gets": {
+      "repo": "Un petit jeu web ({{name}}) dans son propre dépôt git",
+      "specs": "Trois specs toutes prêtes sur votre tableau",
+      "nothingRuns": "Rien ne s'exécute tant que vous n'appuyez pas sur Exécuter"
+    },
+    "folder": "Dossier",
+    "folderHint": "Créé ici, dans votre dossier personnel. Un dossier existant n'est jamais écrasé.",
+    "choose": "Choisir un dossier",
+    "chooseTitle": "Choisissez où créer l'exemple",
+    "runLater": "Quand vous exécuterez une spec plus tard",
+    "localAlso": "Votre moteur local ({{engine}}) est aussi disponible, sans coût d'API.",
+    "noProvider": "Aucun fournisseur d'IA n'est prêt. Vous pouvez quand même créer l'exemple et regarder une exécution enregistrée.",
+    "notSignedIn": "Votre fournisseur d'IA est installé mais pas connecté. Vous pouvez quand même créer l'exemple et regarder une exécution enregistrée.",
+    "create": "Créer le projet exemple",
+    "creating": "Création…",
+    "errors": {
+      "path_exists": "Ce dossier existe déjà. Choisissez-en un autre.",
+      "outside_home": "L'exemple doit se trouver dans votre dossier personnel.",
+      "generic": "Impossible de créer le projet exemple. Réessayez."
+    }
+  },
+  "cost": {
+    "minutes": "environ {{low}}–{{high}} min",
+    "local": "Sans coût d'API : s'exécute sur votre moteur local · {{time}} (estimation)",
+    "plan": "Utilise votre abonnement, sans frais supplémentaires · {{time}} (estimation)",
+    "metered": "≈ {{usd}} · {{time}} (estimation)",
+    "unknown": "≈ {{usd}} si facturé à l'usage · {{time}} (estimation)",
+    "using": "Mode rapide avec {{model}} sur {{provider}}",
+    "cap": "Elle s'arrête et demande avant de dépasser {{cap}}."
+  },
+  "guide": {
+    "label": "Guide du projet exemple",
+    "stepCount": "Étape {{current}} sur {{total}}",
+    "dismiss": "Fermer le guide",
+    "back": "Retour",
+    "next": "Suivant",
+    "done": "Terminé",
+    "ending": "Voilà toute la boucle. Appliquez-la maintenant à votre propre code.",
+    "addOwn": "Ajouter maintenant votre projet",
+    "remove": "Supprimer l'exemple"
+  },
+  "steps": {
+    "spec": {
+      "title": "La spec",
+      "body": "Ces trois specs sont écrites pour vous. Chacune dit quoi construire et comment savoir que c'est terminé."
+    },
+    "rail": {
+      "title": "Le rail",
+      "body": "Un rail mène une spec jusqu'à un changement terminé : il l'écrit, le teste, puis s'arrête pour vous. Lancez la première."
+    },
+    "review": {
+      "title": "La revue",
+      "body": "Rien n'est fusionné tout seul. À la fin de l'exécution, un paquet de revue montre ce qui a changé et vous laisse l'accepter ou l'écarter."
+    }
+  },
+  "run": {
+    "noProvider": "Aucun fournisseur d'IA n'est prêt sur cette machine : une vraie exécution n'est pas encore possible. Une exécution enregistrée montre le même parcours.",
+    "notSignedIn": "Votre fournisseur d'IA n'est pas connecté : une vraie exécution n'est pas encore possible. Une exécution enregistrée montre le même parcours.",
+    "watchRecording": "Voir une exécution enregistrée",
+    "recheck": "Vérifier à nouveau",
+    "recordingNote": "C'est un enregistrement : rien ne s'exécute et rien n'est facturé.",
+    "started": "Lancée. Compter environ {{low}}–{{high}} min ; suivez-la dans le rail.",
+    "engine": "Exécuter sur",
+    "engineLocal": "Moteur local ({{provider}})",
+    "engineCloud": "{{provider}}",
+    "cta": "Exécuter la première spec",
+    "launching": "Démarrage…",
+    "preparing": "Préparation de l'espace de travail du projet. Cela ne prend qu'un instant.",
+    "workspaceFailed": "L'espace de travail n'a pas pu être préparé.",
+    "retryWorkspace": "Réessayer",
+    "overBudget": "Le budget du jour est déjà atteint. Augmentez-le dans Analytique ▸ Budget, puis réessayez.",
+    "failed": "Impossible de démarrer l'exécution. Réessayez.",
+    "failedDetail": "Impossible de démarrer l'exécution : {{detail}}"
+  },
+  "pill": {
+    "label": "Projet exemple",
+    "showGuide": "Afficher le guide"
+  },
+  "remove": {
+    "title": "Supprimer le projet exemple ?",
+    "description": "Il quitte vos projets. Le dossier reste sur le disque sauf si vous le supprimez ci-dessous.",
+    "deleteFolder": "Supprimer aussi le dossier de l'exemple",
+    "irreversible": "La suppression de fichiers est irréversible.",
+    "confirm": "Supprimer l'exemple",
+    "confirmDelete": "Supprimer et effacer le dossier",
+    "failed": "Impossible de supprimer le projet exemple."
+  },
+  "toast": {
+    "created": "Le projet exemple « {{name}} » est prêt",
+    "reopened": "Projet exemple « {{name}} » ouvert",
+    "removed": "Projet exemple supprimé",
+    "removedDeleted": "Projet exemple et son dossier supprimés"
+  },
+  "recording": {
+    "title": "Une exécution enregistrée",
+    "description": "À quoi ressemble une première exécution terminée, de la spec au paquet de revue.",
+    "badge": "Enregistrement : rien ne s'exécute et rien n'est facturé",
+    "logLabel": "Journal de l'exécution enregistrée",
+    "lines": {
+      "setup": "Préparation de l'environnement",
+      "specPhase": "Phase : écrire le changement",
+      "specDone": "Changement écrit pour « Ajouter un bouton Recommencer »",
+      "implementPhase": "Phase : implémenter",
+      "implementDone": "La compilation passe · 4 fichiers modifiés",
+      "testPhase": "Phase : tests",
+      "testDone": "5 tests réussis",
+      "reviewPhase": "Phase : revue",
+      "shipped": "PRÊT POUR REVUE · confiance 91/100"
+    },
+    "packet": {
+      "title": "Paquet de revue (enregistré)",
+      "summary": "{{tests}} tests réussis · confiance {{confidence}}/100. Le changement attend votre décision.",
+      "decision": "Dans une vraie exécution, vous décidez ici : accepter le changement ou l'écarter. Rien n'est fusionné sans vous."
+    },
+    "replay": "Rejouer",
+    "close": "Fermer"
+  },
+  "help": {
+    "replayTour": "Revoir la visite"
+  }
+}

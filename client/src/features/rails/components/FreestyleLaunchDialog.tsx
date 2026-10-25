@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Sparkles, GitBranch, Bot, DollarSign } from 'lucide-react'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogFooter,
@@ -10,6 +11,7 @@ import {
   DialogDescription,
 } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
+import { keyboardLabel } from '../../../lib/keyboard-label'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 
 interface Props {
@@ -50,52 +52,48 @@ export function FreestyleLaunchDialog({ open, railLabel, specCount, provider = '
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
       <DialogContent
-        movableResizable
+        size="confirm"
         showCloseButton={false}
-        className="max-w-md gap-5"
         onOpenAutoFocus={(e) => { e.preventDefault(); confirmRef.current?.focus() }}
       >
-        <DialogHeader>
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-highlight/15 text-accent-highlight ring-1 ring-accent-highlight/30">
-              <Sparkles className="h-4.5 w-4.5" />
-            </span>
-            <div className="text-left">
-              <DialogTitle className="text-base">{t('freestyleDialog.title')}</DialogTitle>
-              <DialogDescription>
-                {t('freestyleDialog.context', { rail: railLabel, count: specCount })}
-                {model ? ` · ${model}` : ''}
-              </DialogDescription>
-            </div>
-          </div>
+        <DialogHeader icon={<Sparkles className="text-accent-highlight" />}>
+          <DialogTitle>{t('freestyleDialog.title')}</DialogTitle>
+          {/* Plain-language gloss of what "Freestyle" means (fix 26). */}
+          <DialogDescription>{t('freestyleDialog.gloss', { provider: providerName })}</DialogDescription>
         </DialogHeader>
 
-        <ul className="space-y-2.5 text-xs text-muted-foreground">
-          <li className="flex items-start gap-2.5">
-            <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" />
-            <span><span className="font-medium text-foreground">{t('freestyleDialog.noPipelineTitle')}</span>{' '}{t('freestyleDialog.noPipelineBody')}</span>
-          </li>
-          <li className="flex items-start gap-2.5">
-            <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-info" />
-            <span><span className="font-medium text-foreground">{t('freestyleDialog.autonomyTitle', { provider: providerName })}</span>{' '}{t('freestyleDialog.autonomyBody', { provider: providerName })}</span>
-          </li>
-          <li className="flex items-start gap-2.5">
-            <DollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" />
-            <span><span className="font-medium text-foreground">{t('freestyleDialog.costTitle')}</span>{' '}{t('freestyleDialog.costBody', { provider: providerName })}</span>
-          </li>
-        </ul>
+        <DialogBody className="space-y-4">
+          <p className="text-label text-foreground" data-testid="freestyle-launch-context">
+            {t('freestyleDialog.context', { rail: railLabel, count: specCount })}
+            {model ? ` · ${model}` : ''}
+          </p>
+          <ul className="space-y-2.5 text-xs text-muted-foreground">
+            <li className="flex items-start gap-2.5">
+              <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" />
+              <span><span className="font-medium text-foreground">{t('freestyleDialog.noPipelineTitle')}</span>{' '}{t('freestyleDialog.noPipelineBody')}</span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-info" />
+              <span><span className="font-medium text-foreground">{t('freestyleDialog.autonomyTitle', { provider: providerName })}</span>{' '}{t('freestyleDialog.autonomyBody', { provider: providerName })}</span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <DollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" />
+              <span><span className="font-medium text-foreground">{t('freestyleDialog.costTitle')}</span>{' '}{t('freestyleDialog.costBody', { provider: providerName })}</span>
+            </li>
+          </ul>
+        </DialogBody>
 
-        <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" className="h-9" onClick={onCancel}>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel}>
             {t('common:actions.cancel')}
           </Button>
           <Button
             ref={confirmRef}
-            className="h-9 gap-2 bg-emerald-500 text-white hover:bg-emerald-400 focus-visible:ring-emerald-400"
+            className="gap-2 bg-accent-success text-background hover:bg-accent-success/90 focus-visible:ring-accent-success"
             onClick={onConfirm}
           >
             {t('freestyleDialog.continue')}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-white/30 bg-white/10 px-1 text-[9px] font-medium leading-4">⌘↵</kbd>
+            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-label leading-4">{keyboardLabel('⌘↵')}</kbd>
           </Button>
         </DialogFooter>
       </DialogContent>

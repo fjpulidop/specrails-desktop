@@ -10,45 +10,53 @@
       "pinnedOpen": "Contraer barra lateral derecha (mantener anclada)",
       "pinnedCollapsed": "Desanclar barra lateral derecha",
       "unpinned": "Anclar barra lateral derecha abierta"
-    }
+    },
+    "resize": "Redimensionar barra lateral"
   },
   "projects": {
     "addProject": "Añadir proyecto",
     "remove": "Eliminar {{name}}",
     "confirmRemove": "Confirmar eliminación de {{name}}",
-    "confirmShort": "¿confirmar?",
+    "confirmShort": "¿Quitar?",
     "added": "Proyecto añadido: {{name}}",
     "removed": "Proyecto eliminado",
     "expand": "Expandir {{name}}",
     "collapse": "Contraer {{name}}",
     "settings": "Ajustes de {{name}}",
     "assembling": "Preparando workspace…",
-    "assembleFailed": "Fallo al preparar el workspace — clic para reintentar"
+    "assembleFailed": "Fallo al preparar el workspace — clic para reintentar",
+    "retrySetup": "Reintentar configuración",
+    "removeConfirmHint": "Pulsa otra vez para quitar {{project}}"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "Docs",
-    "analytics": "Analíticas",
+    "analytics": "Analíticas de todos los proyectos",
     "companion": "Companion",
-    "settings": "Ajustes",
+    "settings": "Ajustes de la app",
     "plugins": "Plugins",
-    "review": "Revisión"
+    "review": "Revisión",
+    "landmark": "Proyectos y misiones",
+    "resize": "Redimensionar barra lateral",
+    "sectionTools": "Espacio de trabajo",
+    "sectionProjects": "Proyectos"
   },
   "globalSurfaceModal": {
-    "loopsDescription": "Loops está abierto como modal de Mission.",
-    "pluginsDescription": "Plugins está abierto como modal de Mission.",
-    "reviewDescription": "El paquete de revisión está abierto como modal de misión."
+    "loopsDescription": "Loops está abierto en una ventana de la misión.",
+    "pluginsDescription": "Plugins está abierto en una ventana de la misión.",
+    "reviewDescription": "El paquete de revisión está abierto en una ventana de la misión."
   },
   "rightSidebar": {
     "projectTitle": "Proyecto",
-    "dashboard": "Dashboard",
-    "jobs": "Jobs",
+    "dashboard": "Tablero",
+    "jobs": "Trabajos",
     "analytics": "Analíticas",
     "agents": "Agentes",
     "code": "Código",
     "integrations": "Integraciones",
-    "settings": "Ajustes"
+    "settings": "Ajustes del proyecto",
+    "landmark": "Navegación del proyecto"
   },
   "navbar": {
     "home": "Inicio",
@@ -67,26 +75,36 @@
     "connectionRestored": "Conexión restablecida"
   },
   "titleBar": {
-    "searchShortcut": "Buscar (⌘K)",
+    "searchShortcut": "Buscar ({{shortcut}})",
     "searchPlaceholder": "Buscar…",
     "minimizeWindow": "Minimizar ventana",
     "maximizeWindow": "Maximizar ventana",
     "closeWindow": "Cerrar ventana",
-    "restoreWindow": "Restaurar ventana"
+    "restoreWindow": "Restaurar ventana",
+    "history": "Historial de navegación",
+    "back": "Atrás",
+    "forward": "Adelante",
+    "backTo": "Volver a {{place}}",
+    "forwardTo": "Avanzar a {{place}}",
+    "backMenu": "Lugares anteriores",
+    "forwardMenu": "Lugares siguientes",
+    "searchIn": "Buscar en {{project}}"
   },
   "costAlerts": {
     "costAlertTitle": "Alerta de coste",
-    "costAlertDescription": "El job ha costado ${{cost}} — el umbral es ${{threshold}}",
-    "dailyBudgetTitle": "Presupuesto diario superado",
-    "dailyBudgetDescription": "Gastados ${{spent}} de ${{budget}} hoy. Cola pausada.",
-    "desktopBudgetTitle": "Presupuesto diario de Desktop superado",
-    "desktopBudgetDescription": "Gasto total de Desktop: ${{spent}} de ${{budget}}. Cola pausada.",
-    "bannerMessage": "Presupuesto diario superado — gastados ${{spent}} de ${{budget}}. La cola está pausada.",
+    "costAlertDescription": "El trabajo ha costado {{cost}} — el umbral es {{threshold}}",
+    "dailyBudgetTitle": "Límite diario alcanzado",
+    "dailyBudgetDescription": "Gastados {{spent}} de {{budget}} hoy. Cola pausada.",
+    "desktopBudgetTitle": "Límite diario de Desktop superado",
+    "desktopBudgetDescription": "Gasto total de Desktop: {{spent}} de {{budget}}. Cola pausada.",
+    "bannerMessage": "Límite diario alcanzado: {{spent}} de {{budget}}. La cola está en pausa.",
     "dismiss": "Descartar"
   },
   "errorBoundary": {
     "title": "Algo ha salido mal",
-    "occurredIn": "Se ha producido un error en <strong>{{name}}</strong>"
+    "occurredIn": "Se ha producido un error en <strong>{{name}}</strong>",
+    "description": "Esta vista ha dejado de funcionar. Reinténtalo para recargarla; el resto de tu trabajo no se ve afectado.",
+    "details": "Detalles técnicos"
   },
   "healthWidget": {
     "healthLabel": "salud",
@@ -95,7 +113,7 @@
     "factorCoverageGood": "Cobertura ≥ 70%",
     "factorPipelineGreen": "Último pipeline en verde",
     "factorActiveWeek": "Activo esta semana",
-    "noJobsYet": "Aún no hay jobs",
+    "noJobsYet": "Aún no hay trabajos",
     "recurringFailures": "Fallos recurrentes detectados",
     "failurePattern": "<cmd>{{command}}</cmd> ha fallado <times>{{count}}×</times> esta semana — posible problema del proyecto.",
     "coverage": "Cobertura",
@@ -123,5 +141,41 @@
     "active": "Evita el reposo automático. La pantalla puede apagarse.",
     "inactive": "Reposo normal permitido.",
     "failed": "No se pudo cambiar el estado de reposo."
+  },
+  "skipToContent": "Saltar al contenido principal",
+  "places": {
+    "routes": {
+      "dashboard": "Tablero",
+      "jobs": "Trabajos",
+      "analytics": "Analíticas",
+      "activity": "Actividad",
+      "agents": "Agentes",
+      "code": "Código",
+      "integrations": "Integraciones",
+      "settings": "Ajustes del proyecto",
+      "docs": "Documentación",
+      "loops": "Loops",
+      "plugins": "Plugins"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Misión",
+    "missionTitled": "Misión · {{title}}",
+    "job": "Trabajo {{id}}",
+    "review": "Paquete de revisión",
+    "inbox": "Pendientes",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugins",
+      "docs": "Documentación",
+      "analytics": "Analíticas de todos los proyectos"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "Esa spec ya no existe, así que se omitió.",
+      "mission": "Esa misión ya no existe, así que se omitió.",
+      "job": "Ese trabajo ya no existe, así que se omitió.",
+      "review": "Ese paquete de revisión ya no existe, así que se omitió."
+    }
   }
 }

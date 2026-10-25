@@ -16,7 +16,7 @@ export function EnterpriseSpendMeter({ spend, stale, now, compact = false }: {
     : t('spend.consumed', { used: money(spend.usedAmount) })
   const percent = spend.usedPercent
   const reset = spend.resetsAt ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(spend.resetsAt)) : null
-  return <div className={cn('space-y-1.5', compact ? 'text-[10px]' : 'text-xs')}>
+  return <div className={cn('space-y-1.5', compact ? 'text-caption' : 'text-xs')}>
     <div className="flex flex-wrap items-center justify-between gap-1 text-muted-foreground">
       <span>{t('spend.monthly')}</span>
       {percent !== null && <span className="font-medium tabular-nums text-foreground">{formatSpendPercent(percent, i18n.language)}</span>}

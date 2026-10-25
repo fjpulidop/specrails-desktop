@@ -104,7 +104,8 @@
     "commit": "Confirmar {{count}} specs como {{label}}",
     "commitToast": "{{count}} specs añadidas al tablero como {{label}}",
     "commitFailed": "No se pudo confirmar el hito",
-    "providerUnavailable": "La generación de hitos no está disponible porque este proveedor no tiene modo nativo de solo lectura."
+    "providerUnavailable": "La generación de hitos no está disponible porque este proveedor no tiene modo nativo de solo lectura.",
+    "send": "Enviar"
   },
   "mode": {
     "title": "Constructor de proyectos",
@@ -269,7 +270,7 @@
       "onReview": "En revisión",
       "inProgress": "En curso",
       "failed": "Fallaron el último intento",
-      "todo": "Pendientes"
+      "todo": "Por hacer"
     },
     "rail": {
       "fallbackName": "Rail {{n}}",
@@ -316,7 +317,8 @@
       "autoOn": "Continuación automática activada — los siguientes rails se lanzan solos",
       "autoOff": "Continuación automática desactivada — se te preguntará antes de cada rail",
       "autoFailed": "No se pudo actualizar la cadena",
-      "integrating": "integrando la spec antes de lanzar la siguiente"
+      "integrating": "integrando la spec antes de lanzar la siguiente",
+      "cancelFailed": "No se pudo cancelar la cadena"
     },
     "toast": {
       "launched": "{{milestone}} lanzado — la spec 1 de {{n}} está en su rail; las siguientes specs siguen automáticamente, un rail cada una",

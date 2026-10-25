@@ -52,16 +52,36 @@ export function rangeFromSamples(samplesMs: readonly number[]): DurationRange | 
  * codebase, different model) cannot skew the band a user is shown today. */
 const HISTORY_LIMIT = 50
 
+/**
+ * One settled run, as the launch forecast and "runs like this have taken"
+ * band read it. `costUsd` is set ONLY for a figure the provider reported
+ * (positive, not a local price-table estimate); anything else is null so an
+ * estimate can never be averaged into a billed range.
+ */
+export interface RunSample {
+  ms: number
+  costUsd: number | null
+}
+
+/** Settled runs of one loop, newest first, optionally of one provider. */
+export function loopRunSamples(db: DbInstance, projectId: string, loopId: string, provider?: string | null): RunSample[] {
+  const rows = db.prepare(`
+    SELECT lr.total_duration_ms AS ms,
+           lr.total_cost_usd AS cost,
+           EXISTS (SELECT 1 FROM ai_invocations ai
+                    WHERE ai.loop_run_id = lr.id AND ai.total_cost_usd_estimated = 1) AS estimated
+      FROM loop_runs lr
+     WHERE lr.project_id = ? AND lr.loop_id = ? AND lr.finished_at IS NOT NULL AND lr.total_duration_ms > 0
+       AND (? IS NULL OR lr.provider = ?)
+     ORDER BY lr.started_at DESC
+     LIMIT ?
+  `).all(projectId, loopId, provider ?? null, provider ?? null, HISTORY_LIMIT) as { ms: number; cost: number | null; estimated: number }[]
+  return rows.map((row) => ({ ms: row.ms, costUsd: billedCost(row.cost, row.estimated === 1) }))
+}
+
 /** Measured band for a loop id, or null below the sample floor. */
 export function getLoopDurationRange(db: DbInstance, projectId: string, loopId: string): DurationRange | null {
-  const rows = db.prepare(`
-    SELECT total_duration_ms AS ms
-      FROM loop_runs
-     WHERE project_id = ? AND loop_id = ? AND finished_at IS NOT NULL AND total_duration_ms > 0
-     ORDER BY started_at DESC
-     LIMIT ?
-  `).all(projectId, loopId, HISTORY_LIMIT) as { ms: number }[]
-  return rangeFromSamples(rows.map((row) => row.ms))
+  return rangeFromSamples(loopRunSamples(db, projectId, loopId).map((sample) => sample.ms))
 }
 
 /**
@@ -75,18 +95,26 @@ export function jobCommandShape(command: string): string {
   return head
 }
 
-/** Measured band for a job command shape, or null below the sample floor. */
-export function getJobCommandDurationRange(db: DbInstance, commandShape: string): DurationRange | null {
+/** Completed jobs of one command shape, newest first, optionally of one provider. */
+export function jobCommandSamples(db: DbInstance, commandShape: string, provider?: string | null): RunSample[] {
   const rows = db.prepare(`
-    SELECT duration_ms AS ms, command
+    SELECT duration_ms AS ms, command, total_cost_usd AS cost, total_cost_usd_estimated AS estimated, provider
       FROM jobs
      WHERE status = 'completed' AND duration_ms > 0
      ORDER BY started_at DESC
      LIMIT 500
-  `).all() as { ms: number; command: string }[]
-  return rangeFromSamples(
-    rows.filter((row) => jobCommandShape(row.command ?? '') === commandShape)
-      .slice(0, HISTORY_LIMIT)
-      .map((row) => row.ms),
-  )
+  `).all() as { ms: number; command: string; cost: number | null; estimated: number | null; provider: string | null }[]
+  return rows
+    .filter((row) => jobCommandShape(row.command ?? '') === commandShape && (!provider || row.provider === provider))
+    .slice(0, HISTORY_LIMIT)
+    .map((row) => ({ ms: row.ms, costUsd: billedCost(row.cost, row.estimated === 1) }))
+}
+
+/** Measured band for a job command shape, or null below the sample floor. */
+export function getJobCommandDurationRange(db: DbInstance, commandShape: string): DurationRange | null {
+  return rangeFromSamples(jobCommandSamples(db, commandShape).map((sample) => sample.ms))
+}
+
+function billedCost(cost: number | null, estimated: boolean): number | null {
+  return !estimated && typeof cost === 'number' && Number.isFinite(cost) && cost > 0 ? cost : null
 }

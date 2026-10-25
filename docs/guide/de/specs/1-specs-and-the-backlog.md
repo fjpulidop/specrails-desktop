@@ -1,4 +1,4 @@
-# Specs & das Backlog
+# Specs & das Backlog {#specs-backlog}
 
 Eine **Spec** ist die Arbeitseinheit, die die KI-Pipeline umsetzt. Stell sie dir wie ein Ticket vor: ein Titel, eine Beschreibung dessen, was du erledigt haben möchtest, eine Priorität und optionale Labels. Wenn du die Pipeline startest, lesen die KI-Agenten die Spec und handeln danach – eine klare Spec ist also der mit Abstand wichtigste Input für ein gutes Ergebnis.
 
@@ -13,7 +13,27 @@ Das Board hat zwei Ansichtsmodi, die du über einen Umschalter in der Toolbar we
 - **Post-it-Ansicht** (Standard) – kartenartige Kacheln mit kurzen Zusammenfassungen.
 - **Listenansicht** – kompakte, einzeilige Zeilen.
 
-Der **Status-Selektor** in der Werkzeugleiste zeigt jeden Status als eigenen Chip mit Live-Zähler — plus zwei smarte Gruppen: **Aktiv** (der Standard — alles, was noch in Bewegung ist: Entwürfe, To-dos, in Arbeit und in Prüfung) und **Alle** (alles, mit Fertig unten angeheftet). Deine Auswahl wird pro Projekt gemerkt und in die URL gespiegelt, sodass ein Neuladen oder ein geteilter Link exakt dieselbe Ansicht wiederherstellt. Bei Jira-verbundenen Projekten erscheint zusätzlich ein **Jira-Status**-Dropdown mit den *echten* Workflow-Status des Boards (ihre Rohnamen, z. B. „Code Review", jeweils mit Live-Zähler), gruppiert unter dem Zustand, auf den sie abbilden — es kombiniert sich mit den Status-Chips. Du kannst außerdem nach **Label** filtern sowie nach **Standard**, **Ticket #** oder **Priorität** sortieren (jeweils mit Umschalter für auf- und absteigend).
+Die Specs-Werkzeugleiste hat zwei Zeilen. Die erste enthält ein **Suchfeld** (mit `/` springst du hinein; es findet Titel, `#Nummer`, Label oder Jira-Schlüssel), eine einzige **Filter**-Schaltfläche, die Sortier- und Ansichtssteuerung sowie **Neue Spec**. Die zweite Zeile ist der **Status-Selektor**: jeder Status als eigenes Segment mit Live-Zähler, dazu zwei smarte Gruppen, **Aktiv** (der Standard: alles, was noch in Bewegung ist, also Entwürfe, To-dos, in Arbeit und in Prüfung) und **Alle** (alles, mit Fertig unten angeheftet). Ist die Spalte schmal, wandern die seltener genutzten Status in ein **Mehr**-Menü, und der gewählte Status bleibt immer sichtbar. Deine Auswahl wird pro Projekt gemerkt und in die URL gespiegelt, sodass ein Neuladen oder ein geteilter Link exakt dieselbe Ansicht wiederherstellt. **Filter** öffnet ein Panel mit einem Abschnitt pro Dimension: **Labels** (Mehrfachauswahl) und bei Jira-verbundenen Projekten **Epic**, **Sprint** und **Jira-Status** (die *echten* Workflow-Status des Boards, z. B. „Code Review“, gruppiert unter dem Zustand, auf den sie abbilden, kombiniert mit dem Status-Selektor). Solange eine Suche oder ein Filter das Board eingrenzt, zeigt eine dritte Zeile jeden davon als entfernbaren Chip, nennt „x von y“ Specs und bietet **Alle zurücksetzen** (dein gewählter Status bleibt erhalten). Sortiere nach **Standard**, **Ticket #** oder **Priorität**, jeweils mit Umschalter für auf- und absteigend.
+
+### Mehrere Specs auswählen
+
+Sortieren Sie gesammelt statt Spec für Spec. Drücken Sie `x` auf einer fokussierten Karte, klicken Sie mit `Strg`/`⌘` auf eine Karte oder mit `Umschalt` für einen Bereich (ein Bereich bleibt in einer Spalte: die aktiven Specs oder der Bereich „Erledigt“). `Strg`/`⌘`+`A` wählt die ganze Spalte, in der Sie sind, `Esc` hebt die Auswahl auf. Jede Karte zeigt beim Darüberfahren oder Fokussieren ein Kontrollkästchen, ausgewählte Karten haben einen hervorgehobenen Rahmen. Keine dieser Tasten wirkt, solange Sie im Suchfeld tippen.
+
+Sobald eine Spec ausgewählt ist, erscheint unten im Board eine schwebende Leiste mit der Anzahl und den Aktionen:
+
+- **Verschieben nach** ändert den Status. Lokale Specs erhalten die lokalen Status; Specs aus Jira erhalten die echten Workflow-Status des Jira-Boards und laufen über dieselbe Jira-Warteschlange wie eine einzelne Verschiebung.
+- **Label** fügt der Auswahl ein Label hinzu oder entfernt eines, das die Specs tragen.
+- **Priorität** setzt für alle dieselbe Priorität.
+- **Zu Rail hinzufügen** legt die Auswahl auf einen Rail.
+- **Alle starten** gibt jeder ausgewählten Spec einen eigenen freien Rail und startet sie parallel, nach derselben Bestätigung und Prüfung des Tagesbudgets wie *Alle starten* bei den Rails. Specs, die noch nicht starten können (etwa im Review ohne offenen PR) oder keinen freien Rail finden, werden übersprungen und in der Zusammenfassung gezählt.
+- **Löschen** verschiebt sie nach *Zuletzt gelöscht*.
+- **Aufheben** (oder `Esc`) verwirft die Auswahl.
+
+Löschen sowie Änderungen von Status, Labels und Priorität lassen sich in einem Schritt rückgängig machen: eine einzige *Rückgängig*-Meldung (oder `⌘Z`) stellt jede geänderte Spec wieder her. Schlagen einzelne fehl, nennt eine Meldung, wie viele geklappt haben und wie viele nicht. Die Auswahl enthält nur Specs, die Sie sehen: Ein Filter, der eine ausgewählte Spec ausblendet, nimmt sie aus der Auswahl.
+
+### Gespeicherte Ansichten
+
+Die Schaltfläche **Ansichten** neben **Filter** speichert das Board so, wie es gerade ist: die Statusauswahl, die Filter, die Sortierung und die Dichte (nicht den Suchtext). Wählen Sie **Aktuelle Ansicht speichern…**, geben Sie ihr einen Namen („Startbereit“, „Sprint 42“, „Diese Woche fehlgeschlagen“) und wählen Sie sie später im selben Menü. **Ansichten verwalten…** benennt eine Ansicht um, aktualisiert sie mit dem aktuellen Board, kopiert ihren Link oder löscht sie. Ansichten gehören zum Projekt. Ein kopierter Link (`?view=…`) wendet die Ansicht an, wenn er in dieser App geöffnet wird, und die Befehlspalette (`⌘K`) kann die aktuelle Ansicht speichern oder zu einer anderen wechseln.
 
 ## Status
 
@@ -38,7 +58,7 @@ Entwürfe sind die einzige Ausnahme: Ein Entwurf darf *gar keine* Priorität hab
 
 ## Eine Spec erstellen
 
-Um eine Spec zu erstellen, klicke auf **Hinzufügen** (die Plus-Schaltfläche in der SpecsBoard-Toolbar). Der Dialog **Spec hinzufügen** öffnet sich mit mehreren Arbeitsweisen:
+Um eine Spec zu erstellen, klicke auf **Neue Spec** (die Plus-Schaltfläche in der SpecsBoard-Toolbar). Der Dialog **Spec hinzufügen** öffnet sich mit mehreren Arbeitsweisen:
 
 - **Quick-Modus** – du beschreibst, was du möchtest, und die KI schreibt die vollständige Spec in einem Rutsch. Siehe [Spec hinzufügen – Quick-Modus](add-spec-quick-mode.md).
 - **Explore-Modus** – du unterhältst dich mit der KI, und sie hilft dir, die Spec Zug um Zug zu formen. Siehe [Spec hinzufügen – Explore-Modus](add-spec-explore-mode.md).
@@ -53,6 +73,20 @@ Wenn hinter einer Spec bereits Arbeit steckt – ein PR im Review, ein gemergtes
 ## Eine Lieferung prüfen – worauf zuerst achten
 
 Wenn ein Lauf endet, beginnt sein Review-Paket mit **Worauf achten**: den kurzen Hinweisen des KI-Reviewers, die die riskantesten Stellen zuerst nennen (hoch, dann mittel, dann niedrig, jeweils mit Datei und Zeile), das Verhalten, das sich ändert, die Regeln, auf die sich die Änderung stützt, die Codepfade, die kein Test ausführt, und die Prüfungen, die nur ein Mensch machen kann. Dieselben Risiken, ungetesteten Pfade und Prüfungen stehen in einem kurzen Block oben im Pull Request, und die Missionskarte zeigt das größte Risiko in einer Zeile. Die Hinweise unterstützen Ihr Review, sie sind kein Prüfergebnis und blockieren Annehmen nie. Läufe mit einem älteren Specrails Core haben keine Hinweise; ihr Paket sieht aus wie bisher.
+
+## Rückgängig und Zuletzt gelöscht {#recently-deleted}
+
+Eine Spec löschen, ihren Status ändern, ihre Labels ändern oder sie von einer Rail nehmen geschieht sofort — ohne vorherige Rückfrage. Stattdessen bietet ein Hinweis etwa acht Sekunden lang **Rückgängig** an, und **⌘Z** (**Strg+Z** unter Windows und Linux) tut dasselbe, solange du nicht in einem Feld tippst. Rückgängig gilt pro Projekt: Ein Projektwechsel beendet das Zeitfenster.
+
+Eine gelöschte Spec (und eine gelöschte Mission) ist nicht weg. Sie landet unter **Einstellungen → Zuletzt gelöscht** in den Projekteinstellungen, wo du sie 30 Tage lang **Wiederherstellen** oder **Endgültig löschen** kannst — Letzteres fragt nach. Nach 30 Tagen wird sie endgültig entfernt. Nicht gepushte Arbeit verwerfen, einen Pull Request erzwungen schließen und ein Projekt entfernen fragen weiterhin nach, weil sie sich nicht rückgängig machen lassen. Eine Jira-gestützte Spec wird weiterhin mit **Verschieben nach** statt durch Löschen bearbeitet.
+
+## Der Spec-Verlauf und die Übergabe {#spec-timeline}
+
+Öffne eine Spec und wechsle zum Tab **Verlauf**, um ihre ganze Geschichte an einem Ort zu lesen: die Änderungen und Nachträge, die Missionen, die sie berührt haben, jeden Lauf mit seinen Phasen und Agent-Aktionen, die Pull-Request-Ereignisse und das Urteil des Reviewers samt Befunden. Die Einträge sind nach Tag gruppiert, die Chips filtern nach Art, und jeder Eintrag verlinkt auf die Mission, den Lauf oder das Review, aus dem er stammt. Lange Gruppen (Phasen, Agent-Aktionen, Missions-Turns) sind mit einer Zahl eingeklappt und klappen an Ort und Stelle auf.
+
+Die Kosten stehen neben dem Eintrag, der sie verursacht hat, und die beiden Arten bleiben getrennt: ein vom Anbieter gemeldeter Betrag und ein aus der lokalen Preistabelle geschätzter (mit „gesch.“ markiert). Wird ein Anbieter über ein Abo abgerechnet, zeigen Verlauf und Exporte Turns, nie Dollar; ein Lauf ohne gemeldete Kosten zeigt schlicht keine.
+
+**Übergabe exportieren** (das Menü neben den Tabs oder ⌘K → *Übergabe für #N exportieren*) schreibt eine Markdown-Datei oder eine eigenständige HTML-Seite mit der Zusammenfassung, den Entscheidungen (Nachträge, Klärungen, Urteile des Reviewers), den Diff-Statistiken, den Kosten und dem, was noch offen ist (offene Nachträge und ungelöste Review-Befunde). **Als PR-Beschreibung kopieren** (auch in ⌘K) legt eine kürzere Markdown-Fassung in die Zwischenablage. Die Überschriften folgen der Sprache der App. Alles läuft durch dieselbe Geheimnis-Schwärzung wie das Audit der Agent-Aktionen, und die Meldung sagt dir, wenn etwas entfernt wurde.
 
 ## Wie es weitergeht
 

@@ -60,7 +60,8 @@
     "select": "Seleziona {{name}}",
     "exportLegacy": "Esporta il grafo originale",
     "originalCopyName": "Originale: {{name}}",
-    "convert": "Converti in Core"
+    "convert": "Converti in Core",
+    "more": "Altre azioni"
   },
   "card": {
     "nodes_one": "{{count}} nodo",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Limite massimo di iterazioni del Loop Decider — il loop si ferma al raggiungimento anche se l'obiettivo non è soddisfatto. Evita loop infiniti.",
       "timeoutHint": "Limite di tempo reale per l'intera esecuzione, in minuti. Se superato, l'esecuzione viene interrotta e segnata come fallita — una rete di sicurezza insieme alle iterazioni massime. 0 disattiva questo limite di tempo; gli altri budget e l’annullamento restano attivi.",
       "maxCost": "Costo max ($)",
-      "maxCostHint": "Budget USD opzionale per l’intera esecuzione. Controllato TRA i passi (il costo di un passo si conosce solo al termine), il loop si ferma prima del passo successivo quando il totale lo supera — può sforare di un passo. Per i provider non-Claude il costo è stimato. Vuoto = nessun limite."
+      "maxCostHint": "Budget USD opzionale per l’intera esecuzione. Controllato TRA i passi (il costo di un passo si conosce solo al termine), il loop si ferma prima del passo successivo quando il totale lo supera — può sforare di un passo. Per i provider non-Claude il costo è stimato. Vuoto = nessun limite.",
+      "title": "Limiti di esecuzione"
     },
     "nodes": {
       "start": "Inizio",
@@ -146,7 +148,10 @@
       "name": "NOME",
       "value": "valore",
       "add": "Aggiungi",
-      "builtinBadge": "Integrate"
+      "builtinBadge": "Integrate",
+      "deleteConfirmTitle": "Eliminare la costante {{name}}?",
+      "deleteConfirmBody": "Le costanti sono condivise da tutti i loop. I passaggi che la usano ancora non potranno più risolverla.",
+      "description": "Valori riutilizzabili condivisi da tutti i loop. Inseriscili in un passaggio come token; vengono risolti in esecuzione."
     },
     "paste": {
       "done_one": "{{count}} passo incollato",
@@ -166,7 +171,11 @@
       "DEAD_END": "Questo passo non ha connessioni in uscita.",
       "MIXED_ENGINES": "Non mescolare passaggi precedenti con passaggi Core.",
       "CORE_OUTCOMES": "Collega risultati distinti e validi.",
-      "CORE_PIECE": "Seleziona un passaggio e i relativi parametri."
+      "CORE_PIECE": "Seleziona un passaggio e i relativi parametri.",
+      "severity": {
+        "error": "Errore",
+        "warning": "Avviso"
+      }
     },
     "preview": {
       "label": "Anteprima",
@@ -193,7 +202,7 @@
       "tooDeep": "Il valore contiene troppi livelli.",
       "pieces": {
         "prompt": "Prompt",
-        "role-turn": "Agent step",
+        "role-turn": "Passo agente",
         "decider": "Decisione",
         "condition": "Condizione",
         "verify": "Verifica",
@@ -209,8 +218,8 @@
         "implementation": "Implementazione",
         "end": "Fine",
         "assign": "Impostare variabili",
-        "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract",
+        "implementation-step": "Passo di implementazione",
+        "artifact-contract": "Verifica artefatti",
         "derive-change": "Derivare la modifica"
       },
       "groups": {
@@ -228,10 +237,17 @@
         "increment": "Modificare contatori"
       },
       "requiredContinue": "Continua finché questa condizione è vera",
-      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
-      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+      "agentTaskDefault": "Esegui il compito definito per questo passo usando il contesto del workflow.",
+      "legacyImplementation": "Questo passo conserva le fasi di una versione precedente. Aggiungi un passo agente per definire il tuo passo. Per i loop integrati, «Ripristina originale» carica il nuovo workflow."
     },
-    "loopSettings": "Advanced settings"
+    "loopSettings": "Impostazioni avanzate",
+    "nameLabel": "Nome del loop",
+    "unsaved": {
+      "title": "Salvare le modifiche prima di uscire?",
+      "body": "Questo loop ha modifiche non salvate. Se le scarti, andranno perse.",
+      "save": "Salva ed esci",
+      "discard": "Scarta modifiche"
+    }
   },
   "preview": {
     "steps": "Passi",
@@ -243,14 +259,17 @@
   "builtInBadge": "Integrato",
   "run": {
     "title": "Esegui {{name}}",
-    "subtitle": "Avvia questo loop su un progetto (senza ticket).",
+    "subtitle": "Avvia questo loop su un progetto (senza spec).",
     "project": "Progetto",
     "provider": "Provider",
     "model": "Modello",
     "effort": "Sforzo di ragionamento",
     "execute": "Esegui",
     "noProjects": "Nessun progetto disponibile.",
-    "launched": "Esecuzione di {{name}}"
+    "launched": "Esecuzione di {{name}}",
+    "runCap": "Metti in pausa e chiedi a (USD)",
+    "runCapPlaceholder": "Predefinito del progetto",
+    "runCapHint": "Facoltativo. L’esecuzione si mette in pausa quando il suo costo raggiunge questo importo e chiede se continuare."
   },
   "catalog": {
     "ship-and-green": {
@@ -294,12 +313,16 @@
       "description": "Consegna la spec direttamente al modello con piena libertà — senza pipeline, lavora come un normale coding agent, poi verifica + rifinisce fino al verde. Solo Claude."
     },
     "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
-      "description": "Ciclo OpenSpec dal ticket all'archivio: genera artefatti (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); con FAIL torna indietro ed emenda lo stesso change, con PASS lo archivia senza intervento."
+      "name": "Ciclo di vita OpenSpec",
+      "description": "Ciclo OpenSpec dalla spec all'archivio: genera artefatti (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); con FAIL torna indietro ed emenda lo stesso change, con PASS lo archivia senza intervento."
     },
     "factory_revision": {
       "name": "Revisione",
       "description": "Applica l'unica modifica richiesta sopra il lavoro già consegnato, fa rivalutare dal revisore e verifica fino al verde. Non ripianifica da zero."
+    },
+    "drift-sweep": {
+      "name": "Controllo del drift",
+      "description": "Sola lettura: confronta ciò che afferma la spec di ogni capability con ciò che fa il codice ed elenca ogni contraddizione con file:riga. Non modifica nulla; eseguilo su richiesta."
     }
   },
   "import": {
@@ -360,6 +383,9 @@
     }
   },
   "window": {
-    "open": "Open in window"
-  }
+    "open": "Apri in una finestra",
+    "openFailed": "Impossibile aprire la finestra del loop"
+  },
+  "confirmDeleteTitle": "Eliminare «{{name}}»?",
+  "confirmDeleteAction": "Elimina loop"
 }

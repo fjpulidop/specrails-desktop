@@ -1,5 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { useState } from 'react'
+import userEvent from '@testing-library/user-event'
 
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
@@ -18,7 +20,7 @@ const TOOLS: AgentLiveTool[] = [
 beforeEach(() => {
   toastSuccess.mockClear()
   toastError.mockClear()
-  Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } })
 })
 
 describe('AgentActivityLogModal', () => {
@@ -62,11 +64,42 @@ describe('AgentActivityLogModal', () => {
     expect((screen.getByTestId('agent-activity-copy-all') as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('closes on Escape and on backdrop click', () => {
+  it('closes on Escape (Radix) and traps focus inside the panel', async () => {
     const onClose = vi.fn()
-    render(<AgentActivityLogModal tools={TOOLS} streaming={false} onClose={onClose} />)
-    fireEvent.keyDown(window, { key: 'Escape' })
+    render(
+      <>
+        <button type="button">behind</button>
+        <AgentActivityLogModal tools={TOOLS} streaming={false} onClose={onClose} />
+      </>,
+    )
+    const panel = screen.getByRole('dialog')
+    expect(panel.getAttribute('data-dialog-layer')).toBe('entity')
+    expect(panel.contains(document.activeElement)).toBe(true)
+    const user = userEvent.setup()
+    for (let i = 0; i < 8; i += 1) {
+      await user.tab()
+      expect(panel.contains(document.activeElement)).toBe(true)
+    }
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns focus to the chip that opened it', async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>open log</button>
+          {open && <AgentActivityLogModal tools={TOOLS} streaming={false} onClose={() => setOpen(false)} />}
+        </>
+      )
+    }
+    render(<Harness />)
+    const trigger = screen.getByRole('button', { name: 'open log' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
   })
 })
 

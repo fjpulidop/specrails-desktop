@@ -15,7 +15,7 @@
     "modeDescription": {
       "quick": "機能や変更内容を記述してください。モックアップ、ブリーフ、データを添付するとコンテキストが充実します。",
       "explore": "大まかなアイデアを記述してください。選択した AI アシスタントが対話を通じて形にするのを手伝います — コミットのタイミングはあなたが決めます。",
-      "raw": "プロンプトをそのままスペックチケットとして保存します。今は AI を実行しません。レールにドラッグするとビルドされます。"
+      "raw": "プロンプトをそのままスペックとして保存します。今は AI を実行しません。レールにドラッグするとビルドされます。"
     },
     "editorPlaceholder": {
       "quick": "例: 設定ページにダークモードの切り替えを追加し、ユーザーの設定を永続化する...",
@@ -59,8 +59,11 @@
       "generating": "生成中...",
       "failedToStart": "{{projectName}} · 開始に失敗しました",
       "unsupportedFileType": "未対応のファイル形式: {{name}}",
-      "uploadFailed": "{{name}} のアップロードに失敗しました: {{message}}"
-    }
+      "uploadFailed": "{{name}} のアップロードに失敗しました"
+    },
+    "contextSummary": "コンテキスト: {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "コンテキスト: {{preset}}",
+    "costEstimateTitle": "選択したモデルとコンテキストでこのスペックを生成する際の推定コスト"
   },
   "featureProposal": {
     "title": "機能を提案",
@@ -127,7 +130,7 @@
       "contract": "contract"
     },
     "checks": {
-      "specrailsLabel": "specrails チケット",
+      "specrailsLabel": "specrails スペック",
       "openspecLabel": "openspec スペック",
       "fullLabel": "コードベース全体",
       "mcpLabel": "プロジェクト MCP",
@@ -139,7 +142,8 @@
       "providerUnsupported": "{{provider}} では利用できません",
       "contractLabel": "Contract Layer で強化",
       "contractHint": "コミット後の改良 · SMASH を有効化"
-    }
+    },
+    "costTier": "コスト段階：{{tier}}"
   },
   "aiEngine": {
     "label": "AI エンジン",

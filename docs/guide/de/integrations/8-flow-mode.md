@@ -1,44 +1,69 @@
-# Flow: erst bauen, dann die Spec
+# Flow: erst bauen, dann die Spec {#flow-mode}
 
-Mit Flow baust du gemeinsam mit einem Agenten, wenn du noch nicht genau weißt, was du willst. Du sprichst in deiner Mission mit dem Agenten, er schreibt und startet echten Code in einem isolierten Worktree, und wenn das Ergebnis passt, sagst du **Das ist es**: Eine Rail übernimmt den Worktree, leitet die Spec ab und führt die übliche Verifikation, Review und Auslieferung aus.
+Flow ist eine Art, mit einem Agenten zu bauen, wenn du noch nicht genau weißt, was du willst. Du sprichst in deiner Mission mit dem Agenten, er schreibt und startet echten Code auf seinem eigenen Flow-Branch (einer separaten Kopie deines Projekts), und wenn das Ergebnis stimmt, drückst du **Übergeben**: Ein Rail übernimmt deine Änderungen, leitet die Spec ab und führt die übliche Prüfung, Review und Auslieferung aus.
 
 Implement ist zum Delegieren von Arbeit, die du schon beschreiben kannst. Flow ist zum Entdecken.
 
 ## So beginnt ein Flow
 
-Du musst Flow nicht beim Namen nennen. Beschreibst du etwas Exploratives oder Visuelles („ich will … ausprobieren“, „ich weiß nicht, wie es aussehen soll“), zeigt die Mission eine Karte mit zwei Wegen:
+Du musst Flow nie beim Namen nennen. Wenn du etwas Exploratives oder Visuelles beschreibst („Ich will ausprobieren…“, „Ich weiß nicht, wie es aussehen soll“), zeigt die Mission eine Karte mit zwei Wegen:
 
-- **Flow** – jetzt gemeinsam bauen; die Spec kommt am Ende.
-- **Spec + Implement** – zuerst eine Spec vereinbaren, dann an eine Rail delegieren.
+- **Flow**: jetzt gemeinsam bauen; die Spec kommt am Ende.
+- **Spec + Implement**: erst eine Spec vereinbaren, dann an einen Rail delegieren.
 
-Die Karte markiert den empfohlenen Weg und begründet ihn in einem Satz. Der andere Weg ist immer einen Klick entfernt, und der Agent besteht nicht darauf, wenn du ihn wählst oder **Nicht jetzt** drückst.
+Beide Wege haben dasselbe Gewicht und erscheinen immer in derselben Reihenfolge: Keiner wird empfohlen, du entscheidest. Unter **Warum der Agent fragt** sagt der Agent in einem Satz, warum er fragt, und er drängt nicht, egal welchen Weg du wählst oder ob du **Nicht jetzt** drückst.
 
-Wählst du Flow, öffnet sich eine Bestätigung: Specrails erstellt einen isolierten Worktree, in dem der Agent Code schreiben kann; dein Hauptbranch bleibt unberührt. Drücke **Flow starten**. Auf dem Board erscheint eine vorläufige Spec mit dem Label **Im Flow** (ein Klick führt zurück zur Mission).
+Wählst du Flow, öffnet sich eine Bestätigung: Specrails legt eine separate Kopie des Projekts auf einem eigenen Flow-Branch an, in der der Agent Code schreiben kann, und dein Hauptbranch bleibt unberührt. Drücke **Flow starten**. Auf dem Board erscheint eine Platzhalter-Spec mit dem Label **Im Flow** (ein Klick führt zurück zur Mission).
 
-Kann dein Specrails Core Flow noch nicht ausführen, ist der Button deaktiviert und die Karte listet auf, was fehlt – meist hilft ein Update von Specrails Core.
+Kann dein Specrails Core Flow noch nicht ausführen, ist Starten deaktiviert und die Karte nennt, was fehlt. Meist hilft ein Update von Specrails Core.
+
+## Einen Flow aus einer vorhandenen Spec starten
+
+Jede Spec lässt sich in Flow bauen, nicht nur eine neue Idee. Flow und Implement bleiben zwei gleichwertige Wege, daran zu arbeiten:
+
+- auf dem Board: Rechtsklick auf eine Spec und **In Flow starten** (neben dem Ziehen auf eine Rail); in der Spec-Detailansicht steht **In Flow starten** neben **Auf Rail verschieben**;
+- in einer Mission: Wenn du eine Spec umsetzen lassen willst, ohne eine Rail zu nennen, zeigt der Agent dieselbe Karte mit zwei Wegen für diese Spec: **Flow** arbeitet mit dir daran, **Spec + Implement** startet sie auf einer Rail;
+- eine Rail-Startkarte für eine einzelne Spec bietet ebenfalls **In Flow starten** neben ihrem Start an.
+
+Die Spec selbst ist dann **In Flow**: Es entsteht keine Platzhalter-Spec, und der erste Zug des Agenten erhält die Spec (Akzeptanzkriterien, Contract Layer, Nicht-Ziele und offene Addenda). Vom Board aus gestartet, öffnet sich der Flow in der Mission der Spec oder in einer neuen Mission mit dem Namen der Spec. In einem Projekt mit mehreren Git-Repositorys fragt ein kleiner Dialog zuerst, wo der Flow läuft, wenn die Spec nicht genau eines davon nennt: Es werden nur die Git-Repositorys angezeigt, das Repository der Spec (sonst das primäre) ist vorausgewählt, und die Pfeiltasten ändern die Auswahl. **In Flow starten** ist deaktiviert, mit dem Grund im Tooltip, wenn die Spec schon in Flow ist, erledigt oder abgebrochen ist, auf einer Rail liegt oder Flow nicht verfügbar ist.
+
+**Verwerfen** gibt die Spec genau so zurück, wie sie war, mit ihrem vorherigen Status: Deine Spec wird nie gelöscht. Wird der Flow geliefert, wird die Spec aus dem Gebauten neu geschrieben; vorher bleibt ihr ursprünglicher Text als Kommentar **Original spec before Flow** erhalten, damit nichts verloren geht. Eine bereits mit Jira verknüpfte Spec aktualisiert genau dieses Issue und verschiebt es in den für Review zugeordneten Status; es entsteht kein zweites Issue.
 
 ## Während des Flows
 
-Die Unterhaltung ändert ihr Aussehen (eine feine Akzentlinie am Rand), und über dem Eingabefeld erscheint eine Leiste:
+Der Flow-Modus wird dort benannt, wo du hinschaust, in seiner eigenen Flow-Farbe: Der Composer zeigt einen **Flow**-Chip neben dem Autonomie-Chip und den Hinweis *Sag dem Agenten, was er in diesem Flow ändern soll…*; der Missionstitel zeigt **Im Flow**, ebenso ihre Zeile in der Missionsliste. Das Gespräch markiert, wo du Flow betreten und verlassen hast, und die im Flow geschriebenen Antworten des Agenten tragen neben ihrer Uhrzeit eine kleine **Flow**-Marke.
 
-- der **Branch** des Worktrees, die **geänderten Dateien** mit hinzugefügten und entfernten Zeilen und die **echten Kosten** des Flows bisher, wie vom Anbieter abgerechnet. Bis ein Turn gemeldete Kosten hat, steht dort `—` – nie eine Schätzung;
-- **Änderungen ansehen** listet jede geänderte Datei mit Status und +/−;
-- **Pausieren** stoppt den Agenten und behält Worktree und Spec. Die Mission zeigt dann **Flow fortsetzen**;
-- **Verwerfen** löscht nach einer Bestätigung Worktree, Branch und vorläufige Spec;
-- **Das ist es** – die Hauptaktion, siehe unten.
+Die Leiste direkt über dem Composer zeigt den Flow in einer kurzen Zeile: seinen Status, **Flow · 7 Dateien**, **Flow pausieren** und die Hauptaktion **Übergeben**. Ist eine Aktion nicht verfügbar (der Flow speichert noch, eine andere Aktion läuft), sagt der Hover-Text warum. Öffne die Zeile mit ihrem Pfeil, wie jeden anderen Lauf, um den Rest zu sehen:
 
-Du kannst schreiben, während der Agent arbeitet: Im Flow **unterbricht** deine Nachricht den aktuellen Schritt (der Senden-Button wird zum Blitz), und der Agent macht sofort mit deinen neuen Informationen weiter. Die Git-Leiste unter dem Eingabefeld zeigt den Branch des Worktrees.
+- den **Branch** (Klick kopiert den Namen), die **Änderungen** mit hinzugefügten und entfernten Zeilen (Klick listet jede geänderte Datei mit Status und +/−) und die **Kosten bisher**, wie vom Anbieter abgerechnet. Bis ein Zug gemeldete Kosten hat, steht dort `—`, nie eine Schätzung; ein `*` markiert eine Summe ohne unbepreiste Züge, mit einem Hinweis, wie viele es sind;
+- **Vorschau**, solange die App des Flows läuft (siehe unten);
+- **Verwerfen**, abgesetzt, löscht die Änderungen des Flows, seinen Branch und die Platzhalter-Spec. Die Bestätigung listet, was verloren geht: die geänderten Dateien mit ihren +/−, den Branch und die Spec.
 
-## Das ist es
+**Flow pausieren** stoppt den Agenten und behält deine Änderungen und die Spec. Die Zeile zeigt dann **Flow fortsetzen**.
 
-Bist du mit dem Ergebnis zufrieden, drücke **Das ist es**. Flow-Leiste und visuelle Hervorhebung verschwinden, und die gewohnte Rail-Startkarte erscheint – mit vorausgewähltem Loop **Flow → Spec** und einer freien Rail. Passe Engine, Modell oder Aufwand an, wenn du willst, und drücke **Starten**. Ist das Review-Limit oder ein Budget erreicht, sagt die Karte das und startet nicht. **Noch nicht** bringt dich zurück in den Flow.
+Du kannst schreiben, während der Agent arbeitet: Im Flow **unterbricht** deine Nachricht den aktuellen Schritt (der Senden-Knopf wird zum Blitz), und der Agent macht sofort mit deinen neuen Informationen weiter. Solange der Flow offen ist, tritt die Git-Leiste unter dem Composer zur Seite: Das Panel des Flows zeigt seinen Branch bereits.
 
-Die Rail leitet aus dem Gebauten die Specrails-Spec und die OpenSpec-Änderung ab, verifiziert und prüft sie, und die Auslieferungskarte erscheint in der Mission wie bei jedem Lauf.
+## Die App ausprobieren
+
+Der Flow-Agent führt Typecheck und Tests selbst aus, um seine Arbeit zu prüfen. Gibt es etwas auszuprobieren, fragt er mit drei Optionen: **Start the app**, **Start and expose on the local network** oder **Not now**. Freigeben erlaubt dir, die App von einem Handy im selben WLAN oder VPN zu öffnen, und jeder in diesem Netz kann sie erreichen.
+
+Sobald die App lauscht, gibt dir der Agent ihre Adressen als Links, und das Panel des Flows zeigt **Vorschau** mit einem grünen Punkt: Sie öffnet die App in deinem Browser. Ihr Menü hat die Netzwerkadresse und **App beenden**. Die App läuft aus der Kopie des Flows, nie aus deinem Haupt-Checkout, und Specrails beendet sie, wenn du den Flow pausierst, verwirfst oder übergibst.
+
+## Übergeben {#flow-hand-off}
+
+Wenn dir das Ergebnis gefällt, drücke **Übergeben**. Die Zeile zeigt **Bereit, ein PR zu werden** und öffnet darüber eine einzige Zeile: *Rail 2 macht aus deinen 7 geänderten Dateien einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten.* Drücke **Starten** oder **Noch nicht**, um zum Flow zurückzukehren; **Esc** ist dasselbe wie **Noch nicht**; ein Klick daneben klappt die Zeile nur ein, und die Zeile bleibt bei **Bereit, ein PR zu werden** mit **Starten**. Kann die Engine deines Gesprächs die Übergabe auf diesem Rechner nicht ausführen, sagt das ein Hinweis direkt unter der Zeile, und die Standard-Engine des Rails wird verwendet.
+
+Rail, Engine, Modell und Aufwand sind schon für dich gewählt (ein freier Rail und die Engine deines Gesprächs). Um sie zu ändern, öffne **Vorgehen ändern**; dort siehst du auch, was sich geändert hat. Die Kosten bisher stehen in der Hauptzeile. Deine Auswahl bleibt erhalten, wenn du **Noch nicht** drückst und später erneut übergibst. Während die Übergabe startet, zeigt die Leiste den Start ohne Lücke und folgt dann dem Lauf Schritt für Schritt. Ist das Review-Limit oder ein Budget erreicht, sagt die Zeile das, und nichts startet. Zeigt sich der Lauf nach 45 Sekunden noch nicht, hört die Leiste auf zu drehen und zeigt **Wird noch an Rail 2 übergeben…** mit **Aktualisieren**, das erneut nachsieht und weiter wartet, bis der Lauf erscheint.
+
+Der Rail leitet aus dem Gebauten die Spec und ihre Spec-Änderung ab, prüft und reviewt sie, und die Auslieferungskarte erscheint in der Mission wie bei jedem Lauf.
+
+Scheitert der Lauf aus technischem Grund, kommt die Arbeit von selbst unversehrt in diesen Flow zurück: Die Karte sagt in einfachen Worten, was fehlschlug (die Codes bleiben unter **Technische Details**), und der Agent erhält den Fehler und erklärt ihn. Verlangt die Review Änderungen, bietet die Karte **Zurück zum Flow** oder **Neu starten**. Ist die Auslieferung abgeschlossen, schließt die Mission den Flow mit einer Zusammenfassung: der Pull Request, die aus dem Gebauten neu geschriebene Spec, die archivierte Spec-Änderung und der Jira-Vorgang, falls vorhanden.
 
 ## Gut zu wissen
 
-- Flow schreibt nur in seinem Worktree. Außerhalb von Flow bleiben Missionen schreibgeschützt.
-- Ein Flow pro Mission gleichzeitig. Eine Pause übersteht einen Neustart der App.
-- Verschwindet der Worktree, wird der Flow als **muss geprüft werden** markiert, und nichts wird gelöscht.
+- Flow schreibt nur auf seinem eigenen Branch. Außerhalb von Flow bleiben Missionen schreibgeschützt.
+- Ein Flow pro Mission zur gleichen Zeit. Eine Pause übersteht einen Neustart der App.
+- Verschwindet die Projektkopie des Flows, wird der Flow als **muss geprüft werden** markiert (zur Info, nichts zu entscheiden), und nichts wird gelöscht.
+- Die Leiste wechselt nie den Lauf, den du gerade ansiehst. Braucht dich inzwischen ein anderer Lauf, sagt sein Name im Umschalter der Leiste **braucht dich**.
 - Jira erhält nichts, solange du im Flow bist oder wenn du ihn verwirfst.
-- Die Flow-Kosten erscheinen in Analytics als eigene Fläche **Flow** und im Block der Agent-Missionen.
+- Flow-Kosten erscheinen in der Analyse als eigene Oberfläche, **Flow**, und im Block der Agenten-Missionen.

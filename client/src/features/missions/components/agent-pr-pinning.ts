@@ -7,8 +7,10 @@ import {
 import { comparePrSnapshotUpdatedAt } from '../../delivery/lib/pr-delivery'
 
 // ── PR-decision card pinning (safe-pr-review-flow) ────────────────────────────
-// While a delivery still DEMANDS ATTENTION its card is pinned above the chat
-// composer; once published or terminal it unpins back into chat history.
+// While a delivery still DEMANDS ATTENTION it is LIVE: the run strip above the
+// chat composer shows it (its card opens in the strip's panel) and its history
+// slot is a one-line "launched" event. Once published or terminal it settles
+// back into chat history.
 // Locked semantics: PINNED while the card still needs a decision. Published
 // PRs unpin at pr_ready; terminal completed/merged/discarded/superseded cards
 // stay in history. No-change and closed-without-merge still need an action.
@@ -54,10 +56,12 @@ export interface DerivedPrCards {
   /** Every parseable pr_decision system row, keyed by message id — the single
    *  parse pass the conversation view reuses per row (no per-frame reparse). */
   byMessageId: ReadonlyMap<string, AgentPrDecisionEnvelope>
+  /** The same canonical envelopes keyed by delivery id (failure lines name their run). */
+  byDeliveryId: ReadonlyMap<string, AgentPrDecisionEnvelope>
   /** Parseable legacy rows hidden because a newer row represents the same
    * delivery. Conversation rendering suppresses these without warning. */
   duplicateMessageIds: ReadonlySet<string>
-  /** The pinned subset in message order — newest LAST. */
+  /** The live subset (the run strip) in message order — newest LAST. */
   pinned: PinnedPrCard[]
 }
 
@@ -165,6 +169,7 @@ export function derivePrCards(messages: readonly AgentMessage[]): DerivedPrCards
   ))
 
   const byMessageId = new Map<string, AgentPrDecisionEnvelope>()
+  const byDeliveryId = new Map<string, AgentPrDecisionEnvelope>()
   const duplicateMessageIds = new Set<string>()
   const pinned: PinnedPrCard[] = []
   for (const card of projected) {
@@ -173,7 +178,8 @@ export function derivePrCards(messages: readonly AgentMessage[]): DerivedPrCards
       continue
     }
     byMessageId.set(card.messageId, card.envelope)
+    byDeliveryId.set(card.envelope.prDeliveryId, card.envelope)
     if (isPrEnvelopePinned(card.envelope)) pinned.push(card)
   }
-  return { byMessageId, duplicateMessageIds, pinned }
+  return { byMessageId, byDeliveryId, duplicateMessageIds, pinned }
 }

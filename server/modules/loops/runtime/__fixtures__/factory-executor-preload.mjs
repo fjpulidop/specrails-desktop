@@ -13,7 +13,7 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
   let promptTurns = 0
   const artifacts = capability => ({
     'proposal.md': `## Why\nReturn the required value.\n## What Changes\nUpdate code.cjs.\n## Capabilities\n### New Capabilities\n- ${capability}: Return two.\n## Impact\nOne function.\n`,
-    'design.md': '## Design\nSet the value and verify it with Node.\n',
+    'design.md': '## Design\nSet the value and verify it with Node.\n\n## Non-Goals\n- Changing anything other than the value.\n',
     [`specs/${capability}/spec.md`]: '## ADDED Requirements\n### Requirement: Return two\nThe function SHALL return two.\n#### Scenario: Load the function\n- **WHEN** code.cjs is loaded\n- **THEN** its value is two\n',
     'tasks.md': '- [ ] 1. Update and verify the function\n',
   })

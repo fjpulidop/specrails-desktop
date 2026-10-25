@@ -23,9 +23,10 @@ const coreDependencies: Record<string, string[]> = {
   'execution/ports.ts': ['./domain/job-accounting', './domain/usage'],
   'execution/application/record-job-invocations.ts': ['../../../util/distribute-int', '../domain/job-accounting', '../ports'],
   'execution/domain/daily-budget.ts': [],
+  'execution/domain/spend-caps.ts': ['./daily-budget'],
   'execution/application/enforce-budget.ts': ['../domain/daily-budget'],
   'execution/application/recover-job-usage.ts': ['../domain/usage', '../ports'],
-  'execution/index.ts': ['./domain/scheduling', './application/record-job-invocations', './domain/job-accounting', './ports', './application/recover-job-usage', './domain/usage', './application/enforce-budget', './domain/daily-budget', './domain/agent-env'],
+  'execution/index.ts': ['./domain/scheduling', './application/record-job-invocations', './domain/job-accounting', './ports', './application/recover-job-usage', './domain/usage', './application/enforce-budget', './domain/daily-budget', './domain/spend-caps', './domain/agent-env'],
   'delivery/domain/state.ts': [],
   'delivery/domain/decision-policy.ts': ['./state'],
   'delivery/domain/review-wip.ts': ['./state'],
@@ -43,6 +44,9 @@ const coreDependencies: Record<string, string[]> = {
   'conversations/domain/draft-stream.ts': [],
   'conversations/index.ts': ['./domain/recovery-context', './domain/draft-stream'],
   'terminals/domain/app-urls.ts': [],
+  // Failure recovery: pure diagnosis vocabulary and rules (the provider-limit classifier is itself pure).
+  'recovery/domain.ts': ['../../provider-limit'],
+  'recovery/index.ts': ['./domain'],
   'audit/domain.ts': [],
   'audit/ports.ts': ['./domain'],
   'audit/application.ts': ['./domain', './ports'],
@@ -54,6 +58,24 @@ const coreDependencies: Record<string, string[]> = {
   'flow/index.ts': ['./application', './domain', './ports'],
   // Spec triage: pure rules (canonical inputs, parsing, recommendation).
   'specs/domain/triage.ts': [],
+  // Ticket non-goals ("Out of scope"): validation, extraction, rendering.
+  'specs/domain/non-goals.ts': [],
+  // Spec lifecycle timeline and hand-off export: pure vocabulary, paging, cost folding and renderers.
+  'specs/domain/timeline.ts': [],
+  'specs/domain/handoff-labels.ts': [],
+  'specs/domain/handoff.ts': ['./handoff-labels'],
+  // Project rules inventory (.specrails/rules.json, annex D.5): pure parsing.
+  'project-rules/domain.ts': [],
+  // Inbox (needs-you read-model): pure vocabulary; the collector depends only on its own port.
+  'inbox/domain.ts': [],
+  'inbox/ports.ts': ['./domain'],
+  'inbox/application.ts': ['./domain', './ports'],
+  'inbox/index.ts': ['./application', './domain', './ports'],
+  // Onboarding (sample project): pure preset/naming rules; the use cases depend only on their own ports.
+  'onboarding/domain.ts': [],
+  'onboarding/ports.ts': ['./domain'],
+  'onboarding/application.ts': ['./domain', './ports'],
+  'onboarding/index.ts': ['./application', './domain', './ports'],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>

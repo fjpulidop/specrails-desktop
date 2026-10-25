@@ -14,6 +14,7 @@ import {
   type MilestoneChainSnapshot,
 } from '../lib/milestone-progress'
 
+import { notifyError } from '../../../lib/notify-error'
 // App-level milestone toasts (premium-milestone-progress D5): state-accurate,
 // never "complete" for an undelivered or unmerged milestone.
 //   • a later chunk launched            → "M1 — rail 2 of 3 launched"
@@ -72,7 +73,7 @@ export function useMilestoneNotifications({ setActiveProjectId }: UseMilestoneNo
               onClick: () => {
                 void resumeChain(projectId, chain.id).then((r) => {
                   if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.nextLaunched'), { id: toastId })
-                  else toast.error(i18n.t('builder:milestoneProgress.chain.resumeFailed'), { id: toastId, description: r.detail ?? r.error })
+                  else notifyError(i18n.t('builder:milestoneProgress.chain.resumeFailed'), { id: toastId, detail: r.detail ?? r.error })
                 })
               },
             },
@@ -81,7 +82,7 @@ export function useMilestoneNotifications({ setActiveProjectId }: UseMilestoneNo
               onClick: () => {
                 void setChainAutoAdvance(projectId, chain.id, true).then((r) => {
                   if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.autoOn'), { id: toastId })
-                  else toast.error(i18n.t('builder:milestoneProgress.chain.autoFailed'), { id: toastId, description: r.detail ?? r.error })
+                  else notifyError(i18n.t('builder:milestoneProgress.chain.autoFailed'), { id: toastId, detail: r.detail ?? r.error })
                 })
               },
             },
@@ -96,7 +97,7 @@ export function useMilestoneNotifications({ setActiveProjectId }: UseMilestoneNo
               onClick: () => {
                 void resumeChain(projectId, chain.id).then((r) => {
                   if (r.ok) toast.success(i18n.t('builder:milestoneProgress.chain.resumed'), { id: `chain-paused:${chain.id}` })
-                  else toast.error(i18n.t('builder:milestoneProgress.chain.resumeFailed'), { id: `chain-paused:${chain.id}`, description: r.detail ?? r.error })
+                  else notifyError(i18n.t('builder:milestoneProgress.chain.resumeFailed'), { id: `chain-paused:${chain.id}`, detail: r.detail ?? r.error })
                 })
               },
             },

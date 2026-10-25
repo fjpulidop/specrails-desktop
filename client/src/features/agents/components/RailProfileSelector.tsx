@@ -68,7 +68,7 @@ export function RailProfileSelector({ provider, value, onChange }: Props) {
           const v = e.target.value
           onChange(v === LEGACY_VALUE ? null : v)
         }}
-        className="h-5 text-[10px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
+        className="h-6 text-caption rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
       >
         {profiles.map((p) => (
           <option key={p.name} value={p.name}>

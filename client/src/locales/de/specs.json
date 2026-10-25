@@ -1,16 +1,19 @@
 {
   "board": {
-    "title": "Spec",
+    "title": "Specs",
     "dropHere": "Hier ablegen",
     "emptyNoSpecs": "Noch keine Specs",
     "emptyNoLabelMatch": "Keine Specs entsprechen den aktiven Labels",
     "emptyNoActiveSpecs": "Keine aktiven Specs",
-    "emptyHint": "Klicke auf „+ Hinzufügen“, um loszulegen",
+    "emptyHint": "Klicke auf „Neue Spec“, um loszulegen",
     "dropToMarkDone": "Ablegen, um als fertig zu markieren",
     "emptyNoDoneLabelMatch": "Keine fertigen Specs entsprechen den aktiven Labels",
     "emptyNoCompleted": "Noch keine abgeschlossenen Specs",
     "emptyNoStatusMatch": "Keine Specs entsprechen dem ausgewählten Status",
-    "untitledSpec": "Unbenannte Spec"
+    "untitledSpec": "Unbenannte Spec",
+    "doneHeading": "Erledigt · {{count}}",
+    "clearFilters": "Filter zurücksetzen",
+    "emptyNoSearchMatch": "Keine Spec passt zu „{{query}}“"
   },
   "status": {
     "todo": "To-do",
@@ -45,20 +48,19 @@
   },
   "card": {
     "deleteSpec": "Spec #{{id}} löschen",
-    "deleteTicket": "Ticket #{{id}} löschen",
-    "ticketFallbackLabel": "Ticket #{{id}}",
+    "ticketFallbackLabel": "Spec #{{id}}",
     "dependsOn": "Hängt von {{count}} ab",
     "continueEditing": "Weiter bearbeiten",
     "continueEditingTitle": "Diese Spec weiter bearbeiten",
     "moveToRail": "Auf Rail verschieben"
   },
   "emptyState": {
-    "noTickets": "Noch keine Tickets",
-    "noTicketsHint": "Erstelle dein erstes Ticket oder führe einen Product-Backlog-Befehl aus, um Tickets zu befüllen",
-    "createFirst": "Erstes Ticket erstellen"
+    "noTickets": "Noch keine Specs",
+    "noTicketsHint": "Erstelle deine erste Spec oder führe einen Product-Backlog-Befehl aus, um Specs zu befüllen",
+    "createFirst": "Erste Spec erstellen"
   },
   "errors": {
-    "loadFailed": "Tickets konnten nicht geladen werden"
+    "loadFailed": "Specs konnten nicht geladen werden"
   },
   "listView": {
     "status": {
@@ -80,20 +82,22 @@
       "labels": "Labels",
       "updated": "Aktualisiert"
     },
-    "noMatch": "Keine Tickets entsprechen deinen Filtern",
+    "noMatch": "Keine Specs entsprechen deinen Filtern",
     "clearFilters": "Filter zurücksetzen",
     "loadMore": "Mehr laden ({{count}} verbleibend)"
   },
   "gridView": {
-    "emptyTodo": "Keine offenen Tickets",
+    "emptyTodo": "Keine offenen Specs",
     "emptyInProgress": "Nichts in Arbeit",
-    "emptyDone": "Keine abgeschlossenen Tickets",
+    "emptyDone": "Keine abgeschlossenen Specs",
     "cancelledSection": "Abgebrochen ({{count}})"
   },
   "statusFilter": {
     "ariaLabel": "Nach Status filtern",
     "all": "Alle",
-    "active": "Aktiv"
+    "active": "Aktiv",
+    "more": "Mehr",
+    "moreSelected": "Status: {{status}}. Anderen Status wählen"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Nach Jira-Status filtern",
@@ -109,7 +113,7 @@
     "descending": "Absteigend",
     "modes": {
       "default": "Standard",
-      "ticketId": "Ticket #",
+      "ticketId": "Spec #",
       "priority": "Priorität",
       "jiraKey": "Jira-Ticket #"
     }
@@ -121,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "Nach Labels filtern",
-    "all": "Alle",
+    "all": "Alle Labels",
     "empty": "Keine Labels in diesem Projekt.",
     "selected_one": "{{count}} Label",
     "selected_other": "{{count}} Labels",
@@ -155,15 +159,157 @@
       "securitySurface": "Sicherheit",
       "none": "Keine Auswirkung auf öffentliche API, Daten oder Sicherheit"
     },
-    "flowHint": "Flow empfohlen",
     "filesLikely": "Wahrscheinliche Dateien",
     "moreFiles_one": "+{{count}} weitere Datei",
     "moreFiles_other": "+{{count}} weitere Dateien",
-    "modelCost": "{{model}} · {{cost}} $",
+    "modelCost": "{{model}} · {{cost}}",
     "modelOnly": "{{model}} · Kosten nicht gemeldet",
     "unavailable": "Triage n. v.",
     "unavailableDetail": "Für die Triage ist kein Modell verfügbar ({{reason}}).",
     "failed": "Triage fehlgeschlagen",
     "failedDetail": "Die Triage konnte nicht abgeschlossen werden: {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "Neue Spec",
+    "newSpecTooltip": "Neue Spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "Specs durchsuchen",
+    "ariaLabel": "Specs nach Titel, Nummer, Label oder Jira-Schlüssel durchsuchen",
+    "clear": "Suche löschen"
+  },
+  "filters": {
+    "trigger": "Filter",
+    "triggerActive_one": "Filter, {{count}} aktiv",
+    "triggerActive_other": "Filter, {{count}} aktiv",
+    "title": "Filter",
+    "sections": {
+      "labels": "Labels",
+      "epic": "Epic",
+      "sprint": "Sprint",
+      "jiraStatus": "Jira-Status"
+    },
+    "clearSection": "Zurücksetzen",
+    "clearAll": "Alle zurücksetzen",
+    "done": "Fertig",
+    "findLabel": "Label suchen",
+    "removeChip": "Filter entfernen: {{label}}",
+    "resultCount": "{{shown}} von {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "Suche: „{{query}}“",
+      "label": "Label: {{label}}",
+      "epic": "Epic: {{name}}",
+      "sprint": "Sprint: {{name}}",
+      "jiraStatus": "Jira: {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "Sortierung und Ansicht",
+    "menuLabel": "Sortier- und Ansichtsoptionen",
+    "sortBy": "Sortieren nach",
+    "direction": "Richtung",
+    "view": "Ansicht"
+  },
+  "bulk": {
+    "toolbarLabel_one": "Sammelaktionen, {{count}} Spec ausgewählt",
+    "toolbarLabel_other": "Sammelaktionen, {{count}} Specs ausgewählt",
+    "count_one": "{{count}} ausgewählt",
+    "count_other": "{{count}} ausgewählt",
+    "listLabel": "Specs, Mehrfachauswahl",
+    "selectSpec": "Spec Nr. {{id}} auswählen",
+    "moveTo": "Verschieben nach",
+    "label": "Label",
+    "priority": "Priorität",
+    "addToRail": "Zu Rail hinzufügen",
+    "launchAll": "Auswahl starten",
+    "delete": "Löschen",
+    "clear": "Aufheben",
+    "clearTitle": "Auswahl aufheben (Esc)",
+    "statusLocal_one": "Status · {{count}} Spec",
+    "statusLocal_other": "Status · {{count}} Specs",
+    "statusJira_one": "Jira-Status · {{count}} Spec",
+    "statusJira_other": "Jira-Status · {{count}} Specs",
+    "loadingStatuses": "Jira-Status werden geladen…",
+    "statusesFailed": "Jira-Status konnten nicht geladen werden",
+    "noStatuses": "Keine Status verfügbar",
+    "labelAdd": "Label hinzufügen",
+    "labelRemove": "Label entfernen",
+    "noLabels": "Dieses Projekt hat noch keine Labels",
+    "noRails": "Keine Rails verfügbar",
+    "railRunning": "läuft",
+    "railSpecs_one": "{{count}} Spec",
+    "railSpecs_other": "{{count}} Specs",
+    "result": {
+      "moved_one": "{{count}} Spec verschoben",
+      "moved_other": "{{count}} Specs verschoben",
+      "labeled_one": "Labels bei {{count}} Spec aktualisiert",
+      "labeled_other": "Labels bei {{count}} Specs aktualisiert",
+      "prioritized_one": "Priorität bei {{count}} Spec geändert",
+      "prioritized_other": "Priorität bei {{count}} Specs geändert",
+      "railed_one": "{{count}} Spec zum Rail hinzugefügt",
+      "railed_other": "{{count}} Specs zum Rail hinzugefügt",
+      "deleted_one": "{{count}} Spec gelöscht",
+      "deleted_other": "{{count}} Specs gelöscht"
+    },
+    "partial": "{{ok}} von {{total}} erledigt · {{failed}} fehlgeschlagen",
+    "failedAll_one": "{{count}} Spec konnte nicht aktualisiert werden",
+    "failedAll_other": "{{count}} Specs konnten nicht aktualisiert werden",
+    "launch": {
+      "none": "Keine der ausgewählten Specs kann gerade gestartet werden",
+      "skipBlocked_one": "{{count}} kann noch nicht gestartet werden",
+      "skipBlocked_other": "{{count}} können noch nicht gestartet werden",
+      "skipNoRail_one": "{{count}} ohne freies Rail",
+      "skipNoRail_other": "{{count}} ohne freies Rail",
+      "skipReviewLimit_one": "{{count}} vom Review-Limit zurückgehalten",
+      "skipReviewLimit_other": "{{count}} vom Review-Limit zurückgehalten"
+    },
+    "more": "Mehr"
+  },
+  "views": {
+    "trigger": "Ansichten",
+    "triggerActive": "Ansichten, aktuell: {{name}}",
+    "menuLabel": "Gespeicherte Ansichten",
+    "empty": "Noch keine gespeicherten Ansichten",
+    "saveCurrent": "Aktuelle Ansicht speichern…",
+    "manage": "Ansichten verwalten…",
+    "saveTitle": "Ansicht speichern",
+    "saveDescription": "Speichert Status, Filter, Sortierung und Dichte, wie sie jetzt sind, für dieses Projekt.",
+    "nameLabel": "Name",
+    "namePlaceholder": "Startbereit",
+    "save": "Speichern",
+    "saved": "Ansicht „{{name}}“ gespeichert",
+    "updated": "Ansicht aus dem Board aktualisiert",
+    "manageTitle": "Ansichten verwalten",
+    "manageDescription": "Eine Ansicht umbenennen, mit dem aktuellen Board aktualisieren, ihren Link kopieren oder löschen. Ansichten gehören zu diesem Projekt.",
+    "rename": "Umbenennen",
+    "updateFromCurrent": "Aus dem Board aktualisieren",
+    "upToDate": "Entspricht bereits dem Board",
+    "copyLink": "Link kopieren",
+    "delete": "Ansicht löschen",
+    "done": "Fertig",
+    "linkCopied": "Link kopiert",
+    "linkCopyFailed": "Der Link konnte nicht kopiert werden",
+    "linkMissing": "Diese Ansicht gibt es in diesem Projekt nicht",
+    "deleted": "Ansicht „{{name}}“ gelöscht",
+    "linkOtherProject": "Diese Ansicht gehört zu {{project}}.",
+    "openInProject": "In {{project}} öffnen"
+  },
+  "movePicker": {
+    "titleOne": "Spec #{{id}} verschieben",
+    "titleMany": "{{count}} Specs verschieben",
+    "description": "Wähle einen Status oder eine Rail. Das entspricht dem Ziehen der Karte dorthin.",
+    "statusHeading": "Status",
+    "railHeading": "Rail",
+    "jiraLoading": "Jira-Status werden geladen…",
+    "jiraFailed": "Die Jira-Status konnten nicht geladen werden.",
+    "jiraStatus": "{{status}} (Jira)",
+    "noRails": "Noch keine Rails.",
+    "running": "Läuft",
+    "hintNavigate": "navigieren",
+    "hintChoose": "auswählen",
+    "hintClose": "schließen",
+    "current": "Aktuell",
+    "descriptionOne": "„{{title}}“. Wähle einen Status oder eine Rail."
   }
 }

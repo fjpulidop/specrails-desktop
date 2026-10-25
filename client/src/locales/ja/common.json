@@ -33,7 +33,8 @@
     "expand": "展開",
     "collapse": "折りたたむ",
     "viewAll": "すべて表示",
-    "learnMore": "詳細"
+    "learnMore": "詳細",
+    "clear": "クリア"
   },
   "states": {
     "loading": "読み込み中…",
@@ -82,7 +83,10 @@
     "cleanup_incomplete": "クリーンアップが不完全",
     "status_failed": "worktree の状態確認に失敗",
     "ref_mismatch": "ブランチ参照が一致しません",
-    "restart_pending": "ワークフローの復旧を待機中"
+    "restart_pending": "ワークフローの復旧を待機中",
+    "review_changes_requested": "レビュアーが変更を依頼",
+    "returned_to_flow": "Flow に戻しました",
+    "local_changes_attention": "統合済み — ローカル変更の確認が必要です"
   },
   "prRecovery": {
     "inProgress": "プロジェクトの復旧が進行中です。配信内容は安全に保たれています。しばらくしてから再試行してください。",
@@ -129,7 +133,8 @@
     "workspacePath": "コード作業ディレクトリ",
     "workspaceHint": "任意。1行に1ディレクトリ。絶対パスまたはリポジトリからの相対パスを指定します。空欄はリポジトリのフォルダーを使用します。Implement、Quick SDD、Freestyle は各ディレクトリを検証します。",
     "launchWorkspaces": "今回の実行用ディレクトリ",
-    "launchWorkspaceHint": "コード変更とテストはこれらのフォルダーに限定されます。対象リポジトリごとに少なくとも1つ選択してください。"
+    "launchWorkspaceHint": "コード変更とテストはこれらのフォルダーに限定されます。対象リポジトリごとに少なくとも1つ選択してください。",
+    "advanced": "複数リポジトリの設定"
   },
   "repositoryDelivery": {
     "building": "実装中",
@@ -146,20 +151,155 @@
     "pr_failed": "成果物の準備に失敗"
   },
   "budget": {
-    "exceededProject": "プロジェクトの1日の予算に達しました（${{spent}} / ${{budget}}）。何も起動していません。",
-    "exceededDesktop": "アプリ全体の1日の予算に達しました（${{spent}} / ${{budget}}）。何も起動していません。",
-    "whereProject": "プロジェクト設定 ▸ 予算",
-    "whereDesktop": "設定 ▸ 予算",
+    "exceededProject": "プロジェクトの1日の予算に達しました（{{spent}} / {{budget}}）。何も起動していません。",
+    "exceededDesktop": "アプリ全体の1日の予算に達しました（{{spent}} / {{budget}}）。何も起動していません。",
+    "whereProject": "分析 ▸ 予算",
+    "whereDesktop": "分析 ▸ 予算",
     "action": "{{where}}で予算を引き上げるか解除するか、日次リセットをお待ちください。",
     "actionWithReset": "{{where}}で予算を引き上げるか解除するか、リセット（{{time}}）をお待ちください。",
-    "pausedProject": "プロジェクトの1日の予算で一時停止中（${{spent}} / ${{budget}}）。予算を引き上げてから再開してください。",
-    "pausedDesktop": "アプリ全体の1日の予算で一時停止中（${{spent}} / ${{budget}}）。予算を引き上げてから再開してください。",
+    "pausedProject": "プロジェクトの1日の予算で一時停止中（{{spent}} / {{budget}}）。予算を引き上げてから再開してください。",
+    "pausedDesktop": "アプリ全体の1日の予算で一時停止中（{{spent}} / {{budget}}）。予算を引き上げてから再開してください。",
     "resume": "再開",
-    "stillExceeded": "1日の予算はまだ使い切られています。"
+    "stillExceeded": "1日の予算はまだ使い切られています。",
+    "exceededRun": "1 回の実行あたりの上限に達しました（{{spent}} / {{budget}}）。実行は一時停止しています。",
+    "pausedRun": "1 回の実行あたりの上限で一時停止しました（{{spent}} / {{budget}}）。上限なしで続行するか、上限を引き上げてください。",
+    "actionRun": "上限なしで続行するか、上限を引き上げてから再開してください。",
+    "exceededProject_week": "プロジェクトの週間予算に達しました（{{spent}} / {{budget}}）。何も起動していません。",
+    "exceededProject_month": "プロジェクトの月間予算に達しました（{{spent}} / {{budget}}）。何も起動していません。",
+    "exceededDesktop_week": "アプリ全体の週間予算に達しました（{{spent}} / {{budget}}）。何も起動していません。",
+    "exceededDesktop_month": "アプリ全体の月間予算に達しました（{{spent}} / {{budget}}）。何も起動していません。",
+    "pausedProject_week": "プロジェクトの週間予算で一時停止しました（{{spent}} / {{budget}}）。引き上げてから再開してください。",
+    "pausedProject_month": "プロジェクトの月間予算で一時停止しました（{{spent}} / {{budget}}）。引き上げてから再開してください。",
+    "pausedDesktop_week": "アプリ全体の週間予算で一時停止しました（{{spent}} / {{budget}}）。引き上げてから再開してください。",
+    "pausedDesktop_month": "アプリ全体の月間予算で一時停止しました（{{spent}} / {{budget}}）。引き上げてから再開してください。",
+    "whereProject_week": "分析 ▸ 予算",
+    "whereProject_month": "分析 ▸ 予算",
+    "whereDesktop_week": "分析 ▸ 予算",
+    "whereDesktop_month": "分析 ▸ 予算",
+    "stillExceeded_week": "週間予算はまだ使い切られています。",
+    "stillExceeded_month": "月間予算はまだ使い切られています。",
+    "runCap": {
+      "title": "実行が上限で一時停止しました",
+      "raise": "上限を引き上げて続行",
+      "continue": "上限なしで続行",
+      "raiseTo": "上限を引き上げる額（USD）",
+      "mustExceed": "すでに使用した {{spent}} を上回る必要があります"
+    },
+    "raiseCap": "上限を引き上げる",
+    "stillExceeded_run": "実行ごとの上限は引き続き到達しています。"
   },
   "reviewWip": {
     "reached_one": "レビュー上限に達しました: {{count}} 件の納品がレビュー待ちです(上限 {{limit}})。何も起動していません。",
     "reached_other": "レビュー上限に達しました: {{count}} 件の納品がレビュー待ちです(上限 {{limit}})。何も起動していません。",
     "action": "保留中の納品を決定する(PR 作成・マージ・破棄)か、プロジェクト設定 ▸ レビュー上限 で上限を引き上げてください。"
+  },
+  "initialCommit": {
+    "action": "初回コミットを作成",
+    "creating": "初回コミットを作成中…",
+    "createdRelaunch": "初回コミットを作成しました。レールを再度起動してください。",
+    "errors": {
+      "git_identity_missing": "Git に作成者情報がありません。先に user.name と user.email を設定してください。",
+      "repository_has_commits": "このリポジトリにはすでにコミットがあります。",
+      "generic": "初回コミットを作成できませんでした。"
+    }
+  },
+  "loopChip": {
+    "implement": "Implement",
+    "sddQuick": "SDD Quick",
+    "freestyle": "Freestyle",
+    "flowSpec": "Flow の引き渡し",
+    "unknown": "ループ",
+    "title": "ループ: {{name}}"
+  },
+  "estimated": "推定",
+  "help": {
+    "learnMore": "詳しく見る",
+    "learnMoreAbout": "{{topic}}について詳しく見る",
+    "topics": {
+      "themes": "テーマと外観",
+      "codeExplorer": "コードエクスプローラー",
+      "integratedTerminal": "統合ターミナル",
+      "agents": "エージェント",
+      "aiProviders": "AI プロバイダー",
+      "mcpServer": "MCP サーバー",
+      "mobileCompanion": "モバイルコンパニオン",
+      "plugins": "プラグイン",
+      "existingProjects": "既存プロジェクトでの作業",
+      "projectRules": "プロジェクトルール",
+      "updates": "アップデート",
+      "providerCapabilities": "プロバイダーの機能",
+      "projectEnvironment": "プロジェクト環境",
+      "telemetry": "パイプラインのテレメトリ",
+      "dailyBudget": "1 日の予算",
+      "recentlyDeleted": "最近削除した項目",
+      "railLoops": "レールが実行する内容",
+      "flowMode": "Flow",
+      "flowHandOff": "Flow の引き渡し",
+      "contextScope": "コンテキストスライダー",
+      "launchForecast": "起動時の見込み",
+      "loopBuilder": "Loop Builder",
+      "shortcuts": "キーボードショートカット",
+      "inbox": "「対応待ち」リスト",
+      "specsBoard": "スペックとバックログ",
+      "specTimeline": "スペックのタイムラインと引き継ぎ",
+      "accessibility": "アクセシビリティとカスタマイズ",
+      "prDecision": "納品オプション"
+    }
+  },
+  "forecast": {
+    "label": "起動時の見込み",
+    "usually": "同様の実行は通常 {{time}} · {{cost}}",
+    "usuallyTime": "同様の実行は通常 {{time}}",
+    "minutesRange": "{{low}}～{{high}} 分",
+    "minutesSingle": "{{value}} 分",
+    "insufficient": "履歴がまだ足りません",
+    "insufficientHint": "このプロジェクトとエンジンで完了した同様の実行が {{count}} 件以上必要です。",
+    "estimateHint": "過去 {{count}} 回の実行からの見込み — 請求額ではありません",
+    "estimateHintCost": "過去 {{count}} 回の実行からの見込み（費用は {{costCount}} 回分）— 請求額ではありません",
+    "budgetCaution": "予算で一時停止する可能性があります",
+    "budgetReached": "1 日の予算に達しました",
+    "budgetCautionHint": "今日の支出にこの見込みの上限を足すと、1 日の予算に達する可能性があります。予算パネルを開きます。",
+    "budgetReachedHint": "今日の支出が 1 日の予算に達したため、リセットまたは引き上げまで起動は拒否されます。予算パネルを開きます。",
+    "perSpec": "スペックごと",
+    "budgetReached_week": "週間予算に達しました",
+    "budgetReached_month": "月間予算に達しました",
+    "budgetReachedHint_week": "今週の支出が週間予算に達したため、リセットされるか予算を引き上げるまで起動は拒否されます。予算パネルを開きます。",
+    "budgetReachedHint_month": "今月の支出が月間予算に達したため、リセットされるか予算を引き上げるまで起動は拒否されます。予算パネルを開きます。",
+    "budgetCautionHint_week": "今週の支出にこの見積もりの上限を加えると、週間予算に達する可能性があります。予算パネルを開きます。",
+    "budgetCautionHint_month": "今月の支出にこの見積もりの上限を加えると、月間予算に達する可能性があります。予算パネルを開きます。",
+    "launchBlocked": "この上限は使い切られているため、起動は拒否されます。上限を引き上げるか、リセットをお待ちください。",
+    "launchBlocked_week": "今週の上限は使い切られているため、起動は拒否されます。上限を引き上げるか、リセットをお待ちください。",
+    "launchBlocked_month": "今月の上限は使い切られているため、起動は拒否されます。上限を引き上げるか、リセットをお待ちください。",
+    "raiseCap": "上限を引き上げる"
+  },
+  "a11y": {
+    "announce": {
+      "started": "実行を開始しました",
+      "startedRail": "レール {{rail}}:実行を開始しました",
+      "pausedBudget": "実行を一時停止:支出の上限に達しました",
+      "pausedLimit": "実行を一時停止:プロバイダーの上限に達しました",
+      "needsYou": "対応が必要な実行があります",
+      "needsYouRail": "レール {{rail}}:対応が必要な実行があります",
+      "failed": "実行が失敗しました",
+      "failedRail": "レール {{rail}}:実行が失敗しました",
+      "finished": "実行が完了しました",
+      "finishedRail": "レール {{rail}}:実行が完了しました",
+      "stopped": "実行を停止しました",
+      "stoppedRail": "レール {{rail}}:実行を停止しました",
+      "reviewReady": "レビューの準備ができました",
+      "reviewReadyRail": "レール {{rail}}:レビューの準備ができました",
+      "pausedBudgetRail": "レール {{rail}}:実行を一時停止、支出の上限に達しました",
+      "pausedLimitRail": "レール {{rail}}:実行を一時停止、プロバイダーの上限に達しました",
+      "startedSpec": "レール {{rail}}:#{{id}} を開始しました",
+      "finishedSpec": "レール {{rail}}:#{{id}} が完了しました",
+      "failedSpec": "レール {{rail}}:#{{id}} が失敗しました",
+      "stoppedSpec": "レール {{rail}}:#{{id}} を停止しました",
+      "needsYouSpec": "レール {{rail}}:#{{id}} は対応が必要です",
+      "reviewReadySpec": "レール {{rail}}:#{{id}} のレビューの準備ができました"
+    }
+  },
+  "errors": {
+    "technicalDetails": "技術的な詳細",
+    "copyDetails": "詳細をコピー"
   }
 }

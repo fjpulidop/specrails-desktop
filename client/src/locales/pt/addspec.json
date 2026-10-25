@@ -15,7 +15,7 @@
     "modeDescription": {
       "quick": "Descreva a funcionalidade ou alteração. Anexe mockups, briefs ou dados para mais contexto.",
       "explore": "Descreva uma ideia aproximada. O assistente de IA selecionado vai ajudá-lo a dar-lhe forma através de conversa — você decide quando confirmar.",
-      "raw": "O seu prompt, tal como está — guardado como ticket de spec. Sem IA agora; arraste-o para um rail para o construir."
+      "raw": "O seu prompt, tal como está — guardado como spec. Sem IA agora; arraste-a para um rail para a construir."
     },
     "editorPlaceholder": {
       "quick": "p. ex. Adicionar um interruptor de modo escuro à página de definições que persista a preferência do utilizador...",
@@ -59,8 +59,11 @@
       "generating": "A gerar...",
       "failedToStart": "{{projectName}} · Falha ao iniciar",
       "unsupportedFileType": "Tipo de ficheiro não suportado: {{name}}",
-      "uploadFailed": "Falha no carregamento de {{name}}: {{message}}"
-    }
+      "uploadFailed": "Falha no carregamento de {{name}}"
+    },
+    "contextSummary": "Contexto: {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "Contexto: {{preset}}",
+    "costEstimateTitle": "Custo estimado para gerar esta spec com o modelo e o contexto selecionados"
   },
   "featureProposal": {
     "title": "Propor uma funcionalidade",
@@ -127,7 +130,7 @@
       "contract": "contract"
     },
     "checks": {
-      "specrailsLabel": "tickets specrails",
+      "specrailsLabel": "specs specrails",
       "openspecLabel": "specs openspec",
       "fullLabel": "Base de código completa",
       "mcpLabel": "MCPs do projeto",
@@ -139,7 +142,8 @@
       "providerUnsupported": "Indisponível para {{provider}}",
       "contractLabel": "Enriquecer com Contract Layer",
       "contractHint": "refinamento pós-commit · ativa o SMASH"
-    }
+    },
+    "costTier": "Nível de custo: {{tier}}"
   },
   "aiEngine": {
     "label": "Motor de IA",

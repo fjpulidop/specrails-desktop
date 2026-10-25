@@ -1,18 +1,24 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Check, Copy, RefreshCw, ExternalLink, ClipboardList } from 'lucide-react'
+import { Check, Copy, RefreshCw, ExternalLink, ClipboardList, Download } from 'lucide-react'
 import { API_ORIGIN } from '../../../lib/origin'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogDescription,
 } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { cn } from '../../../lib/utils'
+import { openExternalUrl } from '../../../lib/tauri-shell'
 import type { Platform, SetupPrerequisitesStatus } from '../hooks/usePrerequisites'
+
+/** Same release feed the Tauri updater reads (src-tauri/tauri.conf.json). */
+const DESKTOP_RELEASES_URL = 'https://github.com/fjpulidop/specrails-desktop/releases/latest'
 
 interface Props {
   open: boolean
@@ -119,7 +125,7 @@ function CopyButton({ command }: { command: string }) {
       variant="ghost"
       size="sm"
       onClick={handleCopy}
-      className="h-7 px-2 gap-1.5 text-[11px]"
+      className="h-7 px-2 gap-1.5 text-xs"
       data-testid="install-copy-button"
     >
       {copied ? (
@@ -148,14 +154,14 @@ function PlatformSection({ platform, primary }: { platform: Platform; primary: b
         primary ? 'border-border/40 bg-background/40' : 'border-border/20 bg-background/20',
       )}
     >
-      <h3 className="text-sm font-semibold text-foreground">{instr.title}</h3>
+      <h3 className="text-strong text-foreground">{instr.title}</h3>
       {instr.intro && (
-        <p className="mt-1 text-[11px] text-muted-foreground">{instr.intro}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{instr.intro}</p>
       )}
       <div className="mt-2 space-y-2">
         {instr.commands.map((c) => (
           <div key={c.command} className="rounded-md border border-border/30 bg-background/60 px-2 py-2">
-            <p className="text-[11px] text-muted-foreground mb-1">{c.label}</p>
+            <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
             <div className="flex items-center justify-between gap-2">
               <code className="text-xs text-foreground font-mono break-all">{c.command}</code>
               <CopyButton command={c.command} />
@@ -171,7 +177,7 @@ function PlatformSection({ platform, primary }: { platform: Platform; primary: b
                 href={link.url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] text-accent-info hover:underline"
+                className="inline-flex items-center gap-1 text-xs text-accent-info hover:underline"
               >
                 {link.label}
                 <ExternalLink className="w-3 h-3" />
@@ -181,7 +187,7 @@ function PlatformSection({ platform, primary }: { platform: Platform; primary: b
         </ul>
       )}
       {instr.note && (
-        <p className="mt-2 text-[11px] text-accent-highlight">{instr.note}</p>
+        <p className="mt-2 text-xs text-accent-highlight">{instr.note}</p>
       )}
     </section>
   )
@@ -210,10 +216,9 @@ function CopyDiagnosticsButton() {
     <Button
       type="button"
       variant="ghost"
-      size="sm"
       onClick={onClick}
       disabled={state === 'copying'}
-      className="gap-1.5 text-[11px]"
+      className="gap-1.5"
       data-testid="copy-diagnostics-button"
     >
       {state === 'copied' ? (
@@ -246,21 +251,32 @@ export function InstallInstructionsModal({ open, onClose, status, onRecheck, isR
   if (hasCorruptedBundle) {
     return (
       <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-        <DialogContent movableResizable className="max-w-xl" data-testid="install-modal-corrupted-bundle">
+        <DialogContent size="wide" showCloseButton={false} data-testid="install-modal-corrupted-bundle">
           <DialogHeader>
             <DialogTitle>{t('instructions.corrupted.title')}</DialogTitle>
             <DialogDescription>
               {t('instructions.corrupted.description')}
             </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-foreground">
-            {t('instructions.corrupted.body')}
-          </p>
-          <div className="flex justify-end mt-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose} data-testid="install-corrupted-close-button">
+          <DialogBody>
+            <p className="text-sm text-foreground">
+              {t('instructions.corrupted.body')}
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose} data-testid="install-corrupted-close-button">
               {t('common:actions.close')}
             </Button>
-          </div>
+            <Button
+              type="button"
+              className="gap-1.5"
+              onClick={() => void openExternalUrl(DESKTOP_RELEASES_URL)}
+              data-testid="install-corrupted-download-button"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              {t('instructions.corrupted.download')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     )
@@ -268,7 +284,7 @@ export function InstallInstructionsModal({ open, onClose, status, onRecheck, isR
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent movableResizable className="max-w-xl">
+      <DialogContent size="wide" showCloseButton={false} data-testid="install-modal">
         <DialogHeader>
           <DialogTitle>{t('instructions.title')}</DialogTitle>
           <DialogDescription>
@@ -276,13 +292,14 @@ export function InstallInstructionsModal({ open, onClose, status, onRecheck, isR
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <DialogBody className="space-y-3">
           <PlatformSection platform={platform} primary />
 
           <button
             type="button"
             onClick={() => setShowOthers((v) => !v)}
-            className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+            aria-expanded={showOthers}
+            className="rounded-sm text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             data-testid="install-toggle-others"
           >
             {showOthers ? t('instructions.hideOtherPlatforms') : t('instructions.showOtherPlatforms')}
@@ -295,18 +312,15 @@ export function InstallInstructionsModal({ open, onClose, status, onRecheck, isR
               ))}
             </div>
           )}
-        </div>
+        </DialogBody>
 
-        <div className="flex items-center justify-between gap-2 mt-2">
-          <CopyDiagnosticsButton />
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+        <DialogFooter start={<CopyDiagnosticsButton />}>
+            <Button type="button" variant="ghost" onClick={onClose}>
               {t('common:actions.close')}
             </Button>
             <Button
               type="button"
               variant="default"
-              size="sm"
               onClick={onRecheck}
               disabled={isRechecking}
               className="gap-1.5"
@@ -315,8 +329,7 @@ export function InstallInstructionsModal({ open, onClose, status, onRecheck, isR
               <RefreshCw className={cn('w-3 h-3', isRechecking && 'animate-spin')} />
               {t('instructions.recheck')}
             </Button>
-          </div>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

@@ -37,14 +37,14 @@ export function SpecDraftPanel({
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-shrink-0 px-5 py-3 border-b border-border/40 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary/70" />
-          <h3 className="text-sm font-semibold">{t('common:status.draft')}</h3>
+          <Sparkles className="w-4 h-4 text-accent-primary" />
+          <h3 className="text-strong">{t('common:status.draft')}</h3>
         </div>
         {ready && (
           <span
             role="status"
             aria-live="polite"
-            className="text-[10px] text-primary/80 bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"
+            className="text-caption text-accent-primary bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"
           >
             <Sparkles className="w-3 h-3" />
             {t('draftPanel.ready')}
@@ -105,6 +105,20 @@ export function SpecDraftPanel({
             onChange={(items) => onFieldChange('acceptanceCriteria', items)}
           />
         </Field>
+
+        <Field label={t('draftPanel.nonGoalsLabel')} flash={flashFields.includes('nonGoals')}>
+          <CriteriaEditor
+            items={draft.nonGoals ?? []}
+            onChange={(items) => onFieldChange('nonGoals', items)}
+            copy={{
+              placeholder: t('draftPanel.nonGoalPlaceholder'),
+              ariaLabel: (number) => t('draftPanel.nonGoalAriaLabel', { number }),
+              removeAriaLabel: (number) => t('draftPanel.removeNonGoalAriaLabel', { number }),
+              addAriaLabel: t('draftPanel.addNonGoalAriaLabel'),
+              add: t('draftPanel.addNonGoal'),
+            }}
+          />
+        </Field>
       </div>
 
       {/* Sticky footer: attachments (if any) + Create button. Pinning the
@@ -113,10 +127,10 @@ export function SpecDraftPanel({
       {attachments.length > 0 && (
         <div className="flex-shrink-0 px-5 py-3 border-t border-border/40 bg-card/40">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-medium">
+            <span className="text-label text-muted-foreground">
               {t('draftPanel.attachmentsHeading', { count: attachments.length })}
             </span>
-            <span className="text-[10px] text-muted-foreground/60">{t('draftPanel.linkedOnCreate')}</span>
+            <span className="text-caption text-muted-foreground">{t('draftPanel.linkedOnCreate')}</span>
           </div>
           <AttachmentsList items={attachments} onRemove={onRemoveAttachment} />
         </div>
@@ -141,7 +155,7 @@ function Field({ label, flash, children }: { label: string; flash: boolean; chil
   }, [flash])
   return (
     <div className={`space-y-1.5 transition-colors duration-200 ${active ? 'bg-primary/[0.06] -mx-2 px-2 py-1 rounded' : ''}`}>
-      <label className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-medium">
+      <label className="text-label text-muted-foreground">
         {label}
       </label>
       {children}
@@ -165,11 +179,11 @@ function LabelsEditor({ labels, onChange }: { labels: string[]; onChange: (label
     onChange(labels.filter((l) => l !== label))
   }
   return (
-    <div className="flex flex-wrap gap-1.5 p-1.5 rounded-md border border-border/50 bg-background min-h-[36px]">
+    <div className="flex flex-wrap gap-1.5 p-1.5 rounded-md border border-border/50 bg-background min-h-[36px] focus-within:ring-2 focus-within:ring-ring">
       {labels.map((label) => (
         <span
           key={label}
-          className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary/90"
+          className="flex items-center gap-1 text-caption px-2 py-0.5 rounded-full bg-primary/10 text-accent-primary"
         >
           {label}
           <button
@@ -214,11 +228,11 @@ function AttachmentsList({ items, onRemove }: { items: Attachment[]; onRemove?: 
             key={att.id}
             className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border/40 bg-card/40 text-xs"
           >
-            <Icon className="w-3.5 h-3.5 text-primary/70 flex-shrink-0" />
+            <Icon className="w-3.5 h-3.5 text-accent-primary flex-shrink-0" />
             <span className="flex-1 truncate" title={`${att.filename} · ${formatBytes(att.size)}`}>
               {att.filename}
             </span>
-            <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">{formatBytes(att.size)}</span>
+            <span className="text-caption text-muted-foreground flex-shrink-0">{formatBytes(att.size)}</span>
             {onRemove && (
               <button
                 type="button"
@@ -242,8 +256,23 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function CriteriaEditor({ items, onChange }: { items: string[]; onChange: (items: string[]) => void }) {
+interface ListEditorCopy {
+  placeholder: string
+  ariaLabel: (number: number) => string
+  removeAriaLabel: (number: number) => string
+  addAriaLabel: string
+  add: string
+}
+
+function CriteriaEditor({ items, onChange, copy: override }: { items: string[]; onChange: (items: string[]) => void; copy?: ListEditorCopy }) {
   const { t } = useTranslation('explore')
+  const copy: ListEditorCopy = override ?? {
+    placeholder: t('draftPanel.criterionPlaceholder'),
+    ariaLabel: (number) => t('draftPanel.criterionAriaLabel', { number }),
+    removeAriaLabel: (number) => t('draftPanel.removeCriterionAriaLabel', { number }),
+    addAriaLabel: t('draftPanel.addCriterionAriaLabel'),
+    add: t('draftPanel.addCriterion'),
+  }
   function update(idx: number, value: string) {
     const next = items.slice()
     next[idx] = value
@@ -263,15 +292,15 @@ function CriteriaEditor({ items, onChange }: { items: string[]; onChange: (items
           <input
             value={item}
             onChange={(e) => update(i, e.target.value)}
-            placeholder={t('draftPanel.criterionPlaceholder')}
+            placeholder={copy.placeholder}
             className="flex-1 px-2 py-1 text-xs rounded border border-border/50 bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
-            aria-label={t('draftPanel.criterionAriaLabel', { number: i + 1 })}
+            aria-label={copy.ariaLabel(i + 1)}
           />
           <button
             type="button"
             onClick={() => remove(i)}
             className="text-muted-foreground hover:text-destructive"
-            aria-label={t('draftPanel.removeCriterionAriaLabel', { number: i + 1 })}
+            aria-label={copy.removeAriaLabel(i + 1)}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -281,9 +310,9 @@ function CriteriaEditor({ items, onChange }: { items: string[]; onChange: (items
         type="button"
         onClick={add}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        aria-label={t('draftPanel.addCriterionAriaLabel')}
+        aria-label={copy.addAriaLabel}
       >
-        <Plus className="w-3 h-3" /> {t('draftPanel.addCriterion')}
+        <Plus className="w-3 h-3" /> {copy.add}
       </button>
     </div>
   )

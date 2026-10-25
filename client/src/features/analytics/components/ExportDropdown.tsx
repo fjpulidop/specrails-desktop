@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Download } from 'lucide-react'
-import { toast } from 'sonner'
 
+import { notifyError } from '../../../lib/notify-error'
 export interface ExportDropdownProps {
   /** Base URL for the export endpoint, e.g. `${getApiBase()}/analytics/export` */
   baseUrl: string
@@ -74,7 +74,7 @@ export function ExportDropdown({ baseUrl, params, label, disabled }: ExportDropd
       URL.revokeObjectURL(objectUrl)
     } catch (err) {
       console.warn('[ExportDropdown] download failed:', err)
-      toast.error(t('export.failed'))
+      notifyError(t('export.failed'))
     } finally {
       setDownloading(false)
     }
@@ -89,7 +89,7 @@ export function ExportDropdown({ baseUrl, params, label, disabled }: ExportDropd
         disabled={downloading || disabled}
         onClick={() => setOpen((o) => !o)}
         title={disabled ? t('export.noData') : undefined}
-        className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium border border-border/60 bg-card/50 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+        className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-label border border-border/60 bg-card/50 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors disabled:opacity-50 disabled:pointer-events-none"
       >
         <Download className="w-3 h-3" />
         {downloading ? t('export.downloading') : (label ?? t('common:actions.export'))}
@@ -110,7 +110,7 @@ export function ExportDropdown({ baseUrl, params, label, disabled }: ExportDropd
             >
               <Download className="w-3 h-3 shrink-0" />
               <span className="flex-1">{t(entry.labelKey)}</span>
-              {entry.mode === 'raw' && <span className="text-[9px] text-muted-foreground">≤10k</span>}
+              {entry.mode === 'raw' && <span className="text-caption text-muted-foreground">≤10k</span>}
             </button>
           ))}
         </div>

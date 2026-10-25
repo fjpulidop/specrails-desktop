@@ -32,6 +32,12 @@ vi.mock('../../features/specs/components/ProposeSpecModal', () => ({ ProposeSpec
 
 import { SpecsBoard } from '../../features/specs/components/SpecsBoard'
 
+/** Opens the toolbar Filters popover (idempotent: single-selects keep it open). */
+function openFilters() {
+  if (!screen.queryByTestId('specs-filters-panel')) fireEvent.click(screen.getByTestId('specs-filters-trigger'))
+  return screen.getByTestId('specs-filters-panel')
+}
+
 function makeTicket(id: number, title: string, epicKey?: string, epicName?: string): LocalTicket {
   return {
     id, title, description: '', status: 'todo', priority: 'medium', labels: [], assignee: null,
@@ -61,7 +67,7 @@ describe('SpecsBoard filter persistence', () => {
   it('restores the epic filter after a remount (app close/reopen)', () => {
     renderBoard()
     // Pick the Authentication epic → Billing disappears.
-    fireEvent.click(screen.getByTestId('spec-epic-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByRole('option', { name: /Authentication/ }))
     expect(screen.queryByText('Billing spec')).toBeNull()
 
@@ -76,7 +82,7 @@ describe('SpecsBoard filter persistence', () => {
 
   it('persisted the filter to a per-project localStorage key', () => {
     renderBoard()
-    fireEvent.click(screen.getByTestId('spec-epic-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByRole('option', { name: /Authentication/ }))
     expect(localStorage.getItem('specrails-desktop:spec-filters:proj-A')).toContain('PROJ-100')
   })
@@ -84,7 +90,7 @@ describe('SpecsBoard filter persistence', () => {
   it('keeps filters separate per project on switch', () => {
     const { rerender } = renderBoard()
     // Filter proj-A to Authentication.
-    fireEvent.click(screen.getByTestId('spec-epic-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByRole('option', { name: /Authentication/ }))
     expect(screen.queryByText('Billing spec')).toBeNull()
 
@@ -93,21 +99,25 @@ describe('SpecsBoard filter persistence', () => {
     rerender(<SpecsBoard tickets={tickets} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
     expect(screen.getByText('Auth spec')).toBeInTheDocument()
     expect(screen.getByText('Billing spec')).toBeInTheDocument()
+    expect(screen.queryByTestId('specs-active-filters')).toBeNull()
 
     // Switch back to proj-A → its filter is restored.
     h.activeId = 'proj-A'
     rerender(<SpecsBoard tickets={tickets} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
     expect(screen.getByText('Auth spec')).toBeInTheDocument()
     expect(screen.queryByText('Billing spec')).toBeNull()
+    // The toolbar says why: the chip row and the Filters badge show the epic.
+    expect(screen.getByTestId('specs-active-filters')).toHaveTextContent('Epic: Authentication')
+    expect(screen.getByTestId('specs-filters-count')).toHaveTextContent('1')
   })
 
   it('clearing the filter removes the persisted key', () => {
     renderBoard()
-    fireEvent.click(screen.getByTestId('spec-epic-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByRole('option', { name: /Authentication/ }))
     expect(localStorage.getItem('specrails-desktop:spec-filters:proj-A')).not.toBeNull()
     // Re-open and choose "All epics".
-    fireEvent.click(screen.getByTestId('spec-epic-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByTestId('spec-epic-filter-all'))
     expect(localStorage.getItem('specrails-desktop:spec-filters:proj-A')).toBeNull()
   })

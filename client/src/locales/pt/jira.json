@@ -37,7 +37,8 @@
     "manualPlaceholder": "PROJ",
     "selected": "{{key}} — {{name}}",
     "none": "Nenhum projeto encontrado",
-    "loading": "A carregar projetos…"
+    "loading": "A carregar projetos…",
+    "search": "Pesquisar"
   },
   "mapping": {
     "intro": "Os estados são associados automaticamente por categoria (A fazer / Em curso / Concluído). Substitua um estado se o seu fluxo de trabalho usar nomes personalizados.",
@@ -69,7 +70,8 @@
     "syncedToast": "{{count}} ticket(s) sincronizados do Jira",
     "disconnect": "Desligar",
     "disconnectConfirm": "Desligar este projeto do Jira? As specs existentes permanecem no quadro; a sincronização para.",
-    "disconnectedToast": "Desligado do Jira"
+    "disconnectedToast": "Desligado do Jira",
+    "disconnectConfirmTitle": "Desligar do Jira?"
   },
   "outbox": {
     "title": "Atualizações Jira pendentes",

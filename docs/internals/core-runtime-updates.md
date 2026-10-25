@@ -13,9 +13,9 @@ framework is rejected rather than silently replacing an update.
 
 ## Persistence and publication
 
-The release bundle pins Core 6.6.5 in `desktop-release.yml` and
+The release bundle pins Core 6.7.0 in `desktop-release.yml` and
 `scripts/assemble-bundled-core.lock.json`. Core 6 is the Desktop-only engine: it
-publishes integration contract 5.1 (no standalone `update`) and ships only the
+publishes integration contract 5.9 (no standalone `update`) and ships only the
 implement and retry workflows (Batch was folded into implement; Desktop no
 longer requires `batch-implement` but stays compatible with Cores that still ship it). Update both pins together and check compatibility against
 the staged published package; retained runs still use their original runtime.
@@ -27,8 +27,8 @@ dependency leaks into its tarball (today `@langchain/langgraph-sdk` ships
 module still loads while every staged path stays inside the MSI budget
 (`MAX_STAGED_RELATIVE_PATH`, 120 characters).
 
-The paired CI checkout uses the immutable Core 6.6.5 release commit
-`8d796502ceb3b95bebbac7df4084f0655b408a26`. Bundle smoke checks use Node 22.22.3,
+The paired CI checkout uses the immutable Core 6.7.0 release commit
+`8e969c6d7c65b2253d63d6a0cbaaae148cc8ff21`. Bundle smoke checks use Node 22.22.3,
 matching Core's minimum supported Node version and the Desktop release runtime.
 
 Desktop updates retain the complete npm installation, including dependencies,
