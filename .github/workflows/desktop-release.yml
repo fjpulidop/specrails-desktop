@@ -159,7 +159,7 @@ jobs:
           toolchain: stable
 
       - name: Rust cache
-        uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
+        uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2
         with:
           workspaces: "./src-tauri -> target"
           # Restore what release-rust-cache.yml compiled on main; tag-scoped
@@ -534,7 +534,7 @@ jobs:
           toolchain: stable
 
       - name: Rust cache
-        uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
+        uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2
         with:
           workspaces: "./src-tauri -> target"
           # Restore what release-rust-cache.yml compiled on main; tag-scoped
@@ -829,7 +829,7 @@ jobs:
           targets: aarch64-pc-windows-msvc
 
       - name: Rust cache
-        uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
+        uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2
         with:
           workspaces: "./src-tauri -> target"
           # Restore what release-rust-cache.yml compiled on main; tag-scoped
