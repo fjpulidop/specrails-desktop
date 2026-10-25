@@ -300,7 +300,13 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
 
   const entries = useMemo<StripEntry[]>(() => {
     const list: StripEntry[] = []
-    for (const p of proposals) {
+    const liveExtensionRuns = extensionRuns.filter((run) => !(run.yieldsTo && deliveries.some((card) => focusMatchesCard(
+      { prDeliveryId: run.yieldsTo?.prDeliveryId ?? null, runIds: [...(run.yieldsTo?.runIds ?? [])] },
+      { prDeliveryId: card.envelope.prDeliveryId, runIds: card.envelope.runIds },
+    ))))
+    // While an extension run (Flow) is live in this mission, the strip shows its
+    // controls: an undecided launch proposal stays in its message, not in the strip.
+    for (const p of liveExtensionRuns.length > 0 ? [] : proposals) {
       const tickets = p.proposal.ticketIds.map((id) => `#${id}`).join(' ')
       const headlineText = tickets ? t('runStrip.proposal', { tickets }) : t('runStrip.proposalNoTickets')
       list.push({
@@ -329,14 +335,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       })
     }
     for (const card of deliveries) list.push(deliveryEntry(card))
-    for (const run of extensionRuns) {
-      const yielded = run.yieldsTo && deliveries.some((card) => focusMatchesCard(
-        { prDeliveryId: run.yieldsTo?.prDeliveryId ?? null, runIds: [...(run.yieldsTo?.runIds ?? [])] },
-        { prDeliveryId: card.envelope.prDeliveryId, runIds: card.envelope.runIds },
-      ))
-      if (yielded) continue
-      list.push(extensionEntry(run))
-    }
+    for (const run of liveExtensionRuns) list.push(extensionEntry(run))
     return list
   }, [proposals, deliveries, extensionRuns, deliveryEntry, conversationId, projectId, t])
   const entriesRef = useRef(entries)
