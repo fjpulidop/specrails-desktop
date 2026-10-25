@@ -132,7 +132,7 @@ export function ExternalMcpServersCard() {
       } catch (e) {
         setPayload(prev)
         const code = (e as Error).message
-        notifyError(t([`external.errors.${code}`, 'external.updateFailed'] as unknown as string))
+        notifyError(t([`external.errors.${code}`, 'external.updateFailed'] as unknown as string), { retry: () => void patch(servers) })
         return false
       } finally {
         setBusy(false)

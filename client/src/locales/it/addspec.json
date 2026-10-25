@@ -59,7 +59,7 @@
       "generating": "Generazione...",
       "failedToStart": "{{projectName}} · Avvio non riuscito",
       "unsupportedFileType": "Tipo di file non supportato: {{name}}",
-      "uploadFailed": "Caricamento non riuscito per {{name}}: {{message}}"
+      "uploadFailed": "Caricamento non riuscito per {{name}}"
     },
     "contextSummary": "Contesto: {{preset}} · {{cost}}",
     "contextSummaryNoCost": "Contesto: {{preset}}",

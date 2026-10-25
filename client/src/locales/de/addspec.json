@@ -59,7 +59,7 @@
       "generating": "Wird generiert…",
       "failedToStart": "{{projectName}} · Start fehlgeschlagen",
       "unsupportedFileType": "Nicht unterstützter Dateityp: {{name}}",
-      "uploadFailed": "Upload fehlgeschlagen für {{name}}: {{message}}"
+      "uploadFailed": "Upload fehlgeschlagen für {{name}}"
     },
     "contextSummary": "Kontext: {{preset}} · {{cost}}",
     "contextSummaryNoCost": "Kontext: {{preset}}",

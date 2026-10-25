@@ -1,3 +1,4 @@
+import { LoadError } from '../../../components/ui/load-error'
 import { useState, useEffect, useCallback } from 'react'
 import { BudgetCard } from '../components/BudgetCard'
 import { useTranslation } from 'react-i18next'
@@ -428,9 +429,7 @@ export default function DesktopAnalyticsPage({ inDialog = false }: { inDialog?: 
     <>
         {/* Error */}
         {error && (
-          <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-            {t('desktop.failedToLoad')}
-          </div>
+          <LoadError message={t('desktop.failedToLoad')} onRetry={() => void load(period, from, to)} />
         )}
 
         {/* Loading skeleton */}

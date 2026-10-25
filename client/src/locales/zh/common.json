@@ -299,6 +299,7 @@
     }
   },
   "errors": {
-    "technicalDetails": "技术详情"
+    "technicalDetails": "技术详情",
+    "copyDetails": "复制详情"
   }
 }

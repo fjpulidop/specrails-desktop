@@ -39,7 +39,7 @@
       "specCreated": "Spec créée — #{{id}} {{title}}",
       "createNetworkError": "Erreur réseau lors de la création de la spec",
       "unsupportedFileType": "Type de fichier non pris en charge : {{name}}",
-      "uploadFailed": "Échec de l'envoi de {{name}} : {{message}}"
+      "uploadFailed": "Échec de l'envoi de {{name}}"
     },
     "fromWebsite": "Depuis un site web",
     "fromWebsiteTitle": "Ouvrez une vraie page web, sélectionnez une zone et transformez-la en spec",

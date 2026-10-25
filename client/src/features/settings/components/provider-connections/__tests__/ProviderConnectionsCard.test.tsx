@@ -232,7 +232,10 @@ describe('ProviderConnectionsCard', () => {
     const user = userEvent.setup()
     global.fetch = vi.fn().mockResolvedValueOnce(json(false, { message: 'nope' }))
     render(<ProviderConnectionsCard />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('nope')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/Could not load runtime settings/)
+    expect(within(alert).getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(screen.getByText('nope')).toBeInTheDocument() // the server's words stay reachable
     global.fetch = vi.fn().mockResolvedValueOnce(json(true, { providers: [CLAUDE], status: {} }))
     render(<ProviderConnectionsCard />)
     const empty = await screen.findByTestId('local-empty')

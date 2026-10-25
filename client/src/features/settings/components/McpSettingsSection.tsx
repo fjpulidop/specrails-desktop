@@ -150,7 +150,7 @@ export function McpSettingsSection() {
         const data = (await r.json()) as { tiers: McpStatus['tiers'] }
         setStatus((prev) => (prev ? { ...prev, tiers: data.tiers } : prev))
       } catch (e) {
-        notifyError(t('tiers.updateFailed'), { detail: (e as Error).message })
+        notifyError(t('tiers.updateFailed'), { detail: (e as Error).message, retry: () => void toggleTier(key) })
       } finally {
         setBusy(false)
       }
@@ -194,7 +194,7 @@ export function McpSettingsSection() {
       await loadStatus()
       toast.success(t('token.regenerated'))
     } catch (e) {
-      notifyError(t('token.regenerateFailed'), { detail: (e as Error).message })
+      notifyError(t('token.regenerateFailed'), { detail: (e as Error).message, retry: () => void regenerateToken() })
     } finally {
       setBusy(false)
     }

@@ -87,9 +87,8 @@ export function MobileAccessSection() {
       setStatus((await r.json()) as MobileStatus)
     } catch (e) {
       notifyError(
-        status.enabled
-          ? t('mobile.disableFailed', { message: (e as Error).message })
-          : t('mobile.enableFailed', { message: (e as Error).message })
+        status.enabled ? t('mobile.disableFailed') : t('mobile.enableFailed'),
+        { detail: (e as Error).message, retry: () => void toggleEnabled() },
       )
     } finally {
       setBusy(false)

@@ -1,3 +1,4 @@
+import { TechnicalDetail } from '../../../../components/ui/technical-detail'
 import { keyboardLabel } from '../../../../lib/keyboard-label'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -48,6 +49,7 @@ export interface AiEditShellProps {
   /** Current high-level state of the flow. */
   uiPhase: AiEditUiPhase
   errorMessage?: string | null
+  errorDetail?: string | null
   applyConflict?: 'disk_changed' | 'name_changed' | null
 
   // ─── Header ──────────────────────────────────────────────────────────────
@@ -235,6 +237,7 @@ export function AiEditShell(props: AiEditShellProps) {
           baseBody={props.baseBody}
           baseBodyDisclosureLabel={props.baseBodyDisclosureLabel}
           errorMessage={props.errorMessage}
+          errorDetail={props.errorDetail}
         />
       )}
 
@@ -359,6 +362,7 @@ function FocusedColumn({
   baseBody,
   baseBodyDisclosureLabel,
   errorMessage,
+  errorDetail,
 }: {
   uiPhase: AiEditUiPhase
   headline: string
@@ -372,6 +376,7 @@ function FocusedColumn({
   baseBody?: string
   baseBodyDisclosureLabel?: string
   errorMessage?: string | null
+  errorDetail?: string | null
 }) {
   const { t } = useTranslation('aiedit')
   const showChips =
@@ -405,6 +410,9 @@ function FocusedColumn({
             <p className="text-sm text-muted-foreground max-w-md mx-auto font-mono break-words">
               {errorMessage}
             </p>
+          )}
+          {isError && errorDetail && (
+            <TechnicalDetail summary={t('common:errors.technicalDetails')} className="mx-auto max-w-md text-xs">{errorDetail}</TechnicalDetail>
           )}
           {!isError && description && (
             <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">

@@ -46,10 +46,11 @@
   },
   "refine": {
     "serverError": "Serverfehler ({{status}})",
-    "connectionFailed": "Verbindung fehlgeschlagen: {{message}}",
+    "connectionFailed": "Verbindung fehlgeschlagen",
     "applyFailed": "Anwenden fehlgeschlagen ({{status}})",
     "loadAgentFailed": "Agent konnte nicht geladen werden ({{status}})",
     "loadSessionFailed": "Session konnte nicht geladen werden ({{status}})",
-    "rehydrateFailed": "Session konnte nicht wiederhergestellt werden: {{message}}"
+    "rehydrateFailed": "Session konnte nicht wiederhergestellt werden",
+    "failed": "Die Verfeinerung ist fehlgeschlagen"
   }
 }

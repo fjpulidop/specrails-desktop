@@ -1,4 +1,3 @@
-import { createElement, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import i18n from 'i18next'
 
@@ -38,29 +37,28 @@ export function humanDetail(detail: string | null | undefined): string | undefin
   return text
 }
 
+/** Put the server's own text on the clipboard; a blocked clipboard is silent (the toast still reads). */
+function copyRaw(raw: string): void {
+  try { void navigator.clipboard?.writeText(raw)?.catch(() => {}) } catch { /* clipboard unavailable */ }
+}
+
 /**
  * Error toast with a recovery path. The headline is always a localized message the caller chose;
  * raw server text never becomes the headline. When the detail is unfit to show, it stays reachable
- * as a "Technical details" tooltip so nothing is lost for support.
+ * through a "Copy details" button (focusable, works by keyboard) so nothing is lost for support.
  */
 export function notifyError(title: string, opts: NotifyErrorOptions = {}): string | number {
   const { detail, retry, action, duration, id } = opts
   const shown = humanDetail(detail)
   const raw = detail?.trim()
-  let description: ReactNode | undefined = shown
-  if (!shown && raw && !BARE_STATUS.test(raw)) {  // keep the raw text reachable for support
-    description = createElement(
-      'span',
-      { title: raw, className: 'cursor-help underline decoration-dotted underline-offset-2', 'data-testid': 'toast-technical-details' },
-      i18n.t('common:errors.technicalDetails'),
-    )
-  }
+  const hidden = !shown && raw && !BARE_STATUS.test(raw) ? raw : undefined
   const recovery = retry
     ? { label: i18n.t('common:actions.retry'), onClick: retry }
     : action
   const options = {
-    ...(description !== undefined ? { description } : {}),
+    ...(shown !== undefined ? { description: shown } : {}),
     ...(recovery ? { action: recovery } : {}),
+    ...(hidden ? { cancel: { label: i18n.t('common:errors.copyDetails'), onClick: () => copyRaw(hidden) } } : {}),
     ...(duration !== undefined ? { duration } : {}),
     ...(id !== undefined ? { id } : {}),
   }

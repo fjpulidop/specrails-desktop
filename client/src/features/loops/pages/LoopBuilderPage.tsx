@@ -252,11 +252,12 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
   useEffect(() => {
     if (!id) return
     let cancelled = false
-    loopsApi
+    const load = (): Promise<void> => loopsApi
       .get(id)
       .then((loop) => { if (!cancelled) applyLoop(loop) })
-      .catch(() => notifyError(t('errors.load')))
+      .catch(() => { notifyError(t('errors.load'), { retry: () => void load() }) })
       .finally(() => { if (!cancelled) setLoading(false) })
+    void load()
     return () => { cancelled = true }
   }, [id, applyLoop, t])
 
@@ -270,7 +271,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       setPublicationErrors([])
       toast.success(t('builder.builtin.restored'))
     } catch (err) {
-      notifyError(t('errors.save'), { detail: err instanceof Error ? err.message : undefined })
+      notifyError(t('errors.save'), { detail: err instanceof Error ? err.message : undefined, retry: () => void restoreOriginal() })
     }
   }, [id, applyLoop, t])
 
@@ -444,7 +445,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       const { steps } = await loopsApi.previewLoop(graph)
       setPreview(steps)
     } catch {
-      notifyError(t('builder.preview.error'))
+      notifyError(t('builder.preview.error'), { retry: () => void runPreview() })
     } finally {
       setPreviewing(false)
     }
@@ -461,7 +462,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     } catch (err) {
       // Surface the server reason (e.g. "Loop is running; stop the run before
       // editing") instead of an opaque generic — far easier to diagnose.
-      notifyError(t('errors.save'), { detail: err instanceof Error ? err.message : undefined })
+      notifyError(t('errors.save'), { detail: err instanceof Error ? err.message : undefined, retry: () => void save() })
       return false
     } finally {
       setSaving(false)
@@ -481,10 +482,18 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
         setPublicationErrors(err.errors); setShowProblems(true)
         notifyError(t('errors.publishInvalid'))
       } else {
-        notifyError(t('errors.save'), { detail: err instanceof Error ? err.message : undefined })
+        notifyError(t('errors.save'), { detail: err instanceof Error ? err.message : undefined, retry: () => void publish() })
       }
     }
   }, [id, save, leaveBuilder, t])
+
+  // Save, then pop the loop out into its own window.
+  const openInWindow = async (): Promise<void> => {
+    const ok = await save()
+    if (!ok || !id) return
+    try { await openLoopWindow(activeProjectId, id); if (onWindowOpened) onWindowOpened(); else leaveBuilder() }
+    catch (error) { notifyError(t('window.openFailed'), { detail: error instanceof Error ? error.message : undefined, retry: () => void openInWindow() }) }
+  }
 
   // ⌘S / Ctrl+S saves in place (also while typing in a field).
   const saveRef = useRef<() => void>(() => {})
@@ -539,11 +548,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {!isLoopWindowRoute() && (
-                  <DropdownMenuItem disabled={saving} onSelect={() => void save().then(async ok => {
-                    if (!ok || !id) return
-                    try { await openLoopWindow(activeProjectId, id); if (onWindowOpened) onWindowOpened(); else leaveBuilder() }
-                    catch (error) { notifyError(t('window.openFailed'), { detail: error instanceof Error ? error.message : undefined }) }
-                  })}>
+                  <DropdownMenuItem disabled={saving} onSelect={() => void openInWindow()}>
                     <ExternalLink className="w-3.5 h-3.5" aria-hidden />{t('window.open')}
                   </DropdownMenuItem>
                 )}
@@ -944,7 +949,7 @@ function LoopConstantsManager({ open, onClose, constants, onChanged }: {
       await onChanged()
       setPendingDelete(null)
     } catch {
-      notifyError(t('errors.save'))
+      notifyError(t('errors.save'), { retry: () => void confirmDelete() })
     } finally {
       setDeleting(false)
     }
@@ -978,7 +983,10 @@ function LoopConstantsManager({ open, onClose, constants, onChanged }: {
               <ConstantRow
                 key={c.id}
                 c={c}
-                onSave={(v) => void loopsApi.updateConstant(c.id, v).then(onChanged).catch(() => notifyError(t('errors.save')))}
+                onSave={(v) => {
+                  const saveConstant = (): Promise<void> => loopsApi.updateConstant(c.id, v).then(onChanged).catch(() => notifyError(t('errors.save'), { retry: () => void saveConstant() })).then(() => undefined)
+                  void saveConstant()
+                }}
                 onDelete={() => setPendingDelete(c)}
               />
             ))}

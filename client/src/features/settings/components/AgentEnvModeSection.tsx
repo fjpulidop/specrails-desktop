@@ -93,7 +93,7 @@ export function ProjectAgentEnvModeSection() {
       toast.success(t(`agentEnv.saved.${next}`))
     } catch (err) {
       if (projectId === activeProjectRef.current) setMode(previous)
-      notifyError(t('agentEnv.saveFailed'), { detail: (err as Error).message })
+      notifyError(t('agentEnv.saveFailed'), { detail: (err as Error).message, retry: () => void choose(next) })
     } finally {
       setSaving(false)
     }

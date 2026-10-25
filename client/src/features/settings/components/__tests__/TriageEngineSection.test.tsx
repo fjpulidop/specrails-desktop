@@ -69,7 +69,7 @@ describe('TriageEngineSection', () => {
     refuse = true
     render(<TriageEngineSection projectId="p1" providers={['claude', 'codex']} />)
     fireEvent.click(await screen.findByRole('radio', { name: /Codex/ }))
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Loop role "triage": provider "codex" is not detected' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Loop role "triage": provider "codex" is not detected', action: expect.objectContaining({ label: 'Retry' }) }))
     await waitFor(() => expect(screen.getByRole('radio', { name: 'Primary provider' })).toBeChecked())
   })
 

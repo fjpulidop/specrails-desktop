@@ -46,10 +46,11 @@
   },
   "refine": {
     "serverError": "サーバーエラー ({{status}})",
-    "connectionFailed": "接続に失敗しました: {{message}}",
+    "connectionFailed": "接続に失敗しました",
     "applyFailed": "適用に失敗しました ({{status}})",
     "loadAgentFailed": "エージェントの読み込みに失敗しました ({{status}})",
     "loadSessionFailed": "セッションの読み込みに失敗しました ({{status}})",
-    "rehydrateFailed": "セッションの復元に失敗しました: {{message}}"
+    "rehydrateFailed": "セッションの復元に失敗しました",
+    "failed": "改良に失敗しました"
   }
 }

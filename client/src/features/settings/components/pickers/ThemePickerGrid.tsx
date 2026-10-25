@@ -27,6 +27,7 @@ export function ThemePickerGrid() {
     } catch (err) {
       notifyError(tr('appearance.updateFailed'), {
         detail: err instanceof Error ? err.message : undefined,
+        retry: () => void handleSelect(id),
       })
     }
   }

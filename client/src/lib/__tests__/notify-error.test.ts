@@ -58,10 +58,20 @@ describe('notifyError', () => {
     expect((lastOptions().action as { label: string }).label).toBe('Retry')
   })
 
-  it('keeps untranslatable server text reachable as a tooltip, not as visible copy', async () => {
+  it('keeps untranslatable server text reachable through a Copy details button, not as visible copy', async () => {
     await i18n.changeLanguage('es')
+    const writeText = vi.fn(async () => {})
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     notifyError('No se pudo lanzar', { detail: 'Unable to start: the repository is locked' })
-    const description = lastOptions().description as { props: { title: string } }
-    expect(description.props.title).toBe('Unable to start: the repository is locked')
+    expect(lastOptions().description).toBeUndefined()
+    const cancel = lastOptions().cancel as { label: string; onClick: () => void }
+    expect(cancel.label).toBe(i18n.t('common:errors.copyDetails'))
+    cancel.onClick()
+    expect(writeText).toHaveBeenCalledWith('Unable to start: the repository is locked')
+  })
+
+  it('offers no copy button when there is nothing hidden', () => {
+    notifyError('x', { detail: 'HTTP 500' })
+    expect(lastOptions()?.cancel).toBeUndefined()
   })
 })

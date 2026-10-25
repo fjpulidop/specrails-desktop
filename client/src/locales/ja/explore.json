@@ -39,7 +39,7 @@
       "specCreated": "スペックを作成しました — #{{id}} {{title}}",
       "createNetworkError": "スペック作成中にネットワークエラーが発生しました",
       "unsupportedFileType": "未対応のファイル形式: {{name}}",
-      "uploadFailed": "{{name}} のアップロードに失敗しました: {{message}}"
+      "uploadFailed": "{{name}} のアップロードに失敗しました"
     },
     "fromWebsite": "ウェブサイトから",
     "fromWebsiteTitle": "実際のウェブページを開き、範囲を選択してスペックに変換",

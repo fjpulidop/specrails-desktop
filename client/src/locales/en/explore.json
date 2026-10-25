@@ -39,7 +39,7 @@
       "specCreated": "Spec created — #{{id}} {{title}}",
       "createNetworkError": "Network error creating spec",
       "unsupportedFileType": "Unsupported file type: {{name}}",
-      "uploadFailed": "Upload failed for {{name}}: {{message}}"
+      "uploadFailed": "Upload failed for {{name}}"
     },
     "fromWebsite": "From a website",
     "fromWebsiteTitle": "Open a real web page, select an area, and turn it into a spec",

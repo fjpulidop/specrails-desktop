@@ -253,9 +253,9 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         toast.success(parsed == null ? t('desktop.costAlertsDisabled') : t('budget.alertSet', { amount: formatUsd(parsed) }))
         return true
       }
-      notifyError(t('budget.saveThresholdFailed'))
+      notifyError(t('budget.saveThresholdFailed'), { retry: () => void saveCostAlertThreshold() })
     } catch {
-      notifyError(t('budget.saveThresholdFailed'))
+      notifyError(t('budget.saveThresholdFailed'), { retry: () => void saveCostAlertThreshold() })
     }
     return false
   }
@@ -275,7 +275,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
       await removeProject(id)
       toast.success(t('desktop.projectRemoved'))
     } catch (err) {
-      notifyError(t('desktop.projectRemoveFailed'), { detail: (err as Error).message })
+      notifyError(t('desktop.projectRemoveFailed'), { detail: (err as Error).message, retry: () => void handleRemoveProject(id) })
     }
   }
 
@@ -303,10 +303,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         await loadWebhooks()
       } else {
         const err = await res.json() as { error?: string }
-        notifyError(t('webhooks.addFailed'), { detail: err.error })
+        notifyError(t('webhooks.addFailed'), { detail: err.error, retry: () => void handleAddWebhook() })
       }
     } catch {
-      notifyError(t('webhooks.addFailed'))
+      notifyError(t('webhooks.addFailed'), { retry: () => void handleAddWebhook() })
     } finally {
       setIsAddingWebhook(false)
     }
@@ -319,10 +319,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
       })
-      if (!res.ok) notifyError(t('webhooks.updateFailed'))
+      if (!res.ok) notifyError(t('webhooks.updateFailed'), { retry: () => void handleToggleWebhook(id, enabled) })
       await loadWebhooks()
     } catch {
-      notifyError(t('webhooks.updateFailed'))
+      notifyError(t('webhooks.updateFailed'), { retry: () => void handleToggleWebhook(id, enabled) })
     }
   }
 
@@ -333,10 +333,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
         toast.success(t('webhooks.removed'))
         await loadWebhooks()
       } else {
-        notifyError(t('webhooks.removeFailed'))
+        notifyError(t('webhooks.removeFailed'), { retry: () => void handleDeleteWebhook(id) })
       }
     } catch {
-      notifyError(t('webhooks.removeFailed'))
+      notifyError(t('webhooks.removeFailed'), { retry: () => void handleDeleteWebhook(id) })
     }
   }
 
@@ -346,10 +346,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
       if (res.ok) {
         toast.success(t('webhooks.testPingSent'))
       } else {
-        notifyError(t('webhooks.testPingFailed'))
+        notifyError(t('webhooks.testPingFailed'), { retry: () => void handleTestWebhook(id) })
       }
     } catch {
-      notifyError(t('webhooks.testPingFailed'))
+      notifyError(t('webhooks.testPingFailed'), { retry: () => void handleTestWebhook(id) })
     }
   }
 

@@ -84,7 +84,7 @@ function useSubagentSettings(url: string | null, method: 'PATCH' | 'PUT'): Subag
       toast.success(next ? t('subagents.enabled') : t('subagents.disabled'))
     } catch (err) {
       setEnabledState(!next)
-      notifyError(t('subagents.saveFailed'), { detail: (err as Error).message })
+      notifyError(t('subagents.saveFailed'), { detail: (err as Error).message, retry: () => void setEnabled(next) })
     } finally {
       setSaving(false)
     }
@@ -101,7 +101,7 @@ function useSubagentSettings(url: string | null, method: 'PATCH' | 'PUT'): Subag
       }
     } catch (err) {
       setRuntimeState(previous)
-      notifyError(t('subagents.saveFailed'), { detail: (err as Error).message })
+      notifyError(t('subagents.saveFailed'), { detail: (err as Error).message, retry: () => void setRuntime(next) })
     } finally {
       setSaving(false)
     }

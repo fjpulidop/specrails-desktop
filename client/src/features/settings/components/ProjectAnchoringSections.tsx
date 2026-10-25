@@ -82,7 +82,7 @@ export function ProjectAnchoringSection() {
       toast.success(t(`anchoring.${key}.${next ? 'enabled' : 'disabled'}`))
     } catch (err) {
       setValues((current) => ({ ...current, [key]: previous }))
-      notifyError(t('anchoring.saveFailed'), { detail: (err as Error).message })
+      notifyError(t('anchoring.saveFailed'), { detail: (err as Error).message, retry: () => void save(key, next) })
     } finally {
       setSaving(null)
     }
@@ -186,7 +186,7 @@ export function ProjectRulesSection() {
       if (!res.ok || body.ok === false) throw new Error(body.message || body.output || t('rules.inventoryFailed'))
       toast.success(t('rules.inventoryDone'))
     } catch (err) {
-      notifyError(t('rules.inventoryFailed'), { detail: (err as Error).message.slice(0, 300) })
+      notifyError(t('rules.inventoryFailed'), { detail: (err as Error).message.slice(0, 300), retry: () => void rerun() })
     } finally {
       setRunning(false)
       await load()
@@ -206,7 +206,7 @@ export function ProjectRulesSection() {
       setCreated((current) => ({ ...current, [rule.index]: body.ticket!.id }))
       toast.success(t('rules.specCreated', { id: body.ticket.id }))
     } catch (err) {
-      notifyError(t('rules.specFailed'), { detail: err instanceof Error && err.message !== t('rules.specFailed') ? err.message : undefined })
+      notifyError(t('rules.specFailed'), { detail: err instanceof Error && err.message !== t('rules.specFailed') ? err.message : undefined, retry: () => void createSpec(rule) })
     } finally {
       setCreating(null)
     }

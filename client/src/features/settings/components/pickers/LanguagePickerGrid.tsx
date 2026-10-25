@@ -26,6 +26,7 @@ export function LanguagePickerGrid() {
     } catch (err) {
       notifyError(t('language.updateFailed'), {
         detail: err instanceof Error ? err.message : undefined,
+        retry: () => void handleSelect(id),
       })
     }
   }

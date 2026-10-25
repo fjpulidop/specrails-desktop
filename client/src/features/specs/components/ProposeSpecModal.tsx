@@ -541,7 +541,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
                 fetch(`${API_ORIGIN}/api/projects/${activeProjectIdRef.current}/tickets/${pendingSpecId}/attachments/${a.id}`, { method: 'DELETE' }).catch(() => {})
               }}
               onUnsupportedFile={(f) => notifyError(t('proposeModal.toast.unsupportedFileType', { name: f.name }))}
-              onUploadError={(err, f) => notifyError(t('proposeModal.toast.uploadFailed', { name: f.name, message: err.message }))}
+              onUploadError={(err, f) => notifyError(t('proposeModal.toast.uploadFailed', { name: f.name }), { detail: err.message })}
               onSubmit={handleSubmit}
               footerExtra={mode !== 'free' && browserCaptureEnabled && activeProjectId ? (
                 <button

@@ -46,10 +46,11 @@
   },
   "refine": {
     "serverError": "Errore del server ({{status}})",
-    "connectionFailed": "Connessione non riuscita: {{message}}",
+    "connectionFailed": "Connessione non riuscita",
     "applyFailed": "Applicazione non riuscita ({{status}})",
     "loadAgentFailed": "Impossibile caricare l'agente ({{status}})",
     "loadSessionFailed": "Impossibile caricare la sessione ({{status}})",
-    "rehydrateFailed": "Impossibile ripristinare la sessione: {{message}}"
+    "rehydrateFailed": "Impossibile ripristinare la sessione",
+    "failed": "Il perfezionamento non è riuscito"
   }
 }

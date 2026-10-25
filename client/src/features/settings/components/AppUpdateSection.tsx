@@ -57,7 +57,7 @@ export function AppUpdateSection() {
       }
     } catch (err) {
       if (isStableChannelUnavailable(err)) notifyError(t('appUpdate.stableUnavailable'))
-      else notifyError(t('appUpdate.toastCheckFailed'), { detail: err instanceof Error ? err.message : String(err) })
+      else notifyError(t('appUpdate.toastCheckFailed'), { detail: err instanceof Error ? err.message : String(err), retry: () => void onCheck() })
     } finally {
       setChecking(false)
     }

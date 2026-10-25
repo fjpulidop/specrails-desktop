@@ -70,7 +70,7 @@ export function useTriageEngine(projectId: string): { engine: RoleEngine | null 
     } catch (err) {
       current.current = previous
       setRoles(previous)
-      notifyError(t('triageEngine.saveFailed'), { detail: err instanceof Error ? err.message : undefined })
+      notifyError(t('triageEngine.saveFailed'), { detail: err instanceof Error ? err.message : undefined, retry: () => void save(next) })
     } finally { setSaving(false) }
   }
 

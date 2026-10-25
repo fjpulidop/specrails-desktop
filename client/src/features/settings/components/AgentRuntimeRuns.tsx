@@ -1,3 +1,4 @@
+import { LoadError } from '../../../components/ui/load-error'
 import { RuntimeRetention } from './RuntimeRetention'
 import { RuntimeRecovery } from './RuntimeRecovery'
 import { RuntimeExecutionEvidence } from './RuntimeExecutionEvidence'
@@ -23,7 +24,7 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
     <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium">{t(contextual ? 'runs.implementation' : 'runs.title')}</h3><Button size="sm" variant="ghost" onClick={refresh}>{t('runs.refresh')}</Button></div>
     {!contextual && <p className="text-xs text-muted-foreground">{t('runs.hint')}</p>}
     {!contextual && <RuntimeRetention projectId={projectId} onChanged={refresh} />}
-    {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+    {error && <LoadError message={error} onRetry={refresh} />}
     {!runs.length && !error && <p className="text-xs text-muted-foreground">{t('runs.empty')}</p>}
     {runs.map((run) => <div key={run.runId} className="space-y-2 rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">{!contextual && <code className="break-all text-xs">{run.runId}</code>}<span className="text-label">{t(`runs.status.${run.active ? 'running' : run.status}`, { defaultValue: run.status })}</span></div>

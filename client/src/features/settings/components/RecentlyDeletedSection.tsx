@@ -83,7 +83,7 @@ function RecentlyDeleted({ projectId }: { projectId: string }) {
       toast.success(t('recent.restored', { title: target.title }))
       await load()
     } catch {
-      notifyError(t('recent.restoreFailed'))
+      notifyError(t('recent.restoreFailed'), { retry: () => void restore(target) })
     } finally {
       if (alive.current) setBusyKey(null)
     }
@@ -99,7 +99,7 @@ function RecentlyDeleted({ projectId }: { projectId: string }) {
       setConfirming(null)
       await load()
     } catch {
-      notifyError(t('recent.deleteFailed'))
+      notifyError(t('recent.deleteFailed'), { retry: () => void removeForGood(target) })
     } finally {
       if (alive.current) setBusyKey(null)
     }

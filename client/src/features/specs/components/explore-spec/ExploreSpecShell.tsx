@@ -997,7 +997,7 @@ export function ExploreSpecShell({
                 setComposerText(text)
               }}
               onUnsupportedFile={(f) => notifyError(t('shell.toasts.unsupportedFileType', { name: f.name }))}
-              onUploadError={(err, f) => notifyError(t('shell.toasts.uploadFailed', { name: f.name, message: err.message }))}
+              onUploadError={(err, f) => notifyError(t('shell.toasts.uploadFailed', { name: f.name }), { detail: err.message })}
               onAttachmentRemoved={(a) => {
                 fetch(`${API_ORIGIN}/api/projects/${activeProjectId}/tickets/${pendingSpecId}/attachments/${a.id}`, { method: 'DELETE' }).catch(() => {})
                 // Drop from the accumulated list immediately so the panel

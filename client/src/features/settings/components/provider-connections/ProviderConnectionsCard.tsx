@@ -1,3 +1,5 @@
+import { LoadError } from '../../../../components/ui/load-error'
+import { TechnicalDetail } from '../../../../components/ui/technical-detail'
 import { isPublicProvider } from '../../../providers/lib/provider-capabilities'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -32,11 +34,13 @@ function rowsFrom(providers: RuntimeProvider[], persisted: boolean): Row[] {
  */
 export function ProviderConnectionsCard() {
   const { t } = useTranslation('agentRuntime')
+  const { t: tc } = useTranslation('common')
   const legacy = !isLocalEnginesEnabled()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [saved, setSaved] = useState<RuntimeProvider[] | null>(null)
   const [status, setStatus] = useState<Record<string, RuntimeProviderStatus>>({})
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
   const [busy, setBusy] = useState(false)
   const [invalidKeys, setInvalidKeys] = useState<Set<number>>(() => new Set())
   const mounted = useRef(true)
@@ -51,7 +55,7 @@ export function ProviderConnectionsCard() {
       setRows(rowsFrom(data.providers, true)); setSaved(data.providers); setStatus(data.status ?? {})
     }).catch((err: Error) => { if (!cancelled) setError(err.message) })
     return () => { cancelled = true; mounted.current = false }
-  }, [t])
+  }, [t, reloadKey])
 
   const draft = useMemo(() => rows?.map((row) => row.provider) ?? null, [rows])
   const dirty = draft !== null && saved !== null && JSON.stringify(draft) !== JSON.stringify(saved)
@@ -103,7 +107,7 @@ export function ProviderConnectionsCard() {
     } catch (err) {
       const message = (err as Error).message || t('saveFailed')
       if (mounted.current) setError(message)
-      notifyError(t('saveFailed'), { detail: message })
+      notifyError(t('saveFailed'), { detail: message, retry: () => void save() })
     } finally {
       if (mounted.current) setBusy(false)
     }
@@ -134,7 +138,13 @@ export function ProviderConnectionsCard() {
         </div>
       </div>
 
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {error && !rows && (
+        <>
+          <LoadError message={t('loadFailed')} onRetry={() => { setError(''); setReloadKey((k) => k + 1) }} />
+          <TechnicalDetail summary={tc('errors.technicalDetails')} className="text-xs">{error}</TechnicalDetail>
+        </>
+      )}
+      {error && rows && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {!rows && !error && <p role="status" className="text-sm text-muted-foreground">{t('loading')}</p>}
 
       {rows && legacy && (

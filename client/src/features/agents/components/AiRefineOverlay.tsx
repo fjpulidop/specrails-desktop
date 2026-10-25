@@ -124,6 +124,7 @@ export function AiRefineOverlay({
     <AiEditShell
       uiPhase={uiPhase}
       errorMessage={r.state.errorMessage}
+      errorDetail={r.state.errorDetail}
       applyConflict={r.state.applyConflict}
       eyebrow={t('refine.eyebrow')}
       targetLabel={agentId}

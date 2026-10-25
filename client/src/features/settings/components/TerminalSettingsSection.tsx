@@ -18,6 +18,7 @@ import { dispatchTerminalSettingsUpdated } from '../lib/terminal-settings-events
 import { SettingsSelect } from './SettingsSelect'
 
 import { notifyError } from '../../../lib/notify-error'
+import { API_ORIGIN } from '../../../lib/origin'
 interface Props {
   /** Desktop mode edits desktop_settings; project mode edits a per-project override layer. */
   mode: 'desktop' | 'project'
@@ -58,7 +59,7 @@ export function TerminalSettingsSection({ mode }: Props) {
     void (async () => {
       try {
         if (mode === 'desktop') {
-          const res = await fetch('/api/terminal-settings')
+          const res = await fetch(`${API_ORIGIN}/api/terminal-settings`)
           if (!res.ok) throw new Error('desktop settings fetch failed')
           const body = (await res.json()) as TerminalSettings
           if (!cancelled && body && typeof body === 'object' && 'fontSize' in body) {
@@ -67,7 +68,7 @@ export function TerminalSettingsSection({ mode }: Props) {
           }
           if (!cancelled) setLoading(false)
         } else if (activeProjectId) {
-          const res = await fetch(`/api/projects/${activeProjectId}/terminal-settings`)
+          const res = await fetch(`${API_ORIGIN}/api/projects/${activeProjectId}/terminal-settings`)
           if (!res.ok) throw new Error('project fetch failed')
           const body = (await res.json()) as ProjectResponse
           if (!cancelled && body && typeof body === 'object' && body.resolved && body.desktopDefaults) {
@@ -126,7 +127,7 @@ export function TerminalSettingsSection({ mode }: Props) {
       if (Object.keys(body).length === 0) { toast(t('terminal.nothingToSave')); setSaving(false); return }
 
       if (mode === 'desktop') {
-        const res = await fetch('/api/terminal-settings', {
+        const res = await fetch(`${API_ORIGIN}/api/terminal-settings`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -137,7 +138,7 @@ export function TerminalSettingsSection({ mode }: Props) {
         dispatchTerminalSettingsUpdated({ mode: 'desktop', projectId: null })
         toast.success(t('terminal.saved'))
       } else if (activeProjectId) {
-        const res = await fetch(`/api/projects/${activeProjectId}/terminal-settings`, {
+        const res = await fetch(`${API_ORIGIN}/api/projects/${activeProjectId}/terminal-settings`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -150,7 +151,7 @@ export function TerminalSettingsSection({ mode }: Props) {
         toast.success(t('terminal.saved'))
       }
     } catch (err) {
-      notifyError(t('errors.saveFailed'), { detail: (err as Error).message })
+      notifyError(t('errors.saveFailed'), { detail: (err as Error).message, retry: () => void save() })
     } finally {
       setSaving(false)
     }

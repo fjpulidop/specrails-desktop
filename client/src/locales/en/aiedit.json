@@ -46,10 +46,11 @@
   },
   "refine": {
     "serverError": "Server error ({{status}})",
-    "connectionFailed": "Connection failed: {{message}}",
+    "connectionFailed": "Connection failed",
     "applyFailed": "Apply failed ({{status}})",
     "loadAgentFailed": "Failed to load agent ({{status}})",
     "loadSessionFailed": "Failed to load session ({{status}})",
-    "rehydrateFailed": "Failed to restore session: {{message}}"
+    "rehydrateFailed": "Failed to restore session",
+    "failed": "The refinement failed"
   }
 }

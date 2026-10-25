@@ -37,7 +37,7 @@ export function UpdateChannelSection() {
       toast.success(t('updateChannel.saved', { channel: t(`updateChannel.${next}.label`) }))
     } catch (err) {
       setChannel(previous)
-      notifyError(t('updateChannel.saveFailed'), { detail: (err as Error).message })
+      notifyError(t('updateChannel.saveFailed'), { detail: (err as Error).message, retry: () => void choose(next) })
     } finally {
       setSaving(false)
     }

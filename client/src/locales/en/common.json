@@ -299,6 +299,7 @@
     }
   },
   "errors": {
-    "technicalDetails": "Technical details"
+    "technicalDetails": "Technical details",
+    "copyDetails": "Copy details"
   }
 }

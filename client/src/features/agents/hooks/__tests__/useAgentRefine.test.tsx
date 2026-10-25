@@ -140,7 +140,8 @@ describe('useAgentRefine', () => {
         await result.current.start('x')
       })
       expect(result.current.state.uiState).toBe('error')
-      expect(result.current.state.errorMessage).toBe('nope')
+      expect(result.current.state.errorMessage).toBe('Server error (400)')
+      expect(result.current.state.errorDetail).toBe('nope')
     })
 
     it('falls back to the i18n server-error string when the error body is unreadable', async () => {
@@ -170,7 +171,8 @@ describe('useAgentRefine', () => {
         await result.current.start('x')
       })
       expect(result.current.state.uiState).toBe('error')
-      expect(result.current.state.errorMessage).toBe('Connection failed: boom')
+      expect(result.current.state.errorMessage).toBe('Connection failed')
+      expect(result.current.state.errorDetail).toBe('boom')
     })
   })
 
@@ -268,7 +270,8 @@ describe('useAgentRefine', () => {
         ws.emit({ type: 'agent_refine_error', projectId: PROJECT, refineId: 'r1', error: 'exploded' })
       })
       expect(result.current.state.uiState).toBe('error')
-      expect(result.current.state.errorMessage).toBe('exploded')
+      expect(result.current.state.errorMessage).toBe('The refinement failed')
+      expect(result.current.state.errorDetail).toBe('exploded')
     })
 
     it('ignores messages for other projects, other refine ids, and malformed types', async () => {
@@ -321,7 +324,8 @@ describe('useAgentRefine', () => {
         await result.current.sendTurn('x')
       })
       expect(result.current.state.uiState).toBe('error')
-      expect(result.current.state.errorMessage).toBe('turn rejected')
+      expect(result.current.state.errorMessage).toBe('Server error (422)')
+      expect(result.current.state.errorDetail).toBe('turn rejected')
     })
 
     it('reports connection failure when the turn fetch rejects', async () => {
@@ -332,7 +336,8 @@ describe('useAgentRefine', () => {
         await result.current.sendTurn('x')
       })
       expect(result.current.state.uiState).toBe('error')
-      expect(result.current.state.errorMessage).toBe('Connection failed: net down')
+      expect(result.current.state.errorMessage).toBe('Connection failed')
+      expect(result.current.state.errorDetail).toBe('net down')
     })
   })
 
@@ -444,7 +449,8 @@ describe('useAgentRefine', () => {
         await result.current.apply()
       })
       expect(result.current.state.uiState).toBe('error')
-      expect(result.current.state.errorMessage).toBe('Connection failed: refused')
+      expect(result.current.state.errorMessage).toBe('Connection failed')
+      expect(result.current.state.errorDetail).toBe('refused')
     })
   })
 
@@ -570,7 +576,8 @@ describe('useAgentRefine', () => {
         await result.current.rehydrate('r5', 'agent-2')
       })
       expect(result.current.state.uiState).toBe('error')
-      expect(result.current.state.errorMessage).toBe('Failed to restore session: Failed to load agent (404)')
+      expect(result.current.state.errorMessage).toBe('Failed to restore session')
+      expect(result.current.state.errorDetail).toBe('Failed to load agent (404)')
     })
 
     it('errors when the session fetch fails', async () => {
@@ -582,7 +589,8 @@ describe('useAgentRefine', () => {
         await result.current.rehydrate('r5', 'agent-2')
       })
       expect(result.current.state.uiState).toBe('error')
-      expect(result.current.state.errorMessage).toBe('Failed to restore session: Failed to load session (410)')
+      expect(result.current.state.errorMessage).toBe('Failed to restore session')
+      expect(result.current.state.errorDetail).toBe('Failed to load session (410)')
     })
   })
 

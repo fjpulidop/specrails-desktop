@@ -148,7 +148,7 @@ export function PairWebCompanionModal({ open, onClose, onPaired }: { open: boole
       streamRef.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       setPhase('scanning')
     } catch (e) {
-      notifyError(t('pairWeb.cameraFailed'), { detail: (e as Error).message })
+      notifyError(t('pairWeb.cameraFailed'), { detail: (e as Error).message, retry: () => void startScan() })
       setPhase('offer')
     }
   }

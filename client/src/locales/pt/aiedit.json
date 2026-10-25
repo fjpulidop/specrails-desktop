@@ -46,10 +46,11 @@
   },
   "refine": {
     "serverError": "Erro do servidor ({{status}})",
-    "connectionFailed": "Falha na ligação: {{message}}",
+    "connectionFailed": "Falha na ligação",
     "applyFailed": "Falha ao aplicar ({{status}})",
     "loadAgentFailed": "Falha ao carregar o agente ({{status}})",
     "loadSessionFailed": "Falha ao carregar a sessão ({{status}})",
-    "rehydrateFailed": "Falha ao restaurar a sessão: {{message}}"
+    "rehydrateFailed": "Falha ao restaurar a sessão",
+    "failed": "O refinamento falhou"
   }
 }

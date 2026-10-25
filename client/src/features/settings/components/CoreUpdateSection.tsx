@@ -77,6 +77,7 @@ export function CoreUpdateSection() {
   }, [refresh])
 
   // Stream update progress (app-level message — reaches every handler).
+  const onUpdateRef = useRef<(() => Promise<void>) | null>(null)
   const refreshRef = useRef(refresh)
   refreshRef.current = refresh
   useEffect(() => {
@@ -92,7 +93,7 @@ export function CoreUpdateSection() {
         if (resetTimer.current) clearTimeout(resetTimer.current)
         resetTimer.current = setTimeout(() => setPhase(null), 2500)
       } else if (p === 'error') {
-        notifyError(t('coreUpdate.updateFailed'), { detail: msg.message ? String(msg.message) : undefined })
+        notifyError(t('coreUpdate.updateFailed'), { detail: msg.message ? String(msg.message) : undefined, retry: () => void onUpdateRef.current?.() })
         void refreshRef.current()
         if (resetTimer.current) clearTimeout(resetTimer.current)
         resetTimer.current = setTimeout(() => setPhase(null), 4000)
@@ -116,7 +117,7 @@ export function CoreUpdateSection() {
       setStatus(data)
       if (!data.updateAvailable) toast.success(t('coreUpdate.toastUpToDate'))
     } catch (err) {
-      notifyError(t('coreUpdate.checkFailed'), { detail: err instanceof Error ? err.message : undefined })
+      notifyError(t('coreUpdate.checkFailed'), { detail: err instanceof Error ? err.message : undefined, retry: () => void onCheck() })
     } finally {
       setChecking(false)
     }
@@ -141,9 +142,10 @@ export function CoreUpdateSection() {
       // Success/failure arrives over WS (core_update.progress).
     } catch (err) {
       setPhase(null)
-      notifyError(t('coreUpdate.updateFailed'), { detail: err instanceof Error ? err.message : undefined })
+      notifyError(t('coreUpdate.updateFailed'), { detail: err instanceof Error ? err.message : undefined, retry: () => void onUpdate() })
     }
   }, [t])
+  onUpdateRef.current = onUpdate
 
   const loadErrorNotice = (
     <p role="alert" className="text-xs text-destructive">

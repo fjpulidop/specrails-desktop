@@ -53,7 +53,7 @@ export function CodeSectionSettings() {
       const updated = (await res.json()) as CodeExplorerSettings
       setSettings(updated)
     } catch (err) {
-      notifyError(t('errors.saveFailed'), { detail: (err as Error).message })
+      notifyError(t('errors.saveFailed'), { detail: (err as Error).message, retry: () => void patch(next) })
       setSettings(settings)
     } finally {
       setSaving(false)

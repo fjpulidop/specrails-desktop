@@ -318,7 +318,7 @@ describe('preserved original graph export', () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'More actions' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Export original graph' }))
-    await waitFor(() => expect(error).toHaveBeenCalledWith('Could not export the original graph.'))
+    await waitFor(() => expect(error).toHaveBeenCalledWith('Could not export the original graph.', expect.objectContaining({ action: expect.objectContaining({ label: 'Retry' }) })))
     expect(click).not.toHaveBeenCalled()
   })
 })
