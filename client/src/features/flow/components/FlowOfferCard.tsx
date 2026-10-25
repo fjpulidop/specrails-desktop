@@ -37,7 +37,13 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
   const [busy, setBusy] = useState(false)
 
   if (!offer) return null
-  const decided = messageId ? intentFor(local, messageId, intents, index, 'flow-offer') : null
+  // A spec already launched from this message's rail card answers the question: the
+  // offer settles as "Implement" instead of staying clickable next to a running job.
+  const launchedHere = messageId && offer ? launchedRailIntentFor(local, messageId, intents, offer.ticketId ?? null) : null
+  const decided = messageId
+    ? intentFor(local, messageId, intents, index, 'flow-offer')
+      ?? (launchedHere ? { kind: 'flow-offer' as const, proposalIndex: index, status: 'accepted' as const, chosenMode: 'implement' as const, at: launchedHere.at } : null)
+    : null
   const handOff = messageId ? intentFor(local, messageId, intents, 0, 'flow-hand-off') : null
 
   const record = async (decision: Omit<AgentMessageIntent, 'at' | 'kind' | 'proposalIndex'>) => {
@@ -239,4 +245,20 @@ function FlowOfferStub({ intent, handOff, flow, conversationId }: { intent: Agen
       )}
     </div>
   )
+}
+
+/** The rail launch recorded on this message for `ticketId` (any launch when the offer names no spec). */
+export function launchedRailIntentFor(
+  local: ReadonlyMap<string, readonly AgentMessageIntent[]>,
+  messageId: string,
+  persisted: readonly AgentMessageIntent[] | null | undefined,
+  ticketId: number | null,
+): AgentMessageIntent | null {
+  const all = [...(local.get(messageId) ?? []), ...(persisted ?? [])]
+  return all.find((i) => {
+    if ((i.kind ?? 'rail-launch') !== 'rail-launch' || i.status !== 'launched') return false
+    if (ticketId == null) return true
+    const ids = i.config?.ticketIds
+    return !Array.isArray(ids) || ids.length === 0 || ids.map(Number).includes(ticketId)
+  }) ?? null
 }

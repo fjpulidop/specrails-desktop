@@ -731,6 +731,19 @@ describe('FlowOfferCard through the AgentMessage extension chain', () => {
     expect(await screen.findByTestId('flow-offer-stub-flow')).toHaveTextContent('Flow in progress')
   })
 
+  it('settles as Implement once this message launched the spec on a rail', () => {
+    render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'x', ticketId: 5 }} index={0} messageId="m1" conversationId="c1" projectId="p1" isLatest={false} isStreaming={false}
+      intents={[{ kind: 'rail-launch', proposalIndex: 0, status: 'launched', at: 't', railIndex: 2, config: { ticketIds: [5] } }]} /></Providers>)
+    expect(screen.getByTestId('flow-offer-stub-implement')).toBeInTheDocument()
+    expect(screen.queryByTestId('flow-offer-dismiss')).not.toBeInTheDocument()
+  })
+
+  it('stays open when the rail launch was for another spec', () => {
+    render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'x', ticketId: 5 }} index={0} messageId="m1" conversationId="c1" projectId="p1" isLatest={false} isStreaming={false}
+      intents={[{ kind: 'rail-launch', proposalIndex: 0, status: 'launched', at: 't', railIndex: 2, config: { ticketIds: [9] } }]} /></Providers>)
+    expect(screen.getByTestId('flow-offer-dismiss')).toBeInTheDocument()
+  })
+
   it('renders the frozen record (with the hand-off) from persisted intents', () => {
     render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'x', recommended: 'flow' }} index={0} messageId="m1" conversationId="c1" projectId="p1" isLatest={false} isStreaming={false}
       intents={[
