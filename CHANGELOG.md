@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.65.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.65.0...v2.65.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **release:** pin Playwright 1.60.0 so the bundled macOS Chromium stays on the reviewed major ([#808](https://github.com/fjpulidop/specrails-desktop/issues/808)) ([7da7ff0](https://github.com/fjpulidop/specrails-desktop/commit/7da7ff01d9bd6105369777125db0de287ec8af66))
+
 ## [2.65.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.64.2...v2.65.0) (2026-10-25)
 
 
