@@ -436,6 +436,7 @@
       "lib/bulk-report.ts",
       "lib/spec-addenda-core.ts",
       "lib/spec-draft.ts",
+      "lib/spec-intent.ts",
       "lib/spec-sort.ts",
       "lib/spec-status-filter.ts",
       "lib/spec-triage.ts",

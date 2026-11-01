@@ -35,7 +35,7 @@ The system SHALL render an intent as Markdown headed `# Intent: <spec title>`, w
 
 ### Requirement: A spec stores its intent
 
-A spec (ticket) SHALL carry an optional `intent` field holding the normalised intent. The field SHALL be additive: specs without an intent SHALL behave exactly as before, and reading an older store SHALL NOT require a migration. Creating or updating a spec through the API or MCP SHALL accept an intent and validate it. Jira sync SHALL include the rendered intent in the issue description when the spec has one.
+A spec (ticket) SHALL carry an optional `intent` field holding the normalised intent. The field SHALL be additive: specs without an intent SHALL behave exactly as before, and reading an older store SHALL NOT require a migration. Creating or updating a spec through the API or MCP SHALL accept an intent and validate it. The intent SHALL stay local like non-goals: Jira sync SHALL NOT write it into the issue description (a Jira pull would otherwise fold it into `description`), and reading an issue SHALL never clear it.
 
 #### Scenario: A spec created with an intent
 

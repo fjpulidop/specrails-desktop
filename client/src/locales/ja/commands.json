@@ -197,6 +197,7 @@
         "description": "説明",
         "label": "ラベル",
         "nonGoal": "対象外",
+        "intent": "Intent",
         "addendum": "追記",
         "comment": "コメント"
       }

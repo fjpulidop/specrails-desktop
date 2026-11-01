@@ -2365,6 +2365,7 @@
   "specs": {
     "publicEntries": [
       "adapters/timeline-http.ts",
+      "domain/intent.ts",
       "domain/non-goals.ts",
       "domain/triage.ts",
       "runtime/contract-refine-runner.ts",
@@ -2401,6 +2402,7 @@
       "domain/handoff.ts": [
         "./handoff-labels"
       ],
+      "domain/intent.ts": [],
       "domain/non-goals.ts": [],
       "domain/timeline.ts": [],
       "domain/triage.ts": [],
@@ -2542,6 +2544,7 @@
         "./ticket-store"
       ],
       "runtime/ticket-store.ts": [
+        "../domain/intent",
         "../domain/non-goals",
         "../domain/triage",
         "./spec-addenda-core",

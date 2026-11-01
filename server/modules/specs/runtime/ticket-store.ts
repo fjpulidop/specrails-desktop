@@ -3,6 +3,7 @@ import path from 'path'
 import { readSpecAddenda, type SpecAddendum } from './spec-addenda-core'
 import type { TicketTriage } from '../domain/triage'
 import { normalizeNonGoals } from '../domain/non-goals'
+import { normalizeSpecIntent, type SpecIntent } from '../domain/intent'
 
 // âââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -124,6 +125,15 @@ export interface Ticket {
    * server/modules/specs/domain/non-goals.ts.
    */
   nonGoals?: string[]
+  /**
+   * Intent (intent-mode): the problem, outcome, success signals, affects,
+   * constraints and open questions the spec serves — never the solution.
+   * Optional and additive at schema 1.5 (Core ignores unknown ticket fields);
+   * local like non-goals (never written to Jira). Every launch door prepends
+   * it to the description an agent receives; a delivery writes it as the
+   * change's `intent.md`. See server/modules/specs/domain/intent.ts.
+   */
+  intent?: SpecIntent
 }
 
 /** `metadata.flow` of an Intent session placeholder spec (feedback-2026-10 annex D.7). */
@@ -408,6 +418,12 @@ function normalizeTicket(t: Ticket): Ticket {
   // Non-goals (3.2): present ⇒ cleaned and bounded; absent stays absent so
   // older tickets round-trip byte-identically.
   if (t.nonGoals !== undefined) t.nonGoals = normalizeNonGoals(t.nonGoals)
+  // Intent (intent-mode): present ⇒ normalized; an unusable value is dropped.
+  if (t.intent !== undefined) {
+    const intent = normalizeSpecIntent(t.intent)
+    if (intent) t.intent = intent
+    else delete t.intent
+  }
   return t
 }
 

@@ -1,4 +1,5 @@
 import type { PrFollowUp, FollowUpReportLine } from './features/delivery/lib/pr-follow-up-scope'
+import type { SpecIntent } from './features/specs/lib/spec-intent'
 import type { SpecAddendum, SpecAddendaSnapshotEntry, SpecAddendaReportLine } from './features/specs/lib/spec-addenda-core'
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'zombie_terminated' | 'skipped'
 
@@ -522,6 +523,9 @@ export interface LocalTicket {
   /** Non-goals ("Out of scope", feedback-2026-10 task 3.2): shown under the
    *  description; absent on older tickets. */
   nonGoals?: string[]
+  /** Intent (intent-mode): problem, outcome, signals, affects, constraints and
+   *  open questions; never the solution. See features/specs/lib/spec-intent.ts. */
+  intent?: SpecIntent
 }
 
 // ─── Review packet (nontech-review-experience) ────────────────────────────────

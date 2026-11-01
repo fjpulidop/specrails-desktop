@@ -46,6 +46,7 @@ import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, startProjectEnvWar
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, isFlowHeldTicket, type JobOutcome } from './modules/specs/runtime/ticket-store'
 import { descriptionWithNonGoals } from './modules/specs/domain/non-goals'
+import { descriptionWithIntent } from './modules/specs/domain/intent'
 import { nodeRunRecordFs, readClarifications } from './modules/delivery/runtime/run-records'
 import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
@@ -1309,8 +1310,9 @@ export class ProjectRegistry {
         return {
           id: t.id,
           title: t.title,
-          // Non-goals (3.2) ride in the description every loop prompt sees.
-          description: descriptionWithNonGoals(t.description, t.nonGoals),
+          // The intent (intent-mode) leads and the non-goals (3.2) close the
+          // description every loop prompt and Core run sees.
+          description: descriptionWithIntent(descriptionWithNonGoals(t.description, t.nonGoals), t.intent),
           status: t.status,
           priority: t.priority,
           labels: t.labels,

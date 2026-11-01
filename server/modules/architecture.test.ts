@@ -60,6 +60,8 @@ const coreDependencies: Record<string, string[]> = {
   'specs/domain/triage.ts': [],
   // Ticket non-goals ("Out of scope"): validation, extraction, rendering.
   'specs/domain/non-goals.ts': [],
+  // Spec intent (intent-mode): validation, Markdown form, agent block, answer merge.
+  'specs/domain/intent.ts': [],
   // Spec lifecycle timeline and hand-off export: pure vocabulary, paging, cost folding and renderers.
   'specs/domain/timeline.ts': [],
   'specs/domain/handoff-labels.ts': [],

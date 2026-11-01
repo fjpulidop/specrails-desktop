@@ -28,6 +28,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [lib/bulk-report.ts](lib/bulk-report.ts)
 - [lib/spec-addenda-core.ts](lib/spec-addenda-core.ts)
 - [lib/spec-draft.ts](lib/spec-draft.ts)
+- [lib/spec-intent.ts](lib/spec-intent.ts)
 - [lib/spec-sort.ts](lib/spec-sort.ts)
 - [lib/spec-status-filter.ts](lib/spec-status-filter.ts)
 - [lib/spec-triage.ts](lib/spec-triage.ts)

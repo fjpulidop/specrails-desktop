@@ -197,6 +197,7 @@
         "description": "描述",
         "label": "标签",
         "nonGoal": "不在范围内",
+        "intent": "Intent",
         "addendum": "补充说明",
         "comment": "评论"
       }

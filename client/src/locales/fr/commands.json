@@ -197,6 +197,7 @@
         "description": "Description",
         "label": "Étiquette",
         "nonGoal": "Hors périmètre",
+        "intent": "Intent",
         "addendum": "Addendum",
         "comment": "Commentaire"
       }

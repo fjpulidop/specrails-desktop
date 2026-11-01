@@ -197,6 +197,7 @@
         "description": "Descrição",
         "label": "Etiqueta",
         "nonGoal": "Fora do escopo",
+        "intent": "Intent",
         "addendum": "Adendo",
         "comment": "Comentário"
       }
