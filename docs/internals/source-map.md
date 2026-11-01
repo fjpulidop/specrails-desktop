@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1346 source/build files. Nearby tests are linked where names
+Includes 1353 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -436,6 +436,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [IntentDiscardDialog.tsx](../../client/src/features/intent/components/IntentDiscardDialog.tsx)
 - [IntentDock.tsx](../../client/src/features/intent/components/IntentDock.tsx)
 - [IntentEntryCard.tsx](../../client/src/features/intent/components/IntentEntryCard.tsx)
+- [IntentExploreAction.tsx](../../client/src/features/intent/components/IntentExploreAction.tsx)
 - [IntentHandOffCard.tsx](../../client/src/features/intent/components/IntentHandOffCard.tsx)
 - [IntentLiveRuns.tsx](../../client/src/features/intent/components/IntentLiveRuns.tsx)
 - [IntentMissionsBridge.tsx](../../client/src/features/intent/components/IntentMissionsBridge.tsx)
@@ -572,6 +573,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentFlowReturnCard.tsx](../../client/src/features/missions/components/AgentFlowReturnCard.tsx)
 - [AgentFlowReviewBlock.tsx](../../client/src/features/missions/components/AgentFlowReviewBlock.tsx)
 - [AgentGitBar.tsx](../../client/src/features/missions/components/AgentGitBar.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentGitBar.test.tsx)
+- [AgentIntentDraftCard.tsx](../../client/src/features/missions/components/AgentIntentDraftCard.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentIntentDraftCard.test.tsx)
 - [AgentMessage.tsx](../../client/src/features/missions/components/AgentMessage.tsx)
 - [AgentMissionSelector.tsx](../../client/src/features/missions/components/AgentMissionSelector.tsx)
 - [AgentModeAnalyticsPane.tsx](../../client/src/features/missions/components/AgentModeAnalyticsPane.tsx)
@@ -607,6 +609,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MissionWindowSurface.tsx](../../client/src/features/missions/components/MissionWindowSurface.tsx)
 - [agent-extension-fences.ts](../../client/src/features/missions/components/agent-extension-fences.ts) · [test](../../client/src/features/missions/components/__tests__/agent-extension-fences.test.ts)
 - [agent-fence-promotion.ts](../../client/src/features/missions/components/agent-fence-promotion.ts) · [test](../../client/src/features/missions/components/__tests__/agent-fence-promotion.test.ts)
+- [agent-intent-draft.ts](../../client/src/features/missions/components/agent-intent-draft.ts)
 - [agent-options.ts](../../client/src/features/missions/components/agent-options.ts)
 - [agent-pr-pinning.ts](../../client/src/features/missions/components/agent-pr-pinning.ts)
 - [agent-problem-frame.ts](../../client/src/features/missions/components/agent-problem-frame.ts)
@@ -853,6 +856,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/specs/components
 
 - [CreateTicketModal.tsx](../../client/src/features/specs/components/CreateTicketModal.tsx) · [test](../../client/src/features/specs/components/__tests__/CreateTicketModal.test.tsx)
+- [IntentSection.tsx](../../client/src/features/specs/components/IntentSection.tsx) · [test](../../client/src/features/specs/components/__tests__/IntentSection.test.tsx)
 - [NonGoalsSection.tsx](../../client/src/features/specs/components/NonGoalsSection.tsx) · [test](../../client/src/features/specs/components/__tests__/NonGoalsSection.test.tsx)
 - [PriorityBadge.tsx](../../client/src/features/specs/components/PriorityBadge.tsx)
 - [ProposeSpecModal.tsx](../../client/src/features/specs/components/ProposeSpecModal.tsx) · [test](../../client/src/features/specs/components/__tests__/ProposeSpecModal.test.tsx)
@@ -932,6 +936,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-flow.ts](../../client/src/features/specs/lib/spec-flow.ts)
 - [spec-gen-suppression.ts](../../client/src/features/specs/lib/spec-gen-suppression.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-gen-suppression.test.ts)
 - [spec-handoff-actions.ts](../../client/src/features/specs/lib/spec-handoff-actions.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-handoff-actions.test.ts)
+- [spec-intent.ts](../../client/src/features/specs/lib/spec-intent.ts)
 - [spec-search.ts](../../client/src/features/specs/lib/spec-search.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-search.test.ts)
 - [spec-sort.ts](../../client/src/features/specs/lib/spec-sort.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-sort.test.ts)
 - [spec-status-filter.ts](../../client/src/features/specs/lib/spec-status-filter.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-status-filter.test.ts)
@@ -1532,6 +1537,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [flow-review-outcome.ts](../../server/modules/delivery/runtime/flow-review-outcome.ts)
 - [flow-worktree-handoff.ts](../../server/modules/delivery/runtime/flow-worktree-handoff.ts)
 - [flow-worktree-return.ts](../../server/modules/delivery/runtime/flow-worktree-return.ts) · [test](../../server/modules/delivery/runtime/flow-worktree-return.test.ts)
+- [intent-materialization.ts](../../server/modules/delivery/runtime/intent-materialization.ts) · [test](../../server/modules/delivery/runtime/intent-materialization.test.ts)
 - [isolated-settlement-reconstruction.ts](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.ts) · [test](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.test.ts)
 - [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)
 - [isolated-worktree.ts](../../server/modules/delivery/runtime/isolated-worktree.ts) · [test](../../server/modules/delivery/runtime/isolated-worktree.test.ts)
@@ -1751,6 +1757,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [handoff-labels.ts](../../server/modules/specs/domain/handoff-labels.ts)
 - [handoff.ts](../../server/modules/specs/domain/handoff.ts)
+- [intent.ts](../../server/modules/specs/domain/intent.ts) · [test](../../server/modules/specs/domain/intent.test.ts)
 - [non-goals.ts](../../server/modules/specs/domain/non-goals.ts) · [test](../../server/modules/specs/domain/non-goals.test.ts)
 - [timeline.ts](../../server/modules/specs/domain/timeline.ts)
 - [triage.ts](../../server/modules/specs/domain/triage.ts) · [test](../../server/modules/specs/domain/triage.test.ts)

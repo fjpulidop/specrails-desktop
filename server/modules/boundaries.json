@@ -1137,6 +1137,12 @@
         "./flow-review-outcome",
         "./rail-pr-store"
       ],
+      "runtime/intent-materialization.ts": [
+        "../../../worktree-manager",
+        "../../specs/domain/intent",
+        "node:fs",
+        "node:path"
+      ],
       "runtime/isolated-settlement-reconstruction.ts": [
         "../../../db",
         "../../loops/runtime/loop-runs-store",
@@ -1300,11 +1306,14 @@
         "../../loops/runtime/loop-runs-store",
         "../../missions/runtime/agent-chat-registry",
         "../../missions/runtime/mission-run-notify",
+        "../../specs/domain/intent",
         "../../specs/runtime/spec-addenda",
+        "../../specs/runtime/ticket-store",
         "./active-pr-continuation",
         "./delivery-evidence",
         "./flow-review-outcome",
         "./flow-worktree-handoff",
+        "./intent-materialization",
         "./isolated-settlement-reconstruction",
         "./isolated-settlement-store",
         "./isolated-worktree",

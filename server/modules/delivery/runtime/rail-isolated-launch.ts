@@ -28,6 +28,9 @@ import { recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
 import * as path from 'path'
 import * as fs from 'fs'
 import { newId } from '../../../ids'
+import { normalizeSpecIntent, type SpecIntent } from '../../specs/domain/intent'
+import { readStore } from '../../specs/runtime/ticket-store'
+import { materializeIntent } from './intent-materialization'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
 import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtime-paths'
@@ -320,6 +323,18 @@ function buildRevisionSeedForLaunch(
  * must not rewrite what the delivery was asked to do. Failure-tolerant: an
  * unreadable ticket degrades to a bare-id entry.
  */
+/** The intent of a one-spec run's spec (a batch run carries several and writes none). */
+function runIntent(ctx: ProjectContext, run: Pick<AllocatedRun, 'ticketIds'>): { intent: SpecIntent; title: string | null } | null {
+  if (run.ticketIds.length !== 1) return null
+  try {
+    const ticket = readStore(ticketStorePathForProject(ctx.project)).tickets[String(run.ticketIds[0])]
+    const intent = normalizeSpecIntent(ticket?.intent)
+    return intent ? { intent, title: ticket?.title ?? null } : null
+  } catch {
+    return null
+  }
+}
+
 export function buildSpecSnapshot(ctx: ProjectContext, ticketIds: readonly number[]): DeliverySpecSnapshotEntry[] {
   return ticketIds.map((ticketId) => {
     let spec: { title?: string; description?: string; labels?: string[] } | undefined
@@ -590,12 +605,14 @@ interface IsolatedRunSettlementPorts {
   markWorktree(run: AllocatedRun, state: 'built' | 'failed' | 'needs-review'): string | null
   hasRuntimeRequest(runId: string): boolean
   commitMessage(run: AllocatedRun, partial: boolean): string
+  /** The intent to write as the change's intent.md (intent-mode); null skips it. */
+  intentFor?(run: AllocatedRun): { intent: SpecIntent; title: string | null } | null
 }
 
 /** Shared by fresh execution and durable reattachment; one owner of Git settlement. */
 function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
   const { git, baseRepo, overlaySourceRoot, overlayFallbackRoots, overlayProviderDir, overlayInstructions,
-    isAborted, onFinished, recordRunProvenance, markWorktree, hasRuntimeRequest, commitMessage } = ports
+    isAborted, onFinished, recordRunProvenance, markWorktree, hasRuntimeRequest, commitMessage, intentFor } = ports
   return async (
     a: AllocatedRun,
     enginePromise: Promise<{ runId: string; outcome: string; stallReason?: string }>,
@@ -670,6 +687,14 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
         .filter((live) => a.warmLinkEvidence.some(
           (prior) => prior.path === live.path && prior.kind === live.kind && prior.digest === live.digest,
         ))
+    }
+
+    // intent-mode: the spec's intent lands as intent.md in the run's own
+    // OpenSpec change, in the same commit. Best effort; never blocks delivery.
+    const intentSource = implementationOutcome === 'failed' ? null : intentFor?.(a) ?? null
+    if (intentSource) {
+      const written = await materializeIntent({ git, worktreePath: a.handle.worktreePath, baseRef: a.hygieneBaseSha ?? a.initialSha ?? a.baseRef, intent: intentSource.intent, title: intentSource.title })
+      if (written.status === 'warning') console.warn(`[rail-isolated] run ${a.runId}: ${written.warning}`)
     }
 
     let commit: CommitWorktreeResult
@@ -1494,6 +1519,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     recordRunProvenance, markWorktree,
     hasRuntimeRequest: runId => hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, runId),
     commitMessage: (run, partial) => worktreeCommitMessage(ctx, run.ticketId, run.runId, partial),
+    intentFor: (run) => runIntent(ctx, run),
   })
 
   const runPromises: Promise<SettledRun>[] = []
@@ -2149,6 +2175,7 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
         onFinished: () => { /* Apply the shared terminal outbox after all repository legs. */ },
         hasRuntimeRequest: () => true,
         commitMessage: (_run, partial) => partial ? snapshot.partialCommitMessage : snapshot.commitMessage,
+        intentFor: (unit) => runIntent(ctx, unit),
         markWorktree: (unit, state) => updateRailWorktreeState(ctx.db, unit.ledgerId, state) ? null : 'Worktree ledger disappeared',
         recordRunProvenance: unit => recordIsolatedProvenanceOnce(ctx.db, row.id, runId, () => (io.recordProvenance ?? recordLoopRunProvenance)({
           db: ctx.db, projectId: ctx.project.id, runId, ticketId: unit.ticketId, repoDir: unit.handle.worktreePath,
