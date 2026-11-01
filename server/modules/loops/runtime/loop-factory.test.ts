@@ -17,7 +17,7 @@ describe('factory loops', () => {
     ])
   })
 
-  it('ships Implement as the only launchable built-in (Flow -> Spec is platform-run)', () => {
+  it('ships Implement as the only launchable built-in (Intent -> Spec is platform-run)', () => {
     expect(FACTORY_LOOPS.map((f) => f.id)).toEqual(['factory:implement'])
     expect(getFactoryLoop('factory:implement')?.mode).toBe('implement')
     // Removed Batch loop: the saved id resolves to Implement and is never listed.

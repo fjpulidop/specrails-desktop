@@ -143,12 +143,12 @@ export function StartInFlowButton({ spec, rail, className }: StartInFlowProps & 
         onClick={() => void start()}
         className={cn(
           'inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-label transition-colors',
-          'hover:border-accent-flow/50 hover:bg-accent-flow/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50',
+          'hover:border-accent-intent/50 hover:bg-accent-intent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-intent/50',
           'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-input disabled:hover:bg-background',
           className,
         )}
       >
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />}
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Waves className="h-3.5 w-3.5 text-accent-intent" aria-hidden />}
         {busy ? t('flow.startFromSpec.starting') : t('flow.startFromSpec.action')}
       </button>
     {(reason ?? t('flow.startFromSpec.hint')) ? <span className="sr-only"> ({reason ?? t('flow.startFromSpec.hint')})</span> : null}</span>
@@ -169,9 +169,9 @@ export function StartInFlowMenuItem({ spec, rail, onDone }: StartInFlowProps & {
       aria-disabled={disabled}
       title={reason ?? t('flow.startFromSpec.hint')}
       onClick={() => { void start({ onPrompt: onDone }).finally(onDone) }}
-      className="flex w-full items-start gap-2 px-3 py-2 text-left text-foreground transition-colors hover:bg-accent-flow/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+      className="flex w-full items-start gap-2 px-3 py-2 text-left text-foreground transition-colors hover:bg-accent-intent/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
     >
-      {busy ? <Loader2 className="mt-px h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden /> : <Waves className="mt-px h-3.5 w-3.5 shrink-0 text-accent-flow" aria-hidden />}
+      {busy ? <Loader2 className="mt-px h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden /> : <Waves className="mt-px h-3.5 w-3.5 shrink-0 text-accent-intent" aria-hidden />}
       <span className="min-w-0">
         <span className="block">{busy ? t('flow.startFromSpec.starting') : t('flow.startFromSpec.action')}</span>
         {reason ? <span className="block text-caption text-muted-foreground">{reason}</span> : null}
@@ -225,9 +225,9 @@ export function IntentRailLaunchAlternative({ projectId, conversationId, ticketI
         title={reason ?? t('flow.startFromSpec.hint')}
         aria-describedby={error ? `rail-card-flow-error-${ticketId}` : undefined}
         onClick={() => void start()}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-label text-foreground transition-colors hover:border-accent-flow/50 hover:bg-accent-flow/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-label text-foreground transition-colors hover:border-accent-intent/50 hover:bg-accent-intent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-intent/50 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />}
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Waves className="h-3.5 w-3.5 text-accent-intent" aria-hidden />}
         {busy ? t('flow.startFromSpec.starting') : t('flow.startFromSpec.action')}
       </button>
       {error && <span id={`rail-card-flow-error-${ticketId}`} role="alert" data-testid="rail-card-flow-error" className="mt-1 max-w-[16rem] text-right text-xs text-destructive">{error}</span>}

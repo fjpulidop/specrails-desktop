@@ -1,7 +1,7 @@
 // ─── An extension's mode marker (Intent: "Intent" / "In Intent") ────────────────────
 // Recognition over recall: wherever the person looks — the composer, the
 // mission header, the mission list — the mode is named with an icon AND text,
-// in the mode's own accent (the badge's `accent`, Intent: --color-accent-flow)
+// in the mode's own accent (the badge's `accent`, Intent: --color-accent-intent)
 // but never by color alone, and without tinting the screen. Missions renders
 // it; the extension only names it.
 

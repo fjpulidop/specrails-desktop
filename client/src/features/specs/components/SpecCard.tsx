@@ -304,7 +304,7 @@ export function SpecCard({
       {openIntentCount > 0 ? (
         <Badge
           variant="outline"
-          className="text-caption shrink-0 border-accent-warning/50 text-accent-warning bg-accent-warning/10 gap-0.5"
+          className="text-caption shrink-0 border-accent-info/50 text-accent-info bg-accent-info/10 gap-0.5"
           title={t('badges.intentOpenTitle', { count: openIntentCount })}
           data-testid={`intent-open-badge-${ticket.id}`}
         >

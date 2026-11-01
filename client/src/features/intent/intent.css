@@ -1,10 +1,10 @@
-/* ─── Flow mode ────────────────────────────────────────────────────────────────
- * The composer is where Flow mode shows (its chip and its
+/* ─── Intent mode ────────────────────────────────────────────────────────────────
+ * The composer is where Intent mode shows (its chip and its
  * own placeholder — missions renders them from the conversation mode); the
  * surface keeps `data-flow="active"` only as a hook. No screen tint, no
  * breathing edge: the mode is named, not painted. */
 
-/* The running-app dot of the Flow bar's Preview control. */
+/* The running-app dot of the Intent bar's Preview control. */
 .flow-app-dot {
   background: var(--color-accent-success);
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-accent-success) 24%, transparent);

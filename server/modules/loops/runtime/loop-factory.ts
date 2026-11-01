@@ -1,6 +1,6 @@
 /**
  * Built-in "factory" loops — the app-owned loops that replace the old rail modes.
- * Only Implement (and the platform-run Flow -> Spec) is built in. Freestyle and
+ * Only Implement (and the platform-run Intent -> Spec) is built in. Freestyle and
  * Quick SDD (OpenSpec) were retired as built-ins: they are ordinary gallery
  * templates now (`loop-templates.ts`) and the app never offers or launches them
  * by itself. Their ids stay recognised ONLY as retired ids so persisted data and

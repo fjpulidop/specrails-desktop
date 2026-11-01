@@ -68,18 +68,18 @@ export function IntentRepositoryPicker({ candidates, selectedId, suggestedId = n
               disabled={disabled}
               onClick={() => onSelect(candidate.id)}
               className={cn(
-                'group flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:opacity-50',
-                checked ? 'border-accent-flow/60 bg-accent-flow/10' : 'border-border/50 bg-surface/30 hover:border-accent-flow/35 hover:bg-surface/60',
+                'group flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-intent/50 disabled:opacity-50',
+                checked ? 'border-accent-intent/60 bg-accent-intent/10' : 'border-border/50 bg-surface/30 hover:border-accent-intent/35 hover:bg-surface/60',
               )}
             >
-              <span aria-hidden className={cn('flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border', checked ? 'border-accent-flow bg-accent-flow text-background' : 'border-foreground/30')}>
+              <span aria-hidden className={cn('flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border', checked ? 'border-accent-intent bg-accent-intent text-background' : 'border-foreground/30')}>
                 {checked && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
                   <span className={cn('truncate text-label', checked ? 'text-foreground' : 'text-foreground')}>{candidate.name}</span>
                   {candidate.id === suggestedId && (
-                    <span className="shrink-0 rounded-full bg-accent-flow/15 px-1.5 py-px text-label text-accent-flow">{suggestedLabel ?? t('flow.entry.repository.suggested')}</span>
+                    <span className="shrink-0 rounded-full bg-accent-intent/15 px-1.5 py-px text-label text-accent-intent">{suggestedLabel ?? t('flow.entry.repository.suggested')}</span>
                   )}
                 </span>
                 <span className="block truncate font-mono text-xs text-muted-foreground" title={candidate.path}>{candidate.path}</span>

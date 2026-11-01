@@ -160,7 +160,7 @@ describe('missions extension seam (IntentSession mode)', () => {
     const COMPOSER_MODE: MissionExtensions = {
       useConversationMode: () => ({
         hideGitStrip: true,
-        composer: { badge: { label: 'Intent', description: 'Intent mode: the agent writes in the worktree', icon: Icon, accent: 'var(--color-accent-flow)' }, placeholder: 'Tell the agent what to change in the worktree…' },
+        composer: { badge: { label: 'Intent', description: 'Intent mode: the agent writes in the worktree', icon: Icon, accent: 'var(--color-accent-intent)' }, placeholder: 'Tell the agent what to change in the worktree…' },
         headerBadge: { label: 'In Intent', icon: Icon },
       }),
     }
@@ -176,7 +176,7 @@ describe('missions extension seam (IntentSession mode)', () => {
       expect(within(chip).getByTestId('mode-icon')).toBeInTheDocument()
       // The chip names the mode; no unlabeled accent line along the composer.
       expect(screen.queryByTestId('agent-composer-mode-line')).toBeNull()
-      expect(chip.style.getPropertyValue('--mode-accent')).toBe('var(--color-accent-flow)')
+      expect(chip.style.getPropertyValue('--mode-accent')).toBe('var(--color-accent-intent)')
       expect(screen.getByTestId('agent-composer-box')).toHaveAttribute('data-composer-mode', 'extension')
       expect(screen.getByRole('textbox')).toHaveAttribute('data-placeholder', 'Tell the agent what to change in the worktree…')
     })
@@ -306,11 +306,11 @@ describe('missions extension seam (IntentSession mode)', () => {
       await openWith([
         boundary('b1', 'entered', 'started'),
         message('m2', 'assistant', 'inside Intent'),
-      ], { useTurnMark: () => ({ label: 'Intent', icon: TurnIcon, accent: 'var(--color-accent-flow)' }) })
+      ], { useTurnMark: () => ({ label: 'Intent', icon: TurnIcon, accent: 'var(--color-accent-intent)' }) })
       const mark = await screen.findByTestId('agent-message-mode-mark')
       expect(mark).toHaveTextContent('Intent')
       expect(within(mark).getByTestId('turn-mode-icon')).toBeInTheDocument()
-      expect(mark.style.getPropertyValue('--turn-mode-accent')).toBe('var(--color-accent-flow)')
+      expect(mark.style.getPropertyValue('--turn-mode-accent')).toBe('var(--color-accent-intent)')
     })
 
     it('boundaries are event lines; the agent turns between them carry an Intent session mark next to their time', async () => {

@@ -17,7 +17,7 @@ export interface BackgroundProcess {
   error?: string
   repositoryId?: string
   repositoryName?: string
-  /** The Flow whose worktree this process runs in (Specrails stops it with the Flow). */
+  /** The Intent whose worktree this process runs in (Specrails stops it with the Intent). */
   flowId?: string
   recoveredAt?: number
   persistenceError?: string
@@ -420,7 +420,7 @@ export interface RailPrStateSnapshot {
   originConversationId: string | null
   /** Reviewer risk brief summary (absent without a brief). */
   riskSummary?: PrDeliveryRiskSummary
-  /** Flow → Spec stopped with requested changes (absent otherwise). */
+  /** Intent → Spec stopped with requested changes (absent otherwise). */
   flowReview?: PrDeliveryFlowReview
   /** "Integrate locally" saved the person's uncommitted work as a stash (absent otherwise). */
   localStash?: PrDeliveryLocalStash
@@ -470,8 +470,8 @@ export interface LocalTicket {
     area?: string
     /** Escaped-defect link: id of the delivery that introduced this bug. */
     regressionOf?: string
-    /** Flow mode: the placeholder spec of a Flow. `active`/`paused` show the
-     *  board's "In Flow" label; `delivered` and `closed` (a needs-review Flow
+    /** Intent mode: the placeholder spec of an Intent session. `active`/`paused` show the
+     *  board's "In Intent" label; `delivered` and `closed` (a needs-review Intent
      *  closed with its branch kept) hide it. */
     flow?: {
       conversationId?: string
@@ -479,7 +479,7 @@ export interface LocalTicket {
       state?: 'active' | 'paused' | 'delivered' | 'closed'
       startedAt?: string
       chosenMode?: 'flow' | 'implement'
-      /** `existing`: the person's own spec started in Flow (restored on discard). */
+      /** `existing`: the person's own spec started in Intent (restored on discard). */
       origin?: 'existing'
     }
     /** Spec triage (launch-triage, schema 1.5): see features/specs/lib/spec-triage. */
@@ -631,7 +631,7 @@ export interface PrDeliveryLocalRestore {
   updatedAt: string
 }
 
-/** Flow → Spec stopped with requested changes; mirrors server PrDeliveryFlowReview.
+/** Intent → Spec stopped with requested changes; mirrors server PrDeliveryFlowReview.
  *  `review`: the latest review rejected the work; `check`: the host checks still fail. */
 export interface PrDeliveryFlowReview {
   reason: 'review' | 'check'
@@ -697,9 +697,9 @@ export interface ReviewPacket {
   driftNudges: PacketDriftNudge[]
   /** "What the agent did" (agent actions audit); absent/null when nothing was recorded. */
   agentActions?: PacketAgentActions | null
-  /** Flow -> Spec only: Core's derivation coverage; null for other loops (older servers omit it). */
+  /** Intent -> Spec only: Core's derivation coverage; null for other loops (older servers omit it). */
   derivation?: PacketDerivation | null
-  /** Flow deliveries only: settlement effects (spec rewrite, Jira). */
+  /** Intent deliveries only: settlement effects (spec rewrite, Jira). */
   flowSettlement?: PacketFlowSettlement | null
   /** "Requirements demonstrated X/Y" (Core specTrace); absent on older servers. */
   requirementsDemonstrated?: PacketRequirementsDemonstrated | null

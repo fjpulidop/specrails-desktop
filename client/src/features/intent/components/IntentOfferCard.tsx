@@ -110,7 +110,7 @@ export function IntentOfferCard({ payload, index, messageId, conversationId, pro
       className="my-1 overflow-hidden rounded-xl border border-border/60 bg-card/80 shadow-md"
     >
       <div className="flex items-center gap-2 border-b border-border/40 bg-surface/40 px-3.5 py-2">
-        <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />
+        <Waves className="h-3.5 w-3.5 text-accent-intent" aria-hidden />
         <span id={labelId} className="text-strong text-foreground">{t('flow.offer.heading')}</span>
       </div>
       <div className="space-y-3 px-3.5 py-3">
@@ -143,12 +143,12 @@ export function IntentOfferCard({ payload, index, messageId, conversationId, pro
                 className={cn(
                   'group flex flex-col items-start gap-1 rounded-lg border border-border/60 bg-surface/30 px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50',
                   mode === 'flow'
-                    ? 'hover:border-accent-flow/50 hover:bg-accent-flow/10 focus-visible:ring-accent-flow/50'
+                    ? 'hover:border-accent-intent/50 hover:bg-accent-intent/10 focus-visible:ring-accent-intent/50'
                     : 'hover:border-accent-primary/50 hover:bg-accent-primary/10 focus-visible:ring-accent-primary/50',
                 )}
               >
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Icon className={cn('h-3.5 w-3.5', mode === 'flow' ? 'text-accent-flow' : 'text-accent-primary')} aria-hidden />
+                  <Icon className={cn('h-3.5 w-3.5', mode === 'flow' ? 'text-accent-intent' : 'text-accent-primary')} aria-hidden />
                   {t(`flow.offer.mode.${mode}.title`)}
                 </span>
                 <span className="text-xs leading-4 text-muted-foreground">{t(`flow.offer.mode.${mode}.${offer.ticketId ? 'hintExisting' : 'hint'}`)}</span>
@@ -160,7 +160,7 @@ export function IntentOfferCard({ payload, index, messageId, conversationId, pro
           <p id={hintId} className="min-w-0 text-xs text-muted-foreground" data-testid="flow-offer-streaming-hint">
             {isStreaming ? t('flow.offer.waitForReply') : null}
           </p>
-          <button type="button" data-agent-interactive data-testid="flow-offer-dismiss" disabled={disabled} onClick={() => void dismiss()} className="shrink-0 rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:opacity-50">
+          <button type="button" data-agent-interactive data-testid="flow-offer-dismiss" disabled={disabled} onClick={() => void dismiss()} className="shrink-0 rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-intent/50 disabled:opacity-50">
             {t('flow.offer.notNow')}
           </button>
         </div>
@@ -189,7 +189,7 @@ function HandOffTrack({ flowId }: { flowId: string }) {
       <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
       <span
         className={cn(
-          'absolute left-0 top-1/2 h-1.5 w-6 -translate-y-1/2 rounded-full bg-gradient-to-r from-accent-flow to-[var(--color-rail-end)]',
+          'absolute left-0 top-1/2 h-1.5 w-6 -translate-y-1/2 rounded-full bg-gradient-to-r from-accent-intent to-[var(--color-rail-end)]',
           'transition-transform duration-[var(--duration-slow)] ease-[var(--ease-rail)] motion-reduce:transition-none',
           slid && 'translate-x-[4.5rem]',
         )}
@@ -219,10 +219,10 @@ function IntentOfferStub({ intent, handOff, flow, conversationId }: { intent: Ag
       data-testid={`flow-offer-stub-${dismissed ? 'dismissed' : chosen ?? 'accepted'}`}
       className={cn(
         'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
-        dismissed ? 'border-border/50 bg-surface/40 text-muted-foreground' : chosen === 'flow' ? 'border-accent-flow/30 bg-accent-flow/[0.06] text-foreground' : 'border-accent-primary/30 bg-accent-primary/[0.06] text-foreground',
+        dismissed ? 'border-border/50 bg-surface/40 text-muted-foreground' : chosen === 'flow' ? 'border-accent-intent/30 bg-accent-intent/[0.06] text-foreground' : 'border-accent-primary/30 bg-accent-primary/[0.06] text-foreground',
       )}
     >
-      <Icon className={cn('h-3.5 w-3.5 shrink-0', chosen === 'flow' && !dismissed ? 'text-accent-flow' : dismissed ? '' : 'text-accent-primary')} aria-hidden />
+      <Icon className={cn('h-3.5 w-3.5 shrink-0', chosen === 'flow' && !dismissed ? 'text-accent-intent' : dismissed ? '' : 'text-accent-primary')} aria-hidden />
       <span className="min-w-0 flex-1 truncate">
         {dismissed ? t('flow.offer.stub.dismissed') : chosen === 'flow' ? flowLabel : t('flow.offer.stub.implement')}
       </span>
@@ -235,7 +235,7 @@ function IntentOfferStub({ intent, handOff, flow, conversationId }: { intent: Ag
           data-agent-interactive
           data-testid="flow-offer-stub-view-run"
           onClick={() => focusPrCard({ prDeliveryId: runTarget.prDeliveryId, runIds: runTarget.runIds, conversationId })}
-          className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-label text-accent-flow hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50"
+          className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-label text-accent-intent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-intent/50"
         >
           {t('flow.offer.stub.viewRun')}
           <ArrowUpRight className="h-3 w-3" aria-hidden />

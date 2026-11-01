@@ -22,7 +22,7 @@ import { flowErrorMessage } from '../lib/intent-failure'
 import { notifyError } from '../../../lib/notify-error'
 type Pending = 'return' | 'relaunch' | null
 
-const BUTTON = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-label font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:pointer-events-none disabled:opacity-50'
+const BUTTON = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-label font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-intent/50 disabled:pointer-events-none disabled:opacity-50'
 
 export function IntentRunCardActions({ projectId, prDeliveryId, decision, statusCode, busy }: MissionRunCardActionsProps) {
   const { t } = useTranslation('agent')
@@ -81,7 +81,7 @@ export function IntentRunCardActions({ projectId, prDeliveryId, decision, status
         title={t('flow.review.relaunchHint')}
         aria-describedby={`${hintId}-relaunch`}
         onClick={() => void act('relaunch')}
-        className={cn(BUTTON, 'border-border/60 bg-surface/60 text-muted-foreground hover:border-accent-flow/40 hover:bg-accent-flow/10 hover:text-accent-flow')}
+        className={cn(BUTTON, 'border-border/60 bg-surface/60 text-muted-foreground hover:border-accent-intent/40 hover:bg-accent-intent/10 hover:text-accent-intent')}
       >
         {pending === 'relaunch' ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
         {t('flow.review.relaunch')}

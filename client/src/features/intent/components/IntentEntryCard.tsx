@@ -6,7 +6,7 @@
 // project with several Git repositories it also shows WHERE the Intent runs:
 // the repository the agent triaged, changeable among the Git members.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
@@ -33,6 +33,8 @@ interface Props {
   ticketId?: number | null
   /** Start from the mission's settled intent (stored on the placeholder spec). */
   intent?: SpecIntent | null
+  /** Rendered inside another card (the intent card's Explore path): a section, not a nested card. */
+  embedded?: boolean
   projectId: string | null
   conversationId: string | null
   provider?: string | null
@@ -56,9 +58,10 @@ export function focusFlowBar(flowId: string): boolean {
   return true
 }
 
-export function IntentEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, ticketId = null, intent = null, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, onStarted, onCancel }: Props) {
+export function IntentEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, ticketId = null, intent = null, embedded = false, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, onStarted, onCancel }: Props) {
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
+  const titleId = `flow-entry-title-${useId().replace(/:/g, '')}`
   const ctx = useFlowContext()
   const availability = useFlowAvailability(projectId)
   const [busy, setBusy] = useState(false)
@@ -124,13 +127,15 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
       role="group"
-      aria-labelledby="flow-entry-title"
+      aria-labelledby={titleId}
       data-testid="flow-entry-card"
-      className="my-1 overflow-hidden rounded-xl border border-accent-flow/30 bg-card/85 shadow-lg"
+      className={embedded
+        ? 'overflow-hidden rounded-lg border border-accent-intent/30 bg-accent-intent/[0.03]'
+        : 'my-1 overflow-hidden rounded-xl border border-accent-intent/30 bg-card/85 shadow-lg'}
     >
-      <div className="flex items-center gap-2 border-b border-border/40 bg-accent-flow/[0.07] px-3.5 py-2">
-        <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />
-        <span id="flow-entry-title" className="text-strong text-foreground">{t('flow.entry.heading')}</span>
+      <div className="flex items-center gap-2 border-b border-border/40 bg-accent-intent/[0.07] px-3.5 py-2">
+        <Waves className="h-3.5 w-3.5 text-accent-intent" aria-hidden />
+        <span id={titleId} className="text-strong text-foreground">{t('flow.entry.heading')}</span>
       </div>
       <div className="space-y-3 px-3.5 py-3">
         <p className="flex items-start gap-2 text-xs leading-5 text-foreground">
@@ -173,7 +178,7 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
             <p id={blockReasonId} className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />{blockReason}</p>
             {blockedByOpenFlow && openFlowId && (
               <button type="button" data-agent-interactive data-testid="flow-entry-open-flow" onClick={() => focusFlowBar(openFlowId)}
-                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-label text-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50">
+                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-label text-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-intent/50">
                 {t('flow.entry.blocked.goToFlow')}
               </button>
             )}
@@ -200,7 +205,7 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
             onClick={() => void startFlow()}
             disabled={busy || loading || !!blockReason || needsRepository}
             aria-describedby={blockReason ? blockReasonId : undefined}
-            className={cn(PRIMARY_ACTION_SHAPE, 'bg-accent-flow text-background hover:bg-accent-flow/90 focus-visible:ring-accent-flow/60')}
+            className={cn(PRIMARY_ACTION_SHAPE, 'bg-accent-intent text-background hover:bg-accent-intent/90 focus-visible:ring-accent-intent/60')}
           >
             {busy || loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
             {busy ? t('flow.entry.starting') : t('flow.entry.start')}

@@ -37,6 +37,7 @@ export function IntentExploreAction({ projectId, conversationId, intent, title, 
           idea={intent.problem}
           title={title ?? null}
           intent={intent}
+          embedded
           projectId={projectId}
           conversationId={conversationId}
           provider={active?.id === conversationId ? active?.provider : null}

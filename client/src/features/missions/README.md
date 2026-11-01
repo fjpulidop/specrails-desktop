@@ -123,7 +123,7 @@ history; a settled Intent → Spec run is an outcome line that expands its card
 (Intent) are named on the composer (placeholder always; the chip on the empty
 composer and in the floating panel — the inline dock leaves it to the mission
 header) in the
-mode's own color (`MissionModeBadge.accent`; Intent: `--color-accent-flow`),
+mode's own color (`MissionModeBadge.accent`; Intent: `--color-accent-intent`),
 on its agent turns (`useTurnMark`) and on the strip mark (`MissionLiveRun.mode`), next to the
 mission title and on the mission list ([`MissionModeBadge`](components/MissionModeBadge.tsx)),
 where a dot with words also marks missions waiting for a decision

@@ -79,7 +79,7 @@ function IntentRepositoryDialog({ request, onSettle }: { request: IntentReposito
     <Dialog open onOpenChange={(open) => { if (!open) onSettle(null) }}>
       {/* Opened from the spec detail (entity) or the board menu, possibly over the floating chat: stacked layer. */}
       <DialogContent size="form" layer="stacked" data-testid="flow-start-repository-dialog">
-        <DialogHeader icon={<Waves className="text-accent-flow" />}>
+        <DialogHeader icon={<Waves className="text-accent-intent" />}>
           <DialogTitle>{t('flow.startFromSpec.repository.title')}</DialogTitle>
           <DialogDescription>{t('flow.startFromSpec.repository.body')}</DialogDescription>
         </DialogHeader>
@@ -104,7 +104,7 @@ function IntentRepositoryDialog({ request, onSettle }: { request: IntentReposito
             data-testid="flow-start-repository-confirm"
             disabled={!selectedId}
             onClick={() => { if (selectedId) onSettle(selectedId) }}
-            className="bg-accent-flow text-background hover:bg-accent-flow/90 focus-visible:ring-accent-flow/60"
+            className="bg-accent-intent text-background hover:bg-accent-intent/90 focus-visible:ring-accent-intent/60"
           >
             <Waves className="mr-1.5 h-3.5 w-3.5" aria-hidden />
             {t('flow.startFromSpec.action')}

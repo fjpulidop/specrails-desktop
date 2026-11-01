@@ -100,7 +100,7 @@ export function IntentSection({ value, onChange, disabled }: IntentSectionProps)
           <Compass className="w-3 h-3" aria-hidden="true" />
           {t('intent.title')}
           {!editing && open > 0 && (
-            <span className="rounded-full bg-accent-warning/15 px-1.5 text-caption text-accent-warning" data-testid="ticket-intent-open">
+            <span className="rounded-full bg-accent-info/15 px-1.5 text-caption text-accent-info" data-testid="ticket-intent-open">
               {t('intent.openCount', { count: open })}
             </span>
           )}
@@ -121,16 +121,18 @@ export function IntentSection({ value, onChange, disabled }: IntentSectionProps)
       {editing ? (
         <div
           className="space-y-2.5 rounded-lg border border-border/60 bg-muted/10 p-3"
-          onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); cancel() } }}
+          onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); finish() } }}
         >
           <p className="text-caption text-muted-foreground">{t('intent.editorHint')}</p>
           <IntentField id={`${id}-problem`} label={t('intent.problem')} error={showErrors && missingProblem ? t('intent.required') : null}>
             <textarea ref={problemRef} id={`${id}-problem`} value={draft.problem} onChange={set('problem')} rows={3}
-              placeholder={t('intent.problemPlaceholder')} className={FIELD_CLASS} aria-invalid={showErrors && missingProblem} />
+              placeholder={t('intent.problemPlaceholder')} className={FIELD_CLASS} aria-invalid={showErrors && missingProblem}
+              aria-required="true" aria-describedby={showErrors && missingProblem ? `${id}-problem-error` : undefined} />
           </IntentField>
           <IntentField id={`${id}-outcome`} label={t('intent.outcome')} error={showErrors && missingOutcome ? t('intent.required') : null}>
             <textarea id={`${id}-outcome`} value={draft.outcome} onChange={set('outcome')} rows={2}
-              placeholder={t('intent.outcomePlaceholder')} className={FIELD_CLASS} aria-invalid={showErrors && missingOutcome} />
+              placeholder={t('intent.outcomePlaceholder')} className={FIELD_CLASS} aria-invalid={showErrors && missingOutcome}
+              aria-required="true" aria-describedby={showErrors && missingOutcome ? `${id}-outcome-error` : undefined} />
           </IntentField>
           <IntentField id={`${id}-hypothesis`} label={t('intent.hypothesis')}>
             <textarea id={`${id}-hypothesis`} value={draft.hypothesis} onChange={set('hypothesis')} rows={2}
@@ -158,8 +160,8 @@ export function IntentSection({ value, onChange, disabled }: IntentSectionProps)
                     className="min-w-0 flex-1 rounded-md border border-border bg-input px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground" />
                   <button type="button" onClick={() => setDraft((current) => ({ ...current, openQuestions: current.openQuestions.filter((_, i) => i !== index) }))}
                     aria-label={t('intent.removeQuestion', { n: index + 1 })}
-                    className="rounded p-1 text-muted-foreground hover:bg-muted/40 hover:text-foreground">
-                    <X className="w-3 h-3" aria-hidden="true" />
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                    <X className="w-3.5 h-3.5" aria-hidden="true" />
                   </button>
                 </div>
                 <input value={item.answer ?? ''} onChange={(event) => setQuestion(index, { answer: event.target.value || undefined })}
@@ -202,7 +204,7 @@ function IntentField({ id, label, hint, error, children }: { id: string; label: 
         {hint && <span className="font-normal text-muted-foreground">{hint}</span>}
       </label>
       {children}
-      {error && <p role="alert" className="text-caption text-destructive">{error}</p>}
+      {error && <p id={`${id}-error`} role="alert" className="text-caption text-destructive">{error}</p>}
     </div>
   )
 }
@@ -246,7 +248,7 @@ export function IntentView({ intent }: { intent: SpecIntent }) {
                 <span className="break-words">{item.question}</span>
                 {item.answer
                   ? <p className="mt-0.5 break-words pl-3 text-muted-foreground">{item.answer}</p>
-                  : <span className="ml-1.5 rounded bg-accent-warning/10 px-1 text-caption text-accent-warning">{t('intent.unanswered')}</span>}
+                  : <span className="ml-1.5 rounded bg-accent-info/10 px-1 text-caption text-accent-info">{t('intent.unanswered')}</span>}
               </li>
             ))}
           </ul>

@@ -16,7 +16,7 @@ const ICON_TONE: Readonly<Record<RunEventTone, string>> = Object.freeze({
   failed: 'text-destructive',
   warning: 'text-accent-warning',
   success: 'text-accent-success',
-  flow: 'text-accent-flow',
+  flow: 'text-accent-intent',
 })
 
 export interface AgentRunEventLineProps {

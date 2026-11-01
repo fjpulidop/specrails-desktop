@@ -271,7 +271,7 @@ describe('Intent mode in the conversation', () => {
     // The run strip carries the (copyable) branch: the git strip steps aside.
     await waitFor(() => expect(result.current).toMatchObject({
       attributes: { 'data-flow': 'active' }, hideGitStrip: true, interruptWhileBusy: true,
-      headerBadge: { accent: 'var(--color-accent-flow)' },
+      headerBadge: { accent: 'var(--color-accent-intent)' },
       composer: { badge: { label: 'Intent' }, placeholder: 'Tell the agent what to change in this Intent…' },
       headerBadge: { label: 'In Intent' },
     }))
@@ -291,7 +291,7 @@ describe('Intent mode in the conversation', () => {
     expect(bar).toHaveAttribute('data-tone', 'running')
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Intent · 3 files'))
     // Intent's own color marks the running Intent (running runs keep the info accent).
-    expect(screen.getByTestId('mission-run-strip-mode-mark')).toHaveStyle({ color: 'var(--color-accent-flow)' })
+    expect(screen.getByTestId('mission-run-strip-mode-mark')).toHaveStyle({ color: 'var(--color-accent-intent)' })
     // A strip showing only the Intent still names it.
     expect(screen.getByTestId('mission-run-strip-label')).toHaveTextContent('Intent')
     const row = within(screen.getByTestId('mission-run-strip-bar'))
@@ -686,7 +686,7 @@ describe('IntentOfferCard through the AgentMessage extension chain', () => {
     expect(screen.getByTestId('flow-offer-reason')).toHaveTextContent('The look is still open.')
     const choices = [...card.querySelectorAll('[data-testid^="flow-offer-choose-"]')]
     expect(choices.map((choice) => choice.getAttribute('data-testid'))).toEqual(['flow-offer-choose-flow', 'flow-offer-choose-implement'])
-    expect(choices[0]!.className).toBe(choices[1]!.className.replace(/accent-primary/g, 'accent-flow'))
+    expect(choices[0]!.className).toBe(choices[1]!.className.replace(/accent-primary/g, 'accent-intent'))
     expect(card).not.toHaveTextContent('Recommended')
     expect(screen.queryByText(/"recommended"/)).toBeNull()
   })

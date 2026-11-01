@@ -94,7 +94,7 @@
   /* Brand-mirror semantic tokens (used when shadcn token is too generic) */
   --color-accent-primary:    hsl(265 89% 81%);  /* purple */
   --color-accent-info:       hsl(191 97% 77%);  /* cyan */
-  --color-accent-flow:       hsl(170 70% 62%);  /* teal — Flow mode, distinct from info (running) cyan */
+  --color-accent-intent:       hsl(170 70% 62%);  /* teal — Intent mode, distinct from info (running) cyan */
   --color-accent-success:    hsl(135 94% 65%);  /* green */
   --color-accent-secondary:  hsl(326 100% 78%); /* pink */
   --color-accent-warning:    hsl(31 100% 71%);  /* orange */
@@ -213,7 +213,7 @@
 
   --color-accent-primary:    hsl(255 70% 50%);  /* indigo — slightly deeper for text contrast */
   --color-accent-info:       hsl(205 58% 40%);  /* muted steel-blue — not neon, readable on light bg */
-  --color-accent-flow:       hsl(172 72% 26%);  /* deep teal — readable on light bg */
+  --color-accent-intent:       hsl(172 72% 26%);  /* deep teal — readable on light bg */
   --color-accent-success:    hsl(150 65% 28%);  /* emerald — deep enough for text on light bg */
   --color-accent-secondary:  hsl(330 72% 45%);  /* magenta-pink, deeper for readability on light */
   --color-accent-warning:    hsl(32 90% 32%);   /* amber — darker so text reads on light bg (≥4.5:1) */
@@ -262,7 +262,7 @@
 
   --color-accent-primary:    hsl(144 100% 50%);   /* phosphor green */
   --color-accent-info:       hsl(174 56% 56%);    /* teal */
-  --color-accent-flow:       hsl(200 85% 66%);  /* sky blue — the one non-green mode accent */
+  --color-accent-intent:       hsl(200 85% 66%);  /* sky blue — the one non-green mode accent */
   --color-accent-success:    hsl(145 100% 70%);   /* light mint-green */
   --color-accent-secondary:  hsl(153 100% 36%);   /* deep terminal green */
   --color-accent-warning:    hsl(35 100% 64%);    /* amber */
@@ -339,7 +339,7 @@
 
   --color-accent-primary:    hsl(258 55% 70%);  /* purple */
   --color-accent-info:       hsl(192 76% 62%);  /* electric cyan */
-  --color-accent-flow:       hsl(168 56% 55%);  /* teal */
+  --color-accent-intent:       hsl(168 56% 55%);  /* teal */
   --color-accent-success:    hsl(150 60% 55%);  /* emerald */
   --color-accent-secondary:  hsl(330 68% 68%);  /* magenta */
   --color-accent-warning:    hsl(35 81% 62%);   /* amber */
@@ -389,7 +389,7 @@
 
   --color-accent-primary:    hsl(187 100% 44%);  /* cyan */
   --color-accent-info:       hsl(234 92% 76%);   /* periwinkle — running, kept apart from the cyan primary */
-  --color-accent-flow:       hsl(170 78% 50%);  /* teal, between success and the cyan primary */
+  --color-accent-intent:       hsl(170 78% 50%);  /* teal, between success and the cyan primary */
   --color-accent-success:    hsl(152 78% 48%);   /* emerald */
   --color-accent-secondary:  hsl(280 45% 62%);   /* violet */
   --color-accent-warning:    hsl(42 92% 58%);    /* amber */
@@ -437,7 +437,7 @@
 
   --color-accent-primary:    hsl(212 100% 62%);  /* light-side blue */
   --color-accent-info:       hsl(201 95% 68%);   /* sky — running, kept apart from the blue primary */
-  --color-accent-flow:       hsl(266 85% 74%);  /* violet — teal would collide with SpecRails hues */
+  --color-accent-intent:       hsl(266 85% 74%);  /* violet — teal would collide with SpecRails hues */
   --color-accent-success:    hsl(140 65% 50%);   /* core green */
   --color-accent-secondary:  hsl(210 12% 65%);   /* steel steel-gray/silver */
   --color-accent-warning:    hsl(28 95% 56%);    /* pulse orange */

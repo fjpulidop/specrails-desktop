@@ -146,7 +146,7 @@ and again on `GET /loops` and `GET /loops/factory`; it is idempotent
 
 ## Retired built-ins (Freestyle, Quick SDD)
 
-Only Implement (and the platform-run Flow -> Spec) is built in. Freestyle and
+Only Implement (and the platform-run Intent -> Spec) is built in. Freestyle and
 Quick SDD (OpenSpec) are gallery templates the user adds explicitly
 (`POST /loops/from-template/:id`); nothing in the app, MCP tools or agent prompts
 offers or launches them. Compatibility rules:

@@ -73,7 +73,7 @@ export interface MissionModeBadge {
   /** What the mode means (tooltip / accessible description). */
   description?: string
   icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
-  /** The mode's own color (a CSS color, e.g. `var(--color-accent-flow)`); defaults to the info accent. */
+  /** The mode's own color (a CSS color, e.g. `var(--color-accent-intent)`); defaults to the info accent. */
   accent?: string
 }
 
