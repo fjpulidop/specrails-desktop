@@ -36,8 +36,8 @@ describe('what-if pricing', () => {
     record({ model: 'sonnet', at: day(3) })
     record({ model: 'sonnet', at: day(5) })
     const { result } = computeWhatIf(db, 'p1', 30, { from: { provider: 'claude', model: 'sonnet' }, to: { provider: 'claude', model: 'haiku' } }, NOW)
-    // sonnet 2.00/10.00 per 1M: 1M in + 0.2M out = 2 + 2 = 4 per run; haiku 1/5: 1 + 1 = 2 per run.
-    expect(result).toMatchObject({ invocations: 2, repriced: 2, skipped: 0, estimateCurrentUsd: 8, estimateWhatIfUsd: 4, deltaUsd: -4, noPricing: null })
+    // sonnet 2.00/10.00 per 1M: 1M in + 0.2M out = 2 + 2 = 4 per run; haiku 5.5 (prompt >100k => 0.50/2.50 tier): 0.5 + 0.5 = 1 per run.
+    expect(result).toMatchObject({ invocations: 2, repriced: 2, skipped: 0, estimateCurrentUsd: 8, estimateWhatIfUsd: 2, deltaUsd: -6, noPricing: null })
     expect(result?.tokens).toEqual({ in: 2_000_000, out: 400_000, cacheRead: 0, cacheCreate: 0 })
     expect(result?.recordedUsd).toBe(2) // recorded cost is reported apart, never part of the delta
   })
@@ -58,7 +58,7 @@ describe('what-if pricing', () => {
     record({ model: 'sonnet', at: day(1), usage: { tokens_in: 0, tokens_out: 0 } })
     recordInvocation(db, { project_id: 'other', provider: 'claude', surface: 'loop', status: 'success', started_at: day(1), model: 'sonnet', total_cost_usd: 50, ...usage })
     const { result } = computeWhatIf(db, 'p1', 30, { from: { provider: 'claude', model: 'sonnet' }, to: { provider: 'claude', model: 'haiku' } }, NOW)
-    expect(result).toMatchObject({ invocations: 2, repriced: 1, skipped: 1, estimateCurrentUsd: 4, estimateWhatIfUsd: 2 })
+    expect(result).toMatchObject({ invocations: 2, repriced: 1, skipped: 1, estimateCurrentUsd: 4, estimateWhatIfUsd: 1 })
   })
 
   it('applies a long-context tier per invocation, not on the sum', () => {

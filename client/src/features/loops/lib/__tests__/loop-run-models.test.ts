@@ -5,7 +5,7 @@ describe('loop-run-models', () => {
   it('exposes an exact catalog for each provider', () => {
     expect(LOOP_RUN_MODELS.claude.map((m) => m.value)).toEqual(['sonnet', 'fable', 'opus', 'haiku'])
     expect(LOOP_RUN_MODELS.codex.map((m) => m.value)).toEqual([
-      'gpt-6.1-sol', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
+      'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
     ])
     expect(LOOP_RUN_MODELS.gemini.map((m) => m.value)).toEqual([
       'gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite',

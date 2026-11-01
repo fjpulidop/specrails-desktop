@@ -59,16 +59,22 @@ export function submitAccentForTier(tier: Tier): string {
 // line under the meter — actual cost is captured authoritatively via
 // `ai_invocations.total_cost_usd` after the turn settles.
 const MODEL_PRICE_PER_1K_INPUT_TOKENS: Record<string, number> = {
-  sonnet: 0.003,
+  sonnet: 0.002,
+  fable: 0.01,
   opus: 0.004,
   'claude-opus-5-5': 0.004,
-  haiku: 0.0008,
+  haiku: 0.0001,
   'gpt-5.5': 0.0015,
   'gpt-5.4-mini': 0.0006,
   'gpt-5.4': 0.005,
-  'gpt-5.6-sol': 0.005,
-  'gpt-5.6-terra': 0.0025,
-  'gpt-5.6-luna': 0.001,
+  'gpt-6.1-sol': 0.002,
+  'gpt-6.1-terra': 0.001,
+  'gpt-6-astra': 0.01,
+  'gpt-6-sol': 0.002,
+  'gpt-6-luna': 0.0001,
+  'gpt-5.6-sol': 0.004,
+  'gpt-5.6-terra': 0.002,
+  'gpt-5.6-luna': 0.0002,
 }
 
 export function estimateInputTokens(scope: ContextScope, budget: ContextBudget): number {

@@ -8,7 +8,7 @@ vi.mock('child_process', async () => {
 })
 
 import { execSync } from 'child_process'
-import { codexAdapter, _CODEX_MIN_VERSION, _compareSemver } from './codex-adapter'
+import { codexAdapter, codexModelMinCliVersion, _CODEX_MIN_VERSION, _compareSemver } from './codex-adapter'
 import type { AdapterEvent } from './types'
 
 const mockExec = vi.mocked(execSync)
@@ -63,13 +63,22 @@ describe('codexAdapter — identity', () => {
     expect(codexAdapter.defaultModel()).toBe('gpt-6.1-sol')
   })
 
-  it('catalogs gpt-6.1-sol first, followed by Astra and the GPT-5.6 family (sol/terra/luna)', () => {
+  it('catalogs gpt-6.1-sol first, then Terra, Astra, GPT-6 Sol/Luna and the legacy GPT-5.6 family', () => {
     const values = codexAdapter.modelCatalog().map((m) => m.value)
-    expect(values.slice(0, 5)).toEqual(['gpt-6.1-sol', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+    expect(values).toEqual(['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
     expect(values).not.toEqual(expect.arrayContaining(['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex']))
     // The newest Sol model is the default.
     expect(codexAdapter.defaultModel()).toBe('gpt-6.1-sol')
     expect(codexAdapter.modelCatalog().find((m) => m.value === 'gpt-6-astra')).toEqual({ value: 'gpt-6-astra', label: 'GPT-6 Astra' })
+  })
+
+  it('maps the new 6.x efforts and the per-model Terra CLI floor', () => {
+    expect(codexAdapter.reasoningEffortsForModel('gpt-6.1-terra')).toEqual(['low', 'medium', 'high', 'xhigh'])
+    expect(codexAdapter.reasoningEffortsForModel('gpt-6-sol')).toEqual(['low', 'medium', 'high', 'xhigh'])
+    expect(codexAdapter.reasoningEffortsForModel('gpt-6-luna')).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
+    expect(codexModelMinCliVersion('gpt-6.1-terra')).toBe('0.159.0')
+    expect(codexModelMinCliVersion('gpt-6.1-sol')).toBeUndefined()
+    expect(_CODEX_MIN_VERSION).toBe('0.128.0')
   })
 
   it('advertises the GPT-5.6 reasoning tiers (xhigh/max/ultra)', () => {

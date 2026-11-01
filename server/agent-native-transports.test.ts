@@ -134,6 +134,8 @@ describe('real mission manager with native transport composition', () => {
 
   it.each(['claude', 'codex'] as const)('%s keeps default input queued, steers on request and checkpoints the native receipt before following text', async provider => {
     const model = provider === 'claude' ? 'fable' : 'gpt-6-astra'
+    // The `fable` catalog alias is pinned to Fable 5.1 at spawn time.
+    const spawnModel = provider === 'claude' ? 'claude-fable-5-1' : model
     const id = createAgentConversation(db, { provider, model, tierLevel: 3, reasoningEffort: 'high' }).id
     updateAgentConversation(db, id, { title: 'Native composition verification' })
     const running = manager.sendMessage(id, 'Implement the original spec.', { queueId: 'initial' })
@@ -149,7 +151,7 @@ describe('real mission manager with native transport composition', () => {
     expect(spawnOptions.env.SPECRAILS_NATIVE_COMPOSITION_MCP).toBe('preserved')
     expect(mocks.prepare.mock.calls[0][0]).toMatchObject({ adapterId: provider, conversationId: id, capability: expect.any(String), invocationId: expect.any(String) })
     if (provider === 'claude') {
-      expect(args).toEqual(expect.arrayContaining(['--model', model, '--effort', 'high', '--input-format', 'stream-json', '--replay-user-messages', '--mcp-config', '/tmp/native-composition-mcp.json']))
+      expect(args).toEqual(expect.arrayContaining(['--model', spawnModel, '--effort', 'high', '--input-format', 'stream-json', '--replay-user-messages', '--mcp-config', '/tmp/native-composition-mcp.json']))
       expect(native.requests()[0].message.content).toContain('Implement the original spec.')
     } else {
       expect(args).toEqual(['app-server', '--listen', 'stdio://', '-c', 'mcp_servers.specrails.command="fixture-bridge"'])

@@ -112,24 +112,42 @@ describe('estimateCostUsd', () => {
   })
 
   it('prices the GPT-5.6 family, billing cache WRITES at 1.25x input (new 5.6 semantics)', () => {
-    // Sol: $5 in / $30 out / $0.50 cache-read / $6.25 cache-write per 1M.
+    // Sol: $4 in / $20 out / $0.40 cache-read / $5.00 cache-write per 1M.
     const sol = estimateCostUsd('codex', 'gpt-5.6-sol', {
-      tokens_in: 1_000_000,
-      tokens_out: 100_000,
-      tokens_cache_read: 400_000, // subset of tokens_in (OpenAI semantics)
-      tokens_cache_create: 200_000,
+      tokens_in: 250_000,
+      tokens_out: 25_000,
+      tokens_cache_read: 100_000, // subset of tokens_in (OpenAI semantics)
+      tokens_cache_create: 50_000,
     })
-    // fresh input 600k*$5 + cache-read 400k*$0.50 + out 100k*$30 + cache-write 200k*$6.25
-    expect(sol).toBeCloseTo(3.0 + 0.2 + 3.0 + 1.25, 6)
-    // Luna: $1 / $6 — cheapest 5.6 tier still prices.
-    const luna = estimateCostUsd('codex', 'gpt-5.6-luna', { tokens_in: 1_000_000 })
-    expect(luna).toBeCloseTo(1.0, 6)
-    expect(estimateCostUsd('codex', 'gpt-5.6-terra', { tokens_in: 1_000_000 })).toBeCloseTo(2.5, 6)
+    // fresh input 150k*$4 + cache-read 100k*$0.40 + out 25k*$20 + cache-write 50k*$5
+    expect(sol).toBeCloseTo(0.6 + 0.04 + 0.5 + 0.25, 6)
+    // Luna: $0.20 / $1.20 — cheapest 5.6 tier still prices.
+    const luna = estimateCostUsd('codex', 'gpt-5.6-luna', { tokens_in: 200_000 })
+    expect(luna).toBeCloseTo(0.04, 6)
+    expect(estimateCostUsd('codex', 'gpt-5.6-terra', { tokens_in: 200_000 })).toBeCloseTo(0.4, 6)
   })
 
-  it('returns null for gpt-6-astra until a rate card is recorded (never a fabricated cost)', () => {
-    expect(resolvePriceEntry('codex', 'gpt-6-astra')).toBeUndefined()
-    expect(estimateCostUsd('codex', 'gpt-6-astra', { tokens_in: 1_000_000, tokens_out: 100_000 })).toBeNull()
+  it('prices the GPT-6 family at the 2026-11-01 standard-tier rate cards', () => {
+    const cases: Array<[string, number, number]> = [
+      // model, $/1M input, $/1M output
+      ['gpt-6.1-sol', 2.0, 10.0],
+      ['gpt-6.1-terra', 1.0, 5.0],
+      ['gpt-6-astra', 10.0, 50.0],
+      ['gpt-6-sol', 2.0, 10.0],
+      ['gpt-6-luna', 0.1, 0.5],
+    ]
+    for (const [model, inp, out] of cases) {
+      expect(estimateCostUsd('codex', model, { tokens_in: 200_000, tokens_out: 200_000 })).toBeCloseTo((inp + out) * 0.2, 6)
+    }
+    // Cached input is a subset of tokens_in: Astra 100k of 200k cached at $1.00.
+    expect(estimateCostUsd('codex', 'gpt-6-astra', { tokens_in: 200_000, tokens_cache_read: 100_000 })).toBeCloseTo(1.0 + 0.1, 6)
+    expect(estimateCostUsd('codex', 'gpt-6-sol', { tokens_in: 200_000, tokens_cache_read: 200_000 })).toBeCloseTo(0.04, 6)
+  })
+
+  it('re-rates the whole Codex request above the 272K long-context threshold', () => {
+    expect(estimateCostUsd('codex', 'gpt-6.1-sol', { tokens_in: 272_000, tokens_out: 100_000 })).toBeCloseTo(0.544 + 1.0, 6)
+    expect(estimateCostUsd('codex', 'gpt-6.1-sol', { tokens_in: 272_001, tokens_out: 100_000 })).toBeCloseTo(272_001 * 4 / 1e6 + 1.5, 6)
+    expect(estimateCostUsd('codex', 'gpt-6-luna', { tokens_in: 300_000, tokens_cache_read: 100_000, tokens_out: 100_000 })).toBeCloseTo(0.04 + 0.002 + 0.075, 6)
   })
 
   it('returns null when model is null', () => {
@@ -183,7 +201,7 @@ describe('estimateCostUsd', () => {
 
 describe('estimateCostUsd — claude cache-write tier + Anthropic usage semantics (CRIT-1 / refuted-#3)', () => {
   it('bills tokens_cache_create at cacheWritePer1M (1.25x input) for claude', () => {
-    // Sonnet 5.5: input 2.00, output 10.00, cache_read 0.20, cache_write 2.50
+    // Sonnet 5.5: input 2.00, output 10.00, cache_read 0.10, cache_write 2.50
     const cost = estimateCostUsd('claude', 'sonnet', { tokens_cache_create: 1_000_000 })
     // Only cache-write tokens present → 1M * 2.50 / 1M = 2.50
     expect(cost).toBeCloseTo(2.5, 6)
@@ -202,8 +220,8 @@ describe('estimateCostUsd — claude cache-write tier + Anthropic usage semantic
       tokens_in: 1_000_000,
       tokens_cache_read: 1_000_000,
     })
-    // 1M * 2.00 input + 1M * 0.20 cache read = 2.20
-    expect(cost).toBeCloseTo(2.2, 6)
+    // 1M * 2.00 input + 1M * 0.10 cache read = 2.10
+    expect(cost).toBeCloseTo(2.1, 6)
   })
 
   it('sums input + output + cache-read + cache-write for a full claude breakdown', () => {
@@ -213,8 +231,8 @@ describe('estimateCostUsd — claude cache-write tier + Anthropic usage semantic
       tokens_cache_read: 500_000,
       tokens_cache_create: 40_000,
     })
-    // 100k*2.00 + 20k*10.00 + 500k*0.20 + 40k*2.50 all /1M = 0.60
-    expect(cost).toBeCloseTo(0.6, 6)
+    // 100k*2.00 + 20k*10.00 + 500k*0.10 + 40k*2.50 all /1M = 0.55
+    expect(cost).toBeCloseTo(0.55, 6)
   })
 
   it('preserves historical Sonnet estimates when upgrading the alias', () => {
@@ -223,6 +241,33 @@ describe('estimateCostUsd — claude cache-write tier + Anthropic usage semantic
     expect(viaAlias).toBeCloseTo(2.0, 6)
     expect(estimateCostUsd('claude', 'claude-sonnet-5-5', { tokens_in: 1_000_000 })).toBe(viaAlias)
     expect(viaFull).toBeCloseTo(3.0, 6)
+  })
+
+  it('prices the Claude lineup at the 2026-11-01 rate cards (legacy ids keep their own card)', () => {
+    const cr = (m: string) => estimateCostUsd('claude', m, { tokens_cache_read: 1_000_000 })
+    expect(cr('fable')).toBeCloseTo(0.25, 6)
+    expect(cr('claude-fable-5-1')).toBeCloseTo(0.25, 6)
+    expect(cr('claude-fable-5')).toBeCloseTo(1.0, 6)
+    expect(cr('claude-sonnet-5-5')).toBeCloseTo(0.1, 6)
+    expect(cr('claude-sonnet-5')).toBeCloseTo(0.2, 6)
+    expect(cr('claude-opus-5-5')).toBeCloseTo(0.2, 6)
+    expect(cr('claude-opus-5')).toBeCloseTo(0.5, 6)
+    const io = (m: string) => estimateCostUsd('claude', m, { tokens_in: 1_000_000, tokens_out: 1_000_000 })
+    expect(io('claude-sonnet-5')).toBeCloseTo(12, 6)
+    expect(io('claude-sonnet-4-6')).toBeCloseTo(18, 6)
+    expect(io('claude-haiku-4-5-20251001')).toBeCloseTo(6, 6)
+    expect(io('fable')).toBeCloseTo(60, 6)
+  })
+
+  it('bills Haiku 5.5 at the >100K-prompt tier, counting cached prompt tokens toward the threshold', () => {
+    // 100K prompt exactly: base tier 0.10 / 0.50.
+    expect(estimateCostUsd('claude', 'haiku', { tokens_in: 100_000, tokens_out: 100_000 })).toBeCloseTo(0.01 + 0.05, 6)
+    // tokens_in alone is small, but input + cache read + cache write = 110K > 100K
+    // => whole request at 0.50 in / 2.50 out / 0.05 read / 0.625 write.
+    const cost = estimateCostUsd('claude', 'claude-haiku-5-5', {
+      tokens_in: 10_000, tokens_out: 10_000, tokens_cache_read: 90_000, tokens_cache_create: 10_000,
+    })
+    expect(cost).toBeCloseTo(0.005 + 0.025 + 0.0045 + 0.00625, 6)
   })
 })
 

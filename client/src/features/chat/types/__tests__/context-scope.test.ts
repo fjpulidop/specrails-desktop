@@ -85,7 +85,14 @@ describe('context-scope client helpers', () => {
     })
     it('uses model price', () => {
       const cost = estimateCostUsd({ specrails: true, openspec: false, full: false, mcp: false, contractRefine: false }, budget, 'sonnet')
-      expect(cost).toBeCloseTo(0.003, 6)
+      expect(cost).toBeCloseTo(0.002, 6)
+    })
+    it.each([
+      ['fable', 0.01], ['haiku', 0.0001], ['gpt-6.1-sol', 0.002], ['gpt-6.1-terra', 0.001],
+      ['gpt-6-astra', 0.01], ['gpt-6-sol', 0.002], ['gpt-6-luna', 0.0001],
+    ])('uses the 2026-11-01 input price for %s', (model, perK) => {
+      const cost = estimateCostUsd({ specrails: true, openspec: false, full: false, mcp: false, contractRefine: false }, budget, model)
+      expect(cost).toBeCloseTo(perK, 6)
     })
     it.each(['opus', 'claude-opus-5-5'])('estimates Opus 5.5 input for %s', model => {
       expect(estimateCostUsd({ specrails: true, openspec: false, full: false, mcp: false, contractRefine: false }, budget, model)).toBeCloseTo(0.004, 6)

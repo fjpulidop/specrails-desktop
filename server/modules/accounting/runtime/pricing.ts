@@ -7,7 +7,8 @@
 //
 // Every quarter, the maintainer is expected to:
 //   1. Confirm each entry's per-1M-token prices against the provider's
-//      published rate card (https://openai.com/pricing for OpenAI / Codex).
+//      published rate card (https://developers.openai.com/api/docs/pricing for
+//      OpenAI / Codex, https://platform.claude.com/docs/en/pricing for Claude).
 //   2. Bump the entry's `lastReviewedAt` to the verification date.
 //   3. Add new models that have shipped since the last review.
 //
@@ -51,14 +52,18 @@ export interface PriceEntry {
    * Long-context threshold tier (Gemini Pro models are context-tiered): when
    * the TOTAL prompt token count (`tokens_in`) exceeds `thresholdTokens`, the
    * provider bills the ENTIRE request at these higher rates — not just the
-   * marginal tokens beyond the threshold. Cache writes are not re-rated (no
-   * entry with both tiers exists today).
+   * marginal tokens beyond the threshold. For entries with
+   * `inputIncludesCacheReads: false` (Anthropic) the prompt size compared with
+   * the threshold is input + cache reads + cache writes, because
+   * `tokens_in` alone excludes the cached portions of the prompt. Cache
+   * writes are re-rated only when the tier declares `cacheWritePer1M`.
    */
   longContext?: {
     thresholdTokens: number
     inputPer1M: number
     outputPer1M: number
     cacheReadPer1M: number
+    cacheWritePer1M?: number
   }
   /** YYYY-MM-DD of the last quarterly review. Drives the staleness reminder. */
   lastReviewedAt: string
@@ -73,12 +78,47 @@ export interface TokenUsage {
 
 /** Key shape: `<providerId>:<model>` (case-sensitive). */
 export const PRICING: Record<string, PriceEntry> = {
-  // Codex (OpenAI). Reference: https://openai.com/pricing
-  // GPT-5.6 family (GA 2026-07-09): cache reads keep the 90% discount; 5.6+
-  // ALSO bills cache WRITES at 1.25x the uncached input rate (new semantics).
-  'codex:gpt-5.6-sol':   { inputPer1M: 5.00, outputPer1M: 30.00, cacheReadPer1M: 0.50,  cacheWritePer1M: 6.25,  lastReviewedAt: '2026-07-17' },
-  'codex:gpt-5.6-terra': { inputPer1M: 2.50, outputPer1M: 15.00, cacheReadPer1M: 0.25,  cacheWritePer1M: 3.125, lastReviewedAt: '2026-07-17' },
-  'codex:gpt-5.6-luna':  { inputPer1M: 1.00, outputPer1M: 6.00,  cacheReadPer1M: 0.10,  cacheWritePer1M: 1.25,  lastReviewedAt: '2026-07-17' },
+  // Codex (OpenAI). Reference: https://developers.openai.com/api/docs/pricing
+  // (standard tier; models listed at https://developers.openai.com/codex/models,
+  // reviewed 2026-11-01). Prompts above 272K input tokens re-rate the WHOLE
+  // request at the `longContext` tier. The 6.x rate cards publish no cache-write
+  // tier, so none is modelled (cache-create tokens are ignored, fail-soft).
+  'codex:gpt-6.1-sol':   {
+    inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.10, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 4.00, outputPer1M: 15.00, cacheReadPer1M: 0.20 },
+  },
+  'codex:gpt-6.1-terra': {
+    inputPer1M: 1.00, outputPer1M: 5.00, cacheReadPer1M: 0.05, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 2.00, outputPer1M: 7.50, cacheReadPer1M: 0.10 },
+  },
+  'codex:gpt-6-astra':   {
+    inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 1.00, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 20.00, outputPer1M: 75.00, cacheReadPer1M: 2.00 },
+  },
+  'codex:gpt-6-sol':     {
+    inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.20, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 4.00, outputPer1M: 15.00, cacheReadPer1M: 0.40 },
+  },
+  'codex:gpt-6-luna':    {
+    inputPer1M: 0.10, outputPer1M: 0.50, cacheReadPer1M: 0.01, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 0.20, outputPer1M: 0.75, cacheReadPer1M: 0.02 },
+  },
+  // GPT-5.6 family (legacy, no longer listed by Codex): cache reads keep the 90%
+  // discount; 5.6 ALSO bills cache WRITES at 1.25x the uncached input rate.
+  'codex:gpt-5.6-sol':   {
+    inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.40, cacheWritePer1M: 5.00, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 8.00, outputPer1M: 30.00, cacheReadPer1M: 0.80 },
+  },
+  'codex:gpt-5.6-terra': {
+    inputPer1M: 2.00, outputPer1M: 12.00, cacheReadPer1M: 0.20, cacheWritePer1M: 2.50, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 4.00, outputPer1M: 18.00, cacheReadPer1M: 0.40 },
+  },
+  'codex:gpt-5.6-luna':  {
+    inputPer1M: 0.20, outputPer1M: 1.20, cacheReadPer1M: 0.02, cacheWritePer1M: 0.25, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 0.40, outputPer1M: 1.80, cacheReadPer1M: 0.04 },
+  },
+  // Retired from Codex with ChatGPT sign-in (gpt-5.5 2026-10-14, gpt-5.4 and
+  // gpt-5.4-mini 2026-08-31); rows kept so historic invocations still price.
   'codex:gpt-5.5':       { inputPer1M: 1.25, outputPer1M: 10.00, cacheReadPer1M: 0.125, lastReviewedAt: '2026-05-17' },
   'codex:gpt-5.4':       { inputPer1M: 2.50, outputPer1M: 10.00, cacheReadPer1M: 0.25,  lastReviewedAt: '2026-05-17' },
   'codex:gpt-5.4-mini':  { inputPer1M: 0.25, outputPer1M: 2.00,  cacheReadPer1M: 0.025, lastReviewedAt: '2026-05-17' },
@@ -106,26 +146,46 @@ export const PRICING: Record<string, PriceEntry> = {
   'gemini:gemini-2.5-flash':       { inputPer1M: 0.30, outputPer1M: 2.50,  cacheReadPer1M: 0.03,  lastReviewedAt: '2026-06-17' },
   'gemini:gemini-2.5-flash-lite':  { inputPer1M: 0.10, outputPer1M: 0.40,  cacheReadPer1M: 0.01,  lastReviewedAt: '2026-06-17' },
   // Claude (Anthropic). Reference: https://platform.claude.com/docs/en/pricing
+  // (reviewed 2026-11-01).
   // The claude CLI reports `total_cost_usd` natively — that value is always
   // authoritative when present. These entries exist ONLY for the estimation
   // fallback on spawns killed/aborted/timed-out before their terminal `result`
   // event (COST-ACCOUNTING-AUDIT CRIT-1 + refuted-#3), where per-assistant-event
-  // usage is the sole signal. Keys are the CLI's short aliases; full model ids
-  // (e.g. per-event `message.model` like "claude-sonnet-4-6") are collapsed by
-  // family via `resolvePriceEntry`. Cache write = 1.25x input (5-minute-TTL
-  // default); cache reads are model-specific (Opus 5.5 uses 0.05x input).
-  // Anthropic usage semantics: input_tokens
+  // usage is the sole signal. Alias keys (`sonnet`, `opus`, `haiku`, `fable`)
+  // carry the generation Desktop PINS for that alias (PINNED_ALIAS_MODEL_IDS in
+  // claude-adapter.ts); legacy generations have their own exact keys, and other
+  // full model ids (per-event `message.model`) collapse via `resolvePriceEntry`.
+  // Cache write = 1.25x input (5-minute-TTL default); cache reads are
+  // model-specific. Anthropic usage semantics: input_tokens
   // EXCLUDES cache reads/writes → inputIncludesCacheReads: false.
-  'claude:claude-opus-5':   { inputPer1M: 5.00,  outputPer1M: 25.00, cacheReadPer1M: 0.50, cacheWritePer1M: 6.25,  inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
+  // Fable 5.1: https://platform.claude.com/docs/en/models/fable-5-1/overview
+  'claude:fable':            { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 0.25, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
+  'claude:claude-fable-5-1': { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 0.25, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
+  // Fable 5 (legacy): cache hits still bill 1.00.
+  'claude:claude-fable-5':   { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 1.00, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
   // Opus 5.5: https://platform.claude.com/docs/en/models/opus-5-5/overview
-  'claude:opus': { inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.20, cacheWritePer1M: 5.00, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-24' },
-  'claude:claude-opus-5-5': { inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.20, cacheWritePer1M: 5.00, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-24' },
-  'claude:claude-sonnet-5': { inputPer1M: 3.00, outputPer1M: 15.00, cacheReadPer1M: 0.30, cacheWritePer1M: 3.75, inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
+  'claude:opus':             { inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.20, cacheWritePer1M: 5.00, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
+  'claude:claude-opus-5-5':  { inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.20, cacheWritePer1M: 5.00, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
+  // Opus 5 (legacy); Opus 4.5-4.8 share this card via `resolvePriceEntry`.
+  'claude:claude-opus-5':    { inputPer1M: 5.00, outputPer1M: 25.00, cacheReadPer1M: 0.50, cacheWritePer1M: 6.25, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
   // Sonnet 5.5: https://platform.claude.com/docs/en/models/sonnet-5-5/overview
-  'claude:sonnet': { inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.20, cacheWritePer1M: 2.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-30' },
-  'claude:claude-sonnet-5-5': { inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.20, cacheWritePer1M: 2.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-30' },
-  'claude:haiku':  { inputPer1M: 1.00,  outputPer1M: 5.00,  cacheReadPer1M: 0.10, cacheWritePer1M: 1.25,  inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
-  'claude:fable':  { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 1.00, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
+  'claude:sonnet':           { inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.10, cacheWritePer1M: 2.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
+  'claude:claude-sonnet-5-5': { inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.10, cacheWritePer1M: 2.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
+  // Sonnet 5 (legacy): the introductory price became the standard price.
+  'claude:claude-sonnet-5':  { inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.20, cacheWritePer1M: 2.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
+  // Sonnet 4.x (legacy, incl. 4.6): 3 / 15 card.
+  'claude:claude-sonnet-4':  { inputPer1M: 3.00, outputPer1M: 15.00, cacheReadPer1M: 0.30, cacheWritePer1M: 3.75, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
+  // Haiku 5.5: prompts above 100,000 tokens bill the whole request at the higher tier.
+  'claude:haiku': {
+    inputPer1M: 0.10, outputPer1M: 0.50, cacheReadPer1M: 0.01, cacheWritePer1M: 0.125, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 100_000, inputPer1M: 0.50, outputPer1M: 2.50, cacheReadPer1M: 0.05, cacheWritePer1M: 0.625 },
+  },
+  'claude:claude-haiku-5-5': {
+    inputPer1M: 0.10, outputPer1M: 0.50, cacheReadPer1M: 0.01, cacheWritePer1M: 0.125, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 100_000, inputPer1M: 0.50, outputPer1M: 2.50, cacheReadPer1M: 0.05, cacheWritePer1M: 0.625 },
+  },
+  // Haiku 4.5 and older (legacy): 1 / 5 card.
+  'claude:claude-haiku-4-5': { inputPer1M: 1.00, outputPer1M: 5.00, cacheReadPer1M: 0.10, cacheWritePer1M: 1.25, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
 }
 
 /** Claude model families the rate card is keyed on (short CLI aliases). */
@@ -143,7 +203,10 @@ export function resolvePriceEntry(providerId: string, model: string): PriceEntry
   if (providerId === 'claude') {
     // Keep the existing estimates for older concrete Opus generations.
     if (/^claude-opus-(?:4(?:-|$)|5$)/.test(model)) return PRICING['claude:claude-opus-5']
-    if (/^claude-sonnet-(?:4(?:-|$)|5$)/.test(model)) return PRICING['claude:claude-sonnet-5']
+    if (/^claude-sonnet-5$/.test(model)) return PRICING['claude:claude-sonnet-5']
+    if (/^claude-sonnet-4(?:-|$)/.test(model)) return PRICING['claude:claude-sonnet-4']
+    // Haiku 4.5 and older keep the pre-5.5 card; the `haiku` alias is Haiku 5.5.
+    if (/^claude-(?:haiku-[1-4](?:-|$)|3-5-haiku|3-haiku)/.test(model)) return PRICING['claude:claude-haiku-4-5']
     const family = CLAUDE_MODEL_FAMILY.exec(model)
     if (family) return PRICING[`claude:${family[1]}`]
   }
@@ -195,10 +258,15 @@ export function estimateCostUsd(
   // Long-context threshold tier (LOW-5, Gemini Pro): when the total prompt
   // token count exceeds the threshold the WHOLE request re-rates at the
   // higher tier (Google bills the entire request, not the marginal excess).
-  const rates =
-    entry.longContext && (usage.tokens_in ?? 0) > entry.longContext.thresholdTokens
-      ? entry.longContext
-      : entry
+  // Anthropic reports `tokens_in` EXCLUSIVE of cached prompt tokens, so its
+  // prompt size is input + cache reads + cache writes.
+  const promptTokens = entry.inputIncludesCacheReads === false
+    ? (usage.tokens_in ?? 0) + (usage.tokens_cache_read ?? 0) + (usage.tokens_cache_create ?? 0)
+    : (usage.tokens_in ?? 0)
+  const longTier = entry.longContext && promptTokens > entry.longContext.thresholdTokens
+    ? entry.longContext
+    : undefined
+  const rates = longTier ?? entry
   // Default (OpenAI/Google) semantics: `tokens_in` is the TOTAL prompt token
   // count and `tokens_cache_read` is a SUBSET already inside it (input_tokens
   // includes cached_input_tokens). Bill the cached portion at the cache rate
@@ -214,8 +282,9 @@ export function estimateCostUsd(
   const inputCost      = freshInput                        * rates.inputPer1M     / 1_000_000
   const outputCost     = (usage.tokens_out          ?? 0) * rates.outputPer1M    / 1_000_000
   const cacheReadCost  = (usage.tokens_cache_read   ?? 0) * rates.cacheReadPer1M / 1_000_000
-  const cacheWriteCost = entry.cacheWritePer1M !== undefined
-    ? (usage.tokens_cache_create ?? 0) * entry.cacheWritePer1M / 1_000_000
+  const cacheWriteRate = longTier?.cacheWritePer1M ?? entry.cacheWritePer1M
+  const cacheWriteCost = cacheWriteRate !== undefined
+    ? (usage.tokens_cache_create ?? 0) * cacheWriteRate / 1_000_000
     : 0
   return inputCost + outputCost + cacheReadCost + cacheWriteCost
 }

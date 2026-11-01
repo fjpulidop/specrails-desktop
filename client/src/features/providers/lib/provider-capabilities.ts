@@ -113,7 +113,11 @@ const CODEX_BASE_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const
 const CODEX_MODEL_EFFORTS: Record<string, readonly ProviderReasoningEffort[]> = {
   // Codex models/list advertises these six efforts for Sol 6.1 (2026-09-30).
   'gpt-6.1-sol': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
+  'gpt-6.1-terra': CODEX_BASE_EFFORTS,
   'gpt-6-astra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
+  'gpt-6-sol': CODEX_BASE_EFFORTS,
+  // Most efficient tier: efforts up to `max`, no `ultra`.
+  'gpt-6-luna': [...CODEX_BASE_EFFORTS, 'max'],
   'gpt-5.6-sol': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-terra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-luna': [...CODEX_BASE_EFFORTS, 'max'],

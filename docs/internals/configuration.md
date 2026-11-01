@@ -11,7 +11,7 @@ Everything here is verified against `main`. The app server binds to `127.0.0.1` 
 > | Provider | CLI binary | Default model | Emergency rollback |
 > |----------|-----------|---------------|--------------------|
 > | Claude Code | `claude` | `sonnet` | — |
-> | Codex CLI | `codex` | `gpt-5.5` | `SPECRAILS_CODEX_BETA=0` |
+> | Codex CLI | `codex` | `gpt-6.1-sol` | `SPECRAILS_CODEX_BETA=0` |
 > | Gemini CLI | `gemini` | `gemini-3.5-flash` | `SPECRAILS_GEMINI_BETA=0` |
 > | Kimi Code | `kimi` | `k3` | — |
 >
@@ -56,7 +56,7 @@ The Global Settings page is organised into the sections below (it also surfaces 
 | **Terminal Panel** | App-wide defaults for the integrated terminal (font, render mode, copy-on-select, shell integration, image rendering, long-command threshold). | `terminal.*` keys |
 
 > There is **no** global provider-model setting. The default is the adapter
-> default (`sonnet`, `gpt-5.5`, `gemini-3.5-flash`, or Kimi `k3`) resolved at
+> default (`sonnet`, `gpt-6.1-sol`, `gemini-3.5-flash`, or Kimi `k3`) resolved at
 > spawn time. Kimi low/high/max effort is valid only for K3.
 
 **Port is not a live setting.** `desktop_settings` does store a `port` value, but it is display-only. The port the server actually binds is taken from the `--port` argv (default `4200`); changing the stored value does not rebind a running server. Set the port with `--port <n>` on `specrails-desktop start`.

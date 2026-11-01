@@ -61,14 +61,28 @@ spawns, no overrides.
 
 ## What's different across providers
 
-`gpt-6-astra` is available in the spec, agent, rail and standalone-loop model
-pickers and is the Codex **Max** preset. The default remains `gpt-5.5`.
-Its cost stays unavailable until a rate card is configured.
+The spec, agent, rail and standalone-loop model pickers list, in order,
+`gpt-6.1-sol` (the default), `gpt-6.1-terra`, `gpt-6-astra` (the most capable),
+`gpt-6-sol` (the Power preset), `gpt-6-luna` (the most efficient), and the
+legacy `gpt-5.6-*` family, which Codex no longer lists but stays selectable so
+stored selections keep validating (catalog reviewed against
+<https://developers.openai.com/codex/models> on 2026-11-01). `gpt-5.5`,
+`gpt-5.4`, `gpt-5.4-mini` and `gpt-5.3-codex-spark` are retired from Codex with
+ChatGPT sign-in and are not selectable. Costs are estimated from the standard-tier
+rate cards in `server/modules/accounting/runtime/pricing.ts`, with the higher
+rate applied to the whole request above 272K input tokens.
 
-Reasoning choices follow the selected model's CLI capabilities, verified on
-2026-09-05: Astra, Sol and Terra offer `low`, `medium`, `high`, `xhigh`, `max`
-and `ultra`; Luna stops at `max`; GPT-5.5 and GPT-5.4 Mini stop at `xhigh`.
-These models do not offer `minimal`. Mission-originated launches inherit the
+`gpt-6.1-terra` requires Codex CLI 0.159.0 or newer. Desktop's provider-wide
+minimum stays 0.128.0 and does not block other models; with an older CLI the
+Terra turn fails with the CLI's own error, which Desktop shows. The floor is
+recorded as `minCliVersion` on the catalog entry in
+`server/providers/codex-adapter.ts`.
+
+Reasoning choices follow the selected model's CLI capabilities: Astra and
+GPT-6.1 Sol offer `low`, `medium`, `high`, `xhigh`, `max` and `ultra`; GPT-6
+Luna stops at `max`; GPT-6.1 Terra and GPT-6 Sol have no published per-model
+metadata and use the base `low`..`xhigh` set; GPT-5.5 and GPT-5.4 Mini stop at
+`xhigh`. These models do not offer `minimal`. Mission-originated launches inherit the
 mission's model and effort when the engine matches; an explicit launch model
 still takes precedence.
 

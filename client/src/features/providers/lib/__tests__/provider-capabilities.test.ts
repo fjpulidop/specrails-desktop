@@ -322,3 +322,9 @@ it('offers all Codex GPT-6.1 Sol efforts and uses medium as the initial selectio
   expect(reasoningEffortsForProvider('codex', 'gpt-6.1-sol')).toEqual(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
   expect(defaultReasoningEffortForProvider('codex', 'gpt-6.1-sol')).toBe('medium')
 })
+
+it('maps GPT-6.1 Terra / GPT-6 Sol to base efforts and GPT-6 Luna up to max (never ultra)', () => {
+  expect(reasoningEffortsForProvider('codex', 'gpt-6.1-terra')).toEqual(['low', 'medium', 'high', 'xhigh'])
+  expect(reasoningEffortsForProvider('codex', 'gpt-6-sol')).toEqual(['low', 'medium', 'high', 'xhigh'])
+  expect(reasoningEffortsForProvider('codex', 'gpt-6-luna')).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
+})
