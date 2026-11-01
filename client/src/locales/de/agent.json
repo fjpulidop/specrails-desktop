@@ -500,6 +500,28 @@
     "expand": "Vollständige Beschreibung anzeigen",
     "collapse": "Beschreibung einklappen"
   },
+  "intentDraft": {
+    "heading": "Intent",
+    "settled": "Geklärt",
+    "writing": "Intent wird geschrieben…",
+    "pick": "Damit antworten",
+    "problem": "Problem",
+    "outcome": "Angestrebtes Ergebnis",
+    "successSignals": "Woran wir es erkennen",
+    "affects": "Wen und was es betrifft",
+    "constraints": "Rahmenbedingungen",
+    "openQuestions": "Offene Fragen",
+    "restated": "Was ich verstanden habe",
+    "alternative": "Es könnte auch bedeuten",
+    "discriminator": "Was davon?",
+    "pathsLabel": "Wie möchtest du weitermachen?",
+    "explore": "Erkunden",
+    "exploreHint": "Gemeinsam in einer isolierten Intent-Sitzung bauen; die Spec entsteht aus dem Gebauten.",
+    "delegate": "Delegieren",
+    "delegateHint": "Der Agent schreibt die Spec aus diesem Intent zur Prüfung, dann baut ein Rail sie.",
+    "delegateReply": "Delegieren: Schreibe die Spec aus diesem Intent.",
+    "inIntent": "Diese Mission ist im Intent. Mach in der Laufleiste weiter."
+  },
   "problemFrame": {
     "heading": "Rahmen",
     "framing": "Anfrage wird eingeordnet…",

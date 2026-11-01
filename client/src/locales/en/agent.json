@@ -500,6 +500,28 @@
     "expand": "Show full description",
     "collapse": "Collapse description"
   },
+  "intentDraft": {
+    "heading": "Intent",
+    "settled": "Settled",
+    "writing": "Writing the intent…",
+    "pick": "Reply with this",
+    "problem": "Problem",
+    "outcome": "Outcome sought",
+    "successSignals": "How we will know",
+    "affects": "Who and what it affects",
+    "constraints": "Constraints",
+    "openQuestions": "Open questions",
+    "restated": "What I understood",
+    "alternative": "It could also mean",
+    "discriminator": "Which is it?",
+    "pathsLabel": "How do you want to continue?",
+    "explore": "Explore",
+    "exploreHint": "Build it together in an isolated Intent session; the spec comes from what you build.",
+    "delegate": "Delegate",
+    "delegateHint": "The agent writes the spec from this intent for you to review, then a rail builds it.",
+    "delegateReply": "Delegate: write the spec from this intent.",
+    "inIntent": "This mission is in Intent. Continue in the run strip."
+  },
   "problemFrame": {
     "heading": "Framing",
     "framing": "Framing the request…",

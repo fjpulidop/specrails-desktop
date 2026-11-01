@@ -5,6 +5,7 @@
 // `${API_ORIGIN}/api/projects/<id>` that getApiBase() builds for the active one.
 
 import { API_ORIGIN } from '../../../lib/origin'
+import type { SpecIntent } from '../../specs/lib/spec-intent'
 
 /** `closed`: a needs-review Intent the person ended keeping its branch (terminal). */
 export type IntentState = 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'closed' | 'needs-review'
@@ -155,7 +156,8 @@ export const flowApi = {
     return (await call<{ flow: IntentSession | null }>(`${flowBase(projectId)}/by-conversation/${encodeURIComponent(conversationId)}`)).flow
   },
   /** `ticketId`: start from that existing spec (the idea is then optional). */
-  async start(projectId: string, input: { conversationId: string; idea: string; title?: string; repositoryId?: string; ticketId?: number }): Promise<IntentSession> {
+  /** `intent`: start from the mission's settled intent card (stored on the placeholder spec). */
+  async start(projectId: string, input: { conversationId: string; idea: string; title?: string; repositoryId?: string; ticketId?: number; intent?: SpecIntent }): Promise<IntentSession> {
     return (await call<{ flow: IntentSession }>(flowBase(projectId), post(input))).flow
   },
   /** The project's repositories (the entry card's target picker). */

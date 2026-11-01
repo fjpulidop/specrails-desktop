@@ -22,6 +22,7 @@ import { InitialCommitButton } from '../../../components/InitialCommitButton'
 import { HelpHint } from '../../../components/HelpHint'
 import { PRIMARY_ACTION_SHAPE } from '../../missions/components/run-primary'
 import { prefersReducedMotion } from '../../../lib/a11y-prefs'
+import type { SpecIntent } from '../../specs/lib/spec-intent'
 
 interface Props {
   idea: string
@@ -30,6 +31,8 @@ interface Props {
   repositoryId?: string | null
   /** Start from this EXISTING spec (the card shows the spec, not an idea). */
   ticketId?: number | null
+  /** Start from the mission's settled intent (stored on the placeholder spec). */
+  intent?: SpecIntent | null
   projectId: string | null
   conversationId: string | null
   provider?: string | null
@@ -53,7 +56,7 @@ export function focusFlowBar(flowId: string): boolean {
   return true
 }
 
-export function IntentEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, ticketId = null, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, onStarted, onCancel }: Props) {
+export function IntentEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, ticketId = null, intent = null, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, onStarted, onCancel }: Props) {
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
   const ctx = useFlowContext()
@@ -105,7 +108,7 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
     setError(null)
     setErrorCode(null)
     try {
-      onStarted(await ctx.start(projectId, conversationId, idea, title, targetRepositoryId, ticketId))
+      onStarted(await ctx.start(projectId, conversationId, idea, title, targetRepositoryId, ticketId, intent))
     } catch (err) {
       if (err instanceof IntentApiError && err.code === 'feature_unavailable') ctx.loadAvailability(projectId, true)
       setErrorCode(err instanceof IntentApiError ? err.code : null)

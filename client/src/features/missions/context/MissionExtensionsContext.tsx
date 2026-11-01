@@ -43,6 +43,7 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import type { AgentMessageIntent } from '../lib/agent-api'
+import type { SpecIntent } from '../../specs/lib/spec-intent'
 
 export interface MissionFenceCardProps {
   /** The fence tag the card was registered for. */
@@ -221,7 +222,20 @@ export interface MissionRailLaunchAlternativeProps {
   onChosen: () => void
 }
 
+export interface MissionIntentExploreProps {
+  projectId: string | null
+  conversationId: string
+  /** The settled intent of the mission's intent card. */
+  intent: SpecIntent
+  /** The spec title the agent proposed, when any. */
+  title?: string
+  /** A turn is in flight or the card is not the newest one. */
+  disabled: boolean
+}
+
 export interface MissionExtensions {
+  /** The Explore path of a settled intent card (an Intent session from that intent). */
+  IntentExplore?: ComponentType<MissionIntentExploreProps>
   /** Another way to work on the one spec of a rail-launch card (IntentSession). */
   RailLaunchAlternative?: ComponentType<MissionRailLaunchAlternativeProps>
   fenceCards?: Readonly<Record<string, ComponentType<MissionFenceCardProps>>>

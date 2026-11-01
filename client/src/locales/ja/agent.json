@@ -500,6 +500,28 @@
     "expand": "説明をすべて表示",
     "collapse": "説明を折りたたむ"
   },
+  "intentDraft": {
+    "heading": "Intent",
+    "settled": "確定",
+    "writing": "Intent を作成中…",
+    "pick": "これで返答",
+    "problem": "課題",
+    "outcome": "目指す結果",
+    "successSignals": "達成の確かめ方",
+    "affects": "影響を受ける人と対象",
+    "constraints": "制約",
+    "openQuestions": "未解決の問い",
+    "restated": "私の理解",
+    "alternative": "別の解釈",
+    "discriminator": "どちらですか?",
+    "pathsLabel": "どのように進めますか?",
+    "explore": "探索する",
+    "exploreHint": "隔離された Intent セッションで一緒に作ります。spec は作ったものから生まれます。",
+    "delegate": "委任する",
+    "delegateHint": "エージェントがこの Intent から spec を書き、あなたがレビューした後にレールが実装します。",
+    "delegateReply": "委任: この Intent から spec を書いてください。",
+    "inIntent": "このミッションは Intent 中です。実行ストリップで続けてください。"
+  },
   "problemFrame": {
     "heading": "認識の整理",
     "framing": "依頼を整理しています…",

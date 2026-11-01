@@ -13,6 +13,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
+import type { SpecIntent } from '../../specs/lib/spec-intent'
 import { flowApi, type IntentSession, type IntentAvailability, type IntentHandOffResult } from '../lib/intent-api'
 
 /** Conversations in Intent mode, per project (the mission list's mark). */
@@ -59,7 +60,7 @@ export interface IntentContextValue {
   watchOpen: (projectId: string) => () => void
   loadAvailability: (projectId: string, force?: boolean) => void
   /** `ticketId`: start from that existing spec instead of a free idea. */
-  start: (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null, ticketId?: number | null) => Promise<IntentSession>
+  start: (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null, ticketId?: number | null, intent?: SpecIntent | null) => Promise<IntentSession>
   pause: (projectId: string, flow: IntentSession) => Promise<IntentSession>
   resume: (projectId: string, flow: IntentSession) => Promise<IntentSession>
   discard: (projectId: string, flow: IntentSession) => Promise<IntentSession>
@@ -225,8 +226,8 @@ export function IntentProvider({ children }: { children: ReactNode }) {
     return flow
   }, [upsert])
 
-  const start = useCallback(async (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null, ticketId?: number | null) =>
-    apply(projectId, await flowApi.start(projectId, { conversationId, idea, ...(title ? { title } : {}), ...(repositoryId ? { repositoryId } : {}), ...(ticketId ? { ticketId } : {}) })), [apply])
+  const start = useCallback(async (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null, ticketId?: number | null, intent?: SpecIntent | null) =>
+    apply(projectId, await flowApi.start(projectId, { conversationId, idea, ...(title ? { title } : {}), ...(repositoryId ? { repositoryId } : {}), ...(ticketId ? { ticketId } : {}), ...(intent ? { intent } : {}) })), [apply])
   const pause = useCallback(async (projectId: string, flow: IntentSession) => apply(projectId, await flowApi.pause(projectId, flow.id)), [apply])
   const resume = useCallback(async (projectId: string, flow: IntentSession) => {
     setWrappingUp(flow.id, false)

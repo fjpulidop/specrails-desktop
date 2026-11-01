@@ -21,6 +21,7 @@ import { isOpenFlow } from '../lib/intent-api'
 import { useFlowConversationMarks, useFlowRunAttention } from './IntentConversationMarks'
 import { IntentDock } from './IntentDock'
 import { describeFlowRun, useFlowLiveRuns } from './IntentLiveRuns'
+import { IntentExploreAction } from './IntentExploreAction'
 import { IntentOfferCard } from './IntentOfferCard'
 import { IntentRepositoryPromptProvider } from './IntentRepositoryPrompt'
 import { IntentRunCardActions } from './IntentRunCardActions'
@@ -58,6 +59,7 @@ export function useFlowTurnMark(): MissionModeBadge {
 export const FLOW_MISSION_EXTENSIONS: MissionExtensions = Object.freeze({
   useTurnMark: useFlowTurnMark,
   fenceCards: Object.freeze({ [FLOW_OFFER_TAG]: IntentOfferCard }),
+  IntentExplore: IntentExploreAction,
   useConversationMode: useFlowConversationMode,
   ConversationDock: IntentDock,
   useLiveRuns: useFlowLiveRuns,

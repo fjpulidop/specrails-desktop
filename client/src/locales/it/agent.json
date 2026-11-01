@@ -500,6 +500,28 @@
     "expand": "Mostra descrizione completa",
     "collapse": "Comprimi descrizione"
   },
+  "intentDraft": {
+    "heading": "Intent",
+    "settled": "Definito",
+    "writing": "Scrittura dell’intent…",
+    "pick": "Rispondi con questo",
+    "problem": "Problema",
+    "outcome": "Risultato cercato",
+    "successSignals": "Come lo sapremo",
+    "affects": "Chi e cosa riguarda",
+    "constraints": "Vincoli",
+    "openQuestions": "Domande aperte",
+    "restated": "Cosa ho capito",
+    "alternative": "Potrebbe anche significare",
+    "discriminator": "Quale delle due?",
+    "pathsLabel": "Come vuoi proseguire?",
+    "explore": "Esplora",
+    "exploreHint": "Costruiscilo insieme in una sessione Intent isolata; la spec nasce da ciò che costruisci.",
+    "delegate": "Delega",
+    "delegateHint": "L’agente scrive la spec da questo intent perché tu la riveda, poi un rail la costruisce.",
+    "delegateReply": "Delega: scrivi la spec da questo intent.",
+    "inIntent": "Questa missione è in Intent. Continua nella barra di esecuzione."
+  },
   "problemFrame": {
     "heading": "Inquadramento",
     "framing": "Inquadramento della richiesta…",

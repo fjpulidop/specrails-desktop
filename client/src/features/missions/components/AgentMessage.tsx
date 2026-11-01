@@ -22,6 +22,8 @@ import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
 import { intentFor, useLocalIntents } from '../../rails/lib/rail-launch-intents'
 import type { AgentMessageIntent } from '../lib/agent-api'
 import { extractAgentProblemFrame } from './agent-problem-frame'
+import { extractAgentIntentDraft } from './agent-intent-draft'
+import { AgentIntentDraftCard, AgentIntentDraftPending } from './AgentIntentDraftCard'
 import { AgentProblemFrameCard, AgentProblemFramePending } from './AgentProblemFrameCard'
 import { parseAgentRefHref, remarkAgentRefs, type AgentRefTarget } from '../lib/agent-refs'
 import { fetchAgentAttachmentBlob, type AgentAttachment, type AgentContextReference } from '../lib/agent-api'
@@ -493,6 +495,10 @@ function useConversationBusy(conversationId: string | null, rowStreaming: boolea
 function LiveBusyFrameCard({ conversationId, isStreaming, ...rest }: ComponentProps<typeof AgentProblemFrameCard> & { conversationId: string | null }) {
   return <AgentProblemFrameCard {...rest} isStreaming={useConversationBusy(conversationId, !!isStreaming)} />
 }
+
+function LiveBusyIntentCard({ conversationId, isStreaming, ...rest }: ComponentProps<typeof AgentIntentDraftCard> & { conversationId: string | null }) {
+  return <AgentIntentDraftCard {...rest} conversationId={conversationId} isStreaming={useConversationBusy(conversationId, !!isStreaming)} />
+}
 function LiveBusyFenceCard({ Card, ...props }: { Card: ComponentType<MissionFenceCardProps> } & MissionFenceCardProps) {
   const busy = useConversationBusy(props.conversationId, props.isStreaming)
   return <Card {...props} isStreaming={busy} />
@@ -589,11 +595,14 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
   // both when the agent re-frames and re-drafts in one reply. The whole
   // extraction chain is memoized on (content, streaming) so a streaming turn
   // does not reparse three protocols on every frame.
-  const { body, options, frame, framePending, draft, pending, rail, extensionBlocks, extensionPending } = useMemo(() => {
+  const { body, options, intentDraft, intentPending, frame, framePending, draft, pending, rail, extensionBlocks, extensionPending } = useMemo(() => {
     // Small/local models emit protocol JSON under ```json — re-tag first.
     const promoted = tolerantFences ? promoteAgentProtocolFences(content) : content
     const withoutOptions = extractAgentOptions(promoted)
-    const withoutFrame = extractAgentProblemFrame(withoutOptions.body, streaming)
+    // The intent card (intent-mode) replaces the legacy problem frame; stored
+    // conversations may still carry frames, which keep rendering.
+    const withoutIntent = extractAgentIntentDraft(withoutOptions.body, streaming)
+    const withoutFrame = extractAgentProblemFrame(withoutIntent.body, streaming)
     const withoutDraft = extractAgentSpecDraft(withoutFrame.body, streaming)
     // A fenced ```rail-launch block (mission-rail-cards) is stripped too and
     // renders as an editable launch card; feature off ⇒ untouched.
@@ -606,6 +615,8 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
     return {
       body: withoutExtensions.body,
       options: withoutOptions.options,
+      intentDraft: withoutIntent.draft,
+      intentPending: withoutIntent.pending,
       frame: withoutFrame.frame,
       framePending: withoutFrame.pending,
       draft: withoutDraft.draft,
@@ -622,6 +633,19 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
       <div className={cn('max-w-full', MD)}>
         <MessageMarkdown body={body} streaming={!!streaming} remarkPlugins={remarkPlugins} components={markdownComponents} />
       </div>
+      {intentDraft && (
+        // Readings answer the discriminating question; a settled intent offers
+        // Explore and Delegate with equal weight. Newest card only, never mid-turn.
+        <LiveBusyIntentCard
+          draft={intentDraft}
+          isLatest={!!isLatest}
+          isStreaming={!!isStreaming || !!streaming}
+          conversationId={conversationId ?? null}
+          projectId={refsProjectId ?? null}
+          onSelect={onPickOption}
+        />
+      )}
+      {intentPending && <AgentIntentDraftPending />}
       {frame && (
         // Both readings are clickable answers to the discriminating question:
         // the same send() the option chips use, gated to the newest card and

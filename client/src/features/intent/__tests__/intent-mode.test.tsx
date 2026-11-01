@@ -23,6 +23,7 @@ import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { IntentProvider, useConversationFlow } from '../context/IntentContext'
 import { IntentMissionsBridge, useFlowConversationMode } from '../components/IntentMissionsBridge'
 import { IntentEntryCard } from '../components/IntentEntryCard'
+import { IntentExploreAction } from '../components/IntentExploreAction'
 import { AgentRunStrip } from '../../missions/components/AgentRunStrip'
 import { IntentOfferCard } from '../components/IntentOfferCard'
 import { flowStateAnnouncement } from '../components/IntentDock'
@@ -864,5 +865,25 @@ describe('Intent from an existing spec (offer with ticketId)', () => {
     render(<Providers><IntentOfferCard tag="flow-offer" payload={{ idea: 'Calmer onboarding', ticketId: 12 }} index={0} messageId="m1" conversationId="c1" projectId="p1" intents={null} isLatest isStreaming={false} onSend={onSend} /></Providers>)
     await act(async () => { fireEvent.click(screen.getByTestId('flow-offer-choose-implement')) })
     await waitFor(() => expect(onSend).toHaveBeenCalledWith("Let's implement spec #12 on a rail."))
+  })
+})
+
+describe('IntentExploreAction (intent card Explore path)', () => {
+  const intent = { problem: 'Dashboards are noisy', outcome: 'A calm dashboard', successSignals: [], affects: [], constraints: ['No new charts'], openQuestions: [] }
+  it('opens the entry confirmation and starts the session from the intent', async () => {
+    current = null
+    render(<Providers><IntentExploreAction projectId="p1" conversationId="c1" intent={intent} title="Calm dashboard" disabled={false} /></Providers>)
+    fireEvent.click(await screen.findByTestId('intent-explore-action'))
+    expect(screen.getByTestId('flow-entry-idea')).toHaveTextContent('Dashboards are noisy')
+    await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/api/projects/p1/flow') && c.method === 'POST')).toBe(true))
+    expect(calls.find((c) => c.url.endsWith('/api/projects/p1/flow') && c.method === 'POST')!.body).toEqual({ conversationId: 'c1', idea: 'Dashboards are noisy', title: 'Calm dashboard', intent })
+  })
+
+  it('becomes a status line once the mission is in Intent', async () => {
+    current = flow()
+    render(<Providers><IntentExploreAction projectId="p1" conversationId="c1" intent={intent} disabled={false} /></Providers>)
+    expect(await screen.findByTestId('intent-explore-in-intent')).toHaveTextContent('This mission is in Intent')
   })
 })
