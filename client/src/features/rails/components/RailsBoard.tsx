@@ -6,7 +6,6 @@ import { Layers, Plus, Rocket } from 'lucide-react'
 import { RailRow } from './RailRow'
 import { MAX_RAILS, railIdFromIndex, railIndexFromId } from '../lib/rail-id'
 import type { RailMode, RailStatus } from './RailControls'
-import type { FreestyleModel } from '../../agents/components/RailModelSelector'
 import type { ReasoningEffort } from '../../agents/components/RailEffortSelector'
 import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../../../types'
 import { worktreeSummary, type RailWorktreeMap } from '../lib/worktree-progress'
@@ -46,10 +45,6 @@ export interface RailState {
   profileName?: string | null
   /** Selected AI engine for this rail (multi-provider). null/undefined = primary. */
   aiEngine?: string | null
-  /** Selected model for freestyle rails. null/undefined = provider default. */
-  freestyleModel?: FreestyleModel | null
-  /** Per-rail "Interactive" toggle (freestyle only). When true, the launched job
-   *  becomes a persistent chat session with a Finalize button. */
   /** Selected published-loop id (loop mode). */
   selectedLoopId?: string | null
   /** Selected reasoning effort (loop mode). */
@@ -67,8 +62,8 @@ export interface RailState {
  *  - completed → the server marked them `done` (they surface in the Done column).
  *  - failed/canceled/zombie → the server reset them to `todo` (or flagged review),
  *    so they must return to the Specs column rather than stay stranded on the rail.
- * Only this job's ids are removed (never the whole rail) so an freestyle rail —
- * one job per spec — keeps its still-running specs in place. When the message
+ * Only this job's ids are removed (never the whole rail) so a rail that registered
+ * one job per spec keeps its still-running specs in place. When the message
  * carries no ids the whole rail is cleared (best-effort fallback).
  */
 export function applyRailJobOutcome(
@@ -119,7 +114,6 @@ interface RailsBoardProps {
   onModeChange: (railId: string, mode: RailMode) => void
   onProfileChange?: (railId: string, profileName: string | null) => void
   onEngineChange?: (railId: string, aiEngine: string) => void
-  onFreestyleModelChange?: (railId: string, model: FreestyleModel) => void
   onLoopModelChange?: (railId: string, model: string) => void
   /** When true, rails offer "Loop" mode. */
   loopAvailable?: boolean
@@ -198,7 +192,7 @@ function TooltipButton({ tooltip, disabled, reasonId, children }: { tooltip: str
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onWorkspaceSelectionChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount, launchAllHeld = 0, reviewWip }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onWorkspaceSelectionChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount, launchAllHeld = 0, reviewWip }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const running = rails.filter((r) => r.status === 'running').length
   const failed = rails.filter((r) => r.status === 'failed').length
@@ -356,7 +350,6 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                     activeJobId={rail.activeJobId}
                     profileName={rail.profileName ?? null}
                     aiEngine={rail.aiEngine ?? null}
-                    freestyleModel={rail.freestyleModel ?? null}
                     loopModel={rail.loopModel ?? null}
                     worktreeSummary={worktreeSummary(railWorktrees?.[railIndex])}
                     prDecision={railPrDecisions?.get(railIndex) ?? null}
@@ -381,7 +374,6 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                     onModeChange={(mode) => onModeChange(rail.id, mode)}
                     onProfileChange={onProfileChange ? (p) => onProfileChange(rail.id, p) : undefined}
                     onEngineChange={onEngineChange ? (e) => onEngineChange(rail.id, e) : undefined}
-                    onFreestyleModelChange={onFreestyleModelChange ? (m) => onFreestyleModelChange(rail.id, m) : undefined}
                     onLoopModelChange={onLoopModelChange ? (m) => onLoopModelChange(rail.id, m) : undefined}
                     onLoopChange={onLoopChange ? (l) => onLoopChange(rail.id, l) : undefined}
                     onEffortChange={onEffortChange ? (eff) => onEffortChange(rail.id, eff) : undefined}

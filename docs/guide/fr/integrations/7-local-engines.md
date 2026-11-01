@@ -15,7 +15,7 @@ Chaque connexion possède aussi un réglage **Boucle de l'agent**. **Compacte** 
 
 ## Ce que vous obtenez
 
-- Rails (implement, freestyle, boucles personnalisées), Explore et specs Quick, chat et missions s'exécutent sur le modèle local.
+- Rails (implement, boucles personnalisées), Explore et specs Quick, chat et missions s'exécutent sur le modèle local.
 - Les missions conservent leurs outils Specrails et vos serveurs MCP externes.
 - Les sessions reprennent d'un tour à l'autre ; les jobs interactifs fonctionnent.
 - Le coût est honnête : les tokens sont enregistrés, le coût reste *inconnu* sauf si vous saisissez des tarifs (il est alors marqué *estimé*).
@@ -26,7 +26,7 @@ Indisponible sur les moteurs locaux : profils d'agent et rôles personnalisés, 
 
 ## Choisir un modèle
 
-La qualité dépend du modèle, pas de Specrails. Pour les rails, utilisez un modèle de code entraîné au tool calling d'au moins 30B paramètres ; les petits modèles instruct suffisent pour le chat, Explore et les specs Quick. Essayez **Freestyle** ou une session Explore avant de confier un rail implement complet à un nouveau modèle.
+La qualité dépend du modèle, pas de Specrails. Pour les rails, utilisez un modèle de code entraîné au tool calling d'au moins 30B paramètres ; les petits modèles instruct suffisent pour le chat, Explore et les specs Quick. Essayez une session Explore avant de confier un rail implement complet à un nouveau modèle.
 
 ## Désactiver
 

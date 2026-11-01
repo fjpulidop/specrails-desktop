@@ -182,7 +182,7 @@ describe('ReviewPacketPage — above the fold', () => {
     fireEvent.change(screen.getByTestId('packet-revision-input'), { target: { value: 'Fix the API contract across both repos' } })
     fireEvent.click(screen.getByTestId('packet-revision-submit'))
     await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/projects/proj-1/rails/0/launch', expect.objectContaining({
-      body: JSON.stringify({ loopId: 'factory:sdd-quick-openspec', revisionOfDeliveryId: 'del-1', revisionNote: 'Fix the API contract across both repos', repositoryIds: ['web', 'api'] }),
+      body: JSON.stringify({ revisionOfDeliveryId: 'del-1', revisionNote: 'Fix the API contract across both repos', repositoryIds: ['web', 'api'] }),
     })))
   })
 
@@ -640,11 +640,11 @@ describe('ReviewPacketPage — ask for changes (Wave 3)', () => {
 
     await waitFor(() => {
       const launch = calls.find((c) => c.url.includes('/launch'))
-      expect(launch?.body).toEqual({ loopId: 'factory:sdd-quick-openspec', revisionOfDeliveryId: 'del-1', revisionNote: 'make it blue' })
+      expect(launch?.body).toEqual({ revisionOfDeliveryId: 'del-1', revisionNote: 'make it blue' })
     })
   })
 
-  it('follows the new delivery after Quick SDD accepts the change request', async () => {
+  it('follows the new delivery after Implement accepts the change request', async () => {
     fetchSpy('del-2')
     renderPage()
     fireEvent.click(await screen.findByTestId('packet-request-changes'))
@@ -709,7 +709,7 @@ describe('ReviewPacketPage — ask for changes (Wave 3)', () => {
     fetchSpy()
     renderPage()
     fireEvent.click(await screen.findByTestId('packet-request-changes'))
-    const hint = screen.getByText(/Quick SDD applies your change on the existing branch/i)
+    const hint = screen.getByText(/Implement applies your change on the existing branch/i)
     expect(hint.textContent).not.toMatch(/\d+\s*(min|minute)/i)
   })
 })

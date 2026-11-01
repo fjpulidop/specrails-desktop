@@ -23,7 +23,7 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 ## 在某个 spec 上启动一条 rail
 
 1. **把一张 spec 卡片拖**到某条 rail 上。该 spec 的 ID 会出现在这条 rail 的 spec 列表里。（不想拖？用 spec 卡片上的 **放入 Rail** 弹窗——它会为每条 rail 显示一个状态圆点，避免你把活儿丢进一条正忙的通道。）
-2. **在 rail 头部挑一个 Loop。** 一条 rail 运行的是一个 **Loop**——也就是它要做的活儿。默认是内置的 `Implement` loop；你也可以挑 `Freestyle`，或者你自己搭的某个自定义 loop。见 [Loop Builder](the-loop-builder)。
+2. **在 rail 头部挑一个 Loop。** 一条 rail 运行的是一个 **Loop**——也就是它要做的活儿。默认是内置的 `Implement` loop；你也可以挑某个自定义 loop——你自己搭的，或是从 loop 图库里添加的（例如 `Freestyle` 或 `SDD Quick (OpenSpec)`）。见 [Loop Builder](the-loop-builder)。
 3. **按下 ▶ Play。**
 
 就这么简单。rail 会在正确的执行上下文里启动一个 AI CLI 进程，开始跑流水线。
@@ -34,17 +34,18 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 |---------|--------------|
 | **状态标签** | `idle`、`running` 或 `failed`。这里没有单独的"completed"——任务干净地跑完后，rail 会回到 `idle`。 |
 | **spec 列表** | 分配给这条 rail 的 ID。可以再拖进来，也可以拖出去解除关联。 |
-| **Loop 选择器** | 这条 rail 运行的 Loop——内置的（`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`）或某个自定义 loop。见下表。按 rail 单独记忆。 |
+| **Loop 选择器** | 这条 rail 运行的 Loop——内置的 `Implement` 或某个自定义 loop。见下表。按 rail 单独记忆。 |
 | **▶ Play / ■ Stop** | 启动或取消。 |
 
 ### rail 运行的是什么：Loop {#rail-loops}
 
-一条 rail 运行的是一个 **Loop**——干活的配方。有两个 loop 是**内置**的，覆盖了常见情况：
+一条 rail 运行的是一个 **Loop**——干活的配方。有一个 loop 是**内置**的，覆盖了常见情况；其余的 loop 都是自定义 loop，可从图库添加或自己搭建：
 
 | 内置 loop | 命令 | 作用 |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | 一个任务覆盖这条 rail 上的所有 spec。跑完整的 Architect → Developer → Reviewer → Ship 流水线。日常默认选项。 |
-| **Freestyle** | Freestyle | 由 rail 的提供方**绕过**流水线自主实现每个 spec，随后由验证和 Loop Decider 打磨，直到全部通过。每个 spec 一次独立运行。支持 Claude、Codex、Gemini、Kimi 和本地引擎；任务内的交互式聊天仅限 Claude。 |
+
+**Freestyle** 和 **SDD Quick (OpenSpec)** 不再是内置 loop。它们现在是 loop 图库中的普通模板：从 **Loops → 模板** 中添加一个，发布你的副本，然后像任何自定义 loop 一样在 rail 上挑选。应用不会自行提供它们，原先设为这两者之一的 rail 会恢复为 `Implement`。Freestyle 需要支持 Freestyle 的提供方（Claude、Codex、Gemini、Kimi 或本地引擎）。
 
 要运行多个 spec，可以把相关的（最多 3 个）放到同一条 rail 上——`Implement` 会把它们作为一个整体任务运行——或者把彼此独立的 spec 分到多条 rail：每条基于 git 的 rail 都在自己隔离的 worktree 中并行运行。
 

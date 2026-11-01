@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { defaultSampleFolder, readSampleStatus, sampleBilling, type SamplePreset } from '../lib/sample-model'
 import { SAMPLE_GUIDE_KEY, readGuideState, writeGuideState } from '../lib/sample-guide-state'
 
-const preset = (over: Partial<SamplePreset> = {}): SamplePreset => ({ provider: 'claude', model: 'haiku', local: false, loopId: 'factory:sdd-quick-openspec', runCapUsd: 1, ...over })
+const preset = (over: Partial<SamplePreset> = {}): SamplePreset => ({ provider: 'claude', model: 'haiku', local: false, loopId: 'factory:implement', runCapUsd: 2, ...over })
 
 describe('readSampleStatus', () => {
   it('reads a ready answer with its preset, local alternative and estimate', () => {
@@ -10,15 +10,15 @@ describe('readSampleStatus', () => {
       catalog: [{ id: 'tic-tac-toe', name: 'tic-tac-toe', specCount: 3 }],
       sample: { sampleId: 'tic-tac-toe', projectId: 'p1', path: '/h/s', specIds: [1, 2, 3] },
       defaultParentDir: '/h/Specrails Samples',
-      launch: { ready: true, preset: preset(), localPreset: preset({ provider: 'local-lan', model: 'qwen', local: true, runCapUsd: null }), estimate: { minutes: [3, 5], usd: [0.3, 1] }, runCapUsd: 1 },
+      launch: { ready: true, preset: preset(), localPreset: preset({ provider: 'local-lan', model: 'qwen', local: true, runCapUsd: null }), estimate: { minutes: [5, 12], usd: [0.5, 2] }, runCapUsd: 2 },
     })
-    expect(status?.launch).toMatchObject({ ready: true, preset: { model: 'haiku', runCapUsd: 1 }, localPreset: { local: true, runCapUsd: null } })
+    expect(status?.launch).toMatchObject({ ready: true, preset: { model: 'haiku', runCapUsd: 2 }, localPreset: { local: true, runCapUsd: null } })
     expect(status?.sample?.specIds).toEqual([1, 2, 3])
   })
 
   it('treats an unreadable launch as not ready (never a crash) and keeps a safe estimate', () => {
     const status = readSampleStatus({ catalog: [], sample: null, launch: { ready: true, preset: { provider: 1 } } })
-    expect(status?.launch).toMatchObject({ ready: false, reason: 'no_provider', estimate: { minutes: [3, 5], usd: [0.3, 1] }, runCapUsd: 1 })
+    expect(status?.launch).toMatchObject({ ready: false, reason: 'no_provider', estimate: { minutes: [5, 12], usd: [0.5, 2] }, runCapUsd: 2 })
     expect(readSampleStatus(null)).toBeNull()
     expect(readSampleStatus({ launch: { ready: false, reason: 'not_signed_in' } })?.launch).toMatchObject({ ready: false, reason: 'not_signed_in' })
   })

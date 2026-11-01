@@ -246,8 +246,6 @@
     "viewJobLog": "Visualizza log del job",
     "log": "Log",
     "implement": "Implementa",
-    "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle — il provider selezionato implementa la spec in autonomia, senza pipeline",
     "loop": "Loop",
     "loopTitle": "Loop — esegui un loop di automazione pubblicato sulle spec del rail",
     "pickLoop": "Scegli un loop…",
@@ -262,13 +260,10 @@
     "worktreesNeedsReview": "{{count}} da rivedere",
     "execSteps": "{{count}} passi",
     "execLines": "{{count}} righe",
-    "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Consigliato",
     "recommendedOption": "{{label}} · consigliato",
     "loopDescriptions": {
-      "implement": "Pianifica, costruisce e rivede ogni spec, poi prepara la consegna.",
-      "freestyle": "Il provider scelto costruisce la spec in autonomia, senza pipeline.",
-      "openspec": "Scrive una modifica OpenSpec per la spec, la costruisce e poi la archivia."
+      "implement": "Pianifica, costruisce e rivede ogni spec, poi prepara la consegna."
     }
   },
   "railRow": {
@@ -288,19 +283,6 @@
       "title": "Eliminare {{label}}?",
       "body": "Le sue spec tornano nel backlog. Provider, loop e impostazioni PR di questo rail andranno persi."
     }
-  },
-  "freestyleDialog": {
-    "title": "Avvia in modalità Freestyle",
-    "context_one": "{{rail}} · {{count}} spec",
-    "context_other": "{{rail}} · {{count}} spec",
-    "noPipelineTitle": "Nessuna pipeline OpenSpec.",
-    "noPipelineBody": "Il flusso strutturato architect → developer → reviewer viene saltato del tutto.",
-    "autonomyTitle": "Autonomia nativa di {{provider}}.",
-    "autonomyBody": "{{provider}} lavora in autonomia usando agenti nativi e workflow dinamici.",
-    "costTitle": "Costo variabile.",
-    "costBody": "La spesa dipende da cosa decide {{provider}} — può essere più alta del previsto.",
-    "continue": "Continua",
-    "gloss": "Freestyle affida ogni spec direttamente a {{provider}}: un’esecuzione autonoma per spec, senza la pipeline di pianificazione e revisione di OpenSpec."
   },
   "useRails": {
     "fetchFailed": "Impossibile recuperare i rail: {{status}}"
@@ -329,9 +311,7 @@
       "target_pr_unfetchable": "Impossibile recuperare il branch head della PR"
     }
   },
-  "rail": {
-    "rolesNoFreestyle": "Freestyle richiede un unico provider: scegli Implement o un loop prima di passare questo rail ai motori per ruolo."
-  },
+  "rail": {},
   "reviewWip": {
     "badge": "In revisione {{pending}}/{{limit}}",
     "title": "Consegne in attesa di revisione (limite {{limit}}). Fai clic per vederle.",

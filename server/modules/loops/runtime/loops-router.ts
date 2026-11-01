@@ -158,7 +158,7 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
           name: resolved?.name ?? f.name,
           description: resolved?.description ?? f.description,
           mode: f.mode,
-          requiredCapability: f.requiredCapability ?? null,
+          requiredCapability: null, // kept for wire compat: no built-in needs a provider capability any more
           // Absent means launchable (every pre-existing factory loop is).
           launchable: f.launchable !== false,
           graph: resolved?.graph ?? f.graph,

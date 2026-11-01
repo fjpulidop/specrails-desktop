@@ -39,7 +39,7 @@
     "prompt": "Cosa vuoi cambiare?",
     "placeholder": "es. rendi blu il pulsante di accesso",
     "submit": "Invia la modifica",
-    "hint": "Quick SDD applica la modifica sul ramo esistente e aggiorna questa consegna."
+    "hint": "Implement applica la modifica sul ramo esistente e aggiorna questa consegna."
   },
   "discard": {
     "label": "Butta via",

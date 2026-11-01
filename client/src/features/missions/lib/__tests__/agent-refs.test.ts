@@ -302,11 +302,14 @@ describe('loop refs (factory ids + href codec)', () => {
     expect(parseAgentRefHref('#agentref:loop:factory:otherthing')).toBeNull()
   })
 
-  it('linkifies factory:implement|batch|freestyle literals without a context gate', () => {
-    for (const id of ['factory:implement', 'factory:batch', 'factory:freestyle']) {
+  it('linkifies factory:implement|batch literals without a context gate; the retired built-ins no longer link', () => {
+    for (const id of ['factory:implement', 'factory:batch']) {
       expect(refs(splitAgentRefs(`lanzo con ${id} ahora`, noCtx))).toEqual([
         { kind: 'loop', loopId: id, label: id },
       ])
+    }
+    for (const id of ['factory:freestyle', 'factory:sdd-quick-openspec']) {
+      expect(refs(splitAgentRefs(`lanzo con ${id} ahora`, noCtx))).toEqual([])
     }
   })
 

@@ -7,7 +7,7 @@ import { initDesktopDb } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import { registerLoopsRoutes } from './loops-router'
 import { isDefinitionGraph, type LoopGraph } from './loop-graph'
-import { getLoop } from './loops-store'
+import { getLoop, seedBuiltinLoops, updateLoop } from './loops-store'
 import type { BuiltinLoopEnvironment } from './builtin-loops'
 
 function validGraph(): LoopGraph {
@@ -178,27 +178,32 @@ describe('loops-router factory loops', () => {
     const res = await request(app).get('/api/loops/factory')
     expect(res.status).toBe(200)
     const ids = res.body.factoryLoops.map((f: { id: string }) => f.id)
-    expect(ids).toEqual([
-      'factory:implement', 'factory:freestyle',
-      'factory:sdd-quick-openspec',
-    ])
-    // The catalog tells the client which entries have no launch path.
-    const revision = res.body.factoryLoops.find((f: { id: string }) => f.id === 'factory:revision')
-    expect(revision).toBeUndefined()
-    for (const other of res.body.factoryLoops.filter((f: { id: string }) => f.id !== 'factory:revision')) {
-      expect(other.launchable).toBe(true)
-    }
-    const freestyle = res.body.factoryLoops.find((f: { id: string }) => f.id === 'factory:freestyle')
-    expect(freestyle.mode).toBe('freestyle')
-    expect(freestyle.name).toBe('Freestyle')
-    expect(freestyle.requiredCapability).toBe('freestyle')
-    expect(freestyle.description).not.toMatch(/Claude only/i)
-    expect(freestyle.graph.nodes.length).toBeGreaterThan(0)
-    const openspec = res.body.factoryLoops.find((f: { id: string }) => f.id === 'factory:sdd-quick-openspec')
-    expect(openspec.mode).toBe('loop')
-    expect(openspec.requiredCapability).toBeNull()
-    // Both capability variants contain an executable OpenSpec lifecycle.
-    expect(openspec.graph.nodes.some((n: { type: string }) => ['shell', 'core'].includes(n.type))).toBe(true)
+    // Freestyle and Quick SDD are gallery templates, not built-ins.
+    expect(ids).toEqual(['factory:implement'])
+    const [implement] = res.body.factoryLoops
+    expect(implement).toMatchObject({ mode: 'implement', launchable: true, requiredCapability: null, name: 'Implement' })
+    expect(implement.graph.nodes.length).toBeGreaterThan(0)
+  })
+
+  it('serves Freestyle and SDD Quick in the template gallery instead', async () => {
+    const res = await request(app).get('/api/loop-templates')
+    const byId = Object.fromEntries(res.body.templates.map((t: { id: string }) => [t.id, t]))
+    expect(byId['freestyle']).toMatchObject({ name: 'Freestyle', category: 'Automation' })
+    expect(byId['quick-sdd-openspec']).toMatchObject({ name: 'SDD Quick (OpenSpec)', category: 'Planning' })
+    expect(byId['freestyle'].graph.nodes.length).toBeGreaterThan(0)
+  })
+
+  it('instantiates a former built-in from the gallery as an ordinary Draft loop', async () => {
+    const res = await request(app).post('/api/loops/from-template/freestyle').send({})
+    expect(res.status).toBe(201)
+    expect(res.body.loop).toMatchObject({ name: 'Freestyle', status: 'draft' })
+    expect(res.body.loop.id).not.toMatch(/^factory:/)
+    expect(res.body.loop.builtinId).toBeUndefined()
+    const quick = await request(app).post('/api/loops/from-template/quick-sdd-openspec').send({ name: 'My SDD' })
+    expect(quick.body.loop).toMatchObject({ name: 'My SDD', status: 'draft' })
+    // Retired built-in ids are not forkable any more.
+    expect((await request(app).post('/api/loops/factory/factory:freestyle/fork').send({})).status).toBe(404)
+    expect((await request(app).post('/api/loops/factory/factory:sdd-quick-openspec/fork').send({})).status).toBe(404)
   })
 
   it('fork (back-compat alias of duplicate) creates a separate draft (built-in unchanged)', async () => {
@@ -346,7 +351,7 @@ describe('original graph export', () => {
 })
 
 describe('loops-router editable built-ins', () => {
-  const env: BuiltinLoopEnvironment = { loadCapabilities: async () => ({}), freestyleAvailable: () => true }
+  const env: BuiltinLoopEnvironment = { loadCapabilities: async () => ({}) }
   let running: Set<string>
   let builtinApp: Express
   beforeEach(() => {
@@ -366,8 +371,27 @@ describe('loops-router editable built-ins', () => {
 
   it('lists the built-ins as published, editable loops', async () => {
     const rows = await builtins()
-    expect(rows.map((row) => row.id).sort()).toEqual(['factory:freestyle', 'factory:implement', 'factory:sdd-quick-openspec'])
+    expect(rows.map((row) => row.id).sort()).toEqual(['factory:implement'])
     expect(rows.every((row) => row.status === 'published' && row.builtinModified === false)).toBe(true)
+  })
+
+  it('retires rows an earlier release seeded for Freestyle / Quick SDD on the next listing', async () => {
+    const graph = validGraph()
+    seedBuiltinLoops(db, [
+      { id: 'factory:freestyle', name: 'Freestyle', description: 'seeded', graph },
+      { id: 'factory:sdd-quick-openspec', name: 'SDD Quick (OpenSpec)', description: 'seeded', graph },
+    ], { refresh: false })
+    const edited = getLoop(db, 'factory:freestyle')!
+    updateLoop(db, edited.id, { name: 'Freestyle (mine)' })
+    const rows = (await request(builtinApp).get('/api/loops')).body.loops as Array<{ id: string; name: string; builtinId?: string }>
+    // Unedited Quick SDD is gone; the edited Freestyle survives as an ordinary loop with a new id.
+    expect(rows.map((row) => row.id)).not.toContain('factory:sdd-quick-openspec')
+    expect(rows.map((row) => row.id)).not.toContain('factory:freestyle')
+    const kept = rows.find((row) => row.name === 'Freestyle (mine)')
+    expect(kept).toBeDefined()
+    expect(kept!.builtinId).toBeUndefined()
+    expect(kept!.id).not.toMatch(/^factory:/)
+    expect((await request(builtinApp).delete(`/api/loops/${kept!.id}`)).status).toBe(204)
   })
 
   it('edits a built-in in place (Draft), then publishing applies it everywhere', async () => {

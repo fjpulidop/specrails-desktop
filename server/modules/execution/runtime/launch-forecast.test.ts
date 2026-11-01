@@ -84,12 +84,14 @@ describe('getLaunchForecast — loops', () => {
 })
 
 describe('getLaunchForecast — factory modes and commands', () => {
-  it('maps the built-in Implement/Freestyle loops to their slash-command jobs', () => {
+  it('maps the built-in Implement loop (and the Batch alias) to its slash-command jobs; the retired Freestyle id has no command mapping', () => {
     for (let i = 1; i <= 5; i++) job({ ms: i * 60_000, cost: i })
     for (let i = 1; i <= 5; i++) job({ command: '/specrails:freestyle #3 --yes', ms: i * 120_000, cost: i * 2 })
     expect(getLaunchForecast(db, 'proj', { loopId: 'factory:implement', provider: 'claude' }).time).toMatchObject({ p25Ms: 120_000 })
     expect(getLaunchForecast(db, 'proj', { loopId: 'factory:batch' }).time?.sampleCount).toBe(5)
-    expect(getLaunchForecast(db, 'proj', { loopId: 'factory:freestyle' }).cost).toEqual({ lowUsd: 4, highUsd: 8, sampleCount: 5 })
+    // Retired: forecasts by loop id come from loop runs only, never from the old freestyle command jobs.
+    expect(getLaunchForecast(db, 'proj', { loopId: 'factory:freestyle' }).cost).toBeNull()
+    expect(getLaunchForecast(db, 'proj', { commandShape: '/specrails:freestyle' }).cost).toEqual({ lowUsd: 4, highUsd: 8, sampleCount: 5 })
     expect(getLaunchForecast(db, 'proj', { commandShape: '/specrails:implement' }).time?.sampleCount).toBe(5)
   })
 

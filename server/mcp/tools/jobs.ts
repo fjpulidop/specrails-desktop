@@ -83,7 +83,7 @@ export function jobsTools(): McpToolSpec[] {
         'pipeline (read a pipeline\'s jobs + statuses — use after composing dependent spawns), ' +
         'activity (recent activity feed), stats, metrics, phase_breakdown (per-phase timing and token use for jobId), default_spec_model, ' +
         'interactive_turn (ai-spawn — send a steering prompt to any running interactive job; claude jobs are interactive by default), ' +
-        'finalize (settle a running interactive job now — Freestyle jobs otherwise wait for it, others auto-settle), ' +
+        'finalize (settle a running interactive job now — an interactive session otherwise waits for it, others auto-settle), ' +
         'runtime_runs (read the programmatic runtime state of jobId — or every run when omitted — status, nextStep, canResume, recoverableSteps, pendingApproval, pendingQuestion; THIS is how you learn why a run failed and what recovery it offers), ' +
         'runtime_diagnose (read-only recovery assessment for jobId: original scope, completed steps, repeated failures, verification invalidation reasons and `reviewer` — the latest reviewer verdict: approved, score, issues, summary, failing host checks, Intent → Spec derivation coverage; use before recommending retry or relaunch and to explain a rejected review), ' +
         'runtime_evidence (read the durable runtime evidence of jobId; the overview page also carries `reviewer`; page with evidenceId/section/sourceId/cursor/limit), ' +

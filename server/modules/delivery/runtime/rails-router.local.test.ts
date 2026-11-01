@@ -8,6 +8,7 @@ import { createRailsRouter } from './rails-router'
 import { setRailTickets } from './rails-store'
 import { createLoop, publishLoop } from '../../loops/runtime/loops-store'
 import type { LoopGraph } from '../../loops/runtime/loop-graph'
+import { FREESTYLE_TEMPLATE_ID, getLoopTemplate } from '../../loops/runtime/loop-templates'
 import { syncLocalAdapters } from '../../../providers/local-adapter-registry'
 import { unregisterAdapter } from '../../../providers/registry'
 import '../../../providers'
@@ -98,15 +99,23 @@ describe('rails-router launch on a local engine', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
-  it('freestyle is allowed via the capability and enqueues with provider=local (no profile)', async () => {
-    const res = await request(app(['claude', 'local'])).post('/rails/0/launch').send({ mode: 'freestyle', aiEngine: 'local', model: 'custom/model:v1' })
-    expect(res.status).toBe(202)
-    // Loops on ⇒ freestyle derives its factory loop and runs through the
-    // LoopRunManager (no queue job). The custom alias survives byte-for-byte.
+  it('a Freestyle copy from the gallery runs on a local engine as a custom loop (no queue job), keeping the custom alias', async () => {
+    createLoop(desktopDb, { id: 'gallery-freestyle', name: 'Freestyle', graph: getLoopTemplate(FREESTYLE_TEMPLATE_ID)!.graph })
+    publishLoop(desktopDb, 'gallery-freestyle')
+    const res = await request(app(['claude', 'local'])).post('/rails/0/launch').send({ mode: 'loop', loopId: 'gallery-freestyle', aiEngine: 'local', model: 'custom/model:v1' })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
     const arg = run.mock.calls[0][0] as Record<string, unknown>
     expect(arg.provider).toBe('local')
     expect(arg.model).toBe('custom/model:v1')
     expect(arg.runtimeProviderOverride).toEqual({ provider: 'local', model: 'custom/model:v1' })
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('the retired freestyle mode is refused on a local engine too', async () => {
+    const res = await request(app(['claude', 'local'])).post('/rails/0/launch').send({ mode: 'freestyle', aiEngine: 'local', model: 'custom/model:v1' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('builtin_loop_retired')
+    expect(run).not.toHaveBeenCalled()
     expect(enqueue).not.toHaveBeenCalled()
   })
 

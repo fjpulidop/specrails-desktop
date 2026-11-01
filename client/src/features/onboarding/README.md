@@ -44,8 +44,8 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
    (`localStorage`, try/catch, [sample-guide-state](lib/sample-guide-state.ts)).
 5. **Run the first spec** ([RunFirstSpec](components/RunFirstSpec.tsx)): one call to
    action on the rail step. It assigns the first sample spec to a free rail and calls the
-   ordinary `POST /rails/:n/launch` with the **preset** the server chose: Quick SDD
-   (`factory:sdd-quick-openspec`), the cheapest priced model of the cheapest ready cloud
+   ordinary `POST /rails/:n/launch` with the **preset** the server chose: Implement
+   (`factory:implement`), the cheapest priced model of the cheapest ready cloud
    provider, and a per-run soft cap (`runCapUsd`, $1: the run pauses and asks, through the
    existing budget gate) - or a configured local engine, which has no cap. Both are offered
    when both exist.

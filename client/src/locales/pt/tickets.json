@@ -123,7 +123,7 @@
     "title": "Adendos",
     "hint": "Notas de iteração sobre a spec. Seguem com o próximo lançamento sem editar a descrição.",
     "add": "Adicionar adendo",
-    "emptyCta": "Adicione um adendo para iterar sobre esta spec: o próximo lançamento (Implement, SDD Quick, Freestyle…) recebe-o como briefing e a descrição fica intacta.",
+    "emptyCta": "Adicione um adendo para iterar sobre esta spec: o próximo lançamento (Implement ou qualquer loop) recebe-o como briefing e a descrição fica intacta.",
     "openCount_one": "{{count}} aberto",
     "openCount_other": "{{count}} abertos",
     "kind": {

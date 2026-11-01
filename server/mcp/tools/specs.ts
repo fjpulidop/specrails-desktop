@@ -74,7 +74,7 @@ export function specsTools(): McpToolSpec[] {
         'spending_summary (per-ticket AI spend), files_touched (provenance of files an AI job touched for this ticket), ' +
         'list_attachments, get_attachment. ' +
         'SPEC ADDENDA — THE way to iterate on an EXISTING spec without rewriting its description (which drifts the spec and syncs to Jira): ' +
-        'add_addendum (write; id + body [+ kind change-request|review-feedback|clarification|constraint, + title] — an open addendum rides AUTOMATICALLY into the next launch of that spec on ANY loop: implement, SDD Quick, freestyle, custom loops, revisions; every AI step is briefed with it, a delivered spec is iterated instead of re-planned, and the review packet reports it as applied/partial/blocked), ' +
+        'add_addendum (write; id + body [+ kind change-request|review-feedback|clarification|constraint, + title] — an open addendum rides AUTOMATICALLY into the next launch of that spec on ANY loop: implement, custom loops, revisions; every AI step is briefed with it, a delivered spec is iterated instead of re-planned, and the review packet reports it as applied/partial/blocked), ' +
         'list_addenda (read; status open|in_flight|applied|dismissed + the run that claimed/applied each), ' +
         'update_addendum (write; edit an open/dismissed one: kind/title/body — in-flight and applied ones are frozen), ' +
         'dismiss_addendum (write; withdraw it), reopen_addendum (write; a dismissed/applied one rides again), delete_addendum (destructive; never while in flight). ' +
@@ -335,7 +335,7 @@ export function specsTools(): McpToolSpec[] {
             }) as Record<string, unknown>
             return {
               ...r,
-              hint: 'The addendum is open: respect the user\'s explicit loop selection, including factory:implement; otherwise recommend factory:sdd-quick-openspec. Rail launches continue a same-spec pending delivery, and brief every AI step with the full delta and a fresh OpenSpec target. Do not use Revision or edit openspecChangeName. Do not edit the spec description to repeat it.',
+              hint: 'The addendum is open: respect the user\'s explicit loop selection, including factory:implement; otherwise use Implement. Rail launches continue a same-spec pending delivery, and brief every AI step with the full delta and a fresh OpenSpec target. Do not use Revision or edit openspecChangeName. Do not edit the spec description to repeat it.',
             }
           }
           case 'update_addendum': {

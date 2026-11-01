@@ -23,7 +23,7 @@ Du kannst mehrere rails anlegen, um deine Arbeit in benannten Spuren zu organisi
 ## Eine Rail auf einer Spec starten
 
 1. **Zieh eine Spec-Karte** vom SpecsBoard auf eine rail. Die ID der Spec taucht in der Spec-Liste der rail auf. (Du ziehst lieber nicht? Nutze das **Move to rail**-Popover auf der Spec-Karte — es zeigt pro rail einen Status-Punkt, damit du keine Arbeit auf eine belegte Spur ablegst.)
-2. **Wähle einen Loop** im rail-Header. Eine rail führt einen **Loop** aus — das ist die Arbeit, die sie erledigt. Standard ist der eingebaute `Implement`-Loop; du kannst auch `Freestyle` oder einen selbst gebauten Loop wählen. Siehe [Der Loop Builder](the-loop-builder).
+2. **Wähle einen Loop** im rail-Header. Eine rail führt einen **Loop** aus — das ist die Arbeit, die sie erledigt. Standard ist der eingebaute `Implement`-Loop; du kannst auch einen eigenen Loop wählen — einen selbst gebauten oder einen aus der Loop-Galerie (zum Beispiel `Freestyle` oder `SDD Quick (OpenSpec)`). Siehe [Der Loop Builder](the-loop-builder).
 3. **Drück ▶ Play.**
 
 Das war's. Die rail startet einen KI-CLI-Prozess im richtigen Ausführungskontext und legt mit der Pipeline los.
@@ -34,17 +34,18 @@ Das war's. Die rail startet einen KI-CLI-Prozess im richtigen Ausführungskontex
 |---------|--------------|
 | **Status-Pill** | `idle`, `running` oder `failed`. Es gibt kein eigenes „completed“ — eine rail kehrt auf `idle` zurück, wenn ihr Job sauber durchläuft. |
 | **Spec-Liste** | Die IDs, die dieser rail zugewiesen sind. Zieh weitere hinein oder heraus, um sie wieder zu lösen. |
-| **Loop-Auswahl** | Der Loop, den diese rail ausführt — ein eingebauter (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) oder ein eigener Loop. Siehe Tabelle unten. Pro rail gespeichert. |
+| **Loop-Auswahl** | Der Loop, den diese rail ausführt — der eingebaute `Implement` oder ein eigener Loop. Siehe Tabelle unten. Pro rail gespeichert. |
 | **▶ Play / ■ Stop** | Starten oder abbrechen. |
 
 ### Was eine rail ausführt: Loops {#rail-loops}
 
-Eine rail führt einen **Loop** aus — das Rezept für die Arbeit. Zwei Loops sind **eingebaut** und decken die gängigen Fälle ab:
+Eine rail führt einen **Loop** aus — das Rezept für die Arbeit. Ein Loop ist **eingebaut** und deckt den gängigen Fall ab; jeder andere Loop ist ein eigener Loop, den du aus der Galerie hinzufügst oder selbst baust:
 
 | Eingebauter Loop | Befehl | Was er macht |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Ein Job für alle Specs auf der rail. Durchläuft die komplette Pipeline Architect → Developer → Reviewer → Ship. Der Alltagsstandard. |
-| **Freestyle** | Freestyle | Der Provider der rail setzt jede Spec selbstständig um und **umgeht** die Pipeline; danach verfeinern Verifikation und Loop Decider das Ergebnis, bis alles grün ist. Ein unabhängiger Lauf pro Spec. Funktioniert mit Claude, Codex, Gemini, Kimi und lokalen Engines; der interaktive Chat im Job gibt es nur mit Claude. |
+
+**Freestyle** und **SDD Quick (OpenSpec)** sind nicht mehr eingebaut. Sie sind gewöhnliche Vorlagen in der Loop-Galerie: Füge eine unter **Loops → Vorlagen** hinzu, veröffentliche deine Kopie und wähle sie auf einer rail wie jeden eigenen Loop. Die App bietet sie nie von selbst an, und eine rail, die auf eine von beiden gesetzt war, wechselt zurück auf `Implement`. Freestyle braucht einen Provider mit Freestyle-Unterstützung (Claude, Codex, Gemini, Kimi oder eine lokale Engine).
 
 Für mehrere Specs legst du zusammengehörige (bis zu 3) auf eine rail — `Implement` führt sie als einen gemeinsamen Job aus — oder verteilst unabhängige Specs auf mehrere rails: Jede git-gestützte rail läuft parallel in ihrem eigenen isolierten Worktree.
 

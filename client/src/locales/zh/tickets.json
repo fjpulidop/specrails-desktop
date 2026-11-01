@@ -123,7 +123,7 @@
     "title": "附录",
     "hint": "叠加在规格之上的迭代说明。随下一次启动一起传递，不会修改描述。",
     "add": "添加附录",
-    "emptyCta": "添加附录以在此规格上迭代：下一次启动（Implement、SDD Quick、Freestyle…）会收到它作为简报，描述保持不变。",
+    "emptyCta": "添加附录以在此规格上迭代：下一次启动（Implement 或任意循环）会收到它作为简报，描述保持不变。",
     "openCount_one": "{{count}} 个待处理",
     "openCount_other": "{{count}} 个待处理",
     "kind": {

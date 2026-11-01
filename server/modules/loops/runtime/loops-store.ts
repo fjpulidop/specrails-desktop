@@ -296,6 +296,41 @@ export function seedBuiltinLoops(
   return result
 }
 
+export interface BuiltinRetirementResult {
+  /** Unedited rows that were deleted. */
+  removed: string[]
+  /** Edited rows kept as ordinary user loops: previous built-in id → new loop id. */
+  converted: Array<{ from: string; to: string }>
+}
+
+/**
+ * Retire built-in rows whose factory loop no longer exists. An unedited row is
+ * deleted (its content is the gallery template). An edited row is converted into
+ * an ordinary user loop with a fresh id: the user's graph, name, description and
+ * status survive and the row is no longer a built-in (deletable, no restore).
+ * Idempotent: only rows still flagged with a retired `builtin_id` are touched.
+ */
+export function retireBuiltinRows(db: DbInstance, retiredIds: readonly string[], mintId: () => string): BuiltinRetirementResult {
+  const result: BuiltinRetirementResult = { removed: [], converted: [] }
+  if (retiredIds.length === 0) return result
+  db.transaction(() => {
+    for (const id of retiredIds) {
+      const row = db.prepare(`SELECT ${loopColumns} FROM loops WHERE builtin_id = ?`).get(id) as LoopRowRaw | undefined
+      const current = mapRow(row)
+      if (!row || !current) continue
+      if (!current.builtinModified) {
+        db.prepare('DELETE FROM loops WHERE id = ?').run(row.id)
+        result.removed.push(row.id)
+        continue
+      }
+      const to = mintId()
+      db.prepare(`UPDATE loops SET id = ?, builtin_id = NULL, builtin_default_hash = NULL WHERE id = ?`).run(to, row.id)
+      result.converted.push({ from: row.id, to })
+    }
+  }).immediate()
+  return result
+}
+
 /** Reset a built-in row to `builtin` (its current default), Published. */
 export function restoreBuiltinLoop(db: DbInstance, builtin: BuiltinLoopDefault): LoopDefinition | undefined {
   const hash = builtinContentHash({ name: builtin.name, description: builtin.description, graph: builtin.graph })

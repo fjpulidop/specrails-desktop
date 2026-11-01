@@ -344,7 +344,6 @@
   },
   "rails": {
     "publicEntries": [
-      "components/FreestyleLaunchDialog.tsx",
       "components/LaunchAllDialog.tsx",
       "components/MoveToRailPopover.tsx",
       "components/RailControls.tsx",

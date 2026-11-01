@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LOOP_TEMPLATES, LOOP_CATEGORIES, CORE_STARTER_TEMPLATE_IDS, DRIFT_SWEEP_TEMPLATE_ID, getLoopTemplate, fixLoopGraph, loopTemplatesForCapabilities } from './loop-templates'
+import { LOOP_TEMPLATES, LOOP_CATEGORIES, CORE_STARTER_TEMPLATE_IDS, DRIFT_SWEEP_TEMPLATE_ID, FREESTYLE_TEMPLATE_ID, QUICK_SDD_TEMPLATE_ID, getLoopTemplate, fixLoopGraph, loopTemplatesForCapabilities } from './loop-templates'
 import { validateLoopGraph, type LoopGraph } from './loop-graph'
 import { compileLoopToDefinition } from './loop-definition'
 import { LOOP_COMMANDS } from './loop-command-catalog'
@@ -200,5 +200,59 @@ describe('drift sweep template (Core specTrace)', () => {
     expect(validateLoopGraph(graph).valid).toBe(true)
     const compiled = compileLoopToDefinition(graph, { provider: 'claude', constants: { VERIFICATION_PASS: 'VERIFICATION: PASS', VERIFICATION_FAIL: 'VERIFICATION: FAIL' } })
     expect(JSON.stringify(compiled)).toContain('Drift sweep')
+  })
+})
+
+describe('former built-ins in the gallery (Quick SDD, Freestyle)', () => {
+  const core = { engineV2: 1, workflowDefinitions: 1, implementationSteps: 1, workflowAgentSteps: 1 }
+  const ids = [QUICK_SDD_TEMPLATE_ID, FREESTYLE_TEMPLATE_ID]
+
+  it('are ordinary gallery templates on every Core, listed after the starters', () => {
+    for (const capabilities of [undefined, {}, { engineV2: 1 }, core]) {
+      const catalog = loopTemplatesForCapabilities(capabilities)
+      expect(catalog.map((t) => t.id).slice(0, LOOP_TEMPLATES.length + ids.length)).toEqual([...LOOP_TEMPLATES.map((t) => t.id), ...ids])
+      for (const id of ids) {
+        const template = getLoopTemplate(id, capabilities)!
+        expect(template, id).toBeDefined()
+        expect(LOOP_CATEGORIES).toContain(template.category)
+        expect(template.tags.length).toBeGreaterThan(0)
+        expect(template.description.length).toBeGreaterThan(20)
+        expect(validateLoopGraph(template.graph), id).toMatchObject({ valid: true })
+        // Neither is read-only: both write the repository.
+        expect(template.readOnly).toBeFalsy()
+      }
+    }
+    expect(getLoopTemplate(QUICK_SDD_TEMPLATE_ID)?.name).toBe('SDD Quick (OpenSpec)')
+    expect(getLoopTemplate(FREESTYLE_TEMPLATE_ID)?.name).toBe('Freestyle')
+  })
+
+  it('Freestyle keeps its verify → fix cycle and the provider-gated command on every Core', () => {
+    const legacy = getLoopTemplate(FREESTYLE_TEMPLATE_ID, {})!.graph
+    const prompts = legacy.nodes.filter((n) => n.type === 'ai-step').map((n) => String(n.data?.prompt))
+    expect(prompts[0]).toContain('{{cmd:freestyle}}')
+    expect(prompts.some((p) => p.includes('{{cmd:verify}}'))).toBe(true)
+    expect(prompts.some((p) => p.includes('{{cmd:fix}}'))).toBe(true)
+    assertDeciderBranches(FREESTYLE_TEMPLATE_ID, legacy)
+    const definition = getLoopTemplate(FREESTYLE_TEMPLATE_ID, core)!.graph
+    expect(JSON.stringify(definition)).toContain('{{cmd:freestyle}}')
+    expect(legacy.config.timeoutMinutes).toBe(0)
+    expect(legacy.config.aiStepTimeoutMinutes).toBe(0)
+  })
+
+  it('Quick SDD keeps the OpenSpec lifecycle (prepare, strict validation, archive) and its iteration bound', () => {
+    const legacy = getLoopTemplate(QUICK_SDD_TEMPLATE_ID, {})!.graph
+    expect(legacy.nodes.map((n) => n.id)).toEqual(['start', 'ff', 'preflight', 'apply', 'validate', 'archive', 'done'])
+    expect(legacy.config.maxIterations).toBe(3)
+    expect(JSON.stringify(legacy)).toContain('openspec archive {{run.changeId}} -y')
+    const definition = getLoopTemplate(QUICK_SDD_TEMPLATE_ID, core)!.graph
+    expect(definition.nodes.map((n) => (n.data as { kind?: string } | undefined)?.kind)).toContain('openspec-archive')
+  })
+
+  it('ids and names stay unique across the whole catalog', () => {
+    for (const capabilities of [{}, core]) {
+      const catalog = loopTemplatesForCapabilities(capabilities)
+      expect(new Set(catalog.map((t) => t.id)).size).toBe(catalog.length)
+      expect(new Set(catalog.map((t) => t.name)).size).toBe(catalog.length)
+    }
   })
 })

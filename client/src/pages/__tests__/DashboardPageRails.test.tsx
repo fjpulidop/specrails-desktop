@@ -84,12 +84,14 @@ describe('DashboardPage — rail interactions', () => {
     expect(screen.queryByText('Batch')).not.toBeInTheDocument()
   })
 
-  it('loads rails persisted with the removed Batch mode as Implement', async () => {
+  it('loads rails persisted with the removed Batch mode or a retired built-in (Freestyle, Quick SDD) as Implement', async () => {
     mockActiveProjectId = 'proj-legacy'
     localStorage.setItem('specrails-desktop:rails:proj-legacy', JSON.stringify([
       { id: 'rail-1', label: 'Rail 1', ticketIds: [], mode: 'batch-implement', selectedLoopId: 'factory:batch', status: 'idle' },
       { id: 'rail-2', label: 'Rail 2', ticketIds: [], mode: 'batch', status: 'idle' },
-      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'freestyle', selectedLoopId: 'factory:freestyle', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'freestyle', selectedLoopId: 'factory:freestyle', freestyleModel: 'opus', status: 'idle' },
+      { id: 'rail-4', label: 'Rail 4', ticketIds: [], mode: 'loop', selectedLoopId: 'factory:sdd-quick-openspec', status: 'idle' },
+      { id: 'rail-5', label: 'Rail 5', ticketIds: [], mode: 'loop', selectedLoopId: 'factory:revision', status: 'idle' },
     ]))
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ rails: [], activeJobs: {}, activeLoopRuns: {}, profiles: [] }) })
     render(<DashboardPage />)
@@ -97,8 +99,10 @@ describe('DashboardPage — rail interactions', () => {
       const pickers = screen.getAllByTestId('rail-loop-selector') as HTMLSelectElement[]
       expect(pickers[0].value).toBe('factory:implement')
       expect(pickers[1].value).toBe('factory:implement')
+      expect(pickers.slice(2).map((p) => p.value)).toEqual(['factory:implement', 'factory:implement', 'factory:implement'])
     })
     expect(screen.queryByText('Batch')).not.toBeInTheDocument()
+    expect(screen.queryByText('Freestyle')).not.toBeInTheDocument()
   })
 
   it('handleModeChange: clicking Implement button keeps mode', () => {

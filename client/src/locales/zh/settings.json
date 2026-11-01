@@ -32,17 +32,6 @@
     "saved": "前置提示词已保存",
     "saveFailed": "保存前置提示词失败"
   },
-  "freestylePrePrompt": {
-    "title": "Freestyle 前置提示词",
-    "description": "在 Freestyle 模式下发送给所选提供方的指令。Freestyle 跳过 OpenSpec 流水线——直接把该前置提示词加上 spec 文本交给提供方，让其自主实现。留空则使用内置默认值。",
-    "label": "Freestyle 前置提示词",
-    "placeholder": "留空以使用默认的 Freestyle 指令。",
-    "helper": "spec 文本会自动追加在该前置提示词之后。留空 = 使用默认值。",
-    "saveButton": "保存 Freestyle 前置提示词",
-    "resetToDefault": "Freestyle 前置提示词已重置为默认值",
-    "saved": "Freestyle 前置提示词已保存",
-    "saveFailed": "保存 Freestyle 前置提示词失败"
-  },
   "budget": {
     "title": "预算",
     "description": "为此项目设置每日支出上限。达到上限时队列自动暂停。",

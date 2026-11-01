@@ -23,7 +23,7 @@ You can have several rails to organise work into named lanes (one for the featur
 ## Launching a rail on a spec
 
 1. **Drag a spec card** from the SpecsBoard onto a rail. The spec's ID shows up in the rail's spec list. (Prefer not to drag? Use the **Move to rail** popover on the spec card — it shows a status dot per rail so you don't drop work onto a busy lane.)
-2. **Pick a Loop** in the rail header. A rail runs a **Loop** — that's the work it performs. The default is the built-in `Implement` loop; you can also pick `Freestyle`, or a custom loop you built yourself. See [The Loop Builder](the-loop-builder).
+2. **Pick a Loop** in the rail header. A rail runs a **Loop** — that's the work it performs. The default is the built-in `Implement` loop; you can also pick a custom loop — one you built yourself or added from the loop gallery (for example `Freestyle` or `SDD Quick (OpenSpec)`). See [The Loop Builder](the-loop-builder).
 3. **Press ▶ Play.**
 
 That's it. The rail spins up an AI CLI process in the right execution context and starts the pipeline.
@@ -34,18 +34,19 @@ That's it. The rail spins up an AI CLI process in the right execution context an
 |---------|--------------|
 | **Status pill** | `idle`, `running`, or `failed`. There's no separate "completed" — a rail returns to `idle` when its job finishes cleanly. |
 | **Spec list** | The IDs assigned to this rail. Drag more in, drag them out to detach. |
-| **Loop picker** | The Loop this rail runs — a built-in (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) or a custom loop. See the table below. Persisted per rail. |
+| **Loop picker** | The Loop this rail runs — the built-in `Implement` or a custom loop. See the table below. Persisted per rail. |
 | **Profile picker** | Which provider-scoped agent profile runs (Claude rails). Only appears once the effective provider has at least one profile. |
 | **▶ Play / ■ Stop** | Start or cancel. |
 
 ### What a rail runs: Loops {#rail-loops}
 
-A rail runs a **Loop** — the recipe for the work. Two loops are **built in** and cover the common cases:
+A rail runs a **Loop** — the recipe for the work. One loop is **built in** and covers the common case; every other loop is a custom loop you add from the gallery or build yourself:
 
 | Built-in loop | Command | What it does |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | One job covering all specs on the rail. Runs the full Architect → Developer → Reviewer → Ship pipeline. The everyday default. |
-| **Freestyle** | Freestyle | The rail's provider implements each spec autonomously, **bypassing** the pipeline; verification and the Loop Decider then refine it until green. One independent run per spec. Works on Claude, Codex, Gemini, Kimi and local engines; the interactive in-job chat is Claude-only. |
+
+**Freestyle** and **SDD Quick (OpenSpec)** are no longer built in. They are ordinary templates in the loop gallery: add one from **Loops → Templates**, publish your copy and pick it on a rail like any custom loop. The app never offers them on its own, and a rail that was set to either of them reverts to `Implement`. Freestyle needs a provider with Freestyle support (Claude, Codex, Gemini, Kimi or a local engine).
 
 To run several specs, put related ones (up to 3) on one rail — `Implement` runs them as one aggregate job — or spread independent specs across several rails: each git-backed rail runs in parallel in its own isolated worktree.
 

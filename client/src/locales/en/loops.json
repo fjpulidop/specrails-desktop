@@ -308,21 +308,17 @@
       "name": "Implement",
       "description": "Implements every spec on the rail in one run: plan, implement, review and verify, fixing failures until the checks pass."
     },
-    "factory_freestyle": {
-      "name": "Freestyle",
-      "description": "Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green. Claude only."
-    },
-    "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
-      "description": "Spec-to-archive OpenSpec lifecycle: generate artifacts (opsx:ff) → implement (opsx:apply) → verify (opsx:verify); on FAIL loop back and amend the same change, on PASS archive it unattended."
-    },
-    "factory_revision": {
-      "name": "Revision",
-      "description": "Applies the one change you asked for on top of work already delivered, has the reviewer re-grade it, then verifies until green. It does not re-plan from scratch."
-    },
     "drift-sweep": {
       "name": "Drift sweep",
       "description": "Read-only: compares what every capability's spec claims with what the code does and lists each contradiction with file:line. Changes nothing; run it on demand."
+    },
+    "quick-sdd-openspec": {
+      "name": "SDD Quick (OpenSpec)",
+      "description": "Quick spec-driven OpenSpec lifecycle for small contract-governed changes: prepare artifacts, apply and test, validate through the CLI, then archive."
+    },
+    "freestyle": {
+      "name": "Freestyle",
+      "description": "Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green."
     }
   },
   "import": {

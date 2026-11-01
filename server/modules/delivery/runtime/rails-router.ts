@@ -20,7 +20,7 @@ import { resolveProfile } from '../../agents/runtime/profile-manager'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from '../../specs/runtime/spec-models'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
-import { isFactoryLoopId, factoryLoopMode, canonicalFactoryLoopId, factoryLoopForMode, FLOW_SPEC_LOOP_ID } from '../../loops/runtime/loop-factory'
+import { isFactoryLoopId, isRetiredFactoryLoopId, factoryLoopMode, canonicalFactoryLoopId, factoryLoopForMode, FLOW_SPEC_LOOP_ID, RETIRED_FACTORY_REPLACEMENT_ID } from '../../loops/runtime/loop-factory'
 import { resolveBuiltinLoop } from '../../loops/runtime/builtin-loops'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { dominantTicketScope, referencesUnsupportedProviderCommand } from '../../loops/runtime/loop-command-catalog'
@@ -86,22 +86,26 @@ declare module 'express-serve-static-core' {
   }
 }
 
-const VALID_MODES = new Set(['implement', 'freestyle', 'loop'])
+const VALID_MODES = new Set(['implement', 'loop'])
 /** Input aliases of the removed Batch mode. `implement` already runs every rail
  *  ticket in one aggregate run, so stored/agent/mobile `batch-implement` (or
  *  `batch`) requests are normalized to it at the HTTP boundary. */
 const REMOVED_BATCH_MODES = new Set(['batch-implement', 'batch'])
-/** Pre-rename name of Freestyle. Older Companion builds still send
- *  `mode: 'ultracode'`; accept it so un-updated phones keep launching. */
-const LEGACY_FREESTYLE_MODE = 'ultracode'
+/** `freestyle` (and its pre-rename spelling `ultracode`) is a retired rail mode:
+ *  Freestyle is a gallery loop now. Both spellings normalize to `freestyle` so
+ *  one check can recognize them: a launch answers `builtin_loop_retired`; a
+ *  stored rail mode / ticket assignment folds to Implement. */
+const RETIRED_FREESTYLE_MODES = new Set(['freestyle', 'ultracode'])
 export function normalizeRailMode(mode: unknown): unknown {
   if (typeof mode !== 'string') return mode
   if (REMOVED_BATCH_MODES.has(mode)) return 'implement'
-  if (mode === LEGACY_FREESTYLE_MODE) {
-    console.info(`[rails-router] legacy mode "${LEGACY_FREESTYLE_MODE}" accepted as "freestyle"`)
-    return 'freestyle'
-  }
+  if (RETIRED_FREESTYLE_MODES.has(mode)) return 'freestyle'
   return mode
+}
+/** The mode a rail STORES: retired modes fold to Implement. */
+function storedRailMode(mode: unknown): unknown {
+  const normalized = normalizeRailMode(mode)
+  return normalized === 'freestyle' ? 'implement' : normalized
 }
 function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
@@ -404,11 +408,11 @@ export function createRailsRouter(): Router {
       // per-rail profile. Preserve them (an explicit body value still wins).
       const current = getRail(c.db, railIndex)
       const body = req.body ?? {}
-      const requestedMode = normalizeRailMode(body.mode)
+      const requestedMode = storedRailMode(body.mode)
       if (requestedMode !== undefined && (typeof requestedMode !== 'string' || !VALID_MODES.has(requestedMode))) {
-        res.status(400).json({ error: 'mode must be "implement", "freestyle" or "loop"' }); return
+        res.status(400).json({ error: 'mode must be "implement" or "loop"' }); return
       }
-      const mode = typeof requestedMode === 'string' ? requestedMode : String(normalizeRailMode(current.mode))
+      const mode = typeof requestedMode === 'string' ? requestedMode : String(storedRailMode(current.mode))
       const profileName = 'profileName' in body ? body.profileName : current.profileName
       // Preserve the rail's AI engine across ticket reassignment (undefined →
       // setRailTickets re-reads the current value), so it isn't silently wiped.
@@ -671,6 +675,18 @@ export function createRailsRouter(): Router {
     if (originSurface !== undefined && originSurface !== 'dashboard' && originSurface !== 'agent-chat') {
       res.status(400).json({ error: "originSurface must be 'dashboard' or 'agent-chat'" }); return
     }
+    // Freestyle and Quick SDD stopped being built-ins: they are gallery loops with
+    // ordinary ids. A request that still names the retired mode/ids (a stale
+    // Companion or MCP caller, a relaunch of an old run) is refused explicitly
+    // rather than silently turned into a different (heavier) workflow.
+    if (mode === 'freestyle' || isRetiredFactoryLoopId(rawLoopId)) {
+      res.status(400).json({
+        error: 'builtin_loop_retired',
+        ...(typeof rawLoopId === 'string' && isRetiredFactoryLoopId(rawLoopId) ? { loopId: rawLoopId } : { mode }),
+        replacement: RETIRED_FACTORY_REPLACEMENT_ID,
+        detail: 'Freestyle and SDD Quick (OpenSpec) are no longer built-in loops. Launch Implement, or add the loop from the loop gallery and launch the copy with mode "loop" and its loopId.',
+      }); return
+    }
     // rails-as-loops: a FACTORY loop id (`factory:implement` etc.) maps to its
     // legacy mode for validation/back-compat; the loop branch below still runs
     // it through the LoopRunManager. A CUSTOM loop id keeps mode='loop'.
@@ -682,7 +698,7 @@ export function createRailsRouter(): Router {
     }
     if (relaunchSource) relaunchSource.config = { ...relaunchSource.config, mode }
     if (!VALID_MODES.has(mode as string)) {
-      res.status(400).json({ error: 'mode must be "implement", "freestyle" or "loop"' }); return
+      res.status(400).json({ error: 'mode must be "implement" or "loop"' }); return
     }
     // A bare legacy mode (MCP tools, mobile, direct REST — no loopId) must run
     // through the SAME factory loop the dashboard sends, so worktree isolation
@@ -693,10 +709,10 @@ export function createRailsRouter(): Router {
     if (isLoopsEnabled() && (typeof loopId !== 'string' || !loopId) && mode !== 'loop') {
       loopId = factoryLoopForMode(mode as string)?.id
     }
-    // Quick SDD is the continuation default; an explicit workflow takes precedence.
+    // Implement is the continuation default; an explicit workflow takes precedence.
     if (revisionOfDeliveryId && isLoopsEnabled() && !explicitLoop) {
-      loopId = 'factory:sdd-quick-openspec'
-      mode = 'loop'
+      loopId = RETIRED_FACTORY_REPLACEMENT_ID
+      mode = 'implement'
     }
     if (mode === 'loop' && !isLoopsEnabled()) {
       res.status(403).json({ error: 'Loops are disabled on this server' }); return
@@ -761,12 +777,12 @@ export function createRailsRouter(): Router {
       res.status(409).json({ error: 'flow_rail_mismatch', detail: 'The rail must carry exactly the Intent spec' }); return
     }
 
-    // A durable delta defaults to Quick SDD when the caller has not chosen a workflow.
+    // A durable delta runs on Implement when the caller has not chosen a workflow.
     // Revision is a delivery-continuation mechanism, not the implementation loop.
     const launchAddenda = planSpecAddendaAt(ticketStorePathForProject(c.project), rail.ticketIds)
     if (launchAddenda.length && isLoopsEnabled() && !explicitLoop) {
-      loopId = 'factory:sdd-quick-openspec'
-      mode = 'loop'
+      loopId = RETIRED_FACTORY_REPLACEMENT_ID
+      mode = 'implement'
     }
 
     let repositoryIds: string[]
@@ -850,9 +866,6 @@ export function createRailsRouter(): Router {
     // non-core ai-step, decider for the Loop Decider. The rail's "engine" for
     // the non-core path is therefore the verifier's provider.
     const rolesMode = requestedEngineRaw === ROLES_ENGINE
-    if (rolesMode && mode === 'freestyle') {
-      res.status(400).json({ error: 'roles_engine_unsupported_mode', detail: 'Freestyle has no roles; pick a concrete engine' }); return
-    }
     const loopRoleEngines = rolesMode ? loadLoopRoleEngines(c.project) : {}
     const requestedEngine = rolesMode
       ? (loopRoleEngines.verifier?.provider && validateRequestedProvider(c.project, loopRoleEngines.verifier.provider).ok ? loopRoleEngines.verifier.provider : undefined)
@@ -892,31 +905,11 @@ export function createRailsRouter(): Router {
     }
 
 
-    // Freestyle bypasses the OpenSpec pipeline and hands the raw spec to a
-    // provider that explicitly advertises autonomous freestyle support.
-    if (mode === 'freestyle' && getAdapter(engineCheck.provider).capabilities.freestyle !== true) {
-      res.status(400).json({ error: `Freestyle is not supported by provider '${engineCheck.provider}'` }); return
-    }
-    // Freestyle is provider-owned. Validate its optional model against the
-    // selected engine instead of a Claude-only alias list.
-    if (
-      !ownsLoopEngine && mode === 'freestyle' &&
-      model !== undefined &&
-      model !== null &&
-      (typeof model !== 'string' || !isValidModelForProvider(model, engineCheck.provider as SpecProvider))
-    ) {
-      res.status(400).json({
-        error: `model is not valid for provider "${engineCheck.provider}"`,
-        allowed: getModelsForProvider(engineCheck.provider as SpecProvider),
-      }); return
-    }
-
     // Profile selection precedence: explicit body param > stored rail profile > default resolution.
     // `null` in the body explicitly forces legacy mode. Providers without
     // profile support run in legacy mode.
     let resolvedProfile: string | null | undefined
-    if (loopAgents || mode === 'freestyle') {
-      // Freestyle runs no agent pipeline, so profiles do not apply.
+    if (loopAgents) {
       resolvedProfile = null
     } else if (getAdapter(engineCheck.provider).capabilities.profiles !== true) {
       resolvedProfile = null
@@ -1458,57 +1451,12 @@ export function createRailsRouter(): Router {
       }
 
       // A custom-loop launch (mode='loop') with no loopId is invalid — there is
-      // no factory loop to fall back to (only implement/batch/freestyle do).
+      // no factory loop to fall back to (only implement/batch do).
       if (mode === 'loop') {
         res.status(400).json({ error: 'loopId is required for loop mode' }); return
       }
 
       let jobId: string
-
-      if (mode === 'freestyle') {
-        // Freestyle launches ONE independent provider-owned job per ticket — each gets
-        // its own log and runs the spec autonomously (no pipeline). The rail UI
-        // tracks the first job as its representative active job; every job is
-        // registered so its ticket is marked done on completion.
-        const freestyleModel =
-          mode === 'freestyle' && typeof model === 'string'
-            ? model
-            : undefined
-        const jobIds: string[] = []
-        for (const ticketId of rail.ticketIds) {
-          const command = `/specrails:freestyle #${ticketId} --yes`
-          const job = c.queueManager.enqueue(command, 'normal', {
-            profileName: null,
-            provider: engineCheck.provider,
-            ...(freestyleModel ? { model: freestyleModel } : {}),
-            // No explicit `interactive` — QueueManager's spawn-time default
-            // (kill-switch + persistent-stdin capability) covers it, and the
-            // decision survives a restart that way.
-          })
-          jobIds.push(job.id)
-          c.railJobs.set(job.id, { railIndex, mode, ticketIds: [ticketId] })
-          // Spec addenda: claim now (the card shows in_flight at once); the
-          // QueueManager renders the briefing at spawn from the store, so a
-          // restart between enqueue and spawn loses nothing.
-          broadcastSpecAddendaChange((msg) => c.broadcast(msg as never), c.project.id, claimSpecAddendaForRun(ticketStorePathForProject(c.project), [ticketId], job.id))
-          // Jira write-back: push In Progress for any Jira-linked ticket (inert
-          // for non-Jira projects). Best-effort — never blocks the launch.
-          try { c.jiraSyncManager.onRailLaunch([ticketId], job.id) } catch { /* non-fatal */ }
-        }
-        jobId = jobIds[0]
-
-        const startMsg: RailJobStartedMessage = {
-          type: 'rail.job_started',
-          projectId: c.project.id,
-          railIndex,
-          jobId,
-          mode,
-        }
-        c.broadcast(startMsg)
-
-        res.status(202).json({ jobId, jobIds, railIndex, mode })
-        return
-      }
 
       // Implement creates a single job with all ticket IDs (the removed Batch
       // mode is normalized to implement above).
@@ -1556,7 +1504,7 @@ export function createRailsRouter(): Router {
 
     const c = ctx(req)
 
-    // M19: an Freestyle rail registers ONE queue job per ticket. The old code
+    // M19: a rail may register several queue jobs (one per ticket in older runs). The old code
     // stopped only the FIRST matching job, so the remaining N-1 jobs kept running
     // and billing while the UI showed the rail stopped. Collect ALL jobs for this
     // rail index and cancel each (running → kill, queued → cancel).

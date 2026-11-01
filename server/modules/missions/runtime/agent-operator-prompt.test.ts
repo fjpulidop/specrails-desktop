@@ -103,7 +103,7 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_SYSTEM_PROMPT).toContain('never replay completed launches')
   })
   it('states the Kimi capability boundary without advertising Claude-only transforms', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('Claude and Kimi\n  support profiles; every provider supports Freestyle')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Claude and Kimi\n  support profiles; Contract Refine supports Claude and Codex')
     expect(OPERATOR_INSTRUCTIONS).toContain('Contract Refine supports Claude and Codex')
     expect(OPERATOR_INSTRUCTIONS).toContain('structured actions\n  (currently Claude)')
     expect(OPERATOR_INSTRUCTIONS).toContain('structured-action provider (currently\n  Claude)')
@@ -130,19 +130,17 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('Never claim completion\n  you have not verified from a terminal event or a job read')
   })
 
-  it('keeps Freestyle as the user-facing name for the canonical freestyle API values', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('always call the free-form autonomous rail mode\n  `Freestyle`')
-    expect(OPERATOR_INSTRUCTIONS).toContain('The canonical API / id / token values are `freestyle`,\n  `factory:freestyle`, and `{{cmd:freestyle}}`')
-    expect(OPERATOR_INSTRUCTIONS).toContain('Do not invent or use another name for\n  this capability')
-  })
-
-  it('classifies small work with the SDD Quick OpenSpec guardrail', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or')
-    expect(OPERATOR_INSTRUCTIONS).toContain('ticket-local implementation-only work when OpenSpec artifacts are relevant')
-    expect(OPERATOR_INSTRUCTIONS).toContain("loopId:'factory:sdd-quick-openspec'")
-    expect(OPERATOR_INSTRUCTIONS).toContain('openspecChangeName')
-    expect(OPERATOR_INSTRUCTIONS).toContain('ticket, OpenSpec target')
-    expect(OPERATOR_INSTRUCTIONS).toContain('before any ai-spawn action')
+  it('never offers Freestyle or SDD Quick on its own: Implement is the only built-in', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('`factory:implement` is the only one')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle and SDD Quick (OpenSpec) are NOT\n  built-ins')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Never offer,\n  recommend or launch them on your own')
+    expect(OPERATOR_INSTRUCTIONS).toContain('`builtin_loop_retired`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Do not recommend other\n  built-in workflows: there are none.')
+    // No launch path or classification still routes work to the retired ids.
+    expect(OPERATOR_INSTRUCTIONS).not.toContain("loopId:'factory:sdd-quick-openspec'")
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('SDD Quick (OpenSpec) launch path')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('The canonical API / id / token values are `freestyle`')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('Freestyle, SDD Quick (OpenSpec), Implement, or')
     expect(OPERATOR_INSTRUCTIONS).toContain('Never offer direct code edits as the implementation path')
     expect(OPERATOR_INSTRUCTIONS).toContain('Even if the\n  change is "just one or two lines"')
     expect(OPERATOR_INSTRUCTIONS).toContain('update or\n  create a local ticket')
@@ -167,8 +165,8 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('PR-aware relaunch classification')
     expect(OPERATOR_INSTRUCTIONS).toContain("inspect that PR's head\n  branch/diff/files, not only `main`")
     expect(OPERATOR_INSTRUCTIONS).toContain('`openspec/specs/**`, `openspec/changes/**`')
-    expect(OPERATOR_INSTRUCTIONS).toContain('SDD Quick (OpenSpec) may be the right\n  relaunch strategy')
-    expect(OPERATOR_INSTRUCTIONS).toContain('verify against active PR contents before\n  answering')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('may be the right\n  relaunch strategy')
+    expect(OPERATOR_INSTRUCTIONS).toContain('verify against active PR contents before answering')
   })
 })
 
@@ -224,9 +222,9 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
     expect(OPERATOR_SYSTEM_PROMPT).toContain('contractRefine false')
   })
 
-  it('carries the Freestyle naming rule', () => {
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('call the free-form autonomous rail mode Freestyle in prose')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('freestyle/factory:freestyle/{{cmd:freestyle}} are canonical API/id/token values')
+  it('no longer carries the Freestyle naming rule', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('call the free-form autonomous rail mode Freestyle in prose')
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('canonical API/id/token values')
   })
 
   it('carries the support-not-spec and framework-repair rule', () => {
@@ -241,12 +239,12 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
   })
 })
 
-describe('OPERATOR_SYSTEM_PROMPT — SDD Quick policy', () => {
-  it('carries SDD Quick OpenSpec strategy in the compact prompt', () => {
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle, SDD Quick (OpenSpec), or Implement')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle is only ticket-local implementation-only')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('factory:sdd-quick-openspec')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('openspecChangeName')
+describe('OPERATOR_SYSTEM_PROMPT — workflow policy', () => {
+  it('uses Implement unless the user names a saved loop; never offers the gallery loops unprompted', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('use Implement unless the user names one of their own saved loops')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle and SDD Quick (OpenSpec) are gallery loops, not built-ins')
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('Freestyle is only ticket-local implementation-only')
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('uses loopId factory:sdd-quick-openspec')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('never offer direct code edits')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('create or update a local ticket')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('inspect the PR head branch/diff/files')
@@ -505,11 +503,12 @@ describe('rail launch cards (mission-rail-cards)', () => {
   })
 })
 
-// ── flow-mode: Intent is the fourth pre-launch option, offered as a card ───────
+// ── intent-mode: Explore or Delegate, offered by the intent card ───────────────
 describe('Intent or Implement offer (flow-mode)', () => {
   afterEach(() => { delete process.env.SPECRAILS_MISSION_RAIL_CARDS })
 
   it('keeps Intent in the existing classification', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Implement is the built-in strategy')
     expect(OPERATOR_INSTRUCTIONS).toContain('`Intent: offerable`')
   })
 

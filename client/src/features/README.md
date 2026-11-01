@@ -114,7 +114,7 @@ Rules:
 The Welcome screen offers *Try it on a sample project* next to *Add your project*
 ([`features/onboarding`](onboarding/README.md)). It creates a bundled tic-tac-toe repo with three
 specs under `~/Specrails Samples`, registers it, lands on the Board and shows a 3-step guide (spec,
-rail, review) with one cost-bounded **Run the first spec** action: Quick SDD, the cheapest priced
+rail, review) with one cost-bounded **Run the first spec** action: Implement, the cheapest priced
 model (or a configured local engine) and a per-run soft cap, validated against the ready providers
 first, with **Watch a recorded run** as the honest fallback. Costs are always labelled estimates.
 The old platform tour is under **Help**: *Replay tour* in the Docs dialog and the command palette

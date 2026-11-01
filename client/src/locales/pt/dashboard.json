@@ -246,8 +246,6 @@
     "viewJobLog": "Ver log do job",
     "log": "Log",
     "implement": "Implementar",
-    "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle — o fornecedor selecionado implementa a spec de forma autónoma, sem pipeline",
     "loop": "Loop",
     "loopTitle": "Loop — execute um loop de automação publicado nas specs do rail",
     "pickLoop": "Escolha um loop…",
@@ -262,13 +260,10 @@
     "worktreesNeedsReview": "{{count}} para revisar",
     "execSteps": "{{count}} passos",
     "execLines": "{{count}} linhas",
-    "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Recomendado",
     "recommendedOption": "{{label}} · recomendado",
     "loopDescriptions": {
-      "implement": "Planeja, constrói e revisa cada spec e depois prepara a entrega.",
-      "freestyle": "O provedor escolhido constrói a spec sozinho, sem pipeline.",
-      "openspec": "Escreve uma alteração OpenSpec para a spec, constrói e depois arquiva."
+      "implement": "Planeja, constrói e revisa cada spec e depois prepara a entrega."
     }
   },
   "railRow": {
@@ -288,19 +283,6 @@
       "title": "Excluir {{label}}?",
       "body": "As specs voltam para o backlog. O provedor, o loop e as configurações de PR deste rail são perdidos."
     }
-  },
-  "freestyleDialog": {
-    "title": "Lançar em modo Freestyle",
-    "context_one": "{{rail}} · {{count}} spec",
-    "context_other": "{{rail}} · {{count}} specs",
-    "noPipelineTitle": "Sem pipeline OpenSpec.",
-    "noPipelineBody": "O fluxo estruturado architect → developer → reviewer é totalmente ignorado.",
-    "autonomyTitle": "Autonomia nativa do {{provider}}.",
-    "autonomyBody": "O {{provider}} trabalha por conta própria com agentes nativos e workflows dinâmicos.",
-    "costTitle": "Custo variável.",
-    "costBody": "O gasto depende do que o {{provider}} decidir fazer — pode ser superior ao esperado.",
-    "continue": "Continuar",
-    "gloss": "O Freestyle entrega cada spec diretamente ao {{provider}}: uma execução autônoma por spec, sem o pipeline de planejamento e revisão do OpenSpec."
   },
   "useRails": {
     "fetchFailed": "Falha ao obter os rails: {{status}}"
@@ -329,9 +311,7 @@
       "target_pr_unfetchable": "Não foi possível buscar a branch head da PR"
     }
   },
-  "rail": {
-    "rolesNoFreestyle": "O Freestyle precisa de um único provedor — escolha Implement ou um loop antes de mudar este rail para motores por papel."
-  },
+  "rail": {},
   "reviewWip": {
     "badge": "Em revisão {{pending}}/{{limit}}",
     "title": "Entregas aguardando revisão (limite {{limit}}). Clique para listá-las.",

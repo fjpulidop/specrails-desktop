@@ -35,20 +35,18 @@ import { useTicketDetailModal } from '../../specs/context/TicketDetailModalConte
 import { usePlaceParam } from '../../../hooks/usePlaceParam'
 import { SPEC_PARAM } from '../../../lib/places'
 import { CreateTicketModal } from '../../specs/components/CreateTicketModal'
-import { FreestyleLaunchDialog } from '../../rails/components/FreestyleLaunchDialog'
 import { LaunchAllDialog } from '../../rails/components/LaunchAllDialog'
 import { TargetPrLaunchDialog } from '../../delivery/components/TargetPrLaunchDialog'
 import type { RailTargetPr } from '../../rails/components/RailTargetPrSelector'
 import { getApiBase } from '../../../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../../../lib/feature-flags'
-import { effectiveLoopId, deriveRailMode, adoptedSelectedLoopId, offeredRecommendation } from '../../rails/lib/rail-loops'
+import { effectiveLoopId, deriveRailMode, adoptedSelectedLoopId, migratedRailLoopId, offeredRecommendation } from '../../rails/lib/rail-loops'
 import { recommendedLoopForTickets } from '../../specs/lib/spec-triage'
 import { defaultModelForProvider, modelsForProvider } from '../../loops/lib/loop-run-models'
 import {
   defaultReasoningEffortForProvider,
   isRolesEngine,
   providerSupportsCustomModelAliases,
-  providerSupportsFreestyle,
   reasoningEffortsForProvider,
 } from '../../providers/lib/provider-capabilities'
 import { isSafeCustomModelAlias } from '../../providers/lib/model-alias'
@@ -88,11 +86,13 @@ const INITIAL_RAILS: RailState[] = [
 
 /** Normalize a wire/persisted rail mode. The removed Batch mode
  *  (`batch-implement` / `batch`) folds into `implement`, which already runs every
- *  rail ticket in one aggregate run. Unknown values yield undefined. */
+ *  rail ticket in one aggregate run; so does the retired `freestyle` mode
+ *  (Freestyle is a gallery loop now) and its pre-rename `ultracode` spelling.
+ *  Unknown values yield undefined. */
 const toRailMode = (m: string | undefined): RailMode | undefined =>
-  m === 'batch-implement' || m === 'batch'
+  m === 'batch-implement' || m === 'batch' || m === 'freestyle' || m === 'ultracode'
     ? 'implement'
-    : m === 'implement' || m === 'freestyle' || m === 'loop' ? m : undefined
+    : m === 'implement' || m === 'loop' ? m : undefined
 
 function prDecisionContinuesTickets(decision: RailPrStateSnapshot | undefined, ticketIds: number[]): boolean {
   if (!decision) return false
@@ -147,7 +147,6 @@ interface PersistedRail {
   mode: RailMode
   status: RailStatus
   profileName?: string | null
-  freestyleModel?: import('../../agents/components/RailModelSelector').FreestyleModel | null
 }
 
 function loadRails(projectId: string | null): RailState[] | null {
@@ -155,13 +154,15 @@ function loadRails(projectId: string | null): RailState[] | null {
   try {
     const raw = localStorage.getItem(`specrails-desktop:rails:${projectId}`)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as (PersistedRail & { selectedLoopId?: string | null })[]
+    const parsed = JSON.parse(raw) as (PersistedRail & { selectedLoopId?: string | null; freestyleModel?: unknown })[]
     if (!Array.isArray(parsed) || parsed.length === 0) return null
-    // Rails persisted before Batch was removed load as Implement.
-    return parsed.map((rail) => ({
+    // Rails persisted before Batch was removed, or on a since-retired built-in
+    // (Freestyle, Quick SDD, Revision), load as Implement. The retired ids never
+    // reach the server: their picks are migrated here, on read.
+    return parsed.map(({ freestyleModel: _retiredModel, ...rail }: PersistedRail & { selectedLoopId?: string | null; freestyleModel?: unknown }) => ({
       ...rail,
       mode: toRailMode(rail.mode as string | undefined) ?? 'implement',
-      ...(rail.selectedLoopId === 'factory:batch' ? { selectedLoopId: 'factory:implement' } : {}),
+      ...(migratedRailLoopId(rail.selectedLoopId) !== rail.selectedLoopId ? { selectedLoopId: migratedRailLoopId(rail.selectedLoopId) } : {}),
     }))
   } catch { return null }
 }
@@ -208,8 +209,6 @@ export default function DashboardPage() {
     } else closeSpecParam()
   }, [openSpecParam, closeSpecParam])
   const [createTicketOpen, setCreateTicketOpen] = useState(false)
-  // Rail pending an freestyle-launch confirmation (variable-cost warning modal).
-  const [freestyleConfirm, setFreestyleConfirm] = useState<{ railId: string } | null>(null)
   // Confirm-before-launch when the rail targets an EXISTING PR (mis-pick must
   // be visible before any work starts on that PR's head branch).
   const [targetPrConfirm, setTargetPrConfirm] = useState<{ railId: string } | null>(null)
@@ -1220,12 +1219,6 @@ export default function DashboardPage() {
     }
   }
 
-  function handleFreestyleModelChange(railId: string, model: import('../../agents/components/RailModelSelector').FreestyleModel) {
-    // Model lives in localStorage (like mode) and is sent inline at launch —
-    // no dedicated server endpoint needed.
-    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, freestyleModel: model } : r)))
-  }
-
   function handleLoopChange(railId: string, loopId: string) {
     // rails-as-loops: the chosen Loop (factory or custom) drives the rail; derive
     // the legacy `mode` from it so launch + selector gating stay correct. Stored
@@ -1263,26 +1256,16 @@ export default function DashboardPage() {
   async function handleEngineChange(railId: string, aiEngine: string) {
     // Hybrid per-role engines: no single provider to derive model/effort from
     // (each role is configured in Settings ▸ Specrails Agents), so the rail
-    // keeps its model/effort untouched and only the engine flips. Freestyle
-    // is provider-owned prose the server refuses under `roles`.
+    // keeps its model/effort untouched and only the engine flips.
     if (isRolesEngine(aiEngine)) {
-      const current = rails.find((r) => r.id === railId)
-      if (current && (current.mode === 'freestyle' || current.selectedLoopId === 'factory:freestyle')) {
-        notifyError(t('rail.rolesNoFreestyle'))
-        return
-      }
       updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, aiEngine, profileName: null } : r)))
       await persistRailEngine(railId, aiEngine)
       return
     }
-    // Preserve provider-owned Freestyle for capable adapters.
-    // When switching to an adapter without it, fall back to Implement so launch
-    // cannot fail validation. Provider-specific model and effort selections are
-    // also reset if the previous value is not accepted by the new adapter.
+    // Provider-specific model and effort selections are reset if the previous
+    // value is not accepted by the new adapter.
     updateRails((prev) => prev.map((r) => {
       if (r.id !== railId) return r
-      const onFreestyle = r.mode === 'freestyle' || r.selectedLoopId === 'factory:freestyle'
-      const fallback = !providerSupportsFreestyle(aiEngine) && onFreestyle
       const validModels = modelsForProvider(aiEngine)
       const modelIsValid = (value: string | null | undefined) =>
         Boolean(
@@ -1302,12 +1285,7 @@ export default function DashboardPage() {
       return {
         ...r,
         aiEngine,
-        mode: fallback ? 'implement' : r.mode,
-        selectedLoopId: fallback ? 'factory:implement' : r.selectedLoopId,
         profileName: null,
-        freestyleModel: modelIsValid(r.freestyleModel)
-          ? r.freestyleModel
-          : defaultModelForProvider(aiEngine),
         loopModel: nextLoopModel,
         reasoningEffort: r.reasoningEffort && efforts.includes(r.reasoningEffort)
           ? r.reasoningEffort
@@ -1354,12 +1332,6 @@ export default function DashboardPage() {
     }
 
     if (rail.ticketIds.length === 0) return
-
-    // Freestyle bypasses OpenSpec and has variable cost — confirm before launch.
-    if (rail.mode === 'freestyle' && !rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open'))) {
-      setFreestyleConfirm({ railId })
-      return
-    }
 
     // Deliver-into-existing-PR: name the exact PR before launching into it.
     if (rail.targetPr) {
@@ -1408,7 +1380,7 @@ export default function DashboardPage() {
     // preselects (first triaged spec, only when the picker offers it).
     const recommendedLoopId = offeredRecommendation(
       recommendedLoopForTickets(rail.ticketIds.map((id) => ticketMap.get(id))),
-      { freestyleAvailable: !isRolesEngine(rail.aiEngine) && providerSupportsFreestyle(railProvider(rail)), loopsEnabled: FEATURE_LOOPS_SECTION },
+      { loopsEnabled: FEATURE_LOOPS_SECTION },
     )
     const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode, rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open')), recommendedLoopId)
     if (!launchLoopId) {
@@ -1461,11 +1433,8 @@ export default function DashboardPage() {
           // rail.aiEngine: explicit per-rail engine override; undefined → server
           // falls back to the stored rail engine or the project primary.
           ...(rail.aiEngine != null ? { aiEngine: rail.aiEngine } : {}),
-          // Freestyle model picker — only meaningful for freestyle launches.
-          ...(!rolesLaunch && launchMode === 'freestyle' && rail.freestyleModel ? { model: rail.freestyleModel } : {}),
           // Loop model picker — only meaningful for custom loop launches.
           ...(!rolesLaunch && launchMode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}),
-          // Interactive toggle — only meaningful for freestyle launches.
           // rails-as-loops: always send the chosen Loop. The server maps a
           // factory loop → its legacy mode; a custom loop runs the loop engine.
           loopId: launchLoopId,
@@ -1805,7 +1774,6 @@ export default function DashboardPage() {
             onModeChange={handleModeChange}
             onProfileChange={handleProfileChange}
             onEngineChange={handleEngineChange}
-            onFreestyleModelChange={handleFreestyleModelChange}
             onLoopModelChange={handleLoopModelChange}
             loopAvailable={FEATURE_LOOPS_SECTION}
             onLoopChange={handleLoopChange}
@@ -1927,25 +1895,6 @@ export default function DashboardPage() {
         )
       })()}
 
-      {(() => {
-        const r = freestyleConfirm ? rails.find((x) => x.id === freestyleConfirm.railId) : undefined
-        const provider = railProvider(r)
-        return (
-          <FreestyleLaunchDialog
-            open={!!freestyleConfirm && !!r}
-            railLabel={r?.label ?? ''}
-            specCount={r?.ticketIds.length ?? 0}
-            provider={provider}
-            model={r?.freestyleModel ?? defaultModelForProvider(provider)}
-            onCancel={() => setFreestyleConfirm(null)}
-            onConfirm={() => {
-              const id = freestyleConfirm?.railId
-              setFreestyleConfirm(null)
-              if (id) void doLaunchRail(id)
-            }}
-          />
-        )
-      })()}
     </DndContext>
     </JiraDiscardProvider>
   )

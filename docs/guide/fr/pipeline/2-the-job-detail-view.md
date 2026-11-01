@@ -37,7 +37,7 @@ Chaque phase est un agent spécialisé que le moteur du rail invoque dans le ré
 | **Reviewer** | `sr-reviewer` | Relit le résultat. |
 | **Ship** | (variable) | Finalisation : tests, commit, brouillon de PR. |
 
-Quel agent gère chaque phase est décidé par le **profil d'agent** du projet. Le trio de base (`sr-architect`, `sr-developer`, `sr-reviewer`) est toujours présent ; les règles de routage d'un profil peuvent ajouter des agents ou changer celui qui exécute une phase. La barre de progression des phases n'apparaît que lorsque la commande définit réellement des phases — les jobs Freestyle (qui contournent le pipeline) n'en affichent pas.
+Quel agent gère chaque phase est décidé par le **profil d'agent** du projet. Le trio de base (`sr-architect`, `sr-developer`, `sr-reviewer`) est toujours présent ; les règles de routage d'un profil peuvent ajouter des agents ou changer celui qui exécute une phase. La barre de progression des phases n'apparaît que lorsque la commande définit réellement des phases — les jobs qui contournent le pipeline (comme un loop Freestyle de la galerie) n'en affichent pas.
 
 ## Métriques en direct — honnêtes par conception
 
@@ -92,7 +92,7 @@ Quelques points à connaître :
 
 - **Les messages sont mis en file, ils n'interrompent rien.** Envoyez pendant que l'agent streame et votre message attend son tour — il s'exécute comme le prompt suivant, et le job continue de suivre son plan. Un petit compteur indique combien de messages sont en attente.
 - **La ligne de totaux est réelle.** Le composeur affiche un résumé en direct `N tours · $X`, sommé à partir de l'usage réel de chaque tour terminé — cohérent avec la promesse de cette page de ne rien deviner.
-- **Deux façons de terminer une session.** La plupart des jobs **se terminent tout seuls** : dès qu'un tour se conclut sans message en attente, la session se règle et le job se termine — vos messages sont un pilotage optionnel, jamais une obligation. Une action discrète **Conclure maintenant** l'arrête plus tôt avec tout ce qui a été produit. Les jobs **Freestyle** sont l'exception : ils patientent entre les tours jusqu'à ce que vous cliquiez sur **Finalize** — c'est leur conception, une session d'aller-retour que vous fermez quand vous avez fini.
+- **Deux façons de terminer une session.** La plupart des jobs **se terminent tout seuls** : dès qu'un tour se conclut sans message en attente, la session se règle et le job se termine — vos messages sont un pilotage optionnel, jamais une obligation. Une action discrète **Conclure maintenant** l'arrête plus tôt avec tout ce qui a été produit. Les anciens jobs **Freestyle** (antérieurs au passage de Freestyle en loop de la galerie) sont l'exception : ils patientent entre les tours jusqu'à ce que vous cliquiez sur **Finalize** — c'est leur conception, une session d'aller-retour que vous fermez quand vous avez fini.
 - **Dans un loop, les messages vont à l'étape active.** Sur un loop intégré ou personnalisé, votre message atteint **l'étape IA en cours d'exécution**. Entre les étapes (pendant que le Loop Decider réfléchit ou qu'une commande shell tourne), le composeur affiche un bref état *« En attente de la prochaine étape… »* — votre brouillon est conservé, et l'envoi se réactive au démarrage de la prochaine étape IA. **Régler cette étape** termine l'étape en cours plus tôt et laisse le loop avancer avec ce qu'elle a produit.
 
 ## Export de diagnostic

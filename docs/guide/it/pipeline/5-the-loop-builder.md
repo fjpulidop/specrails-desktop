@@ -10,7 +10,7 @@ Crea un corpo riutilizzabile in **Componenti**, dichiara ingressi e uscite e sel
 
 La pubblicazione invia la bozza a Core e mostra gli errori sui passaggi interessati. L'avvio convalida nuovamente la configurazione del progetto. Aggiorna Core se il motore non è disponibile. I loop precedenti conservano editor ed esecuzione; le sezioni seguenti li descrivono.
 
-Un **rail esegue un Loop**. I loop integrati (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) coprono i casi di tutti i giorni, ma il **Loop Builder** ti permette di progettare i tuoi — un editor visuale in stile n8n per automazioni che si ripetono finché un obiettivo non è raggiunto. Questa pagina spiega cos'è un loop, come costruirne uno e come eseguirlo su un rail.
+Un **rail esegue un Loop**. Il loop `Implement` integrato copre il caso di tutti i giorni — e la galleria ne aggiunge altri già pronti, come `Freestyle` e `SDD Quick (OpenSpec)` — ma il **Loop Builder** ti permette di progettare i tuoi — un editor visuale in stile n8n per automazioni che si ripetono finché un obiettivo non è raggiunto. Questa pagina spiega cos'è un loop, come costruirne uno e come eseguirlo su un rail.
 
 ## Loop e rail — la relazione
 
@@ -20,7 +20,7 @@ Un **loop** è la *ricetta* del lavoro; un **rail** è la *corsia* che lo esegue
    Loop Builder (sidebar sinistra)         Rail (destra)
    ───────────────────────────             ─────────────
    Implement   (integrato)                 Rail 1
-   Freestyle   (integrato)     scegli su ►    Loop: Verify-until-green
+   Freestyle   (da galleria)   scegli su ►    Loop: Verify-until-green
    Verify-until-green (tuo)                    ▶ Play
 ```
 
@@ -32,9 +32,15 @@ Quindi: costruisci un loop una volta, poi scegli quel loop su qualsiasi rail in 
 
 ## Aprire il builder
 
-Clicca **Loops** nella sidebar sinistra per vedere la libreria: i tre loop integrati più tutti i tuoi. Aprine uno per visualizzarlo, oppure clicca **New loop** per partire da una tela bianca.
+Clicca **Loops** nella sidebar sinistra per vedere la libreria: il loop `Implement` integrato più tutti i tuoi, e sotto la galleria **Modelli**. Aprine uno per visualizzarlo, oppure clicca **New loop** per partire da una tela bianca.
 
 I loop integrati sono loop veri e modificabili. Aprine uno con **Edit** e cambialo come qualsiasi altro loop: salvando torna in bozza, e **Publish** applica la tua versione a **ogni rail, avvio dalla chat dell'agente e avvio da Companion che usa quel loop integrato**. Finché la modifica è una bozza, i rail continuano a eseguire l'ultima versione pubblicata, quindi nulla si rompe a metà modifica. **Ripristina originale** (sulla card o nel builder) riporta un loop integrato alla versione predefinita; i loop integrati non si possono eliminare. Preferisci una copia separata? Usa **Duplicate**: crea un loop normale e lascia intatto quello integrato.
+
+### Partire dalla galleria
+
+La galleria **Modelli** raccoglie loop già pronti che aggiungi di tua volontà — l'app non li mette mai su un rail da sola. Due di essi un tempo erano integrati: **Freestyle** (affida la spec al modello con piena libertà, poi verifica e rifinisci finché tutto è verde) e **SDD Quick (OpenSpec)** (prepara gli artefatti, applica e testa, valida tramite la CLI, poi archivia). Clicca **Usa modello** per creare una copia in Bozza, modificala se vuoi, **Pubblica**la, e comparirà tra i *Loop personalizzati* nel selettore Loop di ogni rail. Freestyle richiede un provider con supporto Freestyle (ogni provider CLI e engine locale).
+
+Se un rail era ancora impostato sul vecchio Freestyle o SDD Quick integrato, ora ricade su `Implement`. Un loop integrato che avevi modificato prima di questo cambiamento resta come normale loop nella tua libreria, con le tue modifiche intatte.
 
 ## Di cosa è fatto un loop
 

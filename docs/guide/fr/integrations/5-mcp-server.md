@@ -63,7 +63,7 @@ Décochez **Destructif** et il peut construire toute la nuit sans jamais rien su
 > *« Vérifie tous mes projets. Dis-moi lesquels ont des specs dans le backlog sans aucun rail en cours, et démarre la plus prioritaire dans chacun. »*
 
 **Sans les mains pendant que vous codez.** Pilotez Specrails depuis votre éditeur ou à la voix, sans changer de fenêtre :
-> *« Lance le rail 0 en mode Freestyle avec Opus pour le ticket #42 et préviens-moi quand c'est terminé. »*
+> *« Lance le rail 0 avec Opus pour le ticket #42 et préviens-moi quand c'est terminé. »*
 
 **Interrogez les coûts et l'historique.** Vos analyses, en langage clair :
 > *« Où ai-je le plus dépensé en IA cette semaine, par projet et par modèle ? Montre-moi les cinq tickets les plus coûteux. »*

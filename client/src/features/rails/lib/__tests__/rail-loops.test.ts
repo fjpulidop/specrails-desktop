@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { factoryIdForMode, deriveRailMode, effectiveLoopId, adoptedSelectedLoopId, offeredRecommendation, FACTORY_LOOP_ID, FACTORY_RAIL_LOOPS } from '../rail-loops'
+import { factoryIdForMode, deriveRailMode, effectiveLoopId, adoptedSelectedLoopId, offeredRecommendation, migratedRailLoopId, isRetiredRailLoopId, RETIRED_RAIL_LOOP_IDS, FACTORY_LOOP_ID, FACTORY_RAIL_LOOPS } from '../rail-loops'
 
 describe('rail-loops helpers', () => {
   it('maps each legacy mode to its factory loop id', () => {
     expect(factoryIdForMode('implement')).toBe('factory:implement')
-    expect(factoryIdForMode('freestyle')).toBe('factory:freestyle')
     expect(factoryIdForMode('loop')).toBe('') // custom loops have no factory id
     expect(FACTORY_LOOP_ID.implement).toBe('factory:implement')
   })
@@ -13,41 +12,48 @@ describe('rail-loops helpers', () => {
     expect(deriveRailMode('factory:implement')).toBe('implement')
     // Removed Batch loop: saved selections run as Implement.
     expect(deriveRailMode('factory:batch')).toBe('implement')
-    expect(deriveRailMode('factory:freestyle')).toBe('freestyle')
-    // Graph-native factory loops run through the loop engine like custom loops.
-    expect(deriveRailMode('factory:sdd-quick-openspec')).toBe('loop')
-    expect(deriveRailMode('factory:openspec')).toBe('loop')
+    // Retired built-ins (Freestyle, Quick SDD and its aliases) fall back to Implement.
+    for (const id of RETIRED_RAIL_LOOP_IDS) expect(deriveRailMode(id), id).toBe('implement')
     expect(deriveRailMode('some-custom-id')).toBe('loop')
     expect(deriveRailMode(null)).toBe('loop')
   })
 
-  it('defaults addenda to Quick SDD while preserving explicit selections', () => {
+  it('defaults addenda to Implement while preserving explicit selections', () => {
     expect(effectiveLoopId('factory:implement', 'implement', true)).toBe('factory:implement')
-    expect(effectiveLoopId(null, 'implement', true)).toBe('factory:sdd-quick-openspec')
+    expect(effectiveLoopId(null, 'implement', true)).toBe('factory:implement')
+    expect(effectiveLoopId(null, 'loop', true)).toBe('factory:implement')
     expect(effectiveLoopId('custom', 'loop', true)).toBe('custom')
-    expect(effectiveLoopId('factory:revision', 'loop')).toBe('factory:sdd-quick-openspec')
+    expect(effectiveLoopId('factory:revision', 'loop')).toBe('factory:implement')
+  })
+
+  it('reads a persisted pick on a retired built-in as Implement and leaves everything else alone', () => {
+    for (const id of RETIRED_RAIL_LOOP_IDS) {
+      expect(isRetiredRailLoopId(id), id).toBe(true)
+      expect(migratedRailLoopId(id), id).toBe('factory:implement')
+      expect(effectiveLoopId(id, 'loop'), id).toBe('factory:implement')
+    }
+    expect(migratedRailLoopId('factory:batch')).toBe('factory:implement')
+    expect(migratedRailLoopId('factory:implement')).toBe('factory:implement')
+    expect(migratedRailLoopId('3f2a9c1e')).toBe('3f2a9c1e')
+    expect(migratedRailLoopId(null)).toBeNull()
+    expect(migratedRailLoopId(undefined)).toBeUndefined()
+    expect(isRetiredRailLoopId('factory:implement')).toBe(false)
+    expect(isRetiredRailLoopId(null)).toBe(false)
   })
 
   it('round-trips mode → factory id → mode', () => {
-    for (const mode of ['implement', 'freestyle'] as const) {
-      expect(deriveRailMode(factoryIdForMode(mode))).toBe(mode)
-    }
+    expect(deriveRailMode(factoryIdForMode('implement'))).toBe('implement')
   })
 
   it('effectiveLoopId prefers the explicit pick, else the factory id for the mode', () => {
     expect(effectiveLoopId('custom-x', 'loop')).toBe('custom-x')
-    expect(effectiveLoopId('factory:sdd-quick-openspec', 'implement', false)).toBe('factory:sdd-quick-openspec')
     expect(effectiveLoopId(null, 'implement')).toBe('factory:implement')
-    expect(effectiveLoopId(undefined, 'freestyle')).toBe('factory:freestyle')
     expect(effectiveLoopId('', 'loop')).toBe('') // custom mode + no pick → empty (blocks launch)
     expect(effectiveLoopId('factory:batch', 'implement')).toBe('factory:implement') // removed Batch loop
   })
 
-  it('exposes the built-in rail loops with a Freestyle capability requirement', () => {
-    expect(FACTORY_RAIL_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:freestyle', 'factory:sdd-quick-openspec'])
-    expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:freestyle')?.requiresFreestyle).toBe(true)
-    // Graph-native built-in: only offered while the Loops feature is enabled.
-    expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:sdd-quick-openspec')?.requiresLoops).toBe(true)
+  it('exposes Implement as the only built-in rail loop', () => {
+    expect(FACTORY_RAIL_LOOPS.map((f) => f.id)).toEqual(['factory:implement'])
   })
 })
 
@@ -62,17 +68,17 @@ describe('adoptedSelectedLoopId', () => {
 
 describe('spec triage recommendation (launch-triage)', () => {
   it('is the fallback after an explicit pick, only on the default mode and after addenda', () => {
-    expect(effectiveLoopId(undefined, 'implement', false, 'factory:sdd-quick-openspec')).toBe('factory:sdd-quick-openspec')
-    expect(effectiveLoopId('factory:implement', 'implement', false, 'factory:sdd-quick-openspec')).toBe('factory:implement')
-    expect(effectiveLoopId(undefined, 'freestyle', false, 'factory:sdd-quick-openspec')).toBe('factory:freestyle')
-    expect(effectiveLoopId(undefined, 'implement', true, 'factory:freestyle')).toBe('factory:sdd-quick-openspec')
+    expect(effectiveLoopId(undefined, 'implement', false, 'custom-loop')).toBe('custom-loop')
+    expect(effectiveLoopId('factory:implement', 'implement', false, 'custom-loop')).toBe('factory:implement')
+    expect(effectiveLoopId(undefined, 'loop', false, 'custom-loop')).toBe('')
+    expect(effectiveLoopId(undefined, 'implement', true, 'custom-loop')).toBe('factory:implement')
     expect(effectiveLoopId(undefined, 'implement', false, null)).toBe('factory:implement')
   })
 
   it('offers only loops the rail picker lists', () => {
     expect(offeredRecommendation('factory:implement')).toBe('factory:implement')
-    expect(offeredRecommendation('factory:freestyle', { freestyleAvailable: false })).toBeNull()
-    expect(offeredRecommendation('factory:sdd-quick-openspec', { loopsEnabled: false })).toBeNull()
+    // Retired built-ins are never preselected, even from a stale stored triage.
+    for (const id of RETIRED_RAIL_LOOP_IDS) expect(offeredRecommendation(id), id).toBeNull()
     expect(offeredRecommendation('factory:flow-spec')).toBeNull()
     expect(offeredRecommendation('custom-1', { loopsEnabled: true })).toBe('custom-1')
     expect(offeredRecommendation('custom-1', { loopsEnabled: false })).toBeNull()

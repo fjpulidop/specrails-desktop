@@ -253,7 +253,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   }, [act, activeProjectId, load, packet, verbs, delivery, repositoryId, operationBusy, isCurrentScope])
 
   /**
-   * "Ask for changes" launches Quick SDD against THIS
+   * "Ask for changes" launches a revision (Implement, the server default) against THIS
    * generation. The server re-validates the exemption, so a raced decision (the
    * delivery was just accepted elsewhere) fails closed with a clear message
    * rather than appending work to branches nobody is reviewing any more.
@@ -267,7 +267,6 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          loopId: 'factory:sdd-quick-openspec',
           revisionOfDeliveryId: delivery?.prDeliveryId ?? packet.prDeliveryId,
           revisionNote: revisionNote.trim(),
           ...(delivery?.executionManifest ? { repositoryIds: delivery.executionManifest.selectedRepositoryIds } : {}),

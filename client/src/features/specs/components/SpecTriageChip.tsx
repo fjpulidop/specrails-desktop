@@ -11,8 +11,6 @@ import { modelLabel } from '../../../lib/model-label'
 /** Built-in loop ids → their existing rail labels (dashboard namespace). */
 const FACTORY_LABEL_KEYS: Record<string, string> = {
   'factory:implement': 'dashboard:railControls.implement',
-  'factory:freestyle': 'dashboard:railControls.freestyle',
-  'factory:sdd-quick-openspec': 'dashboard:railControls.openspec',
 }
 
 const CONFIDENCE_DOT: Record<SpecTriageReady['confidence'], string> = {
@@ -27,7 +25,7 @@ export function triageLoopLabel(t: (key: string) => string, triage: Pick<SpecTri
   return key ? t(key) : triage.recommendedLoopName ?? triage.recommendedLoop
 }
 
-/** One-line structured summary ("S · SDD Quick · high"), shared with the mission rail card. */
+/** One-line structured summary ("S · Implement · high"), shared with the mission rail card. */
 export function TriageSummaryLine({ triage, className }: { triage: SpecTriageReady; className?: string }) {
   const { t } = useTranslation('specs')
   return (

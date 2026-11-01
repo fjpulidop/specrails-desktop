@@ -704,8 +704,9 @@ describe('useRailLaunchProposals', () => {
 })
 
 describe('AgentRailLaunchCard spec triage (launch-triage)', () => {
-  const triage = { status: 'ready', size: 'S', filesLikely: [], publicInterfaces: false, dataModel: false, securitySurface: false, recommendedLoop: 'factory:sdd-quick-openspec', recommendedMode: 'implement', rationale: 'Single file, no schema change', confidence: 'high', inputsHash: 'sha256:h', model: 'haiku', costUsd: 0.01, computedAt: 't' }
+  const triage = { status: 'ready', size: 'S', filesLikely: [], publicInterfaces: false, dataModel: false, securitySurface: false, recommendedLoop: 'factory:sdd-quick-openspec', recommendedLoopName: 'SDD Quick (OpenSpec)', recommendedMode: 'implement', rationale: 'Single file, no schema change', confidence: 'high', inputsHash: 'sha256:h', model: 'haiku', costUsd: 0.01, computedAt: 't' }
 
+  // A triage stored before Quick SDD stopped being a built-in keeps showing the name it was stored with.
   it('shows the structured triage instead of the prose rationale', async () => {
     mockFetch({ '/tickets': () => ({ status: 200, body: { tickets: [{ ...ticketsPayload.tickets[0], metadata: { triage } }, ticketsPayload.tickets[1]] } }) })
     renderCard()

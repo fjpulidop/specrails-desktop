@@ -14,32 +14,38 @@
  *   its last Published snapshot, so rails never break mid-edit; an unedited or
  *   missing row runs the current code default (identical to the old behavior).
  *
- * `factory:batch` and the retired aliases are never seeded; aliases resolve to
- * the canonical built-in they point at.
+ * - Retirement (`retireBuiltinRows`, run on every seeding pass): Freestyle and
+ *   Quick SDD are no longer built-ins (they are gallery templates). A previously
+ *   seeded row that was never edited is deleted; an edited one is converted into
+ *   an ordinary user loop (fresh id, same name/content/status) so no edit is lost.
+ *
+ * `factory:batch` is never seeded; it resolves to Implement.
  */
 import type { DbInstance } from '../../../db'
-import { listAdapters } from '../../../providers/registry'
+import { newId } from '../../../ids'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
-import { factoryLoopsForCapabilities, getFactoryLoop, type FactoryLoop } from './loop-factory'
+import { RETIRED_FACTORY_LOOP_IDS, factoryLoopsForCapabilities, getFactoryLoop, type FactoryLoop } from './loop-factory'
 import type { LoopGraph } from './loop-graph'
 import {
   getBuiltinLoop,
   readPublishedLoopGraph,
   restoreBuiltinLoop,
+  retireBuiltinRows,
   seedBuiltinLoops,
   type BuiltinLoopDefault,
+  type BuiltinRetirementResult,
   type BuiltinSeedResult,
   type LoopDefinition,
 } from './loops-store'
 
 /** Built-ins that exist as editable rows. Batch is an alias, never seeded. */
-export const EDITABLE_BUILTIN_LOOP_IDS: readonly string[] = ['factory:implement', 'factory:freestyle', 'factory:sdd-quick-openspec']
+export const EDITABLE_BUILTIN_LOOP_IDS: readonly string[] = ['factory:implement']
 
 export interface BuiltinLoopEnvironment {
   /** Selected Core capabilities; throws when Core cannot be loaded. */
   loadCapabilities?: () => Promise<Record<string, number> | undefined>
-  /** True when some provider can run the provider-owned Freestyle built-in. */
-  freestyleAvailable?: () => boolean
+  /** Mints the id of a retired built-in row that is converted into a user loop. */
+  mintId?: () => string
 }
 
 export interface CoreCapabilityProbe {
@@ -52,10 +58,6 @@ async function defaultCapabilities(): Promise<Record<string, number> | undefined
   return (await loadCoreAgentRuntime()).api?.capabilities
 }
 
-function defaultFreestyleAvailable(): boolean {
-  return listAdapters().some(adapter => adapter.capabilities.freestyle === true)
-}
-
 export async function probeCoreCapabilities(env: BuiltinLoopEnvironment = {}): Promise<CoreCapabilityProbe> {
   try { return { capabilities: await (env.loadCapabilities ?? defaultCapabilities)(), known: true } }
   catch { return { capabilities: undefined, known: false } }
@@ -66,18 +68,17 @@ function toDefault(factory: FactoryLoop): BuiltinLoopDefault {
 }
 
 /** Current defaults of the seeded built-ins for these capabilities. */
-export function builtinLoopDefaults(capabilities: Record<string, number> | undefined, freestyleAvailable: boolean): BuiltinLoopDefault[] {
+export function builtinLoopDefaults(capabilities: Record<string, number> | undefined): BuiltinLoopDefault[] {
   return factoryLoopsForCapabilities(capabilities)
     .filter(factory => EDITABLE_BUILTIN_LOOP_IDS.includes(factory.id))
-    .filter(factory => factory.requiredCapability !== 'freestyle' || freestyleAvailable)
     .map(toDefault)
 }
 
 /** Idempotent, concurrency-safe seeding/refresh. Returns the capability probe. */
-export async function ensureBuiltinLoops(db: DbInstance, env: BuiltinLoopEnvironment = {}): Promise<CoreCapabilityProbe & BuiltinSeedResult> {
+export async function ensureBuiltinLoops(db: DbInstance, env: BuiltinLoopEnvironment = {}): Promise<CoreCapabilityProbe & BuiltinSeedResult & { retired: BuiltinRetirementResult }> {
   const probe = await probeCoreCapabilities(env)
-  const defaults = builtinLoopDefaults(probe.capabilities, (env.freestyleAvailable ?? defaultFreestyleAvailable)())
-  return { ...probe, ...seedBuiltinLoops(db, defaults, { refresh: probe.known }) }
+  const retired = retireBuiltinRows(db, RETIRED_FACTORY_LOOP_IDS, env.mintId ?? newId)
+  return { ...probe, ...seedBuiltinLoops(db, builtinLoopDefaults(probe.capabilities), { refresh: probe.known }), retired }
 }
 
 export interface ResolvedBuiltinLoop {

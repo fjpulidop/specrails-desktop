@@ -123,7 +123,7 @@
     "title": "Addenda",
     "hint": "Notes d'itération posées sur la spec. Elles accompagnent le prochain lancement sans modifier la description.",
     "add": "Ajouter un addendum",
-    "emptyCta": "Ajoutez un addendum pour itérer sur cette spec : le prochain lancement (Implement, SDD Quick, Freestyle…) en est briefé et la description reste intacte.",
+    "emptyCta": "Ajoutez un addendum pour itérer sur cette spec : le prochain lancement (Implement ou n'importe quel loop) en est briefé et la description reste intacte.",
     "openCount_one": "{{count}} ouvert",
     "openCount_other": "{{count}} ouverts",
     "kind": {

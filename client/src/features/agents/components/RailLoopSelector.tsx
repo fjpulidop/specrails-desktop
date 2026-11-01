@@ -8,8 +8,8 @@ import { HelpHint } from '../../../components/HelpHint'
 
 /**
  * Unified Loop picker for the rail header (rails-as-loops). Lists the built-in
- * FACTORY loops (Implement / Batch / Freestyle — what used to be the rail modes;
- * defined client-side so they work even when the Loops section is off) plus, when
+ * FACTORY loops (Implement — the only built-in; defined client-side so it works
+ * even when the Loops section is off) plus, when
  * the Loops section is enabled, the user's PUBLISHED custom loops. Selecting a
  * loop drives the rail; the parent derives the legacy `mode` from the chosen id.
  * Built-ins are also editable loop rows (`builtinId`); they stay in the built-in
@@ -18,7 +18,6 @@ import { HelpHint } from '../../../components/HelpHint'
 export function RailLoopSelector({
   value,
   onChange,
-  freestyleAvailable = true,
   loopsEnabled = true,
   disabled = false,
   recommendedId = null,
@@ -28,8 +27,6 @@ export function RailLoopSelector({
   recommendedId?: string | null
   value: string | null | undefined
   onChange: (loopId: string) => void
-  /** Offer the provider-owned Freestyle built-in when the adapter supports it. */
-  freestyleAvailable?: boolean
   /** Fetch + offer the user's custom published loops (Loops section feature). */
   loopsEnabled?: boolean
 }) {
@@ -56,9 +53,7 @@ export function RailLoopSelector({
   const withRecommendation = (label: string, id: string): string =>
     id === recommendedId ? t('railControls.recommendedOption', { label }) : label
 
-  const builtIn = FACTORY_RAIL_LOOPS.filter(
-    (f) => (freestyleAvailable || !f.requiresFreestyle) && (loopsEnabled || !f.requiresLoops),
-  )
+  const builtIn = FACTORY_RAIL_LOOPS
 
   // One line on what the picked loop does: the factory text, else the loop's own description.
   const factory = builtIn.find((f) => f.id === value)

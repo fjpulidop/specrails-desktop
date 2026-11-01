@@ -123,7 +123,7 @@
     "title": "Anexos",
     "hint": "Notas de iteración sobre la spec. Viajan con el próximo lanzamiento sin editar la descripción.",
     "add": "Añadir anexo",
-    "emptyCta": "Añade un anexo para iterar sobre esta spec: el próximo lanzamiento (Implement, SDD Quick, Freestyle…) lo recibe como briefing y la descripción queda intacta.",
+    "emptyCta": "Añade un anexo para iterar sobre esta spec: el próximo lanzamiento (Implement o cualquier loop) lo recibe como briefing y la descripción queda intacta.",
     "openCount_one": "{{count}} abierto",
     "openCount_other": "{{count}} abiertos",
     "kind": {

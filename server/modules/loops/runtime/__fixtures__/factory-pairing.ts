@@ -10,8 +10,18 @@ import { spawnSync } from 'node:child_process'
 import { runAgentRuntimeInvocation } from '../../../agent-runtime/runtime/agent-runtime-bridge'
 import { resetCoreAgentRuntimeApiCache } from '../../../agent-runtime/runtime/agent-runtime-loader'
 import { getFactoryLoop } from '../loop-factory'
+import { FREESTYLE_TEMPLATE_ID, QUICK_SDD_TEMPLATE_ID, getLoopTemplate } from '../loop-templates'
 import { convertLegacyLoop, LEGACY_DECIDER_ROLE } from '../loop-compat'
 import { compileLoopToDefinition } from '../loop-definition'
+import type { LoopGraph } from '../loop-graph'
+
+/** The recipe a mode runs. Implement is the built-in; Quick SDD and Freestyle are
+ *  the gallery templates (they were built-ins and keep the same graphs). */
+function recipe(mode: string, capabilities?: Record<string, number>): { id: string; name: string; graph: LoopGraph } {
+  if (mode === 'implement') return getFactoryLoop('factory:implement', capabilities)!
+  const template = getLoopTemplate(mode === 'quick-sdd' ? QUICK_SDD_TEMPLATE_ID : FREESTYLE_TEMPLATE_ID, capabilities)!
+  return { id: template.id, name: template.name, graph: template.graph }
+}
 
 export const core = process.env.SPECRAILS_CORE_SOURCE_DIR ?? process.env.SPECRAILS_EFFICIENCY_CORE_ROOT
 export const coreCliMissing = !core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))
@@ -62,7 +72,7 @@ export async function execute(mode: string, legacy = false, stall = false, block
   writeFileSync(configPath, JSON.stringify(config))
   const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = [], lines: string[] = []
   const change = 'paired-change'
-  let factory = getFactoryLoop(mode === 'quick-sdd' ? 'factory:sdd-quick-openspec' : `factory:${mode}`, { engineV2: 1, workflowDefinitions: 1, implementationSteps: 1, ...(configurable ? { workflowAgentSteps: 1 } : {}) })!
+  let factory = recipe(mode, { engineV2: 1, workflowDefinitions: 1, implementationSteps: 1, ...(configurable ? { workflowAgentSteps: 1 } : {}) })
   if (reviewMode) factory.graph.config.maxTransitions = 80
   if (process.env.SPECRAILS_FACTORY_CORRECTION_QUESTION === '1') {
     factory.graph.edges.find(edge => edge.source === 'begin-correction')!.target = 'ask-first-correction'
@@ -84,7 +94,7 @@ export async function execute(mode: string, legacy = false, stall = false, block
     factory.graph.edges.push({ id: 'a-next', source: 'accessibility', target: 'reviewer', label: 'next' }, { id: 'a-failed', source: 'accessibility', target: 'failed', label: 'failed' })
   }
   if (converted) {
-    const old = getFactoryLoop(`factory:${mode}`)!
+    const old = recipe(mode)
     const projection = convertLegacyLoop(old.graph, { repositoryId: 'repo' })
     if (!projection.ok) throw Error(JSON.stringify(projection.issues))
     factory = { ...old, graph: projection.graph }
