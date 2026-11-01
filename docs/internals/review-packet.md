@@ -356,7 +356,7 @@ repaired derivation supersedes the rejected one.
   that the spec kept its Intent draft.
 
 The draft PR body adds one line (`buildDerivationLine`):
-`> Derived from an Intent session session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`
+`> Derived from an Intent session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`
 
 ## 2026-10-22 — Requirements demonstrated, baseline and "Needs human eyes"
 

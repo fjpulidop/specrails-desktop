@@ -92,6 +92,8 @@ describe('spec generation use case', () => {
       shortSummary: 'Adds a dark mode toggle.',
       description: '## Problem Statement\nToo bright.\n\n## Acceptance Criteria\n1. A toggle exists',
       nonGoals: [],
+      intent: null,
+      intentAnswers: [],
     })
     expect(parseGeneratedSpec('no headings', 'fallback')).toMatchObject({ title: 'fallback', priority: 'medium', labels: ['spec-proposal'], nonGoals: [] })
   })
@@ -101,6 +103,43 @@ describe('spec generation use case', () => {
     const parsed = parseGeneratedSpec(withScope, 'fallback')
     expect(parsed.nonGoals).toEqual(['Per-page themes', 'High contrast mode'])
     expect(parsed.description).toBe('## Problem Statement\nToo bright.\n\n## Acceptance Criteria\n1. A toggle exists')
+  })
+
+  it('intent-first generation: the prompt asks for the intent, the parser lifts it out and the new spec stores it', async () => {
+    const prompts = buildSpecGenerationPrompts({ project: deps.project, text: 'add a Redis cache', scope, intent: { mode: 'derive' } })
+    expect(prompts.systemPrompt).toContain('INTENT FIRST')
+    expect(prompts.systemPrompt).toContain('never HOW')
+    expect(prompts.userPrompt).toContain('Write the intent for the following problem')
+    const intentJson = { problem: 'The API is slow under load.', outcome: 'p95 under 200 ms.', successSignals: ['p95 < 200 ms'], affects: ['API users'], constraints: ['Redis cache (requested)'], openQuestions: ['Which endpoints?'] }
+    const response = '## Intent\n```json\n' + JSON.stringify(intentJson) + '\n```\n\n' + SPEC
+    const parsed = parseGeneratedSpec(response, 'fallback')
+    expect(parsed.intent).toMatchObject({ problem: 'The API is slow under load.', openQuestions: [{ question: 'Which endpoints?' }] })
+    expect(parsed.description).not.toContain('## Intent')
+    expect(parsed.title).toBe('Dark Mode Toggle')
+
+    const child = mockChild()
+    const done = generateSpecFromText(deps, { text: 'add a Redis cache', provider: 'claude', model: 'sonnet', scope, intent: { mode: 'derive' } })
+    await finish(child, response)
+    expect(await done).toMatchObject({ ok: true, kind: 'created' })
+    expect(readStore(storePath).tickets['2'].intent).toMatchObject({ outcome: 'p95 under 200 ms.' })
+    // An unusable intent block never blocks the spec.
+    expect(parseGeneratedSpec('## Intent\n```json\n{"problem": ""}\n```\n' + SPEC, 'f').intent).toBeNull()
+  })
+
+  it('a settlement rewrite keeps the intent and merges only matching answers to open questions', async () => {
+    const intent = { problem: 'P', outcome: 'O', successSignals: [], affects: [], constraints: ['C'], openQuestions: [{ question: 'Offline?' }, { question: 'Locale?' }] }
+    mutateStore(storePath, (s) => { s.tickets['1'].intent = intent })
+    const prompts = buildSpecGenerationPrompts({ project: deps.project, text: 'x', scope, intent: { mode: 'keep', intent } })
+    expect(prompts.systemPrompt).toContain('THE INTENT ABOVE IS FIXED')
+    expect(prompts.userPrompt).toContain('0. Offline?')
+    const answers = '\n\n## Intent Answers\n```json\n' + JSON.stringify([{ index: 0, question: 'Offline?', answer: 'Yes, cached.' }, { index: 1, question: 'Other', answer: 'ignored' }]) + '\n```\n'
+    const child = mockChild()
+    const done = generateSpecFromText(deps, { text: 'x', provider: 'claude', model: 'sonnet', scope, ticketId: 1, intent: { mode: 'keep', intent } })
+    await finish(child, SPEC + answers)
+    expect(await done).toMatchObject({ ok: true, kind: 'rewritten' })
+    const stored = readStore(storePath).tickets['1']
+    expect(stored.intent).toEqual({ ...intent, openQuestions: [{ question: 'Offline?', answer: 'Yes, cached.' }, { question: 'Locale?' }] })
+    expect(stored.description).not.toContain('Intent Answers')
   })
 
   it('asks the model for non-goals in the spec-gen prompt', () => {

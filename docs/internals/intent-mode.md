@@ -218,7 +218,7 @@ read-only mission turns again.
 
 ### Permissions
 
-An Intent session session runs with the same permission level as a rail's write roles:
+An Intent session runs with the same permission level as a rail's write roles:
 `FLOW_SESSION_BOUNDARY` is `permissions: 'bypass'`, which Core's drivers map
 to Claude `--dangerously-skip-permissions` and Codex
 `--sandbox danger-full-access`. Rails pick the same level for every provider

@@ -166,12 +166,12 @@ function codeSpan(raw: string): string {
   return `\`${cleanInline(raw).replace(/`/g, "'")}\``
 }
 
-/** `> Derived from an Intent session session: change X, N/M changed files explained (K unexplained).` */
+/** `> Derived from an Intent session: change X, N/M changed files explained (K unexplained).` */
 export function buildDerivationLine(derivation: CanonicalPrBodyInput['derivation']): string | null {
   if (!derivation) return null
   const unexplained = derivation.unexplainedFiles.length + derivation.unexplainedOmitted
   const change = derivation.change ? ` OpenSpec change \`${derivation.change}\`,` : ''
-  return `> Derived from an Intent session session:${change} ${derivation.explained}/${derivation.files} changed files explained by its design${unexplained > 0 ? ` (${unexplained} unexplained — see the review packet)` : ''}.`
+  return `> Derived from an Intent session:${change} ${derivation.explained}/${derivation.files} changed files explained by its design${unexplained > 0 ? ` (${unexplained} unexplained — see the review packet)` : ''}.`
 }
 
 export function buildCanonicalPrBody(input: CanonicalPrBodyInput): string {

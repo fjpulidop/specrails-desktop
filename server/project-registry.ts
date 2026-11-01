@@ -46,7 +46,7 @@ import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, startProjectEnvWar
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, isFlowHeldTicket, type JobOutcome } from './modules/specs/runtime/ticket-store'
 import { descriptionWithNonGoals } from './modules/specs/domain/non-goals'
-import { descriptionWithIntent } from './modules/specs/domain/intent'
+import { descriptionWithIntent, normalizeSpecIntent, renderIntentForAgents } from './modules/specs/domain/intent'
 import { nodeRunRecordFs, readClarifications } from './modules/delivery/runtime/run-records'
 import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
@@ -1300,6 +1300,16 @@ export class ProjectRegistry {
       }),
     }), undefined, { dailyBudget: dailyBudgetRejection, runCapDefault, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds) })
 
+    // The stored ticket as written (no launch-door additions): the Intent → Spec summary reads it.
+    const readFlowTicket = (ticketId: number) => {
+      try {
+        const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+        return readStore(exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)).tickets[String(ticketId)]
+      } catch {
+        return undefined
+      }
+    }
+
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
       try {
         const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
@@ -1654,12 +1664,16 @@ export class ProjectRegistry {
     flowService = ctx.flow
     ctx.flowHandOff = createFlowHandOffAuthority(flowRepository, systemClock, (session) => flowPorts.notifier.changed(session),
       // Intent -> Spec: the bounded conversation summary Core's derive-change reads.
-      (session) => flowConversationSummary(this._desktopDb, {
-        conversationId: session.conversationId,
-        idea: session.ticketId !== null ? getTicketSpec(session.ticketId)?.description ?? null : null,
-        from: session.createdAt,
-        to: null,
-      }))
+      (session) => {
+        const ticket = session.ticketId !== null ? readFlowTicket(session.ticketId) : undefined
+        return flowConversationSummary(this._desktopDb, {
+          conversationId: session.conversationId,
+          idea: ticket?.description ?? null,
+          intent: renderIntentForAgents(normalizeSpecIntent(ticket?.intent)),
+          from: session.createdAt,
+          to: null,
+        })
+      })
     this._contexts.set(project.id, ctx)
     // Warm the project's login-shell env cache off the event loop so the first
     // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.

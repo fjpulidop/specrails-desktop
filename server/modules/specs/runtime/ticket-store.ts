@@ -48,7 +48,7 @@ export interface Ticket {
      * Desktop-owned optional metadata — Core ignores unknown metadata, so no
      * schema bump. Set from the ticket modal for bug tickets. */
     regressionOf?: string
-    /** Intent mode (schema 1.5): the placeholder spec of an Intent session session. Shown as
+    /** Intent mode (schema 1.5): the placeholder spec of an Intent session. Shown as
      * the "In Intent" label while `active` or `paused`; Jira never receives a
      * ticket in those states. Desktop-only; Core ignores it. */
     flow?: IntentTicketMetadata
@@ -76,7 +76,7 @@ export interface Ticket {
   // legacy wire value kept for compat, do not rename.
   // 'jira' marks a spec materialized from a Jira issue (see server/jira/). The
   // jira_key / jira_url fields below are additive — specrails-core ignores them.
-  // 'flow' marks the placeholder spec an Intent session session creates (schema 1.5).
+  // 'flow' marks the placeholder spec an Intent session creates (schema 1.5).
   // 'rules' marks a spec created from an automatable project rule (task 4.4).
   source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow' | 'rules'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), null for local specs. */

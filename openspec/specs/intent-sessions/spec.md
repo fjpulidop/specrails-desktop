@@ -66,7 +66,7 @@ The placeholder spec SHALL have `source: 'flow'`, status `in_progress` and `meta
 
 ### Requirement: The hand-off transfers worktree ownership atomically
 
-Handing off an Intent session SHALL freeze the worktree HEAD, close the Intent session session and launch the rail on the same worktree. The rail SHALL adopt the worktree only when its path, branch and HEAD equal the frozen Intent session values; the rail worktree ledger row and the Intent session's `handed_off` state SHALL commit in one transaction.
+Handing off an Intent session SHALL freeze the worktree HEAD, close the Intent session and launch the rail on the same worktree. The rail SHALL adopt the worktree only when its path, branch and HEAD equal the frozen Intent session values; the rail worktree ledger row and the Intent session's `handed_off` state SHALL commit in one transaction.
 
 #### Scenario: HEAD mismatch
 

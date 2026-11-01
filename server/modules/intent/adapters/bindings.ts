@@ -429,7 +429,7 @@ export function createFlowWorktrees(
       const root = flowRoot(input.flowId, input.repositoryId)
       const target = input.worktreePath ?? ticketWorktreePath(root, input.ticketId)
       // Never remove anything outside the Intent's own mount root.
-      if (!isInside(target, root)) throw new Error(`Refusing to remove ${target}: it is not an Intent session-owned worktree`)
+      if (!isInside(target, root)) throw new Error(`Refusing to remove ${target}: it is not an Intent-owned worktree`)
       await withRepoLock(repo, async () => {
         const mounted = (await listWorktrees(git, repo)).some((entry) => canonical(entry) === canonical(target))
         let branch = input.branch
@@ -851,7 +851,7 @@ const TEXT_CAP = 64 * 1024
  * agent reply and the recorded decisions. Message times (SQLite) and Intent times
  * (ISO) are compared as instants, never as strings.
  */
-export function flowConversationSummary(desktopDb: ProjectContext['desktopDb'], input: { conversationId: string; idea: string | null; from: string; to: string | null }): string {
+export function flowConversationSummary(desktopDb: ProjectContext['desktopDb'], input: { conversationId: string; idea: string | null; from: string; to: string | null; intent?: string | null }): string {
   const messages = listAgentMessages(desktopDb, input.conversationId)
     .filter((message) => inFlowWindow(message.created_at, input.from, input.to))
     .map((message) => ({
@@ -859,7 +859,7 @@ export function flowConversationSummary(desktopDb: ProjectContext['desktopDb'], 
       content: message.content,
       ...(message.context_refs.some((ref) => ref.kind === FAILURE_BRIEFING_REF_KIND) ? { automated: true } : {}),
     }))
-  return buildFlowSummary({ idea: input.idea, messages })
+  return buildFlowSummary({ idea: input.idea, messages, intent: input.intent ?? null })
 }
 
 /** Strip OpenSpec's `YYYY-MM-DD-` archive prefix. */
@@ -933,7 +933,8 @@ export function createFlowPublication(
       return readDerivedChange(git, repo, { ref, baseSha: input.baseSha, changeName })
     },
     conversationSummary(input) {
-      return flowConversationSummary(ctx.desktopDb, { conversationId: input.conversationId, idea: readTicket(input.ticketId)?.description ?? null, from: input.from, to: input.to })
+      const ticket = readTicket(input.ticketId)
+      return flowConversationSummary(ctx.desktopDb, { conversationId: input.conversationId, idea: ticket?.description ?? null, intent: renderIntentForAgents(normalizeSpecIntent(ticket?.intent)), from: input.from, to: input.to })
     },
     async rewriteSpec({ ticketId, text }) {
       const provider = (ctx.project.provider ?? 'claude') as SpecProvider
@@ -949,6 +950,8 @@ export function createFlowPublication(
         admission: captureProcessAdmission(ctx.project.id),
       }, {
         text, provider, model, scope, ticketId, surface: 'flow',
+        // The spec's intent stays; the rewrite may only answer its open questions.
+        ...(normalizeSpecIntent(readTicket(ticketId)?.intent) ? { intent: { mode: 'keep' as const, intent: normalizeSpecIntent(readTicket(ticketId)?.intent)! } } : {}),
         // Contract Layer always (feedback-2026-10 decision 6.2), awaited so the
         // Jira issue that follows is born with the complete spec.
         contractRefine: supportsContractRefine(getAdapter(provider)) ? { model: null, await: true } : null,

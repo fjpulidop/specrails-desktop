@@ -98,7 +98,7 @@ Core journal ──session.event──▶ SessionEventPump ──ProjectionOp[]�
   mission's own (untagged broadcasts, `agent-chat` billing, ids keyed by the
   generation's session id).
 - Continuation turns get a deterministic invocation id, so replay never records
-  a turn twice. Ids of an Intent session session include its session id
+  a turn twice. Ids of an Intent session include its session id
   (`core-turn:<conversation>:flow:<flowId>:<turn>`,
   `core-subagent:<conversation>:flow:<flowId>:<subagent>:<seq>`), so the two
   sessions never collide; a rebuild replays every session of the conversation. `POST /api/agent/conversations/:id/session/rebuild` resets the

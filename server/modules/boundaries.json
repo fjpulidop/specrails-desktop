@@ -2430,6 +2430,7 @@
         "tree-kill"
       ],
       "runtime/generated-spec-parser.ts": [
+        "../domain/intent",
         "../domain/non-goals",
         "./ticket-store"
       ],
@@ -2496,6 +2497,7 @@
         "../../accounting/runtime/ai-invocations",
         "../../accounting/runtime/result-event",
         "../../conversations/runtime/context-scope",
+        "../domain/intent",
         "./contract-refine-runner",
         "./generated-spec-parser",
         "./ticket-store",

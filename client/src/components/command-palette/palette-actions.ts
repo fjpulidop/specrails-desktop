@@ -217,9 +217,9 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
   // Board
   {
     id: 'spec.new', labelKey: 'palette.actions.newSpec', group: 'board', icon: FilePlus2, shortcut: '⌘↵',
-    keywords: ['create', 'add', 'spec', 'ticket', 'idea'],
+    keywords: ['create', 'add', 'spec', 'ticket', 'idea', 'intent', 'problem'],
     when: (ctx) => !!ctx.surfaces.specs,
-    run: (ctx) => ctx.surfaces.specs?.openNewSpec('quick'),
+    run: (ctx) => ctx.surfaces.specs?.openNewSpec('intent'),
   },
   {
     id: 'spec.newExplore', labelKey: 'palette.actions.newSpecExplore', group: 'board', icon: Sparkles,

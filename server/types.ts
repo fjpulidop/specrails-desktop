@@ -794,7 +794,7 @@ export interface RailFetchDegradedMessage {
   warning: string
 }
 
-/** An Intent session session as clients receive it (server/modules/flow IntentSession). */
+/** An Intent session as clients receive it (server/modules/flow IntentSession). */
 export interface IntentSessionWire {
   id: string
   conversationId: string

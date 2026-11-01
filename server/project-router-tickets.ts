@@ -409,6 +409,8 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       resolveRepositoryScope: () => repositoryScope(req, res),
       attachments,
       contractRefine: quickContractRefine ? { model: (req.body?.model as string | undefined) ?? null } : null,
+      // Add Spec → Intent (intent-mode): the intent first, the spec derived from it.
+      ...(req.body?.intent === true ? { intent: { mode: 'derive' as const } } : {}),
       requestId,
       hooks: {
         onDelta: (delta) => {

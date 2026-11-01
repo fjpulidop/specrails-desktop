@@ -5,6 +5,8 @@
     "engineAriaLabel": "Engine AI per questa spec",
     "modeTablistLabel": "Modalità di creazione della spec",
     "mode": {
+      "intent": "Intent",
+      "intentHint": "prima il problema",
       "quick": "Quick",
       "explore": "Explore",
       "raw": "Raw",
@@ -13,11 +15,13 @@
       "quickUnavailable": "non disponibile per Kimi"
     },
     "modeDescription": {
+      "intent": "Descrivi il problema, chi lo ha e come capirai che è risolto. L’IA scrive l’intent e ne ricava la spec da rivedere.",
       "quick": "Descrivi la funzionalità o la modifica. Allega mockup, brief o dati per più contesto.",
       "explore": "Descrivi un'idea abbozzata. L'assistente IA selezionato ti aiuterà a darle forma attraverso la conversazione — decidi tu quando confermare.",
       "raw": "Il tuo prompt, così com'è — salvato come spec. Nessuna AI per ora; trascinala su un rail per realizzarla."
     },
     "editorPlaceholder": {
+      "intent": "es. I nuovi utenti abbandonano la configurazione perché chiediamo una chiave API prima che vedano qualcosa funzionare. Sarà risolto quando la maggior parte finirà in meno di 2 minuti…",
       "quick": "es. Aggiungi un toggle per la dark mode nella pagina impostazioni che memorizzi la preferenza dell'utente...",
       "explore": "es. dark mode — non so bene dove mettere il toggle né come salvare la preferenza…",
       "raw": "Descrivi la funzionalità, la modifica o l'idea. Supporta Markdown, immagini e file…"
@@ -46,6 +50,7 @@
       "responsiveSizes_other": "Responsive · {{count}} dimensioni"
     },
     "submit": {
+      "intent": "Genera intent e spec",
       "quick": "Genera spec",
       "explore": "Continua",
       "raw": "Crea",

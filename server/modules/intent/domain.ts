@@ -610,6 +610,7 @@ export const FLOW_SUMMARY_LIMIT_BYTES = 32 * 1024
 const SUMMARY_MESSAGE_CAP = 2000
 const SUMMARY_DECISION_CAP = 500
 const SUMMARY_IDEA_CAP = 4000
+const SUMMARY_INTENT_CAP = 8000
 const SUMMARY_REPLY_CAP = 240
 
 export interface IntentTranscriptMessage {
@@ -723,8 +724,11 @@ function conversationTurns(messages: readonly IntentTranscriptMessage[]): Summar
  * UTF-8; when over, the oldest messages go first (with their reply), then the
  * oldest decisions. Front matter `transcriptTurns` counts the messages kept.
  */
-export function buildFlowSummary(input: { idea: string | null; messages: readonly IntentTranscriptMessage[] }, limit = FLOW_SUMMARY_LIMIT_BYTES): string {
+export function buildFlowSummary(input: { idea: string | null; messages: readonly IntentTranscriptMessage[]; intent?: string | null }, limit = FLOW_SUMMARY_LIMIT_BYTES): string {
   const idea = input.idea?.trim() ? clip(input.idea, SUMMARY_IDEA_CAP) : null
+  // The spec's intent (intent-mode) leads: the source of truth for why and the
+  // outcome. It is never trimmed away; the transcript gives way first.
+  const intent = input.intent?.trim() ? clip(input.intent, SUMMARY_INTENT_CAP) : null
   let turns = conversationTurns(input.messages)
   let decisions = extractFlowDecisions(input.messages)
   const indent = (text: string) => text.replace(/\n/g, '\n   ')
@@ -734,6 +738,7 @@ export function buildFlowSummary(input: { idea: string | null; messages: readonl
     '---',
     '# Intent conversation summary',
     '',
+    ...(intent ? [intent, ''] : []),
     ...(idea ? ['## Idea', '', idea, ''] : []),
     '## User messages',
     '',
@@ -951,7 +956,7 @@ export interface DerivedChangeText {
 export function buildSpecRewriteText(input: { title: string | null; derived: DerivedChangeText; summary: string; original?: { title: string; description: string } | null }): string {
   const section = (heading: string, body: string | null, cap: number) => body?.trim() ? [`## ${heading}`, '', clip(body, cap), ''] : []
   return [
-    'Rewrite this Specrails spec for work that ALREADY EXISTS: it was built in an Intent session session (a live conversation with a coding agent) and its OpenSpec change was derived from the code afterwards.',
+    'Rewrite this Specrails spec for work that ALREADY EXISTS: it was built in an Intent session (a live conversation with a coding agent) and its OpenSpec change was derived from the code afterwards.',
     'Describe the delivered behaviour as the spec of record — problem, solution and testable acceptance criteria that the existing code satisfies. Do not invent requirements, future work or anything the derived change does not support.',
     ...(input.original ? ['The Intent started from an existing spec (quoted below, saved as a comment on the spec). Rewrite the spec ENTIRELY from what was built: keep from the original only what the delivered code satisfies, and never carry over an unbuilt requirement.'] : []),
     '',

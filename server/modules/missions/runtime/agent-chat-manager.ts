@@ -239,7 +239,7 @@ export class AgentChatManager {
     return this._flowTurn(conversationId) !== null
   }
 
-  /** Throws when this conversation's provider cannot run an Intent session session now. */
+  /** Throws when this conversation's provider cannot run an Intent session now. */
   async assertFlowSupport(conversationId: string): Promise<void> {
     const conversation = getAgentConversation(this._db, conversationId)
     if (!conversation) throw new Error('Unknown conversation')
@@ -703,7 +703,7 @@ export class AgentChatManager {
       ? `${basePrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
       : basePrompt
     const effectivePrompt = (useResume: boolean): string => {
-      // An Intent session session receives the conversation history once (its own Core
+      // An Intent session receives the conversation history once (its own Core
       // session journals the rest); a mission turn includes it when fresh.
       const withHistory = flowTurn ? !this._briefedFlowSessions.has(flowTurn.coreSessionId) : !useResume
       const freshPrompt = withHistory && historyBlock ? `${contextPrefix}\n\n${historyBlock}\n\n${prompt}` : prompt
@@ -1201,7 +1201,7 @@ export class AgentChatManager {
         return
       }
 
-      // An Intent session session Core reports closed (a journal closed by a pause, a
+      // An Intent session Core reports closed (a journal closed by a pause, a
       // hand-off or a previous process): reopen as a new session and retry
       // once, never a user-facing failure. Nothing ran in a closed session.
       if (

@@ -319,7 +319,7 @@ describe('actions run the real handlers', () => {
     const c = ctx({ surfaces: { specs: { openNewSpec } } })
     PALETTE_ACTIONS.find((a) => a.id === 'spec.new')!.run(c)
     PALETTE_ACTIONS.find((a) => a.id === 'spec.newExplore')!.run(c)
-    expect(openNewSpec.mock.calls).toEqual([['quick'], ['explore']])
+    expect(openNewSpec.mock.calls).toEqual([['intent'], ['explore']])
   })
 
   it('Launch / Move / Review delegate to the board surface', () => {

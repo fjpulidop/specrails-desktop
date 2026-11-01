@@ -125,37 +125,38 @@ describe('ProposeSpecModal', () => {
   })
 
   it('renders dialog with textarea when open=true', () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     expect(screen.getByText('Add Spec')).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/add a dark mode toggle/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /generate spec/i })).toBeInTheDocument()
   })
 
   it('does not auto-execute command on open', () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     expect(mockStartWithMessage).not.toHaveBeenCalled()
   })
 
   it('disables Generate Spec button when textarea is empty', () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const button = screen.getByRole('button', { name: /generate spec/i })
     expect(button).toBeDisabled()
   })
 
   it('enables Generate Spec button when textarea has content after its model resolves', async () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Add dark mode' } })
     const button = screen.getByRole('button', { name: /generate spec/i })
     await waitFor(() => expect(button).not.toBeDisabled())
   })
 
-  it('exposes a Quick / Explore / Raw segmented control with Quick selected by default', () => {
+  it('exposes an Intent / Quick / Explore / Raw segmented control with Intent selected by default', () => {
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(3)
-    const quickTab = tabs.find((t) => t.textContent?.toLowerCase().includes('quick'))
-    expect(quickTab).toHaveAttribute('aria-selected', 'true')
+    expect(tabs).toHaveLength(4)
+    expect(tabs[0]).toHaveTextContent(/intent/i)
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs.some((t) => t.textContent?.toLowerCase().includes('quick'))).toBe(true)
     expect(tabs.some((t) => t.textContent?.toLowerCase().includes('raw'))).toBe(true)
   })
 
@@ -174,7 +175,7 @@ describe('ProposeSpecModal', () => {
       }
       return Promise.resolve({ ok: true, json: async () => ({}) })
     })
-    render(<ProposeSpecModal open onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={vi.fn()} />)
+    render(<ProposeSpecModal initialMode="quick" open onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={vi.fn()} />)
 
     const quickTab = screen.getAllByRole('tab').find((tab) =>
       tab.textContent?.toLowerCase().includes('quick'),
@@ -186,6 +187,8 @@ describe('ProposeSpecModal', () => {
       expect(quickTab).toBeDisabled()
       expect(quickTab).toHaveAttribute('title', 'unavailable for Kimi')
       expect(quickTab).toHaveTextContent('unavailable for Kimi')
+      // Intent rides the same fast path, so it is unavailable for the same reason.
+      expect(screen.getAllByRole('tab')[0]).toBeDisabled()
       expect(exploreTab).toHaveAttribute('aria-selected', 'true')
     })
     expect(screen.getAllByRole('tab').find((tab) =>
@@ -215,6 +218,7 @@ describe('ProposeSpecModal', () => {
     const onExploreLaunch = vi.fn()
     render(
       <ProposeSpecModal
+        initialMode="quick"
         open
         onClose={onCloseMock}
         tickets={emptyTickets}
@@ -261,14 +265,14 @@ describe('ProposeSpecModal', () => {
   })
 
   it('renames the action button to Continue in Explore mode', () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const exploreTab = screen.getAllByRole('tab').find((t) => t.textContent?.toLowerCase().includes('explore'))!
     fireEvent.click(exploreTab)
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument()
   })
 
   it('shows Context Awareness and Fine-tune in both Quick and Explore', async () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     await waitFor(() => {
       expect(screen.getByTestId('context-scope-slider')).toBeInTheDocument()
     })
@@ -284,8 +288,40 @@ describe('ProposeSpecModal', () => {
     expect(screen.getByTestId('scope-stop-desktop')).toBeInTheDocument()
   })
 
-  it('sends contractRefine in the Quick generate-spec body', async () => {
+  it('opens in Intent mode by default and asks for the problem, not the solution (intent-mode)', async () => {
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    const intentTab = screen.getAllByRole('tab').find((tab) => tab.textContent?.includes('Intent'))!
+    expect(intentTab).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('propose-mode-description')).toHaveTextContent(/Describe the problem/)
+    expect(screen.getByPlaceholderText(/New users give up at setup/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /generate intent and spec/i })).toBeInTheDocument()
+  })
+
+  it('sends intent: true in the Intent generate-spec body', async () => {
+    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    const textarea = screen.getByPlaceholderText(/New users give up at setup/)
+    fireEvent.change(textarea, { target: { value: 'Setup asks for an API key too early' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: /generate intent and spec/i })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: /generate intent and spec/i }))
+    await waitFor(() => {
+      const generateCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+        .find((c) => typeof c[0] === 'string' && c[0].includes('/tickets/generate-spec'))
+      expect(generateCall).toBeTruthy()
+      const body = JSON.parse((generateCall![1] as { body: string }).body)
+      expect(body.intent).toBe(true)
+      expect(body.idea).toBe('Setup asks for an API key too early')
+    })
+  })
+
+  it('keeps the typed text when switching from Intent to Quick, and Quick sends no intent flag', async () => {
+    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    fireEvent.change(screen.getByPlaceholderText(/New users give up at setup/), { target: { value: 'Dark mode' } })
+    fireEvent.click(screen.getAllByRole('tab').find((tab) => tab.textContent?.includes('Quick'))!)
+    expect(screen.getByRole('button', { name: /^generate spec$/i })).toBeInTheDocument()
+  })
+
+  it('sends contractRefine in the Quick generate-spec body', async () => {
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     await waitFor(() => expect(screen.getByTestId('context-scope-slider')).toBeInTheDocument())
     await waitFor(() => {
       expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.some((c) => String(c[0]).includes('/add-spec-quick-contract-refine-last'))).toBe(true)
@@ -308,7 +344,7 @@ describe('ProposeSpecModal', () => {
 
   it('hands off to onExploreLaunch when Continue is clicked in Explore mode', async () => {
     const onExploreLaunch = vi.fn()
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={onExploreLaunch} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={onExploreLaunch} />)
     const exploreTab = screen.getAllByRole('tab').find((t) => t.textContent?.toLowerCase().includes('explore'))!
     fireEvent.click(exploreTab)
     const textarea = screen.getByPlaceholderText(/dark mode/i)
@@ -331,7 +367,7 @@ describe('ProposeSpecModal', () => {
 
   it('hands slider-derived context through to Explore launch payload', async () => {
     const onExploreLaunch = vi.fn()
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={onExploreLaunch} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={onExploreLaunch} />)
     await waitFor(() => expect(screen.getByText('Sonnet 5.5')).toBeInTheDocument())
     const exploreTab = screen.getAllByRole('tab').find((t) => t.textContent?.toLowerCase().includes('explore'))!
     fireEvent.click(exploreTab)
@@ -351,12 +387,12 @@ describe('ProposeSpecModal', () => {
   })
 
   it('resets state when reopened', async () => {
-    const { rerender } = render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    const { rerender } = render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Add dark mode' } })
 
     rerender(<ProposeSpecModal open={false} onClose={onCloseMock} tickets={emptyTickets} />)
-    rerender(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    rerender(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
 
     const newTextarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     expect(newTextarea).toHaveValue('')
@@ -367,7 +403,7 @@ describe('ProposeSpecModal', () => {
       ok: true,
       json: async () => ({ requestId: 'req-kbd' }),
     })
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Keyboard test' } })
     await waitFor(() => expect(screen.getByRole('button', { name: /generate spec/i })).not.toBeDisabled())
@@ -392,7 +428,7 @@ describe('ProposeSpecModal', () => {
       return Promise.resolve({ ok: true, json: async () => ({ requestId: 'req-1' }) })
     })
 
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     // Explore codebase defaults to unchecked — fast mode is the default path.
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Fast spec' } })
@@ -427,7 +463,7 @@ describe('ProposeSpecModal', () => {
       return Promise.resolve({ ok: true, json: async () => ({ requestId: 'req-model' }) })
     })
 
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'idea with explicit model' } })
 
@@ -468,7 +504,7 @@ describe('ProposeSpecModal', () => {
       return Promise.resolve({ ok: true, json: async () => ({}) })
     })
 
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={onExploreLaunch} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={onExploreLaunch} />)
     const exploreTab = screen.getAllByRole('tab').find((t) => t.textContent?.toLowerCase().includes('explore'))!
     fireEvent.click(exploreTab)
     const textarea = screen.getByPlaceholderText(/dark mode/i)
@@ -503,7 +539,7 @@ describe('ProposeSpecModal', () => {
       return Promise.resolve({ ok: true, json: async () => ({}) })
     })
 
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     await waitFor(() => expect(screen.getByTestId('context-scope-slider')).toBeInTheDocument())
 
     // Max preset — contractRefine=true but provider is codex → smash hint must NOT appear
@@ -519,7 +555,7 @@ describe('ProposeSpecModal', () => {
   })
 
   it('shows scope-smash-hint for a claude project at Max preset', async () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     await waitFor(() => expect(screen.getByTestId('context-scope-slider')).toBeInTheDocument())
     // Move to Max preset (contractRefine=true) — provider defaults to claude in beforeEach
     fireEvent.click(screen.getByTestId('scope-stop-max'))
@@ -537,7 +573,7 @@ describe('ProposeSpecModal', () => {
       return Promise.resolve({ ok: true, json: async () => ({ requestId: 'req-fast' }) })
     })
 
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Fast spec' } })
     await waitFor(() => expect(screen.getByRole('button', { name: /generate spec/i })).not.toBeDisabled())
@@ -556,7 +592,7 @@ describe('ProposeSpecModal', () => {
   }
 
   it('Raw mode hides the model/scope pickers and shows the priority group + title + Create button', () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     selectRawMode()
     expect(screen.getByTestId('raw-priority-group')).toBeInTheDocument()
     expect(screen.getByTestId('raw-title-input')).toBeInTheDocument()
@@ -567,7 +603,7 @@ describe('ProposeSpecModal', () => {
   })
 
   it('Raw mode auto-derives the title from the first non-empty line of the body', () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     selectRawMode()
     const body = screen.getByLabelText('Raw spec body')
     fireEvent.change(body, { target: { value: 'Add a CSV export button\nin the reports page' } })
@@ -575,7 +611,7 @@ describe('ProposeSpecModal', () => {
   })
 
   it('Raw mode posts to /tickets/from-prompt with description, default priority and structured=false', async () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     selectRawMode()
     const body = screen.getByLabelText('Raw spec body')
     fireEvent.change(body, { target: { value: 'Raw prompt body text' } })
@@ -601,7 +637,7 @@ describe('ProposeSpecModal', () => {
   })
 
   it('Raw mode sends the selected priority and an explicit title override', async () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     selectRawMode()
     fireEvent.change(screen.getByLabelText('Raw spec body'), { target: { value: 'auto title here' } })
     fireEvent.change(screen.getByTestId('raw-title-input'), { target: { value: 'Explicit Title' } })
@@ -620,7 +656,7 @@ describe('ProposeSpecModal', () => {
   })
 
   it('Raw mode adds a label via Enter and includes it in the payload', async () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     selectRawMode()
     fireEvent.change(screen.getByLabelText('Raw spec body'), { target: { value: 'body text' } })
     const labelInput = screen.getByTestId('raw-label-input')
@@ -638,7 +674,7 @@ describe('ProposeSpecModal', () => {
   })
 
   it('Raw priority pills support arrow-key navigation', () => {
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     selectRawMode()
     const group = screen.getByTestId('raw-priority-group')
     const medium = screen.getAllByRole('radio').find((r) => r.textContent?.toLowerCase() === 'medium')!
@@ -660,7 +696,7 @@ describe('ProposeSpecModal', () => {
       }
       return Promise.resolve({ ok: true, json: async () => ({}) })
     })
-    render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+    render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     selectRawMode()
     fireEvent.change(screen.getByLabelText('Raw spec body'), { target: { value: 'will fail' } })
     fireEvent.click(screen.getByRole('button', { name: /create/i }))
@@ -675,7 +711,7 @@ describe('ProposeSpecModal', () => {
 
   describe('modal standard anatomy', () => {
     it('focuses the description editor on open (the primary input comes first)', async () => {
-      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
       const editor = screen.getByPlaceholderText(/add a dark mode toggle/i)
       await waitFor(() => expect(document.activeElement).toBe(editor))
       // The editor precedes the context controls in reading order.
@@ -684,7 +720,7 @@ describe('ProposeSpecModal', () => {
     })
 
     it('renders a ghost Cancel before the primary that closes the modal', () => {
-      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
       const cancel = screen.getByTestId('propose-cancel')
       const submit = screen.getByTestId('propose-submit')
       expect(cancel.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -693,7 +729,7 @@ describe('ProposeSpecModal', () => {
     })
 
     it('puts the mode tabs in the header and collapses context behind one disclosure', () => {
-      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
       const header = document.querySelector('[data-dialog-header]')!
       expect(header.querySelector('[role="tablist"]')).not.toBeNull()
       const disclosure = screen.getByTestId('context-disclosure') as HTMLDetailsElement
@@ -702,7 +738,7 @@ describe('ProposeSpecModal', () => {
     })
 
     it('labels the context disclosure with the selected slider stop', async () => {
-      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      render(<ProposeSpecModal initialMode="quick" open={true} onClose={onCloseMock} tickets={emptyTickets} />)
       fireEvent.click(screen.getByTestId('scope-stop-max'))
       await waitFor(() => expect(screen.getByTestId('context-disclosure-summary')).toHaveTextContent(/Context: Max/))
     })

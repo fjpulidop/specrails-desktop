@@ -20,7 +20,8 @@
     "view": "表示",
     "errorGenerating": "スペックの生成中にエラーが発生しました",
     "couldNotFind": "生成されたスペックが見つかりませんでした",
-    "couldNotConfirm": "スペックの作成を確認できませんでした"
+    "couldNotConfirm": "スペックの作成を確認できませんでした",
+    "intentMissing": "スペックは Intent なしで作成されました。スペックの詳細から追加してください。"
   },
   "contractRefine": {
     "refining": "コントラクトをリファイン中…",

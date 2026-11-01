@@ -1,3 +1,4 @@
+import type { AddSpecMode } from './ProposeSpecModal'
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
@@ -256,7 +257,7 @@ export function SpecsBoard({
     onTicketDelete?.(ticket.id)
   }, [onTicketDelete])
   const [proposeOpen, setProposeOpen] = useState(false)
-  const [proposeMode, setProposeMode] = useState<'quick' | 'explore'>('quick')
+  const [proposeMode, setProposeMode] = useState<AddSpecMode>('intent')
   const [explore, setExplore] = useState<ExploreState | null>(null)
   const { activeProjectId, projects, setActiveProjectId } = useDesktop()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1302,7 +1303,7 @@ export function SpecsBoard({
       <ProposeSpecModal
         open={proposeOpen}
         initialMode={proposeMode}
-        onClose={() => { setProposeOpen(false); setProposeMode('quick') }}
+        onClose={() => { setProposeOpen(false); setProposeMode('intent') }}
         tickets={allTickets ?? tickets}
         onExploreLaunch={handleExploreLaunch}
       />

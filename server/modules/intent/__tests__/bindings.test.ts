@@ -223,7 +223,7 @@ describe('worktree reservation binding (real git)', () => {
     await worktrees.release({ flowId: 'flow-oc', ticketId, worktreePath: reserved.worktreePath, branch: reserved.branch })
   })
 
-  it('reserves an Intent session-owned worktree, summarizes the diff, freezes HEAD and releases it', async () => {
+  it('reserves an Intent-owned worktree, summarizes the diff, freezes HEAD and releases it', async () => {
     const ctx = context()
     const tickets = createFlowTickets(ctx)
     const ticketId = tickets.createPlaceholder({ flowId: 'flow-1', conversationId: 'conv-1', title: 'Try a board', description: 'x', startedAt: 't' })
@@ -271,7 +271,7 @@ describe('worktree reservation binding (real git)', () => {
   it('refuses to remove anything outside the Intent mount root and tolerates an unrecorded mount', async () => {
     const ctx = context()
     const worktrees = createFlowWorktrees(ctx, { providerFor: () => 'claude' })
-    await expect(worktrees.release({ flowId: 'flow-1', ticketId: 1, worktreePath: repo, branch: 'main' })).rejects.toThrow(/not an Intent session-owned worktree/)
+    await expect(worktrees.release({ flowId: 'flow-1', ticketId: 1, worktreePath: repo, branch: 'main' })).rejects.toThrow(/not an Intent-owned worktree/)
     await expect(worktrees.release({ flowId: 'flow-2', ticketId: 1, worktreePath: null, branch: null })).resolves.toBeUndefined()
     expect(git(['rev-parse', '--abbrev-ref', 'HEAD'])).toBe('main')
   })

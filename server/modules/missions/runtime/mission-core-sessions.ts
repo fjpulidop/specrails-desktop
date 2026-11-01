@@ -157,7 +157,7 @@ export class MissionCoreSessions {
   }
 
   /**
-   * Can this conversation's provider run an Intent session session in its scope right now?
+   * Can this conversation's provider run an Intent session in its scope right now?
    * Resolves the host client; throws `IntentSessionUnavailableError` otherwise.
    */
   async assertFlowSupport(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, providerId: string) {

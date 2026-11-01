@@ -88,7 +88,7 @@ export const FLOW_SPEC_LOOP_ID = 'factory:flow-spec'
 const FLOW_SPEC_FACTORY: FactoryLoop = {
   id: FLOW_SPEC_LOOP_ID,
   name: 'Intent → Spec',
-  description: 'Derives the spec of code built in an Intent session session: writes the OpenSpec change from the diff and the conversation, verifies it, reviews coverage and archives it.',
+  description: 'Derives the spec of code built in an Intent session: writes the OpenSpec change from the diff and the conversation, verifies it, reviews coverage and archives it.',
   mode: 'loop',
   requiredCoreCapability: 'deriveChange',
   launchable: false,

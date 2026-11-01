@@ -5,6 +5,8 @@
     "engineAriaLabel": "KI-Engine für diese Spec",
     "modeTablistLabel": "Modus der Spec-Erstellung",
     "mode": {
+      "intent": "Intent",
+      "intentHint": "Problem zuerst",
       "quick": "Quick",
       "explore": "Explore",
       "raw": "Raw",
@@ -13,11 +15,13 @@
       "quickUnavailable": "für Kimi nicht verfügbar"
     },
     "modeDescription": {
+      "intent": "Beschreibe das Problem, wen es betrifft und woran du erkennst, dass es gelöst ist. Die KI schreibt den Intent und leitet daraus die Spec zur Prüfung ab.",
       "quick": "Beschreibe das Feature oder die Änderung. Hänge Mockups, Briefings oder Daten für mehr Kontext an.",
       "explore": "Beschreibe eine grobe Idee. Der ausgewählte KI-Assistent hilft dir, sie im Gespräch zu formen – du entscheidest, wann committet wird.",
       "raw": "Dein Prompt, unverändert – als Spec gespeichert. Es läuft jetzt keine KI; zieh sie auf eine Rail, um sie zu bauen."
     },
     "editorPlaceholder": {
+      "intent": "z. B. Neue Nutzer brechen die Einrichtung ab, weil wir einen API-Schlüssel verlangen, bevor sie etwas funktionieren sehen. Gelöst ist es, wenn die meisten in unter 2 Minuten fertig sind…",
       "quick": "z. B. Einen Dark-Mode-Toggle auf der Einstellungsseite ergänzen, der die Nutzerpräferenz speichert…",
       "explore": "z. B. Dark Mode – unklar, wo der Toggle hingehört oder wie die Einstellung gespeichert wird…",
       "raw": "Beschreibe das Feature, die Änderung oder die Idee. Markdown, Bilder und Dateien werden unterstützt…"
@@ -46,6 +50,7 @@
       "responsiveSizes_other": "Responsive · {{count}} Größen"
     },
     "submit": {
+      "intent": "Intent und Spec erzeugen",
       "quick": "Spec generieren",
       "explore": "Weiter",
       "raw": "Erstellen",

@@ -56,10 +56,10 @@ describe('packet and PR body derivation', () => {
 
   it('adds one short derivation line to the PR body', () => {
     const derivation = parseDerivation(report)!
-    expect(buildDerivationLine(derivation)).toBe('> Derived from an Intent session session: OpenSpec change `kanban-board`, 4/5 changed files explained by its design (1 unexplained — see the review packet).')
-    expect(buildDerivationLine({ ...derivation, explained: 5, unexplainedFiles: [] })).toBe('> Derived from an Intent session session: OpenSpec change `kanban-board`, 5/5 changed files explained by its design.')
+    expect(buildDerivationLine(derivation)).toBe('> Derived from an Intent session: OpenSpec change `kanban-board`, 4/5 changed files explained by its design (1 unexplained — see the review packet).')
+    expect(buildDerivationLine({ ...derivation, explained: 5, unexplainedFiles: [] })).toBe('> Derived from an Intent session: OpenSpec change `kanban-board`, 5/5 changed files explained by its design.')
     const body = buildCanonicalPrBody({ loopName: 'Intent → Spec', baseBranch: 'main', tickets: [{ ticketId: 7, title: 'Kanban', description: null, branch: null }] as never, derivation })
-    expect(body).toContain('> Derived from an Intent session session')
-    expect(buildCanonicalPrBody({ loopName: 'Implement', baseBranch: 'main', tickets: [{ ticketId: 7, title: 'K', description: null, branch: null }] as never })).not.toContain('Derived from an Intent session session')
+    expect(body).toContain('> Derived from an Intent session')
+    expect(buildCanonicalPrBody({ loopName: 'Implement', baseBranch: 'main', tickets: [{ ticketId: 7, title: 'K', description: null, branch: null }] as never })).not.toContain('Derived from an Intent session')
   })
 })

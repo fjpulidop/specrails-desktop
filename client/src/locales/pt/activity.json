@@ -20,7 +20,8 @@
     "view": "Ver",
     "errorGenerating": "Erro ao gerar a spec",
     "couldNotFind": "Não foi possível encontrar a spec gerada",
-    "couldNotConfirm": "Não foi possível confirmar a criação da spec"
+    "couldNotConfirm": "Não foi possível confirmar a criação da spec",
+    "intentMissing": "A spec foi criada sem intent: adicione-o no detalhe da spec."
   },
   "contractRefine": {
     "refining": "A refinar contrato…",

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   FLOW_SUMMARY_LIMIT_BYTES, buildFlowSummary, buildSpecRewriteText, extractFlowDecisions, flowEffectKey, flowJiraCreateKey, nextDueEffect, summarizeSettlement,
 } from '..'
-import { FLOW_SPEC_SEED_LIMIT, ORIGINAL_SPEC_COMMENT_HEADING, buildOriginalSpecComment, buildSpecSeedBriefing, failedAttempt, finishedEffect, flowJiraUpdateKey, inFlowWindow, plannedSettlementEffects, replyFirstLine, settlementRetryAt, timestampMs } from '../domain'
+import { FLOW_SPEC_SEED_LIMIT, ORIGINAL_SPEC_COMMENT_HEADING, buildIntentSeedBriefing, buildOriginalSpecComment, buildSpecSeedBriefing, failedAttempt, finishedEffect, flowJiraUpdateKey, inFlowWindow, plannedSettlementEffects, replyFirstLine, settlementRetryAt, timestampMs } from '../domain'
 
 const NOW = '2026-10-21T10:00:00.000Z'
 const bytes = (text: string) => Buffer.byteLength(text, 'utf8')
@@ -71,6 +71,28 @@ describe('Intent conversation summary', () => {
     const summary = buildFlowSummary({ idea: '界'.repeat(4000), messages: [] }, 600)
     expect(bytes(summary)).toBeLessThanOrEqual(600)
     expect(summary).not.toContain('�')
+  })
+})
+
+describe('the intent in derivation and seed context (intent-mode)', () => {
+  const block = '## Intent (source of truth for why and for the outcome, never for how)\n\n### Problem\n\nBoards are noisy'
+  it('leads the derive summary with the intent, after the frontmatter, and keeps it while trimming the transcript', () => {
+    const many = Array.from({ length: 200 }, (_, i) => ({ role: 'user', content: `message ${i} ${'x'.repeat(400)}` }))
+    const summary = buildFlowSummary({ idea: 'Kanban', messages: many, intent: block })
+    expect(summary.startsWith('---\ntranscriptTurns:')).toBe(true)
+    expect(summary.indexOf(block)).toBeLessThan(summary.indexOf('## Idea'))
+    expect(bytes(summary)).toBeLessThanOrEqual(FLOW_SUMMARY_LIMIT_BYTES)
+    expect(buildFlowSummary({ idea: 'Kanban', messages: [] })).not.toContain('## Intent (')
+  })
+
+  it('seeds the first turn with the intent, before the spec', () => {
+    const seed = buildSpecSeedBriefing({ id: 3, title: 'Calm board', description: 'Body', status: 'todo', nonGoals: [], repositoryIds: [], addenda: '', intent: block })
+    expect(seed.indexOf(block)).toBeGreaterThan(-1)
+    expect(seed.indexOf(block)).toBeLessThan(seed.indexOf('## Spec #3'))
+    const fresh = buildIntentSeedBriefing(block)
+    expect(fresh).toContain('[Intent session started from an intent')
+    expect(fresh).toContain(block)
+    expect(fresh.length).toBeLessThanOrEqual(FLOW_SPEC_SEED_LIMIT)
   })
 })
 

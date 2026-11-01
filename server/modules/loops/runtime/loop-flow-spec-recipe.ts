@@ -121,7 +121,7 @@ export function flowSpecGraph(): LoopGraph {
   node('review', 'Reviewer', 'role-turn', {
     roleId: 'reviewer',
     prompt: [
-      `Review OpenSpec change ${change}, derived from code that already exists in this worktree (an Intent session session built it with the user).`,
+      `Review OpenSpec change ${change}, derived from code that already exists in this worktree (an Intent session built it with the user).`,
       'Judge whether the derived proposal, design, delta specs and checked tasks describe the real code faithfully: no invented requirements, nothing material left out.',
       'Derivation coverage measured by Core (every changed file must appear in design.md "## Blast radius"): {{outputs.derive.derivation}}.',
       'Treat EVERY file in unexplainedFiles as an issue. Inspect the real code and the host verification evidence: {{outputs.check}}.',
@@ -139,7 +139,7 @@ export function flowSpecGraph(): LoopGraph {
     roleId: 'developer',
     stance: 'fixer',
     prompt: [
-      `Correct the code an Intent session session built for OpenSpec change ${change} so the review can approve it.`,
+      `Correct the code an Intent session built for OpenSpec change ${change} so the review can approve it.`,
       'Findings to resolve (the reviewer\'s structured verdict, or the failing host verification): {{run.latestFindings}}.',
       'Fix the defects the findings name. Add or extend the tests the findings ask for; creating a test file is allowed for that.',
       'Tag every test that demonstrates an ADDED or MODIFIED requirement of the change\'s delta specs with `[spec:<capability>/<requirement-slug>]` in its title.',
