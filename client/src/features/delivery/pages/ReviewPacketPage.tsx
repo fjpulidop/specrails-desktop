@@ -697,7 +697,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         </Section>
       ) : null}
 
-      {/* ── Derivation (Flow -> Spec): coverage before what to watch out for ─── */}
+      {/* ── Derivation (IntentSession -> Spec): coverage before what to watch out for ─── */}
       {packet.derivation ? <PacketDerivation derivation={packet.derivation} settlement={packet.flowSettlement} /> : null}
 
       {/* ── What to watch out for: real signals only, never boilerplate ─────── */}

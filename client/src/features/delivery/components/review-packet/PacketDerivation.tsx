@@ -1,5 +1,5 @@
 /**
- * "Derivation" (Flow -> Spec): how much of the Flow's diff the derived OpenSpec
+ * "Derivation" (IntentSession -> Spec): how much of the Intent's diff the derived OpenSpec
  * change explains. Coverage is Core's own measurement from git (app-verified);
  * the deriver's confidence is the model's self-assessment (AI-reported). Shown
  * before "What to watch out for" so unexplained files are seen first.

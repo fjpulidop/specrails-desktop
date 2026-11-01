@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
-import { parseCoreSessionsFlag, resolveCoreSessionsAvailability, resolveFlowAvailability, type CoreSessionsAvailability, type FlowAvailability } from '../domain/availability'
+import { parseCoreSessionsFlag, resolveCoreSessionsAvailability, resolveFlowAvailability, type CoreSessionsAvailability, type IntentAvailability } from '../domain/availability'
 import { checkSessionContract, type SessionContractBlock } from '../domain/protocol'
 
 /** Read `agentRuntime.sessions` from the selected Core package next to its runtime CLI. */
@@ -34,10 +34,10 @@ export async function coreSessionsAvailability(env: NodeJS.ProcessEnv = process.
 }
 
 /**
- * Whether Flow mode can be offered with the selected Core: Core sessions are
+ * Whether Intent mode can be offered with the selected Core: Core sessions are
  * usable and the runtime advertises `flowSessions` and `deriveChange`.
  */
-export async function flowAvailability(env: NodeJS.ProcessEnv = process.env): Promise<FlowAvailability> {
+export async function flowAvailability(env: NodeJS.ProcessEnv = process.env): Promise<IntentAvailability> {
   const sessions = await coreSessionsAvailability(env)
   let capabilities: Record<string, number> | undefined
   try {

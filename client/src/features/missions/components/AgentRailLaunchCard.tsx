@@ -151,7 +151,7 @@ export type RailHandOffOutcome =
   | { ok: false; error: string; detail?: string; action?: string }
 
 /**
- * Hand-off mode (Flow → Spec): the card launches an EXISTING worktree through
+ * Hand-off mode (IntentSession → Spec): the card launches an EXISTING worktree through
  * its owner's route instead of assigning specs + launching. The spec set,
  * repositories and delivery target are fixed by the owner, the loop is the
  * owner's, and "Not yet" returns control to the owner instead of recording a
@@ -208,7 +208,7 @@ interface Props {
   intent: AgentMessageIntent | null
   /** Compact mode inside the pinned dock (the dock owns the outer header). */
   compact?: boolean
-  /** Hand-off mode (Flow → Spec): see RailLaunchHandOff. */
+  /** Hand-off mode (IntentSession → Spec): see RailLaunchHandOff. */
   handOff?: RailLaunchHandOff
 }
 
@@ -530,7 +530,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         const r = await fetch(`${base}/${railIndex}/name`, { method: 'PUT', headers: json, body: JSON.stringify({ name: wantsName }) })
         if (!r.ok) { setInlineError(await readError(r)); return }
       }
-      // A hand-off always names its engine: the owner chose it (Flow: the conversation's provider).
+      // A hand-off always names its engine: the owner chose it (Intent: the conversation's provider).
       const engineForRail = effectiveEngine && (detectedProviders.length > 1 || handOff) ? effectiveEngine : undefined
       if (handOff) {
         // The owner's route assigns its spec and launches its worktree.
@@ -1103,7 +1103,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           >
             {t('railCard.dismiss')}
           </button>
-          {/* One existing spec: the extension's other way to work on it (Flow), equal weight. */}
+          {/* One existing spec: the extension's other way to work on it (IntentSession), equal weight. */}
           {RailLaunchAlternative && projectId && conversationId && validTicketIds.length === 1 && (
             <RailLaunchAlternative projectId={projectId} conversationId={conversationId} ticketId={validTicketIds[0]!} ticketTitle={ticketById.get(validTicketIds[0]!)?.title} ticketRepositoryIds={ticketById.get(validTicketIds[0]!)?.repositoryIds} disabled={!!busy} onChosen={() => void dismiss()} />
           )}

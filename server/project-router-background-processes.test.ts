@@ -324,7 +324,7 @@ describe('background execution stop and discovery', () => {
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'background_process.updated', process: expect.objectContaining({ status: 'stopping' }) }))
   })
 
-  it('inside an active Flow of a multi-repository project, runs in the Flow worktree with the Flow repository', async () => {
+  it('inside an active Intent of a multi-repository project, runs in the Intent worktree with the Intent repository', async () => {
     const repositories = ['front', 'back'].map((id, i) => ({ id, projectId: 'p1', name: id,
       path: `/tmp/${id}`, isPrimary: i === 0, kind: 'git' as const, integrationBranch: null, addedAt: '' }))
     const flow = { id: 'flow-9', state: 'active', step: null, worktreePath: '/tmp/flow-wt', repositoryId: 'back' }
@@ -333,7 +333,7 @@ describe('background execution stop and discovery', () => {
     expect(response.status).toBe(202)
     expect(response.body).toMatchObject({ repositoryId: 'back', flowId: 'flow-9' })
     expect(startBackgroundProcess).toHaveBeenLastCalledWith('npm run dev', '/tmp/flow-wt/web', 'chat-1', 'p1', expect.anything(), { repositoryId: 'back', repositoryName: 'back', flowId: 'flow-9' })
-    // Another chat (no Flow) still has to name the repository; a paused Flow does not count.
+    // Another chat (no Intent) still has to name the repository; a paused Intent does not count.
     expect((await request(app).post('/api/projects/p1/background-processes').send({ command: 'npm run dev', confirmed: true, chatId: 'chat-2' })).status).toBe(400)
     const paused = buildApp(null, repositories, { ...flow, state: 'paused' })
     expect((await request(paused).post('/api/projects/p1/background-processes').send({ command: 'npm run dev', confirmed: true, chatId: 'chat-1' })).status).toBe(400)

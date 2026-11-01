@@ -150,7 +150,7 @@ hint (`specTimeline`), and cached entries kept on screen while a refresh runs.
 built on top of specs add another way to start work on an existing spec,
 next to the Implement door, without specs importing it: `StartAlternative`
 renders in the board's spec context menu and the spec detail header. The
-composition root (App.tsx) provides Flow's "Start in Flow". Without a
+composition root (App.tsx) provides Intent's "Start in Intent". Without a
 provider the slot is inert.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/specs`.

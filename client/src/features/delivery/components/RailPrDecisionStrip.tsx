@@ -94,7 +94,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const failedRun = runtimeRuns.runs.find((run) => run.runId === failedRunId) ?? null
   const canResume = failedRun !== null && failedRun.canResume && !failedRun.active
   const relaunchBlocked = failedRun !== null && (failedRun.active || failedRun.status === 'running' || failedRun.status === 'paused')
-  // A Flow → Spec run relaunches from its Flow (mission card): the rail relaunch refuses that loop.
+  // An Intent session → Spec run relaunches from its Intent (mission card): the rail relaunch refuses that loop.
   const flowSpecRun = decision.loopId === FLOW_SPEC_LOOP_ID
   const loopLabel = useLoopLabel(decision.loopId, decision.loopName)
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(decision.statusCode, decision.statusDetail)
@@ -924,8 +924,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </>
     )
   } else if (d === 'implementation_failed' && decision.statusCode === 'review_changes_requested') {
-    // Flow → Spec still needs changes: its Flow worktree is kept for "Back to
-    // Flow" / "Relaunch" on the mission card — never discarded from here.
+    // Intent → Spec still needs changes: its Intent worktree is kept for "Back to
+    // Intent" / "Relaunch" on the mission card — never discarded from here.
     detailLine = decision.statusDetail ? null : t('railPr.reviewChangesRequestedHint')
     pill = (
       <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={decision.statusDetail ?? t('railPr.reviewChangesRequestedHint')} data-testid="rail-pr-review-changes">
@@ -944,7 +944,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     )
     actions = (
       <>
-        {/* One primary: resume the run when it can be, else run the attempt again (never for a continuation or a Flow run). */}
+        {/* One primary: resume the run when it can be, else run the attempt again (never for a continuation or an Intent session run). */}
         {canResume ? (
           <button type="button" data-testid="rail-pr-resume" disabled={busy} onClick={(event) => { event.stopPropagation(); void runtimeRuns.act(failedRun, 'resume') }} className={primaryBtn}>
             {runtimeRuns.busy !== null ? spinner : <Play className={iconCls} aria-hidden />}

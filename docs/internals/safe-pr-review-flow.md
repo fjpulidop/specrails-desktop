@@ -488,7 +488,7 @@ Conventional, open-source-style naming for everything the user sees on GitHub. A
 logic in `server/modules/delivery/runtime/pr-naming.ts` (branches + titles) and `server/modules/delivery/runtime/pr-body.ts` (canonical body +
 diff collection), fully unit-tested.
 
-- **Flow → Spec deliveries** add one derivation line to the body (coverage of the derived
+- **Intent → Spec deliveries** add one derivation line to the body (coverage of the derived
   OpenSpec change, from the settle evidence; see [review packet](review-packet.md)).
 - **`<ref>`** — the ticket's Jira key when Jira-linked, else the local ticket number. **JIRA
   ALWAYS PREVAILS**, resolved per ticket at naming/body time with no HTTP: the authoritative
@@ -742,10 +742,10 @@ kill-switch-off legacy path. The `needs_review`-clearing and failure-revert bran
   cost/duration); `onRailDiscard(ticketIds, refId)` (configured `discardStatus`, else logical
   todo).
 
-- Flow specs (`metadata.flow` still `active`/`paused` at settle) are excluded
-  from the settle-time `onRailReview`: their Flow settlement creates the issue
+- Intent specs (`metadata.flow` still `active`/`paused` at settle) are excluded
+  from the settle-time `onRailReview`: their Intent settlement creates the issue
   (`enqueuePromote`, key `flow:<flowId>:create`) and only then transitions it
-  with `onRailReview([ticketId], deliveryId)`. See [Flow mode](flow-mode.md#settlement).
+  with `onRailReview([ticketId], deliveryId)`. See [Intent mode](intent-mode.md#settlement).
 
 ## Origin link (as-built)
 

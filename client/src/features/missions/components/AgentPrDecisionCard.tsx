@@ -113,7 +113,7 @@ const HEADER_ICON_TONE: Record<AgentPrDecisionEnvelope['decision'], string> = {
 function OutcomeEvidence({ envelope, hideFailedUnits = false }: { envelope: AgentPrDecisionEnvelope; hideFailedUnits?: boolean }) {
   const { t } = useTranslation('agent')
   const presentation = derivePrDeliveryPresentation(envelope)
-  // A Flow-owned outcome already says what failed: no duplicate red unit chip.
+  // An Intent session-owned outcome already says what failed: no duplicate red unit chip.
   if (hideFailedUnits && !presentation.partial) return null
   if (presentation.units.length === 0 && !presentation.partial) return null
   return (
@@ -213,7 +213,7 @@ export function deriveMissionRunStatus(
     return 'running'
   }
   if (live?.active) return 'running'
-  // Flow → Spec: the work still needs changes / went back to its Flow — not a crash.
+  // Intent → Spec: the work still needs changes / went back to its Intent — not a crash.
   const flow = flowCardOutcome(envelope)
   if (flow === 'changes') return 'changes_requested'
   if (flow === 'returned') return 'returned'
@@ -228,10 +228,10 @@ export function deriveMissionRunStatus(
 }
 
 /**
- * Flow → Spec outcome a card presents instead of a generic failure (null for
+ * Intent → Spec outcome a card presents instead of a generic failure (null for
  * every other run): `changes` — the review still requests changes; `crashed`
  * — the run failed outright (a technical failure, not a review verdict);
- * `returned` — the work went back to its Flow.
+ * `returned` — the work went back to its Intent.
  */
 export function flowCardOutcome(envelope: Partial<Pick<AgentPrDecisionEnvelope, 'decision' | 'statusCode' | 'loopId'>>): 'changes' | 'crashed' | 'returned' | null {
   if (envelope.decision === 'implementation_failed' && envelope.statusCode === 'review_changes_requested') return 'changes'
@@ -536,7 +536,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const presentation = derivePrDeliveryPresentation(envelope)
   const { RunCardActions, RunFailureOutcome } = useMissionExtensions()
   const rawFlowOutcome = flowCardOutcome(envelope)
-  // A failed Flow → Spec run is explained by Flow itself; without the
+  // A failed Intent → Spec run is explained by Intent itself; without the
   // extension the card keeps its generic failure presentation.
   const flowOutcome = rawFlowOutcome === 'crashed' && !RunFailureOutcome ? null : rawFlowOutcome
   const flowFailure = envelope.runtime?.failure ?? null
@@ -995,9 +995,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     </>
   )
   const relaunchBlocked = Boolean(liveRun?.active) || runStatus === 'running' || runStatus === 'paused'
-  // A Flow → Spec run relaunches from its Flow (same worktree, rail and
+  // An Intent session → Spec run relaunches from its Intent (same worktree, rail and
   // engine): the plain rail relaunch refuses that loop, so the card offers
-  // the Flow's own actions in its place.
+  // the Intent's own actions in its place.
   const flowSpecRun = envelope.loopId === FLOW_SPEC_LOOP_ID
   const flowRunActions = flowSpecRun && RunCardActions && decision === 'implementation_failed' && (flowOutcome === null || flowOutcome === 'crashed') ? (
     <RunCardActions projectId={envelope.projectId} prDeliveryId={envelope.prDeliveryId} conversationId={conversationId ?? null}
@@ -1166,7 +1166,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           </div>
         )}
         {runChips && <div className="pl-[22px]">{runChips}</div>}
-        {/* Flow → Spec says what it does in its title; the generic PR hint is noise there. */}
+        {/* Intent → Spec says what it does in its title; the generic PR hint is noise there. */}
         {envelope.loopId !== FLOW_SPEC_LOOP_ID && (
           <p className="mt-1 pl-[22px] text-label leading-4 text-muted-foreground">
             {runOnly ? t('runCard.noDeliveryHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
@@ -1258,7 +1258,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
 
   const Icon = flowOutcome === 'changes' ? MessageSquareWarning : flowOutcome === 'returned' ? Undo2 : HEADER_ICON[decision]
   const iconTone = flowOutcome === 'changes' || flowOutcome === 'crashed' ? 'text-accent-warning' : flowOutcome === 'returned' ? 'text-accent-info' : HEADER_ICON_TONE[decision]
-  // Flow → Spec names itself where the title would otherwise be generic.
+  // Intent → Spec names itself where the title would otherwise be generic.
   const flowSpec = envelope.loopId === FLOW_SPEC_LOOP_ID
   const flowSpecDelivered = flowSpec && ['on_review', 'pr_draft', 'pr_ready', 'completed'].includes(decision) && !degradedDraft
   const title = flowOutcome === 'changes'
@@ -1790,7 +1790,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               <div className="flex flex-wrap items-center gap-1.5">
                 {/* One primary: resume the run when it can be, else relaunch. The rest wait in the menu. */}
                 {canResumeRun ? resumeButton(true) : relaunchButton(true)}
-                {/* A resumable Flow → Spec run keeps its Flow actions (Back to Flow, relaunch from the Flow) beside Resume. */}
+                {/* A resumable Intent → Spec run keeps its Intent actions (Back to Intent, relaunch from the Intent) beside Resume. */}
                 {canResumeRun && flowSpecRun && flowRunActions}
                 {moreActions({ lead: implementationFailedLead })}
               </div>

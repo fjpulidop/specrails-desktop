@@ -1692,7 +1692,44 @@
       "runtime/verification-sentinel.ts": []
     }
   },
-  "flow": {
+  "inbox": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../../../project-registry",
+        "../application",
+        "./project-source",
+        "express"
+      ],
+      "adapters/project-source.ts": [
+        "../../../db",
+        "../../../jira/jira-db",
+        "../../delivery/runtime/rail-pr-store",
+        "../../execution",
+        "../../recovery",
+        "../../recovery/adapters/sqlite",
+        "../domain",
+        "../ports"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
+    }
+  },
+  "intent": {
     "publicEntries": [
       "adapters/bindings.ts",
       "adapters/http.ts",
@@ -1747,43 +1784,6 @@
       ],
       "adapters/sqlite.ts": [
         "../../../db/types",
-        "../domain",
-        "../ports"
-      ],
-      "application.ts": [
-        "./domain",
-        "./ports"
-      ],
-      "domain.ts": [],
-      "index.ts": [
-        "./application",
-        "./domain",
-        "./ports"
-      ],
-      "ports.ts": [
-        "./domain"
-      ]
-    }
-  },
-  "inbox": {
-    "publicEntries": [
-      "adapters/http.ts",
-      "index.ts"
-    ],
-    "dependencies": {
-      "adapters/http.ts": [
-        "../../../project-registry",
-        "../application",
-        "./project-source",
-        "express"
-      ],
-      "adapters/project-source.ts": [
-        "../../../db",
-        "../../../jira/jira-db",
-        "../../delivery/runtime/rail-pr-store",
-        "../../execution",
-        "../../recovery",
-        "../../recovery/adapters/sqlite",
         "../domain",
         "../ports"
       ],

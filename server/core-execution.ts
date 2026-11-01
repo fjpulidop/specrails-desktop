@@ -83,7 +83,7 @@ export function prepareCoreExecution(input: {
   sourcePath?: string
   workspacePaths?: string[]
   selectedWorkspacePaths?: string[]
-  /** Frozen change baseline of a manifest-less run (Flow -> Spec: the Flow
+  /** Frozen change baseline of a manifest-less run (Intent -> Spec: the Intent
    *  reservation commit). Manifest runs carry their own per-repository base. */
   repositoryBaseSha?: string
 }): { env: NodeJS.ProcessEnv; promptPrefix: string; contextPath: string; workspaceBriefing: string } {

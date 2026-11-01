@@ -85,7 +85,7 @@
     "ref_mismatch": "Branch-Referenz stimmt nicht überein",
     "restart_pending": "Wartet auf Wiederherstellung des Workflows",
     "review_changes_requested": "Reviewer hat Änderungen angefordert",
-    "returned_to_flow": "An den Flow zurückgegeben",
+    "returned_to_flow": "An den Intent zurückgegeben",
     "local_changes_attention": "Integriert — lokale Änderungen brauchen Aufmerksamkeit"
   },
   "prRecovery": {
@@ -207,7 +207,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Flow-Übergabe",
+    "flowSpec": "Intent-Übergabe",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
   },
@@ -233,7 +233,7 @@
       "dailyBudget": "Tagesbudgets",
       "recentlyDeleted": "kürzlich gelöschte Elemente",
       "railLoops": "was ein Rail ausführt",
-      "flowMode": "Flow",
+      "flowMode": "Intent",
       "flowHandOff": "die Übergabe eines Flows",
       "contextScope": "den Kontext-Schieberegler",
       "launchForecast": "die Startprognose",

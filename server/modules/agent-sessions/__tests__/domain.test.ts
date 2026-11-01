@@ -86,7 +86,7 @@ describe('session contract check', () => {
     expect(checkSessionContract({ ...block, protocolVersions: [1, 2], eventTypes: [...KNOWN_EVENT_TYPES, 'session.new'] })).toMatchObject({ compatible: true, protocolVersion: 1, unknownEventTypes: ['session.new'] })
   })
 
-  it('detects Flow sessions additively (contract 5.3: capabilities + interrupt delivery)', () => {
+  it('detects Intent sessions additively (contract 5.3: capabilities + interrupt delivery)', () => {
     const flow = { ...block, capabilities: ['sessions', 'delegation', 'flowSessions'], deliveries: ['queue', 'steer', 'interrupt'] }
     expect(checkSessionContract(flow)).toMatchObject({ compatible: true, flowSessions: true })
     expect(checkSessionContract({ ...flow, deliveries: ['queue', 'steer'] })).toMatchObject({ compatible: true, flowSessions: false })
@@ -163,10 +163,10 @@ describe('Core sessions availability', () => {
     expect(resolveCoreSessionsAvailability('auto', { sessions: 1 })).toEqual({ enabled: true, flag: 'auto', reason: 'Core sessions available' })
   })
 
-  it('offers Flow only with sessions, flowSessions and deriveChange', async () => {
+  it('offers Intent only with sessions, flowSessions and deriveChange', async () => {
     const { resolveCoreSessionsAvailability, resolveFlowAvailability } = await import('../domain/availability')
     const on = resolveCoreSessionsAvailability('auto', { sessions: 1 })
-    expect(resolveFlowAvailability(on, { sessions: 1, flowSessions: 1, deriveChange: 1 })).toEqual({ available: true, reason: 'Flow is available', missing: [] })
+    expect(resolveFlowAvailability(on, { sessions: 1, flowSessions: 1, deriveChange: 1 })).toEqual({ available: true, reason: 'Intent is available', missing: [] })
     expect(resolveFlowAvailability(on, { sessions: 1, flowSessions: 1 })).toMatchObject({ available: false, missing: ['deriveChange'], reason: expect.stringContaining('deriveChange') })
     expect(resolveFlowAvailability(on, { sessions: 1 })).toMatchObject({ missing: ['flowSessions', 'deriveChange'] })
     const off = resolveCoreSessionsAvailability('off', { sessions: 1 })

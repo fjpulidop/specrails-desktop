@@ -137,7 +137,7 @@ export function coerceRiskSummary(v: unknown): PrDeliveryRiskSummary | null {
 
 const FLOW_REVIEW_ISSUES_CAP = 50
 
-/** Defensive parse of a Flow → Spec review outcome; null when absent or malformed. */
+/** Defensive parse of an Intent session → Spec review outcome; null when absent or malformed. */
 export function coerceFlowReview(v: unknown): PrDeliveryFlowReview | null {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null
   const o = v as Record<string, unknown>

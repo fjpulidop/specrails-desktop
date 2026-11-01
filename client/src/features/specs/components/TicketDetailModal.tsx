@@ -128,7 +128,7 @@ export function TicketDetailModal({
   const { t } = useTranslation('tickets')
   const { t: tj } = useTranslation('jira')
   const { t: tAct } = useTranslation('activity')
-  // Another way to work on the spec next to Move to Rail (Flow), from the composition root.
+  // Another way to work on the spec next to Move to Rail (IntentSession), from the composition root.
   const { StartAlternative } = useSpecExtensions()
   const { activeProjectId, projects } = useDesktop()
   const { enterSplit, state: splitState } = useTicketDetailModal()
@@ -437,7 +437,7 @@ export function TicketDetailModal({
     persistKey: 'specrails.modal.spec-detail',
   })
 
-  // Terminal specs (done/cancelled) are finished work: no Move to rail / Flow.
+  // Terminal specs (done/cancelled) are finished work: no Move to rail / Intent.
   const isTerminal = ticket.status === 'done' || ticket.status === 'cancelled'
   // Compare needs a second spec to compare against (unknown list ⇒ keep it).
   const hasComparable = allTickets === undefined || allTickets.some((t) => t.id !== ticket.id)
@@ -571,7 +571,7 @@ export function TicketDetailModal({
             />
           )}
 
-          {/* Flow and Implement (Move to Rail) are two equal ways to work on a spec. */}
+          {/* Intent and Implement (Move to Rail) are two equal ways to work on a spec. */}
           {rails && onMoveToRail && StartAlternative && !isTerminal && (
             <StartAlternative
               variant="button"

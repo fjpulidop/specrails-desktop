@@ -20,10 +20,10 @@ beforeEach(() => { vi.clearAllMocks(); vi.mocked(runAgentRuntimeInvocation).mock
 const BASE = 'b'.repeat(40)
 const request: LoopRunRequest = {
   loopId: 'factory:flow-spec', projectId: 'project', cwd: '/wt', provider: 'claude', model: 'm', graph: flowSpecGraph(),
-  flowDerivation: { baseSha: BASE, summary: '---\ntranscriptTurns: 2\n---\n# Flow conversation summary\n' },
+  flowDerivation: { baseSha: BASE, summary: '---\ntranscriptTurns: 2\n---\n# Intent conversation summary\n' },
 }
 
-it('freezes the Flow reservation commit as the Core change base and writes the summary', async () => {
+it('freezes the Intent reservation commit as the Core change base and writes the summary', async () => {
   await createLoopExecutors({ env: {} }).runDefinition!({ onLine: vi.fn(), onRuntimeEvent: vi.fn(), onSpawn: vi.fn(), request, runId: 'run-1' })
   expect(vi.mocked(prepareCoreExecution).mock.calls[0]![0]).toMatchObject({ repositoryBaseSha: BASE })
   expect(readFileSync(join(pipeline, FLOW_SUMMARY_FILE), 'utf8')).toContain('transcriptTurns: 2')
@@ -37,7 +37,7 @@ it('refuses a derive-change graph on a Core without deriveChange', async () => {
   await expect(executors.assertDefinitionSupport!(flowSpecGraph())).resolves.toBeUndefined()
 })
 
-it('names the derived change after the Flow spec title, never addenda, with no delta briefing', async () => {
+it('names the derived change after the Intent spec title, never addenda, with no delta briefing', async () => {
   const flowRequest: LoopRunRequest = {
     ...request,
     spec: { id: 8, title: 'Add more visual effects to ArkanoidEX', description: 'effects', status: 'in_progress' } as never,

@@ -33,7 +33,7 @@ describe('defaultNodeData', () => {
 })
 
 describe('makeNode', () => {
-  it('creates a React Flow node with a unique id and the loop type', () => {
+  it('creates a React Intent node with a unique id and the loop type', () => {
     const a = makeNode('shell', { x: 10, y: 20 })
     const b = makeNode('shell', { x: 10, y: 20 })
     expect(a.type).toBe('loop')
@@ -73,7 +73,7 @@ describe('graph ⇄ react-flow round-trip', () => {
     expect(reactFlowToGraph([], [], { maxIterations: 1, timeoutMinutes: 1 }).config.maxCostUsd).toBeUndefined()
   })
 
-  it('maps a Decider edge.branch ↔ React Flow sourceHandle (round-trip)', () => {
+  it('maps a Decider edge.branch ↔ React Intent sourceHandle (round-trip)', () => {
     const g: LoopGraph = {
       nodes: [
         { id: 'd', type: 'decider', position: { x: 0, y: 0 }, data: { goal: 'g' } },
@@ -87,7 +87,7 @@ describe('graph ⇄ react-flow round-trip', () => {
       config: { maxIterations: 5, timeoutMinutes: 10 },
     }
     const { edges } = graphToReactFlow(g)
-    // branch becomes the React Flow sourceHandle (so the edge attaches to the
+    // branch becomes the React Intent sourceHandle (so the edge attaches to the
     // correct named Decider handle) and is colour-coded.
     expect(edges.find((e) => e.id === 'ec')!.sourceHandle).toBe('continue')
     expect(edges.find((e) => e.id === 'es')!.sourceHandle).toBe('stop')
@@ -123,7 +123,7 @@ describe('graph ⇄ react-flow round-trip', () => {
   })
 
   it('reads branch from a connection drawn from a handle (sourceHandle only, no data)', () => {
-    // Simulates a freshly drawn edge: React Flow puts the handle id on
+    // Simulates a freshly drawn edge: React Intent puts the handle id on
     // sourceHandle; reactFlowToGraph must persist it as branch.
     const back = reactFlowToGraph(
       [{ id: 'd', type: 'loop', position: { x: 0, y: 0 }, data: { kind: 'decider' } }],

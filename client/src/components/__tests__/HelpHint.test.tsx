@@ -30,7 +30,7 @@ describe('HelpHint', () => {
 
   it('link variant reads "Learn more" but keeps the topic in its accessible name', () => {
     render(<HelpHint topic="flowMode" variant="link" />)
-    const button = screen.getByRole('button', { name: 'Learn more about Flow' })
+    const button = screen.getByRole('button', { name: 'Learn more about Intent' })
     expect(button).toHaveTextContent('Learn more')
   })
 

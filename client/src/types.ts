@@ -756,11 +756,11 @@ export type PacketDerivation =
   }
   | { status: 'unavailable' }
 
-export type FlowSettlementEffectState = 'pending' | 'done' | 'skipped' | 'failed'
+export type IntentSettlementEffectState = 'pending' | 'done' | 'skipped' | 'failed'
 export interface PacketFlowSettlement {
-  specRewrite: FlowSettlementEffectState | null
-  jiraCreate: FlowSettlementEffectState | null
-  jiraReview: FlowSettlementEffectState | null
+  specRewrite: IntentSettlementEffectState | null
+  jiraCreate: IntentSettlementEffectState | null
+  jiraReview: IntentSettlementEffectState | null
 }
 
 /** Pre-resolved meaning of Accept for this repo (server-probed, fail-closed). */

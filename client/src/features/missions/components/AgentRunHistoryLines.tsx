@@ -2,8 +2,8 @@
 // The pr_decision row sits where the run was launched. While the run is live
 // (in the strip) that slot says only what happened — "Launched on Rail 1" —
 // and opens the run. Once settled, an Implement run shows its settled card
-// (the one full card); a Flow → Spec run shows its outcome as a line that
-// expands the card in place, because the Flow's closing summary is the full
+// (the one full card); an Intent session → Spec run shows its outcome as a line that
+// expands the card in place, because the Intent's closing summary is the full
 // card of that story.
 
 import { useEffect, useRef, useState } from 'react'
@@ -19,7 +19,7 @@ function runName(t: (key: string, options?: Record<string, unknown>) => string, 
   return envelope.railName || t('prCard.rail', { index: envelope.railIndex + 1 })
 }
 
-/** "Launched on Rail 1 · #4 #7 · Flow hand-off" — opens the live run in the strip. */
+/** "Launched on Rail 1 · #4 #7 · Intent hand-off" — opens the live run in the strip. */
 export function AgentRunLaunchedLine({ envelope, conversationId }: { envelope: AgentPrDecisionEnvelope; conversationId: string }) {
   const { t } = useTranslation('agent')
   const tickets = envelope.ticketIds.map((id) => `#${id}`).join(' ')
@@ -40,7 +40,7 @@ export function AgentRunLaunchedLine({ envelope, conversationId }: { envelope: A
   )
 }
 
-/** The outcome of a settled Flow → Spec run, as words and a tone. */
+/** The outcome of a settled Intent → Spec run, as words and a tone. */
 export function settledRunOutcome(
   t: (key: string, options?: Record<string, unknown>) => string,
   envelope: AgentPrDecisionEnvelope,
@@ -61,7 +61,7 @@ export function settledRunOutcome(
   return { text: t('runStrip.event.discarded', { run }), tone: 'neutral', icon: XCircle }
 }
 
-/** A settled Flow → Spec run: its outcome line, expanding the card in place. */
+/** A settled Intent → Spec run: its outcome line, expanding the card in place. */
 export function AgentSettledRunLine({ envelope, conversationId }: { envelope: AgentPrDecisionEnvelope; conversationId: string }) {
   const { t } = useTranslation('agent')
   const [open, setOpen] = useState(false)

@@ -319,11 +319,11 @@
       "merged": "PR がマージされました",
       "discarded": "破棄済み",
       "review_changes_requested": "レビュアーが変更を依頼しました",
-      "returned_to_flow": "Flow に戻りました",
+      "returned_to_flow": "Intent に戻りました",
       "flowSpecChanges": "まだ完成していません：レビュアーが変更を求めました",
-      "flowSpecDelivered": "Flow がレビュー済みの PR になりました",
+      "flowSpecDelivered": "Intent がレビュー済みの PR になりました",
       "flowSpecFailed": "引き渡しが停止しました",
-      "flowSpecBuilding": "Flow をレビュー済みの PR にしています"
+      "flowSpecBuilding": "Intent をレビュー済みの PR にしています"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -716,12 +716,12 @@
       "scope_save_failed": "仕様のリポジトリを保存できませんでした。",
       "repository_scope_incomplete": "実行には仕様で必要なリポジトリが不足しています。上の割り当てを確認してください。",
       "rail_not_empty": "そのレールにはすでに spec があります",
-      "flow_freeze_failed": "引き渡しのために Flow の変更を保存できませんでした",
-      "flow_head_mismatch": "引き渡し中に Flow が変更されました。もう一度お試しください",
-      "flow_already_handed_off": "この Flow はすでに引き渡されています",
-      "flow_handoff_not_adopted": "レールは Flow の変更を引き継がずに開始しました",
-      "illegal_transition": "その間に Flow の状態が変わりました",
-      "feature_unavailable": "Flow は利用できません",
+      "flow_freeze_failed": "引き渡しのために Intent の変更を保存できませんでした",
+      "flow_head_mismatch": "引き渡し中に Intent が変更されました。もう一度お試しください",
+      "flow_already_handed_off": "この Intent はすでに引き渡されています",
+      "flow_handoff_not_adopted": "レールは Intent の変更を引き継がずに開始しました",
+      "illegal_transition": "その間に Intent の状態が変わりました",
+      "feature_unavailable": "Intent は利用できません",
       "daily_budget_exceeded": "1日の予算に達しました。何も起動していません。",
       "review_wip_limit_reached": "レビュー上限に達しました。何も起動していません。",
       "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。"
@@ -781,7 +781,7 @@
       "cancelled": "キャンセル済み",
       "unknown": "不明",
       "changes_requested": "変更依頼",
-      "returned": "Flow に戻りました"
+      "returned": "Intent に戻りました"
     },
     "title": {
       "running": "プロジェクトのチェックアウトで実装中…",
@@ -792,7 +792,7 @@
       "cancelled": "実行はキャンセルされました",
       "unknown": "実行状態は不明です",
       "changes_requested": "レビュアーが変更を依頼しました",
-      "returned": "Flow に戻りました"
+      "returned": "Intent に戻りました"
     },
     "noDeliveryNote": "PR フェーズなし：このプロジェクトには git リポジトリもコミットもないため、作業はプロジェクトフォルダーに直接反映されました。",
     "noDeliveryHint": "プロジェクトフォルダーで直接実行しています（git リポジトリもコミットもないため、PR は提案されません）。",
@@ -824,8 +824,8 @@
       "omitted_other": "ほか {{count}} 件（実行のレビューを参照）",
       "failingChecks": "失敗",
       "check": "{{command}} · 終了コード {{code}}",
-      "next": "自動修正ラウンドでは解決しませんでした。Flow に戻ってエージェントと解決するか、同じ Flow ブランチから再実行してください。",
-      "returned": "Flow に戻りました：変更はレビュー結果とともにこの Flow に戻っています。Flow のストリップから続けてください。"
+      "next": "自動修正ラウンドでは解決しませんでした。Intent に戻ってエージェントと解決するか、同じ Intent ブランチから再実行してください。",
+      "returned": "Intent に戻りました：変更はレビュー結果とともにこの Intent に戻っています。Intent のストリップから続けてください。"
     }
   },
   "runFailure": {
@@ -953,66 +953,66 @@
       "deriveChange": "お使いの Specrails Core はコードから spec をまだ導出できません"
     },
     "errors": {
-      "generic": "Flow はその操作を完了できませんでした。もう一度お試しください。",
+      "generic": "Intent はその操作を完了できませんでした。もう一度お試しください。",
       "network": "Specrails に接続できませんでした。",
-      "feature_unavailable": "インストール済みの Specrails Core では Flow を利用できません。",
-      "flow_already_open": "このミッションにはすでに Flow があります。先に再開するか破棄してください。",
-      "illegal_transition": "その間に Flow の状態が変わりました。更新してもう一度お試しください。",
-      "flow_worktree_missing": "この Flow のプロジェクトのコピーはもう存在しません。続ける前に Flow のブランチを確認してください。",
-      "flow_repository_required": "この Flow を実行するリポジトリを選んでください。",
-      "flow_repository_not_git": "Flow のブランチには Git リポジトリが必要です。通常のフォルダーでは使えません。Git リポジトリを選んでください。",
+      "feature_unavailable": "インストール済みの Specrails Core では Intent を利用できません。",
+      "flow_already_open": "このミッションにはすでに Intent があります。先に再開するか破棄してください。",
+      "illegal_transition": "その間に Intent の状態が変わりました。更新してもう一度お試しください。",
+      "flow_worktree_missing": "この Intent のプロジェクトのコピーはもう存在しません。続ける前に Intent のブランチを確認してください。",
+      "flow_repository_required": "この Intent を実行するリポジトリを選んでください。",
+      "flow_repository_not_git": "Intent のブランチには Git リポジトリが必要です。通常のフォルダーでは使えません。Git リポジトリを選んでください。",
       "flow_repository_unknown": "そのリポジトリはもうこのプロジェクトに含まれていません。別のものを選んでください。",
-      "flow_repository_missing": "この Flow のリポジトリはもうこのプロジェクトで利用できません。",
+      "flow_repository_missing": "この Intent のリポジトリはもうこのプロジェクトで利用できません。",
       "rail_not_empty": "そのレールにはすでに spec があります。空いている空のレールを選んでください。",
-      "flow_already_handed_off": "この Flow はすでにレールに引き渡されています。",
-      "flow_freeze_failed": "引き渡しのために Flow の変更を保存できませんでした。",
-      "flow_head_mismatch": "引き渡し中に Flow が変更されました。もう一度お試しください。",
-      "flow_handoff_not_adopted": "レールは Flow の変更を引き継がずに開始しました。",
+      "flow_already_handed_off": "この Intent はすでにレールに引き渡されています。",
+      "flow_freeze_failed": "引き渡しのために Intent の変更を保存できませんでした。",
+      "flow_head_mismatch": "引き渡し中に Intent が変更されました。もう一度お試しください。",
+      "flow_handoff_not_adopted": "レールは Intent の変更を引き継がずに開始しました。",
       "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。",
-      "flow_not_found": "この Flow はもう存在しません。",
-      "flow_failed": "Flow で予期しないエラーが発生しました。もう一度お試しください。",
+      "flow_not_found": "この Intent はもう存在しません。",
+      "flow_failed": "Intent で予期しないエラーが発生しました。もう一度お試しください。",
       "conversation_not_found": "このミッションはもう存在しません。",
-      "conversation_not_pinned": "Flow を開始する前に、このミッションをプロジェクトに固定してください。",
-      "flow_not_handed_off": "この Flow はもうその実行を待っていません。",
-      "flow_rail_unknown": "その実行のレールが不明です。Flow のストリップからもう一度引き渡してください。",
+      "conversation_not_pinned": "Intent を開始する前に、このミッションをプロジェクトに固定してください。",
+      "flow_not_handed_off": "この Intent はもうその実行を待っていません。",
+      "flow_rail_unknown": "その実行のレールが不明です。Intent のストリップからもう一度引き渡してください。",
       "flow_return_busy": "実行は別の操作で使用中です。少し待ってからもう一度お試しください。",
-      "flow_return_not_allowed": "完了前に停止した引き渡しだけが Flow に戻れます。",
-      "flow_return_not_found": "その実行は Flow の引き渡しではありません。",
-      "flow_return_worktree_mismatch": "その実行はこの Flow の変更を引き継いでいません。",
-      "spec_in_flow": "このスペックはすでに Flow 中です。続けるにはそのミッションを開いてください。",
-      "spec_on_rail": "このスペックはレール上にあります。Flow で始めるにはレールから外してください。",
+      "flow_return_not_allowed": "完了前に停止した引き渡しだけが Intent に戻れます。",
+      "flow_return_not_found": "その実行は Intent の引き渡しではありません。",
+      "flow_return_worktree_mismatch": "その実行はこの Intent の変更を引き継いでいません。",
+      "spec_in_flow": "このスペックはすでに Intent 中です。続けるにはそのミッションを開いてください。",
+      "spec_on_rail": "このスペックはレール上にあります。Intent で始めるにはレールから外してください。",
       "spec_running": "このスペックはレールで実行中です。実行が終わるまでお待ちください。",
-      "spec_closed": "このスペックは完了またはキャンセル済みです。Flow で作業するには再オープンしてください。",
+      "spec_closed": "このスペックは完了またはキャンセル済みです。Intent で作業するには再オープンしてください。",
       "spec_not_found": "このスペックはもう存在しません。",
       "invalid_ticket_id": "そのスペックを特定できませんでした。"
     },
     "entry": {
-      "heading": "Flow を開始",
-      "body": "Specrails はプロジェクトの別コピーを専用の Flow ブランチに作成し、エージェントはそこでコードを書けます。メインブランチには触れません。",
-      "provider": "エージェントは {{provider}} で動作し、Flow のコピーにのみ書き込みます。",
-      "providerUnknown": "エージェントは Flow のコピーにのみ書き込みます。",
+      "heading": "Intent を開始",
+      "body": "Specrails はプロジェクトの別コピーを専用の Intent ブランチに作成し、エージェントはそこでコードを書けます。メインブランチには触れません。",
+      "provider": "エージェントは {{provider}} で動作し、Intent のコピーにのみ書き込みます。",
+      "providerUnknown": "エージェントは Intent のコピーにのみ書き込みます。",
       "repository": {
         "label": "リポジトリ",
-        "hint": "Flow はこのリポジトリの別コピーで作業します。",
-        "choose": "この Flow を実行するリポジトリを選んでください",
+        "hint": "Intent はこのリポジトリの別コピーで作業します。",
+        "choose": "この Intent を実行するリポジトリを選んでください",
         "loading": "リポジトリを読み込み中…",
         "loadFailed": "プロジェクトのリポジトリを読み込めませんでした。もう一度お試しください。",
         "suggested": "エージェントの提案",
-        "noGit": "このプロジェクトには Git リポジトリがありません。Flow のブランチに必要です。"
+        "noGit": "このプロジェクトには Git リポジトリがありません。Intent のブランチに必要です。"
       },
       "blocked": {
-        "noProject": "Flow を使うには、このミッションをプロジェクトに固定してください。",
-        "open": "このミッションにはすでに Flow があります。",
-        "missing": "Flow には新しい Specrails Core が必要です:",
-        "unavailable": "現在 Flow は利用できません。",
-        "goToFlow": "その Flow へ移動"
+        "noProject": "Intent を使うには、このミッションをプロジェクトに固定してください。",
+        "open": "このミッションにはすでに Intent があります。",
+        "missing": "Intent には新しい Specrails Core が必要です:",
+        "unavailable": "現在 Intent は利用できません。",
+        "goToFlow": "その Intent へ移動"
       },
       "cancel": "キャンセル",
-      "start": "Flow を開始",
+      "start": "Intent を開始",
       "starting": "開始しています…",
       "existingSpec": {
         "label": "スペック #{{id}}",
-        "note": "Flow はこのスペックで作業し、エージェントはここから始めます。納品時にスペックは作ったものから書き直され、現在の本文はコメントとして残ります。"
+        "note": "Intent はこのスペックで作業し、エージェントはここから始めます。納品時にスペックは作ったものから書き直され、現在の本文はコメントとして残ります。"
       }
     },
     "offer": {
@@ -1021,9 +1021,9 @@
       "implementReply": "まず spec を書いてから Implement を実行しましょう。",
       "mode": {
         "flow": {
-          "title": "Flow",
-          "hint": "別の Flow ブランチで一緒に作り、spec は最後に作成します。",
-          "hintExisting": "別の Flow ブランチで一緒にこのスペックを作ります。スペックは作ったものから書き直されます。"
+          "title": "Intent",
+          "hint": "別の Intent ブランチで一緒に作り、spec は最後に作成します。",
+          "hintExisting": "別の Intent ブランチで一緒にこのスペックを作ります。スペックは作ったものから書き直されます。"
         },
         "implement": {
           "title": "Spec + 実装",
@@ -1032,18 +1032,18 @@
         }
       },
       "stub": {
-        "flow": "Flow を選びました",
+        "flow": "Intent を選びました",
         "implement": "Spec + Implement を選びました",
         "dismissed": "提案を閉じました",
-        "handedOff": "Flow をレール {{rail}} に引き渡しました",
+        "handedOff": "Intent をレール {{rail}} に引き渡しました",
         "state": {
-          "active": "Flow 進行中",
-          "paused": "Flow 一時停止中",
-          "handed_off": "Flow をレールに引き渡し済み",
-          "delivered": "Flow 完了",
-          "discarded": "Flow 破棄済み",
-          "needs-review": "Flow の確認が必要です",
-          "closed": "Flow を終了 (ブランチは保持)"
+          "active": "Intent 進行中",
+          "paused": "Intent 一時停止中",
+          "handed_off": "Intent をレールに引き渡し済み",
+          "delivered": "Intent 完了",
+          "discarded": "Intent 破棄済み",
+          "needs-review": "Intent の確認が必要です",
+          "closed": "Intent を終了 (ブランチは保持)"
         },
         "viewRun": "実行を表示"
       },
@@ -1052,38 +1052,38 @@
       "implementExistingReply": "スペック #{{id}} をレールで実装しましょう。"
     },
     "bar": {
-      "controls": "Flow のアクション",
+      "controls": "Intent のアクション",
       "viewChanges": "変更を表示",
-      "resume": "Flow を再開",
-      "pause": "Flow を一時停止",
+      "resume": "Intent を再開",
+      "pause": "Intent を一時停止",
       "discard": "破棄",
-      "discarded": "Flow を破棄しました",
+      "discarded": "Intent を破棄しました",
       "files_one": "{{count}} ファイル",
       "files_other": "{{count}} ファイル",
-      "filesTitle": "Flow のブランチで変更されたファイル",
-      "costTitle": "この Flow のターンの実費（プロバイダーの請求額）",
+      "filesTitle": "Intent のブランチで変更されたファイル",
+      "costTitle": "この Intent のターンの実費（プロバイダーの請求額）",
       "costPartial_one": "{{count}} ターンはプロバイダーからコストが報告されておらず、含まれていません",
       "costPartial_other": "{{count}} ターンはプロバイダーからコストが報告されておらず、含まれていません",
-      "needsReview": "この Flow のプロジェクトのコピーが見つかりません。何も削除していません。続ける前に Flow のブランチを確認してください。",
+      "needsReview": "この Intent のプロジェクトのコピーが見つかりません。何も削除していません。続ける前に Intent のブランチを確認してください。",
       "pausedNote": "一時停止中。変更内容と spec は保持されます。いつでも再開できます。",
       "state": {
-        "active": "Flow",
-        "paused": "Flow 一時停止中",
-        "needs-review": "Flow の確認が必要です",
+        "active": "Intent",
+        "paused": "Intent 一時停止中",
+        "needs-review": "Intent の確認が必要です",
         "handed_off": "レールに引き渡し済み",
         "delivered": "完了",
         "discarded": "破棄済み",
         "closed": "終了"
       },
       "disabled": {
-        "settling": "Flow が状態の保存を終えるまでお待ちください",
+        "settling": "Intent が状態の保存を終えるまでお待ちください",
         "busy": "実行中の操作が終わるまでお待ちください",
-        "noSpec": "Flow の spec はまだ準備できていません"
+        "noSpec": "Intent の spec はまだ準備できていません"
       },
       "viewChangesStats": "変更を表示 · {{files}}、+{{additions}} −{{deletions}}",
       "handOff": "引き渡す",
-      "close": "この Flow を閉じる",
-      "closed": "Flow を閉じました。ブランチは残っています。"
+      "close": "この Intent を閉じる",
+      "closed": "Intent を閉じました。ブランチは残っています。"
     },
     "preview": {
       "open": "プレビュー",
@@ -1097,20 +1097,20 @@
       "stopFailed": "アプリを停止できませんでした"
     },
     "discard": {
-      "title": "この Flow を破棄しますか?",
+      "title": "この Intent を破棄しますか?",
       "body": "破棄すると次のものがすべて削除され、元に戻せません：",
-      "cancel": "Flow を残す",
-      "confirm": "Flow を破棄",
+      "cancel": "Intent を残す",
+      "confirm": "Intent を破棄",
       "lossFiles_one": "変更済みファイル {{count}} 件",
       "lossFiles_other": "変更済みファイル {{count}} 件",
       "lossNoChanges": "変更済みファイルはまだありません",
-      "lossUnknown": "Flow のブランチ上のすべての変更",
+      "lossUnknown": "Intent のブランチ上のすべての変更",
       "lossSpec": "ボード上の仮の spec"
     },
     "changes": {
-      "title": "Flow の変更",
+      "title": "Intent の変更",
       "subtitle": "ブランチ {{branch}} を開始時点と比較",
-      "subtitleNoBranch": "Flow の開始時点と比較した変更",
+      "subtitleNoBranch": "Intent の開始時点と比較した変更",
       "refresh": "更新",
       "loadFailed": "変更を読み込めませんでした。",
       "empty": "まだ変更はありません。",
@@ -1123,11 +1123,11 @@
       }
     },
     "handOff": {
-      "heading": "この Flow をレビュー済みの PR にする",
-      "loop": "Flow の引き渡し",
+      "heading": "この Intent をレビュー済みの PR にする",
+      "loop": "Intent の引き渡し",
       "launch": "起動",
       "notYet": "まだ",
-      "engineFallback": "{{provider}} はこのマシンで Flow の引き渡しを実行できないため、レールのデフォルトエンジンを選択しました。",
+      "engineFallback": "{{provider}} はこのマシンで Intent の引き渡しを実行できないため、レールのデフォルトエンジンを選択しました。",
       "cost": "ここまで {{cost}}",
       "costUnknown": "請求済みコストはまだありません",
       "line_one": "{{rail}} が、あなたが変更した 1 個のファイルをレビュー済みの PR にします。失敗しても作業は失われません。",
@@ -1135,16 +1135,16 @@
       "lineNoCount": "{{rail}} が、あなたの変更内容をレビュー済みの PR にします。失敗しても作業は失われません。"
     },
     "review": {
-      "backToFlow": "Flow に戻る",
-      "backToFlowHint": "同じ変更のままこの Flow を再開します。エージェントは次のターンでレビューを受け取ります",
+      "backToFlow": "Intent に戻る",
+      "backToFlowHint": "同じ変更のままこの Intent を再開します。エージェントは次のターンでレビューを受け取ります",
       "relaunch": "再実行",
-      "relaunchHint": "同じ Flow ブランチ、レール、エンジンでもう一度試します",
-      "returned": "Flow に戻りました。エージェントにレビューが渡っています。",
+      "relaunchHint": "同じ Intent ブランチ、レール、エンジンでもう一度試します",
+      "returned": "Intent に戻りました。エージェントにレビューが渡っています。",
       "relaunched": "レール {{index}} で再実行しました",
-      "returnFailed": "Flow に戻れませんでした：{{detail}}",
+      "returnFailed": "Intent に戻れませんでした：{{detail}}",
       "relaunchFailed": "再実行できませんでした：{{detail}}",
-      "backToFlowFailureHint": "同じ変更のままこの Flow を再開します。エージェントは次のターンでエラーを受け取ります",
-      "returnedFailure": "Flow に戻りました。エージェントにエラーが渡っています。"
+      "backToFlowFailureHint": "同じ変更のままこの Intent を再開します。エージェントは次のターンでエラーを受け取ります",
+      "returnedFailure": "Intent に戻りました。エージェントにエラーが渡っています。"
     },
     "failure": {
       "step": {
@@ -1157,9 +1157,9 @@
         "unknown": "引き渡しが完了前に停止しました"
       },
       "cause": "原因：",
-      "next": "作業内容はそのままです。Flow に戻ると、エージェントがエラーを受け取ります。",
-      "nextReturned": "作業内容はそのままです。Flow に戻り、エージェントにエラーが渡っています。",
-      "returned": "Flow に戻りました",
+      "next": "作業内容はそのままです。Intent に戻ると、エージェントがエラーを受け取ります。",
+      "nextReturned": "作業内容はそのままです。Intent に戻り、エージェントにエラーが渡っています。",
+      "returned": "Intent に戻りました",
       "technical": {
         "title": "技術的な詳細",
         "repository": "リポジトリ",
@@ -1170,17 +1170,17 @@
       }
     },
     "announce": {
-      "active": "Flow 有効：エージェントは Flow のブランチに書き込みます。",
-      "paused": "Flow を一時停止しました。",
-      "needs-review": "Flow の確認が必要です：プロジェクトのコピーが見つかりません。",
-      "handed_off": "Flow をレールに引き渡しました。",
-      "delivered": "Flow が完了しました。",
-      "discarded": "Flow を破棄しました。",
-      "returned": "Flow に戻りました：引き渡しで見つかった内容とともに作業が戻りました。",
-      "closed": "Flow を終了しました。ブランチは保持されています。"
+      "active": "Intent 有効：エージェントは Intent のブランチに書き込みます。",
+      "paused": "Intent を一時停止しました。",
+      "needs-review": "Intent の確認が必要です：プロジェクトのコピーが見つかりません。",
+      "handed_off": "Intent をレールに引き渡しました。",
+      "delivered": "Intent が完了しました。",
+      "discarded": "Intent を破棄しました。",
+      "returned": "Intent に戻りました：引き渡しで見つかった内容とともに作業が戻りました。",
+      "closed": "Intent を終了しました。ブランチは保持されています。"
     },
     "strip": {
-      "label": "Flow",
+      "label": "Intent",
       "ready": "PR にする準備ができました",
       "launching": "レールに引き渡しています…",
       "launchingOn": "{{rail}} に引き渡しています…",
@@ -1197,54 +1197,54 @@
       "headline": "{{state}} · {{files}}"
     },
     "mode": {
-      "chip": "Flow",
-      "description": "Flow モード：エージェントはメインブランチではなく Flow のブランチに書き込みます",
-      "placeholder": "この Flow で何を変えるかエージェントに伝えてください…"
+      "chip": "Intent",
+      "description": "Intent モード：エージェントはメインブランチではなく Intent のブランチに書き込みます",
+      "placeholder": "この Intent で何を変えるかエージェントに伝えてください…"
     },
     "panel": {
       "branch": "ブランチ",
       "changes": "変更",
       "cost": "これまでのコスト",
-      "actions": "その他の Flow 操作"
+      "actions": "その他の Intent 操作"
     },
     "close": {
-      "title": "この Flow を閉じますか？",
-      "body": "会話は Flow を終了します。何も削除されません：",
+      "title": "この Intent を閉じますか？",
+      "body": "会話は Intent を終了します。何も削除されません：",
       "keptBranch": "残すブランチ：",
-      "keptSpec": "スペックはボードに残り、「Flow 中」ラベルは外れます",
+      "keptSpec": "スペックはボードに残り、「Intent 中」ラベルは外れます",
       "cancel": "今はしない",
-      "confirm": "Flow を閉じてブランチを残す"
+      "confirm": "Intent を閉じてブランチを残す"
     },
     "startFromSpec": {
-      "action": "Flow で開始",
-      "hint": "ミッションの中で、専用の Flow ブランチでエージェントとこのスペックを作ります",
-      "starting": "Flow を開始中…",
-      "failed": "スペック #{{id}} を Flow で開始できませんでした",
+      "action": "Intent で開始",
+      "hint": "ミッションの中で、専用の Intent ブランチでエージェントとこのスペックを作ります",
+      "starting": "Intent を開始中…",
+      "failed": "スペック #{{id}} を Intent で開始できませんでした",
       "repository": {
-        "title": "この Flow をどこで実行しますか？",
-        "body": "このプロジェクトには複数の Git リポジトリがあります。Flow は選んだリポジトリの別コピー上で、専用のブランチで作業します。",
+        "title": "この Intent をどこで実行しますか？",
+        "body": "このプロジェクトには複数の Git リポジトリがあります。Intent は選んだリポジトリの別コピー上で、専用のブランチで作業します。",
         "fromSpec": "スペックで指定"
       },
       "blocked": {
-        "noProject": "Flow を使うにはプロジェクトを開いてください",
-        "unavailable": "インストール済みの Specrails Core では Flow を使えません",
-        "inFlow": "すでに Flow 中",
-        "closed": "完了またはキャンセル済みのスペックは Flow で開始できません",
+        "noProject": "Intent を使うにはプロジェクトを開いてください",
+        "unavailable": "インストール済みの Specrails Core では Intent を使えません",
+        "inFlow": "すでに Intent 中",
+        "closed": "完了またはキャンセル済みのスペックは Intent で開始できません",
         "running": "レールで実行中",
         "onRail": "レール上にあります。先にレールから外してください",
-        "missionInFlow": "このミッションにはすでに Flow があります"
+        "missionInFlow": "このミッションにはすでに Intent があります"
       }
     }
   },
   "flowReturn": {
     "title": "レビュアーの指摘",
-    "noFindings": "引き渡しは完了前に停止しました。変更はそのままこの Flow に戻っています。",
+    "noFindings": "引き渡しは完了前に停止しました。変更はそのままこの Intent に戻っています。",
     "coverage": "spec は変更された {{files}} 個のファイルのうち {{explained}} 個を説明しています",
     "unexplained": "どの要件にも説明されていないファイル",
     "moreFiles_one": "ほか {{count}} ファイル",
     "moreFiles_other": "ほか {{count}} ファイル",
-    "next": "Flow エージェントがこれから着手します。いつでも指示や停止ができます。",
-    "automaticTurn": "自動ターン · Flow に戻る",
+    "next": "Intent エージェントがこれから着手します。いつでも指示や停止ができます。",
+    "automaticTurn": "自動ターン · Intent に戻る",
     "titleFailure": "引き渡しが停止した理由"
   },
   "turnErrors": {
@@ -1253,7 +1253,7 @@
     "generic": "エージェントのターンが失敗しました。"
   },
   "flowDelivered": {
-    "title": "Flow が完了しました",
+    "title": "Intent が完了しました",
     "pr": "プルリクエストを開く",
     "prNumber": "プルリクエスト #{{number}}",
     "specRewritten": "作成した内容に合わせて spec を書き直しました",
@@ -1320,8 +1320,8 @@
       "failed": "{{run}} が失敗：{{reason}}",
       "openRun": "実行を表示",
       "proposed": "起動が提案されました。あなたの確認を待っています",
-      "backToFlow": "Flow に戻りました",
-      "flowReturned": "{{run}} が作業を Flow に戻しました",
+      "backToFlow": "Intent に戻りました",
+      "flowReturned": "{{run}} が作業を Intent に戻しました",
       "delivered": "納品済み：PR {{pr}}",
       "deliveredNoPr": "{{run}} で納品済み",
       "superseded": "{{run}} は新しい実行に置き換えられました",
@@ -1340,9 +1340,9 @@
     }
   },
   "flowBoundary": {
-    "entered": "Flow を開始",
-    "left": "Flow を終了",
-    "turnMark": "Flow",
+    "entered": "Intent を開始",
+    "left": "Intent を終了",
+    "turnMark": "Intent",
     "reason": {
       "started": "開始",
       "returned": "レールから戻った",

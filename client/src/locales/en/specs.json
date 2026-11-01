@@ -41,10 +41,10 @@
     "openParentEpicTitle": "Open parent Epic #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} open addendum — rides into the next launch",
     "addendaTitle_other": "{{count}} open addenda — ride into the next launch",
-    "inFlow": "In Flow",
-    "inFlowPaused": "Flow paused",
-    "inFlowTitle": "Being built in Flow — open the mission",
-    "inFlowPausedTitle": "Flow paused — open the mission to resume"
+    "inFlow": "In Intent",
+    "inFlowPaused": "Intent paused",
+    "inFlowTitle": "Being built in Intent — open the mission",
+    "inFlowPausedTitle": "Intent paused — open the mission to resume"
   },
   "card": {
     "deleteSpec": "Delete spec #{{id}}",

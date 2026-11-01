@@ -50,15 +50,15 @@ describe('KeyboardShortcutsCheatsheet', () => {
     expect(screen.getByText('Go to Settings')).toBeInTheDocument()
   })
 
-  it('lists the mission run strip shortcuts (conversation-scoped, Flow letters only inside the strip)', () => {
+  it('lists the mission run strip shortcuts (conversation-scoped, IntentSession letters only inside the strip)', () => {
     render(
       <KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />,
     )
     expect(screen.getByText('Missions')).toBeInTheDocument()
     expect(screen.getByText("Jump to the mission's run strip (press again to show or hide details)")).toBeInTheDocument()
     expect(screen.getByText('Previous / next run in the run strip (outside text fields)')).toBeInTheDocument()
-    expect(screen.getByText('Pause or resume the Flow (run strip focused)')).toBeInTheDocument()
-    expect(screen.getByText('Hand off the Flow (run strip focused)')).toBeInTheDocument()
+    expect(screen.getByText('Pause or resume the Intent (run strip focused)')).toBeInTheDocument()
+    expect(screen.getByText('Hand off the Intent (run strip focused)')).toBeInTheDocument()
   })
 
   it('headings stay neutral (the lamp colour is for state) and keys use the shared Kbd chip', () => {

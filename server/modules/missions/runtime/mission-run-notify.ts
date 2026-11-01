@@ -138,7 +138,7 @@ export interface NotifyMissionRunFailureInput extends RunCardIdentity {
   hasDelivery?: boolean
   prDeliveryId?: string | null
   /** True ⇒ update the card only: another owner posts its own trace and
-   * briefs the agent (a failed Flow → Spec run goes back to its Flow, whose
+   * briefs the agent (a failed Intent → Spec run goes back to its Intent, whose
    * return card and automatic turn carry the failure). Default false. */
   cardOnly?: boolean
 }

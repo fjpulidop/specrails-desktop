@@ -57,7 +57,7 @@ describe('agent-api', () => {
     expect(ab).toHaveBeenCalledWith(expect.stringContaining('/c1/abort'), expect.objectContaining({ method: 'POST' }))
   })
 
-  it('sends a Flow interrupt and falls back to a normal send when the Flow already ended', async () => {
+  it('sends an Intent session interrupt and falls back to a normal send when the Intent already ended', async () => {
     const ok = mockFetch({ accepted: true, queued: true, deliveryMode: 'interrupt' })
     expect(await api.sendAgentMessage('c1', 'make it blue', { queueId: 'q-9', deliveryMode: 'interrupt' })).toEqual({ queued: true, deliveryMode: 'interrupt' })
     expect(JSON.parse(String((ok.mock.calls[0] as [string, RequestInit])[1].body))).toMatchObject({ deliveryMode: 'interrupt', queueId: 'q-9' })

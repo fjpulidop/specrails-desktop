@@ -190,8 +190,8 @@
     "unexplainedTitle_other": "{{count}} geänderte Dateien sind nicht erklärt",
     "more_one": "…und {{count}} weitere Datei",
     "more_other": "…und {{count}} weitere Dateien",
-    "unavailable": "Der Ableitungsbericht dieser Flow-Lieferung konnte nicht gelesen werden. Prüfe den Diff direkt.",
-    "rewriteFailed": "Die Spec konnte nicht aus der abgeleiteten Änderung neu geschrieben werden; sie behält ihren Flow-Entwurf. Die OpenSpec-Änderung bleibt der technische Nachweis."
+    "unavailable": "Der Ableitungsbericht dieser Intent-Lieferung konnte nicht gelesen werden. Prüfe den Diff direkt.",
+    "rewriteFailed": "Die Spec konnte nicht aus der abgeleiteten Änderung neu geschrieben werden; sie behält ihren Intent-Entwurf. Die OpenSpec-Änderung bleibt der technische Nachweis."
   },
   "brief": {
     "title": "Worauf achten",

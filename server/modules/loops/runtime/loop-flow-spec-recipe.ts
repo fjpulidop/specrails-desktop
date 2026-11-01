@@ -1,8 +1,8 @@
 import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
 
 /**
- * Flow -> Spec recipe (feedback-2026-10 Flow mode, arch section 4.8). The code
- * already exists — a Flow worktree the rail adopted — so the run DERIVES the
+ * Intent -> Spec recipe (feedback-2026-10 Intent mode, arch section 4.8). The code
+ * already exists — an Intent session worktree the rail adopted — so the run DERIVES the
  * OpenSpec change instead of planning one, then proves it like Implement:
  *
  *   derive-change ─pass→ check (verify) ─pass→ reviewer → review policy ─true→ archive → verify → done
@@ -23,7 +23,7 @@ import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
  * round repairs the code and tests, and the deriver re-syncs the artifacts
  * with the code. Only when the rounds are exhausted (or a round changes
  * nothing) does the run end at `changes-requested`, which Desktop presents as
- * "the reviewer requested changes" with Back to Flow and Relaunch.
+ * "the reviewer requested changes" with Back to Intent and Relaunch.
  *
  * Desktop data only: the roles (`deriver`, `developer` in the fixer stance,
  * `reviewer`) and their instructions are Core's. Requires Core capability
@@ -47,7 +47,7 @@ export const FLOW_CHANGES_REQUESTED_REASON = 'Flow → Spec: the reviewer reques
 export const FLOW_CHANGE_ID_MAX = 64
 const FLOW_CHANGE_ID_FALLBACK = 'flow-change'
 
-/** Kebab-case stem of a Flow spec title (diacritics folded, ≤64, cut at a word boundary). */
+/** Kebab-case stem of an Intent session spec title (diacritics folded, ≤64, cut at a word boundary). */
 export function flowChangeIdStem(title: string | null | undefined): string {
   const kebab = (title ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -60,19 +60,19 @@ export function flowChangeIdStem(title: string | null | undefined): string {
 }
 
 /**
- * Who holds a candidate change name in the Flow worktree: `free`; `own` (an
- * ACTIVE change this Flow's earlier run derived — absent at the Flow base —
+ * Who holds a candidate change name in the Intent worktree: `free`; `own` (an
+ * ACTIVE change this Intent's earlier run derived — absent at the Intent base —
  * which a relaunch re-derives in place); `taken` (present at the base, or
  * already archived under that name).
  */
-export type FlowChangeIdHolder = 'free' | 'own' | 'taken'
+export type IntentChangeIdHolder = 'free' | 'own' | 'taken'
 
 /**
- * The OpenSpec change a Flow → Spec run derives: named after the spec title,
+ * The OpenSpec change an Intent session → Spec run derives: named after the spec title,
  * never after addenda or the run id. A name another change already uses gets
  * `-2`, `-3`… (within 64 characters).
  */
-export function flowChangeId(title: string | null | undefined, holder: (id: string) => FlowChangeIdHolder): string {
+export function flowChangeId(title: string | null | undefined, holder: (id: string) => IntentChangeIdHolder): string {
   const stem = flowChangeIdStem(title)
   for (let n = 1; n <= 99; n++) {
     const suffix = n === 1 ? '' : `-${n}`
@@ -121,7 +121,7 @@ export function flowSpecGraph(): LoopGraph {
   node('review', 'Reviewer', 'role-turn', {
     roleId: 'reviewer',
     prompt: [
-      `Review OpenSpec change ${change}, derived from code that already exists in this worktree (a Flow session built it with the user).`,
+      `Review OpenSpec change ${change}, derived from code that already exists in this worktree (an Intent session session built it with the user).`,
       'Judge whether the derived proposal, design, delta specs and checked tasks describe the real code faithfully: no invented requirements, nothing material left out.',
       'Derivation coverage measured by Core (every changed file must appear in design.md "## Blast radius"): {{outputs.derive.derivation}}.',
       'Treat EVERY file in unexplainedFiles as an issue. Inspect the real code and the host verification evidence: {{outputs.check}}.',
@@ -139,7 +139,7 @@ export function flowSpecGraph(): LoopGraph {
     roleId: 'developer',
     stance: 'fixer',
     prompt: [
-      `Correct the code a Flow session built for OpenSpec change ${change} so the review can approve it.`,
+      `Correct the code an Intent session session built for OpenSpec change ${change} so the review can approve it.`,
       'Findings to resolve (the reviewer\'s structured verdict, or the failing host verification): {{run.latestFindings}}.',
       'Fix the defects the findings name. Add or extend the tests the findings ask for; creating a test file is allowed for that.',
       'Tag every test that demonstrates an ADDED or MODIFIED requirement of the change\'s delta specs with `[spec:<capability>/<requirement-slug>]` in its title.',

@@ -794,8 +794,8 @@ export interface RailFetchDegradedMessage {
   warning: string
 }
 
-/** A Flow session as clients receive it (server/modules/flow FlowSession). */
-export interface FlowSessionWire {
+/** An Intent session session as clients receive it (server/modules/flow IntentSession). */
+export interface IntentSessionWire {
   id: string
   conversationId: string
   ticketId: number | null
@@ -814,13 +814,13 @@ export interface FlowSessionWire {
   updatedAt: string
 }
 
-/** Flow mode: a Flow's committed state changed (project-scoped). */
-export interface FlowStateMessage {
+/** Intent mode: an Intent session's committed state changed (project-scoped). */
+export interface IntentStateMessage {
   type: 'flow.state'
   projectId: string
   conversationId: string
   flowId: string
-  flow: FlowSessionWire
+  flow: IntentSessionWire
   timestamp: string
 }
 
@@ -853,7 +853,7 @@ export interface PrDeliveryRiskSummary {
   diagnostic: boolean
 }
 
-/** Flow → Spec stopped with requested changes (`review_changes_requested`):
+/** Intent → Spec stopped with requested changes (`review_changes_requested`):
  *  the reviewer's latest verdict and the failing host checks, bounded. */
 export interface PrDeliveryFlowReview {
   reason: 'review' | 'check'
@@ -949,7 +949,7 @@ export interface RailPrStateMessage {
   originConversationId: string | null
   /** Reviewer risk brief summary (absent without a brief). */
   riskSummary?: PrDeliveryRiskSummary
-  /** Flow → Spec requested changes (absent otherwise). */
+  /** Intent → Spec requested changes (absent otherwise). */
   flowReview?: PrDeliveryFlowReview
   /** "Integrate locally" stashed the person's uncommitted work (absent otherwise). */
   localStash?: PrDeliveryLocalStash
@@ -1386,7 +1386,7 @@ export type WsMessage =
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
   | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailPrStateMessage
-  | FlowStateMessage
+  | IntentStateMessage
  | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage
@@ -1785,7 +1785,7 @@ export interface PrDecisionCardEnvelope {
   runtime?: MissionRunRuntime | null
   /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
   riskSummary?: PrDeliveryRiskSummary
-  /** Flow → Spec requested changes: issues + failing checks, Back to Flow / Relaunch (absent otherwise). */
+  /** Intent → Spec requested changes: issues + failing checks, Back to Intent / Relaunch (absent otherwise). */
   flowReview?: PrDeliveryFlowReview
   /** "Integrate locally" stashed the person's uncommitted work (absent otherwise). */
   localStash?: PrDeliveryLocalStash
@@ -1841,7 +1841,7 @@ export interface AgentRunFailureMessage extends RunFailureRow {
   timestamp: string
 }
 
-/** An app-authored system row (e.g. the Back to Flow review card) was appended to a conversation. */
+/** An app-authored system row (e.g. the Back to Intent review card) was appended to a conversation. */
 export interface AgentSystemRowMessage {
   type: 'agent_system_row'
   conversationId: string

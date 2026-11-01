@@ -167,8 +167,8 @@ describe('TicketContextMenu', () => {
     })
   })
 
-  it('shows extra actions (Start in Flow) first, and they can close the menu', () => {
-    const extra = vi.fn((close: () => void) => <button role="menuitem" type="button" onClick={close}>Start in Flow</button>)
+  it('shows extra actions (Start in Intent) first, and they can close the menu', () => {
+    const extra = vi.fn((close: () => void) => <button role="menuitem" type="button" onClick={close}>Start in Intent</button>)
     render(
       <TicketContextMenu {...makeDefaultProps()} extraItems={extra}>
         <span>Target</span>
@@ -176,7 +176,7 @@ describe('TicketContextMenu', () => {
     )
     fireEvent.contextMenu(screen.getByText('Target'))
     const items = screen.getAllByRole('menuitem')
-    expect(items[0]).toHaveTextContent('Start in Flow')
+    expect(items[0]).toHaveTextContent('Start in Intent')
     fireEvent.click(items[0]!)
     expect(screen.queryByRole('menu')).toBeNull()
   })

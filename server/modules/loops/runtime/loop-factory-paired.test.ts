@@ -109,11 +109,11 @@ it.skipIf(!core)('admits Implement addendum gates and rejects missing, partial o
   expect(passes()).toBe(false)
 })
 
-it.skipIf(!core)('admits the Flow → Spec repair loop (fixer stance, derive feedback) in the real Core validator', async () => {
+it.skipIf(!core)('admits the Intent → Spec repair loop (fixer stance, derive feedback) in the real Core validator', async () => {
   const { validateWorkflowDefinition } = await import(pathToFileURL(path.join(core!, 'dist/agent-runtime/engine/definition-validator.js')).href)
   const { validationPieceRegistry } = await import(pathToFileURL(path.join(core!, 'dist/agent-runtime/engine/pieces/index.js')).href)
   const roles = { deriver: { access: 'read' }, developer: { access: 'write' }, reviewer: { access: 'read' } }
-  const definition = compileLoopToDefinition(flowSpecGraph(), { id: 'factory:flow-spec', title: 'Flow → Spec', provider: 'claude', constants: {}, roles })
+  const definition = compileLoopToDefinition(flowSpecGraph(), { id: 'factory:flow-spec', title: 'Intent → Spec', provider: 'claude', constants: {}, roles })
   expect(definition.roles).toEqual(['deriver', 'developer', 'reviewer'])
   const admitted = validateWorkflowDefinition(definition, validationPieceRegistry(), roles)
   expect(admitted.ok, JSON.stringify(admitted.errors)).toBe(true)

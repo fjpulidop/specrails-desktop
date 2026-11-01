@@ -35,7 +35,7 @@ function definitionProbe(runId: string): DefinitionRunProbe {
 }
 
 describe('readRunReviewDiagnosis', () => {
-  it('definition (engine 2) Flow → Spec run: reviewer verdict, failing checks and derivation coverage from the retained run', async () => {
+  it('definition (engine 2) Intent → Spec run: reviewer verdict, failing checks and derivation coverage from the retained run', async () => {
     const instance = db('factory:flow-spec', 2)
     const probe = vi.fn(async (runIds: string[]) => new Map(runIds.map((id) => [id, definitionProbe(id)])))
     const diagnosis = await readRunReviewDiagnosis({ db: instance, runId: 'run-1', pipelineDir: '/nonexistent', probe })
@@ -51,7 +51,7 @@ describe('readRunReviewDiagnosis', () => {
     expect(diagnosis!.review!.issues).toEqual(['issue 0', 'issue 1', 'issue 2', 'issue 3', 'issue 4', 'issue 5'])
   })
 
-  it('legacy (engine 1) run: reads the reviewer checkpoint from the pipeline dir; no derivation outside Flow → Spec', async () => {
+  it('legacy (engine 1) run: reads the reviewer checkpoint from the pipeline dir; no derivation outside Intent → Spec', async () => {
     const instance = db('factory:implement', 1)
     const pipelineDir = mkdtempSync(join(tmpdir(), 'review-diagnosis-'))
     const runDir = join(pipelineDir, 'run-1')
@@ -66,7 +66,7 @@ describe('readRunReviewDiagnosis', () => {
 
   it('prefers the delivery settle evidence when it holds the verdict (no probe)', async () => {
     const instance = db('factory:flow-spec', 2)
-    createPrDelivery(instance, { id: 'delivery-1', railIndex: 0, loopId: 'factory:flow-spec', railKey: '0-factory:flow-spec', ticketIds: [8], baseBranch: 'main', loopName: 'Flow → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1' })
+    createPrDelivery(instance, { id: 'delivery-1', railIndex: 0, loopId: 'factory:flow-spec', railKey: '0-factory:flow-spec', ticketIds: [8], baseBranch: 'main', loopName: 'Intent → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1' })
     instance.prepare('UPDATE rail_pr_deliveries SET run_ids = ? WHERE id = ?').run(JSON.stringify(['run-1']), 'delivery-1')
     transitionDecision(instance, 'delivery-1', 'building', 'implementation_failed', {
       implementationOutcome: 'failed',

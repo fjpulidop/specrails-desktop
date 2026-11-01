@@ -45,7 +45,7 @@ describe('layoutLoop', () => {
     expect(pos(out, 'b')).toEqual({ x: 220, y: 0 })
   })
 
-  it('preserves node identity + order (keys stable for React Flow)', () => {
+  it('preserves node identity + order (keys stable for React Intent)', () => {
     const out = layoutLoop(nodes, edges, 'vertical')
     expect(out.map((x) => x.id)).toEqual(nodes.map((x) => x.id))
   })

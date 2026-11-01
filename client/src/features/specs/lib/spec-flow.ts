@@ -1,4 +1,4 @@
-// Flow mode on the board: "In Flow" is a LABEL computed from ticket metadata,
+// Intent mode on the board: "In Intent" is a LABEL computed from ticket metadata,
 // never a status — the ticket stays `in_progress` and everything that reads the
 // status is unchanged. `delivered` (or no metadata) ⇒ no label.
 

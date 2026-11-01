@@ -78,8 +78,8 @@ import { AgentBrowserCaptureHost } from './features/missions/components/AgentBro
 import { RailMetricsProvider } from './features/rails/context/RailMetricsContext'
 import { RailPrDecisionProvider } from './features/delivery/context/RailPrDecisionContext'
 import { MinimizedChatsProvider, } from './features/missions/context/MinimizedChatsContext'
-import { FlowMissionsBridge } from './features/flow/components/FlowMissionsBridge'
-import { FLOW_SPEC_EXTENSIONS } from './features/flow/components/StartInFlow'
+import { IntentMissionsBridge } from './features/intent/components/IntentMissionsBridge'
+import { FLOW_SPEC_EXTENSIONS } from './features/intent/components/StartInIntent'
 import { SpecExtensionsProvider } from './features/specs/context/SpecExtensionsContext'
 import { AgentChatProvider, useAgentChat } from './features/missions/context/AgentChatContext'
 import { BackgroundProcessesProvider } from './features/background/context/BackgroundProcessesContext'
@@ -989,9 +989,9 @@ function AppRoutes() {
                           context — its composer must adopt browser captures. */}
                       <AgentWorkspaceProvider>
                       <MissionWindowsProvider secondary={secondary}>
-                      {/* Flow mode plugs into missions through their extension seam. */}
-                      <FlowMissionsBridge>
-                      {/* Flow also plugs into specs ("Start in Flow") through their seam. */}
+                      {/* Intent mode plugs into missions through their extension seam. */}
+                      <IntentMissionsBridge>
+                      {/* Intent also plugs into specs ("Start in Intent") through their seam. */}
                       <SpecExtensionsProvider value={FLOW_SPEC_EXTENSIONS}>
                       <AgentChatProvider>
                         <BackgroundProcessesProvider>
@@ -1008,7 +1008,7 @@ function AppRoutes() {
                         </BackgroundProcessesProvider>
                       </AgentChatProvider>
                       </SpecExtensionsProvider>
-                      </FlowMissionsBridge>
+                      </IntentMissionsBridge>
                       </MissionWindowsProvider>
                       </AgentWorkspaceProvider>
                     </MinimizedChatsProvider>

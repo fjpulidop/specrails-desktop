@@ -17,7 +17,7 @@ export interface SpecTriageReady {
   securitySurface: boolean
   recommendedLoop: string
   recommendedLoopName?: string
-  /** Legacy (server prompt v1) and ignored: Flow and Implement never compete,
+  /** Legacy (server prompt v1) and ignored: IntentSession and Implement never compete,
    *  so no surface ranks them. Kept optional so old records still parse. */
   recommendedMode?: 'implement' | 'flow'
   rationale: string

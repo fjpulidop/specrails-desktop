@@ -115,21 +115,21 @@ export interface PacketCost {
 }
 
 /**
- * Flow -> Spec derivation (Core `derive-change`): coverage is Core's own
+ * Intent -> Spec derivation (Core `derive-change`): coverage is Core's own
  * measurement (app-verified tier); the deriver's confidence is AI-reported.
- * `unavailable` means a Flow -> Spec delivery whose report could not be read
+ * `unavailable` means an Intent session -> Spec delivery whose report could not be read
  * — said out loud, never silently omitted.
  */
 export type PacketDerivation =
   | ({ status: 'available' } & DeliveryDerivation)
   | { status: 'unavailable' }
 
-/** Flow settlement progress (spec rewrite, Jira issue) for a Flow delivery. */
-export type FlowSettlementEffectState = 'pending' | 'done' | 'skipped' | 'failed'
+/** Intent settlement progress (spec rewrite, Jira issue) for an Intent session delivery. */
+export type IntentSettlementEffectState = 'pending' | 'done' | 'skipped' | 'failed'
 export interface PacketFlowSettlement {
-  specRewrite: FlowSettlementEffectState | null
-  jiraCreate: FlowSettlementEffectState | null
-  jiraReview: FlowSettlementEffectState | null
+  specRewrite: IntentSettlementEffectState | null
+  jiraCreate: IntentSettlementEffectState | null
+  jiraReview: IntentSettlementEffectState | null
 }
 
 export interface ReviewPacket {
@@ -187,9 +187,9 @@ export interface ReviewPacket {
    * counted by kind (agent actions audit). Null when nothing was recorded or
    * the log is unavailable — reads are only as complete as each provider stream. */
   agentActions: PacketAgentActions | null
-  /** Flow -> Spec only: the derivation coverage report; null for other loops. */
+  /** Intent -> Spec only: the derivation coverage report; null for other loops. */
   derivation: PacketDerivation | null
-  /** Flow deliveries only: settlement effects (spec rewrite, Jira); null otherwise. */
+  /** Intent deliveries only: settlement effects (spec rewrite, Jira); null otherwise. */
   flowSettlement: PacketFlowSettlement | null
   /** "Requirements demonstrated X/Y" (Core `specTrace: 1`); null when no unit
    *  carries a spec trace. App-verified: Core crossed test tags with receipts. */
@@ -497,11 +497,11 @@ export interface ComposeReviewPacketInput {
   row: RailPrDeliveryRow
   repositoryId?: string
   includeLegacyProvenance?: boolean
-  /** Flow settlement state read by the caller from the Flow module (durable rows). */
+  /** Intent settlement state read by the caller from the Intent module (durable rows). */
   flowSettlement?: PacketFlowSettlement | null
 }
 
-/** The derivation a Flow -> Spec delivery recorded at settle (first unit that has one). */
+/** The derivation an Intent session -> Spec delivery recorded at settle (first unit that has one). */
 export function packetDerivation(row: Pick<RailPrDeliveryRow, 'loop_id'>, evidence: DeliverySettleEvidence | null): PacketDerivation | null {
   const found = (evidence?.units ?? []).map((unit) => unit.runtime?.derivation).find((value): value is DeliveryDerivation => Boolean(value))
   if (found) return { status: 'available', ...found }

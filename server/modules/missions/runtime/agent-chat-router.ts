@@ -570,11 +570,11 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       res.status(400).json({ error: 'deliveryMode must be queue, steer or interrupt' })
       return
     }
-    // Flow mode: `interrupt` cuts the running Flow turn (Core flowSessions). In a
-    // Flow every mid-turn input travels as an interrupt, so it is admitted as a
-    // native steer and the Flow session delivers it with `delivery: 'interrupt'`.
+    // Intent mode: `interrupt` cuts the running Intent turn (Core flowSessions). In a
+    // Intent every mid-turn input travels as an interrupt, so it is admitted as a
+    // native steer and the Intent session delivers it with `delivery: 'interrupt'`.
     if (body.deliveryMode === 'interrupt' && !manager.isFlowActive(conversation.id)) {
-      res.status(409).json({ error: 'interrupt_requires_flow', detail: 'Only an active Flow accepts interrupt delivery' })
+      res.status(409).json({ error: 'interrupt_requires_flow', detail: 'Only an active Intent accepts interrupt delivery' })
       return
     }
     const deliveryMode = body.deliveryMode === 'interrupt' ? 'steer' : body.deliveryMode as 'queue' | 'steer' | undefined
@@ -631,7 +631,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
   // { kind:'rail-launch'|'flow-hand-off', proposalIndex, status:'launched'|'dismissed', railIndex?, runIds?, prDeliveryId?, config? }
   // { kind:'flow-offer', proposalIndex, status:'accepted'|'dismissed', recommendedMode?, chosenMode?, config? }.
   // 409 when that card was already decided (a decision is final). Rail-launch
-  // decisions need mission rail cards; Flow cards are gated by Flow itself.
+  // decisions need mission rail cards; Intent cards are gated by Intent itself.
   router.patch('/conversations/:id/messages/:messageId/intent', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>
     if (!isAgentMessageIntentKind(body.kind)) { res.status(400).json({ error: 'kind must be "rail-launch", "flow-offer" or "flow-hand-off"' }); return }

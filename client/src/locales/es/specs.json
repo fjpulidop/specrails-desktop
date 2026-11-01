@@ -41,10 +41,10 @@
     "openParentEpicTitle": "Abrir la épica padre #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} anexo abierto — viaja con el próximo lanzamiento",
     "addendaTitle_other": "{{count}} anexos abiertos — viajan con el próximo lanzamiento",
-    "inFlow": "En Flow",
-    "inFlowPaused": "Flow en pausa",
-    "inFlowTitle": "Se está construyendo en Flow: abre la misión",
-    "inFlowPausedTitle": "Flow en pausa: abre la misión para reanudarlo"
+    "inFlow": "En Intent",
+    "inFlowPaused": "Intent en pausa",
+    "inFlowTitle": "Se está construyendo en Intent: abre la misión",
+    "inFlowPausedTitle": "Intent en pausa: abre la misión para reanudarlo"
   },
   "card": {
     "deleteSpec": "Eliminar spec #{{id}}",

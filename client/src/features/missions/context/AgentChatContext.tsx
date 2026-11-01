@@ -357,7 +357,7 @@ export interface AgentChatContextValue {
   /** null = not yet checked; false = no AI provider CLI is installed. */
   providersReady: boolean | null
 
-  /** `deliveryMode: 'interrupt'` (Flow mode only) cuts the running turn instead of queueing. */
+  /** `deliveryMode: 'interrupt'` (IntentSession mode only) cuts the running turn instead of queueing. */
   send: (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[]; queueId?: string; deliveryMode?: 'interrupt' }) => Promise<{ accepted: boolean; conversationId?: string }>
   abort: () => Promise<void>
   /** Edit a still-queued message in place (composer ↑/↓ queue navigation).
@@ -403,7 +403,7 @@ export interface AgentChatContextValue {
   /** Re-read the active mission's run cards now (a strip waiting on a run that
    *  has not shown yet; normally the WS events and the resync poll do it). */
   resyncRunCards?: () => void
-  /** An extension's live run (Flow) waits for the person or not: the same
+  /** An extension's live run (IntentSession) waits for the person or not: the same
    *  sidebar attention dot a delivery feeds (keyed by the strip entry). */
   reportRunAttention?: (conversationId: string, runKey: string, needsPerson: boolean | MissionAttentionKind) => void
   /** Apply the authoritative snapshot returned by a card action immediately;
@@ -748,7 +748,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return new Map(current).set(conversationId, keys)
     })
   }, [])
-  // An extension that derives its runs' attention app-wide (Flow, from its
+  // An extension that derives its runs' attention app-wide (IntentSession, from its
   // per-project watch) feeds the dot for every listed mission, open or not.
   const extensionAttention = useMissionRunAttention(conversations)
   const attentionKinds = useMemo<ReadonlyMap<string, MissionAttentionKind>>(() => {
@@ -1482,7 +1482,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
     // Busy sends wait for the next turn unless the user explicitly picks Steer.
     const wasBusy = liveStore.get(conv.id)?.isStreaming === true
-    // An interrupt is admitted as a native steer server-side (Flow mode).
+    // An interrupt is admitted as a native steer server-side (IntentSession mode).
     const interrupt = wasBusy && opts?.deliveryMode === 'interrupt'
     const pendingItem: AgentQueuedItem = { queueId, text: trimmed, contextRefs: opts?.contextRefs, attachmentIds: opts?.attachmentIds, deliveryMode: interrupt ? 'steer' : 'queue', deliveryReceipt: 'sent', timestamp: nowIso }
     if (wasBusy) {

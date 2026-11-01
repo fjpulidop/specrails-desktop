@@ -208,7 +208,7 @@ describe('CoreSessionTurnRunner', () => {
     expect(await createCoreSessionRunner(context(refused))(hooks().value)).toMatchObject({ code: 1, events: [expect.objectContaining({ message: expect.stringContaining('cannot disable') })] })
   })
 
-  it('Flow: an interrupt cuts the turn, follows the correction and sums the usage of both turns', async () => {
+  it('Intent: an interrupt cuts the turn, follows the correction and sums the usage of both turns', async () => {
     const core = new FakeCore()
     core.onInput = (inputId, delivery) => delivery === 'interrupt'
       ? [
@@ -238,7 +238,7 @@ describe('CoreSessionTurnRunner', () => {
     expect(h.events.filter((event) => event.kind === 'text-delta').map((event) => (event as { text: string }).text)).toEqual(['Start', 'Corrected'])
   })
 
-  it('Flow: a turn that finishes before the stop still hands over to the correction', async () => {
+  it('Intent: a turn that finishes before the stop still hands over to the correction', async () => {
     const core = new FakeCore()
     core.onInput = (inputId, delivery) => delivery === 'interrupt'
       ? [
@@ -255,7 +255,7 @@ describe('CoreSessionTurnRunner', () => {
     expect(h.events.filter((event) => event.kind === 'text-delta').map((event) => (event as { text: string }).text)).toEqual(['Done early', 'Then fixed'])
   })
 
-  it('Flow: a rejected correction ends the turn with an explicit error and a failed send is never pending', async () => {
+  it('Intent: a rejected correction ends the turn with an explicit error and a failed send is never pending', async () => {
     const core = new FakeCore()
     core.onInput = (inputId, delivery) => delivery === 'interrupt'
       ? [

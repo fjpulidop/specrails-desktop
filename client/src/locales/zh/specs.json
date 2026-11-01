@@ -41,10 +41,10 @@
     "openParentEpicTitle": "打开父级 Epic #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} 个待处理附录 — 随下一次启动传递",
     "addendaTitle_other": "{{count}} 个待处理附录 — 随下一次启动传递",
-    "inFlow": "Flow 中",
-    "inFlowPaused": "Flow 已暂停",
-    "inFlowTitle": "正在 Flow 中构建——打开任务",
-    "inFlowPausedTitle": "Flow 已暂停——打开任务以恢复"
+    "inFlow": "Intent 中",
+    "inFlowPaused": "Intent 已暂停",
+    "inFlowTitle": "正在 Intent 中构建——打开任务",
+    "inFlowPausedTitle": "Intent 已暂停——打开任务以恢复"
   },
   "card": {
     "deleteSpec": "删除 spec #{{id}}",

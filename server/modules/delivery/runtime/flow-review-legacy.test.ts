@@ -35,7 +35,7 @@ function legacyDelivery(options: { loopId?: string; settleEvidence?: DeliverySet
   const db = initDb(':memory:')
   dbs.push(db)
   const loopId = options.loopId ?? FLOW_SPEC_LOOP_ID
-  const row = createPrDelivery(db, { id: 'delivery-1', railIndex: 0, loopId, railKey: `0-${loopId}`, ticketIds: [8], baseBranch: 'main', loopName: 'Flow → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1' })
+  const row = createPrDelivery(db, { id: 'delivery-1', railIndex: 0, loopId, railKey: `0-${loopId}`, ticketIds: [8], baseBranch: 'main', loopName: 'Intent → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1' })
   db.prepare('UPDATE rail_pr_deliveries SET run_ids = ? WHERE id = ?').run(JSON.stringify(['run-1']), row.id)
   createRailWorktree(db, { id: 'ledger-1', railIndex: 0, ticketId: 8, runId: 'run-1', branch: 'feat/8-effects', worktreePath: WORKTREE, mergeState: 'needs-review' })
   transitionDecision(db, row.id, 'building', 'implementation_failed', {
@@ -49,7 +49,7 @@ function legacyDelivery(options: { loopId?: string; settleEvidence?: DeliverySet
 
 const noProbe = vi.fn(async () => new Map<string, DefinitionRunProbe>())
 
-describe('legacy Flow → Spec delivery: reclassified on read', () => {
+describe('legacy Intent → Spec delivery: reclassified on read', () => {
   it('presents a rejected review exactly like a newly settled review_changes_requested delivery', () => {
     const db = legacyDelivery()
     const snap = toPrDeliverySnapshot(getPrDelivery(db, 'delivery-1')!)
@@ -71,7 +71,7 @@ describe('legacy Flow → Spec delivery: reclassified on read', () => {
     expect(toPrDeliverySnapshot(getPrDelivery(db, 'delivery-1')!)).toMatchObject({ statusCode: 'review_changes_requested', flowReview: { reason: 'check', failingChecks: [{ command: 'npm test', exitCode: 1 }] } })
   })
 
-  it('leaves a non-Flow implementation failure untouched even with a rejected review', () => {
+  it('leaves a non-Intent implementation failure untouched even with a rejected review', () => {
     const db = legacyDelivery({ loopId: 'factory:implement' })
     const snap = toPrDeliverySnapshot(getPrDelivery(db, 'delivery-1')!)
     expect(snap).toMatchObject({ statusCode: 'settlement_interrupted', statusDetail: LEGACY_DETAIL })
@@ -80,7 +80,7 @@ describe('legacy Flow → Spec delivery: reclassified on read', () => {
     expect(listLegacyFlowReviewCandidates(db)).toEqual([])
   })
 
-  it('keeps a Flow failure the evidence does not explain (approved review, passing checks) as implementation failed', () => {
+  it('keeps an Intent session failure the evidence does not explain (approved review, passing checks) as implementation failed', () => {
     const db = legacyDelivery({ settleEvidence: evidence({ approved: true, issues: [] }, [{ label: 'npm test', exitCode: 0 }]) })
     const snap = toPrDeliverySnapshot(getPrDelivery(db, 'delivery-1')!)
     expect(snap).toMatchObject({ statusCode: 'settlement_interrupted', statusDetail: LEGACY_DETAIL })
@@ -89,10 +89,10 @@ describe('legacy Flow → Spec delivery: reclassified on read', () => {
     expect(getPrDelivery(db, 'delivery-1')!.status_code).toBe('settlement_interrupted')
   })
 
-  it('Back to Flow accepts the reclassified legacy delivery and closes it as returned_to_flow', () => {
+  it('Back to Intent accepts the reclassified legacy delivery and closes it as returned_to_flow', () => {
     const db = legacyDelivery()
     const commit = vi.fn()
-    const closed = returnFlowWorktree(db, { deliveryId: 'delivery-1', worktreePath: WORKTREE, detail: 'Returned to Flow' }, commit)
+    const closed = returnFlowWorktree(db, { deliveryId: 'delivery-1', worktreePath: WORKTREE, detail: 'Returned to Intent' }, commit)
     expect(commit).toHaveBeenCalledTimes(1)
     expect(closed).toMatchObject({ decision: 'discarded', statusCode: 'returned_to_flow', flowReview: { reason: 'review', score: 58 } })
     expect(getRailWorktree(db, 'ledger-1')).toBeUndefined()

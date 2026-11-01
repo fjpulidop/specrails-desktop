@@ -92,7 +92,7 @@ export interface GenerateSpecFromTextInput {
   resolveRepositoryScope?: () => { repositoryIds?: string[] }
   attachments?: SpecGenerationAttachments
   /** Schedule the Contract Layer (`runContractRefineForQuick`) after persist.
-   *  `await: true` (Flow settlement) runs it before the outcome resolves, so
+   *  `await: true` (Intent settlement) runs it before the outcome resolves, so
    *  whatever follows (a Jira issue create) sees the complete spec. */
   contractRefine?: { model: string | null; await?: boolean } | null
   /** Correlation id (accounting `surface_ref_id`). Default: random. */

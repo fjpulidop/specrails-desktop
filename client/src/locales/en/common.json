@@ -85,7 +85,7 @@
     "ref_mismatch": "Branch reference mismatch",
     "restart_pending": "Waiting for workflow recovery",
     "review_changes_requested": "Reviewer requested changes",
-    "returned_to_flow": "Returned to Flow",
+    "returned_to_flow": "Returned to Intent",
     "local_changes_attention": "Integrated — local changes need attention"
   },
   "prRecovery": {
@@ -207,7 +207,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Flow hand-off",
+    "flowSpec": "Intent hand-off",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
   },
@@ -233,8 +233,8 @@
       "dailyBudget": "daily limits",
       "recentlyDeleted": "recently deleted items",
       "railLoops": "what a rail runs",
-      "flowMode": "Flow",
-      "flowHandOff": "handing off a Flow",
+      "flowMode": "Intent",
+      "flowHandOff": "handing off an Intent",
       "contextScope": "the context slider",
       "launchForecast": "the launch forecast",
       "loopBuilder": "the Loop Builder",

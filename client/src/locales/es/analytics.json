@@ -13,7 +13,7 @@
     "agentStudio": "Agent Studio",
     "setup": "Configuración",
     "triage": "Triaje",
-    "flow": "Flow"
+    "flow": "Intent"
   },
   "periods": {
     "d7": "7d",
@@ -221,7 +221,7 @@
     "turnsAndTokens": "{{turns}} turnos · {{tokens}} tokens",
     "untitled": "Misión sin título",
     "estimatedNote": "Incluye costes estimados",
-    "flowShare": "De ello, Flow: {{cost}} · {{turns}} turnos"
+    "flowShare": "De ello, Intent: {{cost}} · {{turns}} turnos"
   },
   "legacyUsage": {
     "title": "Uso de workflows anteriores",

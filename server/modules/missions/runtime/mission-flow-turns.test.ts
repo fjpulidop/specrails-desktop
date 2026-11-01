@@ -1,4 +1,4 @@
-// Flow turns through the real mission manager → MissionCoreSessions → Core
+// Intent turns through the real mission manager → MissionCoreSessions → Core
 // session runner. Only Core's out-of-process host is simulated.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'events'
@@ -32,7 +32,7 @@ import { addAgentMessage, createAgentConversation, getAgentConversation, updateA
 import { AgentChatManager } from './agent-chat-manager'
 import { FLOW_SUBAGENTS_ADDENDUM, FLOW_SYSTEM_PROMPT } from './agent-flow-prompt'
 import { listSessionCursors, listSubagents } from './agent-session-store'
-import { FLOW_SESSION_BOUNDARY, type FlowTurn } from './flow-turn-context'
+import { FLOW_SESSION_BOUNDARY, type IntentTurn } from './flow-turn-context'
 import { MissionCoreSessions } from './mission-core-sessions'
 
 const usage = { inputTokens: 100, outputTokens: 10, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: null, costUsd: 0.02, costEstimated: false, model: 'haiku' }
@@ -122,12 +122,12 @@ async function waitFor(condition: () => boolean, timeout = 2000) {
   }
 }
 
-describe('Flow turns in missions', () => {
+describe('Intent turns in missions', () => {
   let db: DbInstance
   let host: FakeCoreHost
   let manager: AgentChatManager
   let broadcasts: Array<Record<string, unknown>>
-  let flow: FlowTurn | null
+  let flow: IntentTurn | null
   let allowSubagents: boolean
   let runtimeChoice: { provider: string; model: string } | null
 
@@ -167,7 +167,7 @@ describe('Flow turns in missions', () => {
   })
 
   const doneCount = () => broadcasts.filter((message) => message.type === 'agent_done').length
-  const flowTurn = (): FlowTurn => ({ flowId: 'f1', cwd: '/wt/f1/ticket-7', branch: 'feat/7-idea', coreSessionId: 'flow:f1', systemPrompt: FLOW_SYSTEM_PROMPT, policy: FLOW_SESSION_BOUNDARY })
+  const flowTurn = (): IntentTurn => ({ flowId: 'f1', cwd: '/wt/f1/ticket-7', branch: 'feat/7-idea', coreSessionId: 'flow:f1', systemPrompt: FLOW_SYSTEM_PROMPT, policy: FLOW_SESSION_BOUNDARY })
   const opens = () => host.requests.filter((request) => request.method === 'session.open' && !request.params.resume)
 
   it('a null port leaves the mission turn exactly as before (own session, read-only boundary, agent-chat surface)', async () => {
@@ -175,14 +175,14 @@ describe('Flow turns in missions', () => {
     await manager.sendMessage(conversation.id, 'hello')
     await waitFor(() => doneCount() === 1)
     expect(opens()[0]!.params).toMatchObject({ sessionId: conversation.id, cwd: '/tmp/agent-cwd-test', metadata: { surface: 'mission' } })
-    // The read-only mission boundary (PR #793): bypass + read-only tools, never the Flow boundary.
+    // The read-only mission boundary (PR #793): bypass + read-only tools, never the Intent boundary.
     expect(opens()[0]!.params.policy).toMatchObject({ permissions: 'bypass', tools: { mode: 'read-only' } })
-    expect(String(opens()[0]!.params.systemPrompt)).not.toContain('Specrails Flow')
+    expect(String(opens()[0]!.params.systemPrompt)).not.toContain('Specrails Intent')
     expect(db.prepare('SELECT surface FROM agent_invocations WHERE conversation_id = ?').all(conversation.id)).toEqual([{ surface: 'agent-chat' }])
     expect(manager.isFlowActive(conversation.id)).toBe(false)
   })
 
-  it('a Flow turn runs in its own Core session in the worktree with the rail write-role permissions and the Flow persona', async () => {
+  it('an Intent session turn runs in its own Core session in the worktree with the rail write-role permissions and the Intent persona', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     updateAgentConversation(db, conversation.id, { session_id: 'mission-provider-session' })
     addAgentMessage(db, { conversationId: conversation.id, role: 'user', content: 'earlier mission question' })
@@ -197,15 +197,15 @@ describe('Flow turns in missions', () => {
       policy: { subagents: 'disabled', permissions: 'bypass', tools: { mode: 'default' }, mcp: { inheritUserScope: true, servers: [expect.objectContaining({ name: 'specrails' })] } },
     })
     expect(open.providerSessionRef).toBeUndefined()
-    expect(String(open.systemPrompt)).not.toContain('Sub-agents in Flow')
+    expect(String(open.systemPrompt)).not.toContain('Sub-agents in Intent')
     const firstPrompt = String((host.requests.find((request) => request.method === 'session.send')!.params.input as { text: string }).text)
-    expect(firstPrompt).toContain('Flow: worktree="/wt/f1/ticket-7" branch=feat/7-idea')
+    expect(firstPrompt).toContain('Intent: worktree="/wt/f1/ticket-7" branch=feat/7-idea')
     expect(firstPrompt).toContain('earlier mission question')
-    // Flow usage has its own surface; the mission's provider session is untouched.
+    // Intent usage has its own surface; the mission's provider session is untouched.
     expect(db.prepare('SELECT surface, total_cost_usd FROM agent_invocations WHERE conversation_id = ?').all(conversation.id)).toEqual([{ surface: 'flow', total_cost_usd: 0.02 }])
     expect(getAgentConversation(db, conversation.id)?.session_id).toBe('mission-provider-session')
 
-    // The second Flow turn resumes the Flow session and no longer resends history.
+    // The second Intent turn resumes the Intent session and no longer resends history.
     await manager.sendMessage(conversation.id, 'now add colours')
     await waitFor(() => doneCount() === 2)
     const sends = host.requests.filter((request) => request.method === 'session.send')
@@ -216,7 +216,7 @@ describe('Flow turns in missions', () => {
   it.each([
     ['claude', 'haiku'],
     ['codex', 'gpt-5'],
-  ])('a %s Flow turn runs without interactive approvals (Core: claude skip-permissions, codex danger-full-access); its mission turn stays read-only', async (provider, model) => {
+  ])('a %s Intent turn runs without interactive approvals (Core: claude skip-permissions, codex danger-full-access); its mission turn stays read-only', async (provider, model) => {
     host.initialize = { ...host.initialize, drivers: [{ ...host.initialize.drivers[0]!, id: provider, displayName: provider }] }
     const conversation = createAgentConversation(db, { provider, model })
     await manager.sendMessage(conversation.id, 'explain the project')
@@ -232,7 +232,7 @@ describe('Flow turns in missions', () => {
     expect(open).toMatchObject({ driver: provider, cwd: '/wt/f1/ticket-7', policy: { permissions: 'bypass', tools: { mode: 'default' } } })
   })
 
-  it('mid-turn input in Flow interrupts the running turn (no session.interrupt first)', async () => {
+  it('mid-turn input in Intent interrupts the running turn (no session.interrupt first)', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     flow = flowTurn()
     host.holdTurn = true
@@ -261,7 +261,7 @@ describe('Flow turns in missions', () => {
     expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
   })
 
-  it('checks Flow support per provider and closes the Flow session', async () => {
+  it('checks Intent support per provider and closes the Intent session', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     await expect(manager.assertFlowSupport(conversation.id)).resolves.toBeUndefined()
     const codex = createAgentConversation(db, { provider: 'codex' })
@@ -271,29 +271,29 @@ describe('Flow turns in missions', () => {
     expect(host.requests.find((request) => request.method === 'session.close')?.params).toEqual({ sessionId: 'flow:f1', reason: 'flow_closed' })
   })
 
-  it('Back to Flow: the review rides the next USER turn once (system prompt unchanged), then the Flow clears it', async () => {
+  it('Back to Intent: the review rides the next USER turn once (system prompt unchanged), then the Intent clears it', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     const briefingDelivered = vi.fn(async () => { flow = flowTurn() })
-    flow = { ...flowTurn(), briefing: '[Back from Flow → Spec — automatic context, not typed by the user]\nIssues to address:\n1. Tag the tests' }
+    flow = { ...flowTurn(), briefing: '[Back from Intent → Spec — automatic context, not typed by the user]\nIssues to address:\n1. Tag the tests' }
     manager.setFlowTurnContext({ forConversation: () => flow, briefingDelivered })
     await manager.sendMessage(conversation.id, 'ok, lets fix it')
     await waitFor(() => doneCount() === 1)
     const send = host.requests.find((request) => request.method === 'session.send')!
     const text = String((send.params.input as { text: string }).text)
     expect(text).toContain('1. Tag the tests')
-    expect(text.indexOf('Back from Flow → Spec')).toBeLessThan(text.indexOf('ok, lets fix it'))
-    expect(String(opens()[0]!.params.systemPrompt)).not.toContain('Back from Flow')
+    expect(text.indexOf('Back from Intent → Spec')).toBeLessThan(text.indexOf('ok, lets fix it'))
+    expect(String(opens()[0]!.params.systemPrompt)).not.toContain('Back from Intent')
     await waitFor(() => briefingDelivered.mock.calls.length === 1)
     expect(briefingDelivered).toHaveBeenCalledWith(conversation.id, 'f1')
     await manager.sendMessage(conversation.id, 'next')
     await waitFor(() => doneCount() === 2)
     const last = host.requests.filter((request) => request.method === 'session.send').at(-1)!
-    expect(String((last.params.input as { text: string }).text)).not.toContain('Back from Flow')
+    expect(String((last.params.input as { text: string }).text)).not.toContain('Back from Intent')
   })
 
-  describe('Flow session renewal (closed session, provider switch)', () => {
-    /** The Flow side of renewal: commits a new generation and returns its turn. */
-    function renewingContext(seed: FlowTurn) {
+  describe('Intent session renewal (closed session, provider switch)', () => {
+    /** The Intent side of renewal: commits a new generation and returns its turn. */
+    function renewingContext(seed: IntentTurn) {
       let generation = 0
       flow = seed
       const renewSession = vi.fn(async (_conversationId: string, flowId: string) => {
@@ -304,10 +304,10 @@ describe('Flow turns in missions', () => {
       return renewSession
     }
 
-    it('hand-off → Back to Flow → send: a session Core closed is reopened as a new one and the turn retried once, never a user-facing error', async () => {
+    it('hand-off → Back to Intent → send: a session Core closed is reopened as a new one and the turn retried once, never a user-facing error', async () => {
       const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
       addAgentMessage(db, { conversationId: conversation.id, role: 'user', content: 'make the bricks explode' })
-      const renewSession = renewingContext({ ...flowTurn(), briefing: '[Back from Flow → Spec]\n1. Tag the tests' })
+      const renewSession = renewingContext({ ...flowTurn(), briefing: '[Back from Intent → Spec]\n1. Tag the tests' })
       // Core closed `flow:f1` at hand-off; this process never saw it (restart).
       host.journals.set('flow:f1', [])
       host.closed.add('flow:f1')
@@ -337,7 +337,7 @@ describe('Flow turns in missions', () => {
       expect(host.requests.filter((request) => request.method === 'session.send').every((request) => request.params.sessionId !== 'flow:f1')).toBe(true)
     })
 
-    it('a provider switch mid-Flow opens a new session for the new driver, seeded with the conversation; usage lands under it', async () => {
+    it('a provider switch mid-Intent opens a new session for the new driver, seeded with the conversation; usage lands under it', async () => {
       host.initialize = { ...host.initialize, drivers: [...host.initialize.drivers, { ...host.initialize.drivers[0]!, id: 'codex', displayName: 'Codex' }] }
       const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
       const renewSession = renewingContext(flowTurn())
@@ -367,7 +367,7 @@ describe('Flow turns in missions', () => {
     })
   })
 
-  describe('Back to Flow: the review card and the automatic Flow turn', () => {
+  describe('Back to Intent: the review card and the automatic Intent turn', () => {
     const card = { kind: 'flow-return-briefing', flowId: 'f1', deliveryId: 'd1', reason: 'review', score: 58, issues: ['Tag the tests'], issuesOmitted: 0, failingChecks: [], summary: null, derivation: null }
 
     it('posts the card once per delivery, durably (a restarted manager does not duplicate it)', async () => {
@@ -383,26 +383,26 @@ describe('Flow turns in missions', () => {
       expect(broadcasts.filter((message) => message.type === 'agent_system_row')).toHaveLength(1)
     })
 
-    it('starts ONE automatic Flow turn carrying the briefing through the normal Flow path; repeats and restarts never duplicate it', async () => {
+    it('starts ONE automatic Intent turn carrying the briefing through the normal Intent path; repeats and restarts never duplicate it', async () => {
       const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
       const briefingDelivered = vi.fn(async () => { flow = flowTurn() })
-      flow = { ...flowTurn(), briefing: '[Back from Flow → Spec — automatic context, not typed by the user]\nIssues to address:\n1. Tag the tests' }
+      flow = { ...flowTurn(), briefing: '[Back from Intent → Spec — automatic context, not typed by the user]\nIssues to address:\n1. Tag the tests' }
       manager.setFlowTurnContext({ forConversation: () => flow, briefingDelivered })
-      await expect(manager.startAutomaticTurn(conversation.id, 'Back to Flow: say what you will fix, then fix it.', { turnKey: 'flow-return:d1', label: 'Back to Flow' })).resolves.toBe('started')
+      await expect(manager.startAutomaticTurn(conversation.id, 'Back to Intent: say what you will fix, then fix it.', { turnKey: 'flow-return:d1', label: 'Back to Intent' })).resolves.toBe('started')
       await waitFor(() => doneCount() === 1)
       const send = host.requests.find((request) => request.method === 'session.send')!
       expect(send.params.sessionId).toBe('flow:f1')
       const text = String((send.params.input as { text: string }).text)
       expect(text).toContain('1. Tag the tests')
-      expect(text).toContain('Back to Flow: say what you will fix')
+      expect(text).toContain('Back to Intent: say what you will fix')
       await waitFor(() => briefingDelivered.mock.calls.length === 1)
-      // Accounted as a Flow turn; rendered as an automatic briefing, not the person's speech.
+      // Accounted as an Intent session turn; rendered as an automatic briefing, not the person's speech.
       expect(db.prepare("SELECT surface FROM agent_invocations WHERE conversation_id = ? AND surface = 'flow'").all(conversation.id)).toHaveLength(1)
       const user = db.prepare("SELECT context_refs FROM agent_messages WHERE conversation_id = ? AND role = 'user'").get(conversation.id) as { context_refs: string }
       expect(JSON.parse(user.context_refs)[0]).toMatchObject({ kind: 'system-briefing', id: 'flow-return:d1', metadata: { automatic: true } })
-      await expect(manager.startAutomaticTurn(conversation.id, 'again', { turnKey: 'flow-return:d1', label: 'Back to Flow' })).resolves.toBe('skipped')
+      await expect(manager.startAutomaticTurn(conversation.id, 'again', { turnKey: 'flow-return:d1', label: 'Back to Intent' })).resolves.toBe('skipped')
       const restarted = new AgentChatManager(() => {}, db, 4200, null)
-      await expect(restarted.startAutomaticTurn(conversation.id, 'again', { turnKey: 'flow-return:d1', label: 'Back to Flow' })).resolves.toBe('skipped')
+      await expect(restarted.startAutomaticTurn(conversation.id, 'again', { turnKey: 'flow-return:d1', label: 'Back to Intent' })).resolves.toBe('skipped')
       await restarted.shutdown()
       expect(host.requests.filter((request) => request.method === 'session.send')).toHaveLength(1)
     })
@@ -411,7 +411,7 @@ describe('Flow turns in missions', () => {
       const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
       flow = flowTurn()
       host.holdTurn = true
-      await manager.startAutomaticTurn(conversation.id, 'Back to Flow: fix it.', { turnKey: 'flow-return:d2', label: 'Back to Flow' })
+      await manager.startAutomaticTurn(conversation.id, 'Back to Intent: fix it.', { turnKey: 'flow-return:d2', label: 'Back to Intent' })
       await waitFor(() => broadcasts.some((message) => message.type === 'agent_stream'))
       expect(manager.abort(conversation.id)).toBe(true)
       await waitFor(() => host.requests.some((request) => request.method === 'session.interrupt'))
@@ -422,22 +422,22 @@ describe('Flow turns in missions', () => {
     })
   })
 
-  it('tells the operator on the USER turn when Flow is offerable (system prompt unchanged)', async () => {
+  it('tells the operator on the USER turn when Intent is offerable (system prompt unchanged)', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     manager.setFlowTurnContext({ forConversation: () => null, offerable: async () => true })
     await manager.sendMessage(conversation.id, 'I want to try a calmer dashboard')
     await waitFor(() => doneCount() === 1)
     const send = host.requests.find((request) => request.method === 'session.send')!
-    expect(String((send.params.input as { text: string }).text)).toContain('| Flow: offerable')
-    expect(String(opens()[0]!.params.systemPrompt)).not.toContain('| Flow: offerable')
+    expect(String((send.params.input as { text: string }).text)).toContain('| Intent: offerable')
+    expect(String(opens()[0]!.params.systemPrompt)).not.toContain('| Intent: offerable')
     manager.setFlowTurnContext({ forConversation: () => null, offerable: async () => { throw new Error('probe failed') } })
     await manager.sendMessage(conversation.id, 'again')
     await waitFor(() => doneCount() === 2)
     const last = host.requests.filter((request) => request.method === 'session.send').at(-1)!
-    expect(String((last.params.input as { text: string }).text)).not.toContain('| Flow: offerable')
+    expect(String((last.params.input as { text: string }).text)).not.toContain('| Intent: offerable')
   })
 
-  it('a Flow lookup failure degrades to a normal mission turn', async () => {
+  it('an Intent session lookup failure degrades to a normal mission turn', async () => {
     manager.setFlowTurnContext({ forConversation: () => { throw new Error('project db closed') } })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
@@ -446,7 +446,7 @@ describe('Flow turns in missions', () => {
     expect(opens()[0]!.params).toMatchObject({ sessionId: conversation.id })
   })
 
-  describe('sub-agents in Flow', () => {
+  describe('sub-agents in Intent', () => {
     const subagentEvents = (prefix: string): Body[] => [
       { type: 'subagent.started', subagentId: `${prefix}-a1`, parentId: null, kind: 'background', description: `${prefix} effect`, delegated: { driver: 'codex', model: 'gpt-5' } },
       { type: 'subagent.usage', subagentId: `${prefix}-a1`, usage: { ...usage, costUsd: 0.5 }, billing: 'separate' },
@@ -455,7 +455,7 @@ describe('Flow turns in missions', () => {
       { type: 'turn.completed', turnId: `${prefix}-bg`, status: 'completed', text: `${prefix} integrated`, usage: { ...usage, costUsd: 0.1 } },
     ]
 
-    it('policy off keeps Flow sub-agents disabled with no addendum', async () => {
+    it('policy off keeps Intent sub-agents disabled with no addendum', async () => {
       const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
       flow = flowTurn()
       await manager.sendMessage(conversation.id, 'build')
@@ -466,7 +466,7 @@ describe('Flow turns in missions', () => {
       expect(open.systemPrompt).toBe(FLOW_SYSTEM_PROMPT)
     })
 
-    it('policy on (native) enables them in the worktree session and appends the static Flow addendum', async () => {
+    it('policy on (native) enables them in the worktree session and appends the static Intent addendum', async () => {
       allowSubagents = true
       const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
       flow = flowTurn()
@@ -479,7 +479,7 @@ describe('Flow turns in missions', () => {
       expect(String(open.systemPrompt)).not.toContain('subagent_start')
     })
 
-    it('policy on (delegated) delegates in the Flow session; Core gives children its cwd', async () => {
+    it('policy on (delegated) delegates in the Intent session; Core gives children its cwd', async () => {
       allowSubagents = true
       runtimeChoice = { provider: 'codex', model: 'gpt-5' }
       host.initialize = {
@@ -495,13 +495,13 @@ describe('Flow turns in missions', () => {
       expect(open.policy).toMatchObject({ subagents: 'enabled', subagentRuntime: { mode: 'delegated', driver: 'codex', model: 'gpt-5' } })
       expect(String(open.systemPrompt)).toContain(FLOW_SUBAGENTS_ADDENDUM)
       expect(String(open.systemPrompt)).toContain('sub-agents run on codex (gpt-5)')
-      // The delegate request names the Flow session only: Core opens the child
+      // The delegate request names the Intent session only: Core opens the child
       // with the parent session's cwd (the worktree) and permissions.
       await manager.delegateSubagent(conversation.id, { description: 'Trail', prompt: 'Add a particle trail' })
       expect(host.requests.find((request) => request.method === 'session.delegate')!.params).toEqual({ sessionId: 'flow:f1', description: 'Trail', prompt: 'Add a particle trail' })
     })
 
-    it('projects the Flow session apart from the mission session: sub-agents and usage land in Flow cost only, exactly once', async () => {
+    it('projects the Intent session apart from the mission session: sub-agents and usage land in Intent cost only, exactly once', async () => {
       allowSubagents = true
       const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
       // A normal mission turn first: the mission's own session is tracked too.
@@ -525,9 +525,9 @@ describe('Flow turns in missions', () => {
         { id: `core-turn:${conversation.id}:flow:f1:flow-bg`, surface: 'flow', origin: 'subagent', total_cost_usd: 0.1 },
         { id: `core-turn:${conversation.id}:mission-bg`, surface: 'agent-chat', origin: 'subagent', total_cost_usd: 0.1 },
       ])
-      // Flow cost (the cost route and flowCostUsd read this) = Flow user turn + its sub-agent + its continuation.
+      // Intent cost (the cost route and flowCostUsd read this) = Intent user turn + its sub-agent + its continuation.
       expect(sumFlowInvocations(db, { conversationId: conversation.id, from: '1970-01-01', to: null })).toMatchObject({ costUsd: 0.02 + 0.5 + 0.1, turns: 3 })
-      // Flow broadcasts carry the session so the client can tell them apart.
+      // Intent broadcasts carry the session so the client can tell them apart.
       expect(broadcasts.find((m) => m.type === 'agent_subagent' && (m.subagent as { subagentId: string }).subagentId === 'flow-a1')).toMatchObject({ conversationId: conversation.id, coreSessionId: 'flow:f1' })
       expect(broadcasts.find((m) => m.type === 'agent_subagent' && (m.subagent as { subagentId: string }).subagentId === 'mission-a1')).not.toHaveProperty('coreSessionId')
 

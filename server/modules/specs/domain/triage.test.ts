@@ -45,7 +45,7 @@ describe('canonical inputs', () => {
     expect(prompt).not.toContain('claude:haiku')
   })
 
-  it('never asks the model to rank Flow against Implement', () => {
+  it('never asks the model to rank Intent against Implement', () => {
     const inputs: TriageInputs = {
       promptVersion: TRIAGE_PROMPT_VERSION, ticket: triageTicketText({ title: 'x' }), repoMap: null,
       similarFiles: [], loops: LOOPS, engine: 'claude:haiku',
@@ -97,7 +97,7 @@ describe('parseTriageOutput', () => {
     })
   })
 
-  it('ignores a stray mode: Flow and Implement never compete', () => {
+  it('ignores a stray mode: Intent and Implement never compete', () => {
     const answer = JSON.stringify({ size: 'M', recommendedLoop: 'factory:implement', recommendedMode: 'flow', confidence: 'medium' })
     const parsed = parseTriageOutput(answer, opts)
     expect(parsed).toMatchObject({ ok: true, repaired: false, value: { recommendedLoop: 'factory:implement' } })

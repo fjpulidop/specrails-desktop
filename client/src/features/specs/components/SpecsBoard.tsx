@@ -233,7 +233,7 @@ export function SpecsBoard({
 }: SpecsBoardProps) {
   const { t } = useTranslation('specs')
   const { t: tTickets } = useTranslation('tickets')
-  // "In Flow" label → the Flow's mission conversation.
+  // "In Intent" label → the Intent's mission conversation.
   const { selectConversation, open: openAgentPanel } = useAgentChat()
   const openFlowConversation = useCallback((conversationId: string) => {
     void selectConversation(conversationId).then(() => openAgentPanel(), () => undefined)
@@ -1371,7 +1371,7 @@ interface MaybeContextMenuProps {
   onTicketDelete?: (ticketId: number) => void
   onTicketStatusChange?: (ticketId: number, status: TicketStatus) => void
   onTicketPriorityChange?: (ticketId: number, priority: TicketPriority) => void
-  /** The project's rails: a spec on one cannot start in Flow (the item says why). */
+  /** The project's rails: a spec on one cannot start in Intent (the item says why). */
   rails?: RailState[]
   children: React.ReactNode
 }
@@ -1394,7 +1394,7 @@ function MaybeContextMenu({
       onDelete={onTicketDelete}
       onStatusChange={onTicketStatusChange}
       onPriorityChange={onTicketPriorityChange}
-      // Another way to work on the spec (Flow: "Start in Flow"), equal to the
+      // Another way to work on the spec (Intent: "Start in Intent"), equal to the
       // rails (drag / Move to Rail); provided by the composition root.
       extraItems={StartAlternative ? (close) => {
         const rail = rails.find((candidate) => candidate.ticketIds.includes(ticket.id))

@@ -762,9 +762,9 @@ function applyDesktopMigrations(db: DbInstance): void {
       if (!columns.includes('delegated_model')) db.exec('ALTER TABLE agent_subagents ADD COLUMN delegated_model TEXT')
     },
     // 35: flow-subagents — a mission conversation can own more than one Core
-    // session (its own and its Flow's `flow:<flowId>`). The projection cursor
+    // session (its own and its Intent's `flow:<flowId>`). The projection cursor
     // is keyed by (conversation, Core session) and each sub-agent records the
-    // session that launched it, so Flow usage never mixes with the mission's.
+    // session that launched it, so Intent usage never mixes with the mission's.
     // Existing rows belong to the mission session (core_session_id =
     // conversation_id). Rebuild/column guarded for migration replay fixtures.
     () => {
@@ -1036,7 +1036,7 @@ export function clearProjectSetupSession(db: DbInstance, projectId: string): voi
 // ─── Agent-chat invocations (cost accounting, HIGH-3) ───────────────────────────
 
 export type AgentInvocationStatus = 'success' | 'failed' | 'aborted'
-/** `agent-chat` = a mission turn; `flow` = a Flow turn (its own Core session in the Flow worktree). */
+/** `agent-chat` = a mission turn; `flow` = an Intent session turn (its own Core session in the Intent worktree). */
 export type AgentInvocationSurface = 'agent-chat' | 'flow'
 
 /** One agent-chat turn's billable accounting. App-global — `project_id` is the
@@ -1259,7 +1259,7 @@ export function removeWebhook(db: DbInstance, id: string): void {
 }
 
 /**
- * Real usage of a conversation's Flow turns in a time window (Flow bar).
+ * Real usage of a conversation's Intent turns in a time window (Intent bar).
  * `costUsd` sums ONLY provider-billed cost; turns whose cost was estimated (or
  * unknown) are counted in `unpricedTurns` and never added. Tokens are the
  * provider-reported counts.

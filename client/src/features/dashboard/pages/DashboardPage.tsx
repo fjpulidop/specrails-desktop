@@ -883,7 +883,7 @@ export default function DashboardPage() {
           // Jira-backed specs are materialized into local-tickets.json with
           // source:'jira' — they must show on the board like any other spec.
           t.source === 'jira' ||
-          // Flow mode placeholder specs (labelled "In Flow" while open).
+          // Intent mode placeholder specs (labelled "In Intent" while open).
           t.source === 'flow') &&
         !railTicketIds.has(t.id),
     )

@@ -398,7 +398,7 @@ describe('db', () => {
       }
     })
 
-    it('migration 74 creates flow_sessions with one open Flow per conversation and is restart-safe', () => {
+    it('migration 74 creates flow_sessions with one open Intent per conversation and is restart-safe', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-flow-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')
       let db = initDb(dbPath)
@@ -462,7 +462,7 @@ describe('db', () => {
       }
     })
 
-    it('migration 82 adds the nullable spec_origin of a Flow (existing spec) and is restart-safe', () => {
+    it('migration 82 adds the nullable spec_origin of an Intent session (existing spec) and is restart-safe', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-flow-origin-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')
       let db = initDb(dbPath)

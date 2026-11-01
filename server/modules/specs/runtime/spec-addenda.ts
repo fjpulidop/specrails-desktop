@@ -268,12 +268,12 @@ export function settleSpecAddenda(store: TicketStore, ticketIds: readonly number
 }
 
 /**
- * Flow settlement (the spec was rewritten from what the Flow built): the addenda
- * the Flow worked on become applied, as a completed rail run settles its claim.
- * That is every LIVE addendum — open (shown to the Flow agent at start, or added
- * since) or in_flight (claimed by the Flow's hand-off run): a Flow holds its spec
+ * Intent settlement (the spec was rewritten from what the Intent built): the addenda
+ * the Intent worked on become applied, as a completed rail run settles its claim.
+ * That is every LIVE addendum — open (shown to the Intent agent at start, or added
+ * since) or in_flight (claimed by the Intent's hand-off run): an Intent session holds its spec
  * exclusively, so no other run can own them. An in_flight addendum keeps its
- * claiming run id; an open one records `causalId` (the Flow's delivery). Dismissed
+ * claiming run id; an open one records `causalId` (the Intent's delivery). Dismissed
  * and applied addenda are untouched, so a replay is a no-op. True when changed.
  */
 export function applyFlowSpecAddenda(store: TicketStore, ticketId: number, causalId: string, now = new Date().toISOString()): boolean {

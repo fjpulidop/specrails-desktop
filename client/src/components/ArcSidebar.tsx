@@ -171,7 +171,7 @@ function ConversationRow({
   const { t } = useTranslation('agent')
   const label = conversation.title?.trim() || t('untitled')
   const [confirming, setConfirming] = useState(false)
-  // Marks next to the title: a delivery waits for the person; the mission is in Flow.
+  // Marks next to the title: a delivery waits for the person; the mission is in Intent.
   const chat = useAgentChat()
   const attention = chat.attentionConversationIds?.has(conversation.id) ?? false
   const attentionKind = chat.attentionKinds?.get(conversation.id) ?? 'decision'

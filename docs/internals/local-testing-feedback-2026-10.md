@@ -122,7 +122,7 @@ printf '# Rules\n- API calls use getApiBase()\n- Copy is reviewed by design\n' >
 git add -A && git commit -qm init
 ```
 
-Test projects need at least one commit: Flow and isolated rail launches
+Test projects need at least one commit: Intent and isolated rail launches
 create a worktree from the base branch, so a repository with an unborn HEAD is
 refused with "This repository has no commits yet" (`409
 repository_has_no_commits`). The `git commit` above covers it.
@@ -143,21 +143,21 @@ Core; without it the feature must be absent and nothing else may change.
 - [ ] **Decision times.** Analytics shows time to decision / merge per loop; deciding a delivery updates it.
 - [ ] **Reviewer suggestion.** In a loop's agents editor, put reviewer and developer on the same model family → the "use another family" suggestion appears; Dismiss persists per project.
 
-### Phase 2: Flow (Core `sessions`, `flowSessions`, `deriveChange`)
+### Phase 2: Intent (Core `sessions`, `flowSessions`, `deriveChange`)
 - [ ] **Triage chip.** A new spec gets a triage chip (size, recommended loop); the rail launch preselects the recommended loop; `POST /tickets/:id/triage` recomputes.
-- [ ] **Offer → entry.** In a mission, ask to explore an idea → a Flow offer card; accept → Flow bar, In Flow label on the board.
+- [ ] **Offer → entry.** In a mission, ask to explore an idea → an Intent session offer card; accept → Intent bar, In Intent label on the board.
 - [ ] **Interrupt.** Send a message while the agent works → it is delivered mid-turn (no queue wait).
-- [ ] **"This is it".** Press it → launch card with **Flow → Spec** preselected; Launch.
-- [ ] **Flow → Spec loop.** The run derives the OpenSpec change; the packet shows **Derivation** (N/M files explained).
-- [ ] **Summary carries the conversation.** `.specrails/pipeline/<runId>/flow-summary.md` lists every message you typed in Flow (`transcriptTurns` > 0) with `↳ Agent:` first lines; the packet's Derivation shows the same turn count.
+- [ ] **"This is it".** Press it → launch card with **Intent → Spec** preselected; Launch.
+- [ ] **Intent → Spec loop.** The run derives the OpenSpec change; the packet shows **Derivation** (N/M files explained).
+- [ ] **Summary carries the conversation.** `.specrails/pipeline/<runId>/flow-summary.md` lists every message you typed in Intent (`transcriptTurns` > 0) with `↳ Agent:` first lines; the packet's Derivation shows the same turn count.
 - [ ] **Change name.** The derived change is `openspec/changes/<kebab spec title>` (no `ticket-N-addenda-…`).
 - [ ] **Repair round.** When the review rejects (or a check fails), the run log shows `fix` (fixer stance) then `derive` again, and the change is updated in place; an approval after the round archives normally.
 - [ ] **Requested changes.** With rounds exhausted, the mission card reads **The reviewer requested changes** with the issues and failing checks (no "Implementation failed · settlement_interrupted"); the rail strip shows **Changes requested** and no Discard.
-- [ ] **Back to Flow.** Press it → the Flow bar returns on the same worktree (files intact), the spec shows In Flow again, the delivery card reads **Back in Flow**, and your next message reaches the agent with the review.
-- [ ] **Relaunch.** From a requested-changes card, Relaunch → a new Flow → Spec run on the same rail and worktree re-derives the same change.
+- [ ] **Back to Intent.** Press it → the Intent bar returns on the same worktree (files intact), the spec shows In Intent again, the delivery card reads **Back in Intent**, and your next message reaches the agent with the review.
+- [ ] **Relaunch.** From a requested-changes card, Relaunch → a new Intent → Spec run on the same rail and worktree re-derives the same change.
 - [ ] **Spec rewrite.** After settle, the placeholder spec is rewritten from the derived change (Contract Layer applied).
-- [ ] **Jira on review.** With Jira linked, the Flow spec gets its issue created and moved to review only after settle (never while In Flow).
-- [ ] **Companion «In Flow».** In the companion app (`/Users/javi/repos/wt/companion-in-flow`, commit `02c4b79`), the spec shows the In Flow label.
+- [ ] **Jira on review.** With Jira linked, the Intent spec gets its issue created and moved to review only after settle (never while In Intent).
+- [ ] **Companion «In Intent».** In the companion app (`/Users/javi/repos/wt/companion-in-flow`, commit `02c4b79`), the spec shows the In Intent label.
 
 ### Phase 4: adoption
 - [ ] **Freestyle on Codex/Gemini.** Launch Freestyle on a rail with Codex, then Gemini → runs and verifies; no capability error.

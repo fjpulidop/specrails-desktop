@@ -65,7 +65,7 @@ inputs (ticket store, repo map, `file_provenance`, loops), hashes them and runs 
 engine. It then writes `metadata.triage` and records `ai_invocations`
 (surface `triage`). The project registry composes the service and feeds it the
 project broadcast. `POST /tickets/:id/triage` forces a recalculation. The
-triage recommends a loop and a size for Implement only: Flow and Implement
+triage recommends a loop and a size for Implement only: Intent and Implement
 never compete, so it never ranks them (a legacy `recommendedMode` stays
 readable and is ignored). See
 [spec triage](../../../docs/internals/spec-triage.md).

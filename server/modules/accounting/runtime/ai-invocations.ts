@@ -17,7 +17,7 @@ export type Surface =
   | 'proposal'
   | 'agent-studio'
   | 'setup'
-  // Flow mode turns. They run in the mission manager and are recorded in the
+  // Intent mode turns. They run in the mission manager and are recorded in the
   // app-level `agent_invocations` ledger with surface='flow' (never twice);
   // listed here so the shared surface vocabulary and breakdowns include it.
   | 'flow'

@@ -145,7 +145,7 @@ layer, so it also opens over the floating chat). The accessible name always name
 - **Adding a hint:** add the topic (and its anchor in all 8 guides, plus the topic name in all 8
   `common.json`), then render `<HelpHint topic="…" />`. Do not hard-code guide URLs.
 - **Where they are:** section links in app/project settings (`APP_SETTINGS_HELP`, `PROJECT_SETTINGS_HELP`),
-  the daily budget fields, the rail loop selector (what a rail runs), Flow entry and hand-off cards, the
+  the daily budget fields, the rail loop selector (what a rail runs), Intent entry and hand-off cards, the
   Run-a-loop dialog, the context-scope slider, and empty states (`EmptyState learnMore="…"`: one sentence of
   what will appear, the primary action, then Learn more).
 - **Cheatsheet search:** the `?` cheatsheet filters shortcuts and asks `GET /api/docs/search` (current
@@ -154,7 +154,7 @@ layer, so it also opens over the floating chat). The accessible name always name
 ## Launch forecast ("Usually 6–9 min · $2–4")
 
 `components/LaunchForecast.tsx` sits next to a Launch action: the rail row (idle, with specs, one
-engine), the mission rail card and the Flow hand-off card (`AgentRailLaunchCard`) and the Run-a-loop
+engine), the mission rail card and the Intent hand-off card (`AgentRailLaunchCard`) and the Run-a-loop
 dialog. It reads `GET /api/projects/:id/launch-forecast` ([API](../../../docs/internals/api-reference.md)):
 the **same measured samples** as the job story's "Runs like this have taken…" band
 (`server/modules/execution/runtime/run-duration-stats.ts`), narrowed to the provider about to run, plus a
@@ -211,7 +211,7 @@ each action has an `id`, i18n label, `group`, icon, `shortcut` (shown through `k
   handler registers it with `useRegisterPaletteSurface(key, surface)`
   ([`lib/palette-bridge.ts`](../lib/palette-bridge.ts)): the specs column (`specs`: New spec /
   Explore), the dashboard (`board`: launch on rail through `handleToggle` and its gates, status
-  move with Undo or the Jira workflow move, review path), the Flow strip (`flow`: the very
+  move with Undo or the Jira workflow move, review path), the Intent strip (`flow`: the very
   Pause/Resume/Hand off controls, disabled ones are not offered), the specs board's multi-selection
   and saved views (`selection`: Select all in column, bulk Move / Label / Priority / Add to rail /
   Launch / Delete while specs are selected, Save current view, Switch view). A surface that is not mounted is

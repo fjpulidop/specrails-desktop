@@ -3,11 +3,11 @@ import { initDb } from '../../../db'
 import { initDesktopDb } from '../../../desktop-db'
 import { __resetFetchOriginCache } from '../../../integration-branch'
 import type { ProjectContext } from '../../../project-registry'
-import { createSqliteFlowRepository } from '../../flow/adapters/sqlite'
-import { createFlowHandOffAuthority } from '../../flow/adapters/bindings'
-import type { FlowSession } from '../../flow'
+import { createSqliteFlowRepository } from '../../intent/adapters/sqlite'
+import { createFlowHandOffAuthority } from '../../intent/adapters/bindings'
+import type { IntentSession } from '../../flow'
 import { launchIsolatedRail, type IsolatedLaunchIO } from './rail-isolated-launch'
-import { FlowWorktreeMismatchError } from './flow-worktree-handoff'
+import { IntentWorktreeMismatchError } from './flow-worktree-handoff'
 import { listRailWorktrees } from './rail-worktrees-store'
 import { getActivePrDeliveryByRail, getPrDelivery, toPrDeliverySnapshot } from './rail-pr-store'
 import { ownedDeliveryBranches } from '../adapters/decisions/ownership'
@@ -58,7 +58,7 @@ function setup(headOnMount = HEAD, opts: { repositoryId?: string } = {}) {
     broadcast: vi.fn(),
   } as unknown as ProjectContext
   const repository = createSqliteFlowRepository(db)
-  const session: FlowSession = {
+  const session: IntentSession = {
     id: 'flow-1', conversationId: 'conv-1', ticketId: 7, state: 'paused', branch: BRANCH, worktreePath: FLOW_PATH,
     baseSha: BASE, headSha: HEAD, coreSessionId: null, railIndex: 0, deliveryId: null, step: 'handoff:launch',
     ...(opts.repositoryId ? { repositoryId: opts.repositoryId } : {}),
@@ -91,8 +91,8 @@ function setup(headOnMount = HEAD, opts: { repositoryId?: string } = {}) {
   return { ctx, db, run, repository, required, create, remove, git, io, launch }
 }
 
-describe('launchIsolatedRail — Flow hand-off (requiredFlowWorktree)', () => {
-  it('adopts the exact Flow worktree and transfers ownership atomically', async () => {
+describe('launchIsolatedRail — Intent hand-off (requiredFlowWorktree)', () => {
+  it('adopts the exact Intent worktree and transfers ownership atomically', async () => {
     const { db, run, repository, create, remove, launch } = setup()
     const ids = await launch()
     expect(ids).toHaveLength(1)
@@ -105,10 +105,10 @@ describe('launchIsolatedRail — Flow hand-off (requiredFlowWorktree)', () => {
     expect(repository.get('flow-1')).toMatchObject({ state: 'handed_off', step: null, railIndex: 0, deliveryId: delivery.id })
   })
 
-  it('rejects a HEAD that differs from the frozen one with FlowWorktreeMismatchError (no ledger, Flow untouched)', async () => {
+  it('rejects a HEAD that differs from the frozen one with IntentWorktreeMismatchError (no ledger, Intent untouched)', async () => {
     const { db, run, repository, remove, launch } = setup('c'.repeat(40))
     const error = await launch().catch((caught) => caught)
-    expect(error).toBeInstanceOf(FlowWorktreeMismatchError)
+    expect(error).toBeInstanceOf(IntentWorktreeMismatchError)
     expect(error.code).toBe('flow_worktree_mismatch')
     expect(run).not.toHaveBeenCalled()
     expect(remove).not.toHaveBeenCalled()
@@ -128,23 +128,23 @@ describe('launchIsolatedRail — Flow hand-off (requiredFlowWorktree)', () => {
     expect(wrongBranch.remove).not.toHaveBeenCalled()
   })
 
-  it('never removes the branch when it had to remount a missing Flow worktree', async () => {
+  it('never removes the branch when it had to remount a missing Intent worktree', async () => {
     const { create, remove, launch } = setup()
     create.mockResolvedValueOnce({ branch: BRANCH, worktreePath: '/wt/remounted', worktreeCreated: true, branchCreated: false })
-    await expect(launch()).rejects.toBeInstanceOf(FlowWorktreeMismatchError)
+    await expect(launch()).rejects.toBeInstanceOf(IntentWorktreeMismatchError)
     expect(remove).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ worktreePath: '/wt/remounted', deleteBranch: false }))
   })
 
-  it('rolls back the ledger row and the Flow state together when the adoption fails', async () => {
+  it('rolls back the ledger row and the Intent state together when the adoption fails', async () => {
     const { db, repository, launch } = setup()
-    // The Flow moved on (e.g. a concurrent reconciliation): adoption must not commit.
+    // The Intent moved on (e.g. a concurrent reconciliation): adoption must not commit.
     db.prepare("UPDATE flow_sessions SET head_sha = ? WHERE id = 'flow-1'").run('d'.repeat(40))
-    await expect(launch()).rejects.toThrow(/does not match the frozen Flow HEAD/)
+    await expect(launch()).rejects.toThrow(/does not match the frozen Intent HEAD/)
     expect(listRailWorktrees(db, 0)).toEqual([])
     expect(repository.get('flow-1')).toMatchObject({ state: 'paused', step: 'handoff:launch' })
   })
 
-  it('returns an adopted worktree to the Flow when the launch rolls back after adoption', async () => {
+  it('returns an adopted worktree to the Intent when the launch rolls back after adoption', async () => {
     const { db, repository, remove, run, launch } = setup()
     failSnapshot.value = true
     const definitionGraph = { nodes: [{ id: 'core', type: 'core', position: { x: 0, y: 0 }, data: {} }], edges: [], config: {} }
@@ -157,8 +157,8 @@ describe('launchIsolatedRail — Flow hand-off (requiredFlowWorktree)', () => {
 
   it('never combines with continuation, revision or retry contracts', async () => {
     const { create, launch } = setup()
-    await expect(launch({ ticketIds: [7, 8] })).rejects.toBeInstanceOf(FlowWorktreeMismatchError)
-    await expect(launch({ revision: { ofDeliveryId: 'x', decision: 'pr_draft', note: 'n' } })).rejects.toBeInstanceOf(FlowWorktreeMismatchError)
+    await expect(launch({ ticketIds: [7, 8] })).rejects.toBeInstanceOf(IntentWorktreeMismatchError)
+    await expect(launch({ revision: { ofDeliveryId: 'x', decision: 'pr_draft', note: 'n' } })).rejects.toBeInstanceOf(IntentWorktreeMismatchError)
     expect(create).not.toHaveBeenCalled()
   })
 
@@ -170,7 +170,7 @@ describe('launchIsolatedRail — Flow hand-off (requiredFlowWorktree)', () => {
     expect([...ownedDeliveryBranches(delivery, snapshot)]).toEqual([BRANCH])
   })
 
-  it('a Flow in a non-primary repository runs as that ONE repository and settles on the GROUP delivery', async () => {
+  it('an Intent session in a non-primary repository runs as that ONE repository and settles on the GROUP delivery', async () => {
     const { db, run, repository, required, create, launch } = setup(HEAD, { repositoryId: 'api' })
     expect(required.repositoryId).toBe('api')
     await launch({ repositoryIds: ['api'] })
@@ -180,23 +180,23 @@ describe('launchIsolatedRail — Flow hand-off (requiredFlowWorktree)', () => {
     expect(parent.parent_delivery_id).toBeNull()
     const children = db.prepare('SELECT * FROM rail_pr_deliveries WHERE parent_delivery_id = ?').all(parent.id) as Array<{ id: string; repository_id: string; repository_path: string }>
     expect(children).toEqual([expect.objectContaining({ repository_id: 'api', repository_path: '/api' })])
-    // The Flow adopts the parent: the only delivery whose rail.pr_state is broadcast.
+    // The Intent adopts the parent: the only delivery whose rail.pr_state is broadcast.
     expect(repository.get('flow-1')).toMatchObject({ state: 'handed_off', step: null, deliveryId: parent.id })
     expect(listRailWorktrees(db, 0)).toEqual([expect.objectContaining({ worktree_path: FLOW_PATH, branch: BRANCH })])
-    // Core measures the change from the Flow reservation commit, not the frozen HEAD.
+    // Core measures the change from the Intent reservation commit, not the frozen HEAD.
     const manifest = JSON.parse(getPrDelivery(db, parent.id)!.execution_manifest!) as { repositories: Array<{ repositoryId: string; baseSha: string }> }
     expect(manifest.repositories).toEqual([expect.objectContaining({ repositoryId: 'api', baseSha: BASE })])
   })
 
-  it('refuses a non-primary Flow launched with another repository scope, and a primary Flow inside a repository group', async () => {
+  it('refuses a non-primary Intent launched with another repository scope, and a primary Intent inside a repository group', async () => {
     const other = setup(HEAD, { repositoryId: 'api' })
-    await expect(other.launch({ repositoryIds: ['web'] })).rejects.toBeInstanceOf(FlowWorktreeMismatchError)
-    await expect(other.launch({ repositoryIds: ['api', 'web'] })).rejects.toBeInstanceOf(FlowWorktreeMismatchError)
+    await expect(other.launch({ repositoryIds: ['web'] })).rejects.toBeInstanceOf(IntentWorktreeMismatchError)
+    await expect(other.launch({ repositoryIds: ['api', 'web'] })).rejects.toBeInstanceOf(IntentWorktreeMismatchError)
     expect(other.create).not.toHaveBeenCalled()
     expect(other.repository.get('flow-1')).toMatchObject({ state: 'paused', step: 'handoff:launch' })
     const primary = setup(HEAD, { repositoryId: undefined })
     const ctxWithMembers = setup(HEAD, { repositoryId: 'api' })
-    // A primary Flow (no repositoryId) never rides a repository group leg.
-    await expect(ctxWithMembers.launch({ repositoryIds: ['api'], requiredFlowWorktree: { ...primary.required, repositoryId: undefined } })).rejects.toBeInstanceOf(FlowWorktreeMismatchError)
+    // A primary Intent (no repositoryId) never rides a repository group leg.
+    await expect(ctxWithMembers.launch({ repositoryIds: ['api'], requiredFlowWorktree: { ...primary.required, repositoryId: undefined } })).rejects.toBeInstanceOf(IntentWorktreeMismatchError)
   })
 })

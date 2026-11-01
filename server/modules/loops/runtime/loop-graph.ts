@@ -57,7 +57,7 @@ export interface LoopEdge {
   /** Set on edges leaving a `condition` node: AND = sequence, OR = fallback. */
   join?: LoopJoin
   /** Set on edges leaving a `decider` node — which verdict routes here. Maps to
-   *  the React Flow `sourceHandle` on the canvas. Absent on legacy graphs (the
+   *  the React Intent `sourceHandle` on the canvas. Absent on legacy graphs (the
    *  engine then falls back to the successor-node-type heuristic). */
   branch?: LoopBranch
   /** Core piece outcome; validated again against the effective params by Core. */

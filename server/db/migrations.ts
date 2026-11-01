@@ -1751,12 +1751,12 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
-  // Migration 74: Flow mode (server/modules/flow). One row per Flow; it owns its
+  // Migration 74: Intent mode (server/modules/flow). One row per Intent; it owns its
   // worktree until a rail adopts it (the adoption inserts the rail_worktrees row
   // and sets state='handed_off' in one transaction). `ticket_id` is NULL only
   // while the start saga has not created the placeholder spec: the row is the
   // saga's durable anchor, and the partial unique index arbitrates concurrent
-  // starts (at most one active or paused Flow per conversation).
+  // starts (at most one active or paused Intent per conversation).
   (db) => {
     db.exec(`
       CREATE TABLE IF NOT EXISTS flow_sessions (
@@ -1782,7 +1782,7 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
-  // Migration 75: Flow settlement effects (Flow -> Spec, arch section 4.6).
+  // Migration 75: Intent settlement effects (Intent -> Spec, arch section 4.6).
   // One row per durable effect, keyed `flow:<flowId>:<kind>`; executed in
   // `seq` order with attempts/backoff and replayed at startup. A failure
   // never blocks the delivery.
@@ -1839,16 +1839,16 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
-  // Migration 78: Back to Flow (feedback-2026-10 Flow → Spec repair). When a
-  // Flow → Spec delivery stopped with requested changes and its worktree went
-  // back to the Flow, the review the agent must address in its NEXT turn.
-  // Cleared once a turn delivered it (or the Flow is handed off again).
+  // Migration 78: Back to Intent (feedback-2026-10 Intent → Spec repair). When a
+  // Intent → Spec delivery stopped with requested changes and its worktree went
+  // back to the Intent, the review the agent must address in its NEXT turn.
+  // Cleared once a turn delivered it (or the Intent is handed off again).
   (db) => {
     const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
     if (!cols.has('return_briefing')) db.exec('ALTER TABLE flow_sessions ADD COLUMN return_briefing TEXT')
   },
 
-  // Migration 79: the OpenSpec change ids this Flow's own Flow → Spec runs
+  // Migration 79: the OpenSpec change ids this Intent's own Intent → Spec runs
   // derived (JSON array, most recent last). A returned worktree still carries
   // that active change: the next freeze allows it and the next run re-derives
   // it in place instead of creating another.
@@ -1857,15 +1857,15 @@ const MIGRATIONS: Migration[] = [
     if (!cols.has('derived_changes')) db.exec('ALTER TABLE flow_sessions ADD COLUMN derived_changes TEXT')
   },
 
-  // Migration 80: the project repository a Flow runs in (workspace projects
+  // Migration 80: the project repository an Intent session runs in (workspace projects
   // and multi-repository projects). NULL ⇒ the primary repository at the
-  // project root, exactly as every Flow before it.
+  // project root, exactly as every Intent before it.
   (db) => {
     const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
     if (!cols.has('repository_id')) db.exec('ALTER TABLE flow_sessions ADD COLUMN repository_id TEXT')
   },
 
-  // Migration 81: a real `closed` Flow state. Closing a needs-review Flow keeps
+  // Migration 81: a real `closed` Intent state. Closing a needs-review Intent keeps
   // its branch (nothing is released), which `discarded` (worktree and branch
   // removed) misrepresented. SQLite cannot alter a CHECK constraint, so the
   // table is rebuilt with every row, column and index preserved (flow_sessions
@@ -1912,10 +1912,10 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
-  // Migration 82: where a Flow's spec came from. 'existing' ⇒ the person's own
-  // spec started in Flow (restored on discard, never deleted; its original
+  // Migration 82: where an Intent session's spec came from. 'existing' ⇒ the person's own
+  // spec started in Intent (restored on discard, never deleted; its original
   // content is kept as a comment before the settlement rewrites it). NULL ⇒
-  // the Flow's placeholder spec, exactly as every Flow before it.
+  // the Intent's placeholder spec, exactly as every Intent before it.
   (db) => {
     const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
     if (!cols.has('spec_origin')) db.exec("ALTER TABLE flow_sessions ADD COLUMN spec_origin TEXT CHECK (spec_origin IS NULL OR spec_origin IN ('placeholder','existing'))")

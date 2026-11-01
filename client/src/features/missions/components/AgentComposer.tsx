@@ -113,7 +113,7 @@ export function AgentComposer({
    *  Mode keeps the composer selector on the EMPTY compose screen. */
   hideProjectSelector?: boolean
   /** The inline Agent-Mode dock passes false: its mission header already names
-   *  the conversation mode (Flow), so the control row stays light. The EMPTY
+   *  the conversation mode (IntentSession), so the control row stays light. The EMPTY
    *  composer and the floating panel (no header) keep the badge. */
   showModeBadge?: boolean
   queueEditRequest?: { conversationId: string; queueId: string; revision: number }
@@ -226,7 +226,7 @@ export function AgentComposer({
   // EMPTY compose screen) — never the app's active project.
   const gitProjectId = active ? active.pinned_project_id : draftPinnedProjectId
   const pinnedProjectId = gitProjectId
-  // Extension mode (Flow): a busy send interrupts the running turn and the git
+  // Extension mode (IntentSession): a busy send interrupts the running turn and the git
   // strip shows the worktree branch.
   const conversationMode = useMissionConversationMode(active?.id ?? null, active?.pinned_project_id ?? null)
   const interrupting = isStreaming && !!conversationMode?.interruptWhileBusy
@@ -993,7 +993,7 @@ export function AgentComposer({
       </div>
       {/* Git strip: current branch (switchable) + last commit of the mission's
           pinned project. Hidden without a project, outside a git repo, or when
-          the conversation's extension shows its own branch (the Flow bar). */}
+          the conversation's extension shows its own branch (the Intent bar). */}
       {gitProjectId && !conversationMode?.hideGitStrip && <AgentGitBar projectId={gitProjectId} branchOverride={conversationMode?.gitBranch ?? null} />}
       {selectedProcess && selectedProcess.chatId === activeId && selectedProcess.projectId === backgroundProjectId && (
         <BackgroundProcessLogsModal

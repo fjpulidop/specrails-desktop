@@ -85,7 +85,7 @@
     "ref_mismatch": "Il riferimento del branch non corrisponde",
     "restart_pending": "In attesa del ripristino del workflow",
     "review_changes_requested": "Il revisore ha richiesto modifiche",
-    "returned_to_flow": "Tornato in Flow",
+    "returned_to_flow": "Tornato in Intent",
     "local_changes_attention": "Integrato — le modifiche locali richiedono attenzione"
   },
   "prRecovery": {
@@ -207,7 +207,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Affidamento del Flow",
+    "flowSpec": "Affidamento dell’Intent",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
   },
@@ -233,8 +233,8 @@
       "dailyBudget": "i budget giornalieri",
       "recentlyDeleted": "gli elementi eliminati di recente",
       "railLoops": "cosa esegue un rail",
-      "flowMode": "Flow",
-      "flowHandOff": "la consegna di un Flow",
+      "flowMode": "Intent",
+      "flowHandOff": "la consegna di un Intent",
       "contextScope": "lo slider del contesto",
       "launchForecast": "la previsione di avvio",
       "loopBuilder": "il Loop Builder",

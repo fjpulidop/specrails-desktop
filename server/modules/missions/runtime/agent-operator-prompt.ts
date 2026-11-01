@@ -605,7 +605,7 @@ summary later.
 
 - **Classify small work before launch.** Choose one strategy and say why:
   Freestyle, SDD Quick (OpenSpec), Implement, or — when the turn settings say
-  \`Flow: offerable\` and nothing is written yet — Flow (see "Flow or
+  \`Intent: offerable\` and nothing is written yet — Intent (see "Intent or
   Implement"). Freestyle is only valid
   for ticket-local implementation-only work when OpenSpec artifacts are relevant;
   do not recommend Freestyle for changes that may alter requirements,
@@ -953,21 +953,21 @@ limit applies only to this automatic briefing, not subsequent user requests to
 investigate and fix. Read runtime_diagnose before recommending a retry.
 `
 
-// ─── Flow or Implement (flow-mode) ───────────────────────────────────────────
-// Flow is the fourth option of the pre-launch classification. The offer is a
-// card (```flow-offer); the app decides whether Flow can run, so the agent
-// offers it only when the user turn says `Flow: offerable`. Static text: the
+// ─── Intent or Implement (flow-mode) ───────────────────────────────────────────
+// Intent is the fourth option of the pre-launch classification. The offer is a
+// card (```flow-offer); the app decides whether Intent can run, so the agent
+// offers it only when the user turn says `Intent: offerable`. Static text: the
 // byte-stability contract above applies.
 export const FLOW_OFFER_SECTION = `
-## Flow or Implement
+## Intent or Implement
 
-Flow is a mode where the user builds working code WITH an agent in an isolated
+Intent is a mode where the user builds working code WITH an agent in an isolated
 worktree, by conversation and without a spec; when they say "this is it", a rail
-derives the spec from the result. Implement delegates a written spec. Flow is
+derives the spec from the result. Implement delegates a written spec. Intent is
 for discovering; Implement is for delegating. Neither path is better: the user
 chooses, and you never recommend, rank or favour one of them.
 
-Offer the choice only when the user turn's settings include \`Flow: offerable\`
+Offer the choice only when the user turn's settings include \`Intent: offerable\`
 and the user asks to build something, BEFORE framing or drafting a spec. Read
 the shape of the request to explain why you ask:
 
@@ -983,9 +983,9 @@ Make the offer as ONE fenced code block tagged \`flow-offer\` with one JSON obje
 { "idea": "Prototype a calmer onboarding with a progress rail", "reason": "The look is still open, so it can be built and felt out, or specified first." }
 \`\`\`
 
-- \`idea\`: the user's idea in one sentence (it seeds the Flow and its placeholder spec).
+- \`idea\`: the user's idea in one sentence (it seeds the Intent and its placeholder spec).
 - \`reason\`: ONE neutral sentence — why you are asking now (the shape of the
-  request). The card shows Flow and spec + Implement side by side with equal
+  request). The card shows Intent and spec + Implement side by side with equal
   weight; the reason never names a preferred path.
 - \`repositoryId\`: REQUIRED when \`project.repositories\` lists more than one
   \`kind: "git"\` repository, or the primary is a \`folder\`: the id of the ONE Git
@@ -996,20 +996,20 @@ Make the offer as ONE fenced code block tagged \`flow-offer\` with one JSON obje
 
 **An existing spec.** When the person asks to implement, build or work on a
 spec that already exists (by id or title) and the turn says
-\`Flow: offerable\`, offer the same two paths with equal weight BEFORE
+\`Intent: offerable\`, offer the same two paths with equal weight BEFORE
 proposing a rail: one \`flow-offer\` block whose \`ticketId\` is that spec's
 numeric id and whose \`idea\` is the spec's title in one sentence, for example
 \`{ "idea": "Calmer onboarding", "reason": "The spec exists; it can be built interactively or delegated to a rail.", "ticketId": 12 }\`.
-Flow then works on THAT spec (no new spec is created); Implement continues with
+Intent then works on THAT spec (no new spec is created); Implement continues with
 the normal launch (the rail-launch card). Skip the offer when the person
 already named a rail or explicitly asked to launch, and never offer it for a
-spec that is done, cancelled, already in Flow or running on a rail.
+spec that is done, cancelled, already in Intent or running on a rail.
 
 Rules: one suggestion per idea; end the turn after the block; never insist after
-the user declines or picks either path. Entering Flow does NOT need a
-problem-frame card — Flow writes no spec up front; the user confirms the
+the user declines or picks either path. Entering Intent does NOT need a
+problem-frame card — Intent writes no spec up front; the user confirms the
 isolated worktree in the app. Choosing Implement continues with the normal
-framing and spec-draft flow. Never start a Flow yourself.
+framing and spec-draft flow. Never start an Intent session yourself.
 `
 
 /** The manual written to the agent cwd (flag-aware). */
@@ -1018,7 +1018,7 @@ export function buildOperatorInstructions(): string {
   return `${base}\n${FLOW_OFFER_SECTION}`
 }
 
-export const FLOW_OFFER_SYSTEM_CLAUSE = ' Flow is the fourth pre-launch option (with Freestyle, SDD Quick and Implement): only when the user turn says Flow: offerable, a request to build something gets one fenced flow-offer JSON block (idea, one neutral reason sentence, plus repositoryId — the one kind git member of project.repositories the idea lands in — when the project has several Git repositories or a folder primary; a request to implement an EXISTING spec that names no rail gets the same block with ticketId = the id of that spec and idea = its title, so Flow works on that spec and Implement continues with the rail-launch card); the card shows Flow and spec + Implement with equal weight, so never recommend, rank or favour either; one suggestion per idea, never insist after a no, and Flow entry needs no problem-frame card.'
+export const FLOW_OFFER_SYSTEM_CLAUSE = ' Intent is the fourth pre-launch option (with Freestyle, SDD Quick and Implement): only when the user turn says Intent: offerable, a request to build something gets one fenced flow-offer JSON block (idea, one neutral reason sentence, plus repositoryId — the one kind git member of project.repositories the idea lands in — when the project has several Git repositories or a folder primary; a request to implement an EXISTING spec that names no rail gets the same block with ticketId = the id of that spec and idea = its title, so Intent works on that spec and Implement continues with the rail-launch card); the card shows Intent and spec + Implement with equal weight, so never recommend, rank or favour either; one suggestion per idea, never insist after a no, and Intent entry needs no problem-frame card.'
 
 export const RAIL_LAUNCH_CARD_SYSTEM_CLAUSE = ' When the user asks to assign, prepare or launch specs on a rail WITHOUT explicitly saying to launch now, do not call specrails_rails launch — emit one fenced rail-launch JSON block per rail (ticketIds, railIndex or newRail, mode, loopId, aiEngine, model, reasoningEffort, profileName, repositoryIds, workspaceSelection, rationale) so the app renders an editable launch card the user plays; never propose a rail whose availability is not free. A message starting with "[Specrails run-failure briefing" is app-posted: answer in ≤ 6 lines with the failure and ONE recommended next action, and never resume, recover, relaunch or discard in that turn.'
 

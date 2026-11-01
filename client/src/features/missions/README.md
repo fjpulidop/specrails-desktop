@@ -82,7 +82,7 @@ switcher and a polite announcement. A primary action appears only when the
 run needs the person and is DECLARED by the run's card through
 [`run-primary.tsx`](components/run-primary.tsx) (`RunPrimaryButton` /
 `useRunPrimary`: id, label, kind, handler — no DOM reading). A `local` action
-(Resume, Back to Flow, Mark done) runs in one click in place; an `outward` one
+(Resume, Back to Intent, Mark done) runs in one click in place; an `outward` one
 (Create PR, Publish, Reopen, Approve, Launch, retry delivery, and Relaunch and
 Recover because they spend money on a new run) is never fired from the strip:
 it opens the panel with focus on the card's own control. Clicking the strip opens that card as a panel
@@ -93,9 +93,9 @@ ONE polite live region (the extension's `ConversationDock` speaks through its
 `announce`). Its "+N" menu has roving focus (arrows, Home/End, Esc back to the
 button); switcher entries carry their full name and state as accessible name
 and tooltip; a partial cost's `*` is also said in words. Extensions add their runs
-through `useLiveRuns` (Flow) and name steps through `describeRun`; a live run
+through `useLiveRuns` (Intent) and name steps through `describeRun`; a live run
 can hear its panel close (`onPanelClose(reason)`: `escape` for Esc,
-`collapse` for a click outside, the toggle or another run — Flow's hand-off
+`collapse` for a click outside, the toggle or another run — Intent's hand-off
 treats only `escape` as "Not yet"), can keep its card's primary on the strip in
 a calm tone (`wantsPrimary`), and a run with a `mode`
 keeps the mode's icon as its mark in every state, badged with the state's
@@ -103,27 +103,27 @@ shape. The switcher marks each run with the same per-state shape (never color
 alone), and a strip with one run still shows its name. An extension run in a
 `decision` or `failed` tone feeds the mission list's attention dot like a
 delivery; calm states never do. An extension that provides `useRunAttention`
-(Flow) derives that attention app-wide for every listed mission, so the dot is
+(Intent) derives that attention app-wide for every listed mission, so the dot is
 live and clears with the mission closed, and the strip leaves those runs to
 it; otherwise the strip reports them while mounted (`reportRunAttention`). Every run primary (the
-strip's, the hand-off Launch, the card primary, Flow's Start) shares ONE
+strip's, the hand-off Launch, the card primary, Intent's Start) shares ONE
 recipe, `PRIMARY_ACTION_SHAPE` / `PRIMARY_ACTION` in `run-primary.tsx`.
 Keyboard shortcuts are conversation-scoped (`run-strip-keys.ts`): ⌥R jumps to
 the strip of the mission you are in (again: details), Esc returns, ⌥[ / ⌥]
 switch runs outside text fields, ←/→ move along the switcher, and a row
 control may claim a letter with `data-strip-key` that works only while the
-strip has focus (Flow's P and H).
+strip has focus (Intent's P and H).
 
 The history never repeats what is live: each milestone is one event line
 ([`AgentRunEventLine`](components/AgentRunEventLine.tsx)) in its chronological
-slot — "Launched on Rail 1", "Rail 1 failed: …", "Back to Flow", "Entered /
-Left Flow" — that opens the run. A settled Implement run keeps its card in the
-history; a settled Flow → Spec run is an outcome line that expands its card
-(the Flow's closing summary is the full card of that story). Extension modes
-(Flow) are named on the composer (placeholder always; the chip on the empty
+slot — "Launched on Rail 1", "Rail 1 failed: …", "Back to Intent", "Entered /
+Left Intent" — that opens the run. A settled Implement run keeps its card in the
+history; a settled Intent → Spec run is an outcome line that expands its card
+(the Intent's closing summary is the full card of that story). Extension modes
+(Intent) are named on the composer (placeholder always; the chip on the empty
 composer and in the floating panel — the inline dock leaves it to the mission
 header) in the
-mode's own color (`MissionModeBadge.accent`; Flow: `--color-accent-flow`),
+mode's own color (`MissionModeBadge.accent`; Intent: `--color-accent-flow`),
 on its agent turns (`useTurnMark`) and on the strip mark (`MissionLiveRun.mode`), next to the
 mission title and on the mission list ([`MissionModeBadge`](components/MissionModeBadge.tsx)),
 where a dot with words also marks missions waiting for a decision
@@ -205,7 +205,7 @@ A streamed token must never re-render anything but the text it extends. The rule
   lingers until the deferred transcript has painted the turn's final row (hand-off in
   one commit, no blank frame); interactive cards in settled rows (option chips aside)
   read the conversation's streaming flag through `useIsConversationStreaming`, so old
-  rows stay memoised yet an old Flow offer is disabled mid-turn; a mission reopened
+  rows stay memoised yet an old Intent offer is disabled mid-turn; a mission reopened
   mid-history lays rows out fully (no `content-visibility` estimates under a restored
   scroll offset); a revalidation keeps the optimistic `local-u-` / `err-` rows the
   server has not echoed (`retainOptimisticRows`) and drops them once the persisted copy

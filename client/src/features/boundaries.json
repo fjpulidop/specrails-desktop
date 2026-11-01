@@ -151,19 +151,6 @@
     ],
     "dependencies": []
   },
-  "flow": {
-    "publicEntries": [
-      "components/FlowMissionsBridge.tsx",
-      "components/StartInFlow.tsx"
-    ],
-    "dependencies": [
-      "background",
-      "missions",
-      "providers",
-      "rails",
-      "specs"
-    ]
-  },
   "inbox": {
     "publicEntries": [
       "components/InboxButton.tsx",
@@ -189,6 +176,19 @@
       "pages/IntegrationsPage.tsx"
     ],
     "dependencies": []
+  },
+  "intent": {
+    "publicEntries": [
+      "components/IntentMissionsBridge.tsx",
+      "components/StartInIntent.tsx"
+    ],
+    "dependencies": [
+      "background",
+      "missions",
+      "providers",
+      "rails",
+      "specs"
+    ]
   },
   "jobs": {
     "publicEntries": [

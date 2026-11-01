@@ -148,7 +148,7 @@ describe('availability per context', () => {
     expect(ids(none)).not.toContain('spec.launch')
   })
 
-  it('shows mission actions only for the controls the Flow strip offers', () => {
+  it('shows mission actions only for the controls the Intent strip offers', () => {
     const control = (id: PaletteFlowControl['id'], disabled = false): PaletteFlowControl => ({ id, label: id, disabled, run: vi.fn() })
     const active = ctx({ uiMode: 'agent', surfaces: { flow: { controls: () => [control('pause'), control('hand-off')] } } })
     expect(ids(active)).toEqual(expect.arrayContaining(['flow.pause', 'flow.handOff', 'mission.new', 'mode.board']))
@@ -333,7 +333,7 @@ describe('actions run the real handlers', () => {
     expect(c.go.navigate).toHaveBeenCalledWith('/review/pr-1')
   })
 
-  it('Flow actions run the strip control, theme/mode/settings call the app callbacks', () => {
+  it('Intent actions run the strip control, theme/mode/settings call the app callbacks', () => {
     const run = vi.fn()
     const c = ctx({ uiMode: 'agent', surfaces: { flow: { controls: () => [{ id: 'pause', label: 'Pause', disabled: false, run }] } } })
     PALETTE_ACTIONS.find((a) => a.id === 'flow.pause')!.run(c)

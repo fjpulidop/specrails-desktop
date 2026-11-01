@@ -36,5 +36,5 @@ Multi-Provider-Projekte spielen ihre Stärken aus, wenn du **vergleichen** oder 
 ## Wie es weitergeht
 
 - [Codex verwenden](../integrations/using-codex) — installieren und anmelden.
-- [Rails & Jobs](rails-and-jobs) — die Queue und der Start-Flow.
+- [Rails & Jobs](rails-and-jobs) — die Queue und der Start-Intent.
 - [Kosten verfolgen](../analytics/tracking-cost) — Kostenaufschlüsselung pro Engine.

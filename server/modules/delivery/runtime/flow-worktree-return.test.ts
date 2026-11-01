@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
 import { FLOW_SPEC_LOOP_ID } from '../../loops/runtime/loop-factory'
 import { FLOW_SPEC_DELIVERY_LOOP_ID, flowReviewOutcome, flowReviewStatusDetail, readFlowReviewOutcome } from './flow-review-outcome'
-import { FlowReturnRejectedError, announceReturnedDelivery, returnFlowWorktree } from './flow-worktree-return'
+import { IntentReturnRejectedError, announceReturnedDelivery, returnFlowWorktree } from './flow-worktree-return'
 import { createPrDelivery, getPrDelivery, toPrDecisionCardEnvelope, toPrDeliverySnapshot, transitionDecision } from './rail-pr-store'
 import { createRailWorktree, getRailWorktree } from './rail-worktrees-store'
 import type { DeliverySettleEvidence } from './delivery-evidence'
@@ -27,11 +27,11 @@ function evidence(review: { approved: boolean; issues: string[]; score?: number 
   } as DeliverySettleEvidence
 }
 
-/** A Flow → Spec delivery that settled `implementation_failed` with its adopted worktree in the ledger. */
+/** An Intent session → Spec delivery that settled `implementation_failed` with its adopted worktree in the ledger. */
 function stoppedFlowDelivery(options: { loopId?: string; decision?: 'implementation_failed' | 'on_review' } = {}) {
   const db = initDb(':memory:')
   dbs.push(db)
-  const row = createPrDelivery(db, { id: 'delivery-1', railIndex: 0, loopId: options.loopId ?? FLOW_SPEC_LOOP_ID, railKey: `0-${FLOW_SPEC_LOOP_ID}`, ticketIds: [8], baseBranch: 'main', loopName: 'Flow → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1' })
+  const row = createPrDelivery(db, { id: 'delivery-1', railIndex: 0, loopId: options.loopId ?? FLOW_SPEC_LOOP_ID, railKey: `0-${FLOW_SPEC_LOOP_ID}`, ticketIds: [8], baseBranch: 'main', loopName: 'Intent → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1' })
   db.prepare("UPDATE rail_pr_deliveries SET run_ids = ? WHERE id = ?").run(JSON.stringify(['run-1']), row.id)
   createRailWorktree(db, { id: 'ledger-1', railIndex: 0, ticketId: 8, runId: 'run-1', branch: 'feat/8-effects', worktreePath: WORKTREE, mergeState: 'needs-review' })
   createRailWorktree(db, { id: 'ledger-other', railIndex: 1, ticketId: 9, runId: 'run-9', branch: 'feat/9', worktreePath: '/wt/other' })
@@ -49,7 +49,7 @@ describe('flowReviewOutcome', () => {
     expect(FLOW_SPEC_DELIVERY_LOOP_ID).toBe(FLOW_SPEC_LOOP_ID)
   })
 
-  it('reads the latest rejected review (bounded) and the failing host checks of a failed Flow → Spec run', () => {
+  it('reads the latest rejected review (bounded) and the failing host checks of a failed Intent → Spec run', () => {
     const issues = Array.from({ length: 25 }, (_, index) => `issue ${index} ${'x'.repeat(700)}`)
     const outcome = flowReviewOutcome({ loopId: FLOW_SPEC_LOOP_ID, implementationOutcome: 'failed', evidence: evidence({ approved: false, issues, score: 58 }, [{ label: 'npm test', exitCode: 1 }, { label: 'npm run typecheck', exitCode: 0 }]) })!
     expect(outcome).toMatchObject({ reason: 'review', score: 58, issuesOmitted: 5, failingChecks: [{ command: 'npm test', exitCode: 1 }], summary: 'Approval is blocked by four problems' })
@@ -83,16 +83,16 @@ describe('flowReviewOutcome', () => {
   })
 })
 
-describe('returnFlowWorktree (Back to Flow ownership transfer)', () => {
-  it('removes only the adopted ledger row, closes the delivery as returned_to_flow and commits the Flow inside the transaction', () => {
+describe('returnFlowWorktree (Back to Intent ownership transfer)', () => {
+  it('removes only the adopted ledger row, closes the delivery as returned_to_flow and commits the Intent inside the transaction', () => {
     const db = stoppedFlowDelivery()
     const commit = vi.fn(() => {
       // Inside the transaction the ledger row is already gone.
       expect(getRailWorktree(db, 'ledger-1')).toBeUndefined()
     })
-    const closed = returnFlowWorktree(db, { deliveryId: 'delivery-1', worktreePath: WORKTREE, detail: 'Returned to Flow' }, commit)
+    const closed = returnFlowWorktree(db, { deliveryId: 'delivery-1', worktreePath: WORKTREE, detail: 'Returned to Intent' }, commit)
     expect(commit).toHaveBeenCalledTimes(1)
-    expect(closed).toMatchObject({ decision: 'discarded', statusCode: 'returned_to_flow', statusDetail: 'Returned to Flow', worktreeIds: [] })
+    expect(closed).toMatchObject({ decision: 'discarded', statusCode: 'returned_to_flow', statusDetail: 'Returned to Intent', worktreeIds: [] })
     expect(getRailWorktree(db, 'ledger-other')).toBeDefined()
     // The closed delivery keeps the review for the record and frees the rail.
     expect(closed.flowReview).toMatchObject({ reason: 'review' })
@@ -101,14 +101,14 @@ describe('returnFlowWorktree (Back to Flow ownership transfer)', () => {
     expect(commit).toHaveBeenCalledTimes(1)
   })
 
-  it('rolls the ledger and the delivery back when the Flow commit fails', () => {
+  it('rolls the ledger and the delivery back when the Intent commit fails', () => {
     const db = stoppedFlowDelivery()
     expect(() => returnFlowWorktree(db, { deliveryId: 'delivery-1', worktreePath: WORKTREE, detail: 'x' }, () => { throw new Error('flow row gone') })).toThrow('flow row gone')
     expect(getRailWorktree(db, 'ledger-1')).toBeDefined()
     expect(getPrDelivery(db, 'delivery-1')).toMatchObject({ decision: 'implementation_failed', status_code: 'review_changes_requested' })
   })
 
-  it('refuses a delivery that is not a stopped Flow → Spec run, a busy one and a foreign worktree', () => {
+  it('refuses a delivery that is not a stopped Intent → Spec run, a busy one and a foreign worktree', () => {
     const reject = (db: DbInstance, path = WORKTREE) => () => returnFlowWorktree(db, { deliveryId: 'delivery-1', worktreePath: path, detail: 'x' }, () => {})
     expect(reject(stoppedFlowDelivery({ loopId: 'factory:implement' }))).toThrow(expect.objectContaining({ code: 'flow_return_not_found' }))
     expect(reject(stoppedFlowDelivery({ decision: 'on_review' }))).toThrow(expect.objectContaining({ code: 'flow_return_not_allowed' }))
@@ -116,7 +116,7 @@ describe('returnFlowWorktree (Back to Flow ownership transfer)', () => {
     busy.prepare("UPDATE rail_pr_deliveries SET operation = 'discard', operation_token = 't' WHERE id = 'delivery-1'").run()
     expect(reject(busy)).toThrow(expect.objectContaining({ code: 'flow_return_busy' }))
     const foreign = stoppedFlowDelivery()
-    expect(reject(foreign, '/wt/other')).toThrow(FlowReturnRejectedError)
+    expect(reject(foreign, '/wt/other')).toThrow(IntentReturnRejectedError)
     expect(getRailWorktree(foreign, 'ledger-1')).toBeDefined()
   })
 
@@ -129,12 +129,12 @@ describe('returnFlowWorktree (Back to Flow ownership transfer)', () => {
   })
 })
 
-/** A Flow → Spec run of a Flow in a non-primary repository: a one-repository
+/** An Intent session → Spec run of an Intent session in a non-primary repository: a one-repository
  * group (parent + child) whose child stopped with requested changes. */
 function stoppedFlowGroup() {
   const db = initDb(':memory:')
   dbs.push(db)
-  const base = { railIndex: 0, loopId: FLOW_SPEC_LOOP_ID, railKey: `0-${FLOW_SPEC_LOOP_ID}`, ticketIds: [8], baseBranch: 'main', loopName: 'Flow → Spec', originSurface: 'agent-chat' as const, originConversationId: 'conv-1' }
+  const base = { railIndex: 0, loopId: FLOW_SPEC_LOOP_ID, railKey: `0-${FLOW_SPEC_LOOP_ID}`, ticketIds: [8], baseBranch: 'main', loopName: 'Intent → Spec', originSurface: 'agent-chat' as const, originConversationId: 'conv-1' }
   createPrDelivery(db, { ...base, id: 'group-1' })
   createPrDelivery(db, { ...base, id: 'child-1', parentDeliveryId: 'group-1', repositoryId: 'api', repositoryPath: '/ws/api', originConversationId: null })
   createRailWorktree(db, { id: 'ledger-1', railIndex: 0, ticketId: 8, runId: 'run-1', repositoryId: 'api', repositoryPath: '/ws/api', branch: 'feat/8-effects', worktreePath: WORKTREE, mergeState: 'needs-review' })
@@ -152,8 +152,8 @@ function stoppedFlowGroup() {
   return db
 }
 
-describe('a Flow in a non-primary repository (one-repository group)', () => {
-  it('the group carries the child\'s "changes requested" outcome, so the card and the Flow read its findings', () => {
+describe('an Intent session in a non-primary repository (one-repository group)', () => {
+  it('the group carries the child\'s "changes requested" outcome, so the card and the Intent read its findings', () => {
     const db = stoppedFlowGroup()
     const parent = getPrDelivery(db, 'group-1')!
     expect(parent).toMatchObject({ decision: 'implementation_failed', status_code: 'review_changes_requested', implementation_outcome: 'failed' })
@@ -162,10 +162,10 @@ describe('a Flow in a non-primary repository (one-repository group)', () => {
     expect(snap.branches).toEqual([expect.objectContaining({ worktreePath: WORKTREE, repositoryId: 'api' })])
   })
 
-  it('Back to Flow on the group closes parent and child together and releases the adopted ledger row', () => {
+  it('Back to Intent on the group closes parent and child together and releases the adopted ledger row', () => {
     const db = stoppedFlowGroup()
     const commit = vi.fn()
-    returnFlowWorktree(db, { deliveryId: 'group-1', worktreePath: WORKTREE, detail: 'Returned to Flow' }, commit)
+    returnFlowWorktree(db, { deliveryId: 'group-1', worktreePath: WORKTREE, detail: 'Returned to Intent' }, commit)
     expect(commit).toHaveBeenCalledTimes(1)
     expect(getRailWorktree(db, 'ledger-1')).toBeUndefined()
     expect(getPrDelivery(db, 'group-1')).toMatchObject({ decision: 'discarded', status_code: 'returned_to_flow' })
@@ -174,11 +174,11 @@ describe('a Flow in a non-primary repository (one-repository group)', () => {
     refreshRepositoryDeliveryGroup(db, 'group-1')
     expect(getPrDelivery(db, 'group-1')).toMatchObject({ decision: 'discarded', status_code: 'returned_to_flow' })
     // Idempotent.
-    returnFlowWorktree(db, { deliveryId: 'group-1', worktreePath: WORKTREE, detail: 'Returned to Flow' }, commit)
+    returnFlowWorktree(db, { deliveryId: 'group-1', worktreePath: WORKTREE, detail: 'Returned to Intent' }, commit)
     expect(commit).toHaveBeenCalledTimes(1)
   })
 
-  it('a failing Flow commit rolls back both rows and the ledger', () => {
+  it('a failing Intent commit rolls back both rows and the ledger', () => {
     const db = stoppedFlowGroup()
     expect(() => returnFlowWorktree(db, { deliveryId: 'group-1', worktreePath: WORKTREE, detail: 'x' }, () => { throw new Error('flow write failed') })).toThrow('flow write failed')
     expect(getRailWorktree(db, 'ledger-1')).toBeDefined()

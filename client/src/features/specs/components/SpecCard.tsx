@@ -31,9 +31,9 @@ interface SpecCardProps {
   jiggleMode?: boolean
   onLongPress?: () => void
   onDelete?: (ticket: LocalTicket) => void
-  /** Opens the mission conversation of an "In Flow" spec. */
+  /** Opens the mission conversation of an "In Intent" spec. */
   onOpenFlow?: (conversationId: string) => void
-  /** Rendered inside a rail: a Flow spec there was handed off, so no "In Flow" label. */
+  /** Rendered inside a rail: an Intent session spec there was handed off, so no "In Intent" label. */
   onRail?: boolean
   /** Multi-select state from the specs board (absent in a rail). */
   selection?: CardSelection
@@ -57,7 +57,7 @@ export function SpecCard({
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
   const openAddendaCount = openAddenda(ticket.addenda).length
-  // Flow mode: the placeholder spec belongs to its Flow until the rail adopts
+  // Intent mode: the placeholder spec belongs to its Intent until the rail adopts
   // it — label it and keep it off the rails (no drag).
   const flowLabel = onRail ? null : specFlowLabel(ticket)
   // On-review specs are frozen unless there is an open PR branch the rail can

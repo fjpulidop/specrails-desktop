@@ -4,10 +4,10 @@
 
 ## 1. Mechanical rename (no behaviour change)
 
-- [ ] 1.1 `git mv server/modules/flow server/modules/intent`, `client/src/features/flow client/src/features/intent`; update imports, boundary manifests, architecture tests, AGENTS feature map, source map
-- [ ] 1.2 Rename exported types/functions/components/CSS token/i18n keys Flow → Intent; keep frozen identifiers (D6) and list them in the module README
-- [ ] 1.3 HTTP `/intent/*` alias of `/flow/*`; MCP intent-named operations with Flow aliases; guide lists intent names
-- [ ] 1.4 Visible copy Flow → Intent in the eight locales (board label "In Intent", header, chip, palette, notifications)
+- [x] 1.1 `git mv server/modules/flow server/modules/intent`, `client/src/features/flow client/src/features/intent`; update imports, boundary manifests, architecture tests, AGENTS feature map, source map
+- [x] 1.2 Rename exported types/functions/components/CSS token/i18n keys Flow → Intent; keep frozen identifiers and lowerCamel wire stems (D6) and list them in the module README
+- [x] 1.3 HTTP `/intent/*` alias of `/flow/*`; MCP has no Flow-named operation (copy only)
+- [x] 1.4 Visible copy Flow → Intent in the eight locales (board label "In Intent", header, chip, palette, notifications)
 - [ ] 1.5 Gates: typecheck, server modules + affected suites, client suites
 
 ## 2. Intent domain and storage

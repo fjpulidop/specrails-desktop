@@ -29,7 +29,7 @@ export interface LoopEdge {
   source: string
   target: string
   join?: LoopJoin
-  /** Set on edges leaving a `decider` (maps to React Flow `sourceHandle`). */
+  /** Set on edges leaving a `decider` (maps to React Intent `sourceHandle`). */
   branch?: LoopBranch
   label?: string
 }

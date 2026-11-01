@@ -217,7 +217,7 @@ function DocsDialogImpl({ open, onClose, target = null }: DocsDialogProps) {
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent
         size="workspace"
-        // Reachable from hints inside floating panels (chat, Flow), which sit
+        // Reachable from hints inside floating panels (chat, IntentSession), which sit
         // above the base layer: the guide must open over them, not behind.
         layer="stacked"
         movableResizable

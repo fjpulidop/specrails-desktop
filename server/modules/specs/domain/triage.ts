@@ -14,8 +14,8 @@ export type TriageMode = 'implement' | 'flow'
 
 /** Bump when the prompt or the output contract changes materially: it is part
  *  of the hashed inputs, so every stored triage becomes recomputable.
- *  v2: Flow and Implement never compete. The triage recommends a loop and a
- *  size for Implement only; it no longer ranks Flow against Implement. */
+ *  v2: Intent and Implement never compete. The triage recommends a loop and a
+ *  size for Implement only; it no longer ranks Intent against Implement. */
 export const TRIAGE_PROMPT_VERSION = 2
 
 export const TRIAGE_LIMITS = {
@@ -42,7 +42,7 @@ export interface TriageReady {
   recommendedLoopName?: string
   /**
    * Legacy (prompt v1), read-tolerant only: never produced since v2 and never
-   * shown. Flow and Implement never compete, so the triage does not rank them.
+   * shown. Intent and Implement never compete, so the triage does not rank them.
    */
   recommendedMode?: TriageMode
   rationale: string
@@ -339,7 +339,7 @@ export function parseTriageOutput(text: string, opts: { loops: TriageLoopOption[
     confidence = 'low'
     repaired = true
   }
-  // A stray `recommendedMode` from the model is ignored: Flow and Implement
+  // A stray `recommendedMode` from the model is ignored: Intent and Implement
   // never compete, so the triage never ranks them.
 
   const rationale = typeof data.rationale === 'string' ? clean(data.rationale, TRIAGE_LIMITS.rationale) : ''

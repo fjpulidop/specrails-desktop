@@ -72,13 +72,9 @@ The `rewrite-spec` settlement effect already rebuilds the spec from what was bui
 
 These are all Desktop data channels Core already reads.
 
-### D6. Rename strategy: names move, wire and storage identifiers freeze
+### D6. Rename strategy: names move, wire/storage identifiers freeze
 
-- **Moved with `git mv`:** `server/modules/flow` → `server/modules/intent`, `client/src/features/flow` → `client/src/features/intent`. The boundary manifests and the architecture test rules are updated in the same commit.
-- **Renamed:** exported types and functions (`FlowSession` → `IntentSession`, …), React components, CSS tokens (`--color-accent-flow` → `--color-accent-intent`) and i18n keys. i18n keys are internal, so renaming them is safe.
-- **Frozen:** `flow_sessions`, `flow_effects`, `surface='flow'`, `factory:flow-spec`, `source:'flow'`, `metadata.flow`, `flowSessions`, `flow:<id>`, the `flow-*` fences, `flow.state` and the `flow_*` error codes. Each frozen identifier is listed once in `server/modules/intent/README.md` ("Frozen identifiers").
-- **Aliases:** HTTP `/intent/*` mounts the same router as `/flow/*`. MCP tools get intent-named operations with the old names as aliases, and the guide lists the intent names only.
-- **Docs and copy:** "Flow" disappears from user-visible copy in all 8 locales and from the docs. The guide moves from `8-flow-mode.md` to `8-intent-mode.md` with redirect notes, and `docs/internals/flow-mode.md` moves to `intent-mode.md`.
+`git mv` `server/modules/flow` → `server/modules/intent` and `client/src/features/flow` → `client/src/features/intent` (file names follow: `FlowX.tsx` → `IntentX.tsx`, `flow-api.ts` → `intent-api.ts`); boundary manifests and architecture rules follow in the same commit. Capitalised identifiers (types, classes, React components: `FlowSession` → `IntentSession`, the client `Flow` read model → `IntentSession`) are renamed. lowerCamel identifiers (`flowId`, `startFlow`, `flowApi`) keep their stem, because most mirror wire fields (`flowId`, `flowDerivation`, `metadata.flow`) and renaming half of them would blur what is frozen; i18n keys stay as they are (internal) while every value changes. Frozen: `flow_sessions`, `flow_effects`, `surface='flow'`, `factory:flow-spec` and Core's reference texts, `source:'flow'`, `metadata.flow`, `flowSessions`, `flow:<id>`, `flow-*` fences, `flow.state`, `flow_*` error codes, `[flow]` log prefixes — listed once in `server/modules/intent/README.md` ("Frozen identifiers"). HTTP `/intent/*` answers with the same handlers as `/flow/*`. The MCP surface has no Flow-named operation (Intent sessions are driven by mission fences), so it needs no alias; its descriptions change copy only. "Flow" disappears from user-visible copy in eight locales and docs (`8-flow-mode.md` → `8-intent-mode.md`, `docs/internals/flow-mode.md` → `intent-mode.md`).
 
 ### D7. OpenSpec bookkeeping
 

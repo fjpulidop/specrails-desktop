@@ -59,9 +59,9 @@ export interface AgentMessage {
  * Persisted decision on an agent-emitted card. `rail-launch`: the proposal at
  * `proposalIndex` (0-based order of ```rail-launch blocks in the message) was
  * launched (→ runIds / railIndex / the FINAL edited config) or dismissed.
- * `flow-offer`: the Flow-or-Implement offer was accepted (`chosenMode`) or
- * dismissed (`recommendedMode` only on legacy decisions: Flow and Implement no
- * longer compete, so the card never records one). `flow-hand-off`: the Flow of
+ * `flow-offer`: the Intent-or-Implement offer was accepted (`chosenMode`) or
+ * dismissed (`recommendedMode` only on legacy decisions: Intent and Implement no
+ * longer compete, so the card never records one). `flow-hand-off`: the Intent of
  * that offer was handed to a rail (the launch card's decision). Decisions are
  * unique per (kind, proposalIndex).
  */

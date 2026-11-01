@@ -260,7 +260,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // deliveries show in the run strip above the composer; their history slot
   // renders a one-line "launched" event instead.
   const prCards = useMemo(() => derivePrCards(messages), [messages])
-  // Agent turns produced while the conversation was in Flow (between boundaries).
+  // Agent turns produced while the conversation was in Intent (between boundaries).
   const flowTurns = useMemo(() => flowTurnMessageIds(messages), [messages])
   const extensionTurnMark = useMissionTurnMark()
   const turnMark = useMemo<MissionModeBadge>(() => extensionTurnMark ?? { label: t('flowBoundary.turnMark') }, [extensionTurnMark, t])
@@ -434,7 +434,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     }
   }
 
-  // Mission extensions (Flow mode): surface attributes + a dock above the composer.
+  // Mission extensions (IntentSession mode): surface attributes + a dock above the composer.
   const conversationMode = useMissionConversationMode(active?.id ?? null, refsProjectId)
   // One stable handler for every row (rows are memoised): reads the latest state.
   const pickRef = useRef<(option: string) => void>(() => {})
@@ -515,13 +515,13 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                   return <AgentRunFailureMarker key={m.id} row={failure} conversationId={m.conversation_id} envelope={failedEnvelope} />
                 }
               }
-              // Back to Flow: what the reviewer asked for (server-authored, once per delivery).
+              // Back to Intent: what the reviewer asked for (server-authored, once per delivery).
               const flowReturn = parseFlowReturnBriefingRow(m.content)
               if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} conversationId={m.conversation_id} />
-              // Flow delivered: the closing summary (server-authored, once per Flow).
+              // Intent delivered: the closing summary (server-authored, once per Intent).
               const flowDelivered = parseFlowDeliveredRow(m.content)
               if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} />
-              // Entered / left Flow: one event line at the boundary.
+              // Entered / left Intent: one event line at the boundary.
               const flowBoundary = parseFlowBoundaryRow(m.content)
               if (flowBoundary) return <AgentFlowBoundaryLine key={m.id} row={flowBoundary} />
               const envelope = prCards.byMessageId.get(m.id)
@@ -538,7 +538,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               if (isPrEnvelopePinned(envelope)) {
                 return <AgentRunLaunchedLine key={m.id} envelope={envelope} conversationId={m.conversation_id} />
               }
-              // A settled Flow → Spec run: its outcome line (the Flow's closing
+              // A settled Intent → Spec run: its outcome line (the Intent's closing
               // summary is the full card of that story); expands in place.
               if (envelope.loopId === FLOW_SPEC_LOOP_ID) {
                 return <AgentSettledRunLine key={m.id} envelope={envelope} conversationId={m.conversation_id} />
@@ -567,7 +567,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 modeMark={flowTurns.has(m.id) ? turnMark : null}
                 // Option chips are clickable only on the newest settled message —
                 // a streaming turn suppresses them everywhere, except in a mode
-                // that interrupts while busy (Flow): there a pick cuts the turn.
+                // that interrupts while busy (IntentSession): there a pick cuts the turn.
                 isLast={(!isStreaming || !!conversationMode?.interruptWhileBusy) && i === messages.length - 1}
                 // Problem-frame readings stay affordable (but disabled) while a
                 // turn streams, so the card doesn't silently go static mid-turn.
@@ -653,7 +653,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
         </div>
 
         {/* The run strip: the ONE live view of this mission's runs (launch
-            proposals, deliveries, the extension's Flow). Its panel opens the
+            proposals, deliveries, the extension's Intent). Its panel opens the
             run's full card above it, over the conversation. */}
         <AnimatePresence initial={false}>
           {active && (

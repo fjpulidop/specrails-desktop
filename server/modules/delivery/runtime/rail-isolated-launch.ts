@@ -7,7 +7,7 @@ import { recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
  * ledger) into a running parallel rail. Gated OFF by default (rail-isolation's
  * opt-in flag), so this path is inert unless explicitly enabled.
  *
- * Flow: allocate one worktree+branch per independent delivery → fan out the loop
+ * Intent: allocate one worktree+branch per independent delivery → fan out the loop
  * runs IN those worktrees (so concurrent AI CLIs never collide) → when ALL runs
  * settle, run the sequential validated merge-back on the base repo, then clean
  * up worktrees. Tickets continuing one PR are grouped into its single checkout.
@@ -32,7 +32,7 @@ import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
 import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtime-paths'
 import { createRailWorktree, deleteRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, getRailWorktree } from './rail-worktrees-store'
-import { FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
+import { IntentWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName } from './pr-naming'
 import {
   assertRepositoryHasCommits, isolatedWorktreesRoot, materializeIsolatedWorktree, readHeadSha, resolveOverlaySources, ticketNamingInput,
@@ -165,9 +165,9 @@ export interface IsolatedLaunchInput {
     prNumber: number | null
     deliverySha: string
   }
-  /** Flow hand-off contract (Flow mode): adopt exactly this Flow worktree —
+  /** Intent hand-off contract (Intent mode): adopt exactly this Intent worktree —
    * same mount, branch and frozen HEAD — instead of allocating a fresh one.
-   * Any discrepancy throws `FlowWorktreeMismatchError` before agents start. */
+   * Any discrepancy throws `IntentWorktreeMismatchError` before agents start. */
   requiredFlowWorktree?: RequiredFlowWorktree
   /** Explicit user-designated target PR (deliver-rail-into-existing-pr).
    * When present, this launch continues that exact open PR — automatic
@@ -473,17 +473,17 @@ function canonicalPath(value: string): string {
   try { return fs.realpathSync.native(value) } catch { return path.resolve(value) }
 }
 
-/** The adopted mount must be the Flow's own path, on its branch, at its frozen HEAD. */
+/** The adopted mount must be the Intent's own path, on its branch, at its frozen HEAD. */
 async function verifyFlowWorktree(git: GitRunner, mounted: WorktreeHandle, required: RequiredFlowWorktree): Promise<string> {
   if (canonicalPath(mounted.worktreePath) !== canonicalPath(required.worktreePath)) {
-    throw new FlowWorktreeMismatchError(`The Flow worktree is not mounted at ${required.worktreePath}`)
+    throw new IntentWorktreeMismatchError(`The Intent worktree is not mounted at ${required.worktreePath}`)
   }
   if (mounted.branch !== required.branch) {
-    throw new FlowWorktreeMismatchError(`The Flow worktree is on ${mounted.branch}, not ${required.branch}`)
+    throw new IntentWorktreeMismatchError(`The Intent worktree is on ${mounted.branch}, not ${required.branch}`)
   }
   const head = await readHeadSha(git, mounted.worktreePath)
   if (!head || head !== required.headSha) {
-    throw new FlowWorktreeMismatchError(`The Flow worktree HEAD ${head ?? 'unknown'} does not match the frozen ${required.headSha}`)
+    throw new IntentWorktreeMismatchError(`The Intent worktree HEAD ${head ?? 'unknown'} does not match the frozen ${required.headSha}`)
   }
   return head
 }
@@ -784,7 +784,7 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
     // A resumed non-PR branch may already contain reviewable commits from an
     // earlier attempt, even when this iteration itself did not add one.
     let resumedBranchDelta: boolean | null = null
-    // An adopted Flow branch already carries the Flow's commits ahead of base.
+    // An adopted Intent branch already carries the Intent's commits ahead of base.
     if (!changed && a.continuationTarget === null && (a.branchOwnership === 'preexisting' || a.branchOwnership === 'adopted')) {
       resumedBranchDelta = await branchHasDelta(git, a.handle.worktreePath, a.baseRef)
       if (resumedBranchDelta === null) {
@@ -921,15 +921,15 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     if (!row?.origin_conversation_id) return
     const snapshot = toPrDeliverySnapshot(row)
     const primaryRunId = runId ?? snapshot.runIds[0] ?? deliveryId
-    // A Flow → Spec run that failed outright goes back to its Flow on its own
-    // (flow module, `rail.pr_state` observer); the Flow's return card and
+    // An Intent session → Spec run that failed outright goes back to its Intent on its own
+    // (flow module, `rail.pr_state` observer); the Intent's return card and
     // automatic turn carry the failure, so the mission gets only the card
     // update — no second trace row, no second briefing turn.
     const flowCrash = row.loop_id === FLOW_SPEC_DELIVERY_LOOP_ID && failure.code === 'implementation_failed'
     void (async () => {
       const summary = runId ? await runtimeRunSummary(ctx, runId).catch(() => null) : null
       // Re-read after the await: the delivery may have moved on meanwhile
-      // (Back to Flow closes it) and the card must never regress to the old decision.
+      // (Back to Intent closes it) and the card must never regress to the old decision.
       const current = getPrDelivery(ctx.db, deliveryId) ?? row
       const envelope = toPrDecisionCardEnvelope(ctx.project.id, toPrDeliverySnapshot(current))
       await notifyMissionRunFailure({
@@ -1131,11 +1131,11 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       ticketIds: units.flatMap((unit) => unit.ticketIds),
     }]
   }
-  // A Flow hand-off adopts ONE existing worktree for the Flow's single spec.
+  // An Intent session hand-off adopts ONE existing worktree for the Intent's single spec.
   // It never combines with continuation, revision or retry contracts. Checked
   // before the delivery row exists, so a rejection leaves nothing behind.
   const flowWorktree = input.requiredFlowWorktree ?? null
-  // A Flow in a non-primary repository runs as the ONE child of a
+  // An Intent session in a non-primary repository runs as the ONE child of a
   // single-repository group: only that repository's leg may adopt it.
   const flowRepositoryLeg = !input.repositoryExecution
     ? !flowWorktree?.repositoryId
@@ -1144,7 +1144,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     units.length !== 1 || launchContinuation || input.requiredPrContinuation || input.revision ||
     input.retryOfDelivery || !flowRepositoryLeg || input.explicitPrTarget
   )) {
-    throw new FlowWorktreeMismatchError('A Flow hand-off launches exactly its own spec on a fresh delivery')
+    throw new IntentWorktreeMismatchError('An Intent session hand-off launches exactly its own spec on a fresh delivery')
   }
 
   if (prMode) {
@@ -1303,7 +1303,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         }, io)
         handle = prepared.handle
         branchOwnership = prepared.branchOwnership
-        // The verified Flow mount pre-existed by construction; the rail adopts it.
+        // The verified Intent mount pre-existed by construction; the rail adopts it.
         worktreeOwnership = flowWorktree && prepared.worktreeOwnership === 'preexisting' ? 'adopted' : prepared.worktreeOwnership
         initialSha = prepared.initialSha
         const { overlayExcludes, overlayCleanupEvidence, warmLinkEvidence, provenanceSnapshot } = prepared
@@ -1315,13 +1315,13 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           branch: handle.branch, worktreePath: handle.worktreePath,
         }
         if (flowWorktree) {
-          // Ownership transfer: the rail ledger row and the Flow's handed_off
+          // Ownership transfer: the rail ledger row and the Intent's handed_off
           // state commit together or not at all.
           const adoptedHead = initialSha
-          if (!adoptedHead) throw new FlowWorktreeMismatchError('The Flow worktree HEAD could not be verified')
+          if (!adoptedHead) throw new IntentWorktreeMismatchError('The Intent worktree HEAD could not be verified')
           ctx.db.transaction(() => {
             createRailWorktree(ctx.db, ledgerRow)
-            // A repository leg reports the GROUP delivery: the Flow settles on
+            // A repository leg reports the GROUP delivery: the Intent settles on
             // the parent's `rail.pr_state`, which is the only one broadcast.
             flowWorktree.adopt({ railIndex, runId, ledgerId, deliveryId: input.repositoryExecution?.parentDeliveryId ?? prDeliveryId, headSha: adoptedHead })
           })()
@@ -1387,14 +1387,14 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     for (const a of allocated) {
       if (claimedAddendaByRun.has(a.runId)) broadcastSpecAddendaChange(msg => ctx.broadcast(msg as never), ctx.project.id, settleSpecAddendaAt(addendaStorePath, a.ticketIds, a.runId, 'failed'))
       if (a.worktreeOwnership === 'adopted' && flowWorktree) {
-        // Never remove an adopted Flow worktree on rollback: give it back.
+        // Never remove an adopted Intent worktree on rollback: give it back.
         try {
           ctx.db.transaction(() => {
             deleteRailWorktree(ctx.db, a.ledgerId)
             flowWorktree.release(errorDetail(err))
           })()
         } catch (releaseError) {
-          console.error(`[rail-isolated] could not return Flow worktree ${a.handle.worktreePath}: ${errorDetail(releaseError)}`)
+          console.error(`[rail-isolated] could not return Intent worktree ${a.handle.worktreePath}: ${errorDetail(releaseError)}`)
           updateRailWorktreeState(ctx.db, a.ledgerId, 'needs-review')
         }
         continue
@@ -1530,7 +1530,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         ...(input.runCapUsd !== undefined ? { runCapUsd: input.runCapUsd } : {}),
         ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, openspecChangeName: input.followUp.openspecChangeName ?? null, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
         ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
-        // Flow hand-off: Core derives the change from the Flow reservation commit.
+        // Intent hand-off: Core derives the change from the Intent reservation commit.
         ...(input.requiredFlowWorktree ? { flowDerivation: { baseSha: input.requiredFlowWorktree.baseSha ?? null, summary: input.requiredFlowWorktree.summary ?? '', ...(input.requiredFlowWorktree.changeId ? { changeId: input.requiredFlowWorktree.changeId } : {}) } } : {}),
       })
     runPromises.push(settleAllocatedRun(a, enginePromise).then(async result => {
@@ -1918,7 +1918,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         console.warn(`[rail-isolated] evidence harvest failed: ${e instanceof Error ? e.message : String(e)}`)
         settleEvidence = undefined
       }
-      // Flow -> Spec: a run that stopped because the work still needs changes
+      // Intent -> Spec: a run that stopped because the work still needs changes
       // (review rejected / checks failing after the repair rounds) is not an
       // opaque implementation failure. Say so, with the reviewer's own words.
       const flowReview = flowReviewOutcome({ loopId, implementationOutcome, evidence: settleEvidence })

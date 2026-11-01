@@ -689,7 +689,7 @@ describe('useRailLaunchProposals', () => {
     expect(result.current.pinned.map((p) => p.messageId)).toEqual(['c'])
   })
 
-  it('drops a proposal whose specs launched later through another door (Flow hand-off)', () => {
+  it('drops a proposal whose specs launched later through another door (IntentSession hand-off)', () => {
     const handOff: AgentMessageIntent = { kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', at: 'x', railIndex: 0, config: { ticketIds: [4] } }
     const messages = [
       msg('p', fence({ ticketIds: [4] }), { intents: [handOff] }),

@@ -493,22 +493,22 @@ describe('rail launch cards (mission-rail-cards)', () => {
   })
 })
 
-// ── flow-mode: Flow is the fourth pre-launch option, offered as a card ───────
-describe('Flow or Implement offer (flow-mode)', () => {
+// ── flow-mode: Intent is the fourth pre-launch option, offered as a card ───────
+describe('Intent or Implement offer (flow-mode)', () => {
   afterEach(() => { delete process.env.SPECRAILS_MISSION_RAIL_CARDS })
 
-  it('adds Flow to the existing classification instead of a separate rule', () => {
+  it('adds Intent to the existing classification instead of a separate rule', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or')
-    expect(OPERATOR_INSTRUCTIONS).toContain('`Flow: offerable`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('`Intent: offerable`')
     expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('fourth pre-launch option (with Freestyle, SDD Quick and Implement)')
   })
 
   it('teaches the flow-offer fence, the routing criterion and the no-insist rule', () => {
     expect(FLOW_OFFER_SECTION).toContain('```flow-offer')
     for (const key of ['"idea"', '"reason"']) expect(FLOW_OFFER_SECTION).toContain(key)
-    // Flow and Implement never compete: the agent explains, it never recommends.
+    // Intent and Implement never compete: the agent explains, it never recommends.
     expect(FLOW_OFFER_SECTION).not.toContain('"recommended"')
-    expect(FLOW_OFFER_SECTION).not.toMatch(/recommend (Flow|spec)/)
+    expect(FLOW_OFFER_SECTION).not.toMatch(/recommend (Intent|spec)/)
     expect(FLOW_OFFER_SECTION).toContain('never recommend, rank or favour one of them')
     expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('never recommend, rank or favour either')
     expect(FLOW_OFFER_SYSTEM_CLAUSE).not.toContain('recommended')
@@ -517,13 +517,13 @@ describe('Flow or Implement offer (flow-mode)', () => {
     expect(FLOW_OFFER_SECTION).toContain('one suggestion per idea')
     expect(FLOW_OFFER_SECTION).toContain('never insist after')
     expect(FLOW_OFFER_SECTION).toContain('does NOT need a\nproblem-frame card')
-    expect(FLOW_OFFER_SECTION).toContain('Never start a Flow yourself')
+    expect(FLOW_OFFER_SECTION).toContain('Never start an Intent session yourself')
   })
 
   it('offers both modes neutrally for an EXISTING spec with its ticketId (prompt text changed consciously)', async () => {
     expect(FLOW_OFFER_SECTION).toContain('**An existing spec.**')
     expect(FLOW_OFFER_SECTION).toContain('`ticketId` is that spec\'s\nnumeric id')
-    expect(FLOW_OFFER_SECTION).toContain('Flow then works on THAT spec (no new spec is created)')
+    expect(FLOW_OFFER_SECTION).toContain('Intent then works on THAT spec (no new spec is created)')
     expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('ticketId = the id of that spec')
     const { detectProtocolShape } = await import('./agent-fence-promotion')
     const example = FLOW_OFFER_SECTION.split('`{ "idea": "Calmer onboarding"')[1]!.split('`')[0]

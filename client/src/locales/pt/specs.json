@@ -41,10 +41,10 @@
     "openParentEpicTitle": "Abrir o Épico pai #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} adendo aberto — segue com o próximo lançamento",
     "addendaTitle_other": "{{count}} adendos abertos — seguem com o próximo lançamento",
-    "inFlow": "Em Flow",
-    "inFlowPaused": "Flow em pausa",
-    "inFlowTitle": "Em construção no Flow — abrir a missão",
-    "inFlowPausedTitle": "Flow em pausa — abrir a missão para retomar"
+    "inFlow": "Em Intent",
+    "inFlowPaused": "Intent em pausa",
+    "inFlowTitle": "Em construção no Intent — abrir a missão",
+    "inFlowPausedTitle": "Intent em pausa — abrir a missão para retomar"
   },
   "card": {
     "deleteSpec": "Eliminar spec #{{id}}",

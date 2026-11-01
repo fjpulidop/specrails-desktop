@@ -63,7 +63,7 @@ const FACTORY_COMMAND: Record<string, string> = {
 }
 
 export interface LaunchForecastTarget {
-  /** Loop id (`factory:implement`, a custom loop, the Flow hand-off loop). */
+  /** Loop id (`factory:implement`, a custom loop, the Intent hand-off loop). */
   loopId?: string | null
   /** A job command (`/specrails:implement`); its shape is what groups history. */
   commandShape?: string | null

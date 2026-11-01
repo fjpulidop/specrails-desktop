@@ -190,8 +190,8 @@
     "unexplainedTitle_other": "{{count}} 个已更改文件未被解释",
     "more_one": "……另外 {{count}} 个文件",
     "more_other": "……另外 {{count}} 个文件",
-    "unavailable": "无法读取此 Flow 交付的推导报告。请直接查看差异。",
-    "rewriteFailed": "无法根据推导出的变更重写 spec；它保留 Flow 草稿。OpenSpec 变更仍是技术记录。"
+    "unavailable": "无法读取此 Intent 交付的推导报告。请直接查看差异。",
+    "rewriteFailed": "无法根据推导出的变更重写 spec；它保留 Intent 草稿。OpenSpec 变更仍是技术记录。"
   },
   "brief": {
     "title": "需要关注的地方",

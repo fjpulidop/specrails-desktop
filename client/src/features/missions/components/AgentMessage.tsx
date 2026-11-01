@@ -411,7 +411,7 @@ interface Props {
    *  the live streaming buffer (the time appears once the turn settles). */
   createdAt?: string
   /** A discreet mode mark next to the timestamp (an agent turn produced in an
-   *  extension's mode, e.g. Flow): its icon, color and words come from the
+   *  extension's mode, e.g. Intent): its icon, color and words come from the
    *  extension (useMissionTurnMark), never hard-coded here. */
   modeMark?: MissionModeBadge | null
   /** Streaming assistant bubble: render markdown live, hide the copy button. */

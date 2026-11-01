@@ -1,9 +1,9 @@
-// ─── Flow → Spec: "the reviewer requested changes" ───────────────────────────
-// Replaces the generic failure block on a run/PR card when a Flow → Spec run
+// ─── Intent → Spec: "the reviewer requested changes" ───────────────────────────
+// Replaces the generic failure block on a run/PR card when an Intent session → Spec run
 // stopped because the work still needs changes after its automatic correction
 // rounds (`review_changes_requested`): the reviewer's own summary and issues,
-// the failing host checks, and the extension's actions (Back to Flow /
-// Relaunch). After "Back to Flow" the closed card says where the work went.
+// the failing host checks, and the extension's actions (Back to Intent /
+// Relaunch). After "Back to Intent" the closed card says where the work went.
 
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -82,7 +82,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
   )
 }
 
-/** The closed card after "Back to Flow": the work went back to its Flow. */
+/** The closed card after "Back to Intent": the work went back to its Intent. */
 export function AgentFlowReturnedNote({ className }: { className?: string }) {
   const { t } = useTranslation('agent')
   return (

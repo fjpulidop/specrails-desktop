@@ -10,7 +10,7 @@ describe('LoopChip', () => {
     ['factory:sdd-quick-openspec', 'SDD Quick'],
     ['factory:revision', 'SDD Quick'],
     ['factory:freestyle', 'Freestyle'],
-    ['factory:flow-spec', 'Flow hand-off'],
+    ['factory:flow-spec', 'Intent hand-off'],
   ])('built-in %s → localized name with an icon', (loopId, label) => {
     render(<LoopChip loopId={loopId} loopName="whatever the row stored" />)
     const chip = screen.getByTestId('loop-chip')
@@ -36,7 +36,7 @@ describe('LoopChip', () => {
 
   it('rides the rail snapshot and the mission card envelope; absent on older payloads', () => {
     const base = { prDeliveryId: 'd1', railIndex: 0, decision: 'on_review', ticketIds: [8], baseBranch: 'main', projectId: 'p1', kind: 'pr_decision' }
-    expect(coerceRailPrStateSnapshot({ ...base, loopId: 'factory:flow-spec', loopName: 'Flow → Spec' })).toMatchObject({ loopId: 'factory:flow-spec', loopName: 'Flow → Spec' })
+    expect(coerceRailPrStateSnapshot({ ...base, loopId: 'factory:flow-spec', loopName: 'Intent → Spec' })).toMatchObject({ loopId: 'factory:flow-spec', loopName: 'Intent → Spec' })
     expect(coercePrDecisionEnvelope({ ...base, loopId: 'factory:implement', loopName: 'Implement' })).toMatchObject({ loopId: 'factory:implement', loopName: 'Implement' })
     expect(coerceRailPrStateSnapshot(base)).not.toHaveProperty('loopId')
   })

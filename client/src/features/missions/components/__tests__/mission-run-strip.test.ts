@@ -28,7 +28,7 @@ describe('deliveryRunTone', () => {
     for (const decision of ['no_changes', 'pr_closed'] as const) expect(deliveryRunTone(env({ decision }), null)).toBe('info')
     expect(deliveryRunTone(env({ decision: 'implementation_failed' }), null)).toBe('failed')
     expect(deliveryRunTone(env({ decision: 'pr_failed' }), null)).toBe('failed')
-    // Flow → Spec still needs changes: a decision, not a crash.
+    // Intent → Spec still needs changes: a decision, not a crash.
     expect(deliveryRunTone(env({ decision: 'implementation_failed', statusCode: 'review_changes_requested' }), null)).toBe('decision')
     expect(deliveryRunTone(env({ decision: 'completed', runtime: failure }), null)).toBe('failed')
   })

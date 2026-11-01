@@ -726,8 +726,8 @@ describe('history lines focus the run', () => {
     expect(panel()).toHaveAttribute('data-open', 'false')
   })
 
-  it('a settled Flow → Spec run is one outcome line that expands its card in place', async () => {
-    await renderPanelWithMessages([sysRow('s1', { decision: 'pr_ready', loopId: 'factory:flow-spec', loopName: 'Flow → Spec', prNumber: 812, prUrl: 'https://github.com/o/r/pull/812', prState: 'pr-created' })])
+  it('a settled Intent → Spec run is one outcome line that expands its card in place', async () => {
+    await renderPanelWithMessages([sysRow('s1', { decision: 'pr_ready', loopId: 'factory:flow-spec', loopName: 'Intent → Spec', prNumber: 812, prUrl: 'https://github.com/o/r/pull/812', prState: 'pr-created' })])
     const line = await screen.findByTestId('agent-settled-run-line')
     expect(line).toHaveTextContent('Delivered: PR #812')
     expect(fullCards()).toHaveLength(0)

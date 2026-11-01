@@ -1139,7 +1139,7 @@ describe('ProjectRegistry', () => {
       })).toBe(true)
     })
 
-    it('leaves the Jira review of a Flow spec to its Flow settlement (no early transition)', () => {
+    it('leaves the Jira review of an Intent session spec to its Intent settlement (no early transition)', () => {
       seedTicket('in_progress', { flow: { conversationId: 'c', flowId: 'f1', worktreeId: 'f1', startedAt: 't', state: 'active' } })
       const { ctx, onRailReview } = setup()
       ctx.onLoopRunFinished('run-1', 'success', { ticketCompletionStatus: 'on_review' })

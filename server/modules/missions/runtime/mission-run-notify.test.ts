@@ -137,7 +137,7 @@ describe('notifyMissionRunFailure', () => {
     expect(m.startSystemTurn).not.toHaveBeenCalled()
   })
 
-  it('cardOnly updates the card and leaves the trace and the briefing to their owner (Flow)', async () => {
+  it('cardOnly updates the card and leaves the trace and the briefing to their owner (Intent)', async () => {
     const m = fakeManager()
     const r = await notifyMissionRunFailure({ ...id, originConversationId: 'conv-1', failure: { code: 'implementation_failed', detail: 'boom', stepId: null }, cardOnly: true })
     expect(r).toEqual({ card: true, row: null, turn: 'skipped' })

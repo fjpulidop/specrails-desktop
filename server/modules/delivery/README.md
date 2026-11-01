@@ -112,42 +112,42 @@ overlay, links warm `node_modules` and freezes the provenance snapshot; a
 verification failure removes only resources the call created.
 `launchIsolatedRail` calls it once per allocation unit and keeps batching, PR
 continuation, delivery rows and the rail ledger. `prepareIsolatedWorktree` is
-the self-contained entry for a second consumer (Flow): it takes the repository
+the self-contained entry for a second consumer (Intent): it takes the repository
 lock, fetches, resolves the integration base and a fresh conventional branch,
 then materializes. It writes no `rail_worktrees` row; the caller owns release
-using the returned ownership flags. Flow mode is its second consumer.
+using the returned ownership flags. Intent mode is its second consumer.
 
-### Flow hand-off
+### Intent hand-off
 
 `IsolatedLaunchInput.requiredFlowWorktree` ([contract](runtime/flow-worktree-handoff.ts))
-makes a launch adopt a Flow worktree instead of allocating one: the exact
+makes a launch adopt an Intent session worktree instead of allocating one: the exact
 mount is reused (`reuseBranchWorktree: true`, `fresh: false`) and its path,
-branch and HEAD must equal the frozen Flow values, else
-`FlowWorktreeMismatchError` (409). Branch and worktree ownership become
+branch and HEAD must equal the frozen Intent values, else
+`IntentWorktreeMismatchError` (409). Branch and worktree ownership become
 `adopted`: release treats it like `created` (the rail owns it after the
 hand-off) while allocation rollback never removes it. The `rail_worktrees`
-row and the Flow's `handed_off` state commit in one transaction through the
+row and the Intent's `handed_off` state commit in one transaction through the
 contract's `adopt` callback; a rollback after adoption deletes the row and
 calls `release`. The rails launch route accepts `flowId` and resolves the
 contract through `ProjectContext.flowHandOff`. Delivery never imports the
-Flow module. See [Flow mode](../../../docs/internals/flow-mode.md).
+Intent module. See [Intent mode](../../../docs/internals/intent-mode.md).
 
-A Flow → Spec run that settles `implementation_failed` while its evidence
+An Intent session → Spec run that settles `implementation_failed` while its evidence
 shows a rejected review or failing checks
 ([`flowReviewOutcome`](runtime/flow-review-outcome.ts)) records
 `status_code = review_changes_requested` with the reviewer's first issue,
 and every snapshot/envelope carries `flowReview` (issues, score, failing
-checks). Back to Flow is the inverse of the adoption
+checks). Back to Intent is the inverse of the adoption
 ([`returnFlowWorktree`](runtime/flow-worktree-return.ts)): one transaction
 deletes the adopted `rail_worktrees` row, closes the delivery as
-`discarded` / `returned_to_flow` and runs the Flow's commit callback; the
+`discarded` / `returned_to_flow` and runs the Intent's commit callback; the
 worktree is never removed. Tests:
 [`runtime/flow-worktree-return.test.ts`](runtime/flow-worktree-return.test.ts).
 
 Deliveries settled as a generic `implementation_failed` before that
 classification existed are re-evaluated on read: `toPrDeliverySnapshot`
 applies `legacyFlowReviewReclassification`, so the strip, the mission card and
-Back to Flow / Relaunch see exactly a `review_changes_requested` delivery when
+Back to Intent / Relaunch see exactly a `review_changes_requested` delivery when
 the stored evidence shows a rejected review or failing checks; any other
 failure stays a failure. After startup admission,
 [`healLegacyFlowReviews`](runtime/flow-review-legacy.ts) persists that once
@@ -158,7 +158,7 @@ Tests: [`runtime/flow-review-legacy.test.ts`](runtime/flow-review-legacy.test.ts
 
 [`readRunReviewDiagnosis`](runtime/run-review-diagnosis.ts) gives the
 operator's diagnosis tools (`runtime_diagnose`, the `runtime_evidence`
-overview) the run's latest reviewer verdict, failing host checks and Flow →
+overview) the run's latest reviewer verdict, failing host checks and Intent →
 Spec derivation coverage: stored settle evidence first, else the retained run
 through the same `healRuntimeEvidence` projection (engine 2 probe, engine 1
 pipeline dir). Bounded, read-only, never throws.

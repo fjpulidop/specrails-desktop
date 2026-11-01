@@ -146,7 +146,7 @@ function Callout({ accent, label, children }: { accent: Accent; label?: string; 
   )
 }
 
-function FlowStrip({ steps }: { steps: { label: string; cls: string }[] }) {
+function IntentStrip({ steps }: { steps: { label: string; cls: string }[] }) {
   return (
     <div className="flex items-center gap-2 flex-wrap text-body font-medium">
       {steps.map((s, i) => (
@@ -312,7 +312,7 @@ function buildSteps(t: TFunction): StepConfig[] {
             <Trans t={t} i18nKey="onboarding.welcome.intro" components={b} />
           </p>
           <Callout accent={ACCENTS.primary} label={t('onboarding.welcome.coreLoopLabel')}>
-            <FlowStrip
+            <IntentStrip
               steps={[
                 { label: t('onboarding.flow.describe'), cls: 'text-accent-info' },
                 { label: t('onboarding.flow.specs'), cls: 'text-accent-success' },
@@ -393,7 +393,7 @@ function buildSteps(t: TFunction): StepConfig[] {
                   <Trans t={t} i18nKey="onboarding.builder.intro" components={b} />
                 </p>
                 <Callout accent={ACCENTS.primary} label={t('onboarding.builder.flowLabel')}>
-                  <FlowStrip
+                  <IntentStrip
                     steps={[
                       { label: t('onboarding.flow.blueprint'), cls: 'text-accent-info' },
                       { label: t('onboarding.flow.approve'), cls: 'text-accent-success' },
@@ -475,7 +475,7 @@ function buildSteps(t: TFunction): StepConfig[] {
             <Trans t={t} i18nKey="onboarding.rails.intro" components={{ ...b, play: <span className="text-accent-warning font-medium" /> }} />
           </p>
           <Callout accent={ACCENTS.primary} label={t('onboarding.rails.jobLabel')}>
-            <FlowStrip
+            <IntentStrip
               steps={[
                 { label: t('onboarding.flow.architect'), cls: 'text-accent-info' },
                 { label: t('onboarding.flow.developer'), cls: 'text-accent-success' },

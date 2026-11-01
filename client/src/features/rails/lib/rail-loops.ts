@@ -52,7 +52,7 @@ export function effectiveLoopId(selectedLoopId: string | null | undefined, mode:
 /**
  * The triage recommendation a rail may preselect: only a loop the rail picker
  * actually offers (built-ins behind their gates; custom loops only with the
- * Loops section on). Anything else (e.g. Flow -> Spec) is never preselected.
+ * Loops section on). Anything else (e.g. Intent -> Spec) is never preselected.
  */
 export function offeredRecommendation(
   loopId: string | null | undefined,

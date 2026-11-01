@@ -345,10 +345,10 @@ export interface LoopRunRequest {
    *  EVERY ai-step prompt — after the follow-up, before the history. A note
    *  edited mid-run never changes what this run received. */
   addenda?: { ids: string[]; briefing: string }
-  /** Flow -> Spec (Flow mode): the Flow reservation commit Core measures the
+  /** Intent -> Spec (Intent mode): the Intent reservation commit Core measures the
    *  change from (`repositories[].baseSha`) and the bounded conversation
    *  summary written to `.specrails/pipeline/<runId>/flow-summary.md`.
-   *  `changeId`: the change this Flow's earlier run derived, re-derived in place. */
+   *  `changeId`: the change this Intent's earlier run derived, re-derived in place. */
   flowDerivation?: { baseSha: string | null; summary: string; changeId?: string | null }
 }
 

@@ -52,9 +52,9 @@ import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS, runBringBac
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
 import { RepositoryHasNoCommitsError } from './isolated-worktree'
-import { FlowHandOffNotReadyError, FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
+import { IntentHandOffNotReadyError, IntentWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 
-/** The Flow -> Spec loop only runs from a Flow hand-off (arch section 4.8). */
+/** The Intent -> Spec loop only runs from an Intent session hand-off (arch section 4.8). */
 export { FLOW_SPEC_LOOP_ID }
 import { resolveRailRelaunch, restoreRelaunchRail, RailRelaunchError, type RailRelaunch } from './rail-relaunch'
 import { repoIsolationStatus, defaultGitRunner } from '../../../worktree-manager'
@@ -635,8 +635,8 @@ export function createRailsRouter(): Router {
     }
     const explicitLoop = (typeof rawLoopId === 'string' && rawLoopId.length > 0) || req.body?.mode != null
     let loopId: unknown = rawLoopId
-    // Flow hand-off (Flow mode): the launch adopts the Flow's own worktree.
-    // Only the Flow module starts it, after freezing HEAD; it never combines
+    // Intent hand-off (Intent mode): the launch adopts the Intent's own worktree.
+    // Only the Intent module starts it, after freezing HEAD; it never combines
     // with relaunch, revision, PR targets, follow-ups or stacked bases.
     const rawFlowId: unknown = req.body?.flowId
     let flowWorktree: (RequiredFlowWorktree & { ticketId: number }) | null = null
@@ -645,20 +645,20 @@ export function createRailsRouter(): Router {
         res.status(400).json({ error: 'invalid_flow_id' }); return
       }
       if (relaunchSource || revisionOfDeliveryId || targetPrNumber !== undefined && targetPrNumber !== null || followUp || baseBranch || baseDeliveryIds !== undefined) {
-        res.status(400).json({ error: 'flow_handoff_incompatible', detail: 'A Flow hand-off launches the Flow spec on its own worktree only' }); return
+        res.status(400).json({ error: 'flow_handoff_incompatible', detail: 'An Intent session hand-off launches the Intent spec on its own worktree only' }); return
       }
       if (!isLoopsEnabled()) {
-        res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off needs Loops and worktree isolation' }); return
+        res.status(409).json({ error: 'flow_requires_isolation', detail: 'An Intent session hand-off needs Loops and worktree isolation' }); return
       }
-      if (!c.flowHandOff) { res.status(409).json({ error: 'feature_unavailable', detail: 'Flow is not available in this project' }); return }
+      if (!c.flowHandOff) { res.status(409).json({ error: 'feature_unavailable', detail: 'Intent is not available in this project' }); return }
       try {
         flowWorktree = c.flowHandOff.resolve(rawFlowId)
       } catch (err) {
-        if (err instanceof FlowHandOffNotReadyError) { res.status(409).json({ error: err.code, detail: err.message }); return }
+        if (err instanceof IntentHandOffNotReadyError) { res.status(409).json({ error: err.code, detail: err.message }); return }
         throw err
       }
     } else if (rawLoopId === FLOW_SPEC_LOOP_ID) {
-      res.status(400).json({ error: 'flow_id_required', detail: 'The Flow -> Spec loop is launched from a Flow hand-off' }); return
+      res.status(400).json({ error: 'flow_id_required', detail: 'The Intent -> Spec loop is launched from an Intent session hand-off' }); return
     }
     // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
     // the PR decision can later be posted back into the launching conversation.
@@ -758,7 +758,7 @@ export function createRailsRouter(): Router {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
     }
     if (flowWorktree && (rail.ticketIds.length !== 1 || rail.ticketIds[0] !== flowWorktree.ticketId)) {
-      res.status(409).json({ error: 'flow_rail_mismatch', detail: 'The rail must carry exactly the Flow spec' }); return
+      res.status(409).json({ error: 'flow_rail_mismatch', detail: 'The rail must carry exactly the Intent spec' }); return
     }
 
     // A durable delta defaults to Quick SDD when the caller has not chosen a workflow.
@@ -946,9 +946,9 @@ export function createRailsRouter(): Router {
           // last Published snapshot while an edit is Draft); otherwise the
           // current code default for this Core.
           const f = builtinSelection
-          // Flow -> Spec exists only on a Core that advertises `deriveChange`.
+          // Intent -> Spec exists only on a Core that advertises `deriveChange`.
           if (!f && loopId === FLOW_SPEC_LOOP_ID) {
-            res.status(409).json({ error: 'engine_unsupported', detail: 'Update Core to run the Flow → Spec loop (derive-change).' }); return
+            res.status(409).json({ error: 'engine_unsupported', detail: 'Update Core to run the Intent → Spec loop (derive-change).' }); return
           }
           if (!f) { res.status(404).json({ error: 'Factory loop not found' }); return }
           if (f.source !== 'default') {
@@ -1182,13 +1182,13 @@ export function createRailsRouter(): Router {
         if (requiresRepositoryIsolation && !useIsolation) {
           res.status(409).json({ error: 'repository_isolation_required', detail: 'Selected repositories require worktree isolation for this loop.' }); return
         }
-        // A Flow runs in exactly its own repository: the primary (no group), or
+        // An Intent session runs in exactly its own repository: the primary (no group), or
         // the one non-primary member its worktree belongs to.
         const flowRepositoryScope = !flowWorktree ? true : flowWorktree.repositoryId
           ? repositoryIds.length === 1 && repositoryIds[0] === flowWorktree.repositoryId
           : !requiresRepositoryIsolation
         if (flowWorktree && (!useIsolation || !flowRepositoryScope)) {
-          res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off runs only on its own worktree, in the repository it belongs to.' }); return
+          res.status(409).json({ error: 'flow_requires_isolation', detail: 'An Intent session hand-off runs only on its own worktree, in the repository it belongs to.' }); return
         }
         if (relaunchSource?.delivery && !useIsolation) {
           res.status(409).json({ error: 'relaunch_isolation_required', detail: 'The original attempt was isolated; its retry must also use an isolated worktree.',
@@ -1302,7 +1302,7 @@ export function createRailsRouter(): Router {
               if (err instanceof RepositoryHasNoCommitsError) {
                 res.status(409).json({ error: err.code, detail: err.message }); return
               }
-              if (err instanceof FlowWorktreeMismatchError) {
+              if (err instanceof IntentWorktreeMismatchError) {
                 res.status(409).json({ error: err.code, detail: err.message }); return
               }
               if (err instanceof ExplicitPrTargetError) {

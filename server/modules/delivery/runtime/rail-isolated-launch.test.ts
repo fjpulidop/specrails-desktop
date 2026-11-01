@@ -3992,7 +3992,7 @@ describe('launchIsolatedRail — review-packet evidence (spec snapshot + settle 
       units: [{ sentinel: 'fail', sentinelDetail: 'lint broke' }],
     })
   })
-  it('a Flow → Spec run that stopped with a rejected review settles as review_changes_requested, not an opaque failure', async () => {
+  it('an Intent session → Spec run that stopped with a rejected review settles as review_changes_requested, not an opaque failure', async () => {
     const { ctx, db } = fakeCtx(settlingRun('failed'))
     const harvestEvidence = vi.fn(() => ({
       schemaVersion: 1 as const, harvest: 'ok' as const, harvestedAt: 'now',
@@ -4001,7 +4001,7 @@ describe('launchIsolatedRail — review-packet evidence (spec snapshot + settle 
         runtime: { commands: [], checks: [], findings: [], review: { approved: false, score: 58, aspects: {}, issues: ['Tag the tests', 'Test the Options screen'], summary: 'Blocked' } },
       }],
     }))
-    await launchIsolatedRail({ ...input([1], ctx), loopId: 'factory:flow-spec', loopName: 'Flow → Spec' }, okIo({ harvestEvidence }))
+    await launchIsolatedRail({ ...input([1], ctx), loopId: 'factory:flow-spec', loopName: 'Intent → Spec' }, okIo({ harvestEvidence }))
 
     await vi.waitFor(() => expect(getPrDelivery(db, getActivePrDeliveryByRail(db, 0)?.id ?? '')?.decision ?? '').toBe('implementation_failed'))
     const row = getActivePrDeliveryByRail(db, 0)!

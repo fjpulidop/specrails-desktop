@@ -37,7 +37,7 @@ interface GitInfo {
  * switched branches or committed).
  */
 export function AgentGitBar({ projectId, branchOverride = null }: { projectId: string; branchOverride?: { branch: string; label: string } | null }) {
-  // A mission extension (Flow) works in its own worktree: show that branch,
+  // A mission extension (IntentSession) works in its own worktree: show that branch,
   // read-only — checking out branches in the project folder does not apply.
   if (branchOverride) return <AgentGitBranchOverride branch={branchOverride.branch} label={branchOverride.label} />
   return <AgentProjectGitBar projectId={projectId} />

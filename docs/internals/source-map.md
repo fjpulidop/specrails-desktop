@@ -386,39 +386,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [DocsPage.tsx](../../client/src/features/docs/pages/DocsPage.tsx) · [test](../../client/src/features/docs/pages/__tests__/DocsPage.test.tsx)
 
-## client/src/features/flow/components
-
-- [FlowAppPreview.tsx](../../client/src/features/flow/components/FlowAppPreview.tsx)
-- [FlowChangesDialog.tsx](../../client/src/features/flow/components/FlowChangesDialog.tsx)
-- [FlowCloseDialog.tsx](../../client/src/features/flow/components/FlowCloseDialog.tsx)
-- [FlowConversationMarks.tsx](../../client/src/features/flow/components/FlowConversationMarks.tsx)
-- [FlowDiscardDialog.tsx](../../client/src/features/flow/components/FlowDiscardDialog.tsx)
-- [FlowDock.tsx](../../client/src/features/flow/components/FlowDock.tsx)
-- [FlowEntryCard.tsx](../../client/src/features/flow/components/FlowEntryCard.tsx)
-- [FlowHandOffCard.tsx](../../client/src/features/flow/components/FlowHandOffCard.tsx)
-- [FlowLiveRuns.tsx](../../client/src/features/flow/components/FlowLiveRuns.tsx)
-- [FlowMissionsBridge.tsx](../../client/src/features/flow/components/FlowMissionsBridge.tsx)
-- [FlowOfferCard.tsx](../../client/src/features/flow/components/FlowOfferCard.tsx)
-- [FlowRepositoryPicker.tsx](../../client/src/features/flow/components/FlowRepositoryPicker.tsx)
-- [FlowRepositoryPrompt.tsx](../../client/src/features/flow/components/FlowRepositoryPrompt.tsx)
-- [FlowRunCardActions.tsx](../../client/src/features/flow/components/FlowRunCardActions.tsx)
-- [FlowRunFailure.tsx](../../client/src/features/flow/components/FlowRunFailure.tsx)
-- [FlowStripControls.tsx](../../client/src/features/flow/components/FlowStripControls.tsx)
-- [StartInFlow.tsx](../../client/src/features/flow/components/StartInFlow.tsx)
-
-## client/src/features/flow/context
-
-- [FlowContext.tsx](../../client/src/features/flow/context/FlowContext.tsx)
-
-## client/src/features/flow/lib
-
-- [flow-accent.ts](../../client/src/features/flow/lib/flow-accent.ts)
-- [flow-api.ts](../../client/src/features/flow/lib/flow-api.ts)
-- [flow-engine.ts](../../client/src/features/flow/lib/flow-engine.ts)
-- [flow-failure.ts](../../client/src/features/flow/lib/flow-failure.ts)
-- [flow-offer.ts](../../client/src/features/flow/lib/flow-offer.ts)
-- [flow-run-tone.ts](../../client/src/features/flow/lib/flow-run-tone.ts)
-
 ## client/src/features/inbox/components
 
 - [InboxButton.tsx](../../client/src/features/inbox/components/InboxButton.tsx)
@@ -459,6 +426,39 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/integrations/pages
 
 - [IntegrationsPage.tsx](../../client/src/features/integrations/pages/IntegrationsPage.tsx) · [test](../../client/src/features/integrations/pages/__tests__/IntegrationsPage.test.tsx)
+
+## client/src/features/intent/components
+
+- [IntentAppPreview.tsx](../../client/src/features/intent/components/IntentAppPreview.tsx)
+- [IntentChangesDialog.tsx](../../client/src/features/intent/components/IntentChangesDialog.tsx)
+- [IntentCloseDialog.tsx](../../client/src/features/intent/components/IntentCloseDialog.tsx)
+- [IntentConversationMarks.tsx](../../client/src/features/intent/components/IntentConversationMarks.tsx)
+- [IntentDiscardDialog.tsx](../../client/src/features/intent/components/IntentDiscardDialog.tsx)
+- [IntentDock.tsx](../../client/src/features/intent/components/IntentDock.tsx)
+- [IntentEntryCard.tsx](../../client/src/features/intent/components/IntentEntryCard.tsx)
+- [IntentHandOffCard.tsx](../../client/src/features/intent/components/IntentHandOffCard.tsx)
+- [IntentLiveRuns.tsx](../../client/src/features/intent/components/IntentLiveRuns.tsx)
+- [IntentMissionsBridge.tsx](../../client/src/features/intent/components/IntentMissionsBridge.tsx)
+- [IntentOfferCard.tsx](../../client/src/features/intent/components/IntentOfferCard.tsx)
+- [IntentRepositoryPicker.tsx](../../client/src/features/intent/components/IntentRepositoryPicker.tsx)
+- [IntentRepositoryPrompt.tsx](../../client/src/features/intent/components/IntentRepositoryPrompt.tsx)
+- [IntentRunCardActions.tsx](../../client/src/features/intent/components/IntentRunCardActions.tsx)
+- [IntentRunFailure.tsx](../../client/src/features/intent/components/IntentRunFailure.tsx)
+- [IntentStripControls.tsx](../../client/src/features/intent/components/IntentStripControls.tsx)
+- [StartInIntent.tsx](../../client/src/features/intent/components/StartInIntent.tsx)
+
+## client/src/features/intent/context
+
+- [IntentContext.tsx](../../client/src/features/intent/context/IntentContext.tsx)
+
+## client/src/features/intent/lib
+
+- [intent-accent.ts](../../client/src/features/intent/lib/intent-accent.ts)
+- [intent-api.ts](../../client/src/features/intent/lib/intent-api.ts)
+- [intent-engine.ts](../../client/src/features/intent/lib/intent-engine.ts)
+- [intent-failure.ts](../../client/src/features/intent/lib/intent-failure.ts)
+- [intent-offer.ts](../../client/src/features/intent/lib/intent-offer.ts)
+- [intent-run-tone.ts](../../client/src/features/intent/lib/intent-run-tone.ts)
 
 ## client/src/features/jobs/components
 
@@ -1613,19 +1613,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [stuck-run-detector.ts](../../server/modules/execution/runtime/stuck-run-detector.ts) · [test](../../server/modules/execution/runtime/stuck-run-detector.test.ts)
 - [verification-sentinel.ts](../../server/modules/execution/runtime/verification-sentinel.ts)
 
-## server/modules/flow
-
-- [application.ts](../../server/modules/flow/application.ts) · [test](../../server/modules/flow/__tests__/application.test.ts)
-- [domain.ts](../../server/modules/flow/domain.ts) · [test](../../server/modules/flow/__tests__/domain.test.ts)
-- [index.ts](../../server/modules/flow/index.ts)
-- [ports.ts](../../server/modules/flow/ports.ts)
-
-## server/modules/flow/adapters
-
-- [bindings.ts](../../server/modules/flow/adapters/bindings.ts)
-- [http.ts](../../server/modules/flow/adapters/http.ts)
-- [sqlite.ts](../../server/modules/flow/adapters/sqlite.ts)
-
 ## server/modules/inbox
 
 - [application.ts](../../server/modules/inbox/application.ts)
@@ -1637,6 +1624,19 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [http.ts](../../server/modules/inbox/adapters/http.ts)
 - [project-source.ts](../../server/modules/inbox/adapters/project-source.ts)
+
+## server/modules/intent
+
+- [application.ts](../../server/modules/intent/application.ts) · [test](../../server/modules/intent/__tests__/application.test.ts)
+- [domain.ts](../../server/modules/intent/domain.ts) · [test](../../server/modules/intent/__tests__/domain.test.ts)
+- [index.ts](../../server/modules/intent/index.ts)
+- [ports.ts](../../server/modules/intent/ports.ts)
+
+## server/modules/intent/adapters
+
+- [bindings.ts](../../server/modules/intent/adapters/bindings.ts)
+- [http.ts](../../server/modules/intent/adapters/http.ts)
+- [sqlite.ts](../../server/modules/intent/adapters/sqlite.ts)
 
 ## server/modules/loops/runtime
 

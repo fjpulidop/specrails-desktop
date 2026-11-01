@@ -80,15 +80,15 @@ const SDD_QUICK_OPENSPEC_FACTORY: FactoryLoop = {
   graph: opsxLifecycleGraph(),
 }
 
-/** Flow -> Spec (Flow mode, arch section 4.8): derives the spec of a Flow
- *  worktree. Only a Flow hand-off launches it (the rails route answers 400
+/** Intent -> Spec (Intent mode, arch section 4.8): derives the spec of an Intent session
+ *  worktree. Only an Intent session hand-off launches it (the rails route answers 400
  *  `flow_id_required` otherwise); listed with `launchable: false`. */
 export const FLOW_SPEC_LOOP_ID = 'factory:flow-spec'
 
 const FLOW_SPEC_FACTORY: FactoryLoop = {
   id: FLOW_SPEC_LOOP_ID,
-  name: 'Flow → Spec',
-  description: 'Derives the spec of code built in a Flow session: writes the OpenSpec change from the diff and the conversation, verifies it, reviews coverage and archives it.',
+  name: 'Intent → Spec',
+  description: 'Derives the spec of code built in an Intent session session: writes the OpenSpec change from the diff and the conversation, verifies it, reviews coverage and archives it.',
   mode: 'loop',
   requiredCoreCapability: 'deriveChange',
   launchable: false,
@@ -139,7 +139,7 @@ const FACTORY_BY_ID = new Map<string, FactoryLoop>([
   ...FACTORY_ALIASES,
 ])
 
-/** Factory loops the selected Core can run. Flow -> Spec exists only with
+/** Factory loops the selected Core can run. Intent -> Spec exists only with
  *  `deriveChange` (no legacy variant: the graph is Core pieces only). */
 export function factoryLoopsForCapabilities(capabilities?: Record<string, number>): FactoryLoop[] {
   if (capabilities?.engineV2 !== 1 || capabilities.workflowDefinitions !== 1) return FACTORY_LOOPS

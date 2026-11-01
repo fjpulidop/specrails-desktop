@@ -51,11 +51,11 @@ const coreDependencies: Record<string, string[]> = {
   'audit/ports.ts': ['./domain'],
   'audit/application.ts': ['./domain', './ports'],
   'audit/index.ts': ['./application', './domain', './ports'],
-  // Flow: pure state machine; use cases depend only on their own ports.
-  'flow/domain.ts': [],
-  'flow/ports.ts': ['./domain'],
-  'flow/application.ts': ['./domain', './ports'],
-  'flow/index.ts': ['./application', './domain', './ports'],
+  // Intent: pure state machine; use cases depend only on their own ports.
+  'intent/domain.ts': [],
+  'intent/ports.ts': ['./domain'],
+  'intent/application.ts': ['./domain', './ports'],
+  'intent/index.ts': ['./application', './domain', './ports'],
   // Spec triage: pure rules (canonical inputs, parsing, recommendation).
   'specs/domain/triage.ts': [],
   // Ticket non-goals ("Out of scope"): validation, extraction, rendering.
@@ -101,10 +101,10 @@ describe('module contracts', () => {
     }
     expect(cores.sort()).toEqual(Object.keys(coreDependencies).sort())
   })
-  it('missions never depend on Flow or delivery (Flow reaches missions through an injected port)', () => {
+  it('missions never depend on Intent or delivery (Intent reaches missions through an injected port)', () => {
     const rules: Record<string, string[]> = manifest.missions.dependencies
     const offending = Object.entries(rules).flatMap(([file, refs]) => refs
-      .filter((ref) => /(^|\/)(flow|delivery)\//.test(ref) || ref === '../../flow')
+      .filter((ref) => /(^|\/)(intent|delivery)\//.test(ref) || ref === '../../intent')
       .map((ref) => `${file} -> ${ref}`))
     expect(offending).toEqual([])
   })

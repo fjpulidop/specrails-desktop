@@ -2,7 +2,7 @@
  * Pure clipboard (de)serialization for copy/paste of loop nodes. The DOM event
  * wiring (copy/paste listeners, the system clipboard) stays in the builder; this
  * module shapes the payload and clones nodes for paste — so it's unit-testable
- * without React Flow or a real clipboard.
+ * without React Intent or a real clipboard.
  *
  * Cross-loop paste works because the payload travels through the system
  * clipboard as plain-text JSON, tagged with `specrailsNodes` so a paste of

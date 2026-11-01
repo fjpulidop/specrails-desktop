@@ -113,7 +113,7 @@ truly has none passes `aria-describedby={undefined}`.
 | `base` | 50 | Ordinary dialogs (default) |
 | floating chat | 60 (grips 61) | Floating agent panel |
 | `entity` | 65 | Spec detail, Job detail, compare, agent activity log, loop and blueprint previews |
-| `stacked` | 70 | Anything opened from inside an entity modal or the floating panel: Flow prompts, SMASH, nested confirms |
+| `stacked` | 70 | Anything opened from inside an entity modal or the floating panel: Intent prompts, SMASH, nested confirms |
 | dock | 75 | Minimized chats dock (stays clickable over modals) |
 | `capture` | 80 | Browser capture, web view, native browser pane, background-process logs, runtime graph |
 | `media` | 100 | Lightboxes |

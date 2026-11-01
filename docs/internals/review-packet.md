@@ -334,9 +334,9 @@ behaviour changes, invariants touched, untested paths, up to five severity-order
 - **Honesty.** The brief is AI-reported advice, labelled as such; it adds no numeric verification
   claim and no decision depends on it.
 
-## 2026-10-22 — Derivation (Flow → Spec)
+## 2026-10-22 — Derivation (Intent → Spec)
 
-A delivery of the `factory:flow-spec` loop ([Flow mode](flow-mode.md)) carries
+A delivery of the `factory:flow-spec` loop ([Intent mode](intent-mode.md)) carries
 `packet.derivation`, rendered as the **Derivation** card before "What to watch
 out for". Source: the `derive-change` scope of Core's `runtime status`
 (`output.derivation`; when only `output.derivationPath` is present the harvest
@@ -349,14 +349,14 @@ repaired derivation supersedes the rejected one.
 - Coverage (`explained/files`) and the unexplained file list are Core's own
   measurement from git: app-verified.
 - The deriver's `confidence` is AI-reported and labelled as such.
-- `{ status: 'unavailable' }` for a Flow → Spec delivery whose report could
+- `{ status: 'unavailable' }` for an Intent session → Spec delivery whose report could
   not be read; `null` for every other loop.
 - `packet.flowSettlement` (`specRewrite`, `jiraCreate`, `jiraReview`) comes from
-  the Flow module's `flow_effects` rows; a `failed` spec rewrite shows a note
-  that the spec kept its Flow draft.
+  the Intent module's `flow_effects` rows; a `failed` spec rewrite shows a note
+  that the spec kept its Intent draft.
 
 The draft PR body adds one line (`buildDerivationLine`):
-`> Derived from a Flow session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`
+`> Derived from an Intent session session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`
 
 ## 2026-10-22 — Requirements demonstrated, baseline and "Needs human eyes"
 

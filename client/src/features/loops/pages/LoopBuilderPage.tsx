@@ -53,7 +53,7 @@ import { validateBuilderGraph, severityByNode, type IssueSeverity } from '../lib
 
 import { notifyError } from '../../../lib/notify-error'
 // Per-node validation severity (error/warning), provided by BuilderInner so the
-// node component can ring itself without prop-drilling through React Flow.
+// node component can ring itself without prop-drilling through React Intent.
 const NodeValidationContext = createContext<Map<string, IssueSeverity>>(new Map())
 const PieceCatalogContext = createContext<{ pieces: WorkflowPieceDescriptor[]; components?: LoopGraph['components'] }>({ pieces: [] })
 

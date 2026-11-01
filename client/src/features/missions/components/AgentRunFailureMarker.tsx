@@ -23,7 +23,7 @@ export function AgentRunFailureMarker({ row, conversationId = null, envelope = n
 }) {
   const { t } = useTranslation('agent')
   const { describeRun } = useMissionExtensions()
-  // Flow → Spec still needs changes: a review outcome, not a crash.
+  // Intent → Spec still needs changes: a review outcome, not a crash.
   const changes = row.code === 'review_changes_requested'
   const rail = envelope?.railName || t('prCard.rail', { index: row.railIndex + 1 })
   const described = changes ? null : describeRun?.(t, { loopId: envelope?.loopId ?? null, stepId: row.stepId, codes: [row.code] })?.failure ?? null
@@ -50,7 +50,7 @@ export function AgentRunFailureMarker({ row, conversationId = null, envelope = n
 export function AgentSystemBriefing({ content, contextRefs }: { content: string; contextRefs?: AgentContextReference[] }) {
   const { t } = useTranslation('agent')
   const [open, setOpen] = useState(false)
-  // Automatic turns other than a run failure (Back to Flow) name themselves.
+  // Automatic turns other than a run failure (Back to Intent) name themselves.
   const automatic = (contextRefs?.[0] as { metadata?: { automatic?: unknown } } | undefined)?.metadata?.automatic === true
   return (
     <div data-testid="agent-system-briefing" className="flex flex-col items-end gap-1">

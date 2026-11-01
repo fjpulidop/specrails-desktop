@@ -1,8 +1,8 @@
-// ─── Flow delivered: the closing summary ──────────────────────────────────────
-// A server-authored system row posted once when a Flow's delivery settled its
+// ─── Intent delivered: the closing summary ──────────────────────────────────────
+// A server-authored system row posted once when an Intent session's delivery settled its
 // spec and Jira (`flow-delivered`): the PR, the spec rewritten from what was
 // built, the archived OpenSpec change and the Jira issue. The run card keeps
-// the delivery controls; this closes the Flow's story in the conversation.
+// the delivery controls; this closes the Intent's story in the conversation.
 
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, ExternalLink, FileText, GitPullRequest, Package, Ticket } from 'lucide-react'
@@ -10,7 +10,7 @@ import { cn } from '../../../lib/utils'
 
 type SettlementStatus = 'pending' | 'done' | 'skipped' | 'failed' | null
 
-export interface FlowDeliveredRow {
+export interface IntentDeliveredRow {
   kind: 'flow-delivered'
   flowId: string
   deliveryId: string | null
@@ -27,8 +27,8 @@ const str = (value: unknown): string | null => (typeof value === 'string' && val
 const status = (value: unknown): SettlementStatus =>
   value === 'pending' || value === 'done' || value === 'skipped' || value === 'failed' ? value : null
 
-/** Parse a system row; null when it is not a Flow closing summary. */
-export function parseFlowDeliveredRow(content: string): FlowDeliveredRow | null {
+/** Parse a system row; null when it is not an Intent session closing summary. */
+export function parseFlowDeliveredRow(content: string): IntentDeliveredRow | null {
   if (!content.startsWith('{')) return null
   let o: Record<string, unknown>
   try { o = JSON.parse(content) as Record<string, unknown> } catch { return null }
@@ -57,7 +57,7 @@ function Line({ icon: Icon, children, tone = 'default', testId }: { icon: typeof
   )
 }
 
-export function AgentFlowDeliveredCard({ row }: { row: FlowDeliveredRow }) {
+export function AgentFlowDeliveredCard({ row }: { row: IntentDeliveredRow }) {
   const { t } = useTranslation('agent')
   const spec = row.specRewrite === 'done' ? t('flowDelivered.specRewritten') : t('flowDelivered.specKept')
   const jira = row.jiraKey

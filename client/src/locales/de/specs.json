@@ -41,10 +41,10 @@
     "openParentEpicTitle": "Übergeordnetes Epic #{{id}} öffnen · {{title}}",
     "addendaTitle_one": "{{count}} offenes Addendum – reist mit dem nächsten Start mit",
     "addendaTitle_other": "{{count}} offene Addenda – reisen mit dem nächsten Start mit",
-    "inFlow": "Im Flow",
-    "inFlowPaused": "Flow pausiert",
-    "inFlowTitle": "Wird im Flow gebaut – Mission öffnen",
-    "inFlowPausedTitle": "Flow pausiert – Mission öffnen, um fortzusetzen"
+    "inFlow": "Im Intent",
+    "inFlowPaused": "Intent pausiert",
+    "inFlowTitle": "Wird im Intent gebaut – Mission öffnen",
+    "inFlowPausedTitle": "Intent pausiert – Mission öffnen, um fortzusetzen"
   },
   "card": {
     "deleteSpec": "Spec #{{id}} löschen",

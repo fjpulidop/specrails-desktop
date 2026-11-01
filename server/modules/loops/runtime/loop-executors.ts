@@ -28,7 +28,7 @@ import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
 import { terminalResultError } from '../../../providers/terminal-result'
 import { readClaudeBackgroundTasks } from '../../../providers/claude-background-tasks'
 import { FOREGROUND_RULE } from './loop-constants'
-import { FLOW_SUMMARY_FILE, FLOW_SUMMARY_LIMIT_BYTES, flowChangeId, type FlowChangeIdHolder } from './loop-flow-spec-recipe'
+import { FLOW_SUMMARY_FILE, FLOW_SUMMARY_LIMIT_BYTES, flowChangeId, type IntentChangeIdHolder } from './loop-flow-spec-recipe'
 import type { RunExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from '../../delivery/runtime/rail-isolation'
@@ -167,21 +167,21 @@ function aiStepExtraArgs(adapter: ProviderAdapter, cwd: string, repoDir: string 
 }
 
 /**
- * Flow -> Spec: the bounded conversation summary Core's derive-change piece
+ * Intent -> Spec: the bounded conversation summary Core's derive-change piece
  * reads (`summaryPath`, relative to `.specrails/pipeline/<runId>/`). Written
  * once, atomically, never through a symlink; a retry of the same run keeps
  * the first file. Oversized input is truncated at the byte bound (the builder
  * already bounds it; this is the last line of defence).
  */
-/** Who holds `openspec/changes/<id>` in a Flow worktree (see FlowChangeIdHolder). Read-only. */
-export function flowChangeHolder(cwd: string, baseSha: string | null, id: string): FlowChangeIdHolder {
+/** Who holds `openspec/changes/<id>` in an Intent session worktree (see IntentChangeIdHolder). Read-only. */
+export function flowChangeHolder(cwd: string, baseSha: string | null, id: string): IntentChangeIdHolder {
   const changes = join(cwd, 'openspec', 'changes')
   try {
     const archive = join(changes, 'archive')
     if (existsSync(archive) && readdirSync(archive).some((name) => name === id || name.endsWith(`-${id}`))) return 'taken'
     if (!existsSync(join(changes, id))) return 'free'
     if (!baseSha) return 'taken'
-    // Present at the Flow base: someone else's change. Absent there: this Flow's own earlier derivation.
+    // Present at the Intent base: someone else's change. Absent there: this Intent's own earlier derivation.
     execFileSync('git', ['cat-file', '-e', `${baseSha}:openspec/changes/${id}`], { cwd, stdio: 'ignore', timeout: 5_000, windowsHide: true })
     return 'taken'
   } catch {
@@ -190,8 +190,8 @@ export function flowChangeHolder(cwd: string, baseSha: string | null, id: string
 }
 
 /**
- * The change a Flow -> Spec run derives: the Flow's own earlier change when it
- * is still active in the worktree and absent at the Flow base (re-derived in
+ * The change an Intent session -> Spec run derives: the Intent's own earlier change when it
+ * is still active in the worktree and absent at the Intent base (re-derived in
  * place, whatever its name — legacy `ticket-<n>-addenda-…` included);
  * otherwise a new one named after the spec title.
  */
@@ -289,7 +289,7 @@ export function createLoopExecutors(
         if (runtime.api?.capabilities?.workflowAgentSteps !== 1) throw new Error('engine_unsupported: Update Core to run configurable workflow agent steps')
       }
       if (graph && [graph, ...Object.values(graph.components ?? {})].some(body => body.nodes.some(node => node.data?.kind === 'derive-change'))) {
-        if (runtime.api?.capabilities?.deriveChange !== 1) throw new Error('engine_unsupported: Update Core to run the Flow → Spec derive-change step')
+        if (runtime.api?.capabilities?.deriveChange !== 1) throw new Error('engine_unsupported: Update Core to run the Intent → Spec derive-change step')
       }
       if (graph && [graph, ...Object.values(graph.components ?? {})].some(body => body.nodes.some(node => node.data?.kind === 'implementation-step'))) {
         if (runtime.api?.capabilities?.implementationSteps !== 1) throw new Error('engine_unsupported: Update Core to run independent implementation steps')
@@ -310,7 +310,7 @@ export function createLoopExecutors(
         const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,approve:input.approve,recover:input.recover,interruptId:input.interruptId,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
-      // Flow -> Spec derives ONE change for code that already exists: it is named
+      // Intent -> Spec derives ONE change for code that already exists: it is named
       // after the spec title (never addenda), and no delta briefing applies.
       const seeded = request.flowDerivation
         ? { id: flowDerivationChangeId(request.cwd, request.flowDerivation, request.spec?.title), source: 'flow' as const }
@@ -322,7 +322,7 @@ export function createLoopExecutors(
       const spec = request.spec && briefing ? { ...request.spec, description: [request.spec.description, briefing].filter(Boolean).join('\n\n'), ...(request.spec.tickets ? { tickets: request.spec.tickets.map(ticket => ({...ticket,description:[ticket.description,briefing].filter(Boolean).join('\n\n')})) } : {}) } : request.spec
       const env = { ...programmaticStepEnv(resolveEnv(), request.repoDir, request.executionManifest), SPECRAILS_GIT_AUTO: 'false' }
       const core = prepareCoreExecution({ run: { runId, projectId: request.projectId, repositoryId: request.repositoryId, spec, goal: request.spec?.title ?? request.loopName }, cwd: request.cwd, repoDir: request.repoDir, manifest: request.executionManifest, env, sourcePath: request.executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: request.executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: request.workspacePaths,
-        // Flow -> Spec: Core measures the change from the Flow's reservation commit.
+        // Intent -> Spec: Core measures the change from the Intent's reservation commit.
         ...(request.flowDerivation?.baseSha ? { repositoryBaseSha: request.flowDerivation.baseSha } : {}) })
       if (request.flowDerivation) writeFlowSummary(dirname(core.contextPath), request.flowDerivation.summary)
       const result = await runAgentRuntimeInvocation({

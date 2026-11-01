@@ -243,7 +243,7 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         expect(within(screen.getByTestId('rail-pr-strip')).queryByTestId('loop-chip')).toBeNull()
       })
 
-      it('Flow → Spec with requested changes → review pill, never Discard (the Flow worktree is kept)', () => {
+      it('Intent → Spec with requested changes → review pill, never Discard (the Intent worktree is kept)', () => {
         renderRail(snapshot({ decision: 'implementation_failed', statusCode: 'review_changes_requested', statusDetail: 'The reviewer requested changes (score 58)' }), density)
         const strip = screen.getByTestId('rail-pr-strip')
         expect(within(strip).getByTestId('rail-pr-review-changes')).toHaveTextContent('Changes requested')
@@ -1224,7 +1224,7 @@ describe('strip: one primary, readable detail, honest spinners', () => {
       expect(screen.getByTestId('rail-pr-relaunch')).toHaveAttribute('title', 'The rail still has an active run')
     })
 
-    it('never offers the plain rail Relaunch for a Flow to Spec run', async () => {
+    it('never offers the plain rail Relaunch for an Intent session to Spec run', async () => {
       routeFetch([run({ canResume: false })])
       renderStrip(snapshot({ decision: 'implementation_failed', runIds: ['run-1'], loopId: 'factory:flow-spec' }))
       await act(async () => {})

@@ -473,7 +473,7 @@ export async function commitWorktreeAndVerify(
   excludePaths: string[] = [],
   baseRef?: string,
   /** `allowedActiveChanges`: new active OpenSpec change directories the caller
-   * owns (e.g. a Flow's own derived change); every other one still blocks. */
+   * owns (e.g. an Intent session's own derived change); every other one still blocks. */
   options: { allowedActiveChanges?: readonly string[] } = {},
 ): Promise<CommitWorktreeResult> {
   if (baseRef) {

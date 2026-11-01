@@ -397,26 +397,26 @@ describe('SpecCard spec addenda badge', () => {
     expect(screen.queryByTestId('addenda-badge-42')).toBeNull()
   })
 
-  describe('In Flow label (flow-mode)', () => {
+  describe('In Intent label (flow-mode)', () => {
     const onClickMock = vi.fn()
-    it('labels an active or paused Flow spec, links to its mission and keeps it off the rails', () => {
+    it('labels an active or paused Intent spec, links to its mission and keeps it off the rails', () => {
       const onOpenFlow = vi.fn()
       const { rerender } = render(<SpecCard ticket={makeTicket({ status: 'in_progress', source: 'flow', metadata: { flow: { state: 'active', conversationId: 'c1', flowId: 'f1' } } })} onClick={onClickMock} onOpenFlow={onOpenFlow} />)
       const badge = screen.getByTestId('flow-badge-42')
-      expect(badge).toHaveTextContent('In Flow')
+      expect(badge).toHaveTextContent('In Intent')
       expect(badge).toHaveAttribute('data-flow-label', 'active')
       expect(lastSortableOpts?.disabled).toBe(true)
       fireEvent.click(badge)
       expect(onOpenFlow).toHaveBeenCalledWith('c1')
       expect(onClickMock).not.toHaveBeenCalled()
       rerender(<SpecCard ticket={makeTicket({ status: 'in_progress', source: 'flow', metadata: { flow: { state: 'paused', conversationId: 'c1' } } })} onClick={onClickMock} onOpenFlow={onOpenFlow} />)
-      expect(screen.getByTestId('flow-badge-42')).toHaveTextContent('Flow paused')
+      expect(screen.getByTestId('flow-badge-42')).toHaveTextContent('Intent paused')
     })
 
     it('hides the label once delivered or closed, without metadata, or on a rail (handed off)', () => {
       const { rerender } = render(<SpecCard ticket={makeTicket({ metadata: { flow: { state: 'delivered', conversationId: 'c1' } } })} onClick={onClickMock} />)
       expect(screen.queryByTestId('flow-badge-42')).toBeNull()
-      // A needs-review Flow closed with its branch kept releases the spec too.
+      // A needs-review Intent closed with its branch kept releases the spec too.
       rerender(<SpecCard ticket={makeTicket({ metadata: { flow: { state: 'closed', conversationId: 'c1' } } })} onClick={onClickMock} />)
       expect(screen.queryByTestId('flow-badge-42')).toBeNull()
       rerender(<SpecCard ticket={makeTicket()} onClick={onClickMock} />)

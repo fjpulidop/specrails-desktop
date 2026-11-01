@@ -309,11 +309,11 @@
       "merged": "PR merged",
       "discarded": "Discarded",
       "review_changes_requested": "The reviewer requested changes",
-      "returned_to_flow": "Back in Flow",
+      "returned_to_flow": "Back in Intent",
       "flowSpecChanges": "Not ready yet: the reviewer requested changes",
-      "flowSpecDelivered": "Your Flow is now a reviewed PR",
+      "flowSpecDelivered": "Your Intent is now a reviewed PR",
       "flowSpecFailed": "The hand-off stopped",
-      "flowSpecBuilding": "Turning your Flow into a reviewed PR"
+      "flowSpecBuilding": "Turning your Intent into a reviewed PR"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
     "buildingExistingPrHint": "Specrails is working on the existing PR branch and will push the review changes back to that PR.",
@@ -716,12 +716,12 @@
       "scope_save_failed": "Could not save the spec's repositories.",
       "repository_scope_incomplete": "The launch is missing a repository required by its specs. Check the assignments above.",
       "rail_not_empty": "That rail already has specs",
-      "flow_freeze_failed": "Your Flow's changes could not be saved for the hand-off",
-      "flow_head_mismatch": "Your Flow changed during the hand-off. Try again",
-      "flow_already_handed_off": "This Flow was already handed off",
-      "flow_handoff_not_adopted": "The rail started without taking over your Flow's changes",
-      "illegal_transition": "The Flow changed state meanwhile",
-      "feature_unavailable": "Flow is not available",
+      "flow_freeze_failed": "Your Intent's changes could not be saved for the hand-off",
+      "flow_head_mismatch": "Your Intent changed during the hand-off. Try again",
+      "flow_already_handed_off": "This Intent was already handed off",
+      "flow_handoff_not_adopted": "The rail started without taking over your Intent's changes",
+      "illegal_transition": "The Intent changed state meanwhile",
+      "feature_unavailable": "Intent is not available",
       "daily_budget_exceeded": "Daily limit reached. Nothing was launched.",
       "review_wip_limit_reached": "Review limit reached. Nothing was launched.",
       "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project."
@@ -781,7 +781,7 @@
       "cancelled": "Cancelled",
       "unknown": "Unknown",
       "changes_requested": "Changes requested",
-      "returned": "Back in Flow"
+      "returned": "Back in Intent"
     },
     "title": {
       "running": "Implementing in the project checkout…",
@@ -792,7 +792,7 @@
       "cancelled": "Run cancelled",
       "unknown": "Run state unknown",
       "changes_requested": "The reviewer requested changes",
-      "returned": "Back in Flow"
+      "returned": "Back in Intent"
     },
     "noDeliveryNote": "No PR phase: this project has no git repository or commits, so the work landed directly in the project folder.",
     "noDeliveryHint": "Running directly in the project folder (no git repository or commits, so no PR will be proposed).",
@@ -824,8 +824,8 @@
       "omitted_other": "+{{count}} more in the run's review",
       "failingChecks": "Failing",
       "check": "{{command}} · exit {{code}}",
-      "next": "The automatic correction rounds did not resolve these. Go back to Flow to settle them with the agent, or relaunch from the same Flow branch.",
-      "returned": "Back in Flow: your changes returned to their Flow with the review. Continue in the Flow strip."
+      "next": "The automatic correction rounds did not resolve these. Go back to Intent to settle them with the agent, or relaunch from the same Intent branch.",
+      "returned": "Back in Intent: your changes returned to their Intent with the review. Continue in the Intent strip."
     }
   },
   "runFailure": {
@@ -953,66 +953,66 @@
       "deriveChange": "Your Specrails Core cannot derive a spec from code yet"
     },
     "errors": {
-      "generic": "Flow could not complete that action. Try again.",
+      "generic": "Intent could not complete that action. Try again.",
       "network": "Specrails could not be reached.",
-      "feature_unavailable": "Flow is not available with the installed Specrails Core.",
-      "flow_already_open": "This mission already has a Flow. Resume or discard it first.",
-      "illegal_transition": "The Flow changed state meanwhile. Refresh and try again.",
-      "flow_worktree_missing": "This Flow's copy of the project no longer exists. Check the Flow branch before continuing.",
-      "flow_repository_required": "Choose the repository this Flow runs in.",
-      "flow_repository_not_git": "Flow needs a Git repository for its branch; a plain folder can't hold one. Choose a Git repository.",
+      "feature_unavailable": "Intent is not available with the installed Specrails Core.",
+      "flow_already_open": "This mission already has an Intent. Resume or discard it first.",
+      "illegal_transition": "The Intent changed state meanwhile. Refresh and try again.",
+      "flow_worktree_missing": "This Intent's copy of the project no longer exists. Check the Intent branch before continuing.",
+      "flow_repository_required": "Choose the repository this Intent runs in.",
+      "flow_repository_not_git": "Intent needs a Git repository for its branch; a plain folder can't hold one. Choose a Git repository.",
       "flow_repository_unknown": "That repository is no longer part of this project. Choose another one.",
-      "flow_repository_missing": "The Flow’s repository is no longer available in this project.",
+      "flow_repository_missing": "The Intent’s repository is no longer available in this project.",
       "rail_not_empty": "That rail already has specs. Pick a free, empty rail.",
-      "flow_already_handed_off": "This Flow was already handed to a rail.",
-      "flow_freeze_failed": "Your Flow's changes could not be saved for the hand-off.",
-      "flow_head_mismatch": "Your Flow changed during the hand-off. Try again.",
-      "flow_handoff_not_adopted": "The rail started without taking over your Flow's changes.",
+      "flow_already_handed_off": "This Intent was already handed to a rail.",
+      "flow_freeze_failed": "Your Intent's changes could not be saved for the hand-off.",
+      "flow_head_mismatch": "Your Intent changed during the hand-off. Try again.",
+      "flow_handoff_not_adopted": "The rail started without taking over your Intent's changes.",
       "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.",
-      "flow_not_found": "This Flow no longer exists.",
-      "flow_failed": "Flow hit an unexpected error. Try again.",
+      "flow_not_found": "This Intent no longer exists.",
+      "flow_failed": "Intent hit an unexpected error. Try again.",
       "conversation_not_found": "This mission no longer exists.",
-      "conversation_not_pinned": "Pin this mission to the project before starting a Flow.",
-      "flow_not_handed_off": "This Flow is no longer waiting on that run.",
-      "flow_rail_unknown": "The rail of that run is unknown. Hand it off again from the Flow strip.",
+      "conversation_not_pinned": "Pin this mission to the project before starting an Intent.",
+      "flow_not_handed_off": "This Intent is no longer waiting on that run.",
+      "flow_rail_unknown": "The rail of that run is unknown. Hand it off again from the Intent strip.",
       "flow_return_busy": "The run is busy with another action. Try again in a moment.",
-      "flow_return_not_allowed": "Only a hand-off that stopped before delivery can go back to its Flow.",
-      "flow_return_not_found": "That run is not a Flow hand-off.",
-      "flow_return_worktree_mismatch": "That run did not take over this Flow's changes.",
-      "spec_in_flow": "This spec is already in Flow. Open its mission to continue.",
-      "spec_on_rail": "This spec is on a rail. Take it off the rail to start it in Flow.",
+      "flow_return_not_allowed": "Only a hand-off that stopped before delivery can go back to its Intent.",
+      "flow_return_not_found": "That run is not an Intent hand-off.",
+      "flow_return_worktree_mismatch": "That run did not take over this Intent's changes.",
+      "spec_in_flow": "This spec is already in Intent. Open its mission to continue.",
+      "spec_on_rail": "This spec is on a rail. Take it off the rail to start it in Intent.",
       "spec_running": "This spec is running on a rail. Wait for the run to finish.",
-      "spec_closed": "This spec is done or cancelled. Reopen it to work on it in Flow.",
+      "spec_closed": "This spec is done or cancelled. Reopen it to work on it in Intent.",
       "spec_not_found": "This spec no longer exists.",
       "invalid_ticket_id": "That spec could not be identified."
     },
     "entry": {
-      "heading": "Start a Flow",
-      "body": "Specrails makes a separate copy of the project on its own Flow branch, where the agent can write code. Your main branch is not touched.",
-      "provider": "The agent works with {{provider}} and writes only in the Flow's copy.",
-      "providerUnknown": "The agent writes only in the Flow's copy.",
+      "heading": "Start an Intent",
+      "body": "Specrails makes a separate copy of the project on its own Intent branch, where the agent can write code. Your main branch is not touched.",
+      "provider": "The agent works with {{provider}} and writes only in the Intent's copy.",
+      "providerUnknown": "The agent writes only in the Intent's copy.",
       "repository": {
         "label": "Repository",
-        "hint": "The Flow works in a separate copy of this repository.",
-        "choose": "Choose the repository this Flow runs in",
+        "hint": "The Intent works in a separate copy of this repository.",
+        "choose": "Choose the repository this Intent runs in",
         "loading": "Loading repositories…",
         "loadFailed": "The project repositories could not be loaded. Try again.",
         "suggested": "Suggested by the agent",
-        "noGit": "This project has no Git repository. Flow needs one for its branch."
+        "noGit": "This project has no Git repository. Intent needs one for its branch."
       },
       "blocked": {
-        "noProject": "Pin this mission to a project to use Flow.",
-        "open": "This mission already has a Flow.",
-        "missing": "Flow needs a newer Specrails Core:",
-        "unavailable": "Flow is not available right now.",
-        "goToFlow": "Go to that Flow"
+        "noProject": "Pin this mission to a project to use Intent.",
+        "open": "This mission already has an Intent.",
+        "missing": "Intent needs a newer Specrails Core:",
+        "unavailable": "Intent is not available right now.",
+        "goToFlow": "Go to that Intent"
       },
       "cancel": "Cancel",
-      "start": "Start Flow",
+      "start": "Start Intent",
       "starting": "Starting…",
       "existingSpec": {
         "label": "Spec #{{id}}",
-        "note": "The Flow works on this spec and the agent starts from it. When it is delivered, the spec is rewritten from what was built; its current text is kept as a comment."
+        "note": "The Intent works on this spec and the agent starts from it. When it is delivered, the spec is rewritten from what was built; its current text is kept as a comment."
       }
     },
     "offer": {
@@ -1021,9 +1021,9 @@
       "implementReply": "Let's write the spec first and run Implement.",
       "mode": {
         "flow": {
-          "title": "Flow",
-          "hint": "Build it together on a separate Flow branch; the spec comes at the end.",
-          "hintExisting": "Build this spec together on a separate Flow branch; the spec is rewritten from what you build."
+          "title": "Intent",
+          "hint": "Build it together on a separate Intent branch; the spec comes at the end.",
+          "hintExisting": "Build this spec together on a separate Intent branch; the spec is rewritten from what you build."
         },
         "implement": {
           "title": "Spec + Implement",
@@ -1032,18 +1032,18 @@
         }
       },
       "stub": {
-        "flow": "You chose Flow",
+        "flow": "You chose Intent",
         "implement": "You chose spec + Implement",
         "dismissed": "Offer dismissed",
-        "handedOff": "Flow handed off to Rail {{rail}}",
+        "handedOff": "Intent handed off to Rail {{rail}}",
         "state": {
-          "active": "Flow in progress",
-          "paused": "Flow paused",
-          "handed_off": "Flow handed off to a rail",
-          "delivered": "Flow delivered",
-          "discarded": "Flow discarded",
-          "needs-review": "Flow needs review",
-          "closed": "Flow closed (branch kept)"
+          "active": "Intent in progress",
+          "paused": "Intent paused",
+          "handed_off": "Intent handed off to a rail",
+          "delivered": "Intent delivered",
+          "discarded": "Intent discarded",
+          "needs-review": "Intent needs review",
+          "closed": "Intent closed (branch kept)"
         },
         "viewRun": "View run"
       },
@@ -1052,38 +1052,38 @@
       "implementExistingReply": "Let's implement spec #{{id}} on a rail."
     },
     "bar": {
-      "controls": "Flow actions",
+      "controls": "Intent actions",
       "viewChanges": "View changes",
-      "resume": "Resume Flow",
-      "pause": "Pause Flow",
+      "resume": "Resume Intent",
+      "pause": "Pause Intent",
       "discard": "Discard",
-      "discarded": "Flow discarded",
+      "discarded": "Intent discarded",
       "files_one": "{{count}} file",
       "files_other": "{{count}} files",
-      "filesTitle": "Files changed on the Flow branch",
-      "costTitle": "Real cost of this Flow's turns, as billed by the provider",
+      "filesTitle": "Files changed on the Intent branch",
+      "costTitle": "Real cost of this Intent's turns, as billed by the provider",
       "costPartial_one": "{{count}} turn has no provider-reported cost and is not included",
       "costPartial_other": "{{count}} turns have no provider-reported cost and are not included",
-      "needsReview": "This Flow's copy of the project is missing. Nothing was deleted; check the Flow branch before continuing.",
+      "needsReview": "This Intent's copy of the project is missing. Nothing was deleted; check the Intent branch before continuing.",
       "pausedNote": "Paused. Your changes and the spec are kept; resume whenever you like.",
       "state": {
-        "active": "Flow",
-        "paused": "Flow paused",
-        "needs-review": "Flow needs review",
+        "active": "Intent",
+        "paused": "Intent paused",
+        "needs-review": "Intent needs review",
         "handed_off": "Handed off to a rail",
         "delivered": "Delivered",
         "discarded": "Discarded",
         "closed": "Closed"
       },
       "disabled": {
-        "settling": "Wait until the Flow finishes saving its state",
+        "settling": "Wait until the Intent finishes saving its state",
         "busy": "Wait for the current action to finish",
-        "noSpec": "The Flow’s spec isn’t ready yet"
+        "noSpec": "The Intent’s spec isn’t ready yet"
       },
       "viewChangesStats": "View changes · {{files}}, +{{additions}} −{{deletions}}",
       "handOff": "Hand off",
-      "close": "Close this Flow",
-      "closed": "Flow closed. The branch is kept."
+      "close": "Close this Intent",
+      "closed": "Intent closed. The branch is kept."
     },
     "preview": {
       "open": "Preview",
@@ -1097,20 +1097,20 @@
       "stopFailed": "Could not stop the app"
     },
     "discard": {
-      "title": "Discard this Flow?",
+      "title": "Discard this Intent?",
       "body": "Discarding deletes all of this, and it cannot be undone:",
-      "cancel": "Keep Flow",
-      "confirm": "Discard Flow",
+      "cancel": "Keep Intent",
+      "confirm": "Discard Intent",
       "lossFiles_one": "{{count}} changed file",
       "lossFiles_other": "{{count}} changed files",
       "lossNoChanges": "No changed files yet",
-      "lossUnknown": "Every change on the Flow branch",
+      "lossUnknown": "Every change on the Intent branch",
       "lossSpec": "The placeholder spec on the board"
     },
     "changes": {
-      "title": "Flow changes",
+      "title": "Intent changes",
       "subtitle": "Branch {{branch}} compared with where it started",
-      "subtitleNoBranch": "Changes compared with where the Flow started",
+      "subtitleNoBranch": "Changes compared with where the Intent started",
       "refresh": "Refresh",
       "loadFailed": "Changes could not be loaded.",
       "empty": "No changes yet.",
@@ -1123,11 +1123,11 @@
       }
     },
     "handOff": {
-      "heading": "Turn this Flow into a reviewed PR",
-      "loop": "Flow hand-off",
+      "heading": "Turn this Intent into a reviewed PR",
+      "loop": "Intent hand-off",
       "launch": "Launch",
       "notYet": "Not yet",
-      "engineFallback": "{{provider}} can't run the Flow hand-off on this machine, so the rail's default engine is selected.",
+      "engineFallback": "{{provider}} can't run the Intent hand-off on this machine, so the rail's default engine is selected.",
       "cost": "{{cost}} so far",
       "costUnknown": "no billed cost yet",
       "line_one": "{{rail}} will turn your changed file into a reviewed PR. If it fails, your work is safe.",
@@ -1135,16 +1135,16 @@
       "lineNoCount": "{{rail}} will turn your changes into a reviewed PR. If it fails, your work is safe."
     },
     "review": {
-      "backToFlow": "Back to Flow",
-      "backToFlowHint": "Reopen this Flow with the same changes; the agent receives the review on its next turn",
+      "backToFlow": "Back to Intent",
+      "backToFlowHint": "Reopen this Intent with the same changes; the agent receives the review on its next turn",
       "relaunch": "Relaunch",
-      "relaunchHint": "Try again from the same Flow branch, rail and engine",
-      "returned": "Back in Flow. The agent has the review.",
+      "relaunchHint": "Try again from the same Intent branch, rail and engine",
+      "returned": "Back in Intent. The agent has the review.",
       "relaunched": "Relaunched on Rail {{index}}",
-      "returnFailed": "Could not go back to Flow: {{detail}}",
+      "returnFailed": "Could not go back to Intent: {{detail}}",
       "relaunchFailed": "Could not relaunch: {{detail}}",
-      "backToFlowFailureHint": "Reopen this Flow with the same changes; the agent receives the error on its next turn",
-      "returnedFailure": "Back in Flow. The agent has the error."
+      "backToFlowFailureHint": "Reopen this Intent with the same changes; the agent receives the error on its next turn",
+      "returnedFailure": "Back in Intent. The agent has the error."
     },
     "failure": {
       "step": {
@@ -1157,9 +1157,9 @@
         "unknown": "The hand-off stopped before it finished"
       },
       "cause": "Cause:",
-      "next": "Your work is intact. Back in Flow, the agent gets the error.",
-      "nextReturned": "Your work is intact. Back in Flow, the agent has the error.",
-      "returned": "Returned to Flow",
+      "next": "Your work is intact. Back in Intent, the agent gets the error.",
+      "nextReturned": "Your work is intact. Back in Intent, the agent has the error.",
+      "returned": "Returned to Intent",
       "technical": {
         "title": "Technical details",
         "repository": "Repository",
@@ -1170,17 +1170,17 @@
       }
     },
     "announce": {
-      "active": "Flow active: the agent writes on the Flow branch.",
-      "paused": "Flow paused.",
-      "needs-review": "The Flow needs review: its copy of the project is missing.",
-      "handed_off": "Flow handed off to a rail.",
-      "delivered": "Flow delivered.",
-      "discarded": "Flow discarded.",
-      "returned": "Back in Flow: the work returned with what the hand-off found.",
-      "closed": "Flow closed. Its branch was kept."
+      "active": "Intent active: the agent writes on the Intent branch.",
+      "paused": "Intent paused.",
+      "needs-review": "The Intent needs review: its copy of the project is missing.",
+      "handed_off": "Intent handed off to a rail.",
+      "delivered": "Intent delivered.",
+      "discarded": "Intent discarded.",
+      "returned": "Back in Intent: the work returned with what the hand-off found.",
+      "closed": "Intent closed. Its branch was kept."
     },
     "strip": {
-      "label": "Flow",
+      "label": "Intent",
       "ready": "Ready to turn into a PR",
       "launching": "Handing off to a rail…",
       "launchingOn": "Handing off to {{rail}}…",
@@ -1197,54 +1197,54 @@
       "headline": "{{state}} · {{files}}"
     },
     "mode": {
-      "chip": "Flow",
-      "description": "Flow mode: the agent writes on the Flow branch, not on your main branch",
-      "placeholder": "Tell the agent what to change in this Flow…"
+      "chip": "Intent",
+      "description": "Intent mode: the agent writes on the Intent branch, not on your main branch",
+      "placeholder": "Tell the agent what to change in this Intent…"
     },
     "panel": {
       "branch": "Branch",
       "changes": "Changes",
       "cost": "Cost so far",
-      "actions": "More Flow actions"
+      "actions": "More Intent actions"
     },
     "close": {
-      "title": "Close this Flow?",
-      "body": "The conversation leaves Flow. Nothing is deleted:",
+      "title": "Close this Intent?",
+      "body": "The conversation leaves Intent. Nothing is deleted:",
       "keptBranch": "Branch kept:",
-      "keptSpec": "The spec stays on the board, without the In Flow label",
+      "keptSpec": "The spec stays on the board, without the In Intent label",
       "cancel": "Not now",
-      "confirm": "Close Flow, keep branch"
+      "confirm": "Close Intent, keep branch"
     },
     "startFromSpec": {
-      "action": "Start in Flow",
-      "hint": "Build this spec with the agent on its own Flow branch, in a mission",
-      "starting": "Starting Flow…",
-      "failed": "Spec #{{id}} could not start in Flow",
+      "action": "Start in Intent",
+      "hint": "Build this spec with the agent on its own Intent branch, in a mission",
+      "starting": "Starting Intent…",
+      "failed": "Spec #{{id}} could not start in Intent",
       "repository": {
-        "title": "Where should this Flow run?",
-        "body": "This project has several Git repositories. The Flow works on its own branch in a separate copy of the one you choose.",
+        "title": "Where should this Intent run?",
+        "body": "This project has several Git repositories. The Intent works on its own branch in a separate copy of the one you choose.",
         "fromSpec": "Named in the spec"
       },
       "blocked": {
-        "noProject": "Open a project to use Flow",
-        "unavailable": "Flow is not available with the installed Specrails Core",
-        "inFlow": "Already in Flow",
-        "closed": "Done or cancelled specs can't start in Flow",
+        "noProject": "Open a project to use Intent",
+        "unavailable": "Intent is not available with the installed Specrails Core",
+        "inFlow": "Already in Intent",
+        "closed": "Done or cancelled specs can't start in Intent",
         "running": "Running on a rail",
         "onRail": "On a rail: take it off the rail first",
-        "missionInFlow": "This mission already has a Flow"
+        "missionInFlow": "This mission already has an Intent"
       }
     }
   },
   "flowReturn": {
     "title": "What the reviewer asked for",
-    "noFindings": "The hand-off stopped before delivery; your changes are back in this Flow, intact.",
+    "noFindings": "The hand-off stopped before delivery; your changes are back in this Intent, intact.",
     "coverage": "The spec explains {{explained}} of {{files}} changed files",
     "unexplained": "Not explained by any requirement",
     "moreFiles_one": "+{{count}} more file",
     "moreFiles_other": "+{{count}} more files",
-    "next": "The Flow agent starts on this now; you can steer or stop it at any time.",
-    "automaticTurn": "Automatic turn · Back to Flow",
+    "next": "The Intent agent starts on this now; you can steer or stop it at any time.",
+    "automaticTurn": "Automatic turn · Back to Intent",
     "titleFailure": "Why the hand-off stopped"
   },
   "turnErrors": {
@@ -1253,7 +1253,7 @@
     "generic": "The agent turn failed."
   },
   "flowDelivered": {
-    "title": "Flow delivered",
+    "title": "Intent delivered",
     "pr": "Open the pull request",
     "prNumber": "Pull request #{{number}}",
     "specRewritten": "Spec rewritten from what you built",
@@ -1320,8 +1320,8 @@
       "failed": "{{run}} failed: {{reason}}",
       "openRun": "Show the run",
       "proposed": "Launch proposed. Waiting for you",
-      "backToFlow": "Back to Flow",
-      "flowReturned": "{{run}} sent the work back to Flow",
+      "backToFlow": "Back to Intent",
+      "flowReturned": "{{run}} sent the work back to Intent",
       "delivered": "Delivered: PR {{pr}}",
       "deliveredNoPr": "Delivered on {{run}}",
       "superseded": "{{run}} was superseded by a newer run",
@@ -1340,9 +1340,9 @@
     }
   },
   "flowBoundary": {
-    "entered": "Entered Flow",
-    "left": "Left Flow",
-    "turnMark": "Flow",
+    "entered": "Entered Intent",
+    "left": "Left Intent",
+    "turnMark": "Intent",
     "reason": {
       "started": "started",
       "returned": "back from a rail",

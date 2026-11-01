@@ -6,9 +6,9 @@ Mission agents (the in-app agent chat) drive Specrails through the
 (`~/.specrails/agent-cwd`), the operator prompt and the MCP permission ladder:
 every provider still spawned in its write-capable mode. Since the
 `mission-read-only-policy` change, mission turns use each provider's native
-read-only boundary, so the rule holds even if a model ignores its prompt. Flow
-(see [Flow mode](flow-mode.md)) is the only write-capable mission mode, and it
-uses its own session; see [The Flow exception](#the-flow-exception).
+read-only boundary, so the rule holds even if a model ignores its prompt. Intent
+(see [Intent mode](intent-mode.md)) is the only write-capable mission mode, and it
+uses its own session; see [The Intent exception](#the-flow-exception).
 
 Source: [`mission-tool-policy.ts`](../../server/modules/missions/runtime/mission-tool-policy.ts).
 Kill switch: `SPECRAILS_MISSION_READ_ONLY=false` (see
@@ -100,25 +100,25 @@ outside every workspace.
   launched by Core, so the missing `Agent` tool does not affect them. Keeping
   `Agent` with read-only tools requires a Core change.
 
-## The Flow exception
+## The Intent exception
 
-A conversation with an ACTIVE Flow runs its turns in a separate Core session
-(`flow:<flowId>`) whose cwd is the Flow worktree and whose policy is the rail
+A conversation with an ACTIVE Intent runs its turns in a separate Core session
+(`flow:<flowId>`) whose cwd is the Intent worktree and whose policy is the rail
 write-role level: `permissions: 'bypass'`, default tools (Claude
 `--dangerously-skip-permissions`, Codex `--sandbox danger-full-access`). The
 agent can therefore write, run the typecheck and tests, and install
 dependencies in the worktree without interactive approvals. Long-lived apps
 run as Specrails background processes in the worktree, admitted below the
 Autonomous level after the user's explicit confirmation, and stopped with the
-Flow.
+Intent.
 
 The containment is honest but not a sandbox, exactly as for rails: the cwd,
 the persona rule never to touch anything outside the worktree, and the
-worktree's own branch (Flow delivers only that worktree). Details:
-[Flow mode › Permissions](flow-mode.md#permissions).
+worktree's own branch (Intent delivers only that worktree). Details:
+[Intent mode › Permissions](intent-mode.md#permissions).
 
 Everything in this document still applies to every other mission turn: when
-the Flow is paused or ended, the conversation's next turn is a normal
+the Intent is paused or ended, the conversation's next turn is a normal
 read-only mission turn again.
 
 ## Operator features that need no native write tool

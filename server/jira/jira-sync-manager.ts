@@ -496,7 +496,7 @@ export class JiraSyncManager {
     const created = await this.createLinkedIssue(client, conn, localId)
     if (!created.ok) {
       if (created.reason === 'ticket_not_found') return { ok: false, error: 'ticket not found' }
-      if (created.reason === 'flow_held') return { ok: false, error: 'the spec is still in Flow; it reaches Jira when its Flow -> Spec rail settles' }
+      if (created.reason === 'flow_held') return { ok: false, error: 'the spec is still in Intent; it reaches Jira when its Intent -> Spec rail settles' }
       if (created.code === 'auth') this.onAuth401()
       return { ok: false, error: created.error || 'jira issue create failed' }
     }
@@ -504,7 +504,7 @@ export class JiraSyncManager {
   }
 
   /**
-   * Durable form of `promoteTicketToJira` (feedback-2026-10 Flow settlement):
+   * Durable form of `promoteTicketToJira` (feedback-2026-10 Intent settlement):
    * enqueue a `create` outbox op for a LOCAL ticket. The drainer creates the
    * issue, links it to the same local id and flips the ticket to
    * `source:'jira'` exactly as promote does, with the outbox's retry/backoff
@@ -552,7 +552,7 @@ export class JiraSyncManager {
     const file = resolveTicketStoragePath(this._artifactRoot())
     const ticket = readStore(file).tickets[String(localId)]
     if (!ticket) return { ok: false, reason: 'ticket_not_found' }
-    // Flow placeholder specs never reach Jira while the Flow is active or paused.
+    // Intent placeholder specs never reach Jira while the Intent is active or paused.
     if (isFlowHeldTicket(ticket)) return { ok: false, reason: 'flow_held' }
 
     const marker = issueCreateMarker(this.projectId, localId)
@@ -962,7 +962,7 @@ export class JiraSyncManager {
 
   /**
    * Durable, IDEMPOTENT push of a linked spec's current summary, description,
-   * labels and priority to its existing issue (Flow settlement of a spec that
+   * labels and priority to its existing issue (Intent settlement of a spec that
    * already had an issue: the rewritten spec updates THAT issue, never a new
    * one). The same `idempotencyKey` never enqueues twice; the pending op
    * freezes the id so the inbound poll cannot revert the rewrite. Never throws.
@@ -1402,9 +1402,9 @@ export class JiraSyncManager {
       return
     }
     if (created.reason === 'flow_held') {
-      // Settlement marks the Flow delivered before it publishes; retry until then.
-      if (op.attempts + 1 >= MAX_OUTBOX_ATTEMPTS) markOutboxDead(this.db, op.id, 'the spec is still in Flow')
-      else markOutboxRetry(this.db, op.id, new Date(Date.now() + backoffMs(op.attempts)).toISOString(), 'the spec is still in Flow')
+      // Settlement marks the Intent delivered before it publishes; retry until then.
+      if (op.attempts + 1 >= MAX_OUTBOX_ATTEMPTS) markOutboxDead(this.db, op.id, 'the spec is still in Intent')
+      else markOutboxRetry(this.db, op.id, new Date(Date.now() + backoffMs(op.attempts)).toISOString(), 'the spec is still in Intent')
       return
     }
     this.handleHardError(op, created.code, created.status, created.retryAfterMs, created.error)
