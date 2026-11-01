@@ -41,6 +41,8 @@
     "openParentEpicTitle": "Open parent Epic #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} open addendum — rides into the next launch",
     "addendaTitle_other": "{{count}} open addenda — ride into the next launch",
+    "intentOpenTitle_one": "{{count}} open question in the intent",
+    "intentOpenTitle_other": "{{count}} open questions in the intent",
     "inFlow": "In Intent",
     "inFlowPaused": "Intent paused",
     "inFlowTitle": "Being built in Intent — open the mission",

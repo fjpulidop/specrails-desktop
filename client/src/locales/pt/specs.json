@@ -41,6 +41,8 @@
     "openParentEpicTitle": "Abrir o Épico pai #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} adendo aberto — segue com o próximo lançamento",
     "addendaTitle_other": "{{count}} adendos abertos — seguem com o próximo lançamento",
+    "intentOpenTitle_one": "{{count}} pergunta em aberto no intent",
+    "intentOpenTitle_other": "{{count}} perguntas em aberto no intent",
     "inFlow": "Em Intent",
     "inFlowPaused": "Intent em pausa",
     "inFlowTitle": "Em construção no Intent — abrir a missão",

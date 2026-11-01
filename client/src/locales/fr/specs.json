@@ -41,6 +41,8 @@
     "openParentEpicTitle": "Ouvrir l'Epic parent #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} addendum ouvert — accompagne le prochain lancement",
     "addendaTitle_other": "{{count}} addenda ouverts — accompagnent le prochain lancement",
+    "intentOpenTitle_one": "{{count}} question ouverte dans l’intent",
+    "intentOpenTitle_other": "{{count}} questions ouvertes dans l’intent",
     "inFlow": "En Intent",
     "inFlowPaused": "Intent en pause",
     "inFlowTitle": "En cours de construction dans Intent — ouvrir la mission",

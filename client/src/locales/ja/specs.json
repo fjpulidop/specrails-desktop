@@ -41,6 +41,8 @@
     "openParentEpicTitle": "親エピック #{{id}} を開く · {{title}}",
     "addendaTitle_one": "{{count}} 件の未処理補足 — 次回の起動に同行",
     "addendaTitle_other": "{{count}} 件の未処理補足 — 次回の起動に同行",
+    "intentOpenTitle_one": "Intent に未解決の問いが {{count}} 件",
+    "intentOpenTitle_other": "Intent に未解決の問いが {{count}} 件",
     "inFlow": "Intent 中",
     "inFlowPaused": "Intent 一時停止中",
     "inFlowTitle": "Intent で作成中 — ミッションを開く",

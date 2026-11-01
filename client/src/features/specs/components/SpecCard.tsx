@@ -1,10 +1,11 @@
 import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { openAddenda } from '../lib/spec-addenda-core'
+import { openIntentQuestions } from '../lib/spec-intent'
 import { specFlowLabel } from '../lib/spec-flow'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, AlertTriangle, ArrowUp, Layers, Waves } from 'lucide-react'
+import { Trash2, AlertTriangle, ArrowUp, Layers, Waves, Compass } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
 import { SpecTriageChip } from './SpecTriageChip'
 import type { LocalTicket } from '../../../types'
@@ -57,6 +58,7 @@ export function SpecCard({
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
   const openAddendaCount = openAddenda(ticket.addenda).length
+  const openIntentCount = openIntentQuestions(ticket.intent)
   // Intent mode: the placeholder spec belongs to its Intent until the rail adopts
   // it — label it and keep it off the rails (no drag).
   const flowLabel = onRail ? null : specFlowLabel(ticket)
@@ -298,6 +300,17 @@ export function SpecCard({
           <Layers className="h-2.5 w-2.5" />
           {openAddendaCount}
         <span className="sr-only"> ({t('badges.addendaTitle', { count: openAddendaCount })})</span></Badge>
+      ) : null}
+      {openIntentCount > 0 ? (
+        <Badge
+          variant="outline"
+          className="text-caption shrink-0 border-accent-warning/50 text-accent-warning bg-accent-warning/10 gap-0.5"
+          title={t('badges.intentOpenTitle', { count: openIntentCount })}
+          data-testid={`intent-open-badge-${ticket.id}`}
+        >
+          <Compass className="h-2.5 w-2.5" aria-hidden="true" />
+          {openIntentCount}
+        <span className="sr-only"> ({t('badges.intentOpenTitle', { count: openIntentCount })})</span></Badge>
       ) : null}
       {!jiggleMode && <SpecTriageChip ticket={ticket} />}
       {isDraft ? (

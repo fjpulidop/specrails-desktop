@@ -41,6 +41,8 @@
     "openParentEpicTitle": "Apri l'Epic padre #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} addendum aperto — viaggia con il prossimo lancio",
     "addendaTitle_other": "{{count}} addenda aperti — viaggiano con il prossimo lancio",
+    "intentOpenTitle_one": "{{count}} domanda aperta nell’intent",
+    "intentOpenTitle_other": "{{count}} domande aperte nell’intent",
     "inFlow": "In Intent",
     "inFlowPaused": "Intent in pausa",
     "inFlowTitle": "In costruzione con Intent — apri la missione",

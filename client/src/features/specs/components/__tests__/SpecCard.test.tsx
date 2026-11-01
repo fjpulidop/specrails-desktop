@@ -480,3 +480,20 @@ describe('SpecCard selection (CD4)', () => {
   })
 })
 
+
+describe('SpecCard intent open-questions badge (intent-mode)', () => {
+  const intent = (answers: Array<string | undefined>) => ({
+    problem: 'P', outcome: 'O', successSignals: [], affects: [], constraints: [],
+    openQuestions: answers.map((answer, i) => (answer ? { question: `Q${i}`, answer } : { question: `Q${i}` })),
+  })
+  it('counts the unanswered questions and hides the badge once all are answered', () => {
+    const { rerender } = render(<SpecCard ticket={makeTicket({ intent: intent([undefined, 'yes', undefined]) })} onClick={vi.fn()} />)
+    const badge = screen.getByTestId('intent-open-badge-42')
+    expect(badge).toHaveTextContent('2')
+    expect(badge).toHaveAttribute('title', '2 open questions in the intent')
+    rerender(<SpecCard ticket={makeTicket({ intent: intent(['yes']) })} onClick={vi.fn()} />)
+    expect(screen.queryByTestId('intent-open-badge-42')).toBeNull()
+    rerender(<SpecCard ticket={makeTicket({})} onClick={vi.fn()} />)
+    expect(screen.queryByTestId('intent-open-badge-42')).toBeNull()
+  })
+})

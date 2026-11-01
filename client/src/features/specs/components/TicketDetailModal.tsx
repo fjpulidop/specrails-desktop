@@ -44,6 +44,8 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
 import { RegressionOfPicker, isBugTicket } from './RegressionOfPicker'
 import { NonGoalsSection } from './NonGoalsSection'
+import { IntentSection } from './IntentSection'
+import type { SpecIntent } from '../lib/spec-intent'
 import { SmashActions } from './specs-smash/SmashActions'
 import { EpicBreadcrumb } from './specs-smash/EpicChildrenSection'
 import { EpicFamilySidebar } from './specs-smash/EpicFamilySidebar'
@@ -94,7 +96,7 @@ interface TicketDetailModalProps {
   onClose: () => void
   /** Navigation hook: open a different ticket inside the same modal stack. */
   onOpenTicket?: (ticketId: number) => void
-  onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf?: string | null } }) => Promise<boolean>
+  onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'repositoryIds' | 'nonGoals'>> & { intent?: SpecIntent | null; metadata?: { regressionOf?: string | null } }) => Promise<boolean>
   onDelete: (ticketId: number) => Promise<boolean>
   /** Rails available in the project — drives the Move-to-Rail popover. */
   rails?: RailState[]
@@ -175,6 +177,7 @@ export function TicketDetailModal({
   const [repositoryIds, setRepositoryIds] = useState(ticket.repositoryIds)
   const [regressionOf, setRegressionOf] = useState<string | null>(ticket.metadata?.regressionOf ?? null)
   const [nonGoals, setNonGoals] = useState<string[]>([...(ticket.nonGoals ?? [])])
+  const [intent, setIntent] = useState<SpecIntent | null>(ticket.intent ?? null)
 
   // Edit mode toggles
   const [editingTitle, setEditingTitle] = useState(false)
@@ -248,9 +251,10 @@ export function TicketDetailModal({
       JSON.stringify(labels) !== JSON.stringify(ticket.labels) ||
       JSON.stringify(repositoryIds) !== JSON.stringify(ticket.repositoryIds) ||
       regressionOf !== (ticket.metadata?.regressionOf ?? null) ||
-      JSON.stringify(nonGoals) !== JSON.stringify(ticket.nonGoals ?? [])
+      JSON.stringify(nonGoals) !== JSON.stringify(ticket.nonGoals ?? []) ||
+      JSON.stringify(intent) !== JSON.stringify(ticket.intent ?? null)
     )
-  }, [title, description, priority, labels, repositoryIds, regressionOf, nonGoals, ticket])
+  }, [title, description, priority, labels, repositoryIds, regressionOf, nonGoals, intent, ticket])
 
   // Focus on edit start
   useEffect(() => {
@@ -308,7 +312,7 @@ export function TicketDetailModal({
   }, [])
 
   const handleSave = useCallback(async () => {
-    const changes: Partial<Pick<LocalTicket, 'title' | 'description' | 'priority' | 'labels' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf: string | null } } = {}
+    const changes: Partial<Pick<LocalTicket, 'title' | 'description' | 'priority' | 'labels' | 'repositoryIds' | 'nonGoals'>> & { intent?: SpecIntent | null; metadata?: { regressionOf: string | null } } = {}
     if (title !== ticket.title) changes.title = title
     if (description !== ticket.description) changes.description = description
     if (priority !== ticket.priority) changes.priority = priority
@@ -316,6 +320,7 @@ export function TicketDetailModal({
     if (JSON.stringify(repositoryIds) !== JSON.stringify(ticket.repositoryIds)) changes.repositoryIds = repositoryIds
     if (regressionOf !== (ticket.metadata?.regressionOf ?? null)) changes.metadata = { regressionOf }
     if (JSON.stringify(nonGoals) !== JSON.stringify(ticket.nonGoals ?? [])) changes.nonGoals = nonGoals
+    if (JSON.stringify(intent) !== JSON.stringify(ticket.intent ?? null)) changes.intent = intent
 
     if (Object.keys(changes).length === 0) {
       onClose()
@@ -332,7 +337,7 @@ export function TicketDetailModal({
     } else {
       notifyError(t('detailModal.toast.updateFailed'))
     }
-  }, [title, description, priority, labels, repositoryIds, regressionOf, nonGoals, ticket, onSave, onClose, t])
+  }, [title, description, priority, labels, repositoryIds, regressionOf, nonGoals, intent, ticket, onSave, onClose, t])
 
   const handleDelete = useCallback(async () => {
     if (deleting) return
@@ -685,6 +690,9 @@ export function TicketDetailModal({
             {/* Main content */}
             <div className="flex-1 min-w-0 px-5 py-4 space-y-4 flex flex-col">
               {/* AI Edit overlay renders fullscreen above this modal — see end of component. */}
+
+              {/* Intent — the problem, outcome and limits the spec serves (intent-mode) */}
+              <IntentSection value={intent} onChange={setIntent} disabled={saving} />
 
               <div className="flex-1 flex flex-col">
                 <div className="flex items-center justify-between mb-1.5">
