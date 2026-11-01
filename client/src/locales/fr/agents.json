@@ -192,7 +192,7 @@
   "railSelectors": {
     "profileTitle": "Profil d'agents pour ce rail",
     "noProfile": "Aucun profil",
-    "modelTitle": "Modèle pour ce rail Freestyle",
+    "modelTitle": "Modèle pour ce rail",
     "loopModelTitle": "Modèle pour ce loop",
     "engineTitle": "Fournisseur IA pour tous les rôles de ce lancement : architecte, développeur et réviseur",
     "localEngine": "Moteur local",

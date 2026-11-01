@@ -56,18 +56,18 @@ describe('WelcomeScreen', () => {
         catalog: [{ id: 'tic-tac-toe', name: 'tic-tac-toe', specCount: 3 }],
         sample: null,
         defaultParentDir: '/Users/me/Specrails Samples',
-        launch: { ready: true, preset: { provider: 'claude', model: 'haiku', local: false, loopId: 'factory:sdd-quick-openspec', runCapUsd: 1 }, localPreset: null, estimate: { minutes: [3, 5], usd: [0.3, 1] }, runCapUsd: 1 },
+        launch: { ready: true, preset: { provider: 'claude', model: 'haiku', local: false, loopId: 'factory:implement', runCapUsd: 2 }, localPreset: null, estimate: { minutes: [5, 12], usd: [0.5, 2] }, runCapUsd: 2 },
       }),
     })
     render(<WelcomeScreen onAddProject={vi.fn()} />)
-    expect(await screen.findByTestId('try-sample-cost')).toHaveTextContent(/\$0\.30–\$1/)
+    expect(await screen.findByTestId('try-sample-cost')).toHaveTextContent(/\$0\.50–\$2/)
     expect(screen.getByTestId('try-sample-cost')).toHaveTextContent(/estimate/i)
   })
 
   it('offers the recording instead when no provider is ready', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ catalog: [], sample: null, defaultParentDir: '', launch: { ready: false, reason: 'no_provider', estimate: { minutes: [3, 5], usd: [0.3, 1] }, runCapUsd: 1 } }),
+      json: async () => ({ catalog: [], sample: null, defaultParentDir: '', launch: { ready: false, reason: 'no_provider', estimate: { minutes: [5, 12], usd: [0.5, 2] }, runCapUsd: 2 } }),
     })
     render(<WelcomeScreen onAddProject={vi.fn()} />)
     expect(await screen.findByTestId('try-sample-cost')).toHaveTextContent(/recorded run/i)

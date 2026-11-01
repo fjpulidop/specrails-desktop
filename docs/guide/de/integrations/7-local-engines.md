@@ -15,7 +15,7 @@ Jede Verbindung hat außerdem die Einstellung **Agenten-Schleife**. **Kompakt** 
 
 ## Was du bekommst
 
-- Rails (implement, freestyle, eigene Loops), Explore und Quick-Specs, Chat und Missionen laufen auf dem lokalen Modell.
+- Rails (implement, eigene Loops), Explore und Quick-Specs, Chat und Missionen laufen auf dem lokalen Modell.
 - Missionen behalten ihre Specrails-Tools und deine externen MCP-Server.
 - Sitzungen werden über Turns hinweg fortgesetzt; interaktive Jobs funktionieren.
 - Kosten sind ehrlich: Tokens werden erfasst, die Kosten bleiben *unbekannt*, sofern du keine Tarife einträgst (dann als *geschätzt* markiert).
@@ -26,7 +26,7 @@ Auf lokalen Engines nicht verfügbar: Agentenprofile und eigene Rollen, SMASH-/C
 
 ## Modell wählen
 
-Die Qualität hängt vom Modell ab, nicht von Specrails. Nutze für Rails ein auf Tool-Calling trainiertes Coder-Modell mit mindestens 30B Parametern; kleinere Instruct-Modelle reichen für Chat, Explore und Quick-Specs. Probiere **Freestyle** oder eine Explore-Sitzung, bevor du einem neuen Modell einen kompletten Implement-Rail anvertraust.
+Die Qualität hängt vom Modell ab, nicht von Specrails. Nutze für Rails ein auf Tool-Calling trainiertes Coder-Modell mit mindestens 30B Parametern; kleinere Instruct-Modelle reichen für Chat, Explore und Quick-Specs. Probiere eine Explore-Sitzung, bevor du einem neuen Modell einen kompletten Implement-Rail anvertraust.
 
 ## Abschalten
 

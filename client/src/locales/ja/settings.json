@@ -32,17 +32,6 @@
     "saved": "プレプロンプトを保存しました",
     "saveFailed": "プレプロンプトの保存に失敗しました"
   },
-  "freestylePrePrompt": {
-    "title": "Freestyle プレプロンプト",
-    "description": "Freestyle で選択したプロバイダーに送られる指示です。Freestyle は OpenSpec パイプラインをスキップし、このプレプロンプトとスペックテキストをプロバイダーに渡して自律的に実装させます。空欄の場合は組み込みのデフォルトを使用します。",
-    "label": "Freestyle プレプロンプト",
-    "placeholder": "空欄の場合はデフォルトの Freestyle 指示を使用します。",
-    "helper": "スペックテキストはこのプレプロンプトの後に自動で追加されます。空欄 = デフォルト。",
-    "saveButton": "Freestyle プレプロンプトを保存",
-    "resetToDefault": "Freestyle プレプロンプトをデフォルトにリセットしました",
-    "saved": "Freestyle プレプロンプトを保存しました",
-    "saveFailed": "Freestyle プレプロンプトの保存に失敗しました"
-  },
   "budget": {
     "title": "予算",
     "description": "このプロジェクトの1日あたりの支出上限を設定します。上限に達するとキューは自動で一時停止します。",

@@ -63,7 +63,7 @@ Wähle **Destruktiv** ab, und es kann die ganze Nacht bauen, ohne jemals etwas z
 > *„Prüfe alle meine Projekte. Sag mir, welche Specs im Backlog haben und kein laufendes Rail, und starte in jedem das mit der höchsten Priorität."*
 
 **Freihändig, während du programmierst.** Steuere Specrails aus deinem Editor oder per Sprache, ohne das Fenster zu wechseln:
-> *„Starte Rail 0 im Freestyle-Modus mit Opus für Ticket #42 und sag mir, wenn es fertig ist."*
+> *„Starte Rail 0 mit Opus für Ticket #42 und sag mir, wenn es fertig ist."*
 
 **Frag nach Kosten und Verlauf.** Deine Analytics, in einfacher Sprache:
 > *„Wofür habe ich diese Woche am meisten für KI ausgegeben, nach Projekt und nach Modell? Zeig mir die fünf teuersten Tickets."*

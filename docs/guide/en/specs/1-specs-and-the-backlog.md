@@ -66,7 +66,7 @@ Which one you reach for depends on how clear the idea already is. Know exactly w
 
 ## Addenda — iterating on an existing spec
 
-When a spec already has work behind it — a PR under review, a merged feature — and you want *more*, don't rewrite its description: that drifts the spec (and syncs the drift to Jira) and makes the next run re-plan everything. Open the spec and add an **addendum** instead: a short note with a kind (change request, review feedback, clarification, constraint) and your words. Open addenda ride automatically into the next launch of that spec on any loop — Implement, SDD Quick, Freestyle — so the run changes only what you asked, and the review packet reports each one as applied, partially applied or blocked. If the run fails or you discard the delivery, they return to **Open** on their own. The mission agent can add them for you when you ask it to change something about an existing spec.
+When a spec already has work behind it — a PR under review, a merged feature — and you want *more*, don't rewrite its description: that drifts the spec (and syncs the drift to Jira) and makes the next run re-plan everything. Open the spec and add an **addendum** instead: a short note with a kind (change request, review feedback, clarification, constraint) and your words. Open addenda ride automatically into the next launch of that spec on any loop — Implement or a custom loop — so the run changes only what you asked, and the review packet reports each one as applied, partially applied or blocked. If the run fails or you discard the delivery, they return to **Open** on their own. The mission agent can add them for you when you ask it to change something about an existing spec.
 
 ## Reviewing a delivery — what to look at first
 

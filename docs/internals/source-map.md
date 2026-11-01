@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1346 source/build files. Nearby tests are linked where names
+Includes 1345 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -729,7 +729,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/rails/components
 
-- [FreestyleLaunchDialog.tsx](../../client/src/features/rails/components/FreestyleLaunchDialog.tsx) · [test](../../client/src/features/rails/components/__tests__/FreestyleLaunchDialog.test.tsx)
 - [LaunchAllDialog.tsx](../../client/src/features/rails/components/LaunchAllDialog.tsx)
 - [MoveToRailPopover.tsx](../../client/src/features/rails/components/MoveToRailPopover.tsx)
 - [RailControls.tsx](../../client/src/features/rails/components/RailControls.tsx) · [test](../../client/src/features/rails/components/__tests__/RailControls.test.tsx)

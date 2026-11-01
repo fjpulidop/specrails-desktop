@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { modelsForProvider, defaultModelForProvider, registerDynamicModelCatalog, resetDynamicModelCatalogs } from '../../features/loops/lib/loop-run-models'
-import { isLocalEngineId, providerSupportsToolPolicy, providerSupportsPureOutput, providerSupportsProfiles, providerSupportsStructuredActions, providerSupportsReasoningEffort, providerSupportsFreestyle, providerSupportsCustomModelAliases, providerLabel } from '../../features/providers/lib/provider-capabilities'
+import { isLocalEngineId, providerSupportsToolPolicy, providerSupportsPureOutput, providerSupportsProfiles, providerSupportsStructuredActions, providerSupportsReasoningEffort, providerSupportsCustomModelAliases, providerLabel } from '../../features/providers/lib/provider-capabilities'
 import { isRuntimeProvidersResponse, runtimeProviderDisplayName, isLocalRuntimeProvider, isAgentRuntimeSettingsResponse } from '../../features/settings/lib/agent-runtime'
 import { FEATURE_LOCAL_ENGINES, isLocalEnginesEnabled } from '../feature-flags'
 
@@ -29,7 +29,6 @@ describe('local engine fallbacks', () => {
     expect(providerSupportsCustomModelAliases('lan-box')).toBe(true)
     expect(providerSupportsStructuredActions('lan-box')).toBe(false)
     expect(providerSupportsProfiles('lan-box')).toBe(false)
-    expect(providerSupportsFreestyle('lan-box')).toBe(true)
     expect(providerSupportsReasoningEffort('lan-box')).toBe(false)
     expect(providerSupportsToolPolicy('lan-box', 'none')).toBe(true)
     expect(providerSupportsToolPolicy('lan-box', 'read-only')).toBe(true)

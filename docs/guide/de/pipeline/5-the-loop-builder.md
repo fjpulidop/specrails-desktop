@@ -10,7 +10,7 @@ Erstelle unter **Komponenten** einen wiederverwendbaren Ablauf, deklariere Einga
 
 Beim Veröffentlichen validiert Core den Entwurf und markiert fehlerhafte Schritte. Beim Start wird die Projektkonfiguration erneut geprüft. Aktualisiere Core, wenn die Engine fehlt. Bestehende Desktop-Loops behalten ihren bisherigen Editor und Ablauf; die folgenden Abschnitte beschreiben diese.
 
-Eine **rail führt einen Loop aus**. Die eingebauten Loops (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) decken die Alltagsfälle ab, aber der **Loop Builder** lässt dich deine eigenen entwerfen — ein visueller Editor im n8n-Stil für Automatisierung, die sich wiederholt, bis ein Ziel erreicht ist. Diese Seite erklärt, was ein Loop ist, wie du einen baust und wie du ihn auf einer rail ausführst.
+Eine **rail führt einen Loop aus**. Der eingebaute `Implement`-Loop deckt den Alltagsfall ab — und die Galerie liefert fertige dazu, etwa `Freestyle` und `SDD Quick (OpenSpec)` —, aber der **Loop Builder** lässt dich deine eigenen entwerfen — ein visueller Editor im n8n-Stil für Automatisierung, die sich wiederholt, bis ein Ziel erreicht ist. Diese Seite erklärt, was ein Loop ist, wie du einen baust und wie du ihn auf einer rail ausführst.
 
 ## Loops und rails — die Beziehung
 
@@ -20,7 +20,7 @@ Ein **Loop** ist das *Rezept* für die Arbeit; eine **rail** ist die *Spur*, die
    Loop Builder (linke Seitenleiste)        Rails (rechts)
    ───────────────────────────             ─────────────
    Implement   (eingebaut)                  Rail 1
-   Freestyle   (eingebaut)     wählen auf ►    Loop: Verify-until-green
+   Freestyle   (aus Galerie)    wählen auf ►    Loop: Verify-until-green
    Verify-until-green (deiner)                     ▶ Play
 ```
 
@@ -31,9 +31,15 @@ Also: Bau einen Loop einmal, dann wähl ihn auf jeder rail in jedem Projekt.
 
 ## Den Builder öffnen
 
-Klick **Loops** in der linken Seitenleiste, um die Bibliothek zu sehen: die drei eingebauten Loops plus alle deine eigenen. Öffne einen, um ihn anzusehen, oder klick **New loop**, um mit einer leeren Leinwand zu starten.
+Klick **Loops** in der linken Seitenleiste, um die Bibliothek zu sehen: der eingebaute `Implement`-Loop plus alle deine eigenen, und darunter die **Vorlagen**-Galerie. Öffne einen, um ihn anzusehen, oder klick **New loop**, um mit einer leeren Leinwand zu starten.
 
 Eingebaute Loops sind echte, bearbeitbare Loops. Öffne einen mit **Edit** und ändere ihn wie jeden anderen Loop: Beim Speichern wird er zum Entwurf, und **Publish** wendet deine Version auf **jede Rail, jeden Start aus dem Agenten-Chat und jeden Companion-Start an, der diesen eingebauten Loop verwendet**. Solange deine Änderung ein Entwurf ist, führen Rails weiter die zuletzt veröffentlichte Version aus – mitten im Bearbeiten geht also nichts kaputt. **Original wiederherstellen** (auf der Karte oder im Builder) setzt einen eingebauten Loop auf die Standardversion zurück; eingebaute Loops lassen sich nicht löschen. Lieber eine separate Kopie? Nutze **Duplicate** – das erzeugt einen normalen Loop und lässt den eingebauten unverändert.
+
+### Mit der Galerie starten
+
+Die **Vorlagen**-Galerie enthält fertige Loops, die du bewusst hinzufügst — die App legt sie nie von selbst auf eine rail. Zwei davon waren früher eingebaut: **Freestyle** (die Spec dem Modell mit voller Freiheit übergeben, dann verifizieren und verfeinern, bis alles grün ist) und **SDD Quick (OpenSpec)** (Artefakte vorbereiten, anwenden und testen, über die CLI validieren, dann archivieren). Klick **Vorlage verwenden**, um eine Entwurfskopie zu erstellen, passe sie bei Bedarf an und **veröffentliche** sie — dann erscheint sie unter *Eigene Loops* in der Loop-Auswahl jeder rail. Freestyle braucht einen Provider mit Freestyle-Unterstützung (jeder CLI-Provider und jede lokale Engine).
+
+War eine rail noch auf das alte eingebaute Freestyle oder SDD Quick gesetzt, fällt sie jetzt auf `Implement` zurück. Ein eingebauter Loop, den du vor dieser Änderung bearbeitet hattest, bleibt als gewöhnlicher Loop mit deinen Änderungen in deiner Bibliothek erhalten.
 
 ## Woraus ein Loop besteht
 

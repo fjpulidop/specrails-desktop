@@ -308,21 +308,17 @@
       "name": "Implémenter",
       "description": "Implémente toutes les specs du rail en une seule exécution : planifie, implémente, relit et vérifie, en corrigeant les échecs jusqu'à ce que les contrôles passent."
     },
-    "factory_freestyle": {
-      "name": "Freestyle",
-      "description": "Confie la spec directement au modèle en toute liberté — sans pipeline, il travaille comme un agent de code classique, puis vérifie + affine jusqu'au vert. Claude uniquement."
-    },
-    "factory_openspec": {
-      "name": "Cycle de vie OpenSpec",
-      "description": "Cycle OpenSpec de la spec à l'archive : générer les artefacts (opsx:ff) → implémenter (opsx:apply) → vérifier (opsx:verify) ; en cas de FAIL, reboucle et amende le même change ; en cas de PASS, archive sans intervention."
-    },
-    "factory_revision": {
-      "name": "Révision",
-      "description": "Applique l'unique changement demandé par-dessus le travail déjà livré, fait re-noter par le relecteur, puis vérifie jusqu'au vert. Aucune replanification."
-    },
     "drift-sweep": {
       "name": "Balayage de dérive",
       "description": "Lecture seule : compare ce qu'affirme la spec de chaque capacité avec ce que fait le code et liste chaque contradiction avec fichier:ligne. Ne modifie rien ; à lancer à la demande."
+    },
+    "quick-sdd-openspec": {
+      "name": "SDD Quick (OpenSpec)",
+      "description": "Cycle OpenSpec rapide, piloté par la spec, pour de petits changements régis par un contrat : préparer les artefacts, appliquer et tester, valider via la CLI, puis archiver."
+    },
+    "freestyle": {
+      "name": "Freestyle",
+      "description": "Confie la spec directement au modèle en toute liberté — sans pipeline, il travaille comme un agent de code classique, puis vérifie + affine jusqu'au vert."
     }
   },
   "import": {

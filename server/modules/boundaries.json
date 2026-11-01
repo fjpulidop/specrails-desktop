@@ -1826,7 +1826,7 @@
     "dependencies": {
       "runtime/builtin-loops.ts": [
         "../../../db",
-        "../../../providers/registry",
+        "../../../ids",
         "../../agent-runtime/runtime/agent-runtime-loader",
         "./loop-factory",
         "./loop-graph",
@@ -1930,8 +1930,7 @@
       "runtime/loop-factory.ts": [
         "./loop-core-factory",
         "./loop-flow-spec-recipe",
-        "./loop-graph",
-        "./loop-templates"
+        "./loop-graph"
       ],
       "runtime/loop-flow-spec-recipe.ts": [
         "./loop-graph"

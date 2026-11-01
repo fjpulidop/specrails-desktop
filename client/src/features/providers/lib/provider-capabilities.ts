@@ -182,14 +182,6 @@ export function providerSupportsPureOutput(
     || providerSupportsToolPolicy(provider, 'read-only')
 }
 
-/** Provider-owned freestyle: every bundled CLI (mirrors the server adapters'
- *  `freestyle` capability) and every local engine (the runner takes the
- *  freestyle pre-prompt natively). Interactive Freestyle remains Claude-only
- *  through persistent stdin. Profiles stay CLI-only. */
-export function providerSupportsFreestyle(provider: string | null | undefined): boolean {
-  return (typeof provider === 'string' && CLI_PROVIDER_IDS.includes(provider)) || isLocalEngineId(provider)
-}
-
 export function providerSupportsProfiles(provider: string | null | undefined): boolean {
   return provider === 'claude' || provider === 'kimi'
 }

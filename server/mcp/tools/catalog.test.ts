@@ -76,7 +76,7 @@ describe('tool catalog smoke (all domains)', () => {
     await setup.handler(ctx, { action: 'add_project', path: '/skills', workspacePaths: ['studio'], repositories: [{ path: '/api' }] })
     expect(JSON.parse(String((fetchMock.mock.calls.at(-1)! as unknown as [string, RequestInit])[1].body))).toMatchObject({ workspacePaths: ['studio'], repositories: [{ path: '/api' }] })
     const loop = buildToolSpecs().find(t => t.name === 'specrails_loops')!
-    await loop.handler(ctx, { action: 'run', projectId: 'p1', loopId: 'factory:freestyle', workspaceSelection: { 'primary-p1': ['/skills/studio'] } })
+    await loop.handler(ctx, { action: 'run', projectId: 'p1', loopId: 'loop-1', workspaceSelection: { 'primary-p1': ['/skills/studio'] } })
     expect(JSON.parse(String((fetchMock.mock.calls.at(-1)! as unknown as [string, RequestInit])[1].body))).toMatchObject({ workspaceSelection: { 'primary-p1': ['/skills/studio'] } })
   })
 
@@ -191,13 +191,20 @@ describe('tool catalog smoke (all domains)', () => {
     expect(res.hint).toMatch(/specrails_watch/)
   })
 
-  it('describes Freestyle as the user-facing name for the canonical freestyle mode', () => {
+  it('offers only Implement as a built-in workflow: the freestyle mode left the enum and the loop id docs', () => {
     const rails = buildToolSpecs().find((s) => s.name === 'specrails_rails')!
-    expect(rails.description).toContain('call the free-form autonomous mode "Freestyle"')
-    expect(rails.description).toContain('canonical API enum value')
+    expect(rails.description).toContain('Implement is the only built-in workflow')
+    expect(rails.description).toContain('builtin_loop_retired')
+    expect(rails.description).not.toContain('Freestyle", use "freestyle"')
     const mode = rails.inputSchema.mode as z.ZodTypeAny
-    expect(mode.description).toContain('Use "freestyle" as the canonical API enum value for Freestyle')
-    expect(mode.description).toContain('In prose, call it "Freestyle"')
+    expect(mode.safeParse('freestyle').success).toBe(false)
+    expect(mode.safeParse('implement').success).toBe(true)
+    expect(mode.safeParse('loop').success).toBe(true)
+    expect((rails.inputSchema.loopId as z.ZodTypeAny).description).not.toContain('sdd-quick-openspec')
+    const loops = buildToolSpecs().find((s) => s.name === 'specrails_loops')!
+    expect(loops.description).toContain('factory:implement')
+    expect(loops.description).not.toContain('factory:freestyle')
+    expect(loops.description).not.toContain('factory:sdd-quick-openspec')
   })
 
   // Origin link (safe-pr-review-flow): a launch driven by the in-app agent tags

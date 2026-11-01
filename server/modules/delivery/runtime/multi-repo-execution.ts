@@ -20,6 +20,14 @@ import { readExecutionManifest, type RunExecutionManifest, type RepositoryDelive
 import { FlowWorktreeMismatchError } from './flow-worktree-handoff'
 import { FLOW_SPEC_DELIVERY_LOOP_ID } from './flow-review-outcome'
 import { readSettleEvidence } from './delivery-evidence'
+
+/** The OpenSpec artifacts live in the primary repository: the archive step of the
+ *  Quick SDD recipe (any copy of it, or the retired built-in id) runs there. */
+function isOpenSpecArchiveStep(loopId: string | undefined, node: { id: string; data?: Record<string, unknown> }): boolean {
+  if (loopId === 'factory:sdd-quick-openspec' && node.id === 'archive') return true
+  return typeof node.data?.command === 'string' && /^\s*openspec\s+archive\b/.test(node.data.command)
+}
+
 export { migrateMultiRepoExecution, getRepositoryExecutionReferences } from './multi-repo-execution-store'
 export type { RunExecutionManifest, RunRepositorySnapshot, RepositoryDeliverySnapshot } from './multi-repo-execution-store'
 
@@ -191,7 +199,7 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
   for (const node of graph.nodes) {
     if (node.type !== 'shell') continue
     if (selected.length === 1 && !node.data?.repositoryId) node.data = { ...node.data, repositoryId: selected[0].id }
-    if (input.loopId === 'factory:sdd-quick-openspec' && node.id === 'archive' && !node.data?.repositoryId) {
+    if (isOpenSpecArchiveStep(input.loopId, node) && !node.data?.repositoryId) {
       node.data = { ...node.data, repositoryId: artifactRepositoryId }
     }
     if (typeof node.data?.repositoryId !== 'string' || !selected.some((repo) => repo.id === node.data?.repositoryId)) {

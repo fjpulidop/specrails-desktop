@@ -4,11 +4,11 @@ import { analyticsTools } from './analytics'
 import { railsTools } from './rails'
 
 describe('provider-aware MCP tool descriptions', () => {
-  it('documents Kimi and capability-gated Freestyle without stale Claude-only claims', () => {
+  it('documents Kimi without stale Claude-only claims and without a Freestyle mode', () => {
     const tool = railsTools()[0]
     expect(tool.description).toContain('Kimi')
     expect(tool.description).not.toContain('claude/codex/gemini')
-    expect(tool.inputSchema.mode.description).toContain('Claude, Codex, Gemini, Kimi and local engines; only Claude is interactive')
+    expect(tool.inputSchema.mode.description).not.toMatch(/freestyle/i)
     expect(tool.inputSchema.model.description).toContain('Kimi')
     expect(tool.inputSchema.model.description).not.toContain('Claude-only')
   })

@@ -123,7 +123,7 @@
     "title": "Addenda",
     "hint": "Note di iterazione sopra la spec. Viaggiano con il prossimo lancio senza modificare la descrizione.",
     "add": "Aggiungi addendum",
-    "emptyCta": "Aggiungi un addendum per iterare su questa spec: il prossimo lancio (Implement, SDD Quick, Freestyle…) lo riceve come briefing e la descrizione resta intatta.",
+    "emptyCta": "Aggiungi un addendum per iterare su questa spec: il prossimo lancio (Implement o qualsiasi loop) lo riceve come briefing e la descrizione resta intatta.",
     "openCount_one": "{{count}} aperto",
     "openCount_other": "{{count}} aperti",
     "kind": {

@@ -131,7 +131,7 @@
     "select": "Dépôt",
     "all": "Tous les dépôts",
     "workspacePath": "Dossiers de code",
-    "workspaceHint": "Facultatif. Un dossier par ligne, absolu ou relatif au dépôt. Vide utilise le dossier du dépôt. Implement, Quick SDD et Freestyle vérifient chaque dossier indiqué.",
+    "workspaceHint": "Facultatif. Un dossier par ligne, absolu ou relatif au dépôt. Vide utilise le dossier du dépôt. Implement et les loops vérifient chaque dossier indiqué.",
     "launchWorkspaces": "Dossiers pour cette exécution",
     "launchWorkspaceHint": "Les modifications et les tests sont limités à ces dossiers. Sélectionnez au moins un dossier pour chaque dépôt concerné.",
     "advanced": "Configuration multi-dépôts"

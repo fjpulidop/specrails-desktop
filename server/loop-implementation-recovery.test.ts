@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { initDb, getJob, getJobEvents, type DbInstance } from './db'
 import { LoopRunManager, type LoopExecutors } from './modules/loops/runtime/loop-run-manager'
 import { getFactoryLoop } from './modules/loops/runtime/loop-factory'
-import { fixLoopGraph } from './modules/loops/runtime/loop-templates'
+import { FREESTYLE_TEMPLATE_ID, fixLoopGraph, getLoopTemplate } from './modules/loops/runtime/loop-templates'
 import { expandCommands } from './modules/loops/runtime/loop-command-catalog'
 import { interpolateSpec, type LoopSpec } from './modules/loops/runtime/loop-graph'
 import { resolveConstants, BUILTIN_CONSTANTS } from './modules/loops/runtime/loop-constants'
@@ -17,7 +17,7 @@ function frozenScope(prompt: string): LoopSpec {
 }
 
 describe('implementation recovery from a setup-only first step', () => {
-  it.each(['factory:freestyle'])('%s repairs missing behavior after green baseline checks without accepting a premature STOP', async factoryId => {
+  it.each([FREESTYLE_TEMPLATE_ID])('%s gallery template repairs missing behavior after green baseline checks without accepting a premature STOP', async factoryId => {
     const db = initDb(':memory:'); opened.push(db)
     const longDescription = 'Front requirement. '.repeat(250) + 'Accept a specialty filter and preserve the selected option.'
     const spec: LoopSpec = {
@@ -58,7 +58,7 @@ describe('implementation recovery from a setup-only first step', () => {
     }
     const manager = new LoopRunManager(db, () => undefined, executors, () => 1000)
     const result = await manager.run({
-      loopId: factoryId, loopName: factoryId, graph: getFactoryLoop(factoryId)!.graph,
+      loopId: factoryId, loopName: factoryId, graph: getLoopTemplate(factoryId)!.graph,
       projectId: 'test-project', cwd: '/fixture/no-execution', ticketId: 1, spec, provider: 'claude', model: 'sonnet',
     })
     expect(result.outcome).toBe('success')

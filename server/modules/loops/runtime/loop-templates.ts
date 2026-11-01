@@ -13,7 +13,8 @@ import { defaultLoopAgents } from './loop-agents'
  * stack, so a template works on any repo regardless of test runner. (The Shell
  * node type still exists for power users; the starters just don't depend on it.)
  *
- * The catalog is exactly the eight starters in CORE_STARTER_TEMPLATE_IDS. When
+ * The catalog is the eight starters in CORE_STARTER_TEMPLATE_IDS plus the two
+ * former built-ins (Quick SDD, Freestyle — see "Former built-ins" below). When
  * the selected Core advertises the definition engine they are served as Core
  * definitions; older Core packages receive the equivalent legacy graphs.
  *
@@ -185,8 +186,9 @@ const OPSX_APPLY_PROMPT = [
   '{{const:GUARDRAILS}}',
 ].join('\n\n')
 
-/** The OpenSpec-lifecycle graph (see comment above). Legacy variant of the
- *  `factory:sdd-quick-openspec` built-in; it is not a gallery template. */
+/** The OpenSpec-lifecycle graph (see comment above). Legacy-Core variant of the
+ *  `quick-sdd-openspec` gallery template (formerly the `factory:sdd-quick-openspec`
+ *  built-in). */
 export function opsxLifecycleGraph(): LoopGraph {
   return {
     nodes: [
@@ -498,7 +500,7 @@ export function supportsCoreTemplates(capabilities?: Record<string, number>): bo
  *  when the capabilities allow it; every other entry (and every entry on older
  *  Core) is the legacy graph. Order, ids, names, categories and tags are stable. */
 export function loopTemplatesForCapabilities(capabilities?: Record<string, number>): LoopTemplate[] {
-  if (!supportsCoreTemplates(capabilities)) return LOOP_TEMPLATES
+  if (!supportsCoreTemplates(capabilities)) return [...LOOP_TEMPLATES, ...FORMER_BUILTIN_TEMPLATES]
   return [...LOOP_TEMPLATES.map((template) => {
     if (!isCoreStarterId(template.id)) return template
     const readOnly = CORE_STARTER_SHAPES[template.id] === 'watch'
@@ -508,7 +510,8 @@ export function loopTemplatesForCapabilities(capabilities?: Record<string, numbe
       ...(readOnly ? { readOnly: true } : {}),
       graph: coreStarterGraph(template.id, capabilities?.implementationSteps === 1, capabilities?.workflowAgentSteps === 1, capabilities),
     }
-  }), ...phase3Templates(capabilities)]
+  }), ...FORMER_BUILTIN_TEMPLATES.map((template) => ({ ...template, graph: formerBuiltinCoreGraph(template.id, capabilities) ?? template.graph })),
+  ...phase3Templates(capabilities)]
 }
 
 /** Drift sweep (feedback-2026-10 task 3.3): the reviewer's check 9 ("the spec
@@ -551,6 +554,43 @@ export const DRIFT_SWEEP_TEMPLATE: LoopTemplate = {
   tags: ['specs', 'drift', 'read-only'],
   readOnly: true,
   graph: driftSweepGraph(),
+}
+
+// ── Former built-ins ─────────────────────────────────────────────────────────
+// Quick SDD (OpenSpec) and Freestyle used to be app-owned built-in loops offered
+// on every rail. They are ordinary gallery templates now: the user adds them
+// explicitly, edits/publishes the copy and selects it as a custom loop. Nothing
+// in the app offers or launches them by itself.
+
+/** Gallery ids of the two former built-ins. */
+export const QUICK_SDD_TEMPLATE_ID = 'quick-sdd-openspec'
+export const FREESTYLE_TEMPLATE_ID = 'freestyle'
+
+const FREESTYLE_GREEN_GOAL = 'Stop only when the latest verification step reports {{const:VERIFICATION_PASS}} and the history proves every acceptance criterion is implemented across all required tickets and repositories, with the relevant behavioral checks and configured tests/build passing. Green baseline checks, setup, or planning alone do not prove completion.'
+
+const FORMER_BUILTIN_TEMPLATES: readonly LoopTemplate[] = [
+  {
+    id: QUICK_SDD_TEMPLATE_ID,
+    name: 'SDD Quick (OpenSpec)',
+    description: 'Quick spec-driven OpenSpec lifecycle for small contract-governed changes: prepare artifacts, apply and test, validate through the CLI, then archive.',
+    category: 'Planning',
+    tags: ['openspec', 'spec-driven'],
+    graph: opsxLifecycleGraph(),
+  },
+  {
+    id: FREESTYLE_TEMPLATE_ID,
+    name: 'Freestyle',
+    description: 'Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green.',
+    category: 'Automation',
+    tags: ['freestyle', 'autonomous'],
+    graph: fixLoopGraph(['{{cmd:freestyle}}'], FREESTYLE_GREEN_GOAL, 12, 0, 0),
+  },
+]
+
+/** Core definition graph of a former built-in; same recipe the factory used. */
+function formerBuiltinCoreGraph(id: string, capabilities?: Record<string, number>): LoopGraph | undefined {
+  const mode = id === QUICK_SDD_TEMPLATE_ID ? 'quick-sdd' : id === FREESTYLE_TEMPLATE_ID ? 'freestyle' : undefined
+  return mode ? coreFactoryGraph(mode, capabilities?.implementationSteps === 1, capabilities?.workflowAgentSteps === 1, capabilities) : undefined
 }
 
 /** Templates gated on phase-3 Core capabilities (appended after the catalog). */

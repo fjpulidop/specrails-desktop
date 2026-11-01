@@ -131,7 +131,7 @@
     "select": "Repositório",
     "all": "Todos os repositórios",
     "workspacePath": "Pastas de código",
-    "workspaceHint": "Opcional. Uma pasta por linha, absoluta ou relativa ao repositório. Vazio usa a pasta do repositório. Implement, Quick SDD e Freestyle verificam cada pasta indicada.",
+    "workspaceHint": "Opcional. Uma pasta por linha, absoluta ou relativa ao repositório. Vazio usa a pasta do repositório. Implement e os loops verificam cada pasta indicada.",
     "launchWorkspaces": "Pastas para esta execução",
     "launchWorkspaceHint": "As alterações e os testes ficam limitados a estas pastas. Selecione pelo menos uma pasta para cada repositório afetado.",
     "advanced": "Configuração multirrepositório"

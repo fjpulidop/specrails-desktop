@@ -39,7 +39,7 @@
     "prompt": "O que quer alterar?",
     "placeholder": "p. ex. pôr o botão de login azul",
     "submit": "Enviar a alteração",
-    "hint": "Quick SDD aplica a alteração no branch existente e atualiza esta entrega."
+    "hint": "Implement aplica a alteração no branch existente e atualiza esta entrega."
   },
   "discard": {
     "label": "Descartar isto",

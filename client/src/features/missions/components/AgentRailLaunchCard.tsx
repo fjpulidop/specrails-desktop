@@ -32,7 +32,7 @@ import { recordLocalIntent } from '../../rails/lib/rail-launch-intents'
 import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
 import { modelsForProvider, defaultModelForProvider } from '../../loops/lib/loop-run-models'
 import {
-  reasoningEffortsForProvider, providerSupportsFreestyle,
+  reasoningEffortsForProvider,
   providerSupportsProfiles, providerLabel, isRolesEngine,
 } from '../../providers/lib/provider-capabilities'
 import { FACTORY_RAIL_LOOPS, deriveRailMode, effectiveLoopId } from '../../rails/lib/rail-loops'
@@ -311,7 +311,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const engineStale = !!config.aiEngine && providerReady && effectiveEngine !== config.aiEngine
   // `roles` = the hybrid per-role engines (runtime config + loop roles): no
   // single provider owns the run, so model/effort/profile selectors step aside
-  // exactly like the rail header does (RailRow). Freestyle needs one engine.
+  // exactly like the rail header does (RailRow).
   const rolesEngine = !!effectiveEngine && isRolesEngine(effectiveEngine)
   const catalogProvider = effectiveEngine && !isRolesEngine(effectiveEngine) ? effectiveEngine : detectedProviders[0] ?? null
 
@@ -421,14 +421,12 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     [tickets, config.ticketIds],
   )
 
-  const freestyleAvailable = !rolesEngine && providerSupportsFreestyle(catalogProvider)
   const loopOptions: AgentToolbarOption[] = useMemo(() => {
     if (handOff) return [{ value: handOff.loop.id, label: handOff.loop.label }]
     const builtIn = FACTORY_RAIL_LOOPS
-      .filter((l) => (!l.requiresFreestyle || freestyleAvailable) && (!l.requiresLoops || FEATURE_LOOPS_SECTION))
       .map((l) => ({ value: l.id, label: t(`dashboard:${l.labelKey}`) }))
     return [...builtIn, ...customLoops.map((l) => ({ value: l.id, label: l.name }))]
-  }, [customLoops, freestyleAvailable, t, handOff])
+  }, [customLoops, t, handOff])
   const loopKnown = loopOptions.some((o) => o.value === config.loopId)
   const effectiveLoop = effectiveLoopId(loopKnown ? config.loopId : loopOptions[0]?.value ?? config.loopId, mode, hasAddenda)
 

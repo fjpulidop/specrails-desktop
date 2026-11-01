@@ -12,7 +12,7 @@ Crea un cuerpo reutilizable en **Componentes**, declara sus variables de entrada
 
 Las secciones siguientes describen los nodos antiguos de Desktop y su uso en rails.
 
-Un **rail ejecuta un Loop**. Los loops integrados (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) cubren los casos del día a día, pero el **Loop Builder** te permite diseñar el tuyo propio — un editor visual al estilo n8n para automatizaciones que se repiten hasta cumplir un objetivo. Esta página explica qué es un loop, cómo construir uno y cómo ejecutarlo en un rail.
+Un **rail ejecuta un Loop**. El loop integrado `Implement` cubre el caso del día a día — y la galería añade otros ya hechos, como `Freestyle` y `SDD Quick (OpenSpec)` — pero el **Loop Builder** te permite diseñar el tuyo propio — un editor visual al estilo n8n para automatizaciones que se repiten hasta cumplir un objetivo. Esta página explica qué es un loop, cómo construir uno y cómo ejecutarlo en un rail.
 
 ## Loops y rails — la relación
 
@@ -22,7 +22,7 @@ Un **loop** es la *receta* del trabajo; un **rail** es el *carril* que la ejecut
    Loop Builder (barra lateral izq.)       Rails (derecha)
    ───────────────────────────             ─────────────
    Implement   (integrado)                 Rail 1
-   Freestyle   (integrado)     elige en ►     Loop: Verify-until-green
+   Freestyle   (de galería)    elige en ►     Loop: Verify-until-green
    Verify-until-green (tuyo)                    ▶ Play
 ```
 
@@ -34,7 +34,13 @@ Así que: construye un loop una vez y luego elígelo en cualquier rail de cualqu
 
 ## Abrir el builder
 
-Pulsa **Loops** en la barra lateral izquierda para ver la biblioteca: los tres loops integrados más los tuyos. Abre uno para verlo, o pulsa **New loop** para empezar desde un lienzo en blanco.
+Pulsa **Loops** en la barra lateral izquierda para ver la biblioteca: el loop integrado `Implement` más los tuyos, y debajo la galería de **Plantillas**. Abre uno para verlo, o pulsa **New loop** para empezar desde un lienzo en blanco.
+
+### Empezar desde la galería
+
+La galería de **Plantillas** reúne loops ya hechos que añades a propósito: la app nunca los pone en un rail por sí sola. Dos de ellos eran antes integrados: **Freestyle** (entrega la spec al modelo con plena libertad y después verifica y refina hasta que todo pasa) y **SDD Quick (OpenSpec)** (prepara los artefactos, aplica y prueba, valida con la CLI y por último archiva). Pulsa **Usar plantilla** para crear una copia en Borrador, ajústala si quieres, **Publicar**la y aparecerá en *Loops personalizados* en el selector de Loop de todos los rails. Freestyle necesita un proveedor con soporte de Freestyle (todos los proveedores CLI y motores locales).
+
+Si un rail seguía configurado con el antiguo Freestyle o SDD Quick integrado, ahora vuelve a `Implement`. Un integrado que hubieras editado antes de este cambio se conserva como un loop normal en tu biblioteca, con tus ediciones intactas.
 
 Los loops integrados son loops reales y editables. Ábrelo con **Edit** y cámbialo como cualquier otro loop: al guardar pasa a Borrador y **Publish** aplica tu versión en **todos los rails, lanzamientos desde el chat del agente y Companion que usan ese integrado**. Mientras tu edición sea un Borrador, los rails siguen ejecutando la última versión publicada, así que nada se rompe a mitad de edición. **Restaurar original** (en la tarjeta o en el builder) devuelve el integrado a su versión por defecto; los integrados no se pueden borrar. ¿Prefieres una copia aparte? Usa **Duplicate**: crea un loop normal y deja el integrado intacto.
 

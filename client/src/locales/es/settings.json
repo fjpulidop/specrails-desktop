@@ -32,17 +32,6 @@
     "saved": "Pre-prompt guardado",
     "saveFailed": "No se pudo guardar el pre-prompt"
   },
-  "freestylePrePrompt": {
-    "title": "Pre-prompt de Freestyle",
-    "description": "Instrucción enviada al proveedor seleccionado en Freestyle. Freestyle se salta el pipeline de OpenSpec — le entrega al proveedor este pre-prompt más el texto de la spec y le deja implementar de forma autónoma. Déjalo en blanco para usar el valor por defecto integrado.",
-    "label": "Pre-prompt Freestyle",
-    "placeholder": "Déjalo en blanco para usar la instrucción por defecto de Freestyle.",
-    "helper": "El texto de la spec se añade automáticamente después de este pre-prompt. Vacío = por defecto.",
-    "saveButton": "Guardar pre-prompt Freestyle",
-    "resetToDefault": "Pre-prompt Freestyle restablecido al valor por defecto",
-    "saved": "Pre-prompt Freestyle guardado",
-    "saveFailed": "No se pudo guardar el pre-prompt Freestyle"
-  },
   "budget": {
     "title": "Presupuesto",
     "description": "Define un límite de gasto diario para este proyecto. La cola se pausa automáticamente al alcanzar el límite.",

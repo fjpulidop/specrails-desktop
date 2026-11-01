@@ -288,7 +288,7 @@
         },
         "prePrompt": {
           "label": "レールのプリプロンプト",
-          "keywords": "プリプロンプト, pre-prompt, 指示, プロンプト, レール, freestyle"
+          "keywords": "プリプロンプト, pre-prompt, 指示, プロンプト, レール"
         },
         "verificationCommands": {
           "label": "検証コマンド",

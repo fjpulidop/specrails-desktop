@@ -1958,6 +1958,14 @@ const MIGRATIONS: Migration[] = [
     rebuildJobSearchIndex(db)
   },
 
+  // Migration 87: Freestyle stopped being a rail mode (it is a gallery loop
+  // now). A rail still stored as `freestyle` (or its pre-rename spelling
+  // `ultracode`) folds to `implement`; tickets, profile and engine stay.
+  // Jobs and loop runs that already ran in that mode are history and untouched.
+  (db) => {
+    db.exec("UPDATE rails SET mode = 'implement' WHERE mode IN ('freestyle', 'ultracode')")
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

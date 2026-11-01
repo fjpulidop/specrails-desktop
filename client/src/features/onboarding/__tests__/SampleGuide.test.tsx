@@ -114,13 +114,13 @@ describe('SampleGuide: run the first spec', () => {
     return ctx
   }
 
-  it('launches the first spec with the cost-bounded preset (Quick SDD, cheapest model, run cap) and states the cost first', async () => {
+  it('launches the first spec with the cost-bounded preset (Implement, cheapest model, run cap) and states the cost first', async () => {
     const { user } = await toRail()
-    expect(screen.getByTestId('sample-cost')).toHaveTextContent(/≈ \$0\.30–\$1/)
+    expect(screen.getByTestId('sample-cost')).toHaveTextContent(/≈ \$0\.50–\$2/)
     expect(screen.getByTestId('sample-cost')).toHaveTextContent(/estimate/i)
     await user.click(screen.getByTestId('run-first-spec'))
     await waitFor(() => expect(launchFirstSpec).toHaveBeenCalledTimes(1))
-    expect(launchFirstSpec).toHaveBeenCalledWith('sample-p', 11, { provider: 'claude', model: 'haiku', local: false, loopId: 'factory:sdd-quick-openspec', runCapUsd: 1 })
+    expect(launchFirstSpec).toHaveBeenCalledWith('sample-p', 11, { provider: 'claude', model: 'haiku', local: false, loopId: 'factory:implement', runCapUsd: 2 })
     expect(await screen.findByTestId('sample-launched')).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem(SAMPLE_GUIDE_KEY) as string)).toMatchObject({ launched: true })
     expect(screen.queryByTestId('run-first-spec')).not.toBeInTheDocument()

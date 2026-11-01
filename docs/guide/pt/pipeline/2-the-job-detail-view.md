@@ -37,7 +37,7 @@ Cada fase é um agente especializado que o motor do rail invoca na diretoria do 
 | **Reviewer** | `sr-reviewer` | Revê o resultado. |
 | **Ship** | (varia) | Finalização: testes, commit, rascunho de PR. |
 
-Que agente trata de cada fase é decidido pelo **perfil de agentes** do projeto. O trio base (`sr-architect`, `sr-developer`, `sr-reviewer`) está sempre presente; as regras de encaminhamento de um perfil podem acrescentar agentes ou trocar qual deles corre uma fase. A barra de progresso das fases só aparece quando o comando define mesmo fases — os jobs Freestyle (que ignoram o pipeline) não mostram nenhuma.
+Que agente trata de cada fase é decidido pelo **perfil de agentes** do projeto. O trio base (`sr-architect`, `sr-developer`, `sr-reviewer`) está sempre presente; as regras de encaminhamento de um perfil podem acrescentar agentes ou trocar qual deles corre uma fase. A barra de progresso das fases só aparece quando o comando define mesmo fases — os jobs que ignoram o pipeline (como um loop Freestyle da galeria) não mostram nenhuma.
 
 ## Métricas ao vivo — honestas por princípio
 
@@ -92,7 +92,7 @@ Algumas coisas que vale a pena saber:
 
 - **As mensagens entram em fila, não interrompem.** Envie enquanto o agente está a transmitir e a sua mensagem espera a vez — corre como o prompt seguinte, e o job continua a seguir o seu plano. Um pequeno contador mostra quantas mensagens estão em fila.
 - **A linha de totais é real.** O compositor mostra um resumo ao vivo `N turnos · $X`, somado a partir do uso real de cada turno concluído — coerente com a promessa desta página de nunca adivinhar.
-- **Duas formas de uma sessão terminar.** A maioria dos jobs **termina sozinha**: assim que um turno acaba sem mensagens em fila, a sessão assenta e o job conclui — as suas mensagens são orientação opcional, nunca uma obrigação. Uma ação discreta **Concluir agora** termina-a mais cedo com tudo o que foi produzido até então. Os jobs **Freestyle** são a exceção: ficam à espera entre turnos até que clique em **Finalize** — é esse o seu desenho, uma sessão de ida e volta que fecha quando terminar.
+- **Duas formas de uma sessão terminar.** A maioria dos jobs **termina sozinha**: assim que um turno acaba sem mensagens em fila, a sessão assenta e o job conclui — as suas mensagens são orientação opcional, nunca uma obrigação. Uma ação discreta **Concluir agora** termina-a mais cedo com tudo o que foi produzido até então. Os jobs **Freestyle** antigos (de antes de o Freestyle passar a ser um loop da galeria) são a exceção: ficam à espera entre turnos até que clique em **Finalize** — é esse o seu desenho, uma sessão de ida e volta que fecha quando terminar.
 - **Nas execuções de loop, as mensagens vão para o passo ativo.** Num loop embutido ou personalizado, a sua mensagem chega ao **passo de IA que está a correr nesse momento**. Entre passos (enquanto o Loop Decider pensa, ou um comando de shell corre) o compositor mostra um breve estado *«À espera do próximo passo…»* — o texto rascunhado mantém-se, e o envio reativa-se quando o próximo passo de IA arranca. **Assentar este passo** termina o passo atual mais cedo e deixa o loop avançar com o que ele produziu.
 
 ## Exportação de diagnóstico

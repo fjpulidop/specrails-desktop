@@ -10,7 +10,7 @@
 
 发布时，Core 会验证草稿并在相关步骤上显示错误。启动时会再次验证项目配置。引擎不可用时请更新 Core。现有 Desktop 循环保留原来的编辑器和执行方式，下面的章节介绍这些旧版流程。
 
-**一条 rail 运行的是一个 Loop。** 内置的那些 loop（`Implement`、`Freestyle`、`SDD Quick (OpenSpec)`）覆盖了日常场景，但 **Loop Builder** 让你能设计自己的——一个可视化的、n8n 风格的编辑器，用来做那种"重复执行直到目标达成"的自动化。本页会讲清楚什么是 loop、怎么搭一个，以及怎么在 rail 上运行它。
+**一条 rail 运行的是一个 Loop。** 内置的 `Implement` loop 覆盖了日常场景——图库还提供了现成的 loop，比如 `Freestyle` 和 `SDD Quick (OpenSpec)`——但 **Loop Builder** 让你能设计自己的——一个可视化的、n8n 风格的编辑器，用来做那种"重复执行直到目标达成"的自动化。本页会讲清楚什么是 loop、怎么搭一个，以及怎么在 rail 上运行它。
 
 ## Loop 与 rail——它们的关系
 
@@ -20,7 +20,7 @@
    Loop Builder (左侧栏)                   Rails (右)
    ───────────────────────────             ─────────────
    Implement   (内置)                       Rail 1
-   Freestyle   (内置)          在此挑选 ►       Loop: Verify-until-green
+   Freestyle   (来自图库)      在此挑选 ►       Loop: Verify-until-green
    Verify-until-green (你的)                          ▶ Play
 ```
 
@@ -31,9 +31,15 @@
 
 ## 打开 builder
 
-点左侧栏的 **Loops**，就能看到这个库：三个内置 loop，再加上你自己的所有 loop。打开一个来查看，或者点 **New loop** 从一张空白画布开始。
+点左侧栏的 **Loops**，就能看到这个库：内置的 `Implement` loop，再加上你自己的所有 loop，下方还有 **模板** 图库。打开一个来查看，或者点 **New loop** 从一张空白画布开始。
 
 内置 loop 是真正可编辑的 loop。用 **Edit** 打开它，像编辑其他 loop 一样修改：保存后它会变成草稿，**Publish** 后你的版本会应用到**所有使用这个内置 loop 的轨道、代理聊天启动和 Companion 启动**。在你的修改还是草稿时，轨道会继续运行最后发布的版本，所以编辑中途不会出问题。**恢复原始版本**（在卡片上或构建器中）可以把内置 loop 重置为默认版本；内置 loop 不能删除。想要一份独立的副本？用 **Duplicate**——它会创建一个普通 loop，内置 loop 保持不变。
+
+### 从图库开始
+
+**模板** 图库里是现成的 loop，由你主动添加——应用绝不会自行把它们放到 rail 上。其中两个原先是内置的：**Freestyle**（把 spec 完全放手交给模型，然后验证并打磨直到全部通过）和 **SDD Quick (OpenSpec)**（准备工件、应用并测试、通过 CLI 验证，最后归档）。点击 **使用模板** 创建一份草稿副本，按需调整，**发布** 之后，它就会出现在每条 rail 的 Loop 选择器的自定义 loop 下。Freestyle 需要支持 Freestyle 的提供方（所有 CLI 提供方和本地引擎）。
+
+如果某条 rail 仍设为旧的内置 Freestyle 或 SDD Quick，它现在会回退到 `Implement`。在此变更之前你编辑过的内置 loop，会作为普通 loop 保留在你的库中，你的修改原样保留。
 
 ## 一个 loop 由什么组成
 

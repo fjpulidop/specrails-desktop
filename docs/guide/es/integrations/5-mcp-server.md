@@ -47,7 +47,7 @@ Desmarca **Destructivo** y podrá trabajar toda la noche sin borrar nada nunca.
 > *"Revisa todos mis proyectos. Dime cuáles tienen specs en el backlog y ningún rail en marcha, y arranca el de mayor prioridad en cada uno."*
 
 **Sin manos mientras programas.** Maneja Specrails desde tu editor o por voz, sin cambiar de ventana:
-> *"Lanza el rail 0 en modo Freestyle con Opus para la spec #42 y avísame cuando termine."*
+> *"Lanza el rail 0 con Opus para la spec #42 y avísame cuando termine."*
 
 **Pregunta por el coste y el historial.** Tus analíticas, en lenguaje natural:
 > *"¿Dónde he gastado más en IA esta semana, por proyecto y por modelo? Enséñame los cinco specs más caras."*

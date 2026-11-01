@@ -39,7 +39,7 @@
     "prompt": "What would you like changed?",
     "placeholder": "e.g. make the login button blue",
     "submit": "Send the change",
-    "hint": "Quick SDD applies your change on the existing branch and updates this delivery."
+    "hint": "Implement applies your change on the existing branch and updates this delivery."
   },
   "discard": {
     "label": "Throw this away",

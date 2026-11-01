@@ -37,8 +37,7 @@ the same version Flow uses. Core ignores it.
 ```
 
 - `recommendedLoop` is always one of the loops offered to the triage. These are
-  the rail built-ins the primary engine can run (Implement, Freestyle when the
-  provider supports it, and SDD Quick when Loops are enabled), plus published
+  the rail built-ins the primary engine can run (Implement only), plus published
   spec-driven custom loops.
 - Flow is not a loop, and Flow and Implement never compete: the triage
   recommends a loop and a size for Implement only and never ranks Flow against
@@ -94,8 +93,8 @@ The model must answer with one JSON object. The parser repairs what it can:
 - It drops absolute paths and paths that climb out with `..`.
 - It bounds the rationale.
 
-An unknown loop falls back to a size rule, XS or S ⇒ SDD Quick when offered,
-else Implement, and the confidence drops to `low`. With no JSON object or an
+An unknown loop falls back to a size rule, Implement when offered,
+else the first offered loop, and the confidence drops to `low`. With no JSON object or an
 invalid size, the triage is stored as `failed`.
 
 ## Triggers

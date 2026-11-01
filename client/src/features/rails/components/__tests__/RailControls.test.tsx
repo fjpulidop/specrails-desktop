@@ -72,9 +72,9 @@ describe('RailControls', () => {
     expect(screen.getByTitle('Add specs to this rail first')).toBeInTheDocument()
   })
 
-  describe('Interactive toggle (removed — jobs are interactive by default)', () => {
-    it('never renders a switch, even for freestyle rails', () => {
-      render(<RailControls {...defaultProps} mode="freestyle" freestyleAvailable />)
+  describe('Interactive toggle (removed)', () => {
+    it('never renders a switch, even for loop rails', () => {
+      render(<RailControls {...defaultProps} mode="loop" />)
       expect(screen.queryByRole('switch')).toBeNull()
     })
   })

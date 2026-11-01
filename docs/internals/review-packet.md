@@ -144,10 +144,8 @@ attempt replaced the previous one". Version lineage, crash-restore and
 one-active-generation-per-rail all come free from the shipped machinery.
 
 **The loop.** There is no dedicated Revision loop. `factory:revision` survives
-only as a legacy persisted id: `loop-factory.ts` aliases it to
-`factory:sdd-quick-openspec` (SDD Quick) and it is neither listed nor run as its
-own graph. A revision launch without an explicit workflow (no `loopId` and no
-`mode` in the body) runs SDD Quick; an explicit `loopId`/`mode` takes
+only as a legacy persisted id that the launch refuses (`builtin_loop_retired`). A revision launch without an explicit workflow (no `loopId` and no
+`mode` in the body) runs Implement; an explicit `loopId`/`mode` takes
 precedence. The revision intent travels as `{{const:REVISION_REQUEST}}`, which
 `rail-isolated-launch.ts` fills from the revision seed and the loop executors
 append to each AI step's prompt, so the run applies the requested change on top

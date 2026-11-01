@@ -293,12 +293,12 @@ function clean(text: string, max: number): string {
 }
 
 /**
- * Deterministic fallback when the model's loop is not offered: XS/S ⇒ the quick
- * SDD loop when offered, else Implement, else the first offered loop.
+ * Deterministic fallback when the model's loop is not offered: Implement when
+ * offered, else the first offered loop. (Size no longer picks a built-in: the
+ * only built-in is Implement.)
  */
-export function fallbackLoop(size: TriageSize, loops: TriageLoopOption[]): string | null {
+export function fallbackLoop(_size: TriageSize, loops: TriageLoopOption[]): string | null {
   const ids = loops.map((l) => l.id)
-  if ((size === 'XS' || size === 'S') && ids.includes('factory:sdd-quick-openspec')) return 'factory:sdd-quick-openspec'
   if (ids.includes('factory:implement')) return 'factory:implement'
   return ids[0] ?? null
 }

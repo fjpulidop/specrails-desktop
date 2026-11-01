@@ -131,7 +131,7 @@
     "select": "Repositorio",
     "all": "Todos los repositorios",
     "workspacePath": "Ruta del workspace de código",
-    "workspaceHint": "Opcional. Una carpeta por línea, absoluta o relativa a este repositorio. Vacío usa la carpeta del repositorio. Implement, Quick SDD y Freestyle verifican cada workspace de código indicado.",
+    "workspaceHint": "Opcional. Una carpeta por línea, absoluta o relativa a este repositorio. Vacío usa la carpeta del repositorio. Implement y los loops verifican cada workspace de código indicado.",
     "launchWorkspaces": "Workspaces de esta ejecución",
     "launchWorkspaceHint": "Los cambios de código y los tests se limitan a estas carpetas. Selecciona al menos un workspace por repositorio afectado.",
     "advanced": "Configuración multirrepositorio"

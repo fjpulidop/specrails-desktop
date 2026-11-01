@@ -36,7 +36,7 @@ export interface SampleStatus {
   launch: SampleLaunch
 }
 
-const FALLBACK_ESTIMATE: SampleEstimate = { minutes: [3, 5], usd: [0.3, 1] }
+const FALLBACK_ESTIMATE: SampleEstimate = { minutes: [5, 12], usd: [0.5, 2] }
 
 function pair(value: unknown, fallback: [number, number]): [number, number] {
   if (Array.isArray(value) && value.length === 2 && value.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0)) return [value[0], value[1]]
@@ -63,7 +63,7 @@ export function readSampleStatus(raw: unknown): SampleStatus | null {
   const launchRaw = (typeof r.launch === 'object' && r.launch !== null ? r.launch : {}) as Record<string, unknown>
   const estimateRaw = (typeof launchRaw.estimate === 'object' && launchRaw.estimate !== null ? launchRaw.estimate : {}) as Record<string, unknown>
   const estimate: SampleEstimate = { minutes: pair(estimateRaw.minutes, FALLBACK_ESTIMATE.minutes), usd: pair(estimateRaw.usd, FALLBACK_ESTIMATE.usd) }
-  const runCapUsd = typeof launchRaw.runCapUsd === 'number' && launchRaw.runCapUsd > 0 ? launchRaw.runCapUsd : 1
+  const runCapUsd = typeof launchRaw.runCapUsd === 'number' && launchRaw.runCapUsd > 0 ? launchRaw.runCapUsd : 2
   const main = launchRaw.ready === true ? preset(launchRaw.preset) : null
   const launch: SampleLaunch = main
     ? { ready: true, preset: main, localPreset: preset(launchRaw.localPreset), estimate, runCapUsd }

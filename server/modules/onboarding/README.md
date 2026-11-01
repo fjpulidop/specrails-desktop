@@ -9,7 +9,7 @@ else reuses the ordinary project, spec and rail machinery.
 
 | Change | Owner |
 | --- | --- |
-| Sample vocabulary, the first-run **preset** (Quick SDD, cheapest priced model, run cap, local engine), cost envelope, folder naming | [domain.ts](domain.ts) (pure) |
+| Sample vocabulary, the first-run **preset** (Implement, cheapest priced model, run cap, local engine), cost envelope, folder naming | [domain.ts](domain.ts) (pure) |
 | Ports: files, git, specs, project registry, record store | [ports.ts](ports.ts) |
 | Create (idempotent, rolled back on failure), current sample, remove | [application.ts](application.ts) |
 | The bundled sample repository and its three specs in 8 locales (embedded source text, no Tauri resource) | [catalog.ts](catalog.ts) |

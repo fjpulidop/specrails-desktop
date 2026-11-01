@@ -288,7 +288,7 @@
         },
         "prePrompt": {
           "label": "Rail 预提示词",
-          "keywords": "预提示词, pre-prompt, 指令, 提示词, rail, freestyle"
+          "keywords": "预提示词, pre-prompt, 指令, 提示词, rail"
         },
         "verificationCommands": {
           "label": "验证命令",

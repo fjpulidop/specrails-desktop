@@ -17,6 +17,7 @@ import { createLoop, getLoop, publishLoop, updateLoop } from '../../loops/runtim
 import { ensureBuiltinLoops, probeCoreCapabilities } from '../../loops/runtime/builtin-loops'
 import { getFactoryLoop } from '../../loops/runtime/loop-factory'
 import { createLoopRun } from '../../loops/runtime/loop-runs-store'
+import { FREESTYLE_TEMPLATE_ID, QUICK_SDD_TEMPLATE_ID, getLoopTemplate } from '../../loops/runtime/loop-templates'
 import { createPrDelivery, createPrDeliveryGeneration, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
 import type { LoopGraph } from '../../loops/runtime/loop-graph'
 import { beginProjectProcessQuiescence, openProjectProcessAdmission } from '../../../process-admission'
@@ -144,7 +145,7 @@ describe('rails-router PUT /:railIndex/tickets', () => {
   afterEach(() => { db.close() })
 
   it('preserves a previously-set profile and mode when reassigning tickets', async () => {
-    setRailTickets(db, 0, [1, 2], 'freestyle', 'prof-a')
+    setRailTickets(db, 0, [1, 2], 'loop', 'prof-a')
     expect(getRail(db, 0).profileName).toBe('prof-a')
 
     const res = await request(appWith(db)).put('/rails/0/tickets').send({ ticketIds: [3, 4] })
@@ -152,18 +153,25 @@ describe('rails-router PUT /:railIndex/tickets', () => {
     expect(res.status).toBe(200)
     const rail = getRail(db, 0)
     expect(rail.ticketIds).toEqual([3, 4])
-    expect(rail.mode).toBe('freestyle') // preserved (pre-fix reset to 'implement')
+    expect(rail.mode).toBe('loop') // preserved (pre-fix reset to 'implement')
     expect(rail.profileName).toBe('prof-a')    // preserved (pre-fix wiped to null)
+  })
+
+  it('folds a stored retired freestyle mode to implement when reassigning tickets (profile preserved)', async () => {
+    setRailTickets(db, 0, [1, 2], 'freestyle', 'prof-a')
+    const res = await request(appWith(db)).put('/rails/0/tickets').send({ ticketIds: [3, 4] })
+    expect(res.status).toBe(200)
+    expect(getRail(db, 0)).toMatchObject({ ticketIds: [3, 4], mode: 'implement', profileName: 'prof-a' })
   })
 
   it('honors explicit mode/profileName overrides in the body', async () => {
     setRailTickets(db, 1, [1], 'implement', 'old')
     const res = await request(appWith(db))
       .put('/rails/1/tickets')
-      .send({ ticketIds: [9], mode: 'freestyle', profileName: 'new' })
+      .send({ ticketIds: [9], mode: 'loop', profileName: 'new' })
     expect(res.status).toBe(200)
     const rail = getRail(db, 1)
-    expect(rail.mode).toBe('freestyle')
+    expect(rail.mode).toBe('loop')
     expect(rail.profileName).toBe('new')
   })
 
@@ -175,12 +183,12 @@ describe('rails-router PUT /:railIndex/tickets', () => {
     expect(getRail(db, 1).mode).toBe('implement')
   })
 
-  it('accepts the legacy ultracode mode (old Companion builds) as freestyle', async () => {
+  it.each(['ultracode', 'freestyle'])('accepts the retired %s mode (old Companion builds) and stores implement', async (mode) => {
     setRailTickets(db, 1, [1], 'implement', 'old')
-    const res = await request(appWith(db)).put('/rails/1/tickets').send({ ticketIds: [9], mode: 'ultracode' })
+    const res = await request(appWith(db)).put('/rails/1/tickets').send({ ticketIds: [9], mode })
     expect(res.status).toBe(200)
-    expect(res.body.rail.mode).toBe('freestyle')
-    expect(getRail(db, 1).mode).toBe('freestyle')
+    expect(res.body.rail.mode).toBe('implement')
+    expect(getRail(db, 1).mode).toBe('implement')
   })
 
   it('normalizes a stored legacy batch mode to implement when preserving it', async () => {
@@ -191,10 +199,10 @@ describe('rails-router PUT /:railIndex/tickets', () => {
   })
 
   it.each(['nonsense', 42, ''])('400s an invalid mode (%s) without touching the rail', async (mode) => {
-    setRailTickets(db, 1, [1], 'freestyle', 'old')
+    setRailTickets(db, 1, [1], 'loop', 'old')
     const res = await request(appWith(db)).put('/rails/1/tickets').send({ ticketIds: [9], mode })
     expect(res.status).toBe(400)
-    expect(getRail(db, 1)).toMatchObject({ ticketIds: [1], mode: 'freestyle' })
+    expect(getRail(db, 1)).toMatchObject({ ticketIds: [1], mode: 'loop' })
   })
 
   it('lets an explicit null profileName clear the stored profile', async () => {
@@ -425,14 +433,15 @@ describe('rails-router POST /:railIndex/launch with aiEngine (loops off — lega
   })
 })
 
-// Loops pinned OFF (same reason as the aiEngine suite above): bare freestyle with
-// loops on derives factory:freestyle and runs through the loop engine instead.
-describe('rails-router POST /:railIndex/launch freestyle mode (loops off — QueueManager fallback path)', () => {
+// Freestyle and Quick SDD stopped being built-ins (they are gallery loops). A launch
+// that still names the retired mode or ids is refused explicitly — with loops on
+// AND off — and nothing is enqueued, allocated or started.
+describe.each([['loops off', 'false'], ['loops on', 'true']])('rails-router POST /:railIndex/launch retired Freestyle / Quick SDD (%s)', (_label, loops) => {
   let db: DbInstance
   const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
   beforeEach(() => {
     db = initDb(':memory:')
-    process.env.SPECRAILS_LOOPS_SECTION = 'false'
+    process.env.SPECRAILS_LOOPS_SECTION = loops
   })
   afterEach(() => {
     db.close()
@@ -440,138 +449,42 @@ describe('rails-router POST /:railIndex/launch freestyle mode (loops off — Que
     else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
   })
 
-  it('enqueues one claude job per ticket with an freestyle command and no profile', async () => {
+  it.each(['freestyle', 'ultracode'])('refuses mode "%s" with builtin_loop_retired and enqueues nothing', async (mode) => {
     setRailTickets(db, 0, [5, 7])
-    let n = 0
-    const enqueue = vi.fn().mockImplementation(() => ({ id: `job-${++n}`, queuePosition: 0 }))
-    const railJobs = new Map<string, unknown>()
-    const app = express()
-    app.use(express.json())
-    app.use((req, _res, next) => {
-      ;(req as unknown as { projectCtx: unknown }).projectCtx = {
-        db, railJobs, railLoopRuns: new Map(),
-        project: { id: 'p1', slug: 's1', provider: 'claude', providers: ['claude'], path: '/repo' },
-        queueManager: { enqueue },
-        broadcast: () => {},
-      }
-      next()
-    })
-    app.use('/rails', createRailsRouter())
-
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'freestyle' })
-    expect(res.status).toBe(202)
-    expect(res.body.jobIds).toEqual(['job-1', 'job-2'])
-    expect(res.body.jobId).toBe('job-1')
-    expect(enqueue).toHaveBeenCalledTimes(2)
-    expect(enqueue.mock.calls[0][0]).toBe('/specrails:freestyle #5 --yes')
-    expect(enqueue.mock.calls[1][0]).toBe('/specrails:freestyle #7 --yes')
-    const opts = enqueue.mock.calls[0][2] as { provider?: string; profileName?: unknown }
-    expect(opts.provider).toBe('claude')
-    expect(opts.profileName).toBeNull()
-    // Each job registered against the rail with its single ticket.
-    expect(railJobs.size).toBe(2)
+    const enqueue = vi.fn()
+    const res = await request(appWith(db, { providers: ['claude'], queueManager: { enqueue } }))
+      .post('/rails/0/launch').send({ mode })
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ error: 'builtin_loop_retired', mode: 'freestyle', replacement: 'factory:implement' })
+    expect(res.body.detail).toMatch(/loop gallery/)
+    expect(enqueue).not.toHaveBeenCalled()
   })
 
-  it.each(['codex', 'gemini'])('launches non-interactive freestyle on %s (verified provider capability)', async provider => {
-    setRailTickets(db, 0, [1], 'implement', null, provider)
-    const enqueue = vi.fn(() => ({ id: 'job-1', queuePosition: 0 }))
-    const res = await request(appWith(db, { providers: ['claude', provider], queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'freestyle', aiEngine: provider })
-    expect(res.status).toBe(202)
-    expect(enqueue).toHaveBeenCalledWith('/specrails:freestyle #1 --yes', 'normal', expect.objectContaining({ provider, profileName: null }))
-    // No explicit interactive selection: only persistent-stdin adapters (Claude) upgrade at spawn.
-    expect(enqueue.mock.calls[0][2]).not.toHaveProperty('interactive')
+  it.each(['factory:freestyle', 'factory:sdd-quick-openspec', 'factory:openspec', 'factory:revision'])('refuses the retired loop id %s (any mode)', async (loopId) => {
+    setRailTickets(db, 0, [5])
+    const enqueue = vi.fn()
+    for (const body of [{ loopId }, { loopId, mode: 'loop' }, { loopId, mode: 'implement' }]) {
+      const res = await request(appWith(db, { providers: ['claude'], queueManager: { enqueue } })).post('/rails/0/launch').send(body)
+      expect(res.status, JSON.stringify(body)).toBe(400)
+      expect(res.body).toMatchObject({ error: 'builtin_loop_retired', loopId, replacement: 'factory:implement' })
+    }
+    expect(enqueue).not.toHaveBeenCalled()
   })
 
-  it('rejects freestyle when the effective engine does not advertise the capability', async () => {
-    const { getAdapter } = await import('../../../providers/registry')
-    const capabilities = getAdapter('codex').capabilities
-    capabilities.freestyle = false
-    try {
-      setRailTickets(db, 0, [1], 'implement', null, 'codex')
-      const enqueue = vi.fn()
-      const res = await request(appWith(db, { providers: ['claude', 'codex'], queueManager: { enqueue } }))
-        .post('/rails/0/launch').send({ mode: 'freestyle', aiEngine: 'codex' })
-      expect(res.status).toBe(400)
-      expect(res.body.error).toBe("Freestyle is not supported by provider 'codex'")
-      expect(enqueue).not.toHaveBeenCalled()
-    } finally { capabilities.freestyle = true }
-  })
-
-  it('rejects a roles launch for freestyle (no roles there); implement degrades to the primary on the legacy path', async () => {
+  it('refuses it before engine validation (a roles engine or an unsupported provider cannot mask the answer)', async () => {
     setRailTickets(db, 0, [1], 'implement', null, 'roles')
-    const enqueue = vi.fn(() => ({ id: 'job-r' }))
-    const app = appWith(db, { providers: ['claude', 'codex'], queueManager: { enqueue } })
-    const freestyle = await request(app).post('/rails/0/launch').send({ mode: 'freestyle' })
-    expect(freestyle.status).toBe(400)
-    expect(freestyle.body.error).toBe('roles_engine_unsupported_mode')
-    expect(enqueue).not.toHaveBeenCalled()
-    // Loops off ⇒ the CLI pipeline runs; no verifier stored ⇒ no provider override.
-    const implement = await request(app).post('/rails/0/launch').send({ mode: 'implement' })
-    expect(implement.status).toBe(202)
-    expect((enqueue.mock.calls[0]![2] as { provider?: string }).provider).toBeUndefined()
-  })
-
-  it('rejects an unknown mode', async () => {
-    setRailTickets(db, 0, [1])
-    const res = await request(appWith(db, { queueManager: { enqueue: vi.fn() } }))
-      .post('/rails/0/launch').send({ mode: 'bogus' })
-    expect(res.status).toBe(400)
-  })
-
-  it('passes a valid freestyle model through to enqueue', async () => {
-    setRailTickets(db, 0, [1])
-    const enqueue = vi.fn().mockReturnValue({ id: 'job-1', queuePosition: 0 })
-    const res = await request(appWith(db, { providers: ['claude'], queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'freestyle', model: 'opus' })
-    expect(res.status).toBe(202)
-    expect((enqueue.mock.calls[0][2] as { model?: string }).model).toBe('opus')
-  })
-
-  it('preserves an exact custom Kimi alias for freestyle without forwarding effort', async () => {
-    setRailTickets(db, 0, [1])
-    const customAlias = 'moonshot-team/private-coder:v2'
-    const enqueue = vi.fn().mockReturnValue({ id: 'job-1', queuePosition: 0 })
-    const res = await request(appWith(db, { providers: ['kimi'], queueManager: { enqueue } }))
-      .post('/rails/0/launch')
-      .send({ mode: 'freestyle', model: customAlias })
-
-    expect(res.status).toBe(202)
-    expect(enqueue).toHaveBeenCalledTimes(1)
-    expect(enqueue.mock.calls[0][2]).toMatchObject({
-      provider: 'kimi',
-      model: customAlias,
-    })
-    expect(enqueue.mock.calls[0][2]).not.toHaveProperty('effort')
-  })
-
-  it('rejects an unsafe flag-like Kimi alias for freestyle', async () => {
-    setRailTickets(db, 0, [1])
     const enqueue = vi.fn()
-    const res = await request(appWith(db, { providers: ['kimi'], queueManager: { enqueue } }))
-      .post('/rails/0/launch')
-      .send({ mode: 'freestyle', model: '--yolo' })
-
-    expect(res.status).toBe(400)
+    const res = await request(appWith(db, { providers: ['claude', 'codex'], queueManager: { enqueue } })).post('/rails/0/launch').send({ mode: 'freestyle', aiEngine: 'codex', model: 'gpt-5' })
+    expect(res.body.error).toBe('builtin_loop_retired')
     expect(enqueue).not.toHaveBeenCalled()
   })
 
-  it('rejects an invalid freestyle model', async () => {
-    setRailTickets(db, 0, [1])
-    const enqueue = vi.fn()
-    const res = await request(appWith(db, { providers: ['claude'], queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'freestyle', model: 'gpt-5' })
-    expect(res.status).toBe(400)
-    expect(enqueue).not.toHaveBeenCalled()
-  })
-
-  it('omits model from enqueue when none is provided', async () => {
+  it('still launches Implement and rejects an unknown mode', async () => {
     setRailTickets(db, 0, [1])
     const enqueue = vi.fn().mockReturnValue({ id: 'job-1', queuePosition: 0 })
-    const res = await request(appWith(db, { providers: ['claude'], queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'freestyle' })
-    expect(res.status).toBe(202)
-    expect((enqueue.mock.calls[0][2] as { model?: string }).model).toBeUndefined()
+    const app = appWith(db, { queueManager: { enqueue } })
+    expect((await request(app).post('/rails/0/launch').send({ mode: 'bogus' })).status).toBe(400)
+    if (loops === 'false') expect((await request(app).post('/rails/0/launch').send({ mode: 'implement' })).status).toBe(202)
   })
 })
 
@@ -659,13 +572,13 @@ describe('rails-router POST /:railIndex/stop (M19)', () => {
 
 // Loops pinned OFF: these pin what the LEGACY QueueManager enqueue receives —
 // with loops on a bare-mode launch never reaches enqueue (factory-loop derivation).
-describe('rails-router POST /:railIndex/launch interactive (freestyle, loops off — QueueManager fallback path)', () => {
+describe('rails-router POST /:railIndex/launch interactive flag (implement, loops off — QueueManager fallback path)', () => {
   let db: DbInstance
   const saved = process.env.SPECRAILS_INTERACTIVE_JOBS
   const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
   beforeEach(() => {
     db = initDb(':memory:')
-    setRailTickets(db, 0, [1], 'freestyle')
+    setRailTickets(db, 0, [1], 'implement')
     delete process.env.SPECRAILS_INTERACTIVE_JOBS
     process.env.SPECRAILS_LOOPS_SECTION = 'false'
   })
@@ -683,17 +596,16 @@ describe('rails-router POST /:railIndex/launch interactive (freestyle, loops off
 
   it('passes no explicit interactive flag — QueueManager’s spawn-time default covers it', async () => {
     const { app, enqueue } = launch({})
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'freestyle' })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'implement' })
     expect(res.status).toBe(202)
     const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
     // The interactive-by-default flip moved the decision to QueueManager's
     // spawn-time gate (kill-switch + persistent-stdin capability) — the launch
     // no longer forwards a flag, so the default also survives a restart.
     expect(opts.interactive).toBeUndefined()
-    expect(opts.provider).toBe('claude')
   })
 
-  it('ignores the interactive body param on non-freestyle modes (wire compat)', async () => {
+  it('ignores the interactive body param (wire compat)', async () => {
     const { app, enqueue } = launch({})
     const res = await request(app).post('/rails/0/launch').send({ mode: 'implement', interactive: true })
     // No 400 anymore: the param is accepted-and-ignored; the launch proceeds.
@@ -705,7 +617,7 @@ describe('rails-router POST /:railIndex/launch interactive (freestyle, loops off
   it('omits interactive when the feature flag is off', async () => {
     process.env.SPECRAILS_INTERACTIVE_JOBS = 'false'
     const { app, enqueue } = launch({})
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'freestyle', interactive: true })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'implement', interactive: true })
     expect(res.status).toBe(202)
     const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
     expect(opts.interactive).toBeUndefined()
@@ -955,8 +867,10 @@ describe('rails-router loop mode', () => {
     expect(res.status).toBe(400)
   })
 
-  it.each([undefined, 'quick-change'])('Quick SDD accepts a spec without addenda or PR (change=%s)', async (changeName) => {
+  it.each([undefined, 'quick-change'])('a Quick SDD copy added from the gallery accepts a spec without addenda or PR (change=%s)', async (changeName) => {
     setRailTickets(db, 0, [1], 'loop')
+    createLoop(desktopDb, { id: 'gallery-quick-sdd', name: 'SDD Quick (OpenSpec)', graph: getLoopTemplate(QUICK_SDD_TEMPLATE_ID)!.graph })
+    publishLoop(desktopDb, 'gallery-quick-sdd')
     const run = vi.fn().mockResolvedValue({ runId: 'r-sdd', outcome: 'success', iterations: 1, totalCostUsd: 0 })
     const app = appWith(db, {
       desktopDb,
@@ -965,13 +879,13 @@ describe('rails-router loop mode', () => {
       getTicketSpec: (id: number) => ({ id, title: 'T', description: 'D', metadata: { openspecChangeName: changeName } }),
     })
 
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'factory:sdd-quick-openspec' })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'gallery-quick-sdd' })
 
-    expect(res.status).toBe(202)
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
     expect(res.body.mode).toBe('loop')
     expect(run).toHaveBeenCalledTimes(1)
     const req = run.mock.calls[0][0] as { loopId: string; spec: { ticketIds: number[]; metadata?: { openspecChangeName?: string } } }
-    expect(req.loopId).toBe('factory:sdd-quick-openspec')
+    expect(req.loopId).toBe('gallery-quick-sdd')
     expect(req.spec.ticketIds).toEqual([1])
     expect(req.spec.metadata?.openspecChangeName).toBe(changeName)
   })
@@ -1164,7 +1078,7 @@ describe('rails-router source-bound Relaunch', () => {
   })
   const failure = (options: Partial<CreatePrDeliveryInput> = {}) => {
     const row = createPrDelivery(db, { railIndex: 0, railKey: '0-quick', ticketIds: [4], baseBranch: 'main',
-      loopId: 'factory:sdd-quick-openspec', loopName: 'Quick', originSurface: 'agent-chat', originConversationId: 'mission-1', ...options })
+      loopId: 'factory:implement', loopName: 'Quick', originSurface: 'agent-chat', originConversationId: 'mission-1', ...options })
     transitionDecision(db, row.id, 'building', 'implementation_failed', { implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed' })
     return row
   }
@@ -1177,7 +1091,7 @@ describe('rails-router source-bound Relaunch', () => {
         kind: 'git', integrationBranch: 'main', addedAt: '2026-10-05T00:00:00Z' }
     })
     const row = failure(workspaceSelection === undefined ? {} : {
-      launchConfig: { mode: 'loop', loopId: 'factory:sdd-quick-openspec', workspaceSelection },
+      launchConfig: { mode: 'loop', loopId: 'factory:implement', workspaceSelection },
     })
     transitionDecision(db, row.id, 'implementation_failed', 'implementation_failed', {
       executionManifest: { version: 1, groupId: row.id, projectId: 'p1', primaryRepositoryId: 'backend',
@@ -1223,7 +1137,7 @@ describe('rails-router source-bound Relaunch', () => {
     expect(getRail(db, 0).ticketIds).toEqual([])
     const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: row.id })
     expect(response.status, JSON.stringify(response.body)).toBe(202)
-    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ ticketIds: [4], loopId: 'factory:sdd-quick-openspec',
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ ticketIds: [4], loopId: 'factory:implement',
       baseBranch: 'main', originConversationId: 'mission-1', retryOfDelivery: { deliveryId: row.id, decision: 'implementation_failed' } }))
     expect(getRail(db, 0).ticketIds).toEqual([4])
   })
@@ -1241,7 +1155,7 @@ describe('rails-router source-bound Relaunch', () => {
     const row = failure()
     const response = await request(relaunchApp()).post('/rails/0/RELAUNCH/').send({ sourceId: row.id })
     expect(response.status, JSON.stringify(response.body)).toBe(202)
-    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:sdd-quick-openspec', ticketIds: [4] }))
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:implement', ticketIds: [4] }))
   })
 
   it('does not treat an unchanged sibling as delivered work that blocks retrying a failed batch', async () => {
@@ -1346,11 +1260,20 @@ describe('rails-router source-bound Relaunch', () => {
   })
 
   it('relaunches a historical shared run from its recorded workflow and specs after release', async () => {
-    createLoopRun(db, { id: 'old-run', projectId: 'p1', railIndex: 0, loopId: 'factory:freestyle', loopName: 'Freestyle', ticketIds: [4], ticketId: 4, provider: 'claude', model: 'sonnet', iterationLimit: 1, startedAt: '2026-10-03T08:00:00Z' })
+    createLoopRun(db, { id: 'old-run', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', loopName: 'Implement', ticketIds: [4], ticketId: 4, provider: 'claude', model: 'sonnet', iterationLimit: 1, startedAt: '2026-10-03T08:00:00Z' })
     db.prepare("UPDATE loop_runs SET status='completed',final_outcome='failed' WHERE id=?").run('old-run')
     const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: 'run:old-run', originConversationId: 'mission-1', originSurface: 'agent-chat' })
     expect(response.status, JSON.stringify(response.body)).toBe(202)
-    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ ticketIds: [4], loopId: 'factory:freestyle', provider: 'claude' }))
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ ticketIds: [4], loopId: 'factory:implement', provider: 'claude' }))
+  })
+
+  it.each(['factory:freestyle', 'factory:sdd-quick-openspec'])('refuses to relaunch a historical run recorded on the retired built-in %s, launching nothing', async (loopId) => {
+    createLoopRun(db, { id: 'old-run', projectId: 'p1', railIndex: 0, loopId, loopName: 'Retired', ticketIds: [4], ticketId: 4, provider: 'claude', model: 'sonnet', iterationLimit: 1, startedAt: '2026-10-03T08:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='completed',final_outcome='failed' WHERE id=?").run('old-run')
+    const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: 'run:old-run' })
+    expect(response.status).toBe(400)
+    expect(response.body).toMatchObject({ error: 'builtin_loop_retired', loopId, replacement: 'factory:implement' })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
   })
 
   it('blocks unavailable recorded workflows and disabled loops instead of choosing Implement', async () => {
@@ -1888,7 +1811,7 @@ describe('rails-router POST /:railIndex/launch — explicit target PR (deliver-r
     mockLaunchIsolated.mockResolvedValue(['run-fu'])
     const getTicketSpec = vi.fn(() => ({ title: 'T', description: 'D' }))
     const res = await request(launchApp({ getTicketSpec })).post('/rails/0/launch')
-      .send({ loopId: 'factory:sdd-quick-openspec', targetPrNumber: 51, followUp: FOLLOW_UP })
+      .send({ loopId: 'factory:implement', targetPrNumber: 51, followUp: FOLLOW_UP })
     expect(res.status, JSON.stringify(res.body)).toBe(202)
     expect(res.body.followUp).toMatchObject({ version: 1 })
     expect(res.body.followUp.id).toEqual(expect.any(String))
@@ -2027,9 +1950,8 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
   })
 
   it.each([
-    { loopId: 'factory:implement' }, { loopId: 'factory:sdd-quick-openspec' },
-    { loopId: 'factory:freestyle' }, { mode: 'implement' }, {},
-  ])('continues a same-spec pending delivery with addenda using the selected workflow (%j)', async (selection) => {
+    { loopId: 'factory:implement' }, { mode: 'implement' }, {},
+  ])('continues a same-spec pending delivery with addenda using the selected workflow, Implement by default (%j)', async (selection) => {
     seedAddenda()
     const row = createPrDelivery(db, { railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
     transitionDecision(db, row.id, 'building', 'on_review', { branches: [{ ticketId: 1, branch: 'feat/x', succeeded: true, finalSha: 'a'.repeat(40) }] })
@@ -2038,7 +1960,7 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
     const res = await request(appWith(db, { desktopDb, projectPath: projDir, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
       .post('/rails/0/launch').send(selection)
     expect(res.status, JSON.stringify(res.body)).toBe(202)
-    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: selection.loopId ?? (selection.mode === 'implement' ? 'factory:implement' : 'factory:sdd-quick-openspec'), revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('[a1] Idempotency') }) }))
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:implement', revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('[a1] Idempotency') }) }))
     // A local review has no published PR yet: never pass a null PR target.
     expect(mockLaunchIsolated.mock.calls[0][0].requiredPrContinuation).toBeUndefined()
   })
@@ -2066,7 +1988,7 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
     const row = createPrDelivery(db, { railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [2], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
     transitionDecision(db, row.id, 'building', 'on_review')
     const res = await request(appWith(db, { desktopDb, projectPath: projDir, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
-      .post('/rails/0/launch').send({ loopId: 'factory:sdd-quick-openspec' })
+      .post('/rails/0/launch').send({ loopId: 'factory:implement' })
     expect(res.status).toBe(409)
     expect(res.body.error).toBe('pr_decision_pending')
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
@@ -2173,18 +2095,26 @@ describe('rails-router POST /:railIndex/launch — bare mode derives its factory
     expect(enqueue).not.toHaveBeenCalled() // NOT the bare QueueManager branch
   })
 
-  it('bare freestyle derives factory:freestyle (per-ticket isolation)', async () => {
+  it('bare freestyle no longer derives a factory loop: it is refused and nothing launches', async () => {
     setRailTickets(db, 0, [5])
     mockRepoStatus.mockResolvedValue('ok')
-    mockLaunchIsolated.mockResolvedValue(['run-u'])
     const enqueue = vi.fn()
     const res = await request(loopApp(enqueue)).post('/rails/0/launch').send({ mode: 'freestyle' })
-    expect(res.status).toBe(202)
-    expect(res.body).toMatchObject({ loopRunIds: ['run-u'], mode: 'freestyle', isolated: true })
-    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
-      loopId: 'factory:freestyle', scope: 'per-ticket',
-    }))
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ error: 'builtin_loop_retired', replacement: 'factory:implement' })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
     expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('a Freestyle copy added from the gallery launches as a custom loop, one isolated run per ticket', async () => {
+    setRailTickets(db, 0, [5, 6], 'loop')
+    createLoop(desktopDb, { id: 'gallery-freestyle', name: 'Freestyle', graph: getLoopTemplate(FREESTYLE_TEMPLATE_ID)!.graph })
+    publishLoop(desktopDb, 'gallery-freestyle')
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-a', 'run-b'])
+    const res = await request(loopApp(vi.fn())).post('/rails/0/launch').send({ mode: 'loop', loopId: 'gallery-freestyle' })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'gallery-freestyle', scope: 'per-ticket', ticketIds: [5, 6] }))
   })
 
   it('an explicit custom loopId is honored — never overridden by the derivation', async () => {
@@ -2572,21 +2502,14 @@ describe('rails-router launch — concurrent-launch ticket guard', () => {
     expect(enqueue.mock.calls[0][0]).toBe('/specrails:implement #1 #2 #3 --yes')
   })
 
-  it('legacy path: the pre-rename ultracode mode launches as freestyle', async () => {
+  it('legacy path: the pre-rename ultracode mode is refused like freestyle (retired), enqueuing nothing', async () => {
     setRailTickets(db, 0, [5])
     const enqueue = vi.fn().mockReturnValue({ id: 'job-uc', queuePosition: 0 })
-    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
-    try {
-      const res = await request(appWith(db, { queueManager: { enqueue } }))
-        .post('/rails/0/launch').send({ mode: 'ultracode' })
-      expect(res.status).toBe(202)
-      expect(res.body.mode).toBe('freestyle')
-      expect(enqueue).toHaveBeenCalledOnce()
-      expect(enqueue.mock.calls[0][0]).toBe('/specrails:freestyle #5 --yes')
-      expect(info).toHaveBeenCalledWith('[rails-router] legacy mode "ultracode" accepted as "freestyle"')
-    } finally {
-      info.mockRestore()
-    }
+    const res = await request(appWith(db, { queueManager: { enqueue } }))
+      .post('/rails/0/launch').send({ mode: 'ultracode' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('builtin_loop_retired')
+    expect(enqueue).not.toHaveBeenCalled()
   })
 
   it('400s an unknown launch mode', async () => {
@@ -2594,7 +2517,7 @@ describe('rails-router launch — concurrent-launch ticket guard', () => {
     const enqueue = vi.fn()
     const res = await request(appWith(db, { queueManager: { enqueue } })).post('/rails/0/launch').send({ mode: 'parallel-waves' })
     expect(res.status).toBe(400)
-    expect(res.body.error).toBe('mode must be "implement", "freestyle" or "loop"')
+    expect(res.body.error).toBe('mode must be "implement" or "loop"')
     expect(enqueue).not.toHaveBeenCalled()
   })
 
@@ -3004,14 +2927,14 @@ describe('rails-router launch — revision of an undecided delivery', () => {
     )
   })
 
-  it('runs Quick SDD for delivery changes, whatever the rail mode is', async () => {
+  it('runs Implement for delivery changes by default, whatever the rail mode is', async () => {
     const id = mkOnReviewRail()
     setRailTickets(db, 0, [1, 2], 'implement') // rail mode would normally imply the full pipeline
     const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'blue button' })
     expect(res.status).toBe(202)
     const call = mockLaunchIsolated.mock.calls[0][0] as { loopId: string; loopGraph: { nodes: Array<{ type: string; data?: { prompt?: string } }> } }
-    expect(call.loopId).toBe('factory:sdd-quick-openspec')
-    expect(call.loopGraph).toEqual(getFactoryLoop('factory:sdd-quick-openspec', (await probeCoreCapabilities()).capabilities)!.graph)
+    expect(call.loopId).toBe('factory:implement')
+    expect(call.loopGraph).toEqual(getFactoryLoop('factory:implement', (await probeCoreCapabilities()).capabilities)!.graph)
   })
 
   it('honors explicit Implement for delivery change requests', async () => {
@@ -3054,17 +2977,19 @@ describe('rails-router launch — revision of an undecided delivery', () => {
     }
   })
 
-  it('redirects a saved Revision loop id to Quick SDD', async () => {
+  it('refuses a saved Revision loop id: the alias is retired with Quick SDD', async () => {
     setRailTickets(db, 0, [1])
     const res = await launch({ loopId: 'factory:revision' })
-    expect(res.status).toBe(202)
-    expect(mockLaunchIsolated.mock.calls[0][0].loopId).toBe('factory:sdd-quick-openspec')
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ error: 'builtin_loop_retired', loopId: 'factory:revision' })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
   })
 
-  it('accepts the revision loop when it IS a revision', async () => {
+  it('refuses the revision loop id even for a real revision', async () => {
     const id = mkOnReviewRail()
     const res = await launch({ loopId: 'factory:revision', revisionOfDeliveryId: id, revisionNote: 'blue' })
-    expect(res.status).toBe(202)
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('builtin_loop_retired')
   })
 
   it('kill switch off ⇒ byte-identical legacy guard (revision params ignored)', async () => {
@@ -3385,7 +3310,7 @@ describe('rails-router launch — daily budget guard (rail-loop-budget-guard)', 
     mockRepoStatus.mockResolvedValue('ok')
     mockLaunchIsolated.mockResolvedValue(['new-run'])
     const row = createPrDelivery(db, { railIndex: 0, railKey: '0-quick', ticketIds: [4], baseBranch: 'main',
-      loopId: 'factory:sdd-quick-openspec', loopName: 'Quick', originSurface: 'agent-chat', originConversationId: 'mission-1' })
+      loopId: 'factory:implement', loopName: 'Quick', originSurface: 'agent-chat', originConversationId: 'mission-1' })
     transitionDecision(db, row.id, 'building', 'implementation_failed', { implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed' })
     const res = await request(appWith(db, { desktopDb, projectPath, loopRunManager: { run: vi.fn(), cancel: vi.fn() },
       getTicketSpec: id => ({ title: `Spec ${id}`, description: 'Fix' }), dailyBudgetRejection: () => rejection }))

@@ -35,9 +35,9 @@ describe('SampleProjectDialog', () => {
     expect(screen.getByText(/Nothing runs until you press Run/i)).toBeInTheDocument()
     const cost = screen.getByTestId('sample-cost')
     expect(cost).toHaveAttribute('data-billing', 'metered')
-    expect(cost).toHaveTextContent(/≈ \$0\.30–\$1/)
+    expect(cost).toHaveTextContent(/≈ \$0\.50–\$2/)
     expect(cost).toHaveTextContent(/estimate/i)
-    expect(cost).toHaveTextContent(/pauses and asks before passing \$1/i)
+    expect(cost).toHaveTextContent(/pauses and asks before passing \$2/i)
     expect(cost).toHaveTextContent(/haiku on claude/i)
   })
 
@@ -46,7 +46,7 @@ describe('SampleProjectDialog', () => {
     setup()
     expect(screen.getByTestId('sample-cost')).toHaveAttribute('data-billing', 'plan')
     expect(screen.getByTestId('sample-cost')).toHaveTextContent(/no extra charge/i)
-    expect(screen.getByTestId('sample-cost')).not.toHaveTextContent('$0.30')
+    expect(screen.getByTestId('sample-cost')).not.toHaveTextContent('$0.50')
   })
 
   it('creates at the default folder by letting the server pick a free name', async () => {

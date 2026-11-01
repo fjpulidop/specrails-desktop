@@ -288,7 +288,7 @@
         },
         "prePrompt": {
           "label": "Pré-prompt do rail",
-          "keywords": "pré-prompt, preprompt, instruções, prompt, rail, freestyle"
+          "keywords": "pré-prompt, preprompt, instruções, prompt, rail"
         },
         "verificationCommands": {
           "label": "Comandos de verificação",

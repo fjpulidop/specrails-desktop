@@ -180,8 +180,11 @@ merge instants. A human decision is never inferred from a transition (startup
 recovery can leave `on_review`). Grouped deliveries take the earliest repository
 decision. `accounting/runtime/decision-times.ts` aggregates them.
 
-Delivery change requests and same-spec addenda default to Quick SDD, while
-respecting an explicit loop or mode selection (including Implement), using
+Delivery change requests and same-spec addenda default to Implement, while
+respecting an explicit loop selection. `mode: freestyle` and the retired ids
+`factory:freestyle` / `factory:sdd-quick-openspec` / `factory:openspec` /
+`factory:revision` are refused with `400 builtin_loop_retired` (relaunches of old
+runs on them included); a stored rail mode `freestyle` folds to `implement`, using
 the existing supersession/rollback contract. `revisionOfDeliveryId` remains the
 wire field for identifying the generation; it no longer selects a Revision loop.
 See [spec addenda](../../../docs/internals/spec-addenda.md).

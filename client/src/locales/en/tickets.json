@@ -123,7 +123,7 @@
     "title": "Addenda",
     "hint": "Iteration notes layered on top of the spec. They ride into the next launch without editing the description.",
     "add": "Add addendum",
-    "emptyCta": "Add an addendum to iterate on this spec — the next launch (Implement, SDD Quick, Freestyle…) is briefed with it while the description stays untouched.",
+    "emptyCta": "Add an addendum to iterate on this spec — the next launch (Implement or any loop) is briefed with it while the description stays untouched.",
     "openCount_one": "{{count}} open",
     "openCount_other": "{{count}} open",
     "kind": {

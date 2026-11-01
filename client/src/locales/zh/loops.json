@@ -308,21 +308,17 @@
       "name": "实现",
       "description": "在一次运行中实现 Rail 上的所有 spec:规划、实现、评审和验证,并修复失败直到检查通过。"
     },
-    "factory_freestyle": {
-      "name": "Freestyle",
-      "description": "将 spec 直接交给模型, 给予完全自由 — 无管线, 像普通编码智能体一样工作, 然后验证+改进直到全部通过。仅限 Claude。"
-    },
-    "factory_openspec": {
-      "name": "OpenSpec 生命周期",
-      "description": "从规格到归档的 OpenSpec 生命周期: 生成工件 (opsx:ff) → 实现 (opsx:apply) → 验证 (opsx:verify); FAIL 则回环修正同一 change, PASS 则无人值守归档。"
-    },
-    "factory_revision": {
-      "name": "修订",
-      "description": "在已交付的成果之上应用你要求的那一处修改，让审阅者重新评分，然后验证到通过。不会从头重新规划。"
-    },
     "drift-sweep": {
       "name": "偏差巡检",
       "description": "只读：将每个能力的规格声明与代码实际行为进行比较，并以“文件:行”格式列出每处矛盾。不做任何更改；按需运行。"
+    },
+    "quick-sdd-openspec": {
+      "name": "SDD Quick (OpenSpec)",
+      "description": "面向受契约约束的小型变更的快速规格驱动 OpenSpec 生命周期：准备工件、应用并测试、通过 CLI 验证，然后归档。"
+    },
+    "freestyle": {
+      "name": "Freestyle",
+      "description": "将 spec 直接交给模型, 给予完全自由 — 无管线, 像普通编码智能体一样工作, 然后验证+改进直到全部通过。"
     }
   },
   "import": {

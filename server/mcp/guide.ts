@@ -54,7 +54,7 @@ Codex, Gemini, Kimi Code) to implement specs.
   it. Lifecycle \`open\` → \`in_flight\` (claimed by a launch, \`run_id\`) →
   \`applied\` (the run completed) or back to \`open\` (the run failed / the
   delivery was discarded); \`dismissed\` withdraws one. Every launch door
-  (Implement, SDD Quick, Freestyle, custom loops, revisions, legacy jobs)
+  (Implement, custom loops, revisions, legacy jobs)
   briefs EVERY AI step with the spec's open addenda and the review packet reports
   each as applied / partial / blocked. Use \`specrails_specs(add_addendum)\` to
   iterate on an existing spec instead of editing its description.
@@ -194,13 +194,10 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
     → Ship) over all the rail's tickets. Put at most 3 specs on one rail; split
     larger sets across several rails (they run in parallel) or sequential
     launches. There is no separate batch mode.
-  - Freestyle: sends a free-form autonomous prompt to a capable provider — one
-    job per ticket; Claude, Codex, Gemini, Kimi and local engines; \`model\` picker. Claude additionally
-    supports optional \`interactive\` in-job chat (settle with
-    \`specrails_jobs(finalize)\`). To launch it through the API, pass the canonical mode value \`freestyle\`. In user-facing language, call
-    the feature "Freestyle".
   - \`loop\`: runs a published loop graph per ticket (\`loopId\`,
-    \`reasoning_effort\`).
+    \`reasoning_effort\`). The retired mode \`freestyle\` and ids
+    \`factory:freestyle\` / \`factory:sdd-quick-openspec\` are refused with
+    \`builtin_loop_retired\`.
 - Preserve explicit provider-compatible profiles; discover valid names through
   \`specrails_agents\` before changing a rail's provider or profile.
 - \`stop\` kills the rail's process tree AND cancels its queued jobs
@@ -312,9 +309,9 @@ can run Contract Refine require AI-spawn, including Explore conversions.
 
 - Installed providers are per-project; AI-spawning calls may pick any installed
   one (\`aiEngine\`); rails carry a per-rail engine.
-- Claude, Codex, Gemini, Kimi and local engines support Freestyle mode (pass the canonical
-  API value \`freestyle\`; call the feature "Freestyle" to users). Persistent
-  interactive jobs remain Claude-only.
+- Persistent interactive jobs remain Claude-only. Freestyle and SDD Quick
+  (OpenSpec) are gallery loops, not built-ins: the user adds them from the loop
+  gallery and launches the copy with mode \`loop\`; never offer them unprompted.
 - Kimi prompt mode cannot enforce a no-tools or read-only boundary. Consequently
   pure-output and safety-bounded surfaces fail closed before spawn: Quick Spec,
   AI Edit, Contract Refine, SMASH, Builder chat/commit, milestone generation,

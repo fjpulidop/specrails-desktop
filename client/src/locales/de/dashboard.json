@@ -246,8 +246,6 @@
     "viewJobLog": "Job-Log anzeigen",
     "log": "Log",
     "implement": "Implement",
-    "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle – der gewählte Anbieter implementiert die Spec autonom, ohne Pipeline",
     "loop": "Loop",
     "loopTitle": "Loop – eine veröffentlichte Automatisierungsschleife gegen die Specs des Rails ausführen",
     "pickLoop": "Schleife auswählen…",
@@ -262,13 +260,10 @@
     "worktreesNeedsReview": "{{count}} zu prüfen",
     "execSteps": "{{count}} Schritte",
     "execLines": "{{count}} Zeilen",
-    "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Empfohlen",
     "recommendedOption": "{{label}} · empfohlen",
     "loopDescriptions": {
-      "implement": "Plant, baut und prüft jede Spec und bereitet dann die Lieferung vor.",
-      "freestyle": "Der gewählte Anbieter baut die Spec eigenständig, ohne Pipeline.",
-      "openspec": "Schreibt eine OpenSpec-Änderung zur Spec, baut sie und archiviert sie."
+      "implement": "Plant, baut und prüft jede Spec und bereitet dann die Lieferung vor."
     }
   },
   "railRow": {
@@ -288,19 +283,6 @@
       "title": "{{label}} löschen?",
       "body": "Die Specs kehren in den Backlog zurück. Anbieter, Loop und PR-Einstellungen dieses Rails gehen verloren."
     }
-  },
-  "freestyleDialog": {
-    "title": "Im Freestyle-Modus starten",
-    "context_one": "{{rail}} · {{count}} Spec",
-    "context_other": "{{rail}} · {{count}} Specs",
-    "noPipelineTitle": "Keine OpenSpec-Pipeline.",
-    "noPipelineBody": "Der strukturierte Flow Architect → Developer → Reviewer wird komplett übersprungen.",
-    "autonomyTitle": "Native {{provider}}-Autonomie.",
-    "autonomyBody": "{{provider}} arbeitet eigenständig mit nativen Agenten und dynamischen Workflows.",
-    "costTitle": "Variable Kosten.",
-    "costBody": "Die Ausgaben hängen davon ab, was {{provider}} entscheidet – sie können höher ausfallen als erwartet.",
-    "continue": "Weiter",
-    "gloss": "Freestyle übergibt jede Spec direkt an {{provider}}: ein autonomer Lauf pro Spec, ohne die OpenSpec-Pipeline aus Planung und Review."
   },
   "useRails": {
     "fetchFailed": "Rails konnten nicht geladen werden: {{status}}"
@@ -329,9 +311,7 @@
       "target_pr_unfetchable": "Der Head-Branch des PR konnte nicht geholt werden"
     }
   },
-  "rail": {
-    "rolesNoFreestyle": "Freestyle braucht einen einzelnen Anbieter – wähle Implement oder einen Loop, bevor du dieses Rail auf Engines pro Rolle umstellst."
-  },
+  "rail": {},
   "reviewWip": {
     "badge": "Im Review {{pending}}/{{limit}}",
     "title": "Lieferungen, die auf Review warten (Limit {{limit}}). Klicken, um sie anzuzeigen.",

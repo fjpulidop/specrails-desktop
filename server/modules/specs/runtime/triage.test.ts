@@ -11,12 +11,12 @@ import { TriageModelError, type TriageModelResult } from './triage-runner'
 
 const LOOPS: TriageLoopOption[] = [
   { id: 'factory:implement', name: 'Implement', description: 'full' },
-  { id: 'factory:sdd-quick-openspec', name: 'Quick SDD', description: 'light' },
+  { id: 'custom-loop', name: 'Team loop', description: 'light' },
 ]
 
 const ANSWER = JSON.stringify({
   size: 'S', filesLikely: ['server/a.ts'], publicInterfaces: false, dataModel: false, securitySurface: false,
-  recommendedLoop: 'factory:sdd-quick-openspec', rationale: 'Single file', confidence: 'high',
+  recommendedLoop: 'custom-loop', rationale: 'Single file', confidence: 'high',
 })
 
 function result(text = ANSWER): TriageModelResult {
@@ -70,7 +70,7 @@ describe('SpecTriageService', () => {
   it('stores a ready triage, records the real cost on the triage surface and keeps updated_at', async () => {
     writeTickets([ticket(1)])
     const outcome = await service().triageNow(1)
-    expect(outcome).toMatchObject({ kind: 'stored', triage: { status: 'ready', size: 'S', recommendedLoop: 'factory:sdd-quick-openspec', costUsd: 0.0123, model: 'claude-haiku-5-5' } })
+    expect(outcome).toMatchObject({ kind: 'stored', triage: { status: 'ready', size: 'S', recommendedLoop: 'custom-loop', costUsd: 0.0123, model: 'claude-haiku-5-5' } })
     const stored = readStore(file).tickets['1']
     expect(stored.metadata.triage).toMatchObject({ status: 'ready', computedAt: '2026-10-22T10:00:00.000Z' })
     expect(stored.metadata.triage!.inputsHash).toMatch(/^sha256:[0-9a-f]{64}$/)

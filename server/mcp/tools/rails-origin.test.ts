@@ -11,6 +11,8 @@ import { initDesktopDb, setDesktopSetting } from '../../desktop-db'
 import { createAgentConversation } from '../../modules/agents/runtime/agent-store'
 import { createRailsRouter } from '../../modules/delivery/runtime/rails-router'
 import { setRailTickets } from '../../modules/delivery/runtime/rails-store'
+import { createLoop, publishLoop } from '../../modules/loops/runtime/loops-store'
+import { QUICK_SDD_TEMPLATE_ID, getLoopTemplate } from '../../modules/loops/runtime/loop-templates'
 import { getActivePrDeliveryByRail, getPrDelivery } from '../../modules/delivery/runtime/rail-pr-store'
 import { setAgentChatManager } from '../../modules/missions/runtime/agent-chat-registry'
 import type { AgentChatManager } from '../../modules/missions/runtime/agent-chat-manager'
@@ -210,9 +212,11 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     })
   })
 
-  it('SDD Quick OpenSpec factory launch also persists origin and posts the PR decision card', async () => {
+  it('a Quick SDD copy added from the gallery also persists origin and posts the PR decision card', async () => {
+    createLoop(desktopDb, { id: 'gallery-quick-sdd', name: 'SDD Quick (OpenSpec)', graph: getLoopTemplate(QUICK_SDD_TEMPLATE_ID)!.graph })
+    publishLoop(desktopDb, 'gallery-quick-sdd')
     const r = await captured!(
-      { action: 'launch', projectId: 'p1', railIndex: 0, mode: 'loop', loopId: 'factory:sdd-quick-openspec' },
+      { action: 'launch', projectId: 'p1', railIndex: 0, mode: 'loop', loopId: 'gallery-quick-sdd' },
       launchExtra('conv-sdd-quick'),
     )
 
@@ -220,7 +224,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     const payload = JSON.parse(r.content[0].text)
     expect(payload.isolated).toBe(true)
     expect(payload.loopRunIds).toHaveLength(2)
-    expect(loopRun.mock.calls[0][0].loopId).toBe('factory:sdd-quick-openspec')
+    expect(loopRun.mock.calls[0][0].loopId).toBe('gallery-quick-sdd')
 
     const row = getActivePrDeliveryByRail(db, 0)
     expect(row).toBeTruthy()
