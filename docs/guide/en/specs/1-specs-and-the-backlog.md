@@ -58,11 +58,14 @@ Drafts are the one exception: a draft can have *no* priority at all, because it'
 
 To create a spec, click **New spec** (the Plus button on the SpecsBoard toolbar). The **Add Spec** dialog opens with a few ways to work:
 
+- **Intent mode** (the default) — you describe the problem, the outcome you want and how you will know; the AI writes the intent, then derives the spec from it for you to review. See [Intent](../integrations/intent-mode#intent-mode).
 - **Quick mode** — you describe what you want and the AI writes the full spec in one shot. See [Add Spec — Quick mode](add-spec-quick-mode.md).
 - **Explore mode** — you converse with the AI, and it helps you shape the spec turn by turn. See [Add Spec — Explore mode](add-spec-explore-mode.md).
 - **Raw mode** — whatever you type is saved verbatim as a spec, with no AI involved. Use it when you already have the spec text written.
 
-Which one you reach for depends on how clear the idea already is. Know exactly what you want? Quick. Still figuring it out? Explore. Already have the text? Raw.
+Which one you reach for depends on how clear the idea already is. Know the problem but not the solution? Intent. Know exactly what you want? Quick. Still figuring it out? Explore. Already have the text? Raw.
+
+A spec's **Intent** sits above its description in the spec detail: problem, outcome, how we will know, who and what it affects, constraints and open questions. You can add or edit it there; every agent that works on the spec receives it first.
 
 ## Addenda — iterating on an existing spec
 

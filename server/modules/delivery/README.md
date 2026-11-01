@@ -16,6 +16,19 @@ Run `npx vitest run server/modules/delivery server/modules/delivery/runtime/rail
 [Pure policy tests](__tests__/decision-policy.test.ts) protect remote PR authority,
 degraded drafts and continuation recovery prerequisites.
 
+## intent.md in the delivered change
+
+Before the isolated settlement commits a one-spec run (`commitWorktreeAndVerify`
+in [rail-isolated-launch.ts](runtime/rail-isolated-launch.ts), fresh runs and
+reattached ones alike), the spec's intent (intent-mode) is rendered into the
+ONE OpenSpec change the run created — `openspec/changes/<name>/` or its
+`archive/<date>-<name>/` — as `intent.md`
+([intent-materialization.ts](runtime/intent-materialization.ts)). It rides in
+the same commit and counts as the run's own change for the hygiene guard. A run
+that failed, a batch run, a run without a new change or a project without
+OpenSpec writes nothing; several new changes or a Git failure only log a
+warning. Delivery outcomes never depend on it.
+
 ## Local integration with uncommitted work
 
 `merge-local` stashes the person's uncommitted work when it overlaps the

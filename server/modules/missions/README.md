@@ -25,6 +25,17 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/missions` and any affected consumers.
 
+## Intent drafts and the commit_draft gate
+
+The operator writes the intent first (intent-mode): one fenced `intent-draft`
+block before any `spec-draft` ([operator prompt](runtime/agent-operator-prompt.ts),
+section "Writing the intent"). [agent-spec-framing.ts](runtime/agent-spec-framing.ts)
+derives the gate from the stored messages: an answered `intent-draft` (or a
+legacy `problem-frame`) authorises ONE `commit_draft`, and `answeredSpecIntent`
+returns the intent the MCP `commit_draft` attaches to the spec. Payload rules are
+the shared `parseIntentDraft` (specs domain), so the client card and the gate
+accept the same blocks. `flow-offer` is for existing specs only.
+
 ## Read-only boundary
 
 [runtime/mission-tool-policy.ts](runtime/mission-tool-policy.ts) maps every

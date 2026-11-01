@@ -60,11 +60,14 @@ Le bozze sono l'unica eccezione: una bozza può non avere *alcuna* priorità, pe
 
 Per creare una spec, clicca su **Nuova spec** (il pulsante Più nella toolbar della SpecsBoard). Si apre il dialog **Aggiungi spec**, con diversi modi di lavorare:
 
+- **Modalità Intent** (predefinita) — descrivi il problema, il risultato che vuoi e come saprai che ha funzionato; l’AI scrive l’intent e poi ne ricava la spec da rivedere. Vedi [Intent](../integrations/intent-mode#intent-mode).
 - **Modalità Quick** — descrivi ciò che vuoi e l'AI scrive la spec completa in un colpo solo. Vedi [Aggiungi spec — Modalità Quick](add-spec-quick-mode.md).
 - **Modalità Explore** — conversi con l'AI, che ti aiuta a dare forma alla spec turno dopo turno. Vedi [Aggiungi spec — Modalità Explore](add-spec-explore-mode.md).
 - **Modalità Raw** — qualunque cosa scrivi viene salvata testualmente come spec, senza alcun coinvolgimento dell'AI. Usala quando hai già pronto il testo della spec.
 
-Quale scegliere dipende da quanto è già chiara l'idea. Sai esattamente cosa vuoi? Quick. La stai ancora mettendo a fuoco? Explore. Hai già il testo? Raw.
+Quale scegliere dipende da quanto è già chiara l'idea. Conosci il problema ma non la soluzione? Intent. Sai esattamente cosa vuoi? Quick. La stai ancora mettendo a fuoco? Explore. Hai già il testo? Raw.
+
+L’**Intent** di una spec si trova sopra la sua descrizione nel dettaglio della spec: problema, risultato cercato, come lo sapremo, chi e cosa riguarda, vincoli e domande aperte. Puoi aggiungerlo o modificarlo lì; ogni agente che lavora sulla spec lo riceve per primo.
 
 ## Addenda: iterare su una spec esistente
 

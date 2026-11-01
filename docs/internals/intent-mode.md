@@ -1,16 +1,58 @@
 # Intent mode
 
-Intent is a mode complementary to Implement: the user builds working code with
-an agent in an isolated worktree, by conversation and without a spec. When
-the user decides the result is right, a rail adopts the worktree and derives
-the spec (the Intent → Spec loop). Implement is for delegating; Intent is for
-discovering.
+Intent mode starts work from an **intent** — the problem, the outcome sought
+(with an optional hypothesis), how we will know, who and what it affects, the
+constraints and the open questions, never the solution — and offers two equal
+paths from it: **Explore** (an Intent session: the user builds working code
+with an agent in an isolated worktree, then a rail adopts the worktree and
+derives the spec — the Intent → Spec loop) and **Delegate** (the agent writes
+the spec from the intent and a rail implements it). The mode was called Flow
+until the `intent-mode` change; persisted and wire identifiers keep the `flow`
+name ([frozen identifiers](../../server/modules/intent/README.md#frozen-identifiers)).
 
-This guide covers the server and the client: the Intent lifecycle, the
-`factory:flow-spec` loop, the delivery settlement (spec rewrite, Jira create
-and review transition) and the client (Intent strip, cards, composer, board
-label). User guide: [Intent](../guide/en/integrations/8-intent-mode.md).
-OpenSpec change: [`flow-mode`](../../openspec/changes/flow-mode/).
+This guide covers the intent artifact and its doors, the server and the
+client of Intent sessions: the lifecycle, the `factory:flow-spec` loop, the
+delivery settlement (spec rewrite, Jira create and review transition) and the
+client (Intent strip, cards, composer, board label). User guide:
+[Intent](../guide/en/integrations/8-intent-mode.md). OpenSpec: change
+[`intent-mode`](../../openspec/changes/intent-mode/), canonical spec
+[`intent-sessions`](../../openspec/specs/intent-sessions/spec.md) (archived
+change `2026-11-01-flow-mode`).
+
+## The intent artifact
+
+| Concern | Owner |
+| --- | --- |
+| Model, validation and bounds, `intent.md` render and tolerant parse, the agent block, `intent-draft` payloads, answer merge | [`specs/domain/intent.ts`](../../server/modules/specs/domain/intent.ts) (pure; byte-identical client copy [`features/specs/lib/spec-intent.ts`](../../client/src/features/specs/lib/spec-intent.ts), parity test) |
+| Storage | ticket field `intent` (additive at schema 1.5, local like `nonGoals`, never written to Jira); `POST /tickets`, `PATCH /tickets/:id` and `POST /tickets/from-draft` validate it (`null` clears on PATCH) |
+| Spec detail and board | [`IntentSection`](../../client/src/features/specs/components/IntentSection.tsx) above the description; open-questions badge on `SpecCard`; the ⌘K spec search indexes it (`field: 'intent'`) |
+| Agents | `descriptionWithIntent` leads every loop prompt and Core run (`getTicketSpec`), with the reviewer instruction; the Intent session seed and the derive summary lead with it |
+| Git | [`intent-materialization.ts`](../../server/modules/delivery/runtime/intent-materialization.ts) writes `intent.md` into the ONE OpenSpec change a one-spec run created (active or archived) right before Desktop's delivery commit; best effort (skips no change / no OpenSpec, warns on several changes or a Git failure) |
+
+The doors (Intent is the default door for new specs):
+
+- **Mission agent.** The operator interviews like an analyst and emits a
+  fenced `intent-draft` block (problem, outcome, hypothesis, successSignals,
+  affects, constraints, openQuestions, `readings{restated, alternative,
+  discriminator}`, `ready`) before any `spec-draft`. Missions render it as
+  [`AgentIntentDraftCard`](../../client/src/features/missions/components/AgentIntentDraftCard.tsx):
+  the two readings are one-click replies; a `ready` draft on the newest message
+  offers **Delegate** (a reply asking for the spec) and, through the missions
+  seam `IntentExplore`, **Explore**
+  ([`IntentExploreAction`](../../client/src/features/intent/components/IntentExploreAction.tsx):
+  the entry confirmation in place, then `POST /flow { intent }`). The
+  `commit_draft` gate ([`agent-spec-framing.ts`](../../server/modules/missions/runtime/agent-spec-framing.ts))
+  accepts an answered `intent-draft` (or a legacy answered `problem-frame`) and
+  attaches the newest answered intent to the spec unless the call carries
+  `intent`. `#noframe` / `#frame` still waive and restore the step. Fence
+  promotion recognises the shape for local models.
+- **Add Spec.** The modal opens in **Intent** mode: `generate-spec` with
+  `intent: true` runs one generation whose response opens with a `## Intent`
+  JSON block (`INTENT_DERIVE_RULES`), parsed out of the description and stored
+  on the new spec; an unusable block yields the spec without an intent and the
+  tracker toasts `specGen.intentMissing`.
+- **Existing specs.** `flow-offer` remains only for an EXISTING spec (Explore
+  vs a rail); a new idea never gets it.
 
 ## Where each responsibility lives
 
@@ -20,7 +62,7 @@ OpenSpec change: [`flow-mode`](../../openspec/changes/flow-mode/).
 | Worktree machinery | delivery: `prepareIsolatedWorktree` (reservation), `launchIsolatedRail` with `requiredFlowWorktree` (adoption) |
 | Intent turn (cwd, persona, permissions, interrupt) | missions, through the injected `IntentTurnContext` port |
 | Interrupting a running turn | Core sessions (`session.send { delivery: 'interrupt' }`) |
-| Placeholder spec | specs ticket store (`source: 'flow'`, schema 1.5) |
+| Placeholder spec | specs ticket store (`source: 'flow'`, schema 1.5); carries the intent when the session starts from one |
 | Accounting | `agent_invocations.surface = 'flow'` |
 
 Core is the engine and Desktop the product: Desktop never branches by
@@ -68,7 +110,10 @@ effects that the use cases execute through ports.
 2. Create the placeholder spec through the non-promoting path:
    `status: in_progress`, `source: 'flow'`, title and description from the
    idea, `metadata.flow = { conversationId, flowId, worktreeId, startedAt,
-   state: 'active', chosenMode: 'flow' }`.
+   state: 'active', chosenMode: 'flow' }`. `POST /flow { intent }` (the
+   intent card's Explore) validates the intent in the HTTP adapter, stores it on
+   the placeholder (`ticket.intent`) and seeds the first turn with
+   `buildIntentSeedBriefing` (the agent block, ≤ 24 KB).
 3. Reserve the worktree with `prepareIsolatedWorktree` (branch from the
    ticket; mount `~/.specrails/projects/<slug>/worktrees/<flowId>/ticket-<id>`).
    `flow_sessions` owns it; `rail_worktrees` does not see it.
@@ -125,7 +170,8 @@ already has (Intent and Implement are offered with equal weight for any spec):
   `source` and gets `metadata.flow = { …, origin: 'existing', previousStatus }`
   and status `in_progress` (the same "In Intent" label). A spec that targets
   exactly one repository runs there.
-- **First turn.** `ticket-created` carries `buildSpecSeedBriefing` (title,
+- **First turn.** `ticket-created` carries `buildSpecSeedBriefing` (the
+  spec's intent first when it has one, then title,
   body with acceptance criteria and Contract Layer, non-goals, open addenda;
   ≤ 24 KB) in the pending briefing, delivered once on the user turn like a
   Back to Intent briefing.
@@ -426,7 +472,9 @@ Before the run, Desktop prepares the derivation inputs:
   and produced an empty summary. The executor writes the summary once,
   `0600`, to `.specrails/pipeline/<runId>/flow-summary.md`, which the node
   reads as `summaryPath`. A summary failure never blocks the hand-off: Core
-  then derives from the diff alone.
+  then derives from the diff alone. When the spec has an intent, its agent
+  block opens the summary (after the front matter, ≤ 8 KB) and is never
+  trimmed; the transcript gives way first.
 
 ## Back to Intent and Relaunch
 
@@ -539,7 +587,7 @@ ones after it, and a failure never reverts the delivery.
 
 | Effect | Does | Gives up |
 | --- | --- | --- |
-| `rewrite-spec` | (Intent from an existing spec: first keeps the original as an "Original spec before Intent" comment.) Reads the derived change from the delivered commit (`proposal.md`, `design.md` of the archived change, diffstat), sets `metadata.flow.state = 'delivered'`, `metadata.openspecChangeName` and status `on_review`, then rewrites the spec in place with `generateSpecFromText({ ticketId })` (current format, surface `flow`) and an awaited Contract Layer; once rewritten, the spec's open/in-flight addenda become `applied` | 3 attempts → `failed`: the spec keeps its Intent draft and the packet says so |
+| `rewrite-spec` | (Intent from an existing spec: first keeps the original as an "Original spec before Intent" comment.) Reads the derived change from the delivered commit (`proposal.md`, `design.md` of the archived change, diffstat), sets `metadata.flow.state = 'delivered'`, `metadata.openspecChangeName` and status `on_review`, then rewrites the spec in place with `generateSpecFromText({ ticketId })` (current format, surface `flow`) and an awaited Contract Layer — a spec with an intent passes `intent: { mode: 'keep' }`: the intent stays fixed and the model may only answer its open questions in a `## Intent Answers` block, merged by index with the question text checked (`mergeIntentAnswers`); once rewritten, the spec's open/in-flight addenda become `applied` | 3 attempts → `failed`: the spec keeps its Intent draft and the packet says so |
 | `jira-create` | Projects with an active Jira connection only: `enqueuePromote(ticketId, 'flow:<flowId>:create')` (durable outbox create with marker recovery); an Intent session from an existing spec already linked to an issue enqueues `enqueueSpecUpdate(ticketId, 'flow:<flowId>:update')` instead (note `updated`) | 8 attempts; `skipped` when not connected |
 | `jira-review` | Once the issue link exists: `onRailReview([ticketId], deliveryId)` → the status mapped for `on_review` | 60 polls while the outbox creates the issue; `skipped` when no issue was created |
 
@@ -551,7 +599,7 @@ recovery and dead-lettering stay where they are.
 
 Nothing reaches Jira during Intent or on discard: `isFlowHeldTicket` blocks every
 create while the Intent is `active`/`paused`, and the run settlement in
-`project-registry` excludes Intent-held specs from its own `onRailReview`, so a
+`project-registry` excludes Intent-held specs from its own `onRailReview`, so an
 Intent spec is never transitioned before its issue exists nor transitioned twice.
 
 Once the spec rewrite and the Jira create settled, the conversation gets the

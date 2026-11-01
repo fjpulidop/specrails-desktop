@@ -1,33 +1,56 @@
-# Intent: construir primero, spec después {#intent-mode}
+# Intent: di el problema, no la solución {#intent-mode}
 
-Intent es una forma de construir con un agente cuando todavía no sabes exactamente qué quieres. Hablas con el agente en tu misión, escribe y ejecuta código real en su propia rama de Intent (una copia aparte de tu proyecto) y, cuando el resultado es el bueno, pulsas **Pasar a un rail**: un rail toma tus cambios, deriva la spec y ejecuta la verificación, la revisión y la entrega de siempre.
+Escribir código ya no es lo lento al construir software. Lo lento es saber qué construir y comprobar que se construyó bien. Intent parte de ahí. Escribes el **intent**: el problema, el resultado que quieres, cómo sabrás que funcionó, a quién y a qué afecta, los límites y lo que todavía nadie sabe. No escribes la solución. Specrails deriva la spec de tu intent y tú revisas la spec en lugar de escribirla.
 
-Implement sirve para delegar trabajo que ya sabes describir. Intent, para descubrirlo.
+A partir de un intent hay dos caminos iguales:
 
-## Cómo empieza un Intent
+- **Explorar**: constrúyelo junto a un agente en una sesión de Intent aislada (su propia rama, una copia aparte de tu proyecto). Cuando el resultado es el bueno, un rail deriva la spec de lo que construiste.
+- **Delegar**: el agente escribe la spec a partir del intent, tú la revisas y un rail la construye.
 
-No tienes que pedir Intent por su nombre. Cuando describes algo exploratorio o visual («quiero probar…», «no sé cómo debería quedar»), la misión muestra una tarjeta con dos caminos:
+Explorar sirve para descubrir; Delegar, para construir lo que ya está claro. Ninguno se recomienda: eliges tú.
 
-- **Intent**: construirlo juntos ahora; la spec llega al final.
-- **Spec + Implement**: acordar primero una spec y luego delegarla a un rail.
+## El intent
 
-Los dos caminos tienen el mismo peso y aparecen siempre en el mismo orden: ninguno se recomienda, eliges tú. En **Por qué pregunta el agente**, el agente explica en una frase qué le hizo preguntar, y no insistirá elijas el camino que elijas o si pulsas **Ahora no**.
+Un intent tiene seis partes, y ninguna para la solución:
 
-Al elegir Intent se abre una confirmación: Specrails crea una copia aparte del proyecto en su propia rama de Intent, donde el agente puede escribir código, y tu rama principal no se toca. Pulsa **Empezar Intent**. En el board aparece una spec provisional con la etiqueta **En Intent** (haz clic en ella para volver a la misión).
+| Parte | Qué lleva |
+| --- | --- |
+| **Problema** | Qué falla hoy, para quién y cuándo duele. |
+| **Resultado buscado** | Qué es cierto cuando está resuelto. Una **hipótesis** opcional se lee *Creemos que … producirá …; sabremos que funcionó cuando …*. |
+| **Cómo sabremos** | Señales observables de que el resultado se logró («un usuario nuevo termina la configuración en menos de 2 minutos»). Se convierten en criterios de aceptación. |
+| **A quién y a qué afecta** | Personas, pantallas o sistemas. |
+| **Restricciones** | Límites que cualquier solución debe respetar. |
+| **Preguntas abiertas** | Lo que todavía nadie sabe. Los agentes las investigan en lugar de adivinar. |
 
-Si tu Specrails Core todavía no puede ejecutar Intent, el botón está desactivado y la tarjeta lista lo que falta. Normalmente se arregla actualizando Specrails Core.
+Si nombras una solución («añadir una caché Redis»), el intent conserva para qué sirve («la API responde en menos de 200 ms») como resultado buscado, y tu solución pasa a ser una restricción (la exiges) o una pregunta abierta (es una opción más).
+
+Cada spec puede llevar un intent. Está encima de la descripción en el detalle de la spec, donde puedes editar cada parte. Las preguntas abiertas respondidas muestran su respuesta. Una spec cuyo intent aún tiene preguntas abiertas muestra en el board una pequeña brújula con su número. El intent se queda en Specrails, igual que **Fuera de alcance**, y nunca se escribe en Jira.
+
+## De dónde viene un intent
+
+- **En una misión (lo habitual).** Cuando describes un trabajo, el agente te entrevista como un analista. Pregunta por los usuarios, los límites y cómo sabrás que funcionó, y muestra una tarjeta **Intent** con cada parte y dos lecturas de tu petición. Haz clic en una lectura para responder, o contesta con tus palabras. Cuando el intent está asentado, la tarjeta ofrece **Explorar** y **Delegar** lado a lado. La spec que el agente escribe a partir de él lleva el intent automáticamente. Para saltarte el paso del intent en una misión, envía `#noframe`; `#frame` lo vuelve a activar.
+- **En Añadir spec.** **Intent** es el primer modo y se abre por defecto. Describe el problema, no la solución, y pulsa **Generar intent y spec**. Una sola pasada de IA escribe el intent y después la spec derivada de él, lista para que la revises. Quick, Explore y Raw siguen ahí. Si no se puede escribir el intent, recibes igualmente la spec, sin intent, y un aviso lo indica.
+
+## El intent viaja con el trabajo
+
+- Todo agente que trabaja en la spec recibe primero el intent, marcado como fuente de verdad del *porqué* y del *resultado buscado*, nunca del *cómo*. Eso incluye al planificador, al desarrollador, al revisor y al agente de la sesión de Intent. El revisor también juzga el trabajo frente al resultado buscado y a las señales.
+- Cuando un rail entrega una spec que tiene intent, Specrails lo escribe como `intent.md` en el cambio de OpenSpec de la ejecución, junto a su propuesta, su diseño y sus tareas. Así el intent vive en Git con el código. (Una ejecución por lotes que abarca varias specs no escribe ninguno.)
+
+## Explorar: empezar una sesión de Intent
+
+Elige **Explorar** en una tarjeta de intent asentado. Se abre una confirmación: Specrails crea una copia aparte del proyecto en su propia rama de Intent, donde el agente puede escribir código, y tu rama principal no se toca. Pulsa **Empezar Intent**. En el board aparece una spec provisional con tu intent y la etiqueta **En Intent** (haz clic en ella para volver a la misión), y el primer turno del agente parte del intent.
 
 ## Empezar un Intent desde una spec que ya tienes
 
 Cualquier spec se puede construir en Intent, no solo una idea nueva. Intent e Implement siguen siendo dos formas iguales de trabajarla:
 
 - en el tablero, haz clic derecho en una spec y elige **Empezar en Intent** (junto a arrastrarla a un rail); en el detalle de la spec, **Empezar en Intent** está junto a **Mover a rail**;
-- en una misión, cuando pides implementar una spec sin nombrar un rail, el agente muestra la misma tarjeta de dos caminos para esa spec: **Intent** la trabaja contigo y **Spec + Implement** la lanza en un rail;
+- en una misión, cuando pides implementar una spec sin nombrar un rail, el agente muestra una tarjeta de dos caminos para esa spec: **Intent** la trabaja contigo y **Spec + Implement** la lanza en un rail;
 - una tarjeta de lanzamiento en rail de una sola spec también ofrece **Empezar en Intent** junto a su lanzamiento.
 
-La propia spec pasa a **En Intent**: no se crea ninguna spec provisional y el primer turno del agente recibe la spec (sus criterios de aceptación, la Contract Layer, lo que queda fuera de alcance y los addenda abiertos). Si la empiezas desde el tablero, el Intent se abre en la misión de la propia spec o en una misión nueva con el nombre de la spec. En un proyecto con varios repositorios Git, cuando la spec no indica exactamente uno de ellos, un pequeño diálogo pregunta antes dónde se ejecuta el Intent: solo aparecen los repositorios Git, viene preseleccionado el repositorio de la spec (o, si no, el principal) y las flechas cambian la elección. **Empezar en Intent** aparece desactivado, con el motivo al pasar el ratón, cuando la spec ya está en Intent, está hecha o cancelada, está en un rail o Intent no está disponible.
+La propia spec pasa a **En Intent**: no se crea ninguna spec provisional y el primer turno del agente recibe la spec (su intent primero y luego sus criterios de aceptación, la Contract Layer, lo que queda fuera de alcance y los addenda abiertos). Si la empiezas desde el tablero, el Intent se abre en la misión de la propia spec o en una misión nueva con el nombre de la spec. En un proyecto con varios repositorios Git, cuando la spec no indica exactamente uno de ellos, un pequeño diálogo pregunta antes dónde se ejecuta el Intent: solo aparecen los repositorios Git, viene preseleccionado el repositorio de la spec (o, si no, el principal) y las flechas cambian la elección. **Empezar en Intent** aparece desactivado, con el motivo al pasar el ratón, cuando la spec ya está en Intent, está hecha o cancelada, está en un rail o Intent no está disponible.
 
-**Descartar** devuelve la spec tal como estaba, con su estado anterior: tu spec nunca se borra. Cuando el Intent se entrega, la spec se reescribe a partir de lo construido y antes se guarda su texto original como comentario, **Original spec before Intent**, para que no se pierda nada. Una spec ya enlazada con Jira actualiza esa misma incidencia y la mueve al estado asignado a revisión; no se crea una segunda.
+**Descartar** devuelve la spec tal como estaba, con su estado anterior: tu spec nunca se borra. Cuando el Intent se entrega, la spec se reescribe a partir de lo construido y antes se guarda su texto original como comentario, **Original spec before Intent**, para que no se pierda nada. El propio intent nunca se reescribe: solo sus preguntas abiertas ganan las respuestas que el trabajo resolvió. Una spec ya enlazada con Jira actualiza esa misma incidencia y la mueve al estado asignado a revisión; no se crea una segunda.
 
 ## Mientras estás en Intent
 

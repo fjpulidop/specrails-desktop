@@ -60,11 +60,14 @@ Entwürfe sind die einzige Ausnahme: Ein Entwurf darf *gar keine* Priorität hab
 
 Um eine Spec zu erstellen, klicke auf **Neue Spec** (die Plus-Schaltfläche in der SpecsBoard-Toolbar). Der Dialog **Spec hinzufügen** öffnet sich mit mehreren Arbeitsweisen:
 
+- **Intent-Modus** (der Standard) – du beschreibst das Problem, das gewünschte Ergebnis und woran du erkennst, dass es funktioniert; die KI schreibt den Intent und leitet daraus die Spec ab, damit du sie prüfst. Siehe [Intent](../integrations/intent-mode#intent-mode).
 - **Quick-Modus** – du beschreibst, was du möchtest, und die KI schreibt die vollständige Spec in einem Rutsch. Siehe [Spec hinzufügen – Quick-Modus](add-spec-quick-mode.md).
 - **Explore-Modus** – du unterhältst dich mit der KI, und sie hilft dir, die Spec Zug um Zug zu formen. Siehe [Spec hinzufügen – Explore-Modus](add-spec-explore-mode.md).
 - **Raw-Modus** – was auch immer du eintippst, wird wortwörtlich als Spec gespeichert, ganz ohne KI. Nutze ihn, wenn du den Spec-Text bereits geschrieben hast.
 
-Welchen du wählst, hängt davon ab, wie klar die Idee schon ist. Du weißt genau, was du willst? Quick. Du tüftelst noch daran? Explore. Du hast den Text schon? Raw.
+Welchen du wählst, hängt davon ab, wie klar die Idee schon ist. Du kennst das Problem, aber nicht die Lösung? Intent. Du weißt genau, was du willst? Quick. Du tüftelst noch daran? Explore. Du hast den Text schon? Raw.
+
+Der **Intent** einer Spec steht in der Spec-Detailansicht über ihrer Beschreibung: Problem, angestrebtes Ergebnis, woran wir es erkennen, wen und was es betrifft, Rahmenbedingungen und offene Fragen. Du kannst ihn dort ergänzen oder bearbeiten; jeder Agent, der an der Spec arbeitet, erhält ihn zuerst.
 
 ## Addenda – an einer bestehenden Spec iterieren
 

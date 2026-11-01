@@ -122,6 +122,20 @@ without it cards stay plain buttons (rails render `SpecCard` without a selection
   selection, Save current view and Switch view always; Move / Label / Priority / Add to rail /
   Launch / Delete only while specs are selected, all through the same handlers as the bar.
 
+## Intent
+
+[`lib/spec-intent.ts`](lib/spec-intent.ts) is a byte-identical copy of the
+server's pure intent domain (`server/modules/specs/domain/intent.ts`; the parity
+test lives there). [`IntentSection`](components/IntentSection.tsx) shows the
+spec's intent above the description in the detail modal (problem, outcome,
+hypothesis, how we will know, affects, constraints, open questions with their
+answers) and edits it in place: problem and outcome are required, emptying every
+section clears it, Cancel/Escape restores it; the modal saves it with the ticket
+(`PATCH { intent }`, `null` clears). `SpecCard` shows a compass badge with the
+count of unanswered open questions. The Add Spec modal opens in **Intent** mode
+(`AddSpecMode`, the Quick fast path with `intent: true`); the tracker toasts when
+the spec arrived without an intent.
+
 ## Timeline tab and hand-off export
 
 The spec modal has two tabs, **Details** and **Timeline** (a tab inside a modal is not a place: no history

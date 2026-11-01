@@ -60,11 +60,14 @@ Spec 工具栏分为两行。第一行包含 **搜索** 框（按 `/` 即可跳�
 
 要创建 spec，点击 **新建 Spec**（SpecsBoard 工具栏上的加号按钮）。**添加 Spec** 对话框会打开，提供几种工作方式：
 
+- **Intent 模式**（默认）——你描述问题、想要的结果以及如何判断它奏效了；AI 写出 intent，再据此推导出 spec 供你评审。参见 [Intent](../integrations/intent-mode#intent-mode)。
 - **Quick 模式**——你描述需求，AI 一次性写出完整的 spec。参见 [添加 Spec — Quick 模式](add-spec-quick-mode.md)。
 - **Explore 模式**——你与 AI 对话，它会一轮一轮地帮你打磨 spec。参见 [添加 Spec — Explore 模式](add-spec-explore-mode.md)。
 - **Raw 模式**——你输入什么，就原样保存成 spec，全程不涉及 AI。当你手头已经写好了 spec 文本时，用它最合适。
 
-具体选哪一种，取决于你的想法已经多清晰了。完全清楚自己要什么？用 Quick。还在琢磨？用 Explore。文本已经写好了？用 Raw。
+具体选哪一种，取决于你的想法已经多清晰了。清楚问题但不知道方案？用 Intent。完全清楚自己要什么？用 Quick。还在琢磨？用 Explore。文本已经写好了？用 Raw。
+
+spec 的 **Intent** 位于 spec 详情中描述的上方：问题、期望结果、如何判断、影响谁和什么、约束以及待解决的问题。你可以在那里添加或编辑；每个处理该 spec 的智能体都会先收到它。
 
 ## 附录：在现有规格上迭代
 

@@ -60,11 +60,14 @@ Os rascunhos são a única exceção: um rascunho pode *não* ter prioridade nen
 
 Para criar uma spec, clique em **Nova spec** (o botão Mais na barra de ferramentas da SpecsBoard). Abre-se a janela **Adicionar Spec** com algumas formas de trabalhar:
 
+- **Intent** (o padrão) — descreve o problema, o resultado que quer e como saberá que funcionou; a IA escreve o intent e depois deriva dele a spec para a rever. Veja [Intent](../integrations/intent-mode#intent-mode).
 - **Quick** — descreve o que quer e a IA escreve a spec completa de uma só vez. Veja [Adicionar Spec — modo Quick](add-spec-quick-mode.md).
 - **Explore** — conversa com a IA, e ela ajuda-o a dar forma à spec turno a turno. Veja [Adicionar Spec — modo Explore](add-spec-explore-mode.md).
 - **Raw** — o que quer que escreva é guardado tal e qual como uma spec, sem qualquer IA envolvida. Use este modo quando já tem o texto da spec pronto.
 
-Qual escolher depende do quão clara já está a ideia. Sabe exatamente o que quer? Quick. Ainda a pensar nela? Explore. Já tem o texto? Raw.
+Qual escolher depende do quão clara já está a ideia. Conhece o problema mas não a solução? Intent. Sabe exatamente o que quer? Quick. Ainda a pensar nela? Explore. Já tem o texto? Raw.
+
+O **Intent** de uma spec fica acima da sua descrição no detalhe da spec: problema, resultado buscado, como saberemos, quem e o que é afetado, restrições e perguntas em aberto. Pode adicioná-lo ou editá-lo aí; todo agente que trabalha na spec recebe-o primeiro.
 
 ## Adendos: iterar sobre uma spec existente
 

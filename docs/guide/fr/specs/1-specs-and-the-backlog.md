@@ -60,11 +60,14 @@ Les brouillons sont la seule exception : un brouillon peut n'avoir *aucune* prio
 
 Pour créer une spec, cliquez sur **Nouvelle spec** (le bouton Plus de la barre d'outils du SpecsBoard). La fenêtre **Ajouter une spec** s'ouvre, avec plusieurs façons de travailler :
 
+- **Mode Intent** (par défaut) — vous décrivez le problème, le résultat voulu et comment vous saurez que ça a marché ; l’IA écrit l’intent, puis en dérive la spec que vous relisez. Voir [Intent](../integrations/intent-mode#intent-mode).
 - **Mode Quick** — vous décrivez ce que vous voulez et l'IA écrit la spec complète en un seul coup. Voir [Ajouter une spec — mode Quick](add-spec-quick-mode.md).
 - **Mode Explore** — vous échangez avec l'IA, qui vous aide à façonner la spec tour après tour. Voir [Ajouter une spec — mode Explore](add-spec-explore-mode.md).
 - **Mode Raw** — ce que vous tapez est enregistré tel quel comme spec, sans aucune intervention de l'IA. À utiliser quand vous avez déjà rédigé le texte de la spec.
 
-Le choix dépend du degré de clarté de votre idée. Vous savez exactement ce que vous voulez ? Quick. Vous êtes encore en train d'y réfléchir ? Explore. Vous avez déjà le texte ? Raw.
+Le choix dépend du degré de clarté de votre idée. Vous connaissez le problème sans connaître la solution ? Intent. Vous savez exactement ce que vous voulez ? Quick. Vous êtes encore en train d'y réfléchir ? Explore. Vous avez déjà le texte ? Raw.
+
+L’**Intent** d’une spec se trouve au-dessus de sa description dans le détail de la spec : problème, résultat recherché, comment nous le saurons, qui et quoi est concerné, contraintes et questions ouvertes. Vous pouvez l’y ajouter ou le modifier ; chaque agent qui travaille sur la spec le reçoit d’abord.
 
 ## Addenda : itérer sur une spec existante
 

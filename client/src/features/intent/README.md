@@ -28,7 +28,11 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 
 ## Mission extension slots
 
-`IntentMissionsBridge` fills the missions seam: the `flow-offer` fence card, the
+`IntentMissionsBridge` fills the missions seam: the `flow-offer` fence card (an
+EXISTING spec only), the Explore path of a settled intent card (`IntentExplore` →
+[`IntentExploreAction`](components/IntentExploreAction.tsx): the entry confirmation
+in place, `start(…, intent)` so the placeholder spec carries the intent, then a
+quiet "This mission is in Intent" line), the
 conversation mode (`useFlowConversationMode`: while an Intent session is open the
 composer's **Intent** chip and placeholder, "In Intent" by the
 mission title, no git strip; only an active Intent interrupts sends), the

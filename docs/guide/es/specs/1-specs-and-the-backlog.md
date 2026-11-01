@@ -58,11 +58,14 @@ Los borradores son la única excepción: un borrador puede *no* tener ninguna pr
 
 Para crear una spec, haz clic en **Nueva spec** (el botón Más de la barra de herramientas del SpecsBoard). Se abre el diálogo **Añadir spec** con varias formas de trabajar:
 
+- **Modo Intent** (el predeterminado): describes el problema, el resultado que quieres y cómo sabrás que funcionó; la IA escribe el intent y después deriva la spec de él para que la revises. Consulta [Intent](../integrations/intent-mode#intent-mode).
 - **Modo Quick**: describes lo que quieres y la IA escribe la spec completa de una sola vez. Consulta [Añadir spec — Modo Quick](add-spec-quick-mode.md).
 - **Modo Explore**: conversas con la IA y esta te ayuda a dar forma a la spec turno a turno. Consulta [Añadir spec — Modo Explore](add-spec-explore-mode.md).
 - **Modo Raw**: lo que escribas se guarda tal cual como una spec, sin intervención de la IA. Úsalo cuando ya tengas el texto de la spec escrito.
 
-A cuál recurrir depende de lo clara que tengas ya la idea. ¿Sabes exactamente lo que quieres? Quick. ¿Todavía le estás dando vueltas? Explore. ¿Ya tienes el texto? Raw.
+A cuál recurrir depende de lo clara que tengas ya la idea. ¿Conoces el problema pero no la solución? Intent. ¿Sabes exactamente lo que quieres? Quick. ¿Todavía le estás dando vueltas? Explore. ¿Ya tienes el texto? Raw.
+
+La **Intent** de una spec está encima de su descripción en el detalle de la spec: problema, resultado buscado, cómo sabremos, a quién y a qué afecta, restricciones y preguntas abiertas. Puedes añadirla o editarla ahí; todo agente que trabaja en la spec la recibe primero.
 
 ## Anexos: iterar sobre una spec existente
 

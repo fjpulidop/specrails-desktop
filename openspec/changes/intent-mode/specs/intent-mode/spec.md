@@ -27,7 +27,7 @@ The rename SHALL NOT change any persisted or cross-repository identifier. This c
 - the `flow.state` WebSocket event
 - the error codes `flow_*`
 
-The `/api/projects/:projectId/intent/*` routes SHALL be aliases of `/flow/*`, with identical handlers and response shapes. MCP tools SHALL accept the intent names, and the previous names SHALL keep working as aliases. Shipped migrations SHALL NOT be rewritten.
+The `/api/projects/:projectId/intent/*` routes SHALL be aliases of `/flow/*`, with identical handlers and response shapes. MCP tools SHALL describe the mode as Intent; no MCP operation name changes (none is named after Flow). Shipped migrations SHALL NOT be rewritten.
 
 #### Scenario: Route alias
 

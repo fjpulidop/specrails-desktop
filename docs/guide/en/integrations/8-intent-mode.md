@@ -1,19 +1,44 @@
-# Intent: build first, spec later {#intent-mode}
+# Intent: say the problem, not the solution {#intent-mode}
 
-Intent is a way to build with an agent when you do not know yet exactly what you want. You talk to the agent in your mission, it writes and runs real code on its own Intent branch (a separate copy of your project), and when the result is right you press **Hand off**: a rail takes your changes, derives the spec and runs the usual verification, review and delivery.
+Code is no longer the slow part of building software. Knowing what to build is, and so is checking that it was built right. Intent starts there. You write down the **intent**: the problem, the outcome you want, how you will know it worked, who and what it affects, the limits, and what nobody knows yet. You do not write the solution. Specrails derives the spec from your intent, and you review the spec instead of writing it.
 
-Implement is for delegating work you can already describe. Intent is for discovering it.
+From an intent there are two equal ways forward:
 
-## How an Intent session starts
+- **Explore**: build it together with an agent in an isolated Intent session (its own branch, a separate copy of your project). When the result is right, a rail derives the spec from what you built.
+- **Delegate**: the agent writes the spec from the intent, you review it, and a rail builds it.
 
-You never have to ask for Intent by name. When you describe something exploratory or visual ("I want to try…", "I don't know how it should look"), the mission shows a card with two paths:
+Explore is for discovering; Delegate is for building what is already clear. Neither is recommended: you choose.
 
-- **Intent**: build it together now; the spec comes at the end.
-- **Spec + Implement**: agree on a spec first, then delegate it to a rail.
+## The intent
 
-Both paths carry the same weight and always appear in the same order: neither is recommended, you choose. Under **Why the agent asked** the agent says in one sentence what made it ask, and it will not insist whichever path you pick or if you press **Not now**.
+An intent has six parts, and no part for the solution:
 
-Choosing Intent opens a confirmation: Specrails makes a separate copy of the project on its own Intent branch, where the agent can write code, and your main branch is not touched. Press **Start Intent**. A placeholder spec appears on the board with the **In Intent** label (click it to jump back to the mission).
+| Part | What goes in it |
+| --- | --- |
+| **Problem** | What is wrong today, for whom, and when it hurts. |
+| **Outcome sought** | What is true once it is solved. An optional **hypothesis** reads *We believe … will produce …; we will know when …*. |
+| **How we will know** | Observable signals that the outcome happened ("a new user finishes setup in under 2 minutes"). They become acceptance criteria. |
+| **Who and what it affects** | People, screens or systems. |
+| **Constraints** | Limits any solution must respect. |
+| **Open questions** | What nobody knows yet. Agents investigate them instead of guessing. |
+
+If you name a solution ("add a Redis cache"), the intent keeps what it is for ("the API answers in under 200 ms") as the outcome, and your solution becomes a constraint (you require it) or an open question (it is one option).
+
+Every spec can carry an intent. It sits above the description in the spec detail, where you can edit each part. Answered open questions show their answer. A spec whose intent still has open questions shows a small compass mark with their count on the board. The intent stays in Specrails, like **Out of scope**, and is never written to Jira.
+
+## Where an intent comes from
+
+- **In a mission (the default).** When you describe work, the agent interviews you like an analyst. It asks about the users, the limits and how you will know it worked, and shows an **Intent** card with every part and two readings of your request. Click a reading to answer, or reply in your own words. When the intent is settled, the card offers **Explore** and **Delegate** side by side. A spec the agent writes from it carries the intent automatically. To skip the intent step for a mission, send `#noframe`; `#frame` turns it back on.
+- **In Add Spec.** **Intent** is the first mode and opens by default. Describe the problem, not the solution, and press **Generate intent and spec**. One AI pass writes the intent and then the spec derived from it, ready for you to review. Quick, Explore and Raw are still there. If the intent cannot be written, you still get the spec, without an intent, and a notice says so.
+
+## The intent travels with the work
+
+- Every agent that works on the spec receives the intent first, marked as the source of truth for *why* and *what outcome*, never for *how*. That includes the planner, the developer, the reviewer and the Intent session agent. The reviewer also judges the work against the outcome and the signals.
+- When a rail delivers a spec that has an intent, Specrails writes it as `intent.md` into the run's OpenSpec change, next to its proposal, design and tasks. The intent then lives in Git with the code. (A batch run that covers several specs writes none.)
+
+## Explore: start an Intent session
+
+Choose **Explore** on a settled intent card. A confirmation opens: Specrails makes a separate copy of the project on its own Intent branch, where the agent can write code, and your main branch is not touched. Press **Start Intent**. A placeholder spec carrying your intent appears on the board with the **In Intent** label (click it to jump back to the mission), and the agent's first turn starts from the intent.
 
 If your Specrails Core cannot run Intent yet, Start is disabled and the card lists what is missing. Usually an update of Specrails Core fixes it.
 
@@ -22,12 +47,12 @@ If your Specrails Core cannot run Intent yet, Start is disabled and the card lis
 Any spec can be built in Intent, not only a new idea. Intent and Implement stay two equal ways to work on it:
 
 - on the board, right-click a spec and choose **Start in Intent** (next to dragging it onto a rail); in the spec detail, **Start in Intent** sits next to **Move to Rail**;
-- in a mission, when you ask to implement a spec without naming a rail, the agent shows the same two-path card for that spec: **Intent** works on it with you, **Spec + Implement** launches it on a rail;
+- in a mission, when you ask to implement a spec without naming a rail, the agent shows a two-path card for that spec: **Intent** works on it with you, **Spec + Implement** launches it on a rail;
 - a rail-launch card for one spec also offers **Start in Intent** next to its launch.
 
-The spec itself goes **In Intent**: no placeholder is created, and the agent's first turn receives the spec (its acceptance criteria, Contract Layer, out-of-scope list and open addenda). Started from the board, the Intent opens in the spec's own mission, or in a new mission named after the spec. In a project with several Git repositories, when the spec does not name exactly one of them, a small dialog first asks where the Intent runs: only the Git repositories are listed, the spec's own repository (or else the primary) is preselected, and the arrow keys change the choice. **Start in Intent** is disabled, with the reason on hover, when the spec is already in Intent, done or cancelled, sits on a rail, or Intent is not available.
+The spec itself goes **In Intent**: no placeholder is created, and the agent's first turn receives the spec (its intent first, then its acceptance criteria, Contract Layer, out-of-scope list and open addenda). Started from the board, the Intent opens in the spec's own mission, or in a new mission named after the spec. In a project with several Git repositories, when the spec does not name exactly one of them, a small dialog first asks where the Intent runs: only the Git repositories are listed, the spec's own repository (or else the primary) is preselected, and the arrow keys change the choice. **Start in Intent** is disabled, with the reason on hover, when the spec is already in Intent, done or cancelled, sits on a rail, or Intent is not available.
 
-**Discard** gives the spec back exactly as it was, with its previous status: your spec is never deleted. When the Intent is delivered, the spec is rewritten from what was built, and its original text is first kept as a comment, **Original spec before Intent**, so nothing is lost. A spec already linked to Jira updates that same issue and moves it to the status mapped for review; no second issue is created.
+**Discard** gives the spec back exactly as it was, with its previous status: your spec is never deleted. When the Intent is delivered, the spec is rewritten from what was built, and its original text is first kept as a comment, **Original spec before Intent**, so nothing is lost. The intent itself is never rewritten: only its open questions gain the answers the work settled. A spec already linked to Jira updates that same issue and moves it to the status mapped for review; no second issue is created.
 
 ## While you are in Intent
 

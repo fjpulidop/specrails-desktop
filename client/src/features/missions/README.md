@@ -129,6 +129,17 @@ mission title and on the mission list ([`MissionModeBadge`](components/MissionMo
 where a dot with words also marks missions waiting for a decision
 (`attentionConversationIds`).
 
+## The intent card
+
+Assistant messages carrying a fenced `intent-draft` block (intent-mode) render
+[`AgentIntentDraftCard`](components/AgentIntentDraftCard.tsx) through
+[`agent-intent-draft.ts`](components/agent-intent-draft.ts) (last valid snapshot,
+lenient tail, streaming placeholder; payload rules from the shared
+`specs/lib/spec-intent.ts`). The two readings are one-click replies on the
+newest card only and never mid-turn; a `ready` card offers Delegate (a reply)
+and, when an extension provides `IntentExplore`, Explore with equal weight.
+Stored `problem-frame` blocks keep rendering as the legacy framing card.
+
 ## Conversation and composer
 
 The transcript is a `role="log"` (additions only, never `aria-live`, so streamed
