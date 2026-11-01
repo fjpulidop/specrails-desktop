@@ -47,7 +47,7 @@ export interface IntentSpecBlocker {
  * non-promoting path, or the existing spec it started from. */
 export interface IntentTickets {
   /** `repositoryIds`: the Intent's non-primary target repository (absent ⇒ primary). */
-  createPlaceholder(input: { flowId: string; conversationId: string; title: string; description: string; startedAt: string; repositoryIds?: string[] }): number
+  createPlaceholder(input: { flowId: string; conversationId: string; title: string; description: string; startedAt: string; repositoryIds?: string[]; intent?: unknown }): number
   setFlowState(ticketId: number, state: IntentTicketState): void
   /** Idempotent: a missing ticket is not an error. */
   deletePlaceholder(ticketId: number): void
@@ -59,7 +59,7 @@ export interface IntentTickets {
    * ticket that moved on (done, cancelled) is left alone. */
   reopen(ticketId: number): void
   /** Current title, idea (description), status and target repositories; null when the ticket is gone. */
-  read(ticketId: number): { title: string; description: string; status: string; repositoryIds?: string[]; nonGoals?: string[] } | null
+  read(ticketId: number): { title: string; description: string; status: string; repositoryIds?: string[]; nonGoals?: string[]; intent?: string } | null
   /** Read-only: whether an existing spec can start an Intent session now, and its content. */
   inspectExisting(ticketId: number): { spec: IntentSpecSnapshot | null; blocker: IntentSpecBlocker | null }
   /** Intent from an existing spec: label it "In Intent" for `flowId` (metadata.flow

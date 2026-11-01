@@ -676,7 +676,7 @@ export class AgentChatManager {
     // exact fence tags and ask the user for the #noframe waiver — restate the
     // two rules they break most, on the USER turn (system prompt stays byte-stable).
     const localProtocolNote = isLocalAdapterId(adapter.id)
-      ? ' | Protocol: fenced protocol blocks MUST be tagged exactly problem-frame, spec-draft or options (never json); never ask the user to type #noframe'
+      ? ' | Protocol: fenced protocol blocks MUST be tagged exactly intent-draft, spec-draft or options (never json); never ask the user to type #noframe'
       : ''
     const flowNote = flowTurn
       ? ` | Intent: worktree=${JSON.stringify(flowTurn.cwd)}${flowTurn.branch ? ` branch=${flowTurn.branch}` : ''} (write only inside it)`

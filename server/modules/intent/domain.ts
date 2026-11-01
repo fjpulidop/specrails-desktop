@@ -865,6 +865,8 @@ export interface IntentSpecSnapshot {
   repositoryIds: readonly string[]
   /** Open addenda (iterate-on-spec), already rendered; empty when none. */
   addenda: string
+  /** The spec's intent as the agent block (intent-mode); empty when none. */
+  intent?: string
 }
 
 /** Upper bound of the spec seed an Intent session from an existing spec carries on its first turn. */
@@ -882,6 +884,7 @@ export function buildSpecSeedBriefing(spec: IntentSpecSnapshot): string {
     `[Intent started from spec #${spec.id} — automatic context, not typed by the user]`,
     'The person chose to build this existing spec interactively in Intent, in this worktree. It is the starting point: build it with them, turn by turn; what they say in this conversation decides when it differs from the spec. When the work is done, offer to hand off to Intent → Spec, which rewrites this spec from what was built.',
     '',
+    ...(spec.intent?.trim() ? [clip(spec.intent, 6_000), ''] : []),
     `## Spec #${spec.id}: ${clip(spec.title, 300)}`,
     '',
     clip(spec.description, 18_000) || '(no description)',
@@ -890,6 +893,24 @@ export function buildSpecSeedBriefing(spec: IntentSpecSnapshot): string {
   if (spec.addenda.trim()) lines.push('', clip(spec.addenda, 4_000))
   lines.push('', 'Conduct: in at most 3 short lines, say what you understood and what you will build first, then start. If the spec leaves a genuine decision open, offer it as an `options` block before editing and wait for the answer.')
   const text = lines.join('\n')
+  return text.length <= FLOW_SPEC_SEED_LIMIT ? text : `${text.slice(0, FLOW_SPEC_SEED_LIMIT - 1).trimEnd()}…`
+}
+
+/**
+ * The context the first turn of an Intent session started from an intent (the
+ * mission's intent card) carries, once, on the user turn: the intent as the
+ * source of truth for the problem and the outcome, and the conduct. The
+ * person and the agent discover the solution together from there.
+ */
+export function buildIntentSeedBriefing(intentBlock: string): string {
+  const text = [
+    '[Intent session started from an intent — automatic context, not typed by the user]',
+    'The person chose to explore this intent interactively, in this worktree. It states the problem, the outcome and the limits; it never states the solution. Discover the solution with them, turn by turn, honouring every constraint; when the work is done, offer to hand off to Intent → Spec, which derives the spec from what was built.',
+    '',
+    clip(intentBlock, FLOW_SPEC_SEED_LIMIT - 1_000),
+    '',
+    'Conduct: in at most 3 short lines, say which outcome you will aim for first and the smallest step towards it, then start. If an open question blocks that step, offer it as an `options` block before editing and wait for the answer.',
+  ].join('\n')
   return text.length <= FLOW_SPEC_SEED_LIMIT ? text : `${text.slice(0, FLOW_SPEC_SEED_LIMIT - 1).trimEnd()}…`
 }
 

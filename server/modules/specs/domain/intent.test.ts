@@ -8,6 +8,7 @@ import {
   descriptionWithIntent,
   mergeIntentAnswers,
   normalizeSpecIntent,
+  parseIntentDraft,
   openIntentQuestions,
   parseIntentMarkdown,
   renderIntentForAgents,
@@ -122,5 +123,20 @@ describe('client copy', () => {
     const server = readFileSync(join(__dirname, 'intent.ts'), 'utf8')
     const client = readFileSync(join(__dirname, '../../../../client/src/features/specs/lib/spec-intent.ts'), 'utf8')
     expect(client).toBe(server)
+  })
+})
+
+describe('parseIntentDraft', () => {
+  const readings = { restated: 'Show a working sample first', alternative: 'Make the API key optional everywhere', discriminator: 'Is this about first run only?' }
+  it('accepts an intent with two different readings', () => {
+    expect(parseIntentDraft({ ...INTENT, title: ' First run ', readings, ready: true })).toEqual({ title: 'First run', intent: INTENT, readings, ready: true })
+    expect(parseIntentDraft({ ...INTENT, readings })!.ready).toBe(false)
+  })
+  it('rejects a missing intent section, missing or identical readings', () => {
+    expect(parseIntentDraft({ ...INTENT, problem: '', readings })).toBeNull()
+    expect(parseIntentDraft({ ...INTENT })).toBeNull()
+    expect(parseIntentDraft({ ...INTENT, readings: { ...readings, discriminator: ' ' } })).toBeNull()
+    expect(parseIntentDraft({ ...INTENT, readings: { ...readings, alternative: readings.restated } })).toBeNull()
+    expect(parseIntentDraft([])).toBeNull()
   })
 })

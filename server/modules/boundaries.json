@@ -1767,6 +1767,7 @@
         "../../missions/runtime/agent-failure-briefing",
         "../../missions/runtime/agent-flow-prompt",
         "../../missions/runtime/flow-turn-context",
+        "../../specs/domain/intent",
         "../../specs/runtime/spec-addenda",
         "../../specs/runtime/spec-addenda-core",
         "../../specs/runtime/spec-generation",
@@ -1780,6 +1781,7 @@
       ],
       "adapters/http.ts": [
         "..",
+        "../../specs/domain/intent",
         "express"
       ],
       "adapters/sqlite.ts": [
@@ -2172,6 +2174,7 @@
         "../../../db",
         "../../../providers/registry",
         "../../agents/runtime/agent-store",
+        "../../specs/domain/intent",
         "./agent-fence-promotion"
       ],
       "runtime/agent-steering.ts": [

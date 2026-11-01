@@ -1,6 +1,7 @@
 import {
   buildReturnBriefing,
   buildSpecRewriteText,
+  buildIntentSeedBriefing,
   buildSpecSeedBriefing,
   flowJiraUpdateKey,
   isExistingSpecFlow,
@@ -57,6 +58,10 @@ export interface StartFlowInput {
    * the person's pick). Omitted ⇒ the primary when it is Git, else the only
    * Git member; several candidates are refused (`flow_repository_required`). */
   repositoryId?: string | null
+  /** The intent the session starts from (the mission's intent card): stored on
+   * the placeholder spec and seeded into the first turn. Validated by the
+   * inbound adapter; the tickets port normalizes it. */
+  intent?: unknown
 }
 
 export interface HandOffFlowInput {
@@ -213,8 +218,11 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
           const ticketId = ports.tickets.createPlaceholder({
             flowId, conversationId, title: placeholderTitle(idea, input.title), description: idea, startedAt: session.createdAt,
             ...(repositoryId ? { repositoryIds: [repositoryId] } : {}),
+            ...(input.intent ? { intent: input.intent } : {}),
           })
-          session = apply(session, { type: 'ticket-created', ticketId, now: ports.clock.now() })
+          // Started from an intent: the stored intent seeds the first turn.
+          const intentBlock = input.intent ? ports.tickets.read(ticketId)?.intent ?? '' : ''
+          session = apply(session, { type: 'ticket-created', ticketId, ...(intentBlock ? { briefing: buildIntentSeedBriefing(intentBlock) } : {}), now: ports.clock.now() })
         }
         const reserved = await ports.worktrees.reserve({ flowId, conversationId, ticketId: session.ticketId!, ...repositoryOf(session) })
         session = apply(session, { type: 'worktree-reserved', ...reserved, now: ports.clock.now() })

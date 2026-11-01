@@ -7,6 +7,8 @@ import {
   evaluateFramingState,
   checkSpecFraming,
   recordSpecCommitted,
+  answeredSpecIntent,
+  lastIntentDraft,
   framingRefusalMessage,
   FRAMING_WAIVER_TOKEN,
   FRAMING_RESTORE_TOKEN,
@@ -72,7 +74,7 @@ describe('hasValidProblemFrame — mirrors the client parser', () => {
 
 describe('evaluateFramingState — derived from the message list alone', () => {
   it('refuses an empty conversation with no_frame', () => {
-    expect(evaluateFramingState([])).toEqual({ satisfied: false, waived: false, reason: 'no_frame' })
+    expect(evaluateFramingState([])).toEqual({ satisfied: false, waived: false, reason: 'no_frame', intent: null })
   })
 
   it('refuses when the agent talked but never framed', () => {
@@ -82,7 +84,7 @@ describe('evaluateFramingState — derived from the message list alone', () => {
 
   it('refuses a frame the user has not answered yet', () => {
     const s = evaluateFramingState([U('settings are confusing'), A(fenced(frame))])
-    expect(s).toEqual({ satisfied: false, waived: false, reason: 'frame_unanswered' })
+    expect(s).toEqual({ satisfied: false, waived: false, reason: 'frame_unanswered', intent: null })
   })
 
   it('is satisfied once a user message follows the frame', () => {
@@ -106,7 +108,7 @@ describe('evaluateFramingState — derived from the message list alone', () => {
     expect(evaluateFramingState(base).satisfied).toBe(true)
     const afterCommit = [...base, MARKER]
     expect(evaluateFramingState(afterCommit)).toEqual({
-      satisfied: false, waived: false, reason: 'frame_consumed',
+      satisfied: false, waived: false, reason: 'frame_consumed', intent: null,
     })
   })
 
@@ -126,7 +128,7 @@ describe('evaluateFramingState — derived from the message list alone', () => {
 describe('the waiver is a user command word, not a sentiment', () => {
   it('a user waiver satisfies the gate with no frame at all', () => {
     const s = evaluateFramingState([U(`just do it, ${FRAMING_WAIVER_TOKEN}`)])
-    expect(s).toEqual({ satisfied: true, waived: true, reason: null })
+    expect(s).toEqual({ satisfied: true, waived: true, reason: null, intent: null })
   })
 
   it('the waiver is sticky across several specs', () => {
@@ -166,7 +168,7 @@ describe('refusal messages name the artifact and the action', () => {
   it('every reason states what is missing and how to fix it', () => {
     for (const reason of ['no_frame', 'frame_unanswered', 'frame_consumed'] as const) {
       const msg = framingRefusalMessage(reason)
-      expect(msg).toContain('problem-frame')
+      expect(msg).toContain('intent-draft')
       expect(msg).toContain('discriminator')
       expect(msg).toContain('#noframe')
     }
@@ -187,7 +189,7 @@ describe('checkSpecFraming + recordSpecCommitted over a real conversation', () =
 
   it('refuses a conversation with no frame', () => {
     const refusal = checkSpecFraming(db, conversationId)
-    expect(refusal).toContain('No frame has been shown')
+    expect(refusal).toContain('No intent has been shown')
   })
 
   it('allows the commit once the frame is answered, then spends it', () => {
@@ -302,5 +304,54 @@ describe('hasValidProblemFrame — ```json fence tolerance (small/local models)'
     // CLI providers stay strict: no flag ⇒ a json fence is NOT a frame.
     expect(hasValidProblemFrame('Framing:\n```json\n' + frame + '\n```')).toBe(false)
     expect(hasValidProblemFrame('```json\n{"foo":1}\n```', { tolerantFences: true })).toBe(false)
+  })
+})
+
+// ─── intent-mode: the intent-draft is the framing artifact ────────────────────
+const intentDraft = {
+  title: 'Findable settings',
+  problem: 'People cannot find a setting they changed last week.',
+  outcome: 'Any setting is reachable in two keystrokes.',
+  successSignals: ['Settings searches succeed on the first try'],
+  affects: ['Every user'],
+  constraints: ['No new settings page'],
+  openQuestions: ['Should project settings be included?'],
+  readings: { restated: 'Search settings from the palette', alternative: 'Regroup the settings page', discriminator: 'Do you arrive by search or by scanning?' },
+}
+const intentFenced = (payload: unknown) => '```intent-draft\n' + JSON.stringify(payload) + '\n```'
+
+describe('intent-draft framing', () => {
+  it('parses the last valid snapshot, tolerates an unclosed tail and ignores malformed blocks', () => {
+    expect(lastIntentDraft(intentFenced(intentDraft))?.intent.problem).toBe(intentDraft.problem)
+    expect(lastIntentDraft(intentFenced(intentDraft) + '\n' + intentFenced({ ...intentDraft, outcome: 'Second' }))?.intent.outcome).toBe('Second')
+    expect(lastIntentDraft('```intent-draft\n' + JSON.stringify(intentDraft))?.title).toBe('Findable settings')
+    expect(lastIntentDraft(intentFenced({ ...intentDraft, readings: undefined }))).toBeNull()
+    expect(lastIntentDraft('```json\n' + JSON.stringify(intentDraft) + '\n```')).toBeNull()
+    expect(lastIntentDraft('```json\n' + JSON.stringify(intentDraft) + '\n```', { tolerantFences: true })?.readings.discriminator).toBe(intentDraft.readings.discriminator)
+  })
+
+  it('an answered intent satisfies the gate and is the one attached; spending clears it', () => {
+    const state = evaluateFramingState([A(intentFenced(intentDraft)), U('the palette one')])
+    expect(state).toMatchObject({ satisfied: true, reason: null })
+    expect(state.intent).toMatchObject({ problem: intentDraft.problem, openQuestions: [{ question: 'Should project settings be included?' }] })
+    expect(evaluateFramingState([A(intentFenced(intentDraft))])).toMatchObject({ satisfied: false, reason: 'frame_unanswered', intent: null })
+    expect(evaluateFramingState([A(intentFenced(intentDraft)), U('ok'), MARKER])).toMatchObject({ satisfied: false, reason: 'frame_consumed', intent: null })
+  })
+
+  it('a corrected intent supersedes the earlier one; a legacy frame attaches nothing', () => {
+    const corrected = { ...intentDraft, outcome: 'Settings are grouped by task.' }
+    expect(evaluateFramingState([A(intentFenced(intentDraft)), U('no, regroup'), A(intentFenced(corrected)), U('yes')]).intent?.outcome).toBe('Settings are grouped by task.')
+    expect(evaluateFramingState([A(fenced(frame)), U('yes')])).toMatchObject({ satisfied: true, intent: null })
+  })
+
+  it('answeredSpecIntent reads it from a real conversation', () => {
+    const db = initDesktopDb(':memory:')
+    const conversationId = createAgentConversation(db, {}).id
+    expect(answeredSpecIntent(db, conversationId)).toBeNull()
+    addAgentMessage(db, { conversationId, role: 'assistant', content: 'Here is my reading.\n\n' + intentFenced(intentDraft) })
+    addAgentMessage(db, { conversationId, role: 'user', content: 'palette' })
+    expect(checkSpecFraming(db, conversationId)).toBeNull()
+    expect(answeredSpecIntent(db, conversationId)?.constraints).toEqual(['No new settings page'])
+    db.close()
   })
 })

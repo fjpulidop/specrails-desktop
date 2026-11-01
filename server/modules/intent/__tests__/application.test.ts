@@ -142,6 +142,23 @@ describe('startFlow', () => {
     expect(repository.get('flow-1')).toEqual(flow)
   })
 
+  it('starts from an intent: the placeholder carries it and the first turn is seeded with it', async () => {
+    const { service, tickets } = setup()
+    const intent = { problem: 'Boards are hard to scan', outcome: 'A kanban board', successSignals: [], affects: [], constraints: [], openQuestions: [] }
+    tickets.read.mockImplementation(() => ({ title: 'Boards are hard to scan', description: 'Boards are hard to scan', status: 'in_progress', intent: '## Intent (source of truth)\n\n### Problem\n\nBoards are hard to scan' }))
+    const flow = await service.startFlow({ ...startInput, idea: 'Boards are hard to scan', intent })
+    expect(tickets.createPlaceholder).toHaveBeenCalledWith(expect.objectContaining({ intent, description: 'Boards are hard to scan' }))
+    expect(flow.returnBriefing).toContain('[Intent session started from an intent')
+    expect(flow.returnBriefing).toContain('### Problem\n\nBoards are hard to scan')
+  })
+
+  it('a free idea without an intent seeds nothing', async () => {
+    const { service, tickets } = setup()
+    const flow = await service.startFlow(startInput)
+    expect(tickets.createPlaceholder.mock.calls[0][0]).not.toHaveProperty('intent')
+    expect(flow.returnBriefing ?? null).toBeNull()
+  })
+
   it('is idempotent by flowId and allows one open Intent per conversation', async () => {
     const { service, tickets } = setup()
     const first = await service.startFlow({ ...startInput, flowId: 'client-id' })

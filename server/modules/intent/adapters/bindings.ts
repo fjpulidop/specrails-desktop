@@ -7,6 +7,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { newId } from '../../../ids'
+import { normalizeSpecIntent, renderIntentForAgents } from '../../specs/domain/intent'
 import type { ProjectContext } from '../../../project-registry'
 import { internalApiError, type InternalApi } from '../../../internal-api'
 import { sumFlowInvocations } from '../../../desktop-db'
@@ -138,6 +139,7 @@ function snapshotOf(ticket: Ticket): IntentSpecSnapshot {
     nonGoals: Array.isArray(ticket.nonGoals) ? ticket.nonGoals.filter((goal): goal is string => typeof goal === 'string') : [],
     repositoryIds: Array.isArray(ticket.repositoryIds) ? ticket.repositoryIds.filter((id): id is string => typeof id === 'string') : [],
     addenda: renderOpenAddenda(ticket),
+    intent: renderIntentForAgents(normalizeSpecIntent(ticket.intent)),
   }
 }
 
@@ -180,6 +182,8 @@ export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadca
           // An Intent session in a non-primary repository: the spec targets exactly it, so
           // the hand-off and every later launch run in that repository.
           ...(input.repositoryIds?.length ? { repositoryIds: [...input.repositoryIds] } : {}),
+          // Started from an intent (intent-mode): the placeholder carries it.
+          ...(normalizeSpecIntent(input.intent) ? { intent: normalizeSpecIntent(input.intent)! } : {}),
           comments: [],
           origin_conversation_id: null,
           is_epic: false,
@@ -239,7 +243,7 @@ export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadca
       const ticket = readStore(file()).tickets[String(ticketId)]
       if (!ticket) return null
       const spec = snapshotOf(ticket)
-      return { title: spec.title, description: spec.description, status: spec.status, repositoryIds: [...spec.repositoryIds], nonGoals: [...spec.nonGoals] }
+      return { title: spec.title, description: spec.description, status: spec.status, repositoryIds: [...spec.repositoryIds], nonGoals: [...spec.nonGoals], ...(spec.intent ? { intent: spec.intent } : {}) }
     },
     inspectExisting(ticketId) {
       const ticket = readStore(file()).tickets[String(ticketId)]

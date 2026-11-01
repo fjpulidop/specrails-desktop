@@ -259,3 +259,43 @@ export function mergeIntentAnswers(intent: SpecIntent, answers: readonly IntentA
   }
   return { ...intent, openQuestions }
 }
+
+/** The two readings of the request an intent-draft carries (the framing discipline). */
+export interface IntentReadings {
+  restated: string
+  alternative: string
+  /** The question whose answer picks between the readings. */
+  discriminator: string
+}
+
+/** The operator agent's ```intent-draft snapshot: an intent plus its readings. */
+export interface IntentDraft {
+  /** Optional short spec title proposed by the agent. */
+  title?: string
+  intent: SpecIntent
+  readings: IntentReadings
+  /** The agent judges the intent settled: the card offers Explore and Delegate. */
+  ready: boolean
+}
+
+/**
+ * Validate one parsed ```intent-draft payload: a usable intent (problem and
+ * outcome) and two non-empty, different readings with their discriminating
+ * question. Shared by the server gate and the client card (same file).
+ */
+export function parseIntentDraft(value: unknown): IntentDraft | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const raw = value as Record<string, unknown>
+  const intent = normalizeSpecIntent(raw)
+  if (!intent) return null
+  const readings = raw.readings && typeof raw.readings === 'object' && !Array.isArray(raw.readings) ? raw.readings as Record<string, unknown> : null
+  if (!readings) return null
+  const restated = cleanText(readings.restated, INTENT_TEXT_MAX_CHARS)
+  const alternative = cleanText(readings.alternative, INTENT_TEXT_MAX_CHARS)
+  const discriminator = cleanText(readings.discriminator, INTENT_ITEM_MAX_CHARS)
+  // Byte-identical readings ARE the same reading: the one degenerate case
+  // that can be judged deterministically (as for the legacy problem-frame).
+  if (!restated || !alternative || !discriminator || restated === alternative) return null
+  const title = cleanItem(raw.title, 200)
+  return { ...(title ? { title } : {}), intent, readings: { restated, alternative, discriminator }, ready: raw.ready === true }
+}

@@ -2,8 +2,9 @@
 // The operator agent verifies facts about the codebase before writing them down
 // (it may not name a path it did not open) but had no equivalent check on the
 // REQUEST. This module supplies it: before a spec the agent authored may be
-// persisted, the conversation must hold a `problem-frame` block the user has
-// seen and answered.
+// persisted, the conversation must hold an `intent-draft` block (intent-mode;
+// the legacy `problem-frame` still counts) the user has seen and answered. The
+// answered intent then rides into the committed spec as its `intent` field.
 //
 // Everything here is DERIVED from rows that already exist in `agent_messages` —
 // no migration, no counter column, no new event. The frame is an assistant
@@ -29,6 +30,7 @@ import type { DbInstance } from '../../../db'
 import { addAgentMessage, listAgentMessages, getAgentConversation } from '../../agents/runtime/agent-store'
 import { promoteAgentProtocolFences } from './agent-fence-promotion'
 import { isLocalAdapterId } from '../../../providers/registry'
+import { parseIntentDraft, type IntentDraft, type SpecIntent } from '../../specs/domain/intent'
 
 /** User-typed command word that switches framing off for the conversation. */
 export const FRAMING_WAIVER_TOKEN = '#noframe'
@@ -40,6 +42,8 @@ export const SPEC_FRAMING_MARKER_KIND = 'spec-framing.committed'
 
 const FENCE_RE = /```problem-frame[^\S\n]*\n([\s\S]*?)\n[^\S\n]*```/g
 const OPEN_FENCE = '```problem-frame'
+const INTENT_FENCE_RE = /```intent-draft[^\S\n]*\n([\s\S]*?)\n[^\S\n]*```/g
+const INTENT_OPEN_FENCE = '```intent-draft'
 
 export type FramingRefusalReason = 'no_frame' | 'frame_unanswered' | 'frame_consumed'
 
@@ -48,6 +52,8 @@ export interface FramingState {
   /** True while the conversation is running with framing switched off. */
   waived: boolean
   reason: FramingRefusalReason | null
+  /** The newest answered, unspent intent-draft (null for a legacy frame or a waiver). */
+  intent: SpecIntent | null
 }
 
 /** One conversation row, narrowed to what the derivation actually reads. */
@@ -116,6 +122,32 @@ export function hasValidProblemFrame(rawContent: string, opts?: { tolerantFences
   return false
 }
 
+/**
+ * The LAST valid ```intent-draft snapshot of an assistant message (complete
+ * fences, else a whole JSON tail after an unclosed fence), or null.
+ */
+export function lastIntentDraft(rawContent: string, opts?: { tolerantFences?: boolean }): IntentDraft | null {
+  const content = opts?.tolerantFences ? promoteAgentProtocolFences(rawContent) : rawContent
+  if (!content.includes(INTENT_OPEN_FENCE)) return null
+  const parse = (raw: string): IntentDraft | null => {
+    try { return parseIntentDraft(JSON.parse(raw)) } catch { return null }
+  }
+  INTENT_FENCE_RE.lastIndex = 0
+  let match: RegExpExecArray | null
+  let last: IntentDraft | null = null
+  let seenComplete = false
+  while ((match = INTENT_FENCE_RE.exec(content)) !== null) {
+    seenComplete = true
+    last = parse(match[1]) ?? last
+  }
+  if (last || seenComplete) return last
+  const tail = content
+    .slice(content.indexOf(INTENT_OPEN_FENCE) + INTENT_OPEN_FENCE.length)
+    .replace(/^[^\S\n]*\n?/, '')
+    .replace(/\s*(?:```)?\s*$/, '')
+  return parse(tail)
+}
+
 /** Standalone-token match — a command word, never a sentiment guess. */
 function containsToken(content: string, token: string): boolean {
   const re = new RegExp(`(^|[\\s(\\[])${token}(?=$|[\\s).,!?\\]])`, 'i')
@@ -145,16 +177,20 @@ export function evaluateFramingState(messages: readonly FramingMessage[], opts?:
   let pendingFrame = false // emitted, awaiting the user's answer
   let answeredFrame = false // answered and not yet spent on a spec
   let sawFrame = false
+  let pendingIntent: SpecIntent | null = null
+  let answeredIntent: SpecIntent | null = null
 
   for (const msg of messages) {
     if (msg.role === 'system') {
-      if (isFramingMarker(msg.content)) answeredFrame = false // spent
+      if (isFramingMarker(msg.content)) { answeredFrame = false; answeredIntent = null } // spent
       continue
     }
     if (msg.role === 'assistant') {
-      if (hasValidProblemFrame(msg.content, opts)) {
+      const draft = lastIntentDraft(msg.content, opts)
+      if (draft || hasValidProblemFrame(msg.content, opts)) {
         pendingFrame = true
         sawFrame = true
+        pendingIntent = draft?.intent ?? null
       }
       continue
     }
@@ -167,26 +203,27 @@ export function evaluateFramingState(messages: readonly FramingMessage[], opts?:
 
     if (pendingFrame) {
       answeredFrame = true
+      answeredIntent = pendingIntent
       pendingFrame = false
     }
   }
 
-  if (waived) return { satisfied: true, waived: true, reason: null }
-  if (answeredFrame) return { satisfied: true, waived: false, reason: null }
-  if (pendingFrame) return { satisfied: false, waived: false, reason: 'frame_unanswered' }
-  return { satisfied: false, waived: false, reason: sawFrame ? 'frame_consumed' : 'no_frame' }
+  if (waived) return { satisfied: true, waived: true, reason: null, intent: answeredFrame ? answeredIntent : null }
+  if (answeredFrame) return { satisfied: true, waived: false, reason: null, intent: answeredIntent }
+  if (pendingFrame) return { satisfied: false, waived: false, reason: 'frame_unanswered', intent: null }
+  return { satisfied: false, waived: false, reason: sawFrame ? 'frame_consumed' : 'no_frame', intent: null }
 }
 
 const REFUSAL_BASE =
-  'Refused: this spec has no problem frame the user has answered. ' +
-  'Emit ONE fenced ```problem-frame block (restated{reading,touches}, alternative{reading,touches}, ' +
-  'discriminator, assumptions, unknowns), end your reply on that question, and call commit_draft ' +
+  'Refused: this spec has no intent the user has answered. ' +
+  'Emit ONE fenced ```intent-draft block (problem, outcome, hypothesis?, successSignals, affects, constraints, ' +
+  'openQuestions, readings{restated, alternative, discriminator}), end your reply on that question, and call commit_draft ' +
   'after the user answers. Only the user waives this, by sending #noframe.'
 
 const REFUSAL_DETAIL: Record<FramingRefusalReason, string> = {
-  no_frame: 'No frame has been shown in this conversation yet.',
-  frame_unanswered: 'A frame was shown but the user has not answered it yet — end the turn and wait.',
-  frame_consumed: 'The previous frame was already spent on an earlier spec; each spec needs its own.',
+  no_frame: 'No intent has been shown in this conversation yet.',
+  frame_unanswered: 'An intent was shown but the user has not answered it yet — end the turn and wait.',
+  frame_consumed: 'The previous intent was already spent on an earlier spec; each spec needs its own.',
 }
 
 export function framingRefusalMessage(reason: FramingRefusalReason): string {
@@ -199,10 +236,19 @@ export function framingRefusalMessage(reason: FramingRefusalReason): string {
  * MCP client cannot render the card and holds no conversation here.
  */
 export function checkSpecFraming(db: DbInstance, conversationId: string): string | null {
-  const tolerantFences = isLocalAdapterId(getAgentConversation(db, conversationId)?.provider)
-  const state = evaluateFramingState(listAgentMessages(db, conversationId), { tolerantFences })
+  const state = framingStateOf(db, conversationId)
   if (state.satisfied) return null
   return framingRefusalMessage(state.reason ?? 'no_frame')
+}
+
+function framingStateOf(db: DbInstance, conversationId: string): FramingState {
+  const tolerantFences = isLocalAdapterId(getAgentConversation(db, conversationId)?.provider)
+  return evaluateFramingState(listAgentMessages(db, conversationId), { tolerantFences })
+}
+
+/** The answered intent a first-party commit_draft attaches to its spec (null when none). */
+export function answeredSpecIntent(db: DbInstance, conversationId: string): SpecIntent | null {
+  return framingStateOf(db, conversationId).intent
 }
 
 /**

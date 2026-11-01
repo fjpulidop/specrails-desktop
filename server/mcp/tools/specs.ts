@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
 import { apiCall, originConversationDefaults, projectPath, repositoryPath } from './types'
-import { checkSpecFraming, recordSpecCommitted } from '../../modules/missions/runtime/agent-spec-framing'
+import { answeredSpecIntent, checkSpecFraming, recordSpecCommitted } from '../../modules/missions/runtime/agent-spec-framing'
 
 // Mirror of the McpTier union (mcp-tiers) — `./types` re-imports but does not
 // re-export it, so we restate the literal union to keep imports to zod + ./types.
@@ -154,6 +154,16 @@ export function specsTools(): McpToolSpec[] {
           .optional()
           .describe('update/commit_draft: acceptance-criteria bullets folded into the description'),
         shortSummary: z.string().optional().describe('commit_draft: explicit short summary (camelCase key)'),
+        intent: z.object({
+          problem: z.string(),
+          outcome: z.string(),
+          hypothesis: z.string().optional(),
+          successSignals: z.array(z.string()).optional(),
+          affects: z.array(z.string()).optional(),
+          constraints: z.array(z.string()).optional(),
+          openQuestions: z.array(z.union([z.string(), z.object({ question: z.string(), answer: z.string().optional() })])).optional(),
+        }).nullable().optional()
+          .describe('update/commit_draft: the spec intent (problem, outcome, how we will know, affects, constraints, open questions — never the solution); null clears on update. A first-party commit_draft attaches the answered intent-draft automatically.'),
         short_summary: z.string().nullable().optional().describe('update: explicit short summary (snake_case key; null clears)'),
         structured: z.boolean().optional().describe('from_prompt: lightly structure the verbatim prompt'),
         createLocal: z.boolean().optional().describe('create/generate/commit_draft: keep the spec local (skip Jira promote)'),
@@ -389,6 +399,7 @@ export function specsTools(): McpToolSpec[] {
               metadata: args.metadata,
               acceptanceCriteria: args.acceptanceCriteria,
               short_summary: args.short_summary,
+              ...(args.intent === undefined ? {} : { intent: args.intent }),
               ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
             })
           case 'from_prompt':
@@ -440,6 +451,9 @@ export function specsTools(): McpToolSpec[] {
               const refusal = checkSpecFraming(ctx.desktopDb, framedConversationId)
               if (refusal) throw new Error(refusal)
             }
+            // intent-mode: the answered intent rides into the spec unless the
+            // call carries its own.
+            const intent = args.intent ?? (framedConversationId ? answeredSpecIntent(ctx.desktopDb, framedConversationId) : null)
             const committed = await apiCall(ctx, 'POST', `${base}/tickets/from-draft`, {
               title: args.title,
               description: args.description,
@@ -457,6 +471,7 @@ export function specsTools(): McpToolSpec[] {
               ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
               contractRefine,
               agentProvider,
+              ...(intent ? { intent } : {}),
             })
             // Spend the frame only on a spec that actually landed: a refusal or
             // a failed write above throws before reaching here, so nothing is

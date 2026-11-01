@@ -9,6 +9,7 @@ import {
   type IntentLaunchOptions,
   type IntentService,
 } from '..'
+import { validateSpecIntent } from '../../specs/domain/intent'
 
 /**
  * Inbound adapter: thin, project-scoped Intent routes. Translates HTTP into use
@@ -67,8 +68,12 @@ export function registerIntentHttp(router: Router, serviceForRequest: (request: 
     if (body.ticketId !== undefined && body.ticketId !== null && (typeof body.ticketId !== 'number' || !Number.isSafeInteger(body.ticketId) || body.ticketId <= 0)) {
       throw new IntentValidationError('invalid_ticket_id', 'ticketId must be a positive integer')
     }
+    // `intent`: start from the mission's intent card (stored on the placeholder spec).
+    const intent = body.intent === undefined || body.intent === null ? null : validateSpecIntent(body.intent)
+    if (intent && !intent.ok) throw new IntentValidationError('invalid_intent', intent.error)
     const flow = await service.startFlow({
       conversationId: typeof body.conversationId === 'string' ? body.conversationId : '',
+      ...(intent?.ok && intent.intent ? { intent: intent.intent } : {}),
       idea: typeof body.idea === 'string' ? body.idea : '',
       ...(typeof body.ticketId === 'number' ? { ticketId: body.ticketId } : {}),
       ...(body.title !== undefined ? { title: optionalString(body.title, 'title') ?? null } : {}),
