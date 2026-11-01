@@ -1,6 +1,6 @@
 ## 0. OpenSpec bookkeeping
 
-- [ ] 0.1 Archive `flow-mode` (task 6.3 smoke carried by 8.4 here) and rename canonical `openspec/specs/flow-mode` → `intent-sessions`, rewording Flow → Intent sessions
+- [x] 0.1 Archive `flow-mode` (task 6.3 smoke carried by 8.4 here) and rename canonical `openspec/specs/flow-mode` → `intent-sessions`, rewording Flow → Intent sessions
 
 ## 1. Mechanical rename (no behaviour change)
 

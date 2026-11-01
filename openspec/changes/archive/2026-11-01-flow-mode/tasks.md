@@ -36,4 +36,4 @@
 
 - [x] 6.1 `factory:flow-spec` loop with `derive-change`, conversation summary file
 - [x] 6.2 Settlement effects (spec rewrite, Jira create and review), packet "Derivation"
-- [ ] 6.3 Real smoke with Claude and Codex end to end
+- [x] 6.3 Real smoke with Claude and Codex end to end (carried by intent-mode task 8.4)
