@@ -111,16 +111,18 @@ describe('estimateCostUsd', () => {
     expect(withCacheCreate).toBe(withoutCacheCreate)
   })
 
-  it('prices the GPT-5.6 family, billing cache WRITES at 1.25x input (new 5.6 semantics)', () => {
-    // Sol: $4 in / $20 out / $0.40 cache-read / $5.00 cache-write per 1M.
+  it('prices the GPT-5.6 family at the 2026-11-01 rate cards and never bills cache creation', () => {
+    // Sol: $4 in / $20 out / $0.40 cache-read per 1M. Codex reports no
+    // cache-creation tokens and OpenAI publishes no cache-write price, so a
+    // cache-create figure (if one ever arrived) is ignored.
     const sol = estimateCostUsd('codex', 'gpt-5.6-sol', {
       tokens_in: 250_000,
       tokens_out: 25_000,
       tokens_cache_read: 100_000, // subset of tokens_in (OpenAI semantics)
       tokens_cache_create: 50_000,
     })
-    // fresh input 150k*$4 + cache-read 100k*$0.40 + out 25k*$20 + cache-write 50k*$5
-    expect(sol).toBeCloseTo(0.6 + 0.04 + 0.5 + 0.25, 6)
+    // fresh input 150k*$4 + cache-read 100k*$0.40 + out 25k*$20
+    expect(sol).toBeCloseTo(0.6 + 0.04 + 0.5, 6)
     // Luna: $0.20 / $1.20 — cheapest 5.6 tier still prices.
     const luna = estimateCostUsd('codex', 'gpt-5.6-luna', { tokens_in: 200_000 })
     expect(luna).toBeCloseTo(0.04, 6)

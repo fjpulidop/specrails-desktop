@@ -104,17 +104,19 @@ export const PRICING: Record<string, PriceEntry> = {
     longContext: { thresholdTokens: 272_000, inputPer1M: 0.20, outputPer1M: 0.75, cacheReadPer1M: 0.02 },
   },
   // GPT-5.6 family (legacy, no longer listed by Codex): cache reads keep the 90%
-  // discount; 5.6 ALSO bills cache WRITES at 1.25x the uncached input rate.
+  // discount. OpenAI publishes no cache-write price and the Codex adapter never
+  // reports cache-creation tokens (`tokens_cache_create: undefined`), so no row
+  // carries `cacheWritePer1M`.
   'codex:gpt-5.6-sol':   {
-    inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.40, cacheWritePer1M: 5.00, lastReviewedAt: '2026-11-01',
+    inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.40, lastReviewedAt: '2026-11-01',
     longContext: { thresholdTokens: 272_000, inputPer1M: 8.00, outputPer1M: 30.00, cacheReadPer1M: 0.80 },
   },
   'codex:gpt-5.6-terra': {
-    inputPer1M: 2.00, outputPer1M: 12.00, cacheReadPer1M: 0.20, cacheWritePer1M: 2.50, lastReviewedAt: '2026-11-01',
+    inputPer1M: 2.00, outputPer1M: 12.00, cacheReadPer1M: 0.20, lastReviewedAt: '2026-11-01',
     longContext: { thresholdTokens: 272_000, inputPer1M: 4.00, outputPer1M: 18.00, cacheReadPer1M: 0.40 },
   },
   'codex:gpt-5.6-luna':  {
-    inputPer1M: 0.20, outputPer1M: 1.20, cacheReadPer1M: 0.02, cacheWritePer1M: 0.25, lastReviewedAt: '2026-11-01',
+    inputPer1M: 0.20, outputPer1M: 1.20, cacheReadPer1M: 0.02, lastReviewedAt: '2026-11-01',
     longContext: { thresholdTokens: 272_000, inputPer1M: 0.40, outputPer1M: 1.80, cacheReadPer1M: 0.04 },
   },
   // Retired from Codex with ChatGPT sign-in (gpt-5.5 2026-10-14, gpt-5.4 and
