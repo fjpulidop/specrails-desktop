@@ -30,7 +30,7 @@ the wire or are shared with Core keep the `flow` name and MUST NOT be renamed:
 | --- | --- |
 | Project database | `flow_sessions`, `flow_effects` (migrations 74, 75, 78-82) and their columns (`flow_id`, …) |
 | Accounting | `agent_invocations.surface = 'flow'` |
-| Loop | `factory:flow-spec`, its node ids and Core's reference reason text ("Flow → Spec: …") |
+| Loop | `factory:flow-spec` and its node ids (Core renamed its reference texts to Intent in the matching Core change) |
 | Specs | `source: 'flow'`, `metadata.flow` (`flowId`, `state`, `origin`, …) |
 | Core | capability `flowSessions`, session ids `flow:<flowId>` |
 | Mission fences | `flow-offer` and the other `flow-*` blocks stored in conversations |

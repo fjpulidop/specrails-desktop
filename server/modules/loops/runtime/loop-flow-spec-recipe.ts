@@ -41,7 +41,7 @@ export const FLOW_CORRECTION_ROUNDS = 2
 /** The terminal of an exhausted (or fruitless) repair loop. */
 export const FLOW_CHANGES_REQUESTED_END = 'changes-requested'
 /** Its completion reason (Core's reference text; Desktop recognises the end by its node id, not this text). */
-export const FLOW_CHANGES_REQUESTED_REASON = 'Flow → Spec: the reviewer requested changes that {{run.correctionRounds}} correction round(s) did not resolve. Latest findings: {{run.latestFindings}}'
+export const FLOW_CHANGES_REQUESTED_REASON = 'Intent → Spec: the reviewer requested changes that {{run.correctionRounds}} correction round(s) did not resolve. Latest findings: {{run.latestFindings}}'
 
 /** OpenSpec change names: kebab-case, at most 64 characters (Core's `changeId`). */
 export const FLOW_CHANGE_ID_MAX = 64
