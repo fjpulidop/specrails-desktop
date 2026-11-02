@@ -218,7 +218,7 @@ export function renderIntentForAgents(intent: SpecIntent | null | undefined): st
     INTENT_AGENT_HEADING,
     '',
     ...sectionLines(intent, '###'),
-    'Honour every constraint. Investigate the open questions instead of guessing. Reviewers: judge the work against the Outcome and "How we will know" as well as the acceptance criteria.',
+    'Honour every constraint. Investigate the open questions instead of guessing. Reviewers: this block is context, never a requirement. The hypothesis is validated with real users after the change ships and "How we will know" is measured then; never raise an issue because the work does not prove them. Judge the work against the acceptance criteria.',
   ].join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 

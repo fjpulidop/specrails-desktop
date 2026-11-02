@@ -84,7 +84,7 @@ describe('agent briefing', () => {
     const description = descriptionWithIntent('## Acceptance Criteria\n- works', INTENT)
     expect(description.startsWith(INTENT_AGENT_HEADING)).toBe(true)
     expect(description).toContain('### Constraints\n\n- No new runtime dependency')
-    expect(description).toContain('Reviewers: judge the work against the Outcome')
+    expect(description).toContain('Reviewers: this block is context, never a requirement')
     expect(description.endsWith('## Acceptance Criteria\n- works')).toBe(true)
     expect(descriptionWithIntent(description, INTENT)).toBe(description)
   })
