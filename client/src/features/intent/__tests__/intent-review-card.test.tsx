@@ -187,7 +187,7 @@ describe('Intent → Spec failed outright (Intent-authored failure)', () => {
 
   it('says what failed in plain words, the cause, what happens next, and keeps the codes as technical details', () => {
     render(withFailure(<AgentPrDecisionCard envelope={crashed()} conversationId="conv-1" />))
-    expect(screen.getByText('The hand-off stopped')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-pr-decision-title')).toHaveTextContent('The hand-off stopped')
     expect(screen.getByTestId('flow-run-failure-headline').textContent).toBe('Couldn’t write the spec from your changes')
     expect(screen.getByTestId('flow-run-failure-cause').textContent).toBe('Cause: OpenSpec 1.14.3 required; found 1.4.1')
     expect(screen.getByTestId('flow-run-failure-next').textContent).toBe('Your work is intact. Back in Intent, the agent gets the error.')

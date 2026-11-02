@@ -8,7 +8,7 @@
 // closes the Intent's story in the conversation. Quiet success: one colour.
 
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, ExternalLink, FileText, GitMerge, GitPullRequest, Loader2, MessageCircleQuestion, Package, Ticket } from 'lucide-react'
+import { CheckCircle2, ExternalLink, FileText, GitMerge, GitPullRequest, MessageCircleQuestion, Package, Ticket } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { formatUsd } from '../../../lib/format-usd'
 import { formatElapsed } from '../../../lib/format-duration'
@@ -128,7 +128,7 @@ function Line({ icon: Icon, lamp, children, testId }: { icon: typeof CheckCircle
       <span className="mt-1 flex h-2 w-2 shrink-0 items-center justify-center" aria-hidden>
         <span className={cn('block h-1.5 w-1.5 rounded-full', lamp === 'done' ? 'bg-accent-success' : 'border border-muted-foreground/60')} />
       </span>
-      <Icon className={cn('mt-px h-3 w-3 shrink-0', lamp === 'done' ? 'text-accent-success' : 'text-muted-foreground/70')} aria-hidden />
+      <Icon className={cn('mt-px h-3 w-3 shrink-0', lamp === 'done' ? 'text-accent-success' : 'text-muted-foreground')} aria-hidden />
       <span className="min-w-0 break-words">{children}</span>
     </li>
   )
@@ -204,7 +204,7 @@ export function AgentFlowDeliveredCard({ row, projectId = null }: AgentFlowDeliv
         <p data-testid="agent-flow-delivered-stats" className="mt-2.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-label leading-4 tabular-nums text-muted-foreground">
           {stats.map((stat, index) => (
             <span key={index} className="inline-flex items-center gap-1.5">
-              {index > 0 && <span aria-hidden className="text-muted-foreground/50">·</span>}
+              {index > 0 && <span aria-hidden className="text-muted-foreground">·</span>}
               {stat}
             </span>
           ))}
@@ -265,7 +265,6 @@ export function AgentFlowDeliveredCard({ row, projectId = null }: AgentFlowDeliv
               <ExternalLink className="h-2.5 w-2.5 opacity-60" aria-hidden />
             </a>
           )}
-          {settling && <Loader2 className="ml-auto h-3 w-3 animate-spin text-muted-foreground/60" aria-hidden />}
         </div>
       )}
     </section>

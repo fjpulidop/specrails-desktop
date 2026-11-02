@@ -260,9 +260,9 @@ function MissionRunStatusPill({ status }: { status: MissionRunStatus }) {
       data-status={status}
       className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-caption font-medium', RUN_STATUS_TONE[status])}
     >
-      {(status === 'running' || status === 'paused') && (
-        <LiveDot size="xs" tone={status === 'running' ? 'info' : 'warning'} pulsing={status === 'running'} aria-hidden />
-      )}
+      {(status === 'running' || status === 'paused')
+        ? <LiveDot size="xs" tone={status === 'running' ? 'info' : 'warning'} pulsing={status === 'running'} aria-hidden />
+        : <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />}
       {t(`runCard.status.${status}`)}
     </span>
   )
@@ -384,7 +384,7 @@ function RunLogChip({
       title={t('prCard.viewLog', { ref: label })}
       aria-label={t('prCard.viewLog', { ref: label })}
       className={cn(
-        'inline-flex max-w-full cursor-pointer items-center gap-1 rounded-full border px-1.5 py-px align-baseline font-mono text-[0.82em] leading-[1.45] transition-all',
+        'inline-flex min-h-6 max-w-full cursor-pointer items-center gap-1 rounded-full border px-1.5 py-0.5 align-baseline font-mono text-caption transition-all',
         vitals.paused
           ? 'border-accent-warning/45 bg-accent-warning/10 text-accent-warning hover:-translate-y-px hover:border-accent-warning/65 hover:bg-accent-warning/15 hover:shadow-sm'
           : 'border-accent-info/35 bg-accent-info/10 text-accent-info hover:-translate-y-px hover:border-accent-info/60 hover:bg-accent-info/15 hover:shadow-sm',
@@ -1006,13 +1006,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const relaunchButton = (asPrimary: boolean) => flowSpecRun ? flowRunActions : FEATURE_MISSION_RAIL_CARDS && (
     <>
       <RunPrimaryButton primary={{ id: 'relaunch', label: t('runCard.actions.relaunch'), kind: 'outward', rank: 5 }} data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
-        title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
+        title={relaunchAccepted ? t('runCard.relaunchSent', { index: envelope.railIndex + 1 }) : relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
         onClick={() => void relaunch()}
         className={asPrimary ? PRIMARY_ACTION : cn(runActionBtn, 'border-border/60 text-muted-foreground hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
         {relaunching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
         {t('runCard.actions.relaunch')}
       </RunPrimaryButton>
       {relaunchError && <p role="alert" className="w-full text-xs text-destructive" data-testid="mission-run-relaunch-error">{relaunchError}</p>}
+      {/* The toast is transient; the card itself says why its primary went quiet. */}
+      {relaunchAccepted && !relaunchError && (
+        <p className="flex w-full items-center gap-1.5 text-label text-muted-foreground" data-testid="mission-run-relaunch-sent">
+          <RotateCcw className="h-3 w-3 shrink-0" aria-hidden />
+          {t('runCard.relaunchSent', { index: envelope.railIndex + 1 })}
+        </p>
+      )}
     </>
   )
   const relaunchAction = relaunchButton(false)
@@ -1032,6 +1039,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   if (!relaunchBlocked) diagnosisHandlers.retry = { run: () => void relaunch(), busy: relaunching, disabled: runtimeBusy || busy !== null }
   if (envelope.ticketIds.length > 0) diagnosisHandlers['edit-spec'] = { run: () => openTicketDetailInProject(envelope.projectId, envelope.ticketIds[0]) }
   if (diagnosisRunId) diagnosisHandlers['open-logs'] = { run: () => setLogRunId(diagnosisRunId) }
+  // #14: when the diagnosis card renders its remedies, it owns the retry/resume
+  // primary; the implementation_failed branch below must not add a second one.
+  const diagnosisOwnsPrimary = !!diagnosis && (!!diagnosisHandlers.retry || !!diagnosisHandlers.resume)
   const diagnosisCard = diagnosis ? (
     <div className="mt-2 space-y-1.5" data-testid="mission-run-diagnosis">
       <FailureDiagnosisCard diagnosis={diagnosis} handlers={diagnosisHandlers} />
@@ -1074,7 +1084,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             : existingPrContinuation
               ? <GitPullRequest className="h-3.5 w-3.5 text-accent-info" />
               : <RailTrack running className="w-16 shrink-0" />}
-          <span className={cn('min-w-0 flex-1 truncate', !existingPrContinuation && !buildingPaused && 'motion-safe:animate-pulse', buildingPaused && 'text-accent-warning')}>
+          <span className={cn('min-w-0 flex-1 truncate', buildingPaused && 'text-accent-warning')}>
             {buildingPaused
               ? t('prCard.title.paused')
               : existingPrContinuation
@@ -1192,7 +1202,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {...focusRegion}
         data-testid="agent-pr-decision-card"
         data-run-only="true"
-        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'opacity-70', embedded && EMBEDDED_CARD, flashClass)}
+        className={cn('rounded-card border border-border/60 bg-card px-3.5 py-3 shadow-1 transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'border-border/40', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
           {RunOnlyIcon
@@ -1292,6 +1302,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
 
   const anyBusy = busy !== null || checkingOut || envelope.operation != null
   const shouldAnnounce = Boolean(envelope.operation) || recoveredInterruptedOperation || presentation.partial || presentation.deliveryBlocked || presentation.retryablePush || presentation.retryablePrCreation || presentation.closed || presentation.implementationFailed
+  const announceExtra = envelope.operation
+    ? t(`prCard.operation.${envelope.operation}`)
+    : recoveredInterruptedOperation ? t('common:prRecovery.interrupted') : ''
   const spinner = <Loader2 className="h-3 w-3 animate-spin" />
 
   // Create PR / Publish / Reopen reach other people: the strip only points at them.
@@ -1465,10 +1478,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {...focusRegion}
       data-testid="agent-pr-decision-card"
       className={cn(
-        'rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg transition-shadow',
+        'rounded-card border border-border/60 bg-card px-3.5 py-3 shadow-1 transition-shadow',
         decision === 'merged' && 'border-accent-success/30',
         decision === 'completed' && 'border-accent-success/30',
-        decision === 'discarded' && 'opacity-70',
+        // Settled: muted tokens, never an opacity over text (AA stays intact).
+        decision === 'discarded' && 'border-border/40',
         embedded && EMBEDDED_CARD,
         flashClass,
       )}
@@ -1486,22 +1500,27 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           }}
         />
       </div>
-      {shouldAnnounce && (
-        <span
-          role="status"
-          aria-live="polite"
-          aria-label={envelope.operation
-            ? t(`prCard.operation.${envelope.operation}`)
-            : recoveredInterruptedOperation ? t('common:prRecovery.interrupted') : title}
-          className="sr-only"
-        />
+      {shouldAnnounce && announceExtra && (
+        // Live regions announce CONTENT mutations: the text is the child (keyed
+        // to the state), not an aria-label on an empty node.
+        <span role="status" aria-live="polite" className="sr-only" data-testid="agent-pr-decision-live">
+          {announceExtra}
+        </span>
       )}
       {/* Header: state icon + title + project + rail badge */}
-      <div className="flex items-center gap-2">
-        <Icon className={cn('h-4 w-4 shrink-0', iconTone)} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{title}</span>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <Icon className={cn('h-4 w-4 shrink-0', iconTone)} aria-hidden />
+        <span
+          className={cn('min-w-0 flex-1 basis-[12rem] truncate text-sm font-medium', decision === 'discarded' ? 'text-muted-foreground' : 'text-foreground')}
+          title={title}
+          data-testid="agent-pr-decision-title"
+          // With no operation/recovery text to announce, the visible title is the single live region (no sr-only duplicate).
+          {...(shouldAnnounce && !announceExtra ? { role: 'status', 'aria-live': 'polite' as const } : {})}
+        >
+          {title}
+        </span>
         {!terminal && <HelpHint topic="prDecision" />}
-        <span className="max-w-[140px] shrink-0 truncate text-label text-muted-foreground" title={projectName}>
+        <span className="min-w-0 max-w-[140px] shrink truncate text-label text-muted-foreground" title={projectName}>
           {projectName}
         </span>
         <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-muted-foreground">
@@ -1788,8 +1807,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
                 {t('prCard.implementationFailedNote')}
               </p>
               <div className="flex flex-wrap items-center gap-1.5">
-                {/* One primary: resume the run when it can be, else relaunch. The rest wait in the menu. */}
-                {canResumeRun ? resumeButton(true) : relaunchButton(true)}
+                {/* One primary: resume the run when it can be, else relaunch. The rest wait in the menu.
+                    When the diagnosis card above already offers Run again / Resume, it is the single primary. */}
+                {!diagnosisOwnsPrimary && (canResumeRun ? resumeButton(true) : relaunchButton(true))}
                 {/* A resumable Intent → Spec run keeps its Intent actions (Back to Intent, relaunch from the Intent) beside Resume. */}
                 {canResumeRun && flowSpecRun && flowRunActions}
                 {moreActions({ lead: implementationFailedLead })}

@@ -9,8 +9,13 @@
 // The decision (chosenMode) persists on agent_messages.intent so the card
 // renders frozen after a reload. It is also the timeline anchor of the Intent's
 // hand-off decision (`flow-hand-off`).
+//
+// Focus never falls to the document across the card's transitions: the entry
+// card takes it (its heading), Cancel returns it to the Explore option, Start
+// sends it to the Intent's strip, and the frozen stub takes it (and is
+// announced through the strip's live region) when the decision lands.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
@@ -24,7 +29,8 @@ import { intentFor, recordLocalIntent, useLocalIntents } from '../../rails/lib/r
 import { useConversationFlow } from '../context/IntentContext'
 import { isOpenFlow, type IntentSession } from '../lib/intent-api'
 import { FLOW_OFFER_MODES, parseFlowOffer, type IntentMode } from '../lib/intent-offer'
-import { IntentEntryCard } from './IntentEntryCard'
+import { IntentEntryCard, focusFlowBarWhenShown } from './IntentEntryCard'
+import { announceFlow } from './IntentDock'
 
 export function IntentOfferCard({ payload, index, messageId, conversationId, projectId, intents, isStreaming, onSend }: MissionFenceCardProps) {
   const { t } = useTranslation('agent')
@@ -35,6 +41,16 @@ export function IntentOfferCard({ payload, index, messageId, conversationId, pro
   const { flow } = useConversationFlow(conversationId, projectId)
   const [view, setView] = useState<'choose' | 'entry'>('choose')
   const [busy, setBusy] = useState(false)
+  const exploreButton = useRef<HTMLButtonElement>(null)
+  const returnFocus = useRef(false)
+  // The decision was taken on THIS card (not read back from storage): the stub takes focus.
+  const decidedHere = useRef(false)
+
+  useEffect(() => {
+    if (view !== 'choose' || !returnFocus.current) return
+    returnFocus.current = false
+    exploreButton.current?.focus({ preventScroll: true })
+  }, [view])
 
   if (!offer) return null
   const decided = messageId ? intentFor(local, messageId, intents, index, 'flow-offer') : null
@@ -46,13 +62,14 @@ export function IntentOfferCard({ payload, index, messageId, conversationId, pro
 
   const record = async (decision: Omit<AgentMessageIntent, 'at' | 'kind' | 'proposalIndex'>) => {
     if (!messageId || !conversationId) return
+    decidedHere.current = true
     const intent = { kind: 'flow-offer' as const, proposalIndex: index, ...decision }
     const res = await patchAgentMessageIntent(conversationId, messageId, intent).catch(() => null)
     recordLocalIntent(messageId, res && res.ok ? res.intent : { ...intent, at: new Date().toISOString() })
   }
 
   if (decided) {
-    return <IntentOfferStub intent={decided} handOff={handOff} flow={flow} conversationId={conversationId} />
+    return <IntentOfferStub intent={decided} handOff={handOff} flow={flow} conversationId={conversationId} takeFocus={decidedHere.current && decided.chosenMode !== 'flow'} />
   }
 
   const choose = async (mode: IntentMode) => {
@@ -74,6 +91,7 @@ export function IntentOfferCard({ payload, index, messageId, conversationId, pro
   }
   const onStarted = (started: IntentSession) => {
     void record({ status: 'accepted', chosenMode: 'flow', config: { flowId: started.id, ...(offer.ticketId ? { ticketId: offer.ticketId } : {}) } })
+    focusFlowBarWhenShown(started.id)
   }
 
   if (view === 'entry') {
@@ -89,7 +107,7 @@ export function IntentOfferCard({ payload, index, messageId, conversationId, pro
         blockedByOpenFlow={isOpenFlow(flow)}
         openFlowId={isOpenFlow(flow) ? flow!.id : null}
         onStarted={onStarted}
-        onCancel={() => setView('choose')}
+        onCancel={() => { returnFocus.current = true; setView('choose') }}
       />
     )
   }
@@ -107,7 +125,7 @@ export function IntentOfferCard({ payload, index, messageId, conversationId, pro
       role="group"
       aria-labelledby={labelId}
       data-testid="flow-offer-card"
-      className="my-1 overflow-hidden rounded-xl border border-border/60 bg-card/80 shadow-md"
+      className="@container my-1 overflow-hidden rounded-xl border border-border/60 bg-card/80 shadow-1"
     >
       <div className="flex items-center gap-2 border-b border-border/40 bg-surface/40 px-3.5 py-2">
         <Waves className="h-3.5 w-3.5 text-accent-intent" aria-hidden />
@@ -128,12 +146,14 @@ export function IntentOfferCard({ payload, index, messageId, conversationId, pro
             <p className="text-muted-foreground">{offer.reason}</p>
           </div>
         )}
-        <div className="grid gap-2 sm:grid-cols-2">
+        {/* Two columns by the card's own width (a side panel stacks them), not the window's. */}
+        <div className="grid gap-2 @xl:grid-cols-2">
           {FLOW_OFFER_MODES.map((mode) => {
             const Icon = modeIcon(mode)
             return (
               <button
                 key={mode}
+                ref={mode === 'flow' ? exploreButton : undefined}
                 type="button"
                 data-agent-interactive
                 data-testid={`flow-offer-choose-${mode}`}
@@ -199,10 +219,20 @@ function HandOffTrack({ flowId }: { flowId: string }) {
 }
 
 /** Frozen record of the decision (and of the Intent's hand-off when it happened). */
-function IntentOfferStub({ intent, handOff, flow, conversationId }: { intent: AgentMessageIntent; handOff: AgentMessageIntent | null; flow: IntentSession | null; conversationId: string | null }) {
+function IntentOfferStub({ intent, handOff, flow, conversationId, takeFocus = false }: { intent: AgentMessageIntent; handOff: AgentMessageIntent | null; flow: IntentSession | null; conversationId: string | null; takeFocus?: boolean }) {
   const { t } = useTranslation('agent')
   const dismissed = intent.status === 'dismissed'
   const chosen = intent.chosenMode ?? null
+  const stub = useRef<HTMLDivElement>(null)
+  const text = dismissed ? t('flow.offer.stub.dismissed') : chosen === 'flow' ? null : t('flow.offer.stub.implement')
+  // The card the person was inside just unmounted: the stub takes the focus and
+  // the decision is said through the strip's live region (none of its own).
+  useEffect(() => {
+    if (!takeFocus) return
+    stub.current?.focus({ preventScroll: true })
+    if (text) announceFlow(conversationId, text)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the stub replaces the card
+  }, [takeFocus])
   // The hand-off record links to its run card (the shared card focus bus).
   const launched = !dismissed && chosen === 'flow' && handOff?.status === 'launched'
   const runTarget = launched
@@ -216,9 +246,11 @@ function IntentOfferStub({ intent, handOff, flow, conversationId }: { intent: Ag
   const Icon = dismissed ? Ban : chosen === 'flow' ? Waves : chosen === 'implement' ? Hammer : CheckCircle2
   return (
     <div
+      ref={stub}
+      tabIndex={-1}
       data-testid={`flow-offer-stub-${dismissed ? 'dismissed' : chosen ?? 'accepted'}`}
       className={cn(
-        'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
+        'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-label outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50',
         dismissed ? 'border-border/50 bg-surface/40 text-muted-foreground' : chosen === 'flow' ? 'border-accent-intent/30 bg-accent-intent/[0.06] text-foreground' : 'border-accent-primary/30 bg-accent-primary/[0.06] text-foreground',
       )}
     >

@@ -26,6 +26,7 @@ import type { RailLaunchProposal } from '../../rails/lib/rail-launch-draft'
 import { useLocalIntents } from '../../rails/lib/rail-launch-intents'
 import { useFlowContext, type IntentHandOffDraft, type IntentHandOffReceipt } from '../context/IntentContext'
 import { IntentApiError, type IntentSession } from '../lib/intent-api'
+import { flowErrorMessage } from '../lib/intent-failure'
 import { FLOW_SPEC_LOOP_ID } from '../lib/intent-offer'
 import { flowHandOffEngine } from '../lib/intent-engine'
 import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
@@ -102,7 +103,7 @@ export function IntentHandOffCard({ projectId, conversationId, flow, receipt }: 
       : t('flow.handOff.lineNoCount', { rail }),
     details: (
       <p data-testid="flow-hand-off-recap" className="text-label leading-4 tabular-nums text-muted-foreground">
-        {t('flow.bar.files', { count: totals?.files ?? 0 })}
+        {totals ? t('flow.bar.files', { count: totals.files }) : '—'}
         {totals && totals.files > 0 && <> <span className="text-accent-success">+{totals.additions}</span> <span className="text-destructive">−{totals.deletions}</span></>}
         {' · '}
         {costWords}
@@ -133,8 +134,16 @@ export function IntentHandOffCard({ projectId, conversationId, flow, receipt }: 
         const result = await ctx.handOff(projectId, flow, input)
         return { ok: true, runIds: result.loopRunIds, prDeliveryId: result.deliveryId }
       } catch (error) {
-        if (error instanceof IntentApiError) return { ok: false, error: error.code, detail: error.detail, action: error.action }
-        return { ok: false, error: error instanceof Error ? error.message : 'network' }
+        // The launch card names the error by rail code when it has words for it;
+        // otherwise the Intent's own words (never a raw code or err.message as the headline).
+        const { message, detail } = flowErrorMessage(t, error)
+        if (error instanceof IntentApiError) {
+          const known = t(`railCard.errors.${error.code}`, { defaultValue: '' })
+          return known
+            ? { ok: false, error: error.code, detail: error.detail, action: error.action }
+            : { ok: false, error: message, detail: detail ?? undefined, action: error.action }
+        }
+        return { ok: false, error: message, detail: detail ?? undefined }
       }
     },
   }), [anchor, ctx, flow, projectId, t, fileCount, totals, costWords, partialWords, engine.fallbackFrom, draft, onDraftChange])

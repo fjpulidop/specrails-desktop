@@ -6,11 +6,12 @@
 // project with several Git repositories it also shows WHERE the Intent runs:
 // the repository the agent triaged, changeable among the Git members.
 
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { AlertTriangle, FileText, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
+import { Skeleton } from '../../../components/ui/skeleton'
 import { cn } from '../../../lib/utils'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { useFlowAvailability, useFlowContext } from '../context/IntentContext'
@@ -57,16 +58,32 @@ interface Props {
   onCancel: () => void
 }
 
-type RepositoryLoad = { projectId: string; repositories: IntentRepositoryOption[] | null }
+type RepositoryLoad = { projectId: string; repositories: IntentRepositoryOption[] | null; failed: boolean }
 
 /** Bring an open Intent's strip into view and focus its first control (it lives above the composer). */
 export function focusFlowBar(flowId: string): boolean {
   const strip = document.querySelector<HTMLElement>(`[data-testid="mission-run-strip"][data-flow-id="${CSS.escape(flowId)}"]`)
   if (!strip) return false
   strip.scrollIntoView?.({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
-  const target = strip.querySelector<HTMLElement>('[data-testid="mission-run-strip-bar"] button:not(:disabled)')
+  const target = strip.querySelector<HTMLElement>('[data-testid="mission-run-strip-bar"] button:not(:disabled):not([aria-disabled="true"])')
   target?.focus({ preventScroll: true })
   return true
+}
+
+/** How many frames `focusFlowBarWhenShown` waits for the strip to render the new Intent. */
+const FOCUS_FLOW_BAR_FRAMES = 20
+
+/**
+ * `focusFlowBar` for an Intent that was just started: the strip shows it a
+ * render or two later, so this retries for a few frames (then gives up quietly).
+ */
+export function focusFlowBarWhenShown(flowId: string, frames = FOCUS_FLOW_BAR_FRAMES): void {
+  if (typeof requestAnimationFrame === 'undefined') { focusFlowBar(flowId); return }
+  const attempt = (left: number) => {
+    if (focusFlowBar(flowId) || left <= 0) return
+    requestAnimationFrame(() => attempt(left - 1))
+  }
+  attempt(frames)
 }
 
 export function IntentEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, ticketId = null, intent = null, summary = null, embedded = false, headless = false, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, start, onStarted, onCancel }: Props) {
@@ -81,17 +98,28 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
   // The project's repositories (null ⇒ unknown: the server triages and explains).
   const [repositoryLoad, setRepositoryLoad] = useState<RepositoryLoad | null>(null)
   const [pickedRepositoryId, setPickedRepositoryId] = useState<string | null>(null)
+  const [repositoryAttempt, setRepositoryAttempt] = useState(0)
+  const heading = useRef<HTMLSpanElement>(null)
+
+  // The card replaces the button that opened it: focus lands on its heading
+  // (a dialog host carries its own heading and focus).
+  useEffect(() => {
+    if (headless) return
+    heading.current?.focus({ preventScroll: true })
+  }, [headless])
 
   useEffect(() => {
     if (!projectId) return
     let cancelled = false
+    setRepositoryLoad((current) => (current?.projectId === projectId && current.failed ? null : current))
     flowApi.repositories(projectId)
-      .then((repositories) => { if (!cancelled) setRepositoryLoad({ projectId, repositories }) })
-      .catch(() => { if (!cancelled) setRepositoryLoad({ projectId, repositories: null }) })
+      .then((repositories) => { if (!cancelled) setRepositoryLoad({ projectId, repositories, failed: false }) })
+      .catch(() => { if (!cancelled) setRepositoryLoad({ projectId, repositories: null, failed: true }) })
     return () => { cancelled = true }
-  }, [projectId])
+  }, [projectId, repositoryAttempt])
 
   const repositories = repositoryLoad?.projectId === projectId ? repositoryLoad.repositories : undefined
+  const repositoriesFailed = repositoryLoad?.projectId === projectId && repositoryLoad.failed
   const choice = repositories ? flowRepositoryChoice(repositories) : null
   const suggested = choice?.candidates.some((candidate) => candidate.id === suggestedRepositoryId) ? suggestedRepositoryId : null
   const selectedRepositoryId = choice?.show
@@ -114,6 +142,7 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
             ? t('flow.entry.repository.noGit')
             : null
   const loading = !!projectId && (!availability || repositories === undefined)
+  const repositoriesLoading = !!projectId && repositories === undefined
   const blockReasonId = `flow-entry-blocked-${conversationId ?? 'none'}`
   const needsRepository = !!choice?.show && !selectedRepositoryId
   const startFlow = async () => {
@@ -146,43 +175,61 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
       data-testid="flow-entry-card"
       className={headless
         ? ''
+        // Embedded in another card it is a section (a divider), never a card inside a card.
         : embedded
-          ? 'overflow-hidden rounded-lg border border-accent-intent/30 bg-accent-intent/[0.03]'
-          : 'my-1 overflow-hidden rounded-xl border border-accent-intent/30 bg-card/85 shadow-lg'}
+          ? 'border-t border-border/40 pt-2.5'
+          : 'my-1 overflow-hidden rounded-xl border border-accent-intent/30 bg-card/85 shadow-1'}
     >
       {!headless && (
-        <div className="flex items-center gap-2 border-b border-border/40 bg-accent-intent/[0.07] px-3.5 py-2">
+        <div className={cn('flex items-center gap-2', embedded ? 'pb-1' : 'border-b border-border/40 bg-accent-intent/[0.07] px-3.5 py-2')}>
           <Waves className="h-3.5 w-3.5 text-accent-intent" aria-hidden />
-          <span id={titleId} className="text-strong text-foreground">{t('flow.entry.heading')}</span>
+          <span ref={heading} id={titleId} tabIndex={-1} className="text-strong text-foreground outline-none">{t('flow.entry.heading')}</span>
         </div>
       )}
-      <div className={cn('space-y-3', headless ? 'py-1' : 'px-3.5 py-3')}>
-        <p className="flex items-start gap-2 text-xs leading-5 text-foreground">
+      <div className={cn('space-y-3', headless ? 'py-1' : embedded ? 'py-2' : 'px-3.5 py-3')}>
+        <p className="flex items-start gap-2 text-body text-foreground">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
           <span>{t('flow.entry.body')}</span>
         </p>
         {ticketId ? (
           // An existing spec: the Intent works on it, so the card names the spec, not an idea.
-          <div data-testid="flow-entry-spec" className="space-y-1 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs">
+          <div data-testid="flow-entry-spec" className="space-y-1 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-body">
             <p className="flex min-w-0 items-center gap-1.5 text-foreground">
               <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               <span className="shrink-0 font-mono text-muted-foreground">{t('flow.entry.existingSpec.label', { id: ticketId })}</span>
               <span className="min-w-0 truncate font-medium" title={title ?? idea}>{title ?? idea}</span>
             </p>
-            {summary?.trim() ? <p data-testid="flow-entry-spec-summary" className="line-clamp-3 leading-5 text-foreground">{summary.trim()}</p> : null}
-            <p className="leading-5 text-muted-foreground">{t('flow.entry.existingSpec.note')}</p>
+            {summary?.trim() ? <p data-testid="flow-entry-spec-summary" className="line-clamp-3 text-foreground">{summary.trim()}</p> : null}
+            <p className="text-muted-foreground">{t('flow.entry.existingSpec.note')}</p>
           </div>
         ) : (
-          <blockquote data-testid="flow-entry-idea" className="line-clamp-4 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs italic text-foreground">
+          <blockquote data-testid="flow-entry-idea" className="line-clamp-4 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-body italic text-foreground">
             {title ? <span className="mb-0.5 block not-italic font-medium text-foreground">{title}</span> : null}
             {idea}
           </blockquote>
         )}
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <p className="flex items-center gap-1.5 text-caption text-muted-foreground">
           <GitBranch className="h-3 w-3 shrink-0" aria-hidden />
           {provider ? t('flow.entry.provider', { provider: providerLabel(provider) }) : t('flow.entry.providerUnknown')}
           <HelpHint topic="flowMode" variant="link" className="ml-auto" />
         </p>
+        {repositoriesLoading && (
+          <div data-testid="flow-entry-repository-loading" className="space-y-1.5" aria-busy="true">
+            <p className="text-caption text-muted-foreground">{t('flow.entry.repository.loading')}</p>
+            <Skeleton className="h-8 w-full" />
+          </div>
+        )}
+        {repositoriesFailed && (
+          // The list could not load: say so and offer a retry. Start still works
+          // (the agent's suggestion goes to the server, which triages or explains).
+          <p role="alert" data-testid="flow-entry-repository-failed" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-destructive">
+            <span>{t('flow.entry.repository.loadFailed')}</span>
+            <button type="button" data-agent-interactive data-testid="flow-entry-repository-retry" onClick={() => setRepositoryAttempt((n) => n + 1)}
+              className="rounded px-1 text-label text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+              {t('actions.retry', { ns: 'common' })}
+            </button>
+          </p>
+        )}
         {choice?.show && choice.candidates.length > 0 && (
           <IntentRepositoryPicker
             idPrefix="flow-entry-repository"
@@ -194,7 +241,7 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
           />
         )}
         {blockReason && (
-          <div role="note" data-testid="flow-entry-blocked" className="rounded-lg border border-accent-warning/35 bg-accent-warning/10 px-2.5 py-2 text-xs text-accent-warning">
+          <div role="note" data-testid="flow-entry-blocked" className="rounded-lg border border-accent-warning/35 bg-accent-warning/10 px-2.5 py-2 text-body text-accent-warning">
             <p id={blockReasonId} className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />{blockReason}</p>
             {blockedByOpenFlow && openFlowId && (
               <button type="button" data-agent-interactive data-testid="flow-entry-open-flow" onClick={() => focusFlowBar(openFlowId)}
@@ -209,13 +256,13 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
             )}
           </div>
         )}
-        {error && <p role="alert" data-testid="flow-entry-error" className="text-xs text-destructive">{error}</p>}
+        {error && <p role="alert" data-testid="flow-entry-error" className="text-body text-destructive">{error}</p>}
         {errorCode === 'repository_has_no_commits' && projectId && !busy && (
           // The commit is the only missing step: Start retries on its own.
           <InitialCommitButton projectId={projectId} onCreated={() => void startFlow()} />
         )}
         <div className="flex items-center justify-end gap-2">
-          <button type="button" data-agent-interactive onClick={onCancel} disabled={busy} className="rounded-md px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50">
+          <button type="button" data-agent-interactive onClick={onCancel} disabled={busy} className="rounded-md px-2.5 py-1 text-label text-muted-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:opacity-50">
             {t('flow.entry.cancel')}
           </button>
           <button
@@ -227,7 +274,7 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
             aria-describedby={blockReason ? blockReasonId : undefined}
             className={cn(PRIMARY_ACTION_SHAPE, 'bg-accent-intent text-background hover:bg-accent-intent/90 focus-visible:ring-accent-intent/60')}
           >
-            {busy || loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
             {busy ? t('flow.entry.starting') : t('flow.entry.start')}
           </button>
         </div>

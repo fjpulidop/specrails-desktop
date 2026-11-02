@@ -106,7 +106,7 @@ export function AgentFlowReturnCard({ row, conversationId = null }: { row: Inten
                     {files.map((file) => <li key={file} className="truncate font-mono text-caption text-muted-foreground" title={file}>{file}</li>)}
                   </ul>
                   {(hiddenFiles > 0 || allFiles) && derivation.unexplainedFiles.length > VISIBLE_FILES && (
-                    <button type="button" data-agent-interactive onClick={() => setAllFiles((value) => !value)} className="mt-1 text-caption font-medium text-accent-info hover:underline">
+                    <button type="button" data-agent-interactive onClick={() => setAllFiles((value) => !value)} className="mt-1 inline-flex min-h-6 items-center text-caption font-medium text-accent-info hover:underline">
                       {allFiles ? t('runCard.review.showLess') : t('runCard.review.showAll', { count: derivation.unexplainedFiles.length })}
                     </button>
                   )}

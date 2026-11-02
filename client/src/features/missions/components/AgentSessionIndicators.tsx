@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Bot, Info, Loader2, RotateCcw, Settings2, X } from 'lucide-react'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 import type { BackgroundTurnView, SessionNotice } from '../lib/mission-sessions'
 import { retryAgentSessionHost } from '../lib/agent-api'
@@ -15,7 +16,13 @@ export function AgentBackgroundTurn({ turn }: { turn: BackgroundTurnView }) {
       <AgentTurnOriginLabel origin={turn.origin} />
       {turn.text
         ? <AgentMessage role="assistant" content={turn.text} streaming />
-        : <p className="title-shimmer px-1 text-label text-muted-foreground">{t('subagents.backgroundTurn')}</p>}
+        : (
+          // One working vocabulary: the running lamp + muted label (no gradient text).
+          <p className="flex items-center gap-2 px-1 text-label text-muted-foreground">
+            <LiveDot tone="info" size="xs" aria-hidden />
+            {t('subagents.backgroundTurn')}
+          </p>
+        )}
     </div>
   )
 }
@@ -35,11 +42,26 @@ export function AgentTurnOriginLabel({ origin }: { origin: 'subagent' | 'system'
 export function AgentDeferredChangeNotice({ onApplyNow }: { onApplyNow: () => Promise<void> }) {
   const { t } = useTranslation('agent')
   const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const applyNow = async () => {
+    setBusy(true); setFailed(false)
+    try {
+      await onApplyNow()
+    } catch {
+      // A failed stop must be visible here, not an unhandled rejection.
+      setFailed(true)
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
     <div role="status" data-testid="agent-deferred-change" className="flex items-center gap-2 rounded-lg border border-accent-highlight/30 bg-accent-highlight/[0.07] px-3 py-1.5 text-label text-muted-foreground">
       <Settings2 className="h-3.5 w-3.5 shrink-0 text-accent-highlight" aria-hidden />
-      <span className="min-w-0 flex-1">{t('subagents.deferred')}</span>
-      <button type="button" disabled={busy} onClick={() => { setBusy(true); void onApplyNow().finally(() => setBusy(false)) }}
+      <span className="min-w-0 flex-1">
+        {t('subagents.deferred')}
+        {failed && <span className="ml-1 text-destructive" data-testid="agent-deferred-change-error">{t('subagents.stopFailed')}</span>}
+      </span>
+      <button type="button" disabled={busy} onClick={() => void applyNow()}
         className="shrink-0 rounded-md border border-border/50 px-2 py-0.5 text-caption text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50">
         {t('subagents.applyNow')}
       </button>
@@ -77,8 +99,8 @@ export function AgentSessionNotices({ notices, onDismiss }: { notices: SessionNo
         const warning = notice.level !== 'info'
         return (
           <div key={notice.id} role={warning ? 'alert' : 'status'} data-code={notice.code}
-            className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-caption ${warning ? 'border-accent-highlight/35 bg-accent-highlight/[0.07] text-muted-foreground' : 'border-border/40 bg-surface/40 text-muted-foreground'}`}>
-            {warning ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-highlight" aria-hidden /> : <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+            className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-caption ${warning ? 'border-accent-warning/35 bg-accent-warning/[0.07] text-muted-foreground' : 'border-border/40 bg-surface/40 text-muted-foreground'}`}>
+            {warning ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden /> : <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />}
             <div className="min-w-0 flex-1 space-y-0.5">
               <p>{known ? t(`sessionNotice.${notice.code}`, { provider: providerLabel(notice.provider) }) : notice.message}</p>
               {retryError === notice.id && <p className="text-destructive">{t('sessionNotice.retryFailed')}</p>}

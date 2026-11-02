@@ -142,7 +142,7 @@ describe('AgentTierChip', () => {
   it('renders the level name and cycles on click', () => {
     const onCycle = vi.fn()
     render(<AgentTierChip level={2} onCycle={onCycle} />)
-    expect(screen.getByText('Operate')).toBeInTheDocument()
+    expect(screen.getAllByText('Operate').length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole('button'))
     expect(onCycle).toHaveBeenCalled()
   })
@@ -218,12 +218,12 @@ function queueBox(): HTMLElement {
 describe('AgentActivityChip', () => {
   it('abbreviates tool names with localized labels', () => {
     const t = i18next.getFixedT('en', 'agent') as unknown as Parameters<typeof toolChipLabel>[1]
-    expect(toolChipLabel('mcp__specrails__specrails_jobs', t)).toBe('MCP · jobs')
+    expect(toolChipLabel('mcp__specrails__specrails_jobs', t)).toBe('Rails')
     expect(toolChipLabel('mcp__whatever', t)).toBe('MCP · whatever')
     expect(toolChipLabel('mcp__', t)).toBe('MCP tool')
     expect(toolChipLabel('Bash', t)).toBe('Terminal')
     expect(toolChipLabel('Grep', t)).toBe('Searching')
-    expect(toolChipLabel('SomethingElse', t)).toBe('SomethingElse')
+    expect(toolChipLabel('SomethingElse', t)).toBe('Working')
     const keys: string[] = []
     toolChipLabel('Read', ((key: string) => { keys.push(key); return key }))
     expect(keys).toEqual(['activity.tool.reading'])
@@ -241,7 +241,7 @@ describe('AgentActivityChip', () => {
 
   it('shows the abbreviated label once a tool is active', () => {
     render(<AgentActivityChip tool="mcp__specrails__specrails_jobs" />)
-    expect(screen.getByText('MCP · jobs')).toBeInTheDocument()
+    expect(screen.getByText('Rails')).toBeInTheDocument()
   })
 
   it('falls back to Thinking… for a nameless (<unnamed>) tool', () => {

@@ -601,7 +601,11 @@
       "agent": "Agente",
       "agentNamed": "Agente · {{description}}",
       "mcp": "MCP · {{name}}",
-      "mcpTool": "Herramienta MCP"
+      "mcpTool": "Herramienta MCP",
+      "specs": "Specs",
+      "rails": "Rails",
+      "git": "Git",
+      "working": "Trabajando"
     }
   },
   "backgroundProcess": {

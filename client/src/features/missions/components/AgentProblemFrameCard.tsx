@@ -43,7 +43,7 @@ function Reading({ label, value, testId, onSelect, disabled }: ReadingProps) {
   const body = (
     <>
       <div className="text-label text-muted-foreground">{label}</div>
-      <div className="text-xs leading-5 text-foreground">{value.reading}</div>
+      <div className="text-body text-foreground">{value.reading}</div>
       {value.touches.length > 0 && (
         <div className="flex flex-col gap-1 pt-0.5">
           <div className="text-label text-muted-foreground">
@@ -116,7 +116,7 @@ function Bullets({ label, items }: { label: string; items: string[] }) {
       <div className="text-label text-muted-foreground">{label}</div>
       <ul className="flex flex-col gap-0.5">
         {items.map((item, i) => (
-          <li key={`${i}-${item}`} className="flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
+          <li key={`${i}-${item}`} className="flex items-start gap-1.5 text-body text-muted-foreground">
             <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-foreground/30" />
             <span className="min-w-0">{item}</span>
           </li>
@@ -148,15 +148,15 @@ export function AgentProblemFrameCard({ frame, isLatest, isStreaming, onSelect }
   return (
     <div
       data-testid="agent-problem-frame-card"
-      className="my-1 overflow-hidden rounded-xl border border-accent-info/25 bg-card/80 shadow-lg"
+      className="@container my-1 overflow-hidden rounded-xl border border-accent-info/25 bg-card/80 shadow-1"
     >
-      <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent-info/[0.06] px-3.5 py-2 text-xs font-semibold text-accent-info">
+      <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent-info/[0.06] px-3.5 py-2 text-label font-semibold text-accent-info">
         <Compass className="h-3 w-3" />
         {t('problemFrame.heading')}
       </div>
 
       <div className="flex flex-col gap-2.5 px-3.5 py-3">
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 @xl:grid-cols-2">
           <Reading
             label={t('problemFrame.restated')}
             value={frame.restated}
@@ -176,15 +176,15 @@ export function AgentProblemFrameCard({ frame, isLatest, isStreaming, onSelect }
         <div className="flex items-start gap-2 rounded-lg border border-accent-primary/25 bg-accent-primary/[0.07] px-2.5 py-2">
           <CircleHelp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" />
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-accent-primary">
+            <div className="text-label font-semibold text-accent-primary">
               {t('problemFrame.discriminator')}
             </div>
-            <div className="mt-0.5 text-xs leading-5 text-foreground">{frame.discriminator}</div>
+            <div className="mt-0.5 text-body text-foreground">{frame.discriminator}</div>
           </div>
         </div>
 
         {hasFooter && (
-          <div className="grid gap-2 border-t border-border/40 pt-2.5 sm:grid-cols-2">
+          <div className="grid gap-2 border-t border-border/40 pt-2.5 @xl:grid-cols-2">
             <Bullets label={t('problemFrame.assumptions')} items={frame.assumptions} />
             <Bullets label={t('problemFrame.unknowns')} items={frame.unknowns} />
           </div>
@@ -201,7 +201,7 @@ export function AgentProblemFramePending() {
   return (
     <span
       data-testid="agent-problem-frame-pending"
-      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-info/25 bg-accent-info/10 px-2.5 py-1 text-xs text-accent-info"
+      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-info/25 bg-accent-info/10 px-2.5 py-1 text-label text-accent-info"
     >
       <Compass className="h-3 w-3 motion-safe:animate-pulse" />
       {t('problemFrame.framing')}

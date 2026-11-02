@@ -54,7 +54,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
               type="button"
               data-agent-interactive
               onClick={() => setExpanded((open) => !open)}
-              className="mt-1 text-caption font-medium text-accent-info hover:underline"
+              className="mt-1 inline-flex min-h-6 items-center text-caption font-medium text-accent-info hover:underline"
               data-testid="mission-flow-review-toggle"
             >
               {expanded ? t('runCard.review.showLess') : t('runCard.review.showAll', { count: review.issues.length })}

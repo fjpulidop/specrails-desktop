@@ -15,11 +15,13 @@
 // Intent is mounted) and Delegate (the agent writes the spec from the intent).
 // Nothing here ranks or recommends either path.
 //
-// Long intents collapse: the content clamps to a fixed height with a fade and
-// the lists show their first items, until the person asks for the whole thing.
+// Long intents collapse: the descriptive content clamps to a fixed height with
+// a fade and the lists show their first items, until the person asks for the
+// whole thing. The open questions (what the card most wants answered) never sit
+// under the clamp: they follow it, like the readings and the discriminator.
 
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronUp, Compass, CircleHelp, CornerDownLeft, FileText } from 'lucide-react'
+import { ChevronDown, ChevronUp, Compass, CircleHelp, CornerDownLeft, FileText, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../lib/utils'
 import type { IntentDraft } from '../../specs/lib/spec-intent'
@@ -34,7 +36,7 @@ const CHOICE_SHELL =
 const CHOICE_BUTTON =
   'group/choice transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
 const CHOICE_ENABLED = 'cursor-pointer hover:border-accent-primary/45 hover:bg-accent-primary/[0.09]'
-/** The reply affordance of a choice: visible on hover, keyboard focus and on touch (no hover there). */
+/** The affordance of a choice (reply with it / answer it): visible on hover, keyboard focus and on touch (no hover there). */
 const CHOICE_HINT =
   'mt-0.5 inline-flex items-center gap-1 text-label text-accent-primary transition-opacity opacity-0 group-hover/choice:opacity-100 group-focus-visible/choice:opacity-100 [@media(hover:none)]:opacity-100'
 
@@ -98,7 +100,7 @@ function Bullets({ items, collapsed, onExpand }: { items: readonly string[]; col
       ))}
       {hidden > 0 && (
         <li>
-          <button type="button" data-agent-interactive data-testid="agent-intent-draft-more" onClick={onExpand} className="pl-2.5 text-caption text-muted-foreground transition-colors hover:text-foreground">
+          <button type="button" data-agent-interactive data-testid="agent-intent-draft-more" onClick={onExpand} className="-my-1 min-h-6 rounded px-1 py-1 pl-2.5 text-caption text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
             {t('intentDraft.more', { count: hidden })}
           </button>
         </li>
@@ -107,7 +109,7 @@ function Bullets({ items, collapsed, onExpand }: { items: readonly string[]; col
   )
 }
 
-/** The pill in the header: "Agreed" (intent accent, dot + label) or "N open" (warning). */
+/** The pill in the header: "Agreed" or "N open", both the Intent lamp (dot + label; amber is caution or cost, and an open question is neither). */
 function StatePill({ ready, open }: { ready: boolean; open: number }) {
   const { t } = useTranslation('agent')
   if (!ready && open === 0) return null
@@ -116,10 +118,10 @@ function StatePill({ ready, open }: { ready: boolean; open: number }) {
       data-testid="agent-intent-draft-state"
       className={cn(
         'ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-caption font-medium',
-        ready ? 'border-accent-intent/30 text-accent-intent' : 'border-accent-warning/30 text-accent-warning',
+        'border-accent-intent/30 text-accent-intent',
       )}
     >
-      <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', ready ? 'bg-accent-intent' : 'bg-accent-warning')} />
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-intent" />
       {ready ? t('intentDraft.settled') : t('intentDraft.openCount', { count: open })}
     </span>
   )
@@ -216,7 +218,7 @@ export function AgentIntentDraftCard({ draft, isLatest, isLatestSettledIntent, i
   }
 
   return (
-    <div data-testid="agent-intent-draft-card" data-ready={draft.ready ? 'true' : 'false'} className="my-1 overflow-hidden rounded-xl border border-accent-intent/25 bg-card/80 shadow-lg">
+    <div data-testid="agent-intent-draft-card" data-ready={draft.ready ? 'true' : 'false'} className="@container my-1 overflow-hidden rounded-xl border border-accent-intent/25 bg-card/80 shadow-1">
       <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent-intent/[0.06] px-3.5 py-2 text-label font-semibold text-accent-intent">
         <Compass className="h-3 w-3" aria-hidden="true" />
         <span>{t('intentDraft.heading')}</span>
@@ -242,59 +244,6 @@ export function AgentIntentDraftCard({ draft, isLatest, isLatestSettledIntent, i
               </Section>
             ))}
 
-            {intent.openQuestions.length > 0 && (
-              <Section label={open > 0 ? `${t('intentDraft.openQuestions')} · ${open}` : t('intentDraft.openQuestions')} testId="agent-intent-draft-questions">
-                <ul className="flex flex-col gap-1">
-                  {intent.openQuestions.map((item) => {
-                    const pill = !item.answer && (
-                      <span className="shrink-0 rounded-full bg-accent-intent/15 px-1.5 py-px text-caption font-medium text-accent-intent">{t('intentDraft.open')}</span>
-                    )
-                    if (answerable && !item.answer) {
-                      return (
-                        <li key={item.question}>
-                          <button
-                            type="button"
-                            data-testid="agent-intent-draft-question"
-                            data-agent-interactive
-                            disabled={isStreaming}
-                            aria-describedby={answerHintId}
-                            onClick={() => answer(item.question)}
-                            className={cn(CHOICE_SHELL, CHOICE_BUTTON, 'w-full', isStreaming ? 'cursor-default' : CHOICE_ENABLED)}
-                          >
-                            <span className="flex items-start justify-between gap-2">
-                              <span className="min-w-0 break-words text-body text-foreground">{item.question}</span>
-                              {pill}
-                            </span>
-                            {!isStreaming && (
-                              <span aria-hidden className={CHOICE_HINT}>
-                                <CornerDownLeft className="h-2.5 w-2.5" />
-                                {t('intentDraft.pick')}
-                              </span>
-                            )}
-                          </button>
-                        </li>
-                      )
-                    }
-                    return (
-                      <li key={item.question} data-testid="agent-intent-draft-question" className="flex flex-col gap-0.5">
-                        <span className="flex items-start justify-between gap-2">
-                          <span className="min-w-0 break-words text-body text-foreground">{item.question}</span>
-                          {pill}
-                        </span>
-                        {item.answer && (
-                          <span className="flex min-w-0 items-baseline gap-1.5 pl-3">
-                            <span className="shrink-0 text-caption text-muted-foreground">{t('intentDraft.answer')}</span>
-                            <span className="min-w-0 break-words text-body text-foreground">{item.answer}</span>
-                          </span>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-                {answerable && <p id={answerHintId} className="text-caption text-muted-foreground">{t('intentDraft.answerHint')}</p>}
-              </Section>
-            )}
-
             {collapsed && overflows && (
               <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />
             )}
@@ -306,13 +255,67 @@ export function AgentIntentDraftCard({ draft, isLatest, isLatestSettledIntent, i
               data-agent-interactive
               aria-expanded={expanded}
               onClick={() => setExpanded((v) => !v)}
-              className="mt-1 flex items-center gap-1 text-label text-accent-intent transition-colors hover:text-foreground"
+              className="-mb-1 mt-1 flex min-h-6 items-center gap-1 rounded px-1 text-label text-accent-intent transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
             >
               {expanded ? <ChevronUp className="h-3 w-3" aria-hidden /> : <ChevronDown className="h-3 w-3" aria-hidden />}
               {expanded ? t('intentDraft.collapse') : t('intentDraft.expand')}
             </button>
           )}
         </div>
+
+        {intent.openQuestions.length > 0 && (
+          <Section label={open > 0 ? `${t('intentDraft.openQuestions')} · ${open}` : t('intentDraft.openQuestions')} testId="agent-intent-draft-questions">
+            <ul className="flex flex-col gap-1">
+              {intent.openQuestions.map((item) => {
+                const pill = !item.answer && (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent-intent/30 px-1.5 py-px text-caption font-medium text-accent-intent"><span aria-hidden className="h-1 w-1 rounded-full bg-accent-intent" />{t('intentDraft.open')}</span>
+                )
+                if (answerable && !item.answer) {
+                  return (
+                    <li key={item.question}>
+                      <button
+                        type="button"
+                        data-testid="agent-intent-draft-question"
+                        data-agent-interactive
+                        disabled={isStreaming}
+                        aria-describedby={answerHintId}
+                        onClick={() => answer(item.question)}
+                        className={cn(CHOICE_SHELL, CHOICE_BUTTON, 'w-full', isStreaming ? 'cursor-default' : CHOICE_ENABLED)}
+                      >
+                        <span className="flex items-start justify-between gap-2">
+                          <span className="min-w-0 break-words text-body text-foreground">{item.question}</span>
+                          {pill}
+                        </span>
+                        {/* Answering seeds the composer (nothing is sent): its own hint, never "Reply with this". */}
+                        {!isStreaming && (
+                          <span aria-hidden className={CHOICE_HINT}>
+                            <MessageSquare className="h-2.5 w-2.5" />
+                            {t('intentDraft.answerPick', { defaultValue: t('intentDraft.answer') })}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  )
+                }
+                return (
+                  <li key={item.question} data-testid="agent-intent-draft-question" className="flex flex-col gap-0.5">
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 break-words text-body text-foreground">{item.question}</span>
+                      {pill}
+                    </span>
+                    {item.answer && (
+                      <span className="flex min-w-0 items-baseline gap-1.5 pl-3">
+                        <span className="shrink-0 text-caption text-muted-foreground">{t('intentDraft.answer')}</span>
+                        <span className="min-w-0 break-words text-body text-foreground">{item.answer}</span>
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            {answerable && <p id={answerHintId} className="text-caption text-muted-foreground">{t('intentDraft.answerHint')}</p>}
+          </Section>
+        )}
 
         {draft.ready ? (
           <p data-testid="agent-intent-draft-reading-confirmed" className="text-caption text-muted-foreground">
@@ -321,7 +324,8 @@ export function AgentIntentDraftCard({ draft, isLatest, isLatestSettledIntent, i
         ) : (
           <>
             {pick && <span id={pickDescriptionId} className="sr-only">{t('intentDraft.pickDescription')}</span>}
-            <div className="grid gap-2 sm:grid-cols-2">
+            {/* Two columns by the card's own width (a side panel stacks them), not the window's. */}
+            <div className="grid gap-2 @xl:grid-cols-2">
               <Reading label={t('intentDraft.restated')} text={readings.restated} testId="agent-intent-draft-reading-restated" onSelect={pick} disabled={isStreaming} describedBy={pick ? pickDescriptionId : undefined} />
               <Reading label={t('intentDraft.alternative')} text={readings.alternative} testId="agent-intent-draft-reading-alternative" onSelect={pick} disabled={isStreaming} describedBy={pick ? pickDescriptionId : undefined} />
             </div>
@@ -345,7 +349,7 @@ export function AgentIntentDraftCard({ draft, isLatest, isLatestSettledIntent, i
         {showPaths && (
           <div role="group" aria-label={t('intentDraft.pathsLabel')} data-testid="agent-intent-draft-paths" className="flex flex-col gap-2 border-t border-border/40 pt-2.5">
             {!inIntent && <div className="text-label text-muted-foreground">{t('intentDraft.pathsLabel')}</div>}
-            <div className={cn('grid gap-2', IntentExplore && conversationId && !entryOpen && !inIntent ? 'sm:grid-cols-2' : '')}>
+            <div className={cn('grid gap-2', IntentExplore && conversationId && !entryOpen && !inIntent ? '@xl:grid-cols-2' : '')}>
               {IntentExplore && conversationId && <IntentExplore {...exploreProps} />}
               {/* Delegate steps aside while the Explore entry card is open: one primary at a time. */}
               {!entryOpen && !inIntent && (

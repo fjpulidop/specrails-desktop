@@ -70,7 +70,7 @@ export function AgentComposerAttachmentChip({
           onClick={onRemove}
           aria-label={removeLabel}
           title={removeLabel}
-          className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+          className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-foreground opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover:opacity-100"
         >
           <X className="h-3 w-3" />
         </button>
@@ -85,7 +85,7 @@ export function AgentComposerAttachmentChip({
     >
       <Paperclip className="h-3 w-3 text-accent-primary" />
       <span className="max-w-[160px] truncate">{attachment.filename}</span>
-      <button type="button" onClick={onRemove} aria-label={removeLabel} title={removeLabel} className="rounded-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
+      <button type="button" onClick={onRemove} aria-label={removeLabel} title={removeLabel} className="-my-1 -mr-1 flex h-6 w-6 items-center justify-center rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
         <X className="h-3 w-3" />
       </button>
     </span>

@@ -20,6 +20,8 @@ interface Props {
   onProvider(value: string): void
   onModel(value: string): void
   onEffort(value: string | null): void
+  /** Re-requests the model catalog after a failed load (Retry row in the menu). */
+  onRetry?(): void
 }
 
 /** One compact trigger; provider selection stays inside the model menu. */
@@ -65,7 +67,9 @@ export function AgentRuntimeSelector(props: Props) {
       className="flex h-8 min-w-0 items-center gap-1 rounded-full px-2 py-1 text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
       onClick={() => setView(value => value ? null : 'models')}>
       <Brain className="hidden h-4 w-4 @max-[640px]:block" aria-hidden />
-      <span className="truncate @max-[640px]:hidden">{modelLabel || t(props.status === 'loading' ? 'model.loading' : 'model.label')}</span>
+      {/* A failed catalog is a caution lamp on the trigger, not a silent 'Model'. */}
+      {props.status === 'error' && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-warning" data-testid="agent-runtime-error-lamp" />}
+      <span className="truncate @max-[640px]:hidden">{props.status === 'error' && !modelLabel ? t('model.unavailable') : modelLabel || t(props.status === 'loading' ? 'model.loading' : 'model.label')}</span>
       {effortLabel && <span className="shrink-0 text-muted-foreground @max-[640px]:hidden">{effortLabel}</span>}
       <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground @max-[640px]:hidden" />
     </button>
@@ -86,7 +90,12 @@ export function AgentRuntimeSelector(props: Props) {
         {view === 'providers' ? props.providers.filter(provider => isPublicProvider(provider.value)).map(provider => <button key={provider.value} type="button" className={rowClass}
           aria-pressed={provider.value === props.provider} onClick={() => { props.onProvider(provider.value); setView('models') }}>
           {provider.label}{provider.value === props.provider && <Check className="h-4 w-4 text-accent-primary" />}
-        </button>) : props.status !== 'ready' ? <p role="status" className="px-3 py-2 text-xs text-muted-foreground">{t(props.status === 'loading' ? 'model.loading' : 'model.unavailable')}</p>
+        </button>) : props.status !== 'ready' ? <>
+          <p role="status" className="px-3 py-2 text-caption text-muted-foreground">{t(props.status === 'loading' ? 'model.loading' : 'model.unavailable')}</p>
+          {props.status === 'error' && props.onRetry && <button type="button" className={rowClass} onClick={props.onRetry} data-testid="agent-runtime-retry">
+            <span>{t('model.retry')}</span><RotateCcw className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          </button>}
+        </>
         : props.models.map(model => <button key={model.value} type="button" className={rowClass} aria-pressed={model.value === props.model}
           onClick={() => { props.onModel(model.value); if (props.efforts.length < 2) close() }}>
           <span className="truncate">{model.label}</span>{model.value === props.model && <Check className="h-4 w-4 shrink-0 text-accent-primary" />}

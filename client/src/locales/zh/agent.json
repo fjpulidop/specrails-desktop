@@ -601,7 +601,11 @@
       "agent": "智能体",
       "agentNamed": "智能体 · {{description}}",
       "mcp": "MCP · {{name}}",
-      "mcpTool": "MCP 工具"
+      "mcpTool": "MCP 工具",
+      "specs": "规格",
+      "rails": "Rails",
+      "git": "Git",
+      "working": "处理中"
     }
   },
   "backgroundProcess": {

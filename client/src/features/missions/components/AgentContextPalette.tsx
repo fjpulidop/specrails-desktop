@@ -120,7 +120,7 @@ export function AgentComposerContextChips({
               type="button"
               onClick={() => onRemove(chip)}
               aria-label={t('palette.remove', { label: chip.label })}
-              className="rounded-sm text-muted-foreground hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+              className="-my-1 -mr-1.5 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
             >
               <X className="h-3 w-3" />
             </button>
@@ -165,7 +165,7 @@ export function AgentContextPalette({
       ref={rootRef}
       data-testid="agent-context-palette"
       data-placement={placement}
-      className={`absolute ${placement === 'below' ? 'top-[calc(100%+0.5rem)]' : 'bottom-[calc(100%+0.5rem)]'} left-0 right-0 z-30 overflow-hidden rounded-lg border border-border/70 bg-popover shadow-xl shadow-black/15`}
+      className={`absolute ${placement === 'below' ? 'top-[calc(100%+0.5rem)]' : 'bottom-[calc(100%+0.5rem)]'} left-0 right-0 z-30 overflow-hidden rounded-lg border border-border/70 bg-popover shadow-2`}
     >
       <div ref={headerRef} className="flex items-center gap-2 border-b border-border/60 px-2.5 py-2">
         <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-surface text-muted-foreground">
@@ -348,7 +348,7 @@ export function AgentPlusMenu({
           data-placement={placement}
           onKeyDown={onMenuKeyDown}
           style={maxHeight !== undefined ? { maxHeight } : undefined}
-          className={`absolute ${placement === 'below' ? 'top-9' : 'bottom-9'} left-0 z-40 w-64 overflow-y-auto rounded-lg border border-border/70 bg-popover py-1 shadow-xl shadow-black/15`}
+          className={`absolute ${placement === 'below' ? 'top-9' : 'bottom-9'} left-0 z-40 w-64 overflow-y-auto rounded-lg border border-border/70 bg-popover py-1 shadow-2`}
         >
           <button type="button" role="menuitem" onMouseDown={(event) => event.preventDefault()} onClick={() => onOpenMode('reference')} className={itemClass}>
             <AtSign className="h-4 w-4 text-accent-primary" aria-hidden />

@@ -22,7 +22,7 @@ const withDraft = `Updated the draft with your answer.\n\n${fence(JSON.stringify
 describe('extractAgentSpecDraft', () => {
   it('passes content through untouched when no fence exists', () => {
     const r = extractAgentSpecDraft('plain **markdown** reply')
-    expect(r).toEqual({ body: 'plain **markdown** reply', draft: null, pending: false })
+    expect(r).toEqual({ body: 'plain **markdown** reply', draft: null, pending: false, rejected: 0 })
   })
 
   it('parses a complete block and strips it from the body', () => {
@@ -92,15 +92,18 @@ describe('AgentSpecDraftCard', () => {
     expect(screen.getByText('high')).toBeInTheDocument()
     expect(screen.getByText('ui')).toBeInTheDocument()
     expect(screen.getByText('settings')).toBeInTheDocument()
-    expect(screen.getByText(/Acceptance criteria · 2/)).toBeInTheDocument()
+    expect(screen.getByText(/Acceptance criteria/).textContent).toMatch(/Acceptance criteria · 2/)
     expect(screen.getByText('Toggle persists across restarts')).toBeInTheDocument()
   })
 
   it('description starts collapsed and expands on toggle', () => {
+    // jsdom has no layout: simulate a description taller than the clamp.
+    const sh = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(400)
     render(<AgentSpecDraftCard draft={draft as never} />)
     const toggle = screen.getByRole('button', { name: /Show full description/ })
     fireEvent.click(toggle)
     expect(screen.getByRole('button', { name: /Collapse description/ })).toBeInTheDocument()
+    sh.mockRestore()
   })
 
   it('falls back to the untitled label when the title is blank', () => {

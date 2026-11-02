@@ -328,7 +328,7 @@ describe('Intent mode in the conversation', () => {
     render(<Providers><IntentStrip /></Providers>)
     expect(await screen.findByTestId('mission-run-strip')).toBeInTheDocument()
     const handOff = await screen.findByTestId('flow-bar-hand-off')
-    expect(handOff).toBeDisabled()
+    expect(handOff).toHaveAttribute('aria-disabled', 'true')
     expect(handOff).toHaveAccessibleDescription('Wait until the Intent finishes saving its state')
     expect(handOff.getAttribute('title')).toContain('Wait until the Intent finishes saving its state')
   })

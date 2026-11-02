@@ -418,9 +418,12 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     return extractAgentOptions(content).options ?? null
   }, [lastMessage, active?.provider])
 
-  // Shift+Tab anywhere in the view (incl. the composer) cycles the tier ladder.
+  // Shift+Tab on the view's controls cycles the tier ladder. Inside the text
+  // editor it stays reverse focus navigation (a11y): the editor is excluded.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.shiftKey && (e.key === 'Tab' || e.code === 'Tab')) {
+      const target = e.target as HTMLElement | null
+      if (target && (target.isContentEditable || target.closest('[role="textbox"], textarea, input'))) return
       e.preventDefault()
       e.stopPropagation()
       cycleTier()

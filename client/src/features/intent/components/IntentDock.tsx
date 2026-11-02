@@ -3,6 +3,8 @@
 // in the dock are the Intent's state announcements (active, paused, needs
 // review, handed off, back in Intent, delivered, discarded, closed), said through the
 // strip's ONE polite live region (`announce`) so nothing is announced twice.
+// Intent cards in the conversation (the offer card's decision stub) speak
+// through the same region via `announceFlow`: no second live region anywhere.
 
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -17,6 +19,20 @@ export function flowStateAnnouncement(previous: IntentSession['state'] | null, n
   if (previous === null) return null
   if (next === 'active' || next === 'paused' || next === 'needs-review' || next === 'handed_off' || next === 'delivered' || next === 'discarded' || next === 'closed') return next
   return null
+}
+
+// ─── Announcement bus ───────────────────────────────────────────────────────────
+// Cards outside the strip have no live region of their own; the mounted dock(s)
+// forward their messages to the strip's announcer. Without a dock nothing is
+// said (the card then relies on moving focus to the element that changed).
+const docks = new Map<string, (message: string) => void>()
+
+/** Say `message` through the run strip's polite live region of `conversationId` (false when no strip is mounted for it). */
+export function announceFlow(conversationId: string | null | undefined, message: string): boolean {
+  const announce = conversationId ? docks.get(conversationId) : undefined
+  if (!announce || !message) return false
+  announce(message)
+  return true
 }
 
 /** Says the Intent's state changes through the run strip's one polite live region. */
@@ -37,5 +53,10 @@ function IntentStateAnnouncer({ flow, announce }: { flow: IntentSession | null; 
 export function IntentDock({ conversationId, projectId, announce }: MissionConversationDockProps) {
   const ctx = useFlowContext()
   const { flow } = useConversationFlow(conversationId, projectId)
+  useEffect(() => {
+    if (!conversationId) return
+    docks.set(conversationId, announce)
+    return () => { if (docks.get(conversationId) === announce) docks.delete(conversationId) }
+  }, [conversationId, announce])
   return <IntentStateAnnouncer flow={ctx && projectId ? flow : null} announce={announce} />
 }

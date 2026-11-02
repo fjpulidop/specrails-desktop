@@ -12,8 +12,10 @@
 // priced, `*` plus a visible note when some turns are unpriced), Preview
 // while the Intent's app runs, and Discard set apart. Controls are DATA
 // (IntentBarControl[]) so new ones slot in without touching the layout; a
-// disabled control says why. While the strip has focus, P pauses or resumes
-// and H hands off (the strip's `data-strip-key`): never a global shortcut.
+// disabled control says why — and stays in the tab order (`aria-disabled`, the
+// click ignored) so a keyboard user can land on it and hear the reason. While
+// the strip has focus, P pauses or resumes and H hands off (the strip's
+// `data-strip-key`): never a global shortcut.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -120,22 +122,25 @@ function ControlButton({ control, compact, flowId }: { control: IntentBarControl
   const reasonId = reason ? `flow-bar-${flowId}-${control.id}-reason` : undefined
   const key = control.shortcut?.toUpperCase()
   const named = key ? t('runStrip.withShortcut', { label: control.label, keys: key }) : control.label
+  const inert = !!control.disabled || !!control.busy
   return (
     <button
       type="button"
       data-agent-interactive
       data-testid={`flow-bar-${control.id}`}
-      onClick={control.onSelect}
-      disabled={control.disabled || control.busy}
+      onClick={inert ? undefined : control.onSelect}
+      aria-disabled={inert || undefined}
+      data-inert={inert ? 'true' : undefined}
       aria-label={control.label}
       aria-describedby={reasonId}
       aria-keyshortcuts={key}
-      data-strip-key={control.shortcut}
+      data-strip-key={inert ? undefined : control.shortcut}
       title={reason ? `${control.label}: ${reason}` : named}
       className={cn(
         control.tone === 'primary'
           ? RUN_STRIP_PRIMARY
-          : 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-label font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-50',
+          : 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-label font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50',
+        inert && 'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-current',
         control.tone === 'danger' && 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
         (!control.tone || control.tone === 'default') && 'text-foreground hover:bg-surface hover:text-foreground',
       )}
@@ -233,7 +238,8 @@ export function IntentPanel({ projectId, flow, stats }: { projectId: string; flo
   const { diff, cost } = stats
   const totals = diff?.totals
   const costView = flowCostDisplay(cost)
-  const filesLabel = t('flow.bar.files', { count: totals?.files ?? 0 })
+  // Unknown until the live stats measured the diff: "—", never "0 files".
+  const filesLabel = totals ? t('flow.bar.files', { count: totals.files }) : '—'
   const waitReason = settling ? t('flow.bar.disabled.settling') : busy ? t('flow.bar.disabled.busy') : null
   const copyBranch = () => {
     if (!flow.branch) return
@@ -254,7 +260,7 @@ export function IntentPanel({ projectId, flow, stats }: { projectId: string; flo
       {flow.branch && (
         <div className={row}>
           <span className={label}>{t('flow.panel.branch')}</span>
-          <button type="button" onClick={copyBranch} title={t('git.copyBranch')} aria-label={`${t('git.copyBranch')}: ${flow.branch}`} data-agent-interactive data-testid="flow-bar-branch" className="inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 font-mono text-label text-foreground hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+          <button type="button" onClick={copyBranch} title={`${t('git.copyBranch')}: ${flow.branch}`} aria-label={`${t('git.copyBranch')}: ${flow.branch}`} data-agent-interactive data-testid="flow-bar-branch" className="inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 font-mono text-label text-foreground hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
             <GitBranch className="h-3 w-3 shrink-0" aria-hidden />
             <span className="truncate">{flow.branch}</span>
             <Copy className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
@@ -273,7 +279,7 @@ export function IntentPanel({ projectId, flow, stats }: { projectId: string; flo
             aria-describedby={`flow-bar-${flow.id}-files-hint`}
             aria-label={totals && totals.files > 0
               ? t('flow.bar.viewChangesStats', { files: filesLabel, additions: totals.additions, deletions: totals.deletions })
-              : `${t('flow.bar.viewChanges')} · ${filesLabel}`}
+              : totals ? `${t('flow.bar.viewChanges')} · ${filesLabel}` : t('flow.bar.viewChanges')}
             className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 tabular-nums text-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
           >
             <FileDiff className="h-3 w-3 shrink-0" aria-hidden />

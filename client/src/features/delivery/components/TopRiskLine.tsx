@@ -13,10 +13,11 @@ export function TopRiskLine({ summary, className = '' }: { summary: PrDeliveryRi
   if (!summary || !top) return null
   const total = summary.highCount + summary.mediumCount + summary.lowCount
   return (
-    <div className={`flex min-w-0 items-center gap-1.5 text-caption ${className}`} data-testid="top-risk-line" title={top.ref ?? undefined}>
+    <div className={`flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-caption ${className}`} data-testid="top-risk-line" title={top.ref ?? undefined}>
       <span className="shrink-0 text-muted-foreground">{t('brief.topRisk')}</span>
       <SeverityChip severity={top.severity} />
-      <span className="min-w-0 truncate text-foreground">{top.whatToLookAt}</span>
+      {/* The sentence is the only reviewer guidance on the card: it wraps, never clips. */}
+      <span className="min-w-0 basis-[12rem] grow text-foreground [overflow-wrap:anywhere]" data-testid="top-risk-what">{top.whatToLookAt}</span>
       {total > 1 ? <span className="shrink-0 text-muted-foreground">{t('brief.moreRisks', { count: total - 1 })}</span> : null}
     </div>
   )
