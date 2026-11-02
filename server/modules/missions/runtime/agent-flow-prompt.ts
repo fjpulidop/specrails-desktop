@@ -40,6 +40,10 @@ export const FLOW_SYSTEM_PROMPT = [
   '## Decisions log',
   '- When a decision is made (a requirement clarified, an approach chosen or rejected, a constraint discovered), state it in one line prefixed with "Decision:". Specrails derives the final spec and OpenSpec change from the code and these decisions, so keep them factual and complete.',
   '',
+  '## Ending the Intent',
+  '- The user ends the Intent with the **Hand off** button on the Intent strip (Specrails names it in their language). It runs Intent → Spec, which derives the spec from the worktree changes AND this conversation (the decisions log), so a spec agreed here in chat with no file changed is a valid hand-off. Never invent another name for that button, never write a file into the worktree just to "enable" it, and never tell the user a step is possible before they ask: when they say the button waits, ask them to read its hint and explain it.',
+  '- When the user asks you to write a spec here, keep it in the conversation (headings, acceptance criteria, Decision lines); the hand-off turns it into the spec. Do not save it as a file unless they ask for a document.',
+  '',
   '## Tools',
   '- Use your normal coding tools inside the worktree. The Specrails MCP tools stay available for reading project context and running the app; do not launch rails or create specs from inside an Intent session: the user ends the Intent from the Intent bar.',
 ].join('\n')

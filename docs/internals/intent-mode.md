@@ -25,7 +25,7 @@ change `2026-11-01-flow-mode`).
 | --- | --- |
 | Model, validation and bounds, `intent.md` render and tolerant parse, the agent block, `intent-draft` payloads, answer merge | [`specs/domain/intent.ts`](../../server/modules/specs/domain/intent.ts) (pure; byte-identical client copy [`features/specs/lib/spec-intent.ts`](../../client/src/features/specs/lib/spec-intent.ts), parity test) |
 | Storage | ticket field `intent` (additive at schema 1.5, local like `nonGoals`, never written to Jira); `POST /tickets`, `PATCH /tickets/:id` and `POST /tickets/from-draft` validate it (`null` clears on PATCH) |
-| Spec detail and board | [`IntentSection`](../../client/src/features/specs/components/IntentSection.tsx) above the description; open-questions badge on `SpecCard`; the ⌘K spec search indexes it (`field: 'intent'`) |
+| Spec detail and board | [`IntentSection`](../../client/src/features/specs/components/IntentSection.tsx) above the description (compact "+ Add intent" when empty; in edit mode "Save intent" is the primary, Escape cancels, ⌘/Ctrl+Enter saves; answered questions show their answer under "Answer" and the heading becomes "Questions · N answered" when none is open); open-questions badge on `SpecCard` and the post-it card; the ⌘K spec search indexes it (`field: 'intent'`) |
 | Agents | `descriptionWithIntent` leads every loop prompt and Core run (`getTicketSpec`), with the reviewer instruction; the Intent session seed and the derive summary lead with it |
 | Git | [`intent-materialization.ts`](../../server/modules/delivery/runtime/intent-materialization.ts) writes `intent.md` into the ONE OpenSpec change a one-spec run created (active or archived) right before Desktop's delivery commit; best effort (skips no change / no OpenSpec, warns on several changes or a Git failure) |
 
@@ -36,17 +36,26 @@ The doors (Intent is the default door for new specs):
   affects, constraints, openQuestions, `readings{restated, alternative,
   discriminator}`, `ready`) before any `spec-draft`. Missions render it as
   [`AgentIntentDraftCard`](../../client/src/features/missions/components/AgentIntentDraftCard.tsx):
-  the two readings are one-click replies; a `ready` draft on the newest message
-  offers **Delegate** (a reply asking for the spec) and, through the missions
-  seam `IntentExplore`, **Explore**
+  the two readings are one-click replies and, while the draft is not agreed,
+  every open question is a button that pre-fills the composer (a pill counts
+  the open ones); an agreed draft shows the **Agreed** pill and "Reading
+  confirmed" instead of the readings, clamps long content behind "Show the
+  full intent", and offers **Delegate** (a reply asking for the spec) and,
+  through the missions seam `IntentExplore`, **Explore**
   ([`IntentExploreAction`](../../client/src/features/intent/components/IntentExploreAction.tsx):
-  the entry confirmation in place, then `POST /flow { intent }`). The
+  the entry confirmation in place, then `POST /flow { intent }`); the two
+  paths stay on the card across the person's own follow-up messages. The
+  mission home starter chip reads "Start from a problem". The
   `commit_draft` gate ([`agent-spec-framing.ts`](../../server/modules/missions/runtime/agent-spec-framing.ts))
   accepts an answered `intent-draft` (or a legacy answered `problem-frame`) and
   attaches the newest answered intent to the spec unless the call carries
   `intent`. `#noframe` / `#frame` still waive and restore the step. Fence
   promotion recognises the shape for local models.
-- **Add Spec.** The modal opens in **Intent** mode: `generate-spec` with
+- **Add Spec.** The modal opens in **Intent** mode (tab marked "Default";
+  three chips insert the scaffold lines `Problem: `, `Who it affects: `,
+  `We will know it worked when: `; submit reads "Write the intent and a
+  spec"; a failed generation keeps the text in the editor; Raw says the
+  intent can be added later from the spec): `generate-spec` with
   `intent: true` runs one generation whose response opens with a `## Intent`
   JSON block (`INTENT_DERIVE_RULES`), parsed out of the description and stored
   on the new spec; an unusable block yields the spec without an intent and the
@@ -130,34 +139,45 @@ stays `needs-review`.
 already has (Intent and Implement are offered with equal weight for any spec):
 
 - **Doors.** The board's spec context menu and the spec detail header
-  (**Start in Intent**, next to drag-to-rail / **Move to Rail**,
+  (**Explore with the agent**, next to drag-to-rail / **Move to rail**,
   [`StartInIntent`](../../client/src/features/intent/components/StartInIntent.tsx),
   provided by App.tsx through the specs seam `SpecExtensionsContext`: specs
-  never import Intent),
+  never import Intent). Both open the entry confirmation first:
+  `StartInFlowButton` hosts `IntentEntryCard` in a stacked dialog above the
+  spec detail (spec title, intent summary, provider, the repository picker
+  only for multi-repository projects, Cancel / "Start exploring"); the menu
+  item hands the request to the spec detail with `requestStartInFlowEntry`,
+  which opens that dialog on mount. Nothing starts until the person
+  confirms; on start the mission comes to the front and a toast ("Exploring
+  spec #N on <branch>") offers "Open the Intent mission", which a spec
+  already in Intent shows instead of the door. Then
   the mission's `flow-offer` card when the block carries `ticketId` (the agent
   emits it when the person asks to implement an existing spec without naming a
   rail; the card shows "Spec #N · title" and spec-specific hints; Implement
   replies "Let's implement spec #N on a rail." so the agent continues with the
-  rail-launch card) and the rail-launch card of ONE spec (missions'
-  `RailLaunchAlternative` slot; starting the Intent dismisses the card). From
+  rail-launch card: **Explore** vs **Delegate** under "How do you want to
+  continue?") and the rail-launch card of ONE spec (missions'
+  `RailLaunchAlternative` slot: `IntentRailLaunchAlternative` renders
+  `IntentEntryCard` in place; starting the Intent dismisses the card). From
   the board the Intent opens in the spec's `origin_conversation_id` mission when
   it can take it (else `flow_already_open` / `conversation_not_pinned` /
   `conversation_not_found` ⇒ a new mission pinned to the project, titled after
   the spec) and the mission panel opens on it. In a project with several Git
   repositories (`flowRepositoryChoice` shows a choice and lists two or more Git
-  members) a spec that does not name exactly one Git member first asks where
-  the Intent runs (`chooseSpecRepository` →
-  [`IntentRepositoryPrompt`](../../client/src/features/intent/components/IntentRepositoryPrompt.tsx),
-  a dialog mounted once by `IntentMissionsBridge` so it survives the board menu
-  closing). It uses the entry card's
+  members) the entry card's
   [`IntentRepositoryPicker`](../../client/src/features/intent/components/IntentRepositoryPicker.tsx)
-  (Git members of `GET /repositories`, arrow-key radio group), preselects the
+  (Git members of `GET /repositories`, arrow-key radio group) preselects the
   spec's first Git member, else the Git primary (a folder primary preselects
-  nothing), and sends the pick as `repositoryId`; Cancel starts nothing.
+  nothing), and the pick travels as `repositoryId`; Cancel starts nothing.
   Otherwise (one repository, a spec naming exactly one Git member, the list
-  failing to load) no dialog shows and the server triages as below.
-  The rail-launch card's door asks the same way: the card passes its spec's
-  `ticketTitle` / `ticketRepositoryIds` through `RailLaunchAlternative`.
+  failing to load) the card shows no picker and the server triages as below.
+  The rail-launch card passes its spec's `ticketTitle` / `ticketRepositoryIds`
+  through `RailLaunchAlternative` to the same card.
+  [`IntentRepositoryPrompt`](../../client/src/features/intent/components/IntentRepositoryPrompt.tsx)
+  (the separate dialog `IntentMissionsBridge` still mounts) is no longer used
+  by any door. The Intent branch is `ticketBranchName` (`pr-naming.ts`):
+  `kebabTitle` keeps a 48-character budget (`KEBAB_TITLE_MAX_LEN`) and cuts at
+  a word boundary, never mid-word (`feat/1-alta-sin-clave-de-api-proyecto`).
 - **Eligibility** (before any write; `IntentTickets.inspectExisting`, re-checked
   atomically by `adoptExisting`): the spec exists, is not done/cancelled, is
   not held by another Intent and is on no rail (`spec_on_rail`, or
@@ -209,8 +229,9 @@ The mission agent triages it: the `flow-offer` block carries `repositoryId`
 (required when `project.repositories` lists more than one Git repository or the
 primary is a folder; never a folder, never invented). `IntentEntryCard` shows the
 target with a picker of the Git members (`GET /repositories`), preselected from
-the offer, only for such projects. "Start in Intent" from the board or the spec detail uses the same picker
-in a dialog (see [Start from an existing spec](#start-from-an-existing-spec)).
+the offer, only for such projects. "Explore with the agent" from the board, the spec detail
+and the rail-launch card shows the same picker inside the same entry card (see
+[Start from an existing spec](#start-from-an-existing-spec)).
 
 A non-primary choice is persisted on `flow_sessions.repository_id`
 (migration 80; NULL ⇒ primary) and on the placeholder spec
@@ -653,17 +674,17 @@ Intent → Spec run.
 
 | Piece | Behaviour |
 | --- | --- |
-| Offer | The operator classifies pre-launch work as Freestyle / SDD Quick / Implement / Intent. The user turn carries `Intent: offerable` only when `IntentTurnContext.offerable` says so (Intent available, conversation pinned, no open Intent), so the static prompts stay byte-stable. The `flow-offer` block ({idea, reason, repositoryId?}) renders `IntentOfferCard`: Intent and spec + Implement with equal weight, always in that order, and the reason as neutral context ("Why the agent asked"). Intent and Implement never compete: the prompt forbids recommending or ranking either; a legacy `recommended` still parses (and still drives fence promotion) but the card ignores it. Fence promotion re-tags {idea, reason} (or a legacy {idea, recommended}) from generic JSON on both sides. While a reply streams the choices are disabled with a visible hint. |
+| Offer | The operator classifies pre-launch work as Freestyle / SDD Quick / Implement / Intent. The user turn carries `Intent: offerable` only when `IntentTurnContext.offerable` says so (Intent available, conversation pinned, no open Intent), so the static prompts stay byte-stable. The `flow-offer` block ({idea, reason, repositoryId?}) renders `IntentOfferCard` under "How do you want to continue?": **Explore** and **Delegate** with equal weight, always in that order, and the reason as neutral context ("Why the agent asked"). Intent and Implement never compete: the prompt forbids recommending or ranking either; a legacy `recommended` still parses (and still drives fence promotion) but the card ignores it. Fence promotion re-tags {idea, reason} (or a legacy {idea, recommended}) from generic JSON on both sides. While a reply streams the choices are disabled with a visible hint. |
 | Entry | `IntentEntryCard` explains the isolated worktree and starts `POST /flow`. In a workspace or a project with several Git repositories it shows the target repository (radio list of Git members, the agent's triage marked "Suggested by the agent") and sends `repositoryId`; `flow_repository_*` refusals read in plain words. Unavailable ⇒ disabled with the missing capabilities in plain words. A `409 repository_has_no_commits` shows a localized message and **Create initial commit** (`POST /git/initial-commit`, an empty commit); on success Start is retried. |
 | Decision record | `agent_messages.intent` kinds `flow-offer` (`accepted`/`dismissed`, `chosenMode`, `config.flowId`; a legacy `recommendedMode` is still accepted and stored, never sent by the client) and `flow-hand-off`; unique per (kind, proposalIndex). Intent kinds are accepted even with mission rail cards off. |
 | Mode signals | Recognition over recall, never color alone, no screen tint. Intent has its OWN color token, `--color-accent-intent` (globals.css, every theme, ≥4.5:1 on cards and backgrounds; `FLOW_ACCENT` in `lib/intent-accent.ts`), passed through the seam as `MissionModeBadge.accent` — running stays `accent-info`, browsing the composer history uses a dashed neutral border. The composer is the main signal (a **Intent** chip with its icon next to the tier chip — no accent line along the composer: the chip names the mode — the placeholder "Tell the agent what to change in this Intent…"; the switch fades in/out in 200 ms, instant under reduced motion), "In Intent" (the board's wording) next to the mission title, and the same icon + "In Intent" on the mission list row (`GET /flow/open` per project, kept current by `flow.state`). The same app-wide watch feeds the mission list's attention dot for Intent runs (`useRunAttention` → `useFlowRunAttention`), so it is live and clears whether or not the mission is open; the strip no longer reports Intent runs itself. One rule (`lib/intent-run-tone.ts`) gives the strip tone and the dot: active is running, paused is paused, needs-review is `info`, so no open Intent state waits for the person on its own; an Intent session → Spec run that fails or waits for review is a delivery and feeds the dot through its envelope. The history marks the boundaries with one line each — "Entered Intent · <branch>" and "Left Intent · handed off to a rail / discarded" — from server `flow-boundary` rows (`IntentConversation.postBoundary`, posted on start, hand-off, return and discard; the return is told by the Back to Intent line, so its boundary only marks turns); the agent turns between an entered and the next left boundary carry a discreet "Intent" mark next to their time (icon, color and words from the seam's `useTurnMark`; missions never hard-codes the Intent icon). While the Intent runs, the strip mark is the Intent icon in the Intent color (`MissionLiveRun.mode`). |
-| Active | The Intent is ONE entry of the mission's run strip (`useFlowLiveRuns`, key `flow:<id>` so the strip morphs in place). Its row stays short: the status mark and "Intent · 7 files" (`flowStripHeadline`, inside the expand toggle), then `IntentStripControls` — Pause Intent (Resume Intent when paused) and the primary **Hand off**; a disabled control carries its reason (tooltip + `aria-describedby`: saving, another action, no spec yet). The chevron opens `IntentPanel`, the same expand pattern as any run: the copyable Intent branch, the files ± (a button that opens the changes dialog), the provider-billed cost so far or `—` (a `*` plus a visible note with the number of unpriced turns), Preview while the Intent's app runs and **Discard** set apart at the end. The diff and cost are measured ONCE per Intent (`useFlowLiveStats` in `useFlowLiveRuns`, shared by row and panel), refreshed on state changes and when a turn settles, and polled every 8 s only while the agent works and the page is visible; the returned runs are memoized. The discard confirmation lists what is lost (changed files with +/−, branch, placeholder spec). The Intent's state changes are announced through the strip's one polite live region; the strip's state word gives the mark a text equivalent and the dot pulses only while the agent works. Keyboard: Pause/Resume claims **P** and Hand off **H** (`IntentBarControl.shortcut` → `data-strip-key`, shown as "Pause Intent (P)" and `aria-keyshortcuts`); they act ONLY while the mission's run strip has focus (reach it with ⌥R), never globally, so nothing fires from the composer or another mission. The strip-level keys (⌥R, ⌥[ / ⌥], Esc) are missions' (`run-strip-keys.ts`, see [mission rail cards](mission-rail-cards.md)). Busy sends use `deliveryMode: 'interrupt'`; a 409 `interrupt_requires_flow` is resent normally. Option chips on the newest settled reply stay clickable while the agent is busy; a pick then interrupts (idle picks send normally). |
+| Active | The Intent is ONE entry of the mission's run strip (`useFlowLiveRuns`, key `flow:<id>` so the strip morphs in place). Its row stays short: the status mark and "Exploring · 7 files" (`flowStripHeadline`: `flow.bar.state.active` + the files count, inside the expand toggle), then `IntentStripControls` — Pause (Resume when paused; the long labels "Pause Intent" / "Resume Intent" stay in the tooltip) and **Hand off**, which is always offered and becomes the filled primary only once the branch has changed files (`publishFlowDiff` / `useFlowDiffTotals` share the measured diff with the controls; with no files the Intent → Spec run derives the spec from the conversation); a disabled control carries its reason (tooltip + `aria-describedby`: saving, another action, no spec yet). The chevron opens `IntentPanel`, the same expand pattern as any run: the copyable Intent branch, the files ± (a button that opens the changes dialog), the provider-billed cost so far or `—` (a `*` plus a visible note with the number of unpriced turns), Preview while the Intent's app runs and **Discard** set apart at the end. The diff and cost are measured ONCE per Intent (`useFlowLiveStats` in `useFlowLiveRuns`, shared by row and panel), refreshed on state changes and when a turn settles, and polled every 8 s only while the agent works and the page is visible; the returned runs are memoized. The discard confirmation lists what is lost (changed files with +/−, branch, placeholder spec). The Intent's state changes are announced through the strip's one polite live region; the strip's state word gives the mark a text equivalent and the dot pulses only while the agent works. Keyboard: Pause/Resume claims **P** and Hand off **H** (`IntentBarControl.shortcut` → `data-strip-key`, shown as "Pause Intent (P)" and `aria-keyshortcuts`); they act ONLY while the mission's run strip has focus (reach it with ⌥R), never globally, so nothing fires from the composer or another mission. The strip-level keys (⌥R, ⌥[ / ⌥], Esc) are missions' (`run-strip-keys.ts`, see [mission rail cards](mission-rail-cards.md)). Busy sends use `deliveryMode: 'interrupt'`; a 409 `interrupt_requires_flow` is resent normally. Option chips on the newest settled reply stay clickable while the agent is busy; a pick then interrupts (idle picks send normally). |
 | Preview | In the Intent's panel, while an app the agent started for this Intent (a background process tagged `flowId`, from the mission's `BackgroundProcessesContext`) announces `appUrls`, `IntentAppPreview` shows **Preview** with a live dot: it opens the local address in the system browser, like the mission's app chips (Desktop has no embedded preview for mission apps). Its menu has the network address (or says the app only listens on this computer) and **Stop app**. Hidden when nothing runs and on a paused Intent. |
-| Paused / needs-review | Paused: the same row with the paused mark and Resume Intent as the primary; the panel adds "Paused. Your changes and the spec are kept…". Needs review (the Intent's copy of the project is missing) is INFORMATIONAL (`info` tone: an info mark, no decision bell, no primary, not urgent); its panel keeps the copyable branch, the cost so far and the changes (only when a surviving worktree still holds some), explains the state and offers only the non-destructive **Close this Intent**: `IntentCloseDialog` names what is KEPT (the branch, the spec without its label) and confirms with "Close Intent, keep branch". |
+| Paused / needs-review | Paused: the same row with the paused mark and Resume as the primary; the panel adds "Paused. Your changes and the spec are kept…". Needs review (the Intent's copy of the project is missing) is INFORMATIONAL (`info` tone: an info mark, no decision bell, no primary, not urgent); its panel keeps the copyable branch, the cost so far and the changes (only when a surviving worktree still holds some), explains the state and offers only the non-destructive **Close this Intent**: `IntentCloseDialog` names what is KEPT (the branch, the spec without its label) and confirms with "Close Intent, keep branch". |
 | Hand off | Color decision (deliberate): **Hand off** ("Pasar a un rail") and **Launch** keep the shared `accent-primary` primary recipe (`RUN_STRIP_PRIMARY`), NOT the Intent color. They are the controls that LEAVE Intent for a rail, so they speak the app's launch color; the Intent color marks being in Intent (mark, chip, badges, Back to Intent). Client-only: the strip morphs into "Ready to turn into a PR" (a calm `info` tone: no bell, no attention dot) and its panel opens on its own with `IntentHandOffCard` — the rail launch card in hand-off mode reduced to ONE confirmation line ("Rail 2 will turn your 7 changed files into a reviewed PR. If it fails, your work is safe.", the rail's words follow the chosen rail, "A new rail" when none is free) with **Launch** and **Not yet**. The rail, engine, model and effort (a free empty rail and the conversation's selection, prefilled) sit collapsed under **Change how**, with the files ± and cost so far (the cost so far also ends the main line; a partial cost's `*` is said in words for screen readers and explained by a short visible note under the line); only when the conversation's provider cannot run the loop here, the engine fallback note shows right under the line (it changes what launches); the loop is fixed to `factory:flow-spec` (no selector). The region is named "Turn this Intent into a reviewed PR". **Launch** (the card's Play) calls `POST /flow/:id/hand-off`; it is declared as an outward primary; while the request runs and until the run's own entry shows, the strip is a launching skeleton (`IntentContext.launching`, then the hand-off receipt; the entry `yieldsTo` its delivery), so there is no gap. After 45 s (`HAND_OFF_SHOW_TIMEOUT_MS`) without the run the skeleton stops: "Still handing off to Rail N…" with **Refresh**, which only re-reads (the run cards and the Intent, `IntentContext.refreshFlow`): the entry stays until the delivery shows or the Intent state moves on. Refusals render inline in the panel; "Not yet" returns to the Intent, and so does Esc (`onPanelClose('escape')` of `MissionLiveRun`). A click in the conversation, the toggle or another run only folds the panel (`collapse`): the strip keeps "Ready to turn into a PR" with **Launch** as its primary (`wantsPrimary`, outward: it opens the card focused on Launch). The choices under **Change how** (rail, engine, model, effort) are kept per Intent id in `IntentContext.handOffDrafts` (`RailLaunchHandOff.draft` / `onDraftChange`) and restored when the hand-off reopens; a successful launch clears them. The offer's "Intent handed off to Rail N" record has **View run**, which opens the run in the strip through the shared focus bus. |
 | Intent → Spec run | The run strip names its steps in the person's words ("Writing the spec from your changes", "Verifying your changes", "Reviewing the change", …) and a failure by its step (`flow.failure.step.*`); Back to Intent is the primary of a failed run. The building card drops the generic PR hint. Once settled, the history keeps one outcome line ("Delivered: PR #812", "… went back to Intent") that expands the card; "Back to Intent" with what the reviewer asked for is one expandable line too. |
 | Closing summary | Once a delivered Intent's spec rewrite and Jira create settled (done, skipped or failed for good — the Jira review transition may still wait for the issue link), `runSettlement` posts ONE `flow-delivered` system row (`IntentConversation.postDeliveredSummary`, dedupe `flow-delivered:<flowId>`): the PR link, the spec-rewrite outcome, the archived OpenSpec change and the Jira key when linked. Missions renders it as `AgentFlowDeliveredCard`. |
-| Board | `metadata.flow.state` `active`/`paused` ⇒ "In Intent" label linking to the conversation; the spec cannot be dragged to a rail; inside a rail (handed off) or `delivered` ⇒ no label. |
+| Board | `metadata.flow.state` `active`/`paused` ⇒ "In Intent" label linking to the conversation, on every board tier (post-it and row), like the compass badge with the open-question count; the spec cannot be dragged to a rail and the post-it card hides "Move to rail"; inside a rail (handed off) or `delivered` ⇒ no label. |
 | Analytics | `flow` surface label; agent missions show the Intent share (`flowCostUsd`, `flowTurns`). |
 
 `flow.state` events are applied only for projects a mounted view watches; a

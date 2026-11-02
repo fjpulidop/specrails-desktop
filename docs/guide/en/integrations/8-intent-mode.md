@@ -24,12 +24,12 @@ An intent has six parts, and no part for the solution:
 
 If you name a solution ("add a Redis cache"), the intent keeps what it is for ("the API answers in under 200 ms") as the outcome, and your solution becomes a constraint (you require it) or an open question (it is one option).
 
-Every spec can carry an intent. It sits above the description in the spec detail, where you can edit each part. Answered open questions show their answer. A spec whose intent still has open questions shows a small compass mark with their count on the board. The intent stays in Specrails, like **Out of scope**, and is never written to Jira.
+Every spec can carry an intent. It sits above the description in the spec detail, where you can edit each part; a spec without one shows a compact **Add intent** action. While you edit, **Save intent** is the main button, **Esc** cancels and **⌘/Ctrl+Enter** saves. Every answered open question shows its answer under an **Answer** label, and once none is open the heading reads **Questions · N answered**. A spec whose intent still has open questions shows a small compass mark with their count on the board, in every board view (post-it or row). The intent stays in Specrails, like **Out of scope**, and is never written to Jira.
 
 ## Where an intent comes from
 
-- **In a mission (the default).** When you describe work, the agent interviews you like an analyst. It asks about the users, the limits and how you will know it worked, and shows an **Intent** card with every part and two readings of your request. Click a reading to answer, or reply in your own words. When the intent is settled, the card offers **Explore** and **Delegate** side by side. A spec the agent writes from it carries the intent automatically. To skip the intent step for a mission, send `#noframe`; `#frame` turns it back on.
-- **In Add Spec.** **Intent** is the first mode and opens by default. Describe the problem, not the solution, and press **Generate intent and spec**. One AI pass writes the intent and then the spec derived from it, ready for you to review. Quick, Explore and Raw are still there. If the intent cannot be written, you still get the spec, without an intent, and a notice says so.
+- **In a mission (the default).** When you describe work, the agent interviews you like an analyst. It asks about the users, the limits and how you will know it worked, and shows an **Intent** card with every part and two readings of your request. Click a reading to answer, or reply in your own words. While the intent is not agreed, each open question on the card is a button that pre-fills your reply in the composer, and a pill says how many are still open. Once it is agreed, the pill reads **Agreed**, the readings give way to **Reading confirmed**, and the card offers **Explore** and **Delegate** side by side under **How do you want to continue?**; the two paths stay on the card across your own follow-up messages, and a long intent is clamped with **Show the full intent**. The **Start from a problem** chip on the mission home starts this interview. A spec the agent writes from it carries the intent automatically. To skip the intent step for a mission, send `#noframe`; `#frame` turns it back on.
+- **In Add Spec.** **Intent** is the first mode and opens by default (marked **Default**). Describe the problem, not the solution; three chips above the editor, **Problem**, **Who it affects** and **How we will know**, insert a line to fill in (*Problem:*, *Who it affects:*, *We will know it worked when:*). Press **Write the intent and a spec**: one AI pass writes the intent and then the spec derived from it, ready for you to review. Quick, Explore and Raw are still there. If the intent cannot be written, you still get the spec, without an intent, and a notice says so; if the generation fails, your text stays in the editor. A **Raw** spec gets no intent now: you can add it later from the spec.
 
 ## The intent travels with the work
 
@@ -38,7 +38,7 @@ Every spec can carry an intent. It sits above the description in the spec detail
 
 ## Explore: start an Intent session
 
-Choose **Explore** on a settled intent card. A confirmation opens: Specrails makes a separate copy of the project on its own Intent branch, where the agent can write code, and your main branch is not touched. Press **Start Intent**. A placeholder spec carrying your intent appears on the board with the **In Intent** label (click it to jump back to the mission), and the agent's first turn starts from the intent.
+Choose **Explore** on an agreed intent card. A confirmation opens, **Explore with the agent**: Specrails makes a separate copy of the project on its own Intent branch, where the agent can write code, and your main branch is not touched. Press **Start exploring**. A placeholder spec carrying your intent appears on the board with the **In Intent** label (click it to jump back to the mission), and the agent's first turn starts from the intent.
 
 If your Specrails Core cannot run Intent yet, Start is disabled and the card lists what is missing. Usually an update of Specrails Core fixes it.
 
@@ -46,11 +46,13 @@ If your Specrails Core cannot run Intent yet, Start is disabled and the card lis
 
 Any spec can be built in Intent, not only a new idea. Intent and Implement stay two equal ways to work on it:
 
-- on the board, right-click a spec and choose **Start in Intent** (next to dragging it onto a rail); in the spec detail, **Start in Intent** sits next to **Move to Rail**;
-- in a mission, when you ask to implement a spec without naming a rail, the agent shows a two-path card for that spec: **Intent** works on it with you, **Spec + Implement** launches it on a rail;
-- a rail-launch card for one spec also offers **Start in Intent** next to its launch.
+- on the board, right-click a spec and choose **Explore with the agent** (next to dragging it onto a rail); in the spec detail, **Explore with the agent** sits next to **Move to rail**;
+- in a mission, when you ask to implement a spec without naming a rail, the agent shows a two-path card for that spec under **How do you want to continue?**: **Explore** works on it with you, **Delegate** launches it on a rail;
+- a rail-launch card for one spec also offers **Explore with the agent** next to its launch.
 
-The spec itself goes **In Intent**: no placeholder is created, and the agent's first turn receives the spec (its intent first, then its acceptance criteria, Contract Layer, out-of-scope list and open addenda). Started from the board, the Intent opens in the spec's own mission, or in a new mission named after the spec. In a project with several Git repositories, when the spec does not name exactly one of them, a small dialog first asks where the Intent runs: only the Git repositories are listed, the spec's own repository (or else the primary) is preselected, and the arrow keys change the choice. **Start in Intent** is disabled, with the reason on hover, when the spec is already in Intent, done or cancelled, sits on a rail, or Intent is not available.
+All three doors open the same confirmation first: the spec's title, a summary of its intent, the engine that will work and, only in a project with several Git repositories, a **Repository** picker (Git repositories only; the spec's own repository, or else the primary, preselected; the arrow keys change the choice). Nothing starts until you press **Start exploring**; **Cancel** leaves the spec as it was. From the board menu, the spec detail opens with that confirmation on top. When the Intent starts, the mission comes to the front and a toast reads **Exploring spec #N on <branch>** with **Open the Intent mission**. The Intent branch is named after the spec in whole words, up to 48 characters, never cut mid-word (`feat/1-alta-sin-clave-de-api-proyecto`).
+
+The spec itself goes **In Intent**: no placeholder is created, and the agent's first turn receives the spec (its intent first, then its acceptance criteria, Contract Layer, out-of-scope list and open addenda). Started from the board, the Intent opens in the spec's own mission, or in a new mission named after the spec. A spec already in Intent offers **Open the Intent mission** instead, and the post-it card no longer offers **Move to rail**. **Explore with the agent** is disabled, with the reason on hover, when the spec is done or cancelled, sits on a rail, or Intent is not available.
 
 **Discard** gives the spec back exactly as it was, with its previous status: your spec is never deleted. When the Intent is delivered, the spec is rewritten from what was built, and its original text is first kept as a comment, **Original spec before Intent**, so nothing is lost. The intent itself is never rewritten: only its open questions gain the answers the work settled. A spec already linked to Jira updates that same issue and moves it to the status mapped for review; no second issue is created.
 
@@ -58,13 +60,13 @@ The spec itself goes **In Intent**: no placeholder is created, and the agent's f
 
 Intent mode is named where you look, in its own Intent color: the composer shows a **Intent** chip next to the autonomy chip and the hint *Tell the agent what to change in this Intent…*; the mission title reads **In Intent**, and so does its row in the mission list. The conversation marks where you entered and left Intent, and the agent's replies written in Intent carry a small **Intent** mark next to their time.
 
-The strip just above the composer shows the Intent in one short row: its status, **Intent · 7 files**, **Pause Intent** and the main action, **Hand off**. When an action is unavailable (the Intent is still saving, another action runs), hovering it says why. Open the row with its chevron, like any other run, to see the rest:
+The strip just above the composer shows the Intent in one short row: its status, **Exploring · 7 files**, **Pause** and **Hand off**. **Hand off** is always there and becomes the main, filled action once files have changed on the Intent branch; before that, the rail can still derive the spec from your conversation. When an action is unavailable (the Intent is still saving, another action runs), hovering it says why. Open the row with its chevron, like any other run, to see the rest:
 
 - the **branch** (click to copy its name), the **changes** with lines added and removed (click to list every changed file with its status and +/−), and the **cost so far** as billed by the provider. It shows `—` until a turn has a reported cost, and never an estimate; a `*` marks a total that leaves out unpriced turns, with a note saying how many;
 - **Preview** while the Intent's app runs (see below);
 - **Discard**, set apart, deletes the Intent's changes, its branch and the placeholder spec. The confirmation lists what you lose: the changed files with their +/−, the branch and the spec.
 
-**Pause Intent** stops the agent and keeps your changes and the spec. The row then shows **Resume Intent**.
+**Pause** stops the agent and keeps your changes and the spec. The row then shows **Resume**.
 
 You can write while the agent is working: in Intent your message **interrupts** the current step (the send button turns into a lightning bolt) and the agent continues with your new information right away. While the Intent is open, the git strip under the composer steps aside: the Intent's panel already shows its branch.
 

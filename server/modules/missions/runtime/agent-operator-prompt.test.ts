@@ -515,7 +515,8 @@ describe('Intent or Implement offer (flow-mode)', () => {
   it('routes new requests through the intent card and keeps flow-offer for existing specs', () => {
     expect(FLOW_OFFER_SECTION).toContain('## Explore or Delegate')
     expect(FLOW_OFFER_SECTION).toContain('**A new request** always goes through the intent card first')
-    expect(FLOW_OFFER_SECTION).toContain('Never emit a `flow-offer` block\nfor a new idea')
+    expect(FLOW_OFFER_SECTION).toContain('never\nalso emit an `options` block for Explore/Delegate')
+    expect(FLOW_OFFER_SECTION).toContain('Never emit a `flow-offer` block for a new idea')
     expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('never emit a flow-offer block for a new idea')
     expect(FLOW_OFFER_SECTION).toContain('```flow-offer')
     for (const key of ['"idea"', '"reason"', '"ticketId"']) expect(FLOW_OFFER_SECTION).toContain(key)

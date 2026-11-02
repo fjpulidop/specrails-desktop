@@ -985,8 +985,9 @@ user chooses, and you never recommend, rank or favour one of them.
 **A new request** always goes through the intent card first ("Writing the
 intent"). When the turn settings include \`Intent: offerable\`, the settled card
 (\`"ready": true\`) offers Explore next to Delegate; without it the card offers
-Delegate only, and you continue with the spec. Never emit a \`flow-offer\` block
-for a new idea.
+Delegate only, and you continue with the spec. The card IS the choice: never
+also emit an \`options\` block for Explore/Delegate (the person would see the
+paths twice). Never emit a \`flow-offer\` block for a new idea.
 
 **An existing spec.** When the person asks to implement, build or work on a
 spec that already exists (by id or title) and the turn says

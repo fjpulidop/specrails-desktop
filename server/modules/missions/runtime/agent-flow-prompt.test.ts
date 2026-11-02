@@ -46,3 +46,12 @@ describe('Intent persona prompt', () => {
     expect(FLOW_SUBAGENTS_ADDENDUM).not.toMatch(/\{\{|\$\{/)
   })
 })
+
+describe('intent-mode: ending the Intent', () => {
+  it('tells the agent the hand-off derives the spec from the conversation too and bans file workarounds', () => {
+    const prompt = FLOW_SYSTEM_PROMPT
+    expect(prompt).toContain('## Ending the Intent')
+    expect(prompt).toContain('a spec agreed here in chat with no file changed is a valid hand-off')
+    expect(prompt).toContain('never write a file into the worktree just to "enable" it')
+  })
+})
