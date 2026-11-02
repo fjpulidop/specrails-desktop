@@ -152,7 +152,9 @@ export function AgentIntentDraftCard({ draft, isLatest, isLatestSettledIntent, i
   const answerHintId = useId()
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
-  const [entryOpen, setEntryOpen] = useState(false)
+  const [exploreState, setExploreState] = useState<'entry' | 'in-intent' | null>(null)
+  const entryOpen = exploreState === 'entry'
+  const inIntent = exploreState === 'in-intent'
   const clampRef = useRef<HTMLDivElement>(null)
 
   const pick = onSelect && isLatest ? onSelect : undefined
@@ -200,16 +202,17 @@ export function AgentIntentDraftCard({ draft, isLatest, isLatestSettledIntent, i
     })
   }
 
-  // `onEntryOpenChange` is the card's private handshake with IntentExploreAction
-  // (it hides Delegate while the Explore entry card is open); the seam's public
-  // props stay as declared in MissionExtensionsContext.
-  const exploreProps: MissionIntentExploreProps & { onEntryOpenChange?: (open: boolean) => void } = {
+  // `onExploreState` is the card's private handshake with IntentExploreAction:
+  // Delegate hides while the Explore entry card is open, and the whole choice
+  // goes once the mission is in Intent (the spec then comes from the hand-off);
+  // the seam's public props stay as declared in MissionExtensionsContext.
+  const exploreProps: MissionIntentExploreProps & { onExploreState?: (state: 'entry' | 'in-intent' | null) => void } = {
     projectId: projectId ?? null,
     conversationId: conversationId ?? '',
     intent,
     ...(draft.title ? { title: draft.title } : {}),
     disabled: !!isStreaming,
-    onEntryOpenChange: setEntryOpen,
+    onExploreState: setExploreState,
   }
 
   return (
@@ -341,11 +344,11 @@ export function AgentIntentDraftCard({ draft, isLatest, isLatestSettledIntent, i
 
         {showPaths && (
           <div role="group" aria-label={t('intentDraft.pathsLabel')} data-testid="agent-intent-draft-paths" className="flex flex-col gap-2 border-t border-border/40 pt-2.5">
-            <div className="text-label text-muted-foreground">{t('intentDraft.pathsLabel')}</div>
-            <div className={cn('grid gap-2', IntentExplore && conversationId && !entryOpen ? 'sm:grid-cols-2' : '')}>
+            {!inIntent && <div className="text-label text-muted-foreground">{t('intentDraft.pathsLabel')}</div>}
+            <div className={cn('grid gap-2', IntentExplore && conversationId && !entryOpen && !inIntent ? 'sm:grid-cols-2' : '')}>
               {IntentExplore && conversationId && <IntentExplore {...exploreProps} />}
               {/* Delegate steps aside while the Explore entry card is open: one primary at a time. */}
-              {!entryOpen && (
+              {!entryOpen && !inIntent && (
                 <button
                   type="button"
                   data-testid="agent-intent-draft-delegate"

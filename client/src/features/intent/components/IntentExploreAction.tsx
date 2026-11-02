@@ -7,7 +7,8 @@
 // in Intent the action becomes a quiet status line.
 //
 // While the entry card is open the intent card hides its Delegate button (one
-// primary at a time): `onEntryOpenChange` reports the open state back to it.
+// primary at a time, and no Delegate at all once the mission is already in
+// Intent — the spec then comes from the hand-off): `onExploreState` reports it.
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -19,23 +20,27 @@ import { useConversationFlow } from '../context/IntentContext'
 import { isOpenFlow } from '../lib/intent-api'
 import { IntentEntryCard } from './IntentEntryCard'
 
+/** What Explore occupies on the intent card: its entry card, or the whole paths block once the mission is in Intent. */
+export type IntentExploreState = 'entry' | 'in-intent' | null
+
 export interface IntentExploreActionProps extends MissionIntentExploreProps {
   /** The entry confirmation opened or closed (the intent card hides Delegate meanwhile). */
-  onEntryOpenChange?: (open: boolean) => void
+  onExploreState?: (state: IntentExploreState) => void
 }
 
-export function IntentExploreAction({ projectId, conversationId, intent, title, disabled, onEntryOpenChange }: IntentExploreActionProps) {
+export function IntentExploreAction({ projectId, conversationId, intent, title, disabled, onExploreState }: IntentExploreActionProps) {
   const { t } = useTranslation('agent')
   const { active } = useAgentChat()
   const { flow } = useConversationFlow(conversationId, projectId)
   const [entry, setEntry] = useState(false)
 
+  const inIntent = isOpenFlow(flow)
   useEffect(() => {
-    onEntryOpenChange?.(entry)
-    return () => onEntryOpenChange?.(false)
-  }, [entry, onEntryOpenChange])
+    onExploreState?.(inIntent ? 'in-intent' : entry ? 'entry' : null)
+    return () => onExploreState?.(null)
+  }, [entry, inIntent, onExploreState])
 
-  if (isOpenFlow(flow)) {
+  if (inIntent) {
     return (
       <div data-testid="intent-explore-in-intent" className="flex items-center gap-1.5 rounded-lg border border-border/50 bg-surface/40 p-2.5 text-caption text-muted-foreground sm:col-span-2">
         <Waves className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

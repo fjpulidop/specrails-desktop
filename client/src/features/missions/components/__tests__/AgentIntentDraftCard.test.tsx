@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useEffect } from 'react'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { AgentIntentDraftCard } from '../AgentIntentDraftCard'
 import { latestSettledIntentMessageId, extractAgentIntentDraft } from '../agent-intent-draft'
@@ -20,7 +21,7 @@ const PAYLOAD = {
 const fence = (payload: unknown) => '```intent-draft\n' + JSON.stringify(payload) + '\n```'
 const draft = (overrides: Record<string, unknown> = {}) => parseIntentDraft({ ...PAYLOAD, ...overrides })!
 
-type ExploreStubProps = MissionIntentExploreProps & { onEntryOpenChange?: (open: boolean) => void }
+type ExploreStubProps = MissionIntentExploreProps & { onExploreState?: (state: 'entry' | 'in-intent' | null) => void }
 
 describe('extractAgentIntentDraft', () => {
   it('strips the block, keeps the prose and returns the last valid snapshot', () => {
@@ -139,12 +140,12 @@ describe('AgentIntentDraftCard', () => {
     )
     expect(screen.getByTestId('intent-explore-stub')).toBeTruthy()
     expect(seen.at(-1)).toMatchObject({ conversationId: 'c1', projectId: 'p1', title: 'Findable settings', disabled: false, intent: { problem: PAYLOAD.problem } })
-    expect(typeof seen.at(-1)?.onEntryOpenChange).toBe('function')
+    expect(typeof seen.at(-1)?.onExploreState).toBe('function')
   })
 
   it('hides Delegate while the Explore entry card is open', () => {
-    const Explore = ({ onEntryOpenChange }: ExploreStubProps) => (
-      <button data-testid="intent-explore-stub" onClick={() => onEntryOpenChange?.(true)}>Explore</button>
+    const Explore = ({ onExploreState }: ExploreStubProps) => (
+      <button data-testid="intent-explore-stub" onClick={() => onExploreState?.('entry')}>Explore</button>
     )
     render(
       <MissionExtensionsProvider value={{ IntentExplore: Explore }}>
@@ -155,6 +156,21 @@ describe('AgentIntentDraftCard', () => {
     fireEvent.click(screen.getByTestId('intent-explore-stub'))
     expect(screen.queryByTestId('agent-intent-draft-delegate')).toBeNull()
     expect(screen.getByTestId('intent-explore-stub')).toBeTruthy()
+  })
+
+  it('drops Delegate and the question once the mission is already in Intent (the spec comes from the hand-off)', () => {
+    const Explore = ({ onExploreState }: ExploreStubProps) => {
+      useEffect(() => { onExploreState?.('in-intent') }, [onExploreState])
+      return <div data-testid="intent-explore-in-intent">exploring</div>
+    }
+    render(
+      <MissionExtensionsProvider value={{ IntentExplore: Explore }}>
+        <AgentIntentDraftCard draft={draft({ ready: true })} isLatest conversationId="c1" projectId="p1" onSelect={vi.fn()} />
+      </MissionExtensionsProvider>,
+    )
+    expect(screen.getByTestId('intent-explore-in-intent')).toBeTruthy()
+    expect(screen.queryByTestId('agent-intent-draft-delegate')).toBeNull()
+    expect(screen.queryByText('How do you want to continue?')).toBeNull()
   })
 
   it('keeps the paths on the latest settled intent even after later messages, and drops them from older ones', () => {
