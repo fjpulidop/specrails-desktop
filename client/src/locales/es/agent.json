@@ -502,7 +502,7 @@
   },
   "intentDraft": {
     "heading": "Intent",
-    "settled": "Asentado",
+    "settled": "Acordado",
     "writing": "Escribiendo el intent…",
     "pick": "Responder con esto",
     "problem": "Problema",
@@ -513,14 +513,24 @@
     "openQuestions": "Preguntas abiertas",
     "restated": "Lo que entendí",
     "alternative": "También podría significar",
-    "discriminator": "¿Cuál es?",
-    "pathsLabel": "¿Cómo quieres seguir?",
+    "discriminator": "¿Cuál de las dos?",
+    "pathsLabel": "¿Cómo quieres continuar?",
     "explore": "Explorar",
     "exploreHint": "Constrúyelo junto al agente en una sesión Intent aislada; la spec sale de lo que construyas.",
     "delegate": "Delegar",
     "delegateHint": "El agente escribe la spec a partir de este intent para que la revises y luego un rail la construye.",
-    "delegateReply": "Delegar: escribe la spec a partir de este intent.",
-    "inIntent": "Esta misión está en Intent. Continúa en la barra de ejecución."
+    "delegateReply": "Escribe la spec a partir de este intent para que la revise.",
+    "inIntent": "Esta misión está explorando en su rama Intent. Sigue en la tira de ejecución.",
+    "answerHint": "Responde en el chat; el agente actualiza esta tarjeta.",
+    "answer": "Respuesta",
+    "open": "Abierta",
+    "readingConfirmed": "Lectura confirmada",
+    "expand": "Ver el intent completo",
+    "collapse": "Plegar",
+    "more": "+{{count}} más",
+    "openCount_one": "{{count}} abierta",
+    "openCount_other": "{{count}} abiertas",
+    "pickDescription": "Envía esta lectura como tu respuesta"
   },
   "problemFrame": {
     "heading": "Marco",
@@ -1009,8 +1019,8 @@
       "invalid_ticket_id": "No se pudo identificar esa spec."
     },
     "entry": {
-      "heading": "Empezar un Intent",
-      "body": "Specrails crea una copia aparte del proyecto en su propia rama de Intent, donde el agente puede escribir código. Tu rama principal no se toca.",
+      "heading": "Explorar con el agente",
+      "body": "Specrails crea una copia aparte del proyecto en su propia rama Intent, donde el agente puede escribir código. Tu rama principal no se toca.",
       "provider": "El agente trabaja con {{provider}} y solo escribe en la copia del Intent.",
       "providerUnknown": "El agente solo escribe en la copia del Intent.",
       "repository": {
@@ -1030,32 +1040,32 @@
         "goToFlow": "Ir a ese Intent"
       },
       "cancel": "Cancelar",
-      "start": "Empezar Intent",
-      "starting": "Empezando…",
+      "start": "Empezar a explorar",
+      "starting": "Iniciando…",
       "existingSpec": {
         "label": "Spec #{{id}}",
         "note": "El Intent trabaja sobre esta spec y el agente parte de ella. Al entregarse, la spec se reescribe a partir de lo construido; su texto actual se guarda como comentario."
       }
     },
     "offer": {
-      "heading": "¿Cómo quieres construirlo?",
+      "heading": "¿Cómo quieres continuar?",
       "notNow": "Ahora no",
       "implementReply": "Escribamos primero la spec y lancemos Implement.",
       "mode": {
         "flow": {
-          "title": "Intent",
-          "hint": "Constrúyelo con el agente en una rama de Intent aparte; la spec llega al final.",
-          "hintExisting": "Constrúyela juntos en una rama Intent aparte; la spec se reescribe a partir de lo construido."
+          "title": "Explorar",
+          "hint": "Constrúyelo con el agente en una rama Intent aparte; la spec llega al final.",
+          "hintExisting": "Constrúyela con el agente en una rama Intent aparte; la spec se reescribe a partir de lo construido."
         },
         "implement": {
-          "title": "Spec + implementar",
+          "title": "Delegar",
           "hint": "Acuerda primero una spec y luego delégala a un rail.",
           "hintExisting": "Delega esta spec, tal como está escrita, a un rail."
         }
       },
       "stub": {
-        "flow": "Elegiste Intent",
-        "implement": "Elegiste spec + Implement",
+        "flow": "Elegiste Explorar",
+        "implement": "Elegiste Delegar",
         "dismissed": "Oferta descartada",
         "handedOff": "Intent pasado al Rail {{rail}}",
         "state": {
@@ -1089,7 +1099,7 @@
       "needsReview": "Falta la copia del proyecto de este Intent. No se ha borrado nada; revisa la rama de Intent antes de continuar.",
       "pausedNote": "En pausa. Tus cambios y la spec se conservan; reanuda cuando quieras.",
       "state": {
-        "active": "Intent",
+        "active": "Explorando",
         "paused": "Intent en pausa",
         "needs-review": "El Intent necesita revisión",
         "handed_off": "Pasado a un rail",
@@ -1100,10 +1110,11 @@
       "disabled": {
         "settling": "Espera a que el Intent termine de guardar su estado",
         "busy": "Espera a que termine la acción en curso",
-        "noSpec": "La spec del Intent aún no está lista"
+        "noSpec": "La spec del Intent aún no está lista",
+        "noChanges": "Nada que entregar todavía: ningún archivo cambiado"
       },
       "viewChangesStats": "Ver cambios · {{files}}, +{{additions}} −{{deletions}}",
-      "handOff": "Pasar a un rail",
+      "handOff": "Entregar",
       "close": "Cerrar este Intent",
       "closed": "Intent cerrado. La rama se conserva."
     },
@@ -1221,7 +1232,7 @@
     "mode": {
       "chip": "Intent",
       "description": "Modo Intent: el agente escribe en la rama de Intent, no en tu rama principal",
-      "placeholder": "Dile al agente qué cambiar en este Intent…"
+      "placeholder": "Dile al agente qué construir en esta rama…"
     },
     "panel": {
       "branch": "Rama",
@@ -1238,7 +1249,7 @@
       "confirm": "Cerrar Intent y conservar la rama"
     },
     "startFromSpec": {
-      "action": "Empezar en Intent",
+      "action": "Explorar con el agente",
       "hint": "Construye esta spec con el agente en su propia rama Intent, en una misión",
       "starting": "Iniciando Intent…",
       "failed": "La spec #{{id}} no pudo empezar en Intent",
@@ -1255,7 +1266,9 @@
         "running": "Ejecutándose en un rail",
         "onRail": "En un rail: sácala del rail primero",
         "missionInFlow": "Esta misión ya tiene un Intent"
-      }
+      },
+      "openMission": "Abrir la misión del Intent",
+      "started": "Explorando la spec #{{id}} en {{branch}}"
     }
   },
   "flowReturn": {
@@ -1421,8 +1434,8 @@
   "starter": {
     "reference": "Referenciar una spec",
     "action": "Ejecutar una acción",
-    "plan": "Planificar una spec nueva",
-    "planSpec": "Ayúdame a planificar una spec nueva: "
+    "plan": "Partir de un problema",
+    "planSpec": "Quiero resolver este problema: "
   },
   "emptyLegend": "⇧⇥ cambia lo que el agente puede hacer · ↑ recupera tu último mensaje",
   "delivery": {

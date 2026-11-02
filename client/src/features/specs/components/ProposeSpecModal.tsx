@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sparkles, Send, Zap, MessagesSquare, Globe, Ratio, PenLine, Plug, ChevronRight, Compass } from 'lucide-react'
+import { Sparkles, Send, Zap, MessagesSquare, Globe, Ratio, PenLine, Plug, ChevronRight, Compass, Target, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
@@ -422,14 +422,17 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
     const startTime = Date.now()
 
     toast.loading(`${projectName} · ${truncated}`, { id: toastId, description: t('proposeModal.toast.generating') })
+    // The request never started: the typed idea stays in the editor and the
+    // progress toast gives way to the error (with the server's own words).
+    const failToStart = (detail: string | null) => {
+      submittedRef.current = false
+      toast.dismiss(toastId)
+      notifyError(t('proposeModal.toast.failedToStart', { projectName }), { detail })
+    }
 
     submittedRef.current = true
     void quickRefine.persist(effectiveScope.contractRefine)
     setIsSubmitting(true)
-    editorRef.current?.clear()
-    setAttachmentCount(0)
-    setHasText(false)
-    setCaptures([])
 
     const reg = { toastId, truncated, knownTicketIds, projectId, projectName, startTime, persistId: toastId, ...(mode === 'intent' ? { expectIntent: true } : {}) }
 
@@ -457,15 +460,20 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
         })
       } catch (err) {
         console.error('[ProposeSpec] generate-spec fetch threw:', err)
-        notifyError(t('proposeModal.toast.failedToStart', { projectName }), { id: toastId })
+        failToStart(err instanceof Error ? err.message : String(err))
         return
       }
       if (!res.ok) {
-        notifyError(t('proposeModal.toast.failedToStart', { projectName }), { id: toastId })
+        failToStart(await serverErrorMessage(res))
         return
       }
       const data = await res.json() as { requestId: string }
       tracker.registerFastSpec(data.requestId, reg)
+      // Only now is the idea in the server's hands: clear the draft.
+      editorRef.current?.clear()
+      setAttachmentCount(0)
+      setHasText(false)
+      setCaptures([])
     } finally {
       setIsSubmitting(false)
     }
@@ -524,6 +532,16 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
           </DialogHeader>
 
           <DialogBody className="flex flex-col gap-4">
+            {mode === 'intent' && (
+              <IntentPromptChips onInsert={(line) => {
+                // Append the scaffold line on its own line and put the caret after it.
+                const current = editorRef.current?.getPlainText() ?? ''
+                const next = current.trim().length === 0 ? line : `${current.replace(/\n*$/, '')}\n${line}`
+                editorRef.current?.setPlainText(next)
+                setHasText(next.trim().length > 0)
+                editorRef.current?.focus()
+              }} />
+            )}
             <RichAttachmentEditor
               ref={editorRef}
               ticketKey={pendingSpecId}
@@ -848,6 +866,8 @@ function ModeSegmented({
         icon={<Compass className="w-3.5 h-3.5" />}
         label={t('proposeModal.mode.intent')}
         hint={quickAvailable ? t('proposeModal.mode.intentHint') : quickUnavailable}
+        hintInTitleOnly
+        badge={t('proposeModal.mode.default')}
         onClick={() => onChange('intent')}
         disabled={!quickAvailable}
         disabledReason={quickUnavailable}
@@ -886,6 +906,8 @@ function ModeOption({
   icon,
   label,
   hint,
+  hintInTitleOnly = false,
+  badge,
   onClick,
   disabled = false,
   disabledReason,
@@ -894,6 +916,10 @@ function ModeOption({
   icon: React.ReactNode
   label: string
   hint: string
+  /** Keep the hint as the tooltip only (the active mode's description already says it). */
+  hintInTitleOnly?: boolean
+  /** A caption pill after the label ("Default"). */
+  badge?: string
   onClick: () => void
   disabled?: boolean
   disabledReason?: string
@@ -916,7 +942,44 @@ function ModeOption({
     >
       {icon}
       {label}
-      <span className={`text-xs ${active ? 'text-accent-primary' : 'text-muted-foreground'}`}>{hint}</span>
+      {!hintInTitleOnly && <span className={`text-xs ${active ? 'text-accent-primary' : 'text-muted-foreground'}`}>{hint}</span>}
+      {badge && (
+        <span data-testid="propose-mode-default-badge" className="rounded-pill border border-border/60 px-1.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">
+          {badge}
+        </span>
+      )}
     </button>
   )
+}
+
+/**
+ * Intent mode's shape: three chips that put the scaffold of an intent into the
+ * editor (problem, who it affects, how we will know), styled like the mission
+ * home's starters. Each inserts its line at the end so the person fills it in.
+ */
+function IntentPromptChips({ onInsert }: { onInsert: (line: string) => void }) {
+  const { t } = useTranslation('addspec')
+  const chip = 'inline-flex h-7 items-center gap-1.5 rounded-control border border-border/60 px-2.5 text-label text-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
+  const chips: Array<{ id: 'problem' | 'affects' | 'signal'; icon: React.ReactNode }> = [
+    { id: 'problem', icon: <Compass className="h-3.5 w-3.5 text-accent-intent" aria-hidden /> },
+    { id: 'affects', icon: <Users className="h-3.5 w-3.5 text-accent-primary" aria-hidden /> },
+    { id: 'signal', icon: <Target className="h-3.5 w-3.5 text-accent-success" aria-hidden /> },
+  ]
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="propose-intent-chips">
+      {chips.map(({ id, icon }) => (
+        <button key={id} type="button" className={chip} data-testid={`propose-intent-chip-${id}`} onClick={() => onInsert(t(`proposeModal.intentScaffold.${id}`))}>
+          {icon}
+          {t(`proposeModal.intentChips.${id}`)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** The server's own words for a refused request (its `error`/`message`/`detail`), else the status. */
+async function serverErrorMessage(res: Response): Promise<string> {
+  const body = await res.clone().json().catch(() => null) as { error?: unknown; message?: unknown; detail?: unknown } | null
+  const text = [body?.detail, body?.message, body?.error].find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+  return text ?? `HTTP ${res.status}`
 }

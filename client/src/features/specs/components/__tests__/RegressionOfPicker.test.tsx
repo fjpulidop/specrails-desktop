@@ -5,7 +5,6 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('../../../../lib/api', () => ({ getApiBase: () => '/api/projects/current' }))
 
 import { RegressionOfPicker, isBugTicket } from '../RegressionOfPicker'
-import { CreateTicketModal } from '../CreateTicketModal'
 
 const deliveries = [
   { id: 'del-1', loopId: 'factory:implement', loopName: 'Implement', decision: 'merged', ticketIds: [4], createdAt: '2026-10-10T10:00:00.000Z' },
@@ -42,25 +41,5 @@ describe('RegressionOfPicker', () => {
     await waitFor(() => expect(screen.getByRole('combobox')).not.toBeDisabled())
     expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('old-delivery')
     expect(screen.getAllByRole('option')).toHaveLength(2)
-  })
-})
-
-describe('CreateTicketModal regressionOf', () => {
-  it('shows the picker only for bug tickets and sends metadata.regressionOf', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ deliveries })))
-    const onCreate = vi.fn(async () => true)
-    render(<CreateTicketModal open allLabels={['bug']} onClose={vi.fn()} onCreate={onCreate} />)
-    expect(screen.queryByTestId('regression-of-picker')).not.toBeInTheDocument()
-    fireEvent.change(screen.getByPlaceholderText(/title/i), { target: { value: 'Crash on save' } })
-    const labelInput = screen.getByPlaceholderText(/Type to add labels/i)
-    fireEvent.change(labelInput, { target: { value: 'bug' } })
-    fireEvent.keyDown(labelInput, { key: 'Enter' })
-    expect(await screen.findByTestId('regression-of-picker')).toBeInTheDocument()
-    const select = screen.getByRole('combobox', { name: /regression/i })
-    await waitFor(() => expect(select).not.toBeDisabled())
-    fireEvent.change(select, { target: { value: 'del-1' } })
-    fireEvent.click(screen.getByRole('button', { name: /create/i }))
-    await waitFor(() => expect(onCreate).toHaveBeenCalled())
-    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ labels: ['bug'], metadata: { regressionOf: 'del-1' } }))
   })
 })

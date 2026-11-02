@@ -87,12 +87,17 @@ function refSlug(t: TicketNamingInput): string {
   return String(t.ticketId)
 }
 
+/** Branch slug budget: long enough for a title to read as a sentence (`feat/1-alta-sin-clave-de-api-proyecto-de-ejemplo`). */
+export const KEBAB_TITLE_MAX_LEN = 48
+
 /**
  * ASCII-folded kebab of a ticket title: NFKD fold + strip diacritics, lowercase,
- * everything outside [a-z0-9] collapsed to single dashes, ~40 char cap, never a
- * leading/trailing dash. Emoji/symbol-only titles fold to '' (caller omits).
+ * everything outside [a-z0-9] collapsed to single dashes, ~48 char cap, never a
+ * leading/trailing dash. A capped slug is cut at a word boundary and never ends
+ * on a one- or two-letter word (`-de`, `-a`, `-of`), so it reads as a phrase,
+ * not a sentence stopped mid-way. Emoji/symbol-only titles fold to '' (caller omits).
  */
-export function kebabTitle(raw: string | null | undefined, maxLen = 40): string {
+export function kebabTitle(raw: string | null | undefined, maxLen = KEBAB_TITLE_MAX_LEN): string {
   if (typeof raw !== 'string' || !raw) return ''
   const folded = raw
     .replace(/\u00df/g, 'ss') // no NFKD decomposition \u2014 fold explicitly
@@ -108,6 +113,13 @@ export function kebabTitle(raw: string | null | undefined, maxLen = 40): string 
     const lastDash = kebab.lastIndexOf('-')
     if (lastDash > maxLen / 2) kebab = kebab.slice(0, lastDash)
     kebab = kebab.replace(/-+$/g, '')
+    // A cut slug should not stop on a function word: drop trailing 1–2 letter
+    // tokens while a longer word remains before them.
+    let trimmed = kebab.replace(/-[a-z]{1,2}$/, '')
+    while (trimmed !== kebab && trimmed.length > maxLen / 2) {
+      kebab = trimmed
+      trimmed = kebab.replace(/-[a-z]{1,2}$/, '')
+    }
   }
   return kebab
 }

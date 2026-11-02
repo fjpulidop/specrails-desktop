@@ -1140,6 +1140,7 @@ export function SpecsBoard({
                         rails={rails}
                         onClick={onTicketClick}
                         onMoveToRail={onMoveToRail}
+                        onOpenFlow={openFlowConversation}
                         contractRefining={contractRefiningIds.has(ticket.id)}
                         epicChildrenCount={ticket.is_epic ? epicChildCounts.get(ticket.id) ?? 0 : undefined}
                         parentEpicTitle={ticket.parent_epic_id != null ? (epicTitles.get(ticket.parent_epic_id) ?? null) : null}
@@ -1246,6 +1247,7 @@ export function SpecsBoard({
                         rails={rails}
                         onClick={onTicketClick}
                         onMoveToRail={onMoveToRail}
+                        onOpenFlow={openFlowConversation}
                         contractRefining={contractRefiningIds.has(ticket.id)}
                         epicChildrenCount={ticket.is_epic ? epicChildCounts.get(ticket.id) ?? 0 : undefined}
                         parentEpicTitle={ticket.parent_epic_id != null ? (epicTitles.get(ticket.parent_epic_id) ?? null) : null}

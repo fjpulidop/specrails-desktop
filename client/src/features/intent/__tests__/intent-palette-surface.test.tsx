@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render } from '../../../test-utils'
-import { IntentStripControls } from '../components/IntentStripControls'
+import { act, render, screen } from '../../../test-utils'
+import { IntentStripControls, publishFlowDiff } from '../components/IntentStripControls'
+import { RUN_STRIP_PRIMARY } from '../../missions/components/AgentRunStrip'
 import { getPaletteSurface, resetPaletteSurfaces } from '../../../lib/palette-bridge'
-import type { IntentSession } from '../lib/intent-api'
+import type { IntentDiff, IntentSession } from '../lib/intent-api'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -26,6 +27,34 @@ describe('Intent strip controls -> ⌘K surface', () => {
     expect(getPaletteSurface('flow')!.controls().find((c) => c.id === 'hand-off')!.disabled).toBe(true)
     render(<IntentStripControls projectId="p1" flow={flow({ step: 'review' as IntentSession['step'] })} inline />)
     expect(getPaletteSurface('flow')!.controls().every((c) => c.disabled)).toBe(true)
+  })
+
+  it('Hand off waits (secondary, disabled, with the reason) until a file changed', () => {
+    const totals = (files: number) => ({ files, additions: files, deletions: 0 })
+    render(<IntentStripControls projectId="p1" flow={flow()} inline />)
+    const handOff = () => screen.getByTestId('flow-bar-hand-off')
+    // Unknown totals: the door stays open, but it is not the filled primary yet.
+    expect(handOff()).toBeEnabled()
+    expect(handOff().className).not.toContain(RUN_STRIP_PRIMARY)
+    // No file changed: still open (the spec can come from the conversation), still secondary.
+    act(() => publishFlowDiff('f1', { files: [], totals: totals(0) } as unknown as IntentDiff))
+    expect(handOff()).toBeEnabled()
+    expect(handOff().className).not.toContain(RUN_STRIP_PRIMARY)
+    expect(screen.queryByTestId('flow-bar-hand-off-reason')).not.toBeInTheDocument()
+    expect(getPaletteSurface('flow')!.controls().find((c) => c.id === 'hand-off')!.disabled).toBe(false)
+    act(() => publishFlowDiff('f1', { files: [], totals: totals(3) } as unknown as IntentDiff))
+    expect(handOff()).toBeEnabled()
+    expect(handOff().className).toContain(RUN_STRIP_PRIMARY)
+    expect(screen.queryByTestId('flow-bar-hand-off-reason')).not.toBeInTheDocument()
+  })
+
+  it('reads "Pause" / "Resume" on the row (the strip already says Intent) while keeping the full accessible name', () => {
+    const { rerender } = render(<IntentStripControls projectId="p1" flow={flow()} inline />)
+    expect(screen.getByTestId('flow-bar-pause')).toHaveTextContent(/^Pause$/)
+    expect(screen.getByTestId('flow-bar-pause')).toHaveAttribute('aria-label', 'Pause Intent')
+    rerender(<IntentStripControls projectId="p1" flow={flow({ state: 'paused' })} inline />)
+    expect(screen.getByTestId('flow-bar-resume')).toHaveTextContent(/^Resume$/)
+    expect(screen.getByTestId('flow-bar-resume')).toHaveAttribute('aria-label', 'Resume Intent')
   })
 
   it('publishes nothing when the Intent needs review, nor after unmount', () => {

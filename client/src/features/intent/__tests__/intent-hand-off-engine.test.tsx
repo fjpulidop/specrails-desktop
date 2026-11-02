@@ -64,7 +64,8 @@ beforeEach(() => {
     if (url.endsWith('/flow/availability')) return respond(200, { available: true, reason: 'ok', missing: [] })
     if (url.includes('/flow/by-conversation/')) return respond(200, { flow: flow() })
     if (url.endsWith('/flow/f1/hand-off')) return respond(202, { flow: flow({ state: 'handed_off', railIndex: 1, deliveryId: 'd1' }), loopRunIds: ['run-9'], deliveryId: 'd1' })
-    if (url.endsWith('/flow/f1/diff')) return respond(200, { branch: 'feat/8-arkanoid', baseSha: 'a', headSha: 'b', files: [], totals: { files: 0, additions: 0, deletions: 0 } })
+    // Something to hand off: the strip's Hand off waits (disabled) while no file changed.
+    if (url.endsWith('/flow/f1/diff')) return respond(200, { branch: 'feat/8-arkanoid', baseSha: 'a', headSha: 'b', files: [{ path: 'src/game.ts', status: 'modified', additions: 4, deletions: 1 }], totals: { files: 1, additions: 4, deletions: 1 } })
     if (url.endsWith('/flow/f1/cost')) return respond(200, { flowId: 'f1', costUsd: 0, turns: 0, unpricedTurns: 0 })
     if (url.endsWith('/rails') && method === 'GET') return respond(200, { rails: [{ railIndex: 0, ticketIds: [3], mode: 'implement' }, { railIndex: 1, ticketIds: [], mode: 'implement' }], activeJobs: { 0: { jobId: 'j' } }, activeLoopRuns: {}, prDeliveries: {} })
     if (url.endsWith('/tickets') && method === 'GET') return respond(200, { tickets: [{ id: 8, title: 'Arkanoid power-ups', status: 'in_progress', labels: [] }] })

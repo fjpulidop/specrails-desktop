@@ -692,7 +692,7 @@ export function TicketDetailModal({
               {/* AI Edit overlay renders fullscreen above this modal — see end of component. */}
 
               {/* Intent — the problem, outcome and limits the spec serves (intent-mode) */}
-              <IntentSection value={intent} onChange={setIntent} disabled={saving} />
+              <IntentSection value={intent} onChange={setIntent} disabled={saving || isTerminal} />
 
               <div className="flex-1 flex flex-col">
                 <div className="flex items-center justify-between mb-1.5">

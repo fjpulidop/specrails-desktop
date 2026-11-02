@@ -502,7 +502,7 @@
   },
   "intentDraft": {
     "heading": "Intent",
-    "settled": "確定",
+    "settled": "合意済み",
     "writing": "Intent を作成中…",
     "pick": "これで返答",
     "problem": "課題",
@@ -519,8 +519,18 @@
     "exploreHint": "隔離された Intent セッションで一緒に作ります。spec は作ったものから生まれます。",
     "delegate": "委任する",
     "delegateHint": "エージェントがこの Intent から spec を書き、あなたがレビューした後にレールが実装します。",
-    "delegateReply": "委任: この Intent から spec を書いてください。",
-    "inIntent": "このミッションは Intent 中です。実行ストリップで続けてください。"
+    "delegateReply": "この intent から spec を書いてください。確認します。",
+    "inIntent": "このミッションは Intent ブランチで探索中です。実行ストリップで続けてください。",
+    "answerHint": "チャットで答えてください。エージェントがこのカードを更新します。",
+    "answer": "回答",
+    "open": "未回答",
+    "readingConfirmed": "解釈を確認済み",
+    "expand": "intent 全体を表示",
+    "collapse": "折りたたむ",
+    "more": "他 {{count}} 件",
+    "openCount_one": "未回答 {{count}} 件",
+    "openCount_other": "未回答 {{count}} 件",
+    "pickDescription": "この解釈をあなたの返信として送ります"
   },
   "problemFrame": {
     "heading": "認識の整理",
@@ -1009,7 +1019,7 @@
       "invalid_ticket_id": "そのスペックを特定できませんでした。"
     },
     "entry": {
-      "heading": "Intent を開始",
+      "heading": "エージェントと探索する",
       "body": "Specrails はプロジェクトの別コピーを専用の Intent ブランチに作成し、エージェントはそこでコードを書けます。メインブランチには触れません。",
       "provider": "エージェントは {{provider}} で動作し、Intent のコピーにのみ書き込みます。",
       "providerUnknown": "エージェントは Intent のコピーにのみ書き込みます。",
@@ -1030,7 +1040,7 @@
         "goToFlow": "その Intent へ移動"
       },
       "cancel": "キャンセル",
-      "start": "Intent を開始",
+      "start": "探索を始める",
       "starting": "開始しています…",
       "existingSpec": {
         "label": "スペック #{{id}}",
@@ -1038,24 +1048,24 @@
       }
     },
     "offer": {
-      "heading": "どのように作りますか?",
+      "heading": "どのように進めますか?",
       "notNow": "今はしない",
       "implementReply": "まず spec を書いてから Implement を実行しましょう。",
       "mode": {
         "flow": {
-          "title": "Intent",
+          "title": "探索する",
           "hint": "別の Intent ブランチで一緒に作り、spec は最後に作成します。",
           "hintExisting": "別の Intent ブランチで一緒にこのスペックを作ります。スペックは作ったものから書き直されます。"
         },
         "implement": {
-          "title": "Spec + 実装",
+          "title": "委任する",
           "hint": "まず spec を合意し、それからレールに任せます。",
           "hintExisting": "このスペックを書かれたとおりにレールへ任せます。"
         }
       },
       "stub": {
-        "flow": "Intent を選びました",
-        "implement": "Spec + Implement を選びました",
+        "flow": "「探索する」を選びました",
+        "implement": "「委任する」を選びました",
         "dismissed": "提案を閉じました",
         "handedOff": "Intent をレール {{rail}} に引き渡しました",
         "state": {
@@ -1089,7 +1099,7 @@
       "needsReview": "この Intent のプロジェクトのコピーが見つかりません。何も削除していません。続ける前に Intent のブランチを確認してください。",
       "pausedNote": "一時停止中。変更内容と spec は保持されます。いつでも再開できます。",
       "state": {
-        "active": "Intent",
+        "active": "探索中",
         "paused": "Intent 一時停止中",
         "needs-review": "Intent の確認が必要です",
         "handed_off": "レールに引き渡し済み",
@@ -1100,7 +1110,8 @@
       "disabled": {
         "settling": "Intent が状態の保存を終えるまでお待ちください",
         "busy": "実行中の操作が終わるまでお待ちください",
-        "noSpec": "Intent の spec はまだ準備できていません"
+        "noSpec": "Intent の spec はまだ準備できていません",
+        "noChanges": "まだ引き渡すものがありません: 変更されたファイルはありません"
       },
       "viewChangesStats": "変更を表示 · {{files}}、+{{additions}} −{{deletions}}",
       "handOff": "引き渡す",
@@ -1221,7 +1232,7 @@
     "mode": {
       "chip": "Intent",
       "description": "Intent モード：エージェントはメインブランチではなく Intent のブランチに書き込みます",
-      "placeholder": "この Intent で何を変えるかエージェントに伝えてください…"
+      "placeholder": "このブランチで何を作るかエージェントに伝えてください…"
     },
     "panel": {
       "branch": "ブランチ",
@@ -1238,7 +1249,7 @@
       "confirm": "Intent を閉じてブランチを残す"
     },
     "startFromSpec": {
-      "action": "Intent で開始",
+      "action": "エージェントと探索する",
       "hint": "ミッションの中で、専用の Intent ブランチでエージェントとこのスペックを作ります",
       "starting": "Intent を開始中…",
       "failed": "スペック #{{id}} を Intent で開始できませんでした",
@@ -1255,7 +1266,9 @@
         "running": "レールで実行中",
         "onRail": "レール上にあります。先にレールから外してください",
         "missionInFlow": "このミッションにはすでに Intent があります"
-      }
+      },
+      "openMission": "Intent のミッションを開く",
+      "started": "スペック #{{id}} を {{branch}} で探索中"
     }
   },
   "flowReturn": {
@@ -1421,8 +1434,8 @@
   "starter": {
     "reference": "スペックを参照",
     "action": "アクションを実行",
-    "plan": "新しいスペックを計画",
-    "planSpec": "新しいスペックの計画を手伝って: "
+    "plan": "問題から始める",
+    "planSpec": "この問題を解決したい: "
   },
   "emptyLegend": "⇧⇥ でエージェントの権限を変更 · ↑ で前回のプロンプトを呼び出し",
   "delivery": {

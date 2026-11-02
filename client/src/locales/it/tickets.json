@@ -81,18 +81,6 @@
     "grid": "Vista griglia (Kanban)",
     "postit": "Vista post-it"
   },
-  "createModal": {
-    "title": "Crea spec",
-    "titlePlaceholder": "Titolo della spec...",
-    "labelsPlaceholder": "Digita per aggiungere etichette...",
-    "create": "Crea",
-    "creating": "Creazione...",
-    "toast": {
-      "created": "Spec creata",
-      "createFailed": "Impossibile creare la spec"
-    },
-    "description": "Aggiungi una spec alla board a mano. Parte nello stato che scegli e potrai rifinirla o spostarla su un rail in seguito."
-  },
   "comparePicker": {
     "title": "Confronta con…",
     "count": "({{n}} spec)",
@@ -195,7 +183,9 @@
   "intent": {
     "title": "Intent",
     "add": "Aggiungi l’intent: il problema, il risultato e come capirai che ha funzionato",
+    "addShort": "Aggiungi intent",
     "editorHint": "Descrivi il problema, non la soluzione. Gli agenti ne ricavano il come.",
+    "save": "Salva intent",
     "problem": "Problema",
     "outcome": "Risultato cercato",
     "hypothesis": "Ipotesi (facoltativa)",
@@ -203,6 +193,8 @@
     "affects": "Chi e cosa riguarda",
     "constraints": "Vincoli",
     "openQuestions": "Domande aperte",
+    "questionsAnswered_one": "Domande · {{count}} risposta",
+    "questionsAnswered_other": "Domande · {{count}} risposte",
     "onePerLine": "Uno per riga",
     "required": "Obbligatorio",
     "problemPlaceholder": "Cosa non va oggi, per chi e quando pesa",
@@ -214,7 +206,8 @@
     "questionPlaceholder": "Ciò che nessuno sa ancora",
     "answerPlaceholder": "Risposta (vuota finché è aperta)",
     "questionLabel": "Domanda aperta {{n}}",
-    "answerLabel": "Risposta alla domanda aperta {{n}}",
+    "answerLabel": "Risposta",
+    "answerAria": "Risposta alla domanda aperta {{n}}",
     "removeQuestion": "Rimuovi la domanda aperta {{n}}",
     "addQuestion": "Aggiungi domanda aperta",
     "unanswered": "Aperta",

@@ -33,15 +33,26 @@ interface Props {
   ticketId?: number | null
   /** Start from the mission's settled intent (stored on the placeholder spec). */
   intent?: SpecIntent | null
+  /** The spec's intent in one line (the problem), shown under an existing spec's title. */
+  summary?: string | null
   /** Rendered inside another card (the intent card's Explore path): a section, not a nested card. */
   embedded?: boolean
+  /** Rendered inside a dialog that already carries the heading: no header row of its own. */
+  headless?: boolean
   projectId: string | null
+  /** The mission the Intent opens in; null when the host picks it (`start`). */
   conversationId: string | null
   provider?: string | null
   /** Another Intent is already open in this conversation. */
   blockedByOpenFlow?: boolean
   /** That open Intent (the note offers to jump to its bar). */
   openFlowId?: string | null
+  /**
+   * Starts the Intent somewhere the host decides (the spec doors: the spec's own
+   * mission or a new one). Default: `ctx.start` in `conversationId`. Errors are
+   * shown on the card exactly as the default path's.
+   */
+  start?: (input: { repositoryId: string | null }) => Promise<IntentSession>
   onStarted: (flow: IntentSession) => void
   onCancel: () => void
 }
@@ -58,7 +69,7 @@ export function focusFlowBar(flowId: string): boolean {
   return true
 }
 
-export function IntentEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, ticketId = null, intent = null, embedded = false, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, onStarted, onCancel }: Props) {
+export function IntentEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, ticketId = null, intent = null, summary = null, embedded = false, headless = false, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, start, onStarted, onCancel }: Props) {
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
   const titleId = `flow-entry-title-${useId().replace(/:/g, '')}`
@@ -91,7 +102,7 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
   const noGitRepository = !!choice?.show && choice.candidates.length === 0
 
   const missing = availability && !availability.available ? missingCapabilityKeys(availability.missing).map((key) => t(key)) : []
-  const blockReason = !projectId || !conversationId
+  const blockReason = !projectId || (!conversationId && !start)
     ? t('flow.entry.blocked.noProject')
     : blockedByOpenFlow
       ? t('flow.entry.blocked.open')
@@ -106,12 +117,15 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
   const blockReasonId = `flow-entry-blocked-${conversationId ?? 'none'}`
   const needsRepository = !!choice?.show && !selectedRepositoryId
   const startFlow = async () => {
-    if (!ctx || !projectId || !conversationId || busy || blockReason || loading || needsRepository) return
+    if (!ctx || !projectId || (!conversationId && !start) || busy || blockReason || loading || needsRepository) return
     setBusy(true)
     setError(null)
     setErrorCode(null)
     try {
-      onStarted(await ctx.start(projectId, conversationId, idea, title, targetRepositoryId, ticketId, intent))
+      const flow = start
+        ? await start({ repositoryId: targetRepositoryId })
+        : await ctx.start(projectId, conversationId!, idea, title, targetRepositoryId, ticketId, intent)
+      onStarted(flow)
     } catch (err) {
       if (err instanceof IntentApiError && err.code === 'feature_unavailable') ctx.loadAvailability(projectId, true)
       setErrorCode(err instanceof IntentApiError ? err.code : null)
@@ -127,17 +141,22 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
       role="group"
-      aria-labelledby={titleId}
+      aria-labelledby={headless ? undefined : titleId}
+      aria-label={headless ? t('flow.entry.heading') : undefined}
       data-testid="flow-entry-card"
-      className={embedded
-        ? 'overflow-hidden rounded-lg border border-accent-intent/30 bg-accent-intent/[0.03]'
-        : 'my-1 overflow-hidden rounded-xl border border-accent-intent/30 bg-card/85 shadow-lg'}
+      className={headless
+        ? ''
+        : embedded
+          ? 'overflow-hidden rounded-lg border border-accent-intent/30 bg-accent-intent/[0.03]'
+          : 'my-1 overflow-hidden rounded-xl border border-accent-intent/30 bg-card/85 shadow-lg'}
     >
-      <div className="flex items-center gap-2 border-b border-border/40 bg-accent-intent/[0.07] px-3.5 py-2">
-        <Waves className="h-3.5 w-3.5 text-accent-intent" aria-hidden />
-        <span id={titleId} className="text-strong text-foreground">{t('flow.entry.heading')}</span>
-      </div>
-      <div className="space-y-3 px-3.5 py-3">
+      {!headless && (
+        <div className="flex items-center gap-2 border-b border-border/40 bg-accent-intent/[0.07] px-3.5 py-2">
+          <Waves className="h-3.5 w-3.5 text-accent-intent" aria-hidden />
+          <span id={titleId} className="text-strong text-foreground">{t('flow.entry.heading')}</span>
+        </div>
+      )}
+      <div className={cn('space-y-3', headless ? 'py-1' : 'px-3.5 py-3')}>
         <p className="flex items-start gap-2 text-xs leading-5 text-foreground">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
           <span>{t('flow.entry.body')}</span>
@@ -150,6 +169,7 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
               <span className="shrink-0 font-mono text-muted-foreground">{t('flow.entry.existingSpec.label', { id: ticketId })}</span>
               <span className="min-w-0 truncate font-medium" title={title ?? idea}>{title ?? idea}</span>
             </p>
+            {summary?.trim() ? <p data-testid="flow-entry-spec-summary" className="line-clamp-3 leading-5 text-foreground">{summary.trim()}</p> : null}
             <p className="leading-5 text-muted-foreground">{t('flow.entry.existingSpec.note')}</p>
           </div>
         ) : (

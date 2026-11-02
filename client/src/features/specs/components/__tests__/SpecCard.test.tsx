@@ -491,6 +491,7 @@ describe('SpecCard intent open-questions badge (intent-mode)', () => {
     const badge = screen.getByTestId('intent-open-badge-42')
     expect(badge).toHaveTextContent('2')
     expect(badge).toHaveAttribute('title', '2 open questions in the intent')
+    expect(badge.className).toContain('text-accent-intent')
     rerender(<SpecCard ticket={makeTicket({ intent: intent(['yes']) })} onClick={vi.fn()} />)
     expect(screen.queryByTestId('intent-open-badge-42')).toBeNull()
     rerender(<SpecCard ticket={makeTicket({})} onClick={vi.fn()} />)

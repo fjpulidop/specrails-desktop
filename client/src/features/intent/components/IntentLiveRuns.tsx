@@ -1,7 +1,7 @@
 // ─── Intent in the mission's run strip (missions useLiveRuns slot) ──────────────
 // A conversation's Intent is ONE entry of the run strip, keyed by the Intent so
 // the strip morphs in place across its states:
-//   active / paused                → "Intent · 7 files" with Pause (or Resume)
+//   active / paused                → "Exploring · 7 files" with Pause (or Resume)
 //                                    and the primary Hand off on the row; the
 //                                    branch, files ±, cost, Preview and
 //                                    Discard live in its panel (IntentPanel)

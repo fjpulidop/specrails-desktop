@@ -81,18 +81,6 @@
     "grid": "Rasteransicht (Kanban)",
     "postit": "Post-it-Ansicht"
   },
-  "createModal": {
-    "title": "Spec erstellen",
-    "titlePlaceholder": "Spec-Titel…",
-    "labelsPlaceholder": "Tippen, um Labels hinzuzufügen…",
-    "create": "Erstellen",
-    "creating": "Wird erstellt…",
-    "toast": {
-      "created": "Spec erstellt",
-      "createFailed": "Spec konnte nicht erstellt werden"
-    },
-    "description": "Füge dem Board manuell eine Spec hinzu. Sie startet im gewählten Status und kann später verfeinert oder auf eine Rail verschoben werden."
-  },
   "comparePicker": {
     "title": "Vergleichen mit…",
     "count": "({{n}} Specs)",
@@ -195,7 +183,9 @@
   "intent": {
     "title": "Intent",
     "add": "Intent hinzufügen: Problem, Ergebnis und woran du es erkennst",
+    "addShort": "Intent hinzufügen",
     "editorHint": "Beschreibe das Problem, nicht die Lösung. Die Agenten leiten das Wie daraus ab.",
+    "save": "Intent speichern",
     "problem": "Problem",
     "outcome": "Angestrebtes Ergebnis",
     "hypothesis": "Hypothese (optional)",
@@ -203,6 +193,8 @@
     "affects": "Wen und was es betrifft",
     "constraints": "Rahmenbedingungen",
     "openQuestions": "Offene Fragen",
+    "questionsAnswered_one": "Fragen · {{count}} beantwortet",
+    "questionsAnswered_other": "Fragen · {{count}} beantwortet",
     "onePerLine": "Eins pro Zeile",
     "required": "Pflichtfeld",
     "problemPlaceholder": "Was heute nicht stimmt, für wen und wann es schmerzt",
@@ -214,7 +206,8 @@
     "questionPlaceholder": "Was noch niemand weiß",
     "answerPlaceholder": "Antwort (leer, solange offen)",
     "questionLabel": "Offene Frage {{n}}",
-    "answerLabel": "Antwort auf offene Frage {{n}}",
+    "answerLabel": "Antwort",
+    "answerAria": "Antwort auf offene Frage {{n}}",
     "removeQuestion": "Offene Frage {{n}} entfernen",
     "addQuestion": "Offene Frage hinzufügen",
     "unanswered": "Offen",

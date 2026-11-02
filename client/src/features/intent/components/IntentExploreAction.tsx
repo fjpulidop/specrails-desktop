@@ -5,21 +5,35 @@
 // in place; Start creates the Intent session from the intent, whose placeholder
 // spec carries it and whose first turn is seeded with it. Once the mission is
 // in Intent the action becomes a quiet status line.
+//
+// While the entry card is open the intent card hides its Delegate button (one
+// primary at a time): `onEntryOpenChange` reports the open state back to it.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Waves } from 'lucide-react'
 import type { MissionIntentExploreProps } from '../../missions/context/MissionExtensionsContext'
 import { useAgentChat } from '../../missions/context/AgentChatContext'
+import { cn } from '../../../lib/utils'
 import { useConversationFlow } from '../context/IntentContext'
 import { isOpenFlow } from '../lib/intent-api'
 import { IntentEntryCard } from './IntentEntryCard'
 
-export function IntentExploreAction({ projectId, conversationId, intent, title, disabled }: MissionIntentExploreProps) {
+export interface IntentExploreActionProps extends MissionIntentExploreProps {
+  /** The entry confirmation opened or closed (the intent card hides Delegate meanwhile). */
+  onEntryOpenChange?: (open: boolean) => void
+}
+
+export function IntentExploreAction({ projectId, conversationId, intent, title, disabled, onEntryOpenChange }: IntentExploreActionProps) {
   const { t } = useTranslation('agent')
   const { active } = useAgentChat()
   const { flow } = useConversationFlow(conversationId, projectId)
   const [entry, setEntry] = useState(false)
+
+  useEffect(() => {
+    onEntryOpenChange?.(entry)
+    return () => onEntryOpenChange?.(false)
+  }, [entry, onEntryOpenChange])
 
   if (isOpenFlow(flow)) {
     return (
@@ -54,9 +68,14 @@ export function IntentExploreAction({ projectId, conversationId, intent, title, 
       data-testid="intent-explore-action"
       disabled={disabled}
       onClick={() => setEntry(true)}
-      className="group flex flex-col items-start gap-1 rounded-lg border border-border/60 bg-surface/50 p-2.5 text-left transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-default disabled:opacity-60"
+      className={cn(
+        'flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-intent/50',
+        disabled
+          ? 'cursor-default border-border/40 bg-surface/30 text-muted-foreground'
+          : 'border-border/60 bg-surface/50 text-foreground hover:border-accent-intent/45 hover:bg-accent-intent/[0.06]',
+      )}
     >
-      <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+      <span className="flex items-center gap-1.5 text-label font-semibold">
         <Waves className="h-3.5 w-3.5" aria-hidden="true" />
         {t('intentDraft.explore')}
       </span>

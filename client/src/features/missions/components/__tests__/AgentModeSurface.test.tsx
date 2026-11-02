@@ -62,8 +62,8 @@ describe('AgentModeSurface', () => {
     fireEvent.click(screen.getByRole('button', { name: /Run an action/ }))
     expect(composerDrafts.get(NEW_MISSION_DRAFT_KEY)).toBe('@ /')
     __clearComposerDrafts()
-    fireEvent.click(screen.getByRole('button', { name: 'Plan a new spec' }))
-    expect(composerDrafts.get(NEW_MISSION_DRAFT_KEY)).toBe('Help me plan a new spec: ')
+    fireEvent.click(screen.getByRole('button', { name: 'Start from a problem' }))
+    expect(composerDrafts.get(NEW_MISSION_DRAFT_KEY)).toBe('I want to solve this problem: ')
     __clearComposerDrafts()
   })
 

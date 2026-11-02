@@ -4,6 +4,7 @@ import { isLocalEngineId } from '../../providers/lib/provider-capabilities'
 import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '../lib/mission-view-state'
 import { ArrowDown, ExternalLink } from 'lucide-react'
 import { Suspense, lazy, memo, startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { latestSettledIntentMessageId } from './agent-intent-draft'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
@@ -201,6 +202,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // transcript follows as an interruptible low-priority render (windowed to the
   // newest rows, then backfilled) so a long history never blocks the switch.
   const messages = useDeferredValue(committedMessages, NO_ROWS)
+  // See latestSettledIntentMessageId: the newest agreed intent card keeps its
+  // Explore/Delegate paths across the user's own follow-ups.
+  const latestSettledIntentId = useMemo(() => latestSettledIntentMessageId(messages), [messages])
   const cycleTier = useGuardedTierCycle()
   // Execution-log modal (opened from the activity chip). While streaming it
   // shows the LIVE turn's tools; after settle it keeps showing the finished
@@ -572,6 +576,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 // Problem-frame readings stay affordable (but disabled) while a
                 // turn streams, so the card doesn't silently go static mid-turn.
                 isLatest={i === messages.length - 1}
+                isLatestSettledIntent={m.id === latestSettledIntentId}
                 // Only the newest rows act on "a turn is in flight" (frame readings, extension
                 // cards): older rows keep a constant prop so a turn starting or ending does not
                 // re-render (re-parse) the whole transcript.

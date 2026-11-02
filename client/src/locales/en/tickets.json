@@ -81,18 +81,6 @@
     "grid": "Grid view (Kanban)",
     "postit": "Post-it view"
   },
-  "createModal": {
-    "title": "Create Spec",
-    "titlePlaceholder": "Spec title...",
-    "labelsPlaceholder": "Type to add labels...",
-    "create": "Create",
-    "creating": "Creating...",
-    "toast": {
-      "created": "Spec created",
-      "createFailed": "Failed to create spec"
-    },
-    "description": "Add a spec to the board by hand. It starts in the status you pick and can be refined or moved to a rail later."
-  },
   "comparePicker": {
     "title": "Compare with…",
     "count": "({{n}} specs)",
@@ -195,7 +183,9 @@
   "intent": {
     "title": "Intent",
     "add": "Add the intent: the problem, the outcome and how you will know",
+    "addShort": "Add intent",
     "editorHint": "Describe the problem, not the solution. Agents derive the how from this.",
+    "save": "Save intent",
     "problem": "Problem",
     "outcome": "Outcome sought",
     "hypothesis": "Hypothesis (optional)",
@@ -203,6 +193,8 @@
     "affects": "Who and what it affects",
     "constraints": "Constraints",
     "openQuestions": "Open questions",
+    "questionsAnswered_one": "Questions · {{count}} answered",
+    "questionsAnswered_other": "Questions · {{count}} answered",
     "onePerLine": "One per line",
     "required": "Required",
     "problemPlaceholder": "What is wrong today, for whom, and when it hurts",
@@ -214,7 +206,8 @@
     "questionPlaceholder": "What nobody knows yet",
     "answerPlaceholder": "Answer (leave empty while open)",
     "questionLabel": "Open question {{n}}",
-    "answerLabel": "Answer to open question {{n}}",
+    "answerLabel": "Answer",
+    "answerAria": "Answer to open question {{n}}",
     "removeQuestion": "Remove open question {{n}}",
     "addQuestion": "Add open question",
     "unanswered": "Open",

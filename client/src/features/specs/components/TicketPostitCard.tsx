@@ -4,6 +4,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Link2, ArrowRight, ArrowUp, Crown, Trash2, MessageSquare, AlertTriangle } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
+import { InIntentBadge, IntentOpenBadge } from './SpecIntentBadges'
+import { specFlowLabel } from '../lib/spec-flow'
 import { MoveToRailPopover } from '../../rails/components/MoveToRailPopover'
 import { useMinimizedChats } from '../../missions/context/MinimizedChatsContext'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -34,6 +36,8 @@ interface TicketPostitCardProps {
   /** Fires after a sustained press on the card body — used to enter jiggle / delete mode. */
   onLongPress?: () => void
   onDelete?: (ticket: LocalTicket) => void
+  /** Opens the mission conversation of an "In Intent" spec. */
+  onOpenFlow?: (conversationId: string) => void
   /** Multi-select state from the specs board. */
   selection?: CardSelection
 }
@@ -61,6 +65,7 @@ export function TicketPostitCard({
   jiggleMode = false,
   onLongPress,
   onDelete,
+  onOpenFlow,
   selection,
 }: TicketPostitCardProps) {
   const { t } = useTranslation('specs')
@@ -133,6 +138,7 @@ export function TicketPostitCard({
 
   const isDraft = ticket.status === 'draft'
   const isOnReview = ticket.status === 'on_review'
+  const inIntent = specFlowLabel(ticket) !== null
   const isEpic = ticket.is_epic === true
   const isChildOfEpic = ticket.parent_epic_id != null
   const hasDependencies = (ticket.prerequisites?.length ?? 0) > 0
@@ -308,6 +314,8 @@ export function TicketPostitCard({
                 {ticket.jira_key}
               </Badge>
             )}
+            <IntentOpenBadge ticket={ticket} className="h-5 px-1.5" />
+            <InIntentBadge ticket={ticket} onOpenFlow={onOpenFlow} className="h-5" />
             {ticket.priority && !isDraft && !isOnReview && (
               <PriorityBadge priority={ticket.priority} />
             )}
@@ -374,8 +382,9 @@ export function TicketPostitCard({
               </button>
             )}
             {/* On-review specs can return to a rail only when an open PR branch
-                is available for continuation. */}
-            {(!isOnReview || allowOnReviewRailMove) && (
+                is available for continuation. Specs being explored in Intent
+                are owned by their mission: no rail move until it hands off. */}
+            {(!isOnReview || allowOnReviewRailMove) && !inIntent && (
               <button
                 ref={moveButtonRef}
                 type="button"

@@ -10,7 +10,6 @@ These are the explicit entry points consumed by application composition or other
 features. Keep imports focused on a subpath so importing a model does not eagerly
 load every UI component. Changes to this surface require updating the boundary manifest.
 
-- [components/CreateTicketModal.tsx](components/CreateTicketModal.tsx)
 - [components/SpecCard.tsx](components/SpecCard.tsx)
 - [components/SpecComparePicker.tsx](components/SpecComparePicker.tsx)
 - [components/SpecTriageChip.tsx](components/SpecTriageChip.tsx)

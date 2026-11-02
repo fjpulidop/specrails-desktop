@@ -502,7 +502,7 @@
   },
   "intentDraft": {
     "heading": "Intent",
-    "settled": "Settled",
+    "settled": "Agreed",
     "writing": "Writing the intent…",
     "pick": "Reply with this",
     "problem": "Problem",
@@ -519,8 +519,18 @@
     "exploreHint": "Build it together in an isolated Intent session; the spec comes from what you build.",
     "delegate": "Delegate",
     "delegateHint": "The agent writes the spec from this intent for you to review, then a rail builds it.",
-    "delegateReply": "Delegate: write the spec from this intent.",
-    "inIntent": "This mission is in Intent. Continue in the run strip."
+    "delegateReply": "Write the spec from this intent for me to review.",
+    "inIntent": "This mission is exploring on its Intent branch. Continue in the run strip.",
+    "answerHint": "Reply in the chat to answer; the agent updates this card.",
+    "answer": "Answer",
+    "open": "Open",
+    "readingConfirmed": "Reading confirmed",
+    "expand": "Show the full intent",
+    "collapse": "Collapse",
+    "more": "+{{count}} more",
+    "openCount_one": "{{count}} open",
+    "openCount_other": "{{count}} open",
+    "pickDescription": "Sends this reading as your reply"
   },
   "problemFrame": {
     "heading": "Framing",
@@ -1009,7 +1019,7 @@
       "invalid_ticket_id": "That spec could not be identified."
     },
     "entry": {
-      "heading": "Start an Intent",
+      "heading": "Explore with the agent",
       "body": "Specrails makes a separate copy of the project on its own Intent branch, where the agent can write code. Your main branch is not touched.",
       "provider": "The agent works with {{provider}} and writes only in the Intent's copy.",
       "providerUnknown": "The agent writes only in the Intent's copy.",
@@ -1030,7 +1040,7 @@
         "goToFlow": "Go to that Intent"
       },
       "cancel": "Cancel",
-      "start": "Start Intent",
+      "start": "Start exploring",
       "starting": "Starting…",
       "existingSpec": {
         "label": "Spec #{{id}}",
@@ -1038,24 +1048,24 @@
       }
     },
     "offer": {
-      "heading": "How do you want to build it?",
+      "heading": "How do you want to continue?",
       "notNow": "Not now",
       "implementReply": "Let's write the spec first and run Implement.",
       "mode": {
         "flow": {
-          "title": "Intent",
+          "title": "Explore",
           "hint": "Build it together on a separate Intent branch; the spec comes at the end.",
           "hintExisting": "Build this spec together on a separate Intent branch; the spec is rewritten from what you build."
         },
         "implement": {
-          "title": "Spec + Implement",
+          "title": "Delegate",
           "hint": "Agree on a spec first, then delegate it to a rail.",
           "hintExisting": "Delegate this spec, as written, to a rail."
         }
       },
       "stub": {
-        "flow": "You chose Intent",
-        "implement": "You chose spec + Implement",
+        "flow": "You chose Explore",
+        "implement": "You chose Delegate",
         "dismissed": "Offer dismissed",
         "handedOff": "Intent handed off to Rail {{rail}}",
         "state": {
@@ -1089,7 +1099,7 @@
       "needsReview": "This Intent's copy of the project is missing. Nothing was deleted; check the Intent branch before continuing.",
       "pausedNote": "Paused. Your changes and the spec are kept; resume whenever you like.",
       "state": {
-        "active": "Intent",
+        "active": "Exploring",
         "paused": "Intent paused",
         "needs-review": "Intent needs review",
         "handed_off": "Handed off to a rail",
@@ -1100,7 +1110,8 @@
       "disabled": {
         "settling": "Wait until the Intent finishes saving its state",
         "busy": "Wait for the current action to finish",
-        "noSpec": "The Intent’s spec isn’t ready yet"
+        "noSpec": "The Intent’s spec isn’t ready yet",
+        "noChanges": "Nothing to hand off yet: no files changed"
       },
       "viewChangesStats": "View changes · {{files}}, +{{additions}} −{{deletions}}",
       "handOff": "Hand off",
@@ -1221,7 +1232,7 @@
     "mode": {
       "chip": "Intent",
       "description": "Intent mode: the agent writes on the Intent branch, not on your main branch",
-      "placeholder": "Tell the agent what to change in this Intent…"
+      "placeholder": "Tell the agent what to build on this branch…"
     },
     "panel": {
       "branch": "Branch",
@@ -1238,7 +1249,7 @@
       "confirm": "Close Intent, keep branch"
     },
     "startFromSpec": {
-      "action": "Start in Intent",
+      "action": "Explore with the agent",
       "hint": "Build this spec with the agent on its own Intent branch, in a mission",
       "starting": "Starting Intent…",
       "failed": "Spec #{{id}} could not start in Intent",
@@ -1255,7 +1266,9 @@
         "running": "Running on a rail",
         "onRail": "On a rail: take it off the rail first",
         "missionInFlow": "This mission already has an Intent"
-      }
+      },
+      "openMission": "Open the Intent mission",
+      "started": "Exploring spec #{{id}} on {{branch}}"
     }
   },
   "flowReturn": {
@@ -1421,8 +1434,8 @@
   "starter": {
     "reference": "Reference a spec",
     "action": "Run an action",
-    "plan": "Plan a new spec",
-    "planSpec": "Help me plan a new spec: "
+    "plan": "Start from a problem",
+    "planSpec": "I want to solve this problem: "
   },
   "emptyLegend": "⇧⇥ changes what the agent may do · ↑ recalls your last prompt",
   "delivery": {

@@ -1,13 +1,13 @@
 import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { openAddenda } from '../lib/spec-addenda-core'
-import { openIntentQuestions } from '../lib/spec-intent'
 import { specFlowLabel } from '../lib/spec-flow'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, AlertTriangle, ArrowUp, Layers, Waves, Compass } from 'lucide-react'
+import { Trash2, AlertTriangle, ArrowUp, Layers } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
 import { SpecTriageChip } from './SpecTriageChip'
+import { InIntentBadge, IntentOpenBadge } from './SpecIntentBadges'
 import type { LocalTicket } from '../../../types'
 import { PriorityBadge } from './PriorityBadge'
 import { SpecSelectCheckbox, SELECTED_CARD_CLASS, type CardSelection } from './SpecSelectCheckbox'
@@ -58,7 +58,6 @@ export function SpecCard({
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
   const openAddendaCount = openAddenda(ticket.addenda).length
-  const openIntentCount = openIntentQuestions(ticket.intent)
   // Intent mode: the placeholder spec belongs to its Intent until the rail adopts
   // it — label it and keep it off the rails (no drag).
   const flowLabel = onRail ? null : specFlowLabel(ticket)
@@ -230,35 +229,7 @@ export function SpecCard({
           <span className="truncate">#{ticket.parent_epic_id} {parentEpicTitle}</span>
         </button>
       ) : null}
-      {flowLabel ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (flowLabel.conversationId) onOpenFlow?.(flowLabel.conversationId)
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.stopPropagation()
-              e.preventDefault()
-              if (flowLabel.conversationId) onOpenFlow?.(flowLabel.conversationId)
-            }
-          }}
-          disabled={!flowLabel.conversationId || !onOpenFlow}
-          data-flow-label={flowLabel.state}
-          data-testid={`flow-badge-${ticket.id}`}
-          title={t(flowLabel.state === 'paused' ? 'badges.inFlowPausedTitle' : 'badges.inFlowTitle')}
-          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-caption font-semibold transition-colors disabled:cursor-default ${
-            flowLabel.state === 'paused'
-              ? 'border-border/60 bg-surface/60 text-muted-foreground hover:border-foreground/30'
-              : 'border-accent-info/50 bg-accent-info/10 text-accent-info hover:bg-accent-info/20'
-          }`}
-        >
-          <Waves className="h-2.5 w-2.5" aria-hidden />
-          {t(flowLabel.state === 'paused' ? 'badges.inFlowPaused' : 'badges.inFlow')}
-        </button>
-      ) : null}
+      <InIntentBadge ticket={ticket} onOpenFlow={onOpenFlow} onRail={onRail} />
       {ticket.needs_review ? (
         <Badge
           variant="outline"
@@ -301,17 +272,7 @@ export function SpecCard({
           {openAddendaCount}
         <span className="sr-only"> ({t('badges.addendaTitle', { count: openAddendaCount })})</span></Badge>
       ) : null}
-      {openIntentCount > 0 ? (
-        <Badge
-          variant="outline"
-          className="text-caption shrink-0 border-accent-info/50 text-accent-info bg-accent-info/10 gap-0.5"
-          title={t('badges.intentOpenTitle', { count: openIntentCount })}
-          data-testid={`intent-open-badge-${ticket.id}`}
-        >
-          <Compass className="h-2.5 w-2.5" aria-hidden="true" />
-          {openIntentCount}
-        <span className="sr-only"> ({t('badges.intentOpenTitle', { count: openIntentCount })})</span></Badge>
-      ) : null}
+      <IntentOpenBadge ticket={ticket} />
       {!jiggleMode && <SpecTriageChip ticket={ticket} />}
       {isDraft ? (
         <Badge variant="outline" className="text-caption shrink-0 border-accent-secondary/60 text-accent-secondary">

@@ -25,15 +25,20 @@ async function bootstrap() {
 
   // Fade out the instant HTML/CSS splash once React has hydrated the shell.
   // One more rAF so the first frame is painted before we start the transition.
+  // A hidden window never runs animation frames, so a timer backstop drops the
+  // splash there too (the shell is rendered either way; nothing waits on a route).
   const splash = document.getElementById('specrails-splash')
   if (splash) {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        splash.classList.add('is-hidden')
-        // Remove from DOM after the CSS transition completes (220ms).
-        setTimeout(() => splash.remove(), 300)
-      })
-    })
+    let hidden = false
+    const hide = () => {
+      if (hidden) return
+      hidden = true
+      splash.classList.add('is-hidden')
+      // Remove from DOM after the CSS transition completes (220ms).
+      setTimeout(() => splash.remove(), 300)
+    }
+    requestAnimationFrame(() => requestAnimationFrame(hide))
+    setTimeout(hide, 1000)
   }
 }
 

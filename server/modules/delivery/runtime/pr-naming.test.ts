@@ -76,11 +76,21 @@ describe('kebabTitle (sanitization matrix)', () => {
     expect(kebabTitle(input)).toBe(expected)
   })
 
-  it('caps at ~40 chars at a word boundary, never a trailing dash', () => {
+  it('caps at ~48 chars at a word boundary, never a trailing dash', () => {
     const long = kebabTitle('this is an extremely long ticket title that keeps going and going forever')
-    expect(long.length).toBeLessThanOrEqual(40)
+    expect(long.length).toBeLessThanOrEqual(48)
     expect(long.endsWith('-')).toBe(false)
-    expect(long).toBe('this-is-an-extremely-long-ticket-title')
+    expect(long).toBe('this-is-an-extremely-long-ticket-title-that')
+  })
+
+  it('never ends a cut slug on a one- or two-letter word (reads as a phrase, not a sentence cut short)', () => {
+    // 40-char budget: the word-boundary cut lands on "de"; the slug backs up to the last real word.
+    expect(kebabTitle('Alta sin clave de API: proyecto de ejemplo listo en un minuto', 40)).toBe('alta-sin-clave-de-api-proyecto')
+    expect(kebabTitle('Buscar ajustes desde la paleta de comandos global', 40)).toBe('buscar-ajustes-desde-la-paleta')
+    // The default budget keeps the whole phrase when it fits.
+    expect(kebabTitle('Alta sin clave de API: proyecto de ejemplo')).toBe('alta-sin-clave-de-api-proyecto-de-ejemplo')
+    // An uncut slug is never trimmed, even when it ends on a short word.
+    expect(kebabTitle('Give it a go')).toBe('give-it-a-go')
   })
 })
 

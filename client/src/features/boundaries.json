@@ -417,7 +417,6 @@
   },
   "specs": {
     "publicEntries": [
-      "components/CreateTicketModal.tsx",
       "components/SpecCard.tsx",
       "components/SpecComparePicker.tsx",
       "components/SpecTriageChip.tsx",

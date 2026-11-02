@@ -502,7 +502,7 @@
   },
   "intentDraft": {
     "heading": "Intent",
-    "settled": "已确定",
+    "settled": "已达成一致",
     "writing": "正在撰写 Intent…",
     "pick": "用这个回复",
     "problem": "问题",
@@ -519,8 +519,18 @@
     "exploreHint": "在隔离的 Intent 会话中一起构建;规格来自你们构建的结果。",
     "delegate": "委派",
     "delegateHint": "智能体根据这个 Intent 撰写规格供你审阅,然后由 rail 实现。",
-    "delegateReply": "委派:根据这个 Intent 撰写规格。",
-    "inIntent": "此任务处于 Intent 中。请在运行条中继续。"
+    "delegateReply": "根据这个 intent 撰写规格，我来审阅。",
+    "inIntent": "此任务正在其 Intent 分支上探索。请在运行条中继续。",
+    "answerHint": "在聊天中回复即可；智能体会更新这张卡片。",
+    "answer": "回答",
+    "open": "待定",
+    "readingConfirmed": "理解已确认",
+    "expand": "显示完整 intent",
+    "collapse": "收起",
+    "more": "还有 {{count}} 项",
+    "openCount_one": "{{count}} 个待定",
+    "openCount_other": "{{count}} 个待定",
+    "pickDescription": "将此理解作为你的回复发送"
   },
   "problemFrame": {
     "heading": "理解框架",
@@ -1009,7 +1019,7 @@
       "invalid_ticket_id": "无法识别该规格。"
     },
     "entry": {
-      "heading": "开始 Intent",
+      "heading": "与智能体一起探索",
       "body": "Specrails 会在专属的 Intent 分支上创建项目的独立副本，智能体可以在其中编写代码。你的主分支不会被改动。",
       "provider": "智能体使用 {{provider}}，只在 Intent 的副本中写入。",
       "providerUnknown": "智能体只在 Intent 的副本中写入。",
@@ -1030,7 +1040,7 @@
         "goToFlow": "前往该 Intent"
       },
       "cancel": "取消",
-      "start": "开始 Intent",
+      "start": "开始探索",
       "starting": "正在开始…",
       "existingSpec": {
         "label": "规格 #{{id}}",
@@ -1038,24 +1048,24 @@
       }
     },
     "offer": {
-      "heading": "你想怎样构建它？",
+      "heading": "你想如何继续?",
       "notNow": "暂不",
       "implementReply": "我们先写 spec，再运行 Implement。",
       "mode": {
         "flow": {
-          "title": "Intent",
+          "title": "探索",
           "hint": "在独立的 Intent 分支上一起构建；spec 最后再写。",
           "hintExisting": "在独立的 Intent 分支上一起构建该规格；规格会根据所构建的内容重写。"
         },
         "implement": {
-          "title": "Spec + 实现",
+          "title": "委派",
           "hint": "先确定 spec，再交给轨道执行。",
           "hintExisting": "按现有内容将该规格交给轨道。"
         }
       },
       "stub": {
-        "flow": "你选择了 Intent",
-        "implement": "你选择了 spec + Implement",
+        "flow": "你选择了探索",
+        "implement": "你选择了委派",
         "dismissed": "已忽略建议",
         "handedOff": "Intent 已交给 Rail {{rail}}",
         "state": {
@@ -1089,7 +1099,7 @@
       "needsReview": "此 Intent 的项目副本丢失。没有删除任何内容；继续之前请检查 Intent 分支。",
       "pausedNote": "已暂停。你的更改和 spec 都会保留；随时可以继续。",
       "state": {
-        "active": "Intent",
+        "active": "探索中",
         "paused": "Intent 已暂停",
         "needs-review": "Intent 需要检查",
         "handed_off": "已交给 Rail",
@@ -1100,7 +1110,8 @@
       "disabled": {
         "settling": "请等待 Intent 保存完状态",
         "busy": "请等待当前操作完成",
-        "noSpec": "Intent 的 spec 尚未就绪"
+        "noSpec": "Intent 的 spec 尚未就绪",
+        "noChanges": "暂无可交接的内容：没有文件被更改"
       },
       "viewChangesStats": "查看更改 · {{files}}，+{{additions}} −{{deletions}}",
       "handOff": "交给 Rail",
@@ -1221,7 +1232,7 @@
     "mode": {
       "chip": "Intent",
       "description": "Intent 模式：智能体在 Intent 分支上写入，而不是你的主分支",
-      "placeholder": "告诉智能体要在这个 Intent 中修改什么…"
+      "placeholder": "告诉智能体要在这个分支上构建什么…"
     },
     "panel": {
       "branch": "分支",
@@ -1238,7 +1249,7 @@
       "confirm": "关闭 Intent，保留分支"
     },
     "startFromSpec": {
-      "action": "在 Intent 中开始",
+      "action": "与智能体一起探索",
       "hint": "在任务中与代理在独立的 Intent 分支上构建该规格",
       "starting": "正在启动 Intent…",
       "failed": "规格 #{{id}} 无法在 Intent 中开始",
@@ -1255,7 +1266,9 @@
         "running": "正在轨道上运行",
         "onRail": "在轨道上：请先将其移出",
         "missionInFlow": "该任务已有 Intent"
-      }
+      },
+      "openMission": "打开 Intent 任务",
+      "started": "正在 {{branch}} 上探索规格 #{{id}}"
     }
   },
   "flowReturn": {
@@ -1421,8 +1434,8 @@
   "starter": {
     "reference": "引用规格",
     "action": "运行操作",
-    "plan": "规划新规格",
-    "planSpec": "帮我规划一个新规格："
+    "plan": "从一个问题开始",
+    "planSpec": "我想解决这个问题："
   },
   "emptyLegend": "⇧⇥ 更改智能体的权限 · ↑ 调出上一条提示",
   "delivery": {

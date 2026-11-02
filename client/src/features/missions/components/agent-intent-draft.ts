@@ -75,3 +75,17 @@ export function extractAgentIntentDraft(content: string, streaming = false): Par
 
   return { body: tidy(stripped), draft, pending }
 }
+
+/** Id of the newest AGREED intent card that no agent reply follows: its
+ *  Explore/Delegate paths survive the user's own follow-ups (answers,
+ *  questions) and go away once the agent has replied after it, since by
+ *  then the choice was acted on or superseded. */
+export function latestSettledIntentMessageId(messages: ReadonlyArray<{ id: string; role: string; content: string }>): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const m = messages[i]
+    if (m.role !== 'assistant') continue
+    if (!m.content.includes(OPEN_FENCE)) return null
+    return extractAgentIntentDraft(m.content).draft?.ready ? m.id : null
+  }
+  return null
+}

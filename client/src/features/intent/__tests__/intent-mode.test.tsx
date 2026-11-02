@@ -272,7 +272,7 @@ describe('Intent mode in the conversation', () => {
     await waitFor(() => expect(result.current).toMatchObject({
       attributes: { 'data-flow': 'active' }, hideGitStrip: true, interruptWhileBusy: true,
       headerBadge: { accent: 'var(--color-accent-intent)' },
-      composer: { badge: { label: 'Intent' }, placeholder: 'Tell the agent what to change in this Intent…' },
+      composer: { badge: { label: 'Intent' }, placeholder: 'Tell the agent what to build on this branch…' },
       headerBadge: { label: 'In Intent' },
     }))
     act(() => wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flowId: 'f1', flow: flow({ state: 'paused' }) }))
@@ -284,12 +284,12 @@ describe('Intent mode in the conversation', () => {
     expect(result.current).toBeNull()
   })
 
-  it('keeps the Intent row short (status, "Intent · N files", Pause, Hand off); branch, files, cost and Discard live in its panel', async () => {
+  it('keeps the Intent row short (status, "Exploring · N files", Pause, Hand off); branch, files, cost and Discard live in its panel', async () => {
     render(<Providers><IntentStrip /></Providers>)
     const bar = await screen.findByTestId('mission-run-strip')
     expect(bar).toHaveAttribute('data-flow-state', 'active')
     expect(bar).toHaveAttribute('data-tone', 'running')
-    await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Intent · 3 files'))
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Exploring · 3 files'))
     // Intent's own color marks the running Intent (running runs keep the info accent).
     expect(screen.getByTestId('mission-run-strip-mode-mark')).toHaveStyle({ color: 'var(--color-accent-intent)' })
     // A strip showing only the Intent still names it.
@@ -884,6 +884,6 @@ describe('IntentExploreAction (intent card Explore path)', () => {
   it('becomes a status line once the mission is in Intent', async () => {
     current = flow()
     render(<Providers><IntentExploreAction projectId="p1" conversationId="c1" intent={intent} disabled={false} /></Providers>)
-    expect(await screen.findByTestId('intent-explore-in-intent')).toHaveTextContent('This mission is in Intent')
+    expect(await screen.findByTestId('intent-explore-in-intent')).toHaveTextContent('This mission is exploring on its Intent branch')
   })
 })

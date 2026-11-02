@@ -271,7 +271,7 @@ describe('missions extension seam (IntentSession mode)', () => {
       const handOff = vi.fn()
       const RUNS: MissionExtensions = {
         useLiveRuns: () => [{
-          key: 'flow:f1', label: 'Intent', tone: 'running', headline: 'Intent · 3 files',
+          key: 'flow:f1', label: 'Intent', tone: 'running', headline: 'Exploring · 3 files',
           controls: (
             <>
               <button type="button" data-strip-key="p" onClick={paused}>Pause Intent</button>

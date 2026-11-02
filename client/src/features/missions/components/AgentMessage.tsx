@@ -424,6 +424,9 @@ interface Props {
    *  `isLast` this survives an in-flight turn, so the problem-frame card can
    *  keep its (disabled) reading affordance instead of silently going static. */
   isLatest?: boolean
+  /** True for the newest agreed intent card with no agent reply after it:
+   *  its Explore/Delegate paths survive the user's own follow-up messages. */
+  isLatestSettledIntent?: boolean
   /** A turn is in flight anywhere in the conversation — disables the frame
    *  card's readings so a click can't queue a duplicate concurrent reply. */
   isStreaming?: boolean
@@ -504,7 +507,7 @@ function LiveBusyFenceCard({ Card, ...props }: { Card: ComponentType<MissionFenc
   return <Card {...props} isStreaming={busy} />
 }
 
-export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
+export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isLatestSettledIntent, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
   const { t } = useTranslation('agent')
   const localIntents = useLocalIntents()
   const extensions = useMissionExtensions()
@@ -635,10 +638,11 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
       </div>
       {intentDraft && (
         // Readings answer the discriminating question; a settled intent offers
-        // Explore and Delegate with equal weight. Newest card only, never mid-turn.
+        // Explore and Delegate with equal weight on the newest agreed card, never mid-turn.
         <LiveBusyIntentCard
           draft={intentDraft}
           isLatest={!!isLatest}
+          isLatestSettledIntent={isLatestSettledIntent}
           isStreaming={!!isStreaming || !!streaming}
           conversationId={conversationId ?? null}
           projectId={refsProjectId ?? null}

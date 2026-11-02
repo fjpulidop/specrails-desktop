@@ -138,6 +138,30 @@ describe('PlaceHistoryProvider', () => {
     expect(new URLSearchParams(loc.search).has('status')).toBe(false)
   })
 
+  it('names the first active project as the owner of an entry created before the list resolved, already in a child\'s effect', async () => {
+    // A consumer's effect (TicketDetailModalProvider's project switch) runs BEFORE this
+    // provider's own adoption effect; the deep link's modal must see the owner then.
+    let ownerSeenInEffect: string | null | undefined
+    function OwnerProbe() {
+      useDesktopTick()
+      const p = usePlaceHistory()
+      const id = h.desktop.activeProjectId
+      useEffect(() => { if (id) ownerSeenInEffect = p?.getCurrentEntryProjectId() ?? null }, [id, p])
+      return null
+    }
+    h.desktop.activeProjectId = null
+    render(
+      <MemoryRouter initialEntries={['/?spec=3']}>
+        <Harness><Probe /><OwnerProbe /></Harness>
+      </MemoryRouter>,
+    )
+    expect(places?.getCurrentEntryProjectId()).toBeNull()
+    act(() => h.desktop.setActiveProjectId('a'))
+    await settle()
+    expect(ownerSeenInEffect).toBe('a')
+    expect(places?.getCurrentEntryProjectId()).toBe('a')
+  })
+
   it('the very first project resolution adds no history entry', async () => {
     h.desktop.activeProjectId = null
     mount()

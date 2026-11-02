@@ -502,7 +502,7 @@
   },
   "intentDraft": {
     "heading": "Intent",
-    "settled": "Geklärt",
+    "settled": "Abgestimmt",
     "writing": "Intent wird geschrieben…",
     "pick": "Damit antworten",
     "problem": "Problem",
@@ -519,8 +519,18 @@
     "exploreHint": "Gemeinsam in einer isolierten Intent-Sitzung bauen; die Spec entsteht aus dem Gebauten.",
     "delegate": "Delegieren",
     "delegateHint": "Der Agent schreibt die Spec aus diesem Intent zur Prüfung, dann baut ein Rail sie.",
-    "delegateReply": "Delegieren: Schreibe die Spec aus diesem Intent.",
-    "inIntent": "Diese Mission ist im Intent. Mach in der Laufleiste weiter."
+    "delegateReply": "Schreib die Spec aus diesem Intent, damit ich sie prüfen kann.",
+    "inIntent": "Diese Mission erkundet auf ihrem Intent-Branch. Mach in der Laufleiste weiter.",
+    "answerHint": "Antworte im Chat; der Agent aktualisiert diese Karte.",
+    "answer": "Antwort",
+    "open": "Offen",
+    "readingConfirmed": "Lesart bestätigt",
+    "expand": "Ganzen Intent anzeigen",
+    "collapse": "Einklappen",
+    "more": "+{{count}} weitere",
+    "openCount_one": "{{count}} offen",
+    "openCount_other": "{{count}} offen",
+    "pickDescription": "Sendet diese Lesart als deine Antwort"
   },
   "problemFrame": {
     "heading": "Rahmen",
@@ -1009,7 +1019,7 @@
       "invalid_ticket_id": "Diese Spec konnte nicht erkannt werden."
     },
     "entry": {
-      "heading": "Intent starten",
+      "heading": "Mit dem Agenten erkunden",
       "body": "Specrails legt eine separate Kopie des Projekts auf einem eigenen Intent-Branch an, in der der Agent Code schreiben kann. Dein Hauptbranch bleibt unberührt.",
       "provider": "Der Agent arbeitet mit {{provider}} und schreibt nur in die Kopie des Flows.",
       "providerUnknown": "Der Agent schreibt nur in die Kopie des Flows.",
@@ -1030,7 +1040,7 @@
         "goToFlow": "Zu diesem Intent"
       },
       "cancel": "Abbrechen",
-      "start": "Intent starten",
+      "start": "Erkundung starten",
       "starting": "Startet…",
       "existingSpec": {
         "label": "Spec #{{id}}",
@@ -1038,24 +1048,24 @@
       }
     },
     "offer": {
-      "heading": "Wie möchtest du es bauen?",
+      "heading": "Wie möchtest du weitermachen?",
       "notNow": "Nicht jetzt",
       "implementReply": "Lass uns zuerst die Spec schreiben und dann Implement starten.",
       "mode": {
         "flow": {
-          "title": "Intent",
+          "title": "Erkunden",
           "hint": "Gemeinsam auf einem eigenen Intent-Branch bauen; die Spec kommt am Ende.",
           "hintExisting": "Baut diese Spec gemeinsam auf einem eigenen Intent-Branch; die Spec wird aus dem Gebauten neu geschrieben."
         },
         "implement": {
-          "title": "Spec + umsetzen",
+          "title": "Delegieren",
           "hint": "Zuerst eine Spec vereinbaren, dann an einen Rail delegieren.",
           "hintExisting": "Übergib diese Spec, wie sie geschrieben ist, an eine Rail."
         }
       },
       "stub": {
-        "flow": "Du hast Intent gewählt",
-        "implement": "Du hast Spec + Implement gewählt",
+        "flow": "Du hast Erkunden gewählt",
+        "implement": "Du hast Delegieren gewählt",
         "dismissed": "Angebot verworfen",
         "handedOff": "Intent an Rail {{rail}} übergeben",
         "state": {
@@ -1089,7 +1099,7 @@
       "needsReview": "Die Projektkopie dieses Flows fehlt. Es wurde nichts gelöscht; prüfe den Intent-Branch, bevor du fortfährst.",
       "pausedNote": "Pausiert. Deine Änderungen und die Spec bleiben erhalten; mach weiter, wann du willst.",
       "state": {
-        "active": "Intent",
+        "active": "Erkundung",
         "paused": "Intent pausiert",
         "needs-review": "Intent muss geprüft werden",
         "handed_off": "An einen Rail übergeben",
@@ -1100,7 +1110,8 @@
       "disabled": {
         "settling": "Warte, bis der Intent seinen Zustand gespeichert hat",
         "busy": "Warte, bis die laufende Aktion abgeschlossen ist",
-        "noSpec": "Die Spec des Flows ist noch nicht bereit"
+        "noSpec": "Die Spec des Flows ist noch nicht bereit",
+        "noChanges": "Noch nichts zu übergeben: keine Dateien geändert"
       },
       "viewChangesStats": "Änderungen ansehen · {{files}}, +{{additions}} −{{deletions}}",
       "handOff": "Übergeben",
@@ -1221,7 +1232,7 @@
     "mode": {
       "chip": "Intent",
       "description": "Intent-Modus: Der Agent schreibt im Intent-Branch, nicht in deinem Hauptbranch",
-      "placeholder": "Sag dem Agenten, was er in diesem Intent ändern soll…"
+      "placeholder": "Sag dem Agenten, was auf diesem Branch gebaut werden soll…"
     },
     "panel": {
       "branch": "Branch",
@@ -1238,7 +1249,7 @@
       "confirm": "Intent schließen, Branch behalten"
     },
     "startFromSpec": {
-      "action": "In Intent starten",
+      "action": "Mit dem Agenten erkunden",
       "hint": "Baue diese Spec mit dem Agenten auf einem eigenen Intent-Branch, in einer Mission",
       "starting": "Intent wird gestartet…",
       "failed": "Spec #{{id}} konnte nicht in Intent starten",
@@ -1255,7 +1266,9 @@
         "running": "Läuft auf einer Rail",
         "onRail": "Auf einer Rail: nimm sie zuerst herunter",
         "missionInFlow": "Diese Mission hat bereits einen Intent"
-      }
+      },
+      "openMission": "Intent-Mission öffnen",
+      "started": "Spec #{{id}} wird auf {{branch}} erkundet"
     }
   },
   "flowReturn": {
@@ -1421,8 +1434,8 @@
   "starter": {
     "reference": "Auf eine Spec verweisen",
     "action": "Eine Aktion ausführen",
-    "plan": "Eine neue Spec planen",
-    "planSpec": "Hilf mir, eine neue Spec zu planen: "
+    "plan": "Mit einem Problem beginnen",
+    "planSpec": "Ich möchte dieses Problem lösen: "
   },
   "emptyLegend": "⇧⇥ ändert, was der Agent darf · ↑ holt deinen letzten Prompt zurück",
   "delivery": {

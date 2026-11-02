@@ -1,7 +1,11 @@
 // ─── Intent in the mission's run strip ─────────────────────────────────────────
 // While an Intent session is open, its strip row stays short: the status mark and
-// "Intent · 7 files" (inside the strip's expand toggle), then Pause (or Resume)
-// and the primary **Hand off**. Everything else lives in the Intent's panel,
+// "Exploring · 7 files" (inside the strip's expand toggle), then Pause (or Resume)
+// and **Hand off** — the primary only once a file changed; before that it is a
+// quiet, disabled control that says there is nothing to hand off yet (the live
+// stats feed the row through one shared diff store, so nothing polls twice).
+// The row already carries the mode mark, so the actions read "Pause" / "Resume"
+// (their full names stay as the accessible name). Everything else lives in the Intent's panel,
 // opened with the same chevron as any other run: the Intent branch (copyable —
 // the git strip steps aside), files changed ± (a button that opens the
 // changes), real cost (provider-billed turns only; "—" when nothing is
@@ -11,7 +15,7 @@
 // disabled control says why. While the strip has focus, P pauses or resumes
 // and H hands off (the strip's `data-strip-key`): never a global shortcut.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Check, Copy, FileDiff, GitBranch, Loader2, LogOut, Pause, Play, Trash2, type LucideIcon } from 'lucide-react'
@@ -31,6 +35,8 @@ import { notifyError } from '../../../lib/notify-error'
 export interface IntentBarControl {
   id: string
   label: string
+  /** Shorter visible text when the row already says what the label's noun names (the accessible name stays `label`). */
+  shortLabel?: string
   icon: LucideIcon
   onSelect: () => void
   tone?: 'default' | 'primary' | 'danger'
@@ -52,6 +58,24 @@ function pageVisible(): boolean {
   return typeof document === 'undefined' || document.visibilityState !== 'hidden'
 }
 
+// ─── Shared diff feed ───────────────────────────────────────────────────────────
+// useFlowLiveStats is the one poller; the strip controls read its latest diff
+// here (the missions strip mounts them without the stats).
+const flowDiffs = new Map<string, IntentDiff | null>()
+const flowDiffListeners = new Set<() => void>()
+const subscribeFlowDiffs = (listener: () => void) => { flowDiffListeners.add(listener); return () => { flowDiffListeners.delete(listener) } }
+
+/** Record the latest diff of an Intent session for whoever reads `useFlowDiffTotals` (null ⇒ unknown). */
+export function publishFlowDiff(flowId: string, diff: IntentDiff | null): void {
+  flowDiffs.set(flowId, diff)
+  flowDiffListeners.forEach((listener) => listener())
+}
+
+/** The latest known change totals of an Intent session (null until the live stats measured it). */
+export function useFlowDiffTotals(flowId: string): IntentDiff['totals'] | null {
+  return useSyncExternalStore(subscribeFlowDiffs, () => flowDiffs.get(flowId)?.totals ?? null, () => null)
+}
+
 /** Live diff + cost of an Intent session: refreshed on state changes, when a turn
  *  settles and every 8 s while the agent works AND the page is visible.
  *  Inert without an Intent session. */
@@ -63,11 +87,12 @@ export function useFlowLiveStats(projectId: string | null, flow: IntentSession |
   const refresh = useCallback(() => {
     if (!projectId || !flowId) return
     const mine = ++version.current
-    void flowApi.diff(projectId, flowId).then((value) => { if (version.current === mine) setDiff(value) }, () => undefined)
+    void flowApi.diff(projectId, flowId).then((value) => { if (version.current === mine) { setDiff(value); publishFlowDiff(flowId, value) } }, () => undefined)
     void flowApi.cost(projectId, flowId).then((value) => { if (version.current === mine) setCost(value) }, () => undefined)
   }, [projectId, flowId])
   useEffect(() => {
-    if (!flowId) { setDiff(null); setCost(null) }
+    if (!flowId) { setDiff(null); setCost(null); return }
+    return () => { flowDiffs.delete(flowId) }
   }, [flowId])
   useEffect(() => { refresh() }, [refresh, flow?.state, flow?.updatedAt])
   const wasWorking = useRef(working)
@@ -116,7 +141,7 @@ function ControlButton({ control, compact, flowId }: { control: IntentBarControl
       )}
     >
       <Icon className={cn('h-3.5 w-3.5', control.busy && 'animate-spin')} aria-hidden />
-      <span className={cn(compact && control.tone !== 'primary' && 'sr-only')}>{control.label}</span>
+      <span className={cn(compact && control.tone !== 'primary' && 'sr-only')}>{control.shortLabel ?? control.label}</span>
       {reason && <span id={reasonId} className="sr-only" data-testid={`flow-bar-${control.id}-reason`}>{reason}</span>}
     </button>
   )
@@ -155,14 +180,19 @@ export function IntentStripControls({ projectId, flow, inline }: { projectId: st
   const needsReview = flow.state === 'needs-review'
   const settling = flow.step !== null
   const paused = flow.state === 'paused'
+  const totals = useFlowDiffTotals(flow.id)
   // Why an action waits, in the person's words (never a silent disabled button).
+  // A hand-off with no file changed stays OPEN: Intent → Spec derives the spec
+  // from the conversation too (a spec agreed in chat is a legitimate hand-off);
+  // it is just not the filled primary until the branch has changes.
   const waitReason = settling ? t('flow.bar.disabled.settling') : busy ? t('flow.bar.disabled.busy') : null
   const handOffReason = waitReason ?? (flow.ticketId === null ? t('flow.bar.disabled.noSpec') : null)
   const controls: IntentBarControl[] = [
     paused
-      ? { id: 'resume', label: t('flow.bar.resume'), icon: Play, onSelect: () => void run('resume'), busy: busy === 'resume', disabled: settling, disabledReason: waitReason, tone: 'primary', shortcut: 'p' }
-      : { id: 'pause', label: t('flow.bar.pause'), icon: Pause, onSelect: () => void run('pause'), busy: busy === 'pause', disabled: settling, disabledReason: waitReason, shortcut: 'p' },
-    { id: 'hand-off', label: t('flow.bar.handOff'), icon: Check, onSelect: () => ctx?.setWrappingUp(flow.id, true), tone: paused ? 'default' : 'primary', disabled: !!handOffReason, disabledReason: handOffReason, shortcut: 'h' },
+      ? { id: 'resume', label: t('flow.bar.resume'), shortLabel: t('backgroundProcess.resume'), icon: Play, onSelect: () => void run('resume'), busy: busy === 'resume', disabled: settling, disabledReason: waitReason, tone: 'primary', shortcut: 'p' }
+      : { id: 'pause', label: t('flow.bar.pause'), shortLabel: t('backgroundProcess.pause'), icon: Pause, onSelect: () => void run('pause'), busy: busy === 'pause', disabled: settling, disabledReason: waitReason, shortcut: 'p' },
+    // The primary only once there is something to hand off; secondary (and disabled) before.
+    { id: 'hand-off', label: t('flow.bar.handOff'), icon: Check, onSelect: () => ctx?.setWrappingUp(flow.id, true), tone: paused || !totals || totals.files === 0 ? 'default' : 'primary', disabled: !!handOffReason, disabledReason: handOffReason, shortcut: 'h' },
   ]
   // ⌘K "Pause / Resume / Hand off": the very controls below, one source of truth
   // (a disabled or busy control is not offered).
@@ -182,7 +212,7 @@ export function IntentStripControls({ projectId, flow, inline }: { projectId: st
   )
 }
 
-/** "Intent · 7 files": the row's headline (with the count once the diff is known). */
+/** "Exploring · 7 files": the row's headline (with the count once the diff is known). */
 export function flowStripHeadline(t: (key: string, options?: Record<string, unknown>) => string, flow: IntentSession, diff: IntentDiff | null): string {
   const state = t(`flow.bar.state.${flow.state}`, { defaultValue: t('flow.bar.state.active') })
   return diff ? t('flow.strip.headline', { state, files: t('flow.bar.files', { count: diff.totals.files }) }) : state

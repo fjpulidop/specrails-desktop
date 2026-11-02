@@ -7,6 +7,7 @@
     "mode": {
       "intent": "Intent",
       "intentHint": "primeiro o problema",
+      "default": "Padrão",
       "quick": "Quick",
       "explore": "Explore",
       "raw": "Raw",
@@ -18,13 +19,23 @@
       "intent": "Descreva o problema, quem o tem e como você saberá que está resolvido. A IA escreve o intent e deriva a spec para você revisar.",
       "quick": "Descreva a funcionalidade ou alteração. Anexe mockups, briefs ou dados para mais contexto.",
       "explore": "Descreva uma ideia aproximada. O assistente de IA selecionado vai ajudá-lo a dar-lhe forma através de conversa — você decide quando confirmar.",
-      "raw": "O seu prompt, tal como está — guardado como spec. Sem IA agora; arraste-a para um rail para a construir."
+      "raw": "O seu prompt, tal como está — guardado como spec. Sem IA agora; arraste-a para um rail para a construir. Pode adicionar o intent mais tarde a partir da spec."
     },
     "editorPlaceholder": {
       "intent": "ex. Novos usuários desistem da configuração porque pedimos uma chave de API antes de verem algo funcionar. Saberemos que está resolvido quando a maioria terminar em menos de 2 minutos…",
       "quick": "p. ex. Adicionar um interruptor de modo escuro à página de definições que persista a preferência do utilizador...",
       "explore": "p. ex. modo escuro — não sei bem onde colocar o interruptor nem como persistir a preferência…",
       "raw": "Descreva a funcionalidade, alteração ou ideia. Suporta Markdown, imagens e ficheiros…"
+    },
+    "intentChips": {
+      "problem": "Problema",
+      "affects": "Quem afeta",
+      "signal": "Como saberemos"
+    },
+    "intentScaffold": {
+      "problem": "Problema: ",
+      "affects": "Quem afeta: ",
+      "signal": "Saberemos que funcionou quando: "
     },
     "ideaAriaLabel": "Ideia da spec",
     "raw": {
@@ -50,7 +61,7 @@
       "responsiveSizes_other": "Responsivo · {{count}} tamanhos"
     },
     "submit": {
-      "intent": "Gerar intent e spec",
+      "intent": "Escrever o intent e uma spec",
       "quick": "Gerar Spec",
       "explore": "Continuar",
       "raw": "Criar",

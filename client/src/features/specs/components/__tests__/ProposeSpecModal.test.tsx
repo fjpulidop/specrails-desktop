@@ -8,7 +8,7 @@ import type { LocalTicket } from '../../../../types'
 vi.mock('../../../chat/components/RichAttachmentEditor', () => ({
   RichAttachmentEditor: React.forwardRef(function MockEditor(
     props: { placeholder?: string; ariaLabel?: string; onChange?: () => void; onSubmit?: () => void },
-    ref: React.Ref<{ getPlainText: () => string; getAttachmentIds: () => string[]; insertPill: () => void; focus: () => void; resetHeight: () => void; clear: () => void }>,
+    ref: React.Ref<{ getPlainText: () => string; getAttachmentIds: () => string[]; insertPill: () => void; focus: () => void; resetHeight: () => void; clear: () => void; setPlainText: (text: string) => void }>,
   ) {
     const inputRef = React.useRef<HTMLTextAreaElement>(null)
     React.useImperativeHandle(ref, () => ({
@@ -18,6 +18,7 @@ vi.mock('../../../chat/components/RichAttachmentEditor', () => ({
       focus: () => inputRef.current?.focus(),
       resetHeight: () => { if (inputRef.current) inputRef.current.style.height = '' },
       clear: () => { if (inputRef.current) inputRef.current.value = '' },
+      setPlainText: (text: string) => { if (inputRef.current) inputRef.current.value = text },
     }))
     return (
       <textarea
@@ -33,6 +34,8 @@ vi.mock('../../../chat/components/RichAttachmentEditor', () => ({
 
 const mockStartWithMessage = vi.fn().mockResolvedValue('conv-1')
 const mockAbortStream = vi.fn()
+const mockNotifyError = vi.fn()
+vi.mock('../../../../lib/notify-error', () => ({ notifyError: (...args: unknown[]) => mockNotifyError(...args) }))
 
 vi.mock('../../../../hooks/useDesktop', () => ({
   useDesktop: () => ({ activeProjectId: 'proj-1', projects: [{ id: 'proj-1', name: 'Test Project' }] }),
@@ -294,15 +297,15 @@ describe('ProposeSpecModal', () => {
     expect(intentTab).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByTestId('propose-mode-description')).toHaveTextContent(/Describe the problem/)
     expect(screen.getByPlaceholderText(/New users give up at setup/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /generate intent and spec/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /write the intent and a spec/i })).toBeInTheDocument()
   })
 
   it('sends intent: true in the Intent generate-spec body', async () => {
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/New users give up at setup/)
     fireEvent.change(textarea, { target: { value: 'Setup asks for an API key too early' } })
-    await waitFor(() => expect(screen.getByRole('button', { name: /generate intent and spec/i })).toBeEnabled())
-    fireEvent.click(screen.getByRole('button', { name: /generate intent and spec/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /write the intent and a spec/i })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: /write the intent and a spec/i }))
     await waitFor(() => {
       const generateCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
         .find((c) => typeof c[0] === 'string' && c[0].includes('/tickets/generate-spec'))
@@ -707,6 +710,83 @@ describe('ProposeSpecModal', () => {
       )).toBe(true)
     })
     expect(onCloseMock).not.toHaveBeenCalled()
+  })
+
+  describe('Intent door shape (intent-mode)', () => {
+    const generateFails = (body: unknown) => {
+      ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('/default-spec-model')) {
+          return Promise.resolve({ ok: true, json: async () => ({ model: 'sonnet', provider: 'claude', allowed: [{ value: 'sonnet', label: 'Sonnet 5.5' }] }) })
+        }
+        if (typeof url === 'string' && url.includes('/tickets/generate-spec')) {
+          return Promise.resolve({ ok: false, status: 503, clone: () => ({ json: async () => body }), json: async () => body })
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) })
+      })
+    }
+
+    it('offers three prompt chips that put the intent scaffold into the editor, each on its own line', async () => {
+      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      expect(screen.getByTestId('propose-intent-chips')).toBeInTheDocument()
+      const editor = screen.getByLabelText('Spec idea') as HTMLTextAreaElement
+      fireEvent.click(screen.getByTestId('propose-intent-chip-problem'))
+      expect(editor.value).toBe('Problem: ')
+      fireEvent.change(editor, { target: { value: 'Problem: setup asks for a key' } })
+      fireEvent.click(screen.getByTestId('propose-intent-chip-affects'))
+      fireEvent.click(screen.getByTestId('propose-intent-chip-signal'))
+      expect(editor.value).toBe('Problem: setup asks for a key\nWho it affects: \nWe will know it worked when: ')
+      await waitFor(() => expect(screen.getByTestId('propose-submit')).toBeEnabled())
+      expect(screen.getByTestId('propose-submit')).toHaveTextContent('Write the intent and a spec')
+      // Quick mode has no scaffold chips.
+      fireEvent.click(screen.getByRole('tab', { name: /quick/i }))
+      expect(screen.queryByTestId('propose-intent-chips')).not.toBeInTheDocument()
+    })
+
+    it('marks Intent as the default with a caption pill and keeps its hint as the tooltip only', () => {
+      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      const intentTab = screen.getByRole('tab', { name: /intent/i })
+      expect(screen.getByTestId('propose-mode-default-badge')).toHaveTextContent('Default')
+      expect(intentTab).toHaveAttribute('title', 'problem first')
+      expect(intentTab.textContent).not.toContain('problem first')
+      // Raw mode says the intent can come later.
+      fireEvent.click(screen.getByRole('tab', { name: /raw/i }))
+      expect(screen.getByTestId('propose-mode-description')).toHaveTextContent('You can add the intent later from the spec.')
+    })
+
+    it('keeps the typed idea and reports the server\'s own words when generate-spec is refused', async () => {
+      generateFails({ error: 'runtime_unavailable', detail: 'Specrails Core is not installed' })
+      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      const editor = screen.getByLabelText('Spec idea') as HTMLTextAreaElement
+      fireEvent.change(editor, { target: { value: 'Setup asks for an API key too early' } })
+      await waitFor(() => expect(screen.getByTestId('propose-submit')).toBeEnabled())
+      fireEvent.click(screen.getByTestId('propose-submit'))
+      await waitFor(() => expect(mockNotifyError).toHaveBeenCalled())
+      expect(mockNotifyError).toHaveBeenCalledWith('Test Project · Failed to start', { detail: 'Specrails Core is not installed' })
+      expect(editor.value).toBe('Setup asks for an API key too early')
+      expect(screen.getByTestId('propose-submit')).toBeEnabled()
+      expect(mockRegisterFastSpec).not.toHaveBeenCalled()
+      expect(onCloseMock).not.toHaveBeenCalled()
+    })
+
+    it('clears the draft only once the server accepted the request', async () => {
+      ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('/default-spec-model')) {
+          return Promise.resolve({ ok: true, json: async () => ({ model: 'sonnet', provider: 'claude', allowed: [{ value: 'sonnet', label: 'Sonnet 5.5' }] }) })
+        }
+        if (typeof url === 'string' && url.includes('/tickets/generate-spec')) {
+          return Promise.resolve({ ok: true, json: async () => ({ requestId: 'req-1' }) })
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) })
+      })
+      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      const editor = screen.getByLabelText('Spec idea') as HTMLTextAreaElement
+      fireEvent.change(editor, { target: { value: 'Setup asks for an API key too early' } })
+      await waitFor(() => expect(screen.getByTestId('propose-submit')).toBeEnabled())
+      fireEvent.click(screen.getByTestId('propose-submit'))
+      await waitFor(() => expect(mockRegisterFastSpec).toHaveBeenCalledWith('req-1', expect.objectContaining({ expectIntent: true })))
+      expect(editor.value).toBe('')
+      expect(mockNotifyError).not.toHaveBeenCalled()
+    })
   })
 
   describe('modal standard anatomy', () => {

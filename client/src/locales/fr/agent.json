@@ -502,7 +502,7 @@
   },
   "intentDraft": {
     "heading": "Intent",
-    "settled": "Validé",
+    "settled": "Convenu",
     "writing": "Rédaction de l’intent…",
     "pick": "Répondre avec ceci",
     "problem": "Problème",
@@ -519,8 +519,18 @@
     "exploreHint": "Construisez-le ensemble dans une session Intent isolée ; la spec naît de ce que vous construisez.",
     "delegate": "Déléguer",
     "delegateHint": "L’agent rédige la spec à partir de cet intent pour que vous la relisiez, puis un rail la construit.",
-    "delegateReply": "Déléguer : rédige la spec à partir de cet intent.",
-    "inIntent": "Cette mission est dans l’Intent. Continuez dans la barre d’exécution."
+    "delegateReply": "Rédige la spec à partir de cet intent pour que je la relise.",
+    "inIntent": "Cette mission explore sur sa branche Intent. Continuez dans la barre d’exécution.",
+    "answerHint": "Répondez dans le chat ; l’agent met cette carte à jour.",
+    "answer": "Réponse",
+    "open": "Ouverte",
+    "readingConfirmed": "Lecture confirmée",
+    "expand": "Afficher l’intent complet",
+    "collapse": "Réduire",
+    "more": "+{{count}} de plus",
+    "openCount_one": "{{count}} ouverte",
+    "openCount_other": "{{count}} ouvertes",
+    "pickDescription": "Envoie cette lecture comme votre réponse"
   },
   "problemFrame": {
     "heading": "Cadrage",
@@ -1009,7 +1019,7 @@
       "invalid_ticket_id": "Impossible d’identifier cette spec."
     },
     "entry": {
-      "heading": "Démarrer un Intent",
+      "heading": "Explorer avec l’agent",
       "body": "Specrails crée une copie séparée du projet sur sa propre branche d’Intent, où l’agent peut écrire du code. Votre branche principale n’est pas touchée.",
       "provider": "L’agent travaille avec {{provider}} et n’écrit que dans la copie de l’Intent.",
       "providerUnknown": "L’agent n’écrit que dans la copie de l’Intent.",
@@ -1030,7 +1040,7 @@
         "goToFlow": "Aller à cet Intent"
       },
       "cancel": "Annuler",
-      "start": "Démarrer l’Intent",
+      "start": "Commencer à explorer",
       "starting": "Démarrage…",
       "existingSpec": {
         "label": "Spec #{{id}}",
@@ -1038,24 +1048,24 @@
       }
     },
     "offer": {
-      "heading": "Comment voulez-vous le construire ?",
+      "heading": "Comment voulez-vous continuer ?",
       "notNow": "Pas maintenant",
       "implementReply": "Écrivons d’abord la spec, puis lançons Implement.",
       "mode": {
         "flow": {
-          "title": "Intent",
+          "title": "Explorer",
           "hint": "Construisez-le ensemble sur une branche d’Intent séparée ; la spec vient à la fin.",
           "hintExisting": "Construisez cette spec ensemble sur une branche Intent à part ; la spec est réécrite à partir de ce qui est construit."
         },
         "implement": {
-          "title": "Spec + implémenter",
+          "title": "Déléguer",
           "hint": "Validez d’abord une spec, puis confiez-la à un rail.",
           "hintExisting": "Confiez cette spec, telle qu’elle est écrite, à un rail."
         }
       },
       "stub": {
-        "flow": "Vous avez choisi Intent",
-        "implement": "Vous avez choisi spec + Implement",
+        "flow": "Vous avez choisi Explorer",
+        "implement": "Vous avez choisi Déléguer",
         "dismissed": "Proposition écartée",
         "handedOff": "Intent remis au Rail {{rail}}",
         "state": {
@@ -1089,7 +1099,7 @@
       "needsReview": "La copie du projet de cet Intent est introuvable. Rien n’a été supprimé ; vérifiez la branche de l’Intent avant de continuer.",
       "pausedNote": "En pause. Vos modifications et la spec sont conservées ; reprenez quand vous voulez.",
       "state": {
-        "active": "Intent",
+        "active": "Exploration",
         "paused": "Intent en pause",
         "needs-review": "L’Intent doit être vérifié",
         "handed_off": "Remis à un rail",
@@ -1100,7 +1110,8 @@
       "disabled": {
         "settling": "Attendez que l’Intent ait fini d’enregistrer son état",
         "busy": "Attendez la fin de l’action en cours",
-        "noSpec": "La spec de l’Intent n’est pas encore prête"
+        "noSpec": "La spec de l’Intent n’est pas encore prête",
+        "noChanges": "Rien à transmettre pour l’instant : aucun fichier modifié"
       },
       "viewChangesStats": "Voir les modifications · {{files}}, +{{additions}} −{{deletions}}",
       "handOff": "Remettre",
@@ -1221,7 +1232,7 @@
     "mode": {
       "chip": "Intent",
       "description": "Mode Intent : l’agent écrit sur la branche de l’Intent, pas sur votre branche principale",
-      "placeholder": "Dites à l’agent quoi modifier dans cet Intent…"
+      "placeholder": "Dites à l’agent quoi construire sur cette branche…"
     },
     "panel": {
       "branch": "Branche",
@@ -1238,7 +1249,7 @@
       "confirm": "Fermer l’Intent, garder la branche"
     },
     "startFromSpec": {
-      "action": "Démarrer en Intent",
+      "action": "Explorer avec l’agent",
       "hint": "Construisez cette spec avec l’agent sur sa propre branche Intent, dans une mission",
       "starting": "Démarrage de l’Intent…",
       "failed": "La spec #{{id}} n’a pas pu démarrer en Intent",
@@ -1255,7 +1266,9 @@
         "running": "En cours sur un rail",
         "onRail": "Sur un rail : retirez-la d’abord",
         "missionInFlow": "Cette mission a déjà un Intent"
-      }
+      },
+      "openMission": "Ouvrir la mission Intent",
+      "started": "Exploration de la spec #{{id}} sur {{branch}}"
     }
   },
   "flowReturn": {
@@ -1421,8 +1434,8 @@
   "starter": {
     "reference": "Référencer une spec",
     "action": "Lancer une action",
-    "plan": "Planifier une nouvelle spec",
-    "planSpec": "Aide-moi à planifier une nouvelle spec : "
+    "plan": "Partir d’un problème",
+    "planSpec": "Je veux résoudre ce problème : "
   },
   "emptyLegend": "⇧⇥ change ce que l’agent peut faire · ↑ rappelle votre dernier message",
   "delivery": {

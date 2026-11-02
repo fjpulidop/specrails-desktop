@@ -81,18 +81,6 @@
     "grid": "Vue grille (Kanban)",
     "postit": "Vue post-it"
   },
-  "createModal": {
-    "title": "Créer une spec",
-    "titlePlaceholder": "Titre de la spec…",
-    "labelsPlaceholder": "Saisissez pour ajouter des labels…",
-    "create": "Créer",
-    "creating": "Création…",
-    "toast": {
-      "created": "Spec créée",
-      "createFailed": "Échec de la création de la spec"
-    },
-    "description": "Ajoutez une spec au tableau à la main. Elle démarre dans le statut choisi et pourra être affinée ou déplacée vers un rail plus tard."
-  },
   "comparePicker": {
     "title": "Comparer avec…",
     "count": "({{n}} specs)",
@@ -195,7 +183,9 @@
   "intent": {
     "title": "Intent",
     "add": "Ajouter l’intent : le problème, le résultat et comment le vérifier",
+    "addShort": "Ajouter un intent",
     "editorHint": "Décrivez le problème, pas la solution. Les agents en déduisent le comment.",
+    "save": "Enregistrer l’intent",
     "problem": "Problème",
     "outcome": "Résultat recherché",
     "hypothesis": "Hypothèse (facultatif)",
@@ -203,6 +193,8 @@
     "affects": "Qui et quoi est concerné",
     "constraints": "Contraintes",
     "openQuestions": "Questions ouvertes",
+    "questionsAnswered_one": "Questions · {{count}} répondue",
+    "questionsAnswered_other": "Questions · {{count}} répondues",
     "onePerLine": "Un par ligne",
     "required": "Obligatoire",
     "problemPlaceholder": "Ce qui ne va pas aujourd’hui, pour qui et quand",
@@ -214,7 +206,8 @@
     "questionPlaceholder": "Ce que personne ne sait encore",
     "answerPlaceholder": "Réponse (vide tant qu’elle est ouverte)",
     "questionLabel": "Question ouverte {{n}}",
-    "answerLabel": "Réponse à la question ouverte {{n}}",
+    "answerLabel": "Réponse",
+    "answerAria": "Réponse à la question ouverte {{n}}",
     "removeQuestion": "Supprimer la question ouverte {{n}}",
     "addQuestion": "Ajouter une question ouverte",
     "unanswered": "Ouverte",

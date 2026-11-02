@@ -34,7 +34,6 @@ import { TicketDetailModal } from '../../specs/components/TicketDetailModal'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { usePlaceParam } from '../../../hooks/usePlaceParam'
 import { SPEC_PARAM } from '../../../lib/places'
-import { CreateTicketModal } from '../../specs/components/CreateTicketModal'
 import { LaunchAllDialog } from '../../rails/components/LaunchAllDialog'
 import { TargetPrLaunchDialog } from '../../delivery/components/TargetPrLaunchDialog'
 import type { RailTargetPr } from '../../rails/components/RailTargetPrSelector'
@@ -188,7 +187,7 @@ export default function DashboardPage() {
     const p = projects.find((pr) => pr.id === activeProjectId)
     return p ? projectProviders(p) : ['claude']
   })()
-  const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds, bulkDelete, bulkUpdateStatus, bulkUpdatePriority, bulkUpdateLabels } = useTickets()
+  const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, refetch, contractRefiningIds, bulkDelete, bulkUpdateStatus, bulkUpdatePriority, bulkUpdateLabels } = useTickets()
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { specToOpen, clearSpecToOpen } = useSpecGenTracker()
   // The spec detail modal is a place: `?spec=<id>` (Back closes it, a link reopens it).
@@ -208,7 +207,6 @@ export default function DashboardPage() {
       openSpecParam(String(ticket.id))
     } else closeSpecParam()
   }, [openSpecParam, closeSpecParam])
-  const [createTicketOpen, setCreateTicketOpen] = useState(false)
   // Confirm-before-launch when the rail targets an EXISTING PR (mis-pick must
   // be visible before any work starts on that PR's head branch).
   const [targetPrConfirm, setTargetPrConfirm] = useState<{ railId: string } | null>(null)
@@ -1859,13 +1857,6 @@ export default function DashboardPage() {
           />
         )
       })()}
-      <CreateTicketModal
-        open={createTicketOpen}
-        allLabels={allTicketLabels}
-        onClose={() => setCreateTicketOpen(false)}
-        onCreate={createTicket}
-      />
-
       {bulkActions.dialogs}
 
       <LaunchAllDialog

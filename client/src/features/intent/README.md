@@ -118,12 +118,13 @@ In a workspace (folder primary) or a project with several Git repositories,
 `repositoryId`. It sends `repositoryId` only for such projects; a
 single-repository project never shows or sends it.
 The picker is `IntentRepositoryPicker` (Git members only, one tab stop, arrow
-keys / Home / End). "Start in Intent" from the board or the spec detail reuses
-it in `IntentRepositoryPrompt` (a dialog provided by `IntentMissionsBridge`) when
-the project has several Git members and the spec does not name exactly one:
-the spec's repository, else the Git primary, is preselected and the pick is
-sent as `repositoryId`. The mission rail-launch card's "Start in Intent"
-(`IntentRailLaunchAlternative`) asks the same way.
+keys / Home / End). "Explore with the agent" from the spec detail header, the
+board card menu and the mission rail-launch card all open `IntentEntryCard`
+first (spec title, intent summary, provider, the picker when the project has
+several Git members, Cancel / "Start exploring"): nothing starts until the user
+confirms. The card menu hands the request to the spec detail
+(`requestStartInFlowEntry`), which opens the entry dialog on mount. A spec that
+is already in Intent offers "Open the Intent mission" instead.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/intent`.
 For moves, update imports and mocks together, then run client coverage and typecheck.

@@ -81,18 +81,6 @@
     "grid": "Vista de grelha (Kanban)",
     "postit": "Vista de post-its"
   },
-  "createModal": {
-    "title": "Criar spec",
-    "titlePlaceholder": "Título da spec...",
-    "labelsPlaceholder": "Escreva para adicionar etiquetas...",
-    "create": "Criar",
-    "creating": "A criar...",
-    "toast": {
-      "created": "Spec criada",
-      "createFailed": "Falha ao criar a spec"
-    },
-    "description": "Adicione uma spec ao quadro manualmente. Ela começa no status escolhido e pode ser refinada ou movida para um rail depois."
-  },
   "comparePicker": {
     "title": "Comparar com…",
     "count": "({{n}} specs)",
@@ -195,7 +183,9 @@
   "intent": {
     "title": "Intent",
     "add": "Adicione o intent: o problema, o resultado e como você saberá",
+    "addShort": "Adicionar intent",
     "editorHint": "Descreva o problema, não a solução. Os agentes derivam o como a partir disto.",
+    "save": "Salvar intent",
     "problem": "Problema",
     "outcome": "Resultado buscado",
     "hypothesis": "Hipótese (opcional)",
@@ -203,6 +193,8 @@
     "affects": "Quem e o que é afetado",
     "constraints": "Restrições",
     "openQuestions": "Perguntas em aberto",
+    "questionsAnswered_one": "Perguntas · {{count}} respondida",
+    "questionsAnswered_other": "Perguntas · {{count}} respondidas",
     "onePerLine": "Um por linha",
     "required": "Obrigatório",
     "problemPlaceholder": "O que falha hoje, para quem e quando incomoda",
@@ -214,7 +206,8 @@
     "questionPlaceholder": "O que ninguém sabe ainda",
     "answerPlaceholder": "Resposta (vazia enquanto estiver em aberto)",
     "questionLabel": "Pergunta em aberto {{n}}",
-    "answerLabel": "Resposta à pergunta em aberto {{n}}",
+    "answerLabel": "Resposta",
+    "answerAria": "Resposta à pergunta em aberto {{n}}",
     "removeQuestion": "Remover pergunta em aberto {{n}}",
     "addQuestion": "Adicionar pergunta em aberto",
     "unanswered": "Em aberto",
