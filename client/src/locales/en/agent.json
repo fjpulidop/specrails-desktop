@@ -1311,8 +1311,7 @@
     "questionsAnswered_other": "{{count}} open questions answered",
     "next": {
       "openSpec": "Open the spec",
-      "viewPr": "View the pull request",
-      "another": "Start another intent"
+      "viewPr": "View the pull request"
     }
   },
   "runStrip": {

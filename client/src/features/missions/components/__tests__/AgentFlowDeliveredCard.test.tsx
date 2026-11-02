@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { AgentFlowDeliveredCard, parseFlowDeliveredRow } from '../AgentFlowDeliveredCard'
-import { composerDrafts } from '../../lib/agent-composer-drafts'
 
 const openTicketDetail = vi.fn()
 const openTicketDetailInProject = vi.fn()
@@ -57,8 +56,6 @@ describe('AgentFlowDeliveredCard (Intent delivered)', () => {
     expect(screen.getByTestId('agent-flow-delivered-questions')).toHaveTextContent('2 open questions answered')
     // Next steps.
     expect(screen.getByTestId('agent-flow-delivered-view-pr')).toHaveAttribute('href', 'https://github.com/o/r/pull/812')
-    fireEvent.click(screen.getByTestId('agent-flow-delivered-another'))
-    expect(composerDrafts.get('c1')).toBe('I want to solve this problem: ')
     expect(card.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
   })
 
@@ -102,7 +99,6 @@ describe('AgentFlowDeliveredCard (Intent delivered)', () => {
     expect(spec).toHaveAttribute('data-lamp', 'muted')
     expect(spec).toHaveTextContent('The spec rewrite did not complete; its draft is kept')
     expect(screen.queryByTestId('agent-flow-delivered-open-spec')).toBeNull()
-    expect(screen.queryByTestId('agent-flow-delivered-another')).toBeNull()
     expect(screen.getByTestId('agent-flow-delivered-view-pr')).toBeInTheDocument()
   })
 })

@@ -8,12 +8,11 @@
 // closes the Intent's story in the conversation. Quiet success: one colour.
 
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, CheckCircle2, ExternalLink, FileText, GitMerge, GitPullRequest, Loader2, MessageCircleQuestion, Package, Ticket } from 'lucide-react'
+import { CheckCircle2, ExternalLink, FileText, GitMerge, GitPullRequest, Loader2, MessageCircleQuestion, Package, Ticket } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { formatUsd } from '../../../lib/format-usd'
 import { formatElapsed } from '../../../lib/format-duration'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
-import { writeComposerDraft } from '../lib/agent-composer-drafts'
 
 type SettlementStatus = 'pending' | 'done' | 'skipped' | 'failed' | null
 
@@ -146,14 +145,13 @@ export interface AgentFlowDeliveredCardProps {
   conversationId?: string | null
 }
 
-export function AgentFlowDeliveredCard({ row, projectId = null, conversationId = null }: AgentFlowDeliveredCardProps) {
+export function AgentFlowDeliveredCard({ row, projectId = null }: AgentFlowDeliveredCardProps) {
   const { t } = useTranslation('agent')
   const { openTicketDetail, openTicketDetailInProject } = useTicketDetailModal()
   const ticketId = row.ticketId
   const openSpec = ticketId !== null
     ? () => (projectId ? openTicketDetailInProject(projectId, ticketId) : openTicketDetail(ticketId))
     : null
-  const startAnother = conversationId ? () => writeComposerDraft(conversationId, t('starter.planSpec'), []) : null
 
   const cost = costWords(row.cost)
   const stats: React.ReactNode[] = []
@@ -254,7 +252,7 @@ export function AgentFlowDeliveredCard({ row, projectId = null, conversationId =
         )}
       </ul>
 
-      {(openSpec || integration?.prUrl || startAnother) && (
+      {(openSpec || integration?.prUrl) && (
         <div data-testid="agent-flow-delivered-next" className="mt-3 flex flex-wrap items-center gap-1.5">
           {openSpec && (
             <button type="button" data-agent-interactive onClick={openSpec} className={CHIP} data-testid="agent-flow-delivered-open-spec">
@@ -266,11 +264,6 @@ export function AgentFlowDeliveredCard({ row, projectId = null, conversationId =
               <GitPullRequest className="h-3 w-3" aria-hidden />{t('flowDelivered.next.viewPr')}
               <ExternalLink className="h-2.5 w-2.5 opacity-60" aria-hidden />
             </a>
-          )}
-          {startAnother && (
-            <button type="button" data-agent-interactive onClick={startAnother} className={CHIP} data-testid="agent-flow-delivered-another">
-              <ArrowRight className="h-3 w-3" aria-hidden />{t('flowDelivered.next.another')}
-            </button>
           )}
           {settling && <Loader2 className="ml-auto h-3 w-3 animate-spin text-muted-foreground/60" aria-hidden />}
         </div>

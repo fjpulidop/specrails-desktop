@@ -1311,8 +1311,7 @@
     "questionsAnswered_other": "未解決の質問 {{count}} 件に回答",
     "next": {
       "openSpec": "スペックを開く",
-      "viewPr": "プルリクエストを見る",
-      "another": "別の intent を始める"
+      "viewPr": "プルリクエストを見る"
     }
   },
   "runStrip": {
