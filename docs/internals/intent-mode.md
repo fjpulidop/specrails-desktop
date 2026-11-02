@@ -128,6 +128,12 @@ effects that the use cases execute through ports.
    `flow_sessions` owns it; `rail_worktrees` does not see it.
 4. Record the Core session id `flow:<flowId>`. The Core session opens lazily
    on the first Intent turn, with the worktree as cwd.
+5. A seeded Intent (an intent or an existing spec) begins by itself: right
+   after the `entered` boundary, `startOpeningTurn` (conversation port →
+   `startAutomaticTurn`, turn key `flow-opening:<flowId>`, text
+   `FLOW_OPENING_TURN_TEXT`) runs one automatic turn so the agent states its
+   first step and starts; a free idea without a seed waits for the person.
+   The client shows it as "Automatic turn · Entered Intent".
 
 A failure compensates in reverse order (release the worktree, delete the
 spec) and marks the Intent `discarded`; when compensation itself fails the row

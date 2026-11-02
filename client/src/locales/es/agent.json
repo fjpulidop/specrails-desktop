@@ -1280,6 +1280,7 @@
     "moreFiles_other": "+{{count}} archivos más",
     "next": "El agente del Intent empieza ahora con esto; puedes guiarlo o detenerlo en cualquier momento.",
     "automaticTurn": "Turno automático · Volver a Intent",
+    "openingTurn": "Turno automático · Entraste en Intent",
     "titleFailure": "Por qué se detuvo el paso a un rail"
   },
   "turnErrors": {

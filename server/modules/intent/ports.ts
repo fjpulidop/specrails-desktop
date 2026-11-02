@@ -238,6 +238,11 @@ export interface IntentConversation {
   /** Start ONE automatic Intent turn that works on the return briefing (once per
    * delivery); `failure` ⇒ the run failed outright (no review findings). */
   startReturnTurn(input: { conversationId: string; flowId: string; deliveryId: string; failure?: IntentRunFailure }): Promise<void>
+  /** Start ONE automatic Intent turn right after the session opened with a
+   * seed (an intent or an existing spec): the agent begins instead of waiting
+   * for the person to speak first. Once per Intent; absent ⇒ the seed waits
+   * for the person's next turn. */
+  startOpeningTurn?(input: { conversationId: string; flowId: string }): Promise<void>
   /** The closing summary once a delivered Intent settled its spec and Jira
    * (PR link, rewritten spec, archived OpenSpec change, Jira key). Once per
    * Intent; never throws. Absent ⇒ the run card alone tells the outcome. */

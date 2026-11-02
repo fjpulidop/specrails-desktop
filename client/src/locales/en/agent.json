@@ -1280,6 +1280,7 @@
     "moreFiles_other": "+{{count}} more files",
     "next": "The Intent agent starts on this now; you can steer or stop it at any time.",
     "automaticTurn": "Automatic turn · Back to Intent",
+    "openingTurn": "Automatic turn · Entered Intent",
     "titleFailure": "Why the hand-off stopped"
   },
   "turnErrors": {

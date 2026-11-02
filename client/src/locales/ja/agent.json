@@ -1280,6 +1280,7 @@
     "moreFiles_other": "ほか {{count}} ファイル",
     "next": "Intent エージェントがこれから着手します。いつでも指示や停止ができます。",
     "automaticTurn": "自動ターン · Intent に戻る",
+    "openingTurn": "自動ターン · Intent に入りました",
     "titleFailure": "引き渡しが停止した理由"
   },
   "turnErrors": {

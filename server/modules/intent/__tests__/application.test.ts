@@ -152,6 +152,19 @@ describe('startFlow', () => {
     expect(flow.returnBriefing).toContain('### Problem\n\nBoards are hard to scan')
   })
 
+  it('a seeded start opens with an automatic turn; a free idea waits for the person', async () => {
+    const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}), startOpeningTurn: vi.fn(async () => {}) }
+    const seeded = setup({ conversation })
+    const intent = { problem: 'Boards are hard to scan', outcome: 'A kanban board', successSignals: [], affects: [], constraints: [], openQuestions: [] }
+    seeded.tickets.read.mockImplementation(() => ({ title: 'Boards', description: 'Boards', status: 'in_progress', intent: '## Intent\n\nBoards are hard to scan', nonGoals: [], addenda: '' }))
+    const flow = await seeded.service.startFlow({ ...startInput, idea: 'Boards are hard to scan', intent })
+    expect(conversation.startOpeningTurn).toHaveBeenCalledWith({ conversationId: startInput.conversationId, flowId: flow.id })
+
+    const free = setup({ conversation: { ...conversation, startOpeningTurn: vi.fn(async () => {}) } })
+    await free.service.startFlow(startInput)
+    expect(free.ports.conversation!.startOpeningTurn).not.toHaveBeenCalled()
+  })
+
   it('a free idea without an intent seeds nothing', async () => {
     const { service, tickets } = setup()
     const flow = await service.startFlow(startInput)

@@ -1280,6 +1280,7 @@
     "moreFiles_other": "+{{count}} altri file",
     "next": "L’agente dell’Intent inizia a lavorarci ora; puoi guidarlo o fermarlo in qualsiasi momento.",
     "automaticTurn": "Turno automatico · Di nuovo in Intent",
+    "openingTurn": "Turno automatico · Ingresso in Intent",
     "titleFailure": "Perché l’affidamento si è fermato"
   },
   "turnErrors": {

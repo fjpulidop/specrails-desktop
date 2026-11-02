@@ -229,6 +229,11 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
         const opened = await ports.agent.open({ flowId, conversationId, worktreePath: reserved.worktreePath })
         const started = apply(session, { type: 'session-opened', coreSessionId: opened.coreSessionId, now: ports.clock.now() })
         boundary(started, 'entered', 'started')
+        // The Intent begins by itself: a seeded first turn (intent or spec) is
+        // worked on at once, so entering Intent never looks like the end of the flow.
+        if (started.returnBriefing && ports.conversation?.startOpeningTurn) {
+          void ports.conversation.startOpeningTurn({ conversationId, flowId }).catch(() => {})
+        }
         return started
       } catch (error) {
         const latest = ports.repository.get(flowId) ?? session

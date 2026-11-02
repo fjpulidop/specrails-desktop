@@ -1280,6 +1280,7 @@
     "moreFiles_other": "另有 {{count}} 个文件",
     "next": "Intent 智能体现在开始处理；你可以随时引导或停止它。",
     "automaticTurn": "自动轮次 · 回到 Intent",
+    "openingTurn": "自动回合 · 已进入 Intent",
     "titleFailure": "移交停止的原因"
   },
   "turnErrors": {

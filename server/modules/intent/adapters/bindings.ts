@@ -64,6 +64,9 @@ export interface IntentAgentHost {
 }
 
 /** The automatic turn after Back to Intent (the briefing itself rides the Intent turn). */
+/** The automatic first turn of a seeded Intent: the agent starts from the intent
+ * or spec it received instead of waiting for the person. */
+export const FLOW_OPENING_TURN_TEXT = 'Entered Intent: begin from the intent above. In at most 3 short lines say which outcome you aim for first and the smallest step towards it, then start working in this worktree. If an open question blocks that step, ask it as an `options` block and wait; otherwise do not ask for permission.'
 export const FLOW_RETURN_TURN_TEXT = 'Back to Intent: the Intent → Spec run came back with the findings above. In at most 2 short lines say what you will fix, then start fixing it in this worktree. If a finding leaves a genuine decision to me (for example removing behaviour nobody asked for versus recording it as a requirement), offer it as an `options` block before editing and wait for my answer.'
 
 /** The automatic turn after an Intent session → Spec run failed outright and came back on its own. */
@@ -689,6 +692,9 @@ export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
       },
       async startReturnTurn({ conversationId, deliveryId, failure }) {
         await deps.agentHost()?.startAutomaticTurn?.(conversationId, failure ? FLOW_FAILURE_RETURN_TURN_TEXT : FLOW_RETURN_TURN_TEXT, { turnKey: `flow-return:${deliveryId}`, label: 'Back to Intent' })
+      },
+      async startOpeningTurn({ conversationId, flowId }) {
+        await deps.agentHost()?.startAutomaticTurn?.(conversationId, FLOW_OPENING_TURN_TEXT, { turnKey: `flow-opening:${flowId}`, label: 'Entered Intent' })
       },
       postDeliveredSummary({ conversationId, flowId, deliveryId, ticketId, settlement }) {
         const row = deliveryId ? getPrDelivery(ctx.db, deliveryId) : undefined

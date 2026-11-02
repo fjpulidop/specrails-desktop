@@ -1280,6 +1280,7 @@
     "moreFiles_other": "+{{count}} fichiers de plus",
     "next": "L’agent de l’Intent s’y met maintenant ; vous pouvez l’orienter ou l’arrêter à tout moment.",
     "automaticTurn": "Tour automatique · Retour à l’Intent",
+    "openingTurn": "Tour automatique · Entrée en Intent",
     "titleFailure": "Pourquoi la remise s’est arrêtée"
   },
   "turnErrors": {

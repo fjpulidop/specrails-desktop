@@ -1280,6 +1280,7 @@
     "moreFiles_other": "+{{count}} weitere Dateien",
     "next": "Der Intent-Agent beginnt jetzt damit; du kannst ihn jederzeit lenken oder stoppen.",
     "automaticTurn": "Automatischer Zug · Zurück zum Intent",
+    "openingTurn": "Automatischer Zug · Intent betreten",
     "titleFailure": "Warum die Übergabe angehalten hat"
   },
   "turnErrors": {

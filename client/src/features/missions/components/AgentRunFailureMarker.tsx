@@ -51,7 +51,10 @@ export function AgentSystemBriefing({ content, contextRefs }: { content: string;
   const { t } = useTranslation('agent')
   const [open, setOpen] = useState(false)
   // Automatic turns other than a run failure (Back to Intent) name themselves.
-  const automatic = (contextRefs?.[0] as { metadata?: { automatic?: unknown } } | undefined)?.metadata?.automatic === true
+  const ref = contextRefs?.[0] as { id?: unknown; metadata?: { automatic?: unknown } } | undefined
+  const automatic = ref?.metadata?.automatic === true
+  // The seeded first turn of an Intent (the agent starts by itself) names itself too.
+  const opening = automatic && typeof ref?.id === 'string' && ref.id.startsWith('flow-opening:')
   return (
     <div data-testid="agent-system-briefing" className="flex flex-col items-end gap-1">
       <button
@@ -64,7 +67,7 @@ export function AgentSystemBriefing({ content, contextRefs }: { content: string;
         )}
       >
         <Sparkles className="h-3 w-3 text-accent-primary" aria-hidden />
-        {automatic ? t('flowReturn.automaticTurn') : t('runFailure.briefing.title')}
+        {opening ? t('flowReturn.openingTurn') : automatic ? t('flowReturn.automaticTurn') : t('runFailure.briefing.title')}
         {open ? <ChevronDown className="h-3 w-3 opacity-60" aria-hidden /> : <ChevronRight className="h-3 w-3 opacity-60" aria-hidden />}
       </button>
       {open && (

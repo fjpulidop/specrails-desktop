@@ -1280,6 +1280,7 @@
     "moreFiles_other": "+{{count}} arquivos a mais",
     "next": "O agente do Intent começa agora; você pode orientá-lo ou pará-lo a qualquer momento.",
     "automaticTurn": "Turno automático · De volta ao Intent",
+    "openingTurn": "Turno automático · Entrou em Intent",
     "titleFailure": "Por que a passagem a um rail parou"
   },
   "turnErrors": {
