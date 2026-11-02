@@ -267,10 +267,11 @@ describe('Intent closing summary', () => {
     const row = parseFlowDeliveredRow(JSON.stringify({ kind: 'flow-delivered', flowId: 'flow-1', deliveryId: 'delivery-1', prUrl: 'https://github.com/o/r/pull/42', prNumber: 42,
       changeName: 'kanban-board', changeArchived: true, specRewrite: 'done', jiraCreate: 'done', jiraKey: 'SR-12' }))!
     render(<AgentFlowDeliveredCard row={row} />)
-    expect(screen.getByText('Intent delivered')).toBeInTheDocument()
-    expect(screen.getByTestId('agent-flow-delivered-pr').querySelector('a')!.getAttribute('href')).toBe('https://github.com/o/r/pull/42')
-    expect(screen.getByTestId('agent-flow-delivered-pr')).toHaveTextContent('Pull request #42')
-    expect(screen.getByTestId('agent-flow-delivered-spec')).toHaveTextContent('Spec rewritten from what you built')
+    expect(screen.getByTestId('agent-flow-delivered-card')).toBeInTheDocument()
+    const integration = screen.getByTestId('agent-flow-delivered-integration')
+    expect(integration.querySelector('a')!.getAttribute('href')).toBe('https://github.com/o/r/pull/42')
+    expect(integration).toHaveTextContent('Pull request #42')
+    expect(screen.getByTestId('agent-flow-delivered-spec')).toHaveTextContent('rewritten from what you built')
     expect(screen.getByTestId('agent-flow-delivered-change')).toHaveTextContent('Spec change kanban-board archived')
     expect(screen.getByTestId('agent-flow-delivered-jira')).toHaveTextContent('Jira issue SR-12')
     // Never a javascript: link, never another row kind.

@@ -769,25 +769,71 @@ describe('automatic return of a failed Intent → Spec run (real SQLite)', () =>
 })
 
 describe('Intent closing summary binding', () => {
-  it('posts ONE flow-delivered row with the PR, the archived change and the Jira key', async () => {
+  const session = (over: Partial<IntentSession> = {}): IntentSession => ({
+    id: 'flow-1', conversationId: 'conv-1', ticketId: 1, state: 'delivered', branch: 'feat/1-board', worktreePath: null,
+    baseSha: 'b'.repeat(40), headSha: 'c'.repeat(40), coreSessionId: null, railIndex: 0, deliveryId: 'delivery-1', step: null,
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:30:00.000Z', ...over,
+  })
+  const summary = { specRewrite: 'done' as const, jiraCreate: 'skipped' as const, jiraReview: 'skipped' as const }
+
+  async function seeded() {
     const ctx = context()
     const tickets = createFlowTickets(ctx)
     const ticketId = tickets.createPlaceholder({ flowId: 'flow-1', conversationId: 'conv-1', title: 'Board', description: 'board', startedAt: 't' })
     tickets.markDelivered(ticketId, { openspecChangeName: 'kanban-board' })
     const { createPrDelivery } = await import('../../delivery/runtime/rail-pr-store')
     createPrDelivery(ctx.db, { id: 'delivery-1', railIndex: 0, loopId: 'factory:flow-spec', railKey: '0-factory:flow-spec', ticketIds: [ticketId], baseBranch: 'main', loopName: 'Intent → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1', launchConfig: { mode: 'loop' } })
-    ctx.db.prepare('UPDATE rail_pr_deliveries SET pr_url = ?, pr_number = ? WHERE id = ?').run('https://github.com/o/r/pull/42', 42, 'delivery-1')
-    const host = { assertFlowSupport: vi.fn(async () => {}), closeFlowSession: vi.fn(async () => {}), postSystemRow: vi.fn(() => 'row-1') }
+    const host = { assertFlowSupport: vi.fn(async () => {}), closeFlowSession: vi.fn(async () => {}), postSystemRow: vi.fn(() => 'row-1'), upsertSystemRow: vi.fn(() => 'row-1') }
     const bound = createFlowPorts({
       ctx, repository: createSqliteFlowRepository(ctx.db), effects: createSqliteFlowEffectsStore(ctx.db), internalApi: { call: vi.fn() } as never,
       agentHost: () => host, availability: async () => ({ available: true, reason: 'ok', missing: [] }), clock: { now: () => 'now' },
     })
-    bound.conversation!.postDeliveredSummary!({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId, settlement: { specRewrite: 'done', jiraCreate: 'skipped', jiraReview: 'skipped' } })
-    expect(host.postSystemRow).toHaveBeenCalledWith('conv-1', {
+    return { ctx, ticketId, host, bound }
+  }
+
+  it('upserts ONE flow-delivered row: spec title, branch, PR integration, stats, archived change and Jira key', async () => {
+    const { ctx, ticketId, host, bound } = await seeded()
+    ctx.db.prepare('UPDATE rail_pr_deliveries SET pr_url = ?, pr_number = ?, delivery_sha = ? WHERE id = ?').run('https://github.com/o/r/pull/42', 42, 'c'.repeat(40), 'delivery-1')
+    bound.conversation!.postDeliveredSummary!({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId, settlement: summary, session: session({ ticketId }), cost: { costUsd: 1.25, turns: 3, unpricedTurns: 1 }, diff: { files: 4, additions: 120, deletions: 8 }, durationMs: 1_800_000 })
+    expect(host.postSystemRow).not.toHaveBeenCalled()
+    expect(host.upsertSystemRow).toHaveBeenCalledWith('conv-1', {
       kind: 'flow-delivered', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId,
+      specTitle: 'Board', branch: 'feat/1-board',
+      integration: { kind: 'pr', prUrl: 'https://github.com/o/r/pull/42', prNumber: 42, merged: false, baseBranch: 'main', sha: 'c'.repeat(40) },
       prUrl: 'https://github.com/o/r/pull/42', prNumber: 42, changeName: 'kanban-board', changeArchived: true,
-      specRewrite: 'done', jiraCreate: 'skipped', jiraKey: null, at: 'now',
+      specRewrite: 'done', jiraCreate: 'skipped', jiraKey: null,
+      diff: { files: 4, additions: 120, deletions: 8 }, cost: { costUsd: 1.25, turns: 3, unpricedTurns: 1 }, durationMs: 1_800_000, openQuestionsAnswered: 0,
+      settled: true, at: 'now',
     }, 'flow-delivered:flow-1')
+  })
+
+  it('a pending settlement posts an unsettled card; a local merge without a PR reads as integrated locally', async () => {
+    const { ctx, ticketId, host, bound } = await seeded()
+    ctx.db.prepare("UPDATE rail_pr_deliveries SET decision = 'merged', delivery_sha = ? WHERE id = ?").run('c'.repeat(40), 'delivery-1')
+    bound.conversation!.postDeliveredSummary!({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId, settlement: { specRewrite: 'pending', jiraCreate: 'pending', jiraReview: 'pending' }, session: session({ ticketId }), cost: null, diff: null, durationMs: 0 })
+    expect(host.upsertSystemRow).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      integration: { kind: 'local', prUrl: null, prNumber: null, merged: true, baseBranch: 'main', sha: 'c'.repeat(40) },
+      prUrl: null, specRewrite: 'pending', jiraCreate: 'pending', settled: false, diff: null, cost: null,
+    }), 'flow-delivered:flow-1')
+  })
+
+  it('falls back to postSystemRow on a host without upsert', async () => {
+    const { ticketId, host, bound } = await seeded()
+    delete (host as { upsertSystemRow?: unknown }).upsertSystemRow
+    bound.conversation!.postDeliveredSummary!({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId, settlement: summary, session: session({ ticketId }), cost: null, diff: null, durationMs: 0 })
+    expect(host.postSystemRow).toHaveBeenCalledWith('conv-1', expect.objectContaining({ kind: 'flow-delivered', specTitle: 'Board' }), 'flow-delivered:flow-1')
+  })
+
+  it('measures the delivered change between base and head in the project checkout (real git)', async () => {
+    const { bound } = await seeded()
+    const base = git(['rev-parse', 'HEAD'])
+    fs.writeFileSync(path.join(repo, 'feature.ts'), 'export const a = 1\nexport const b = 2\n')
+    git(['add', 'feature.ts'])
+    git(['commit', '-q', '-m', 'feature'])
+    const head = git(['rev-parse', 'HEAD'])
+    await expect(bound.worktrees.diffTotals!({ baseSha: base, headSha: head })).resolves.toEqual({ files: 1, additions: 2, deletions: 0 })
+    await expect(bound.worktrees.diffTotals!({ baseSha: null, headSha: head })).resolves.toBeNull()
+    await expect(bound.worktrees.diffTotals!({ baseSha: 'f'.repeat(40), headSha: head })).resolves.toBeNull()
   })
 })
 

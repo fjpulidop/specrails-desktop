@@ -578,7 +578,11 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
         current = commit(result.session)
         await settle(current, result.effects)
       }
-      if (current.state === 'delivered') ports.effects.enqueue(plannedSettlementEffects(current.id, ports.clock.now()))
+      if (current.state === 'delivered') {
+        ports.effects.enqueue(plannedSettlementEffects(current.id, ports.clock.now()))
+        // The success card shows at once, its settlement lines pending.
+        if (result.session !== session) await announceDelivered(current, summarizeSettlement(ports.effects.list(current.id)))
+      }
       return current
     })
     void runSettlement(delivered.id).catch((error) => log.warn(`[flow] settlement of ${delivered.id} failed: ${error instanceof Error ? error.message : String(error)}`))
@@ -684,24 +688,31 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
         if (next.status !== 'pending') ports.notifier.changed(load(flowId))
       }
       const summary = summarizeSettlement(ports.effects.list(flowId))
-      announceDelivered(session, summary)
+      await announceDelivered(load(flowId), summary)
       return summary
     })
   }
 
   /**
-   * The Intent's closing summary in its conversation, once the spec rewrite and
-   * the Jira create settled (done, skipped or failed for good). The Jira
-   * review transition may still wait for the issue link: it never holds the
-   * summary back. Idempotent by Intent (the conversation dedupes); never throws.
+   * The Intent's closing success card in its conversation. Posted the moment
+   * the Intent is `delivered` (settlement lines pending) and again, in place,
+   * each time `runSettlement` ends, so the card appears at once and fills in.
+   * Idempotent by Intent (the conversation upserts one row); never throws.
    */
-  function announceDelivered(session: IntentSession, summary: IntentSettlementSummary): void {
+  async function announceDelivered(session: IntentSession, summary: IntentSettlementSummary): Promise<void> {
     const conversation = ports.conversation
     if (!conversation?.postDeliveredSummary || session.state !== 'delivered' || session.ticketId === null) return
-    const settled = (status: IntentSettlementSummary['specRewrite']) => status !== null && status !== 'pending'
-    if (!settled(summary.specRewrite) || !settled(summary.jiraCreate)) return
     try {
-      conversation.postDeliveredSummary({ conversationId: session.conversationId, flowId: session.id, deliveryId: session.deliveryId, ticketId: session.ticketId, settlement: summary })
+      const diff = ports.worktrees.diffTotals
+        ? await ports.worktrees.diffTotals({ baseSha: session.baseSha, headSha: session.headSha, ...repositoryOf(session) }).catch(() => null)
+        : null
+      let cost: { costUsd: number; turns: number; unpricedTurns: number } | null = null
+      try {
+        const usage = ports.usage.costSoFar({ conversationId: session.conversationId, from: session.createdAt, to: session.updatedAt })
+        cost = { costUsd: usage.costUsd, turns: usage.turns, unpricedTurns: usage.unpricedTurns }
+      } catch { cost = null }
+      const durationMs = Math.max(0, Date.parse(ports.clock.now()) - Date.parse(session.createdAt)) || 0
+      conversation.postDeliveredSummary({ conversationId: session.conversationId, flowId: session.id, deliveryId: session.deliveryId, ticketId: session.ticketId, settlement: summary, session, cost, diff, durationMs })
     } catch (error) {
       log.warn(`[flow] ${session.id} closing summary not posted: ${error instanceof Error ? error.message : String(error)}`)
     }

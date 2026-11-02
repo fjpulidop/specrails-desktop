@@ -1297,7 +1297,23 @@
     "change": "Spec change {{change}}",
     "changeArchived": "Spec change {{change}} archived",
     "jira": "Jira issue {{key}}",
-    "jiraPending": "Jira issue being created"
+    "jiraPending": "Jira issue being created",
+    "subtitle": "Built together, reviewed and integrated. Nice work.",
+    "untitled": "Your Intent",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "specRewrittenId": "Spec #{{id}} rewritten from what you built",
+    "specRewriting": "Rewriting the spec from what you built…",
+    "integratedPr": "Integrated: pull request",
+    "integratedPrMerged": "Integrated: pull request merged",
+    "integratedLocally": "Integrated locally into {{branch}}",
+    "questionsAnswered_one": "{{count}} open question answered",
+    "questionsAnswered_other": "{{count}} open questions answered",
+    "next": {
+      "openSpec": "Open the spec",
+      "viewPr": "View the pull request",
+      "another": "Start another intent"
+    }
   },
   "runStrip": {
     "launching": "Launching on {{rail}}…",

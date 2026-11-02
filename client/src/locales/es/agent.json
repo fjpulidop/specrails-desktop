@@ -1297,7 +1297,23 @@
     "change": "Cambio de spec {{change}}",
     "changeArchived": "Cambio de spec {{change}} archivado",
     "jira": "Incidencia de Jira {{key}}",
-    "jiraPending": "Creando la incidencia de Jira"
+    "jiraPending": "Creando la incidencia de Jira",
+    "subtitle": "Construido juntos, revisado e integrado. Buen trabajo.",
+    "untitled": "Tu Intent",
+    "files_one": "{{count}} archivo",
+    "files_other": "{{count}} archivos",
+    "specRewrittenId": "Spec #{{id}} reescrita a partir de lo que construiste",
+    "specRewriting": "Reescribiendo la spec a partir de lo que construiste…",
+    "integratedPr": "Integrado: pull request",
+    "integratedPrMerged": "Integrado: pull request fusionado",
+    "integratedLocally": "Integrado localmente en {{branch}}",
+    "questionsAnswered_one": "{{count}} pregunta abierta respondida",
+    "questionsAnswered_other": "{{count}} preguntas abiertas respondidas",
+    "next": {
+      "openSpec": "Abrir la spec",
+      "viewPr": "Ver el pull request",
+      "another": "Empezar otro intent"
+    }
   },
   "runStrip": {
     "launching": "Lanzando en {{rail}}…",

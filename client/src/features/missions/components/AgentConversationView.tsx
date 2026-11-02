@@ -524,7 +524,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} conversationId={m.conversation_id} />
               // Intent delivered: the closing summary (server-authored, once per Intent).
               const flowDelivered = parseFlowDeliveredRow(m.content)
-              if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} />
+              if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} projectId={refsProjectId} conversationId={m.conversation_id} />
               // Entered / left Intent: one event line at the boundary.
               const flowBoundary = parseFlowBoundaryRow(m.content)
               if (flowBoundary) return <AgentFlowBoundaryLine key={m.id} row={flowBoundary} />

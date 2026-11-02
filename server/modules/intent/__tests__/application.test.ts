@@ -581,22 +581,46 @@ describe('settlement (arch 4.6)', () => {
     expect(ctx.effects.rows.size).toBe(3)
   })
 
-  it('posts the closing summary once the spec rewrite and the Jira create settled, never before', async () => {
+  it('posts the success card the moment the Intent is delivered and again, in place, once the settlement advanced', async () => {
     const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}), postDeliveredSummary: vi.fn() }
+    const diffTotals = vi.fn(async () => ({ files: 4, additions: 120, deletions: 8 }))
     const ctx = await delivered({ conversation })
+    Object.assign(ctx.worktrees, { diffTotals })
     ctx.jira.linked.mockReturnValue(false)
     await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    // First post: right after the delivered transition, every settlement line pending.
+    expect(conversation.postDeliveredSummary).toHaveBeenCalledTimes(1)
+    expect(conversation.postDeliveredSummary.mock.calls[0]![0]).toMatchObject({
+      conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId: 7,
+      settlement: { specRewrite: 'pending', jiraCreate: 'pending', jiraReview: 'pending' },
+      session: expect.objectContaining({ id: 'flow-1', state: 'delivered', branch: 'feat/7-idea' }),
+      cost: { costUsd: 1.25, turns: 3, unpricedTurns: 1 },
+      diff: { files: 4, additions: 120, deletions: 8 },
+      durationMs: expect.any(Number),
+    })
+    expect(diffTotals).toHaveBeenCalledWith(expect.objectContaining({ baseSha: BASE, headSha: FROZEN }))
     await ctx.service.runSettlement('flow-1')
-    // The review transition still waits for the issue link: the summary does not.
+    // The review transition still waits for the issue link: the card does not.
     expect(statuses(ctx)).toMatchObject({ 'rewrite-spec': 'done', 'jira-create': 'done', 'jira-review': 'pending' })
-    expect(conversation.postDeliveredSummary).toHaveBeenCalledWith({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId: 7,
-      settlement: { specRewrite: 'done', jiraCreate: 'done', jiraReview: 'pending' } })
+    // Every settlement walk re-posts (the delivery's own background walk and
+    // this explicit one alike): the adapter upserts, so the row stays one.
+    const settledPosts = conversation.postDeliveredSummary.mock.calls.length
+    expect(settledPosts).toBeGreaterThanOrEqual(2)
+    expect(conversation.postDeliveredSummary.mock.calls[settledPosts - 1]![0]).toMatchObject({
+      flowId: 'flow-1', settlement: { specRewrite: 'done', jiraCreate: 'done', jiraReview: 'pending' },
+    })
+    // A repeated delivery signal never posts the first-time card again.
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    expect(conversation.postDeliveredSummary.mock.calls.slice(settledPosts).every((call) => call[0].settlement.specRewrite === 'done')).toBe(true)
 
+    // A failing rewrite still reports: the card shows the spec line as not done.
     const waiting = await delivered({ conversation: { ...conversation, postDeliveredSummary: vi.fn() } })
     waiting.publication.rewriteSpec.mockResolvedValue({ ok: false, error: 'provider down' })
     await waiting.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
     await waiting.service.runSettlement('flow-1')
-    expect(waiting.ports.conversation!.postDeliveredSummary).not.toHaveBeenCalled()
+    const posts = (waiting.ports.conversation!.postDeliveredSummary as ReturnType<typeof vi.fn>).mock.calls
+    expect(posts[0]![0]).toMatchObject({ settlement: { specRewrite: 'pending' }, diff: null })
+    expect(posts[posts.length - 1]![0]).toMatchObject({ settlement: { specRewrite: expect.not.stringMatching(/^done$/) } })
   })
 
   it('skips Jira for a project that is not connected', async () => {

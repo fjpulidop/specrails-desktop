@@ -1089,10 +1089,14 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         markUnread(convId)
         if (isActive) {
           const { type: _t, conversationId: _c, messageId, timestamp, ...row } = msg as unknown as { type: string; conversationId: string; messageId: string; timestamp: string } & Record<string, unknown>
-          if (typeof messageId === 'string' && !messagesRef.current.some((m) => m.id === messageId)) {
+          if (typeof messageId === 'string') {
             const systemRow: AgentMessage = { id: messageId, conversation_id: convId, role: 'system', content: JSON.stringify(row), created_at: typeof timestamp === 'string' ? timestamp : new Date().toISOString() }
-            messagesRef.current = [...messagesRef.current, systemRow]
-            setMessages((current) => (current.some((m) => m.id === messageId) ? current : [...current, systemRow]))
+            // A row re-broadcast with a known id was updated in place (the
+            // Intent delivered card filling in): replace it where it stands.
+            const upsert = (list: AgentMessage[]): AgentMessage[] =>
+              list.some((m) => m.id === messageId) ? list.map((m) => (m.id === messageId ? { ...m, content: systemRow.content } : m)) : [...list, systemRow]
+            messagesRef.current = upsert(messagesRef.current)
+            setMessages(upsert)
           }
         }
       } else if (msg.type === 'agent_pr_decision') {

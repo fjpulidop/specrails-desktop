@@ -1289,7 +1289,7 @@
     "generic": "エージェントのターンが失敗しました。"
   },
   "flowDelivered": {
-    "title": "Intent が完了しました",
+    "title": "Intent を納品しました",
     "pr": "プルリクエストを開く",
     "prNumber": "プルリクエスト #{{number}}",
     "specRewritten": "作成した内容に合わせて spec を書き直しました",
@@ -1297,7 +1297,23 @@
     "change": "spec の変更 {{change}}",
     "changeArchived": "spec の変更 {{change}} をアーカイブしました",
     "jira": "Jira 課題 {{key}}",
-    "jiraPending": "Jira 課題を作成中"
+    "jiraPending": "Jira 課題を作成中",
+    "subtitle": "一緒に作り、レビューし、取り込みました。お疲れさまでした。",
+    "untitled": "あなたの Intent",
+    "files_one": "{{count}} ファイル",
+    "files_other": "{{count}} ファイル",
+    "specRewrittenId": "作ったものからスペック #{{id}} を書き直しました",
+    "specRewriting": "作ったものからスペックを書き直しています…",
+    "integratedPr": "取り込み済み：プルリクエスト",
+    "integratedPrMerged": "取り込み済み：プルリクエストをマージ",
+    "integratedLocally": "{{branch}} にローカルで取り込みました",
+    "questionsAnswered_one": "未解決の質問 {{count}} 件に回答",
+    "questionsAnswered_other": "未解決の質問 {{count}} 件に回答",
+    "next": {
+      "openSpec": "スペックを開く",
+      "viewPr": "プルリクエストを見る",
+      "another": "別の intent を始める"
+    }
   },
   "runStrip": {
     "launching": "{{rail}} で起動中…",

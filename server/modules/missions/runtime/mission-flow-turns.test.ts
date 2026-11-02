@@ -28,7 +28,7 @@ import { getAdapter } from '../../../providers/registry'
 import { _resetAgentCapabilitiesForTest, revokeAgentCapability } from '../../../mcp/agent-capability'
 import { SessionRequestError, type InitializeResult, type SessionEvent, type SessionEventEnvelope, type SessionHostClient } from '../../agent-sessions'
 import { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
-import { addAgentMessage, createAgentConversation, getAgentConversation, updateAgentConversation } from '../../agents/runtime/agent-store'
+import { addAgentMessage, createAgentConversation, findAgentSystemMessages, getAgentConversation, updateAgentConversation } from '../../agents/runtime/agent-store'
 import { AgentChatManager } from './agent-chat-manager'
 import { FLOW_SUBAGENTS_ADDENDUM, FLOW_SYSTEM_PROMPT } from './agent-flow-prompt'
 import { listSessionCursors, listSubagents } from './agent-session-store'
@@ -381,6 +381,30 @@ describe('Intent turns in missions', () => {
       expect(rows).toHaveLength(1)
       expect(JSON.parse(rows[0]!.content)).toMatchObject({ kind: 'flow-return-briefing', deliveryId: 'd1', issues: ['Tag the tests'] })
       expect(broadcasts.filter((message) => message.type === 'agent_system_row')).toHaveLength(1)
+    })
+
+    it('upserts the Intent delivered card in place: same row id, updated content, re-broadcast once per real change', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const pending = { kind: 'flow-delivered', flowId: 'f1', specRewrite: 'pending', settled: false, at: 't1' }
+      const id = manager.upsertSystemRow(conversation.id, pending, 'flow-delivered:f1')
+      expect(id).toEqual(expect.any(String))
+      const rows = () => broadcasts.filter((message) => message.type === 'agent_system_row' && (message as { dedupeKey?: string }).dedupeKey === 'flow-delivered:f1')
+      expect(rows()).toHaveLength(1)
+      // Only the stamp changed: nothing is written or broadcast.
+      expect(manager.upsertSystemRow(conversation.id, { ...pending, at: 't2' }, 'flow-delivered:f1')).toBe(id)
+      expect(rows()).toHaveLength(1)
+      // The settlement advanced: the SAME row carries the new content.
+      expect(manager.upsertSystemRow(conversation.id, { ...pending, specRewrite: 'done', settled: true, at: 't3' }, 'flow-delivered:f1')).toBe(id)
+      const updates = rows()
+      expect(updates).toHaveLength(2)
+      expect(updates[1]).toMatchObject({ messageId: id, specRewrite: 'done', settled: true })
+      const stored = findAgentSystemMessages(db, conversation.id)
+      expect(stored).toHaveLength(1)
+      expect(JSON.parse(stored[0].content)).toMatchObject({ specRewrite: 'done', settled: true, dedupeKey: 'flow-delivered:f1' })
+      // A restarted manager keeps updating that same row.
+      const restarted = new AgentChatManager(() => {}, db, 4200, null)
+      expect(restarted.upsertSystemRow(conversation.id, { ...pending, specRewrite: 'done', settled: true, jiraKey: 'SR-1', at: 't4' }, 'flow-delivered:f1')).toBe(id)
+      expect(JSON.parse(findAgentSystemMessages(db, conversation.id)[0].content)).toMatchObject({ jiraKey: 'SR-1' })
     })
 
     it('starts ONE automatic Intent turn carrying the briefing through the normal Intent path; repeats and restarts never duplicate it', async () => {

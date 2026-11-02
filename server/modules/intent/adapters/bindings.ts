@@ -59,6 +59,9 @@ export interface IntentAgentHost {
   closeFlowSession(conversationId: string, coreSessionId: string, reason: string): Promise<void>
   /** Persist + broadcast a system row once per `dedupeKey` (null when skipped). Never throws. */
   postSystemRow?(conversationId: string, row: Record<string, unknown> & { kind: string }, dedupeKey: string): string | null
+  /** Post the row keyed by `dedupeKey`, or update the existing row IN PLACE and
+   * re-broadcast it (the client replaces the row). Never throws. */
+  upsertSystemRow?(conversationId: string, row: Record<string, unknown> & { kind: string }, dedupeKey: string): string | null
   /** Start ONE automatic, app-authored turn keyed by `turnKey` (durable dedup). Never throws. */
   startAutomaticTurn?(conversationId: string, text: string, opts: { turnKey: string; label: string }): Promise<'started' | 'skipped'>
 }
@@ -530,6 +533,27 @@ export function createFlowWorktrees(
         },
       }
     },
+    async diffTotals(input) {
+      if (!input.baseSha || !input.headSha || input.baseSha === input.headSha) return null
+      try {
+        // The project checkout keeps both commits after a merge or a PR push,
+        // long after the Intent's worktree is gone. Overlay files were never
+        // committed, so only the fixed never-staged roots are excluded.
+        const numstat = await git.run(['-c', 'core.quotepath=false', 'diff', '--no-renames', '--numstat', input.baseSha, input.headSha, '--'], repositoryTarget(input.repositoryId).path)
+        if (numstat.code !== 0) return null
+        const totals = { files: 0, additions: 0, deletions: 0 }
+        for (const line of numstat.stdout.split('\n')) {
+          const [added, removed, file] = line.split('\t')
+          if (!file || excludedFromDiff(file, [])) continue
+          totals.files++
+          if (added !== '-') totals.additions += Number(added) || 0
+          if (removed !== '-') totals.deletions += Number(removed) || 0
+        }
+        return totals
+      } catch {
+        return null
+      }
+    },
   }
 }
 
@@ -696,20 +720,41 @@ export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
       async startOpeningTurn({ conversationId, flowId }) {
         await deps.agentHost()?.startAutomaticTurn?.(conversationId, FLOW_OPENING_TURN_TEXT, { turnKey: `flow-opening:${flowId}`, label: 'Entered Intent' })
       },
-      postDeliveredSummary({ conversationId, flowId, deliveryId, ticketId, settlement }) {
+      postDeliveredSummary({ conversationId, flowId, deliveryId, ticketId, settlement, session, cost, diff, durationMs }) {
         const row = deliveryId ? getPrDelivery(ctx.db, deliveryId) : undefined
         const ticket = readStore(ticketStorePathForProject(ctx.project)).tickets[String(ticketId)]
         const changeName = typeof ticket?.metadata?.openspecChangeName === 'string' ? ticket.metadata.openspecChangeName : null
         let jiraKey: string | null = null
         try { const link = getLinkByLocalId(ctx.db, ticketId); jiraKey = link && !link.tombstoned ? link.jiraKey : null } catch { jiraKey = null }
-        deps.agentHost()?.postSystemRow?.(conversationId, {
+        const intent = normalizeSpecIntent(ticket?.intent)
+        const openQuestionsAnswered = intent ? intent.openQuestions.filter((item) => Boolean(item.answer)).length : 0
+        // How the work reached the project: a pull request (open or merged), or
+        // "Integrate locally" (merged with no PR). The delivery's own commit is
+        // the delivered head; the local merge commit itself is not recorded.
+        const prUrl = row?.pr_url ?? null
+        const integration = row
+          ? prUrl
+            ? { kind: 'pr' as const, prUrl, prNumber: row.pr_number ?? null, merged: row.decision === 'merged', baseBranch: row.base_branch, sha: row.delivery_sha ?? session.headSha }
+            : row.decision === 'merged'
+              ? { kind: 'local' as const, prUrl: null, prNumber: null, merged: true, baseBranch: row.base_branch, sha: row.delivery_sha ?? session.headSha }
+              : null
+          : null
+        const content = {
           kind: 'flow-delivered', flowId, deliveryId, ticketId,
-          prUrl: row?.pr_url ?? null, prNumber: row?.pr_number ?? null,
+          specTitle: ticket?.title ?? null,
+          branch: session.branch,
+          integration,
+          prUrl, prNumber: row?.pr_number ?? null,
           // Intent → Spec archives the change before it delivers (its `archive` step).
           changeName, changeArchived: Boolean(changeName),
           specRewrite: settlement.specRewrite, jiraCreate: settlement.jiraCreate, jiraKey,
+          diff, cost, durationMs, openQuestionsAnswered,
+          settled: settlement.specRewrite !== 'pending' && settlement.jiraCreate !== 'pending',
           at: clock.now(),
-        }, `flow-delivered:${flowId}`)
+        }
+        const host = deps.agentHost()
+        if (host?.upsertSystemRow) host.upsertSystemRow(conversationId, content, `flow-delivered:${flowId}`)
+        else host?.postSystemRow?.(conversationId, content, `flow-delivered:${flowId}`)
       },
       postBoundary({ conversationId, flowId, event, reason, branch }) {
         const at = clock.now()

@@ -118,6 +118,11 @@ export interface WorktreeReservation {
   freeze(input: { flowId: string; conversationId: string; ticketId: number; worktreePath: string; baseSha: string | null; allowedChanges: string[]; repositoryId?: string | null }): Promise<{ headSha: string; adoptedChange?: string }>
   exists(worktreePath: string): boolean
   diff(input: { worktreePath: string; baseSha: string | null; branch: string | null; repositoryId?: string | null }): Promise<IntentDiffSummary>
+  /** Totals of the committed change between two commits of the Intent's
+   * repository (the project checkout, not the worktree: a delivered Intent's
+   * worktree may be gone). Null when either commit is unknown or the diff
+   * cannot be measured; never throws. */
+  diffTotals?(input: { baseSha: string | null; headSha: string | null; repositoryId?: string | null }): Promise<{ files: number; additions: number; deletions: number } | null>
 }
 
 /** Core agent session of an Intent session (`flow:<flowId>`). Turns open it lazily with
@@ -170,6 +175,22 @@ export interface IntentRailLauncher {
    * change) runs inside it, so ownership moves atomically. Throws (409) when
    * the delivery cannot give the worktree back. */
   returnWorktree(input: { deliveryId: string; worktreePath: string; detail: string; commit: () => void }): void
+}
+
+/** What the closing success card is built from (see `IntentConversation.postDeliveredSummary`). */
+export interface IntentDeliveredSummaryInput {
+  conversationId: string
+  flowId: string
+  deliveryId: string | null
+  ticketId: number
+  settlement: IntentSettlementSummary
+  session: IntentSession
+  /** Provider-billed cost of the Intent's turns (null when usage is unknown). */
+  cost: { costUsd: number; turns: number; unpricedTurns: number } | null
+  /** Files changed between the Intent's base and its frozen head (null when not measurable). */
+  diff: { files: number; additions: number; deletions: number } | null
+  /** Wall-clock time from the Intent's start to this post. */
+  durationMs: number
 }
 
 /** Real (provider-reported) usage of an Intent session's turns. Never estimates. */
@@ -243,10 +264,13 @@ export interface IntentConversation {
    * for the person to speak first. Once per Intent; absent ⇒ the seed waits
    * for the person's next turn. */
   startOpeningTurn?(input: { conversationId: string; flowId: string }): Promise<void>
-  /** The closing summary once a delivered Intent settled its spec and Jira
-   * (PR link, rewritten spec, archived OpenSpec change, Jira key). Once per
-   * Intent; never throws. Absent ⇒ the run card alone tells the outcome. */
-  postDeliveredSummary?(input: { conversationId: string; flowId: string; deliveryId: string | null; ticketId: number; settlement: IntentSettlementSummary }): void
+  /** The closing success card of a delivered Intent. Posted as soon as the
+   * Intent is `delivered` (its settlement lines still pending) and posted again,
+   * IN PLACE, every time the settlement advances (spec rewrite, Jira create):
+   * the adapter upserts one row per Intent. `cost` is provider-reported only;
+   * `diff` is the Intent's measured change (null when it cannot be measured any
+   * more). Never throws. Absent ⇒ the run card alone tells the outcome. */
+  postDeliveredSummary?(input: IntentDeliveredSummaryInput): void
   /** A boundary of the conversation's Intent mode, as one history line: the
    * conversation entered Intent (started, or the work came back from a rail) or
    * left it (handed off to a rail, discarded). The client marks the agent

@@ -84,7 +84,7 @@ The rail, engine, model and effort are already chosen for you (a free rail and y
 
 The rail derives the spec and its spec change from what you built, verifies and reviews it, and the delivery card appears in the mission as with any run.
 
-If the run fails for a technical reason, the work comes back to this Intent on its own, intact: the card says in plain words what failed (the codes stay under **Technical details**) and the agent receives the error and explains it. If the review asks for changes, the card offers **Back to Intent** or **Relaunch**. When the delivery settles, the mission closes the Intent with a summary: the pull request, the spec rewritten from what you built, the archived spec change and the Jira issue when there is one.
+If the run fails for a technical reason, the work comes back to this Intent on its own, intact: the card says in plain words what failed (the codes stay under **Technical details**) and the agent receives the error and explains it. If the review asks for changes, the card offers **Back to Intent** or **Relaunch**. As soon as the work is integrated, the mission closes the Intent with a success card named after your spec: how much changed (files, cost, time, branch), how it reached the project (the pull request, or *Integrated locally into main*), the spec rewritten from what you built, the archived spec change, the Jira issue when there is one and the open questions the work answered. It appears right away and fills in while the spec is rewritten. Underneath, **Open the spec**, **View the pull request** and **Start another intent** take you on.
 
 ## Good to know
 

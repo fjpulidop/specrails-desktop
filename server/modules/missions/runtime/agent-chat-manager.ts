@@ -1654,6 +1654,37 @@ export class AgentChatManager {
   }
 
   /**
+   * Post the system row keyed by `dedupeKey`, or update the existing row IN
+   * PLACE (same message id, same position in the history) and re-broadcast it
+   * as `agent_system_row`, so open clients replace what they show. A row whose
+   * content only differs by its `at` stamp is left alone (no write, no
+   * broadcast). Returns the row id, or null when skipped. NEVER throws.
+   */
+  upsertSystemRow(conversationId: string, row: Record<string, unknown> & { kind: string }, dedupeKey: string): string | null {
+    if (this._disposed) return null
+    try {
+      if (!getAgentConversation(this._db, conversationId)) return null
+      const existing = findAgentSystemMessages(this._db, conversationId, (content) => {
+        try { return (JSON.parse(content) as { dedupeKey?: unknown }).dedupeKey === dedupeKey } catch { return false }
+      })
+      if (existing.length === 0) return this.postSystemRow(conversationId, row, dedupeKey)
+      const canonical = existing[existing.length - 1]
+      const content = { ...row, dedupeKey }
+      const sameButStamp = (value: string): string => {
+        try { const { at: _at, ...rest } = JSON.parse(value) as Record<string, unknown>; return JSON.stringify(rest) } catch { return value }
+      }
+      const serialized = JSON.stringify(content)
+      if (sameButStamp(canonical.content) === sameButStamp(serialized)) return canonical.id
+      updateAgentMessageContent(this._db, canonical.id, serialized)
+      this._broadcast({ type: 'agent_system_row', conversationId, messageId: canonical.id, ...content, timestamp: canonical.created_at })
+      return canonical.id
+    } catch (err) {
+      console.error(`[agent-chat] upsertSystemRow failed (${conversationId}):`, err)
+      return null
+    }
+  }
+
+  /**
    * Start ONE automatic, app-authored turn through the normal path (queued
    * behind a live turn, Intent-aware, accounted, interruptible). The durable
    * queue id `turnKey` makes a repeat (reload, retry, restart) a no-op. It is

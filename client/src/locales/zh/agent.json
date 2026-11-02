@@ -1297,7 +1297,23 @@
     "change": "spec 变更 {{change}}",
     "changeArchived": "spec 变更 {{change}} 已归档",
     "jira": "Jira 工单 {{key}}",
-    "jiraPending": "正在创建 Jira 工单"
+    "jiraPending": "正在创建 Jira 工单",
+    "subtitle": "一起构建、经过评审并已集成。干得好。",
+    "untitled": "你的 Intent",
+    "files_one": "{{count}} 个文件",
+    "files_other": "{{count}} 个文件",
+    "specRewrittenId": "已根据你构建的内容重写规格 #{{id}}",
+    "specRewriting": "正在根据你构建的内容重写规格…",
+    "integratedPr": "已集成：拉取请求",
+    "integratedPrMerged": "已集成：拉取请求已合并",
+    "integratedLocally": "已在本地集成到 {{branch}}",
+    "questionsAnswered_one": "已回答 {{count}} 个未决问题",
+    "questionsAnswered_other": "已回答 {{count}} 个未决问题",
+    "next": {
+      "openSpec": "打开规格",
+      "viewPr": "查看拉取请求",
+      "another": "开始另一个 intent"
+    }
   },
   "runStrip": {
     "launching": "正在 {{rail}} 上启动…",

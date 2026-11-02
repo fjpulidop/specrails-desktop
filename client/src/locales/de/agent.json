@@ -1289,7 +1289,7 @@
     "generic": "Der Zug des Agenten ist fehlgeschlagen."
   },
   "flowDelivered": {
-    "title": "Intent ausgeliefert",
+    "title": "Intent geliefert",
     "pr": "Pull-Request öffnen",
     "prNumber": "Pull-Request #{{number}}",
     "specRewritten": "Spec aus dem Gebauten neu geschrieben",
@@ -1297,7 +1297,23 @@
     "change": "Spec-Änderung {{change}}",
     "changeArchived": "Spec-Änderung {{change}} archiviert",
     "jira": "Jira-Vorgang {{key}}",
-    "jiraPending": "Jira-Vorgang wird erstellt"
+    "jiraPending": "Jira-Vorgang wird erstellt",
+    "subtitle": "Gemeinsam gebaut, geprüft und integriert. Gute Arbeit.",
+    "untitled": "Dein Intent",
+    "files_one": "{{count}} Datei",
+    "files_other": "{{count}} Dateien",
+    "specRewrittenId": "Spec #{{id}} aus dem Gebauten neu geschrieben",
+    "specRewriting": "Spec wird aus dem Gebauten neu geschrieben…",
+    "integratedPr": "Integriert: Pull Request",
+    "integratedPrMerged": "Integriert: Pull Request gemergt",
+    "integratedLocally": "Lokal in {{branch}} integriert",
+    "questionsAnswered_one": "{{count}} offene Frage beantwortet",
+    "questionsAnswered_other": "{{count}} offene Fragen beantwortet",
+    "next": {
+      "openSpec": "Spec öffnen",
+      "viewPr": "Pull Request ansehen",
+      "another": "Weiteren Intent starten"
+    }
   },
   "runStrip": {
     "launching": "Wird auf {{rail}} gestartet…",
