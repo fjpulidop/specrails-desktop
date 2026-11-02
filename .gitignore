@@ -46,3 +46,4 @@ build/
 
 # macOS
 .DS_Store
+client/.impeccable/live/

@@ -569,7 +569,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentConversationView.tsx](../../client/src/features/missions/components/AgentConversationView.tsx)
 - [AgentDeliveryReceipt.tsx](../../client/src/features/missions/components/AgentDeliveryReceipt.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentDeliveryReceipt.test.tsx)
 - [AgentFlowBoundaryLine.tsx](../../client/src/features/missions/components/AgentFlowBoundaryLine.tsx)
-- [AgentFlowDeliveredCard.tsx](../../client/src/features/missions/components/AgentFlowDeliveredCard.tsx)
+- [AgentFlowDeliveredCard.tsx](../../client/src/features/missions/components/AgentFlowDeliveredCard.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentFlowDeliveredCard.test.tsx)
 - [AgentFlowReturnCard.tsx](../../client/src/features/missions/components/AgentFlowReturnCard.tsx)
 - [AgentFlowReviewBlock.tsx](../../client/src/features/missions/components/AgentFlowReviewBlock.tsx)
 - [AgentGitBar.tsx](../../client/src/features/missions/components/AgentGitBar.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentGitBar.test.tsx)
@@ -854,7 +854,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/specs/components
 
-- [CreateTicketModal.tsx](../../client/src/features/specs/components/CreateTicketModal.tsx) · [test](../../client/src/features/specs/components/__tests__/CreateTicketModal.test.tsx)
 - [IntentSection.tsx](../../client/src/features/specs/components/IntentSection.tsx) · [test](../../client/src/features/specs/components/__tests__/IntentSection.test.tsx)
 - [NonGoalsSection.tsx](../../client/src/features/specs/components/NonGoalsSection.tsx) · [test](../../client/src/features/specs/components/__tests__/NonGoalsSection.test.tsx)
 - [PriorityBadge.tsx](../../client/src/features/specs/components/PriorityBadge.tsx)
@@ -866,6 +865,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [SpecComparePicker.tsx](../../client/src/features/specs/components/SpecComparePicker.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecComparePicker.test.tsx)
 - [SpecEpicFilterOptions.tsx](../../client/src/features/specs/components/SpecEpicFilterOptions.tsx)
 - [SpecFiltersPopover.tsx](../../client/src/features/specs/components/SpecFiltersPopover.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecFiltersPopover.test.tsx)
+- [SpecIntentBadges.tsx](../../client/src/features/specs/components/SpecIntentBadges.tsx)
 - [SpecJiraStatusFilterOptions.tsx](../../client/src/features/specs/components/SpecJiraStatusFilterOptions.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecJiraStatusFilterOptions.test.tsx)
 - [SpecLabelFilterOptions.tsx](../../client/src/features/specs/components/SpecLabelFilterOptions.tsx)
 - [SpecLabelFilterStrip.tsx](../../client/src/features/specs/components/SpecLabelFilterStrip.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecLabelFilterStrip.test.tsx)
