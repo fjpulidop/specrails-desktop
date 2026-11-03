@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.65.1...v3.0.0) (2026-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* mode "freestyle" and the retired factory ids are no longer accepted by POST /rails/:i/launch; the specrails_rails MCP mode enum drops "freestyle".
+
+### Features
+
+* Intent mode (intent-first specs) and retire Freestyle/SDD Quick built-ins ([#836](https://github.com/fjpulidop/specrails-desktop/issues/836)) ([aa9721f](https://github.com/fjpulidop/specrails-desktop/commit/aa9721f73d61535772e324d2a1d9cc2b67aad21c))
+
 ## [2.65.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.65.0...v2.65.1) (2026-10-26)
 
 
