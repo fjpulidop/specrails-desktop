@@ -11,6 +11,7 @@ import {
 } from './db'
 import { getAdapter } from './providers'
 import { extractOutOfScopeSection, validateNonGoals } from './modules/specs/domain/non-goals'
+import { validateSpecIntent } from './modules/specs/domain/intent'
 import { runContractRefine, runContractRefineForQuick } from './modules/specs/runtime/contract-refine-runner'
 import { isExploreContractRefineKillSwitchActive, splitDescriptionAtContractLayer } from './modules/conversations/runtime/explore-contract-refine'
 import { softDeleteTicket, restoreTicket, listTrashedTickets, purgeTrashedTicket, TRASH_RETENTION_DAYS, TRASH_RETENTION_MS } from './modules/specs/runtime/ticket-trash'
@@ -408,6 +409,8 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       resolveRepositoryScope: () => repositoryScope(req, res),
       attachments,
       contractRefine: quickContractRefine ? { model: (req.body?.model as string | undefined) ?? null } : null,
+      // Add Spec → Intent (intent-mode): the intent first, the spec derived from it.
+      ...(req.body?.intent === true ? { intent: { mode: 'derive' as const } } : {}),
       requestId,
       hooks: {
         onDelta: (delta) => {
@@ -633,6 +636,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (draftNonGoals && !draftNonGoals.ok) {
       res.status(400).json({ error: draftNonGoals.error }); return
     }
+    const draftIntent = body.intent === undefined ? null : validateSpecIntent(body.intent)
+    if (draftIntent && !draftIntent.ok) {
+      res.status(400).json({ error: draftIntent.error }); return
+    }
     // Optional assignee/prerequisites/metadata (same normalization as the
     // PATCH /tickets/:id route) so an MCP commit_draft is a true one-shot
     // insert — no follow-up update call needed for these fields.
@@ -730,6 +737,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           flipTarget.title = rawTitle
           flipTarget.description = descriptionForStore
           if (nonGoalsForStore.length > 0 || draftNonGoals?.ok) flipTarget.nonGoals = nonGoalsForStore
+          if (draftIntent?.ok) {
+            if (draftIntent.intent) flipTarget.intent = draftIntent.intent
+            else delete flipTarget.intent
+          }
           if (labels.length > 0) flipTarget.labels = labels
           // PATCH-route semantics: apply only when the field was supplied;
           // metadata merges keys instead of replacing the object.
@@ -786,6 +797,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           execution_order: null,
           short_summary: bodyShortSummary,
           ...(nonGoalsForStore.length ? { nonGoals: nonGoalsForStore } : {}),
+          ...(draftIntent?.ok && draftIntent.intent ? { intent: draftIntent.intent } : {}),
           created_at: now,
           updated_at: now,
           created_by: 'sr-explore-spec',
@@ -1327,13 +1339,17 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
   // POST /:projectId/tickets — Create new ticket
   router.post('/:projectId/tickets', (req: Request, res: Response) => {
-    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, source, nonGoals: rawNonGoals } = req.body ?? {}
+    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, source, nonGoals: rawNonGoals, intent: rawIntent } = req.body ?? {}
     if (!title || typeof title !== 'string' || !title.trim()) {
       res.status(400).json({ error: 'title is required' }); return
     }
     const createNonGoals = rawNonGoals === undefined ? null : validateNonGoals(rawNonGoals)
     if (createNonGoals && !createNonGoals.ok) {
       res.status(400).json({ error: createNonGoals.error }); return
+    }
+    const createIntent = rawIntent === undefined ? null : validateSpecIntent(rawIntent)
+    if (createIntent && !createIntent.ok) {
+      res.status(400).json({ error: createIntent.error }); return
     }
     const createRegression = normalizeRegressionOfMetadata(typeof rawMetadata === 'object' && rawMetadata !== null ? rawMetadata : {})
     if (!createRegression.ok) {
@@ -1373,6 +1389,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           execution_order: null,
           short_summary: null,
           ...(createNonGoals?.ok && createNonGoals.nonGoals.length ? { nonGoals: createNonGoals.nonGoals } : {}),
+          ...(createIntent?.ok && createIntent.intent ? { intent: createIntent.intent } : {}),
           created_at: now,
           updated_at: now,
           created_by: source === 'mcp' ? 'mcp' : 'hub', // 'hub' = legacy on-disk wire value (tickets.json, shared with specrails-core) — do not rename
@@ -1554,10 +1571,14 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (!/^\d+$/.test(ticketId)) {
       res.status(400).json({ error: 'Invalid ticket ID' }); return
     }
-    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, acceptanceCriteria, short_summary, nonGoals: rawNonGoals } = req.body ?? {}
+    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, acceptanceCriteria, short_summary, nonGoals: rawNonGoals, intent: rawIntent } = req.body ?? {}
     const patchNonGoals = rawNonGoals === undefined ? null : validateNonGoals(rawNonGoals)
     if (patchNonGoals && !patchNonGoals.ok) {
       res.status(400).json({ error: patchNonGoals.error }); return
+    }
+    const patchIntent = rawIntent === undefined ? null : validateSpecIntent(rawIntent)
+    if (patchIntent && !patchIntent.ok) {
+      res.status(400).json({ error: patchIntent.error }); return
     }
     if (status !== undefined && !isValidStatus(status)) {
       res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, on_review, done, cancelled' }); return
@@ -1603,6 +1624,11 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         if (patchNonGoals?.ok) {
           if (patchNonGoals.nonGoals.length) ticket.nonGoals = patchNonGoals.nonGoals
           else delete ticket.nonGoals
+        }
+        // Intent (intent-mode): local-only like non-goals; null clears.
+        if (patchIntent?.ok) {
+          if (patchIntent.intent) ticket.intent = patchIntent.intent
+          else delete ticket.intent
         }
         if (priority !== undefined) ticket.priority = nextPriority as Ticket['priority']
         if (labels !== undefined && Array.isArray(labels)) ticket.labels = labels.filter((l: unknown) => typeof l === 'string')

@@ -61,9 +61,9 @@
       "moveSpecN": "Move #{{id}} to",
       "openReview": "Open review",
       "openReviewN": "Open review for #{{id}}",
-      "handOffFlow": "Hand off Flow",
-      "pauseFlow": "Pause Flow",
-      "resumeFlow": "Resume Flow",
+      "handOffFlow": "Hand off Intent",
+      "pauseFlow": "Pause Intent",
+      "resumeFlow": "Resume Intent",
       "newMission": "New mission",
       "switchTheme": "Switch theme",
       "switchToMission": "Switch to Mission mode",
@@ -197,6 +197,7 @@
         "description": "Description",
         "label": "Label",
         "nonGoal": "Out of scope",
+        "intent": "Intent",
         "addendum": "Addendum",
         "comment": "Comment"
       }
@@ -288,7 +289,7 @@
         },
         "prePrompt": {
           "label": "Rail pre-prompt",
-          "keywords": "pre-prompt, preprompt, instructions, prompt, rail, freestyle"
+          "keywords": "pre-prompt, preprompt, instructions, prompt, rail"
         },
         "verificationCommands": {
           "label": "Verification commands",
@@ -411,8 +412,8 @@
       "runStripFocus": "Jump to the mission's run strip (press again to show or hide details)",
       "runStripCycle": "Previous / next run in the run strip (outside text fields)",
       "runStripBack": "Leave the run strip, back to where you were",
-      "flowPause": "Pause or resume the Flow (run strip focused)",
-      "flowHandOff": "Hand off the Flow (run strip focused)",
+      "flowPause": "Pause or resume the Intent (run strip focused)",
+      "flowHandOff": "Hand off the Intent (run strip focused)",
       "historyBackForward": "Go back / forward to the previous place",
       "undoLast": "Undo the last change",
       "openInbox": "Open the Needs you inbox",

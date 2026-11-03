@@ -61,9 +61,9 @@
       "moveSpecN": "#{{id}} の移動先",
       "openReview": "レビューを開く",
       "openReviewN": "#{{id}} のレビューを開く",
-      "handOffFlow": "Flow を引き継ぐ",
-      "pauseFlow": "Flow を一時停止",
-      "resumeFlow": "Flow を再開",
+      "handOffFlow": "Intent を引き継ぐ",
+      "pauseFlow": "Intent を一時停止",
+      "resumeFlow": "Intent を再開",
       "newMission": "新しいミッション",
       "switchTheme": "テーマを切り替え",
       "switchToMission": "ミッションモードに切り替え",
@@ -197,6 +197,7 @@
         "description": "説明",
         "label": "ラベル",
         "nonGoal": "対象外",
+        "intent": "Intent",
         "addendum": "追記",
         "comment": "コメント"
       }
@@ -288,7 +289,7 @@
         },
         "prePrompt": {
           "label": "レールのプリプロンプト",
-          "keywords": "プリプロンプト, pre-prompt, 指示, プロンプト, レール, freestyle"
+          "keywords": "プリプロンプト, pre-prompt, 指示, プロンプト, レール"
         },
         "verificationCommands": {
           "label": "検証コマンド",
@@ -411,8 +412,8 @@
       "runStripFocus": "ミッションの実行ストリップへ移動（もう一度押すと詳細を表示 / 非表示）",
       "runStripCycle": "実行ストリップで前 / 次の実行へ（テキスト入力欄の外で）",
       "runStripBack": "実行ストリップを離れ、元の場所に戻る",
-      "flowPause": "Flow を一時停止 / 再開（実行ストリップにフォーカス中）",
-      "flowHandOff": "Flow を引き渡す（実行ストリップにフォーカス中）",
+      "flowPause": "Intent を一時停止 / 再開（実行ストリップにフォーカス中）",
+      "flowHandOff": "Intent を引き渡す（実行ストリップにフォーカス中）",
       "historyBackForward": "前の場所 / 次の場所へ戻る・進む",
       "undoLast": "直前の変更を元に戻す",
       "openInbox": "対応待ちを開く",

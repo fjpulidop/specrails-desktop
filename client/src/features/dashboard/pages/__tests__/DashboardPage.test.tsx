@@ -93,12 +93,6 @@ vi.mock('../../../specs/components/TicketDetailModal', () => ({
   ),
 }))
 
-vi.mock('../../../specs/components/CreateTicketModal', () => ({
-  CreateTicketModal: ({ open }: { open: boolean }) => (
-    open ? <div data-testid="create-ticket-modal" /> : null
-  ),
-}))
-
 describe('DashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -298,11 +292,6 @@ describe('DashboardPage', () => {
     expect(h1).toHaveLength(1)
     expect(h1[0]).toHaveClass('sr-only')
     expect(h1[0].textContent).toMatch(/Board$/)
-  })
-
-  it('CreateTicketModal is not shown initially', () => {
-    render(<DashboardPage />)
-    expect(screen.queryByTestId('create-ticket-modal')).not.toBeInTheDocument()
   })
 
   describe('board bulk actions (CD4)', () => {

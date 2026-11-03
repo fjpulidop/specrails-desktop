@@ -1,4 +1,4 @@
-// Opt-in live smoke: the built-in Freestyle factory runs end to end through
+// Opt-in live smoke: the Freestyle gallery template (formerly the built-in factory) runs end to end through
 // Desktop's production loop executor, the real bridge and a real Core build,
 // with REAL provider CLIs (paid; never runs in CI). It is the evidence gate for
 // a provider's `freestyle` capability (see openspec/changes/freestyle-codex-gemini).
@@ -12,7 +12,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetCoreAgentRuntimeApiCache, loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { createLoopExecutors } from './loop-executors'
-import { getFactoryLoop } from './loop-factory'
+import { FREESTYLE_TEMPLATE_ID, getLoopTemplate } from './loop-templates'
 import type { ReasoningEffort } from '../../../providers/types'
 
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))
@@ -75,7 +75,7 @@ describe.skipIf(!enabled)('Freestyle factory with live providers', () => {
     }))
 
     const capabilities = (await loadCoreAgentRuntime()).api?.capabilities
-    const factory = getFactoryLoop('factory:freestyle', capabilities)!
+    const factory = (({ id, name, graph }) => ({ id, name, graph }))(getLoopTemplate(FREESTYLE_TEMPLATE_ID, capabilities)!)
     expect(factory.graph.nodes.some(node => node.data?.kind === 'decider')).toBe(true)
     const { model, effort } = models[provider] ?? { model: '' }
     const events: Array<Record<string, any>> = [], lines: string[] = []

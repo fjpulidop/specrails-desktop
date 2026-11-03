@@ -151,19 +151,6 @@
     ],
     "dependencies": []
   },
-  "flow": {
-    "publicEntries": [
-      "components/FlowMissionsBridge.tsx",
-      "components/StartInFlow.tsx"
-    ],
-    "dependencies": [
-      "background",
-      "missions",
-      "providers",
-      "rails",
-      "specs"
-    ]
-  },
   "inbox": {
     "publicEntries": [
       "components/InboxButton.tsx",
@@ -189,6 +176,19 @@
       "pages/IntegrationsPage.tsx"
     ],
     "dependencies": []
+  },
+  "intent": {
+    "publicEntries": [
+      "components/IntentMissionsBridge.tsx",
+      "components/StartInIntent.tsx"
+    ],
+    "dependencies": [
+      "background",
+      "missions",
+      "providers",
+      "rails",
+      "specs"
+    ]
   },
   "jobs": {
     "publicEntries": [
@@ -344,7 +344,6 @@
   },
   "rails": {
     "publicEntries": [
-      "components/FreestyleLaunchDialog.tsx",
       "components/LaunchAllDialog.tsx",
       "components/MoveToRailPopover.tsx",
       "components/RailControls.tsx",
@@ -418,7 +417,6 @@
   },
   "specs": {
     "publicEntries": [
-      "components/CreateTicketModal.tsx",
       "components/SpecCard.tsx",
       "components/SpecComparePicker.tsx",
       "components/SpecTriageChip.tsx",
@@ -436,6 +434,7 @@
       "lib/bulk-report.ts",
       "lib/spec-addenda-core.ts",
       "lib/spec-draft.ts",
+      "lib/spec-intent.ts",
       "lib/spec-sort.ts",
       "lib/spec-status-filter.ts",
       "lib/spec-triage.ts",

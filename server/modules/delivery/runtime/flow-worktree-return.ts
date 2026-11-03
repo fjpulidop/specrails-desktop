@@ -1,12 +1,12 @@
 /**
- * "Back to Flow": the inverse of the Flow hand-off adoption
- * (flow-worktree-handoff.ts). A Flow → Spec delivery that stopped with
- * requested changes keeps the adopted Flow worktree in the rail ledger
+ * "Back to Intent": the inverse of the Intent hand-off adoption
+ * (flow-worktree-handoff.ts). An Intent session → Spec delivery that stopped with
+ * requested changes keeps the adopted Intent worktree in the rail ledger
  * (`rail_worktrees`, `needs-review`). Returning it removes the ledger row,
  * closes the delivery as `returned_to_flow` and hands ownership back to the
- * Flow — all in ONE SQLite transaction that delivery owns, mirroring the
- * adoption: Flow supplies only the `commit` callback (its own state change),
- * delivery never touches Flow's table and never removes the worktree.
+ * Intent — all in ONE SQLite transaction that delivery owns, mirroring the
+ * adoption: Intent supplies only the `commit` callback (its own state change),
+ * delivery never touches Intent's table and never removes the worktree.
  */
 import type { DbInstance } from '../../../db'
 import type { WsMessage } from '../../../types'
@@ -17,16 +17,16 @@ import { getPrDelivery, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPr
 const TERMINAL_DECISIONS = new Set(['merged', 'completed', 'discarded', 'superseded'])
 
 /** The delivery cannot give its worktree back now (HTTP 409). */
-export class FlowReturnRejectedError extends Error {
+export class IntentReturnRejectedError extends Error {
   constructor(readonly code: 'flow_return_not_found' | 'flow_return_not_allowed' | 'flow_return_busy' | 'flow_return_worktree_mismatch', message: string) {
     super(message)
-    this.name = 'FlowReturnRejectedError'
+    this.name = 'IntentReturnRejectedError'
   }
 }
 
-export interface FlowWorktreeReturnInput {
+export interface IntentWorktreeReturnInput {
   deliveryId: string
-  /** The Flow's own mount; the delivery must have adopted exactly this path. */
+  /** The Intent's own mount; the delivery must have adopted exactly this path. */
   worktreePath: string
   /** Shown on the closed delivery (statusDetail). */
   detail: string
@@ -34,46 +34,46 @@ export interface FlowWorktreeReturnInput {
 
 /**
  * Transfer the adopted worktree back. `commit` runs INSIDE the transaction
- * (it saves the Flow's state); throwing rolls back the ledger and the delivery
+ * (it saves the Intent's state); throwing rolls back the ledger and the delivery
  * too. Idempotent: a delivery already `returned_to_flow` returns its snapshot
  * without calling `commit` again.
  */
-export function returnFlowWorktree(db: DbInstance, input: FlowWorktreeReturnInput, commit: () => void): PrDeliverySnapshot {
+export function returnFlowWorktree(db: DbInstance, input: IntentWorktreeReturnInput, commit: () => void): PrDeliverySnapshot {
   return db.transaction(() => {
     const row = getPrDelivery(db, input.deliveryId)
-    if (!row || row.loop_id !== FLOW_SPEC_DELIVERY_LOOP_ID) throw new FlowReturnRejectedError('flow_return_not_found', 'This delivery is not a Flow → Spec run')
+    if (!row || row.loop_id !== FLOW_SPEC_DELIVERY_LOOP_ID) throw new IntentReturnRejectedError('flow_return_not_found', 'This delivery is not an Intent session → Spec run')
     if (row.decision === 'discarded' && row.status_code === 'returned_to_flow') return toPrDeliverySnapshot(row)
     if (row.decision !== 'implementation_failed') {
-      throw new FlowReturnRejectedError('flow_return_not_allowed', 'Only a Flow → Spec run that stopped before delivery can go back to its Flow')
+      throw new IntentReturnRejectedError('flow_return_not_allowed', 'Only an Intent session → Spec run that stopped before delivery can go back to its Intent')
     }
-    if (row.operation_token || row.operation) throw new FlowReturnRejectedError('flow_return_busy', 'The delivery is busy; try again when its current action finishes')
+    if (row.operation_token || row.operation) throw new IntentReturnRejectedError('flow_return_busy', 'The delivery is busy; try again when its current action finishes')
     const snap = toPrDeliverySnapshot(row)
     if (!snap.branches.some((unit) => unit.worktreePath === input.worktreePath)) {
-      throw new FlowReturnRejectedError('flow_return_worktree_mismatch', 'The delivery did not adopt this Flow worktree')
+      throw new IntentReturnRejectedError('flow_return_worktree_mismatch', 'The delivery did not adopt this Intent worktree')
     }
     const runIds = new Set(snap.runIds)
     const ledger = (db.prepare('SELECT id, run_id FROM rail_worktrees WHERE worktree_path = ?').all(input.worktreePath) as Array<{ id: string; run_id: string | null }>)
       .filter((entry) => entry.run_id === null || runIds.has(entry.run_id))
     for (const entry of ledger) db.prepare('DELETE FROM rail_worktrees WHERE id = ?').run(entry.id)
     const released = new Set(ledger.map((entry) => entry.id))
-    // A Flow in a non-primary repository ran as a one-repository group: its
-    // child row closes with the parent (both before Flow commits), so no
+    // An Intent session in a non-primary repository ran as a one-repository group: its
+    // child row closes with the parent (both before Intent commits), so no
     // later group projection can reopen or re-settle the returned delivery.
     const children = db.prepare('SELECT * FROM rail_pr_deliveries WHERE parent_delivery_id = ? ORDER BY rowid').all(row.id) as RailPrDeliveryRow[]
-    if (children.length > 1) throw new FlowReturnRejectedError('flow_return_not_allowed', 'This delivery spans several repositories; a Flow worktree belongs to one')
-    if (children.some((child) => child.operation_token || child.operation)) throw new FlowReturnRejectedError('flow_return_busy', 'The delivery is busy; try again when its current action finishes')
+    if (children.length > 1) throw new IntentReturnRejectedError('flow_return_not_allowed', 'This delivery spans several repositories; an Intent session worktree belongs to one')
+    if (children.some((child) => child.operation_token || child.operation)) throw new IntentReturnRejectedError('flow_return_busy', 'The delivery is busy; try again when its current action finishes')
     if (!transitionDecision(db, row.id, 'implementation_failed', 'discarded', {
       statusCode: 'returned_to_flow',
       statusDetail: input.detail,
       worktreeIds: snap.worktreeIds.filter((id) => !released.has(id)),
-    })) throw new FlowReturnRejectedError('flow_return_busy', 'The delivery changed while returning its worktree')
+    })) throw new IntentReturnRejectedError('flow_return_busy', 'The delivery changed while returning its worktree')
     for (const child of children) {
       if (TERMINAL_DECISIONS.has(child.decision)) continue
       if (!transitionDecision(db, child.id, child.decision, 'discarded', {
         statusCode: 'returned_to_flow',
         statusDetail: input.detail,
         worktreeIds: toPrDeliverySnapshot(child).worktreeIds.filter((id) => !released.has(id)),
-      })) throw new FlowReturnRejectedError('flow_return_busy', 'The delivery changed while returning its worktree')
+      })) throw new IntentReturnRejectedError('flow_return_busy', 'The delivery changed while returning its worktree')
     }
     commit()
     return toPrDeliverySnapshot(getPrDelivery(db, row.id)!)

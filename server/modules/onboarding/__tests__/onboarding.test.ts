@@ -29,10 +29,10 @@ const localEngine = (over: Partial<PresetProviderCandidate> = {}): PresetProvide
 })
 
 describe('sample launch preset', () => {
-  it('applies Quick SDD, the cheapest model and the per-run soft cap', () => {
+  it('applies Implement (the only built-in), the cheapest model and the per-run soft cap', () => {
     const verdict = chooseSamplePreset([claude()])
     expect(verdict).toMatchObject({ ready: true, localPreset: null, preset: { provider: 'claude', model: 'haiku', local: false, loopId: SAMPLE_LOOP_ID, runCapUsd: SAMPLE_RUN_CAP_USD } })
-    expect(SAMPLE_LOOP_ID).toBe('factory:sdd-quick-openspec')
+    expect(SAMPLE_LOOP_ID).toBe('factory:implement')
   })
 
   it('picks the cheapest ready cloud provider and ignores unusable or signed-out ones', () => {
@@ -257,7 +257,7 @@ describe('HTTP routes', () => {
     expect(res.body.catalog).toEqual([{ id: 'tic-tac-toe', name: 'tic-tac-toe', specCount: 3 }])
     expect(res.body.sample).toBeNull()
     expect(res.body.defaultParentDir).toBe(path.join(home, 'Specrails Samples'))
-    expect(res.body.launch).toMatchObject({ ready: true, runCapUsd: 1, estimate: { minutes: [3, 5], usd: [0.3, 1] }, preset: { provider: 'claude', model: 'haiku', loopId: SAMPLE_LOOP_ID, runCapUsd: 1 } })
+    expect(res.body.launch).toMatchObject({ ready: true, runCapUsd: 2, estimate: { minutes: [5, 12], usd: [0.5, 2] }, preset: { provider: 'claude', model: 'haiku', loopId: SAMPLE_LOOP_ID, runCapUsd: 2 } })
   })
 
   it('GET falls back to "not ready" (recorded run) when no provider works or detection fails', async () => {

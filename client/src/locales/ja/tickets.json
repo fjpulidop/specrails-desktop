@@ -81,18 +81,6 @@
     "grid": "グリッド表示（カンバン）",
     "postit": "付箋表示"
   },
-  "createModal": {
-    "title": "スペックを作成",
-    "titlePlaceholder": "スペックのタイトル...",
-    "labelsPlaceholder": "入力してラベルを追加...",
-    "create": "作成",
-    "creating": "作成中...",
-    "toast": {
-      "created": "スペックを作成しました",
-      "createFailed": "スペックの作成に失敗しました"
-    },
-    "description": "スペックを手動でボードに追加します。選択したステータスから始まり、後で改善したりレールへ移動したりできます。"
-  },
   "comparePicker": {
     "title": "比較対象を選択…",
     "count": "(スペック {{n}} 件)",
@@ -123,7 +111,7 @@
     "title": "補足",
     "hint": "スペックに重ねる反復メモ。説明文を編集せずに次回の起動に同行します。",
     "add": "補足を追加",
-    "emptyCta": "補足を追加してこのスペックを反復しましょう。次回の起動（Implement、SDD Quick、Freestyle…）にブリーフィングとして渡され、説明文はそのままです。",
+    "emptyCta": "補足を追加してこのスペックを反復しましょう。次回の起動（Implement または任意のループ）にブリーフィングとして渡され、説明文はそのままです。",
     "openCount_one": "{{count}} 件が未処理",
     "openCount_other": "{{count}} 件が未処理",
     "kind": {
@@ -191,6 +179,40 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "不明な納品（{{id}}）"
+  },
+  "intent": {
+    "title": "Intent",
+    "add": "Intent を追加: 課題、目指す結果、達成の確かめ方",
+    "addShort": "Intent を追加",
+    "editorHint": "解決策ではなく課題を書いてください。どう作るかはエージェントがここから導きます。",
+    "save": "Intent を保存",
+    "problem": "課題",
+    "outcome": "目指す結果",
+    "hypothesis": "仮説(任意)",
+    "successSignals": "達成の確かめ方",
+    "affects": "影響を受ける人と対象",
+    "constraints": "制約",
+    "openQuestions": "未解決の問い",
+    "questionsAnswered_one": "問い · {{count}} 件回答済み",
+    "questionsAnswered_other": "問い · {{count}} 件回答済み",
+    "onePerLine": "1 行に 1 つ",
+    "required": "必須",
+    "problemPlaceholder": "今何が問題で、誰がいつ困っているか",
+    "outcomePlaceholder": "解決したときに成り立っていること",
+    "hypothesisPlaceholder": "… によって … が実現すると考える。… になれば確かめられる",
+    "successSignalsPlaceholder": "結果が実現したことを示す観測可能なシグナル",
+    "affectsPlaceholder": "人、チーム、画面、システム",
+    "constraintsPlaceholder": "どの解決策も守るべき制約",
+    "questionPlaceholder": "まだ誰にも分からないこと",
+    "answerPlaceholder": "回答(未解決の間は空欄)",
+    "questionLabel": "未解決の問い {{n}}",
+    "answerLabel": "回答",
+    "answerAria": "未解決の問い {{n}} への回答",
+    "removeQuestion": "未解決の問い {{n}} を削除",
+    "addQuestion": "未解決の問いを追加",
+    "unanswered": "未解決",
+    "openCount_one": "未解決の問い {{count}} 件",
+    "openCount_other": "未解決の問い {{count}} 件"
   },
   "nonGoals": {
     "title": "対象外",
@@ -321,7 +343,7 @@
       "smash": "分割",
       "spec-launcher": "スペック起動",
       "chat-sidebar": "チャット",
-      "flow": "Flow"
+      "flow": "Intent"
     }
   }
 }

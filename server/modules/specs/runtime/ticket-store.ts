@@ -3,6 +3,7 @@ import path from 'path'
 import { readSpecAddenda, type SpecAddendum } from './spec-addenda-core'
 import type { TicketTriage } from '../domain/triage'
 import { normalizeNonGoals } from '../domain/non-goals'
+import { normalizeSpecIntent, type SpecIntent } from '../domain/intent'
 
 // âââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -47,10 +48,10 @@ export interface Ticket {
      * Desktop-owned optional metadata — Core ignores unknown metadata, so no
      * schema bump. Set from the ticket modal for bug tickets. */
     regressionOf?: string
-    /** Flow mode (schema 1.5): the placeholder spec of a Flow session. Shown as
-     * the "In Flow" label while `active` or `paused`; Jira never receives a
+    /** Intent mode (schema 1.5): the placeholder spec of an Intent session. Shown as
+     * the "In Intent" label while `active` or `paused`; Jira never receives a
      * ticket in those states. Desktop-only; Core ignores it. */
-    flow?: FlowTicketMetadata
+    flow?: IntentTicketMetadata
     /** Spec triage (schema 1.5, annex D.2): size, likely files, recommended
      * loop… keyed by `inputsHash`. Desktop-only; Core ignores it. See
      * server/modules/specs/domain/triage.ts. */
@@ -75,7 +76,7 @@ export interface Ticket {
   // legacy wire value kept for compat, do not rename.
   // 'jira' marks a spec materialized from a Jira issue (see server/jira/). The
   // jira_key / jira_url fields below are additive — specrails-core ignores them.
-  // 'flow' marks the placeholder spec a Flow session creates (schema 1.5).
+  // 'flow' marks the placeholder spec an Intent session creates (schema 1.5).
   // 'rules' marks a spec created from an automatable project rule (task 4.4).
   source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow' | 'rules'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), null for local specs. */
@@ -124,30 +125,39 @@ export interface Ticket {
    * server/modules/specs/domain/non-goals.ts.
    */
   nonGoals?: string[]
+  /**
+   * Intent (intent-mode): the problem, outcome, success signals, affects,
+   * constraints and open questions the spec serves — never the solution.
+   * Optional and additive at schema 1.5 (Core ignores unknown ticket fields);
+   * local like non-goals (never written to Jira). Every launch door prepends
+   * it to the description an agent receives; a delivery writes it as the
+   * change's `intent.md`. See server/modules/specs/domain/intent.ts.
+   */
+  intent?: SpecIntent
 }
 
-/** `metadata.flow` of a Flow placeholder spec (feedback-2026-10 annex D.7). */
-export interface FlowTicketMetadata {
+/** `metadata.flow` of an Intent session placeholder spec (feedback-2026-10 annex D.7). */
+export interface IntentTicketMetadata {
   conversationId: string
   flowId: string
-  /** The Flow-owned worktree reservation (the Flow id). */
+  /** The Intent-owned worktree reservation (the Intent id). */
   worktreeId: string
   startedAt: string
-  /** `closed`: a needs-review Flow the person closed (branch kept). */
+  /** `closed`: a needs-review Intent the person closed (branch kept). */
   state: 'active' | 'paused' | 'delivered' | 'closed'
   recommendedMode?: 'flow' | 'implement'
   chosenMode?: 'flow' | 'implement'
-  /** `existing`: the person's own spec, started in Flow (never deleted by
-   * Flow; restored on discard). Absent ⇒ the Flow's placeholder spec. */
+  /** `existing`: the person's own spec, started in Intent (never deleted by
+   * Intent; restored on discard). Absent ⇒ the Intent's placeholder spec. */
   origin?: 'existing'
-  /** The status an existing spec had when its Flow started (restored on discard). */
+  /** The status an existing spec had when its Intent started (restored on discard). */
   previousStatus?: TicketStatus
-  /** The comment that keeps the spec's content from before its Flow rewrote it. */
+  /** The comment that keeps the spec's content from before its Intent rewrote it. */
   originalCommentId?: number
 }
 
-/** True while a spec belongs to a live Flow: no Jira write may create or
- * update an issue for it until the Flow -> Spec rail settles. */
+/** True while a spec belongs to a live Intent: no Jira write may create or
+ * update an issue for it until the Intent -> Spec rail settles. */
 export function isFlowHeldTicket(ticket: Pick<Ticket, 'metadata'> | null | undefined): boolean {
   const state = ticket?.metadata?.flow?.state
   return state === 'active' || state === 'paused'
@@ -408,6 +418,12 @@ function normalizeTicket(t: Ticket): Ticket {
   // Non-goals (3.2): present ⇒ cleaned and bounded; absent stays absent so
   // older tickets round-trip byte-identically.
   if (t.nonGoals !== undefined) t.nonGoals = normalizeNonGoals(t.nonGoals)
+  // Intent (intent-mode): present ⇒ normalized; an unusable value is dropped.
+  if (t.intent !== undefined) {
+    const intent = normalizeSpecIntent(t.intent)
+    if (intent) t.intent = intent
+    else delete t.intent
+  }
   return t
 }
 

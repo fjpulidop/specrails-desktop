@@ -1,5 +1,5 @@
 /**
- * One-shot reclassification of Flow → Spec deliveries settled as a generic
+ * One-shot reclassification of Intent → Spec deliveries settled as a generic
  * implementation failure before settlement classified requested changes
  * (flow-review-outcome.ts). The snapshot already presents such a row as
  * `review_changes_requested` on read when its stored evidence shows the
@@ -23,7 +23,7 @@ function parseList<T>(raw: string | null | undefined): T[] {
   }
 }
 
-/** Every legacy candidate (Flow → Spec, implementation_failed, not yet a review outcome). */
+/** Every legacy candidate (Intent → Spec, implementation_failed, not yet a review outcome). */
 export function listLegacyFlowReviewCandidates(db: DbInstance): RailPrDeliveryRow[] {
   return (db.prepare(`
     SELECT * FROM rail_pr_deliveries

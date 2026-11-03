@@ -20,7 +20,8 @@
     "view": "查看",
     "errorGenerating": "生成 Spec 出错",
     "couldNotFind": "未找到生成的 Spec",
-    "couldNotConfirm": "无法确认 Spec 已创建"
+    "couldNotConfirm": "无法确认 Spec 已创建",
+    "intentMissing": "规格已创建但没有 Intent:请在规格详情中添加。"
   },
   "contractRefine": {
     "refining": "正在完善契约…",

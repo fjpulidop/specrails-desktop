@@ -27,8 +27,8 @@ describe('SpecTriageChip', () => {
     await waitFor(() => expect(screen.getAllByText('Touches the API and auth').length).toBeGreaterThan(0))
     expect(screen.getAllByText('Public API').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Security').length).toBeGreaterThan(0)
-    // A legacy record's mode is ignored: Flow and Implement never compete.
-    expect(screen.queryByText('Flow suggested')).toBeNull()
+    // A legacy record's mode is ignored: IntentSession and Implement never compete.
+    expect(screen.queryByText('Intent suggested')).toBeNull()
     expect(screen.queryByText(/\bFlow\b/)).toBeNull()
     expect(screen.getAllByText('+1 more file').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Claude Haiku · $0.01').length).toBeGreaterThan(0)

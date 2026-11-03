@@ -95,14 +95,14 @@ describe('mission conversation with Core sub-agents', () => {
     expect(agentApi.stopMissionSubagents).toHaveBeenCalledWith('c1', undefined)
   })
 
-  it('in Flow, shows the Flow session sub-agents in the same card under the Flow turn', async () => {
+  it('in Intent, shows the Intent session sub-agents in the same card under the Intent turn', async () => {
     const flowMode: MissionExtensions = { useConversationMode: () => ({ attributes: { 'data-flow': 'active' }, gitBranch: null, interruptWhileBusy: true }) }
     vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: conv, messages })
     vi.mocked(agentApi.getMissionSubagents).mockResolvedValue({ subagents: [], session: null })
     render(<MissionExtensionsProvider value={flowMode}><AgentChatProvider><Harness /></AgentChatProvider></MissionExtensionsProvider>)
     await act(async () => { fireEvent.click(screen.getByText('select')) })
     await screen.findByText('Launched two agents.')
-    // Projected from the Flow's own Core session (`flow:<flowId>`), keyed by the conversation.
+    // Projected from the Intent's own Core session (`flow:<flowId>`), keyed by the conversation.
     emit({ type: 'agent_subagent', conversationId: 'c1', coreSessionId: 'flow:f1', subagent: node({ subagentId: 'flow-sa', description: 'Particle trail', launchedInTurnId: 'turn-1' }) })
     emit({ type: 'agent_resident_state', conversationId: 'c1', coreSessionId: 'flow:f1', phase: 'background', liveSubagents: 1, processAlive: true })
     const card = await screen.findByTestId('agent-subagents-card')

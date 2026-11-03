@@ -118,6 +118,31 @@ export function AgentConversationHeader() {
   // A closed menu discards a pending delete confirmation.
   useEffect(() => { if (!menuOpen) setConfirmingDelete(false) }, [menuOpen])
 
+  // Keyboard menu contract (same as the composer's + menu): focus the first
+  // item on open, roving focus with arrows/Home/End, focus back to ⋮ on close.
+  const menuTriggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const focusableMenuItems = () => Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? [])
+  useEffect(() => {
+    if (menuOpen) {
+      // AnimatePresence mounts the menu on the next frame.
+      const id = requestAnimationFrame(() => focusableMenuItems()[0]?.focus())
+      return () => cancelAnimationFrame(id)
+    }
+    if (document.activeElement === document.body || menuRef.current?.contains(document.activeElement)) menuTriggerRef.current?.focus()
+  }, [menuOpen])
+  const onMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = focusableMenuItems()
+    if (items.length === 0) return
+    const index = items.indexOf(document.activeElement as HTMLElement)
+    const focus = (i: number) => items[((i % items.length) + items.length) % items.length]?.focus()
+    if (e.key === 'ArrowDown') { e.preventDefault(); focus(index + 1) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); focus(index - 1) }
+    else if (e.key === 'Home') { e.preventDefault(); focus(0) }
+    else if (e.key === 'End') { e.preventDefault(); focus(items.length - 1) }
+    else if (e.key === 'Tab') { setMenuOpen(false) }
+  }
+
   useEffect(() => {
     if (editing) { inputRef.current?.focus(); inputRef.current?.select() }
   }, [editing])
@@ -253,9 +278,10 @@ export function AgentConversationHeader() {
         ) : (
           <button
             type="button"
-            onDoubleClick={startRename}
+            onClick={startRename}
+            aria-label={`${title} — ${t('header.rename')}`}
             title={t('header.renameHint')}
-            className="min-w-0 truncate text-left font-medium text-foreground"
+            className="min-w-0 truncate rounded-sm text-left font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
           >
             {title}
           </button>
@@ -269,6 +295,7 @@ export function AgentConversationHeader() {
       {/* ⋮ overflow menu */}
       <button
         type="button"
+        ref={menuTriggerRef}
         data-testid="agent-conv-menu-trigger"
         aria-label={t('header.menu')}
         aria-haspopup="menu"
@@ -286,6 +313,8 @@ export function AgentConversationHeader() {
         {menuOpen && (
           <motion.div
             role="menu"
+            ref={menuRef}
+            onKeyDown={onMenuKeyDown}
             data-testid="agent-conv-menu"
             initial={{ opacity: 0, y: -4, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

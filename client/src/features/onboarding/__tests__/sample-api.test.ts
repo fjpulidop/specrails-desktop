@@ -2,8 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { launchFirstSpec, createSampleProject, removeSampleProject, SampleApiError } from '../lib/sample-api'
 import type { SamplePreset } from '../lib/sample-model'
 
-const cloud: SamplePreset = { provider: 'claude', model: 'haiku', local: false, loopId: 'factory:sdd-quick-openspec', runCapUsd: 1 }
-const local: SamplePreset = { provider: 'local-lan', model: 'qwen3-coder', local: true, loopId: 'factory:sdd-quick-openspec', runCapUsd: null }
+const cloud: SamplePreset = { provider: 'claude', model: 'haiku', local: false, loopId: 'factory:implement', runCapUsd: 2 }
+const local: SamplePreset = { provider: 'local-lan', model: 'qwen3-coder', local: true, loopId: 'factory:implement', runCapUsd: null }
 
 type Call = { url: string; method: string; body: unknown }
 function mockRails(opts: { rails?: unknown[]; launch?: { ok: boolean; status?: number; body?: unknown } } = {}) {
@@ -26,13 +26,13 @@ describe('launchFirstSpec (the cost-bounded preset)', () => {
     await expect(launchFirstSpec('p1', 11, cloud)).resolves.toEqual({ ok: true })
     expect(calls.map((c) => `${c.method} ${c.url.replace(/^.*\/api\/projects\/p1/, '')}`)).toEqual(['GET /rails', 'PUT /rails/0/tickets', 'POST /rails/0/launch'])
     expect(calls[1].body).toEqual({ ticketIds: [11] })
-    expect(calls[2].body).toEqual({ loopId: 'factory:sdd-quick-openspec', aiEngine: 'claude', model: 'haiku', runCapUsd: 1 })
+    expect(calls[2].body).toEqual({ loopId: 'factory:implement', aiEngine: 'claude', model: 'haiku', runCapUsd: 2 })
   })
 
   it('sends no cap for a local engine (no marginal cost)', async () => {
     const calls = mockRails()
     await launchFirstSpec('p1', 11, local)
-    expect(calls[2].body).toEqual({ loopId: 'factory:sdd-quick-openspec', aiEngine: 'local-lan', model: 'qwen3-coder' })
+    expect(calls[2].body).toEqual({ loopId: 'factory:implement', aiEngine: 'local-lan', model: 'qwen3-coder' })
   })
 
   it('creates a rail when none is free', async () => {

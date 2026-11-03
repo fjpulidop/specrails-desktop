@@ -15,7 +15,7 @@ Cada conexão também tem a configuração **Loop do agente**. **Compacto** (pad
 
 ## O que você ganha
 
-- Rails (implement, freestyle, loops personalizados), Explore e specs Quick, chat e missões rodam no modelo local.
+- Rails (implement, loops personalizados), Explore e specs Quick, chat e missões rodam no modelo local.
 - As missões mantêm suas ferramentas Specrails e seus servidores MCP externos.
 - As sessões são retomadas entre turnos; jobs interativos funcionam.
 - O custo é honesto: os tokens são registrados, o custo fica *desconhecido* a menos que você informe tarifas (então é marcado como *estimado*).
@@ -26,7 +26,7 @@ Indisponível em motores locais: perfis de agente e papéis personalizados, enri
 
 ## Escolher um modelo
 
-A qualidade depende do modelo, não do Specrails. Para rails use um modelo de código ajustado para tool calling com 30B parâmetros ou mais; modelos instruct menores servem para chat, Explore e specs Quick. Experimente **Freestyle** ou uma sessão Explore antes de confiar um rail implement completo a um modelo novo.
+A qualidade depende do modelo, não do Specrails. Para rails use um modelo de código ajustado para tool calling com 30B parâmetros ou mais; modelos instruct menores servem para chat, Explore e specs Quick. Experimente uma sessão Explore antes de confiar um rail implement completo a um modelo novo.
 
 ## Desativar
 

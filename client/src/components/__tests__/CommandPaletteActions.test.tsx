@@ -291,7 +291,7 @@ describe('CommandPalette actions (QW1)', () => {
     expect(moveStatus).toHaveBeenCalledWith(15, 'done')
   })
 
-  it('Flow actions run the strip controls and vanish when the strip is gone', async () => {
+  it('Intent actions run the strip controls and vanish when the strip is gone', async () => {
     const run = vi.fn()
     const unregister = registerPaletteSurface('flow', { controls: () => [{ id: 'pause', label: 'Pause', disabled: false, run }] })
     const user = userEvent.setup()

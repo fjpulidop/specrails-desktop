@@ -39,7 +39,7 @@
     "prompt": "Was soll geändert werden?",
     "placeholder": "z. B. den Login-Button blau machen",
     "submit": "Änderung senden",
-    "hint": "Quick SDD setzt die Änderung auf dem bestehenden Branch um und aktualisiert diese Lieferung."
+    "hint": "Implement setzt die Änderung auf dem bestehenden Branch um und aktualisiert diese Lieferung."
   },
   "discard": {
     "label": "Verwerfen",
@@ -190,8 +190,8 @@
     "unexplainedTitle_other": "{{count}} geänderte Dateien sind nicht erklärt",
     "more_one": "…und {{count}} weitere Datei",
     "more_other": "…und {{count}} weitere Dateien",
-    "unavailable": "Der Ableitungsbericht dieser Flow-Lieferung konnte nicht gelesen werden. Prüfe den Diff direkt.",
-    "rewriteFailed": "Die Spec konnte nicht aus der abgeleiteten Änderung neu geschrieben werden; sie behält ihren Flow-Entwurf. Die OpenSpec-Änderung bleibt der technische Nachweis."
+    "unavailable": "Der Ableitungsbericht dieser Intent-Lieferung konnte nicht gelesen werden. Prüfe den Diff direkt.",
+    "rewriteFailed": "Die Spec konnte nicht aus der abgeleiteten Änderung neu geschrieben werden; sie behält ihren Intent-Entwurf. Die OpenSpec-Änderung bleibt der technische Nachweis."
   },
   "brief": {
     "title": "Worauf achten",

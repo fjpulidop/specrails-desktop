@@ -31,7 +31,7 @@ export function useRailLaunchProposals(messages: readonly AgentMessage[]): Deriv
     if (!FEATURE_MISSION_RAIL_CARDS) return EMPTY
     const pinned: PinnedRailProposal[] = []
     const ids = new Set<string>()
-    // Specs launched at or after each message (any door: another proposal, a Flow
+    // Specs launched at or after each message (any door: another proposal, an Intent session
     // hand-off). A proposal whose specs all launched later is superseded, not pending.
     const launchedFrom: Set<number>[] = new Array(messages.length)
     let launched = new Set<number>()

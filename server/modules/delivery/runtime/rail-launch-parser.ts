@@ -19,7 +19,12 @@ import { parseFollowUpInput, type PrFollowUp } from './pr-follow-up-scope'
 export const RAIL_LAUNCH_FENCE = 'rail-launch'
 export const RAIL_LAUNCH_PROPOSAL_VERSION = 1
 
-export const RAIL_LAUNCH_MODES = ['implement', 'freestyle', 'loop'] as const
+export const RAIL_LAUNCH_MODES = ['implement', 'loop'] as const
+
+/** Built-in loop ids that no longer exist (Freestyle and Quick SDD are gallery
+ *  templates now, with ordinary ids). A stored proposal that names one is read
+ *  as Implement so the card still renders and launches. */
+const RETIRED_PROPOSAL_LOOP_IDS: readonly string[] = ['factory:freestyle', 'factory:sdd-quick-openspec', 'factory:openspec', 'factory:revision']
 export type RailLaunchMode = (typeof RAIL_LAUNCH_MODES)[number]
 
 export interface RailLaunchProposal {
@@ -116,8 +121,11 @@ export function coerceRailLaunchProposal(value: unknown): { ok: true; proposal: 
   const ticketIds = coerceTicketIds(value.ticketIds ?? value.specs ?? value.tickets)
   if (ticketIds.length === 0) return { ok: false, reason: 'no_tickets' }
   const modeRaw = optString(value.mode)?.toLowerCase().replace(/_/g, '-') ?? 'implement'
-  // The removed Batch mode folds into implement (one aggregate run per rail).
-  const mode = modeRaw === 'batch' || modeRaw === 'batch-implement' ? 'implement' : modeRaw
+  // The removed Batch mode folds into implement (one aggregate run per rail);
+  // so do the retired `freestyle` mode (and its `ultracode` spelling).
+  const mode = modeRaw === 'batch' || modeRaw === 'batch-implement' || modeRaw === 'freestyle' || modeRaw === 'ultracode' ? 'implement' : modeRaw
+  const loopIdRaw = optString(value.loopId, 120)
+  const retiredLoop = loopIdRaw !== null && RETIRED_PROPOSAL_LOOP_IDS.includes(loopIdRaw)
   if (!(RAIL_LAUNCH_MODES as readonly string[]).includes(mode)) return { ok: false, reason: 'invalid_mode' }
   // Agents (Codex in particular) spell "no restriction" as null or an empty
   // map. Treat exactly those as omitted; any other malformed selection still
@@ -142,8 +150,8 @@ export function coerceRailLaunchProposal(value: unknown): { ok: true; proposal: 
       ticketIds,
       ...(repositoryIds !== undefined ? { repositoryIds: repositoryIds as string[] } : {}),
       ...(workspaceSelection !== undefined ? { workspaceSelection: workspaceSelection as Record<string, string[]> } : {}),
-      mode: mode as RailLaunchMode,
-      loopId: optString(value.loopId, 120),
+      mode: (retiredLoop ? 'implement' : mode) as RailLaunchMode,
+      loopId: retiredLoop ? null : loopIdRaw,
       aiEngine: optString(value.aiEngine ?? value.provider ?? value.engine, 80),
       model: optString(value.model, 120),
       reasoningEffort: optString(value.reasoningEffort ?? value.reasoning_effort ?? value.effort, 20),

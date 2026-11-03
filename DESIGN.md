@@ -16,7 +16,7 @@ colors:
   lamp-caution: "hsl(42 92% 58%)"
   lamp-failed: "hsl(12 80% 55%)"
   lamp-review: "hsl(322 55% 72%)"
-  lamp-flow: "hsl(170 78% 50%)"
+  lamp-intent: "hsl(170 78% 50%)"
   rail-violet: "hsl(280 45% 62%)"
   paper: "hsl(220 25% 99%)"
   paper-ink: "hsl(230 28% 14%)"
@@ -112,7 +112,7 @@ components:
 
 Specrails is a dispatch desk for specs travelling down rails to delivery. The chrome is quiet, dense and precise, like a railway signal panel: hairlines instead of fills, tabular numerals, small status lamps. Colour is spent in exactly two places: on lamps (state) and on the moving spec (the brand gradient). Everything else is ink on night.
 
-The one authored motion is rail travel: a pill decelerating along a hairline track. It means "work is moving" while things run and "arrived" when work ships. All other motion is 100 to 200 ms state feedback. The app is a native desktop tool used for long sessions, so density and calm beat spectacle; peaks are reserved for three proportionate arrivals (PR created, Flow handed off, job completed).
+The one authored motion is rail travel: a pill decelerating along a hairline track. It means "work is moving" while things run and "arrived" when work ships. All other motion is 100 to 200 ms state feedback. The app is a native desktop tool used for long sessions, so density and calm beat spectacle; peaks are reserved for three proportionate arrivals (PR created, Intent handed off, job completed).
 
 **Key Characteristics:**
 - Dark-first, six selectable themes sharing one token contract (see Colors).
@@ -136,8 +136,8 @@ A night-ink neutral base with one cyan signal, a violet rail end, and a closed s
 - **Done Emerald** (hsl(152 78% 48%)): completed, healthy.
 - **Caution Amber** (hsl(42 92% 58%)): caution and cost only. Not review, not priority.
 - **Failed Tomato** (hsl(12 80% 55%)): failures and destructive actions.
-- **Review Orchid** (hsl(322 55% 72%)): the review lamp, so amber stays unambiguous. Themes whose primary is violet (Dracula, Aurora Light, Obsidian Dark) use their own pink for the review lamp instead (it also stays clear of Flow teal).
-- **Flow Teal** (hsl(170 78% 50%)): Flow mode identity.
+- **Review Orchid** (hsl(322 55% 72%)): the review lamp, so amber stays unambiguous. Themes whose primary is violet (Dracula, Aurora Light, Obsidian Dark) use their own pink for the review lamp instead (it also stays clear of Intent teal).
+- **Intent Teal** (hsl(170 78% 50%)): Intent mode identity (formerly Flow; token `--color-accent-intent`).
 
 ### Lamp canon
 One state, one token, on every surface (chips, badges, pills, cards).
@@ -149,7 +149,7 @@ One state, one token, on every surface (chips, badges, pills, cards).
 | caution | `accent-warning` |
 | failed | `destructive` |
 | review | `accent-review` |
-| flow | `accent-flow` |
+| flow | `accent-intent` |
 | primary | `primary` / `accent-primary` |
 
 `accent-review` must sit at least 60° of hue from `accent-primary` (and 40° from `accent-secondary`) with 4.5:1 text contrast on the card in every theme; a test enforces it.

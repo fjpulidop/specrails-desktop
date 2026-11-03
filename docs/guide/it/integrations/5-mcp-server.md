@@ -63,7 +63,7 @@ Deseleziona **Distruttivo** e potrà lavorare tutta la notte senza mai eliminare
 > *"Controlla tutti i miei progetti. Dimmi quali hanno spec nel backlog e nessun rail in esecuzione, e avvia in ognuno quella a priorità più alta."*
 
 **Senza mani mentre programmi.** Pilota Specrails dal tuo editor o a voce, senza cambiare finestra:
-> *"Lancia il rail 0 in modalità Freestyle con Opus per il ticket #42 e dimmi quando ha finito."*
+> *"Lancia il rail 0 con Opus per il ticket #42 e dimmi quando ha finito."*
 
 **Chiedi di costi e cronologia.** Le tue analisi, in linguaggio naturale:
 > *"Dove ho speso di più in AI questa settimana, per progetto e per modello? Mostrami i cinque ticket più costosi."*

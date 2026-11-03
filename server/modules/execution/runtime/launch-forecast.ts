@@ -55,15 +55,14 @@ export function forecastFromSamples(samples: readonly RunSample[]): LaunchForeca
   }
 }
 
-/** The legacy rail modes run as queue jobs under a slash command, not as loop runs. */
+/** The legacy rail mode (and Batch alias) runs as a queue job under a slash command, not as a loop run. */
 const FACTORY_COMMAND: Record<string, string> = {
   'factory:implement': '/specrails:implement',
   'factory:batch': '/specrails:implement',
-  'factory:freestyle': '/specrails:freestyle',
 }
 
 export interface LaunchForecastTarget {
-  /** Loop id (`factory:implement`, a custom loop, the Flow hand-off loop). */
+  /** Loop id (`factory:implement`, a custom loop, the Intent hand-off loop). */
   loopId?: string | null
   /** A job command (`/specrails:implement`); its shape is what groups history. */
   commandShape?: string | null

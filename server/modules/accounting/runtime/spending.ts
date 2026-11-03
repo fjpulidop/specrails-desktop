@@ -1053,7 +1053,7 @@ export interface AgentMissionSpending {
     turns: number
     tokensIn: number
     tokensOut: number
-    /** Part of totalCostUsd spent by Flow turns (surface='flow'). */
+    /** Part of totalCostUsd spent by Intent turns (surface='flow'). */
     flowCostUsd: number
     flowTurns: number
   }

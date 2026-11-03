@@ -1,10 +1,10 @@
-// ─── Flow mode boundaries in the history ──────────────────────────────────────
+// ─── Intent mode boundaries in the history ──────────────────────────────────────
 // A server-authored `flow-boundary` row marks where the conversation entered
-// Flow (started) or left it (handed off to a rail, discarded, closed keeping
+// Intent (started) or left it (handed off to a rail, discarded, closed keeping
 // its branch). Each renders as
 // ONE event line in its chronological slot; the agent turns between an
-// "entered" and the next "left" carry a discreet Flow mark. The way back from
-// a rail ("returned") is told by the Back to Flow line, so its boundary only
+// "entered" and the next "left" carry a discreet Intent mark. The way back from
+// a rail ("returned") is told by the Back to Intent line, so its boundary only
 // marks the turns.
 
 import { useTranslation } from 'react-i18next'
@@ -12,7 +12,7 @@ import { LogIn, LogOut } from 'lucide-react'
 import type { AgentMessage } from '../lib/agent-api'
 import { AgentRunEventLine } from './AgentRunEventLine'
 
-export interface FlowBoundaryRow {
+export interface IntentBoundaryRow {
   kind: 'flow-boundary'
   flowId: string
   event: 'entered' | 'left'
@@ -23,8 +23,8 @@ export interface FlowBoundaryRow {
 const EVENTS = new Set(['entered', 'left'])
 const REASONS = new Set(['started', 'returned', 'handed_off', 'discarded', 'closed'])
 
-/** Parse a system row; null when it is not a Flow boundary. */
-export function parseFlowBoundaryRow(content: string): FlowBoundaryRow | null {
+/** Parse a system row; null when it is not an Intent session boundary. */
+export function parseFlowBoundaryRow(content: string): IntentBoundaryRow | null {
   if (!content.startsWith('{')) return null
   let o: Record<string, unknown>
   try { o = JSON.parse(content) as Record<string, unknown> } catch { return null }
@@ -33,13 +33,13 @@ export function parseFlowBoundaryRow(content: string): FlowBoundaryRow | null {
   return {
     kind: 'flow-boundary',
     flowId: o.flowId,
-    event: o.event as FlowBoundaryRow['event'],
-    reason: o.reason as FlowBoundaryRow['reason'],
+    event: o.event as IntentBoundaryRow['event'],
+    reason: o.reason as IntentBoundaryRow['reason'],
     branch: typeof o.branch === 'string' && o.branch.trim() ? o.branch : null,
   }
 }
 
-/** Message ids of the agent turns produced while the conversation was in Flow. */
+/** Message ids of the agent turns produced while the conversation was in Intent. */
 export function flowTurnMessageIds(messages: readonly AgentMessage[]): ReadonlySet<string> {
   const ids = new Set<string>()
   let inFlow = false
@@ -54,7 +54,7 @@ export function flowTurnMessageIds(messages: readonly AgentMessage[]): ReadonlyS
   return ids
 }
 
-export function AgentFlowBoundaryLine({ row }: { row: FlowBoundaryRow }) {
+export function AgentFlowBoundaryLine({ row }: { row: IntentBoundaryRow }) {
   const { t } = useTranslation('agent')
   if (row.reason === 'returned') return null
   const entered = row.event === 'entered'

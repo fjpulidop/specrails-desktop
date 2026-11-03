@@ -51,6 +51,7 @@ import { AgentTierChip } from './AgentTierChip'
 import { MissionModeBadge } from './MissionModeBadge'
 import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentRuntimeSelector } from './AgentRuntimeSelector'
+import { LiveDot } from '../../../components/ui/live-dot'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
 import { useMissionConversationMode } from '../context/MissionExtensionsContext'
@@ -113,7 +114,7 @@ export function AgentComposer({
    *  Mode keeps the composer selector on the EMPTY compose screen. */
   hideProjectSelector?: boolean
   /** The inline Agent-Mode dock passes false: its mission header already names
-   *  the conversation mode (Flow), so the control row stays light. The EMPTY
+   *  the conversation mode (IntentSession), so the control row stays light. The EMPTY
    *  composer and the floating panel (no header) keep the badge. */
   showModeBadge?: boolean
   queueEditRequest?: { conversationId: string; queueId: string; revision: number }
@@ -226,7 +227,7 @@ export function AgentComposer({
   // EMPTY compose screen) — never the app's active project.
   const gitProjectId = active ? active.pinned_project_id : draftPinnedProjectId
   const pinnedProjectId = gitProjectId
-  // Extension mode (Flow): a busy send interrupts the running turn and the git
+  // Extension mode (IntentSession): a busy send interrupts the running turn and the git
   // strip shows the worktree branch.
   const conversationMode = useMissionConversationMode(active?.id ?? null, active?.pinned_project_id ?? null)
   const interrupting = isStreaming && !!conversationMode?.interruptWhileBusy
@@ -539,7 +540,8 @@ export function AgentComposer({
   const submit = async () => {
     // Text is required (server contract: 400 on empty text) — an attachment-only
     // submit must NOT clear the chips into a silently-dropped turn.
-    if (blocked || !hasDraft || submittingRef.current) return
+    // A send during an upload would drop the pending attachment on the floor.
+    if (blocked || uploading || !hasDraft || submittingRef.current) return
     const textForTurn = input.trim() || contextChips.map((chip) => chip.token).join(' ')
     const opts = {
       ...(attached.length ? { attachmentIds: attached.map((a) => a.id) } : {}),
@@ -599,16 +601,10 @@ export function AgentComposer({
   }
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.nativeEvent.isComposing) return
-    // Shift+Tab cycles the tier ladder from INSIDE the editor too. Handled
-    // here (not only on the conversation-view wrapper) because the EMPTY
-    // compose card renders the composer without that wrapper — there the
-    // browser default (focus previous element) was winning on macOS.
-    if (e.key === 'Tab' && e.shiftKey) {
-      e.preventDefault()
-      e.stopPropagation() // the view wrapper also listens — don't cycle twice
-      cycleTier()
-      return
-    }
+    // Shift+Tab inside the editor is reverse focus navigation (WCAG 2.1.1):
+    // it must leave the editor, never change the autonomy tier under the
+    // person's hands. The tier shortcut stays on the conversation-view wrapper
+    // for every control outside the text box, and the chip itself is a button.
     if (paletteOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -724,7 +720,7 @@ export function AgentComposer({
             onClick={() => exitQueueEdit('restore')}
             aria-label={t('queueEdit.cancel')}
             title={t('queueEdit.cancel')}
-            className="ml-auto rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+            className="-my-1 ml-auto flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
           >
             <X className="h-3 w-3" />
           </button>
@@ -736,8 +732,15 @@ export function AgentComposer({
           {t('history.hint')}
         </div>
       )}
-      {attached.length > 0 && (
+      {(attached.length > 0 || uploading) && (
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+          {uploading && (
+            // In-flight uploads live in the attachment row, independent of the + menu.
+            <span role="status" data-testid="composer-upload-pending" className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-caption text-muted-foreground">
+              <LiveDot tone="info" size="xs" aria-hidden />
+              {t('composer.uploading')}
+            </span>
+          )}
           {attached.map((a) => (
             <AgentComposerAttachmentChip
               key={a.id}
@@ -865,7 +868,9 @@ export function AgentComposer({
             ariaControls={paletteOpen ? paletteId : undefined}
             ariaActiveDescendant={paletteOpen && visiblePaletteItems.length > 0 ? `${paletteId}-opt-${activePaletteIndex}` : undefined}
             placeholder={
-              blocked ? t('noProvider.placeholder')
+              // The block names its real cause: no provider, or another window owns the draft.
+              providersReady === false ? t('noProvider.placeholder')
+                : blocked ? t('composer.blockedByWindow')
                 : interrupting ? t('interrupt.placeholder')
                   : isStreaming ? t('queue.placeholder')
                     : composerMode?.placeholder
@@ -993,7 +998,7 @@ export function AgentComposer({
       </div>
       {/* Git strip: current branch (switchable) + last commit of the mission's
           pinned project. Hidden without a project, outside a git repo, or when
-          the conversation's extension shows its own branch (the Flow bar). */}
+          the conversation's extension shows its own branch (the Intent bar). */}
       {gitProjectId && !conversationMode?.hideGitStrip && <AgentGitBar projectId={gitProjectId} branchOverride={conversationMode?.gitBranch ?? null} />}
       {selectedProcess && selectedProcess.chatId === activeId && selectedProcess.projectId === backgroundProjectId && (
         <BackgroundProcessLogsModal

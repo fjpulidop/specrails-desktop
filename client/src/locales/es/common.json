@@ -85,7 +85,7 @@
     "ref_mismatch": "La referencia de la rama no coincide",
     "restart_pending": "Esperando la recuperación del workflow",
     "review_changes_requested": "El revisor solicitó cambios",
-    "returned_to_flow": "Devuelto a Flow",
+    "returned_to_flow": "Devuelto a Intent",
     "local_changes_attention": "Integrado — los cambios locales necesitan atención"
   },
   "prRecovery": {
@@ -131,7 +131,7 @@
     "select": "Repositorio",
     "all": "Todos los repositorios",
     "workspacePath": "Ruta del workspace de código",
-    "workspaceHint": "Opcional. Una carpeta por línea, absoluta o relativa a este repositorio. Vacío usa la carpeta del repositorio. Implement, Quick SDD y Freestyle verifican cada workspace de código indicado.",
+    "workspaceHint": "Opcional. Una carpeta por línea, absoluta o relativa a este repositorio. Vacío usa la carpeta del repositorio. Implement y los loops verifican cada workspace de código indicado.",
     "launchWorkspaces": "Workspaces de esta ejecución",
     "launchWorkspaceHint": "Los cambios de código y los tests se limitan a estas carpetas. Selecciona al menos un workspace por repositorio afectado.",
     "advanced": "Configuración multirrepositorio"
@@ -207,7 +207,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Paso de Flow a un rail",
+    "flowSpec": "Paso de Intent a un rail",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
   },
@@ -233,8 +233,8 @@
       "dailyBudget": "los límites de gasto",
       "recentlyDeleted": "los elementos eliminados recientemente",
       "railLoops": "lo que ejecuta un rail",
-      "flowMode": "Flow",
-      "flowHandOff": "entregar un Flow",
+      "flowMode": "Intent",
+      "flowHandOff": "entregar un Intent",
       "contextScope": "el control deslizante de contexto",
       "launchForecast": "la previsión de lanzamiento",
       "loopBuilder": "el Loop Builder",

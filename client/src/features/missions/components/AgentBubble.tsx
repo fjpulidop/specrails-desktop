@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useMotionValue } from 'motion/react'
 import { useAgentChat } from '../context/AgentChatContext'
@@ -6,6 +6,7 @@ import { useIsStreaming } from '../hooks/useAgentLive'
 import { RailMark } from '../../../components/brand/RailMark'
 import { keyboardLabel } from '../../../lib/keyboard-label'
 import { BuilderHalo } from '../../builder/components/project-builder/BuilderHalo'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 // Persisted bubble position, stored as the distance from the bottom-right
 // corner so a shrinking window keeps it anchored to the corner it was dropped
@@ -13,6 +14,8 @@ import { BuilderHalo } from '../../builder/components/project-builder/BuilderHal
 const POS_KEY = 'specrails-desktop:agent-bubble-pos'
 const BUBBLE = 56 // approx square footprint used for clamping
 const MARGIN = 12
+// Keyboard nudge step (px); Shift multiplies it so a corner is a few presses away.
+export const NUDGE_STEP = 24
 // Chrome-safe insets: the collapsed sidebar rail (44px) and the title bar (28px)
 // plus a gap, so the bubble never lands on the unpin button or the page H1.
 export const CHROME_LEFT = 44 + 8
@@ -102,6 +105,25 @@ export function AgentBubble() {
     open()
   }
 
+  // Single-pointer / keyboard alternative to dragging (WCAG 2.5.7): arrow keys
+  // nudge the bubble, Shift+arrow moves it a screen's worth, writing the same
+  // persisted Corner the drag does.
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+    const delta: Record<string, [number, number]> = {
+      ArrowLeft: [1, 0],
+      ArrowRight: [-1, 0],
+      ArrowUp: [0, 1],
+      ArrowDown: [0, -1],
+    }
+    const d = delta[e.key]
+    if (!d) return
+    e.preventDefault()
+    const step = e.shiftKey ? Math.max(window.innerWidth, window.innerHeight) : NUDGE_STEP
+    const next = clampCorner({ right: corner.right + d[0] * step, bottom: corner.bottom + d[1] * step })
+    setCorner(next)
+    persist(next)
+  }
+
   // On the right half the bubble grows leftwards (anchored by `right`), so the
   // hover/activity label never spills off-screen at the default bottom-right.
   const anchorRight = pos.left + BUBBLE / 2 > window.innerWidth / 2
@@ -117,7 +139,8 @@ export function AgentBubble() {
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
       aria-label={t('trigger')}
-      title={`${t('trigger')} (${keyboardLabel('⌘⇧A')})`}
+      title={`${t('trigger')} (${keyboardLabel('⌘⇧A')}) · ${t('bubble.moveHint')}`}
+      onKeyDown={handleKeyDown}
       drag
       dragMomentum={false}
       dragElastic={0}
@@ -149,11 +172,9 @@ export function AgentBubble() {
         />
         <RailMark size={20} state={showingActivity ? 'travel' : 'idle'} />
         {showingActivity && (
-          <motion.span
-            className="absolute inset-0 rounded-full ring-2 ring-accent-success"
-            animate={{ opacity: [0.8, 0.2, 0.8], scale: [1, 1.18, 1] }}
-            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-          />
+          // One lamp vocabulary: the running lamp (info) via LiveDot, which
+          // already drops its ring under reduced motion.
+          <LiveDot tone="info" size="xs" aria-hidden className="absolute -right-0.5 -top-0.5" data-testid="agent-bubble-live" />
         )}
       </span>
       <AnimatePresence initial={false}>

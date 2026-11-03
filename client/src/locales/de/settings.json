@@ -32,17 +32,6 @@
     "saved": "Pre-Prompt gespeichert",
     "saveFailed": "Pre-Prompt konnte nicht gespeichert werden"
   },
-  "freestylePrePrompt": {
-    "title": "Freestyle-Pre-Prompt",
-    "description": "Anweisung, die in Freestyle an den ausgewählten Anbieter gesendet wird. Freestyle überspringt die OpenSpec-Pipeline – der Anbieter erhält diesen Pre-Prompt plus den Spec-Text und implementiert autonom. Leer lassen, um den eingebauten Standard zu verwenden.",
-    "label": "Freestyle-Pre-Prompt",
-    "placeholder": "Leer lassen, um die Standard-Freestyle-Anweisung zu verwenden.",
-    "helper": "Der Spec-Text wird automatisch nach diesem Pre-Prompt angehängt. Leer = Standard.",
-    "saveButton": "Freestyle-Pre-Prompt speichern",
-    "resetToDefault": "Freestyle-Pre-Prompt auf Standard zurückgesetzt",
-    "saved": "Freestyle-Pre-Prompt gespeichert",
-    "saveFailed": "Freestyle-Pre-Prompt konnte nicht gespeichert werden"
-  },
   "budget": {
     "title": "Budget",
     "description": "Tagesausgabenlimit für dieses Projekt festlegen. Die Queue pausiert automatisch, wenn das Limit erreicht ist.",

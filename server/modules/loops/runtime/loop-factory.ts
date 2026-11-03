@@ -1,13 +1,19 @@
 /**
- * Built-in "factory" loops — the app-owned loops that replace the old rail modes
- * (`implement` / Freestyle's `freestyle` mode). These are the code DEFAULTS;
- * `builtin-loops.ts` seeds them as editable loop rows (same ids) and resolves
- * launches to an edited, published row when one exists.
+ * Built-in "factory" loops — the app-owned loops that replace the old rail modes.
+ * Only Implement (and the platform-run Intent -> Spec) is built in. Freestyle and
+ * Quick SDD (OpenSpec) were retired as built-ins: they are ordinary gallery
+ * templates now (`loop-templates.ts`) and the app never offers or launches them
+ * by itself. Their ids stay recognised ONLY as retired ids so persisted data and
+ * stale clients get a clear answer (see `RETIRED_FACTORY_LOOP_IDS`).
+ *
+ * These are the code DEFAULTS; `builtin-loops.ts` seeds Implement as an editable
+ * loop row (same id) and resolves launches to an edited, published row when one
+ * exists.
  *
  * Each carries the canonical rail `mode` it maps to. The rail launch routes a
- * factory loop to the matching engine via that mode (QueueManager slash command /
- * Freestyle prompt) — the graph here is the faithful representation used for the
- * gallery preview and as the seed when forked into a custom loop.
+ * factory loop to the matching engine via that mode — the graph here is the
+ * faithful representation used for the gallery preview and as the seed when
+ * forked into a custom loop.
  *
  * IDs are namespaced `factory:<mode-ish>` so they never collide with user loop ids
  * (which are random) and the rail resolver can recognise a factory loop.
@@ -15,7 +21,6 @@
 import { coreFactoryGraph } from './loop-core-factory'
 import { flowSpecGraph } from './loop-flow-spec-recipe'
 import type { LoopGraph } from './loop-graph'
-import { fixLoopGraph, opsxLifecycleGraph } from './loop-templates'
 
 export interface FactoryLoop {
   /** Stable namespaced id, e.g. `factory:implement`. */
@@ -25,9 +30,7 @@ export interface FactoryLoop {
   /** Rail mode this loop maps to: a canonical engine mode,
    *  or `'loop'` for graph-native factory loops that ONLY run through the
    *  LoopRunManager (no QueueManager fallback — launch 403s when Loops are disabled). */
-  mode: 'implement' | 'freestyle' | 'loop'
-  /** Provider capability required to launch this factory loop. */
-  requiredCapability?: 'freestyle'
+  mode: 'implement' | 'loop'
   /** Core runtime capability the loop needs (listed only when advertised). */
   requiredCoreCapability?: 'deriveChange'
   /**
@@ -39,8 +42,6 @@ export interface FactoryLoop {
   /** Faithful graph for preview + fork seed. */
   graph: LoopGraph
 }
-
-const GREEN_GOAL = 'Stop only when the latest verification step reports {{const:VERIFICATION_PASS}} and the history proves every acceptance criterion is implemented across all required tickets and repositories, with the relevant behavioral checks and configured tests/build passing. Green baseline checks, setup, or planning alone do not prove completion.'
 
 // Factory loops run the WHOLE architect→developer→reviewer pipeline inside a
 // single AI step (`/specrails:implement` etc.), so no fixed wall-clock budget is
@@ -72,23 +73,15 @@ function coreImplementationGraph(command: 'implement'): LoopGraph {
   }
 }
 
-const SDD_QUICK_OPENSPEC_FACTORY: FactoryLoop = {
-  id: 'factory:sdd-quick-openspec',
-  name: 'SDD Quick (OpenSpec)',
-  description: 'Quick spec-driven OpenSpec lifecycle for small contract-governed changes: prepare artifacts, apply and test, validate through the CLI, then archive.',
-  mode: 'loop',
-  graph: opsxLifecycleGraph(),
-}
-
-/** Flow -> Spec (Flow mode, arch section 4.8): derives the spec of a Flow
- *  worktree. Only a Flow hand-off launches it (the rails route answers 400
+/** Intent -> Spec (Intent mode, arch section 4.8): derives the spec of an Intent session
+ *  worktree. Only an Intent session hand-off launches it (the rails route answers 400
  *  `flow_id_required` otherwise); listed with `launchable: false`. */
 export const FLOW_SPEC_LOOP_ID = 'factory:flow-spec'
 
 const FLOW_SPEC_FACTORY: FactoryLoop = {
   id: FLOW_SPEC_LOOP_ID,
-  name: 'Flow → Spec',
-  description: 'Derives the spec of code built in a Flow session: writes the OpenSpec change from the diff and the conversation, verifies it, reviews coverage and archives it.',
+  name: 'Intent → Spec',
+  description: 'Derives the spec of code built in an Intent session: writes the OpenSpec change from the diff and the conversation, verifies it, reviews coverage and archives it.',
   mode: 'loop',
   requiredCoreCapability: 'deriveChange',
   launchable: false,
@@ -100,8 +93,37 @@ export function supportsFlowSpec(capabilities?: Record<string, number>): boolean
   return capabilities?.engineV2 === 1 && capabilities.workflowDefinitions === 1 && capabilities.deriveChange === 1
 }
 
-/** Legacy persisted id. Resolves to Quick SDD; no Revision loop is listed or run. */
+/** Legacy persisted id of the removed Revision loop. It is never listed or run;
+ *  delivery evidence still reads it from historical units. */
 export const FACTORY_REVISION_LOOP_ID = 'factory:revision'
+
+/** Freestyle, retired as a built-in (now the `freestyle` gallery template). */
+export const RETIRED_FREESTYLE_LOOP_ID = 'factory:freestyle'
+/** Quick SDD, retired as a built-in (now the `quick-sdd-openspec` gallery template). */
+export const RETIRED_QUICK_SDD_LOOP_ID = 'factory:sdd-quick-openspec'
+
+/** Ids of factory loops that no longer exist. Persisted rails, jobs and loop runs
+ *  may still carry them (and `factory:openspec` / `factory:revision`, the old
+ *  aliases of Quick SDD): history keeps rendering, but nothing launches them. */
+export const RETIRED_FACTORY_LOOP_IDS: readonly string[] = [
+  RETIRED_FREESTYLE_LOOP_ID, RETIRED_QUICK_SDD_LOOP_ID, 'factory:openspec', FACTORY_REVISION_LOOP_ID,
+]
+
+/** Display names of retired ids, for historical views only. */
+export const RETIRED_FACTORY_LOOP_NAMES: Readonly<Record<string, string>> = {
+  [RETIRED_FREESTYLE_LOOP_ID]: 'Freestyle',
+  [RETIRED_QUICK_SDD_LOOP_ID]: 'SDD Quick (OpenSpec)',
+  'factory:openspec': 'SDD Quick (OpenSpec)',
+  [FACTORY_REVISION_LOOP_ID]: 'SDD Quick (OpenSpec)',
+}
+
+/** The loop a retired id or the `freestyle` rail mode falls back to when the
+ *  fallback is allowed (stored rail configuration). */
+export const RETIRED_FACTORY_REPLACEMENT_ID = 'factory:implement'
+
+export function isRetiredFactoryLoopId(id: unknown): boolean {
+  return typeof id === 'string' && RETIRED_FACTORY_LOOP_IDS.includes(id)
+}
 
 
 export const FACTORY_LOOPS: FactoryLoop[] = [
@@ -112,25 +134,11 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
     mode: 'implement',
     graph: coreImplementationGraph('implement'),
   },
-  {
-    id: 'factory:freestyle',
-    // User-facing name for the canonical freestyle mode: it hands the spec straight to the model
-    // with full freedom — no pipeline, it works like a regular coding agent.
-    // The id/mode strings are the canonical rail contract.
-    name: 'Freestyle',
-    description: 'Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green.',
-    mode: 'freestyle',
-    requiredCapability: 'freestyle',
-    graph: fixLoopGraph(['{{cmd:freestyle}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
-  },
-  SDD_QUICK_OPENSPEC_FACTORY,
 ]
 
 const FACTORY_ALIASES = new Map<string, FactoryLoop>([
   // Batch was removed: `implement` already runs every rail ticket in one aggregate run.
   ['factory:batch', FACTORY_LOOPS.find(f => f.id === 'factory:implement')!],
-  ['factory:openspec', SDD_QUICK_OPENSPEC_FACTORY],
-  [FACTORY_REVISION_LOOP_ID, SDD_QUICK_OPENSPEC_FACTORY],
 ])
 
 const FACTORY_BY_ID = new Map<string, FactoryLoop>([
@@ -139,11 +147,11 @@ const FACTORY_BY_ID = new Map<string, FactoryLoop>([
   ...FACTORY_ALIASES,
 ])
 
-/** Factory loops the selected Core can run. Flow -> Spec exists only with
+/** Factory loops the selected Core can run. Intent -> Spec exists only with
  *  `deriveChange` (no legacy variant: the graph is Core pieces only). */
 export function factoryLoopsForCapabilities(capabilities?: Record<string, number>): FactoryLoop[] {
   if (capabilities?.engineV2 !== 1 || capabilities.workflowDefinitions !== 1) return FACTORY_LOOPS
-  const loops = FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph(factory.id === 'factory:implement' ? 'implement' : factory.id === 'factory:freestyle' ? 'freestyle' : 'quick-sdd', capabilities.implementationSteps === 1, capabilities.workflowAgentSteps === 1, capabilities) }))
+  const loops = FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph('implement', capabilities.implementationSteps === 1, capabilities.workflowAgentSteps === 1, capabilities) }))
   return supportsFlowSpec(capabilities) ? [...loops, { ...FLOW_SPEC_FACTORY, graph: flowSpecGraph() }] : loops
 }
 
@@ -174,6 +182,6 @@ export function factoryLoopForMode(mode: string, capabilities?: Record<string, n
   if (mode === 'implement') return getFactoryLoop('factory:implement', capabilities)
   // Removed Batch mode: stored `batch-implement` / `batch` rails resolve to Implement.
   if (mode === 'batch-implement' || mode === 'batch') return getFactoryLoop('factory:implement', capabilities)
-  if (mode === 'freestyle') return getFactoryLoop('factory:freestyle', capabilities)
+  // `freestyle` is a retired mode: no factory loop answers it.
   return undefined
 }

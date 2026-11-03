@@ -60,7 +60,7 @@ export interface TicketContextMenuProps {
   onPriorityChange: (ticketId: number, priority: TicketPriority) => void
   children: React.ReactNode
   className?: string
-  /** Extra actions at the top of the menu (e.g. "Start in Flow"); `close` dismisses the menu. */
+  /** Extra actions at the top of the menu (e.g. "Start in Intent"); `close` dismisses the menu. */
   extraItems?: (close: () => void) => React.ReactNode
 }
 

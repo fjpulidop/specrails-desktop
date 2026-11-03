@@ -42,7 +42,7 @@ import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mob
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } from './mcp'
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { MissionCoreSessions } from './modules/missions/runtime/mission-core-sessions'
-import { createFlowTurnContext } from './modules/flow/adapters/bindings'
+import { createFlowTurnContext } from './modules/intent/adapters/bindings'
 import { getAgentConversation } from './modules/agents/runtime/agent-store'
 import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
 import { createSessionHostsRouter } from './modules/agent-sessions/adapters/http'
@@ -774,8 +774,8 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   })
   agentChatManager.setCoreSessions(missionCoreSessions)
   agentChatManager.setAgentAudit((projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null)
-  // Flow mode: an active Flow turns a mission turn into a Flow turn. Missions
-  // see only this port; the Flow state lives in each project's database.
+  // Intent mode: an active Intent turns a mission turn into an Intent session turn. Missions
+  // see only this port; the Intent state lives in each project's database.
   agentChatManager.setFlowTurnContext(createFlowTurnContext({
     conversationProject: (conversationId) => getAgentConversation(registry.desktopDb, conversationId)?.pinned_project_id ?? null,
     flowServiceFor: (projectId) => registry.getContext(projectId)?.flow ?? null,

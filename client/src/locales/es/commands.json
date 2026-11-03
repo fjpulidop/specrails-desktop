@@ -61,9 +61,9 @@
       "moveSpecN": "Mover #{{id}} a",
       "openReview": "Abrir revisión",
       "openReviewN": "Abrir revisión de #{{id}}",
-      "handOffFlow": "Entregar Flow",
-      "pauseFlow": "Pausar Flow",
-      "resumeFlow": "Reanudar Flow",
+      "handOffFlow": "Entregar Intent",
+      "pauseFlow": "Pausar Intent",
+      "resumeFlow": "Reanudar Intent",
       "newMission": "Nueva misión",
       "switchTheme": "Cambiar tema",
       "switchToMission": "Cambiar a modo Misión",
@@ -197,6 +197,7 @@
         "description": "Descripción",
         "label": "Etiqueta",
         "nonGoal": "Fuera de alcance",
+        "intent": "Intent",
         "addendum": "Adenda",
         "comment": "Comentario"
       }
@@ -288,7 +289,7 @@
         },
         "prePrompt": {
           "label": "Pre-prompt del rail",
-          "keywords": "pre-prompt, preprompt, instrucciones, prompt, rail, freestyle"
+          "keywords": "pre-prompt, preprompt, instrucciones, prompt, rail"
         },
         "verificationCommands": {
           "label": "Comandos de verificación",
@@ -411,8 +412,8 @@
       "runStripFocus": "Ir a la franja de ejecuciones de la misión (púlsalo otra vez para ver u ocultar los detalles)",
       "runStripCycle": "Ejecución anterior / siguiente en la franja (fuera de los campos de texto)",
       "runStripBack": "Salir de la franja de ejecuciones y volver a donde estabas",
-      "flowPause": "Pausar o reanudar el Flow (con la franja de ejecuciones enfocada)",
-      "flowHandOff": "Pasar el Flow a un rail (con la franja de ejecuciones enfocada)",
+      "flowPause": "Pausar o reanudar el Intent (con la franja de ejecuciones enfocada)",
+      "flowHandOff": "Pasar el Intent a un rail (con la franja de ejecuciones enfocada)",
       "historyBackForward": "Volver al lugar anterior o avanzar al siguiente",
       "undoLast": "Deshacer el último cambio",
       "openInbox": "Abrir Pendientes",

@@ -345,7 +345,7 @@ export async function sendAgentMessage(
     attachments?: { ids: string[] }
     queueId?: string
     contextRefs?: AgentContextReference[]
-    /** Flow mode: a busy send cuts the running Flow turn. */
+    /** Intent mode: a busy send cuts the running Intent turn. */
     deliveryMode?: 'interrupt'
   } = {},
 ): Promise<AgentSendResponse> {
@@ -357,7 +357,7 @@ export async function sendAgentMessage(
   })
   try {
     let res = await post({ text, ...opts })
-    // The Flow ended between render and send (paused, handed off): the server
+    // The Intent ended between render and send (paused, handed off): the server
     // refused the interrupt WITHOUT admitting the input — send it normally.
     if (opts.deliveryMode === 'interrupt' && res.status === 409) {
       const refused = await res.clone().json().catch(() => null) as { error?: string } | null
@@ -502,7 +502,7 @@ export interface AgentPrDecisionEnvelope {
   runtime?: MissionRunRuntime | null
   /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
   riskSummary?: import('../../../types').PrDeliveryRiskSummary
-  /** Flow → Spec stopped with requested changes: the reviewer's issues and failing checks. */
+  /** Intent → Spec stopped with requested changes: the reviewer's issues and failing checks. */
   flowReview?: import('../../../types').PrDeliveryFlowReview
   /** "Integrate locally" saved the person's uncommitted work as a stash. */
   localStash?: import('../../../types').PrDeliveryLocalStash

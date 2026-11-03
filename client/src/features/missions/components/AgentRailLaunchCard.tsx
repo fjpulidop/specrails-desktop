@@ -32,7 +32,7 @@ import { recordLocalIntent } from '../../rails/lib/rail-launch-intents'
 import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
 import { modelsForProvider, defaultModelForProvider } from '../../loops/lib/loop-run-models'
 import {
-  reasoningEffortsForProvider, providerSupportsFreestyle,
+  reasoningEffortsForProvider,
   providerSupportsProfiles, providerLabel, isRolesEngine,
 } from '../../providers/lib/provider-capabilities'
 import { FACTORY_RAIL_LOOPS, deriveRailMode, effectiveLoopId } from '../../rails/lib/rail-loops'
@@ -53,6 +53,7 @@ import { HelpHint } from '../../../components/HelpHint'
 import { LaunchForecast } from '../../../components/LaunchForecast'
 import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { announce } from '../../../lib/announce'
 
 // ── Live project state the card reconciles against ────────────────────────────
 
@@ -151,7 +152,7 @@ export type RailHandOffOutcome =
   | { ok: false; error: string; detail?: string; action?: string }
 
 /**
- * Hand-off mode (Flow → Spec): the card launches an EXISTING worktree through
+ * Hand-off mode (IntentSession → Spec): the card launches an EXISTING worktree through
  * its owner's route instead of assigning specs + launching. The spec set,
  * repositories and delivery target are fixed by the owner, the loop is the
  * owner's, and "Not yet" returns control to the owner instead of recording a
@@ -208,13 +209,13 @@ interface Props {
   intent: AgentMessageIntent | null
   /** Compact mode inside the pinned dock (the dock owns the outer header). */
   compact?: boolean
-  /** Hand-off mode (Flow → Spec): see RailLaunchHandOff. */
+  /** Hand-off mode (IntentSession → Spec): see RailLaunchHandOff. */
   handOff?: RailLaunchHandOff
 }
 
 export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conversationId, projectId, intent, compact = false, handOff }: Props) {
   const { RailLaunchAlternative } = useMissionExtensions()
-  const { t } = useTranslation('agent')
+  const { t, i18n } = useTranslation('agent')
   const reduced = useReducedMotion()
   const detection = useProviderDetection()
 
@@ -231,6 +232,15 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const [busy, setBusy] = useState<'launch' | 'dismiss' | 'scope' | null>(null)
   const [scopeEdit, setScopeEdit] = useState<{ ticketId: number; repositoryIds: string[] } | null>(null)
   const [inlineError, setInlineError] = useState<{ error: string; detail?: string; action?: string } | null>(null)
+  // A server code the locale knows is the headline. Anything else (`network`,
+  // `HTTP 502`, an unmapped code) gets a generic, localized headline that
+  // names the problem and the way out; the raw code is a separate detail line
+  // so it is never shown as the title.
+  const knownErrorCode = (code: string) => i18n.exists(`railCard.errors.${code}`, { ns: 'agent' })
+  const errorHeadline = (code: string) => knownErrorCode(code)
+    ? t(`railCard.errors.${code}`)
+    : t('railCard.errors.launch_failed', { defaultValue: 'The launch could not start. Check the connection and try again.' })
+  const errorCodeLine = (code: string): string | null => knownErrorCode(code) || code === 'network' ? null : code
   const projectIdRef = useRef(projectId)
   projectIdRef.current = projectId
 
@@ -311,7 +321,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const engineStale = !!config.aiEngine && providerReady && effectiveEngine !== config.aiEngine
   // `roles` = the hybrid per-role engines (runtime config + loop roles): no
   // single provider owns the run, so model/effort/profile selectors step aside
-  // exactly like the rail header does (RailRow). Freestyle needs one engine.
+  // exactly like the rail header does (RailRow).
   const rolesEngine = !!effectiveEngine && isRolesEngine(effectiveEngine)
   const catalogProvider = effectiveEngine && !isRolesEngine(effectiveEngine) ? effectiveEngine : detectedProviders[0] ?? null
 
@@ -421,14 +431,12 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     [tickets, config.ticketIds],
   )
 
-  const freestyleAvailable = !rolesEngine && providerSupportsFreestyle(catalogProvider)
   const loopOptions: AgentToolbarOption[] = useMemo(() => {
     if (handOff) return [{ value: handOff.loop.id, label: handOff.loop.label }]
     const builtIn = FACTORY_RAIL_LOOPS
-      .filter((l) => (!l.requiresFreestyle || freestyleAvailable) && (!l.requiresLoops || FEATURE_LOOPS_SECTION))
       .map((l) => ({ value: l.id, label: t(`dashboard:${l.labelKey}`) }))
     return [...builtIn, ...customLoops.map((l) => ({ value: l.id, label: l.name }))]
-  }, [customLoops, freestyleAvailable, t, handOff])
+  }, [customLoops, t, handOff])
   const loopKnown = loopOptions.some((o) => o.value === config.loopId)
   const effectiveLoop = effectiveLoopId(loopKnown ? config.loopId : loopOptions[0]?.value ?? config.loopId, mode, hasAddenda)
 
@@ -530,7 +538,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         const r = await fetch(`${base}/${railIndex}/name`, { method: 'PUT', headers: json, body: JSON.stringify({ name: wantsName }) })
         if (!r.ok) { setInlineError(await readError(r)); return }
       }
-      // A hand-off always names its engine: the owner chose it (Flow: the conversation's provider).
+      // A hand-off always names its engine: the owner chose it (Intent: the conversation's provider).
       const engineForRail = effectiveEngine && (detectedProviders.length > 1 || handOff) ? effectiveEngine : undefined
       if (handOff) {
         // The owner's route assigns its spec and launches its worktree.
@@ -584,7 +592,9 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         config: { ...launchBody, ticketIds: validTicketIds, railName: wantsName || null },
       })
     } catch (err) {
-      setInlineError({ error: err instanceof Error ? err.message : 'network' })
+      // A thrown fetch (offline, aborted) has no server code: name the problem
+      // (generic headline) and keep the raw message as the detail line only.
+      setInlineError({ error: 'network', detail: err instanceof Error && err.message ? err.message : undefined })
     } finally {
       if (mounted.current) setBusy(null)
     }
@@ -606,6 +616,29 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const [logRunId, setLogRunId] = useState<string | null>(null)
   const [howOpen, setHowOpen] = useState(false)
   const howId = useId()
+  // Card → stub: the focused Play/Dismiss unmounts, so focus would fall to
+  // body and nothing would be said. Keep focus on the stub (it is the element
+  // that replaced the card) and route the outcome through the app announcer.
+  const stubRef = useRef<HTMLDivElement>(null)
+  const wasEditable = useRef(!decided)
+  const stubText = decided
+    ? decided.status === 'launched'
+      ? t('railCard.stub.launched', { rail: typeof decided.railIndex === 'number' ? decided.railIndex + 1 : '?' })
+      : t('railCard.stub.dismissed')
+    : null
+  useEffect(() => {
+    if (!decided || !stubText) return
+    if (!wasEditable.current) return
+    wasEditable.current = false
+    announce(stubText, `rail-launch-stub:${conversationId ?? ''}:${proposalIndex}`)
+    stubRef.current?.focus({ preventScroll: true })
+  }, [decided, stubText, conversationId, proposalIndex])
+  // The block reason changes text in place (no live region of its own):
+  // say it once through the announcer when the card is interactive.
+  useEffect(() => {
+    if (decided || loading || !blockReason) return
+    announce(blockReason, `rail-launch-block:${conversationId ?? ''}:${proposalIndex}:${blockReason}`)
+  }, [decided, loading, blockReason, conversationId, proposalIndex])
   if (decided) {
     const launched = decided.status === 'launched'
     const primaryRunId = decided.runIds?.[0] ?? null
@@ -614,17 +647,17 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     }
     return (
       <div
+        ref={stubRef}
+        tabIndex={-1}
         data-testid={launched ? 'agent-rail-launch-stub-launched' : 'agent-rail-launch-stub-dismissed'}
         className={cn(
-          'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
+          'my-1 flex flex-wrap items-center gap-2 rounded-card border px-3 py-2 text-label font-normal outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40',
           launched ? 'border-accent-success/30 bg-accent-success/[0.06] text-foreground' : 'border-border/50 bg-surface/40 text-muted-foreground',
         )}
       >
-        {launched ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent-success" /> : <Ban className="h-3.5 w-3.5 shrink-0" />}
-        <span className="min-w-0 flex-1 truncate">
-          {launched
-            ? t('railCard.stub.launched', { rail: typeof decided.railIndex === 'number' ? decided.railIndex + 1 : '?' })
-            : t('railCard.stub.dismissed')}
+        {launched ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden /> : <Ban className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+        <span className="min-w-0 flex-1 truncate" title={stubText ?? undefined}>
+          {stubText}
           {' '}
           <span className="text-muted-foreground">{proposal.ticketIds.map((id) => `#${id}`).join(' ')}</span>
         </span>
@@ -709,7 +742,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           <div data-testid="rail-card-error" role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/35 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             <div className="min-w-0 flex-1">
-              <div className="font-medium">{t(`railCard.errors.${inlineError.error}`, { defaultValue: inlineError.error })}</div>
+              <div className="font-medium">{errorHeadline(inlineError.error)}</div>
+              {errorCodeLine(inlineError.error) && <div className="font-mono text-caption text-muted-foreground" data-testid="rail-card-error-code">{errorCodeLine(inlineError.error)}</div>}
               {inlineError.detail && <div>{inlineError.detail}</div>}
               {inlineError.action && <div className="text-muted-foreground">{inlineError.action}</div>}
               {inlineError.error === 'repository_has_no_commits' && projectId && (
@@ -804,11 +838,16 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     )
   }
 
+  // Badge recipe (DESIGN.md): pill, transparent fill, 30% hairline, leading
+  // dot + label — never colour alone. Blocked is caution, so amber is right.
   const statusPill = loading
-    ? { tone: 'border-border/60 bg-surface/60 text-muted-foreground', label: t('railCard.status.loading') }
+    ? { tone: 'border-border/60 text-muted-foreground', dot: 'bg-muted-foreground', label: t('railCard.status.loading') }
     : blockReason
-      ? { tone: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning', label: t('railCard.status.blocked') }
-      : { tone: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary', label: t('railCard.status.ready') }
+      ? { tone: 'border-accent-warning/30 text-accent-warning', dot: 'bg-accent-warning', label: t('railCard.status.blocked') }
+      : { tone: 'border-accent-primary/30 text-accent-primary', dot: 'bg-accent-primary', label: t('railCard.status.ready') }
+  // #6: the selector clamps its value to 160 px and titles it "Rail", so the
+  // availability suffix is the first thing to vanish. Show it as its own lamp.
+  const selectedAvailability = !config.newRail && config.railIndex !== null ? availabilityOf.get(config.railIndex) ?? null : null
 
   return (
     <motion.div
@@ -817,20 +856,21 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       transition={{ duration: 0.22, ease: 'easeOut' }}
       data-testid="agent-rail-launch-card"
       className={cn(
-        'my-1 overflow-hidden rounded-xl border border-accent-primary/25 bg-card/80 shadow-lg',
+        'my-1 overflow-hidden rounded-card border border-accent-primary/25 bg-card shadow-1',
         compact && 'my-0',
       )}
     >
       {/* Header: identity + status pill */}
       <div className="flex items-center gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
         <span className="flex shrink-0 items-center gap-1.5 text-caption font-semibold text-accent-primary">
-          <Rocket className="h-3 w-3" />
+          <Rocket className="h-3 w-3" aria-hidden />
           {t('railCard.heading')}
         </span>
         <span className="min-w-0 flex-1 truncate text-caption text-muted-foreground">
           {validTicketIds.map((id) => `#${id}`).join(' ')}
         </span>
-        <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-caption font-medium', statusPill.tone)}>
+        <span data-testid="rail-card-status" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-caption font-medium', statusPill.tone)}>
+          <span aria-hidden className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusPill.dot)} />
           {statusPill.label}
         </span>
       </div>
@@ -869,6 +909,15 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             testId="rail-card-rail"
             onSelect={(v) => (v === NEW_RAIL ? patch({ newRail: true, railIndex: null }) : patch({ newRail: false, railIndex: Number(v) }))}
           />
+          {selectedAvailability && selectedAvailability !== 'free' && (
+            <span
+              data-testid="rail-card-availability"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-accent-warning/30 px-2 py-0.5 text-caption font-medium text-accent-warning"
+            >
+              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-warning" />
+              {t(`railCard.availability.${selectedAvailability}`)}
+            </span>
+          )}
           {(createsRail || proposedRail) && (
             <input
               type="text"
@@ -876,6 +925,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               data-testid="rail-card-name"
               value={config.railName}
               maxLength={60}
+              aria-label={createsRail ? t('railCard.fields.newRailName') : t('railCard.fields.railName')}
               placeholder={createsRail ? t('railCard.fields.newRailName') : t('railCard.fields.railName')}
               onChange={(e) => patch({ railName: e.target.value })}
               className="h-7 min-w-[120px] flex-1 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-accent-primary/50"
@@ -1069,10 +1119,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         )}
 
         {inlineError && (
-          <div data-testid="rail-card-error" className="flex items-start gap-2 rounded-lg border border-destructive/35 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div data-testid="rail-card-error" role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/35 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             <div className="min-w-0 flex-1">
-              <div className="font-medium">{t(`railCard.errors.${inlineError.error}`, { defaultValue: inlineError.error })}</div>
+              <div className="font-medium">{errorHeadline(inlineError.error)}</div>
+              {errorCodeLine(inlineError.error) && <div className="font-mono text-caption text-muted-foreground" data-testid="rail-card-error-code">{errorCodeLine(inlineError.error)}</div>}
               {inlineError.detail && <div className="text-destructive">{inlineError.detail}</div>}
               {inlineError.action && <div className="text-muted-foreground">{inlineError.action}</div>}
               {inlineError.error === 'repository_has_no_commits' && projectId && (
@@ -1089,8 +1140,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         </button>}
         {forecastEl}
         {launchGuard.dialog}
-        <div className="flex items-center justify-between gap-2 pt-0.5">
-          <span className="min-w-0 flex-1 text-caption text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-0.5" data-testid="rail-card-actions">
+          <span className="min-w-0 flex-1 basis-[10rem] text-caption text-muted-foreground">
             {blockReason ?? t('railCard.playHint')}
           </span>
           <button
@@ -1103,10 +1154,6 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           >
             {t('railCard.dismiss')}
           </button>
-          {/* One existing spec: the extension's other way to work on it (Flow), equal weight. */}
-          {RailLaunchAlternative && projectId && conversationId && validTicketIds.length === 1 && (
-            <RailLaunchAlternative projectId={projectId} conversationId={conversationId} ticketId={validTicketIds[0]!} ticketTitle={ticketById.get(validTicketIds[0]!)?.title} ticketRepositoryIds={ticketById.get(validTicketIds[0]!)?.repositoryIds} disabled={!!busy} onChosen={() => void dismiss()} />
-          )}
           {/* Launching starts a delivery: outward, the strip only points at it. */}
           <RunPrimaryButton
             primary={{ id: 'launch', label: t('railCard.play'), kind: 'outward' }}
@@ -1119,6 +1166,13 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             {busy === 'launch' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
             {busy === 'launch' ? t('railCard.launching') : t('railCard.play')}
           </RunPrimaryButton>
+          {/* One existing spec: the extension's other way to work on it (IntentSession), equal weight.
+              It expands into a 16 rem entry card, so it takes its own full-width row (the column is 360–520 px). */}
+          {RailLaunchAlternative && projectId && conversationId && validTicketIds.length === 1 && (
+            <div className="basis-full" data-testid="rail-card-alternative">
+              <RailLaunchAlternative projectId={projectId} conversationId={conversationId} ticketId={validTicketIds[0]!} ticketTitle={ticketById.get(validTicketIds[0]!)?.title} ticketRepositoryIds={ticketById.get(validTicketIds[0]!)?.repositoryIds} disabled={!!busy} onChosen={() => void dismiss()} />
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

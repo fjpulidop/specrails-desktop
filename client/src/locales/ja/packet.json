@@ -39,7 +39,7 @@
     "prompt": "何を変更しますか？",
     "placeholder": "例：ログインボタンを青にする",
     "submit": "変更を送る",
-    "hint": "Quick SDD が既存のブランチに変更を適用し、この成果物を更新します。"
+    "hint": "Implement が既存のブランチに変更を適用し、この成果物を更新します。"
   },
   "discard": {
     "label": "破棄する",
@@ -190,8 +190,8 @@
     "unexplainedTitle_other": "説明されていない変更ファイルが {{count}} 個あります",
     "more_one": "…ほか {{count}} 個のファイル",
     "more_other": "…ほか {{count}} 個のファイル",
-    "unavailable": "この Flow 配信の導出レポートを読み取れませんでした。差分を直接確認してください。",
-    "rewriteFailed": "導出された変更から spec を書き直せませんでした。Flow の下書きのままです。OpenSpec 変更は引き続き技術的な記録です。"
+    "unavailable": "この Intent 配信の導出レポートを読み取れませんでした。差分を直接確認してください。",
+    "rewriteFailed": "導出された変更から spec を書き直せませんでした。Intent の下書きのままです。OpenSpec 変更は引き続き技術的な記録です。"
   },
   "brief": {
     "title": "確認すべき点",

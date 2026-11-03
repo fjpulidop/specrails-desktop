@@ -39,7 +39,7 @@
     "prompt": "Que voulez-vous changer ?",
     "placeholder": "ex. mettre le bouton de connexion en bleu",
     "submit": "Envoyer le changement",
-    "hint": "Quick SDD applique le changement sur la branche existante et met à jour cette livraison."
+    "hint": "Implement applique le changement sur la branche existante et met à jour cette livraison."
   },
   "discard": {
     "label": "Jeter ceci",
@@ -190,8 +190,8 @@
     "unexplainedTitle_other": "{{count}} fichiers modifiés ne sont pas expliqués",
     "more_one": "…et {{count}} autre fichier",
     "more_other": "…et {{count}} autres fichiers",
-    "unavailable": "Le rapport de dérivation de cette livraison Flow n'a pas pu être lu. Examinez directement le diff.",
-    "rewriteFailed": "La spec n'a pas pu être réécrite à partir du changement dérivé ; elle conserve son brouillon Flow. Le changement OpenSpec reste la trace technique."
+    "unavailable": "Le rapport de dérivation de cette livraison Intent n'a pas pu être lu. Examinez directement le diff.",
+    "rewriteFailed": "La spec n'a pas pu être réécrite à partir du changement dérivé ; elle conserve son brouillon Intent. Le changement OpenSpec reste la trace technique."
   },
   "brief": {
     "title": "Points à examiner",

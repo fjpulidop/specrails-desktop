@@ -1,11 +1,11 @@
 // ─── Spec extensions (composition seam) ───────────────────────────────────────
-// Features that work ON a spec from outside the specs feature (Flow today)
+// Features that work ON a spec from outside the specs feature (IntentSession today)
 // must not be imported by specs. Specs exposes this extension point and the
 // application composition root (App.tsx) provides the implementation:
 //
 //   - StartAlternative: another way to start work on an existing spec, shown
-//     with equal weight next to the Implement door (drag / Move to Rail). Flow:
-//     "Start in Flow". `variant` picks the shape: a context-menu item or the
+//     with equal weight next to the Implement door (drag / Move to Rail). Intent:
+//     "Start in Intent". `variant` picks the shape: a context-menu item or the
 //     spec detail header button.
 //
 // The value must be STABLE for the app's lifetime. Without a provider the

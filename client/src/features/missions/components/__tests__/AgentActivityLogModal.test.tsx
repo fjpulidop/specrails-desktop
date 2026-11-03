@@ -28,7 +28,7 @@ describe('AgentActivityLogModal', () => {
     render(<AgentActivityLogModal tools={TOOLS} streaming={false} onClose={vi.fn()} />)
     expect(screen.getByTestId('agent-activity-log-modal')).toBeTruthy()
     expect(screen.getByText('Terminal')).toBeTruthy() // toolChipLabel(Bash)
-    expect(screen.getByText('MCP · rails')).toBeTruthy()
+    expect(screen.getByText('Rails')).toBeTruthy()
     expect(screen.getByText('{"command":"npm test"}')).toBeTruthy()
     expect(screen.getByText('PASS (6)')).toBeTruthy()
     // Error entry uses the error label

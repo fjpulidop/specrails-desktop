@@ -25,6 +25,17 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/missions` and any affected consumers.
 
+## Intent drafts and the commit_draft gate
+
+The operator writes the intent first (intent-mode): one fenced `intent-draft`
+block before any `spec-draft` ([operator prompt](runtime/agent-operator-prompt.ts),
+section "Writing the intent"). [agent-spec-framing.ts](runtime/agent-spec-framing.ts)
+derives the gate from the stored messages: an answered `intent-draft` (or a
+legacy `problem-frame`) authorises ONE `commit_draft`, and `answeredSpecIntent`
+returns the intent the MCP `commit_draft` attaches to the spec. Payload rules are
+the shared `parseIntentDraft` (specs domain), so the client card and the gate
+accept the same blocks. `flow-offer` is for existing specs only.
+
 ## Read-only boundary
 
 [runtime/mission-tool-policy.ts](runtime/mission-tool-policy.ts) maps every
@@ -35,24 +46,24 @@ the Core session policy. The kill switch is `SPECRAILS_MISSION_READ_ONLY=false`.
 Per-provider evidence and limitations are in
 [read-only missions](../../../docs/internals/mission-read-only-policy.md).
 
-## Flow turns
+## Intent turns
 
-Flow mode reaches missions only through the injected
-[`FlowTurnContext`](runtime/flow-turn-context.ts) port
+Intent mode reaches missions only through the injected
+[`IntentTurnContext`](runtime/flow-turn-context.ts) port
 (`AgentChatManager.setFlowTurnContext`, bound by the composition root to the
-[Flow module](../flow/README.md)); missions never import Flow or delivery.
-When the port returns a Flow, the turn runs in its own Core session
+[Intent module](../intent/README.md)); missions never import Intent or delivery.
+When the port returns an Intent session, the turn runs in its own Core session
 (`flow:<flowId>`) with the worktree as cwd, `permissions: 'bypass'` (the rail
 write-role level, so the agent can run tests and installs headless; see
-[Flow permissions](../../../docs/internals/flow-mode.md#permissions)),
+[Intent permissions](../../../docs/internals/intent-mode.md#permissions)),
 default tools, the mission's Specrails MCP, sub-agents under the project
-policy and the static [Flow persona](runtime/agent-flow-prompt.ts), which runs
+policy and the static [Intent persona](runtime/agent-flow-prompt.ts), which runs
 long-lived apps through `specrails_jobs background_start`. Mid-turn input is delivered as
 `interrupt` ([core-session-runner.ts](runtime/core-session-runner.ts) follows
-the correction's turn and sums usage). Flow turns never use a legacy
+the correction's turn and sums usage). Intent turns never use a legacy
 transport, never overwrite the mission's provider session and are recorded
 with `surface: 'flow'`. A null port leaves mission turns unchanged.
-See [Flow mode](../../../docs/internals/flow-mode.md).
+See [Intent mode](../../../docs/internals/intent-mode.md).
 
 ## Failure assistance
 

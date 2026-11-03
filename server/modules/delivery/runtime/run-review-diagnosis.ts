@@ -2,7 +2,7 @@
  * The reviewer's outcome for one run, for the operator's diagnosis tools
  * (`specrails_jobs runtime_diagnose` / `runtime_evidence`): approved, score,
  * bounded issues, the summary's first lines, failing host checks and — for
- * Flow → Spec — the derivation coverage. Read through the SAME evidence path
+ * Intent → Spec — the derivation coverage. Read through the SAME evidence path
  * as settlement: the delivery's stored settle evidence first, else the
  * retained run read-only (`healRuntimeEvidence` over the definition probe for
  * engine 2, the pipeline dir for engine 1). Never throws.
@@ -34,9 +34,9 @@ export interface RunReviewDiagnosis {
     scopedReviewCount: number
   } | null
   failingChecks: Array<{ command: string; exitCode: number | null }>
-  /** Flow → Spec only: how much of the change the derived spec explains. */
+  /** Intent → Spec only: how much of the change the derived spec explains. */
   derivation: { change: string | null; files: number; explained: number; unexplainedFiles: string[]; unexplainedOmitted: number; confidence: string | null } | null
-  /** Flow → Spec only: what still blocks the delivery (the card's "the reviewer requested changes"). */
+  /** Intent → Spec only: what still blocks the delivery (the card's "the reviewer requested changes"). */
   flowOutcome: 'review' | 'check' | null
 }
 

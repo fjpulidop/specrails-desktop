@@ -81,18 +81,6 @@
     "grid": "Rasteransicht (Kanban)",
     "postit": "Post-it-Ansicht"
   },
-  "createModal": {
-    "title": "Spec erstellen",
-    "titlePlaceholder": "Spec-Titel…",
-    "labelsPlaceholder": "Tippen, um Labels hinzuzufügen…",
-    "create": "Erstellen",
-    "creating": "Wird erstellt…",
-    "toast": {
-      "created": "Spec erstellt",
-      "createFailed": "Spec konnte nicht erstellt werden"
-    },
-    "description": "Füge dem Board manuell eine Spec hinzu. Sie startet im gewählten Status und kann später verfeinert oder auf eine Rail verschoben werden."
-  },
   "comparePicker": {
     "title": "Vergleichen mit…",
     "count": "({{n}} Specs)",
@@ -123,7 +111,7 @@
     "title": "Addenda",
     "hint": "Iterationsnotizen über der Spec. Sie reisen mit dem nächsten Start mit, ohne die Beschreibung zu ändern.",
     "add": "Addendum hinzufügen",
-    "emptyCta": "Füge ein Addendum hinzu, um an dieser Spec zu iterieren – der nächste Start (Implement, SDD Quick, Freestyle…) wird damit gebrieft, die Beschreibung bleibt unberührt.",
+    "emptyCta": "Füge ein Addendum hinzu, um an dieser Spec zu iterieren – der nächste Start (Implement oder ein beliebiger Loop) wird damit gebrieft, die Beschreibung bleibt unberührt.",
     "openCount_one": "{{count}} offen",
     "openCount_other": "{{count}} offen",
     "kind": {
@@ -191,6 +179,40 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Unbekannte Lieferung ({{id}})"
+  },
+  "intent": {
+    "title": "Intent",
+    "add": "Intent hinzufügen: Problem, Ergebnis und woran du es erkennst",
+    "addShort": "Intent hinzufügen",
+    "editorHint": "Beschreibe das Problem, nicht die Lösung. Die Agenten leiten das Wie daraus ab.",
+    "save": "Intent speichern",
+    "problem": "Problem",
+    "outcome": "Angestrebtes Ergebnis",
+    "hypothesis": "Hypothese (optional)",
+    "successSignals": "Woran wir es erkennen",
+    "affects": "Wen und was es betrifft",
+    "constraints": "Rahmenbedingungen",
+    "openQuestions": "Offene Fragen",
+    "questionsAnswered_one": "Fragen · {{count}} beantwortet",
+    "questionsAnswered_other": "Fragen · {{count}} beantwortet",
+    "onePerLine": "Eins pro Zeile",
+    "required": "Pflichtfeld",
+    "problemPlaceholder": "Was heute nicht stimmt, für wen und wann es schmerzt",
+    "outcomePlaceholder": "Was gilt, wenn es gelöst ist",
+    "hypothesisPlaceholder": "Wir glauben, dass … zu … führt; wir wissen es, wenn …",
+    "successSignalsPlaceholder": "Beobachtbare Signale, dass das Ergebnis eingetreten ist",
+    "affectsPlaceholder": "Personen, Teams, Ansichten oder Systeme",
+    "constraintsPlaceholder": "Grenzen, die jede Lösung einhalten muss",
+    "questionPlaceholder": "Was noch niemand weiß",
+    "answerPlaceholder": "Antwort (leer, solange offen)",
+    "questionLabel": "Offene Frage {{n}}",
+    "answerLabel": "Antwort",
+    "answerAria": "Antwort auf offene Frage {{n}}",
+    "removeQuestion": "Offene Frage {{n}} entfernen",
+    "addQuestion": "Offene Frage hinzufügen",
+    "unanswered": "Offen",
+    "openCount_one": "{{count}} offene Frage",
+    "openCount_other": "{{count}} offene Fragen"
   },
   "nonGoals": {
     "title": "Nicht im Umfang",
@@ -321,7 +343,7 @@
       "smash": "Aufteilen",
       "spec-launcher": "Spec-Starter",
       "chat-sidebar": "Chat",
-      "flow": "Flow"
+      "flow": "Intent"
     }
   }
 }

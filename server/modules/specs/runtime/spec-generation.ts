@@ -15,6 +15,7 @@
  * is scheduled on the same provider after the ticket is persisted and the
  * `onPersisted` hook has run, exactly as Quick Add Spec does.
  */
+import { mergeIntentAnswers, renderIntentForAgents, type SpecIntent } from '../domain/intent'
 import { randomUUID } from 'crypto'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
@@ -92,13 +93,20 @@ export interface GenerateSpecFromTextInput {
   resolveRepositoryScope?: () => { repositoryIds?: string[] }
   attachments?: SpecGenerationAttachments
   /** Schedule the Contract Layer (`runContractRefineForQuick`) after persist.
-   *  `await: true` (Flow settlement) runs it before the outcome resolves, so
+   *  `await: true` (Intent settlement) runs it before the outcome resolves, so
    *  whatever follows (a Jira issue create) sees the complete spec. */
   contractRefine?: { model: string | null; await?: boolean } | null
   /** Correlation id (accounting `surface_ref_id`). Default: random. */
   requestId?: string
   /** Accounting surface. Default `quick-spec`. */
   surface?: Surface
+  /**
+   * intent-mode. `derive`: the model writes the intent from the text first
+   * and derives the spec from it (Add Spec → Intent); the new spec stores it.
+   * `keep`: rewrite a spec whose `intent` is given — the intent stays and only
+   * its open questions may be answered (Intent settlement).
+   */
+  intent?: { mode: 'derive' } | { mode: 'keep'; intent: SpecIntent }
   hooks?: SpecGenerationHooks
 }
 
@@ -122,16 +130,39 @@ export function resolveSpecGenerationToolPolicy(provider: string, scope: Pick<Co
     : pureOutputToolPolicy(adapter)
 }
 
+/** Intent-first generation (Add Spec → Intent): the intent, then the spec derived from it. */
+export const INTENT_DERIVE_RULES =
+  `INTENT FIRST (before "## Spec Title"): open the response with this section, then the REQUIRED FORMAT above.\n` +
+  `## Intent\n` +
+  '```json\n{ "problem": "…", "outcome": "…", "hypothesis": "We believe … will produce …; we will know when …", "successSignals": ["…"], "affects": ["…"], "constraints": ["…"], "openQuestions": ["…"] }\n```\n' +
+  `- The intent says WHAT and WHY, never HOW: no solution. A solution the user dictated becomes a constraint (they require it) or an open question (it is one option); the outcome is what that solution is for.\n` +
+  `- problem and outcome are required; successSignals are observable; whatever the text does not settle goes to openQuestions — never invent it.\n` +
+  `- Derive the spec FROM the intent: the Problem Statement restates its problem and outcome, Out of Scope and Technical Considerations honour every constraint, at least one acceptance criterion checks each success signal, and nothing contradicts it.`
+
+/** Settlement rewrite of a spec that has an intent: the intent stays; open questions may be answered. */
+export const INTENT_KEEP_RULES =
+  `THE INTENT ABOVE IS FIXED: do not restate or change its problem, outcome, constraints or signals, and keep the spec consistent with it. ` +
+  `After the REQUIRED FORMAT, add this section answering ONLY the open questions the delivered work settles (skip the others and any already answered):\n` +
+  `## Intent Answers\n` +
+  '```json\n[{ "index": 0, "question": "<the question text exactly>", "answer": "…" }]\n```'
+
 export function buildSpecGenerationPrompts(input: {
   project: SpecGenerationProject
   text: string
   scope: ContextScope
   repositoryIds?: string[]
   attachments?: SpecGenerationAttachments
+  intent?: GenerateSpecFromTextInput['intent']
 }): { systemPrompt: string; userPrompt: string; hasAttachments: boolean } {
   const { project, scope } = input
   let hasAttachments = false
-  let userPrompt = `Generate a spec for the following idea:\n\n${input.text.trim()}`
+  let userPrompt = input.intent?.mode === 'derive'
+    ? `Write the intent for the following problem, then the spec derived from it:\n\n${input.text.trim()}`
+    : `Generate a spec for the following idea:\n\n${input.text.trim()}`
+  if (input.intent?.mode === 'keep') {
+    userPrompt = `${userPrompt}\n\n${renderIntentForAgents(input.intent.intent)}\n\n## Open questions to answer (0-based index)\n\n${
+      input.intent.intent.openQuestions.map((item, index) => `${index}. ${item.question}${item.answer ? ' (already answered)' : ''}`).join('\n') || '(none)'}`
+  }
   if (input.attachments && input.attachments.textBlocks.length > 0) {
     hasAttachments = true
     userPrompt = `${userPrompt}\n\n## Attached Resources\n\n${input.attachments.textBlocks.join('\n\n')}`
@@ -180,6 +211,8 @@ export function buildSpecGenerationPrompts(input: {
     `## Estimated Complexity\n[Low/Medium/High/Very High + one sentence justification]\n\n` +
     `## Short Summary\n[One or two plain-language sentences, max 120 characters total, that capture the essence of this spec for a dashboard postit. No markdown, no bullets, no headings.]`
 
+  if (input.intent?.mode === 'derive') systemPrompt = `${systemPrompt}\n\n${INTENT_DERIVE_RULES}`
+  if (input.intent?.mode === 'keep') systemPrompt = `${systemPrompt}\n\n${INTENT_KEEP_RULES}`
   if (hasAttachments) systemPrompt = `${systemPrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
 
   const repositories = getProjectRepositories(project)
@@ -215,6 +248,8 @@ export function persistGeneratedSpec(
         short_summary: spec.shortSummary,
         // A rewrite without an Out of Scope section keeps the spec's non-goals.
         ...(spec.nonGoals.length ? { nonGoals: spec.nonGoals } : {}),
+        // The intent survives a rewrite; only open questions gain answers.
+        ...(existing.intent ? { intent: mergeIntentAnswers(existing.intent, spec.intentAnswers) } : {}),
         updated_at: now,
       }
       s.tickets[String(target.ticketId)] = rewritten
@@ -241,6 +276,7 @@ export function persistGeneratedSpec(
       execution_order: null,
       short_summary: spec.shortSummary,
       ...(spec.nonGoals.length ? { nonGoals: spec.nonGoals } : {}),
+      ...(spec.intent ? { intent: spec.intent } : {}),
       created_at: now,
       updated_at: now,
       created_by: 'sr-product-engineer',
@@ -273,7 +309,7 @@ export function startSpecGeneration(
   if (!toolPolicy) throw new SpecGenerationToolPolicyError(provider, scope.full ? 'read-only' : 'pure-output')
 
   const { systemPrompt, userPrompt, hasAttachments } = buildSpecGenerationPrompts({
-    project, text: input.text, scope, repositoryIds: input.repositoryIds, attachments: input.attachments,
+    project, text: input.text, scope, repositoryIds: input.repositoryIds, attachments: input.attachments, intent: input.intent,
   })
   const imageFlags = input.attachments?.imageFlags ?? []
   const imagePaths = input.attachments?.imagePaths ?? []

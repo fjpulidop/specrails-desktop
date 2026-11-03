@@ -21,8 +21,8 @@ import type {
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 const CLAUDE_MODELS = [
-  { value: 'sonnet', label: 'Sonnet 5.5', default: true as const },
-  { value: 'fable', label: 'Fable 5.1' },
+  { value: 'sonnet', label: 'Claude Sonnet 5.5', default: true as const },
+  { value: 'fable', label: 'Claude Fable 5.1' },
   { value: 'opus', label: 'Claude Opus 5.5' },
   { value: 'haiku', label: 'Claude Haiku 5.5' },
 ] as const
@@ -38,6 +38,7 @@ function normaliseModel(model: string | null | undefined): string {
     case 'claude-sonnet-4-0':
     case 'claude-sonnet-4-20250514':
       return 'sonnet'
+    case 'claude-fable-5-1':
     case 'claude-fable-5':
       return 'fable'
     case 'claude-opus-5-5':
@@ -70,6 +71,7 @@ function normaliseModel(model: string | null | undefined): string {
  */
 const PINNED_ALIAS_MODEL_IDS: Readonly<Record<string, string>> = {
   sonnet: 'claude-sonnet-5-5',
+  fable: 'claude-fable-5-1',
   opus: 'claude-opus-5-5',
   haiku: 'claude-haiku-5-5',
 }

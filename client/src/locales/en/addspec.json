@@ -5,6 +5,9 @@
     "engineAriaLabel": "AI engine for this spec",
     "modeTablistLabel": "Spec creation mode",
     "mode": {
+      "intent": "Intent",
+      "intentHint": "problem first",
+      "default": "Default",
       "quick": "Quick",
       "explore": "Explore",
       "raw": "Raw",
@@ -13,14 +16,26 @@
       "quickUnavailable": "unavailable for Kimi"
     },
     "modeDescription": {
+      "intent": "Describe the problem, who has it and how you will know it is solved. The AI writes the intent, then derives the spec for you to review.",
       "quick": "Describe the feature or change. Attach mockups, briefs, or data for more context.",
       "explore": "Describe a rough idea. The selected AI assistant will help you shape it through conversation — you decide when to commit.",
-      "raw": "Your prompt, as-is — saved as a spec. No AI runs now; drag it to a rail to build it."
+      "raw": "Your prompt, as-is — saved as a spec. No AI runs now; drag it to a rail to build it. You can add the intent later from the spec."
     },
     "editorPlaceholder": {
+      "intent": "e.g. New users give up at setup because we ask for an API key before they see anything work. We will know it is fixed when most finish setup in under 2 minutes…",
       "quick": "e.g. Add a dark mode toggle to the settings page that persists the user's preference...",
       "explore": "e.g. dark mode — not sure where the toggle should live or how to persist it…",
       "raw": "Describe the feature, change, or idea. Markdown, images, and files supported…"
+    },
+    "intentChips": {
+      "problem": "Problem",
+      "affects": "Who it affects",
+      "signal": "How we will know"
+    },
+    "intentScaffold": {
+      "problem": "Problem: ",
+      "affects": "Who it affects: ",
+      "signal": "We will know it worked when: "
     },
     "ideaAriaLabel": "Spec idea",
     "raw": {
@@ -46,6 +61,7 @@
       "responsiveSizes_other": "Responsive · {{count}} sizes"
     },
     "submit": {
+      "intent": "Write the intent and a spec",
       "quick": "Generate Spec",
       "explore": "Continue",
       "raw": "Create",

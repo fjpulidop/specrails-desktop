@@ -81,18 +81,6 @@
     "grid": "Vista de grelha (Kanban)",
     "postit": "Vista de post-its"
   },
-  "createModal": {
-    "title": "Criar spec",
-    "titlePlaceholder": "Título da spec...",
-    "labelsPlaceholder": "Escreva para adicionar etiquetas...",
-    "create": "Criar",
-    "creating": "A criar...",
-    "toast": {
-      "created": "Spec criada",
-      "createFailed": "Falha ao criar a spec"
-    },
-    "description": "Adicione uma spec ao quadro manualmente. Ela começa no status escolhido e pode ser refinada ou movida para um rail depois."
-  },
   "comparePicker": {
     "title": "Comparar com…",
     "count": "({{n}} specs)",
@@ -123,7 +111,7 @@
     "title": "Adendos",
     "hint": "Notas de iteração sobre a spec. Seguem com o próximo lançamento sem editar a descrição.",
     "add": "Adicionar adendo",
-    "emptyCta": "Adicione um adendo para iterar sobre esta spec: o próximo lançamento (Implement, SDD Quick, Freestyle…) recebe-o como briefing e a descrição fica intacta.",
+    "emptyCta": "Adicione um adendo para iterar sobre esta spec: o próximo lançamento (Implement ou qualquer loop) recebe-o como briefing e a descrição fica intacta.",
     "openCount_one": "{{count}} aberto",
     "openCount_other": "{{count}} abertos",
     "kind": {
@@ -191,6 +179,40 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Entrega desconhecida ({{id}})"
+  },
+  "intent": {
+    "title": "Intent",
+    "add": "Adicione o intent: o problema, o resultado e como você saberá",
+    "addShort": "Adicionar intent",
+    "editorHint": "Descreva o problema, não a solução. Os agentes derivam o como a partir disto.",
+    "save": "Salvar intent",
+    "problem": "Problema",
+    "outcome": "Resultado buscado",
+    "hypothesis": "Hipótese (opcional)",
+    "successSignals": "Como saberemos",
+    "affects": "Quem e o que é afetado",
+    "constraints": "Restrições",
+    "openQuestions": "Perguntas em aberto",
+    "questionsAnswered_one": "Perguntas · {{count}} respondida",
+    "questionsAnswered_other": "Perguntas · {{count}} respondidas",
+    "onePerLine": "Um por linha",
+    "required": "Obrigatório",
+    "problemPlaceholder": "O que falha hoje, para quem e quando incomoda",
+    "outcomePlaceholder": "O que será verdade quando estiver resolvido",
+    "hypothesisPlaceholder": "Acreditamos que … produzirá …; saberemos quando …",
+    "successSignalsPlaceholder": "Sinais observáveis de que o resultado aconteceu",
+    "affectsPlaceholder": "Pessoas, equipes, telas ou sistemas",
+    "constraintsPlaceholder": "Limites que qualquer solução deve respeitar",
+    "questionPlaceholder": "O que ninguém sabe ainda",
+    "answerPlaceholder": "Resposta (vazia enquanto estiver em aberto)",
+    "questionLabel": "Pergunta em aberto {{n}}",
+    "answerLabel": "Resposta",
+    "answerAria": "Resposta à pergunta em aberto {{n}}",
+    "removeQuestion": "Remover pergunta em aberto {{n}}",
+    "addQuestion": "Adicionar pergunta em aberto",
+    "unanswered": "Em aberto",
+    "openCount_one": "{{count}} pergunta em aberto",
+    "openCount_other": "{{count}} perguntas em aberto"
   },
   "nonGoals": {
     "title": "Fora do escopo",
@@ -321,7 +343,7 @@
       "smash": "Divisão",
       "spec-launcher": "Lançador de specs",
       "chat-sidebar": "Chat",
-      "flow": "Flow"
+      "flow": "Intent"
     }
   }
 }

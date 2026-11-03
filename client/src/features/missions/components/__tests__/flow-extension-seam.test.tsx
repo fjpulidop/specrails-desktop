@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useSyncExternalStore } from 'react'
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 
-// Flow mode through the missions extension seam: the conversation surface gets
+// Intent mode through the missions extension seam: the conversation surface gets
 // the extension's data attributes and a busy send interrupts. Harness mirrors
 // mission-composer-clear-on-send (same mocks).
 // (Original note:) Regression cover for the composer's clear-on-send contract, driven through the
@@ -128,7 +128,7 @@ beforeEach(() => {
   vi.mocked(agentApi.listAgentAttachments).mockResolvedValue([])
 })
 
-describe('missions extension seam (Flow mode)', () => {
+describe('missions extension seam (IntentSession mode)', () => {
   it('applies the extension surface attributes, renders the dock and interrupts a busy turn', async () => {
     const { container } = renderPanel(FLOW_MODE)
     const box = await startBusyTurn()
@@ -155,13 +155,13 @@ describe('missions extension seam (Flow mode)', () => {
     expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[1][2]).not.toHaveProperty('deliveryMode')
   })
 
-  describe('composer mode (Flow named on the composer)', () => {
+  describe('composer mode (IntentSession named on the composer)', () => {
     const Icon = (props: { className?: string }) => <svg data-testid="mode-icon" {...props} />
     const COMPOSER_MODE: MissionExtensions = {
       useConversationMode: () => ({
         hideGitStrip: true,
-        composer: { badge: { label: 'Flow', description: 'Flow mode: the agent writes in the worktree', icon: Icon, accent: 'var(--color-accent-flow)' }, placeholder: 'Tell the agent what to change in the worktree…' },
-        headerBadge: { label: 'In Flow', icon: Icon },
+        composer: { badge: { label: 'Intent', description: 'Intent mode: the agent writes in the worktree', icon: Icon, accent: 'var(--color-accent-intent)' }, placeholder: 'Tell the agent what to change in the worktree…' },
+        headerBadge: { label: 'In Intent', icon: Icon },
       }),
     }
 
@@ -171,12 +171,12 @@ describe('missions extension seam (Flow mode)', () => {
       await act(async () => { chat!.open() })
       await waitFor(() => expect(chat!.active?.id).toBe('c-new'))
       const chip = await screen.findByTestId('agent-composer-mode-chip')
-      expect(chip).toHaveTextContent('Flow')
-      expect(chip).toHaveAttribute('title', 'Flow mode: the agent writes in the worktree')
+      expect(chip).toHaveTextContent('Intent')
+      expect(chip).toHaveAttribute('title', 'Intent mode: the agent writes in the worktree')
       expect(within(chip).getByTestId('mode-icon')).toBeInTheDocument()
       // The chip names the mode; no unlabeled accent line along the composer.
       expect(screen.queryByTestId('agent-composer-mode-line')).toBeNull()
-      expect(chip.style.getPropertyValue('--mode-accent')).toBe('var(--color-accent-flow)')
+      expect(chip.style.getPropertyValue('--mode-accent')).toBe('var(--color-accent-intent)')
       expect(screen.getByTestId('agent-composer-box')).toHaveAttribute('data-composer-mode', 'extension')
       expect(screen.getByRole('textbox')).toHaveAttribute('data-placeholder', 'Tell the agent what to change in the worktree…')
     })
@@ -191,7 +191,7 @@ describe('missions extension seam (Flow mode)', () => {
     })
   })
 
-  describe('extension runs and Flow history', () => {
+  describe('extension runs and Intent history', () => {
     const message = (id: string, role: 'user' | 'assistant' | 'system', content: string) => ({ id, conversation_id: 'c1', role, content, created_at: '2026-10-22T10:00:00.000Z' })
     const boundary = (id: string, event: 'entered' | 'left', reason: string) => message(id, 'system', JSON.stringify({ kind: 'flow-boundary', flowId: 'f1', event, reason, branch: 'feat/7-calm', at: '' }))
 
@@ -207,7 +207,7 @@ describe('missions extension seam (Flow mode)', () => {
     it('an extension run shows in the same strip, with its controls and its panel', async () => {
       const RUNS: MissionExtensions = {
         useLiveRuns: () => [{
-          key: 'flow:f1', label: 'Flow', tone: 'decision', headline: 'Flow → Spec ready to launch',
+          key: 'flow:f1', label: 'Intent', tone: 'decision', headline: 'Intent → Spec ready to launch',
           controls: <button type="button">Copy branch</button>,
           panel: <RunPrimaryButton primary={{ id: 'launch', label: 'Launch', kind: 'outward' }} onClick={() => undefined}>Play</RunPrimaryButton>,
         }],
@@ -227,7 +227,7 @@ describe('missions extension seam (Flow mode)', () => {
     it('an extension run that waits for the person feeds the mission list attention dot; a calm one does not', async () => {
       let tone: 'decision' | 'info' = 'info'
       const RUNS: MissionExtensions = {
-        useLiveRuns: () => [{ key: 'flow:f1', label: 'Flow', tone, headline: 'Ready to turn into a PR' }],
+        useLiveRuns: () => [{ key: 'flow:f1', label: 'Intent', tone, headline: 'Ready to turn into a PR' }],
       }
       await openWith([message('m1', 'user', 'hi')], RUNS)
       await screen.findByTestId('mission-run-strip')
@@ -239,14 +239,14 @@ describe('missions extension seam (Flow mode)', () => {
     })
 
     it('an extension with an app-wide attention source feeds the dot for missions that are not open, live, and the strip leaves its runs to it', async () => {
-      // A tiny external store standing in for the extension's own app-wide watch (Flow: GET /flow/open + flow.state).
+      // A tiny external store standing in for the extension's own app-wide watch (Intent: GET /flow/open + flow.state).
       let attention: ReadonlyMap<string, ReadonlySet<string>> = new Map()
       const listeners = new Set<() => void>()
       const setAttention = (next: ReadonlyMap<string, ReadonlySet<string>>) => { attention = next; for (const l of listeners) l() }
       const seen: string[][] = []
       const RUNS: MissionExtensions = {
         // The open mission's run waits for the person, but the extension owns its attention.
-        useLiveRuns: () => [{ key: 'flow:f1', label: 'Flow', tone: 'decision', headline: 'Waiting' }],
+        useLiveRuns: () => [{ key: 'flow:f1', label: 'Intent', tone: 'decision', headline: 'Waiting' }],
         useRunAttention: (conversations) => {
           seen.push(conversations.map((c) => c.id))
           return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l) }, () => attention)
@@ -271,14 +271,14 @@ describe('missions extension seam (Flow mode)', () => {
       const handOff = vi.fn()
       const RUNS: MissionExtensions = {
         useLiveRuns: () => [{
-          key: 'flow:f1', label: 'Flow', tone: 'running', headline: 'Flow · 3 files',
+          key: 'flow:f1', label: 'Intent', tone: 'running', headline: 'Exploring · 3 files',
           controls: (
             <>
-              <button type="button" data-strip-key="p" onClick={paused}>Pause Flow</button>
+              <button type="button" data-strip-key="p" onClick={paused}>Pause Intent</button>
               <button type="button" data-strip-key="h" disabled onClick={handOff}>Hand off</button>
             </>
           ),
-          panel: <p>Flow panel</p>,
+          panel: <p>Intent panel</p>,
         }],
       }
       await openWith([message('m1', 'user', 'hi')], RUNS)
@@ -305,40 +305,40 @@ describe('missions extension seam (Flow mode)', () => {
       const TurnIcon = (props: { className?: string }) => <svg data-testid="turn-mode-icon" {...props} />
       await openWith([
         boundary('b1', 'entered', 'started'),
-        message('m2', 'assistant', 'inside Flow'),
-      ], { useTurnMark: () => ({ label: 'Flow', icon: TurnIcon, accent: 'var(--color-accent-flow)' }) })
+        message('m2', 'assistant', 'inside Intent'),
+      ], { useTurnMark: () => ({ label: 'Intent', icon: TurnIcon, accent: 'var(--color-accent-intent)' }) })
       const mark = await screen.findByTestId('agent-message-mode-mark')
-      expect(mark).toHaveTextContent('Flow')
+      expect(mark).toHaveTextContent('Intent')
       expect(within(mark).getByTestId('turn-mode-icon')).toBeInTheDocument()
-      expect(mark.style.getPropertyValue('--turn-mode-accent')).toBe('var(--color-accent-flow)')
+      expect(mark.style.getPropertyValue('--turn-mode-accent')).toBe('var(--color-accent-intent)')
     })
 
-    it('boundaries are event lines; the agent turns between them carry a Flow mark next to their time', async () => {
+    it('boundaries are event lines; the agent turns between them carry an Intent session mark next to their time', async () => {
       await openWith([
-        message('m1', 'assistant', 'before Flow'),
+        message('m1', 'assistant', 'before Intent'),
         boundary('b1', 'entered', 'started'),
-        message('m2', 'assistant', 'inside Flow'),
+        message('m2', 'assistant', 'inside Intent'),
         boundary('b2', 'left', 'handed_off'),
-        message('m3', 'assistant', 'after Flow'),
+        message('m3', 'assistant', 'after Intent'),
         boundary('b3', 'entered', 'returned'),
-        message('m4', 'assistant', 'back in Flow'),
+        message('m4', 'assistant', 'back in Intent'),
         boundary('b4', 'left', 'closed'),
       ])
       const lines = await screen.findAllByTestId('agent-flow-boundary')
-      // The return is told by the Back to Flow line: its boundary only marks the turns.
+      // The return is told by the Back to Intent line: its boundary only marks the turns.
       expect(lines).toHaveLength(3)
-      // A needs-review Flow closed with its branch kept says so.
+      // A needs-review Intent closed with its branch kept says so.
       expect(lines[2]).toHaveTextContent('closed, branch kept')
-      expect(lines[0]).toHaveTextContent('Entered Flow')
+      expect(lines[0]).toHaveTextContent('Entered Intent')
       expect(lines[0]).toHaveTextContent('feat/7-calm')
-      expect(lines[1]).toHaveTextContent('Left Flow')
+      expect(lines[1]).toHaveTextContent('Left Intent')
       expect(lines[1]).toHaveTextContent('handed off to a rail')
       const marks = screen.getAllByTestId('agent-message-mode-mark')
       expect(marks).toHaveLength(2)
       const markedTexts = marks.map((mark) => mark.closest('.group')?.textContent ?? '')
-      expect(markedTexts.some((text) => text.includes('inside Flow'))).toBe(true)
-      expect(markedTexts.some((text) => text.includes('back in Flow'))).toBe(true)
-      expect(markedTexts.some((text) => text.includes('before Flow') || text.includes('after Flow'))).toBe(false)
+      expect(markedTexts.some((text) => text.includes('inside Intent'))).toBe(true)
+      expect(markedTexts.some((text) => text.includes('back in Intent'))).toBe(true)
+      expect(markedTexts.some((text) => text.includes('before Intent') || text.includes('after Intent'))).toBe(false)
     })
   })
 
@@ -359,7 +359,7 @@ describe('missions extension seam (Flow mode)', () => {
       return screen.findByRole('button', { name: 'Solid trail' })
     }
 
-    it('renders the Flow agent options as chips and sends a pick normally when the agent is idle', async () => {
+    it('renders the Intent agent options as chips and sends a pick normally when the agent is idle', async () => {
       const chip = await openWithOptions(FLOW_MODE)
       expect(screen.getByRole('button', { name: 'Particle trail' })).toBeInTheDocument()
       expect(screen.queryByText(/```options/)).toBeNull()
@@ -369,7 +369,7 @@ describe('missions extension seam (Flow mode)', () => {
       expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[0][2]).not.toHaveProperty('deliveryMode')
     })
 
-    it('keeps the chips while the Flow agent is busy and a pick interrupts the running turn', async () => {
+    it('keeps the chips while the Intent agent is busy and a pick interrupts the running turn', async () => {
       await openWithOptions(FLOW_MODE)
       // A busy continuation turn (no newer settled message yet): the server streams.
       act(() => { wsHandler?.({ type: 'agent_stream', conversationId: 'c1', delta: 'Working on it' }) })
@@ -384,7 +384,7 @@ describe('missions extension seam (Flow mode)', () => {
       expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[0][2]).toMatchObject({ deliveryMode: 'interrupt' })
     })
 
-    it('outside Flow a busy turn still suppresses the chips', async () => {
+    it('outside Intent a busy turn still suppresses the chips', async () => {
       await openWithOptions()
       act(() => { wsHandler?.({ type: 'agent_stream', conversationId: 'c1', delta: 'Working on it' }) })
       await waitFor(() => expect(streaming).toBe(true))

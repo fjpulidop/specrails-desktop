@@ -85,7 +85,7 @@
     "ref_mismatch": "ブランチ参照が一致しません",
     "restart_pending": "ワークフローの復旧を待機中",
     "review_changes_requested": "レビュアーが変更を依頼",
-    "returned_to_flow": "Flow に戻しました",
+    "returned_to_flow": "Intent に戻しました",
     "local_changes_attention": "統合済み — ローカル変更の確認が必要です"
   },
   "prRecovery": {
@@ -131,7 +131,7 @@
     "select": "リポジトリ",
     "all": "すべてのリポジトリ",
     "workspacePath": "コード作業ディレクトリ",
-    "workspaceHint": "任意。1行に1ディレクトリ。絶対パスまたはリポジトリからの相対パスを指定します。空欄はリポジトリのフォルダーを使用します。Implement、Quick SDD、Freestyle は各ディレクトリを検証します。",
+    "workspaceHint": "任意。1行に1ディレクトリ。絶対パスまたはリポジトリからの相対パスを指定します。空欄はリポジトリのフォルダーを使用します。Implement とループは各ディレクトリを検証します。",
     "launchWorkspaces": "今回の実行用ディレクトリ",
     "launchWorkspaceHint": "コード変更とテストはこれらのフォルダーに限定されます。対象リポジトリごとに少なくとも1つ選択してください。",
     "advanced": "複数リポジトリの設定"
@@ -207,7 +207,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Flow の引き渡し",
+    "flowSpec": "Intent の引き渡し",
     "unknown": "ループ",
     "title": "ループ: {{name}}"
   },
@@ -233,8 +233,8 @@
       "dailyBudget": "1 日の予算",
       "recentlyDeleted": "最近削除した項目",
       "railLoops": "レールが実行する内容",
-      "flowMode": "Flow",
-      "flowHandOff": "Flow の引き渡し",
+      "flowMode": "Intent",
+      "flowHandOff": "Intent の引き渡し",
       "contextScope": "コンテキストスライダー",
       "launchForecast": "起動時の見込み",
       "loopBuilder": "Loop Builder",

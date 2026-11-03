@@ -2,12 +2,14 @@
 
 Le mode Quick, c'est pour quand vous savez déjà ce que vous voulez. Vous tapez votre idée, l'IA écrit la spec complète, et elle atterrit sur votre tableau au statut **À faire**. Aucun aller-retour — vous décrivez et c'est parti.
 
+> **Ajouter une spec s’ouvre en mode Intent.** Intent fonctionne comme Quick, mais vous décrivez le *problème* (qui l’a, le résultat voulu, comment vous saurez que ça a marché) au lieu de la solution. L’IA écrit d’abord l’intent et en dérive la spec. Voir [Intent](../integrations/intent-mode#intent-mode). Choisissez **Quick** quand vous voulez la spec directement à partir de votre idée.
+
 ## Créer une spec en mode Quick
 
 Pour créer une spec rapidement :
 
 1. Sur le Dashboard, cliquez sur **Nouvelle spec** (le bouton Plus de la barre d'outils du SpecsBoard).
-2. Choisissez le mode **Quick**.
+2. Choisissez le mode **Quick** (Ajouter une spec s’ouvre en mode **Intent**).
 3. Tapez votre idée dans le champ de texte — une phrase ou un paragraphe, ce qui la capture le mieux.
 4. Cliquez pour générer.
 

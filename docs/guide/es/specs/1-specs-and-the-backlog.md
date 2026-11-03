@@ -58,15 +58,18 @@ Los borradores son la única excepción: un borrador puede *no* tener ninguna pr
 
 Para crear una spec, haz clic en **Nueva spec** (el botón Más de la barra de herramientas del SpecsBoard). Se abre el diálogo **Añadir spec** con varias formas de trabajar:
 
+- **Modo Intent** (el predeterminado): describes el problema, el resultado que quieres y cómo sabrás que funcionó; la IA escribe el intent y después deriva la spec de él para que la revises. Consulta [Intent](../integrations/intent-mode#intent-mode).
 - **Modo Quick**: describes lo que quieres y la IA escribe la spec completa de una sola vez. Consulta [Añadir spec — Modo Quick](add-spec-quick-mode.md).
 - **Modo Explore**: conversas con la IA y esta te ayuda a dar forma a la spec turno a turno. Consulta [Añadir spec — Modo Explore](add-spec-explore-mode.md).
 - **Modo Raw**: lo que escribas se guarda tal cual como una spec, sin intervención de la IA. Úsalo cuando ya tengas el texto de la spec escrito.
 
-A cuál recurrir depende de lo clara que tengas ya la idea. ¿Sabes exactamente lo que quieres? Quick. ¿Todavía le estás dando vueltas? Explore. ¿Ya tienes el texto? Raw.
+A cuál recurrir depende de lo clara que tengas ya la idea. ¿Conoces el problema pero no la solución? Intent. ¿Sabes exactamente lo que quieres? Quick. ¿Todavía le estás dando vueltas? Explore. ¿Ya tienes el texto? Raw.
+
+La **Intent** de una spec está encima de su descripción en el detalle de la spec: problema, resultado buscado, cómo sabremos, a quién y a qué afecta, restricciones y preguntas abiertas. Puedes añadirla o editarla ahí; todo agente que trabaja en la spec la recibe primero.
 
 ## Anexos: iterar sobre una spec existente
 
-Cuando una spec ya tiene trabajo detrás (una PR en revisión, una funcionalidad ya fusionada) y quieres *más*, no reescribas su descripción: eso desvirtúa la spec (y sincroniza la desviación con Jira) y obliga a la siguiente ejecución a replanificarlo todo. Abre la spec y añade un **anexo**: una nota breve con un tipo (petición de cambio, feedback de revisión, aclaración, restricción) y tus palabras. Los anexos abiertos viajan automáticamente con el próximo lanzamiento de esa spec en cualquier loop (Implement, SDD Quick, Freestyle), de modo que la ejecución cambia solo lo que pediste, y el paquete de revisión informa de cada uno como aplicado, aplicado parcialmente o bloqueado. Si la ejecución falla o descartas la entrega, vuelven solos a **Abierto**. El agente de misión puede añadirlos por ti cuando le pides cambiar algo de una spec existente.
+Cuando una spec ya tiene trabajo detrás (una PR en revisión, una funcionalidad ya fusionada) y quieres *más*, no reescribas su descripción: eso desvirtúa la spec (y sincroniza la desviación con Jira) y obliga a la siguiente ejecución a replanificarlo todo. Abre la spec y añade un **anexo**: una nota breve con un tipo (petición de cambio, feedback de revisión, aclaración, restricción) y tus palabras. Los anexos abiertos viajan automáticamente con el próximo lanzamiento de esa spec en cualquier loop (Implement o un loop personalizado), de modo que la ejecución cambia solo lo que pediste, y el paquete de revisión informa de cada uno como aplicado, aplicado parcialmente o bloqueado. Si la ejecución falla o descartas la entrega, vuelven solos a **Abierto**. El agente de misión puede añadirlos por ti cuando le pides cambiar algo de una spec existente.
 
 ## Revisar una entrega: qué mirar primero
 

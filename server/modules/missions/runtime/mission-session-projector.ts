@@ -23,7 +23,7 @@ export interface MissionSessionProjectorDeps {
 export interface MissionSessionProjection {
   /** Core session id (default: the conversation id, the mission's own session). */
   coreSessionId?: string
-  /** Accounting surface of its invocations: the Flow session bills `flow`. */
+  /** Accounting surface of its invocations: the Intent session bills `flow`. */
   surface?: 'agent-chat' | 'flow'
   /** A later generation of the mission's OWN session (`<id>:g<n>`): broadcasts
    *  stay untagged and its process end releases the mission capability. */
@@ -75,7 +75,7 @@ export class MissionSessionProjector implements ProjectionSink {
             const before = getSessionCursor(this.deps.db, conversationId, this.coreSessionId)
             setResidentState(this.deps.db, conversationId, op.phase, op.processAlive, op.liveSubagents, this.coreSessionId)
             if (before?.processAlive && !op.processAlive) processEnded = true
-            // The conversation's state across its sessions: a Flow's sub-agents are the mission's while in Flow.
+            // The conversation's state across its sessions: an Intent session's sub-agents are the mission's while in Intent.
             const state = conversationSessionState(this.deps.db, conversationId)
             outbox.push({ type: 'agent_resident_state', conversationId, phase: state?.residentPhase ?? op.phase, liveSubagents: state?.liveSubagents ?? op.liveSubagents, processAlive: state?.processAlive ?? op.processAlive, ...this.tag, timestamp })
             break

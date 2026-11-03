@@ -7,7 +7,7 @@ import { getBackgroundProcess, killOwnedBackgroundProcess, type BackgroundProces
 import { withAppUrls } from './app-urls'
 
 /** The same scope and lifecycle policy applies to REST and the mission MCP.
- * `scope` names the root in the refusal (a repository, or a Flow worktree). */
+ * `scope` names the root in the refusal (a repository, or an Intent session worktree). */
 export function resolveBackgroundCwd(repositoryRoot: string, cwd: unknown, scope = 'the selected repository'): string {
   if (cwd !== undefined && typeof cwd !== 'string') throw new RepositoryValidationError('cwd must be a string')
   const resolved = path.resolve(repositoryRoot, typeof cwd === 'string' && cwd.trim() ? cwd : '.')

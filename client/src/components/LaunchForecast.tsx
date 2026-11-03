@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/t
 
 interface LaunchForecastProps {
   projectId: string | null | undefined
-  /** What is about to run: a loop id (`factory:implement`, a custom loop, the Flow hand-off loop). */
+  /** What is about to run: a loop id (`factory:implement`, a custom loop, the Intent hand-off loop). */
   loopId: string | null | undefined
   /** The single engine that will run it; null (hybrid roles, unknown) shows nothing. */
   provider: string | null | undefined

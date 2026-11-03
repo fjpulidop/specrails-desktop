@@ -11,14 +11,14 @@ import { FLOW_SUBAGENTS_ADDENDUM } from './agent-flow-prompt'
 import { sessionPolicyFor, type CoreSessionTurnContext, type TurnHandle } from './core-session-runner'
 import { MissionSessionProjector } from './mission-session-projector'
 import { missionSessionBoundary } from './mission-tool-policy'
-import type { FlowTurn } from './flow-turn-context'
+import type { IntentTurn } from './flow-turn-context'
 
-/** Why a Flow turn cannot run on Core sessions (there is no legacy Flow path). */
-export class FlowSessionUnavailableError extends Error {
+/** Why an Intent session turn cannot run on Core sessions (there is no legacy Intent path). */
+export class IntentSessionUnavailableError extends Error {
   readonly code = 'flow_sessions_unavailable'
   constructor(message: string) {
     super(message)
-    this.name = 'FlowSessionUnavailableError'
+    this.name = 'IntentSessionUnavailableError'
   }
 }
 
@@ -56,15 +56,15 @@ export class MissionCoreSessions {
   private readonly handles = new Map<string, TurnHandle>()
   /** Missions with a turn being prepared or running: their capability belongs to that turn. */
   private readonly activeTurns = new Set<string>()
-  /** Core sessions with a projector: the mission's (its conversation id) and Flow sessions (`flow:<flowId>`). */
+  /** Core sessions with a projector: the mission's (its conversation id) and Intent sessions (`flow:<flowId>`). */
   private readonly tracked = new Set<string>()
   /** Last turn context per Core session: the policy it runs with. */
   private readonly contexts = new Map<string, SessionContext>()
   /** The Core session the conversation's latest turn ran in (sub-agent tools act on it). */
   private readonly current = new Map<string, string>()
-  /** Core sessions closed (Flow pause/hand-off/renewal, mission generation renewal): never sent another turn. */
+  /** Core sessions closed (Intent pause/hand-off/renewal, mission generation renewal): never sent another turn. */
   private readonly closedSessions = new Set<string>()
-  /** Tracked Core session → the conversation that owns it (every mission generation and Flow session). */
+  /** Tracked Core session → the conversation that owns it (every mission generation and Intent session). */
   private readonly owners = new Map<string, string>()
 
   constructor(private readonly deps: MissionCoreSessionsDeps) {}
@@ -81,7 +81,7 @@ export class MissionCoreSessions {
    * The Core turn context for this mission turn, or null when the turn must use
    * the legacy runners (sessions disabled, scope degraded, provider not served).
    */
-  async prepareTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[]; plugins?: AgentMcpServerSpec[]; flow?: FlowTurn | null }): Promise<CoreSessionTurnContext | null> {
+  async prepareTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[]; plugins?: AgentMcpServerSpec[]; flow?: IntentTurn | null }): Promise<CoreSessionTurnContext | null> {
     if (turn.flow) return this.prepareFlowTurn(conversation, adapter, { ...turn, flow: turn.flow })
     const availability = await this.deps.availability()
     if (!availability.enabled) return null
@@ -157,36 +157,36 @@ export class MissionCoreSessions {
   }
 
   /**
-   * Can this conversation's provider run a Flow session in its scope right now?
-   * Resolves the host client; throws `FlowSessionUnavailableError` otherwise.
+   * Can this conversation's provider run an Intent session in its scope right now?
+   * Resolves the host client; throws `IntentSessionUnavailableError` otherwise.
    */
   async assertFlowSupport(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, providerId: string) {
     const availability = await this.deps.availability()
-    if (!availability.enabled) throw new FlowSessionUnavailableError(`Flow needs Core agent sessions: ${availability.reason}`)
+    if (!availability.enabled) throw new IntentSessionUnavailableError(`Intent needs Core agent sessions: ${availability.reason}`)
     const scope = this.scopeOf(conversation)
-    if (!this.deps.registry.available(scope)) throw new FlowSessionUnavailableError(`Core sessions are unavailable for ${scope} (${this.deps.registry.status(scope)})`)
+    if (!this.deps.registry.available(scope)) throw new IntentSessionUnavailableError(`Core sessions are unavailable for ${scope} (${this.deps.registry.status(scope)})`)
     let client
     try {
       client = await this.deps.registry.acquire(scope)
     } catch (error) {
-      throw new FlowSessionUnavailableError(`Core sessions are unavailable for ${scope}: ${(error as Error).message}`)
+      throw new IntentSessionUnavailableError(`Core sessions are unavailable for ${scope}: ${(error as Error).message}`)
     }
-    if (!hostSupportsFlowSessions(client.initialize)) throw new FlowSessionUnavailableError('The Core session host does not support Flow sessions (flowSessions); update Core')
+    if (!hostSupportsFlowSessions(client.initialize)) throw new IntentSessionUnavailableError('The Core session host does not support Intent sessions (flowSessions); update Core')
     if (!(client.initialize?.drivers ?? []).some((driver) => driver.id === providerId)) {
-      throw new FlowSessionUnavailableError(`Core has no session driver for ${providerId}; Flow cannot run with this provider`)
+      throw new IntentSessionUnavailableError(`Core has no session driver for ${providerId}; Intent cannot run with this provider`)
     }
     return { scope, client }
   }
 
   /**
-   * A Flow turn: its own Core session (`flow:<flowId>`) with the worktree as
+   * An Intent session turn: its own Core session (`flow:<flowId>`) with the worktree as
    * cwd, the rail write-role permissions (FLOW_SESSION_BOUNDARY), default tools and the same Specrails MCP
    * the mission presents. Sub-agents follow the mission's project policy
    * ("Allow sub-agents", "Run sub-agents with"); they inherit the session's cwd
-   * and permissions (Core gives delegated children the parent's cwd). The Flow
+   * and permissions (Core gives delegated children the parent's cwd). The Intent
    * session has its own projection (cursor, sub-agents, usage billed `flow`).
    */
-  private async prepareFlowTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[]; plugins?: AgentMcpServerSpec[]; flow: FlowTurn }): Promise<CoreSessionTurnContext> {
+  private async prepareFlowTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[]; plugins?: AgentMcpServerSpec[]; flow: IntentTurn }): Promise<CoreSessionTurnContext> {
     const { scope, client } = await this.assertFlowSupport(conversation, adapter.id)
     const conversationId = conversation.id
     const sessionId = turn.flow.coreSessionId
@@ -231,7 +231,7 @@ export class MissionCoreSessions {
   }
 
   /**
-   * Whether a Flow's Core session can take this turn: not closed, and opened
+   * Whether an Intent session's Core session can take this turn: not closed, and opened
    * (if at all in this process) with the same provider — a Core session is
    * bound to the driver it was opened with.
    */
@@ -268,19 +268,19 @@ export class MissionCoreSessions {
     return next
   }
 
-  /** Close a Flow's Core session (pause, discard, hand-off, renewal). Core keeps
+  /** Close an Intent session's Core session (pause, discard, hand-off, renewal). Core keeps
    * its journal for the projection; the session never takes another turn. Never throws. */
   async closeFlowSession(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, coreSessionId: string, reason: string): Promise<void> {
     this.closedSessions.add(coreSessionId)
     // Later sub-agent tools act on the mission again; the projection keeps
-    // following the Flow session (background sub-agents may still settle).
+    // following the Intent session (background sub-agents may still settle).
     if (this.current.get(conversation.id) === coreSessionId) this.current.delete(conversation.id)
     try {
       const client = await this.deps.registry.acquire(this.scopeOf(conversation))
       await client.request('session.close', { sessionId: coreSessionId, reason })
     } catch (error) {
       if ((error as { code?: string }).code === 'session_not_found' || (error as { code?: string }).code === 'session_closed') return
-      console.warn(`[agent-chat] could not close Flow session ${coreSessionId}: ${(error as Error).message}`)
+      console.warn(`[agent-chat] could not close Intent session ${coreSessionId}: ${(error as Error).message}`)
     }
   }
 
@@ -355,12 +355,12 @@ export class MissionCoreSessions {
     removeAgentCapabilityFile(conversationId)
   }
 
-  /** The Core session the conversation's sub-agent tools act on: its Flow's while a Flow turn ran last. */
+  /** The Core session the conversation's sub-agent tools act on: its Intent's while an Intent session turn ran last. */
   private sessionOf(conversationId: string): string {
     return this.current.get(conversationId) ?? this.missionSessionId(conversationId)
   }
 
-  /** True when this mission's sub-agents (or its Flow's, while in Flow) are launched by Core (another provider). */
+  /** True when this mission's sub-agents (or its Intent's, while in Intent) are launched by Core (another provider). */
   delegates(conversationId: string): boolean {
     return this.contexts.get(this.sessionOf(conversationId))?.policy.subagentRuntime?.mode === 'delegated'
   }
@@ -387,7 +387,7 @@ export class MissionCoreSessions {
     return sessionId
   }
 
-  /** Stop sub-agents of a mission's Core sessions (its own and its Flow's; all when `subagentIds` is omitted). */
+  /** Stop sub-agents of a mission's Core sessions (its own and its Intent's; all when `subagentIds` is omitted). */
   async stopSubagents(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, subagentIds?: string[]): Promise<string[]> {
     const sessions = this.sessionsOf(conversation.id)
     if (sessions.length === 0) return []
@@ -444,7 +444,7 @@ export class MissionCoreSessions {
     return { lastSeq, subagents: subagents.length }
   }
 
-  /** Project one Core session of a conversation: a generation of its own (billed `agent-chat`) or a Flow's (billed `flow`). */
+  /** Project one Core session of a conversation: a generation of its own (billed `agent-chat`) or an Intent session's (billed `flow`). */
   private async track(scope: string, conversationId: string, sessionId: string, broadcast: MissionCoreSessionsDeps['broadcast']): Promise<void> {
     ensureSessionCursor(this.deps.db, conversationId, sessionId, scope)
     this.owners.set(sessionId, conversationId)
@@ -470,8 +470,8 @@ export class MissionCoreSessions {
     this.handles.delete(conversation.id)
     this.activeTurns.delete(conversation.id)
     this.current.delete(conversation.id)
-    // Every session of the conversation stops being projected; Flow sessions are
-    // closed in Core by the Flow module, the mission's current generation here.
+    // Every session of the conversation stops being projected; Intent sessions are
+    // closed in Core by the Intent module, the mission's current generation here.
     // (The conversation row may already be gone: derive the sessions from what is tracked.)
     const toClose: string[] = []
     for (const [sessionId, context] of [...this.contexts]) if (context.conversationId === conversation.id) this.contexts.delete(sessionId)

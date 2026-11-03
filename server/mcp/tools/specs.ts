@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
 import { apiCall, originConversationDefaults, projectPath, repositoryPath } from './types'
-import { checkSpecFraming, recordSpecCommitted } from '../../modules/missions/runtime/agent-spec-framing'
+import { answeredSpecIntent, checkSpecFraming, recordSpecCommitted } from '../../modules/missions/runtime/agent-spec-framing'
 
 // Mirror of the McpTier union (mcp-tiers) — `./types` re-imports but does not
 // re-export it, so we restate the literal union to keep imports to zod + ./types.
@@ -74,7 +74,7 @@ export function specsTools(): McpToolSpec[] {
         'spending_summary (per-ticket AI spend), files_touched (provenance of files an AI job touched for this ticket), ' +
         'list_attachments, get_attachment. ' +
         'SPEC ADDENDA — THE way to iterate on an EXISTING spec without rewriting its description (which drifts the spec and syncs to Jira): ' +
-        'add_addendum (write; id + body [+ kind change-request|review-feedback|clarification|constraint, + title] — an open addendum rides AUTOMATICALLY into the next launch of that spec on ANY loop: implement, SDD Quick, freestyle, custom loops, revisions; every AI step is briefed with it, a delivered spec is iterated instead of re-planned, and the review packet reports it as applied/partial/blocked), ' +
+        'add_addendum (write; id + body [+ kind change-request|review-feedback|clarification|constraint, + title] — an open addendum rides AUTOMATICALLY into the next launch of that spec on ANY loop: implement, custom loops, revisions; every AI step is briefed with it, a delivered spec is iterated instead of re-planned, and the review packet reports it as applied/partial/blocked), ' +
         'list_addenda (read; status open|in_flight|applied|dismissed + the run that claimed/applied each), ' +
         'update_addendum (write; edit an open/dismissed one: kind/title/body — in-flight and applied ones are frozen), ' +
         'dismiss_addendum (write; withdraw it), reopen_addendum (write; a dismissed/applied one rides again), delete_addendum (destructive; never while in flight). ' +
@@ -154,6 +154,16 @@ export function specsTools(): McpToolSpec[] {
           .optional()
           .describe('update/commit_draft: acceptance-criteria bullets folded into the description'),
         shortSummary: z.string().optional().describe('commit_draft: explicit short summary (camelCase key)'),
+        intent: z.object({
+          problem: z.string(),
+          outcome: z.string(),
+          hypothesis: z.string().optional(),
+          successSignals: z.array(z.string()).optional(),
+          affects: z.array(z.string()).optional(),
+          constraints: z.array(z.string()).optional(),
+          openQuestions: z.array(z.union([z.string(), z.object({ question: z.string(), answer: z.string().optional() })])).optional(),
+        }).nullable().optional()
+          .describe('update/commit_draft: the spec intent (problem, outcome, how we will know, affects, constraints, open questions — never the solution); null clears on update. A first-party commit_draft attaches the answered intent-draft automatically.'),
         short_summary: z.string().nullable().optional().describe('update: explicit short summary (snake_case key; null clears)'),
         structured: z.boolean().optional().describe('from_prompt: lightly structure the verbatim prompt'),
         createLocal: z.boolean().optional().describe('create/generate/commit_draft: keep the spec local (skip Jira promote)'),
@@ -325,7 +335,7 @@ export function specsTools(): McpToolSpec[] {
             }) as Record<string, unknown>
             return {
               ...r,
-              hint: 'The addendum is open: respect the user\'s explicit loop selection, including factory:implement; otherwise recommend factory:sdd-quick-openspec. Rail launches continue a same-spec pending delivery, and brief every AI step with the full delta and a fresh OpenSpec target. Do not use Revision or edit openspecChangeName. Do not edit the spec description to repeat it.',
+              hint: 'The addendum is open: respect the user\'s explicit loop selection, including factory:implement; otherwise use Implement. Rail launches continue a same-spec pending delivery, and brief every AI step with the full delta and a fresh OpenSpec target. Do not use Revision or edit openspecChangeName. Do not edit the spec description to repeat it.',
             }
           }
           case 'update_addendum': {
@@ -389,6 +399,7 @@ export function specsTools(): McpToolSpec[] {
               metadata: args.metadata,
               acceptanceCriteria: args.acceptanceCriteria,
               short_summary: args.short_summary,
+              ...(args.intent === undefined ? {} : { intent: args.intent }),
               ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
             })
           case 'from_prompt':
@@ -440,6 +451,9 @@ export function specsTools(): McpToolSpec[] {
               const refusal = checkSpecFraming(ctx.desktopDb, framedConversationId)
               if (refusal) throw new Error(refusal)
             }
+            // intent-mode: the answered intent rides into the spec unless the
+            // call carries its own.
+            const intent = args.intent ?? (framedConversationId ? answeredSpecIntent(ctx.desktopDb, framedConversationId) : null)
             const committed = await apiCall(ctx, 'POST', `${base}/tickets/from-draft`, {
               title: args.title,
               description: args.description,
@@ -457,6 +471,7 @@ export function specsTools(): McpToolSpec[] {
               ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
               contractRefine,
               agentProvider,
+              ...(intent ? { intent } : {}),
             })
             // Spend the frame only on a spec that actually landed: a refusal or
             // a failed write above throws before reaching here, so nothing is

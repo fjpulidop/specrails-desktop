@@ -38,10 +38,10 @@ describe('LaunchForecast', () => {
 
   it('asks for the right target: project, loop and the engine that will run it', async () => {
     mockApi({ time, cost, minSamples: 5, budget: null })
-    view({ projectId: 'proj-9', loopId: 'factory:freestyle', provider: 'codex' })
+    view({ projectId: 'proj-9', loopId: 'factory:implement', provider: 'codex' })
     await screen.findByTestId('launch-forecast')
     const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0])).find((u) => u.includes('/launch-forecast'))!
-    expect(call).toMatch(/\/api\/projects\/proj-9\/launch-forecast\?loopId=factory%3Afreestyle&provider=codex$/)
+    expect(call).toMatch(/\/api\/projects\/proj-9\/launch-forecast\?loopId=factory%3Aimplement&provider=codex$/)
   })
 
   it('says "Not enough history yet" instead of guessing, and explains the floor', async () => {

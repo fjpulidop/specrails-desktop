@@ -1,0 +1,157 @@
+import type { DbInstance } from '../../../db/types'
+import { IntentConflictError, isOpenSpecChangeId, type IntentEffectStatus, type IntentSession, type IntentSettlementEffect, type IntentSettlementKind, type IntentState, type IntentStep } from '../domain'
+import type { IntentEffectsStore, IntentRepository } from '../ports'
+
+/** `flow_sessions` row (migration 74; `return_briefing` migration 78; `repository_id` migration 80; `closed` migration 81; `spec_origin` migration 82; project database). */
+interface IntentSessionRow {
+  id: string
+  conversation_id: string
+  ticket_id: number | null
+  state: string
+  branch: string | null
+  worktree_path: string | null
+  base_sha: string | null
+  head_sha: string | null
+  core_session_id: string | null
+  rail_index: number | null
+  delivery_id: string | null
+  step: string | null
+  return_briefing?: string | null
+  derived_changes?: string | null
+  repository_id?: string | null
+  spec_origin?: string | null
+  created_at: string
+  updated_at: string
+}
+
+function toSession(row: IntentSessionRow): IntentSession {
+  return {
+    id: row.id,
+    conversationId: row.conversation_id,
+    ticketId: row.ticket_id,
+    state: row.state as IntentState,
+    branch: row.branch,
+    worktreePath: row.worktree_path,
+    baseSha: row.base_sha,
+    headSha: row.head_sha,
+    coreSessionId: row.core_session_id,
+    railIndex: row.rail_index,
+    deliveryId: row.delivery_id,
+    step: row.step as IntentStep | null,
+    ...(row.return_briefing ? { returnBriefing: row.return_briefing } : {}),
+    ...(parseDerivedChanges(row.derived_changes).length ? { derivedChanges: parseDerivedChanges(row.derived_changes) } : {}),
+    ...(row.repository_id ? { repositoryId: row.repository_id } : {}),
+    ...(row.spec_origin === 'existing' ? { specOrigin: 'existing' as const } : {}),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+/** `derived_changes` (migration 79): a JSON array of OpenSpec change ids; anything else reads as none. */
+function parseDerivedChanges(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  try {
+    const value = JSON.parse(raw) as unknown
+    return Array.isArray(value) ? value.filter(isOpenSpecChangeId) : []
+  } catch {
+    return []
+  }
+}
+
+function params(session: IntentSession): unknown[] {
+  return [
+    session.conversationId, session.ticketId, session.state, session.branch, session.worktreePath,
+    session.baseSha, session.headSha, session.coreSessionId, session.railIndex, session.deliveryId,
+    session.step, session.returnBriefing ?? null, session.derivedChanges?.length ? JSON.stringify(session.derivedChanges) : null, session.repositoryId ?? null,
+    session.specOrigin === 'existing' ? 'existing' : null, session.createdAt, session.updatedAt, session.id,
+  ]
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code
+  return code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT_PRIMARYKEY' || /UNIQUE constraint failed/i.test(String((error as Error)?.message))
+}
+
+/** Repository bound to ONE project connection (project isolation). */
+export function createSqliteFlowRepository(db: DbInstance): IntentRepository {
+  const select = (where: string, ...args: unknown[]): IntentSession | null => {
+    const row = db.prepare(`SELECT * FROM flow_sessions WHERE ${where}`).get(...args) as IntentSessionRow | undefined
+    return row ? toSession(row) : null
+  }
+  return {
+    insert(session) {
+      try {
+        db.prepare(`INSERT INTO flow_sessions (conversation_id, ticket_id, state, branch, worktree_path, base_sha, head_sha,
+          core_session_id, rail_index, delivery_id, step, return_briefing, derived_changes, repository_id, spec_origin, created_at, updated_at, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(...params(session))
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error
+        const open = select(`conversation_id = ? AND state IN ('active','paused')`, session.conversationId)
+        throw new IntentConflictError('flow_already_open', 'This conversation already has an Intent session; resume or discard it first', open?.id ?? session.id)
+      }
+    },
+    save(session) {
+      const result = db.prepare(`UPDATE flow_sessions SET conversation_id = ?, ticket_id = ?, state = ?, branch = ?, worktree_path = ?,
+        base_sha = ?, head_sha = ?, core_session_id = ?, rail_index = ?, delivery_id = ?, step = ?, return_briefing = ?, derived_changes = ?, repository_id = ?, spec_origin = ?, created_at = ?, updated_at = ?
+        WHERE id = ?`).run(...params(session))
+      if (result.changes === 0) throw new Error(`Intent ${session.id} does not exist`)
+    },
+    get: (flowId) => select('id = ?', flowId),
+    findOpenByConversation: (conversationId) => select(`conversation_id = ? AND state IN ('active','paused')`, conversationId),
+    latestByConversation: (conversationId) => select('conversation_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1', conversationId),
+    listUnsettled() {
+      const rows = db.prepare(`SELECT * FROM flow_sessions WHERE state IN ('active','paused') OR step IS NOT NULL ORDER BY created_at`).all() as IntentSessionRow[]
+      return rows.map(toSession)
+    },
+    listHandedOff() {
+      const rows = db.prepare(`SELECT * FROM flow_sessions WHERE state = 'handed_off' ORDER BY created_at`).all() as IntentSessionRow[]
+      return rows.map(toSession)
+    },
+    findByDelivery: (deliveryId) => select('delivery_id = ? ORDER BY created_at DESC LIMIT 1', deliveryId),
+  }
+}
+
+/** `flow_effects` row (migration 75, project database). */
+interface IntentEffectRow {
+  effect_key: string
+  flow_id: string
+  kind: string
+  seq: number
+  status: string
+  attempts: number
+  last_error: string | null
+  note: string | null
+  next_attempt_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+function toEffect(row: IntentEffectRow): IntentSettlementEffect {
+  return {
+    key: row.effect_key, flowId: row.flow_id, kind: row.kind as IntentSettlementKind, seq: row.seq,
+    status: row.status as IntentEffectStatus, attempts: row.attempts, lastError: row.last_error, note: row.note,
+    nextAttemptAt: row.next_attempt_at, createdAt: row.created_at, updatedAt: row.updated_at,
+  }
+}
+
+/** Settlement effects bound to ONE project connection. */
+export function createSqliteFlowEffectsStore(db: DbInstance): IntentEffectsStore {
+  return {
+    enqueue(effects) {
+      const insert = db.prepare(`INSERT OR IGNORE INTO flow_effects (effect_key, flow_id, kind, seq, status, attempts, last_error, note,
+        next_attempt_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      db.transaction(() => {
+        for (const e of effects) insert.run(e.key, e.flowId, e.kind, e.seq, e.status, e.attempts, e.lastError, e.note, e.nextAttemptAt, e.createdAt, e.updatedAt)
+      })()
+    },
+    list(flowId) {
+      return (db.prepare(`SELECT * FROM flow_effects WHERE flow_id = ? ORDER BY seq`).all(flowId) as IntentEffectRow[]).map(toEffect)
+    },
+    save(e) {
+      db.prepare(`UPDATE flow_effects SET status = ?, attempts = ?, last_error = ?, note = ?, next_attempt_at = ?, updated_at = ?
+        WHERE effect_key = ?`).run(e.status, e.attempts, e.lastError, e.note, e.nextAttemptAt, e.updatedAt, e.key)
+    },
+    pendingFlowIds() {
+      return (db.prepare(`SELECT DISTINCT flow_id FROM flow_effects WHERE status = 'pending' ORDER BY flow_id`).all() as Array<{ flow_id: string }>).map((row) => row.flow_id)
+    },
+  }
+}

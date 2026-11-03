@@ -6,10 +6,10 @@ export const READY: SampleStatus = {
   defaultParentDir: '/Users/me/Specrails Samples',
   launch: {
     ready: true,
-    preset: { provider: 'claude', model: 'haiku', local: false, loopId: 'factory:sdd-quick-openspec', runCapUsd: 1 },
+    preset: { provider: 'claude', model: 'haiku', local: false, loopId: 'factory:implement', runCapUsd: 2 },
     localPreset: null,
-    estimate: { minutes: [3, 5], usd: [0.3, 1] },
-    runCapUsd: 1,
+    estimate: { minutes: [5, 12], usd: [0.5, 2] },
+    runCapUsd: 2,
   },
 }
 
@@ -20,13 +20,13 @@ export const WITH_SAMPLE: SampleStatus = {
 
 export const NOT_READY: SampleStatus = {
   ...WITH_SAMPLE,
-  launch: { ready: false, reason: 'no_provider', estimate: { minutes: [3, 5], usd: [0.3, 1] }, runCapUsd: 1 },
+  launch: { ready: false, reason: 'no_provider', estimate: { minutes: [5, 12], usd: [0.5, 2] }, runCapUsd: 2 },
 }
 
 export const WITH_LOCAL: SampleStatus = {
   ...WITH_SAMPLE,
   launch: {
     ...(READY.launch as Extract<SampleStatus['launch'], { ready: true }>),
-    localPreset: { provider: 'local-lan', model: 'qwen3-coder', local: true, loopId: 'factory:sdd-quick-openspec', runCapUsd: null },
+    localPreset: { provider: 'local-lan', model: 'qwen3-coder', local: true, loopId: 'factory:implement', runCapUsd: null },
   },
 }

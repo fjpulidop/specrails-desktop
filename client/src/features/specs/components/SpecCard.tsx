@@ -4,9 +4,10 @@ import { openAddenda } from '../lib/spec-addenda-core'
 import { specFlowLabel } from '../lib/spec-flow'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, AlertTriangle, ArrowUp, Layers, Waves } from 'lucide-react'
+import { Trash2, AlertTriangle, ArrowUp, Layers } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
 import { SpecTriageChip } from './SpecTriageChip'
+import { InIntentBadge, IntentOpenBadge } from './SpecIntentBadges'
 import type { LocalTicket } from '../../../types'
 import { PriorityBadge } from './PriorityBadge'
 import { SpecSelectCheckbox, SELECTED_CARD_CLASS, type CardSelection } from './SpecSelectCheckbox'
@@ -31,9 +32,9 @@ interface SpecCardProps {
   jiggleMode?: boolean
   onLongPress?: () => void
   onDelete?: (ticket: LocalTicket) => void
-  /** Opens the mission conversation of an "In Flow" spec. */
+  /** Opens the mission conversation of an "In Intent" spec. */
   onOpenFlow?: (conversationId: string) => void
-  /** Rendered inside a rail: a Flow spec there was handed off, so no "In Flow" label. */
+  /** Rendered inside a rail: an Intent session spec there was handed off, so no "In Intent" label. */
   onRail?: boolean
   /** Multi-select state from the specs board (absent in a rail). */
   selection?: CardSelection
@@ -57,7 +58,7 @@ export function SpecCard({
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
   const openAddendaCount = openAddenda(ticket.addenda).length
-  // Flow mode: the placeholder spec belongs to its Flow until the rail adopts
+  // Intent mode: the placeholder spec belongs to its Intent until the rail adopts
   // it — label it and keep it off the rails (no drag).
   const flowLabel = onRail ? null : specFlowLabel(ticket)
   // On-review specs are frozen unless there is an open PR branch the rail can
@@ -228,35 +229,7 @@ export function SpecCard({
           <span className="truncate">#{ticket.parent_epic_id} {parentEpicTitle}</span>
         </button>
       ) : null}
-      {flowLabel ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (flowLabel.conversationId) onOpenFlow?.(flowLabel.conversationId)
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.stopPropagation()
-              e.preventDefault()
-              if (flowLabel.conversationId) onOpenFlow?.(flowLabel.conversationId)
-            }
-          }}
-          disabled={!flowLabel.conversationId || !onOpenFlow}
-          data-flow-label={flowLabel.state}
-          data-testid={`flow-badge-${ticket.id}`}
-          title={t(flowLabel.state === 'paused' ? 'badges.inFlowPausedTitle' : 'badges.inFlowTitle')}
-          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-caption font-semibold transition-colors disabled:cursor-default ${
-            flowLabel.state === 'paused'
-              ? 'border-border/60 bg-surface/60 text-muted-foreground hover:border-foreground/30'
-              : 'border-accent-info/50 bg-accent-info/10 text-accent-info hover:bg-accent-info/20'
-          }`}
-        >
-          <Waves className="h-2.5 w-2.5" aria-hidden />
-          {t(flowLabel.state === 'paused' ? 'badges.inFlowPaused' : 'badges.inFlow')}
-        </button>
-      ) : null}
+      <InIntentBadge ticket={ticket} onOpenFlow={onOpenFlow} onRail={onRail} />
       {ticket.needs_review ? (
         <Badge
           variant="outline"
@@ -299,6 +272,7 @@ export function SpecCard({
           {openAddendaCount}
         <span className="sr-only"> ({t('badges.addendaTitle', { count: openAddendaCount })})</span></Badge>
       ) : null}
+      <IntentOpenBadge ticket={ticket} />
       {!jiggleMode && <SpecTriageChip ticket={ticket} />}
       {isDraft ? (
         <Badge variant="outline" className="text-caption shrink-0 border-accent-secondary/60 text-accent-secondary">

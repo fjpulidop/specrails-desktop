@@ -55,7 +55,7 @@ vi.mock('../../features/missions/lib/agent-api', () => ({
 }))
 
 const jobs = [
-  { id: 'j1', command: 'loop: Flow → Spec #14', status: 'running', started_at: '2026-10-24T10:00:00Z', ticketId: 14, ticketTitle: 'Add live job status' },
+  { id: 'j1', command: 'loop: IntentSession → Spec #14', status: 'running', started_at: '2026-10-24T10:00:00Z', ticketId: 14, ticketTitle: 'Add live job status' },
   ...Array.from({ length: 6 }, (_, i) => ({ id: `j${i + 2}`, command: `/specrails:task-${i}`, status: 'completed', started_at: '2026-10-24T09:00:00Z' })),
 ]
 
@@ -101,7 +101,7 @@ describe('CommandPalette: re-audit 7', () => {
     render(<CommandPalette />)
     await openPalette(user)
     const row = (await screen.findByText('#14 Add live job status')).closest('[cmdk-item]') as HTMLElement
-    expect(row).not.toHaveTextContent('loop: Flow')
+    expect(row).not.toHaveTextContent('loop: Intent')
     expect(row.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     expect(row.querySelector('[aria-hidden="true"]:not(svg)')).not.toBeNull()
     // A typed spec title finds the job too.

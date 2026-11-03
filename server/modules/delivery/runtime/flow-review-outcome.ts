@@ -1,5 +1,5 @@
 /**
- * Flow → Spec outcome when a run stops before delivery because the work still
+ * Intent → Spec outcome when a run stops before delivery because the work still
  * needs changes: the reviewer rejected the latest round, or the host checks
  * still fail, after the recipe's bounded repair rounds (`factory:flow-spec`,
  * terminal `changes-requested`). Read from the deterministic settle evidence
@@ -24,14 +24,14 @@ const COMMAND_CAP = 200
  * `issuesOmitted` beyond it); `failingChecks` the host-run commands with a
  * non-zero exit.
  */
-export type FlowReviewOutcome = PrDeliveryFlowReview
+export type IntentReviewOutcome = PrDeliveryFlowReview
 
 const clip = (text: string, cap: number): string => {
   const clean = text.trim()
   return clean.length <= cap ? clean : `${clean.slice(0, cap).trimEnd()}…`
 }
 
-function unitOutcome(unit: DeliveryUnitEvidence | undefined): FlowReviewOutcome | null {
+function unitOutcome(unit: DeliveryUnitEvidence | undefined): IntentReviewOutcome | null {
   const runtime = unit?.runtime
   if (!runtime) return null
   const failingChecks = runtime.commands
@@ -53,7 +53,7 @@ function unitOutcome(unit: DeliveryUnitEvidence | undefined): FlowReviewOutcome 
 }
 
 /**
- * The outcome of a FAILED Flow → Spec delivery whose evidence shows changes
+ * The outcome of a FAILED Intent → Spec delivery whose evidence shows changes
  * are still requested; null for every other loop, a succeeded run, or a
  * failure the evidence does not explain (derivation, provider, crash), which
  * keeps its generic failure presentation.
@@ -62,24 +62,24 @@ export function flowReviewOutcome(input: {
   loopId: string | null
   implementationOutcome: string | null
   evidence: DeliverySettleEvidence | null | undefined
-}): FlowReviewOutcome | null {
+}): IntentReviewOutcome | null {
   if (input.loopId !== FLOW_SPEC_DELIVERY_LOOP_ID || input.implementationOutcome !== 'failed') return null
-  // Flow hands off exactly one spec: one unit.
+  // Intent hands off exactly one spec: one unit.
   return unitOutcome(input.evidence?.units?.[0])
 }
 
 /** One line for `statusDetail` (and the mission briefing): what still blocks the delivery. */
-export function flowReviewStatusDetail(outcome: FlowReviewOutcome): string {
+export function flowReviewStatusDetail(outcome: IntentReviewOutcome): string {
   if (outcome.reason === 'check') {
     const checks = outcome.failingChecks.map((check) => `${check.command}${check.exitCode !== null ? ` (exit ${check.exitCode})` : ''}`).join('; ')
-    return clip(`Flow → Spec stopped: the checks still fail after the automatic correction rounds — ${checks}`, SUMMARY_CAP)
+    return clip(`Intent → Spec stopped: the checks still fail after the automatic correction rounds — ${checks}`, SUMMARY_CAP)
   }
   const first = outcome.issues[0]
   const more = outcome.issues.length + outcome.issuesOmitted - 1
   return clip(`The reviewer requested changes${outcome.score !== null ? ` (score ${outcome.score})` : ''}: ${first ?? outcome.summary ?? 'see the review'}${more > 0 ? ` (+${more} more)` : ''}`, SUMMARY_CAP)
 }
 
-interface FlowReviewRow {
+interface IntentReviewRow {
   loop_id: string | null
   decision?: string | null
   implementation_outcome?: string | null
@@ -90,12 +90,12 @@ interface FlowReviewRow {
 const REVIEW_STATUS_CODES = new Set(['review_changes_requested', 'returned_to_flow'])
 
 /**
- * A Flow → Spec delivery settled as a generic implementation failure — before
+ * An Intent session → Spec delivery settled as a generic implementation failure — before
  * settlement classified requested changes (or with evidence healed later).
  * Its stored evidence decides on read whether it is really a review outcome;
  * a failure the evidence does not explain stays a failure.
  */
-export function isLegacyFlowReviewCandidate(row: FlowReviewRow): boolean {
+export function isLegacyFlowReviewCandidate(row: IntentReviewRow): boolean {
   return row.loop_id === FLOW_SPEC_DELIVERY_LOOP_ID
     && row.decision === 'implementation_failed'
     && row.implementation_outcome === 'failed'
@@ -103,7 +103,7 @@ export function isLegacyFlowReviewCandidate(row: FlowReviewRow): boolean {
 }
 
 /** Parse the stored settle evidence of a row; null when absent or unreadable. */
-export function readFlowReviewOutcome(row: FlowReviewRow): FlowReviewOutcome | null {
+export function readFlowReviewOutcome(row: IntentReviewRow): IntentReviewOutcome | null {
   if (row.loop_id !== FLOW_SPEC_DELIVERY_LOOP_ID || !row.settle_evidence) return null
   if (!REVIEW_STATUS_CODES.has(row.status_code ?? '') && !isLegacyFlowReviewCandidate(row)) return null
   try {
@@ -119,8 +119,8 @@ export function readFlowReviewOutcome(row: FlowReviewRow): FlowReviewOutcome | n
  * per-unit failure code). Null when the row is not such a candidate. Pure —
  * the snapshot applies it on read; the one-shot heal persists the same values.
  */
-export function legacyFlowReviewReclassification<Unit extends { failureCode?: string | null }>(row: FlowReviewRow, units: readonly Unit[]): {
-  flowReview: FlowReviewOutcome
+export function legacyFlowReviewReclassification<Unit extends { failureCode?: string | null }>(row: IntentReviewRow, units: readonly Unit[]): {
+  flowReview: IntentReviewOutcome
   statusCode: 'review_changes_requested'
   statusDetail: string
   units: Unit[]

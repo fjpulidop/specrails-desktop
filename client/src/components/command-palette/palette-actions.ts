@@ -46,7 +46,7 @@ import { PROJECT_SETTINGS_SECTION_IDS } from '../../features/settings/lib/projec
  *
  * Actions own no business logic. They call what the buttons call: handlers
  * published by the mounted surfaces through `lib/palette-bridge` (launch
- * gating, Jira-backed status moves, Flow availability) or the app-level
+ * gating, Jira-backed status moves, IntentSession availability) or the app-level
  * callbacks in `PaletteContext.go`. A surface that is not mounted is absent,
  * so the actions depending on it are not offered.
  */
@@ -217,9 +217,9 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = [
   // Board
   {
     id: 'spec.new', labelKey: 'palette.actions.newSpec', group: 'board', icon: FilePlus2, shortcut: '⌘↵',
-    keywords: ['create', 'add', 'spec', 'ticket', 'idea'],
+    keywords: ['create', 'add', 'spec', 'ticket', 'idea', 'intent', 'problem'],
     when: (ctx) => !!ctx.surfaces.specs,
-    run: (ctx) => ctx.surfaces.specs?.openNewSpec('quick'),
+    run: (ctx) => ctx.surfaces.specs?.openNewSpec('intent'),
   },
   {
     id: 'spec.newExplore', labelKey: 'palette.actions.newSpecExplore', group: 'board', icon: Sparkles,

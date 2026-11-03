@@ -81,18 +81,6 @@
     "grid": "Grid view (Kanban)",
     "postit": "Post-it view"
   },
-  "createModal": {
-    "title": "Create Spec",
-    "titlePlaceholder": "Spec title...",
-    "labelsPlaceholder": "Type to add labels...",
-    "create": "Create",
-    "creating": "Creating...",
-    "toast": {
-      "created": "Spec created",
-      "createFailed": "Failed to create spec"
-    },
-    "description": "Add a spec to the board by hand. It starts in the status you pick and can be refined or moved to a rail later."
-  },
   "comparePicker": {
     "title": "Compare with…",
     "count": "({{n}} specs)",
@@ -123,7 +111,7 @@
     "title": "Addenda",
     "hint": "Iteration notes layered on top of the spec. They ride into the next launch without editing the description.",
     "add": "Add addendum",
-    "emptyCta": "Add an addendum to iterate on this spec — the next launch (Implement, SDD Quick, Freestyle…) is briefed with it while the description stays untouched.",
+    "emptyCta": "Add an addendum to iterate on this spec — the next launch (Implement or any loop) is briefed with it while the description stays untouched.",
     "openCount_one": "{{count}} open",
     "openCount_other": "{{count}} open",
     "kind": {
@@ -191,6 +179,40 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Unknown delivery ({{id}})"
+  },
+  "intent": {
+    "title": "Intent",
+    "add": "Add the intent: the problem, the outcome and how you will know",
+    "addShort": "Add intent",
+    "editorHint": "Describe the problem, not the solution. Agents derive the how from this.",
+    "save": "Save intent",
+    "problem": "Problem",
+    "outcome": "Outcome sought",
+    "hypothesis": "Hypothesis (optional)",
+    "successSignals": "How we will know",
+    "affects": "Who and what it affects",
+    "constraints": "Constraints",
+    "openQuestions": "Open questions",
+    "questionsAnswered_one": "Questions · {{count}} answered",
+    "questionsAnswered_other": "Questions · {{count}} answered",
+    "onePerLine": "One per line",
+    "required": "Required",
+    "problemPlaceholder": "What is wrong today, for whom, and when it hurts",
+    "outcomePlaceholder": "What is true once this is solved",
+    "hypothesisPlaceholder": "We believe … will produce …; we will know when …",
+    "successSignalsPlaceholder": "Observable signals that the outcome happened",
+    "affectsPlaceholder": "People, teams, screens or systems",
+    "constraintsPlaceholder": "Limits any solution must respect",
+    "questionPlaceholder": "What nobody knows yet",
+    "answerPlaceholder": "Answer (leave empty while open)",
+    "questionLabel": "Open question {{n}}",
+    "answerLabel": "Answer",
+    "answerAria": "Answer to open question {{n}}",
+    "removeQuestion": "Remove open question {{n}}",
+    "addQuestion": "Add open question",
+    "unanswered": "Open",
+    "openCount_one": "{{count}} open question",
+    "openCount_other": "{{count}} open questions"
   },
   "nonGoals": {
     "title": "Out of scope",
@@ -321,7 +343,7 @@
       "smash": "Split",
       "spec-launcher": "Spec launcher",
       "chat-sidebar": "Chat",
-      "flow": "Flow"
+      "flow": "Intent"
     }
   }
 }

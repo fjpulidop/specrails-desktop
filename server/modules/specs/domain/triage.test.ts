@@ -7,7 +7,7 @@ import {
 
 const LOOPS: TriageLoopOption[] = [
   { id: 'factory:implement', name: 'Implement', description: 'full pipeline' },
-  { id: 'factory:sdd-quick-openspec', name: 'Quick SDD', description: 'light' },
+  { id: 'custom-loop', name: 'Team loop', description: 'light' },
 ]
 
 const ready = (loop: string) => ({
@@ -45,7 +45,7 @@ describe('canonical inputs', () => {
     expect(prompt).not.toContain('claude:haiku')
   })
 
-  it('never asks the model to rank Flow against Implement', () => {
+  it('never asks the model to rank Intent against Implement', () => {
     const inputs: TriageInputs = {
       promptVersion: TRIAGE_PROMPT_VERSION, ticket: triageTicketText({ title: 'x' }), repoMap: null,
       similarFiles: [], loops: LOOPS, engine: 'claude:haiku',
@@ -79,9 +79,9 @@ describe('parseTriageOutput', () => {
   it('parses a clean answer', () => {
     const parsed = parseTriageOutput(JSON.stringify({
       size: 'S', filesLikely: ['server/a.ts'], publicInterfaces: false, dataModel: false, securitySurface: false,
-      recommendedLoop: 'factory:sdd-quick-openspec', recommendedMode: 'implement', rationale: 'Single file', confidence: 'high',
+      recommendedLoop: 'custom-loop', recommendedMode: 'implement', rationale: 'Single file', confidence: 'high',
     }), opts)
-    expect(parsed).toMatchObject({ ok: true, repaired: false, value: { size: 'S', recommendedLoop: 'factory:sdd-quick-openspec', recommendedLoopName: 'Quick SDD', confidence: 'high' } })
+    expect(parsed).toMatchObject({ ok: true, repaired: false, value: { size: 'S', recommendedLoop: 'custom-loop', recommendedLoopName: 'Team loop', confidence: 'high' } })
   })
 
   it('repairs fenced JSON, lowercase size, string booleans, bad paths and an unknown loop', () => {
@@ -92,12 +92,12 @@ describe('parseTriageOutput', () => {
     expect(parsed.repaired).toBe(true)
     expect(parsed.value).toMatchObject({
       size: 'XS', filesLikely: ['ok.ts'], dataModel: true, publicInterfaces: false,
-      recommendedLoop: 'factory:sdd-quick-openspec', confidence: 'low',
+      recommendedLoop: 'factory:implement', confidence: 'low',
       rationale: 'a {brace} "quoted"',
     })
   })
 
-  it('ignores a stray mode: Flow and Implement never compete', () => {
+  it('ignores a stray mode: Intent and Implement never compete', () => {
     const answer = JSON.stringify({ size: 'M', recommendedLoop: 'factory:implement', recommendedMode: 'flow', confidence: 'medium' })
     const parsed = parseTriageOutput(answer, opts)
     expect(parsed).toMatchObject({ ok: true, repaired: false, value: { recommendedLoop: 'factory:implement' } })
@@ -110,9 +110,11 @@ describe('parseTriageOutput', () => {
     expect(parseTriageOutput('{"size": ', opts)).toEqual({ ok: false, error: 'no_json_object' })
   })
 
-  it('falls back by size', () => {
-    expect(fallbackLoop('S', LOOPS)).toBe('factory:sdd-quick-openspec')
+  it('falls back to Implement whatever the size, then to the first offered loop', () => {
+    expect(fallbackLoop('S', LOOPS)).toBe('factory:implement')
+    expect(fallbackLoop('XS', LOOPS)).toBe('factory:implement')
     expect(fallbackLoop('L', LOOPS)).toBe('factory:implement')
+    expect(fallbackLoop('S', [LOOPS[1]])).toBe('custom-loop')
     expect(fallbackLoop('XS', [LOOPS[0]])).toBe('factory:implement')
     expect(fallbackLoop('XS', [])).toBeNull()
   })
@@ -134,7 +136,7 @@ describe('recommendation and accuracy', () => {
       undefined,
       { metadata: { triage: { status: 'unavailable', reason: 'x', inputsHash: 'h', computedAt: 't' } } },
       { metadata: { triage: ready('factory:implement') } },
-      { metadata: { triage: ready('factory:sdd-quick-openspec') } },
+      { metadata: { triage: ready('custom-loop') } },
     ])).toBe('factory:implement')
     expect(recommendedLoopForTickets([{ metadata: {} }])).toBeNull()
   })

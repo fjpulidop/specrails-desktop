@@ -39,7 +39,7 @@
     "prompt": "What would you like changed?",
     "placeholder": "e.g. make the login button blue",
     "submit": "Send the change",
-    "hint": "Quick SDD applies your change on the existing branch and updates this delivery."
+    "hint": "Implement applies your change on the existing branch and updates this delivery."
   },
   "discard": {
     "label": "Throw this away",
@@ -190,8 +190,8 @@
     "unexplainedTitle_other": "{{count}} changed files are not explained",
     "more_one": "…and {{count}} more file",
     "more_other": "…and {{count}} more files",
-    "unavailable": "The derivation report of this Flow delivery could not be read. Review the diff directly.",
-    "rewriteFailed": "The spec could not be rewritten from the derived change; it keeps its Flow draft. The OpenSpec change is still the technical record."
+    "unavailable": "The derivation report of this Intent delivery could not be read. Review the diff directly.",
+    "rewriteFailed": "The spec could not be rewritten from the derived change; it keeps its Intent draft. The OpenSpec change is still the technical record."
   },
   "brief": {
     "title": "What to look at",

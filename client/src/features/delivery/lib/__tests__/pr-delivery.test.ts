@@ -395,7 +395,7 @@ describe('authoritative PR snapshot coercion', () => {
   })
 })
 
-describe('Flow → Spec review outcome on the wire', () => {
+describe('Intent → Spec review outcome on the wire', () => {
   it('coerces the review defensively and rides the snapshot', () => {
     const review = { reason: 'review', summary: 'Blocked', issues: ['a', '', 7, 'b'], issuesOmitted: 2, score: 58, failingChecks: [{ command: 'npm test', exitCode: 1 }, { command: '', exitCode: 1 }, null, { command: 'tsc', exitCode: 'x' }] }
     expect(coerceFlowReview(review)).toEqual({ reason: 'review', summary: 'Blocked', issues: ['a', 'b'], issuesOmitted: 2, score: 58, failingChecks: [{ command: 'npm test', exitCode: 1 }, { command: 'tsc', exitCode: null }] })

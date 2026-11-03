@@ -1137,6 +1137,12 @@
         "./flow-review-outcome",
         "./rail-pr-store"
       ],
+      "runtime/intent-materialization.ts": [
+        "../../../worktree-manager",
+        "../../specs/domain/intent",
+        "node:fs",
+        "node:path"
+      ],
       "runtime/isolated-settlement-reconstruction.ts": [
         "../../../db",
         "../../loops/runtime/loop-runs-store",
@@ -1300,11 +1306,14 @@
         "../../loops/runtime/loop-runs-store",
         "../../missions/runtime/agent-chat-registry",
         "../../missions/runtime/mission-run-notify",
+        "../../specs/domain/intent",
         "../../specs/runtime/spec-addenda",
+        "../../specs/runtime/ticket-store",
         "./active-pr-continuation",
         "./delivery-evidence",
         "./flow-review-outcome",
         "./flow-worktree-handoff",
+        "./intent-materialization",
         "./isolated-settlement-reconstruction",
         "./isolated-settlement-store",
         "./isolated-worktree",
@@ -1692,7 +1701,44 @@
       "runtime/verification-sentinel.ts": []
     }
   },
-  "flow": {
+  "inbox": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../../../project-registry",
+        "../application",
+        "./project-source",
+        "express"
+      ],
+      "adapters/project-source.ts": [
+        "../../../db",
+        "../../../jira/jira-db",
+        "../../delivery/runtime/rail-pr-store",
+        "../../execution",
+        "../../recovery",
+        "../../recovery/adapters/sqlite",
+        "../domain",
+        "../ports"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
+    }
+  },
+  "intent": {
     "publicEntries": [
       "adapters/bindings.ts",
       "adapters/http.ts",
@@ -1730,6 +1776,7 @@
         "../../missions/runtime/agent-failure-briefing",
         "../../missions/runtime/agent-flow-prompt",
         "../../missions/runtime/flow-turn-context",
+        "../../specs/domain/intent",
         "../../specs/runtime/spec-addenda",
         "../../specs/runtime/spec-addenda-core",
         "../../specs/runtime/spec-generation",
@@ -1743,47 +1790,11 @@
       ],
       "adapters/http.ts": [
         "..",
+        "../../specs/domain/intent",
         "express"
       ],
       "adapters/sqlite.ts": [
         "../../../db/types",
-        "../domain",
-        "../ports"
-      ],
-      "application.ts": [
-        "./domain",
-        "./ports"
-      ],
-      "domain.ts": [],
-      "index.ts": [
-        "./application",
-        "./domain",
-        "./ports"
-      ],
-      "ports.ts": [
-        "./domain"
-      ]
-    }
-  },
-  "inbox": {
-    "publicEntries": [
-      "adapters/http.ts",
-      "index.ts"
-    ],
-    "dependencies": {
-      "adapters/http.ts": [
-        "../../../project-registry",
-        "../application",
-        "./project-source",
-        "express"
-      ],
-      "adapters/project-source.ts": [
-        "../../../db",
-        "../../../jira/jira-db",
-        "../../delivery/runtime/rail-pr-store",
-        "../../execution",
-        "../../recovery",
-        "../../recovery/adapters/sqlite",
         "../domain",
         "../ports"
       ],
@@ -1826,7 +1837,7 @@
     "dependencies": {
       "runtime/builtin-loops.ts": [
         "../../../db",
-        "../../../providers/registry",
+        "../../../ids",
         "../../agent-runtime/runtime/agent-runtime-loader",
         "./loop-factory",
         "./loop-graph",
@@ -1930,8 +1941,7 @@
       "runtime/loop-factory.ts": [
         "./loop-core-factory",
         "./loop-flow-spec-recipe",
-        "./loop-graph",
-        "./loop-templates"
+        "./loop-graph"
       ],
       "runtime/loop-flow-spec-recipe.ts": [
         "./loop-graph"
@@ -2172,6 +2182,7 @@
         "../../../db",
         "../../../providers/registry",
         "../../agents/runtime/agent-store",
+        "../../specs/domain/intent",
         "./agent-fence-promotion"
       ],
       "runtime/agent-steering.ts": [
@@ -2365,6 +2376,7 @@
   "specs": {
     "publicEntries": [
       "adapters/timeline-http.ts",
+      "domain/intent.ts",
       "domain/non-goals.ts",
       "domain/triage.ts",
       "runtime/contract-refine-runner.ts",
@@ -2401,6 +2413,7 @@
       "domain/handoff.ts": [
         "./handoff-labels"
       ],
+      "domain/intent.ts": [],
       "domain/non-goals.ts": [],
       "domain/timeline.ts": [],
       "domain/triage.ts": [],
@@ -2425,6 +2438,7 @@
         "tree-kill"
       ],
       "runtime/generated-spec-parser.ts": [
+        "../domain/intent",
         "../domain/non-goals",
         "./ticket-store"
       ],
@@ -2491,6 +2505,7 @@
         "../../accounting/runtime/ai-invocations",
         "../../accounting/runtime/result-event",
         "../../conversations/runtime/context-scope",
+        "../domain/intent",
         "./contract-refine-runner",
         "./generated-spec-parser",
         "./ticket-store",
@@ -2542,6 +2557,7 @@
         "./ticket-store"
       ],
       "runtime/ticket-store.ts": [
+        "../domain/intent",
         "../domain/non-goals",
         "../domain/triage",
         "./spec-addenda-core",

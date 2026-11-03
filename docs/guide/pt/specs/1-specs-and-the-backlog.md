@@ -60,15 +60,18 @@ Os rascunhos são a única exceção: um rascunho pode *não* ter prioridade nen
 
 Para criar uma spec, clique em **Nova spec** (o botão Mais na barra de ferramentas da SpecsBoard). Abre-se a janela **Adicionar Spec** com algumas formas de trabalhar:
 
+- **Intent** (o padrão) — descreve o problema, o resultado que quer e como saberá que funcionou; a IA escreve o intent e depois deriva dele a spec para a rever. Veja [Intent](../integrations/intent-mode#intent-mode).
 - **Quick** — descreve o que quer e a IA escreve a spec completa de uma só vez. Veja [Adicionar Spec — modo Quick](add-spec-quick-mode.md).
 - **Explore** — conversa com a IA, e ela ajuda-o a dar forma à spec turno a turno. Veja [Adicionar Spec — modo Explore](add-spec-explore-mode.md).
 - **Raw** — o que quer que escreva é guardado tal e qual como uma spec, sem qualquer IA envolvida. Use este modo quando já tem o texto da spec pronto.
 
-Qual escolher depende do quão clara já está a ideia. Sabe exatamente o que quer? Quick. Ainda a pensar nela? Explore. Já tem o texto? Raw.
+Qual escolher depende do quão clara já está a ideia. Conhece o problema mas não a solução? Intent. Sabe exatamente o que quer? Quick. Ainda a pensar nela? Explore. Já tem o texto? Raw.
+
+O **Intent** de uma spec fica acima da sua descrição no detalhe da spec: problema, resultado buscado, como saberemos, quem e o que é afetado, restrições e perguntas em aberto. Pode adicioná-lo ou editá-lo aí; todo agente que trabalha na spec recebe-o primeiro.
 
 ## Adendos: iterar sobre uma spec existente
 
-Quando uma spec já tem trabalho por trás — uma PR em revisão, uma funcionalidade integrada — e quer *mais*, não reescreva a descrição: isso desvirtua a spec (e sincroniza o desvio com o Jira) e obriga a próxima execução a replanear tudo. Abra a spec e adicione um **adendo**: uma nota curta com um tipo (pedido de alteração, feedback de revisão, esclarecimento, restrição) e as suas palavras. Os adendos abertos seguem automaticamente com o próximo lançamento dessa spec em qualquer loop — Implement, SDD Quick, Freestyle — para que a execução altere apenas o que pediu, e o pacote de revisão reporta cada um como aplicado, parcialmente aplicado ou bloqueado. Se a execução falhar ou descartar a entrega, voltam sozinhos a **Aberto**. O agente de missão pode adicioná-los por si quando lhe pede para alterar algo numa spec existente.
+Quando uma spec já tem trabalho por trás — uma PR em revisão, uma funcionalidade integrada — e quer *mais*, não reescreva a descrição: isso desvirtua a spec (e sincroniza o desvio com o Jira) e obriga a próxima execução a replanear tudo. Abra a spec e adicione um **adendo**: uma nota curta com um tipo (pedido de alteração, feedback de revisão, esclarecimento, restrição) e as suas palavras. Os adendos abertos seguem automaticamente com o próximo lançamento dessa spec em qualquer loop — Implement ou um loop personalizado — para que a execução altere apenas o que pediu, e o pacote de revisão reporta cada um como aplicado, parcialmente aplicado ou bloqueado. Se a execução falhar ou descartar a entrega, voltam sozinhos a **Aberto**. O agente de missão pode adicioná-los por si quando lhe pede para alterar algo numa spec existente.
 
 ## Revisar uma entrega: o que olhar primeiro
 

@@ -1,13 +1,13 @@
 // ─── The mission's run strip ──────────────────────────────────────────────────
 // ONE strip above the composer is the single live representation of a
 // mission's runs: the deliveries it launched (mission-rail-cards), its
-// undecided launch proposals and the runs an extension owns (Flow). It shows
+// undecided launch proposals and the runs an extension owns (IntentSession). It shows
 // one run at a time — the most urgent (waiting for you › failed › running ›
 // paused) unless the person picked another in the switcher — as a status mark,
 // the current step in plain words, progress, elapsed time and billed cost.
 // A primary action appears only when the run needs the person. The run's card
 // DECLARES it (run-primary.tsx: id, label, kind, handler). A `local` action
-// (Resume, Back to Flow) runs in one click, in place; an `outward` one (Create
+// (Resume, Back to Intent) runs in one click, in place; an `outward` one (Create
 // PR, Publish, Reopen, Approve, Relaunch, Retry delivery, Launch) is never
 // fired from here: the strip opens the panel with focus on the card's own
 // control.
@@ -26,7 +26,7 @@
 // Keyboard (run-strip-keys.ts), scoped to this mission: ⌥R jumps here (again:
 // details), ⌥[ / ⌥] switch runs outside text fields, Esc returns to where ⌥R
 // came from, ←/→ move along the switcher, and a row control may claim a
-// letter while the strip has focus (`data-strip-key`, Flow's P and H).
+// letter while the strip has focus (`data-strip-key`, Intent's P and H).
 
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -71,7 +71,7 @@ interface StripEntry {
   urgency: MissionRunUrgency
   /** Running without current activity: no pulse. */
   quiet: boolean
-  /** The run's mode (extension runs, Flow): its mark while running. */
+  /** The run's mode (extension runs, IntentSession): its mark while running. */
   mode: MissionModeBadge | null
   headline: ReactNode
   /** The headline as text (announcements, switcher titles). */
@@ -107,7 +107,7 @@ function StateGlyph({ tone, quiet, className }: { tone: MissionRunTone; quiet: b
 }
 
 /** The status mark: a shape per state, never color alone. A run of an
- *  extension's mode (Flow) keeps the mode's icon in the mode's color in every
+ *  extension's mode (IntentSession) keeps the mode's icon in the mode's color in every
  *  state; outside running the state's shape sits on it as a small badge. */
 function StatusMark({ tone, quiet, mode }: { tone: MissionRunTone; quiet: boolean; mode: MissionModeBadge | null }) {
   if (mode?.icon) {
@@ -304,7 +304,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       { prDeliveryId: run.yieldsTo?.prDeliveryId ?? null, runIds: [...(run.yieldsTo?.runIds ?? [])] },
       { prDeliveryId: card.envelope.prDeliveryId, runIds: card.envelope.runIds },
     ))))
-    // While an extension run (Flow) is live in this mission, the strip shows its
+    // While an extension run (IntentSession) is live in this mission, the strip shows its
     // controls: an undecided launch proposal stays in its message, not in the strip.
     for (const p of liveExtensionRuns.length > 0 ? [] : proposals) {
       const tickets = p.proposal.ticketIds.map((id) => `#${id}`).join(' ')
@@ -343,10 +343,10 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
 
   // An extension's run that waits for the person (decision or failure) feeds
   // the mission list's attention dot like a delivery does; a calm state (the
-  // Flow's "Ready to turn into a PR") does not. Deliveries report from their
+  // Intent's "Ready to turn into a PR") does not. Deliveries report from their
   // envelopes (deliveryNeedsPerson), so only extension runs are reported here,
   // and only for an extension WITHOUT an app-wide source (`useRunAttention`,
-  // Flow's): that source stays live while the mission is closed, which a
+  // Intent's): that source stays live while the mission is closed, which a
   // strip cannot (it reports only while mounted).
   const reported = useRef(new Map<string, string>())
   const attentionSignature = attentionOwnedElsewhere ? '' : entries.filter((entry) => entry.source === 'extension')
@@ -470,7 +470,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     return () => cancelAnimationFrame(frame)
   }, [focusPanel, panelOpen])
 
-  // Auto-open (the Flow hand-off): once per token.
+  // Auto-open (the Intent hand-off): once per token.
   const seenTokens = useRef(new Set<string>())
   const tokenSignature = entries.map((entry) => entry.autoOpenToken ?? '').join('|')
   useEffect(() => {
@@ -484,7 +484,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   }, [tokenSignature])
 
   // The person closed a run's panel: its owner hears it once, with HOW — Esc
-  // dismisses (Flow: the hand-off's "Not yet"); a click outside, the toggle or
+  // dismisses (Intent: the hand-off's "Not yet"); a click outside, the toggle or
   // another run only collapses it.
   const previousOpenKey = useRef<string | null>(null)
   const closeReason = useRef<MissionPanelCloseReason>('collapse')
@@ -578,7 +578,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
 
   // ── Announcements (polite): state changes, a run leaving the strip, needs you ──
   const [announcement, setAnnouncement] = useState('')
-  // The extension's dock (Flow) speaks through this same region: one voice.
+  // The extension's dock (IntentSession) speaks through this same region: one voice.
   const announce = useCallback((message: string) => { if (message) setAnnouncement(message) }, [])
   const dock = ConversationDock ? <ConversationDock conversationId={conversationId} projectId={projectId} inline={inline} announce={announce} /> : null
   const announced = useRef<Map<string, { text: string; label: string }> | null>(null)
@@ -717,7 +717,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       if (next) { event.preventDefault(); next.focus() }
       return
     }
-    // A row control's own letter (Flow: P pause/resume, H hand off), only while the strip has focus.
+    // A row control's own letter (Intent: P pause/resume, H hand off), only while the strip has focus.
     if (event.shiftKey || !/^Key[A-Z]$/.test(event.code)) return
     const claimed = [...(stripRef.current?.querySelectorAll<HTMLButtonElement>('[data-strip-key]') ?? [])]
       .find((element) => !panelRef.current?.contains(element) && stripKeyCode(element.dataset.stripKey ?? '') === event.code)

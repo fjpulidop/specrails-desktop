@@ -10,7 +10,6 @@ These are the explicit entry points consumed by application composition or other
 features. Keep imports focused on a subpath so importing a model does not eagerly
 load every UI component. Changes to this surface require updating the boundary manifest.
 
-- [components/FreestyleLaunchDialog.tsx](components/FreestyleLaunchDialog.tsx)
 - [components/LaunchAllDialog.tsx](components/LaunchAllDialog.tsx)
 - [components/MoveToRailPopover.tsx](components/MoveToRailPopover.tsx)
 - [components/RailControls.tsx](components/RailControls.tsx)
@@ -43,3 +42,13 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/rails`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+## Loop picker and retired built-ins
+
+`lib/rail-loops.ts` offers Implement as the only built-in (`FACTORY_RAIL_LOOPS`) plus the user's
+published spec-driven custom loops. Freestyle and SDD Quick (OpenSpec) are gallery templates: they
+appear in the picker only after the user adds and publishes a copy. A persisted pick on a retired
+id (`factory:freestyle`, `factory:sdd-quick-openspec`, `factory:openspec`, `factory:revision`) and a
+persisted `freestyle` mode are read as Implement (`migratedRailLoopId`, `deriveRailMode`,
+DashboardPage `toRailMode`); a stale triage recommendation of a retired loop is never preselected.
+There is no Freestyle confirmation dialog or per-rail Freestyle model any more.

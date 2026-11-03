@@ -1,0 +1,30 @@
+/* ─── Intent mode ────────────────────────────────────────────────────────────────
+ * The composer is where Intent mode shows (its chip and its
+ * own placeholder — missions renders them from the conversation mode); the
+ * surface keeps `data-flow="active"` only as a hook. No screen tint, no
+ * breathing edge: the mode is named, not painted. */
+
+/* The running-app dot of the Intent bar's Preview control. */
+.flow-app-dot {
+  background: var(--color-accent-success);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-accent-success) 24%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) {
+    .flow-app-dot {
+      animation: flow-app-dot-pulse 2.4s ease-in-out infinite;
+    }
+  }
+}
+/* The in-app Motion setting wins over the OS preference (Settings > Accessibility). */
+:root[data-motion="full"] {
+  .flow-app-dot {
+    animation: flow-app-dot-pulse 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes flow-app-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-accent-success) 26%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-accent-success) 6%, transparent); }
+}

@@ -308,21 +308,17 @@
       "name": "Implementieren",
       "description": "Setzt alle Specs des Rails in einem Lauf um: planen, implementieren, prüfen und verifizieren, Fehler beheben, bis die Checks bestehen."
     },
-    "factory_freestyle": {
-      "name": "Freestyle",
-      "description": "Übergibt die Spec direkt an das Modell mit voller Freiheit — ohne Pipeline, es arbeitet wie ein normaler Coding-Agent, dann verifizieren + verfeinern bis alles grün ist. Nur Claude."
-    },
-    "factory_openspec": {
-      "name": "OpenSpec-Lebenszyklus",
-      "description": "OpenSpec-Lebenszyklus von der Spec bis zum Archiv: Artefakte generieren (opsx:ff) → implementieren (opsx:apply) → verifizieren (opsx:verify); bei FAIL zurück und denselben Change nachbessern, bei PASS unbeaufsichtigt archivieren."
-    },
-    "factory_revision": {
-      "name": "Überarbeitung",
-      "description": "Wendet die eine erbetene Änderung auf bereits gelieferte Arbeit an, lässt sie vom Reviewer neu bewerten und prüft bis grün. Keine Neuplanung."
-    },
     "drift-sweep": {
       "name": "Drift-Prüfung",
       "description": "Nur lesend: vergleicht, was die Spec jeder Capability behauptet, mit dem, was der Code tut, und listet jeden Widerspruch mit Datei:Zeile. Ändert nichts; bei Bedarf ausführen."
+    },
+    "quick-sdd-openspec": {
+      "name": "SDD Quick (OpenSpec)",
+      "description": "Schneller, spec-getriebener OpenSpec-Lebenszyklus für kleine, vertraglich geregelte Änderungen: Artefakte vorbereiten, anwenden und testen, per CLI validieren, dann archivieren."
+    },
+    "freestyle": {
+      "name": "Freestyle",
+      "description": "Übergibt die Spec direkt an das Modell mit voller Freiheit — ohne Pipeline, es arbeitet wie ein normaler Coding-Agent, dann verifizieren + verfeinern bis alles grün ist."
     }
   },
   "import": {

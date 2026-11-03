@@ -103,7 +103,7 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_SYSTEM_PROMPT).toContain('never replay completed launches')
   })
   it('states the Kimi capability boundary without advertising Claude-only transforms', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('Claude and Kimi\n  support profiles; every provider supports Freestyle')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Claude and Kimi\n  support profiles; Contract Refine supports Claude and Codex')
     expect(OPERATOR_INSTRUCTIONS).toContain('Contract Refine supports Claude and Codex')
     expect(OPERATOR_INSTRUCTIONS).toContain('structured actions\n  (currently Claude)')
     expect(OPERATOR_INSTRUCTIONS).toContain('structured-action provider (currently\n  Claude)')
@@ -130,19 +130,17 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('Never claim completion\n  you have not verified from a terminal event or a job read')
   })
 
-  it('keeps Freestyle as the user-facing name for the canonical freestyle API values', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('always call the free-form autonomous rail mode\n  `Freestyle`')
-    expect(OPERATOR_INSTRUCTIONS).toContain('The canonical API / id / token values are `freestyle`,\n  `factory:freestyle`, and `{{cmd:freestyle}}`')
-    expect(OPERATOR_INSTRUCTIONS).toContain('Do not invent or use another name for\n  this capability')
-  })
-
-  it('classifies small work with the SDD Quick OpenSpec guardrail', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or')
-    expect(OPERATOR_INSTRUCTIONS).toContain('ticket-local implementation-only work when OpenSpec artifacts are relevant')
-    expect(OPERATOR_INSTRUCTIONS).toContain("loopId:'factory:sdd-quick-openspec'")
-    expect(OPERATOR_INSTRUCTIONS).toContain('openspecChangeName')
-    expect(OPERATOR_INSTRUCTIONS).toContain('ticket, OpenSpec target')
-    expect(OPERATOR_INSTRUCTIONS).toContain('before any ai-spawn action')
+  it('never offers Freestyle or SDD Quick on its own: Implement is the only built-in', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('`factory:implement` is the only one')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle and SDD Quick (OpenSpec) are NOT\n  built-ins')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Never offer,\n  recommend or launch them on your own')
+    expect(OPERATOR_INSTRUCTIONS).toContain('`builtin_loop_retired`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Do not recommend other\n  built-in workflows: there are none.')
+    // No launch path or classification still routes work to the retired ids.
+    expect(OPERATOR_INSTRUCTIONS).not.toContain("loopId:'factory:sdd-quick-openspec'")
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('SDD Quick (OpenSpec) launch path')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('The canonical API / id / token values are `freestyle`')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('Freestyle, SDD Quick (OpenSpec), Implement, or')
     expect(OPERATOR_INSTRUCTIONS).toContain('Never offer direct code edits as the implementation path')
     expect(OPERATOR_INSTRUCTIONS).toContain('Even if the\n  change is "just one or two lines"')
     expect(OPERATOR_INSTRUCTIONS).toContain('update or\n  create a local ticket')
@@ -167,8 +165,8 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('PR-aware relaunch classification')
     expect(OPERATOR_INSTRUCTIONS).toContain("inspect that PR's head\n  branch/diff/files, not only `main`")
     expect(OPERATOR_INSTRUCTIONS).toContain('`openspec/specs/**`, `openspec/changes/**`')
-    expect(OPERATOR_INSTRUCTIONS).toContain('SDD Quick (OpenSpec) may be the right\n  relaunch strategy')
-    expect(OPERATOR_INSTRUCTIONS).toContain('verify against active PR contents before\n  answering')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('may be the right\n  relaunch strategy')
+    expect(OPERATOR_INSTRUCTIONS).toContain('verify against active PR contents before answering')
   })
 })
 
@@ -224,9 +222,9 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
     expect(OPERATOR_SYSTEM_PROMPT).toContain('contractRefine false')
   })
 
-  it('carries the Freestyle naming rule', () => {
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('call the free-form autonomous rail mode Freestyle in prose')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('freestyle/factory:freestyle/{{cmd:freestyle}} are canonical API/id/token values')
+  it('no longer carries the Freestyle naming rule', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('call the free-form autonomous rail mode Freestyle in prose')
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('canonical API/id/token values')
   })
 
   it('carries the support-not-spec and framework-repair rule', () => {
@@ -241,12 +239,12 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
   })
 })
 
-describe('OPERATOR_SYSTEM_PROMPT — SDD Quick policy', () => {
-  it('carries SDD Quick OpenSpec strategy in the compact prompt', () => {
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle, SDD Quick (OpenSpec), or Implement')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle is only ticket-local implementation-only')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('factory:sdd-quick-openspec')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('openspecChangeName')
+describe('OPERATOR_SYSTEM_PROMPT — workflow policy', () => {
+  it('uses Implement unless the user names a saved loop; never offers the gallery loops unprompted', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('use Implement unless the user names one of their own saved loops')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle and SDD Quick (OpenSpec) are gallery loops, not built-ins')
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('Freestyle is only ticket-local implementation-only')
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('uses loopId factory:sdd-quick-openspec')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('never offer direct code edits')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('create or update a local ticket')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('inspect the PR head branch/diff/files')
@@ -327,105 +325,117 @@ describe('OPERATOR_INSTRUCTIONS — external user tools disclosure', () => {
 // exact protocol. A reword that drops the block, the discriminator, or the
 // user-only waiver must fail here rather than degrade silently in production.
 
-describe('OPERATOR_INSTRUCTIONS — framing precedes drafting', () => {
-  it('carries the framing section and its fenced block protocol', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('## Framing the request')
-    expect(OPERATOR_INSTRUCTIONS).toContain('```problem-frame')
-    expect(OPERATOR_INSTRUCTIONS).toContain('"restated"')
-    expect(OPERATOR_INSTRUCTIONS).toContain('"alternative"')
-    expect(OPERATOR_INSTRUCTIONS).toContain('"discriminator"')
+describe('OPERATOR_INSTRUCTIONS — the intent precedes drafting (intent-mode)', () => {
+  it('carries the intent section and its fenced block protocol', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('## Writing the intent (framing the request)')
+    expect(OPERATOR_INSTRUCTIONS).toContain('```intent-draft')
+    for (const key of ['"problem"', '"outcome"', '"hypothesis"', '"successSignals"', '"affects"', '"constraints"', '"openQuestions"', '"readings"', '"restated"', '"alternative"', '"discriminator"', '"ready"']) {
+      expect(OPERATOR_INSTRUCTIONS).toContain(key)
+    }
     expect(OPERATOR_INSTRUCTIONS).toContain('FULL SNAPSHOT')
   })
 
-  it('requires the alternative to be a different reading and anchors both in real paths', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('GENUINELY')
-    expect(OPERATOR_INSTRUCTIONS).toContain('not the same reading in other words')
-    expect(OPERATOR_INSTRUCTIONS).toContain('ACTUALLY READ')
-    expect(OPERATOR_INSTRUCTIONS).toContain('Never list a path you did not open')
+  it('keeps the intent solution-free and turns a dictated solution into a constraint or question', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('WHAT and WHY, never HOW')
+    expect(OPERATOR_INSTRUCTIONS).toContain('there is no solution section')
+    expect(OPERATOR_INSTRUCTIONS).toContain('keep the dictated solution as a')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Never invent an answer')
+  })
+
+  it('requires the alternative to be a different reading and grounds what it names', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('GENUINELY different reading')
+    expect(OPERATOR_INSTRUCTIONS).toContain('not the same\n  reading in other words')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Never name a\n  path you did not open')
   })
 
   it('teaches the discriminator as the check on a fabricated second reading', () => {
     const idx = OPERATOR_INSTRUCTIONS.indexOf('`discriminator` is the ONE thing')
     expect(idx).toBeGreaterThan(-1)
-    const bullet = OPERATOR_INSTRUCTIONS.slice(idx, idx + 400)
-    expect(bullet).toContain('your two readings are the same')
+    expect(OPERATOR_INSTRUCTIONS.slice(idx, idx + 300)).toContain('find a real second')
   })
 
-  it('ends the turn on the framing question', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('The framing question is the LAST thing in the turn')
-  })
-
-  it('states a question FLOOR alongside the existing ceiling', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('ask at least ONE')
-    expect(OPERATOR_INSTRUCTIONS).toContain('at most TWO per turn')
+  it('ends the turn on the question and states a question floor and ceiling', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('The question is the LAST thing in the turn')
+    expect(OPERATOR_INSTRUCTIONS).toContain('ask at least\nONE question')
     expect(OPERATOR_INSTRUCTIONS).toContain('staying silent is not neutral')
+    expect(OPERATOR_INSTRUCTIONS).toContain('at most TWO per turn')
   })
 
-  it('makes the waiver user-only, token-driven and never agent-inferred', () => {
+  it('offers Explore and Delegate with equal weight on the settled intent', () => {
+    const idx = OPERATOR_INSTRUCTIONS.indexOf('**Settled intent.**')
+    expect(idx).toBeGreaterThan(-1)
+    const section = OPERATOR_INSTRUCTIONS.slice(idx, idx + 700)
+    expect(section).toContain('`"ready": true`')
+    expect(section).toContain('never recommend, rank or favour one')
+    expect(section).toContain('**Explore**')
+    expect(section).toContain('**Delegate**')
+    expect(section).toContain('you never start it yourself')
+  })
+
+  it('makes the waiver user-only, token-driven, announced and never agent-inferred', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('#noframe')
-    expect(OPERATOR_INSTRUCTIONS).toContain('#frame')
     expect(OPERATOR_INSTRUCTIONS).toContain('The USER, never you')
     expect(OPERATOR_INSTRUCTIONS).toContain('may NOT ask the user to send')
-    expect(OPERATOR_INSTRUCTIONS).toContain('Certainty is not evidence')
-  })
-
-  it('requires the waiver to be ANNOUNCED with the word that restores it', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Certainty is')
     const idx = OPERATOR_INSTRUCTIONS.indexOf('**Switching it off.**')
-    expect(idx).toBeGreaterThan(-1)
     const section = OPERATOR_INSTRUCTIONS.slice(idx, idx + 600)
-    expect(section).toContain('say plainly that framing is off')
+    expect(section).toContain('say plainly that the intent step is off')
     expect(section).toContain('`#frame` turns it back on')
   })
 
-  it('teaches the commit_draft gate as a missing artifact, not an obstacle', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('one frame authorises ONE spec')
-    expect(OPERATOR_INSTRUCTIONS).toContain('Never work\naround it')
-  })
-
-  it('extends framing to the AI creation paths the hard gate does not cover', () => {
-    const idx = OPERATOR_INSTRUCTIONS.indexOf('Frame before the other creation paths')
+  it('teaches the commit_draft gate as a missing artifact that carries the intent', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('one intent authorises ONE spec')
+    expect(OPERATOR_INSTRUCTIONS).toContain('the\ncommitted spec carries that intent automatically')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Never work around it')
+    const idx = OPERATOR_INSTRUCTIONS.indexOf('Write the\nintent before the other creation paths')
     expect(idx).toBeGreaterThan(-1)
     expect(OPERATOR_INSTRUCTIONS.slice(idx, idx + 200)).toContain('`generate`')
   })
 
-  it('drops the numbered dispatch pipeline that led with spec capture', () => {
+  it('keeps the understand-first stance and the spec refinement opening', () => {
     expect(OPERATOR_INSTRUCTIONS).not.toContain('## Think in specs (default stance)')
-    expect(OPERATOR_INSTRUCTIONS).not.toContain('1. Check the backlog for duplicates first')
     expect(OPERATOR_INSTRUCTIONS).toContain('## Understand first (default stance)')
     expect(OPERATOR_INSTRUCTIONS).toContain('Your\nfirst move is never to draft')
-  })
-
-  it('no longer makes the agent judge whether a request is clear enough to one-shot', () => {
-    expect(OPERATOR_INSTRUCTIONS).not.toContain('when the request is fuzzy, contested, or')
     expect(OPERATOR_INSTRUCTIONS).toContain('that judgement is exactly the one you are worst')
-    // The Quick path must not reintroduce the same self-assessment trigger.
-    expect(OPERATOR_INSTRUCTIONS).not.toContain('Use for clear, well-scoped requests')
     expect(OPERATOR_INSTRUCTIONS).toContain('not because YOU judged the request clear')
-  })
-
-  it('stops "action-oriented" from governing spec authoring', () => {
     expect(OPERATOR_INSTRUCTIONS).not.toContain('Be concise and action-oriented')
     expect(OPERATOR_INSTRUCTIONS).toContain('understanding the request comes before dispatch')
+    expect(OPERATOR_INSTRUCTIONS).toContain('ALWAYS opens with the intent card')
+    expect(OPERATOR_INSTRUCTIONS).toContain('never in the same breath as your first reading')
   })
 
-  it('opens spec refinement with the frame, not with the draft', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('ALWAYS opens with the framing card')
-    expect(OPERATOR_INSTRUCTIONS).toContain('never in the same breath as your first reading')
+  it('derives the spec from the intent', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Derive\nthe spec FROM the intent')
+    expect(OPERATOR_INSTRUCTIONS).toContain('at\nleast one acceptance criterion checks each success signal')
+  })
+
+  it('no longer teaches the problem-frame block', () => {
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('```problem-frame')
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('problem-frame')
+  })
+
+  it('the intent-draft example is a valid draft for the shared parser and the fence promotion', async () => {
+    const { parseIntentDraft } = await import('../../specs/domain/intent')
+    const { detectProtocolShape } = await import('./agent-fence-promotion')
+    const example = JSON.parse(OPERATOR_INSTRUCTIONS.split('```intent-draft\n')[1].split('\n```')[0])
+    expect(parseIntentDraft(example)).not.toBeNull()
+    expect(detectProtocolShape(example)).toBe('intent-draft')
   })
 })
 
-describe('OPERATOR_SYSTEM_PROMPT — framing non-negotiable stays in sync', () => {
-  it('carries the block, its fields and the discriminator', () => {
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('problem-frame')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('discriminator')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('DIFFERENT reading of the same request')
+describe('OPERATOR_SYSTEM_PROMPT — the intent step stays in sync', () => {
+  it('carries the block, its fields, the readings and the paths', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('intent-draft')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('readings{restated, alternative, discriminator}')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('DIFFERENT reading of the same problem or outcome')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('Explore (an Intent session the app starts from the card) or Delegate')
   })
 
   it('carries the gate and the user-only waiver tokens', () => {
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('commit_draft refuses until a frame has been answered')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('one frame authorises ONE spec')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('commit_draft refuses until an intent has been answered')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('one intent authorises ONE spec')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('#noframe')
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('never skip framing because you feel certain')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('never skip it because you feel certain')
   })
 })
 
@@ -493,41 +503,39 @@ describe('rail launch cards (mission-rail-cards)', () => {
   })
 })
 
-// ── flow-mode: Flow is the fourth pre-launch option, offered as a card ───────
-describe('Flow or Implement offer (flow-mode)', () => {
+// ── intent-mode: Explore or Delegate, offered by the intent card ───────────────
+describe('Intent or Implement offer (flow-mode)', () => {
   afterEach(() => { delete process.env.SPECRAILS_MISSION_RAIL_CARDS })
 
-  it('adds Flow to the existing classification instead of a separate rule', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or')
-    expect(OPERATOR_INSTRUCTIONS).toContain('`Flow: offerable`')
-    expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('fourth pre-launch option (with Freestyle, SDD Quick and Implement)')
+  it('keeps Intent in the existing classification', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Implement is the built-in strategy')
+    expect(OPERATOR_INSTRUCTIONS).toContain('`Intent: offerable`')
   })
 
-  it('teaches the flow-offer fence, the routing criterion and the no-insist rule', () => {
+  it('routes new requests through the intent card and keeps flow-offer for existing specs', () => {
+    expect(FLOW_OFFER_SECTION).toContain('## Explore or Delegate')
+    expect(FLOW_OFFER_SECTION).toContain('**A new request** always goes through the intent card first')
+    expect(FLOW_OFFER_SECTION).toContain('never\nalso emit an `options` block for Explore/Delegate')
+    expect(FLOW_OFFER_SECTION).toContain('Never emit a `flow-offer` block for a new idea')
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('never emit a flow-offer block for a new idea')
     expect(FLOW_OFFER_SECTION).toContain('```flow-offer')
-    for (const key of ['"idea"', '"reason"']) expect(FLOW_OFFER_SECTION).toContain(key)
-    // Flow and Implement never compete: the agent explains, it never recommends.
+    for (const key of ['"idea"', '"reason"', '"ticketId"']) expect(FLOW_OFFER_SECTION).toContain(key)
+  })
+
+  it('never ranks the paths and never insists', () => {
     expect(FLOW_OFFER_SECTION).not.toContain('"recommended"')
-    expect(FLOW_OFFER_SECTION).not.toMatch(/recommend (Flow|spec)/)
     expect(FLOW_OFFER_SECTION).toContain('never recommend, rank or favour one of them')
     expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('never recommend, rank or favour either')
     expect(FLOW_OFFER_SYSTEM_CLAUSE).not.toContain('recommended')
-    expect(FLOW_OFFER_SECTION).toMatch(/Exploratory, visual, or the shape is uncertain/)
-    expect(FLOW_OFFER_SECTION).toMatch(/Well defined[\s\S]*spec \+ Implement/)
-    expect(FLOW_OFFER_SECTION).toContain('one suggestion per idea')
+    expect(FLOW_OFFER_SECTION).toContain('one suggestion per spec')
     expect(FLOW_OFFER_SECTION).toContain('never insist after')
-    expect(FLOW_OFFER_SECTION).toContain('does NOT need a\nproblem-frame card')
-    expect(FLOW_OFFER_SECTION).toContain('Never start a Flow yourself')
+    expect(FLOW_OFFER_SECTION).toContain('Never start an Intent session yourself')
   })
 
-  it('offers both modes neutrally for an EXISTING spec with its ticketId (prompt text changed consciously)', async () => {
+  it('offers both paths neutrally for an EXISTING spec with its ticketId (prompt text changed consciously)', async () => {
     expect(FLOW_OFFER_SECTION).toContain('**An existing spec.**')
-    expect(FLOW_OFFER_SECTION).toContain('`ticketId` is that spec\'s\nnumeric id')
-    expect(FLOW_OFFER_SECTION).toContain('Flow then works on THAT spec (no new spec is created)')
-    expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('ticketId = the id of that spec')
-    const { detectProtocolShape } = await import('./agent-fence-promotion')
-    const example = FLOW_OFFER_SECTION.split('`{ "idea": "Calmer onboarding"')[1]!.split('`')[0]
-    expect(detectProtocolShape(JSON.parse(`{ "idea": "Calmer onboarding"${example}`))).toBe('flow-offer')
+    expect(FLOW_OFFER_SECTION).toContain('Explore then works on THAT spec (no new spec is created')
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('ticketId = that spec id')
   })
 
   it('the offer block parses with the fence-promotion shape (example is valid JSON)', async () => {

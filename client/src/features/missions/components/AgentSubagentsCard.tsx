@@ -306,7 +306,8 @@ export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onSt
         >
           {working > 0 ? <LiveDot tone="primary" size="xs" aria-hidden /> : <Bot className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />}
           <span className="shrink-0 font-medium">{t('subagents.count', { count: subagents.length })}</span>
-          <span className="min-w-0 truncate text-muted-foreground" aria-live="polite">{status}</span>
+          {/* No second live region inside the role=log transcript; the strip announces. */}
+          <span className="min-w-0 truncate text-muted-foreground">{status}</span>
           {working > 0 && <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{elapsed}</span>}
           <ChevronRight className={cn('h-3 w-3 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none', open && 'rotate-90')} aria-hidden />
         </button>

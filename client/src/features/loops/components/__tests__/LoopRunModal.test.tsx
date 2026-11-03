@@ -44,7 +44,7 @@ describe('LoopRunModal', () => {
     const dialog = screen.getByRole('dialog')
     // p1 is claude → claude catalog, default Sonnet.
     const modelSel = within(dialog).getByTestId('run-model-select') as HTMLSelectElement
-    expect(within(modelSel).getByRole('option', { name: 'Sonnet 5.5' })).toBeInTheDocument()
+    expect(within(modelSel).getByRole('option', { name: 'Claude Sonnet 5.5' })).toBeInTheDocument()
     expect(within(modelSel).getByRole('option', { name: 'Claude Opus 5.5' })).toBeInTheDocument()
     expect(modelSel.value).toBe('sonnet')
     // pick a non-default model
@@ -64,7 +64,7 @@ describe('LoopRunModal', () => {
     // Codex catalog, default GPT-5.5; no Claude models present.
     expect(modelSel.value).toBe('gpt-6.1-sol')
     expect(within(modelSel).getByRole('option', { name: 'GPT-6.1 Sol' })).toBeInTheDocument()
-    expect(within(modelSel).queryByRole('option', { name: 'Sonnet 5.5' })).not.toBeInTheDocument()
+    expect(within(modelSel).queryByRole('option', { name: 'Claude Sonnet 5.5' })).not.toBeInTheDocument()
     fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
     expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-6.1-sol' }))
   })

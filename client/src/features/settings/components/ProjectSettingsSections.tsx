@@ -25,7 +25,6 @@ import { notifyError } from '../../../lib/notify-error'
 interface ProjectSettingsPayload {
   pipelineTelemetryEnabled?: boolean
   prePrompt?: string
-  freestylePrePrompt?: string
   integrationBranch?: string
   worktreeEnvPassthrough?: string[]
 }
@@ -534,7 +533,7 @@ export function ProjectWorktreeEnvSection() {
   )
 }
 
-/** One pre-prompt editor card (shared shape for the normal + Freestyle prompt). */
+/** One pre-prompt editor card. */
 function PrePromptCard({
   value,
   onChange,
@@ -548,7 +547,7 @@ function PrePromptCard({
   onSave: () => void
   isSaving: boolean
   fieldId: string
-  i18nRoot: 'prePrompt' | 'freestylePrePrompt'
+  i18nRoot: 'prePrompt'
 }) {
   const { t } = useTranslation('settings')
   return (
@@ -581,29 +580,28 @@ function PrePromptCard({
   )
 }
 
-/** Pre-prompt + Freestyle pre-prompt cards (loads both from GET /settings). */
+/** Pre-prompt card (loads it from GET /settings). The server still stores a
+ *  per-project Freestyle pre-prompt for jobs queued before Freestyle left the
+ *  built-ins, but nothing launches new ones, so it has no editor here. */
 export function ProjectPrePromptsSection() {
   const { t } = useTranslation('settings')
   const { activeProjectId } = useDesktop()
   const [prePrompt, setPrePrompt] = useState('')
   const [isSavingPrePrompt, setIsSavingPrePrompt] = useState(false)
-  const [freestylePrePrompt, setFreestylePrePrompt] = useState('')
-  const [isSavingFreestylePrePrompt, setIsSavingFreestylePrePrompt] = useState(false)
   const [loaded, setLoaded] = useState(false)
   // A late-landing GET must never clobber a field the user already edited.
-  const touchedRef = useRef({ pre: false, freestyle: false })
+  const touchedRef = useRef({ pre: false })
 
   useEffect(() => {
     if (!activeProjectId) return
     let cancelled = false
     setLoaded(false)
-    touchedRef.current = { pre: false, freestyle: false }
+    touchedRef.current = { pre: false }
     fetch(`${getApiBase()}/settings`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: ProjectSettingsPayload | null) => {
         if (cancelled || !data) return
         if (!touchedRef.current.pre) setPrePrompt(data.prePrompt ?? '')
-        if (!touchedRef.current.freestyle) setFreestylePrePrompt(data.freestylePrePrompt ?? '')
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoaded(true) })
@@ -630,47 +628,17 @@ export function ProjectPrePromptsSection() {
     }
   }
 
-  async function saveFreestylePrePrompt() {
-    setIsSavingFreestylePrePrompt(true)
-    try {
-      const res = await fetch(`${getApiBase()}/settings`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ freestylePrePrompt }),
-      })
-      if (!res.ok) throw new Error('Failed to save')
-      const data = await res.json() as { settings?: ProjectSettingsPayload }
-      const savedValue = data.settings?.freestylePrePrompt ?? ''
-      setFreestylePrePrompt(savedValue)
-      toast.success(savedValue.trim() === '' ? t('freestylePrePrompt.resetToDefault') : t('freestylePrePrompt.saved'))
-    } catch (err) {
-      notifyError(t('freestylePrePrompt.saveFailed'), { detail: (err as Error).message, retry: () => void saveFreestylePrePrompt() })
-    } finally {
-      setIsSavingFreestylePrePrompt(false)
-    }
-  }
-
   if (!loaded) return <SectionSkeleton />
 
   return (
-    <>
-      <PrePromptCard
-        value={prePrompt}
-        onChange={(v) => { touchedRef.current.pre = true; setPrePrompt(v) }}
-        onSave={savePrePrompt}
-        isSaving={isSavingPrePrompt}
-        fieldId="project-pre-prompt"
-        i18nRoot="prePrompt"
-      />
-      <PrePromptCard
-        value={freestylePrePrompt}
-        onChange={(v) => { touchedRef.current.freestyle = true; setFreestylePrePrompt(v) }}
-        onSave={saveFreestylePrePrompt}
-        isSaving={isSavingFreestylePrePrompt}
-        fieldId="project-freestyle-pre-prompt"
-        i18nRoot="freestylePrePrompt"
-      />
-    </>
+    <PrePromptCard
+      value={prePrompt}
+      onChange={(v) => { touchedRef.current.pre = true; setPrePrompt(v) }}
+      onSave={savePrePrompt}
+      isSaving={isSavingPrePrompt}
+      fieldId="project-pre-prompt"
+      i18nRoot="prePrompt"
+    />
   )
 }
 

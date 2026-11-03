@@ -14,13 +14,13 @@ beforeEach(() => {
 })
 
 describe('RailLoopSelector (unified rail Loop picker)', () => {
-  it('always offers the built-in factory loops', () => {
+  it('always offers Implement, the only built-in loop', () => {
     render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled={false} />)
     const sel = screen.getByTestId('rail-loop-selector')
     expect(within(sel).getByRole('option', { name: 'Implement' })).toBeInTheDocument()
-    expect(within(sel).getByRole('option', { name: 'Freestyle' })).toBeInTheDocument()
-    // The removed Batch mode is never offered.
-    expect(within(sel).queryByRole('option', { name: 'Batch' })).not.toBeInTheDocument()
+    // Freestyle, SDD Quick and the removed Batch mode are never offered by the app.
+    for (const name of ['Freestyle', 'SDD Quick (OpenSpec)', 'Batch']) expect(within(sel).queryByRole('option', { name })).not.toBeInTheDocument()
+    expect(within(sel).getAllByRole('option').map((o) => (o as HTMLOptionElement).value)).toEqual(['', 'factory:implement'])
   })
 
   it('says in one line what the picked loop does', () => {
@@ -28,15 +28,13 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
     expect(screen.getByTestId('rail-loop-description')).toHaveTextContent('Plans, builds and reviews each spec')
   })
 
-  it('hides the provider-owned Freestyle built-in when the capability is unavailable', () => {
-    render(<RailLoopSelector value={null} onChange={() => {}} freestyleAvailable={false} loopsEnabled={false} />)
-    const sel = screen.getByTestId('rail-loop-selector')
-    expect(within(sel).queryByRole('option', { name: 'Freestyle' })).not.toBeInTheDocument()
-  })
-
-  it('shows the Freestyle built-in when available', () => {
-    render(<RailLoopSelector value={null} onChange={() => {}} freestyleAvailable loopsEnabled={false} />)
-    expect(within(screen.getByTestId('rail-loop-selector')).getByRole('option', { name: 'Freestyle' })).toBeInTheDocument()
+  it('lists a Freestyle copy the user added from the gallery under the custom loops, like any other loop', async () => {
+    api.list.mockResolvedValue([
+      { id: 'u-free', name: 'Freestyle', status: 'published', graph: { nodes: [{ id: 'ai', type: 'ai-step' as const, position: { x: 0, y: 0 }, data: { prompt: '{{cmd:freestyle}}' } }], edges: [], config: { maxIterations: 12, timeoutMinutes: 0 } }, description: null, createdAt: '', updatedAt: '' },
+    ])
+    render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled />)
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Freestyle' })).toBeInTheDocument())
+    expect((screen.getByRole('option', { name: 'Freestyle' }) as HTMLOptionElement).value).toBe('u-free')
   })
 
   // A spec-driven graph (references {{spec.*}}) — rail-eligible.
@@ -73,8 +71,8 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
   it('fires onChange with the chosen loop id', () => {
     const onChange = vi.fn()
     render(<RailLoopSelector value="factory:implement" onChange={onChange} loopsEnabled={false} />)
-    fireEvent.change(screen.getByTestId('rail-loop-selector'), { target: { value: 'factory:freestyle' } })
-    expect(onChange).toHaveBeenCalledWith('factory:freestyle')
+    fireEvent.change(screen.getByTestId('rail-loop-selector'), { target: { value: 'factory:implement' } })
+    expect(onChange).toHaveBeenCalledWith('factory:implement')
   })
 })
 
@@ -84,7 +82,6 @@ describe('RailLoopSelector with editable built-in rows', () => {
   it('never lists a built-in row twice (built-in group only) and shows a renamed built-in by its row name', async () => {
     api.list.mockResolvedValue([
       { id: 'factory:implement', builtinId: 'factory:implement', builtinModified: true, name: 'Team Implement', status: 'published', graph: builtinGraph, description: null, createdAt: '', updatedAt: '' },
-      { id: 'factory:sdd-quick-openspec', builtinId: 'factory:sdd-quick-openspec', builtinModified: false, name: 'SDD Quick (OpenSpec)', status: 'published', graph: builtinGraph, description: null, createdAt: '', updatedAt: '' },
       { id: 'c1', name: 'My Loop', status: 'published', graph: builtinGraph, description: null, createdAt: '', updatedAt: '' },
     ])
     render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled />)
@@ -92,7 +89,6 @@ describe('RailLoopSelector with editable built-in rows', () => {
     const sel = screen.getByTestId('rail-loop-selector')
     const values = within(sel).getAllByRole('option').map((option) => (option as HTMLOptionElement).value)
     expect(values.filter((value) => value === 'factory:implement')).toHaveLength(1)
-    expect(values.filter((value) => value === 'factory:sdd-quick-openspec')).toHaveLength(1)
     expect(within(sel).getByRole('option', { name: 'My Loop' })).toBeInTheDocument()
     expect(within(sel).queryByRole('option', { name: 'Implement' })).not.toBeInTheDocument()
   })

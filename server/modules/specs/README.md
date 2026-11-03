@@ -6,6 +6,7 @@ subdirectories, where present, enforce inward dependency rules.
 
 ## Reviewed public entry points
 
+- [domain/intent.ts](domain/intent.ts)
 - [domain/non-goals.ts](domain/non-goals.ts)
 - [domain/triage.ts](domain/triage.ts)
 - [runtime/contract-refine-runner.ts](runtime/contract-refine-runner.ts)
@@ -43,6 +44,14 @@ criteria), labels, priority and short summary are replaced in the same format.
 persistence. The route keeps HTTP validation, `spec_gen_*`/`ticket_created`
 messages, attachment migration and Jira promotion through `hooks`.
 
+`intent` (intent-mode): `{ mode: 'derive' }` (Add Spec → Intent,
+`generate-spec` with `intent: true`) asks for a `## Intent` JSON block first and
+a spec derived from it; the parser lifts the block out of the description and a
+new ticket stores it. `{ mode: 'keep', intent }` (Intent settlement rewrite)
+keeps the intent fixed and lets the model answer open questions in a
+`## Intent Answers` block, which `persistGeneratedSpec` merges into the existing
+intent by index (`mergeIntentAnswers`).
+
 ## Non-goals
 
 [`domain/non-goals.ts`](domain/non-goals.ts) is pure (pinned to zero imports):
@@ -52,6 +61,20 @@ schema 1.5, additive), extraction of a `## Out of Scope` section, and
 use so agents keep seeing the non-goals. Quick generation and Explore drafts
 fill the field; the Contract Layer is unchanged. See
 [existing-project anchoring](../../../docs/internals/existing-project-anchoring.md#non-goals-out-of-scope).
+
+## Intent
+
+[`domain/intent.ts`](domain/intent.ts) is pure (pinned to zero imports) and
+byte-identical to the client copy `client/src/features/specs/lib/spec-intent.ts`
+(parity test in `domain/intent.test.ts`). It owns the optional ticket field
+`intent` (schema 1.5, additive, local like non-goals): problem, outcome,
+hypothesis, success signals, affects, constraints and open questions — never a
+solution. It validates and bounds the field, renders and parses the canonical
+`intent.md`, renders the agent block that `descriptionWithIntent` puts ahead of
+the description every loop prompt and Core run reads (`getTicketSpec`), parses
+the operator's `intent-draft` payloads (`parseIntentDraft`, also used by the
+`commit_draft` gate) and merges settlement answers (`mergeIntentAnswers`). The
+⌘K spec search indexes it. See [Intent mode](../../../docs/internals/intent-mode.md#the-intent-artifact).
 
 ## Spec triage
 
@@ -65,7 +88,7 @@ inputs (ticket store, repo map, `file_provenance`, loops), hashes them and runs 
 engine. It then writes `metadata.triage` and records `ai_invocations`
 (surface `triage`). The project registry composes the service and feeds it the
 project broadcast. `POST /tickets/:id/triage` forces a recalculation. The
-triage recommends a loop and a size for Implement only: Flow and Implement
+triage recommends a loop and a size for Implement only: Intent and Implement
 never compete, so it never ranks them (a legacy `recommendedMode` stays
 readable and is ignored). See
 [spec triage](../../../docs/internals/spec-triage.md).

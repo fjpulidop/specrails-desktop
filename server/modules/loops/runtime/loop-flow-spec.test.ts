@@ -46,7 +46,7 @@ describe('factory:flow-spec gating', () => {
 })
 
 describe('flow-spec definition', () => {
-  const definition = compileLoopToDefinition(flowSpecGraph(), { id: FLOW_SPEC_LOOP_ID, title: 'Flow → Spec', constants: {}, provider: 'claude', roles: { reviewer: { access: 'read' } } })
+  const definition = compileLoopToDefinition(flowSpecGraph(), { id: FLOW_SPEC_LOOP_ID, title: 'Intent → Spec', constants: {}, provider: 'claude', roles: { reviewer: { access: 'read' } } })
 
   it('matches the Core reference fixture shape (entry, roles, kinds, routing)', () => {
     expect(definition).toMatchObject({ id: 'factory-flow-spec', entry: fixture.entry, journal: fixture.journal, change: fixture.change, delivery: { requiresVerified: true } })
@@ -107,7 +107,7 @@ describe('writeFlowSummary', () => {
   })
 })
 
-describe('Flow change id', () => {
+describe('Intent change id', () => {
   it('is the kebab-case spec title (diacritics folded, ≤64, cut at a word), never addenda', () => {
     expect(flowChangeIdStem('Add more visual effects to ArkanoidEX (ball trail, brick shockwaves, animated background, level transitions, power-up…')).toBe('add-more-visual-effects-to-arkanoidex-ball-trail-brick')
     expect(flowChangeIdStem('Añadir efectos de vídeo')).toBe('anadir-efectos-de-video')
@@ -121,7 +121,7 @@ describe('Flow change id', () => {
     }
   })
 
-  it('suffixes a name another change holds and reuses this Flow\'s own earlier derivation', () => {
+  it('suffixes a name another change holds and reuses this Intent\'s own earlier derivation', () => {
     expect(flowChangeId('Kanban board', () => 'free')).toBe('kanban-board')
     expect(flowChangeId('Kanban board', (id) => id === 'kanban-board' ? 'own' : 'taken')).toBe('kanban-board')
     expect(flowChangeId('Kanban board', (id) => id === 'kanban-board' || id === 'kanban-board-2' ? 'taken' : 'free')).toBe('kanban-board-3')
@@ -142,7 +142,7 @@ describe('Flow change id', () => {
     git('add', '-A'); git('commit', '-qm', 'base')
     const base = git('rev-parse', 'HEAD')
     mkdirSync(join(repo, 'openspec', 'changes', 'kanban-board'), { recursive: true })
-    writeFileSync(join(repo, 'openspec', 'changes', 'kanban-board', 'proposal.md'), '# derived by this Flow')
+    writeFileSync(join(repo, 'openspec', 'changes', 'kanban-board', 'proposal.md'), '# derived by this Intent')
     expect(flowChangeHolder(repo, base, 'base-change')).toBe('taken')
     expect(flowChangeHolder(repo, base, 'shipped')).toBe('taken')
     expect(flowChangeHolder(repo, base, 'kanban-board')).toBe('own')
@@ -151,7 +151,7 @@ describe('Flow change id', () => {
     expect(flowChangeId('Base change', (id) => flowChangeHolder(repo, base, id))).toBe('base-change-2')
   })
 
-  it('re-derives the Flow\'s own earlier change in place (legacy addenda name too); title-based only for the first derivation', () => {
+  it('re-derives the Intent\'s own earlier change in place (legacy addenda name too); title-based only for the first derivation', () => {
     const repo = mkdtempSync(join(tmpdir(), 'flow-change-seed-'))
     const git = (...args: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], { encoding: 'utf8' }).trim()
     git('init', '-q')

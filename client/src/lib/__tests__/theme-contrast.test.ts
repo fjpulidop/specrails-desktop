@@ -58,7 +58,7 @@ export function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-const TEXT = ['foreground', 'muted-foreground', 'destructive', 'accent-primary', 'accent-info', 'accent-flow',
+const TEXT = ['foreground', 'muted-foreground', 'destructive', 'accent-primary', 'accent-info', 'accent-intent',
   'accent-success', 'accent-secondary', 'accent-warning', 'accent-review', 'accent-highlight']
 const SURFACES = ['background', 'card', 'surface']
 

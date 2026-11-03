@@ -249,7 +249,7 @@ export interface ProviderAdapter {
   readonly capabilities: ProviderCapabilities
 
   // Model catalog — populates UI dropdowns and validates profile schemas
-  modelCatalog(): readonly { value: string; label: string; default?: boolean }[]
+  modelCatalog(): readonly { value: string; label: string; default?: boolean; minCliVersion?: string }[]
   defaultModel(): string
   /**
    * Optional model-level refinement of `capabilities.reasoningEfforts`.

@@ -5,6 +5,9 @@
     "engineAriaLabel": "Motor de IA para esta spec",
     "modeTablistLabel": "Modo de creación de la spec",
     "mode": {
+      "intent": "Intent",
+      "intentHint": "primero el problema",
+      "default": "Por defecto",
       "quick": "Quick",
       "explore": "Explore",
       "raw": "Raw",
@@ -13,14 +16,26 @@
       "quickUnavailable": "no disponible para Kimi"
     },
     "modeDescription": {
+      "intent": "Describe el problema, a quién afecta y cómo sabrás que está resuelto. La IA escribe el intent y deriva la spec para que la revises.",
       "quick": "Describe la funcionalidad o el cambio. Adjunta mockups, briefs o datos para dar más contexto.",
       "explore": "Describe una idea aproximada. El asistente de IA seleccionado te ayudará a darle forma conversando — tú decides cuándo confirmarla.",
-      "raw": "Tu prompt, tal cual — guardado como spec. No se ejecuta IA ahora; arrástrala a un rail para construirla."
+      "raw": "Tu prompt, tal cual — guardado como spec. No se ejecuta IA ahora; arrástrala a un rail para construirla. Podrás añadir el intent después desde la spec."
     },
     "editorPlaceholder": {
+      "intent": "p. ej. Los usuarios nuevos abandonan la configuración porque pedimos una API key antes de que vean nada funcionar. Sabremos que está resuelto cuando la mayoría termine en menos de 2 minutos…",
       "quick": "p. ej. Añade un interruptor de modo oscuro a la página de ajustes que recuerde la preferencia del usuario...",
       "explore": "p. ej. modo oscuro — no tengo claro dónde colocar el interruptor ni cómo persistirlo…",
       "raw": "Describe la funcionalidad, el cambio o la idea. Admite Markdown, imágenes y archivos…"
+    },
+    "intentChips": {
+      "problem": "Problema",
+      "affects": "A quién afecta",
+      "signal": "Cómo lo sabremos"
+    },
+    "intentScaffold": {
+      "problem": "Problema: ",
+      "affects": "A quién afecta: ",
+      "signal": "Sabremos que funcionó cuando: "
     },
     "ideaAriaLabel": "Idea de la spec",
     "raw": {
@@ -46,6 +61,7 @@
       "responsiveSizes_other": "Responsive · {{count}} tamaños"
     },
     "submit": {
+      "intent": "Escribir el intent y una spec",
       "quick": "Generar spec",
       "explore": "Continuar",
       "raw": "Crear",

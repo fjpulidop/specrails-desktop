@@ -11,7 +11,7 @@ Everything here is verified against `main`. The app server binds to `127.0.0.1` 
 > | Provider | CLI binary | Default model | Emergency rollback |
 > |----------|-----------|---------------|--------------------|
 > | Claude Code | `claude` | `sonnet` | — |
-> | Codex CLI | `codex` | `gpt-5.5` | `SPECRAILS_CODEX_BETA=0` |
+> | Codex CLI | `codex` | `gpt-6.1-sol` | `SPECRAILS_CODEX_BETA=0` |
 > | Gemini CLI | `gemini` | `gemini-3.5-flash` | `SPECRAILS_GEMINI_BETA=0` |
 > | Kimi Code | `kimi` | `k3` | — |
 >
@@ -56,7 +56,7 @@ The Global Settings page is organised into the sections below (it also surfaces 
 | **Terminal Panel** | App-wide defaults for the integrated terminal (font, render mode, copy-on-select, shell integration, image rendering, long-command threshold). | `terminal.*` keys |
 
 > There is **no** global provider-model setting. The default is the adapter
-> default (`sonnet`, `gpt-5.5`, `gemini-3.5-flash`, or Kimi `k3`) resolved at
+> default (`sonnet`, `gpt-6.1-sol`, `gemini-3.5-flash`, or Kimi `k3`) resolved at
 > spawn time. Kimi low/high/max effort is valid only for K3.
 
 **Port is not a live setting.** `desktop_settings` does store a `port` value, but it is display-only. The port the server actually binds is taken from the `--port` argv (default `4200`); changing the stored value does not rebind a running server. Set the port with `--port <n>` on `specrails-desktop start`.
@@ -71,7 +71,7 @@ Project settings apply to a single project. Open them from the project's **Proje
 |---------|------------------|
 | **Pipeline Telemetry** | Opt-in toggle that injects OpenTelemetry env vars into pipeline job spawns so they emit OTLP signals back to the app. Off by default. |
 | **Rail Pre-prompt** | Text prepended to every rail launch for this project. |
-| **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (every CLI provider and local engine advertises this autonomous rail mode; only Claude adds the interactive in-job chat). |
+| **Freestyle pre-prompt** | API-only (no editor in the UI). Text prepended to legacy Freestyle queue jobs that were enqueued before Freestyle left the built-ins. A Freestyle loop added from the gallery uses its own prompt (`{{cmd:freestyle}}`), not this setting. |
 | **Worktree environment** | Names of environment variables passed to the project's agents (values are read at spawn time, never stored). |
 | **Agent environment** | `inherit` (default) or `minimal`. See [Agent environment mode](#agent-environment-mode). |
 | **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. Weekly and monthly caps and the per-run soft cap live in Analytics ▸ Budget (`queue_state` keys `config.weekly_budget_usd`, `config.monthly_budget_usd`, `config.run_cap_usd`). |

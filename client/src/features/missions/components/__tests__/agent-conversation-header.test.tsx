@@ -124,17 +124,17 @@ describe('AgentConversationHeader', () => {
     expect(screen.getByText('Greeting And Friendly Introduction')).toBeInTheDocument()
   })
 
-  it('names the conversation mode next to the title ("In Flow"), with icon and words', async () => {
+  it('names the conversation mode next to the title ("In Intent"), with icon and words', async () => {
     const { MissionExtensionsProvider } = await import('../../context/MissionExtensionsContext')
     const Icon = (props: { className?: string }) => <svg data-testid="header-mode-icon" {...props} />
     render(
-      <MissionExtensionsProvider value={{ useConversationMode: () => ({ headerBadge: { label: 'In Flow', description: 'Flow mode', icon: Icon } }) }}>
+      <MissionExtensionsProvider value={{ useConversationMode: () => ({ headerBadge: { label: 'In Intent', description: 'Intent mode', icon: Icon } }) }}>
         <AgentConversationHeader />
       </MissionExtensionsProvider>,
     )
     const badge = screen.getByTestId('mission-mode-badge-header')
-    expect(badge).toHaveTextContent('In Flow')
-    expect(badge).toHaveAttribute('title', 'Flow mode')
+    expect(badge).toHaveTextContent('In Intent')
+    expect(badge).toHaveAttribute('title', 'Intent mode')
     expect(screen.getByTestId('header-mode-icon')).toBeInTheDocument()
   })
 

@@ -5,21 +5,22 @@ import { providerSupportsCustomModelAliases } from '../../providers/lib/provider
 import { isSafeCustomModelAlias } from '../../providers/lib/model-alias'
 import { CustomModelAliasInput } from '../../providers/components/CustomModelAliasInput'
 
-export type FreestyleModel = string
+/** A provider model id (or a safe custom alias) chosen for a rail's loop runs. */
+export type RailModel = string
 
 interface Props {
   /** Provider whose adapter validates this model. */
   provider?: string
   /** Selected model. null/undefined/invalid = provider default. */
-  value: FreestyleModel | null | undefined
-  onChange: (value: FreestyleModel) => void
+  value: RailModel | null | undefined
+  onChange: (value: RailModel) => void
   testId?: string
   ariaLabel?: string
 }
 
 /**
- * Compact rail-header model selector, shown only for freestyle rails. Lets the
- * user pick which provider model runs the autonomous implementation.
+ * Compact rail-header model selector (custom-loop rails). Lets the user pick
+ * which provider model the loop's AI steps run on.
  */
 export function RailModelSelector({
   provider = 'claude',
@@ -60,7 +61,7 @@ export function RailModelSelector({
           value={current}
           aria-label={label}
           data-testid={testId}
-          onChange={(e) => onChange(e.target.value as FreestyleModel)}
+          onChange={(e) => onChange(e.target.value as RailModel)}
           className="h-6 text-caption rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
         >
           {models.map((model) => (

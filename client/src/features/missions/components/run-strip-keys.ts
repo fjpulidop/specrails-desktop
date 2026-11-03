@@ -13,7 +13,7 @@
 //   Esc         (strip focused, nothing open) back to where ⌥R came from.
 //   ← / →       (on a switcher button) move between the switcher's runs.
 //   letters     (strip focused) an extension's own row control can claim a
-//               single letter with `data-strip-key` (Flow: P pause/resume,
+//               single letter with `data-strip-key` (Intent: P pause/resume,
 //               H hand off). Never global: nothing destructive fires from
 //               outside the strip.
 //

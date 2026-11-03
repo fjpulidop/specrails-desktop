@@ -84,12 +84,10 @@ export function hashTriageInputs(inputs: TriageInputs): string {
   return 'sha256:' + createHash('sha256').update(canonicalJson(inputs), 'utf8').digest('hex')
 }
 
-/** Loops a triage may recommend: the rail built-ins the primary engine can run, plus published spec-driven custom loops. */
-export function listTriageLoops(db: DbInstance, primaryProvider: string): TriageLoopOption[] {
+/** Loops a triage may recommend: the rail built-ins (Implement), plus published spec-driven custom loops the user added. */
+export function listTriageLoops(db: DbInstance): TriageLoopOption[] {
   const loopsOn = isLoopsEnabled()
-  const freestyle = hasAdapter(primaryProvider) && getAdapter(primaryProvider).capabilities.freestyle === true
   const out: TriageLoopOption[] = FACTORY_LOOPS
-    .filter((f) => (f.id !== 'factory:freestyle' || freestyle) && (f.id !== 'factory:sdd-quick-openspec' || loopsOn))
     .map((f) => ({ id: f.id, name: f.name, description: f.description.slice(0, 240) }))
   if (loopsOn) {
     try {
@@ -238,7 +236,7 @@ export class SpecTriageService {
   private async collectInputs(ticket: Ticket, store: TicketStore, engine: TriageEngineResolution): Promise<{ inputs: TriageInputs; loops: TriageLoopOption[] }> {
     const others = Object.values(store.tickets).filter((t) => !t.is_epic)
     const similar = similarTicketIds({ id: ticket.id, title: ticket.title, labels: ticket.labels ?? [] }, others.map((t) => ({ id: t.id, title: t.title, labels: t.labels ?? [] })))
-    const loops = this.deps.loops?.() ?? listTriageLoops(this.deps.db, derivePrimaryProvider(this.deps.project))
+    const loops = this.deps.loops?.() ?? listTriageLoops(this.deps.db)
     const inputs: TriageInputs = {
       promptVersion: TRIAGE_PROMPT_VERSION,
       ticket: triageTicketText(ticket),

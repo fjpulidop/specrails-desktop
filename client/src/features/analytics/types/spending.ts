@@ -13,7 +13,7 @@ export type Surface =
   | 'proposal'
   | 'agent-studio'
   | 'setup'
-  /** Flow mode turns (app ledger; real provider-billed cost only). */
+  /** Intent mode turns (app ledger; real provider-billed cost only). */
   | 'flow'
   | 'triage'
 export type SurfaceFilter = Surface | 'all'
@@ -206,7 +206,7 @@ export interface AgentMissionSpending {
     turns: number
     tokensIn: number
     tokensOut: number
-    /** Part of totalCostUsd spent by Flow turns (surface 'flow'); absent on older servers. */
+    /** Part of totalCostUsd spent by Intent turns (surface 'flow'); absent on older servers. */
     flowCostUsd?: number
     flowTurns?: number
   }

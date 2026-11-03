@@ -308,21 +308,17 @@
       "name": "実装",
       "description": "レール上のすべての spec を 1 回の実行で実装します。計画、実装、レビュー、検証を行い、チェックが通るまで失敗を修正します。"
     },
-    "factory_freestyle": {
-      "name": "Freestyle",
-      "description": "スペックをそのままモデルに渡して完全な自由を与えます — パイプラインなしで通常のコーディングエージェントのように動作し、その後グリーンになるまで検証+改善します。Claude 専用。"
-    },
-    "factory_openspec": {
-      "name": "OpenSpec ライフサイクル",
-      "description": "スペックからアーカイブまでの OpenSpec ライフサイクル: アーティファクト生成 (opsx:ff) → 実装 (opsx:apply) → 検証 (opsx:verify)。FAIL なら同じ change を修正しに戻り、PASS なら無人でアーカイブします。"
-    },
-    "factory_revision": {
-      "name": "修正",
-      "description": "すでに納品された成果の上に依頼された一点の変更を適用し、レビュアーに再評価させ、通るまで検証します。ゼロからの再計画はしません。"
-    },
     "drift-sweep": {
       "name": "ドリフト検査",
       "description": "読み取り専用：各ケイパビリティのスペックの記述とコードの実際の動作を比較し、矛盾をファイル:行付きで一覧表示します。何も変更しません。必要なときに実行してください。"
+    },
+    "quick-sdd-openspec": {
+      "name": "SDD Quick (OpenSpec)",
+      "description": "契約で管理される小さな変更向けの、スペック駆動の高速 OpenSpec ライフサイクル: アーティファクトの準備、適用とテスト、CLI での検証、そしてアーカイブ。"
+    },
+    "freestyle": {
+      "name": "Freestyle",
+      "description": "スペックをそのままモデルに渡して完全な自由を与えます — パイプラインなしで通常のコーディングエージェントのように動作し、その後グリーンになるまで検証+改善します。"
     }
   },
   "import": {

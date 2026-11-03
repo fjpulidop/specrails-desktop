@@ -30,6 +30,10 @@ export interface ParsedAgentSpecDraft {
   /** True only while streaming, when an opening fence exists but the block
    *  is not complete yet — the renderer shows a small placeholder chip. */
   pending: boolean
+  /** How many settled blocks could not be read (malformed JSON, not an
+   *  object, or empty). Never silent: the renderer shows a one-line notice
+   *  (AgentSpecDraftUnreadable) in place of the card, like rail-launch does. */
+  rejected: number
 }
 
 function coerceStringArray(value: unknown): string[] {
@@ -73,9 +77,10 @@ function tidy(body: string): string {
  * after the spec-draft block, per the operator protocol).
  */
 export function extractAgentSpecDraft(content: string, streaming = false): ParsedAgentSpecDraft {
-  if (!content.includes(OPEN_FENCE)) return { body: content, draft: null, pending: false }
+  if (!content.includes(OPEN_FENCE)) return { body: content, draft: null, pending: false, rejected: 0 }
 
   let draft: SpecDraft | null = null
+  let rejected = 0
   let stripped = ''
   let cursor = 0
   FENCE_RE.lastIndex = 0
@@ -85,6 +90,7 @@ export function extractAgentSpecDraft(content: string, streaming = false): Parse
     cursor = match.index + match[0].length
     const parsed = parseDraftPayload(match[1])
     if (parsed) draft = parsed // last valid snapshot wins
+    else rejected += 1
   }
   stripped += content.slice(cursor)
 
@@ -105,8 +111,12 @@ export function extractAgentSpecDraft(content: string, streaming = false): Parse
       // Mid-stream: cut the raw protocol tail; the card arrives when complete.
       stripped = stripped.slice(0, openIdx)
       pending = true
+    } else {
+      // Settled, unclosed and unreadable: the text stays (never lost) and the
+      // renderer frames it as a draft that could not be read.
+      rejected += 1
     }
   }
 
-  return { body: tidy(stripped), draft, pending }
+  return { body: tidy(stripped), draft, pending, rejected }
 }

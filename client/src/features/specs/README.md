@@ -10,7 +10,6 @@ These are the explicit entry points consumed by application composition or other
 features. Keep imports focused on a subpath so importing a model does not eagerly
 load every UI component. Changes to this surface require updating the boundary manifest.
 
-- [components/CreateTicketModal.tsx](components/CreateTicketModal.tsx)
 - [components/SpecCard.tsx](components/SpecCard.tsx)
 - [components/SpecComparePicker.tsx](components/SpecComparePicker.tsx)
 - [components/SpecTriageChip.tsx](components/SpecTriageChip.tsx)
@@ -28,6 +27,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [lib/bulk-report.ts](lib/bulk-report.ts)
 - [lib/spec-addenda-core.ts](lib/spec-addenda-core.ts)
 - [lib/spec-draft.ts](lib/spec-draft.ts)
+- [lib/spec-intent.ts](lib/spec-intent.ts)
 - [lib/spec-sort.ts](lib/spec-sort.ts)
 - [lib/spec-status-filter.ts](lib/spec-status-filter.ts)
 - [lib/spec-triage.ts](lib/spec-triage.ts)
@@ -121,6 +121,20 @@ without it cards stay plain buttons (rails render `SpecCard` without a selection
   selection, Save current view and Switch view always; Move / Label / Priority / Add to rail /
   Launch / Delete only while specs are selected, all through the same handlers as the bar.
 
+## Intent
+
+[`lib/spec-intent.ts`](lib/spec-intent.ts) is a byte-identical copy of the
+server's pure intent domain (`server/modules/specs/domain/intent.ts`; the parity
+test lives there). [`IntentSection`](components/IntentSection.tsx) shows the
+spec's intent above the description in the detail modal (problem, outcome,
+hypothesis, how we will know, affects, constraints, open questions with their
+answers) and edits it in place: problem and outcome are required, emptying every
+section clears it, Cancel/Escape restores it; the modal saves it with the ticket
+(`PATCH { intent }`, `null` clears). `SpecCard` shows a compass badge with the
+count of unanswered open questions. The Add Spec modal opens in **Intent** mode
+(`AddSpecMode`, the Quick fast path with `intent: true`); the tracker toasts when
+the spec arrived without an intent.
+
 ## Timeline tab and hand-off export
 
 The spec modal has two tabs, **Details** and **Timeline** (a tab inside a modal is not a place: no history
@@ -150,7 +164,7 @@ hint (`specTimeline`), and cached entries kept on screen while a refresh runs.
 built on top of specs add another way to start work on an existing spec,
 next to the Implement door, without specs importing it: `StartAlternative`
 renders in the board's spec context menu and the spec detail header. The
-composition root (App.tsx) provides Flow's "Start in Flow". Without a
+composition root (App.tsx) provides Intent's "Start in Intent". Without a
 provider the slot is inert.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/specs`.

@@ -19,6 +19,18 @@ const TOOL_KEYS: Record<string, string> = {
   spawnAgent: 'agent',
 }
 
+/** Specrails MCP suffixes that have a plain verb (same vocabulary as the built-ins). */
+const MCP_KEYS: Record<string, string> = {
+  specs: 'specs',
+  rails: 'rails',
+  jobs: 'rails',
+  loops: 'rails',
+  code: 'reading',
+  search: 'searching',
+  context: 'reading',
+  git: 'git',
+}
+
 /** True when the tool is a sub-agent spawn (its label can carry a description). */
 export function isAgentTool(tool: string): boolean {
   return TOOL_KEYS[tool] === 'agent'
@@ -34,10 +46,13 @@ export type ToolLabelTranslate = (key: string, options?: Record<string, unknown>
 export function toolChipLabel(tool: string, t: ToolLabelTranslate): string {
   if (tool.startsWith('mcp__')) {
     const last = tool.split('__').pop()?.replace(/^specrails_/, '') ?? ''
+    const verb = last ? MCP_KEYS[last] : undefined
+    if (verb) return t(`activity.tool.${verb}`)
     return last ? t('activity.tool.mcp', { name: last }) : t('activity.tool.mcpTool')
   }
   const key = TOOL_KEYS[tool]
-  return key ? t(`activity.tool.${key}`) : tool
+  // Unknown built-ins (TodoWrite, LSP, Skill…) read as plain work, never as a raw identifier.
+  return key ? t(`activity.tool.${key}`) : t('activity.tool.working')
 }
 
 /**
@@ -87,7 +102,8 @@ export function AgentActivityChip({ tool, onClick, agentDescription }: { tool: s
       <button
         type="button"
         onClick={onClick}
-        aria-label={t('activity.openLog')}
+        // The visible, changing label stays in the accessible name; the action follows it.
+        aria-label={`${label} — ${t('activity.openLog')}`}
         title={t('activity.openLog')}
         data-testid="agent-activity-chip"
         className={`${baseCls} group cursor-pointer transition-colors hover:border-accent-info/50 hover:bg-surface/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50`}

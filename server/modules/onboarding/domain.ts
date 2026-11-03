@@ -40,12 +40,14 @@ export interface SampleDefinition {
   specs: readonly SampleSpecDefinition[]
 }
 
-/** The workflow the first run uses: Quick SDD, the shortest factory pipeline. */
-export const SAMPLE_LOOP_ID = 'factory:sdd-quick-openspec'
+/** The workflow the first run uses: Implement, the only built-in workflow. (Quick
+ *  SDD, the former shortest pipeline, is a gallery loop the app never launches
+ *  by itself.) */
+export const SAMPLE_LOOP_ID = 'factory:implement'
 /** Soft cap (USD): the run pauses and asks at this provider-reported cost. */
-export const SAMPLE_RUN_CAP_USD = 1
+export const SAMPLE_RUN_CAP_USD = 2
 /** Honest, static envelope for the cost statement (an estimate, never a bill). */
-export const SAMPLE_ESTIMATE = { minutes: [3, 5] as const, usd: [0.3, 1] as const }
+export const SAMPLE_ESTIMATE = { minutes: [5, 12] as const, usd: [0.5, 2] as const }
 /** Settings key (desktop_settings) holding the {@link SampleRecord} JSON. */
 export const SAMPLE_SETTING_KEY = 'onboarding.sample'
 /** Folder, under the home directory, where samples are created by default. */
@@ -107,7 +109,7 @@ export function cheapestModel(provider: PresetProviderCandidate): string {
 }
 
 /**
- * Decide the first-run configuration: Quick SDD, the cheapest available model
+ * Decide the first-run configuration: Implement, the cheapest available model
  * of the cheapest ready cloud provider, a per-run soft cap, or a configured
  * local engine (no cap, no dollars). `localPreset` is offered alongside when
  * both exist. Returns a not-ready verdict, with the reason, when nothing can

@@ -43,7 +43,7 @@ describe('searchSpecs', () => {
     expect(searchSpecs(tickets, '#12').map((h) => [h.id, h.field])[0]).toEqual([12, 'id'])
   })
 
-  it('windows long text with ellipses and caps results; skips live Flow placeholders', () => {
+  it('windows long text with ellipses and caps results; skips live Intent placeholders', () => {
     const long = `${'a '.repeat(200)}needle${' b'.repeat(200)}`
     const [hit] = searchSpecs([spec(1, { description: long })], 'needle')
     expect(hit.snippet!.text.startsWith('…')).toBe(true)

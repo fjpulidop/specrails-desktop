@@ -308,21 +308,17 @@
       "name": "Implementa",
       "description": "Implementa tutte le spec del rail in un'unica esecuzione: pianifica, implementa, rivede e verifica, correggendo gli errori finché i controlli non passano."
     },
-    "factory_freestyle": {
-      "name": "Freestyle",
-      "description": "Consegna la spec direttamente al modello con piena libertà — senza pipeline, lavora come un normale coding agent, poi verifica + rifinisce fino al verde. Solo Claude."
-    },
-    "factory_openspec": {
-      "name": "Ciclo di vita OpenSpec",
-      "description": "Ciclo OpenSpec dalla spec all'archivio: genera artefatti (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); con FAIL torna indietro ed emenda lo stesso change, con PASS lo archivia senza intervento."
-    },
-    "factory_revision": {
-      "name": "Revisione",
-      "description": "Applica l'unica modifica richiesta sopra il lavoro già consegnato, fa rivalutare dal revisore e verifica fino al verde. Non ripianifica da zero."
-    },
     "drift-sweep": {
       "name": "Controllo del drift",
       "description": "Sola lettura: confronta ciò che afferma la spec di ogni capability con ciò che fa il codice ed elenca ogni contraddizione con file:riga. Non modifica nulla; eseguilo su richiesta."
+    },
+    "quick-sdd-openspec": {
+      "name": "SDD Quick (OpenSpec)",
+      "description": "Ciclo OpenSpec rapido, guidato dalla spec, per piccole modifiche governate da contratto: prepara gli artefatti, applica e testa, valida tramite la CLI, poi archivia."
+    },
+    "freestyle": {
+      "name": "Freestyle",
+      "description": "Consegna la spec direttamente al modello con piena libertà — senza pipeline, lavora come un normale coding agent, poi verifica + rifinisce fino al verde."
     }
   },
   "import": {

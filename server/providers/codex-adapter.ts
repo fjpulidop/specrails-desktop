@@ -42,10 +42,21 @@ const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 const CODEX_MIN_VERSION = '0.128.0'
 
 const CODEX_MODELS = [
-  // Newest first. gpt-6-astra has no rate card in `server/modules/accounting/runtime/pricing.ts` yet, so
-  // its turns show cost as unavailable (honest-metrics: never fabricated).
+  // Order follows https://developers.openai.com/codex/models (reviewed
+  // 2026-11-01): recommended models first, the `gpt-6-sol` Power preset next,
+  // then the GPT-5.6 family kept as legacy (no longer listed upstream, but
+  // stored selections must keep validating). Rate cards: see
+  // `server/modules/accounting/runtime/pricing.ts`.
+  //
+  // `minCliVersion` is a per-model floor ABOVE the provider-wide
+  // CODEX_MIN_VERSION. Desktop does not gate on it (an older CLI rejects the
+  // unknown model itself and the turn failure is surfaced to the user);
+  // `codexModelMinCliVersion` exposes it for hints and tests.
   { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', default: true as const },
+  { value: 'gpt-6.1-terra', label: 'GPT-6.1 Terra', minCliVersion: '0.159.0' },
   { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
+  { value: 'gpt-6-sol', label: 'GPT-6 Sol' },
+  { value: 'gpt-6-luna', label: 'GPT-6 Luna' },
   { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
   { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
   { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
@@ -57,7 +68,11 @@ const BASE_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const
 const CODEX_MODEL_EFFORTS: Record<string, readonly ReasoningEffort[]> = {
   // Codex models/list advertises these six efforts for Sol 6.1 (2026-09-30).
   'gpt-6.1-sol': [...BASE_EFFORTS, 'max', 'ultra'],
+  'gpt-6.1-terra': BASE_EFFORTS,
   'gpt-6-astra': [...BASE_EFFORTS, 'max', 'ultra'],
+  'gpt-6-sol': BASE_EFFORTS,
+  // Most efficient tier: efforts up to `max`, no `ultra`.
+  'gpt-6-luna': [...BASE_EFFORTS, 'max'],
   'gpt-5.6-sol': [...BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-terra': [...BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-luna': [...BASE_EFFORTS, 'max'],
@@ -407,5 +422,12 @@ export const codexAdapter = {
   baselineAgents: () => ['sr-architect', 'sr-developer', 'sr-reviewer'],
   detectInstalled: detectCodexInstalled,
 } satisfies ProviderAdapter
+
+/** Per-model Codex CLI floor (stricter than CODEX_MIN_VERSION), if any. */
+export function codexModelMinCliVersion(model: string): string | undefined {
+  const entry: { value: string; minCliVersion?: string } | undefined =
+    CODEX_MODELS.find((m) => m.value === model)
+  return entry?.minCliVersion
+}
 
 export { CODEX_MIN_VERSION as _CODEX_MIN_VERSION, compareSemver as _compareSemver }

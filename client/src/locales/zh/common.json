@@ -85,7 +85,7 @@
     "ref_mismatch": "分支引用不匹配",
     "restart_pending": "等待工作流恢复",
     "review_changes_requested": "审阅者要求修改",
-    "returned_to_flow": "已退回 Flow",
+    "returned_to_flow": "已退回 Intent",
     "local_changes_attention": "已集成 — 本地更改需要处理"
   },
   "prRecovery": {
@@ -131,7 +131,7 @@
     "select": "仓库",
     "all": "所有仓库",
     "workspacePath": "代码工作目录",
-    "workspaceHint": "可选。每行一个目录，可为绝对路径或相对于仓库的路径。留空则使用仓库目录。Implement、Quick SDD 和 Freestyle 会验证每个列出的目录。",
+    "workspaceHint": "可选。每行一个目录，可为绝对路径或相对于仓库的路径。留空则使用仓库目录。Implement 和循环会验证每个列出的目录。",
     "launchWorkspaces": "本次运行的工作目录",
     "launchWorkspaceHint": "代码更改和测试仅限这些目录。请为每个受影响的仓库至少选择一个工作目录。",
     "advanced": "多仓库设置"
@@ -207,7 +207,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Flow 移交",
+    "flowSpec": "Intent 移交",
     "unknown": "循环",
     "title": "循环：{{name}}"
   },
@@ -233,8 +233,8 @@
       "dailyBudget": "每日预算",
       "recentlyDeleted": "最近删除的项目",
       "railLoops": "轨道运行的内容",
-      "flowMode": "Flow",
-      "flowHandOff": "交接 Flow",
+      "flowMode": "Intent",
+      "flowHandOff": "交接 Intent",
       "contextScope": "上下文滑块",
       "launchForecast": "启动预估",
       "loopBuilder": "Loop Builder",

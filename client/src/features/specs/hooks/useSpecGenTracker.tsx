@@ -42,6 +42,8 @@ export interface SpecRegistration {
   projectName: string
   startTime: number
   persistId: string
+  /** Add Spec → Intent (intent-mode): the spec should arrive with an intent. */
+  expectIntent?: boolean
 }
 
 interface TrackedSpec extends SpecRegistration {
@@ -213,7 +215,10 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
     fastRef.current.delete(reqId)
 
     if (msg.type === 'spec_gen_done') {
-      successToast(spec, msg.ticket as LocalTicket)
+      const ticket = msg.ticket as LocalTicket
+      successToast(spec, ticket)
+      // The intent could not be written: the spec still landed, without it.
+      if (spec.expectIntent && !ticket?.intent) toast.info(i18n.t('activity:specGen.intentMissing'))
     } else {
       errorToast(spec)
     }

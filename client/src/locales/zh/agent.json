@@ -319,11 +319,11 @@
       "merged": "PR 已合并",
       "discarded": "已丢弃",
       "review_changes_requested": "审阅者要求修改",
-      "returned_to_flow": "已回到 Flow",
+      "returned_to_flow": "已回到 Intent",
       "flowSpecChanges": "尚未就绪：审阅者要求修改",
-      "flowSpecDelivered": "你的 Flow 已成为经过评审的 PR",
+      "flowSpecDelivered": "你的 Intent 已成为经过评审的 PR",
       "flowSpecFailed": "移交已停止",
-      "flowSpecBuilding": "正在把你的 Flow 变成经过评审的 PR"
+      "flowSpecBuilding": "正在把你的 Intent 变成经过评审的 PR"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
@@ -500,6 +500,38 @@
     "expand": "显示完整描述",
     "collapse": "收起描述"
   },
+  "intentDraft": {
+    "heading": "Intent",
+    "settled": "已达成一致",
+    "writing": "正在撰写 Intent…",
+    "pick": "用这个回复",
+    "problem": "问题",
+    "outcome": "期望结果",
+    "successSignals": "如何判断",
+    "affects": "影响谁和什么",
+    "constraints": "约束",
+    "openQuestions": "待解决的问题",
+    "restated": "我的理解",
+    "alternative": "也可能是指",
+    "discriminator": "是哪一种?",
+    "pathsLabel": "你想如何继续?",
+    "explore": "探索",
+    "exploreHint": "在隔离的 Intent 会话中一起构建;规格来自你们构建的结果。",
+    "delegate": "委派",
+    "delegateHint": "智能体根据这个 Intent 撰写规格供你审阅,然后由 rail 实现。",
+    "delegateReply": "根据这个 intent 撰写规格，我来审阅。",
+    "inIntent": "此任务正在其 Intent 分支上探索。请在运行条中继续。",
+    "answerHint": "在聊天中回复即可；智能体会更新这张卡片。",
+    "answer": "回答",
+    "open": "待定",
+    "readingConfirmed": "理解已确认",
+    "expand": "显示完整 intent",
+    "collapse": "收起",
+    "more": "还有 {{count}} 项",
+    "openCount_one": "{{count}} 个待定",
+    "openCount_other": "{{count}} 个待定",
+    "pickDescription": "将此理解作为你的回复发送"
+  },
   "problemFrame": {
     "heading": "理解框架",
     "framing": "正在梳理需求…",
@@ -569,7 +601,11 @@
       "agent": "智能体",
       "agentNamed": "智能体 · {{description}}",
       "mcp": "MCP · {{name}}",
-      "mcpTool": "MCP 工具"
+      "mcpTool": "MCP 工具",
+      "specs": "规格",
+      "rails": "Rails",
+      "git": "Git",
+      "working": "处理中"
     }
   },
   "backgroundProcess": {
@@ -716,12 +752,12 @@
       "scope_save_failed": "无法保存规格的仓库。",
       "repository_scope_incomplete": "本次运行缺少规格所需的仓库。请检查上方的分配。",
       "rail_not_empty": "该轨道已有 spec",
-      "flow_freeze_failed": "无法为移交保存 Flow 的更改",
-      "flow_head_mismatch": "移交过程中 Flow 发生了变化。请重试",
-      "flow_already_handed_off": "此 Flow 已交给 Rail",
-      "flow_handoff_not_adopted": "Rail 已启动，但没有接管你 Flow 的更改",
-      "illegal_transition": "Flow 的状态已发生变化",
-      "feature_unavailable": "Flow 不可用",
+      "flow_freeze_failed": "无法为移交保存 Intent 的更改",
+      "flow_head_mismatch": "移交过程中 Intent 发生了变化。请重试",
+      "flow_already_handed_off": "此 Intent 已交给 Rail",
+      "flow_handoff_not_adopted": "Rail 已启动，但没有接管你 Intent 的更改",
+      "illegal_transition": "Intent 的状态已发生变化",
+      "feature_unavailable": "Intent 不可用",
       "daily_budget_exceeded": "已达到每日预算，未启动任何任务。",
       "review_wip_limit_reached": "已达到评审上限，未启动任何任务。",
       "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。"
@@ -781,7 +817,7 @@
       "cancelled": "已取消",
       "unknown": "未知",
       "changes_requested": "需要修改",
-      "returned": "已回到 Flow"
+      "returned": "已回到 Intent"
     },
     "title": {
       "running": "正在项目检出目录中实现…",
@@ -792,7 +828,7 @@
       "cancelled": "运行已取消",
       "unknown": "运行状态未知",
       "changes_requested": "审阅者要求修改",
-      "returned": "已回到 Flow"
+      "returned": "已回到 Intent"
     },
     "noDeliveryNote": "无 PR 阶段：此项目没有 git 仓库或提交，因此工作已直接落在项目文件夹中。",
     "noDeliveryHint": "直接在项目文件夹中运行（没有 git 仓库或提交，因此不会提议 PR）。",
@@ -824,8 +860,8 @@
       "omitted_other": "运行的评审中另有 {{count}} 项",
       "failingChecks": "失败",
       "check": "{{command}} · 退出码 {{code}}",
-      "next": "自动修正轮次没有解决这些问题。回到 Flow 与智能体一起解决，或从相同的 Flow 分支重新启动。",
-      "returned": "已回到 Flow：你的更改已连同评审返回其 Flow。请在 Flow 条带中继续。"
+      "next": "自动修正轮次没有解决这些问题。回到 Intent 与智能体一起解决，或从相同的 Intent 分支重新启动。",
+      "returned": "已回到 Intent：你的更改已连同评审返回其 Intent。请在 Intent 条带中继续。"
     }
   },
   "runFailure": {
@@ -953,97 +989,97 @@
       "deriveChange": "你的 Specrails Core 还不能从代码推导 spec"
     },
     "errors": {
-      "generic": "Flow 无法完成该操作，请重试。",
+      "generic": "Intent 无法完成该操作，请重试。",
       "network": "无法连接 Specrails。",
-      "feature_unavailable": "当前安装的 Specrails Core 不支持 Flow。",
-      "flow_already_open": "此任务已有一个 Flow。请先恢复或丢弃它。",
-      "illegal_transition": "Flow 的状态已发生变化。请刷新后重试。",
-      "flow_worktree_missing": "此 Flow 的项目副本已不存在。继续之前请检查 Flow 分支。",
-      "flow_repository_required": "选择此 Flow 运行所在的仓库。",
-      "flow_repository_not_git": "Flow 需要 Git 仓库来创建分支；普通文件夹不行。请选择一个 Git 仓库。",
+      "feature_unavailable": "当前安装的 Specrails Core 不支持 Intent。",
+      "flow_already_open": "此任务已有一个 Intent。请先恢复或丢弃它。",
+      "illegal_transition": "Intent 的状态已发生变化。请刷新后重试。",
+      "flow_worktree_missing": "此 Intent 的项目副本已不存在。继续之前请检查 Intent 分支。",
+      "flow_repository_required": "选择此 Intent 运行所在的仓库。",
+      "flow_repository_not_git": "Intent 需要 Git 仓库来创建分支；普通文件夹不行。请选择一个 Git 仓库。",
       "flow_repository_unknown": "该仓库已不属于此项目。请选择其他仓库。",
-      "flow_repository_missing": "此 Flow 的仓库在该项目中已不可用。",
+      "flow_repository_missing": "此 Intent 的仓库在该项目中已不可用。",
       "rail_not_empty": "该轨道已有 spec。请选择一个空闲且为空的轨道。",
-      "flow_already_handed_off": "此 Flow 已交给 Rail。",
-      "flow_freeze_failed": "无法为移交保存 Flow 的更改。",
-      "flow_head_mismatch": "移交过程中 Flow 发生了变化。请重试。",
-      "flow_handoff_not_adopted": "Rail 已启动，但没有接管你 Flow 的更改。",
+      "flow_already_handed_off": "此 Intent 已交给 Rail。",
+      "flow_freeze_failed": "无法为移交保存 Intent 的更改。",
+      "flow_head_mismatch": "移交过程中 Intent 发生了变化。请重试。",
+      "flow_handoff_not_adopted": "Rail 已启动，但没有接管你 Intent 的更改。",
       "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。",
-      "flow_not_found": "此 Flow 已不存在。",
-      "flow_failed": "Flow 遇到意外错误，请重试。",
+      "flow_not_found": "此 Intent 已不存在。",
+      "flow_failed": "Intent 遇到意外错误，请重试。",
       "conversation_not_found": "此任务已不存在。",
-      "conversation_not_pinned": "启动 Flow 前，请先将此任务固定到项目。",
-      "flow_not_handed_off": "此 Flow 已不再等待该运行。",
-      "flow_rail_unknown": "该运行的 Rail 未知。请从 Flow 条带重新交给 Rail。",
+      "conversation_not_pinned": "启动 Intent 前，请先将此任务固定到项目。",
+      "flow_not_handed_off": "此 Intent 已不再等待该运行。",
+      "flow_rail_unknown": "该运行的 Rail 未知。请从 Intent 条带重新交给 Rail。",
       "flow_return_busy": "该运行正忙于其他操作，请稍后重试。",
-      "flow_return_not_allowed": "只有在交付前停止的移交才能回到其 Flow。",
-      "flow_return_not_found": "该运行不是 Flow 移交。",
-      "flow_return_worktree_mismatch": "该运行没有接管此 Flow 的更改。",
-      "spec_in_flow": "该规格已在 Flow 中。打开其任务以继续。",
-      "spec_on_rail": "该规格在某条轨道上。请先将其移出轨道，再在 Flow 中开始。",
+      "flow_return_not_allowed": "只有在交付前停止的移交才能回到其 Intent。",
+      "flow_return_not_found": "该运行不是 Intent 移交。",
+      "flow_return_worktree_mismatch": "该运行没有接管此 Intent 的更改。",
+      "spec_in_flow": "该规格已在 Intent 中。打开其任务以继续。",
+      "spec_on_rail": "该规格在某条轨道上。请先将其移出轨道，再在 Intent 中开始。",
       "spec_running": "该规格正在轨道上运行。请等待运行结束。",
-      "spec_closed": "该规格已完成或已取消。重新打开后才能在 Flow 中处理。",
+      "spec_closed": "该规格已完成或已取消。重新打开后才能在 Intent 中处理。",
       "spec_not_found": "该规格已不存在。",
       "invalid_ticket_id": "无法识别该规格。"
     },
     "entry": {
-      "heading": "开始 Flow",
-      "body": "Specrails 会在专属的 Flow 分支上创建项目的独立副本，智能体可以在其中编写代码。你的主分支不会被改动。",
-      "provider": "智能体使用 {{provider}}，只在 Flow 的副本中写入。",
-      "providerUnknown": "智能体只在 Flow 的副本中写入。",
+      "heading": "与智能体一起探索",
+      "body": "Specrails 会在专属的 Intent 分支上创建项目的独立副本，智能体可以在其中编写代码。你的主分支不会被改动。",
+      "provider": "智能体使用 {{provider}}，只在 Intent 的副本中写入。",
+      "providerUnknown": "智能体只在 Intent 的副本中写入。",
       "repository": {
         "label": "仓库",
-        "hint": "Flow 在此仓库的独立副本中工作。",
-        "choose": "选择此 Flow 运行所在的仓库",
+        "hint": "Intent 在此仓库的独立副本中工作。",
+        "choose": "选择此 Intent 运行所在的仓库",
         "loading": "正在加载仓库…",
         "loadFailed": "无法加载项目的仓库。请重试。",
         "suggested": "由智能体建议",
-        "noGit": "此项目没有 Git 仓库。Flow 需要它来创建分支。"
+        "noGit": "此项目没有 Git 仓库。Intent 需要它来创建分支。"
       },
       "blocked": {
-        "noProject": "将此任务固定到某个项目后才能使用 Flow。",
-        "open": "此任务已有一个 Flow。",
-        "missing": "Flow 需要更新版本的 Specrails Core：",
-        "unavailable": "Flow 目前不可用。",
-        "goToFlow": "前往该 Flow"
+        "noProject": "将此任务固定到某个项目后才能使用 Intent。",
+        "open": "此任务已有一个 Intent。",
+        "missing": "Intent 需要更新版本的 Specrails Core：",
+        "unavailable": "Intent 目前不可用。",
+        "goToFlow": "前往该 Intent"
       },
       "cancel": "取消",
-      "start": "开始 Flow",
+      "start": "开始探索",
       "starting": "正在开始…",
       "existingSpec": {
         "label": "规格 #{{id}}",
-        "note": "Flow 基于该规格工作，代理从它开始。交付时，规格会根据所构建内容重写；当前文本会作为评论保留。"
+        "note": "Intent 基于该规格工作，代理从它开始。交付时，规格会根据所构建内容重写；当前文本会作为评论保留。"
       }
     },
     "offer": {
-      "heading": "你想怎样构建它？",
+      "heading": "你想如何继续?",
       "notNow": "暂不",
       "implementReply": "我们先写 spec，再运行 Implement。",
       "mode": {
         "flow": {
-          "title": "Flow",
-          "hint": "在独立的 Flow 分支上一起构建；spec 最后再写。",
-          "hintExisting": "在独立的 Flow 分支上一起构建该规格；规格会根据所构建的内容重写。"
+          "title": "探索",
+          "hint": "在独立的 Intent 分支上一起构建；spec 最后再写。",
+          "hintExisting": "在独立的 Intent 分支上一起构建该规格；规格会根据所构建的内容重写。"
         },
         "implement": {
-          "title": "Spec + 实现",
+          "title": "委派",
           "hint": "先确定 spec，再交给轨道执行。",
           "hintExisting": "按现有内容将该规格交给轨道。"
         }
       },
       "stub": {
-        "flow": "你选择了 Flow",
-        "implement": "你选择了 spec + Implement",
+        "flow": "你选择了探索",
+        "implement": "你选择了委派",
         "dismissed": "已忽略建议",
-        "handedOff": "Flow 已交给 Rail {{rail}}",
+        "handedOff": "Intent 已交给 Rail {{rail}}",
         "state": {
-          "active": "Flow 进行中",
-          "paused": "Flow 已暂停",
-          "handed_off": "Flow 已交给 Rail",
-          "delivered": "Flow 已完成",
-          "discarded": "Flow 已丢弃",
-          "needs-review": "Flow 需要检查",
-          "closed": "Flow 已关闭（保留分支）"
+          "active": "Intent 进行中",
+          "paused": "Intent 已暂停",
+          "handed_off": "Intent 已交给 Rail",
+          "delivered": "Intent 已完成",
+          "discarded": "Intent 已丢弃",
+          "needs-review": "Intent 需要检查",
+          "closed": "Intent 已关闭（保留分支）"
         },
         "viewRun": "查看运行"
       },
@@ -1052,38 +1088,39 @@
       "implementExistingReply": "在轨道上实现规格 #{{id}}。"
     },
     "bar": {
-      "controls": "Flow 操作",
+      "controls": "Intent 操作",
       "viewChanges": "查看更改",
-      "resume": "恢复 Flow",
-      "pause": "暂停 Flow",
+      "resume": "恢复 Intent",
+      "pause": "暂停 Intent",
       "discard": "丢弃",
-      "discarded": "已丢弃 Flow",
+      "discarded": "已丢弃 Intent",
       "files_one": "{{count}} 个文件",
       "files_other": "{{count}} 个文件",
-      "filesTitle": "Flow 分支上更改的文件",
-      "costTitle": "此 Flow 各轮的实际费用（以提供商计费为准）",
+      "filesTitle": "Intent 分支上更改的文件",
+      "costTitle": "此 Intent 各轮的实际费用（以提供商计费为准）",
       "costPartial_one": "{{count}} 轮没有提供商报告的费用，未计入",
       "costPartial_other": "{{count}} 轮没有提供商报告的费用，未计入",
-      "needsReview": "此 Flow 的项目副本丢失。没有删除任何内容；继续之前请检查 Flow 分支。",
+      "needsReview": "此 Intent 的项目副本丢失。没有删除任何内容；继续之前请检查 Intent 分支。",
       "pausedNote": "已暂停。你的更改和 spec 都会保留；随时可以继续。",
       "state": {
-        "active": "Flow",
-        "paused": "Flow 已暂停",
-        "needs-review": "Flow 需要检查",
+        "active": "探索中",
+        "paused": "Intent 已暂停",
+        "needs-review": "Intent 需要检查",
         "handed_off": "已交给 Rail",
         "delivered": "已完成",
         "discarded": "已丢弃",
         "closed": "已关闭"
       },
       "disabled": {
-        "settling": "请等待 Flow 保存完状态",
+        "settling": "请等待 Intent 保存完状态",
         "busy": "请等待当前操作完成",
-        "noSpec": "Flow 的 spec 尚未就绪"
+        "noSpec": "Intent 的 spec 尚未就绪",
+        "noChanges": "暂无可交接的内容：没有文件被更改"
       },
       "viewChangesStats": "查看更改 · {{files}}，+{{additions}} −{{deletions}}",
       "handOff": "交给 Rail",
-      "close": "关闭此 Flow",
-      "closed": "Flow 已关闭，分支已保留。"
+      "close": "关闭此 Intent",
+      "closed": "Intent 已关闭，分支已保留。"
     },
     "preview": {
       "open": "预览",
@@ -1097,20 +1134,20 @@
       "stopFailed": "无法停止应用"
     },
     "discard": {
-      "title": "丢弃这个 Flow？",
+      "title": "丢弃这个 Intent？",
       "body": "丢弃会删除以下全部内容，且无法撤销：",
-      "cancel": "保留 Flow",
-      "confirm": "丢弃 Flow",
+      "cancel": "保留 Intent",
+      "confirm": "丢弃 Intent",
       "lossFiles_one": "{{count}} 个已更改文件",
       "lossFiles_other": "{{count}} 个已更改文件",
       "lossNoChanges": "尚无已更改文件",
-      "lossUnknown": "Flow 分支上的所有更改",
+      "lossUnknown": "Intent 分支上的所有更改",
       "lossSpec": "看板上的占位 spec"
     },
     "changes": {
-      "title": "Flow 更改",
+      "title": "Intent 更改",
       "subtitle": "分支 {{branch}} 与起点的对比",
-      "subtitleNoBranch": "与 Flow 起点对比的更改",
+      "subtitleNoBranch": "与 Intent 起点对比的更改",
       "refresh": "刷新",
       "loadFailed": "无法加载更改。",
       "empty": "暂无更改。",
@@ -1123,11 +1160,11 @@
       }
     },
     "handOff": {
-      "heading": "把这个 Flow 变成经过评审的 PR",
-      "loop": "Flow 移交",
+      "heading": "把这个 Intent 变成经过评审的 PR",
+      "loop": "Intent 移交",
       "launch": "启动",
       "notYet": "暂不",
-      "engineFallback": "{{provider}} 无法在此设备上运行 Flow 移交，因此已选择该 Rail 的默认引擎。",
+      "engineFallback": "{{provider}} 无法在此设备上运行 Intent 移交，因此已选择该 Rail 的默认引擎。",
       "cost": "目前已花费 {{cost}}",
       "costUnknown": "尚无计费成本",
       "line_one": "{{rail}} 会把你更改的 1 个文件变成经过评审的 PR。即使失败，你的工作也不会丢失。",
@@ -1135,16 +1172,16 @@
       "lineNoCount": "{{rail}} 会把你的更改变成经过评审的 PR。即使失败，你的工作也不会丢失。"
     },
     "review": {
-      "backToFlow": "回到 Flow",
-      "backToFlowHint": "以相同的更改重新打开此 Flow；智能体会在下一轮收到评审",
+      "backToFlow": "回到 Intent",
+      "backToFlowHint": "以相同的更改重新打开此 Intent；智能体会在下一轮收到评审",
       "relaunch": "重新运行",
-      "relaunchHint": "使用相同的 Flow 分支、Rail 和引擎重试",
-      "returned": "已回到 Flow。智能体已收到评审。",
+      "relaunchHint": "使用相同的 Intent 分支、Rail 和引擎重试",
+      "returned": "已回到 Intent。智能体已收到评审。",
       "relaunched": "已在 Rail {{index}} 上重新启动",
-      "returnFailed": "无法回到 Flow：{{detail}}",
+      "returnFailed": "无法回到 Intent：{{detail}}",
       "relaunchFailed": "无法重新启动：{{detail}}",
-      "backToFlowFailureHint": "以相同的更改重新打开此 Flow；智能体会在下一轮收到错误",
-      "returnedFailure": "已回到 Flow。智能体已收到错误。"
+      "backToFlowFailureHint": "以相同的更改重新打开此 Intent；智能体会在下一轮收到错误",
+      "returnedFailure": "已回到 Intent。智能体已收到错误。"
     },
     "failure": {
       "step": {
@@ -1157,9 +1194,9 @@
         "unknown": "移交在完成前停止了"
       },
       "cause": "原因：",
-      "next": "你的工作完好无损。回到 Flow 后，智能体会收到该错误。",
-      "nextReturned": "你的工作完好无损。已回到 Flow，智能体已收到该错误。",
-      "returned": "已回到 Flow",
+      "next": "你的工作完好无损。回到 Intent 后，智能体会收到该错误。",
+      "nextReturned": "你的工作完好无损。已回到 Intent，智能体已收到该错误。",
+      "returned": "已回到 Intent",
       "technical": {
         "title": "技术细节",
         "repository": "仓库",
@@ -1170,17 +1207,17 @@
       }
     },
     "announce": {
-      "active": "Flow 已启用：智能体在 Flow 分支上写入。",
-      "paused": "Flow 已暂停。",
-      "needs-review": "Flow 需要检查：它的项目副本丢失了。",
-      "handed_off": "Flow 已交给 Rail。",
-      "delivered": "Flow 已交付。",
-      "discarded": "Flow 已丢弃。",
-      "returned": "已回到 Flow：工作连同移交中发现的问题一起返回。",
-      "closed": "Flow 已关闭，分支已保留。"
+      "active": "Intent 已启用：智能体在 Intent 分支上写入。",
+      "paused": "Intent 已暂停。",
+      "needs-review": "Intent 需要检查：它的项目副本丢失了。",
+      "handed_off": "Intent 已交给 Rail。",
+      "delivered": "Intent 已交付。",
+      "discarded": "Intent 已丢弃。",
+      "returned": "已回到 Intent：工作连同移交中发现的问题一起返回。",
+      "closed": "Intent 已关闭，分支已保留。"
     },
     "strip": {
-      "label": "Flow",
+      "label": "Intent",
       "ready": "可以变成 PR 了",
       "launching": "正在交给 Rail…",
       "launchingOn": "正在交给 {{rail}}…",
@@ -1197,54 +1234,57 @@
       "headline": "{{state}} · {{files}}"
     },
     "mode": {
-      "chip": "Flow",
-      "description": "Flow 模式：智能体在 Flow 分支上写入，而不是你的主分支",
-      "placeholder": "告诉智能体要在这个 Flow 中修改什么…"
+      "chip": "Intent",
+      "description": "Intent 模式：智能体在 Intent 分支上写入，而不是你的主分支",
+      "placeholder": "告诉智能体要在这个分支上构建什么…"
     },
     "panel": {
       "branch": "分支",
       "changes": "更改",
       "cost": "目前成本",
-      "actions": "更多 Flow 操作"
+      "actions": "更多 Intent 操作"
     },
     "close": {
-      "title": "关闭此 Flow？",
-      "body": "对话将退出 Flow。不会删除任何内容：",
+      "title": "关闭此 Intent？",
+      "body": "对话将退出 Intent。不会删除任何内容：",
       "keptBranch": "保留分支：",
-      "keptSpec": "规格保留在看板上，但不再显示“Flow 中”标签",
+      "keptSpec": "规格保留在看板上，但不再显示“Intent 中”标签",
       "cancel": "暂不",
-      "confirm": "关闭 Flow，保留分支"
+      "confirm": "关闭 Intent，保留分支"
     },
     "startFromSpec": {
-      "action": "在 Flow 中开始",
-      "hint": "在任务中与代理在独立的 Flow 分支上构建该规格",
-      "starting": "正在启动 Flow…",
-      "failed": "规格 #{{id}} 无法在 Flow 中开始",
+      "action": "与智能体一起探索",
+      "hint": "在任务中与代理在独立的 Intent 分支上构建该规格",
+      "starting": "正在启动 Intent…",
+      "failed": "规格 #{{id}} 无法在 Intent 中开始",
       "repository": {
-        "title": "这个 Flow 在哪里运行？",
-        "body": "此项目有多个 Git 仓库。Flow 会在你所选仓库的独立副本中、在自己的分支上工作。",
+        "title": "这个 Intent 在哪里运行？",
+        "body": "此项目有多个 Git 仓库。Intent 会在你所选仓库的独立副本中、在自己的分支上工作。",
         "fromSpec": "规格中指定"
       },
       "blocked": {
-        "noProject": "打开一个项目以使用 Flow",
-        "unavailable": "已安装的 Specrails Core 不支持 Flow",
-        "inFlow": "已在 Flow 中",
-        "closed": "已完成或已取消的规格无法在 Flow 中开始",
+        "noProject": "打开一个项目以使用 Intent",
+        "unavailable": "已安装的 Specrails Core 不支持 Intent",
+        "inFlow": "已在 Intent 中",
+        "closed": "已完成或已取消的规格无法在 Intent 中开始",
         "running": "正在轨道上运行",
         "onRail": "在轨道上：请先将其移出",
-        "missionInFlow": "该任务已有 Flow"
-      }
+        "missionInFlow": "该任务已有 Intent"
+      },
+      "openMission": "打开 Intent 任务",
+      "started": "正在 {{branch}} 上探索规格 #{{id}}"
     }
   },
   "flowReturn": {
     "title": "审阅者的要求",
-    "noFindings": "移交在交付前停止；你的更改已完好地回到此 Flow。",
+    "noFindings": "移交在交付前停止；你的更改已完好地回到此 Intent。",
     "coverage": "spec 说明了 {{files}} 个已更改文件中的 {{explained}} 个",
     "unexplained": "未被任何需求说明的文件",
     "moreFiles_one": "另有 {{count}} 个文件",
     "moreFiles_other": "另有 {{count}} 个文件",
-    "next": "Flow 智能体现在开始处理；你可以随时引导或停止它。",
-    "automaticTurn": "自动轮次 · 回到 Flow",
+    "next": "Intent 智能体现在开始处理；你可以随时引导或停止它。",
+    "automaticTurn": "自动轮次 · 回到 Intent",
+    "openingTurn": "自动回合 · 已进入 Intent",
     "titleFailure": "移交停止的原因"
   },
   "turnErrors": {
@@ -1253,7 +1293,7 @@
     "generic": "智能体本轮执行失败。"
   },
   "flowDelivered": {
-    "title": "Flow 已交付",
+    "title": "Intent 已交付",
     "pr": "打开 PR",
     "prNumber": "PR #{{number}}",
     "specRewritten": "已根据你构建的内容重写 spec",
@@ -1261,7 +1301,22 @@
     "change": "spec 变更 {{change}}",
     "changeArchived": "spec 变更 {{change}} 已归档",
     "jira": "Jira 工单 {{key}}",
-    "jiraPending": "正在创建 Jira 工单"
+    "jiraPending": "正在创建 Jira 工单",
+    "subtitle": "一起构建、经过评审并已集成。干得好。",
+    "untitled": "你的 Intent",
+    "files_one": "{{count}} 个文件",
+    "files_other": "{{count}} 个文件",
+    "specRewrittenId": "已根据你构建的内容重写规格 #{{id}}",
+    "specRewriting": "正在根据你构建的内容重写规格…",
+    "integratedPr": "已集成：拉取请求",
+    "integratedPrMerged": "已集成：拉取请求已合并",
+    "integratedLocally": "已在本地集成到 {{branch}}",
+    "questionsAnswered_one": "已回答 {{count}} 个未决问题",
+    "questionsAnswered_other": "已回答 {{count}} 个未决问题",
+    "next": {
+      "openSpec": "打开规格",
+      "viewPr": "查看拉取请求"
+    }
   },
   "runStrip": {
     "launching": "正在 {{rail}} 上启动…",
@@ -1320,8 +1375,8 @@
       "failed": "{{run}} 失败：{{reason}}",
       "openRun": "查看运行",
       "proposed": "已提议启动。等待你处理",
-      "backToFlow": "回到 Flow",
-      "flowReturned": "{{run}} 已把工作退回 Flow",
+      "backToFlow": "回到 Intent",
+      "flowReturned": "{{run}} 已把工作退回 Intent",
       "delivered": "已交付：PR {{pr}}",
       "deliveredNoPr": "已在 {{run}} 上交付",
       "superseded": "{{run}} 已被更新的运行取代",
@@ -1340,9 +1395,9 @@
     }
   },
   "flowBoundary": {
-    "entered": "进入 Flow",
-    "left": "离开 Flow",
-    "turnMark": "Flow",
+    "entered": "进入 Intent",
+    "left": "离开 Intent",
+    "turnMark": "Intent",
     "reason": {
       "started": "已开始",
       "returned": "从 Rail 返回",
@@ -1399,8 +1454,8 @@
   "starter": {
     "reference": "引用规格",
     "action": "运行操作",
-    "plan": "规划新规格",
-    "planSpec": "帮我规划一个新规格："
+    "plan": "从一个问题开始",
+    "planSpec": "我想解决这个问题："
   },
   "emptyLegend": "⇧⇥ 更改智能体的权限 · ↑ 调出上一条提示",
   "delivery": {

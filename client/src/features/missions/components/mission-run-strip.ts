@@ -1,6 +1,6 @@
 // ─── Mission run strip: the pure model ────────────────────────────────────────
 // One strip above the composer is the single live representation of the runs
-// of a mission (mission-rail-cards, Flow). This module owns the vocabulary the
+// of a mission (mission-rail-cards, IntentSession). This module owns the vocabulary the
 // strip, the history lines and the sidebar's attention dot share:
 //   - the state a live delivery shows (launching · running · waiting for you ·
 //     failed · paused) and how urgent it is,
@@ -16,7 +16,7 @@ import { formatUsd } from '../../analytics/lib/format'
 /**
  * How the strip renders a run. `launching` is a skeleton, the rest carry data.
  * `info` is a settled, informational state: nothing to decide right now (the
- * run finished without changes, its PR was closed, a Flow needs a look).
+ * run finished without changes, its PR was closed, an Intent session needs a look).
  */
 export type MissionRunTone = 'launching' | 'running' | 'decision' | 'failed' | 'paused' | 'info'
 
@@ -100,7 +100,7 @@ export function formatRunCost(costUsd: number): string {
   return formatUsd(costUsd)
 }
 
-/** A Flow → Spec run stopped because the review still asks for changes. */
+/** An Intent session → Spec run stopped because the review still asks for changes. */
 function reviewChangesRequested(envelope: Pick<AgentPrDecisionEnvelope, 'decision' | 'statusCode'>): boolean {
   return envelope.decision === 'implementation_failed' && envelope.statusCode === 'review_changes_requested'
 }
@@ -143,7 +143,7 @@ export function deliveryRunTone(
 /**
  * The delivery waits for the person (the sidebar's attention dot): a review
  * decision, an approval, or a failure nobody acted on yet. Envelope-only, so it
- * also works for conversations that are not open. Extension runs (Flow) feed
+ * also works for conversations that are not open. Extension runs (IntentSession) feed
  * the same dot with the same rule (a `decision` or `failed` tone) through the
  * strip's `reportRunAttention`; their calm states (`info`) never do.
  */

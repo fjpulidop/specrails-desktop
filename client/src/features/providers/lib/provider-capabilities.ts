@@ -113,7 +113,11 @@ const CODEX_BASE_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const
 const CODEX_MODEL_EFFORTS: Record<string, readonly ProviderReasoningEffort[]> = {
   // Codex models/list advertises these six efforts for Sol 6.1 (2026-09-30).
   'gpt-6.1-sol': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
+  'gpt-6.1-terra': CODEX_BASE_EFFORTS,
   'gpt-6-astra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
+  'gpt-6-sol': CODEX_BASE_EFFORTS,
+  // Most efficient tier: efforts up to `max`, no `ultra`.
+  'gpt-6-luna': [...CODEX_BASE_EFFORTS, 'max'],
   'gpt-5.6-sol': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-terra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-luna': [...CODEX_BASE_EFFORTS, 'max'],
@@ -180,14 +184,6 @@ export function providerSupportsPureOutput(
 ): boolean {
   return providerSupportsToolPolicy(provider, 'none')
     || providerSupportsToolPolicy(provider, 'read-only')
-}
-
-/** Provider-owned freestyle: every bundled CLI (mirrors the server adapters'
- *  `freestyle` capability) and every local engine (the runner takes the
- *  freestyle pre-prompt natively). Interactive Freestyle remains Claude-only
- *  through persistent stdin. Profiles stay CLI-only. */
-export function providerSupportsFreestyle(provider: string | null | undefined): boolean {
-  return (typeof provider === 'string' && CLI_PROVIDER_IDS.includes(provider)) || isLocalEngineId(provider)
 }
 
 export function providerSupportsProfiles(provider: string | null | undefined): boolean {

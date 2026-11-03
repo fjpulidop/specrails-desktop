@@ -71,7 +71,7 @@ export interface DeliveryRuntimeReview {
   summary: string | null
 }
 
-/** Flow -> Spec coverage report (Core `derive-change`, `derivation.json`),
+/** Intent -> Spec coverage report (Core `derive-change`, `derivation.json`),
  *  measured by Core from git, never by the model. Bounded at read time. */
 export interface DeliveryDerivation {
   change: string | null
@@ -104,7 +104,7 @@ export interface DeliveryRuntimeEvidence {
   /** Where reviewer findings apply (Core contract 5.9 `acceptance.findingLocations`); `finding` indexes `findings`. Absent when Core named none. */
   findingLocations?: DeliveryFindingLocation[]
   review: DeliveryRuntimeReview | null
-  /** Flow -> Spec derivation coverage (absent for every other loop). */
+  /** Intent -> Spec derivation coverage (absent for every other loop). */
   derivation?: DeliveryDerivation | null
   /** Where Core wrote derivation.json, when the inline copy was unavailable. */
   derivationPath?: string | null

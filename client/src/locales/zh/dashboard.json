@@ -169,7 +169,7 @@
     "mergedLocally": "已在本地集成到 {{base}}",
     "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。",
     "reviewChangesRequested": "需要修改",
-    "reviewChangesRequestedHint": "Flow 移交仍需修改。打开其任务卡片以回到 Flow 或重新运行。",
+    "reviewChangesRequestedHint": "Intent 移交仍需修改。打开其任务卡片以回到 Intent 或重新运行。",
     "mergedLocallyRestored": "已保存你的本地更改，集成了 {{tickets}}，并已恢复这些更改。",
     "mergedLocallyStashConflict": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；Specrails 正在一个单独的分支上恢复它们。",
     "mergedLocallyStashKept": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；准备好后再恢复。",
@@ -246,8 +246,6 @@
     "viewJobLog": "查看任务日志",
     "log": "日志",
     "implement": "实现",
-    "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle — 所选提供方自主实现该 Spec，不走流水线",
     "loop": "Loop",
     "loopTitle": "Loop — 针对该轨道的 Spec 运行已发布的自动化循环",
     "pickLoop": "选择一个循环…",
@@ -262,13 +260,10 @@
     "worktreesNeedsReview": "{{count}} 需复查",
     "execSteps": "{{count}} 步",
     "execLines": "{{count}} 行",
-    "openspec": "SDD Quick (OpenSpec)",
     "recommended": "推荐",
     "recommendedOption": "{{label}} · 推荐",
     "loopDescriptions": {
-      "implement": "规划、构建并评审每个规格，然后准备交付。",
-      "freestyle": "所选提供方独立构建规格，不经过流水线。",
-      "openspec": "为规格编写 OpenSpec 变更，构建后归档。"
+      "implement": "规划、构建并评审每个规格，然后准备交付。"
     }
   },
   "railRow": {
@@ -288,19 +283,6 @@
       "title": "删除 {{label}}？",
       "body": "其中的规格将返回待办列表。此轨道的提供方、循环和 PR 设置将丢失。"
     }
-  },
-  "freestyleDialog": {
-    "title": "以 Freestyle 模式启动",
-    "context_one": "{{rail}} · {{count}} 个 Spec",
-    "context_other": "{{rail}} · {{count}} 个 Spec",
-    "noPipelineTitle": "无 OpenSpec 流水线。",
-    "noPipelineBody": "完全跳过架构师 → 开发者 → 审查者的结构化流程。",
-    "autonomyTitle": "{{provider}} 原生自主模式。",
-    "autonomyBody": "{{provider}} 使用原生 Agent 和动态工作流自主工作。",
-    "costTitle": "成本不固定。",
-    "costBody": "花费取决于 {{provider}} 的决策 — 可能高于预期。",
-    "continue": "继续",
-    "gloss": "Freestyle 会把每个 Spec 直接交给 {{provider}}：每个 Spec 一次自主运行，不经过 OpenSpec 的规划与审查流水线。"
   },
   "useRails": {
     "fetchFailed": "获取 Rails 失败：{{status}}"
@@ -329,9 +311,7 @@
       "target_pr_unfetchable": "无法获取该 PR 的 head 分支"
     }
   },
-  "rail": {
-    "rolesNoFreestyle": "Freestyle 需要单一提供方——请先选择 Implement 或某个循环，再将此轨道切换为按角色引擎。"
-  },
+  "rail": {},
   "reviewWip": {
     "badge": "评审中 {{pending}}/{{limit}}",
     "title": "等待评审的交付(上限 {{limit}})。点击查看列表。",

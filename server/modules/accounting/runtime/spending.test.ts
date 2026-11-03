@@ -29,7 +29,7 @@ describe('getSpending', () => {
     expect(r.summary.deltaPct).toBeNull()
     // The 7 original analytics surfaces + the 5 cost-accounting-audit additions
     // (chat-sidebar, spec-launcher, proposal, agent-studio, setup).
-    // + 'flow' (Flow turns live in agent_invocations; listed in the shared vocabulary).
+    // + 'flow' (Intent turns live in agent_invocations; listed in the shared vocabulary).
     // + 'triage' (spec triage, launch-triage).
     expect(r.bySurface).toHaveLength(14)
     expect(r.bySurface.every((s) => s.count === 0)).toBe(true)
@@ -918,7 +918,7 @@ describe('getAgentMissionSpending', () => {
     expect(result.summary.flowTurns).toBe(0)
   })
 
-  it('splits out the Flow turns (surface=flow) inside the mission total', async () => {
+  it('splits out the Intent turns (surface=flow) inside the mission total', async () => {
     const { initDesktopDb, recordAgentInvocation } = await import('../../../desktop-db')
     const { getAgentMissionSpending } = await import('./spending')
     const ddb = initDesktopDb(':memory:')

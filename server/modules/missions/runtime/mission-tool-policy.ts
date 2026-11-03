@@ -9,7 +9,7 @@ import type { DriverDescriptor, SessionPolicyInput } from '../../agent-sessions'
  * Mission agents drive the app through the `specrails_*` MCP tools; they never
  * edit a workspace themselves. This module turns that rule into the provider's
  * native boundary so it holds by construction rather than by prompt wording:
- * the only write-capable mission mode is Flow, which uses its own session.
+ * the only write-capable mission mode is Intent, which uses its own session.
  *
  * Every mapping keeps MCP tools callable — verified per provider in the
  * change's design. `SPECRAILS_MISSION_READ_ONLY=false` restores the previous

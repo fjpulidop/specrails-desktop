@@ -60,15 +60,18 @@ Les brouillons sont la seule exception : un brouillon peut n'avoir *aucune* prio
 
 Pour créer une spec, cliquez sur **Nouvelle spec** (le bouton Plus de la barre d'outils du SpecsBoard). La fenêtre **Ajouter une spec** s'ouvre, avec plusieurs façons de travailler :
 
+- **Mode Intent** (par défaut) — vous décrivez le problème, le résultat voulu et comment vous saurez que ça a marché ; l’IA écrit l’intent, puis en dérive la spec que vous relisez. Voir [Intent](../integrations/intent-mode#intent-mode).
 - **Mode Quick** — vous décrivez ce que vous voulez et l'IA écrit la spec complète en un seul coup. Voir [Ajouter une spec — mode Quick](add-spec-quick-mode.md).
 - **Mode Explore** — vous échangez avec l'IA, qui vous aide à façonner la spec tour après tour. Voir [Ajouter une spec — mode Explore](add-spec-explore-mode.md).
 - **Mode Raw** — ce que vous tapez est enregistré tel quel comme spec, sans aucune intervention de l'IA. À utiliser quand vous avez déjà rédigé le texte de la spec.
 
-Le choix dépend du degré de clarté de votre idée. Vous savez exactement ce que vous voulez ? Quick. Vous êtes encore en train d'y réfléchir ? Explore. Vous avez déjà le texte ? Raw.
+Le choix dépend du degré de clarté de votre idée. Vous connaissez le problème sans connaître la solution ? Intent. Vous savez exactement ce que vous voulez ? Quick. Vous êtes encore en train d'y réfléchir ? Explore. Vous avez déjà le texte ? Raw.
+
+L’**Intent** d’une spec se trouve au-dessus de sa description dans le détail de la spec : problème, résultat recherché, comment nous le saurons, qui et quoi est concerné, contraintes et questions ouvertes. Vous pouvez l’y ajouter ou le modifier ; chaque agent qui travaille sur la spec le reçoit d’abord.
 
 ## Addenda : itérer sur une spec existante
 
-Quand une spec a déjà du travail derrière elle — une PR en revue, une fonctionnalité fusionnée — et que vous en voulez *plus*, ne réécrivez pas sa description : cela fait dériver la spec (et synchronise la dérive vers Jira) et force la prochaine exécution à tout replanifier. Ouvrez la spec et ajoutez plutôt un **addendum** : une courte note avec un type (demande de changement, retour de revue, clarification, contrainte) et vos mots. Les addenda ouverts accompagnent automatiquement le prochain lancement de cette spec sur n'importe quelle boucle — Implement, SDD Quick, Freestyle — de sorte que l'exécution ne change que ce que vous avez demandé, et le paquet de revue signale chacun comme appliqué, partiellement appliqué ou bloqué. Si l'exécution échoue ou si vous écartez la livraison, ils reviennent d'eux-mêmes à **Ouvert**. L'agent de mission peut les ajouter pour vous quand vous lui demandez de modifier une spec existante.
+Quand une spec a déjà du travail derrière elle — une PR en revue, une fonctionnalité fusionnée — et que vous en voulez *plus*, ne réécrivez pas sa description : cela fait dériver la spec (et synchronise la dérive vers Jira) et force la prochaine exécution à tout replanifier. Ouvrez la spec et ajoutez plutôt un **addendum** : une courte note avec un type (demande de changement, retour de revue, clarification, contrainte) et vos mots. Les addenda ouverts accompagnent automatiquement le prochain lancement de cette spec sur n'importe quelle boucle — Implement ou un loop personnalisé — de sorte que l'exécution ne change que ce que vous avez demandé, et le paquet de revue signale chacun comme appliqué, partiellement appliqué ou bloqué. Si l'exécution échoue ou si vous écartez la livraison, ils reviennent d'eux-mêmes à **Ouvert**. L'agent de mission peut les ajouter pour vous quand vous lui demandez de modifier une spec existante.
 
 ## Relire une livraison : par où commencer
 

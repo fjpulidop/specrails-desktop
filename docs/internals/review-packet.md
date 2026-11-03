@@ -144,10 +144,8 @@ attempt replaced the previous one". Version lineage, crash-restore and
 one-active-generation-per-rail all come free from the shipped machinery.
 
 **The loop.** There is no dedicated Revision loop. `factory:revision` survives
-only as a legacy persisted id: `loop-factory.ts` aliases it to
-`factory:sdd-quick-openspec` (SDD Quick) and it is neither listed nor run as its
-own graph. A revision launch without an explicit workflow (no `loopId` and no
-`mode` in the body) runs SDD Quick; an explicit `loopId`/`mode` takes
+only as a legacy persisted id that the launch refuses (`builtin_loop_retired`). A revision launch without an explicit workflow (no `loopId` and no
+`mode` in the body) runs Implement; an explicit `loopId`/`mode` takes
 precedence. The revision intent travels as `{{const:REVISION_REQUEST}}`, which
 `rail-isolated-launch.ts` fills from the revision seed and the loop executors
 append to each AI step's prompt, so the run applies the requested change on top
@@ -334,9 +332,9 @@ behaviour changes, invariants touched, untested paths, up to five severity-order
 - **Honesty.** The brief is AI-reported advice, labelled as such; it adds no numeric verification
   claim and no decision depends on it.
 
-## 2026-10-22 — Derivation (Flow → Spec)
+## 2026-10-22 — Derivation (Intent → Spec)
 
-A delivery of the `factory:flow-spec` loop ([Flow mode](flow-mode.md)) carries
+A delivery of the `factory:flow-spec` loop ([Intent mode](intent-mode.md)) carries
 `packet.derivation`, rendered as the **Derivation** card before "What to watch
 out for". Source: the `derive-change` scope of Core's `runtime status`
 (`output.derivation`; when only `output.derivationPath` is present the harvest
@@ -349,14 +347,14 @@ repaired derivation supersedes the rejected one.
 - Coverage (`explained/files`) and the unexplained file list are Core's own
   measurement from git: app-verified.
 - The deriver's `confidence` is AI-reported and labelled as such.
-- `{ status: 'unavailable' }` for a Flow → Spec delivery whose report could
+- `{ status: 'unavailable' }` for an Intent session → Spec delivery whose report could
   not be read; `null` for every other loop.
 - `packet.flowSettlement` (`specRewrite`, `jiraCreate`, `jiraReview`) comes from
-  the Flow module's `flow_effects` rows; a `failed` spec rewrite shows a note
-  that the spec kept its Flow draft.
+  the Intent module's `flow_effects` rows; a `failed` spec rewrite shows a note
+  that the spec kept its Intent draft.
 
 The draft PR body adds one line (`buildDerivationLine`):
-`> Derived from a Flow session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`
+`> Derived from an Intent session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`
 
 ## 2026-10-22 — Requirements demonstrated, baseline and "Needs human eyes"
 

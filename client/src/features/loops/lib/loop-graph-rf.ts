@@ -1,10 +1,10 @@
 /**
  * Pure conversions between the persisted LoopGraph (server shape) and the
- * React Flow node/edge model used by the canvas builder. Kept separate from the
- * canvas component so it is unit-testable without rendering React Flow (which
+ * React Intent node/edge model used by the canvas builder. Kept separate from the
+ * canvas component so it is unit-testable without rendering React Intent (which
  * needs DOM APIs absent under jsdom).
  *
- * All loop nodes map to a SINGLE React Flow custom node type ('loop'); the loop
+ * All loop nodes map to a SINGLE React Intent custom node type ('loop'); the loop
  * node kind (start/ai-step/…) lives in `data.kind`, so one node component
  * renders every kind.
  */
@@ -62,7 +62,7 @@ export function graphToReactFlow(graph: LoopGraph): { nodes: Node<LoopNodeData>[
   const typeById = new Map((graph.nodes ?? []).map((n) => [n.id, n.type]))
   const edges: Edge[] = (graph.edges ?? []).map((e) => {
     // A Decider has ONLY named source handles ('continue' / 'stop') — an edge
-    // leaving it MUST set `sourceHandle` to one of them or React Flow can't find
+    // leaving it MUST set `sourceHandle` to one of them or React Intent can't find
     // the handle and the edge floats off the node's origin (visually detached).
     // New graphs carry `branch`; for legacy graphs authored before labeled
     // branches, infer it (edge to an End → 'stop', otherwise → 'continue') so the

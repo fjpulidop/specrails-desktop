@@ -8,7 +8,7 @@
  *   entity-modal   65   entity surfaces: Spec detail, Job detail, compare,
  *                       agent activity log, loop/blueprint previews
  *   stacked-modal  70   anything opened from inside an entity modal or a
- *                       floating panel: Flow prompts, SMASH, nested confirms
+ *                       floating panel: IntentSession prompts, SMASH, nested confirms
  *   dock           75   minimized chats dock (stays clickable over modals)
  *   capture        80   browser capture / web view / native browser pane,
  *                       background-process logs (opened over capture)

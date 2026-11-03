@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createHash } from 'node:crypto'
 import { FLOW_SUBAGENTS_ADDENDUM, FLOW_SYSTEM_PROMPT, buildFlowSystemPrompt } from './agent-flow-prompt'
 
-describe('Flow persona prompt', () => {
+describe('Intent persona prompt', () => {
   it('is static and byte-stable (no per-turn facts, same bytes on every build)', () => {
     const digest = (text: string) => createHash('sha256').update(text).digest('hex')
     expect(buildFlowSystemPrompt()).toBe(FLOW_SYSTEM_PROMPT)
@@ -39,10 +39,19 @@ describe('Flow persona prompt', () => {
   })
 
   it('keeps the sub-agent guidance in a separate static addendum (only sent when sub-agents are allowed)', () => {
-    expect(FLOW_SYSTEM_PROMPT).not.toContain('Sub-agents in Flow')
-    expect(FLOW_SUBAGENTS_ADDENDUM.startsWith('## Sub-agents in Flow')).toBe(true)
+    expect(FLOW_SYSTEM_PROMPT).not.toContain('Sub-agents in Intent')
+    expect(FLOW_SUBAGENTS_ADDENDUM.startsWith('## Sub-agents in Intent')).toBe(true)
     expect(FLOW_SUBAGENTS_ADDENDUM).toContain('same worktree')
     expect(FLOW_SUBAGENTS_ADDENDUM).toContain('integrate what they return')
     expect(FLOW_SUBAGENTS_ADDENDUM).not.toMatch(/\{\{|\$\{/)
+  })
+})
+
+describe('intent-mode: ending the Intent', () => {
+  it('tells the agent the hand-off derives the spec from the conversation too and bans file workarounds', () => {
+    const prompt = FLOW_SYSTEM_PROMPT
+    expect(prompt).toContain('## Ending the Intent')
+    expect(prompt).toContain('a spec agreed here in chat with no file changed is a valid hand-off')
+    expect(prompt).toContain('never write a file into the worktree just to "enable" it')
   })
 })

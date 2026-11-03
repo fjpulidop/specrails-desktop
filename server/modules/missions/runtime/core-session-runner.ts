@@ -33,7 +33,7 @@ export interface CoreSessionTurnContext {
   metadata?: Record<string, unknown>
   /** Appended to the system prompt (e.g. how to delegate sub-agents in this mission). */
   systemPromptAddendum?: string
-  /** How mid-turn user input reaches the running turn. `interrupt` (Flow, Core
+  /** How mid-turn user input reaches the running turn. `interrupt` (Intent, Core
    * flowSessions) cuts the turn and runs the input next; the runner follows the
    * new turn and reports the summed usage of every turn it covered. */
   inputDelivery?: 'steer' | 'interrupt'
@@ -269,7 +269,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
   }
 }
 
-/** Native steering (or Flow interrupt) into the running turn of the resident session. */
+/** Native steering (or Intent interrupt) into the running turn of the resident session. */
 function createSteerSink(client: SessionHostClient, sessionId: string, turnOpen: () => boolean, delivery: 'steer' | 'interrupt', pendingInterrupts: Set<string>): LiveInputSink {
   return {
     acceptedReceipt: 'received',

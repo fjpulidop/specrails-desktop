@@ -15,7 +15,7 @@ Each connection also has an **Agent loop** setting. **Compact** (default) drives
 
 ## What you get
 
-- Rails (implement, freestyle, custom loops), Explore and Quick specs, chat and missions all run on the local model.
+- Rails (implement, custom loops), Explore and Quick specs, chat and missions all run on the local model.
 - Missions keep their Specrails tools and your external MCP servers.
 - Sessions resume across turns; interactive jobs work.
 - Cost is honest: tokens are recorded, cost stays *unknown* unless you enter rates (then it is marked *estimated*).
@@ -26,7 +26,7 @@ Not available on local engines: agent profiles and custom roles, SMASH / Contrac
 
 ## Choosing a model
 
-Quality depends on the model, not on Specrails. For rails use a tool-calling-tuned coder model of 30B parameters or more; smaller instruct models are fine for chat, Explore and Quick specs. Try **Freestyle** or an Explore session before trusting a full implement rail to a new model.
+Quality depends on the model, not on Specrails. For rails use a tool-calling-tuned coder model of 30B parameters or more; smaller instruct models are fine for chat, Explore and Quick specs. Try an Explore session before trusting a full implement rail to a new model.
 
 ## Turning it off
 

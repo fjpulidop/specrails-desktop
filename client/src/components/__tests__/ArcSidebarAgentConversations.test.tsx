@@ -263,12 +263,12 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(mark).not.toHaveTextContent('Waiting for your decision')
   })
 
-  it('marks a mission in Flow with the extension’s icon and "In Flow"', async () => {
+  it('marks a mission in Intent with the extension’s icon and "In Intent"', async () => {
     const { MissionExtensionsProvider } = await import('../../features/missions/context/MissionExtensionsContext')
-    const marks = new Map([['c-1', { label: 'In Flow', description: 'Flow mode' }]])
+    const marks = new Map([['c-1', { label: 'In Intent', description: 'Intent mode' }]])
     render(<MissionExtensionsProvider value={{ useConversationMarks: () => marks }}><ArcSidebar {...defaultProps} /></MissionExtensionsProvider>)
     const row = screen.getAllByText('Fix the build')[0].closest('button') as HTMLElement
-    expect(row.querySelector('[data-testid="mission-mode-row-mark"]')).toHaveTextContent('In Flow')
+    expect(row.querySelector('[data-testid="mission-mode-row-mark"]')).toHaveTextContent('In Intent')
   })
 
   it('marks unread background conversations calmly: accent icon, dot and words', () => {

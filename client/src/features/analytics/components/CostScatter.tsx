@@ -31,14 +31,14 @@ const COLOR: Record<Surface, string> = {
   'explore-spec': 'var(--color-accent-highlight)',
   'ai-edit': 'var(--color-accent-success)',
   smash: 'var(--color-accent-warning)',
-  'file-summary': 'var(--color-accent-flow)',
+  'file-summary': 'var(--color-accent-intent)',
   loop: 'var(--color-accent-primary)',
   'chat-sidebar': 'var(--color-accent-info)',
   'spec-launcher': 'var(--color-accent-secondary)',
   proposal: 'var(--color-accent-highlight)',
   'agent-studio': 'var(--color-accent-success)',
   setup: 'var(--color-accent-primary)',
-  flow: 'var(--color-accent-flow)',
+  flow: 'var(--color-accent-intent)',
   triage: 'var(--color-accent-warning)',
 }
 

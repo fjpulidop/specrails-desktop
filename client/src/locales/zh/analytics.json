@@ -13,7 +13,7 @@
     "agentStudio": "Agent Studio",
     "setup": "设置",
     "triage": "分诊",
-    "flow": "Flow"
+    "flow": "Intent"
   },
   "periods": {
     "d7": "7天",
@@ -221,7 +221,7 @@
     "turnsAndTokens": "{{turns}} 轮 · {{tokens}} tokens",
     "untitled": "未命名任务",
     "estimatedNote": "包含估算成本",
-    "flowShare": "其中 Flow：{{cost}} · {{turns}} 轮"
+    "flowShare": "其中 Intent：{{cost}} · {{turns}} 轮"
   },
   "legacyUsage": {
     "title": "旧版工作流使用情况",

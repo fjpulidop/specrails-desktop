@@ -20,7 +20,8 @@
     "view": "View",
     "errorGenerating": "Error generating spec",
     "couldNotFind": "Could not find generated spec",
-    "couldNotConfirm": "Could not confirm spec was created"
+    "couldNotConfirm": "Could not confirm spec was created",
+    "intentMissing": "The spec was created without an intent: add it from the spec detail."
   },
   "contractRefine": {
     "refining": "Refining contract…",

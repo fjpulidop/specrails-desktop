@@ -423,9 +423,22 @@ Claude adapter pin, selector labels, Core CLI executor and cost estimates aligne
 when advancing this alias. Concrete historical model IDs in usage events retain
 their existing estimates; provider-reported cost remains authoritative.
 
-Codex GPT-6.1 Sol (`gpt-6.1-sol`) is selectable in all static catalogs. Its
-CLI effort list is low, medium, high, xhigh, max and ultra, as advertised by
-Codex models/list on 2026-09-30. Codex defaults to GPT-6.1 Sol with medium effort. GPT-5.5, GPT-5.4, GPT-5.4 Mini
-and GPT-5.3 Codex are omitted from selectable catalogs. The
+The `fable` catalog value pins to Claude Fable 5.1 (`claude-fable-5-1`); both
+`claude-fable-5-1` and `claude-fable-5` collapse back to `fable` in
+`normaliseModel`. Catalog labels read "Claude Sonnet 5.5 / Fable 5.1 / Opus 5.5 /
+Haiku 5.5" in every mirror (adapter, `spec-models.ts`, `ChatInput.tsx`,
+`loop-run-models.ts`). Rate-card keys: alias keys carry the pinned generation,
+legacy ids (`claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`,
+`claude-sonnet-4`, `claude-haiku-4-5`) keep their own card; Haiku 5.5 uses the
+`longContext` tier above 100,000 prompt tokens (input + cache reads + writes).
+
+Codex catalog (reviewed 2026-11-01): GPT-6.1 Sol (`gpt-6.1-sol`, default),
+GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol, GPT-6 Luna, then the legacy GPT-5.6
+family (kept so stored selections validate). Efforts: Sol 6.1 / Astra /
+GPT-5.6 Sol and Terra offer low..xhigh, max and ultra; GPT-6 Luna stops at max;
+GPT-6.1 Terra and GPT-6 Sol use the base low..xhigh set. A catalog entry may
+declare `minCliVersion` (Terra: 0.159.0), which is informational: the
+provider-wide `CODEX_MIN_VERSION` is the only enforced floor. GPT-5.5, GPT-5.4,
+GPT-5.4 Mini and GPT-5.3 Codex are omitted from selectable catalogs. The
 [OpenAI model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
 describes the API model; Codex-specific effort metadata controls CLI selectors.

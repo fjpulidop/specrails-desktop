@@ -169,7 +169,7 @@
     "mergedLocally": "ローカルで {{base}} に統合しました",
     "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。",
     "reviewChangesRequested": "変更依頼",
-    "reviewChangesRequestedHint": "Flow の引き渡しにはまだ変更が必要です。ミッションカードから Flow に戻るか再実行してください。",
+    "reviewChangesRequestedHint": "Intent の引き渡しにはまだ変更が必要です。ミッションカードから Intent に戻るか再実行してください。",
     "mergedLocallyRestored": "ローカル変更を退避し、{{tickets}} を統合してから元に戻しました。",
     "mergedLocallyStashConflict": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。Specrails が別ブランチで復元しています。",
     "mergedLocallyStashKept": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。準備ができたら復元してください。",
@@ -246,8 +246,6 @@
     "viewJobLog": "ジョブログを表示",
     "log": "ログ",
     "implement": "実装",
-    "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle — 選択したプロバイダーがパイプラインなしでスペックを自律的に実装します",
     "loop": "Loop",
     "loopTitle": "Loop — 公開済みの自動化ループをレールのスペックに対して実行します",
     "pickLoop": "ループを選択…",
@@ -262,13 +260,10 @@
     "worktreesNeedsReview": "{{count}} 件要確認",
     "execSteps": "{{count}} ステップ",
     "execLines": "{{count}} 行",
-    "openspec": "SDD Quick (OpenSpec)",
     "recommended": "推奨",
     "recommendedOption": "{{label}} · 推奨",
     "loopDescriptions": {
-      "implement": "各スペックを計画・実装・レビューし、配信を準備します。",
-      "freestyle": "選択したプロバイダーがパイプラインなしでスペックを単独で実装します。",
-      "openspec": "スペックの OpenSpec 変更を作成し、実装してからアーカイブします。"
+      "implement": "各スペックを計画・実装・レビューし、配信を準備します。"
     }
   },
   "railRow": {
@@ -288,19 +283,6 @@
       "title": "{{label}} を削除しますか？",
       "body": "スペックはバックログに戻ります。このレールのプロバイダー、ループ、PR 設定は失われます。"
     }
-  },
-  "freestyleDialog": {
-    "title": "Freestyle モードで起動",
-    "context_one": "{{rail}} · スペック {{count}} 件",
-    "context_other": "{{rail}} · スペック {{count}} 件",
-    "noPipelineTitle": "OpenSpec パイプラインなし。",
-    "noPipelineBody": "アーキテクト → 開発者 → レビュアーの構造化フローは完全にスキップされます。",
-    "autonomyTitle": "{{provider}} ネイティブの自律性。",
-    "autonomyBody": "{{provider}} はネイティブエージェントと動的ワークフローを使って自律的に作業します。",
-    "costTitle": "コストは変動します。",
-    "costBody": "支出は {{provider}} の判断に依存し、想定より高くなることがあります。",
-    "continue": "続行",
-    "gloss": "Freestyle では各スペックを {{provider}} に直接渡します。スペックごとに 1 回の自律実行で、OpenSpec の計画・レビューのパイプラインは使いません。"
   },
   "useRails": {
     "fetchFailed": "レールの取得に失敗しました: {{status}}"
@@ -329,9 +311,7 @@
       "target_pr_unfetchable": "PR の head ブランチを取得できませんでした"
     }
   },
-  "rail": {
-    "rolesNoFreestyle": "Freestyle には単一のプロバイダーが必要です。このレールをロール別エンジンに切り替える前に Implement かループを選んでください。"
-  },
+  "rail": {},
   "reviewWip": {
     "badge": "レビュー中 {{pending}}/{{limit}}",
     "title": "レビュー待ちの納品(上限 {{limit}})。クリックで一覧を表示します。",

@@ -5,7 +5,7 @@ import { getProjectRepositories, resolveProjectRepository, RepositoryValidationE
 import { BackgroundProcessOwnershipLostError, backgroundProcessHooks, backgroundStartBusyReason, resolveBackgroundCwd, stopOwnedBackgroundProcess } from './modules/terminals/runtime/background-process-service'
 import { withAppUrls } from './modules/terminals/runtime/app-urls'
 
-/** The chat's ACTIVE Flow with a worktree (null when none or the lookup fails). */
+/** The chat's ACTIVE Intent with a worktree (null when none or the lookup fails). */
 function activeFlow(c: { flow?: { getByConversation(id: string): { id: string; state: string; step: string | null; worktreePath: string | null; repositoryId?: string | null } | null } }, chatId: string): { flowId: string; worktreePath: string; repositoryId?: string } | null {
   try {
     const flow = c.flow?.getByConversation(chatId)
@@ -61,13 +61,13 @@ export function registerBackgroundProcessRoutes({ router, ctx }: ProjectRoutesDe
       }
       if (repositoryId !== undefined && (typeof repositoryId !== 'string' || !repositoryId.trim())) throw new RepositoryValidationError('repositoryId must be a nonempty string')
       const multiRepository = getProjectRepositories(c.project).length > 1
-      // Inside an ACTIVE Flow of a multi-repository project the repository is
-      // the Flow's own: the process runs in the Flow worktree, tagged with the
-      // Flow so it stops with it (as the in-app agent's background_start does).
+      // Inside an ACTIVE Intent of a multi-repository project the repository is
+      // the Intent's own: the process runs in the Intent worktree, tagged with the
+      // Intent so it stops with it (as the in-app agent's background_start does).
       const flow = multiRepository && repositoryId === undefined ? activeFlow(c, chatId.trim()) : null
       if (flow) {
         const repository = resolveProjectRepository(c.project, flow.repositoryId)
-        const process = startBackgroundProcess(command.trim(), resolveBackgroundCwd(flow.worktreePath, cwd, 'the Flow worktree'), chatId.trim(), c.project.id,
+        const process = startBackgroundProcess(command.trim(), resolveBackgroundCwd(flow.worktreePath, cwd, 'the Intent worktree'), chatId.trim(), c.project.id,
           backgroundProcessHooks(c.broadcast), { repositoryId: repository.id, repositoryName: repository.name, flowId: flow.flowId })
         res.status(202).json({ ok: true, repositoryId: repository.id, flowId: flow.flowId, process }); return
       }

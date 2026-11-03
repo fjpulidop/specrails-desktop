@@ -1,5 +1,5 @@
 // ─── Mission extensions (composition seam) ────────────────────────────────────
-// Features that build ON TOP of missions (Flow mode today) must not be imported
+// Features that build ON TOP of missions (IntentSession mode today) must not be imported
 // by missions. Instead missions exposes this extension point and the
 // application composition root (App.tsx) provides the implementation:
 //
@@ -10,29 +10,29 @@
 //     conversation (surface data-attributes, the branch the git strip shows or
 //     whether it hides, whether a busy send interrupts the running turn).
 //   - ConversationDock: a component the run strip mounts for what the
-//     extension needs mounted there that is NOT a run (Flow: its state
+//     extension needs mounted there that is NOT a run (Intent: its state
 //     announcements, said through the strip's ONE polite live region via
 //     `announce`). Runs go through useLiveRuns.
-//   - useLiveRuns: the extension's live runs for a conversation (Flow: the
-//     open Flow, its hand-off and the launch in flight). Missions renders
+//   - useLiveRuns: the extension's live runs for a conversation (Intent: the
+//     open Intent, its hand-off and the launch in flight). Missions renders
 //     them in the ONE run strip above the composer, next to its own runs.
-//   - useConversationMarks: marks for the mission list rows (Flow: "In Flow").
+//   - useConversationMarks: marks for the mission list rows (Intent: "In Intent").
 //   - useRunAttention: which conversations have an extension run waiting for
 //     the person (the mission list's attention dot), derived from the
 //     extension's own app-wide state so it is live without the mission open.
 //     When provided, the run strip no longer reports the extension's runs.
 //   - describeRun: the person's words for a run's current step and for the
-//     step it failed at, when the extension owns the run's loop (Flow → Spec).
+//     step it failed at, when the extension owns the run's loop (IntentSession → Spec).
 //   - RunCardActions: extra actions on a run/PR card whose outcome the
-//     extension owns (Flow: "Back to Flow" and "Relaunch" when Flow → Spec
+//     extension owns (Intent: "Back to Intent" and "Relaunch" when Intent → Spec
 //     stopped with requested changes). Returns null when it has nothing.
 //   - useTurnMark: the mark (icon, color, words) on agent turns written in
 //     the extension's mode; missions never hard-codes the mode's icon.
 //   - RailLaunchAlternative: the other way to work on the ONE existing spec a
-//     rail-launch card proposes (Flow: "Start in Flow"), shown with equal
+//     rail-launch card proposes (Intent: "Start in Intent"), shown with equal
 //     weight next to the card's own launch. Never shown for several specs.
 //   - RunFailureOutcome: the whole explanation of a run that failed outright
-//     when the extension owns its outcome (Flow → Spec: what failed in plain
+//     when the extension owns its outcome (IntentSession → Spec: what failed in plain
 //     words, what happens next, its actions and the technical details). It
 //     replaces the generic failure block; without it the card stays generic.
 //
@@ -43,6 +43,7 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import type { AgentMessageIntent } from '../lib/agent-api'
+import type { SpecIntent } from '../../specs/lib/spec-intent'
 
 export interface MissionFenceCardProps {
   /** The fence tag the card was registered for. */
@@ -67,12 +68,12 @@ export interface MissionFenceCardProps {
 
 /** A mode marker an extension shows on missions surfaces: icon + text, never color alone. */
 export interface MissionModeBadge {
-  /** Short visible text ("Flow", "In Flow"). */
+  /** Short visible text ("Intent", "In Intent"). */
   label: string
   /** What the mode means (tooltip / accessible description). */
   description?: string
   icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
-  /** The mode's own color (a CSS color, e.g. `var(--color-accent-flow)`); defaults to the info accent. */
+  /** The mode's own color (a CSS color, e.g. `var(--color-accent-intent)`); defaults to the info accent. */
   accent?: string
 }
 
@@ -81,14 +82,14 @@ export interface MissionConversationMode {
   attributes?: Readonly<Record<`data-${string}`, string>>
   /** Replaces the git strip with a read-only branch (e.g. a worktree). */
   gitBranch?: { branch: string; label: string } | null
-  /** The extension shows the branch itself (the Flow bar): no git strip at all. */
+  /** The extension shows the branch itself (the Intent bar): no git strip at all. */
   hideGitStrip?: boolean
   /** While a turn runs, a send interrupts it instead of queueing. */
   interruptWhileBusy?: boolean
   /** The composer works in the extension's mode: a chip next to the tier chip
    * and the mode's own placeholder. */
   composer?: { badge: MissionModeBadge; placeholder?: string } | null
-  /** A label next to the mission title in its header ("In Flow"). */
+  /** A label next to the mission title in its header ("In Intent"). */
   headerBadge?: MissionModeBadge | null
 }
 
@@ -115,7 +116,7 @@ export interface MissionRunCardActionsProps {
 }
 
 export interface MissionRunFailureOutcomeProps {
-  /** The run's project (null on the Flow return card when unknown). */
+  /** The run's project (null on the Intent return card when unknown). */
   projectId: string | null
   prDeliveryId: string
   conversationId: string | null
@@ -128,9 +129,9 @@ export interface MissionRunFailureOutcomeProps {
   statusDetail: string | null
   /** The repository of a multi-repository run (null otherwise). */
   repositoryName: string | null
-  /** The work already went back to its Flow: a state instead of actions. */
+  /** The work already went back to its Intent: a state instead of actions. */
   returned: boolean
-  /** `card`: on the run card (with actions); `return`: inside the Flow's return card. */
+  /** `card`: on the run card (with actions); `return`: inside the Intent's return card. */
   surface: 'card' | 'return'
   /** Disables the extension's buttons while the card runs another action. */
   busy: boolean
@@ -150,7 +151,7 @@ export type MissionPanelCloseReason = 'escape' | 'collapse'
 export interface MissionLiveRun {
   /** Stable within the conversation (keep it across states so the strip morphs in place). */
   key: string
-  /** The switcher's name for the run ("Flow"). */
+  /** The switcher's name for the run ("Intent"). */
   label: string
   tone: MissionLiveRunTone
   /** A running run with no current activity sets false: its mark stops pulsing. */
@@ -170,18 +171,18 @@ export interface MissionLiveRun {
   /**
    * The person closed this run's panel: `escape` (Esc, a deliberate dismissal)
    * or `collapse` (a click in the conversation, the toggle, switching to
-   * another run: the panel only folds away). Flow: only Esc counts as the
+   * another run: the panel only folds away). Intent: only Esc counts as the
    * hand-off's "Not yet"; a collapse keeps "Ready to turn into a PR".
    */
   onPanelClose?: ((reason: MissionPanelCloseReason) => void) | null
   /** Offer the card's declared primary on the strip even in a calm tone
-   *  (Flow's "Ready to turn into a PR" keeps Launch one click away). */
+   *  (Intent's "Ready to turn into a PR" keeps Launch one click away). */
   wantsPrimary?: boolean
   /** Hidden as soon as missions shows this delivery (the launch skeleton yields to its run). */
   yieldsTo?: { prDeliveryId?: string | null; runIds?: readonly string[] } | null
   /** Polite announcement of the run's state (announced when it changes). */
   announcement?: string | null
-  /** The run's mode (Flow): while it runs, the strip mark is the mode's icon in the mode's color. */
+  /** The run's mode (IntentSession): while it runs, the strip mark is the mode's icon in the mode's color. */
   mode?: MissionModeBadge | null
   /** Extra attributes for the strip root while this run shows (tests, themes). */
   attributes?: Readonly<Record<`data-${string}`, string>>
@@ -221,8 +222,21 @@ export interface MissionRailLaunchAlternativeProps {
   onChosen: () => void
 }
 
+export interface MissionIntentExploreProps {
+  projectId: string | null
+  conversationId: string
+  /** The settled intent of the mission's intent card. */
+  intent: SpecIntent
+  /** The spec title the agent proposed, when any. */
+  title?: string
+  /** A turn is in flight or the card is not the newest one. */
+  disabled: boolean
+}
+
 export interface MissionExtensions {
-  /** Another way to work on the one spec of a rail-launch card (Flow). */
+  /** The Explore path of a settled intent card (an Intent session from that intent). */
+  IntentExplore?: ComponentType<MissionIntentExploreProps>
+  /** Another way to work on the one spec of a rail-launch card (IntentSession). */
   RailLaunchAlternative?: ComponentType<MissionRailLaunchAlternativeProps>
   fenceCards?: Readonly<Record<string, ComponentType<MissionFenceCardProps>>>
   useConversationMode?: (conversationId: string | null, projectId: string | null) => MissionConversationMode | null
@@ -230,7 +244,7 @@ export interface MissionExtensions {
   RunCardActions?: ComponentType<MissionRunCardActionsProps>
   RunFailureOutcome?: ComponentType<MissionRunFailureOutcomeProps>
   useLiveRuns?: (props: MissionConversationSlotProps) => readonly MissionLiveRun[]
-  /** Marks for the mission list rows (Flow: the missions that are in Flow). */
+  /** Marks for the mission list rows (Intent: the missions that are in Intent). */
   useConversationMarks?: (conversations: readonly MissionConversationRef[]) => ReadonlyMap<string, MissionModeBadge>
   /**
    * The extension's runs that wait for the person (a `decision` or `failed`
@@ -240,7 +254,7 @@ export interface MissionExtensions {
    */
   useRunAttention?: (conversations: readonly MissionConversationRef[]) => ReadonlyMap<string, ReadonlySet<string>>
   describeRun?: (t: TFunction, input: MissionRunDescriptionInput) => MissionRunDescription | null
-  /** The discreet mark on agent turns written inside the extension's mode (Flow): icon, color, words. */
+  /** The discreet mark on agent turns written inside the extension's mode (IntentSession): icon, color, words. */
   useTurnMark?: () => MissionModeBadge | null
 }
 

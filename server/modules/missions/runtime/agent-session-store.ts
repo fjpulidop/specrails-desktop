@@ -4,7 +4,7 @@ import type { SessionPhase, SubagentView, ToolActivity } from '../../agent-sessi
 /**
  * Desktop's projection of a mission's Core sessions (rebuildable from Core's
  * journal). A conversation owns its own session (id = conversation id) and,
- * while in Flow, the Flow's session (`flow:<flowId>`): every projection row is
+ * while in Intent, the Intent's session (`flow:<flowId>`): every projection row is
  * keyed by (conversation, Core session) so their usage never mixes.
  */
 export interface SessionCursorRow {
@@ -49,7 +49,7 @@ export function getSessionCursor(db: DbInstance, conversationId: string, coreSes
   return row ? mapCursor(row) : null
 }
 
-/** Every Core session cursor of a conversation (mission first, then Flow sessions). */
+/** Every Core session cursor of a conversation (mission first, then Intent sessions). */
 export function listSessionCursors(db: DbInstance, conversationId: string): SessionCursorRow[] {
   return (db.prepare('SELECT * FROM agent_session_cursors WHERE conversation_id = ? ORDER BY (core_session_id = conversation_id) DESC, core_session_id').all(conversationId) as Record<string, unknown>[]).map(mapCursor)
 }
@@ -58,8 +58,8 @@ const PHASE_RANK: Record<SessionPhase, number> = { idle: 0, background: 1, turn:
 
 /**
  * One conversation's resident state across its Core sessions: the busiest
- * phase, any live process and the live sub-agents of all of them (a Flow's
- * sub-agents count as the mission's while it is in Flow). Null when none ran.
+ * phase, any live process and the live sub-agents of all of them (an Intent session's
+ * sub-agents count as the mission's while it is in Intent). Null when none ran.
  */
 export function conversationSessionState(db: DbInstance, conversationId: string): Pick<SessionCursorRow, 'residentPhase' | 'processAlive' | 'liveSubagents'> | null {
   const cursors = listSessionCursors(db, conversationId)
@@ -108,7 +108,7 @@ export function resetSessionProjection(db: DbInstance, conversationId: string, c
 }
 
 /** Deterministic invocation id of a Core turn: recording it twice is a no-op.
- *  A turn of another session of the conversation (Flow) carries its session id. */
+ *  A turn of another session of the conversation (Intent) carries its session id. */
 export function coreTurnInvocationId(conversationId: string, turnId: string, coreSessionId: string = conversationId): string {
   return coreSessionId === conversationId ? `core-turn:${conversationId}:${turnId}` : `core-turn:${conversationId}:${coreSessionId}:${turnId}`
 }
@@ -214,7 +214,7 @@ export function missionCoreSessionId(conversationId: string, generation: number)
   return generation > 0 ? `${conversationId}:g${generation}` : conversationId
 }
 
-/** True for any generation of the mission's own session (never a Flow's). */
+/** True for any generation of the mission's own session (never an Intent session's). */
 export function isMissionCoreSessionId(conversationId: string, sessionId: string): boolean {
   return sessionId === conversationId || new RegExp(`^${conversationId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:g\\d+$`).test(sessionId)
 }

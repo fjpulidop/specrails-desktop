@@ -10,7 +10,7 @@ Créez un corps réutilisable dans **Composants**, déclarez ses entrées et sor
 
 La publication demande à Core de valider le brouillon et affiche les erreurs sur les étapes concernées. Le lancement valide à nouveau la configuration du projet. Si le moteur est indisponible, mettez Core à jour. Les anciennes boucles conservent leur éditeur et leur exécution ; les sections suivantes les décrivent.
 
-Un **rail exécute un Loop**. Les loops intégrés (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) couvrent les cas du quotidien, mais le **Loop Builder** vous laisse concevoir les vôtres — un éditeur visuel, de style n8n, pour de l'automatisation qui se répète jusqu'à ce qu'un objectif soit atteint. Cette page explique ce qu'est un loop, comment en construire un, et comment l'exécuter sur un rail.
+Un **rail exécute un Loop**. Le loop intégré `Implement` couvre le cas du quotidien — et la galerie en ajoute des prêts à l'emploi, comme `Freestyle` et `SDD Quick (OpenSpec)` — mais le **Loop Builder** vous laisse concevoir les vôtres — un éditeur visuel, de style n8n, pour de l'automatisation qui se répète jusqu'à ce qu'un objectif soit atteint. Cette page explique ce qu'est un loop, comment en construire un, et comment l'exécuter sur un rail.
 
 ## Loops et rails — la relation
 
@@ -20,7 +20,7 @@ Un **loop** est la *recette* du travail ; un **rail** est la *voie* qui l'exécu
    Loop Builder (barre latérale gauche)    Rails (droite)
    ───────────────────────────             ─────────────
    Implement   (intégré)                   Rail 1
-   Freestyle   (intégré)      choisir ►       Loop: Verify-until-green
+   Freestyle   (galerie)      choisir ►       Loop: Verify-until-green
    Verify-until-green (le vôtre)                      ▶ Play
 ```
 
@@ -31,9 +31,15 @@ Donc : construisez un loop une fois, puis choisissez-le sur n'importe quel rail 
 
 ## Ouvrir le builder
 
-Cliquez sur **Loops** dans la barre latérale gauche pour voir la bibliothèque : les trois loops intégrés plus les vôtres. Ouvrez-en un pour le visualiser, ou cliquez sur **New loop** pour partir d'un canevas vierge.
+Cliquez sur **Loops** dans la barre latérale gauche pour voir la bibliothèque : le loop intégré `Implement` plus les vôtres, et la galerie **Modèles** en dessous. Ouvrez-en un pour le visualiser, ou cliquez sur **New loop** pour partir d'un canevas vierge.
 
 Les loops intégrés sont de vrais loops éditables. Ouvrez-en un avec **Edit** et modifiez-le comme n'importe quel loop : l'enregistrement le repasse en brouillon, et **Publish** applique votre version à **chaque rail, lancement depuis le chat de l'agent et lancement Companion qui utilise ce loop intégré**. Tant que votre modification est un brouillon, les rails continuent d'exécuter la dernière version publiée : rien ne casse en cours d'édition. **Restaurer l'original** (sur la carte ou dans le builder) remet un loop intégré à sa version par défaut ; les loops intégrés ne peuvent pas être supprimés. Vous préférez une copie séparée ? Utilisez **Duplicate** : cela crée un loop ordinaire et laisse le loop intégré intact.
+
+### Partir de la galerie
+
+La galerie **Modèles** contient des loops prêts à l'emploi que vous ajoutez volontairement — l'application ne les place jamais d'elle-même sur un rail. Deux d'entre eux étaient auparavant intégrés : **Freestyle** (confier la spec au modèle en toute liberté, puis vérifier et affiner jusqu'au vert) et **SDD Quick (OpenSpec)** (préparer les artefacts, appliquer et tester, valider via la CLI, puis archiver). Cliquez sur **Utiliser le modèle** pour créer une copie en brouillon, ajustez-la si vous le souhaitez, **Publiez**-la, et elle apparaît parmi les loops personnalisés dans le sélecteur de Loop de chaque rail. Freestyle nécessite un fournisseur compatible Freestyle (tous les fournisseurs CLI et moteurs locaux).
+
+Si un rail était encore réglé sur l'ancien Freestyle ou SDD Quick intégré, il revient désormais à `Implement`. Un loop intégré que vous aviez modifié avant ce changement est conservé comme un loop ordinaire dans votre bibliothèque, avec vos modifications intactes.
 
 ## De quoi un loop est constitué
 

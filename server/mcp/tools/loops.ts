@@ -31,8 +31,8 @@ export function loopsTools(): McpToolSpec[] {
         'Actions: ' +
         'list (all saved loops), ' +
         'get (one loop by id, plus turnLimits: each AI step\'s role and effective Maximum turns — set graph.config.agents.roles.<role>.maxTurns, or agents.<role> for built-in roles, then publish; project Agent Runtime settings never change loop runs), ' +
-        'templates (built-in template catalog with graphs), ' +
-        'factory (the built-in loops — factory:implement, factory:freestyle, factory:sdd-quick-openspec — with the graph a rail launch runs; ' +
+        'templates (gallery template catalog with graphs; includes Freestyle and SDD Quick (OpenSpec), which a user adds explicitly via from_template), ' +
+        'factory (the built-in loops — factory:implement — with the graph a rail launch runs; ' +
         'built-ins are ordinary editable loops whose loopId IS the factory id: change them with update + publish and the change applies to every rail, chat launch and companion that uses that built-in), ' +
         'commands (magic-command catalog for the builder palette), ' +
         'constants_list (global cross-loop constants), ' +

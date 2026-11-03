@@ -17,9 +17,17 @@ import {
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { transitionClaimedDecisionWithTicketEffect } from './rail-pr-ticket-effects'
 import { readExecutionManifest, type RunExecutionManifest, type RepositoryDeliverySnapshot } from './multi-repo-execution-store'
-import { FlowWorktreeMismatchError } from './flow-worktree-handoff'
+import { IntentWorktreeMismatchError } from './flow-worktree-handoff'
 import { FLOW_SPEC_DELIVERY_LOOP_ID } from './flow-review-outcome'
 import { readSettleEvidence } from './delivery-evidence'
+
+/** The OpenSpec artifacts live in the primary repository: the archive step of the
+ *  Quick SDD recipe (any copy of it, or the retired built-in id) runs there. */
+function isOpenSpecArchiveStep(loopId: string | undefined, node: { id: string; data?: Record<string, unknown> }): boolean {
+  if (loopId === 'factory:sdd-quick-openspec' && node.id === 'archive') return true
+  return typeof node.data?.command === 'string' && /^\s*openspec\s+archive\b/.test(node.data.command)
+}
+
 export { migrateMultiRepoExecution, getRepositoryExecutionReferences } from './multi-repo-execution-store'
 export type { RunExecutionManifest, RunRepositorySnapshot, RepositoryDeliverySnapshot } from './multi-repo-execution-store'
 
@@ -90,9 +98,9 @@ export function refreshRepositoryDeliveryGroup(db: DbInstance, parentId: string,
       decision = 'no_changes'; patch.deliveryOutcome = 'no_changes'; patch.statusCode = 'no_changes'
     } else if (children.some((row) => row.decision === 'implementation_failed')) {
       decision = 'implementation_failed'; patch.deliveryOutcome = 'blocked'; patch.statusCode = 'implementation_failed'
-      // A Flow → Spec group has exactly one repository: its "changes requested"
+      // An Intent session → Spec group has exactly one repository: its "changes requested"
       // outcome (status + the evidence it is read from) is the group's, so the
-      // card offers Back to Flow / Relaunch and the Flow reads its findings.
+      // card offers Back to Intent / Relaunch and the Intent reads its findings.
       const only = children.length === 1 ? children[0]! : null
       if (only && only.loop_id === FLOW_SPEC_DELIVERY_LOOP_ID && only.status_code === 'review_changes_requested') {
         patch.statusCode = 'review_changes_requested'
@@ -180,18 +188,18 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
     throw new Error('An execution cannot target the same physical Git repository more than once')
   }
   if (input.explicitPrTarget && selected.length !== 1) throw new Error('An explicit pull request target must name one repository')
-  // A Flow hand-off adopts ONE worktree of ONE repository: the group must be
+  // An Intent session hand-off adopts ONE worktree of ONE repository: the group must be
   // exactly that repository (checked before any delivery row exists).
   const flowWorktree = input.requiredFlowWorktree
   if (flowWorktree && (selected.length !== 1 || !flowWorktree.repositoryId || selected[0].id !== flowWorktree.repositoryId)) {
-    throw new FlowWorktreeMismatchError('A Flow hand-off launches exactly the repository its worktree belongs to')
+    throw new IntentWorktreeMismatchError('An Intent session hand-off launches exactly the repository its worktree belongs to')
   }
   const artifactRepositoryId = selected.find((repo) => repo.isPrimary)?.id ?? selected[0].id
   const graph = structuredClone(input.loopGraph)
   for (const node of graph.nodes) {
     if (node.type !== 'shell') continue
     if (selected.length === 1 && !node.data?.repositoryId) node.data = { ...node.data, repositoryId: selected[0].id }
-    if (input.loopId === 'factory:sdd-quick-openspec' && node.id === 'archive' && !node.data?.repositoryId) {
+    if (isOpenSpecArchiveStep(input.loopId, node) && !node.data?.repositoryId) {
       node.data = { ...node.data, repositoryId: artifactRepositoryId }
     }
     if (typeof node.data?.repositoryId !== 'string' || !selected.some((repo) => repo.id === node.data?.repositoryId)) {
@@ -354,7 +362,7 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
           ...(repository.workspacePath ? { workspacePath: repository.workspacePath } : {}),
           ...(repository.workspacePaths ? { workspacePaths: [...repository.workspacePaths] } : {}),
           ...((input.workspaceSelection?.[repository.id] ?? previousRepository?.selectedWorkspacePaths) ? { selectedWorkspacePaths: [...(input.workspaceSelection?.[repository.id] ?? previousRepository!.selectedWorkspacePaths!)] } : {}),
-          // A Flow worktree is measured from the Flow's reservation commit, never its frozen HEAD.
+          // An Intent session worktree is measured from the Intent's reservation commit, never its frozen HEAD.
           gitCommonDir: repositoryLockKey(repository.path), baseBranch: child.base_branch, integrationBranch: integrationBranches.get(repository.id) ?? previousRepository?.integrationBranch ?? child.base_branch, baseSha: flowWorktree?.baseSha ?? head.stdout.trim(),
           worktreePath: worktree.worktree_path, branch: worktree.branch, worktreeId: worktree.id })
       }

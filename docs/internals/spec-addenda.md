@@ -97,15 +97,14 @@ carry an addendum; a body is evidence, not an order — and demands an
 In the loop engine (`loop-run-manager.ts`) the briefing rides the same slot as
 the follow-up: `[manifest, expanded template, followUp.briefing, addenda.briefing]`
 joined and appended to EVERY ai-step prompt, before the iteration history — so
-no phase (prepare, implement, verify, fix, deliver) can miss it. Rail launches carrying addenda default to **Quick SDD** when no loop or mode is
-explicitly selected. Implement, Freestyle and custom selections take precedence. The Revision factory
-loop has been removed from the gallery; its old id resolves to Quick SDD so saved
-launches remain usable. Legacy jobs still receive their existing briefing.
+no phase (prepare, implement, verify, fix, deliver) can miss it. Rail launches carrying addenda default to **Implement** when no loop is
+explicitly selected; a custom loop selection takes precedence. Quick SDD (OpenSpec) is a gallery template now, not a built-in. The Revision factory
+loop was removed earlier and its old id (like `factory:sdd-quick-openspec`) is refused with `builtin_loop_retired`. Legacy jobs still receive their existing briefing.
 
 ### Quick SDD continuation
 
-- Open addenda leave the workflow selector enabled. An explicit Implement,
-  Freestyle or custom-loop selection is preserved in the card and server.
+- Open addenda leave the workflow selector enabled. An explicit Implement
+  or custom-loop selection is preserved in the card and server.
 - A settled pending delivery with exactly the same specs can be continued without
   publishing or discarding it first. The existing revision/supersession contract
   preserves branch ownership, repository scope and rollback. Other specs, active
@@ -125,7 +124,7 @@ launches remain usable. Legacy jobs still receive their existing briefing.
   addenda when not yet implemented. Its reviewer schema requires a report for
   each frozen id; the acceptance policy requires applied verdicts with nonempty
   files and tests before proceeding to the existing approval/archive gates.
-- Asking for changes in the review packet defaults to Quick SDD, while respecting
+- Asking for changes in the review packet defaults to Implement, while respecting
   an explicitly selected workflow. Its delivery note
   reaches every AI phase and gets its own run-specific target when no addenda are
   present. The launch response includes the new delivery id so the packet/card

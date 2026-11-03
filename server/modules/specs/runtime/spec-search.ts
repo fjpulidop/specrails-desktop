@@ -8,7 +8,7 @@
 import { isFlowHeldTicket, type Ticket } from './ticket-store'
 import type { SearchSnippet } from '../../../util/search-snippet'
 
-export type SpecSearchField = 'id' | 'title' | 'summary' | 'description' | 'label' | 'nonGoal' | 'addendum' | 'comment'
+export type SpecSearchField = 'id' | 'title' | 'summary' | 'description' | 'label' | 'nonGoal' | 'intent' | 'addendum' | 'comment'
 
 export interface SpecSearchHit {
   id: number
@@ -69,6 +69,12 @@ function candidates(ticket: Ticket): Candidate[] {
   if (ticket.description) out.push({ field: 'description', text: ticket.description })
   for (const label of ticket.labels ?? []) out.push({ field: 'label', text: label })
   for (const goal of ticket.nonGoals ?? []) out.push({ field: 'nonGoal', text: goal })
+  if (ticket.intent) {
+    const { problem, outcome, hypothesis, successSignals, affects, constraints, openQuestions } = ticket.intent
+    for (const text of [problem, outcome, hypothesis ?? '', ...successSignals, ...affects, ...constraints, ...openQuestions.flatMap((item) => [item.question, item.answer ?? ''])]) {
+      if (text) out.push({ field: 'intent', text })
+    }
+  }
   for (const addendum of ticket.addenda ?? []) {
     out.push({ field: 'addendum', text: addendum.title })
     out.push({ field: 'addendum', text: addendum.body })
@@ -78,7 +84,7 @@ function candidates(ticket: Ticket): Candidate[] {
 }
 
 const FIELD_RANK: Record<SpecSearchField, number> = {
-  id: 0, title: 1, summary: 2, label: 3, description: 4, nonGoal: 5, addendum: 6, comment: 7,
+  id: 0, title: 1, summary: 2, label: 3, description: 4, nonGoal: 5, intent: 5, addendum: 6, comment: 7,
 }
 
 export function searchSpecs(tickets: readonly Ticket[], rawQuery: string, limit = SPEC_SEARCH_DEFAULT_LIMIT): SpecSearchHit[] {

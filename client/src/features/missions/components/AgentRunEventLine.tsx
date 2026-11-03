@@ -1,7 +1,7 @@
 // ─── History event line ───────────────────────────────────────────────────────
 // What HAPPENED to a run (or to the mission's mode), as one compact line in its
 // chronological slot: "Launched on Rail 1 · #249", "Failed while deriving the
-// spec", "Back to Flow", "Entered Flow · feat/…". Never the live state — that
+// spec", "Back to Intent", "Entered Intent · feat/…". Never the live state — that
 // is the run strip's job. A line can open its run (the strip panel when live)
 // or expand its settled card in place.
 
@@ -16,7 +16,7 @@ const ICON_TONE: Readonly<Record<RunEventTone, string>> = Object.freeze({
   failed: 'text-destructive',
   warning: 'text-accent-warning',
   success: 'text-accent-success',
-  flow: 'text-accent-flow',
+  flow: 'text-accent-intent',
 })
 
 export interface AgentRunEventLineProps {

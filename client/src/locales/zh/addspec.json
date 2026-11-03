@@ -5,6 +5,9 @@
     "engineAriaLabel": "此 spec 使用的 AI 引擎",
     "modeTablistLabel": "Spec 创建模式",
     "mode": {
+      "intent": "Intent",
+      "intentHint": "先说问题",
+      "default": "默认",
       "quick": "Quick",
       "explore": "Explore",
       "raw": "Raw",
@@ -13,14 +16,26 @@
       "quickUnavailable": "Kimi 不可用"
     },
     "modeDescription": {
+      "intent": "描述问题、谁遇到它以及如何判断已解决。AI 先写出 Intent,再据此推导规格供你审阅。",
       "quick": "描述功能或改动。可附上原型图、简报或数据以提供更多上下文。",
       "explore": "描述一个粗略的想法。所选 AI 助手会通过对话帮你打磨——由你决定何时提交。",
-      "raw": "你的 prompt 原样保存为 规格。现在不运行 AI；拖到 rail 上即可开始构建。"
+      "raw": "你的 prompt 原样保存为 规格。现在不运行 AI；拖到 rail 上即可开始构建。之后可以从规格中添加 Intent。"
     },
     "editorPlaceholder": {
+      "intent": "例如:新用户在看到任何功能运行之前就被要求提供 API 密钥,因此放弃设置。当大多数人在 2 分钟内完成设置时,就算解决了……",
       "quick": "例如：在设置页添加深色模式开关，并持久化用户偏好…",
       "explore": "例如：深色模式——还不确定开关放在哪里、偏好如何持久化…",
       "raw": "描述功能、改动或想法。支持 Markdown、图片和文件…"
+    },
+    "intentChips": {
+      "problem": "问题",
+      "affects": "影响对象",
+      "signal": "如何判断"
+    },
+    "intentScaffold": {
+      "problem": "问题：",
+      "affects": "影响对象：",
+      "signal": "我们将在以下情况确认有效："
     },
     "ideaAriaLabel": "Spec 想法",
     "raw": {
@@ -46,6 +61,7 @@
       "responsiveSizes_other": "响应式 · {{count}} 个尺寸"
     },
     "submit": {
+      "intent": "编写 Intent 和规格",
       "quick": "生成 Spec",
       "explore": "继续",
       "raw": "创建",

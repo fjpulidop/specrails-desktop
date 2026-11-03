@@ -61,9 +61,9 @@
       "moveSpecN": "Sposta #{{id}} in",
       "openReview": "Apri la revisione",
       "openReviewN": "Apri la revisione di #{{id}}",
-      "handOffFlow": "Consegna il Flow",
-      "pauseFlow": "Metti in pausa il Flow",
-      "resumeFlow": "Riprendi il Flow",
+      "handOffFlow": "Consegna l’Intent",
+      "pauseFlow": "Metti in pausa l’Intent",
+      "resumeFlow": "Riprendi l’Intent",
       "newMission": "Nuova missione",
       "switchTheme": "Cambia tema",
       "switchToMission": "Passa alla modalità Missione",
@@ -197,6 +197,7 @@
         "description": "Descrizione",
         "label": "Etichetta",
         "nonGoal": "Fuori ambito",
+        "intent": "Intent",
         "addendum": "Addendum",
         "comment": "Commento"
       }
@@ -288,7 +289,7 @@
         },
         "prePrompt": {
           "label": "Pre-prompt del rail",
-          "keywords": "pre-prompt, preprompt, istruzioni, prompt, rail, freestyle"
+          "keywords": "pre-prompt, preprompt, istruzioni, prompt, rail"
         },
         "verificationCommands": {
           "label": "Comandi di verifica",
@@ -411,8 +412,8 @@
       "runStripFocus": "Vai alla striscia delle esecuzioni della missione (premi di nuovo per mostrare o nascondere i dettagli)",
       "runStripCycle": "Esecuzione precedente / successiva nella striscia (fuori dai campi di testo)",
       "runStripBack": "Esci dalla striscia delle esecuzioni e torna dov'eri",
-      "flowPause": "Sospendi o riprendi il Flow (striscia delle esecuzioni attiva)",
-      "flowHandOff": "Affida il Flow (striscia delle esecuzioni attiva)",
+      "flowPause": "Sospendi o riprendi l’Intent (striscia delle esecuzioni attiva)",
+      "flowHandOff": "Affida l’Intent (striscia delle esecuzioni attiva)",
       "historyBackForward": "Torna indietro / vai avanti al luogo precedente o successivo",
       "undoLast": "Annulla l'ultima modifica",
       "openInbox": "Apri Da gestire",

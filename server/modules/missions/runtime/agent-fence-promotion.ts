@@ -1,6 +1,6 @@
 // ─── Protocol fence promotion (small-model tolerance) ─────────────────────────
 // The operator protocol asks for fenced blocks tagged EXACTLY `options`,
-// `problem-frame`, `spec-draft`, `rail-launch` and `flow-offer`. Small / local models routinely emit the
+// `intent-draft`, `problem-frame`, `spec-draft`, `rail-launch` and `flow-offer`. Small / local models routinely emit the
 // right JSON under a generic ```json (or bare ```) fence instead, which the
 // strict parsers ignore — so no chips, no framing card, and commit_draft then
 // refuses because no frame was ever registered. This pass re-tags a CLOSED
@@ -10,7 +10,7 @@
 
 const GENERIC_FENCE_RE = /```(?:json|jsonc|JSON)?[^\S\n]*\n([\s\S]*?)\n[^\S\n]*```/g
 
-type Shape = 'options' | 'problem-frame' | 'spec-draft' | 'rail-launch' | 'flow-offer'
+type Shape = 'options' | 'intent-draft' | 'problem-frame' | 'spec-draft' | 'rail-launch' | 'flow-offer'
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === 'object' && !Array.isArray(v)
@@ -23,8 +23,10 @@ export function detectProtocolShape(value: unknown): Shape | null {
     return value.every((s) => typeof s === 'string' && s.trim() && s.trim().length <= 80) ? 'options' : null
   }
   if (!isRecord(value)) return null
+  // intent-mode: an intent (problem + outcome) with its two readings.
+  if (typeof value.problem === 'string' && typeof value.outcome === 'string' && isRecord(value.readings)) return 'intent-draft'
   if (isRecord(value.restated) && isRecord(value.alternative) && typeof value.discriminator === 'string') return 'problem-frame'
-  // flow-mode: the Flow-or-Implement offer = an idea plus its neutral reason
+  // flow-mode: the Intent-or-Implement offer = an idea plus its neutral reason
   // (older offers carried a `recommended` mode instead; still recognized).
   // An offer for an existing spec carries its numeric `ticketId` (the reason may be omitted).
   if (typeof value.idea === 'string' && typeof value.ticketId === 'number' && !('description' in value)) return 'flow-offer'

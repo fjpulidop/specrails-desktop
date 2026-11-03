@@ -8,7 +8,8 @@ const TIERS: { level: AgentTierLevel; key: string; icon: typeof Eye; tone: strin
   { level: 0, key: 'observe', icon: Eye, tone: 'text-muted-foreground', bar: 'bg-accent-info' },
   { level: 1, key: 'edit', icon: Pencil, tone: 'text-accent-info', bar: 'bg-accent-info' },
   { level: 2, key: 'operate', icon: Zap, tone: 'text-accent-warning', bar: 'bg-accent-warning' },
-  { level: 3, key: 'autonomous', icon: Flame, tone: 'text-accent-warning', bar: 'bg-accent-warning' },
+  // Amber is cost (Operate). Autonomous is the irreversible step: the destructive token.
+  { level: 3, key: 'autonomous', icon: Flame, tone: 'text-destructive', bar: 'bg-destructive' },
 ]
 
 interface Props {
@@ -59,6 +60,10 @@ export function AgentTierChip({ level, onCycle, compact = false }: Props) {
         <span className={compact ? 'hidden @min-[640px]:inline' : undefined}>{t(`tier.${tier.key}.name`)}</span>
       </motion.span>
       {!compact && ladder(false)}
+      {/* Cycling never moves focus, so the new level is announced here (WCAG 4.1.3). */}
+      <span role="status" aria-live="polite" className="sr-only" data-testid="agent-tier-status">
+        {t(`tier.${tier.key}.name`)}
+      </span>
     </button>
   )
 }

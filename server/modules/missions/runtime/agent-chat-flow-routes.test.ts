@@ -8,7 +8,7 @@ import { createAgentConversation } from '../../agents/runtime/agent-store'
 import type { AgentChatManager } from './agent-chat-manager'
 import { createAgentChatRouter } from './agent-chat-router'
 
-describe('mission send with Flow interrupt delivery', () => {
+describe('mission send with Intent interrupt delivery', () => {
   let db: DbInstance
   let conversationId: string
   let flowActive: boolean
@@ -35,14 +35,14 @@ describe('mission send with Flow interrupt delivery', () => {
     sendMessage = vi.fn(async () => {})
   })
 
-  it('admits interrupt in an active Flow as a native steer and echoes interrupt', async () => {
+  it('admits interrupt in an active Intent as a native steer and echoes interrupt', async () => {
     const response = await request(app()).post(`/api/agent/conversations/${conversationId}/send`).send({ text: 'use blue', deliveryMode: 'interrupt' })
     expect(response.status).toBe(202)
     expect(response.body).toMatchObject({ accepted: true, queued: true, deliveryMode: 'interrupt' })
     expect(sendMessage).toHaveBeenCalledWith(conversationId, 'use blue', expect.objectContaining({ deliveryMode: 'steer' }))
   })
 
-  it('refuses interrupt outside Flow and keeps queue/steer unchanged', async () => {
+  it('refuses interrupt outside Intent and keeps queue/steer unchanged', async () => {
     flowActive = false
     const refused = await request(app()).post(`/api/agent/conversations/${conversationId}/send`).send({ text: 'x', deliveryMode: 'interrupt' })
     expect(refused.status).toBe(409)

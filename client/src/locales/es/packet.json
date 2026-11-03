@@ -39,7 +39,7 @@
     "prompt": "¿Qué quieres cambiar?",
     "placeholder": "p. ej. pon el botón de login en azul",
     "submit": "Enviar el cambio",
-    "hint": "Quick SDD aplica el cambio sobre la rama existente y actualiza esta entrega."
+    "hint": "Implement aplica el cambio sobre la rama existente y actualiza esta entrega."
   },
   "discard": {
     "label": "Tirar esto",
@@ -190,8 +190,8 @@
     "unexplainedTitle_other": "{{count}} ficheros cambiados sin explicar",
     "more_one": "…y {{count}} fichero más",
     "more_other": "…y {{count}} ficheros más",
-    "unavailable": "No se pudo leer el informe de derivación de esta entrega Flow. Revisa el diff directamente.",
-    "rewriteFailed": "No se pudo reescribir la spec a partir del cambio derivado; conserva su borrador de Flow. El cambio OpenSpec sigue siendo el registro técnico."
+    "unavailable": "No se pudo leer el informe de derivación de esta entrega Intent. Revisa el diff directamente.",
+    "rewriteFailed": "No se pudo reescribir la spec a partir del cambio derivado; conserva su borrador de Intent. El cambio OpenSpec sigue siendo el registro técnico."
   },
   "brief": {
     "title": "Qué mirar",

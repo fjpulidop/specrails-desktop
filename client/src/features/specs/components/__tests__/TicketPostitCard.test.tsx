@@ -295,4 +295,53 @@ describe('TicketPostitCard selection (CD4)', () => {
     expect(document.querySelector('[data-ticket-id="42"]')).toHaveAttribute('role', 'button')
     expect(screen.queryByTestId('spec-select-42')).toBeNull()
   })
+
+  describe('intent badges (intent-mode, post-it tier)', () => {
+    const intent = (answers: Array<string | undefined>) => ({
+      problem: 'P', outcome: 'O', successSignals: [], affects: [], constraints: [],
+      openQuestions: answers.map((answer, i) => (answer ? { question: `Q${i}`, answer } : { question: `Q${i}` })),
+    })
+
+    it('shows the compass open-questions count and hides it once all are answered', () => {
+      const { rerender } = render(
+        wrap(<TicketPostitCard ticket={makeTicket({ intent: intent([undefined, 'yes', undefined]) })} rails={makeRails()} onClick={() => {}} onMoveToRail={() => {}} />),
+      )
+      const badge = screen.getByTestId('intent-open-badge-42')
+      expect(badge).toHaveTextContent('2')
+      expect(badge).toHaveAttribute('title', '2 open questions in the intent')
+      expect(badge.className).toContain('text-accent-intent')
+      rerender(wrap(<TicketPostitCard ticket={makeTicket({ intent: intent(['yes']) })} rails={makeRails()} onClick={() => {}} onMoveToRail={() => {}} />))
+      expect(screen.queryByTestId('intent-open-badge-42')).toBeNull()
+    })
+
+    it('shows the "In Intent" badge and opens the mission conversation', () => {
+      const onOpenFlow = vi.fn()
+      const onClick = vi.fn()
+      render(
+        wrap(
+          <TicketPostitCard
+            ticket={makeTicket({ metadata: { flow: { state: 'active', conversationId: 'conv-1' } } })}
+            rails={makeRails()}
+            onClick={onClick}
+            onMoveToRail={() => {}}
+            onOpenFlow={onOpenFlow}
+          />,
+        ),
+      )
+      const badge = screen.getByTestId('flow-badge-42')
+      expect(badge).toHaveTextContent('In Intent')
+      expect(badge.className).toContain('text-accent-intent')
+      fireEvent.click(badge)
+      expect(onOpenFlow).toHaveBeenCalledWith('conv-1')
+      expect(onClick).not.toHaveBeenCalled()
+      // The mission owns the spec while it is explored: no rail move offered.
+      expect(screen.queryByTestId('move-to-rail-button')).toBeNull()
+    })
+
+    it('renders no intent badges for a plain spec', () => {
+      render(wrap(<TicketPostitCard ticket={makeTicket()} rails={makeRails()} onClick={() => {}} onMoveToRail={() => {}} />))
+      expect(screen.queryByTestId('intent-open-badge-42')).toBeNull()
+      expect(screen.queryByTestId('flow-badge-42')).toBeNull()
+    })
+  })
 })

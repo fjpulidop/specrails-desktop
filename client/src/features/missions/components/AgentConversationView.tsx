@@ -4,6 +4,7 @@ import { isLocalEngineId } from '../../providers/lib/provider-capabilities'
 import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '../lib/mission-view-state'
 import { ArrowDown, ExternalLink } from 'lucide-react'
 import { Suspense, lazy, memo, startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { latestSettledIntentMessageId } from './agent-intent-draft'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
@@ -201,6 +202,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // transcript follows as an interruptible low-priority render (windowed to the
   // newest rows, then backfilled) so a long history never blocks the switch.
   const messages = useDeferredValue(committedMessages, NO_ROWS)
+  // See latestSettledIntentMessageId: the newest agreed intent card keeps its
+  // Explore/Delegate paths across the user's own follow-ups.
+  const latestSettledIntentId = useMemo(() => latestSettledIntentMessageId(messages), [messages])
   const cycleTier = useGuardedTierCycle()
   // Execution-log modal (opened from the activity chip). While streaming it
   // shows the LIVE turn's tools; after settle it keeps showing the finished
@@ -260,7 +264,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // deliveries show in the run strip above the composer; their history slot
   // renders a one-line "launched" event instead.
   const prCards = useMemo(() => derivePrCards(messages), [messages])
-  // Agent turns produced while the conversation was in Flow (between boundaries).
+  // Agent turns produced while the conversation was in Intent (between boundaries).
   const flowTurns = useMemo(() => flowTurnMessageIds(messages), [messages])
   const extensionTurnMark = useMissionTurnMark()
   const turnMark = useMemo<MissionModeBadge>(() => extensionTurnMark ?? { label: t('flowBoundary.turnMark') }, [extensionTurnMark, t])
@@ -414,9 +418,12 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     return extractAgentOptions(content).options ?? null
   }, [lastMessage, active?.provider])
 
-  // Shift+Tab anywhere in the view (incl. the composer) cycles the tier ladder.
+  // Shift+Tab on the view's controls cycles the tier ladder. Inside the text
+  // editor it stays reverse focus navigation (a11y): the editor is excluded.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.shiftKey && (e.key === 'Tab' || e.code === 'Tab')) {
+      const target = e.target as HTMLElement | null
+      if (target && (target.isContentEditable || target.closest('[role="textbox"], textarea, input'))) return
       e.preventDefault()
       e.stopPropagation()
       cycleTier()
@@ -434,7 +441,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     }
   }
 
-  // Mission extensions (Flow mode): surface attributes + a dock above the composer.
+  // Mission extensions (IntentSession mode): surface attributes + a dock above the composer.
   const conversationMode = useMissionConversationMode(active?.id ?? null, refsProjectId)
   // One stable handler for every row (rows are memoised): reads the latest state.
   const pickRef = useRef<(option: string) => void>(() => {})
@@ -515,13 +522,13 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                   return <AgentRunFailureMarker key={m.id} row={failure} conversationId={m.conversation_id} envelope={failedEnvelope} />
                 }
               }
-              // Back to Flow: what the reviewer asked for (server-authored, once per delivery).
+              // Back to Intent: what the reviewer asked for (server-authored, once per delivery).
               const flowReturn = parseFlowReturnBriefingRow(m.content)
               if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} conversationId={m.conversation_id} />
-              // Flow delivered: the closing summary (server-authored, once per Flow).
+              // Intent delivered: the closing summary (server-authored, once per Intent).
               const flowDelivered = parseFlowDeliveredRow(m.content)
-              if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} />
-              // Entered / left Flow: one event line at the boundary.
+              if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} projectId={refsProjectId} conversationId={m.conversation_id} />
+              // Entered / left Intent: one event line at the boundary.
               const flowBoundary = parseFlowBoundaryRow(m.content)
               if (flowBoundary) return <AgentFlowBoundaryLine key={m.id} row={flowBoundary} />
               const envelope = prCards.byMessageId.get(m.id)
@@ -538,7 +545,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               if (isPrEnvelopePinned(envelope)) {
                 return <AgentRunLaunchedLine key={m.id} envelope={envelope} conversationId={m.conversation_id} />
               }
-              // A settled Flow → Spec run: its outcome line (the Flow's closing
+              // A settled Intent → Spec run: its outcome line (the Intent's closing
               // summary is the full card of that story); expands in place.
               if (envelope.loopId === FLOW_SPEC_LOOP_ID) {
                 return <AgentSettledRunLine key={m.id} envelope={envelope} conversationId={m.conversation_id} />
@@ -567,11 +574,12 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 modeMark={flowTurns.has(m.id) ? turnMark : null}
                 // Option chips are clickable only on the newest settled message —
                 // a streaming turn suppresses them everywhere, except in a mode
-                // that interrupts while busy (Flow): there a pick cuts the turn.
+                // that interrupts while busy (IntentSession): there a pick cuts the turn.
                 isLast={(!isStreaming || !!conversationMode?.interruptWhileBusy) && i === messages.length - 1}
                 // Problem-frame readings stay affordable (but disabled) while a
                 // turn streams, so the card doesn't silently go static mid-turn.
                 isLatest={i === messages.length - 1}
+                isLatestSettledIntent={m.id === latestSettledIntentId}
                 // Only the newest rows act on "a turn is in flight" (frame readings, extension
                 // cards): older rows keep a constant prop so a turn starting or ending does not
                 // re-render (re-parse) the whole transcript.
@@ -653,7 +661,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
         </div>
 
         {/* The run strip: the ONE live view of this mission's runs (launch
-            proposals, deliveries, the extension's Flow). Its panel opens the
+            proposals, deliveries, the extension's Intent). Its panel opens the
             run's full card above it, over the conversation. */}
         <AnimatePresence initial={false}>
           {active && (

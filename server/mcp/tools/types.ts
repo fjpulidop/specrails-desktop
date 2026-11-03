@@ -178,7 +178,7 @@ export interface McpToolSpec {
   /**
    * In-app agent turns only: true when this call is admitted although the
    * conversation's permission ladder is below the action's tier, because the
-   * user already granted that scope elsewhere (an active Flow grants write and
+   * user already granted that scope elsewhere (an active Intent grants write and
    * execution in its worktree). Never consulted for external MCP clients, whose
    * tiers stay governed by Settings ▸ MCP. Must not throw.
    */

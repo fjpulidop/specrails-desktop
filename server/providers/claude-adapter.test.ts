@@ -96,10 +96,12 @@ describe('claudeAdapter._resolveClaudeSpawnModel', () => {
   })
   it('leaves unpinned aliases untouched', () => {
     expect(_resolveClaudeSpawnModel('sonnet')).toBe('claude-sonnet-5-5')
-    // Haiku is pinned to 5.5 like Sonnet and Opus; Fable stays on the CLI alias.
+    // Haiku is pinned to 5.5 like Sonnet and Opus; Fable pins to 5.1.
     expect(_resolveClaudeSpawnModel('haiku')).toBe('claude-haiku-5-5')
     expect(_resolveClaudeSpawnModel('claude-haiku-5-5')).toBe('claude-haiku-5-5')
-    expect(_resolveClaudeSpawnModel('fable')).toBe('fable')
+    expect(_resolveClaudeSpawnModel('fable')).toBe('claude-fable-5-1')
+    expect(_resolveClaudeSpawnModel('claude-fable-5-1')).toBe('claude-fable-5-1')
+    expect(_resolveClaudeSpawnModel('claude-fable-5')).toBe('claude-fable-5-1')
   })
   it('passes an unknown concrete id through unchanged', () => {
     expect(_resolveClaudeSpawnModel('claude-something-9')).toBe('claude-something-9')

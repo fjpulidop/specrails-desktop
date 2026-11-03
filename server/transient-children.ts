@@ -23,7 +23,7 @@ export interface BackgroundProcess {
   projectId: string
   repositoryId?: string
   repositoryName?: string
-  /** The Flow whose worktree this process runs in (stopped when the Flow pauses, ends or is handed off). */
+  /** The Intent whose worktree this process runs in (stopped when the Intent pauses, ends or is handed off). */
   flowId?: string
   stopRequestedAt?: number
   endedAt?: number
@@ -627,7 +627,7 @@ export async function awaitBackgroundProcessesStopped(timeoutMs = 6000): Promise
   return stopRecordsAndWait(() => true, timeoutMs)
 }
 
-/** Stop every live process of a Flow (its worktree is about to be frozen,
+/** Stop every live process of an Intent session (its worktree is about to be frozen,
  * removed or handed to a rail) and wait, bounded, for them to exit. Returns
  * how many were asked to stop and those still unresolved at the deadline. */
 export async function stopBackgroundProcessesForFlow(flowId: string, projectId: string, timeoutMs = 4000): Promise<{ stopped: number; unresolved: BackgroundProcess[] }> {

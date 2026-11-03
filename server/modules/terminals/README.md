@@ -13,14 +13,14 @@ running processes on read (REST, mission MCP tools, WS events). The operator
 prompt asks the user before launching a dev server exposed on the local network
 (the framework's own host flag); nothing here binds or proxies ports.
 
-## Flow apps
+## Intent apps
 
-Inside an active Flow the mission MCP starts background processes in the Flow
+Inside an active Intent the mission MCP starts background processes in the Intent
 worktree and tags them with `flowId` (`BackgroundProcess.flowId`, persisted in
 the history metadata). `stopBackgroundProcessesForFlow` (transient children)
-stops them, with a bounded wait, when the Flow pauses, is discarded or handed
+stops them, with a bounded wait, when the Intent pauses, is discarded or handed
 off. `resolveBackgroundCwd` takes the root's name for its refusal. See
-[Flow mode › Running the app](../../../docs/internals/flow-mode.md#running-the-app).
+[Intent mode › Running the app](../../../docs/internals/intent-mode.md#running-the-app).
 
 ## Reviewed public entry points
 

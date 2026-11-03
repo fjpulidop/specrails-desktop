@@ -67,9 +67,9 @@ export type PrDeliveryStatusCode =
   | 'discarded'
   | 'superseded'
   | 'cleanup_incomplete'
-  /** Flow → Spec ended because the reviewer (or the checks) still requested changes after the bounded repair rounds. */
+  /** Intent → Spec ended because the reviewer (or the checks) still requested changes after the bounded repair rounds. */
   | 'review_changes_requested'
-  /** The adopted Flow worktree went back to its Flow ("Back to Flow"); this delivery is closed. */
+  /** The adopted Intent worktree went back to its Intent ("Back to Intent"); this delivery is closed. */
   | 'returned_to_flow'
   /** Integrated locally, but re-applying the person's stashed uncommitted work conflicted; the stash is kept. */
   | 'local_changes_attention'

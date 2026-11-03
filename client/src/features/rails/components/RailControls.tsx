@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../components/ui/button'
 
-export type RailMode = 'implement' | 'freestyle' | 'loop'
+export type RailMode = 'implement' | 'loop'
 export type RailStatus = 'idle' | 'running' | 'failed'
 
 interface RailControlsProps {
@@ -11,9 +11,6 @@ interface RailControlsProps {
   status: RailStatus
   activeJobId?: string
   ticketCount: number
-  /** When true, show Freestyle. It bypasses the OpenSpec pipeline and lets the
-   *  selected capable provider implement the spec autonomously. */
-  freestyleAvailable?: boolean
   /** When true, show the "Loop" segment (runs a published global loop against
    *  the rail's specs). Gated by FEATURE_LOOPS_SECTION at the call site. */
   loopAvailable?: boolean
@@ -47,9 +44,7 @@ export function RailControls({ status, activeJobId, ticketCount, onToggle, launc
 
       {/* The rail's Loop picker (factory + custom loops) lives in RailRow and
           replaces the old mode segmented control — the chosen Loop derives the
-          legacy `mode`. RailControls keeps Log / Play. (The old per-rail
-          "Interactive" toggle is gone: Freestyle jobs are interactive by
-          default whenever the feature is enabled.) */}
+          legacy `mode`. RailControls keeps Log / Play. */}
 
       {/* Play / Stop / Failed toggle. A disabled button shows no tooltip in
           every webview, so a blocked Play carries its reason on a wrapper. */}

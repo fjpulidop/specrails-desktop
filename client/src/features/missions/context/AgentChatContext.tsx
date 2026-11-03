@@ -357,7 +357,7 @@ export interface AgentChatContextValue {
   /** null = not yet checked; false = no AI provider CLI is installed. */
   providersReady: boolean | null
 
-  /** `deliveryMode: 'interrupt'` (Flow mode only) cuts the running turn instead of queueing. */
+  /** `deliveryMode: 'interrupt'` (IntentSession mode only) cuts the running turn instead of queueing. */
   send: (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[]; queueId?: string; deliveryMode?: 'interrupt' }) => Promise<{ accepted: boolean; conversationId?: string }>
   abort: () => Promise<void>
   /** Edit a still-queued message in place (composer ↑/↓ queue navigation).
@@ -403,7 +403,7 @@ export interface AgentChatContextValue {
   /** Re-read the active mission's run cards now (a strip waiting on a run that
    *  has not shown yet; normally the WS events and the resync poll do it). */
   resyncRunCards?: () => void
-  /** An extension's live run (Flow) waits for the person or not: the same
+  /** An extension's live run (IntentSession) waits for the person or not: the same
    *  sidebar attention dot a delivery feeds (keyed by the strip entry). */
   reportRunAttention?: (conversationId: string, runKey: string, needsPerson: boolean | MissionAttentionKind) => void
   /** Apply the authoritative snapshot returned by a card action immediately;
@@ -748,7 +748,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return new Map(current).set(conversationId, keys)
     })
   }, [])
-  // An extension that derives its runs' attention app-wide (Flow, from its
+  // An extension that derives its runs' attention app-wide (IntentSession, from its
   // per-project watch) feeds the dot for every listed mission, open or not.
   const extensionAttention = useMissionRunAttention(conversations)
   const attentionKinds = useMemo<ReadonlyMap<string, MissionAttentionKind>>(() => {
@@ -1089,10 +1089,14 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         markUnread(convId)
         if (isActive) {
           const { type: _t, conversationId: _c, messageId, timestamp, ...row } = msg as unknown as { type: string; conversationId: string; messageId: string; timestamp: string } & Record<string, unknown>
-          if (typeof messageId === 'string' && !messagesRef.current.some((m) => m.id === messageId)) {
+          if (typeof messageId === 'string') {
             const systemRow: AgentMessage = { id: messageId, conversation_id: convId, role: 'system', content: JSON.stringify(row), created_at: typeof timestamp === 'string' ? timestamp : new Date().toISOString() }
-            messagesRef.current = [...messagesRef.current, systemRow]
-            setMessages((current) => (current.some((m) => m.id === messageId) ? current : [...current, systemRow]))
+            // A row re-broadcast with a known id was updated in place (the
+            // Intent delivered card filling in): replace it where it stands.
+            const upsert = (list: AgentMessage[]): AgentMessage[] =>
+              list.some((m) => m.id === messageId) ? list.map((m) => (m.id === messageId ? { ...m, content: systemRow.content } : m)) : [...list, systemRow]
+            messagesRef.current = upsert(messagesRef.current)
+            setMessages(upsert)
           }
         }
       } else if (msg.type === 'agent_pr_decision') {
@@ -1482,7 +1486,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
     // Busy sends wait for the next turn unless the user explicitly picks Steer.
     const wasBusy = liveStore.get(conv.id)?.isStreaming === true
-    // An interrupt is admitted as a native steer server-side (Flow mode).
+    // An interrupt is admitted as a native steer server-side (IntentSession mode).
     const interrupt = wasBusy && opts?.deliveryMode === 'interrupt'
     const pendingItem: AgentQueuedItem = { queueId, text: trimmed, contextRefs: opts?.contextRefs, attachmentIds: opts?.attachmentIds, deliveryMode: interrupt ? 'steer' : 'queue', deliveryReceipt: 'sent', timestamp: nowIso }
     if (wasBusy) {

@@ -28,7 +28,7 @@ describe('Core execution context', () => {
     expect(context).toMatchObject({ artifactRepositoryId: 'primary-project-123', repositories: [{ id: 'primary-project-123', path: front }] })
     expect(prepareCoreExecution(input).contextPath).toBe(prepared.contextPath)
   })
-  it('freezes a Flow reservation commit as the single repository change base (and ignores a malformed one)', () => {
+  it('freezes an Intent session reservation commit as the single repository change base (and ignores a malformed one)', () => {
     const { cwd, front } = fixture()
     const base = 'c'.repeat(40)
     const flow = prepareCoreExecution({ cwd, repoDir: front, env: {}, repositoryBaseSha: base, run: { runId: 'flow-run', projectId: 'p' } })

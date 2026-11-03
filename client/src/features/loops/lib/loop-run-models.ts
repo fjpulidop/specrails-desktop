@@ -12,14 +12,17 @@ export interface LoopRunModel {
 
 export const LOOP_RUN_MODELS: Record<string, LoopRunModel[]> = {
   claude: [
-    { value: 'sonnet', label: 'Sonnet 5.5' },
-    { value: 'fable', label: 'Fable 5.1' },
+    { value: 'sonnet', label: 'Claude Sonnet 5.5' },
+    { value: 'fable', label: 'Claude Fable 5.1' },
     { value: 'opus', label: 'Claude Opus 5.5' },
     { value: 'haiku', label: 'Claude Haiku 5.5' },
   ],
   codex: [
     { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },
+    { value: 'gpt-6.1-terra', label: 'GPT-6.1 Terra' },
     { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
+    { value: 'gpt-6-sol', label: 'GPT-6 Sol' },
+    { value: 'gpt-6-luna', label: 'GPT-6 Luna' },
     { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
     { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
     { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },

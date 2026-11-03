@@ -8,7 +8,7 @@
       "name": "bundled-core-stage",
       "version": "0.0.0",
       "dependencies": {
-        "specrails-core": "6.7.0"
+        "specrails-core": "6.7.1"
       }
     },
     "node_modules/@cfworker/json-schema": {
@@ -2095,9 +2095,9 @@
       }
     },
     "node_modules/specrails-core": {
-      "version": "6.7.0",
-      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-6.7.0.tgz",
-      "integrity": "sha512-pF1TWCHbDrFj+4mCO07MHyfqERZx/EXkPEzzfmHKNPVLh2vYTNIB4B8einik1+zNWSTaEe/858cyfpapmUvnGw==",
+      "version": "6.7.1",
+      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-6.7.1.tgz",
+      "integrity": "sha512-SsX0SlkyW31nPvFBO0cBSRvxu/8sLBhuGOKFp0vrGEesp2nbYT+GfbvP6t0hO5tkWJLyqGliPzSQtvFpLC2MoA==",
       "license": "MIT",
       "dependencies": {
         "@fission-ai/openspec": "1.14.3",

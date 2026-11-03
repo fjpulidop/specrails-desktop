@@ -46,8 +46,7 @@ export function railsTools(): McpToolSpec[] {
         'For on_review tickets with an already-open GitHub PR (including a published pr_ready delivery), launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
         'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider. On that same provider, an omitted model inherits the conversation model; an explicit model wins (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
         'For Implement, the selected launch provider applies to ALL runtime roles (architect, developer, reviewer); an explicit launch model/effort also applies to each role. Resuming an existing execution keeps its original frozen role configuration; start a new launch to change providers. ' +
-        'User-facing naming: call the free-form autonomous mode "Freestyle"; use "freestyle" as the canonical API enum value for that same capability. ' +
-        'Always honor an explicit workflow selection, including Implement for addenda or delivery changes. Without a preference, for small OpenSpec-governed work, recommend "SDD Quick (OpenSpec)" and launch with mode "loop" plus loopId "factory:sdd-quick-openspec"; keep Freestyle for ticket-local implementation-only work. ' +
+        'Implement is the only built-in workflow. Always honor an explicit workflow selection, including a published custom loop (mode "loop" plus its loopId). Without a preference, launch Implement; never invent or offer other workflows, and do not use the retired ids factory:freestyle / factory:sdd-quick-openspec or mode "freestyle" (the server answers builtin_loop_retired). ' +
         'NAMING: railIndex is the 0-BASED internal identity; the dashboard shows rails 1-based ("Rail N" = railIndex N-1). When talking to the user, ALWAYS say "Rail <railIndex + 1>" (or the rail\'s custom name) — results include railLabel with the correct user-facing label.',
       hintTier: 'read',
       tier: (a) => {
@@ -97,21 +96,21 @@ export function railsTools(): McpToolSpec[] {
           .describe('Rail display label (<=60 chars); null/empty clears to default (set_name). Also the optional initial name for create_rail.'),
         // launch
         mode: z
-          .enum(['implement', 'freestyle', 'loop'])
+          .enum(['implement', 'loop'])
           .optional()
-          .describe('Launch mode (launch; default "implement"). Implement runs all of the rail\'s tickets in one aggregate run; propose at most 3 specs per rail and split larger sets across rails. Use "freestyle" as the canonical API enum value for Freestyle. It invokes the selected provider\'s native free-form autonomous workflow (Claude, Codex, Gemini, Kimi and local engines; only Claude is interactive), one job per ticket. In prose, call it "Freestyle". Loop runs an app-driven loop per ticket.'),
+          .describe('Launch mode (launch; default "implement"). Implement runs all of the rail\'s tickets in one aggregate run; propose at most 3 specs per rail and split larger sets across rails. Loop runs the published loop given by loopId, one app-driven run per ticket.'),
         model: z
           .string()
           .optional()
-          .describe('Model for launch. Defaults to the launching conversation model when the engine matches; an explicit model wins. For Freestyle or loop mode, pass a model string valid for the selected installed provider; Kimi preserves configured model aliases. Freestyle availability is capability-gated by provider.'),
+          .describe('Model for launch. Defaults to the launching conversation model when the engine matches; an explicit model wins. For loop mode, pass a model string valid for the selected installed provider; Kimi preserves configured model aliases.'),
         interactive: z
           .boolean()
           .optional()
-          .describe('DEPRECATED — accepted and ignored: Freestyle jobs are interactive by default whenever the interactive-jobs feature is enabled'),
+          .describe('DEPRECATED — accepted and ignored: interactive jobs are decided by the server'),
         loopId: z
           .string()
           .optional()
-          .describe('Loop id to run (launch). Use "factory:sdd-quick-openspec" for SDD Quick (OpenSpec): small OpenSpec-governed work via mode="loop". Factory ids (e.g. "factory:implement") map to a legacy mode; a custom published loop id keeps mode="loop". Browse/author loops with specrails_loops; the loop must be Published.'),
+          .describe('Loop id to run (launch). Factory id "factory:implement" maps to mode "implement"; a custom published loop id (including loops the user added from the gallery, such as Freestyle or SDD Quick) keeps mode="loop". Browse/author loops with specrails_loops; the loop must be Published.'),
         reasoning_effort: z
           .enum(['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
           .optional()
@@ -125,7 +124,7 @@ export function railsTools(): McpToolSpec[] {
         revisionOfDeliveryId: z
           .string()
           .optional()
-          .describe('Revise a delivery that is ALREADY awaiting the user\'s decision (launch). Continues with the explicitly selected loop, defaulting to Quick SDD (the Revision loop is retired): pass its prDeliveryId (from rails.prDeliveries) together with revisionNote. Use it whenever the user asks for a change to work you already delivered — never publish/discard/merge first. The rail must still carry exactly that delivery\'s specs.'),
+          .describe('Revise a delivery that is ALREADY awaiting the user\'s decision (launch). Continues with the explicitly selected loop, defaulting to Implement (the Revision loop is retired): pass its prDeliveryId (from rails.prDeliveries) together with revisionNote. Use it whenever the user asks for a change to work you already delivered — never publish/discard/merge first. The rail must still carry exactly that delivery\'s specs.'),
         revisionNote: z
           .string()
           .optional()

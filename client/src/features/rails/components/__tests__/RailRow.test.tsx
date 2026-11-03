@@ -215,17 +215,23 @@ describe('RailRow', () => {
     })
   })
 
-  it('offers Kimi Freestyle with Kimi models and exact effort tiers', () => {
+  it('offers only Implement as a built-in on Kimi and shows no model selector for it', () => {
     renderRailRow({
       ...defaultProps,
-      mode: 'freestyle',
+      mode: 'implement',
       aiEngine: 'kimi',
       providers: ['kimi'],
-      onFreestyleModelChange: vi.fn(),
       onLoopChange: vi.fn(),
     } as any)
-    expect(screen.getByTestId('rail-model-selector')).toHaveValue('k3')
-    expect(screen.getByRole('option', { name: 'Freestyle' })).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-model-selector')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('loop-model-selector')).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Implement' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Freestyle' })).not.toBeInTheDocument()
+  })
+
+  it.each(['freestyle', 'sdd-quick-openspec', 'revision'])('reads a rail still selecting the retired factory:%s as Implement', (suffix) => {
+    renderRailRow({ ...defaultProps, aiEngine: 'claude', providers: ['claude'], mode: 'loop', selectedLoopId: `factory:${suffix}`, onLoopChange: vi.fn() } as any)
+    expect(screen.getByTestId('rail-loop-selector')).toHaveValue('factory:implement')
   })
 
   it('shows Kimi loop effort only while the effective model is K3', () => {
@@ -281,23 +287,24 @@ describe('RailRow spec triage preselection (launch-triage)', () => {
   const base = { ...defaultProps, aiEngine: 'claude', providers: ['claude'], loopAvailable: false, onLoopChange: vi.fn() }
 
   it('preselects the recommended loop and marks it while the rail has no explicit pick', () => {
-    renderRailRow({ ...base, tickets: [triaged(1, 'factory:freestyle')] } as any)
+    renderRailRow({ ...base, tickets: [triaged(1, 'factory:implement')] } as any)
     const selector = screen.getByTestId('rail-loop-selector')
-    expect(selector).toHaveValue('factory:freestyle')
+    expect(selector).toHaveValue('factory:implement')
     expect(selector).toHaveAttribute('data-recommended', 'true')
-    expect(within(selector).getByRole('option', { name: 'Freestyle · recommended' })).toBeInTheDocument()
+    expect(within(selector).getByRole('option', { name: 'Implement · recommended' })).toBeInTheDocument()
   })
 
   it('lets an explicit choice override the recommendation', () => {
-    renderRailRow({ ...base, selectedLoopId: 'factory:implement', tickets: [triaged(1, 'factory:freestyle')] } as any)
+    renderRailRow({ ...base, selectedLoopId: 'custom-loop', mode: 'loop', tickets: [triaged(1, 'factory:implement')] } as any)
     const selector = screen.getByTestId('rail-loop-selector')
-    expect(selector).toHaveValue('factory:implement')
     expect(selector).not.toHaveAttribute('data-recommended')
   })
 
-  it('never preselects a loop the picker does not offer', () => {
-    renderRailRow({ ...base, tickets: [triaged(1, 'factory:sdd-quick-openspec')] } as any)
-    expect(screen.getByTestId('rail-loop-selector')).toHaveValue('factory:implement')
+  it.each(['factory:freestyle', 'factory:sdd-quick-openspec'])('never preselects a retired loop a stale triage still recommends (%s)', (loop) => {
+    renderRailRow({ ...base, tickets: [triaged(1, loop)] } as any)
+    const selector = screen.getByTestId('rail-loop-selector')
+    expect(selector).toHaveValue('factory:implement')
+    expect(selector).not.toHaveAttribute('data-recommended')
   })
 })
 

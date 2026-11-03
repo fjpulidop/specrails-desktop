@@ -338,7 +338,17 @@ export function PlaceHistoryProvider({ children }: { children: ReactNode }) {
   const forwardTarget = forwardList[0] ? toTarget(forwardList[0]) : null
   const canBack = stack.findTarget(-1, keyOf) !== null
   const canForward = stack.findTarget(1, keyOf) !== null
-  const getCurrentEntryProjectId = useCallback(() => stack.current()?.projectId ?? null, [stack])
+  // An entry created before the project list resolved belongs to the first active
+  // project (see `adoptProject` above). Adopt it here too, so a consumer's effect
+  // that runs BEFORE this provider's own (children's effects run first) sees the
+  // owner instead of null: a `?spec=` deep link in Mission view otherwise closes
+  // its modal on the first project switch and never reopens it.
+  const getCurrentEntryProjectId = useCallback(() => {
+    const current = stack.current()
+    if (!current) return null
+    if (current.projectId === null && activeProjectRef.current) stack.adoptProject(activeProjectRef.current)
+    return current.projectId ?? null
+  }, [stack])
 
   const value = useMemo<PlaceHistoryValue>(() => ({
     canBack,

@@ -2,12 +2,14 @@
 
 当你已经清楚自己想要什么时，Quick 模式正合适。你输入想法，AI 写出完整的 spec，它就以 **待办** 状态落在你的看板上。不需要来回讨论——只管描述，然后开干。
 
+> **添加 Spec 默认以 Intent 模式打开。** Intent 的用法与 Quick 类似，但你描述的是*问题*（谁遇到了它、你想要的结果、如何判断它奏效了），而不是方案。AI 先写出 intent，再据此推导出 spec。参见 [Intent](../integrations/intent-mode#intent-mode)。想直接从你的想法得到 spec 时，请选择 **Quick**。
+
 ## 用 Quick 模式创建 spec
 
 要快速创建一份 spec：
 
 1. 在 Dashboard 上点击 **新建 Spec**（SpecsBoard 工具栏上的加号按钮）。
-2. 选择 **Quick** 模式。
+2. 选择 **Quick** 模式（添加 Spec 默认以 **Intent** 模式打开）。
 3. 在文本框里输入你的想法——一句话或一段话，能说清楚就行。
 4. 点击生成。
 

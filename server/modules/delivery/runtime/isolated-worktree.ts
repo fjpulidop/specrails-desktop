@@ -2,7 +2,7 @@
  * Isolated worktree preparation — the single machinery that turns a ticket into
  * a dedicated, run-ready checkout. Shared by the isolated rail launch (which
  * owns batching, PR continuation, delivery rows and the rail ledger) and any
- * other consumer that needs "one fresh worktree for this ticket" (Flow).
+ * other consumer that needs "one fresh worktree for this ticket" (Intent).
  *
  * `materializeIsolatedWorktree` is the lock-free core: create/reuse the mount,
  * verify its HEAD, apply the per-run framework overlay, link warm
@@ -86,9 +86,9 @@ export interface IsolatedWorktreeIO {
   snapshot?: typeof snapshotWorkingTree
 }
 
-/** `adopted`: a Flow worktree/branch the rail took over at hand-off. From the
+/** `adopted`: an Intent session worktree/branch the rail took over at hand-off. From the
  * adoption on the rail owns it fully, so release treats it like `created`;
- * allocation rollback never removes it (ownership returns to the Flow). */
+ * allocation rollback never removes it (ownership returns to the Intent). */
 export type IsolatedBranchOwnership = 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
 export type IsolatedWorktreeOwnership = 'created' | 'preexisting' | 'adopted'
 

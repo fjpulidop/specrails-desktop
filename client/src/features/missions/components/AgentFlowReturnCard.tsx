@@ -1,9 +1,9 @@
-// ─── Back to Flow: "What the reviewer asked for" / "Why Flow → Spec stopped" ──
-// A server-authored system row posted once when a Flow → Spec delivery goes
-// back to its Flow: the reviewer's verdict (issues, score, failing checks) and
+// ─── Back to Intent: "What the reviewer asked for" / "Why Intent → Spec stopped" ──
+// A server-authored system row posted once when an Intent session → Spec delivery goes
+// back to its Intent: the reviewer's verdict (issues, score, failing checks) and
 // the spec coverage of the change (files no requirement explains) — or, when
 // the run failed outright, the failure (rendered by the extension that owns
-// it). The Flow agent starts on it in the automatic turn that follows.
+// it). The Intent agent starts on it in the automatic turn that follows.
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -13,7 +13,7 @@ import { useMissionExtensions } from '../context/MissionExtensionsContext'
 import { AgentFlowReviewBlock } from './AgentFlowReviewBlock'
 import { AgentRunEventLine } from './AgentRunEventLine'
 
-export interface FlowReturnBriefingRow {
+export interface IntentReturnBriefingRow {
   kind: 'flow-return-briefing'
   flowId: string
   deliveryId: string
@@ -27,8 +27,8 @@ const VISIBLE_FILES = 5
 const str = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value : null)
 const count = (value: unknown): number => (typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0)
 
-/** Parse a system row; null when it is not a Back to Flow briefing card. */
-export function parseFlowReturnBriefingRow(content: string): FlowReturnBriefingRow | null {
+/** Parse a system row; null when it is not a Back to Intent briefing card. */
+export function parseFlowReturnBriefingRow(content: string): IntentReturnBriefingRow | null {
   if (!content.startsWith('{')) return null
   let o: Record<string, unknown>
   try { o = JSON.parse(content) as Record<string, unknown> } catch { return null }
@@ -57,11 +57,11 @@ export function parseFlowReturnBriefingRow(content: string): FlowReturnBriefingR
   }
 }
 
-export function AgentFlowReturnCard({ row, conversationId = null }: { row: FlowReturnBriefingRow; conversationId?: string | null }) {
+export function AgentFlowReturnCard({ row, conversationId = null }: { row: IntentReturnBriefingRow; conversationId?: string | null }) {
   const { t } = useTranslation('agent')
   const { RunFailureOutcome } = useMissionExtensions()
   const title = row.failure ? t('flowReturn.titleFailure') : t('flowReturn.title')
-  // A history event line ("Back to Flow"): what the reviewer asked for opens on demand.
+  // A history event line ("Back to Intent"): what the reviewer asked for opens on demand.
   const [open, setOpen] = useState(false)
   const [allFiles, setAllFiles] = useState(false)
   const derivation = row.derivation
@@ -106,7 +106,7 @@ export function AgentFlowReturnCard({ row, conversationId = null }: { row: FlowR
                     {files.map((file) => <li key={file} className="truncate font-mono text-caption text-muted-foreground" title={file}>{file}</li>)}
                   </ul>
                   {(hiddenFiles > 0 || allFiles) && derivation.unexplainedFiles.length > VISIBLE_FILES && (
-                    <button type="button" data-agent-interactive onClick={() => setAllFiles((value) => !value)} className="mt-1 text-caption font-medium text-accent-info hover:underline">
+                    <button type="button" data-agent-interactive onClick={() => setAllFiles((value) => !value)} className="mt-1 inline-flex min-h-6 items-center text-caption font-medium text-accent-info hover:underline">
                       {allFiles ? t('runCard.review.showLess') : t('runCard.review.showAll', { count: derivation.unexplainedFiles.length })}
                     </button>
                   )}

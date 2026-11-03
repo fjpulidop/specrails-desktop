@@ -91,7 +91,7 @@ describe('GET /budget/what-if', () => {
     expect(list.body.result).toBeNull()
     expect(list.body.sources).toEqual([expect.objectContaining({ provider: 'claude', model: 'sonnet', priced: true })])
     const priced = await request(app).get(`${url}?from=claude:sonnet&to=claude:haiku&days=30`)
-    expect(priced.body.result).toMatchObject({ estimateCurrentUsd: 2, estimateWhatIfUsd: 1, deltaUsd: -1, noPricing: null })
+    expect(priced.body.result).toMatchObject({ estimateCurrentUsd: 2, estimateWhatIfUsd: 0.5, deltaUsd: -1.5, noPricing: null })
     const unknown = await request(app).get(`${url}?from=claude:sonnet&to=codex:nope`)
     expect(unknown.body.result).toMatchObject({ deltaUsd: null, noPricing: { side: 'to', model: 'nope' } })
   })

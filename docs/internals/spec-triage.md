@@ -15,7 +15,7 @@ provider call is in
 ## Record
 
 The record lives in `ticket.metadata.triage`. It uses ticket store schema 1.5,
-the same version Flow uses. Core ignores it.
+the same version Intent uses. Core ignores it.
 
 ```json
 {
@@ -37,13 +37,12 @@ the same version Flow uses. Core ignores it.
 ```
 
 - `recommendedLoop` is always one of the loops offered to the triage. These are
-  the rail built-ins the primary engine can run (Implement, Freestyle when the
-  provider supports it, and SDD Quick when Loops are enabled), plus published
+  the rail built-ins the primary engine can run (Implement only), plus published
   spec-driven custom loops.
-- Flow is not a loop, and Flow and Implement never compete: the triage
-  recommends a loop and a size for Implement only and never ranks Flow against
+- Intent is not a loop, and Intent and Implement never compete: the triage
+  recommends a loop and a size for Implement only and never ranks Intent against
   Implement. Since prompt version 2 the model is not asked for a mode, a stray
-  `recommendedMode` in its answer is ignored, and Flow availability is not an
+  `recommendedMode` in its answer is ignored, and Intent availability is not an
   input. Records written by version 1 may still carry `recommendedMode`; it
   stays readable for compatibility, and no surface shows it.
 - `costUsd` is the cost the provider reported, or the priced cost. It is `null`
@@ -94,8 +93,8 @@ The model must answer with one JSON object. The parser repairs what it can:
 - It drops absolute paths and paths that climb out with `..`.
 - It bounds the rationale.
 
-An unknown loop falls back to a size rule, XS or S ⇒ SDD Quick when offered,
-else Implement, and the confidence drops to `low`. With no JSON object or an
+An unknown loop falls back to a size rule, Implement when offered,
+else the first offered loop, and the confidence drops to `low`. With no JSON object or an
 invalid size, the triage is stored as `failed`.
 
 ## Triggers
@@ -108,7 +107,7 @@ signatures are seeded when the project opens, so the existing backlog is not
 triaged in bulk. Those specs show a hover-only **Triage** action on their card
 instead. Triages run one at a time per project.
 
-Cancelled specs, epics and Flow-held specs are never triaged. The kill switch
+Cancelled specs, epics and Intent-held specs are never triaged. The kill switch
 `SPECRAILS_SPEC_TRIAGE=false` stops the automatic triggers.
 
 ## UI
@@ -116,7 +115,7 @@ Cancelled specs, epics and Flow-held specs are never triaged. The kill switch
 - **Spec card chip:** shows size · recommended loop · confidence. The tooltip
   shows the rationale, the impact flags, the likely files, the model and cost,
   and **Recalculate** (`POST /tickets/:id/triage`). It never shows a mode: no
-  "Flow suggested" hint, because Flow and Implement never compete.
+  "Intent suggested" hint, because Intent and Implement never compete.
 - **Rail header:** when the rail has no explicit loop and is on its default mode,
   it preselects the recommended loop of its first triaged spec. This happens
   only if the picker offers that loop, and the option is marked "recommended".

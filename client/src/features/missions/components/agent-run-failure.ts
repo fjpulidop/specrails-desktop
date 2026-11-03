@@ -58,9 +58,9 @@ export function systemBriefingRunId(message: Pick<AgentMessage, 'role' | 'contex
 
 // ── Focus bus ─────────────────────────────────────────────────────────────────
 // Dispatched by: the history's event lines (launched, failed), the launch
-// card's launched stub ("Go to card"), the Flow offer's "View run". Listened
+// card's launched stub ("Go to card"), the Intent offer's "View run". Listened
 // by: the run strip, which shows the matching live run and opens its panel
-// (a hidden card cannot take focus) and re-dispatches; a settled Flow → Spec
+// (a hidden card cannot take focus) and re-dispatches; a settled Intent → Spec
 // event line, which expands its card and re-dispatches; and every mounted
 // AgentPrDecisionCard, which scrolls itself into view, takes keyboard focus
 // and pulses when it matches.

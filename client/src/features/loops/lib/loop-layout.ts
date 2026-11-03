@@ -1,6 +1,6 @@
 /**
  * Pure auto-layout for the loop builder canvas. Kept out of the React component
- * so it is unit-testable without rendering React Flow.
+ * so it is unit-testable without rendering React Intent.
  *
  * The loop graphs are small (≤ ~10 nodes) and essentially layered (a spine with
  * one loop-back), so a dependency-free BFS layering is plenty — no dagre/elk.
@@ -49,7 +49,7 @@ function rankFromStart(nodes: Node<LoopNodeData>[], edges: MiniEdge[]): Map<stri
 }
 
 /** Recompute node positions for the given mode. Returns NEW node objects (the
- *  React Flow nodes array is replaced; edges are untouched). */
+ *  React Intent nodes array is replaced; edges are untouched). */
 export function layoutLoop(
   nodes: Node<LoopNodeData>[],
   edges: MiniEdge[],
@@ -80,7 +80,7 @@ export function layoutLoop(
       out.push({ ...n, position })
     })
   }
-  // Preserve the caller's node order (React Flow keys by id, but keeping order
+  // Preserve the caller's node order (React Intent keys by id, but keeping order
   // avoids needless reconciliation churn).
   const indexById = new Map(nodes.map((n, i) => [n.id, i]))
   return out.sort((a, b) => (indexById.get(a.id) ?? 0) - (indexById.get(b.id) ?? 0))

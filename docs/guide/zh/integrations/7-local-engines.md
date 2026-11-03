@@ -15,7 +15,7 @@
 
 ## 你将获得
 
-- Rails（implement、freestyle、自定义 loop）、Explore 与 Quick spec、聊天和任务都在本地模型上运行。
+- Rails（implement、自定义 loop）、Explore 与 Quick spec、聊天和任务都在本地模型上运行。
 - 任务保留 Specrails 工具和你的外部 MCP 服务器。
 - 会话可跨轮次恢复；交互式 job 可用。
 - 成本诚实：记录 token，除非你填写费率，否则成本显示为*未知*（填写后标记为*估算*）。
@@ -26,7 +26,7 @@
 
 ## 选择模型
 
-质量取决于模型而非 Specrails。运行 rails 请使用 30B 参数以上、针对工具调用调优的代码模型；较小的 instruct 模型足以应对聊天、Explore 和 Quick spec。将完整的 implement rail 交给新模型之前，先试试 **Freestyle** 或一次 Explore 会话。
+质量取决于模型而非 Specrails。运行 rails 请使用 30B 参数以上、针对工具调用调优的代码模型；较小的 instruct 模型足以应对聊天、Explore 和 Quick spec。将完整的 implement rail 交给新模型之前，先试试一次 Explore 会话。
 
 ## 关闭
 

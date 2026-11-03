@@ -13,7 +13,7 @@
     "agentStudio": "エージェントスタジオ",
     "setup": "セットアップ",
     "triage": "トリアージ",
-    "flow": "Flow"
+    "flow": "Intent"
   },
   "periods": {
     "d7": "7日",
@@ -221,7 +221,7 @@
     "turnsAndTokens": "{{turns}} ターン · {{tokens}} トークン",
     "untitled": "無題のミッション",
     "estimatedNote": "推定コストを含む",
-    "flowShare": "うち Flow: {{cost}} · {{turns}} ターン"
+    "flowShare": "うち Intent: {{cost}} · {{turns}} ターン"
   },
   "legacyUsage": {
     "title": "従来のワークフローの使用状況",

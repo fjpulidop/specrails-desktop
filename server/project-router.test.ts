@@ -4058,7 +4058,7 @@ describe('project-router', () => {
       expect(res.status).toBe(200)
       expect(res.body.provider).toBe('codex')
       expect(res.body.model).toBe('gpt-6.1-sol')
-      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-6.1-sol', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
     })
 
     it('honors install-config defaults.model when valid', async () => {

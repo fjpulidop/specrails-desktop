@@ -169,7 +169,7 @@
     },
     "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
     "reviewChangesRequested": "Cambios solicitados",
-    "reviewChangesRequestedHint": "El paso de Flow a un rail aún necesita cambios. Abre su tarjeta de misión para volver a Flow o relanzar.",
+    "reviewChangesRequestedHint": "El paso de Intent a un rail aún necesita cambios. Abre su tarjeta de misión para volver a Intent o relanzar.",
     "mergedLocallyRestored": "Guardé tus cambios locales, integré {{tickets}} y los restauré.",
     "mergedLocallyStashConflict": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; Specrails los está restaurando en una rama aparte.",
     "mergedLocallyStashKept": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; restáuralos cuando quieras.",
@@ -246,8 +246,6 @@
     "viewJobLog": "Ver log del trabajo",
     "log": "Log",
     "implement": "Implement",
-    "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle — el proveedor seleccionado implementa la spec de forma autónoma, sin pipeline",
     "loop": "Loop",
     "loopTitle": "Loop — ejecuta un bucle de automatización publicado sobre las specs del rail",
     "pickLoop": "Elige un bucle…",
@@ -262,13 +260,10 @@
     "worktreesNeedsReview": "{{count}} a revisar",
     "execSteps": "{{count}} pasos",
     "execLines": "{{count}} líneas",
-    "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Recomendado",
     "recommendedOption": "{{label}} · recomendado",
     "loopDescriptions": {
-      "implement": "Planifica, construye y revisa cada spec, y luego prepara la entrega.",
-      "freestyle": "El proveedor elegido construye la spec por su cuenta, sin pipeline.",
-      "openspec": "Escribe un cambio OpenSpec para la spec, lo construye y lo archiva."
+      "implement": "Planifica, construye y revisa cada spec, y luego prepara la entrega."
     }
   },
   "railRow": {
@@ -288,19 +283,6 @@
       "title": "¿Eliminar {{label}}?",
       "body": "Sus specs vuelven a la lista. Se pierden el proveedor, el loop y los ajustes de PR de este rail."
     }
-  },
-  "freestyleDialog": {
-    "title": "Lanzar en modo Freestyle",
-    "context_one": "{{rail}} · {{count}} spec",
-    "context_other": "{{rail}} · {{count}} specs",
-    "noPipelineTitle": "Sin pipeline de OpenSpec.",
-    "noPipelineBody": "El flujo estructurado architect → developer → reviewer se omite por completo.",
-    "autonomyTitle": "Autonomía nativa de {{provider}}.",
-    "autonomyBody": "{{provider}} trabaja por su cuenta con agentes nativos y flujos dinámicos.",
-    "costTitle": "Coste variable.",
-    "costBody": "El gasto depende de lo que {{provider}} decida hacer — puede ser mayor de lo esperado.",
-    "continue": "Continuar",
-    "gloss": "Freestyle entrega cada spec directamente a {{provider}}: una ejecución autónoma por spec, sin el pipeline de planificación y revisión de OpenSpec."
   },
   "useRails": {
     "fetchFailed": "No se pudieron obtener los rails: {{status}}"
@@ -329,9 +311,7 @@
       "target_pr_unfetchable": "No se pudo hacer fetch de la rama head de la PR"
     }
   },
-  "rail": {
-    "rolesNoFreestyle": "Freestyle necesita un único proveedor: elige Implement o un loop antes de pasar este rail a motores por rol."
-  },
+  "rail": {},
   "reviewWip": {
     "badge": "En revisión {{pending}}/{{limit}}",
     "title": "Entregas que esperan revisión (límite {{limit}}). Haz clic para verlas.",

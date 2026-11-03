@@ -3,7 +3,7 @@ import { MissionSplitLayout } from './MissionSplitLayout'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { useMissionViewRevision } from '../lib/mission-view-state'
 import { Suspense, lazy, useEffect, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { Compass, X } from 'lucide-react'
 import { composerDrafts, composerReferenceDrafts, writeComposerDraft, NEW_MISSION_DRAFT_KEY } from '../lib/agent-composer-drafts'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
@@ -75,7 +75,7 @@ function AgentEmptyStarters() {
           <span aria-hidden className="font-mono text-accent-highlight">/</span>{t('starter.action')}
         </button>
         <button type="button" className={chip} style={{ animationDelay: '48ms' }} onClick={(e) => insert(t('starter.planSpec'), e)}>
-          {t('starter.plan')}
+          <Compass className="h-3 w-3 text-accent-intent" aria-hidden />{t('starter.plan')}
         </button>
       </div>
       <p className="text-center text-xs text-muted-foreground">{t('emptyLegend')}</p>

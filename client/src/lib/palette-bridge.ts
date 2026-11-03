@@ -5,7 +5,7 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
  *
  * The palette (mounted once, in the app shell) must not re-implement what a
  * button does. A surface that is on screen registers the SAME callbacks its
- * buttons call (launch gating, Jira-backed moves, Flow availability, ...) and
+ * buttons call (launch gating, Jira-backed moves, IntentSession availability, ...) and
  * unregisters on unmount. A surface that is not mounted is simply absent, so
  * the actions that need it are not offered.
  *
@@ -55,7 +55,7 @@ export interface PaletteBoardSurface {
 
 /** The specs column: opens the New spec modal (optionally already in Explore). */
 export interface PaletteSpecsSurface {
-  openNewSpec: (mode: 'quick' | 'explore') => void
+  openNewSpec: (mode: 'intent' | 'quick' | 'explore') => void
   /** A board card was focused and can be moved (keyboard `m`). */
   canMoveFocused: () => boolean
   /** Opens the status/rail picker for the last focused card (or the selection it belongs to). */
@@ -96,7 +96,7 @@ export interface PaletteFlowControl {
   run: () => void
 }
 
-/** The mounted Flow strip's controls (absent when no Flow is open). */
+/** The mounted Intent strip's controls (absent when no Intent is open). */
 export interface PaletteFlowSurface {
   controls: () => PaletteFlowControl[]
 }
@@ -166,7 +166,7 @@ export function usePaletteSurfaces(): Partial<PaletteSurfaces> {
 
 /**
  * Register a surface for as long as the caller is mounted and `current` is
- * non-null (pass null while the surface is not usable, e.g. no Flow open).
+ * non-null (pass null while the surface is not usable, e.g. no Intent open).
  */
 export function useRegisterPaletteSurface<K extends PaletteSurfaceKey>(key: K, current: PaletteSurfaces[K] | null): void {
   const ref = useRef(current)

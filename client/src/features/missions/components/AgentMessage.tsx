@@ -8,6 +8,7 @@ import { getDateFnsLocale } from '../../../lib/i18n'
 import { toDate } from '../../../lib/relative-time'
 import { splitStreamedMarkdown } from '../lib/stream-markdown-blocks'
 import { cn } from '../../../lib/utils'
+import { keyboardLabel } from '../../../lib/keyboard-label'
 import { useWebViewModal } from '../../browser/context/WebViewModalContext'
 import { MediaLightbox } from '../../chat/components/AttachmentPreviewLightbox'
 import { Button } from '../../../components/ui/button'
@@ -22,6 +23,8 @@ import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
 import { intentFor, useLocalIntents } from '../../rails/lib/rail-launch-intents'
 import type { AgentMessageIntent } from '../lib/agent-api'
 import { extractAgentProblemFrame } from './agent-problem-frame'
+import { extractAgentIntentDraft } from './agent-intent-draft'
+import { AgentIntentDraftCard, AgentIntentDraftPending } from './AgentIntentDraftCard'
 import { AgentProblemFrameCard, AgentProblemFramePending } from './AgentProblemFrameCard'
 import { parseAgentRefHref, remarkAgentRefs, type AgentRefTarget } from '../lib/agent-refs'
 import { fetchAgentAttachmentBlob, type AgentAttachment, type AgentContextReference } from '../lib/agent-api'
@@ -35,7 +38,7 @@ import { LiveDot } from '../../../components/ui/live-dot'
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
 const MD = cn(
-  'max-w-[72ch] text-body leading-relaxed text-foreground',
+  'max-w-[72ch] text-body leading-relaxed text-foreground [overflow-wrap:anywhere]',
   '[&_p]:my-3.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
   '[&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:text-title [&_h1]:font-semibold',
   '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-strong [&_h2]:font-semibold',
@@ -50,33 +53,38 @@ const MD = cn(
   '[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-accent-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-foreground',
   '[&_hr]:my-3 [&_hr]:border-border/60',
   // Premium tables
-  '[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-lg',
+  '[&_table]:w-full [&_table]:border-collapse [&_table]:rounded-lg',
   '[&_th]:border [&_th]:border-border [&_th]:bg-surface [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-semibold',
   '[&_td]:border [&_td]:border-border [&_td]:px-2.5 [&_td]:py-1.5',
   '[&_tr:nth-child(even)]:bg-surface/40',
 )
 
 /** Clipboard write with a short-lived "copied" flag (announced, not just drawn). */
-function useCopyFeedback(): { copied: boolean; copy: (text: string) => Promise<void> } {
+function useCopyFeedback(): { copied: boolean; failed: boolean; copy: (text: string) => Promise<void> } {
   const [copied, setCopied] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  const [failed, setFailed] = useState(false)
   const copy = async (text: string): Promise<void> => {
+    if (timer.current) clearTimeout(timer.current)
     try {
       await navigator.clipboard.writeText(text)
+      setFailed(false)
       setCopied(true)
-      if (timer.current) clearTimeout(timer.current)
       timer.current = setTimeout(() => setCopied(false), 1500)
     } catch {
-      /* clipboard unavailable */
+      // Clipboard unavailable: say so instead of silently doing nothing.
+      setCopied(false)
+      setFailed(true)
+      timer.current = setTimeout(() => setFailed(false), 1500)
     }
   }
-  return { copied, copy }
+  return { copied, failed, copy }
 }
 
 function CopyButton({ text, timestampIso }: { text: string; timestampIso?: string }) {
   const { t } = useTranslation('agent')
-  const { copied, copy } = useCopyFeedback()
+  const { copied, failed, copy } = useCopyFeedback()
   const onCopy = () => {
     // Include the full `yyyy-MM-dd HH:mm:ss` as a header line, so a copied
     // message carries its timestamp (the bubble shows a compact form).
@@ -94,11 +102,11 @@ function CopyButton({ text, timestampIso }: { text: string; timestampIso?: strin
       onClick={onCopy}
       aria-label={label}
       title={label}
-      className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-surface hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover:opacity-100"
+      className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-surface hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover:opacity-100"
       data-agent-interactive
     >
-      {copied ? <Check className="h-3 w-3 text-accent-success" aria-hidden /> : <Copy className="h-3 w-3" aria-hidden />}
-      <span className="sr-only" role="status">{copied ? t('copied') : ''}</span>
+      {copied ? <Check className="h-3 w-3 text-accent-success" aria-hidden /> : <Copy className={cn('h-3 w-3', failed && 'text-destructive')} aria-hidden />}
+      <span className="sr-only" role="status">{copied ? t('copied') : failed ? t('header.copyFailed') : ''}</span>
     </button>
   )
 }
@@ -111,11 +119,11 @@ function CopyButton({ text, timestampIso }: { text: string; timestampIso?: strin
 function AgentCodeBlock({ children }: { children?: ReactNode }) {
   const { t } = useTranslation('agent')
   const preRef = useRef<HTMLPreElement>(null)
-  const { copied, copy } = useCopyFeedback()
+  const { copied, failed, copy } = useCopyFeedback()
   const child = Children.toArray(children)[0]
   const codeClass = isValidElement<{ className?: string }>(child) ? child.props.className ?? '' : ''
   const language = /language-([\w+#.-]+)/.exec(codeClass)?.[1] ?? null
-  const label = copied ? t('copied') : t('copyCode')
+  const label = copied ? t('copied') : failed ? t('header.copyFailed') : t('copyCode')
   return (
     <div className="group/code relative" data-testid="agent-code-block">
       {language && (
@@ -128,7 +136,7 @@ function AgentCodeBlock({ children }: { children?: ReactNode }) {
         onClick={() => void copy(preRef.current?.textContent ?? '')}
         aria-label={label}
         title={label}
-        className="absolute right-1.5 top-1 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover/code:opacity-100"
+        className="absolute right-1.5 top-1 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover/code:opacity-100"
         data-agent-interactive
       >
         {copied ? <Check className="h-3.5 w-3.5 text-accent-success" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
@@ -395,8 +403,8 @@ export function AgentContextInlineTokens({
 function AgentExtensionPending() {
   const { t } = useTranslation('agent')
   return (
-    <div data-testid="agent-extension-card-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary">
-      <LiveDot tone="primary" size="xs" aria-hidden />
+    <div data-testid="agent-extension-card-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-surface/60 px-2.5 py-1 text-label text-foreground">
+      <LiveDot tone="info" size="xs" aria-hidden />
       {t('cardPending')}
     </div>
   )
@@ -411,7 +419,7 @@ interface Props {
    *  the live streaming buffer (the time appears once the turn settles). */
   createdAt?: string
   /** A discreet mode mark next to the timestamp (an agent turn produced in an
-   *  extension's mode, e.g. Flow): its icon, color and words come from the
+   *  extension's mode, e.g. Intent): its icon, color and words come from the
    *  extension (useMissionTurnMark), never hard-coded here. */
   modeMark?: MissionModeBadge | null
   /** Streaming assistant bubble: render markdown live, hide the copy button. */
@@ -422,6 +430,9 @@ interface Props {
    *  `isLast` this survives an in-flight turn, so the problem-frame card can
    *  keep its (disabled) reading affordance instead of silently going static. */
   isLatest?: boolean
+  /** True for the newest agreed intent card with no agent reply after it:
+   *  its Explore/Delegate paths survive the user's own follow-up messages. */
+  isLatestSettledIntent?: boolean
   /** A turn is in flight anywhere in the conversation — disables the frame
    *  card's readings so a click can't queue a duplicate concurrent reply. */
   isStreaming?: boolean
@@ -493,12 +504,16 @@ function useConversationBusy(conversationId: string | null, rowStreaming: boolea
 function LiveBusyFrameCard({ conversationId, isStreaming, ...rest }: ComponentProps<typeof AgentProblemFrameCard> & { conversationId: string | null }) {
   return <AgentProblemFrameCard {...rest} isStreaming={useConversationBusy(conversationId, !!isStreaming)} />
 }
+
+function LiveBusyIntentCard({ conversationId, isStreaming, ...rest }: ComponentProps<typeof AgentIntentDraftCard> & { conversationId: string | null }) {
+  return <AgentIntentDraftCard {...rest} conversationId={conversationId} isStreaming={useConversationBusy(conversationId, !!isStreaming)} />
+}
 function LiveBusyFenceCard({ Card, ...props }: { Card: ComponentType<MissionFenceCardProps> } & MissionFenceCardProps) {
   const busy = useConversationBusy(props.conversationId, props.isStreaming)
   return <Card {...props} isStreaming={busy} />
 }
 
-export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
+export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isLatestSettledIntent, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
   const { t } = useTranslation('agent')
   const localIntents = useLocalIntents()
   const extensions = useMissionExtensions()
@@ -548,6 +563,12 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
         </a>
       )
     },
+    // Wide tables scroll inside the column instead of pushing the thread sideways.
+    table: ({ children }: { children?: ReactNode }) => (
+      <div className="my-2 max-w-full overflow-x-auto" data-testid="agent-md-table-wrap">
+        <table>{children}</table>
+      </div>
+    ),
   }), [openWebView, canOpenWebView, onOpenRef])
 
   if (isUser) {
@@ -555,7 +576,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
       <article aria-label={t('message.you')} className="group flex flex-col items-end gap-0.5">
         <div className="flex items-start justify-end gap-1">
           <CopyButton text={content} timestampIso={createdAt} />
-          <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-border/50 bg-foreground/[0.06] px-3.5 py-2 text-sm text-foreground">
+          <div className="max-w-[85%] whitespace-pre-wrap [overflow-wrap:anywhere] rounded-2xl rounded-br-sm border border-border/50 bg-foreground/[0.06] px-3.5 py-2 text-sm text-foreground">
             <AgentContextInlineTokens content={content} contextRefs={contextRefs} />
             <AgentAttachmentChips conversationId={conversationId} attachments={attachments} />
             {(deliveryStatus || deliveryReceipt) && <div className="mt-1 flex justify-end"><AgentDeliveryReceipt receipt={deliveryReceipt} status={deliveryStatus} /></div>}
@@ -589,11 +610,14 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
   // both when the agent re-frames and re-drafts in one reply. The whole
   // extraction chain is memoized on (content, streaming) so a streaming turn
   // does not reparse three protocols on every frame.
-  const { body, options, frame, framePending, draft, pending, rail, extensionBlocks, extensionPending } = useMemo(() => {
+  const { body, options, intentDraft, intentPending, frame, framePending, draft, pending, rail, extensionBlocks, extensionPending } = useMemo(() => {
     // Small/local models emit protocol JSON under ```json — re-tag first.
     const promoted = tolerantFences ? promoteAgentProtocolFences(content) : content
     const withoutOptions = extractAgentOptions(promoted)
-    const withoutFrame = extractAgentProblemFrame(withoutOptions.body, streaming)
+    // The intent card (intent-mode) replaces the legacy problem frame; stored
+    // conversations may still carry frames, which keep rendering.
+    const withoutIntent = extractAgentIntentDraft(withoutOptions.body, streaming)
+    const withoutFrame = extractAgentProblemFrame(withoutIntent.body, streaming)
     const withoutDraft = extractAgentSpecDraft(withoutFrame.body, streaming)
     // A fenced ```rail-launch block (mission-rail-cards) is stripped too and
     // renders as an editable launch card; feature off ⇒ untouched.
@@ -606,6 +630,8 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
     return {
       body: withoutExtensions.body,
       options: withoutOptions.options,
+      intentDraft: withoutIntent.draft,
+      intentPending: withoutIntent.pending,
       frame: withoutFrame.frame,
       framePending: withoutFrame.pending,
       draft: withoutDraft.draft,
@@ -622,6 +648,20 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
       <div className={cn('max-w-full', MD)}>
         <MessageMarkdown body={body} streaming={!!streaming} remarkPlugins={remarkPlugins} components={markdownComponents} />
       </div>
+      {intentDraft && (
+        // Readings answer the discriminating question; a settled intent offers
+        // Explore and Delegate with equal weight on the newest agreed card, never mid-turn.
+        <LiveBusyIntentCard
+          draft={intentDraft}
+          isLatest={!!isLatest}
+          isLatestSettledIntent={isLatestSettledIntent}
+          isStreaming={!!isStreaming || !!streaming}
+          conversationId={conversationId ?? null}
+          projectId={refsProjectId ?? null}
+          onSelect={onPickOption}
+        />
+      )}
+      {intentPending && <AgentIntentDraftPending />}
       {frame && (
         // Both readings are clickable answers to the discriminating question:
         // the same send() the option chips use, gated to the newest card and
@@ -684,7 +724,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
               key={`${i}-${option}`}
               type="button"
               onClick={() => onPickOption?.(option)}
-              title={i < 9 ? t('options.shortcut', { n: i + 1 }) : undefined}
+              title={i < 9 ? keyboardLabel(`⌥${i + 1}`) : undefined}
               aria-keyshortcuts={i < 9 ? `Alt+${i + 1}` : undefined}
               className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-xs text-foreground transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
               data-agent-interactive

@@ -2,12 +2,14 @@
 
 Der Quick-Modus ist für die Momente gedacht, in denen du bereits weißt, was du willst. Du tippst deine Idee ein, die KI schreibt die vollständige Spec, und sie landet als **To-do** auf deinem Board. Kein Hin und Her – einfach beschreiben und los.
 
+> **Spec hinzufügen öffnet sich im Intent-Modus.** Intent funktioniert wie Quick, aber du beschreibst das *Problem* (wer es hat, das Ergebnis, das du willst, woran du erkennst, dass es funktioniert) statt der Lösung. Die KI schreibt zuerst den Intent und leitet die Spec daraus ab. Siehe [Intent](../integrations/intent-mode#intent-mode). Wähle **Quick**, wenn du die Spec direkt aus deiner Idee haben möchtest.
+
 ## Eine Spec im Quick-Modus erstellen
 
 So erstellst du schnell eine Spec:
 
 1. Klicke auf dem Dashboard auf **Neue Spec** (die Plus-Schaltfläche in der SpecsBoard-Toolbar).
-2. Wähle den Modus **Quick**.
+2. Wähle den Modus **Quick** (Spec hinzufügen öffnet sich im Modus **Intent**).
 3. Tippe deine Idee ins Textfeld – ein Satz oder ein Absatz, was immer sie auf den Punkt bringt.
 4. Klicke auf Generieren.
 

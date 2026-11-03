@@ -51,6 +51,22 @@ describe('extractRailLaunchProposals', () => {
     expect(extractRailLaunchProposals(block({ specs: ['#5'] })).proposals[0]).toMatchObject({ mode: 'implement', ticketIds: [5], railIndex: null })
   })
 
+  it.each(['freestyle', 'ultracode', 'Freestyle'])('reads the retired %s mode as Implement so a stored card still renders and launches', (mode) => {
+    const out = extractRailLaunchProposals(block({ ticketIds: [3], mode }))
+    expect(out.rejected).toEqual([])
+    expect(out.proposals[0]).toMatchObject({ mode: 'implement', loopId: null })
+  })
+
+  it.each(['factory:freestyle', 'factory:sdd-quick-openspec', 'factory:openspec', 'factory:revision'])('drops the retired loop id %s and falls back to Implement', (loopId) => {
+    for (const mode of ['loop', 'implement']) {
+      const out = extractRailLaunchProposals(block({ ticketIds: [3], mode, loopId }))
+      expect(out.proposals[0]).toMatchObject({ mode: 'implement', loopId: null })
+    }
+    // A custom loop id and Implement are untouched.
+    expect(extractRailLaunchProposals(block({ ticketIds: [3], mode: 'loop', loopId: 'abc123' })).proposals[0]).toMatchObject({ mode: 'loop', loopId: 'abc123' })
+    expect(extractRailLaunchProposals(block({ ticketIds: [3], mode: 'implement', loopId: 'factory:implement' })).proposals[0]).toMatchObject({ mode: 'implement', loopId: 'factory:implement' })
+  })
+
   it('keeps every valid block in order (one card per block)', () => {
     const out = extractRailLaunchProposals(block({ ticketIds: [1] }) + '\n' + block({ ticketIds: [2], railIndex: 0 }))
     expect(out.proposals.map((p) => p.ticketIds)).toEqual([[1], [2]])
@@ -68,7 +84,7 @@ describe('extractRailLaunchProposals', () => {
 
   it('repairs small-model JSON (trailing commas, comments) and flags it', () => {
     const out = extractRailLaunchProposals('```rail-launch\n{ "ticketIds": [1, 2,], // both\n "mode": "freestyle", }\n```')
-    expect(out.proposals[0]).toMatchObject({ ticketIds: [1, 2], mode: 'freestyle' })
+    expect(out.proposals[0]).toMatchObject({ ticketIds: [1, 2], mode: 'implement' }) // retired freestyle folds to Implement
     expect(out.repaired).toBe(true)
   })
 
@@ -108,7 +124,7 @@ describe('generic-fence promotion for rail-launch', () => {
     expect(promoteAgentProtocolFences('```json\n' + body + '\n```')).toContain('```rail-launch\n')
     const draft = JSON.stringify({ title: 'T', description: 'D', labels: [], ticketIds: [1], mode: 'implement' })
     expect(promoteAgentProtocolFences('```json\n' + draft + '\n```')).toContain('```spec-draft\n')
-    // flow-mode: the Flow-or-Implement offer is promoted by the same mirror.
+    // flow-mode: the Intent-or-Implement offer is promoted by the same mirror.
     const offer = JSON.stringify({ idea: 'Prototype the onboarding', reason: 'Shape is uncertain', recommended: 'flow' })
     expect(promoteAgentProtocolFences('```json\n' + offer + '\n```')).toContain('```flow-offer\n')
     expect(promoteAgentProtocolFences('```json\n{"idea":"x","recommended":"maybe"}\n```')).not.toContain('```flow-offer')
@@ -139,7 +155,7 @@ describe('client mirror parity', () => {
 
 describe('followUp on a proposal (pr-follow-up-fixes)', () => {
   it('keeps a valid follow-up scope (ids assigned, provenance kept) and drops an invalid one to null without rejecting the card', () => {
-    const valid = extractRailLaunchProposals(block({ ticketIds: [191], mode: 'loop', loopId: 'factory:sdd-quick-openspec', targetPrNumber: 51,
+    const valid = extractRailLaunchProposals(block({ ticketIds: [191], mode: 'loop', loopId: 'gallery-loop-1', targetPrNumber: 51,
       followUp: { comments: [{ path: 'lib/api.ts', body: 'send Idempotency-Key per pair' }], scope: { excludedChanges: ['UI changes'] }, openspecChangeName: 'fix-comments' } }))
     expect(valid.proposals[0].followUp).toMatchObject({ kind: 'pr-review-fix', openspecChangeName: 'fix-comments', scope: { excludedChanges: ['UI changes'] } })
     expect(valid.proposals[0].followUp!.comments[0]).toMatchObject({ id: 'c1', source: 'user-paste', path: 'lib/api.ts' })

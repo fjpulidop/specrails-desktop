@@ -48,15 +48,15 @@ it to `loop_runs.launch_config_json` before any executor starts, for both legacy
 graphs and Core definitions. Fresh mission relaunches read these options through
 delivery admission; recovery still uses the original frozen runtime request.
 
-Quick SDD is the default for delivery changes and addenda; explicit workflows
-(including Implement) take precedence. Each addendum launch seeds a distinct delta target,
+Implement is the default for delivery changes and addenda; an explicit loop
+selection takes precedence. Each addendum launch seeds a distinct delta target,
 briefs each AI phase, and requires per-addendum coverage before validation/archive.
-The retired `factory:revision` id is a compatibility alias, absent from the gallery.
+The retired `factory:revision` id is refused with `builtin_loop_retired`, like the other retired built-in ids (see "Retired built-ins").
 
 When the selected Core advertises both `engineV2: 1` and `workflowDefinitions: 1`,
-the same factory IDs resolve through `loop-core-factory.ts` to editable Core
-definitions. With `implementationSteps: 1`, Implement expands into independent
-architect/developer/fixer/verify/reviewer/archive operations and all three recipes
+the `factory:implement` resolves through `loop-core-factory.ts` to an editable Core
+definition (the Freestyle and Quick SDD recipes live there too, but only as gallery templates). With `implementationSteps: 1`, Implement expands into independent
+architect/developer/fixer/verify/reviewer/archive operations and the recipes
 carry loop-owned agents. Older Core packages retain the native implementation
 wrapper. See [Desktop workflow ownership](../../../docs/internals/desktop-owned-workflows.md).
 With `hostBlockers: 1` (paired Core `engine-environment-repair-and-host-blockers`),
@@ -88,7 +88,7 @@ when configured checks are absent; Quick SDD rejects a missing verification plan
 before any AI step. Resumes retain their original checks. Older retained Core
 packages receive the legacy graphs.
 
-Freestyle is offered for every adapter whose `capabilities.freestyle` is true:
+The Freestyle gallery template needs `{{cmd:freestyle}}`, which `project-router-loop-runs` and the launch checks gate on an adapter whose `capabilities.freestyle` is true:
 Claude, Codex, Gemini, Kimi and local engines. Codex and Gemini were enabled
 only after real end-to-end runs (`openspec/changes/freestyle-codex-gemini`); the
 opt-in `loop-factory-freestyle.live.test.ts` reproduces that evidence through
@@ -105,20 +105,21 @@ See [scope, recovery and metrics](../../../docs/internals/spec-addenda.md#quick-
 
 ## Template catalog
 
-`runtime/loop-templates.ts` serves exactly the eight starters in
-`CORE_STARTER_TEMPLATE_IDS`. With `engineV2` + `workflowDefinitions` they are
+`runtime/loop-templates.ts` serves the eight starters in
+`CORE_STARTER_TEMPLATE_IDS` plus the two former built-ins, `quick-sdd-openspec`
+("SDD Quick (OpenSpec)") and `freestyle`, built by the same recipes the factory
+used (`opsxLifecycleGraph`/`fixLoopGraph` on older Core, `coreFactoryGraph` with
+engine 2). With `engineV2` + `workflowDefinitions` they are
 Core definition graphs; older Core packages receive the legacy graphs. Legacy-only
 templates are not bundled, because a Core without engine 1 refuses them.
-`opsxLifecycleGraph` remains only as the legacy Quick SDD factory graph.
+`opsxLifecycleGraph` is the legacy-Core Quick SDD template graph.
 
 ## Editable built-in loops
 
 Desktop migration 31 adds `builtin_id`, `builtin_default_hash` and
 `published_graph` to `loops`. `runtime/builtin-loops.ts` (effectful coordinator)
 seeds one Published row per built-in whose id IS the canonical factory id
-(`factory:implement`, `factory:freestyle` when a provider supports Freestyle,
-`factory:sdd-quick-openspec`). `factory:batch` and the retired aliases are never
-seeded. Seeding runs when the desktop router registers the loops routes (startup)
+(`factory:implement` only). `factory:batch` is never seeded. Seeding runs when the desktop router registers the loops routes (startup)
 and again on `GET /loops` and `GET /loops/factory`; it is idempotent
 (`INSERT OR IGNORE` in an immediate transaction).
 
@@ -142,6 +143,33 @@ and again on `GET /loops` and `GET /loops/factory`; it is idempotent
   `409 builtin_loop`. `POST /loops/:id/restore-builtin` resets a built-in to the
   current default and publishes it (409 while running). `POST
   /loops/factory/:id/fork` duplicates the built-in's current content.
+
+## Retired built-ins (Freestyle, Quick SDD)
+
+Only Implement (and the platform-run Intent -> Spec) is built in. Freestyle and
+Quick SDD (OpenSpec) are gallery templates the user adds explicitly
+(`POST /loops/from-template/:id`); nothing in the app, MCP tools or agent prompts
+offers or launches them. Compatibility rules:
+
+- **Launch.** `mode: freestyle` / `ultracode` and the ids `factory:freestyle`,
+  `factory:sdd-quick-openspec`, `factory:openspec`, `factory:revision` get
+  `400 builtin_loop_retired` (`replacement: factory:implement`) from the rails
+  launch and relaunch routes, before any engine validation. We refuse instead of
+  silently running Implement, a heavier and costlier workflow than the one asked for.
+- **Stored rails.** Project migration 87 and the rails routes fold a stored
+  `freestyle` mode to `implement`; the client reads a persisted pick on a retired id as Implement.
+  Agent `rail-launch` proposals do the same when parsed.
+- **Seeded rows.** `ensureBuiltinLoops` runs `retireBuiltinRows` on every pass:
+  an unedited row is deleted (the template replaces it); an edited row becomes an
+  ordinary user loop with a fresh id, keeping name, graph and Draft/Published
+  state, so no edit is lost. `GET /loops/factory` and `/loops/factory/:id/fork`
+  no longer know the retired ids.
+- **History and in-flight work.** Loop runs, jobs and deliveries keep their stored
+  `loopId`; runs resume from their frozen request, and queued legacy
+  `/specrails:freestyle` jobs still execute (QueueManager keeps that path).
+  `LoopChip` still labels the retired ids.
+- **Not preserved for gallery copies:** the primary-repository pin of the Quick SDD
+  `archive` step is detected by its `openspec archive` command, so copies keep it.
 
 ## Core definition authoring
 

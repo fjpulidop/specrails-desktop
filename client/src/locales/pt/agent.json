@@ -319,11 +319,11 @@
       "merged": "Merge da PR concluído",
       "discarded": "Descartada",
       "review_changes_requested": "O revisor solicitou alterações",
-      "returned_to_flow": "De volta ao Flow",
+      "returned_to_flow": "De volta ao Intent",
       "flowSpecChanges": "Ainda não está pronto: o revisor pediu alterações",
-      "flowSpecDelivered": "Seu Flow agora é uma PR revisada",
+      "flowSpecDelivered": "Seu Intent agora é uma PR revisada",
       "flowSpecFailed": "A passagem a um rail parou",
-      "flowSpecBuilding": "Transformando seu Flow em uma PR revisada"
+      "flowSpecBuilding": "Transformando seu Intent em uma PR revisada"
     },
     "buildingHint": "Quando terminar, ser-lhe-á perguntado se quer criar a PR.",
     "buildingExistingPrHint": "O Specrails está a trabalhar no ramo da PR existente e irá enviar as alterações de revisão para essa mesma PR.",
@@ -500,6 +500,38 @@
     "expand": "Ver descrição completa",
     "collapse": "Recolher descrição"
   },
+  "intentDraft": {
+    "heading": "Intent",
+    "settled": "Acordado",
+    "writing": "Escrevendo o intent…",
+    "pick": "Responder com isto",
+    "problem": "Problema",
+    "outcome": "Resultado buscado",
+    "successSignals": "Como saberemos",
+    "affects": "Quem e o que é afetado",
+    "constraints": "Restrições",
+    "openQuestions": "Perguntas em aberto",
+    "restated": "O que eu entendi",
+    "alternative": "Também pode significar",
+    "discriminator": "Qual é?",
+    "pathsLabel": "Como você quer continuar?",
+    "explore": "Explorar",
+    "exploreHint": "Construa junto em uma sessão Intent isolada; a spec sai do que vocês construírem.",
+    "delegate": "Delegar",
+    "delegateHint": "O agente escreve a spec a partir deste intent para você revisar e depois um rail a constrói.",
+    "delegateReply": "Escreva a spec a partir deste intent para eu revisar.",
+    "inIntent": "Esta missão está explorando no seu branch Intent. Continue na barra de execução.",
+    "answerHint": "Responda no chat; o agente atualiza este cartão.",
+    "answer": "Resposta",
+    "open": "Aberta",
+    "readingConfirmed": "Leitura confirmada",
+    "expand": "Ver o intent completo",
+    "collapse": "Recolher",
+    "more": "+{{count}} mais",
+    "openCount_one": "{{count}} aberta",
+    "openCount_other": "{{count}} abertas",
+    "pickDescription": "Envia esta leitura como sua resposta"
+  },
   "problemFrame": {
     "heading": "Enquadramento",
     "framing": "A enquadrar o pedido…",
@@ -569,7 +601,11 @@
       "agent": "Agente",
       "agentNamed": "Agente · {{description}}",
       "mcp": "MCP · {{name}}",
-      "mcpTool": "Ferramenta MCP"
+      "mcpTool": "Ferramenta MCP",
+      "specs": "Specs",
+      "rails": "Rails",
+      "git": "Git",
+      "working": "Trabalhando"
     }
   },
   "backgroundProcess": {
@@ -716,12 +752,12 @@
       "scope_save_failed": "Não foi possível guardar os repositórios da spec.",
       "repository_scope_incomplete": "Falta um repositório exigido pelas specs para o lançamento. Reveja as atribuições acima.",
       "rail_not_empty": "Esse rail já tem specs",
-      "flow_freeze_failed": "Não foi possível salvar as alterações do Flow para a passagem a um rail",
-      "flow_head_mismatch": "O seu Flow mudou durante a passagem a um rail. Tente de novo",
-      "flow_already_handed_off": "Este Flow já foi passado a um rail",
-      "flow_handoff_not_adopted": "O rail iniciou sem assumir as alterações do seu Flow",
-      "illegal_transition": "O Flow mudou de estado entretanto",
-      "feature_unavailable": "O Flow não está disponível",
+      "flow_freeze_failed": "Não foi possível salvar as alterações do Intent para a passagem a um rail",
+      "flow_head_mismatch": "O seu Intent mudou durante a passagem a um rail. Tente de novo",
+      "flow_already_handed_off": "Este Intent já foi passado a um rail",
+      "flow_handoff_not_adopted": "O rail iniciou sem assumir as alterações do seu Intent",
+      "illegal_transition": "O Intent mudou de estado entretanto",
+      "feature_unavailable": "O Intent não está disponível",
       "daily_budget_exceeded": "Orçamento diário atingido. Nada foi iniciado.",
       "review_wip_limit_reached": "Limite de revisão atingido. Nada foi iniciado.",
       "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar uma cópia isolada do projeto."
@@ -781,7 +817,7 @@
       "cancelled": "Cancelado",
       "unknown": "Desconhecido",
       "changes_requested": "Alterações solicitadas",
-      "returned": "De volta ao Flow"
+      "returned": "De volta ao Intent"
     },
     "title": {
       "running": "A implementar no checkout do projeto…",
@@ -792,7 +828,7 @@
       "cancelled": "Run cancelado",
       "unknown": "Estado do run desconhecido",
       "changes_requested": "O revisor solicitou alterações",
-      "returned": "De volta ao Flow"
+      "returned": "De volta ao Intent"
     },
     "noDeliveryNote": "Sem fase de PR: este projeto não tem repositório git nem commits, por isso o trabalho foi aplicado diretamente na pasta do projeto.",
     "noDeliveryHint": "Executando diretamente na pasta do projeto (sem repositório git nem commits, então nenhuma PR será proposta).",
@@ -824,8 +860,8 @@
       "omitted_other": "+{{count}} a mais na revisão da execução",
       "failingChecks": "Falhando",
       "check": "{{command}} · saída {{code}}",
-      "next": "As rodadas de correção automática não resolveram isso. Volte ao Flow para resolver com o agente ou relance a partir do mesmo branch do Flow.",
-      "returned": "De volta ao Flow: as suas alterações voltaram ao Flow com a revisão. Continue na faixa do Flow."
+      "next": "As rodadas de correção automática não resolveram isso. Volte ao Intent para resolver com o agente ou relance a partir do mesmo branch do Intent.",
+      "returned": "De volta ao Intent: as suas alterações voltaram ao Intent com a revisão. Continue na faixa do Intent."
     }
   },
   "runFailure": {
@@ -953,97 +989,97 @@
       "deriveChange": "Seu Specrails Core ainda não consegue derivar uma spec a partir do código"
     },
     "errors": {
-      "generic": "O Flow não conseguiu concluir essa ação. Tente novamente.",
+      "generic": "O Intent não conseguiu concluir essa ação. Tente novamente.",
       "network": "Não foi possível se conectar ao Specrails.",
-      "feature_unavailable": "O Flow não está disponível com o Specrails Core instalado.",
-      "flow_already_open": "Esta missão já tem um Flow. Retome-o ou descarte-o primeiro.",
-      "illegal_transition": "O Flow mudou de estado nesse meio-tempo. Atualize e tente novamente.",
-      "flow_worktree_missing": "A cópia do projeto deste Flow não existe mais. Verifique o branch do Flow antes de continuar.",
-      "flow_repository_required": "Escolha o repositório em que este Flow é executado.",
-      "flow_repository_not_git": "O Flow precisa de um repositório Git para o seu branch; uma pasta simples não serve. Escolha um repositório Git.",
+      "feature_unavailable": "O Intent não está disponível com o Specrails Core instalado.",
+      "flow_already_open": "Esta missão já tem um Intent. Retome-o ou descarte-o primeiro.",
+      "illegal_transition": "O Intent mudou de estado nesse meio-tempo. Atualize e tente novamente.",
+      "flow_worktree_missing": "A cópia do projeto deste Intent não existe mais. Verifique o branch do Intent antes de continuar.",
+      "flow_repository_required": "Escolha o repositório em que este Intent é executado.",
+      "flow_repository_not_git": "O Intent precisa de um repositório Git para o seu branch; uma pasta simples não serve. Escolha um repositório Git.",
       "flow_repository_unknown": "Esse repositório não faz mais parte deste projeto. Escolha outro.",
-      "flow_repository_missing": "O repositório do Flow não está mais disponível neste projeto.",
+      "flow_repository_missing": "O repositório do Intent não está mais disponível neste projeto.",
       "rail_not_empty": "Esse rail já tem specs. Escolha um rail livre e vazio.",
-      "flow_already_handed_off": "Este Flow já foi passado a um rail.",
-      "flow_freeze_failed": "Não foi possível salvar as alterações do Flow para a passagem a um rail.",
-      "flow_head_mismatch": "Seu Flow mudou durante a passagem a um rail. Tente de novo.",
-      "flow_handoff_not_adopted": "O rail iniciou sem assumir as alterações do seu Flow.",
+      "flow_already_handed_off": "Este Intent já foi passado a um rail.",
+      "flow_freeze_failed": "Não foi possível salvar as alterações do Intent para a passagem a um rail.",
+      "flow_head_mismatch": "Seu Intent mudou durante a passagem a um rail. Tente de novo.",
+      "flow_handoff_not_adopted": "O rail iniciou sem assumir as alterações do seu Intent.",
       "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar uma cópia isolada do projeto.",
-      "flow_not_found": "Este Flow não existe mais.",
-      "flow_failed": "O Flow encontrou um erro inesperado. Tente novamente.",
+      "flow_not_found": "Este Intent não existe mais.",
+      "flow_failed": "O Intent encontrou um erro inesperado. Tente novamente.",
       "conversation_not_found": "Esta missão não existe mais.",
-      "conversation_not_pinned": "Fixe esta missão ao projeto antes de iniciar um Flow.",
-      "flow_not_handed_off": "Este Flow não está mais aguardando essa execução.",
-      "flow_rail_unknown": "O rail dessa execução é desconhecido. Volte a passá-lo a um rail a partir da faixa do Flow.",
+      "conversation_not_pinned": "Fixe esta missão ao projeto antes de iniciar um Intent.",
+      "flow_not_handed_off": "Este Intent não está mais aguardando essa execução.",
+      "flow_rail_unknown": "O rail dessa execução é desconhecido. Volte a passá-lo a um rail a partir da faixa do Intent.",
       "flow_return_busy": "A execução está ocupada com outra ação. Tente novamente daqui a pouco.",
-      "flow_return_not_allowed": "Só uma passagem a um rail que parou antes da entrega pode voltar ao seu Flow.",
-      "flow_return_not_found": "Essa execução não é uma passagem de Flow a um rail.",
-      "flow_return_worktree_mismatch": "Essa execução não assumiu as alterações deste Flow.",
-      "spec_in_flow": "Esta spec já está em Flow. Abra a missão dela para continuar.",
-      "spec_on_rail": "Esta spec está em um rail. Tire-a do rail para começá-la em Flow.",
+      "flow_return_not_allowed": "Só uma passagem a um rail que parou antes da entrega pode voltar ao seu Intent.",
+      "flow_return_not_found": "Essa execução não é uma passagem de Intent a um rail.",
+      "flow_return_worktree_mismatch": "Essa execução não assumiu as alterações deste Intent.",
+      "spec_in_flow": "Esta spec já está em Intent. Abra a missão dela para continuar.",
+      "spec_on_rail": "Esta spec está em um rail. Tire-a do rail para começá-la em Intent.",
       "spec_running": "Esta spec está em execução em um rail. Aguarde o fim da execução.",
-      "spec_closed": "Esta spec está concluída ou cancelada. Reabra-a para trabalhar nela em Flow.",
+      "spec_closed": "Esta spec está concluída ou cancelada. Reabra-a para trabalhar nela em Intent.",
       "spec_not_found": "Esta spec não existe mais.",
       "invalid_ticket_id": "Não foi possível identificar essa spec."
     },
     "entry": {
-      "heading": "Iniciar um Flow",
-      "body": "O Specrails cria uma cópia à parte do projeto no próprio branch do Flow, onde o agente pode escrever código. Seu branch principal não é alterado.",
-      "provider": "O agente trabalha com {{provider}} e só escreve na cópia do Flow.",
-      "providerUnknown": "O agente só escreve na cópia do Flow.",
+      "heading": "Explorar com o agente",
+      "body": "O Specrails cria uma cópia à parte do projeto no próprio branch do Intent, onde o agente pode escrever código. Seu branch principal não é alterado.",
+      "provider": "O agente trabalha com {{provider}} e só escreve na cópia do Intent.",
+      "providerUnknown": "O agente só escreve na cópia do Intent.",
       "repository": {
         "label": "Repositório",
-        "hint": "O Flow trabalha em uma cópia à parte deste repositório.",
-        "choose": "Escolha o repositório em que este Flow é executado",
+        "hint": "O Intent trabalha em uma cópia à parte deste repositório.",
+        "choose": "Escolha o repositório em que este Intent é executado",
         "loading": "Carregando repositórios…",
         "loadFailed": "Não foi possível carregar os repositórios do projeto. Tente novamente.",
         "suggested": "Sugerido pelo agente",
-        "noGit": "Este projeto não tem repositório Git. O Flow precisa de um para o seu branch."
+        "noGit": "Este projeto não tem repositório Git. O Intent precisa de um para o seu branch."
       },
       "blocked": {
-        "noProject": "Fixe esta missão em um projeto para usar o Flow.",
-        "open": "Esta missão já tem um Flow.",
-        "missing": "O Flow precisa de um Specrails Core mais recente:",
-        "unavailable": "O Flow não está disponível neste momento.",
-        "goToFlow": "Ir para esse Flow"
+        "noProject": "Fixe esta missão em um projeto para usar o Intent.",
+        "open": "Esta missão já tem um Intent.",
+        "missing": "O Intent precisa de um Specrails Core mais recente:",
+        "unavailable": "O Intent não está disponível neste momento.",
+        "goToFlow": "Ir para esse Intent"
       },
       "cancel": "Cancelar",
-      "start": "Iniciar Flow",
+      "start": "Começar a explorar",
       "starting": "Iniciando…",
       "existingSpec": {
         "label": "Spec #{{id}}",
-        "note": "O Flow trabalha nesta spec e o agente parte dela. Na entrega, a spec é reescrita a partir do que foi construído; o texto atual fica guardado como comentário."
+        "note": "O Intent trabalha nesta spec e o agente parte dela. Na entrega, a spec é reescrita a partir do que foi construído; o texto atual fica guardado como comentário."
       }
     },
     "offer": {
-      "heading": "Como você quer construí-lo?",
+      "heading": "Como você quer continuar?",
       "notNow": "Agora não",
       "implementReply": "Vamos escrever primeiro a spec e depois lançar o Implement.",
       "mode": {
         "flow": {
-          "title": "Flow",
-          "hint": "Construa junto com o agente em um branch do Flow à parte; a spec vem no fim.",
-          "hintExisting": "Construam esta spec juntos em um branch Flow separado; a spec é reescrita a partir do que for construído."
+          "title": "Explorar",
+          "hint": "Construa junto com o agente em um branch do Intent à parte; a spec vem no fim.",
+          "hintExisting": "Construam esta spec juntos em um branch Intent separado; a spec é reescrita a partir do que for construído."
         },
         "implement": {
-          "title": "Spec + implementar",
+          "title": "Delegar",
           "hint": "Combine primeiro uma spec com o agente e depois passe-a a um rail.",
           "hintExisting": "Delegue esta spec, como está escrita, a um rail."
         }
       },
       "stub": {
-        "flow": "Você escolheu Flow",
-        "implement": "Você escolheu spec + Implement",
+        "flow": "Você escolheu Explorar",
+        "implement": "Você escolheu Delegar",
         "dismissed": "Proposta descartada",
-        "handedOff": "Flow passado ao Rail {{rail}}",
+        "handedOff": "Intent passado ao Rail {{rail}}",
         "state": {
-          "active": "Flow em andamento",
-          "paused": "Flow em pausa",
-          "handed_off": "Flow passado a um rail",
-          "delivered": "Flow concluído",
-          "discarded": "Flow descartado",
-          "needs-review": "O Flow precisa de revisão",
-          "closed": "Flow fechado (branch mantido)"
+          "active": "Intent em andamento",
+          "paused": "Intent em pausa",
+          "handed_off": "Intent passado a um rail",
+          "delivered": "Intent concluído",
+          "discarded": "Intent descartado",
+          "needs-review": "O Intent precisa de revisão",
+          "closed": "Intent fechado (branch mantido)"
         },
         "viewRun": "Ver execução"
       },
@@ -1052,38 +1088,39 @@
       "implementExistingReply": "Vamos implementar a spec #{{id}} em um rail."
     },
     "bar": {
-      "controls": "Ações do Flow",
+      "controls": "Ações do Intent",
       "viewChanges": "Ver alterações",
-      "resume": "Retomar Flow",
-      "pause": "Pausar Flow",
+      "resume": "Retomar Intent",
+      "pause": "Pausar Intent",
       "discard": "Descartar",
-      "discarded": "Flow descartado",
+      "discarded": "Intent descartado",
       "files_one": "{{count}} arquivo",
       "files_other": "{{count}} arquivos",
-      "filesTitle": "Arquivos alterados no branch do Flow",
-      "costTitle": "Custo real dos turnos deste Flow, conforme cobrado pelo provedor",
+      "filesTitle": "Arquivos alterados no branch do Intent",
+      "costTitle": "Custo real dos turnos deste Intent, conforme cobrado pelo provedor",
       "costPartial_one": "{{count}} turno não tem custo informado pelo provedor e não está incluído",
       "costPartial_other": "{{count}} turnos não têm custo informado pelo provedor e não estão incluídos",
-      "needsReview": "A cópia do projeto deste Flow desapareceu. Nada foi apagado; verifique o branch do Flow antes de continuar.",
+      "needsReview": "A cópia do projeto deste Intent desapareceu. Nada foi apagado; verifique o branch do Intent antes de continuar.",
       "pausedNote": "Em pausa. Suas alterações e a spec são mantidas; retome quando quiser.",
       "state": {
-        "active": "Flow",
-        "paused": "Flow em pausa",
-        "needs-review": "O Flow precisa de revisão",
+        "active": "Explorando",
+        "paused": "Intent em pausa",
+        "needs-review": "O Intent precisa de revisão",
         "handed_off": "Passado a um rail",
         "delivered": "Concluído",
         "discarded": "Descartado",
         "closed": "Fechado"
       },
       "disabled": {
-        "settling": "Aguarde até o Flow terminar de salvar o estado",
+        "settling": "Aguarde até o Intent terminar de salvar o estado",
         "busy": "Aguarde a ação atual terminar",
-        "noSpec": "A spec do Flow ainda não está pronta"
+        "noSpec": "A spec do Intent ainda não está pronta",
+        "noChanges": "Nada para entregar ainda: nenhum arquivo alterado"
       },
       "viewChangesStats": "Ver alterações · {{files}}, +{{additions}} −{{deletions}}",
       "handOff": "Passar a um rail",
-      "close": "Fechar este Flow",
-      "closed": "Flow fechado. O branch é mantido."
+      "close": "Fechar este Intent",
+      "closed": "Intent fechado. O branch é mantido."
     },
     "preview": {
       "open": "Pré-visualizar",
@@ -1097,20 +1134,20 @@
       "stopFailed": "Não foi possível parar a app"
     },
     "discard": {
-      "title": "Descartar este Flow?",
+      "title": "Descartar este Intent?",
       "body": "Descartar apaga tudo isto e não é possível desfazer:",
-      "cancel": "Manter Flow",
-      "confirm": "Descartar Flow",
+      "cancel": "Manter Intent",
+      "confirm": "Descartar Intent",
       "lossFiles_one": "{{count}} arquivo alterado",
       "lossFiles_other": "{{count}} arquivos alterados",
       "lossNoChanges": "Ainda não há arquivos alterados",
-      "lossUnknown": "Todas as alterações no branch do Flow",
+      "lossUnknown": "Todas as alterações no branch do Intent",
       "lossSpec": "A spec provisória no quadro"
     },
     "changes": {
-      "title": "Alterações do Flow",
+      "title": "Alterações do Intent",
       "subtitle": "Branch {{branch}} comparado com o ponto de partida",
-      "subtitleNoBranch": "Alterações comparadas com o ponto de partida do Flow",
+      "subtitleNoBranch": "Alterações comparadas com o ponto de partida do Intent",
       "refresh": "Atualizar",
       "loadFailed": "Não foi possível carregar as alterações.",
       "empty": "Ainda sem alterações.",
@@ -1123,11 +1160,11 @@
       }
     },
     "handOff": {
-      "heading": "Transforme este Flow em uma PR revisada",
-      "loop": "Passagem do Flow a um rail",
+      "heading": "Transforme este Intent em uma PR revisada",
+      "loop": "Passagem do Intent a um rail",
       "launch": "Lançar",
       "notYet": "Ainda não",
-      "engineFallback": "{{provider}} não pode executar a passagem do Flow a um rail nesta máquina, por isso foi selecionado o motor padrão do rail.",
+      "engineFallback": "{{provider}} não pode executar a passagem do Intent a um rail nesta máquina, por isso foi selecionado o motor padrão do rail.",
       "cost": "{{cost}} até agora",
       "costUnknown": "ainda sem custo faturado",
       "line_one": "{{rail}} vai transformar seu arquivo alterado em uma PR revisada. Se falhar, seu trabalho fica a salvo.",
@@ -1135,16 +1172,16 @@
       "lineNoCount": "{{rail}} vai transformar suas alterações em uma PR revisada. Se falhar, seu trabalho fica a salvo."
     },
     "review": {
-      "backToFlow": "Voltar ao Flow",
-      "backToFlowHint": "Reabra este Flow com as mesmas alterações; o agente recebe a revisão no próximo turno",
+      "backToFlow": "Voltar ao Intent",
+      "backToFlowHint": "Reabra este Intent com as mesmas alterações; o agente recebe a revisão no próximo turno",
       "relaunch": "Relançar",
-      "relaunchHint": "Tentar de novo a partir do mesmo branch do Flow, rail e motor",
-      "returned": "De volta ao Flow. O agente tem a revisão.",
+      "relaunchHint": "Tentar de novo a partir do mesmo branch do Intent, rail e motor",
+      "returned": "De volta ao Intent. O agente tem a revisão.",
       "relaunched": "Relançado no Rail {{index}}",
-      "returnFailed": "Não foi possível voltar ao Flow: {{detail}}",
+      "returnFailed": "Não foi possível voltar ao Intent: {{detail}}",
       "relaunchFailed": "Não foi possível relançar: {{detail}}",
-      "backToFlowFailureHint": "Reabra este Flow com as mesmas alterações; o agente recebe o erro no próximo turno",
-      "returnedFailure": "De volta ao Flow. O agente tem o erro."
+      "backToFlowFailureHint": "Reabra este Intent com as mesmas alterações; o agente recebe o erro no próximo turno",
+      "returnedFailure": "De volta ao Intent. O agente tem o erro."
     },
     "failure": {
       "step": {
@@ -1157,9 +1194,9 @@
         "unknown": "A passagem a um rail parou antes de terminar"
       },
       "cause": "Causa:",
-      "next": "Seu trabalho está intacto. De volta ao Flow, o agente recebe o erro.",
-      "nextReturned": "Seu trabalho está intacto. De volta ao Flow, o agente tem o erro.",
-      "returned": "De volta ao Flow",
+      "next": "Seu trabalho está intacto. De volta ao Intent, o agente recebe o erro.",
+      "nextReturned": "Seu trabalho está intacto. De volta ao Intent, o agente tem o erro.",
+      "returned": "De volta ao Intent",
       "technical": {
         "title": "Detalhes técnicos",
         "repository": "Repositório",
@@ -1170,17 +1207,17 @@
       }
     },
     "announce": {
-      "active": "Flow ativo: o agente escreve no branch do Flow.",
-      "paused": "Flow em pausa.",
-      "needs-review": "O Flow precisa de revisão: sua cópia do projeto desapareceu.",
-      "handed_off": "Flow passado a um rail.",
-      "delivered": "Flow entregue.",
-      "discarded": "Flow descartado.",
-      "returned": "De volta ao Flow: o trabalho voltou com o que o rail encontrou.",
-      "closed": "Flow fechado. O branch foi mantido."
+      "active": "Intent ativo: o agente escreve no branch do Intent.",
+      "paused": "Intent em pausa.",
+      "needs-review": "O Intent precisa de revisão: sua cópia do projeto desapareceu.",
+      "handed_off": "Intent passado a um rail.",
+      "delivered": "Intent entregue.",
+      "discarded": "Intent descartado.",
+      "returned": "De volta ao Intent: o trabalho voltou com o que o rail encontrou.",
+      "closed": "Intent fechado. O branch foi mantido."
     },
     "strip": {
-      "label": "Flow",
+      "label": "Intent",
       "ready": "Pronto para virar uma PR",
       "launching": "Passando a um rail…",
       "launchingOn": "Passando a {{rail}}…",
@@ -1197,54 +1234,57 @@
       "headline": "{{state}} · {{files}}"
     },
     "mode": {
-      "chip": "Flow",
-      "description": "Modo Flow: o agente escreve no branch do Flow, não no seu branch principal",
-      "placeholder": "Diga ao agente o que mudar neste Flow…"
+      "chip": "Intent",
+      "description": "Modo Intent: o agente escreve no branch do Intent, não no seu branch principal",
+      "placeholder": "Diga ao agente o que construir neste branch…"
     },
     "panel": {
       "branch": "Branch",
       "changes": "Alterações",
       "cost": "Custo até agora",
-      "actions": "Mais ações do Flow"
+      "actions": "Mais ações do Intent"
     },
     "close": {
-      "title": "Fechar este Flow?",
-      "body": "A conversa sai do Flow. Nada é apagado:",
+      "title": "Fechar este Intent?",
+      "body": "A conversa sai do Intent. Nada é apagado:",
       "keptBranch": "Branch mantido:",
-      "keptSpec": "A spec continua no quadro, sem a etiqueta Em Flow",
+      "keptSpec": "A spec continua no quadro, sem a etiqueta Em Intent",
       "cancel": "Agora não",
-      "confirm": "Fechar Flow e manter o branch"
+      "confirm": "Fechar Intent e manter o branch"
     },
     "startFromSpec": {
-      "action": "Começar em Flow",
-      "hint": "Construa esta spec com o agente em um branch Flow próprio, em uma missão",
-      "starting": "Iniciando o Flow…",
-      "failed": "A spec #{{id}} não pôde começar em Flow",
+      "action": "Explorar com o agente",
+      "hint": "Construa esta spec com o agente em um branch Intent próprio, em uma missão",
+      "starting": "Iniciando o Intent…",
+      "failed": "A spec #{{id}} não pôde começar em Intent",
       "repository": {
-        "title": "Onde este Flow deve ser executado?",
-        "body": "Este projeto tem vários repositórios Git. O Flow trabalha no próprio branch, em uma cópia separada do que você escolher.",
+        "title": "Onde este Intent deve ser executado?",
+        "body": "Este projeto tem vários repositórios Git. O Intent trabalha no próprio branch, em uma cópia separada do que você escolher.",
         "fromSpec": "Indicado na spec"
       },
       "blocked": {
-        "noProject": "Abra um projeto para usar o Flow",
-        "unavailable": "O Flow não está disponível com o Specrails Core instalado",
-        "inFlow": "Já está em Flow",
-        "closed": "Specs concluídas ou canceladas não podem começar em Flow",
+        "noProject": "Abra um projeto para usar o Intent",
+        "unavailable": "O Intent não está disponível com o Specrails Core instalado",
+        "inFlow": "Já está em Intent",
+        "closed": "Specs concluídas ou canceladas não podem começar em Intent",
         "running": "Em execução em um rail",
         "onRail": "Em um rail: tire-a do rail primeiro",
-        "missionInFlow": "Esta missão já tem um Flow"
-      }
+        "missionInFlow": "Esta missão já tem um Intent"
+      },
+      "openMission": "Abrir a missão do Intent",
+      "started": "Explorando a spec #{{id}} em {{branch}}"
     }
   },
   "flowReturn": {
     "title": "O que o revisor pediu",
-    "noFindings": "A passagem a um rail parou antes da entrega; suas alterações voltaram intactas a este Flow.",
+    "noFindings": "A passagem a um rail parou antes da entrega; suas alterações voltaram intactas a este Intent.",
     "coverage": "A spec explica {{explained}} de {{files}} arquivos alterados",
     "unexplained": "Não explicados por nenhum requisito",
     "moreFiles_one": "+{{count}} arquivo a mais",
     "moreFiles_other": "+{{count}} arquivos a mais",
-    "next": "O agente do Flow começa agora; você pode orientá-lo ou pará-lo a qualquer momento.",
-    "automaticTurn": "Turno automático · De volta ao Flow",
+    "next": "O agente do Intent começa agora; você pode orientá-lo ou pará-lo a qualquer momento.",
+    "automaticTurn": "Turno automático · De volta ao Intent",
+    "openingTurn": "Turno automático · Entrou em Intent",
     "titleFailure": "Por que a passagem a um rail parou"
   },
   "turnErrors": {
@@ -1253,7 +1293,7 @@
     "generic": "O turno do agente falhou."
   },
   "flowDelivered": {
-    "title": "Flow entregue",
+    "title": "Intent entregue",
     "pr": "Abrir o pull request",
     "prNumber": "Pull request #{{number}}",
     "specRewritten": "Spec reescrita a partir do que você construiu",
@@ -1261,7 +1301,22 @@
     "change": "Mudança de spec {{change}}",
     "changeArchived": "Mudança de spec {{change}} arquivada",
     "jira": "Issue do Jira {{key}}",
-    "jiraPending": "Issue do Jira sendo criada"
+    "jiraPending": "Issue do Jira sendo criada",
+    "subtitle": "Construído juntos, revisado e integrado. Bom trabalho.",
+    "untitled": "Seu Intent",
+    "files_one": "{{count}} arquivo",
+    "files_other": "{{count}} arquivos",
+    "specRewrittenId": "Spec #{{id}} reescrita a partir do que você construiu",
+    "specRewriting": "Reescrevendo a spec a partir do que você construiu…",
+    "integratedPr": "Integrado: pull request",
+    "integratedPrMerged": "Integrado: pull request mesclado",
+    "integratedLocally": "Integrado localmente em {{branch}}",
+    "questionsAnswered_one": "{{count}} pergunta aberta respondida",
+    "questionsAnswered_other": "{{count}} perguntas abertas respondidas",
+    "next": {
+      "openSpec": "Abrir a spec",
+      "viewPr": "Ver o pull request"
+    }
   },
   "runStrip": {
     "launching": "Iniciando em {{rail}}…",
@@ -1320,8 +1375,8 @@
       "failed": "{{run}} falhou: {{reason}}",
       "openRun": "Mostrar a execução",
       "proposed": "Lançamento proposto. Aguardando você",
-      "backToFlow": "De volta ao Flow",
-      "flowReturned": "{{run}} devolveu o trabalho ao Flow",
+      "backToFlow": "De volta ao Intent",
+      "flowReturned": "{{run}} devolveu o trabalho ao Intent",
       "delivered": "Entregue: PR {{pr}}",
       "deliveredNoPr": "Entregue em {{run}}",
       "superseded": "{{run}} foi substituído por uma execução mais recente",
@@ -1340,9 +1395,9 @@
     }
   },
   "flowBoundary": {
-    "entered": "Entrou no Flow",
-    "left": "Saiu do Flow",
-    "turnMark": "Flow",
+    "entered": "Entrou no Intent",
+    "left": "Saiu do Intent",
+    "turnMark": "Intent",
     "reason": {
       "started": "iniciado",
       "returned": "de volta de um rail",
@@ -1399,8 +1454,8 @@
   "starter": {
     "reference": "Referenciar uma spec",
     "action": "Executar uma ação",
-    "plan": "Planejar uma nova spec",
-    "planSpec": "Me ajude a planejar uma nova spec: "
+    "plan": "Começar por um problema",
+    "planSpec": "Quero resolver este problema: "
   },
   "emptyLegend": "⇧⇥ muda o que o agente pode fazer · ↑ recupera seu último prompt",
   "delivery": {

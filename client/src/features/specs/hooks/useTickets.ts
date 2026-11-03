@@ -8,6 +8,7 @@ import { TRASH_RETENTION_DAYS, useUndo } from '../../../hooks/useUndo'
 import { readProjectCache, writeProjectCache } from '../../../hooks/useProjectCache'
 import { isSpecGenInFlight } from '../lib/spec-gen-suppression'
 import type { LocalTicket } from '../../../types'
+import type { SpecIntent } from '../lib/spec-intent'
 
 // Re-export for backward compat
 export type { LocalTicket }
@@ -472,7 +473,7 @@ export function useTickets() {
   )
 
   const updateTicket = useCallback(
-    async (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'prerequisites' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf?: string | null } }, opts?: ItemOpts): Promise<boolean> => {
+    async (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'prerequisites' | 'repositoryIds' | 'nonGoals'>> & { intent?: SpecIntent | null; metadata?: { regressionOf?: string | null } }, opts?: ItemOpts): Promise<boolean> => {
       const ownerProjectId = activeProjectId
       if (!ownerProjectId) return false
       const before = ticketsRef.current.find((tk) => tk.id === ticketId)

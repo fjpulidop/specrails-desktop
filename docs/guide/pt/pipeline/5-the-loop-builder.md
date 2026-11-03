@@ -10,7 +10,7 @@ Crie um corpo reutilizável em **Componentes**, declare entradas e saídas e sel
 
 A publicação envia o rascunho ao Core e apresenta os erros nas etapas. O lançamento valida novamente a configuração do projeto. Atualize o Core se o motor estiver indisponível. Os loops antigos mantêm o editor e a execução anteriores; as secções seguintes descrevem-nos.
 
-Um **rail roda um Loop**. Os loops embutidos (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) cobrem os casos do dia a dia, mas o **Loop Builder** deixa você desenhar os seus próprios — um editor visual, no estilo n8n, para automação que se repete até atingir uma meta. Esta página explica o que é um loop, como construir um e como rodá-lo em um rail.
+Um **rail roda um Loop**. O loop embutido `Implement` cobre o caso do dia a dia — e a galeria acrescenta outros prontos, como `Freestyle` e `SDD Quick (OpenSpec)` — mas o **Loop Builder** deixa você desenhar os seus próprios — um editor visual, no estilo n8n, para automação que se repete até atingir uma meta. Esta página explica o que é um loop, como construir um e como rodá-lo em um rail.
 
 ## Loops e rails — a relação
 
@@ -20,7 +20,7 @@ Um **loop** é a *receita* do trabalho; um **rail** é a *pista* que o roda cont
    Loop Builder (barra lateral esq.)        Rails (direita)
    ───────────────────────────             ─────────────
    Implement   (embutido)                  Rail 1
-   Freestyle   (embutido)      escolha ►      Loop: Verify-until-green
+   Freestyle   (da galeria)    escolha ►      Loop: Verify-until-green
    Verify-until-green (seu)                     ▶ Play
 ```
 
@@ -31,9 +31,15 @@ Ou seja: construa um loop uma vez e depois escolha-o em qualquer rail, em qualqu
 
 ## Abrindo o builder
 
-Clique em **Loops** na barra lateral esquerda para ver a biblioteca: os três loops embutidos mais os seus próprios. Abra um para vê-lo, ou clique em **New loop** para começar de uma tela em branco.
+Clique em **Loops** na barra lateral esquerda para ver a biblioteca: o loop embutido `Implement` mais os seus próprios, e a galeria de **Modelos** logo abaixo. Abra um para vê-lo, ou clique em **New loop** para começar de uma tela em branco.
 
 Os loops embutidos são loops reais e editáveis. Abra um com **Edit** e altere-o como qualquer outro loop: ao salvar ele vira rascunho, e **Publish** aplica a sua versão em **todos os rails, lançamentos pelo chat do agente e lançamentos pelo Companion que usam esse embutido**. Enquanto a sua edição for um rascunho, os rails continuam executando a última versão publicada, então nada quebra no meio da edição. **Restaurar original** (no cartão ou no builder) volta o embutido à versão padrão; embutidos não podem ser excluídos. Prefere uma cópia separada? Use **Duplicate** — isso cria um loop comum e deixa o embutido intacto.
+
+### Começando pela galeria
+
+A galeria de **Modelos** reúne loops prontos que você adiciona de propósito — o app nunca os coloca em um rail por conta própria. Dois deles já foram embutidos: **Freestyle** (entrega a spec ao modelo com total liberdade e depois verifica e refina até tudo passar) e **SDD Quick (OpenSpec)** (prepara os artefatos, aplica e testa, valida pela CLI e por fim arquiva). Clique em **Usar modelo** para criar uma cópia em Rascunho, ajuste-a se quiser, **Publique**-a e ela aparece em *Loops personalizados* no seletor de Loop de todos os rails. O Freestyle precisa de um provedor com suporte a Freestyle (todos os provedores CLI e motores locais).
+
+Se um rail ainda estava configurado com o antigo Freestyle ou SDD Quick embutido, ele agora volta para `Implement`. Um embutido que você tinha editado antes desta mudança é mantido como um loop comum na sua biblioteca, com as suas edições intactas.
 
 ## Do que um loop é feito
 

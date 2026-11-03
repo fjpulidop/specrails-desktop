@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sparkles, Send, Zap, MessagesSquare, Globe, Ratio, PenLine, Plug, ChevronRight } from 'lucide-react'
+import { Sparkles, Send, Zap, MessagesSquare, Globe, Ratio, PenLine, Plug, ChevronRight, Compass, Target, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
@@ -35,6 +35,9 @@ import { CapturedDomPanel } from '../../browser/components/browser-capture/Captu
 import { isBrowserCaptureEnabled, type CaptureResult, type CapturedDom } from '../../browser/lib/browser-capture'
 
 import { notifyError } from '../../../lib/notify-error'
+
+/** Add Spec modes: Intent (default door, intent-mode), Quick, Explore and Raw (`free`). */
+export type AddSpecMode = SpecMode | 'intent'
 interface BrowserCaptureBreakpoint {
   key: string
   attachmentId: string
@@ -88,7 +91,7 @@ interface ProposeSpecModalProps {
    *  modal close events (used by the minimize-to-dock flow). */
   onExploreLaunch?: (payload: ExploreLaunchPayload) => void
   /** Mode the modal opens in (default Quick). ⌘K "New spec (Explore)" opens it in Explore. */
-  initialMode?: 'quick' | 'explore'
+  initialMode?: AddSpecMode
 }
 
 function genPendingId(): string {
@@ -101,7 +104,7 @@ function genPendingId(): string {
   })
 }
 
-export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, initialMode = 'quick' }: ProposeSpecModalProps) {
+export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, initialMode = 'intent' }: ProposeSpecModalProps) {
   const { t } = useTranslation('addspec')
   const { t: tj } = useTranslation('jira')
   // On a Jira-backed project, new specs are always created in Jira; the indicator
@@ -109,7 +112,11 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
   const jira = useJiraConnection()
   const { activeProjectId, projects } = useDesktop()
   const tracker = useSpecGenTracker()
-  const [mode, setMode] = useState<SpecMode>('quick')
+  const [mode, setMode] = useState<AddSpecMode>('intent')
+  // Intent (intent-mode, the default door) is the Quick fast path with the
+  // intent written first: same engine gate, scope and Contract Layer.
+  const fastMode = mode === 'quick' || mode === 'intent'
+  const scopeMode: SpecMode = mode === 'intent' ? 'quick' : mode
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasText, setHasText] = useState(false)
   const [attachmentCount, setAttachmentCount] = useState(0)
@@ -171,7 +178,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
   const contractRefineSupported = effectiveProvider == null
     || providerSupportsContractRefine(effectiveProvider)
 
-  const { scope, setScope, persist: persistScope } = useContextScope(activeProjectId, mode, open)
+  const { scope, setScope, persist: persistScope } = useContextScope(activeProjectId, scopeMode, open)
   const quickRefine = useQuickContractRefineLast(activeProjectId, open)
   const { data: budget, isError: budgetError } = useContextBudget(activeProjectId, open)
   const sanitizeScopeForProvider = useCallback((candidate: ContextScope): ContextScope => {
@@ -193,18 +200,18 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
   const smashCapable = isSmashCapable(effectiveProvider)
 
   useEffect(() => {
-    if (open && mode === 'quick' && !quickAvailable) setMode('explore')
-  }, [open, mode, quickAvailable])
+    if (open && fastMode && !quickAvailable) setMode('explore')
+  }, [open, fastMode, quickAvailable])
 
   useEffect(() => {
     if (
-      mode !== 'quick'
+      !fastMode
       || !quickRefine.loaded
       || scopeTouchedRef.current
       || !contractRefineSupported
     ) return
     setScope((prev) => ({ ...prev, contractRefine: quickRefine.value }))
-  }, [mode, quickRefine.loaded, quickRefine.value, setScope, contractRefineSupported])
+  }, [fastMode, quickRefine.loaded, quickRefine.value, setScope, contractRefineSupported])
 
   // Provider changes can invalidate values restored from the previous
   // provider's persisted preset. Clear them in state as well as at submit time
@@ -269,7 +276,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
     () => (hasText || captures.length > 0)
       && !isSubmitting
       && (mode === 'free' || (!modelLoading && model !== null))
-      && (mode !== 'quick' || quickAvailable),
+      && (!fastMode || quickAvailable),
     [hasText, captures.length, isSubmitting, mode, quickAvailable, modelLoading, model],
   )
 
@@ -333,7 +340,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
     const projectId = activeProjectIdRef.current
     if (!projectId) return
     if (mode !== 'free' && (modelLoading || model === null)) return
-    if (mode === 'quick' && !quickAvailable) {
+    if (fastMode && !quickAvailable) {
       setMode('explore')
       return
     }
@@ -415,16 +422,19 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
     const startTime = Date.now()
 
     toast.loading(`${projectName} · ${truncated}`, { id: toastId, description: t('proposeModal.toast.generating') })
+    // The request never started: the typed idea stays in the editor and the
+    // progress toast gives way to the error (with the server's own words).
+    const failToStart = (detail: string | null) => {
+      submittedRef.current = false
+      toast.dismiss(toastId)
+      notifyError(t('proposeModal.toast.failedToStart', { projectName }), { detail })
+    }
 
     submittedRef.current = true
     void quickRefine.persist(effectiveScope.contractRefine)
     setIsSubmitting(true)
-    editorRef.current?.clear()
-    setAttachmentCount(0)
-    setHasText(false)
-    setCaptures([])
 
-    const reg = { toastId, truncated, knownTicketIds, projectId, projectName, startTime, persistId: toastId }
+    const reg = { toastId, truncated, knownTicketIds, projectId, projectName, startTime, persistId: toastId, ...(mode === 'intent' ? { expectIntent: true } : {}) }
 
     try {
       let res: Response
@@ -445,19 +455,25 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
               contractRefine: effectiveScope.contractRefine,
             },
             contractRefine: effectiveScope.contractRefine,
+            ...(mode === 'intent' ? { intent: true } : {}),
           }),
         })
       } catch (err) {
         console.error('[ProposeSpec] generate-spec fetch threw:', err)
-        notifyError(t('proposeModal.toast.failedToStart', { projectName }), { id: toastId })
+        failToStart(err instanceof Error ? err.message : String(err))
         return
       }
       if (!res.ok) {
-        notifyError(t('proposeModal.toast.failedToStart', { projectName }), { id: toastId })
+        failToStart(await serverErrorMessage(res))
         return
       }
       const data = await res.json() as { requestId: string }
       tracker.registerFastSpec(data.requestId, reg)
+      // Only now is the idea in the server's hands: clear the draft.
+      editorRef.current?.clear()
+      setAttachmentCount(0)
+      setHasText(false)
+      setCaptures([])
     } finally {
       setIsSubmitting(false)
     }
@@ -472,7 +488,9 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
   const costEstimate = budget && !budgetError
     ? `~${formatUsd(estimateCostUsd(effectiveScope, budget, model ?? ''))}`
     : null
-  const modeDescription = mode === 'quick'
+  const modeDescription = mode === 'intent'
+    ? t('proposeModal.modeDescription.intent')
+    : mode === 'quick'
     ? t('proposeModal.modeDescription.quick')
     : mode === 'explore'
       ? t('proposeModal.modeDescription.explore')
@@ -514,10 +532,22 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
           </DialogHeader>
 
           <DialogBody className="flex flex-col gap-4">
+            {mode === 'intent' && (
+              <IntentPromptChips onInsert={(line) => {
+                // Append the scaffold line on its own line and put the caret after it.
+                const current = editorRef.current?.getPlainText() ?? ''
+                const next = current.trim().length === 0 ? line : `${current.replace(/\n*$/, '')}\n${line}`
+                editorRef.current?.setPlainText(next)
+                setHasText(next.trim().length > 0)
+                editorRef.current?.focus()
+              }} />
+            )}
             <RichAttachmentEditor
               ref={editorRef}
               ticketKey={pendingSpecId}
-              placeholder={mode === 'quick'
+              placeholder={mode === 'intent'
+                ? t('proposeModal.editorPlaceholder.intent')
+                : mode === 'quick'
                 ? t('proposeModal.editorPlaceholder.quick')
                 : mode === 'explore'
                   ? t('proposeModal.editorPlaceholder.explore')
@@ -730,12 +760,12 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
                     budget={budget}
                     budgetError={budgetError}
                     model={model ?? ''}
-                    maxPresetId={mode === 'quick' ? 'max' : 'desktop'}
+                    maxPresetId={fastMode ? 'max' : 'desktop'}
                     smashCapable={smashCapable}
                   />
                   <ContextScopeChecks
                     scope={effectiveScope}
-                    mode={mode}
+                    mode={scopeMode}
                     onChange={handleScopeChange}
                     label={t('contextScope.fineTune')}
                     showSummary={false}
@@ -747,7 +777,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
               </details>
             )}
 
-            {jira.connected && mode === 'quick' && (
+            {jira.connected && fastMode && (
               <div className="flex items-center justify-end text-xs" data-testid="jira-create-indicator">
                 <span className="inline-flex items-center gap-1 text-accent-info">
                   <Plug className="w-3 h-3" />
@@ -797,7 +827,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, init
               data-testid="propose-submit"
             >
               {mode === 'free' ? <PenLine className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-              {mode === 'quick' ? t('proposeModal.submit.quick') : mode === 'explore' ? t('proposeModal.submit.explore') : t('proposeModal.submit.raw')}
+              {mode === 'intent' ? t('proposeModal.submit.intent') : mode === 'quick' ? t('proposeModal.submit.quick') : mode === 'explore' ? t('proposeModal.submit.explore') : t('proposeModal.submit.raw')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -822,8 +852,8 @@ function ModeSegmented({
   fullCodebase,
   quickAvailable,
 }: {
-  value: SpecMode
-  onChange: (v: SpecMode) => void
+  value: AddSpecMode
+  onChange: (v: AddSpecMode) => void
   fullCodebase: boolean
   quickAvailable: boolean
 }) {
@@ -831,6 +861,17 @@ function ModeSegmented({
   const quickUnavailable = t('proposeModal.mode.quickUnavailable')
   return (
     <div role="tablist" aria-label={t('proposeModal.modeTablistLabel')} className="inline-flex items-center gap-1 p-1 rounded-lg border border-border/50 bg-card/40 self-start">
+      <ModeOption
+        active={value === 'intent'}
+        icon={<Compass className="w-3.5 h-3.5" />}
+        label={t('proposeModal.mode.intent')}
+        hint={quickAvailable ? t('proposeModal.mode.intentHint') : quickUnavailable}
+        hintInTitleOnly
+        badge={t('proposeModal.mode.default')}
+        onClick={() => onChange('intent')}
+        disabled={!quickAvailable}
+        disabledReason={quickUnavailable}
+      />
       <ModeOption
         active={value === 'quick'}
         icon={<Zap className="w-3.5 h-3.5" />}
@@ -865,6 +906,8 @@ function ModeOption({
   icon,
   label,
   hint,
+  hintInTitleOnly = false,
+  badge,
   onClick,
   disabled = false,
   disabledReason,
@@ -873,6 +916,10 @@ function ModeOption({
   icon: React.ReactNode
   label: string
   hint: string
+  /** Keep the hint as the tooltip only (the active mode's description already says it). */
+  hintInTitleOnly?: boolean
+  /** A caption pill after the label ("Default"). */
+  badge?: string
   onClick: () => void
   disabled?: boolean
   disabledReason?: string
@@ -895,7 +942,44 @@ function ModeOption({
     >
       {icon}
       {label}
-      <span className={`text-xs ${active ? 'text-accent-primary' : 'text-muted-foreground'}`}>{hint}</span>
+      {!hintInTitleOnly && <span className={`text-xs ${active ? 'text-accent-primary' : 'text-muted-foreground'}`}>{hint}</span>}
+      {badge && (
+        <span data-testid="propose-mode-default-badge" className="rounded-pill border border-border/60 px-1.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">
+          {badge}
+        </span>
+      )}
     </button>
   )
+}
+
+/**
+ * Intent mode's shape: three chips that put the scaffold of an intent into the
+ * editor (problem, who it affects, how we will know), styled like the mission
+ * home's starters. Each inserts its line at the end so the person fills it in.
+ */
+function IntentPromptChips({ onInsert }: { onInsert: (line: string) => void }) {
+  const { t } = useTranslation('addspec')
+  const chip = 'inline-flex h-7 items-center gap-1.5 rounded-control border border-border/60 px-2.5 text-label text-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
+  const chips: Array<{ id: 'problem' | 'affects' | 'signal'; icon: React.ReactNode }> = [
+    { id: 'problem', icon: <Compass className="h-3.5 w-3.5 text-accent-intent" aria-hidden /> },
+    { id: 'affects', icon: <Users className="h-3.5 w-3.5 text-accent-primary" aria-hidden /> },
+    { id: 'signal', icon: <Target className="h-3.5 w-3.5 text-accent-success" aria-hidden /> },
+  ]
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="propose-intent-chips">
+      {chips.map(({ id, icon }) => (
+        <button key={id} type="button" className={chip} data-testid={`propose-intent-chip-${id}`} onClick={() => onInsert(t(`proposeModal.intentScaffold.${id}`))}>
+          {icon}
+          {t(`proposeModal.intentChips.${id}`)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** The server's own words for a refused request (its `error`/`message`/`detail`), else the status. */
+async function serverErrorMessage(res: Response): Promise<string> {
+  const body = await res.clone().json().catch(() => null) as { error?: unknown; message?: unknown; detail?: unknown } | null
+  const text = [body?.detail, body?.message, body?.error].find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+  return text ?? `HTTP ${res.status}`
 }

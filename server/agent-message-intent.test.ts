@@ -68,7 +68,7 @@ describe('agent_messages.intent (mission-rail-cards)', () => {
   })
 })
 
-describe('Flow card intents (flow-mode client)', () => {
+describe('Intent card intents (flow-mode client)', () => {
   it('records a flow-offer choice next to a rail-launch decision on the same index', () => {
     const { conv, msg } = seed()
     expect(setAgentMessageIntent(db, msg.id, { kind: 'rail-launch', proposalIndex: 0, status: 'dismissed', at: 'now' }).ok).toBe(true)

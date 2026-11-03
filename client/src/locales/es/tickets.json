@@ -81,18 +81,6 @@
     "grid": "Vista de cuadrícula (Kanban)",
     "postit": "Vista post-it"
   },
-  "createModal": {
-    "title": "Crear spec",
-    "titlePlaceholder": "Título de la spec...",
-    "labelsPlaceholder": "Escribe para añadir etiquetas...",
-    "create": "Crear",
-    "creating": "Creando...",
-    "toast": {
-      "created": "Spec creada",
-      "createFailed": "No se pudo crear la spec"
-    },
-    "description": "Añade una spec al tablero a mano. Empieza en el estado que elijas y podrás refinarla o moverla a un rail más tarde."
-  },
   "comparePicker": {
     "title": "Comparar con…",
     "count": "({{n}} specs)",
@@ -123,7 +111,7 @@
     "title": "Anexos",
     "hint": "Notas de iteración sobre la spec. Viajan con el próximo lanzamiento sin editar la descripción.",
     "add": "Añadir anexo",
-    "emptyCta": "Añade un anexo para iterar sobre esta spec: el próximo lanzamiento (Implement, SDD Quick, Freestyle…) lo recibe como briefing y la descripción queda intacta.",
+    "emptyCta": "Añade un anexo para iterar sobre esta spec: el próximo lanzamiento (Implement o cualquier loop) lo recibe como briefing y la descripción queda intacta.",
     "openCount_one": "{{count}} abierto",
     "openCount_other": "{{count}} abiertos",
     "kind": {
@@ -191,6 +179,40 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Entrega desconocida ({{id}})"
+  },
+  "intent": {
+    "title": "Intent",
+    "add": "Añade el intent: el problema, el resultado y cómo sabrás que funcionó",
+    "addShort": "Añadir intent",
+    "editorHint": "Describe el problema, no la solución. Los agentes derivan el cómo a partir de esto.",
+    "save": "Guardar intent",
+    "problem": "Problema",
+    "outcome": "Resultado buscado",
+    "hypothesis": "Hipótesis (opcional)",
+    "successSignals": "Cómo sabremos",
+    "affects": "A quién y a qué afecta",
+    "constraints": "Restricciones",
+    "openQuestions": "Preguntas abiertas",
+    "questionsAnswered_one": "Preguntas · {{count}} respondida",
+    "questionsAnswered_other": "Preguntas · {{count}} respondidas",
+    "onePerLine": "Uno por línea",
+    "required": "Obligatorio",
+    "problemPlaceholder": "Qué falla hoy, a quién y cuándo duele",
+    "outcomePlaceholder": "Qué será cierto cuando esté resuelto",
+    "hypothesisPlaceholder": "Creemos que … producirá …; lo sabremos cuando …",
+    "successSignalsPlaceholder": "Señales observables de que se logró el resultado",
+    "affectsPlaceholder": "Personas, equipos, pantallas o sistemas",
+    "constraintsPlaceholder": "Límites que cualquier solución debe respetar",
+    "questionPlaceholder": "Lo que todavía nadie sabe",
+    "answerPlaceholder": "Respuesta (vacía mientras siga abierta)",
+    "questionLabel": "Pregunta abierta {{n}}",
+    "answerLabel": "Respuesta",
+    "answerAria": "Respuesta a la pregunta abierta {{n}}",
+    "removeQuestion": "Quitar la pregunta abierta {{n}}",
+    "addQuestion": "Añadir pregunta abierta",
+    "unanswered": "Abierta",
+    "openCount_one": "{{count}} pregunta abierta",
+    "openCount_other": "{{count}} preguntas abiertas"
   },
   "nonGoals": {
     "title": "Fuera de alcance",
@@ -321,7 +343,7 @@
       "smash": "División",
       "spec-launcher": "Lanzador de specs",
       "chat-sidebar": "Chat",
-      "flow": "Flow"
+      "flow": "Intent"
     }
   }
 }

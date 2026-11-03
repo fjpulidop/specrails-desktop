@@ -10,7 +10,6 @@ import {
   providerSupportsPureOutput,
   providerSupportsToolPolicy,
   defaultReasoningEffortForProvider,
-  providerSupportsFreestyle,
   providerSupportsProfiles,
   reasoningEffortsForProvider,
   providerSupportsAgentAutomation,
@@ -263,23 +262,13 @@ describe('restricted tool-policy capabilities', () => {
 })
 
 describe('provider-owned rail capabilities', () => {
-  it('enables Freestyle and profiles for Kimi', () => {
-    expect(providerSupportsFreestyle('kimi')).toBe(true)
+  it('enables profiles for Kimi', () => {
     expect(providerSupportsProfiles('kimi')).toBe(true)
   })
 
-  it('enables Freestyle on Codex and Gemini without profiles', () => {
-    expect(providerSupportsFreestyle('codex')).toBe(true)
-    expect(providerSupportsFreestyle('gemini')).toBe(true)
+  it('keeps profiles off for Codex and Gemini', () => {
     expect(providerSupportsProfiles('codex')).toBe(false)
     expect(providerSupportsProfiles('gemini')).toBe(false)
-  })
-
-  it('keeps Freestyle off for the roles sentinel and an unresolved provider', () => {
-    expect(providerSupportsFreestyle('roles')).toBe(false)
-    expect(providerSupportsFreestyle(null)).toBe(false)
-    expect(providerSupportsFreestyle(undefined)).toBe(false)
-    expect(providerSupportsFreestyle('mystery')).toBe(true) // unknown ids are local engines
   })
 })
 
@@ -332,4 +321,10 @@ describe('preferredProvider', () => {
 it('offers all Codex GPT-6.1 Sol efforts and uses medium as the initial selection', () => {
   expect(reasoningEffortsForProvider('codex', 'gpt-6.1-sol')).toEqual(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
   expect(defaultReasoningEffortForProvider('codex', 'gpt-6.1-sol')).toBe('medium')
+})
+
+it('maps GPT-6.1 Terra / GPT-6 Sol to base efforts and GPT-6 Luna up to max (never ultra)', () => {
+  expect(reasoningEffortsForProvider('codex', 'gpt-6.1-terra')).toEqual(['low', 'medium', 'high', 'xhigh'])
+  expect(reasoningEffortsForProvider('codex', 'gpt-6-sol')).toEqual(['low', 'medium', 'high', 'xhigh'])
+  expect(reasoningEffortsForProvider('codex', 'gpt-6-luna')).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
 })

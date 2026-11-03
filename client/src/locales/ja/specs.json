@@ -41,10 +41,12 @@
     "openParentEpicTitle": "親エピック #{{id}} を開く · {{title}}",
     "addendaTitle_one": "{{count}} 件の未処理補足 — 次回の起動に同行",
     "addendaTitle_other": "{{count}} 件の未処理補足 — 次回の起動に同行",
-    "inFlow": "Flow 中",
-    "inFlowPaused": "Flow 一時停止中",
-    "inFlowTitle": "Flow で作成中 — ミッションを開く",
-    "inFlowPausedTitle": "Flow 一時停止中 — ミッションを開いて再開"
+    "intentOpenTitle_one": "Intent に未解決の問いが {{count}} 件",
+    "intentOpenTitle_other": "Intent に未解決の問いが {{count}} 件",
+    "inFlow": "Intent 中",
+    "inFlowPaused": "Intent 一時停止中",
+    "inFlowTitle": "Intent で作成中 — ミッションを開く",
+    "inFlowPausedTitle": "Intent 一時停止中 — ミッションを開いて再開"
   },
   "card": {
     "deleteSpec": "スペック #{{id}} を削除",

@@ -169,7 +169,7 @@
     },
     "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work.",
     "reviewChangesRequested": "Changes requested",
-    "reviewChangesRequestedHint": "The Flow hand-off still needs changes. Open its mission card to go back to Flow or relaunch.",
+    "reviewChangesRequestedHint": "The Intent hand-off still needs changes. Open its mission card to go back to Intent or relaunch.",
     "mergedLocallyRestored": "Saved your local changes, integrated {{tickets}}, and restored them.",
     "mergedLocallyStashConflict": "Integrated {{tickets}}. Your local changes are safe in a stash; Specrails is restoring them on a separate branch.",
     "mergedLocallyStashKept": "Integrated {{tickets}}. Your local changes are safe in a stash; restore them when you're ready.",
@@ -246,8 +246,6 @@
     "viewJobLog": "View job log",
     "log": "Log",
     "implement": "Implement",
-    "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle — the selected provider implements the spec autonomously, no pipeline",
     "loop": "Loop",
     "loopTitle": "Loop — run a published automation loop against the rail's specs",
     "pickLoop": "Pick a loop…",
@@ -262,13 +260,10 @@
     "worktreesNeedsReview": "{{count}} need review",
     "execSteps": "{{count}} steps",
     "execLines": "{{count}} lines",
-    "openspec": "SDD Quick (OpenSpec)",
     "recommended": "Recommended",
     "recommendedOption": "{{label}} · recommended",
     "loopDescriptions": {
-      "implement": "Plans, builds and reviews each spec, then prepares the delivery.",
-      "freestyle": "The chosen provider builds the spec on its own, with no pipeline.",
-      "openspec": "Writes an OpenSpec change for the spec, builds it, then archives it."
+      "implement": "Plans, builds and reviews each spec, then prepares the delivery."
     }
   },
   "railRow": {
@@ -288,19 +283,6 @@
       "title": "Delete {{label}}?",
       "body": "Its specs go back to the backlog. This rail's provider, loop and PR settings are lost."
     }
-  },
-  "freestyleDialog": {
-    "title": "Launch in Freestyle mode",
-    "context_one": "{{rail}} · {{count}} spec",
-    "context_other": "{{rail}} · {{count}} specs",
-    "noPipelineTitle": "No OpenSpec pipeline.",
-    "noPipelineBody": "The structured architect → developer → reviewer flow is skipped entirely.",
-    "autonomyTitle": "Native {{provider}} autonomy.",
-    "autonomyBody": "{{provider}} works on its own using native agents and dynamic workflows.",
-    "costTitle": "Variable cost.",
-    "costBody": "Spend depends on what {{provider}} decides to do — it can be higher than expected.",
-    "continue": "Continue",
-    "gloss": "Freestyle hands each spec straight to {{provider}}: one autonomous run per spec, without the OpenSpec plan-and-review pipeline."
   },
   "useRails": {
     "fetchFailed": "Failed to fetch rails: {{status}}"
@@ -329,9 +311,7 @@
       "target_pr_unfetchable": "The PR's head branch could not be fetched"
     }
   },
-  "rail": {
-    "rolesNoFreestyle": "Freestyle needs a single provider — pick Implement or a loop before switching this rail to per-role engines."
-  },
+  "rail": {},
   "reviewWip": {
     "badge": "In review {{pending}}/{{limit}}",
     "title": "Deliveries waiting for review (limit {{limit}}). Click to list them.",

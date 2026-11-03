@@ -20,7 +20,7 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [mission-read-only-policy.md](mission-read-only-policy.md) | Read-only mission agents: per-provider native boundary that keeps MCP tools callable, Core session policy, kill switch, limitations and live evidence |
 | [agent-sessions.md](agent-sessions.md) | Core resident agent sessions in Desktop: host per scope, runner seam, projection, rebuild, sub-agent UI and rollout flag |
 | [companion-inbox-decisions.md](companion-inbox-decisions.md) | Paired companion as a decision remote for the Needs-you inbox: the four safe actions, their MCP permission tiers, what stays desktop-only (and why Discard is excluded), the `inbox.changed` nudge |
-| [flow-mode.md](flow-mode.md) | Flow mode server side: lifecycle and sagas, worktree hand-off to a rail, Flow turns with interrupt delivery, capability gating, routes and events |
+| [flow-mode.md](intent-mode.md) | Intent mode server side: lifecycle and sagas, worktree hand-off to a rail, Intent turns with interrupt delivery, capability gating, routes and events |
 | [spec-triage.md](spec-triage.md) | Spec triage: hashed deterministic inputs, the one cheap structured-output call, triggers, rail preselection and the recommended/chosen loop recorded per delivery |
 | [existing-project-anchoring.md](existing-project-anchoring.md) | Existing-project anchoring (feedback-2026-10 phase 3 + rules inventory): ticket non-goals, architect clarifications on Jira, requirements demonstrated, baseline on touch, project rules; every surface gated on its Core capability |
 | [programmatic-agent-runtime.md](programmatic-agent-runtime.md) | Paired Core build, per-role providers/local models, project settings, saved execution recovery and delivery boundaries |

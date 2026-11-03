@@ -61,9 +61,9 @@
       "moveSpecN": "Déplacer #{{id}} vers",
       "openReview": "Ouvrir la revue",
       "openReviewN": "Ouvrir la revue de #{{id}}",
-      "handOffFlow": "Transmettre le Flow",
-      "pauseFlow": "Mettre le Flow en pause",
-      "resumeFlow": "Reprendre le Flow",
+      "handOffFlow": "Transmettre l’Intent",
+      "pauseFlow": "Mettre l’Intent en pause",
+      "resumeFlow": "Reprendre l’Intent",
       "newMission": "Nouvelle mission",
       "switchTheme": "Changer de thème",
       "switchToMission": "Passer en mode Mission",
@@ -197,6 +197,7 @@
         "description": "Description",
         "label": "Étiquette",
         "nonGoal": "Hors périmètre",
+        "intent": "Intent",
         "addendum": "Addendum",
         "comment": "Commentaire"
       }
@@ -288,7 +289,7 @@
         },
         "prePrompt": {
           "label": "Pré-prompt du rail",
-          "keywords": "pré-prompt, preprompt, instructions, prompt, rail, freestyle"
+          "keywords": "pré-prompt, preprompt, instructions, prompt, rail"
         },
         "verificationCommands": {
           "label": "Commandes de vérification",
@@ -411,8 +412,8 @@
       "runStripFocus": "Aller au bandeau des exécutions de la mission (appuyez à nouveau pour afficher ou masquer les détails)",
       "runStripCycle": "Exécution précédente / suivante dans le bandeau (hors des champs de texte)",
       "runStripBack": "Quitter le bandeau des exécutions et revenir où vous étiez",
-      "flowPause": "Suspendre ou reprendre le Flow (bandeau des exécutions actif)",
-      "flowHandOff": "Remettre le Flow (bandeau des exécutions actif)",
+      "flowPause": "Suspendre ou reprendre l’Intent (bandeau des exécutions actif)",
+      "flowHandOff": "Remettre l’Intent (bandeau des exécutions actif)",
       "historyBackForward": "Revenir / avancer vers le lieu précédent ou suivant",
       "undoLast": "Annuler la dernière modification",
       "openInbox": "Ouvrir À traiter",

@@ -192,7 +192,7 @@
   "railSelectors": {
     "profileTitle": "Agent-Profil für diese Rail",
     "noProfile": "Kein Profil",
-    "modelTitle": "Modell für diese Freestyle-Rail",
+    "modelTitle": "Modell für diese Rail",
     "loopModelTitle": "Modell für diesen Loop",
     "engineTitle": "KI-Anbieter für alle Rollen dieses Starts: Architekt, Entwickler und Reviewer",
     "localEngine": "Lokale Engine",

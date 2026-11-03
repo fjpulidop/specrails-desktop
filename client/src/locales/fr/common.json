@@ -85,7 +85,7 @@
     "ref_mismatch": "La référence de branche ne correspond pas",
     "restart_pending": "En attente de la récupération du workflow",
     "review_changes_requested": "Le relecteur a demandé des modifications",
-    "returned_to_flow": "Revenu dans Flow",
+    "returned_to_flow": "Revenu dans Intent",
     "local_changes_attention": "Intégré — les modifications locales demandent votre attention"
   },
   "prRecovery": {
@@ -131,7 +131,7 @@
     "select": "Dépôt",
     "all": "Tous les dépôts",
     "workspacePath": "Dossiers de code",
-    "workspaceHint": "Facultatif. Un dossier par ligne, absolu ou relatif au dépôt. Vide utilise le dossier du dépôt. Implement, Quick SDD et Freestyle vérifient chaque dossier indiqué.",
+    "workspaceHint": "Facultatif. Un dossier par ligne, absolu ou relatif au dépôt. Vide utilise le dossier du dépôt. Implement et les loops vérifient chaque dossier indiqué.",
     "launchWorkspaces": "Dossiers pour cette exécution",
     "launchWorkspaceHint": "Les modifications et les tests sont limités à ces dossiers. Sélectionnez au moins un dossier pour chaque dépôt concerné.",
     "advanced": "Configuration multi-dépôts"
@@ -207,7 +207,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Remise du Flow",
+    "flowSpec": "Remise de l’Intent",
     "unknown": "Boucle",
     "title": "Boucle : {{name}}"
   },
@@ -233,8 +233,8 @@
       "dailyBudget": "les budgets quotidiens",
       "recentlyDeleted": "les éléments supprimés récemment",
       "railLoops": "ce qu’un rail exécute",
-      "flowMode": "Flow",
-      "flowHandOff": "la remise d’un Flow",
+      "flowMode": "Intent",
+      "flowHandOff": "la remise d’un Intent",
       "contextScope": "le curseur de contexte",
       "launchForecast": "la prévision de lancement",
       "loopBuilder": "le Loop Builder",

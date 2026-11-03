@@ -46,6 +46,7 @@ import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, startProjectEnvWar
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, isFlowHeldTicket, type JobOutcome } from './modules/specs/runtime/ticket-store'
 import { descriptionWithNonGoals } from './modules/specs/domain/non-goals'
+import { descriptionWithIntent, normalizeSpecIntent, renderIntentForAgents } from './modules/specs/domain/intent'
 import { nodeRunRecordFs, readClarifications } from './modules/delivery/runtime/run-records'
 import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
@@ -104,16 +105,16 @@ import {
   type CliProvider,
 } from './desktop-db'
 import { getConfig } from './config'
-import { createFlowService, type FlowService } from './modules/flow'
-import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/flow/adapters/sqlite'
-import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/flow/adapters/bindings'
+import { createFlowService, type IntentService } from './modules/intent'
+import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/intent/adapters/sqlite'
+import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/intent/adapters/bindings'
 import { SpecTriageService } from './modules/specs/runtime/triage'
 import { startProjectTrashPurge } from './modules/specs/runtime/ticket-trash-service'
 import { attachmentManager } from './attachment-manager'
 import { rulesInventoryRuns } from './modules/project-rules/runtime/rules-inventory-runs'
 import { corePhase3Capabilities } from './modules/agent-runtime/runtime/core-capabilities'
 import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
-import type { FlowHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
+import type { IntentHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
 import {
   beginProjectProcessQuiescence,
   openProjectProcessAdmission,
@@ -199,11 +200,11 @@ export interface ProjectContext {
   milestoneChains?: MilestoneChainManager
   /** Agent actions audit (batched writer, exports, retention). Absent in bare test contexts. */
   agentAudit?: ProjectAgentAudit
-  /** Flow mode: this project's Flow use cases (absent in bare test contexts). */
-  flow?: FlowService
-  /** Flow -> rail hand-off authority the rails launch route consults for `flowId`. */
-  flowHandOff?: FlowHandOffAuthority
-  /** Periodic retry of due Flow settlement effects (stopped on teardown). */
+  /** Intent mode: this project's Intent use cases (absent in bare test contexts). */
+  flow?: IntentService
+  /** Intent -> rail hand-off authority the rails launch route consults for `flowId`. */
+  flowHandOff?: IntentHandOffAuthority
+  /** Periodic retry of due Intent settlement effects (stopped on teardown). */
   flowSettlement?: { stop(): void }
   /** Spec triage (launch-triage): tapped from the bound broadcast; absent in bare test contexts. */
   specTriage?: SpecTriageService
@@ -735,7 +736,7 @@ export class ProjectRegistry {
     // once the rail maps exist; null until then (startup messages are few).
     let milestoneProgress: MilestoneProgressBroadcaster | null = null
     let milestoneChains: MilestoneChainManager | null = null
-    let flowService: FlowService | null = null
+    let flowService: IntentService | null = null
     let specTriage: SpecTriageService | null = null
     const boundBroadcast = (msg: WsMessage): void => {
       const enriched = { ...msg, projectId: project.id }
@@ -746,7 +747,7 @@ export class ProjectRegistry {
       milestoneProgress?.observe(msg)
       // Spec triage: a created/edited spec schedules a debounced triage scan.
       specTriage?.observe(msg)
-      // Flow settlement: a Flow delivery that reached review settles its Flow.
+      // Intent settlement: an Intent session delivery that reached review settles its Intent.
       if (msg.type === 'rail.pr_state' && flowService) {
         const deliveryId = (msg as { prDeliveryId?: unknown }).prDeliveryId
         if (typeof deliveryId === 'string') void flowService.observeDelivery(deliveryId).catch((err) => console.error('[flow] delivery settlement failed:', err))
@@ -1057,7 +1058,7 @@ export class ProjectRegistry {
               // On a replay after the ticket mutation committed but a later rail
               // mutation failed, changedTicketIds is empty. Derive the intended
               // review set from the converged store so Jira still receives it.
-              // A Flow spec reaches Jira only through its Flow settlement
+              // An Intent session spec reaches Jira only through its Intent settlement
               // (create, then the review transition), never from here.
               const reviewIds = effectTicketIds.filter(
                 (tid) => outcomeStore?.tickets[String(tid)]?.status === 'on_review' && !isFlowHeldTicket(outcomeStore?.tickets[String(tid)])
@@ -1299,6 +1300,16 @@ export class ProjectRegistry {
       }),
     }), undefined, { dailyBudget: dailyBudgetRejection, runCapDefault, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds) })
 
+    // The stored ticket as written (no launch-door additions): the Intent → Spec summary reads it.
+    const readFlowTicket = (ticketId: number) => {
+      try {
+        const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+        return readStore(exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)).tickets[String(ticketId)]
+      } catch {
+        return undefined
+      }
+    }
+
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
       try {
         const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
@@ -1309,8 +1320,9 @@ export class ProjectRegistry {
         return {
           id: t.id,
           title: t.title,
-          // Non-goals (3.2) ride in the description every loop prompt sees.
-          description: descriptionWithNonGoals(t.description, t.nonGoals),
+          // The intent (intent-mode) leads and the non-goals (3.2) close the
+          // description every loop prompt and Core run sees.
+          description: descriptionWithIntent(descriptionWithNonGoals(t.description, t.nonGoals), t.intent),
           status: t.status,
           priority: t.priority,
           labels: t.labels,
@@ -1445,7 +1457,7 @@ export class ProjectRegistry {
           if (store && effectTicketIds.length > 0) {
             try {
               if (status === 'completed' && completedStatus === 'on_review') {
-                // Flow specs: the Flow settlement creates the Jira issue first and
+                // Intent specs: the Intent settlement creates the Jira issue first and
                 // then transitions it; an early review here would be a no-op at
                 // best and a double transition at worst.
                 const reviewIds = effectTicketIds.filter(
@@ -1474,8 +1486,8 @@ export class ProjectRegistry {
         })
         const delivered = deliver()
         railLoopRuns.delete(runId)
-        // Flow hand-off without a PR delivery row: the completed run settles the
-        // Flow (with a delivery row, the `rail.pr_state` observer does).
+        // Intent hand-off without a PR delivery row: the completed run settles the
+        // Intent (with a delivery row, the `rail.pr_state` observer does).
         if (status === 'completed' && flowService) {
           for (const ticketId of ticketIds) {
             const flowId = delivered.store?.tickets[String(ticketId)]?.metadata?.flow?.flowId
@@ -1634,30 +1646,34 @@ export class ProjectRegistry {
         chatManager?.forgetExploreLifecycle(conversationId)
       },
     })
-    // Flow mode: use cases bound to THIS project's connection; the mission host
+    // Intent mode: use cases bound to THIS project's connection; the mission host
     // is app-global and late-bound (agent chat starts after the registry).
     const flowRepository = createSqliteFlowRepository(db)
     const flowPorts = createFlowPorts({
       ctx, repository: flowRepository, effects: createSqliteFlowEffectsStore(db), internalApi, availability: () => flowAvailability(),
       agentHost: () => getAgentChatManager(),
-      // Dev servers the Flow agent started in the worktree stop with the Flow.
+      // Dev servers the Intent agent started in the worktree stop with the Intent.
       processes: {
         async stop({ flowId }) {
           const { unresolved } = await stopBackgroundProcessesForFlow(flowId, project.id)
-          if (unresolved.length) console.warn(`[flow] ${unresolved.length} background process(es) of Flow ${flowId} did not confirm exit`)
+          if (unresolved.length) console.warn(`[flow] ${unresolved.length} background process(es) of Intent ${flowId} did not confirm exit`)
         },
       },
     })
     ctx.flow = createFlowService(flowPorts)
     flowService = ctx.flow
     ctx.flowHandOff = createFlowHandOffAuthority(flowRepository, systemClock, (session) => flowPorts.notifier.changed(session),
-      // Flow -> Spec: the bounded conversation summary Core's derive-change reads.
-      (session) => flowConversationSummary(this._desktopDb, {
-        conversationId: session.conversationId,
-        idea: session.ticketId !== null ? getTicketSpec(session.ticketId)?.description ?? null : null,
-        from: session.createdAt,
-        to: null,
-      }))
+      // Intent -> Spec: the bounded conversation summary Core's derive-change reads.
+      (session) => {
+        const ticket = session.ticketId !== null ? readFlowTicket(session.ticketId) : undefined
+        return flowConversationSummary(this._desktopDb, {
+          conversationId: session.conversationId,
+          idea: ticket?.description ?? null,
+          intent: renderIntentForAgents(normalizeSpecIntent(ticket?.intent)),
+          from: session.createdAt,
+          to: null,
+        })
+      })
     this._contexts.set(project.id, ctx)
     // Warm the project's login-shell env cache off the event loop so the first
     // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.
@@ -1679,15 +1695,15 @@ export class ProjectRegistry {
         void reconcileRailWorktrees(db, project.path)
           .then(async (n) => {
             if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
-            // Flow sessions never survive a restart; unfinished sagas complete
+            // Intent sessions never survive a restart; unfinished sagas complete
             // or compensate before admission opens (never throws).
             if (this._contexts.get(project.id) === ctx && ctx.flow) {
               const flows = await ctx.flow.reconcile()
-              if (flows.length > 0) console.log(`[flow] reconciled ${flows.length} Flow session(s) for ${project.slug}`)
+              if (flows.length > 0) console.log(`[flow] reconciled ${flows.length} Intent session(s) for ${project.slug}`)
               // Settlement effects survive restarts: deliveries that reached
               // review while the app was down settle now; pending effects resume.
               const settled = await ctx.flow.replaySettlement()
-              if (settled > 0) console.log(`[flow] resumed settlement of ${settled} Flow(s) for ${project.slug}`)
+              if (settled > 0) console.log(`[flow] resumed settlement of ${settled} Intent(s) for ${project.slug}`)
               if (this._contexts.get(project.id) === ctx && !ctx.flowSettlement) ctx.flowSettlement = startFlowSettlementScheduler(ctx.flow)
             }
             if (this._contexts.get(project.id) === ctx) {
@@ -1720,7 +1736,7 @@ export class ProjectRegistry {
               if (this._contexts.get(project.id) !== ctx) return
               reprojectActivePrDeliveries(ctx)
               openProjectProcessAdmission(project.id)
-              // Flow -> Spec deliveries settled as a generic failure before the
+              // Intent -> Spec deliveries settled as a generic failure before the
               // review outcome existed: persist the reclassification once (the
               // retained ledger is read-only here) and refresh their cards.
               void healLegacyFlowReviews({

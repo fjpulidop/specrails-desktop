@@ -192,7 +192,7 @@
   "railSelectors": {
     "profileTitle": "Agent profile for this rail",
     "noProfile": "No profile",
-    "modelTitle": "Model for this Freestyle rail",
+    "modelTitle": "Model for this rail",
     "loopModelTitle": "Model for this loop",
     "engineTitle": "AI provider for all roles in this launch: architect, developer and reviewer",
     "localEngine": "Local engine",

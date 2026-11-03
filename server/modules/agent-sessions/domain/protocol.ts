@@ -177,7 +177,7 @@ export interface SessionContractCheck {
   unknownEventTypes: string[]
   /** Event types this Desktop expects that Core no longer declares. */
   missingEventTypes: string[]
-  /** Core declares the `interrupt` delivery and the `flowSessions` capability (Flow mode). Never part of `compatible`. */
+  /** Core declares the `interrupt` delivery and the `flowSessions` capability (Intent mode). Never part of `compatible`. */
   flowSessions: boolean
   reasons: string[]
 }

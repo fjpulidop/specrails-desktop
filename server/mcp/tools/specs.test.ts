@@ -97,7 +97,8 @@ describe('specrails_specs facade', () => {
     const added = await spec.handler({ ...ctx, originConversationId: 'conv-1' }, { action: 'add_addendum', projectId: 'p1', id: 7, body: 'Send an Idempotency-Key.', kind: 'review-feedback' }) as { hint: string }
     expect((fetchMock.mock.calls.at(-1) as [string, { method: string }])[1].method).toBe('POST')
     expect(lastBody()).toMatchObject({ kind: 'review-feedback', body: 'Send an Idempotency-Key.', createdBy: 'agent', originConversationId: 'conv-1' })
-    expect(added.hint).toContain('factory:sdd-quick-openspec')
+    expect(added.hint).toContain('use Implement')
+    expect(added.hint).not.toContain('sdd-quick-openspec')
     expect(added.hint).toContain('continue a same-spec pending delivery')
     expect(added.hint).toContain('full delta and a fresh OpenSpec target')
     expect(added.hint).toContain('Do not use Revision')
@@ -328,7 +329,7 @@ describe('specrails_specs commit_draft — framing gate', () => {
   }
 
   it('refuses a first-party commit with no frame, and writes nothing', async () => {
-    await expect(spec.handler(firstParty(), { ...commitArgs })).rejects.toThrow(/problem-frame/)
+    await expect(spec.handler(firstParty(), { ...commitArgs })).rejects.toThrow(/intent-draft/)
     expect(fetchMock).not.toHaveBeenCalled()
     expect(listAgentMessages(db, conversationId)).toHaveLength(0)
   })
@@ -347,6 +348,32 @@ describe('specrails_specs commit_draft — framing gate', () => {
     const body = JSON.parse(call[1].body ?? '{}') as Record<string, unknown>
     expect(body.title).toBe('Group the Settings sections')
     expect(body.contractRefine).toBe(true)
+  })
+
+  it('attaches the answered intent-draft to the committed spec (an explicit intent wins)', async () => {
+    const draft = {
+      problem: 'Settings are hard to find.', outcome: 'Any setting in two keystrokes.', successSignals: [], affects: [], constraints: ['No new page'], openQuestions: [],
+      readings: { restated: 'Palette search', alternative: 'Regroup the page', discriminator: 'Search or scan?' },
+    }
+    addAgentMessage(db, { conversationId, role: 'assistant', content: '```intent-draft\n' + JSON.stringify(draft) + '\n```' })
+    addAgentMessage(db, { conversationId, role: 'user', content: 'search' })
+    await spec.handler(firstParty(), { ...commitArgs })
+    const body = JSON.parse((fetchMock.mock.calls.at(-1) as [string, { body?: string }])[1].body ?? '{}') as Record<string, unknown>
+    expect(body.intent).toMatchObject({ problem: 'Settings are hard to find.', constraints: ['No new page'] })
+    expect(body.intent).not.toHaveProperty('readings')
+
+    answeredFrame()
+    const explicit = { problem: 'P', outcome: 'O' }
+    await spec.handler(firstParty(), { ...commitArgs, intent: explicit })
+    const second = JSON.parse((fetchMock.mock.calls.at(-1) as [string, { body?: string }])[1].body ?? '{}') as Record<string, unknown>
+    expect(second.intent).toEqual(explicit)
+  })
+
+  it('a legacy problem-frame commits without an intent', async () => {
+    answeredFrame()
+    await spec.handler(firstParty(), { ...commitArgs })
+    const body = JSON.parse((fetchMock.mock.calls.at(-1) as [string, { body?: string }])[1].body ?? '{}') as Record<string, unknown>
+    expect(body).not.toHaveProperty('intent')
   })
 
   it('spends the frame: a second spec in the same conversation is refused', async () => {

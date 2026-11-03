@@ -12,7 +12,7 @@ Create a reusable body under **Components**, declare its input variables and out
 
 The remaining sections describe the existing Desktop loop nodes and rail behavior.
 
-A **rail runs a Loop**. The built-in loops (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) cover the everyday cases, but the **Loop Builder** lets you design your own — a visual, n8n-style editor for automation that repeats until a goal is met. This page explains what a loop is, how to build one, and how to run it on a rail.
+A **rail runs a Loop**. The built-in `Implement` loop covers the everyday case — and the gallery adds ready-made ones such as `Freestyle` and `SDD Quick (OpenSpec)` — but the **Loop Builder** lets you design your own — a visual, n8n-style editor for automation that repeats until a goal is met. This page explains what a loop is, how to build one, and how to run it on a rail.
 
 ## Loops and rails — the relationship
 
@@ -22,7 +22,7 @@ A **loop** is the *recipe* for the work; a **rail** is the *lane* that runs it a
    Loop Builder (left sidebar)             Rails (right)
    ───────────────────────────             ─────────────
    Implement   (built-in)                  Rail 1
-   Freestyle   (built-in)      pick on ►      Loop: Verify-until-green
+   Freestyle   (from gallery)  pick on ►      Loop: Verify-until-green
    Verify-until-green (yours)                     ▶ Play
 ```
 
@@ -33,9 +33,15 @@ So: build a loop once, then pick it on any rail in any project.
 
 ## Opening the builder
 
-Click **Loops** in the left sidebar to see the library: the three built-in loops plus any of your own. Open one to view it, or click **New loop** to start from a blank canvas.
+Click **Loops** in the left sidebar to see the library: the built-in `Implement` loop plus any of your own, and the **Templates** gallery below. Open one to view it, or click **New loop** to start from a blank canvas.
 
 Built-in loops are real, editable loops. Open one with **Edit** and change it like any other loop: saving turns it into a Draft, and **Publish** applies your version to **every rail, agent-chat launch and Companion launch that uses that built-in**. While your edit is a Draft, rails keep running the last published version, so nothing breaks mid-edit. **Restore original** (on the card or in the builder) resets a built-in to its default; built-ins cannot be deleted. Prefer a separate copy? Use **Duplicate** — it creates an ordinary loop that leaves the built-in untouched.
+
+### Starting from the gallery
+
+The **Templates** gallery holds ready-made loops you add on purpose — the app never puts them on a rail by itself. Two of them used to be built in: **Freestyle** (hand the spec to the model with full freedom, then verify and refine until green) and **SDD Quick (OpenSpec)** (prepare artifacts, apply and test, validate through the CLI, then archive). Click **Use template** to create a Draft copy, adjust it if you like, **Publish** it, and it appears under *Custom loops* in every rail's Loop picker. Freestyle needs a provider with Freestyle support (every CLI provider and local engine).
+
+If a rail was still set to the old built-in Freestyle or SDD Quick, it now falls back to `Implement`. A built-in you had edited before this change is kept as an ordinary loop in your library, with your edits intact.
 
 ## What a loop is made of
 

@@ -1,8 +1,8 @@
-// Flow apps: a mission conversation with an ACTIVE Flow starts its dev server
-// through `specrails_jobs background_start` and it runs in the Flow worktree
-// (a real `git worktree`), tagged with the Flow, admitted below the Autonomous
-// level, and stopped with the Flow. Real processes, real tier wrapper; only
-// the project catalog and the Flow lookup are fixtures.
+// Intent apps: a mission conversation with an ACTIVE Intent starts its dev server
+// through `specrails_jobs background_start` and it runs in the Intent worktree
+// (a real `git worktree`), tagged with the Intent, admitted below the Autonomous
+// level, and stopped with the Intent. Real processes, real tier wrapper; only
+// the project catalog and the Intent lookup are fixtures.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
@@ -26,7 +26,7 @@ type ToolCb = (args: Record<string, unknown>, extra?: ToolHandlerExtra) => Promi
 const CHAT = 'flow-chat'
 const PROJECT = 'flow-project'
 const quote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`
-const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.name=Flow Test', '-c', 'user.email=flow@test.local', ...args], { cwd, stdio: 'pipe' })
+const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.name=Intent Test', '-c', 'user.email=flow@test.local', ...args], { cwd, stdio: 'pipe' })
 
 async function waitFor<T>(read: () => T | null | undefined | false | Promise<T | null | undefined | false>, timeout = 8000): Promise<T> {
   const start = Date.now()
@@ -38,7 +38,7 @@ async function waitFor<T>(read: () => T | null | undefined | false | Promise<T |
   }
 }
 
-describe.skipIf(process.platform === 'win32')('Flow background processes', () => {
+describe.skipIf(process.platform === 'win32')('Intent background processes', () => {
   let root: string
   let repo: string
   let worktree: string
@@ -54,7 +54,7 @@ describe.skipIf(process.platform === 'win32')('Flow background processes', () =>
     worktree = path.join(root, 'worktrees', 'flow-1', 'ticket-7')
     execFileSync('mkdir', ['-p', repo])
     git(repo, 'init', '-q', '-b', 'main')
-    // The app lives only on the Flow branch: proof that the process runs in the worktree.
+    // The app lives only on the Intent branch: proof that the process runs in the worktree.
     writeFileSync(path.join(repo, 'README.md'), 'main checkout\n')
     git(repo, 'add', '.')
     git(repo, 'commit', '-q', '-m', 'init')
@@ -108,11 +108,11 @@ server.listen(0, '127.0.0.1', () => {
     action: 'background_start', command: `${quote(process.execPath)} server.cjs`, confirmed: true, ...args,
   }, as(tierLevel))
 
-  it('runs the app in the Flow worktree, tagged with the Flow, at the Edit level, and serves its URL', async () => {
+  it('runs the app in the Intent worktree, tagged with the Intent, at the Edit level, and serves its URL', async () => {
     const started = json<{ flowId: string; cwd: string; process: BackgroundProcess; hint: string }>(await startApp(1, { repositoryId: 'ignored-in-flow' }))
     expect(started).toMatchObject({ flowId: 'flow-1', cwd: worktree, process: { cwd: worktree, flowId: 'flow-1', chatId: CHAT, projectId: PROJECT } })
     expect(started.process.repositoryId).toBeUndefined()
-    expect(started.hint).toContain('Flow worktree')
+    expect(started.hint).toContain('Intent worktree')
     const { pid, processId } = started.process
 
     // The agent reads the logs for the address; appUrls come from the app's own output.
@@ -126,7 +126,7 @@ server.listen(0, '127.0.0.1', () => {
     // The main checkout was never touched.
     expect(execFileSync('git', ['status', '--porcelain'], { cwd: repo }).toString()).toBe('')
 
-    // The Flow's own process can be stopped from the Flow below Autonomous.
+    // The Intent's own process can be stopped from the Intent below Autonomous.
     const killed = json<{ ok: boolean }>(await call({ action: 'background_kill', pid, processId }, as(1)))
     expect(killed.ok).toBe(true)
     await waitFor(() => ['exited', 'killed'].includes(getBackgroundProcess(pid, processId)?.status ?? ''))
@@ -135,25 +135,25 @@ server.listen(0, '127.0.0.1', () => {
   it('keeps cwd inside the worktree', async () => {
     const outside = await startApp(1, { cwd: repo })
     expect(outside.isError).toBe(true)
-    expect(outside.content[0]!.text).toMatch(/cwd must stay within the Flow worktree/)
+    expect(outside.content[0]!.text).toMatch(/cwd must stay within the Intent worktree/)
   })
 
-  it('applies the exception only inside an active Flow and only with explicit confirmation', async () => {
+  it('applies the exception only inside an active Intent and only with explicit confirmation', async () => {
     // Unconfirmed: the ladder decides (Edit cannot run destructive actions).
     const unconfirmed = await startApp(1, { confirmed: false })
     expect(unconfirmed.content[0]!.text).toMatch(/requires the "Destructive" permission tier/)
-    // Outside an active Flow the normal tier rule stays.
+    // Outside an active Intent the normal tier rule stays.
     flowState = 'paused'
     const paused = await startApp(1)
     expect(paused.content[0]!.text).toMatch(/requires the "Destructive" permission tier/)
-    // At Autonomous, outside Flow, the app runs in the project checkout as before.
+    // At Autonomous, outside Intent, the app runs in the project checkout as before.
     const normal = json<{ process: BackgroundProcess; repositoryId: string }>(await startApp(3))
     expect(normal.process.cwd).toBe(repo)
     expect(normal.process.flowId).toBeUndefined()
     expect(activeFlowWorkspace({ flow: undefined }, CHAT)).toBeNull()
   })
 
-  it('does not let a Flow stop processes that are not its own below Autonomous', async () => {
+  it('does not let an Intent session stop processes that are not its own below Autonomous', async () => {
     flowState = 'paused'
     const foreign = json<{ process: BackgroundProcess }>(await startApp(3)).process
     flowState = 'active'
@@ -161,10 +161,10 @@ server.listen(0, '127.0.0.1', () => {
     expect(refused.content[0]!.text).toMatch(/requires the "Destructive" permission tier/)
   })
 
-  it('stops only the Flow processes when the Flow pauses, ends or is handed off', async () => {
+  it('stops only the Intent processes when the Intent pauses, ends or is handed off', async () => {
     const flowApp = json<{ process: BackgroundProcess }>(await startApp(1)).process
     flowState = 'paused'
-    // Outside the Flow the app runs in the main checkout, so it needs a long-lived server there too
+    // Outside the Intent the app runs in the main checkout, so it needs a long-lived server there too
     // (otherwise it exits at once and is 'failed' before the assertion on slow runners).
     writeFileSync(path.join(repo, 'server.cjs'), "require('node:http').createServer((q, r) => r.end('main')).listen(0, '127.0.0.1')\n")
     const other = json<{ process: BackgroundProcess }>(await startApp(3)).process

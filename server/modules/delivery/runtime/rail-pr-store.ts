@@ -14,7 +14,7 @@ import type { DbInstance } from '../../../db'
 import type { OverlayCleanupEvidence } from '../../../worktree-overlay'
 import type { DeliverySettleEvidence } from './delivery-evidence'
 import { summarizeReviewBriefs } from './review-brief'
-import { legacyFlowReviewReclassification, readFlowReviewOutcome, type FlowReviewOutcome } from './flow-review-outcome'
+import { legacyFlowReviewReclassification, readFlowReviewOutcome, type IntentReviewOutcome } from './flow-review-outcome'
 import type { PrDecisionCardEnvelope, PrDeliveryRiskSummary, RailPrStateMessage } from '../../../types'
 import { newId } from '../../../ids'
 import { readExecutionManifest, type RunExecutionManifest, type RepositoryDeliverySnapshot } from './multi-repo-execution-store'
@@ -1128,8 +1128,8 @@ export interface PrDeliverySnapshot {
   specAddenda: SpecAddendaSnapshotEntry[] | null
   /** Reviewer risk brief summary from settle evidence; absent without a brief. */
   riskSummary?: PrDeliveryRiskSummary
-  /** Flow → Spec stopped with requested changes: the reviewer's issues and failing checks (absent otherwise). */
-  flowReview?: FlowReviewOutcome
+  /** Intent → Spec stopped with requested changes: the reviewer's issues and failing checks (absent otherwise). */
+  flowReview?: IntentReviewOutcome
   /** "Integrate locally" saved the person's uncommitted work as a stash (absent otherwise). */
   localStash?: LocalStashSnapshot
   createdAt: string
@@ -1164,7 +1164,7 @@ export function updatePrDeliverySettleEvidence(db: DbInstance, id: string, evide
 
 export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot {
   const storedUnits = parseJsonArray<DeliverBranchRecord>(row.branches)
-  // A Flow → Spec delivery settled as a generic failure whose evidence shows
+  // An Intent session → Spec delivery settled as a generic failure whose evidence shows
   // requested changes reads exactly like one settled as such today.
   const legacyFlowReview = legacyFlowReviewReclassification(row, storedUnits)
   const units = legacyFlowReview?.units ?? storedUnits
