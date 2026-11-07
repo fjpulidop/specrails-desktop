@@ -67,6 +67,14 @@ for (const k of [
   'SPECRAILS_REPO_DIR',
   'SPECRAILS_IS_DESKTOP',
   'SPECRAILS_BUNDLED_RUNTIMES_PATH',
+  // Set by the Tauri host. Without this, a suite run from the packaged app reads
+  // its bundled Core instead of each test's fixture (core-compat, loops-router).
+  'SPECRAILS_BUNDLED_CORE_PATH',
+  'SPECRAILS_BUNDLED_OPENSPEC_PATH',
+  'SPECRAILS_BUNDLED_DOCS_PATH',
+  'SPECRAILS_BUNDLED_MCP_BRIDGE_PATH',
+  'SPECRAILS_BUNDLED_LOCAL_RUNNER_PATH',
+  'SPECRAILS_HOST_CONTROL_TOKEN',
   'SPECRAILS_TICKETS_PATH',
   'SPECRAILS_BACKLOG_CONFIG_PATH',
   'SPECRAILS_WORKSPACE_DIR',

@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { configurableImplementGraph } from './loop-implement-recipe'
 import express, { type Express } from 'express'
 import { Router } from 'express'
@@ -9,6 +10,14 @@ import { registerLoopsRoutes } from './loops-router'
 import { isDefinitionGraph, type LoopGraph } from './loop-graph'
 import { getLoop, seedBuiltinLoops, updateLoop } from './loops-store'
 import type { BuiltinLoopEnvironment } from './builtin-loops'
+
+// Keeps the real loader by default, so a single test can pin "no Core available"
+// instead of depending on whichever Core this machine can discover.
+vi.mock('../../agent-runtime/runtime/agent-runtime-loader', async importActual => {
+  const actual = await importActual<typeof import('../../agent-runtime/runtime/agent-runtime-loader')>()
+  return { ...actual, loadCoreAgentRuntime: vi.fn(actual.loadCoreAgentRuntime) }
+})
+const realCoreLoader = vi.mocked(loadCoreAgentRuntime).getMockImplementation()!
 
 function validGraph(): LoopGraph {
   return {
@@ -45,6 +54,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.SPECRAILS_LOOPS_SECTION
+  vi.mocked(loadCoreAgentRuntime).mockImplementation(realCoreLoader)
 })
 
 describe('loops-router CRUD', () => {
@@ -174,7 +184,9 @@ describe('loops-router feature flag', () => {
 })
 
 describe('loops-router factory loops', () => {
-  it('lists the built-in factory loops with their mode + graph', async () => {
+  it('lists the built-in factory loops with their mode + graph when no Core is available', async () => {
+    // Capability-gated loops are covered by loop-core-factory.test.ts.
+    vi.mocked(loadCoreAgentRuntime).mockRejectedValue(new Error('No Core in this test'))
     const res = await request(app).get('/api/loops/factory')
     expect(res.status).toBe(200)
     const ids = res.body.factoryLoops.map((f: { id: string }) => f.id)
