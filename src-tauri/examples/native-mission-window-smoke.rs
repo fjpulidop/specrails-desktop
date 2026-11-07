@@ -25,8 +25,9 @@ impl<R: Runtime> Assets<R> for FixtureAssets {
 fn snapshot(id: &str, project: Option<&str>, text: &str) -> Value { json!({"version":1,"projectId":project,"conversationId":id,"composer":{"text":text,"references":[],"attachments":[]},"workspace":{},"capturedAt":1}) }
 async fn await_window_state(message: &str, condition: impl Fn() -> Result<bool, String>) -> Result<(), String> {
     // Tauri close/hide enqueue work on the UI event loop; a successful command
-    // does not mean its native window event has already been processed.
-    tokio::time::timeout(Duration::from_secs(3), async {
+    // does not mean its native window event has already been processed. WebView2
+    // also commits a new window's navigation late on a loaded Windows runner.
+    tokio::time::timeout(Duration::from_secs(15), async {
         loop {
             if condition()? { return Ok::<(), String>(()); }
             tokio::time::sleep(Duration::from_millis(25)).await;

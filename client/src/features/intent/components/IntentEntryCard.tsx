@@ -62,6 +62,8 @@ type RepositoryLoad = { projectId: string; repositories: IntentRepositoryOption[
 
 /** Bring an open Intent's strip into view and focus its first control (it lives above the composer). */
 export function focusFlowBar(flowId: string): boolean {
+  // A pending retry can outlive the document (test teardown): nothing left to wait for.
+  if (typeof document === 'undefined') return true
   const strip = document.querySelector<HTMLElement>(`[data-testid="mission-run-strip"][data-flow-id="${CSS.escape(flowId)}"]`)
   if (!strip) return false
   strip.scrollIntoView?.({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })

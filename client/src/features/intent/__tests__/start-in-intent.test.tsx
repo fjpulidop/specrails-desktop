@@ -12,7 +12,7 @@ vi.mock('../../specs/context/TicketDetailModalContext', async (importOriginal) =
 
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { IntentProvider } from '../context/IntentContext'
-import { IntentRailLaunchAlternative, StartInFlowButton, StartInFlowMenuItem, specSuggestedRepository, startInFlowBlock, type StartInFlowSpec } from '../components/StartInIntent'
+import { IntentRailLaunchAlternative, StartInFlowButton, StartInFlowMenuItem, revealFlowBar, specSuggestedRepository, startInFlowBlock, type StartInFlowSpec } from '../components/StartInIntent'
 
 const ws = { registerHandler: vi.fn(), unregisterHandler: vi.fn(), connectionStatus: 'connected' as const }
 function Providers({ children }: { children: ReactNode }) {
@@ -58,6 +58,21 @@ async function openEntry() {
   await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
   return dialog
 }
+
+describe('revealFlowBar', () => {
+  it('stops retrying once the document is gone', () => {
+    // A pending retry can fire after a test environment is torn down.
+    const retry = vi.spyOn(window, 'setTimeout')
+    vi.stubGlobal('document', undefined)
+    try {
+      expect(() => revealFlowBar('flow-1')).not.toThrow()
+      expect(retry).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+      retry.mockRestore()
+    }
+  })
+})
 
 describe('startInFlowBlock', () => {
   it('explains every case where a spec cannot start in Intent', () => {

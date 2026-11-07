@@ -22,7 +22,7 @@ async function until(test: () => boolean, timeoutMs = 8000) {
 function fixture() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-background-group-'))
   const childFile = path.join(directory, 'stubborn.cjs'), ready = path.join(directory, 'child-ready.json')
-  fs.writeFileSync(childFile, `const fs = require('fs'); process.on('SIGTERM', () => {}); fs.writeFileSync(${JSON.stringify(ready)}, JSON.stringify({pid:process.pid})); setInterval(() => {}, 1000);`)
+  fs.writeFileSync(childFile, `const fs = require('fs'); process.on('SIGTERM', () => {}); fs.writeFileSync(${JSON.stringify(`${ready}.tmp`)}, JSON.stringify({pid:process.pid})); fs.renameSync(${JSON.stringify(`${ready}.tmp`)}, ${JSON.stringify(ready)}); setInterval(() => {}, 1000);`)
   const entry = { directory } as { directory: string; process?: BackgroundProcess }
   fixtures.push(entry)
   return { entry, childFile, ready }
