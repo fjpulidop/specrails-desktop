@@ -14,6 +14,8 @@ vi.mock('../../../../hooks/useSharedWebSocket', () => ({
 const { mockToast } = vi.hoisted(() => ({
   mockToast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
+import { SPECRAILS_TOAST_CLASS_NAMES } from '../../../../lib/toast-class-names'
+
 vi.mock('sonner', () => ({ toast: mockToast }))
 
 import {
@@ -513,5 +515,69 @@ describe('RailPrDecisionProvider', () => {
     expect(latest!.decisions.size).toBe(1)
     view.rerender(<RailPrDecisionProvider activeProjectId="proj2"><Probe /></RailPrDecisionProvider>)
     await waitFor(() => expect(latest!.decisions.size).toBe(0))
+  })
+})
+
+describe('long delivery warning toasts in the real Toaster', () => {
+  const longPaths = [1, 2, 3].map(n => `/Users/dev/.specrails/worktrees/${'x'.repeat(150)}-${n}\nfatal: cannot remove ${'y'.repeat(150)}`)
+
+  async function renderRealToaster() {
+    const actualSonner = await vi.importActual<typeof import('sonner')>('sonner')
+    const { Toaster } = actualSonner
+    render(
+      <Toaster
+        closeButton
+        toastOptions={{ unstyled: true, classNames: SPECRAILS_TOAST_CLASS_NAMES }}
+      />,
+    )
+    return actualSonner.toast
+  }
+
+  const variants = [
+    { name: 'cleanup warnings', field: 'cleanupWarnings', copyLabel: 'Copy recovery details' },
+    { name: 'safety archives', field: 'safetyArchives', copyLabel: 'Copy paths' },
+  ] as const
+
+  beforeEach(() => {
+    mockToast.warning.mockClear()
+    renderProvider()
+  })
+
+  it.each(variants)('keeps $name toast bounded, dismissible and copyable', async ({ field, copyLabel }) => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    const realToast = await renderRealToaster()
+
+    send(wsState({ decision: 'pr_ready' }))
+    send(wsState({ decision: 'merged', [field]: longPaths }))
+    const [title, options] = mockToast.warning.mock.calls[0]
+    act(() => { realToast.warning(title, options) })
+
+    const toastEl = await waitFor(() => {
+      const el = document.querySelector('[data-sonner-toast]')
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+    expect(toastEl.className).toMatch(/max-w-\[min\(356px,calc\(100vw-/)
+    expect(toastEl.className).toMatch(/max-h-\[calc\(100vh-/)
+
+    const description = toastEl.querySelector('[data-description]') as HTMLElement
+    expect(description.textContent).toContain(longPaths[0])
+    for (const token of ['whitespace-pre-wrap', '[overflow-wrap:anywhere]', 'overflow-y-auto']) {
+      expect(description.className).toContain(token)
+    }
+    expect(description.className).toMatch(/max-h-\[/)
+
+    const copy = toastEl.querySelector('[data-button]') as HTMLElement
+    expect(copy.textContent).toBe(copyLabel)
+    act(() => { copy.click() })
+    expect(writeText).toHaveBeenCalledWith(longPaths.join('\n'))
+
+    const close = toastEl.querySelector('[data-close-button]') as HTMLElement
+    expect(close).not.toBeNull()
+    expect(description.contains(close)).toBe(false)
+    expect(close.className).toContain('absolute')
+    act(() => { close.click() })
+    await waitFor(() => expect(document.querySelector('[data-sonner-toast]')).toBeNull())
   })
 })

@@ -100,6 +100,7 @@ import { InboxDialog } from './features/inbox/components/InboxDialog'
 import { usePlaceParam } from './hooks/usePlaceParam'
 import { useMissionPlaceSync } from './features/missions/hooks/useMissionPlaceSync'
 import { JOB_PARAM, MISSION_PARAM, OVERLAY_PARAM, PLACE_PUSH_STATE, PROJECT_PARAM, REVIEW_PARAM, jobIdFromPath, type OverlayKind } from './lib/places'
+import { SPECRAILS_TOAST_CLASS_NAMES } from './lib/toast-class-names'
 
 const STATUSBAR_HEIGHT_PX = 28
 
@@ -884,26 +885,7 @@ function ThemedToaster() {
       } as React.CSSProperties}
       toastOptions={{
         unstyled: true,
-        classNames: {
-          toast:
-            'glass-card border border-border/30 text-foreground text-xs p-3 rounded-lg flex items-start gap-2 w-[356px] max-w-[356px] overflow-hidden shadow-lg',
-          content: 'flex-1 min-w-0 flex flex-col gap-0.5',
-          icon: 'shrink-0 mt-[2px] flex items-center justify-center',
-          title: 'font-medium text-sm',
-          description: 'text-muted-foreground mt-0.5',
-          actionButton:
-            'text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 whitespace-nowrap shrink-0 self-start',
-          cancelButton:
-            'text-caption px-2.5 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 whitespace-nowrap shrink-0 self-start',
-          closeButton:
-            'text-muted-foreground hover:text-foreground rounded-md p-0.5',
-          // Full 1px tinted border (no coloured side stripe on alerts).
-          success: 'border-[color:var(--toast-success-border)]!',
-          error: 'border-[color:var(--toast-error-border)]!',
-          warning: 'border-[color:var(--toast-warning-border)]!',
-          info: 'border-[color:var(--toast-info-border)]!',
-          loading: '',
-        },
+        classNames: SPECRAILS_TOAST_CLASS_NAMES,
       }}
     />,
     document.body,
