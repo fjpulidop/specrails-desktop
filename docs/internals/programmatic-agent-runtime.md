@@ -250,6 +250,10 @@ archived runs cannot be patched or checked through recovery. Inspection remains
 available. This is an application boundary, not an OS sandbox against unrelated
 processes modifying the worktree concurrently.
 
+Guided recovery detects both legacy checkpoints and engine v2 `agent-workflow/run.sqlite` in the retained original run. All seven actions use the preserved worktrees and frozen repository scope. Read-only SQLite observations never migrate state or create a missing implementation journal; ledger-only inspection reports unavailable verification evidence. File/history observations need no journal after SQLite scope validation; inspect and mutations fail actionably when required bound journal authority is missing. V2 repairs and saved checks require validated candidate/archive authority and the engine's SQLite execution lease in addition to recovery-history serialization. Acknowledgement cannot bypass a live executor.
+
+If Core cannot establish safety for an action, Desktop returns HTTP **409** with `{ "error": "recovery_unsupported_engine", "message": "…" }`. The message names the action and recommends inspecting saved evidence and using a supported fork while preserving the original worktree. Other blocks retain `runtime_recovery_blocked`. Recovery never regenerates the original work, substitutes its retained runtime, grants acceptance or completes workflow phases.
+
 Core stores at most 100 attempts in `recovery-history.json` beside the pipeline
 state, separate from checkpoints. Each mutation has a write-ahead operation ID,
 request fingerprint, cause, before/after hashes where relevant and final outcome.

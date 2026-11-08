@@ -23,7 +23,7 @@ import { readExecutionManifest } from '../../delivery/runtime/multi-repo-executi
 import { appendEvent } from '../../../db'
 import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-manager'
 import type { ProjectContext } from '../../../project-registry'
-import { invokeRuntimeRecovery, recoveryRequestSchema } from './agent-runtime-recovery'
+import { invokeRuntimeRecovery, recoveryRequestSchema, RecoveryUnsupportedEngineError } from './agent-runtime-recovery'
 import { readRunReviewDiagnosis, type RunReviewDiagnosis } from '../../delivery/runtime/run-review-diagnosis'
 import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 
@@ -376,6 +376,7 @@ export class AgentRuntimeControls {
       return result
     } catch (error) {
       if (error instanceof RuntimeControlError) throw error
+      if (error instanceof RecoveryUnsupportedEngineError) throw new RuntimeControlError(409, 'recovery_unsupported_engine', error.message)
       throw new RuntimeControlError(409, 'runtime_recovery_blocked', error instanceof Error ? error.message : 'Recovery failed; inspect history before retrying')
     } finally { clearTimeout(active.forceKillTimer); this.active.delete(runId); this.ctx.railLoopRuns?.delete(runId); this.statusCache.delete(runId) }
   }
