@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1352 source/build files. Nearby tests are linked where names
+Includes 1353 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1064,6 +1064,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [tauri-clipboard.ts](../../client/src/lib/tauri-clipboard.ts)
 - [tauri-drag-drop.ts](../../client/src/lib/tauri-drag-drop.ts) · [test](../../client/src/lib/__tests__/tauri-drag-drop.test.ts)
 - [tauri-shell.ts](../../client/src/lib/tauri-shell.ts)
+- [toast-class-names.ts](../../client/src/lib/toast-class-names.ts)
 - [utils.ts](../../client/src/lib/utils.ts) · [test](../../client/src/lib/__tests__/utils.test.ts)
 - [viewport.ts](../../client/src/lib/viewport.ts)
 - [ws-url.ts](../../client/src/lib/ws-url.ts) · [test](../../client/src/lib/__tests__/ws-url.test.ts)

@@ -14,6 +14,8 @@ vi.mock('../../../../hooks/useSharedWebSocket', () => ({
 const { mockToast } = vi.hoisted(() => ({
   mockToast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
+import { SPECRAILS_TOAST_CLASS_NAMES } from '../../../../lib/toast-class-names'
+
 vi.mock('sonner', () => ({ toast: mockToast }))
 
 import {
@@ -521,7 +523,6 @@ describe('long delivery warning toasts in the real Toaster', () => {
 
   async function renderRealToaster() {
     const actualSonner = await vi.importActual<typeof import('sonner')>('sonner')
-    const { SPECRAILS_TOAST_CLASS_NAMES } = await import('../../../../App')
     const { Toaster } = actualSonner
     render(
       <Toaster
