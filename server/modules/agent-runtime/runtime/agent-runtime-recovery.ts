@@ -19,6 +19,19 @@ export const recoveryRequestSchema = z.discriminatedUnion('action', [
 ])
 export type RecoveryRequest = z.infer<typeof recoveryRequestSchema>
 
+const structuredFailureSchema = z.object({ type: z.literal('runtime-result'), status: z.literal('failed'), error: z.object({
+  code: z.string().min(1).max(128), message: z.string().trim().min(1).max(6000), details: z.unknown().optional(),
+}) })
+const unsupportedDetailsSchema = z.object({ action: z.string().trim().min(1).max(64), recommendation: z.string().trim().min(1).max(6000) })
+
+export class RecoveryUnsupportedEngineError extends Error {
+  readonly code = 'recovery_unsupported_engine'
+  constructor(readonly action: string, readonly recommendation: string, message: string) {
+    super(`${message.startsWith(`Recovery ${action}`) ? message : `Recovery ${action}: ${message}`} ${message.includes(recommendation) ? '' : recommendation}`.trim())
+    this.name = 'RecoveryUnsupportedEngineError'
+  }
+}
+
 export async function invokeRuntimeRecovery(input: { contextPath: string; cwd: string; env: NodeJS.ProcessEnv; request: RecoveryRequest; onSpawn?: (child: ChildProcess) => void }): Promise<unknown> {
   const cli = resolveRetainedAgentRuntime(input.contextPath)
   const invoke = (args: string[], stdin?: string): Promise<string> => new Promise((resolve, reject) => {
@@ -28,7 +41,23 @@ export async function invokeRuntimeRecovery(input: { contextPath: string; cwd: s
     }, (error, stdout) => {
       if (!error) { resolve(stdout); return }
       let detail = 'Recovery did not complete; inspect its history before retrying with the same operationId.'
-      try { const parsed = JSON.parse(stdout); if (typeof parsed.error === 'string') detail = parsed.error.slice(-6000) } catch { /* Do not misrepresent an uncertain transport outcome. */ }
+      if (typeof error.code === 'number' && !error.killed && !error.signal) {
+        try {
+          const parsed = JSON.parse(stdout)
+          if (typeof parsed.error === 'string') detail = parsed.error.slice(-6000)
+          else {
+            const failure = structuredFailureSchema.safeParse(parsed)
+            if (failure.success) {
+              if (failure.data.error.code === 'recovery_unsupported_engine') {
+                const fields = unsupportedDetailsSchema.safeParse(failure.data.error.details)
+                if (stdin && fields.success && fields.data.action === input.request.action) {
+                  reject(new RecoveryUnsupportedEngineError(fields.data.action, fields.data.recommendation, failure.data.error.message)); return
+                }
+              } else detail = failure.data.error.message
+            }
+          }
+        } catch { /* Do not misrepresent an uncertain transport outcome. */ }
+      }
       reject(new Error(detail))
     })
     input.onSpawn?.(child)

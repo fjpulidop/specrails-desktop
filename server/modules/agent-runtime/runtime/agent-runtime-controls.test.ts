@@ -7,6 +7,8 @@ import express from 'express'
 import request from 'supertest'
 import { createJob, initDb, updateProjectSettings, type DbInstance } from '../../../db'
 import { createLoopRun, listLoopStepRecoveries } from '../../loops/runtime/loop-runs-store'
+import * as recoveryTransport from './agent-runtime-recovery'
+import { RecoveryUnsupportedEngineError } from './agent-runtime-recovery'
 import { AgentRuntimeControls, readAgentRuntimeStatus, readRuntimeSteering, RuntimeControlError, validateRuntimeResumeInput } from './agent-runtime-controls'
 import { registerAgentRuntimeControlRoutes, shutdownAgentRuntimeControls } from './agent-runtime-controls-router'
 import type { ProjectContext } from '../../../project-registry'
@@ -642,5 +644,43 @@ describe('runtime retention HTTP contract', () => {
     expect((await api().put('/api/projects/p1/agent-runtime/retention').send({ days: 0 })).status).toBe(400)
     expect((await api().get('/api/projects/p1/agent-runtime/retention')).body).toEqual({ policy: { days: 30 } })
     expect((await api().post('/api/projects/p1/agent-runtime/retention/collect').send({ force: true })).status).toBe(400)
+  })
+})
+
+describe('engine-aware recovery failures', () => {
+  const input = { action: 'patch', operationId: 'ef12d691-10cb-4a6b-86e8-ab390498d312', repositoryId: 'primary', path: 'file.ts', expectedHash: 'a'.repeat(64), oldText: 'old', newText: 'new', reason: 'Repair original work' }
+  it('[spec:guided-run-recovery/actionable-unsupported-error-across-desktop-transport] preserves unsupported action and recommendation, clears reservations/cache and emits no success audit', async () => {
+    const unsupported = new RecoveryUnsupportedEngineError('patch', 'Preserve the original worktree and fork after inspection.', 'Journal scope is ambiguous.')
+    const recovery = vi.fn().mockRejectedValue(unsupported)
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, recovery })
+    db.prepare("UPDATE jobs SET status='failed' WHERE id='run-1'").run()
+    db.prepare("UPDATE loop_runs SET rail_index=2 WHERE id='run-1'").run()
+    await service.summary('run-1'); expect(status).toHaveBeenCalledTimes(1)
+    await expect(service.recovery('run-1', input)).rejects.toMatchObject({ statusCode: 409, code: 'recovery_unsupported_engine', message: expect.stringContaining('patch') })
+    await expect(service.recovery('run-1', input)).rejects.toThrow(unsupported.recommendation)
+    expect(service.isActive('run-1')).toBe(false); expect(ctx.railLoopRuns.size).toBe(0)
+    expect(db.prepare("SELECT event_type FROM events WHERE job_id='run-1'").all()).toEqual([])
+    await service.summary('run-1'); expect(status).toHaveBeenCalledTimes(2)
+    expect(recovery).toHaveBeenCalledTimes(2)
+    expect(execute).not.toHaveBeenCalled()
+  })
+  it('retains generic blocks for other failures and rejects malformed/busy requests before Core', async () => {
+    const recovery = vi.fn().mockRejectedValue(new Error('Saved work changed'))
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, recovery })
+    await expect(service.recovery('run-1', { ...input, command: 'shell' })).rejects.toMatchObject({ statusCode: 400, code: 'invalid_recovery_request' })
+    await expect(service.recovery('run-1', input)).rejects.toMatchObject({ code: 'runtime_run_active' })
+    expect(recovery).not.toHaveBeenCalled()
+    db.prepare("UPDATE jobs SET status='failed' WHERE id='run-1'").run()
+    await expect(service.recovery('run-1', input)).rejects.toMatchObject({ statusCode: 409, code: 'runtime_recovery_blocked', message: 'Saved work changed' })
+  })
+  it('[spec:guided-run-recovery/actionable-unsupported-error-across-desktop-transport] preserves the distinct 409 JSON error through the existing HTTP route', async () => {
+    const unsupported = new RecoveryUnsupportedEngineError('patch', 'Keep the original worktree and fork this run.', 'Archive authority is unavailable.')
+    vi.spyOn(recoveryTransport, 'invokeRuntimeRecovery').mockRejectedValue(unsupported)
+    db.prepare("UPDATE jobs SET status='failed' WHERE id='run-1'").run()
+    const app = express(); app.use(express.json()); const router = express.Router()
+    registerAgentRuntimeControlRoutes({ router, ctx: () => ctx }); app.use('/api/projects', router)
+    try { await request(app).post('/api/projects/p1/agent-runtime/runs/run-1/recovery').send(input).expect(409, { error: 'recovery_unsupported_engine', message: unsupported.message }) }
+    finally { shutdownAgentRuntimeControls(ctx) }
+    expect(db.prepare("SELECT event_type FROM events WHERE job_id='run-1'").all()).toEqual([])
   })
 })
