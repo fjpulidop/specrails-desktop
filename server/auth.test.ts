@@ -9,6 +9,7 @@ import path from 'path'
 vi.mock('fs')
 
 import { requireAuth, getServerToken, _resetTokenForTest, loadOrGenerateToken, tokenFromUpgradeRequest, safeEqual, isLoopbackAddress, requireLoopback, isAllowedHost, hostValidationMiddleware } from './auth'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
 const mockFs = fs as typeof fs & {
   existsSync: ReturnType<typeof vi.fn>
@@ -99,7 +100,7 @@ describe('auth middleware', () => {
     })
 
     it('migrates a legacy hub.token to desktop.token before loading (rebrand compat)', () => {
-      const dir = path.join(os.homedir(), '.specrails')
+      const dir = path.join(resolveSpecrailsHome(), '.specrails')
       const legacyPath = path.join(dir, 'hub.token')
       const tokenPath = path.join(dir, 'desktop.token')
       const stored = 'b'.repeat(64)
@@ -119,7 +120,7 @@ describe('auth middleware', () => {
     })
 
     it('does not overwrite an existing desktop.token with a legacy hub.token', () => {
-      const dir = path.join(os.homedir(), '.specrails')
+      const dir = path.join(resolveSpecrailsHome(), '.specrails')
       const legacyPath = path.join(dir, 'hub.token')
       const tokenPath = path.join(dir, 'desktop.token')
       const files = new Map<string, string>([

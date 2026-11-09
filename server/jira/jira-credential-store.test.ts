@@ -12,6 +12,7 @@ import {
   setSecretStore,
   type SecretStore,
 } from './jira-credential-store'
+import { resolveSpecrailsHome } from '../util/specrails-home'
 
 let tmpDir: string
 let keyfilePath: string
@@ -38,9 +39,9 @@ describe('defaultKeyfilePath', () => {
     )
   })
 
-  it('defaults to os.homedir() when no argument is given', () => {
+  it('defaults to the Specrails home when no argument is given', () => {
     expect(defaultKeyfilePath()).toBe(
-      path.join(os.homedir(), '.specrails', 'jira-secret.key'),
+      path.join(resolveSpecrailsHome(), '.specrails', 'jira-secret.key'),
     )
   })
 })

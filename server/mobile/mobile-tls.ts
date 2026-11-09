@@ -1,8 +1,8 @@
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 import { X509Certificate, createHash } from 'crypto'
 import { generate as selfsignedGenerate } from 'selfsigned'
+import { resolveSpecrailsHome } from '../util/specrails-home'
 
 // Self-signed TLS for the gateway. Identity = sha256 of the cert DER, pinned by
 // the phone from the QR (Syncthing/LocalSend TOFU). We generate ECDSA P-256
@@ -23,7 +23,7 @@ export interface GatewayCert {
 }
 
 export function mobileDir(): string {
-  return path.join(os.homedir(), '.specrails', 'mobile')
+  return path.join(resolveSpecrailsHome(), '.specrails', 'mobile')
 }
 
 function certPath(dir: string): string {

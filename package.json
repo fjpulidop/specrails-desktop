@@ -25,7 +25,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "cd client && npm run dev",
-    "dev:desktop": "tauri dev",
+    "dev:desktop": "node scripts/dev-desktop.mjs",
     "dev:desktop:prepare": "npm run build:sidecar && npm run build:mcp-bridge && npm run build:local-runner && npm run dev:client",
     "build:server": "node -e \"require('fs').rmSync('server/dist',{recursive:true,force:true})\" && tsc --project tsconfig.build.json --noCheck && node scripts/copy-server-assets.mjs",
     "build:cli": "tsc --project tsconfig.cli.json",

@@ -18,9 +18,14 @@
  *   src-tauri/icons/icon.icns   (macOS)
  *   src-tauri/icons/icon.ico    (Windows)
  *   src-tauri/icons/icon.png    (Linux)
+ *   src-tauri/icons/dev/*       (development build, from icon-dev.svg: the
+ *                                same icon with an amber DEV band, used by
+ *                                `npm run dev:desktop`)
  */
 
 import { execSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -35,7 +40,17 @@ try {
     cwd: root,
     stdio: 'inherit',
   })
-  console.log('Icons generated successfully in src-tauri/icons/')
+  // The development icon set keeps only the formats tauri.conf.json lists.
+  const devSvg = path.join(root, 'src-tauri', 'icons', 'icon-dev.svg')
+  const devOut = path.join(root, 'src-tauri', 'icons', 'dev')
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-dev-icons-'))
+  execSync(`npx tauri icon "${devSvg}" -o "${scratch}"`, { cwd: root, stdio: 'inherit' })
+  fs.mkdirSync(devOut, { recursive: true })
+  for (const file of ['32x32.png', '128x128.png', '128x128@2x.png', 'icon.icns', 'icon.ico', 'icon.png']) {
+    fs.copyFileSync(path.join(scratch, file), path.join(devOut, file))
+  }
+  fs.rmSync(scratch, { recursive: true, force: true })
+  console.log('Icons generated successfully in src-tauri/icons/ and src-tauri/icons/dev/')
 } catch (err) {
   console.error('Icon generation failed:', err.message)
   console.error(

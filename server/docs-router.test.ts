@@ -38,7 +38,7 @@ describe('docs-router', () => {
 
   beforeEach(() => {
     ;({ home, guideRoot } = makeTempHome())
-    vi.spyOn(os, 'homedir').mockReturnValue(home)
+    vi.spyOn(os, 'homedir').mockReturnValue(home); vi.stubEnv('SPECRAILS_REGISTRY_HOME', home)
     // Ensure no stale bundled-docs env leaks in from the runner.
     delete process.env.SPECRAILS_BUNDLED_DOCS_PATH
     delete process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
@@ -46,6 +46,7 @@ describe('docs-router', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
     fs.rmSync(home, { recursive: true, force: true })
   })
 
@@ -245,7 +246,7 @@ describe('docs-router', () => {
   describe('bundled fallback', () => {
     it('falls back to the repo docs/guide tree when no user override exists', async () => {
       const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-empty-'))
-      vi.spyOn(os, 'homedir').mockReturnValue(emptyHome)
+      vi.spyOn(os, 'homedir').mockReturnValue(emptyHome); vi.stubEnv('SPECRAILS_REGISTRY_HOME', emptyHome)
 
       const res = await request(buildApp()).get('/docs')
       expect(res.status).toBe(200)
@@ -261,7 +262,7 @@ describe('docs-router', () => {
 
     it('serves a real shipped page (what-is-specrails) from the repo tree', async () => {
       const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-empty2-'))
-      vi.spyOn(os, 'homedir').mockReturnValue(emptyHome)
+      vi.spyOn(os, 'homedir').mockReturnValue(emptyHome); vi.stubEnv('SPECRAILS_REGISTRY_HOME', emptyHome)
 
       const res = await request(buildApp()).get('/docs/getting-started/what-is-specrails')
       expect(res.status).toBe(200)
@@ -276,7 +277,7 @@ describe('docs-router', () => {
   describe('SPECRAILS_BUNDLED_DOCS_PATH', () => {
     it('resolves the guide root from the bundled docs env when no user override exists', async () => {
       const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-bundle-home-'))
-      vi.spyOn(os, 'homedir').mockReturnValue(emptyHome)
+      vi.spyOn(os, 'homedir').mockReturnValue(emptyHome); vi.stubEnv('SPECRAILS_REGISTRY_HOME', emptyHome)
 
       // A fake bundled docs dir: <docsPath>/guide/<lang>/<category>/<file>.md
       const docsPath = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-bundled-docs-'))
@@ -296,7 +297,7 @@ describe('docs-router', () => {
 
     it('derives the guide root from SPECRAILS_BUNDLED_RUNTIMES_PATH parent when docs env is unset', async () => {
       const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-rt-home-'))
-      vi.spyOn(os, 'homedir').mockReturnValue(emptyHome)
+      vi.spyOn(os, 'homedir').mockReturnValue(emptyHome); vi.stubEnv('SPECRAILS_REGISTRY_HOME', emptyHome)
 
       // <resource_dir>/runtimes and <resource_dir>/docs/guide/...
       const resourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-resource-'))

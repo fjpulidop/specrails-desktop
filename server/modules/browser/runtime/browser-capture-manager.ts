@@ -1,4 +1,3 @@
-import os from 'os'
 import path from 'path'
 import { newId } from '../../../ids'
 import type { DbInstance } from '../../../db'
@@ -20,6 +19,7 @@ import {
 } from './browser-capture-types'
 import { createPlaywrightLauncher } from './browser-playwright'
 import { normalizeBrowserDeviceScaleFactor, normalizeBrowserViewport } from './browser-viewport'
+import { resolveSpecrailsHome } from '../../../util/specrails-home'
 
 const WS_OPEN = 1
 const DEFAULT_VIEWPORT = { width: 1280, height: 800 }
@@ -180,7 +180,7 @@ export class BrowserCaptureManager {
       : DEFAULT_SESSION_IDLE_TTL_MS
     this.profileDir =
       opts.profileDir ??
-      path.join(opts.homeDir ?? os.homedir(), '.specrails', 'projects', opts.projectSlug, 'browser-profile')
+      path.join(opts.homeDir ?? resolveSpecrailsHome(), '.specrails', 'projects', opts.projectSlug, 'browser-profile')
     const requestedSweepIntervalMs = opts.sessionSweepIntervalMs
     const sweepIntervalMs = typeof requestedSweepIntervalMs === 'number' && Number.isFinite(requestedSweepIntervalMs) && requestedSweepIntervalMs > 0
       ? requestedSweepIntervalMs

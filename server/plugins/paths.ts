@@ -1,5 +1,5 @@
-import os from 'os'
 import path from 'path'
+import { resolveSpecrailsHome } from '../util/specrails-home'
 
 /** `<project>/.specrails/plugins/` — base directory for app-managed plugin state. */
 export function pluginsDir(projectPath: string): string {
@@ -23,7 +23,7 @@ export function projectJobSnapshotPath(projectPath: string, jobId: string): stri
 
 /** `~/.specrails/projects/<slug>/jobs/<jobId>/plugins.json` — chmod-400 spawn-time snapshot. */
 export function homeJobSnapshotPath(slug: string, jobId: string): string {
-  return path.join(os.homedir(), '.specrails', 'projects', slug, 'jobs', jobId, 'plugins.json')
+  return path.join(resolveSpecrailsHome(), '.specrails', 'projects', slug, 'jobs', jobId, 'plugins.json')
 }
 
 /** `<project>/.mcp.json` — Claude CLI MCP config (managed surgically by the app). */

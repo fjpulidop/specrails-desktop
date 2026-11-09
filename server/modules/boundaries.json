@@ -73,9 +73,9 @@
       "runtime/telemetry-receiver.ts": [
         "../../../db",
         "../../../project-registry",
+        "../../../util/specrails-home",
         "express",
         "fs",
-        "os",
         "path",
         "zlib"
       ],
@@ -263,13 +263,13 @@
       "runtime/agent-runtime-settings.ts": [
         "../../../providers/registry",
         "../../../schemas/agent-runtime.schema.json",
+        "../../../util/specrails-home",
         "../../../workspace-resolution",
         "../../agents/runtime/agent-catalog",
         "../../agents/runtime/agent-role-descriptor",
         "ajv",
         "node:crypto",
         "node:fs",
-        "node:os",
         "node:path",
         "node:util"
       ],
@@ -395,10 +395,10 @@
         "../../../providers",
         "../../../providers/runtime",
         "../../../providers/types",
+        "../../../util/specrails-home",
         "./profile-manager",
         "crypto",
         "fs",
-        "os",
         "path"
       ],
       "runtime/agent-generator.ts": [
@@ -451,10 +451,10 @@
         "../../../db",
         "../../../providers",
         "../../../schemas/profile.v1.json",
+        "../../../util/specrails-home",
         "ajv",
         "ajv/dist/2020",
         "fs",
-        "os",
         "path"
       ],
       "runtime/profiles-router.ts": [
@@ -531,18 +531,18 @@
         "../../../db",
         "../../../ids",
         "../../../types",
+        "../../../util/specrails-home",
         "../../specs/runtime/ticket-store",
         "./browser-capture-types",
         "./browser-playwright",
         "./browser-viewport",
-        "os",
         "path"
       ],
       "runtime/browser-capture-types.ts": [],
       "runtime/browser-context-pool.ts": [
+        "../../../util/specrails-home",
         "./browser-capture-types",
         "./browser-playwright",
-        "os",
         "path"
       ],
       "runtime/browser-network.ts": [

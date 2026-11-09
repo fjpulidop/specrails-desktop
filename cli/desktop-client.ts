@@ -56,12 +56,17 @@ export function detectWebManager(port: number): Promise<DetectionResult> {
 // HTTP helpers
 // ---------------------------------------------------------------------------
 
+/** The directory containing `.specrails/`; `SPECRAILS_REGISTRY_HOME` overrides it like the server. */
+export function specrailsHome(): string {
+  return process.env.SPECRAILS_REGISTRY_HOME ?? os.homedir()
+}
+
 export function loadDesktopToken(): string | null {
   const candidates = [
-    path.join(os.homedir(), '.specrails', 'desktop.token'),
+    path.join(specrailsHome(), '.specrails', 'desktop.token'),
     // Legacy fallback: pre-rename installs keep the token at hub.token until the
     // server migrates it on next startup. Compat only — do not extend.
-    path.join(os.homedir(), '.specrails', 'hub.token'),
+    path.join(specrailsHome(), '.specrails', 'hub.token'),
   ]
   for (const tokenPath of candidates) {
     try {

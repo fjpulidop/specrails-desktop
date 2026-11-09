@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <clipPath id="round">
+      <rect width="512" height="512" rx="100"></rect>
+    </clipPath>
+
+    <!-- dark navy base with a touch of depth -->
+    <radialGradient id="base" cx="50%" cy="42%" r="80%">
+      <stop offset="0%" stop-color="#141828"></stop>
+      <stop offset="55%" stop-color="#0c0e18"></stop>
+      <stop offset="100%" stop-color="#05060c"></stop>
+    </radialGradient>
+
+    <!-- soft cyan ambient glow behind the pill (the splash look) -->
+    <radialGradient id="ambient" gradientUnits="userSpaceOnUse" cx="256" cy="256" r="210">
+      <stop offset="0%" stop-color="#27c7e6" stop-opacity="0.42"></stop>
+      <stop offset="45%" stop-color="#27c7e6" stop-opacity="0.12"></stop>
+      <stop offset="100%" stop-color="#27c7e6" stop-opacity="0"></stop>
+    </radialGradient>
+
+    <linearGradient id="pill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1ccbe2"></stop>
+      <stop offset="100%" stop-color="#a374db"></stop>
+    </linearGradient>
+    <linearGradient id="pillGloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"></stop>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
+    </linearGradient>
+
+    <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.5"></stop>
+      <stop offset="9%" stop-color="#ffffff" stop-opacity="0.05"></stop>
+      <stop offset="88%" stop-color="#000000" stop-opacity="0"></stop>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.35"></stop>
+    </linearGradient>
+
+    <filter id="bloom" x="-60%" y="-120%" width="220%" height="340%">
+      <feGaussianBlur stdDeviation="22"></feGaussianBlur>
+    </filter>
+  </defs>
+
+  <g clip-path="url(#round)">
+    <rect width="512" height="512" fill="url(#base)"></rect>
+    <rect width="512" height="512" fill="url(#ambient)"></rect>
+
+    <g transform="translate(256,256) scale(1.12) translate(-256,-256)">
+      <!-- cyan/violet bloom behind the pill -->
+      <rect x="80" y="220" width="352" height="72" rx="36" fill="url(#pill)" fill-opacity="0.55" filter="url(#bloom)"></rect>
+
+      <!-- neutral rails -->
+      <rect x="80" y="182" width="352" height="18" rx="9" fill="#7a7f96" fill-opacity="0.5"></rect>
+      <rect x="80" y="314" width="352" height="18" rx="9" fill="#7a7f96" fill-opacity="0.5"></rect>
+
+      <!-- gradient pill -->
+      <rect x="80" y="220" width="352" height="72" rx="36" fill="url(#pill)"></rect>
+      <!-- top gloss highlight -->
+      <rect x="94" y="227" width="324" height="24" rx="12" fill="url(#pillGloss)"></rect>
+    </g>
+
+    <!-- top light / bottom shade -->
+    <rect width="512" height="512" fill="url(#bezel)"></rect>
+  </g>
+
+  <!-- crisp edge highlight -->
+  <rect x="1.5" y="1.5" width="509" height="509" rx="99" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1.5"></rect>
+  <!-- Development build marker: an amber DEV band (shapes, not text, so it
+       renders without system fonts). -->
+  <g clip-path="url(#round)">
+    <rect x="0" y="372" width="512" height="140" fill="#f5a524"></rect>
+    <rect x="0" y="372" width="512" height="5" fill="#000000" fill-opacity="0.25"></rect>
+    <g fill="none" stroke="#14161f" stroke-width="22" stroke-linejoin="miter" stroke-linecap="butt" transform="translate(6 0)">
+      <path d="M141 405 V487"></path>
+      <path d="M130 416 H166 Q198 416 198 446 Q198 476 166 476 H130"></path>
+      <path d="M233 405 V487"></path>
+      <path d="M222 416 H284 M233 446 H276 M222 476 H284"></path>
+      <path d="M304 405 L337 486 L370 405"></path>
+    </g>
+  </g>
+</svg>

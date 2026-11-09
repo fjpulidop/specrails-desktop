@@ -7,7 +7,6 @@ import { createDesktopUsageService } from './modules/subscription-usage/runtime/
 import http from 'http'
 import path from 'path'
 import fs from 'fs'
-import os from 'os'
 import express from 'express'
 import type { Request, Response, NextFunction } from 'express'
 import { WebSocketServer, WebSocket } from 'ws'
@@ -79,6 +78,8 @@ import { awaitBackgroundProcessesStopped, initializeBackgroundProcessPersistence
 import './providers'
 import { syncLocalAdapters } from './providers/local-adapter-registry'
 import { loadRuntimeProviders } from './modules/agent-runtime/runtime/agent-runtime-settings'
+import { resolveSpecrailsHome } from './util/specrails-home'
+import { acquireDataHomeLock, DataHomeInUseError } from './data-home-lock'
 // Local AI engines: every OpenAI-compatible connection in
 // ~/.specrails/runtime-providers.json becomes a registered adapter BEFORE the
 // first detection cycle (kill switch SPECRAILS_LOCAL_ENGINES=false ⇒ no-op).
@@ -145,7 +146,7 @@ const port = resolveServerPort(process.argv)
 
 // ─── PID file management ──────────────────────────────────────────────────────
 
-const PID_DIR = path.join(os.homedir(), '.specrails')
+const PID_DIR = path.join(resolveSpecrailsHome(), '.specrails')
 const PID_FILE = path.join(PID_DIR, 'manager.pid')
 
 function writePidFile(): void {
@@ -155,6 +156,19 @@ function writePidFile(): void {
   } catch {
     // Non-fatal
   }
+}
+
+// One server per data home: the installed app and `npm run dev:desktop` may
+// share ~/.specrails, and two servers on the same databases would recover each
+// other's running jobs. Taken before any database opens.
+let releaseDataHomeLock = (): void => {}
+try {
+  releaseDataHomeLock = acquireDataHomeLock(PID_DIR, port)
+} catch (error) {
+  if (!(error instanceof DataHomeInUseError)) throw error
+  console.error(`[error] ${error.message}.`)
+  console.error('[error] Close that Specrails first, or start the development app with `npm run dev:desktop -- --isolated`.')
+  process.exit(1)
 }
 
 function removePidFile(): void {
@@ -927,6 +941,7 @@ async function shutdown(): Promise<void> {
   // that admission now, but leave the proxy alive until provider owners drain.
   _headroomManager?.beginShutdown()
   removePidFile()
+  releaseDataHomeLock()
   // Stop every provider owner independently. A failure in Mobile/MCP must not
   // skip Agent Chat, and Headroom must remain available until all routed AI
   // children have received their termination signal.
@@ -976,4 +991,5 @@ process.on('SIGINT', () => { void shutdown() })
 // uncaught exception). 'exit' handlers must be synchronous.
 process.on('exit', () => {
   try { fs.unlinkSync(PID_FILE) } catch { /* best effort */ }
+  releaseDataHomeLock()
 })

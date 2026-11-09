@@ -10,10 +10,10 @@
 // (pages are isolated enough for capture, cookies are shared). The context is
 // launched lazily on first use and closed once at app shutdown.
 
-import os from 'os'
 import path from 'path'
 import { BrowserLaunchError, type BrowserContextHandle, type ContextLauncher, type SharedBrowserContext } from './browser-capture-types'
 import { createPlaywrightLauncher } from './browser-playwright'
+import { resolveSpecrailsHome } from '../../../util/specrails-home'
 
 const DEFAULT_VIEWPORT = { width: 1280, height: 800 }
 
@@ -35,7 +35,7 @@ export class SharedBrowserContextPool implements SharedBrowserContext {
   constructor(opts: SharedBrowserContextPoolOptions = {}) {
     this.launcher = opts.launcher ?? createPlaywrightLauncher()
     this._profileDir =
-      opts.profileDir ?? path.join(opts.homeDir ?? os.homedir(), '.specrails', 'browser-profile')
+      opts.profileDir ?? path.join(opts.homeDir ?? resolveSpecrailsHome(), '.specrails', 'browser-profile')
   }
 
   /** The global profile dir backing the shared cookies/logins. */

@@ -973,18 +973,15 @@ describe('ProjectRegistry', () => {
     })
 
     it('addProject failure to mirror does not break project creation', () => {
-      // Point the registry home at a path that cannot be created (a file, not a
-      // dir) so the mirror write throws; addProject must still succeed.
-      const filePath = path.join(registryHome, 'not-a-dir')
-      fs.writeFileSync(filePath, 'x')
-      process.env.SPECRAILS_REGISTRY_HOME = filePath
-      try {
-        const ctx = registry.addProject({ id: 'p1', slug: 'my-proj', name: 'My Proj', path: '/repo/x' })
-        expect(ctx.project.id).toBe('p1')
-        expect(registry.getContext('p1')).toBeDefined()
-      } finally {
-        process.env.SPECRAILS_REGISTRY_HOME = registryHome
-      }
+      // Occupy registry.json with a non-empty directory so only the mirror
+      // write throws (the project's own data lives under the same home and
+      // must still be created); addProject must still succeed.
+      const blocked = path.join(registryHome, '.specrails', 'registry.json')
+      fs.mkdirSync(path.join(blocked, 'occupied'), { recursive: true })
+      const ctx = registry.addProject({ id: 'p1', slug: 'my-proj', name: 'My Proj', path: '/repo/x' })
+      expect(ctx.project.id).toBe('p1')
+      expect(registry.getContext('p1')).toBeDefined()
+      expect(fs.statSync(blocked).isDirectory()).toBe(true)
     })
 
     it('removeProject deletes the registry entry', () => {

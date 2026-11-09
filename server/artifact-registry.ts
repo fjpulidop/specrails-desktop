@@ -34,9 +34,9 @@ import {
   utimesSync,
   writeFileSync,
 } from 'fs'
-import os from 'os'
 import path from 'path'
 import { isDeepStrictEqual } from 'util'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
 /** Registry schema version. A reader that sees a higher value MUST treat all
  *  entries as absent (legacy fallback), never mis-parse. */
@@ -108,7 +108,7 @@ export function slugify(name: string): string {
  *  is passed, so the desktop-side wiring can be redirected in tests without
  *  threading a `home` argument through every call site. */
 export function resolveHome(home?: string): string {
-  return home ?? process.env.SPECRAILS_REGISTRY_HOME ?? os.homedir()
+  return resolveSpecrailsHome(home)
 }
 
 /** Absolute path to `registry.json`. */

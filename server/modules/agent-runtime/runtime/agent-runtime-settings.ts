@@ -1,6 +1,5 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import Ajv from 'ajv'
 import { isDeepStrictEqual } from 'node:util'
@@ -9,6 +8,7 @@ import { resolveProjectExecution } from '../../../workspace-resolution'
 import { hasAdapter, adapterKind, isLocalAdapterId } from '../../../providers/registry'
 import { listNativeAgentFiles } from '../../agents/runtime/agent-catalog'
 import { projectCustomAgentRoles, RUNTIME_ROLE_ID, type RuntimeRoleDescriptor } from '../../agents/runtime/agent-role-descriptor'
+import { resolveSpecrailsHome } from '../../../util/specrails-home'
 export { RUNTIME_ROLE_ID, type RuntimeRoleDescriptor } from '../../agents/runtime/agent-role-descriptor'
 
 export type RuntimeRole = 'architect' | 'developer' | 'reviewer'
@@ -290,7 +290,7 @@ export function agentRuntimeConfigPath(project: RuntimeConfigProject): string {
 }
 
 /** Global connections are resolved for new runs; admitted runs keep their snapshot. */
-export function runtimeProvidersPath(): string { return path.join(os.homedir(), '.specrails', 'runtime-providers.json') }
+export function runtimeProvidersPath(): string { return path.join(resolveSpecrailsHome(), '.specrails', 'runtime-providers.json') }
 
 function atomicJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true })
@@ -424,12 +424,12 @@ export function validateRuntimeRolePrompts(input: unknown, extraRoles: readonly 
   return prompts
 }
 export function loadRuntimeRolePrompts(): Partial<Record<RuntimePromptRole, string>> {
-  try { return validateRuntimeRolePrompts(JSON.parse(fs.readFileSync(path.join(os.homedir(), '.specrails', 'runtime-role-prompts.json'), 'utf8'))) }
+  try { return validateRuntimeRolePrompts(JSON.parse(fs.readFileSync(path.join(resolveSpecrailsHome(), '.specrails', 'runtime-role-prompts.json'), 'utf8'))) }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}; throw error }
 }
 export function saveRuntimeRolePrompts(input: unknown): Partial<Record<RuntimePromptRole, string>> {
   const prompts = validateRuntimeRolePrompts(input)
-  atomicJson(path.join(os.homedir(), '.specrails', 'runtime-role-prompts.json'), prompts)
+  atomicJson(path.join(resolveSpecrailsHome(), '.specrails', 'runtime-role-prompts.json'), prompts)
   return prompts
 }
 

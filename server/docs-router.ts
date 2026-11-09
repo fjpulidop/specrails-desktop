@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
 // ─── User-guide docs ────────────────────────────────────────────────────────
 //
@@ -70,7 +70,7 @@ function resolveBundledGuideRoot(): string | null {
  */
 function resolveGuideRoot(): string | null {
   // 1. User override: ~/.specrails/docs/guide
-  const userGuide = path.join(os.homedir(), '.specrails', 'docs', 'guide')
+  const userGuide = path.join(resolveSpecrailsHome(), '.specrails', 'docs', 'guide')
   if (fs.existsSync(userGuide)) return userGuide
 
   // 2. Bundled app resource

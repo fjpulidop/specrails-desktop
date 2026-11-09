@@ -2,7 +2,6 @@ import { projectSupportsProfiles } from './project-profile-support'
 import { shutdownAgentRuntimeControls } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 import path from 'path'
 import fs from 'fs'
-import os from 'os'
 import type { DbInstance } from './db'
 import { initDb } from './db'
 import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
@@ -119,6 +118,7 @@ import {
   beginProjectProcessQuiescence,
   openProjectProcessAdmission,
 } from './process-admission'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -509,7 +509,7 @@ export class ProjectRegistry {
     try {
       const slug = ctx?.project.slug ?? persistedProject?.slug
       if (slug && slug.trim() && !slug.includes('/') && !slug.includes('..')) {
-        const projectDir = path.join(os.homedir(), '.specrails', 'projects', slug)
+        const projectDir = path.join(resolveSpecrailsHome(), '.specrails', 'projects', slug)
         if (fs.existsSync(projectDir)) fs.rmSync(projectDir, { recursive: true, force: true })
       }
     } catch { /* ignore — non-fatal */ }

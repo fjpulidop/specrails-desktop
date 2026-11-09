@@ -1,9 +1,9 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 
 import { getBundledOpenspecCli } from './bundled-openspec'
 import { resolveBundledNodeExe } from './path-resolver'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
 /**
  * openspec PATH shim — the robustness backstop for relocated Claude rails.
@@ -38,7 +38,7 @@ import { resolveBundledNodeExe } from './path-resolver'
 export const OPENSPEC_NPX_SPEC = '@fission-ai/openspec@1.14.3'
 
 /** `~/.specrails/projects/<slug>/openspec-shim/<jobId>` — the per-job shim dir. */
-export function openspecShimDir(slug: string, jobId: string, home: string = os.homedir()): string {
+export function openspecShimDir(slug: string, jobId: string, home: string = resolveSpecrailsHome()): string {
   return path.join(home, '.specrails', 'projects', slug, 'openspec-shim', jobId)
 }
 
@@ -93,7 +93,7 @@ function winq(s: string): string {
 export function ensureOpenspecShim(
   slug: string,
   jobId: string,
-  home: string = os.homedir(),
+  home: string = resolveSpecrailsHome(),
 ): string | null {
   try {
     const dir = openspecShimDir(slug, jobId, home)
@@ -150,7 +150,7 @@ export function prependShimToPath(pathValue: string | undefined, shimDir: string
 }
 
 /** Remove a per-job shim dir (best-effort cleanup). No-op when absent. */
-export function removeOpenspecShim(slug: string, jobId: string, home: string = os.homedir()): void {
+export function removeOpenspecShim(slug: string, jobId: string, home: string = resolveSpecrailsHome()): void {
   try {
     const dir = openspecShimDir(slug, jobId, home)
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true })

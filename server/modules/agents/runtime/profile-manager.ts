@@ -1,11 +1,11 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import Ajv2020 from 'ajv/dist/2020'
 import type { ValidateFunction } from 'ajv'
 import type { DbInstance } from '../../../db'
 import profileSchema from '../../../schemas/profile.v1.json'
 import { getAdapter, hasAdapter, isModelAvailableForAdapter } from '../../../providers'
+import { resolveSpecrailsHome } from '../../../util/specrails-home'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -132,7 +132,7 @@ function existingProfilePath(projectPath: string, name: string, provider: string
 }
 
 function jobSnapshotPath(slug: string, jobId: string): string {
-  return path.join(os.homedir(), '.specrails', 'projects', slug, 'jobs', jobId, 'profile.json')
+  return path.join(resolveSpecrailsHome(), '.specrails', 'projects', slug, 'jobs', jobId, 'profile.json')
 }
 
 // ─── Name validation ─────────────────────────────────────────────────────────
