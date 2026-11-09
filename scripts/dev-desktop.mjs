@@ -58,18 +58,49 @@ export async function installedAppRunning(port = RELEASE_SERVER_PORT) {
   }
 }
 
+/**
+ * Resource globs whose folder is staged only for a release build (core/,
+ * openspec/, runtimes/ by the assemble scripts in CI). Tauri fails `tauri dev`
+ * when a glob matches nothing, so the overlay leaves out the unstaged ones.
+ * binaries/ is kept: beforeDevCommand builds it after this config is read.
+ */
+export function stagedResources(resources, exists) {
+  const kept = []
+  const missing = []
+  for (const resource of resources) {
+    const base = resource.split('*')[0]
+    const staged = resource.includes('*') && !base.startsWith('binaries/') && !base.startsWith('../')
+    if (staged && !exists(base)) missing.push(resource)
+    else kept.push(resource)
+  }
+  return { kept, missing }
+}
+
 /** The `tauri dev --config` overlay: a separate app with the development ports. */
-export function devDesktopConfig(baseConfig, ports) {
+export function devDesktopConfig(baseConfig, ports, exists = () => true) {
   const csp = baseConfig.app?.security?.csp
   if (typeof csp !== 'string' || !csp.includes(`:${RELEASE_SERVER_PORT}`)) throw new Error('tauri.conf.json CSP no longer names the server port; update scripts/dev-desktop.mjs')
+  const resources = stagedResources(baseConfig.bundle.resources ?? [], exists)
   return {
     identifier: `${baseConfig.identifier}.dev`,
     productName: `${baseConfig.productName} Dev`,
     build: { devUrl: `http://localhost:${ports.client}` },
-    // Same icon with an amber DEV band (icons/icon-dev.svg), so the Dock and
-    // taskbar tell the development app from the installed one.
-    bundle: { icon: baseConfig.bundle.icon.map(icon => icon.replace(/^icons\//, 'icons/dev/')) },
+    bundle: {
+      // Same icon with an amber DEV band (icons/icon-dev.svg), so the Dock and
+      // taskbar tell the development app from the installed one.
+      icon: baseConfig.bundle.icon.map(icon => icon.replace(/^icons\//, 'icons/dev/')),
+      ...(resources.missing.length > 0 ? { resources: resources.kept } : {}),
+    },
     app: { security: { csp: csp.replaceAll(`:${RELEASE_SERVER_PORT}`, `:${ports.server}`) } },
+  }
+}
+
+/** A staged folder counts when it holds more than its .gitkeep placeholder. */
+function stagedFolderExists(srcTauri, base) {
+  try {
+    return fs.readdirSync(path.join(srcTauri, base)).some(entry => entry !== '.gitkeep')
+  } catch {
+    return false
   }
 }
 
@@ -81,7 +112,10 @@ async function main() {
     throw new Error('The installed Specrails is running and uses the same projects and data. Quit it first (tray icon > Exit), or start an empty environment with `npm run dev:desktop -- --isolated`.')
   }
   const baseConfig = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'tauri.conf.json'), 'utf8'))
-  const overlay = devDesktopConfig(baseConfig, ports)
+  const srcTauri = path.join(root, 'src-tauri')
+  const overlay = devDesktopConfig(baseConfig, ports, base => stagedFolderExists(srcTauri, base))
+  const skipped = stagedResources(baseConfig.bundle.resources ?? [], base => stagedFolderExists(srcTauri, base)).missing
+  if (skipped.length > 0) console.log(`[dev-desktop] Not staged, left out of the dev bundle: ${skipped.join(', ')}`)
   const tauri = path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js')
   const data = mode.shared ? 'your projects (shared with the installed app)' : `isolated data in ${mode.dataHome}`
   console.log(`[dev-desktop] ${overlay.productName}: server ${ports.server}, client ${ports.client}, ${data}`)

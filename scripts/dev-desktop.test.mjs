@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DEV_CLIENT_PORT, DEV_SERVER_PORT, devDesktopConfig, devDesktopMode, devDesktopPorts, installedAppRunning } from './dev-desktop.mjs'
+import { DEV_CLIENT_PORT, DEV_SERVER_PORT, devDesktopConfig, devDesktopMode, devDesktopPorts, installedAppRunning, stagedResources } from './dev-desktop.mjs'
 import http from 'node:http'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -35,6 +35,16 @@ test('the overlay swaps every app icon for its DEV-marked counterpart, and each 
     assert.match(icon, /^icons\/dev\//)
     assert.ok(fs.existsSync(path.join(root, 'src-tauri', icon)), `${icon} is missing; run npm run generate-icons`)
   }
+})
+
+test('the overlay leaves out release-only resources that are not staged', () => {
+  const full = devDesktopConfig(baseConfig, { server: 4300, client: 4301 })
+  assert.equal(full.bundle.resources, undefined, 'everything staged: keep the base resources')
+  const overlay = devDesktopConfig(baseConfig, { server: 4300, client: 4301 }, base => base !== 'core/')
+  assert.ok(!overlay.bundle.resources.includes('core/**/*'))
+  assert.equal(overlay.bundle.resources.length, baseConfig.bundle.resources.length - 1)
+  const none = stagedResources(baseConfig.bundle.resources, () => false)
+  assert.ok(none.kept.every(resource => resource.startsWith('binaries/') || resource.startsWith('../')), 'binaries/ is built by beforeDevCommand and must stay')
 })
 
 // The Rust debug profile (src-tauri/src/host_profile.rs) falls back to the same
