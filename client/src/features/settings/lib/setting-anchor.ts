@@ -27,17 +27,20 @@ export function focusSettingAnchor(id: string, root: ParentNode = document): () 
   const attempt = () => {
     if (cancelled) return
     const el = findSettingAnchor(id, root)
-    if (el) {
+    // A pane self-fetches: until its controls render, keep waiting (within the
+    // budget) so focus lands on a real control, not on a loading placeholder.
+    const target = el?.querySelector<HTMLElement>(FOCUSABLE) ?? null
+    const pastDeadline = Date.now() >= deadline
+    if (el && (target || pastDeadline)) {
       if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' })
       // Prefer a control of the block; fall back to the block itself.
-      const target = el.querySelector<HTMLElement>(FOCUSABLE)
       if (target) target.focus({ preventScroll: true })
       el.setAttribute('data-setting-flash', 'true')
       flashed = el
       timer = setTimeout(() => el.removeAttribute('data-setting-flash'), FLASH_MS)
       return
     }
-    if (Date.now() < deadline) timer = setTimeout(attempt, POLL_MS)
+    if (!pastDeadline) timer = setTimeout(attempt, POLL_MS)
   }
   attempt()
   return () => {
