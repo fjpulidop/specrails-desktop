@@ -10,6 +10,7 @@ import { ChevronRight, Home, RotateCcw, Download } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { JobRunHeader } from '../components/job-run/JobRunHeader'
+import { useRuntimeRuns } from '../components/job-run/useRuntimeRuns'
 import { computePipelineTotals } from '../components/job-run/job-run-model'
 import { JobTicketHeader } from '../components/JobTicketHeader'
 import { InteractiveJobComposer } from '../components/InteractiveJobComposer'
@@ -40,6 +41,8 @@ export default function JobDetailPage() {
   const navigate = useNavigate()
   const { openTicketDetail } = useTicketDetailModal()
   const [job, setJob] = useState<JobSummary | null>(null)
+  // One continuation poller for the header and the composer (shared answer draft).
+  const runtime = useRuntimeRuns(activeProjectId, { jobId: job?.id ?? id, enabled: !!activeProjectId && !!job })
   const [eventBuffer, setEventBuffer] = useState<JobEventBuffer>(() => retainJobEvents([]))
   const events = useMemo(() => jobEventsWithNotice(eventBuffer, t('logViewer.retainedTail')), [eventBuffer, t])
   const [phaseDefinitions, setPhaseDefinitions] = useState<PhaseDefinition[]>([])
@@ -493,6 +496,7 @@ export default function JobDetailPage() {
         phases={phases}
         phaseDefinitions={phaseDefinitions}
         projectId={activeProjectId}
+        runtime={runtime}
         variant="page"
         pipelineTotals={pipelineTotals}
         onRerun={isFinished ? handleRerun : undefined}
@@ -621,9 +625,10 @@ export default function JobDetailPage() {
           jobId={job.id}
           settleMode={job.interactiveSettleMode}
           initialAcceptingTurns={job.interactiveAcceptingTurns}
-            pendingInterrupts={job.pendingInterrupts}
+          pendingInterrupts={job.pendingInterrupts}
           kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
           variant="page"
+          runtime={runtime}
           /* No onFinalized: the page's own job.finalized WS branch refetches. */
         />
       )}

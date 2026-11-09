@@ -272,3 +272,46 @@ describe('Core workflow human controls',()=>{
     await waitFor(()=>expect(global.fetch).toHaveBeenCalledWith('/api/jobs/run-1/messages',expect.objectContaining({body:JSON.stringify({text:'Answer',interruptId:'q2'})})))
   })
 })
+
+// A Core continuation paused on a question: the loop has no step session, so the
+// composer must answer the question instead of steering into a 409.
+describe('runtime continuation question', () => {
+  type Runtime = NonNullable<React.ComponentProps<typeof InteractiveJobComposer>['runtime']>
+  const pausedRun = { runId: 'run-1', status: 'paused', canResume: true, canCancel: true, active: false, recoverableSteps: [], pendingQuestion: { stepId: 'clarify', question: 'Reveal Failure reasons or open Details?' } }
+  function runtimeState(overrides: Partial<Runtime> = {}): Runtime {
+    return { runs: [pausedRun] as unknown as Runtime['runs'], error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn().mockResolvedValue(undefined), refresh: vi.fn(), ...overrides }
+  }
+
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) })
+  })
+
+  it('shows the question and answers it through the runtime, never as a step message', async () => {
+    const runtime = runtimeState({ answers: { 'run-1': 'Reveal Failure reasons' } })
+    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" initialAcceptingTurns={false} runtime={runtime} />)
+    expect(screen.getByTestId('composer-runtime-question')).toHaveTextContent('Reveal Failure reasons or open Details?')
+    expect(screen.queryByText('Waiting for the next step…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Settle this step')).not.toBeInTheDocument()
+    const box = screen.getByRole('textbox')
+    expect(box).not.toBeDisabled()
+    expect(box).toHaveValue('Reveal Failure reasons')
+    await userEvent.click(screen.getByRole('button', { name: /Answer and resume/ }))
+    expect(runtime.act).toHaveBeenCalledWith(pausedRun, 'answer')
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('edits the shared answer draft and keeps Answer disabled while empty', async () => {
+    const runtime = runtimeState()
+    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" runtime={runtime} />)
+    expect(screen.getByRole('button', { name: /Answer and resume/ })).toBeDisabled()
+    await userEvent.type(screen.getByRole('textbox'), 'x')
+    expect(runtime.setAnswer).toHaveBeenCalledWith('run-1', 'x')
+  })
+
+  it('falls back to steering when the run has nothing to answer', () => {
+    const runtime = runtimeState({ runs: [{ ...pausedRun, pendingQuestion: undefined }] as unknown as Runtime['runs'] })
+    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" runtime={runtime} />)
+    expect(screen.queryByTestId('composer-runtime-question')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Send/ })).toBeInTheDocument()
+  })
+})
