@@ -1,11 +1,11 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import { newId } from './ids'
 import {
   Attachment,
   mutateStore,
 } from './modules/specs/runtime/ticket-store'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
 export const SUPPORTED_MIME_TYPES = new Set<string>([
   'image/jpeg',
@@ -124,7 +124,7 @@ function resolveManagedAttachmentPath(dir: string, storedName: string): string |
 export class AttachmentManager {
   private readonly homeDir: string
 
-  constructor(homeDir: string = os.homedir()) {
+  constructor(homeDir: string = resolveSpecrailsHome()) {
     this.homeDir = homeDir
   }
 

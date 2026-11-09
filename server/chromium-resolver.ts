@@ -1,10 +1,10 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import { spawn } from 'child_process'
 import { Transform } from 'stream'
 import { pipeline } from 'stream/promises'
 import { validateChromiumArchive, validateChromiumTree } from './chromium-archive.cjs'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
 /**
  * Discover bundled Chromium, extracting its distribution archive when necessary.
@@ -139,7 +139,7 @@ async function deobfuscate(pakPath: string, outPath: string): Promise<void> {
 function chromiumCacheDir(): string {
   return (
     process.env.SPECRAILS_CHROMIUM_CACHE_DIR ||
-    path.join(os.homedir(), '.specrails', 'runtimes', 'chromium')
+    path.join(resolveSpecrailsHome(), '.specrails', 'runtimes', 'chromium')
   )
 }
 

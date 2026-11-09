@@ -25,6 +25,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
 /** A raw MCP server definition as stored in `~/.claude.json`. Shape is opaque
  *  to the app — it is passed straight through to the CLI via `--mcp-config`. */
@@ -99,7 +100,7 @@ export function writeUserMcpConfig(
   if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
     throw new Error(`unsafe project slug for user-mcp config: ${JSON.stringify(slug)}`)
   }
-  const base = baseDir ?? path.join(os.homedir(), '.specrails', 'projects')
+  const base = baseDir ?? path.join(resolveSpecrailsHome(), '.specrails', 'projects')
   const dir = path.join(base, slug)
   fs.mkdirSync(dir, { recursive: true })
   const file = path.join(dir, 'user-mcp.json')

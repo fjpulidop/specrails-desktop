@@ -7,7 +7,6 @@ import { createDesktopUsageService } from './modules/subscription-usage/runtime/
 import http from 'http'
 import path from 'path'
 import fs from 'fs'
-import os from 'os'
 import express from 'express'
 import type { Request, Response, NextFunction } from 'express'
 import { WebSocketServer, WebSocket } from 'ws'
@@ -79,6 +78,7 @@ import { awaitBackgroundProcessesStopped, initializeBackgroundProcessPersistence
 import './providers'
 import { syncLocalAdapters } from './providers/local-adapter-registry'
 import { loadRuntimeProviders } from './modules/agent-runtime/runtime/agent-runtime-settings'
+import { resolveSpecrailsHome } from './util/specrails-home'
 // Local AI engines: every OpenAI-compatible connection in
 // ~/.specrails/runtime-providers.json becomes a registered adapter BEFORE the
 // first detection cycle (kill switch SPECRAILS_LOCAL_ENGINES=false ⇒ no-op).
@@ -145,7 +145,7 @@ const port = resolveServerPort(process.argv)
 
 // ─── PID file management ──────────────────────────────────────────────────────
 
-const PID_DIR = path.join(os.homedir(), '.specrails')
+const PID_DIR = path.join(resolveSpecrailsHome(), '.specrails')
 const PID_FILE = path.join(PID_DIR, 'manager.pid')
 
 function writePidFile(): void {

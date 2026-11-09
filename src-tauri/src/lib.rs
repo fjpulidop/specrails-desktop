@@ -4,6 +4,7 @@ mod desktop_actions;
 mod desktop_status;
 mod invoke_guard;
 mod backend_health;
+mod host_profile;
 mod mission_windows;
 mod loop_windows;
 
@@ -41,8 +42,10 @@ fn windows_command(program: &str) -> std::process::Command {
     command
 }
 
-const SERVER_PORT: u16 = 4200;
-const HEALTH_URL: &str = "http://127.0.0.1:4200/api/health";
+/// The local server port: 4200 for the installed app, a separate one for dev builds (see host_profile).
+fn server_port() -> u16 {
+    host_profile::current().server_port
+}
 const HEALTH_TIMEOUT_SECS: u64 = 30;
 
 /// Check whether a TCP port is currently free (bind succeeds → free).
@@ -213,7 +216,7 @@ fn terminate_process(pid: u32) {
     // Windows signals cannot drain Node. Ask the owned process over the private
     // host channel, then retain the identity-gated tree kill as a deadline.
     let accepted = reqwest::blocking::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(2)).build().ok()
-        .and_then(|client| client.post(format!("http://127.0.0.1:{SERVER_PORT}/api/host/shutdown"))
+        .and_then(|client| client.post(format!("http://127.0.0.1:{}/api/host/shutdown", server_port()))
             .header("X-Specrails-Host-Token", host_control_token()).send().ok())
         .filter(|response| response.status() == reqwest::StatusCode::ACCEPTED)
         .and_then(|response| {
@@ -369,10 +372,10 @@ fn restart_app(app: tauri::AppHandle, sidecar: tauri::State<'_, SidecarState>) {
         // The Node server holds the port; it may take a moment to release after
         // SIGTERM/taskkill. Never launch a new host into an occupied port: that
         // previously turned a delayed shutdown into a broken update relaunch.
-        if !wait_for_port_available(SERVER_PORT, Duration::from_secs(8)) {
+        if !wait_for_port_available(server_port(), Duration::from_secs(8)) {
             stopping.store(false, Ordering::SeqCst);
             app.dialog()
-                .message("The local server has not released port 4200 yet. Specrails has not restarted. Wait a moment and try Restart again.")
+                .message(format!("The local server has not released port {} yet. Specrails has not restarted. Wait a moment and try Restart again.", server_port()))
                 .title("Specrails — Restart delayed")
                 .blocking_show();
             return;
@@ -456,10 +459,15 @@ pub fn run() {
             // the previous sidecar may still be releasing port 4200 for a second
             // or two; retry for a grace window instead of an immediate fatal
             // failure that would force the user to restart a second time.
-            if !wait_for_port_available(SERVER_PORT, Duration::from_secs(10)) {
+            if !wait_for_port_available(server_port(), Duration::from_secs(10)) {
+                let message = if host_profile::current().dev {
+                    format!("Port {} is already in use by another process. Close it, or start the development build with SPECRAILS_DEV_SERVER_PORT set to a free port.", server_port())
+                } else {
+                    format!("Port {} is already in use by another process. Close it and reopen Specrails.", server_port())
+                };
                 app_handle
                     .dialog()
-                    .message("Port 4200 is already in use by another process. Close it and reopen Specrails.")
+                    .message(message)
                     .title("Specrails — Port Conflict")
                     .blocking_show();
                 std::process::exit(1);
@@ -558,7 +566,17 @@ pub fn run() {
                     error
                 })?
                 .args([&parent_pid_arg])
-                .env("SPECRAILS_HOST_CONTROL_TOKEN", host_control_token());
+                .env("SPECRAILS_HOST_CONTROL_TOKEN", host_control_token())
+                // server/dev-ports.ts reads SPECRAILS_DEV_SERVER_PORT before SPECRAILS_PORT;
+                // set both so an inherited value can never move the server off our port.
+                .env("SPECRAILS_PORT", server_port().to_string())
+                .env("SPECRAILS_DEV_SERVER_PORT", server_port().to_string());
+            // A dev build keeps its databases, worktrees and tokens apart from the
+            // installed app's ~/.specrails (server/util/specrails-home.ts).
+            let sidecar = match &host_profile::current().data_home {
+                Some(home) => sidecar.env("SPECRAILS_REGISTRY_HOME", home.to_string_lossy().into_owned()),
+                None => sidecar,
+            };
             let sidecar = if has_runtimes {
                 // Bundled node/git win: server/path-resolver.ts prepends the bundled bin
                 // dirs ahead of the macOS login-shell PATH set below, so a system
@@ -783,7 +801,9 @@ pub fn run() {
             // Write to ~/Library/Logs/Specrails/sidecar.log for diagnostics.
             let log_path = dirs_next::home_dir()
                 .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-                .join("Library/Logs/Specrails/sidecar.log");
+                .join("Library/Logs")
+                .join(host_profile::current().log_dir)
+                .join("sidecar.log");
             if let Some(parent) = log_path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
@@ -834,6 +854,7 @@ pub fn run() {
             // the frontend retry authentication rather than killing a healthy
             // slow-starting server and presenting an apparently empty registry.
             let app_handle2 = app_handle.clone();
+            let health_url = format!("http://127.0.0.1:{}/api/health", server_port());
             let readiness_pid = Arc::clone(&sidecar_pid);
             let readiness_stopping = Arc::clone(&sidecar_stopping);
             std::thread::spawn(move || {
@@ -842,7 +863,7 @@ pub fn run() {
                 let mut reported_delay = false;
                 loop {
                     let readiness = wait_for_backend(
-                        HEALTH_URL,
+                        &health_url,
                         Duration::from_secs(HEALTH_TIMEOUT_SECS),
                         || !readiness_stopping.load(Ordering::SeqCst)
                             && readiness_pid.lock().map(|state| *state == Some(pid)).unwrap_or(false),

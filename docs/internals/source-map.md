@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1353 source/build files. Nearby tests are linked where names
+Includes 1356 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1108,6 +1108,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [client-feature-readme.mjs](../../scripts/client-feature-readme.mjs)
 - [copy-server-assets.mjs](../../scripts/copy-server-assets.mjs)
 - [coverage-shards.mjs](../../scripts/coverage-shards.mjs) · [test](../../scripts/coverage-shards.test.mjs)
+- [dev-desktop.mjs](../../scripts/dev-desktop.mjs) · [test](../../scripts/dev-desktop.test.mjs)
 - [fix-desktop-bundle.mjs](../../scripts/fix-desktop-bundle.mjs)
 - [generate-core-event-fixture.mjs](../../scripts/generate-core-event-fixture.mjs)
 - [generate-icons.mjs](../../scripts/generate-icons.mjs)
@@ -1883,6 +1884,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [search-snippet.ts](../../server/util/search-snippet.ts) · [test](../../server/util/search-snippet.test.ts)
 - [secure-fs.ts](../../server/util/secure-fs.ts) · [test](../../server/util/secure-fs.test.ts)
 - [secure-token-file.ts](../../server/util/secure-token-file.ts) · [test](../../server/util/secure-token-file.test.ts)
+- [specrails-home.ts](../../server/util/specrails-home.ts) · [test](../../server/util/specrails-home.test.ts)
 - [sqlite-migrations.ts](../../server/util/sqlite-migrations.ts) · [test](../../server/util/sqlite-migrations.test.ts)
 - [stream-display.ts](../../server/util/stream-display.ts) · [test](../../server/util/stream-display.test.ts)
 - [win-spawn.ts](../../server/util/win-spawn.ts) · [test](../../server/util/win-spawn.test.ts)
@@ -1901,6 +1903,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [browser_popup_windows.rs](../../src-tauri/src/browser_popup_windows.rs)
 - [desktop_actions.rs](../../src-tauri/src/desktop_actions.rs)
 - [desktop_status.rs](../../src-tauri/src/desktop_status.rs)
+- [host_profile.rs](../../src-tauri/src/host_profile.rs)
 - [invoke_guard.rs](../../src-tauri/src/invoke_guard.rs)
 - [lib.rs](../../src-tauri/src/lib.rs)
 - [loop_windows.rs](../../src-tauri/src/loop_windows.rs)

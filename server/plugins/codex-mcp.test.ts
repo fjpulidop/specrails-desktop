@@ -10,6 +10,7 @@ import { codexMcpAdd, codexMcpRemove, codexMcpList, codexHomeFor, ensureCodexHom
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { resolveSpecrailsHome } from '../util/specrails-home'
 
 const mockSpawnSync = vi.mocked(spawnSync)
 
@@ -18,7 +19,7 @@ describe('codex-mcp helpers', () => {
 
   it('codexHomeFor composes the expected path under .specrails/projects/<slug>', () => {
     const p = codexHomeFor('test-slug')
-    expect(p).toBe(path.join(os.homedir(), '.specrails', 'projects', 'test-slug', 'codex-home'))
+    expect(p).toBe(path.join(resolveSpecrailsHome(), '.specrails', 'projects', 'test-slug', 'codex-home'))
   })
 
   it('ensureCodexHome creates the directory lazily', () => {

@@ -12,9 +12,9 @@ import { spawnSync } from 'child_process'
 import crossSpawn from 'cross-spawn'
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 
 import { windowsSpawnEnv } from '../util/win-spawn'
+import { resolveSpecrailsHome } from '../util/specrails-home'
 
 /**
  * Spawn `codex` synchronously, Windows-safe. On Windows the codex CLI is a
@@ -34,7 +34,7 @@ function codexSpawn(argv: string[], extraEnv: NodeJS.ProcessEnv) {
 /** Per-project CODEX_HOME root, sibling of the existing
  *  `~/.specrails/projects/<slug>/{telemetry,jobs,explore-cwd,...}` tree. */
 export function codexHomeFor(slug: string): string {
-  return path.join(os.homedir(), '.specrails', 'projects', slug, 'codex-home')
+  return path.join(resolveSpecrailsHome(), '.specrails', 'projects', slug, 'codex-home')
 }
 
 /** Lazy-create the per-project codex home so `codex mcp add` writes its

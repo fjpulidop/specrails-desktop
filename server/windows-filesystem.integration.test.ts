@@ -18,6 +18,7 @@ beforeEach(() => {
   fs.mkdirSync(home, { recursive: true })
   vi.spyOn(os, 'homedir').mockReturnValue(home)
   vi.stubEnv('HOME', home)
+  vi.stubEnv('SPECRAILS_REGISTRY_HOME', home)
   vi.stubEnv('USERPROFILE', home)
   vi.stubEnv('SPECRAILS_BUNDLED_RUNTIMES_PATH', '')
 })

@@ -1,11 +1,11 @@
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 import zlib from 'zlib'
 import { Router, Request, Response } from 'express'
 import type { ProjectRegistry } from '../../../project-registry'
 import { getJob } from '../../../db'
 import { getTelemetryBlob, upsertTelemetryBlob } from '../../../db'
+import { resolveSpecrailsHome } from '../../../util/specrails-home'
 
 // 10 MB uncompressed cap per job blob
 const BLOB_SIZE_CAP = 10 * 1024 * 1024
@@ -101,7 +101,7 @@ export function dropBlobStatesForProject(projectId: string): void {
 // ─── Blob path ────────────────────────────────────────────────────────────────
 
 function telemetryDir(projectSlug: string): string {
-  return path.join(os.homedir(), '.specrails', 'projects', projectSlug, 'telemetry')
+  return path.join(resolveSpecrailsHome(), '.specrails', 'projects', projectSlug, 'telemetry')
 }
 
 function blobPath(projectSlug: string, jobId: string): string {

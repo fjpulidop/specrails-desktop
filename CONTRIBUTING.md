@@ -60,6 +60,12 @@ npm run dev:client   # Vite dev client only
 
 The client (port 4201) proxies all `/api` and `/hooks` requests to the server (port 4200). Access the dashboard at `http://localhost:4201` in development.
 
+To run the desktop shell while the installed Specrails is open, use
+`npm run dev:desktop`. It starts **Specrails Dev** with its own identifier, ports
+(server 4300, client 4301) and data under `~/.specrails-dev`. Override the ports
+with `SPECRAILS_DEV_SERVER_PORT` and `SPECRAILS_DEV_CLIENT_PORT`. See
+[configuration](docs/internals/configuration.md#development-build-next-to-the-installed-app).
+
 ## Running Tests
 
 ```bash

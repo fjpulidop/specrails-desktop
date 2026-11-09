@@ -1,11 +1,10 @@
 import http from 'http'
 import net from 'net'
 import path from 'path'
-import os from 'os'
 import { spawnCli } from './win-spawn'
 import fs from 'fs'
 import { cliLog, cliError, bold } from './output'
-import { detectWebManager, httpGet, httpPost, loadDesktopToken } from './desktop-client'
+import { detectWebManager, httpGet, httpPost, loadDesktopToken, specrailsHome } from './desktop-client'
 
 
 
@@ -13,9 +12,9 @@ import { detectWebManager, httpGet, httpPost, loadDesktopToken } from './desktop
 // Server-management subcommand group
 // ---------------------------------------------------------------------------
 
-export const DESKTOP_PID_FILE = path.join(os.homedir(), '.specrails', 'manager.pid')
+export const DESKTOP_PID_FILE = path.join(specrailsHome(), '.specrails', 'manager.pid')
 
-export const DESKTOP_LOG_FILE = path.join(os.homedir(), '.specrails', 'desktop.log')
+export const DESKTOP_LOG_FILE = path.join(specrailsHome(), '.specrails', 'desktop.log')
 
 
 export function isPortInUse(port: number): Promise<boolean> {

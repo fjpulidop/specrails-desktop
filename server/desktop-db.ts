@@ -10,6 +10,7 @@ import { applyNumberedMigrations } from './util/sqlite-migrations'
 import { randomUUID } from 'crypto'
 import { canonicalRepositoryPath, repositoryPathKey, repositoryAvailable, legacyRepositoryKind, inspectRepositoryPath, assertDistinctRepositories, RepositoryValidationError, type ProjectRepository, type ProjectRepositoryInput } from './project-repositories'
 import { isUpdateChannel, parseUpdateChannel, type UpdateChannel } from './update-channel'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ export interface AgentRow {
 // ─── Desktop DB path ──────────────────────────────────────────────────────────
 
 export function getDesktopDbPath(): string {
-  return path.join(os.homedir(), '.specrails', 'desktop.sqlite')
+  return path.join(resolveSpecrailsHome(), '.specrails', 'desktop.sqlite')
 }
 
 /**
@@ -144,7 +145,7 @@ function migrateLegacyDbFile(dbPath: string): void {
 }
 
 function getProjectDbPath(slug: string): string {
-  return path.join(os.homedir(), '.specrails', 'projects', slug, 'jobs.sqlite')
+  return path.join(resolveSpecrailsHome(), '.specrails', 'projects', slug, 'jobs.sqlite')
 }
 
 // ─── Mission search index ─────────────────────────────────────────────────────

@@ -26,12 +26,13 @@ beforeEach(() => {
   vi.clearAllMocks(); loader.entry = 'runtime/index.js'; loader.loadFailure = false; loader.apiCapabilities = {}; layout.suffix = '.specrails'
   directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-settings-'))
   vi.spyOn(os, 'homedir').mockImplementation(() => path.join(directory, 'home'))
+  vi.stubEnv('SPECRAILS_REGISTRY_HOME', path.join(directory, 'home'))
   app = express(); app.use(express.json())
   const router = express.Router()
   registerAgentRuntimeSettingsRoutes({ router, ctx: () => ({ project: project() }) as never })
   app.use('/api/projects', router)
 })
-afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }) })
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(directory, { recursive: true, force: true }) })
 
 describe('runtime project configuration', () => {
   it('projects provider-native custom agents with safe defaults and preserves explicit role settings', () => {

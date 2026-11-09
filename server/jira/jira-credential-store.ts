@@ -10,9 +10,9 @@
 // column; the symmetric key lives once at `~/.specrails/jira-secret.key`.
 
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
+import { resolveSpecrailsHome } from '../util/specrails-home'
 
 export interface SecretStore {
   encrypt(plaintext: string): string
@@ -23,7 +23,7 @@ const ALGO = 'aes-256-gcm'
 const VERSION = 'v1'
 
 /** Resolve the keyfile path (override-able for tests). */
-export function defaultKeyfilePath(homeDir: string = os.homedir()): string {
+export function defaultKeyfilePath(homeDir: string = resolveSpecrailsHome()): string {
   return path.join(homeDir, '.specrails', 'jira-secret.key')
 }
 

@@ -1,12 +1,12 @@
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 import { randomUUID, timingSafeEqual } from 'crypto'
 import type { IncomingMessage } from 'http'
 import type { Request, Response, NextFunction } from 'express'
 import { readPrivateTextFile, writePrivateTextFile } from './util/secure-token-file'
+import { resolveSpecrailsHome } from './util/specrails-home'
 
-const TOKEN_DIR = path.join(os.homedir(), '.specrails')
+const TOKEN_DIR = path.join(resolveSpecrailsHome(), '.specrails')
 const TOKEN_PATH = path.join(TOKEN_DIR, 'desktop.token')
 // Legacy (pre-rebrand) token filename — referenced by the one-time migration
 // below only. Migration/compat code.

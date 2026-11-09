@@ -16,7 +16,6 @@
  * explicit user choice made closer to the run.
  */
 import * as fs from 'fs'
-import * as os from 'os'
 import * as path from 'path'
 import { createHash } from 'crypto'
 import type { DbInstance } from '../../../db'
@@ -29,6 +28,7 @@ import {
   reasoningEffortsForModel,
 } from '../../../providers/runtime'
 import type { Profile, ResolvedProfile } from './profile-manager'
+import { resolveSpecrailsHome } from '../../../util/specrails-home'
 
 export const AGENT_DEFAULTS_SETTING_KEY = 'specrails_agent_defaults'
 
@@ -269,7 +269,7 @@ export function synthesizeProfileFromDefaults(
 export function ensureGlobalProfileSnapshot(
   providerId: string,
   profile: Profile,
-  baseDir: string = path.join(os.homedir(), '.specrails', 'agent-defaults'),
+  baseDir: string = path.join(resolveSpecrailsHome(), '.specrails', 'agent-defaults'),
 ): string {
   const body = JSON.stringify(profile, null, 2) + '\n'
   const hash = createHash('sha256').update(body).digest('hex').slice(0, 12)
