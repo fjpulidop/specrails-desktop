@@ -1,7 +1,7 @@
 import { useEffect, useId, useReducer, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { CheckCircle2, Hourglass, Send } from 'lucide-react'
+import { CheckCircle2, Hourglass, MessageCircleQuestion, Send } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { cn } from '../../../lib/utils'
@@ -12,6 +12,9 @@ import { LiveDot } from '../../../components/ui/live-dot'
 import { formatUsd } from '../../../lib/format-usd'
 
 import { notifyError } from '../../../lib/notify-error'
+import type { RuntimeRunsState } from './job-run/useRuntimeRuns'
+import { answerableRun } from './job-run/job-run-model'
+
 /** Running SUM of every completed turn's REAL usage (from job.turn_done /
  *  job.finalized — never an estimate). */
 export interface InteractiveJobTotals {
@@ -49,6 +52,10 @@ export interface InteractiveJobComposerProps {
   variant?: 'page' | 'glass'
   /** Fired when job.finalized arrives so the parent can refetch the job row. */
   onFinalized?: () => void
+  /** The job's runtime continuation (shared with JobRunHeader). When it waits on
+   *  a question, the send box answers it instead of steering a step session
+   *  that does not exist while the run is paused. */
+  runtime?: RuntimeRunsState
 }
 
 interface ComposerState {
@@ -134,9 +141,12 @@ export function InteractiveJobComposer({
   kind = 'job',
   variant = 'page',
   onFinalized,
+  runtime,
 }: InteractiveJobComposerProps) {
   const { t } = useTranslation('jobs')
   const { t: tl } = useTranslation('loops')
+  const { t: tRuntime } = useTranslation('agentRuntime')
+  const questionRun = answerableRun(runtime?.runs[0])
   const [pending, setPending] = useState<PendingInterrupt[]>(pendingInterrupts ?? [])
   const [interruptId, setInterruptId] = useState(pendingInterrupts?.length === 1 ? pendingInterrupts[0].id : '')
   useEffect(() => {
@@ -200,9 +210,18 @@ export function InteractiveJobComposer({
 
   // Loop runs sit between steps with no resident session; a plain job with
   // accepting=false is either finalizing or about to unmount — never blocked.
-  const waiting = kind === 'loop-step' && !state.accepting
+  const waiting = kind === 'loop-step' && !state.accepting && !questionRun
+  // While the continuation waits on a question the box edits the SAME draft as
+  // the header's Details form, and Send is "Answer and resume".
+  const draft = questionRun ? runtime!.answers[questionRun.runId] ?? '' : text
+  const setDraft = (value: string): void => { if (questionRun) runtime!.setAnswer(questionRun.runId, value); else setText(value) }
+  const answering = !!questionRun && runtime!.busy === questionRun.runId
 
   async function handleSend(approve = false): Promise<void> {
+    if (questionRun) {
+      if (draft.trim() && !answering) await runtime!.act(questionRun, 'answer')
+      return
+    }
     const body = text.trim()
     if ((!body && !approve) || sending || waiting || (pending.length > 0 && !selectedInterrupt) || (needsApproval && !approve)) return
     setSending(true)
@@ -258,7 +277,9 @@ export function InteractiveJobComposer({
     }
   }
 
-  const sendDisabled = sending || waiting || !text.trim() || needsApproval || (pending.length > 0 && !selectedInterrupt)
+  const sendDisabled = questionRun
+    ? answering || !draft.trim()
+    : sending || waiting || !text.trim() || needsApproval || (pending.length > 0 && !selectedInterrupt)
   const workingLabel = t('detail.interactive.working')
 
   return (
@@ -273,7 +294,12 @@ export function InteractiveJobComposer({
       {/* Status row: state pill · queued indicator · live totals · settle action */}
       <div className="flex items-center justify-between gap-3 text-caption text-muted-foreground">
         <span className="flex min-w-0 items-center gap-2">
-          {waiting ? (
+          {questionRun ? (
+            <span className="inline-flex items-center gap-1.5 text-accent-warning">
+              <MessageCircleQuestion className="h-3 w-3" aria-hidden />
+              {tRuntime('runs.status.paused')}
+            </span>
+          ) : waiting ? (
             <span className="inline-flex items-center gap-1.5">
               <Hourglass className="h-3 w-3 motion-safe:animate-pulse" />
               {t('detail.interactive.waitingForStepShort')}
@@ -309,7 +335,7 @@ export function InteractiveJobComposer({
               })}
             </span>
           )}
-          {pending.length ? null : mode === 'finalize' ? (
+          {pending.length || questionRun ? null : mode === 'finalize' ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -371,7 +397,13 @@ export function InteractiveJobComposer({
           {needsApproval && <Button onClick={() => void handleSend(true)} disabled={sending || waiting}>{tl('core.approveContinue')}</Button>}
         </div>
       )}
-      {mode === 'auto' && !pending.length && (
+      {questionRun && (
+        <div data-testid="composer-runtime-question" className="space-y-1 rounded-md border border-accent-warning/30 bg-accent-warning/5 p-3 text-sm">
+          <p className="font-medium">{tRuntime('runs.question')}</p>
+          <p className="whitespace-pre-wrap">{questionRun.pendingQuestion!.question}</p>
+        </div>
+      )}
+      {mode === 'auto' && !pending.length && !questionRun && (
         <p className="text-caption leading-snug text-muted-foreground">
           {waiting ? t('detail.interactive.waitingForStep') : t('detail.interactive.autoHint')}
         </p>
@@ -381,8 +413,8 @@ export function InteractiveJobComposer({
       <div className="flex items-end gap-2">
         <textarea
           ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             // Enter sends (Shift+Enter = newline); Cmd/Ctrl+Enter always sends.
             if (e.key === 'Enter' && (!e.shiftKey || e.metaKey || e.ctrlKey)) {
@@ -391,8 +423,9 @@ export function InteractiveJobComposer({
             }
           }}
           rows={2}
-          placeholder={waiting ? t('detail.interactive.waitingForStepShort') : t('detail.interactive.placeholder')}
-          aria-label={t('detail.interactive.placeholder')}
+          placeholder={questionRun ? tRuntime('runs.answerPlaceholder') : waiting ? t('detail.interactive.waitingForStepShort') : t('detail.interactive.placeholder')}
+          aria-label={questionRun ? tRuntime('runs.answerLabel') : t('detail.interactive.placeholder')}
+          maxLength={questionRun ? 20000 : undefined}
           disabled={waiting}
           className={cn(
             'flex-1 resize-none rounded-md border border-border/50 bg-background px-2.5 py-1.5 text-sm transition-opacity focus:outline-none focus:ring-2 focus:ring-ring',
@@ -409,11 +442,11 @@ export function InteractiveJobComposer({
                 className="h-9"
               >
                 <Send className="mr-1.5 h-3.5 w-3.5" />
-                {t('detail.interactive.send')}
+                {questionRun ? tRuntime('runs.answer') : t('detail.interactive.send')}
               </Button>
             </span>
           </TooltipTrigger>
-          {sendDisabled && !sending && (
+          {sendDisabled && !sending && !answering && (
             <TooltipContent>
               {waiting ? t('detail.interactive.sendDisabledWaiting') : t('detail.interactive.sendDisabledEmpty')}
             </TooltipContent>

@@ -25,6 +25,7 @@ import {
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { TooltipProvider } from '../../../components/ui/tooltip'
 import { JobRunHeader } from './job-run/JobRunHeader'
+import { useRuntimeRuns } from './job-run/useRuntimeRuns'
 import { LogViewer } from './LogViewer'
 import { LoopStepExplorer } from '../../loops/components/loop-log/LoopStepExplorer'
 import { NarratedProgress } from '../../loops/components/loop-log/NarratedProgress'
@@ -87,6 +88,9 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
     saveJobLogMode(mode)
   }, [])
   const [job, setJob] = useState<JobSummary | null>(null)
+  // One continuation poller for the header and the composer: a pending question
+  // is answered from either with the same draft.
+  const runtime = useRuntimeRuns(projectId, { jobId: job?.id ?? jobId, enabled: !!projectId && !!job })
   const [eventBuffer, setEventBuffer] = useState<JobEventBuffer>(() => retainJobEvents([]))
   const events = useMemo(() => jobEventsWithNotice(eventBuffer, t('logViewer.retainedTail')), [eventBuffer, t])
   const [phaseDefinitions, setPhaseDefinitions] = useState<PhaseDefinition[]>([])
@@ -363,6 +367,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
                 phases={phases}
                 phaseDefinitions={phaseDefinitions}
                 projectId={projectId}
+                runtime={runtime}
                 variant="glass"
                 actions={isRunning ? (
                   <Button
@@ -465,6 +470,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
                 pendingInterrupts={job.pendingInterrupts}
                 kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
                 variant="glass"
+                runtime={runtime}
                 onFinalized={refetchJob}
               />
             )}
