@@ -1,13 +1,17 @@
-// Runs the development desktop build (`tauri dev`) as its own app, next to an
-// installed Specrails. It gets a separate identifier (so single-instance never
-// focuses the installed window), its own server and Vite ports, and, through
-// the debug host profile in src-tauri/src/host_profile.rs, its own data home
-// (~/.specrails-dev unless SPECRAILS_REGISTRY_HOME is set).
+// Runs the development desktop build (`tauri dev`) as "Specrails Dev": a
+// separate identifier (single-instance never focuses the installed window), its
+// own server and Vite ports, and a DEV-marked icon.
 //
-//   npm run dev:desktop
-//   SPECRAILS_DEV_SERVER_PORT=4400 SPECRAILS_DEV_CLIENT_PORT=4401 npm run dev:desktop
+//   npm run dev:desktop                 your projects: the installed app's ~/.specrails
+//   npm run dev:desktop -- --isolated   an empty environment in ~/.specrails-dev
+//
+// The shared mode refuses to start while the installed app is running: one
+// server per data home (server/data-home-lock.ts enforces it as well).
+// SPECRAILS_REGISTRY_HOME chooses another data home; the ports can be moved
+// with SPECRAILS_DEV_SERVER_PORT and SPECRAILS_DEV_CLIENT_PORT.
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -31,6 +35,29 @@ export function devDesktopPorts(env = process.env) {
   return { server, client }
 }
 
+/**
+ * Which data home the development app uses. Without a flag it shares the
+ * installed app's (the user's home, containing `.specrails/`); `--isolated`
+ * uses ~/.specrails-dev. An explicit SPECRAILS_REGISTRY_HOME wins over both.
+ */
+export function devDesktopMode(argv, env = process.env, home = os.homedir()) {
+  const isolated = argv.includes('--isolated')
+  const args = argv.filter(arg => arg !== '--isolated')
+  const explicit = env.SPECRAILS_REGISTRY_HOME?.trim()
+  const dataHome = explicit || (isolated ? path.join(home, '.specrails-dev') : home)
+  return { isolated, shared: path.resolve(dataHome) === path.resolve(home), dataHome, args }
+}
+
+/** Whether a Specrails server answers on the installed app's port. */
+export async function installedAppRunning(port = RELEASE_SERVER_PORT) {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(1500) })
+    return response.ok && (await response.json())?.status === 'ok'
+  } catch {
+    return false
+  }
+}
+
 /** The `tauri dev --config` overlay: a separate app with the development ports. */
 export function devDesktopConfig(baseConfig, ports) {
   const csp = baseConfig.app?.security?.csp
@@ -49,15 +76,21 @@ export function devDesktopConfig(baseConfig, ports) {
 async function main() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
   const ports = devDesktopPorts()
+  const mode = devDesktopMode(process.argv.slice(2))
+  if (mode.shared && await installedAppRunning()) {
+    throw new Error('The installed Specrails is running and uses the same projects and data. Quit it first (tray icon > Exit), or start an empty environment with `npm run dev:desktop -- --isolated`.')
+  }
   const baseConfig = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'tauri.conf.json'), 'utf8'))
   const overlay = devDesktopConfig(baseConfig, ports)
   const tauri = path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js')
-  console.log(`[dev-desktop] ${overlay.productName}: server ${ports.server}, client ${ports.client}`)
-  const child = spawn(process.execPath, [tauri, 'dev', '--config', JSON.stringify(overlay), ...process.argv.slice(2)], {
+  const data = mode.shared ? 'your projects (shared with the installed app)' : `isolated data in ${mode.dataHome}`
+  console.log(`[dev-desktop] ${overlay.productName}: server ${ports.server}, client ${ports.client}, ${data}`)
+  const child = spawn(process.execPath, [tauri, 'dev', '--config', JSON.stringify(overlay), ...mode.args], {
     cwd: root,
     stdio: 'inherit',
-    // Vite (beforeDevCommand) and the sidecar read these ports.
-    env: { ...process.env, SPECRAILS_DEV_SERVER_PORT: String(ports.server), SPECRAILS_DEV_CLIENT_PORT: String(ports.client) },
+    // Vite (beforeDevCommand) and the sidecar read these ports; the debug host
+    // profile passes SPECRAILS_REGISTRY_HOME on to the sidecar.
+    env: { ...process.env, SPECRAILS_DEV_SERVER_PORT: String(ports.server), SPECRAILS_DEV_CLIENT_PORT: String(ports.client), SPECRAILS_REGISTRY_HOME: mode.dataHome },
   })
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal))
   child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)))

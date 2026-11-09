@@ -1,11 +1,13 @@
 //! Which server port, data home and log folder this desktop host uses.
 //!
 //! The installed (release) app keeps its fixed port 4200 and the user's
-//! `~/.specrails`. A development build (`npm run dev:desktop`, debug
-//! assertions on) gets its own port and its own data home, so it can run next
-//! to the installed app without contending for the port or sharing databases,
-//! worktrees and tokens. The release port is never moved automatically: two
-//! servers on the same data would corrupt each other's queues and recovery.
+//! `~/.specrails`. A development build (debug assertions on) gets its own port
+//! and takes its data home from `SPECRAILS_REGISTRY_HOME`, which
+//! `npm run dev:desktop` sets: the user's home to share the installed app's
+//! projects, or `~/.specrails-dev` with `--isolated`. A bare `tauri dev` falls
+//! back to `~/.specrails-dev`. The release port is never moved automatically:
+//! two servers on the same data would corrupt each other's queues and recovery
+//! (the server also refuses a second instance, see server/data-home-lock.ts).
 
 use std::path::PathBuf;
 

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DEV_CLIENT_PORT, DEV_SERVER_PORT, devDesktopConfig, devDesktopPorts } from './dev-desktop.mjs'
+import { DEV_CLIENT_PORT, DEV_SERVER_PORT, devDesktopConfig, devDesktopMode, devDesktopPorts, installedAppRunning } from './dev-desktop.mjs'
+import http from 'node:http'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const baseConfig = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'tauri.conf.json'), 'utf8'))
@@ -41,4 +42,29 @@ test('the overlay swaps every app icon for its DEV-marked counterpart, and each 
 test('the launcher and the debug host profile agree on the default server port', () => {
   const rust = fs.readFileSync(path.join(root, 'src-tauri', 'src', 'host_profile.rs'), 'utf8')
   assert.match(rust, new RegExp(`pub const DEV_SERVER_PORT: u16 = ${DEV_SERVER_PORT};`))
+})
+
+test('without a flag the development app shares the installed app\'s projects; --isolated gives it its own data', () => {
+  const shared = devDesktopMode(['--verbose'], {}, '/Users/me')
+  assert.deepEqual(shared, { isolated: false, shared: true, dataHome: '/Users/me', args: ['--verbose'] })
+  const isolated = devDesktopMode(['--isolated', '--verbose'], {}, '/Users/me')
+  assert.deepEqual(isolated, { isolated: true, shared: false, dataHome: path.join('/Users/me', '.specrails-dev'), args: ['--verbose'] })
+  const explicit = devDesktopMode([], { SPECRAILS_REGISTRY_HOME: '/tmp/sr' }, '/Users/me')
+  assert.equal(explicit.dataHome, '/tmp/sr')
+  assert.equal(explicit.shared, false)
+})
+
+test('detects a Specrails server on the installed port, and nothing when it is closed', async () => {
+  const server = http.createServer((request, response) => {
+    response.setHeader('content-type', 'application/json')
+    response.end(JSON.stringify(request.url === '/api/health' ? { status: 'ok' } : {}))
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address()
+  try {
+    assert.equal(await installedAppRunning(port), true)
+  } finally {
+    await new Promise(resolve => server.close(resolve))
+  }
+  assert.equal(await installedAppRunning(port), false)
 })

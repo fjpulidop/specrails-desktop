@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1356 source/build files. Nearby tests are linked where names
+Includes 1357 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1170,6 +1170,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [core-runtime.ts](../../server/core-runtime.ts) · [test](../../server/core-runtime.test.ts)
 - [core-update-manager.ts](../../server/core-update-manager.ts) · [test](../../server/core-update-manager.test.ts)
 - [core-update-state.ts](../../server/core-update-state.ts)
+- [data-home-lock.ts](../../server/data-home-lock.ts) · [test](../../server/data-home-lock.test.ts)
 - [db.ts](../../server/db.ts) · [test](../../server/db.test.ts)
 - [dev-ports.ts](../../server/dev-ports.ts) · [test](../../server/dev-ports.test.ts)
 - [docs-router.ts](../../server/docs-router.ts) · [test](../../server/docs-router.test.ts)
