@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1357 source/build files. Nearby tests are linked where names
+Includes 1358 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -475,6 +475,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/jobs/components/job-run
 
 - [JobRunHeader.tsx](../../client/src/features/jobs/components/job-run/JobRunHeader.tsx) · [test](../../client/src/features/jobs/components/job-run/__tests__/JobRunHeader.test.tsx)
+- [RunDetailTabs.tsx](../../client/src/features/jobs/components/job-run/RunDetailTabs.tsx) · [test](../../client/src/features/jobs/components/job-run/RunDetailTabs.test.tsx)
 - [job-run-model.ts](../../client/src/features/jobs/components/job-run/job-run-model.ts) · [test](../../client/src/features/jobs/components/job-run/__tests__/job-run-model.test.ts)
 - [useRuntimeRuns.ts](../../client/src/features/jobs/components/job-run/useRuntimeRuns.ts)
 

@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change nontech-review-experience. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Milestone narration is deterministic and template-based
 
 The platform SHALL render a plain-language milestone narration of a run derived exclusively from persisted structured data: loop step events (kind, title, iteration, rendered command), step-end events (duration, status, decider verdict, the interrupted state when the end event is missing), and tool events (names and inputs from the persisted stream). Narration SHALL be produced by i18n templates with zero model calls, SHALL work for every provider (degrading predictably where a provider's stream carries less tool granularity), and SHALL NOT assert any outcome (e.g. tests passing) that lacks a structured source.
@@ -29,17 +31,23 @@ The platform SHALL render a plain-language milestone narration of a run derived 
 
 ### Requirement: Narration is a third altitude behind a toggle
 
-The narrated view SHALL be offered inside the existing job detail surfaces (page and modal variants) as a mode toggle alongside the raw log view, following the shipped Story|Log toggle pattern with per-project persistence. The raw log view SHALL remain byte-identical to its pre-change rendering. Existing glance-level surfaces (phase chips, overview strip) SHALL be unaffected.
+The narrated view SHALL be offered within Log detail on the Job Detail page and modal as a mode toggle alongside raw log content, retaining the shipped Story|Log pattern and per-project persistence. Raw log content rendering SHALL remain unchanged inside its new panel. Glance-level surfaces SHALL be unaffected. Disabling narration SHALL remove only that mode toggle and SHALL NOT remove run-detail navigation.
 
 #### Scenario: Toggle persists
 
-- **WHEN** a user switches a job view to narrated mode
-- **THEN** subsequent job views in that project SHALL default to narrated mode until switched back
+- **WHEN** a user switches Log detail to narrated mode
+- **THEN** subsequent job views in that project SHALL default to narrated mode within Log detail until switched back
 
 #### Scenario: Raw logs untouched
 
 - **WHEN** the narrated feature flag is disabled
-- **THEN** the job detail surfaces SHALL render byte-identical to their pre-change behavior
+- **THEN** Log detail SHALL render the existing raw log content without the narration mode toggle
+- **AND** Failure reasons / Log navigation and the loop-only Execution graph / Log detail sub-sections SHALL remain available according to their visibility rules
+
+#### Scenario: Graph remains evidence navigation
+
+- **WHEN** a user selects Execution graph or activates a loop failure's open-logs remedy while narrated mode is remembered
+- **THEN** the graph SHALL be shown without requiring the user to change the remembered Log detail narration mode
 
 ### Requirement: Narration handles every stream shape
 
