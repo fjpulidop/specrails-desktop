@@ -88,7 +88,7 @@
     "returned_to_flow": "Returned to Intent",
     "local_changes_attention": "Integrated — local changes need attention",
     "ci_green": "CI green",
-    "ci_needs_attention": "CI needs attention"
+    "ci_needs_attention": "CI not green yet"
   },
   "prRecovery": {
     "inProgress": "Project recovery is still in progress. Your delivery is safe. Retry in a moment.",

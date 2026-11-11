@@ -325,7 +325,7 @@
       "flowSpecFailed": "L’affidamento si è fermato",
       "flowSpecBuilding": "Il tuo Intent sta diventando una PR revisionata",
       "ci_green": "PR pronta — CI verde",
-      "ci_needs_attention": "PR pronta — la CI richiede attenzione",
+      "ci_needs_attention": "PR inviata — la CI non è ancora verde",
       "ciBuilding": "Monitoraggio della CI della PR {{pr}}"
     },
     "buildingHint": "Al termine ti verrà chiesto se creare la PR.",
@@ -1496,7 +1496,7 @@
     "greenBody_other": "{{pushes}} correzioni inviate alla PR dopo {{rounds}} giro/i con errori.",
     "noCi": "La PR {{pr}} non ha check di CI",
     "noCiBody": "Non c’era nulla da monitorare; la PR non è stata toccata.",
-    "needsAttention": "La CI della PR {{pr}} richiede attenzione",
+    "needsAttention": "La PR {{pr}} è inviata; la sua CI non è ancora verde",
     "needsAttentionBody": "Il loop si è fermato prima che i check diventassero verdi.",
     "openRun": "Apri esecuzione",
     "openPr": "Apri PR {{pr}}",
@@ -1519,7 +1519,7 @@
     "startedMany": "Monitoraggio della CI delle PR {{pr}} su {{rail}}",
     "greenMany": "PR {{pr}}: tutti i check sono verdi",
     "noCiMany": "Le PR {{pr}} non hanno check di CI",
-    "needsAttentionMany": "La CI delle PR {{pr}} richiede attenzione",
+    "needsAttentionMany": "Le PR {{pr}} sono inviate; la loro CI non è ancora verde",
     "dismissedMany": "Monitoraggio della CI delle PR {{pr}} non avviato."
   }
 }

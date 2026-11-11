@@ -124,7 +124,12 @@ export function projectPrCiOffer(db: DbInstance, projectId: string, host: PrCiOf
     if (!row) return
     const at = new Date(options.now?.() ?? Date.now()).toISOString()
     if (row.loop_id === PR_CI_LOOP_ID) {
-      const offered = row.supersedes_delivery_id ? getPrDelivery(db, row.supersedes_delivery_id) : undefined
+      // The offer belongs to the delivery the first CI loop replaced: a later
+      // "Fix CI" / "Run again" generation updates that same card, never a second one.
+      let offered = row.supersedes_delivery_id ? getPrDelivery(db, row.supersedes_delivery_id) : undefined
+      for (let hops = 0; offered && offered.loop_id === PR_CI_LOOP_ID && offered.supersedes_delivery_id && hops < 50; hops++) {
+        offered = getPrDelivery(db, offered.supersedes_delivery_id)
+      }
       const conversationId = offered?.origin_conversation_id ?? row.origin_conversation_id
       if (!offered || !conversationId) return
       const key = prCiOfferKey(offered.id)

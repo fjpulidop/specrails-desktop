@@ -260,7 +260,7 @@ describe('AgentPrDecisionCard states', () => {
   it('a CI loop generation keeps the PR and states the CI outcome (pr-ci-loop)', () => {
     const { unmount } = render(<AgentPrDecisionCard envelope={env({ decision: 'pr_draft', loopId: 'factory:pr-ci', statusCode: 'ci_needs_attention', statusDetail: 'flaky: test X keeps failing', deliveryOutcome: 'delivered',
       prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
-    expect(screen.getByText('PR ready — CI needs attention')).toBeInTheDocument()
+    expect(screen.getByText('PR pushed — waiting for CI to turn green')).toBeInTheDocument()
     const note = screen.getByTestId('agent-pr-ci-status')
     expect(note).toHaveAttribute('data-state', 'ci_needs_attention')
     expect(note.textContent).toContain('flaky: test X keeps failing')

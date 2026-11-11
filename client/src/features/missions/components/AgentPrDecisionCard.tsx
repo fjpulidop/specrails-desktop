@@ -1504,6 +1504,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   // mission-rail-cards: failed / auto-closed deliveries show their failure as
   // text (code + detail + per-unit codes) instead of a hover title. When this
   // block renders, the older status-detail paragraph is skipped (no double).
+  // pr-ci-loop: the CI outcome the last CI loop recorded on this PR.
+  const ciOutcome = envelope.statusCode === 'ci_green' || envelope.statusCode === 'ci_needs_attention'
   const failureBlockShown = FEATURE_MISSION_RAIL_CARDS && flowOutcome === null && (
     !!runFailure
     || decision === 'implementation_failed'
@@ -1633,7 +1635,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       )}
 
       {/* A failure block below already names what failed: no duplicate red unit chip. */}
-      <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null || failureBlockShown} />
+      {/* A CI loop outcome speaks for the PR below; a per-unit "ready" chip would contradict it. */}
+      {!ciOutcome && <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null || failureBlockShown} />}
 
       {failureBlockShown && (diagnosisCard ?? <RunFailureBlock envelope={envelope} />)}
       {flowFailureView}
@@ -1649,7 +1652,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {runtimeError}
 
       {/* The title and the failure block / CI note already say it: no third label. */}
-      {statusLabel && flowOutcome === null && !failureBlockShown && envelope.statusCode !== 'ci_green' && envelope.statusCode !== 'ci_needs_attention' && (
+      {statusLabel && flowOutcome === null && !failureBlockShown && !ciOutcome && (
         <p className="mt-2 text-label text-muted-foreground" data-testid="agent-pr-status-code">
           {statusLabel}
         </p>
@@ -1700,13 +1703,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         </p>
       )}
 
-      {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && flowOutcome === null && (
+      {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && flowOutcome === null && !ciOutcome && (
         <p className="mt-1 text-label leading-4 text-muted-foreground" data-testid="agent-pr-status-detail">
           {statusDetail?.text}
         </p>
       )}
 
-      {statusDetail?.raw && !interruptedOperationDetail && !presentation.recoveryUnavailable && flowOutcome === null && (
+      {statusDetail?.raw && !interruptedOperationDetail && !presentation.recoveryUnavailable && flowOutcome === null && !ciOutcome && (
         <TechnicalDetail summary={t('prCard.recoveryDetailSummary')} className="mt-1 text-label leading-4" testId="agent-pr-status-technical-detail">{statusDetail.raw}</TechnicalDetail>
       )}
 

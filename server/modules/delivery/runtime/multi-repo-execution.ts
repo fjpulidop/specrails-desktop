@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { newId } from '../../../ids'
 import { refreshPrCiOffer } from './pr-ci/pr-ci-projection'
 import { getProjectSettings, type DbInstance } from '../../../db'
@@ -120,6 +121,15 @@ export function refreshRepositoryDeliveryGroup(db: DbInstance, parentId: string,
     } else {
       decision = 'on_review'; patch.deliveryOutcome = accepted.length > 0 ? 'partial' : 'ready'
       patch.statusCode = accepted.length > 0 ? 'partial_delivery' : 'ready_for_review'
+    }
+    // pr-ci-loop: a group whose PRs a CI loop watched carries that loop's CI
+    // outcome, never a plain "ready" while a repository's CI still fails.
+    if ((decision === 'pr_ready' || decision === 'pr_draft') && active.some((row) => row.status_code === 'ci_needs_attention' || row.status_code === 'ci_green')) {
+      const attention = active.filter((row) => row.status_code === 'ci_needs_attention')
+      patch.statusCode = attention.length ? 'ci_needs_attention' : 'ci_green'
+      patch.statusDetail = attention.length
+        ? attention.map((row) => `${path.basename(row.repository_path ?? '')}: ${row.status_detail ?? ''}`.trim()).join('\n').slice(0, 4000)
+        : null
     }
     if (accepted.length > 0 && accepted.length < children.length) {
       patch.deliveryOutcome = 'partial'; patch.statusCode = 'partial_delivery'

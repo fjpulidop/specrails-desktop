@@ -325,7 +325,7 @@
       "flowSpecFailed": "引き渡しが停止しました",
       "flowSpecBuilding": "Intent をレビュー済みの PR にしています",
       "ci_green": "PR 準備完了 — CI はグリーン",
-      "ci_needs_attention": "PR 準備完了 — CI に対応が必要",
+      "ci_needs_attention": "PR はプッシュ済み — CI はまだグリーンではありません",
       "ciBuilding": "PR {{pr}} の CI を監視中"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
@@ -1496,7 +1496,7 @@
     "greenBody_other": "失敗したラウンド {{rounds}} 回の後、{{pushes}} 件の修正を PR にプッシュしました。",
     "noCi": "PR {{pr}} には CI チェックがありません",
     "noCiBody": "監視する対象がなく、PR は変更されていません。",
-    "needsAttention": "PR {{pr}} の CI に対応が必要です",
+    "needsAttention": "PR {{pr}} はプッシュ済みですが、CI はまだグリーンではありません",
     "needsAttentionBody": "チェックがグリーンになる前にループが停止しました。",
     "openRun": "実行を開く",
     "openPr": "PR {{pr}} を開く",
@@ -1519,7 +1519,7 @@
     "startedMany": "{{rail}} で PR {{pr}} の CI を監視中",
     "greenMany": "PR {{pr}}: すべてのチェックがグリーン",
     "noCiMany": "PR {{pr}} には CI チェックがありません",
-    "needsAttentionMany": "PR {{pr}} の CI に対応が必要です",
+    "needsAttentionMany": "PR {{pr}} はプッシュ済みですが、CI はまだグリーンではありません",
     "dismissedMany": "PR {{pr}} の CI 監視は開始されていません。"
   }
 }

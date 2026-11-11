@@ -325,7 +325,7 @@
       "flowSpecFailed": "Die Übergabe wurde angehalten",
       "flowSpecBuilding": "Dein Intent wird zu einem geprüften PR",
       "ci_green": "PR bereit — CI ist grün",
-      "ci_needs_attention": "PR bereit — CI braucht Aufmerksamkeit",
+      "ci_needs_attention": "PR gepusht — CI noch nicht grün",
       "ciBuilding": "CI des PR {{pr}} wird überwacht"
     },
     "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
@@ -1496,7 +1496,7 @@
     "greenBody_other": "{{pushes}} Korrekturen nach {{rounds}} fehlgeschlagenen Runde(n) in den PR gepusht.",
     "noCi": "PR {{pr}} hat keine CI-Checks",
     "noCiBody": "Es gab nichts zu überwachen; der PR blieb unverändert.",
-    "needsAttention": "Die CI von PR {{pr}} braucht Aufmerksamkeit",
+    "needsAttention": "PR {{pr}} ist gepusht; die CI ist noch nicht grün",
     "needsAttentionBody": "Die Schleife hat angehalten, bevor die Checks grün wurden.",
     "openRun": "Ausführung öffnen",
     "openPr": "PR {{pr}} öffnen",
@@ -1519,7 +1519,7 @@
     "startedMany": "CI der PRs {{pr}} wird auf {{rail}} überwacht",
     "greenMany": "PRs {{pr}}: alle Checks sind grün",
     "noCiMany": "Die PRs {{pr}} haben keine CI-Checks",
-    "needsAttentionMany": "Die CI der PRs {{pr}} braucht Aufmerksamkeit",
+    "needsAttentionMany": "PRs {{pr}} sind gepusht; ihre CI ist noch nicht grün",
     "dismissedMany": "CI-Überwachung für die PRs {{pr}} nicht gestartet."
   }
 }

@@ -315,7 +315,7 @@
       "flowSpecFailed": "The hand-off stopped",
       "flowSpecBuilding": "Turning your Intent into a reviewed PR",
       "ci_green": "PR ready — CI is green",
-      "ci_needs_attention": "PR ready — CI needs attention",
+      "ci_needs_attention": "PR pushed — waiting for CI to turn green",
       "ciBuilding": "Watching the CI of PR {{pr}}"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
@@ -1496,7 +1496,7 @@
     "greenBody_other": "{{pushes}} fixes pushed to the PR after {{rounds}} failing round(s).",
     "noCi": "PR {{pr}} has no CI checks",
     "noCiBody": "There was nothing to watch; the PR was left untouched.",
-    "needsAttention": "The CI of PR {{pr}} needs attention",
+    "needsAttention": "PR {{pr}} is pushed; its CI is not green yet",
     "needsAttentionBody": "The loop stopped before the checks turned green.",
     "openRun": "Open run",
     "openPr": "Open PR {{pr}}",
@@ -1519,7 +1519,7 @@
     "startedMany": "Watching the CI of PRs {{pr}} on {{rail}}",
     "greenMany": "PRs {{pr}}: all checks are green",
     "noCiMany": "PRs {{pr}} have no CI checks",
-    "needsAttentionMany": "The CI of PRs {{pr}} needs attention",
+    "needsAttentionMany": "PRs {{pr}} are pushed; their CI is not green yet",
     "dismissedMany": "CI watch for PRs {{pr}} not started."
   }
 }

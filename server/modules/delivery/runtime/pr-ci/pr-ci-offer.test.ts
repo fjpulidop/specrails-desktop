@@ -72,6 +72,20 @@ describe('PR CI offer', () => {
     expect(h.value.getSystemRow('conv-1', prCiOfferKey(loop))).toBeNull()
   })
 
+  it('a second CI loop on the same PR updates the same card, back to started', () => {
+    const h = host(), offered = delivery()
+    projectPrCiOffer(db, 'p1', h.value, offered, { capable: true })
+    db.prepare("UPDATE rail_pr_deliveries SET decision = 'superseded' WHERE id = ?").run(offered)
+    const first = delivery({ decision: 'pr_ready', implementation_outcome: 'succeeded', status_code: 'ci_needs_attention', status_detail: 'flaky', run_ids: JSON.stringify(['run-1']) }, { loopId: PR_CI_LOOP_ID, supersedesDeliveryId: offered, isContinuation: true })
+    projectPrCiOffer(db, 'p1', h.value, first, { capable: true })
+    expect(h.value.getSystemRow('conv-1', prCiOfferKey(offered))).toMatchObject({ state: 'needs-attention' })
+    db.prepare("UPDATE rail_pr_deliveries SET decision = 'superseded' WHERE id = ?").run(first)
+    const second = delivery({ decision: 'building', run_ids: JSON.stringify(['run-2']) }, { loopId: PR_CI_LOOP_ID, supersedesDeliveryId: first, isContinuation: true })
+    projectPrCiOffer(db, 'p1', h.value, second, { capable: true })
+    expect(h.value.getSystemRow('conv-1', prCiOfferKey(offered))).toMatchObject({ state: 'started', runId: 'run-2', runDeliveryId: second })
+    expect(h.value.getSystemRow('conv-1', prCiOfferKey(first))).toBeNull()
+  })
+
   it('maps no checks and failures to plain terminal states', () => {
     expect(prCiTerminalState({ decision: 'pr_draft', implementation_outcome: 'succeeded', status_detail: null }, [{ task: 'pr.checks', outcome: 'none' }])).toMatchObject({ state: 'no-ci' })
     expect(prCiTerminalState({ decision: 'pr_failed', implementation_outcome: 'failed', status_detail: 'The checks still fail after 5 fix round(s).' }, [{ task: 'pr.checks', outcome: 'red' }]))

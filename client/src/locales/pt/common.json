@@ -88,7 +88,7 @@
     "returned_to_flow": "Devolvido ao Intent",
     "local_changes_attention": "Integrado — as alterações locais precisam de atenção",
     "ci_green": "CI verde",
-    "ci_needs_attention": "O CI precisa de atenção"
+    "ci_needs_attention": "CI ainda não verde"
   },
   "prRecovery": {
     "inProgress": "A recuperação do projeto ainda está em andamento. Sua entrega está segura; tente novamente em instantes.",

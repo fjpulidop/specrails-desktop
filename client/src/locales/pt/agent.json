@@ -325,7 +325,7 @@
       "flowSpecFailed": "A passagem a um rail parou",
       "flowSpecBuilding": "Transformando seu Intent em uma PR revisada",
       "ci_green": "PR pronto — CI verde",
-      "ci_needs_attention": "PR pronto — o CI precisa de atenção",
+      "ci_needs_attention": "PR enviado — o CI ainda não está verde",
       "ciBuilding": "Acompanhando o CI do PR {{pr}}"
     },
     "buildingHint": "Quando terminar, ser-lhe-á perguntado se quer criar a PR.",
@@ -1496,7 +1496,7 @@
     "greenBody_other": "{{pushes}} correções enviadas ao PR após {{rounds}} rodada(s) com falhas.",
     "noCi": "O PR {{pr}} não tem checks de CI",
     "noCiBody": "Não havia nada para acompanhar; o PR não foi alterado.",
-    "needsAttention": "O CI do PR {{pr}} precisa de atenção",
+    "needsAttention": "O PR {{pr}} foi enviado; o CI ainda não está verde",
     "needsAttentionBody": "O loop parou antes de os checks ficarem verdes.",
     "openRun": "Abrir execução",
     "openPr": "Abrir PR {{pr}}",
@@ -1519,7 +1519,7 @@
     "startedMany": "Acompanhando o CI dos PRs {{pr}} em {{rail}}",
     "greenMany": "PRs {{pr}}: todos os checks verdes",
     "noCiMany": "Os PRs {{pr}} não têm checks de CI",
-    "needsAttentionMany": "O CI dos PRs {{pr}} precisa de atenção",
+    "needsAttentionMany": "Os PRs {{pr}} foram enviados; o CI ainda não está verde",
     "dismissedMany": "O acompanhamento do CI dos PRs {{pr}} não foi iniciado."
   }
 }

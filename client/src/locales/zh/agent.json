@@ -325,7 +325,7 @@
       "flowSpecFailed": "移交已停止",
       "flowSpecBuilding": "正在把你的 Intent 变成经过评审的 PR",
       "ci_green": "PR 已就绪 — CI 全部通过",
-      "ci_needs_attention": "PR 已就绪 — CI 需要处理",
+      "ci_needs_attention": "PR 已推送 — CI 尚未通过",
       "ciBuilding": "正在监控 PR {{pr}} 的 CI"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
@@ -1496,7 +1496,7 @@
     "greenBody_other": "经过 {{rounds}} 轮失败后，向 PR 推送了 {{pushes}} 个修复。",
     "noCi": "PR {{pr}} 没有 CI 检查",
     "noCiBody": "没有需要监控的内容；PR 未被改动。",
-    "needsAttention": "PR {{pr}} 的 CI 需要处理",
+    "needsAttention": "PR {{pr}} 已推送，但 CI 尚未通过",
     "needsAttentionBody": "循环在检查通过之前停止了。",
     "openRun": "打开运行",
     "openPr": "打开 PR {{pr}}",
@@ -1519,7 +1519,7 @@
     "startedMany": "正在 {{rail}} 上监控 PR {{pr}} 的 CI",
     "greenMany": "PR {{pr}}：所有检查均已通过",
     "noCiMany": "PR {{pr}} 没有 CI 检查",
-    "needsAttentionMany": "PR {{pr}} 的 CI 需要处理",
+    "needsAttentionMany": "PR {{pr}} 已推送，但 CI 尚未通过",
     "dismissedMany": "未开始监控 PR {{pr}} 的 CI。"
   }
 }
