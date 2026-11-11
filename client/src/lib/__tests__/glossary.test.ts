@@ -34,7 +34,7 @@ function values(lang: string): Array<{ id: string; ns: string; text: string }> {
   return rows
 }
 
-function offenders(lang: string, re: RegExp, allow: (row: { id: string; ns: string }) => boolean): string[] {
+function offenders(lang: string, re: RegExp, allow: (row: { id: string; ns: string; text: string }) => boolean): string[] {
   return values(lang).filter((r) => !allow(r) && re.test(r.text)).map((r) => `${r.id} => ${r.text.slice(0, 90)}`)
 }
 
@@ -71,8 +71,18 @@ describe('glossary: English', () => {
 })
 
 describe('glossary: one word per concept (reaudit-9 #9)', () => {
+  // The required graph label describes a diagram, not the unit of work (a run).
+  const EXECUTION_GRAPH = (r: { id: string; text: string }) => r.id === 'jobs:runDetail.graph' && r.text === 'Execution graph'
   it('English names the spend ceiling a "limit" and a unit of work a "run": never "cap" or "execution"', () => {
-    expect(offenders('en', /\b(caps?|executions?)\b/i, () => false)).toEqual([])
+    expect(offenders('en', /\b(caps?|executions?)\b/i, EXECUTION_GRAPH)).toEqual([])
+  })
+
+  it('keeps the graph exception limited to its exact label and destination', () => {
+    expect(EXECUTION_GRAPH({ id: 'jobs:runDetail.graph', text: 'Execution graph' })).toBe(true)
+    for (const text of ['Execution', 'Executions', 'Execution graph cap']) {
+      expect(EXECUTION_GRAPH({ id: 'jobs:runDetail.graph', text })).toBe(false)
+    }
+    expect(EXECUTION_GRAPH({ id: 'jobs:runDetail.log', text: 'Execution graph' })).toBe(false)
   })
 
   /** "Budget" survives only where it is a technical quantity, not the spend ceiling: each with its reason. */
