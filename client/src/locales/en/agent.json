@@ -1521,6 +1521,7 @@
     "noCiMany": "PRs {{pr}} have no CI checks",
     "needsAttentionMany": "PRs {{pr}} are pushed; their CI is not green yet",
     "dismissedMany": "CI watch for PRs {{pr}} not started.",
-    "retry": "Fix CI again"
+    "retry": "Fix CI again",
+    "openLog": "Open the log"
   }
 }

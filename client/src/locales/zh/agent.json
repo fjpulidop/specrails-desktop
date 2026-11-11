@@ -1521,6 +1521,7 @@
     "noCiMany": "PR {{pr}} 没有 CI 检查",
     "needsAttentionMany": "PR {{pr}} 已推送，但 CI 尚未通过",
     "dismissedMany": "未开始监控 PR {{pr}} 的 CI。",
-    "retry": "再次修复 CI"
+    "retry": "再次修复 CI",
+    "openLog": "查看日志"
   }
 }

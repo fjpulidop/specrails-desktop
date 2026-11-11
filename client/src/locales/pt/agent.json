@@ -1521,6 +1521,7 @@
     "noCiMany": "Os PRs {{pr}} não têm checks de CI",
     "needsAttentionMany": "Os PRs {{pr}} foram enviados; o CI ainda não está verde",
     "dismissedMany": "O acompanhamento do CI dos PRs {{pr}} não foi iniciado.",
-    "retry": "Corrigir o CI de novo"
+    "retry": "Corrigir o CI de novo",
+    "openLog": "Ver o log"
   }
 }

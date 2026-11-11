@@ -21,6 +21,7 @@ import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
  *            │conflicts → conflict budget → resolver → local          │no, not the code (flaky,
  *            │                    │                                    │  infrastructure) → not-fixable (reported)
  *            └closed → pr-closed  │conflict → base(reason conflict)    └no, code → stalled
+ *   blocker? ─fixes made→ local (pushed first; the next round ends on the blocker) · nothing changed→ fixer-blocked
  *   local(verify) ─pass→ push(pr.sync, verified only) ─pushed→ checks · diverged → base
  *                 └fail→ round budget
  *
@@ -119,14 +120,17 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
       'First classify EACH failing check from its evidence: code (the change, its tests or its build are wrong and a code change fixes it), flaky (a nondeterministic test unrelated to the change), or infrastructure (the runner, network, a registry or service timing out, a dependency that cannot be downloaded, a cancelled or expired job, a missing runner).',
       'Fix only the checks caused by code. Never edit anything for flaky or infrastructure failures: they are reported to the person, not retried or worked around.',
       'Set cause to code when you changed something to fix a code failure; otherwise set it to flaky or infrastructure. In summary, name each failing check with its classification and a one-line reason.',
-      'If the cause is a host precondition only a person can provide (credentials, secrets), make no edits and return the structured blocker.',
+      'If a check needs a host precondition only a person can provide (credentials, secrets, repository settings), return the structured blocker for it; still fix every other check caused by code and keep those fixes, so they are verified and pushed first.',
       'Return summary, cause and, only for such a precondition, blocker.',
     ].join(' '),
     structuredOutput: FIX_SCHEMA,
     sessionContinuity: 'none',
   }, { next: 'fix-summary', invalid: E.failed, failed: E.failed })
   node('fix-summary', 'Describe the fix commit', 'assign', { set: { commitSummary: 'Fix CI: {{outputs.fixer.structured.summary}}' } }, { next: 'fixer-blocker', failed: E.failed })
-  node('fixer-blocker', 'Fixer reported a host blocker', 'condition', { expr: 'exists($outputs.fixer.structured.blocker) && $outputs.fixer.structured.blocker != null' }, { true: E.fixerBlocked, false: 'progress' })
+  node('fixer-blocker', 'Fixer reported a host blocker', 'condition', { expr: 'exists($outputs.fixer.structured.blocker) && $outputs.fixer.structured.blocker != null' }, { true: 'blocker-progress', false: 'progress' })
+  // A blocker never discards fixes for the other checks: they are verified and
+  // pushed, and the next round (with nothing left to change) ends on the blocker.
+  node('blocker-progress', 'Push the fixes made before the blocker', 'condition', { expr: 'exists($outputs.fixer.candidateHash) && $outputs.fixer.candidateHash != null && $outputs.fixer.candidateHash != $outputs.checks.candidateHash' }, { true: 'local', false: E.fixerBlocked }, 360)
   // Progress = the fixer changed the tree that CI just judged (host-task output carries the candidate hash).
   node('progress', 'Check the fix changed the candidate', 'condition', { expr: 'exists($outputs.fixer.candidateHash) && $outputs.fixer.candidateHash != null && $outputs.fixer.candidateHash != $outputs.checks.candidateHash' }, { true: 'local', false: 'cause' })
   // No change: a failure the code does not cause is reported once, never retried

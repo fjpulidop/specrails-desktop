@@ -6,12 +6,16 @@
 // for this delivery generation. The row is updated in place as the loop runs
 // and settles (started → green | no checks | needs attention).
 
-import { useRef, useState } from 'react'
+import { Suspense, lazy, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, ShieldCheck, Workflow } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { postPrCiDismiss, postPrCiLaunch } from '../../delivery/lib/pr-ci'
 import { focusPrCard } from './agent-run-failure'
+
+const JobDetailModal = lazy(() =>
+  import('../../jobs/components/JobDetailModal').then((m) => ({ default: m.JobDetailModal })),
+)
 
 export type PrCiOfferState = 'offered' | 'started' | 'dismissed' | 'green' | 'no-ci' | 'needs-attention'
 export interface PrCiOfferRow {
@@ -59,7 +63,8 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
   const [busy, setBusy] = useState<'start' | 'dismiss' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [local, setLocal] = useState<PrCiOfferState | null>(null)
-  const state = local && (row.state === 'offered' || row.state === 'needs-attention') ? local : row.state
+  const [logOpen, setLogOpen] = useState(false)
+  const state = local && row.state === 'offered' ? local : row.state
   const many = row.prs.length > 1
   const prName = (entry: { repository: string; prNumber: number | null }) => [entry.repository, entry.prNumber !== null ? `#${entry.prNumber}` : ''].filter(Boolean).join(' ')
   const pr = many ? row.prs.map(prName).join(', ') : row.prNumber !== null ? `#${row.prNumber}` : t('prCi.thisPr')
@@ -71,9 +76,7 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
     if (inFlight.current) return
     inFlight.current = true
     setBusy('start'); setError(null)
-    // Again after a stop: the loop continues the generation the last run left on the PR.
-    const target = state === 'needs-attention' && row.runDeliveryId ? row.runDeliveryId : row.prDeliveryId
-    const outcome = await postPrCiLaunch(row.projectId, row.railIndex, { prDeliveryId: target, originConversationId: conversationId })
+    const outcome = await postPrCiLaunch(row.projectId, row.railIndex, { prDeliveryId: row.prDeliveryId, originConversationId: conversationId })
     if (outcome.kind === 'started') setLocal('started')
     else { setError(outcome.detail || t('prCi.startFailed')); inFlight.current = false }
     setBusy(null)
@@ -86,13 +89,41 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
     else { setError(t('prCi.dismissFailed')); inFlight.current = false }
     setBusy(null)
   }
-  const openRun = () => focusPrCard({ prDeliveryId: row.runDeliveryId ?? row.prDeliveryId, runIds: row.runId ? [row.runId] : [], conversationId })
+  // The run's log, directly; without a run id, the card that owns it.
+  const openRun = () => row.runId ? setLogOpen(true) : focusPrCard({ prDeliveryId: row.runDeliveryId ?? row.prDeliveryId, runIds: [], conversationId })
 
   if (state === 'dismissed') {
     return <p data-testid="agent-pr-ci-offer" data-state="dismissed" className="text-xs text-muted-foreground">{t(`prCi.${k('dismissed')}`, { pr })}</p>
   }
   const tone = state === 'green' || state === 'no-ci' ? 'success' : state === 'needs-attention' ? 'warning' : 'info'
   const Icon = state === 'green' || state === 'no-ci' ? CheckCircle2 : state === 'needs-attention' ? AlertTriangle : state === 'started' ? Workflow : ShieldCheck
+  const logModal = logOpen && row.runId ? (
+    <Suspense fallback={null}>
+      <JobDetailModal jobId={row.runId} projectId={row.projectId} onClose={() => setLogOpen(false)} />
+    </Suspense>
+  ) : null
+  // Once started, this row is history: one line with the run's log. The PR card
+  // owns the current CI state, its reason and "Fix CI again" — no second copy here.
+  if (state !== 'offered') {
+    return (
+      <div data-testid="agent-pr-ci-offer" data-state={state} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <Icon aria-hidden className={cn('h-3.5 w-3.5 shrink-0', tone === 'success' ? 'text-accent-success' : tone === 'warning' ? 'text-accent-warning' : 'text-accent-info')} />
+        <span className="min-w-0">
+          {state === 'started' ? t(`prCi.${k('started')}`, { pr, rail })
+            : state === 'green' ? t(`prCi.${k('green')}`, { pr })
+            : state === 'no-ci' ? t(`prCi.${k('noCi')}`, { pr })
+            : t(`prCi.${k('needsAttention')}`, { pr })}
+        </span>
+        {(row.runId || row.runDeliveryId) && (
+          <button type="button" data-agent-interactive data-testid="agent-pr-ci-open-run" onClick={openRun}
+            className="text-accent-info hover:underline">
+            {row.runId ? t('prCi.openLog') : t('prCi.openRun')}
+          </button>
+        )}
+        {logModal}
+      </div>
+    )
+  }
   return (
     <section data-testid="agent-pr-ci-offer" data-state={state} aria-label={t(`prCi.${k('title')}`, { pr })}
       className="rounded-xl border border-border/60 bg-surface/50 px-3.5 py-3 text-xs">
@@ -130,17 +161,10 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
                 </button>
               </>
             )}
-            {state === 'needs-attention' && (
-              <button type="button" data-agent-interactive data-testid="agent-pr-ci-retry" disabled={busy !== null} onClick={() => void start()}
-                className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-accent-primary px-2.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60">
-                {busy === 'start' && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
-                {t('prCi.retry')}
-              </button>
-            )}
             {state !== 'offered' && (row.runId || row.runDeliveryId) && (
               <button type="button" data-agent-interactive data-testid="agent-pr-ci-open-run" onClick={openRun}
                 className="inline-flex min-h-7 items-center rounded-md border border-border/60 px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                {t('prCi.openRun')}
+                {row.runId ? t('prCi.openLog') : t('prCi.openRun')}
               </button>
             )}
             {links.map((link) => (

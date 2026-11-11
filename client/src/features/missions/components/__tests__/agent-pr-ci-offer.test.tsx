@@ -35,13 +35,13 @@ describe('AgentPrCiOfferCard', () => {
     await waitFor(() => expect(screen.getByTestId('agent-pr-ci-offer').getAttribute('data-state')).toBe('started'))
   })
 
-  it('after a stop, runs the loop again on the generation the last run left', async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ loopRunIds: ['r2'] }), { status: 202 }))
-    vi.stubGlobal('fetch', fetchMock)
+  it('once started it is one history line with the run log, never a second set of actions', () => {
     render(<AgentPrCiOfferCard row={row({ state: 'needs-attention', reason: 'flaky', runId: 'r1', runDeliveryId: 'd2' })} conversationId="conv-1" />)
-    fireEvent.click(screen.getByTestId('agent-pr-ci-retry'))
-    expect(JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body))).toMatchObject({ prDeliveryId: 'd2' })
-    await waitFor(() => expect(screen.getByTestId('agent-pr-ci-offer').getAttribute('data-state')).toBe('started'))
+    const line = screen.getByTestId('agent-pr-ci-offer')
+    expect(line).toHaveAttribute('data-state', 'needs-attention')
+    expect(line.textContent).not.toContain('flaky')
+    expect(screen.queryByTestId('agent-pr-ci-start')).toBeNull()
+    expect(screen.getByTestId('agent-pr-ci-open-run')).toHaveTextContent('Open the log')
   })
 
   it('shows a 409 inline and lets the person retry', async () => {
@@ -63,9 +63,9 @@ describe('AgentPrCiOfferCard', () => {
 
   it.each([
     ['started', { state: 'started' as const, runId: 'r1' }, 'Watching the CI of PR #7 on Rail 1'],
-    ['green', { state: 'green' as const, pushes: 2, rounds: 1 }, '2 fixes pushed to the PR after 1 failing round(s).'],
+    ['green', { state: 'green' as const, pushes: 2, rounds: 1 }, 'PR #7: all checks are green'],
     ['no-ci', { state: 'no-ci' as const }, 'PR #7 has no CI checks'],
-    ['needs-attention', { state: 'needs-attention' as const, reason: 'The checks still fail after 5 fix round(s).' }, 'The checks still fail after 5 fix round(s).'],
+    ['needs-attention', { state: 'needs-attention' as const, reason: 'The checks still fail after 5 fix round(s).' }, 'PR #7 is pushed; its CI is not green yet'],
   ])('renders the %s state without start controls', (_label, over, text) => {
     render(<AgentPrCiOfferCard row={row(over)} />)
     expect(screen.getByTestId('agent-pr-ci-offer').textContent).toContain(text)

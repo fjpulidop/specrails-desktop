@@ -76,6 +76,12 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
     expect(String(core.find(node => node.id === 'fixer')!.data!.params!.prompt)).toMatch(/Never edit anything for flaky or infrastructure failures/)
   })
 
+  it('pushes the fixes made before a blocker, and ends on the blocker only when nothing changed', () => {
+    expect(graph.edges.find(edge => edge.source === 'fixer-blocker' && edge.label === 'true')?.target).toBe('blocker-progress')
+    const routes = Object.fromEntries(graph.edges.filter(edge => edge.source === 'blocker-progress').map(edge => [edge.label, edge.target]))
+    expect(routes).toEqual({ true: 'local', false: PR_CI_ENDS.fixerBlocked })
+  })
+
   it('bounds rounds, re-runs and conflicts, and treats CI output as untrusted evidence', () => {
     const init = core.find(node => node.id === 'init')!.data!.params!.set as Record<string, number>
     expect(init).toMatchObject({ rounds: 0, roundLimit: 5, conflictRounds: 0, conflictLimit: 3 })

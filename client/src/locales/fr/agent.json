@@ -1521,6 +1521,7 @@
     "noCiMany": "Les PR {{pr}} n’ont pas de checks de CI",
     "needsAttentionMany": "Les PR {{pr}} sont poussées ; leur CI n'est pas encore verte",
     "dismissedMany": "Surveillance de la CI des PR {{pr}} non démarrée.",
-    "retry": "Corriger la CI à nouveau"
+    "retry": "Corriger la CI à nouveau",
+    "openLog": "Voir le journal"
   }
 }

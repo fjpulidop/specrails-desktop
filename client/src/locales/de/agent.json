@@ -1521,6 +1521,7 @@
     "noCiMany": "Die PRs {{pr}} haben keine CI-Checks",
     "needsAttentionMany": "PRs {{pr}} sind gepusht; ihre CI ist noch nicht grün",
     "dismissedMany": "CI-Überwachung für die PRs {{pr}} nicht gestartet.",
-    "retry": "CI erneut beheben"
+    "retry": "CI erneut beheben",
+    "openLog": "Log anzeigen"
   }
 }

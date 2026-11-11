@@ -1465,7 +1465,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           onClick={() => void fixCi()} disabled={anyBusy || ciStarting}
           className={ciLeads ? primaryBtn : outlineBtn}>
           {ciStarting ? spinner : <Wrench className="h-3 w-3" aria-hidden />}
-          {t('prCi.fixCi')}
+          {envelope.statusCode === 'ci_needs_attention' ? t('prCi.retry') : t('prCi.fixCi')}
         </button>
         {overflow}
       </>
