@@ -16,6 +16,7 @@ import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
  * no `approval`, `question`, `gate` or blocked-sentinel prompt. A blocker ends the
  * run with a clear reason; it never asks the person.
  *
+ *   checks ─red→ refresh-base (merge the base when behind) ─merged→ local → push → checks · clean→ round budget → fixer
  *   init → base(update-base) ─clean→ checks ─green→ done
  *            │merged → local      │red → round budget → fixer → blocker? → progress? ─yes→ local
  *            │conflicts → conflict budget → resolver → local          │no, not the code (flaky,
@@ -103,7 +104,12 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
   node('resolved', 'Check every conflict was resolved', 'condition', { expr: '$outputs.resolver.structured.unresolved.length == 0' }, { true: 'merge-summary', false: E.conflictsExhausted }, 360)
   node('merge-summary', 'Describe the merge commit', 'assign', { set: { commitSummary: 'Merge the base branch and resolve conflicts' } }, { next: 'local', failed: E.failed }, 360)
   node('checks', 'Wait for CI', 'host-task', { task: 'pr.checks', input: {}, outcomes: ['green', 'red', 'conflict', 'none', 'timeout', 'closed'], effect: 'read', timeoutMs: PR_CI_CHECKS_TIMEOUT_MS },
-    { green: E.green, red: 'ci-evidence', conflict: 'conflict-reason', none: E.noCi, timeout: E.timeout, closed: E.closed, failed: E.failed })
+    { green: E.green, red: 'refresh-base', conflict: 'conflict-reason', none: E.noCi, timeout: E.timeout, closed: E.closed, failed: E.failed })
+  // Red checks: a PR behind its base first takes the base (it may already carry
+  // the fix, e.g. a scanner allow-list); only a still-red PR reaches the fixer.
+  node('refresh-base', 'Bring in the base branch', 'host-task', { task: 'pr.update-base', input: { reason: 'red' }, outcomes: ['clean', 'merged', 'conflicts', 'closed'], effect: 'write' },
+    { clean: 'ci-evidence', merged: 'base-summary', conflicts: 'conflict-budget', closed: E.closed, failed: E.failed }, 360)
+  node('base-summary', 'Describe the base merge', 'assign', { set: { commitSummary: 'Merge the base branch to pick up its fixes' } }, { next: 'local', failed: E.failed }, 360)
   node('ci-evidence', 'Keep the failing checks as evidence', 'assign', { set: { ciEvidence: '{{outputs.checks.result}}' } }, { next: 'round-budget', failed: E.failed })
   node('conflict-reason', 'GitHub reports a conflict', 'assign', { set: { baseReason: 'conflict' } }, { next: 'base', failed: E.failed }, 720)
   node('round-budget', 'Check the fix round budget', 'condition', { expr: '$vars.rounds < $vars.roundLimit' }, { true: 'count-round', false: E.roundsExhausted })
