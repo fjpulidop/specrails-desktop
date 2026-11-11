@@ -301,7 +301,9 @@ describe('streaming concurrency harness', () => {
     for (let i = 0; i < 40; i++) wsHandler({ type: 'agent_stream', conversationId: 'c1', delta: paragraph(i) })
     await tick(800) // the smoothed reveal catches up with the 18 KB burst
     await until(() => document.body.textContent?.includes('Paragraph 39') === true, 20000)
-    await tick(300)
+    // The smoothed reveal and backfill finish late on slow CI runners: measure
+    // only once they stop rendering, so the count is the live tail's alone.
+    await settled()
     reset()
     const FRAMES = 40
     for (let i = 0; i < FRAMES; i++) {

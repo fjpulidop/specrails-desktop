@@ -323,7 +323,11 @@
       "flowSpecChanges": "尚未就绪：审阅者要求修改",
       "flowSpecDelivered": "你的 Intent 已成为经过评审的 PR",
       "flowSpecFailed": "移交已停止",
-      "flowSpecBuilding": "正在把你的 Intent 变成经过评审的 PR"
+      "flowSpecBuilding": "正在把你的 Intent 变成经过评审的 PR",
+      "ci_green": "PR 已就绪 — CI 全部通过",
+      "ci_needs_attention": "PR 已推送 — CI 尚未通过",
+      "ciBuilding": "正在监控 PR {{pr}} 的 CI",
+      "run_stopped": "运行已停止"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
@@ -490,7 +494,13 @@
       "publish": "无法发布 PR",
       "generic": "交付已停止。请查看技术详情。"
     },
-    "moreActions": "更多操作"
+    "moreActions": "更多操作",
+    "ci": {
+      "green": "所有检查均已通过。",
+      "attention": "CI 循环在检查通过之前停止了。PR 保留了已推送的全部内容。"
+    },
+    "ciBuildingHint": "等待检查结果，修复代码导致的失败并推送到同一个 PR。非代码原因的失败只报告，不重试。",
+    "runStoppedNote": "你在交付之前停止了此运行。想继续时可以重新启动。"
   },
   "specDraft": {
     "heading": "规格草稿",
@@ -1341,7 +1351,8 @@
       "launch_failed": "运行无法启动",
       "delivery_failed": "无法交付结果",
       "push_failed": "无法推送分支",
-      "pr_failed": "无法创建 PR"
+      "pr_failed": "无法创建 PR",
+      "run_stopped": "运行已停止"
     },
     "progressAria": "已完成 {{done}}/{{total}} 个运行",
     "costTitle": "到目前为止提供商实际计费的成本",
@@ -1472,5 +1483,48 @@
     "statusReview_other": "{{count}} 项等待评审",
     "statusRunning_one": "{{count}} 项运行中",
     "statusRunning_other": "{{count}} 项运行中"
+  },
+  "prCi": {
+    "title": "监控并修复 PR {{pr}} 的 CI",
+    "thisPr": "此 PR",
+    "body": "Specrails 会等待 PR 的检查，修复失败的检查，通过合并基础分支解决冲突，并将修复推送到同一个 PR，直到全部通过。它会自动运行，何时开始由你决定。",
+    "guarantee": "它绝不会强制推送、合并、发布或关闭 PR，也绝不会削弱任何检查。",
+    "start": "开始",
+    "notNow": "暂不",
+    "dismissed": "未开始监控 PR {{pr}} 的 CI。",
+    "started": "正在 {{rail}} 上监控 PR {{pr}} 的 CI",
+    "startedBody": "循环会等待检查、修复失败并推送到同一个 PR。可在运行条中查看进度。",
+    "green": "PR {{pr}}：所有检查均已通过",
+    "greenBody_one": "经过 {{rounds}} 轮失败后，向 PR 推送了 {{pushes}} 个修复。",
+    "greenBody_other": "经过 {{rounds}} 轮失败后，向 PR 推送了 {{pushes}} 个修复。",
+    "noCi": "PR {{pr}} 没有 CI 检查",
+    "noCiBody": "没有需要监控的内容；PR 未被改动。",
+    "needsAttention": "PR {{pr}} 已推送，但 CI 尚未通过",
+    "needsAttentionBody": "循环在检查通过之前停止了。",
+    "openRun": "打开运行",
+    "openPr": "打开 PR {{pr}}",
+    "startFailed": "无法启动 CI 循环。",
+    "dismissFailed": "无法保存你的选择，请重试。",
+    "startedToast": "已在轨道 {{index}} 上开始监控 CI",
+    "fixCi": "修复 CI",
+    "fixCiTooltip": "等待检查，修复失败和冲突，并推送到此 PR，直到全部通过",
+    "step": {
+      "checks": "正在等待 CI",
+      "fixing": "正在修复失败的检查",
+      "rerun": "正在重新运行失败的检查",
+      "base": "正在与基础分支同步",
+      "conflicts": "正在解决与基础分支的冲突",
+      "verify": "正在本地验证",
+      "push": "正在将修复推送到 PR",
+      "watching": "正在监控 CI"
+    },
+    "titleMany": "监控并修复 PR {{pr}} 的 CI",
+    "startedMany": "正在 {{rail}} 上监控 PR {{pr}} 的 CI",
+    "greenMany": "PR {{pr}}：所有检查均已通过",
+    "noCiMany": "PR {{pr}} 没有 CI 检查",
+    "needsAttentionMany": "PR {{pr}} 已推送，但 CI 尚未通过",
+    "dismissedMany": "未开始监控 PR {{pr}} 的 CI。",
+    "retry": "再次修复 CI",
+    "openLog": "查看日志"
   }
 }

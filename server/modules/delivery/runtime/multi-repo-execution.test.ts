@@ -408,6 +408,33 @@ describe('coordinated multi-repository execution', () => {
     }
   }, 20000)
 
+  it('carries a CI loop outcome to the group instead of a plain ready PR (pr-ci-loop)', async () => {
+    const f = fixture()
+    await launchIsolatedRail(f.input, f.io)
+    const parentId = await settled(f.db)
+    const children = listRepositoryDeliveries(f.db, parentId)
+    children.forEach((child, index) => transitionDecision(f.db, child.id, child.decision, 'pr_ready', {
+      deliveryOutcome: 'delivered', statusCode: index === 0 ? 'ci_needs_attention' : 'ci_green', statusDetail: index === 0 ? 'flaky: test X' : null,
+    }))
+    refreshRepositoryDeliveryGroup(f.db, parentId)
+    const parent = getPrDelivery(f.db, parentId)!
+    expect(parent.decision).toBe('pr_ready')
+    expect(parent.status_code).toBe('ci_needs_attention')
+    expect(parent.status_detail).toBe(`${path.basename(children[0].repository_path!)}: flaky: test X`)
+    transitionDecision(f.db, children[0].id, 'pr_ready', 'pr_ready', { statusCode: 'ci_green', statusDetail: null })
+    refreshRepositoryDeliveryGroup(f.db, parentId)
+    expect(getPrDelivery(f.db, parentId)).toMatchObject({ status_code: 'ci_green', status_detail: null })
+  }, 20000)
+
+  it('a group whose every run the person stopped is stopped, not failed', async () => {
+    const f = fixture()
+    await launchIsolatedRail(f.input, f.io)
+    const parentId = await settled(f.db)
+    for (const child of listRepositoryDeliveries(f.db, parentId)) transitionDecision(f.db, child.id, child.decision, 'implementation_failed', { implementationOutcome: 'failed', statusCode: 'run_stopped' })
+    refreshRepositoryDeliveryGroup(f.db, parentId)
+    expect(getPrDelivery(f.db, parentId)).toMatchObject({ decision: 'implementation_failed', status_code: 'run_stopped' })
+  }, 20000)
+
   it('does not complete a shared spec when child integration accepted only a partial implementation', async () => {
     const f = fixture()
     await launchIsolatedRail(f.input, f.io)

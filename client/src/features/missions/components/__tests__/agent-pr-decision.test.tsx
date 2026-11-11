@@ -257,6 +257,36 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByText('gone')).toBeInTheDocument()
   })
 
+  it('a CI loop generation keeps the PR and states the CI outcome (pr-ci-loop)', () => {
+    const { unmount } = render(<AgentPrDecisionCard envelope={env({ decision: 'pr_draft', loopId: 'factory:pr-ci', statusCode: 'ci_needs_attention', statusDetail: 'flaky: test X keeps failing', deliveryOutcome: 'delivered',
+      prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
+    expect(screen.getByText('PR pushed — waiting for CI to turn green')).toBeInTheDocument()
+    const note = screen.getByTestId('agent-pr-ci-status')
+    expect(note).toHaveAttribute('data-state', 'ci_needs_attention')
+    expect(note.textContent).toContain('flaky: test X keeps failing')
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument()
+    expect(screen.queryByText(/Implementation failed/i)).toBeNull()
+    unmount()
+    render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', loopId: 'factory:pr-ci', statusCode: 'ci_green', deliveryOutcome: 'delivered', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
+    expect(screen.getByText('PR ready — CI is green')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-pr-ci-status')).toHaveAttribute('data-state', 'ci_green')
+  })
+
+  it('a blocked CI loop generation offers Fix CI again, never a delivery retry (pr-ci-loop)', () => {
+    render(<AgentPrDecisionCard envelope={env({ decision: 'pr_failed', loopId: 'factory:pr-ci', statusCode: 'recovery_unavailable', deliveryOutcome: 'blocked', implementationOutcome: 'succeeded',
+      statusDetail: 'The preserved branch diverges from the live PR head.', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x', runIds: ['r1'] })} />)
+    expect(screen.getByTestId('agent-pr-ci-again')).toHaveTextContent('Fix CI again')
+    expect(screen.queryByTestId('agent-pr-retry-delivery')).toBeNull()
+  })
+
+  it('a run the person stopped reads as stopped, never as a failure to diagnose', () => {
+    render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', statusCode: 'run_stopped', implementationOutcome: 'failed', runIds: ['r1'] })} />)
+    expect(screen.getByText('Run stopped')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-pr-run-stopped')).toBeInTheDocument()
+    expect(screen.queryByText(/implementation failed/i)).toBeNull()
+    expect(screen.queryByTestId('mission-run-diagnosis')).toBeNull()
+  })
+
   it('pr_draft with a PR: Publish + Discard + #number link, no Create PR', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'sr/acme/batch-x' })} />)
     expect(screen.getByText('Draft PR created')).toBeInTheDocument()

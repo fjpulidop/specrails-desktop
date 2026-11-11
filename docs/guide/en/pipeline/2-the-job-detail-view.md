@@ -4,21 +4,9 @@ Click any job card on the **Jobs** page and you land here: the cockpit for a sin
 
 ## The layout
 
-Two panels sit above the full streaming log; on a running Claude job, a chat composer sits below it:
+The compact header keeps status, elapsed time, phase, actions and pipeline chips. Below it, **Failure reasons** is initially selected for failed or canceled runs with a diagnosis; other runs open on **Log**. An answerable pending question also makes Failure reasons available: click the header’s question button to open Details and answer it, even without a diagnosis.
 
-```
-┌─────────────────────────────────────────────┐
-│  Status header  (icon · live duration · …)  │
-├─────────────────────────────────────────────┤
-│  Spec header  ( #12  #14  #15 )           │
-├─────────────────────────────────────────────┤
-│                                             │
-│  Streaming log  (auto-scroll · search · …)  │
-│                                             │
-├─────────────────────────────────────────────┤
-│  Composer  (send a message to the job · …)  │
-└─────────────────────────────────────────────┘
-```
+Failure reasons holds the cause, remedies and **Details** in a bounded panel that scrolls internally. When that tab is unavailable, Details remains in Log. Loop jobs offer **Execution graph** and **Log detail** inside Log; other jobs show Log detail alone. Log section and Details expansion are remembered independently for page and mission modal, while the top-level tab resets on each visit. The composer remains below the evidence.
 
 ## Pipeline phases
 
@@ -41,7 +29,7 @@ Which agent handles each phase is decided by the project's **agent profile**. Th
 
 ## Live metrics — honest by design
 
-The status header is the headline. It shows a status icon, an activity line describing what the job is doing *right now*, a count of steps taken, and a row of metrics:
+The compact status header shows status, elapsed time, current activity, steps and actions. Real figures and runtime continuation controls are available in the bounded **Details** disclosure:
 
 | Metric | When you see the real value |
 |--------|------------------------------|
@@ -65,7 +53,7 @@ Clicking a chip opens that spec's detail **over the job page** — you don't los
 
 ## The streaming log
 
-Below the panels is the full log of the run, streamed in real time over the WebSocket:
+Open **Log → Log detail** for the streaming log, or choose Story when narration is enabled. Raw output streams in real time over the WebSocket:
 
 - **Auto-scroll** keeps the newest output in view (scroll up and it pauses so you can read).
 - **Search** to jump to a phrase.
@@ -75,14 +63,14 @@ This is the raw truth of what the AI is doing — every tool call, every file ed
 
 ## Loop runs: the step explorer
 
-When the job is a **loop run** (see [The Loop Builder](the-loop-builder)), the flat log makes way for a **step explorer** that mirrors the loop's actual shape:
+For a **loop run** (see [The Loop Builder](the-loop-builder)), **Log → Execution graph** shows the **step explorer**. **Log detail** separately offers the raw log and, when enabled, Story:
 
 - **The overview strip** at the top is the loop's live map — one chip per node (AI Step, Shell, Loop Decider…), laid out in the order the graph flows. Chips light up as the run progresses: dimmed while pending, pulsing while running, then a check or a cross. A Decider chip also shows the verdict it routed by — loop back or move on — and an iteration counter (`Iteration 3/10`) keeps score on the right. Click any chip to jump straight to that node's latest step.
 - **One collapsible box per step.** Every pass over a node becomes its own section, with the step number, its name, an iteration badge, its duration once it finishes — and its own copy button, so you can grab exactly one step's output. (The toolbar copy still takes the whole log.) Anything printed before the first step — the run banner, the worktree notice — is tucked into a **Setup** section.
 - **Follow mode** is on by default: the running step stays open and auto-scrolls while earlier steps fold out of the way. The moment you scroll up or open an older step, following pauses so you can read — a floating **Resume follow** pill takes you back to live. **Expand all / collapse all** sit in the toolbar, and typing in the search box looks across every step at once.
 - **Interrupted steps are honest too.** A step that never got to report an outcome — the run was cancelled or the app went down mid-step — is marked **Interrupted** with a dashed border, rather than pretending it finished.
 
-Everything else on this page works exactly the same for loop runs — the live metrics, the spec cards, the composer. Non-loop jobs keep the classic streaming log above.
+Graph exploration and paused log scroll survive section switching. Non-loop jobs show Log detail without a graph control.
 
 ## Talk to the running job
 
@@ -109,7 +97,7 @@ Handy for sharing a run with a teammate, or filing a precise bug report.
 
 ## When a run fails
 
-When a job fails, stalls or is blocked, the terminal state starts with a **diagnosis card** that says what happened in plain words, for example *Tests failed in the Reviewer phase after 4 fix rounds*, and why when the app knows:
+For a failed or canceled job with a diagnosis, **Failure reasons** opens with the existing **diagnosis card** explaining the cause and why it happened when known. There is no separate cause summary above the tabs:
 
 - **Tests failed** — the checks still fail after the correction rounds.
 - **Provider limit** — the AI provider's usage limit was reached. The card quotes when it resets, in the provider's own words.

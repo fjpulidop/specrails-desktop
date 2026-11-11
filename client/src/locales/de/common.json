@@ -86,7 +86,10 @@
     "restart_pending": "Wartet auf Wiederherstellung des Workflows",
     "review_changes_requested": "Reviewer hat Änderungen angefordert",
     "returned_to_flow": "An den Intent zurückgegeben",
-    "local_changes_attention": "Integriert — lokale Änderungen brauchen Aufmerksamkeit"
+    "local_changes_attention": "Integriert — lokale Änderungen brauchen Aufmerksamkeit",
+    "ci_green": "CI grün",
+    "ci_needs_attention": "CI noch nicht grün",
+    "run_stopped": "Gestoppt"
   },
   "prRecovery": {
     "inProgress": "Die Projektwiederherstellung läuft noch. Deine Lieferung ist sicher. Versuche es gleich noch einmal.",

@@ -372,5 +372,13 @@
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "これまでにプロバイダーが報告した値です。最終的な数値はジョブ終了時に届きます。",
     "questionPending": "質問に回答"
+  },
+  "runDetail": {
+    "failure": "失敗の原因",
+    "log": "ログ",
+    "graph": "実行グラフ",
+    "detail": "ログ詳細",
+    "navigation": "実行詳細",
+    "sections": "ログのセクション"
   }
 }

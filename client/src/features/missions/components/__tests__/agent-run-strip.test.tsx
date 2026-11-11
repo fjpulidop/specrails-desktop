@@ -454,11 +454,12 @@ describe('run strip (floating panel)', () => {
     expect(launchedLines()).toHaveLength(1)
   })
 
-  it('a running run shows "—" for time and cost until measured, and no primary action', async () => {
+  it('a running run shows "—" for time until measured, no cost slot while nothing is billed, and no primary action', async () => {
     await renderPanelWithMessages([sysRow('s1', { decision: 'building', phase: 'running' })])
     const s = await screen.findByTestId('mission-run-strip')
     expect(within(s).getByTestId('mission-run-strip-elapsed')).toHaveTextContent('—')
-    expect(within(s).getByTestId('mission-run-strip-cost')).toHaveTextContent('—')
+    expect(within(s).queryByTestId('mission-run-strip-cost')).toBeNull()
+    expect(within(s).getByTestId('mission-run-strip-cost-none')).toHaveTextContent(/./)
     expect(within(s).queryByTestId('mission-run-strip-primary')).toBeNull()
   })
 })
@@ -698,7 +699,9 @@ describe('history lines focus the run', () => {
     expect(card).toHaveAttribute('role', 'region')
     expect(card.getAttribute('aria-label')).toContain('Rail 1')
     expect(card.getAttribute('aria-label')).toContain('#8')
-    expect(card.className).toContain('ring-2')
+    // The highlight is drawn by the panel, around the card's own silhouette.
+    expect(card).toHaveAttribute('data-flash', 'true')
+    expect(panel().className).toContain('has-[[data-flash=true]]:ring-2')
     expect(scrollSpy()).toHaveBeenCalledTimes(1)
   })
 

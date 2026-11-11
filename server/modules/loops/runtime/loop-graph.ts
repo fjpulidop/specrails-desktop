@@ -14,13 +14,15 @@ export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'conditio
 
 export const CORE_NODE_KINDS = ['prompt', 'role-turn', 'decider', 'condition', 'assign', 'verify', 'shell',
   'artifact-contract', 'openspec-validate', 'openspec-archive', 'approval', 'question', 'gate', 'map', 'join',
-  'component', 'implementation', 'implementation-step', 'derive-change', 'end'] as const
+  'component', 'implementation', 'implementation-step', 'derive-change', 'host-task', 'end'] as const
 export type CoreNodeKind = typeof CORE_NODE_KINDS[number]
 export interface CorePieceShape { kind: string; outcomes: readonly string[] }
 
 /** Mirror of Core's `getOutcomes(params)`: `verify` advertises `blocked` only when the node opts into host blockers. */
 export function effectivePieceOutcomes(descriptor: CorePieceShape, params: Record<string, unknown> | undefined): readonly string[] {
   if (descriptor.kind === 'verify' && params?.hostBlockers !== true) return descriptor.outcomes.filter(outcome => outcome !== 'blocked')
+  // `host-task` (Core hostTasks): the node declares its own outcomes; Core adds `failed`.
+  if (descriptor.kind === 'host-task') return [...(Array.isArray(params?.outcomes) ? params.outcomes.filter((value): value is string => typeof value === 'string') : []), 'failed']
   return descriptor.outcomes
 }
 
@@ -96,6 +98,12 @@ export interface LoopGraphConfig {
   maxTokens?: number
   /** Exact Core role-turn path used to project a custom reviewer verdict. */
   reviewerStepId?: string
+  /**
+   * Override of the root `delivery.requiresVerified` (default: the graph writes).
+   * `factory:pr-ci` sets false: its success is CI green on GitHub, and every
+   * push is gated by a verified candidate inside the graph (`pr.sync`).
+   */
+  deliveryRequiresVerified?: boolean
   /** Converted legacy deciders inherit the rail/decider launch engine. */
   legacyDeciderRole?: string
   policies?: { failFast?: number; noProgress?: number; historyMaxChars?: number; concurrency?: number }

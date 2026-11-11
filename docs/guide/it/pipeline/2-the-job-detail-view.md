@@ -4,21 +4,9 @@ Clicca su una qualsiasi scheda job nella pagina **Job** e arrivi qui: la cabina 
 
 ## Il layout
 
-Due pannelli stanno sopra il log completo in streaming; su un job Claude in esecuzione, un composer di chat sta sotto:
+L’intestazione compatta mantiene stato, durata, fase, azioni e chip della pipeline. **Cause dell’errore** è selezionata all’apertura di esecuzioni fallite o annullate con diagnosi; le altre aprono **Log**. Anche una domanda in attesa di risposta rende disponibile questa scheda: il pulsante della domanda apre Dettagli per rispondere, anche senza diagnosi.
 
-```
-┌─────────────────────────────────────────────┐
-│  Intestazione di stato (icona · durata live · …) │
-├─────────────────────────────────────────────┤
-│  Intestazione ticket  ( #12  #14  #15 )     │
-├─────────────────────────────────────────────┤
-│                                             │
-│  Log in streaming (auto-scroll · ricerca · …) │
-│                                             │
-├─────────────────────────────────────────────┤
-│  Composer (invia un messaggio al job · …)   │
-└─────────────────────────────────────────────┘
-```
+Cause dell’errore contiene causa, rimedi e **Dettagli** in un pannello limitato con scorrimento interno. Altrimenti Dettagli resta in Log. I loop offrono **Grafo di esecuzione** e **Dettaglio del log**; gli altri job solo il dettaglio. Sezione e apertura di Dettagli sono ricordate separatamente per pagina e modale missione; la scheda principale si reimposta a ogni visita. Il compositore resta sotto.
 
 ## Fasi della pipeline
 
@@ -41,7 +29,7 @@ Quale agente gestisce ogni fase lo decide il **profilo agente** del progetto. Il
 
 ## Metriche live — oneste per scelta
 
-L'intestazione di stato è il titolo principale. Mostra un'icona di stato, una riga di attività che descrive cosa sta facendo il job *in questo momento*, un conteggio dei passi compiuti e una riga di metriche:
+L’intestazione compatta mostra stato, durata, attività, passaggi e azioni. I valori reali e i controlli di continuazione sono in **Dettagli**, in un pannello limitato:
 
 | Metrica | Quando vedi il valore reale |
 |--------|------------------------------|
@@ -65,7 +53,7 @@ Cliccando su un chip si apre il dettaglio di quella spec **sopra la pagina del j
 
 ## Il log in streaming
 
-Sotto i pannelli c'è il log completo dell'esecuzione, trasmesso in tempo reale tramite WebSocket:
+Apri **Log → Dettaglio del log** per il log in diretta, oppure Story se la narrazione è attiva. L’output arriva in tempo reale via WebSocket:
 
 - L'**auto-scroll** mantiene in vista l'output più recente (scorri verso l'alto e si mette in pausa così puoi leggere).
 - La **ricerca** per saltare a una frase.
@@ -75,14 +63,14 @@ Questa è la verità grezza di ciò che l'AI sta facendo — ogni chiamata a uno
 
 ## Esecuzioni di loop: l'esploratore di passi
 
-Quando il job è un'**esecuzione di loop** (vedi [Il Loop Builder](the-loop-builder)), il log piatto lascia il posto a un **esploratore di passi** che rispecchia la forma reale del loop:
+Per un’**esecuzione di loop** (vedi [Il Loop Builder](the-loop-builder)), **Log → Grafo di esecuzione** mostra l’**esploratore di passaggi**. Dettaglio del log offre separatamente il log grezzo e, se attiva, la narrazione:
 
 - **La striscia di panoramica** in alto è la mappa live del loop — un chip per nodo (Passo AI, Shell, Decisore del loop…), nell'ordine in cui scorre il grafo. I chip si accendono man mano che l'esecuzione avanza: attenuati in attesa, pulsanti durante l'esecuzione, poi una spunta o una croce. Il chip di un Decisore mostra anche il verdetto con cui ha instradato — tornare indietro o proseguire — e un contatore di iterazioni (`Iterazione 3/10`) tiene il conto a destra. Clicca un chip qualsiasi per saltare dritto all'ultimo passo di quel nodo.
 - **Una scatola richiudibile per passo.** Ogni passaggio su un nodo diventa una sezione a sé, con il numero del passo, il nome, un badge di iterazione, la durata una volta concluso — e il proprio pulsante di copia, per portarti via esattamente l'output di un passo. (La copia nella barra degli strumenti prende sempre il log intero.) Tutto ciò che viene stampato prima del primo passo — il banner di avvio, l'avviso del worktree — finisce in una sezione **Preparazione**.
 - **La modalità segui** è attiva per default: il passo in esecuzione resta aperto e scorre da solo mentre i precedenti si ripiegano. Nel momento in cui scorri verso l'alto o apri un passo più vecchio, il seguito si mette in pausa per lasciarti leggere — una pillola flottante **Riprendi a seguire** ti riporta al live. **Espandi tutto / Comprimi tutto** vivono nella barra degli strumenti, e la ricerca cerca in tutti i passi contemporaneamente.
 - **Anche i passi interrotti sono onesti.** Un passo che non è mai riuscito a riportare il suo esito — l'esecuzione è stata annullata o l'app si è chiusa a metà passo — viene marcato **Interrotto** con un bordo tratteggiato, invece di fingere di aver finito.
 
-Tutto il resto di questa pagina funziona esattamente allo stesso modo per le esecuzioni di loop — le metriche live, le schede ticket, il composer. I job che non sono loop mantengono il classico log in streaming qui sopra.
+L’esplorazione del grafo e lo scorrimento del log in pausa si conservano cambiando sezione. I job senza loop mostrano il dettaglio senza controllo del grafo.
 
 ## Parla con il job in esecuzione
 
@@ -109,7 +97,7 @@ Comodo per condividere un'esecuzione con un collega, o per inviare una segnalazi
 
 ## Quando un'esecuzione fallisce
 
-Quando un job fallisce, si ferma o è bloccato, lo stato finale inizia con una **scheda di diagnosi** che dice in parole semplici cos'è successo, per esempio *I test sono falliti nella fase Reviewer dopo 4 giri di correzioni*, e perché quando l'app lo sa:
+Per i job falliti o annullati con diagnosi, **Cause dell’errore** apre la **scheda di diagnosi** con la causa e i motivi noti. Nessun riepilogo della causa appare sopra le schede:
 
 - **Test falliti**: i controlli continuano a fallire dopo i giri di correzioni.
 - **Limite del provider**: è stato raggiunto il limite d'uso del provider IA. La scheda riporta quando si azzera, con le parole del provider.

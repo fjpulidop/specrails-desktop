@@ -101,12 +101,14 @@
       "runtime/agent-runtime-retention-records.ts",
       "runtime/agent-runtime-settings-router.ts",
       "runtime/agent-runtime-settings.ts",
-      "runtime/core-capabilities.ts"
+      "runtime/core-capabilities.ts",
+      "runtime/host-task-dispatcher.ts"
     ],
     "dependencies": {
       "runtime/agent-runtime-accounting.ts": [],
       "runtime/agent-runtime-bridge.ts": [
         "../../../core-node-runtime",
+        "../../../util/desktop-core-env",
         "../../../util/win-spawn",
         "../../loops/runtime/loop-definition-run",
         "../../loops/runtime/loop-run-manager",
@@ -293,6 +295,9 @@
       ],
       "runtime/core-capabilities.ts": [
         "./agent-runtime-loader"
+      ],
+      "runtime/host-task-dispatcher.ts": [
+        "../../../db"
       ]
     }
   },
@@ -886,6 +891,9 @@
       "runtime/isolated-worktree.ts",
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
+      "runtime/pr-ci/pr-ci-handlers.ts",
+      "runtime/pr-ci/pr-ci-projection.ts",
+      "runtime/pr-ci/pr-ci-target.ts",
       "runtime/pr-publisher.ts",
       "runtime/rail-isolated-launch.ts",
       "runtime/rail-isolation.ts",
@@ -1243,9 +1251,11 @@
         "./flow-review-outcome",
         "./flow-worktree-handoff",
         "./multi-repo-execution-store",
+        "./pr-ci/pr-ci-projection",
         "./rail-isolated-launch",
         "./rail-pr-store",
-        "./rail-pr-ticket-effects"
+        "./rail-pr-ticket-effects",
+        "node:path"
       ],
       "runtime/phase3-harvest.ts": [
         "../../../db",
@@ -1261,6 +1271,44 @@
         "../../../worktree-manager",
         "../../conversations/runtime/explore-contract-refine",
         "./pr-naming"
+      ],
+      "runtime/pr-ci/pr-ci-handlers.ts": [
+        "../../../../worktree-manager",
+        "../../../agent-runtime/runtime/host-task-dispatcher",
+        "../pr-lifecycle",
+        "../pr-publisher"
+      ],
+      "runtime/pr-ci/pr-ci-offer.ts": [
+        "../../../../db",
+        "../../domain/decision-policy",
+        "../rail-pr-store",
+        "./pr-ci-target",
+        "node:path"
+      ],
+      "runtime/pr-ci/pr-ci-projection.ts": [
+        "../../../../db",
+        "../../../../feature-flags",
+        "../../../agent-runtime/runtime/agent-runtime-loader",
+        "../../../loops/runtime/loop-pr-ci-recipe",
+        "../../../missions/runtime/agent-chat-registry",
+        "../rail-pr-store",
+        "./pr-ci-offer"
+      ],
+      "runtime/pr-ci/pr-ci-settlement.ts": [
+        "../../../../db",
+        "../../../../worktree-manager",
+        "../../domain/state",
+        "../pr-lifecycle",
+        "../pr-publisher",
+        "../rail-pr-store",
+        "node:fs"
+      ],
+      "runtime/pr-ci/pr-ci-target.ts": [
+        "../../../../db",
+        "../isolated-settlement-store",
+        "../rail-pr-store",
+        "./pr-ci-handlers",
+        "node:path"
       ],
       "runtime/pr-follow-up-scope.ts": [],
       "runtime/pr-follow-up.ts": [
@@ -1321,6 +1369,9 @@
         "./multi-repo-execution",
         "./multi-repo-execution-store",
         "./phase3-harvest",
+        "./pr-ci/pr-ci-projection",
+        "./pr-ci/pr-ci-settlement",
+        "./pr-ci/pr-ci-target",
         "./pr-follow-up",
         "./pr-lifecycle",
         "./pr-naming",
@@ -1442,6 +1493,7 @@
         "../../loops/runtime/loop-effect",
         "../../loops/runtime/loop-factory",
         "../../loops/runtime/loop-graph",
+        "../../loops/runtime/loop-pr-ci-recipe",
         "../../loops/runtime/loop-role-engines",
         "../../loops/runtime/loop-runs-store",
         "../../loops/runtime/loops-store",
@@ -1451,6 +1503,7 @@
         "../../specs/runtime/spec-addenda",
         "../../specs/runtime/spec-models",
         "../../specs/runtime/ticket-store",
+        "../domain/decision-policy",
         "./active-pr-continuation",
         "./delivery-changes",
         "./delivery-evidence",
@@ -1460,7 +1513,11 @@
         "./multi-repo-checkout",
         "./multi-repo-execution",
         "./multi-repo-execution-store",
+        "./pr-ci/pr-ci-offer",
+        "./pr-ci/pr-ci-projection",
+        "./pr-ci/pr-ci-settlement",
         "./pr-follow-up",
+        "./pr-lifecycle",
         "./pr-publisher",
         "./rail-isolated-launch",
         "./rail-isolation",
@@ -1827,6 +1884,7 @@
       "runtime/loop-executors.ts",
       "runtime/loop-factory.ts",
       "runtime/loop-graph.ts",
+      "runtime/loop-pr-ci-recipe.ts",
       "runtime/loop-role-engines.ts",
       "runtime/loop-run-manager.ts",
       "runtime/loop-runs-store.ts",
@@ -1941,7 +1999,8 @@
       "runtime/loop-factory.ts": [
         "./loop-core-factory",
         "./loop-flow-spec-recipe",
-        "./loop-graph"
+        "./loop-graph",
+        "./loop-pr-ci-recipe"
       ],
       "runtime/loop-flow-spec-recipe.ts": [
         "./loop-graph"
@@ -1958,6 +2017,13 @@
         "./loop-compat",
         "./loop-graph",
         "./loops-store"
+      ],
+      "runtime/loop-pr-ci-recipe.ts": [
+        "../../agent-runtime/runtime/agent-runtime-settings",
+        "./loop-agents",
+        "./loop-constants",
+        "./loop-graph",
+        "./loop-implement-recipe"
       ],
       "runtime/loop-preview.ts": [
         "./loop-command-catalog",
@@ -1990,6 +2056,7 @@
         "../../agent-runtime/runtime/agent-runtime-accounting",
         "../../agent-runtime/runtime/agent-runtime-events",
         "../../agent-runtime/runtime/agent-runtime-settings",
+        "../../agent-runtime/runtime/host-task-dispatcher",
         "../../audit",
         "../../delivery/runtime/multi-repo-execution-store",
         "../../delivery/runtime/rails-store",

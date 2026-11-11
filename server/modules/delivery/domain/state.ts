@@ -48,6 +48,8 @@ export type PrDeliveryStatusCode =
   | 'restart_pending'
   | 'implementation_running'
   | 'implementation_failed'
+  /** A person stopped the run before it delivered; nothing failed. */
+  | 'run_stopped'
   | 'ready_for_review'
   | 'partial_success'
   | 'partial_delivery'
@@ -73,6 +75,10 @@ export type PrDeliveryStatusCode =
   | 'returned_to_flow'
   /** Integrated locally, but re-applying the person's stashed uncommitted work conflicted; the stash is kept. */
   | 'local_changes_attention'
+  /** pr-ci-loop: the CI loop left the attached PR green (or without checks). */
+  | 'ci_green'
+  /** pr-ci-loop: the CI loop stopped before the checks turned green; the PR is unchanged beyond what it pushed. */
+  | 'ci_needs_attention'
 
 export type PrDecisionOperation = 'checkout' | 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry'
 

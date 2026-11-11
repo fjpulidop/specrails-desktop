@@ -92,6 +92,8 @@ export function effectiveOutcomes(
   // Host blockers are opt-in per verify node (Core `getOutcomes`): `blocked` exists only with the flag.
   if (piece.kind === 'verify' && params.hostBlockers !== true) labels = labels.filter((label) => label !== 'blocked')
   if (piece.kind === 'component') return components[String(params.ref)]?.outputs ?? ['next', 'failed']
+  // A host task declares its own outcomes (Core `getOutcomes`: declared + failed).
+  if (piece.kind === 'host-task') return [...(Array.isArray(params.outcomes) ? params.outcomes.filter((value): value is string => typeof value === 'string') : []), 'failed']
   return labels.filter((label) => piece.outcomes.includes(label))
 }
 

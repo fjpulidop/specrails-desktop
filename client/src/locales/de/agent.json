@@ -323,7 +323,11 @@
       "flowSpecChanges": "Noch nicht fertig: Der Reviewer hat Änderungen angefordert",
       "flowSpecDelivered": "Dein Intent ist jetzt ein geprüfter PR",
       "flowSpecFailed": "Die Übergabe wurde angehalten",
-      "flowSpecBuilding": "Dein Intent wird zu einem geprüften PR"
+      "flowSpecBuilding": "Dein Intent wird zu einem geprüften PR",
+      "ci_green": "PR bereit — CI ist grün",
+      "ci_needs_attention": "PR gepusht — CI noch nicht grün",
+      "ciBuilding": "CI des PR {{pr}} wird überwacht",
+      "run_stopped": "Lauf gestoppt"
     },
     "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
     "buildingExistingPrHint": "Specrails arbeitet auf dem Branch des bestehenden PRs und pusht die Review-Änderungen zurück in denselben PR.",
@@ -490,7 +494,13 @@
       "publish": "Der PR konnte nicht veröffentlicht werden",
       "generic": "Die Lieferung wurde angehalten. Siehe technische Details."
     },
-    "moreActions": "Weitere Aktionen"
+    "moreActions": "Weitere Aktionen",
+    "ci": {
+      "green": "Alle Checks sind grün.",
+      "attention": "Die CI-Schleife hat angehalten, bevor die Checks grün wurden. Der PR behält alles, was gepusht wurde."
+    },
+    "ciBuildingHint": "Wartet auf die Checks, behebt Codefehler und pusht in denselben PR. Fehler, die nicht am Code liegen, werden gemeldet statt wiederholt.",
+    "runStoppedNote": "Du hast diesen Lauf gestoppt, bevor er etwas geliefert hat. Starte ihn neu, wenn du weitermachen willst."
   },
   "specDraft": {
     "heading": "Spec-Entwurf",
@@ -1341,7 +1351,8 @@
       "launch_failed": "Der Lauf konnte nicht starten",
       "delivery_failed": "Das Ergebnis konnte nicht ausgeliefert werden",
       "push_failed": "Der Branch konnte nicht gepusht werden",
-      "pr_failed": "Der PR konnte nicht erstellt werden"
+      "pr_failed": "Der PR konnte nicht erstellt werden",
+      "run_stopped": "Lauf gestoppt"
     },
     "progressAria": "{{done}} von {{total}} Läufen abgeschlossen",
     "costTitle": "Bisher vom Anbieter abgerechnete echte Kosten",
@@ -1472,5 +1483,48 @@
     "statusReview_other": "{{count}} warten auf Review",
     "statusRunning_one": "{{count}} läuft",
     "statusRunning_other": "{{count}} laufen"
+  },
+  "prCi": {
+    "title": "CI von PR {{pr}} überwachen und reparieren",
+    "thisPr": "diesem PR",
+    "body": "Specrails wartet auf die Checks des PR, behebt fehlschlagende, löst Merge-Konflikte mit dem Basis-Branch und pusht die Korrekturen in denselben PR, bis er grün ist. Es läuft selbstständig; du entscheidest, wann.",
+    "guarantee": "Es pusht nie erzwungen, merged, veröffentlicht oder schließt den PR nie und schwächt nie einen Check ab.",
+    "start": "Starten",
+    "notNow": "Nicht jetzt",
+    "dismissed": "CI-Überwachung für PR {{pr}} nicht gestartet.",
+    "started": "CI von PR {{pr}} wird auf {{rail}} überwacht",
+    "startedBody": "Die Schleife wartet auf die Checks, behebt Fehler und pusht in denselben PR. Verfolge sie in der Ausführungsleiste.",
+    "green": "PR {{pr}}: alle Checks sind grün",
+    "greenBody_one": "{{pushes}} Korrektur nach {{rounds}} fehlgeschlagenen Runde(n) in den PR gepusht.",
+    "greenBody_other": "{{pushes}} Korrekturen nach {{rounds}} fehlgeschlagenen Runde(n) in den PR gepusht.",
+    "noCi": "PR {{pr}} hat keine CI-Checks",
+    "noCiBody": "Es gab nichts zu überwachen; der PR blieb unverändert.",
+    "needsAttention": "PR {{pr}} ist gepusht; die CI ist noch nicht grün",
+    "needsAttentionBody": "Die Schleife hat angehalten, bevor die Checks grün wurden.",
+    "openRun": "Ausführung öffnen",
+    "openPr": "PR {{pr}} öffnen",
+    "startFailed": "Die CI-Schleife konnte nicht starten.",
+    "dismissFailed": "Deine Auswahl konnte nicht gespeichert werden. Versuche es erneut.",
+    "startedToast": "CI-Überwachung auf Schiene {{index}} gestartet",
+    "fixCi": "CI reparieren",
+    "fixCiTooltip": "Auf die Checks warten, Fehler und Konflikte beheben und in diesen PR pushen, bis er grün ist",
+    "step": {
+      "checks": "Warte auf die CI",
+      "fixing": "Behebe fehlschlagende Checks",
+      "rerun": "Starte fehlgeschlagene Checks neu",
+      "base": "Synchronisiere mit dem Basis-Branch",
+      "conflicts": "Löse Konflikte mit dem Basis-Branch",
+      "verify": "Prüfe lokal",
+      "push": "Pushe die Korrektur in den PR",
+      "watching": "CI wird überwacht"
+    },
+    "titleMany": "CI der PRs {{pr}} überwachen und reparieren",
+    "startedMany": "CI der PRs {{pr}} wird auf {{rail}} überwacht",
+    "greenMany": "PRs {{pr}}: alle Checks sind grün",
+    "noCiMany": "Die PRs {{pr}} haben keine CI-Checks",
+    "needsAttentionMany": "PRs {{pr}} sind gepusht; ihre CI ist noch nicht grün",
+    "dismissedMany": "CI-Überwachung für die PRs {{pr}} nicht gestartet.",
+    "retry": "CI erneut beheben",
+    "openLog": "Log anzeigen"
   }
 }

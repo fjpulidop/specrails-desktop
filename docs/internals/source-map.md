@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1357 source/build files. Nearby tests are linked where names
+Includes 1369 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -365,6 +365,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [changes-model.ts](../../client/src/features/delivery/lib/changes-model.ts) · [test](../../client/src/features/delivery/lib/__tests__/changes-model.test.ts)
 - [packet-verbs.ts](../../client/src/features/delivery/lib/packet-verbs.ts) · [test](../../client/src/features/delivery/lib/__tests__/packet-verbs.test.ts)
+- [pr-ci.ts](../../client/src/features/delivery/lib/pr-ci.ts)
 - [pr-delivery.ts](../../client/src/features/delivery/lib/pr-delivery.ts) · [test](../../client/src/features/delivery/lib/__tests__/pr-delivery.test.ts)
 - [pr-follow-up-scope.ts](../../client/src/features/delivery/lib/pr-follow-up-scope.ts)
 - [viewed-files.ts](../../client/src/features/delivery/lib/viewed-files.ts) · [test](../../client/src/features/delivery/lib/__tests__/viewed-files.test.ts)
@@ -475,6 +476,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/jobs/components/job-run
 
 - [JobRunHeader.tsx](../../client/src/features/jobs/components/job-run/JobRunHeader.tsx) · [test](../../client/src/features/jobs/components/job-run/__tests__/JobRunHeader.test.tsx)
+- [RunDetailTabs.tsx](../../client/src/features/jobs/components/job-run/RunDetailTabs.tsx) · [test](../../client/src/features/jobs/components/job-run/RunDetailTabs.test.tsx)
 - [job-run-model.ts](../../client/src/features/jobs/components/job-run/job-run-model.ts) · [test](../../client/src/features/jobs/components/job-run/__tests__/job-run-model.test.ts)
 - [useRuntimeRuns.ts](../../client/src/features/jobs/components/job-run/useRuntimeRuns.ts)
 
@@ -581,6 +583,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentModeJobsPane.tsx](../../client/src/features/missions/components/AgentModeJobsPane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeJobsPane.test.tsx)
 - [AgentModeSurface.tsx](../../client/src/features/missions/components/AgentModeSurface.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeSurface.test.tsx)
 - [AgentModelSelector.tsx](../../client/src/features/missions/components/AgentModelSelector.tsx)
+- [AgentPrCiOfferCard.tsx](../../client/src/features/missions/components/AgentPrCiOfferCard.tsx)
 - [AgentPrDecisionCard.tsx](../../client/src/features/missions/components/AgentPrDecisionCard.tsx)
 - [AgentPrDecisionPill.tsx](../../client/src/features/missions/components/AgentPrDecisionPill.tsx)
 - [AgentProblemFrameCard.tsx](../../client/src/features/missions/components/AgentProblemFrameCard.tsx)
@@ -659,6 +662,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-view-state.ts](../../client/src/features/missions/lib/mission-view-state.ts)
 - [mission-window-controller.ts](../../client/src/features/missions/lib/mission-window-controller.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-window-controller.test.ts)
 - [mission-windows.ts](../../client/src/features/missions/lib/mission-windows.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-windows.test.ts)
+- [pr-ci-steps.ts](../../client/src/features/missions/lib/pr-ci-steps.ts)
 - [stream-markdown-blocks.ts](../../client/src/features/missions/lib/stream-markdown-blocks.ts) · [test](../../client/src/features/missions/lib/__tests__/stream-markdown-blocks.test.ts)
 - [subagent-result.ts](../../client/src/features/missions/lib/subagent-result.ts) · [test](../../client/src/features/missions/lib/__tests__/subagent-result.test.ts)
 
@@ -1383,6 +1387,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-verification-log.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-log.ts)
 - [agent-runtime-verification-suggestions.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.test.ts)
 - [core-capabilities.ts](../../server/modules/agent-runtime/runtime/core-capabilities.ts)
+- [host-task-dispatcher.ts](../../server/modules/agent-runtime/runtime/host-task-dispatcher.ts) · [test](../../server/modules/agent-runtime/runtime/host-task-dispatcher.test.ts)
 
 ## server/modules/agent-sessions
 
@@ -1579,6 +1584,14 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [run-records.ts](../../server/modules/delivery/runtime/run-records.ts) · [test](../../server/modules/delivery/runtime/run-records.test.ts)
 - [run-review-diagnosis.ts](../../server/modules/delivery/runtime/run-review-diagnosis.ts) · [test](../../server/modules/delivery/runtime/run-review-diagnosis.test.ts)
 
+## server/modules/delivery/runtime/pr-ci
+
+- [pr-ci-handlers.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-handlers.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-handlers.test.ts)
+- [pr-ci-offer.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.test.ts)
+- [pr-ci-projection.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-projection.ts)
+- [pr-ci-settlement.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.test.ts)
+- [pr-ci-target.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-target.ts)
+
 ## server/modules/execution
 
 - [index.ts](../../server/modules/execution/index.ts)
@@ -1669,6 +1682,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-graph.ts](../../server/modules/loops/runtime/loop-graph.ts) · [test](../../server/modules/loops/runtime/loop-graph.test.ts)
 - [loop-implement-recipe.ts](../../server/modules/loops/runtime/loop-implement-recipe.ts) · [test](../../server/modules/loops/runtime/loop-implement-recipe.test.ts)
 - [loop-migration.ts](../../server/modules/loops/runtime/loop-migration.ts)
+- [loop-pr-ci-recipe.ts](../../server/modules/loops/runtime/loop-pr-ci-recipe.ts) · [test](../../server/modules/loops/runtime/loop-pr-ci-recipe.test.ts)
 - [loop-preview.ts](../../server/modules/loops/runtime/loop-preview.ts) · [test](../../server/modules/loops/runtime/loop-preview.test.ts)
 - [loop-role-engines.ts](../../server/modules/loops/runtime/loop-role-engines.ts) · [test](../../server/modules/loops/runtime/loop-role-engines.test.ts)
 - [loop-run-manager.ts](../../server/modules/loops/runtime/loop-run-manager.ts) · [test](../../server/modules/loops/runtime/loop-run-manager.test.ts)
@@ -1881,6 +1895,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [checkout-path.ts](../../server/util/checkout-path.ts)
 - [cli-prompt.ts](../../server/util/cli-prompt.ts) · [test](../../server/util/cli-prompt.test.ts)
+- [desktop-core-env.ts](../../server/util/desktop-core-env.ts)
 - [distribute-int.ts](../../server/util/distribute-int.ts)
 - [search-snippet.ts](../../server/util/search-snippet.ts) · [test](../../server/util/search-snippet.test.ts)
 - [secure-fs.ts](../../server/util/secure-fs.ts) · [test](../../server/util/secure-fs.test.ts)

@@ -9,6 +9,7 @@ import { ensureIsolatedSettlementSnapshot } from './modules/delivery/runtime/iso
 import type { Request, Response } from 'express'
 import { validateLoopGraph, assertLoopShellRepositoryScope } from './modules/loops/runtime/loop-graph'
 import type { ProjectRoutesDeps } from './project-router-helpers'
+import type { ProjectContext } from './project-registry'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
 import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
@@ -67,52 +68,8 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       if (resumed.status === 'over_budget') { res.status(409).json(resumed.rejection); return }
       if (resumed.status === 'resumed') { res.status(202).json({ loopRunId: runId, resumed: true }); return }
     }
-    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
-    try {
-      assertProcessAdmission(c.project.id)
-      // Continuing a workflow is cost-incurring: same gate as a rail launch.
-      const budgetRejection = c.dailyBudgetRejection?.() ?? null
-      if (budgetRejection) { res.status(409).json(budgetRejection); return }
-      const successor = readDefinitionSuccessor(c.db, runId)
-      if (successor) { res.status(409).json({ error: 'runtime_fork_owns_worktree', loopRunId: successor }); return }
-      const observedClaim = readDefinitionExecutionClaim(c.db, runId)
-      const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
-      if (probe.status === 'unavailable') { res.status(503).json({ error: 'runtime_status_unavailable', detail: probe.error?.message }); return }
-      if (probe.lease?.active) { res.status(409).json({ error: 'runtime_run_active' }); return }
-      let controls
-      try { controls = validateDefinitionResumeControls(req.body ?? {}, probe) }
-      catch (error) { res.status(400).json({ error: 'invalid_resume_controls', detail: error instanceof Error ? error.message : String(error) }); return }
-      // A retained claim can outlive its Core lease. Only release the exact
-      // owner observed before inspection, while this remains a restart pause.
-      const resident = c.loopRunManager.isDefinitionRunActive(runId)
-      if (resident && ((controls.recover?.length ?? 0) > 0 || (controls.approve?.length ?? 0) > 1)) {
-        res.status(409).json({ error: 'runtime_control_conflict', detail: 'A resident workflow accepts one pending interrupt at a time' }); return
-      }
-      if (!resident && observedClaim) {
-        c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id = ? AND owner = ?
-          AND EXISTS (SELECT 1 FROM loop_runs WHERE id = ? AND project_id = ? AND status = 'paused' AND restart_reason = 'restart')`)
-          .run(runId, observedClaim.owner, runId, c.project.id)
-      }
-      const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
-      if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
-      if (run.status === 'completed') {
-        if (!snapshot) { res.status(409).json({ error: 'runtime_run_completed' }); return }
-        await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
-        res.json({ loopRunId: runId, settled: true }); return
-      }
-      const completion = c.loopRunManager.beginDefinitionResume(runId, controls)
-      // Resident executions already own their original settlement callback.
-      if (!resident) void completion.then(async result => {
-        if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
-        else c.onLoopRunFinished(runId, result.outcome, result.stallReason ? { stallReason: result.stallReason } : undefined)
-      }).catch(error => {
-        // Preserve the durable terminal intent and worktree for another attempt.
-        console.error('[loop-runs] recovered settlement failed:', runId, error)
-      })
-      res.status(202).json({ loopRunId: runId })
-    } catch (error) {
-      res.status(409).json({ error: 'runtime_resume_rejected', detail: error instanceof Error ? error.message : String(error) })
-    }
+    const outcome = await resumeRetainedDefinitionRun(c, runId, req.body ?? {})
+    res.status(outcome.status).json(outcome.body)
   })
 
   router.post('/:projectId/loop-runs/:id/cancel', async (req: Request, res: Response) => {
@@ -126,42 +83,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     }
     const requestId = body.requestId ?? `desktop-cancel:${runId}`
     try {
-      const resident = c.loopRunManager.isDefinitionRunActive(runId)
-      await c.loopRunManager.cancelDefinition(runId, requestId)
-      let pending = pendingCancellations.get(c)
-      if (!pending) { pending = new Map(); pendingCancellations.set(c, pending) }
-      if (!resident && !c.loopRunManager.isDefinitionRunActive(runId) && !pending.has(runId)) {
-        let observedClaim: ReturnType<typeof readDefinitionExecutionClaim>
-        const task = finishDefinitionCancellation({
-          inspect: () => {
-            observedClaim = readDefinitionExecutionClaim(c.db, runId)
-            return probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
-          },
-          cancel: () => c.loopRunManager.cancelDefinition(runId, requestId),
-          stopped: () => c.loopRunManager.isDisposed(), now: Date.now,
-          wait: milliseconds => new Promise(resolve => { const timer = setTimeout(resolve, milliseconds); timer.unref() }),
-          settle: async () => {
-            assertProcessAdmission(c.project.id)
-            if (observedClaim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id=? AND owner=?
-              AND EXISTS (SELECT 1 FROM loop_runs WHERE id=? AND project_id=? AND status='paused' AND restart_reason='restart')`)
-              .run(runId, observedClaim.owner, runId, c.project.id)
-            const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
-            if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
-            const current = getLoopRun(c.db, runId)!
-            const result = current.status === 'completed' ? { outcome: current.final_outcome ?? 'stopped' } : await c.loopRunManager.beginDefinitionResume(runId)
-            if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
-            else c.onLoopRunFinished(runId, result.outcome)
-          },
-        }).catch(error => {
-          // Keep an actionable durable diagnostic; never replace Core's result
-          // or turn a failed observation into a successful cancellation.
-          try { if (!c.loopRunManager.isDisposed()) c.db.transaction(() => {
-            const sequence = (c.db.prepare('SELECT COALESCE(MAX(seq), -1) + 1 AS seq FROM events WHERE job_id=?').get(runId) as { seq: number }).seq
-            appendEvent(c.db, runId, sequence, { event_type: 'definition-control-error', source: 'stderr', payload: JSON.stringify({ action: 'cancel', requestId, message: error instanceof Error ? error.message : String(error) }) })
-          })() } catch (diagnosticError) { console.error('[loop-runs] cancellation diagnostic unavailable:', runId, diagnosticError) }
-        }).finally(() => pending!.delete(runId))
-        pending.set(runId, task)
-      }
+      await cancelDefinitionRun(c, runId, requestId)
       res.status(202).json({ loopRunId: runId, cancellationRequested: true })
     } catch (error) {
       res.status(409).json({ error: 'runtime_cancel_rejected', detail: error instanceof Error ? error.message : String(error) })
@@ -419,4 +341,104 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       })
     res.status(202).json({ loopRunId: runId })
   })
+}
+
+/**
+ * Continue a retained definition run (the HTTP resume, also used by startup
+ * recovery to re-dispatch pending host tasks). Returns the HTTP outcome.
+ */
+/**
+ * Cancel a Core (engine v2) run through every door that stops one (this route,
+ * `POST /jobs/:id/cancel`, the rail's Stop). A resident run settles through its
+ * own traversal; a run this process does not drive (paused, recovered after a
+ * restart) is settled here once Core confirms the cancellation, so it never
+ * stays "paused" over a run Core already cancelled.
+ */
+export async function cancelDefinitionRun(c: ProjectContext, runId: string, requestId = `desktop-cancel:${runId}`): Promise<void> {
+  const resident = c.loopRunManager.isDefinitionRunActive(runId)
+  await c.loopRunManager.cancelDefinition(runId, requestId)
+  let pending = pendingCancellations.get(c)
+  if (!pending) { pending = new Map(); pendingCancellations.set(c, pending) }
+  if (!resident && !c.loopRunManager.isDefinitionRunActive(runId) && !pending.has(runId)) {
+    let observedClaim: ReturnType<typeof readDefinitionExecutionClaim>
+    const task = finishDefinitionCancellation({
+      inspect: () => {
+        observedClaim = readDefinitionExecutionClaim(c.db, runId)
+        return probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+      },
+      cancel: () => c.loopRunManager.cancelDefinition(runId, requestId),
+      stopped: () => c.loopRunManager.isDisposed(), now: Date.now,
+      wait: milliseconds => new Promise(resolve => { const timer = setTimeout(resolve, milliseconds); timer.unref() }),
+      settle: async () => {
+        assertProcessAdmission(c.project.id)
+        if (observedClaim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id=? AND owner=?
+          AND EXISTS (SELECT 1 FROM loop_runs WHERE id=? AND project_id=? AND status='paused' AND restart_reason='restart')`)
+          .run(runId, observedClaim.owner, runId, c.project.id)
+        const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
+        if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
+        const current = getLoopRun(c.db, runId)!
+        const result = current.status === 'completed' ? { outcome: current.final_outcome ?? 'stopped' } : await c.loopRunManager.beginDefinitionResume(runId)
+        if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+        else c.onLoopRunFinished(runId, result.outcome)
+      },
+    }).catch(error => {
+      // Keep an actionable durable diagnostic; never replace Core's result
+      // or turn a failed observation into a successful cancellation.
+      try { if (!c.loopRunManager.isDisposed()) c.db.transaction(() => {
+        const sequence = (c.db.prepare('SELECT COALESCE(MAX(seq), -1) + 1 AS seq FROM events WHERE job_id=?').get(runId) as { seq: number }).seq
+        appendEvent(c.db, runId, sequence, { event_type: 'definition-control-error', source: 'stderr', payload: JSON.stringify({ action: 'cancel', requestId, message: error instanceof Error ? error.message : String(error) }) })
+      })() } catch (diagnosticError) { console.error('[loop-runs] cancellation diagnostic unavailable:', runId, diagnosticError) }
+    }).finally(() => pending!.delete(runId))
+    pending.set(runId, task)
+  }
+}
+
+export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown): Promise<{ status: number; body: object }> {
+  const run = getLoopRun(c.db, runId)
+  if (!run || run.project_id !== c.project.id || run.engine_version !== 2) return { status: 404, body: { error: 'Definition run not found' } }
+  try {
+    assertProcessAdmission(c.project.id)
+    // Continuing a workflow is cost-incurring: same gate as a rail launch.
+    const budgetRejection = c.dailyBudgetRejection?.() ?? null
+    if (budgetRejection) { return { status: 409, body: budgetRejection } }
+    const successor = readDefinitionSuccessor(c.db, runId)
+    if (successor) { return { status: 409, body: { error: 'runtime_fork_owns_worktree', loopRunId: successor } } }
+    const observedClaim = readDefinitionExecutionClaim(c.db, runId)
+    const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    if (probe.status === 'unavailable') { return { status: 503, body: { error: 'runtime_status_unavailable', detail: probe.error?.message } } }
+    if (probe.lease?.active) { return { status: 409, body: { error: 'runtime_run_active' } } }
+    let controls
+    try { controls = validateDefinitionResumeControls(rawControls, probe) }
+    catch (error) { return { status: 400, body: { error: 'invalid_resume_controls', detail: error instanceof Error ? error.message : String(error) } } }
+    // A retained claim can outlive its Core lease. Only release the exact
+    // owner observed before inspection, while this remains a restart pause.
+    const resident = c.loopRunManager.isDefinitionRunActive(runId)
+    if (resident && ((controls.recover?.length ?? 0) > 0 || (controls.approve?.length ?? 0) > 1)) {
+      return { status: 409, body: { error: 'runtime_control_conflict', detail: 'A resident workflow accepts one pending interrupt at a time' } }
+    }
+    if (!resident && observedClaim) {
+      c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id = ? AND owner = ?
+        AND EXISTS (SELECT 1 FROM loop_runs WHERE id = ? AND project_id = ? AND status = 'paused' AND restart_reason = 'restart')`)
+        .run(runId, observedClaim.owner, runId, c.project.id)
+    }
+    const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
+    if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
+    if (run.status === 'completed') {
+      if (!snapshot) { return { status: 409, body: { error: 'runtime_run_completed' } } }
+      await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+      return { status: 200, body: { loopRunId: runId, settled: true } }
+    }
+    const completion = c.loopRunManager.beginDefinitionResume(runId, controls)
+    // Resident executions already own their original settlement callback.
+    if (!resident) void completion.then(async result => {
+      if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+      else c.onLoopRunFinished(runId, result.outcome, result.stallReason ? { stallReason: result.stallReason } : undefined)
+    }).catch(error => {
+      // Preserve the durable terminal intent and worktree for another attempt.
+      console.error('[loop-runs] recovered settlement failed:', runId, error)
+    })
+    return { status: 202, body: { loopRunId: runId } }
+  } catch (error) {
+    return { status: 409, body: { error: 'runtime_resume_rejected', detail: error instanceof Error ? error.message : String(error) } }
+  }
 }

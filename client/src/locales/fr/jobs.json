@@ -372,5 +372,13 @@
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Rapporté par le fournisseur jusqu'ici ; les chiffres définitifs arrivent à la fin du job.",
     "questionPending": "Répondre à la question"
+  },
+  "runDetail": {
+    "failure": "Causes de l’échec",
+    "log": "Journal",
+    "graph": "Graphe d’exécution",
+    "detail": "Détail du journal",
+    "navigation": "Détail de l’exécution",
+    "sections": "Sections du journal"
   }
 }

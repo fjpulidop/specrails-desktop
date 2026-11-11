@@ -32,6 +32,12 @@ A finished run asks you one thing: what to do with its result. The card shows on
 
 If an action fails, the notice names what could not be done and offers **Retry**.
 
+## Let Specrails keep the PR green {#pr-ci}
+
+After you create a PR from a mission, the conversation offers **Watch and fix the CI of PR #N**. It is optional and never starts by itself. Choose **Start** and Specrails waits for the PR's checks, fixes the failing ones, resolves conflicts with the base branch by merging it, checks the result on your computer and pushes the fix to the same PR, until the checks are green. You can follow it in the run strip ("Waiting for CI", "Fixing the failing checks", "Pushing the fix to the PR").
+
+It never force-pushes, never rewrites the branch, never weakens a check, and never publishes, merges or closes the PR: those decisions stay yours. If it cannot finish (the checks keep failing, a required check never reports, it needs a secret only you can provide), it stops and says why. **Not now** hides the offer for this delivery. You can start it later with **Fix CI** in **More actions** on the PR card or on the rail.
+
 ## Keyboard
 
 | Key | Action |

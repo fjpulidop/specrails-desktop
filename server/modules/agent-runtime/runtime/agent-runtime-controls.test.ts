@@ -287,6 +287,16 @@ describe('agent runtime lifecycle', () => {
     expect(service.isActive('run-1')).toBe(false)
   })
 
+  it('treats a run waiting on a host task as in progress, not a pause to resume (pr-ci-loop)', async () => {
+    const hostTask = { id: 'i1', nodePath: 'checks', kind: 'host-task' as const, value: { task: 'pr.checks' } }
+    db.prepare("UPDATE loop_runs SET engine_version=2, status='running' WHERE id='run-1'").run()
+    status.mockResolvedValue({ ...state(), engineVersion: 2, status: 'paused', lease: null, pendingInterrupts: [hostTask], pendingApproval: undefined })
+    expect(await service.summary('run-1')).toMatchObject({ status: 'running', active: true, canResume: false })
+    // After a restart the loop run is paused: resume stays available to re-dispatch it.
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='restart' WHERE id='run-1'").run()
+    expect(await service.summary('run-1')).toMatchObject({ status: 'paused', active: false, canResume: true })
+  })
+
   it('distinguishes a recovered v2 pause from a live Core lease', async () => {
     db.prepare("UPDATE loop_runs SET engine_version=2, status='paused', restart_reason='restart' WHERE id='run-1'").run()
     status.mockResolvedValue({ ...state(), engineVersion: 2, lease: null, recoverableSteps: [{ attemptId: 'attempt-left', nodePath: 'write', scopeId: 'left' }] })

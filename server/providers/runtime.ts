@@ -1,3 +1,4 @@
+import { withoutDesktopCoreSelection } from '../util/desktop-core-env'
 import type {
   AdapterEvent,
   ProviderAdapter,
@@ -124,7 +125,8 @@ export function buildProviderEnv(
   opts: SpawnOptions,
   baseEnv: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  const merged: NodeJS.ProcessEnv = { ...baseEnv }
+  // Desktop's own Core selection never reaches a provider CLI or what its agent runs.
+  const merged: NodeJS.ProcessEnv = { ...withoutDesktopCoreSelection(baseEnv) }
   for (const [key, value] of Object.entries(adapter.buildEnv?.(opts) ?? {})) {
     // Windows treats environment names case-insensitively. Remove every
     // inherited casing before applying an adapter-owned override/deletion so

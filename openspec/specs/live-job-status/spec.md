@@ -2,20 +2,24 @@
 
 ## Purpose
 TBD - created by archiving change live-job-status. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Job status panel renders for running jobs
 
-The Job Detail page SHALL render the job status panel (the card today known as `JobCompletionSummary`) whenever the job's status is `running`, in addition to the existing `completed` and `failed` cases. While the job is running, the panel header SHALL display the label "Job in progress" with a spinner icon, and SHALL switch to "Job completed" or "Job failed" with the corresponding icon as soon as the job reaches a terminal status.
+The Job Detail page SHALL render compact shared run chrome for running, completed, and failed jobs, showing status, elapsed time, activity/phase, supported actions, and pipeline chips. Status presentation SHALL update on terminal transitions. The metric grid and runtime Details SHALL live in bounded detail content rather than expanding the header inline; diagnosed failures SHALL place this content in Failure reasons.
 
 #### Scenario: Running job shows status panel
 
-- **WHEN** the user opens a job whose `status === 'running'`
-- **THEN** the panel renders with the header label "Job in progress", a spinner icon, and the same metric grid (Duration / Cost / Turns / Tokens) used for finished jobs.
+- **WHEN** the user opens a job whose `status === 'running'` and that has no answerable pending question
+- **THEN** the compact header renders running status, ticking elapsed time, current activity/phase and supported actions, with one pipeline chip row when phases exist
+- **AND** live metrics remain accessible through bounded Details in the Log view without a Failure reasons tab
 
 #### Scenario: Status transition refreshes the panel
 
 - **WHEN** a running job receives a terminal status update over the WebSocket (`completed`, `failed`, `canceled`, `zombie_terminated`)
-- **THEN** the panel header label and icon update to reflect the new status without remounting (the user's expand/collapse state is preserved).
+- **THEN** the header status presentation updates without remounting and the user's Details expand/collapse preference is preserved
+- **AND** a failed/canceled run with a diagnosis exposes Failure reasons according to the run-detail navigation selection rules, including the answerable-pending-question visibility exception
 
 ### Requirement: Live duration ticks while running
 
@@ -139,4 +143,3 @@ Clicking on a ticket-number chip whose `title` is non-null SHALL open the existi
 
 - **WHEN** the user clicks the chip for ticket `#24` (with non-null title)
 - **THEN** a modal opens showing the existing ticket / spec detail UI for `#24`, the URL does not change to a separate ticket route, and dismissing the modal returns focus to the chip.
-

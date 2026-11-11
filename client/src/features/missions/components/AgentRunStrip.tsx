@@ -55,6 +55,8 @@ import { bestRunPrimary, PRIMARY_ACTION, RunPrimaryScope, type RunPrimaryAction,
 import { isTextEntry, registerRunStrip, RUN_STRIP_ARIA_KEYS, RUN_STRIP_KEYS, stripKeyCode } from './run-strip-keys'
 import type { PinnedRailProposal } from './useRailLaunchProposals'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { describePrCiStep } from '../lib/pr-ci-steps'
+import { PR_CI_LOOP_ID } from '../../delivery/lib/pr-ci'
 
 /** The strip's primary action style (the shared primary recipe) — extensions reuse it. */
 export const RUN_STRIP_PRIMARY = PRIMARY_ACTION
@@ -221,10 +223,15 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     if (tone === 'launching') {
       headlineText = t('runStrip.launching', { rail: label })
     } else if (tone === 'running') {
-      const described = summary?.step ? describeRun?.(t, { loopId, stepId: summary.step, codes: [] })?.step ?? null : null
-      headlineText = described ?? (summary?.step ? humanizeStepId(summary.step) : t('runStrip.running'))
+      const described = summary?.step ? describePrCiStep(t, loopId, summary.step) ?? describeRun?.(t, { loopId, stepId: summary.step, codes: [] })?.step ?? null : null
+      headlineText = described ?? (loopId === PR_CI_LOOP_ID ? t('prCi.step.watching') : summary?.step ? humanizeStepId(summary.step) : t('runStrip.running'))
     } else if (tone === 'paused') {
       headlineText = summary?.pausedReason ? t('runStrip.pausedReason', { reason: summary.pausedReason }) : t('runStrip.paused')
+    } else if (envelope.statusCode === 'ci_needs_attention' || envelope.statusCode === 'ci_green') {
+      // pr-ci-loop: the CI outcome on the PR, not an implementation verdict.
+      headlineText = t(envelope.statusCode === 'ci_green' ? 'prCard.ci.green' : 'prCard.ci.attention')
+    } else if (envelope.statusCode === 'run_stopped') {
+      headlineText = t('runStrip.failed.run_stopped')
     } else if (tone === 'info') {
       headlineText = t(`runStrip.decision.${envelope.decision}`, { defaultValue: t('runStrip.decision.generic') })
     } else if (tone === 'decision') {
@@ -263,16 +270,21 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
             </>
           ) : <span aria-hidden>—</span>}
         </span>
-        <Dot />
-        <span data-testid="mission-run-strip-cost" title={totals.costPartial ? t('runStrip.costPartial') : t('runStrip.costTitle')}>
-          <span aria-hidden>{totals.costUsd !== null ? `${formatRunCost(totals.costUsd)}${totals.costPartial ? '*' : ''}` : '—'}</span>
-          <span className="sr-only">
-            {totals.costUsd !== null ? t('prCard.runCostAria', { cost: formatRunCost(totals.costUsd) }) : t('runStrip.costNone')}
-            {totals.costUsd !== null && !totals.costPartial ? ` (${t('runStrip.costTitle')})` : ''}
-          </span>
-          {/* The `*` is said in words too, not only in a tooltip. */}
-          {totals.costPartial && <span className="sr-only" data-testid="mission-run-strip-cost-partial"> ({t('runStrip.costPartial')})</span>}
-        </span>
+        {/* No billed cost yet (a run that only waits, e.g. on CI): nothing to show, not a dash. */}
+        {totals.costUsd !== null ? (
+          <>
+            <Dot />
+            <span data-testid="mission-run-strip-cost" title={totals.costPartial ? t('runStrip.costPartial') : t('runStrip.costTitle')}>
+              <span aria-hidden>{`${formatRunCost(totals.costUsd)}${totals.costPartial ? '*' : ''}`}</span>
+              <span className="sr-only">
+                {t('prCard.runCostAria', { cost: formatRunCost(totals.costUsd) })}
+                {!totals.costPartial ? ` (${t('runStrip.costTitle')})` : ''}
+              </span>
+              {/* The `*` is said in words too, not only in a tooltip. */}
+              {totals.costPartial && <span className="sr-only" data-testid="mission-run-strip-cost-partial"> ({t('runStrip.costPartial')})</span>}
+            </span>
+          </>
+        ) : <span className="sr-only" data-testid="mission-run-strip-cost-none">{t('runStrip.costNone')}</span>}
       </>
     )
     const needsPerson = tone === 'decision' || tone === 'failed' || tone === 'paused'
@@ -788,6 +800,18 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       className={cn('relative shrink-0 pb-2', inline ? 'w-full px-4' : 'px-3')}
     >
       <div className="relative">
+        {/* While the panel is open, the transcript behind it steps back: the
+            open card is the one thing to read (a click outside closes it). */}
+        <div
+          aria-hidden
+          data-testid="mission-run-strip-scrim"
+          onClick={() => closePanel(false)}
+          className={cn(
+            'absolute bottom-full z-10 h-[200vh] bg-background/75 backdrop-blur-[2px] transition-opacity duration-200 motion-reduce:transition-none',
+            inline ? '-inset-x-4' : '-inset-x-3',
+            panelOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+          )}
+        />
         {/* Panels: every run's full card stays mounted (it measures the run);
             only the shown run's panel is visible, and only while open. */}
         <div
@@ -801,7 +825,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           data-open={panelOpen ? 'true' : 'false'}
           style={{ maxHeight }}
           className={cn(
-            'absolute inset-x-0 bottom-full z-20 mb-2 overflow-y-auto overscroll-contain rounded-xl border border-border/60 bg-card p-3 text-xs shadow-[0_14px_36px_-14px_rgb(0_0_0/0.5)] outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'absolute inset-x-0 bottom-full z-20 mb-2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-3 text-xs has-[[data-flash=true]]:ring-2 has-[[data-flash=true]]:ring-accent-primary/50 shadow-[0_-12px_32px_-10px_rgb(0_0_0/0.55),0_14px_36px_-14px_rgb(0_0_0/0.5)] outline-none focus-visible:ring-2 focus-visible:ring-ring',
             'origin-bottom transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none',
             panelOpen ? 'visible translate-y-0 opacity-100' : 'pointer-events-none invisible translate-y-1 opacity-0',
           )}
