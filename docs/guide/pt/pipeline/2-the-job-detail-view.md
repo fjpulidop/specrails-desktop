@@ -4,21 +4,9 @@ Clique em qualquer cartão de job na página **Jobs** e chega aqui: o cockpit de
 
 ## O layout
 
-Dois painéis ficam por cima do log completo em streaming; num job Claude em execução, um compositor de chat fica por baixo:
+O cabeçalho compacto mantém estado, duração, fase, ações e chips do pipeline. **Motivos da falha** abre selecionado nas execuções falhadas ou canceladas com diagnóstico; as restantes abrem **Registo**. Uma pergunta pendente que possa ser respondida também disponibiliza esse separador: o botão da pergunta abre Detalhes para responder, mesmo sem diagnóstico.
 
-```
-┌─────────────────────────────────────────────┐
-│  Cabeçalho de estado  (ícone · duração · …) │
-├─────────────────────────────────────────────┤
-│  Cabeçalho de tickets  ( #12  #14  #15 )    │
-├─────────────────────────────────────────────┤
-│                                             │
-│  Log em streaming  (auto-scroll · pesquisa) │
-│                                             │
-├─────────────────────────────────────────────┤
-│  Compositor  (envie uma mensagem ao job · …)│
-└─────────────────────────────────────────────┘
-```
+Motivos da falha reúne causa, soluções e **Detalhes** num painel limitado com deslocamento interno. Caso contrário, Detalhes permanece em Registo. Os loops oferecem **Grafo de execução** e **Detalhe do registo**; os restantes jobs apenas o detalhe. A secção e a expansão de Detalhes são guardadas separadamente para página e modal de missão; o separador principal reinicia em cada visita. O compositor permanece abaixo.
 
 ## Fases do pipeline
 
@@ -41,7 +29,7 @@ Que agente trata de cada fase é decidido pelo **perfil de agentes** do projeto.
 
 ## Métricas ao vivo — honestas por princípio
 
-O cabeçalho de estado é a manchete. Mostra um ícone de estado, uma linha de atividade a descrever o que o job está a fazer *neste momento*, uma contagem dos passos dados e uma fila de métricas:
+O cabeçalho compacto mostra estado, duração, atividade, passos e ações. Os valores reais e os controlos de continuação estão em **Detalhes**, num painel limitado:
 
 | Métrica | Quando vê o valor real |
 |--------|------------------------------|
@@ -65,7 +53,7 @@ Clicar num chip abre o detalhe dessa spec **por cima da página do job** — nã
 
 ## O log em streaming
 
-Por baixo dos painéis fica o log completo da execução, transmitido em tempo real pelo WebSocket:
+Abra **Registo → Detalhe do registo** para o log em direto, ou Story se a narração estiver ativa. A saída chega em tempo real por WebSocket:
 
 - **Auto-scroll** mantém o output mais recente à vista (faça scroll para cima e pausa, para poder ler).
 - **Pesquisa** para saltar para uma frase.
@@ -75,14 +63,14 @@ Esta é a verdade crua do que a IA está a fazer — cada chamada de ferramenta,
 
 ## Execuções de loop: o explorador de passos
 
-Quando o job é uma **execução de loop** (ver [O Loop Builder](the-loop-builder)), o log plano dá lugar a um **explorador de passos** que espelha a forma real do loop:
+Numa **execução de loop** (ver [O Loop Builder](the-loop-builder)), **Registo → Grafo de execução** mostra o **explorador de passos**. Detalhe do registo oferece separadamente o log e, se ativa, a narração:
 
 - **A faixa de visão geral** no topo é o mapa ao vivo do loop — um chip por nó (Passo de IA, Shell, Decisor do Loop…), na ordem em que o grafo flui. Os chips vão acendendo à medida que a execução avança: esmaecidos enquanto esperam, pulsando enquanto correm, e depois um visto ou uma cruz. O chip de um Decisor mostra ainda o veredicto pelo qual encaminhou — voltar ao início ou seguir em frente — e um contador de iterações (`Iteração 3/10`) mantém a conta à direita. Clique em qualquer chip para saltar direto ao passo mais recente daquele nó.
 - **Uma caixa recolhível por passo.** Cada passagem por um nó vira a sua própria secção, com o número do passo, o nome, um selo de iteração, a duração ao terminar — e o seu próprio botão de copiar, para levar exatamente a saída de um passo. (O copiar da barra de ferramentas continua a levar o log inteiro.) Tudo o que foi impresso antes do primeiro passo — o banner de arranque, o aviso de worktree — fica arrumado numa secção de **Preparação**.
 - **O modo de acompanhamento** vem ligado por defeito: o passo em execução permanece aberto e com auto-scroll enquanto os anteriores se recolhem. No momento em que sobe o scroll ou abre um passo antigo, o acompanhamento pausa para poder ler — uma pílula flutuante **Retomar acompanhamento** devolve-o ao direto. **Expandir tudo / Recolher tudo** vivem na barra de ferramentas, e escrever na pesquisa procura em todos os passos ao mesmo tempo.
 - **Os passos interrompidos também são honestos.** Um passo que nunca chegou a reportar o seu desfecho — a execução foi cancelada ou a app fechou a meio do passo — é marcado como **Interrompido** com uma borda tracejada, em vez de fingir que terminou.
 
-Tudo o resto nesta página funciona exatamente igual nas execuções de loop — as métricas ao vivo, os cartões de ticket, o compositor. Os jobs que não são de loop mantêm o log em streaming clássico acima.
+A exploração do grafo e a posição pausada do log são preservadas ao mudar de secção. Os jobs sem loop mostram o detalhe sem controlo de grafo.
 
 ## Fale com o job em execução
 
@@ -109,7 +97,7 @@ Se a [telemetria](../settings/customizing) estava ativada para o job, aparece um
 
 ## Quando uma execução falha
 
-Quando um job falha, para ou fica bloqueado, o estado final começa com um **cartão de diagnóstico** que diz em linguagem clara o que aconteceu, por exemplo *Os testes falharam na fase Reviewer após 4 rodadas de correção*, e por quê quando o app sabe:
+Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre o **cartão de diagnóstico** com a causa e os motivos conhecidos. Não existe um resumo da causa acima dos separadores:
 
 - **Testes falharam**: as verificações continuam falhando após as rodadas de correção.
 - **Limite do provedor**: o limite de uso do provedor de IA foi atingido. O cartão cita quando ele é redefinido, com as palavras do próprio provedor.

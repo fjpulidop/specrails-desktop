@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event'
 vi.mock('sonner', () => ({
   toast: {
     promise: vi.fn(),
+    info: vi.fn(),
     error: vi.fn(),
     success: vi.fn(),
   },
@@ -20,6 +21,9 @@ vi.mock('../../../../lib/api', () => ({
 vi.mock('../../../../lib/ws-url', () => ({
   WS_URL: 'ws://localhost:4200/hooks',
 }))
+
+const narrationFlag = vi.hoisted(() => ({ enabled: true }))
+vi.mock('../../../../lib/feature-flags', async importOriginal => ({ ...await importOriginal<typeof import('../../../../lib/feature-flags')>(), get FEATURE_NARRATED_PROGRESS() { return narrationFlag.enabled } }))
 
 // Capture the modal's WS handler so tests can feed live frames through it.
 let wsHandler: ((data: unknown) => void) | null = null
@@ -85,6 +89,8 @@ describe('JobDetailModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
+    narrationFlag.enabled = true
     wsHandler = null
     displayedEvents = []
     // The log surface defaults to the narrated altitude; these tests are about
@@ -98,6 +104,104 @@ describe('JobDetailModal', () => {
         phaseDefinitions: [],
       }),
     })
+  })
+
+  const diagnosis = { kind: 'tests_failed', confidence: 'high', source: 'core', remedies: ['open-logs'], detail: 'Verification stopped' }
+
+  it.each(['failed', 'canceled'] as const)('opens diagnosed %s on bounded Failure reasons', async status => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, status, failureDiagnosis: diagnosis }, events: [] }) })
+    render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
+    expect(await screen.findByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
+    const panel = screen.getByRole('tabpanel', { name: 'Failure reasons' })
+    expect(panel).toContainElement(screen.getByTestId('failure-diagnosis-card'))
+    fireEvent.click(within(panel).getByRole('button', { name: 'Details' }))
+    expect(panel).toContainElement(screen.getByTestId('job-run-details'))
+    expect(panel).toHaveClass('min-h-0', 'max-h-full', 'overflow-y-auto')
+    expect(panel).not.toContainElement(screen.getByRole('tablist', { name: 'Run detail' }))
+    expect(within(screen.getByTestId('job-run-header')).queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Log' }))
+    expect(screen.getByTestId('log-viewer')).toBeVisible()
+  })
+
+  it.each(['queued', 'running', 'completed', 'skipped', 'zombie_terminated', 'failed', 'canceled'])('shows only Log for undiagnosed %s', async status => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, status }, events: [] }) })
+    render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
+    expect(await screen.findByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
+  })
+
+  it('keeps modal preferences independent of page and restores graph/detail and Details', async () => {
+    localStorage.setItem('specrails-desktop:job-run-log-section', JSON.stringify({ page: 'graph', modal: 'detail' }))
+    localStorage.setItem('specrails-desktop:job-run-details', JSON.stringify({ page: false, glass: true }))
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l' }, events: [] }) })
+    const first = render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
+    expect(await screen.findByRole('tab', { name: 'Log detail' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(screen.getByRole('tab', { name: 'Execution graph' }))
+    first.unmount()
+    render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
+    expect(await screen.findByRole('tab', { name: 'Execution graph' })).toHaveAttribute('aria-selected', 'true')
+    expect(JSON.parse(localStorage.getItem('specrails-desktop:job-run-details')!)).toEqual({ page: false, glass: true })
+    expect(JSON.parse(localStorage.getItem('specrails-desktop:job-run-log-section')!)).toEqual({ page: 'graph', modal: 'graph' })
+  })
+
+  it('reveals question-only Details, retains a failed answer and removes the tab after settlement', async () => {
+    const user = userEvent.setup()
+    let pending = true
+    let rejectAnswer = true
+    global.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        if (rejectAnswer) return { ok: false, json: async () => ({ message: 'Answer rejected' }) }
+        pending = false
+        return { ok: true, json: async () => ({}) }
+      }
+      return { ok: true, json: async () => url.includes('/agent-runtime/runs/')
+        ? { runs: [{ runId: 'r', status: 'paused', canResume: pending, recoverableSteps: [], pendingQuestion: pending ? { stepId: 'architect', question: 'Which backend?' } : null }] }
+        : { job: mockJob, events: [] } }
+    })
+    render(<JobDetailModal jobId={mockJob.id} projectId="mission" onClose={onClose} />)
+    await user.click(await screen.findByRole('button', { name: 'Answer the question' }))
+    expect(screen.getByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Answer and resume' })).toBeDisabled()
+    await user.type(screen.getByLabelText('Your answer'), 'Redis')
+    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
+    const { toast } = await import('sonner')
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not update this run.', expect.objectContaining({ description: 'Answer rejected' })))
+    await user.click(screen.getByRole('tab', { name: 'Log' }))
+    await user.click(screen.getByRole('button', { name: 'Answer the question' }))
+    expect(screen.getByLabelText('Your answer')).toHaveValue('Redis')
+    rejectAnswer = false
+    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
+    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'true')
+    expect(fetch).toHaveBeenCalledWith('/api/projects/mission/agent-runtime/runs/r/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ answer: 'Redis' }) }))
+  })
+
+  it('reveals graph remedy separately from raw and narrated Log detail', async () => {
+    localStorage.setItem('specrails-desktop:job-log-mode', 'narrated')
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l', status: 'failed', failureDiagnosis: diagnosis }, events: [] }) })
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(function (this: HTMLElement) { expect(this).toBeVisible() })
+    render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
+    fireEvent.click(await screen.findByTestId('failure-remedy-open-logs'))
+    await waitFor(() => expect(scroll).toHaveBeenCalled())
+    expect(screen.getByRole('tab', { name: 'Execution graph' })).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
+    expect(screen.getByTestId('modal-narration-mode-narrated')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByTestId('modal-narration-mode-log'))
+    expect(screen.getByTestId('log-viewer')).toBeVisible()
+    scroll.mockRestore()
+  })
+
+  it('keeps modal navigation and raw loop detail with narration disabled', async () => {
+    narrationFlag.enabled = false
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l' }, events: [] }) })
+    render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Log detail' }))
+    expect(screen.getByTestId('log-viewer')).toBeVisible()
+    expect(screen.queryByTestId('modal-narration-mode-log')).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Execution graph' })).toBeVisible()
   })
 
   it('shows loading text while fetching', () => {
@@ -634,6 +738,9 @@ describe('JobDetailModal', () => {
       expect(displayedEvents.filter(event => event.payload.includes('Earlier log output omitted'))).toHaveLength(1)
       expect(displayedEvents.some(event => event.payload.includes('readable 10049'))).toBe(true)
       expect(displayedEvents.some(event => event.payload === '{"line":"readable 0"}')).toBe(false)
+      fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
+      expect(screen.getByRole('status')).toHaveTextContent('Earlier log output omitted from this view')
+      expect(screen.getByRole('status')).toBeVisible()
     })
 
     it('preserves valid live attempt attribution and ignores invalid metadata', async () => {

@@ -372,5 +372,13 @@
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Reportado por el proveedor hasta ahora; las cifras finales llegan al terminar el trabajo.",
     "questionPending": "Responder la pregunta"
+  },
+  "runDetail": {
+    "failure": "Motivos del fallo",
+    "log": "Registro",
+    "graph": "Grafo de ejecución",
+    "detail": "Detalle del registro",
+    "navigation": "Detalle de ejecución",
+    "sections": "Secciones del registro"
   }
 }

@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { flushSync } from 'react-dom'
+import { RunDetailTabs } from '../components/job-run/RunDetailTabs'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getApiBase } from '../../../lib/api'
 import { cancelJob } from '../lib/cancel-job'
@@ -40,6 +42,7 @@ export default function JobDetailPage() {
   const activeProvider = projects.find((p) => p.id === activeProjectId)?.provider
   const navigate = useNavigate()
   const { openTicketDetail } = useTicketDetailModal()
+  const evidenceRoot = useRef<HTMLDivElement>(null)
   const [job, setJob] = useState<JobSummary | null>(null)
   // One continuation poller for the header and the composer (shared answer draft).
   const runtime = useRuntimeRuns(activeProjectId, { jobId: job?.id ?? id, enabled: !!activeProjectId && !!job })
@@ -338,10 +341,9 @@ export default function JobDetailPage() {
 
   /** "Open logs at the failure": the log view first (the narrated view has no steps to land on), then the failed step. */
   function handleOpenLogs() {
-    if (narrationMode === 'narrated') setNarrationMode('log')
-    window.requestAnimationFrame(() => {
-      if (!openLogsAtFailure()) toast.info(tRecovery('logs.notFound'))
-    })
+    if (!job?.command.startsWith('loop:') && narrationMode === 'narrated') flushSync(() => setNarrationMode('log'))
+    const evidence = evidenceRoot.current?.querySelector<HTMLElement>('[data-run-evidence][data-active="true"]')
+    if (!openLogsAtFailure(evidence ?? null)) toast.info(tRecovery('logs.notFound'))
   }
 
   async function handleRerun() {
@@ -428,7 +430,7 @@ export default function JobDetailPage() {
   const pipelineTotals = computePipelineTotals(pipelineJobs)
 
   return (
-    <div data-job-detail-surface className="flex flex-col h-full max-w-5xl mx-auto w-full">
+    <div ref={evidenceRoot} data-job-detail-surface className="flex min-h-0 flex-col h-full overflow-hidden max-w-5xl mx-auto w-full">
       {/* Header */}
       <div className="px-4 pt-3 pb-2 space-y-2">
         {/* Breadcrumb */}
@@ -503,6 +505,71 @@ export default function JobDetailPage() {
         rerunBusy={isRerunning}
         onEditSpec={job.tickets?.length ? () => openTicketDetail(job.tickets![0].id) : undefined}
         onOpenLogs={handleOpenLogs}
+        renderRunDetails={context => (
+          <RunDetailTabs
+            key={`${activeProjectId}:${job.id}`}
+            {...context}
+            job={job}
+            events={events}
+            surface="page"
+            isLoop={isLoopJob}
+            onOpenLogs={handleOpenLogs}
+            graphContent={<>
+              {eventBuffer.omitted && (
+                <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                  {t('logViewer.retainedTail')}
+                </p>
+              )}
+              <LoopStepExplorer events={events} jobStatus={job.status} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} />
+            </>}
+            logContent={<>
+              {eventBuffer.omitted && (
+                <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                  {t('logViewer.retainedTail')}
+                </p>
+              )}
+              <div className="min-h-0 flex-1 overflow-hidden relative">
+                {FEATURE_NARRATED_PROGRESS ? (
+                  <div className="flex min-h-0 h-full flex-col">
+                    <div className="flex items-center gap-1 border-b border-border/50 px-3 py-1.5">
+                      {(['narrated', 'log'] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setNarrationMode(mode)}
+                          aria-pressed={narrationMode === mode}
+                          data-testid={`job-narration-mode-${mode}`}
+                          className={`rounded-md px-2 py-0.5 text-caption font-medium transition-colors ${
+                            narrationMode === mode
+                              ? 'bg-accent-primary/15 text-accent-primary'
+                              : 'text-muted-foreground hover:bg-surface'
+                          }`}
+                        >
+                          {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      {narrationMode === 'narrated' ? (
+                        <NarratedProgress
+                          events={events}
+                          settled={job.status !== 'running' && job.status !== 'queued'}
+                          durationRange={durationRange}
+                          elapsedMs={job.duration_ms ?? null}
+                          variant="page"
+                        />
+                      ) : (
+                        <LogViewer events={events} />
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <LogViewer events={events} />
+                )}
+              </div>
+            </>}
+          />
+        )}
         actions={({ diagnosisOffersRetry }) => (
           <>
             {job.hasTelemetry && (
@@ -564,58 +631,6 @@ export default function JobDetailPage() {
           </>
         )}
       />
-
-      {eventBuffer.omitted && (
-        <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
-          {t('logViewer.retainedTail')}
-        </p>
-      )}
-
-      {/* Log surface. The narrated altitude is a MODE over the same stream —
-          the raw views below stay byte-identical when it is off. */}
-      <div className="flex-1 overflow-hidden relative">
-        {FEATURE_NARRATED_PROGRESS ? (
-          <div className="flex h-full flex-col">
-            <div className="flex items-center gap-1 border-b border-border/50 px-3 py-1.5">
-              {(['narrated', 'log'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setNarrationMode(mode)}
-                  aria-pressed={narrationMode === mode}
-                  data-testid={`job-narration-mode-${mode}`}
-                  className={`rounded-md px-2 py-0.5 text-caption font-medium transition-colors ${
-                    narrationMode === mode
-                      ? 'bg-accent-primary/15 text-accent-primary'
-                      : 'text-muted-foreground hover:bg-surface'
-                  }`}
-                >
-                  {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
-                </button>
-              ))}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              {narrationMode === 'narrated' ? (
-                <NarratedProgress
-                  events={events}
-                  settled={job.status !== 'running' && job.status !== 'queued'}
-                  durationRange={durationRange}
-                  elapsedMs={job.duration_ms ?? null}
-                  variant="page"
-                />
-              ) : isLoopJob ? (
-                <LoopStepExplorer events={events} jobStatus={job.status} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} />
-              ) : (
-                <LogViewer events={events} />
-              )}
-            </div>
-          </div>
-        ) : isLoopJob ? (
-          <LoopStepExplorer events={events} jobStatus={job.status} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} />
-        ) : (
-          <LogViewer events={events} />
-        )}
-      </div>
 
       {/* Interactive in-job agent composer — send more prompts to the resident
           agent (queued server-side), see live turn totals, and settle per the

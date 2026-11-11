@@ -4,21 +4,9 @@ Pulsa cualquier tarjeta de trabajo en la página **Trabajos** y aterrizas aquí:
 
 ## La distribución
 
-Dos paneles se sitúan encima del log completo en streaming; en un trabajo de Claude en ejecución, un compositor de chat se sitúa debajo:
+La cabecera compacta conserva estado, duración, fase, acciones y chips del pipeline. Debajo, **Motivos del fallo** se selecciona al abrir una ejecución fallida o cancelada con diagnóstico; las demás abren **Registro**. Una pregunta pendiente que admita respuesta también habilita Motivos del fallo: pulsa el botón de pregunta de la cabecera para abrir Detalles y responder, incluso sin diagnóstico.
 
-```
-┌─────────────────────────────────────────────┐
-│  Cabecera de estado  (icono · duración en vivo · …)  │
-├─────────────────────────────────────────────┤
-│  Cabecera de specs  ( #12  #14  #15 )     │
-├─────────────────────────────────────────────┤
-│                                             │
-│  Log en streaming  (auto-scroll · búsqueda · …)  │
-│                                             │
-├─────────────────────────────────────────────┤
-│  Compositor  (envía un mensaje al trabajo · …)  │
-└─────────────────────────────────────────────┘
-```
+Motivos del fallo contiene causa, soluciones y **Detalles** en un panel acotado con desplazamiento interno. Si esa pestaña no está disponible, Detalles permanece en Registro. Los loops ofrecen **Grafo de ejecución** y **Detalle del registro**; los demás trabajos solo el detalle. La sección y la expansión de Detalles se recuerdan por separado para página y modal de misión; la pestaña principal se restablece en cada visita. El compositor permanece debajo.
 
 ## Fases del pipeline
 
@@ -41,7 +29,7 @@ Qué agente se encarga de cada fase lo decide el **perfil de agentes** del proye
 
 ## Métricas en vivo — honestas por diseño
 
-La cabecera de estado es el titular. Muestra un icono de estado, una línea de actividad que describe qué está haciendo el trabajo *ahora mismo*, un recuento de pasos dados y una fila de métricas:
+La cabecera compacta muestra estado, duración, actividad, pasos y acciones. Las cifras reales y los controles de continuación están en **Detalles**, dentro de un panel acotado:
 
 | Métrica | Cuándo ves el valor real |
 |--------|------------------------------|
@@ -65,7 +53,7 @@ Pulsar un chip abre el detalle de esa spec **sobre la página del trabajo** — 
 
 ## El log en streaming
 
-Bajo los paneles está el log completo de la ejecución, transmitido en tiempo real por el WebSocket:
+Abre **Registro → Detalle del registro** para ver el log en streaming, o Story si la narración está habilitada. La salida llega en tiempo real por WebSocket:
 
 - **Auto-scroll** mantiene a la vista la salida más reciente (sube el scroll y se pausa para que puedas leer).
 - **Búsqueda** para saltar a una frase.
@@ -75,14 +63,14 @@ Esta es la verdad en bruto de lo que está haciendo la IA — cada llamada a una
 
 ## Ejecuciones de loop: el explorador de pasos
 
-Cuando el trabajo es una **ejecución de loop** (ver [El Loop Builder](the-loop-builder)), el log plano deja paso a un **explorador de pasos** que refleja la forma real del loop:
+En una **ejecución de loop** (ver [El Loop Builder](the-loop-builder)), **Registro → Grafo de ejecución** muestra el **explorador de pasos**. Detalle del registro ofrece por separado el log y, si está habilitada, la narración:
 
 - **La franja de resumen** de arriba es el mapa en vivo del loop — un chip por nodo (Paso de IA, Shell, Loop Decider…), en el orden en que fluye el grafo. Los chips se van encendiendo según avanza la ejecución: atenuados mientras esperan, con pulso mientras corren, y después un check o una cruz. El chip de un Decider muestra además el veredicto por el que enrutó — volver atrás o seguir adelante — y un contador de iteraciones (`Iteración 3/10`) lleva la cuenta a la derecha. Pulsa cualquier chip para saltar directo al último paso de ese nodo.
 - **Una caja plegable por paso.** Cada pasada sobre un nodo se convierte en su propia sección, con el número de paso, su nombre, una insignia de iteración, su duración al terminar — y su propio botón de copiar, para que te lleves exactamente la salida de un paso. (El copiar de la barra superior sigue llevándose el log entero.) Todo lo impreso antes del primer paso — el banner de arranque, el aviso de worktree — queda recogido en una sección de **Preparación**.
 - **El modo seguimiento** viene activado por defecto: el paso en ejecución permanece abierto y con auto-scroll mientras los anteriores se pliegan para no estorbar. En cuanto subes el scroll o abres un paso antiguo, el seguimiento se pausa para que puedas leer — una píldora flotante **Reanudar seguimiento** te devuelve al directo. **Expandir todo / Contraer todo** viven en la barra superior, y escribir en el buscador busca en todos los pasos a la vez.
 - **Los pasos interrumpidos también son honestos.** Un paso que nunca llegó a reportar su resultado — la ejecución se canceló o la app se cerró a mitad de paso — se marca como **Interrumpido** con un borde discontinuo, en lugar de fingir que terminó.
 
-Todo lo demás de esta página funciona exactamente igual en las ejecuciones de loop — las métricas en vivo, las tarjetas de spec, el compositor. Los trabajos que no son de loop conservan el log en streaming clásico de arriba.
+La exploración del grafo y el desplazamiento pausado del log se conservan al cambiar de sección. Los trabajos sin loop muestran el detalle sin control de grafo.
 
 ## Habla con el trabajo en marcha
 
@@ -109,7 +97,7 @@ Práctico para compartir una ejecución con un compañero o para abrir un inform
 
 ## Cuando una ejecución falla
 
-Cuando un trabajo falla, se detiene o queda bloqueado, el estado final empieza con una **tarjeta de diagnóstico** que cuenta qué pasó en lenguaje claro, por ejemplo *Las pruebas fallaron en la fase Reviewer tras 4 rondas de correcciones*, y por qué cuando la app lo sabe:
+En trabajos fallidos o cancelados con diagnóstico, **Motivos del fallo** abre la **tarjeta de diagnóstico** con la causa y, cuando se conoce, el motivo. No aparece un resumen de causa encima de las pestañas:
 
 - **Pruebas fallidas**: las comprobaciones siguen fallando tras las rondas de correcciones.
 - **Límite del proveedor**: se alcanzó el límite de uso del proveedor de IA. La tarjeta cita cuándo se restablece, con las palabras del propio proveedor.

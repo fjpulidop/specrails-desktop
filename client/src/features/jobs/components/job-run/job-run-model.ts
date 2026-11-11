@@ -223,27 +223,55 @@ export function formatPipelineTokens(p: PipelineTotals): string {
 
 export const JOB_RUN_DETAILS_KEY = 'specrails-desktop:job-run-details'
 export type JobRunSurface = 'page' | 'glass'
+export type RunDetailSurface = 'page' | 'modal'
+export type RunLogSection = 'graph' | 'detail'
+export const JOB_RUN_LOG_SECTION_KEY = 'specrails-desktop:job-run-log-section'
 
-export function loadJobRunDetailsOpen(surface: JobRunSurface): boolean {
+export function loadJobRunDetailsOpen(surface: JobRunSurface | RunDetailSurface): boolean {
   try {
     const raw = localStorage.getItem(JOB_RUN_DETAILS_KEY)
     if (!raw) return false
     const parsed = JSON.parse(raw) as Record<string, unknown>
-    return parsed?.[surface] === true
+    return parsed?.[surface === 'modal' ? 'glass' : surface] === true
   } catch {
     return false
   }
 }
 
-export function saveJobRunDetailsOpen(surface: JobRunSurface, open: boolean): void {
+export function saveJobRunDetailsOpen(surface: JobRunSurface | RunDetailSurface, open: boolean): void {
   try {
     const raw = localStorage.getItem(JOB_RUN_DETAILS_KEY)
     let parsed: Record<string, unknown> = {}
     if (raw) {
-      try { const p = JSON.parse(raw); if (p && typeof p === 'object') parsed = p } catch { /* reset */ }
+      try { const p = JSON.parse(raw); if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p } catch { /* reset */ }
     }
-    parsed[surface] = open
+    parsed[surface === 'modal' ? 'glass' : surface] = open
     localStorage.setItem(JOB_RUN_DETAILS_KEY, JSON.stringify(parsed))
+  } catch {
+    /* storage unavailable — the session-local choice still applies */
+  }
+}
+
+export function loadJobRunLogSection(surface: RunDetailSurface): RunLogSection {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(JOB_RUN_LOG_SECTION_KEY) ?? 'null')
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return 'graph'
+    const section = (parsed as Record<string, unknown>)[surface]
+    return section === 'detail' ? 'detail' : 'graph'
+  } catch {
+    return 'graph'
+  }
+}
+
+export function saveJobRunLogSection(surface: RunDetailSurface, section: RunLogSection): void {
+  try {
+    let preferences: Record<string, unknown> = {}
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem(JOB_RUN_LOG_SECTION_KEY) ?? 'null')
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) preferences = parsed as Record<string, unknown>
+    } catch { /* reset invalid preferences */ }
+    preferences[surface] = section
+    localStorage.setItem(JOB_RUN_LOG_SECTION_KEY, JSON.stringify(preferences))
   } catch {
     /* storage unavailable — the session-local choice still applies */
   }
