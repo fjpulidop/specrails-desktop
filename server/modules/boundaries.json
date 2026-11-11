@@ -1253,7 +1253,8 @@
         "./pr-ci/pr-ci-projection",
         "./rail-isolated-launch",
         "./rail-pr-store",
-        "./rail-pr-ticket-effects"
+        "./rail-pr-ticket-effects",
+        "node:path"
       ],
       "runtime/phase3-harvest.ts": [
         "../../../db",
@@ -1293,11 +1294,13 @@
         "./pr-ci-offer"
       ],
       "runtime/pr-ci/pr-ci-settlement.ts": [
+        "../../../../db",
         "../../../../worktree-manager",
         "../../domain/state",
         "../pr-lifecycle",
         "../pr-publisher",
-        "../rail-pr-store"
+        "../rail-pr-store",
+        "node:fs"
       ],
       "runtime/pr-ci/pr-ci-target.ts": [
         "../../../../db",
@@ -1511,6 +1514,7 @@
         "./multi-repo-execution-store",
         "./pr-ci/pr-ci-offer",
         "./pr-ci/pr-ci-projection",
+        "./pr-ci/pr-ci-settlement",
         "./pr-follow-up",
         "./pr-lifecycle",
         "./pr-publisher",
