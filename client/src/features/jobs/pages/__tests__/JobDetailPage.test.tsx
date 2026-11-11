@@ -831,7 +831,9 @@ describe('JobDetailPage', () => {
       fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
       expect(screen.getByRole('status')).toHaveTextContent('Earlier log output omitted from this view')
       expect(screen.getByRole('status')).toBeVisible()
-    })
+      // Opening Log detail renders the retained 10k-line tail (LogViewer is not
+      // virtualized): ~1s in jsdom, past the 5s default under CI coverage.
+    }, 20_000)
 
     it('attributes a delayed live summary to its original parallel attempt', async () => {
       const starts = ['Verify A', 'Verify B'].map((title, index) => ({ ...loopEvents[1],
