@@ -76,7 +76,7 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
   const openRun = () => focusPrCard({ prDeliveryId: row.runDeliveryId ?? row.prDeliveryId, runIds: row.runId ? [row.runId] : [], conversationId })
 
   if (state === 'dismissed') {
-    return <p data-testid="agent-pr-ci-offer" data-state="dismissed" className="text-xs text-muted-foreground/80">{t('prCi.dismissed', { pr })}</p>
+    return <p data-testid="agent-pr-ci-offer" data-state="dismissed" className="text-xs text-muted-foreground">{t('prCi.dismissed', { pr })}</p>
   }
   const tone = state === 'green' || state === 'no-ci' ? 'success' : state === 'needs-attention' ? 'warning' : 'info'
   const Icon = state === 'green' || state === 'no-ci' ? CheckCircle2 : state === 'needs-attention' ? AlertTriangle : state === 'started' ? Workflow : ShieldCheck
@@ -100,7 +100,7 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
               : state === 'green' ? t('prCi.greenBody', { pushes: row.pushes ?? 0, rounds: row.rounds ?? 0, count: row.pushes ?? 0 })
               : t('prCi.noCiBody')}
           </p>
-          {state === 'offered' && <p className="mt-1 leading-4 text-muted-foreground/80">{t('prCi.guarantee')}</p>}
+          {state === 'offered' && <p className="mt-1 leading-4 text-muted-foreground">{t('prCi.guarantee')}</p>}
           {error && <p role="alert" data-testid="agent-pr-ci-offer-error" className="mt-1.5 flex items-start gap-1.5 leading-4 text-destructive"><AlertTriangle className="mt-px h-3 w-3 shrink-0" aria-hidden />{error}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {state === 'offered' && (
