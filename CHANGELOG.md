@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.1.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.0.0...v3.1.0) (2026-11-09)
+
+
+### Features
+
+* **desktop:** run the development app next to the installed one ([#843](https://github.com/fjpulidop/specrails-desktop/issues/843)) ([744ad87](https://github.com/fjpulidop/specrails-desktop/commit/744ad87d0f49bdc6f47222a09836f91e4d998afb))
+
+
+### Bug Fixes
+
+* **desktop:** leave unstaged release resources out of the dev bundle ([8e024ba](https://github.com/fjpulidop/specrails-desktop/commit/8e024ba7242d727e0e054c1032792f9b7858081d))
+* **jobs:** answer a paused run's question from the job composer ([#845](https://github.com/fjpulidop/specrails-desktop/issues/845)) ([e96d7fd](https://github.com/fjpulidop/specrails-desktop/commit/e96d7fdb4788112ec1108b498a28fbdfdda95a4b))
+
 ## [3.0.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.65.1...v3.0.0) (2026-11-03)
 
 

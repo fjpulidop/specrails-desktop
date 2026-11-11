@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef } from 'react'
 import { ARG_ACTIONS, deriveFrameActivity } from '../../../browser/lib/frame-activity'
 import { parseJobTimestamp } from '../../lib/job-time'
 import type { EventRow, JobSummary } from '../../../../types'
+import type { RuntimeRun } from '../../../settings/lib/agent-runtime'
 import { formatUsd } from '../../../analytics/lib/format'
 
 // ─── Pure model behind JobRunHeader ──────────────────────────────────────────
@@ -274,4 +275,9 @@ export function saveJobRunLogSection(surface: RunDetailSurface, section: RunLogS
   } catch {
     /* storage unavailable — the session-local choice still applies */
   }
+}
+
+/** The run when its continuation waits on a human answer (and nothing must be recovered first). */
+export function answerableRun(run: RuntimeRun | undefined): RuntimeRun | undefined {
+  return run?.pendingQuestion && run.canResume && !run.recoverableSteps.length ? run : undefined
 }

@@ -19,8 +19,9 @@ import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMe
 import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeExecutionEvidence'
 import { RuntimeSteering } from '../../../settings/components/RuntimeSteering'
 import { availableRemedies, logTailLines, openLogsAtFailure, readFailureDiagnosis, type FailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
-import { useRuntimeRuns } from './useRuntimeRuns'
+import { useRuntimeRuns, type RuntimeRunsState } from './useRuntimeRuns'
 import {
+  answerableRun,
   extractModifiedFiles,
   finalMetricsFor,
   formatPipelineCost,
@@ -82,6 +83,9 @@ export interface JobRunHeaderProps {
   onEditSpec?(): void
   /** Brings the failure into view in the surface's log; defaults to the loop log's last failed step. */
   onOpenLogs?(): void
+  /** The surface's runtime continuation state, shared with its composer so an
+   *  answer typed in either place is the same draft. Absent ⇒ the header polls its own. */
+  runtime?: RuntimeRunsState
 }
 
 /**
@@ -90,7 +94,7 @@ export interface JobRunHeaderProps {
  * Row 2: the pipeline chips, once. The surface renderer receives truthful
  * metrics and runtime continuation content for its bounded Details panel.
  */
-export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun, onRerun, rerunBusy, onEditSpec, onOpenLogs, renderRunDetails }: JobRunHeaderProps) {
+export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun, onRerun, rerunBusy, onEditSpec, onOpenLogs, renderRunDetails, runtime: sharedRuntime }: JobRunHeaderProps) {
   const { t } = useTranslation('jobs')
   const { t: tRuntime } = useTranslation('agentRuntime')
   const { t: tRecovery } = useTranslation('recovery')
@@ -114,7 +118,8 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
       : '—'
 
   const activity = useJobActivity(job.id, events)
-  const runtime = useRuntimeRuns(projectId, { jobId: job.id, enabled: !!projectId })
+  const ownRuntime = useRuntimeRuns(projectId, { jobId: job.id, enabled: !!projectId && !sharedRuntime })
+  const runtime = sharedRuntime ?? ownRuntime
   const run: RuntimeRun | undefined = runtime.runs[0]
 
   const [detailsRequest, setDetailsRequest] = useState(0)
@@ -148,7 +153,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const modifiedFiles = useMemo(() => (isTerminal ? extractModifiedFiles(events) : []), [events, isTerminal])
   const hasLiveCounters = isRunning && activity.turns > 0
   const runtimeError = runtime.runs.length > 0 ? runtime.error : ''
-  const answerable = !!run?.pendingQuestion && !!run.canResume && !run.recoverableSteps.length
+  const answerable = !!answerableRun(run)
   const hasRuntimeDetails = !!run && !!projectId
   const hasDetails = isTerminal || hasLiveCounters || hasRuntimeDetails || !!runtimeError
 

@@ -127,6 +127,29 @@ describe('focusSettingAnchor', () => {
     }
   })
 
+  it('waits for a still-loading pane to render a control, then flashes the bare block at the deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      document.body.innerHTML = '<div data-setting-id="late"><p>Loading…</p></div>'
+      const cancel = focusSettingAnchor('late')
+      const block = document.querySelector('[data-setting-id="late"]')!
+      expect(block).not.toHaveAttribute('data-setting-flash')
+      block.innerHTML = '<input id="late-in" />'
+      await vi.advanceTimersByTimeAsync(100)
+      expect(block).toHaveAttribute('data-setting-flash', 'true')
+      expect(document.activeElement?.id).toBe('late-in')
+      cancel()
+
+      document.body.innerHTML = '<div data-setting-id="bare"></div>'
+      focusSettingAnchor('bare')
+      await vi.advanceTimersByTimeAsync(3100)
+      expect(document.querySelector('[data-setting-id="bare"]')).toHaveAttribute('data-setting-flash', 'true')
+    } finally {
+      vi.useRealTimers()
+      document.body.innerHTML = ''
+    }
+  })
+
   it('gives up quietly when the anchor never appears', async () => {
     vi.useFakeTimers()
     try {
