@@ -323,7 +323,9 @@
       "flowSpecChanges": "Noch nicht fertig: Der Reviewer hat Änderungen angefordert",
       "flowSpecDelivered": "Dein Intent ist jetzt ein geprüfter PR",
       "flowSpecFailed": "Die Übergabe wurde angehalten",
-      "flowSpecBuilding": "Dein Intent wird zu einem geprüften PR"
+      "flowSpecBuilding": "Dein Intent wird zu einem geprüften PR",
+      "ci_green": "PR bereit — CI ist grün",
+      "ci_needs_attention": "PR bereit — CI braucht Aufmerksamkeit"
     },
     "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
     "buildingExistingPrHint": "Specrails arbeitet auf dem Branch des bestehenden PRs und pusht die Review-Änderungen zurück in denselben PR.",
@@ -490,7 +492,11 @@
       "publish": "Der PR konnte nicht veröffentlicht werden",
       "generic": "Die Lieferung wurde angehalten. Siehe technische Details."
     },
-    "moreActions": "Weitere Aktionen"
+    "moreActions": "Weitere Aktionen",
+    "ci": {
+      "green": "Alle Checks sind grün.",
+      "attention": "Die CI-Schleife hat angehalten, bevor die Checks grün wurden. Der PR behält alles, was gepusht wurde."
+    }
   },
   "specDraft": {
     "heading": "Spec-Entwurf",
@@ -1504,7 +1510,8 @@
       "base": "Synchronisiere mit dem Basis-Branch",
       "conflicts": "Löse Konflikte mit dem Basis-Branch",
       "verify": "Prüfe lokal",
-      "push": "Pushe die Korrektur in den PR"
+      "push": "Pushe die Korrektur in den PR",
+      "watching": "CI wird überwacht"
     },
     "titleMany": "CI der PRs {{pr}} überwachen und reparieren",
     "startedMany": "CI der PRs {{pr}} wird auf {{rail}} überwacht",

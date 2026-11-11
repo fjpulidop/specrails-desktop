@@ -86,7 +86,9 @@
     "restart_pending": "En attente de la récupération du workflow",
     "review_changes_requested": "Le relecteur a demandé des modifications",
     "returned_to_flow": "Revenu dans Intent",
-    "local_changes_attention": "Intégré — les modifications locales demandent votre attention"
+    "local_changes_attention": "Intégré — les modifications locales demandent votre attention",
+    "ci_green": "CI verte",
+    "ci_needs_attention": "La CI demande votre attention"
   },
   "prRecovery": {
     "inProgress": "La récupération du projet est toujours en cours. Votre livraison est en sécurité ; réessayez dans un instant.",

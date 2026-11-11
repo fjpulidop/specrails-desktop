@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1366 source/build files. Nearby tests are linked where names
+Includes 1367 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1588,6 +1588,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [pr-ci-handlers.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-handlers.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-handlers.test.ts)
 - [pr-ci-offer.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.test.ts)
 - [pr-ci-projection.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-projection.ts)
+- [pr-ci-settlement.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.test.ts)
 - [pr-ci-target.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-target.ts)
 
 ## server/modules/execution

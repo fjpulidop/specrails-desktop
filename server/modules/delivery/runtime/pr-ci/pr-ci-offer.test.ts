@@ -110,3 +110,15 @@ describe('PR CI offer for a multi-repository generation', () => {
     expect(h.value.getSystemRow('conv-1', prCiOfferKey(missing))).toBeNull()
   })
 })
+
+describe('PR CI offer terminal state from the recorded CI status', () => {
+  it('uses the settlement reason, per repository for a multi-repository generation', () => {
+    expect(prCiTerminalState({ decision: 'pr_draft', implementation_outcome: 'succeeded', status_code: 'ci_needs_attention', status_detail: 'flaky: test X' }, [{ task: 'pr.checks', outcome: 'red' }]))
+      .toEqual({ state: 'needs-attention', reason: 'flaky: test X', pushes: 0, rounds: 1 })
+    expect(prCiTerminalState({ decision: 'pr_draft', implementation_outcome: 'succeeded', status_code: null, status_detail: null }, [], [
+      { decision: 'pr_draft', implementation_outcome: 'succeeded', status_code: 'ci_green', status_detail: null, repository_path: '/r/app' },
+      { decision: 'pr_draft', implementation_outcome: 'succeeded', status_code: 'ci_needs_attention', status_detail: 'infrastructure: registry timeout', repository_path: '/r/lib' },
+    ])).toMatchObject({ state: 'needs-attention', reason: 'lib: infrastructure: registry timeout' })
+    expect(prCiTerminalState({ decision: 'pr_ready', implementation_outcome: 'succeeded', status_code: 'ci_green', status_detail: null }, [{ task: 'pr.checks', outcome: 'none' }])).toMatchObject({ state: 'no-ci' })
+  })
+})

@@ -56,6 +56,7 @@ import { isTextEntry, registerRunStrip, RUN_STRIP_ARIA_KEYS, RUN_STRIP_KEYS, str
 import type { PinnedRailProposal } from './useRailLaunchProposals'
 import { LiveDot } from '../../../components/ui/live-dot'
 import { describePrCiStep } from '../lib/pr-ci-steps'
+import { PR_CI_LOOP_ID } from '../../delivery/lib/pr-ci'
 
 /** The strip's primary action style (the shared primary recipe) — extensions reuse it. */
 export const RUN_STRIP_PRIMARY = PRIMARY_ACTION
@@ -223,9 +224,12 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       headlineText = t('runStrip.launching', { rail: label })
     } else if (tone === 'running') {
       const described = summary?.step ? describePrCiStep(t, loopId, summary.step) ?? describeRun?.(t, { loopId, stepId: summary.step, codes: [] })?.step ?? null : null
-      headlineText = described ?? (summary?.step ? humanizeStepId(summary.step) : t('runStrip.running'))
+      headlineText = described ?? (loopId === PR_CI_LOOP_ID ? t('prCi.step.watching') : summary?.step ? humanizeStepId(summary.step) : t('runStrip.running'))
     } else if (tone === 'paused') {
       headlineText = summary?.pausedReason ? t('runStrip.pausedReason', { reason: summary.pausedReason }) : t('runStrip.paused')
+    } else if (envelope.statusCode === 'ci_needs_attention' || envelope.statusCode === 'ci_green') {
+      // pr-ci-loop: the CI outcome on the PR, not an implementation verdict.
+      headlineText = t(envelope.statusCode === 'ci_green' ? 'prCard.ci.green' : 'prCard.ci.attention')
     } else if (tone === 'info') {
       headlineText = t(`runStrip.decision.${envelope.decision}`, { defaultValue: t('runStrip.decision.generic') })
     } else if (tone === 'decision') {

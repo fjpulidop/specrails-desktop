@@ -323,7 +323,9 @@
       "flowSpecChanges": "Pas encore prêt : le relecteur a demandé des modifications",
       "flowSpecDelivered": "Votre Intent est maintenant une PR relue",
       "flowSpecFailed": "La remise s’est arrêtée",
-      "flowSpecBuilding": "Votre Intent devient une PR relue"
+      "flowSpecBuilding": "Votre Intent devient une PR relue",
+      "ci_green": "PR prête — CI verte",
+      "ci_needs_attention": "PR prête — la CI demande votre attention"
     },
     "buildingHint": "À la fin, il vous sera proposé de créer la PR.",
     "buildingExistingPrHint": "Specrails travaille sur la branche de la PR existante et poussera les changements de revue vers cette même PR.",
@@ -490,7 +492,11 @@
       "publish": "Impossible de publier la PR",
       "generic": "La livraison s'est arrêtée. Voir les détails techniques."
     },
-    "moreActions": "Plus d'actions"
+    "moreActions": "Plus d'actions",
+    "ci": {
+      "green": "Tous les checks sont verts.",
+      "attention": "La boucle de CI s’est arrêtée avant que les checks passent au vert. La PR conserve tout ce qui a été poussé."
+    }
   },
   "specDraft": {
     "heading": "Brouillon de spec",
@@ -1504,7 +1510,8 @@
       "base": "Synchronisation avec la branche de base",
       "conflicts": "Résolution des conflits avec la branche de base",
       "verify": "Vérification en local",
-      "push": "Envoi de la correction dans la PR"
+      "push": "Envoi de la correction dans la PR",
+      "watching": "Surveillance de la CI"
     },
     "titleMany": "Surveiller et corriger la CI des PR {{pr}}",
     "startedMany": "Surveillance de la CI des PR {{pr}} sur {{rail}}",

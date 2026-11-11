@@ -86,7 +86,9 @@
     "restart_pending": "ワークフローの復旧を待機中",
     "review_changes_requested": "レビュアーが変更を依頼",
     "returned_to_flow": "Intent に戻しました",
-    "local_changes_attention": "統合済み — ローカル変更の確認が必要です"
+    "local_changes_attention": "統合済み — ローカル変更の確認が必要です",
+    "ci_green": "CI グリーン",
+    "ci_needs_attention": "CI に対応が必要"
   },
   "prRecovery": {
     "inProgress": "プロジェクトの復旧が進行中です。配信内容は安全に保たれています。しばらくしてから再試行してください。",

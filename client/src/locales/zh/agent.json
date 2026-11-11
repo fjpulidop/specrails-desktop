@@ -323,7 +323,9 @@
       "flowSpecChanges": "尚未就绪：审阅者要求修改",
       "flowSpecDelivered": "你的 Intent 已成为经过评审的 PR",
       "flowSpecFailed": "移交已停止",
-      "flowSpecBuilding": "正在把你的 Intent 变成经过评审的 PR"
+      "flowSpecBuilding": "正在把你的 Intent 变成经过评审的 PR",
+      "ci_green": "PR 已就绪 — CI 全部通过",
+      "ci_needs_attention": "PR 已就绪 — CI 需要处理"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
@@ -490,7 +492,11 @@
       "publish": "无法发布 PR",
       "generic": "交付已停止。请查看技术详情。"
     },
-    "moreActions": "更多操作"
+    "moreActions": "更多操作",
+    "ci": {
+      "green": "所有检查均已通过。",
+      "attention": "CI 循环在检查通过之前停止了。PR 保留了已推送的全部内容。"
+    }
   },
   "specDraft": {
     "heading": "规格草稿",
@@ -1504,7 +1510,8 @@
       "base": "正在与基础分支同步",
       "conflicts": "正在解决与基础分支的冲突",
       "verify": "正在本地验证",
-      "push": "正在将修复推送到 PR"
+      "push": "正在将修复推送到 PR",
+      "watching": "正在监控 CI"
     },
     "titleMany": "监控并修复 PR {{pr}} 的 CI",
     "startedMany": "正在 {{rail}} 上监控 PR {{pr}} 的 CI",

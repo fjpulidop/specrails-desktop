@@ -86,7 +86,9 @@
     "restart_pending": "A aguardar a recuperação do workflow",
     "review_changes_requested": "O revisor solicitou alterações",
     "returned_to_flow": "Devolvido ao Intent",
-    "local_changes_attention": "Integrado — as alterações locais precisam de atenção"
+    "local_changes_attention": "Integrado — as alterações locais precisam de atenção",
+    "ci_green": "CI verde",
+    "ci_needs_attention": "O CI precisa de atenção"
   },
   "prRecovery": {
     "inProgress": "A recuperação do projeto ainda está em andamento. Sua entrega está segura; tente novamente em instantes.",

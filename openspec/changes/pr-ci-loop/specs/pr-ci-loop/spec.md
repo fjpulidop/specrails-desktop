@@ -38,6 +38,15 @@ After a mission delivery reaches `pr_draft` or `pr_ready` with an attached PR â€
 - **WHEN** the same checks fail and the fixer changes nothing
 - **THEN** a cause outside the code (flaky test, infrastructure, network or registry timeout) ends the run `not-fixable` and reports each check with its classification, without retrying; a code failure the fixer could not change ends `stalled` with its diagnosis
 
+### Requirement: The PR stays the deliverable of a CI loop
+
+A CI loop generation SHALL settle attached to its OPEN PR at the head GitHub exposes, in the PR's draft or ready state, with the CI outcome (`ci_green` or `ci_needs_attention` with Core's reason) as its status. It SHALL never be presented as an implementation failure, and unverified local work SHALL be kept on a delivery-owned ref instead of remaining on the PR branch.
+
+#### Scenario: Loop stops before green
+
+- **WHEN** the loop ends because the remaining failures are not caused by the code
+- **THEN** the delivery is "PR ready â€” CI needs attention" with the fixer's report, and the PR actions (publish, verify, integrate) stay available
+
 ### Requirement: Pushes are verified, never forced, and never decide the PR
 
 The PR handlers SHALL never force-push or rebase, SHALL push only a candidate Core attests as verified, SHALL refuse fork PRs and closed or retargeted PRs, and SHALL never publish the draft, merge or close the PR. A remote branch that moved SHALL be merged, never overwritten.

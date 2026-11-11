@@ -1296,6 +1296,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           ? t('prCard.title.pr_closed')
           : presentation.partial
             ? t('prCard.title.partial')
+            : envelope.statusCode === 'ci_needs_attention'
+                ? t('prCard.title.ci_needs_attention')
+            : envelope.statusCode === 'ci_green'
+                ? t('prCard.title.ci_green')
             : envelope.statusCode === 'existing_pr_updated'
                 ? t('prCard.title.existing_pr_updated')
                 : degradedDraft ? t('prCard.title.pr_draft_degraded')
@@ -1650,6 +1654,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               : t(presentation.partial ? 'prCard.partialDeliveryBlockedNote' : 'prCard.deliveryBlockedNote')}
             {envelope.statusDetail && !interruptedOperationDetail && !presentation.recoveryUnavailable
               ? <span className="mt-0.5 block text-muted-foreground">{statusDetail?.text}</span>
+              : null}
+          </span>
+        </p>
+      )}
+
+      {/* pr-ci-loop: the CI loop's outcome on the PR it watched (the PR stays the deliverable). */}
+      {(envelope.statusCode === 'ci_needs_attention' || envelope.statusCode === 'ci_green') && (
+        <p data-testid="agent-pr-ci-status" data-state={envelope.statusCode}
+          className={cn('mt-2 flex items-start gap-1.5 text-xs leading-4', envelope.statusCode === 'ci_green' ? 'text-accent-success' : 'text-accent-warning')}>
+          {envelope.statusCode === 'ci_green' ? <CheckCircle2 className="mt-px h-3 w-3 shrink-0" /> : <AlertTriangle className="mt-px h-3 w-3 shrink-0" />}
+          <span>
+            {t(envelope.statusCode === 'ci_green' ? 'prCard.ci.green' : 'prCard.ci.attention')}
+            {envelope.statusCode === 'ci_needs_attention' && envelope.statusDetail
+              ? <span className="mt-0.5 block whitespace-pre-line text-muted-foreground">{envelope.statusDetail}</span>
               : null}
           </span>
         </p>

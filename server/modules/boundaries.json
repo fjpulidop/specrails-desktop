@@ -1292,6 +1292,13 @@
         "../rail-pr-store",
         "./pr-ci-offer"
       ],
+      "runtime/pr-ci/pr-ci-settlement.ts": [
+        "../../../../worktree-manager",
+        "../../domain/state",
+        "../pr-lifecycle",
+        "../pr-publisher",
+        "../rail-pr-store"
+      ],
       "runtime/pr-ci/pr-ci-target.ts": [
         "../../../../db",
         "../isolated-settlement-store",
@@ -1359,6 +1366,8 @@
         "./multi-repo-execution-store",
         "./phase3-harvest",
         "./pr-ci/pr-ci-projection",
+        "./pr-ci/pr-ci-settlement",
+        "./pr-ci/pr-ci-target",
         "./pr-follow-up",
         "./pr-lifecycle",
         "./pr-naming",

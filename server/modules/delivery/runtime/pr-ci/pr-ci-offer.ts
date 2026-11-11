@@ -82,16 +82,34 @@ export function readHostTaskOutcomes(db: DbInstance, runId: string): Array<{ tas
   } catch { return [] }
 }
 
-/** Pure: the offer's terminal state from the CI loop generation's settled row and its host-task history. */
-export function prCiTerminalState(row: Pick<RailPrDeliveryRow, 'decision' | 'implementation_outcome' | 'status_detail'>, outcomes: ReadonlyArray<{ task: string; outcome: string }>): Pick<PrCiOfferRow, 'state' | 'reason' | 'pushes' | 'rounds'> {
+type SettledRow = Pick<RailPrDeliveryRow, 'decision' | 'implementation_outcome' | 'status_code' | 'status_detail'> & { repository_path?: string | null }
+
+/**
+ * Pure: the offer's terminal state from the CI loop generation's settled row
+ * (and, for a multi-repository generation, its repository rows) plus its
+ * host-task history. `ci_green` / `ci_needs_attention` are the CI outcome the
+ * settlement recorded; anything else (closed PR, older rows) falls back to the
+ * generation's own state.
+ */
+export function prCiTerminalState(row: SettledRow, outcomes: ReadonlyArray<{ task: string; outcome: string }>, repositories: readonly SettledRow[] = []): Pick<PrCiOfferRow, 'state' | 'reason' | 'pushes' | 'rounds'> {
   const pushes = outcomes.filter(entry => entry.task === 'pr.sync' && entry.outcome === 'pushed').length
   const rounds = outcomes.filter(entry => entry.task === 'pr.checks' && entry.outcome === 'red').length
   const lastChecks = [...outcomes].reverse().find(entry => entry.task === 'pr.checks')?.outcome
+  const rows = repositories.length ? repositories : [row]
+  const attention = rows.filter(entry => entry.status_code === 'ci_needs_attention')
+  if (attention.length) {
+    const reason = attention.map(entry => {
+      const text = (entry.status_detail ?? '').trim() || 'The CI loop stopped before the checks turned green.'
+      return repositories.length && entry.repository_path ? `${path.basename(entry.repository_path)}: ${text}` : text
+    }).join('\n')
+    return { state: 'needs-attention', reason: reason.slice(0, 1200), pushes, rounds }
+  }
+  if (rows.every(entry => entry.status_code === 'ci_green')) return { state: lastChecks === 'none' ? 'no-ci' : 'green', pushes, rounds }
   const succeeded = row.implementation_outcome === 'succeeded' && (row.decision === 'pr_draft' || row.decision === 'pr_ready' || row.decision === 'merged')
   if (succeeded && lastChecks === 'green') return { state: 'green', pushes, rounds }
   if (succeeded && lastChecks === 'none') return { state: 'no-ci', pushes, rounds }
   const reason = (row.status_detail ?? '').trim() || 'The CI loop stopped before the checks turned green.'
-  return { state: 'needs-attention', reason: reason.slice(0, 600), pushes, rounds }
+  return { state: 'needs-attention', reason: reason.slice(0, 1200), pushes, rounds }
 }
 
 /**
@@ -119,7 +137,7 @@ export function projectPrCiOffer(db: DbInstance, projectId: string, host: PrCiOf
         ...(runId ? { runId } : {}), runDeliveryId: row.id }
       const next: PrCiOfferRow = row.decision === 'building'
         ? { ...base, state: 'started', at }
-        : { ...base, ...prCiTerminalState(row, runId ? readHostTaskOutcomes(db, runId) : []), at }
+        : { ...base, ...prCiTerminalState(row, runId ? readHostTaskOutcomes(db, runId) : [], row.execution_manifest ? readRepositoryDeliveries(db, row.id) : []), at }
       if (previous?.state && TERMINAL.has(previous.state as PrCiOfferState) && previous.runDeliveryId === row.id && next.state === 'started') return
       host.upsertSystemRow(conversationId, { ...next }, key)
       return

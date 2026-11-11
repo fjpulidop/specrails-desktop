@@ -104,7 +104,7 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
               : state === 'no-ci' ? t(`prCi.${k('noCi')}`, { pr })
               : t(`prCi.${k('needsAttention')}`, { pr })}
           </p>
-          <p className="mt-1 leading-4 text-muted-foreground">
+          <p className="mt-1 whitespace-pre-line leading-4 text-muted-foreground">
             {state === 'offered' ? t('prCi.body')
               : state === 'started' ? t('prCi.startedBody')
               : state === 'needs-attention' ? (row.reason ?? t('prCi.needsAttentionBody'))

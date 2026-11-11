@@ -313,7 +313,9 @@
       "flowSpecChanges": "Aún no está listo: el revisor pidió cambios",
       "flowSpecDelivered": "Tu Intent ya es un PR revisado",
       "flowSpecFailed": "El paso a un rail se detuvo",
-      "flowSpecBuilding": "Convirtiendo tu Intent en un PR revisado"
+      "flowSpecBuilding": "Convirtiendo tu Intent en un PR revisado",
+      "ci_green": "PR lista — CI en verde",
+      "ci_needs_attention": "PR lista — el CI necesita atención"
     },
     "buildingHint": "Cuando termine, se te preguntará si crear la PR.",
     "buildingExistingPrHint": "Specrails está trabajando sobre la rama de la PR existente y subirá los cambios de revisión a esa misma PR.",
@@ -490,7 +492,11 @@
       "publish": "No se pudo publicar el PR",
       "generic": "La entrega se detuvo. Mira los detalles técnicos."
     },
-    "moreActions": "Más acciones"
+    "moreActions": "Más acciones",
+    "ci": {
+      "green": "Todos los checks están en verde.",
+      "attention": "El loop de CI se detuvo antes de que los checks quedaran en verde. La PR conserva todo lo que subió."
+    }
   },
   "specDraft": {
     "heading": "Borrador de spec",
@@ -1504,7 +1510,8 @@
       "base": "Sincronizando con la rama base",
       "conflicts": "Resolviendo conflictos con la rama base",
       "verify": "Verificando en local",
-      "push": "Subiendo cambios a la PR"
+      "push": "Subiendo cambios a la PR",
+      "watching": "Vigilando el CI"
     },
     "titleMany": "Vigilar y arreglar el CI de las PRs {{pr}}",
     "startedMany": "Vigilando el CI de las PRs {{pr}} en {{rail}}",

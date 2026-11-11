@@ -313,7 +313,9 @@
       "flowSpecChanges": "Not ready yet: the reviewer requested changes",
       "flowSpecDelivered": "Your Intent is now a reviewed PR",
       "flowSpecFailed": "The hand-off stopped",
-      "flowSpecBuilding": "Turning your Intent into a reviewed PR"
+      "flowSpecBuilding": "Turning your Intent into a reviewed PR",
+      "ci_green": "PR ready — CI is green",
+      "ci_needs_attention": "PR ready — CI needs attention"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
     "buildingExistingPrHint": "Specrails is working on the existing PR branch and will push the review changes back to that PR.",
@@ -490,7 +492,11 @@
       "publish": "Couldn't publish the PR",
       "generic": "Delivery stopped. See technical details."
     },
-    "moreActions": "More actions"
+    "moreActions": "More actions",
+    "ci": {
+      "green": "All checks are green.",
+      "attention": "The CI loop stopped before the checks turned green. The PR keeps everything it pushed."
+    }
   },
   "specDraft": {
     "heading": "Spec draft",
@@ -1504,7 +1510,8 @@
       "base": "Syncing with the base branch",
       "conflicts": "Resolving conflicts with the base branch",
       "verify": "Verifying locally",
-      "push": "Pushing the fix to the PR"
+      "push": "Pushing the fix to the PR",
+      "watching": "Watching CI"
     },
     "titleMany": "Watch and fix the CI of PRs {{pr}}",
     "startedMany": "Watching the CI of PRs {{pr}} on {{rail}}",

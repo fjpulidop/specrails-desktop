@@ -323,7 +323,9 @@
       "flowSpecChanges": "まだ完成していません：レビュアーが変更を求めました",
       "flowSpecDelivered": "Intent がレビュー済みの PR になりました",
       "flowSpecFailed": "引き渡しが停止しました",
-      "flowSpecBuilding": "Intent をレビュー済みの PR にしています"
+      "flowSpecBuilding": "Intent をレビュー済みの PR にしています",
+      "ci_green": "PR 準備完了 — CI はグリーン",
+      "ci_needs_attention": "PR 準備完了 — CI に対応が必要"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -490,7 +492,11 @@
       "publish": "PR を公開できませんでした",
       "generic": "配信が停止しました。技術的な詳細を確認してください。"
     },
-    "moreActions": "その他の操作"
+    "moreActions": "その他の操作",
+    "ci": {
+      "green": "すべてのチェックがグリーンです。",
+      "attention": "チェックがグリーンになる前に CI ループが停止しました。PR にはプッシュ済みの内容がすべて残っています。"
+    }
   },
   "specDraft": {
     "heading": "スペック下書き",
@@ -1504,7 +1510,8 @@
       "base": "ベースブランチと同期中",
       "conflicts": "ベースブランチとのコンフリクトを解決中",
       "verify": "ローカルで検証中",
-      "push": "修正を PR にプッシュ中"
+      "push": "修正を PR にプッシュ中",
+      "watching": "CI を監視中"
     },
     "titleMany": "PR {{pr}} の CI を監視して修正",
     "startedMany": "{{rail}} で PR {{pr}} の CI を監視中",
