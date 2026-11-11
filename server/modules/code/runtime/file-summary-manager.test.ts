@@ -804,9 +804,12 @@ describe('FileSummaryManager bug-fix regressions', () => {
         triggeredBy: { kind: 'user', id: 'u', ticketId: null },
       }),
     )
-    // Let the pump start the first two generations (they await the gate).
-    await new Promise((r) => setTimeout(r, 20))
+    // Let the pump start the first two generations (they await the gate). Wait
+    // for them rather than a fixed delay: under a loaded full-suite run the pump
+    // can take longer than any fixed sleep.
+    await vi.waitFor(() => expect(genFn).toHaveBeenCalledTimes(2), { timeout: 5000 })
     // The third is held back by the reservation re-check, never started.
+    await new Promise((r) => setTimeout(r, 20))
     expect(genFn).toHaveBeenCalledTimes(2)
     release()
     const results = await Promise.all(promises)
