@@ -268,16 +268,21 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
             </>
           ) : <span aria-hidden>—</span>}
         </span>
-        <Dot />
-        <span data-testid="mission-run-strip-cost" title={totals.costPartial ? t('runStrip.costPartial') : t('runStrip.costTitle')}>
-          <span aria-hidden>{totals.costUsd !== null ? `${formatRunCost(totals.costUsd)}${totals.costPartial ? '*' : ''}` : '—'}</span>
-          <span className="sr-only">
-            {totals.costUsd !== null ? t('prCard.runCostAria', { cost: formatRunCost(totals.costUsd) }) : t('runStrip.costNone')}
-            {totals.costUsd !== null && !totals.costPartial ? ` (${t('runStrip.costTitle')})` : ''}
-          </span>
-          {/* The `*` is said in words too, not only in a tooltip. */}
-          {totals.costPartial && <span className="sr-only" data-testid="mission-run-strip-cost-partial"> ({t('runStrip.costPartial')})</span>}
-        </span>
+        {/* No billed cost yet (a run that only waits, e.g. on CI): nothing to show, not a dash. */}
+        {totals.costUsd !== null ? (
+          <>
+            <Dot />
+            <span data-testid="mission-run-strip-cost" title={totals.costPartial ? t('runStrip.costPartial') : t('runStrip.costTitle')}>
+              <span aria-hidden>{`${formatRunCost(totals.costUsd)}${totals.costPartial ? '*' : ''}`}</span>
+              <span className="sr-only">
+                {t('prCard.runCostAria', { cost: formatRunCost(totals.costUsd) })}
+                {!totals.costPartial ? ` (${t('runStrip.costTitle')})` : ''}
+              </span>
+              {/* The `*` is said in words too, not only in a tooltip. */}
+              {totals.costPartial && <span className="sr-only" data-testid="mission-run-strip-cost-partial"> ({t('runStrip.costPartial')})</span>}
+            </span>
+          </>
+        ) : <span className="sr-only" data-testid="mission-run-strip-cost-none">{t('runStrip.costNone')}</span>}
       </>
     )
     const needsPerson = tone === 'decision' || tone === 'failed' || tone === 'paused'
