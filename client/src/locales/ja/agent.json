@@ -325,7 +325,8 @@
       "flowSpecFailed": "引き渡しが停止しました",
       "flowSpecBuilding": "Intent をレビュー済みの PR にしています",
       "ci_green": "PR 準備完了 — CI はグリーン",
-      "ci_needs_attention": "PR 準備完了 — CI に対応が必要"
+      "ci_needs_attention": "PR 準備完了 — CI に対応が必要",
+      "ciBuilding": "PR {{pr}} の CI を監視中"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -496,7 +497,8 @@
     "ci": {
       "green": "すべてのチェックがグリーンです。",
       "attention": "チェックがグリーンになる前に CI ループが停止しました。PR にはプッシュ済みの内容がすべて残っています。"
-    }
+    },
+    "ciBuildingHint": "チェックを待ち、コードの失敗を修正して同じ PR にプッシュします。コード以外が原因の失敗は再試行せずに報告します。"
   },
   "specDraft": {
     "heading": "スペック下書き",

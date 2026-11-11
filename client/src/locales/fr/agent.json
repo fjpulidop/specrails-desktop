@@ -325,7 +325,8 @@
       "flowSpecFailed": "La remise s’est arrêtée",
       "flowSpecBuilding": "Votre Intent devient une PR relue",
       "ci_green": "PR prête — CI verte",
-      "ci_needs_attention": "PR prête — la CI demande votre attention"
+      "ci_needs_attention": "PR prête — la CI demande votre attention",
+      "ciBuilding": "Surveillance de la CI de la PR {{pr}}"
     },
     "buildingHint": "À la fin, il vous sera proposé de créer la PR.",
     "buildingExistingPrHint": "Specrails travaille sur la branche de la PR existante et poussera les changements de revue vers cette même PR.",
@@ -496,7 +497,8 @@
     "ci": {
       "green": "Tous les checks sont verts.",
       "attention": "La boucle de CI s’est arrêtée avant que les checks passent au vert. La PR conserve tout ce qui a été poussé."
-    }
+    },
+    "ciBuildingHint": "Attend les checks, corrige les échecs du code et pousse sur la même PR. Les échecs qui ne viennent pas du code sont signalés, pas relancés."
   },
   "specDraft": {
     "heading": "Brouillon de spec",

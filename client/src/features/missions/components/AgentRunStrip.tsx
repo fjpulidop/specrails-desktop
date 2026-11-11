@@ -793,6 +793,18 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       className={cn('relative shrink-0 pb-2', inline ? 'w-full px-4' : 'px-3')}
     >
       <div className="relative">
+        {/* While the panel is open, the transcript behind it steps back: the
+            open card is the one thing to read (a click outside closes it). */}
+        <div
+          aria-hidden
+          data-testid="mission-run-strip-scrim"
+          onClick={() => closePanel(false)}
+          className={cn(
+            'absolute bottom-full z-10 h-[200vh] bg-background/75 backdrop-blur-[2px] transition-opacity duration-200 motion-reduce:transition-none',
+            inline ? '-inset-x-4' : '-inset-x-3',
+            panelOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+          )}
+        />
         {/* Panels: every run's full card stays mounted (it measures the run);
             only the shown run's panel is visible, and only while open. */}
         <div
@@ -806,7 +818,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           data-open={panelOpen ? 'true' : 'false'}
           style={{ maxHeight }}
           className={cn(
-            'absolute inset-x-0 bottom-full z-20 mb-2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-3 text-xs shadow-[0_-12px_32px_-10px_rgb(0_0_0/0.55),0_14px_36px_-14px_rgb(0_0_0/0.5)] outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'absolute inset-x-0 bottom-full z-20 mb-2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-3 text-xs has-[[data-flash=true]]:ring-2 has-[[data-flash=true]]:ring-accent-primary/50 shadow-[0_-12px_32px_-10px_rgb(0_0_0/0.55),0_14px_36px_-14px_rgb(0_0_0/0.5)] outline-none focus-visible:ring-2 focus-visible:ring-ring',
             'origin-bottom transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none',
             panelOpen ? 'visible translate-y-0 opacity-100' : 'pointer-events-none invisible translate-y-1 opacity-0',
           )}

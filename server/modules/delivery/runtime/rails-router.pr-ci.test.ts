@@ -126,6 +126,30 @@ describe('POST /rails/:railIndex/pr-ci', () => {
   })
 })
 
+describe('POST /rails/:railIndex/relaunch on a CI loop generation', () => {
+  const failedCi = () => draft({ loop_id: 'factory:pr-ci', decision: 'implementation_failed', implementation_outcome: 'failed', delivery_outcome: 'blocked', delivery_sha: null,
+    status_code: 'implementation_failed', status_detail: null })
+
+  it('re-attaches the failed generation to its open PR and watches the CI again', async () => {
+    const id = failedCi()
+    const res = await request(app()).post('/rails/0/relaunch').send({ sourceId: id, originConversationId: 'conv-1', originSurface: 'agent-chat' })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(getPrDelivery(db, id)).toMatchObject({ decision: 'pr_draft', implementation_outcome: 'succeeded', status_code: 'ci_needs_attention', delivery_sha: 'a'.repeat(40) })
+    expect(launch.mock.calls[0][0]).toMatchObject({ loopId: 'factory:pr-ci',
+      requiredPrContinuation: { deliveryId: id, decision: 'pr_draft', prUrl: 'https://github.com/acme/app/pull/7', deliverySha: 'a'.repeat(40) } })
+  })
+
+  it('refuses, without touching the generation, when its PR is no longer open', async () => {
+    lifecycle.mockResolvedValue({ ...open, state: 'CLOSED' })
+    const id = failedCi()
+    const res = await request(app()).post('/rails/0/relaunch').send({ sourceId: id })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('pr_ci_relaunch_unavailable')
+    expect(getPrDelivery(db, id)?.decision).toBe('implementation_failed')
+    expect(launch).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /rails/pr-ci-availability', () => {
   it('reports the capability and the flag', async () => {
     expect((await request(app()).get('/rails/pr-ci-availability')).body).toEqual({ available: true })

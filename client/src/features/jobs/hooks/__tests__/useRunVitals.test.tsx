@@ -58,6 +58,27 @@ describe('formatRunElapsed', () => {
 })
 
 describe('useRunVitals', () => {
+  it('re-reads a live run whose jobs row is not written yet, then ticks', async () => {
+    let calls = 0
+    const fetchMock = vi.fn(async () => (++calls < 3 ? jobRes(null) : jobRes({ id: 'run-1', status: 'running', started_at: new Date(T0).toISOString(), finished_at: null })))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<Probe />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(read()[3]).toBe('-')
+    for (let i = 0; i < 2; i++) await act(async () => { await vi.advanceTimersByTimeAsync(2_050) })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(read()[2]).toBe('1')
+    expect(Number(read()[3])).toBeGreaterThanOrEqual(0)
+  })
+
+  it('does not re-read a settled (non-live) run', async () => {
+    const fetchMock = vi.fn(async () => jobRes(null))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<Probe live={false} />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('initial GET populates status + elapsed + REAL totals from the jobs row', async () => {
     const fetchMock = vi.fn(async () => jobRes({
       id: 'run-1', status: 'running',

@@ -7,7 +7,7 @@ import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgr
 import { useTranslation } from 'react-i18next'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
 import { FEATURE_MISSION_RAIL_CARDS, FEATURE_PR_CI_CARD, FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
-import { postPrCiLaunch, prCiFixable, usePrCiAvailability } from '../../delivery/lib/pr-ci'
+import { postPrCiLaunch, prCiFixable, usePrCiAvailability, PR_CI_LOOP_ID } from '../../delivery/lib/pr-ci'
 import { toast } from 'sonner'
 import { notifyError } from '../../../lib/notify-error'
 import { openBudgetPanel } from '../../../lib/app-settings-events'
@@ -530,7 +530,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     }
   }, [envelope.prDeliveryId, envelope.runIds, conversationId])
   // Brief highlight pulse in theme tokens; the pulse only runs when motion is allowed.
-  const flashClass = cn('outline-none focus-visible:ring-2 focus-visible:ring-ring', flash && 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background motion-safe:animate-pulse')
+  // Embedded in the run strip the card has no frame of its own: the panel that
+  // holds it draws the highlight (data-flash), following the card's silhouette.
+  const flashClass = embedded
+    ? 'outline-none'
+    : cn('outline-none focus-visible:ring-2 focus-visible:ring-ring', flash && 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background motion-safe:animate-pulse')
   const focusRegion = {
     tabIndex: -1,
     role: 'region' as const,
@@ -1084,6 +1088,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         ref={cardRef}
       {...focusRegion}
         data-testid="agent-pr-decision-card"
+      data-flash={flash ? 'true' : undefined}
         className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-muted-foreground shadow-lg transition-shadow', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
@@ -1095,6 +1100,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           <span className={cn('min-w-0 flex-1 truncate', buildingPaused && 'text-accent-warning')}>
             {buildingPaused
               ? t('prCard.title.paused')
+              : envelope.loopId === PR_CI_LOOP_ID
+                ? t('prCard.title.ciBuilding', { pr: displayedPrNumber ?? (envelope.repositoryDeliveries ?? []).flatMap((repository) => repository.prNumber ? [`#${repository.prNumber}`] : []).join(', ') })
               : existingPrContinuation
                 ? t('prCard.title.buildingExistingPr')
                 : runOnly ? t('prCard.title.buildingInPlace')
@@ -1187,7 +1194,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         {/* Intent → Spec says what it does in its title; the generic PR hint is noise there. */}
         {envelope.loopId !== FLOW_SPEC_LOOP_ID && (
           <p className="mt-1 pl-[22px] text-label leading-4 text-muted-foreground">
-            {runOnly ? t('runCard.noDeliveryHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
+            {runOnly ? t('runCard.noDeliveryHint') : envelope.loopId === PR_CI_LOOP_ID ? t('prCard.ciBuildingHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
           </p>
         )}
         {runtimeError}
@@ -1209,6 +1216,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         ref={cardRef}
       {...focusRegion}
         data-testid="agent-pr-decision-card"
+      data-flash={flash ? 'true' : undefined}
         data-run-only="true"
         className={cn('rounded-card border border-border/60 bg-card px-3.5 py-3 shadow-1 transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'border-border/40', embedded && EMBEDDED_CARD, flashClass)}
       >
@@ -1507,6 +1515,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       ref={cardRef}
       {...focusRegion}
       data-testid="agent-pr-decision-card"
+      data-flash={flash ? 'true' : undefined}
       className={cn(
         'rounded-card border border-border/60 bg-card px-3.5 py-3 shadow-1 transition-shadow',
         decision === 'merged' && 'border-accent-success/30',

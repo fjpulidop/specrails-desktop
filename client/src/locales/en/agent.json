@@ -315,7 +315,8 @@
       "flowSpecFailed": "The hand-off stopped",
       "flowSpecBuilding": "Turning your Intent into a reviewed PR",
       "ci_green": "PR ready — CI is green",
-      "ci_needs_attention": "PR ready — CI needs attention"
+      "ci_needs_attention": "PR ready — CI needs attention",
+      "ciBuilding": "Watching the CI of PR {{pr}}"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
     "buildingExistingPrHint": "Specrails is working on the existing PR branch and will push the review changes back to that PR.",
@@ -496,7 +497,8 @@
     "ci": {
       "green": "All checks are green.",
       "attention": "The CI loop stopped before the checks turned green. The PR keeps everything it pushed."
-    }
+    },
+    "ciBuildingHint": "It waits for the checks, fixes code failures and pushes to the same PR. Failures that are not the code's fault are reported, not retried."
   },
   "specDraft": {
     "heading": "Spec draft",

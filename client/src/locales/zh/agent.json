@@ -325,7 +325,8 @@
       "flowSpecFailed": "移交已停止",
       "flowSpecBuilding": "正在把你的 Intent 变成经过评审的 PR",
       "ci_green": "PR 已就绪 — CI 全部通过",
-      "ci_needs_attention": "PR 已就绪 — CI 需要处理"
+      "ci_needs_attention": "PR 已就绪 — CI 需要处理",
+      "ciBuilding": "正在监控 PR {{pr}} 的 CI"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
@@ -496,7 +497,8 @@
     "ci": {
       "green": "所有检查均已通过。",
       "attention": "CI 循环在检查通过之前停止了。PR 保留了已推送的全部内容。"
-    }
+    },
+    "ciBuildingHint": "等待检查结果，修复代码导致的失败并推送到同一个 PR。非代码原因的失败只报告，不重试。"
   },
   "specDraft": {
     "heading": "规格草稿",

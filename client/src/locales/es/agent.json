@@ -315,7 +315,8 @@
       "flowSpecFailed": "El paso a un rail se detuvo",
       "flowSpecBuilding": "Convirtiendo tu Intent en un PR revisado",
       "ci_green": "PR lista — CI en verde",
-      "ci_needs_attention": "PR lista — el CI necesita atención"
+      "ci_needs_attention": "PR lista — el CI necesita atención",
+      "ciBuilding": "Vigilando el CI de la PR {{pr}}"
     },
     "buildingHint": "Cuando termine, se te preguntará si crear la PR.",
     "buildingExistingPrHint": "Specrails está trabajando sobre la rama de la PR existente y subirá los cambios de revisión a esa misma PR.",
@@ -496,7 +497,8 @@
     "ci": {
       "green": "Todos los checks están en verde.",
       "attention": "El loop de CI se detuvo antes de que los checks quedaran en verde. La PR conserva todo lo que subió."
-    }
+    },
+    "ciBuildingHint": "Espera a los checks, arregla los fallos del código y sube los cambios a la misma PR. Los fallos que no son del código se informan, no se reintentan."
   },
   "specDraft": {
     "heading": "Borrador de spec",

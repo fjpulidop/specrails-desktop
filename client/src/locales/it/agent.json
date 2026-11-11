@@ -325,7 +325,8 @@
       "flowSpecFailed": "L’affidamento si è fermato",
       "flowSpecBuilding": "Il tuo Intent sta diventando una PR revisionata",
       "ci_green": "PR pronta — CI verde",
-      "ci_needs_attention": "PR pronta — la CI richiede attenzione"
+      "ci_needs_attention": "PR pronta — la CI richiede attenzione",
+      "ciBuilding": "Monitoraggio della CI della PR {{pr}}"
     },
     "buildingHint": "Al termine ti verrà chiesto se creare la PR.",
     "buildingExistingPrHint": "Specrails sta lavorando sul branch della PR esistente e invierà le modifiche di review a quella stessa PR.",
@@ -496,7 +497,8 @@
     "ci": {
       "green": "Tutti i check sono verdi.",
       "attention": "Il loop di CI si è fermato prima che i check diventassero verdi. La PR mantiene tutto ciò che ha inviato."
-    }
+    },
+    "ciBuildingHint": "Attende i check, corregge gli errori del codice e fa push sulla stessa PR. Gli errori non dovuti al codice vengono segnalati, non ritentati."
   },
   "specDraft": {
     "heading": "Bozza della spec",

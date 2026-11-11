@@ -12,6 +12,8 @@ import { PR_CI_LOOP_ID, supportsPrCi } from '../../loops/runtime/loop-pr-ci-reci
 import { observePrLifecycle } from './pr-lifecycle'
 import { prCiCapable, refreshPrCiOffer } from './pr-ci/pr-ci-projection'
 import { dismissPrCiOffer, prCiOfferKey } from './pr-ci/pr-ci-offer'
+import { resettleFailedPrCiRows } from './pr-ci/pr-ci-settlement'
+import type { RailPrDeliveryRow } from './rail-pr-store'
 import { defaultExec as prCiExec } from './pr-publisher'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
 import { recordLoopRunProvenance } from '../../code/runtime/file-story'
@@ -71,7 +73,7 @@ import { defaultExec } from './pr-publisher'
 import { getProjectRepositories, resolveProjectRepository, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from '../../../project-repositories'
 import { checkoutRepositoryDelivery } from './multi-repo-checkout'
 import { resolveRepositoryDeliveryBases } from './multi-repo-bases'
-import { listRepositoryDeliveries } from './multi-repo-execution'
+import { listRepositoryDeliveries, refreshRepositoryDeliveryGroup } from './multi-repo-execution'
 import { readExecutionManifest } from './multi-repo-execution-store'
 import { newId } from '../../../ids'
 import { withRepoLock } from '../../../repo-lock'
@@ -554,6 +556,30 @@ export function createRailsRouter(): Router {
 
   // Both doors share admission checks; Relaunch resolves its original source
   // before interpreting launch options, never the mutable slot's new specs.
+  /**
+   * Run again a CI loop generation. One that ended as an implementation failure
+   * is first re-attached to its OPEN PR (see `resettleFailedPrCiRows`); the
+   * loop then starts through the same admission as "Fix CI".
+   */
+  const relaunchPrCi = async (req: Request, res: Response, source: RailPrDeliveryRow): Promise<void> => {
+    const c = ctx(req)
+    if (getActivePrDeliveryByRail(c.db, source.rail_index)?.id !== source.id) {
+      res.status(409).json({ error: 'pr_delivery_not_active', detail: 'Refresh the mission: a newer delivery owns this rail.' }); return
+    }
+    if (source.decision === 'implementation_failed') {
+      const rows = source.execution_manifest ? listRepositoryDeliveries(c.db, source.id).filter(child => child.pr_url) : [source]
+      const ok = rows.length > 0 && await resettleFailedPrCiRows({ db: c.db, git: defaultGitRunner, exec: prCiExec, rows, fallbackRepo: c.project.path })
+      if (source.execution_manifest) refreshRepositoryDeliveryGroup(c.db, source.id)
+      emitPrDeliveryUpdate(c, source.id)
+      if (!ok) {
+        res.status(409).json({ error: 'pr_ci_relaunch_unavailable',
+          detail: 'The pull request is no longer open on the branch this run used, so the CI loop cannot watch it again.',
+          action: 'Open the pull request to check its state.' }); return
+      }
+    }
+    req.body = { prDeliveryId: source.id, originConversationId: req.body?.originConversationId, originSurface: req.body?.originSurface }
+    await startPrCi(req, res)
+  }
   /** Launches admitted by the pr-ci route; the generic door refuses `factory:pr-ci`. */
   const prCiLaunches = new WeakMap<Request, { ticketIds: number[] }>()
   const launchRail = async (req: Request, res: Response): Promise<void> => {
@@ -564,7 +590,13 @@ export function createRailsRouter(): Router {
 
     const c = ctx(req)
     let relaunchSource: RailRelaunch | undefined
-    if (/\/relaunch\/?$/i.test(req.path)) {
+    if (/\/relaunch\/?$/i.test(req.path) && !prCiLaunches.has(req)) {
+      // pr-ci-loop: running a CI loop generation again means watching its PR
+      // again, through the Fix CI admission (never a generic relaunch).
+      const ciSource = typeof req.body?.sourceId === 'string' ? getPrDelivery(c.db, req.body.sourceId) : undefined
+      if (ciSource && ciSource.loop_id === PR_CI_LOOP_ID && ciSource.rail_index === railIndex) {
+        await relaunchPrCi(req, res, ciSource); return
+      }
       try {
         if (!isLoopsEnabled()) {
           res.status(409).json({ error: 'relaunch_workflow_unavailable', detail: 'The original loop workflow cannot run while Loops are disabled.',
@@ -1527,7 +1559,7 @@ export function createRailsRouter(): Router {
   // launch reuses the ordinary continuation admission (a new generation on the
   // PR branch supersedes the current one, rolled back atomically on allocation
   // failure) with the delivery's frozen engine, model and profile.
-  router.post('/:railIndex/pr-ci', async (req: Request, res: Response) => {
+  const startPrCi = async (req: Request, res: Response): Promise<void> => {
     if (!isPrCiLoopEnabled()) { res.status(403).json({ error: 'pr_ci_disabled', detail: 'The PR CI loop is turned off (SPECRAILS_PR_CI_LOOP=false)' }); return }
     const railIndex = parseInt(req.params.railIndex as string, 10)
     if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) { res.status(400).json({ error: 'Invalid rail index' }); return }
@@ -1578,7 +1610,8 @@ export function createRailsRouter(): Router {
       const next = getActivePrDeliveryByRail(c.db, railIndex)
       if (next && next.id !== row.id) refreshPrCiOffer(c, next.id)
     }
-  })
+  }
+  router.post('/:railIndex/pr-ci', startPrCi)
 
   // "Not now" on the offer: persisted for this delivery generation only.
   router.post('/pr-ci-offer/dismiss', (req: Request, res: Response) => {

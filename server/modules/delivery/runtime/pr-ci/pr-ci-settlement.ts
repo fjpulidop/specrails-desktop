@@ -1,5 +1,7 @@
+import fs from 'node:fs'
+import type { DbInstance } from '../../../../db'
 import type { GitRunner } from '../../../../worktree-manager'
-import type { DeliverBranchRecord } from '../rail-pr-store'
+import { toPrDeliverySnapshot, transitionDecision, type DeliverBranchRecord, type RailPrDeliveryRow } from '../rail-pr-store'
 import type { PrDecision, PrDeliveryStatusCode } from '../../domain/state'
 import { isExactOpenPr, observePrLifecycle } from '../pr-lifecycle'
 import type { Exec } from '../pr-publisher'
@@ -76,4 +78,52 @@ export async function settlePrCiGeneration(input: PrCiSettlementInput): Promise<
     branches: input.branches.map(unit => ({ ...unit, succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'ready', finalSha: prHead, failureCode: null })),
     keptRef,
   }
+}
+
+/**
+ * "Run again" on a CI loop generation that ended as an implementation failure
+ * (settled before the CI settlement existed, or when its PR could not be
+ * proven OPEN at the time): re-attach it to its PR so the CI loop can run on it
+ * again. Each repository row is settled exactly like a finished loop: proven
+ * OPEN at the head GitHub exposes, unverified local commits kept on
+ * `prCiKeptRef`, status `ci_needs_attention`. All-or-nothing per row; returns
+ * false (nothing changed for that row) when a PR is not provably OPEN or its
+ * branch moved. The caller refreshes a multi-repository parent afterwards.
+ */
+export async function resettleFailedPrCiRows(input: {
+  db: DbInstance
+  git: GitRunner
+  exec: Exec
+  rows: RailPrDeliveryRow[]
+  fallbackRepo: string
+}): Promise<boolean> {
+  for (const row of input.rows) {
+    if (row.decision !== 'implementation_failed') continue
+    if (!row.pr_url || !row.branch) return false
+    const worktrees = mountedWorktrees(input.db, row)
+    const settled = await settlePrCiGeneration({
+      git: input.git, exec: input.exec, baseRepo: row.repository_path ?? input.fallbackRepo, deliveryId: row.id,
+      continuation: { prUrl: row.pr_url, branch: row.branch, baseBranch: row.base_branch },
+      worktrees,
+      completion: { ok: false, reasons: [row.status_detail ?? ''] },
+      branches: toPrDeliverySnapshot(row).branches,
+    })
+    if (!settled) return false
+    if (!transitionDecision(input.db, row.id, 'implementation_failed', settled.next, {
+      implementationOutcome: 'succeeded', deliveryOutcome: 'delivered',
+      statusCode: settled.statusCode, statusDetail: settled.statusDetail,
+      deliverySha: settled.deliverySha, branches: settled.branches,
+    })) return false
+  }
+  return true
+}
+
+/** The run worktrees of a row that are still mounted on disk. */
+function mountedWorktrees(db: DbInstance, row: RailPrDeliveryRow): string[] {
+  let ids: string[] = []
+  try { ids = (JSON.parse(row.worktree_ids) as unknown[]).filter((id): id is string => typeof id === 'string') } catch { return [] }
+  return ids.flatMap(id => {
+    const wt = db.prepare('SELECT worktree_path, merge_state FROM rail_worktrees WHERE id = ?').get(id) as { worktree_path: string; merge_state: string | null } | undefined
+    return wt && wt.merge_state !== 'released' && fs.existsSync(wt.worktree_path) ? [wt.worktree_path] : []
+  })
 }

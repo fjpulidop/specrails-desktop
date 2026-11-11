@@ -698,7 +698,9 @@ describe('history lines focus the run', () => {
     expect(card).toHaveAttribute('role', 'region')
     expect(card.getAttribute('aria-label')).toContain('Rail 1')
     expect(card.getAttribute('aria-label')).toContain('#8')
-    expect(card.className).toContain('ring-2')
+    // The highlight is drawn by the panel, around the card's own silhouette.
+    expect(card).toHaveAttribute('data-flash', 'true')
+    expect(panel().className).toContain('has-[[data-flash=true]]:ring-2')
     expect(scrollSpy()).toHaveBeenCalledTimes(1)
   })
 

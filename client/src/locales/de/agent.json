@@ -325,7 +325,8 @@
       "flowSpecFailed": "Die Übergabe wurde angehalten",
       "flowSpecBuilding": "Dein Intent wird zu einem geprüften PR",
       "ci_green": "PR bereit — CI ist grün",
-      "ci_needs_attention": "PR bereit — CI braucht Aufmerksamkeit"
+      "ci_needs_attention": "PR bereit — CI braucht Aufmerksamkeit",
+      "ciBuilding": "CI des PR {{pr}} wird überwacht"
     },
     "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
     "buildingExistingPrHint": "Specrails arbeitet auf dem Branch des bestehenden PRs und pusht die Review-Änderungen zurück in denselben PR.",
@@ -496,7 +497,8 @@
     "ci": {
       "green": "Alle Checks sind grün.",
       "attention": "Die CI-Schleife hat angehalten, bevor die Checks grün wurden. Der PR behält alles, was gepusht wurde."
-    }
+    },
+    "ciBuildingHint": "Wartet auf die Checks, behebt Codefehler und pusht in denselben PR. Fehler, die nicht am Code liegen, werden gemeldet statt wiederholt."
   },
   "specDraft": {
     "heading": "Spec-Entwurf",
