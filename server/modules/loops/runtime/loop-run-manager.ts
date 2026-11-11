@@ -25,6 +25,7 @@ import type { CoreCompletionSnapshot } from '../../../core-completion'
 import type { CoreCompletionCheck, CoreRunInput } from '../../../core-execution'
 import { executionManifestPrompt, type RunExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import type { ChildProcess } from 'node:child_process'
+import type { HostTaskDispatcher } from '../../agent-runtime/runtime/host-task-dispatcher'
 import { treeKillSafe as treeKill } from '../../../util/win-spawn'
 import { createJob, appendEvent, markJobInteractive, accumulateInteractiveTurn, type DbInstance, type InteractiveTurnUsage } from '../../../db'
 import {
@@ -985,6 +986,9 @@ export class LoopRunManager {
        *  the composition reads Core's run records (architect clarifications).
        *  Advisory: a throw never affects the run. */
       onDefinitionInvocationEnd?: (runId: string, ticketIds: readonly number[], runtimeStatus: string) => void
+      /** Resolver of Core MACHINE interrupts (`host-task`, Core `hostTasks`), bound at
+       *  composition. Absent ⇒ a host task fails its node instead of waiting. */
+      hostTasks?: () => HostTaskDispatcher | undefined
     } = {},
   ) {}
 
@@ -1048,6 +1052,8 @@ export class LoopRunManager {
    *  awaited step resolves) — NOT dispose(), which never settles and would
    *  leave the engine's `await` hanging forever. */
   cancel(runId: string): void {
+    // A run waiting on a host task (CI, push) has no Core process: stop the host work too.
+    try { this.options.hostTasks?.()?.cancel(runId) } catch { /* advisory */ }
     const frozen = readDefinitionRun(this.db, runId)
     if (this.executors.cancelDefinition && frozen?.metadata.contextPath) {
       void this.cancelDefinition(runId).catch(error => {
@@ -1089,6 +1095,7 @@ export class LoopRunManager {
 
   private cancelResident(runId: string, graceful: boolean): void {
     this._cancelled.add(runId)
+    try { this.options.hostTasks?.()?.cancel(runId) } catch { /* host work is advisory to cancellation */ }
     const paused = this._pausedHumanDecisions.get(runId)
     if (paused) {
       this._pausedHumanDecisions.delete(runId)
@@ -1170,6 +1177,7 @@ export class LoopRunManager {
    *  runs — the startup orphan sweeps (jobs + loop_runs) reconcile the rows on
    *  the next boot, exactly as they do for a crash today. */
   shutdown(): void {
+    try { this.options.hostTasks?.()?.dispose() } catch { /* startup recovery re-dispatches */ }
     if (this._disposed) return
     this._disposed = true
     for (const runId of this._activeChild.keys()) this._cancelled.add(runId)
@@ -1824,7 +1832,8 @@ export class LoopRunManager {
         projectId: req.projectId,
         jobId: runId,
         acceptingTurns: true,
-        pendingInterrupts: pending,
+        // Only human interrupts reach a person; host tasks are resolved by the host.
+        pendingInterrupts: pending?.filter((item): item is DefinitionInterrupt & { kind: 'question' | 'approval' | 'gate' } => item.kind !== 'host-task'),
         settleMode: 'auto',
         timestamp: pausedAt,
       })
@@ -2008,6 +2017,33 @@ export class LoopRunManager {
             this._activeChild.delete(runId); budgetPauseRequested = false; if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs }
             try { this.options.onDefinitionInvocationEnd?.(runId, exactTicketIds, result.runtimeStatus) } catch { /* advisory observer */ }
           }, awaitHumanDecision,
+          // Machine interrupts (Core `hostTasks`): Desktop performs the effect
+          // itself and resumes Core with the typed result — never a person.
+          resolveHostTask: async interrupt => {
+            const dispatcher = this.options.hostTasks?.()
+            const task = interrupt.value.task
+            emitRunEvent('host_task_started', { interruptId: interrupt.id, nodePath: interrupt.nodePath, task, input: interrupt.value.input })
+            if (!dispatcher) {
+              logLine(`\n■ Host task ${task} cannot run on this Desktop.`, 'stderr')
+              const result = { outcome: 'failed', output: { detail: `This Desktop cannot perform host task ${task}` } }
+              emitRunEvent('host_task_finished', { interruptId: interrupt.id, nodePath: interrupt.nodePath, task, outcome: result.outcome })
+              return { action: 'resume' as const, result }
+            }
+            // The worktree stays claimed while the host acts in it (Core holds no lease).
+            this.claimDefinition({ ...req, runId })
+            logLine(`\n▶ Host task ${task}`)
+            try {
+              const result = await dispatcher.dispatch({ runId, interruptId: interrupt.id, request: interrupt.value, log: line => logLine(line) })
+              emitRunEvent('host_task_finished', { interruptId: interrupt.id, nodePath: interrupt.nodePath, task, outcome: result.outcome })
+              logLine(`✓ Host task ${task}: ${result.outcome}`)
+              return { action: 'resume' as const, result }
+            } catch (error) {
+              // Shutdown: startup recovery re-dispatches the persisted host task; never settle here.
+              if (this._disposed) return new Promise<never>(() => { /* startup recovery owns settlement */ })
+              if (this._cancelled.has(runId)) return { action: 'stop' as const }
+              throw error
+            }
+          },
           // Core schedules every step inside one invocation; the only boundary
           // Desktop owns is the re-invocation after a human decision.
           beforeContinuation: async () => {

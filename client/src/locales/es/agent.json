@@ -1472,5 +1472,39 @@
     "statusReview_other": "{{count}} esperando revisión",
     "statusRunning_one": "{{count}} en curso",
     "statusRunning_other": "{{count}} en curso"
+  },
+  "prCi": {
+    "title": "Vigilar y arreglar el CI de la PR {{pr}}",
+    "thisPr": "esta PR",
+    "body": "Specrails espera a los checks de la PR, arregla los que fallen, resuelve los conflictos con la rama base y sube los arreglos a la misma PR hasta dejarla en verde. Va solo; tú decides cuándo.",
+    "guarantee": "Nunca hace push forzado, merge, publicación ni cierre de la PR, y nunca debilita un check.",
+    "start": "Iniciar",
+    "notNow": "Ahora no",
+    "dismissed": "No se inició la vigilancia del CI de la PR {{pr}}.",
+    "started": "Vigilando el CI de la PR {{pr}} en {{rail}}",
+    "startedBody": "El loop espera a los checks, arregla los fallos y sube los cambios a la misma PR. Síguelo en la barra de ejecuciones.",
+    "green": "PR {{pr}}: todos los checks en verde",
+    "greenBody_one": "{{pushes}} arreglo subido a la PR tras {{rounds}} ronda(s) con fallos.",
+    "greenBody_other": "{{pushes}} arreglos subidos a la PR tras {{rounds}} ronda(s) con fallos.",
+    "noCi": "La PR {{pr}} no tiene checks de CI",
+    "noCiBody": "No había nada que vigilar; la PR no se ha tocado.",
+    "needsAttention": "El CI de la PR {{pr}} necesita atención",
+    "needsAttentionBody": "El loop se detuvo antes de que los checks quedaran en verde.",
+    "openRun": "Abrir ejecución",
+    "openPr": "Abrir PR {{pr}}",
+    "startFailed": "No se pudo iniciar el loop de CI.",
+    "dismissFailed": "No se pudo guardar tu elección. Inténtalo de nuevo.",
+    "startedToast": "Vigilancia del CI iniciada en el carril {{index}}",
+    "fixCi": "Arreglar CI",
+    "fixCiTooltip": "Esperar a los checks, arreglar fallos y conflictos y subir a esta PR hasta dejarla en verde",
+    "step": {
+      "checks": "Esperando al CI",
+      "fixing": "Arreglando los checks que fallan",
+      "rerun": "Relanzando los checks fallidos",
+      "base": "Sincronizando con la rama base",
+      "conflicts": "Resolviendo conflictos con la rama base",
+      "verify": "Verificando en local",
+      "push": "Subiendo cambios a la PR"
+    }
   }
 }

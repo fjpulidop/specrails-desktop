@@ -60,3 +60,21 @@ export function actionAllowed(action: PrDecisionAction, row: DeliveryDecisionSta
   }
 }
 
+
+/** Facts for the PR CI loop offer and its "Fix CI" action (pr-ci-loop). */
+export interface CiFixState extends DeliveryDecisionState {
+  /** A decision-side Git/GitHub operation currently holds the row. */
+  operation: string | null
+  /** Single-repository deliveries only: a multi-repo delivery has one PR per repository. */
+  multiRepository: boolean
+}
+
+/**
+ * `factory:pr-ci` may start on an attached, same-repository PR that is still
+ * awaiting the person's decision (draft or ready), with no operation in flight.
+ * Liveness (OPEN, not a fork) is proven against GitHub by the launch itself.
+ */
+export function ciFixAllowed(row: CiFixState): boolean {
+  return (row.decision === 'pr_draft' || row.decision === 'pr_ready') &&
+    row.pr_url !== null && row.branch !== null && row.operation === null && !row.multiRepository
+}

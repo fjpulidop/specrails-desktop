@@ -55,6 +55,13 @@ import { MilestoneChainManager } from './modules/builder/runtime/milestone-chain
 import { createInternalApi, internalApiError } from './internal-api'
 import { readBlueprint } from './modules/builder/runtime/blueprint-render'
 import { defaultGitRunner } from './worktree-manager'
+import { createHostTaskDispatcher } from './modules/agent-runtime/runtime/host-task-dispatcher'
+import { createPrCiHandlers } from './modules/delivery/runtime/pr-ci/pr-ci-handlers'
+import { resolvePrCiTarget } from './modules/delivery/runtime/pr-ci/pr-ci-target'
+import { withRepoLock } from './repo-lock'
+import { isPrCiLoopEnabled } from './feature-flags'
+import { resumeRetainedDefinitionRun } from './project-router-loop-runs'
+import { refreshPrCiOffer } from './modules/delivery/runtime/pr-ci/pr-ci-projection'
 import { resolveIntegrationBranch } from './integration-branch'
 import { getProjectSettings } from './db'
 import { createProjectAgentAudit, type ProjectAgentAudit } from './modules/audit/adapters/runtime'
@@ -227,6 +234,8 @@ export function emitRecoveredPrDelivery(ctx: ProjectContext, deliveryId: string)
       toPrDecisionCardEnvelope(ctx.project.id, snapshot),
     )
   } catch { /* conversation hydration can retry */ }
+  // pr-ci-loop: existing draft/ready PRs get the optional CI offer too.
+  refreshPrCiOffer(ctx, deliveryId)
 }
 
 /** Migration/recovery or a crash after a terminal CAS can repair the ledger
@@ -1298,7 +1307,14 @@ export class ProjectRegistry {
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
         supportsProfiles: projectSupportsProfiles,
       }),
-    }), undefined, { dailyBudget: dailyBudgetRejection, runCapDefault, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds) })
+    }), undefined, { dailyBudget: dailyBudgetRejection, runCapDefault, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds),
+      // Core machine interrupts (pr-ci-loop): one dispatcher per project, with the PR handlers bound to this project's records.
+      hostTasks: () => hostTaskDispatcher })
+    const hostTaskDispatcher = createHostTaskDispatcher({ db, projectId: project.id, handlers: isPrCiLoopEnabled() ? createPrCiHandlers({
+      exec: defaultExec, git: defaultGitRunner,
+      resolveTarget: (runId) => resolvePrCiTarget(db, project.id, runId),
+      withRepositoryLock: (repoDir, fn) => withRepoLock(repoDir, fn),
+    }) : {} })
 
     // The stored ticket as written (no launch-door additions): the Intent → Spec summary reads it.
     const readFlowTicket = (ticketId: number) => {
@@ -1736,6 +1752,15 @@ export class ProjectRegistry {
               if (this._contexts.get(project.id) !== ctx) return
               reprojectActivePrDeliveries(ctx)
               openProjectProcessAdmission(project.id)
+              // pr-ci-loop: a run paused on a host task (CI wait, push) is not
+              // waiting for a person. Re-dispatch it now; the persisted dispatch
+              // replays a known result instead of repeating the effect.
+              for (const [runId, state] of definitionStates ?? []) {
+                if (state.status !== 'paused' || !state.pendingInterrupts?.some(item => (item as { kind?: unknown } | null)?.kind === 'host-task')) continue
+                void resumeRetainedDefinitionRun(ctx, runId, {}).then(outcome => {
+                  if (outcome.status >= 400) console.warn(`[host-task] ${project.slug}: run ${runId} was not re-dispatched (${outcome.status})`, outcome.body)
+                }).catch(error => console.error(`[host-task] ${project.slug}: re-dispatch of ${runId} failed:`, error))
+              }
               // Intent -> Spec deliveries settled as a generic failure before the
               // review outcome existed: persist the reclassification once (the
               // retained ledger is read-only here) and refresh their cards.

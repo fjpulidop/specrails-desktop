@@ -79,6 +79,10 @@ finding anchors come from Core contract 5.9 (`readFindingLocations` in
 [`runtime/delivery-changes.test.ts`](runtime/delivery-changes.test.ts). See the
 [review packet guide](../../../docs/internals/review-packet.md#changes-tab-in-app-diff-review).
 
+## PR CI loop
+
+`runtime/pr-ci/` holds the host adapters of `factory:pr-ci`: `pr-ci-handlers.ts` (`pr.update-base`, `pr.sync`, `pr.checks`, `pr.rerun-failed`: merge never rebase, push never forced, only a verified candidate, bounded and redacted CI evidence), `pr-ci-target.ts` (PR identity from the frozen isolated-settlement snapshot), `pr-ci-offer.ts` / `pr-ci-projection.ts` (the optional `pr-ci-offer` mission row). `domain/decision-policy.ts` owns `ciFixAllowed`. Routes: `POST /rails/:railIndex/pr-ci`, `POST /rails/pr-ci-offer/dismiss`, `GET /rails/pr-ci-availability`. See [safe PR flow](../../../docs/internals/safe-pr-review-flow.md#pr-ci-loop-pr-ci-loop).
+
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)

@@ -1472,5 +1472,39 @@
     "statusReview_other": "{{count}} en attente de revue",
     "statusRunning_one": "{{count}} en cours",
     "statusRunning_other": "{{count}} en cours"
+  },
+  "prCi": {
+    "title": "Surveiller et corriger la CI de la PR {{pr}}",
+    "thisPr": "cette PR",
+    "body": "Specrails attend les checks de la PR, corrige ceux qui échouent, résout les conflits de merge avec la branche de base et pousse les corrections dans la même PR jusqu’à ce qu’elle soit verte. Il avance seul ; vous décidez quand.",
+    "guarantee": "Il ne fait jamais de push forcé, de merge, de publication ni de fermeture de la PR, et n’affaiblit jamais un check.",
+    "start": "Démarrer",
+    "notNow": "Pas maintenant",
+    "dismissed": "Surveillance de la CI de la PR {{pr}} non démarrée.",
+    "started": "Surveillance de la CI de la PR {{pr}} sur {{rail}}",
+    "startedBody": "La boucle attend les checks, corrige les échecs et pousse dans la même PR. Suivez-la dans la barre d’exécution.",
+    "green": "PR {{pr}} : tous les checks sont verts",
+    "greenBody_one": "{{pushes}} correction poussée dans la PR après {{rounds}} tour(s) en échec.",
+    "greenBody_other": "{{pushes}} corrections poussées dans la PR après {{rounds}} tour(s) en échec.",
+    "noCi": "La PR {{pr}} n’a pas de checks de CI",
+    "noCiBody": "Il n’y avait rien à surveiller ; la PR n’a pas été modifiée.",
+    "needsAttention": "La CI de la PR {{pr}} demande votre attention",
+    "needsAttentionBody": "La boucle s’est arrêtée avant que les checks passent au vert.",
+    "openRun": "Ouvrir l’exécution",
+    "openPr": "Ouvrir la PR {{pr}}",
+    "startFailed": "La boucle de CI n’a pas pu démarrer.",
+    "dismissFailed": "Impossible d’enregistrer votre choix. Réessayez.",
+    "startedToast": "Surveillance de la CI démarrée sur le rail {{index}}",
+    "fixCi": "Corriger la CI",
+    "fixCiTooltip": "Attendre les checks, corriger les échecs et les conflits et pousser dans cette PR jusqu’à ce qu’elle soit verte",
+    "step": {
+      "checks": "En attente de la CI",
+      "fixing": "Correction des checks en échec",
+      "rerun": "Relance des checks en échec",
+      "base": "Synchronisation avec la branche de base",
+      "conflicts": "Résolution des conflits avec la branche de base",
+      "verify": "Vérification en local",
+      "push": "Envoi de la correction dans la PR"
+    }
   }
 }

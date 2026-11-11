@@ -32,7 +32,7 @@ import { normalizeSpecIntent, type SpecIntent } from '../../specs/domain/intent'
 import { readStore } from '../../specs/runtime/ticket-store'
 import { materializeIntent } from './intent-materialization'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
-import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
+import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, activeOpenSpecChangesAt, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
 import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtime-paths'
 import { createRailWorktree, deleteRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, getRailWorktree } from './rail-worktrees-store'
 import { IntentWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
@@ -64,6 +64,7 @@ import {
 } from './rail-pr-store'
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { notifyMissionRunFailure } from '../../missions/runtime/mission-run-notify'
+import { refreshPrCiOffer } from './pr-ci/pr-ci-projection'
 import { getRail } from './rails-store'
 import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-controls-router'
 import { runMergeBack } from './rail-merge-orchestrator'
@@ -699,12 +700,19 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
 
     let commit: CommitWorktreeResult
     try {
+      // A continuation may merge its PR's base mid-run (pr-ci-loop resolves
+      // conflicts by merging the base into the PR branch): active OpenSpec
+      // changes that already exist on that base are not this checkout's work.
+      const baseChanges = a.continuationTarget
+        ? await activeOpenSpecChangesAt(git, a.handle.worktreePath, `refs/remotes/origin/${a.continuationTarget.baseBranch}`)
+        : []
       commit = await commitWorktreeAndVerify(
         git,
         a.handle.worktreePath,
         commitMessage(a, implementationOutcome === 'failed'),
         a.overlayExcludes,
         a.hygieneBaseSha ?? a.initialSha ?? a.baseRef,
+        baseChanges.length ? { allowedActiveChanges: baseChanges } : {},
       )
     } catch (err) {
       commit = { staged: false, committed: false, clean: false, dirty: [], error: errorDetail(err) }
@@ -931,6 +939,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const emitPrDeliveryState = (deliveryId: string, verb: 'post' | 'update'): void => {
     broadcastDeliveryState(deliveryId)
     syncDeliveryCard(deliveryId, verb)
+    // pr-ci-loop: settle-time offer for a new PR / final state of a CI loop run.
+    refreshPrCiOffer(ctx, deliveryId)
   }
   const broadcastPrState = (): void => {
     if (prDeliveryId) broadcastDeliveryState(prDeliveryId)
@@ -2231,6 +2241,7 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       try {
         getAgentChatManager()?.updatePrDecisionCard(latest.origin_conversation_id, toPrDecisionCardEnvelope(ctx.project.id, snapshot))
       } catch { /* the durable row is authoritative; startup reprojection heals */ }
+      refreshPrCiOffer(ctx, latest.id)
     }
   }
 }

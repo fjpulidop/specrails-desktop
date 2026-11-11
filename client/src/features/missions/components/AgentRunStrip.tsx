@@ -55,6 +55,7 @@ import { bestRunPrimary, PRIMARY_ACTION, RunPrimaryScope, type RunPrimaryAction,
 import { isTextEntry, registerRunStrip, RUN_STRIP_ARIA_KEYS, RUN_STRIP_KEYS, stripKeyCode } from './run-strip-keys'
 import type { PinnedRailProposal } from './useRailLaunchProposals'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { describePrCiStep } from '../lib/pr-ci-steps'
 
 /** The strip's primary action style (the shared primary recipe) — extensions reuse it. */
 export const RUN_STRIP_PRIMARY = PRIMARY_ACTION
@@ -221,7 +222,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     if (tone === 'launching') {
       headlineText = t('runStrip.launching', { rail: label })
     } else if (tone === 'running') {
-      const described = summary?.step ? describeRun?.(t, { loopId, stepId: summary.step, codes: [] })?.step ?? null : null
+      const described = summary?.step ? describePrCiStep(t, loopId, summary.step) ?? describeRun?.(t, { loopId, stepId: summary.step, codes: [] })?.step ?? null : null
       headlineText = described ?? (summary?.step ? humanizeStepId(summary.step) : t('runStrip.running'))
     } else if (tone === 'paused') {
       headlineText = summary?.pausedReason ? t('runStrip.pausedReason', { reason: summary.pausedReason }) : t('runStrip.paused')

@@ -158,3 +158,16 @@ export const FEATURE_MISSION_RAIL_CARDS = (() => {
   if (typeof override === 'string') return override !== 'false'
   return true
 })()
+
+/**
+ * PR CI loop offer (pr-ci-loop): the optional "Watch and fix the PR's CI" card
+ * in the mission. Default ON; set VITE_FEATURE_PR_CI_CARD=false to stop
+ * rendering `pr-ci-offer` rows and the "Fix CI" action (the server keeps its own
+ * SPECRAILS_PR_CI_LOOP switch and Core capability gate).
+ */
+export const FEATURE_PR_CI_CARD = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_PR_CI_CARD
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()

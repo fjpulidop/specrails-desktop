@@ -6,7 +6,13 @@ import type { ProjectContext } from '../../../project-registry'
 import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, createRail, deleteRail, railCount, railExists, MAX_RAILS, MAX_TICKETS_PER_RAIL_LAUNCH, type RailState } from './rails-store'
 import { ClaudeNotFoundError, CodexNotFoundError } from '../../execution/runtime/queue-manager'
 import { validateRequestedProvider } from '../../../provider-selection'
-import { isLoopsEnabled, isCodeExplorerEnabled, isReviewPacketEnabled, areDeliveryRevisionsEnabled } from '../../../feature-flags'
+import { isLoopsEnabled, isCodeExplorerEnabled, isReviewPacketEnabled, areDeliveryRevisionsEnabled, isPrCiLoopEnabled } from '../../../feature-flags'
+import { ciFixAllowed } from '../domain/decision-policy'
+import { PR_CI_LOOP_ID, supportsPrCi } from '../../loops/runtime/loop-pr-ci-recipe'
+import { observePrLifecycle } from './pr-lifecycle'
+import { prCiCapable, refreshPrCiOffer } from './pr-ci/pr-ci-projection'
+import { dismissPrCiOffer, prCiOfferKey } from './pr-ci/pr-ci-offer'
+import { defaultExec as prCiExec } from './pr-publisher'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
 import { recordLoopRunProvenance } from '../../code/runtime/file-story'
 import { getLoop } from '../../loops/runtime/loops-store'
@@ -184,6 +190,8 @@ function emitPrDeliveryUpdate(c: ProjectContext, prDeliveryId: string): void {
       toPrDecisionCardEnvelope(c.project.id, snap),
     )
   }
+  // pr-ci-loop: offer (or refresh) "Watch and fix the PR's CI" in the mission.
+  refreshPrCiOffer(c, prDeliveryId)
 }
 
 /** Ticket ids currently `on_review` (best-effort: an unreadable store ⇒ none). */
@@ -256,6 +264,11 @@ export function createRailsRouter(): Router {
   }
 
   // GET /rails — list all rail assignments + active job info
+  // pr-ci-loop: whether "Watch and fix CI" can be offered (flag + Core `hostTasks`).
+  router.get('/pr-ci-availability', async (_req: Request, res: Response) => {
+    res.json({ available: isLoopsEnabled() && isRailPrDeliveryEnabled() && await prCiCapable() })
+  })
+
   router.get('/', (_req: Request, res: Response) => {
     const c = ctx(_req)
     try {
@@ -541,7 +554,9 @@ export function createRailsRouter(): Router {
 
   // Both doors share admission checks; Relaunch resolves its original source
   // before interpreting launch options, never the mutable slot's new specs.
-  router.post(['/:railIndex/launch', '/:railIndex/relaunch'], async (req: Request, res: Response) => {
+  /** Launches admitted by the pr-ci route; the generic door refuses `factory:pr-ci`. */
+  const prCiLaunches = new WeakSet<Request>()
+  const launchRail = async (req: Request, res: Response): Promise<void> => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
     if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
       res.status(400).json({ error: 'Invalid rail index' }); return
@@ -663,6 +678,10 @@ export function createRailsRouter(): Router {
       }
     } else if (rawLoopId === FLOW_SPEC_LOOP_ID) {
       res.status(400).json({ error: 'flow_id_required', detail: 'The Intent -> Spec loop is launched from an Intent session hand-off' }); return
+    }
+    // The PR CI loop runs only on an attached PR, through `POST /:railIndex/pr-ci`.
+    if (rawLoopId === PR_CI_LOOP_ID && !prCiLaunches.has(req)) {
+      res.status(400).json({ error: 'pr_ci_requires_delivery', detail: 'The PR CI loop is started from a delivery with POST /rails/:railIndex/pr-ci' }); return
     }
     // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
     // the PR decision can later be posted back into the launching conversation.
@@ -1493,6 +1512,63 @@ export function createRailsRouter(): Router {
       console.error('[rails-router] launch error:', err)
       res.status(500).json({ error: 'Failed to launch rail job' })
     }
+  }
+  router.post(['/:railIndex/launch', '/:railIndex/relaunch'], launchRail)
+
+  // PR CI loop (pr-ci-loop): "Watch and fix the PR's CI" on an attached PR. The
+  // launch reuses the ordinary continuation admission (a new generation on the
+  // PR branch supersedes the current one, rolled back atomically on allocation
+  // failure) with the delivery's frozen engine, model and profile.
+  router.post('/:railIndex/pr-ci', async (req: Request, res: Response) => {
+    if (!isPrCiLoopEnabled()) { res.status(403).json({ error: 'pr_ci_disabled', detail: 'The PR CI loop is turned off (SPECRAILS_PR_CI_LOOP=false)' }); return }
+    const railIndex = parseInt(req.params.railIndex as string, 10)
+    if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) { res.status(400).json({ error: 'Invalid rail index' }); return }
+    const body = (req.body ?? {}) as Record<string, unknown>
+    const { prDeliveryId, originConversationId, originSurface } = body
+    if (typeof prDeliveryId !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(prDeliveryId)) { res.status(400).json({ error: 'invalid_pr_delivery_id' }); return }
+    if (!isLoopsEnabled() || !isRailPrDeliveryEnabled()) { res.status(409).json({ error: 'pr_ci_requires_pr_mode', detail: 'The PR CI loop needs Loops and PR delivery' }); return }
+    let capabilities: Record<string, number> | undefined
+    try { capabilities = (await loadCoreAgentRuntime()).api?.capabilities } catch { /* unsupported below */ }
+    if (!supportsPrCi(capabilities)) { res.status(409).json({ error: 'engine_unsupported', detail: 'Update Core to run the PR CI loop (host tasks).' }); return }
+    const c = ctx(req)
+    const row = getPrDelivery(c.db, prDeliveryId)
+    if (!row || row.rail_index !== railIndex) { res.status(404).json({ error: 'pr_delivery_not_found' }); return }
+    if (getActivePrDeliveryByRail(c.db, railIndex)?.id !== row.id) { res.status(409).json({ error: 'pr_delivery_not_active', detail: 'Refresh the mission: a newer delivery owns this rail.' }); return }
+    if (!ciFixAllowed({ ...row, multiRepository: Boolean(row.execution_manifest) })) {
+      res.status(409).json({ error: row.operation ? 'pr_operation_in_progress' : 'pr_ci_not_allowed', decision: row.decision,
+        detail: row.operation ? 'Another action on this pull request is still running.' : 'Only an open, single-repository pull request awaiting your decision can be watched.' }); return
+    }
+    const lifecycle = await observePrLifecycle(prCiExec, c.project.path, row.pr_url!)
+    if (!lifecycle.ok) { res.status(409).json({ error: 'pr_unverifiable', detail: lifecycle.detail }); return }
+    if (lifecycle.isCrossRepository !== false) { res.status(409).json({ error: 'pr_fork_unsupported', detail: 'Pull requests from forks are not supported.' }); return }
+    if (lifecycle.state !== 'OPEN') { res.status(409).json({ error: 'pr_not_open', state: lifecycle.state, detail: `The pull request is ${lifecycle.state.toLowerCase()}.` }); return }
+    let frozen: Record<string, unknown> = {}
+    try { frozen = row.launch_config_json ? JSON.parse(row.launch_config_json) as Record<string, unknown> : {} } catch { /* defaults below */ }
+    // Only the admitted engine choices of the original launch: never its loop, PR target or follow-up.
+    const pick = (key: string) => frozen[key] === undefined ? {} : { [key]: frozen[key] }
+    req.body = {
+      ...pick('aiEngine'), ...pick('model'), ...pick('reasoning_effort'), ...pick('profileName'), ...pick('runtimeProviderOverride'), ...pick('repositoryIds'), ...pick('workspaceSelection'),
+      mode: 'loop', loopId: PR_CI_LOOP_ID,
+      originConversationId: typeof originConversationId === 'string' ? originConversationId : row.origin_conversation_id ?? undefined,
+      originSurface: originSurface === 'dashboard' || originSurface === 'agent-chat' ? originSurface : row.origin_surface,
+    }
+    prCiLaunches.add(req)
+    await launchRail(req, res)
+    // The new generation is `building`: the offer row of the replaced one shows "started".
+    if (res.statusCode === 202) {
+      const next = getActivePrDeliveryByRail(c.db, railIndex)
+      if (next && next.id !== row.id) refreshPrCiOffer(c, next.id)
+    }
+  })
+
+  // "Not now" on the offer: persisted for this delivery generation only.
+  router.post('/pr-ci-offer/dismiss', (req: Request, res: Response) => {
+    const id = (req.body ?? {}).prDeliveryId
+    if (typeof id !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(id)) { res.status(400).json({ error: 'invalid_pr_delivery_id' }); return }
+    const c = ctx(req)
+    if (!getPrDelivery(c.db, id)) { res.status(404).json({ error: 'pr_delivery_not_found' }); return }
+    const dismissed = dismissPrCiOffer(c.db, getAgentChatManager(), id)
+    res.status(dismissed ? 200 : 409).json(dismissed ? { prDeliveryId: id, key: prCiOfferKey(id), state: 'dismissed' } : { error: 'pr_ci_offer_not_pending' })
   })
 
   // POST /rails/:railIndex/stop — kill the running job for a rail

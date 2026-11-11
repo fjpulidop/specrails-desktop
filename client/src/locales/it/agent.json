@@ -1472,5 +1472,39 @@
     "statusReview_other": "{{count}} in attesa di revisione",
     "statusRunning_one": "{{count}} in corso",
     "statusRunning_other": "{{count}} in corso"
+  },
+  "prCi": {
+    "title": "Monitora e correggi la CI della PR {{pr}}",
+    "thisPr": "questa PR",
+    "body": "Specrails attende i check della PR, corregge quelli che falliscono, risolve i conflitti di merge con il branch base e invia le correzioni alla stessa PR finché non è verde. Procede da solo; decidi tu quando.",
+    "guarantee": "Non fa mai force push, merge, pubblicazione né chiusura della PR e non indebolisce mai un check.",
+    "start": "Avvia",
+    "notNow": "Non ora",
+    "dismissed": "Monitoraggio della CI della PR {{pr}} non avviato.",
+    "started": "Monitoraggio della CI della PR {{pr}} su {{rail}}",
+    "startedBody": "Il loop attende i check, corregge gli errori e invia alla stessa PR. Seguilo nella barra delle esecuzioni.",
+    "green": "PR {{pr}}: tutti i check sono verdi",
+    "greenBody_one": "{{pushes}} correzione inviata alla PR dopo {{rounds}} giro/i con errori.",
+    "greenBody_other": "{{pushes}} correzioni inviate alla PR dopo {{rounds}} giro/i con errori.",
+    "noCi": "La PR {{pr}} non ha check di CI",
+    "noCiBody": "Non c’era nulla da monitorare; la PR non è stata toccata.",
+    "needsAttention": "La CI della PR {{pr}} richiede attenzione",
+    "needsAttentionBody": "Il loop si è fermato prima che i check diventassero verdi.",
+    "openRun": "Apri esecuzione",
+    "openPr": "Apri PR {{pr}}",
+    "startFailed": "Impossibile avviare il loop di CI.",
+    "dismissFailed": "Impossibile salvare la scelta. Riprova.",
+    "startedToast": "Monitoraggio della CI avviato sul binario {{index}}",
+    "fixCi": "Correggi CI",
+    "fixCiTooltip": "Attendi i check, correggi errori e conflitti e invia a questa PR finché non è verde",
+    "step": {
+      "checks": "In attesa della CI",
+      "fixing": "Correzione dei check che falliscono",
+      "rerun": "Riesecuzione dei check falliti",
+      "base": "Sincronizzazione con il branch base",
+      "conflicts": "Risoluzione dei conflitti con il branch base",
+      "verify": "Verifica in locale",
+      "push": "Invio della correzione alla PR"
+    }
   }
 }

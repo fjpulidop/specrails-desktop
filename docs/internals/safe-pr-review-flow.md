@@ -953,3 +953,21 @@ typed, frozen delta that travels with the DELIVERY, never with the spec.
   scope-creep detection, PR head-drift revalidation policy, partial-commit
   recovery UX (the preparation-failure Discard fix above covers the stuck-rail
   half of the incident).
+
+## PR CI loop (pr-ci-loop)
+
+After Create PR a mission delivery in `pr_draft`/`pr_ready` with an attached same-repository PR gets an optional `pr-ci-offer` system row (`pr-ci-offer:<deliveryId>`, projected from every delivery change and at startup reprojection; only when `SPECRAILS_PR_CI_LOOP` is on and Core advertises `hostTasks`). Start calls `POST /rails/:railIndex/pr-ci`, which proves the PR is OPEN and not a fork, then reuses the ordinary continuation admission: generation B (`loop_id = factory:pr-ci`) on the PR branch supersedes A with the usual atomic rollback, and the frozen engine/model/effort/profile of A. The row then follows B (`started` → `green` | `no-ci` | `needs-attention { reason }`, with pushes and failing rounds read from B's `host_task_finished` events). B itself is never offered again.
+
+The loop is Core's (`loop-pr-ci-recipe.ts`); Desktop resolves its `host-task` machine interrupts:
+
+| Task | Effect | Outcomes |
+| --- | --- | --- |
+| `pr.update-base` | `git fetch`; merges `origin/<branch>` first when the PR branch moved, then `origin/<base>` — kept only when GitHub reported a conflict; conflicts stay prepared and unconfirmed (`MERGE_HEAD`). Never rebase. | `clean` · `merged` · `conflicts { paths }` · `closed` |
+| `pr.sync` | Refuses an unverified candidate (Core attestation + `requiresVerified`), commits with the `(run <id>)` subject marker (closing a prepared merge), verifies the push remote identity and pushes the exact SHA without force. | `pushed { sha }` · `diverged` · `rejected` · `closed` |
+| `pr.checks` | Polls `gh pr view` for the exact local HEAD (90 s grace for checks to appear, 30 s → 2 min backoff, 60 min cap); failed Actions jobs carry `gh run view --log-failed` (≤ 5 jobs × 32 KiB, redacted), external checks name + URL + summary. | `green` · `red { failures }` · `conflict` · `none` · `timeout` · `closed` |
+| `pr.rerun-failed` | `gh run rerun <id> --failed` for the failed runs of the current checks (at most once per run). | `ok` |
+
+The handlers resolve the PR from B's frozen isolated-settlement snapshot (never from workflow input), hold the repository lock for git effects, and are idempotent. Dispatches are persisted in `host_task_dispatches` (migration 88) before acting and their result before Core resumes; startup re-dispatches paused runs with a pending host task, replaying a known result. Stop cancels the in-flight handler and the run.
+
+Settlement is the ordinary continuation path: `pr.sync` already pushed, so the final push of `finalSha` is an idempotent no-op (`ready`), a run that found CI green wrote nothing (`no_changes`, PR untouched), active OpenSpec changes merged in from `origin/<base>` pass the hygiene audit, and a run that stops with a prepared merge is preserved as blocked with nothing pushed. Specrails never publishes the draft, merges or closes the PR.
+

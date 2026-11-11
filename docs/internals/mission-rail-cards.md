@@ -132,6 +132,10 @@ WS messages: `agent_pr_decision` (existing, now carries the new fields), `agent_
 | `SPECRAILS_MISSION_RAIL_CARDS` | on | legacy prompt verbs, intent route 403, no run-only cards, no failure trigger |
 | `VITE_FEATURE_MISSION_RAIL_CARDS` | on | `rail-launch` fences ignored, PR card renders exactly as before |
 | `SPECRAILS_MISSION_FAILURE_TURN` | on | card + `run-failure` row still update, no automatic turn |
+| `SPECRAILS_PR_CI_LOOP` | on | no `pr-ci-offer` row, `POST /rails/:railIndex/pr-ci` answers 403 |
+| `VITE_FEATURE_PR_CI_CARD` | on | `pr-ci-offer` rows and the Fix CI action are not rendered |
+
+The PR CI offer (`pr-ci-offer` system row, pr-ci-loop) is informational: it never starts a run, never marks the conversation unread and adds no attention dot; see [safe PR flow](safe-pr-review-flow.md#pr-ci-loop-pr-ci-loop).
 
 Migration 29 and the envelope fields are additive; persisted intents are inert when the feature is off.
 

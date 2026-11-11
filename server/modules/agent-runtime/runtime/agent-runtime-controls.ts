@@ -85,7 +85,7 @@ interface FrozenContext { runId: string; backlogRoot: string; artifactRoot: stri
 export interface RuntimeState {
   lease?: { active: boolean } | null
   recoverableSteps?: Array<{ attemptId: string; nodePath: string; scopeId: string }>
-  pendingInterrupts?: Array<{ id: string; nodePath: string; kind: 'question' | 'approval' | 'gate'; value?: unknown }>
+  pendingInterrupts?: Array<{ id: string; nodePath: string; kind: 'question' | 'approval' | 'gate' | 'host-task'; value?: unknown }>
 
   completion?: { ok: boolean; verified: boolean; reasons: string[] } | null
   steering?: RuntimeSteeringState
@@ -195,7 +195,7 @@ export async function readAgentRuntimeStatus(contextPath: string, cwd: string, e
     if (state.nextNodePath !== null && (typeof state.nextNodePath !== 'string' || !Object.hasOwn(state.steps, state.nextNodePath))) throw new Error('Core returned an invalid next node path')
     if (state.recoverableSteps !== undefined && (!Array.isArray(state.recoverableSteps) || state.recoverableSteps.some(step => !step || typeof step.attemptId !== 'string' || !step.attemptId || typeof step.nodePath !== 'string' || typeof step.scopeId !== 'string'))) throw new Error('Core returned invalid recovery attempt identities')
     if (state.lease !== undefined && state.lease !== null && (typeof state.lease !== 'object' || typeof state.lease.active !== 'boolean')) throw new Error('Core returned an invalid execution lease')
-    if (state.pendingInterrupts !== undefined && (!Array.isArray(state.pendingInterrupts) || state.pendingInterrupts.some(item => !item || typeof item.id !== 'string' || !item.id || typeof item.nodePath !== 'string' || !['question', 'approval', 'gate'].includes(item.kind)))) throw new Error('Core returned invalid pending interrupts')
+    if (state.pendingInterrupts !== undefined && (!Array.isArray(state.pendingInterrupts) || state.pendingInterrupts.some(item => !item || typeof item.id !== 'string' || !item.id || typeof item.nodePath !== 'string' || !['question', 'approval', 'gate', 'host-task'].includes(item.kind)))) throw new Error('Core returned invalid pending interrupts')
     // Legacy display fields use node paths. Controls must use an exact pending
     // interrupt, including when parallel branches pause at the same node.
     if (state.pendingApproval) {

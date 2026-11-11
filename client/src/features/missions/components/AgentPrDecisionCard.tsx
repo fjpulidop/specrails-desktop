@@ -6,7 +6,8 @@ import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 import { useTranslation } from 'react-i18next'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
-import { FEATURE_MISSION_RAIL_CARDS, FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
+import { FEATURE_MISSION_RAIL_CARDS, FEATURE_PR_CI_CARD, FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
+import { postPrCiLaunch, usePrCiAvailability } from '../../delivery/lib/pr-ci'
 import { toast } from 'sonner'
 import { notifyError } from '../../../lib/notify-error'
 import { openBudgetPanel } from '../../../lib/app-settings-events'
@@ -496,6 +497,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const [relaunchAccepted, setRelaunchAccepted] = useState(false)
   const [relaunchError, setRelaunchError] = useState<string | null>(null)
   useEffect(() => { setRelaunchAccepted(false); setRelaunchError(null) }, [envelope.prDeliveryId])
+  // pr-ci-loop: "Fix CI" — the same launch as the mission's CI offer card.
+  const ciAvailable = usePrCiAvailability(FEATURE_PR_CI_CARD ? envelope.projectId : null)
+  const ciInFlight = useRef(false)
+  const [ciStarting, setCiStarting] = useState(false)
+  const [ciError, setCiError] = useState<string | null>(null)
+  useEffect(() => { setCiError(null) }, [envelope.prDeliveryId])
   // Focus bus: a failure marker / launch stub asks to bring THIS card into view.
   const cardRef = useRef<HTMLDivElement | null>(null)
   const [flash, setFlash] = useState(false)
@@ -1398,8 +1405,26 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     implementationFailedLead.push({ id: 'relaunch', testId: 'mission-run-relaunch', label: t('runCard.actions.relaunch'), hint: relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined, onSelect: () => void relaunch(), disabled: runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted })
   }
 
+  const fixCi = async () => {
+    if (ciInFlight.current || anyBusyRef.current) return
+    ciInFlight.current = true
+    setCiStarting(true); setCiError(null)
+    const outcome = await postPrCiLaunch(envelope.projectId, envelope.railIndex, { prDeliveryId: envelope.prDeliveryId, originConversationId: conversationId })
+    if (outcome.kind === 'started') toast.success(t('prCi.startedToast', { index: envelope.railIndex + 1 }))
+    else setCiError(outcome.detail || t('prCi.startFailed'))
+    ciInFlight.current = false
+    setCiStarting(false)
+  }
+  const canFixCi = ciAvailable && Boolean(prUrl) && (decision === 'pr_draft' || decision === 'pr_ready') && !hasRepositoryDeliveries
   const moreActions = (opts: { merge?: boolean; lead?: readonly OverflowActionItem[]; discardLocal?: boolean } = {}) => {
     const items: OverflowActionItem[] = [...(opts.lead ?? [])]
+    if (canFixCi) {
+      items.push({
+        id: 'fix-ci', testId: 'agent-pr-fix-ci', label: t('prCi.fixCi'), hint: t('prCi.fixCiTooltip'),
+        icon: ciStarting ? spinner : <Wrench className="h-3 w-3" />,
+        onSelect: () => void fixCi(), disabled: anyBusy || ciStarting,
+      })
+    }
     if (checkoutBranch && !hasRepositoryDeliveries) {
       items.push({
         id: 'checkout', testId: 'agent-pr-checkout', label: t('prCard.checkout'),
@@ -1788,6 +1813,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               {moreActions({ merge: true })}
             </div>
           )}
+          {canFixCi && ciError && <p role="alert" className="mb-1.5 text-xs text-destructive" data-testid="agent-pr-fix-ci-error">{ciError}</p>}
           {decision === 'pr_ready' && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
               {primaryAction('poll-merge', t('prCard.verifyPr'))}

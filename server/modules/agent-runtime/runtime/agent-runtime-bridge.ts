@@ -141,6 +141,8 @@ export interface AgentRuntimeInvocationOptions {
   /** Answers the pending architect question on resume. */
   answer?: string
   interruptId?: string
+  /** Host resolution of one pending `host-task` interrupt (Core `hostTasks`); requires `interruptId`. */
+  hostResult?: { outcome: string; output?: unknown }
   /** Durable projection errors abort observation; ordinary log callbacks remain advisory. */
   onRuntimeEvent?(event: Record<string, unknown>): void
   timeoutMs?: number
@@ -327,6 +329,16 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     args.push('--answer', options.answer)
   }
   if (options.interruptId) { if (!options.resume) throw new Error('Interrupt selection applies to resume'); args.push('--interrupt-id', options.interruptId) }
+  if (options.hostResult) {
+    if (!options.resume || !options.interruptId) throw new Error('A host result applies to runtime resume of one selected interrupt')
+    if (options.answer !== undefined || options.approve?.length) throw new Error('A host result cannot be combined with a human answer or approval')
+    // Private, per-interrupt file beside the frozen context; Core validates it before persisting.
+    const directory = join(dirname(options.contextPath), 'host-results')
+    mkdirSync(directory, { recursive: true, mode: 0o700 })
+    const file = join(directory, createHash('sha256').update(options.interruptId).digest('hex').slice(0, 32) + '.json')
+    writeFileSync(file, JSON.stringify(options.hostResult), { mode: 0o600 })
+    args.push('--host-result', file)
+  }
   const started = Date.now()
   writeRuntimeHistory(options.contextPath, { status: 'running' })
   return new Promise<AiStepResult>((resolve) => {
@@ -438,7 +450,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       const errorText = observerError ?? (timedOut ? 'Programmatic workflow timed out; inspect its checkpoint before recovery'
         : invalidProtocol ? 'Core returned an invalid runtime event stream'
         : acceptanceBlocked ? result?.completion?.reasons.join('; ') || 'Core workflow acceptance or required verification is not satisfied'
-        : runtimeError ?? (result?.status === 'paused' ? hostPause ? `Workflow paused by the host (${hostPause.reason})` : (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
+        : runtimeError ?? (result?.status === 'paused' ? hostPause ? `Workflow paused by the host (${hostPause.reason})` : hostTaskName(result?.pendingInterrupts) ? `Workflow waits for the host task ${hostTaskName(result?.pendingInterrupts)}` : (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
           ? `Workflow awaits an answer in Agent Runtime settings: ${result.pendingQuestion.question.trim().slice(0, 500)}`
           : 'Workflow awaits approval in Agent Runtime settings')
         : failed ? completionError || [...stepFailures.values()].at(-1) || stderr || 'Core exited without a successful programmatic workflow result' : undefined))
@@ -452,6 +464,12 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       })
     })
   })
+}
+
+/** The task of the first pending machine interrupt; host tasks are never presented as awaiting a person. */
+function hostTaskName(pending: DefinitionInterrupt[] | undefined): string | undefined {
+  const value = pending?.find(item => item.kind === 'host-task')?.value as { task?: unknown } | undefined
+  return typeof value?.task === 'string' ? value.task : undefined
 }
 
 // ─── Retained-runtime control verbs (fork / cancel) ──────────────────────────

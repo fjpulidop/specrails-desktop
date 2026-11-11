@@ -1472,5 +1472,39 @@
     "statusReview_other": "{{count}} waiting for review",
     "statusRunning_one": "{{count}} running",
     "statusRunning_other": "{{count}} running"
+  },
+  "prCi": {
+    "title": "Watch and fix the CI of PR {{pr}}",
+    "thisPr": "this PR",
+    "body": "Specrails waits for the PR’s checks, fixes failing ones, resolves merge conflicts with the base branch and pushes the fixes to the same PR until it is green. It runs on its own; you decide when.",
+    "guarantee": "It never force-pushes, merges, publishes or closes the PR, and never weakens a check.",
+    "start": "Start",
+    "notNow": "Not now",
+    "dismissed": "CI watch for PR {{pr}} not started.",
+    "started": "Watching the CI of PR {{pr}} on {{rail}}",
+    "startedBody": "The loop waits for the checks, fixes failures and pushes to the same PR. Follow it in the run strip.",
+    "green": "PR {{pr}}: all checks are green",
+    "greenBody_one": "{{pushes}} fix pushed to the PR after {{rounds}} failing round(s).",
+    "greenBody_other": "{{pushes}} fixes pushed to the PR after {{rounds}} failing round(s).",
+    "noCi": "PR {{pr}} has no CI checks",
+    "noCiBody": "There was nothing to watch; the PR was left untouched.",
+    "needsAttention": "The CI of PR {{pr}} needs attention",
+    "needsAttentionBody": "The loop stopped before the checks turned green.",
+    "openRun": "Open run",
+    "openPr": "Open PR {{pr}}",
+    "startFailed": "The CI loop could not start.",
+    "dismissFailed": "Could not save your choice. Try again.",
+    "startedToast": "CI watch started on rail {{index}}",
+    "fixCi": "Fix CI",
+    "fixCiTooltip": "Wait for the checks, fix failures and conflicts, and push to this PR until it is green",
+    "step": {
+      "checks": "Waiting for CI",
+      "fixing": "Fixing the failing checks",
+      "rerun": "Re-running the failed checks",
+      "base": "Syncing with the base branch",
+      "conflicts": "Resolving conflicts with the base branch",
+      "verify": "Verifying locally",
+      "push": "Pushing the fix to the PR"
+    }
   }
 }

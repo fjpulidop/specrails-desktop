@@ -323,6 +323,15 @@ its native key/config, and Kimi via `kimi login` or user-managed
 |----------|--------|
 | `SPECRAILS_MISSION_READ_ONLY` | Default on. Mission (agent chat) turns use the provider's native read-only boundary, and the `specrails_*` MCP tools stay callable. Claude spawns with only read-only built-in tools, Codex uses its read-only sandbox, Gemini uses plan mode plus a plan-scoped MCP policy, and local engines use the runner's read-only tool set. Core mission sessions get the matching `permissions`/`tools` policy. Kimi has no native read-only mode and is unchanged. Set to `false` to restore the previous write-capable mission argv and session policy without a release. See [read-only missions](mission-read-only-policy.md). |
 
+### PR CI loop (pr-ci-loop)
+
+| Variable | Effect |
+|----------|--------|
+| `SPECRAILS_PR_CI_LOOP` | Default on. `false` hides the mission's "Watch and fix the CI of PR #N" offer and the Fix CI action (availability reads false) and makes `POST /rails/:railIndex/pr-ci` answer 403. A Core without the `hostTasks` capability hides the feature regardless. |
+| `VITE_FEATURE_PR_CI_CARD` | Client build flag, default on. `false` stops rendering `pr-ci-offer` rows and the Fix CI action. |
+
+The loop's budgets are fixed in the recipe (5 fix rounds, 1 re-run of failed checks, 3 conflict rounds, 60 minutes per CI wait); see [safe PR flow](safe-pr-review-flow.md#pr-ci-loop-pr-ci-loop).
+
 ### Core agent sessions (rollout)
 
 | Variable | Effect |

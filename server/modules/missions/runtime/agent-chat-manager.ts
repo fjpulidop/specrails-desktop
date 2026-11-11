@@ -1660,6 +1660,17 @@ export class AgentChatManager {
    * content only differs by its `at` stamp is left alone (no write, no
    * broadcast). Returns the row id, or null when skipped. NEVER throws.
    */
+  /** The current content of the system row keyed by `dedupeKey`, or null. NEVER throws. */
+  getSystemRow(conversationId: string, dedupeKey: string): Record<string, unknown> | null {
+    try {
+      const existing = findAgentSystemMessages(this._db, conversationId, (content) => {
+        try { return (JSON.parse(content) as { dedupeKey?: unknown }).dedupeKey === dedupeKey } catch { return false }
+      })
+      const canonical = existing[existing.length - 1]
+      return canonical ? JSON.parse(canonical.content) as Record<string, unknown> : null
+    } catch { return null }
+  }
+
   upsertSystemRow(conversationId: string, row: Record<string, unknown> & { kind: string }, dedupeKey: string): string | null {
     if (this._disposed) return null
     try {
