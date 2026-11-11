@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1368 source/build files. Nearby tests are linked where names
+Includes 1369 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1895,6 +1895,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [checkout-path.ts](../../server/util/checkout-path.ts)
 - [cli-prompt.ts](../../server/util/cli-prompt.ts) · [test](../../server/util/cli-prompt.test.ts)
+- [desktop-core-env.ts](../../server/util/desktop-core-env.ts)
 - [distribute-int.ts](../../server/util/distribute-int.ts)
 - [search-snippet.ts](../../server/util/search-snippet.ts) · [test](../../server/util/search-snippet.test.ts)
 - [secure-fs.ts](../../server/util/secure-fs.ts) · [test](../../server/util/secure-fs.test.ts)

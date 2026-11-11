@@ -38,6 +38,14 @@ describe('provider runtime helpers', () => {
     expect(base).toEqual({ PATH: '/bin', KEEP: 'yes' })
   })
 
+  it('never hands Desktop\'s own Core selection to a provider CLI', () => {
+    const base = { PATH: '/bin', SPECRAILS_CORE_BIN: '/core/bin/specrails-core.mjs', specrails_core_runtime_path: '/core/rt.js', SPECRAILS_FRAMEWORK_AUTOSWAP: 'false' }
+    const result = buildProviderEnv(claudeAdapter, { prompt: 'x' }, base)
+    expect(Object.keys(result).filter(key => /^specrails_(core|framework)/i.test(key))).toEqual([])
+    expect(result.PATH).toBe('/bin')
+    expect(base.SPECRAILS_CORE_BIN).toBe('/core/bin/specrails-core.mjs')
+  })
+
   it('removes an inherited Kimi effort when this invocation does not select one', () => {
     const result = buildProviderEnv(
       kimiAdapter,

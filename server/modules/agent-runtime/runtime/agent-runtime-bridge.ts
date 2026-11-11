@@ -14,6 +14,7 @@ import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime
 import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, resolveInheritedRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates, coreSupportsSetupCommands } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
+import { withoutDesktopCoreSelection } from '../../../util/desktop-core-env'
 import type { DefinitionCompletion, DefinitionHostPause, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
 import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
@@ -176,21 +177,6 @@ interface RuntimeResult {
 export function coreProviderEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const scoped = withoutDesktopCoreSelection(env)
   return scoped.GEMINI_CLI_TRUST_WORKSPACE === undefined ? { ...scoped, GEMINI_CLI_TRUST_WORKSPACE: 'true' } : scoped
-}
-
-/**
- * How THIS Desktop picks its Core (a local checkout during development). Core
- * never reads them; inherited by agents and verification commands they would
- * steer the project being worked on instead (a Desktop checkout's own tests
- * resolve Core through them and fail).
- */
-export const DESKTOP_CORE_SELECTION_ENV_KEYS = ['SPECRAILS_CORE_BIN', 'SPECRAILS_CORE_RUNTIME_PATH', 'SPECRAILS_FRAMEWORK_AUTOSWAP'] as const
-
-export function withoutDesktopCoreSelection(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  if (!DESKTOP_CORE_SELECTION_ENV_KEYS.some(key => key in env)) return env
-  const scoped = { ...env }
-  for (const key of DESKTOP_CORE_SELECTION_ENV_KEYS) delete scoped[key]
-  return scoped
 }
 
 /** Core's blocker when characterization tests fail on the unchanged code (baseline on touch). */
