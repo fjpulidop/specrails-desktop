@@ -13,6 +13,7 @@ import { observePrLifecycle } from './pr-lifecycle'
 import { prCiCapable, refreshPrCiOffer } from './pr-ci/pr-ci-projection'
 import { dismissPrCiOffer, prCiOfferKey } from './pr-ci/pr-ci-offer'
 import { clearPrCiWorktrees, resettleFailedPrCiRows } from './pr-ci/pr-ci-settlement'
+import { createPrCiStatusCache, readPrCiStatus } from './pr-ci/pr-ci-status'
 import type { RailPrDeliveryRow } from './rail-pr-store'
 import { defaultExec as prCiExec } from './pr-publisher'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
@@ -267,6 +268,25 @@ export function createRailsRouter(): Router {
 
   // GET /rails — list all rail assignments + active job info
   // pr-ci-loop: whether "Watch and fix CI" can be offered (flag + Core `hostTasks`).
+  // Live CI of a delivery's open PR(s), read from GitHub whether or not a CI loop ran.
+  const prCiStatusCaches = new WeakMap<object, ReturnType<typeof createPrCiStatusCache>>()
+  router.get('/pr-ci-status', async (req: Request, res: Response) => {
+    const id = typeof req.query.deliveryId === 'string' ? req.query.deliveryId : ''
+    if (!/^[A-Za-z0-9-]{1,64}$/.test(id)) { res.status(400).json({ error: 'invalid_pr_delivery_id' }); return }
+    const c = ctx(req)
+    const row = getPrDelivery(c.db, id)
+    if (!row) { res.status(404).json({ error: 'pr_delivery_not_found' }); return }
+    if (row.decision !== 'pr_draft' && row.decision !== 'pr_ready') { res.json({ deliveryId: id, prs: [] }); return }
+    let cache = prCiStatusCaches.get(c)
+    if (!cache) { cache = createPrCiStatusCache((cwd, prUrl) => readPrCiStatus(prCiExec, cwd, prUrl)); prCiStatusCaches.set(c, cache) }
+    const watched = row.execution_manifest
+      ? ciFixActiveRepositories(listRepositoryDeliveries(c.db, row.id)).filter(child => child.pr_url)
+        .map(child => ({ repository: path.basename(child.repository_path ?? ''), prUrl: child.pr_url!, prNumber: child.pr_number, cwd: child.repository_path ?? c.project.path }))
+      : row.pr_url ? [{ repository: '', prUrl: row.pr_url, prNumber: row.pr_number, cwd: c.project.path }] : []
+    const prs = await Promise.all(watched.map(async pr => ({ repository: pr.repository, prUrl: pr.prUrl, prNumber: pr.prNumber, ...(await cache!(pr.cwd, pr.prUrl)) })))
+    res.json({ deliveryId: id, prs })
+  })
+
   router.get('/pr-ci-availability', async (_req: Request, res: Response) => {
     res.json({ available: isLoopsEnabled() && isRailPrDeliveryEnabled() && await prCiCapable() })
   })

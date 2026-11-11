@@ -327,7 +327,8 @@
       "ci_green": "PR prête — CI verte",
       "ci_needs_attention": "PR poussée — la CI n'est pas encore verte",
       "ciBuilding": "Surveillance de la CI de la PR {{pr}}",
-      "run_stopped": "Exécution arrêtée"
+      "run_stopped": "Exécution arrêtée",
+      "ci_pending": "PR poussée — CI en cours"
     },
     "buildingHint": "À la fin, il vous sera proposé de créer la PR.",
     "buildingExistingPrHint": "Specrails travaille sur la branche de la PR existante et poussera les changements de revue vers cette même PR.",
@@ -497,7 +498,11 @@
     "moreActions": "Plus d'actions",
     "ci": {
       "green": "Tous les checks sont verts.",
-      "attention": "La boucle de CI s’est arrêtée avant que les checks passent au vert. La PR conserve tout ce qui a été poussé."
+      "attention": "La boucle de CI s’est arrêtée avant que les checks passent au vert. La PR conserve tout ce qui a été poussé.",
+      "pending": "La CI est en cours ({{count}} checks en attente).",
+      "notGreen": "La CI de la PR n'est pas encore verte.",
+      "failing": "Checks en échec : {{checks}}",
+      "failing_pr": "{{pr}} : checks en échec : {{checks}}"
     },
     "ciBuildingHint": "Attend les checks, corrige les échecs du code et pousse sur la même PR. Les échecs qui ne viennent pas du code sont signalés, pas relancés.",
     "runStoppedNote": "Vous avez arrêté cette exécution avant toute livraison. Relancez-la quand vous voulez continuer."

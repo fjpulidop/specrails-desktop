@@ -956,6 +956,8 @@ typed, frozen delta that travels with the DELIVERY, never with the spec.
 
 ## PR CI loop (pr-ci-loop)
 
+**Live CI on the PR card.** `pr_draft`/`pr_ready` only say whether the PR is a draft; they never mean the checks pass. The mission PR card therefore reads the open PR(s)' checks live (`GET /rails/pr-ci-status`, `gh pr view … statusCheckRollup`, cached 60 s per PR and project, polled every minute while checks run) whether or not a CI loop ran. Red: "PR pushed — waiting for CI to turn green" with the failing check names and Fix CI in plain sight. Running: "PR pushed — CI running". Green: "PR ready — CI is green". When GitHub cannot be read, the card falls back to the last CI loop's `ci_green` / `ci_needs_attention`, or else to the plain decision title.
+
 After Create PR a mission delivery in `pr_draft`/`pr_ready` with an attached same-repository PR gets an optional `pr-ci-offer` system row (`pr-ci-offer:<deliveryId>`, projected from every delivery change and at startup reprojection; only when `SPECRAILS_PR_CI_LOOP` is on and Core advertises `hostTasks`). Start calls `POST /rails/:railIndex/pr-ci`, which proves the PR is OPEN and not a fork, then reuses the ordinary continuation admission: generation B (`loop_id = factory:pr-ci`) on the PR branch supersedes A with the usual atomic rollback, and the frozen engine/model/effort/profile of A. The row then follows B (`started` → `green` | `no-ci` | `needs-attention { reason }`, with pushes and failing rounds read from B's `host_task_finished` events). B itself is never offered again.
 
 The loop is Core's (`loop-pr-ci-recipe.ts`); Desktop resolves its `host-task` machine interrupts:

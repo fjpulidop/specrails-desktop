@@ -262,14 +262,28 @@ describe('AgentPrDecisionCard states', () => {
       prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
     expect(screen.getByText('PR pushed — waiting for CI to turn green')).toBeInTheDocument()
     const note = screen.getByTestId('agent-pr-ci-status')
-    expect(note).toHaveAttribute('data-state', 'ci_needs_attention')
+    expect(note).toHaveAttribute('data-state', 'red')
     expect(note.textContent).toContain('flaky: test X keeps failing')
     expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument()
     expect(screen.queryByText(/Implementation failed/i)).toBeNull()
     unmount()
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', loopId: 'factory:pr-ci', statusCode: 'ci_green', deliveryOutcome: 'delivered', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
     expect(screen.getByText('PR ready — CI is green')).toBeInTheDocument()
-    expect(screen.getByTestId('agent-pr-ci-status')).toHaveAttribute('data-state', 'ci_green')
+    expect(screen.getByTestId('agent-pr-ci-status')).toHaveAttribute('data-state', 'green')
+  })
+
+  it('a ready PR whose CI is red says so, read live from GitHub without any CI loop', async () => {
+    const original = global.fetch
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/rails/pr-ci-status')
+      ? new Response(JSON.stringify({ prs: [{ repository: '', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, state: 'red', total: 54, pending: 0, failing: ['secret-scan', 'test'] }] }), { status: 200 })
+      : new Response('{}', { status: 200 })) as typeof fetch
+    try {
+      render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', deliveryOutcome: 'delivered', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
+      expect(await screen.findByText('PR pushed — waiting for CI to turn green')).toBeInTheDocument()
+      expect(screen.getByTestId('agent-pr-ci-status')).toHaveAttribute('data-state', 'red')
+      expect(screen.getByTestId('agent-pr-ci-failing')).toHaveTextContent('Failing checks: secret-scan, test')
+      expect(screen.queryByText('PR ready for merge')).toBeNull()
+    } finally { global.fetch = original }
   })
 
   it('a blocked CI loop generation offers Fix CI again, never a delivery retry (pr-ci-loop)', () => {
