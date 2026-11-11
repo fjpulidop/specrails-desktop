@@ -20,6 +20,7 @@
  */
 import { coreFactoryGraph } from './loop-core-factory'
 import { flowSpecGraph } from './loop-flow-spec-recipe'
+import { PR_CI_LOOP_ID, prCiGraph, supportsPrCi } from './loop-pr-ci-recipe'
 import type { LoopGraph } from './loop-graph'
 
 export interface FactoryLoop {
@@ -32,7 +33,7 @@ export interface FactoryLoop {
    *  LoopRunManager (no QueueManager fallback — launch 403s when Loops are disabled). */
   mode: 'implement' | 'loop'
   /** Core runtime capability the loop needs (listed only when advertised). */
-  requiredCoreCapability?: 'deriveChange'
+  requiredCoreCapability?: 'deriveChange' | 'hostTasks'
   /**
    * False for a loop the platform runs on its OWN initiative and a user must
    * never start by hand — it is listed for discovery (preview/fork) but has no
@@ -86,6 +87,21 @@ const FLOW_SPEC_FACTORY: FactoryLoop = {
   requiredCoreCapability: 'deriveChange',
   launchable: false,
   graph: flowSpecGraph(),
+}
+
+/** PR CI loop (pr-ci-loop): watches and fixes the CI of an existing PR. Only the
+ *  mission's "Watch and fix CI" offer starts it (`POST /rails/:railIndex/pr-ci`);
+ *  listed with `launchable: false`, and only when Core advertises `hostTasks`. */
+export { PR_CI_LOOP_ID, supportsPrCi }
+
+const PR_CI_FACTORY: FactoryLoop = {
+  id: PR_CI_LOOP_ID,
+  name: 'Fix PR CI',
+  description: 'Waits for a pull request\'s CI, fixes failing checks, resolves merge conflicts with the base branch by merging it, verifies locally and pushes to the same pull request until it is green. Never force-pushes, merges or publishes the pull request.',
+  mode: 'loop',
+  requiredCoreCapability: 'hostTasks',
+  launchable: false,
+  graph: prCiGraph(),
 }
 
 /** Core advertises the workflow engine and the derive-change piece. */
@@ -144,6 +160,7 @@ const FACTORY_ALIASES = new Map<string, FactoryLoop>([
 const FACTORY_BY_ID = new Map<string, FactoryLoop>([
   ...FACTORY_LOOPS.map((f) => [f.id, f] as const),
   [FLOW_SPEC_FACTORY.id, FLOW_SPEC_FACTORY],
+  [PR_CI_FACTORY.id, PR_CI_FACTORY],
   ...FACTORY_ALIASES,
 ])
 
@@ -152,7 +169,11 @@ const FACTORY_BY_ID = new Map<string, FactoryLoop>([
 export function factoryLoopsForCapabilities(capabilities?: Record<string, number>): FactoryLoop[] {
   if (capabilities?.engineV2 !== 1 || capabilities.workflowDefinitions !== 1) return FACTORY_LOOPS
   const loops = FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph('implement', capabilities.implementationSteps === 1, capabilities.workflowAgentSteps === 1, capabilities) }))
-  return supportsFlowSpec(capabilities) ? [...loops, { ...FLOW_SPEC_FACTORY, graph: flowSpecGraph() }] : loops
+  return [
+    ...loops,
+    ...(supportsFlowSpec(capabilities) ? [{ ...FLOW_SPEC_FACTORY, graph: flowSpecGraph() }] : []),
+    ...(supportsPrCi(capabilities) ? [{ ...PR_CI_FACTORY, graph: prCiGraph(capabilities) }] : []),
+  ]
 }
 
 export function getFactoryLoop(id: string, capabilities?: Record<string, number>): FactoryLoop | undefined {

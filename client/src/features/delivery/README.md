@@ -17,6 +17,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/TargetPrLaunchDialog.tsx](components/TargetPrLaunchDialog.tsx)
 - [components/TopRiskLine.tsx](components/TopRiskLine.tsx)
 - [context/RailPrDecisionContext.tsx](context/RailPrDecisionContext.tsx)
+- [lib/pr-ci.ts](lib/pr-ci.ts)
 - [lib/pr-delivery.ts](lib/pr-delivery.ts)
 - [lib/pr-follow-up-scope.ts](lib/pr-follow-up-scope.ts)
 - [pages/ReviewPacketPage.tsx](pages/ReviewPacketPage.tsx)

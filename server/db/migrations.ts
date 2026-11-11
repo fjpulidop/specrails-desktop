@@ -1966,6 +1966,27 @@ const MIGRATIONS: Migration[] = [
     db.exec("UPDATE rails SET mode = 'implement' WHERE mode IN ('freestyle', 'ultracode')")
   },
 
+  // Migration 88: host-task dispatches (pr-ci-loop, Core capability hostTasks).
+  // A definition run paused on a MACHINE interrupt is resolved by a Desktop
+  // handler; the dispatch is persisted before the handler acts and its result
+  // before Core is resumed, so a restart between the effect and the resume
+  // replays the recorded result instead of repeating the effect.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS host_task_dispatches (
+        run_id       TEXT NOT NULL,
+        interrupt_id TEXT NOT NULL,
+        task         TEXT NOT NULL,
+        status       TEXT NOT NULL CHECK (status IN ('running', 'resolved')),
+        attempts     INTEGER NOT NULL DEFAULT 0,
+        result_json  TEXT,
+        created_at   TEXT NOT NULL,
+        updated_at   TEXT NOT NULL,
+        PRIMARY KEY (run_id, interrupt_id)
+      )
+    `)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

@@ -48,3 +48,22 @@ it('projects recorded Core parallel/pause/resume events with conserved integer a
   events.forEach(resumed)
   expect(db.prepare('SELECT * FROM ai_invocations ORDER BY id').all()).toEqual(stable)
 })
+
+it('keeps a host-task step in progress while the host works, and ends it when Core resumes it (pr-ci-loop)', () => {
+  let sequence = 0
+  const project = createDefinitionEventProjection({ db, runId, projectId: 'p1', ticketIds: [1], nextSequence: () => ++sequence, broadcast: () => {} })
+  const step = (n: number, type: string, extra: Record<string, unknown> = {}) => ({ type: 'workflow-event', event: { id: `${runId}:${n}`, runId, sequence: n, type, attemptId: 'attempt-checks', nodePath: 'checks', scopeId: 'root', visit: 1, attempt: 1, timestamp: '2026-11-11T08:00:00.000Z', ...extra } })
+  project(step(1, 'step_started'))
+  project(step(2, 'step_paused', { interruptId: 'i1', request: { kind: 'host-task', task: 'pr.checks' } }))
+  const ends = () => getJobEvents(db, runId).filter(event => event.event_type === 'loop_step_end').map(event => JSON.parse(event.payload) as Record<string, unknown>)
+  expect(ends()).toEqual([])
+  project(step(3, 'step_started'))
+  project(step(4, 'step_succeeded', { outcome: 'green' }))
+  expect(getJobEvents(db, runId).filter(event => event.event_type === 'loop_step')).toHaveLength(1)
+  expect(ends()).toEqual([expect.objectContaining({ status: 'ok', nodePath: 'checks' })])
+  // A human pause still ends the step as paused.
+  const ask = { type: 'workflow-event', event: { id: `${runId}:5`, runId, sequence: 5, type: 'step_started', attemptId: 'attempt-ask', nodePath: 'ask', scopeId: 'root', visit: 1, attempt: 1, timestamp: '2026-11-11T08:00:00.000Z' } }
+  project(ask)
+  project({ ...ask, event: { ...ask.event, id: `${runId}:6`, sequence: 6, type: 'step_paused', request: { kind: 'question' } } })
+  expect(ends().at(-1)).toMatchObject({ status: 'paused', nodePath: 'ask' })
+})

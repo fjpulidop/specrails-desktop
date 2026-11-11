@@ -1,6 +1,8 @@
 import { localizeStatusDetail } from '../../../lib/pr-status-detail'
 import { LiveDot } from '../../../components/ui/live-dot'
 import { getApiBase } from '../../../lib/api'
+import { FEATURE_PR_CI_CARD } from '../../../lib/feature-flags'
+import { postPrCiLaunch, prCiFixable, usePrCiAvailability } from '../lib/pr-ci'
 import { HelpHint } from '../../../components/HelpHint'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { TechnicalDetail } from '../../../components/ui/technical-detail'
@@ -450,6 +452,28 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     </button>
   )
 
+  // pr-ci-loop: "Fix CI" — watch and fix the attached PR's CI (Core-run loop).
+  const ciAvailable = usePrCiAvailability(FEATURE_PR_CI_CARD ? stripProjectId : null)
+  const [ciStarting, setCiStarting] = useState(false)
+  const ciInFlight = useRef(false)
+  const canFixCi = ciAvailable && prCiFixable({ decision: decision.decision, prUrl: decision.prUrl, repositoryDeliveries: decision.repositoryDeliveries })
+  async function fixCi(): Promise<void> {
+    if (!stripProjectId || ciInFlight.current || busy) return
+    ciInFlight.current = true
+    setCiStarting(true)
+    const outcome = await postPrCiLaunch(stripProjectId, decision.railIndex, { prDeliveryId: decision.prDeliveryId })
+    if (outcome.kind === 'started') toast.success(t('railPr.fixCiStarted'))
+    else notifyError(t('railPr.fixCiFailed'), { detail: outcome.detail || undefined, retry: () => void fixCi() })
+    ciInFlight.current = false
+    if (mountedRef.current) setCiStarting(false)
+  }
+  const fixCiButton = canFixCi && (
+    <button type="button" data-testid="rail-pr-fix-ci" disabled={busy || ciStarting} title={t('railPr.fixCiTooltip')}
+      onClick={(e) => { e.stopPropagation(); void fixCi() }} className={secondaryBtn}>
+      {t('railPr.fixCi')}
+    </button>
+  )
+
   const actionButton = (
     action: RailPrDecisionAction,
     expected: RailPrDecision,
@@ -771,6 +795,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         <>
           {linkChip}
           {actionButton('publish', 'pr_draft', t('railPr.publish'), 'rail-pr-publish', t('railPr.publishTooltip'))}
+          {fixCiButton}
           {secondary(true, false)}
         </>
       )
@@ -779,6 +804,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         <>
           {linkChip}
           {actionButton('poll-merge', 'pr_ready', t('railPr.verifyPr'), 'rail-pr-poll', t('railPr.verifyPrTooltip'))}
+          {fixCiButton}
           {secondary(true, false)}
         </>
       )
@@ -877,6 +903,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       <>
         {linkChip}
         {actionButton('publish', 'pr_draft', t('railPr.publish'), 'rail-pr-publish', t('railPr.publishTooltip'))}
+          {fixCiButton}
         {secondary(true, false)}
       </>
     )
@@ -906,6 +933,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       <>
         {linkChip}
         {actionButton('poll-merge', 'pr_ready', t('railPr.verifyPr'), 'rail-pr-poll', t('railPr.verifyPrTooltip'))}
+          {fixCiButton}
         {secondary(true, false)}
       </>
     )

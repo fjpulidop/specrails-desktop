@@ -150,7 +150,7 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
       // Core's derive-change piece always invokes the built-in `deriver` role.
       if (kind === 'derive-change') roleIds.add('deriver')
       if (kind === 'end' && params.outcome === 'success' && params.requiresVerified === undefined)
-        params.requiresVerified = writes
+        params.requiresVerified = graph.config.deliveryRequiresVerified ?? writes
       const ends = Object.fromEntries(
         body.edges.filter((edge) => edge.source === node.id).map((edge) => [edge.label!, edge.target]),
       )
@@ -252,7 +252,7 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
     ...(Object.keys(budget).length ? { budget } : {}),
     ...(graph.config.policies ? { policies: { ...graph.config.policies } } : {}),
     ...(Object.keys(components).length ? { components } : {}),
-    delivery: { requiresVerified: writes },
+    delivery: { requiresVerified: graph.config.deliveryRequiresVerified ?? writes },
   }
 }
 
@@ -262,6 +262,7 @@ function pieceWrites(node: LoopNode, roles: DefinitionLaunch['roles']): boolean 
     params = node.data?.params ?? {}
   if (kind === 'prompt') return params.access !== 'read'
   if (kind === 'role-turn') return (roles ?? {})[String(params.roleId)]?.access !== 'read'
+  if (kind === 'host-task') return params.effect !== 'read'
   return ['verify', 'shell', 'openspec-archive', 'implementation', 'implementation-step', 'derive-change'].includes(kind ?? '')
 }
 

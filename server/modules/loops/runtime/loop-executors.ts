@@ -307,7 +307,7 @@ export function createLoopExecutors(
       if (input.resume) {
         const contextPath = input.contextPath ?? runtimeContextPath(request.cwd,runId,resolveEnv())
         const host = readFrozenRuntimeHost(contextPath,resolveEnv(),runId)
-        const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,approve:input.approve,recover:input.recover,interruptId:input.interruptId,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
+        const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,approve:input.approve,recover:input.recover,interruptId:input.interruptId,hostResult:input.hostResult,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
       // Intent -> Spec derives ONE change for code that already exists: it is named

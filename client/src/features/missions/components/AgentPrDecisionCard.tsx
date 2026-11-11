@@ -6,7 +6,8 @@ import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 import { useTranslation } from 'react-i18next'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
-import { FEATURE_MISSION_RAIL_CARDS, FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
+import { FEATURE_MISSION_RAIL_CARDS, FEATURE_PR_CI_CARD, FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
+import { postPrCiLaunch, prCiFixable, usePrCiAvailability, PR_CI_LOOP_ID } from '../../delivery/lib/pr-ci'
 import { toast } from 'sonner'
 import { notifyError } from '../../../lib/notify-error'
 import { openBudgetPanel } from '../../../lib/app-settings-events'
@@ -496,6 +497,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const [relaunchAccepted, setRelaunchAccepted] = useState(false)
   const [relaunchError, setRelaunchError] = useState<string | null>(null)
   useEffect(() => { setRelaunchAccepted(false); setRelaunchError(null) }, [envelope.prDeliveryId])
+  // pr-ci-loop: "Fix CI" — the same launch as the mission's CI offer card.
+  const ciAvailable = usePrCiAvailability(FEATURE_PR_CI_CARD ? envelope.projectId : null)
+  const ciInFlight = useRef(false)
+  const [ciStarting, setCiStarting] = useState(false)
+  const [ciError, setCiError] = useState<string | null>(null)
+  useEffect(() => { setCiError(null) }, [envelope.prDeliveryId])
   // Focus bus: a failure marker / launch stub asks to bring THIS card into view.
   const cardRef = useRef<HTMLDivElement | null>(null)
   const [flash, setFlash] = useState(false)
@@ -523,7 +530,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     }
   }, [envelope.prDeliveryId, envelope.runIds, conversationId])
   // Brief highlight pulse in theme tokens; the pulse only runs when motion is allowed.
-  const flashClass = cn('outline-none focus-visible:ring-2 focus-visible:ring-ring', flash && 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background motion-safe:animate-pulse')
+  // Embedded in the run strip the card has no frame of its own: the panel that
+  // holds it draws the highlight (data-flash), following the card's silhouette.
+  const flashClass = embedded
+    ? 'outline-none'
+    : cn('outline-none focus-visible:ring-2 focus-visible:ring-ring', flash && 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background motion-safe:animate-pulse')
   const focusRegion = {
     tabIndex: -1,
     role: 'region' as const,
@@ -921,7 +932,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const pausedReason = pausedRunId ? pausedRuns[pausedRunId]?.pausedReason ?? null : null
   const pausedOnBudget = pausedRunId ? pausedRuns[pausedRunId]?.budgetPaused === true : false
   const runChips = runIds.length > 0 && (
-    <div className="mt-1.5 flex flex-wrap items-center gap-1.5" data-testid="pr-run-log-chips">
+    // Inline in the card's chip row (display: contents), not a row of its own.
+    <div className="contents" data-testid="pr-run-log-chips">
       {runIds.map((rid, i) => (
         <RunLogChip
           key={rid}
@@ -1043,7 +1055,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   // primary; the implementation_failed branch below must not add a second one.
   const diagnosisOwnsPrimary = !!diagnosis && (!!diagnosisHandlers.retry || !!diagnosisHandlers.resume)
   const diagnosisCard = diagnosis ? (
-    <div className="mt-2 space-y-1.5" data-testid="mission-run-diagnosis">
+    <div className="mt-3 space-y-1.5" data-testid="mission-run-diagnosis">
       <FailureDiagnosisCard diagnosis={diagnosis} handlers={diagnosisHandlers} />
       <details>
         <summary className="cursor-pointer text-caption text-muted-foreground hover:text-foreground">{tRecovery('technicalDetails')}</summary>
@@ -1076,6 +1088,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         ref={cardRef}
       {...focusRegion}
         data-testid="agent-pr-decision-card"
+      data-flash={flash ? 'true' : undefined}
         className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-muted-foreground shadow-lg transition-shadow', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
@@ -1087,6 +1100,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           <span className={cn('min-w-0 flex-1 truncate', buildingPaused && 'text-accent-warning')}>
             {buildingPaused
               ? t('prCard.title.paused')
+              : envelope.loopId === PR_CI_LOOP_ID
+                ? t('prCard.title.ciBuilding', { pr: displayedPrNumber ?? (envelope.repositoryDeliveries ?? []).flatMap((repository) => repository.prNumber ? [`#${repository.prNumber}`] : []).join(', ') })
               : existingPrContinuation
                 ? t('prCard.title.buildingExistingPr')
                 : runOnly ? t('prCard.title.buildingInPlace')
@@ -1179,7 +1194,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         {/* Intent → Spec says what it does in its title; the generic PR hint is noise there. */}
         {envelope.loopId !== FLOW_SPEC_LOOP_ID && (
           <p className="mt-1 pl-[22px] text-label leading-4 text-muted-foreground">
-            {runOnly ? t('runCard.noDeliveryHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
+            {runOnly ? t('runCard.noDeliveryHint') : envelope.loopId === PR_CI_LOOP_ID ? t('prCard.ciBuildingHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
           </p>
         )}
         {runtimeError}
@@ -1201,6 +1216,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         ref={cardRef}
       {...focusRegion}
         data-testid="agent-pr-decision-card"
+      data-flash={flash ? 'true' : undefined}
         data-run-only="true"
         className={cn('rounded-card border border-border/60 bg-card px-3.5 py-3 shadow-1 transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'border-border/40', embedded && EMBEDDED_CARD, flashClass)}
       >
@@ -1289,6 +1305,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           ? t('prCard.title.pr_closed')
           : presentation.partial
             ? t('prCard.title.partial')
+            : envelope.statusCode === 'ci_needs_attention'
+                ? t('prCard.title.ci_needs_attention')
+            : envelope.statusCode === 'ci_green'
+                ? t('prCard.title.ci_green')
             : envelope.statusCode === 'existing_pr_updated'
                 ? t('prCard.title.existing_pr_updated')
                 : degradedDraft ? t('prCard.title.pr_draft_degraded')
@@ -1300,6 +1320,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     'border-border/60 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive',
   )
 
+  const outlineBtn = 'inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-surface/60 disabled:cursor-default disabled:opacity-60'
   const anyBusy = busy !== null || checkingOut || envelope.operation != null
   const shouldAnnounce = Boolean(envelope.operation) || recoveredInterruptedOperation || presentation.partial || presentation.deliveryBlocked || presentation.retryablePush || presentation.retryablePrCreation || presentation.closed || presentation.implementationFailed
   const announceExtra = envelope.operation
@@ -1398,6 +1419,17 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     implementationFailedLead.push({ id: 'relaunch', testId: 'mission-run-relaunch', label: t('runCard.actions.relaunch'), hint: relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined, onSelect: () => void relaunch(), disabled: runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted })
   }
 
+  const fixCi = async () => {
+    if (ciInFlight.current || anyBusyRef.current) return
+    ciInFlight.current = true
+    setCiStarting(true); setCiError(null)
+    const outcome = await postPrCiLaunch(envelope.projectId, envelope.railIndex, { prDeliveryId: envelope.prDeliveryId, originConversationId: conversationId })
+    if (outcome.kind === 'started') toast.success(t('prCi.startedToast', { index: envelope.railIndex + 1 }))
+    else setCiError(outcome.detail || t('prCi.startFailed'))
+    ciInFlight.current = false
+    setCiStarting(false)
+  }
+  const canFixCi = ciAvailable && prCiFixable({ decision, prUrl, repositoryDeliveries: envelope.repositoryDeliveries })
   const moreActions = (opts: { merge?: boolean; lead?: readonly OverflowActionItem[]; discardLocal?: boolean } = {}) => {
     const items: OverflowActionItem[] = [...(opts.lead ?? [])]
     if (checkoutBranch && !hasRepositoryDeliveries) {
@@ -1422,7 +1454,22 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       : presentation.continuation
       ? { id: 'dismiss', testId: 'agent-pr-dismiss', label: t('prCard.dismiss'), onSelect: () => setConfirmingDismiss(true), disabled: anyBusy }
       : { id: 'discard', testId: 'agent-pr-discard', label: t('prCard.discard'), onSelect: () => setConfirmingDiscard(true), disabled: anyBusy, destructive: true })
-    return <OverflowActions label={t('prCard.moreActions')} items={items} disabled={anyBusy} testId="agent-pr-more" />
+    const overflow = <OverflowActions label={t('prCard.moreActions')} items={items} disabled={anyBusy} testId="agent-pr-more" />
+    if (!canFixCi) return overflow
+    // "Fix CI" is a visible button, never buried in the menu: the main action
+    // when the PR's CI is not green and nothing else leads the row.
+    const ciLeads = envelope.statusCode === 'ci_needs_attention' && hasRepositoryDeliveries
+    return (
+      <>
+        <button type="button" data-agent-interactive data-testid="agent-pr-fix-ci" title={t('prCi.fixCiTooltip')}
+          onClick={() => void fixCi()} disabled={anyBusy || ciStarting}
+          className={ciLeads ? primaryBtn : outlineBtn}>
+          {ciStarting ? spinner : <Wrench className="h-3 w-3" aria-hidden />}
+          {envelope.statusCode === 'ci_needs_attention' ? t('prCi.retry') : t('prCi.fixCi')}
+        </button>
+        {overflow}
+      </>
+    )
   }
 
   const dismissAction = (
@@ -1466,6 +1513,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   // mission-rail-cards: failed / auto-closed deliveries show their failure as
   // text (code + detail + per-unit codes) instead of a hover title. When this
   // block renders, the older status-detail paragraph is skipped (no double).
+  // pr-ci-loop: the CI outcome the last CI loop recorded on this PR.
+  const ciOutcome = envelope.statusCode === 'ci_green' || envelope.statusCode === 'ci_needs_attention'
   const failureBlockShown = FEATURE_MISSION_RAIL_CARDS && flowOutcome === null && (
     !!runFailure
     || decision === 'implementation_failed'
@@ -1477,6 +1526,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       ref={cardRef}
       {...focusRegion}
       data-testid="agent-pr-decision-card"
+      data-flash={flash ? 'true' : undefined}
       className={cn(
         'rounded-card border border-border/60 bg-card px-3.5 py-3 shadow-1 transition-shadow',
         decision === 'merged' && 'border-accent-success/30',
@@ -1561,7 +1611,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         </span>
         {ticketChips}
         {!showArrival && prLink}
-        {envelope.deliverySha && (
+        {runChips}
+        {envelope.deliverySha && !hasRepositoryDeliveries && (
           <span
             data-testid="agent-pr-delivery-sha"
             title={envelope.deliverySha}
@@ -1578,9 +1629,6 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         )}
       </div>
 
-      {/* Per-run log chips — frozen vitals once the rail settled. */}
-      {runChips}
-
       {envelope.operation && (
         <p className="mt-2 flex items-center gap-1.5 text-label font-medium text-accent-info" data-testid="agent-pr-operation">
           <RailTrack running className="w-16 shrink-0" />
@@ -1595,7 +1643,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         </p>
       )}
 
-      <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null} />
+      {/* A failure block below already names what failed: no duplicate red unit chip. */}
+      {/* A CI loop outcome speaks for the PR below; a per-unit "ready" chip would contradict it. */}
+      {!ciOutcome && <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null || failureBlockShown} />}
 
       {failureBlockShown && (diagnosisCard ?? <RunFailureBlock envelope={envelope} />)}
       {flowFailureView}
@@ -1610,7 +1660,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {flowOutcome === 'returned' && !returnedAfterFailure && <AgentFlowReturnedNote />}
       {runtimeError}
 
-      {statusLabel && flowOutcome === null && (
+      {/* The title and the failure block / CI note already say it: no third label. */}
+      {statusLabel && flowOutcome === null && !failureBlockShown && !ciOutcome && (
         <p className="mt-2 text-label text-muted-foreground" data-testid="agent-pr-status-code">
           {statusLabel}
         </p>
@@ -1625,6 +1676,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               : t(presentation.partial ? 'prCard.partialDeliveryBlockedNote' : 'prCard.deliveryBlockedNote')}
             {envelope.statusDetail && !interruptedOperationDetail && !presentation.recoveryUnavailable
               ? <span className="mt-0.5 block text-muted-foreground">{statusDetail?.text}</span>
+              : null}
+          </span>
+        </p>
+      )}
+
+      {/* pr-ci-loop: the CI loop's outcome on the PR it watched (the PR stays the deliverable). */}
+      {(envelope.statusCode === 'ci_needs_attention' || envelope.statusCode === 'ci_green') && (
+        <p data-testid="agent-pr-ci-status" data-state={envelope.statusCode}
+          className={cn('mt-2 flex items-start gap-1.5 text-xs leading-4', envelope.statusCode === 'ci_green' ? 'text-accent-success' : 'text-accent-warning')}>
+          {envelope.statusCode === 'ci_green' ? <CheckCircle2 className="mt-px h-3 w-3 shrink-0" /> : <AlertTriangle className="mt-px h-3 w-3 shrink-0" />}
+          <span>
+            {t(envelope.statusCode === 'ci_green' ? 'prCard.ci.green' : 'prCard.ci.attention')}
+            {envelope.statusCode === 'ci_needs_attention' && envelope.statusDetail
+              ? <span className="mt-0.5 block whitespace-pre-line text-muted-foreground">{envelope.statusDetail}</span>
               : null}
           </span>
         </p>
@@ -1647,13 +1712,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         </p>
       )}
 
-      {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && flowOutcome === null && (
+      {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && flowOutcome === null && !ciOutcome && (
         <p className="mt-1 text-label leading-4 text-muted-foreground" data-testid="agent-pr-status-detail">
           {statusDetail?.text}
         </p>
       )}
 
-      {statusDetail?.raw && !interruptedOperationDetail && !presentation.recoveryUnavailable && flowOutcome === null && (
+      {statusDetail?.raw && !interruptedOperationDetail && !presentation.recoveryUnavailable && flowOutcome === null && !ciOutcome && (
         <TechnicalDetail summary={t('prCard.recoveryDetailSummary')} className="mt-1 text-label leading-4" testId="agent-pr-status-technical-detail">{statusDetail.raw}</TechnicalDetail>
       )}
 
@@ -1722,7 +1787,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               </div>
             </div>
           )}
-          {!terminal && presentation.deliveryBlocked && (
+          {/* pr-ci-loop: a CI loop generation is never "retried" as a delivery (that
+              resumes a finished loop run); running the loop again re-attaches it to its PR. */}
+          {!terminal && presentation.deliveryBlocked && envelope.loopId === PR_CI_LOOP_ID && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <RunPrimaryButton primary={{ id: 'pr-ci-again', label: t('prCi.retry'), kind: 'outward', rank: 1 }}
+                data-agent-interactive data-testid="agent-pr-ci-again" onClick={() => void relaunch()}
+                disabled={anyBusy || relaunching || relaunchAccepted} className={primaryBtn}>
+                {relaunching ? spinner : <Wrench className="h-3 w-3" aria-hidden />}
+                {t('prCi.retry')}
+              </RunPrimaryButton>
+              {moreActions()}
+            </div>
+          )}
+          {!terminal && presentation.deliveryBlocked && envelope.loopId !== PR_CI_LOOP_ID && (
             <div className="flex flex-wrap items-center gap-1.5">
               {settlementRunId && !presentation.manualRecovery && !recoveryIsRecheck && (
                 // Retrying delivers the work: outward, the strip only points at it.
@@ -1788,6 +1866,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               {moreActions({ merge: true })}
             </div>
           )}
+          {canFixCi && ciError && <p role="alert" className="mb-1.5 text-xs text-destructive" data-testid="agent-pr-fix-ci-error">{ciError}</p>}
           {decision === 'pr_ready' && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
               {primaryAction('poll-merge', t('prCard.verifyPr'))}
@@ -1802,10 +1881,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           )}
           {decision === 'implementation_failed' && presentation.implementationFailed && flowOutcome === null && (
             <div className="space-y-2">
-              <p className="flex items-start gap-1.5 text-label leading-4 text-destructive">
-                <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
-                {t('prCard.implementationFailedNote')}
-              </p>
+              {/* The diagnosis card above already explains the failure and its next step. */}
+              {!diagnosisCard && (
+                <p className="flex items-start gap-1.5 text-label leading-4 text-destructive">
+                  <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
+                  {t('prCard.implementationFailedNote')}
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-1.5">
                 {/* One primary: resume the run when it can be, else relaunch. The rest wait in the menu.
                     When the diagnosis card above already offers Run again / Resume, it is the single primary. */}

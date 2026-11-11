@@ -32,7 +32,7 @@ import { normalizeSpecIntent, type SpecIntent } from '../../specs/domain/intent'
 import { readStore } from '../../specs/runtime/ticket-store'
 import { materializeIntent } from './intent-materialization'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
-import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
+import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, activeOpenSpecChangesAt, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
 import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtime-paths'
 import { createRailWorktree, deleteRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, getRailWorktree } from './rail-worktrees-store'
 import { IntentWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
@@ -64,6 +64,9 @@ import {
 } from './rail-pr-store'
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { notifyMissionRunFailure } from '../../missions/runtime/mission-run-notify'
+import { refreshPrCiOffer } from './pr-ci/pr-ci-projection'
+import { settlePrCiGeneration } from './pr-ci/pr-ci-settlement'
+import { PR_CI_LOOP_ID } from './pr-ci/pr-ci-target'
 import { getRail } from './rails-store'
 import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-controls-router'
 import { runMergeBack } from './rail-merge-orchestrator'
@@ -699,12 +702,19 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
 
     let commit: CommitWorktreeResult
     try {
+      // A continuation may merge its PR's base mid-run (pr-ci-loop resolves
+      // conflicts by merging the base into the PR branch): active OpenSpec
+      // changes that already exist on that base are not this checkout's work.
+      const baseChanges = a.continuationTarget
+        ? await activeOpenSpecChangesAt(git, a.handle.worktreePath, `refs/remotes/origin/${a.continuationTarget.baseBranch}`)
+        : []
       commit = await commitWorktreeAndVerify(
         git,
         a.handle.worktreePath,
         commitMessage(a, implementationOutcome === 'failed'),
         a.overlayExcludes,
         a.hygieneBaseSha ?? a.initialSha ?? a.baseRef,
+        baseChanges.length ? { allowedActiveChanges: baseChanges } : {},
       )
     } catch (err) {
       commit = { staged: false, committed: false, clean: false, dirty: [], error: errorDetail(err) }
@@ -931,6 +941,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const emitPrDeliveryState = (deliveryId: string, verb: 'post' | 'update'): void => {
     broadcastDeliveryState(deliveryId)
     syncDeliveryCard(deliveryId, verb)
+    // pr-ci-loop: settle-time offer for a new PR / final state of a CI loop run.
+    refreshPrCiOffer(ctx, deliveryId)
   }
   const broadcastPrState = (): void => {
     if (prDeliveryId) broadcastDeliveryState(prDeliveryId)
@@ -1899,19 +1911,37 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
                 ?? (launchContinuation && ready.length > 0 ? 'existing_pr_updated' : 'ready_for_review')
       const statusDetail = continuationPushFailureReason ?? firstFailure?.failureDetail ?? null
 
+      // pr-ci-loop: a CI loop generation stays attached to its OPEN PR whatever
+      // the CI outcome; the outcome is its status, never an implementation failure.
+      let ciSettlement: Awaited<ReturnType<typeof settlePrCiGeneration>> = null
+      if (loopId === PR_CI_LOOP_ID && launchContinuation?.prUrl && !continuationNeedsNewPr && !continuationMergedWithSha && !continuationClosedWithSha) {
+        try {
+          const probe = results[0] ? await probeDefinitionRun({ db: ctx.db, cwd: ctx.project.path, env: process.env }, results[0].run.runId) : null
+          ciSettlement = await settlePrCiGeneration({
+            git, exec, baseRepo, deliveryId: prDeliveryId ?? '',
+            continuation: { prUrl: launchContinuation.prUrl, branch: launchContinuation.branch, baseBranch: launchContinuation.baseBranch },
+            worktrees: results.map(result => result.run.handle.worktreePath),
+            completion: probe?.completion ? { ok: probe.completion.ok, reasons: probe.completion.reasons } : null,
+            branches: branchRecords(results),
+          })
+        } catch (error) {
+          console.warn(`[pr-ci] settlement fell back to the ordinary continuation: ${error instanceof Error ? error.message : String(error)}`)
+        }
+      }
       // Only proven-clean, durably referenced results are automatically
       // detached. Fresh reviewable worktrees stay mounted for the later PR
       // decision; dirty/unknown/ref-mismatched work is never passed to --force.
       const failedSafeIds = results
-        .filter((result) => result.implementationOutcome === 'failed' && result.safeToRelease)
+        .filter((result) => !ciSettlement && result.implementationOutcome === 'failed' && result.safeToRelease)
         .map((result) => result.run.ledgerId)
       const completedSafeIds = results
         .filter((result) => result.safeToRelease && (
+          Boolean(ciSettlement) ||
           result.deliveryOutcome === 'no_changes' ||
           (launchContinuation !== null && result.deliveryOutcome === 'ready')
         ))
         .map((result) => result.run.ledgerId)
-      const settledBranchRecords = branchRecords(results)
+      const settledBranchRecords = ciSettlement?.branches ?? branchRecords(results)
       const expectedHeadByBranch = durableBranchHeads(settledBranchRecords)
       const overlayEvidenceByBranch = durableOverlayCleanupEvidence(settledBranchRecords)
       const settlementIgnoredByBranch = durableSettlementIgnoredPaths(settledBranchRecords)
@@ -1953,15 +1983,17 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       if (flowReview) {
         for (const unit of settledBranchRecords) if (unit.failureCode === 'settlement_interrupted') unit.failureCode = 'review_changes_requested'
       }
+      const settledNext: PrDecision = ciSettlement?.next ?? next
+      const settledImplementationOutcome = ciSettlement ? 'succeeded' as const : implementationOutcome
       const patch = {
         settleEvidence,
         branches: settledBranchRecords,
         worktreeIds,
-        implementationOutcome,
-        deliveryOutcome,
-        statusCode: settledStatusCode,
-        statusDetail: settledStatusDetail,
-        deliverySha,
+        implementationOutcome: settledImplementationOutcome,
+        deliveryOutcome: ciSettlement ? 'delivered' as const : deliveryOutcome,
+        statusCode: ciSettlement?.statusCode ?? settledStatusCode,
+        statusDetail: ciSettlement ? ciSettlement.statusDetail : settledStatusDetail,
+        deliverySha: ciSettlement?.deliverySha ?? deliverySha,
         ...(launchContinuation ? {
           branch: launchContinuation.branch,
           prUrl: continuationNeedsNewPr ? null : launchContinuation.prUrl,
@@ -1976,7 +2008,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           isContinuation: !continuationNeedsNewPr,
         } : {}),
       }
-      if (prDeliveryId && transitionDecision(ctx.db, prDeliveryId, 'building', next, patch)) {
+      if (prDeliveryId && transitionDecision(ctx.db, prDeliveryId, 'building', settledNext, patch)) {
         // Persist truthful settlement before cleanup. A crash can leave a
         // safely-recoverable mount, but can no longer lose no-change/partial/
         // exact-SHA evidence and regress the card back to `building`.
@@ -1997,7 +2029,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           }),
         ]
         if (cleanupWarnings.length > 0) {
-          transitionDecision(ctx.db, prDeliveryId, next, next, { cleanupWarnings })
+          transitionDecision(ctx.db, prDeliveryId, settledNext, settledNext, { cleanupWarnings })
         }
         broadcastPrState()
         // Completion driver: refresh the origin conversation's card in place —
@@ -2006,7 +2038,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         // mission-rail-cards: an implementation failure also wakes the origin
         // mission (failure row + ONE bounded agent turn). Delivery failures
         // (pr_failed) keep the card's retry controls and stay silent.
-        if (implementationOutcome === 'failed') {
+        if (settledImplementationOutcome === 'failed') {
           const failedUnit = results.find((result) => result.implementationOutcome === 'failed') ?? results[0]
           notifyOriginRunFailure(prDeliveryId, {
             code: flowReview ? 'review_changes_requested' : 'implementation_failed',
@@ -2231,6 +2263,7 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       try {
         getAgentChatManager()?.updatePrDecisionCard(latest.origin_conversation_id, toPrDecisionCardEnvelope(ctx.project.id, snapshot))
       } catch { /* the durable row is authoritative; startup reprojection heals */ }
+      refreshPrCiOffer(ctx, latest.id)
     }
   }
 }

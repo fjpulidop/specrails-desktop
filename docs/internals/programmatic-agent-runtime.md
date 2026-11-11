@@ -125,6 +125,10 @@ Saved executions link directly to the original job log. Continuations broadcast 
 
 Disabling project runtime settings affects future admission. Existing runs retain their frozen runtime request and remain available for explicit continuation; they do not switch back to a platform prompt.
 
+### Host tasks (Core `hostTasks`, contract 5.11)
+
+A `host-task` node pauses the run on a machine interrupt. `runDefinitionLoop` never hands it to a person: the project's host-task dispatcher (`server/modules/agent-runtime/runtime/host-task-dispatcher.ts`) runs the registered handler outside Core's lease, persists the result and resumes with `runtime resume --interrupt-id <id> --host-result <file>` (written by the bridge beside the frozen context). Unknown tasks, throwing handlers and undeclared outcomes resolve as `failed`. Job and WebSocket surfaces only list human interrupts. The PR CI handlers are the first users ([safe PR flow](safe-pr-review-flow.md#pr-ci-loop-pr-ci-loop)).
+
 ## API and logs
 
 All routes are under `/api/projects/:projectId`:

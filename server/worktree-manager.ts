@@ -447,6 +447,14 @@ async function deliveryHygieneError(git: GitRunner, worktreePath: string, baseRe
   }
 }
 
+/** Active (non-archived) OpenSpec change names at a commit-ish; empty when the ref has none or cannot be read. */
+export async function activeOpenSpecChangesAt(git: GitRunner, cwd: string, ref: string): Promise<string[]> {
+  const listed = await gitRun(git, ['ls-tree', '-d', '--name-only', '-z', `${ref}:openspec/changes`], cwd)
+  if (listed.code !== 0) return []
+  const parsed = parseNulTerminatedPaths(listed, 'OpenSpec change listing')
+  return parsed.error ? [] : parsed.paths.filter(name => name !== 'archive' && !/[\\/]/.test(name))
+}
+
 function forbiddenResetPathspecs(excludePaths: string[]): string[] {
   return [
     '--',
@@ -533,8 +541,15 @@ export async function commitWorktreeAndVerify(
   // Automated delivery also bypasses repository hooks: a pre-commit hook runs
   // after our final audit and could otherwise stage an excluded secret into the
   // commit. User working files and the ordinary index remain preserved.
+  // A prepared merge (a host-resolved base merge, pr-ci-loop) cannot be
+  // committed partially: git refuses `--only` while MERGE_HEAD exists. The
+  // index was just proven safe (forbidden roots reset), so the merge commit
+  // takes the audited index as is.
+  const mergeHeadPath = add.code === 0 && indexSafe ? await gitRun(git, ['rev-parse', '--git-path', 'MERGE_HEAD'], worktreePath) : null
+  const merging = mergeHeadPath?.code === 0 && mergeHeadPath.stdout.trim() !== ''
+    && fs.existsSync(path.resolve(worktreePath, mergeHeadPath.stdout.trim()))
   const commit = add.code === 0 && indexSafe
-    ? await gitRun(git, ['commit', '--no-verify', '--only', '-m', message, ...pathspecs], worktreePath)
+    ? await gitRun(git, merging ? ['commit', '--no-verify', '-m', message] : ['commit', '--no-verify', '--only', '-m', message, ...pathspecs], worktreePath)
     : { code: 1, stdout: '', stderr: 'skipped commit because the index was not proven safe' }
   const status = await gitRun(git, ['status', '--porcelain', '--untracked-files=all', ...pathspecs], worktreePath)
   const dirty = status.code === 0

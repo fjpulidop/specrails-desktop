@@ -116,3 +116,13 @@ export function isMissionReadOnlyEnabled(): boolean {
 export function isSpecTriageAutoEnabled(): boolean {
   return process.env.SPECRAILS_SPEC_TRIAGE !== 'false'
 }
+
+/**
+ * PR CI loop (pr-ci-loop): after Create PR the mission offers "Watch and fix the
+ * PR's CI", which runs `factory:pr-ci` on the PR branch. Default on; set
+ * SPECRAILS_PR_CI_LOOP=false to hide the offer and answer the launch route 403.
+ * A Core without the `hostTasks` capability hides the feature regardless.
+ */
+export function isPrCiLoopEnabled(): boolean {
+  return process.env.SPECRAILS_PR_CI_LOOP !== 'false'
+}

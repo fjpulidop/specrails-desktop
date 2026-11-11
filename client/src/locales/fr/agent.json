@@ -323,7 +323,10 @@
       "flowSpecChanges": "Pas encore prêt : le relecteur a demandé des modifications",
       "flowSpecDelivered": "Votre Intent est maintenant une PR relue",
       "flowSpecFailed": "La remise s’est arrêtée",
-      "flowSpecBuilding": "Votre Intent devient une PR relue"
+      "flowSpecBuilding": "Votre Intent devient une PR relue",
+      "ci_green": "PR prête — CI verte",
+      "ci_needs_attention": "PR poussée — la CI n'est pas encore verte",
+      "ciBuilding": "Surveillance de la CI de la PR {{pr}}"
     },
     "buildingHint": "À la fin, il vous sera proposé de créer la PR.",
     "buildingExistingPrHint": "Specrails travaille sur la branche de la PR existante et poussera les changements de revue vers cette même PR.",
@@ -490,7 +493,12 @@
       "publish": "Impossible de publier la PR",
       "generic": "La livraison s'est arrêtée. Voir les détails techniques."
     },
-    "moreActions": "Plus d'actions"
+    "moreActions": "Plus d'actions",
+    "ci": {
+      "green": "Tous les checks sont verts.",
+      "attention": "La boucle de CI s’est arrêtée avant que les checks passent au vert. La PR conserve tout ce qui a été poussé."
+    },
+    "ciBuildingHint": "Attend les checks, corrige les échecs du code et pousse sur la même PR. Les échecs qui ne viennent pas du code sont signalés, pas relancés."
   },
   "specDraft": {
     "heading": "Brouillon de spec",
@@ -1472,5 +1480,48 @@
     "statusReview_other": "{{count}} en attente de revue",
     "statusRunning_one": "{{count}} en cours",
     "statusRunning_other": "{{count}} en cours"
+  },
+  "prCi": {
+    "title": "Surveiller et corriger la CI de la PR {{pr}}",
+    "thisPr": "cette PR",
+    "body": "Specrails attend les checks de la PR, corrige ceux qui échouent, résout les conflits de merge avec la branche de base et pousse les corrections dans la même PR jusqu’à ce qu’elle soit verte. Il avance seul ; vous décidez quand.",
+    "guarantee": "Il ne fait jamais de push forcé, de merge, de publication ni de fermeture de la PR, et n’affaiblit jamais un check.",
+    "start": "Démarrer",
+    "notNow": "Pas maintenant",
+    "dismissed": "Surveillance de la CI de la PR {{pr}} non démarrée.",
+    "started": "Surveillance de la CI de la PR {{pr}} sur {{rail}}",
+    "startedBody": "La boucle attend les checks, corrige les échecs et pousse dans la même PR. Suivez-la dans la barre d’exécution.",
+    "green": "PR {{pr}} : tous les checks sont verts",
+    "greenBody_one": "{{pushes}} correction poussée dans la PR après {{rounds}} tour(s) en échec.",
+    "greenBody_other": "{{pushes}} corrections poussées dans la PR après {{rounds}} tour(s) en échec.",
+    "noCi": "La PR {{pr}} n’a pas de checks de CI",
+    "noCiBody": "Il n’y avait rien à surveiller ; la PR n’a pas été modifiée.",
+    "needsAttention": "La PR {{pr}} est poussée ; sa CI n'est pas encore verte",
+    "needsAttentionBody": "La boucle s’est arrêtée avant que les checks passent au vert.",
+    "openRun": "Ouvrir l’exécution",
+    "openPr": "Ouvrir la PR {{pr}}",
+    "startFailed": "La boucle de CI n’a pas pu démarrer.",
+    "dismissFailed": "Impossible d’enregistrer votre choix. Réessayez.",
+    "startedToast": "Surveillance de la CI démarrée sur le rail {{index}}",
+    "fixCi": "Corriger la CI",
+    "fixCiTooltip": "Attendre les checks, corriger les échecs et les conflits et pousser dans cette PR jusqu’à ce qu’elle soit verte",
+    "step": {
+      "checks": "En attente de la CI",
+      "fixing": "Correction des checks en échec",
+      "rerun": "Relance des checks en échec",
+      "base": "Synchronisation avec la branche de base",
+      "conflicts": "Résolution des conflits avec la branche de base",
+      "verify": "Vérification en local",
+      "push": "Envoi de la correction dans la PR",
+      "watching": "Surveillance de la CI"
+    },
+    "titleMany": "Surveiller et corriger la CI des PR {{pr}}",
+    "startedMany": "Surveillance de la CI des PR {{pr}} sur {{rail}}",
+    "greenMany": "PR {{pr}} : tous les checks sont verts",
+    "noCiMany": "Les PR {{pr}} n’ont pas de checks de CI",
+    "needsAttentionMany": "Les PR {{pr}} sont poussées ; leur CI n'est pas encore verte",
+    "dismissedMany": "Surveillance de la CI des PR {{pr}} non démarrée.",
+    "retry": "Corriger la CI à nouveau",
+    "openLog": "Voir le journal"
   }
 }

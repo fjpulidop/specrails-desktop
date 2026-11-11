@@ -313,7 +313,10 @@
       "flowSpecChanges": "Aún no está listo: el revisor pidió cambios",
       "flowSpecDelivered": "Tu Intent ya es un PR revisado",
       "flowSpecFailed": "El paso a un rail se detuvo",
-      "flowSpecBuilding": "Convirtiendo tu Intent en un PR revisado"
+      "flowSpecBuilding": "Convirtiendo tu Intent en un PR revisado",
+      "ci_green": "PR lista — CI en verde",
+      "ci_needs_attention": "PR subida — falta que el CI esté en verde",
+      "ciBuilding": "Vigilando el CI de la PR {{pr}}"
     },
     "buildingHint": "Cuando termine, se te preguntará si crear la PR.",
     "buildingExistingPrHint": "Specrails está trabajando sobre la rama de la PR existente y subirá los cambios de revisión a esa misma PR.",
@@ -490,7 +493,12 @@
       "publish": "No se pudo publicar el PR",
       "generic": "La entrega se detuvo. Mira los detalles técnicos."
     },
-    "moreActions": "Más acciones"
+    "moreActions": "Más acciones",
+    "ci": {
+      "green": "Todos los checks están en verde.",
+      "attention": "El loop de CI se detuvo antes de que los checks quedaran en verde. La PR conserva todo lo que subió."
+    },
+    "ciBuildingHint": "Espera a los checks, arregla los fallos del código y sube los cambios a la misma PR. Los fallos que no son del código se informan, no se reintentan."
   },
   "specDraft": {
     "heading": "Borrador de spec",
@@ -1472,5 +1480,48 @@
     "statusReview_other": "{{count}} esperando revisión",
     "statusRunning_one": "{{count}} en curso",
     "statusRunning_other": "{{count}} en curso"
+  },
+  "prCi": {
+    "title": "Vigilar y arreglar el CI de la PR {{pr}}",
+    "thisPr": "esta PR",
+    "body": "Specrails espera a los checks de la PR, arregla los que fallen, resuelve los conflictos con la rama base y sube los arreglos a la misma PR hasta dejarla en verde. Va solo; tú decides cuándo.",
+    "guarantee": "Nunca hace push forzado, merge, publicación ni cierre de la PR, y nunca debilita un check.",
+    "start": "Iniciar",
+    "notNow": "Ahora no",
+    "dismissed": "No se inició la vigilancia del CI de la PR {{pr}}.",
+    "started": "Vigilando el CI de la PR {{pr}} en {{rail}}",
+    "startedBody": "El loop espera a los checks, arregla los fallos y sube los cambios a la misma PR. Síguelo en la barra de ejecuciones.",
+    "green": "PR {{pr}}: todos los checks en verde",
+    "greenBody_one": "{{pushes}} arreglo subido a la PR tras {{rounds}} ronda(s) con fallos.",
+    "greenBody_other": "{{pushes}} arreglos subidos a la PR tras {{rounds}} ronda(s) con fallos.",
+    "noCi": "La PR {{pr}} no tiene checks de CI",
+    "noCiBody": "No había nada que vigilar; la PR no se ha tocado.",
+    "needsAttention": "La PR {{pr}} está subida; su CI aún no está en verde",
+    "needsAttentionBody": "El loop se detuvo antes de que los checks quedaran en verde.",
+    "openRun": "Abrir ejecución",
+    "openPr": "Abrir PR {{pr}}",
+    "startFailed": "No se pudo iniciar el loop de CI.",
+    "dismissFailed": "No se pudo guardar tu elección. Inténtalo de nuevo.",
+    "startedToast": "Vigilancia del CI iniciada en el carril {{index}}",
+    "fixCi": "Arreglar CI",
+    "fixCiTooltip": "Esperar a los checks, arreglar fallos y conflictos y subir a esta PR hasta dejarla en verde",
+    "step": {
+      "checks": "Esperando al CI",
+      "fixing": "Arreglando los checks que fallan",
+      "rerun": "Relanzando los checks fallidos",
+      "base": "Sincronizando con la rama base",
+      "conflicts": "Resolviendo conflictos con la rama base",
+      "verify": "Verificando en local",
+      "push": "Subiendo cambios a la PR",
+      "watching": "Vigilando el CI"
+    },
+    "titleMany": "Vigilar y arreglar el CI de las PRs {{pr}}",
+    "startedMany": "Vigilando el CI de las PRs {{pr}} en {{rail}}",
+    "greenMany": "PRs {{pr}}: todos los checks en verde",
+    "noCiMany": "Las PRs {{pr}} no tienen checks de CI",
+    "needsAttentionMany": "Las PRs {{pr}} están subidas; su CI aún no está en verde",
+    "dismissedMany": "No se inició la vigilancia del CI de las PRs {{pr}}.",
+    "retry": "Arreglar el CI de nuevo",
+    "openLog": "Ver el log"
   }
 }

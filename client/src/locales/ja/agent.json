@@ -323,7 +323,10 @@
       "flowSpecChanges": "まだ完成していません：レビュアーが変更を求めました",
       "flowSpecDelivered": "Intent がレビュー済みの PR になりました",
       "flowSpecFailed": "引き渡しが停止しました",
-      "flowSpecBuilding": "Intent をレビュー済みの PR にしています"
+      "flowSpecBuilding": "Intent をレビュー済みの PR にしています",
+      "ci_green": "PR 準備完了 — CI はグリーン",
+      "ci_needs_attention": "PR はプッシュ済み — CI はまだグリーンではありません",
+      "ciBuilding": "PR {{pr}} の CI を監視中"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -490,7 +493,12 @@
       "publish": "PR を公開できませんでした",
       "generic": "配信が停止しました。技術的な詳細を確認してください。"
     },
-    "moreActions": "その他の操作"
+    "moreActions": "その他の操作",
+    "ci": {
+      "green": "すべてのチェックがグリーンです。",
+      "attention": "チェックがグリーンになる前に CI ループが停止しました。PR にはプッシュ済みの内容がすべて残っています。"
+    },
+    "ciBuildingHint": "チェックを待ち、コードの失敗を修正して同じ PR にプッシュします。コード以外が原因の失敗は再試行せずに報告します。"
   },
   "specDraft": {
     "heading": "スペック下書き",
@@ -1472,5 +1480,48 @@
     "statusReview_other": "{{count}} 件がレビュー待ち",
     "statusRunning_one": "{{count}} 件実行中",
     "statusRunning_other": "{{count}} 件実行中"
+  },
+  "prCi": {
+    "title": "PR {{pr}} の CI を監視して修正",
+    "thisPr": "この PR",
+    "body": "Specrails は PR のチェックを待ち、失敗したものを修正し、ベースブランチとのマージコンフリクトを解決して、グリーンになるまで同じ PR に修正をプッシュします。自動で進みます。開始のタイミングはあなたが決めます。",
+    "guarantee": "強制プッシュ、マージ、公開、PR のクローズは一切行わず、チェックを弱めることもありません。",
+    "start": "開始",
+    "notNow": "今はしない",
+    "dismissed": "PR {{pr}} の CI 監視は開始されていません。",
+    "started": "{{rail}} で PR {{pr}} の CI を監視中",
+    "startedBody": "ループはチェックを待ち、失敗を修正して同じ PR にプッシュします。実行ストリップで確認できます。",
+    "green": "PR {{pr}}: すべてのチェックがグリーン",
+    "greenBody_one": "失敗したラウンド {{rounds}} 回の後、{{pushes}} 件の修正を PR にプッシュしました。",
+    "greenBody_other": "失敗したラウンド {{rounds}} 回の後、{{pushes}} 件の修正を PR にプッシュしました。",
+    "noCi": "PR {{pr}} には CI チェックがありません",
+    "noCiBody": "監視する対象がなく、PR は変更されていません。",
+    "needsAttention": "PR {{pr}} はプッシュ済みですが、CI はまだグリーンではありません",
+    "needsAttentionBody": "チェックがグリーンになる前にループが停止しました。",
+    "openRun": "実行を開く",
+    "openPr": "PR {{pr}} を開く",
+    "startFailed": "CI ループを開始できませんでした。",
+    "dismissFailed": "選択を保存できませんでした。もう一度お試しください。",
+    "startedToast": "レール {{index}} で CI 監視を開始しました",
+    "fixCi": "CI を修正",
+    "fixCiTooltip": "チェックを待ち、失敗とコンフリクトを修正して、グリーンになるまでこの PR にプッシュします",
+    "step": {
+      "checks": "CI を待機中",
+      "fixing": "失敗したチェックを修正中",
+      "rerun": "失敗したチェックを再実行中",
+      "base": "ベースブランチと同期中",
+      "conflicts": "ベースブランチとのコンフリクトを解決中",
+      "verify": "ローカルで検証中",
+      "push": "修正を PR にプッシュ中",
+      "watching": "CI を監視中"
+    },
+    "titleMany": "PR {{pr}} の CI を監視して修正",
+    "startedMany": "{{rail}} で PR {{pr}} の CI を監視中",
+    "greenMany": "PR {{pr}}: すべてのチェックがグリーン",
+    "noCiMany": "PR {{pr}} には CI チェックがありません",
+    "needsAttentionMany": "PR {{pr}} はプッシュ済みですが、CI はまだグリーンではありません",
+    "dismissedMany": "PR {{pr}} の CI 監視は開始されていません。",
+    "retry": "もう一度 CI を修正",
+    "openLog": "ログを開く"
   }
 }

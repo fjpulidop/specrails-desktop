@@ -32,6 +32,12 @@ Una ejecución terminada te pide una sola cosa: qué hacer con su resultado. La 
 
 Si una acción falla, el aviso dice qué no se pudo hacer y ofrece **Reintentar**.
 
+## Deja que Specrails mantenga la PR en verde {#pr-ci}
+
+Cuando creas una PR desde una misión, la conversación ofrece **Vigilar y arreglar el CI de la PR #N**. Es opcional y nunca arranca sola. Elige **Iniciar** y Specrails espera a los checks de la PR, arregla los que fallan, resuelve los conflictos con la rama base haciendo merge de ella, comprueba el resultado en tu equipo y sube el arreglo a la misma PR hasta que los checks queden en verde. Puedes seguirlo en la barra de ejecuciones ("Esperando al CI", "Arreglando los checks que fallan", "Subiendo cambios a la PR").
+
+Nunca hace push forzado, nunca reescribe la rama, nunca debilita un check y nunca publica, hace merge ni cierra la PR: esas decisiones son tuyas. Si no puede terminar (los checks siguen fallando, un check obligatorio nunca informa, necesita un secreto que solo tú puedes dar), se detiene y explica por qué. **Ahora no** oculta la oferta para esta entrega. Puedes iniciarlo más tarde con **Arreglar CI** en **Más acciones** de la card de la PR o del carril.
+
 ## Teclado
 
 | Tecla | Acción |

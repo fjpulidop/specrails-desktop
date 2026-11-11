@@ -181,7 +181,11 @@
     "relaunchBlocked": "O rail ainda tem um run ativo",
     "relaunchSent": "Relançando o rail",
     "relaunchFailed": "Não foi possível relançar o rail",
-    "recheckRecoveryConfirmTechnical": "O Specrails examinará novamente neste clone o worktree, a branch, as refs, os reflogs e os objetos Git órfãos pertencentes à entrega de {{branch}}. Se comprovar um único resultado, poderá fazer commit das alterações isoladas e repetir o push exato. A pasta principal do projeto não será alterada."
+    "recheckRecoveryConfirmTechnical": "O Specrails examinará novamente neste clone o worktree, a branch, as refs, os reflogs e os objetos Git órfãos pertencentes à entrega de {{branch}}. Se comprovar um único resultado, poderá fazer commit das alterações isoladas e repetir o push exato. A pasta principal do projeto não será alterada.",
+    "fixCi": "Corrigir CI",
+    "fixCiTooltip": "Esperar pelos checks, corrigir falhas e conflitos e enviar para este PR até ficar verde",
+    "fixCiStarted": "Acompanhamento do CI iniciado",
+    "fixCiFailed": "Não foi possível iniciar o loop de CI"
   },
   "railsBoard": {
     "title": "Rails",

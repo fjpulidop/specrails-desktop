@@ -1,4 +1,6 @@
+import path from 'node:path'
 import { newId } from '../../../ids'
+import { refreshPrCiOffer } from './pr-ci/pr-ci-projection'
 import { getProjectSettings, type DbInstance } from '../../../db'
 import { resolveIntegrationBranch } from '../../../integration-branch'
 import { getProjectRepositories } from '../../../project-repositories'
@@ -120,6 +122,15 @@ export function refreshRepositoryDeliveryGroup(db: DbInstance, parentId: string,
       decision = 'on_review'; patch.deliveryOutcome = accepted.length > 0 ? 'partial' : 'ready'
       patch.statusCode = accepted.length > 0 ? 'partial_delivery' : 'ready_for_review'
     }
+    // pr-ci-loop: a group whose PRs a CI loop watched carries that loop's CI
+    // outcome, never a plain "ready" while a repository's CI still fails.
+    if ((decision === 'pr_ready' || decision === 'pr_draft') && active.some((row) => row.status_code === 'ci_needs_attention' || row.status_code === 'ci_green')) {
+      const attention = active.filter((row) => row.status_code === 'ci_needs_attention')
+      patch.statusCode = attention.length ? 'ci_needs_attention' : 'ci_green'
+      patch.statusDetail = attention.length
+        ? attention.map((row) => `${path.basename(row.repository_path ?? '')}: ${row.status_detail ?? ''}`.trim()).join('\n').slice(0, 4000)
+        : null
+    }
     if (accepted.length > 0 && accepted.length < children.length) {
       patch.deliveryOutcome = 'partial'; patch.statusCode = 'partial_delivery'
       patch.statusDetail = `${accepted.length}/${children.length} repositories accepted. The shared spec remains pending until every repository is accepted.`
@@ -151,6 +162,8 @@ export function refreshRepositoryDeliveryGroup(db: DbInstance, parentId: string,
 function emitGroup(ctx: Pick<ProjectContext, 'db' | 'project' | 'broadcast'>, parentId: string, post = false): void {
   const row = getPrDelivery(ctx.db, parentId)
   if (!row) return
+  // pr-ci-loop: offer (or refresh) "Watch and fix the CI" for the whole generation.
+  refreshPrCiOffer(ctx, parentId)
   const snap = toPrDeliverySnapshot(row)
   try { ctx.broadcast(toRailPrStateMessage(ctx.project.id, snap)) } catch { /* durable projection is authoritative */ }
   if (row.origin_conversation_id) {

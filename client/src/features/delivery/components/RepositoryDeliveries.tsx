@@ -4,6 +4,7 @@ import type { RailPrDecisionAction } from '../../../types'
 import type { RepositoryDeliverySnapshot } from '../../projects/types/multi-repo'
 import { Button } from '../../../components/ui/button'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { cn } from '../../../lib/utils'
 
 /** Each action retains the parent generation and explicitly identifies its repository. */
 export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, onCheckout }: {
@@ -27,17 +28,30 @@ export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, on
         if (confirm) setConfirmation({ deliveryId, repositoryId: repository.repositoryId, action: type })
         else void onAct(type, repository.repositoryId)
       }}>{label}</Button>
-      return <section key={repository.repositoryId} className="rounded-md border border-border/60 p-2 text-xs" aria-label={repository.name}>
-        <div className="flex flex-wrap items-center gap-2">
-          <strong>{repository.name}</strong>
-          <span className="font-mono text-muted-foreground">{repository.branch ?? '…'} → {repository.integrationBranch ?? repository.baseBranch}</span>
-          <span className="ml-auto text-muted-foreground">{t(`common:repositoryDelivery.${repository.decision}`)}</span>
+      const failed = repository.decision === 'implementation_failed' || repository.decision === 'pr_failed'
+      // pr-ci-loop: an open PR whose CI is not green is not "ready" yet.
+      const ciPending = repository.statusCode === 'ci_needs_attention' && (repository.decision === 'pr_ready' || repository.decision === 'pr_draft')
+      const good = !ciPending && (repository.decision === 'merged' || repository.decision === 'completed' || repository.decision === 'pr_ready')
+      // One header line (name · branch → base · state), one line of PR + actions.
+      // The absolute path and full SHA stay one hover away (title), not on the card.
+      return <section key={repository.repositoryId} className="rounded-lg border border-border/60 bg-surface/40 px-2.5 py-2 text-xs" aria-label={repository.name}>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-medium text-foreground" title={repository.path}>{repository.name}</span>
+          <span className="min-w-0 truncate font-mono text-caption text-muted-foreground" title={repository.deliverySha ?? undefined}>
+            {repository.branch ?? '…'} → {repository.integrationBranch ?? repository.baseBranch}
+          </span>
+          <span className={cn('ml-auto shrink-0 rounded-full border px-2 py-0.5 text-caption',
+            failed ? 'border-destructive/35 bg-destructive/10 text-destructive'
+              : good ? 'border-accent-success/30 bg-accent-success/10 text-accent-success'
+                : ciPending ? 'border-accent-warning/35 bg-accent-warning/10 text-accent-warning'
+                  : 'border-border/60 bg-surface/60 text-muted-foreground')}>
+            {ciPending ? t('common:prDeliveryStatus.ci_needs_attention') : t(`common:repositoryDelivery.${repository.decision}`)}
+          </span>
         </div>
-        <p className="mt-1 break-all text-muted-foreground">{repository.path}</p>
-        {repository.deliverySha && <p className="font-mono text-muted-foreground">{repository.deliverySha.slice(0, 12)}</p>}
-        {repository.statusDetail && <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{repository.statusDetail}</p>}
-        <div className="mt-2 flex flex-wrap gap-2">
-          {repository.prUrl && <a className="underline" href={repository.prUrl} target="_blank" rel="noreferrer">PR #{repository.prNumber}</a>}
+        {repository.statusDetail && !ciPending && <p className="mt-1 whitespace-pre-wrap leading-4 text-muted-foreground">{repository.statusDetail}</p>}
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          {repository.prUrl && <a className="mr-1 text-accent-info hover:underline" href={repository.prUrl} target="_blank" rel="noreferrer">PR #{repository.prNumber}</a>}
+          {repository.deliverySha && <span className="mr-auto font-mono text-caption text-muted-foreground" title={repository.deliverySha}>{repository.deliverySha.slice(0, 8)}</span>}
           {!terminal && <>
             {deliverable && !repository.prUrl && action('create-pr', t('railPr.createPr'))}
             {deliverable && repository.prUrl && repository.deliveryOutcome === 'retryable_failure' && action('create-pr', t('railPr.retryPush'))}

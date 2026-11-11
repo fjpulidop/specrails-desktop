@@ -126,6 +126,9 @@ export function createDefinitionEventProjection(input: {
         if (workflow.type === 'step_started' && !opening) {
           nextCount += 1
           persist('loop_step', { index: nextCount, kind: 'core', title: workflow.nodePath, iteration: workflow.visit, startedAtMs: Date.parse(at), ...correlation })
+        } else if (opening && workflow.type === 'step_paused' && hostTaskPause(workflow)) {
+          // pr-ci-loop: a host task keeps its step in progress while Desktop
+          // performs it (CI wait, push); the step ends when Core resumes it.
         } else if (opening && ['step_succeeded','step_failed','step_blocked','step_interrupted','step_retrying','step_paused'].includes(String(workflow.type))) {
           persist('loop_step_end', { index: opening.index, status: workflow.type === 'step_succeeded' ? workflow.outcome === 'fail' ? 'failed' : 'ok' : workflow.type === 'step_paused' ? 'paused' : workflow.type === 'step_interrupted' ? 'interrupted' : 'failed',
             runtimeStatus: String(workflow.type).slice(5), outcome: workflow.outcome, exitCode: null,
@@ -139,3 +142,11 @@ export function createDefinitionEventProjection(input: {
     if (outgoing.length) input.onProgress?.(count, totals)
   }
 }
+
+/** A `step_paused` raised by a `host-task` machine interrupt (Core `hostTasks`). */
+function hostTaskPause(workflow: Record<string, unknown>): boolean {
+  const payload = workflow.payload && typeof workflow.payload === 'object' ? workflow.payload as Record<string, unknown> : workflow
+  const request = payload.request && typeof payload.request === 'object' ? payload.request as Record<string, unknown> : undefined
+  return request?.kind === 'host-task'
+}
+

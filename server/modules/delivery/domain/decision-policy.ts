@@ -60,3 +60,42 @@ export function actionAllowed(action: PrDecisionAction, row: DeliveryDecisionSta
   }
 }
 
+
+/** One repository delivery of a multi-repository generation (pr-ci-loop). */
+export interface CiFixRepositoryState {
+  decision: string
+  pr_url: string | null
+  branch: string | null
+  delivery_sha: string | null
+  operation: string | null
+}
+
+/** Facts for the PR CI loop offer and its "Fix CI" action (pr-ci-loop). */
+export interface CiFixState extends DeliveryDecisionState {
+  /** A decision-side Git/GitHub operation currently holds the row. */
+  operation: string | null
+  /** Multi-repository generations: one delivery (and PR) per repository; absent for a single repository. */
+  repositories?: readonly CiFixRepositoryState[] | null
+}
+
+const SETTLED_REPOSITORY = new Set(['merged', 'completed', 'no_changes'])
+
+/** Repository deliveries whose PR the CI loop would watch (the ones still under review). */
+export function ciFixActiveRepositories<T extends CiFixRepositoryState>(repositories: readonly T[]): T[] {
+  return repositories.filter(repository => !SETTLED_REPOSITORY.has(repository.decision))
+}
+
+/**
+ * `factory:pr-ci` may start on attached, same-repository PRs that are still
+ * awaiting the person's decision (draft or ready), with no operation in flight.
+ * A multi-repository generation qualifies when every repository still under
+ * review has its PR (the ordinary multi-repository continuation contract).
+ * Liveness (OPEN, not a fork) is proven against GitHub by the launch itself.
+ */
+export function ciFixAllowed(row: CiFixState): boolean {
+  if ((row.decision !== 'pr_draft' && row.decision !== 'pr_ready') || row.operation !== null) return false
+  if (!row.repositories) return row.pr_url !== null && row.branch !== null
+  const active = ciFixActiveRepositories(row.repositories)
+  return active.length > 0 && active.every(repository => repository.pr_url !== null && repository.branch !== null && repository.delivery_sha !== null &&
+    repository.operation === null && (repository.decision === 'pr_draft' || repository.decision === 'pr_ready'))
+}

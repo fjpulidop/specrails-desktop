@@ -323,7 +323,10 @@
       "flowSpecChanges": "Ainda não está pronto: o revisor pediu alterações",
       "flowSpecDelivered": "Seu Intent agora é uma PR revisada",
       "flowSpecFailed": "A passagem a um rail parou",
-      "flowSpecBuilding": "Transformando seu Intent em uma PR revisada"
+      "flowSpecBuilding": "Transformando seu Intent em uma PR revisada",
+      "ci_green": "PR pronto — CI verde",
+      "ci_needs_attention": "PR enviado — o CI ainda não está verde",
+      "ciBuilding": "Acompanhando o CI do PR {{pr}}"
     },
     "buildingHint": "Quando terminar, ser-lhe-á perguntado se quer criar a PR.",
     "buildingExistingPrHint": "O Specrails está a trabalhar no ramo da PR existente e irá enviar as alterações de revisão para essa mesma PR.",
@@ -490,7 +493,12 @@
       "publish": "Não foi possível publicar o PR",
       "generic": "A entrega foi interrompida. Veja os detalhes técnicos."
     },
-    "moreActions": "Mais ações"
+    "moreActions": "Mais ações",
+    "ci": {
+      "green": "Todos os checks estão verdes.",
+      "attention": "O loop de CI parou antes de os checks ficarem verdes. O PR mantém tudo o que foi enviado."
+    },
+    "ciBuildingHint": "Aguarda os checks, corrige as falhas de código e envia para o mesmo PR. Falhas que não são do código são relatadas, não repetidas."
   },
   "specDraft": {
     "heading": "Rascunho da spec",
@@ -1472,5 +1480,48 @@
     "statusReview_other": "{{count}} aguardando revisão",
     "statusRunning_one": "{{count}} em execução",
     "statusRunning_other": "{{count}} em execução"
+  },
+  "prCi": {
+    "title": "Acompanhar e corrigir o CI do PR {{pr}}",
+    "thisPr": "este PR",
+    "body": "O Specrails espera pelos checks do PR, corrige os que falham, resolve conflitos de merge com o branch base e envia as correções para o mesmo PR até ficar verde. Corre sozinho; você decide quando.",
+    "guarantee": "Nunca faz push forçado, merge, publicação nem fecha o PR, e nunca enfraquece um check.",
+    "start": "Iniciar",
+    "notNow": "Agora não",
+    "dismissed": "O acompanhamento do CI do PR {{pr}} não foi iniciado.",
+    "started": "Acompanhando o CI do PR {{pr}} em {{rail}}",
+    "startedBody": "O loop espera pelos checks, corrige falhas e envia para o mesmo PR. Acompanhe na barra de execuções.",
+    "green": "PR {{pr}}: todos os checks verdes",
+    "greenBody_one": "{{pushes}} correção enviada ao PR após {{rounds}} rodada(s) com falhas.",
+    "greenBody_other": "{{pushes}} correções enviadas ao PR após {{rounds}} rodada(s) com falhas.",
+    "noCi": "O PR {{pr}} não tem checks de CI",
+    "noCiBody": "Não havia nada para acompanhar; o PR não foi alterado.",
+    "needsAttention": "O PR {{pr}} foi enviado; o CI ainda não está verde",
+    "needsAttentionBody": "O loop parou antes de os checks ficarem verdes.",
+    "openRun": "Abrir execução",
+    "openPr": "Abrir PR {{pr}}",
+    "startFailed": "Não foi possível iniciar o loop de CI.",
+    "dismissFailed": "Não foi possível guardar a sua escolha. Tente novamente.",
+    "startedToast": "Acompanhamento do CI iniciado no trilho {{index}}",
+    "fixCi": "Corrigir CI",
+    "fixCiTooltip": "Esperar pelos checks, corrigir falhas e conflitos e enviar para este PR até ficar verde",
+    "step": {
+      "checks": "Esperando pelo CI",
+      "fixing": "Corrigindo os checks que falham",
+      "rerun": "Reexecutando os checks falhados",
+      "base": "Sincronizando com o branch base",
+      "conflicts": "Resolvendo conflitos com o branch base",
+      "verify": "Verificando localmente",
+      "push": "Enviando a correção para o PR",
+      "watching": "Acompanhando o CI"
+    },
+    "titleMany": "Acompanhar e corrigir o CI dos PRs {{pr}}",
+    "startedMany": "Acompanhando o CI dos PRs {{pr}} em {{rail}}",
+    "greenMany": "PRs {{pr}}: todos os checks verdes",
+    "noCiMany": "Os PRs {{pr}} não têm checks de CI",
+    "needsAttentionMany": "Os PRs {{pr}} foram enviados; o CI ainda não está verde",
+    "dismissedMany": "O acompanhamento do CI dos PRs {{pr}} não foi iniciado.",
+    "retry": "Corrigir o CI de novo",
+    "openLog": "Ver o log"
   }
 }

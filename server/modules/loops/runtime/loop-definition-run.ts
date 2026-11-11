@@ -22,9 +22,26 @@ export interface DefinitionInterrupt {
   id: string
   nodePath: string
   scopeId?: string
-  kind: 'question' | 'approval' | 'gate'
+  kind: 'question' | 'approval' | 'gate' | 'host-task'
   attemptId?: string
   value?: unknown
+}
+/** Core `HostTaskInterrupt` payload (contract 5.11, capability `hostTasks`): a MACHINE interrupt. */
+export interface DefinitionHostTaskRequest {
+  kind: 'host-task'
+  task: string
+  input: Record<string, unknown>
+  outcomes: string[]
+  effect: 'read' | 'write'
+  timeoutMs?: number
+  candidate: { hash: string | null; verified: boolean; receiptId?: string }
+  nodePath: string
+}
+/** The host's typed answer, written to `--host-result`. */
+export interface DefinitionHostTaskResult { outcome: string; output?: unknown }
+export function isHostTaskInterrupt(item: DefinitionInterrupt): item is DefinitionInterrupt & { kind: 'host-task'; value: DefinitionHostTaskRequest } {
+  const value = item.value as Partial<DefinitionHostTaskRequest> | undefined
+  return item.kind === 'host-task' && !!value && typeof value.task === 'string' && Array.isArray(value.outcomes)
 }
 /** Core `state.pause`: a host `runtime pause` parked the run at a step boundary (no interrupt). */
 export interface DefinitionHostPause { requestId: string; reason: string; at: string }
@@ -47,7 +64,7 @@ export interface DefinitionPrepared {
   context: Record<string, unknown>
   runtimeIdentity?: Record<string, unknown>
 }
-export interface DefinitionResumeControls { answer?: string; approve?: string[]; interruptId?: string; recover?: string[] }
+export interface DefinitionResumeControls { answer?: string; approve?: string[]; interruptId?: string; recover?: string[]; hostResult?: DefinitionHostTaskResult }
 export interface DefinitionLoopInvocation {
   contextPath?: string
   recover?: string[]
@@ -58,6 +75,8 @@ export interface DefinitionLoopInvocation {
   answer?: string
   approve?: string[]
   interruptId?: string
+  /** Resolution of one pending `host-task` interrupt (`--host-result`, with `interruptId`). */
+  hostResult?: DefinitionHostTaskResult
   onLine(line: string, source?: 'stdout' | 'stderr', metadata?: { attemptId?: string }): void
   onRuntimeEvent(event: Record<string, unknown>): void
   onSpawn(child: ChildProcess): void
@@ -75,6 +94,11 @@ export interface DefinitionLoopExecutionPorts {
   onSpawn(child: ChildProcess): void
   onPrepared?(metadata: DefinitionPrepared): void
   onInvocationEnd(result: DefinitionRuntimeResult): void
+  /**
+   * Resolve a machine interrupt without a person (capability `hostTasks`).
+   * Absent ⇒ the host cannot serve host tasks and the run is stopped.
+   */
+  resolveHostTask?(interrupt: DefinitionInterrupt & { value: DefinitionHostTaskRequest }): Promise<{ action: 'stop' } | { action: 'resume'; result: DefinitionHostTaskResult }>
   awaitHumanDecision(reason: string, pending: DefinitionInterrupt[]): Promise<{ action: 'stop' } | { action: 'resume'; text: string; interruptId?: string; approve?: boolean }>
   /** Host gate before re-invoking Core with a human decision (daily budget).
    *  'stop' settles the run as cancelled exactly like a Stop while paused. */
@@ -86,7 +110,7 @@ export interface DefinitionLoopExecutionPorts {
 
 /** One retained Core process at a time; all graph scheduling remains in Core. */
 export async function runDefinitionLoop(request: LoopRunRequest, runId: string, ports: DefinitionLoopExecutionPorts): Promise<DefinitionRuntimeResult> {
-  let continuation: Pick<DefinitionLoopInvocation, 'resume' | 'answer' | 'approve' | 'interruptId' | 'recover'> = ports.continuation ?? {}
+  let continuation: Pick<DefinitionLoopInvocation, 'resume' | 'answer' | 'approve' | 'interruptId' | 'recover' | 'hostResult'> = ports.continuation ?? {}
   for (;;) {
     if (ports.isCancelled()) return { text: '', runtimeStatus: 'cancelled', failed: true }
     const result = await ports.invoke({ request, runId, contextPath: ports.contextPath?.(), ...continuation,
@@ -98,6 +122,18 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
     if (!pending.length && result.pause && ports.awaitHostPause) {
       if ((await ports.awaitHostPause(result.pause)) === 'stop' || ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
       continuation = { resume: true }
+      continue
+    }
+    // Machine interrupts first: a host task never waits for a person.
+    const hostTask = pending.find(isHostTaskInterrupt)
+    if (hostTask) {
+      if (!ports.resolveHostTask) throw new Error(`host_task_unsupported: no handler can resolve host task ${hostTask.value.task}`)
+      const resolved = await ports.resolveHostTask(hostTask)
+      if (resolved.action === 'stop' || ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
+      continuation = { resume: true, interruptId: hostTask.id, hostResult: resolved.result }
+      if (ports.beforeContinuation && (await ports.beforeContinuation()) === 'stop' || ports.isCancelled()) {
+        return { ...result, runtimeStatus: 'cancelled', failed: true }
+      }
       continue
     }
     const reason = result.pendingQuestion?.question ?? result.pendingApproval?.reason ?? pending.map(item => {

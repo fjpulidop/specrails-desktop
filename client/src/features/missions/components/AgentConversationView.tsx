@@ -34,7 +34,9 @@ import { AgentFlowReturnCard, parseFlowReturnBriefingRow } from './AgentFlowRetu
 import { AgentFlowDeliveredCard, parseFlowDeliveredRow } from './AgentFlowDeliveredCard'
 import { AgentFlowBoundaryLine, flowTurnMessageIds, parseFlowBoundaryRow } from './AgentFlowBoundaryLine'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
-import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
+import { AgentPrCiOfferCard, parsePrCiOfferRow } from './AgentPrCiOfferCard'
+import { PR_CI_LOOP_ID } from '../../delivery/lib/pr-ci'
+import { FEATURE_MISSION_RAIL_CARDS, FEATURE_PR_CI_CARD } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
 import { AgentSubagentsCard } from './AgentSubagentsCard'
 import { AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from './AgentSessionIndicators'
@@ -264,6 +266,11 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // deliveries show in the run strip above the composer; their history slot
   // renders a one-line "launched" event instead.
   const prCards = useMemo(() => derivePrCards(messages), [messages])
+  // pr-ci-loop: a generation replaced by a CI loop is told by the CI card and the
+  // CI generation's own PR card; its "superseded" card would only repeat the PR.
+  const supersededByCi = useMemo(() => new Set([...prCards.byDeliveryId.values()]
+    .filter((envelope) => envelope.loopId === PR_CI_LOOP_ID && envelope.supersedesDeliveryId)
+    .map((envelope) => envelope.supersedesDeliveryId!)), [prCards])
   // Agent turns produced while the conversation was in Intent (between boundaries).
   const flowTurns = useMemo(() => flowTurnMessageIds(messages), [messages])
   const extensionTurnMark = useMissionTurnMark()
@@ -522,6 +529,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                   return <AgentRunFailureMarker key={m.id} row={failure} conversationId={m.conversation_id} envelope={failedEnvelope} />
                 }
               }
+              // pr-ci-loop: the optional "Watch and fix the PR's CI" offer (never attention).
+              const prCiOffer = parsePrCiOfferRow(m.content)
+              if (prCiOffer) return FEATURE_PR_CI_CARD ? <AgentPrCiOfferCard key={m.id} row={prCiOffer} conversationId={m.conversation_id} /> : null
               // Back to Intent: what the reviewer asked for (server-authored, once per delivery).
               const flowReturn = parseFlowReturnBriefingRow(m.content)
               if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} conversationId={m.conversation_id} />
@@ -550,6 +560,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               if (envelope.loopId === FLOW_SPEC_LOOP_ID) {
                 return <AgentSettledRunLine key={m.id} envelope={envelope} conversationId={m.conversation_id} />
               }
+              if (envelope.decision === 'superseded' && supersededByCi.has(envelope.prDeliveryId)) return null
               return <AgentPrDecisionCard key={m.id} envelope={envelope} conversationId={m.conversation_id} />
             }
             // mission-rail-cards: the automatic failure briefing is a server-

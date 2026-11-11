@@ -79,6 +79,9 @@ const ts = (v: string | null | undefined): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+const RETRY_MS = 2000
+const RETRY_LIMIT = 30
+
 export function useRunVitals(projectId: string, runId: string, opts: { live: boolean }): RunVitals {
   const { live } = opts
   const [loaded, setLoaded] = useState(false)
@@ -91,17 +94,25 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
   const [pausedReason, setPausedReason] = useState<string | null>(null)
   const [pauseBudget, setPauseBudget] = useState<DailyBudgetInfo | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  // A run announced live can reach the card before its jobs row (or its
+  // started_at) is written: re-read it a bounded number of times instead of
+  // showing "—" until the next reload.
+  const [attempt, setAttempt] = useState(0)
 
   // Initial (and live→frozen flip) fetch of the authoritative jobs row. The
   // flip refetch matters for non-interactive runs that never emit
   // job.finalized — their final totals land on the row at settle.
   useEffect(() => {
     let cancelled = false
+    let retry: ReturnType<typeof setTimeout> | undefined
     fetch(`${API_ORIGIN}/api/projects/${projectId}/jobs/${runId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { job?: JobRowSlice } | null) => {
         if (cancelled) return
         const job = data?.job
+        if (live && !job?.started_at && attempt < RETRY_LIMIT) {
+          retry = setTimeout(() => { if (!cancelled) setAttempt((n) => n + 1) }, RETRY_MS)
+        }
         if (job) {
           setStatus(typeof job.status === 'string' ? job.status : null)
           setStartedAt(ts(job.started_at))
@@ -114,9 +125,13 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
         }
         setLoaded(true)
       })
-      .catch(() => { if (!cancelled) setLoaded(true) })
-    return () => { cancelled = true }
-  }, [projectId, runId, live])
+      .catch(() => {
+        if (cancelled) return
+        setLoaded(true)
+        if (live && attempt < RETRY_LIMIT) retry = setTimeout(() => { if (!cancelled) setAttempt((n) => n + 1) }, RETRY_MS)
+      })
+    return () => { cancelled = true; if (retry) clearTimeout(retry) }
+  }, [projectId, runId, live, attempt])
 
   const running = isRunning(status) && finishedAt === null
 
