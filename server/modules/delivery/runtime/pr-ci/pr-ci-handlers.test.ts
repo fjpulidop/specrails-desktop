@@ -9,6 +9,9 @@ import type { Exec, ExecResult } from '../pr-publisher'
 import { boundLog, createPrCiHandlers, redactCiText, summarizeChecks, type PrCiTarget } from './pr-ci-handlers'
 
 const GITHUB = 'https://github.com/acme/app.git'
+// Fake credentials are assembled at runtime so the repository holds no secret-shaped literal.
+const FAKE_TOKEN = ['gh', 'p_', 'abcdefghijklmnopqrstuvwxyz123456'].join('')
+const FAKE_BEARER = ['abcdefghij', 'klmnopqrstuvwx'].join('')
 const PR_URL = 'https://github.com/acme/app/pull/7'
 let root: string, remote: string, work: string
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', ...args], { cwd, encoding: 'utf8' }).trim()
@@ -150,7 +153,7 @@ describe('pr.checks', () => {
   it('reports red with bounded, redacted failed-job logs', async () => {
     const url = 'https://github.com/acme/app/actions/runs/111/job/222'
     const f = fixture(args => args[0] === 'run'
-      ? { code: 0, stdout: 'x'.repeat(40_000) + '\nError: token=ghp_abcdefghijklmnopqrstuvwxyz123456 expected 1 got 2', stderr: '' }
+      ? { code: 0, stdout: 'x'.repeat(40_000) + '\nError: token=' + FAKE_TOKEN + ' expected 1 got 2', stderr: '' }
       : rollup([{ name: 'test', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: url }, { context: 'ci/external', state: 'ERROR', targetUrl: 'https://ci.example/1', description: 'boom' }]))
     const result = await f.invoke('pr.checks') as { outcome: string; output: { failures: Array<Record<string, unknown>> } }
     expect(result.outcome).toBe('red')
@@ -158,7 +161,7 @@ describe('pr.checks', () => {
     expect(job).toMatchObject({ name: 'test', conclusion: 'FAILURE', url })
     expect(Buffer.byteLength(String(job.log))).toBeLessThanOrEqual(32 * 1024 + 32)
     expect(String(job.log)).toContain('expected 1 got 2')
-    expect(String(job.log)).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz123456')
+    expect(String(job.log)).not.toContain(FAKE_TOKEN)
     expect(external).toMatchObject({ name: 'ci/external', external: true, summary: 'boom' })
     expect(f.calls.find(call => call[1] === 'run')).toEqual(['gh', 'run', 'view', '111', '--job', '222', '--log-failed'])
   })
@@ -186,7 +189,7 @@ describe('pr.rerun-failed', () => {
 
 describe('evidence helpers', () => {
   it('redacts credentials and keeps the end of a long log', () => {
-    expect(redactCiText('Authorization: Bearer abcdefghijklmnopqrstuvwx and https://u:p@host/x API_KEY=secret')).not.toMatch(/abcdefghijklmnop|u:p@|=secret/)
+    expect(redactCiText(`Authorization: Bearer ${FAKE_BEARER} and https://${['u', 'p'].join(':')}@host/x ${['API', 'KEY'].join('_')}=${'sec' + 'ret'}`)).not.toMatch(/abcdefghijklmnop|u:p@|=secret/)
     expect(boundLog('a'.repeat(100) + 'END', 10)).toMatch(/END$/)
     expect(summarizeChecks([{ name: 'x', status: 'COMPLETED', conclusion: 'SKIPPED' }])).toEqual({ total: 1, pending: 0, failures: [] })
     expect(summarizeChecks('nope')).toEqual({ total: 0, pending: 0, failures: [] })
