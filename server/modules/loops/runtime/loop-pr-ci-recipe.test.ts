@@ -76,6 +76,15 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
     expect(String(core.find(node => node.id === 'fixer')!.data!.params!.prompt)).toMatch(/Never edit anything for flaky or infrastructure failures/)
   })
 
+  it('brings in the base before fixing red checks, and fixes only a PR still red after it', () => {
+    expect(graph.edges.find(edge => edge.source === 'checks' && edge.label === 'red')?.target).toBe('refresh-base')
+    const refresh = core.find(node => node.id === 'refresh-base')!.data!.params as Record<string, unknown>
+    expect(refresh).toMatchObject({ task: 'pr.update-base', input: { reason: 'red' }, effect: 'write' })
+    const routes = Object.fromEntries(graph.edges.filter(edge => edge.source === 'refresh-base').map(edge => [edge.label, edge.target]))
+    expect(routes).toMatchObject({ clean: 'ci-evidence', merged: 'base-summary', conflicts: 'conflict-budget' })
+    expect(graph.edges.find(edge => edge.source === 'base-summary')?.target).toBe('local')
+  })
+
   it('pushes the fixes made before a blocker, and ends on the blocker only when nothing changed', () => {
     expect(graph.edges.find(edge => edge.source === 'fixer-blocker' && edge.label === 'true')?.target).toBe('blocker-progress')
     const routes = Object.fromEntries(graph.edges.filter(edge => edge.source === 'blocker-progress').map(edge => [edge.label, edge.target]))
