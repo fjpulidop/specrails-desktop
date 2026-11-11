@@ -48,6 +48,8 @@ export type PrDeliveryStatusCode =
   | 'restart_pending'
   | 'implementation_running'
   | 'implementation_failed'
+  /** A person stopped the run before it delivered; nothing failed. */
+  | 'run_stopped'
   | 'ready_for_review'
   | 'partial_success'
   | 'partial_delivery'

@@ -326,7 +326,8 @@
       "flowSpecBuilding": "Intent をレビュー済みの PR にしています",
       "ci_green": "PR 準備完了 — CI はグリーン",
       "ci_needs_attention": "PR はプッシュ済み — CI はまだグリーンではありません",
-      "ciBuilding": "PR {{pr}} の CI を監視中"
+      "ciBuilding": "PR {{pr}} の CI を監視中",
+      "run_stopped": "実行を停止しました"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -498,7 +499,8 @@
       "green": "すべてのチェックがグリーンです。",
       "attention": "チェックがグリーンになる前に CI ループが停止しました。PR にはプッシュ済みの内容がすべて残っています。"
     },
-    "ciBuildingHint": "チェックを待ち、コードの失敗を修正して同じ PR にプッシュします。コード以外が原因の失敗は再試行せずに報告します。"
+    "ciBuildingHint": "チェックを待ち、コードの失敗を修正して同じ PR にプッシュします。コード以外が原因の失敗は再試行せずに報告します。",
+    "runStoppedNote": "何も納品される前にこの実行を停止しました。続けたいときに再実行してください。"
   },
   "specDraft": {
     "heading": "スペック下書き",
@@ -1349,7 +1351,8 @@
       "launch_failed": "実行を開始できませんでした",
       "delivery_failed": "結果を届けられませんでした",
       "push_failed": "ブランチをプッシュできませんでした",
-      "pr_failed": "PR を作成できませんでした"
+      "pr_failed": "PR を作成できませんでした",
+      "run_stopped": "実行を停止しました"
     },
     "progressAria": "{{total}} 件中 {{done}} 件の実行が完了",
     "costTitle": "これまでにプロバイダーが請求した実コスト",

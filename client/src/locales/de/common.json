@@ -88,7 +88,8 @@
     "returned_to_flow": "An den Intent zurückgegeben",
     "local_changes_attention": "Integriert — lokale Änderungen brauchen Aufmerksamkeit",
     "ci_green": "CI grün",
-    "ci_needs_attention": "CI noch nicht grün"
+    "ci_needs_attention": "CI noch nicht grün",
+    "run_stopped": "Gestoppt"
   },
   "prRecovery": {
     "inProgress": "Die Projektwiederherstellung läuft noch. Deine Lieferung ist sicher. Versuche es gleich noch einmal.",

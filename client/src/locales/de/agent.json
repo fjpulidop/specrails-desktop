@@ -326,7 +326,8 @@
       "flowSpecBuilding": "Dein Intent wird zu einem geprüften PR",
       "ci_green": "PR bereit — CI ist grün",
       "ci_needs_attention": "PR gepusht — CI noch nicht grün",
-      "ciBuilding": "CI des PR {{pr}} wird überwacht"
+      "ciBuilding": "CI des PR {{pr}} wird überwacht",
+      "run_stopped": "Lauf gestoppt"
     },
     "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
     "buildingExistingPrHint": "Specrails arbeitet auf dem Branch des bestehenden PRs und pusht die Review-Änderungen zurück in denselben PR.",
@@ -498,7 +499,8 @@
       "green": "Alle Checks sind grün.",
       "attention": "Die CI-Schleife hat angehalten, bevor die Checks grün wurden. Der PR behält alles, was gepusht wurde."
     },
-    "ciBuildingHint": "Wartet auf die Checks, behebt Codefehler und pusht in denselben PR. Fehler, die nicht am Code liegen, werden gemeldet statt wiederholt."
+    "ciBuildingHint": "Wartet auf die Checks, behebt Codefehler und pusht in denselben PR. Fehler, die nicht am Code liegen, werden gemeldet statt wiederholt.",
+    "runStoppedNote": "Du hast diesen Lauf gestoppt, bevor er etwas geliefert hat. Starte ihn neu, wenn du weitermachen willst."
   },
   "specDraft": {
     "heading": "Spec-Entwurf",
@@ -1349,7 +1351,8 @@
       "launch_failed": "Der Lauf konnte nicht starten",
       "delivery_failed": "Das Ergebnis konnte nicht ausgeliefert werden",
       "push_failed": "Der Branch konnte nicht gepusht werden",
-      "pr_failed": "Der PR konnte nicht erstellt werden"
+      "pr_failed": "Der PR konnte nicht erstellt werden",
+      "run_stopped": "Lauf gestoppt"
     },
     "progressAria": "{{done}} von {{total}} Läufen abgeschlossen",
     "costTitle": "Bisher vom Anbieter abgerechnete echte Kosten",
