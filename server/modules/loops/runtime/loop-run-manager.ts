@@ -989,6 +989,10 @@ export class LoopRunManager {
       /** Resolver of Core MACHINE interrupts (`host-task`, Core `hostTasks`), bound at
        *  composition. Absent ⇒ a host task fails its node instead of waiting. */
       hostTasks?: () => HostTaskDispatcher | undefined
+      /** Cancels a Core run this process does not drive (paused or recovered after
+       *  a restart): records the cancellation in Core and settles the run here.
+       *  Bound at composition; absent ⇒ only Core is told. */
+      cancelRetained?: (runId: string) => void
     } = {},
   ) {}
 
@@ -1055,6 +1059,11 @@ export class LoopRunManager {
     // A run waiting on a host task (CI, push) has no Core process: stop the host work too.
     try { this.options.hostTasks?.()?.cancel(runId) } catch { /* advisory */ }
     const frozen = readDefinitionRun(this.db, runId)
+    // No traversal of ours will settle it: the composition cancels and settles it.
+    if (frozen?.metadata.contextPath && this.options.cancelRetained && !this.isDefinitionRunActive(runId)) {
+      this.options.cancelRetained(runId)
+      return
+    }
     if (this.executors.cancelDefinition && frozen?.metadata.contextPath) {
       void this.cancelDefinition(runId).catch(error => {
         console.error(`[loop-run] durable cancellation failed for ${runId}: ${error instanceof Error ? error.message : String(error)}`)

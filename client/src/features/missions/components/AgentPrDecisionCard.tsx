@@ -1040,9 +1040,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const { t: tRecovery } = useTranslation('recovery')
   const diagnosisRunIds = envelope.runIds ?? []
   const diagnosisRunId = diagnosisRunIds[diagnosisRunIds.length - 1] ?? null
+  // A person stopped the run: not a failure to diagnose.
+  const runStopped = envelope.statusCode === 'run_stopped'
   const failedRunForDiagnosis = FEATURE_MISSION_RAIL_CARDS && !flowSpecRun && (
     Boolean(runFailure) || decision === 'implementation_failed' || runStatus === 'failed' || runStatus === 'stalled'
-  )
+  ) && !runStopped
   const diagnosis = useRunDiagnosis(envelope.projectId, diagnosisRunId, failedRunForDiagnosis && runStatus !== 'running' && runStatus !== 'paused', envelope.updatedAt ?? null)
   const diagnosisHandlers: RemedyHandlers = {}
   if (actionableRun?.canResume && actionableRun.recoverableSteps.length === 0) {
@@ -1305,6 +1307,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           ? t('prCard.title.pr_closed')
           : presentation.partial
             ? t('prCard.title.partial')
+            : envelope.statusCode === 'run_stopped'
+                ? t('prCard.title.run_stopped')
             : envelope.statusCode === 'ci_needs_attention'
                 ? t('prCard.title.ci_needs_attention')
             : envelope.statusCode === 'ci_green'
@@ -1515,7 +1519,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   // block renders, the older status-detail paragraph is skipped (no double).
   // pr-ci-loop: the CI outcome the last CI loop recorded on this PR.
   const ciOutcome = envelope.statusCode === 'ci_green' || envelope.statusCode === 'ci_needs_attention'
-  const failureBlockShown = FEATURE_MISSION_RAIL_CARDS && flowOutcome === null && (
+  const failureBlockShown = FEATURE_MISSION_RAIL_CARDS && flowOutcome === null && !runStopped && (
     !!runFailure
     || decision === 'implementation_failed'
     || (decision === 'discarded' && (!!envelope.statusDetail || envelope.statusCode === 'delivery_failed'))
@@ -1882,7 +1886,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           {decision === 'implementation_failed' && presentation.implementationFailed && flowOutcome === null && (
             <div className="space-y-2">
               {/* The diagnosis card above already explains the failure and its next step. */}
-              {!diagnosisCard && (
+              {runStopped ? (
+                <p className="flex items-start gap-1.5 text-label leading-4 text-muted-foreground" data-testid="agent-pr-run-stopped">
+                  <Square className="mt-px h-3 w-3 shrink-0" aria-hidden />
+                  {t('prCard.runStoppedNote')}
+                </p>
+              ) : !diagnosisCard && (
                 <p className="flex items-start gap-1.5 text-label leading-4 text-destructive">
                   <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
                   {t('prCard.implementationFailedNote')}

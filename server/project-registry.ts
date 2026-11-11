@@ -60,7 +60,7 @@ import { createPrCiHandlers } from './modules/delivery/runtime/pr-ci/pr-ci-handl
 import { resolvePrCiTargets } from './modules/delivery/runtime/pr-ci/pr-ci-target'
 import { withRepoLock } from './repo-lock'
 import { isPrCiLoopEnabled } from './feature-flags'
-import { resumeRetainedDefinitionRun } from './project-router-loop-runs'
+import { cancelDefinitionRun, resumeRetainedDefinitionRun } from './project-router-loop-runs'
 import { refreshPrCiOffer } from './modules/delivery/runtime/pr-ci/pr-ci-projection'
 import { resolveIntegrationBranch } from './integration-branch'
 import { getProjectSettings } from './db'
@@ -1284,6 +1284,8 @@ export class ProjectRegistry {
       }
     }
 
+    // The project context exists only after its managers; late-bound for callbacks.
+    let projectContext: ProjectContext | null = null
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
       pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
       // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
@@ -1309,7 +1311,12 @@ export class ProjectRegistry {
       }),
     }), undefined, { dailyBudget: dailyBudgetRejection, runCapDefault, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds),
       // Core machine interrupts (pr-ci-loop): one dispatcher per project, with the PR handlers bound to this project's records.
-      hostTasks: () => hostTaskDispatcher })
+      hostTasks: () => hostTaskDispatcher,
+      // Stop on a paused/recovered Core run: Core records it, Desktop settles it.
+      cancelRetained: runId => {
+        if (!projectContext) return
+        void cancelDefinitionRun(projectContext, runId).catch(error => console.error(`[loop-run] cancellation of ${runId} was rejected:`, error instanceof Error ? error.message : String(error)))
+      } })
     const hostTaskDispatcher = createHostTaskDispatcher({ db, projectId: project.id, handlers: isPrCiLoopEnabled() ? createPrCiHandlers({
       exec: defaultExec, git: defaultGitRunner,
       resolveTargets: (runId) => resolvePrCiTargets(db, project.id, runId),
@@ -1643,6 +1650,7 @@ export class ProjectRegistry {
     })
 
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, dailyBudgetHeadroom, budgetCaps, runCapDefault, reviewWipGate, agentAudit }
+    projectContext = ctx
     ctx.milestoneChains = milestoneChains
     // Spec triage (launch-triage): cheap per-spec loop recommendation. Seeded
     // now so the existing backlog is only triaged on edit or on demand.

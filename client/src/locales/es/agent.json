@@ -316,7 +316,8 @@
       "flowSpecBuilding": "Convirtiendo tu Intent en un PR revisado",
       "ci_green": "PR lista — CI en verde",
       "ci_needs_attention": "PR subida — falta que el CI esté en verde",
-      "ciBuilding": "Vigilando el CI de la PR {{pr}}"
+      "ciBuilding": "Vigilando el CI de la PR {{pr}}",
+      "run_stopped": "Ejecución detenida"
     },
     "buildingHint": "Cuando termine, se te preguntará si crear la PR.",
     "buildingExistingPrHint": "Specrails está trabajando sobre la rama de la PR existente y subirá los cambios de revisión a esa misma PR.",
@@ -498,7 +499,8 @@
       "green": "Todos los checks están en verde.",
       "attention": "El loop de CI se detuvo antes de que los checks quedaran en verde. La PR conserva todo lo que subió."
     },
-    "ciBuildingHint": "Espera a los checks, arregla los fallos del código y sube los cambios a la misma PR. Los fallos que no son del código se informan, no se reintentan."
+    "ciBuildingHint": "Espera a los checks, arregla los fallos del código y sube los cambios a la misma PR. Los fallos que no son del código se informan, no se reintentan.",
+    "runStoppedNote": "Detuviste esta ejecución antes de que entregara nada. Relánzala cuando quieras continuar."
   },
   "specDraft": {
     "heading": "Borrador de spec",
@@ -1349,7 +1351,8 @@
       "launch_failed": "La ejecución no pudo arrancar",
       "delivery_failed": "No se pudo entregar el resultado",
       "push_failed": "No se pudo subir la rama",
-      "pr_failed": "No se pudo crear el PR"
+      "pr_failed": "No se pudo crear el PR",
+      "run_stopped": "Ejecución detenida"
     },
     "progressAria": "{{done}} de {{total}} ejecuciones terminadas",
     "costTitle": "Coste real facturado por el proveedor hasta ahora",

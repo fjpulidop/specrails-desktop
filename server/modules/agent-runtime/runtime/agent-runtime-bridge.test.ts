@@ -71,6 +71,12 @@ describe('provider CLI environment', () => {
     expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
     expect(env).toEqual({ PATH: '/bin' })
   })
+
+  it('never hands Desktop\'s own Core selection to Core, its agents or verification commands', () => {
+    const env = { PATH: '/bin', SPECRAILS_CORE_BIN: '/core/bin/specrails-core.mjs', SPECRAILS_CORE_RUNTIME_PATH: '/core/dist/agent-runtime/index.js', SPECRAILS_FRAMEWORK_AUTOSWAP: 'false', SPECRAILS_GIT_AUTO: 'false' }
+    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', SPECRAILS_GIT_AUTO: 'false', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
+    expect(env.SPECRAILS_CORE_BIN).toBe('/core/bin/specrails-core.mjs')
+  })
 })
 
 describe('definition verification admission', () => {

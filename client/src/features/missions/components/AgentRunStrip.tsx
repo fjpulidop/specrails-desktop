@@ -230,6 +230,8 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     } else if (envelope.statusCode === 'ci_needs_attention' || envelope.statusCode === 'ci_green') {
       // pr-ci-loop: the CI outcome on the PR, not an implementation verdict.
       headlineText = t(envelope.statusCode === 'ci_green' ? 'prCard.ci.green' : 'prCard.ci.attention')
+    } else if (envelope.statusCode === 'run_stopped') {
+      headlineText = t('runStrip.failed.run_stopped')
     } else if (tone === 'info') {
       headlineText = t(`runStrip.decision.${envelope.decision}`, { defaultValue: t('runStrip.decision.generic') })
     } else if (tone === 'decision') {

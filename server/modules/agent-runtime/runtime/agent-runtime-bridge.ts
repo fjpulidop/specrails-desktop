@@ -14,6 +14,7 @@ import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime
 import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, resolveInheritedRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates, coreSupportsSetupCommands } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
+import { withoutDesktopCoreSelection } from '../../../util/desktop-core-env'
 import type { DefinitionCompletion, DefinitionHostPause, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
 import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
@@ -174,7 +175,8 @@ interface RuntimeResult {
  * rail worktrees and fresh projects never are. Every other Desktop Gemini spawn
  * already trusts its admitted workspace the same way; an explicit value wins. */
 export function coreProviderEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return env.GEMINI_CLI_TRUST_WORKSPACE === undefined ? { ...env, GEMINI_CLI_TRUST_WORKSPACE: 'true' } : env
+  const scoped = withoutDesktopCoreSelection(env)
+  return scoped.GEMINI_CLI_TRUST_WORKSPACE === undefined ? { ...scoped, GEMINI_CLI_TRUST_WORKSPACE: 'true' } : scoped
 }
 
 /** Core's blocker when characterization tests fail on the unchanged code (baseline on touch). */
@@ -553,7 +555,7 @@ function runControlProcess(args: string[], options: AgentRuntimeControlBase, inp
   return new Promise((resolve, reject) => {
     const events: Array<Record<string, unknown>> = []
     let stderr = '', invalid = false, timedOut = false
-    const child = spawn(resolveCoreNodeRuntime(), args, { cwd: options.cwd, env: windowsSpawnEnv(options.env), shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn(resolveCoreNodeRuntime(), args, { cwd: options.cwd, env: windowsSpawnEnv(withoutDesktopCoreSelection(options.env)), shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
     child.stdin!.on('error', () => { /* An early Core rejection is handled through its exit/result. */ })
     child.stdin!.end(input)
     let bytes = 0

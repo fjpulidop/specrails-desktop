@@ -83,42 +83,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     }
     const requestId = body.requestId ?? `desktop-cancel:${runId}`
     try {
-      const resident = c.loopRunManager.isDefinitionRunActive(runId)
-      await c.loopRunManager.cancelDefinition(runId, requestId)
-      let pending = pendingCancellations.get(c)
-      if (!pending) { pending = new Map(); pendingCancellations.set(c, pending) }
-      if (!resident && !c.loopRunManager.isDefinitionRunActive(runId) && !pending.has(runId)) {
-        let observedClaim: ReturnType<typeof readDefinitionExecutionClaim>
-        const task = finishDefinitionCancellation({
-          inspect: () => {
-            observedClaim = readDefinitionExecutionClaim(c.db, runId)
-            return probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
-          },
-          cancel: () => c.loopRunManager.cancelDefinition(runId, requestId),
-          stopped: () => c.loopRunManager.isDisposed(), now: Date.now,
-          wait: milliseconds => new Promise(resolve => { const timer = setTimeout(resolve, milliseconds); timer.unref() }),
-          settle: async () => {
-            assertProcessAdmission(c.project.id)
-            if (observedClaim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id=? AND owner=?
-              AND EXISTS (SELECT 1 FROM loop_runs WHERE id=? AND project_id=? AND status='paused' AND restart_reason='restart')`)
-              .run(runId, observedClaim.owner, runId, c.project.id)
-            const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
-            if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
-            const current = getLoopRun(c.db, runId)!
-            const result = current.status === 'completed' ? { outcome: current.final_outcome ?? 'stopped' } : await c.loopRunManager.beginDefinitionResume(runId)
-            if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
-            else c.onLoopRunFinished(runId, result.outcome)
-          },
-        }).catch(error => {
-          // Keep an actionable durable diagnostic; never replace Core's result
-          // or turn a failed observation into a successful cancellation.
-          try { if (!c.loopRunManager.isDisposed()) c.db.transaction(() => {
-            const sequence = (c.db.prepare('SELECT COALESCE(MAX(seq), -1) + 1 AS seq FROM events WHERE job_id=?').get(runId) as { seq: number }).seq
-            appendEvent(c.db, runId, sequence, { event_type: 'definition-control-error', source: 'stderr', payload: JSON.stringify({ action: 'cancel', requestId, message: error instanceof Error ? error.message : String(error) }) })
-          })() } catch (diagnosticError) { console.error('[loop-runs] cancellation diagnostic unavailable:', runId, diagnosticError) }
-        }).finally(() => pending!.delete(runId))
-        pending.set(runId, task)
-      }
+      await cancelDefinitionRun(c, runId, requestId)
       res.status(202).json({ loopRunId: runId, cancellationRequested: true })
     } catch (error) {
       res.status(409).json({ error: 'runtime_cancel_rejected', detail: error instanceof Error ? error.message : String(error) })
@@ -382,6 +347,52 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
  * Continue a retained definition run (the HTTP resume, also used by startup
  * recovery to re-dispatch pending host tasks). Returns the HTTP outcome.
  */
+/**
+ * Cancel a Core (engine v2) run through every door that stops one (this route,
+ * `POST /jobs/:id/cancel`, the rail's Stop). A resident run settles through its
+ * own traversal; a run this process does not drive (paused, recovered after a
+ * restart) is settled here once Core confirms the cancellation, so it never
+ * stays "paused" over a run Core already cancelled.
+ */
+export async function cancelDefinitionRun(c: ProjectContext, runId: string, requestId = `desktop-cancel:${runId}`): Promise<void> {
+  const resident = c.loopRunManager.isDefinitionRunActive(runId)
+  await c.loopRunManager.cancelDefinition(runId, requestId)
+  let pending = pendingCancellations.get(c)
+  if (!pending) { pending = new Map(); pendingCancellations.set(c, pending) }
+  if (!resident && !c.loopRunManager.isDefinitionRunActive(runId) && !pending.has(runId)) {
+    let observedClaim: ReturnType<typeof readDefinitionExecutionClaim>
+    const task = finishDefinitionCancellation({
+      inspect: () => {
+        observedClaim = readDefinitionExecutionClaim(c.db, runId)
+        return probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+      },
+      cancel: () => c.loopRunManager.cancelDefinition(runId, requestId),
+      stopped: () => c.loopRunManager.isDisposed(), now: Date.now,
+      wait: milliseconds => new Promise(resolve => { const timer = setTimeout(resolve, milliseconds); timer.unref() }),
+      settle: async () => {
+        assertProcessAdmission(c.project.id)
+        if (observedClaim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id=? AND owner=?
+          AND EXISTS (SELECT 1 FROM loop_runs WHERE id=? AND project_id=? AND status='paused' AND restart_reason='restart')`)
+          .run(runId, observedClaim.owner, runId, c.project.id)
+        const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
+        if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
+        const current = getLoopRun(c.db, runId)!
+        const result = current.status === 'completed' ? { outcome: current.final_outcome ?? 'stopped' } : await c.loopRunManager.beginDefinitionResume(runId)
+        if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+        else c.onLoopRunFinished(runId, result.outcome)
+      },
+    }).catch(error => {
+      // Keep an actionable durable diagnostic; never replace Core's result
+      // or turn a failed observation into a successful cancellation.
+      try { if (!c.loopRunManager.isDisposed()) c.db.transaction(() => {
+        const sequence = (c.db.prepare('SELECT COALESCE(MAX(seq), -1) + 1 AS seq FROM events WHERE job_id=?').get(runId) as { seq: number }).seq
+        appendEvent(c.db, runId, sequence, { event_type: 'definition-control-error', source: 'stderr', payload: JSON.stringify({ action: 'cancel', requestId, message: error instanceof Error ? error.message : String(error) }) })
+      })() } catch (diagnosticError) { console.error('[loop-runs] cancellation diagnostic unavailable:', runId, diagnosticError) }
+    }).finally(() => pending!.delete(runId))
+    pending.set(runId, task)
+  }
+}
+
 export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown): Promise<{ status: number; body: object }> {
   const run = getLoopRun(c.db, runId)
   if (!run || run.project_id !== c.project.id || run.engine_version !== 2) return { status: 404, body: { error: 'Definition run not found' } }
