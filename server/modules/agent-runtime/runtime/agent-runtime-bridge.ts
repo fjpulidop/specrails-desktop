@@ -174,7 +174,23 @@ interface RuntimeResult {
  * rail worktrees and fresh projects never are. Every other Desktop Gemini spawn
  * already trusts its admitted workspace the same way; an explicit value wins. */
 export function coreProviderEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return env.GEMINI_CLI_TRUST_WORKSPACE === undefined ? { ...env, GEMINI_CLI_TRUST_WORKSPACE: 'true' } : env
+  const scoped = withoutDesktopCoreSelection(env)
+  return scoped.GEMINI_CLI_TRUST_WORKSPACE === undefined ? { ...scoped, GEMINI_CLI_TRUST_WORKSPACE: 'true' } : scoped
+}
+
+/**
+ * How THIS Desktop picks its Core (a local checkout during development). Core
+ * never reads them; inherited by agents and verification commands they would
+ * steer the project being worked on instead (a Desktop checkout's own tests
+ * resolve Core through them and fail).
+ */
+export const DESKTOP_CORE_SELECTION_ENV_KEYS = ['SPECRAILS_CORE_BIN', 'SPECRAILS_CORE_RUNTIME_PATH', 'SPECRAILS_FRAMEWORK_AUTOSWAP'] as const
+
+export function withoutDesktopCoreSelection(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (!DESKTOP_CORE_SELECTION_ENV_KEYS.some(key => key in env)) return env
+  const scoped = { ...env }
+  for (const key of DESKTOP_CORE_SELECTION_ENV_KEYS) delete scoped[key]
+  return scoped
 }
 
 /** Core's blocker when characterization tests fail on the unchanged code (baseline on touch). */
@@ -553,7 +569,7 @@ function runControlProcess(args: string[], options: AgentRuntimeControlBase, inp
   return new Promise((resolve, reject) => {
     const events: Array<Record<string, unknown>> = []
     let stderr = '', invalid = false, timedOut = false
-    const child = spawn(resolveCoreNodeRuntime(), args, { cwd: options.cwd, env: windowsSpawnEnv(options.env), shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn(resolveCoreNodeRuntime(), args, { cwd: options.cwd, env: windowsSpawnEnv(withoutDesktopCoreSelection(options.env)), shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
     child.stdin!.on('error', () => { /* An early Core rejection is handled through its exit/result. */ })
     child.stdin!.end(input)
     let bytes = 0
