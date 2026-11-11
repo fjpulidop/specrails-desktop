@@ -15,6 +15,7 @@ const FAKE_BEARER = ['abcdefghij', 'klmnopqrstuvwx'].join('')
 const PR_URL = 'https://github.com/acme/app/pull/7'
 let root: string, remote: string, work: string
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', ...args], { cwd, encoding: 'utf8' }).trim()
+const identity = (cwd: string) => { git(cwd, 'config', 'user.name', 'T'); git(cwd, 'config', 'user.email', 't@example.invalid') }
 const commitFile = (cwd: string, file: string, text: string, message: string) => { writeFileSync(path.join(cwd, file), text); git(cwd, 'add', file); git(cwd, 'commit', '-qm', message) }
 
 beforeEach(() => {
@@ -22,6 +23,8 @@ beforeEach(() => {
   remote = path.join(root, 'remote.git'); work = path.join(root, 'work')
   execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
   execFileSync('git', ['clone', '-q', remote, work])
+  // CI runners have no global identity: the handlers commit through the fixture repo's own config.
+  identity(work)
   git(work, 'checkout', '-qb', 'main')
   commitFile(work, 'app.txt', 'base\n', 'base')
   git(work, 'push', '-q', 'origin', 'main')
@@ -80,7 +83,7 @@ describe('pr.update-base', () => {
   })
 
   it('merges a PR branch that moved on GitHub before anything else', async () => {
-    const other = path.join(root, 'other'); execFileSync('git', ['clone', '-q', '-b', 'feature', remote, other])
+    const other = path.join(root, 'other'); execFileSync('git', ['clone', '-q', '-b', 'feature', remote, other]); identity(other)
     commitFile(other, 'remote.txt', 'r\n', 'remote change'); git(other, 'push', '-q', 'origin', 'feature')
     expect(await fixture().invoke('pr.update-base', {})).toMatchObject({ outcome: 'merged' })
     expect(readFileSync(path.join(work, 'remote.txt'), 'utf8')).toBe('r\n')
@@ -126,7 +129,7 @@ describe('pr.sync', () => {
   })
 
   it('reports diverged when the PR branch moved, and never pushes an unverified candidate', async () => {
-    const other = path.join(root, 'other'); execFileSync('git', ['clone', '-q', '-b', 'feature', remote, other])
+    const other = path.join(root, 'other'); execFileSync('git', ['clone', '-q', '-b', 'feature', remote, other]); identity(other)
     commitFile(other, 'remote.txt', 'r\n', 'remote change'); git(other, 'push', '-q', 'origin', 'feature')
     writeFileSync(path.join(work, 'fix.txt'), 'fixed\n')
     const f = fixture()

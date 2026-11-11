@@ -7,7 +7,7 @@ import { runAgentRuntimeInvocation } from '../../agent-runtime/runtime/agent-run
 import { compileLoopToDefinition } from './loop-definition'
 import { runDefinitionLoop, type DefinitionHostTaskRequest } from './loop-definition-run'
 import { PR_CI_ENDS, PR_CI_LOOP_ID, prCiGraph } from './loop-pr-ci-recipe'
-import { coreCliMissing, useFactoryPairing } from './__fixtures__/factory-pairing'
+import { core, coreCliMissing, useFactoryPairing } from './__fixtures__/factory-pairing'
 import type { LoopRunRequest } from './loop-run-manager'
 
 // PR CI loop pairing: Desktop's factory:pr-ci graph executed by the REAL Core
@@ -23,6 +23,13 @@ vi.mock('../../agent-runtime/runtime/agent-runtime-package', async importOrigina
   }
 })
 useFactoryPairing()
+
+/** CI pairs the Core of its own lane: before the paired Core ships `hostTasks` the feature is hidden, so these cases skip. */
+const coreHostTasks = (() => {
+  if (coreCliMissing || !core) return false
+  const api = spawnSync(process.execPath, [path.join(core, 'dist/agent-runtime/cli.js'), 'api'], { encoding: 'utf8' })
+  try { return (JSON.parse(api.stdout.trim().split('\n').at(-1) ?? '{}') as { capabilities?: Record<string, number> }).capabilities?.hostTasks === 1 } catch { return false }
+})()
 
 async function runPrCi(id: string, script: Record<string, string[]>) {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'pr ci pairing ')))
@@ -63,7 +70,7 @@ async function runPrCi(id: string, script: Record<string, string[]>) {
   } finally { rmSync(root, { recursive: true, force: true }) }
 }
 
-it.skipIf(coreCliMissing)('ends green without writing when the PR is up to date and CI is green', async () => {
+it.skipIf(!coreHostTasks)('ends green without writing when the PR is up to date and CI is green', async () => {
   const { result, requests } = await runPrCi('pr-ci-green', { 'pr.update-base': ['clean'], 'pr.checks': ['green'] })
   expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, reasons: ['All checks of the pull request are green.'] } })
   expect(requests.map(request => request.task)).toEqual(['pr.update-base', 'pr.checks'])
@@ -71,7 +78,7 @@ it.skipIf(coreCliMissing)('ends green without writing when the PR is up to date 
   expect(requests[1]).toMatchObject({ effect: 'read', timeoutMs: 3_600_000 })
 }, 180_000)
 
-it.skipIf(coreCliMissing)('verifies locally before pushing a merged base, then waits for CI again', async () => {
+it.skipIf(!coreHostTasks)('verifies locally before pushing a merged base, then waits for CI again', async () => {
   const { result, requests } = await runPrCi('pr-ci-merged', { 'pr.update-base': ['merged'], 'pr.sync': ['pushed'], 'pr.checks': ['green'] })
   expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true } })
   expect(requests.map(request => request.task)).toEqual(['pr.update-base', 'pr.sync', 'pr.checks'])
@@ -79,7 +86,7 @@ it.skipIf(coreCliMissing)('verifies locally before pushing a merged base, then w
   expect(requests[1]).toMatchObject({ task: 'pr.sync', effect: 'read', candidate: { verified: true }, input: { summary: 'Update from the CI loop' } })
 }, 180_000)
 
-it.skipIf(coreCliMissing).each([
+it.skipIf(!coreHostTasks).each([
   ['no CI checks', { 'pr.update-base': ['clean'], 'pr.checks': ['none'] }, 'succeeded', PR_CI_ENDS.noCi, 'The pull request has no CI checks.'],
   ['a closed PR', { 'pr.update-base': ['closed'] }, 'failed', PR_CI_ENDS.closed, 'The pull request was closed or merged while the loop was running.'],
   ['checks that never finish', { 'pr.update-base': ['clean'], 'pr.checks': ['timeout'] }, 'failed', PR_CI_ENDS.timeout, 'The checks did not finish within the wait limit; required checks may never report.'],

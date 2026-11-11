@@ -88,7 +88,11 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
 
 const coreRoot = process.env.SPECRAILS_CORE_SOURCE_DIR
 const coreCli = coreRoot ? path.join(coreRoot, 'dist/agent-runtime/cli.js') : ''
-describe.skipIf(!coreRoot || !existsSync(coreCli))('factory:pr-ci against the real Core catalog', () => {
+/** Only a paired Core that advertises `hostTasks` knows the piece (older Cores hide the feature). */
+const coreHostTasks = !!coreRoot && existsSync(coreCli) && (() => {
+  try { return (JSON.parse(spawnSync(process.execPath, [coreCli, 'api'], { encoding: 'utf8' }).stdout.trim().split('\n').at(-1) ?? '{}') as { capabilities?: Record<string, number> }).capabilities?.hostTasks === 1 } catch { return false }
+})()
+describe.skipIf(!coreHostTasks)('factory:pr-ci against the real Core catalog', () => {
   it('validates structurally in Core and every piece is advertised', () => {
     const graph = prCiGraph(CAPS)
     const definition = compileLoopToDefinition(graph, { id: PR_CI_LOOP_ID, title: 'Fix PR CI', constants: {}, provider: 'claude', roles: { correct: { access: 'write' }, resolve: { access: 'write' } } })
