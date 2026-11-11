@@ -99,7 +99,9 @@ export function refreshRepositoryDeliveryGroup(db: DbInstance, parentId: string,
     } else if (children.every((row) => row.decision === 'no_changes')) {
       decision = 'no_changes'; patch.deliveryOutcome = 'no_changes'; patch.statusCode = 'no_changes'
     } else if (children.some((row) => row.decision === 'implementation_failed')) {
-      decision = 'implementation_failed'; patch.deliveryOutcome = 'blocked'; patch.statusCode = 'implementation_failed'
+      decision = 'implementation_failed'; patch.deliveryOutcome = 'blocked'
+      const failedChildren = children.filter((row) => row.decision === 'implementation_failed')
+      patch.statusCode = failedChildren.every((row) => row.status_code === 'run_stopped') ? 'run_stopped' : 'implementation_failed'
       // An Intent session → Spec group has exactly one repository: its "changes requested"
       // outcome (status + the evidence it is read from) is the group's, so the
       // card offers Back to Intent / Relaunch and the Intent reads its findings.

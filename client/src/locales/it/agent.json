@@ -326,7 +326,8 @@
       "flowSpecBuilding": "Il tuo Intent sta diventando una PR revisionata",
       "ci_green": "PR pronta — CI verde",
       "ci_needs_attention": "PR inviata — la CI non è ancora verde",
-      "ciBuilding": "Monitoraggio della CI della PR {{pr}}"
+      "ciBuilding": "Monitoraggio della CI della PR {{pr}}",
+      "run_stopped": "Esecuzione interrotta"
     },
     "buildingHint": "Al termine ti verrà chiesto se creare la PR.",
     "buildingExistingPrHint": "Specrails sta lavorando sul branch della PR esistente e invierà le modifiche di review a quella stessa PR.",
@@ -498,7 +499,8 @@
       "green": "Tutti i check sono verdi.",
       "attention": "Il loop di CI si è fermato prima che i check diventassero verdi. La PR mantiene tutto ciò che ha inviato."
     },
-    "ciBuildingHint": "Attende i check, corregge gli errori del codice e fa push sulla stessa PR. Gli errori non dovuti al codice vengono segnalati, non ritentati."
+    "ciBuildingHint": "Attende i check, corregge gli errori del codice e fa push sulla stessa PR. Gli errori non dovuti al codice vengono segnalati, non ritentati.",
+    "runStoppedNote": "Hai interrotto questa esecuzione prima che consegnasse qualcosa. Rilanciala quando vuoi continuare."
   },
   "specDraft": {
     "heading": "Bozza della spec",
@@ -1349,7 +1351,8 @@
       "launch_failed": "L’esecuzione non è partita",
       "delivery_failed": "Non è stato possibile consegnare il risultato",
       "push_failed": "Non è stato possibile fare il push del branch",
-      "pr_failed": "Non è stato possibile creare la PR"
+      "pr_failed": "Non è stato possibile creare la PR",
+      "run_stopped": "Esecuzione interrotta"
     },
     "progressAria": "{{done}} di {{total}} esecuzioni terminate",
     "costTitle": "Costo reale fatturato dal provider finora",

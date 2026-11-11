@@ -27,7 +27,7 @@ const OPERATIONS: ReadonlySet<string> = new Set([
   'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry', 'checkout',
 ])
 const STATUS_CODES: ReadonlySet<string> = new Set([
-  'implementation_running', 'implementation_failed', 'ready_for_review', 'restart_pending',
+  'implementation_running', 'implementation_failed', 'run_stopped', 'ready_for_review', 'restart_pending',
   'partial_success', 'partial_delivery', 'existing_pr_updated', 'ci_green', 'ci_needs_attention', 'no_changes',
   'commit_failed', 'branch_verification_failed', 'push_failed',
   'settlement_interrupted', 'recovery_unavailable', 'operation_interrupted', 'delivery_failed', 'pr_draft_ready', 'pr_ready',

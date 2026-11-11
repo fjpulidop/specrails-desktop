@@ -129,6 +129,8 @@ export function deliveryRunTone(
   }
   if (card?.pendingApproval || envelope.runtime?.pendingApproval) return 'decision'
   if (reviewChangesRequested(envelope)) return 'decision'
+  // Stopped by the person: settled information, not a failure that rings.
+  if (decision === 'implementation_failed' && envelope.statusCode === 'run_stopped') return 'info'
   if (decision === 'implementation_failed' || decision === 'pr_failed') return 'failed'
   if (decision === 'on_review' || decision === 'pr_draft') return 'decision'
   // Finished without changes / PR closed: settled information, not a decision

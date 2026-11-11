@@ -1891,8 +1891,11 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             : 'pr_failed'
 
       const firstFailure = results.find((result) => result.failureCode)
+      // A person stopped every run: that is a stop, not an implementation failure.
+      const stoppedByPerson = implementationOutcome === 'failed' && results.length > 0
+        && results.every((result) => getLoopRun(ctx.db, result.run.runId)?.final_outcome === 'stopped')
       const statusCode: PrDeliveryStatusCode = implementationOutcome === 'failed'
-        ? 'implementation_failed'
+        ? (stoppedByPerson ? 'run_stopped' : 'implementation_failed')
         : continuationLifecycleBlocked
           ? 'branch_verification_failed'
           : continuationMergedWithSha
@@ -2038,7 +2041,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         // mission-rail-cards: an implementation failure also wakes the origin
         // mission (failure row + ONE bounded agent turn). Delivery failures
         // (pr_failed) keep the card's retry controls and stay silent.
-        if (settledImplementationOutcome === 'failed') {
+        if (settledImplementationOutcome === 'failed' && !stoppedByPerson) {
           const failedUnit = results.find((result) => result.implementationOutcome === 'failed') ?? results[0]
           notifyOriginRunFailure(prDeliveryId, {
             code: flowReview ? 'review_changes_requested' : 'implementation_failed',
