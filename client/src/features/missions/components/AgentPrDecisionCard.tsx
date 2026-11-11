@@ -928,7 +928,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const pausedReason = pausedRunId ? pausedRuns[pausedRunId]?.pausedReason ?? null : null
   const pausedOnBudget = pausedRunId ? pausedRuns[pausedRunId]?.budgetPaused === true : false
   const runChips = runIds.length > 0 && (
-    <div className="mt-1.5 flex flex-wrap items-center gap-1.5" data-testid="pr-run-log-chips">
+    // Inline in the card's chip row (display: contents), not a row of its own.
+    <div className="contents" data-testid="pr-run-log-chips">
       {runIds.map((rid, i) => (
         <RunLogChip
           key={rid}
@@ -1050,7 +1051,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   // primary; the implementation_failed branch below must not add a second one.
   const diagnosisOwnsPrimary = !!diagnosis && (!!diagnosisHandlers.retry || !!diagnosisHandlers.resume)
   const diagnosisCard = diagnosis ? (
-    <div className="mt-2 space-y-1.5" data-testid="mission-run-diagnosis">
+    <div className="mt-3 space-y-1.5" data-testid="mission-run-diagnosis">
       <FailureDiagnosisCard diagnosis={diagnosis} handlers={diagnosisHandlers} />
       <details>
         <summary className="cursor-pointer text-caption text-muted-foreground hover:text-foreground">{tRecovery('technicalDetails')}</summary>
@@ -1590,7 +1591,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         </span>
         {ticketChips}
         {!showArrival && prLink}
-        {envelope.deliverySha && (
+        {runChips}
+        {envelope.deliverySha && !hasRepositoryDeliveries && (
           <span
             data-testid="agent-pr-delivery-sha"
             title={envelope.deliverySha}
@@ -1607,9 +1609,6 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         )}
       </div>
 
-      {/* Per-run log chips — frozen vitals once the rail settled. */}
-      {runChips}
-
       {envelope.operation && (
         <p className="mt-2 flex items-center gap-1.5 text-label font-medium text-accent-info" data-testid="agent-pr-operation">
           <RailTrack running className="w-16 shrink-0" />
@@ -1624,7 +1623,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         </p>
       )}
 
-      <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null} />
+      {/* A failure block below already names what failed: no duplicate red unit chip. */}
+      <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null || failureBlockShown} />
 
       {failureBlockShown && (diagnosisCard ?? <RunFailureBlock envelope={envelope} />)}
       {flowFailureView}
@@ -1639,7 +1639,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {flowOutcome === 'returned' && !returnedAfterFailure && <AgentFlowReturnedNote />}
       {runtimeError}
 
-      {statusLabel && flowOutcome === null && (
+      {/* The title and the failure block / CI note already say it: no third label. */}
+      {statusLabel && flowOutcome === null && !failureBlockShown && envelope.statusCode !== 'ci_green' && envelope.statusCode !== 'ci_needs_attention' && (
         <p className="mt-2 text-label text-muted-foreground" data-testid="agent-pr-status-code">
           {statusLabel}
         </p>
@@ -1846,10 +1847,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           )}
           {decision === 'implementation_failed' && presentation.implementationFailed && flowOutcome === null && (
             <div className="space-y-2">
-              <p className="flex items-start gap-1.5 text-label leading-4 text-destructive">
-                <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
-                {t('prCard.implementationFailedNote')}
-              </p>
+              {/* The diagnosis card above already explains the failure and its next step. */}
+              {!diagnosisCard && (
+                <p className="flex items-start gap-1.5 text-label leading-4 text-destructive">
+                  <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
+                  {t('prCard.implementationFailedNote')}
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-1.5">
                 {/* One primary: resume the run when it can be, else relaunch. The rest wait in the menu.
                     When the diagnosis card above already offers Run again / Resume, it is the single primary. */}
