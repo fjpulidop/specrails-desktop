@@ -1,2 +1,4 @@
 # Ephemeral localhost token of the Impeccable live server, committed by accident in 6dd052fd and untracked since.
 6dd052fd85c088ea2d56b24541a1620dc0950880:client/.impeccable/live/server.json:generic-api-key:1
+# Fake GitHub-style token in the PR CI redaction test (pr-ci-loop); the test now assembles it at runtime (7522a8e8).
+25ee7dba787a29b177372366139db9958bdf965b:server/modules/delivery/runtime/pr-ci/pr-ci-handlers.test.ts:generic-api-key:153
