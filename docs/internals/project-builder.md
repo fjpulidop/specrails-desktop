@@ -1,5 +1,8 @@
 # Project Builder — as-built internals
 
+See the [UX audit and revision proposal](project-builder-ux-audit.md), pending
+user review; its recommendations are not implemented or approved.
+
 > OpenSpec change `add-project-builder`. Greenfield project creation from an
 > idea: a day-0 blueprint conversation, an orchestrated bootstrap commit, and a
 > milestone lifecycle (Launch M1 — one spec per rail, sequential —, sidebar
