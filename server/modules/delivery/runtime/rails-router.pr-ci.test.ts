@@ -7,7 +7,7 @@ import request from 'supertest'
 import { initDb, type DbInstance } from '../../../db'
 import { initDesktopDb } from '../../../desktop-db'
 import { createRailsRouter } from './rails-router'
-import { setRailTickets } from './rails-store'
+import { getRail, setRailTickets } from './rails-store'
 import { createPrDelivery, getPrDelivery } from './rail-pr-store'
 import '../../../providers'
 
@@ -66,6 +66,15 @@ describe('POST /rails/:railIndex/pr-ci', () => {
       requiredPrContinuation: { deliveryId: id, decision: 'pr_draft', branch: 'feat/7', baseBranch: 'main', prUrl: 'https://github.com/acme/app/pull/7', prNumber: 7, deliverySha: 'a'.repeat(40) } })
     expect(input.loopGraph.nodes.some((node: { data?: { kind?: string } }) => ['approval', 'question', 'gate'].includes(String(node.data?.kind)))).toBe(false)
     expect(input).not.toHaveProperty('followUp')
+  })
+
+  it('runs on the delivery\'s specs when the rail was released after the PR', async () => {
+    const id = draft()
+    setRailTickets(db, 0, [], 'implement')
+    const res = await request(app()).post('/rails/0/pr-ci').send({ prDeliveryId: id })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect((launch.mock.calls[0][0] as Record<string, unknown>).ticketIds).toEqual([7])
+    expect(getRail(db, 0).ticketIds).toEqual([7])
   })
 
   it('answers 403 when the feature flag is off', async () => {
@@ -132,5 +141,44 @@ describe('POST /rails/pr-ci-offer/dismiss', () => {
   it('answers 409 when nothing was offered and 404 for an unknown delivery', async () => {
     expect((await request(app()).post('/rails/pr-ci-offer/dismiss').send({ prDeliveryId: draft() })).status).toBe(409)
     expect((await request(app()).post('/rails/pr-ci-offer/dismiss').send({ prDeliveryId: 'missing' })).status).toBe(404)
+  })
+})
+
+describe('POST /rails/:railIndex/pr-ci on a multi-repository delivery', () => {
+  function multiDraft(children: Array<Record<string, unknown>>): string {
+    const parent = draft({ pr_url: null, pr_number: null, branch: null, pr_state: 'none', execution_manifest: JSON.stringify({ version: 1, selectedRepositoryIds: ['a', 'b'], repositories: [] }) })
+    children.forEach((over, index) => {
+      const child = createPrDelivery(db, { railIndex: 20 + index, railKey: `c${index}`, ticketIds: [7], baseBranch: 'main', loopName: 'Implement', originSurface: 'agent-chat', loopId: 'factory:implement', parentDeliveryId: parent, repositoryId: ['a', 'b'][index], repositoryPath: `/repos/${['app', 'lib'][index]}` })
+      const set = { decision: 'pr_draft', pr_url: `https://github.com/acme/${['app', 'lib'][index]}/pull/${index + 1}`, pr_number: index + 1, branch: `feat/${index}`, delivery_sha: 'a'.repeat(40), pr_state: 'pr-created', ...over }
+      db.prepare(`UPDATE rail_pr_deliveries SET ${Object.keys(set).map(key => `${key} = ?`).join(', ')} WHERE id = ?`).run(...Object.values(set), child.id)
+    })
+    return parent
+  }
+
+  it('checks every repository PR on GitHub, in its own repository', async () => {
+    const id = multiDraft([{}, {}])
+    lifecycle.mockImplementation(async (_exec: unknown, _cwd: string, prUrl: string) => prUrl.includes('/lib/') ? { ...open, state: 'CLOSED' } : open)
+    const res = await request(app()).post('/rails/0/pr-ci').send({ prDeliveryId: id })
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({ error: 'pr_not_open', prUrl: 'https://github.com/acme/lib/pull/2' })
+    expect(lifecycle.mock.calls.map(call => [call[1], call[2]])).toEqual([['/repos/app', 'https://github.com/acme/app/pull/1'], ['/repos/lib', 'https://github.com/acme/lib/pull/2']])
+    expect(launch).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['a repository under review without its PR', [{}, { pr_url: null }], 'pr_ci_not_allowed'],
+    ['a repository with an operation in flight', [{ operation: 'publish', operation_token: 't', operation_started_at_ms: 1 }, {}], 'pr_operation_in_progress'],
+  ])('refuses %s', async (_label, children, error) => {
+    const res = await request(app()).post('/rails/0/pr-ci').send({ prDeliveryId: multiDraft(children) })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe(error)
+    expect(lifecycle).not.toHaveBeenCalled()
+  })
+
+  it('admits it when every PR under review is open, ignoring merged repositories', async () => {
+    const id = multiDraft([{}, { decision: 'merged' }])
+    const res = await request(app()).post('/rails/0/pr-ci').send({ prDeliveryId: id })
+    expect(lifecycle).toHaveBeenCalledTimes(1)
+    expect(res.body.error).not.toBe('pr_ci_not_allowed')
   })
 })

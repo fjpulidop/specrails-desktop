@@ -969,5 +969,7 @@ The loop is Core's (`loop-pr-ci-recipe.ts`); Desktop resolves its `host-task` ma
 
 The handlers resolve the PR from B's frozen isolated-settlement snapshot (never from workflow input), hold the repository lock for git effects, and are idempotent. Dispatches are persisted in `host_task_dispatches` (migration 88) before acting and their result before Core resumes; startup re-dispatches paused runs with a pending host task, replaying a known result. Stop cancels the in-flight handler and the run.
 
+A multi-repository delivery qualifies when every repository still under review (not merged, completed or without changes) has its PR. Its one Core run covers every repository, so the handlers act on every PR of the run (one frozen snapshot per repository delivery) and aggregate: green only when every PR is green; failures, conflicts (with each worktree) and pushes name their repository; a closed or unverifiable PR anywhere stops the push of all of them. The offer row lists every PR (`prs`) and is projected on the parent generation.
+
 Settlement is the ordinary continuation path: `pr.sync` already pushed, so the final push of `finalSha` is an idempotent no-op (`ready`), a run that found CI green wrote nothing (`no_changes`, PR untouched), active OpenSpec changes merged in from `origin/<base>` pass the hygiene audit, and a run that stops with a prepared merge is preserved as blocked with nothing pushed. Specrails never publishes the draft, merges or closes the PR.
 

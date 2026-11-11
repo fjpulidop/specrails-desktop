@@ -1505,6 +1505,12 @@
       "conflicts": "Resolvendo conflitos com o branch base",
       "verify": "Verificando localmente",
       "push": "Enviando a correção para o PR"
-    }
+    },
+    "titleMany": "Acompanhar e corrigir o CI dos PRs {{pr}}",
+    "startedMany": "Acompanhando o CI dos PRs {{pr}} em {{rail}}",
+    "greenMany": "PRs {{pr}}: todos os checks verdes",
+    "noCiMany": "Os PRs {{pr}} não têm checks de CI",
+    "needsAttentionMany": "O CI dos PRs {{pr}} precisa de atenção",
+    "dismissedMany": "O acompanhamento do CI dos PRs {{pr}} não foi iniciado."
   }
 }

@@ -1505,6 +1505,12 @@
       "conflicts": "Resolviendo conflictos con la rama base",
       "verify": "Verificando en local",
       "push": "Subiendo cambios a la PR"
-    }
+    },
+    "titleMany": "Vigilar y arreglar el CI de las PRs {{pr}}",
+    "startedMany": "Vigilando el CI de las PRs {{pr}} en {{rail}}",
+    "greenMany": "PRs {{pr}}: todos los checks en verde",
+    "noCiMany": "Las PRs {{pr}} no tienen checks de CI",
+    "needsAttentionMany": "El CI de las PRs {{pr}} necesita atención",
+    "dismissedMany": "No se inició la vigilancia del CI de las PRs {{pr}}."
   }
 }

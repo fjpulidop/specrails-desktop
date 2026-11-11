@@ -18,9 +18,11 @@ The PR continuation (`active-pr-continuation.ts`) already relaunches a rail on a
 - **Dispatcher.** `(runId, interruptId)` persisted before acting and the result before resuming (`host_task_dispatches`, migration 88); a restart replays a known result and re-runs an unknown one (handlers are idempotent). Startup recovery re-dispatches paused runs with a pending host task through the same retained-resume path as the HTTP resume.
 - **Offer.** A `pr-ci-offer` system row keyed `pr-ci-offer:<deliveryId>`, projected after every delivery change; the CI loop generation updates the row of the generation it replaced. No automatic agent turn; the row never marks the conversation unread.
 
+- **Multi-repository deliveries.** One Core run covers every repository (one worktree and one child PR per repository), and the multi-repository continuation already exists. The handlers therefore resolve every PR of the run (`resolvePrCiTargets`: one isolated-settlement snapshot per child, same run id) and aggregate: CI is green only when every PR is green, failures and conflicts name their repository, a closed PR or a refused identity anywhere stops the push of all of them, and each changed repository is pushed to its own PR branch. Admission (`ciFixAllowed`) requires a PR for every repository still under review; settled repositories (merged, completed, no changes) are ignored. One offer lists every PR.
+
 ## Risks / Trade-offs
 
 - Required checks that never report end at `timeout`; external checks without logs reach the fixer as name + URL + summary.
 - A run that fails after a prepared merge leaves `MERGE_HEAD` in the preserved worktree (blocked settlement, nothing pushed).
 - GitHub API load: one watcher per PR (one continuation per rail), backoff 30 s → 2 min.
-- Out of scope (v1): automatic start without the card, review comments (followUp exists), fork PRs, multi-repo deliveries, GitLab/Bitbucket, publishing or merging when green.
+- Out of scope (v1): automatic start without the card, review comments (followUp exists), fork PRs, GitLab/Bitbucket, publishing or merging when green.

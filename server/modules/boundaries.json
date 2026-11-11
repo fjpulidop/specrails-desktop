@@ -1250,6 +1250,7 @@
         "./flow-review-outcome",
         "./flow-worktree-handoff",
         "./multi-repo-execution-store",
+        "./pr-ci/pr-ci-projection",
         "./rail-isolated-launch",
         "./rail-pr-store",
         "./rail-pr-ticket-effects"
@@ -1277,8 +1278,10 @@
       ],
       "runtime/pr-ci/pr-ci-offer.ts": [
         "../../../../db",
+        "../../domain/decision-policy",
         "../rail-pr-store",
-        "./pr-ci-target"
+        "./pr-ci-target",
+        "node:path"
       ],
       "runtime/pr-ci/pr-ci-projection.ts": [
         "../../../../db",
@@ -1286,13 +1289,15 @@
         "../../../agent-runtime/runtime/agent-runtime-loader",
         "../../../loops/runtime/loop-pr-ci-recipe",
         "../../../missions/runtime/agent-chat-registry",
+        "../rail-pr-store",
         "./pr-ci-offer"
       ],
       "runtime/pr-ci/pr-ci-target.ts": [
         "../../../../db",
         "../isolated-settlement-store",
         "../rail-pr-store",
-        "./pr-ci-handlers"
+        "./pr-ci-handlers",
+        "node:path"
       ],
       "runtime/pr-follow-up-scope.ts": [],
       "runtime/pr-follow-up.ts": [

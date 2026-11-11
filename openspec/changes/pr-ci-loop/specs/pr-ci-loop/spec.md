@@ -2,7 +2,7 @@
 
 ### Requirement: An optional, non-intrusive CI offer follows Create PR
 
-After a mission delivery reaches `pr_draft` or `pr_ready` with an attached, single-repository PR, Desktop SHALL post one `pr-ci-offer` row in the origin conversation when the selected Core advertises `hostTasks` and `SPECRAILS_PR_CI_LOOP` is not `false`. The offer SHALL never start a run by itself, SHALL not mark the conversation unread or add a mission-list attention dot, and "Not now" SHALL be persisted for that delivery generation.
+After a mission delivery reaches `pr_draft` or `pr_ready` with an attached PR — or, for a multi-repository delivery, a PR for every repository still under review — Desktop SHALL post one `pr-ci-offer` row in the origin conversation when the selected Core advertises `hostTasks` and `SPECRAILS_PR_CI_LOOP` is not `false`. The offer SHALL never start a run by itself, SHALL not mark the conversation unread or add a mission-list attention dot, and "Not now" SHALL be persisted for that delivery generation.
 
 #### Scenario: Offer after Create PR
 
@@ -18,6 +18,11 @@ After a mission delivery reaches `pr_draft` or `pr_ready` with an attached, sing
 
 - **WHEN** the person chooses Not now
 - **THEN** the row becomes `dismissed` and is not offered again for that generation
+
+#### Scenario: Multi-repository delivery
+
+- **WHEN** a multi-repository delivery has a PR for every repository still under review
+- **THEN** one offer lists every PR, and the loop is green only when every PR's checks are green, naming the repository of each failure or conflict
 
 ### Requirement: The CI loop is autonomous and runs in Core
 

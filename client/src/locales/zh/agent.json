@@ -1505,6 +1505,12 @@
       "conflicts": "正在解决与基础分支的冲突",
       "verify": "正在本地验证",
       "push": "正在将修复推送到 PR"
-    }
+    },
+    "titleMany": "监控并修复 PR {{pr}} 的 CI",
+    "startedMany": "正在 {{rail}} 上监控 PR {{pr}} 的 CI",
+    "greenMany": "PR {{pr}}：所有检查均已通过",
+    "noCiMany": "PR {{pr}} 没有 CI 检查",
+    "needsAttentionMany": "PR {{pr}} 的 CI 需要处理",
+    "dismissedMany": "未开始监控 PR {{pr}} 的 CI。"
   }
 }

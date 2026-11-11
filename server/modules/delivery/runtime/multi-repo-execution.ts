@@ -1,4 +1,5 @@
 import { newId } from '../../../ids'
+import { refreshPrCiOffer } from './pr-ci/pr-ci-projection'
 import { getProjectSettings, type DbInstance } from '../../../db'
 import { resolveIntegrationBranch } from '../../../integration-branch'
 import { getProjectRepositories } from '../../../project-repositories'
@@ -151,6 +152,8 @@ export function refreshRepositoryDeliveryGroup(db: DbInstance, parentId: string,
 function emitGroup(ctx: Pick<ProjectContext, 'db' | 'project' | 'broadcast'>, parentId: string, post = false): void {
   const row = getPrDelivery(ctx.db, parentId)
   if (!row) return
+  // pr-ci-loop: offer (or refresh) "Watch and fix the CI" for the whole generation.
+  refreshPrCiOffer(ctx, parentId)
   const snap = toPrDeliverySnapshot(row)
   try { ctx.broadcast(toRailPrStateMessage(ctx.project.id, snap)) } catch { /* durable projection is authoritative */ }
   if (row.origin_conversation_id) {

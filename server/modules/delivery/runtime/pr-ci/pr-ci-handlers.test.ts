@@ -45,9 +45,9 @@ function fixture(gh: (args: string[]) => ExecResult = () => ({ code: 0, stdout: 
     const result = spawnSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', ...mapped], { cwd, encoding: 'utf8' })
     return { code: result.status ?? 1, stdout: result.stdout, stderr: result.stderr }
   } }
-  const target: PrCiTarget = { deliveryId: 'd1', runId: 'run-1', prUrl: PR_URL, prNumber: 7, branch: 'feature', baseBranch: 'main', worktreePath: work, repoDir: work, overlayExcludes: [] }
+  const target: PrCiTarget = { deliveryId: 'd1', runId: 'run-1', repositoryName: 'app', prUrl: PR_URL, prNumber: 7, branch: 'feature', baseBranch: 'main', worktreePath: work, repoDir: work, overlayExcludes: [] }
   let clock = 0
-  const handlers = createPrCiHandlers({ exec, git: defaultGitRunner, resolveTarget: id => id === 'run-1' ? target : null, withRepositoryLock: (_dir, fn) => fn(),
+  const handlers = createPrCiHandlers({ exec, git: defaultGitRunner, resolveTargets: id => id === 'run-1' ? [target] : [], withRepositoryLock: (_dir, fn) => fn(),
     timing: { initialDelayMs: 90_000, pollMinMs: 30_000, pollMaxMs: 120_000, timeoutMs: 600_000 }, now: () => clock, sleep: async ms => { clock += ms } })
   const invoke = (task: string, input: Record<string, unknown> = {}, extra: Partial<HostTaskRequest> = {}) => handlers[task]!({ projectId: 'p', runId: 'run-1', interruptId: 'i', signal: new AbortController().signal, log: () => {},
     request: { task, input, outcomes: [], effect: 'read', candidate: { hash: 'h', verified: true }, ...extra } } as HostTaskInvocation)
@@ -93,7 +93,7 @@ describe('pr.update-base', () => {
   it('ends at closed for a closed PR, refuses a fork and an unresolved target', async () => {
     expect(await fixture(() => ({ code: 0, stdout: view({ state: 'MERGED' }), stderr: '' })).invoke('pr.update-base')).toMatchObject({ outcome: 'closed', output: { state: 'MERGED' } })
     expect(await fixture(() => ({ code: 0, stdout: view({ isCrossRepository: true }), stderr: '' })).invoke('pr.update-base')).toMatchObject({ outcome: 'failed', output: { detail: expect.stringContaining('fork') } })
-    const handlers = createPrCiHandlers({ exec: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, git: defaultGitRunner, resolveTarget: () => null, withRepositoryLock: (_d, fn) => fn() })
+    const handlers = createPrCiHandlers({ exec: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, git: defaultGitRunner, resolveTargets: () => [], withRepositoryLock: (_d, fn) => fn() })
     expect(await handlers['pr.update-base']!({ projectId: 'p', runId: 'unknown', interruptId: 'i', signal: new AbortController().signal, log: () => {},
       request: { task: 'pr.update-base', input: {}, outcomes: [], effect: 'write', candidate: { hash: null, verified: false } } })).toMatchObject({ outcome: 'failed', output: { detail: expect.stringContaining('could not be resolved') } })
   })
@@ -196,5 +196,87 @@ describe('evidence helpers', () => {
     expect(boundLog('a'.repeat(100) + 'END', 10)).toMatch(/END$/)
     expect(summarizeChecks([{ name: 'x', status: 'COMPLETED', conclusion: 'SKIPPED' }])).toEqual({ total: 1, pending: 0, failures: [] })
     expect(summarizeChecks('nope')).toEqual({ total: 0, pending: 0, failures: [] })
+  })
+})
+
+describe('multi-repository runs (one PR per repository)', () => {
+  /** A second repository with its own bare remote and PR branch. */
+  let work2 = '', remote2 = '', repositories = 0
+  function secondRepository() {
+    remote2 = path.join(root, `remote2-${++repositories}.git`); work2 = path.join(root, `work2-${repositories}`)
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote2])
+    execFileSync('git', ['clone', '-q', remote2, work2]); identity(work2)
+    git(work2, 'checkout', '-qb', 'main'); commitFile(work2, 'lib.txt', 'base\n', 'base'); git(work2, 'push', '-q', 'origin', 'main')
+    git(work2, 'checkout', '-qb', 'feature-b'); commitFile(work2, 'b.txt', 'b\n', 'b'); git(work2, 'push', '-q', 'origin', 'feature-b')
+    return { remote2, work2 }
+  }
+  function multiFixture(gh: (args: string[], cwd: string) => ExecResult) {
+    secondRepository()
+    const GITHUB2 = 'https://github.com/acme/lib.git'
+    const calls: string[][] = []
+    const exec: Exec = { async run(cmd, args, cwd) {
+      calls.push([cmd, ...args])
+      if (cmd === 'gh') return gh(args, cwd)
+      if (args[0] === 'remote' && args[1] === 'get-url') return { code: 0, stdout: (cwd === work2 ? GITHUB2 : GITHUB) + '\n', stderr: '' }
+      const mapped = args.map(arg => arg === GITHUB ? remote : arg === GITHUB2 ? remote2 : arg)
+      const result = spawnSync('git', mapped, { cwd, encoding: 'utf8' })
+      return { code: result.status ?? 1, stdout: result.stdout, stderr: result.stderr }
+    } }
+    const targets: PrCiTarget[] = [
+      { deliveryId: 'd-app', runId: 'run-1', repositoryName: 'app', prUrl: PR_URL, prNumber: 7, branch: 'feature', baseBranch: 'main', worktreePath: work, repoDir: work, overlayExcludes: [] },
+      { deliveryId: 'd-lib', runId: 'run-1', repositoryName: 'lib', prUrl: 'https://github.com/acme/lib/pull/3', prNumber: 3, branch: 'feature-b', baseBranch: 'main', worktreePath: work2, repoDir: work2, overlayExcludes: [] },
+    ]
+    let clock = 0
+    const handlers = createPrCiHandlers({ exec, git: defaultGitRunner, resolveTargets: () => targets, withRepositoryLock: (_dir, fn) => fn(), now: () => clock, sleep: async ms => { clock += ms } })
+    const invoke = (task: string, input: Record<string, unknown> = {}) => handlers[task]!({ projectId: 'p', runId: 'run-1', interruptId: 'i', signal: new AbortController().signal, log: () => {},
+      request: { task, input, outcomes: [], effect: 'read', candidate: { hash: 'h', verified: true } } } as HostTaskInvocation)
+    return { invoke, calls, work2, remote2, targets }
+  }
+  const prView = (cwd: string, over: Record<string, unknown>) => ({ code: 0, stdout: JSON.stringify({ state: 'OPEN', isDraft: true, headRefName: cwd === work ? 'feature' : 'feature-b', baseRefName: 'main', isCrossRepository: false,
+    headRefOid: git(cwd, 'rev-parse', 'HEAD'), mergeCommit: null, commits: [], mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', statusCheckRollup: [], ...over }), stderr: '' })
+
+  it('is green only when every PR is green, and red names the repository of each failure', async () => {
+    const green = [{ name: 'test', status: 'COMPLETED', conclusion: 'SUCCESS' }]
+    const ok = multiFixture((_args, cwd) => prView(cwd, { statusCheckRollup: green }))
+    expect(await ok.invoke('pr.checks')).toMatchObject({ outcome: 'green', output: { checks: 2, shas: [{ repository: 'app' }, { repository: 'lib' }] } })
+    const red = multiFixture((args, cwd) => args[0] === 'run' ? { code: 0, stdout: 'boom', stderr: '' }
+      : prView(cwd, { statusCheckRollup: cwd === work ? green : [{ name: 'lint', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: 'https://github.com/acme/lib/actions/runs/9/job/10' }] }))
+    expect(await red.invoke('pr.checks')).toMatchObject({ outcome: 'red', output: { failures: [{ repository: 'lib', prNumber: 3, name: 'lint', log: 'boom' }] } })
+  })
+
+  it('waits while any PR is still running and ends closed when one PR is merged', async () => {
+    let polls = 0
+    const f = multiFixture((_args, cwd) => prView(cwd, { statusCheckRollup: [{ name: 't', status: cwd === work2 && ++polls < 3 ? 'IN_PROGRESS' : 'COMPLETED', conclusion: cwd === work2 && polls < 3 ? null : 'SUCCESS' }] }))
+    expect(await f.invoke('pr.checks')).toMatchObject({ outcome: 'green' })
+    expect(polls).toBeGreaterThanOrEqual(3)
+    const closed = multiFixture((_args, cwd) => prView(cwd, cwd === work2 ? { state: 'MERGED' } : {}))
+    expect(await closed.invoke('pr.checks')).toMatchObject({ outcome: 'closed', output: { state: 'MERGED', repository: 'lib' } })
+  })
+
+  it('pushes each changed repository to its own PR branch, never forced', async () => {
+    const f = multiFixture((_args, cwd) => prView(cwd, {}))
+    writeFileSync(path.join(f.work2, 'fix.txt'), 'fix\n')
+    const result = await f.invoke('pr.sync', { summary: 'Fix CI: lint' }) as { outcome: string; output: { pushes: Array<Record<string, unknown>> } }
+    expect(result.outcome).toBe('pushed')
+    expect(result.output.pushes).toEqual([
+      expect.objectContaining({ repository: 'app', committed: false }),
+      expect.objectContaining({ repository: 'lib', committed: true, sha: git(f.work2, 'rev-parse', 'HEAD') }),
+    ])
+    expect(git(f.remote2, 'rev-parse', 'refs/heads/feature-b')).toBe(git(f.work2, 'rev-parse', 'HEAD'))
+    expect(f.calls.filter(call => call[1] === 'push').flat().some(arg => arg === '--force' || arg === '-f' || arg.startsWith('+'))).toBe(false)
+  })
+
+  it('refuses to push any repository when one PR is no longer open', async () => {
+    const f = multiFixture((_args, cwd) => prView(cwd, cwd === work2 ? { state: 'CLOSED' } : {}))
+    writeFileSync(path.join(work, 'fix.txt'), 'fix\n')
+    expect(await f.invoke('pr.sync')).toMatchObject({ outcome: 'closed', output: { repository: 'lib' } })
+    expect(f.calls.some(call => call[1] === 'push')).toBe(false)
+  })
+
+  it('reports conflicts per repository with their worktrees', async () => {
+    git(work, 'checkout', '-q', 'main'); commitFile(work, 'app.txt', 'main side\n', 'main'); git(work, 'push', '-q', 'origin', 'main')
+    git(work, 'checkout', '-q', 'feature'); commitFile(work, 'app.txt', 'feature side\n', 'edit'); git(work, 'push', '-q', 'origin', 'feature')
+    const f = multiFixture((_args, cwd) => prView(cwd, {}))
+    expect(await f.invoke('pr.update-base', { reason: 'conflict' })).toEqual({ outcome: 'conflicts', output: { repositories: [{ repository: 'app', worktree: work, base: 'main', paths: ['app.txt'] }] } })
   })
 })

@@ -7,7 +7,7 @@ import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgr
 import { useTranslation } from 'react-i18next'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
 import { FEATURE_MISSION_RAIL_CARDS, FEATURE_PR_CI_CARD, FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
-import { postPrCiLaunch, usePrCiAvailability } from '../../delivery/lib/pr-ci'
+import { postPrCiLaunch, prCiFixable, usePrCiAvailability } from '../../delivery/lib/pr-ci'
 import { toast } from 'sonner'
 import { notifyError } from '../../../lib/notify-error'
 import { openBudgetPanel } from '../../../lib/app-settings-events'
@@ -1415,7 +1415,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     ciInFlight.current = false
     setCiStarting(false)
   }
-  const canFixCi = ciAvailable && Boolean(prUrl) && (decision === 'pr_draft' || decision === 'pr_ready') && !hasRepositoryDeliveries
+  const canFixCi = ciAvailable && prCiFixable({ decision, prUrl, repositoryDeliveries: envelope.repositoryDeliveries })
   const moreActions = (opts: { merge?: boolean; lead?: readonly OverflowActionItem[]; discardLocal?: boolean } = {}) => {
     const items: OverflowActionItem[] = [...(opts.lead ?? [])]
     if (canFixCi) {

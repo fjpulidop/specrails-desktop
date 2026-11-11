@@ -1,6 +1,8 @@
 import type { DbInstance } from '../../../../db'
 import { getPrDelivery, type RailPrDeliveryRow } from '../rail-pr-store'
+import path from 'node:path'
 import { PR_CI_LOOP_ID } from './pr-ci-target'
+import { ciFixActiveRepositories, ciFixAllowed } from '../../domain/decision-policy'
 
 /**
  * The optional "Watch and fix the PR's CI" offer (pr-ci-loop): a system row in
@@ -18,6 +20,8 @@ export interface PrCiOfferRow {
   prDeliveryId: string
   prNumber: number | null
   prUrl: string
+  /** Multi-repository generations: every watched PR, one per repository (the first is `prUrl`). */
+  prs?: Array<{ repository: string; prNumber: number | null; prUrl: string }>
   railIndex: number
   state: PrCiOfferState
   /** The CI loop run (started and terminal states). */
@@ -40,10 +44,27 @@ export interface PrCiOfferHost {
 
 export const prCiOfferKey = (deliveryId: string): string => `pr-ci-offer:${deliveryId}`
 
-/** Pure: may this delivery generation be offered the CI loop? */
-export function prCiOfferEligible(row: Pick<RailPrDeliveryRow, 'decision' | 'pr_url' | 'branch' | 'origin_conversation_id' | 'loop_id' | 'execution_manifest'>): boolean {
-  return (row.decision === 'pr_draft' || row.decision === 'pr_ready') && !!row.pr_url && !!row.branch &&
-    !!row.origin_conversation_id && row.loop_id !== PR_CI_LOOP_ID && !row.execution_manifest
+type OfferRow = Pick<RailPrDeliveryRow, 'decision' | 'pr_url' | 'pr_number' | 'branch' | 'origin_conversation_id' | 'loop_id' | 'execution_manifest'>
+type RepositoryRow = Pick<RailPrDeliveryRow, 'decision' | 'pr_url' | 'pr_number' | 'branch' | 'delivery_sha' | 'operation' | 'repository_path'>
+
+/** Repository deliveries of a multi-repository generation (child rows), oldest first. */
+export function readRepositoryDeliveries(db: DbInstance, parentId: string): RailPrDeliveryRow[] {
+  return db.prepare('SELECT * FROM rail_pr_deliveries WHERE parent_delivery_id = ? ORDER BY rowid').all(parentId) as RailPrDeliveryRow[]
+}
+
+/** Pure: may this delivery generation be offered the CI loop? A multi-repository one needs every repository under review to have its PR. */
+export function prCiOfferEligible(row: OfferRow, repositories: readonly RepositoryRow[] | null = null): boolean {
+  if (row.decision !== 'pr_draft' && row.decision !== 'pr_ready') return false
+  if (!row.origin_conversation_id || row.loop_id === PR_CI_LOOP_ID) return false
+  if (!row.execution_manifest) return !!row.pr_url && !!row.branch
+  return !!repositories && ciFixAllowed({ decision: row.decision, delivery_outcome: 'ready', implementation_outcome: 'succeeded', status_code: null, is_continuation: 0, pr_url: null, branch: null, operation: null, repositories })
+}
+
+/** The PRs an offer shows: the row's own, or one per repository still under review. */
+export function offerPrs(row: OfferRow, repositories: readonly RepositoryRow[] | null): Array<{ repository: string; prNumber: number | null; prUrl: string }> {
+  if (!row.execution_manifest) return row.pr_url ? [{ repository: '', prNumber: row.pr_number, prUrl: row.pr_url }] : []
+  return ciFixActiveRepositories(repositories ?? []).filter(child => child.pr_url)
+    .map(child => ({ repository: path.basename(child.repository_path ?? ''), prNumber: child.pr_number, prUrl: child.pr_url! }))
 }
 
 const TERMINAL: ReadonlySet<PrCiOfferState> = new Set(['green', 'no-ci', 'needs-attention'])
@@ -91,7 +112,10 @@ export function projectPrCiOffer(db: DbInstance, projectId: string, host: PrCiOf
       const key = prCiOfferKey(offered.id)
       const previous = host.getSystemRow(conversationId, key) as Partial<PrCiOfferRow> | null
       const runId = (() => { try { return (JSON.parse(row.run_ids) as unknown[]).find((id): id is string => typeof id === 'string') } catch { return undefined } })()
-      const base: Omit<PrCiOfferRow, 'state' | 'at'> = { kind: 'pr-ci-offer', projectId, prDeliveryId: offered.id, prNumber: offered.pr_number, prUrl: offered.pr_url ?? row.pr_url ?? '', railIndex: offered.rail_index,
+      const shown = offerPrs(offered, offered.execution_manifest ? readRepositoryDeliveries(db, offered.id) : null)
+      const keep = previous && typeof previous.prUrl === 'string' ? { prUrl: previous.prUrl, prNumber: previous.prNumber ?? null, ...(previous.prs ? { prs: previous.prs } : {}) } : null
+      const base: Omit<PrCiOfferRow, 'state' | 'at'> = { kind: 'pr-ci-offer', projectId, prDeliveryId: offered.id, railIndex: offered.rail_index,
+        ...(keep ?? { prNumber: shown[0]?.prNumber ?? offered.pr_number, prUrl: shown[0]?.prUrl ?? offered.pr_url ?? row.pr_url ?? '', ...(shown.length > 1 ? { prs: shown } : {}) }),
         ...(runId ? { runId } : {}), runDeliveryId: row.id }
       const next: PrCiOfferRow = row.decision === 'building'
         ? { ...base, state: 'started', at }
@@ -100,11 +124,14 @@ export function projectPrCiOffer(db: DbInstance, projectId: string, host: PrCiOf
       host.upsertSystemRow(conversationId, { ...next }, key)
       return
     }
-    if (!options.capable || !prCiOfferEligible(row)) return
+    const repositories = row.execution_manifest ? readRepositoryDeliveries(db, row.id) : null
+    if (!options.capable || !prCiOfferEligible(row, repositories)) return
     const conversationId = row.origin_conversation_id!
     const key = prCiOfferKey(row.id)
     if (host.getSystemRow(conversationId, key)) return
-    const offer: PrCiOfferRow = { kind: 'pr-ci-offer', projectId, prDeliveryId: row.id, prNumber: row.pr_number, prUrl: row.pr_url!, railIndex: row.rail_index, state: 'offered', at }
+    const prs = offerPrs(row, repositories)
+    if (!prs.length) return
+    const offer: PrCiOfferRow = { kind: 'pr-ci-offer', projectId, prDeliveryId: row.id, prNumber: prs[0].prNumber, prUrl: prs[0].prUrl, ...(prs.length > 1 ? { prs } : {}), railIndex: row.rail_index, state: 'offered', at }
     host.upsertSystemRow(conversationId, { ...offer }, key)
   } catch (error) {
     console.error(`[pr-ci] offer projection failed for ${deliveryId}:`, error)

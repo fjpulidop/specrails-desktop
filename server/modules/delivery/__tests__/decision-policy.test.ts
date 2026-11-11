@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { actionAllowed, ciFixAllowed, isPrDecisionAction, type DeliveryDecisionState } from '..'
+import { actionAllowed, ciFixActiveRepositories, ciFixAllowed, isPrDecisionAction, type DeliveryDecisionState } from '..'
 
 const review: DeliveryDecisionState = {
   decision: 'on_review', delivery_outcome: 'ready', implementation_outcome: 'succeeded',
@@ -36,7 +36,7 @@ describe('delivery action policy without Git or persistence', () => {
 
 describe('ciFixAllowed (pr-ci-loop)', () => {
   const base = { decision: 'pr_draft' as const, delivery_outcome: 'ready' as const, implementation_outcome: 'succeeded' as const, status_code: null, is_continuation: 0,
-    pr_url: 'https://github.com/acme/app/pull/7', branch: 'feature', operation: null, multiRepository: false }
+    pr_url: 'https://github.com/acme/app/pull/7', branch: 'feature', operation: null }
   it('allows an attached draft or ready PR with no operation in flight', () => {
     expect(ciFixAllowed(base)).toBe(true)
     expect(ciFixAllowed({ ...base, decision: 'pr_ready' })).toBe(true)
@@ -49,8 +49,25 @@ describe('ciFixAllowed (pr-ci-loop)', () => {
     ['no PR url', { pr_url: null }],
     ['no branch', { branch: null }],
     ['an operation in flight', { operation: 'create-pr' }],
-    ['a multi-repository delivery', { multiRepository: true }],
   ])('refuses %s', (_label, over) => {
     expect(ciFixAllowed({ ...base, ...over } as Parameters<typeof ciFixAllowed>[0])).toBe(false)
   })
 })
+
+describe('ciFixAllowed for multi-repository generations', () => {
+  const repo = (over: Record<string, unknown> = {}) => ({ decision: 'pr_draft', pr_url: 'https://github.com/acme/a/pull/1', branch: 'feat/a', delivery_sha: 'a'.repeat(40), operation: null, ...over })
+  const parent = (repositories: ReturnType<typeof repo>[]) => ({ decision: 'pr_draft' as const, delivery_outcome: 'ready' as const, implementation_outcome: 'succeeded' as const, status_code: null, is_continuation: 0, pr_url: null, branch: null, operation: null, repositories })
+  it('allows a parent whose repositories under review all have their PR', () => {
+    expect(ciFixAllowed(parent([repo(), repo({ decision: 'pr_ready' }), repo({ decision: 'no_changes', pr_url: null, branch: null, delivery_sha: null })]))).toBe(true)
+    expect(ciFixActiveRepositories([repo(), repo({ decision: 'merged' })])).toHaveLength(1)
+  })
+  it.each([
+    ['a repository without its PR', [repo(), repo({ pr_url: null })]],
+    ['a repository with an operation in flight', [repo({ operation: 'publish' })]],
+    ['a repository still building', [repo({ decision: 'building' })]],
+    ['nothing left under review', [repo({ decision: 'merged' })]],
+  ])('refuses %s', (_label, repositories) => {
+    expect(ciFixAllowed(parent(repositories))).toBe(false)
+  })
+})
+

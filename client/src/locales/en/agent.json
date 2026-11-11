@@ -1505,6 +1505,12 @@
       "conflicts": "Resolving conflicts with the base branch",
       "verify": "Verifying locally",
       "push": "Pushing the fix to the PR"
-    }
+    },
+    "titleMany": "Watch and fix the CI of PRs {{pr}}",
+    "startedMany": "Watching the CI of PRs {{pr}} on {{rail}}",
+    "greenMany": "PRs {{pr}}: all checks are green",
+    "noCiMany": "PRs {{pr}} have no CI checks",
+    "needsAttentionMany": "The CI of PRs {{pr}} needs attention",
+    "dismissedMany": "CI watch for PRs {{pr}} not started."
   }
 }

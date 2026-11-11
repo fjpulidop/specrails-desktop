@@ -57,7 +57,7 @@ import { readBlueprint } from './modules/builder/runtime/blueprint-render'
 import { defaultGitRunner } from './worktree-manager'
 import { createHostTaskDispatcher } from './modules/agent-runtime/runtime/host-task-dispatcher'
 import { createPrCiHandlers } from './modules/delivery/runtime/pr-ci/pr-ci-handlers'
-import { resolvePrCiTarget } from './modules/delivery/runtime/pr-ci/pr-ci-target'
+import { resolvePrCiTargets } from './modules/delivery/runtime/pr-ci/pr-ci-target'
 import { withRepoLock } from './repo-lock'
 import { isPrCiLoopEnabled } from './feature-flags'
 import { resumeRetainedDefinitionRun } from './project-router-loop-runs'
@@ -1312,7 +1312,7 @@ export class ProjectRegistry {
       hostTasks: () => hostTaskDispatcher })
     const hostTaskDispatcher = createHostTaskDispatcher({ db, projectId: project.id, handlers: isPrCiLoopEnabled() ? createPrCiHandlers({
       exec: defaultExec, git: defaultGitRunner,
-      resolveTarget: (runId) => resolvePrCiTarget(db, project.id, runId),
+      resolveTargets: (runId) => resolvePrCiTargets(db, project.id, runId),
       withRepositoryLock: (repoDir, fn) => withRepoLock(repoDir, fn),
     }) : {} })
 

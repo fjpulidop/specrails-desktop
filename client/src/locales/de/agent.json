@@ -1505,6 +1505,12 @@
       "conflicts": "Löse Konflikte mit dem Basis-Branch",
       "verify": "Prüfe lokal",
       "push": "Pushe die Korrektur in den PR"
-    }
+    },
+    "titleMany": "CI der PRs {{pr}} überwachen und reparieren",
+    "startedMany": "CI der PRs {{pr}} wird auf {{rail}} überwacht",
+    "greenMany": "PRs {{pr}}: alle Checks sind grün",
+    "noCiMany": "Die PRs {{pr}} haben keine CI-Checks",
+    "needsAttentionMany": "Die CI der PRs {{pr}} braucht Aufmerksamkeit",
+    "dismissedMany": "CI-Überwachung für die PRs {{pr}} nicht gestartet."
   }
 }

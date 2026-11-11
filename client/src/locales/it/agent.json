@@ -1505,6 +1505,12 @@
       "conflicts": "Risoluzione dei conflitti con il branch base",
       "verify": "Verifica in locale",
       "push": "Invio della correzione alla PR"
-    }
+    },
+    "titleMany": "Monitora e correggi la CI delle PR {{pr}}",
+    "startedMany": "Monitoraggio della CI delle PR {{pr}} su {{rail}}",
+    "greenMany": "PR {{pr}}: tutti i check sono verdi",
+    "noCiMany": "Le PR {{pr}} non hanno check di CI",
+    "needsAttentionMany": "La CI delle PR {{pr}} richiede attenzione",
+    "dismissedMany": "Monitoraggio della CI delle PR {{pr}} non avviato."
   }
 }

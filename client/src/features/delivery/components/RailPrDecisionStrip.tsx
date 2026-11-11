@@ -2,7 +2,7 @@ import { localizeStatusDetail } from '../../../lib/pr-status-detail'
 import { LiveDot } from '../../../components/ui/live-dot'
 import { getApiBase } from '../../../lib/api'
 import { FEATURE_PR_CI_CARD } from '../../../lib/feature-flags'
-import { postPrCiLaunch, usePrCiAvailability } from '../lib/pr-ci'
+import { postPrCiLaunch, prCiFixable, usePrCiAvailability } from '../lib/pr-ci'
 import { HelpHint } from '../../../components/HelpHint'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { TechnicalDetail } from '../../../components/ui/technical-detail'
@@ -456,7 +456,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const ciAvailable = usePrCiAvailability(FEATURE_PR_CI_CARD ? stripProjectId : null)
   const [ciStarting, setCiStarting] = useState(false)
   const ciInFlight = useRef(false)
-  const canFixCi = ciAvailable && Boolean(decision.prUrl) && (decision.decision === 'pr_draft' || decision.decision === 'pr_ready') && !hasRepositoryDeliveries
+  const canFixCi = ciAvailable && prCiFixable({ decision: decision.decision, prUrl: decision.prUrl, repositoryDeliveries: decision.repositoryDeliveries })
   async function fixCi(): Promise<void> {
     if (!stripProjectId || ciInFlight.current || busy) return
     ciInFlight.current = true

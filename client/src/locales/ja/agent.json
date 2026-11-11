@@ -1505,6 +1505,12 @@
       "conflicts": "ベースブランチとのコンフリクトを解決中",
       "verify": "ローカルで検証中",
       "push": "修正を PR にプッシュ中"
-    }
+    },
+    "titleMany": "PR {{pr}} の CI を監視して修正",
+    "startedMany": "{{rail}} で PR {{pr}} の CI を監視中",
+    "greenMany": "PR {{pr}}: すべてのチェックがグリーン",
+    "noCiMany": "PR {{pr}} には CI チェックがありません",
+    "needsAttentionMany": "PR {{pr}} の CI に対応が必要です",
+    "dismissedMany": "PR {{pr}} の CI 監視は開始されていません。"
   }
 }

@@ -4,7 +4,7 @@ import i18n from '../../../../lib/i18n'
 import { AgentPrCiOfferCard, parsePrCiOfferRow, type PrCiOfferRow } from '../AgentPrCiOfferCard'
 import { describePrCiStep } from '../../lib/pr-ci-steps'
 
-const row = (over: Partial<PrCiOfferRow> = {}): PrCiOfferRow => ({ kind: 'pr-ci-offer', projectId: 'p1', prDeliveryId: 'd1', prNumber: 7, prUrl: 'https://github.com/acme/app/pull/7', railIndex: 0,
+const row = (over: Partial<PrCiOfferRow> = {}): PrCiOfferRow => ({ kind: 'pr-ci-offer', projectId: 'p1', prDeliveryId: 'd1', prNumber: 7, prUrl: 'https://github.com/acme/app/pull/7', prs: [], railIndex: 0,
   state: 'offered', runId: null, runDeliveryId: null, reason: null, pushes: null, rounds: null, ...over })
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -61,6 +61,18 @@ describe('AgentPrCiOfferCard', () => {
     render(<AgentPrCiOfferCard row={row(over)} />)
     expect(screen.getByTestId('agent-pr-ci-offer').textContent).toContain(text)
     expect(screen.queryByTestId('agent-pr-ci-start')).toBeNull()
+  })
+})
+
+describe('AgentPrCiOfferCard for a multi-repository delivery', () => {
+  const prs = [{ repository: 'app', prNumber: 7, prUrl: 'https://github.com/acme/app/pull/7' }, { repository: 'lib', prNumber: 3, prUrl: 'https://github.com/acme/lib/pull/3' }]
+  it('names every PR and links each one', () => {
+    render(<AgentPrCiOfferCard row={row({ prs })} />)
+    expect(screen.getByTestId('agent-pr-ci-offer').textContent).toContain('Watch and fix the CI of PRs app #7, lib #3')
+    expect(screen.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual(prs.map((pr) => pr.prUrl))
+  })
+  it('parses the PR list and drops unsafe links', () => {
+    expect(parsePrCiOfferRow(JSON.stringify({ kind: 'pr-ci-offer', projectId: 'p1', prDeliveryId: 'd1', prUrl: prs[0].prUrl, railIndex: 0, state: 'green', prs: [...prs, { repository: 'x', prUrl: 'javascript:alert(1)' }] }))?.prs).toEqual(prs)
   })
 })
 

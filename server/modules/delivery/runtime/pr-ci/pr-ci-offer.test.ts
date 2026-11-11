@@ -79,3 +79,34 @@ describe('PR CI offer', () => {
     expect(prCiTerminalState({ decision: 'pr_failed', implementation_outcome: 'failed', status_detail: null }, [])).toMatchObject({ state: 'needs-attention', reason: expect.stringContaining('stopped') })
   })
 })
+
+describe('PR CI offer for a multi-repository generation', () => {
+  function parentWith(children: Array<Record<string, unknown>>) {
+    const parent = delivery({ pr_url: null, pr_number: null, branch: null, pr_state: 'none', execution_manifest: JSON.stringify({ version: 1 }) })
+    children.forEach((over, index) => {
+      const child = createPrDelivery(db, { railIndex: 10 + index, railKey: `c${index}`, ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'agent-chat', loopId: 'factory:implement', parentDeliveryId: parent, repositoryId: `repo-${index}`, repositoryPath: `/work/${['app', 'lib'][index]}` })
+      const set = { decision: 'pr_draft', pr_url: `https://github.com/acme/${['app', 'lib'][index]}/pull/${index + 1}`, pr_number: index + 1, branch: `feat/${index}`, delivery_sha: 'a'.repeat(40), ...over }
+      db.prepare(`UPDATE rail_pr_deliveries SET ${Object.keys(set).map(key => `${key} = ?`).join(', ')} WHERE id = ?`).run(...Object.values(set), child.id)
+    })
+    return parent
+  }
+
+  it('offers one card listing every PR under review', () => {
+    const h = host(), parent = parentWith([{}, {}])
+    projectPrCiOffer(db, 'p1', h.value, parent, { capable: true })
+    expect(h.value.getSystemRow('conv-1', prCiOfferKey(parent))).toMatchObject({ state: 'offered', prUrl: 'https://github.com/acme/app/pull/1', prNumber: 1,
+      prs: [{ repository: 'app', prNumber: 1, prUrl: 'https://github.com/acme/app/pull/1' }, { repository: 'lib', prNumber: 2, prUrl: 'https://github.com/acme/lib/pull/2' }] })
+  })
+
+  it('ignores settled repositories and refuses when one under review has no PR', () => {
+    const h = host()
+    const settled = parentWith([{}, { decision: 'merged' }])
+    projectPrCiOffer(db, 'p1', h.value, settled, { capable: true })
+    expect(h.value.getSystemRow('conv-1', prCiOfferKey(settled))).toMatchObject({ state: 'offered', prNumber: 1 })
+    expect(h.value.getSystemRow('conv-1', prCiOfferKey(settled))).not.toHaveProperty('prs')
+    db.prepare("UPDATE rail_pr_deliveries SET decision = 'superseded' WHERE id = ?").run(settled)
+    const missing = parentWith([{}, { pr_url: null }])
+    projectPrCiOffer(db, 'p1', h.value, missing, { capable: true })
+    expect(h.value.getSystemRow('conv-1', prCiOfferKey(missing))).toBeNull()
+  })
+})

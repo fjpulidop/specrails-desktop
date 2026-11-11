@@ -61,3 +61,16 @@ export function usePrCiAvailability(projectId: string | null | undefined): boole
 
 /** The built-in loop the offer starts. */
 export const PR_CI_LOOP_ID = 'factory:pr-ci'
+
+/** Mirror of the server's `ciFixAllowed` for the cards: every repository still under review has its PR. */
+export function prCiFixable(input: {
+  decision: string
+  prUrl: string | null
+  operation?: string | null
+  repositoryDeliveries?: ReadonlyArray<{ decision: string; prUrl: string | null; branch: string | null; deliverySha: string | null }> | null
+}): boolean {
+  if ((input.decision !== 'pr_draft' && input.decision !== 'pr_ready') || input.operation) return false
+  if (!input.repositoryDeliveries?.length) return Boolean(input.prUrl)
+  const active = input.repositoryDeliveries.filter(repository => !['merged', 'completed', 'no_changes'].includes(repository.decision))
+  return active.length > 0 && active.every(repository => Boolean(repository.prUrl && repository.branch && repository.deliverySha) && (repository.decision === 'pr_draft' || repository.decision === 'pr_ready'))
+}
