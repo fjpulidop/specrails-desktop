@@ -139,6 +139,13 @@ describe('POST /rails/:railIndex/relaunch on a CI loop generation', () => {
       requiredPrContinuation: { deliveryId: id, decision: 'pr_draft', prUrl: 'https://github.com/acme/app/pull/7', deliverySha: 'a'.repeat(40) } })
   })
 
+  it('re-attaches a generation left as a blocked delivery the same way', async () => {
+    const id = draft({ loop_id: 'factory:pr-ci', decision: 'pr_failed', implementation_outcome: 'succeeded', delivery_outcome: 'blocked', status_code: 'recovery_unavailable', status_detail: 'The preserved branch diverges from the live PR head.' })
+    const res = await request(app()).post('/rails/0/relaunch').send({ sourceId: id })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(getPrDelivery(db, id)).toMatchObject({ decision: 'pr_draft', status_code: 'ci_needs_attention' })
+  })
+
   it('refuses, without touching the generation, when its PR is no longer open', async () => {
     lifecycle.mockResolvedValue({ ...open, state: 'CLOSED' })
     const id = failedCi()

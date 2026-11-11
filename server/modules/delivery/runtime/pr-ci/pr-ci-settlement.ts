@@ -62,11 +62,17 @@ export async function settlePrCiGeneration(input: PrCiSettlementInput): Promise<
     const local = head.stdout.trim().toLowerCase()
     if (head.code !== 0 || !SHA_RE.test(local)) return null
     if (local === prHead) continue
-    // Only local commits on top of the PR head are ours to move; anything else
-    // (someone pushed meanwhile) is left to the ordinary settlement.
-    if ((await input.git.run(['merge-base', '--is-ancestor', prHead, 'HEAD'], worktree)).code !== 0) return null
-    keptRef = prCiKeptRef(input.deliveryId)
-    if ((await input.git.run(['update-ref', keptRef, local], worktree)).code !== 0) return null
+    // The PR may have moved meanwhile (someone pushed): the generation still
+    // follows the OPEN PR at its exact head. Local commits the PR does not
+    // contain are kept on the delivery ref; nothing is ever dropped.
+    if ((await input.git.run(['cat-file', '-e', `${prHead}^{commit}`], worktree)).code !== 0) {
+      await input.git.run(['fetch', '--quiet', 'origin', input.continuation.branch], worktree)
+      if ((await input.git.run(['cat-file', '-e', `${prHead}^{commit}`], worktree)).code !== 0) return null
+    }
+    if ((await input.git.run(['merge-base', '--is-ancestor', 'HEAD', prHead], worktree)).code !== 0) {
+      keptRef = prCiKeptRef(input.deliveryId)
+      if ((await input.git.run(['update-ref', keptRef, local], worktree)).code !== 0) return null
+    }
     if ((await input.git.run(['reset', '--hard', prHead], worktree)).code !== 0) return null
   }
   const green = input.completion?.ok === true
@@ -87,9 +93,9 @@ export async function settlePrCiGeneration(input: PrCiSettlementInput): Promise<
 }
 
 /**
- * "Run again" on a CI loop generation that ended as an implementation failure
- * (settled before the CI settlement existed, or when its PR could not be
- * proven OPEN at the time): re-attach it to its PR so the CI loop can run on it
+ * "Run again" on a CI loop generation that ended as an implementation or
+ * delivery failure (settled before the CI settlement existed, or when its PR
+ * could not be proven OPEN at the time): re-attach it to its PR so the CI loop can run on it
  * again. Each repository row is settled exactly like a finished loop: proven
  * OPEN at the head GitHub exposes, unverified local commits kept on
  * `prCiKeptRef`, status `ci_needs_attention`. All-or-nothing per row; returns
@@ -104,7 +110,7 @@ export async function resettleFailedPrCiRows(input: {
   fallbackRepo: string
 }): Promise<boolean> {
   for (const row of input.rows) {
-    if (row.decision !== 'implementation_failed') continue
+    if (row.decision !== 'implementation_failed' && row.decision !== 'pr_failed') continue
     if (!row.pr_url || !row.branch) return false
     const worktrees = mountedWorktrees(input.db, row)
     const settled = await settlePrCiGeneration({
@@ -115,7 +121,7 @@ export async function resettleFailedPrCiRows(input: {
       branches: toPrDeliverySnapshot(row).branches,
     })
     if (!settled) return false
-    if (!transitionDecision(input.db, row.id, 'implementation_failed', settled.next, {
+    if (!transitionDecision(input.db, row.id, row.decision, settled.next, {
       implementationOutcome: 'succeeded', deliveryOutcome: 'delivered',
       statusCode: settled.statusCode, statusDetail: settled.statusDetail,
       deliverySha: settled.deliverySha, branches: settled.branches,

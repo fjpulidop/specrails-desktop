@@ -55,7 +55,22 @@ describe('settlePrCiGeneration', () => {
     expect(await preservePrCiWip(defaultGitRunner, work, 'd-ci')).toBeNull()
   })
 
-  it('leaves a closed PR, a moved PR head or an unverifiable PR to the ordinary settlement', async () => {
+  it('follows a PR someone else moved, keeping local commits the PR does not contain', async () => {
+    const base = git('rev-parse', 'HEAD')
+    writeFileSync(path.join(work, 'theirs.txt'), 'pushed by someone else\n'); git('add', '.'); git('commit', '-qm', 'theirs')
+    const theirs = git('rev-parse', 'HEAD')
+    git('reset', '-q', '--hard', base)
+    expect(await settlePrCiGeneration(input(() => view({ headRefOid: theirs }), { ok: false, reasons: ['flaky'] }))).toMatchObject({ deliverySha: theirs, keptRef: null })
+    expect(git('rev-parse', 'HEAD')).toBe(theirs)
+    git('reset', '-q', '--hard', base)
+    writeFileSync(path.join(work, 'mine.txt'), 'local only\n'); git('add', '.'); git('commit', '-qm', 'mine')
+    const mine = git('rev-parse', 'HEAD')
+    expect(await settlePrCiGeneration(input(() => view({ headRefOid: theirs }), { ok: false, reasons: ['flaky'] }))).toMatchObject({ deliverySha: theirs, keptRef: prCiKeptRef('d-ci') })
+    expect(git('rev-parse', 'HEAD')).toBe(theirs)
+    expect(git('rev-parse', prCiKeptRef('d-ci'))).toBe(mine)
+  })
+
+  it('leaves a closed PR, an unreachable PR head or an unverifiable PR to the ordinary settlement', async () => {
     expect(await settlePrCiGeneration(input(() => view({ state: 'CLOSED' }), null))).toBeNull()
     expect(await settlePrCiGeneration(input(() => view({ headRefOid: 'f'.repeat(40) }), null))).toBeNull()
     expect(await settlePrCiGeneration({ ...input(() => '', null), exec: { run: async () => ({ code: 1, stdout: '', stderr: 'gh: offline' }) } })).toBeNull()

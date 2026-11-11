@@ -1787,7 +1787,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               </div>
             </div>
           )}
-          {!terminal && presentation.deliveryBlocked && (
+          {/* pr-ci-loop: a CI loop generation is never "retried" as a delivery (that
+              resumes a finished loop run); running the loop again re-attaches it to its PR. */}
+          {!terminal && presentation.deliveryBlocked && envelope.loopId === PR_CI_LOOP_ID && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <RunPrimaryButton primary={{ id: 'pr-ci-again', label: t('prCi.retry'), kind: 'outward', rank: 1 }}
+                data-agent-interactive data-testid="agent-pr-ci-again" onClick={() => void relaunch()}
+                disabled={anyBusy || relaunching || relaunchAccepted} className={primaryBtn}>
+                {relaunching ? spinner : <Wrench className="h-3 w-3" aria-hidden />}
+                {t('prCi.retry')}
+              </RunPrimaryButton>
+              {moreActions()}
+            </div>
+          )}
+          {!terminal && presentation.deliveryBlocked && envelope.loopId !== PR_CI_LOOP_ID && (
             <div className="flex flex-wrap items-center gap-1.5">
               {settlementRunId && !presentation.manualRecovery && !recoveryIsRecheck && (
                 // Retrying delivers the work: outward, the strip only points at it.

@@ -566,7 +566,7 @@ export function createRailsRouter(): Router {
     if (getActivePrDeliveryByRail(c.db, source.rail_index)?.id !== source.id) {
       res.status(409).json({ error: 'pr_delivery_not_active', detail: 'Refresh the mission: a newer delivery owns this rail.' }); return
     }
-    if (source.decision === 'implementation_failed') {
+    if (source.decision === 'implementation_failed' || source.decision === 'pr_failed') {
       const rows = source.execution_manifest ? listRepositoryDeliveries(c.db, source.id).filter(child => child.pr_url) : [source]
       const ok = rows.length > 0 && await resettleFailedPrCiRows({ db: c.db, git: defaultGitRunner, exec: prCiExec, rows, fallbackRepo: c.project.path })
       if (source.execution_manifest) refreshRepositoryDeliveryGroup(c.db, source.id)

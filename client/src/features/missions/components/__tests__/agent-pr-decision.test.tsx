@@ -272,6 +272,13 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByTestId('agent-pr-ci-status')).toHaveAttribute('data-state', 'ci_green')
   })
 
+  it('a blocked CI loop generation offers Fix CI again, never a delivery retry (pr-ci-loop)', () => {
+    render(<AgentPrDecisionCard envelope={env({ decision: 'pr_failed', loopId: 'factory:pr-ci', statusCode: 'recovery_unavailable', deliveryOutcome: 'blocked', implementationOutcome: 'succeeded',
+      statusDetail: 'The preserved branch diverges from the live PR head.', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x', runIds: ['r1'] })} />)
+    expect(screen.getByTestId('agent-pr-ci-again')).toHaveTextContent('Fix CI again')
+    expect(screen.queryByTestId('agent-pr-retry-delivery')).toBeNull()
+  })
+
   it('pr_draft with a PR: Publish + Discard + #number link, no Create PR', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'sr/acme/batch-x' })} />)
     expect(screen.getByText('Draft PR created')).toBeInTheDocument()
