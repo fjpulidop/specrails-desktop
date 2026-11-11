@@ -118,6 +118,7 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
       'Latest failing local verification, if any: {{run.localEvidence}}.',
       'Reproduce the failure locally with the project\'s own commands, fix the cause in code or tests, and keep every existing guard.',
       'First classify EACH failing check from its evidence: code (the change, its tests or its build are wrong and a code change fixes it), flaky (a nondeterministic test unrelated to the change), or infrastructure (the runner, network, a registry or service timing out, a dependency that cannot be downloaded, a cancelled or expired job, a missing runner).',
+      'A test is flaky only if it is nondeterministic AND unrelated to this pull request: a test that fails the same way in every run, or that times out in code or tests this pull request changed, is code (compare its duration with the base branch); fix it.',
       'Fix only the checks caused by code. Never edit anything for flaky or infrastructure failures: they are reported to the person, not retried or worked around.',
       'Set cause to code when you changed something to fix a code failure; otherwise set it to flaky or infrastructure. In summary, name each failing check with its classification and a one-line reason.',
       'If a check needs a host precondition only a person can provide (credentials, secrets, repository settings), return the structured blocker for it; still fix every other check caused by code and keep those fixes, so they are verified and pushed first.',
