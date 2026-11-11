@@ -11,14 +11,16 @@ import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
  * The loop is Core's: every round, budget, stall check and route below is a Core
  * piece executed by Core. Desktop supplies only this data and the host adapters
  * the `host-task` nodes name (`pr.update-base`, `pr.checks`, `pr.sync`,
- * `pr.rerun-failed`; see delivery/runtime/pr-ci). The graph is 100% autonomous:
+ * and, for host callers, `pr.rerun-failed`; see delivery/runtime/pr-ci). Failures
+ * the code does not cause (flaky tests, infrastructure) are reported, never retried. The graph is 100% autonomous:
  * no `approval`, `question`, `gate` or blocked-sentinel prompt. A blocker ends the
  * run with a clear reason; it never asks the person.
  *
  *   init → base(update-base) ─clean→ checks ─green→ done
  *            │merged → local      │red → round budget → fixer → blocker? → progress? ─yes→ local
- *            │conflicts → conflict budget → resolver → local          │no, flaky → rerun → checks
- *            └closed → pr-closed  │conflict → base(reason conflict)    └no → stalled
+ *            │conflicts → conflict budget → resolver → local          │no, not the code (flaky,
+ *            │                    │                                    │  infrastructure) → not-fixable (reported)
+ *            └closed → pr-closed  │conflict → base(reason conflict)    └no, code → stalled
  *   local(verify) ─pass→ push(pr.sync, verified only) ─pushed→ checks · diverged → base
  *                 └fail→ round budget
  *
@@ -26,7 +28,6 @@ import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
  */
 export const PR_CI_LOOP_ID = 'factory:pr-ci'
 export const PR_CI_ROUND_LIMIT = 5
-export const PR_CI_RERUN_LIMIT = 1
 export const PR_CI_CONFLICT_LIMIT = 3
 /** Cap of one CI wait (Core hint; the `pr.checks` handler enforces it). */
 export const PR_CI_CHECKS_TIMEOUT_MS = 60 * 60_000
@@ -40,6 +41,7 @@ export const PR_CI_ENDS = {
   roundsExhausted: 'rounds-exhausted',
   conflictsExhausted: 'conflicts-exhausted',
   stalled: 'stalled',
+  notFixable: 'not-fixable',
   fixerBlocked: 'fixer-blocked',
   hostBlocked: 'host-blocked',
   pushRejected: 'push-rejected',
@@ -79,7 +81,7 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
   }
   const E = PR_CI_ENDS
 
-  node('init', 'Initialize CI budgets', 'assign', { set: { rounds: 0, roundLimit: PR_CI_ROUND_LIMIT, reruns: 0, rerunLimit: PR_CI_RERUN_LIMIT, conflictRounds: 0, conflictLimit: PR_CI_CONFLICT_LIMIT, baseReason: 'start', ciEvidence: 'No CI result yet.', localEvidence: 'Local verification has not failed in this run.', commitSummary: 'Update from the CI loop' } }, { next: 'base', failed: E.failed })
+  node('init', 'Initialize CI budgets', 'assign', { set: { rounds: 0, roundLimit: PR_CI_ROUND_LIMIT, conflictRounds: 0, conflictLimit: PR_CI_CONFLICT_LIMIT, baseReason: 'start', ciEvidence: 'No CI result yet.', localEvidence: 'Local verification has not failed in this run.', commitSummary: 'Update from the CI loop' } }, { next: 'base', failed: E.failed })
   node('base', 'Sync with the base branch', 'host-task', { task: 'pr.update-base', input: { reason: '{{run.baseReason}}' }, outcomes: ['clean', 'merged', 'conflicts', 'closed'], effect: 'write' },
     { clean: 'checks', merged: 'local', conflicts: 'conflict-budget', closed: E.closed, failed: E.failed })
   node('conflict-budget', 'Check the conflict budget', 'condition', { expr: '$vars.conflictRounds < $vars.conflictLimit' }, { true: 'count-conflict', false: E.conflictsExhausted }, 360)
@@ -114,8 +116,10 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
       'Failing checks with bounded, redacted logs: {{run.ciEvidence}}.',
       'Latest failing local verification, if any: {{run.localEvidence}}.',
       'Reproduce the failure locally with the project\'s own commands, fix the cause in code or tests, and keep every existing guard.',
-      'Classify the cause: code (the change or tests are wrong), flaky (a nondeterministic failure unrelated to the change), infrastructure (runner, network or service outage outside the repository).',
-      'For flaky or infrastructure causes make no edits. If the cause is a host precondition only a person can provide (credentials, secrets, network access), make no edits and return the structured blocker.',
+      'First classify EACH failing check from its evidence: code (the change, its tests or its build are wrong and a code change fixes it), flaky (a nondeterministic test unrelated to the change), or infrastructure (the runner, network, a registry or service timing out, a dependency that cannot be downloaded, a cancelled or expired job, a missing runner).',
+      'Fix only the checks caused by code. Never edit anything for flaky or infrastructure failures: they are reported to the person, not retried or worked around.',
+      'Set cause to code when you changed something to fix a code failure; otherwise set it to flaky or infrastructure. In summary, name each failing check with its classification and a one-line reason.',
+      'If the cause is a host precondition only a person can provide (credentials, secrets), make no edits and return the structured blocker.',
       'Return summary, cause and, only for such a precondition, blocker.',
     ].join(' '),
     structuredOutput: FIX_SCHEMA,
@@ -124,10 +128,10 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
   node('fix-summary', 'Describe the fix commit', 'assign', { set: { commitSummary: 'Fix CI: {{outputs.fixer.structured.summary}}' } }, { next: 'fixer-blocker', failed: E.failed })
   node('fixer-blocker', 'Fixer reported a host blocker', 'condition', { expr: 'exists($outputs.fixer.structured.blocker) && $outputs.fixer.structured.blocker != null' }, { true: E.fixerBlocked, false: 'progress' })
   // Progress = the fixer changed the tree that CI just judged (host-task output carries the candidate hash).
-  node('progress', 'Check the fix changed the candidate', 'condition', { expr: 'exists($outputs.fixer.candidateHash) && $outputs.fixer.candidateHash != null && $outputs.fixer.candidateHash != $outputs.checks.candidateHash' }, { true: 'local', false: 'rerun-guard' })
-  node('rerun-guard', 'Re-run once when the failure is not the code', 'condition', { expr: '$outputs.fixer.structured.cause != "code" && $vars.reruns < $vars.rerunLimit' }, { true: 'count-rerun', false: E.stalled }, 360)
-  node('count-rerun', 'Count re-run', 'assign', { increment: { reruns: 1 } }, { next: 'rerun', failed: E.failed }, 360)
-  node('rerun', 'Re-run the failed checks', 'host-task', { task: 'pr.rerun-failed', input: {}, outcomes: ['ok'], effect: 'read' }, { ok: 'checks', failed: E.failed }, 360)
+  node('progress', 'Check the fix changed the candidate', 'condition', { expr: 'exists($outputs.fixer.candidateHash) && $outputs.fixer.candidateHash != null && $outputs.fixer.candidateHash != $outputs.checks.candidateHash' }, { true: 'local', false: 'cause' })
+  // No change: a failure the code does not cause is reported once, never retried
+  // or iterated on; a code failure the fixer could not change is a stall.
+  node('cause', 'Failure caused by the code?', 'condition', { expr: '$outputs.fixer.structured.cause == "code"' }, { true: E.stalled, false: E.notFixable }, 360)
   node('local', 'Verify locally', 'verify', { commands: 'configured', ...(hostBlockers ? { setup: 'configured', hostBlockers: true } : {}) },
     { pass: 'push', fail: 'local-evidence', failed: E.failed, ...(hostBlockers ? { blocked: E.hostBlocked } : {}) })
   node('local-evidence', 'Keep the failing local verification', 'assign', { set: { localEvidence: '{{outputs.local}}' } }, { next: 'round-budget', failed: E.failed }, 360)
@@ -145,6 +149,7 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
   end(E.timeout, 'failure', 'The checks did not finish within the wait limit; required checks may never report.', 1080)
   end(E.roundsExhausted, 'failure', 'The checks still fail after {{run.rounds}} fix round(s). Last diagnosis: {{outputs.fixer.structured.summary}}', 1440)
   end(E.conflictsExhausted, 'failure', 'The merge conflicts with the base branch could not be resolved safely after {{run.conflictRounds}} attempt(s).', 1800)
+  end(E.notFixable, 'failure', 'The remaining failures are not caused by the code ({{outputs.fixer.structured.cause}}), so they were reported instead of retried: {{outputs.fixer.structured.summary}}', 2340)
   end(E.stalled, 'failure', 'The same checks keep failing and the fixer found nothing to change. Diagnosis ({{outputs.fixer.structured.cause}}): {{outputs.fixer.structured.summary}}', 2160)
   end(E.fixerBlocked, 'failure', 'The fix needs something only a person can provide ({{outputs.fixer.structured.blocker.kind}}): {{outputs.fixer.structured.blocker.requiredAction}}', 2520, hostBlockers ? { blockerFrom: 'fixer' } : {})
   if (hostBlockers) end(E.hostBlocked, 'failure', 'Local verification is blocked ({{outputs.local.blocker.kind}}): {{outputs.local.blocker.requiredAction}}', 2880, { blockerFrom: 'local' })

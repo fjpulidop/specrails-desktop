@@ -486,13 +486,17 @@ export class AgentRuntimeControls {
       const definition = state.engineVersion === 2 && parent?.engine_version === 2
       const forkSuccessor = definition ? readDefinitionSuccessor(this.ctx.db, runId) : undefined
       const forkReserved = definition && !!readDefinitionForkTarget(this.ctx.db, runId)
-      const active = definition ? state.lease?.active === true : this.active.has(runId) || parent?.status === 'running' || parent?.status === 'paused'
+      // pr-ci-loop: Core is paused on a MACHINE interrupt while Desktop performs
+      // the host task (waiting for CI, pushing). That is work in progress, not a
+      // pause a person resumes; after a restart (loop run paused) resume stays offered.
+      const hostWorking = definition && parent?.status === 'running' && (state.pendingInterrupts ?? []).some(item => item.kind === 'host-task')
+      const active = definition ? state.lease?.active === true || hostWorking : this.active.has(runId) || parent?.status === 'running' || parent?.status === 'paused'
       let projection: ReturnType<typeof readRuntimeHistory> = null
       try { projection = readRuntimeHistory(file) } catch { /* Invalid advisory history cannot replace live state. */ }
       const superseding = !active && projection && ['failed', 'cancelled', 'running'].includes(projection.status) && Date.parse(projection.updatedAt) > Date.parse(state.updatedAt ?? '1970-01-01') ? projection : null
       const recoverableSteps = state.engineVersion === 2 ? (state.recoverableSteps ?? []).map(step => step.attemptId) : Object.entries(state.steps).filter(([, step]) => ['running', 'interrupted'].includes(step.status)).map(([id]) => id)
       const catalog = metricsCatalogFor(state)
-      return { runId, engineVersion: state.engineVersion, status: superseding ? (superseding.status === 'running' ? 'interrupted' : superseding.status) : state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
+      return { runId, engineVersion: state.engineVersion, status: hostWorking ? 'running' : superseding ? (superseding.status === 'running' ? 'interrupted' : superseding.status) : state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
         updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: forkReserved ? undefined : state.pendingApproval,
         traceId: state.traceId, pendingQuestion: forkReserved ? undefined : openQuestion(state), steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
         metrics: readRuntimeEfficiency(superseding ? superseding.metrics : state.metrics, catalog), efficiencySummary: readRuntimeEfficiencySummary(superseding ? superseding.efficiencySummary : state.efficiencySummary, catalog),

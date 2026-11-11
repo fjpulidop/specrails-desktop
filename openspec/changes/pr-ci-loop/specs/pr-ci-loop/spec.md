@@ -36,7 +36,7 @@ After a mission delivery reaches `pr_draft` or `pr_ready` with an attached PR â€
 #### Scenario: Nothing to fix
 
 - **WHEN** the same checks fail and the fixer changes nothing
-- **THEN** a non-code cause gets one re-run of the failed checks, otherwise the run ends `stalled` with the fixer's diagnosis
+- **THEN** a cause outside the code (flaky test, infrastructure, network or registry timeout) ends the run `not-fixable` and reports each check with its classification, without retrying; a code failure the fixer could not change ends `stalled` with its diagnosis
 
 ### Requirement: Pushes are verified, never forced, and never decide the PR
 

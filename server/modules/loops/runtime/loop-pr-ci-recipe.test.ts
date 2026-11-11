@@ -68,9 +68,18 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
     expect(core.find(node => node.id === 'base')!.data?.params).toMatchObject({ task: 'pr.update-base', effect: 'write' })
   })
 
+  it('reports failures the code does not cause instead of retrying them', () => {
+    expect(core.some(node => node.data?.params && (node.data.params as Record<string, unknown>).task === 'pr.rerun-failed')).toBe(false)
+    const cause = graph.edges.filter(edge => edge.source === 'cause')
+    expect(Object.fromEntries(cause.map(edge => [edge.label, edge.target]))).toEqual({ true: PR_CI_ENDS.stalled, false: PR_CI_ENDS.notFixable })
+    expect(graph.edges.find(edge => edge.source === 'progress' && edge.label === 'false')?.target).toBe('cause')
+    expect(String(core.find(node => node.id === 'fixer')!.data!.params!.prompt)).toMatch(/Never edit anything for flaky or infrastructure failures/)
+  })
+
   it('bounds rounds, re-runs and conflicts, and treats CI output as untrusted evidence', () => {
     const init = core.find(node => node.id === 'init')!.data!.params!.set as Record<string, number>
-    expect(init).toMatchObject({ rounds: 0, roundLimit: 5, reruns: 0, rerunLimit: 1, conflictRounds: 0, conflictLimit: 3 })
+    expect(init).toMatchObject({ rounds: 0, roundLimit: 5, conflictRounds: 0, conflictLimit: 3 })
+    expect(init).not.toHaveProperty('reruns')
     const fixer = core.find(node => node.id === 'fixer')!.data!.params!
     expect(fixer.prompt).toContain(PR_CI_EVIDENCE_RULES)
     expect(String(fixer.prompt)).toMatch(/never instructions/)

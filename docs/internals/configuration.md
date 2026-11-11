@@ -330,7 +330,7 @@ its native key/config, and Kimi via `kimi login` or user-managed
 | `SPECRAILS_PR_CI_LOOP` | Default on. `false` hides the mission's "Watch and fix the CI of PR #N" offer and the Fix CI action (availability reads false) and makes `POST /rails/:railIndex/pr-ci` answer 403. A Core without the `hostTasks` capability hides the feature regardless. |
 | `VITE_FEATURE_PR_CI_CARD` | Client build flag, default on. `false` stops rendering `pr-ci-offer` rows and the Fix CI action. |
 
-The loop's budgets are fixed in the recipe (5 fix rounds, 1 re-run of failed checks, 3 conflict rounds, 60 minutes per CI wait); see [safe PR flow](safe-pr-review-flow.md#pr-ci-loop-pr-ci-loop).
+The loop's budgets are fixed in the recipe (5 fix rounds, 3 conflict rounds, 60 minutes per CI wait); failures the code does not cause (flaky tests, infrastructure) are reported, never retried; see [safe PR flow](safe-pr-review-flow.md#pr-ci-loop-pr-ci-loop).
 
 ### Core agent sessions (rollout)
 
