@@ -12,7 +12,7 @@ import { PR_CI_LOOP_ID, supportsPrCi } from '../../loops/runtime/loop-pr-ci-reci
 import { observePrLifecycle } from './pr-lifecycle'
 import { prCiCapable, refreshPrCiOffer } from './pr-ci/pr-ci-projection'
 import { dismissPrCiOffer, prCiOfferKey } from './pr-ci/pr-ci-offer'
-import { resettleFailedPrCiRows } from './pr-ci/pr-ci-settlement'
+import { clearPrCiWorktrees, resettleFailedPrCiRows } from './pr-ci/pr-ci-settlement'
 import type { RailPrDeliveryRow } from './rail-pr-store'
 import { defaultExec as prCiExec } from './pr-publisher'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
@@ -1590,6 +1590,11 @@ export function createRailsRouter(): Router {
       if (!lifecycle.ok) { res.status(409).json({ error: 'pr_unverifiable', prUrl: pr.prUrl, detail: lifecycle.detail }); return }
       if (lifecycle.isCrossRepository !== false) { res.status(409).json({ error: 'pr_fork_unsupported', prUrl: pr.prUrl, detail: 'Pull requests from forks are not supported.' }); return }
       if (lifecycle.state !== 'OPEN') { res.status(409).json({ error: 'pr_not_open', prUrl: pr.prUrl, state: lifecycle.state, detail: `The pull request ${pr.prUrl} is ${lifecycle.state.toLowerCase()}.` }); return }
+    }
+    // A stopped loop may have left uncommitted edits in the PR worktree: set them
+    // aside on a delivery ref so the new loop starts clean at the PR head.
+    if (!await clearPrCiWorktrees(c.db, defaultGitRunner, repositoryRows ? ciFixActiveRepositories(repositoryRows) : [row])) {
+      res.status(409).json({ error: 'pr_worktree_dirty', detail: 'The PR worktree has uncommitted changes that could not be set aside safely.', action: 'Open the worktree and commit or discard the changes.' }); return
     }
     let frozen: Record<string, unknown> = {}
     try { frozen = row.launch_config_json ? JSON.parse(row.launch_config_json) as Record<string, unknown> : {} } catch { /* defaults below */ }

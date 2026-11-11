@@ -5,7 +5,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { defaultGitRunner } from '../../../../worktree-manager'
 import type { Exec } from '../pr-publisher'
-import { prCiKeptRef, settlePrCiGeneration } from './pr-ci-settlement'
+import { preservePrCiWip, prCiKeptRef, prCiWipRef, settlePrCiGeneration } from './pr-ci-settlement'
 
 let root: string, work: string
 const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', ...args], { cwd: work, encoding: 'utf8' }).trim()
@@ -42,6 +42,17 @@ describe('settlePrCiGeneration', () => {
     expect(settled).toMatchObject({ deliverySha: pushed, keptRef: prCiKeptRef('d-ci'), statusDetail: expect.stringContaining(prCiKeptRef('d-ci')) })
     expect(git('rev-parse', 'HEAD')).toBe(pushed)
     expect(git('rev-parse', prCiKeptRef('d-ci'))).toBe(local)
+  })
+
+  it('sets aside edits a stopped loop never committed, leaving the worktree clean at the PR head', async () => {
+    writeFileSync(path.join(work, 'a.txt'), 'edited\n'); writeFileSync(path.join(work, 'new.txt'), 'untracked\n')
+    const settled = await settlePrCiGeneration(input(() => view({}), { ok: false, reasons: ['Budget exhausted'] }))
+    expect(settled?.statusDetail).toContain(prCiWipRef('d-ci'))
+    expect(git('status', '--porcelain')).toBe('')
+    expect(git('show', `${prCiWipRef('d-ci')}:a.txt`)).toBe('edited')
+    expect(git('show', `${prCiWipRef('d-ci')}^3:new.txt`)).toBe('untracked')
+    expect(git('stash', 'list')).toBe('')
+    expect(await preservePrCiWip(defaultGitRunner, work, 'd-ci')).toBeNull()
   })
 
   it('leaves a closed PR, a moved PR head or an unverifiable PR to the ordinary settlement', async () => {

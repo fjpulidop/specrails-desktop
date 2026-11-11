@@ -59,7 +59,7 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
   const [busy, setBusy] = useState<'start' | 'dismiss' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [local, setLocal] = useState<PrCiOfferState | null>(null)
-  const state = local && row.state === 'offered' ? local : row.state
+  const state = local && (row.state === 'offered' || row.state === 'needs-attention') ? local : row.state
   const many = row.prs.length > 1
   const prName = (entry: { repository: string; prNumber: number | null }) => [entry.repository, entry.prNumber !== null ? `#${entry.prNumber}` : ''].filter(Boolean).join(' ')
   const pr = many ? row.prs.map(prName).join(', ') : row.prNumber !== null ? `#${row.prNumber}` : t('prCi.thisPr')
@@ -71,7 +71,9 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
     if (inFlight.current) return
     inFlight.current = true
     setBusy('start'); setError(null)
-    const outcome = await postPrCiLaunch(row.projectId, row.railIndex, { prDeliveryId: row.prDeliveryId, originConversationId: conversationId })
+    // Again after a stop: the loop continues the generation the last run left on the PR.
+    const target = state === 'needs-attention' && row.runDeliveryId ? row.runDeliveryId : row.prDeliveryId
+    const outcome = await postPrCiLaunch(row.projectId, row.railIndex, { prDeliveryId: target, originConversationId: conversationId })
     if (outcome.kind === 'started') setLocal('started')
     else { setError(outcome.detail || t('prCi.startFailed')); inFlight.current = false }
     setBusy(null)
@@ -127,6 +129,13 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
                   {t('prCi.notNow')}
                 </button>
               </>
+            )}
+            {state === 'needs-attention' && (
+              <button type="button" data-agent-interactive data-testid="agent-pr-ci-retry" disabled={busy !== null} onClick={() => void start()}
+                className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-accent-primary px-2.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60">
+                {busy === 'start' && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
+                {t('prCi.retry')}
+              </button>
             )}
             {state !== 'offered' && (row.runId || row.runDeliveryId) && (
               <button type="button" data-agent-interactive data-testid="agent-pr-ci-open-run" onClick={openRun}

@@ -1520,6 +1520,7 @@
     "greenMany": "PR {{pr}}: すべてのチェックがグリーン",
     "noCiMany": "PR {{pr}} には CI チェックがありません",
     "needsAttentionMany": "PR {{pr}} はプッシュ済みですが、CI はまだグリーンではありません",
-    "dismissedMany": "PR {{pr}} の CI 監視は開始されていません。"
+    "dismissedMany": "PR {{pr}} の CI 監視は開始されていません。",
+    "retry": "もう一度 CI を修正"
   }
 }

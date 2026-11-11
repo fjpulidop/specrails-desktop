@@ -52,7 +52,12 @@ export async function settlePrCiGeneration(input: PrCiSettlementInput): Promise<
   const prHead = observed.headRefOid?.toLowerCase()
   if (!prHead || !SHA_RE.test(prHead)) return null
   let keptRef: string | null = null
+  let keptWip: string | null = null
   for (const worktree of input.worktrees) {
+    // Edits a stopped loop never committed would block the next loop's merge.
+    const wip = await preservePrCiWip(input.git, worktree, input.deliveryId)
+    if (wip === false) return null
+    if (wip) keptWip = wip
     const head = await input.git.run(['rev-parse', '--verify', 'HEAD'], worktree)
     const local = head.stdout.trim().toLowerCase()
     if (head.code !== 0 || !SHA_RE.test(local)) return null
@@ -69,6 +74,7 @@ export async function settlePrCiGeneration(input: PrCiSettlementInput): Promise<
   const detail = green ? null : [
     reason || 'The CI loop stopped before the checks turned green.',
     keptRef ? `Unverified local changes were not pushed; they are kept at ${keptRef}.` : '',
+    keptWip ? `Uncommitted edits were set aside at ${keptWip}.` : '',
   ].filter(Boolean).join(' ').slice(0, 4000)
   return {
     next: observed.isDraft === false ? 'pr_ready' : 'pr_draft',
@@ -126,4 +132,38 @@ function mountedWorktrees(db: DbInstance, row: RailPrDeliveryRow): string[] {
     const wt = db.prepare('SELECT worktree_path, merge_state FROM rail_worktrees WHERE id = ?').get(id) as { worktree_path: string; merge_state: string | null } | undefined
     return wt && wt.merge_state !== 'released' && fs.existsSync(wt.worktree_path) ? [wt.worktree_path] : []
   })
+}
+
+export const prCiWipRef = (deliveryId: string): string => `${prCiKeptRef(deliveryId)}-wip`
+
+/**
+ * Set aside uncommitted edits (tracked and untracked, never ignored files) a
+ * stopped CI loop left in its worktree, on a delivery-owned ref, leaving the
+ * worktree clean at HEAD. Returns the ref, null when it was already clean, or
+ * false when it could not be done safely (nothing is dropped then).
+ */
+export async function preservePrCiWip(git: GitRunner, worktree: string, deliveryId: string): Promise<string | null | false> {
+  const status = await git.run(['status', '--porcelain', '--untracked-files=all'], worktree)
+  if (status.code !== 0) return false
+  if (!status.stdout.trim()) return null
+  const message = `specrails pr-ci wip ${deliveryId}`
+  if ((await git.run(['stash', 'push', '--include-untracked', '-m', message], worktree)).code !== 0) return false
+  // The stash list is shared by every worktree: drop only the entry just made.
+  const top = await git.run(['stash', 'list', '-1', '--format=%H%x09%s'], worktree)
+  const [sha, subject = ''] = top.stdout.trim().split('\t')
+  if (top.code !== 0 || !sha || !subject.endsWith(message)) return false
+  const ref = prCiWipRef(deliveryId)
+  if ((await git.run(['update-ref', ref, sha], worktree)).code !== 0) return false
+  await git.run(['stash', 'drop', '--quiet', 'stash@{0}'], worktree)
+  return ref
+}
+
+/** Before a CI loop starts on a delivery: set aside what a stopped loop left uncommitted in its mounted worktrees. */
+export async function clearPrCiWorktrees(db: DbInstance, git: GitRunner, rows: RailPrDeliveryRow[]): Promise<boolean> {
+  for (const row of rows) {
+    for (const worktree of mountedWorktrees(db, row)) {
+      if (await preservePrCiWip(git, worktree, row.id) === false) return false
+    }
+  }
+  return true
 }

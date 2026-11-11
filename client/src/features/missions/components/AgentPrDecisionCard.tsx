@@ -1320,6 +1320,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     'border-border/60 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive',
   )
 
+  const outlineBtn = 'inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-surface/60 disabled:cursor-default disabled:opacity-60'
   const anyBusy = busy !== null || checkingOut || envelope.operation != null
   const shouldAnnounce = Boolean(envelope.operation) || recoveredInterruptedOperation || presentation.partial || presentation.deliveryBlocked || presentation.retryablePush || presentation.retryablePrCreation || presentation.closed || presentation.implementationFailed
   const announceExtra = envelope.operation
@@ -1431,13 +1432,6 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const canFixCi = ciAvailable && prCiFixable({ decision, prUrl, repositoryDeliveries: envelope.repositoryDeliveries })
   const moreActions = (opts: { merge?: boolean; lead?: readonly OverflowActionItem[]; discardLocal?: boolean } = {}) => {
     const items: OverflowActionItem[] = [...(opts.lead ?? [])]
-    if (canFixCi) {
-      items.push({
-        id: 'fix-ci', testId: 'agent-pr-fix-ci', label: t('prCi.fixCi'), hint: t('prCi.fixCiTooltip'),
-        icon: ciStarting ? spinner : <Wrench className="h-3 w-3" />,
-        onSelect: () => void fixCi(), disabled: anyBusy || ciStarting,
-      })
-    }
     if (checkoutBranch && !hasRepositoryDeliveries) {
       items.push({
         id: 'checkout', testId: 'agent-pr-checkout', label: t('prCard.checkout'),
@@ -1460,7 +1454,22 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       : presentation.continuation
       ? { id: 'dismiss', testId: 'agent-pr-dismiss', label: t('prCard.dismiss'), onSelect: () => setConfirmingDismiss(true), disabled: anyBusy }
       : { id: 'discard', testId: 'agent-pr-discard', label: t('prCard.discard'), onSelect: () => setConfirmingDiscard(true), disabled: anyBusy, destructive: true })
-    return <OverflowActions label={t('prCard.moreActions')} items={items} disabled={anyBusy} testId="agent-pr-more" />
+    const overflow = <OverflowActions label={t('prCard.moreActions')} items={items} disabled={anyBusy} testId="agent-pr-more" />
+    if (!canFixCi) return overflow
+    // "Fix CI" is a visible button, never buried in the menu: the main action
+    // when the PR's CI is not green and nothing else leads the row.
+    const ciLeads = envelope.statusCode === 'ci_needs_attention' && hasRepositoryDeliveries
+    return (
+      <>
+        <button type="button" data-agent-interactive data-testid="agent-pr-fix-ci" title={t('prCi.fixCiTooltip')}
+          onClick={() => void fixCi()} disabled={anyBusy || ciStarting}
+          className={ciLeads ? primaryBtn : outlineBtn}>
+          {ciStarting ? spinner : <Wrench className="h-3 w-3" aria-hidden />}
+          {t('prCi.fixCi')}
+        </button>
+        {overflow}
+      </>
+    )
   }
 
   const dismissAction = (

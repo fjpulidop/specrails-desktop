@@ -1520,6 +1520,7 @@
     "greenMany": "PRs {{pr}}: todos los checks en verde",
     "noCiMany": "Las PRs {{pr}} no tienen checks de CI",
     "needsAttentionMany": "Las PRs {{pr}} están subidas; su CI aún no está en verde",
-    "dismissedMany": "No se inició la vigilancia del CI de las PRs {{pr}}."
+    "dismissedMany": "No se inició la vigilancia del CI de las PRs {{pr}}.",
+    "retry": "Arreglar el CI de nuevo"
   }
 }

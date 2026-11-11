@@ -35,6 +35,15 @@ describe('AgentPrCiOfferCard', () => {
     await waitFor(() => expect(screen.getByTestId('agent-pr-ci-offer').getAttribute('data-state')).toBe('started'))
   })
 
+  it('after a stop, runs the loop again on the generation the last run left', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ loopRunIds: ['r2'] }), { status: 202 }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<AgentPrCiOfferCard row={row({ state: 'needs-attention', reason: 'flaky', runId: 'r1', runDeliveryId: 'd2' })} conversationId="conv-1" />)
+    fireEvent.click(screen.getByTestId('agent-pr-ci-retry'))
+    expect(JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body))).toMatchObject({ prDeliveryId: 'd2' })
+    await waitFor(() => expect(screen.getByTestId('agent-pr-ci-offer').getAttribute('data-state')).toBe('started'))
+  })
+
   it('shows a 409 inline and lets the person retry', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'pr_not_open', detail: 'The pull request is merged.' }), { status: 409 })))
     render(<AgentPrCiOfferCard row={row()} />)

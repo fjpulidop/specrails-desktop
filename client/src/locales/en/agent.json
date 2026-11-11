@@ -1520,6 +1520,7 @@
     "greenMany": "PRs {{pr}}: all checks are green",
     "noCiMany": "PRs {{pr}} have no CI checks",
     "needsAttentionMany": "PRs {{pr}} are pushed; their CI is not green yet",
-    "dismissedMany": "CI watch for PRs {{pr}} not started."
+    "dismissedMany": "CI watch for PRs {{pr}} not started.",
+    "retry": "Fix CI again"
   }
 }
