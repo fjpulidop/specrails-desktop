@@ -327,7 +327,8 @@
       "ci_green": "PR 準備完了 — CI はグリーン",
       "ci_needs_attention": "PR はプッシュ済み — CI はまだグリーンではありません",
       "ciBuilding": "PR {{pr}} の CI を監視中",
-      "run_stopped": "実行を停止しました"
+      "run_stopped": "実行を停止しました",
+      "ci_pending": "PR はプッシュ済み — CI 実行中"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -497,7 +498,11 @@
     "moreActions": "その他の操作",
     "ci": {
       "green": "すべてのチェックがグリーンです。",
-      "attention": "チェックがグリーンになる前に CI ループが停止しました。PR にはプッシュ済みの内容がすべて残っています。"
+      "attention": "チェックがグリーンになる前に CI ループが停止しました。PR にはプッシュ済みの内容がすべて残っています。",
+      "pending": "CI を実行中です（保留中のチェック {{count}} 件）。",
+      "notGreen": "PR の CI はまだグリーンではありません。",
+      "failing": "失敗したチェック: {{checks}}",
+      "failing_pr": "{{pr}}: 失敗したチェック: {{checks}}"
     },
     "ciBuildingHint": "チェックを待ち、コードの失敗を修正して同じ PR にプッシュします。コード以外が原因の失敗は再試行せずに報告します。",
     "runStoppedNote": "何も納品される前にこの実行を停止しました。続けたいときに再実行してください。"

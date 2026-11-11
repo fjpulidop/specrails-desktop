@@ -1303,6 +1303,10 @@
         "../rail-pr-store",
         "node:fs"
       ],
+      "runtime/pr-ci/pr-ci-status.ts": [
+        "../pr-publisher",
+        "./pr-ci-handlers"
+      ],
       "runtime/pr-ci/pr-ci-target.ts": [
         "../../../../db",
         "../isolated-settlement-store",
@@ -1516,6 +1520,7 @@
         "./pr-ci/pr-ci-offer",
         "./pr-ci/pr-ci-projection",
         "./pr-ci/pr-ci-settlement",
+        "./pr-ci/pr-ci-status",
         "./pr-follow-up",
         "./pr-lifecycle",
         "./pr-publisher",

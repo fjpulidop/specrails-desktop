@@ -327,7 +327,8 @@
       "ci_green": "PR pronto — CI verde",
       "ci_needs_attention": "PR enviado — o CI ainda não está verde",
       "ciBuilding": "Acompanhando o CI do PR {{pr}}",
-      "run_stopped": "Execução interrompida"
+      "run_stopped": "Execução interrompida",
+      "ci_pending": "PR enviado — CI em andamento"
     },
     "buildingHint": "Quando terminar, ser-lhe-á perguntado se quer criar a PR.",
     "buildingExistingPrHint": "O Specrails está a trabalhar no ramo da PR existente e irá enviar as alterações de revisão para essa mesma PR.",
@@ -497,7 +498,11 @@
     "moreActions": "Mais ações",
     "ci": {
       "green": "Todos os checks estão verdes.",
-      "attention": "O loop de CI parou antes de os checks ficarem verdes. O PR mantém tudo o que foi enviado."
+      "attention": "O loop de CI parou antes de os checks ficarem verdes. O PR mantém tudo o que foi enviado.",
+      "pending": "O CI está em andamento ({{count}} checks pendentes).",
+      "notGreen": "O CI do PR ainda não está verde.",
+      "failing": "Checks com falha: {{checks}}",
+      "failing_pr": "{{pr}}: checks com falha: {{checks}}"
     },
     "ciBuildingHint": "Aguarda os checks, corrige as falhas de código e envia para o mesmo PR. Falhas que não são do código são relatadas, não repetidas.",
     "runStoppedNote": "Você interrompeu esta execução antes de entregar algo. Reinicie quando quiser continuar."

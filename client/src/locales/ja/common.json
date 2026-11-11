@@ -89,7 +89,8 @@
     "local_changes_attention": "統合済み — ローカル変更の確認が必要です",
     "ci_green": "CI グリーン",
     "ci_needs_attention": "CI はまだグリーンではありません",
-    "run_stopped": "停止"
+    "run_stopped": "停止",
+    "ci_running": "CI 実行中"
   },
   "prRecovery": {
     "inProgress": "プロジェクトの復旧が進行中です。配信内容は安全に保たれています。しばらくしてから再試行してください。",

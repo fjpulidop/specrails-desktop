@@ -89,7 +89,8 @@
     "local_changes_attention": "Integrado — as alterações locais precisam de atenção",
     "ci_green": "CI verde",
     "ci_needs_attention": "CI ainda não verde",
-    "run_stopped": "Interrompida"
+    "run_stopped": "Interrompida",
+    "ci_running": "CI em andamento"
   },
   "prRecovery": {
     "inProgress": "A recuperação do projeto ainda está em andamento. Sua entrega está segura; tente novamente em instantes.",
