@@ -4,21 +4,9 @@ Klick auf eine beliebige Job-Karte auf der **Jobs**-Seite, und du landest hier: 
 
 ## Das Layout
 
-Über dem vollständigen Streaming-Log sitzen zwei Panels; bei einem laufenden Claude-Job sitzt darunter ein Chat-Composer:
+Der kompakte Header enthält Status, Laufzeit, Phase, Aktionen und Pipeline-Chips. Bei fehlgeschlagenen oder abgebrochenen Läufen mit Diagnose ist **Fehlerursachen** zuerst ausgewählt; andere öffnen **Protokoll**. Auch eine beantwortbare offene Frage macht Fehlerursachen verfügbar: Die Frageschaltfläche öffnet Details zum Antworten, auch ohne Diagnose.
 
-```
-┌─────────────────────────────────────────────┐
-│  Status-Header  (Icon · Live-Dauer · …)     │
-├─────────────────────────────────────────────┤
-│  Ticket-Header  ( #12  #14  #15 )           │
-├─────────────────────────────────────────────┤
-│                                             │
-│  Streaming-Log  (Auto-Scroll · Suche · …)   │
-│                                             │
-├─────────────────────────────────────────────┤
-│  Composer  (Nachricht an den Job senden · …)│
-└─────────────────────────────────────────────┘
-```
+Fehlerursachen enthält Ursache, Abhilfen und **Details** in einem begrenzten, intern scrollbaren Panel. Andernfalls bleiben Details im Protokoll. Loops bieten **Ausführungsgraph** und **Protokolldetails**; andere Jobs nur die Details. Bereich und aufgeklappte Details werden für Seite und Missionsmodal getrennt gespeichert; der Haupttab wird bei jedem Besuch zurückgesetzt. Der Composer bleibt darunter.
 
 ## Pipeline-Phasen
 
@@ -41,7 +29,7 @@ Welcher Agent welche Phase übernimmt, entscheidet das **Agent-Profil** des Proj
 
 ## Live-Metriken — ehrlich von Grund auf
 
-Der Status-Header ist die Schlagzeile. Er zeigt ein Status-Icon, eine Aktivitätszeile, die beschreibt, was der Job *gerade jetzt* tut, eine Zählung der ausgeführten Schritte und eine Reihe von Metriken:
+Der kompakte Header zeigt Status, Laufzeit, Aktivität, Schritte und Aktionen. Echte Messwerte und Fortsetzungsaktionen stehen im begrenzten Bereich **Details**:
 
 | Metrik | Wann du den echten Wert siehst |
 |--------|------------------------------|
@@ -65,7 +53,7 @@ Ein Klick auf einen Chip öffnet die Detailansicht dieser Spec **über der Job-S
 
 ## Das Streaming-Log
 
-Unter den Panels liegt das vollständige Log des Laufs, in Echtzeit über den WebSocket gestreamt:
+Öffne **Protokoll → Protokolldetails** für das Live-Protokoll oder Story bei aktivierter Erzählansicht. Die Ausgabe kommt in Echtzeit über WebSocket:
 
 - **Auto-Scroll** hält die neueste Ausgabe im Blick (scrollst du hoch, pausiert es, damit du in Ruhe lesen kannst).
 - **Suche**, um zu einer Stelle zu springen.
@@ -75,14 +63,14 @@ Das ist die rohe Wahrheit darüber, was die KI tut — jeder Tool-Aufruf, jede D
 
 ## Loop-Läufe: der Schritt-Explorer
 
-Wenn der Job ein **Loop-Lauf** ist (siehe [Der Loop Builder](the-loop-builder)), macht das flache Log einem **Schritt-Explorer** Platz, der die tatsächliche Form des Loops abbildet:
+Bei einem **Loop-Lauf** (siehe [Der Loop Builder](the-loop-builder)) zeigt **Protokoll → Ausführungsgraph** den **Schritt-Explorer**. Protokolldetails bietet separat das Rohprotokoll und bei Aktivierung die Erzählansicht:
 
 - **Die Übersichtsleiste** oben ist die Live-Karte des Loops — ein Chip pro Knoten (KI-Schritt, Shell, Loop-Entscheider…), in der Reihenfolge, in der der Graph fließt. Die Chips leuchten auf, während der Lauf voranschreitet: abgedunkelt im Wartezustand, pulsierend während der Ausführung, danach ein Haken oder ein Kreuz. Der Chip eines Entscheiders zeigt zudem das Urteil, nach dem er geroutet hat — zurück in die Schleife oder weiter — und ein Iterationszähler (`Iteration 3/10`) führt rechts Buch. Klick auf einen beliebigen Chip, um direkt zum letzten Schritt dieses Knotens zu springen.
 - **Eine aufklappbare Box pro Schritt.** Jeder Durchlauf über einen Knoten wird zu einer eigenen Sektion mit Schrittnummer, Name, Iterations-Badge, der Dauer nach Abschluss — und einem eigenen Kopieren-Button, mit dem du dir exakt die Ausgabe eines Schritts holst. (Das Kopieren in der Werkzeugleiste nimmt weiterhin das ganze Log.) Alles, was vor dem ersten Schritt ausgegeben wird — das Start-Banner, der Worktree-Hinweis — landet in einer **Vorbereitung**-Sektion.
 - **Der Folgemodus** ist standardmäßig an: Der laufende Schritt bleibt offen und scrollt automatisch mit, während sich frühere Schritte zusammenfalten. Sobald du hochscrollst oder einen älteren Schritt öffnest, pausiert das Folgen, damit du lesen kannst — eine schwebende Pille **Verfolgung fortsetzen** bringt dich zurück ins Live-Geschehen. **Alle ausklappen / Alle einklappen** sitzen in der Werkzeugleiste, und die Suche durchsucht alle Schritte auf einmal.
 - **Auch unterbrochene Schritte sind ehrlich.** Ein Schritt, der sein Ergebnis nie melden konnte — der Lauf wurde abgebrochen oder die App ging mitten im Schritt aus — wird mit gestrichelter Umrandung als **Unterbrochen** markiert, statt so zu tun, als wäre er fertig geworden.
 
-Alles andere auf dieser Seite funktioniert bei Loop-Läufen exakt gleich — die Live-Metriken, die Ticket-Karten, der Composer. Jobs ohne Loop behalten das klassische Streaming-Log oben.
+Graph-Erkundung und pausierte Protokollposition bleiben beim Bereichswechsel erhalten. Jobs ohne Loop zeigen Protokolldetails ohne Graph-Steuerung.
 
 ## Sprich mit dem laufenden Job
 
@@ -109,7 +97,7 @@ Praktisch, um einen Lauf mit einem Teammitglied zu teilen oder einen präzisen F
 
 ## Wenn ein Lauf fehlschlägt
 
-Wenn ein Job fehlschlägt, stoppt oder blockiert ist, beginnt der Endzustand mit einer **Diagnosekarte**, die in klaren Worten sagt, was passiert ist, zum Beispiel *Tests sind in der Phase Reviewer nach 4 Korrekturrunden fehlgeschlagen*, und warum, wenn die App es weiß:
+Bei fehlgeschlagenen oder abgebrochenen Jobs mit Diagnose zeigt **Fehlerursachen** die **Diagnosekarte** mit Ursache und bekannten Gründen. Über den Tabs steht keine zusätzliche Ursachenzusammenfassung:
 
 - **Tests fehlgeschlagen**: Die Prüfungen schlagen nach den Korrekturrunden weiter fehl.
 - **Anbieterlimit**: Das Nutzungslimit des KI-Anbieters ist erreicht. Die Karte nennt den Zeitpunkt des Zurücksetzens in den Worten des Anbieters.

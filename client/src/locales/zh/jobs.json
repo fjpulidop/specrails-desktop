@@ -372,5 +372,13 @@
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "截至目前由提供方上报；最终数据在任务结束时给出。",
     "questionPending": "回答问题"
+  },
+  "runDetail": {
+    "failure": "失败原因",
+    "log": "日志",
+    "graph": "执行图",
+    "detail": "日志详情",
+    "navigation": "运行详情",
+    "sections": "日志分区"
   }
 }

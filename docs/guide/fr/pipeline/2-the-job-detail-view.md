@@ -4,21 +4,9 @@ Cliquez sur n'importe quelle carte de job de la page **Jobs** et vous arrivez ic
 
 ## La disposition
 
-Deux panneaux se trouvent au-dessus du log en streaming complet ; sur un job Claude en cours, un composeur de chat se trouve en dessous :
+L’en-tête compact conserve statut, durée, phase, actions et puces du pipeline. **Causes de l’échec** est sélectionné à l’ouverture d’une exécution échouée ou annulée avec diagnostic ; les autres ouvrent **Journal**. Une question en attente de réponse rend aussi cet onglet disponible : le bouton de question ouvre Détails pour répondre, même sans diagnostic.
 
-```
-┌─────────────────────────────────────────────┐
-│  En-tête de statut (icône · durée en direct · …)  │
-├─────────────────────────────────────────────┤
-│  En-tête de ticket ( #12  #14  #15 )        │
-├─────────────────────────────────────────────┤
-│                                             │
-│  Log en streaming (auto-défilement · recherche · …)  │
-│                                             │
-├─────────────────────────────────────────────┤
-│  Composeur (envoyer un message au job · …)  │
-└─────────────────────────────────────────────┘
-```
+Causes de l’échec contient cause, remèdes et **Détails** dans un panneau borné à défilement interne. Sinon, Détails reste dans Journal. Les loops proposent **Graphe d’exécution** et **Détail du journal** ; les autres jobs uniquement le détail. La section et l’ouverture de Détails sont mémorisées séparément pour la page et la modale de mission ; l’onglet principal se réinitialise à chaque visite. Le composeur reste en dessous.
 
 ## Les phases du pipeline
 
@@ -41,7 +29,7 @@ Quel agent gère chaque phase est décidé par le **profil d'agent** du projet. 
 
 ## Métriques en direct — honnêtes par conception
 
-L'en-tête de statut est la vedette. Il affiche une icône de statut, une ligne d'activité décrivant ce que le job fait *en ce moment même*, un compteur des étapes effectuées, et une ligne de métriques :
+L’en-tête compact affiche statut, durée, activité, étapes et actions. Les chiffres réels et les commandes de continuation sont dans **Détails**, dans un panneau borné :
 
 | Métrique | Quand vous voyez la vraie valeur |
 |--------|------------------------------|
@@ -65,7 +53,7 @@ Cliquer sur une puce ouvre le détail de cette spec **par-dessus la page du job*
 
 ## Le log en streaming
 
-Sous les panneaux se trouve le log complet de l'exécution, streamé en temps réel via le WebSocket :
+Ouvrez **Journal → Détail du journal** pour le log en direct, ou Story si la narration est activée. La sortie arrive en temps réel via WebSocket :
 
 - **L'auto-défilement** garde la sortie la plus récente en vue (faites défiler vers le haut et il se met en pause pour vous laisser lire).
 - **Recherche** pour sauter à une expression.
@@ -75,14 +63,14 @@ C'est la vérité brute de ce que fait l'IA — chaque appel d'outil, chaque mod
 
 ## Exécutions de loop : l'explorateur d'étapes
 
-Quand le job est une **exécution de loop** (voir [Le Loop Builder](the-loop-builder)), le log à plat cède la place à un **explorateur d'étapes** qui épouse la forme réelle du loop :
+Pour une **exécution de loop** (voir [Le Loop Builder](the-loop-builder)), **Journal → Graphe d’exécution** affiche l’**explorateur d’étapes**. Détail du journal propose séparément le log brut et, si activée, la narration :
 
 - **Le bandeau de synthèse** en haut est la carte en direct du loop — une pastille par nœud (Étape IA, Shell, Décideur de boucle…), dans l'ordre où circule le graphe. Les pastilles s'allument au fil de l'exécution : estompées en attente, pulsantes pendant l'exécution, puis une coche ou une croix. La pastille d'un Décideur affiche aussi le verdict qu'il a suivi — reboucler ou passer à la suite — et un compteur d'itérations (`Itération 3/10`) tient le score à droite. Cliquez sur n'importe quelle pastille pour sauter directement à la dernière étape de ce nœud.
 - **Une boîte repliable par étape.** Chaque passage sur un nœud devient sa propre section, avec le numéro de l'étape, son nom, un badge d'itération, sa durée une fois terminée — et son propre bouton de copie, pour récupérer exactement la sortie d'une étape. (La copie de la barre d'outils emporte toujours le log entier.) Tout ce qui s'affiche avant la première étape — la bannière de lancement, l'avis de worktree — est rangé dans une section **Préparation**.
 - **Le mode suivi** est actif par défaut : l'étape en cours reste ouverte et défile automatiquement pendant que les précédentes se replient. Dès que vous remontez ou ouvrez une étape plus ancienne, le suivi se met en pause pour vous laisser lire — une pastille flottante **Reprendre le suivi** vous ramène au direct. **Tout développer / Tout réduire** vivent dans la barre d'outils, et la recherche parcourt toutes les étapes à la fois.
 - **Les étapes interrompues aussi sont honnêtes.** Une étape qui n'a jamais pu rapporter son issue — l'exécution a été annulée ou l'app s'est arrêtée en pleine étape — est marquée **Interrompue** avec une bordure en pointillés, plutôt que de faire semblant d'avoir fini.
 
-Tout le reste de cette page fonctionne à l'identique pour les exécutions de loop — les métriques en direct, les cartes de ticket, le composeur. Les jobs hors loop conservent le log en streaming classique ci-dessus.
+L’exploration du graphe et le défilement du log en pause sont conservés en changeant de section. Les jobs sans loop affichent le détail sans commande de graphe.
 
 ## Parlez au job en cours
 
@@ -109,7 +97,7 @@ Pratique pour partager une exécution avec un coéquipier, ou pour déposer un r
 
 ## Quand une exécution échoue
 
-Quand un job échoue, se bloque ou s'arrête, l'état final commence par une **carte de diagnostic** qui dit en langage clair ce qui s'est passé, par exemple *Les tests ont échoué en phase Reviewer après 4 tours de correction*, et pourquoi quand l'app le sait :
+Pour un job échoué ou annulé avec diagnostic, **Causes de l’échec** affiche la **carte de diagnostic**, avec la cause et les explications connues. Aucun résumé de cause ne précède les onglets :
 
 - **Tests échoués** : les vérifications échouent encore après les tours de correction.
 - **Limite du fournisseur** : la limite d'utilisation du fournisseur d'IA est atteinte. La carte cite le moment de la réinitialisation, avec les mots du fournisseur.

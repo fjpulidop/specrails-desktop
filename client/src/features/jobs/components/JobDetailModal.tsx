@@ -1,5 +1,8 @@
 import { modalDialogStyle, modalOverlayStyle } from '../../../lib/modal-safe-area'
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { flushSync } from 'react-dom'
+import { RunDetailTabs } from './job-run/RunDetailTabs'
+import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { formatDistanceToNow } from 'date-fns'
 import { useTranslation } from 'react-i18next'
@@ -73,6 +76,8 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
   const [jobId, openFork] = useState(initialJobId)
   useEffect(() => { openFork(initialJobId) }, [initialJobId])
   const { t } = useTranslation('jobs')
+  const { t: tRecovery } = useTranslation('recovery')
+  const evidenceRoot = useRef<HTMLDivElement>(null)
   const { t: tNarration } = useTranslation('narration')
   // Lazy so the no-explicit-projectId path keeps getApiBase()'s call-time
   // resolution (it throws when no project is active — never during render).
@@ -87,6 +92,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
     setNarrationModeState(mode)
     saveJobLogMode(mode)
   }, [])
+  const [runDetailScope, setRunDetailScope] = useState(projectId ?? '')
   const [job, setJob] = useState<JobSummary | null>(null)
   // One continuation poller for the header and the composer: a pending question
   // is answered from either with the same draft.
@@ -112,7 +118,8 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
     setNotFound(false)
     async function loadJob() {
       try {
-        const res = await fetch(`${apiBase()}/jobs/${jobId}`)
+        const base = apiBase()
+        const res = await fetch(`${base}/jobs/${jobId}`)
         if (cancelled) return
         if (res.status === 404) {
           setNotFound(true)
@@ -121,6 +128,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
         if (!res.ok) throw new Error('Failed to fetch job')
         const data = await res.json() as { job: JobSummary; events: EventRow[]; phaseDefinitions?: PhaseDefinition[] }
         if (cancelled) return
+        setRunDetailScope(base)
         setJob(data.job)
         setEventBuffer(retainJobEvents(data.events))
         if (data.phaseDefinitions) {
@@ -274,6 +282,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const setPanelNode = useCallback((node: HTMLDivElement | null) => {
     panelRef(node)
+    evidenceRoot.current = node
     if (!node) return
     const active = document.activeElement
     if (active instanceof HTMLElement && active !== document.body && !node.contains(active)) {
@@ -290,6 +299,12 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
     : titleKind?.name
       ? t('modal.title', { kind: titleKind.name, id: shortId })
       : t('modal.titleGeneric', { id: shortId })
+
+  function handleOpenLogs() {
+    if (!job?.command.startsWith('loop:') && narrationMode === 'narrated') flushSync(() => setNarrationMode('log'))
+    const evidence = evidenceRoot.current?.querySelector<HTMLElement>('[data-run-evidence][data-active="true"]')
+    if (!openLogsAtFailure(evidence ?? null)) toast.info(tRecovery('logs.notFound'))
+  }
 
   return (
     // Radix dialog on the `entity` layer (65): above the floating agent panel
@@ -369,6 +384,72 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
                 projectId={projectId}
                 runtime={runtime}
                 variant="glass"
+                onOpenLogs={handleOpenLogs}
+                renderRunDetails={context => (
+                  <RunDetailTabs
+                    key={`${runDetailScope}:${job.id}`}
+                    {...context}
+                    job={job}
+                    events={events}
+                    surface="modal"
+                    isLoop={job.command.startsWith('loop:')}
+                    onOpenLogs={handleOpenLogs}
+                    graphContent={<>
+                      {eventBuffer.omitted && (
+                        <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                          {t('logViewer.retainedTail')}
+                        </p>
+                      )}
+                      <LoopStepExplorer events={events} jobStatus={job.status} isLoading={isLoading} variant="glass" projectId={projectId} onOpenRun={openFork} />
+                    </>}
+                    logContent={<>
+                      {eventBuffer.omitted && (
+                        <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                          {t('logViewer.retainedTail')}
+                        </p>
+                      )}
+                      <div className="min-h-0 flex-1 overflow-hidden relative">
+                        {FEATURE_NARRATED_PROGRESS ? (
+                          <div className="flex h-full min-h-0 flex-col">
+                            <div className="flex items-center gap-1 border-b border-border/40 px-3 py-1.5">
+                              {(['narrated', 'log'] as const).map((mode) => (
+                                <button
+                                  key={mode}
+                                  type="button"
+                                  data-chip=""
+                                  onClick={() => setNarrationMode(mode)}
+                                  aria-pressed={narrationMode === mode}
+                                  data-testid={`modal-narration-mode-${mode}`}
+                                  className={`inline-flex h-5 items-center rounded-md px-2 text-caption font-medium transition-colors ${
+                                    narrationMode === mode
+                                      ? 'bg-accent-primary/15 text-accent-primary'
+                                      : 'text-muted-foreground hover:bg-surface/60'
+                                  }`}
+                                >
+                                  {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="min-h-0 flex-1 overflow-hidden">
+                              {narrationMode === 'narrated' ? (
+                                <NarratedProgress
+                                  events={events}
+                                  settled={job.status !== 'running' && job.status !== 'queued'}
+                                  elapsedMs={job.duration_ms ?? null}
+                                  variant="glass"
+                                />
+                              ) : (
+                                <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
+                        )}
+                      </div>
+                    </>}
+                  />
+                )}
                 actions={isRunning ? (
                   <Button
                     variant="ghost"
@@ -388,75 +469,13 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
               />
             )}
 
-            {eventBuffer.omitted && (
-              <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
-                {t('logViewer.retainedTail')}
-              </p>
-            )}
-
-            {/* Content — the log surfaces own their scrolling (virtualized),
-                so this region clips instead of being a DialogBody. */}
-            <div className="min-h-0 flex-1 overflow-hidden relative">
+            {!job && <div className="min-h-0 flex-1 overflow-hidden relative">
               {notFound ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-sm text-muted-foreground">{t('modal.notFound')}</p>
                 </div>
-              ) : FEATURE_NARRATED_PROGRESS && job ? (
-                <div className="flex h-full min-h-0 flex-col">
-                  <div className="flex items-center gap-1 border-b border-border/40 px-3 py-1.5">
-                    {(['narrated', 'log'] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        data-chip=""
-                        onClick={() => setNarrationMode(mode)}
-                        aria-pressed={narrationMode === mode}
-                        data-testid={`modal-narration-mode-${mode}`}
-                        className={`inline-flex h-5 items-center rounded-md px-2 text-caption font-medium transition-colors ${
-                          narrationMode === mode
-                            ? 'bg-accent-primary/15 text-accent-primary'
-                            : 'text-muted-foreground hover:bg-surface/60'
-                        }`}
-                      >
-                        {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-hidden">
-                    {narrationMode === 'narrated' ? (
-                      <NarratedProgress
-                        events={events}
-                        settled={job.status !== 'running' && job.status !== 'queued'}
-                        elapsedMs={job.duration_ms ?? null}
-                        variant="glass"
-                      />
-                    ) : job.command.startsWith('loop:') ? (
-                      <LoopStepExplorer
-                        events={events}
-                        jobStatus={job.status}
-                        isLoading={isLoading}
-                        variant="glass"
-                        projectId={projectId}
-                        onOpenRun={openFork}
-                      />
-                    ) : (
-                      <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
-                    )}
-                  </div>
-                </div>
-              ) : job?.command.startsWith('loop:') ? (
-                <LoopStepExplorer
-                  events={events}
-                  jobStatus={job.status}
-                  isLoading={isLoading}
-                  variant="glass"
-                  projectId={projectId}
-                  onOpenRun={openFork}
-                />
-              ) : (
-                <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
-              )}
-            </div>
+              ) : <LogViewer events={events} isLoading={isLoading} projectId={projectId} />}
+            </div>}
 
             {/* Interactive in-job agent composer — the SAME control the board's Job
                 Detail page mounts, so a mission-mode user steers the running job

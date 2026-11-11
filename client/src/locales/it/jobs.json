@@ -372,5 +372,13 @@
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Riportato dal provider finora; le cifre definitive arrivano al termine del job.",
     "questionPending": "Rispondi alla domanda"
+  },
+  "runDetail": {
+    "failure": "Cause dell’errore",
+    "log": "Log",
+    "graph": "Grafo di esecuzione",
+    "detail": "Dettaglio del log",
+    "navigation": "Dettaglio esecuzione",
+    "sections": "Sezioni del log"
   }
 }

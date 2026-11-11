@@ -1,10 +1,13 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '../../../../test-utils'
+import { fireEvent, render, screen, waitFor, within } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { act } from '@testing-library/react'
 import JobDetailPage from '../JobDetailPage'
 import type { JobSummary, EventRow } from '../../../../types'
+const narrationFlag = vi.hoisted(() => ({ enabled: true }))
+vi.mock('../../../../lib/feature-flags', async importOriginal => ({ ...await importOriginal<typeof import('../../../../lib/feature-flags')>(), get FEATURE_NARRATED_PROGRESS() { return narrationFlag.enabled } }))
+
 // The run header polls the agent-runtime continuation through this hook; the
 // page tests are about the page's own fetch choreography, so the poll is inert
 // here (its own behaviour is covered by JobRunHeader / AgentRuntimeRuns tests).
@@ -16,6 +19,7 @@ vi.mock('../../components/job-run/useRuntimeRuns', () => ({
 vi.mock('sonner', () => ({
   toast: {
     promise: vi.fn(),
+    info: vi.fn(),
     error: vi.fn(),
     success: vi.fn(),
   },
@@ -97,6 +101,7 @@ const mockEvents: EventRow[] = [
 describe('JobDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    narrationFlag.enabled = true
     mockNavigate.mockClear()
     mockUseRuntimeRuns.mockReturnValue({ runs: [], error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn(), refresh: vi.fn() })
     // The log surface now defaults to the narrated altitude (matching the Code
@@ -106,6 +111,113 @@ describe('JobDetailPage', () => {
   })
 
   afterEach(() => { localStorage.clear() })
+
+  const diagnosis = { kind: 'tests_failed', confidence: 'high', source: 'core', remedies: ['open-logs'], detail: 'Verification stopped' }
+
+  it.each(['failed', 'canceled'] as const)('opens diagnosed %s on bounded Failure reasons with compact header', async status => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, status, failureDiagnosis: diagnosis }, events: mockEvents }) })
+    render(<JobDetailPage />)
+    expect(await screen.findByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
+    const panel = screen.getByRole('tabpanel', { name: 'Failure reasons' })
+    fireEvent.click(within(panel).getByRole('button', { name: 'Details' }))
+    expect(panel).toHaveClass('min-h-0', 'max-h-full', 'overflow-y-auto')
+    expect(panel).toContainElement(screen.getByTestId('job-run-details'))
+    expect(screen.getByTestId('job-run-header')).not.toContainElement(panel)
+    expect(within(screen.getByTestId('job-run-header')).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Log' }))
+    expect(screen.getByTestId('log-viewer')).toBeVisible()
+  })
+
+  it('opens non-failures directly on Log despite a stale diagnosis', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, failureDiagnosis: diagnosis }, events: mockEvents }) })
+    render(<JobDetailPage />)
+    expect(await screen.findByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
+  })
+
+  it('reveals a question-only answer form through the compact header', async () => {
+    const answer = vi.fn()
+    mockUseRuntimeRuns.mockReturnValue({ runs: [{ runId: 'r', status: 'paused', canResume: true, recoverableSteps: [], pendingQuestion: { question: 'Which backend?' } }], error: '', busy: null, answers: { r: 'Redis' }, setAnswer: vi.fn(), act: answer, refresh: vi.fn() })
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+    render(<JobDetailPage />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Answer the question' }))
+    expect(screen.getByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByLabelText('Your answer')).toBeVisible()
+    expect(screen.queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Answer and resume' }))
+    expect(answer).toHaveBeenCalledWith(expect.objectContaining({ runId: 'r' }), 'answer')
+  })
+
+  it('[spec:narrated-progress/narration-is-a-third-altitude-behind-a-toggle] reveals loop graph before the remedy scrolls and leaves narrated detail preference unchanged', async () => {
+    localStorage.setItem('specrails-desktop:job-log-mode', 'narrated')
+    const rows = [{ ...mockEvents[0], event_type: 'loop_step', payload: JSON.stringify({ index: 1, kind: 'ai-step', title: 'Verify' }) }, mockEvents[0], { ...mockEvents[0], id: 3, seq: 3, event_type: 'loop_step_end', payload: JSON.stringify({ index: 1, status: 'failed', exitCode: 1 }) }]
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l', status: 'failed', failureDiagnosis: diagnosis }, events: rows }) })
+    const scroll = vi.fn(function (this: HTMLElement) {
+      expect(this).toBeVisible()
+      expect(this).toHaveAttribute('data-status', 'failed')
+      expect(screen.getByRole('tab', { name: 'Execution graph' })).toHaveAttribute('aria-selected', 'true')
+    })
+    const spy = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(scroll)
+    render(<JobDetailPage />)
+    fireEvent.click(await screen.findByTestId('failure-remedy-open-logs'))
+    await waitFor(() => expect(scroll).toHaveBeenCalled())
+    expect(localStorage.getItem('specrails-desktop:job-log-mode')).toBe('narrated')
+    fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
+    expect(screen.getByTestId('job-narration-mode-narrated')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByTestId('job-narration-mode-log'))
+    expect(screen.getByTestId('log-viewer')).toBeVisible()
+    spy.mockRestore()
+  })
+
+  it('[spec:narrated-progress/narration-is-a-third-altitude-behind-a-toggle] keeps navigation available with narration disabled', async () => {
+    narrationFlag.enabled = false
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l' }, events: mockEvents }) })
+    render(<JobDetailPage />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Log detail' }))
+    expect(screen.getByTestId('log-viewer')).toBeVisible()
+    expect(screen.queryByTestId('job-narration-mode-log')).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Execution graph' })).toBeVisible()
+  })
+
+  it('keeps explicit Log selection when status changes before late diagnosis', async () => {
+    let loadedJob = { ...mockJob, status: 'running' as JobSummary['status'] }
+    global.fetch = vi.fn().mockImplementation(async () => ({ ok: true, json: async () => ({ job: loadedJob, events: mockEvents }) }))
+    render(<JobDetailPage />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Log' }))
+    const handler = mockRegisterHandler.mock.calls.at(-1)![1]
+    let resolve!: (value: unknown) => void
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise(done => { resolve = done }))
+    act(() => handler({ type: 'queue', jobs: [{ id: mockJob.id, status: 'failed' }] }))
+    expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
+    loadedJob = { ...mockJob, status: 'failed', failureDiagnosis: diagnosis } as typeof loadedJob
+    await act(async () => resolve({ ok: true, json: async () => ({ job: loadedJob }) }))
+    expect(await screen.findByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('forces raw plain-job detail before remedy lookup and preserves not-found feedback', async () => {
+    localStorage.setItem('specrails-desktop:job-log-mode', 'narrated')
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, status: 'failed', failureDiagnosis: diagnosis }, events: mockEvents }) })
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(function (this: HTMLElement) {
+      expect(this).toBeVisible()
+      expect(this).toHaveAttribute('data-testid', 'log-viewer')
+      expect(screen.getByTestId('job-narration-mode-log')).toHaveAttribute('aria-pressed', 'true')
+    })
+    const view = render(<JobDetailPage />)
+    fireEvent.click(await screen.findByTestId('failure-remedy-open-logs'))
+    await waitFor(() => expect(scroll).toHaveBeenCalled())
+    scroll.mockRestore()
+    view.unmount()
+    const querySelector = HTMLElement.prototype.querySelector
+    const query = vi.spyOn(HTMLElement.prototype, 'querySelector').mockImplementation(function (this: HTMLElement, selector: string) {
+      return selector === '[data-run-evidence][data-active="true"]' ? null : querySelector.call(this, selector)
+    })
+    render(<JobDetailPage />)
+    fireEvent.click(await screen.findByTestId('failure-remedy-open-logs'))
+    const { toast } = await import('sonner')
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith('No log to show yet'))
+    query.mockRestore()
+  })
 
   it('shows loading state initially', () => {
     global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
@@ -494,7 +606,7 @@ describe('JobDetailPage', () => {
   })
 
   describe('Run header', () => {
-    it('renders the shared run header for running jobs with the live activity line', async () => {
+    it('[spec:live-job-status/job-status-panel-renders-for-running-jobs] renders the shared run header for running jobs with the live activity line', async () => {
       const runningJob = { ...mockJob, status: 'running' as const, finished_at: null, total_cost_usd: null }
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -716,7 +828,12 @@ describe('JobDetailPage', () => {
       expect(copied).toContain('readable output 10049')
       expect(copied).not.toContain('readable output 0\n')
       expect(copied).not.toContain('invisible raw evidence')
-    })
+      fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
+      expect(screen.getByRole('status')).toHaveTextContent('Earlier log output omitted from this view')
+      expect(screen.getByRole('status')).toBeVisible()
+      // Opening Log detail renders the retained 10k-line tail (LogViewer is not
+      // virtualized): ~1s in jsdom, past the 5s default under CI coverage.
+    }, 20_000)
 
     it('attributes a delayed live summary to its original parallel attempt', async () => {
       const starts = ['Verify A', 'Verify B'].map((title, index) => ({ ...loopEvents[1],

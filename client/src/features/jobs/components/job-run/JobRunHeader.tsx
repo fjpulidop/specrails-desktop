@@ -1,7 +1,7 @@
 import { RuntimeRecovery } from '../../../settings/components/RuntimeRecovery'
 import { RailTrack } from '../../../../components/brand/RailTrack'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ChevronDown, MessageCircleQuestion } from 'lucide-react'
+import { MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '../../../../lib/utils'
@@ -18,8 +18,7 @@ import { PipelineProgress } from '../PipelineProgress'
 import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMetrics'
 import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeExecutionEvidence'
 import { RuntimeSteering } from '../../../settings/components/RuntimeSteering'
-import { FailureDiagnosisCard } from '../../../recovery/components/FailureDiagnosisCard'
-import { availableRemedies, logTailLines, openLogsAtFailure, readFailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
+import { availableRemedies, logTailLines, openLogsAtFailure, readFailureDiagnosis, type FailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useRuntimeRuns, type RuntimeRunsState } from './useRuntimeRuns'
 import {
   answerableRun,
@@ -29,9 +28,7 @@ import {
   formatPipelineTokens,
   formatTokens,
   formatWallClock,
-  loadJobRunDetailsOpen,
   resolveActivityLabel,
-  saveJobRunDetailsOpen,
   useJobActivity,
   type JobRunSurface,
   type PipelineTotals,
@@ -49,7 +46,19 @@ const STATUS_BADGE: Record<string, { variant: BadgeVariant; labelKey: string; to
   skipped: { variant: 'queued', labelKey: 'statusLabel.skipped', tooltipKey: 'statusTooltip.skipped' },
 }
 
+export interface JobRunDetailsContext {
+  diagnosis: FailureDiagnosis | null
+  showDiagnosis: boolean
+  pendingQuestion: boolean
+  diagnosisHandlers: RemedyHandlers
+  diagnosisTail: readonly string[]
+  hasDetails: boolean
+  detailsContent: ReactNode
+  detailsRequest: number
+}
+
 export interface JobRunHeaderProps {
+  renderRunDetails?(context: JobRunDetailsContext): ReactNode
   job: JobSummary
   events: EventRow[]
   phases: PhaseMap
@@ -82,12 +91,10 @@ export interface JobRunHeaderProps {
 /**
  * The ONE header both job surfaces render (routed Job Detail page + mission-mode
  * JobDetailModal). Row 1: status · elapsed · phase · activity · steps · actions.
- * Row 2: the pipeline chips, once. A collapsed "Details" disclosure holds every
- * number — only real ones: provider-reported live counters while running, the
- * authoritative totals after exit, the runtime continuation when it exists.
- * Nothing is ever a placeholder or an estimate.
+ * Row 2: the pipeline chips, once. The surface renderer receives truthful
+ * metrics and runtime continuation content for its bounded Details panel.
  */
-export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun, onRerun, rerunBusy, onEditSpec, onOpenLogs, runtime: sharedRuntime }: JobRunHeaderProps) {
+export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun, onRerun, rerunBusy, onEditSpec, onOpenLogs, renderRunDetails, runtime: sharedRuntime }: JobRunHeaderProps) {
   const { t } = useTranslation('jobs')
   const { t: tRuntime } = useTranslation('agentRuntime')
   const { t: tRecovery } = useTranslation('recovery')
@@ -115,8 +122,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const runtime = sharedRuntime ?? ownRuntime
   const run: RuntimeRun | undefined = runtime.runs[0]
 
-  const [detailsOpen, setDetailsOpen] = useState(() => loadJobRunDetailsOpen(variant))
-  const toggleDetails = (open: boolean) => { setDetailsOpen(open); saveJobRunDetailsOpen(variant, open) }
+  const [detailsRequest, setDetailsRequest] = useState(0)
 
   // ── Phase + activity line ──────────────────────────────────────────────
   const runningPhaseLabel = useMemo(() => {
@@ -162,7 +168,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         </Button>
       )}
       {answerable && (
-        <Button size="sm" variant="outline" className="h-7 border-accent-warning/40 text-accent-warning hover:bg-accent-warning/10" onClick={() => toggleDetails(true)}>
+        <Button size="sm" variant="outline" className="h-7 border-accent-warning/40 text-accent-warning hover:bg-accent-warning/10" onClick={() => setDetailsRequest(request => request + 1)}>
           <MessageCircleQuestion className="w-3.5 h-3.5 mr-1.5" aria-hidden />
           {t('runHeader.questionPending')}
         </Button>
@@ -194,76 +200,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
     ? 'border-b border-border/30 bg-surface/30'
     : 'border-b border-border bg-background'
 
-  return (
-    <div data-testid="job-run-header" className={cn('shrink-0', frameClass)}>
-      {/* Row 1 — status · elapsed · phase · activity · steps · actions */}
-      <div className="flex items-center gap-2 flex-wrap px-3 py-2 min-w-0">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div><Badge variant={statusInfo.variant}>{t(statusInfo.labelKey)}</Badge></div>
-          </TooltipTrigger>
-          <TooltipContent>{t(statusInfo.tooltipKey)}</TooltipContent>
-        </Tooltip>
-        {job.status === 'completed' && elapsed !== '—' ? (
-          // Peak: the run arrived. Final, provider-reported numbers only —
-          // revealed at exit, never estimated while live. The mark's arrival
-          // plays once per mount (static under reduced motion).
-          <span data-testid="job-run-outcome" className="inline-flex items-center gap-2.5" title={t('statusPanel.duration')}>
-            <RailMark size={34} state="arrive" />
-            <LiveDot tone="success" pulsing={false} size="sm" aria-hidden />
-            <span className="text-display num leading-none text-foreground">{elapsed}</span>
-            {final.cost && <span className="text-label num text-muted-foreground">{final.cost}</span>}
-          <span className="sr-only"> ({t('statusPanel.duration')})</span></span>
-        ) : (
-        <span
-          className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
-          title={isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')}
-        >
-          {isRunning && <LiveDot tone="info" size="xs" aria-hidden />}
-          {elapsed}
-        {(isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')) ? <span className="sr-only"> ({isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')})</span> : null}</span>
-        )}
-        {liveLine && (
-          <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
-            {isRunning && <span aria-hidden className="shrink-0"><RailTrack running className="w-8" /></span>}
-            <span className="truncate" data-testid="job-run-activity">{liveLine}</span>
-          </span>
-        )}
-        {!liveLine && <span className="flex-1" />}
-        {stepsLabel && <span className="text-xs text-muted-foreground num shrink-0">{stepsLabel}</span>}
-        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-          {runtimeActions}
-          {typeof actions === 'function' ? actions({ diagnosisOffersRetry }) : actions}
-          {hasDetails && (
-            <button
-              type="button"
-              onClick={() => toggleDetails(!detailsOpen)}
-              aria-expanded={detailsOpen}
-              className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-surface/60 transition-colors"
-            >
-              {t('runHeader.details')}
-              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-150', detailsOpen && 'rotate-180')} aria-hidden />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Row 2 — pipeline chips, exactly once */}
-      {phaseDefinitions.length > 0 && (
-        <div className="px-3 pb-2 overflow-x-auto">
-          <PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} />
-        </div>
-      )}
-
-      {/* The terminal state of a failed or blocked run starts with its diagnosis. */}
-      {showDiagnosis && diagnosis && (
-        <div className="px-3 pb-3">
-          <FailureDiagnosisCard diagnosis={diagnosis} handlers={diagnosisHandlers} logTail={diagnosisTail} />
-        </div>
-      )}
-
-      {/* Details — collapsed by default, remembered per surface */}
-      {hasDetails && detailsOpen && (
+  const detailsContent = (
         <div data-testid="job-run-details" className="px-3 pb-3 space-y-3 border-t border-border/20 pt-3 text-xs">
           {hasLiveCounters && (
             <div>
@@ -363,8 +300,61 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
             </section>
           )}
         </div>
+  )
+
+  return (
+    <>
+    <div data-testid="job-run-header" className={cn('shrink-0', frameClass)}>
+      {/* Row 1 — status · elapsed · phase · activity · steps · actions */}
+      <div className="flex items-center gap-2 flex-wrap px-3 py-2 min-w-0">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div><Badge variant={statusInfo.variant}>{t(statusInfo.labelKey)}</Badge></div>
+          </TooltipTrigger>
+          <TooltipContent>{t(statusInfo.tooltipKey)}</TooltipContent>
+        </Tooltip>
+        {job.status === 'completed' && elapsed !== '—' ? (
+          // Peak: the run arrived. Final, provider-reported numbers only —
+          // revealed at exit, never estimated while live. The mark's arrival
+          // plays once per mount (static under reduced motion).
+          <span data-testid="job-run-outcome" className="inline-flex items-center gap-2.5" title={t('statusPanel.duration')}>
+            <RailMark size={34} state="arrive" />
+            <LiveDot tone="success" pulsing={false} size="sm" aria-hidden />
+            <span className="text-display num leading-none text-foreground">{elapsed}</span>
+            {final.cost && <span className="text-label num text-muted-foreground">{final.cost}</span>}
+          <span className="sr-only"> ({t('statusPanel.duration')})</span></span>
+        ) : (
+        <span
+          className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
+          title={isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')}
+        >
+          {isRunning && <LiveDot tone="info" size="xs" aria-hidden />}
+          {elapsed}
+        {(isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')) ? <span className="sr-only"> ({isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')})</span> : null}</span>
+        )}
+        {liveLine && (
+          <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
+            {isRunning && <span aria-hidden className="shrink-0"><RailTrack running className="w-8" /></span>}
+            <span className="truncate" data-testid="job-run-activity">{liveLine}</span>
+          </span>
+        )}
+        {!liveLine && <span className="flex-1" />}
+        {stepsLabel && <span className="text-xs text-muted-foreground num shrink-0">{stepsLabel}</span>}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          {runtimeActions}
+          {typeof actions === 'function' ? actions({ diagnosisOffersRetry }) : actions}
+        </div>
+      </div>
+
+      {/* Row 2 — pipeline chips, exactly once */}
+      {phaseDefinitions.length > 0 && (
+        <div className="px-3 pb-2 overflow-x-auto">
+          <PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} />
+        </div>
       )}
     </div>
+    {renderRunDetails?.({ diagnosis, showDiagnosis, pendingQuestion: answerable, diagnosisHandlers, diagnosisTail, hasDetails, detailsContent, detailsRequest })}
+    </>
   )
 }
 

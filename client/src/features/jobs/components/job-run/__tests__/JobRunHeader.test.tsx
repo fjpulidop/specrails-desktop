@@ -2,8 +2,16 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, within } from '../../../../../test-utils'
 import userEvent from '@testing-library/user-event'
-import { JobRunHeader } from '../JobRunHeader'
+import { JobRunHeader as Header } from '../JobRunHeader'
+import { RunDetailTabs } from '../RunDetailTabs'
+import { notifyError } from '../../../../../lib/notify-error'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../../../types'
+
+vi.mock('../../../../../lib/notify-error', () => ({ notifyError: vi.fn() }))
+
+function JobRunHeader(props: React.ComponentProps<typeof Header>) {
+  return <Header {...props} renderRunDetails={context => <RunDetailTabs {...context} job={props.job} events={props.events} surface={props.variant === 'glass' ? 'modal' : 'page'} isLoop={props.job.command.startsWith('loop:')} onOpenLogs={props.onOpenLogs ?? (() => {})} logContent={<p>Log evidence</p>} />} />
+}
 
 vi.mock('../../PipelineProgress', () => ({
   PipelineProgress: () => <div data-testid="pipeline-progress">PipelineProgress</div>,
@@ -295,12 +303,40 @@ describe('JobRunHeader', () => {
     renderHeader(failedJob, [], { projectId: 'p1' })
     await user.click(await screen.findByRole('button', { name: 'Answer the question' }))
     expect(screen.getByText('Which cache backend?')).toBeInTheDocument()
+    expect(screen.getByLabelText('Your answer')).toHaveFocus()
     const answer = screen.getByRole('button', { name: 'Answer and resume' })
     expect(answer).toBeDisabled()
     await user.type(screen.getByLabelText('Your answer'), 'Redis')
     await user.click(answer)
     expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/job-1/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ answer: 'Redis' }) }))
     await waitFor(() => expect(screen.getByLabelText('Your answer')).toHaveValue(''))
+  })
+
+  it('keeps chrome compact without an inline diagnosis or Details', () => {
+    renderHeader(failedJob)
+    const chrome = screen.getByTestId('job-run-header')
+    expect(within(chrome).queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
+    expect(within(chrome).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Log' })).toBeVisible()
+  })
+
+  it('reopens a question repeatedly and preserves failed answer drafts without duplicate polling', async () => {
+    const user = userEvent.setup()
+    const pendingQuestion = { stepId: 'architect', requestedAt: '', question: 'Which cache?' }
+    vi.mocked(fetch).mockImplementation(async (_input, init) => init?.method === 'POST' ? response({ message: 'Answer rejected' }, false) : response({ runs: [run({ pendingQuestion })] }))
+    renderHeader(failedJob, [], { projectId: 'p1' })
+    const questionButton = await screen.findByRole('button', { name: 'Answer the question' })
+    await user.click(questionButton)
+    expect(screen.getByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('button', { name: 'Details' }))
+    await user.click(questionButton)
+    await user.type(screen.getByLabelText('Your answer'), 'Redis')
+    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ detail: 'Answer rejected' })))
+    await user.click(screen.getByRole('tab', { name: 'Log' }))
+    await user.click(screen.getByRole('tab', { name: 'Failure reasons' }))
+    expect(screen.getByLabelText('Your answer')).toHaveValue('Redis')
+    expect(vi.mocked(fetch).mock.calls.filter(([url, init]) => String(url).endsWith('/agent-runtime/runs/job-2') && !init?.method)).toHaveLength(1)
   })
 
   it('renders the runtime metrics and evidence disclosures inside Details', async () => {
@@ -362,6 +398,8 @@ describe('JobRunHeader failure diagnosis', () => {
     const card = screen.getByTestId('failure-diagnosis-card')
     await user.click(within(card).getByRole('button', { name: 'Edit spec and relaunch' }))
     await user.click(within(card).getByRole('button', { name: 'Open logs at the failure' }))
+    await waitFor(() => expect(onOpenLogs).toHaveBeenCalledTimes(1))
+    await user.click(screen.getByRole('tab', { name: 'Failure reasons' }))
     await user.click(within(card).getByRole('button', { name: 'Run again' }))
     expect(onEditSpec).toHaveBeenCalledTimes(1)
     expect(onOpenLogs).toHaveBeenCalledTimes(1)

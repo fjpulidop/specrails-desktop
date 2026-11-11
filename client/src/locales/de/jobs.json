@@ -372,5 +372,13 @@
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Bisher vom Anbieter gemeldet; die endgültigen Zahlen kommen, wenn der Job endet.",
     "questionPending": "Frage beantworten"
+  },
+  "runDetail": {
+    "failure": "Fehlerursachen",
+    "log": "Protokoll",
+    "graph": "Ausführungsgraph",
+    "detail": "Protokolldetails",
+    "navigation": "Ausführungsdetails",
+    "sections": "Protokollbereiche"
   }
 }
