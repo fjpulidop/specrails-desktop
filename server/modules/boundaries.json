@@ -108,6 +108,7 @@
       "runtime/agent-runtime-accounting.ts": [],
       "runtime/agent-runtime-bridge.ts": [
         "../../../core-node-runtime",
+        "../../../util/desktop-core-env",
         "../../../util/win-spawn",
         "../../loops/runtime/loop-definition-run",
         "../../loops/runtime/loop-run-manager",
