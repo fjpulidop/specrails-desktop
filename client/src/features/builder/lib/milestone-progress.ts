@@ -66,6 +66,7 @@ export interface MilestoneChainSnapshot {
   currentRailIndex: number | null
   headBranch: string | null
   launched: MilestoneChainLaunched[]
+  createdAt: string | null
   updatedAt: string
 }
 
@@ -163,6 +164,7 @@ export function coerceChain(raw: unknown): MilestoneChainSnapshot | null {
     currentRailIndex: typeof o.currentRailIndex === 'number' ? o.currentRailIndex : null,
     headBranch: str(o.headBranch),
     launched,
+    createdAt: typeof o.createdAt === 'string' && Number.isFinite(Date.parse(o.createdAt)) ? o.createdAt : null,
     updatedAt: str(o.updatedAt) ?? '',
   }
 }

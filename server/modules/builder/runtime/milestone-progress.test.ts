@@ -123,11 +123,11 @@ describe('deriveMilestoneProgress — counts and state', () => {
     const tickets = [ticket(1, 'on_review'), ticket(2, 'todo')]
     const chain: MilestoneChainSnapshot = {
       id: 'c1', milestoneN: 1, mode: 'sequential', status: 'waiting', pauseReason: null,
-      nextChunk: 1, totalChunks: 2, currentRailIndex: 2, headBranch: 'feat/1-batch', launched: [], updatedAt: 'x',
+      nextChunk: 1, totalChunks: 2, currentRailIndex: 2, headBranch: 'feat/1-batch', autoAdvance: true, launched: [], createdAt: '2026-09-04T10:00:00.000Z', updatedAt: '2026-09-04T10:38:00.000Z',
     }
     const [m1] = deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [chain] })
     expect(m1.state).toBe('running')
-    expect(m1.chain?.id).toBe('c1')
+    expect(m1.chain).toEqual(chain)
     const paused = { ...chain, status: 'paused' as const }
     expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [paused] })[0].state).toBe('committed')
   })
@@ -177,7 +177,7 @@ describe('deriveMilestoneProgress — rails', () => {
     const tickets = [1, 2, 3, 4, 5, 6].map((id) => ticket(id, id <= 3 ? 'on_review' : 'in_progress'))
     const chain: MilestoneChainSnapshot = {
       id: 'c1', milestoneN: 1, mode: 'sequential', status: 'waiting', pauseReason: null, nextChunk: 2, totalChunks: 3,
-      currentRailIndex: 5, headBranch: 'feat/1', updatedAt: 'x',
+      currentRailIndex: 5, headBranch: 'feat/1', autoAdvance: true, createdAt: '2026-09-04T10:00:00.000Z', updatedAt: '2026-09-04T10:38:00.000Z',
       launched: [{ chunk: 1, railIndex: 7, ticketIds: [1, 2, 3], runIds: ['r1'], deliveryId: 'd7' }, { chunk: 2, railIndex: 5, ticketIds: [4, 5, 6], runIds: ['r2'], deliveryId: 'd5' }],
     }
     const [m1] = deriveMilestoneProgress({
@@ -372,12 +372,14 @@ describe('MilestoneProgressBroadcaster', () => {
 
   it('persists a newly-done milestone ONCE and announces it after the progress', () => {
     const persistDone = vi.fn(() => true)
-    const read = vi.fn(() => ({ blueprint: blueprint(), progress: [progress('done')] }))
+    const chain = { id: 'c1', milestoneN: 1, mode: 'sequential' as const, status: 'completed' as const, pauseReason: null, autoAdvance: true, nextChunk: 1, totalChunks: 1, currentRailIndex: null, headBranch: null, launched: [], createdAt: '2026-09-04T10:00:00.000Z', updatedAt: '2026-09-04T10:38:00.000Z' }
+    const read = vi.fn(() => ({ blueprint: blueprint(), progress: [{ ...progress('done'), chain } as MilestoneProgress] }))
     const { b, sent } = make(read, persistDone)
     b.flush()
     expect(persistDone).toHaveBeenCalledWith('m1')
     expect(sent.map((m) => m.type)).toEqual(['blueprint.milestone_progress', 'blueprint.milestone_completed'])
     expect((sent[0] as { progress: MilestoneProgress[] }).progress[0].storedStatus).toBe('done')
+    expect(JSON.parse(JSON.stringify((sent[0] as { progress: MilestoneProgress[] }).progress[0].chain))).toEqual(chain)
     expect(sent[1]).toMatchObject({ milestoneId: 'm1', n: 1, title: 'Walking skeleton' })
     // Already stored done ⇒ no second write, no second announcement.
     read.mockReturnValue({ blueprint: blueprint(), progress: [progress('done', 'done')] })

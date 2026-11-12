@@ -29,3 +29,7 @@ Production milestone chains integrate each delivery through the guarded local
 merge decision before allocating the next spec worktree. Integration failures
 retain the delivery for retry; restart replays pending integration. See
 [project builder](../../../docs/internals/project-builder.md#incremental-spec-integration).
+
+Chain snapshots expose `createdAt` from the existing `milestone_launch_chains.created_at`
+column alongside `updatedAt`, including progress and WebSocket projections. This
+additive field requires no migration.

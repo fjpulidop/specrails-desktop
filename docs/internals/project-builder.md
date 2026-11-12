@@ -643,7 +643,15 @@ execution (one spec per rail) and can use Kimi.
   (`useMilestoneNotifications`): later chunk launched, chain paused
   (+ Resume), wave checkpoint (once per rail: **Launch next rail** +
   **Auto-continue** actions), milestone delivered (+ Review), milestone
-  complete. i18n `builder:milestoneProgress.chain.*` / `toast.*` ×8.
+  complete. All five share `<Project> · <Milestone> — <event>` and a secondary
+  status/total-elapsed line, localized through `builder:milestoneProgress.toast.*`
+  in all eight locales. Totals are static, measured from chain `createdAt`;
+  delivered/completed freeze at the associated snapshot's `updatedAt`. The
+  store stamps completion and terminal controls reject further updates, but
+  delivered progress may precede integration completion: its observed update is
+  the delivery end sample. Missing project/start/end context omits that segment.
+  Existing ids, lifetimes, transition guards and actions remain unchanged. i18n
+  `builder:milestoneProgress.chain.*` / `toast.*` ×8.
 - **Board classification**: new Builder tickets use
   `source='project-builder'` + `created_by='project-builder'`. For projects
   created before that source existed, `DashboardPage` also treats

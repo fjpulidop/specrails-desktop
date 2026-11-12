@@ -321,6 +321,28 @@
       "cancelFailed": "チェーンをキャンセルできませんでした"
     },
     "toast": {
+      "title": "{{milestone}} — {{event}}",
+      "projectTitle": "{{project}} · {{title}}",
+      "events": {
+        "chunk_launched": "レールを起動",
+        "checkpoint": "レールを納品。次のレールを起動しますか？",
+        "paused": "一時停止",
+        "delivered": "納品済み",
+        "completed": "完了 — すべての仕様をマージ済み",
+        "chunk_launchedWithProgress": "レール {{k}}/{{n}} を起動",
+        "checkpointWithProgress": "レール {{k}}/{{n}} を納品。次のレールを起動しますか？",
+        "pausedWithReason": "一時停止 — {{reason}}",
+        "deliveredWithCount": "納品済み — {{count}} 件の仕様がレビュー待ち"
+      },
+      "statuses": {
+        "chunk_launched": "実行中",
+        "checkpoint": "承認待ち",
+        "paused": "一時停止",
+        "delivered": "納品済み — レビュー待ち",
+        "completed": "完了"
+      },
+      "statusElapsed": "{{status}} · 合計 {{elapsed}}",
+      "completedIn": "{{elapsed}} で完了",
       "launched": "{{milestone}} を起動 — スペック 1/{{n}} がレール上にあります。以降のスペックはそれぞれ 1 レールで自動的に続きます",
       "launchedAll": "{{milestone}} を起動 — 1 レールに 1 スペック（合計 {{n}}）",
       "chainActive": "{{milestone}} はすでに起動中です — ブループリントパネルを確認",

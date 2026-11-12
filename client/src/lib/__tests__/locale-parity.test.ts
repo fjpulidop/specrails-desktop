@@ -70,7 +70,7 @@ describe('locale key parity', () => {
         expect(langNs).toEqual(enNs)
       })
 
-      it('mirrors the English key tree per namespace', () => {
+      it('[spec:milestone-launch-chain/milestone-notification-localization-parity] mirrors the English key tree per namespace', () => {
         for (const enFile of enFiles) {
           const counterpart = files.find((f) => f.lang === lang && f.ns === enFile.ns)
           if (!counterpart) continue // namespace mismatch already reported above
@@ -97,7 +97,7 @@ describe('locale key parity', () => {
         }
       })
 
-      it('preserves interpolation placeholders from English', () => {
+      it('[spec:milestone-launch-chain/milestone-notification-localization-parity] preserves interpolation placeholders from English', () => {
         const placeholderRe = /\{\{[^}]+\}\}/g
         for (const enFile of enFiles) {
           const counterpart = files.find((f) => f.lang === lang && f.ns === enFile.ns)

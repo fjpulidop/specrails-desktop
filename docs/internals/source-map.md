@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1372 source/build files. Nearby tests are linked where names
+Includes 1374 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -249,8 +249,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [blueprint-draft.ts](../../client/src/features/builder/lib/blueprint-draft.ts) · [test](../../client/src/features/builder/lib/__tests__/blueprint-draft.test.ts)
 - [blueprint-readiness.ts](../../client/src/features/builder/lib/blueprint-readiness.ts) · [test](../../client/src/features/builder/lib/__tests__/blueprint-readiness.test.ts)
 - [blueprint-spec-quality.ts](../../client/src/features/builder/lib/blueprint-spec-quality.ts) · [test](../../client/src/features/builder/lib/__tests__/blueprint-spec-quality.test.ts)
+- [format-duration.ts](../../client/src/features/builder/lib/format-duration.ts) · [test](../../client/src/features/builder/lib/format-duration.test.ts)
 - [milestone-launch.ts](../../client/src/features/builder/lib/milestone-launch.ts) · [test](../../client/src/features/builder/lib/__tests__/milestone-launch.test.ts)
 - [milestone-progress.ts](../../client/src/features/builder/lib/milestone-progress.ts) · [test](../../client/src/features/builder/lib/__tests__/milestone-progress.test.ts)
+- [milestone-toast.ts](../../client/src/features/builder/lib/milestone-toast.ts) · [test](../../client/src/features/builder/lib/milestone-toast.test.ts)
 
 ## client/src/features/chat/components
 

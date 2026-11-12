@@ -88,6 +88,7 @@ export interface MilestoneChainSnapshot {
   currentRailIndex: number | null
   headBranch: string | null
   launched: MilestoneChainLaunched[]
+  createdAt: string
   updatedAt: string
 }
 

@@ -16,7 +16,7 @@ function rail(over: Partial<MilestoneRail> = {}): MilestoneRail {
 }
 const delivery = (decision: string) => ({ id: 'd-3', railIndex: 3, ticketIds: [1, 2, 3], decision, branch: 'feat/1', baseBranch: 'main', prUrl: null, prNumber: null, prState: 'none', createdAt: null })
 function chain(over: Partial<MilestoneChainSnapshot> = {}): MilestoneChainSnapshot {
-  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', launched: [], updatedAt: 'x', ...over }
+  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', launched: [], createdAt: null, updatedAt: 'x', ...over }
 }
 
 describe('MilestoneProgressBar', () => {

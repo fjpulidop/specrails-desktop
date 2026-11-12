@@ -193,6 +193,7 @@ export function toChainSnapshot(row: MilestoneChainRow): MilestoneChainSnapshot 
     currentRailIndex: row.current_rail_index,
     headBranch: row.head_branch,
     launched: parseLaunched(row),
+    createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
 }

@@ -321,6 +321,28 @@
       "cancelFailed": "无法取消该链"
     },
     "toast": {
+      "title": "{{milestone}} — {{event}}",
+      "projectTitle": "{{project}} · {{title}}",
+      "events": {
+        "chunk_launched": "轨道已启动",
+        "checkpoint": "轨道已交付。启动下一条轨道？",
+        "paused": "已暂停",
+        "delivered": "已交付",
+        "completed": "已完成 — 所有规格已合并",
+        "chunk_launchedWithProgress": "第 {{k}}/{{n}} 条轨道已启动",
+        "checkpointWithProgress": "第 {{k}}/{{n}} 条轨道已交付。启动下一条轨道？",
+        "pausedWithReason": "已暂停 — {{reason}}",
+        "deliveredWithCount": "已交付 — {{count}} 个规格等待审核"
+      },
+      "statuses": {
+        "chunk_launched": "运行中",
+        "checkpoint": "等待批准",
+        "paused": "已暂停",
+        "delivered": "已交付 — 等待审核",
+        "completed": "已完成"
+      },
+      "statusElapsed": "{{status}} · 总计 {{elapsed}}",
+      "completedIn": "完成用时 {{elapsed}}",
       "launched": "{{milestone}} 已启动 — 第 1/{{n}} 个规格已在其轨道上；后续规格将自动跟进，每个一条轨道",
       "launchedAll": "{{milestone}} 已启动 — 每条轨道一个规格（共 {{n}} 个）",
       "chainActive": "{{milestone}} 正在启动 — 请查看蓝图面板",

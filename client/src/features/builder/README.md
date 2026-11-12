@@ -34,3 +34,31 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/builder`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+Chain creation timestamps normalize to `createdAt: string | null`. Older servers
+and malformed timestamps retain the chain with a null start, so notification
+elapsed time can be omitted safely.
+
+Notification durations are static compact totals: seconds below one minute,
+whole minutes below one hour, then hours with two-digit minutes (`2h 05m`).
+`formatElapsed` truncates fractions and clamps negative/nonfinite input to zero.
+
+`formatMilestoneToast` composes localized project/milestone/event titles and
+status/elapsed descriptions. Optional rail progress, pause reason and review
+count retain event detail. Blank projects and invalid starts omit those segments;
+delivered/completed events also require a valid end and never substitute receipt
+time. Event semantics determine status, so delivered remains awaiting review
+even when its launch chain has completed.
+
+`useMilestoneNotifications` accepts the existing optional `projectsById` map
+from App, reading refreshed names through a ref. Timing associations are scoped
+to project and milestone and seeded by both chain and progress frames (including
+initial/equal-state progress without replay). Authoritative null chains clear
+stale timing; new chains replace it. All five notifications use
+`<Project> · <Milestone> — <event>` plus status and a static total, preserving
+their existing ids, lifetimes and actions. Active events sample receipt time;
+delivered/completed use the observed snapshot's `updatedAt`. The store updates
+that timestamp at chain completion and terminal controls reject further changes.
+Delivery can precede integration completion, so its duration freezes at that
+delivery progress sample rather than implying a later integration end. Missing
+project/start/end context is omitted without inventing timing.
