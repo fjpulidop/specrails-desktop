@@ -71,6 +71,7 @@ vi.mock('sonner', () => ({
 
 import * as agentApi from '../../features/missions/lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../features/missions/context/AgentChatContext'
+import { composerDrafts, writeComposerDraft, __clearComposerDrafts } from '../../features/missions/lib/agent-composer-drafts'
 
 function Harness() {
   const agentChat = useAgentChat()
@@ -81,6 +82,8 @@ function Harness() {
       <span data-testid="active-pin">{agentChat.active?.pinned_project_id ?? ''}</span>
       <button onClick={agentChat.open}>open</button>
       <button onClick={() => void agentChat.selectConversation('c1')}>select</button>
+      <button onClick={() => void agentChat.selectConversation('c2')}>select other</button>
+      <button onClick={() => agentChat.beginMissionSelection?.()}>begin selection</button>
       <button onClick={() => void agentChat.send('hola')}>send</button>
     </div>
   )
@@ -126,6 +129,70 @@ describe('Agent Mode project binding', () => {
 
     await waitFor(() => expect(agentApi.patchAgentConversation).toHaveBeenCalledWith('c1', { pinnedProjectId: 'p2' }))
     await waitFor(() => expect(screen.getByTestId('active-pin').textContent).toBe('p2'))
+  })
+
+  it('[spec:mission-project-follow/the-switch-never-alters-pins-or-user-work] does not re-pin the outgoing empty mission when the project switch precedes the selection', async () => {
+    mountProjectId = 'p1'
+    conv.pinned_project_id = 'p1'
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    vi.mocked(agentApi.patchAgentConversation).mockClear()
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => ({
+      conversation: id === 'c2' ? { ...conv, id: 'c2', pinned_project_id: 'p2' } : conv,
+      messages: [],
+    }))
+
+    // Real order of useOpenMission: mark, move the project, then select — the project change lands first.
+    await act(async () => { fireEvent.click(screen.getByText('begin selection')) })
+    await moveProject('p2')
+    await act(async () => { fireEvent.click(screen.getByText('select other')) })
+
+    expect(agentApi.patchAgentConversation).not.toHaveBeenCalled()
+    expect(screen.getByTestId('draft-pin').textContent).toBe('')
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c2'))
+    expect(screen.getByTestId('active-pin').textContent).toBe('p2')
+  })
+
+  it('[spec:mission-project-follow/the-switch-never-alters-pins-or-user-work] does not re-pin when the mission is focused in a split pane (no selectConversation call)', async () => {
+    mountProjectId = 'p1'
+    conv.pinned_project_id = 'p1'
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    vi.mocked(agentApi.patchAgentConversation).mockClear()
+
+    await act(async () => { fireEvent.click(screen.getByText('begin selection')) })
+    await moveProject('p2')
+
+    expect(agentApi.patchAgentConversation).not.toHaveBeenCalled()
+    expect(screen.getByTestId('draft-pin').textContent).toBe('')
+    // The mark is consumed: a later plain project change re-pins as before.
+    await moveProject('p3')
+    await waitFor(() => expect(agentApi.patchAgentConversation).toHaveBeenCalledWith('c1', { pinnedProjectId: 'p3' }))
+  })
+
+  it('[spec:mission-project-follow/the-switch-never-alters-pins-or-user-work] keeps an unsent composer draft when the app switches project away from the mission and back', async () => {
+    mountProjectId = 'p1'
+    conv.pinned_project_id = 'p1'
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    writeComposerDraft('c1', 'unsent prompt', [])
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => ({
+      conversation: id === 'c2' ? { ...conv, id: 'c2', pinned_project_id: 'p2' } : conv,
+      messages: [],
+    }))
+
+    await act(async () => { fireEvent.click(screen.getByText('select other')) })
+    await moveProject('p2')
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c2'))
+    await act(async () => { fireEvent.click(screen.getByText('select')) })
+    await moveProject('p1')
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+
+    expect(composerDrafts.get('c1')).toBe('unsent prompt')
+    __clearComposerDrafts()
   })
 
   it('leaves a mission that already carries messages untouched', async () => {

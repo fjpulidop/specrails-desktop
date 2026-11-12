@@ -8,13 +8,17 @@ import type { AgentConversation } from '../../features/missions/lib/agent-api'
 
 const mockProjects: DesktopProject[] = [
   { id: 'proj-1', slug: 'proj-1', name: 'Project Alpha', path: '/alpha', db_path: '/alpha/.db', added_at: '', last_seen_at: '' },
+  { id: 'proj-2', slug: 'proj-2', name: 'Project Beta', path: '/beta', db_path: '/beta/.db', added_at: '', last_seen_at: '' },
 ]
+
+// Mutable so tests can move the active project the way a real switch would.
+const desktopState = { activeProjectId: 'proj-1' }
 
 const mockSetActiveProjectId = vi.fn()
 vi.mock('../../hooks/useDesktop', () => ({
   useDesktop: () => ({
     projects: mockProjects,
-    activeProjectId: 'proj-1',
+    activeProjectId: desktopState.activeProjectId,
     setActiveProjectId: mockSetActiveProjectId,
     removeProject: vi.fn(),
     isLoading: false,
@@ -44,6 +48,7 @@ function conv(id: string, title: string | null, pinned: string | null): AgentCon
 const mockDeleteConversation = vi.fn((): Promise<void> => Promise.resolve())
 const mockSelectConversation = vi.fn(() => Promise.resolve())
 const mockToggleFavoriteConversation = vi.fn()
+const mockSetPinnedProject = vi.fn()
 
 // Mutable so individual tests can activate a conversation / streaming state.
 const agentChatState: {
@@ -64,7 +69,12 @@ const agentChatState: {
 
 vi.mock('../../features/missions/context/AgentChatContext', () => ({
   useAgentChat: () => ({
-    conversations: [conv('c-1', 'Fix the build', 'proj-1'), conv('c-2', null, null)],
+    conversations: [
+      conv('c-1', 'Fix the build', 'proj-1'),
+      conv('c-2', null, null),
+      conv('c-3', 'Beta mission', 'proj-2'),
+      conv('c-4', 'Ghost mission', 'proj-gone'),
+    ],
     active: agentChatState.active,
     isStreaming: agentChatState.active ? agentChatState.streamingIds.has(agentChatState.active.id) : false,
     streamingConversationIds: agentChatState.streamingIds,
@@ -76,6 +86,7 @@ vi.mock('../../features/missions/context/AgentChatContext', () => ({
     deleteConversation: mockDeleteConversation,
     toggleFavoriteConversation: mockToggleFavoriteConversation,
     startNewConversation: vi.fn(),
+    setPinnedProject: mockSetPinnedProject,
   }),
 }))
 
@@ -100,6 +111,7 @@ function renderCollapsed() {
 beforeEach(() => {
   window.localStorage.clear()
   vi.clearAllMocks()
+  desktopState.activeProjectId = 'proj-1'
   agentChatState.active = null
   agentChatState.streamingIds = new Set()
   agentChatState.unreadIds = new Set()
@@ -217,6 +229,58 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     renderExpanded()
     fireEvent.click(screen.getByText('Fix the build'))
     expect(mockSelectConversation).toHaveBeenCalledWith('c-1')
+  })
+
+  describe('selecting a mission follows its pinned project', () => {
+    const openBetaMission = () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Expand Project Beta' }))
+      return screen.getByText('Beta mission')
+    }
+
+    it('[spec:mission-project-follow/selecting-a-mission-activates-its-pinned-project] switches the active project to the mission\'s pinned project and selects it', () => {
+      renderExpanded()
+      fireEvent.click(openBetaMission())
+      expect(mockSetActiveProjectId).toHaveBeenCalledWith('proj-2')
+      expect(mockSelectConversation).toHaveBeenCalledWith('c-3')
+    })
+
+    it('[spec:mission-project-follow/selection-leaves-the-project-unchanged-when-there-is-nothing-to-switch-to] does not switch for a mission of the already-active project', () => {
+      renderExpanded()
+      fireEvent.click(screen.getByText('Fix the build'))
+      expect(mockSetActiveProjectId).not.toHaveBeenCalled()
+      expect(mockSelectConversation).toHaveBeenCalledWith('c-1')
+    })
+
+    it('[spec:mission-project-follow/selection-leaves-the-project-unchanged-when-there-is-nothing-to-switch-to] does not switch for a Home mission and still opens it', () => {
+      renderExpanded()
+      fireEvent.click(screen.getByRole('button', { name: 'Unassigned missions' }))
+      fireEvent.click(screen.getByText('Untitled'))
+      expect(mockSetActiveProjectId).not.toHaveBeenCalled()
+      expect(mockSelectConversation).toHaveBeenCalledWith('c-2')
+    })
+
+    it('[spec:mission-project-follow/selection-leaves-the-project-unchanged-when-there-is-nothing-to-switch-to] does not switch for an unregistered project and still opens the mission', () => {
+      renderExpanded()
+      fireEvent.click(screen.getByRole('button', { name: 'Unassigned missions' }))
+      fireEvent.click(screen.getByText('Ghost mission'))
+      expect(mockSetActiveProjectId).not.toHaveBeenCalled()
+      expect(mockSelectConversation).toHaveBeenCalledWith('c-4')
+    })
+
+    it('[spec:mission-project-follow/selecting-a-mission-activates-its-pinned-project] ends on the last selected mission\'s project for rapid A to B to A selections', () => {
+      const view = render(<ArcSidebar {...defaultProps} />)
+      fireEvent.click(openBetaMission())
+      desktopState.activeProjectId = 'proj-2'
+      view.rerender(<ArcSidebar {...defaultProps} />)
+      fireEvent.click(screen.getByText('Fix the build'))
+      expect(mockSetActiveProjectId.mock.calls).toEqual([['proj-2'], ['proj-1']])
+    })
+
+    it('[spec:mission-project-follow/the-switch-never-alters-pins-or-user-work] never rewrites a mission pin', () => {
+      renderExpanded()
+      fireEvent.click(openBetaMission())
+      expect(mockSetPinnedProject).not.toHaveBeenCalled()
+    })
   })
 
   it('sweeps the title shimmer while the active conversation streams', () => {

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1372 source/build files. Nearby tests are linked where names
+Includes 1373 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -664,6 +664,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-window-controller.ts](../../client/src/features/missions/lib/mission-window-controller.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-window-controller.test.ts)
 - [mission-windows.ts](../../client/src/features/missions/lib/mission-windows.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-windows.test.ts)
 - [pr-ci-steps.ts](../../client/src/features/missions/lib/pr-ci-steps.ts)
+- [resolve-mission-project-switch.ts](../../client/src/features/missions/lib/resolve-mission-project-switch.ts) · [test](../../client/src/features/missions/lib/resolve-mission-project-switch.test.ts)
 - [stream-markdown-blocks.ts](../../client/src/features/missions/lib/stream-markdown-blocks.ts) · [test](../../client/src/features/missions/lib/__tests__/stream-markdown-blocks.test.ts)
 - [subagent-result.ts](../../client/src/features/missions/lib/subagent-result.ts) · [test](../../client/src/features/missions/lib/__tests__/subagent-result.test.ts)
 
