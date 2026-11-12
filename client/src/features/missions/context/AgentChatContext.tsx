@@ -392,6 +392,8 @@ export interface AgentChatContextValue {
   selectConversation: (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal; placeRestore?: boolean }) => Promise<void>
   /** Warm a mission's snapshot (hover/focus intent) so opening it paints at once. */
   prefetchConversation?: (id: string) => void
+  /** Mark that the next active-project change follows a mission selection (call before `setActiveProjectId`, in the same handler). */
+  beginMissionSelection?: () => void
   deleteConversation: (id: string) => Promise<void>
   /** Rename a conversation (optimistic; blank clears to auto-title). */
   renameConversation: (id: string, title: string) => Promise<void>
@@ -1711,10 +1713,17 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   // invariant regardless of which surface moved it — sidebar, command palette,
   // a ref chip, or a minimized-chat restore.
   const lastBoundProjectIdRef = useRef<string | null | undefined>(undefined)
+  // A project change caused by selecting another mission follows that mission's pin;
+  // it must not re-pin the mission being left (or the draft pin).
+  const pendingSelectionRef = useRef(false)
   useEffect(() => {
     const previous = lastBoundProjectIdRef.current
     lastBoundProjectIdRef.current = activeProjectId
     if (previous === undefined || previous === activeProjectId) return
+    if (pendingSelectionRef.current) {
+      pendingSelectionRef.current = false
+      return
+    }
     if (secondaryWindow || fixedConversationId || uiMode !== 'agent' || !activeProjectId) return
     if (!active) {
       setDraftPinnedProjectId(activeProjectId)
@@ -1724,6 +1733,8 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     if (active.pinned_project_id === activeProjectId) return
     void patchActive({ pinnedProjectId: activeProjectId })
   }, [activeProjectId, uiMode, active, patchActive, secondaryWindow, fixedConversationId])
+
+  const beginMissionSelection = useCallback(() => { pendingSelectionRef.current = true }, [])
 
   const startNewConversation = useCallback((projectId?: string | null) => {
     if (secondaryWindow || fixedConversationId) return
@@ -1763,7 +1774,12 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     if (!fixedConversationId && !secondaryWindow && !options?.windowRestore && await windowsRef.current.focus(id)) return
     if (options?.signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')
     exitBuilderMode()
-    await loadConversation(id, options?.signal)
+    pendingSelectionRef.current = true
+    try {
+      await loadConversation(id, options?.signal)
+    } finally {
+      pendingSelectionRef.current = false
+    }
     if (options?.windowRestore && uiMode !== 'agent') setVisibility('open')
   }, [loadConversation, exitBuilderMode, secondaryWindow, uiMode, fixedConversationId])
 
@@ -1869,7 +1885,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, prefetchConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
+    selectConversation, prefetchConversation, beginMissionSelection, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
     resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
     builderMode: { active: builderActive, enter: enterBuilderMode, exit: exitBuilderMode, session: builderSession },
   }), [
@@ -1881,7 +1897,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, prefetchConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
+    selectConversation, prefetchConversation, beginMissionSelection, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
     resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
   ])
 

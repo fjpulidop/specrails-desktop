@@ -236,3 +236,7 @@ A streamed token must never re-render anything but the text it extends. The rule
 Run the adjacent tests with `npm run test --prefix client -- src/features/missions`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+Selecting a mission from the sidebar (`hooks/useOpenMission.ts`) moves the app's active
+project to the mission's pinned project when it is registered and differs from the current
+one (`lib/resolve-mission-project-switch.ts`); Home and unregistered pins leave it unchanged.
