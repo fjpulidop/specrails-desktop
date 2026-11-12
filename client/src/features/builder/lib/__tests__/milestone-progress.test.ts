@@ -22,6 +22,17 @@ function m(over: Partial<MilestoneProgress> = {}): MilestoneProgress {
 }
 
 describe('milestone-progress (client model)', () => {
+  it.each([
+    ['2026-09-04T10:00:00.000Z', '2026-09-04T10:00:00.000Z'],
+    [undefined, null], [null, null], ['', null], ['invalid', null], [42, null],
+  ])('normalizes chain creation time %s without losing chain data', (createdAt, expected) => {
+    const raw = { id: 'c1', status: 'running', milestoneN: 1, nextChunk: 2, totalChunks: 3, updatedAt: 'later', createdAt }
+    const parsed = coerceChain(raw)!
+    expect(parsed).toMatchObject({ id: 'c1', status: 'running', milestoneN: 1, nextChunk: 2, totalChunks: 3, updatedAt: 'later', createdAt: expected })
+    expect(coerceMilestoneProgress([{ ...m(), chain: raw }])[0].chain).toEqual(parsed)
+    expect(parsed).toEqual({ ...coerceChain({ ...raw, createdAt: undefined }), createdAt: expected })
+  })
+
   it('progressSegments carves failed out of todo and skips zero segments', () => {
     const segs = progressSegments({ total: 8, done: 2, onReview: 3, inProgress: 1, todo: 2, failed: 1 })
     expect(segs.map((s) => [s.key, s.count])).toEqual([['done', 2], ['onReview', 3], ['inProgress', 1], ['failed', 1], ['todo', 1]])
@@ -33,7 +44,7 @@ describe('milestone-progress (client model)', () => {
   it('launchable = pending specs and no live/paused chain', () => {
     expect(isMilestoneLaunchable(m())).toBe(true)
     expect(isMilestoneLaunchable(m({ counts: { total: 3, done: 3, onReview: 0, inProgress: 0, todo: 0, failed: 0 } }))).toBe(false)
-    const chain = { id: 'c', milestoneN: 1, mode: 'sequential' as const, status: 'waiting' as const, pauseReason: null, nextChunk: 1, totalChunks: 3, currentRailIndex: null, headBranch: null, launched: [], updatedAt: '' }
+    const chain = { id: 'c', milestoneN: 1, mode: 'sequential' as const, autoAdvance: true, status: 'waiting' as const, pauseReason: null, nextChunk: 1, totalChunks: 3, currentRailIndex: null, headBranch: null, launched: [], createdAt: null, updatedAt: '' }
     expect(isMilestoneLaunchable(m({ chain }))).toBe(false)
     expect(chainIsLive(chain)).toBe(true)
     expect(isMilestoneLaunchable(m({ chain: { ...chain, status: 'paused' } }))).toBe(false)
@@ -53,7 +64,7 @@ describe('milestone-progress (client model)', () => {
 
   it('stackedHeadDeliveryIds lists every launched delivery a LATER chunk was built on', () => {
     const chain = {
-      id: 'c', milestoneN: 1, mode: 'sequential' as const, status: 'running' as const, pauseReason: null, nextChunk: 3, totalChunks: 3, currentRailIndex: 5, headBranch: 'b', updatedAt: '',
+      id: 'c', milestoneN: 1, mode: 'sequential' as const, autoAdvance: true, status: 'running' as const, pauseReason: null, nextChunk: 3, totalChunks: 3, currentRailIndex: 5, headBranch: 'b', createdAt: null, updatedAt: '',
       launched: [
         { chunk: 2, railIndex: 4, ticketIds: [4], runIds: [], deliveryId: 'd2' },
         { chunk: 1, railIndex: 3, ticketIds: [1], runIds: [], deliveryId: 'd1' },

@@ -67,10 +67,10 @@ describe('milestone-chain-store', () => {
     expect(listChainsTouchingDelivery(db, 'nope')).toEqual([])
   })
 
-  it('snapshot projection carries total chunks and launched entries', () => {
+  it('[spec:milestone-launch-chain/chain-creation-timestamp-compatibility] snapshot projection carries total chunks and launched entries', () => {
     const row = seed()
-    updateChain(db, row.id, 'running', { status: 'waiting', nextChunk: 1, currentRailIndex: 4, headBranch: 'feat/1', launched: [{ chunk: 1, railIndex: 4, ticketIds: [1, 2, 3], runIds: ['r'], deliveryId: 'd' }] })
-    expect(toChainSnapshot(getChain(db, row.id)!)).toMatchObject({ milestoneN: 1, mode: 'sequential', status: 'waiting', nextChunk: 1, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1', pauseReason: null })
+    updateChain(db, row.id, 'running', { status: 'waiting', nextChunk: 1, currentRailIndex: 4, headBranch: 'feat/1', launched: [{ chunk: 1, railIndex: 4, ticketIds: [1, 2, 3], runIds: ['r'], deliveryId: 'd' }] }, NOW + 38 * 60_000)
+    expect(toChainSnapshot(getChain(db, row.id)!)).toMatchObject({ milestoneN: 1, mode: 'sequential', status: 'waiting', nextChunk: 1, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1', pauseReason: null, createdAt: '2026-09-04T12:00:00.000Z', updatedAt: '2026-09-04T12:38:00.000Z' })
   })
 
   it('malformed JSON columns degrade to empty arrays', () => {

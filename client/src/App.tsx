@@ -474,7 +474,7 @@ function DesktopApp() {
   // Milestone toasts (chunk launched / chain paused / delivered / complete) —
   // the server-owned chain replaced the browser-local sequencer; drop its
   // leftover plan key once (its runs settled server-side long ago).
-  useMilestoneNotifications({ setActiveProjectId })
+  useMilestoneNotifications({ setActiveProjectId, projectsById })
   useEffect(() => { dropLegacySequentialPlans() }, [])
 
   const activeProject = projects.find((p) => p.id === activeProjectId)

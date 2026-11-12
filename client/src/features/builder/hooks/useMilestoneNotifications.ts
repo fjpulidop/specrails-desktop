@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import i18n from '../../../lib/i18n'
 import { FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
+import { formatMilestoneToast, type MilestoneToastEvent, type FormatMilestoneToastInput } from '../lib/milestone-toast'
 import { resumeChain, setChainAutoAdvance } from '../lib/milestone-launch'
 import {
   chainPauseReason,
@@ -27,6 +28,7 @@ import { notifyError } from '../../../lib/notify-error'
 
 interface UseMilestoneNotificationsOpts {
   setActiveProjectId?: (id: string) => void
+  projectsById?: Map<string, string>
 }
 
 export function localizeChainPauseReason(reason: string | null): string {
@@ -36,12 +38,17 @@ export function localizeChainPauseReason(reason: string | null): string {
   return i18n.t(`builder:milestoneProgress.chain.reasons.${key}`, { detail })
 }
 
-export function useMilestoneNotifications({ setActiveProjectId }: UseMilestoneNotificationsOpts = {}): void {
+export function useMilestoneNotifications({ setActiveProjectId, projectsById }: UseMilestoneNotificationsOpts = {}): void {
   const navigate = useNavigate()
   const navigateRef = useRef(navigate)
   useEffect(() => { navigateRef.current = navigate }, [navigate])
   const setActiveRef = useRef(setActiveProjectId)
   useEffect(() => { setActiveRef.current = setActiveProjectId }, [setActiveProjectId])
+
+  const projectsRef = useRef(projectsById)
+  useEffect(() => { projectsRef.current = projectsById }, [projectsById])
+  const timingRef = useRef(new Map<string, MilestoneChainSnapshot | null>())
+  const milestoneNumbersRef = useRef(new Map<string, number>())
 
   const chainsRef = useRef(new Map<string, MilestoneChainSnapshot>())
   const statesRef = useRef(new Map<string, string>())
@@ -53,19 +60,37 @@ export function useMilestoneNotifications({ setActiveProjectId }: UseMilestoneNo
       const msg = raw as { type?: string; projectId?: string; chain?: unknown; progress?: unknown; milestoneId?: string; n?: number; title?: string } | null
       if (!msg || typeof msg.projectId !== 'string') return
       const projectId = msg.projectId
+      const now = Date.now()
+      const timingKey = (n: number) => JSON.stringify([projectId, n])
+      const milestoneKey = (id: string) => JSON.stringify([projectId, id])
+      const format = (
+        event: MilestoneToastEvent,
+        n: number,
+        chain: MilestoneChainSnapshot | null,
+        context: Pick<FormatMilestoneToastInput, 'railProgress' | 'pauseReason' | 'reviewCount'> = {},
+      ) => formatMilestoneToast({
+        projectName: projectsRef.current?.get(projectId) ?? null,
+        milestoneLabel: milestoneLabelFor(n), event, status: chain?.status ?? event,
+        startedAt: chain?.createdAt ?? null, endedAt: chain?.updatedAt ?? null, now, ...context,
+      }, (key, params) => i18n.t(key, params))
 
       if (msg.type === 'milestone.chain_changed') {
         const chain = coerceChain(msg.chain)
         if (!chain) return
-        const prev = chainsRef.current.get(chain.id)
-        chainsRef.current.set(chain.id, chain)
-        const label = milestoneLabelFor(chain.milestoneN)
+        const chainKey = JSON.stringify([projectId, chain.milestoneN, chain.id])
+        const prev = chainsRef.current.get(chainKey)
+        chainsRef.current.set(chainKey, chain)
+        timingRef.current.set(timingKey(chain.milestoneN), chain)
+        const railProgress = { current: chain.nextChunk, total: chain.totalChunks }
         if (chain.status === 'running' && chain.nextChunk > 1 && (!prev || prev.nextChunk < chain.nextChunk)) {
-          toast.success(i18n.t('builder:milestoneProgress.toast.chunkLaunched', { milestone: label, k: chain.nextChunk, n: chain.totalChunks }), { id: `chain-launch:${chain.id}:${chain.nextChunk}` })
+          const content = format('chunk_launched', chain.milestoneN, chain, { railProgress })
+          toast.success(content.title, { id: `chain-launch:${chain.id}:${chain.nextChunk}`, description: content.description })
         }
         if (chain.status === 'awaiting_approval' && (!prev || prev.status !== 'awaiting_approval' || prev.nextChunk !== chain.nextChunk)) {
           const toastId = `chain-checkpoint:${chain.id}:${chain.nextChunk}`
-          toast.success(i18n.t('builder:milestoneProgress.toast.checkpoint', { milestone: label, k: chain.nextChunk, n: chain.totalChunks }), {
+          const content = format('checkpoint', chain.milestoneN, chain, { railProgress })
+          toast.success(content.title, {
+            description: content.description,
             id: toastId,
             duration: 60_000,
             action: {
@@ -89,7 +114,9 @@ export function useMilestoneNotifications({ setActiveProjectId }: UseMilestoneNo
           })
         }
         if (chain.status === 'paused' && (!prev || prev.status !== 'paused' || prev.pauseReason !== chain.pauseReason)) {
-          toast.warning(i18n.t('builder:milestoneProgress.toast.paused', { milestone: label, reason: localizeChainPauseReason(chain.pauseReason) }), {
+          const content = format('paused', chain.milestoneN, chain, { pauseReason: localizeChainPauseReason(chain.pauseReason) })
+          toast.warning(content.title, {
+            description: content.description,
             id: `chain-paused:${chain.id}`,
             duration: 30_000,
             action: {
@@ -108,13 +135,17 @@ export function useMilestoneNotifications({ setActiveProjectId }: UseMilestoneNo
 
       if (msg.type === 'blueprint.milestone_progress') {
         for (const m of coerceMilestoneProgress(msg.progress)) {
+          milestoneNumbersRef.current.set(milestoneKey(m.id), m.n)
+          timingRef.current.set(timingKey(m.n), m.chain)
           const key = `${projectId}:${m.id}`
           const prev = statesRef.current.get(key)
           statesRef.current.set(key, m.state)
           if (prev === undefined || prev === m.state) continue
           if (m.state === 'delivered') {
             const delivery = reviewableDelivery(m)
-            toast.success(i18n.t('builder:milestoneProgress.toast.delivered', { milestone: milestoneLabelFor(m.n), count: m.counts.onReview }), {
+            const content = format('delivered', m.n, m.chain, { reviewCount: m.counts.onReview })
+            toast.success(content.title, {
+              description: content.description,
               id: `milestone-delivered:${key}`,
               duration: 30_000,
               ...(delivery ? {
@@ -134,7 +165,9 @@ export function useMilestoneNotifications({ setActiveProjectId }: UseMilestoneNo
       }
 
       if (msg.type === 'blueprint.milestone_completed' && typeof msg.n === 'number') {
-        toast.success(i18n.t('builder:milestoneProgress.toast.completed', { milestone: milestoneLabelFor(msg.n) }), { id: `milestone-completed:${projectId}:${msg.milestoneId ?? msg.n}`, duration: 15_000 })
+        const n = msg.milestoneId ? milestoneNumbersRef.current.get(milestoneKey(msg.milestoneId)) ?? msg.n : msg.n
+        const content = format('completed', msg.n, timingRef.current.get(timingKey(n)) ?? null)
+        toast.success(content.title, { id: `milestone-completed:${projectId}:${msg.milestoneId ?? msg.n}`, duration: 15_000, description: content.description })
       }
     })
     return () => unregisterHandler(id)

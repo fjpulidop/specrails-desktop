@@ -321,6 +321,28 @@
       "cancelFailed": "No se pudo cancelar la cadena"
     },
     "toast": {
+      "title": "{{milestone}} — {{event}}",
+      "projectTitle": "{{project}} · {{title}}",
+      "events": {
+        "chunk_launched": "rail lanzado",
+        "checkpoint": "rail entregado. ¿Lanzar el siguiente rail?",
+        "paused": "en pausa",
+        "delivered": "entregado",
+        "completed": "completado — todas las specs integradas",
+        "chunk_launchedWithProgress": "rail {{k}} de {{n}} lanzado",
+        "checkpointWithProgress": "rail {{k}} de {{n}} entregado. ¿Lanzar el siguiente rail?",
+        "pausedWithReason": "en pausa — {{reason}}",
+        "deliveredWithCount": "entregado — {{count}} specs esperan tu revisión"
+      },
+      "statuses": {
+        "chunk_launched": "En marcha",
+        "checkpoint": "Esperando aprobación",
+        "paused": "En pausa",
+        "delivered": "Entregado — pendiente de revisión",
+        "completed": "Completado"
+      },
+      "statusElapsed": "{{status}} · {{elapsed}} en total",
+      "completedIn": "Completado en {{elapsed}}",
       "launched": "{{milestone}} lanzado — la spec 1 de {{n}} está en su rail; las siguientes specs siguen automáticamente, un rail cada una",
       "launchedAll": "{{milestone}} lanzado — una spec por rail ({{n}} en total)",
       "chainActive": "{{milestone}} ya se está lanzando — mira el panel Blueprint",

@@ -321,6 +321,28 @@
       "cancelFailed": "Die Kette konnte nicht abgebrochen werden"
     },
     "toast": {
+      "title": "{{milestone}} — {{event}}",
+      "projectTitle": "{{project}} · {{title}}",
+      "events": {
+        "chunk_launched": "Rail gestartet",
+        "checkpoint": "Rail geliefert. Nächsten Rail starten?",
+        "paused": "pausiert",
+        "delivered": "geliefert",
+        "completed": "abgeschlossen — alle Specs zusammengeführt",
+        "chunk_launchedWithProgress": "Rail {{k}} von {{n}} gestartet",
+        "checkpointWithProgress": "Rail {{k}} von {{n}} geliefert. Nächsten Rail starten?",
+        "pausedWithReason": "pausiert — {{reason}}",
+        "deliveredWithCount": "geliefert — {{count}} Specs warten auf deine Prüfung"
+      },
+      "statuses": {
+        "chunk_launched": "Läuft",
+        "checkpoint": "Wartet auf Freigabe",
+        "paused": "Pausiert",
+        "delivered": "Geliefert — wartet auf Prüfung",
+        "completed": "Abgeschlossen"
+      },
+      "statusElapsed": "{{status}} · {{elapsed}} insgesamt",
+      "completedIn": "Abgeschlossen in {{elapsed}}",
       "launched": "{{milestone}} gestartet – Spec 1 von {{n}} läuft auf seinem Rail; die nächsten Specs folgen automatisch, je ein Rail",
       "launchedAll": "{{milestone}} gestartet – ein Spec pro Rail ({{n}} insgesamt)",
       "chainActive": "{{milestone}} wird bereits gestartet – siehe Blueprint-Panel",
