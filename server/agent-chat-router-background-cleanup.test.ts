@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 import { initDesktopDb, type DbInstance } from './desktop-db'
-import { createAgentConversation, getAgentConversation } from './modules/agents/runtime/agent-store'
+import { archiveAgentConversation, createAgentConversation, getAgentConversation } from './modules/agents/runtime/agent-store'
 import { createAgentChatRouter } from './modules/missions/runtime/agent-chat-router'
 import type { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { killBackgroundProcessesForChat, purgeBackgroundProcessHistory } from './transient-children'
@@ -36,6 +36,7 @@ function appFor(abort: () => boolean) {
 
 it('soft delete stops live background processes but keeps the mission and its history restorable', async () => {
   const conversation = createAgentConversation(db, { provider: 'claude' })
+  archiveAgentConversation(db, conversation.id)
   const abort = vi.fn(() => true)
 
   const res = await request(appFor(abort)).delete(`/api/agent/conversations/${conversation.id}`)
@@ -50,6 +51,7 @@ it('soft delete stops live background processes but keeps the mission and its hi
 
 it('permanent delete kills background chip processes and purges their history', async () => {
   const conversation = createAgentConversation(db, { provider: 'claude' })
+  archiveAgentConversation(db, conversation.id)
   const abort = vi.fn(() => true)
 
   const res = await request(appFor(abort)).delete(`/api/agent/conversations/${conversation.id}?permanent=1`)
@@ -59,4 +61,15 @@ it('permanent delete kills background chip processes and purges their history', 
   expect(killBackgroundProcessesForChat).toHaveBeenCalledWith(conversation.id)
   expect(purgeBackgroundProcessHistory).toHaveBeenCalledWith({ chatId: conversation.id })
   expect(getAgentConversation(db, conversation.id)).toBeUndefined()
+})
+
+it.each(['', '?permanent=1'])('active DELETE %s never stops work', async (suffix) => {
+  const conversation = createAgentConversation(db)
+  const abort = vi.fn(() => true)
+  const result = await request(appFor(abort)).delete(`/api/agent/conversations/${conversation.id}${suffix}`)
+  expect(result.status).toBe(409)
+  expect(result.body.code).toBe('NOT_ARCHIVED')
+  expect(abort).not.toHaveBeenCalled()
+  expect(killBackgroundProcessesForChat).not.toHaveBeenCalled()
+  expect(purgeBackgroundProcessHistory).not.toHaveBeenCalled()
 })

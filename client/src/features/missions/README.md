@@ -240,3 +240,29 @@ Validate navigation with `node scripts/audit-client-features.mjs --check`.
 Selecting a mission from the sidebar (`hooks/useOpenMission.ts`) moves the app's active
 project to the mission's pinned project when it is registered and differs from the current
 one (`lib/resolve-mission-project-switch.ts`); Home and unregistered pins leave it unchanged.
+
+## Archive API
+
+The global mission API exposes required nullable `archivedAt`, `ArchiveScope`
+(`active`, `archived`, `all`), a scoped list defaulting to Active, and encoded-ID
+archive/unarchive POST helpers returning the conversation. Mission conflicts
+retain `MISSION_LIVE`, `NOT_ARCHIVED` or `MISSION_ARCHIVED` and HTTP status in
+`ApiResponseError`; transport and not-found failures propagate normally.
+
+Scope is provider-owned and persisted as `specrails-desktop:missionArchiveScope`.
+Invalid or unavailable storage defaults to Active. Each scope loads lazily and
+keeps its own cache for immediate revisits; generation checks ignore obsolete
+responses. Uncached requests expose loading separately from a successful empty
+list; failed refreshes retain useful rows and expose error/retry. Favorites are
+never pruned against scoped or limited responses.
+
+Archive/restore mutations update loaded scope caches only after server success,
+invalidate snapshots and obsolete list/history responses, and preserve favorite
+membership, drafts and active metadata. A refusal leaves selection and history
+unchanged. Archiving the open mission selects the next active row (previous at
+the end), loading Active if needed, or opens the empty Mission state through
+existing window ownership guards. Archived snapshots refuse context sends.
+
+The shared composer replaces message/attachment entry with a localized restore
+notice for archived snapshots on inline, floating and window surfaces. Stored
+text and attachment drafts remain available after restore; history stays readable.

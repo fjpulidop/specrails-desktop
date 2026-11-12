@@ -460,6 +460,7 @@ export class AgentChatManager {
       this._emitError(conversationId, 'Unknown conversation')
       return Promise.resolve()
     }
+    if (conversation.archivedAt) throw new Error('Restore this archived mission before sending messages.')
     // Admission is synchronous: HTTP can report conflicts/limits before 202,
     // and an identical retry cannot create a second turn or duplicate a tool.
     const { input, created } = enqueueAgentInput(this._db, {

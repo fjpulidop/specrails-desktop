@@ -1,4 +1,14 @@
 {
+  "archive": {
+    "action": "アーカイブ",
+    "restore": "復元",
+    "liveRefusal": "ミッションの作業が完了してからアーカイブしてください。",
+    "failed": "ミッションをアーカイブできませんでした",
+    "restoreFailed": "ミッションを復元できませんでした",
+    "rowAction": "アーカイブ \"{{title}}\"",
+    "rowRestore": "復元 \"{{title}}\"",
+    "readOnly": "メッセージを送信するには、このアーカイブ済みミッションを復元してください。"
+  },
   "title": "ミッションセンター",
   "subtitle": "チャットで Specrails を操作",
   "trigger": "ミッションセンター",

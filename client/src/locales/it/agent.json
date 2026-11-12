@@ -1,4 +1,14 @@
 {
+  "archive": {
+    "action": "Archivia",
+    "restore": "Ripristina",
+    "liveRefusal": "Attendi che questa missione termini il lavoro prima di archiviarla.",
+    "failed": "Impossibile archiviare la missione",
+    "restoreFailed": "Impossibile ripristinare la missione",
+    "rowAction": "Archivia \"{{title}}\"",
+    "rowRestore": "Ripristina \"{{title}}\"",
+    "readOnly": "Ripristina questa missione archiviata per inviare messaggi."
+  },
   "title": "Controllo missioni",
   "subtitle": "Gestisci Specrails chattando",
   "trigger": "Controllo missioni",

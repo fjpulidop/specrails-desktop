@@ -14,6 +14,8 @@ import { normalizeLevel } from './agent-tier'
 import { isMissionRailCardsEnabled } from '../../../feature-flags'
 import { attachmentManager, isSupportedUploadedFile } from '../../../attachment-manager'
 import {
+  archiveAgentConversation,
+  unarchiveAgentConversation,
   createAgentConversation,
   listAgentConversations,
   getAgentConversation,
@@ -32,7 +34,7 @@ import {
   MISSION_SEARCH_DEFAULT_LIMIT,
   MISSION_SEARCH_MAX_LIMIT,
 } from '../../agents/runtime/agent-store'
-import { killBackgroundProcessesForChat, purgeBackgroundProcessHistory } from '../../../transient-children'
+import { killBackgroundProcessesForChat, listBackgroundProcesses, purgeBackgroundProcessHistory } from '../../../transient-children'
 import { decorateAgentInputMessages, getAgentInput, AgentInputConflictError, AgentInputLimitError } from './agent-input-store'
 
 // ─── Agent chat REST surface (/api/agent) ─────────────────────────────────────
@@ -183,8 +185,37 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     return (efforts as readonly string[]).includes(value) ? value : undefined
   }
 
-  router.get('/conversations', (_req: Request, res: Response) => {
-    res.json({ conversations: listAgentConversations(desktopDb) })
+  router.get('/conversations', (req: Request, res: Response) => {
+    const archiveScope = req.query.archiveScope ?? 'active'
+    if (archiveScope !== 'active' && archiveScope !== 'archived' && archiveScope !== 'all') {
+      res.status(400).json({ error: 'archiveScope must be active, archived or all' })
+      return
+    }
+    res.json({ conversations: listAgentConversations(desktopDb, { archiveScope }) })
+  })
+
+  router.post('/conversations/:id/archive', (req: Request, res: Response) => {
+    const id = String(req.params.id)
+    const conversation = getAgentConversation(desktopDb, id)
+    if (!conversation || conversation.deleted_at) {
+      res.status(404).json({ error: 'Unknown conversation' })
+      return
+    }
+    if (conversation.archivedAt) { res.json({ conversation }); return }
+    const session = manager.sessionState(id)
+    const liveSession = session && (session.residentPhase !== 'idle' || session.liveSubagents > 0)
+    const liveProcess = listBackgroundProcesses({ chatId: id }).some((process) => process.status === 'starting' || process.status === 'running')
+    if (manager.isBusy(id) || liveSession || liveProcess) {
+      res.status(409).json({ error: 'This mission is live. Wait for its work to finish before archiving.', code: 'MISSION_LIVE' })
+      return
+    }
+    res.json({ conversation: archiveAgentConversation(desktopDb, id) })
+  })
+
+  router.post('/conversations/:id/unarchive', (req: Request, res: Response) => {
+    const conversation = unarchiveAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    res.json({ conversation })
   })
 
   // Mission search (search-missions-in-palette): title + user/assistant content,
@@ -423,6 +454,11 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
   // moves to "Recently deleted" (Undo = restore). `?permanent=1` removes it for good.
   router.delete('/conversations/:id', (req: Request, res: Response) => {
     const id = String(req.params.id)
+    const conversation = getAgentConversation(desktopDb, id)
+    if (conversation && !conversation.deleted_at && !conversation.archivedAt) {
+      res.status(409).json({ error: 'Archive this mission before deleting it.', code: 'NOT_ARCHIVED' })
+      return
+    }
     if (req.query.permanent === '1' || req.query.permanent === 'true') {
       if (!getAgentConversation(desktopDb, id)) {
         res.status(404).json({ error: 'Unknown conversation' })
@@ -558,6 +594,10 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       res.status(404).json({ error: 'Unknown conversation' })
       return
     }
+    if (conversation.archivedAt) {
+      res.status(409).json({ error: 'Restore this archived mission before sending messages.', code: 'MISSION_ARCHIVED' })
+      return
+    }
     const body = (req.body ?? {}) as Record<string, unknown>
     const text = typeof body.text === 'string' ? body.text.trim() : ''
     if (!text) {
@@ -679,6 +719,10 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       res.status(404).json({ error: 'Unknown conversation' })
       return
     }
+    if (conversation.archivedAt) {
+      res.status(409).json({ error: 'Restore this archived mission before sending messages.', code: 'MISSION_ARCHIVED' })
+      return
+    }
     const body = (req.body ?? {}) as Record<string, unknown>
     const text = typeof body.text === 'string' ? body.text.trim() : ''
     if (!text) {
@@ -697,6 +741,10 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     const conversation = getAgentConversation(desktopDb, String(req.params.id))
     if (!conversation) {
       res.status(404).json({ error: 'Unknown conversation' })
+      return
+    }
+    if (conversation.archivedAt) {
+      res.status(409).json({ error: 'Restore this archived mission before sending messages.', code: 'MISSION_ARCHIVED' })
       return
     }
     if (!manager.steerQueued(conversation.id, String(req.params.queueId))) {

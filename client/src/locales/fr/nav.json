@@ -1,4 +1,17 @@
 {
+  "missionArchive": {
+    "label": "Filtrer les archives des missions",
+    "active": "Actives",
+    "archived": "Archivées",
+    "all": "Toutes",
+    "empty": {
+      "active": "Aucune mission active",
+      "archived": "Aucune mission archivée",
+      "all": "Aucune mission"
+    },
+    "loading": "Chargement des missions…",
+    "loadFailed": "Impossible de charger les missions. Réessayer"
+  },
   "sidebarPin": {
     "withShortcut": "{{label}} ({{shortcut}})",
     "left": {

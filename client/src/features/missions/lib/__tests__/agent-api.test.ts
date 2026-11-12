@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import * as api from '../agent-api'
+import { ApiResponseError } from '../../../../lib/api-response'
 
 function mockFetch(body: unknown, ok = true, status = 200) {
   const fn = vi.fn(async () => ({
@@ -13,7 +14,7 @@ function mockFetch(body: unknown, ok = true, status = 200) {
 
 const conv = {
   id: 'c1', title: null, provider: 'claude', model: null, session_id: null,
-  pinned_project_id: null, tier_level: 0 as const, created_at: '', updated_at: '',
+  pinned_project_id: null, tier_level: 0 as const, archivedAt: null, created_at: '', updated_at: '',
 }
 
 describe('agent-api', () => {
@@ -22,6 +23,38 @@ describe('agent-api', () => {
   it('lists conversations', async () => {
     mockFetch({ conversations: [conv] })
     expect(await api.listAgentConversations()).toEqual([conv])
+  })
+
+  it.each(['active', 'archived', 'all'] as const)('lists explicit %s scope on the global API', async (archiveScope) => {
+    const fetch = mockFetch({ conversations: [conv] })
+    expect(await api.listAgentConversations({ archiveScope })).toEqual([conv])
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining(`/api/agent/conversations?archiveScope=${archiveScope}`))
+  })
+
+  it('defaults list scope to Active', async () => {
+    const fetch = mockFetch({ conversations: [] })
+    await api.listAgentConversations()
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/agent/conversations?archiveScope=active'))
+  })
+
+  it.each(['archiveAgentConversation', 'unarchiveAgentConversation'] as const)('%s encodes IDs and returns the timestamp', async (operation) => {
+    const conversation = { ...conv, archivedAt: '2026-01-02T03:04:05.000Z' }
+    const fetch = mockFetch({ conversation })
+    expect(await api[operation]('mission/a ?')).toEqual(conversation)
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining(`/mission%2Fa%20%3F/${operation === 'archiveAgentConversation' ? 'archive' : 'unarchive'}`), { method: 'POST' })
+  })
+
+  it.each(['archiveAgentConversation', 'unarchiveAgentConversation'] as const)('%s propagates not found and network failures', async (operation) => {
+    mockFetch({ error: 'Unknown conversation' }, false, 404)
+    await expect(api[operation]('missing')).rejects.toThrow('Unknown conversation')
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    await expect(api[operation]('missing')).rejects.toThrow('offline')
+  })
+
+  it.each(['MISSION_LIVE', 'NOT_ARCHIVED', 'MISSION_ARCHIVED'])('preserves %s through ApiResponseError', async (code) => {
+    mockFetch({ error: 'Mission conflict', code }, false, 409)
+    await expect(api.archiveAgentConversation('c1')).rejects.toMatchObject({ code, status: 409, message: 'Mission conflict' })
+    await expect(api.archiveAgentConversation('c1')).rejects.toBeInstanceOf(ApiResponseError)
   })
 
   it('creates a conversation (POST body)', async () => {

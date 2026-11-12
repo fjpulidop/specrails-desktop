@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1375 source/build files. Nearby tests are linked where names
+Includes 1376 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -32,6 +32,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/components
 
 - [ArcSidebar.tsx](../../client/src/components/ArcSidebar.tsx) · [test](../../client/src/components/__tests__/ArcSidebar.test.tsx)
+- [ArchiveScopeFilter.tsx](../../client/src/components/ArchiveScopeFilter.tsx)
 - [CommandPalette.tsx](../../client/src/components/CommandPalette.tsx) · [test](../../client/src/components/__tests__/CommandPalette.test.tsx)
 - [HelpHint.tsx](../../client/src/components/HelpHint.tsx) · [test](../../client/src/components/__tests__/HelpHint.test.tsx)
 - [InitialCommitButton.tsx](../../client/src/components/InitialCommitButton.tsx)
@@ -1431,7 +1432,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-refine-db.ts](../../server/modules/agents/runtime/agent-refine-db.ts) · [test](../../server/modules/agents/runtime/agent-refine-db.test.ts)
 - [agent-refine-manager.ts](../../server/modules/agents/runtime/agent-refine-manager.ts) · [test](../../server/modules/agents/runtime/agent-refine-manager.test.ts)
 - [agent-role-descriptor.ts](../../server/modules/agents/runtime/agent-role-descriptor.ts) · [test](../../server/modules/agents/runtime/agent-role-descriptor.test.ts)
-- [agent-store.ts](../../server/modules/agents/runtime/agent-store.ts)
+- [agent-store.ts](../../server/modules/agents/runtime/agent-store.ts) · [archive test](../../server/modules/agents/runtime/agent-store-archive.test.ts)
 - [profile-manager.ts](../../server/modules/agents/runtime/profile-manager.ts) · [test](../../server/modules/agents/runtime/profile-manager.test.ts)
 - [profiles-router.ts](../../server/modules/agents/runtime/profiles-router.ts) · [test](../../server/modules/agents/runtime/profiles-router.test.ts)
 
@@ -1704,7 +1705,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [agent-chat-manager.ts](../../server/modules/missions/runtime/agent-chat-manager.ts) · [test](../../server/modules/missions/runtime/agent-chat-manager.test.ts)
 - [agent-chat-registry.ts](../../server/modules/missions/runtime/agent-chat-registry.ts)
-- [agent-chat-router.ts](../../server/modules/missions/runtime/agent-chat-router.ts)
+- [agent-chat-router.ts](../../server/modules/missions/runtime/agent-chat-router.ts) · [archive test](../../server/modules/missions/runtime/agent-chat-archive.test.ts)
 - [agent-context-resolver.ts](../../server/modules/missions/runtime/agent-context-resolver.ts) · [test](../../server/modules/missions/runtime/agent-context-resolver.test.ts)
 - [agent-cwd-manager.ts](../../server/modules/missions/runtime/agent-cwd-manager.ts)
 - [agent-failure-briefing.ts](../../server/modules/missions/runtime/agent-failure-briefing.ts) · [test](../../server/modules/missions/runtime/agent-failure-briefing.test.ts)

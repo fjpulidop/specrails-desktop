@@ -821,6 +821,11 @@ function applyDesktopMigrations(db: DbInstance): void {
       if (!cols.has('deleted_at')) db.exec(`ALTER TABLE agent_conversations ADD COLUMN deleted_at TEXT;`)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_conversations_deleted_at ON agent_conversations(deleted_at) WHERE deleted_at IS NOT NULL;`)
     },
+    // 38: archive visibility is independent of trash retention.
+    () => {
+      const cols = new Set((db.prepare('PRAGMA table_info(agent_conversations)').all() as Array<{ name: string }>).map((c) => c.name))
+      if (!cols.has('archived_at')) db.exec(`ALTER TABLE agent_conversations ADD COLUMN archived_at TEXT;`)
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

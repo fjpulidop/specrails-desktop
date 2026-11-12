@@ -9,10 +9,11 @@ import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw, ListFilter } from 'lucide-react'
+import { PanelLeft, FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw, ListFilter, Archive, ArchiveRestore } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { useSidebarHoverIntent } from '../hooks/useSidebarHoverIntent'
+import { ArchiveScopeFilter } from './ArchiveScopeFilter'
 import { SidebarResizeGrip } from './SidebarResizeGrip'
 import { compactRelativeTime, absoluteTime } from '../lib/relative-time'
 import { useAssembleProgress } from '../features/jobs/hooks/useAssembleProgress'
@@ -165,6 +166,9 @@ function ConversationRow({
   onSelect,
   onToggleFavorite,
   onDelete,
+  onArchive,
+  onUnarchive,
+  pending = false,
 }: {
   conversation: AgentConversation
   active: boolean
@@ -177,6 +181,9 @@ function ConversationRow({
   onSelect: () => void
   onToggleFavorite?: () => void
   onDelete: () => void
+  onArchive: () => void
+  onUnarchive: () => void
+  pending?: boolean
 }) {
   const { t } = useTranslation('agent')
   const label = conversation.title?.trim() || t('untitled')
@@ -250,6 +257,7 @@ function ConversationRow({
       className={cn(
         'group relative flex items-center gap-1 w-full h-7 rounded-md transition-colors',
         expanded ? 'pr-2' : 'justify-center',
+        conversation.archivedAt && 'opacity-60',
         active
           ? 'bg-muted text-foreground'
           : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
@@ -298,6 +306,7 @@ function ConversationRow({
                 </span>
               )}
             </span>
+            {conversation.archivedAt && chat.archiveScope === 'all' && <span className="text-caption text-muted-foreground">{t('nav:missionArchive.archived')}</span>}
             {unread && <span aria-hidden className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent-primary" data-testid="conversation-unread-dot" />}
             <span className="flex-1" aria-hidden />
             {modeMark && <MissionModeRowMark badge={modeMark} />}
@@ -337,6 +346,16 @@ function ConversationRow({
           </button>
           <button
             type="button"
+            disabled={pending}
+            onClick={(event) => { event.stopPropagation(); if (conversation.archivedAt) onUnarchive(); else onArchive() }}
+            aria-label={t(conversation.archivedAt ? 'archive.rowRestore' : 'archive.rowAction', { title: label })}
+            className={cn('flex flex-shrink-0 items-center justify-center w-5 h-5 rounded-sm text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-muted disabled:opacity-40', ROW_FOCUS)}
+          >
+            {conversation.archivedAt ? <ArchiveRestore className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
+          </button>
+          {conversation.archivedAt && <button
+            type="button"
+            disabled={pending}
             onClick={handleDeleteClick}
             className={cn(
               'flex flex-shrink-0 items-center justify-center rounded-sm transition-[color,background-color,opacity] hover:bg-muted',
@@ -348,7 +367,7 @@ function ConversationRow({
             aria-label={confirming ? t('confirmDeleteConversation', { title: label }) : t('deleteConversation', { title: label })}
           >
             {confirming ? t('confirmShort') : <X className="w-3 h-3" />}
-          </button>
+          </button>}
         </>
       )}
     </div>
@@ -385,6 +404,9 @@ function ProjectItem({
   onSelectConversation,
   onToggleConversationFavorite,
   onDeleteConversation,
+  onArchiveConversation,
+  onUnarchiveConversation,
+  pendingConversationIds,
   onOpenProjectSettings,
   assembleStatus = 'ready',
   onRetryAssemble,
@@ -410,6 +432,9 @@ function ProjectItem({
   onSelectConversation?: (id: string) => void
   onToggleConversationFavorite?: (id: string) => void
   onDeleteConversation?: (id: string) => void
+  onArchiveConversation?: (id: string) => void
+  onUnarchiveConversation?: (id: string) => void
+  pendingConversationIds?: ReadonlySet<string>
   /** Hover gear (Agent Mode): open this project's settings modal. */
   onOpenProjectSettings?: () => void
   /** Silent-add workspace assembly state (silent-project-add). */
@@ -682,6 +707,9 @@ function ProjectItem({
               onSelect={() => onSelectConversation?.(c.id)}
               onToggleFavorite={() => onToggleConversationFavorite?.(c.id)}
               onDelete={() => onDeleteConversation?.(c.id)}
+              onArchive={() => onArchiveConversation?.(c.id)}
+              onUnarchive={() => onUnarchiveConversation?.(c.id)}
+              pending={pendingConversationIds?.has(c.id)}
             />
           ))}
         </div>
@@ -788,10 +816,15 @@ export function ArcSidebar({
   // since-removed project folds into Home — nothing server-side nulls
   // pinned_project_id on project removal, and an unrendered bucket would make
   // the conversation permanently unreachable.
+  const archiveScope = agentChat.archiveScope ?? 'active'
+  const scopedConversations = useMemo(
+    () => agentChat.conversations.filter((conversation) => archiveScope === 'all' || (archiveScope === 'archived') === Boolean(conversation.archivedAt)),
+    [agentChat.conversations, archiveScope],
+  )
   const grouped = useMemo(() => {
     const map = new Map<string, AgentConversation[]>()
     const liveProjectIds = new Set(projects.map((p) => p.id))
-    for (const c of agentChat.conversations) {
+    for (const c of scopedConversations) {
       if (agentChat.favoriteConversationIds.has(c.id)) continue
       const key = c.pinned_project_id && liveProjectIds.has(c.pinned_project_id) ? c.pinned_project_id : HOME_KEY
       const arr = map.get(key)
@@ -799,10 +832,10 @@ export function ArcSidebar({
       else map.set(key, [c])
     }
     return map
-  }, [agentChat.conversations, agentChat.favoriteConversationIds, projects])
+  }, [scopedConversations, agentChat.favoriteConversationIds, projects])
   const favoriteConversations = useMemo(
-    () => agentChat.conversations.filter((c) => agentChat.favoriteConversationIds.has(c.id)),
-    [agentChat.conversations, agentChat.favoriteConversationIds],
+    () => scopedConversations.filter((c) => agentChat.favoriteConversationIds.has(c.id)),
+    [scopedConversations, agentChat.favoriteConversationIds],
   )
 
   const [activeOnly, setActiveOnly] = useState<boolean>(loadActiveOnly)
@@ -825,8 +858,7 @@ export function ArcSidebar({
     return map
   }, [activeOnly, grouped, liveConversationIds, openConversationId])
   const visibleHome = visibleGrouped.get(HOME_KEY) ?? []
-  const filterLeavesNothing = activeOnly
-    && visibleFavorites.length === 0
+  const filterLeavesNothing = visibleFavorites.length === 0
     && [...visibleGrouped.values()].every((list) => list.length === 0)
   const rollupSets = {
     attention: agentChat.attentionConversationIds,
@@ -886,10 +918,55 @@ export function ArcSidebar({
   // Also leaves a global route (/loops, /docs, /settings) so the thread is visible on the agent surface.
   const handleSelectConversation = useOpenMission()
 
-  const handleDeleteConversation = (id: string) => {
-    agentChat.deleteConversation(id).catch(() => {
+  const pendingMissionActionsRef = useRef(new Set<string>())
+  const [pendingMissionActions, setPendingMissionActions] = useState<ReadonlySet<string>>(new Set())
+  const [missionActionError, setMissionActionError] = useState<string | null>(null)
+
+  const handleArchiveConversation = async (id: string): Promise<void> => {
+    if (pendingMissionActionsRef.current.has(id)) return
+    pendingMissionActionsRef.current.add(id)
+    setPendingMissionActions(new Set(pendingMissionActionsRef.current))
+    setMissionActionError(null)
+    try {
+      await agentChat.archiveConversation(id)
+    } catch (error) {
+      const live = error && typeof error === 'object' && 'code' in error && error.code === 'MISSION_LIVE'
+      setMissionActionError(tAgent(live ? 'archive.liveRefusal' : 'archive.failed'))
+    } finally {
+      pendingMissionActionsRef.current.delete(id)
+      setPendingMissionActions(new Set(pendingMissionActionsRef.current))
+    }
+  }
+
+  const handleUnarchiveConversation = async (id: string): Promise<void> => {
+    if (pendingMissionActionsRef.current.has(id)) return
+    pendingMissionActionsRef.current.add(id)
+    setPendingMissionActions(new Set(pendingMissionActionsRef.current))
+    setMissionActionError(null)
+    try {
+      await agentChat.unarchiveConversation(id)
+    } catch {
+      setMissionActionError(tAgent('archive.restoreFailed'))
+    } finally {
+      pendingMissionActionsRef.current.delete(id)
+      setPendingMissionActions(new Set(pendingMissionActionsRef.current))
+    }
+  }
+
+  const handleDeleteConversation = async (id: string): Promise<void> => {
+    if (pendingMissionActionsRef.current.has(id)) return
+    pendingMissionActionsRef.current.add(id)
+    setPendingMissionActions(new Set(pendingMissionActionsRef.current))
+    setMissionActionError(null)
+    try {
+      await agentChat.deleteConversation(id)
+    } catch {
+      setMissionActionError(tAgent('deleteFailed'))
       notifyError(tAgent('deleteFailed'))
-    })
+    } finally {
+      pendingMissionActionsRef.current.delete(id)
+      setPendingMissionActions(new Set(pendingMissionActionsRef.current))
+    }
   }
 
   const handleToggleFavoriteConversation = (id: string) => {
@@ -1222,7 +1299,10 @@ export function ArcSidebar({
                     expanded={expanded}
                     onSelect={() => handleSelectConversation(c.id)}
                     onToggleFavorite={() => handleToggleFavoriteConversation(c.id)}
-                    onDelete={() => handleDeleteConversation(c.id)}
+                    onDelete={() => void handleDeleteConversation(c.id)}
+                    onArchive={() => void handleArchiveConversation(c.id)}
+                    onUnarchive={() => void handleUnarchiveConversation(c.id)}
+                    pending={pendingMissionActions.has(c.id)}
                   />
                 ))}
               </div>
@@ -1233,6 +1313,8 @@ export function ArcSidebar({
           <div className={cn(SECTION_LABEL, 'flex items-center justify-between')}>
             <span aria-hidden>{t('arcSidebar.sectionProjects')}</span>
             {agentMode && (
+              <div className="flex min-w-0 items-center gap-1">
+              <ArchiveScopeFilter value={archiveScope} onChange={agentChat.setArchiveScope} />
               <button
                 type="button"
                 onClick={toggleActiveOnly}
@@ -1249,11 +1331,21 @@ export function ArcSidebar({
               >
                 <ListFilter aria-hidden className="h-3.5 w-3.5" />
               </button>
+              </div>
             )}
           </div>
         )}
-        {expanded && agentMode && filterLeavesNothing && (
-          <p className="px-2 py-1 text-xs text-muted-foreground">{t('arcSidebar.activeFilter.empty')}</p>
+        {expanded && agentMode && missionActionError && (
+          <p role="alert" className="px-2 py-1 text-xs text-destructive">{missionActionError}</p>
+        )}
+        {expanded && agentMode && agentChat.conversationsLoading && (
+          <p role="status" className="px-2 py-1 text-xs text-muted-foreground">{t('missionArchive.loading')}</p>
+        )}
+        {expanded && agentMode && agentChat.conversationsError && (
+          <button type="button" className="px-2 py-1 text-xs text-destructive" onClick={() => void agentChat.refreshConversations()}>{t('missionArchive.loadFailed')}</button>
+        )}
+        {expanded && agentMode && !agentChat.conversationsLoading && !agentChat.conversationsError && filterLeavesNothing && (
+          <p className="px-2 py-1 text-xs text-muted-foreground">{t(`missionArchive.empty.${archiveScope}`)}</p>
         )}
         {/* Home group (agent mode) — conversations with no pinned project */}
         {agentMode && visibleHome.length > 0 && (
@@ -1278,7 +1370,10 @@ export function ArcSidebar({
                     expanded={expanded}
                     onSelect={() => handleSelectConversation(c.id)}
                     onToggleFavorite={() => handleToggleFavoriteConversation(c.id)}
-                    onDelete={() => handleDeleteConversation(c.id)}
+                    onDelete={() => void handleDeleteConversation(c.id)}
+                    onArchive={() => void handleArchiveConversation(c.id)}
+                    onUnarchive={() => void handleUnarchiveConversation(c.id)}
+                    pending={pendingMissionActions.has(c.id)}
                   />
                 ))}
               </div>
@@ -1307,7 +1402,10 @@ export function ArcSidebar({
               attentionKinds={agentChat.attentionKinds}
               onSelectConversation={handleSelectConversation}
               onToggleConversationFavorite={handleToggleFavoriteConversation}
-              onDeleteConversation={handleDeleteConversation}
+              onDeleteConversation={(id) => void handleDeleteConversation(id)}
+              onArchiveConversation={(id) => void handleArchiveConversation(id)}
+              onUnarchiveConversation={(id) => void handleUnarchiveConversation(id)}
+              pendingConversationIds={pendingMissionActions}
               assembleStatus={assembleProgress.statusFor(project.id)}
               onRetryAssemble={() => { void assembleProgress.retry(project.id) }}
               onOpenProjectSettings={agentMode ? () => {

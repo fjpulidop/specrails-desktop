@@ -1,8 +1,8 @@
 import i18n from './i18n'
 
 export class ApiResponseError extends Error {
-  constructor(readonly code: 'htmlResponse' | 'invalidResponse' | 'endpointUnavailable', readonly status: number) {
-    super(i18n.t(`network.${code}`, { ns: 'common', status }))
+  constructor(readonly code: 'htmlResponse' | 'invalidResponse' | 'endpointUnavailable' | 'MISSION_LIVE' | 'NOT_ARCHIVED' | 'MISSION_ARCHIVED', readonly status: number, message?: string) {
+    super(message ?? i18n.t(`network.${code}`, { ns: 'common', status }))
     this.name = 'ApiResponseError'
   }
 }
@@ -26,6 +26,10 @@ export async function readApiJson<T>(res: Response): Promise<T> {
   const data = await parseApiJson<T>(res)
   if (!res.ok) {
     const error = data && typeof data === 'object' && 'error' in data ? data.error : undefined
+    const code = data && typeof data === 'object' && 'code' in data ? data.code : undefined
+    if (code === 'MISSION_LIVE' || code === 'NOT_ARCHIVED' || code === 'MISSION_ARCHIVED') {
+      throw new ApiResponseError(code, res.status, typeof error === 'string' ? error : undefined)
+    }
     if (error === 'api_route_not_found') throw new ApiResponseError('endpointUnavailable', res.status)
     throw new Error(typeof error === 'string' && error ? error : i18n.t('network.httpError', { ns: 'common', status: res.status }))
   }

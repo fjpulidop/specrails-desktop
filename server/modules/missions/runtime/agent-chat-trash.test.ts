@@ -5,6 +5,7 @@ import request from 'supertest'
 import { initDesktopDb } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import {
+  archiveAgentConversation,
   addAgentMessage,
   createAgentConversation,
   getAgentConversation,
@@ -50,6 +51,7 @@ describe('missions: soft delete and Recently deleted', () => {
     addAgentMessage(db, { conversationId: c.id, role: 'user', content: 'zebra migration plan' })
     db.prepare('UPDATE agent_conversations SET title = ? WHERE id = ?').run('Zebra mission', c.id)
 
+    archiveAgentConversation(db, c.id)
     const res = await request(app()).delete(`/api/agent/conversations/${c.id}`)
     expect(res.status).toBe(200)
     expect(res.body.restorable).toBe(true)
@@ -70,6 +72,8 @@ describe('missions: soft delete and Recently deleted', () => {
     const a = createAgentConversation(db, { provider: 'claude', model: 'haiku', pinnedProjectId: 'p1' })
     const b = createAgentConversation(db, { provider: 'claude', model: 'haiku', pinnedProjectId: 'p2' })
     addAgentMessage(db, { conversationId: a.id, role: 'user', content: 'hello' })
+    archiveAgentConversation(db, a.id)
+    archiveAgentConversation(db, b.id)
     await request(app()).delete(`/api/agent/conversations/${a.id}`)
     await request(app()).delete(`/api/agent/conversations/${b.id}`)
 
@@ -83,6 +87,7 @@ describe('missions: soft delete and Recently deleted', () => {
     const restored = await request(app()).post(`/api/agent/conversations/${a.id}/restore`)
     expect(restored.status).toBe(200)
     expect(restored.body.conversation.deleted_at).toBeNull()
+    expect(restored.body.conversation.archivedAt).toBeTruthy()
     const open = await request(app()).get(`/api/agent/conversations/${a.id}`)
     expect(open.status).toBe(200)
     expect(open.body.messages).toHaveLength(1)
@@ -94,6 +99,7 @@ describe('missions: soft delete and Recently deleted', () => {
 
   it('a repeat DELETE keeps the first deletion stamp', async () => {
     const c = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    archiveAgentConversation(db, c.id)
     await request(app()).delete(`/api/agent/conversations/${c.id}`)
     const first = getAgentConversation(db, c.id)?.deleted_at
     db.prepare('UPDATE agent_conversations SET deleted_at = ? WHERE id = ?').run('2020-01-01T00:00:00.000Z', c.id)
@@ -102,8 +108,9 @@ describe('missions: soft delete and Recently deleted', () => {
     expect(getAgentConversation(db, c.id)?.deleted_at).toBe('2020-01-01T00:00:00.000Z')
   })
 
-  it('?permanent=1 removes the mission for good, deleted or not', async () => {
+  it('?permanent=1 removes an archived mission for good, deleted or not', async () => {
     const c = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    archiveAgentConversation(db, c.id)
     await request(app()).delete(`/api/agent/conversations/${c.id}`)
     const gone = await request(app()).delete(`/api/agent/conversations/${c.id}?permanent=1`)
     expect(gone.status).toBe(200)
@@ -115,8 +122,7 @@ describe('missions: soft delete and Recently deleted', () => {
   it('reading the trash purges missions deleted more than 30 days ago, and only those', async () => {
     const old = createAgentConversation(db, { provider: 'claude', model: 'haiku', pinnedProjectId: 'p1' })
     const fresh = createAgentConversation(db, { provider: 'claude', model: 'haiku', pinnedProjectId: 'p1' })
-    await request(app()).delete(`/api/agent/conversations/${old.id}`)
-    await request(app()).delete(`/api/agent/conversations/${fresh.id}`)
+    db.prepare('UPDATE agent_conversations SET deleted_at = ? WHERE id IN (?, ?)').run(new Date().toISOString(), old.id, fresh.id)
     db.prepare('UPDATE agent_conversations SET deleted_at = ? WHERE id = ?').run(new Date(Date.now() - 31 * 86_400_000).toISOString(), old.id)
     const res = await request(app()).get('/api/agent/conversations/trash?projectId=p1')
     expect(res.body.items.map((i: { conversation: { id: string } }) => i.conversation.id)).toEqual([fresh.id])
