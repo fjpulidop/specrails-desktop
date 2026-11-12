@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1371 source/build files. Nearby tests are linked where names
+Includes 1372 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1033,6 +1033,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [data-url.ts](../../client/src/lib/data-url.ts) · [test](../../client/src/lib/__tests__/data-url.test.ts)
 - [docs-events.ts](../../client/src/lib/docs-events.ts)
 - [feature-flags.ts](../../client/src/lib/feature-flags.ts)
+- [filterActiveConversations.ts](../../client/src/lib/filterActiveConversations.ts) · [test](../../client/src/lib/filterActiveConversations.test.ts)
 - [format-command.ts](../../client/src/lib/format-command.ts) · [test](../../client/src/lib/__tests__/format-command.test.ts)
 - [format-duration.ts](../../client/src/lib/format-duration.ts) · [test](../../client/src/lib/__tests__/format-duration.test.ts)
 - [format-tokens.ts](../../client/src/lib/format-tokens.ts) · [test](../../client/src/lib/__tests__/format-tokens.test.ts)

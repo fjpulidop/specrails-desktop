@@ -62,6 +62,11 @@ describe('ArcSidebar', () => {
     expect(screen.getByRole('navigation', { name: 'Projects' })).toBeInTheDocument()
   })
 
+  it('does not offer the active-missions filter outside Mission mode', () => {
+    render(<ArcSidebar {...defaultProps} />)
+    expect(screen.queryByRole('button', { name: 'Show only active missions' })).not.toBeInTheDocument()
+  })
+
   it('opens Companion setup straight from the footer', () => {
     const onOpenCompanion = vi.fn()
     render(<ArcSidebar {...defaultProps} onOpenCompanion={onOpenCompanion} />)

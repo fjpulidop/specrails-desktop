@@ -40,7 +40,12 @@
     "landmark": "Projects and missions",
     "resize": "Resize sidebar",
     "sectionTools": "Workspace",
-    "sectionProjects": "Projects"
+    "sectionProjects": "Projects",
+    "activeFilter": {
+      "label": "Show only active missions",
+      "tooltip": "Show only active missions",
+      "empty": "No active missions"
+    }
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops are open in the mission window.",

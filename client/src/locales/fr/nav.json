@@ -40,7 +40,12 @@
     "landmark": "Projets et missions",
     "resize": "Redimensionner la barre latérale",
     "sectionTools": "Espace de travail",
-    "sectionProjects": "Projets"
+    "sectionProjects": "Projets",
+    "activeFilter": {
+      "label": "Afficher uniquement les missions actives",
+      "tooltip": "Afficher uniquement les missions actives",
+      "empty": "Aucune mission active"
+    }
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops est ouvert dans la fenêtre Mission.",
