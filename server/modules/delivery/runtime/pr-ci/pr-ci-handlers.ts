@@ -16,6 +16,7 @@
  * CI logs are bounded and redacted; they are evidence for the fixer, never
  * instructions. Specrails never publishes the draft, merges or closes the PR.
  */
+import { formatConventionalSubject } from '../pr-naming'
 import type { HostTaskHandler, HostTaskInvocation, HostTaskResult } from '../../../agent-runtime/runtime/host-task-dispatcher'
 import { hostTaskDelay } from '../../../agent-runtime/runtime/host-task-dispatcher'
 import { isExactOpenPr, observePrLifecycle, verifyPushRemoteForPr } from '../pr-lifecycle'
@@ -170,7 +171,8 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
       if ('error' in merged) return { outcome: 'failed', detail: merged.error, base: target.branch }
       if ('conflicts' in merged) return { outcome: 'conflicts', paths: merged.conflicts, base: target.branch }
       if (merged.merged) {
-        const commit = await commitWorktreeAndVerify(deps.git, cwd, `Merge origin/${target.branch} (run ${runId})`, target.overlayExcludes)
+        const subject = formatConventionalSubject({ type: 'chore', change: `merge origin/${target.branch}`, ref: '' })
+        const commit = await commitWorktreeAndVerify(deps.git, cwd, `${subject}\n\nRun: ${runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')}`, target.overlayExcludes)
         if (!commit.clean) return { outcome: 'failed', detail: `Could not record the merge of origin/${target.branch}: ${commit.error ?? 'worktree not clean'}`, base: target.branch }
         changed = true
       }
@@ -224,7 +226,7 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
       if (pr.kind === 'closed') return { outcome: 'closed', output: { state: pr.state, ...tagged(targets, target) } }
       if (pr.kind === 'refused') return { outcome: 'rejected', output: { detail: label(targets, target, pr.detail) } }
     }
-    const summary = typeof request.input.summary === 'string' && request.input.summary.trim() ? request.input.summary.trim().split('\n')[0].slice(0, 72) : 'Fix CI'
+    const summary = typeof request.input.summary === 'string' && request.input.summary.trim() ? request.input.summary.trim().replace(/^(feat|fix|chore|docs)!?:\s*/i, '') : 'Fix CI'
     const pushes: Array<Record<string, unknown>> = []
     for (const target of targets) {
       const outcome = await deps.withRepositoryLock(target.repoDir, async (): Promise<HostTaskResult | Record<string, unknown>> => {
@@ -232,7 +234,8 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
         const before = await head(cwd)
         if (!before) return failed(label(targets, target, 'The PR worktree HEAD could not be verified'))
         const allowed = [...new Set([...(await activeOpenSpecChangesAt(deps.git, cwd, 'HEAD')), ...(await activeOpenSpecChangesAt(deps.git, cwd, `refs/remotes/origin/${target.baseBranch}`))])]
-        const commit = await commitWorktreeAndVerify(deps.git, cwd, `${summary} (run ${runId})`, target.overlayExcludes, before, allowed.length ? { allowedActiveChanges: allowed } : {})
+        const subject = formatConventionalSubject({ type: await mergeInProgress(cwd) ? 'chore' : 'fix', change: summary, ref: '' })
+        const commit = await commitWorktreeAndVerify(deps.git, cwd, `${subject}\n\nRun: ${runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')}`, target.overlayExcludes, before, allowed.length ? { allowedActiveChanges: allowed } : {})
         if (!commit.clean) return { outcome: 'rejected', output: { detail: label(targets, target, `The verified change could not be committed safely: ${commit.error ?? commit.dirty.slice(0, 5).join(', ')}`) } }
         const sha = await head(cwd)
         if (!sha) return failed(label(targets, target, 'The committed HEAD could not be verified'))

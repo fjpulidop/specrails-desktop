@@ -23,7 +23,7 @@
  */
 import type { GitRunner } from '../../../worktree-manager'
 import { listLocalBranches } from '../../../worktree-manager'
-import { resolveCollisionFreeName } from './pr-naming'
+import { formatConventionalSubject, resolveCollisionFreeName } from './pr-naming'
 import { publishDraftPr, type Exec, type PrPublishResult } from './pr-publisher'
 
 export interface DeliverBranch {
@@ -104,7 +104,7 @@ export async function deliverRailAsPr(git: GitRunner, exec: Exec, input: Deliver
   }
 
   for (const b of succeeded) {
-    const merge = await git.run(['merge', '--no-ff', '--no-edit', b.sourceSha ?? b.branch], wt)
+    const merge = await git.run(['merge', '--no-ff', '--no-edit', '-m', formatConventionalSubject({ type: 'chore', change: 'merge delivery branch', ref: String(b.ticketId) }), b.sourceSha ?? b.branch], wt)
     if (merge.code !== 0) {
       // Conflict/failure → abort and tear the batch down cleanly. Ticket branches
       // stay intact for a human. Never leave a half-merged batch.

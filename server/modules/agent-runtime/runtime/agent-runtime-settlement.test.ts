@@ -37,6 +37,8 @@ it.each([true, false])('reconciles only verified results (verified=%s), retainin
       expect(db.prepare("SELECT status,total_cost_usd FROM jobs WHERE id='run'").get()).toEqual({ status: 'completed', total_cost_usd: 9.39 })
       await settleRuntimeContinuation(input, { verify: () => ({ valid: true }), git, commit })
       expect(commit).toHaveBeenCalledTimes(1)
+      expect(commit.mock.calls[0][2].split('\n')[0]).toBe('chore: recover follow-up (4)')
+      expect(commit.mock.calls[0][2].split('\n\n')[1]).toBe('Run: run')
       const ends = db.prepare("SELECT payload FROM events WHERE job_id='run' AND event_type='loop_step_end' ORDER BY seq").all() as Array<{payload:string}>
       expect(ends.map(e => JSON.parse(e.payload).status)).toEqual(['failed', 'ok'])
       const completion = db.prepare("SELECT payload FROM events WHERE job_id='run' AND event_type='loop_completion' ORDER BY seq DESC LIMIT 1").get() as {payload:string}

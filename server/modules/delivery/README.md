@@ -303,4 +303,53 @@ in `settle_evidence` only when the active Core announces the capability; the
 review packet (`whatToLookAt`, `riskSummary`), the PR body block and the card
 `riskSummary` derive from that durable record. No decision reads it. See
 [review packet](../../../docs/internals/review-packet.md).
+## Generated delivery subjects
 
+The pure `runtime/pr-naming.ts` contract shares Conventional Commit formatting
+between PR titles and commit subjects: `type[!]: change (ref)` for feat/fix/chore/docs.
+It preserves the complete suffix within 100 characters, sanitizes colons/controls
+and Unicode separators, retains Unicode words and acronym casing, and falls back
+for empty/emoji-only changes or corrupt references. Explicit breaking labels alone
+add a bang; batch classification retains the homogeneous-type rule. Empty PR input
+returns `chore: specrails delivery`. Branch names and collision rules are unchanged.
+Tests: `runtime/pr-naming.test.ts` includes exact, negative and generated fixtures.
+
+Completed isolated-run commits share the PR subject, followed by a blank line and
+`Run: <runId>`; Jira-primary messages retain `Ticket: ticket-<local-id>` in the
+body. Failed/partial commits use non-breaking chore and a `(partial)` body line.
+Replay retains already-conventional frozen messages verbatim; legacy free-form
+messages are normalized only at commit time to `chore: recover follow-up (<id>)`
+with durable Run metadata. Frozen snapshots and existing Git history stay intact.
+
+Explicit follow-up recovery commits are non-breaking
+`chore: recover follow-up (<local-id>)`, with `Run:` in the body. Authentication, leases, excludes, stale-head
+checks and retry compare-and-set behavior remain in their existing owners.
+
+Historical snapshot reconstruction derives new non-breaking
+`chore: recover follow-up` messages from durable ledger/branch ticket ids, falling back from the
+group sentinel to its first ticket (or no suffix). Both full and partial messages
+carry Run metadata; partial adds `(partial)`. Multi-leg reconstruction retains its
+atomic transaction and grants no new cleanup/provenance authority.
+
+`delivery/runtime/pr-naming` is a focused public subpath for pure subject generation.
+Agent-runtime continuation settlement uses it for non-breaking recovery chore
+subjects and Run body metadata, without importing the delivery coordinator or a
+barrel. Verification failure still prevents commits; repeat settlement is idempotent
+and preserves original failure history and usage.
+
+Batch PR assembly and local integration assembly explicitly name their merge
+commits `chore: merge delivery branch (<local-ref>)`. Local batch references use
+the primary id and remaining count. The immutable source remains the last merge
+argument; merge flags, collision checks, aborts and isolated cleanup are unchanged.
+
+The retained legacy merge-back path uses the same chore subject with its local
+id for clean and resolver-completed merges. Its existing fix-pass commit remains
+`fix: integrate parallel rail branch`. New naming applies to future generated
+messages only: no historical commit/PR rewrite or release configuration change.
+Feature/fix/breaking metadata is usable by release-please across squash, merge and
+rebase; chore housekeeping remains release-neutral. Core-agent PRs and GitHub's
+own merge wrapper are outside Desktop's naming seam.
+
+Recovery discovery reads full messages, accepts exact `Run:` body lines and still
+recognizes legacy `(run …)` subjects. Ref/reflog and unreachable-object candidates
+share the existing bounded uniqueness proof; a prefix-matching run id is rejected.
