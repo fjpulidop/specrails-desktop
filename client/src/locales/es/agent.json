@@ -317,7 +317,8 @@
       "ci_green": "PR lista — CI en verde",
       "ci_needs_attention": "PR subida — falta que el CI esté en verde",
       "ciBuilding": "Vigilando el CI de la PR {{pr}}",
-      "run_stopped": "Ejecución detenida"
+      "run_stopped": "Ejecución detenida",
+      "ci_pending": "PR subida — CI en curso"
     },
     "buildingHint": "Cuando termine, se te preguntará si crear la PR.",
     "buildingExistingPrHint": "Specrails está trabajando sobre la rama de la PR existente y subirá los cambios de revisión a esa misma PR.",
@@ -497,7 +498,11 @@
     "moreActions": "Más acciones",
     "ci": {
       "green": "Todos los checks están en verde.",
-      "attention": "El loop de CI se detuvo antes de que los checks quedaran en verde. La PR conserva todo lo que subió."
+      "attention": "El loop de CI se detuvo antes de que los checks quedaran en verde. La PR conserva todo lo que subió.",
+      "pending": "El CI está en curso ({{count}} checks pendientes).",
+      "notGreen": "El CI de la PR aún no está en verde.",
+      "failing": "Checks en rojo: {{checks}}",
+      "failing_pr": "{{pr}}: checks en rojo: {{checks}}"
     },
     "ciBuildingHint": "Espera a los checks, arregla los fallos del código y sube los cambios a la misma PR. Los fallos que no son del código se informan, no se reintentan.",
     "runStoppedNote": "Detuviste esta ejecución antes de que entregara nada. Relánzala cuando quieras continuar."
@@ -872,7 +877,11 @@
       "check": "{{command}} · salida {{code}}",
       "next": "Las rondas de corrección automática no lo resolvieron. Vuelve a Intent para resolverlo con el agente o relanza desde la misma rama de Intent.",
       "returned": "De vuelta en Intent: tus cambios volvieron a su Intent con la revisión. Sigue en la franja de Intent."
-    }
+    },
+    "repeatFromStep": "Repetir desde «{{step}}»",
+    "repeatFromStepHint": "Retoma la ejecución en el paso fallido «{{step}}», conservando todo lo anterior.",
+    "repeatFromStepNote": "Se detuvo en «{{step}}»: repite solo desde ahí, o ejecuta de nuevo desde el principio.",
+    "repeatFromStepSent": "Repitiendo desde «{{step}}»…"
   },
   "runFailure": {
     "briefing": {

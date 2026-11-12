@@ -7,12 +7,14 @@ import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { cn } from '../../../lib/utils'
 
 /** Each action retains the parent generation and explicitly identifies its repository. */
-export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, onCheckout }: {
+export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, onCheckout, ciStates }: {
   deliveryId: string
   repositories?: RepositoryDeliverySnapshot[]
   busy: boolean
   onAct: (action: RailPrDecisionAction, repositoryId: string) => Promise<unknown>
   onCheckout?: (repositoryId: string) => Promise<unknown>
+  /** Live CI per PR URL (the card reads it from GitHub); wins over the recorded status. */
+  ciStates?: Record<string, string>
 }) {
   const { t } = useTranslation('dashboard')
   const [confirmation, setConfirmation] = useState<{ deliveryId: string; repositoryId: string; action: RailPrDecisionAction } | null>(null)
@@ -30,8 +32,11 @@ export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, on
       }}>{label}</Button>
       const failed = repository.decision === 'implementation_failed' || repository.decision === 'pr_failed'
       // pr-ci-loop: an open PR whose CI is not green is not "ready" yet.
-      const ciPending = repository.statusCode === 'ci_needs_attention' && (repository.decision === 'pr_ready' || repository.decision === 'pr_draft')
-      const good = !ciPending && (repository.decision === 'merged' || repository.decision === 'completed' || repository.decision === 'pr_ready')
+      const live = repository.prUrl ? ciStates?.[repository.prUrl] : undefined
+      const underReview = repository.decision === 'pr_ready' || repository.decision === 'pr_draft'
+      const ciRunning = underReview && live === 'pending'
+      const ciPending = underReview && (live === 'red' || (live === undefined && repository.statusCode === 'ci_needs_attention'))
+      const good = !ciPending && !ciRunning && (repository.decision === 'merged' || repository.decision === 'completed' || repository.decision === 'pr_ready')
       // One header line (name · branch → base · state), one line of PR + actions.
       // The absolute path and full SHA stay one hover away (title), not on the card.
       return <section key={repository.repositoryId} className="rounded-lg border border-border/60 bg-surface/40 px-2.5 py-2 text-xs" aria-label={repository.name}>
@@ -44,8 +49,9 @@ export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, on
             failed ? 'border-destructive/35 bg-destructive/10 text-destructive'
               : good ? 'border-accent-success/30 bg-accent-success/10 text-accent-success'
                 : ciPending ? 'border-accent-warning/35 bg-accent-warning/10 text-accent-warning'
+                  : ciRunning ? 'border-accent-info/35 bg-accent-info/10 text-accent-info'
                   : 'border-border/60 bg-surface/60 text-muted-foreground')}>
-            {ciPending ? t('common:prDeliveryStatus.ci_needs_attention') : t(`common:repositoryDelivery.${repository.decision}`)}
+            {ciPending ? t('common:prDeliveryStatus.ci_needs_attention') : ciRunning ? t('common:prDeliveryStatus.ci_running') : t(`common:repositoryDelivery.${repository.decision}`)}
           </span>
         </div>
         {repository.statusDetail && !ciPending && <p className="mt-1 whitespace-pre-wrap leading-4 text-muted-foreground">{repository.statusDetail}</p>}

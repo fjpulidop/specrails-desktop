@@ -327,7 +327,8 @@
       "ci_green": "PR 已就绪 — CI 全部通过",
       "ci_needs_attention": "PR 已推送 — CI 尚未通过",
       "ciBuilding": "正在监控 PR {{pr}} 的 CI",
-      "run_stopped": "运行已停止"
+      "run_stopped": "运行已停止",
+      "ci_pending": "PR 已推送 — CI 运行中"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
@@ -497,7 +498,11 @@
     "moreActions": "更多操作",
     "ci": {
       "green": "所有检查均已通过。",
-      "attention": "CI 循环在检查通过之前停止了。PR 保留了已推送的全部内容。"
+      "attention": "CI 循环在检查通过之前停止了。PR 保留了已推送的全部内容。",
+      "pending": "CI 正在运行（{{count}} 项检查待完成）。",
+      "notGreen": "PR 的 CI 尚未通过。",
+      "failing": "失败的检查：{{checks}}",
+      "failing_pr": "{{pr}}：失败的检查：{{checks}}"
     },
     "ciBuildingHint": "等待检查结果，修复代码导致的失败并推送到同一个 PR。非代码原因的失败只报告，不重试。",
     "runStoppedNote": "你在交付之前停止了此运行。想继续时可以重新启动。"
@@ -872,7 +877,11 @@
       "check": "{{command}} · 退出码 {{code}}",
       "next": "自动修正轮次没有解决这些问题。回到 Intent 与智能体一起解决，或从相同的 Intent 分支重新启动。",
       "returned": "已回到 Intent：你的更改已连同评审返回其 Intent。请在 Intent 条带中继续。"
-    }
+    },
+    "repeatFromStep": "从“{{step}}”重新执行",
+    "repeatFromStepHint": "从失败的步骤“{{step}}”继续，保留之前完成的所有工作。",
+    "repeatFromStepNote": "运行停在了“{{step}}”：可以只从那里重新执行，或从头再运行一次。",
+    "repeatFromStepSent": "正在从“{{step}}”重新执行…"
   },
   "runFailure": {
     "briefing": {
