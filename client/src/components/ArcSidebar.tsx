@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw } from 'lucide-react'
+import { PanelLeft, FolderOpen, Plus, BarChart3, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle, RotateCw, ListFilter } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { useSidebarHoverIntent } from '../hooks/useSidebarHoverIntent'
@@ -27,11 +27,13 @@ import { MissionAttentionMark, MissionModeRowMark } from '../features/missions/c
 import { motion } from 'motion/react'
 import { useMissionSessions } from '../features/missions/context/MissionSessionsContext'
 import type { AgentConversation } from '../features/missions/lib/agent-api'
+import { filterActiveConversations } from '../lib/filterActiveConversations'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
 
 import { notifyError } from '../lib/notify-error'
 
 const TREE_EXPAND_KEY = 'specrails-desktop:agentTreeExpanded'
+const ACTIVE_ONLY_KEY = 'specrails-desktop:agentActiveOnly'
 /** How long a destructive "Remove?" / "Delete?" confirmation stays armed. */
 const CONFIRM_RESET_MS = 5000
 /** Keyboard focus ring shared by every row button in the sidebar. */
@@ -65,6 +67,14 @@ function loadExpanded(): Set<string> {
 
 function saveExpanded(s: Set<string>): void {
   try { localStorage.setItem(TREE_EXPAND_KEY, JSON.stringify([...s])) } catch { /* ignore */ }
+}
+
+function loadActiveOnly(): boolean {
+  try { return localStorage.getItem(ACTIVE_ONLY_KEY) === 'true' } catch { return false }
+}
+
+function saveActiveOnly(value: boolean): void {
+  try { localStorage.setItem(ACTIVE_ONLY_KEY, String(value)) } catch { /* ignore */ }
 }
 
 /** Dispatch the same synthetic Cmd+K the title-bar SearchPill uses so the
@@ -794,15 +804,38 @@ export function ArcSidebar({
     () => agentChat.conversations.filter((c) => agentChat.favoriteConversationIds.has(c.id)),
     [agentChat.conversations, agentChat.favoriteConversationIds],
   )
-  const homeConversations = grouped.get(HOME_KEY) ?? []
+
+  const [activeOnly, setActiveOnly] = useState<boolean>(loadActiveOnly)
+  const toggleActiveOnly = useCallback(() => {
+    setActiveOnly((prev) => {
+      saveActiveOnly(!prev)
+      return !prev
+    })
+  }, [])
+  // The open mission stays listed so the person never loses their place.
+  const openConversationId = agentChat.active?.id ?? null
+  const visibleFavorites = useMemo(
+    () => activeOnly ? filterActiveConversations(favoriteConversations, liveConversationIds, openConversationId) : favoriteConversations,
+    [activeOnly, favoriteConversations, liveConversationIds, openConversationId],
+  )
+  const visibleGrouped = useMemo(() => {
+    if (!activeOnly) return grouped
+    const map = new Map<string, AgentConversation[]>()
+    for (const [key, list] of grouped) map.set(key, filterActiveConversations(list, liveConversationIds, openConversationId))
+    return map
+  }, [activeOnly, grouped, liveConversationIds, openConversationId])
+  const visibleHome = visibleGrouped.get(HOME_KEY) ?? []
+  const filterLeavesNothing = activeOnly
+    && visibleFavorites.length === 0
+    && [...visibleGrouped.values()].every((list) => list.length === 0)
   const rollupSets = {
     attention: agentChat.attentionConversationIds,
     attentionKinds: agentChat.attentionKinds,
     live: liveConversationIds,
     unread: agentChat.unreadConversationIds,
   }
-  const favoritesRollup = rollupMissions(favoriteConversations, rollupSets)
-  const homeRollup = rollupMissions(homeConversations, rollupSets)
+  const favoritesRollup = rollupMissions(visibleFavorites, rollupSets)
+  const homeRollup = rollupMissions(visibleHome, rollupSets)
 
   const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
   const favoriteTreeOpen = expandedTree.has(FAVORITES_KEY)
@@ -1166,7 +1199,7 @@ export function ArcSidebar({
 
       {/* Projects list */}
       <nav aria-label={t('arcSidebar.sectionProjects')} className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
-        {agentMode && favoriteConversations.length > 0 && (
+        {agentMode && visibleFavorites.length > 0 && (
           <div className="mb-2 space-y-0.5 border-b border-border/70 pb-2">
             <GroupHeader
               icon={(cls) => <Heart aria-hidden className={cn(cls, 'fill-current text-accent-primary')} />}
@@ -1178,7 +1211,7 @@ export function ArcSidebar({
             />
             {favoriteTreeOpen && expanded && (
               <div className="mt-0.5 space-y-0.5">
-                {favoriteConversations.map((c) => (
+                {visibleFavorites.map((c) => (
                   <ConversationRow
                     key={c.id}
                     conversation={c}
@@ -1196,9 +1229,34 @@ export function ArcSidebar({
             )}
           </div>
         )}
-        {expanded && <div className={SECTION_LABEL} aria-hidden>{t('arcSidebar.sectionProjects')}</div>}
+        {expanded && (
+          <div className={cn(SECTION_LABEL, 'flex items-center justify-between')}>
+            <span aria-hidden>{t('arcSidebar.sectionProjects')}</span>
+            {agentMode && (
+              <button
+                type="button"
+                onClick={toggleActiveOnly}
+                aria-pressed={activeOnly}
+                aria-label={t('arcSidebar.activeFilter.label')}
+                title={t('arcSidebar.activeFilter.tooltip')}
+                className={cn(
+                  'flex h-5 w-5 items-center justify-center rounded transition-colors',
+                  activeOnly
+                    ? 'bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                  ROW_FOCUS,
+                )}
+              >
+                <ListFilter aria-hidden className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+        {expanded && agentMode && filterLeavesNothing && (
+          <p className="px-2 py-1 text-xs text-muted-foreground">{t('arcSidebar.activeFilter.empty')}</p>
+        )}
         {/* Home group (agent mode) — conversations with no pinned project */}
-        {agentMode && homeConversations.length > 0 && (
+        {agentMode && visibleHome.length > 0 && (
           <div>
             <GroupHeader
               icon={(cls) => <Home aria-hidden className={cls} />}
@@ -1210,7 +1268,7 @@ export function ArcSidebar({
             />
             {expandedTree.has(HOME_KEY) && expanded && (
               <div className="mt-0.5 space-y-0.5">
-                {homeConversations.map((c) => (
+                {visibleHome.map((c) => (
                   <ConversationRow
                     key={c.id}
                     conversation={c}
@@ -1228,7 +1286,7 @@ export function ArcSidebar({
           </div>
         )}
         {projects.map((project) => {
-          const convs = grouped.get(project.id) ?? []
+          const convs = visibleGrouped.get(project.id) ?? []
           return (
             <ProjectItem
               key={project.id}

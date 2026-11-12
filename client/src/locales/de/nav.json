@@ -40,7 +40,12 @@
     "landmark": "Projekte und Missionen",
     "resize": "Seitenleiste skalieren",
     "sectionTools": "Arbeitsbereich",
-    "sectionProjects": "Projekte"
+    "sectionProjects": "Projekte",
+    "activeFilter": {
+      "label": "Nur aktive Missionen anzeigen",
+      "tooltip": "Nur aktive Missionen anzeigen",
+      "empty": "Keine aktiven Missionen"
+    }
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops ist im Mission-Fenster geöffnet.",

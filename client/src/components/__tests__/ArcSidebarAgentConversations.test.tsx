@@ -383,3 +383,136 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(screen.getByRole('button', { name: 'Current mode: Mission. Click to switch.' })).toBeInTheDocument()
   })
 })
+
+describe('ArcSidebar active-missions filter', () => {
+  const ACTIVE_ONLY_KEY = 'specrails-desktop:agentActiveOnly'
+  const filterButton = () => screen.getByRole('button', { name: 'Show only active missions' })
+
+  it('[spec:mission-sidebar-active-filter/active-missions-toggle] offers an unpressed filter toggle in the expanded sidebar', () => {
+    renderExpanded()
+    expect(filterButton()).toHaveAttribute('aria-pressed', 'false')
+    expect(filterButton()).toHaveAttribute('title', 'Show only active missions')
+  })
+
+  it('[spec:mission-sidebar-active-filter/active-missions-toggle] does not render the toggle on the collapsed rail', () => {
+    renderCollapsed()
+    expect(screen.queryByRole('button', { name: 'Show only active missions' })).not.toBeInTheDocument()
+  })
+
+  it('[spec:mission-sidebar-active-filter/toggle-state-is-exposed] reports the pressed state', () => {
+    renderExpanded()
+    fireEvent.click(filterButton())
+    expect(filterButton()).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('[spec:mission-sidebar-active-filter/filter-limits-missions-to-live-ones] shows only live missions across Home and project groups when on', () => {
+    agentChatState.streamingIds = new Set(['c-1'])
+    renderExpanded()
+    fireEvent.click(filterButton())
+    expect(screen.getAllByText('Fix the build').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Unassigned missions')).not.toBeInTheDocument()
+  })
+
+  it('[spec:mission-sidebar-active-filter/filter-limits-missions-to-live-ones] keeps a live favorite and drops a non-live one', () => {
+    agentChatState.favoriteIds = new Set(['c-1', 'c-2'])
+    agentChatState.streamingIds = new Set(['c-1'])
+    window.localStorage.setItem(ACTIVE_ONLY_KEY, 'true')
+    renderExpanded()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite missions' }))
+    expect(screen.getAllByText('Fix the build').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
+  })
+
+  it('[spec:mission-sidebar-active-filter/filter-limits-missions-to-live-ones] hides the favorites group when no favorite is live', () => {
+    agentChatState.favoriteIds = new Set(['c-1'])
+    agentChatState.streamingIds = new Set(['c-2'])
+    window.localStorage.setItem(ACTIVE_ONLY_KEY, 'true')
+    renderExpanded()
+    expect(screen.queryByText('Favorite missions')).not.toBeInTheDocument()
+  })
+
+  it('[spec:mission-sidebar-active-filter/filter-limits-missions-to-live-ones] lists every mission again when turned off', () => {
+    agentChatState.streamingIds = new Set(['c-1'])
+    renderExpanded()
+    fireEvent.click(filterButton())
+    fireEvent.click(filterButton())
+    expect(filterButton()).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByText('Unassigned missions')).toBeInTheDocument()
+    expect(screen.getAllByText('Fix the build').length).toBeGreaterThan(0)
+  })
+
+  it('[spec:mission-sidebar-active-filter/open-mission-stays-visible] keeps the open mission visible even when it is not live', () => {
+    agentChatState.active = conv('c-1', 'Fix the build', 'proj-1')
+    window.localStorage.setItem(ACTIVE_ONLY_KEY, 'true')
+    renderExpanded()
+    expect(screen.getByText('Fix the build')).toBeInTheDocument()
+    expect(screen.queryByText('No active missions')).not.toBeInTheDocument()
+  })
+
+  it('[spec:mission-sidebar-active-filter/empty-groups-and-empty-state] shows the empty state when nothing is live', () => {
+    window.localStorage.setItem(ACTIVE_ONLY_KEY, 'true')
+    renderExpanded()
+    expect(screen.getByText('No active missions')).toBeInTheDocument()
+  })
+
+  it('[spec:mission-sidebar-active-filter/live-updates-without-reload] drops a mission that stops being live without a reload', () => {
+    agentChatState.streamingIds = new Set(['c-1'])
+    window.localStorage.setItem(ACTIVE_ONLY_KEY, 'true')
+    const { rerender } = render(<ArcSidebar {...defaultProps} />)
+    expect(screen.getAllByText('Fix the build').length).toBeGreaterThan(0)
+    agentChatState.streamingIds = new Set()
+    rerender(<ArcSidebar {...defaultProps} />)
+    expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
+  })
+
+  it('[spec:mission-sidebar-active-filter/live-updates-without-reload] shows a mission that starts streaming without a reload', () => {
+    window.localStorage.setItem(ACTIVE_ONLY_KEY, 'true')
+    const { rerender } = render(<ArcSidebar {...defaultProps} />)
+    expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
+    expect(screen.getByText('No active missions')).toBeInTheDocument()
+    agentChatState.streamingIds = new Set(['c-1'])
+    rerender(<ArcSidebar {...defaultProps} />)
+    expect(screen.getAllByText('Fix the build').length).toBeGreaterThan(0)
+    expect(screen.queryByText('No active missions')).not.toBeInTheDocument()
+  })
+
+  it('[spec:mission-sidebar-active-filter/toggle-state-is-exposed] is a focusable native button whose click toggles the state', () => {
+    renderExpanded()
+    const button = filterButton()
+    expect(button.tagName).toBe('BUTTON')
+    button.focus()
+    expect(document.activeElement).toBe(button)
+    fireEvent.click(button)
+    expect(button).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('[spec:mission-sidebar-active-filter/filter-state-persists] persists the state and restores it after an unmount and remount', () => {
+    const first = render(<ArcSidebar {...defaultProps} />)
+    fireEvent.click(filterButton())
+    expect(window.localStorage.getItem(ACTIVE_ONLY_KEY)).toBe('true')
+    first.unmount()
+    render(<ArcSidebar {...defaultProps} />)
+    expect(filterButton()).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('[spec:mission-sidebar-active-filter/filter-state-persists] falls back to off for a corrupt stored value', () => {
+    window.localStorage.setItem(ACTIVE_ONLY_KEY, '{oops')
+    renderExpanded()
+    expect(filterButton()).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('[spec:mission-sidebar-active-filter/live-updates-without-reload] keeps filtering on the collapsed rail (a waiting, non-live mission no longer rolls up)', () => {
+    agentChatState.attentionIds = new Set(['c-1'])
+    agentChatState.attentionKinds = new Map([['c-1', 'failed']])
+    window.localStorage.setItem(ACTIVE_ONLY_KEY, 'true')
+    renderCollapsed()
+    expect(screen.queryByTestId('project-attention-badge')).not.toBeInTheDocument()
+  })
+
+  it('[spec:mission-sidebar-active-filter/live-updates-without-reload] the collapsed rail shows the waiting mission when the filter is off', () => {
+    agentChatState.attentionIds = new Set(['c-1'])
+    agentChatState.attentionKinds = new Map([['c-1', 'failed']])
+    renderCollapsed()
+    expect(screen.getByTestId('project-attention-badge')).toBeInTheDocument()
+  })
+})
