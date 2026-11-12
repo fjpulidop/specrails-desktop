@@ -6,6 +6,7 @@ import { readCoreCompletion } from '../../../core-completion'
 import { commitWorktreeAndVerify, defaultGitRunner } from '../../../worktree-manager'
 import { claimPrDeliveryOperation, releasePrDeliveryOperation, transitionClaimedDecision, getPrDelivery, toPrDeliverySnapshot, toRailPrStateMessage, type RailPrDeliveryRow } from '../../delivery/runtime/rail-pr-store'
 import { refreshRepositoryDeliveryGroup } from '../../delivery/runtime/multi-repo-execution'
+import { formatConventionalSubject } from '../../delivery/runtime/pr-naming'
 import type { WsMessage } from '../../../types'
 
 /** Complete the host's local settlement after Core recovery. Never pushes or merges. */
@@ -47,7 +48,9 @@ export async function settleRuntimeContinuation(input: {
     for (const row of rows) {
       const branches = toPrDeliverySnapshot(row).branches
       for (const unit of branches.filter(unit => unit.runId === runId)) {
-        const result = await dependencies.commit(dependencies.git, unit.worktreePath!, `specrails: ticket-${unit.ticketId} recovered (run ${runId})`, unit.overlayExcludes ?? [])
+        const subject = formatConventionalSubject({ type: 'chore', change: 'recover follow-up', ref: unit.ticketId > 0 ? String(unit.ticketId) : '' })
+        const message = `${subject}\n\nRun: ${runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')}`
+        const result = await dependencies.commit(dependencies.git, unit.worktreePath!, message, unit.overlayExcludes ?? [])
         if (!result.clean || result.error) throw new Error(result.error ?? 'Recovered worktree still contains uncommitted changes')
         const sha = await gitText(['rev-parse', 'HEAD'], unit.worktreePath!)
         if (!/^[a-f0-9]{40,64}$/i.test(sha)) throw new Error('Invalid recovered commit')

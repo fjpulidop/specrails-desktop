@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   classifyChangeType, batchChangeType, ticketRef, kebabTitle, ticketBranchName,
   batchBranchNameFor, resolveCollisionFreeName, titleChangeSummary, buildPrTitle,
-  type TicketNamingInput,
+  formatConventionalSubject, isConventionalCommitSubject, type TicketNamingInput,
 } from './pr-naming'
 import { isValidBranchName } from '../../../integration-branch'
 
@@ -191,44 +191,115 @@ describe('titleChangeSummary', () => {
 })
 
 describe('buildPrTitle', () => {
-  it('single ticket: [<ref>]<type> - <change>, jira prevailing', () => {
-    expect(buildPrTitle([t({ jiraKey: 'SKILLS-101', title: 'Darkmode added' })])).toBe('[SKILLS-101]feat - darkmode added')
-    expect(buildPrTitle([t({ title: 'Fix crash on save' })])).toBe('[37]fix - fix crash on save')
+  it('[spec:safe-pr-workflow/delivery-pr-titles-use-conventional-commits] [spec:safe-pr-workflow/release-automation-can-classify-new-deliveries] single ticket: <type>: <change> (<ref>), jira prevailing', () => {
+    expect(buildPrTitle([t({ jiraKey: 'SKILLS-101', title: 'Darkmode added' })])).toBe('feat: darkmode added (SKILLS-101)')
+    expect(buildPrTitle([t({ title: 'Fix crash on save' })])).toBe('fix: fix crash on save (37)')
   })
 
   it('the title type matches the branch type for the same ticket (consistency)', () => {
     const input = t({ jiraKey: 'OPS-3', title: 'Refactor spawn paths' })
     expect(ticketBranchName(input).startsWith('chore/')).toBe(true)
-    expect(buildPrTitle([input]).startsWith('[OPS-3]chore - ')).toBe(true)
+    expect(buildPrTitle([input]).startsWith('chore: ')).toBe(true)
   })
 
   it('single ticket without a title still yields a change clause', () => {
-    expect(buildPrTitle([t({ ticketId: 8 })])).toBe('[8]feat - implement 8')
+    expect(buildPrTitle([t({ ticketId: 8 })])).toBe('feat: implement 8 (8)')
   })
 
-  it('batch: [<primary-ref> +<n-1>]<type> - <loop summary>', () => {
+  it('[spec:safe-pr-workflow/delivery-pr-titles-use-conventional-commits] batch: <type>: <loop summary> (<primary-ref> +<n-1>)', () => {
     const a = t({ ticketId: 1, jiraKey: 'SKILLS-101', title: 'Add x' })
     const b = t({ ticketId: 2, title: 'Add y' })
     const c = t({ ticketId: 3, title: 'Add z' })
-    expect(buildPrTitle([a, b, c], { loopName: 'Implement' })).toBe('[SKILLS-101 +2]feat - implement batch of 3 tickets')
+    expect(buildPrTitle([a, b, c], { loopName: 'Implement' })).toBe('feat: implement batch of 3 tickets (SKILLS-101 +2)')
   })
 
-  it('batch type follows the all-same-type rule', () => {
+  it('[spec:safe-pr-workflow/delivery-pr-titles-use-conventional-commits] batch type follows the all-same-type rule', () => {
     const a = t({ ticketId: 1, title: 'Fix x' })
     const b = t({ ticketId: 2, labels: ['bugfix'] })
-    expect(buildPrTitle([a, b], { loopName: 'Implement' })).toBe('[1 +1]fix - implement batch of 2 tickets')
+    expect(buildPrTitle([a, b], { loopName: 'Implement' })).toBe('fix: implement batch of 2 tickets (1 +1)')
   })
 
-  it('sanitizes weird titles and caps total length', () => {
+  it('[spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] sanitizes weird titles and caps total length', () => {
     const weird = t({ title: `\x07Ship "everything"   ${'y'.repeat(300)}.` })
     const title = buildPrTitle([weird])
-    expect(title.startsWith('[37]feat - ship "everything"')).toBe(true)
+    expect(title.startsWith('feat: ship "everything"')).toBe(true)
     expect(title.length).toBeLessThanOrEqual(100)
     expect(title.includes('\x07')).toBe(false)
   })
 
   it('defensive empty-ticket fallback', () => {
-    expect(buildPrTitle([], { loopName: 'Implement' })).toBe('implement')
-    expect(buildPrTitle([])).toBe('specrails delivery')
+    expect(buildPrTitle([], { loopName: 'Implement' })).toBe('chore: specrails delivery')
+    expect(buildPrTitle([])).toBe('chore: specrails delivery')
+  })
+})
+
+describe('conventional subject contract', () => {
+  it.each([
+    [{ title: 'Dark mode' }, 'feat: dark mode (37)'],
+    [{ title: 'Read me', labels: ['docs'] }, 'docs: read me (37)'],
+    [{ title: 'Clean paths', labels: ['chore'] }, 'chore: clean paths (37)'],
+    [{ title: 'Crash', labels: ['bug', ' Breaking-Change '] }, 'fix!: crash (37)'],
+    [{ title: 'Breaking prose' }, 'feat: breaking prose (37)'],
+    [{ title: '🎉' }, 'feat: implement 37 (37)'],
+    [{ title: '東京' }, 'feat: 東京 (37)'],
+    [{ title: 'Add: one\n two\u2028three\u0085four' }, 'feat: add one two three four (37)'],
+    [{ title: 'Dark mode', jiraKey: 'BAD\nKEY' }, 'feat: dark mode (37)'],
+    [{ title: 'Dark mode', jiraKey: '\nKEY' }, 'feat: dark mode (37)'],
+    [{ title: 'Dark mode', jiraKey: 'X'.repeat(200) }, 'feat: dark mode (37)'],
+  ])('[spec:safe-pr-workflow/explicit-breaking-labels-mark-completed-changes] [spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] [spec:safe-pr-workflow/release-automation-can-classify-new-deliveries] formats %j', (input, expected) => {
+    expect(buildPrTitle([t(input)])).toBe(expected)
+  })
+
+  it('[spec:safe-pr-workflow/explicit-breaking-labels-mark-completed-changes] marks a mixed batch breaking when any ticket has the exact label', () => {
+    expect(buildPrTitle([t({ labels: ['bug'] }), t({ labels: ['breaking'] })]))
+      .toBe('feat!: batch of 2 tickets (37 +1)')
+  })
+
+  it('[spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] reserves the entire reference suffix before truncating the change', () => {
+    const ref = 'PROJECT-' + '1'.repeat(40)
+    const subject = buildPrTitle([t({ title: 'a'.repeat(300), jiraKey: ref })])
+    expect(subject).toHaveLength(100)
+    expect(subject.endsWith(`… (${ref})`)).toBe(true)
+  })
+
+  it('[spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] retains the longest usable reference for the actual prefix', () => {
+    const ref = 'A'.repeat(90)
+    expect(buildPrTitle([t({ title: 'a', jiraKey: ref })])).toBe(`feat: a (${ref})`)
+  })
+
+  it.each(['[37]feat - old', 'perf: fast', 'feat: ', 'feat: a\nb', 'fix: a\u2028b', `feat: ${'a'.repeat(100)}`])('[spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] rejects %j independently', (subject) => {
+    expect(isConventionalCommitSubject(subject)).toBe(false)
+  })
+
+  it.each([
+    [['docs'], ['docs'], 'docs: batch of 2 tickets (37 +1)'],
+    [['chore'], ['chore'], 'chore: batch of 2 tickets (37 +1)'],
+    [['bug'], ['docs'], 'feat: batch of 2 tickets (37 +1)'],
+  ])('formats batch classification %j / %j', (first, second, expected) => {
+    expect(buildPrTitle([t({ labels: first }), t({ labels: second })])).toBe(expected)
+  })
+
+  it('[spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] validates generated single and batch PR subjects across ticket metadata', () => {
+    for (const title of ['', '🎉', '東京', 'Fix: crash\nnow', 'x'.repeat(400)]) {
+      for (const jiraKey of [null, 'SKILLS-101', '\nKEY', 'x'.repeat(200)]) {
+        for (const labels of [[], ['bug'], ['docs'], ['chore'], ['breaking'], ['bug', 'breaking-change']]) {
+          const ticket = t({ title, jiraKey, labels })
+          expect(isConventionalCommitSubject(buildPrTitle([ticket]))).toBe(true)
+          expect(isConventionalCommitSubject(buildPrTitle([ticket, t()], { loopName: title }))).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('[spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] validates deterministic generated input combinations', () => {
+    for (const type of ['feat', 'fix', 'chore', 'docs'] as const) {
+      for (const change of ['', '🎉', '東京', 'Fix: crash\nnow', 'x'.repeat(400)]) {
+        for (const ref of ['', '37', 'SKILLS-101 +2', '\n', 'x'.repeat(200)]) {
+          for (const breaking of [false, true]) {
+            expect(isConventionalCommitSubject(formatConventionalSubject({ type, change, ref, breaking }))).toBe(true)
+          }
+        }
+      }
+    }
   })
 })

@@ -1,3 +1,8 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { defaultGitRunner } from '../../../worktree-manager'
 import { describe, expect, it, vi } from 'vitest'
 import type { GitRunner } from '../../../worktree-manager'
 import {
@@ -108,7 +113,7 @@ describe('rail PR recovery Git evidence', () => {
     })
     expect(calls.filter(({ args }) => args[0] === 'show')).toHaveLength(2)
     expect(calls).toContainEqual({
-      args: ['log', '--all', '--reflog', '--fixed-strings', '--grep=(run run-123)', '--format=%H'],
+      args: ['log', '--all', '--reflog', '--fixed-strings', '--grep=(run run-123)', '--grep=Run: run-123', '--format=%H'],
       cwd: '/repo',
     })
   })
@@ -202,14 +207,14 @@ describe('rail PR recovery Git evidence', () => {
     expect(calls).toEqual([])
   })
 
-  it('inspects only a commit subject when checking a candidate marker', async () => {
+  it('inspects the complete message when checking a candidate marker', async () => {
     const commit = sha('a')
     const { git, calls } = scriptedGit((args) => args[0] === 'show'
       ? { code: 0, stdout: 'settle (run run-1)\n', stderr: '' }
       : ok)
 
     await expect(commitCarriesRunMarker(git, '/repo', commit, 'run-1')).resolves.toBe(true)
-    expect(calls).toEqual([{ args: ['show', '-s', '--format=%s', commit], cwd: '/repo' }])
+    expect(calls).toEqual([{ args: ['show', '-s', '--format=%B', commit], cwd: '/repo' }])
   })
 
   it('pins one delivery-specific commit idempotently and releases only the exact protected object', async () => {
@@ -367,4 +372,46 @@ describe('rail PR recovery Git evidence', () => {
 
     await expect(listRecoveryCommitProtections(git, '/repo')).resolves.toEqual({ ok: false, detail })
   })
+})
+
+
+describe('conventional Run body recovery markers', () => {
+  it.each([
+    ['feat: work (1)\n\nRun: run-1\n', true],
+    ['chore: recover follow-up (1)\n\nRun: run-1\n(partial)\n', true],
+    ['feat: work (1)\n\nRun: run-10\n', false],
+    ['feat: Run: run-1\n', false],
+    ['feat: work (1)\n\nquoted Run: run-1\n', false],
+  ])('matches exact body provenance in %j', async (message, expected) => {
+    const { git } = scriptedGit(args => args[0] === 'show' ? { ...ok, stdout: message } : ok)
+    expect(await commitCarriesRunMarker(git, '/repo', sha('a'), 'run-1')).toBe(expected)
+  })
+
+  it.each(['refs', 'unreachable'])('discovers new messages through %s without accepting prefix collisions', async source => {
+    const { git, calls } = scriptedGit(args => {
+      if (args[0] === 'fsck') return { ...ok, stdout: source === 'unreachable' ? `unreachable commit ${sha('a')}\n` : '' }
+      if (args[0] === 'log') return { ...ok, stdout: source === 'refs' ? `${sha('a')}\n${sha('b')}\n` : '' }
+      if (args[0] === 'show') return { ...ok, stdout: `feat: work (1)\n\nRun: ${args[3] === sha('a') ? 'run-1' : 'run-10'}\n` }
+      return ok
+    })
+    expect(await discoverRunMarkedCommit(git, '/repo', 'run-1')).toEqual({ kind: 'unique', sha: sha('a') })
+    expect(calls.find(call => call.args[0] === 'log')!.args).toContain('--grep=Run: run-1')
+  })
+})
+
+
+it('discovers Run body metadata in real Git refs, reflogs and unreachable objects', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'run-marker-'))
+  const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', ...args], { cwd: root, encoding: 'utf8' }).trim()
+  try {
+    git('init', '-q', '-b', 'main')
+    git('commit', '--allow-empty', '-qm', 'chore: base')
+    git('commit', '--allow-empty', '-qm', 'feat: work (1)\n\nRun: run-1')
+    const commit = git('rev-parse', 'HEAD')
+    expect(await discoverRunMarkedCommit(defaultGitRunner, root, 'run-1')).toEqual({ kind: 'unique', sha: commit })
+    git('reset', '--hard', 'HEAD~1')
+    expect(await discoverRunMarkedCommit(defaultGitRunner, root, 'run-1')).toEqual({ kind: 'unique', sha: commit })
+    git('reflog', 'expire', '--expire=now', '--all')
+    expect(await discoverRunMarkedCommit(defaultGitRunner, root, 'run-1')).toEqual({ kind: 'unique', sha: commit })
+  } finally { fs.rmSync(root, { recursive: true, force: true }) }
 })

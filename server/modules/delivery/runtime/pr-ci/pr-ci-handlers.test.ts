@@ -88,12 +88,13 @@ describe('pr.update-base', () => {
     expect(existsSync(path.join(work, '.git', 'MERGE_HEAD'))).toBe(true)
   })
 
-  it('merges a PR branch that moved on GitHub before anything else', async () => {
+  it('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] merges a PR branch that moved on GitHub before anything else', async () => {
     const other = path.join(root, 'other'); execFileSync('git', ['clone', '-q', '-b', 'feature', remote, other]); identity(other)
     commitFile(other, 'remote.txt', 'r\n', 'remote change'); git(other, 'push', '-q', 'origin', 'feature')
     expect(await fixture().invoke('pr.update-base', {})).toMatchObject({ outcome: 'merged' })
     expect(readFileSync(path.join(work, 'remote.txt'), 'utf8')).toBe('r\n')
-    expect(git(work, 'log', '-1', '--format=%s')).toContain('(run run-1)')
+    expect(git(work, 'log', '-1', '--format=%s')).toBe('chore: merge origin/feature')
+    expect(git(work, 'log', '-1', '--format=%b')).toBe('Run: run-1')
   })
 
   it('ends at closed for a closed PR, refuses a fork and an unresolved target', async () => {
@@ -106,18 +107,19 @@ describe('pr.update-base', () => {
 })
 
 describe('pr.sync', () => {
-  it('commits the verified candidate with the run marker and pushes it without force', async () => {
+  it('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] commits the verified candidate with the run marker and pushes it without force', async () => {
     writeFileSync(path.join(work, 'fix.txt'), 'fixed\n')
     const f = fixture()
     const result = await f.invoke('pr.sync', { summary: 'Fix CI: repair the test' })
     expect(result).toMatchObject({ outcome: 'pushed', output: { sha: headSha(), committed: true } })
-    expect(git(work, 'log', '-1', '--format=%s')).toBe('Fix CI: repair the test (run run-1)')
+    expect(git(work, 'log', '-1', '--format=%s')).toBe('fix: fix CI repair the test')
+    expect(git(work, 'log', '-1', '--format=%b')).toBe('Run: run-1')
     expect(git(remote, 'rev-parse', 'refs/heads/feature')).toBe(headSha())
     const push = f.calls.find(call => call[1] === 'push')!
     expect(push.some(arg => arg.startsWith('+') || arg === '--force' || arg === '-f')).toBe(false)
   })
 
-  it('closes a prepared merge in the same commit', async () => {
+  it('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] closes a prepared merge in the same commit', async () => {
     git(work, 'checkout', '-q', 'main'); commitFile(work, 'app.txt', 'main side\n', 'main'); git(work, 'push', '-q', 'origin', 'main'); git(work, 'checkout', '-q', 'feature')
     commitFile(work, 'app.txt', 'feature side\n', 'feature edit'); git(work, 'push', '-q', 'origin', 'feature')
     const f = fixture()
@@ -126,6 +128,39 @@ describe('pr.sync', () => {
     expect(await f.invoke('pr.sync', { summary: 'Merge the base branch' })).toMatchObject({ outcome: 'pushed' })
     expect(git(work, 'rev-list', '--parents', '-n1', 'HEAD').split(' ')).toHaveLength(3)
     expect(existsSync(path.join(work, '.git', 'MERGE_HEAD'))).toBe(false)
+    expect(git(work, 'log', '-1', '--format=%s')).toBe('chore: merge the base branch')
+    expect(git(work, 'log', '-1', '--format=%b')).toBe('Run: run-1')
+  })
+
+  it('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] completes a clean prepared-base merge as housekeeping', async () => {
+    git(work, 'checkout', '-q', 'main'); commitFile(work, 'other.txt', 'base update\n', 'base update'); git(work, 'push', '-q', 'origin', 'main'); git(work, 'checkout', '-q', 'feature')
+    const f = fixture()
+    await f.invoke('pr.update-base', { reason: 'red' })
+    expect(await f.invoke('pr.sync', { summary: 'fix!: take base' })).toMatchObject({ outcome: 'pushed' })
+    expect(git(work, 'log', '-1', '--format=%s')).toBe('chore: take base')
+    expect(git(work, 'log', '-1', '--format=%b')).toBe('Run: run-1')
+  })
+
+  it.each([
+    ['', 'fix: fix CI'],
+    ['fix: Repair CI', 'fix: repair CI'],
+    ['chore!: Repair: CI\nnow', 'fix: repair CI now'],
+  ])('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] [spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] sanitizes standalone summary %j', async (summary, expected) => {
+    writeFileSync(path.join(work, 'fix.txt'), 'fixed\n')
+    expect(await fixture().invoke('pr.sync', { summary })).toMatchObject({ outcome: 'pushed' })
+    expect(git(work, 'log', '-1', '--format=%s')).toBe(expected)
+    expect(git(work, 'log', '-1', '--format=%b')).toBe('Run: run-1')
+  })
+
+  it('rejects a failed commit without pushing the verified candidate', async () => {
+    const before = headSha()
+    writeFileSync(path.join(work, 'fix.txt'), 'fixed\n')
+    writeFileSync(path.join(work, '.git', 'index.lock'), '')
+    const f = fixture()
+    expect(await f.invoke('pr.sync', { summary: 'Repair CI' })).toMatchObject({ outcome: 'rejected' })
+    expect(headSha()).toBe(before)
+    expect(git(remote, 'rev-parse', 'refs/heads/feature')).toBe(before)
+    expect(f.calls.some(call => call[1] === 'push')).toBe(false)
   })
 
   it('is idempotent when the remote already has the commit', async () => {

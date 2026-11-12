@@ -282,6 +282,7 @@
         "../../../types",
         "../../../worktree-manager",
         "../../delivery/runtime/multi-repo-execution",
+        "../../delivery/runtime/pr-naming",
         "../../delivery/runtime/rail-pr-store",
         "node:crypto",
         "node:fs"
@@ -894,6 +895,7 @@
       "runtime/pr-ci/pr-ci-handlers.ts",
       "runtime/pr-ci/pr-ci-projection.ts",
       "runtime/pr-ci/pr-ci-target.ts",
+      "runtime/pr-naming.ts",
       "runtime/pr-publisher.ts",
       "runtime/rail-isolated-launch.ts",
       "runtime/rail-isolation.ts",
@@ -991,6 +993,7 @@
         "../../../../integration-branch",
         "../../../../repo-lock",
         "../../runtime/local-stash",
+        "../../runtime/pr-naming",
         "../../runtime/rail-pr-store",
         "../../runtime/rail-worktree-release",
         "./chains",
@@ -1040,6 +1043,7 @@
       "adapters/decisions/recovery.ts": [
         "../../../../worktree-manager",
         "../../runtime/pr-lifecycle",
+        "../../runtime/pr-naming",
         "../../runtime/rail-pr-recovery-git",
         "../../runtime/rail-pr-store",
         "../../runtime/rail-worktrees-store",
@@ -1155,6 +1159,7 @@
         "../../../db",
         "../../loops/runtime/loop-runs-store",
         "./isolated-settlement-store",
+        "./pr-naming",
         "./rail-pr-store",
         "./rail-worktrees-store",
         "node:path"
@@ -1185,6 +1190,7 @@
       "runtime/local-restore-branch.ts": [
         "../../../worktree-manager",
         "./local-stash",
+        "./pr-naming",
         "./rail-pr-store",
         "fs",
         "path"
@@ -1203,7 +1209,8 @@
         "path"
       ],
       "runtime/merge-manager.ts": [
-        "../../../worktree-manager"
+        "../../../worktree-manager",
+        "./pr-naming"
       ],
       "runtime/multi-repo-bases.ts": [
         "../../../db",
@@ -1276,6 +1283,7 @@
         "../../../../worktree-manager",
         "../../../agent-runtime/runtime/host-task-dispatcher",
         "../pr-lifecycle",
+        "../pr-naming",
         "../pr-publisher"
       ],
       "runtime/pr-ci/pr-ci-offer.ts": [

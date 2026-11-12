@@ -9,8 +9,8 @@
  *   batch     →  `<type>/<primary-ref>-batch-<n>-tickets`
  *
  * PR title conventions:
- *   single    →  `[<ref>]<type> - <change>`      e.g. [SKILLS-101]feat - darkmode added
- *   batch     →  `[<ref> +<n-1>]<type> - <loop-level summary>`
+ *   single    →  `<type>[!]: <change> (<ref>)`   e.g. feat: darkmode added (SKILLS-101)
+ *   batch     →  `<type>[!]: <loop-level summary> (<ref> +<n-1>)`
  *
  * `<ref>` is the ticket's Jira key when Jira-linked (JIRA ALWAYS PREVAILS —
  * resolved by the caller from the authoritative `jira_links` row first, the
@@ -32,7 +32,15 @@ export interface TicketNamingInput {
   jiraKey?: string | null
 }
 
-export type ChangeType = 'feat' | 'fix' | 'chore' | 'docs'
+export type ConventionalType = 'feat' | 'fix' | 'chore' | 'docs'
+export type ChangeType = ConventionalType
+
+export interface ConventionalSubjectInput {
+  type: ConventionalType
+  change: string
+  ref: string
+  breaking?: boolean
+}
 
 const TYPE_PATTERNS: Array<{ type: ChangeType; re: RegExp }> = [
   { type: 'fix', re: /(^|[^a-z0-9])(bug|bugfix|fix|fixes|fixed|hotfix)([^a-z0-9]|$)/i },
@@ -176,6 +184,7 @@ export function resolveCollisionFreeName(preferred: string, opts: CollisionOpts)
 
 const TITLE_CHANGE_MAX = 72
 const TITLE_MAX = 100
+const SUBJECT_CONTROL_RE = /[\p{Cc}\p{Zl}\p{Zp}]/u
 
 /**
  * One short sentence derived from the ticket title: control chars stripped,
@@ -202,30 +211,55 @@ function decapitalizeFirst(s: string): string {
   return s[0].toLowerCase() + s.slice(1)
 }
 
-/**
- * Conventional PR title.
- *   1 ticket  → `[<ref>]<type> - <change>`
- *   N tickets → `[<primary-ref> +<n-1>]<type> - <loop-level summary>`
- * The per-ticket `<type>` uses the SAME heuristic as the branch name, so the
- * two stay consistent for a given ticket.
- */
-export function buildPrTitle(tickets: TicketNamingInput[], opts: { loopName?: string | null } = {}): string {
-  if (tickets.length === 0) {
-    // Defensive — deliveries always carry ≥1 succeeded ticket.
-    return truncateTitle(titleChangeSummary(opts.loopName) || 'specrails delivery')
-  }
-  if (tickets.length === 1) {
-    const t = tickets[0]
-    const change = titleChangeSummary(t.title) || `implement ${ticketRef(t)}`
-    return truncateTitle(`[${ticketRef(t)}]${classifyChangeType(t)} - ${change}`)
-  }
-  const primary = tickets[0]
-  const type = batchChangeType(tickets)
-  const loop = titleChangeSummary(opts.loopName)
-  const summary = loop ? `${loop} batch of ${tickets.length} tickets` : `batch of ${tickets.length} tickets`
-  return truncateTitle(`[${ticketRef(primary)} +${tickets.length - 1}]${type} - ${summary}`)
+/** Validate a generated subject, including suffix-free housekeeping. */
+export function isConventionalCommitSubject(subject: string): boolean {
+  return subject.length <= TITLE_MAX
+    && !SUBJECT_CONTROL_RE.test(subject)
+    && /^(feat|fix|chore|docs)!?: \S.*$/u.test(subject)
+    && subject.trimEnd() === subject
 }
 
-function truncateTitle(s: string): string {
-  return s.length > TITLE_MAX ? `${s.slice(0, TITLE_MAX - 1).trimEnd()}…` : s
+function conventionalPrefix(input: Pick<ConventionalSubjectInput, 'type' | 'breaking'>): string {
+  return `${input.type}${input.breaking ? '!' : ''}: `
+}
+
+function usableSubjectRef(ref: string, prefix: string): boolean {
+  return !SUBJECT_CONTROL_RE.test(ref) && prefix.length + ref.trim().length + ' ()'.length < TITLE_MAX
+}
+
+/** Reserve the reference suffix before truncating only the change. */
+export function formatConventionalSubject(input: ConventionalSubjectInput): string {
+  const prefix = conventionalPrefix(input)
+  const ref = usableSubjectRef(input.ref, prefix) ? input.ref.trim() : ''
+  const suffix = ref ? ` (${ref})` : ''
+  let change = titleChangeSummary(input.change.replace(/[\p{Cc}\p{Zl}\p{Zp}:]/gu, ' '))
+  if (!/[\p{L}\p{N}]/u.test(change)) change = ref ? `implement ${ref}` : 'specrails delivery'
+  const budget = TITLE_MAX - prefix.length - suffix.length
+  if (change.length > budget) change = `${change.slice(0, budget - 1).trimEnd()}…`
+  const subject = `${prefix}${change}${suffix}`
+  return isConventionalCommitSubject(subject) ? subject : 'chore: specrails delivery'
+}
+
+/** Completed changes alone opt in to breaking through explicit labels. */
+function hasBreakingLabel(ticket: TicketNamingInput): boolean {
+  return (ticket.labels ?? []).some((label) => typeof label === 'string' && /^(breaking|breaking-change)$/i.test(label.trim()))
+}
+
+/** PR titles share the completed implementation subject convention. */
+export function buildPrTitle(tickets: TicketNamingInput[], opts: { loopName?: string | null } = {}): string {
+  if (tickets.length === 0) return 'chore: specrails delivery'
+  const primary = tickets[0]
+  const count = tickets.length > 1 ? ` +${tickets.length - 1}` : ''
+  const type = batchChangeType(tickets)
+  const breaking = tickets.some(hasBreakingLabel)
+  const preferredRef = ticketRef(primary) + count
+  const ref = !SUBJECT_CONTROL_RE.test(primary.jiraKey ?? '') && usableSubjectRef(preferredRef, conventionalPrefix({ type, breaking }))
+    ? preferredRef : `${primary.ticketId}${count}`
+  const loop = titleChangeSummary(opts.loopName)
+  const change = tickets.length === 1
+    ? primary.title ?? ''
+    : `${loop ? `${loop} ` : ''}batch of ${tickets.length} tickets`
+  return formatConventionalSubject({
+    type, change, ref, breaking,
+  })
 }
