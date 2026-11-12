@@ -1,3 +1,5 @@
+import * as definitionRecovery from '../../loops/runtime/loop-definition-recovery'
+import { saveIsolatedSettlementSnapshot, readIsolatedSettlementRecords } from './isolated-settlement-store'
 import { freezeFollowUp, parseFollowUpInput, readFollowUp } from './pr-follow-up'
 import { buildSpecAddendum, readSpecAddenda, readSpecAddendaSnapshot } from '../../specs/runtime/spec-addenda'
 import { mutateStore, readStore } from '../../specs/runtime/ticket-store'
@@ -6,14 +8,14 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { resolveHome } from '../../../artifact-registry'
-import { buildSpecSnapshot, launchIsolatedRail, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
+import { buildSpecSnapshot, launchIsolatedRail, reattachIsolatedSettlement, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
 import { RepositoryHasNoCommitsError } from './isolated-worktree'
-import { initDb } from '../../../db'
+import { initDb, createJob } from '../../../db'
 import { initDesktopDb } from '../../../desktop-db'
 import { listRailWorktrees, createRailWorktree, updateRailWorktreeState, getRailWorktree } from './rail-worktrees-store'
 import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, PrDeliveryGenerationConflict, readSpecSnapshot, transitionDecision, type DeliverBranchRecord , toPrDeliverySnapshot } from './rail-pr-store'
 import { readSettleEvidence } from './delivery-evidence'
-import { createLoopRun } from '../../loops/runtime/loop-runs-store'
+import { createLoopRun, saveDefinitionRun, finishLoopRunAndJob } from '../../loops/runtime/loop-runs-store'
 import { insertLinkWithId } from '../../../jira/jira-db'
 import { setAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import type { AgentChatManager } from '../../missions/runtime/agent-chat-manager'
@@ -961,7 +963,26 @@ describe('launchIsolatedRail — conventional branch naming (pr-naming threading
     expect(branches).toEqual(['feat/1-same-title', 'feat/2-same-title'])
   })
 
-  it('commit messages include the Jira key when available so GitHub-Jira links commits to the ticket', async () => {
+  it.each([
+    ['success', [], 'feat: dark mode (1)', false],
+    ['success', ['bug'], 'fix: dark mode (1)', false],
+    ['success', ['breaking-change'], 'feat!: dark mode (1)', false],
+    ['failed', ['breaking'], 'chore: dark mode (1)', true],
+  ] as const)('[spec:safe-pr-workflow/implementation-commits-preserve-release-classification-and-run-provenance] [spec:safe-pr-workflow/explicit-breaking-labels-mark-completed-changes] [spec:safe-pr-workflow/release-automation-can-classify-new-deliveries] commits %s with classified subject and body metadata', async (outcome, labels, subject, partial) => {
+    const { ctx } = fakeCtx(settlingRun(outcome === 'failed' ? 'failure' : 'success'))
+    ;(ctx as unknown as { getTicketSpec: () => unknown }).getTicketSpec = () => ({ title: 'Dark mode', labels: [...labels] })
+    const calls: string[][] = []
+    const git = { run: async (args: string[]) => { calls.push(args); return successfulGitResult(args) } }
+    await launchIsolatedRail(input([1], ctx), { git, create: mockCreate(), remove: vi.fn(async () => {}) })
+    await vi.waitFor(() => expect(calls.some((args) => args[0] === 'commit')).toBe(true))
+    const commit = calls.find((args) => args[0] === 'commit')!
+    const message = commit[commit.indexOf('-m') + 1]
+    expect(message.split('\n')[0]).toBe(subject)
+    expect(message).toMatch(/\n\nRun: [^\n]+/)
+    expect(message.includes('(partial)')).toBe(partial)
+  })
+
+  it('[spec:safe-pr-workflow/implementation-commits-preserve-release-classification-and-run-provenance] commit messages include the Jira key when available so GitHub-Jira links commits to the ticket', async () => {
     const { ctx } = fakeCtx(settlingRun('success'))
     ;(ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec = (id: number) => ({
       title: 'Add key terms',
@@ -990,7 +1011,7 @@ describe('launchIsolatedRail — conventional branch naming (pr-naming threading
       '--no-verify',
       '--only',
       '-m',
-      expect.stringMatching(/^specrails: SKILLS-70 ticket-98 \(run /),
+      expect.stringMatching(/^feat: add key terms \(SKILLS-70\)\n\nRun: [^\n]+\nTicket: ticket-98$/),
     ]))
   })
 })
@@ -3540,7 +3561,7 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
     })
     expect(getRailWorktree(db, worktree.id)?.branch).toBe('feat/existing-pr')
     expect(git.run).toHaveBeenCalledWith(
-      ['show', '-s', '--format=%s', 'c'.repeat(40)], '/repo',
+      ['show', '-s', '--format=%B', 'c'.repeat(40)], '/repo',
     )
   })
 
@@ -4253,5 +4274,58 @@ describe('launchIsolatedRail — revision generations (Wave 3)', () => {
     const row = getActivePrDeliveryByRail(db, 0)!
     expect(row.revision_note).toBeNull()
     expect(row.revision_of).toBeNull()
+  })
+})
+
+describe('frozen conventional settlement messages', () => {
+  it.each([
+    ['feat!: frozen intent (1)\n\nRun: durable-run', false, false, 'feat!: frozen intent (1)\n\nRun: durable-run'],
+    ['specrails: ticket-1 (run durable-run)', false, false, 'chore: recover follow-up (1)\n\nRun: durable-run'],
+    ['feat!: frozen intent (1)\n\nRun: durable-run', true, false, 'chore: recover follow-up (1)\n\nRun: durable-run\n(partial)'],
+    ['feat!: frozen intent (1)\n\nRun: durable-run', true, true, null],
+  ] as const)('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] replays %s (partial=%s, resumable=%s) without rewriting the frozen allocation', async (frozenMessage, partial, resumable, expected) => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'naming-replay-')))
+    const { ctx, db } = fakeCtx()
+    const probe = vi.spyOn(definitionRecovery, 'probeDefinitionRun').mockResolvedValue({
+      runId: 'durable-run', engineVersion: 2, status: partial ? 'failed' : 'succeeded', resumable, lease: null,
+      recoverableSteps: [], pendingInterrupts: [], completion: { ok: !partial, verified: !partial, reasons: [] },
+      coreRevision: 1, eventCursor: 1, probedAt: new Date().toISOString(), scopes: [],
+    })
+    try {
+      createJob(db, { id: 'durable-run', command: 'loop:test', started_at: new Date().toISOString(), owner: 'loop' })
+      createLoopRun(db, { id: 'durable-run', projectId: 'proj', loopId: 'loop', ticketIds: [1], railIndex: 0, ticketCompletionStatus: 'on_review', iterationLimit: 3, startedAt: new Date().toISOString() })
+      saveDefinitionRun(db, 'durable-run', { request: { runId: 'durable-run', projectId: 'proj', loopId: 'loop', cwd: root, graph, provider: 'claude', model: 'test' }, context: { runId: 'durable-run', repositories: [{ id: 'repo', path: root }] } })
+      finishLoopRunAndJob(db, 'durable-run', { outcome: partial ? 'blocked' : 'success', finishedAt: new Date().toISOString(), callbackOutcome: 'failed', outcomeFinalized: false,
+        counters: { iterationCount: 1, totalCostUsd: 0, totalTokens: 0, totalDurationMs: 1 },
+        job: { status: partial ? 'failed' : 'completed', exitCode: partial ? 1 : 0, totalCostUsd: 0, tokensIn: 0, tokensOut: 0, tokensCacheRead: null, tokensCacheCreate: null, numTurns: 1, durationMs: 1 } })
+      createPrDelivery(db, { id: 'frozen', railIndex: 0, loopId: 'loop', railKey: '0-loop', ticketIds: [1], baseBranch: 'main', loopName: 'Loop', originSurface: 'dashboard' })
+      createRailWorktree(db, { id: 'mount', runId: 'durable-run', railIndex: 0, ticketId: 1, branch: 'work', worktreePath: root })
+      saveIsolatedSettlementSnapshot(db, { version: 1, projectId: 'proj', deliveryId: 'frozen', baseRepo: root, overlaySourceRoot: root, overlayProviderDir: '.claude', overlayInstructions: 'CLAUDE.md', commitMessage: frozenMessage, partialCommitMessage: 'legacy partial',
+        run: { ticketId: 1, ticketIds: [1], runId: 'durable-run', ledgerId: 'mount', handle: { branch: 'work', worktreePath: root }, overlayExcludes: [], overlayCleanupEvidence: [], warmLinkEvidence: [], provenanceSnapshot: null, continuationTarget: null, baseRef: 'main', initialSha: 'a'.repeat(40), branchOwnership: 'created', worktreeOwnership: 'created' } })
+      const originalSnapshot = readIsolatedSettlementRecords(db, 'proj', 'frozen')[0].snapshot
+      const calls: string[][] = []
+      let committed = false
+      let commitCount = 0
+      const recordProvenance = vi.fn()
+      const git = { run: async (args: string[]) => {
+        calls.push(args)
+        if (args[0] === 'commit') {
+          if (committed) return { code: 1, stdout: 'nothing to commit, working tree clean', stderr: '' }
+          committed = true
+          commitCount++
+        }
+        return { code: 0, stderr: '', stdout: args[0] === 'branch' ? 'work' : args[0] === 'rev-parse' ? 'b'.repeat(40) : args[0] === 'status' && !committed ? ' M app.ts\n' : '' }
+      } }
+      await reattachIsolatedSettlement(ctx, 'frozen', 'durable-run', { git, recordProvenance })
+      const commit = calls.find(args => args[0] === 'commit')!
+      if (expected === null) expect(commit).toBeUndefined()
+      else expect(commit[commit.indexOf('-m') + 1]).toBe(expected)
+      expect(readIsolatedSettlementRecords(db, 'proj', 'frozen')[0].snapshot).toEqual(originalSnapshot)
+      expect(getPrDelivery(db, 'frozen')?.decision).toBe(partial ? 'implementation_failed' : 'on_review')
+      await reattachIsolatedSettlement(ctx, 'frozen', 'durable-run', { git, recordProvenance })
+      expect(commitCount).toBe(resumable ? 0 : 1)
+      expect(recordProvenance).toHaveBeenCalledTimes(1)
+      expect(readIsolatedSettlementRecords(db, 'proj', 'frozen')[0].snapshot).toEqual(originalSnapshot)
+    } finally { probe.mockRestore(); db.close(); fs.rmSync(root, { recursive: true, force: true }) }
   })
 })

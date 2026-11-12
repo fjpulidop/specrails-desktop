@@ -23,14 +23,15 @@ import {
   failureText, isSpecrailsManagedPath, listUserDirtyPaths, nulList, pathsOverlap,
   resetPathsToHead, restoreBranchName, safeRun, stashPaths, unmergedPaths,
 } from './local-stash'
+import { formatConventionalSubject } from './pr-naming'
 import type { LocalRestoreFileChange } from './rail-pr-store'
 
 const SHA_RE = /^[0-9a-f]{40,64}$/i
 const MARKER_RE = /^(?:<{7}|>{7})(?: |$)/m
 
 export function restoreCommitMessage(ticketIds: readonly number[]): string {
-  const tickets = ticketIds.length > 0 ? ticketIds.map((id) => `#${id}`).join(', ') : 'the delivery'
-  return `Restore local changes from before integrating ${tickets}`
+  const ref = ticketIds.length ? `${ticketIds[0]}${ticketIds.length > 1 ? ` +${ticketIds.length - 1}` : ''}` : ''
+  return formatConventionalSubject({ type: 'chore', change: 'restore local changes', ref })
 }
 
 /** `<root>/restore-local-<sha8>` — the mount root under the project's worktrees area. */
@@ -265,7 +266,9 @@ export async function bringBackRestoreBranch(git: GitRunner, input: {
     if (!fs.existsSync(input.worktreePath)) {
       return { ok: false, reason: 'target_conflict', detail: `${input.targetBranch} moved and the restore worktree is gone.` }
     }
-    const merged = await safeRun(git, ['merge', '--no-edit', '--no-ff', input.targetBranch], input.worktreePath)
+    const merged = await safeRun(git, ['merge', '--no-edit', '--no-ff', '-m', formatConventionalSubject({
+      type: 'chore', change: `merge ${input.targetBranch} into local restore`, ref: '',
+    }), input.targetBranch], input.worktreePath)
     if (merged.code !== 0) {
       await safeRun(git, ['merge', '--abort'], input.worktreePath)
       return { ok: false, reason: 'target_conflict', detail: `${input.targetBranch} moved and no longer merges cleanly with ${input.branch}.` }

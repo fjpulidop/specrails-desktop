@@ -4,6 +4,7 @@ import { readDefinitionRun, readDefinitionSuccessor } from '../../loops/runtime/
 import { saveIsolatedSettlementSnapshot, type IsolatedSettlementSnapshot } from './isolated-settlement-store'
 import { type RailPrDeliveryRow, type DeliverBranchRecord, TERMINAL_PR_DECISIONS } from './rail-pr-store'
 import { getRailWorktree } from './rail-worktrees-store'
+import { formatConventionalSubject } from './pr-naming'
 
 const unavailable = (reason: string): never => { throw new Error(`Original isolated settlement snapshot is unavailable: ${reason}`) }
 const list = <T>(json: string): T[] => {
@@ -61,10 +62,11 @@ export function ensureIsolatedSettlementSnapshot(db: DbInstance, projectId: stri
         !Number.isSafeInteger(item.ticketId) || item.ticketId < 0 || item.ticketId !== 0 && !runTickets.has(item.ticketId))) return unavailable('branch records disagree with the frozen run')
       const ticketIds = [...new Set(branches.map(item => item.ticketId).filter(id => id > 0))].sort((a, b) => a - b)
       if (ledger.ticket_id !== 0 && !ticketIds.includes(ledger.ticket_id)) return unavailable('worktree ticket ownership changed')
-      const message = `specrails: ticket-${ledger.ticket_id} recovered (run ${runId})`
+      const subject = formatConventionalSubject({ type: 'chore', change: 'recover follow-up', ref: String(ledger.ticket_id || ticketIds[0] || '') })
+      const message = `${subject}\n\nRun: ${runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')}`
       snapshots.push({ version: 1, projectId, deliveryId: delivery.id, reconstructedFrom: 'durable-branch-records',
         baseRepo: repository.sourcePath, overlaySourceRoot: repository.sourcePath, overlayProviderDir: '', overlayInstructions: '',
-        commitMessage: message, partialCommitMessage: `specrails: ticket-${ledger.ticket_id} partial recovered (run ${runId})`,
+        commitMessage: message, partialCommitMessage: `${message}\n(partial)`,
         run: { runId, ledgerId: ledger.id, ticketId: ledger.ticket_id, ticketIds,
           handle: { branch: repository.branch, worktreePath: repository.worktreePath },
           baseRef: repository.baseSha, initialSha: branch.initialSha, branchOwnership: branch.branchOwnership as 'created' | 'preexisting',

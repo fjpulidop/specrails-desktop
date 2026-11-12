@@ -114,8 +114,8 @@ describe('deliverRailAsPr', () => {
       ],
     })
     expect(calls.filter((call) => call[0] === 'merge')).toEqual([
-      ['merge', '--no-ff', '--no-edit', first],
-      ['merge', '--no-ff', '--no-edit', second],
+      ['merge', '--no-ff', '--no-edit', '-m', 'chore: merge delivery branch (1)', first],
+      ['merge', '--no-ff', '--no-edit', '-m', 'chore: merge delivery branch (2)', second],
     ])
   })
 
