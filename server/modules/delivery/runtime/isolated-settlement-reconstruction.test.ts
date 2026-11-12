@@ -45,7 +45,8 @@ it('reconstructs every leg atomically from recorded identities, without granting
     expect(snapshot).toMatchObject({ reconstructedFrom: 'durable-branch-records', projectId: 'project',
       run: { runId: 'run', initialSha: 'b'.repeat(40), baseRef: 'a'.repeat(40), automaticRelease: false, worktreeOwnership: 'preexisting',
         overlayExcludes: ['.claude', 'CLAUDE.md'], overlayCleanupEvidence: [], warmLinkEvidence: [], settlementIgnoredPaths: null, provenanceSnapshot: null, continuationTarget: null } })
-    expect(snapshot.commitMessage).toContain('(run run)')
+    expect(snapshot.commitMessage).toBe('chore: recover follow-up (1)\n\nRun: run')
+    expect(snapshot.partialCommitMessage).toBe('chore: recover follow-up (1)\n\nRun: run\n(partial)')
   }
   expect(db.prepare('SELECT * FROM loop_runs WHERE id=?').get('run')).toEqual(before)
   expect(ensureIsolatedSettlementSnapshot(db, 'project', 'run')).toEqual({ delivery_id: 'delivery-a' })
@@ -82,4 +83,11 @@ it('rolls back both legs when persistence fails and retries without duplicate sn
 it('rejects another project before reading or creating settlement ownership', () => {
   expect(() => ensureIsolatedSettlementSnapshot(db, 'other', 'run')).toThrow('another project')
   expect(count()).toEqual({ n: 0 })
+})
+
+it('uses durable branch ticket ids when the ledger has the group sentinel', () => {
+  db.exec('UPDATE rail_worktrees SET ticket_id=0')
+  ensureIsolatedSettlementSnapshot(db, 'project', 'run')
+  expect(readIsolatedSettlementRecords(db, 'project', 'delivery-a')[0].snapshot.commitMessage)
+    .toBe('chore: recover follow-up (1)\n\nRun: run')
 })

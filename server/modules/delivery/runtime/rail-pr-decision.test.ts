@@ -628,7 +628,7 @@ describe('create-pr', () => {
     expect(JSON.parse(getPrDelivery(db, row.id)!.branches)[0]).toMatchObject({ finalSha: frozen })
   })
 
-  it('single unit covering N tickets: title counts and body lists ALL covered tickets', async () => {
+  it('[spec:safe-pr-workflow/delivery-pr-titles-use-conventional-commits] single unit covering N tickets: title counts and body lists ALL covered tickets', async () => {
     // scope='all' → ONE branch record whose unit covers tickets 1 AND 2.
     const row = mkRow({
       decision: 'on_review', ticketIds: [1, 2],
@@ -642,7 +642,7 @@ describe('create-pr', () => {
     const create = execCalls.find((c) => c.cmd === 'gh' && c.args[1] === 'create')!
     const title = create.args[create.args.indexOf('--title') + 1]
     const body = create.args[create.args.indexOf('--body') + 1]
-    expect(title).toBe('[1 +1]feat - implement batch of 2 tickets')
+    expect(title).toBe('feat: implement batch of 2 tickets (1 +1)')
     expect(body).toContain('## #1 — T1')
     expect(body).toContain('## #2 — T2')
   })
@@ -664,7 +664,7 @@ describe('create-pr', () => {
     const create = execCalls.find((c) => c.cmd === 'gh' && c.args[1] === 'create')!
     const title = create.args[create.args.indexOf('--title') + 1]
     const body = create.args[create.args.indexOf('--body') + 1]
-    expect(title).toBe('[1]feat - t1')
+    expect(title).toBe('feat: t1 (1)')
     expect(body).toContain('## #1 — T1')
     expect(body).not.toContain('#2')
   })
@@ -815,7 +815,7 @@ describe('create-pr', () => {
     expect(prStateBroadcasts(broadcast)[0]).toMatchObject({ decision: 'pr_failed', prState: 'local-only' })
   })
 
-  it('Commit & retry push commits only the preserved worktree and delivers its exact SHA', async () => {
+  it('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] Commit & retry push commits only the preserved worktree and delivers its exact SHA', async () => {
     const runId = 'legacy-recovery-run'
     const branch = 'feat/1-t1'
     const baseline = 'a'.repeat(40)
@@ -925,9 +925,13 @@ describe('create-pr', () => {
       body: { decision: 'pr_ready', deliveryVerified: true, verifiedSha: recovered, pushed: true },
     })
     expect(gitCalls).toContainEqual(expect.objectContaining({
-      args: expect.arrayContaining(['commit', '-m', `specrails: recovered follow-up (run ${runId})`]),
+      args: expect.arrayContaining(['commit', '-m', `chore: recover follow-up (1)\n\nRun: ${runId}`]),
       cwd: worktreeRealPath,
     }))
+    const recoveryCommit = gitCalls.find(call => call.args[0] === 'commit')!.args
+    const message = recoveryCommit[recoveryCommit.indexOf('-m') + 1]
+    expect(message.split('\n')[0]).toBe('chore: recover follow-up (1)')
+    expect(message.split('\n\n')[1]).toBe(`Run: ${runId}`)
     expect(execCalls).toContainEqual({
       cmd: 'git', args: ['push', 'https://github.com/o/r.git', `${recovered}:refs/heads/${branch}`], cwd: projectPath,
     })
@@ -2464,7 +2468,7 @@ describe('create-pr', () => {
     expect(getPrDelivery(db, row.id)).toMatchObject({ pr_url: PR_URL, pr_state: 'pr-created' })
   })
 
-  it('JIRA ALWAYS PREVAILS: the jira_links row keys the title/body ref over the local id', async () => {
+  it('[spec:safe-pr-workflow/delivery-pr-titles-use-conventional-commits] [spec:safe-pr-workflow/release-automation-can-classify-new-deliveries] JIRA ALWAYS PREVAILS: the jira_links row keys the title/body ref over the local id', async () => {
     // Authoritative link for ticket 1 (the ticket store row has no jira_key).
     insertLinkWithId(db, { localId: 1, jiraIssueId: 'jira-issue-9001', jiraKey: 'SKILLS-101', jiraProjectId: 'jp-1', deployment: 'cloud' })
     const row = mkRow({ decision: 'on_review', branches: [{ ticketId: 1, branch: 'feat/1-t1', succeeded: true }], ticketIds: [1] })
@@ -2477,9 +2481,29 @@ describe('create-pr', () => {
     const create = execCalls.find((c) => c.cmd === 'gh' && c.args[1] === 'create')!
     const title = create.args[create.args.indexOf('--title') + 1]
     const body = create.args[create.args.indexOf('--body') + 1]
-    expect(title).toBe('[SKILLS-101]feat - t1')
+    expect(title).toBe('feat: t1 (SKILLS-101)')
     expect(body).toContain('## SKILLS-101 — T1')
     expect(body).not.toContain('## #1')
+  })
+
+  it.each([
+    ['Dark mode', ['bug'], null, 'fix: dark mode (1)'],
+    ['Dark mode', ['breaking'], null, 'feat!: dark mode (1)'],
+    ['a'.repeat(200), [], null, `feat: ${'a'.repeat(71)}… (1)`],
+    ['a'.repeat(200), [], `PROJECT-${'1'.repeat(40)}`, `feat: ${'a'.repeat(42)}… (PROJECT-${'1'.repeat(40)})`],
+  ])('[spec:safe-pr-workflow/delivery-pr-titles-use-conventional-commits] [spec:safe-pr-workflow/explicit-breaking-labels-mark-completed-changes] [spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] [spec:safe-pr-workflow/release-automation-can-classify-new-deliveries] passes the conventional title as one gh argv value: %s', async (title, labels, jiraKey, expected) => {
+    const store = JSON.parse(fs.readFileSync(ticketFile, 'utf8'))
+    store.tickets[1].title = title
+    store.tickets[1].labels = labels
+    store.tickets[1].jira_key = jiraKey
+    fs.writeFileSync(ticketFile, JSON.stringify(store))
+    const row = mkRow({ decision: 'on_review', branches: [{ ticketId: 1, branch: 'feat/1-t1', succeeded: true }], ticketIds: [1] })
+    const { exec, calls } = fakeExec({ create: { code: 0, stdout: `${PR_URL}\n`, stderr: '' } })
+    const { deps } = mkDeps({ exec })
+    const result = await executePrDecision(deps, { prDeliveryId: row.id, action: 'create-pr', expectedDecision: 'on_review' })
+    expect(result.status).toBe(200)
+    const create = calls.find((c) => c.cmd === 'gh' && c.args[1] === 'create')!
+    expect(create.args.slice(create.args.indexOf('--title'), create.args.indexOf('--title') + 2)).toEqual(['--title', expected])
   })
 
   it('composes the canonical OSS body: summary, Tests honesty, Changes, no v1 footer', async () => {
@@ -2501,7 +2525,7 @@ describe('create-pr', () => {
     expect(body).not.toContain('Draft PR produced by specrails')
   })
 
-  it('an unreadable ticket store still creates the PR with bare refs (never blocks)', async () => {
+  it('[spec:safe-pr-workflow/generated-subjects-are-bounded-and-safe] an unreadable ticket store still creates the PR with bare refs (never blocks)', async () => {
     fs.writeFileSync(ticketFile, 'not json at all')
     const row = mkRow({ decision: 'on_review', branches: [{ ticketId: 1, branch: 'feat/1-t1', succeeded: true }], ticketIds: [1] })
     const { exec, calls: execCalls } = fakeExec({ create: { code: 0, stdout: `${PR_URL}\n`, stderr: '' } })
@@ -2512,7 +2536,7 @@ describe('create-pr', () => {
     expect(r.status).toBe(200)
     expect(r.body).toMatchObject({ decision: 'pr_draft', prUrl: PR_URL })
     const create = execCalls.find((c) => c.cmd === 'gh' && c.args[1] === 'create')!
-    expect(create.args[create.args.indexOf('--title') + 1]).toBe('[1]feat - implement 1')
+    expect(create.args[create.args.indexOf('--title') + 1]).toBe('feat: implement 1 (1)')
   })
 
   it('skips the batch-branch pre-delete when it would name the integration branch', async () => {
@@ -3438,7 +3462,7 @@ describe('merge-local', () => {
 
     // ONE merge of the assembled head, --no-ff --no-edit.
     const merges = script.calls.filter((a) => a[0] === 'merge' && a[1] === '--no-ff')
-    expect(merges).toEqual([['merge', '--no-ff', '--no-edit', 'a'.repeat(40)]])
+    expect(merges).toEqual([['merge', '--no-ff', '--no-edit', '-m', 'chore: merge delivery branch (1 +1)', 'a'.repeat(40)]])
     // Spent branches swept; the integration branch never deleted.
     const deleted = script.calls.filter((a) => a[0] === 'branch' && a[1] === '-D').map((a) => a[2])
     expect(deleted).toContain('feat/1-t1')
@@ -3458,7 +3482,7 @@ describe('merge-local', () => {
     const row = mkRow({ decision: 'on_review' }) // units feat/1-t1 + feat/2-t2
     const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
     expect(res.status).toBe(200)
-    const merges = script.calls.filter((a) => a[0] === 'merge' && a[1] === '--no-ff').map((a) => a[3])
+    const merges = script.calls.filter((a) => a[0] === 'merge' && a[1] === '--no-ff').map((a) => a[a.length - 1])
     expect(merges).toEqual(['1'.repeat(40), '2'.repeat(40)])
     expect(getPrDelivery(db, row.id)!.decision).toBe('merged')
   })

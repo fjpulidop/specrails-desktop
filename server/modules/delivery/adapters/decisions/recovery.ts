@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import { commitWorktreeAndVerify } from '../../../../worktree-manager'
+import { formatConventionalSubject } from '../../runtime/pr-naming'
 import {
   getPrDelivery, transitionClaimedDecision,
   toPrDeliverySnapshot, type DeliverBranchRecord, type RailPrDeliveryRow
@@ -332,10 +333,11 @@ export async function runRecoverAndRetry(deps: PrDecisionDeps, row: RailPrDelive
       }
       deps.assertAdmission?.()
       const overlayExcludes = [...new Set(matchingUnits.flatMap((unit) => unit.overlayExcludes ?? []))]
+      const subject = formatConventionalSubject({ type: 'chore', change: 'recover follow-up', ref: String(worktree.ticket_id) })
       const commit = await commitWorktreeAndVerify(
         deps.git,
         reauthenticated.realPath,
-        `specrails: recovered follow-up (run ${runId})`,
+        `${subject}\n\nRun: ${runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')}`,
         overlayExcludes,
       )
       if (!commit.clean) {

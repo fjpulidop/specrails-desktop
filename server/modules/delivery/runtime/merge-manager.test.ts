@@ -61,7 +61,10 @@ describe('mergeBack', () => {
       { ticketId: 2, branch: 'sr/p/ticket-2', state: 'merged' },
     ])
     expect(d.resolveConflict).not.toHaveBeenCalled()
-    expect(calls.filter((c) => c[0] === 'merge' && c[1] === '--no-ff')).toHaveLength(2)
+    expect(calls.filter((c) => c[0] === 'merge' && c[1] === '--no-ff')).toEqual([
+      ['merge', '--no-ff', '--no-edit', '-m', 'chore: merge delivery branch (1)', 'sr/p/ticket-1'],
+      ['merge', '--no-ff', '--no-edit', '-m', 'chore: merge delivery branch (2)', 'sr/p/ticket-2'],
+    ])
   })
 
   it('resolves a conflict, commits the resolution, and merges', async () => {
@@ -71,7 +74,7 @@ describe('mergeBack', () => {
     expect(out[0].state).toBe('merged')
     expect(d.resolveConflict).toHaveBeenCalledOnce()
     expect(calls).toContainEqual(['add', '-A'])
-    expect(calls).toContainEqual(['commit', '--no-edit'])
+    expect(calls).toContainEqual(['commit', '-m', 'chore: merge delivery branch (1)'])
     expect(calls.some((c) => c[0] === 'merge' && c[1] === '--abort')).toBe(false)
   })
 
@@ -106,7 +109,7 @@ describe('mergeBack', () => {
     expect(out.find((o) => o.ticketId === 1)?.state).toBe('skipped')
     expect(out.find((o) => o.ticketId === 2)?.state).toBe('merged')
     // only ticket-2 was actually merged
-    expect(calls.filter((c) => c[0] === 'merge' && c[1] === '--no-ff')).toEqual([['merge', '--no-ff', '--no-edit', 'sr/p/ticket-2']])
+    expect(calls.filter((c) => c[0] === 'merge' && c[1] === '--no-ff')).toEqual([['merge', '--no-ff', '--no-edit', '-m', 'chore: merge delivery branch (2)', 'sr/p/ticket-2']])
   })
 
   it('emits state transitions', async () => {

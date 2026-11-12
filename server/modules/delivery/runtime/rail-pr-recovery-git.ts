@@ -54,7 +54,7 @@ export async function scanUnreachableRecoveryCommits(
 }
 
 /**
- * Combine refs, reflogs and unreachable commits, then inspect every subject.
+ * Combine refs, reflogs and unreachable commits, then inspect every message.
  * Any enumeration/inspection failure invalidates the entire uniqueness proof.
  */
 export async function discoverRunMarkedCommit(
@@ -73,7 +73,7 @@ export async function discoverRunMarkedCommit(
   let refs
   try {
     refs = await git.run(
-      ['log', '--all', '--reflog', '--fixed-strings', `--grep=(run ${runId})`, '--format=%H'],
+      ['log', '--all', '--reflog', '--fixed-strings', `--grep=(run ${runId})`, `--grep=Run: ${runId}`, '--format=%H'],
       repoDir,
     )
   } catch {
@@ -94,23 +94,27 @@ export async function discoverRunMarkedCommit(
     }
   }
 
-  const marker = `(run ${runId})`
   const marked: string[] = []
   for (const sha of candidates) {
     let subject
     try {
-      subject = await git.run(['show', '-s', '--format=%s', sha], repoDir)
+      subject = await git.run(['show', '-s', '--format=%B', sha], repoDir)
     } catch {
       return { kind: 'scan_failed', detail: 'Git could not inspect every recovery commit subject' }
     }
     if (subject.code !== 0) {
       return { kind: 'scan_failed', detail: 'Git could not inspect every recovery commit subject' }
     }
-    if (subject.stdout.trim().includes(marker)) marked.push(sha)
+    if (messageCarriesRunMarker(subject.stdout, runId)) marked.push(sha)
   }
   if (marked.length === 0) return { kind: 'none' }
   if (marked.length > 1) return { kind: 'ambiguous', count: marked.length }
   return { kind: 'unique', sha: marked[0] }
+}
+
+function messageCarriesRunMarker(message: string, runId: string): boolean {
+  const [subject, ...body] = message.split(/\r?\n/)
+  return subject.includes(`(run ${runId})`) || body.includes(`Run: ${runId}`)
 }
 
 export async function commitCarriesRunMarker(
@@ -121,8 +125,8 @@ export async function commitCarriesRunMarker(
 ): Promise<boolean> {
   if (!COMMIT_SHA_RE.test(sha)) return false
   try {
-    const result = await git.run(['show', '-s', '--format=%s', sha], repoDir)
-    return result.code === 0 && result.stdout.trim().includes(`(run ${runId})`)
+    const result = await git.run(['show', '-s', '--format=%B', sha], repoDir)
+    return result.code === 0 && messageCarriesRunMarker(result.stdout, runId)
   } catch {
     return false
   }

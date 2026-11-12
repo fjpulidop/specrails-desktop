@@ -395,7 +395,7 @@ describe('server-side restoration of a conflicting stash (real Git)', () => {
     try { git(['rev-parse', '--verify', '--quiet', `refs/heads/${name}`]); return true } catch { return false }
   }
 
-  it('(a) applies cleanly in its own worktree, commits there and brings it back only on request', async () => {
+  it('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] (a) applies cleanly in its own worktree, commits there and brings it back only on request', async () => {
     // The delivery adds a file the person also created (identical content):
     // the checkout apply is refused (untracked would be overwritten), the
     // worktree apply is not.
@@ -410,7 +410,7 @@ describe('server-side restoration of a conflicting stash (real Git)', () => {
     expect(record.restore).toMatchObject({ status: 'ready', resolvedBy: 'clean', branch: `specrails/restore-local-${record.sha.slice(0, 8)}` })
     expect(resolver).not.toHaveBeenCalled()
     expect(record.restore!.files.map((f) => f.path)).toEqual(['tracked.txt'])
-    expect(git(['log', '-1', '--format=%s', record.restore!.branch])).toBe('Restore local changes from before integrating #7')
+    expect(git(['log', '-1', '--format=%s', record.restore!.branch])).toBe('chore: restore local changes (7)')
     // Nothing touched main or the stash yet.
     const mainBefore = git(['rev-parse', 'main'])
     expect(read('tracked.txt')).toBe(LINES)
@@ -431,7 +431,23 @@ describe('server-side restoration of a conflicting stash (real Git)', () => {
     expect(await runBringBackLocalChanges(deps(), row.id)).toMatchObject({ status: 200 })
   })
 
-  it('(b) hands remaining conflicts to the write-capable resolver confined to the worktree, then commits', async () => {
+  it.each([
+    [[], 'chore: restore local changes'],
+    [[7, 8], 'chore: restore local changes (7 +1)'],
+    [Array.from({ length: 1000 }, (_, i) => i + 7), 'chore: restore local changes (7 +999)'],
+  ])('bounds restore references for %j', async (ticketIds, expected) => {
+    const row = delivery(feature('shared.txt', 'same\n'))
+    db.prepare('UPDATE rail_pr_deliveries SET ticket_ids=? WHERE id=?').run(JSON.stringify(ticketIds), row.id)
+    write('shared.txt', 'same\n')
+    write('tracked.txt', LINES.replace('eight', 'my edit'))
+    await integrate(row.id)
+    await waitForLocalRestores()
+    const record = recordOf(row.id)
+    expect(record.restore?.status).toBe('ready')
+    expect(git(['log', '-1', '--format=%s', record.restore!.branch])).toBe(expected)
+  })
+
+  it('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] (b) hands remaining conflicts to the write-capable resolver confined to the worktree, then commits', async () => {
     const sha = feature('tracked.txt', LINES.replace('one', 'ONE (delivery)'))
     const row = delivery(sha)
     write('tracked.txt', LINES.replace('one', 'one (mine)'))
@@ -444,6 +460,7 @@ describe('server-side restoration of a conflicting stash (real Git)', () => {
     expect(input.worktreePath).toBe(record.restore!.worktreePath)
     expect(input.worktreePath.startsWith(path.join(root, 'assembly'))).toBe(true)
     expect(record.restore).toMatchObject({ status: 'ready', resolvedBy: 'resolver', conflictPaths: ['tracked.txt'] })
+    expect(git(['log', '-1', '--format=%s', record.restore!.branch])).toBe('chore: restore local changes (7)')
     expect(git(['show', `${record.restore!.commitSha}:tracked.txt`])).toBe(LINES.replace('one', 'ONE (delivery)\none (mine)').trimEnd())
     // The person's checkout stays exactly as integrated; the stash is kept.
     expect(read('tracked.txt')).toBe(LINES.replace('one', 'ONE (delivery)'))
@@ -484,7 +501,7 @@ describe('server-side restoration of a conflicting stash (real Git)', () => {
     expect(recordOf(row.id).restore).toMatchObject({ status: 'ready', resolvedBy: 'resolver' })
   })
 
-  it('refuses to bring back over overlapping uncommitted edits or onto another branch', async () => {
+  it('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] refuses to bring back over overlapping uncommitted edits or onto another branch', async () => {
     const sha = feature('tracked.txt', LINES.replace('one', 'ONE (delivery)'))
     const row = delivery(sha)
     write('tracked.txt', LINES.replace('one', 'one (mine)'))
@@ -503,6 +520,7 @@ describe('server-side restoration of a conflicting stash (real Git)', () => {
     git(['commit', '-m', 'later work'])
     const back = await runBringBackLocalChanges(deps(), row.id)
     expect(back.status).toBe(200)
+    expect(git(['log', '-1', '--format=%s'])).toBe('chore: merge main into local restore')
     expect(read('other.txt')).toBe('later\n')
     expect(read('tracked.txt')).toContain('one (mine)')
   })

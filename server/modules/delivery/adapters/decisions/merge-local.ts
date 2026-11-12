@@ -1,5 +1,6 @@
 import * as path from 'path'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from '../../runtime/rail-worktree-release'
+import { formatConventionalSubject } from '../../runtime/pr-naming'
 import { getPrDelivery, setPrDeliveryLocalStash, toPrDeliverySnapshot, type LocalStashRecord, type RailPrDeliveryRow } from '../../runtime/rail-pr-store'
 import { changedPathsBetween, listUserDirtyPaths, pathsOverlap, recordAfterRestore, restoreLocalChanges, saveLocalChanges } from '../../runtime/local-stash'
 import { handleConflictingRestore, localChangesBody } from './local-changes'
@@ -176,7 +177,9 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
 
   try {
     for (const branch of toMerge) {
-      const r = await deps.git.run(['merge', '--no-ff', '--no-edit', branch], assemblyPath)
+      const ref = snap.ticketIds.length ? `${snap.ticketIds[0]}${snap.ticketIds.length > 1 ? ` +${snap.ticketIds.length - 1}` : ''}` : ''
+      const subject = formatConventionalSubject({ type: 'chore', change: 'merge delivery branch', ref })
+      const r = await deps.git.run(['merge', '--no-ff', '--no-edit', '-m', subject, branch], assemblyPath)
       if (r.code !== 0) {
         try {
           const aborted = await deps.git.run(['merge', '--abort'], assemblyPath)

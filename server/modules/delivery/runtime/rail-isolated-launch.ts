@@ -36,7 +36,7 @@ import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, activeOpenSp
 import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtime-paths'
 import { createRailWorktree, deleteRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, getRailWorktree } from './rail-worktrees-store'
 import { IntentWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
-import { ticketBranchName, ticketRef, resolveCollisionFreeName } from './pr-naming'
+import { ticketBranchName, ticketRef, buildPrTitle, formatConventionalSubject, isConventionalCommitSubject, resolveCollisionFreeName } from './pr-naming'
 import {
   assertRepositoryHasCommits, isolatedWorktreesRoot, materializeIsolatedWorktree, readHeadSha, resolveOverlaySources, ticketNamingInput,
   type IsolatedBranchOwnership, type IsolatedWorktreeIO, type IsolatedWorktreeOwnership,
@@ -364,8 +364,11 @@ export function buildSpecSnapshot(ctx: ProjectContext, ticketIds: readonly numbe
 function worktreeCommitMessage(ctx: ProjectContext, ticketId: number, runId: string, partial = false): string {
   const input = ticketNamingInput(ctx, ticketId)
   const ref = ticketRef(input)
-  const subjectRef = ref === String(ticketId) ? `ticket-${ticketId}` : `${ref} ticket-${ticketId}`
-  return `specrails: ${subjectRef}${partial ? ' partial' : ''} (run ${runId})`
+  const subject = partial
+    ? buildPrTitle([{ ...input, labels: ['chore'] }])
+    : buildPrTitle([input])
+  const run = runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')
+  return `${subject}\n\nRun: ${run}${ref !== String(ticketId) ? `\nTicket: ticket-${ticketId}` : ''}${partial ? '\n(partial)' : ''}`
 }
 
 function commitFailureSummary(result: CommitWorktreeResult): string {
@@ -2208,8 +2211,15 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       const settle = createIsolatedRunSettlement({
         ...snapshot, git,
         onFinished: () => { /* Apply the shared terminal outbox after all repository legs. */ },
-        hasRuntimeRequest: () => true,
-        commitMessage: (_run, partial) => partial ? snapshot.partialCommitMessage : snapshot.commitMessage,
+        // A terminal, non-resumable failure can preserve partial work in a
+        // commit; interrupted/resumable Core work still owns its dirty mount.
+        hasRuntimeRequest: () => probe.status !== 'failed' || probe.resumable,
+        commitMessage: (_run, partial) => {
+          const message = partial ? snapshot.partialCommitMessage : snapshot.commitMessage
+          if (isConventionalCommitSubject(message.split('\n')[0])) return message
+          const subject = formatConventionalSubject({ type: 'chore', change: 'recover follow-up', ref: String(run.ticketId) })
+          return `${subject}\n\nRun: ${run.runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')}${partial ? '\n(partial)' : ''}`
+        },
         intentFor: (unit) => runIntent(ctx, unit),
         markWorktree: (unit, state) => updateRailWorktreeState(ctx.db, unit.ledgerId, state) ? null : 'Worktree ledger disappeared',
         recordRunProvenance: unit => recordIsolatedProvenanceOnce(ctx.db, row.id, runId, () => (io.recordProvenance ?? recordLoopRunProvenance)({

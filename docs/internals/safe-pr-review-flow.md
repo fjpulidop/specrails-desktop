@@ -509,11 +509,16 @@ diff collection), fully unit-tested.
   validation. The **integration
   branch is never used** (reserved in the resolver + asserted in tests). `createWorktree` stays
   generic: an optional preferred `branch` input with the legacy fallback when absent.
-- **PR title** — `[<ref>]<type> - <change>` (e.g. `[SKILLS-101]feat - darkmode added`); the
-  `<change>` clause is the ticket title, control-stripped, trailing-period-free and
-  first-letter-lowercased unless it reads as an acronym/CamelCase. Batch:
-  `[<primary-ref> +<n-1>]<type> - <loop summary>` (e.g. `[SKILLS-101 +2]feat - implement batch
-  of 3 tickets`). The per-ticket type matches its branch type.
+- **PR title** — `type[!]: change (ref)`, e.g. `feat: darkmode added (SKILLS-101)`.
+  Batch: `feat: implement batch of 3 tickets (SKILLS-101 +2)`. Labels are checked
+  before titles for type; only explicit trimmed `breaking` / `breaking-change`
+  labels add `!` (any ticket for a batch). Empty tickets yield exactly
+  `chore: specrails delivery`. The shared pure formatter and runtime validator
+  enforce a single line and 100-character cap, reserving the full reference
+  suffix before truncating the change. Colons and controls, including Unicode
+  separators, become spaces; meaningful Unicode is retained. Empty/emoji-only
+  changes fall back to `implement <ref>`; corrupt or oversized Jira references
+  fall back to the local id. Branch naming is unchanged.
 - **PR body** (`buildCanonicalPrBody`, composed at create-pr time) — one summary paragraph
   (loop, N tickets, base branch), then per ticket `## <ref> — <title>` (Jira key verbatim,
   `#<id>` for local) with **Problem** (the spec's leading narrative / problem-ish heading;
@@ -976,4 +981,44 @@ A multi-repository delivery qualifies when every repository still under review (
 A CI loop generation always settles attached to its OPEN PR (`pr-ci/pr-ci-settlement.ts`): whatever Core's outcome, the decision is the PR's live `pr_draft`/`pr_ready`, `delivery_sha` is the head GitHub exposes, and the status is `ci_green` or `ci_needs_attention` with Core's completion reason as `status_detail` (per repository delivery in a multi-repository generation). It never becomes `implementation_failed`, posts no run-failure row and starts no automatic turn. Unverified local commits on top of the PR head are kept on `refs/specrails/pr-ci/<deliveryId>` and the branch returns to the PR head, so the next continuation admits it. The mission hides the superseded card of the generation a CI loop replaced. When the PR is not provably OPEN with the same identity, the ordinary settlement below applies.
 
 Otherwise settlement is the ordinary continuation path: `pr.sync` already pushed, so the final push of `finalSha` is an idempotent no-op (`ready`), a run that found CI green wrote nothing (`no_changes`, PR untouched), active OpenSpec changes merged in from `origin/<base>` pass the hygiene audit, and a run that stops with a prepared merge is preserved as blocked with nothing pushed. Specrails never publishes the draft, merges or closes the PR.
+## Generated commit subjects and recovery compatibility
 
+Completed isolated-run commits share the PR subject, followed by a blank line and
+`Run: <runId>`; Jira-primary messages retain `Ticket: ticket-<local-id>` in the
+body. Failed/partial commits use non-breaking chore and a `(partial)` body line.
+Replay retains already-conventional frozen messages verbatim; legacy free-form
+messages are normalized only at commit time to `chore: recover follow-up (<id>)`
+with durable Run metadata. Frozen snapshots and existing Git history stay intact.
+
+PR CI remote-head merges use `chore: merge origin/<branch>`, with `Run:` in the
+body. Locked sync completion uses non-breaking chore while `MERGE_HEAD` exists,
+including when CI corrections share that merge commit; this intentionally treats
+merge-plus-fix as housekeeping. Standalone verified CI corrections use fix. An
+allowed input prefix is consumed before sanitization, preventing duplicate prefixes.
+Verification, merge preparation, rejection and non-force push behavior are unchanged.
+
+Explicit follow-up recovery commits are non-breaking
+`chore: recover follow-up (<local-id>)`, with `Run:` in the body. Authentication, leases, excludes, stale-head
+checks and retry compare-and-set behavior remain in their existing owners.
+
+Clean and resolver-assisted local restores commit as
+`chore: restore local changes (<primary-local-id> +<remaining-count>)`, omitting the count or suffix when absent.
+Large batches retain a compact reference instead of listing every ticket. Stash,
+marker rejection, resolver ownership and bring-back/discard behavior are unchanged.
+
+Batch PR assembly and local integration assembly explicitly name their merge
+commits `chore: merge delivery branch (<local-ref>)`. Local batch references use
+the primary id and remaining count. The immutable source remains the last merge
+argument; merge flags, collision checks, aborts and isolated cleanup are unchanged.
+
+The retained legacy merge-back path uses the same chore subject with its local
+id for clean and resolver-completed merges. Its existing fix-pass commit remains
+`fix: integrate parallel rail branch`. New naming applies to future generated
+messages only: no historical commit/PR rewrite or release configuration change.
+Feature/fix/breaking metadata is usable by release-please across squash, merge and
+rebase; chore housekeeping remains release-neutral. Core-agent PRs and GitHub's
+own merge wrapper are outside Desktop's naming seam.
+
+Recovery discovery reads full messages, accepts exact `Run:` body lines and still
+recognizes legacy `(run …)` subjects. Ref/reflog and unreachable-object candidates
+share the existing bounded uniqueness proof; a prefix-matching run id is rejected.

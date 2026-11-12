@@ -10,6 +10,7 @@
  * All git I/O + the AI/verify steps are injected so the machine is unit-tested
  * without a real repo. See openspec/changes/parallel-implementation-worktrees.
  */
+import { formatConventionalSubject } from './pr-naming'
 import type { GitRunner } from '../../../worktree-manager'
 
 export type MergeState = 'merged' | 'needs-review' | 'skipped'
@@ -87,7 +88,8 @@ export async function mergeBack(deps: MergeDeps, branches: BranchToMerge[]): Pro
     deps.onState?.(b.ticketId, 'merging')
     const preSha = await revParse(git, baseDir)
 
-    const merge = await git.run(['merge', '--no-ff', '--no-edit', b.branch], baseDir)
+    const subject = formatConventionalSubject({ type: 'chore', change: 'merge delivery branch', ref: String(b.ticketId) })
+    const merge = await git.run(['merge', '--no-ff', '--no-edit', '-m', subject, b.branch], baseDir)
     if (merge.code !== 0) {
       // Conflict (or other merge failure) — hand the conflict to the AI resolver.
       const resolved = await deps.resolveConflict(b)
@@ -99,7 +101,7 @@ export async function mergeBack(deps: MergeDeps, branches: BranchToMerge[]): Pro
       }
       // Resolver edited the working tree within the conflict markers — record it.
       await git.run(['add', '-A'], baseDir)
-      await git.run(['commit', '--no-edit'], baseDir)
+      await git.run(['commit', '-m', subject], baseDir)
     }
 
     // Re-verify the INTEGRATED tree before accepting the merge.
