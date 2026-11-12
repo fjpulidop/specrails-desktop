@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.2.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.1.0...v3.2.0) (2026-11-12)
+
+
+### Features
+
+* **delivery:** watch and fix a PR's CI from the mission (pr-ci-loop) ([#848](https://github.com/fjpulidop/specrails-desktop/issues/848)) ([696dd47](https://github.com/fjpulidop/specrails-desktop/commit/696dd471044e9ef9de710cf84984faff8e2ad1e6))
+* **loops:** repeat a failed run from its failed step; live CI on the PR card; Fix CI takes the base first ([#852](https://github.com/fjpulidop/specrails-desktop/issues/852)) ([d50af94](https://github.com/fjpulidop/specrails-desktop/commit/d50af946a497c25238dfcb950107ed96263035aa))
+
+
+### Bug Fixes
+
+* Stop ends paused/recovered runs; keep Desktop's Core selection out of project runs ([#850](https://github.com/fjpulidop/specrails-desktop/issues/850)) ([ce74d17](https://github.com/fjpulidop/specrails-desktop/commit/ce74d17faf3eca242beeef5e2153c3d29539bbfc))
+
 ## [3.1.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.0.0...v3.1.0) (2026-11-09)
 
 
