@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1369 source/build files. Nearby tests are linked where names
+Includes 1371 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -537,6 +537,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/loops/lib
 
 - [core-authoring.ts](../../client/src/features/loops/lib/core-authoring.ts) · [test](../../client/src/features/loops/lib/__tests__/core-authoring.test.ts)
+- [failed-step.ts](../../client/src/features/loops/lib/failed-step.ts) · [test](../../client/src/features/loops/lib/__tests__/failed-step.test.ts)
 - [loop-clipboard.ts](../../client/src/features/loops/lib/loop-clipboard.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-clipboard.test.ts)
 - [loop-export.ts](../../client/src/features/loops/lib/loop-export.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-export.test.ts)
 - [loop-graph-rf.ts](../../client/src/features/loops/lib/loop-graph-rf.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-graph-rf.test.ts)
@@ -1590,6 +1591,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [pr-ci-offer.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.test.ts)
 - [pr-ci-projection.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-projection.ts)
 - [pr-ci-settlement.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.test.ts)
+- [pr-ci-status.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-status.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-status.test.ts)
 - [pr-ci-target.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-target.ts)
 
 ## server/modules/execution

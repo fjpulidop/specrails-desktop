@@ -224,6 +224,8 @@
       "components/LoopWindowSurface.tsx",
       "components/loop-log/LoopStepExplorer.tsx",
       "components/loop-log/NarratedProgress.tsx",
+      "hooks/useDefinitionFork.ts",
+      "lib/failed-step.ts",
       "lib/loop-run-models.ts",
       "lib/loop-ticket-need.ts",
       "lib/loop-windows.ts",

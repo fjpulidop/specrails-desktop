@@ -11,7 +11,8 @@ import { getRail, setRailTickets } from './rails-store'
 import { createPrDelivery, getPrDelivery } from './rail-pr-store'
 import '../../../providers'
 
-const { capabilities, lifecycle, launch } = vi.hoisted(() => ({
+const { capabilities, lifecycle, launch, ghView } = vi.hoisted(() => ({
+  ghView: { value: '' },
   capabilities: { value: { engineV2: 1, workflowDefinitions: 1, hostTasks: 1 } as Record<string, number> },
   lifecycle: vi.fn(),
   launch: vi.fn(),
@@ -19,6 +20,7 @@ const { capabilities, lifecycle, launch } = vi.hoisted(() => ({
 vi.mock('../../agent-runtime/runtime/agent-runtime-loader', () => ({ loadCoreAgentRuntime: async () => ({ api: { capabilities: capabilities.value } }) }))
 vi.mock('./pr-lifecycle', async importActual => ({ ...(await importActual<typeof import('./pr-lifecycle')>()), observePrLifecycle: lifecycle }))
 vi.mock('../../../worktree-manager', async importActual => ({ ...(await importActual<typeof import('../../../worktree-manager')>()), repoIsolationStatus: async () => 'ok' }))
+vi.mock('./pr-publisher', async importActual => ({ ...(await importActual<typeof import('./pr-publisher')>()), defaultExec: { run: async () => ({ code: 0, stdout: ghView.value, stderr: '' }) } }))
 vi.mock('./rail-isolated-launch', async importActual => ({ ...(await importActual<typeof import('./rail-isolated-launch')>()), launchIsolatedRail: launch }))
 
 let db: DbInstance, desktopDb: DbInstance
@@ -154,6 +156,22 @@ describe('POST /rails/:railIndex/relaunch on a CI loop generation', () => {
     expect(res.body.error).toBe('pr_ci_relaunch_unavailable')
     expect(getPrDelivery(db, id)?.decision).toBe('implementation_failed')
     expect(launch).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /rails/pr-ci-status', () => {
+  it('reads the live CI of a ready PR whether or not a CI loop ran', async () => {
+    ghView.value = JSON.stringify({ state: 'OPEN', mergeable: 'MERGEABLE', headRefOid: 'a'.repeat(40), statusCheckRollup: [{ __typename: 'CheckRun', name: 'secret-scan', status: 'COMPLETED', conclusion: 'FAILURE' }] })
+    const id = draft({ decision: 'pr_ready' })
+    const res = await request(app()).get(`/rails/pr-ci-status?deliveryId=${id}`)
+    expect(res.status).toBe(200)
+    expect(res.body.prs).toEqual([expect.objectContaining({ prUrl: 'https://github.com/acme/app/pull/7', prNumber: 7, state: 'red', failing: ['secret-scan'] })])
+  })
+
+  it('has nothing to read before a PR is under review, and validates the id', async () => {
+    expect((await request(app()).get(`/rails/pr-ci-status?deliveryId=${draft({ decision: 'on_review', pr_url: null })}`)).body.prs).toEqual([])
+    expect((await request(app()).get('/rails/pr-ci-status?deliveryId=../x')).status).toBe(400)
+    expect((await request(app()).get('/rails/pr-ci-status?deliveryId=missing')).status).toBe(404)
   })
 })
 

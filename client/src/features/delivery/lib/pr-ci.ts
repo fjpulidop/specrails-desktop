@@ -59,6 +59,58 @@ export function usePrCiAvailability(projectId: string | null | undefined): boole
   return available
 }
 
+export type PrCiLiveState = 'green' | 'red' | 'pending' | 'none' | 'conflict' | 'closed' | 'unknown'
+export interface PrCiLivePr { repository: string; prUrl: string; prNumber: number | null; state: PrCiLiveState; total: number; pending: number; failing: string[] }
+/** The PR card's CI view: one state for the delivery, with the failing checks per PR. */
+export interface PrCiLiveView { state: PrCiLiveState; failing: Array<{ pr: string; checks: string[] }>; pending: number; byPrUrl: Record<string, PrCiLiveState> }
+
+const STATE_ORDER: PrCiLiveState[] = ['red', 'conflict', 'pending', 'green', 'none', 'closed', 'unknown']
+
+/** Combine per-PR states: any red wins, then conflict, then running, then green. */
+export function prCiLiveView(prs: readonly PrCiLivePr[]): PrCiLiveView | null {
+  const known = prs.filter((pr) => pr.state !== 'unknown')
+  if (!known.length) return null
+  const state = STATE_ORDER.find((candidate) => known.some((pr) => pr.state === candidate)) ?? 'unknown'
+  const many = prs.length > 1
+  return {
+    state,
+    pending: known.reduce((sum, pr) => sum + pr.pending, 0),
+    byPrUrl: Object.fromEntries(prs.map((pr) => [pr.prUrl, pr.state])),
+    failing: known.filter((pr) => pr.failing.length).map((pr) => ({ pr: many ? [pr.repository, pr.prNumber !== null ? `#${pr.prNumber}` : ''].filter(Boolean).join(' ') : '', checks: pr.failing })),
+  }
+}
+
+/** Live CI of a delivery's open PR(s) (GET /rails/pr-ci-status). Never throws; null when unknown. */
+export async function fetchPrCiStatus(projectId: string, deliveryId: string): Promise<PrCiLivePr[] | null> {
+  try {
+    const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/rails/pr-ci-status?deliveryId=${encodeURIComponent(deliveryId)}`)
+    if (!res.ok) return null
+    const data = await res.json() as { prs?: unknown }
+    return Array.isArray(data.prs) ? data.prs as PrCiLivePr[] : null
+  } catch { return null }
+}
+
+/** Polls while checks run (and once per `refreshKey`), so the card follows CI without a reload. */
+export function usePrCiStatus(projectId: string | null | undefined, deliveryId: string, enabled: boolean, refreshKey: unknown): PrCiLiveView | null {
+  const [view, setView] = useState<PrCiLiveView | null>(null)
+  useEffect(() => {
+    setView(null)
+    if (!projectId || !enabled) return
+    let live = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = async () => {
+      const prs = await fetchPrCiStatus(projectId, deliveryId)
+      if (!live) return
+      const next = prs ? prCiLiveView(prs) : null
+      setView(next)
+      if (next?.state === 'pending') timer = setTimeout(() => { void load() }, 60_000)
+    }
+    void load()
+    return () => { live = false; if (timer) clearTimeout(timer) }
+  }, [projectId, deliveryId, enabled, refreshKey])
+  return view
+}
+
 /** The built-in loop the offer starts. */
 export const PR_CI_LOOP_ID = 'factory:pr-ci'
 

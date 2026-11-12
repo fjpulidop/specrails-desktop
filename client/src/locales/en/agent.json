@@ -317,7 +317,8 @@
       "ci_green": "PR ready — CI is green",
       "ci_needs_attention": "PR pushed — waiting for CI to turn green",
       "ciBuilding": "Watching the CI of PR {{pr}}",
-      "run_stopped": "Run stopped"
+      "run_stopped": "Run stopped",
+      "ci_pending": "PR pushed — CI running"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
     "buildingExistingPrHint": "Specrails is working on the existing PR branch and will push the review changes back to that PR.",
@@ -497,7 +498,11 @@
     "moreActions": "More actions",
     "ci": {
       "green": "All checks are green.",
-      "attention": "The CI loop stopped before the checks turned green. The PR keeps everything it pushed."
+      "attention": "The CI loop stopped before the checks turned green. The PR keeps everything it pushed.",
+      "pending": "CI is running ({{count}} checks pending).",
+      "notGreen": "The pull request's CI is not green yet.",
+      "failing": "Failing checks: {{checks}}",
+      "failing_pr": "{{pr}}: failing checks: {{checks}}"
     },
     "ciBuildingHint": "It waits for the checks, fixes code failures and pushes to the same PR. Failures that are not the code's fault are reported, not retried.",
     "runStoppedNote": "You stopped this run before it delivered. Relaunch it when you want to continue."
@@ -872,7 +877,11 @@
       "check": "{{command}} · exit {{code}}",
       "next": "The automatic correction rounds did not resolve these. Go back to Intent to settle them with the agent, or relaunch from the same Intent branch.",
       "returned": "Back in Intent: your changes returned to their Intent with the review. Continue in the Intent strip."
-    }
+    },
+    "repeatFromStep": "Repeat from “{{step}}”",
+    "repeatFromStepHint": "Picks the run up again at the failed step “{{step}}”, keeping everything done before it.",
+    "repeatFromStepNote": "The run stopped at “{{step}}”: repeat only from there, or run again from the start.",
+    "repeatFromStepSent": "Repeating from “{{step}}”…"
   },
   "runFailure": {
     "briefing": {

@@ -327,7 +327,8 @@
       "ci_green": "PR prête — CI verte",
       "ci_needs_attention": "PR poussée — la CI n'est pas encore verte",
       "ciBuilding": "Surveillance de la CI de la PR {{pr}}",
-      "run_stopped": "Exécution arrêtée"
+      "run_stopped": "Exécution arrêtée",
+      "ci_pending": "PR poussée — CI en cours"
     },
     "buildingHint": "À la fin, il vous sera proposé de créer la PR.",
     "buildingExistingPrHint": "Specrails travaille sur la branche de la PR existante et poussera les changements de revue vers cette même PR.",
@@ -497,7 +498,11 @@
     "moreActions": "Plus d'actions",
     "ci": {
       "green": "Tous les checks sont verts.",
-      "attention": "La boucle de CI s’est arrêtée avant que les checks passent au vert. La PR conserve tout ce qui a été poussé."
+      "attention": "La boucle de CI s’est arrêtée avant que les checks passent au vert. La PR conserve tout ce qui a été poussé.",
+      "pending": "La CI est en cours ({{count}} checks en attente).",
+      "notGreen": "La CI de la PR n'est pas encore verte.",
+      "failing": "Checks en échec : {{checks}}",
+      "failing_pr": "{{pr}} : checks en échec : {{checks}}"
     },
     "ciBuildingHint": "Attend les checks, corrige les échecs du code et pousse sur la même PR. Les échecs qui ne viennent pas du code sont signalés, pas relancés.",
     "runStoppedNote": "Vous avez arrêté cette exécution avant toute livraison. Relancez-la quand vous voulez continuer."
@@ -872,7 +877,11 @@
       "check": "{{command}} · code {{code}}",
       "next": "Les tours de correction automatique ne les ont pas résolus. Revenez à l’Intent pour les régler avec l’agent, ou relancez depuis la même branche de l’Intent.",
       "returned": "De retour dans l’Intent : vos modifications sont revenues dans leur Intent avec la revue. Continuez dans le bandeau de l’Intent."
-    }
+    },
+    "repeatFromStep": "Reprendre depuis « {{step}} »",
+    "repeatFromStepHint": "Reprend l’exécution à l’étape en échec « {{step}} », en gardant tout ce qui précède.",
+    "repeatFromStepNote": "L’exécution s’est arrêtée à « {{step}} » : reprenez seulement depuis là, ou relancez depuis le début.",
+    "repeatFromStepSent": "Reprise depuis « {{step}} »…"
   },
   "runFailure": {
     "briefing": {

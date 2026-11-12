@@ -175,8 +175,9 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
         changed = true
       }
     }
-    // 2. The base: merge it only when the PR is behind AND the caller needs it
-    // (GitHub reported a conflict). A PR that is merely behind stays untouched.
+    // 2. The base: merge it only when the PR is behind AND the caller needs it:
+    // GitHub reported a conflict, or checks are red (the base may already carry
+    // their fix). A PR that is merely behind with passing checks stays untouched.
     const baseRef = `refs/remotes/origin/${target.baseBranch}`
     if (!(await isAncestor(baseRef, cwd))) {
       const merged = await prepareMerge(baseRef, cwd)
@@ -185,7 +186,7 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
         log(`Conflicts with ${target.baseBranch} in ${merged.conflicts.length} file(s)`)
         return { outcome: 'conflicts', paths: merged.conflicts, base: target.baseBranch }
       }
-      if (merged.merged && reason === 'conflict') {
+      if (merged.merged && (reason === 'conflict' || reason === 'red')) {
         log(`Merged ${target.baseBranch} without conflicts`)
         return { outcome: 'merged', base: target.baseBranch }
       }

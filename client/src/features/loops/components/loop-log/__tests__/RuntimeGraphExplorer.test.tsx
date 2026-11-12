@@ -130,3 +130,18 @@ it('portals the full screen graph and backdrop above the log modal and consumes 
     window.removeEventListener('keydown', escape)
   }
 })
+
+it('opens on the failed step with "Repeat from here" laid over the compact graph', async () => {
+  const fork = vi.fn()
+  const failed = segment('dev-attempt', 'root', 'failed')
+  failed.meta.nodePath = failed.meta.nodeId = 'map'; failed.end!.nodeId = 'map'
+  const { container } = render(<RuntimeGraphExplorer topology={topology} segments={[failed]} settled onFocus={vi.fn()} onFork={fork} />)
+  const details = container.querySelector('details')!
+  details.open = true; fireEvent(details, new Event('toggle'))
+  const panel = await screen.findByTestId('runtime-graph-node-panel')
+  // Inside the graph box (overlaid), not below it where the log panel clips it.
+  expect(screen.getByTestId('flow').parentElement).toContainElement(panel)
+  expect(panel).toHaveTextContent('map')
+  await userEvent.setup().click(within(panel).getByRole('button', { name: 'Repeat from here' }))
+  expect(fork).toHaveBeenCalledWith(expect.objectContaining({ key: 'dev-attempt' }))
+})

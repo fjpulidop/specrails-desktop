@@ -74,7 +74,13 @@ describe('pr.update-base', () => {
     expect(f.calls.some(call => call.includes('rebase'))).toBe(false)
   })
 
-  it('keeps a conflict-free base merge only when GitHub reported a conflict', async () => {
+  it('takes a conflict-free base when the checks are red (the base may carry their fix)', async () => {
+    git(work, 'checkout', '-q', 'main'); commitFile(work, '.gitleaksignore', 'fingerprint\n', 'main fix'); git(work, 'push', '-q', 'origin', 'main'); git(work, 'checkout', '-q', 'feature')
+    expect(await fixture().invoke('pr.update-base', { reason: 'red' })).toMatchObject({ outcome: 'merged', output: { base: 'main' } })
+    expect(existsSync(path.join(work, '.git', 'MERGE_HEAD'))).toBe(true)
+  })
+
+  it('keeps a conflict-free base merge when GitHub reported a conflict, and not for a PR merely behind', async () => {
     git(work, 'checkout', '-q', 'main'); commitFile(work, 'other.txt', 'x\n', 'main'); git(work, 'push', '-q', 'origin', 'main'); git(work, 'checkout', '-q', 'feature')
     expect(await fixture().invoke('pr.update-base', { reason: 'start' })).toMatchObject({ outcome: 'clean' })
     expect(existsSync(path.join(work, '.git', 'MERGE_HEAD'))).toBe(false)

@@ -327,7 +327,8 @@
       "ci_green": "PR bereit — CI ist grün",
       "ci_needs_attention": "PR gepusht — CI noch nicht grün",
       "ciBuilding": "CI des PR {{pr}} wird überwacht",
-      "run_stopped": "Lauf gestoppt"
+      "run_stopped": "Lauf gestoppt",
+      "ci_pending": "PR gepusht — CI läuft"
     },
     "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
     "buildingExistingPrHint": "Specrails arbeitet auf dem Branch des bestehenden PRs und pusht die Review-Änderungen zurück in denselben PR.",
@@ -497,7 +498,11 @@
     "moreActions": "Weitere Aktionen",
     "ci": {
       "green": "Alle Checks sind grün.",
-      "attention": "Die CI-Schleife hat angehalten, bevor die Checks grün wurden. Der PR behält alles, was gepusht wurde."
+      "attention": "Die CI-Schleife hat angehalten, bevor die Checks grün wurden. Der PR behält alles, was gepusht wurde.",
+      "pending": "Die CI läuft ({{count}} Checks ausstehend).",
+      "notGreen": "Die CI des PR ist noch nicht grün.",
+      "failing": "Fehlgeschlagene Checks: {{checks}}",
+      "failing_pr": "{{pr}}: fehlgeschlagene Checks: {{checks}}"
     },
     "ciBuildingHint": "Wartet auf die Checks, behebt Codefehler und pusht in denselben PR. Fehler, die nicht am Code liegen, werden gemeldet statt wiederholt.",
     "runStoppedNote": "Du hast diesen Lauf gestoppt, bevor er etwas geliefert hat. Starte ihn neu, wenn du weitermachen willst."
@@ -872,7 +877,11 @@
       "check": "{{command}} · Exit {{code}}",
       "next": "Die automatischen Korrekturrunden haben das nicht gelöst. Geh zurück in den Intent, um es mit dem Agenten zu klären, oder starte neu vom selben Intent-Branch.",
       "returned": "Zurück im Intent: Deine Änderungen sind mit der Review in ihren Intent zurückgekehrt. Mach in der Intent-Leiste weiter."
-    }
+    },
+    "repeatFromStep": "Ab „{{step}}“ wiederholen",
+    "repeatFromStepHint": "Setzt den Lauf beim fehlgeschlagenen Schritt „{{step}}“ fort und behält alles davor.",
+    "repeatFromStepNote": "Der Lauf hielt bei „{{step}}“ an: nur ab dort wiederholen oder von vorn starten.",
+    "repeatFromStepSent": "Wird ab „{{step}}“ wiederholt…"
   },
   "runFailure": {
     "briefing": {

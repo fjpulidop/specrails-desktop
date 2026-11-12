@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Circle, CircleHelp, Loader2, Maximize2, Minimize2, PauseCircle, XCircle } from 'lucide-react'
 import { ReactFlow, Background, Controls, MarkerType } from '@xyflow/react'
@@ -51,8 +51,26 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
     nodes.sort((a, b) => a.id === view.body.entry ? -1 : b.id === view.body.entry ? 1 : 0)
     return { nodes: layoutLoop(nodes, edges, 'vertical'), edges }
   }, [view.body, view.path, segments, settled, t])
+  // Opening the graph of a failed run lands on the step that failed: its
+  // attempts and "Repeat from here" are the first thing to see.
+  const failedPath = useMemo(() => [...segments].reverse().find(segment => segmentStatus(segment, { isLast: segment === segments[segments.length - 1], jobSettled: settled }) === 'failed')?.meta.nodePath ?? null, [segments, settled])
+  useEffect(() => {
+    if ((open || fullscreen) && selected === null && trail.length === 0 && failedPath && view.body.nodes.some(node => node.id === failedPath)) setSelected(failedPath)
+  // Only on opening: a deselection by the person sticks.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, fullscreen, failedPath])
   const selectedNode = view.body.nodes.find(node => pathFor(node.id) === selected)
   const component = selectedNode?.component ? topology.components[selectedNode.component] : undefined
+  // The selected node's attempts and "Repeat from here". Inline below the
+  // graph when it has the screen; overlaid on the canvas in the compact view,
+  // where anything below the graph is clipped by the log panel.
+  const nodePanel = (path: string, className: string) => <div className={className} data-testid="runtime-graph-node-panel">
+        <code className="break-all">{path}</code>
+        {component && trail.length < 16 && <Button size="sm" variant="outline" onClick={() => { setTrail(value => [...value, { path, body: component }]); setSelected(null) }}>{t('loopExplorer.graphOpenComponent')}</Button>}
+        {attempts.length === 0 ? <p>{t('loopExplorer.graphNoAttempts')}</p> : <ul className="max-h-40 space-y-1 overflow-auto">
+          {attempts.map(attempt => <li key={attempt.key}><button className="text-left underline underline-offset-2" onClick={() => onFocus(attempt.key)}>{attempt.meta.scopeId ?? '/'} · {attempt.meta.attemptId ?? attempt.meta.index} · {t(`loopExplorer.graphState.${segmentStatus(attempt, { isLast: true, jobSettled: settled })}`)}</button>{onFork && attempt.end && attempt.meta.nodePath && attempt.meta.scopeId && attempt.meta.iteration != null && <Button className="ml-2" size="sm" variant="outline" disabled={forkBusy} onClick={() => onFork(attempt)}>{t('loopExplorer.repeatFromHere')}</Button>}{attempt.meta.traceId && <code className="block break-all text-xs text-muted-foreground">traceId: {attempt.meta.traceId}{attempt.meta.spanId ? ` · spanId: ${attempt.meta.spanId}` : ''}</code>}</li>)}
+        </ul>}
+  </div>
   const content = (expanded: boolean) => <>
       <div className="flex shrink-0 items-center gap-2 py-2 text-xs">
         {trail.length > 0 && <Button size="sm" variant="ghost" onClick={() => { setTrail(value => value.slice(0, -1)); setSelected(null) }}>{t('loopExplorer.graphBack')}</Button>}
@@ -60,19 +78,14 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
         {expanded ? <DialogClose asChild><Button className="ml-auto" size="sm" variant="ghost" aria-label={t('loopExplorer.graphExitFullscreen')} title={t('loopExplorer.graphExitFullscreen')}><Minimize2 className="h-4 w-4" /></Button></DialogClose>
           : <DialogTrigger asChild><Button className="ml-auto" size="sm" variant="ghost" aria-label={t('loopExplorer.graphFullscreen')} title={t('loopExplorer.graphFullscreen')}><Maximize2 className="h-4 w-4" /></Button></DialogTrigger>}
       </div>
-      <div className={expanded ? 'min-h-0 flex-1 rounded border border-border' : 'h-72 rounded border border-border'} aria-label={t('loopExplorer.runtimeGraph')}>
+      <div className={expanded ? 'min-h-0 flex-1 rounded border border-border' : 'relative h-80 rounded border border-border'} aria-label={t('loopExplorer.runtimeGraph')}>
         <ReactFlow key={`${view.path}:${expanded}`} colorMode={theme.scheme === 'dark' ? 'dark' : 'light'} nodes={flow.nodes} edges={flow.edges} nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null} fitView minZoom={0.1}
-          onNodeClick={(_event, node) => setSelected(pathFor(node.id))}>
+          onNodeClick={(_event, node) => setSelected(pathFor(node.id))} onPaneClick={() => setSelected(null)}>
           <Background /><Controls showInteractive={false} />
         </ReactFlow>
+        {!expanded && selected && nodePanel(selected, 'absolute inset-x-2 bottom-2 z-10 max-h-[55%] space-y-2 overflow-y-auto rounded-lg border border-border bg-popover/95 p-2 text-xs shadow-lg')}
       </div>
-      {selected && <div className="shrink-0 space-y-2 py-2 text-xs">
-        <code className="break-all">{selected}</code>
-        {component && trail.length < 16 && <Button size="sm" variant="outline" onClick={() => { setTrail(value => [...value, { path: selected, body: component }]); setSelected(null) }}>{t('loopExplorer.graphOpenComponent')}</Button>}
-        {attempts.length === 0 ? <p>{t('loopExplorer.graphNoAttempts')}</p> : <ul className="max-h-40 space-y-1 overflow-auto">
-          {attempts.map(attempt => <li key={attempt.key}><button className="text-left underline underline-offset-2" onClick={() => onFocus(attempt.key)}>{attempt.meta.scopeId ?? '/'} · {attempt.meta.attemptId ?? attempt.meta.index} · {t(`loopExplorer.graphState.${segmentStatus(attempt, { isLast: true, jobSettled: settled })}`)}</button>{onFork && attempt.end && attempt.meta.nodePath && attempt.meta.scopeId && attempt.meta.iteration != null && <Button className="ml-2" size="sm" variant="outline" disabled={forkBusy} onClick={() => onFork(attempt)}>{t('loopExplorer.repeatFromHere')}</Button>}{attempt.meta.traceId && <code className="block break-all text-xs text-muted-foreground">traceId: {attempt.meta.traceId}{attempt.meta.spanId ? ` · spanId: ${attempt.meta.spanId}` : ''}</code>}</li>)}
-        </ul>}
-      </div>}
+      {expanded && selected && nodePanel(selected, 'shrink-0 space-y-2 py-2 text-xs')}
     </>
   return <Dialog open={fullscreen} onOpenChange={setFullscreen}>
     <details className="shrink-0 border-b border-border p-2" onToggle={event => setOpen(event.currentTarget.open)}>
