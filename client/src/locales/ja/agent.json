@@ -872,7 +872,11 @@
       "check": "{{command}} · 終了コード {{code}}",
       "next": "自動修正ラウンドでは解決しませんでした。Intent に戻ってエージェントと解決するか、同じ Intent ブランチから再実行してください。",
       "returned": "Intent に戻りました：変更はレビュー結果とともにこの Intent に戻っています。Intent のストリップから続けてください。"
-    }
+    },
+    "repeatFromStep": "「{{step}}」から再実行",
+    "repeatFromStepHint": "失敗したステップ「{{step}}」から再開し、それまでの作業は保持します。",
+    "repeatFromStepNote": "「{{step}}」で停止しました。そこからだけ再実行するか、最初から実行し直せます。",
+    "repeatFromStepSent": "「{{step}}」から再実行しています…"
   },
   "runFailure": {
     "briefing": {

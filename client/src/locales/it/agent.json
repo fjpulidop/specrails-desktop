@@ -872,7 +872,11 @@
       "check": "{{command}} · uscita {{code}}",
       "next": "I giri di correzione automatica non li hanno risolti. Torna in Intent per sistemarli con l’agente, oppure rilancia dallo stesso branch dell’Intent.",
       "returned": "Di nuovo in Intent: le tue modifiche sono tornate al loro Intent con la revisione. Continua nella striscia dell’Intent."
-    }
+    },
+    "repeatFromStep": "Ripeti da «{{step}}»",
+    "repeatFromStepHint": "Riprende l’esecuzione dal passaggio fallito «{{step}}», mantenendo tutto ciò che precede.",
+    "repeatFromStepNote": "L’esecuzione si è fermata a «{{step}}»: ripeti solo da lì, o riesegui dall’inizio.",
+    "repeatFromStepSent": "Ripetizione da «{{step}}»…"
   },
   "runFailure": {
     "briefing": {

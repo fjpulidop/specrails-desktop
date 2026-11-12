@@ -872,7 +872,11 @@
       "check": "{{command}} · 退出码 {{code}}",
       "next": "自动修正轮次没有解决这些问题。回到 Intent 与智能体一起解决，或从相同的 Intent 分支重新启动。",
       "returned": "已回到 Intent：你的更改已连同评审返回其 Intent。请在 Intent 条带中继续。"
-    }
+    },
+    "repeatFromStep": "从“{{step}}”重新执行",
+    "repeatFromStepHint": "从失败的步骤“{{step}}”继续，保留之前完成的所有工作。",
+    "repeatFromStepNote": "运行停在了“{{step}}”：可以只从那里重新执行，或从头再运行一次。",
+    "repeatFromStepSent": "正在从“{{step}}”重新执行…"
   },
   "runFailure": {
     "briefing": {

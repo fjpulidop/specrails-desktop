@@ -872,7 +872,11 @@
       "check": "{{command}} · Exit {{code}}",
       "next": "Die automatischen Korrekturrunden haben das nicht gelöst. Geh zurück in den Intent, um es mit dem Agenten zu klären, oder starte neu vom selben Intent-Branch.",
       "returned": "Zurück im Intent: Deine Änderungen sind mit der Review in ihren Intent zurückgekehrt. Mach in der Intent-Leiste weiter."
-    }
+    },
+    "repeatFromStep": "Ab „{{step}}“ wiederholen",
+    "repeatFromStepHint": "Setzt den Lauf beim fehlgeschlagenen Schritt „{{step}}“ fort und behält alles davor.",
+    "repeatFromStepNote": "Der Lauf hielt bei „{{step}}“ an: nur ab dort wiederholen oder von vorn starten.",
+    "repeatFromStepSent": "Wird ab „{{step}}“ wiederholt…"
   },
   "runFailure": {
     "briefing": {

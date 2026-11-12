@@ -872,7 +872,11 @@
       "check": "{{command}} · exit {{code}}",
       "next": "The automatic correction rounds did not resolve these. Go back to Intent to settle them with the agent, or relaunch from the same Intent branch.",
       "returned": "Back in Intent: your changes returned to their Intent with the review. Continue in the Intent strip."
-    }
+    },
+    "repeatFromStep": "Repeat from “{{step}}”",
+    "repeatFromStepHint": "Picks the run up again at the failed step “{{step}}”, keeping everything done before it.",
+    "repeatFromStepNote": "The run stopped at “{{step}}”: repeat only from there, or run again from the start.",
+    "repeatFromStepSent": "Repeating from “{{step}}”…"
   },
   "runFailure": {
     "briefing": {

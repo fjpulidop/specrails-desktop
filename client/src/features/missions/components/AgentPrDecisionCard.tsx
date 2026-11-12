@@ -58,6 +58,8 @@ import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessa
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import type { RuntimeRun } from '../../settings/lib/agent-runtime'
 import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusScrollBehavior, type FocusPrCardDetail } from './agent-run-failure'
+import { useLastFailedStep } from '../../loops/lib/failed-step'
+import { useDefinitionFork } from '../../loops/hooks/useDefinitionFork'
 import type { MissionRunCardSummary, MissionRunVitalsSnapshot } from './mission-run-strip'
 import { PRIMARY_ACTION, RunPrimaryButton } from './run-primary'
 import { formatUsd } from '../../analytics/lib/format'
@@ -1056,6 +1058,27 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   // #14: when the diagnosis card renders its remedies, it owns the retry/resume
   // primary; the implementation_failed branch below must not add a second one.
   const diagnosisOwnsPrimary = !!diagnosis && (!!diagnosisHandlers.retry || !!diagnosisHandlers.resume)
+  // Repeat from the step that failed (a Core fork at that exact attempt): the
+  // work before it is kept, unlike "Run again" from the start.
+  const failedStep = useLastFailedStep(envelope.projectId, diagnosisRunId,
+    failedRunForDiagnosis && decision === 'implementation_failed' && runStatus !== 'running' && runStatus !== 'paused')
+  const stepFork = useDefinitionFork(diagnosisRunId ?? undefined, envelope.projectId)
+  const repeatStepRow = failedStep ? (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-label" data-testid="mission-run-repeat-step">
+      <button type="button" data-agent-interactive data-testid="mission-run-repeat-step-button"
+        disabled={stepFork.busy || !!stepFork.created || anyBusyRef.current}
+        onClick={() => void stepFork.fork(failedStep.segment)}
+        title={t('runCard.repeatFromStepHint', { step: failedStep.title })}
+        className="inline-flex items-center gap-1.5 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2.5 py-1 text-xs font-medium text-accent-primary transition-colors hover:bg-accent-primary/20 disabled:cursor-default disabled:opacity-60">
+        {stepFork.busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <RotateCcw className="h-3 w-3" aria-hidden />}
+        {t('runCard.repeatFromStep', { step: failedStep.title })}
+      </button>
+      <span className="text-muted-foreground">
+        {stepFork.created ? t('runCard.repeatFromStepSent', { step: failedStep.title }) : t('runCard.repeatFromStepNote', { step: failedStep.title })}
+      </span>
+      {stepFork.error && <p role="alert" className="w-full text-destructive">{stepFork.error}</p>}
+    </div>
+  ) : null
   const diagnosisCard = diagnosis ? (
     <div className="mt-3 space-y-1.5" data-testid="mission-run-diagnosis">
       <FailureDiagnosisCard diagnosis={diagnosis} handlers={diagnosisHandlers} />
@@ -1652,6 +1675,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {!ciOutcome && <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null || failureBlockShown} />}
 
       {failureBlockShown && (diagnosisCard ?? <RunFailureBlock envelope={envelope} />)}
+      {failureBlockShown && repeatStepRow}
       {flowFailureView}
       {flowOutcome === 'changes' && (
         <AgentFlowReviewBlock review={envelope.flowReview ?? { reason: 'review', summary: envelope.statusDetail ?? null, issues: [], issuesOmitted: 0, score: null, failingChecks: [] }}>

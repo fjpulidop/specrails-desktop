@@ -14,6 +14,8 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/LoopWindowSurface.tsx](components/LoopWindowSurface.tsx)
 - [components/loop-log/LoopStepExplorer.tsx](components/loop-log/LoopStepExplorer.tsx)
 - [components/loop-log/NarratedProgress.tsx](components/loop-log/NarratedProgress.tsx)
+- [hooks/useDefinitionFork.ts](hooks/useDefinitionFork.ts)
+- [lib/failed-step.ts](lib/failed-step.ts)
 - [lib/loop-run-models.ts](lib/loop-run-models.ts)
 - [lib/loop-ticket-need.ts](lib/loop-ticket-need.ts)
 - [lib/loop-windows.ts](lib/loop-windows.ts)
