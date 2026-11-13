@@ -597,6 +597,36 @@ describe('settlement ignored-path snapshot (run-created artifacts)', () => {
     db.close()
   })
 
+  it('releases regenerable node_modules installs even without a settlement snapshot (CI-loop generations)', async () => {
+    const db = initDb(':memory:')
+    seed(db)
+    const { git, removed } = gitWithStatus('!! node_modules/\n!! client/node_modules/\n')
+    const warnings = await releaseRailWorktrees({
+      db, git, repoDir: '/repo', worktreeIds: ['wt-1'],
+      expectedHeadByBranch: new Map([['feat/x', sha]]),
+      overlayEvidenceByBranch: new Map(),
+    })
+    expect(warnings).toEqual([])
+    expect(removed).toHaveLength(1)
+    expect(getRailWorktree(db, 'wt-1')?.merge_state).toBe('released')
+    db.close()
+  })
+
+  it('node_modules never excuses another ignored path that appeared after settlement', async () => {
+    const db = initDb(':memory:')
+    seed(db)
+    const { git, removed } = gitWithStatus('!! node_modules/\n!! .env\n')
+    const warnings = await releaseRailWorktrees({
+      db, git, repoDir: '/repo', worktreeIds: ['wt-1'],
+      expectedHeadByBranch: new Map([['feat/x', sha]]),
+      overlayEvidenceByBranch: new Map(),
+    })
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/no settlement snapshot/)
+    expect(removed).toEqual([])
+    db.close()
+  })
+
   it('tracked/untracked dirt still preserves regardless of the snapshot', async () => {
     const db = initDb(':memory:')
     seed(db)
