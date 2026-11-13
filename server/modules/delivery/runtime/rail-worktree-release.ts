@@ -147,6 +147,14 @@ export function durableSettlementIgnoredPaths(
   )
 }
 
+/** Package-manager installs (`node_modules`, at any depth) are reproducible
+ * from the committed lockfile: never user work. Local verification installs
+ * them in every worktree, so they must not hold a delivered worktree hostage
+ * when no settlement snapshot names them (CI-loop generations, legacy rows). */
+export function isRegenerableIgnoredPath(livePath: string): boolean {
+  return livePath.replace(/\/$/, '').split('/').includes('node_modules')
+}
+
 function coveredBySnapshot(livePath: string, snapshot: readonly string[]): boolean {
   const live = livePath.replace(/\/$/, '')
   return snapshot.some((entry) => live === entry || live.startsWith(`${entry}/`))
@@ -210,7 +218,10 @@ async function verifyReleaseEvidence(
     const statusLines = status.stdout.split('\n').map((line) => line.trimEnd()).filter(Boolean)
     const dirtyLines = statusLines.filter((line) => !line.startsWith('!! '))
     if (dirtyLines.length > 0) return { failure: 'the worktree contains changes made after settlement', overlayEntries: [] }
+    // Regenerable dependency installs release without authorization and are
+    // not quarantined (Git's worktree removal deletes them).
     const ignoredPaths = statusLines.filter((line) => line.startsWith('!! ')).map((line) => line.slice(3))
+      .filter((livePath) => !isRegenerableIgnoredPath(livePath))
     if (ignoredPaths.length > 0) {
       const snapshot = input.settlementIgnoredByBranch?.get(worktree.branch)
       if (!snapshot) {
