@@ -41,6 +41,8 @@
     "count-plan-repair": "开始修复计划",
     "developer": "实现",
     "developer-blocker": "检查阻塞项",
+    "developer-blocker-kind": "确认谁能解除阻塞",
+    "fixer-blocker-kind": "确认谁能解除阻塞",
     "tasks": "逐项完成任务",
     "verify": "验证",
     "review": "审查",

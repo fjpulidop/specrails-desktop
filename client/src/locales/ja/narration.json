@@ -41,6 +41,8 @@
     "count-plan-repair": "計画の修復を開始",
     "developer": "実装",
     "developer-blocker": "ブロッカーを確認",
+    "developer-blocker-kind": "ブロッカーを解消できる人を確認",
+    "fixer-blocker-kind": "ブロッカーを解消できる人を確認",
     "tasks": "タスクを順に実行",
     "verify": "検証",
     "review": "レビュー",

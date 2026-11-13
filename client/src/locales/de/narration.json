@@ -41,6 +41,8 @@
     "count-plan-repair": "Planreparatur starten",
     "developer": "Umsetzen",
     "developer-blocker": "Blocker prüfen",
+    "developer-blocker-kind": "Prüfen, wer die Blockade lösen kann",
+    "fixer-blocker-kind": "Prüfen, wer die Blockade lösen kann",
     "tasks": "Aufgaben abarbeiten",
     "verify": "Verifizieren",
     "review": "Prüfen",

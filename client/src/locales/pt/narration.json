@@ -41,6 +41,8 @@
     "count-plan-repair": "Iniciar uma reparação do plano",
     "developer": "Implementar",
     "developer-blocker": "Procurar bloqueios",
+    "developer-blocker-kind": "Verificar quem pode resolver o bloqueio",
+    "fixer-blocker-kind": "Verificar quem pode resolver o bloqueio",
     "tasks": "Percorrer as tarefas",
     "verify": "Verificar",
     "review": "Revisar",

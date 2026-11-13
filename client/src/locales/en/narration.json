@@ -41,6 +41,8 @@
     "count-plan-repair": "Start a plan repair",
     "developer": "Implement",
     "developer-blocker": "Check for blockers",
+    "developer-blocker-kind": "Check who can clear the blocker",
+    "fixer-blocker-kind": "Check who can clear the blocker",
     "tasks": "Work through tasks",
     "verify": "Verify",
     "review": "Review",

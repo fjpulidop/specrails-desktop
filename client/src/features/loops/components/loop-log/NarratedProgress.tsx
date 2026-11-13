@@ -51,7 +51,7 @@ const QUICK_SECONDS = 5
  */
 const BOOKKEEPING_STEPS = new Set([
   'initialize-plan', 'plan-repair-budget', 'count-plan-repair',
-  'initialize-corrections', 'tasks', 'developer-blocker', 'correction-context', 'capture-review',
+  'initialize-corrections', 'tasks', 'developer-blocker', 'developer-blocker-kind', 'fixer-blocker-kind', 'correction-context', 'capture-review',
   'correction-budget', 'begin-correction', 'correction-blocker', 'correction-progress',
   'review-policy', 'approval-policy',
 ])
