@@ -392,7 +392,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         if (result) invalidProtocol = true
         result = event as unknown as RuntimeResult
       } else if (event.type === 'workflow-event') {
-        const payload = event.event as { type?: string; stepId?: string; nodePath?: string; scopeId?: string; message?: string; outcome?: string; reasons?: unknown; error?: { message?: string } }
+        const payload = event.event as { type?: string; stepId?: string; nodePath?: string; scopeId?: string; message?: string; outcome?: string; reason?: unknown; reasons?: unknown; error?: { message?: string } }
         const kind = payload?.type === 'step_succeeded' && payload.outcome === 'fail' ? 'verification_failed' : payload?.type
         const completionDetail = payload?.type === 'workflow_failed' && Array.isArray(payload.reasons)
           ? payload.reasons.filter(reason => typeof reason === 'string' && reason.trim()).join('; ').slice(0, 4_000) : undefined
@@ -403,7 +403,10 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
           stepFailures.delete(stepKey)
           stepFailures.set(stepKey, detail.trim().slice(0, 4_000))
         } else if (payload?.type === 'step_succeeded') stepFailures.delete(stepKey)
-        if (kind) observe(() => options.onLine?.(`[runtime] ${kind}${payload.stepId ? ': ' + payload.stepId : ''}${detail ? ' — ' + detail : ''}\n`))
+        // Core (paired) names why a check sent the run back; show it under the failed step.
+        const failReason = kind === 'verification_failed' && typeof payload.reason === 'string' && payload.reason.trim()
+          ? payload.reason.trim().slice(0, 4_000).split('\n').map(line => '  ' + line.trimEnd()).join('\n') + '\n' : ''
+        if (kind) observe(() => options.onLine?.(`[runtime] ${kind}${payload.stepId ? ': ' + payload.stepId : ''}${detail ? ' — ' + detail : ''}\n${failReason}`))
       } else if (event.type === 'agent-event') {
         const payload = event.event as { kind?: string; text?: string; tool?: string; detail?: string }
         const role = typeof event.role === 'string' ? event.role : 'agent'

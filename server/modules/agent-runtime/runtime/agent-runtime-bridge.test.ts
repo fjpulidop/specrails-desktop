@@ -390,6 +390,17 @@ describe('Core process bridge', () => {
     expect(onLine).toHaveBeenCalledWith('[runtime] step_failed: architect — missing instructions tasks\n')
   })
 
+  it('shows why a check sent the run back under the failed step', async () => {
+    const reason = 'OpenSpec validation failed for change c.\n- specs/architecture: Spec must have a Purpose section'
+    const events = [{ type: 'workflow-event', event: { type: 'step_succeeded', stepId: 'validate', outcome: 'fail', reason } },
+      { type: 'workflow-event', event: { type: 'step_succeeded', stepId: 'confidence', outcome: 'true', reason: 'ignored' } }]
+    script(events.map(event => `console.log(JSON.stringify(${JSON.stringify(event)}));`).join('') + `console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    const onLine = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), onLine })
+    expect(onLine).toHaveBeenCalledWith('[runtime] verification_failed: validate\n  OpenSpec validation failed for change c.\n  - specs/architecture: Spec must have a Purpose section\n')
+    expect(onLine).toHaveBeenCalledWith('[runtime] step_succeeded: confidence\n')
+  })
+
   it('shows bounded durable completion reasons in the readable failure log without changing settlement', async () => {
     const reason = 'Automatic correction made no candidate changes. Required canvas fallback is missing.'
     const event = { type: 'workflow-event', event: { type: 'workflow_failed', reasons: [null, '', reason, 'x'.repeat(10_000)] } }
