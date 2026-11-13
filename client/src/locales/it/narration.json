@@ -57,7 +57,8 @@
     "correction-blocker": "Cercare blocchi",
     "correction-progress": "Seguire l'avanzamento delle correzioni",
     "approval-policy": "Applicare la decisione di approvazione",
-    "verify-archive": "Verificare la modifica archiviata"
+    "verify-archive": "Verificare la modifica archiviata",
+    "baseline": "Verificare il codice prima delle modifiche"
   },
   "decision": {
     "another": "Non ancora — un altro giro",
