@@ -1,4 +1,14 @@
 {
+  "archive": {
+    "action": "Archivieren",
+    "restore": "Wiederherstellen",
+    "liveRefusal": "Warte, bis diese Mission ihre Arbeit beendet hat, bevor du sie archivierst.",
+    "failed": "Mission konnte nicht archiviert werden",
+    "restoreFailed": "Mission konnte nicht wiederhergestellt werden",
+    "rowAction": "Archivieren \"{{title}}\"",
+    "rowRestore": "Wiederherstellen \"{{title}}\"",
+    "readOnly": "Stelle diese archivierte Mission wieder her, um Nachrichten zu senden."
+  },
   "title": "Missionszentrale",
   "subtitle": "Specrails per Chat bedienen",
   "trigger": "Missionszentrale",

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { MessagesSquare, ChevronDown, Check, Search, Plus, Trash2, X } from 'lucide-react'
+import { MessagesSquare, ChevronDown, Check, Search, Plus, Archive, ArchiveRestore, Trash2, X } from 'lucide-react'
 import { compactRelativeTime, absoluteTime } from '../../../lib/relative-time'
 import { useMissionSessions } from '../context/MissionSessionsContext'
 import { useAgentChat } from '../context/AgentChatContext'
@@ -29,7 +29,7 @@ const CONFIRM_REVERT_MS = 3000
 export function AgentMissionSelector() {
   const { t } = useTranslation('agent')
   const {
-    conversations, active, selectConversation, deleteConversation,
+    conversations, active, selectConversation, archiveConversation, unarchiveConversation, deleteConversation,
     startNewConversation,
   } = useAgentChat()
   const streamingConversationIds = useStreamingConversationIds()
@@ -38,6 +38,9 @@ export function AgentMissionSelector() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlighted, setHighlighted] = useState(0)
+  const [pendingId, setPendingId] = useState<string | null>(null)
+  const pendingRef = useRef(new Set<string>())
+  const [actionError, setActionError] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -106,12 +109,6 @@ export function AgentMissionSelector() {
   }
 
   const armDelete = (id: string) => {
-    // Idle missions delete at once (Undo restores them). A mission with a turn
-    // in flight still asks first: stopping that turn can't be undone.
-    if (!streamingConversationIds.has(id) && !backgroundConversationIds.has(id)) {
-      void confirmDelete(id)
-      return
-    }
     if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
     setConfirmingId(id)
     confirmTimerRef.current = setTimeout(() => {
@@ -120,7 +117,27 @@ export function AgentMissionSelector() {
     }, CONFIRM_REVERT_MS)
   }
 
+  const changeArchive = async (conversation: AgentConversation) => {
+    if (pendingRef.current.has(conversation.id)) return
+    pendingRef.current.add(conversation.id)
+    setPendingId(conversation.id)
+    setActionError(null)
+    try {
+      if (conversation.archivedAt) await unarchiveConversation(conversation.id)
+      else await archiveConversation(conversation.id)
+    } catch (error) {
+      const live = error && typeof error === 'object' && 'code' in error && error.code === 'MISSION_LIVE'
+      setActionError(t(live ? 'archive.liveRefusal' : conversation.archivedAt ? 'archive.restoreFailed' : 'archive.failed'))
+    } finally {
+      pendingRef.current.delete(conversation.id)
+      setPendingId(null)
+    }
+  }
+
   const confirmDelete = async (id: string) => {
+    if (pendingRef.current.has(id)) return
+    pendingRef.current.add(id)
+    setPendingId(id)
     disarmConfirm()
     const wasActive = active?.id === id
     // Newest remaining (sorted is newest-first) — the handoff target.
@@ -134,6 +151,9 @@ export function AgentMissionSelector() {
       }
     } catch {
       notifyError(t('mission.deleteFailed'))
+    } finally {
+      pendingRef.current.delete(id)
+      setPendingId(null)
     }
   }
 
@@ -207,6 +227,7 @@ export function AgentMissionSelector() {
             transition={{ duration: 0.16, ease: 'easeOut' }}
             className="absolute left-0 top-full z-10 mt-1 w-72 overflow-hidden rounded-xl border border-border/60 bg-popover shadow-2xl"
           >
+            {actionError && <p role="alert" className="px-3 py-2 text-xs text-destructive">{actionError}</p>}
             {showSearch && (
               <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
                 <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -256,6 +277,8 @@ export function AgentMissionSelector() {
                   streaming={streamingConversationIds.has(c.id) || backgroundConversationIds.has(c.id)}
                   queuedCount={queuedCounts.get(c.id) ?? 0}
                   confirming={confirmingId === c.id}
+                  pending={pendingId === c.id}
+                  onArchive={() => void changeArchive(c)}
                   onHover={() => setHighlighted(i + 1)}
                   onSelect={() => chooseMission(c.id)}
                   onArmDelete={() => armDelete(c.id)}
@@ -279,6 +302,8 @@ function MissionRow({
   streaming,
   queuedCount,
   confirming,
+  pending,
+  onArchive,
   onHover,
   onSelect,
   onArmDelete,
@@ -292,6 +317,8 @@ function MissionRow({
   streaming: boolean
   queuedCount: number
   confirming: boolean
+  pending: boolean
+  onArchive: () => void
   onHover: () => void
   onSelect: () => void
   onArmDelete: () => void
@@ -319,6 +346,7 @@ function MissionRow({
         </span>
         <button
           type="button"
+          disabled={pending}
           data-testid="mission-confirm-yes"
           onClick={(e) => { e.stopPropagation(); onConfirmDelete() }}
           aria-label={t('mission.confirmDelete')}
@@ -380,13 +408,24 @@ function MissionRow({
       {isActive && <Check className="h-3.5 w-3.5 shrink-0 text-accent-primary" />}
       <button
         type="button"
+        disabled={pending}
+        data-testid={`mission-${conversation.archivedAt ? 'restore' : 'archive'}-${conversation.id}`}
+        onClick={(e) => { e.stopPropagation(); onArchive() }}
+        aria-label={t(conversation.archivedAt ? 'archive.restore' : 'archive.action')}
+        className="shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 disabled:opacity-40"
+      >
+        {conversation.archivedAt ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+      </button>
+      {conversation.archivedAt && <button
+        type="button"
+        disabled={pending}
         data-testid={`mission-delete-${conversation.id}`}
         onClick={(e) => { e.stopPropagation(); onArmDelete() }}
         aria-label={t('mission.delete', { title: label })}
         className="shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface hover:text-destructive focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
       >
         <Trash2 className="h-3.5 w-3.5" />
-      </button>
+      </button>}
     </motion.div>
   )
 }

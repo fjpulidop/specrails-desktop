@@ -15,6 +15,8 @@ export { foldSearchText }
 // a per-project jobs.sqlite. `pinned_project_id` is the selector target
 // (null = Home); `tier_level` is the Shift+Tab ladder level.
 
+export type ArchiveScope = 'active' | 'archived' | 'all'
+
 export interface AgentConversation {
   id: string
   title: string | null
@@ -28,6 +30,7 @@ export interface AgentConversation {
   reasoning_effort: string | null
   /** Soft-delete stamp ("Recently deleted"); null = live. */
   deleted_at?: string | null
+  archivedAt: string | null
   created_at: string
   updated_at: string
 }
@@ -208,13 +211,15 @@ interface AgentConversationRaw {
   tier_level: number
   reasoning_effort: string | null
   deleted_at?: string | null
+  archived_at: string | null
   created_at: string
   updated_at: string
 }
 
 function mapConversation(row: AgentConversationRaw | undefined): AgentConversation | undefined {
   if (!row) return undefined
-  return { ...row, tier_level: normalizeLevel(row.tier_level) }
+  const { archived_at, ...fields } = row
+  return { ...fields, archivedAt: archived_at, tier_level: normalizeLevel(row.tier_level) }
 }
 
 export function createAgentConversation(
@@ -242,12 +247,24 @@ export function getAgentConversation(db: DbInstance, id: string): AgentConversat
   )
 }
 
-export function listAgentConversations(db: DbInstance, limit = 100): AgentConversation[] {
+export function listAgentConversations(db: DbInstance, opts: { archiveScope?: ArchiveScope; limit?: number } | number = {}): AgentConversation[] {
+  const { archiveScope = 'active', limit = 100 } = typeof opts === 'number' ? { limit: opts } : opts
+  const archivePredicate = archiveScope === 'all' ? '' : archiveScope === 'archived' ? ' AND archived_at IS NOT NULL' : ' AND archived_at IS NULL'
   return (
     db
-      .prepare('SELECT * FROM agent_conversations WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?')
+      .prepare(`SELECT * FROM agent_conversations WHERE deleted_at IS NULL${archivePredicate} ORDER BY updated_at DESC LIMIT ?`)
       .all(limit) as AgentConversationRaw[]
   ).map((r) => mapConversation(r)!)
+}
+
+export function archiveAgentConversation(db: DbInstance, id: string, now: Date = new Date()): AgentConversation | null {
+  const result = db.prepare('UPDATE agent_conversations SET archived_at = COALESCE(archived_at, ?) WHERE id = ? AND deleted_at IS NULL').run(now.toISOString(), id)
+  return result.changes > 0 ? getAgentConversation(db, id)! : null
+}
+
+export function unarchiveAgentConversation(db: DbInstance, id: string): AgentConversation | null {
+  const result = db.prepare('UPDATE agent_conversations SET archived_at = NULL WHERE id = ? AND deleted_at IS NULL').run(id)
+  return result.changes > 0 ? getAgentConversation(db, id)! : null
 }
 
 /** Patch a conversation. Only the provided fields change; `updated_at` always bumps. */
@@ -288,7 +305,7 @@ export const AGENT_TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 /** Hide a mission and start its restore window. Idempotent: a repeat keeps the first stamp. */
 export function softDeleteAgentConversation(db: DbInstance, id: string, now: Date = new Date()): boolean {
   const result = db
-    .prepare('UPDATE agent_conversations SET deleted_at = COALESCE(deleted_at, ?) WHERE id = ?')
+    .prepare('UPDATE agent_conversations SET deleted_at = COALESCE(deleted_at, ?) WHERE id = ? AND (archived_at IS NOT NULL OR deleted_at IS NOT NULL)')
     .run(now.toISOString(), id)
   return result.changes > 0
 }

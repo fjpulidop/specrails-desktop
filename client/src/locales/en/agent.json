@@ -1,4 +1,14 @@
 {
+  "archive": {
+    "action": "Archive",
+    "restore": "Restore",
+    "liveRefusal": "Wait for this mission to finish its work before archiving.",
+    "failed": "Couldn’t archive the mission",
+    "restoreFailed": "Couldn’t restore the mission",
+    "rowAction": "Archive \"{{title}}\"",
+    "rowRestore": "Restore \"{{title}}\"",
+    "readOnly": "Restore this archived mission to send messages."
+  },
   "title": "Mission Control",
   "subtitle": "Operate Specrails by chatting",
   "trigger": "Mission Control",

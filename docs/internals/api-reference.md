@@ -241,7 +241,10 @@ These routes are available when a mission ran in a Core agent session (`SPECRAIL
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/agent/active-turns` | Reconnect snapshot. Besides `turns`, the response includes `sessions[]`: `{ conversationId, residentPhase, processAlive, liveSubagents, subagents }` for missions with background work. |
-| `DELETE` | `/agent/conversations/:id` | Soft delete: stops the live turn, closes the Core session and hides the mission (`deleted_at`); `{ ok, restorable: true }`. `?permanent=1` removes the row, history and attachments for good (`404` unknown id). Deleted missions are `404` on `GET /agent/conversations/:id` and `/send`, and absent from the list, search and mobile listings |
+| `GET` | `/agent/conversations?archiveScope=active` | Non-trashed missions; scope is `active` (default), `archived` or `all`. Invalid or repeated scope returns 400. Rows expose nullable `archivedAt`. |
+| `POST` | `/agent/conversations/:id/archive` | `{ conversation }`; idempotent, retains first timestamp and history. 404 unknown/trashed; 409 `{ error, code: 'MISSION_LIVE' }` for busy/reserved turns, background sessions/subagents or starting/running background processes. No work is stopped. |
+| `POST` | `/agent/conversations/:id/unarchive` | `{ conversation }`; clears only archive state, idempotent. 404 unknown/trashed. |
+| `DELETE` | `/agent/conversations/:id` | Requires archive for non-trashed missions (both DELETE variants return 409 `NOT_ARCHIVED` before cleanup otherwise). Soft delete: stops the live turn, closes the Core session and hides the mission (`deleted_at`); `{ ok, restorable: true }`. `?permanent=1` removes the row, history and attachments for good (`404` unknown id). Deleted missions are `404` on `GET /agent/conversations/:id` and `/send`, and absent from the list, search and mobile listings |
 | `GET` | `/agent/conversations/trash?projectId=` | Deleted missions pinned to the project (all when omitted), newest deletion first: `{ items: [{ conversation, deletedAt, purgeAt }], retentionDays: 30 }`. Purges missions deleted more than 30 days ago first |
 | `POST` | `/agent/conversations/:id/restore` | Undo a delete; idempotent. `{ ok, conversation }`, `404` when the mission no longer exists |
 | `GET` | `/agent/conversations/:id` | Includes `session`: `{ residentPhase, processAlive, liveSubagents, subagents }`, or `null` when the mission never ran in Core. |
@@ -249,6 +252,17 @@ These routes are available when a mission ran in a Core agent session (`SPECRAIL
 | `GET` | `/agent/conversations/:id/subagents/:subagentId/events?after=&limit=` | Paged sub-agent transcript `{ events: [{ seq, channel, delta?, tool?, createdAt }], hasMore }`. `limit` is 1–1000. |
 | `POST` | `/agent/conversations/:id/subagents/stop` | Body `{ subagentIds? }` (all when omitted). Returns `{ stopped }`; `502` when the session host is unavailable. |
 | `POST` | `/agent/conversations/:id/session/rebuild` | Operator repair: replays the mission's Core journal into its sub-agent rows, events, resident state and cursor. Turns already recorded as messages/invocations are not duplicated; the replay is silent, then clients receive `agent_resident_state` and one `agent_subagent` per row. Returns `{ lastSeq, subagents }`; `409` while a turn runs or when the mission has no Core session; `502` when the host is unavailable. |
+
+Archived missions remain readable by ID. Send, queue edit and queue steer return
+409 `{ error, code: 'MISSION_ARCHIVED' }` before creating input/message rows or
+spawning work. Internal `sendMessage` also refuses archived admission
+synchronously. Restore enables messaging again; cancellation stays available.
+
+The mobile mission list is active-only (`deleted_at IS NULL` and
+`archived_at IS NULL`). Known-ID history access retains project/device identity
+checks; upstream send/queue conflicts enforce archived read-only behavior. The
+mobile surface adds no archive operations.
+
 
 | `GET` | `/agent/session-hosts` | `{ hosts: [{ scope, status, detail, code }] }`: one entry per Core session host scope (project slug or `global`). `code` explains a degraded scope (`journal_locked`, `protocol_mismatch`, `driver_unavailable`). |
 | `POST` | `/agent/session-hosts/:scope/retry` | Starts a degraded scope again. Returns `{ host }`, or `502` with `{ error, host }` when it is still unavailable. |

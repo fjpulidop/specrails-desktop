@@ -81,3 +81,26 @@ check the result and resume only under existing authorization. It must reuse the
 operation ID after an uncertain response and never invent a changed precondition
 to evade the repeated-check guard. Check execution requires the highest tier
 because even a registered test command can execute project code.
+
+## Mission archive
+
+The global conversation list validates `archiveScope` as Active (default),
+Archived or All, excluding trash in every scope. Archive/unarchive POST routes
+return the conversation, or 404 for unknown/trashed IDs. Archive is synchronous
+with admission: busy/reserved turns, non-idle aggregated Core sessions, live
+subagents and starting/running background processes return 409 `MISSION_LIVE`
+without stopping work. An idle resident session alone does not block archive.
+Repeated archive keeps its original stamp and repeated unarchive is harmless.
+
+Archived missions remain readable by ID. Send, queue edit and queue steer return
+409 `{ error, code: 'MISSION_ARCHIVED' }` before creating input/message rows or
+spawning work. Internal `sendMessage` also refuses archived admission
+synchronously. Restore enables messaging again; cancellation stays available.
+
+Soft delete requires archive for non-trashed missions. Both HTTP DELETE variants
+reject active rows with 409 `NOT_ARCHIVED` before stopping work. Archived Delete
+keeps history and the first `deleted_at`; Undo clears only `deleted_at`, returning
+the mission to Archived. Legacy trash with no archive stamp can still be restored
+or hard-purged and expires at exactly 30 days. Hard-delete persistence remains
+unconditional for the existing purge owner. Unknown soft DELETE is idempotent;
+unknown permanent DELETE returns 404.

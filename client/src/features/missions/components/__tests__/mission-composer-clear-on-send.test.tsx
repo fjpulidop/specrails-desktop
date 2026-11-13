@@ -30,7 +30,7 @@ vi.mock('../../../providers/hooks/useAvailableProviders', () => ({
 
 const conversation = (id: string) => ({
   id, title: null, provider: 'claude', model: null, session_id: null,
-  pinned_project_id: null, tier_level: 0 as const, created_at: '', updated_at: '',
+  pinned_project_id: null, archivedAt: null as string | null, reasoning_effort: null, tier_level: 0 as const, created_at: '', updated_at: '',
 })
 
 vi.mock('../../lib/agent-api', async (orig) => {
@@ -41,6 +41,7 @@ vi.mock('../../lib/agent-api', async (orig) => {
     createAgentConversation: vi.fn(async () => conversation('c-new')),
     getAgentConversation: vi.fn(async () => ({ conversation: conversation('c-new'), messages: [] })),
     patchAgentConversation: vi.fn(async () => conversation('c-new')),
+    unarchiveAgentConversation: vi.fn(async () => conversation('c-new')),
     deleteAgentConversation: vi.fn(async () => {}),
     sendAgentMessage: vi.fn(async () => ({ queued: false })),
     uploadAgentAttachment: vi.fn(async () => ({ id: 'att-1', filename: 'a.png', storedName: 's', mimeType: 'image/png', size: 1, addedAt: '' })),
@@ -275,5 +276,28 @@ describe('work created during an in-flight send is never overwritten', () => {
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
     await act(async () => { release() })
     expect(composerDrafts.get('c-otra')).toBe('borrador de otra misión')
+  })
+})
+
+describe('archived mission composer', () => {
+  it('keeps history and draft while blocking message and attachment entry until restored', async () => {
+    const archived = { ...conversation('c-new'), archivedAt: 'stamp' }
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: archived, messages: [{ id: 'history', conversation_id: 'c-new', role: 'user', content: 'Saved mission history', created_at: '' }] })
+    writeComposerDraft('c-new', 'Draft to retain', [])
+    renderAgentMode()
+    await act(async () => { await chat!.selectConversation('c-new') })
+    expect(screen.getByText('Saved mission history')).toBeInTheDocument()
+    expect(screen.getByText('Restore this archived mission to send messages.')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Send', exact: true })).not.toBeInTheDocument()
+    fireEvent.paste(screen.getByText('Restore this archived mission to send messages.'), { clipboardData: { files: [new File(['x'], 'x.png', { type: 'image/png' })] } })
+    await act(async () => { await chat!.send('stale send', { attachmentIds: ['att'] }) })
+    expect(agentApi.sendAgentMessage).not.toHaveBeenCalled()
+    expect(agentApi.uploadAgentAttachment).not.toHaveBeenCalled()
+    expect(composerDrafts.get('c-new')).toBe('Draft to retain')
+    await act(async () => { await chat!.unarchiveConversation('c-new') })
+    expect(editorText(await composerBox())).toBe('Draft to retain')
+    await act(async () => { fireEvent.keyDown(await composerBox(), { key: 'Enter' }) })
+    expect(agentApi.sendAgentMessage).toHaveBeenCalledOnce()
   })
 })

@@ -19,6 +19,9 @@ import {
   AGENT_CAPABILITY_FILE_ENV,
 } from './modules/missions/runtime/agent-tier'
 import {
+  archiveAgentConversation,
+  softDeleteAgentConversation,
+  restoreAgentConversation,
   createAgentConversation,
   getAgentConversation,
   listAgentConversations,
@@ -114,6 +117,8 @@ describe('agent-store', () => {
     expect(c.tier_level).toBe(2)
     expect(getAgentConversation(db, c.id)?.id).toBe(c.id)
     expect(listAgentConversations(db).map((x) => x.id)).toContain(c.id)
+    expect(c.archivedAt).toBeNull()
+    expect(c).not.toHaveProperty('archived_at')
 
     const patched = updateAgentConversation(db, c.id, { title: 'Hi', session_id: 's1', tier_level: 3 })
     expect(patched?.title).toBe('Hi')
@@ -122,6 +127,14 @@ describe('agent-store', () => {
 
     deleteAgentConversation(db, c.id)
     expect(getAgentConversation(db, c.id)).toBeUndefined()
+  })
+
+  it('only soft deletes archived missions and Undo retains archive state', () => {
+    const c = createAgentConversation(db)
+    expect(softDeleteAgentConversation(db, c.id)).toBe(false)
+    archiveAgentConversation(db, c.id, new Date('2026-01-01T00:00:00.000Z'))
+    expect(softDeleteAgentConversation(db, c.id)).toBe(true)
+    expect(restoreAgentConversation(db, c.id)?.archivedAt).toBe('2026-01-01T00:00:00.000Z')
   })
 
   it('defaults a bare conversation to observe/claude', () => {
@@ -470,6 +483,7 @@ describe('agent-chat-router', () => {
     expect((await req(app, 'GET', `/api/agent/conversations/${id}`)).body.conversation.tier_level).toBe(3)
 
     expect((await req(app, 'POST', `/api/agent/conversations/${id}/abort`)).body.aborted).toBe(true)
+    archiveAgentConversation(db, id)
     expect((await req(app, 'DELETE', `/api/agent/conversations/${id}`)).body.ok).toBe(true)
     expect((await req(app, 'GET', `/api/agent/conversations/${id}`)).status).toBe(404)
   })

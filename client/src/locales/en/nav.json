@@ -1,4 +1,17 @@
 {
+  "missionArchive": {
+    "label": "Mission archive scope",
+    "active": "Active",
+    "archived": "Archived",
+    "all": "All",
+    "empty": {
+      "active": "No active missions",
+      "archived": "No archived missions",
+      "all": "No missions"
+    },
+    "loading": "Loading missions…",
+    "loadFailed": "Couldn’t load missions. Retry"
+  },
   "sidebarPin": {
     "withShortcut": "{{label}} ({{shortcut}})",
     "left": {

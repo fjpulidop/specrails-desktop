@@ -39,3 +39,21 @@ prompts take precedence. Runtime settings validate the merged configuration and
 the bridge freezes it for each launch; resume uses that frozen configuration.
 Native discovery stays in the agents module and the runtime consumes its focused
 public subpaths, avoiding a reverse dependency from agents to agent-runtime.
+
+## Mission archive persistence
+
+Conversations expose nullable `archivedAt` mapped from `archived_at`. Archive and
+unarchive return null for unknown or trashed IDs. Archive keeps its first stamp
+on retries; unarchive is idempotent. Both preserve history, pins, sessions and
+`updated_at`. Listing defaults to Active, accepts `archiveScope` (`active`,
+`archived`, `all`) and `limit` (default 100), and always excludes trash. The
+legacy numeric limit argument remains supported; ordering stays latest activity
+first. Archive has no expiry and is independent of the 30-day trash window.
+
+Soft delete requires archive for non-trashed missions. Both HTTP DELETE variants
+reject active rows with 409 `NOT_ARCHIVED` before stopping work. Archived Delete
+keeps history and the first `deleted_at`; Undo clears only `deleted_at`, returning
+the mission to Archived. Legacy trash with no archive stamp can still be restored
+or hard-purged and expires at exactly 30 days. Hard-delete persistence remains
+unconditional for the existing purge owner. Unknown soft DELETE is idempotent;
+unknown permanent DELETE returns 404.

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1375 source/build files. Nearby tests are linked where names
+Includes 1376 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -32,6 +32,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/components
 
 - [ArcSidebar.tsx](../../client/src/components/ArcSidebar.tsx) · [test](../../client/src/components/__tests__/ArcSidebar.test.tsx)
+- [ArchiveScopeFilter.tsx](../../client/src/components/ArchiveScopeFilter.tsx)
 - [CommandPalette.tsx](../../client/src/components/CommandPalette.tsx) · [test](../../client/src/components/__tests__/CommandPalette.test.tsx)
 - [HelpHint.tsx](../../client/src/components/HelpHint.tsx) · [test](../../client/src/components/__tests__/HelpHint.test.tsx)
 - [InitialCommitButton.tsx](../../client/src/components/InitialCommitButton.tsx)

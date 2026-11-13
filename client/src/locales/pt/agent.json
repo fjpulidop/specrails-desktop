@@ -1,4 +1,14 @@
 {
+  "archive": {
+    "action": "Arquivar",
+    "restore": "Restaurar",
+    "liveRefusal": "Aguarde esta missão terminar o trabalho antes de arquivá-la.",
+    "failed": "Não foi possível arquivar a missão",
+    "restoreFailed": "Não foi possível restaurar a missão",
+    "rowAction": "Arquivar \"{{title}}\"",
+    "rowRestore": "Restaurar \"{{title}}\"",
+    "readOnly": "Restaure esta missão arquivada para enviar mensagens."
+  },
   "title": "Controle de missões",
   "subtitle": "Opere o Specrails conversando",
   "trigger": "Controle de missões",

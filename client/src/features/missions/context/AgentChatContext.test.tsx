@@ -40,6 +40,8 @@ const api = {
     model: null,
     session_id: null,
     pinned_project_id: null,
+    archivedAt: null as string | null,
+    reasoning_effort: null,
     tier_level: 0 as const,
     created_at: '',
     updated_at: '',
@@ -51,6 +53,8 @@ const api = {
     model: null,
     session_id: null,
     pinned_project_id: null,
+    archivedAt: null as string | null,
+    reasoning_effort: null,
     tier_level: 0 as const,
     created_at: '',
     updated_at: '',
@@ -68,6 +72,8 @@ vi.mock('../lib/agent-api', async (orig) => {
       messages: [],
     })),
     patchAgentConversation: vi.fn(async (_id: string, patch: Record<string, unknown>) => ({ ...api.conv1, ...patch })),
+    archiveAgentConversation: vi.fn(async () => ({ ...api.conv1, archivedAt: 'stamp' })),
+    unarchiveAgentConversation: vi.fn(async () => api.conv1),
     deleteAgentConversation: vi.fn(async () => {}),
     sendAgentMessage: vi.fn(async () => ({ queued: false })),
     abortAgentTurn: vi.fn(async () => {}),
@@ -117,6 +123,13 @@ function Harness() {
   const [applyResult, setApplyResult] = useState('')
   return (
     <div>
+      <span data-testid="archive-scope">{agentChat.archiveScope}</span>
+      <span data-testid="list-loading">{String(agentChat.conversationsLoading)}</span>
+      <span data-testid="list-error">{agentChat.conversationsError ?? ''}</span>
+      <button onClick={() => agentChat.setArchiveScope('active')}>scope-active</button>
+      <button onClick={() => agentChat.setArchiveScope('archived')}>scope-archived</button>
+      <button onClick={() => agentChat.setArchiveScope('all')}>scope-all</button>
+      <button onClick={() => void agentChat.refreshConversations()}>refresh-list</button>
       <span data-testid="conversation-ids">{agentChat.conversations.map(c => c.id).join(',')}</span>
       <span data-testid="active-id">{agentChat.active?.id ?? ''}</span>
       <span data-testid="unread-ids">{[...agentChat.unreadConversationIds].sort().join(',')}</span>
@@ -142,6 +155,10 @@ function Harness() {
       <button onClick={() => agentChat.toggleFavoriteConversation('c1')}>favorite-c1</button>
       <button onClick={() => void agentChat.setModel('model-2')}>model</button>
       <button onClick={() => void agentChat.abort()}>abort</button>
+      <span data-testid="active-archived">{String(Boolean(agentChat.active?.archivedAt))}</span>
+      <button onClick={() => void agentChat.archiveConversation('c1').catch(() => setApplyResult('archive-failed'))}>archive-c1</button>
+      <button onClick={() => void agentChat.archiveConversation('c2').catch(() => setApplyResult('archive-failed'))}>archive-c2</button>
+      <button onClick={() => void agentChat.unarchiveConversation('c1').catch(() => setApplyResult('restore-failed'))}>unarchive-c1</button>
       <button onClick={() => void agentChat.deleteConversation('c1')}>delete-c1</button>
       <button onClick={agentChat.open}>open</button>
       <button onClick={() => void agentChat.send('hello')}>send</button>
@@ -168,7 +185,10 @@ beforeEach(() => {
   missionWindowsMock.discard.mockResolvedValue(true)
   missionWindowsMock.secondary = false
   missionWindowsMock.current = null
+  localStorage.removeItem('specrails-desktop:missionArchiveScope')
   localStorage.removeItem('specrails-desktop:favorite-agent-conversations')
+  vi.mocked(agentApi.archiveAgentConversation).mockResolvedValue({ ...api.conv1, archivedAt: 'stamp' })
+  vi.mocked(agentApi.unarchiveAgentConversation).mockResolvedValue(api.conv1)
   vi.mocked(agentApi.listAgentConversations).mockResolvedValue([api.conv1, api.conv2])
   vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => ({
     conversation: id === 'c2' ? api.conv2 : api.conv1,
@@ -1046,5 +1066,272 @@ describe('describeAgentError (known Core turn failures)', () => {
       .toBe('A tool ran too long without any provider activity, so the turn ended. Send your message again to continue, or ask the agent to split the step.')
     expect(describeAgentError({ error: 'quota exceeded' })).toBe('quota exceeded')
     expect(describeAgentError({})).toBe('The agent turn failed.')
+  })
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: Error) => void
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+
+describe('mission archive scope state', () => {
+  it.each(['active', 'archived', 'all', 'corrupt'])('validates persisted %s scope', async (stored) => {
+    localStorage.setItem('specrails-desktop:missionArchiveScope', stored)
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    const expected = stored === 'corrupt' ? 'active' : stored
+    expect(screen.getByTestId('archive-scope').textContent).toBe(expected)
+    await waitFor(() => expect(agentApi.listAgentConversations).toHaveBeenCalledWith({ archiveScope: expected }))
+  })
+
+  it('defaults to Active and persists scope switches', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    expect(screen.getByTestId('archive-scope').textContent).toBe('active')
+    fireEvent.click(screen.getByText('scope-archived'))
+    await waitFor(() => expect(agentApi.listAgentConversations).toHaveBeenCalledWith({ archiveScope: 'archived' }))
+    expect(localStorage.getItem('specrails-desktop:missionArchiveScope')).toBe('archived')
+    fireEvent.click(screen.getByText('scope-all'))
+    expect(localStorage.getItem('specrails-desktop:missionArchiveScope')).toBe('all')
+  })
+
+  it('survives storage read and write failures', async () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    try {
+      render(<AgentChatProvider><Harness /></AgentChatProvider>)
+      expect(screen.getByTestId('archive-scope').textContent).toBe('active')
+      fireEvent.click(screen.getByText('scope-all'))
+      await waitFor(() => expect(screen.getByTestId('archive-scope').textContent).toBe('all'))
+    } finally { get.mockRestore(); set.mockRestore() }
+  })
+
+  it('distinguishes an uncached loading scope from a successful empty scope', async () => {
+    const request = deferred<agentApi.AgentConversation[]>()
+    vi.mocked(agentApi.listAgentConversations).mockReturnValue(request.promise)
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('list-loading').textContent).toBe('true'))
+    await act(async () => { request.resolve([]) })
+    expect(screen.getByTestId('list-loading').textContent).toBe('false')
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('')
+  })
+
+  it('reuses cached scopes immediately and ignores out-of-order responses', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2'))
+    const archived = deferred<agentApi.AgentConversation[]>()
+    const active = deferred<agentApi.AgentConversation[]>()
+    vi.mocked(agentApi.listAgentConversations).mockImplementation(({ archiveScope } = {}) => archiveScope === 'archived' ? archived.promise : active.promise)
+    fireEvent.click(screen.getByText('scope-archived'))
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('')
+    fireEvent.click(screen.getByText('scope-active'))
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2')
+    await act(async () => { active.resolve([api.conv2]); archived.resolve([{ ...api.conv1, archivedAt: 'stamp' }]) })
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('c2')
+  })
+
+  it('retains useful cached rows and exposes a failed refresh', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2'))
+    vi.mocked(agentApi.listAgentConversations).mockRejectedValue(new Error('offline'))
+    fireEvent.click(screen.getByText('refresh-list'))
+    await waitFor(() => expect(screen.getByTestId('list-error').textContent).toBe('offline'))
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2')
+  })
+
+  it('preserves favorites absent from scoped or limited lists', async () => {
+    localStorage.setItem('specrails-desktop:favorite-agent-conversations', '["c1","omitted"]')
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([api.conv2])
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c2'))
+    fireEvent.click(screen.getByText('scope-archived'))
+    await waitFor(() => expect(screen.getByTestId('list-loading').textContent).toBe('false'))
+    expect(screen.getByTestId('favorites').textContent).toBe('c1,omitted')
+    expect(JSON.parse(localStorage.getItem('specrails-desktop:favorite-agent-conversations')!)).toEqual(['c1', 'omitted'])
+  })
+})
+
+describe('mission archive mutations', () => {
+  it('commits only after success and ignores pre-mutation list responses', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2'))
+    const mutation = deferred<agentApi.AgentConversation>()
+    const oldList = deferred<agentApi.AgentConversation[]>()
+    vi.mocked(agentApi.archiveAgentConversation).mockReturnValue(mutation.promise)
+    vi.mocked(agentApi.listAgentConversations).mockReturnValueOnce(oldList.promise).mockResolvedValue([api.conv2])
+    fireEvent.click(screen.getByText('refresh-list'))
+    fireEvent.click(screen.getByText('archive-c1'))
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2')
+    await act(async () => { mutation.resolve({ ...api.conv1, archivedAt: 'stamp' }) })
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c2'))
+    await act(async () => { oldList.resolve([api.conv1, api.conv2]) })
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('c2')
+  })
+
+  it('preserves selection, history and favorites when archive is refused', async () => {
+    localStorage.setItem('specrails-desktop:favorite-agent-conversations', '["c1"]')
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv1, messages: [{ id: 'm', conversation_id: 'c1', role: 'user', content: 'keep me', created_at: '' }] })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    fireEvent.click(screen.getByText('select-c1'))
+    await waitFor(() => expect(screen.getByTestId('message-text').textContent).toBe('keep me'))
+    vi.mocked(agentApi.archiveAgentConversation).mockRejectedValue(new Error('MISSION_LIVE'))
+    fireEvent.click(screen.getByText('archive-c1'))
+    await waitFor(() => expect(screen.getByTestId('apply-result').textContent).toBe('archive-failed'))
+    expect(screen.getByTestId('active-id').textContent).toBe('c1')
+    expect(screen.getByTestId('message-text').textContent).toBe('keep me')
+    expect(screen.getByTestId('favorites').textContent).toBe('c1')
+    expect(missionWindowsMock.discard).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['next', [api.conv1, api.conv2], 'c2'],
+    ['previous', [api.conv2, api.conv1], 'c2'],
+    ['empty', [api.conv1], ''],
+  ] as const)('selects the %s active neighbor after archiving the open mission', async (_case, list, expected) => {
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([...list])
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    fireEvent.click(screen.getByText('select-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue(list.filter((c) => c.id !== 'c1'))
+    fireEvent.click(screen.getByText('archive-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe(expected))
+  })
+
+  it.each([false, true])('[spec:mission-archive/mission-archive-row-actions] skips a concurrently archived neighbor (another active: %s)', async (anotherActive) => {
+    const third = { ...api.conv2, id: 'c3' }
+    let rows = [api.conv1, api.conv2, ...(anotherActive ? [third] : [])]
+    vi.mocked(agentApi.listAgentConversations).mockImplementation(async () => [...rows])
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id) => ({
+      conversation: id === 'c3' ? third : id === 'c2' ? api.conv2 : api.conv1, messages: [],
+    }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    fireEvent.click(screen.getByText('select-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    const first = deferred<agentApi.AgentConversation>()
+    const second = deferred<agentApi.AgentConversation>()
+    vi.mocked(agentApi.archiveAgentConversation).mockImplementation((id) => id === 'c1' ? first.promise : second.promise)
+    fireEvent.click(screen.getByText('archive-c1'))
+    fireEvent.click(screen.getByText('archive-c2'))
+    rows = rows.filter((row) => row.id !== 'c2')
+    await act(async () => { second.resolve({ ...api.conv2, archivedAt: 'stamp' }) })
+    rows = rows.filter((row) => row.id !== 'c1')
+    await act(async () => { first.resolve({ ...api.conv1, archivedAt: 'stamp' }) })
+    expect(screen.getByTestId('active-id').textContent).toBe(anotherActive ? 'c3' : '')
+    expect(agentApi.getAgentConversation).not.toHaveBeenCalledWith('c2')
+    expect(screen.getByTestId('apply-result').textContent).toBe('')
+  })
+
+  it('[spec:mission-archive/mission-archive-row-actions] retains archive success and refreshes when the neighbor snapshot fails', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    fireEvent.click(screen.getByText('select-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    vi.mocked(agentApi.getAgentConversation).mockRejectedValue(new Error('neighbor offline'))
+    vi.mocked(agentApi.listAgentConversations).mockClear().mockResolvedValue([api.conv2])
+    await act(async () => { fireEvent.click(screen.getByText('archive-c1')) })
+    expect(screen.getByTestId('active-id').textContent).toBe('')
+    expect(screen.getByTestId('apply-result').textContent).toBe('')
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('c2')
+    expect(agentApi.listAgentConversations).toHaveBeenCalledWith({ archiveScope: 'active' })
+  })
+
+  it('loads Active to find a neighbor when archiving from Archived or All', async () => {
+    localStorage.setItem('specrails-desktop:missionArchiveScope', 'all')
+    vi.mocked(agentApi.listAgentConversations).mockImplementation(async ({ archiveScope } = {}) => archiveScope === 'active' ? [api.conv2] : [api.conv1])
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    fireEvent.click(screen.getByText('select-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    fireEvent.click(screen.getByText('archive-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c2'))
+  })
+
+  it('does not reopen a stale active snapshot after archive and restore', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2'))
+    const oldSnapshot = deferred<agentApi.AgentConversationSnapshot>()
+    vi.mocked(agentApi.getAgentConversation).mockReturnValueOnce(oldSnapshot.promise)
+    fireEvent.click(screen.getByText('select-c1'))
+    fireEvent.click(screen.getByText('archive-c1'))
+    await waitFor(() => expect(agentApi.archiveAgentConversation).toHaveBeenCalledOnce())
+    await act(async () => { oldSnapshot.resolve({ conversation: api.conv1, messages: [] }) })
+    expect(screen.getByTestId('active-id').textContent).toBe('')
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: { ...api.conv1, archivedAt: 'stamp' }, messages: [] })
+    fireEvent.click(screen.getByText('select-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-archived').textContent).toBe('true'))
+    const restore = deferred<agentApi.AgentConversation>()
+    vi.mocked(agentApi.unarchiveAgentConversation).mockReturnValue(restore.promise)
+    fireEvent.click(screen.getByText('unarchive-c1'))
+    expect(screen.getByTestId('active-archived').textContent).toBe('true')
+    await act(async () => { restore.resolve(api.conv1) })
+    expect(screen.getByTestId('active-archived').textContent).toBe('false')
+  })
+
+  it('archives, switches scope, reads history, refuses send and restores through the real provider', async () => {
+    let mission = { ...api.conv1 }
+    localStorage.setItem('specrails-desktop:favorite-agent-conversations', '["c1"]')
+    const history = [{ id: 'm', conversation_id: 'c1', role: 'user' as const, content: 'preserved history', created_at: '' }]
+    vi.mocked(agentApi.listAgentConversations).mockImplementation(async ({ archiveScope = 'active' } = {}) => archiveScope === 'all' || (archiveScope === 'archived') === Boolean(mission.archivedAt) ? [mission] : [])
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: mission, messages: history }))
+    vi.mocked(agentApi.archiveAgentConversation).mockImplementation(async () => { mission = { ...mission, archivedAt: 'stamp' }; return mission })
+    vi.mocked(agentApi.unarchiveAgentConversation).mockImplementation(async () => { mission = { ...mission, archivedAt: null }; return mission })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    fireEvent.click(screen.getByText('select-c1'))
+    await waitFor(() => expect(screen.getByTestId('message-text').textContent).toBe('preserved history'))
+    fireEvent.click(screen.getByText('archive-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe(''))
+    fireEvent.click(screen.getByText('scope-archived'))
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c1'))
+    fireEvent.click(screen.getByText('select-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-archived').textContent).toBe('true'))
+    expect(screen.getByTestId('message-text').textContent).toBe('preserved history')
+    fireEvent.click(screen.getByText('send'))
+    expect(agentApi.sendAgentMessage).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('unarchive-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-archived').textContent).toBe('false'))
+    fireEvent.click(screen.getByText('send'))
+    await waitFor(() => expect(agentApi.sendAgentMessage).toHaveBeenCalledOnce())
+    expect(screen.getByTestId('favorites').textContent).toBe('c1')
+    fireEvent.click(screen.getByText('scope-active'))
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c1'))
+  })
+})
+
+describe('archive cache failure boundaries', () => {
+  it('keeps a successful archive successful when the Active fallback cannot load', async () => {
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([api.conv1])
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    fireEvent.click(screen.getByText('select-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    vi.mocked(agentApi.listAgentConversations).mockRejectedValue(new Error('offline'))
+    fireEvent.click(screen.getByText('archive-c1'))
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe(''))
+    expect(screen.getByTestId('apply-result').textContent).toBe('')
+  })
+
+  it('preserves equal-activity ordering in All while an archive refresh is pending', async () => {
+    localStorage.setItem('specrails-desktop:missionArchiveScope', 'all')
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2'))
+    const refresh = deferred<agentApi.AgentConversation[]>()
+    vi.mocked(agentApi.listAgentConversations).mockReturnValue(refresh.promise)
+    fireEvent.click(screen.getByText('archive-c1'))
+    await waitFor(() => expect(agentApi.archiveAgentConversation).toHaveBeenCalledOnce())
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2')
+    await act(async () => { refresh.resolve([{ ...api.conv1, archivedAt: 'stamp' }, api.conv2]) })
+  })
+
+  it('does not revive a deleted archived mission from a cached scope', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c1,c2'))
+    fireEvent.click(screen.getByText('scope-all'))
+    await waitFor(() => expect(screen.getByTestId('list-loading').textContent).toBe('false'))
+    fireEvent.click(screen.getByText('delete-c1'))
+    await waitFor(() => expect(screen.getByTestId('conversation-ids').textContent).toBe('c2'))
+    const refresh = deferred<agentApi.AgentConversation[]>()
+    vi.mocked(agentApi.listAgentConversations).mockReturnValue(refresh.promise)
+    fireEvent.click(screen.getByText('scope-active'))
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('c2')
+    fireEvent.click(screen.getByText('scope-all'))
+    expect(screen.getByTestId('conversation-ids').textContent).toBe('c2')
+    await act(async () => { refresh.resolve([api.conv2]) })
   })
 })

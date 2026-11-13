@@ -1,4 +1,14 @@
 {
+  "archive": {
+    "action": "Archiver",
+    "restore": "Restaurer",
+    "liveRefusal": "Attendez que cette mission termine son travail avant de l’archiver.",
+    "failed": "Impossible d’archiver la mission",
+    "restoreFailed": "Impossible de restaurer la mission",
+    "rowAction": "Archiver \"{{title}}\"",
+    "rowRestore": "Restaurer \"{{title}}\"",
+    "readOnly": "Restaurez cette mission archivée pour envoyer des messages."
+  },
   "title": "Contrôle des missions",
   "subtitle": "Pilotez Specrails en discutant",
   "trigger": "Contrôle des missions",

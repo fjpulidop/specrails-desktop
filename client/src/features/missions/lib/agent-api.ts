@@ -16,6 +16,8 @@ export type AgentTierLevel = 0 | 1 | 2 | 3
 export const AGENT_TIER_NAMES = ['observe', 'edit', 'operate', 'autonomous'] as const
 export type AgentTierName = (typeof AGENT_TIER_NAMES)[number]
 
+export type ArchiveScope = 'active' | 'archived' | 'all'
+
 export interface AgentConversation {
   id: string
   title: string | null
@@ -24,6 +26,7 @@ export interface AgentConversation {
   session_id: string | null
   pinned_project_id: string | null
   tier_level: AgentTierLevel
+  archivedAt: string | null
   /** Reasoning effort for spawns; null = no provider-specific override. */
   reasoning_effort: string | null
   created_at: string
@@ -155,8 +158,8 @@ export async function getAgentModels(provider: string): Promise<AgentModelsRespo
   }
 }
 
-export async function listAgentConversations(): Promise<AgentConversation[]> {
-  return (await json<{ conversations: AgentConversation[] }>(await fetch(`${base}/conversations`))).conversations
+export async function listAgentConversations(opts: { archiveScope?: ArchiveScope } = {}): Promise<AgentConversation[]> {
+  return (await json<{ conversations: AgentConversation[] }>(await fetch(`${base}/conversations?archiveScope=${opts.archiveScope ?? 'active'}`))).conversations
 }
 
 // ─── Mission search (search-missions-in-palette) ──────────────────────────────
@@ -313,6 +316,14 @@ export async function patchAgentConversation(
 /** Soft delete: the mission moves to "Recently deleted" (restorable for 30 days). */
 export async function deleteAgentConversation(id: string): Promise<void> {
   await json(await fetch(`${base}/conversations/${id}`, { method: 'DELETE' }))
+}
+
+export async function archiveAgentConversation(id: string): Promise<AgentConversation> {
+  return (await json<{ conversation: AgentConversation }>(await fetch(`${base}/conversations/${encodeURIComponent(id)}/archive`, { method: 'POST' }))).conversation
+}
+
+export async function unarchiveAgentConversation(id: string): Promise<AgentConversation> {
+  return (await json<{ conversation: AgentConversation }>(await fetch(`${base}/conversations/${encodeURIComponent(id)}/unarchive`, { method: 'POST' }))).conversation
 }
 
 /** Undo a delete: the mission comes back with its whole history. */

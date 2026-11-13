@@ -209,7 +209,7 @@ export function AgentComposer({
   useEffect(() => {
     if (uploading || submitting || inQueueEdit) return blockMissionTransfer(draftKey)
   }, [draftKey, uploading, submitting, inQueueEdit])
-  const blocked = providersReady === false || (active ? !missionWindows.isEditable(active.id) : !!missionWindows.current)
+  const blocked = Boolean(active?.archivedAt) || providersReady === false || (active ? !missionWindows.isEditable(active.id) : !!missionWindows.current)
   // Attachments upload to a conversation-keyed endpoint. On the EMPTY compose
   // screen we materialise the draft conversation just before the upload.
   const canAttach = !blocked && !inQueueEdit
@@ -385,7 +385,7 @@ export function AgentComposer({
   }
 
   const uploadFiles = async (files: File[]) => {
-    if (files.length === 0) return
+    if (active?.archivedAt || files.length === 0) return
     setUploading(true)
     let conversation = active
     if (!conversation) {
@@ -704,6 +704,8 @@ export function AgentComposer({
       setHistIndex(null)
     }
   }
+
+  if (active?.archivedAt) return <p role="status" className="px-4 py-3 text-sm text-muted-foreground">{t('archive.readOnly')}</p>
 
   return (
     <div className="@container shrink-0">

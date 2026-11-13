@@ -24,6 +24,8 @@ import {
   createAgentConversation,
   getAgentConversation,
   patchAgentConversation,
+  archiveAgentConversation,
+  unarchiveAgentConversation,
   deleteAgentConversation,
   restoreAgentConversation,
   sendAgentMessage,
@@ -37,6 +39,7 @@ import {
   getAgentActiveTurns,
   coercePrDecisionEnvelope,
   parsePrDecisionEnvelope,
+  type ArchiveScope,
   type AgentConversation,
   type AgentContextReference,
   type AgentMessage,
@@ -85,9 +88,13 @@ function saveFavoriteConversationIds(ids: ReadonlySet<string>): void {
   try { localStorage.setItem(FAVORITE_CONVERSATIONS_KEY, JSON.stringify([...ids])) } catch { /* ignore */ }
 }
 
-function pruneFavoriteConversationIds(prev: ReadonlySet<string>, conversations: AgentConversation[]): Set<string> {
-  const valid = new Set(conversations.map((c) => c.id))
-  return new Set([...prev].filter((id) => valid.has(id)))
+const ARCHIVE_SCOPE_KEY = 'specrails-desktop:missionArchiveScope'
+
+function loadArchiveScope(): ArchiveScope {
+  try {
+    const scope = localStorage.getItem(ARCHIVE_SCOPE_KEY)
+    return scope === 'archived' || scope === 'all' ? scope : 'active'
+  } catch { return 'active' }
 }
 
 // Sticky agent-autonomy tier (Observe/Edit/Operate/Autonomous): the last
@@ -394,6 +401,12 @@ export interface AgentChatContextValue {
   prefetchConversation?: (id: string) => void
   /** Mark that the next active-project change follows a mission selection (call before `setActiveProjectId`, in the same handler). */
   beginMissionSelection?: () => void
+  archiveScope: ArchiveScope
+  setArchiveScope: (scope: ArchiveScope) => void
+  conversationsLoading: boolean
+  conversationsError: string | null
+  archiveConversation: (id: string) => Promise<void>
+  unarchiveConversation: (id: string) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   /** Rename a conversation (optimistic; blank clears to auto-title). */
   renameConversation: (id: string, title: string) => Promise<void>
@@ -569,7 +582,7 @@ function patchCachedTitle(cache: Map<string, ConversationSnapshot>, id: string, 
 }
 
 /** A snapshot read in flight, stamped with the WS event version it started at. */
-interface InflightSnapshot { promise: Promise<ConversationSnapshot>; versionAtStart: number }
+interface InflightSnapshot { promise: Promise<ConversationSnapshot>; versionAtStart: number; archiveVersion: number }
 
 /** Revisit cache size: a transcript is the heavy part, a dozen missions is plenty. */
 const CONVERSATION_CACHE_LIMIT = 12
@@ -593,9 +606,26 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const editable = (id?: string | null) => id ? windowsRef.current.isEditable(id) : !secondaryWindow
 
   const [visibility, setVisibility] = useState<AgentVisibility>('hidden')
+  const [archiveScope, updateArchiveScope] = useState<ArchiveScope>(loadArchiveScope)
+  const archiveScopeRef = useRef(archiveScope)
+  const scopeCacheRef = useRef(new Map<ArchiveScope, AgentConversation[]>())
+  const listGenerationRef = useRef(0)
+  const [conversationsLoading, setConversationsLoading] = useState(true)
+  const [conversationsError, setConversationsError] = useState<string | null>(null)
   const [conversations, setConversations] = useState<AgentConversation[]>([])
   const conversationsRef = useRef(conversations)
   conversationsRef.current = conversations
+  const setArchiveScope = useCallback((scope: ArchiveScope) => {
+    if (scope === archiveScopeRef.current) return
+    archiveScopeRef.current = scope
+    listGenerationRef.current += 1
+    updateArchiveScope(scope)
+    const cached = scopeCacheRef.current.get(scope)
+    setConversations(cached ?? [])
+    setConversationsLoading(!cached)
+    setConversationsError(null)
+    try { localStorage.setItem(ARCHIVE_SCOPE_KEY, scope) } catch { /* storage is optional */ }
+  }, [])
   const [active, setActive] = useState<AgentConversation | null>(null)
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const metadataVersion = useRef(new Map<string, number>())
@@ -669,6 +699,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const deliveredMessageIdsRef = useRef(new Set<string>())
   const conversationEventVersionRef = useRef(new Map<string, number>())
   // Revisit cache (stale-while-revalidate, see loadConversation) and the reads in flight.
+  const archiveVersionsRef = useRef(new Map<string, number>())
   const conversationCacheRef = useRef(new Map<string, ConversationSnapshot>())
   const inflightConversationRef = useRef(new Map<string, InflightSnapshot>())
   const queueClearVersionRef = useRef(new Map<string, number>())
@@ -809,20 +840,26 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   }, [clearUnread])
 
   // Refresh the conversation list + MCP status lazily on first open.
-  const refreshConversations = useCallback(async () => {
+  const refreshConversations = useCallback(async (): Promise<void> => {
+    const scope = archiveScopeRef.current
+    const generation = ++listGenerationRef.current
+    setConversationsLoading(!scopeCacheRef.current.has(scope))
+    setConversationsError(null)
     try {
-      const list = await listAgentConversations()
+      const list = await listAgentConversations({ archiveScope: scope })
+      if (generation !== listGenerationRef.current || scope !== archiveScopeRef.current) return
+      scopeCacheRef.current.set(scope, list)
       setConversations(list)
-      setFavoriteConversationIds((prev) => {
-        const next = pruneFavoriteConversationIds(loadFavoriteConversationIds(), list)
-        if (next.size === prev.size && [...next].every(id => prev.has(id))) return prev
-        saveFavoriteConversationIds(next)
-        return next
-      })
-    } catch {
-      /* surfaced elsewhere */
+    } catch (error) {
+      if (generation !== listGenerationRef.current || scope !== archiveScopeRef.current) return
+      setConversationsError(error instanceof Error ? error.message : String(error))
+      notifyError(i18n.t('common:states.error'), { detail: error instanceof Error ? error.message : undefined, retry: () => { void refreshConversations() } })
+    } finally {
+      if (generation === listGenerationRef.current && scope === archiveScopeRef.current) setConversationsLoading(false)
     }
   }, [])
+
+  useEffect(() => { void refreshConversations() }, [archiveScope, refreshConversations])
 
   const refreshMcp = useCallback(async () => {
     try {
@@ -1153,10 +1190,14 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const startConversationSnapshot = useCallback((id: string): InflightSnapshot => {
     const pending = inflightConversationRef.current.get(id)
     if (pending) return pending
+    const archiveVersion = archiveVersionsRef.current.get(id) ?? 0
     const promise = getAgentConversation(id)
-      .then((snapshot) => { cacheConversation(conversationCacheRef.current, id, snapshot); return snapshot })
-      .finally(() => { inflightConversationRef.current.delete(id) })
-    const entry: InflightSnapshot = { promise, versionAtStart: conversationEventVersionRef.current.get(id) ?? 0 }
+      .then((snapshot) => {
+        if (archiveVersion === (archiveVersionsRef.current.get(id) ?? 0)) cacheConversation(conversationCacheRef.current, id, snapshot)
+        return snapshot
+      })
+      .finally(() => { if (inflightConversationRef.current.get(id) === entry) inflightConversationRef.current.delete(id) })
+    const entry: InflightSnapshot = { promise, versionAtStart: conversationEventVersionRef.current.get(id) ?? 0, archiveVersion }
     inflightConversationRef.current.set(id, entry)
     return entry
   }, [])
@@ -1201,7 +1242,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       const fetched = await request.promise
       const { pendingMessages, live } = fetched
       if (signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')
-      if (epoch !== conversationLoadEpochRef.current) {
+      if (epoch !== conversationLoadEpochRef.current || request.archiveVersion !== (archiveVersionsRef.current.get(id) ?? 0)) {
         if (signal) throw new DOMException('The mission changed during restoration', 'AbortError')
         return
       }
@@ -1363,14 +1404,13 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const ensureActive = useCallback(async (): Promise<AgentConversation> => {
     if (active) return active
     if (secondaryWindow || fixedConversationId) throw new Error('This view is reserved for its mission.')
-    const list = await listAgentConversations()
-    setConversations(list)
-    setFavoriteConversationIds((prev) => {
-      const next = pruneFavoriteConversationIds(loadFavoriteConversationIds(), list)
-      if (next.size === prev.size && [...next].every(id => prev.has(id))) return prev
-      saveFavoriteConversationIds(next)
-      return next
-    })
+    const scope = archiveScopeRef.current
+    const generation = listGenerationRef.current
+    const list = await listAgentConversations({ archiveScope: scope })
+    if (generation === listGenerationRef.current && scope === archiveScopeRef.current) {
+      scopeCacheRef.current.set(scope, list)
+      setConversations(list)
+    }
     if (list.length > 0) {
       await loadConversation(list[0].id)
       return list[0]
@@ -1456,7 +1496,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   }, [active])
 
   const send = useCallback(async (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[]; queueId?: string; deliveryMode?: 'interrupt' }): Promise<{ accepted: boolean; conversationId?: string }> => {
-    if (!editable(active?.id)) return { accepted: false }
+    if (!editable(active?.id) || active?.archivedAt) return { accepted: false }
     const trimmed = text.trim()
     if (!trimmed) return { accepted: false }
     // EMPTY compose screen (no active conversation) ALWAYS starts a fresh
@@ -1783,18 +1823,87 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     if (options?.windowRestore && uiMode !== 'agent') setVisibility('open')
   }, [loadConversation, exitBuilderMode, secondaryWindow, uiMode, fixedConversationId])
 
+  const applyArchiveConversation = useCallback((updated: AgentConversation) => {
+    const id = updated.id
+    listGenerationRef.current += 1
+    archiveVersionsRef.current.set(id, (archiveVersionsRef.current.get(id) ?? 0) + 1)
+    metadataVersion.current.set(id, (metadataVersion.current.get(id) ?? 0) + 1)
+    conversationCacheRef.current.delete(id)
+    inflightConversationRef.current.delete(id)
+    const updateScope = (scope: ArchiveScope, rows: AgentConversation[]): AgentConversation[] => {
+      const belongs = scope === 'all' || (scope === 'archived') === Boolean(updated.archivedAt)
+      if (!belongs) return rows.filter((row) => row.id !== id)
+      if (rows.some((row) => row.id === id)) return rows.map((row) => row.id === id ? updated : row)
+      return [...rows, updated].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    }
+    for (const [scope, rows] of scopeCacheRef.current) scopeCacheRef.current.set(scope, updateScope(scope, rows))
+    setConversations((rows) => updateScope(archiveScopeRef.current, rows))
+    setActive((current) => current?.id === id ? { ...current, archivedAt: updated.archivedAt } : current)
+  }, [])
+
+  const archiveConversation = useCallback(async (id: string) => {
+    if (!editable(id)) return
+    const ordering = conversationsRef.current
+    const archiveVersions = new Map(archiveVersionsRef.current)
+    const index = ordering.findIndex((row) => row.id === id)
+    const updated = await archiveAgentConversation(id)
+    applyArchiveConversation(updated)
+    if (activeIdRef.current === id) {
+      conversationLoadEpochRef.current += 1
+      prSnapshotVersionRef.current += 1
+      const candidates = [...ordering.slice(index + 1), ...ordering.slice(0, Math.max(0, index)).reverse()]
+      // Keep neighbor order, but reject rows changed by a concurrent mutation.
+      const isActiveCandidate = (row: AgentConversation) => row.id !== id && !row.archivedAt
+        && (archiveVersions.get(row.id) ?? 0) === (archiveVersionsRef.current.get(row.id) ?? 0)
+      let neighbor = candidates.find(isActiveCandidate)
+      if (!neighbor) {
+        try {
+          const activeRows = await listAgentConversations({ archiveScope: 'active' })
+          neighbor = activeRows.find(isActiveCandidate)
+        } catch (error) {
+          setConversationsError(error instanceof Error ? error.message : String(error))
+        }
+      }
+      if (activeIdRef.current === id) {
+        activeRef.current = null
+        activeIdRef.current = null
+        setActive(null)
+        setMessages([])
+        if (neighbor) {
+          try {
+            await selectConversation(neighbor.id)
+          } catch {
+            // Archive is committed; a failed neighbor load leaves the empty view.
+          }
+        }
+      }
+    }
+    await refreshConversations()
+  }, [applyArchiveConversation, selectConversation, refreshConversations])
+
+  const unarchiveConversation = useCallback(async (id: string) => {
+    if (!editable(id)) return
+    const updated = await unarchiveAgentConversation(id)
+    applyArchiveConversation(updated)
+    await refreshConversations()
+  }, [applyArchiveConversation, refreshConversations])
+
   const deleteConversation = useCallback(async (id: string) => {
     if (!editable(id)) return
     const deleted = conversationsRef.current.find((c) => c.id === id) ?? (activeIdRef.current === id ? active : null)
     await deleteAgentConversation(id)
+    listGenerationRef.current += 1
+    archiveVersionsRef.current.set(id, (archiveVersionsRef.current.get(id) ?? 0) + 1)
+    for (const [scope, rows] of scopeCacheRef.current) scopeCacheRef.current.set(scope, rows.filter((row) => row.id !== id))
     conversationCacheRef.current.delete(id)
+    inflightConversationRef.current.delete(id)
     // Applied at once, no confirm: Undo restores the mission with its history.
     pushUndo({
       projectId: deleted?.pinned_project_id ?? activeProjectId,
       label: i18n.t('undo:missionDeleted', { title: deleted?.title?.trim() || i18n.t('undo:missionUntitled') }),
       recoverableDays: TRASH_RETENTION_DAYS,
       undo: async () => {
-        await restoreAgentConversation(id)
+        applyArchiveConversation(await restoreAgentConversation(id))
         await refreshConversations()
       },
     })
@@ -1812,7 +1921,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       setActive(null)
       setMessages([])
     }
-  }, [patchLive, pushUndo, activeProjectId, active, refreshConversations])
+  }, [patchLive, pushUndo, activeProjectId, active, refreshConversations, applyArchiveConversation])
 
   /** Rename a conversation. Optimistic: the title updates locally immediately and
    *  reverts on failure. A blank/whitespace title clears back to auto-title. */
@@ -1878,26 +1987,26 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const value = useMemo<AgentChatContextValue>(() => ({
     visibility, open, close, minimize, toggle,
-    conversations, active, messages,
+    conversations, active, messages, archiveScope, setArchiveScope, conversationsLoading, conversationsError,
     unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, prefetchConversation, beginMissionSelection, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
+    selectConversation, prefetchConversation, beginMissionSelection, archiveConversation, unarchiveConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
     resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
     builderMode: { active: builderActive, enter: enterBuilderMode, exit: exitBuilderMode, session: builderSession },
   }), [
     visibility, open, close, minimize, toggle,
     builderActive, enterBuilderMode, exitBuilderMode, builderSession,
-    conversations, active, messages, unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
+    conversations, active, messages, archiveScope, setArchiveScope, conversationsLoading, conversationsError, unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, prefetchConversation, beginMissionSelection, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
+    selectConversation, prefetchConversation, beginMissionSelection, archiveConversation, unarchiveConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
     resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
   ])
 
@@ -1924,6 +2033,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 const NOOP_AGENT_CHAT: AgentChatContextValue = {
   visibility: 'hidden',
   open: () => {}, close: () => {}, minimize: () => {}, toggle: () => {},
+  archiveScope: 'active', setArchiveScope: () => {}, conversationsLoading: false, conversationsError: null,
   conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [], turnTools: [],
   queuedMessages: [], streamingConversationIds: new Set<string>(),
   unreadConversationIds: new Set<string>(),
@@ -1940,6 +2050,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   }, draftPinnedProjectId: null,
   draftProvider: 'claude', draftModel: null, draftTierLevel: 0,
   draftEffort: null, setEffort: async () => {},
+  archiveConversation: async () => {}, unarchiveConversation: async () => {},
   selectConversation: async () => {}, deleteConversation: async () => {}, renameConversation: async () => {},
   toggleFavoriteConversation: () => {},
   refreshConversations: async () => {},

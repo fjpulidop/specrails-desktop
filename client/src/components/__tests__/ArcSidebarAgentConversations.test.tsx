@@ -1,10 +1,10 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act } from '../../test-utils'
+import { render, screen, fireEvent, act, waitFor } from '../../test-utils'
 import { useLocation } from 'react-router-dom'
 import { ArcSidebar } from '../ArcSidebar'
 import type { DesktopProject } from '../../hooks/useDesktop'
-import type { AgentConversation } from '../../features/missions/lib/agent-api'
+import type { AgentConversation, ArchiveScope } from '../../features/missions/lib/agent-api'
 
 const mockProjects: DesktopProject[] = [
   { id: 'proj-1', slug: 'proj-1', name: 'Project Alpha', path: '/alpha', db_path: '/alpha/.db', added_at: '', last_seen_at: '' },
@@ -30,9 +30,10 @@ vi.mock('../../hooks/useDesktop', () => ({
 }))
 
 
+let sidebarUiMode = 'agent'
 const mockToggleUiMode = vi.fn()
 vi.mock('../../context/UiModeContext', () => ({
-  useUiMode: () => ({ uiMode: 'agent', setUiMode: vi.fn(), toggleUiMode: mockToggleUiMode }),
+  useUiMode: () => ({ uiMode: sidebarUiMode, setUiMode: vi.fn(), toggleUiMode: mockToggleUiMode }),
 }))
 
 const toastMocks = vi.hoisted(() => ({ error: vi.fn() }))
@@ -41,11 +42,13 @@ vi.mock('sonner', () => ({ toast: { error: toastMocks.error, success: vi.fn(), i
 function conv(id: string, title: string | null, pinned: string | null): AgentConversation {
   return {
     id, title, provider: 'claude', model: null, session_id: null,
-    pinned_project_id: pinned, tier_level: 0, created_at: '', updated_at: '',
+    pinned_project_id: pinned, archivedAt: agentChatState.archivedIds.has(id) ? 'stamp' : null, reasoning_effort: null, tier_level: 0, created_at: '', updated_at: '',
   }
 }
 
 const mockDeleteConversation = vi.fn((): Promise<void> => Promise.resolve())
+const mockArchiveConversation = vi.fn(async (id: string) => { agentChatState.archivedIds.add(id) })
+const mockUnarchiveConversation = vi.fn(async (id: string) => { agentChatState.archivedIds.delete(id) })
 const mockSelectConversation = vi.fn(() => Promise.resolve())
 const mockToggleFavoriteConversation = vi.fn()
 const mockSetPinnedProject = vi.fn()
@@ -57,6 +60,10 @@ const agentChatState: {
   unreadIds: Set<string>
   attentionIds: Set<string>
   attentionKinds: Map<string, 'decision' | 'failed'>
+  archiveScope: ArchiveScope
+  archivedIds: Set<string>
+  loading: boolean
+  empty: boolean
   favoriteIds: Set<string>
 } = {
   active: null,
@@ -64,12 +71,18 @@ const agentChatState: {
   unreadIds: new Set(),
   attentionIds: new Set(),
   attentionKinds: new Map(),
+  archiveScope: 'active', archivedIds: new Set(), loading: false, empty: false,
   favoriteIds: new Set(),
 }
 
-vi.mock('../../features/missions/context/AgentChatContext', () => ({
-  useAgentChat: () => ({
-    conversations: [
+let useRealChat = false
+vi.mock('../../features/missions/context/AgentChatContext', async (original) => {
+  const actual = await original<typeof import('../../features/missions/context/AgentChatContext')>()
+  return { ...actual, useAgentChat: () => useRealChat ? actual.useAgentChat() : ({
+    archiveScope: agentChatState.archiveScope,
+    setArchiveScope: mockSetArchiveScope,
+    conversationsLoading: agentChatState.loading,
+    conversations: agentChatState.empty ? [] : [
       conv('c-1', 'Fix the build', 'proj-1'),
       conv('c-2', null, null),
       conv('c-3', 'Beta mission', 'proj-2'),
@@ -83,12 +96,16 @@ vi.mock('../../features/missions/context/AgentChatContext', () => ({
     attentionKinds: agentChatState.attentionKinds,
     favoriteConversationIds: agentChatState.favoriteIds,
     selectConversation: mockSelectConversation,
+    archiveConversation: mockArchiveConversation,
+    unarchiveConversation: mockUnarchiveConversation,
     deleteConversation: mockDeleteConversation,
     toggleFavoriteConversation: mockToggleFavoriteConversation,
     startNewConversation: vi.fn(),
     setPinnedProject: mockSetPinnedProject,
-  }),
-}))
+  }) }
+})
+
+const mockSetArchiveScope = vi.fn((scope: ArchiveScope) => { agentChatState.archiveScope = scope })
 
 const defaultProps = {
   onAddProject: vi.fn(),
@@ -100,17 +117,23 @@ const defaultProps = {
 
 function renderExpanded() {
   // New users start pinned open, so the tree labels render.
-  render(<ArcSidebar {...defaultProps} />)
+  return render(<ArcSidebar {...defaultProps} />)
 }
 
 function renderCollapsed() {
   window.localStorage.setItem('specrails-desktop:sidebar-mode:left', 'pinned-collapsed')
-  render(<ArcSidebar {...defaultProps} />)
+  return render(<ArcSidebar {...defaultProps} />)
 }
 
 beforeEach(() => {
   window.localStorage.clear()
   vi.clearAllMocks()
+  useRealChat = false
+  sidebarUiMode = 'agent'
+  agentChatState.archiveScope = 'active'
+  agentChatState.archivedIds = new Set()
+  agentChatState.loading = false
+  agentChatState.empty = false
   desktopState.activeProjectId = 'proj-1'
   agentChatState.active = null
   agentChatState.streamingIds = new Set()
@@ -133,12 +156,15 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(screen.getByText('Fix the build')).toBeInTheDocument()
   })
 
-  it('shows a hover delete button per conversation row', () => {
+  it('[spec:mission-archive/mission-archive-row-actions] offers Archive without Delete on active rows', () => {
     renderExpanded()
-    expect(screen.getByRole('button', { name: 'Delete "Fix the build"' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Archive "Fix the build"' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete "Fix the build"' })).not.toBeInTheDocument()
   })
 
-  it('first click arms confirm, second click deletes the conversation', () => {
+  it('[spec:mission-archive/mission-archive-row-actions] first click arms confirm, second click deletes the conversation', () => {
+    agentChatState.archiveScope = 'all'
+    agentChatState.archivedIds.add('c-1')
     renderExpanded()
     fireEvent.click(screen.getByRole('button', { name: 'Delete "Fix the build"' }))
     expect(mockDeleteConversation).not.toHaveBeenCalled()
@@ -151,6 +177,8 @@ describe('ArcSidebar agent-mode conversation rows', () => {
   it('confirm state expires after 5 seconds without a second click', () => {
     vi.useFakeTimers()
     try {
+      agentChatState.archiveScope = 'all'
+      agentChatState.archivedIds.add('c-1')
       renderExpanded()
       fireEvent.click(screen.getByRole('button', { name: 'Delete "Fix the build"' }))
       expect(screen.getByRole('button', { name: 'Confirm delete "Fix the build"' })).toHaveTextContent('Delete?')
@@ -166,6 +194,8 @@ describe('ArcSidebar agent-mode conversation rows', () => {
   })
 
   it('delete click does not select the conversation (stopPropagation)', () => {
+    agentChatState.archiveScope = 'all'
+    agentChatState.archivedIds.add('c-1')
     renderExpanded()
     fireEvent.click(screen.getByRole('button', { name: 'Delete "Fix the build"' }))
     expect(mockSelectConversation).not.toHaveBeenCalled()
@@ -217,6 +247,8 @@ describe('ArcSidebar agent-mode conversation rows', () => {
   })
 
   it('untitled Home conversation gets a delete button labelled with the fallback title', () => {
+    agentChatState.archiveScope = 'all'
+    agentChatState.archivedIds.add('c-2')
     renderExpanded()
     // Home group renders null-pinned conversations behind its own toggle.
     fireEvent.click(screen.getByRole('button', { name: 'Unassigned missions' }))
@@ -409,11 +441,13 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     renderCollapsed()
     fireEvent.click(screen.getByRole('button', { name: 'Unassigned missions' }))
     expect(window.localStorage.getItem('specrails-desktop:sidebar-mode:left')).toBe('pinned-open')
-    expect(screen.getByRole('button', { name: 'Delete "Untitled"' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Archive "Untitled"' })).toBeInTheDocument()
   })
 
   it('reports a failed delete with a toast', async () => {
     mockDeleteConversation.mockImplementationOnce(() => Promise.reject(new Error('offline')))
+    agentChatState.archiveScope = 'all'
+    agentChatState.archivedIds.add('c-1')
     renderExpanded()
     fireEvent.click(screen.getByRole('button', { name: 'Delete "Fix the build"' }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete "Fix the build"' }))
@@ -578,5 +612,173 @@ describe('ArcSidebar active-missions filter', () => {
     agentChatState.attentionKinds = new Map([['c-1', 'failed']])
     renderCollapsed()
     expect(screen.getByTestId('project-attention-badge')).toBeInTheDocument()
+  })
+})
+
+describe('sidebar archive scopes', () => {
+  it('[spec:mission-archive/sidebar-archive-selector] offers accessible Active, Archived and All beside Projects in expanded Mission mode', () => {
+    renderExpanded()
+    const selector = screen.getByRole('combobox', { name: 'Mission archive scope' })
+    expect(selector).toHaveValue('active')
+    expect([...selector.querySelectorAll('option')].map((option) => option.textContent)).toEqual(['Active', 'Archived', 'All'])
+    expect(selector.parentElement?.parentElement).toHaveTextContent('Projects')
+  })
+
+  it('scopes project, Home and favorite groups before the open-row exception', () => {
+    agentChatState.archivedIds = new Set(['c-1', 'c-2'])
+    agentChatState.active = conv('c-1', 'Fix the build', 'proj-1')
+    agentChatState.favoriteIds = new Set(['c-1'])
+    localStorage.setItem('specrails-desktop:agentTreeExpanded', JSON.stringify(['__favorites__', '__home__', 'proj-2']))
+    const view = renderExpanded()
+    expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
+    expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
+    expect(screen.getByText('Beta mission')).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'archived' } })
+    view.rerender(<ArcSidebar {...defaultProps} />)
+    expect(mockSetArchiveScope).toHaveBeenCalledWith('archived')
+    expect(screen.getByText('Fix the build')).toBeInTheDocument()
+    expect(screen.getByText('Untitled')).toBeInTheDocument()
+    expect(screen.queryByText('Beta mission')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'all' } })
+    view.rerender(<ArcSidebar {...defaultProps} />)
+    expect(screen.getByText('Beta mission')).toBeInTheDocument()
+    expect(screen.getAllByText('Archived')).toHaveLength(3)
+  })
+
+  it.each(['active', 'archived', 'all'] as const)('shows the empty %s state', (scope) => {
+    agentChatState.archiveScope = scope
+    agentChatState.empty = true
+    renderExpanded()
+    expect(screen.getByText(scope === 'active' ? 'No active missions' : scope === 'archived' ? 'No archived missions' : 'No missions')).toBeInTheDocument()
+  })
+
+  it('shows loading instead of a false empty state', () => {
+    agentChatState.archiveScope = 'archived'
+    agentChatState.empty = true
+    agentChatState.loading = true
+    renderExpanded()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading missions…')
+    expect(screen.queryByText('No archived missions')).not.toBeInTheDocument()
+  })
+
+  it.each(['scope-first', 'live-first'])('combines archive scope and live-only independently (%s)', (order) => {
+    agentChatState.archivedIds = new Set(['c-1', 'c-2'])
+    agentChatState.streamingIds = new Set(['c-1'])
+    localStorage.setItem('specrails-desktop:agentTreeExpanded', JSON.stringify(['__home__']))
+    const view = renderExpanded()
+    const scope = () => { fireEvent.change(screen.getByRole('combobox'), { target: { value: 'archived' } }); view.rerender(<ArcSidebar {...defaultProps} />) }
+    const live = () => fireEvent.click(screen.getByRole('button', { name: 'Show only active missions' }))
+    if (order === 'scope-first') { scope(); live() } else { live(); scope() }
+    expect(screen.getByRole('combobox')).toHaveValue('archived')
+    expect(screen.getByRole('button', { name: 'Show only active missions' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getAllByText('Fix the build')).toHaveLength(2)
+    expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
+    live()
+    expect(screen.getByRole('combobox')).toHaveValue('archived')
+    expect(screen.getByText('Untitled')).toBeInTheDocument()
+  })
+
+  it('hides scope selection in collapsed and Board modes', () => {
+    const view = renderCollapsed()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    view.unmount()
+    localStorage.clear()
+    sidebarUiMode = 'kanban'
+    renderExpanded()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  })
+})
+
+vi.mock('../../hooks/useSharedWebSocket', async (original) => ({
+  ...await original<typeof import('../../hooks/useSharedWebSocket')>(),
+  useSharedWebSocket: () => ({ registerHandler: () => {}, unregisterHandler: () => {}, connectionStatus: 'connected' }),
+}))
+vi.mock('../../features/missions/lib/agent-api', async (original) => ({
+  ...await original<typeof import('../../features/missions/lib/agent-api')>(),
+  listAgentConversations: vi.fn(async () => []),
+  getMcpStatus: vi.fn(async () => ({ enabled: true, running: true })),
+  getAvailableProviders: vi.fn(async () => ({ any: true, installed: [] })),
+  getAgentActiveTurns: vi.fn(async () => ({ snapshotVersion: 1, capturedAt: '', turns: [] })),
+}))
+import { AgentChatProvider } from '../../features/missions/context/AgentChatContext'
+
+it('restores sidebar scope across real-provider remounts', async () => {
+  useRealChat = true
+  const first = render(<AgentChatProvider><ArcSidebar {...defaultProps} /></AgentChatProvider>)
+  expect(screen.getByRole('combobox', { name: 'Mission archive scope' })).toHaveValue('active')
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'archived' } })
+  await waitFor(() => expect(screen.getByText('No archived missions')).toBeInTheDocument())
+  expect(localStorage.getItem('specrails-desktop:missionArchiveScope')).toBe('archived')
+  first.unmount()
+  render(<AgentChatProvider><ArcSidebar {...defaultProps} /></AgentChatProvider>)
+  expect(screen.getByRole('combobox')).toHaveValue('archived')
+  await waitFor(() => expect(screen.getByText('No archived missions')).toBeInTheDocument())
+})
+
+vi.mock('../../features/missions/hooks/useAgentLive', async (original) => {
+  const actual = await original<typeof import('../../features/missions/hooks/useAgentLive')>()
+  return { ...actual, useStreamingConversationIds: () => useRealChat ? actual.useStreamingConversationIds() : agentChatState.streamingIds }
+})
+
+describe('sidebar archive actions', () => {
+  it.each(['project', 'favorite', 'home'])('[spec:mission-archive/mission-archive-row-actions] archives from the %s group without selecting', async (group) => {
+    if (group === 'favorite') agentChatState.favoriteIds.add('c-1')
+    localStorage.setItem('specrails-desktop:agentTreeExpanded', JSON.stringify(['__favorites__', '__home__']))
+    renderExpanded()
+    const id = group === 'home' ? 'c-2' : 'c-1'
+    const label = group === 'home' ? 'Untitled' : 'Fix the build'
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: `Archive "${label}"` })) })
+    expect(mockArchiveConversation).toHaveBeenCalledWith(id)
+    expect(mockSelectConversation).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: `Archive "${label}"` })).not.toBeInTheDocument()
+    expect(mockDeleteConversation).not.toHaveBeenCalled()
+  })
+
+  it('[spec:mission-archive/mission-archive-row-actions] restores archived rows to Active and keeps favorite membership', async () => {
+    agentChatState.archiveScope = 'archived'
+    agentChatState.archivedIds.add('c-1')
+    agentChatState.favoriteIds.add('c-1')
+    localStorage.setItem('specrails-desktop:agentTreeExpanded', JSON.stringify(['__favorites__']))
+    const view = renderExpanded()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Restore "Fix the build"' })) })
+    expect(mockUnarchiveConversation).toHaveBeenCalledWith('c-1')
+    expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'active' } })
+    view.rerender(<ArcSidebar {...defaultProps} />)
+    expect(screen.getByText('Fix the build')).toBeInTheDocument()
+    expect(agentChatState.favoriteIds.has('c-1')).toBe(true)
+  })
+
+  it('[spec:mission-archive/mission-archive-row-actions] delegates open-mission selection to the archive context action', async () => {
+    agentChatState.active = conv('c-1', 'Fix the build', 'proj-1')
+    renderExpanded()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive "Fix the build"' })) })
+    expect(mockArchiveConversation).toHaveBeenCalledWith('c-1')
+    expect(mockSelectConversation).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['MISSION_LIVE', 'Wait for this mission to finish its work before archiving.'],
+    ['network', 'Couldn’t archive the mission'],
+  ])('shows %s errors without removing rows', async (code, message) => {
+    mockArchiveConversation.mockRejectedValueOnce(Object.assign(new Error('refused'), { code }))
+    renderExpanded()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive "Fix the build"' })) })
+    expect(screen.getByRole('alert')).toHaveTextContent(message)
+    expect(screen.getByText('Fix the build')).toBeInTheDocument()
+    expect(mockSelectConversation).not.toHaveBeenCalled()
+  })
+
+  it('disables duplicate pending actions', async () => {
+    let finish!: () => void
+    mockArchiveConversation.mockReturnValueOnce(new Promise<void>((resolve) => { finish = resolve }))
+    renderExpanded()
+    const button = screen.getByRole('button', { name: 'Archive "Fix the build"' })
+    fireEvent.click(button)
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(mockArchiveConversation).toHaveBeenCalledOnce()
+    await act(async () => { finish() })
+    expect(button).not.toBeDisabled()
   })
 })

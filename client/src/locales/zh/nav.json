@@ -1,4 +1,17 @@
 {
+  "missionArchive": {
+    "label": "任务归档筛选",
+    "active": "未归档",
+    "archived": "已归档",
+    "all": "全部",
+    "empty": {
+      "active": "没有未归档任务",
+      "archived": "没有已归档任务",
+      "all": "没有任务"
+    },
+    "loading": "正在加载任务…",
+    "loadFailed": "无法加载任务。重试"
+  },
   "sidebarPin": {
     "withShortcut": "{{label}}（{{shortcut}}）",
     "left": {

@@ -45,6 +45,8 @@ import treeKill from 'tree-kill'
 import { AgentChatManager, sanitizeAgentTitle } from './agent-chat-manager'
 import { initDesktopDb } from '../../../desktop-db'
 import {
+  archiveAgentConversation,
+  unarchiveAgentConversation,
   createAgentConversation,
   getAgentConversation,
   updateAgentConversation,
@@ -118,6 +120,21 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
   function rows() {
     return db.prepare('SELECT * FROM agent_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
   }
+
+  it('refuses archived admission before creating input or message rows and allows it after restore', async () => {
+    const conv = createAgentConversation(db)
+    updateAgentConversation(db, conv.id, { title: 'Existing mission' })
+    archiveAgentConversation(db, conv.id)
+    expect(() => mgr.sendMessage(conv.id, 'blocked', { queueId: 'blocked' })).toThrow('Restore this archived mission before sending messages.')
+    expect(getAgentInput(db, conv.id, 'blocked')).toBeUndefined()
+    expect(listAgentMessages(db, conv.id)).toEqual([])
+    expect(mockSpawn).not.toHaveBeenCalled()
+    unarchiveAgentConversation(db, conv.id)
+    primeTurn([assistantLine('Restored.'), resultLine({ session_id: 'restored-session' })])
+    await mgr.sendMessage(conv.id, 'allowed', { queueId: 'allowed' })
+    expect(getAgentInput(db, conv.id, 'allowed')).toBeDefined()
+    expect(mockSpawn).toHaveBeenCalledOnce()
+  })
 
   it('announces remote mission creation and direct input once, with its canonical message ID', async () => {
     const conv = createAgentConversation(db, { provider: 'claude' })

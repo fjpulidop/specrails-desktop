@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 import { initDesktopDb, addProject } from '../desktop-db'
-import { createAgentConversation } from '../modules/agents/runtime/agent-store'
+import { archiveAgentConversation, createAgentConversation } from '../modules/agents/runtime/agent-store'
 import { createDevice, hashToken, setAllowedProjects, getAllowedProjects, _resetAclColumnCacheForTests } from './mobile-devices'
 import { createMobileMissionsRouter, missionSnapshot, type MobileUpstream } from './mobile-missions'
 import type { DbInstance } from '../db'
@@ -84,6 +84,26 @@ describe('mobile mission contract', () => {
     expect(JSON.stringify(response.body)).not.toContain('private')
     expect((await request(app).get(`${base()}?limit=201`)).status).toBe(400)
   })
+  it('lists only active missions while retaining archived known-ID upstream access and conflicts', async () => {
+    const archived = createAgentConversation(db, { pinnedProjectId: 'p1' })
+    archiveAgentConversation(db, archived.id)
+    const trash = createAgentConversation(db, { pinnedProjectId: 'p1' })
+    db.prepare('UPDATE agent_conversations SET deleted_at = ? WHERE id = ?').run('2026-01-01', trash.id)
+    upstream.mockResolvedValue({ status: 200, json: { turns: [] } })
+    const list = await request(app).get(base())
+    expect(list.body.conversations.map((row: { id: string }) => row.id)).toEqual([cid])
+    expect((await request(app).get(`${base()}/${archived.id}`)).status).toBe(200)
+    expect(upstream).toHaveBeenLastCalledWith('GET', `/api/agent/conversations/${archived.id}`, undefined)
+    upstream.mockResolvedValue({ status: 409, json: { error: 'Restore this archived mission before sending messages.', code: 'MISSION_ARCHIVED' } })
+    const send = await request(app).post(`${base()}/${archived.id}/send`).send({ text: 'blocked', queueId: 'q' })
+    expect(send.status).toBe(409)
+    expect(send.body.code).toBe('MISSION_ARCHIVED')
+    expect((await request(app).get(`${base()}/${trash.id}`)).status).toBe(404)
+    setAllowedProjects(db, deviceId, ['p1'])
+    expect((await request(app).get(base())).status).toBe(403)
+    expect((await request(app).get(`${base()}/${archived.id}`)).status).toBe(403)
+  })
+
   it('process control binds project, conversation, UUID and OS pid with a bounded log tail', async () => {
     await request(app).get(`${base()}/${cid}/processes/run-uuid/logs?pid=123&chatId=foreign&limit=999999`)
     expect(upstream).toHaveBeenLastCalledWith('GET', `/api/projects/p1/background-processes/123/logs?chatId=${cid}&processId=run-uuid&limit=1000`, undefined)
