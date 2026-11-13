@@ -39,6 +39,8 @@ it('bounds plan repairs after a failed OpenSpec validation instead of re-plannin
   expect(params('initialize-plan')).toEqual({ set: { planRepairs: 0, planRepairLimit: PLAN_REPAIR_LIMIT } })
   expect(edge('initialize-plan', 'next')).toBe('architect')
   expect(edge('validate', 'fail')).toBe('plan-repair-budget')
+  // A plan the artifact contract refuses at freeze shares the same repair budget.
+  expect(edge('freeze', 'fail')).toBe('plan-repair-budget')
   expect(params('plan-repair-budget')!.expr).toBe('$vars.planRepairs < $vars.planRepairLimit')
   expect([edge('plan-repair-budget', 'true'), edge('plan-repair-budget', 'false')]).toEqual(['count-plan-repair', 'plan-invalid'])
   expect(params('count-plan-repair')).toEqual({ increment: { planRepairs: 1 } })
@@ -73,12 +75,12 @@ describe('host blockers', () => {
     expect(definition.nodes['fixer-blocked'].params).toMatchObject({ outcome: 'failure', blockerFrom: 'fixer', reason: expect.stringContaining('Fixer reported a host blocker ({{outputs.fixer.structured.blocker.kind}})') })
     expect(factoryLoopsForCapabilities(paired).find(loop => loop.id === 'factory:implement')!.graph.nodes.some(node => node.id === 'host-blocked')).toBe(true)
   })
-  it('routes a fixer-declared blocker to fixer-blocked before the progress check, on every Core generation', () => {
+  it('routes a fixer-declared blocker to its kind check before the progress check, on every Core generation', () => {
     for (const capabilities of [paired, { engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }]) {
       const definition = compile(configurableImplementGraph(capabilities))
       expect(definition.nodes.fixer.ends.next).toBe('correction-blocker')
       expect(definition.nodes['correction-blocker'].params.expr).toBe('exists($outputs.fixer.structured.blocker) && $outputs.fixer.structured.blocker != null')
-      expect(definition.nodes['correction-blocker'].ends).toEqual({ true: 'fixer-blocked', false: 'correction-progress' })
+      expect(definition.nodes['correction-blocker'].ends).toEqual({ true: 'fixer-blocker-kind', false: 'correction-progress' })
       expect(definition.nodes['correction-progress'].ends).toEqual({ true: 'tasks', false: 'correction-stalled' })
       const schema = definition.nodes.fixer.params.structuredOutput as { required: string[]; properties: { blocker: { properties: { kind: { enum: string[] } }; required: string[] } } }
       expect(schema.required).toEqual(['summary', 'incomplete'])
@@ -116,9 +118,21 @@ describe('host blockers', () => {
       // Anything else runs the host's own verification: failures go to the fixer, passes to the reviewer.
       expect(nodes['developer-blocker-kind'].ends).toEqual({ true: 'developer-blocked', false: 'verify' })
       expect(nodes.verify.ends).toMatchObject({ pass: 'reviewer', fail: 'correction-context' })
+      // The fixer follows the same rule: a stale or unreproduced blocker cannot end the run unchecked.
+      expect(nodes['correction-blocker'].ends).toEqual({ true: 'fixer-blocker-kind', false: 'correction-progress' })
+      expect(nodes['fixer-blocker-kind'].params.expr).toBe('$outputs.fixer.structured.blocker.kind == "credential" || $outputs.fixer.structured.blocker.kind == "network" || $outputs.fixer.structured.blocker.kind == "environment-variable"')
+      expect(nodes['fixer-blocker-kind'].ends).toEqual({ true: 'fixer-blocked', false: 'verify' })
+      for (const role of ['developer', 'fixer']) expect(nodes[role].params.prompt).toContain('Report only a blocker you reproduced in this turn')
+      expect(nodes.fixer.params.prompt).not.toContain('the host ends the run with your required action')
     }
     // A host precondition the verification hits still ends as a host blocker.
     expect(compile(configurableImplementGraph(paired)).nodes.verify.ends).toMatchObject({ blocked: 'host-blocked' })
+  })
+  it('tells the architect that tasks never edit frozen artifacts and gates are not invented', () => {
+    const prompt = compile(configurableImplementGraph(paired)).nodes.architect.params.prompt as string
+    expect(prompt).toContain('never write a task that edits or records evidence in them')
+    expect(prompt).toContain('Do not invent prerequisites or gates the workflow does not run')
+    expect(prompt).toContain('is a question with low confidence, not a task or a gate')
   })
   it('compiles the pre-blocker shape when the installed Core does not advertise hostBlockers', () => {
     const definition = compile(configurableImplementGraph({ engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }))
