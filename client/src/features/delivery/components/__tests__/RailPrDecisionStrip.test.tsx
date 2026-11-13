@@ -232,6 +232,16 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         expect(within(strip).queryByTestId('rail-pr-merge-local')).toBeNull()
       })
 
+      it('implementation_failed + run_stopped → a neutral Stopped pill, never "Implementation failed"', () => {
+        renderRail(snapshot({ decision: 'implementation_failed', implementationOutcome: 'failed', statusCode: 'run_stopped' }), density)
+        const strip = screen.getByTestId('rail-pr-strip')
+        expect(within(strip).getByTestId('rail-pr-run-stopped')).toHaveTextContent('Stopped')
+        expect(within(strip).getByTestId('rail-pr-run-stopped').className).not.toContain('destructive')
+        expect(within(strip).queryByText('Implementation failed')).toBeNull()
+        // The status-code chip would only repeat the pill.
+        expect(within(strip).queryByTestId('rail-pr-status-code')).toBeNull()
+      })
+
       it('names the delivery loop when the snapshot carries it (custom loops by name); absent otherwise', () => {
         renderRail(snapshot({ decision: 'on_review', loopId: 'custom:hardening', loopName: 'Hardening' }), density)
         // The loop folds into the one status pill's tooltip (the menu is on screen).

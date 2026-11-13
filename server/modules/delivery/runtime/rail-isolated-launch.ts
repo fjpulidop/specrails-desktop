@@ -278,6 +278,32 @@ export interface SettledRun {
   safeToRelease: boolean
 }
 
+/** What a branch record says when a person stopped its run before delivery. */
+export const RUN_STOPPED_DETAIL = 'Stopped before delivery; partial changes stay in its original worktree. Relaunch it when you want to continue.'
+
+/**
+ * A person stopped every run of this delivery before it delivered: report a
+ * stop (`run_stopped`), not an implementation failure. Shared by fresh
+ * settlement and recovered reattachment (server restart, then Stop) so both
+ * classify the same facts the same way. Never a stop: a run that failed or
+ * stalled on its own, a delivery that already has a PR (its PR keeps its own
+ * status), or a CI loop generation (`factory:pr-ci` reports CI outcomes).
+ * Multi-repository parents aggregate their children's codes instead
+ * (`refreshRepositoryDeliveryGroup`).
+ */
+export function isStoppedByPerson(input: {
+  loopId: string | null | undefined
+  implementationOutcome: PrImplementationOutcome
+  runOutcomes: ReadonlyArray<string | null | undefined>
+  prUrl?: string | null
+}): boolean {
+  return input.implementationOutcome === 'failed'
+    && input.loopId !== PR_CI_LOOP_ID
+    && !input.prUrl
+    && input.runOutcomes.length > 0
+    && input.runOutcomes.every(outcome => outcome === 'stopped')
+}
+
 /**
  * Assemble the revision briefing from the generation being revised. Reads only
  * durable rows, tolerates every one of them being absent (a legacy row carries
@@ -666,11 +692,15 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
     // explicit Core recovery, including a currently clean worktree.
     if (implementationOutcome === 'failed' && hasRuntimeRequest(a.runId)) {
       markWorktree(a, 'needs-review')
+      // A person's Stop keeps the same worktree, but nothing failed: say so.
+      const stopped = actualOutcome === 'stopped'
       return {
         run: a, implementationOutcome, deliveryOutcome: 'blocked',
         initialSha: a.initialSha, finalSha: await readHeadSha(git, a.handle.worktreePath),
-        failureCode: 'settlement_interrupted',
-        failureDetail: 'Programmatic workflow stopped before delivery; partial changes stay in its original worktree. The run log names the failing step. A resumable step offers Resume on the job page; a raised loop limit (such as a step\'s Maximum turns) needs a new launch.',
+        failureCode: stopped ? 'run_stopped' : 'settlement_interrupted',
+        failureDetail: stopped
+          ? RUN_STOPPED_DETAIL
+          : 'Programmatic workflow stopped before delivery; partial changes stay in its original worktree. The run log names the failing step. A resumable step offers Resume on the job page; a raised loop limit (such as a step\'s Maximum turns) needs a new launch.',
         safeToRelease: false,
       }
     }
@@ -1906,8 +1936,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
 
       const firstFailure = results.find((result) => result.failureCode)
       // A person stopped every run: that is a stop, not an implementation failure.
-      const stoppedByPerson = implementationOutcome === 'failed' && results.length > 0
-        && results.every((result) => getLoopRun(ctx.db, result.run.runId)?.final_outcome === 'stopped')
+      const stoppedByPerson = isStoppedByPerson({
+        loopId, implementationOutcome, prUrl: launchContinuation?.prUrl ?? null,
+        runOutcomes: results.map((result) => getLoopRun(ctx.db, result.run.runId)?.final_outcome),
+      })
       const statusCode: PrDeliveryStatusCode = implementationOutcome === 'failed'
         ? (stoppedByPerson ? 'run_stopped' : 'implementation_failed')
         : continuationLifecycleBlocked
@@ -2250,6 +2282,13 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       const noChanges = complete && results.every(item => item.deliveryOutcome === 'no_changes')
       const partial = complete && ready.length > 0 && results.some(item => item.implementationOutcome !== 'succeeded' || !['ready', 'no_changes'].includes(item.deliveryOutcome))
       const next: PrDecision = !complete ? 'building' : !successes.length ? 'implementation_failed' : row.pr_url ? 'pr_failed' : ready.length ? 'on_review' : noChanges ? 'no_changes' : 'pr_failed'
+      // Recovered Stop (server restart, then the person stopped the run): the
+      // same classification as a fresh settlement. This run's outcome is the
+      // probe's; sibling runs settled earlier carry their durable outcome.
+      const stoppedByPerson = complete && isStoppedByPerson({
+        loopId: row.loop_id, implementationOutcome: successes.length === results.length ? 'succeeded' : successes.length ? 'partially_succeeded' : 'failed', prUrl: row.pr_url,
+        runOutcomes: results.map(item => item.run.runId === runId ? outcome : getLoopRun(ctx.db, item.run.runId)?.final_outcome),
+      })
       const definitionEvidence = await probeDefinitionRuns({ db: ctx.db, cwd: ctx.project.path, env: process.env }, results.map(item => item.run.runId), true)
       const reviewBrief = await (io.reviewBriefCapability ?? coreAnnouncesReviewBrief)()
       const phase3 = await phase3HarvestOptions({ db: ctx.db, project: ctx.project, capabilities: io.phase3Capabilities })
@@ -2264,8 +2303,8 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
         branches: branchRecords(results), runIds: latest.map(item => item.snapshot.run.runId), worktreeIds: latest.map(item => item.snapshot.run.ledgerId),
         implementationOutcome: !complete ? 'unknown' : successes.length === results.length ? 'succeeded' : successes.length ? 'partially_succeeded' : 'failed',
         deliveryOutcome: !complete ? 'not_started' : row.pr_url && ready.length ? 'retryable_failure' : ready.length ? (partial ? 'partial' : 'ready') : noChanges ? 'no_changes' : 'blocked',
-        statusCode: !complete ? 'restart_pending' : row.pr_url && ready.length ? 'settlement_interrupted' : ready.length ? (partial ? 'partial_success' : 'ready_for_review') : noChanges ? 'no_changes' : 'implementation_failed',
-        statusDetail: row.pr_url && ready.length ? 'Recovered local work is ready. Retry delivery to update the existing PR.' : null,
+        statusCode: !complete ? 'restart_pending' : row.pr_url && ready.length ? 'settlement_interrupted' : ready.length ? (partial ? 'partial_success' : 'ready_for_review') : noChanges ? 'no_changes' : stoppedByPerson ? 'run_stopped' : 'implementation_failed',
+        statusDetail: row.pr_url && ready.length ? 'Recovered local work is ready. Retry delivery to update the existing PR.' : stoppedByPerson ? RUN_STOPPED_DETAIL : null,
         ...(results.length === 1 ? { deliverySha: results[0].finalSha } : {}), settleEvidence: evidence,
       })) throw new Error('Delivery changed during recovered settlement')
     }

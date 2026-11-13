@@ -53,6 +53,9 @@ describe('deriveMissionRunStatus', () => {
     expect(deriveMissionRunStatus(env({ runtime: failed }), null, false)).toBe('failed')
     expect(deriveMissionRunStatus(env({ runtime: { ...failed, status: 'unknown', failure: { code: 'stuck', detail: null, stepId: null } } }), null, false)).toBe('stalled')
     expect(deriveMissionRunStatus(env({ decision: 'implementation_failed' }), null, false)).toBe('failed')
+    // A person's Stop is cancelled, even with a failure in the settle-time snapshot.
+    expect(deriveMissionRunStatus(env({ decision: 'implementation_failed', statusCode: 'run_stopped' }), null, false)).toBe('cancelled')
+    expect(deriveMissionRunStatus(env({ decision: 'implementation_failed', statusCode: 'run_stopped', runtime: failed }), null, false)).toBe('cancelled')
     expect(deriveMissionRunStatus(env({ decision: 'discarded' }), null, false)).toBe('cancelled')
     expect(deriveMissionRunStatus(env({ decision: 'completed' }), null, false)).toBe('succeeded')
     expect(deriveMissionRunStatus(env({ decision: 'pr_closed' }), null, false)).toBe('unknown')

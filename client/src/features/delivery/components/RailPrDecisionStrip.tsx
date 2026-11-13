@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
 import { toast } from 'sonner'
-import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, Play, FolderOpen, MessageSquareWarning, MoreHorizontal } from 'lucide-react'
+import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, Play, FolderOpen, MessageSquareWarning, MoreHorizontal, CircleStop } from 'lucide-react'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../../../types'
@@ -91,6 +91,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   // A failed attempt may be resumable. Ask the runtime for that one run only while the strip is in that
   // state (the same cheap per-run poll the mission card uses); never for any other decision.
   const failedRunId = decision.runIds?.[0] ?? null
+  // A person stopped the run before it delivered: information, not a failure.
+  const runStopped = d === 'implementation_failed' && decision.statusCode === 'run_stopped'
   const implementationFailedStrip = d === 'implementation_failed' && presentation.implementationFailed && decision.statusCode !== 'review_changes_requested'
   const runtimeRuns = useRuntimeRuns(stripProjectId, { jobId: failedRunId ?? undefined, enabled: implementationFailedStrip && !!failedRunId })
   const failedRun = runtimeRuns.runs.find((run) => run.runId === failedRunId) ?? null
@@ -106,7 +108,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const statusRepeatsPill =
     (decision.decision === 'on_review' && decision.statusCode === 'ready_for_review') ||
     (decision.decision === 'pr_ready' && decision.statusCode === 'pr_ready') ||
-    (decision.decision === 'pr_draft' && decision.statusCode === 'pr_draft_ready')
+    (decision.decision === 'pr_draft' && decision.statusCode === 'pr_draft_ready') ||
+    runStopped
   const statusLabel = isKnownPrDeliveryStatusCode(decision.statusCode) && !statusRepeatsPill
     ? t(`common:prDeliveryStatus.${decision.statusCode}`)
     : null
@@ -129,7 +132,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
               : presentation.partial
                 ? t('railPr.partial', { succeeded: presentation.succeededCount, total: presentation.totalCount })
                 : presentation.implementationFailed
-                  ? t('railPr.implementationFailed')
+                  ? t(runStopped ? 'railPr.runStopped' : 'railPr.implementationFailed')
                   : null
   const existingPrIteration = d === 'building' && decision.prState === 'pr-created' && Boolean(decision.branch)
   if ((d === 'building' && !existingPrIteration) || d === 'merged' || d === 'discarded' || d === 'completed' || d === 'superseded') return null
@@ -963,12 +966,18 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     )
     actions = null
   } else if (d === 'implementation_failed' && presentation.implementationFailed) {
-    detailLine = t('railPr.implementationFailedHint')
-    pill = (
-      <span className={`${pillBase} border-destructive/30 bg-destructive/10 text-destructive`} title={t('railPr.implementationFailedHint')}>
+    const hint = t(runStopped ? 'railPr.runStoppedHint' : 'railPr.implementationFailedHint')
+    detailLine = hint
+    pill = runStopped ? (
+      <span className={`${pillBase} border-border/60 bg-surface/60 text-muted-foreground`} title={hint} data-testid="rail-pr-run-stopped">
+        <CircleStop className={iconCls} aria-hidden />
+        {t('railPr.runStopped')}
+      <span className="sr-only"> ({hint})</span></span>
+    ) : (
+      <span className={`${pillBase} border-destructive/30 bg-destructive/10 text-destructive`} title={hint}>
         <AlertTriangle className={iconCls} aria-hidden />
         {t('railPr.implementationFailed')}
-      <span className="sr-only"> ({t('railPr.implementationFailedHint')})</span></span>
+      <span className="sr-only"> ({hint})</span></span>
     )
     actions = (
       <>

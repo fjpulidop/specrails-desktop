@@ -102,6 +102,8 @@
     "prReady": "PR pronta",
     "implementationFailed": "Implementazione non riuscita",
     "implementationFailedHint": "Il run di implementazione non è riuscito. Apri il log del run, poi scarta questa scheda prima di rilanciare.",
+    "runStopped": "Interrotta",
+    "runStoppedHint": "Hai interrotto questa esecuzione prima che consegnasse qualcosa. Rilanciala quando vuoi continuare, oppure scarta questa scheda.",
     "prFailed": "PR non riuscita",
     "prFailedDetail": "PR non riuscita",
     "createDegraded": "Impossibile pubblicare la PR — {{detail}}. Riprova una volta risolto.",

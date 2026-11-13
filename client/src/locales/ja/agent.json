@@ -1409,6 +1409,7 @@
       "proposed": "起動が提案されました。あなたの確認を待っています",
       "backToFlow": "Intent に戻りました",
       "flowReturned": "{{run}} が作業を Intent に戻しました",
+      "stopped": "{{run}} を停止しました",
       "delivered": "納品済み：PR {{pr}}",
       "deliveredNoPr": "{{run}} で納品済み",
       "superseded": "{{run}} は新しい実行に置き換えられました",

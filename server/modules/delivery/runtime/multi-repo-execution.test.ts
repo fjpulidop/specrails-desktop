@@ -435,6 +435,17 @@ describe('coordinated multi-repository execution', () => {
     expect(getPrDelivery(f.db, parentId)).toMatchObject({ decision: 'implementation_failed', status_code: 'run_stopped' })
   }, 20000)
 
+  it('a group with one stopped run and one real failure stays failed', async () => {
+    const f = fixture()
+    await launchIsolatedRail(f.input, f.io)
+    const parentId = await settled(f.db)
+    const [first, second] = listRepositoryDeliveries(f.db, parentId)
+    transitionDecision(f.db, first.id, first.decision, 'implementation_failed', { implementationOutcome: 'failed', statusCode: 'run_stopped' })
+    transitionDecision(f.db, second.id, second.decision, 'implementation_failed', { implementationOutcome: 'failed', statusCode: 'implementation_failed' })
+    refreshRepositoryDeliveryGroup(f.db, parentId)
+    expect(getPrDelivery(f.db, parentId)).toMatchObject({ decision: 'implementation_failed', status_code: 'implementation_failed' })
+  }, 20000)
+
   it('does not complete a shared spec when child integration accepted only a partial implementation', async () => {
     const f = fixture()
     await launchIsolatedRail(f.input, f.io)

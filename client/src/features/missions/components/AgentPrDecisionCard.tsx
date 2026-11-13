@@ -15,7 +15,7 @@ import { motion } from 'motion/react'
 import {
   GitBranch, GitMerge, GitPullRequest, AlertTriangle, XCircle,
   ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText, Play, Square, RotateCcw, FolderOpen, Eye,
-  ShieldCheck, Wrench, Activity, MessageSquareWarning, Undo2,
+  ShieldCheck, Wrench, Activity, MessageSquareWarning, Undo2, CircleStop,
 } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { AgentFlowReviewBlock, AgentFlowReturnedNote } from './AgentFlowReviewBlock'
@@ -220,6 +220,8 @@ export function deriveMissionRunStatus(
   const flow = flowCardOutcome(envelope)
   if (flow === 'changes') return 'changes_requested'
   if (flow === 'returned') return 'returned'
+  // A person stopped the run before it delivered: cancelled, not failed.
+  if (envelope.decision === 'implementation_failed' && envelope.statusCode === 'run_stopped') return 'cancelled'
   const snap = envelope.runtime?.status
   if (snap === 'running') return 'running'
   if (snap === 'failed' || snap === 'stalled' || snap === 'cancelled' || snap === 'succeeded') return snap
@@ -1315,8 +1317,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     )
   }
 
-  const Icon = flowOutcome === 'changes' ? MessageSquareWarning : flowOutcome === 'returned' ? Undo2 : HEADER_ICON[decision]
-  const iconTone = flowOutcome === 'changes' || flowOutcome === 'crashed' ? 'text-accent-warning' : flowOutcome === 'returned' ? 'text-accent-info' : HEADER_ICON_TONE[decision]
+  // A person stopped the run: a neutral stop, not the failure triangle.
+  const stoppedHeader = decision === 'implementation_failed' && envelope.statusCode === 'run_stopped'
+  const Icon = flowOutcome === 'changes' ? MessageSquareWarning : flowOutcome === 'returned' ? Undo2 : stoppedHeader ? CircleStop : HEADER_ICON[decision]
+  const iconTone = flowOutcome === 'changes' || flowOutcome === 'crashed' ? 'text-accent-warning' : flowOutcome === 'returned' ? 'text-accent-info' : stoppedHeader ? 'text-muted-foreground' : HEADER_ICON_TONE[decision]
   // Intent → Spec names itself where the title would otherwise be generic.
   const flowSpec = envelope.loopId === FLOW_SPEC_LOOP_ID
   const flowSpecDelivered = flowSpec && ['on_review', 'pr_draft', 'pr_ready', 'completed'].includes(decision) && !degradedDraft
