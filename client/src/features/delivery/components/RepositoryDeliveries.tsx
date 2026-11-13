@@ -7,7 +7,7 @@ import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { cn } from '../../../lib/utils'
 
 /** Each action retains the parent generation and explicitly identifies its repository. */
-export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, onCheckout, ciStates }: {
+export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, onCheckout, ciStates, settled = false }: {
   deliveryId: string
   repositories?: RepositoryDeliverySnapshot[]
   busy: boolean
@@ -15,15 +15,18 @@ export function RepositoryDeliveries({ deliveryId, repositories, busy, onAct, on
   onCheckout?: (repositoryId: string) => Promise<unknown>
   /** Live CI per PR URL (the card reads it from GitHub); wins over the recorded status. */
   ciStates?: Record<string, string>
+  /** The parent generation is closed (superseded, merged, discarded…): its
+   *  repository rows are history, whatever their own recorded decision says. */
+  settled?: boolean
 }) {
   const { t } = useTranslation('dashboard')
   const [confirmation, setConfirmation] = useState<{ deliveryId: string; repositoryId: string; action: RailPrDecisionAction } | null>(null)
   if (!repositories?.length) return null
-  const confirmRepository = confirmation?.deliveryId === deliveryId ? repositories.find((repository) =>
+  const confirmRepository = confirmation?.deliveryId === deliveryId && !settled ? repositories.find((repository) =>
     repository.repositoryId === confirmation.repositoryId && !['merged', 'completed', 'discarded', 'superseded'].includes(repository.decision)) : null
   return <div className="w-full space-y-2" data-testid="repository-deliveries">
     {repositories.map((repository) => {
-      const terminal = ['merged', 'completed', 'discarded', 'superseded'].includes(repository.decision)
+      const terminal = settled || ['merged', 'completed', 'discarded', 'superseded'].includes(repository.decision)
       const blocked = repository.deliveryOutcome === 'blocked'
       const deliverable = !!repository.deliverySha && !blocked && repository.implementationOutcome === 'succeeded'
       const action = (type: RailPrDecisionAction, label: string, confirm = false) => <Button size="sm" variant="outline" disabled={busy} onClick={() => {
