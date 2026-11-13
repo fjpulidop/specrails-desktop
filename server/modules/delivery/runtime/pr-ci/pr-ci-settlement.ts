@@ -32,6 +32,10 @@ export interface PrCiSettlementInput {
   /** Core's completion of the run: `ok` means CI ended green (or the PR has no checks). */
   completion: { ok: boolean; reasons: string[] } | null
   branches: DeliverBranchRecord[]
+  /** Freezes the gitignored paths of a worktree just proven clean at the PR
+   * head (the settlement snapshot that later authorizes releasing run-created
+   * caches). A CI loop that ended failed never reached the ordinary capture. */
+  captureIgnoredPaths?: (worktree: string, overlayExcludes: readonly string[]) => Promise<string[] | null>
 }
 export interface PrCiSettlement {
   next: Extract<PrDecision, 'pr_draft' | 'pr_ready'>
@@ -87,7 +91,16 @@ export async function settlePrCiGeneration(input: PrCiSettlementInput): Promise<
     deliverySha: prHead,
     statusCode: green ? 'ci_green' : 'ci_needs_attention',
     statusDetail: detail,
-    branches: input.branches.map(unit => ({ ...unit, succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'ready', finalSha: prHead, failureCode: null })),
+    branches: await Promise.all(input.branches.map(async (unit) => {
+      const settled: DeliverBranchRecord = { ...unit, succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'ready', finalSha: prHead, failureCode: null }
+      // Every worktree is now clean at the PR head: what Git ignores here is run
+      // residue (dependency installs, build caches), exactly as at an ordinary
+      // settlement. Without this, a CI loop that ended failed (rounds exhausted,
+      // not fixable, a transient GitHub error) left no snapshot and the merge
+      // cleanup preserved its worktree with a warning.
+      if (Array.isArray(unit.settlementIgnoredPaths) || !input.captureIgnoredPaths || !unit.worktreePath || !input.worktrees.includes(unit.worktreePath)) return settled
+      return { ...settled, settlementIgnoredPaths: await input.captureIgnoredPaths(unit.worktreePath, unit.overlayExcludes ?? []) }
+    })),
     keptRef,
   }
 }

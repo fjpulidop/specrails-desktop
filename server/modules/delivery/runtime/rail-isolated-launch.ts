@@ -1940,6 +1940,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             worktrees: results.map(result => result.run.handle.worktreePath),
             completion: probe?.completion ? { ok: probe.completion.ok, reasons: probe.completion.reasons } : null,
             branches: branchRecords(results),
+            captureIgnoredPaths: (worktree, overlayExcludes) => captureSettlementIgnoredPaths(git, worktree, overlayExcludes),
           })
         } catch (error) {
           console.warn(`[pr-ci] settlement fell back to the ordinary continuation: ${error instanceof Error ? error.message : String(error)}`)
