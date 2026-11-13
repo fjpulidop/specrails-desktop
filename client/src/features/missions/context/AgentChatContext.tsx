@@ -470,6 +470,8 @@ export function describeAgentError(msg: Pick<WsAgentMsg, 'error' | 'code' | 'pro
 interface WsAgentMsg {
   type: string
   conversationId?: string
+  /** Set on the blueprint-commit placeholder: open it without user action. */
+  openOnArrival?: boolean
   delta?: string
   fullText?: string
   /** Core session turn a user turn settled (agent_done). */
@@ -881,6 +883,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
   }, [])
 
+  const selectConversationRef = useRef<((id: string) => Promise<void>) | null>(null)
   const [projectRecoveryRevision, setProjectRecoveryRevision] = useState(0)
 
   // ── WebSocket: app-global agent_* events (no projectId filter) ──────────────
@@ -902,7 +905,8 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       }
       if (typeof msg.type !== 'string' || !msg.type.startsWith('agent_')) return
       if (msg.type === 'agent_conversation_created') {
-        void refreshConversations()
+        const openId = msg.openOnArrival && !secondaryWindow && !fixedConversationId ? msg.conversationId : undefined
+        void refreshConversations().then(() => { if (openId) void selectConversationRef.current?.(openId) })
         return
       }
       // Auto-title updates apply to the LIST (any conversation), not just the
@@ -1822,6 +1826,8 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
     if (options?.windowRestore && uiMode !== 'agent') setVisibility('open')
   }, [loadConversation, exitBuilderMode, secondaryWindow, uiMode, fixedConversationId])
+
+  selectConversationRef.current = selectConversation
 
   const applyArchiveConversation = useCallback((updated: AgentConversation) => {
     const id = updated.id

@@ -1410,7 +1410,7 @@ export type WsMessage =
   | JiraOutboxChangedMessage | JiraDegradedMessage
   | AgentStreamMessage | AgentPartialMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
   | AgentTitleMessage
-  | { type: 'agent_conversation_created'; conversationId: string; timestamp: string }
+  | { type: 'agent_conversation_created'; conversationId: string; openOnArrival?: boolean; timestamp: string }
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage | AgentSteeredMessage | AgentInputReceiptMessage
   | AgentQueueEditedMessage | AgentQueueRemovedMessage
   | AgentPrDecisionMessage | AgentRunFailureMessage | AgentSystemRowMessage
@@ -1518,6 +1518,8 @@ export interface BlueprintCommitDoneMessage {
   type: 'blueprint.commit_done'
   commitId: string
   projectId: string
+  /** Placeholder mission conversation opened for the project, when one was created. */
+  missionConversationId?: string
   timestamp: string
 }
 

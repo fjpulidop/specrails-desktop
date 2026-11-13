@@ -616,6 +616,7 @@
         "./blueprint-spec-quality",
         "./blueprint-store",
         "./blueprint-types",
+        "./mission-placeholder",
         "child_process",
         "crypto",
         "fs",
@@ -695,6 +696,11 @@
         "../../specs/runtime/ticket-store",
         "./blueprint-render",
         "./blueprint-types"
+      ],
+      "runtime/mission-placeholder.ts": [
+        "../../../db",
+        "../../agents/runtime/agent-store",
+        "../../missions/runtime/agent-tier"
       ]
     }
   },

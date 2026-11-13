@@ -18,6 +18,7 @@ import { resolveArtifacts } from '../../../artifact-registry'
 import { workspacePathFor } from '../../../workspace-manager'
 import { mutateStore, type Ticket, type TicketStore } from '../../specs/runtime/ticket-store'
 import { formatDescriptionWithCriteria } from '../../../project-router-helpers'
+import { ensureMissionPlaceholderConversation, type MissionPlaceholderResult } from './mission-placeholder'
 
 // ─── Orchestrated project-bootstrap commit (add-project-builder D3) ───────────
 //
@@ -69,6 +70,8 @@ export interface BlueprintCommitIO {
   registerProject: (opts: { id: string; slug: string; name: string; path: string; providers: string[] }) => void
   /** Link the Builder conversation to the project it created (best-effort). */
   markCommitted: (conversationId: string, projectId: string) => void
+  /** Open the empty mission conversation of a freshly registered project (best-effort). */
+  ensurePlaceholder: (projectId: string, provider: string) => MissionPlaceholderResult
 }
 
 export interface BlueprintCommitDeps {
@@ -169,6 +172,16 @@ export function createBlueprintCommitRunner(deps: BlueprintCommitDeps): Blueprin
       ((conversationId, projectId) => {
         markBlueprintCommitted(deps.registry.desktopDb, conversationId, projectId)
       }),
+    ensurePlaceholder:
+      deps.io?.ensurePlaceholder ??
+      ((projectId, provider) =>
+        ensureMissionPlaceholderConversation(deps.registry.desktopDb, {
+          projectId,
+          provider,
+          model: null,
+          tierLevel: 0,
+          reasoningEffort: null,
+        })),
     registerProject:
       deps.io?.registerProject ??
       ((opts) => {
@@ -390,7 +403,24 @@ export function createBlueprintCommitRunner(deps: BlueprintCommitDeps): Blueprin
         }
       }
 
-      // 7. best-effort GitHub remote — never aborts. Pre-flight guards against
+      // 7. best-effort placeholder mission conversation. After register (the last
+      // mutation) so no failed commit can leave one behind; never aborts.
+      let missionConversationId: string | undefined
+      emit(commitId, 'placeholder', 'running')
+      try {
+        const placeholder = io.ensurePlaceholder(projectId, providers[0])
+        emit(commitId, 'placeholder', 'done', placeholder.status)
+        console.info(`[blueprint-commit] placeholder conversation ${placeholder.status} for project ${projectId}`)
+        if (placeholder.conversationId) {
+          missionConversationId = placeholder.conversationId
+        }
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err)
+        console.warn(`[blueprint-commit] could not create placeholder conversation for project ${projectId}:`, detail)
+        emit(commitId, 'placeholder', 'warning', detail)
+      }
+
+      // 8. best-effort GitHub remote — never aborts. Pre-flight guards against
       // a stale client cache sending createGithubRepo with gh absent/unauthed.
       if (v.createGithubRepo) {
         step = 'github'
@@ -419,8 +449,19 @@ export function createBlueprintCommitRunner(deps: BlueprintCommitDeps): Blueprin
         type: 'blueprint.commit_done',
         commitId,
         projectId,
+        ...(missionConversationId ? { missionConversationId } : {}),
         timestamp: new Date().toISOString(),
       } as WsMessage)
+      // Announced only after commit_done (every step finished) so opening the
+      // placeholder never pulls the user out of the Builder mid-commit.
+      if (missionConversationId) {
+        deps.broadcast({
+          type: 'agent_conversation_created',
+          conversationId: missionConversationId,
+          openOnArrival: true,
+          timestamp: new Date().toISOString(),
+        } as WsMessage)
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error(`[blueprint-commit] failed at ${step}:`, message)
