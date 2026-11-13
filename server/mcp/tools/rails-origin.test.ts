@@ -23,6 +23,7 @@ import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-ca
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { ProjectRegistry } from '../../project-registry'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { listenOnLoopback } from '../../loopback-test-server'
 
 // ── End-to-end origin link (design §8, safe-pr-review-flow) ───────────────────
 //
@@ -110,8 +111,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       next()
     })
     app.use('/api/projects/p1/rails', createRailsRouter())
-    server = app.listen(0)
-    await new Promise<void>((resolve) => server.once('listening', resolve))
+    server = (await listenOnLoopback(app)).server
     const port = (server.address() as AddressInfo).port
 
     // The MCP side: real registerTieredTool over the real rails tool spec.

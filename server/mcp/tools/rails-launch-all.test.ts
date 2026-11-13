@@ -16,6 +16,7 @@ import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-ca
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { ProjectRegistry } from '../../project-registry'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { listenOnLoopback } from '../../loopback-test-server'
 
 // ── specrails_rails: create_rail + launch_all (server-side fan-out) ───────────
 //
@@ -84,8 +85,7 @@ describe('specrails_rails — create_rail + launch_all', () => {
       next()
     })
     app.use('/api/projects/p1/rails', createRailsRouter())
-    server = app.listen(0)
-    await new Promise<void>((resolve) => server.once('listening', resolve))
+    server = (await listenOnLoopback(app)).server
     const port = (server.address() as AddressInfo).port
 
     const project = { id: 'p1', slug: 's1', name: 'P1', path: '/repo', provider: 'claude', providers: ['claude'] }

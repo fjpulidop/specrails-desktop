@@ -401,11 +401,9 @@ async function req(
   body?: unknown,
 ): Promise<{ status: number; body: any }> {
   // Minimal in-process HTTP via supertest-free fetch against an ephemeral listen.
-  const server = app.listen(0)
-  const addr = server.address()
-  const port = typeof addr === 'object' && addr ? addr.port : 0
+  const fixture = await listenOnLoopback(app)
   try {
-    const res = await fetch(`http://127.0.0.1:${port}${path}`, {
+    const res = await fetch(`${fixture.baseUrl}${path}`, {
       method,
       // Each request owns a different ephemeral server. Never pool its socket
       // for a later test whose server may reuse the same port.
@@ -415,7 +413,7 @@ async function req(
     const text = await res.text()
     return { status: res.status, body: text ? JSON.parse(text) : null }
   } finally {
-    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+    await fixture.close()
   }
 }
 
@@ -751,6 +749,7 @@ vi.mock('./modules/execution/runtime/spawn-lifecycle', () => ({
 }))
 import { runAiCliInvocation } from './modules/execution/runtime/spawn-lifecycle'
 import { AgentChatManager as RealManager } from './modules/missions/runtime/agent-chat-manager'
+import { listenOnLoopback } from './loopback-test-server'
 
 describe('AgentChatManager', () => {
   let db: DbInstance

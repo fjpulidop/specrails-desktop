@@ -1052,7 +1052,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   // "PR ready" only means "not a draft": the CI decides whether it is mergeable.
   const ciLive = usePrCiStatus(envelope.projectId, envelope.prDeliveryId,
     (decision === 'pr_draft' || decision === 'pr_ready') && (!!prUrl || hasRepositoryDeliveries), envelope.updatedAt ?? null)
-  const ciShown: 'green' | 'red' | 'pending' | null = ciLive && (ciLive.state === 'green' || ciLive.state === 'red' || ciLive.state === 'pending')
+  // A merge conflict blocks the merge even with green checks: it always wins.
+  const ciShown: 'green' | 'red' | 'pending' | 'conflict' | null = ciLive && (ciLive.state === 'green' || ciLive.state === 'red' || ciLive.state === 'pending' || ciLive.state === 'conflict')
     ? ciLive.state
     : envelope.statusCode === 'ci_green' ? 'green' : envelope.statusCode === 'ci_needs_attention' ? 'red' : null
   const diagnosisHandlers: RemedyHandlers = {}
@@ -1339,6 +1340,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             ? t('prCard.title.partial')
             : envelope.statusCode === 'run_stopped'
                 ? t('prCard.title.run_stopped')
+            : ciShown === 'conflict'
+                ? t('prCard.title.ci_conflict')
             : ciShown === 'red'
                 ? t('prCard.title.ci_needs_attention')
             : ciShown === 'pending'
@@ -1493,8 +1496,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
     const overflow = <OverflowActions label={t('prCard.moreActions')} items={items} disabled={anyBusy} testId="agent-pr-more" />
     if (!canFixCi) return overflow
     // "Fix CI" is a visible button, never buried in the menu: the main action
-    // when the PR's CI is not green and nothing else leads the row.
-    const ciLeads = ciShown === 'red' && hasRepositoryDeliveries
+    // when the PR's CI is not green (or it has merge conflicts) and nothing else leads the row.
+    const ciLeads = (ciShown === 'red' || ciShown === 'conflict') && hasRepositoryDeliveries
     return (
       <>
         <button type="button" data-agent-interactive data-testid="agent-pr-fix-ci" title={t('prCi.fixCiTooltip')}
@@ -1724,7 +1727,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           className={cn('mt-2 flex items-start gap-1.5 text-xs leading-4', ciShown === 'green' ? 'text-accent-success' : ciShown === 'pending' ? 'text-accent-info' : 'text-accent-warning')}>
           {ciShown === 'green' ? <CheckCircle2 className="mt-px h-3 w-3 shrink-0" /> : ciShown === 'pending' ? <Loader2 className="mt-px h-3 w-3 shrink-0 animate-spin motion-reduce:animate-none" /> : <AlertTriangle className="mt-px h-3 w-3 shrink-0" />}
           <div className="min-w-0">
-            <p>{ciShown === 'green' ? t('prCard.ci.green') : ciShown === 'pending' ? t('prCard.ci.pending', { count: ciLive?.pending ?? 0 }) : t('prCard.ci.notGreen')}</p>
+            <p>{ciShown === 'green' ? t('prCard.ci.green') : ciShown === 'pending' ? t('prCard.ci.pending', { count: ciLive?.pending ?? 0 }) : ciShown === 'conflict' ? t('prCard.ci.conflict') : t('prCard.ci.notGreen')}</p>
             {ciShown === 'red' && ciLive?.failing.map((entry) => (
               <p key={entry.pr || 'pr'} data-testid="agent-pr-ci-failing" className="mt-0.5 break-words text-muted-foreground">
                 {t('prCard.ci.failing', { checks: entry.checks.join(', '), pr: entry.pr, context: entry.pr ? 'pr' : undefined })}

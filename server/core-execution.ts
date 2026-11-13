@@ -190,8 +190,17 @@ export function checkCoreCompletion(contextPath: string, cwd: string, env: NodeJ
     const stdout = execFileSync(resolveCoreNodeRuntime(), [helper, 'status', '--context', contextPath, ...(programmatic ? ['--compact'] : [])], {
       cwd, env, encoding: 'utf8', timeout: 15_000, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
     })
-    const payload = JSON.parse(stdout)
+    let payload: { state?: { status?: string }; pipeline?: unknown; engineVersion?: number }
+    try { payload = JSON.parse(stdout) }
+    catch { return { valid: false, reason: 'Core completion cannot be validated: pipeline status returned invalid JSON' } }
     if (programmatic && payload.state?.status !== 'succeeded') return { valid: false, reason: 'Programmatic workflow has not completed successfully' }
+    // Definition (engine v2) runs report completion without the legacy pipeline
+    // journal; their delivery is settled by the isolated settlement instead.
+    if (programmatic && (payload.pipeline === undefined || payload.pipeline === null)) {
+      return { valid: false, reason: payload.engineVersion === 2
+        ? 'Core completion cannot be validated here: this run uses the workflow engine (v2), whose delivery is prepared by its isolated settlement'
+        : 'Core completion cannot be validated: pipeline status has no pipeline journal' }
+    }
     const status = (programmatic ? payload.pipeline : payload) as {
       schemaVersion?: number; runId?: string; resumePhase?: string | null
       phases?: Record<string, { status?: string }>
@@ -223,7 +232,16 @@ export function checkCoreCompletion(contextPath: string, cwd: string, env: NodeJ
       reasons.push(...(status.verification?.reasons?.length ? status.verification.reasons : ['No valid full verification receipt']))
     }
     return reasons.length ? { valid: false, reason: `Core completion blocked: ${[...new Set(reasons)].join('; ')}` } : { valid: true }
-  } catch {
-    return { valid: false, reason: 'Core completion cannot be validated: pipeline status failed or returned invalid JSON' }
+  } catch (error) {
+    return { valid: false, reason: `Core completion cannot be validated: pipeline status failed (${statusFailureDetail(error)})` }
   }
+}
+
+/** First meaningful line of a failed status call, so the cause is diagnosable. */
+function statusFailureDetail(error: unknown): string {
+  const failure = error as { stderr?: unknown; message?: unknown; code?: unknown } | null
+  const stderr = typeof failure?.stderr === 'string' ? failure.stderr : Buffer.isBuffer(failure?.stderr) ? failure.stderr.toString('utf8') : ''
+  const line = stderr.split(/\r?\n/).map(text => text.trim()).find(text => text && !/ExperimentalWarning|--trace-warnings/.test(text))
+  const detail = line ?? (typeof failure?.message === 'string' ? failure.message.split('\n')[0] : typeof failure?.code === 'string' ? failure.code : 'unknown error')
+  return detail.length > 300 ? detail.slice(0, 300) + '…' : detail
 }

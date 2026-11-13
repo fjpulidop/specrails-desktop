@@ -335,6 +335,7 @@
       "flowSpecFailed": "Die Übergabe wurde angehalten",
       "flowSpecBuilding": "Dein Intent wird zu einem geprüften PR",
       "ci_green": "PR bereit — CI ist grün",
+      "ci_conflict": "PR hat ungelöste Merge-Konflikte",
       "ci_needs_attention": "PR gepusht — CI noch nicht grün",
       "ciBuilding": "CI des PR {{pr}} wird überwacht",
       "run_stopped": "Lauf gestoppt",
@@ -511,6 +512,7 @@
       "attention": "Die CI-Schleife hat angehalten, bevor die Checks grün wurden. Der PR behält alles, was gepusht wurde.",
       "pending": "Die CI läuft ({{count}} Checks ausstehend).",
       "notGreen": "Die CI des PR ist noch nicht grün.",
+      "conflict": "Der PR hat Merge-Konflikte mit dem Basis-Branch, obwohl die CI bestanden hat. Er kann erst nach deren Auflösung gemergt werden: Klicke auf „CI / Konflikte reparieren“.",
       "failing": "Fehlgeschlagene Checks: {{checks}}",
       "failing_pr": "{{pr}}: fehlgeschlagene Checks: {{checks}}"
     },
@@ -1525,7 +1527,7 @@
     "startFailed": "Die CI-Schleife konnte nicht starten.",
     "dismissFailed": "Deine Auswahl konnte nicht gespeichert werden. Versuche es erneut.",
     "startedToast": "CI-Überwachung auf Schiene {{index}} gestartet",
-    "fixCi": "CI reparieren",
+    "fixCi": "CI / Konflikte reparieren",
     "fixCiTooltip": "Auf die Checks warten, Fehler und Konflikte beheben und in diesen PR pushen, bis er grün ist",
     "step": {
       "checks": "Warte auf die CI",
@@ -1543,7 +1545,7 @@
     "noCiMany": "Die PRs {{pr}} haben keine CI-Checks",
     "needsAttentionMany": "PRs {{pr}} sind gepusht; ihre CI ist noch nicht grün",
     "dismissedMany": "CI-Überwachung für die PRs {{pr}} nicht gestartet.",
-    "retry": "CI erneut beheben",
+    "retry": "CI / Konflikte erneut beheben",
     "openLog": "Log anzeigen"
   }
 }

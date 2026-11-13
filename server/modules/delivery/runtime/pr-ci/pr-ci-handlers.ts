@@ -270,6 +270,9 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
     if (String(parsed.mergeable ?? '').toUpperCase() === 'CONFLICTING' || String(parsed.mergeStateStatus ?? '').toUpperCase() === 'DIRTY') {
       return { kind: 'conflict', mergeStateStatus: parsed.mergeStateStatus ?? null }
     }
+    // GitHub computes mergeability lazily: UNKNOWN right after a push or a base move.
+    // Keep polling so a green run never ends while a conflict is still being computed.
+    if (String(parsed.mergeable ?? '').toUpperCase() === 'UNKNOWN') return { kind: 'pending' }
     const remoteHead = typeof parsed.headRefOid === 'string' ? parsed.headRefOid.toLowerCase() : ''
     // GitHub may lag a push; a persistent difference means someone else pushed.
     if (remoteHead && remoteHead !== expected) return { kind: 'moved', headRefOid: remoteHead }

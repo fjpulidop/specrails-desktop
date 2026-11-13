@@ -273,7 +273,22 @@ and delivery operation claims fence competing retries. A restart must preserve
 the original terminal outbox and accounting; it must not manufacture a new run
 or infer acceptance from exit code alone.
 
+`runtime_settle` (`POST /agent-runtime/runs/:runId/settle`) on a completed
+definition run goes through the same `reattachIsolatedSettlement`
+(`settleCompletedDefinitionRun`, bound at the route composition root). It never
+uses the legacy `.specrails` pipeline journal check, which engine v2 runs do not
+have, and it never resumes the workflow or spends tokens.
+
 ### Linked definition forks
+
+A fork runs in its source's worktree. Core copies the source's active OpenSpec
+change to `<change>-fork-<digest>` and leaves the source's own directory in
+place, so after the fork archives its copy the source change would block the
+delivery hygiene gate ("new active changes"). Before committing, settlement
+calls `retireSupersededForkChanges` (`runtime/fork-change-supersession.ts`) with
+the run's fork chain: it removes only new (non-baseline), non-symlink active
+changes whose exact Core fork successor exists active or archived. The name
+derivation mirrors Core's `engine/fork.ts`; change both together.
 
 `runtime/definition-fork.ts` is the fork admission coordinator exposed to HTTP.
 Migration 68 records the request before Core publication, then adopts the child

@@ -228,7 +228,7 @@ export class AgentRuntimeControls {
   private statusCache = new Map<string, { fingerprint: string; state: RuntimeState }>()
   private disposed = false
   private collectingRetention = false
-  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery; control?: typeof runAgentRuntimeControl; reviewer?: (runId: string) => Promise<RunReviewDiagnosis | null> } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {
+  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery; control?: typeof runAgentRuntimeControl; reviewer?: (runId: string) => Promise<RunReviewDiagnosis | null> } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }, private options: { settleDefinition?: (runId: string) => Promise<void> } = {}) {
     // Startup recovery never blocks runtime controls; unrecovered entries stay in
     // quarantine, where they also block package collection until reviewed.
     try {
@@ -236,6 +236,9 @@ export class AgentRuntimeControls {
       for (const error of recovered.errors) console.warn('[agent-runtime] retention recovery kept quarantine:', error)
     } catch (error) { console.warn('[agent-runtime] retention recovery unavailable:', error instanceof Error ? error.message : error) }
   }
+
+  /** Bind the composition root's definition (engine v2) settlement port. */
+  useDefinitionSettlement(settle: (runId: string) => Promise<void>): void { this.options.settleDefinition = settle }
 
   retentionPolicy() { return readRuntimeRetentionPolicy(this.ctx.db) }
   configureRetention(input: unknown) {
@@ -624,7 +627,24 @@ export class AgentRuntimeControls {
   }
 
   async settle(runId: string): Promise<void> {
-    if (this.active.has(runId) || getLoopRun(this.ctx.db, runId)?.status !== 'completed') throw new RuntimeControlError(409, 'runtime_run_active', 'Wait for the execution to settle')
+    const run = getLoopRun(this.ctx.db, runId)
+    if (this.active.has(runId) || run?.status !== 'completed') throw new RuntimeControlError(409, 'runtime_run_active', 'Wait for the execution to settle')
+    // Definition (engine v2) runs own an isolated settlement; the legacy pipeline
+    // journal below does not exist for them and would always be rejected.
+    if (run.engine_version === 2) {
+      if (!this.options.settleDefinition) throw new RuntimeControlError(409, 'runtime_settlement_unavailable', 'Definition run settlement is not available in this context')
+      this.active.set(runId, { cancelled: false })
+      try {
+        await this.options.settleDefinition(runId)
+        this.errors.delete(runId)
+      } catch (error) {
+        throw new RuntimeControlError(409, 'runtime_settlement_blocked', error instanceof Error ? error.message : 'Could not prepare the recovered delivery')
+      } finally {
+        this.active.delete(runId); this.statusCache.delete(runId)
+        this.ctx.broadcast?.({ type: 'runtime.continuation', projectId: this.ctx.project.id, jobId: runId, railIndex: getLoopRun(this.ctx.db, runId)?.rail_index ?? null, active: false })
+      }
+      return
+    }
     const context = this.context(runId)
     this.active.set(runId, { cancelled: false })
     try {

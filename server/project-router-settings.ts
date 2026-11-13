@@ -44,10 +44,11 @@ import {
 import { installConfigPath } from './install-config-path'
 import { registerAgentRuntimeSettingsRoutes } from './modules/agent-runtime/runtime/agent-runtime-settings-router'
 import { registerAgentRuntimeControlRoutes } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
+import { settleCompletedDefinitionRun } from './project-router-loop-runs'
 
 export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
   registerAgentRuntimeSettingsRoutes(deps)
-  registerAgentRuntimeControlRoutes(deps)
+  registerAgentRuntimeControlRoutes(deps, { settleDefinition: settleCompletedDefinitionRun })
   const { router, registry, ctx } = deps
   // ─── Project settings (pipeline telemetry) ───────────────────────────────────
 
