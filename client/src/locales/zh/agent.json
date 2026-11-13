@@ -335,6 +335,7 @@
       "flowSpecFailed": "移交已停止",
       "flowSpecBuilding": "正在把你的 Intent 变成经过评审的 PR",
       "ci_green": "PR 已就绪 — CI 全部通过",
+      "ci_conflict": "PR 存在待解决的合并冲突",
       "ci_needs_attention": "PR 已推送 — CI 尚未通过",
       "ciBuilding": "正在监控 PR {{pr}} 的 CI",
       "run_stopped": "运行已停止",
@@ -511,6 +512,7 @@
       "attention": "CI 循环在检查通过之前停止了。PR 保留了已推送的全部内容。",
       "pending": "CI 正在运行（{{count}} 项检查待完成）。",
       "notGreen": "PR 的 CI 尚未通过。",
+      "conflict": "虽然 CI 已通过，但 PR 与基础分支存在合并冲突。解决之前无法合并：请点击“修复 CI / 冲突”。",
       "failing": "失败的检查：{{checks}}",
       "failing_pr": "{{pr}}：失败的检查：{{checks}}"
     },
@@ -1525,7 +1527,7 @@
     "startFailed": "无法启动 CI 循环。",
     "dismissFailed": "无法保存你的选择，请重试。",
     "startedToast": "已在轨道 {{index}} 上开始监控 CI",
-    "fixCi": "修复 CI",
+    "fixCi": "修复 CI / 冲突",
     "fixCiTooltip": "等待检查，修复失败和冲突，并推送到此 PR，直到全部通过",
     "step": {
       "checks": "正在等待 CI",
@@ -1543,7 +1545,7 @@
     "noCiMany": "PR {{pr}} 没有 CI 检查",
     "needsAttentionMany": "PR {{pr}} 已推送，但 CI 尚未通过",
     "dismissedMany": "未开始监控 PR {{pr}} 的 CI。",
-    "retry": "再次修复 CI",
+    "retry": "再次修复 CI / 冲突",
     "openLog": "查看日志"
   }
 }

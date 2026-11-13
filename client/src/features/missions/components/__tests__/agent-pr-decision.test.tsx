@@ -286,10 +286,28 @@ describe('AgentPrDecisionCard states', () => {
     } finally { global.fetch = original }
   })
 
+  it('a ready PR with merge conflicts says so even after a green CI loop, and leads with Fix CI / Conflicts', async () => {
+    const original = global.fetch
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/rails/pr-ci-status')
+      ? new Response(JSON.stringify({ prs: [{ repository: '', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, state: 'conflict', total: 3, pending: 0, failing: [] }] }), { status: 200 })
+      : String(input).includes('/rails/pr-ci-availability')
+        ? new Response(JSON.stringify({ available: true }), { status: 200 })
+        : new Response('{}', { status: 200 })) as typeof fetch
+    try {
+      render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', loopId: 'factory:pr-ci', statusCode: 'ci_green', deliveryOutcome: 'delivered', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x' })} />)
+      expect(await screen.findByText('PR has merge conflicts to resolve')).toBeInTheDocument()
+      const note = screen.getByTestId('agent-pr-ci-status')
+      expect(note).toHaveAttribute('data-state', 'conflict')
+      expect(note).toHaveTextContent('merge conflicts with the base branch, even though CI passed')
+      expect(screen.queryByText('PR ready — CI is green')).toBeNull()
+      expect(screen.queryByText('PR ready for merge')).toBeNull()
+    } finally { global.fetch = original }
+  })
+
   it('a blocked CI loop generation offers Fix CI again, never a delivery retry (pr-ci-loop)', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_failed', loopId: 'factory:pr-ci', statusCode: 'recovery_unavailable', deliveryOutcome: 'blocked', implementationOutcome: 'succeeded',
       statusDetail: 'The preserved branch diverges from the live PR head.', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'feat/x', runIds: ['r1'] })} />)
-    expect(screen.getByTestId('agent-pr-ci-again')).toHaveTextContent('Fix CI again')
+    expect(screen.getByTestId('agent-pr-ci-again')).toHaveTextContent('Fix CI / Conflicts again')
     expect(screen.queryByTestId('agent-pr-retry-delivery')).toBeNull()
   })
 

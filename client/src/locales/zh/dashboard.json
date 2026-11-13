@@ -182,7 +182,7 @@
     "relaunchSent": "正在重新启动轨道",
     "relaunchFailed": "无法重新启动轨道",
     "recheckRecoveryConfirmTechnical": "Specrails 将在此克隆中重新扫描属于 {{branch}} 交付的 worktree、分支、refs、reflogs 和孤立 Git 对象。如果能证明唯一结果，它可以提交隔离的更改并重试精确 push。不会触碰主项目文件夹。",
-    "fixCi": "修复 CI",
+    "fixCi": "修复 CI / 冲突",
     "fixCiTooltip": "等待检查，修复失败和冲突，并推送到此 PR，直到全部通过",
     "fixCiStarted": "已开始监控 CI",
     "fixCiFailed": "无法启动 CI 循环"

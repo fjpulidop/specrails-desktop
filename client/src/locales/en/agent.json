@@ -325,6 +325,7 @@
       "flowSpecFailed": "The hand-off stopped",
       "flowSpecBuilding": "Turning your Intent into a reviewed PR",
       "ci_green": "PR ready — CI is green",
+      "ci_conflict": "PR has merge conflicts to resolve",
       "ci_needs_attention": "PR pushed — waiting for CI to turn green",
       "ciBuilding": "Watching the CI of PR {{pr}}",
       "run_stopped": "Run stopped",
@@ -511,6 +512,7 @@
       "attention": "The CI loop stopped before the checks turned green. The PR keeps everything it pushed.",
       "pending": "CI is running ({{count}} checks pending).",
       "notGreen": "The pull request's CI is not green yet.",
+      "conflict": "The PR has merge conflicts with the base branch, even though CI passed. It cannot be merged until they are resolved: click “Fix CI / Conflicts”.",
       "failing": "Failing checks: {{checks}}",
       "failing_pr": "{{pr}}: failing checks: {{checks}}"
     },
@@ -1525,7 +1527,7 @@
     "startFailed": "The CI loop could not start.",
     "dismissFailed": "Could not save your choice. Try again.",
     "startedToast": "CI watch started on rail {{index}}",
-    "fixCi": "Fix CI",
+    "fixCi": "Fix CI / Conflicts",
     "fixCiTooltip": "Wait for the checks, fix failures and conflicts, and push to this PR until it is green",
     "step": {
       "checks": "Waiting for CI",
@@ -1543,7 +1545,7 @@
     "noCiMany": "PRs {{pr}} have no CI checks",
     "needsAttentionMany": "PRs {{pr}} are pushed; their CI is not green yet",
     "dismissedMany": "CI watch for PRs {{pr}} not started.",
-    "retry": "Fix CI again",
+    "retry": "Fix CI / Conflicts again",
     "openLog": "Open the log"
   }
 }

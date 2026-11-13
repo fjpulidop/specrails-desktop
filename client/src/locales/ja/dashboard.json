@@ -182,7 +182,7 @@
     "relaunchSent": "レールを再起動しています",
     "relaunchFailed": "レールを再起動できませんでした",
     "recheckRecoveryConfirmTechnical": "Specrails は、このクローンで {{branch}} の配信に属する worktree、ブランチ、refs、reflogs、孤立した Git オブジェクトを再スキャンします。結果を 1 つに特定できた場合、隔離された変更をコミットし、正確な push を再試行します。メインのプロジェクトフォルダーには触れません。",
-    "fixCi": "CI を修正",
+    "fixCi": "CI / コンフリクトを修正",
     "fixCiTooltip": "チェックを待ち、失敗とコンフリクトを修正して、グリーンになるまでこの PR にプッシュします",
     "fixCiStarted": "CI 監視を開始しました",
     "fixCiFailed": "CI ループを開始できませんでした"

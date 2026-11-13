@@ -335,6 +335,7 @@
       "flowSpecFailed": "引き渡しが停止しました",
       "flowSpecBuilding": "Intent をレビュー済みの PR にしています",
       "ci_green": "PR 準備完了 — CI はグリーン",
+      "ci_conflict": "PR に未解決のマージコンフリクトがあります",
       "ci_needs_attention": "PR はプッシュ済み — CI はまだグリーンではありません",
       "ciBuilding": "PR {{pr}} の CI を監視中",
       "run_stopped": "実行を停止しました",
@@ -511,6 +512,7 @@
       "attention": "チェックがグリーンになる前に CI ループが停止しました。PR にはプッシュ済みの内容がすべて残っています。",
       "pending": "CI を実行中です（保留中のチェック {{count}} 件）。",
       "notGreen": "PR の CI はまだグリーンではありません。",
+      "conflict": "CI は通過していますが、PR にベースブランチとのマージコンフリクトがあります。解決するまでマージできません:「CI / コンフリクトを修正」をクリックしてください。",
       "failing": "失敗したチェック: {{checks}}",
       "failing_pr": "{{pr}}: 失敗したチェック: {{checks}}"
     },
@@ -1525,7 +1527,7 @@
     "startFailed": "CI ループを開始できませんでした。",
     "dismissFailed": "選択を保存できませんでした。もう一度お試しください。",
     "startedToast": "レール {{index}} で CI 監視を開始しました",
-    "fixCi": "CI を修正",
+    "fixCi": "CI / コンフリクトを修正",
     "fixCiTooltip": "チェックを待ち、失敗とコンフリクトを修正して、グリーンになるまでこの PR にプッシュします",
     "step": {
       "checks": "CI を待機中",
@@ -1543,7 +1545,7 @@
     "noCiMany": "PR {{pr}} には CI チェックがありません",
     "needsAttentionMany": "PR {{pr}} はプッシュ済みですが、CI はまだグリーンではありません",
     "dismissedMany": "PR {{pr}} の CI 監視は開始されていません。",
-    "retry": "もう一度 CI を修正",
+    "retry": "もう一度 CI / コンフリクトを修正",
     "openLog": "ログを開く"
   }
 }
