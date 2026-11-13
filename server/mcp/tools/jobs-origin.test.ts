@@ -15,6 +15,7 @@ import { AGENT_CAPABILITY_HEADER } from '../../modules/missions/runtime/agent-ti
 import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-capability'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { listenOnLoopback } from '../../loopback-test-server'
 
 // ── Conversation-provider engine default on specrails_jobs(spawn) ─────────────
 //
@@ -56,8 +57,7 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
       ticketPath: () => '/unused',
     } as unknown as ProjectRoutesDeps)
     app.use('/api/projects', jobsRouter)
-    server = app.listen(0)
-    await new Promise<void>((resolve) => server.once('listening', resolve))
+    server = (await listenOnLoopback(app)).server
     const port = (server.address() as AddressInfo).port
 
     // The MCP side: real registerTieredTool over the real jobs tool spec.

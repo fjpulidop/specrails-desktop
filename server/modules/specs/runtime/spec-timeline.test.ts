@@ -16,6 +16,7 @@ import { buildHandoffModel, renderHandoff, parseHandoffFormat, parsePlanProvider
 import { registerSpecTimelineRoutes } from '../adapters/timeline-http'
 import { HANDOFF_LOCALES, handoffLabels, resolveHandoffLocale } from '../domain/handoff-labels'
 import { decodeCursor, pageTimeline, sortTimeline } from '../domain/timeline'
+import { listenOnLoopback } from '../../../loopback-test-server'
 
 // Fake credentials: these prove the export scrubs secrets. The file is on the
 // gitleaks allowlist (.gitleaks.toml) next to the other redaction tests.
@@ -345,8 +346,8 @@ describe('timeline and hand-off routes', () => {
     const router = express.Router()
     registerSpecTimelineRoutes(router, { ctx: () => ({ db: scopeDb, project: { path: dir } }), ticketPath: () => ticketFile })
     const app = express(); app.use('/api/projects', router)
-    const server = app.listen(0)
-    try { return await fn(`http://127.0.0.1:${(server.address() as AddressInfo).port}/api/projects/p1/tickets`) } finally { server.close() }
+    const fixture = await listenOnLoopback(app)
+    try { return await fn(`${fixture.baseUrl}/api/projects/p1/tickets`) } finally { await fixture.close() }
   }
 
   it('serves the paged timeline with counts and rejects malformed input', async () => {

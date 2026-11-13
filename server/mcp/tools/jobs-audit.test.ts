@@ -15,6 +15,7 @@ import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-ca
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { createProjectAgentAudit, type ProjectAgentAudit } from '../../modules/audit/adapters/runtime'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { listenOnLoopback } from '../../loopback-test-server'
 
 // specrails_jobs(audit) through the REAL jobs route + the mission MCP wrapper rows.
 describe('MCP specrails_jobs audit + mission wrapper rows', () => {
@@ -35,8 +36,7 @@ describe('MCP specrails_jobs audit + mission wrapper rows', () => {
     const router = express.Router()
     registerJobsRoutes({ router, registry: {} as ProjectRegistry, ctx: () => projectCtx, ticketPath: () => '/unused' } as unknown as ProjectRoutesDeps)
     app.use('/api/projects', router)
-    server = app.listen(0)
-    await new Promise<void>((resolve) => server.once('listening', resolve))
+    server = (await listenOnLoopback(app)).server
     const registry = { desktopDb, listContexts: () => [projectCtx], getContext: (id: string) => (id === 'p1' ? projectCtx : undefined) } as unknown as ProjectRegistry
     const ctx: McpToolContext = { registry, desktopDb, broadcast: () => {}, eventBus: new MobileEventBus(), desktopPort: (server.address() as AddressInfo).port }
     setActiveProject(null)
