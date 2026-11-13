@@ -50,6 +50,7 @@ const QUICK_SECONDS = 5
  * they are bookkeeping whatever follows them, and fold into "+N checks".
  */
 const BOOKKEEPING_STEPS = new Set([
+  'initialize-plan', 'plan-repair-budget', 'count-plan-repair',
   'initialize-corrections', 'tasks', 'developer-blocker', 'correction-context', 'capture-review',
   'correction-budget', 'begin-correction', 'correction-blocker', 'correction-progress',
   'review-policy', 'approval-policy',
