@@ -68,15 +68,27 @@ to the `blocked` outcome. The recipe maps `blocked` to the `host-blocked` /
 `host-blocked-archive` end nodes (`blockerFrom`), whose reason renders the structured
 blocker (`kind`, `reason`, `requiredAction`) and whose completion carries
 `completion.blocker` for the loop log. The fixer structured output accepts an optional
-`blocker`; the `correction-blocker` condition routes it to `fixer-blocked` before the
-candidate-hash progress check, so an intentionally unchanged candidate is no longer
-reported as `correction-stalled`. Developer and fixer turns receive
+`blocker`; the `correction-blocker` condition routes it before the candidate-hash
+progress check, so an intentionally unchanged candidate is no longer reported as
+`correction-stalled`. As for the developer (`developer-blocker-kind`),
+`fixer-blocker-kind` ends at `fixer-blocked` only for what the person must provide
+(`credential`, `network`, `environment-variable`); any other fixer blocker goes to
+`verify`, so a stale or unreproduced one cannot end the run without the host's own check. Developer and fixer turns receive
 `verificationProposalsFrom: 'architect'` so write roles see the complete host plan.
-A failed `validate` (OpenSpec validation or archive preflight) sends the architect back
+A failed `validate` (OpenSpec validation or archive preflight) or a `freeze` the artifact
+contract refuses (for example tasks that edit frozen artifacts) sends the architect back
 only within `PLAN_REPAIR_LIMIT` = 2 repairs (`plan-repair-budget` / `count-plan-repair`);
 a failure planning cannot repair, such as a legacy main spec without `## Purpose` /
 `## Requirements` (main specs are read-only to the plan role), ends at `plan-invalid`
-instead of re-planning until `maxIterations`.
+instead of re-planning until `maxIterations`. The architect prompt also keeps tasks to
+repository work (proposal, design and specs freeze before implementation) and turns a
+need only the person can meet into a low-confidence question, never an invented gate. It also ties each acceptance criterion to the check that proves it (host verification runs
+proposals outside the role sandbox, so it can use Docker when the environment facts say the host
+reaches it), and the reviewer judges criteria by that evidence. With Core's `verificationSummary: 1`
+(and host blockers) a `baseline` verify node runs the host checks on the unchanged code before the
+developer: a broken setup or host precondition ends at `host-blocked-baseline` before any AI spend,
+and `{{outputs.baseline.summary}}` tells the developer, fixer and reviewer which failures predate
+the change.
 `configurableImplementGraph(capabilities)` omits `hostBlockers`, `setup`, `blockerFrom`
 and the `blocked` edges on an older Core; `effectivePieceOutcomes` in `loop-graph.ts`
 (and the client `effectiveOutcomes`) advertise `blocked` for `verify` only with the flag.

@@ -4,6 +4,7 @@ import {
   Check, CircleHelp, Copy, FilePenLine, Gauge, OctagonAlert, Play, RotateCcw, ScrollText, TimerOff, Unplug, Wrench, XCircle, type LucideIcon,
 } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
 import { cn } from '../../../lib/utils'
 import {
   availableRemedies, headlineKey, humanizePhase, whyKey,
@@ -150,6 +151,9 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], classN
       )}
 
       {envOpen && diagnosis.kind === 'environment' && <EnvironmentPanel diagnosis={diagnosis} />}
+
+      {/* A remedy the host can apply itself (a venv for a pinned Python), where the cause can be the interpreter. */}
+      {(diagnosis.kind === 'environment' || diagnosis.kind === 'tests_failed') && <EnvironmentPlanOffer />}
 
       {remedies.length > 0 && (
         <div role="group" aria-label={t('remedies.label')} className="flex flex-wrap items-center gap-1.5">

@@ -41,6 +41,8 @@
     "count-plan-repair": "計画の修復を開始",
     "developer": "実装",
     "developer-blocker": "ブロッカーを確認",
+    "developer-blocker-kind": "ブロッカーを解消できる人を確認",
+    "fixer-blocker-kind": "ブロッカーを解消できる人を確認",
     "tasks": "タスクを順に実行",
     "verify": "検証",
     "review": "レビュー",
@@ -55,7 +57,8 @@
     "correction-blocker": "ブロッカーを確認",
     "correction-progress": "修正の進捗を追跡",
     "approval-policy": "承認の判断を適用",
-    "verify-archive": "アーカイブした変更を検証"
+    "verify-archive": "アーカイブした変更を検証",
+    "baseline": "変更前のコードを検証"
   },
   "decision": {
     "another": "まだ未達 — もう一周",

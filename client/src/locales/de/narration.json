@@ -41,6 +41,8 @@
     "count-plan-repair": "Planreparatur starten",
     "developer": "Umsetzen",
     "developer-blocker": "Blocker prüfen",
+    "developer-blocker-kind": "Prüfen, wer die Blockade lösen kann",
+    "fixer-blocker-kind": "Prüfen, wer die Blockade lösen kann",
     "tasks": "Aufgaben abarbeiten",
     "verify": "Verifizieren",
     "review": "Prüfen",
@@ -55,7 +57,8 @@
     "correction-blocker": "Auf Blocker prüfen",
     "correction-progress": "Fortschritt der Korrekturen verfolgen",
     "approval-policy": "Freigabeentscheidung anwenden",
-    "verify-archive": "Archivierte Änderung prüfen"
+    "verify-archive": "Archivierte Änderung prüfen",
+    "baseline": "Code vor den Änderungen prüfen"
   },
   "decision": {
     "another": "Noch nicht fertig — nächste Runde",

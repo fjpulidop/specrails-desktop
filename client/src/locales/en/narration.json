@@ -41,6 +41,8 @@
     "count-plan-repair": "Start a plan repair",
     "developer": "Implement",
     "developer-blocker": "Check for blockers",
+    "developer-blocker-kind": "Check who can clear the blocker",
+    "fixer-blocker-kind": "Check who can clear the blocker",
     "tasks": "Work through tasks",
     "verify": "Verify",
     "review": "Review",
@@ -55,7 +57,8 @@
     "correction-blocker": "Check for blockers",
     "correction-progress": "Track fix progress",
     "approval-policy": "Apply the approval decision",
-    "verify-archive": "Verify the archived change"
+    "verify-archive": "Verify the archived change",
+    "baseline": "Check the code before changes"
   },
   "decision": {
     "another": "Not done yet — going round again",

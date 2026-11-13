@@ -67,5 +67,11 @@
   "logs": {
     "notFound": "Noch kein Protokoll zum Anzeigen"
   },
-  "technicalDetails": "Technische Details"
+  "technicalDetails": "Technische Details",
+  "environmentPlan": {
+    "offer": "{{repository}} legt Python {{version}} fest, seine Prüfungen laufen aber eventuell mit einem neueren System-Python. Eine virtuelle Umgebung mit Python {{version}} passt sie an das Projekt an.",
+    "apply": "Ein Python-{{version}}-venv für Prüfungen verwenden",
+    "saved": "In den Projekteinstellungen gespeichert. Der nächste Start erstellt das venv vor seinen Prüfungen.",
+    "failed": "Die Einstellungen konnten nicht gespeichert werden. Öffne die Projekteinstellungen, um sie anzupassen."
+  }
 }

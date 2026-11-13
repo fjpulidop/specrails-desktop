@@ -41,6 +41,8 @@
     "count-plan-repair": "Iniciar una reparación del plan",
     "developer": "Implementar",
     "developer-blocker": "Buscar bloqueos",
+    "developer-blocker-kind": "Comprobar quién puede resolver el bloqueo",
+    "fixer-blocker-kind": "Comprobar quién puede resolver el bloqueo",
     "tasks": "Recorrer las tareas",
     "verify": "Verificar",
     "review": "Revisar",
@@ -55,7 +57,8 @@
     "correction-blocker": "Buscar bloqueos",
     "correction-progress": "Seguir el avance de las correcciones",
     "approval-policy": "Aplicar la decisión de aprobación",
-    "verify-archive": "Verificar el cambio archivado"
+    "verify-archive": "Verificar el cambio archivado",
+    "baseline": "Comprobar el código antes de los cambios"
   },
   "decision": {
     "another": "Aún no está — otra vuelta",

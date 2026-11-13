@@ -108,6 +108,11 @@
     "newTicketsAdded_other": "{{count}} nouvelles specs ajoutées depuis la product discovery"
   },
   "addenda": {
+    "lint": {
+      "edits_planning_artifacts": "Demande à une exécution de modifier les specs principales ou des artefacts de planification, ce qu’aucun rôle ne peut faire. Décrivez plutôt le résultat.",
+      "workflow_gate": "Ajoute une barrière qu’aucune étape du workflow n’exécute. Indiquez le résultat ou le critère d’acceptation, ou configurez-la comme commande de vérification.",
+      "host_access": "Demande à une exécution d’obtenir un accès à l’hôte (comme Docker). Rendez-le disponible avant le lancement, ou configurez une commande de vérification qui l’utilise."
+    },
     "title": "Addenda",
     "hint": "Notes d'itération posées sur la spec. Elles accompagnent le prochain lancement sans modifier la description.",
     "add": "Ajouter un addendum",

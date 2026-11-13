@@ -1,4 +1,4 @@
-import { suggestVerificationCommands } from './agent-runtime-verification-suggestions'
+import { pythonEnvironmentPlan, suggestVerificationCommands } from './agent-runtime-verification-suggestions'
 import { writeRuntimeHistory } from './agent-runtime-history'
 import { toolRepositories, type RuntimeLogRepository } from './agent-runtime-repositories'
 import { createVerificationLogProjection } from './agent-runtime-verification-log'
@@ -60,9 +60,18 @@ export function scopedHostChecks<T extends { repositoryId: string; cwd?: string 
 
 /** Discover only checks belonging to the admitted worktrees. Explicit host
  * checks win; inferred commands are frozen per run, never saved to project settings. */
-function completeHostChecks(config: RuntimeConfig, repositories: Array<RuntimeLogRepository & { scope?: string[] }>): void {
+function completeHostChecks(config: RuntimeConfig, repositories: Array<RuntimeLogRepository & { scope?: string[] }>, setupSupported = false): void {
   for (const repository of repositories) {
     if (config.verification.some(check => check.repositoryId === repository.id) || !repository.path) continue
+    // A Python project pinning an interpreter (its image, a version file) runs its checks in a
+    // venv built from that interpreter, not on a newer system python3 that may refuse installs.
+    const python = setupSupported && !repository.scope?.length && !config.setup?.some(command => command.repositoryId === repository.id)
+      ? pythonEnvironmentPlan({ id: repository.id, path: repository.path }) : null
+    if (python) {
+      config.setup = [...(config.setup ?? []), ...python.setup]
+      config.verification.push(...python.verification)
+      continue
+    }
     const workspacePaths = (repository.scope?.length ? repository.scope.map(scope => resolve(repository.path!, scope)) : [repository.path]).filter(workspace => existsSync(workspace))
     const root = realpathSync(repository.path)
     for (const workspace of workspacePaths) {
@@ -236,7 +245,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       repositoryIds: admittedContext.repositories.map(repo => repo.id), source: options.loopConfig ? 'loop-role' : source, providerOverride: options.loopConfig ? undefined : options.providerOverride,
     })
     config.verification = scopedHostChecks(config.verification, admittedContext.repositories)
-    if (definitionEngine) completeHostChecks(config, admittedContext.repositories)
+    if (definitionEngine) completeHostChecks(config, admittedContext.repositories, coreSupportsSetupCommands((await loadCoreAgentRuntime()).api?.capabilities))
     if (!loopConfig) config.rolePrompts = { ...effectiveRolePrompts, ...config.rolePrompts }
     // Core rejects unknown connection keys: drop the desktop-only local-engine
     // fields (label/defaultModel/rates/supportsReasoningEffort) before Core sees it.
@@ -392,7 +401,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         if (result) invalidProtocol = true
         result = event as unknown as RuntimeResult
       } else if (event.type === 'workflow-event') {
-        const payload = event.event as { type?: string; stepId?: string; nodePath?: string; scopeId?: string; message?: string; outcome?: string; reasons?: unknown; error?: { message?: string } }
+        const payload = event.event as { type?: string; stepId?: string; nodePath?: string; scopeId?: string; message?: string; outcome?: string; reason?: unknown; reasons?: unknown; error?: { message?: string } }
         const kind = payload?.type === 'step_succeeded' && payload.outcome === 'fail' ? 'verification_failed' : payload?.type
         const completionDetail = payload?.type === 'workflow_failed' && Array.isArray(payload.reasons)
           ? payload.reasons.filter(reason => typeof reason === 'string' && reason.trim()).join('; ').slice(0, 4_000) : undefined
@@ -403,7 +412,10 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
           stepFailures.delete(stepKey)
           stepFailures.set(stepKey, detail.trim().slice(0, 4_000))
         } else if (payload?.type === 'step_succeeded') stepFailures.delete(stepKey)
-        if (kind) observe(() => options.onLine?.(`[runtime] ${kind}${payload.stepId ? ': ' + payload.stepId : ''}${detail ? ' — ' + detail : ''}\n`))
+        // Core (paired) names why a check sent the run back; show it under the failed step.
+        const failReason = kind === 'verification_failed' && typeof payload.reason === 'string' && payload.reason.trim()
+          ? payload.reason.trim().slice(0, 4_000).split('\n').map(line => '  ' + line.trimEnd()).join('\n') + '\n' : ''
+        if (kind) observe(() => options.onLine?.(`[runtime] ${kind}${payload.stepId ? ': ' + payload.stepId : ''}${detail ? ' — ' + detail : ''}\n${failReason}`))
       } else if (event.type === 'agent-event') {
         const payload = event.event as { kind?: string; text?: string; tool?: string; detail?: string }
         const role = typeof event.role === 'string' ? event.role : 'agent'

@@ -173,6 +173,21 @@ Launch again IS the decision. A revision naming it gets 409
 undecided delivery still answers `pr_decision_pending`; same-spec addenda can
 continue the existing generation.
 
+## Lint (advisory)
+
+`lintSpecAddendum` (in the shared `spec-addenda-core`) flags what no run can do, because an
+addendum is part of the definition of done and the planner would turn it into an impossible gate:
+
+- `edits_planning_artifacts`: an edit to OpenSpec main specs or planning artifacts (a negated
+  "do not modify …" is fine);
+- `workflow_gate`: a gate or prerequisite no workflow step runs (for example a "combined base/change
+  validation");
+- `host_access`: host access a run cannot obtain (for example access to the Docker daemon).
+
+It never blocks saving. `POST`/`PATCH …/addenda` return `warnings` (the MCP `add_addendum` hint
+asks the agent to rewrite with `update_addendum`), and `SpecAddendaSection` shows them on open
+addenda (`tickets:addenda.lint.*`).
+
 ## Guarantees
 
 - Nothing on the addenda path writes `title`, `description`, criteria, metadata

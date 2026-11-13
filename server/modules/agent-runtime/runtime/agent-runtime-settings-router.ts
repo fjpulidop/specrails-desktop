@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { loadCoreAgentRuntime, findCoreAgentRuntimeEntry, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { AgentRuntimeConfigError, agentRuntimeConfigPath, loadAgentRuntimeConfig, saveAgentRuntimeConfig, validateAgentRuntimeConfig, loadRuntimeProviders, coreConnectionFieldGates } from './agent-runtime-settings'
 import { stripDesktopConnectionFields, forCoreRuntime } from './agent-runtime-settings'
-import { suggestVerificationCommands, type VerificationSuggestion } from './agent-runtime-verification-suggestions'
+import { environmentPlanApplied, mergeEnvironmentPlan, pythonEnvironmentPlan, suggestVerificationCommands, type VerificationSuggestion } from './agent-runtime-verification-suggestions'
 import { corePhase3Capabilities } from './core-capabilities'
 import { readProjectRulesInventory } from '../../project-rules/runtime/rules-store'
 import { gateToVerificationCommand, type ProjectRulesInventory } from '../../project-rules/domain'
@@ -94,6 +94,33 @@ export function registerAgentRuntimeSettingsRoutes({ router, ctx }: Pick<Project
       res.json({ repositories: repositories.map(({ id, name }) => ({ id, name })), suggestions: [...gates, ...detected.filter((item) => !seen.has(key(item)))] })
     } catch {
       res.status(500).json({ error: 'verification_suggestions_failed', message: 'Could not inspect the project repositories' })
+    }
+  })
+  /** Environment remedies: per repository, the venv setup and checks its pinned interpreter calls for (offline). */
+  const environmentPlans = (project: Parameters<typeof getProjectRepositories>[0]) => getProjectRepositories(project)
+    .filter((repository) => !repository.workspacePaths?.length && !repository.workspacePath)
+    .flatMap((repository) => { const plan = pythonEnvironmentPlan({ id: repository.id, path: repository.path }); return plan ? [{ repositoryId: repository.id, name: repository.name, plan }] : [] })
+  router.get('/:projectId/agent-runtime/environment-plan', (req, res) => {
+    try {
+      const project = ctx(req).project
+      const config = loadAgentRuntimeConfig(project)
+      res.json({ plans: environmentPlans(project).map(({ repositoryId, name, plan }) => ({ repositoryId, name, ...plan, applied: config ? environmentPlanApplied(config, plan) : false })) })
+    } catch { res.status(500).json({ error: 'environment_plan_failed', message: 'Could not inspect the project repositories' }) }
+  })
+  /** Applies one repository's plan to the project settings (read-modify-write, same validation as a save). */
+  router.post('/:projectId/agent-runtime/environment-plan/apply', (req, res) => {
+    try {
+      const project = ctx(req).project
+      const repositoryId = typeof req.body?.repositoryId === 'string' ? req.body.repositoryId : ''
+      const entry = environmentPlans(project).find((item) => item.repositoryId === repositoryId)
+      if (!entry) { res.status(404).json({ error: 'environment_plan_unavailable', message: 'No environment plan applies to this repository' }); return }
+      const config = loadAgentRuntimeConfig(project)
+      if (!config) { res.status(409).json({ error: 'runtime_not_configured', message: 'Configure the agent runtime in Project settings first' }); return }
+      const saved = saveAgentRuntimeConfig(project, mergeEnvironmentPlan(config, entry.plan))
+      res.json({ applied: true, config: withSetupList(saved) })
+    } catch (err) {
+      const validation = err instanceof AgentRuntimeConfigError
+      res.status(validation ? 400 : 500).json({ error: validation ? 'invalid_runtime_config' : 'runtime_config_write_failed', message: validation ? err.message : 'Could not save runtime configuration' })
     }
   })
   router.post('/:projectId/agent-runtime/capabilities', async (req, res) => {

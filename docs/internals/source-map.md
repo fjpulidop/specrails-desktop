@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1379 source/build files. Nearby tests are linked where names
+Includes 1380 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -764,6 +764,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/recovery/components
 
+- [EnvironmentPlanOffer.tsx](../../client/src/features/recovery/components/EnvironmentPlanOffer.tsx)
 - [FailureDiagnosisCard.tsx](../../client/src/features/recovery/components/FailureDiagnosisCard.tsx)
 
 ## client/src/features/recovery/hooks

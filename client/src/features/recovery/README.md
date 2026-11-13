@@ -52,3 +52,9 @@ server-ranked `remedies`.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/recovery`.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+`EnvironmentPlanOffer` (inside the card for `environment` and `tests_failed`) asks the
+server for an environment plan (`GET /agent-runtime/environment-plan`): a repository that
+pins a Python version gets a venv built from it for setup and checks. **Use a Python X.Y
+venv for checks** saves it to the project settings (`POST …/apply`, read-modify-write with
+the ordinary validation); nothing is offered once the settings carry it.

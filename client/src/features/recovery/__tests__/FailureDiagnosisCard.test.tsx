@@ -99,3 +99,35 @@ describe('FailureDiagnosisCard', () => {
     expect(screen.getByTestId('failure-headline')).toHaveTextContent(headline)
   })
 })
+
+describe('FailureDiagnosisCard: environment plan remedy', () => {
+  it('offers the pinned-Python venv the host detected and saves it to the project settings', async () => {
+    const { setActiveProjectId } = await import('../../../lib/api')
+    setActiveProjectId('p1')
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/agent-runtime/environment-plan')) return new Response(JSON.stringify({ plans: [{ repositoryId: 'repo', name: 'deckdex', version: '3.11', reason: 'backend/Dockerfile', applied: false }] }), { status: 200 })
+      if (url.endsWith('/agent-runtime/environment-plan/apply') && init?.method === 'POST') return new Response(JSON.stringify({ applied: true }), { status: 200 })
+      return new Response('{}', { status: 404 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      render(<FailureDiagnosisCard diagnosis={diagnosis()} handlers={handlers()} />)
+      const offer = await screen.findByTestId('failure-environment-plan')
+      expect(offer).toHaveTextContent('deckdex pins Python 3.11')
+      await userEvent.click(within(offer).getByTestId('failure-environment-plan-apply'))
+      expect(await within(offer).findByRole('status')).toHaveTextContent('Saved to the project settings')
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/projects/p1/agent-runtime/environment-plan/apply'), expect.objectContaining({ method: 'POST', body: JSON.stringify({ repositoryId: 'repo' }) }))
+    } finally { vi.unstubAllGlobals(); setActiveProjectId(null) }
+  })
+
+  it('offers nothing when the plan is already in the settings', async () => {
+    const { setActiveProjectId } = await import('../../../lib/api')
+    setActiveProjectId('p1')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ plans: [{ repositoryId: 'repo', name: 'deckdex', version: '3.11', reason: '', applied: true }] }), { status: 200 })))
+    try {
+      render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'environment' })} handlers={handlers()} />)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(screen.queryByTestId('failure-environment-plan')).toBeNull()
+    } finally { vi.unstubAllGlobals(); setActiveProjectId(null) }
+  })
+})

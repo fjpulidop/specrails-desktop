@@ -291,6 +291,7 @@
         "node:util"
       ],
       "runtime/agent-runtime-verification-suggestions.ts": [
+        "node:child_process",
         "node:fs",
         "node:path"
       ],

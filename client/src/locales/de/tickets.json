@@ -108,6 +108,11 @@
     "newTicketsAdded_other": "{{count}} neue Specs aus der Produkt-Discovery hinzugefügt"
   },
   "addenda": {
+    "lint": {
+      "edits_planning_artifacts": "Verlangt, dass ein Lauf Haupt-Specs oder Planungsartefakte bearbeitet, was keine Rolle kann. Beschreibe stattdessen das Ergebnis.",
+      "workflow_gate": "Fügt ein Gate hinzu, das kein Workflow-Schritt ausführt. Nenne das Ergebnis oder Abnahmekriterium oder richte es als Verifizierungsbefehl ein.",
+      "host_access": "Verlangt, dass ein Lauf Host-Zugriff (etwa Docker) beschafft. Stelle ihn vor dem Start bereit oder richte einen Verifizierungsbefehl ein, der ihn nutzt."
+    },
     "title": "Addenda",
     "hint": "Iterationsnotizen über der Spec. Sie reisen mit dem nächsten Start mit, ohne die Beschreibung zu ändern.",
     "add": "Addendum hinzufügen",
