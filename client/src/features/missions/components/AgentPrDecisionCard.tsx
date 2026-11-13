@@ -1618,7 +1618,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       </div>
 
       <RepositoryDeliveries deliveryId={envelope.prDeliveryId} repositories={envelope.repositoryDeliveries}
-        busy={!!busy || checkingOut || !!envelope.operation} onAct={act} onCheckout={checkoutPrBranch} ciStates={ciLive?.byPrUrl} />
+        busy={!!busy || checkingOut || !!envelope.operation} onAct={act} onCheckout={checkoutPrBranch} ciStates={ciLive?.byPrUrl}
+        settled={presentation.terminal} />
 
       {/* Reviewer risk brief: the single top risk (absent without a brief). */}
       <TopRiskLine summary={envelope.riskSummary} className="mt-2" />

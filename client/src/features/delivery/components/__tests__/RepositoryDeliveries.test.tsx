@@ -24,6 +24,16 @@ describe('grouped repository delivery controls', () => {
     expect(onAct).toHaveBeenCalledWith('create-pr', 'api')
   })
 
+  it('a settled parent (superseded by a newer run) keeps its failed rows read-only', () => {
+    const onAct = vi.fn().mockResolvedValue({ ok: true })
+    const failed = member('desktop', { decision: 'implementation_failed', implementationOutcome: 'failed', deliveryOutcome: 'blocked' })
+    const { unmount } = render(<RepositoryDeliveries deliveryId="parent" repositories={[failed]} busy={false} onAct={onAct} />)
+    expect(within(screen.getByRole('region', { name: 'desktop' })).getByRole('button', { name: /retry/i })).toBeInTheDocument()
+    unmount()
+    render(<RepositoryDeliveries deliveryId="parent" repositories={[failed]} busy={false} onAct={onAct} settled />)
+    expect(within(screen.getByRole('region', { name: 'desktop' })).queryByRole('button')).toBeNull()
+  })
+
   it('keeps repository identity for checkout and PR creation while an accepted member stays read-only', () => {
     const onAct = vi.fn().mockResolvedValue({ ok: true }); const onCheckout = vi.fn().mockResolvedValue({ ok: true })
     render(<RepositoryDeliveries deliveryId="parent" repositories={[member('web', { decision: 'merged' }), member('api')]} busy={false} onAct={onAct} onCheckout={onCheckout} />)
