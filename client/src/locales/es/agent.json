@@ -1409,6 +1409,7 @@
       "proposed": "Lanzamiento propuesto. Te espera",
       "backToFlow": "De vuelta a Intent",
       "flowReturned": "{{run}} devolvió el trabajo a Intent",
+      "stopped": "{{run}} se detuvo",
       "delivered": "Entregado: PR {{pr}}",
       "deliveredNoPr": "Entregado en {{run}}",
       "superseded": "{{run}} fue sustituido por una ejecución más reciente",

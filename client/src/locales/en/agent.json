@@ -1409,6 +1409,7 @@
       "proposed": "Launch proposed. Waiting for you",
       "backToFlow": "Back to Intent",
       "flowReturned": "{{run}} sent the work back to Intent",
+      "stopped": "{{run}} was stopped",
       "delivered": "Delivered: PR {{pr}}",
       "deliveredNoPr": "Delivered on {{run}}",
       "superseded": "{{run}} was superseded by a newer run",

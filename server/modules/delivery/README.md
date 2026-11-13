@@ -273,6 +273,14 @@ and delivery operation claims fence competing retries. A restart must preserve
 the original terminal outbox and accounting; it must not manufacture a new run
 or infer acceptance from exit code alone.
 
+A run the person stopped settles as `run_stopped` (decision
+`implementation_failed`) on both paths, including a Stop after a server restart
+(Core reports `cancelled`, the reattachment settles it). `isStoppedByPerson`
+owns the rule: every run stopped and none succeeded, no existing PR, and never
+for a `factory:pr-ci` generation. The kept worktree's branch records carry
+`run_stopped` instead of `settlement_interrupted`. A multi-repository parent is
+`run_stopped` only when every failed child is.
+
 `runtime_settle` (`POST /agent-runtime/runs/:runId/settle`) on a completed
 definition run goes through the same `reattachIsolatedSettlement`
 (`settleCompletedDefinitionRun`, bound at the route composition root). It never

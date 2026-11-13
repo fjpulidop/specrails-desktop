@@ -82,6 +82,8 @@
     "prReady": "PR lista",
     "implementationFailed": "Implementación fallida",
     "implementationFailedHint": "La ejecución de implementación ha fallado. Abre el log de la ejecución y descarta esta card antes de relanzar.",
+    "runStopped": "Detenida",
+    "runStoppedHint": "Detuviste esta ejecución antes de que entregara nada. Relánzala cuando quieras continuar o descarta esta tarjeta.",
     "prFailed": "PR fallida",
     "prFailedDetail": "PR fallida",
     "createDegraded": "No se pudo publicar la PR — {{detail}}. Reintenta cuando esté resuelto.",

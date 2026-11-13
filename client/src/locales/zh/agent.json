@@ -1409,6 +1409,7 @@
       "proposed": "已提议启动。等待你处理",
       "backToFlow": "回到 Intent",
       "flowReturned": "{{run}} 已把工作退回 Intent",
+      "stopped": "{{run}} 已停止",
       "delivered": "已交付：PR {{pr}}",
       "deliveredNoPr": "已在 {{run}} 上交付",
       "superseded": "{{run}} 已被更新的运行取代",

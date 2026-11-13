@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ChevronDown, ChevronRight, MessageSquareWarning, Sparkles } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, CircleStop, MessageSquareWarning, Sparkles } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { focusPrCard, type RunFailureRow } from './agent-run-failure'
 import { AgentContextInlineTokens } from './AgentMessage'
@@ -25,9 +25,25 @@ export function AgentRunFailureMarker({ row, conversationId = null, envelope = n
   const { describeRun } = useMissionExtensions()
   // Intent → Spec still needs changes: a review outcome, not a crash.
   const changes = row.code === 'review_changes_requested'
+  // The person stopped the run (`cancelled` for a shared-cwd run card): a stop, not a failure.
+  const stopped = row.code === 'cancelled' || row.code === 'run_stopped'
   const rail = envelope?.railName || t('prCard.rail', { index: row.railIndex + 1 })
-  const described = changes ? null : describeRun?.(t, { loopId: envelope?.loopId ?? null, stepId: row.stepId, codes: [row.code] })?.failure ?? null
+  const described = changes || stopped ? null : describeRun?.(t, { loopId: envelope?.loopId ?? null, stepId: row.stepId, codes: [row.code] })?.failure ?? null
   const reason = described ?? (t(`runStrip.failed.${row.code}`, { defaultValue: '' }) || t('runStrip.failed.generic'))
+  if (stopped) {
+    return (
+      <AgentRunEventLine
+        icon={CircleStop}
+        tone="neutral"
+        testId="agent-run-failure-marker"
+        attributes={{ 'data-code': row.code }}
+        actionLabel={t('runStrip.event.openRun')}
+        onActivate={() => focusPrCard({ prDeliveryId: row.prDeliveryId ?? null, runIds: [row.runId], conversationId })}
+      >
+        {t('runStrip.event.stopped', { run: rail })}
+      </AgentRunEventLine>
+    )
+  }
   return (
     <AgentRunEventLine
       icon={changes ? MessageSquareWarning : AlertTriangle}

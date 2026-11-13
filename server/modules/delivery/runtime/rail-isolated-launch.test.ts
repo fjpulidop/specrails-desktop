@@ -4013,6 +4013,21 @@ describe('launchIsolatedRail — review-packet evidence (spec snapshot + settle 
       units: [{ sentinel: 'fail', sentinelDetail: 'lint broke' }],
     })
   })
+  it.each([
+    ['stopped', 'factory:implement', 'run_stopped'],
+    ['failure', 'factory:implement', 'implementation_failed'],
+  ] as const)('a run whose durable outcome is %s on %s settles as %s', async (finalOutcome, loopId, statusCode) => {
+    let seededDb: ReturnType<typeof fakeCtx>['db'] | null = null
+    const { ctx, db } = fakeCtx((req) => {
+      createLoopRun(seededDb!, { id: req.runId, projectId: 'proj', loopId, iterationLimit: 3, startedAt: new Date().toISOString() })
+      seededDb!.prepare("UPDATE loop_runs SET status = 'completed', final_outcome = ? WHERE id = ?").run(finalOutcome, req.runId)
+      return settlingRun(finalOutcome)(req)
+    })
+    seededDb = db
+    await launchIsolatedRail({ ...input([1], ctx), loopId }, okIo())
+    await vi.waitFor(() => expect(getPrDelivery(db, getActivePrDeliveryByRail(db, 0)?.id ?? '')?.decision ?? '').toBe('implementation_failed'))
+    expect(getActivePrDeliveryByRail(db, 0)!.status_code).toBe(statusCode)
+  })
   it('an Intent session → Spec run that stopped with a rejected review settles as review_changes_requested, not an opaque failure', async () => {
     const { ctx, db } = fakeCtx(settlingRun('failed'))
     const harvestEvidence = vi.fn(() => ({

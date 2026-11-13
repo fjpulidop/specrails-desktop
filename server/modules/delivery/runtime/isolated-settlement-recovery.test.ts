@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -11,7 +11,7 @@ import { createLoopRun, saveDefinitionRun, finishLoopRunAndJob } from '../../loo
 import type { LoopRunRequest } from '../../loops/runtime/loop-run-manager'
 import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-recovery'
 import { saveIsolatedSettlementSnapshot, readIsolatedSettlementRecords, saveIsolatedSettlementResult } from './isolated-settlement-store'
-import { reattachIsolatedSettlement, type AllocatedRun } from './rail-isolated-launch'
+import { isStoppedByPerson, reattachIsolatedSettlement, RUN_STOPPED_DETAIL, type AllocatedRun } from './rail-isolated-launch'
 import { harvestDeliveryEvidence } from './delivery-evidence'
 
 const fixture = vi.hoisted(() => ({ probe: null as unknown, evidence: vi.fn() }))
@@ -160,4 +160,64 @@ it('leaves no card behind for a recovered delivery without an origin mission', a
     await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
     expect(updatePrDecisionCard).not.toHaveBeenCalled()
   } finally { setAgentChatManager(null) }
+})
+
+describe('a run the person stopped after a server restart (recovered Stop)', () => {
+  const cancelled = (): DefinitionRunProbe => ({ ...probe(), status: 'cancelled', resumable: false, completion: null })
+  const failed = (): DefinitionRunProbe => ({ ...probe(), status: 'failed', resumable: true, completion: null })
+  const unit = () => JSON.parse(getPrDelivery(db, 'delivery')!.branches)[0]
+
+  it('settles as run_stopped, keeping its worktree for review, not as an implementation failure', async () => {
+    fixture.probe = cancelled()
+    await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
+    expect(getPrDelivery(db, 'delivery')).toMatchObject({ decision: 'implementation_failed', implementation_outcome: 'failed', status_code: 'run_stopped', status_detail: RUN_STOPPED_DETAIL })
+    expect(unit()).toMatchObject({ failureCode: 'run_stopped' })
+    expect(readIsolatedSettlementRecords(db, 'p', 'delivery')[0].result).toMatchObject({ failureCode: 'run_stopped', failureDetail: RUN_STOPPED_DETAIL, safeToRelease: false })
+    expect(git.run.mock.calls.some(([args]) => args[0] === 'commit')).toBe(false)
+    expect(ctx.onLoopRunFinished).toHaveBeenCalledWith('run', 'stopped', { ticketCompletionStatus: 'on_review' })
+  })
+
+  it('keeps a real failure an implementation failure', async () => {
+    fixture.probe = failed()
+    await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
+    expect(getPrDelivery(db, 'delivery')).toMatchObject({ decision: 'implementation_failed', status_code: 'implementation_failed' })
+    expect(unit()).toMatchObject({ failureCode: 'settlement_interrupted' })
+  })
+
+  it('stays failed when a sibling run failed on its own', async () => {
+    const snapshot = readIsolatedSettlementRecords(db, 'p', 'delivery')[0].snapshot
+    const sibling = { ...run, runId: 'sibling', ticketId: 2, ticketIds: [2], ledgerId: 'sibling-mount' }
+    saveIsolatedSettlementSnapshot(db, { ...snapshot, run: sibling })
+    saveIsolatedSettlementResult(db, 'delivery', { run: sibling, implementationOutcome: 'failed', deliveryOutcome: 'blocked', initialSha: 'a'.repeat(40), finalSha: 'a'.repeat(40), failureCode: 'settlement_interrupted', safeToRelease: false })
+    fixture.probe = cancelled()
+    await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
+    expect(getPrDelivery(db, 'delivery')?.status_code).toBe('implementation_failed')
+  })
+
+  it.each([
+    ['a CI loop generation', "UPDATE rail_pr_deliveries SET loop_id='factory:pr-ci' WHERE id='delivery'"],
+    ['a delivery that already has a PR', "UPDATE rail_pr_deliveries SET pr_url='https://github.com/o/r/pull/1', pr_number=1 WHERE id='delivery'"],
+  ])('never labels %s as stopped', async (_label, sql) => {
+    db.prepare(sql).run()
+    fixture.probe = cancelled()
+    await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
+    expect(getPrDelivery(db, 'delivery')?.status_code).not.toBe('run_stopped')
+  })
+})
+
+describe('isStoppedByPerson', () => {
+  const base = { loopId: 'factory:implement', implementationOutcome: 'failed' as const, runOutcomes: ['stopped'] }
+  it('is a stop only when every run was stopped and nothing succeeded', () => {
+    expect(isStoppedByPerson(base)).toBe(true)
+    expect(isStoppedByPerson({ ...base, runOutcomes: ['stopped', 'stopped'] })).toBe(true)
+    expect(isStoppedByPerson({ ...base, runOutcomes: ['stopped', 'failed'] })).toBe(false)
+    expect(isStoppedByPerson({ ...base, runOutcomes: ['stalled'] })).toBe(false)
+    expect(isStoppedByPerson({ ...base, runOutcomes: [] })).toBe(false)
+    expect(isStoppedByPerson({ ...base, runOutcomes: [null] })).toBe(false)
+    expect(isStoppedByPerson({ ...base, implementationOutcome: 'partially_succeeded' })).toBe(false)
+  })
+  it('never applies to a CI loop or a delivery with a PR', () => {
+    expect(isStoppedByPerson({ ...base, loopId: 'factory:pr-ci' })).toBe(false)
+    expect(isStoppedByPerson({ ...base, prUrl: 'https://github.com/o/r/pull/1' })).toBe(false)
+  })
 })

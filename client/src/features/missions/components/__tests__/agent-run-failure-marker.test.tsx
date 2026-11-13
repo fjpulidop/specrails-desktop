@@ -31,6 +31,13 @@ describe('AgentRunFailureMarker with the run’s loop', () => {
     expect(screen.getByTestId('agent-run-failure-marker').textContent).toContain('Checkout failed: failed at derive')
   })
 
+  it.each(['cancelled', 'run_stopped'])('a run the person stopped (%s) reads as stopped, not failed', (code) => {
+    render(<AgentRunFailureMarker row={{ kind: 'run-failure', runId: 'r1', railIndex: 0, projectId: 'p1', code, detail: null, stepId: null, at: null }} />)
+    const line = screen.getByTestId('agent-run-failure-marker')
+    expect(line.textContent).toContain('Rail 1 was stopped')
+    expect(line.textContent).not.toContain('failed')
+  })
+
   it('an unknown code reads as a generic stop', () => {
     render(<AgentRunFailureMarker row={{ kind: 'run-failure', runId: 'r1', railIndex: 0, projectId: 'p1', code: 'weird_code', detail: null, stepId: null, at: null }} />)
     expect(screen.getByTestId('agent-run-failure-marker').textContent).toContain('Rail 1 failed: Stopped with an error')

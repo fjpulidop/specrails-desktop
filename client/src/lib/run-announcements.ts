@@ -62,6 +62,8 @@ export function runAnnouncementFor(msg: unknown, activeProjectId: string | null)
       const id = str(m.prDeliveryId) ?? run
       const rail = railOf(m.railIndex)
       if (m.decision === 'on_review' || m.decision === 'pr_ready') return mk('reviewReady', rail, id)
+      // A person's Stop settles as implementation_failed + run_stopped: a stop, not a failure.
+      if (m.decision === 'implementation_failed' && m.statusCode === 'run_stopped') return mk('stopped', rail, id)
       if (m.decision === 'implementation_failed' || m.decision === 'pr_failed') return mk('failed', rail, id)
       return null
     }

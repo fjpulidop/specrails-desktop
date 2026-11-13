@@ -32,6 +32,8 @@ describe('runAnnouncementFor', () => {
   it('announces review ready and PR failures, not the other decisions', () => {
     expect(f({ type: 'rail.pr_state', prDeliveryId: 'd1', railIndex: 0, decision: 'on_review' })).toMatchObject({ kind: 'reviewReady', key: 'reviewReady:d1' })
     expect(f({ type: 'rail.pr_state', prDeliveryId: 'd1', railIndex: 0, decision: 'pr_failed' })).toMatchObject({ kind: 'failed' })
+    expect(f({ type: 'rail.pr_state', prDeliveryId: 'd1', railIndex: 0, decision: 'implementation_failed', statusCode: 'run_stopped' })).toMatchObject({ kind: 'stopped' })
+    expect(f({ type: 'rail.pr_state', prDeliveryId: 'd1', railIndex: 0, decision: 'implementation_failed', statusCode: 'implementation_failed' })).toMatchObject({ kind: 'failed' })
     expect(f({ type: 'rail.pr_state', prDeliveryId: 'd1', railIndex: 0, decision: 'building' })).toBeNull()
   })
 

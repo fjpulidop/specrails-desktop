@@ -82,6 +82,8 @@
     "prReady": "PR ready",
     "implementationFailed": "Implementation failed",
     "implementationFailedHint": "The implementation run failed. Open the run log, then discard this card before relaunching.",
+    "runStopped": "Stopped",
+    "runStoppedHint": "You stopped this run before it delivered. Relaunch it when you want to continue, or discard this card.",
     "prFailed": "PR failed",
     "prFailedDetail": "PR failed",
     "createDegraded": "Couldn't publish the PR — {{detail}}. Retry when resolved.",

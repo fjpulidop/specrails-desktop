@@ -102,6 +102,8 @@
     "prReady": "PR 已就绪",
     "implementationFailed": "实现失败",
     "implementationFailedHint": "实现运行失败。请打开运行日志，然后在重新启动前丢弃此卡片。",
+    "runStopped": "已停止",
+    "runStoppedHint": "你在交付之前停止了此运行。想继续时可以重新启动，或丢弃此卡片。",
     "prFailed": "PR 失败",
     "prFailedDetail": "PR 失败",
     "createDegraded": "无法发布 PR — {{detail}}。解决后请重试。",

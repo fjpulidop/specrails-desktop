@@ -102,6 +102,8 @@
     "prReady": "PR pronta",
     "implementationFailed": "Implementação falhou",
     "implementationFailedHint": "A execução de implementação falhou. Abra o log da execução e descarte este cartão antes de relançar.",
+    "runStopped": "Interrompida",
+    "runStoppedHint": "Você interrompeu esta execução antes de entregar algo. Reinicie quando quiser continuar ou descarte este cartão.",
     "prFailed": "PR falhou",
     "prFailedDetail": "PR falhou",
     "createDegraded": "Não foi possível publicar a PR — {{detail}}. Tente novamente quando estiver resolvido.",

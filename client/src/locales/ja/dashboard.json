@@ -102,6 +102,8 @@
     "prReady": "PR 準備完了",
     "implementationFailed": "実装に失敗しました",
     "implementationFailedHint": "実装の実行に失敗しました。実行ログを開き、再実行する前にこのカードを破棄してください。",
+    "runStopped": "停止",
+    "runStoppedHint": "何も納品される前にこの実行を停止しました。続けたいときに再実行するか、このカードを破棄してください。",
     "prFailed": "PR 失敗",
     "prFailedDetail": "PR 失敗",
     "createDegraded": "PR を公開できませんでした — {{detail}}。解決後に再試行してください。",

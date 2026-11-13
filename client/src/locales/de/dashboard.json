@@ -102,6 +102,8 @@
     "prReady": "PR bereit",
     "implementationFailed": "Implementierung fehlgeschlagen",
     "implementationFailedHint": "Der Implementierungslauf ist fehlgeschlagen. Öffne das Run-Protokoll und verwirf diese Karte vor einem erneuten Start.",
+    "runStopped": "Gestoppt",
+    "runStoppedHint": "Du hast diesen Lauf gestoppt, bevor er etwas geliefert hat. Starte ihn neu, wenn du weitermachen willst, oder verwirf diese Karte.",
     "prFailed": "PR fehlgeschlagen",
     "prFailedDetail": "PR fehlgeschlagen",
     "createDegraded": "PR konnte nicht veröffentlicht werden — {{detail}}. Nach Behebung erneut versuchen.",
