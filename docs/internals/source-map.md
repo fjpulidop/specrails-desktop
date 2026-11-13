@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1376 source/build files. Nearby tests are linked where names
+Includes 1378 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1205,6 +1205,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [json-tolerant.ts](../../server/json-tolerant.ts) · [test](../../server/json-tolerant.test.ts)
 - [legacy-migration.ts](../../server/legacy-migration.ts) · [test](../../server/legacy-migration.test.ts)
 - [local-engine-detection.ts](../../server/local-engine-detection.ts) · [test](../../server/local-engine-detection.test.ts)
+- [loopback-test-server.ts](../../server/loopback-test-server.ts)
 - [offline-assemble.ts](../../server/offline-assemble.ts) · [test](../../server/offline-assemble.test.ts)
 - [openspec-runtime-plugin.ts](../../server/openspec-runtime-plugin.ts) · [test](../../server/openspec-runtime-plugin.test.ts)
 - [openspec-shim.ts](../../server/openspec-shim.ts) · [test](../../server/openspec-shim.test.ts)
@@ -1550,6 +1551,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [flow-review-outcome.ts](../../server/modules/delivery/runtime/flow-review-outcome.ts)
 - [flow-worktree-handoff.ts](../../server/modules/delivery/runtime/flow-worktree-handoff.ts)
 - [flow-worktree-return.ts](../../server/modules/delivery/runtime/flow-worktree-return.ts) · [test](../../server/modules/delivery/runtime/flow-worktree-return.test.ts)
+- [fork-change-supersession.ts](../../server/modules/delivery/runtime/fork-change-supersession.ts) · [test](../../server/modules/delivery/runtime/fork-change-supersession.test.ts)
 - [intent-materialization.ts](../../server/modules/delivery/runtime/intent-materialization.ts) · [test](../../server/modules/delivery/runtime/intent-materialization.test.ts)
 - [isolated-settlement-reconstruction.ts](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.ts) · [test](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.test.ts)
 - [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)

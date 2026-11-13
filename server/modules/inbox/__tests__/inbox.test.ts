@@ -10,6 +10,7 @@ import { compareInboxItems, inboxItemId, oneLine, toIso, type InboxItem } from '
 import { deriveFailureDiagnosis, serializeDiagnosis } from '../../recovery'
 import { createProjectInboxSource } from '../adapters/project-source'
 import { registerInboxRoutes } from '../adapters/http'
+import { listenOnLoopback } from '../../../loopback-test-server'
 
 const NOW = Date.parse('2026-10-24T12:00:00.000Z')
 const iso = (offsetMs: number): string => new Date(NOW + offsetMs).toISOString()
@@ -195,14 +196,13 @@ describe('GET /inbox', () => {
     const router = express.Router()
     registerInboxRoutes(router, { listContexts: () => [{ project: { id: 'p1', name: 'Alpha' }, db }] } as never)
     const app = express(); app.use('/api', router)
-    const server = app.listen(0)
+    const fixture = await listenOnLoopback(app)
     try {
-      const { port } = server.address() as AddressInfo
-      const body = await (await fetch(`http://127.0.0.1:${port}/api/inbox`)).json() as { items: InboxItem[]; projects: unknown[] }
+      const body = await (await fetch(`${fixture.baseUrl}/api/inbox`)).json() as { items: InboxItem[]; projects: unknown[] }
       expect(body.items).toHaveLength(1)
       expect(body.items[0]).toMatchObject({ projectId: 'p1', kind: 'review', subjectId: 'd1' })
       expect(body.projects).toEqual([{ projectId: 'p1', projectName: 'Alpha', count: 1 }])
-    } finally { server.close() }
+    } finally { await fixture.close() }
   })
 })
 

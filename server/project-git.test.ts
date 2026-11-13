@@ -7,6 +7,7 @@ import path from 'path'
 import { getProjectGitInfo, checkoutProjectBranch, checkoutProjectReviewBranch, inspectProjectCheckoutCleanliness, parseWorktreePorcelain, compactCheckoutError } from './project-git'
 import { registerGitRoutes } from './project-router-git'
 import type { ProjectRoutesDeps } from './project-router-helpers'
+import { listenOnLoopback } from './loopback-test-server'
 
 const GIT_ENV = {
   ...process.env,
@@ -250,18 +251,16 @@ describe('git routes', () => {
   }
 
   async function req(app: express.Express, method: string, p: string, body?: unknown) {
-    const server = app.listen(0)
-    const addr = server.address()
-    const port = typeof addr === 'object' && addr ? addr.port : 0
+    const fixture = await listenOnLoopback(app)
     try {
-      const res = await fetch(`http://127.0.0.1:${port}${p}`, {
+      const res = await fetch(`${fixture.baseUrl}${p}`, {
         method,
         headers: body !== undefined ? { 'content-type': 'application/json' } : {},
         body: body !== undefined ? JSON.stringify(body) : undefined,
       })
       return { status: res.status, body: await res.json() }
     } finally {
-      server.close()
+      await fixture.close()
     }
   }
 
