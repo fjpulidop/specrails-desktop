@@ -57,7 +57,8 @@
     "correction-blocker": "Check for blockers",
     "correction-progress": "Track fix progress",
     "approval-policy": "Apply the approval decision",
-    "verify-archive": "Verify the archived change"
+    "verify-archive": "Verify the archived change",
+    "baseline": "Check the code before changes"
   },
   "decision": {
     "another": "Not done yet — going round again",

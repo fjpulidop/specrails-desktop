@@ -57,7 +57,8 @@
     "correction-blocker": "检查阻塞项",
     "correction-progress": "跟踪修复进度",
     "approval-policy": "应用审批决定",
-    "verify-archive": "验证已归档的更改"
+    "verify-archive": "验证已归档的更改",
+    "baseline": "在更改前检查代码"
   },
   "decision": {
     "another": "还没完成 — 再来一轮",

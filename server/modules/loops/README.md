@@ -82,7 +82,13 @@ a failure planning cannot repair, such as a legacy main spec without `## Purpose
 `## Requirements` (main specs are read-only to the plan role), ends at `plan-invalid`
 instead of re-planning until `maxIterations`. The architect prompt also keeps tasks to
 repository work (proposal, design and specs freeze before implementation) and turns a
-need only the person can meet into a low-confidence question, never an invented gate.
+need only the person can meet into a low-confidence question, never an invented gate. It also ties each acceptance criterion to the check that proves it (host verification runs
+proposals outside the role sandbox, so it can use Docker when the environment facts say the host
+reaches it), and the reviewer judges criteria by that evidence. With Core's `verificationSummary: 1`
+(and host blockers) a `baseline` verify node runs the host checks on the unchanged code before the
+developer: a broken setup or host precondition ends at `host-blocked-baseline` before any AI spend,
+and `{{outputs.baseline.summary}}` tells the developer, fixer and reviewer which failures predate
+the change.
 `configurableImplementGraph(capabilities)` omits `hostBlockers`, `setup`, `blockerFrom`
 and the `blocked` edges on an older Core; `effectivePieceOutcomes` in `loop-graph.ts`
 (and the client `effectiveOutcomes`) advertise `blocked` for `verify` only with the flag.

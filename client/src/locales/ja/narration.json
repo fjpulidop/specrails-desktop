@@ -57,7 +57,8 @@
     "correction-blocker": "ブロッカーを確認",
     "correction-progress": "修正の進捗を追跡",
     "approval-policy": "承認の判断を適用",
-    "verify-archive": "アーカイブした変更を検証"
+    "verify-archive": "アーカイブした変更を検証",
+    "baseline": "変更前のコードを検証"
   },
   "decision": {
     "another": "まだ未達 — もう一周",
