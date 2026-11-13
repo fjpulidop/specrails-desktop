@@ -313,3 +313,36 @@ export function parseSpecAddendaReport(output: string | null | undefined, addend
   }
   return byId.size > 0 ? addenda.map((a) => byId.get(a.id)).filter((line): line is SpecAddendaReportLine => Boolean(line)) : null
 }
+
+// ─── Lint (advisory) ───────────────────────────────────────────────────────────
+// An addendum is part of the definition of done, so one that asks for something no
+// run can do turns into an impossible gate (observed: a post-failure clarification
+// demanded a "combined base/change validation", an edit to a read-only main spec and
+// Docker access; the planner encoded all three as blocking prerequisites). These
+// checks never block saving: they tell the author (person or agent) what to rewrite.
+
+export type SpecAddendumLintCode = 'edits_planning_artifacts' | 'workflow_gate' | 'host_access'
+export interface SpecAddendumLint { code: SpecAddendumLintCode; message: string }
+
+const LINT_MESSAGES: Record<SpecAddendumLintCode, string> = {
+  edits_planning_artifacts: 'This addendum asks a run to edit OpenSpec main specs or planning artifacts. The planning role cannot write main specs, and proposal, design and specs freeze before implementation. Describe the outcome instead; a plan targets a new capability when a main spec is legacy.',
+  workflow_gate: 'This addendum adds a gate or prerequisite no workflow step runs (OpenSpec validation and host verification already gate the plan and the code). State the outcome or acceptance criterion instead, or configure the check as a verification command.',
+  host_access: 'This addendum asks a run to obtain host access (for example Docker). A run cannot grant it; the host measures it before planning. Make it available before launching, or configure a verification command that uses it.',
+}
+const ARTIFACT = String.raw`(?:openspec\/specs\/|openspec\/changes\/|\b(?:proposal|design|tasks)\.md\b|\bspec\.md\b)`
+const EDIT_VERBS = String.raw`(?:modify|update|edit|insert|add|write|repair|fix|rewrite|amend|change|modificar|actualizar|editar|insertar|añadir|agregar|escribir|reparar|corregir|cambiar)`
+const NEGATION = /(?:\b(?:not|never|no|nor|without|nunca|sin|ni)|n't)\s+(?:\S+\s+){0,2}$/i
+const GATE = /\b(?:gate|pre-?requisites?|prerrequisitos?)\b|combined (?:base\s*(?:\/|and)\s*change )?validation|validación combinada|before (?:approving the plan|(?:handing|passing) (?:it |the plan )?to the developer)|antes de (?:aprobar el plan|pasar al desarrollador)/i
+const HOST_ACCESS = /\b(?:access to|acceso a(?:l)?)\s+(?:the\s+|el\s+|la\s+)?(?:docker|daemon)\b|\bdocker (?:socket|daemon) (?:access|permissions?)\b|\bsocket de docker\b/i
+
+/** Advisory findings for an addendum's text; empty when nothing looks impossible for a run. */
+export function lintSpecAddendum(input: { title?: string | null; body: string }): SpecAddendumLint[] {
+  const text = `${input.title ?? ''}\n${input.body}`
+  const codes: SpecAddendumLintCode[] = []
+  const edit = new RegExp(String.raw`\b${EDIT_VERBS}\b[^.;\n]{0,120}?${ARTIFACT}`, 'gi')
+  const clause = (before: string): string => before.split(/[.;!?:]\s/).pop() ?? before
+  if ([...text.matchAll(edit)].some((match) => !NEGATION.test(clause(text.slice(Math.max(0, match.index - 40), match.index))))) codes.push('edits_planning_artifacts')
+  if (GATE.test(text)) codes.push('workflow_gate')
+  if (HOST_ACCESS.test(text)) codes.push('host_access')
+  return codes.map((code) => ({ code, message: LINT_MESSAGES[code] }))
+}

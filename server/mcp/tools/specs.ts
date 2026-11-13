@@ -335,7 +335,7 @@ export function specsTools(): McpToolSpec[] {
             }) as Record<string, unknown>
             return {
               ...r,
-              hint: 'The addendum is open: respect the user\'s explicit loop selection, including factory:implement; otherwise use Implement. Rail launches continue a same-spec pending delivery, and brief every AI step with the full delta and a fresh OpenSpec target. Do not use Revision or edit openspecChangeName. Do not edit the spec description to repeat it.',
+              hint: 'The addendum is open: respect the user\'s explicit loop selection, including factory:implement; otherwise use Implement. Rail launches continue a same-spec pending delivery, and brief every AI step with the full delta and a fresh OpenSpec target. Do not use Revision or edit openspecChangeName. Do not edit the spec description to repeat it. If warnings are returned, rewrite the addendum with update_addendum so it states outcomes, not gates, artifact edits or host access a run cannot provide.',
             }
           }
           case 'update_addendum': {

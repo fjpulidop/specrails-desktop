@@ -19,6 +19,7 @@ import {
   SPEC_ADDENDUM_MAX_BODY_CHARS,
   SPEC_ADDENDA_MAX_PER_TICKET,
   type SpecAddendum,
+  lintSpecAddendum,
 } from './spec-addenda-core'
 import {
   buildSpecAddendum,
@@ -441,5 +442,20 @@ describe('spec-addenda: REST routes', () => {
     const got = await request(app).get('/api/projects/p1/tickets/1')
     expect(got.body.ticket.addenda).toHaveLength(1)
     expect(got.body.ticket.description).toBe('edited')
+  })
+})
+
+describe('spec-addenda-core: lint', () => {
+  // The real post-failure clarification from deckdex-mtg (Spanish), shortened.
+  const deckdex = 'Antes de aprobar el plan y pasar al desarrollador, comprobar la validación del cambio y de su combinación con el documento base. Si se reproduce el fallo por `## Purpose`, queda incluida la reparación documental mínima: insertar ese encabezado en `openspec/specs/architecture/spec.md`. ## Prerrequisito del entorno: comprobar acceso al daemon de Docker.'
+  it('flags gates no step runs, edits to main specs or artifacts, and host access', () => {
+    expect(lintSpecAddendum({ title: 'Prerrequisitos de planificación', body: deckdex }).map((w) => w.code)).toEqual(['edits_planning_artifacts', 'workflow_gate', 'host_access'])
+    expect(lintSpecAddendum({ body: 'Update design.md with the container evidence' })[0]).toMatchObject({ code: 'edits_planning_artifacts', message: expect.stringContaining('Describe the outcome') })
+    expect(lintSpecAddendum({ body: 'Run the combined base/change validation before handing it to the developer' }).map((w) => w.code)).toEqual(['workflow_gate'])
+    expect(lintSpecAddendum({ body: 'Make sure the run has access to the Docker daemon' }).map((w) => w.code)).toEqual(['host_access'])
+  })
+  it('accepts outcomes, citations and negated edits', () => {
+    expect(lintSpecAddendum({ body: 'The backend SHALL start in Docker and /api/health SHALL return 200 after migrations.' })).toEqual([])
+    expect(lintSpecAddendum({ body: 'Keep the behaviour described in design.md. Do not modify openspec/specs/architecture/spec.md.' })).toEqual([])
   })
 })

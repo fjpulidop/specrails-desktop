@@ -48,7 +48,7 @@ import {
 } from './modules/specs/runtime/ticket-store'
 import { generateAutoTitle } from './modules/conversations/runtime/explore-draft-title'
 import {
-  appendSpecAddendum, buildSpecAddendum, editSpecAddendum, parseSpecAddendumInput, readSpecAddenda,
+  appendSpecAddendum, buildSpecAddendum, editSpecAddendum, lintSpecAddendum, parseSpecAddendumInput, readSpecAddenda,
   removeSpecAddendum, setSpecAddendumStatus, SpecAddendumValidationError, type SpecAddendum,
 } from './modules/specs/runtime/spec-addenda'
 import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, TicketAiEditStreamMessage, TicketAiEditDoneMessage, TicketAiEditErrorMessage, SpecGenStreamMessage, SpecGenDoneMessage, SpecGenErrorMessage, LocalTicket } from './types'
@@ -1484,7 +1484,8 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       if (capError) { const e = capError as SpecAddendumValidationError; res.status(400).json({ error: 'invalid_addendum', code: e.code, detail: e.message }); return }
       if (!updated || !created) { res.status(404).json({ error: 'Ticket not found' }); return }
       broadcastTicket(req, updated, store.revision)
-      res.status(201).json({ addendum: created, ticket: updated, revision: store.revision })
+      // Advisory: what no run can do (impossible gates, frozen artifacts, host access) comes back to the author.
+      res.status(201).json({ addendum: created, ticket: updated, revision: store.revision, warnings: lintSpecAddendum(created) })
     } catch (err) {
       console.error('[project-router] addendum create error:', err)
       res.status(500).json({ error: 'Failed to add addendum' })
@@ -1532,7 +1533,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       if (!updated) { res.status(404).json({ error: 'Ticket not found' }); return }
       if (typeof result === 'string') { addendumEditFailure(res, result); return }
       broadcastTicket(req, updated, store.revision)
-      res.json({ addendum: result, ticket: updated, revision: store.revision })
+      res.json({ addendum: result, ticket: updated, revision: store.revision, warnings: result && typeof result === 'object' && 'body' in result ? lintSpecAddendum(result) : [] })
     } catch (err) {
       console.error('[project-router] addendum update error:', err)
       res.status(500).json({ error: 'Failed to update addendum' })

@@ -108,6 +108,11 @@
     "newTicketsAdded_other": "{{count}} new specs added from product discovery"
   },
   "addenda": {
+    "lint": {
+      "edits_planning_artifacts": "Asks a run to edit main specs or planning artifacts, which no role can do. Describe the outcome instead.",
+      "workflow_gate": "Adds a gate no workflow step runs. State the outcome or acceptance criterion, or configure it as a verification command.",
+      "host_access": "Asks a run to obtain host access (such as Docker). Make it available before launching, or configure a verification command that uses it."
+    },
     "title": "Addenda",
     "hint": "Iteration notes layered on top of the spec. They ride into the next launch without editing the description.",
     "add": "Add addendum",

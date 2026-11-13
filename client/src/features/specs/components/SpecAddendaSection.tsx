@@ -13,6 +13,7 @@ import {
   readSpecAddenda,
   SPEC_ADDENDUM_KINDS,
   SPEC_ADDENDUM_MAX_BODY_CHARS,
+  lintSpecAddendum,
   type SpecAddendum,
   type SpecAddendumKind,
   type SpecAddendumStatus,
@@ -306,6 +307,12 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
                         )}
                       </div>
                     </div>
+                    {a.status === 'open' && lintSpecAddendum(a).map((warning) => (
+                      <p key={warning.code} className="mt-1 flex items-start gap-1.5 pl-5 text-caption text-accent-warning" data-testid={`spec-addendum-lint-${warning.code}`}>
+                        <ShieldAlert className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                        {t(`addenda.lint.${warning.code}`)}
+                      </p>
+                    ))}
                     {isOpen && (
                       <div className="mt-2 space-y-1.5 pl-5">
                         <div className={MARKDOWN_CLASS} data-testid="spec-addendum-body">
