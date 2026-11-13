@@ -11,6 +11,7 @@ import type { Blueprint } from './blueprint-types'
 import { mutateStore, readStore } from '../../specs/runtime/ticket-store'
 import { writeBlueprintPair } from './blueprint-render'
 import { parseBlueprintDraftBlocks } from './blueprint-draft-parser'
+import { ensureMissionPlaceholderConversation } from './mission-placeholder'
 
 function richDescription(readme = false): string {
   return premiumDescription({ readme })
@@ -74,6 +75,8 @@ function makeHarness(ioOverrides: Partial<BlueprintCommitIO> = {}): Harness {
     writePair: (ws, bp) => writeBlueprintPair(ws, bp),
     mutateTickets: (filePath, fn) => { mutateStore(filePath, fn) },
     registerProject: (opts) => { registered.push(opts) },
+    ensurePlaceholder: (projectId, provider) =>
+      ensureMissionPlaceholderConversation(db, { projectId, provider, model: null, tierLevel: 0, reasoningEffort: null }),
     ...ioOverrides,
   }
   const registry = { desktopDb: db } as unknown as ProjectRegistry
@@ -225,12 +228,67 @@ describe('orchestration', () => {
       .filter((m): m is Extract<WsMessage, { type: 'blueprint.commit_progress' }> => m.type === 'blueprint.commit_progress')
       .filter((m) => m.status === 'done')
       .map((m) => m.step)
-    expect(steps).toEqual(['create-dir', 'git-init', 'assemble', 'blueprint', 'tickets', 'register'])
+    expect(steps).toEqual(['create-dir', 'git-init', 'assemble', 'blueprint', 'tickets', 'register', 'placeholder'])
     expect(h.registered).toHaveLength(1)
     // README written into the repo
     const readme = fs.readFileSync(path.join(h.tmp, 'repo', 'README.md'), 'utf-8')
     expect(readme).toContain('# Recipely')
     expect(readme).toContain('Recipes from your pantry')
+  })
+
+  const pinnedConversations = (h: Harness): Array<{ id: string; pinned_project_id: string }> =>
+    h.db.prepare('SELECT id, pinned_project_id FROM agent_conversations').all() as Array<{ id: string; pinned_project_id: string }>
+
+  it('[spec:project-bootstrap-commit/placeholder-mission-conversation-on-first-commit] opens one empty mission conversation pinned to the new project', async () => {
+    const h = makeHarness()
+    h.runner.start(validInput(h))
+    await waitSettled(h)
+    const done = h.messages.find((m) => m.type === 'blueprint.commit_done') as { projectId: string; missionConversationId?: string }
+    const rows = pinnedConversations(h)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].pinned_project_id).toBe(done.projectId)
+    expect(done.missionConversationId).toBe(rows[0].id)
+    expect((h.db.prepare('SELECT COUNT(*) AS n FROM agent_messages').get() as { n: number }).n).toBe(0)
+    expect(h.messages).toContainEqual(expect.objectContaining({ type: 'agent_conversation_created', conversationId: rows[0].id, openOnArrival: true }))
+    // the open signal follows commit_done, never fires mid-commit
+    expect(h.messages.findIndex((m) => m.type === 'agent_conversation_created')).toBeGreaterThan(h.messages.findIndex((m) => m.type === 'blueprint.commit_done'))
+  })
+
+  it('[spec:project-bootstrap-commit/placeholder-is-created-once-per-project] skips the placeholder when the project already has a conversation', async () => {
+    const h = makeHarness()
+    h.io.ensurePlaceholder = (projectId, provider) => {
+      const input = { projectId, provider, model: null, tierLevel: 0 as const, reasoningEffort: null }
+      ensureMissionPlaceholderConversation(h.db, input)
+      return ensureMissionPlaceholderConversation(h.db, input)
+    }
+    const runner = createBlueprintCommitRunner({ registry: { desktopDb: h.db } as unknown as ProjectRegistry, broadcast: (m) => h.messages.push(m), io: h.io })
+    runner.start(validInput(h))
+    await waitSettled(h)
+    const done = h.messages.find((m) => m.type === 'blueprint.commit_done') as { missionConversationId?: string }
+    expect(pinnedConversations(h)).toHaveLength(1)
+    expect(done.missionConversationId).toBeUndefined()
+    expect(h.messages).toContainEqual(expect.objectContaining({ step: 'placeholder', status: 'done', detail: 'skipped' }))
+  })
+
+  it('[spec:project-bootstrap-commit/placeholder-failures-never-fail-the-commit] a failing placeholder is a warning and the commit still settles done', async () => {
+    const h = makeHarness({ ensurePlaceholder: () => { throw new Error('db locked') } })
+    h.runner.start(validInput(h))
+    await waitSettled(h)
+    expect(h.messages.some((m) => m.type === 'blueprint.commit_done')).toBe(true)
+    expect(h.messages).toContainEqual(expect.objectContaining({ step: 'placeholder', status: 'warning', detail: 'db locked' }))
+    expect(pinnedConversations(h)).toHaveLength(0)
+  })
+
+  it.each([
+    ['git-init', { exec: vi.fn(async () => ({ code: 128, stderr: 'boom' })) }],
+    ['assemble', { assemble: vi.fn(async () => { throw new Error('assemble exploded') }) }],
+    ['register', { registerProject: () => { throw new Error('register exploded') } }],
+  ] as Array<[string, Partial<BlueprintCommitIO>]>)('[spec:project-bootstrap-commit/placeholder-failures-never-fail-the-commit] a failure at %s leaves no conversation', async (step, override) => {
+    const h = makeHarness(override)
+    h.runner.start(validInput(h))
+    await waitSettled(h)
+    expect(h.messages).toContainEqual(expect.objectContaining({ type: 'blueprint.commit_failed', step }))
+    expect(pinnedConversations(h)).toHaveLength(0)
   })
 
   it('inserts M1 tickets in spec order with label M1, todo, prerequisites and advisory ids', async () => {

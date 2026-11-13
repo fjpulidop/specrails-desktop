@@ -209,6 +209,30 @@ describe('cross-client mission synchronization', () => {
     await waitFor(() => expect(screen.getByTestId('conversation-ids')).toHaveTextContent('mobile-new'))
     expect(screen.getByTestId('active-id')).toHaveTextContent('c1')
   })
+  it('opens a blueprint placeholder conversation on arrival (openOnArrival)', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('select-c1')) })
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([{ ...api.conv2, id: 'placeholder' }, api.conv1])
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => ({ conversation: { ...api.conv2, id }, messages: [] }))
+    await act(async () => { wsHandler!({ type: 'agent_conversation_created', conversationId: 'placeholder', openOnArrival: true }) })
+    await waitFor(() => expect(screen.getByTestId('active-id')).toHaveTextContent('placeholder'))
+  })
+  it('does not open the conversation when openOnArrival is absent', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('select-c1')) })
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([{ ...api.conv2, id: 'other' }, api.conv1])
+    await act(async () => { wsHandler!({ type: 'agent_conversation_created', conversationId: 'other' }) })
+    await waitFor(() => expect(screen.getByTestId('conversation-ids')).toHaveTextContent('other'))
+    expect(screen.getByTestId('active-id')).toHaveTextContent('c1')
+  })
+  it('does not open the placeholder in a secondary window', async () => {
+    missionWindowsMock.secondary = true
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([{ ...api.conv2, id: 'placeholder' }, api.conv1])
+    await act(async () => { wsHandler!({ type: 'agent_conversation_created', conversationId: 'placeholder', openOnArrival: true }) })
+    await waitFor(() => expect(agentApi.listAgentConversations).toHaveBeenCalled())
+    expect(screen.getByTestId('active-id')).not.toHaveTextContent('placeholder')
+  })
   it('shows a direct mobile input immediately and deduplicates its event', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('select-c1')) })

@@ -1,0 +1,10 @@
+# Tasks
+
+## 1. Placeholder helper
+
+- [x] 1.1 Create `server/modules/builder/runtime/mission-placeholder.ts` exporting `ensureMissionPlaceholderConversation(db, { projectId, provider, model, tierLevel, reasoningEffort })` returning `{ status: 'created' | 'skipped'; conversationId: string | null }`; skip when any `agent_conversations` row (deleted or archived included) has `pinned_project_id = projectId`, else call `createAgentConversation`. Verify with `mission-placeholder.test.ts` (in-memory desktop DB): creates once with the right pin/provider/tier and zero messages, second call skips, skips after soft delete, skips when archived, does not touch other projects.
+
+## 2. Commit runner step
+
+- [x] 2.1 In `blueprint-commit.ts` add `ensurePlaceholder` to `BlueprintCommitIO` (default: helper on `deps.registry.desktopDb`, `providers[0]`, `model: null`, `tierLevel: 0`, `reasoningEffort: null`); add a `placeholder` step after `register`/`markCommitted` and before the GitHub step, in its own try/catch: emit `done` (detail `created`/`skipped`), broadcast `agent_conversation_created` on creation, emit `warning` with the error message on failure, log with `console.info`/`console.warn`; add optional `missionConversationId` to `blueprint.commit_done`. Verify in `blueprint-commit.test.ts`: success yields exactly one pinned conversation with no messages and `commit_done.missionConversationId` equals its id; a second run pinned to the same project id skips; a throwing `ensurePlaceholder` still yields `commit_done` plus a `placeholder` warning; failures at `git-init`, `assemble` and `register` leave zero conversations and emit `commit_failed`; existing tests still pass.
+- [x] 2.2 Update `server/modules/boundaries.json` for the builder dependencies of `runtime/blueprint-commit.ts` and the new `runtime/mission-placeholder.ts` (`../../agents/runtime/agent-store`, `../../../db` types as imported), then add the new files to `docs/internals/source-map.md` and note the additive step/field in `docs/internals/api-reference.md` if it documents commit events. Verify `npm run audit:architecture` and `npx vitest run server/modules` pass.

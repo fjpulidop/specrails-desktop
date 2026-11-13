@@ -482,7 +482,14 @@ tests). Step order:
    pair re-rendered
 6. `register` — `ProjectRegistry.addProject` with the pre-generated id/slug
    (LAST mutation; broadcast `desktop.project_added`)
-7. `github` — best-effort, never aborts. A server-side pre-flight
+7. `placeholder` — best-effort, never aborts. `ensureMissionPlaceholderConversation`
+   (`runtime/mission-placeholder.ts`) opens one empty mission conversation
+   pinned to the new project (no AI turn, no tokens) unless any conversation,
+   deleted or archived included, is already pinned to it. Emits `done`
+   (`created`/`skipped`) or `warning`; on creation broadcasts
+   `agent_conversation_created` and adds `missionConversationId` to
+   `blueprint.commit_done`
+8. `github` — best-effort, never aborts. A server-side pre-flight
    (`gh auth token`) runs first as defence against a stale client cache: a
    spawn error (gh not on PATH) → warning `gh_not_installed`; a non-zero exit
    → warning `gh_not_authenticated`, both WITHOUT spawning the create. Then

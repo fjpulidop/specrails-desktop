@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1378 source/build files. Nearby tests are linked where names
+Includes 1379 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1476,6 +1476,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [milestone-chain-store.ts](../../server/modules/builder/runtime/milestone-chain-store.ts) · [test](../../server/modules/builder/runtime/milestone-chain-store.test.ts)
 - [milestone-chain.ts](../../server/modules/builder/runtime/milestone-chain.ts) · [test](../../server/modules/builder/runtime/milestone-chain.test.ts)
 - [milestone-progress.ts](../../server/modules/builder/runtime/milestone-progress.ts) · [test](../../server/modules/builder/runtime/milestone-progress.test.ts)
+- [mission-placeholder.ts](../../server/modules/builder/runtime/mission-placeholder.ts) · [test](../../server/modules/builder/runtime/mission-placeholder.test.ts)
 
 ## server/modules/code/runtime
 
