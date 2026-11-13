@@ -67,5 +67,11 @@
   "logs": {
     "notFound": "Ainda não há registro para mostrar"
   },
-  "technicalDetails": "Detalhes técnicos"
+  "technicalDetails": "Detalhes técnicos",
+  "environmentPlan": {
+    "offer": "{{repository}} fixa o Python {{version}}, mas as verificações podem rodar com um Python do sistema mais novo. Um ambiente virtual com Python {{version}} as alinha ao projeto.",
+    "apply": "Usar um venv Python {{version}} nas verificações",
+    "saved": "Salvo nas configurações do projeto. O próximo lançamento cria o venv antes das verificações.",
+    "failed": "Não foi possível salvar as configurações. Abra as configurações do projeto para ajustá-las."
+  }
 }

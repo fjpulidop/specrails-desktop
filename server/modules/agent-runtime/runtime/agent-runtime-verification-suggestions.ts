@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -102,4 +103,112 @@ export function suggestVerificationCommands(repositories: Repository[]): Verific
     }
   }
   return out
+}
+
+/** A host command for `setup` or `verification` (the settings entry shape). */
+export interface PlannedHostCommand { repositoryId: string; command: string; args: string[]; cwd?: string; key?: string; label?: string }
+/** Setup that builds a project virtual environment with the pinned interpreter, and checks that run in it. */
+export interface PythonEnvironmentPlan { version: string; setup: PlannedHostCommand[]; verification: PlannedHostCommand[]; reason: string }
+export interface PythonEnvironmentProbe {
+  /** Absolute path of an executable on the host PATH, or null. */
+  findExecutable(name: string): string | null
+  /** True when Git ignores the path in the repository (a venv must never be committed). */
+  ignored(root: string, relative: string): boolean
+}
+
+const defaultProbe: PythonEnvironmentProbe = {
+  findExecutable(name) {
+    for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
+      if (!dir) continue
+      const file = path.join(dir, name)
+      try { fs.accessSync(file, fs.constants.X_OK); if (fs.statSync(file).isFile()) return file } catch { /* not here */ }
+    }
+    return null
+  },
+  ignored(root, relative) {
+    const result = spawnSync('git', ['check-ignore', '-q', '--', relative], { cwd: root, timeout: 5000, windowsHide: true, stdio: 'ignore' })
+    return result.status === 0
+  },
+}
+
+/** The Python version the project pins: its image (`FROM python:3.11-slim`) or a version file. Ranges are not pins. */
+export function pinnedPythonVersion(root: string): { version: string; source: string } | null {
+  const read = (relative: string): string => { try { return fs.readFileSync(path.join(root, relative), 'utf8') } catch { return '' } }
+  const dockerfiles: string[] = []
+  try {
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      if (entry.isFile() && /^Dockerfile(?:\.[\w.-]+)?$/.test(entry.name)) dockerfiles.push(entry.name)
+      if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+        try { for (const child of fs.readdirSync(path.join(root, entry.name))) if (/^Dockerfile(?:\.[\w.-]+)?$/.test(child)) dockerfiles.push(`${entry.name}/${child}`) } catch { /* unreadable */ }
+      }
+    }
+  } catch { return null }
+  for (const file of dockerfiles.sort()) {
+    const match = /^\s*FROM\s+(?:--platform=\S+\s+)?(?:[\w.-]+\/)*python:(\d+\.\d+)/im.exec(read(file))
+    if (match) return { version: match[1]!, source: `${file} FROM python:${match[1]}` }
+  }
+  const pinned = /^(\d+\.\d+)/.exec(read('.python-version').trim()) ?? /python-(\d+\.\d+)/.exec(read('runtime.txt')) ?? /^\s*python\s+(\d+\.\d+)/m.exec(read('.tool-versions'))
+  return pinned ? { version: pinned[1]!, source: '.python-version / runtime.txt / .tool-versions' } : null
+}
+
+/**
+ * When a Python project pins an interpreter, run its checks in a project venv built from that
+ * interpreter instead of the system python3 (which may be several versions newer and refuse
+ * installs under PEP 668). Proposed only when the pinned interpreter is on the host PATH and Git
+ * ignores `.venv`, so the environment is never committed. Null when that does not hold.
+ */
+export function pythonEnvironmentPlan(repository: { id: string; path: string }, probe: PythonEnvironmentProbe = defaultProbe): PythonEnvironmentPlan | null {
+  const root = repository.path
+  if (process.platform === 'win32') return null
+  const python = exists(root, 'pyproject.toml') || exists(root, 'requirements.txt') || exists(root, 'setup.py')
+  const tests = exists(root, 'tests') || exists(root, 'test') || exists(root, 'pytest.ini')
+  if (!python || !tests) return null
+  const pin = pinnedPythonVersion(root)
+  if (!pin) return null
+  const interpreter = `python${pin.version}`
+  if (!probe.findExecutable(interpreter) || !probe.ignored(root, '.venv')) return null
+  const requirements: string[] = []
+  try {
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      if (entry.isFile() && /^requirements(?:[-_.][\w-]+)?\.txt$/.test(entry.name)) requirements.push(entry.name)
+      if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+        try { for (const child of fs.readdirSync(path.join(root, entry.name))) if (/^requirements(?:[-_.][\w-]+)?\.txt$/.test(child)) requirements.push(`${entry.name}/${child}`) } catch { /* unreadable */ }
+      }
+    }
+  } catch { return null }
+  const install = requirements.length ? requirements.sort().flatMap(file => ['-r', file]) : exists(root, 'pyproject.toml') ? ['-e', '.'] : null
+  if (!install) return null
+  const id = repository.id
+  return {
+    version: pin.version,
+    reason: `${pin.source}; Python ${pin.version} venv (.venv is git-ignored)`,
+    setup: [
+      { repositoryId: id, label: `Create the project venv (Python ${pin.version})`, command: interpreter, args: ['-m', 'venv', '.venv'] },
+      { repositoryId: id, label: 'Install Python dependencies into the venv', command: '.venv/bin/python', args: ['-m', 'pip', 'install', '-q', ...install] },
+    ],
+    verification: [{ repositoryId: id, label: `pytest (Python ${pin.version} venv)`, command: '.venv/bin/python', args: ['-m', 'pytest'] }],
+  }
+}
+
+type HostCommandLike = { repositoryId: string; command: string; args: string[]; cwd?: string }
+const sameCommand = (a: HostCommandLike, b: HostCommandLike): boolean => a.repositoryId === b.repositoryId && a.command === b.command && JSON.stringify(a.args) === JSON.stringify(b.args) && (a.cwd ?? '') === (b.cwd ?? '')
+/** A bare system-interpreter pytest the venv plan replaces (anything else the person configured stays). */
+const barePytest = (check: HostCommandLike): boolean => /^python(?:3)?$/.test(check.command) && JSON.stringify(check.args) === JSON.stringify(['-m', 'pytest']) && !check.cwd
+
+/** True when the project settings already carry the plan (its setup and its checks). */
+export function environmentPlanApplied(config: { setup?: HostCommandLike[]; verification: HostCommandLike[] }, plan: PythonEnvironmentPlan): boolean {
+  return plan.setup.every(command => config.setup?.some(item => sameCommand(item, command)))
+    && plan.verification.every(command => config.verification.some(item => sameCommand(item, command)))
+}
+
+/**
+ * Settings with the plan merged: its setup appended once, a bare `python3 -m pytest` for that
+ * repository replaced by the venv check, every other configured command kept as it was.
+ */
+export function mergeEnvironmentPlan<T extends { setup?: HostCommandLike[]; verification: HostCommandLike[] }>(config: T, plan: PythonEnvironmentPlan): T {
+  const repositoryId = plan.verification[0]?.repositoryId
+  const setup = [...(config.setup ?? []), ...plan.setup.filter(command => !config.setup?.some(item => sameCommand(item, command)))]
+  const kept = config.verification.filter(check => !(check.repositoryId === repositoryId && barePytest(check)))
+  const verification = [...kept, ...plan.verification.filter(command => !kept.some(item => sameCommand(item, command)))]
+  return { ...config, setup, verification }
 }

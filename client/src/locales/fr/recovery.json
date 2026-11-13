@@ -67,5 +67,11 @@
   "logs": {
     "notFound": "Pas encore de journal à afficher"
   },
-  "technicalDetails": "Détails techniques"
+  "technicalDetails": "Détails techniques",
+  "environmentPlan": {
+    "offer": "{{repository}} fixe Python {{version}}, mais ses vérifications peuvent s’exécuter avec un Python système plus récent. Un environnement virtuel Python {{version}} les aligne sur le projet.",
+    "apply": "Utiliser un venv Python {{version}} pour les vérifications",
+    "saved": "Enregistré dans les paramètres du projet. Le prochain lancement crée le venv avant ses vérifications.",
+    "failed": "Impossible d’enregistrer les paramètres. Ouvrez les paramètres du projet pour les configurer."
+  }
 }

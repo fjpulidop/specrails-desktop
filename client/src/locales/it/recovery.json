@@ -67,5 +67,11 @@
   "logs": {
     "notFound": "Ancora nessun log da mostrare"
   },
-  "technicalDetails": "Dettagli tecnici"
+  "technicalDetails": "Dettagli tecnici",
+  "environmentPlan": {
+    "offer": "{{repository}} fissa Python {{version}}, ma i suoi controlli possono girare con un Python di sistema più recente. Un ambiente virtuale Python {{version}} li allinea al progetto.",
+    "apply": "Usa un venv Python {{version}} per i controlli",
+    "saved": "Salvato nelle impostazioni del progetto. Il prossimo avvio crea il venv prima dei controlli.",
+    "failed": "Impossibile salvare le impostazioni. Apri le impostazioni del progetto per configurarle."
+  }
 }
