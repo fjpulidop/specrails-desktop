@@ -30,6 +30,26 @@ describe('settlePrCiGeneration', () => {
       branches: [expect.objectContaining({ succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'ready', finalSha: head, failureCode: null })] })
   })
 
+  it('freezes the ignored-path snapshot of a failed loop once its worktree is clean at the PR head', async () => {
+    writeFileSync(path.join(work, '.gitignore'), 'node_modules/\n'); git('add', '.'); git('commit', '-qm', 'ignore')
+    execFileSync('mkdir', ['-p', path.join(work, 'node_modules', 'pkg')]); writeFileSync(path.join(work, 'node_modules', 'pkg', 'index.js'), '\n')
+    writeFileSync(path.join(work, 'wip.txt'), 'unfinished\n')
+    const seen: Array<{ worktree: string; excludes: readonly string[]; dirty: string }> = []
+    const capture = async (worktree: string, excludes: readonly string[]) => {
+      seen.push({ worktree, excludes, dirty: git('status', '--porcelain') })
+      return git('status', '--porcelain', '--ignored=matching').split('\n').filter(line => line.startsWith('!! ')).map(line => line.slice(3).replace(/\/$/, ''))
+    }
+    const failed = { ...unit, worktreePath: work, overlayExcludes: ['.sr-rail-overlay.json'], settlementIgnoredPaths: null }
+    const settled = await settlePrCiGeneration({ ...input(() => view({}), { ok: false, reasons: ['Budget exhausted'] }), branches: [failed], captureIgnoredPaths: capture })
+    expect(seen).toEqual([{ worktree: work, excludes: ['.sr-rail-overlay.json'], dirty: '' }])
+    expect(settled?.branches[0].settlementIgnoredPaths).toEqual(['node_modules'])
+    // A snapshot the ordinary settlement already froze is never replaced.
+    seen.length = 0
+    const kept = await settlePrCiGeneration({ ...input(() => view({}), { ok: true, reasons: [] }), branches: [{ ...failed, settlementIgnoredPaths: ['dist'] }], captureIgnoredPaths: capture })
+    expect(seen).toEqual([])
+    expect(kept?.branches[0].settlementIgnoredPaths).toEqual(['dist'])
+  })
+
   it('reports green when Core ended green', async () => {
     expect(await settlePrCiGeneration(input(() => view({}), { ok: true, reasons: ['All checks of the pull request are green.'] }))).toMatchObject({ next: 'pr_draft', statusCode: 'ci_green', statusDetail: null })
   })
