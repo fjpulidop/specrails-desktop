@@ -1149,6 +1149,13 @@
         "./flow-review-outcome",
         "./rail-pr-store"
       ],
+      "runtime/fork-change-supersession.ts": [
+        "../../../db",
+        "../../../worktree-manager",
+        "crypto",
+        "fs",
+        "path"
+      ],
       "runtime/intent-materialization.ts": [
         "../../../worktree-manager",
         "../../specs/domain/intent",
@@ -1373,6 +1380,7 @@
         "./delivery-evidence",
         "./flow-review-outcome",
         "./flow-worktree-handoff",
+        "./fork-change-supersession",
         "./intent-materialization",
         "./isolated-settlement-reconstruction",
         "./isolated-settlement-store",

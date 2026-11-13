@@ -31,6 +31,7 @@ import { newId } from '../../../ids'
 import { normalizeSpecIntent, type SpecIntent } from '../../specs/domain/intent'
 import { readStore } from '../../specs/runtime/ticket-store'
 import { materializeIntent } from './intent-materialization'
+import { definitionForkChain, retireSupersededForkChanges } from './fork-change-supersession'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, activeOpenSpecChangesAt, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
 import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtime-paths'
@@ -613,6 +614,8 @@ interface IsolatedRunSettlementPorts {
   commitMessage(run: AllocatedRun, partial: boolean): string
   /** The intent to write as the change's intent.md (intent-mode); null skips it. */
   intentFor?(run: AllocatedRun): { intent: SpecIntent; title: string | null } | null
+  /** Fork runs (nearest first) whose superseded source changes this run may retire before commit. */
+  forkChain?(runId: string): string[]
 }
 
 /** Shared by fresh execution and durable reattachment; one owner of Git settlement. */
@@ -705,6 +708,13 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
 
     let commit: CommitWorktreeResult
     try {
+      // A fork shares its source's worktree; Core leaves the source's active
+      // change in place after copying it. Retire it so delivery is not blocked.
+      const forkRunIds = ports.forkChain?.(a.runId) ?? []
+      if (forkRunIds.length) {
+        const retired = await retireSupersededForkChanges({ git, worktreePath: a.handle.worktreePath, baseRef: a.hygieneBaseSha ?? a.initialSha ?? a.baseRef, forkRunIds })
+        if (retired.length) console.log(`[rail-isolated] run ${a.runId}: retired superseded fork source changes ${retired.join(', ')}`)
+      }
       // A continuation may merge its PR's base mid-run (pr-ci-loop resolves
       // conflicts by merging the base into the PR branch): active OpenSpec
       // changes that already exist on that base are not this checkout's work.
@@ -1535,6 +1545,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     hasRuntimeRequest: runId => hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, runId),
     commitMessage: (run, partial) => worktreeCommitMessage(ctx, run.ticketId, run.runId, partial),
     intentFor: (run) => runIntent(ctx, run),
+    forkChain: runId => definitionForkChain(ctx.db, runId),
   })
 
   const runPromises: Promise<SettledRun>[] = []
@@ -2221,6 +2232,7 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
           return `${subject}\n\nRun: ${run.runId.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')}${partial ? '\n(partial)' : ''}`
         },
         intentFor: (unit) => runIntent(ctx, unit),
+        forkChain: forkRunId => definitionForkChain(ctx.db, forkRunId),
         markWorktree: (unit, state) => updateRailWorktreeState(ctx.db, unit.ledgerId, state) ? null : 'Worktree ledger disappeared',
         recordRunProvenance: unit => recordIsolatedProvenanceOnce(ctx.db, row.id, runId, () => (io.recordProvenance ?? recordLoopRunProvenance)({
           db: ctx.db, projectId: ctx.project.id, runId, ticketId: unit.ticketId, repoDir: unit.handle.worktreePath,

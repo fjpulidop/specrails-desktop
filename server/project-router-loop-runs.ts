@@ -393,6 +393,20 @@ export async function cancelDefinitionRun(c: ProjectContext, runId: string, requ
   }
 }
 
+/** Prepare delivery for a definition run Core already finished. Spends no
+ * tokens and never resumes the workflow, so no budget gate applies; it reuses
+ * the original isolated settlement exactly like a completed resume. */
+export async function settleCompletedDefinitionRun(c: ProjectContext, runId: string): Promise<void> {
+  const run = getLoopRun(c.db, runId)
+  if (!run || run.project_id !== c.project.id || run.engine_version !== 2) throw new Error('Definition run not found')
+  if (run.status !== 'completed') throw new Error('Wait for the workflow to finish before preparing delivery')
+  if (readDefinitionSuccessor(c.db, runId)) throw new Error('A fork owns this worktree; settle the fork instead')
+  assertProcessAdmission(c.project.id)
+  const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
+  if (!snapshot) throw new Error('Original isolated settlement snapshot is unavailable')
+  await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+}
+
 export async function resumeRetainedDefinitionRun(c: ProjectContext, runId: string, rawControls: unknown): Promise<{ status: number; body: object }> {
   const run = getLoopRun(c.db, runId)
   if (!run || run.project_id !== c.project.id || run.engine_version !== 2) return { status: 404, body: { error: 'Definition run not found' } }

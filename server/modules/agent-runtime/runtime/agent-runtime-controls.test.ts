@@ -694,3 +694,40 @@ describe('engine-aware recovery failures', () => {
     expect(db.prepare("SELECT event_type FROM events WHERE job_id='run-1'").all()).toEqual([])
   })
 })
+
+describe('definition (engine v2) settlement', () => {
+  beforeEach(() => { db.prepare("UPDATE loop_runs SET engine_version = 2 WHERE id = 'run-1'").run() })
+
+  it('routes settle to the isolated settlement port, never the legacy pipeline journal', async () => {
+    const legacy = vi.fn(), settleDefinition = vi.fn().mockResolvedValue(undefined)
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, settle: legacy }, { settleDefinition })
+    await service.settle('run-1')
+    expect(settleDefinition).toHaveBeenCalledWith('run-1')
+    expect(legacy).not.toHaveBeenCalled()
+    expect(service.isActive('run-1')).toBe(false)
+  })
+
+  it('reports the isolated settlement failure verbatim and releases the run', async () => {
+    service = new AgentRuntimeControls(ctx, { status, execute, kill }, { settleDefinition: vi.fn().mockRejectedValue(new Error('OpenSpec delivery blocked by new active changes')) })
+    await expect(service.settle('run-1')).rejects.toMatchObject({ statusCode: 409, code: 'runtime_settlement_blocked', message: 'OpenSpec delivery blocked by new active changes' })
+    expect(service.isActive('run-1')).toBe(false)
+  })
+
+  it('refuses instead of running the legacy check when no port is bound', async () => {
+    const legacy = vi.fn()
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, settle: legacy })
+    await expect(service.settle('run-1')).rejects.toMatchObject({ statusCode: 409, code: 'runtime_settlement_unavailable' })
+    expect(legacy).not.toHaveBeenCalled()
+  })
+
+  it('binds the composition-root port on the settle route even for a pre-existing controller', async () => {
+    const settleDefinition = vi.fn().mockResolvedValue(undefined)
+    const app = express(); app.use(express.json())
+    const router = express.Router()
+    registerAgentRuntimeControlRoutes({ router, ctx: () => ctx }, { settleDefinition })
+    app.use('/api/projects', router)
+    await request(app).post('/api/projects/p1/agent-runtime/runs/run-1/settle').expect(200, { settled: true })
+    expect(settleDefinition).toHaveBeenCalledWith(ctx, 'run-1')
+    shutdownAgentRuntimeControls(ctx)
+  })
+})

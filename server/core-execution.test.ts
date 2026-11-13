@@ -243,6 +243,37 @@ describe('Core implementation completion gate', () => {
     }
     expect(checkCoreCompletion('/context.json', cwd, process.env, 'run').valid).toBe(false)
   })
+  it('reports the runtime failure instead of a generic invalid-JSON message', () => {
+    const { cwd } = fixture()
+    const runtime = join(cwd, '.specrails', 'runtime'); mkdirSync(runtime, { recursive: true })
+    writeFileSync(join(runtime, 'pipeline.mjs'), 'console.error("Error: database is locked"); process.exit(1)')
+    const result = checkCoreCompletion('/context.json', cwd, process.env, 'run')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toContain('database is locked')
+    expect(result.reason).not.toContain('invalid JSON')
+  })
+  describe('programmatic runtime status', () => {
+    const previous = process.env.SPECRAILS_CORE_RUNTIME_PATH
+    afterEach(() => { if (previous === undefined) delete process.env.SPECRAILS_CORE_RUNTIME_PATH; else process.env.SPECRAILS_CORE_RUNTIME_PATH = previous })
+    function programmatic(status: unknown) {
+      const { root, cwd } = fixture()
+      const runtime = join(root, 'core-runtime'); mkdirSync(runtime, { recursive: true })
+      writeFileSync(join(runtime, 'index.js'), '')
+      writeFileSync(join(runtime, 'cli.js'), `process.stdout.write(${JSON.stringify(JSON.stringify(status))})`)
+      process.env.SPECRAILS_CORE_RUNTIME_PATH = join(runtime, 'index.js')
+      const state = join(root, 'pipeline', 'run'); mkdirSync(state, { recursive: true })
+      writeFileSync(join(state, 'agent-runtime-request.json'), '{}')
+      return checkCoreCompletion(join(state, 'desktop-context.json'), cwd, process.env, 'run')
+    }
+    it('accepts a succeeded legacy pipeline journal', () => {
+      expect(programmatic({ type: 'runtime-status', state: { status: 'succeeded' }, pipeline: complete })).toEqual({ valid: true })
+    })
+    it('explains that a workflow-engine (v2) run has no legacy journal instead of throwing', () => {
+      const result = programmatic({ type: 'runtime-status', engineVersion: 2, state: { status: 'succeeded' }, completion: { ok: true, verified: true, reasons: [] } })
+      expect(result.valid).toBe(false)
+      expect(result.reason).toContain('workflow engine (v2)')
+    })
+  })
 })
 
 

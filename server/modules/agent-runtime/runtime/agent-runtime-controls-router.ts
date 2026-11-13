@@ -22,11 +22,17 @@ export async function runtimeRunSummary(context: ProjectContextLike, runId: stri
 }
 type ProjectContextLike = { project: { path: string; slug?: string } } & object
 
-export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectRoutesDeps, 'router' | 'ctx'>): void {
+export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectRoutesDeps, 'router' | 'ctx'>, options: {
+  /** Composition-root port: settle a completed definition (engine v2) run through its isolated settlement. */
+  settleDefinition?: (context: ReturnType<typeof ctx>, runId: string) => Promise<void>
+} = {}): void {
   function controls(request: Parameters<typeof ctx>[0]) {
     const context = ctx(request)
     let controller = controllers.get(context)
     if (!controller) { controller = new AgentRuntimeControls(context); controllers.set(context, controller) }
+    const settleDefinition = options.settleDefinition
+    // A controller may already exist (created lazily for a summary); bind the port every time.
+    if (settleDefinition) controller.useDefinitionSettlement(runId => settleDefinition(context, runId))
     return controller
   }
   router.get('/:projectId/agent-runtime/retention', (req, res) => {
