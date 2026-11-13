@@ -182,7 +182,7 @@
     "relaunchSent": "Relaunching the rail",
     "relaunchFailed": "Couldn't relaunch the rail",
     "recheckRecoveryConfirmTechnical": "Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for {{branch}}. If it proves one result, it may commit isolated changes and retry the exact push. Your main project folder will not be touched.",
-    "fixCi": "Fix CI",
+    "fixCi": "Fix CI / Conflicts",
     "fixCiTooltip": "Wait for the checks, fix failures and conflicts, and push to this PR until it is green",
     "fixCiStarted": "CI watch started",
     "fixCiFailed": "The CI loop could not start"

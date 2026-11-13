@@ -210,6 +210,17 @@ describe('pr.checks', () => {
     expect(f.calls.find(call => call[1] === 'run')).toEqual(['gh', 'run', 'view', '111', '--job', '222', '--log-failed'])
   })
 
+  it('keeps waiting while GitHub still computes mergeability, so green checks never hide a conflict', async () => {
+    let calls = 0
+    const green = [{ name: 'test', status: 'COMPLETED', conclusion: 'SUCCESS' }]
+    const f = fixture(args => args[0] === 'pr' ? rollup(green, { mergeable: ++calls < 3 ? 'UNKNOWN' : 'CONFLICTING' }) : { code: 1, stdout: '', stderr: '' })
+    expect(await f.invoke('pr.checks')).toMatchObject({ outcome: 'conflict' })
+    expect(calls).toBe(3)
+    let later = 0
+    const settles = fixture(args => args[0] === 'pr' ? rollup(green, { mergeable: ++later < 2 ? 'UNKNOWN' : 'MERGEABLE' }) : { code: 1, stdout: '', stderr: '' })
+    expect(await settles.invoke('pr.checks')).toMatchObject({ outcome: 'green' })
+  })
+
   it('reports none after the grace period, timeout, conflict and closed', async () => {
     expect(await fixture(() => rollup([])).invoke('pr.checks')).toMatchObject({ outcome: 'none' })
     const slow = fixture(() => rollup([{ name: 'test', status: 'QUEUED', conclusion: null }]))
