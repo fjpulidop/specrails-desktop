@@ -182,7 +182,7 @@
     "relaunchSent": "Rilancio del rail",
     "relaunchFailed": "Impossibile rilanciare il rail",
     "recheckRecoveryConfirmTechnical": "Specrails riesaminerà in questo clone il worktree, il branch, i ref, i reflog e gli oggetti Git orfani appartenenti alla consegna di {{branch}}. Se dimostra un unico risultato, potrà eseguire il commit delle modifiche isolate e ritentare il push esatto. La cartella principale del progetto non verrà toccata.",
-    "fixCi": "Correggi CI",
+    "fixCi": "Correggi CI / Conflitti",
     "fixCiTooltip": "Attendi i check, correggi errori e conflitti e invia a questa PR finché non è verde",
     "fixCiStarted": "Monitoraggio della CI avviato",
     "fixCiFailed": "Impossibile avviare il loop di CI"

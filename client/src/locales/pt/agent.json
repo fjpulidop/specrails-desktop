@@ -335,6 +335,7 @@
       "flowSpecFailed": "A passagem a um rail parou",
       "flowSpecBuilding": "Transformando seu Intent em uma PR revisada",
       "ci_green": "PR pronto — CI verde",
+      "ci_conflict": "PR com conflitos de merge por resolver",
       "ci_needs_attention": "PR enviado — o CI ainda não está verde",
       "ciBuilding": "Acompanhando o CI do PR {{pr}}",
       "run_stopped": "Execução interrompida",
@@ -511,6 +512,7 @@
       "attention": "O loop de CI parou antes de os checks ficarem verdes. O PR mantém tudo o que foi enviado.",
       "pending": "O CI está em andamento ({{count}} checks pendentes).",
       "notGreen": "O CI do PR ainda não está verde.",
+      "conflict": "O PR tem conflitos de merge com o branch base, embora o CI tenha passado. Não pode ser integrado até serem resolvidos: clique em «Corrigir CI / Conflitos».",
       "failing": "Checks com falha: {{checks}}",
       "failing_pr": "{{pr}}: checks com falha: {{checks}}"
     },
@@ -1525,7 +1527,7 @@
     "startFailed": "Não foi possível iniciar o loop de CI.",
     "dismissFailed": "Não foi possível guardar a sua escolha. Tente novamente.",
     "startedToast": "Acompanhamento do CI iniciado no trilho {{index}}",
-    "fixCi": "Corrigir CI",
+    "fixCi": "Corrigir CI / Conflitos",
     "fixCiTooltip": "Esperar pelos checks, corrigir falhas e conflitos e enviar para este PR até ficar verde",
     "step": {
       "checks": "Esperando pelo CI",
@@ -1543,7 +1545,7 @@
     "noCiMany": "Os PRs {{pr}} não têm checks de CI",
     "needsAttentionMany": "Os PRs {{pr}} foram enviados; o CI ainda não está verde",
     "dismissedMany": "O acompanhamento do CI dos PRs {{pr}} não foi iniciado.",
-    "retry": "Corrigir o CI de novo",
+    "retry": "Corrigir CI / Conflitos de novo",
     "openLog": "Ver o log"
   }
 }

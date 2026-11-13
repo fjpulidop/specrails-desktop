@@ -335,6 +335,7 @@
       "flowSpecFailed": "La remise s’est arrêtée",
       "flowSpecBuilding": "Votre Intent devient une PR relue",
       "ci_green": "PR prête — CI verte",
+      "ci_conflict": "PR avec des conflits de merge à résoudre",
       "ci_needs_attention": "PR poussée — la CI n'est pas encore verte",
       "ciBuilding": "Surveillance de la CI de la PR {{pr}}",
       "run_stopped": "Exécution arrêtée",
@@ -511,6 +512,7 @@
       "attention": "La boucle de CI s’est arrêtée avant que les checks passent au vert. La PR conserve tout ce qui a été poussé.",
       "pending": "La CI est en cours ({{count}} checks en attente).",
       "notGreen": "La CI de la PR n'est pas encore verte.",
+      "conflict": "La PR a des conflits de merge avec la branche de base, même si la CI est passée. Elle ne peut pas être fusionnée avant leur résolution : cliquez sur « Corriger CI / Conflits ».",
       "failing": "Checks en échec : {{checks}}",
       "failing_pr": "{{pr}} : checks en échec : {{checks}}"
     },
@@ -1525,7 +1527,7 @@
     "startFailed": "La boucle de CI n’a pas pu démarrer.",
     "dismissFailed": "Impossible d’enregistrer votre choix. Réessayez.",
     "startedToast": "Surveillance de la CI démarrée sur le rail {{index}}",
-    "fixCi": "Corriger la CI",
+    "fixCi": "Corriger CI / Conflits",
     "fixCiTooltip": "Attendre les checks, corriger les échecs et les conflits et pousser dans cette PR jusqu’à ce qu’elle soit verte",
     "step": {
       "checks": "En attente de la CI",
@@ -1543,7 +1545,7 @@
     "noCiMany": "Les PR {{pr}} n’ont pas de checks de CI",
     "needsAttentionMany": "Les PR {{pr}} sont poussées ; leur CI n'est pas encore verte",
     "dismissedMany": "Surveillance de la CI des PR {{pr}} non démarrée.",
-    "retry": "Corriger la CI à nouveau",
+    "retry": "Corriger CI / Conflits à nouveau",
     "openLog": "Voir le journal"
   }
 }
