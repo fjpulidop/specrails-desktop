@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { configurableImplementGraph } from './loop-implement-recipe'
+import { configurableImplementGraph, PLAN_REPAIR_LIMIT } from './loop-implement-recipe'
 import { factoryLoopsForCapabilities } from './loop-factory'
 import { compileLoopToDefinition } from './loop-definition'
 
@@ -30,6 +30,24 @@ it('ends on a deterministic OpenSpec archive rejection instead of cycling verify
   expect(graph.nodes.find(node => node.id === 'archive-failed')!.data).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('could not archive change {{run.changeId}}') })
   const definition = compileLoopToDefinition(graph, { id: 'implement', title: 'Implement', provider: 'claude', constants: {}, roles: graph.config.agents!.roles, repositoryCount: 1, changeId: 'example' })
   expect(definition.nodes['archive-failed']).toMatchObject({ kind: 'end' })
+})
+it('bounds plan repairs after a failed OpenSpec validation instead of re-planning until the iteration budget runs out', () => {
+  const graph = configurableImplementGraph()
+  const edge = (source: string, label: string) => graph.edges.find(item => item.source === source && item.label === label)?.target
+  const params = (id: string) => graph.nodes.find(node => node.id === id)!.data!.params
+  expect(graph.edges.find(item => item.source === 'start')!.target).toBe('initialize-plan')
+  expect(params('initialize-plan')).toEqual({ set: { planRepairs: 0, planRepairLimit: PLAN_REPAIR_LIMIT } })
+  expect(edge('initialize-plan', 'next')).toBe('architect')
+  expect(edge('validate', 'fail')).toBe('plan-repair-budget')
+  expect(params('plan-repair-budget')!.expr).toBe('$vars.planRepairs < $vars.planRepairLimit')
+  expect([edge('plan-repair-budget', 'true'), edge('plan-repair-budget', 'false')]).toEqual(['count-plan-repair', 'plan-invalid'])
+  expect(params('count-plan-repair')).toEqual({ increment: { planRepairs: 1 } })
+  expect(edge('count-plan-repair', 'next')).toBe('architect')
+  expect(graph.nodes.find(node => node.id === 'plan-invalid')!.data).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('## Purpose') })
+  // The architect learns that main specs are read-only and how to avoid a legacy one.
+  expect(String(params('architect')!.prompt)).toContain('put these requirements in a delta for a new capability')
+  const definition = compileLoopToDefinition(graph, { id: 'implement', title: 'Implement', provider: 'claude', constants: {}, roles: graph.config.agents!.roles, repositoryCount: 1, changeId: 'example' })
+  expect(definition.nodes['plan-invalid']).toMatchObject({ kind: 'end' })
 })
 it('uses configurable recipes only when Core advertises the generic capabilities', () => {
   const old = factoryLoopsForCapabilities({ engineV2: 1, workflowDefinitions: 1, implementationSteps: 1 }).find(loop => loop.id === 'factory:implement')!

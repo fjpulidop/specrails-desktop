@@ -72,6 +72,11 @@ blocker (`kind`, `reason`, `requiredAction`) and whose completion carries
 candidate-hash progress check, so an intentionally unchanged candidate is no longer
 reported as `correction-stalled`. Developer and fixer turns receive
 `verificationProposalsFrom: 'architect'` so write roles see the complete host plan.
+A failed `validate` (OpenSpec validation or archive preflight) sends the architect back
+only within `PLAN_REPAIR_LIMIT` = 2 repairs (`plan-repair-budget` / `count-plan-repair`);
+a failure planning cannot repair, such as a legacy main spec without `## Purpose` /
+`## Requirements` (main specs are read-only to the plan role), ends at `plan-invalid`
+instead of re-planning until `maxIterations`.
 `configurableImplementGraph(capabilities)` omits `hostBlockers`, `setup`, `blockerFrom`
 and the `blocked` edges on an older Core; `effectivePieceOutcomes` in `loop-graph.ts`
 (and the client `effectiveOutcomes`) advertise `blocked` for `verify` only with the flag.
