@@ -1,4 +1,4 @@
-import { suggestVerificationCommands } from './agent-runtime-verification-suggestions'
+import { pythonEnvironmentPlan, suggestVerificationCommands } from './agent-runtime-verification-suggestions'
 import { writeRuntimeHistory } from './agent-runtime-history'
 import { toolRepositories, type RuntimeLogRepository } from './agent-runtime-repositories'
 import { createVerificationLogProjection } from './agent-runtime-verification-log'
@@ -60,9 +60,18 @@ export function scopedHostChecks<T extends { repositoryId: string; cwd?: string 
 
 /** Discover only checks belonging to the admitted worktrees. Explicit host
  * checks win; inferred commands are frozen per run, never saved to project settings. */
-function completeHostChecks(config: RuntimeConfig, repositories: Array<RuntimeLogRepository & { scope?: string[] }>): void {
+function completeHostChecks(config: RuntimeConfig, repositories: Array<RuntimeLogRepository & { scope?: string[] }>, setupSupported = false): void {
   for (const repository of repositories) {
     if (config.verification.some(check => check.repositoryId === repository.id) || !repository.path) continue
+    // A Python project pinning an interpreter (its image, a version file) runs its checks in a
+    // venv built from that interpreter, not on a newer system python3 that may refuse installs.
+    const python = setupSupported && !repository.scope?.length && !config.setup?.some(command => command.repositoryId === repository.id)
+      ? pythonEnvironmentPlan({ id: repository.id, path: repository.path }) : null
+    if (python) {
+      config.setup = [...(config.setup ?? []), ...python.setup]
+      config.verification.push(...python.verification)
+      continue
+    }
     const workspacePaths = (repository.scope?.length ? repository.scope.map(scope => resolve(repository.path!, scope)) : [repository.path]).filter(workspace => existsSync(workspace))
     const root = realpathSync(repository.path)
     for (const workspace of workspacePaths) {
@@ -236,7 +245,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       repositoryIds: admittedContext.repositories.map(repo => repo.id), source: options.loopConfig ? 'loop-role' : source, providerOverride: options.loopConfig ? undefined : options.providerOverride,
     })
     config.verification = scopedHostChecks(config.verification, admittedContext.repositories)
-    if (definitionEngine) completeHostChecks(config, admittedContext.repositories)
+    if (definitionEngine) completeHostChecks(config, admittedContext.repositories, coreSupportsSetupCommands((await loadCoreAgentRuntime()).api?.capabilities))
     if (!loopConfig) config.rolePrompts = { ...effectiveRolePrompts, ...config.rolePrompts }
     // Core rejects unknown connection keys: drop the desktop-only local-engine
     // fields (label/defaultModel/rates/supportsReasoningEffort) before Core sees it.

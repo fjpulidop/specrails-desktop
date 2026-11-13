@@ -67,5 +67,11 @@
   "logs": {
     "notFound": "暂无可显示的日志"
   },
-  "technicalDetails": "技术详情"
+  "technicalDetails": "技术详情",
+  "environmentPlan": {
+    "offer": "{{repository}} 固定使用 Python {{version}}，但其检查可能在更新的系统 Python 上运行。使用 Python {{version}} 虚拟环境可与项目保持一致。",
+    "apply": "检查时使用 Python {{version}} venv",
+    "saved": "已保存到项目设置。下次启动会在检查前创建 venv。",
+    "failed": "无法保存设置。请打开项目设置进行配置。"
+  }
 }

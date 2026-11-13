@@ -67,5 +67,11 @@
   "logs": {
     "notFound": "表示できるログはまだありません"
   },
-  "technicalDetails": "技術的な詳細"
+  "technicalDetails": "技術的な詳細",
+  "environmentPlan": {
+    "offer": "{{repository}} は Python {{version}} を指定していますが、チェックがより新しいシステムの Python で実行される可能性があります。Python {{version}} の仮想環境でプロジェクトに合わせます。",
+    "apply": "チェックに Python {{version}} の venv を使う",
+    "saved": "プロジェクト設定に保存しました。次回の起動でチェックの前に venv を作成します。",
+    "failed": "設定を保存できませんでした。プロジェクト設定を開いて設定してください。"
+  }
 }

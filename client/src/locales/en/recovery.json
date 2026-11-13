@@ -67,5 +67,11 @@
   "logs": {
     "notFound": "No log to show yet"
   },
-  "technicalDetails": "Technical details"
+  "technicalDetails": "Technical details",
+  "environmentPlan": {
+    "offer": "{{repository}} pins Python {{version}}, but its checks may run on a newer system Python. A Python {{version}} virtual environment makes them match the project.",
+    "apply": "Use a Python {{version}} venv for checks",
+    "saved": "Saved to the project settings. The next launch builds the venv before its checks.",
+    "failed": "Could not save the settings. Open Project settings to configure them."
+  }
 }
