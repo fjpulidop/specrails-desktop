@@ -13,6 +13,8 @@ export const HOST_BLOCKER_KINDS = ['network', 'credential', 'environment-variabl
 /** Fixer/developer structured `blocker`: the host ends the run on it instead of counting a correction round. */
 /** Write roles of a large spec routinely exceed Core's default of 100 turns (one cross-repo Developer used 113). */
 export const IMPLEMENT_WRITE_ROLE_MAX_TURNS = 300
+/** Architect repairs after a failed OpenSpec validation (so at most three validations per plan). */
+export const PLAN_REPAIR_LIMIT = 2
 const blocker = objectSchema({ kind: { enum: [...HOST_BLOCKER_KINDS] }, command: string, cwd: string, evidence: string, requiredAction: string }, ['kind', 'requiredAction'])
 
 /** Host-owned environment repair and structured blockers need the paired Core generation. */
@@ -41,13 +43,20 @@ export function configurableImplementGraph(capabilities?: Record<string, number>
   // Same Core generation as host blockers: older role-turn schemas reject unknown params.
   const writes = hostBlockers ? { verificationProposalsFrom: 'architect' } : {}
   const change = '{{run.changeId}}'
-  turn('architect', 'Architect', 'plan', `Plan the frozen ticket requirements for OpenSpec change ${change}. Use the bound official fast-forward skill. Author complete proposal, design, delta specs and actionable tasks. Propose existing repository verification commands for repositories with no configured checks. Return confidence, question (empty when none), and verification [{repositoryId,command,args,cwd?}]. When revisiting low confidence, investigate the missing repository evidence before asking again. Context and human answers: {{history.text}}`, objectSchema({ confidence: { enum: ['high', 'medium', 'low'] }, question: string, verification: { type: 'array', maxItems: 20, items: objectSchema({ repositoryId: string, command: string, args: strings, cwd: string }, ['repositoryId', 'command', 'args']) } }), 'confidence')
+  turn('architect', 'Architect', 'plan', `Plan the frozen ticket requirements for OpenSpec change ${change}. Use the bound official fast-forward skill. Author complete proposal, design, delta specs and actionable tasks. Propose existing repository verification commands for repositories with no configured checks. Return confidence, question (empty when none), and verification [{repositoryId,command,args,cwd?}]. When revisiting low confidence, investigate the missing repository evidence before asking again. Main specs under openspec/specs are read-only to you: when OpenSpec reports that a main spec lacks its ## Purpose or ## Requirements sections, do not target that capability or plan to edit it; put these requirements in a delta for a new capability with only ## ADDED Requirements, and delete the delta that targeted it. Context and human answers: {{history.text}}`, objectSchema({ confidence: { enum: ['high', 'medium', 'low'] }, question: string, verification: { type: 'array', maxItems: 20, items: objectSchema({ repositoryId: string, command: string, args: strings, cwd: string }, ['repositoryId', 'command', 'args']) } }), 'confidence')
   node('confidence', 'Planning confidence', 'condition', { expr: '$outputs.architect.structured.confidence != "low"' }, { true: 'validate', false: 'investigate' })
   node('investigate', 'Investigate low confidence once', 'condition', { expr: '!exists($vars.planInvestigated) || $vars.planInvestigated == false' }, { true: 'mark-investigated', false: 'clarify' })
   node('mark-investigated', 'Mark confidence investigation', 'assign', { set: { planInvestigated: true } }, { next: 'architect', failed: 'failed' })
   node('clarify', 'Clarify plan', 'question', { text: '{{outputs.architect.structured.question}}' }, { next: 'reset-confidence' })
   node('reset-confidence', 'Reset confidence after answer', 'assign', { set: { planInvestigated: false } }, { next: 'architect', failed: 'failed' })
-  node('validate', 'Validate OpenSpec', 'openspec-validate', { change }, { pass: 'freeze', fail: 'architect', failed: 'failed' })
+  node('initialize-plan', 'Initialize plan repair budget', 'assign', { set: { planRepairs: 0, planRepairLimit: PLAN_REPAIR_LIMIT } }, { next: 'architect', failed: 'failed' })
+  // An OpenSpec failure sends the architect back to repair the plan, within a
+  // budget: a failure it cannot repair (for example a main spec it may not edit)
+  // repeats identically and must end the run instead of re-planning until the
+  // iteration budget runs out.
+  node('validate', 'Validate OpenSpec', 'openspec-validate', { change }, { pass: 'freeze', fail: 'plan-repair-budget', failed: 'failed' })
+  node('plan-repair-budget', 'Check plan repair budget', 'condition', { expr: '$vars.planRepairs < $vars.planRepairLimit' }, { true: 'count-plan-repair', false: 'plan-invalid' })
+  node('count-plan-repair', 'Count plan repair', 'assign', { increment: { planRepairs: 1 } }, { next: 'architect', failed: 'failed' })
   node('freeze', 'Freeze approved artifacts', 'artifact-contract', { change, contractId: 'plan', action: 'freeze' }, { pass: 'initialize-corrections', fail: 'architect', failed: 'failed' })
   node('initialize-corrections', 'Initialize automatic correction budget', 'assign', { set: { correctionAttempts: 0, correctionLimit: 3, implementationAttempts: 0, implementationLimit: 3, archiveRetries: 0 } }, { next: 'developer', failed: 'failed' })
   const implementation = objectSchema({ summary: string, incomplete: strings, blocker }, ['summary', 'incomplete'])
@@ -85,6 +94,7 @@ export function configurableImplementGraph(capabilities?: Record<string, number>
   node('count-archive-retry', 'Count archive re-verification', 'assign', { increment: { archiveRetries: 1 } }, { next: 'verify', failed: 'failed' })
   node('verify-archive', 'Verify archived candidate', 'verify', verifyParams, verifyEnds('done', 'failed', 'host-blocked-archive'))
   nodes.push({ id: 'done', type: 'end', position: { x: 0, y: nodes.length * 140 }, data: { outcome: 'success', requiresVerified: true } }, { id: 'failed', type: 'end', position: { x: 360, y: nodes.length * 140 }, data: { outcome: 'failure' } },
+    { id: 'plan-invalid', type: 'end', position: { x: 360, y: (nodes.length + 2) * 140 }, data: { outcome: 'failure', reason: `The plan for change ${change} still fails OpenSpec validation after {{run.planRepairs}} repair(s), so it was not implemented. The Validate OpenSpec step in the run log shows OpenSpec's reason. A main spec missing its ## Purpose or ## Requirements sections cannot be repaired by planning: add those sections to the main spec, or relaunch so the plan targets a new capability.` } },
     { id: 'archive-failed', type: 'end', position: { x: 360, y: (nodes.length + 1) * 140 }, data: { outcome: 'failure', reason: `OpenSpec could not archive change ${change}. The implementation was verified and reviewed; the archive step in the run log shows OpenSpec's reason (for example a requirement whose first body line has no SHALL or MUST). Fix the spec in the original worktree, then archive it there or relaunch.` } },
     { id: 'correction-stalled', type: 'end', position: { x: 720, y: nodes.length * 140 }, data: { outcome: 'failure', reason: `Automatic correction made no candidate changes. Host verification is valid: {{outputs.verify.valid}}. Acceptance policy: ${reviewPolicy}. Latest review findings: {{run.latestReview}}. Fixer diagnosis: {{outputs.fixer.structured.summary}}` } },
     { id: 'correction-exhausted', type: 'end', position: { x: 1080, y: nodes.length * 140 }, data: { outcome: 'failure', reason: `Automatic correction limit reached ({{run.correctionAttempts}}/{{run.correctionLimit}}). Acceptance policy: ${reviewPolicy}. Latest review findings: {{run.latestReview}}. Fixer diagnosis: {{outputs.fixer.structured.summary}}. Host verification: {{outputs.verify}}` } },
@@ -96,6 +106,6 @@ export function configurableImplementGraph(capabilities?: Record<string, number>
     const hostBlocked = (id: string, source: string) => ({ id, type: 'end' as const, position: { x: 1800, y: nodes.length * 140 }, data: { outcome: 'failure' as const, blockerFrom: source, reason: `Host blocker ({{outputs.${source}.blocker.kind}}): {{outputs.${source}.blocker.reason}} Required action: {{outputs.${source}.blocker.requiredAction}}` } })
     nodes.push(hostBlocked('host-blocked', 'verify'), hostBlocked('host-blocked-archive', 'verify-archive'))
   }
-  edges.unshift({ id: 'e-start', source: 'start', target: 'architect' })
+  edges.unshift({ id: 'e-start', source: 'start', target: 'initialize-plan' })
   return { nodes, edges, config: { maxIterations: 12, maxTransitions: 200, timeoutMinutes: 0, aiStepTimeoutMinutes: 0, change: 'new', journal: 'ledger-only', ticketScope: 'all', agents, reviewerStepId: 'reviewer' } }
 }

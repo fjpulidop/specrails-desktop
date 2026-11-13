@@ -46,6 +46,13 @@ describe('NarratedProgress', () => {
     expect(screen.getByText('Step 1: Prepare fixes')).toBeInTheDocument()
     expect(screen.getByText('Step 2: mystery-step')).toBeInTheDocument()  })
 
+  it('names the plan repair steps of the Implement recipe', () => {
+    render(<NarratedProgress events={[step(1, 'initialize-plan'), step(2, 'plan-repair-budget'), step(3, 'count-plan-repair')]} settled={false} />)
+    expect(screen.getByText('Step 1: Prepare plan repairs')).toBeInTheDocument()
+    expect(screen.getByText('Step 2: Check remaining plan repairs')).toBeInTheDocument()
+    expect(screen.getByText('Step 3: Start a plan repair')).toBeInTheDocument()
+  })
+
   it('shows a repeat count instead of nine identical lines', () => {
     render(<NarratedProgress
       events={[step(1, 'x'), tool('Read', { file_path: '/a.ts' }), tool('Read', { file_path: '/a.ts' })]}
