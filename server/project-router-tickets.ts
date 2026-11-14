@@ -1991,7 +1991,12 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     storage: multer.memoryStorage(),
     limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB per file
     fileFilter: (req, file, cb) => {
-      if (isSupportedUploadedFile({ mimetype: file.mimetype, originalname: file.originalname })) {
+      // Explore conversations opt in to the readable-text rule, which needs the
+      // buffer; the content check happens in attachmentManager.upload().
+      if (
+        req.query.readableText === '1' ||
+        isSupportedUploadedFile({ mimetype: file.mimetype, originalname: file.originalname })
+      ) {
         cb(null, true)
       } else {
         // Record what was rejected so the route can return a clear error instead
@@ -2050,6 +2055,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           slug: ctx(req).project.slug,
           ticketKey: parsed.key,
           ticketStorePath: parsed.isPending ? null : ticketPath(req),
+          allowReadableText: parsed.isPending && req.query.readableText === '1',
           file: {
             buffer: file.buffer,
             originalname: file.originalname,

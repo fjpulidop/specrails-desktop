@@ -34,6 +34,39 @@ describe('attachments lib', () => {
       )
     })
 
+    it('adds the readableText query only when the option is set', async () => {
+      const att = { id: 'a1', filename: 'x.md', storedName: 'u-x.md', mimeType: 'text/plain', size: 5, addedAt: '' }
+      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        json: async () => ({ attachment: att }),
+      })
+      const file = new File(['# hi'], 'x.md', { type: 'text/markdown' })
+      await uploadAttachment('1', file, undefined, { readableText: true })
+      await uploadAttachment('1', file)
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        1,
+        '/api/projects/proj-1/tickets/1/attachments?readableText=1',
+        expect.objectContaining({ method: 'POST' }),
+      )
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/projects/proj-1/tickets/1/attachments',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    it('surfaces the server refusal reason as the thrown message', async () => {
+      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: '"a.zip" is not a text file and cannot be attached' }),
+      })
+      const file = new File([''], 'a.zip', { type: 'application/zip' })
+      await expect(uploadAttachment('1', file, undefined, { readableText: true })).rejects.toThrow(
+        '"a.zip" is not a text file and cannot be attached',
+      )
+    })
+
     it('throws on non-ok response with error body', async () => {
       ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: false,
