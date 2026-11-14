@@ -48,8 +48,13 @@ export interface PrCiTiming {
   pollMaxMs: number
   /** Total wait cap for one `pr.checks` before `timeout`. */
   timeoutMs: number
+  /** Fail fast: once a check has failed, how long to keep collecting the
+   * failures about to finish before reporting `red` while slower checks still
+   * run (the fix push restarts CI anyway). 0 waits for every check. */
+  failFastGraceMs?: number
 }
-export const DEFAULT_PR_CI_TIMING: PrCiTiming = { initialDelayMs: 90_000, pollMinMs: 30_000, pollMaxMs: 120_000, timeoutMs: 60 * 60_000 }
+export const DEFAULT_PR_CI_FAIL_FAST_GRACE_MS = 120_000
+export const DEFAULT_PR_CI_TIMING: PrCiTiming = { initialDelayMs: 90_000, pollMinMs: 30_000, pollMaxMs: 120_000, timeoutMs: 60 * 60_000, failFastGraceMs: DEFAULT_PR_CI_FAIL_FAST_GRACE_MS }
 
 export interface PrCiHandlerDeps {
   exec: Exec
@@ -87,6 +92,15 @@ export function boundLog(text: string, limit = PR_CI_LOG_BYTES): string {
   const buffer = Buffer.from(text, 'utf8')
   if (buffer.byteLength <= limit) return text
   return '[…truncated]\n' + buffer.subarray(buffer.byteLength - limit).toString('utf8').replace(/^�+/, '')
+}
+
+/** A whole job log (the API one) ends in post-job cleanup: keep it up to the
+ * last `##[error]` line so the bounded tail is the failure, not the cleanup. */
+export function trimJobLog(text: string): string {
+  const at = text.lastIndexOf('##[error]')
+  if (at < 0) return text
+  const end = text.indexOf('\n', at)
+  return end < 0 ? text : text.slice(0, end)
 }
 
 const failed = (detail: string): HostTaskResult => ({ outcome: 'failed', output: { detail: detail.slice(0, 2000) } })
@@ -259,6 +273,8 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
 
   type CheckState = { kind: 'closed'; state: string } | { kind: 'conflict'; detail?: string; mergeStateStatus?: unknown } | { kind: 'moved'; headRefOid: string }
     | { kind: 'pending' } | { kind: 'none' } | { kind: 'done'; total: number; failures: CheckFailure[] } | { kind: 'failed'; detail: string }
+    /** Some checks already failed while others still run. */
+    | { kind: 'failing'; total: number; pending: number; failures: CheckFailure[] }
   const checkOne = async (target: PrCiTarget, expected: string): Promise<CheckState> => {
     const view = await gh(['pr', 'view', target.prUrl, '--json', 'state,mergeable,mergeStateStatus,headRefOid,isCrossRepository,statusCheckRollup'], target.repoDir)
     if (view.code !== 0) return { kind: 'failed', detail: `gh pr view failed: ${firstLine(view) || `exit ${view.code}`}` }
@@ -278,7 +294,7 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
     if (remoteHead && remoteHead !== expected) return { kind: 'moved', headRefOid: remoteHead }
     const summary = summarizeChecks(parsed.statusCheckRollup)
     if (summary.total === 0) return { kind: 'none' }
-    if (summary.pending > 0) return { kind: 'pending' }
+    if (summary.pending > 0) return summary.failures.length ? { kind: 'failing', total: summary.total, pending: summary.pending, failures: summary.failures } : { kind: 'pending' }
     return { kind: 'done', total: summary.total, failures: summary.failures }
   }
 
@@ -294,6 +310,8 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
     }
     const shas = () => multi(targets) ? { shas: targets.map(target => ({ repository: target.repositoryName, sha: expected.get(target)! })) } : { sha: expected.get(targets[0])! }
     const moves = new Map<PrCiTarget, number>()
+    const grace = timing.failFastGraceMs ?? DEFAULT_PR_CI_FAIL_FAST_GRACE_MS
+    let firstFailureAt: number | null = null
     let interval = timing.pollMinMs
     for (;;) {
       const states: Array<{ target: PrCiTarget; state: CheckState }> = []
@@ -309,18 +327,25 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
         }
       }
       const elapsed = now() - started
-      const waiting = states.some(({ state }) => state.kind === 'pending' || state.kind === 'moved' || (state.kind === 'none' && elapsed < timing.initialDelayMs))
+      // Fail fast: a failure is known; after a short grace (to collect the
+      // failures about to finish) report red without waiting for slow checks.
+      if (firstFailureAt === null && states.some(({ state }) => state.kind === 'failing' || (state.kind === 'done' && state.failures.length > 0))) firstFailureAt = now()
+      const failFast = grace > 0 && firstFailureAt !== null && now() - firstFailureAt >= grace && !states.some(({ state }) => state.kind === 'moved')
+      const waiting = !failFast && states.some(({ state }) => state.kind === 'pending' || state.kind === 'failing' || state.kind === 'moved' || (state.kind === 'none' && elapsed < timing.initialDelayMs))
       if (!waiting) {
-        const done = states.filter((entry): entry is { target: PrCiTarget; state: Extract<CheckState, { kind: 'done' }> } => entry.state.kind === 'done')
-        if (!done.length) return { outcome: 'none', output: shas() }
-        const total = done.reduce((sum, entry) => sum + entry.state.total, 0)
-        const failures = done.flatMap(({ target, state }) => state.failures.map(failure => ({ failure, target })))
+        const settled = states.filter((entry): entry is { target: PrCiTarget; state: Extract<CheckState, { kind: 'done' | 'failing' }> } => entry.state.kind === 'done' || entry.state.kind === 'failing')
+        if (!settled.length) return { outcome: 'none', output: shas() }
+        const total = settled.reduce((sum, entry) => sum + entry.state.total, 0)
+        const failures = settled.flatMap(({ target, state }) => state.failures.map(failure => ({ failure, target })))
         if (!failures.length) return { outcome: 'green', output: { ...shas(), checks: total } }
-        log(`${failures.length} check(s) failed`)
-        return { outcome: 'red', output: { ...shas(), checks: total, failures: await failureEvidence(targets, failures) } }
+        const stillRunning = settled.reduce((sum, entry) => sum + (entry.state.kind === 'failing' ? entry.state.pending : 0), 0)
+        log(stillRunning ? `${failures.length} check(s) failed (${stillRunning} still running; not waiting for them)` : `${failures.length} check(s) failed`)
+        return { outcome: 'red', output: { ...shas(), checks: total, ...(stillRunning ? { stillRunning } : {}), failures: await failureEvidence(targets, failures) } }
       }
       if (now() - started >= limit) return { outcome: 'timeout', output: { ...shas(), waitedMs: now() - started } }
-      await sleep(Math.min(interval, Math.max(1, limit - (now() - started))), signal)
+      // Inside the grace window, wake up when it closes rather than a full interval later.
+      const untilGrace = firstFailureAt !== null && grace > 0 ? Math.max(1, firstFailureAt + grace - now()) : Infinity
+      await sleep(Math.min(interval, untilGrace, Math.max(1, limit - (now() - started))), signal)
       interval = Math.min(timing.pollMaxMs, Math.round(interval * 1.5))
     }
   })
@@ -332,7 +357,13 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
       if (failure.runId) {
         const logs = await gh(['run', 'view', failure.runId, ...(failure.jobId ? ['--job', failure.jobId] : []), '--log-failed'], target.repoDir)
         if (logs.code === 0 && logs.stdout.trim()) entry.log = boundLog(redactCiText(logs.stdout))
-        else entry.logUnavailable = firstLine(logs) || 'no failed-step log'
+        else {
+          // Fail fast reports while the workflow run still goes on, and `gh run
+          // view` refuses an in-progress run: the finished job's own log works.
+          const job = failure.jobId ? await gh(['api', `repos/{owner}/{repo}/actions/jobs/${failure.jobId}/logs`], target.repoDir) : null
+          if (job && job.code === 0 && job.stdout.trim()) entry.log = boundLog(redactCiText(trimJobLog(job.stdout)))
+          else entry.logUnavailable = firstLine(logs) || 'no failed-step log'
+        }
       } else entry.external = true
       out.push(entry)
     }

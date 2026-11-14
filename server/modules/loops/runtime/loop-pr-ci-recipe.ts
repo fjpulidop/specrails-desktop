@@ -123,6 +123,7 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
       'The pull request in this worktree has failing CI checks (round {{run.rounds}} of {{run.roundLimit}}). Make them pass with the smallest correct change.',
       PR_CI_EVIDENCE_RULES,
       'Failing checks with bounded, redacted logs: {{run.ciEvidence}}.',
+      'When the evidence has stillRunning, slower checks had not finished yet: fix the failures listed; your push restarts CI and any later failure comes back in the next round.',
       'Latest failing local verification, if any: {{run.localEvidence}}.',
       'Reproduce the failure locally with the project\'s own commands, fix the cause in code or tests, and keep every existing guard.',
       'First classify EACH failing check from its evidence: code (the change, its tests or its build are wrong and a code change fixes it), flaky (a nondeterministic test unrelated to the change), infrastructure (the runner, network, a registry or service timing out, a dependency that cannot be downloaded, a cancelled or expired job, a missing runner), or tooling (a check tool changed under the pull request: CI installed a newer, unpinned version that checks more or differently, so it fails on files this pull request did not change).',
