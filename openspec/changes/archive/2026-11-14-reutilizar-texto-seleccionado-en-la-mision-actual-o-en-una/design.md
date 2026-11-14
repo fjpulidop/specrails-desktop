@@ -34,6 +34,7 @@ See proposal.md for motivation. This document derives the existing diff against 
 ## Blast radius
 
 - `client/src/features/missions/components/__tests__/MissionSelectionMenu.test.tsx`: Adds selection boundaries, captured-source send/retry, draft preparation, keyboard, archive and failure coverage.
+- `client/src/features/missions/components/__tests__/MissionSplitLayout.test.tsx`: Adds an integration test that preparing a separate mission (empty and fork) appends a third pane with a focused, editable draft while preserving existing pane identities, the source draft, other drafts and the source scroll position.
 - `client/src/features/missions/components/__tests__/streaming-store-regressions.test.tsx`: Asserts inherited cards and option shortcuts cannot act.
 - `client/src/features/missions/components/AgentConversationView.tsx`: Wraps committed rows for selection, shows provenance, disables inherited cards, filters active work and focuses the new composer.
 - `client/src/features/missions/components/MissionSelectionMenu.tsx`: Implements range capture, contextual actions, keyboard interaction and async action lifecycle.
@@ -72,7 +73,7 @@ See proposal.md for motivation. This document derives the existing diff against 
 - Synchronous attachment copying holds the database transaction during file I/O → it keeps the snapshot cut and row ownership together, with prevalidation and partial-copy cleanup; no performance benchmark is present.
 - Filesystem writes do not participate in SQLite rollback → the route invokes destination cleanup after database failure and tests cover missing files and insert failure. Cleanup failure is logged; crash-atomic cross-resource recovery is not added.
 - Older running servers may lack fork support → explicit endpoint-version errors preserve user work; From scratch remains compatible with the existing API.
-- Source reading-position retention relies on stable existing pane identities and scroll persistence → selection tests assert draft/pane requests, but the added tests do not directly measure scroll position or end-to-end multi-pane focus.
+- Source reading-position retention relies on stable existing pane identities and scroll persistence → the split-layout test asserts the source pane, log element and scrollTop are unchanged after a new pane is added; that test uses a mocked layout, so real browser scroll behaviour is not measured.
 
 ## Migration Plan
 
