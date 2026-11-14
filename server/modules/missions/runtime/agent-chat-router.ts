@@ -17,6 +17,7 @@ import {
   archiveAgentConversation,
   unarchiveAgentConversation,
   createAgentConversation,
+  copyAgentHistory,
   listAgentConversations,
   getAgentConversation,
   updateAgentConversation,
@@ -257,6 +258,43 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       // Off-catalog values fall back to null (= no provider-specific override).
       reasoningEffort: validEffort(provider, effectiveModel, body.reasoningEffort) ?? null,
     })
+    manager.notifyConversationCreated(conversation.id)
+    res.status(201).json({ conversation })
+  })
+
+  // A selection always names its source and final committed message. Snapshot
+  // synchronously: later stream commits and pending inputs cannot enter the fork.
+  router.post('/conversations/:id/branch', (req: Request, res: Response) => {
+    const source = getAgentConversation(desktopDb, String(req.params.id))
+    if (!source || source.deleted_at) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    const { mode, throughMessageId } = req.body ?? {}
+    if ((mode !== 'empty' && mode !== 'fork') || typeof throughMessageId !== 'string' || !throughMessageId) {
+      res.status(400).json({ error: 'mode and throughMessageId are required' }); return
+    }
+    const messages = decorateAgentInputMessages(desktopDb, listAgentMessages(desktopDb, source.id))
+    const end = messages.findIndex(message => message.id === throughMessageId)
+    if (end < 0) { res.status(404).json({ error: 'Unknown source message' }); return }
+    const history = mode === 'fork' ? messages.slice(0, end + 1) : []
+    let createdId: string | null = null
+    let conversation: ReturnType<typeof createAgentConversation>
+    try {
+      conversation = desktopDb.transaction(() => {
+        const created = createAgentConversation(desktopDb, {
+          provider: source.provider, model: source.model, pinnedProjectId: source.pinned_project_id,
+          tierLevel: source.tier_level, reasoningEffort: source.reasoning_effort,
+          ...(mode === 'fork' ? { forkSource: { conversationId: source.id, messageId: throughMessageId, title: source.title } } : {}),
+        })
+        createdId = created.id
+        attachmentManager.copyAgentAttachments(source.id, created.id, history.flatMap(message => message.attachment_ids))
+        copyAgentHistory(desktopDb, created.id, history)
+        return created
+      })()
+    } catch (error) {
+      if (createdId) void attachmentManager.deleteAllAgent(createdId).catch(cleanupError => console.error('[agent-chat] branch cleanup failed:', cleanupError))
+      console.error('[agent-chat] branch snapshot failed:', error)
+      res.status(409).json({ error: 'Could not copy the selected history and attachments. The source mission is unchanged.', code: 'BRANCH_SNAPSHOT_FAILED' })
+      return
+    }
     manager.notifyConversationCreated(conversation.id)
     res.status(201).json({ conversation })
   })

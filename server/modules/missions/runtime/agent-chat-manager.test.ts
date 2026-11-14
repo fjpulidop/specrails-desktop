@@ -42,12 +42,14 @@ vi.mock('../../../attachment-manager', () => ({
 
 import { spawn as mockSpawn } from 'child_process'
 import treeKill from 'tree-kill'
+import { attachmentManager } from '../../../attachment-manager'
 import { AgentChatManager, sanitizeAgentTitle } from './agent-chat-manager'
 import { initDesktopDb } from '../../../desktop-db'
 import {
   archiveAgentConversation,
   unarchiveAgentConversation,
   createAgentConversation,
+  copyAgentHistory,
   getAgentConversation,
   updateAgentConversation,
   addAgentMessage,
@@ -120,6 +122,29 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
   function rows() {
     return db.prepare('SELECT * FROM agent_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
   }
+
+  it('[spec:agent-attachments/attachment-fold-into-the-turn] seeds copied fork attachments into a fresh session without reattaching them to the new user message', async () => {
+    const source = createAgentConversation(db)
+    const historical = addAgentMessage(db, { conversationId: source.id, role: 'user', content: 'Earlier requirement', attachmentIds: ['old-file'] })
+    const interrupted = addAgentMessage(db, { conversationId: source.id, role: 'user', content: 'Unfinished', attachmentIds: ['undelivered-file'] })
+    const fork = createAgentConversation(db, { forkSource: { conversationId: source.id, messageId: historical.id, title: 'Original' } })
+    updateAgentConversation(db, fork.id, { title: 'Fork' })
+    copyAgentHistory(db, fork.id, [historical, { ...interrupted, delivery_status: 'interrupted' }])
+    vi.mocked(attachmentManager.getClaudeArgsAgent).mockResolvedValueOnce({ textBlocks: ['copied file contents'], imagePaths: [] })
+    primeTurn([assistantLine('Understood'), resultLine({ session_id: 'fork-native-session' })])
+    await mgr.sendMessage(fork.id, 'Selected text')
+    expect(attachmentManager.getClaudeArgsAgent).toHaveBeenCalledExactlyOnceWith(fork.id, ['old-file'])
+    const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+    const prompt = args[args.indexOf('-p') + 1]
+    expect(prompt).toContain('Earlier requirement')
+    expect(prompt).toContain('copied file contents')
+    expect(prompt).not.toContain('Unfinished')
+    expect(listAgentMessages(db, fork.id).find(message => message.content === 'Selected text')?.attachment_ids).toEqual([])
+    vi.mocked(attachmentManager.getClaudeArgsAgent).mockClear()
+    primeTurn([assistantLine('Continued'), resultLine({ session_id: 'fork-native-session' })])
+    await mgr.sendMessage(fork.id, 'Next question')
+    expect(attachmentManager.getClaudeArgsAgent).not.toHaveBeenCalled()
+  })
 
   it('refuses archived admission before creating input or message rows and allows it after restore', async () => {
     const conv = createAgentConversation(db)

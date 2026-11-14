@@ -1,4 +1,5 @@
-import { useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
+import { MissionSelectionMenu } from './MissionSelectionMenu'
+import { useMissionSplitViews, useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { isLocalEngineId } from '../../providers/lib/provider-capabilities'
 import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '../lib/mission-view-state'
@@ -191,6 +192,7 @@ function ActivityLog({ onClose }: { onClose: () => void }) {
 
 function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' }) {
   const composerLayoutId = useMissionPaneLayoutId()
+  const split = useMissionSplitViews()
   const reduced = useReducedMotion()
   const { t } = useTranslation('agent')
   const {
@@ -276,7 +278,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   const extensionTurnMark = useMissionTurnMark()
   const turnMark = useMemo<MissionModeBadge>(() => extensionTurnMark ?? { label: t('flowBoundary.turnMark') }, [extensionTurnMark, t])
   // Undecided agent launch proposals (mission-rail-cards) pin next to the PR cards.
-  const railProposals = useRailLaunchProposals(messages)
+  const currentMessages = useMemo(() => messages.filter(message => !message.source_message_id), [messages])
+  const currentPrCards = useMemo(() => derivePrCards(currentMessages), [currentMessages])
+  const railProposals = useRailLaunchProposals(currentMessages)
   // Core sessions: sub-agents anchor under the message of the turn that launched
   // them; the rest (turn still in flight) render in the live area.
   const session = useMissionSession(active?.id)
@@ -420,7 +424,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // chips) while the composer is empty — same gating as the chips themselves.
   const lastMessage = messages[messages.length - 1]
   const pickableOptions = useMemo(() => {
-    if (!lastMessage || lastMessage.role !== 'assistant') return null
+    if (!lastMessage || lastMessage.source_message_id || lastMessage.role !== 'assistant') return null
     const content = isLocalEngineId(active?.provider) ? promoteAgentProtocolFences(lastMessage.content) : lastMessage.content
     return extractAgentOptions(content).options ?? null
   }, [lastMessage, active?.provider])
@@ -492,6 +496,10 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
         {/* Inline: the thread eases in once while the composer card morphs into
             place below — conversation switches keep it mounted (no re-fade). */}
         <div className="relative flex min-h-0 flex-1 flex-col">
+        {active?.forkSource && <p className="shrink-0 border-b border-border/40 px-4 py-2 text-xs text-muted-foreground" data-testid="mission-fork-origin">
+          {t('selection.origin', { title: active.forkSource.title || t('untitled') })}
+        </p>}
+        <MissionSelectionMenu>
         <motion.div
           ref={scrollRef}
           onScroll={onMessagesScroll}
@@ -511,6 +519,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             </div>
           )}
           {messages.slice(windowStart).map((m, offset) => {
+            const row = (() => {
             const i = windowStart + offset
             // `system` rows are app-authored records, not chat bubbles. Some
             // render as inline cards (the PR-decision card, safe-pr-review-flow);
@@ -621,6 +630,16 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               {(placement.afterMessage.get(m.id) ?? []).map((group, index) => subagentCard(group, `subagents:${m.id}:${index}`))}
               </div>
             )
+            })()
+            if (row === null) return null
+            // These IDs belong to client-only rows until the server supplies a
+            // persisted message boundary (optimistic input, fallback tail or error).
+            const selectionId = m.id.startsWith('local-') || m.id.startsWith('err-') ? undefined : m.id
+            return <div key={m.id} data-mission-message={selectionId}>
+              {m.source_message_id && m.role !== 'user'
+                ? <fieldset disabled className="min-w-0" aria-label={t('selection.inherited')}>{row}</fieldset>
+                : row}
+            </div>
           })}
           <LiveTail
             tolerantFences={isLocalEngineId(active?.provider)}
@@ -650,6 +669,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             </div>
           )}
         </motion.div>
+        </MissionSelectionMenu>
         <div className="sr-only" role="status" aria-live="polite" data-testid="agent-conversation-live">{liveAnnouncement}</div>
         <AnimatePresence>
           {showJumpPill && (
@@ -688,7 +708,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 conversationId={active.id}
                 projectId={refsProjectId}
                 inline={inline}
-                deliveries={prCards.pinned}
+                deliveries={currentPrCards.pinned}
                 proposals={railProposals.pinned}
               />
             </motion.div>
@@ -706,14 +726,14 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               className="relative mx-auto w-full max-w-[960px]"
               data-testid="agent-composer-dock"
             >
-              <AgentComposer showModeBadge={false} queueEditRequest={queueEditRequest} />
+              <AgentComposer autoFocus={split.composerFocusId === active?.id} showModeBadge={false} queueEditRequest={queueEditRequest} />
             </motion.div>
           </div>
         ) : (
           <div className="relative shrink-0 border-t border-border/50 bg-surface/30 p-3" data-testid="agent-composer-dock">
             {/* Kanban floating panel: the project selector lives in the panel
                 HEADER (next to the Agent title), so the composer hides its own. */}
-            <AgentComposer hideProjectSelector queueEditRequest={queueEditRequest} />
+            <AgentComposer autoFocus={split.composerFocusId === active?.id} hideProjectSelector queueEditRequest={queueEditRequest} />
           </div>
         )}
       </div>

@@ -266,3 +266,28 @@ existing window ownership guards. Archived snapshots refuse context sends.
 The shared composer replaces message/attachment entry with a localized restore
 notice for archived snapshots on inline, floating and window surfaces. Stored
 text and attachment drafts remain available after restore; history stays readable.
+
+## Reuse selected conversation text
+
+`MissionSelectionMenu` wraps the committed transcript. A text selection opens
+**Start a separate mission** (From scratch / With context · Fork) and **Add to
+mission**. Right-click and Shift+F10 open the same menu; arrows, Home/End and
+Escape support keyboard navigation. Selections crossing panes, queued messages
+or the live stream are refused. A selection ending at the start of the next
+message still belongs to the previous message.
+
+Sending captures the source mission's send closure and a stable admission ID,
+keeps the composer draft, and uses the normal send/queue path. A failed retry
+reuses that ID. From scratch reads the source settings and uses the existing
+conversation creation API; only Fork requires the new server snapshot endpoint.
+If the running server lacks that endpoint, the menu shows the shared version
+mismatch error and preserves the selection and drafts without creating a mission.
+Both save only the
+selected text in the new composer draft, then adds a split pane and focuses its
+composer. Existing panes keep their keys, transcripts and scroll state. The
+floating panel shares the root split provider so it can open the same layout.
+
+A fork shows its source title and renders inherited assistant/system cards in
+disabled fieldsets. Inherited proposals and deliveries never join the new
+mission's active run strip, and inherited option shortcuts cannot send replies.
+Uploaded files and text drafts from the original composer are never adopted.

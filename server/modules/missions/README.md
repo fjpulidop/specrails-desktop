@@ -82,7 +82,18 @@ operation ID after an uncertain response and never invent a changed precondition
 to evade the repeated-check guard. Check execution requires the highest tier
 because even a registered test command can execute project code.
 
+## Attachment snapshots
+
+`AttachmentManager.copyAgentAttachments` copies an explicit set of attachment IDs
+to a fresh conversation, preserving the conversation-scoped IDs used in history.
+The copies survive deletion of the source. Missing files fail before copying;
+copy failures remove partial destination attachments. Existing destination
+attachment directories are never overwritten. The operation is synchronous so
+snapshot callers can retain database transaction ownership; callers remain
+responsible for cleaning up files if a later database operation fails.
+
 ## Mission archive
+
 
 The global conversation list validates `archiveScope` as Active (default),
 Archived or All, excluding trash in every scope. Archive/unarchive POST routes
@@ -104,3 +115,23 @@ the mission to Archived. Legacy trash with no archive stamp can still be restore
 or hard-purged and expires at exactly 30 days. Hard-delete persistence remains
 unconditional for the existing purge owner. Unknown soft DELETE is idempotent;
 unknown permanent DELETE returns 404.
+
+## Mission branches from a selection
+
+`POST /api/agent/conversations/:id/branch` accepts `mode: "empty" | "fork"`
+and `throughMessageId` belonging to that source. It returns `201 { conversation }`
+and announces creation without submitting input or starting an agent. Both modes
+inherit the project pin, provider, model, tier and effort. Empty mode has no
+history; fork mode copies the inclusive committed cut with a provenance record.
+Later messages, pending inputs, provider sessions and Core turn ownership never
+transfer. Interrupted/cancelled delivery status and recorded card decisions are
+preserved without duplicating admission rows. Archived sources can be branched;
+trash cannot.
+
+The route owns one synchronous database transaction, including the attachment
+copy, and cleans copied files after rollback. Missing history/files or a copy
+failure creates no visible mission and leaves the source intact. Migration 39
+adds provenance and inherited-message fields without foreign keys to the source,
+so deleting it does not damage a fork. On its first provider turn, a fork seeds
+its copied historical attachments alongside the existing bounded history prompt;
+provider resume uses its own independent session thereafter.

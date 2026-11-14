@@ -4,7 +4,8 @@ interface MissionSplitViews {
   conversationIds: string[]
   primaryVisible: boolean
   focusedId: string | null
-  open(id: string): void
+  composerFocusId: string | null
+  open(id: string, options?: { focusComposer?: boolean }): void
   close(id: string): void
   closePrimary(): void
   showPrimary(): void
@@ -12,26 +13,30 @@ interface MissionSplitViews {
   focusExisting(id: string): boolean
 }
 const noop = () => {}
-const Context = createContext<MissionSplitViews>({ conversationIds: [], primaryVisible: true, focusedId: null,
+const Context = createContext<MissionSplitViews>({ conversationIds: [], primaryVisible: true, focusedId: null, composerFocusId: null,
   open: noop, close: noop, closePrimary: noop, showPrimary: noop, focus: noop, focusExisting: () => false })
 
 /** Window-local layout. Closing a pane never deletes its conversation or aborts a turn. */
 export function MissionSplitViewsProvider({ primaryId, children }: { primaryId: string | null; children: ReactNode }) {
   const [conversationIds, setIds] = useState<string[]>([])
   const [primaryVisible, setPrimaryVisible] = useState(true)
+  const [composerFocusId, setComposerFocusId] = useState<string | null>(null)
   const [focusedId, focus] = useState<string | null>(null)
   useEffect(() => {
     setIds(ids => ids.filter(id => id !== primaryId))
     setPrimaryVisible(true)
+    setComposerFocusId(null)
     focus(null)
   }, [primaryId])
-  const open = useCallback((id: string) => {
+  const open = useCallback((id: string, options?: { focusComposer?: boolean }) => {
+    setComposerFocusId(options?.focusComposer ? id : null)
     if (id === primaryId) { setPrimaryVisible(true); focus(null); return }
     setIds(ids => ids.includes(id) ? ids : [...ids, id])
     focus(id)
   }, [primaryId])
   const close = useCallback((id: string) => {
     setIds(ids => ids.filter(value => value !== id))
+    setComposerFocusId(current => current === id ? null : current)
     focus(current => current === id ? null : current)
   }, [])
   useEffect(() => { if (!conversationIds.length) setPrimaryVisible(true) }, [conversationIds.length])
@@ -42,8 +47,8 @@ export function MissionSplitViewsProvider({ primaryId, children }: { primaryId: 
     focus(id)
     return true
   }, [conversationIds])
-  const value = useMemo(() => ({ conversationIds, primaryVisible, focusedId, open, close, closePrimary, showPrimary, focus, focusExisting }),
-    [conversationIds, primaryVisible, focusedId, open, close, closePrimary, showPrimary, focusExisting])
+  const value = useMemo(() => ({ conversationIds, primaryVisible, focusedId, composerFocusId, open, close, closePrimary, showPrimary, focus, focusExisting }),
+    [conversationIds, primaryVisible, focusedId, composerFocusId, open, close, closePrimary, showPrimary, focusExisting])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 export function useMissionSplitViews() { return useContext(Context) }

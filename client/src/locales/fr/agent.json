@@ -1,4 +1,17 @@
 {
+  "selection": {
+    "working": "Préparation…",
+    "menu": "Texte sélectionné",
+    "start": "Démarrer une autre mission",
+    "empty": "À partir de zéro",
+    "emptyHint": "Uniquement le texte sélectionné",
+    "fork": "Avec le contexte · Fork",
+    "forkHint": "Historique jusqu’au dernier message sélectionné",
+    "add": "Ajouter à la mission",
+    "failed": "Impossible de préparer la mission. Réessayez.",
+    "origin": "Fork de {{title}}",
+    "inherited": "Historique hérité · lecture seule"
+  },
   "archive": {
     "action": "Archiver",
     "restore": "Restaurer",

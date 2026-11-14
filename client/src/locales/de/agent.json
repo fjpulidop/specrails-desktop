@@ -1,4 +1,17 @@
 {
+  "selection": {
+    "working": "Wird vorbereitet…",
+    "menu": "Ausgewählter Text",
+    "start": "Separate Mission starten",
+    "empty": "Von vorne",
+    "emptyHint": "Nur der ausgewählte Text",
+    "fork": "Mit Kontext · Fork",
+    "forkHint": "Verlauf bis zur letzten ausgewählten Nachricht",
+    "add": "Zur Mission hinzufügen",
+    "failed": "Die Mission konnte nicht vorbereitet werden. Erneut versuchen.",
+    "origin": "Fork von {{title}}",
+    "inherited": "Übernommener Verlauf · schreibgeschützt"
+  },
   "archive": {
     "action": "Archivieren",
     "restore": "Wiederherstellen",

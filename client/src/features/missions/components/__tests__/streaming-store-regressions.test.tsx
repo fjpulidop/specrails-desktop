@@ -6,11 +6,13 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, type ReactNode } from 'react'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const wsHandlers = new Map<string, (msg: unknown) => void>()
 const wsHandler = (msg: unknown) => { for (const fn of [...wsHandlers.values()]) fn(msg) }
-vi.mock('../../../../hooks/useSharedWebSocket', () => ({
+vi.mock('../../../../hooks/useSharedWebSocket', async original => ({
+  ...await original<typeof import('../../../../hooks/useSharedWebSocket')>(),
   useSharedWebSocket: () => ({
     registerHandler: (id: string, fn: (m: unknown) => void) => { wsHandlers.set(id, fn) },
     unregisterHandler: (id: string) => { wsHandlers.delete(id) },
@@ -34,6 +36,7 @@ const { CONVS, state } = vi.hoisted(() => {
     tier_level: 0 as const, created_at: '', updated_at: '',
   }))
   const state = {
+    forkTitle: undefined as string | null | undefined,
     transcripts: new Map<string, unknown[]>(),
     /** Resolves the NEXT snapshot read of a conversation (manual control). */
     gates: new Map<string, { release: () => void }>(),
@@ -51,7 +54,7 @@ vi.mock('../../lib/agent-api', async (orig) => {
     createAgentConversation: vi.fn(async () => CONVS[0]),
     getAgentConversation: vi.fn(async (id: string) => {
       const snapshot = {
-        conversation: CONVS.find((c) => c.id === id)!,
+        conversation: { ...CONVS.find((c) => c.id === id)!, ...(id === 'c1' && state.forkTitle !== undefined ? { forkSource: { conversationId: 'source', messageId: 'source-message', title: state.forkTitle } } : {}) },
         messages: state.transcripts.get(id) ?? [],
         pendingMessages: [],
         live: state.live.get(id),
@@ -75,6 +78,7 @@ vi.mock('../../lib/agent-api', async (orig) => {
 
 import { sendAgentMessage } from '../../lib/agent-api'
 import { AgentChatProvider, useAgentChat, retainOptimisticRows, placeOptimisticRows } from '../../context/AgentChatContext'
+import { readMissionSelection } from '../MissionSelectionMenu'
 import { AgentConversationView } from '../AgentConversationView'
 import { MissionExtensionsProvider, type MissionExtensions, type MissionFenceCardProps } from '../../context/MissionExtensionsContext'
 import { useIsConversationStreaming } from '../../hooks/useAgentLive'
@@ -121,6 +125,7 @@ beforeEach(() => {
   cleanup(); chatApi = null; c2Streaming = false
   wsHandlers.clear(); state.transcripts.clear(); state.gates.clear(); state.gated.clear(); state.live.clear()
   vi.clearAllMocks()
+  state.forkTitle = undefined
 })
 
 async function boot(children?: ReactNode) {
@@ -129,6 +134,36 @@ async function boot(children?: ReactNode) {
   await chatApi!.refreshConversations()
   await until(() => chatApi!.conversations.length === 2)
 }
+
+describe('selection eligibility', () => {
+  it('[spec:mission-text-reuse/selection-actions-target-committed-transcript-text] rejects optimistic text before admission completes and creates no wrappers for hidden records', async () => {
+    state.transcripts.set('c1', [row('c1', 0, 'user', 'Persisted text'), {
+      ...row('c1', 1, 'assistant', JSON.stringify({ kind: 'spec-framing.committed' })), role: 'system',
+    }])
+    await boot(<AgentConversationView variant="inline" />)
+    await chatApi!.selectConversation('c1')
+    await until(() => document.querySelector('[data-mission-message="c1-m0"]') !== null)
+    void chatApi!.send('Awaiting admission')
+    await until(() => document.body.textContent?.includes('Awaiting admission') === true)
+    const transcript = document.querySelector('[role="log"]')! as HTMLElement
+    const findText = () => [...transcript.querySelectorAll('*')].find(element => element.firstChild?.nodeType === Node.TEXT_NODE && element.firstChild.textContent === 'Awaiting admission')?.firstChild
+    await until(() => !!findText(), 1000)
+    const text = findText()!
+    const range = document.createRange()
+    range.selectNodeContents(text)
+    const selection = window.getSelection()!
+    selection.removeAllRanges()
+    selection.addRange(range)
+    expect(readMissionSelection(transcript, selection)).toBeNull()
+    expect(transcript.querySelector('[data-mission-message="c1-m1"]')).toBeNull()
+    expect([...transcript.children].filter(element => !element.textContent?.trim())).toHaveLength(0)
+    range.selectNodeContents([...transcript.querySelectorAll('div')].find(element => element.firstChild?.textContent === 'Persisted text')!.firstChild!)
+    selection.removeAllRanges()
+    selection.addRange(range)
+    expect(readMissionSelection(transcript, selection)).toMatchObject({ throughMessageId: 'c1-m0', text: 'Persisted text' })
+    selection.removeAllRanges()
+  })
+})
 
 describe('ghost streaming tail', () => {
   it('a hover prefetch that resolves after the turn ended never revives the live state', async () => {
@@ -178,6 +213,28 @@ describe('end-of-turn hand-off', () => {
 })
 
 describe('interactive cards in older rows during a turn', () => {
+  it.each(['Original mission', null])('[spec:mission-text-reuse/inherited-history-cannot-launch-new-actions] shows source %s and keeps inherited cards, options and runs inactive', async title => {
+    state.forkTitle = title
+    const choose = vi.fn()
+    const Offer = () => <button data-testid="inherited-offer" onClick={choose}>choose</button>
+    const extensions = { fenceCards: { 'test-offer': Offer } } as unknown as MissionExtensions
+    state.transcripts.set('c1', [
+      { ...row('c1', 0, 'assistant', '```rail-launch\n{"version":1,"ticketIds":[12],"mode":"implement"}\n```'), source_message_id: 'source-proposal' },
+      { ...row('c1', 2, 'assistant', JSON.stringify({ kind: 'pr_decision', prDeliveryId: 'inherited-delivery', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [12], decision: 'building', runIds: [] })), role: 'system', source_message_id: 'source-delivery' },
+      { ...row('c1', 1, 'assistant', 'Earlier question\n\n```test-offer\n{}\n```\n\n```options\n["Repeat action"]\n```'), source_message_id: 'source-message' }])
+    await boot(<MissionExtensionsProvider value={extensions}><AgentConversationView variant="inline" /></MissionExtensionsProvider>)
+    await chatApi!.selectConversation('c1')
+    await until(() => document.querySelector('[data-testid="inherited-offer"]') !== null)
+    const button = document.querySelector<HTMLButtonElement>('[data-testid="inherited-offer"]')!
+    expect(document.querySelector('[data-testid="mission-fork-origin"]')).toHaveTextContent(`Fork of ${title ?? 'Untitled'}`)
+    expect(document.querySelector('[data-testid="mission-run-strip"]')).toBeNull()
+    expect(button).toBeDisabled()
+    await userEvent.click(button)
+    expect(choose).not.toHaveBeenCalled()
+    fireEvent.keyDown(document.querySelector('[data-mission-surface]')!, { key: '1', code: 'Digit1', altKey: true })
+    expect(sendAgentMessage).not.toHaveBeenCalled()
+  })
+
   it('stay disabled while the conversation streams, even many rows from the end', async () => {
     const Offer = ({ isStreaming }: MissionFenceCardProps) => <button data-testid="old-offer" disabled={isStreaming}>choose</button>
     const extensions = { fenceCards: { 'test-offer': Offer } } as unknown as MissionExtensions

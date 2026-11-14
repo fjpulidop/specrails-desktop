@@ -429,6 +429,65 @@ describe('AttachmentManager', () => {
     })
   })
 
+  describe('copyAgentAttachments', () => {
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] copies only referenced attachments once and survives deletion of the source', async () => {
+      const att = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
+      await manager.uploadAgent({ conversationId: 'source', file: makeFile({ originalname: 'later.txt' }) })
+      expect(manager.copyAgentAttachments('source', 'fork', [att.id, att.id])).toEqual([att])
+      expect(manager.listAgent('fork')).toEqual([att])
+      expect(manager.getAgentFilePath('fork', att.id)).not.toBe(manager.getAgentFilePath('source', att.id))
+      await manager.deleteAllAgent('source')
+      expect(fs.readFileSync(manager.getAgentFilePath('fork', att.id)!, 'utf8')).toBe('hello world')
+      expect(await manager.getClaudeArgsAgent('fork', [att.id])).toEqual({
+        textBlocks: [expect.stringContaining('hello world')], imagePaths: [],
+      })
+    })
+
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] rejects a missing source file before writing any destination files', async () => {
+      const att = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
+      const missing = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
+      fs.unlinkSync(manager.getAgentFilePath('source', missing.id)!)
+      expect(() => manager.copyAgentAttachments('source', 'fork', [att.id, missing.id])).toThrow(/Missing source attachment/)
+      expect(manager.listAgent('fork')).toEqual([])
+      expect(fs.existsSync(path.join(homeDir, '.specrails', 'agent', 'fork'))).toBe(false)
+    })
+
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] removes partial copies if a later file fails without changing the source', async () => {
+      const first = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
+      const second = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
+      const copy = fs.copyFileSync.bind(fs)
+      const spy = vi.spyOn(fs, 'copyFileSync').mockImplementation((...args) => {
+        if (String(args[0]).includes(second.id)) throw new Error('Disk full')
+        return copy(...args)
+      })
+      try {
+        expect(() => manager.copyAgentAttachments('source', 'fork', [first.id, second.id])).toThrow('Disk full')
+        expect(manager.listAgent('fork')).toEqual([])
+        expect(fs.existsSync(path.join(homeDir, '.specrails', 'agent', 'fork', 'attachments'))).toBe(false)
+        expect(manager.getAgentFilePath('source', first.id)).not.toBeNull()
+        expect(manager.getAgentFilePath('source', second.id)).not.toBeNull()
+      } finally { spy.mockRestore() }
+    })
+
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] refuses to overwrite existing attachments or copy onto the source', async () => {
+      const att = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
+      const existing = await manager.uploadAgent({ conversationId: 'fork', file: makeFile() })
+      expect(() => manager.copyAgentAttachments('source', 'fork', [att.id])).toThrow(/already has an attachment directory/)
+      expect(() => manager.copyAgentAttachments('source', 'source', [att.id])).toThrow(/requires a new conversation/)
+      expect(manager.listAgent('fork')).toEqual([existing])
+    })
+
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] rejects unsafe identifiers and sidecars without creating a destination', async () => {
+      expect(() => manager.copyAgentAttachments('../source', 'fork', [])).toThrow(/Invalid agent conversation id/)
+      expect(() => manager.copyAgentAttachments('source', '../fork', [])).toThrow(/Invalid agent conversation id/)
+      expect(() => manager.copyAgentAttachments('source', 'fork', ['../attachment'])).toThrow(/Invalid attachment id/)
+      const att = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
+      fs.writeFileSync(path.join(homeDir, '.specrails', 'agent', 'source', 'attachments', `${att.id}.meta.json`), JSON.stringify({ ...att, storedName: '../secret.txt' }))
+      expect(() => manager.copyAgentAttachments('source', 'fork', [att.id])).toThrow(/Unsafe attachment stored name/)
+      expect(manager.listAgent('fork')).toEqual([])
+    })
+  })
+
   // ─── deleteAll ─────────────────────────────────────────────────────────────
 
   describe('deleteAll', () => {

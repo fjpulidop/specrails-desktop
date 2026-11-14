@@ -2024,13 +2024,13 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   return (
     <LiveStoreContext.Provider value={liveStore}>
       <AgentChatContext.Provider value={value}>
-        <MissionSessionsProvider>
-          {fixedConversationId ? children : <MissionSplitViewsProvider primaryId={active?.id ?? null}>{children}</MissionSplitViewsProvider>}
-        </MissionSessionsProvider>
-        {floatingAllowed && visibility === 'open' && <AgentChatPanel />}
-        {/* Persistent bottom-center bubble: the single entry point when the panel
-            is not open (summon from hidden AND restore from minimized). */}
-        {floatingAllowed && visibility !== 'open' && <AgentBubble />}
+        {fixedConversationId ? <MissionSessionsProvider>{children}</MissionSessionsProvider> : (
+          <MissionSplitViewsProvider primaryId={active?.id ?? null}>
+            <MissionSessionsProvider>{children}</MissionSessionsProvider>
+            {floatingAllowed && visibility === 'open' && <AgentChatPanel />}
+            {floatingAllowed && visibility !== 'open' && <AgentBubble />}
+          </MissionSplitViewsProvider>
+        )}
       </AgentChatContext.Provider>
     </LiveStoreContext.Provider>
   )
