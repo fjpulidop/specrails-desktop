@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate, useLocation, useInRouterContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, GitFork, MessageSquarePlus, Plus, LoaderCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import { notifyError } from '../../../lib/notify-error'
 import { useUiMode } from '../../../context/UiModeContext'
 import { LAYER_CLASS } from '../../../lib/layers'
 import { ApiResponseError } from '../../../lib/api-response'
@@ -135,7 +135,7 @@ function SelectionMenuContent({ children, showMissionRoute }: { children: ReactN
       }
       dismiss(mode === 'send')
     } catch (error) {
-      toast.error(error instanceof ApiResponseError && error.code === 'endpointUnavailable'
+      notifyError(error instanceof ApiResponseError && error.code === 'endpointUnavailable'
         ? error.message : t('selection.failed'))
     } finally { busy.current = false; setPending(false) }
   }
