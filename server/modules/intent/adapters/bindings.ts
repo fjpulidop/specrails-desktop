@@ -31,7 +31,7 @@ import { resolveDefaultSpecModel } from '../../../project-router-helpers'
 import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-controls-router'
 import { readSettleEvidence } from '../../delivery/runtime/delivery-evidence'
 import { FLOW_SPEC_DELIVERY_LOOP_ID } from '../../delivery/runtime/flow-review-outcome'
-import { getPrDelivery, toPrDeliverySnapshot, type DeliverBranchRecord, type PrDeliverySnapshot } from '../../delivery/runtime/rail-pr-store'
+import { getPrDelivery, listChildPrDeliveries, toPrDeliverySnapshot, type DeliverBranchRecord, type PrDeliverySnapshot } from '../../delivery/runtime/rail-pr-store'
 import { IntentReturnRejectedError, announceReturnedDelivery, returnFlowWorktree } from '../../delivery/runtime/flow-worktree-return'
 import { generateSpecFromText, resolveSpecGenerationToolPolicy } from '../../specs/runtime/spec-generation'
 import type { SpecProvider } from '../../specs/runtime/spec-models'
@@ -62,6 +62,8 @@ export interface IntentAgentHost {
   /** Post the row keyed by `dedupeKey`, or update the existing row IN PLACE and
    * re-broadcast it (the client replaces the row). Never throws. */
   upsertSystemRow?(conversationId: string, row: Record<string, unknown> & { kind: string }, dedupeKey: string): string | null
+  /** The persisted system row of a dedupe key (null when none). */
+  getSystemRow?(conversationId: string, dedupeKey: string): Record<string, unknown> | null
   /** Start ONE automatic, app-authored turn keyed by `turnKey` (durable dedup). Never throws. */
   startAutomaticTurn?(conversationId: string, text: string, opts: { turnKey: string; label: string }): Promise<'started' | 'skipped'>
 }
@@ -736,10 +738,14 @@ export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
         // How the work reached the project: a pull request (open or merged), or
         // "Integrate locally" (merged with no PR). The delivery's own commit is
         // the delivered head; the local merge commit itself is not recorded.
-        const prUrl = row?.pr_url ?? null
+        // A multi-repository generation has no PR of its own: its PR lives on
+        // the repository delivery (child row) of the Intent's repository.
+        const children = row?.execution_manifest ? listChildPrDeliveries(ctx.db, row.id) : []
+        const prRow = row?.pr_url ? row : children.find((child) => child.pr_url && (!session.repositoryId || child.repository_id === session.repositoryId)) ?? children.find((child) => child.pr_url)
+        const prUrl = prRow?.pr_url ?? null
         const integration = row
-          ? prUrl
-            ? { kind: 'pr' as const, prUrl, prNumber: row.pr_number ?? null, merged: row.decision === 'merged', draft: row.decision === 'pr_draft', baseBranch: row.base_branch, sha: row.delivery_sha ?? session.headSha }
+          ? prUrl && prRow
+            ? { kind: 'pr' as const, prUrl, prNumber: prRow.pr_number ?? null, merged: row.decision === 'merged' || prRow.decision === 'merged', draft: prRow.decision === 'pr_draft', baseBranch: prRow.base_branch || row.base_branch, sha: prRow.delivery_sha ?? row.delivery_sha ?? session.headSha }
             : row.decision === 'merged'
               ? { kind: 'local' as const, prUrl: null, prNumber: null, merged: true, draft: false, baseBranch: row.base_branch, sha: row.delivery_sha ?? session.headSha }
               : null
@@ -749,7 +755,7 @@ export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
           specTitle: ticket?.title ?? null,
           branch: session.branch,
           integration,
-          prUrl, prNumber: row?.pr_number ?? null,
+          prUrl, prNumber: prRow?.pr_number ?? null,
           // Intent → Spec archives the change before it delivers (its `archive` step).
           changeName, changeArchived: Boolean(changeName),
           specRewrite: settlement.specRewrite, jiraCreate: settlement.jiraCreate, jiraKey,
@@ -758,6 +764,18 @@ export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
           at: clock.now(),
         }
         const host = deps.agentHost()
+        // A re-post never downgrades a provider's known billing to unknown (the
+        // subscription read may be backing off right after a restart).
+        if (content.cost?.providers?.some((entry) => entry.billing === 'unknown')) {
+          try {
+            const previous = host?.getSystemRow?.(conversationId, `flow-delivered:${flowId}`) as { cost?: { providers?: Array<{ provider?: unknown; billing?: unknown; plan?: unknown }> } } | null | undefined
+            const known = new Map((previous?.cost?.providers ?? []).filter((entry) => entry.billing === 'plan' || entry.billing === 'api').map((entry) => [entry.provider, entry]))
+            content.cost = { ...content.cost, providers: content.cost.providers.map((entry) => {
+              const before = entry.billing === 'unknown' ? known.get(entry.provider) : undefined
+              return before ? { ...entry, billing: before.billing as 'plan' | 'api', plan: typeof before.plan === 'string' ? before.plan : null } : entry
+            }) }
+          } catch { /* keep the fresh row */ }
+        }
         if (host?.upsertSystemRow) host.upsertSystemRow(conversationId, content, `flow-delivered:${flowId}`)
         else host?.postSystemRow?.(conversationId, content, `flow-delivered:${flowId}`)
       },

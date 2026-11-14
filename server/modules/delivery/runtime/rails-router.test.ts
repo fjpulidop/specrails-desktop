@@ -48,6 +48,11 @@ const {
   mockReleaseRailWorktrees: vi.fn(),
 }))
 vi.mock('../../agent-runtime/runtime/agent-runtime-loader', () => ({ loadCoreAgentRuntime: async () => ({ api: { capabilities: {} } }) }))
+const refreshPrCiOfferMock = vi.hoisted(() => vi.fn())
+vi.mock('./pr-ci/pr-ci-projection', async (importActual) => ({
+  ...(await importActual<typeof import('./pr-ci/pr-ci-projection')>()),
+  refreshPrCiOffer: refreshPrCiOfferMock,
+}))
 vi.mock('./pr-publisher', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
   defaultExec: { run: mockExecRun },
@@ -2332,6 +2337,9 @@ describe('rails-router POST /pr-decision', () => {
     const msg = broadcast.mock.calls.map((c) => c[0] as { type: string; decision?: string })
       .find((m) => m.type === 'rail.pr_state')
     expect(msg).toMatchObject({ decision: 'pr_ready', prDeliveryId: id, projectId: 'p1' })
+    // A PR published (or created) from the card is offered the CI watch too:
+    // Intent → Spec stops at review, so its PR is never born at run settle.
+    expect(refreshPrCiOfferMock).toHaveBeenCalledWith(expect.objectContaining({ db }), id)
   })
 
   it('502 gh_failed (no transition) when gh fails', async () => {
