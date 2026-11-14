@@ -29,7 +29,7 @@ import {
   type IntentRunFailure,
   type IntentSession,
 } from './domain'
-import type { IntentBoundary, IntentDiffSummary, IntentLaunchOptions, IntentPorts } from './ports'
+import type { IntentBoundary, IntentDeliveredSummaryInput, IntentDiffSummary, IntentLaunchOptions, IntentPorts, IntentProviderCost } from './ports'
 
 /**
  * Intent use cases (imperative shell around the pure state machine). Start and
@@ -77,6 +77,7 @@ export interface IntentCost {
   unpricedTurns: number
   tokensIn: number
   tokensOut: number
+  providers?: IntentProviderCost[]
 }
 
 export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'> = console) {
@@ -595,7 +596,14 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
    * discarded Intent never does), so repeated broadcasts are no-ops. */
   async function observeDelivery(deliveryId: string): Promise<IntentSession | null> {
     const session = ports.repository.findByDelivery(deliveryId)
-    if (!session || session.state !== 'handed_off' || session.deliveryId !== deliveryId) return null
+    if (!session || session.deliveryId !== deliveryId) return null
+    // A delivered Intent keeps its closing card true to the PR: created,
+    // published, merged. The card is upserted in place (no-op when unchanged).
+    if (session.state === 'delivered') {
+      await announceDelivered(session, summarizeSettlement(ports.effects.list(session.id)))
+      return session
+    }
+    if (session.state !== 'handed_off') return null
     const state = ports.publication.deliveryState(deliveryId)
     if (state?.delivered) return onFlowDelivered({ flowId: session.id, deliveryId })
     if (state?.crashed) return autoReturn(deliveryId)
@@ -706,12 +714,24 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
       const diff = ports.worktrees.diffTotals
         ? await ports.worktrees.diffTotals({ baseSha: session.baseSha, headSha: session.headSha, ...repositoryOf(session) }).catch(() => null)
         : null
-      let cost: { costUsd: number; turns: number; unpricedTurns: number } | null = null
+      let cost: IntentDeliveredSummaryInput['cost'] = null
+      let providers: IntentProviderCost[] | undefined
       try {
         const usage = ports.usage.costSoFar({ conversationId: session.conversationId, from: session.createdAt, to: session.updatedAt })
         cost = { costUsd: usage.costUsd, turns: usage.turns, unpricedTurns: usage.unpricedTurns }
+        providers = usage.providers
       } catch { cost = null }
-      const durationMs = Math.max(0, Date.parse(ports.clock.now()) - Date.parse(session.createdAt)) || 0
+      // How each provider is paid (subscription plan vs API); unknown stays unknown.
+      if (cost && providers) {
+        const billingOf = ports.usage.billing
+        cost.providers = await Promise.all(providers.map(async (entry): Promise<IntentProviderCost> => {
+          const billing = billingOf ? await billingOf(entry.provider).catch(() => null) : null
+          return billing ? { ...entry, billing: billing.billing, plan: billing.plan } : entry
+        }))
+      }
+      // Measured to the delivery, not to this post: the card is re-posted when
+      // the PR is published or merged, maybe days later.
+      const durationMs = Math.max(0, Date.parse(session.updatedAt) - Date.parse(session.createdAt)) || 0
       conversation.postDeliveredSummary({ conversationId: session.conversationId, flowId: session.id, deliveryId: session.deliveryId, ticketId: session.ticketId, settlement: summary, session, cost, diff, durationMs })
     } catch (error) {
       log.warn(`[flow] ${session.id} closing summary not posted: ${error instanceof Error ? error.message : String(error)}`)

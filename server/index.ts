@@ -823,6 +823,8 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // project router.
   const usageService = createDesktopUsageService()
   _usageService = usageService
+  // Intent cost: subscription-plan turns have no marginal cost.
+  registry.setProviderBilling((provider) => usageService.resolveBilling(provider))
   app.use('/api', createDesktopRouter(registry, broadcast, usageService))
 
   // Per-project routes under /api/projects/:projectId/*

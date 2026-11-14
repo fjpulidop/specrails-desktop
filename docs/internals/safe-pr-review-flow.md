@@ -455,6 +455,14 @@ attached and ready for Verify so that explicit decision can commit terminal tick
   `recovery_unavailable`: the card offers a secondary Recheck action, keeps Inspect/log access and
   explains that Git evidence is local to the computer where the run executed instead of repeating
   an impossible Commit or Checkout action.
+- **Background merge watch** ([pr-merge-watch.ts](../../server/modules/delivery/runtime/pr-merge-watch.ts)) —
+  per project, every 3 min, observes the `pr_draft`/`pr_ready` rows with a PR (no operation
+  held, single repository) read-only: the due PRs of one repository in ONE `gh api graphql`
+  call (state only, chunks of 50), each PR backing off by age (3 min < 1 h, 10 min < 1 day,
+  30 min < 1 week, then 2 h). With nothing out for review a tick is one SQLite query. Only a
+  MERGED/CLOSED PR is acted on, through the same `poll-merge` decision below (repo lock,
+  process admission, CAS, full lifecycle evidence), so an open PR is never touched. This is
+  what moves an Intent's closing card from "Ready for review" to "Intent delivered".
 - **poll-merge / Verify PR** — observes state, exact head/base/head OID, merge commit and PR commit
   set. `OPEN` remains delivery-verified only while its exact head is `delivery_sha`; a missing
   remote commit restores Retry push instead of merely saying “not merged”. `MERGED` becomes
@@ -874,7 +882,6 @@ queue-manager); bundled specrails-core ≥ 4.11.0 honours it, so implement no lo
 
 ## Deferred by this change
 
-- A background merge poller for `pr_draft`/`pr_ready` rows (`poll-merge` is on-demand only).
 - An origin hop for QueueManager `/spawn` jobs (no delivery row exists at job grain).
 
 (The relocation per-run workspace overlay — formerly on this list — has SHIPPED; see

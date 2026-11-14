@@ -26,16 +26,17 @@ describe('AgentFlowDeliveredCard (Intent delivered)', () => {
     expect(parseFlowDeliveredRow(JSON.stringify({ kind: 'flow-boundary', flowId: 'f1' }))).toBeNull()
     expect(parseFlowDeliveredRow('not json')).toBeNull()
     const legacy = parseFlowDeliveredRow(JSON.stringify({ kind: 'flow-delivered', flowId: 'f1', prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, specRewrite: 'done' }))!
-    expect(legacy.integration).toEqual({ kind: 'pr', prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, merged: false, baseBranch: null, sha: null })
+    expect(legacy.integration).toEqual({ kind: 'pr', prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, merged: false, draft: false, baseBranch: null, sha: null })
     expect(legacy.diff).toBeNull(); expect(legacy.cost).toBeNull(); expect(legacy.openQuestionsAnswered).toBe(0)
     expect(parseFlowDeliveredRow(row({ prUrl: 'javascript:alert(1)', integration: null }))!.integration).toBeNull()
   })
 
   it('is a success card: title, warm subtitle, stats, the whole story with lamps and the next steps', () => {
-    render(<AgentFlowDeliveredCard row={parseFlowDeliveredRow(row())!} projectId="p1" conversationId="c1" />)
+    render(<AgentFlowDeliveredCard row={parseFlowDeliveredRow(row({ integration: { kind: 'pr', prUrl: 'https://github.com/o/r/pull/812', prNumber: 812, merged: true, baseBranch: 'main', sha: 'c'.repeat(40) } }))!} projectId="p1" conversationId="c1" />)
     const card = screen.getByTestId('agent-flow-delivered-card')
     expect(card).toHaveAttribute('data-settled', 'true')
     expect(card).toHaveAttribute('aria-label', 'Intent delivered')
+    expect(card).toHaveAttribute('data-integrated', 'true')
     expect(screen.getByTestId('agent-flow-delivered-spec-title')).toHaveTextContent('Controles a tu medida')
     expect(card).toHaveTextContent('Built together, reviewed and integrated. Nice work.')
     expect(screen.getByTestId('agent-flow-delivered-files')).toHaveTextContent('7 files +120 −8')
@@ -44,7 +45,7 @@ describe('AgentFlowDeliveredCard (Intent delivered)', () => {
     expect(screen.getByTestId('agent-flow-delivered-duration')).toHaveTextContent('32m 0s')
     expect(screen.getByTestId('agent-flow-delivered-branch')).toHaveTextContent('feat/12-controles-a-tu-medida')
     const integration = screen.getByTestId('agent-flow-delivered-integration')
-    expect(integration).toHaveTextContent('Integrated: pull request Pull request #812')
+    expect(integration).toHaveTextContent('Integrated: pull request merged Pull request #812')
     expect(integration.querySelector('a')).toHaveAttribute('href', 'https://github.com/o/r/pull/812')
     const spec = screen.getByTestId('agent-flow-delivered-spec')
     expect(spec).toHaveAttribute('data-lamp', 'done')
@@ -57,6 +58,49 @@ describe('AgentFlowDeliveredCard (Intent delivered)', () => {
     // Next steps.
     expect(screen.getByTestId('agent-flow-delivered-view-pr')).toHaveAttribute('href', 'https://github.com/o/r/pull/812')
     expect(card.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
+  })
+
+  it('an open pull request is ready for review, never "integrated"; a draft says so', () => {
+    const { rerender } = render(<AgentFlowDeliveredCard row={parseFlowDeliveredRow(row())!} projectId="p1" conversationId="c1" />)
+    const card = screen.getByTestId('agent-flow-delivered-card')
+    expect(card).toHaveAttribute('data-integrated', 'false')
+    expect(screen.getByTestId('agent-flow-delivered-title')).toHaveTextContent('Ready for review')
+    expect(screen.getByTestId('agent-flow-delivered-subtitle')).toHaveTextContent('Built together and ready for review.')
+    expect(card.textContent).not.toMatch(/reviewed and integrated/)
+    expect(screen.getByTestId('agent-flow-delivered-integration')).toHaveTextContent('Open for review: pull request Pull request #812')
+    rerender(<AgentFlowDeliveredCard row={parseFlowDeliveredRow(row({ integration: { kind: 'pr', prUrl: 'https://github.com/o/r/pull/812', prNumber: 812, merged: false, draft: true, baseBranch: 'main', sha: null } }))!} projectId="p1" conversationId="c1" />)
+    expect(screen.getByTestId('agent-flow-delivered-integration')).toHaveTextContent('Draft: pull request Pull request #812')
+    // Before any PR exists (reached review, PR not created yet): still ready for review.
+    rerender(<AgentFlowDeliveredCard row={parseFlowDeliveredRow(row({ integration: null, prUrl: null, prNumber: null }))!} projectId="p1" conversationId="c1" />)
+    expect(screen.getByTestId('agent-flow-delivered-title')).toHaveTextContent('Ready for review')
+    expect(screen.queryByTestId('agent-flow-delivered-integration')).toBeNull()
+  })
+
+  it('subscription-plan turns are included in the plan, with their API-price equivalent apart', () => {
+    const providers = [
+      { provider: 'claude', turns: 26, costUsd: 2.32, estimatedUsd: 0, unpricedTurns: 0, billing: 'plan', plan: 'max' },
+      { provider: 'codex', turns: 4, costUsd: 0, estimatedUsd: 1.06, unpricedTurns: 4, billing: 'plan', plan: 'plus' },
+    ]
+    const { rerender } = render(<AgentFlowDeliveredCard row={parseFlowDeliveredRow(row({ cost: { costUsd: 2.32, turns: 30, unpricedTurns: 4, providers } }))!} />)
+    expect(screen.getByTestId('agent-flow-delivered-cost')).toHaveTextContent('Included in your plan')
+    expect(screen.queryByTestId('agent-flow-delivered-cost-partial')).toBeNull()
+    const notes = screen.getAllByTestId('agent-flow-delivered-cost-plan').map((node) => node.textContent)
+    expect(notes).toEqual([
+      'Claude: included in your Max plan · worth $2.32 at API prices',
+      'Codex: included in your Plus plan · worth ~$1.06 at API prices',
+    ])
+    // Mixed: Claude on an API key is real cost; Codex stays in the plan, not in the amount.
+    const mixed = [{ ...providers[0], billing: 'api', plan: null }, { ...providers[1], plan: null }]
+    rerender(<AgentFlowDeliveredCard row={parseFlowDeliveredRow(row({ cost: { costUsd: 2.32, turns: 30, unpricedTurns: 4, providers: mixed } }))!} />)
+    expect(screen.getByTestId('agent-flow-delivered-cost')).toHaveTextContent('$2.32')
+    expect(screen.getByTestId('agent-flow-delivered-cost')).not.toHaveTextContent('*')
+    expect(screen.getAllByTestId('agent-flow-delivered-cost-plan').map((node) => node.textContent)).toEqual(['Codex: included in your plan · worth ~$1.06 at API prices'])
+    // Unknown billing keeps the plain billed sum and its unpriced note.
+    const unknown = providers.map((entry) => ({ ...entry, billing: 'unknown' }))
+    rerender(<AgentFlowDeliveredCard row={parseFlowDeliveredRow(row({ cost: { costUsd: 2.32, turns: 30, unpricedTurns: 4, providers: unknown } }))!} />)
+    expect(screen.getByTestId('agent-flow-delivered-cost')).toHaveTextContent('$2.32*')
+    expect(screen.getByTestId('agent-flow-delivered-cost-partial')).toHaveTextContent('4 turns have no provider-reported cost')
+    expect(screen.queryByTestId('agent-flow-delivered-cost-plan')).toBeNull()
   })
 
   it('shows at once with pending lines that breathe, then fills in on the updated row', () => {
