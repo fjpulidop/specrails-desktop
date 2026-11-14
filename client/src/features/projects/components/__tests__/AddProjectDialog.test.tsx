@@ -84,6 +84,33 @@ describe('AddProjectDialog', () => {
     mockFetchSequence()
   })
 
+  it('clones primary and additional repositories before registering their local paths', async () => {
+    const user = userEvent.setup()
+    render(<AddProjectDialog open onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByTestId('prerequisites-panel')).toHaveAttribute('data-state', 'ok'))
+    const originalFetch = global.fetch
+    global.fetch = vi.fn(async (input, init) => {
+      if (String(input).endsWith('/api/repositories/clone')) {
+        const body = JSON.parse(String(init?.body))
+        return { ok: true, json: async () => ({ path: body.destination }) } as Response
+      }
+      return originalFetch(input, init)
+    })
+    await user.click(screen.getAllByRole('button', { name: 'Clone from GitHub' })[0])
+    await user.type(screen.getByRole('textbox', { name: 'GitHub repository' }), 'owner/app')
+    await user.type(screen.getByRole('textbox', { name: 'Destination (new folder)' }), '/projects/app')
+    await user.click(screen.getByRole('button', { name: 'Clone repository' }))
+    await waitFor(() => expect(screen.getByPlaceholderText('/Users/me/my-project')).toHaveValue('/projects/app'))
+    expect(mockAddProject).not.toHaveBeenCalled()
+    await user.click(screen.getAllByRole('button', { name: 'Clone from GitHub' })[1])
+    await user.type(screen.getByRole('textbox', { name: 'GitHub repository' }), 'owner/api')
+    await user.type(screen.getByRole('textbox', { name: 'Destination (new folder)' }), '/projects/api')
+    await user.click(screen.getByRole('button', { name: 'Clone repository' }))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Folder 2' })).toHaveValue('/projects/api'))
+    await user.click(screen.getByTestId('add-project-submit'))
+    await waitFor(() => expect(mockAddProject).toHaveBeenCalledWith('/projects/app', undefined, undefined, [{ path: '/projects/api' }]))
+  })
+
   it('submits primary and additional folders together and clears every root after cancel', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()

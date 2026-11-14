@@ -1,0 +1,4 @@
+
+> specrails-desktop@3.2.0 audit:architecture
+> node scripts/audit-server-modules.mjs --check && node scripts/audit-client-features.mjs --check
+

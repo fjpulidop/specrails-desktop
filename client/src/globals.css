@@ -1406,3 +1406,57 @@ select {
   outline-offset: 4px;
   border-radius: var(--radius-card);
 }
+
+/* Capability identity follows the active theme, independent of status colours. */
+[data-area="missions"], [data-area="terminal"] { --area-accent: var(--color-accent-primary); }
+[data-area="specs"], [data-area="browser"] { --area-accent: var(--color-accent-info); }
+[data-area="jobs"] { --area-accent: var(--color-accent-warning); }
+[data-area="analytics"] { --area-accent: var(--color-accent-success); }
+[data-area="files"] { --area-accent: var(--color-accent-highlight); }
+[data-area="settings"], [data-area="plugins"], [data-area="agents"] { --area-accent: var(--color-accent-primary); }
+[data-area="loops"], [data-area="rails"], [data-area="review"] { --area-accent: var(--color-accent-secondary); }
+[data-area="docs"] { --area-accent: var(--color-accent-info); }
+[data-area="integrations"] { --area-accent: var(--color-accent-success); }
+[data-area="builder"] { --area-accent: var(--color-accent-highlight); }
+/* Some themes reuse one hue for several accents (code-rain greens, galaxy blues);
+   remap those areas onto the theme's remaining distinct accents. */
+[data-theme="code-rain"] [data-area="specs"], [data-theme="code-rain"] [data-area="browser"], [data-theme="code-rain"] [data-area="docs"] { --area-accent: var(--color-accent-intent); }
+[data-theme="code-rain"] [data-area="analytics"], [data-theme="code-rain"] [data-area="integrations"] { --area-accent: var(--color-accent-review); }
+[data-theme="code-rain"] [data-area="loops"], [data-theme="code-rain"] [data-area="rails"], [data-theme="code-rain"] [data-area="review"] { --area-accent: var(--color-accent-info); }
+[data-theme="galaxy"] [data-area="specs"], [data-theme="galaxy"] [data-area="browser"], [data-theme="galaxy"] [data-area="docs"] { --area-accent: var(--color-accent-intent); }
+[data-theme="galaxy"] [data-area="loops"], [data-theme="galaxy"] [data-area="rails"], [data-theme="galaxy"] [data-area="review"] { --area-accent: var(--color-accent-review); }
+[data-theme="specrails"] [data-area="files"], [data-theme="specrails"] [data-area="builder"] { --area-accent: var(--color-accent-review); }
+.area-surface[data-area] h1 { color: var(--area-accent, var(--color-foreground)); }
+.area-surface[data-area] {
+  border-top: 2px solid color-mix(in srgb, var(--area-accent, var(--color-border)) 55%, transparent);
+  background-image: linear-gradient(color-mix(in srgb, var(--area-accent, transparent) 3%, transparent), transparent 240px);
+}
+.area-header {
+  background-color: color-mix(in srgb, var(--area-accent) 9%, var(--color-background));
+  border-bottom-color: color-mix(in srgb, var(--area-accent) 25%, var(--color-border));
+}
+.area-header > .text-label { color: var(--area-accent); }
+.area-nav[data-area] > svg { color: var(--area-accent); }
+.area-nav[data-active="true"], .area-nav[aria-current="page"] {
+  background-color: color-mix(in srgb, var(--area-accent) 13%, var(--color-background));
+  box-shadow: inset 2px 0 var(--area-accent);
+}
+
+/* Surface layering (title bar darkest → centre → sidebars), tinted per theme.
+   Dark themes shade toward black; the light theme shades toward its ink. */
+:root {
+  --surface-ink: #000;
+  --surface-chrome-depth: 52%;
+  --surface-center-depth: 26%;
+}
+[data-theme="aurora-light"] {
+  --surface-ink: var(--color-foreground);
+  --surface-chrome-depth: 14%;
+  --surface-center-depth: 6%;
+}
+.surface-chrome { background-color: color-mix(in srgb, var(--surface-ink) var(--surface-chrome-depth), var(--color-background)); }
+.surface-center { background-color: color-mix(in srgb, var(--surface-ink) var(--surface-center-depth), var(--color-background)); }
+.surface-side {
+  background-color: var(--color-background);
+  background-image: linear-gradient(color-mix(in srgb, var(--area-accent, var(--color-accent-primary)) 6%, transparent), transparent 320px);
+}

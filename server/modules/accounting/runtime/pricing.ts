@@ -160,8 +160,10 @@ export const PRICING: Record<string, PriceEntry> = {
   // Cache write = 1.25x input (5-minute-TTL default); cache reads are
   // model-specific. Anthropic usage semantics: input_tokens
   // EXCLUDES cache reads/writes → inputIncludesCacheReads: false.
-  // Fable 5.1: https://platform.claude.com/docs/en/models/fable-5-1/overview
+  // Fable 5.2: rate card not yet published to us; reuses the Fable 5.1 card (PENDING REVIEW).
   'claude:fable':            { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 0.25, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
+  'claude:claude-fable-5-2': { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 0.25, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-14' },
+  // Fable 5.1 (legacy): https://platform.claude.com/docs/en/models/fable-5-1/overview
   'claude:claude-fable-5-1': { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 0.25, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },
   // Fable 5 (legacy): cache hits still bill 1.00.
   'claude:claude-fable-5':   { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 1.00, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-11-01' },

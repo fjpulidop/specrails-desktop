@@ -15,6 +15,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/SpecTriageChip.tsx](components/SpecTriageChip.tsx)
 - [components/SpecsBoard.tsx](components/SpecsBoard.tsx)
 - [components/TicketDetailModal.tsx](components/TicketDetailModal.tsx)
+- [components/TicketStatusIndicator.tsx](components/TicketStatusIndicator.tsx)
 - [components/explore-spec/useSmoothStream.ts](components/explore-spec/useSmoothStream.ts)
 - [context/SmashTrackerContext.tsx](context/SmashTrackerContext.tsx)
 - [context/SpecExtensionsContext.tsx](context/SpecExtensionsContext.tsx)

@@ -1,7 +1,7 @@
 {
   "addProject": {
     "title": "Aggiungi progetto",
-    "description": "Registra una directory di progetto per gestirla da Specrails.",
+    "description": "Aggiungi una cartella locale o clona un repository GitHub per gestirlo da Specrails.",
     "noProviderDetected": "Nessuna CLI IA rilevata. Installa prima Claude o Codex.",
     "pathLabel": "Percorso del progetto",
     "pathPlaceholder": "/Users/me/my-project",
@@ -26,7 +26,7 @@
     "chooser": {
       "description": "Porta un repository esistente, oppure costruisci un progetto nuovo da un'idea.",
       "existingTitle": "Progetto esistente",
-      "existingDescription": "Registra un repository già presente su disco.",
+      "existingDescription": "Usa un repository locale o clonane uno da GitHub.",
       "newTitle": "Nuovo progetto",
       "newDescription": "Descrivi un'idea e ottieni un repo inizializzato con un backlog della Milestone 1."
     }

@@ -160,12 +160,12 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
  * Windows/Linux: matching compact chrome with centered search pill and quiet
  * custom window controls.
  *
- * Renders null in browser / non-Tauri contexts — no impact on web usage.
+ * Shows compact sidebar controls in browser / non-Tauri contexts.
  * Must be mounted as the very first child of the root layout so it sits at
  * the top of the window and the drag region covers the full width.
  */
 export function TitleBar() {
-  if (!isTauriEnv()) return null
+  if (!isTauriEnv()) return <BrowserTitleBar />
 
   const macOverlay = isMacOverlay()
 
@@ -174,6 +174,16 @@ export function TitleBar() {
   }
 
   return <DefaultTitleBar />
+}
+
+/** Web users also need a visible way back when both sidebars are hidden. */
+function BrowserTitleBar() {
+  const showRight = useRightSidebarMounted()
+  return <div className="flex h-9 shrink-0 items-center justify-between border-b border-border surface-chrome px-2">
+    <SidebarWindowButton side="left" />
+    <span className="text-xs text-muted-foreground">Specrails</span>
+    {showRight ? <SidebarWindowButton side="right" /> : <span className="w-7" />}
+  </div>
 }
 
 function SidebarWindowButton({ side }: { side: 'left' | 'right' }) {

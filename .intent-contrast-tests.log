@@ -1,0 +1,19 @@
+
+> test
+> vitest run src/lib/__tests__/theme-contrast.test.ts src/features/missions/components/__tests__/AgentModeSpecsPane.test.tsx
+
+(node:75385) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ RUN  v5.0.3 /Users/javi/.specrails/projects/specrails/worktrees/1022ff54-a8f4-4f96-8375-46ad74a9f30b/44848501-b2aa-4b8f-b2f5-13ee828654b2/ticket-13/client
+
+(node:75387) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:75386) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  19:43:01
+   Duration  4.09s (setup 50%, transform 21%, environment 12%, tests 10%, import 7%)
+

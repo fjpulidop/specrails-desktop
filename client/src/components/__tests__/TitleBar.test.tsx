@@ -45,10 +45,11 @@ describe('TitleBar', () => {
     Object.defineProperty(window, '__TAURI_INTERNALS__', { value: {}, configurable: true })
   })
 
-  it('renders nothing outside Tauri', () => {
+  it('provides sidebar recovery controls outside Tauri', () => {
     delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
-    const { container } = render(<TitleBar />)
-    expect(container.firstChild).toBeNull()
+    render(<TitleBar />)
+    expect(screen.getByRole('button', { name: /left sidebar/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /right sidebar/i })).toBeInTheDocument()
   })
 
   it('labels the search shortcut for the keyboard in use (Ctrl on Windows and Linux)', () => {

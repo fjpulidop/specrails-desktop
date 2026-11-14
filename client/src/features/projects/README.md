@@ -11,6 +11,7 @@ features. Keep imports focused on a subpath so importing a model does not eagerl
 load every UI component. Changes to this surface require updating the boundary manifest.
 
 - [components/AddProjectDialog.tsx](components/AddProjectDialog.tsx)
+- [components/CloneRepositoryDialog.tsx](components/CloneRepositoryDialog.tsx)
 - [components/OnboardingWizard.tsx](components/OnboardingWizard.tsx)
 - [components/ProjectErrorBoundary.tsx](components/ProjectErrorBoundary.tsx)
 - [components/RepositoryScopeSelector.tsx](components/RepositoryScopeSelector.tsx)
@@ -32,3 +33,18 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/projects`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+## Existing projects from GitHub
+
+`CloneRepositoryDialog` is shared by Add Project (primary and additional roots)
+and the repository section in Project Settings. It clones first through the desktop
+`POST /api/repositories/clone` endpoint, then supplies the completed local path to
+the existing registration flow. Each entry keeps its original project ownership.
+HTTPS and SSH GitHub URLs use the computer's configured Git credentials. The user
+chooses a new absolute destination under an existing parent; existing directories
+are never reused. A failed clone removes its own partial directory. A successful
+clone is retained if registration is cancelled or fails, so the local-path flow
+can retry without another download. Cloning has a five-minute timeout and no
+interactive credential prompts; it does not install dependencies or register a
+project automatically. Tests cover destination protection, transport validation,
+errors, duplicate submissions and passing the completed path back to the form.

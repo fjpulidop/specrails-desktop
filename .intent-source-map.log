@@ -1,0 +1,5 @@
+
+> specrails-desktop@3.2.0 docs:source-map
+> node scripts/generate-source-map.mjs
+
+Indexed 1386 files in docs/internals/source-map.md

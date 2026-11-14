@@ -12,7 +12,7 @@ import { CustomModelAliasInput } from '../../providers/components/CustomModelAli
 const CLAUDE_MODEL_OPTIONS = [
   { value: 'opus', label: 'Claude Opus 5.5' },
   { value: 'sonnet', label: 'Claude Sonnet 5.5' },
-  { value: 'fable', label: 'Claude Fable 5.1' },
+  { value: 'fable', label: 'Claude Fable 5.2' },
   { value: 'haiku', label: 'Claude Haiku 5.5' },
 ]
 

@@ -217,12 +217,11 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(screen.getAllByText('Fix the build')).toHaveLength(1)
   })
 
-  it('collapses favorite missions behind a single favorites icon when the sidebar is collapsed', () => {
+  it('hides favorite missions and their icon when the sidebar is hidden', () => {
     agentChatState.favoriteIds = new Set(['c-1'])
     renderCollapsed()
-    const favoritesButton = screen.getByRole('button', { name: 'Favorite missions' })
-    expect(favoritesButton).toBeInTheDocument()
-    expect(favoritesButton.parentElement?.className).toContain('border-b')
+    expect(screen.queryByRole('button', { name: 'Favorite missions' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('inert')
     expect(screen.queryByText('Favorite missions')).not.toBeInTheDocument()
     expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove "Fix the build" from favorites' })).not.toBeInTheDocument()
@@ -437,11 +436,10 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(screen.getByTestId('project-attention-badge')).toBeInTheDocument()
   })
 
-  it('opening Unassigned missions from the collapsed rail pins the sidebar open on that group', () => {
+  it('hides Unassigned missions together with the sidebar', () => {
     renderCollapsed()
-    fireEvent.click(screen.getByRole('button', { name: 'Unassigned missions' }))
-    expect(window.localStorage.getItem('specrails-desktop:sidebar-mode:left')).toBe('pinned-open')
-    expect(screen.getByRole('button', { name: 'Archive "Untitled"' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Unassigned missions' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('arc-sidebar-panel')).toHaveAttribute('inert')
   })
 
   it('reports a failed delete with a toast', async () => {
@@ -476,9 +474,9 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(document.activeElement).toBe(board)
   })
 
-  it('shows the current mode as one icon button on the collapsed rail', () => {
+  it('hides the mode switch together with the sidebar', () => {
     renderCollapsed()
-    expect(screen.getByRole('button', { name: 'Current mode: Mission. Click to switch.' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Current mode: Mission. Click to switch.' })).not.toBeInTheDocument()
   })
 })
 

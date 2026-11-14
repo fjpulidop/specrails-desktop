@@ -1,9 +1,7 @@
-import { isTauri } from '../lib/tauri-shell'
-import { keyboardLabel } from '../lib/keyboard-label'
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LayoutDashboard, Briefcase, BarChart3, Code2, Settings, PanelRight } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BarChart3, Code2, Settings } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
@@ -12,31 +10,23 @@ import { SidebarResizeGrip } from './SidebarResizeGrip'
 import { FEATURE_CODE_EXPLORER } from '../lib/feature-flags'
 import { BuilderSidebarEntry } from '../features/builder/components/project-builder/BuilderSidebarEntry'
 
-const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned', string> = {
-  'pinned-open': 'sidebarPin.right.pinnedOpen',
-  'pinned-collapsed': 'sidebarPin.right.pinnedCollapsed',
-  'unpinned': 'sidebarPin.right.unpinned',
-}
-
 const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2'
 
 export function ProjectRightSidebar() {
   const { t } = useTranslation('nav')
-  const { rightMode, effectiveRightMode, cycleRightMode } = useSidebarPin()
+  const { effectiveRightMode } = useSidebarPin()
   const unpinned = effectiveRightMode === 'unpinned'
   const docked = effectiveRightMode === 'pinned-open'
   const [dragging, setDragging] = useState(false)
   const hover = useSidebarHoverIntent({ enabled: unpinned, dragging })
   const expanded = docked || (unpinned && hover.hovered)
   // Same chrome as the Agent-Mode workspace rail: drag-resizable (208px default),
-  // 44px collapsed; a hover-expanded unpinned rail overlays the content.
+  // fully hidden when collapsed; a hover-expanded unpinned rail overlays the content.
   const resize = useResizableSidebar('right-project', {
-    side: 'right', defaultWidth: 208, min: 180, max: 460, collapsedWidth: 44, expanded, docked,
+    side: 'right', defaultWidth: 208, min: 180, max: 460, collapsedWidth: 0, expanded, docked,
   })
   useEffect(() => { setDragging(resize.dragging) }, [resize.dragging])
   const overlaying = expanded && !docked
-  const lit = rightMode !== 'unpinned'
-  const pinLabel = t(RIGHT_PIN_LABEL_KEY[rightMode])
 
   // Agents is intentionally HIDDEN in board mode (user decision 2026-07-22) —
   // profiles/catalog remain reachable via the /agents route and Agent Mode
@@ -55,17 +45,22 @@ export function ProjectRightSidebar() {
   return (
     <aside
       ref={resize.wrapperRef}
+      tabIndex={unpinned && !expanded ? 0 : -1}
       aria-label={t('rightSidebar.landmark')}
       className="relative h-full flex-shrink-0 transition-[width] duration-200 ease-in-out"
       {...hover.handlers}
     >
+    {unpinned && !expanded && <div aria-hidden="true" data-testid="sidebar-edge-right" className="absolute inset-y-0 right-0 z-30 w-2" />}
     <div
       ref={resize.panelRef}
+      inert={!expanded}
+      aria-hidden={!expanded}
       data-testid="project-right-sidebar-panel"
       data-overlay={overlaying || undefined}
       className={cn(
-        'absolute inset-y-0 right-0 z-30 flex flex-col border-l border-border bg-background overflow-hidden',
+        'absolute inset-y-0 right-0 z-30 flex flex-col border-l border-border surface-side overflow-hidden',
         'transition-[width,box-shadow] duration-200 ease-in-out',
+        !expanded && 'invisible border-none',
         overlaying && 'shadow-xl',
       )}
     >
@@ -81,33 +76,6 @@ export function ProjectRightSidebar() {
           onKeyDown={resize.onGripKeyDown}
         />
       )}
-      {/* Header (browser only — the desktop title bar carries the pin button) */}
-      {!isTauri() && <div className={cn(
-        'flex items-center h-12 border-b border-border flex-shrink-0',
-        expanded ? 'px-3 justify-between' : 'justify-center'
-      )}>
-        {expanded && (
-          <span className="text-xs font-medium whitespace-nowrap overflow-hidden text-muted-foreground">
-            {t('rightSidebar.projectTitle')}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={cycleRightMode}
-          className={cn(
-            'flex items-center justify-center w-7 h-7 rounded-md transition-colors',
-            lit
-              ? 'text-foreground bg-muted'
-              : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/50',
-            FOCUS_RING,
-          )}
-          aria-label={pinLabel}
-          aria-pressed={lit}
-          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌥⌘B') })}
-        >
-          <PanelRight className="w-4 h-4" />
-        </button>
-      </div>}
 
       {/* Nav items */}
       <nav aria-label={t('rightSidebar.projectTitle')} className="flex-1 py-2 px-1.5 space-y-0.5">
@@ -115,10 +83,11 @@ export function ProjectRightSidebar() {
         {navItems.map(({ to, end, icon: Icon, label }) => (
           <NavLink
             key={to}
+            data-area={to === '/' ? 'specs' : to === '/code' ? 'files' : to.slice(1)}
             to={to}
             end={end}
             className={({ isActive }) => cn(
-              'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+              'area-nav flex items-center gap-2 w-full h-8 rounded-md transition-colors',
               expanded ? 'px-2' : 'px-0 justify-center',
               isActive
                 ? 'bg-muted text-foreground'

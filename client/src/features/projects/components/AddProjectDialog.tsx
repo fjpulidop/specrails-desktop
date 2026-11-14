@@ -1,3 +1,4 @@
+import { CloneRepositoryDialog } from './CloneRepositoryDialog'
 import { isPublicProvider } from '../../providers/lib/provider-capabilities'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -82,6 +83,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   }, [open])
 
   async function handleAdd() {
+    if (isAdding) return
     const trimmedPath = projectPath.trim()
     if (!trimmedPath) {
       notifyError(t('addProject.errors.pathRequired'))
@@ -237,6 +239,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
             <p className="text-xs text-muted-foreground">
               {t('addProject.pathHint')}
             </p>
+            <CloneRepositoryDialog disabled={isAdding} onCloned={setProjectPath} />
           </div>
 
           <div className="space-y-1.5">
@@ -288,6 +291,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
                   }
                   setAdditionalPaths((paths) => [...paths, ''])
                 }}><Plus className="mr-1 h-3.5 w-3.5" />{t('common:repositories.addFolder')}</Button>
+                <CloneRepositoryDialog disabled={isAdding} onCloned={(path) => setAdditionalPaths((paths) => [...paths, path])} />
               </fieldset>
             </div>
           </details>

@@ -1,3 +1,4 @@
+import { SPEC_DRAG_TYPE, readSpecDrag, insertDroppedSpec } from '../lib/agent-spec-drag'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -132,6 +133,7 @@ export function AgentComposer({
   const cycleTier = useGuardedTierCycle()
   const paletteId = useId()
   const [dragOver, setDragOver] = useState(false)
+  const [specDragOver, setSpecDragOver] = useState(false)
   const { pendingCaptures, consumePendingCaptures, openBrowser } = useAgentWorkspace()
   const { processes: backgroundProcesses, history: backgroundProcessHistory = backgroundProcesses, historyLoading = false, historyError = null, refreshHistory, kill: killBackgroundProcess } = useBackgroundProcesses()
   const [selectedProcess, setSelectedProcess] = useState<BackgroundProcess | null>(null)
@@ -781,7 +783,12 @@ export function AgentComposer({
         onDragOver={(e) => {
           if (!canAttach) return
           e.preventDefault()
-          if (!dragOver && Array.from(e.dataTransfer?.types ?? []).includes('Files')) setDragOver(true)
+          const types = Array.from(e.dataTransfer?.types ?? [])
+          const isSpec = types.includes(SPEC_DRAG_TYPE)
+          if (isSpec || types.includes('Files')) {
+            setDragOver(true)
+            setSpecDragOver(isSpec)
+          }
         }}
         onDragLeave={(e) => {
           // Leaving into a child is not leaving the drop target.
@@ -792,6 +799,15 @@ export function AgentComposer({
           setDragOver(false)
           if (!canAttach) return
           e.preventDefault()
+          if (Array.from(e.dataTransfer.types).includes(SPEC_DRAG_TYPE)) {
+            const chip = readSpecDrag(e.dataTransfer.getData(SPEC_DRAG_TYPE), draftKey, pinnedProjectId)
+            if (!chip) return
+            const caret = insertDroppedSpec(draftKey, chip, editorRef.current?.selectionStart ?? input.length)
+            setHistIndex(null)
+            setPaletteTrigger(null)
+            focusEditorAt(caret)
+            return
+          }
           const files = Array.from(e.dataTransfer.files)
           if (files.length) void uploadFiles(files)
         }}
@@ -803,7 +819,7 @@ export function AgentComposer({
             className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center gap-2 rounded-3xl bg-card/85 text-sm font-medium text-accent-primary"
           >
             <Paperclip className="h-4 w-4" />
-            {t('composer.dropFiles')}
+            {t(specDragOver ? 'composer.dropSpec' : 'composer.dropFiles')}
           </div>
         )}
         <AgentThinkingHalo active={isStreaming} radius="calc(var(--radius-panel) + 1px)" inset={-1} />

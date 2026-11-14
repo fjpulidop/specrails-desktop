@@ -12,6 +12,8 @@ export interface MissionWindowSnapshot extends MissionWindowTarget {
     codePaneOpen: boolean
     jobsPaneOpen: boolean
     analyticsPaneOpen: boolean
+    /** Optional: snapshots captured before the Specs pane existed omit it. */
+    specsPaneOpen?: boolean
     browserOpen: boolean
     pendingCaptures: AgentAttachment[]
     browserOwnerId?: string | null

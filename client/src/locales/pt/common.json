@@ -138,7 +138,19 @@
     "workspaceHint": "Opcional. Uma pasta por linha, absoluta ou relativa ao repositório. Vazio usa a pasta do repositório. Implement e os loops verificam cada pasta indicada.",
     "launchWorkspaces": "Pastas para esta execução",
     "launchWorkspaceHint": "As alterações e os testes ficam limitados a estas pastas. Selecione pelo menos uma pasta para cada repositório afetado.",
-    "advanced": "Configuração multirrepositório"
+    "advanced": "Configuração multirrepositório",
+    "clone": {
+      "title": "Clonar do GitHub",
+      "description": "Crie uma cópia local e adicione-a ao projeto.",
+      "url": "Repositório GitHub",
+      "destination": "Destino (nova pasta)",
+      "browse": "Escolher pasta superior",
+      "hint": "A pasta superior deve existir; a nova pasta não. Usa as credenciais Git deste computador. A cópia permanece mesmo se cancelar o registo.",
+      "preview": "Clonar em: {{path}}",
+      "busy": "A clonar… Pode demorar alguns minutos.",
+      "submit": "Clonar repositório",
+      "failed": "Não foi possível clonar o repositório."
+    }
   },
   "repositoryDelivery": {
     "building": "Implementação em andamento",

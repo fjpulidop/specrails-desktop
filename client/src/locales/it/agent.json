@@ -273,7 +273,12 @@
     "noJobs": "Ancora nessun job — chiedi all'agente di lanciarne uno",
     "analytics": "Analytics",
     "closeAnalytics": "Chiudi analytics",
-    "resizeAnalytics": "Ridimensiona pannello analytics"
+    "resizeAnalytics": "Ridimensiona pannello analytics",
+    "specs": "Specs",
+    "closeSpecs": "Chiudi specs",
+    "resizeSpecs": "Ridimensiona pannello specs",
+    "noSpecs": "Ancora nessuna spec — chiedi all'agente di crearne una",
+    "specsClosed": "Chiuse"
   },
   "attachFile": "Allega file",
   "deleteConversation": "Elimina «{{title}}»",
@@ -1483,6 +1488,7 @@
   "composer": {
     "ariaLabel": "Messaggio all’agente",
     "dropFiles": "Rilascia i file per allegarli",
+    "dropSpec": "Rilascia per fare riferimento a questa spec",
     "uploading": "Caricamento…"
   },
   "conversation": {

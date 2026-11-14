@@ -1,7 +1,7 @@
 {
   "addProject": {
     "title": "Add Project",
-    "description": "Register a project directory to manage it from Specrails.",
+    "description": "Add a local folder or clone a GitHub repository to manage it from Specrails.",
     "noProviderDetected": "No AI CLI detected. Install Claude or Codex first.",
     "pathLabel": "Project path",
     "pathPlaceholder": "/Users/me/my-project",
@@ -26,7 +26,7 @@
     "chooser": {
       "description": "Bring an existing repository, or build a brand-new project from an idea.",
       "existingTitle": "Existing project",
-      "existingDescription": "Register a repository that already exists on disk.",
+      "existingDescription": "Use a local repository or clone one from GitHub.",
       "newTitle": "New project",
       "newDescription": "Describe an idea and get a bootstrapped repo with a Milestone-1 backlog."
     }

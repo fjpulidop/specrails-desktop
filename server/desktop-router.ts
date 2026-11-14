@@ -1,3 +1,4 @@
+import { cloneGithubRepository } from './github-clone'
 import { parseSubagentRuntimeSetting } from './modules/project-settings'
 import { registerInboxRoutes } from './modules/inbox/adapters/http'
 import { registerOnboardingRoutes } from './modules/onboarding/adapters/http'
@@ -577,6 +578,19 @@ export function createDesktopRouter(
   })
 
   // POST /api/projects — register a new project by path
+  router.post('/repositories/clone', async (req, res) => {
+    const controller = new AbortController()
+    const abort = () => { if (!res.writableEnded) controller.abort() }
+    res.on('close', abort)
+    try {
+      const clonedPath = await cloneGithubRepository(req.body ?? {}, isPathSafe, controller.signal)
+      res.status(201).json({ path: clonedPath })
+    } catch (err) {
+      if (err instanceof RepositoryValidationError) res.status(err.status).json({ error: err.message, code: err.code })
+      else res.status(500).json({ error: 'Could not clone repository' })
+    } finally { res.off('close', abort) }
+  })
+
   router.post('/projects', async (req, res) => {
     const { path: projectPath, name, provider, providers: providersRaw, repositories: repositoriesRaw, workspacePaths } = req.body ?? {}
     if (!projectPath || typeof projectPath !== 'string') {

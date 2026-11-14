@@ -1,3 +1,4 @@
+import * as githubClone from './github-clone'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
@@ -142,6 +143,26 @@ describe('desktop-router', () => {
     app.use('/api', router)
     return { app, registry, broadcast, contexts }
   }
+
+  describe('POST /api/repositories/clone', () => {
+    it('returns a checkout path without registering a project', async () => {
+      const clone = vi.spyOn(githubClone, 'cloneGithubRepository').mockResolvedValueOnce('/projects/cloned')
+      try {
+        const { app, registry } = createApp()
+        const response = await request(app).post('/api/repositories/clone').send({ url: 'owner/repo', destination: '/projects/cloned' })
+        expect(response.status).toBe(201)
+        expect(response.body).toEqual({ path: '/projects/cloned' })
+        expect(clone).toHaveBeenCalledWith({ url: 'owner/repo', destination: '/projects/cloned' }, expect.any(Function), expect.any(AbortSignal))
+        expect(registry.addProject).not.toHaveBeenCalled()
+      } finally { clone.mockRestore() }
+    })
+    it('rejects unsupported sources before starting a clone', async () => {
+      const { app } = createApp()
+      const response = await request(app).post('/api/repositories/clone').send({ url: 'file:///secret', destination: '/projects/cloned' })
+      expect(response.status).toBe(400)
+      expect(response.body.code).toBe('invalid_repository')
+    })
+  })
 
   // ─── GET /projects ──────────────────────────────────────────────────────────
 

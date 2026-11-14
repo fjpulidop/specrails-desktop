@@ -1,0 +1,29 @@
+
+> test
+> vitest run src/features/projects/components/__tests__/CloneRepositoryDialog.test.tsx src/features/projects/components/__tests__/AddProjectDialog.test.tsx src/features/settings/components/__tests__/ProjectRepositoriesSection.test.tsx src/components/__tests__/ProjectRightSidebar.test.tsx src/components/__tests__/ArcSidebar.test.tsx src/components/__tests__/TitleBar.test.tsx src/features/missions/components/__tests__/AgentWorkspaceSidebar.test.tsx
+
+(node:68329) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ RUN  v5.0.3 /Users/javi/.specrails/projects/specrails/worktrees/1022ff54-a8f4-4f96-8375-46ad74a9f30b/44848501-b2aa-4b8f-b2f5-13ee828654b2/ticket-13/client
+
+(node:68336) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:68331) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:68332) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:68333) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:68335) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:68334) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:68337) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  7 passed (7)
+      Tests  74 passed (74)
+   Start at  19:38:14
+   Duration  7.43s (setup 39%, environment 20%, tests 16%, transform 14%, import 12%)
+

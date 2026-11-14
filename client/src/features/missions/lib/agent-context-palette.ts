@@ -234,7 +234,7 @@ function projectChip(project: DesktopProject): AgentContextChip {
   }
 }
 
-function ticketChip(ticket: LocalTicket, projectId: string | null, projectLabel: string | null): AgentContextChip {
+export function ticketChip(ticket: LocalTicket, projectId: string | null, projectLabel: string | null): AgentContextChip {
   return {
     kind: 'spec',
     id: String(ticket.id),

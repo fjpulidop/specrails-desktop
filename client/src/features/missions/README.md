@@ -3,6 +3,23 @@
 This capability owns its UI, state, feature utilities and adjacent tests.
 Shared rendering primitives, API origin/auth and project cache remain outside features.
 
+Mission workspace panes (Jobs, Specs, Analytics and Files) use 48 px headers.
+Their resize handles sit inside the left edge across the full pane height so
+the pane's overflow clipping does not hide the drag target. Maximizing a pane
+hides its resize handle until it is restored.
+During pointer resizing, native text selection is blocked and the resize cursor
+stays active. Completion, cancellation, focus loss and unmount restore the prior
+selection and cursor styles.
+
+The Specs pane animates newly received specs with a brief slide, fade and accent
+glow, respecting `useReducedMotion`. Initial loads and status updates do not
+replay the entrance. Dragging a row onto the mission composer inserts the same
+inline reference used by the context palette. The pane subscribes to that
+mission's composer draft and hides referenced specs until their chips are removed
+or the draft is sent; the backlog and counters remain unchanged. Drops validate
+the source mission and project, preserve existing text/references and ignore
+duplicate specs. Cancelling a drag never removes a row.
+
 <!-- audit-client-features:begin (generated: public subpaths and feature dependencies; edit outside this block) -->
 ## Public subpaths
 

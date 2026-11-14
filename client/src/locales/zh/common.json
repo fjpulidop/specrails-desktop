@@ -138,7 +138,19 @@
     "workspaceHint": "可选。每行一个目录，可为绝对路径或相对于仓库的路径。留空则使用仓库目录。Implement 和循环会验证每个列出的目录。",
     "launchWorkspaces": "本次运行的工作目录",
     "launchWorkspaceHint": "代码更改和测试仅限这些目录。请为每个受影响的仓库至少选择一个工作目录。",
-    "advanced": "多仓库设置"
+    "advanced": "多仓库设置",
+    "clone": {
+      "title": "从 GitHub 克隆",
+      "description": "创建本地副本，然后将其添加到项目。",
+      "url": "GitHub 仓库",
+      "destination": "目标位置（新文件夹）",
+      "browse": "选择父文件夹",
+      "hint": "父文件夹必须已存在，新文件夹不能已存在。使用此电脑上配置的 Git 凭据。即使取消注册，已完成的副本也会保留。",
+      "preview": "克隆到：{{path}}",
+      "busy": "正在克隆…可能需要几分钟。",
+      "submit": "克隆仓库",
+      "failed": "无法克隆仓库。"
+    }
   },
   "repositoryDelivery": {
     "building": "实现中",

@@ -1,0 +1,1820 @@
+
+> test:coverage
+> vitest run --coverage --maxWorkers=8
+
+(node:77211) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ RUN  v5.0.3 /Users/javi/.specrails/projects/specrails/worktrees/1022ff54-a8f4-4f96-8375-46ad74a9f30b/44848501-b2aa-4b8f-b2f5-13ee828654b2/ticket-13/client
+      Coverage enabled with v8
+
+(node:77212) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77216) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77218) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77214) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77217) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77213) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77215) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77219) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77228) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77229) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77243) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77244) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77323) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77461) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77462) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77651) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77676) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77688) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77714) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77715) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77820) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77821) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77822) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: navigation to another Document
+(node:77832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77931) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78290) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78292) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78415) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78416) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78417) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78418) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78419) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78420) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78422) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78423) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78427) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+(node:78455) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78454) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78533) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78534) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78538) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+(node:78539) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78541) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78542) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78570) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78574) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78577) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78578) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78579) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78580) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78686) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78687) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78689) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78688) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78700) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: Window's scrollTo() method
+(node:78701) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78702) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78703) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78704) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78705) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78706) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78707) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78710) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78711) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78812) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78815) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78816) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78817) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78818) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: Window's focus() method
+Not implemented: Window's focus() method
+Not implemented: Window's focus() method
+Not implemented: Window's focus() method
+(node:78819) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78821) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78829) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78833) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78834) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78835) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78836) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+(node:78913) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78939) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78943) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78944) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79058) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79059) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79060) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79136) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79162) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79163) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79165) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79166) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79167) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79168) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79169) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79170) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79171) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79173) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79193) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79194) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79198) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79224) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79225) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79226) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79227) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79228) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79229) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79230) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79231) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79232) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79233) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79234) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79534) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79633) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79634) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79635) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79636) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79637) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79639) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79691) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79694) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79698) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79699) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79700) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79701) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79743) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79745) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79793) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79794) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79795) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79797) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79798) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79799) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79800) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79801) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79803) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79802) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79804) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79805) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79806) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79807) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79808) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79809) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79810) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79811) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79814) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79815) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79816) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79819) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79818) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79820) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79821) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79822) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79823) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79824) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79825) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79826) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79827) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79828) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79829) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79830) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79831) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79833) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79834) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79835) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79836) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79837) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79840) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79841) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79842) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79843) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79844) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79845) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79846) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79847) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79848) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79849) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79850) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79851) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79853) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79854) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79855) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79860) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79861) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79871) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79872) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79873) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79874) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79875) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79878) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79879) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79880) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79883) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79891) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79892) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79893) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79895) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79896) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79897) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79898) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79899) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79900) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79901) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79902) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79903) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79905) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79904) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79906) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79907) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79908) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79909) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79912) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79913) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79914) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79915) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79916) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79919) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79920) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79921) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79922) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79923) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79924) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79925) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79927) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79928) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79929) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79930) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79931) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79932) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79933) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79937) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79938) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79939) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79940) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79941) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79943) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79942) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79948) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79952) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79953) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79954) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79955) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79956) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79957) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79958) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79960) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79961) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79963) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79964) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79965) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79966) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79967) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79968) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79977) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79980) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79981) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79982) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79983) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79984) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79985) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79988) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79990) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79991) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79992) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79993) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79995) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79997) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79998) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79999) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80000) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80001) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80002) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80003) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80004) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80007) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80009) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80010) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80011) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80014) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80018) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80017) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80019) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80020) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80025) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80026) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80027) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80029) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80030) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80031) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80033) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80034) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: Window's focus() method
+(node:80035) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80036) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80037) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80038) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80039) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80040) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80041) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80042) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80043) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80044) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80045) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80046) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80047) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80048) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80052) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80053) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80056) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80057) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80058) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80059) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80060) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: Window's focus() method
+Not implemented: Window's focus() method
+(node:80061) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80062) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80063) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80064) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80065) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80066) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80067) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80068) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80069) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80070) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80071) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80073) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80074) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80075) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80085) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80086) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80087) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80088) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80089) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80090) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80136) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80138) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80139) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80140) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80142) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80144) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80151) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80199) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80201) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80250) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80249) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80277) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80330) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80331) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80465) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80466) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80467) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80468) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80469) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80470) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80497) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80498) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80559) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80560) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80561) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+(node:80562) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Not implemented: navigation to another Document
+(node:80563) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80564) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80566) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80588) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80589) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80590) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80592) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80594) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80593) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80595) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80621) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80622) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80624) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80623) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80625) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80627) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80628) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80629) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80632) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80633) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80634) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80636) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80637) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80638) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80639) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80640) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80641) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80642) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80643) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80644) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80645) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80646) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80648) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80650) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80651) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80652) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80653) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80654) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80664) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80665) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80666) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80667) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80668) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80669) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80670) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80671) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80672) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80673) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80676) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80678) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80679) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80680) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80681) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80682) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80684) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80685) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80688) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80690) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80691) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80692) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80693) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80694) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80695) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80696) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80697) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80699) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80698) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80700) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80701) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80702) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80705) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80706) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80707) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80708) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80709) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80713) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80714) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80723) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80724) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80725) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80726) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80727) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80728) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80729) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80730) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80731) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80736) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80737) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80740) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80741) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80743) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80744) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80745) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80746) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80750) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80751) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80752) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80753) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80754) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80755) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80756) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80757) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80758) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80763) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80766) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80770) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80771) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80774) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80775) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80777) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80778) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80779) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80780) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80781) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80782) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80786) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80787) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80788) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80789) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80791) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80790) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80793) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80794) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80806) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80807) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80808) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80810) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80809) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80811) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80812) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80813) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80814) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80815) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80816) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80817) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80819) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80822) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80823) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80825) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80826) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80827) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80828) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80830) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80833) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80834) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80835) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80836) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80838) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80839) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80843) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80845) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80847) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80849) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80848) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80850) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80854) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80855) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80856) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80857) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80858) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80859) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80860) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80861) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80864) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80865) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80866) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80867) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80868) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80869) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80870) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80871) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80872) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80873) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80874) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80875) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80876) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80877) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80878) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80879) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80881) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80882) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80883) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80884) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80885) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80886) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80887) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80888) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80889) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80890) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80891) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80892) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80893) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  561 passed (561)
+      Tests  6757 passed (6757)
+   Start at  19:45:04
+   Duration  263.44s (setup 46%, tests 21%, environment 15%, import 13%, transform 5%, worker 1%)
+
+    Isolate  561 workers spawned · ~682ms startup each (spawn + environment, per file)
+             at least ~47.11s faster with isolate: false — reuses workers across files instead of one per file
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+[32;1mAll files         [0m | [32;1m  83.88[0m | [33;1m   78.63[0m | [32;1m  81.29[0m | [32;1m   88.1[0m | [31;1m                 [0m 
+[33;1m src              [0m | [33;1m  70.58[0m | [33;1m   54.72[0m | [33;1m  57.54[0m | [33;1m  76.16[0m | [31;1m                 [0m 
+[33;1m  App.tsx         [0m | [33;1m  70.58[0m | [33;1m   54.72[0m | [33;1m  57.54[0m | [33;1m  76.16[0m | [31;1m...28,747-774,814[0m 
+[32;1m src/components   [0m | [32;1m  88.78[0m | [32;1m   88.68[0m | [32;1m  87.71[0m | [32;1m  91.36[0m | [31;1m                 [0m 
+[32;1m  ArcSidebar.tsx  [0m | [32;1m  83.65[0m | [32;1m   86.63[0m | [32;1m   80.5[0m | [32;1m  86.28[0m | [31;1m...1381,1413-1416[0m 
+[32;1m  ...opeFilter.tsx[0m | [32;1m    100[0m | [32;1m      80[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m12               [0m 
+[32;1m  ...ndPalette.tsx[0m | [32;1m  97.27[0m | [32;1m    93.1[0m | [32;1m  95.32[0m | [32;1m  98.71[0m | [31;1m431,435,483,567  [0m 
+[32;1m  HelpHint.tsx    [0m | [32;1m   90.9[0m | [32;1m     100[0m | [33;1m     75[0m | [32;1m   90.9[0m | [31;1m37               [0m 
+[32;1m  ...mitButton.tsx[0m | [32;1m  93.33[0m | [32;1m      90[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m22               [0m 
+[32;1m  ...keControl.tsx[0m | [32;1m   87.5[0m | [33;1m      75[0m | [32;1m  85.71[0m | [32;1m  96.42[0m | [31;1m23               [0m 
+[32;1m  ...heatsheet.tsx[0m | [32;1m   90.9[0m | [32;1m   83.72[0m | [32;1m   92.3[0m | [32;1m  95.74[0m | [31;1m79,123           [0m 
+[32;1m  ...hForecast.tsx[0m | [32;1m    100[0m | [32;1m   93.47[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m56,58-60         [0m 
+[32;1m  ...Announcer.tsx[0m | [32;1m  96.77[0m | [32;1m      85[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m33,39-40         [0m 
+[32;1m  ...avButtons.tsx[0m | [32;1m  92.72[0m | [32;1m   90.47[0m | [32;1m  91.66[0m | [32;1m  97.72[0m | [31;1m67               [0m 
+[32;1m  ...ectLayout.tsx[0m | [32;1m    100[0m | [33;1m   77.41[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m37-38,44-50      [0m 
+[32;1m  ...htSidebar.tsx[0m | [32;1m    100[0m | [32;1m   97.82[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m49               [0m 
+[32;1m  ...iceDialog.tsx[0m | [32;1m   87.5[0m | [32;1m      85[0m | [32;1m  83.33[0m | [32;1m  91.66[0m | [31;1m36               [0m 
+[32;1m  ...rBoundary.tsx[0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m83               [0m 
+[32;1m  ...esizeGrip.tsx[0m | [32;1m    100[0m | [32;1m   83.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m43               [0m 
+[33;1m  ...ViewShell.tsx[0m | [33;1m  56.52[0m | [33;1m   56.81[0m | [33;1m  63.15[0m | [33;1m     60[0m | [31;1m...35,142,156,169[0m 
+[32;1m  StatusBar.tsx   [0m | [32;1m  97.67[0m | [32;1m     100[0m | [32;1m   87.5[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m ...mponents/brand[0m | [32;1m    100[0m | [32;1m   89.87[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  RailTrack.tsx   [0m | [32;1m    100[0m | [33;1m   79.48[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m54-59,69,71,75-94[0m 
+[32;1m ...ommand-palette[0m | [32;1m  97.46[0m | [32;1m    86.5[0m | [32;1m  95.65[0m | [32;1m  97.03[0m | [31;1m                 [0m 
+[32;1m  ...te-actions.ts[0m | [32;1m  95.58[0m | [32;1m   86.06[0m | [32;1m  94.54[0m | [32;1m  95.02[0m | [31;1m...97,523,535,618[0m 
+[32;1m  ...nt-actions.ts[0m | [32;1m    100[0m | [33;1m      75[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m11               [0m 
+[32;1m  ...opedSearch.ts[0m | [32;1m    100[0m | [33;1m   74.68[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...47,52-58,82-83[0m 
+[32;1m src/components/ui[0m | [32;1m  92.81[0m | [32;1m   88.78[0m | [32;1m   95.4[0m | [32;1m  94.46[0m | [31;1m                 [0m 
+[32;1m  card.tsx        [0m | [32;1m  94.44[0m | [32;1m     100[0m | [32;1m  83.33[0m | [32;1m  94.44[0m | [31;1m53               [0m 
+[32;1m  ...rm-dialog.tsx[0m | [32;1m    100[0m | [32;1m   96.29[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m73               [0m 
+[32;1m  dialog.tsx      [0m | [32;1m  98.93[0m | [32;1m   96.87[0m | [32;1m     96[0m | [32;1m  98.76[0m | [31;1m240              [0m 
+[32;1m  ...down-menu.tsx[0m | [32;1m  80.61[0m | [33;1m   69.64[0m | [32;1m     95[0m | [32;1m   84.7[0m | [31;1m82-83,158-168    [0m 
+[33;1m  ...w-actions.tsx[0m | [33;1m     75[0m | [32;1m   85.71[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m29               [0m 
+[32;1m  page-header.tsx [0m | [32;1m    100[0m | [33;1m      75[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m27-30            [0m 
+[32;1m  select.tsx      [0m | [32;1m  95.83[0m | [32;1m     100[0m | [32;1m  85.71[0m | [32;1m  95.83[0m | [31;1m128              [0m 
+[32;1m  switch.tsx      [0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m27               [0m 
+[32;1m src/context      [0m | [32;1m  93.58[0m | [32;1m   91.17[0m | [32;1m  81.25[0m | [32;1m  98.38[0m | [31;1m                 [0m 
+[32;1m  ...inContext.tsx[0m | [32;1m  97.72[0m | [32;1m     100[0m | [33;1m  76.19[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...deContext.tsx[0m | [32;1m  88.23[0m | [32;1m   84.21[0m | [32;1m   90.9[0m | [32;1m  96.29[0m | [31;1m30               [0m 
+[32;1m ...s/agents/hooks[0m | [32;1m  90.79[0m | [32;1m   83.51[0m | [32;1m     85[0m | [32;1m  96.45[0m | [31;1m                 [0m 
+[32;1m  ...gentRefine.ts[0m | [32;1m  90.79[0m | [32;1m   83.51[0m | [32;1m     85[0m | [32;1m  96.45[0m | [31;1m162,183-186      [0m 
+[32;1m ...res/agents/lib[0m | [32;1m  93.54[0m | [32;1m   88.46[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...e-metadata.ts[0m | [32;1m  93.54[0m | [32;1m   88.46[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m9-11,18          [0m 
+[32;1m ...ics/components[0m | [32;1m  89.81[0m | [32;1m   81.64[0m | [32;1m  87.37[0m | [32;1m  93.31[0m | [31;1m                 [0m 
+[33;1m  ...sionsCard.tsx[0m | [33;1m     50[0m | [31;1m   17.07[0m | [31;1m  33.33[0m | [31;1m  44.44[0m | [31;1m15,30-32,74      [0m 
+[32;1m  BudgetCard.tsx  [0m | [32;1m  94.15[0m | [32;1m      88[0m | [32;1m  95.23[0m | [32;1m  98.26[0m | [31;1m206,251          [0m 
+[31;1m  ChartTooltip.tsx[0m | [31;1m      0[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m      0[0m | [31;1m21-31            [0m 
+[33;1m  CostScatter.tsx [0m | [33;1m     75[0m | [33;1m   65.85[0m | [33;1m  72.72[0m | [33;1m  78.57[0m | [31;1m164-173,183-184  [0m 
+[32;1m  ...TimesCard.tsx[0m | [32;1m  98.43[0m | [32;1m   94.36[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m89-93,156-157    [0m 
+[32;1m  ...tDropdown.tsx[0m | [32;1m    100[0m | [32;1m   96.15[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m33               [0m 
+[32;1m  ...ionsTable.tsx[0m | [32;1m  82.75[0m | [33;1m   73.21[0m | [32;1m  86.66[0m | [32;1m  86.66[0m | [31;1m77-80,121-122,165[0m 
+[32;1m  ...flowUsage.tsx[0m | [32;1m    100[0m | [32;1m   96.87[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m35               [0m 
+[32;1m  ...omicsCard.tsx[0m | [32;1m  98.55[0m | [32;1m   93.68[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...54,161,190-191[0m 
+[32;1m  ...Breakdown.tsx[0m | [32;1m  95.23[0m | [32;1m   84.21[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...8,75,87-94,116[0m 
+[32;1m  ModelName.tsx   [0m | [32;1m  83.33[0m | [33;1m      75[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m9-10             [0m 
+[32;1m  ...kdownCard.tsx[0m | [32;1m    100[0m | [32;1m   95.38[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m82,90,153        [0m 
+[32;1m  ...ploreCard.tsx[0m | [32;1m  85.71[0m | [33;1m    75.8[0m | [32;1m    100[0m | [32;1m  96.29[0m | [31;1m102              [0m 
+[32;1m  SpendingHero.tsx[0m | [32;1m   97.5[0m | [32;1m   90.72[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...50,173,187,199[0m 
+[32;1m  ...gTimeline.tsx[0m | [32;1m  95.45[0m | [33;1m      75[0m | [32;1m  85.71[0m | [32;1m  94.73[0m | [31;1m105              [0m 
+[32;1m  ...ndingLine.tsx[0m | [32;1m  97.36[0m | [32;1m   94.38[0m | [32;1m   90.9[0m | [32;1m    100[0m | [33;1m19,58,88,104     [0m 
+[32;1m  ...ssSurface.tsx[0m | [32;1m  88.88[0m | [32;1m   82.35[0m | [32;1m    100[0m | [32;1m  94.11[0m | [31;1m16               [0m 
+[33;1m  WhatIfPanel.tsx [0m | [33;1m  59.25[0m | [33;1m   57.14[0m | [31;1m  33.33[0m | [33;1m   67.5[0m | [31;1m...9,85-90,97-122[0m 
+[33;1m ...nalytics/hooks[0m | [33;1m  73.25[0m | [33;1m   67.92[0m | [33;1m  72.22[0m | [33;1m  75.71[0m | [31;1m                 [0m 
+[33;1m  useActivity.ts  [0m | [33;1m  73.25[0m | [33;1m   67.92[0m | [33;1m  72.22[0m | [33;1m  75.71[0m | [31;1m85-109           [0m 
+[32;1m .../analytics/lib[0m | [32;1m  92.56[0m | [32;1m   81.29[0m | [32;1m  92.85[0m | [32;1m  95.12[0m | [31;1m                 [0m 
+[32;1m  budget.ts       [0m | [32;1m  93.13[0m | [32;1m   82.31[0m | [32;1m     95[0m | [32;1m  94.52[0m | [31;1m175-178          [0m 
+[32;1m  use-billing.ts  [0m | [32;1m  89.47[0m | [33;1m    62.5[0m | [32;1m   87.5[0m | [32;1m    100[0m | [33;1m13               [0m 
+[33;1m ...nalytics/pages[0m | [33;1m  78.84[0m | [33;1m    77.4[0m | [33;1m  72.72[0m | [32;1m  86.07[0m | [31;1m                 [0m 
+[32;1m  ...yFeedPage.tsx[0m | [32;1m  93.02[0m | [32;1m   84.61[0m | [32;1m  88.88[0m | [32;1m  94.73[0m | [31;1m66-67            [0m 
+[33;1m  ...yticsPage.tsx[0m | [33;1m  72.68[0m | [33;1m   73.79[0m | [33;1m  67.24[0m | [32;1m  81.86[0m | [31;1m...65-500,561-562[0m 
+[32;1m  ...yticsPage.tsx[0m | [32;1m   86.2[0m | [32;1m   81.08[0m | [33;1m  78.12[0m | [32;1m  90.62[0m | [31;1m...24-332,418,432[0m 
+[32;1m ...und/components[0m | [32;1m   94.6[0m | [32;1m   87.65[0m | [32;1m  91.78[0m | [32;1m  97.59[0m | [31;1m                 [0m 
+[32;1m  ...sAppLinks.tsx[0m | [32;1m  95.45[0m | [32;1m   94.44[0m | [32;1m  88.88[0m | [32;1m    100[0m | [33;1m23               [0m 
+[32;1m  ...ocessChip.tsx[0m | [32;1m  97.36[0m | [32;1m   97.05[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m38               [0m 
+[32;1m  ...toryModal.tsx[0m | [32;1m  96.29[0m | [32;1m    90.9[0m | [32;1m  93.33[0m | [32;1m  94.73[0m | [31;1m46               [0m 
+[32;1m  ...LogsModal.tsx[0m | [32;1m   93.5[0m | [32;1m      84[0m | [32;1m  89.74[0m | [32;1m  97.14[0m | [31;1m149,198,209      [0m 
+[32;1m ...ground/context[0m | [32;1m  96.15[0m | [32;1m   87.64[0m | [32;1m  96.22[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...esContext.tsx[0m | [32;1m  96.15[0m | [32;1m   87.64[0m | [32;1m  96.22[0m | [32;1m    100[0m | [33;1m...05,217-225,228[0m 
+[32;1m ...background/lib[0m | [32;1m     98[0m | [32;1m    93.1[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...cesses-api.ts[0m | [32;1m     98[0m | [32;1m    93.1[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m32,46            [0m 
+[32;1m ...rowser-capture[0m | [32;1m  83.81[0m | [33;1m   78.39[0m | [33;1m  74.71[0m | [32;1m  88.78[0m | [31;1m                 [0m 
+[32;1m  ...dDomPanel.tsx[0m | [32;1m  91.11[0m | [32;1m   86.11[0m | [32;1m  94.73[0m | [32;1m  97.22[0m | [31;1m12               [0m 
+[32;1m  ...owserPane.tsx[0m | [32;1m     80[0m | [33;1m   73.97[0m | [33;1m  65.57[0m | [32;1m  85.21[0m | [31;1m...19-443,445-463[0m 
+[32;1m  ...erViewport.ts[0m | [32;1m  98.11[0m | [32;1m    90.9[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m32,51-52         [0m 
+[32;1m ...es/browser/lib[0m | [32;1m  89.84[0m | [32;1m   81.84[0m | [32;1m  90.75[0m | [32;1m  93.96[0m | [31;1m                 [0m 
+[32;1m  ...er-capture.ts[0m | [32;1m  87.12[0m | [33;1m      75[0m | [32;1m  87.87[0m | [32;1m  92.98[0m | [31;1m218,327-361      [0m 
+[32;1m  ...e-pipeline.ts[0m | [32;1m  92.15[0m | [32;1m   83.67[0m | [33;1m  78.26[0m | [32;1m  96.55[0m | [31;1m185,218-220      [0m 
+[32;1m  ...e-activity.ts[0m | [32;1m  87.42[0m | [32;1m      81[0m | [32;1m    100[0m | [32;1m  93.18[0m | [31;1m...83,289,301-305[0m 
+[32;1m  ...ve-browser.ts[0m | [32;1m  92.13[0m | [32;1m    87.5[0m | [32;1m  93.75[0m | [32;1m  91.89[0m | [31;1m...49-150,187-188[0m 
+[33;1m ...roject-builder[0m | [33;1m  78.48[0m | [32;1m   81.26[0m | [33;1m  79.01[0m | [32;1m  81.99[0m | [31;1m                 [0m 
+[33;1m  ...ommitForm.tsx[0m | [33;1m  78.94[0m | [33;1m   78.94[0m | [33;1m  70.58[0m | [32;1m  81.25[0m | [31;1m113-120,142-150  [0m 
+[32;1m  ...rintPanel.tsx[0m | [32;1m    100[0m | [32;1m   96.55[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m66,212           [0m 
+[32;1m  ...Readiness.tsx[0m | [32;1m    100[0m | [32;1m   94.64[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m123,184          [0m 
+[32;1m  ...SpecModal.tsx[0m | [32;1m    100[0m | [33;1m   61.53[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m57-62,92-121     [0m 
+[32;1m  ...versation.tsx[0m | [32;1m  91.83[0m | [32;1m   91.81[0m | [32;1m   87.5[0m | [32;1m  94.59[0m | [31;1m130,157          [0m 
+[32;1m  ...isionCard.tsx[0m | [32;1m  88.23[0m | [32;1m    87.8[0m | [32;1m    100[0m | [32;1m  93.75[0m | [31;1m140              [0m 
+[31;1m  ...Milestone.tsx[0m | [31;1m      0[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m      0[0m | [31;1m19-76            [0m 
+[32;1m  ...lueprints.tsx[0m | [32;1m  94.11[0m | [32;1m   84.61[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m28-29,51,88      [0m 
+[32;1m  ...ebarEntry.tsx[0m | [32;1m  86.27[0m | [33;1m   74.59[0m | [32;1m  85.71[0m | [32;1m  91.47[0m | [31;1m...98-199,268-271[0m 
+[33;1m  ...rateShell.tsx[0m | [33;1m  66.91[0m | [33;1m   54.28[0m | [33;1m  59.37[0m | [33;1m  72.56[0m | [31;1m...22-227,305-316[0m 
+[32;1m  ...gressCard.tsx[0m | [32;1m  98.03[0m | [32;1m   93.38[0m | [32;1m  95.23[0m | [32;1m    100[0m | [33;1m...20,311-314,351[0m 
+[32;1m .../builder/hooks[0m | [32;1m  87.72[0m | [33;1m   78.98[0m | [32;1m  89.71[0m | [32;1m  88.98[0m | [31;1m                 [0m 
+[32;1m  ...derSession.ts[0m | [32;1m  83.72[0m | [33;1m      75[0m | [32;1m  85.52[0m | [32;1m  85.63[0m | [31;1m...01,708-737,844[0m 
+[32;1m  ...ifications.ts[0m | [32;1m    100[0m | [32;1m   89.47[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...27,151-168,170[0m 
+[32;1m  ...neProgress.ts[0m | [32;1m    100[0m | [32;1m   96.15[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m14               [0m 
+[32;1m ...es/builder/lib[0m | [32;1m  94.46[0m | [32;1m   88.47[0m | [32;1m  98.87[0m | [32;1m   97.6[0m | [31;1m                 [0m 
+[32;1m  ...rint-draft.ts[0m | [32;1m  93.54[0m | [32;1m    85.1[0m | [32;1m  94.44[0m | [32;1m  98.46[0m | [31;1m122-123          [0m 
+[32;1m  ...-readiness.ts[0m | [32;1m    100[0m | [32;1m      96[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m61-63            [0m 
+[32;1m  ...ec-quality.ts[0m | [32;1m  88.67[0m | [32;1m   82.64[0m | [32;1m    100[0m | [32;1m  93.47[0m | [31;1m...25,133,143,173[0m 
+[32;1m  ...one-launch.ts[0m | [32;1m  97.29[0m | [32;1m   84.05[0m | [32;1m    100[0m | [32;1m  96.87[0m | [31;1m31,49            [0m 
+[32;1m  ...e-progress.ts[0m | [32;1m  95.87[0m | [32;1m    92.3[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...26,137,149,252[0m 
+[33;1m ...hat/components[0m | [33;1m  62.17[0m | [33;1m   60.62[0m | [33;1m   65.9[0m | [33;1m  66.01[0m | [31;1m                 [0m 
+[32;1m  ...hmentChip.tsx[0m | [32;1m    100[0m | [32;1m   94.11[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m41,45,64         [0m 
+[32;1m  ...wLightbox.tsx[0m | [32;1m  88.67[0m | [33;1m   76.59[0m | [32;1m  83.33[0m | [32;1m  91.11[0m | [31;1m123-130,201-202  [0m 
+[33;1m  ...tsSection.tsx[0m | [33;1m  72.46[0m | [31;1m   43.24[0m | [32;1m     85[0m | [33;1m  75.92[0m | [31;1m...8,46,89-93,118[0m 
+[32;1m  ChatHeader.tsx  [0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m66               [0m 
+[32;1m  ChatInput.tsx   [0m | [32;1m  93.33[0m | [32;1m   85.18[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m73,87-98         [0m 
+[33;1m  ChatPanel.tsx   [0m | [33;1m  62.29[0m | [33;1m   68.88[0m | [33;1m  59.09[0m | [33;1m  64.81[0m | [31;1m...32,170-181,224[0m 
+[32;1m  ...opeChecks.tsx[0m | [32;1m  85.71[0m | [32;1m   96.07[0m | [33;1m  72.72[0m | [32;1m     85[0m | [31;1m126,149,167      [0m 
+[33;1m  ...opeSlider.tsx[0m | [33;1m  74.71[0m | [33;1m   79.54[0m | [33;1m     75[0m | [33;1m  77.33[0m | [31;1m...85-186,190-193[0m 
+[32;1m  MessageList.tsx [0m | [32;1m  89.47[0m | [32;1m   86.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m42-49            [0m 
+[31;1m  ...entEditor.tsx[0m | [31;1m  38.69[0m | [31;1m   22.27[0m | [31;1m  32.72[0m | [31;1m  43.38[0m | [31;1m...86,492,553-554[0m 
+[32;1m ...res/chat/hooks[0m | [32;1m  82.78[0m | [33;1m   64.46[0m | [32;1m  84.12[0m | [32;1m  89.52[0m | [31;1m                 [0m 
+[32;1m  useChat.ts      [0m | [32;1m  80.76[0m | [33;1m   61.17[0m | [32;1m  83.33[0m | [32;1m  86.95[0m | [31;1m...42,392,400-420[0m 
+[32;1m  ...textBudget.ts[0m | [32;1m  80.76[0m | [33;1m   71.42[0m | [33;1m     75[0m | [32;1m     95[0m | [31;1m30               [0m 
+[32;1m  ...ntextScope.ts[0m | [32;1m  94.44[0m | [33;1m   72.72[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m36-61            [0m 
+[32;1m ...onents/ai-edit[0m | [32;1m  94.25[0m | [32;1m   91.86[0m | [32;1m  95.74[0m | [32;1m  96.79[0m | [31;1m                 [0m 
+[32;1m  AiEditShell.tsx [0m | [32;1m  94.25[0m | [32;1m   91.86[0m | [32;1m  95.74[0m | [32;1m  96.79[0m | [31;1m...90,205,862-863[0m 
+[33;1m .../code-explorer[0m | [33;1m   79.9[0m | [33;1m   78.89[0m | [33;1m   78.5[0m | [32;1m  84.67[0m | [31;1m                 [0m 
+[32;1m  CodeActivity.tsx[0m | [32;1m    100[0m | [32;1m   93.57[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m70-71,75,98,104  [0m 
+[32;1m  CodeSearch.tsx  [0m | [32;1m  98.57[0m | [32;1m   95.29[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m71,76,95,117     [0m 
+[32;1m  ...tionStory.tsx[0m | [32;1m  81.02[0m | [32;1m   83.89[0m | [32;1m  84.37[0m | [32;1m   86.2[0m | [31;1m...76,186-191,211[0m 
+[33;1m  FileTree.tsx    [0m | [33;1m   74.6[0m | [33;1m   71.42[0m | [33;1m     75[0m | [32;1m     84[0m | [31;1m...00,384-387,469[0m 
+[33;1m  FileViewer.tsx  [0m | [33;1m  67.84[0m | [33;1m   66.31[0m | [33;1m     64[0m | [33;1m  71.76[0m | [31;1m...27,647,672-693[0m 
+[32;1m  RecordedDiff.tsx[0m | [32;1m  91.37[0m | [32;1m   81.13[0m | [32;1m    100[0m | [32;1m   97.5[0m | [31;1m65               [0m 
+[33;1m  ...aryHeader.tsx[0m | [33;1m  78.57[0m | [32;1m   89.47[0m | [31;1m     40[0m | [32;1m  86.95[0m | [31;1m103-113          [0m 
+[32;1m  ...esTouched.tsx[0m | [32;1m  97.22[0m | [32;1m   91.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m71-77,97,111     [0m 
+[32;1m  ...orer-types.ts[0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m15               [0m 
+[32;1m ...tures/code/lib[0m | [32;1m  84.61[0m | [33;1m      75[0m | [32;1m     80[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  git-refresh.ts  [0m | [32;1m  84.61[0m | [33;1m      75[0m | [32;1m     80[0m | [32;1m    100[0m | [33;1m11-17            [0m 
+[32;1m ...res/code/pages[0m | [32;1m  80.43[0m | [32;1m   86.32[0m | [33;1m  76.56[0m | [32;1m  90.06[0m | [31;1m                 [0m 
+[32;1m  CodePage.tsx    [0m | [32;1m  80.43[0m | [32;1m   86.32[0m | [33;1m  76.56[0m | [32;1m  90.06[0m | [31;1m...46,330,348,404[0m 
+[33;1m ...ashboard/hooks[0m | [33;1m  72.48[0m | [33;1m   61.37[0m | [32;1m  83.33[0m | [33;1m  78.64[0m | [31;1m                 [0m 
+[33;1m  ...boardSplit.ts[0m | [33;1m  57.34[0m | [31;1m   43.66[0m | [33;1m     68[0m | [33;1m  63.93[0m | [31;1m...00-212,217-232[0m 
+[32;1m  ...lkActions.tsx[0m | [32;1m   91.3[0m | [33;1m   78.37[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...40,144,169,185[0m 
+[32;1m .../dashboard/lib[0m | [32;1m  96.55[0m | [32;1m   96.66[0m | [32;1m    100[0m | [32;1m  95.65[0m | [31;1m                 [0m 
+[32;1m  dashboard-dnd.ts[0m | [32;1m  96.55[0m | [32;1m   96.66[0m | [32;1m    100[0m | [32;1m  95.65[0m | [31;1m49               [0m 
+[33;1m ...ashboard/pages[0m | [33;1m   52.9[0m | [31;1m   47.43[0m | [31;1m  48.29[0m | [33;1m  57.48[0m | [31;1m                 [0m 
+[33;1m  ...boardPage.tsx[0m | [33;1m   52.9[0m | [31;1m   47.43[0m | [31;1m  48.29[0m | [33;1m  57.48[0m | [31;1m...1850,1879-1883[0m 
+[32;1m ...ery/components[0m | [32;1m  84.59[0m | [32;1m   83.96[0m | [33;1m  74.19[0m | [32;1m  89.23[0m | [31;1m                 [0m 
+[32;1m  ...ashNotice.tsx[0m | [32;1m  96.29[0m | [32;1m   94.38[0m | [32;1m    100[0m | [32;1m  96.15[0m | [31;1m57               [0m 
+[32;1m  LoopChip.tsx    [0m | [32;1m    100[0m | [32;1m    92.3[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m25               [0m 
+[32;1m  ...sionStrip.tsx[0m | [32;1m  83.03[0m | [32;1m   82.07[0m | [33;1m     70[0m | [32;1m  88.49[0m | [31;1m...1192,1204,1216[0m 
+[32;1m  ...eliveries.tsx[0m | [32;1m   93.1[0m | [32;1m   92.23[0m | [32;1m   87.5[0m | [32;1m  95.83[0m | [31;1m80               [0m 
+[33;1m  ...nchDialog.tsx[0m | [33;1m  72.22[0m | [31;1m   46.66[0m | [33;1m  66.66[0m | [33;1m  69.23[0m | [31;1m37-39,48         [0m 
+[32;1m  TopRiskLine.tsx [0m | [32;1m    100[0m | [33;1m   77.77[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m16-21            [0m 
+[32;1m .../review-packet[0m | [32;1m  87.63[0m | [32;1m   81.12[0m | [32;1m   87.5[0m | [32;1m  93.66[0m | [31;1m                 [0m 
+[32;1m  ...nsSummary.tsx[0m | [32;1m  92.85[0m | [33;1m   66.66[0m | [32;1m    100[0m | [32;1m  96.29[0m | [31;1m45               [0m 
+[32;1m  ChangesTab.tsx  [0m | [32;1m  84.67[0m | [32;1m   82.86[0m | [32;1m  84.41[0m | [32;1m  92.63[0m | [31;1m...31,354,413,428[0m 
+[32;1m  ...tBaseline.tsx[0m | [32;1m    100[0m | [33;1m   76.92[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m15,33,38-45,57   [0m 
+[32;1m  ...erivation.tsx[0m | [32;1m    100[0m | [33;1m      75[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m24,46-50,59-62   [0m 
+[32;1m  ...tMarkdown.tsx[0m | [32;1m  85.71[0m | [32;1m   84.61[0m | [33;1m     75[0m | [32;1m     80[0m | [31;1m33-37            [0m 
+[32;1m  ...onstrated.tsx[0m | [32;1m    100[0m | [32;1m   84.09[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m20-22,47-63      [0m 
+[32;1m  WhatToLookAt.tsx[0m | [32;1m  93.75[0m | [33;1m      70[0m | [32;1m  91.66[0m | [32;1m  93.75[0m | [31;1m127              [0m 
+[33;1m ...packet/changes[0m | [33;1m   74.5[0m | [33;1m   72.39[0m | [32;1m  81.81[0m | [32;1m  85.43[0m | [31;1m                 [0m 
+[32;1m  ...ationCard.tsx[0m | [32;1m     90[0m | [33;1m   70.83[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m21-22,53-65,68-69[0m 
+[33;1m  AskAgentForm.tsx[0m | [33;1m  72.22[0m | [31;1m   47.82[0m | [33;1m  57.14[0m | [33;1m  76.92[0m | [31;1m48-61            [0m 
+[31;1m  ...sFileTree.tsx[0m | [31;1m  41.37[0m | [33;1m   66.66[0m | [33;1m  54.54[0m | [33;1m  53.84[0m | [31;1m...3,48-64,99,132[0m 
+[32;1m  DiffView.tsx    [0m | [32;1m  89.83[0m | [32;1m   82.35[0m | [32;1m    100[0m | [32;1m  98.88[0m | [31;1m130              [0m 
+[32;1m ...livery/context[0m | [32;1m  92.82[0m | [32;1m   84.57[0m | [32;1m  83.33[0m | [32;1m   96.9[0m | [31;1m                 [0m 
+[32;1m  ...onContext.tsx[0m | [32;1m  92.82[0m | [32;1m   84.57[0m | [32;1m  83.33[0m | [32;1m   96.9[0m | [31;1m179,461-470      [0m 
+[32;1m ...delivery/hooks[0m | [32;1m  88.88[0m | [33;1m      75[0m | [33;1m     75[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...irtualizer.ts[0m | [32;1m  88.88[0m | [33;1m      75[0m | [33;1m     75[0m | [32;1m    100[0m | [33;1m23-27,33,42      [0m 
+[33;1m ...s/delivery/lib[0m | [33;1m  75.03[0m | [33;1m    76.1[0m | [32;1m  83.68[0m | [33;1m  77.55[0m | [31;1m                 [0m 
+[32;1m  changes-model.ts[0m | [32;1m    100[0m | [32;1m   94.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...78,280,350-353[0m 
+[32;1m  pr-ci.ts        [0m | [32;1m  84.52[0m | [33;1m   57.14[0m | [32;1m  84.61[0m | [32;1m  93.22[0m | [31;1m24,35,126-127    [0m 
+[32;1m  pr-delivery.ts  [0m | [32;1m  94.73[0m | [32;1m   90.84[0m | [32;1m  97.87[0m | [32;1m  99.24[0m | [31;1m293              [0m 
+[31;1m  ...w-up-scope.ts[0m | [31;1m   6.84[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m   8.69[0m | [31;1m...97-209,231-247[0m 
+[32;1m  viewed-files.ts [0m | [32;1m  96.66[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m ...delivery/pages[0m | [32;1m  80.63[0m | [33;1m   76.77[0m | [32;1m  88.33[0m | [32;1m  89.36[0m | [31;1m                 [0m 
+[32;1m  ...acketPage.tsx[0m | [32;1m  80.63[0m | [33;1m   76.77[0m | [32;1m  88.33[0m | [32;1m  89.36[0m | [31;1m...37,364,381-398[0m 
+[32;1m ...ocs/components[0m | [32;1m  91.97[0m | [32;1m   85.24[0m | [32;1m  97.67[0m | [32;1m  97.01[0m | [31;1m                 [0m 
+[32;1m  DocView.tsx     [0m | [32;1m  85.52[0m | [33;1m   74.07[0m | [32;1m    100[0m | [32;1m  96.72[0m | [31;1m166-167          [0m 
+[32;1m  DocsDialog.tsx  [0m | [32;1m  97.67[0m | [32;1m   94.11[0m | [32;1m  96.42[0m | [32;1m  97.26[0m | [31;1m200-201          [0m 
+[32;1m ...tures/docs/lib[0m | [32;1m  91.42[0m | [32;1m   89.28[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  docs-links.ts   [0m | [32;1m  91.42[0m | [32;1m   89.28[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m20-23,27         [0m 
+[32;1m ...res/docs/pages[0m | [32;1m  96.87[0m | [32;1m   87.09[0m | [32;1m  93.75[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  DocsPage.tsx    [0m | [32;1m  96.87[0m | [32;1m   87.09[0m | [32;1m  93.75[0m | [32;1m    100[0m | [33;1m50,113-143,174   [0m 
+[32;1m ...box/components[0m | [32;1m  93.68[0m | [32;1m   86.73[0m | [32;1m  95.83[0m | [32;1m  98.64[0m | [31;1m                 [0m 
+[32;1m  InboxButton.tsx [0m | [32;1m    100[0m | [32;1m      90[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m42               [0m 
+[32;1m  InboxDialog.tsx [0m | [32;1m   93.1[0m | [32;1m   86.36[0m | [32;1m  95.65[0m | [32;1m   98.5[0m | [31;1m82               [0m 
+[32;1m .../inbox/context[0m | [32;1m  94.94[0m | [32;1m   82.75[0m | [32;1m  96.07[0m | [32;1m   98.6[0m | [31;1m                 [0m 
+[32;1m  InboxContext.tsx[0m | [32;1m  94.94[0m | [32;1m   82.75[0m | [32;1m  96.07[0m | [32;1m   98.6[0m | [31;1m227,271          [0m 
+[32;1m ...ures/inbox/lib[0m | [32;1m   92.3[0m | [32;1m    82.9[0m | [32;1m  94.73[0m | [32;1m   96.2[0m | [31;1m                 [0m 
+[32;1m  inbox-api.ts    [0m | [32;1m  80.95[0m | [33;1m      50[0m | [32;1m     80[0m | [32;1m  81.25[0m | [31;1m35-37,47         [0m 
+[32;1m  inbox-model.ts  [0m | [32;1m  95.18[0m | [32;1m   87.37[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...10-114,116,158[0m 
+[32;1m ...omponents/jira[0m | [32;1m   83.1[0m | [33;1m   71.82[0m | [32;1m  89.53[0m | [32;1m  87.88[0m | [31;1m                 [0m 
+[32;1m  ...pecDialog.tsx[0m | [32;1m    100[0m | [33;1m      70[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m37-57            [0m 
+[32;1m  ...ectWizard.tsx[0m | [32;1m  87.17[0m | [33;1m   74.28[0m | [32;1m  82.75[0m | [32;1m   92.7[0m | [31;1m...51-254,294,311[0m 
+[33;1m  ...ectedCard.tsx[0m | [33;1m  65.51[0m | [33;1m   50.58[0m | [32;1m     80[0m | [33;1m  71.73[0m | [31;1m...00-132,145,172[0m 
+[32;1m  ...tboxPanel.tsx[0m | [32;1m   90.9[0m | [32;1m   80.55[0m | [32;1m    100[0m | [32;1m  95.65[0m | [31;1m63,66            [0m 
+[32;1m  ...ailsPanel.tsx[0m | [32;1m    100[0m | [32;1m   88.37[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m45-46,56,113     [0m 
+[32;1m ...grations/hooks[0m | [32;1m  95.45[0m | [32;1m   94.44[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...Connection.ts[0m | [32;1m  95.45[0m | [32;1m   94.44[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m41               [0m 
+[32;1m ...tegrations/lib[0m | [32;1m  95.74[0m | [32;1m   85.29[0m | [32;1m  95.23[0m | [32;1m  98.57[0m | [31;1m                 [0m 
+[32;1m  ...ion-signal.ts[0m | [32;1m  96.07[0m | [33;1m   79.16[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m36,57,91-93      [0m 
+[32;1m  jira-api.ts     [0m | [32;1m  95.23[0m | [32;1m     100[0m | [32;1m  94.28[0m | [32;1m  96.29[0m | [31;1m193              [0m 
+[32;1m ...ent/components[0m | [32;1m  84.98[0m | [32;1m   81.73[0m | [33;1m  79.56[0m | [32;1m  90.52[0m | [31;1m                 [0m 
+[33;1m  ...ppPreview.tsx[0m | [33;1m   76.4[0m | [33;1m   64.86[0m | [33;1m  73.91[0m | [32;1m  85.93[0m | [31;1m87-94,128        [0m 
+[33;1m  ...gesDialog.tsx[0m | [33;1m  77.77[0m | [33;1m   57.14[0m | [33;1m     60[0m | [32;1m     85[0m | [31;1m44,51-56         [0m 
+[32;1m  ...tionMarks.tsx[0m | [32;1m  94.87[0m | [32;1m      90[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m36,53            [0m 
+[32;1m  IntentDock.tsx  [0m | [32;1m  88.88[0m | [32;1m    82.5[0m | [32;1m    100[0m | [32;1m  88.46[0m | [31;1m21,34-35         [0m 
+[32;1m  ...EntryCard.tsx[0m | [32;1m  87.05[0m | [32;1m   88.67[0m | [32;1m  80.95[0m | [32;1m  95.58[0m | [31;1m69,229-249       [0m 
+[32;1m  ...oreAction.tsx[0m | [32;1m  84.61[0m | [33;1m   55.55[0m | [32;1m  85.71[0m | [32;1m  86.36[0m | [31;1m52-53,77         [0m 
+[33;1m  ...ndOffCard.tsx[0m | [33;1m  77.55[0m | [33;1m   71.42[0m | [32;1m  84.61[0m | [32;1m   82.5[0m | [31;1m44-45,139-146    [0m 
+[32;1m  ...tLiveRuns.tsx[0m | [32;1m    100[0m | [32;1m   95.23[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m71,116,148       [0m 
+[33;1m  ...onsBridge.tsx[0m | [33;1m  76.92[0m | [32;1m     100[0m | [33;1m     50[0m | [32;1m  81.81[0m | [31;1m55-56            [0m 
+[32;1m  ...OfferCard.tsx[0m | [32;1m  83.65[0m | [32;1m   83.63[0m | [32;1m  81.81[0m | [32;1m  91.56[0m | [31;1m...,88-90,110,183[0m 
+[33;1m  ...oryPicker.tsx[0m | [33;1m  75.75[0m | [33;1m    65.9[0m | [32;1m    100[0m | [32;1m   87.5[0m | [31;1m35-37            [0m 
+[31;1m  ...oryPrompt.tsx[0m | [31;1m  26.66[0m | [31;1m    7.14[0m | [31;1m  16.66[0m | [31;1m  29.16[0m | [31;1m...5,59-62,74-106[0m 
+[32;1m  ...rdActions.tsx[0m | [32;1m  96.55[0m | [32;1m   88.46[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m38,47-51         [0m 
+[32;1m  ...unFailure.tsx[0m | [32;1m    100[0m | [32;1m      90[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m25-26,59         [0m 
+[32;1m  ...pControls.tsx[0m | [32;1m   90.2[0m | [32;1m   91.13[0m | [32;1m  84.78[0m | [32;1m  94.28[0m | [31;1m...73,245-246,328[0m 
+[32;1m  ...tInIntent.tsx[0m | [32;1m  91.24[0m | [32;1m   81.25[0m | [33;1m  78.12[0m | [32;1m  96.22[0m | [31;1m136,164,334-335  [0m 
+[32;1m ...intent/context[0m | [32;1m     85[0m | [33;1m   78.89[0m | [32;1m  83.33[0m | [32;1m  88.05[0m | [31;1m                 [0m 
+[32;1m  ...ntContext.tsx[0m | [32;1m     85[0m | [33;1m   78.89[0m | [32;1m  83.33[0m | [32;1m  88.05[0m | [31;1m...76-280,283-288[0m 
+[32;1m ...res/intent/lib[0m | [32;1m  91.05[0m | [32;1m   84.76[0m | [32;1m  94.44[0m | [32;1m  95.65[0m | [31;1m                 [0m 
+[32;1m  intent-api.ts   [0m | [32;1m     92[0m | [32;1m      84[0m | [32;1m  91.66[0m | [32;1m   92.5[0m | [31;1m152,191-195      [0m 
+[32;1m  intent-engine.ts[0m | [32;1m    100[0m | [32;1m   85.71[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m38               [0m 
+[33;1m  ...nt-failure.ts[0m | [33;1m  77.41[0m | [33;1m   71.42[0m | [32;1m    100[0m | [32;1m  95.23[0m | [31;1m68               [0m 
+[32;1m  intent-offer.ts [0m | [32;1m    100[0m | [32;1m   97.29[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m35               [0m 
+[32;1m ...obs/components[0m | [32;1m  91.39[0m | [32;1m   87.36[0m | [32;1m  90.11[0m | [32;1m   95.6[0m | [31;1m                 [0m 
+[32;1m  ...bComposer.tsx[0m | [32;1m  90.32[0m | [32;1m   91.23[0m | [32;1m  91.66[0m | [32;1m  92.45[0m | [31;1m...67-268,275-276[0m 
+[32;1m  ...isonModal.tsx[0m | [32;1m  95.55[0m | [33;1m   78.94[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...,68,95,174-181[0m 
+[32;1m  ...tailModal.tsx[0m | [32;1m  86.59[0m | [33;1m   79.44[0m | [32;1m  86.84[0m | [32;1m   94.4[0m | [31;1m...29-231,233-236[0m 
+[32;1m  ...ketHeader.tsx[0m | [32;1m  84.21[0m | [32;1m   86.66[0m | [33;1m  66.66[0m | [32;1m  94.11[0m | [31;1m51               [0m 
+[32;1m  LogViewer.tsx   [0m | [32;1m   94.9[0m | [32;1m   91.71[0m | [32;1m  93.75[0m | [32;1m   97.2[0m | [31;1m114,149,296,331  [0m 
+[32;1m  ...eProgress.tsx[0m | [32;1m    100[0m | [32;1m   88.88[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m38,59,81,88      [0m 
+[32;1m  RecentJobs.tsx  [0m | [32;1m  92.12[0m | [32;1m   89.63[0m | [32;1m  86.36[0m | [32;1m  95.62[0m | [31;1m...50,347,572-574[0m 
+[32;1m  ...cket-refs.tsx[0m | [32;1m  97.22[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m86,122-127       [0m 
+[32;1m ...onents/job-run[0m | [32;1m  96.77[0m | [32;1m   94.22[0m | [32;1m   92.7[0m | [32;1m  98.41[0m | [31;1m                 [0m 
+[32;1m  JobRunHeader.tsx[0m | [32;1m     90[0m | [32;1m   91.66[0m | [32;1m     80[0m | [32;1m  93.65[0m | [31;1m165,177-181      [0m 
+[32;1m  ...etailTabs.tsx[0m | [32;1m     99[0m | [32;1m   98.96[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m74               [0m 
+[32;1m  job-run-model.ts[0m | [32;1m  99.28[0m | [32;1m   96.31[0m | [32;1m    100[0m | [32;1m  99.15[0m | [31;1m117              [0m 
+[32;1m  ...untimeRuns.ts[0m | [32;1m  96.34[0m | [32;1m   90.41[0m | [32;1m  88.23[0m | [32;1m    100[0m | [33;1m76,86-88,99,106  [0m 
+[32;1m ...res/jobs/hooks[0m | [32;1m  82.06[0m | [33;1m   68.96[0m | [32;1m  91.48[0m | [32;1m  83.02[0m | [31;1m                 [0m 
+[32;1m  ...leProgress.ts[0m | [32;1m    100[0m | [32;1m   95.45[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m47               [0m 
+[31;1m  ...areUrlSync.ts[0m | [31;1m     25[0m | [31;1m   14.89[0m | [33;1m     60[0m | [31;1m     25[0m | [31;1m...09,114-121,123[0m 
+[32;1m  usePipeline.ts  [0m | [32;1m  97.91[0m | [33;1m   76.11[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...74-175,180-184[0m 
+[32;1m  useRunVitals.ts [0m | [32;1m  94.91[0m | [32;1m   83.51[0m | [32;1m  90.47[0m | [32;1m  98.86[0m | [31;1m72               [0m 
+[32;1m ...tures/jobs/lib[0m | [32;1m  97.91[0m | [32;1m   93.47[0m | [32;1m    100[0m | [32;1m   97.4[0m | [31;1m                 [0m 
+[32;1m  cancel-job.ts   [0m | [32;1m  97.43[0m | [32;1m   88.63[0m | [32;1m    100[0m | [32;1m  96.96[0m | [31;1m69               [0m 
+[32;1m  ...se-command.ts[0m | [32;1m    100[0m | [32;1m   95.65[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m11               [0m 
+[32;1m  job-log-mode.ts [0m | [32;1m  85.71[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m  85.71[0m | [31;1m20               [0m 
+[33;1m ...res/jobs/pages[0m | [33;1m  76.52[0m | [33;1m   66.31[0m | [33;1m  62.82[0m | [32;1m  80.79[0m | [31;1m                 [0m 
+[32;1m  ...etailPage.tsx[0m | [32;1m  81.49[0m | [33;1m   69.91[0m | [33;1m  68.42[0m | [32;1m  85.91[0m | [31;1m...80,495-506,523[0m 
+[33;1m  JobsPage.tsx    [0m | [33;1m  59.45[0m | [33;1m   51.78[0m | [31;1m  47.61[0m | [33;1m  63.49[0m | [31;1m...60,182-200,250[0m 
+[32;1m ...ops/components[0m | [32;1m  85.42[0m | [33;1m   72.13[0m | [33;1m  77.45[0m | [32;1m  89.65[0m | [31;1m                 [0m 
+[32;1m  ...meterForm.tsx[0m | [32;1m  88.54[0m | [33;1m   73.15[0m | [32;1m     80[0m | [32;1m  90.58[0m | [31;1m...48,283,352-367[0m 
+[33;1m  ...Inspector.tsx[0m | [33;1m     75[0m | [33;1m   74.54[0m | [33;1m  57.89[0m | [33;1m  77.14[0m | [31;1m...17,182,198-207[0m 
+[32;1m  ...sionModal.tsx[0m | [32;1m  91.66[0m | [33;1m   51.85[0m | [32;1m   90.9[0m | [32;1m    100[0m | [33;1m16-30            [0m 
+[33;1m  ...ntsEditor.tsx[0m | [33;1m  76.69[0m | [33;1m   73.74[0m | [33;1m  63.82[0m | [32;1m  81.33[0m | [31;1m...23-126,129-130[0m 
+[32;1m  ...tionPanel.tsx[0m | [32;1m    100[0m | [32;1m   81.48[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m21-24,37         [0m 
+[32;1m  ...viewModal.tsx[0m | [32;1m    100[0m | [33;1m   68.18[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m35,51,58-85      [0m 
+[32;1m  LoopRunModal.tsx[0m | [32;1m  90.19[0m | [32;1m   84.61[0m | [32;1m  83.33[0m | [32;1m   92.5[0m | [31;1m91,178,193       [0m 
+[32;1m  ...urnLimits.tsx[0m | [32;1m  95.45[0m | [32;1m      95[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m14               [0m 
+[32;1m  ...owSurface.tsx[0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m15               [0m 
+[33;1m  ...uggestion.tsx[0m | [33;1m  78.94[0m | [33;1m   63.33[0m | [32;1m  81.81[0m | [32;1m  92.85[0m | [31;1m35,58            [0m 
+[33;1m  ...viewModal.tsx[0m | [33;1m  78.26[0m | [31;1m   43.47[0m | [32;1m  83.33[0m | [32;1m  93.75[0m | [31;1m47               [0m 
+[32;1m ...nents/loop-log[0m | [32;1m  95.72[0m | [32;1m   88.38[0m | [32;1m  94.24[0m | [32;1m  97.85[0m | [31;1m                 [0m 
+[32;1m  ...onSummary.tsx[0m | [32;1m  91.66[0m | [33;1m   78.12[0m | [32;1m  84.61[0m | [32;1m  95.45[0m | [31;1m63               [0m 
+[32;1m  ...viewStrip.tsx[0m | [32;1m    100[0m | [32;1m   95.12[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m28,71            [0m 
+[32;1m  ...pExplorer.tsx[0m | [32;1m  93.38[0m | [33;1m    77.5[0m | [32;1m  89.47[0m | [32;1m  94.17[0m | [31;1m...90,195,210,323[0m 
+[32;1m  ...epSection.tsx[0m | [32;1m  95.34[0m | [32;1m   85.98[0m | [32;1m     90[0m | [32;1m  97.43[0m | [31;1m343              [0m 
+[32;1m  ...dProgress.tsx[0m | [32;1m  98.16[0m | [32;1m   92.89[0m | [32;1m    100[0m | [32;1m  98.91[0m | [31;1m245              [0m 
+[32;1m  ...hExplorer.tsx[0m | [32;1m  96.87[0m | [32;1m   89.38[0m | [32;1m  96.42[0m | [32;1m    100[0m | [33;1m...41,44,51,71,82[0m 
+[32;1m  ...tion-model.ts[0m | [32;1m  86.36[0m | [32;1m    88.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m32-33,40,46-51,53[0m 
+[32;1m  ...-log-model.ts[0m | [32;1m  96.95[0m | [32;1m   89.04[0m | [32;1m  92.59[0m | [32;1m  97.85[0m | [31;1m180-181,192      [0m 
+[32;1m  ...n-commands.ts[0m | [32;1m  96.82[0m | [32;1m   89.13[0m | [32;1m    100[0m | [32;1m  97.82[0m | [31;1m109              [0m 
+[32;1m  ...tion-model.ts[0m | [32;1m  96.82[0m | [32;1m   87.98[0m | [32;1m    100[0m | [32;1m  98.74[0m | [31;1m413-414          [0m 
+[32;1m  ...e-topology.ts[0m | [32;1m  92.59[0m | [32;1m   92.68[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m15,27-29         [0m 
+[32;1m ...es/loops/hooks[0m | [32;1m     96[0m | [32;1m   81.39[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...nitionFork.ts[0m | [32;1m     96[0m | [32;1m   81.39[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m24-27,36-38      [0m 
+[32;1m ...ures/loops/lib[0m | [32;1m  90.96[0m | [32;1m   84.82[0m | [32;1m  88.61[0m | [32;1m  94.47[0m | [31;1m                 [0m 
+[32;1m  ...-authoring.ts[0m | [32;1m  85.85[0m | [32;1m    81.1[0m | [32;1m  94.11[0m | [32;1m  97.01[0m | [31;1m44,91            [0m 
+[32;1m  failed-step.ts  [0m | [32;1m  92.59[0m | [32;1m   95.23[0m | [33;1m     75[0m | [32;1m    100[0m | [33;1m33               [0m 
+[32;1m  ...-clipboard.ts[0m | [32;1m    100[0m | [32;1m   94.73[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m45               [0m 
+[32;1m  loop-export.ts  [0m | [32;1m    100[0m | [32;1m   94.44[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m64               [0m 
+[32;1m  loop-graph-rf.ts[0m | [32;1m  88.88[0m | [32;1m   80.82[0m | [32;1m    100[0m | [32;1m  87.09[0m | [31;1m29,37,114-115    [0m 
+[32;1m  loop-layout.ts  [0m | [32;1m  94.23[0m | [33;1m   76.92[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m37-41,47,68,86   [0m 
+[32;1m  ...ole-agents.ts[0m | [32;1m  91.66[0m | [32;1m      90[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m18               [0m 
+[32;1m  ...ate-filter.ts[0m | [32;1m  95.83[0m | [32;1m   94.44[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m42               [0m 
+[32;1m  ...icket-need.ts[0m | [32;1m  86.66[0m | [33;1m   73.68[0m | [32;1m     80[0m | [32;1m    100[0m | [33;1m17-18            [0m 
+[32;1m  loop-validate.ts[0m | [32;1m  95.06[0m | [32;1m   89.74[0m | [32;1m    100[0m | [32;1m  96.29[0m | [31;1m63,80            [0m 
+[32;1m  loop-windows.ts [0m | [32;1m    100[0m | [32;1m   93.75[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m16               [0m 
+[33;1m  loops-api.ts    [0m | [33;1m  69.04[0m | [33;1m   70.96[0m | [33;1m  61.53[0m | [33;1m  70.73[0m | [31;1m...10,227,239-244[0m 
+[32;1m  ...suggestion.ts[0m | [32;1m    100[0m | [32;1m   91.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m22               [0m 
+[33;1m ...es/loops/pages[0m | [33;1m  58.43[0m | [33;1m    60.6[0m | [33;1m   51.4[0m | [33;1m  66.33[0m | [31;1m                 [0m 
+[33;1m  LoopsPage.tsx   [0m | [33;1m  58.43[0m | [33;1m    60.6[0m | [33;1m   51.4[0m | [33;1m  66.33[0m | [31;1m...55,567,576-583[0m 
+[32;1m ...ons/components[0m | [32;1m   87.1[0m | [32;1m   81.54[0m | [32;1m  82.36[0m | [32;1m  91.62[0m | [31;1m                 [0m 
+[32;1m  ...ivityChip.tsx[0m | [32;1m    100[0m | [32;1m   95.65[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m48               [0m 
+[32;1m  ...yLogModal.tsx[0m | [32;1m  89.74[0m | [32;1m   85.71[0m | [32;1m  91.66[0m | [32;1m  94.11[0m | [31;1m56,123           [0m 
+[32;1m  ...erCapture.tsx[0m | [32;1m  97.91[0m | [32;1m   91.17[0m | [32;1m    100[0m | [32;1m   97.5[0m | [31;1m40               [0m 
+[33;1m  ...ptureHost.tsx[0m | [33;1m  69.23[0m | [31;1m   46.15[0m | [31;1m     25[0m | [33;1m  72.72[0m | [31;1m8-9,26           [0m 
+[33;1m  AgentBubble.tsx [0m | [33;1m  63.01[0m | [33;1m   63.63[0m | [33;1m     50[0m | [33;1m  65.62[0m | [31;1m...12-124,139-157[0m 
+[33;1m  ...ChatPanel.tsx[0m | [33;1m  63.63[0m | [33;1m   59.52[0m | [31;1m  22.22[0m | [33;1m  73.68[0m | [31;1m70-130           [0m 
+[32;1m  ...tComposer.tsx[0m | [32;1m     83[0m | [33;1m   79.15[0m | [33;1m  76.23[0m | [32;1m  88.41[0m | [31;1m...3,949,963-1024[0m 
+[32;1m  ...hmentChip.tsx[0m | [32;1m  95.65[0m | [32;1m      90[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m41-46            [0m 
+[32;1m  ...serEditor.tsx[0m | [32;1m  92.87[0m | [32;1m   85.11[0m | [32;1m  97.95[0m | [32;1m  96.22[0m | [31;1m...72,208-209,295[0m 
+[33;1m  ...xtPalette.tsx[0m | [33;1m  73.72[0m | [33;1m   68.22[0m | [33;1m     60[0m | [32;1m   81.3[0m | [31;1m...53-360,378-397[0m 
+[33;1m  ...ionHeader.tsx[0m | [33;1m  74.86[0m | [33;1m   65.64[0m | [33;1m   72.5[0m | [32;1m   87.5[0m | [31;1m...74,207,222,269[0m 
+[32;1m  ...ationView.tsx[0m | [32;1m  89.88[0m | [32;1m   87.91[0m | [33;1m  76.54[0m | [32;1m   92.8[0m | [31;1m...30,647-655,759[0m 
+[32;1m  ...ndaryLine.tsx[0m | [32;1m  92.85[0m | [32;1m   91.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m32-38,67         [0m 
+[32;1m  ...veredCard.tsx[0m | [32;1m  95.57[0m | [32;1m   91.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...84,307-313,326[0m 
+[32;1m  ...eturnCard.tsx[0m | [32;1m  97.29[0m | [32;1m   91.46[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...7,40-48,51,108[0m 
+[32;1m  ...viewBlock.tsx[0m | [32;1m    100[0m | [32;1m   83.87[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m25-30,33,63,74   [0m 
+[32;1m  AgentGitBar.tsx [0m | [32;1m  88.72[0m | [32;1m   87.93[0m | [32;1m  86.36[0m | [32;1m  91.87[0m | [31;1m...99-201,249,261[0m 
+[32;1m  ...DraftCard.tsx[0m | [32;1m  96.34[0m | [32;1m   96.09[0m | [32;1m  95.45[0m | [32;1m  97.26[0m | [31;1m381-382          [0m 
+[32;1m  AgentMessage.tsx[0m | [32;1m  85.98[0m | [33;1m    79.4[0m | [32;1m  87.03[0m | [32;1m  91.37[0m | [31;1m...78,404-405,509[0m 
+[32;1m  ...nSelector.tsx[0m | [32;1m  91.41[0m | [33;1m   78.76[0m | [32;1m  89.47[0m | [32;1m  94.85[0m | [31;1m...85,257,282,360[0m 
+[32;1m  ...yticsPane.tsx[0m | [32;1m     95[0m | [32;1m      80[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m28-59            [0m 
+[32;1m  ...eCodePane.tsx[0m | [32;1m  93.69[0m | [32;1m   81.63[0m | [32;1m     90[0m | [32;1m  98.83[0m | [31;1m165              [0m 
+[32;1m  ...eJobsPane.tsx[0m | [32;1m  81.81[0m | [33;1m   63.63[0m | [32;1m  84.21[0m | [32;1m  86.41[0m | [31;1m...6-69,83-86,166[0m 
+[32;1m  ...SpecsPane.tsx[0m | [32;1m  95.78[0m | [32;1m    86.2[0m | [32;1m  96.29[0m | [32;1m   98.7[0m | [31;1m60               [0m 
+[33;1m  ...deSurface.tsx[0m | [33;1m  68.42[0m | [33;1m   64.51[0m | [33;1m  52.63[0m | [33;1m  71.69[0m | [31;1m...27-28,30,60-67[0m 
+[32;1m  ...lSelector.tsx[0m | [32;1m   87.5[0m | [33;1m   77.77[0m | [32;1m    100[0m | [32;1m  85.71[0m | [31;1m38               [0m 
+[32;1m  ...OfferCard.tsx[0m | [32;1m   88.6[0m | [33;1m   69.59[0m | [33;1m  76.47[0m | [32;1m  94.64[0m | [31;1m17,89,102        [0m 
+[32;1m  ...isionCard.tsx[0m | [32;1m  80.87[0m | [32;1m   84.56[0m | [33;1m  64.34[0m | [32;1m  86.02[0m | [31;1m...1860,2051-2063[0m 
+[32;1m  ...FrameCard.tsx[0m | [32;1m  94.44[0m | [32;1m   94.44[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m113              [0m 
+[32;1m  ...tSelector.tsx[0m | [32;1m  86.73[0m | [33;1m   77.46[0m | [32;1m  84.61[0m | [32;1m  88.23[0m | [31;1m...29,191-192,203[0m 
+[33;1m  ...edMessage.tsx[0m | [33;1m  58.02[0m | [31;1m    45.9[0m | [33;1m  66.66[0m | [33;1m  72.13[0m | [31;1m36,52-60,85-95   [0m 
+[32;1m  ...aunchCard.tsx[0m | [32;1m   90.8[0m | [32;1m      80[0m | [32;1m  84.41[0m | [32;1m  95.07[0m | [31;1m...1035-1046,1173[0m 
+[32;1m  ...ureMarker.tsx[0m | [32;1m     95[0m | [32;1m    87.5[0m | [32;1m  83.33[0m | [32;1m  94.73[0m | [31;1m41               [0m 
+[33;1m  ...toryLines.tsx[0m | [33;1m  69.56[0m | [31;1m   47.05[0m | [32;1m  91.66[0m | [33;1m  71.79[0m | [31;1m...65,80-85,92-93[0m 
+[32;1m  ...tRunStrip.tsx[0m | [32;1m  90.75[0m | [33;1m   77.83[0m | [32;1m  89.38[0m | [32;1m  95.62[0m | [31;1m...05,752,761,808[0m 
+[32;1m  ...eSelector.tsx[0m | [32;1m  91.66[0m | [33;1m   79.36[0m | [32;1m   90.9[0m | [32;1m  95.12[0m | [31;1m86,115           [0m 
+[32;1m  ...ndicators.tsx[0m | [32;1m  92.85[0m | [32;1m   92.59[0m | [32;1m    100[0m | [32;1m  94.59[0m | [31;1m52,89            [0m 
+[32;1m  ...DraftCard.tsx[0m | [32;1m  89.74[0m | [33;1m   77.77[0m | [32;1m  91.66[0m | [32;1m  93.75[0m | [31;1m211-212          [0m 
+[32;1m  ...gentsCard.tsx[0m | [32;1m  96.09[0m | [32;1m   90.34[0m | [32;1m  91.66[0m | [32;1m  97.97[0m | [31;1m195-197          [0m 
+[32;1m  ...tTierChip.tsx[0m | [32;1m    100[0m | [32;1m      92[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m49-50            [0m 
+[33;1m  ...ceSidebar.tsx[0m | [33;1m  78.37[0m | [32;1m   88.31[0m | [31;1m     30[0m | [33;1m  79.41[0m | [31;1m66-105,193       [0m 
+[33;1m  ...ationMenu.tsx[0m | [33;1m  78.94[0m | [33;1m    64.7[0m | [32;1m  88.88[0m | [32;1m  82.35[0m | [31;1m30-32,48-50      [0m 
+[32;1m  ...omeHeader.tsx[0m | [32;1m  90.32[0m | [33;1m      75[0m | [32;1m    100[0m | [32;1m   92.3[0m | [31;1m56-57            [0m 
+[32;1m  ...ModeBadge.tsx[0m | [32;1m    100[0m | [32;1m   85.71[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m21,44-45         [0m 
+[32;1m  ...ctionMenu.tsx[0m | [32;1m  84.07[0m | [33;1m   72.59[0m | [32;1m  83.87[0m | [32;1m  93.75[0m | [31;1m98-103,148,158   [0m 
+[32;1m  ...litLayout.tsx[0m | [32;1m  95.91[0m | [33;1m   79.16[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m20,48-56,64      [0m 
+[33;1m  ...wBindings.tsx[0m | [33;1m  78.75[0m | [33;1m   57.14[0m | [33;1m  57.14[0m | [32;1m  90.16[0m | [31;1m47-58            [0m 
+[31;1m  ...owSurface.tsx[0m | [31;1m      0[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m      0[0m | [31;1m16-35            [0m 
+[32;1m  ...ion-fences.ts[0m | [32;1m    100[0m | [32;1m   93.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m56               [0m 
+[32;1m  ...-promotion.ts[0m | [32;1m  94.11[0m | [32;1m   83.09[0m | [32;1m    100[0m | [32;1m  95.83[0m | [31;1m42               [0m 
+[32;1m  ...tent-draft.ts[0m | [32;1m    100[0m | [32;1m   94.11[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m70               [0m 
+[32;1m  ...pr-pinning.ts[0m | [32;1m    100[0m | [32;1m   91.52[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m93,125           [0m 
+[32;1m  ...blem-frame.ts[0m | [32;1m  98.11[0m | [32;1m   97.29[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m76               [0m 
+[32;1m  ...un-failure.ts[0m | [32;1m  84.78[0m | [32;1m   88.88[0m | [32;1m  88.88[0m | [32;1m     90[0m | [31;1m88,117-118       [0m 
+[32;1m  ...spec-draft.ts[0m | [32;1m  97.82[0m | [32;1m   96.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m52               [0m 
+[32;1m  ...-run-strip.ts[0m | [32;1m  88.28[0m | [32;1m   83.62[0m | [32;1m     90[0m | [32;1m   92.1[0m | [31;1m...40-142,257,264[0m 
+[32;1m  run-primary.tsx [0m | [32;1m  86.27[0m | [33;1m   54.83[0m | [32;1m  91.66[0m | [32;1m  97.43[0m | [31;1m96               [0m 
+[32;1m  ...strip-keys.ts[0m | [32;1m  94.87[0m | [32;1m   93.58[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...08,118,120,134[0m 
+[32;1m  ...derCatalog.ts[0m | [32;1m  93.75[0m | [32;1m   83.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m50               [0m 
+[32;1m  ...hProposals.ts[0m | [32;1m  97.14[0m | [32;1m   88.46[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m31,41,45         [0m 
+[32;1m ...ents/__tests__[0m | [32;1m  92.85[0m | [33;1m   78.43[0m | [32;1m    100[0m | [32;1m  97.29[0m | [31;1m                 [0m 
+[32;1m  ...or-harness.ts[0m | [32;1m  95.08[0m | [33;1m   78.37[0m | [32;1m    100[0m | [32;1m  96.49[0m | [31;1m35,37            [0m 
+[32;1m  ...rd-actions.ts[0m | [32;1m  86.95[0m | [33;1m   78.57[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m24-37            [0m 
+[32;1m ...inimized-chats[0m | [32;1m  88.88[0m | [32;1m   92.85[0m | [32;1m     80[0m | [32;1m  86.95[0m | [31;1m                 [0m 
+[32;1m  ...dChatChip.tsx[0m | [32;1m   90.9[0m | [32;1m   83.33[0m | [32;1m    100[0m | [32;1m     90[0m | [31;1m14               [0m 
+[32;1m  ...ChatsDock.tsx[0m | [32;1m   87.5[0m | [32;1m     100[0m | [33;1m  71.42[0m | [32;1m  84.61[0m | [31;1m73-74            [0m 
+[32;1m ...ssions/context[0m | [32;1m  85.53[0m | [33;1m   76.02[0m | [33;1m  73.45[0m | [32;1m  91.13[0m | [31;1m                 [0m 
+[32;1m  ...atContext.tsx[0m | [32;1m  86.78[0m | [33;1m   76.16[0m | [33;1m  75.68[0m | [32;1m  91.21[0m | [31;1m...1974,2050-2055[0m 
+[33;1m  ...ceContext.tsx[0m | [33;1m   75.7[0m | [33;1m   66.66[0m | [31;1m  28.26[0m | [32;1m   87.5[0m | [31;1m...09-110,194-201[0m 
+[33;1m  ...tsContext.tsx[0m | [33;1m  78.35[0m | [33;1m   64.28[0m | [33;1m  74.71[0m | [32;1m  86.79[0m | [31;1m...17,548-580,622[0m 
+[32;1m  ...nsContext.tsx[0m | [32;1m  95.38[0m | [32;1m     100[0m | [32;1m   86.2[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...wsContext.tsx[0m | [32;1m  82.14[0m | [33;1m   61.11[0m | [32;1m  86.36[0m | [32;1m  91.89[0m | [31;1m46-48            [0m 
+[32;1m  ...wsContext.tsx[0m | [32;1m  83.33[0m | [32;1m   83.33[0m | [33;1m  63.15[0m | [32;1m    100[0m | [33;1m53               [0m 
+[32;1m  ...CardResync.ts[0m | [32;1m  95.04[0m | [32;1m      90[0m | [32;1m  94.73[0m | [32;1m   98.7[0m | [31;1m89               [0m 
+[32;1m ...missions/hooks[0m | [32;1m  93.68[0m | [33;1m   77.18[0m | [32;1m  94.23[0m | [32;1m  97.11[0m | [31;1m                 [0m 
+[32;1m  useAgentLive.ts [0m | [32;1m  88.31[0m | [33;1m   64.28[0m | [32;1m  88.46[0m | [32;1m  92.59[0m | [31;1m78,134-136       [0m 
+[32;1m  ...RefActions.ts[0m | [32;1m  94.73[0m | [33;1m    77.5[0m | [32;1m    100[0m | [32;1m     96[0m | [31;1m107-108          [0m 
+[32;1m  ...dTierCycle.ts[0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m38               [0m 
+[32;1m  ...nPlaceSync.ts[0m | [32;1m   94.5[0m | [32;1m    90.9[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m30,35,42,71-73,92[0m 
+[32;1m  ...penMission.ts[0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m31               [0m 
+[32;1m ...s/missions/lib[0m | [32;1m  91.43[0m | [32;1m   84.53[0m | [32;1m  92.76[0m | [32;1m  95.89[0m | [31;1m                 [0m 
+[33;1m  agent-api.ts    [0m | [33;1m  76.92[0m | [33;1m   72.02[0m | [33;1m  76.47[0m | [32;1m  83.95[0m | [31;1m...41,830,923-924[0m 
+[32;1m  ...ser-drafts.ts[0m | [32;1m  94.73[0m | [32;1m   92.79[0m | [32;1m  96.55[0m | [32;1m  96.26[0m | [31;1m64,80,179,194    [0m 
+[32;1m  ...xt-palette.ts[0m | [32;1m  93.92[0m | [32;1m   80.33[0m | [32;1m    100[0m | [32;1m     98[0m | [31;1m539,545,548      [0m 
+[32;1m  agent-refs.ts   [0m | [32;1m   94.7[0m | [32;1m   92.46[0m | [32;1m    100[0m | [32;1m  98.56[0m | [31;1m309-310          [0m 
+[32;1m  live-store.ts   [0m | [32;1m  96.77[0m | [32;1m   86.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...49,155-156,177[0m 
+[32;1m  ...n-sessions.ts[0m | [32;1m    100[0m | [32;1m   91.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...36,138-147,247[0m 
+[32;1m  ...view-state.ts[0m | [32;1m  96.29[0m | [32;1m   91.66[0m | [32;1m   92.3[0m | [32;1m    100[0m | [33;1m30               [0m 
+[32;1m  ...controller.ts[0m | [32;1m  90.13[0m | [32;1m    85.6[0m | [32;1m  93.61[0m | [32;1m  98.52[0m | [31;1m101,290,306      [0m 
+[33;1m  ...on-windows.ts[0m | [33;1m  69.81[0m | [33;1m   79.41[0m | [33;1m  73.68[0m | [33;1m  78.78[0m | [31;1m78-79,88-90,96-97[0m 
+[32;1m  pr-ci-steps.ts  [0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m16               [0m 
+[32;1m ...ing/components[0m | [32;1m  89.38[0m | [32;1m   82.42[0m | [33;1m  79.62[0m | [32;1m  91.03[0m | [31;1m                 [0m 
+[32;1m  ...RunDialog.tsx[0m | [32;1m  89.65[0m | [32;1m     100[0m | [33;1m     70[0m | [32;1m  89.47[0m | [31;1m80-81            [0m 
+[32;1m  RunFirstSpec.tsx[0m | [32;1m  96.55[0m | [32;1m   81.39[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...0,65,96-97,104[0m 
+[32;1m  ...Statement.tsx[0m | [32;1m    100[0m | [32;1m   83.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m25               [0m 
+[32;1m  SampleGuide.tsx [0m | [32;1m  92.18[0m | [32;1m      90[0m | [32;1m     85[0m | [32;1m  94.44[0m | [31;1m155,166,180      [0m 
+[33;1m  ...ectDialog.tsx[0m | [33;1m  73.52[0m | [33;1m   66.66[0m | [33;1m     60[0m | [33;1m     75[0m | [31;1m56-59,64,82-104  [0m 
+[32;1m  ...jectEntry.tsx[0m | [32;1m   87.5[0m | [32;1m      80[0m | [33;1m     50[0m | [32;1m   87.5[0m | [31;1m31               [0m 
+[33;1m ...boarding/hooks[0m | [33;1m  73.01[0m | [31;1m   33.33[0m | [33;1m  78.57[0m | [33;1m  78.26[0m | [31;1m                 [0m 
+[31;1m  ...vateSample.ts[0m | [31;1m  41.66[0m | [31;1m       0[0m | [33;1m     50[0m | [31;1m  45.45[0m | [31;1m21-26            [0m 
+[33;1m  useAnchorRect.ts[0m | [33;1m  74.07[0m | [31;1m   28.57[0m | [33;1m  71.42[0m | [32;1m  83.33[0m | [31;1m18-20            [0m 
+[32;1m  ...mpleStatus.ts[0m | [32;1m   87.5[0m | [33;1m    62.5[0m | [32;1m    100[0m | [32;1m  94.11[0m | [31;1m27               [0m 
+[32;1m ...onboarding/lib[0m | [32;1m  94.87[0m | [32;1m   82.97[0m | [32;1m    100[0m | [32;1m  98.88[0m | [31;1m                 [0m 
+[32;1m  sample-api.ts   [0m | [32;1m  89.09[0m | [33;1m    65.3[0m | [32;1m    100[0m | [32;1m  97.56[0m | [31;1m47               [0m 
+[32;1m  ...uide-state.ts[0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m27               [0m 
+[32;1m  sample-model.ts [0m | [32;1m    100[0m | [32;1m   92.85[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m75-80,87,110     [0m 
+[33;1m .../plugins/pages[0m | [33;1m  79.46[0m | [33;1m    74.3[0m | [33;1m   73.8[0m | [32;1m  81.16[0m | [31;1m                 [0m 
+[33;1m  PluginsPage.tsx [0m | [33;1m  79.46[0m | [33;1m    74.3[0m | [33;1m   73.8[0m | [32;1m  81.16[0m | [31;1m...1494-1497,1500[0m 
+[32;1m ...cts/components[0m | [32;1m  82.46[0m | [33;1m   77.98[0m | [32;1m   87.5[0m | [32;1m  85.66[0m | [31;1m                 [0m 
+[33;1m  ...ectDialog.tsx[0m | [33;1m  75.23[0m | [33;1m   67.04[0m | [32;1m  83.33[0m | [33;1m  79.26[0m | [31;1m...27,285-289,318[0m 
+[33;1m  ...oryDialog.tsx[0m | [33;1m  76.92[0m | [33;1m   70.96[0m | [33;1m  77.77[0m | [33;1m  79.41[0m | [31;1m57-72            [0m 
+[33;1m  ...ionsModal.tsx[0m | [33;1m  72.05[0m | [33;1m      75[0m | [33;1m  71.42[0m | [33;1m  78.33[0m | [31;1m...01-211,253,286[0m 
+[32;1m  ...ingWizard.tsx[0m | [32;1m  95.71[0m | [32;1m   86.95[0m | [32;1m  96.66[0m | [32;1m  96.82[0m | [31;1m57,785           [0m 
+[32;1m  ...itesPanel.tsx[0m | [32;1m  83.78[0m | [33;1m    74.5[0m | [32;1m    100[0m | [32;1m  85.71[0m | [31;1m20,25,30-33      [0m 
+[32;1m  ...rBoundary.tsx[0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m83               [0m 
+[32;1m  ...eSelector.tsx[0m | [32;1m  97.14[0m | [32;1m   96.77[0m | [32;1m     95[0m | [32;1m    100[0m | [33;1m30,35            [0m 
+[32;1m ...projects/hooks[0m | [32;1m  85.54[0m | [33;1m   62.85[0m | [32;1m  80.95[0m | [32;1m  89.04[0m | [31;1m                 [0m 
+[32;1m  ...requisites.ts[0m | [32;1m  85.54[0m | [33;1m   62.85[0m | [32;1m  80.95[0m | [32;1m  89.04[0m | [31;1m...15,157-160,178[0m 
+[32;1m ...ers/components[0m | [32;1m    100[0m | [32;1m   96.55[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...liasInput.tsx[0m | [32;1m    100[0m | [32;1m   93.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m58               [0m 
+[32;1m ...roviders/hooks[0m | [32;1m  94.25[0m | [32;1m   84.61[0m | [32;1m   92.3[0m | [32;1m  98.46[0m | [31;1m                 [0m 
+[32;1m  ...eProviders.ts[0m | [32;1m  90.56[0m | [32;1m   86.48[0m | [32;1m  84.61[0m | [32;1m  97.36[0m | [31;1m96               [0m 
+[32;1m  ...rDetection.ts[0m | [32;1m    100[0m | [32;1m   82.14[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m58,69,80-86      [0m 
+[32;1m .../providers/lib[0m | [32;1m    100[0m | [32;1m   98.73[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...pabilities.ts[0m | [32;1m    100[0m | [32;1m    98.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m178              [0m 
+[33;1m ...ils/components[0m | [33;1m  68.58[0m | [33;1m    68.1[0m | [33;1m  62.73[0m | [33;1m  70.61[0m | [31;1m                 [0m 
+[33;1m  ...AllDialog.tsx[0m | [33;1m  68.75[0m | [33;1m   70.37[0m | [33;1m  66.66[0m | [33;1m  66.66[0m | [31;1m47-49,57         [0m 
+[33;1m  ...ilPopover.tsx[0m | [33;1m  78.37[0m | [31;1m   35.71[0m | [33;1m  72.72[0m | [32;1m  87.09[0m | [31;1m42-47            [0m 
+[32;1m  RailControls.tsx[0m | [32;1m    100[0m | [32;1m   92.68[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m51,68,71         [0m 
+[32;1m  ...utionInfo.tsx[0m | [32;1m  88.88[0m | [32;1m     100[0m | [32;1m     80[0m | [32;1m    100[0m | [33;1m                 [0m 
+[33;1m  RailRow.tsx     [0m | [33;1m  58.96[0m | [33;1m   62.71[0m | [31;1m  47.54[0m | [33;1m  59.53[0m | [31;1m...33-578,894-933[0m 
+[32;1m  ...rSelector.tsx[0m | [32;1m  84.31[0m | [33;1m      74[0m | [33;1m  77.27[0m | [32;1m   87.8[0m | [31;1m55,64-67,89,129  [0m 
+[33;1m  RailsBoard.tsx  [0m | [33;1m  73.33[0m | [33;1m    77.5[0m | [33;1m   65.9[0m | [33;1m     75[0m | [31;1m...78-380,383-385[0m 
+[32;1m  ...wWipBadge.tsx[0m | [32;1m  85.18[0m | [33;1m   61.53[0m | [32;1m     80[0m | [32;1m  95.45[0m | [31;1m31               [0m 
+[32;1m .../rails/context[0m | [32;1m  94.11[0m | [32;1m   81.08[0m | [32;1m  94.73[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...csContext.tsx[0m | [32;1m  94.11[0m | [32;1m   81.08[0m | [32;1m  94.73[0m | [32;1m    100[0m | [33;1m...15,123,127,132[0m 
+[32;1m ...ures/rails/lib[0m | [32;1m  81.28[0m | [33;1m    65.4[0m | [32;1m  83.78[0m | [32;1m  90.78[0m | [31;1m                 [0m 
+[33;1m  ...unch-draft.ts[0m | [33;1m  71.68[0m | [33;1m   52.43[0m | [33;1m  71.42[0m | [32;1m  85.22[0m | [31;1m...16-220,237-240[0m 
+[32;1m  ...ch-intents.ts[0m | [32;1m  85.71[0m | [33;1m      75[0m | [32;1m     80[0m | [32;1m    100[0m | [33;1m18,48            [0m 
+[32;1m  ...e-progress.ts[0m | [32;1m    100[0m | [32;1m   92.85[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m50               [0m 
+[32;1m ...ery/components[0m | [32;1m  87.67[0m | [32;1m   83.33[0m | [33;1m  79.16[0m | [32;1m     90[0m | [31;1m                 [0m 
+[32;1m  ...PlanOffer.tsx[0m | [32;1m     90[0m | [33;1m      75[0m | [32;1m  84.61[0m | [32;1m  95.23[0m | [31;1m36               [0m 
+[32;1m  ...nosisCard.tsx[0m | [32;1m  86.04[0m | [32;1m   85.48[0m | [33;1m  72.72[0m | [32;1m  87.17[0m | [31;1m59-62,76         [0m 
+[32;1m ...recovery/hooks[0m | [32;1m     90[0m | [32;1m      80[0m | [32;1m    100[0m | [32;1m  92.85[0m | [31;1m                 [0m 
+[32;1m  ...nDiagnosis.ts[0m | [32;1m     90[0m | [32;1m      80[0m | [32;1m    100[0m | [32;1m  92.85[0m | [31;1m24               [0m 
+[32;1m ...s/recovery/lib[0m | [32;1m    100[0m | [32;1m    92.3[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...-diagnosis.ts[0m | [32;1m    100[0m | [32;1m    92.3[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...14,137,161,169[0m 
+[32;1m ...ngs/components[0m | [32;1m   83.4[0m | [33;1m   75.36[0m | [33;1m  79.34[0m | [32;1m  87.88[0m | [31;1m                 [0m 
+[32;1m  ...deSection.tsx[0m | [32;1m  93.33[0m | [33;1m   78.26[0m | [32;1m  83.33[0m | [32;1m    100[0m | [33;1m...,91-95,147,158[0m 
+[32;1m  ...ntimeRuns.tsx[0m | [32;1m  93.33[0m | [32;1m   92.59[0m | [32;1m   90.9[0m | [32;1m  91.66[0m | [31;1m56               [0m 
+[32;1m  ...gsSection.tsx[0m | [32;1m  91.71[0m | [33;1m    74.8[0m | [32;1m  95.83[0m | [32;1m  96.26[0m | [31;1m48,54,99,121     [0m 
+[32;1m  ...teSection.tsx[0m | [32;1m  97.05[0m | [32;1m      90[0m | [33;1m     75[0m | [32;1m    100[0m | [33;1m40-49,60         [0m 
+[32;1m  ...nSettings.tsx[0m | [32;1m  92.85[0m | [33;1m   72.22[0m | [32;1m   92.3[0m | [32;1m    100[0m | [33;1m26-42            [0m 
+[32;1m  ...teSection.tsx[0m | [32;1m  86.95[0m | [33;1m   79.38[0m | [33;1m  68.18[0m | [32;1m   95.6[0m | [31;1m139-145          [0m 
+[32;1m  ...timeRoles.tsx[0m | [32;1m     92[0m | [32;1m   90.32[0m | [32;1m  83.33[0m | [32;1m  92.85[0m | [31;1m35               [0m 
+[32;1m  ...orSection.tsx[0m | [32;1m    100[0m | [33;1m      50[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m19               [0m 
+[32;1m  ...rversCard.tsx[0m | [32;1m  90.58[0m | [32;1m   84.48[0m | [32;1m  84.09[0m | [32;1m  97.88[0m | [31;1m187,398,538      [0m 
+[33;1m  ...gsSection.tsx[0m | [33;1m   71.3[0m | [33;1m   65.57[0m | [33;1m  67.85[0m | [33;1m  79.59[0m | [31;1m...68,182-185,197[0m 
+[32;1m  ...ssSection.tsx[0m | [32;1m  82.35[0m | [33;1m   59.57[0m | [33;1m  72.72[0m | [32;1m  86.44[0m | [31;1m...,89-91,139,181[0m 
+[31;1m  ...nionModal.tsx[0m | [31;1m  20.35[0m | [31;1m    20.4[0m | [31;1m     25[0m | [31;1m  19.38[0m | [31;1m...42-152,157-190[0m 
+[32;1m  ...gSections.tsx[0m | [32;1m  89.13[0m | [33;1m   77.03[0m | [32;1m  84.09[0m | [32;1m  96.19[0m | [31;1m35,159,187,209   [0m 
+[32;1m  ...esSection.tsx[0m | [32;1m  81.08[0m | [32;1m    81.7[0m | [33;1m  73.91[0m | [32;1m  86.44[0m | [31;1m52,95,110-120,128[0m 
+[32;1m  ...sSections.tsx[0m | [32;1m  83.76[0m | [33;1m   77.68[0m | [33;1m  76.47[0m | [32;1m   88.7[0m | [31;1m...50,908-909,913[0m 
+[32;1m  ProviderTabs.tsx[0m | [32;1m    100[0m | [32;1m   82.35[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m52-54            [0m 
+[32;1m  ...edSection.tsx[0m | [32;1m  92.85[0m | [32;1m   83.92[0m | [32;1m   91.3[0m | [32;1m  97.05[0m | [31;1m86,102           [0m 
+[31;1m  ...yControls.tsx[0m | [31;1m  19.04[0m | [31;1m      25[0m | [31;1m  13.33[0m | [31;1m  21.05[0m | [31;1m12-37,51-56      [0m 
+[33;1m  ...nEvidence.tsx[0m | [33;1m  70.66[0m | [31;1m   40.44[0m | [33;1m  65.21[0m | [33;1m   75.6[0m | [31;1m...54,61-64,70-73[0m 
+[32;1m  ...uardrails.tsx[0m | [32;1m  97.77[0m | [32;1m   93.61[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m40-42            [0m 
+[32;1m  ...eRecovery.tsx[0m | [32;1m  85.71[0m | [32;1m   83.33[0m | [33;1m  77.77[0m | [32;1m    100[0m | [33;1m17               [0m 
+[32;1m  ...Retention.tsx[0m | [32;1m  88.46[0m | [32;1m   83.83[0m | [32;1m  81.81[0m | [32;1m  93.18[0m | [31;1m33,77-80         [0m 
+[32;1m  ...lePrompts.tsx[0m | [32;1m  90.14[0m | [33;1m   73.91[0m | [32;1m  95.65[0m | [32;1m  92.85[0m | [31;1m56-58            [0m 
+[32;1m  ...eSteering.tsx[0m | [32;1m  93.75[0m | [32;1m   89.47[0m | [32;1m  88.88[0m | [32;1m  96.66[0m | [31;1m46               [0m 
+[32;1m  ...ngsSelect.tsx[0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m41               [0m 
+[32;1m  ...gsSection.tsx[0m | [32;1m  92.47[0m | [32;1m   84.93[0m | [32;1m  89.65[0m | [32;1m  97.26[0m | [31;1m134,174          [0m 
+[32;1m  ...neSection.tsx[0m | [32;1m  86.07[0m | [33;1m      68[0m | [33;1m     70[0m | [32;1m  93.44[0m | [31;1m96-97,130-131    [0m 
+[32;1m  ...elSection.tsx[0m | [32;1m  92.59[0m | [32;1m    87.5[0m | [32;1m   87.5[0m | [32;1m    100[0m | [33;1m26-31            [0m 
+[32;1m  ...-sections.tsx[0m | [32;1m    100[0m | [33;1m      50[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m80               [0m 
+[32;1m ...onents/pickers[0m | [32;1m   87.5[0m | [32;1m   83.33[0m | [32;1m  83.33[0m | [32;1m  89.28[0m | [31;1m                 [0m 
+[32;1m  ...ickerGrid.tsx[0m | [32;1m     80[0m | [33;1m      75[0m | [32;1m     80[0m | [32;1m  84.61[0m | [31;1m27-29            [0m 
+[32;1m  ...ickerGrid.tsx[0m | [32;1m  94.11[0m | [32;1m   88.88[0m | [32;1m  85.71[0m | [32;1m  93.33[0m | [31;1m30               [0m 
+[32;1m ...er-connections[0m | [32;1m     90[0m | [32;1m   86.99[0m | [32;1m   87.5[0m | [32;1m  96.41[0m | [31;1m                 [0m 
+[32;1m  ...oviderRow.tsx[0m | [32;1m    100[0m | [32;1m      90[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m43               [0m 
+[33;1m  ...ectionRow.tsx[0m | [33;1m  77.77[0m | [32;1m      80[0m | [33;1m  66.66[0m | [33;1m     75[0m | [31;1m34,39            [0m 
+[32;1m  ...ionEditor.tsx[0m | [32;1m   91.3[0m | [32;1m   89.28[0m | [32;1m  85.18[0m | [32;1m   92.3[0m | [31;1m97-100,116,198   [0m 
+[32;1m  ...ngineCard.tsx[0m | [32;1m    100[0m | [32;1m   96.77[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m60               [0m 
+[32;1m  OverflowMenu.tsx[0m | [32;1m  90.32[0m | [33;1m   78.37[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m35,38-43,77-88   [0m 
+[32;1m  ...tionsCard.tsx[0m | [32;1m  87.12[0m | [32;1m    81.9[0m | [32;1m  86.27[0m | [32;1m  98.64[0m | [31;1m143              [0m 
+[32;1m  ...ionButton.tsx[0m | [32;1m  94.73[0m | [32;1m      92[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m18,39            [0m 
+[33;1m .../theme-effects[0m | [33;1m  53.02[0m | [31;1m   29.87[0m | [33;1m  57.14[0m | [33;1m  58.22[0m | [31;1m                 [0m 
+[32;1m  BladeTrail.tsx  [0m | [32;1m  90.69[0m | [33;1m    62.5[0m | [32;1m    100[0m | [32;1m   98.7[0m | [31;1m78               [0m 
+[31;1m  ...ainEffect.tsx[0m | [31;1m   8.33[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m    9.7[0m | [31;1m56-256           [0m 
+[32;1m  Starfield.tsx   [0m | [32;1m  88.11[0m | [33;1m   59.18[0m | [32;1m  84.61[0m | [32;1m  94.38[0m | [31;1m88-89,123-125    [0m 
+[32;1m ...ttings/context[0m | [32;1m  91.02[0m | [33;1m   77.02[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...geContext.tsx[0m | [32;1m  89.39[0m | [33;1m   73.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...9,79-87,92,129[0m 
+[32;1m  ThemeContext.tsx[0m | [32;1m  92.22[0m | [33;1m   79.54[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...,75-80,100-108[0m 
+[32;1m ...s/settings/lib[0m | [32;1m  96.92[0m | [32;1m   87.59[0m | [32;1m  95.34[0m | [32;1m  99.32[0m | [31;1m                 [0m 
+[32;1m  agent-runtime.ts[0m | [32;1m  96.38[0m | [32;1m   87.23[0m | [32;1m  94.44[0m | [32;1m  98.18[0m | [31;1m206              [0m 
+[32;1m  effects-prefs.ts[0m | [32;1m  96.87[0m | [32;1m     100[0m | [32;1m  88.88[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...ing-anchor.ts[0m | [32;1m  97.29[0m | [32;1m   85.18[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m14,28,35,48      [0m 
+[32;1m  theme-palette.ts[0m | [32;1m  85.71[0m | [33;1m      75[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m16               [0m 
+[33;1m ...settings/pages[0m | [33;1m  76.11[0m | [33;1m   71.18[0m | [33;1m  76.04[0m | [32;1m  81.64[0m | [31;1m                 [0m 
+[32;1m  ...tingsPage.tsx[0m | [32;1m  81.76[0m | [33;1m    79.8[0m | [33;1m  76.56[0m | [32;1m  89.33[0m | [31;1m...52,657,713,725[0m 
+[33;1m  SettingsPage.tsx[0m | [33;1m  68.42[0m | [33;1m    58.9[0m | [33;1m     75[0m | [33;1m  70.75[0m | [31;1m...26,133-142,217[0m 
+[32;1m ...ecs/components[0m | [32;1m  80.45[0m | [33;1m    74.9[0m | [33;1m  76.62[0m | [32;1m  84.39[0m | [31;1m                 [0m 
+[32;1m  ...ntSection.tsx[0m | [32;1m  95.65[0m | [32;1m   96.87[0m | [32;1m  88.57[0m | [32;1m   97.1[0m | [31;1m89,211           [0m 
+[32;1m  ...lsSection.tsx[0m | [32;1m    100[0m | [32;1m   94.11[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m70               [0m 
+[33;1m  ...SpecModal.tsx[0m | [33;1m  74.57[0m | [33;1m   72.37[0m | [33;1m  53.01[0m | [33;1m  79.84[0m | [31;1m...08,728-839,871[0m 
+[32;1m  ...nOfPicker.tsx[0m | [32;1m  96.77[0m | [32;1m   89.47[0m | [32;1m   90.9[0m | [32;1m    100[0m | [33;1m47-55            [0m 
+[32;1m  ...daSection.tsx[0m | [32;1m   82.6[0m | [33;1m   77.98[0m | [32;1m  80.55[0m | [32;1m  89.65[0m | [31;1m...73,283,298,311[0m 
+[33;1m  SpecCard.tsx    [0m | [33;1m  75.71[0m | [32;1m   87.73[0m | [33;1m  57.14[0m | [33;1m  77.27[0m | [31;1m...14-116,213-306[0m 
+[32;1m  ...arePicker.tsx[0m | [32;1m     90[0m | [33;1m   72.72[0m | [32;1m  88.88[0m | [32;1m  88.88[0m | [31;1m28,128           [0m 
+[32;1m  ...erOptions.tsx[0m | [32;1m    100[0m | [32;1m   83.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m21,38            [0m 
+[32;1m  ...rsPopover.tsx[0m | [32;1m  88.73[0m | [32;1m   93.75[0m | [33;1m  72.72[0m | [32;1m  95.08[0m | [31;1m175-179,189      [0m 
+[33;1m  ...entBadges.tsx[0m | [33;1m  77.27[0m | [33;1m   78.26[0m | [33;1m  66.66[0m | [33;1m  70.58[0m | [31;1m60-65            [0m 
+[32;1m  ...erOptions.tsx[0m | [32;1m  82.85[0m | [33;1m   66.66[0m | [32;1m   90.9[0m | [32;1m  87.09[0m | [31;1m103-106          [0m 
+[33;1m  ...lterStrip.tsx[0m | [33;1m  65.21[0m | [31;1m   42.85[0m | [32;1m  85.71[0m | [33;1m  71.05[0m | [31;1m116-126          [0m 
+[32;1m  ...ovePicker.tsx[0m | [32;1m  89.83[0m | [33;1m      78[0m | [32;1m  90.47[0m | [32;1m  95.55[0m | [31;1m46,80            [0m 
+[33;1m  ...archField.tsx[0m | [33;1m  78.94[0m | [32;1m   88.88[0m | [33;1m  71.42[0m | [33;1m  76.47[0m | [31;1m35,43-68         [0m 
+[32;1m  ...tCheckbox.tsx[0m | [32;1m   90.9[0m | [32;1m      80[0m | [33;1m     75[0m | [32;1m     90[0m | [31;1m42               [0m 
+[32;1m  ...rtControl.tsx[0m | [32;1m  83.33[0m | [32;1m     100[0m | [33;1m  66.66[0m | [32;1m  83.33[0m | [31;1m43               [0m 
+[32;1m  ...erOptions.tsx[0m | [32;1m  95.45[0m | [32;1m      80[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m23,42-49         [0m 
+[32;1m  ...tusFilter.tsx[0m | [32;1m  85.29[0m | [33;1m   74.76[0m | [32;1m     96[0m | [32;1m  91.02[0m | [31;1m...75-177,186-187[0m 
+[32;1m  SpecTimeline.tsx[0m | [32;1m  88.02[0m | [32;1m   80.82[0m | [32;1m  89.36[0m | [32;1m  94.49[0m | [31;1m...89,141,212,309[0m 
+[32;1m  ...riageChip.tsx[0m | [32;1m   90.9[0m | [32;1m   81.81[0m | [32;1m  85.71[0m | [32;1m  96.66[0m | [31;1m72               [0m 
+[32;1m  SpecsBoard.tsx  [0m | [32;1m  82.21[0m | [33;1m   67.97[0m | [32;1m  81.71[0m | [32;1m  86.66[0m | [31;1m...1363,1394-1404[0m 
+[32;1m  SpecsBulkBar.tsx[0m | [32;1m  95.23[0m | [33;1m   76.36[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...82-100,153,195[0m 
+[31;1m  ...yControls.tsx[0m | [31;1m  29.41[0m | [31;1m   26.31[0m | [31;1m  11.11[0m | [31;1m  31.25[0m | [31;1m42-46,89-134     [0m 
+[32;1m  ...ViewsMenu.tsx[0m | [32;1m  81.13[0m | [33;1m   78.57[0m | [32;1m  83.33[0m | [32;1m  89.47[0m | [31;1m119,146,161,169  [0m 
+[32;1m  ...ntextMenu.tsx[0m | [32;1m  81.25[0m | [33;1m   71.73[0m | [33;1m  69.23[0m | [32;1m  83.92[0m | [31;1m...42,307-308,343[0m 
+[33;1m  ...tailModal.tsx[0m | [33;1m   69.9[0m | [33;1m   69.74[0m | [33;1m  65.57[0m | [33;1m  73.87[0m | [31;1m...1440,1453-1466[0m 
+[33;1m  ...ostitCard.tsx[0m | [33;1m  54.76[0m | [33;1m   66.37[0m | [31;1m  33.33[0m | [33;1m  58.44[0m | [31;1m...29-231,244-403[0m 
+[33;1m ...s/explore-spec[0m | [33;1m  76.26[0m | [33;1m   68.67[0m | [33;1m  72.72[0m | [32;1m  81.87[0m | [31;1m                 [0m 
+[32;1m  ...ewOverlay.tsx[0m | [32;1m   88.4[0m | [32;1m   88.23[0m | [33;1m  73.91[0m | [32;1m  98.18[0m | [31;1m139              [0m 
+[33;1m  ...SpecShell.tsx[0m | [33;1m  63.19[0m | [33;1m   60.98[0m | [33;1m  58.06[0m | [33;1m  70.06[0m | [31;1m...1216,1224-1226[0m 
+[32;1m  ...atusPills.tsx[0m | [32;1m     90[0m | [32;1m   86.36[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m72-83            [0m 
+[32;1m  ...raftPanel.tsx[0m | [32;1m  83.09[0m | [33;1m    72.5[0m | [32;1m  83.78[0m | [32;1m  84.12[0m | [31;1m...73,206-207,256[0m 
+[32;1m  ...delPicker.tsx[0m | [32;1m  98.11[0m | [32;1m      82[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m58-64,135-142,151[0m 
+[32;1m  diff-utils.ts   [0m | [32;1m  96.77[0m | [32;1m    92.3[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m83               [0m 
+[32;1m  ...oothStream.ts[0m | [32;1m  94.91[0m | [32;1m   81.81[0m | [32;1m    100[0m | [32;1m  96.36[0m | [31;1m53-54            [0m 
+[32;1m ...ts/specs-smash[0m | [32;1m  82.84[0m | [33;1m   77.24[0m | [32;1m   92.5[0m | [32;1m  86.71[0m | [31;1m                 [0m 
+[32;1m  ...enSection.tsx[0m | [32;1m  93.75[0m | [33;1m   66.66[0m | [32;1m    100[0m | [32;1m  93.33[0m | [31;1m33               [0m 
+[32;1m  ...lySidebar.tsx[0m | [32;1m  93.93[0m | [32;1m   83.33[0m | [32;1m    100[0m | [32;1m  96.29[0m | [31;1m22               [0m 
+[33;1m  SmashActions.tsx[0m | [33;1m   72.5[0m | [33;1m    74.6[0m | [32;1m  84.61[0m | [33;1m  75.75[0m | [31;1m...28,142-155,167[0m 
+[32;1m  ...firmModal.tsx[0m | [32;1m  83.33[0m | [33;1m   77.77[0m | [32;1m  83.33[0m | [32;1m   90.9[0m | [31;1m59               [0m 
+[32;1m  ...atusPills.tsx[0m | [32;1m  92.85[0m | [32;1m   84.61[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m44-51            [0m 
+[32;1m .../specs/context[0m | [32;1m  87.86[0m | [33;1m    77.2[0m | [33;1m  77.94[0m | [32;1m  93.28[0m | [31;1m                 [0m 
+[32;1m  ...erContext.tsx[0m | [32;1m  88.42[0m | [33;1m   75.71[0m | [32;1m   91.3[0m | [32;1m  94.23[0m | [31;1m64-68,86-90      [0m 
+[32;1m  ...alContext.tsx[0m | [32;1m  87.22[0m | [33;1m   78.04[0m | [33;1m  69.76[0m | [32;1m  92.41[0m | [31;1m...74-275,348-354[0m 
+[33;1m ...es/specs/hooks[0m | [33;1m  75.83[0m | [33;1m   62.23[0m | [32;1m  81.67[0m | [32;1m   80.6[0m | [31;1m                 [0m 
+[33;1m  ...neTracker.tsx[0m | [33;1m  75.55[0m | [33;1m   53.33[0m | [32;1m     90[0m | [32;1m  81.57[0m | [31;1m36-40,76-81      [0m 
+[32;1m  ...RefineLast.ts[0m | [32;1m  95.83[0m | [33;1m   78.57[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m23-25,38         [0m 
+[32;1m  ...raftStream.ts[0m | [32;1m   92.7[0m | [32;1m      85[0m | [32;1m    100[0m | [32;1m  97.33[0m | [31;1m154-155          [0m 
+[31;1m  ...enTracker.tsx[0m | [31;1m  43.71[0m | [31;1m    11.9[0m | [31;1m  40.62[0m | [31;1m  48.71[0m | [31;1m...21-331,337-340[0m 
+[32;1m  useTickets.ts   [0m | [32;1m  86.88[0m | [33;1m   78.36[0m | [32;1m  94.28[0m | [32;1m  92.67[0m | [31;1m...48,469,501,528[0m 
+[33;1m ...ures/specs/lib[0m | [33;1m  69.92[0m | [33;1m   66.43[0m | [33;1m  72.37[0m | [33;1m   76.4[0m | [31;1m                 [0m 
+[31;1m  ...plore-spec.ts[0m | [31;1m     24[0m | [31;1m   10.52[0m | [31;1m     20[0m | [31;1m  26.31[0m | [31;1m33-67            [0m 
+[32;1m  ...-selection.ts[0m | [32;1m  97.87[0m | [32;1m   97.67[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m37               [0m 
+[32;1m  bulk-actions.ts [0m | [32;1m    100[0m | [33;1m      50[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m33               [0m 
+[31;1m  ...ng-spec-id.ts[0m | [31;1m  33.33[0m | [33;1m      50[0m | [33;1m     50[0m | [31;1m  33.33[0m | [31;1m15-18            [0m 
+[31;1m  ...denda-core.ts[0m | [31;1m  35.88[0m | [31;1m   37.76[0m | [31;1m  27.77[0m | [31;1m  45.96[0m | [31;1m...44-276,298-314[0m 
+[32;1m  spec-filters.ts [0m | [32;1m    100[0m | [32;1m   95.45[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m52               [0m 
+[32;1m  spec-flow.ts    [0m | [32;1m    100[0m | [32;1m   88.88[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m15               [0m 
+[32;1m  ...uppression.ts[0m | [32;1m    100[0m | [32;1m   92.85[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m23               [0m 
+[32;1m  ...ff-actions.ts[0m | [32;1m  96.42[0m | [32;1m   85.71[0m | [32;1m    100[0m | [32;1m  95.65[0m | [31;1m27               [0m 
+[31;1m  spec-intent.ts  [0m | [31;1m  33.12[0m | [31;1m   32.67[0m | [31;1m  33.33[0m | [31;1m  45.79[0m | [31;1m...45-200,216-260[0m 
+[32;1m  spec-search.ts  [0m | [32;1m    100[0m | [32;1m   94.44[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m17               [0m 
+[32;1m  spec-sort.ts    [0m | [32;1m  98.46[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m  97.77[0m | [31;1m106              [0m 
+[32;1m  ...tus-filter.ts[0m | [32;1m  96.15[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m  94.73[0m | [31;1m68               [0m 
+[32;1m  spec-timeline.ts[0m | [32;1m    100[0m | [32;1m   90.16[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m56-58,94-95      [0m 
+[32;1m  spec-triage.ts  [0m | [32;1m     95[0m | [32;1m   95.65[0m | [32;1m     80[0m | [32;1m    100[0m | [33;1m78               [0m 
+[32;1m  spec-views.ts   [0m | [32;1m  93.67[0m | [32;1m   88.88[0m | [32;1m    100[0m | [32;1m  98.27[0m | [31;1m89               [0m 
+[32;1m  ...-view-tier.ts[0m | [32;1m   93.1[0m | [32;1m   92.85[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m51               [0m 
+[32;1m  ...atus-moves.ts[0m | [32;1m  81.81[0m | [33;1m   71.42[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m39-42            [0m 
+[32;1m  trash-api.ts    [0m | [32;1m  81.81[0m | [33;1m   66.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m27-33            [0m 
+[32;1m ...age/components[0m | [32;1m  89.36[0m | [33;1m      75[0m | [32;1m  85.96[0m | [32;1m     93[0m | [31;1m                 [0m 
+[32;1m  ...pendMeter.tsx[0m | [32;1m    100[0m | [32;1m   91.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m18,26,29         [0m 
+[32;1m  ...ageFooter.tsx[0m | [32;1m  81.25[0m | [33;1m      70[0m | [33;1m  78.94[0m | [32;1m   87.5[0m | [31;1m32-35            [0m 
+[32;1m  ...sagePanel.tsx[0m | [32;1m  91.89[0m | [33;1m   69.69[0m | [32;1m  88.88[0m | [32;1m     96[0m | [31;1m46               [0m 
+[32;1m  ...geSection.tsx[0m | [32;1m  93.47[0m | [33;1m   76.76[0m | [32;1m   87.5[0m | [32;1m  94.11[0m | [31;1m45-46            [0m 
+[32;1m ...tion-usage/lib[0m | [32;1m   83.8[0m | [33;1m   70.44[0m | [32;1m    100[0m | [32;1m  89.65[0m | [31;1m                 [0m 
+[32;1m  store.ts        [0m | [32;1m  83.01[0m | [33;1m   68.65[0m | [32;1m    100[0m | [32;1m  91.93[0m | [31;1m40,55-58         [0m 
+[32;1m  types.ts        [0m | [32;1m  85.29[0m | [33;1m   71.73[0m | [32;1m    100[0m | [32;1m   82.6[0m | [31;1m36,51-54         [0m 
+[33;1m ...nents/terminal[0m | [33;1m  71.49[0m | [33;1m   63.07[0m | [33;1m   68.9[0m | [33;1m  75.13[0m | [31;1m                 [0m 
+[33;1m  BottomPanel.tsx [0m | [33;1m  68.51[0m | [33;1m   59.81[0m | [33;1m   65.9[0m | [33;1m  71.11[0m | [31;1m...11-212,254-293[0m 
+[32;1m  ...ragHandle.tsx[0m | [32;1m  95.74[0m | [33;1m   69.23[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m33-71            [0m 
+[32;1m  ...alSidebar.tsx[0m | [32;1m  97.61[0m | [32;1m   95.83[0m | [32;1m  94.44[0m | [32;1m  96.96[0m | [31;1m117              [0m 
+[33;1m  ...nalTopBar.tsx[0m | [33;1m  61.53[0m | [32;1m   84.21[0m | [33;1m     50[0m | [33;1m  72.72[0m | [31;1m60-75            [0m 
+[33;1m  ...lViewport.tsx[0m | [33;1m   56.6[0m | [33;1m    50.4[0m | [31;1m  47.05[0m | [33;1m  61.41[0m | [31;1m...83-196,209-221[0m 
+[33;1m ...minals/context[0m | [33;1m  56.09[0m | [31;1m   37.23[0m | [33;1m  57.27[0m | [33;1m  60.84[0m | [31;1m                 [0m 
+[33;1m  ...lsContext.tsx[0m | [33;1m  56.09[0m | [31;1m   37.23[0m | [33;1m  57.27[0m | [33;1m  60.84[0m | [31;1m...08-913,971,979[0m 
+[32;1m src/hooks        [0m | [32;1m  90.47[0m | [32;1m   84.46[0m | [32;1m  89.36[0m | [32;1m  95.03[0m | [31;1m                 [0m 
+[32;1m  useDesktop.tsx  [0m | [32;1m  89.78[0m | [32;1m   83.33[0m | [32;1m  83.33[0m | [32;1m  97.28[0m | [31;1m246,339-341,371  [0m 
+[32;1m  ...eNotifier.tsx[0m | [32;1m  80.53[0m | [32;1m   90.47[0m | [33;1m  66.66[0m | [32;1m  84.84[0m | [31;1m...,61,68,354-355[0m 
+[32;1m  ...ementWidth.ts[0m | [32;1m  95.65[0m | [32;1m      80[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m21,26            [0m 
+[32;1m  ...dShortcuts.ts[0m | [32;1m  88.09[0m | [32;1m   86.87[0m | [32;1m   92.3[0m | [32;1m  89.36[0m | [31;1m...75-279,308,325[0m 
+[33;1m  ...dgetGuard.tsx[0m | [33;1m  78.94[0m | [33;1m      75[0m | [33;1m     50[0m | [33;1m     75[0m | [31;1m31-34            [0m 
+[32;1m  ...chForecast.ts[0m | [32;1m  96.33[0m | [32;1m   90.76[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...03,114,127,129[0m 
+[33;1m  useMediaQuery.ts[0m | [33;1m     75[0m | [33;1m   66.66[0m | [32;1m  85.71[0m | [32;1m   87.5[0m | [31;1m9,30             [0m 
+[32;1m  ...ableModal.tsx[0m | [32;1m  90.45[0m | [32;1m    82.2[0m | [32;1m  97.22[0m | [32;1m   94.4[0m | [31;1m...43-345,359-360[0m 
+[32;1m  ...ifications.ts[0m | [32;1m   97.9[0m | [32;1m   89.92[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...73-178,232,287[0m 
+[32;1m  ...ceHistory.tsx[0m | [32;1m  88.78[0m | [33;1m   77.86[0m | [32;1m  90.32[0m | [32;1m  91.66[0m | [31;1m...56,264,296-303[0m 
+[32;1m  usePlaceParam.ts[0m | [32;1m  96.42[0m | [32;1m      80[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m42-50,58         [0m 
+[32;1m  ...ojectCache.ts[0m | [32;1m  97.84[0m | [32;1m   85.24[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...42,147-148,198[0m 
+[32;1m  ...ucedMotion.ts[0m | [32;1m   90.9[0m | [32;1m     100[0m | [32;1m     80[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...bleSidebar.ts[0m | [32;1m  95.91[0m | [32;1m   82.35[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...31-132,136-137[0m 
+[32;1m  ...WebSocket.tsx[0m | [32;1m  84.84[0m | [33;1m   72.09[0m | [32;1m  93.75[0m | [32;1m  94.87[0m | [31;1m64-65,110-111    [0m 
+[32;1m  ...overIntent.ts[0m | [32;1m  85.07[0m | [33;1m   77.77[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...53,64-65,81-83[0m 
+[33;1m  ...ontextMenu.ts[0m | [33;1m  76.92[0m | [32;1m   83.33[0m | [32;1m     80[0m | [33;1m  77.77[0m | [31;1m46-47            [0m 
+[32;1m  useUndo.tsx     [0m | [32;1m  93.87[0m | [32;1m   86.79[0m | [32;1m     88[0m | [32;1m  97.36[0m | [31;1m129-130          [0m 
+[32;1m  useWebSocket.ts [0m | [32;1m   92.2[0m | [32;1m   86.04[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m35-36,46,59-74   [0m 
+[32;1m src/lib          [0m | [32;1m  94.54[0m | [32;1m   89.89[0m | [32;1m  95.81[0m | [32;1m  96.97[0m | [31;1m                 [0m 
+[32;1m  a11y-prefs.ts   [0m | [32;1m   92.3[0m | [33;1m   77.27[0m | [32;1m  92.85[0m | [32;1m    100[0m | [33;1m28,39-40,68,98   [0m 
+[32;1m  announce.ts     [0m | [32;1m     96[0m | [32;1m   93.75[0m | [32;1m  88.88[0m | [32;1m   97.5[0m | [31;1m26               [0m 
+[32;1m  api-response.ts [0m | [32;1m    100[0m | [32;1m   97.14[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m31               [0m 
+[32;1m  api.ts          [0m | [32;1m  85.71[0m | [32;1m     100[0m | [33;1m  66.66[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  ...ngs-events.ts[0m | [32;1m    100[0m | [33;1m      75[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m45               [0m 
+[32;1m  app-updater.ts  [0m | [32;1m    100[0m | [32;1m   93.75[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m51               [0m 
+[32;1m  auth.ts         [0m | [32;1m   93.7[0m | [32;1m   90.51[0m | [32;1m  95.65[0m | [32;1m    100[0m | [33;1m...37-138,157,162[0m 
+[32;1m  daily-budget.ts [0m | [32;1m    100[0m | [32;1m   98.21[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m77               [0m 
+[32;1m  feature-flags.ts[0m | [32;1m  84.53[0m | [33;1m   52.94[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m7-62,71-171      [0m 
+[32;1m  format-tokens.ts[0m | [32;1m  88.88[0m | [32;1m      80[0m | [32;1m    100[0m | [32;1m  88.88[0m | [31;1m11               [0m 
+[32;1m  format-usd.ts   [0m | [32;1m    100[0m | [32;1m   88.88[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m25               [0m 
+[32;1m  ...transition.ts[0m | [32;1m    100[0m | [32;1m   96.55[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m49               [0m 
+[32;1m  ...-highlight.ts[0m | [32;1m  95.12[0m | [33;1m   77.27[0m | [32;1m    100[0m | [32;1m  96.66[0m | [31;1m29               [0m 
+[32;1m  i18n.ts         [0m | [32;1m  98.03[0m | [33;1m   78.57[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m...04,119,163,185[0m 
+[32;1m  ...ial-commit.ts[0m | [32;1m  83.33[0m | [33;1m      70[0m | [32;1m    100[0m | [33;1m  77.77[0m | [31;1m23,30            [0m 
+[32;1m  json-tolerant.ts[0m | [32;1m  95.32[0m | [32;1m   91.78[0m | [32;1m    100[0m | [32;1m  95.19[0m | [31;1m109-110,119-121  [0m 
+[32;1m  ...oard-label.ts[0m | [32;1m    100[0m | [32;1m   83.33[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m4,12             [0m 
+[32;1m  ...h-forecast.ts[0m | [32;1m  98.95[0m | [32;1m   98.09[0m | [32;1m    100[0m | [32;1m   98.7[0m | [31;1m86               [0m 
+[32;1m  ...own-detect.ts[0m | [32;1m  95.83[0m | [32;1m   95.45[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m17               [0m 
+[32;1m  ...l-geometry.ts[0m | [32;1m    100[0m | [32;1m   94.02[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m145,218-222      [0m 
+[32;1m  model-label.ts  [0m | [32;1m    100[0m | [32;1m    87.5[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m33-34,50         [0m 
+[32;1m  notify-error.ts [0m | [32;1m    100[0m | [32;1m   96.87[0m | [32;1m  83.33[0m | [32;1m    100[0m | [33;1m25               [0m 
+[32;1m  ...-in-editor.ts[0m | [32;1m  93.93[0m | [32;1m     100[0m | [32;1m  91.66[0m | [32;1m  96.29[0m | [31;1m44               [0m 
+[32;1m  origin.ts       [0m | [32;1m  85.71[0m | [32;1m   84.61[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m13-14            [0m 
+[32;1m  ...tte-bridge.ts[0m | [32;1m  97.22[0m | [32;1m     100[0m | [32;1m   92.3[0m | [32;1m    100[0m | [33;1m                 [0m 
+[32;1m  places.ts       [0m | [32;1m  96.75[0m | [32;1m   91.27[0m | [32;1m  94.73[0m | [32;1m  97.63[0m | [31;1m189,213,246      [0m 
+[32;1m  review-wip.ts   [0m | [32;1m  92.98[0m | [32;1m   80.39[0m | [32;1m   90.9[0m | [32;1m  93.33[0m | [31;1m124-126          [0m 
+[32;1m  ...ouncements.ts[0m | [32;1m  93.02[0m | [32;1m   94.11[0m | [32;1m    100[0m | [32;1m  96.96[0m | [31;1m46               [0m 
+[32;1m  ...-text-file.ts[0m | [32;1m  94.11[0m | [32;1m     100[0m | [32;1m    100[0m | [32;1m  94.11[0m | [31;1m32               [0m 
+[32;1m  ...bar-layout.ts[0m | [32;1m   87.5[0m | [32;1m    92.3[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m13               [0m 
+[31;1m  ...-clipboard.ts[0m | [31;1m      0[0m | [31;1m       0[0m | [31;1m      0[0m | [31;1m      0[0m | [31;1m11-38            [0m 
+[32;1m  ws-url.ts       [0m | [32;1m    100[0m | [32;1m   86.66[0m | [32;1m    100[0m | [32;1m    100[0m | [33;1m3,20             [0m 
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+[32;1mStatements   : 83.88% ( 38459/45847 )[0m
+[33;1mBranches     : 78.63% ( 34180/43469 )[0m
+[32;1mFunctions    : 81.29% ( 9193/11308 )[0m
+[32;1mLines        : 88.1% ( 32192/36537 )[0m
+================================================================================

@@ -73,8 +73,9 @@ describe('AgentWorkspaceSidebar', () => {
     expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('keeps icon-only tools named on the collapsed rail', () => {
+  it('hides workspace tools completely when the sidebar is closed', () => {
     render(<AgentWorkspaceSidebar />)
-    expect(screen.getByRole('button', { name: 'Jobs' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Jobs' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('workspace-sidebar-panel')).toHaveAttribute('inert')
   })
 })

@@ -273,7 +273,12 @@
     "noJobs": "まだジョブがありません — エージェントに実行を頼んでみましょう",
     "analytics": "アナリティクス",
     "closeAnalytics": "アナリティクスを閉じる",
-    "resizeAnalytics": "アナリティクスパネルをリサイズ"
+    "resizeAnalytics": "アナリティクスパネルをリサイズ",
+    "specs": "スペック",
+    "closeSpecs": "スペックを閉じる",
+    "resizeSpecs": "スペックパネルのサイズ変更",
+    "noSpecs": "まだスペックがありません — エージェントに作成を頼んでみましょう",
+    "specsClosed": "完了済み"
   },
   "attachFile": "ファイルを添付",
   "deleteConversation": "「{{title}}」を削除",
@@ -1483,6 +1488,7 @@
   "composer": {
     "ariaLabel": "エージェントへのメッセージ",
     "dropFiles": "ドロップしてファイルを添付",
+    "dropSpec": "ドロップしてこの仕様を参照",
     "uploading": "アップロード中…"
   },
   "conversation": {

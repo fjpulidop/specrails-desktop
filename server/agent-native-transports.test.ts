@@ -134,8 +134,8 @@ describe('real mission manager with native transport composition', () => {
 
   it.each(['claude', 'codex'] as const)('%s keeps default input queued, steers on request and checkpoints the native receipt before following text', async provider => {
     const model = provider === 'claude' ? 'fable' : 'gpt-6-astra'
-    // The `fable` catalog alias is pinned to Fable 5.1 at spawn time.
-    const spawnModel = provider === 'claude' ? 'claude-fable-5-1' : model
+    // The `fable` catalog alias is pinned to Fable 5.2 at spawn time.
+    const spawnModel = provider === 'claude' ? 'claude-fable-5-2' : model
     const id = createAgentConversation(db, { provider, model, tierLevel: 3, reasoningEffort: 'high' }).id
     updateAgentConversation(db, id, { title: 'Native composition verification' })
     const running = manager.sendMessage(id, 'Implement the original spec.', { queueId: 'initial' })

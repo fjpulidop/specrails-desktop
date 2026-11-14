@@ -1,15 +1,13 @@
-import { isTauri } from '../../../lib/tauri-shell'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase, BarChart3 } from 'lucide-react'
+import { Globe, TerminalSquare, FileCode2, Briefcase, BarChart3, ListChecks } from 'lucide-react'
 import { BlueprintPanel } from '../../builder/components/project-builder/BlueprintPanel'
 import { BlueprintReadiness } from '../../builder/components/project-builder/BlueprintReadiness'
 import { cn } from '../../../lib/utils'
 import { useResizableSidebar } from '../../../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from '../../../components/SidebarResizeGrip'
 import { useSidebarHoverIntent } from '../../../hooks/useSidebarHoverIntent'
-import { keyboardLabel } from '../../../lib/keyboard-label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useSidebarPin } from '../../../context/SidebarPinContext'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -19,12 +17,6 @@ import { useAgentChat } from '../context/AgentChatContext'
 import { FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL } from '../../../lib/feature-flags'
 import { isBrowserCaptureEnabled } from '../../browser/lib/browser-capture'
 import { BuilderSidebarEntry } from '../../builder/components/project-builder/BuilderSidebarEntry'
-
-const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned', string> = {
-  'pinned-open': 'sidebarPin.right.pinnedOpen',
-  'pinned-collapsed': 'sidebarPin.right.pinnedCollapsed',
-  'unpinned': 'sidebarPin.right.unpinned',
-}
 
 /**
  * Agent-Mode right "On workspace" toolbar. Mirrors ProjectRightSidebar chrome
@@ -36,27 +28,24 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
   const { t } = useTranslation('agent')
   const { t: tNav } = useTranslation('nav')
   const { t: tBuilder } = useTranslation('builder')
-  const { rightMode, effectiveRightMode, cycleRightMode } = useSidebarPin()
+  const { effectiveRightMode } = useSidebarPin()
   const { activeProjectId } = useDesktop()
   const terminals = useTerminals()
   const workspace = useAgentWorkspace()
   const { builderMode } = useAgentChat()
   const unpinned = effectiveRightMode === 'unpinned'
-  // Builder mode transforms this rail into the live blueprint panel (reskin
-  // D4) — force it expanded AND docked for the duration so the panel is readable.
-  const docked = builderMode.active || effectiveRightMode === 'pinned-open'
+  // Builder content follows the same user-controlled visibility as other tools.
+  const docked = effectiveRightMode === 'pinned-open'
   const [dragging, setDragging] = useState(false)
-  const hover = useSidebarHoverIntent({ enabled: unpinned && !builderMode.active, dragging })
+  const hover = useSidebarHoverIntent({ enabled: unpinned, dragging })
   const expanded = docked || (unpinned && hover.hovered)
-  // Imperative drag-resize (208px expanded, 44px collapsed rail). A hover-
-  // expanded unpinned rail overlays the content; the wrapper keeps 44px.
+  // Imperative drag-resize (208px expanded, no collapsed rail). A hover-
+  // expanded unpinned rail overlays the content; the wrapper keeps no width.
   const resize = useResizableSidebar('right-workspace', {
-    side: 'right', defaultWidth: 208, min: 180, max: 460, collapsedWidth: 44, expanded, docked,
+    side: 'right', defaultWidth: 208, min: 180, max: 460, collapsedWidth: 0, expanded, docked,
   })
   useEffect(() => { setDragging(resize.dragging) }, [resize.dragging])
   const overlaying = expanded && !docked
-  const lit = rightMode !== 'unpinned'
-  const pinLabel = tNav(RIGHT_PIN_LABEL_KEY[rightMode])
   const noProject = !activeProjectId
   const terminalOpen = !!activeProjectId && terminals.getState(activeProjectId).visibility !== 'hidden'
   const tools: Array<{ key: string; icon: typeof Globe; label: string; onClick: () => void; disabled: boolean; disabledTitle: string; active: boolean }> = [
@@ -67,6 +56,12 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
       onClick: () => workspace.toggleJobsPane(),
       disabled: noProject, disabledTitle: t('workspace.requiresProject'),
       active: workspace.jobsPaneOpen,
+    },
+    {
+      key: 'specs', icon: ListChecks, label: t('workspace.specs'),
+      onClick: () => workspace.toggleSpecsPane(),
+      disabled: noProject, disabledTitle: t('workspace.requiresProject'),
+      active: workspace.specsPaneOpen,
     },
     {
       key: 'analytics', icon: BarChart3, label: t('workspace.analytics'),
@@ -107,17 +102,22 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
   return (
     <aside
       ref={resize.wrapperRef}
+      tabIndex={unpinned && !expanded ? 0 : -1}
       aria-label={t('workspace.title')}
       className="relative h-full flex-shrink-0 transition-[width] duration-200 ease-in-out"
       {...hover.handlers}
     >
+    {unpinned && !expanded && <div aria-hidden="true" data-testid="sidebar-edge-right" className="absolute inset-y-0 right-0 z-30 w-2" />}
     <div
       ref={resize.panelRef}
+      inert={!expanded}
+      aria-hidden={!expanded}
       data-testid="workspace-sidebar-panel"
       data-overlay={overlaying || undefined}
       className={cn(
-        'absolute inset-y-0 right-0 z-30 flex flex-col border-l border-border bg-background overflow-hidden',
+        'absolute inset-y-0 right-0 z-30 flex flex-col border-l border-border surface-side overflow-hidden',
         'transition-[width,box-shadow] duration-200 ease-in-out',
+        !expanded && 'invisible border-none',
         overlaying && 'shadow-xl',
       )}
     >
@@ -133,30 +133,6 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
           onKeyDown={resize.onGripKeyDown}
         />
       )}
-      {!isTauri() && <div className={cn(
-        'flex items-center h-12 border-b border-border flex-shrink-0',
-        expanded ? 'px-3 justify-between' : 'justify-center',
-      )}>
-        {expanded && (
-          <span className="text-label whitespace-nowrap overflow-hidden text-muted-foreground">
-            {t('workspace.title')}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={cycleRightMode}
-          className={cn(
-            'flex items-center justify-center w-7 h-7 rounded-md transition-colors',
-            lit ? 'text-foreground bg-muted' : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/50',
-            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2',
-          )}
-          aria-label={pinLabel}
-          aria-pressed={lit}
-          title={tNav('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌥⌘B') })}
-        >
-          <PanelRight className="w-4 h-4" />
-        </button>
-      </div>}
 
       {builderMode.active ? (
         // ── Builder transformation: the tool rail becomes the live blueprint
@@ -201,7 +177,7 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
               aria-label={!expanded ? label : undefined}
               aria-describedby={disabled ? reasonId : undefined}
               className={cn(
-                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'area-nav flex items-center gap-2 w-full h-8 rounded-md transition-colors',
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2',
                 expanded ? 'px-2' : 'px-0 justify-center',
                 disabled
@@ -211,6 +187,7 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
               )}
               title={!disabled && !expanded ? label : undefined}
+              data-area={key}
               data-active={active || undefined}
             >
               <Icon className={cn('w-4 h-4 flex-shrink-0', active && !disabled && 'text-accent-primary')} aria-hidden />

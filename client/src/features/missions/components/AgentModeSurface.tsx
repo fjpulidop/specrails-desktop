@@ -23,6 +23,9 @@ const AgentModeCodePane = lazy(() =>
 const AgentModeJobsPane = lazy(() =>
   import('./AgentModeJobsPane').then((m) => ({ default: m.AgentModeJobsPane })),
 )
+const AgentModeSpecsPane = lazy(() =>
+  import('./AgentModeSpecsPane').then((m) => ({ default: m.AgentModeSpecsPane })),
+)
 const AgentModeAnalyticsPane = lazy(() =>
   import('./AgentModeAnalyticsPane').then((m) => ({ default: m.AgentModeAnalyticsPane })),
 )
@@ -90,7 +93,7 @@ function ConversationLayout({ splitPane, children }: { splitPane: boolean; child
 export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } = {}) {
   const composerLayoutId = useMissionPaneLayoutId()
   const { active, refreshConversations, builderMode } = useAgentChat()
-  const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen } = useAgentWorkspace()
+  const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen, specsPaneOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
   const windows = useMissionWindows()
   const revision = useMissionViewRevision(active?.id ?? '__new-mission__')
@@ -107,15 +110,16 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
   // thread — it only needs an active project (its own store is per-conversation,
   // falling back to a Home key when no conversation is open yet).
   // At most one side pane at a time (the context keeps them exclusive; this
-  // guards any stale combination in the order jobs → code → analytics).
+  // guards any stale combination in the order jobs → code → analytics → specs).
   const showJobs = jobsPaneOpen && !!activeProjectId && !external
   const showCode = !showJobs && codePaneOpen && !!activeProjectId && !external
   const showAnalytics = !showJobs && !showCode && analyticsPaneOpen && !!activeProjectId && !external
+  const showSpecs = !showJobs && !showCode && !showAnalytics && specsPaneOpen && !!activeProjectId && !external
 
   return (
-    <div data-agent-mode-surface className="relative z-0 flex h-full w-full overflow-hidden bg-background">
+    <div data-agent-mode-surface className="relative z-0 flex h-full w-full overflow-hidden surface-center">
       {isGalaxy && <Starfield />}
-      <div className="relative flex h-full min-w-[360px] flex-1 flex-col overflow-hidden">
+      <div data-area="missions" className="area-surface relative flex h-full min-w-[360px] flex-1 flex-col overflow-hidden">
         {/* Radial glow — always mounted so EMPTY⇄ACTIVE crossfades instead of popping. */}
         <motion.div
           aria-hidden
@@ -183,6 +187,12 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
       {showAnalytics && (
         <Suspense fallback={<div className="w-[560px] border-l border-border" />}>
           <AgentModeAnalyticsPane />
+        </Suspense>
+      )}
+
+      {showSpecs && (
+        <Suspense fallback={<div className="w-[420px] border-l border-border" />}>
+          <AgentModeSpecsPane key={activeProjectId!} projectId={activeProjectId!} draftKey={active?.id ?? NEW_MISSION_DRAFT_KEY} />
         </Suspense>
       )}
 

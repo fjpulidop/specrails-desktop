@@ -423,12 +423,12 @@ Claude adapter pin, selector labels, Core CLI executor and cost estimates aligne
 when advancing this alias. Concrete historical model IDs in usage events retain
 their existing estimates; provider-reported cost remains authoritative.
 
-The `fable` catalog value pins to Claude Fable 5.1 (`claude-fable-5-1`); both
+The `fable` catalog value pins to Claude Fable 5.2 (`claude-fable-5-2`); `claude-fable-5-2`,
 `claude-fable-5-1` and `claude-fable-5` collapse back to `fable` in
-`normaliseModel`. Catalog labels read "Claude Sonnet 5.5 / Fable 5.1 / Opus 5.5 /
+`normaliseModel`. Catalog labels read "Claude Sonnet 5.5 / Fable 5.2 / Opus 5.5 /
 Haiku 5.5" in every mirror (adapter, `spec-models.ts`, `ChatInput.tsx`,
 `loop-run-models.ts`). Rate-card keys: alias keys carry the pinned generation,
-legacy ids (`claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`,
+legacy ids (`claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`,
 `claude-sonnet-4`, `claude-haiku-4-5`) keep their own card; Haiku 5.5 uses the
 `longContext` tier above 100,000 prompt tokens (input + cache reads + writes).
 
