@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { __clearComposerDrafts, captureComposerDraft, writeComposerDraft } from '../../lib/agent-composer-drafts'
 
 const state = vi.hoisted(() => ({
+  providersReady: true,
   active: { id: 'source', archivedAt: null as string | null },
   send: vi.fn(), refreshConversations: vi.fn(), open: vi.fn(), toggle: vi.fn(),
 }))
@@ -18,6 +19,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 beforeEach(() => {
   vi.clearAllMocks()
+  state.providersReady = true
   __clearComposerDrafts()
   window.getSelection()?.removeAllRanges()
   state.active = { id: 'source', archivedAt: null }
@@ -49,7 +51,7 @@ function open() {
   fireEvent.pointerUp(text, { button: 0 })
 }
 
-it('shows both actions after selection and sends once through the captured source, preserving its draft', async () => {
+it('[spec:mission-text-reuse/add-selection-to-the-captured-source-mission] shows both actions after selection and sends once through the captured source, preserving its draft', async () => {
   writeComposerDraft('source', 'My unfinished draft', [])
   const { rerender } = render(<Transcript />)
   open()
@@ -70,7 +72,7 @@ it('shows both actions after selection and sends once through the captured sourc
   expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 })
 
-it.each([['From scratch', 'empty'], ['With context · Fork', 'fork']])('prepares %s in an additional pane without sending it', async (label, mode) => {
+it.each([['From scratch', 'empty'], ['With context · Fork', 'fork']])('[spec:mission-text-reuse/prepare-an-unsent-mission-in-an-additional-pane] prepares %s in an additional pane without sending it', async (label, mode) => {
   writeComposerDraft('source', 'Keep this draft', [])
   render(<Transcript />)
   const first = screen.getByText('First message')
@@ -86,7 +88,7 @@ it.each([['From scratch', 'empty'], ['With context · Fork', 'fork']])('prepares
   expect(state.send).not.toHaveBeenCalled()
 })
 
-it('retains the selection and admission ID for a failed send retry', async () => {
+it('[spec:mission-text-reuse/add-selection-to-the-captured-source-mission] retains the selection and admission ID for a failed send retry', async () => {
   state.send.mockResolvedValueOnce({ accepted: false }).mockResolvedValueOnce({ accepted: true })
   render(<Transcript />)
   open()
@@ -97,7 +99,7 @@ it('retains the selection and admission ID for a failed send retry', async () =>
   expect(state.send.mock.calls[0]).toEqual(state.send.mock.calls[1])
 })
 
-it('opens with Shift+F10, supports arrow navigation and dismisses with Escape', async () => {
+it('[spec:mission-text-reuse/selection-menu-supports-pointer-and-keyboard-operation] opens with Shift+F10, supports arrow navigation and dismisses with Escape', async () => {
   render(<Transcript />)
   const transcript = screen.getByTestId('transcript')
   transcript.focus()
@@ -112,7 +114,7 @@ it('opens with Shift+F10, supports arrow navigation and dismisses with Escape', 
   expect(transcript).toHaveFocus()
 })
 
-it('keeps archived history selectable but prevents sending to it', () => {
+it('[spec:mission-text-reuse/add-selection-to-the-captured-source-mission] keeps archived history selectable but prevents sending to it', () => {
   state.active.archivedAt = '2026-01-01'
   render(<Transcript />)
   open()
@@ -120,7 +122,7 @@ it('keeps archived history selectable but prevents sending to it', () => {
   expect(screen.getByRole('menuitem', { name: 'Start a separate mission' })).toBeEnabled()
 })
 
-it('uses the last actually selected message, excluding an endpoint at the next message start', () => {
+it('[spec:mission-text-reuse/selection-actions-target-committed-transcript-text] uses the last actually selected message, excluding an endpoint at the next message start', () => {
   render(<Transcript />)
   const first = screen.getByText('First message')
   const last = screen.getByText('Selected message')
@@ -128,7 +130,7 @@ it('uses the last actually selected message, excluding an endpoint at the next m
   expect(readMissionSelection(screen.getByTestId('transcript'), selection)).toMatchObject({ text: 'st message', throughMessageId: 'first' })
 })
 
-it('rejects selections crossing a different pane or an uncommitted stream', () => {
+it('[spec:mission-text-reuse/selection-actions-target-committed-transcript-text] rejects selections crossing a different pane or an uncommitted stream', () => {
   render(<><Transcript /><p data-mission-message="foreign">Other pane</p></>)
   const root = screen.getByTestId('transcript')
   const first = screen.getByText('First message').firstChild!
@@ -136,7 +138,7 @@ it('rejects selections crossing a different pane or an uncommitted stream', () =
   expect(readMissionSelection(root, select(first, screen.getByText('Other pane').firstChild!))).toBeNull()
 })
 
-it('preserves the menu for a failed branch and creates neither a draft nor a pane', async () => {
+it('[spec:mission-text-reuse/failed-fork-preparation-preserves-user-work] preserves the menu for a failed branch and creates neither a draft nor a pane', async () => {
   vi.mocked(branchAgentConversation).mockRejectedValue(new Error('Missing attachment'))
   render(<Transcript />)
   open()
@@ -147,7 +149,7 @@ it('preserves the menu for a failed branch and creates neither a draft nor a pan
   expect(captureComposerDraft('new-mission').text).toBe('')
 })
 
-it('explains when the running server does not support forks, preserving the selection and drafts', async () => {
+it('[spec:mission-text-reuse/failed-fork-preparation-preserves-user-work] explains when the running server does not support forks, preserving the selection and drafts', async () => {
   const error = new ApiResponseError('endpointUnavailable', 404)
   vi.mocked(branchAgentConversation).mockRejectedValue(error)
   writeComposerDraft('source', 'Keep my draft', [])
@@ -160,4 +162,15 @@ it('explains when the running server does not support forks, preserving the sele
   expect(state.open).not.toHaveBeenCalled()
   expect(captureComposerDraft('source').text).toBe('Keep my draft')
   expect(captureComposerDraft('new-mission').text).toBe('')
+})
+
+it('[spec:mission-text-reuse/add-selection-to-the-captured-source-mission] disables sending while providers are unavailable', () => {
+  state.providersReady = false
+  render(<Transcript />)
+  open()
+  const add = screen.getByRole('menuitem', { name: 'Add to mission' })
+  expect(add).toBeDisabled()
+  fireEvent.click(add)
+  expect(state.send).not.toHaveBeenCalled()
+  expect(screen.getByRole('menuitem', { name: 'Start a separate mission' })).toBeEnabled()
 })

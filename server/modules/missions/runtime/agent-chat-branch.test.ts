@@ -35,7 +35,7 @@ describe('mission branches', () => {
   const upload = (conversationId: string, text: string) => files.uploadAgent({ conversationId,
     file: { buffer: Buffer.from(text), size: text.length, mimetype: 'text/plain', originalname: `${text}.txt` } })
 
-  it('copies the inclusive cut with independent files, settings and provenance; never starts a turn', async () => {
+  it('[spec:mission-text-reuse/fork-snapshots-are-inclusive-and-independent] copies the inclusive cut with independent files, settings and provenance; never starts a turn', async () => {
     const source = createAgentConversation(db, { pinnedProjectId: 'project', provider: 'codex', model: 'gpt-6.1-sol', tierLevel: 3, reasoningEffort: 'high' })
     updateAgentConversation(db, source.id, { title: 'Original', session_id: 'private-provider-session' })
     const file = await upload(source.id, 'selected-context')
@@ -70,7 +70,7 @@ describe('mission branches', () => {
     expect(getAgentConversation(db, branch.id)?.forkSource?.messageId).toBe(cut.id)
   })
 
-  it('starts empty with the source settings and no history, files or provider session', async () => {
+  it('[spec:mission-text-reuse/snapshot-creation-reports-failure-without-a-partial-mission] starts empty with the source settings and no history, files or provider session', async () => {
     const source = createAgentConversation(db, { pinnedProjectId: 'p', provider: 'codex', tierLevel: 2 })
     const message = addAgentMessage(db, { conversationId: source.id, role: 'user', content: 'Source' })
     const result = await request(app).post(`/api/agent/conversations/${source.id}/branch`).send({ mode: 'empty', throughMessageId: message.id })
@@ -82,7 +82,7 @@ describe('mission branches', () => {
     expect(manager.sendMessage).not.toHaveBeenCalled()
   })
 
-  it('preserves interrupted history without copying admissions that could replay it', async () => {
+  it('[spec:mission-text-reuse/fork-snapshots-are-inclusive-and-independent] preserves interrupted history without copying admissions that could replay it', async () => {
     const source = createAgentConversation(db)
     enqueueAgentInput(db, { conversationId: source.id, queueId: 'interrupted', text: 'Unfinished' })
     recoverPendingAgentInputs(db)
@@ -93,7 +93,21 @@ describe('mission branches', () => {
     expect(recoverPendingAgentInputs(db)).toEqual([])
   })
 
-  it('rejects a foreign message, missing source, trash and malformed requests without creating a mission', async () => {
+  it('[spec:mission-text-reuse/snapshot-creation-reports-failure-without-a-partial-mission] branches archived sources without changing their archive state', async () => {
+    const source = createAgentConversation(db)
+    db.prepare('UPDATE agent_conversations SET archived_at = ? WHERE id = ?').run('2026-01-01', source.id)
+    const message = addAgentMessage(db, { conversationId: source.id, role: 'user', content: 'Archived history' })
+    const before = getAgentConversation(db, source.id)
+    const result = await request(app).post(`/api/agent/conversations/${source.id}/branch`).send({ mode: 'fork', throughMessageId: message.id })
+    expect(result.status).toBe(201)
+    expect(result.body.conversation.archivedAt).toBeNull()
+    expect(listAgentMessages(db, result.body.conversation.id).map(row => row.content)).toEqual(['Archived history'])
+    expect(getAgentConversation(db, source.id)).toEqual(before)
+    expect(before?.archivedAt).toBe('2026-01-01')
+    expect(manager.sendMessage).not.toHaveBeenCalled()
+  })
+
+  it('[spec:mission-text-reuse/snapshot-creation-reports-failure-without-a-partial-mission] rejects a foreign message, missing source, trash and malformed requests without creating a mission', async () => {
     const source = createAgentConversation(db)
     const other = createAgentConversation(db)
     const message = addAgentMessage(db, { conversationId: other.id, role: 'user', content: 'Other project' })
@@ -108,7 +122,7 @@ describe('mission branches', () => {
     expect(manager.notifyConversationCreated).not.toHaveBeenCalled()
   })
 
-  it.each(['missing file', 'database failure'])('rolls back the mission and its files on %s', async failure => {
+  it.each(['missing file', 'database failure'])('[spec:mission-text-reuse/snapshot-creation-reports-failure-without-a-partial-mission] rolls back the mission and its files on %s', async failure => {
     const source = createAgentConversation(db)
     const file = await upload(source.id, 'context')
     const message = addAgentMessage(db, { conversationId: source.id, role: 'user', content: 'Original', attachmentIds: [file.id] })

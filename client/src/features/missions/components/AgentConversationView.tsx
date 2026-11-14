@@ -631,7 +631,11 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               </div>
             )
             })()
-            return <div key={m.id} data-mission-message={m.id}>
+            if (row === null) return null
+            // These IDs belong to client-only rows until the server supplies a
+            // persisted message boundary (optimistic input, fallback tail or error).
+            const selectionId = m.id.startsWith('local-') || m.id.startsWith('err-') ? undefined : m.id
+            return <div key={m.id} data-mission-message={selectionId}>
               {m.source_message_id && m.role !== 'user'
                 ? <fieldset disabled className="min-w-0" aria-label={t('selection.inherited')}>{row}</fieldset>
                 : row}

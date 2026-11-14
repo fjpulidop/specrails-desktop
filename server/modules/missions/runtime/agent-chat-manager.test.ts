@@ -123,7 +123,7 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     return db.prepare('SELECT * FROM agent_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
   }
 
-  it('seeds copied fork attachments into a fresh session without reattaching them to the new user message', async () => {
+  it('[spec:agent-attachments/attachment-fold-into-the-turn] seeds copied fork attachments into a fresh session without reattaching them to the new user message', async () => {
     const source = createAgentConversation(db)
     const historical = addAgentMessage(db, { conversationId: source.id, role: 'user', content: 'Earlier requirement', attachmentIds: ['old-file'] })
     const interrupted = addAgentMessage(db, { conversationId: source.id, role: 'user', content: 'Unfinished', attachmentIds: ['undelivered-file'] })

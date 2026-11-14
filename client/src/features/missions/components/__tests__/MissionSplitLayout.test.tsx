@@ -5,6 +5,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { AgentChatProvider, useAgentChat } from '../../context/AgentChatContext'
 import { useActiveLive } from '../../hooks/useAgentLive'
 import { useMissionPaneClose, useMissionPaneLayoutId } from '../../context/MissionSplitViewsContext'
+import { AgentConversationView } from '../AgentConversationView'
 import { MissionSplitLayout } from '../MissionSplitLayout'
 import { MissionConversationMenu } from '../MissionConversationMenu'
 import { AgentComposer, __clearComposerDrafts } from '../AgentComposer'
@@ -24,14 +25,17 @@ vi.mock('../../lib/agent-api', async original => {
   const conversations = ['one', 'two', 'three'].map((title, index) => ({ id: `c${index + 1}`, title, provider: 'claude', model: 'sonnet', session_id: null,
     pinned_project_id: `p${index + 1}`, tier_level: 0, created_at: '', updated_at: '' }))
   return { ...actual, listAgentConversations: vi.fn(async () => conversations),
-    getAgentConversation: vi.fn(async (id: string) => ({ conversation: conversations.find(conversation => conversation.id === id), messages: [], live: { isStreaming: false, streamingText: '' }, pendingMessages: [] })),
+    getAgentConversation: vi.fn(async (id: string) => ({ conversation: conversations.find(conversation => conversation.id === id), messages: [{ id: `${id}-message`, conversation_id: id, role: 'user', content: 'Selected mission text', created_at: '' }], live: { isStreaming: false, streamingText: '' }, pendingMessages: [] })),
     getAgentModels: vi.fn(async () => ({ models: [{ value: 'sonnet', label: 'Sonnet 5.5', default: true }], efforts: ['medium', 'high'], customModelAliases: false, supportsImageInput: true })),
     sendAgentMessage: vi.fn(async () => ({ queued: false })), abortAgentTurn: vi.fn(async () => {}),
+    listAgentAttachments: vi.fn(async () => []),
+    branchAgentConversation: vi.fn(async () => conversations[2]),
     patchAgentConversation: vi.fn(), createAgentConversation: vi.fn(), deleteAgentConversation: vi.fn(),
     getMcpStatus: vi.fn(async () => ({ enabled: true })), getAvailableProviders: vi.fn(async () => ({ any: true, installed: ['claude'] })) }
 })
 vi.mock('../AgentModeSurface', () => ({ AgentModeSurface: () => <Pane /> }))
 
+let showConversation = false
 function Pane() {
   const chat = useAgentChat()
   const live = useActiveLive()
@@ -41,7 +45,7 @@ function Pane() {
     <span>{chat.active?.title}</span>
     {close && <button onClick={close}>Close {chat.active?.title}</button>}
     <output data-testid={`stream-${chat.active?.id}`}>{live.streamingText}</output>
-    <AgentComposer />
+    {showConversation ? <AgentConversationView variant="inline" /> : <AgentComposer />}
   </div>
 }
 function Workspace() {
@@ -53,7 +57,7 @@ function Workspace() {
     <MissionSplitLayout><Pane /></MissionSplitLayout>
   </>
 }
-beforeEach(() => { ws.handlers.clear(); vi.clearAllMocks(); __clearComposerDrafts() })
+beforeEach(() => { showConversation = false; window.getSelection()?.removeAllRanges(); ws.handlers.clear(); vi.clearAllMocks(); __clearComposerDrafts() })
 
 it('adds conversations without replacing the current one, isolates drafts and live events, and collapses only the closed pane', async () => {
   const user = userEvent.setup()
@@ -126,4 +130,49 @@ it('shows a failed pane with retry and allows closing it without changing the or
   await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Retry' }))
   await screen.findByTestId('pane-c2')
   expect(screen.getByTestId('primary-id')).toHaveTextContent('c1')
+})
+
+it.each([['From scratch', 'empty'], ['With context · Fork', 'fork']])('[spec:mission-text-reuse/prepare-an-unsent-mission-in-an-additional-pane] selection prepares %s with an editable focused draft and preserves existing work', async (label, mode) => {
+  showConversation = true
+  Range.prototype.getBoundingClientRect = () => ({ left: 20, bottom: 30 }) as DOMRect
+  const user = userEvent.setup()
+  render(<AgentChatProvider><Workspace /></AgentChatProvider>)
+  const primary = await screen.findByTestId('pane-c1')
+  const primaryEditor = await within(primary).findByRole('textbox')
+  await user.type(primaryEditor, 'Unsent source draft')
+  fireEvent.contextMenu(screen.getByRole('button', { name: 'Open c2' }))
+  await user.click(screen.getByRole('menuitem', { name: 'Split view' }))
+  const second = await screen.findByTestId('pane-c2')
+  const secondEditor = within(second).getByRole('textbox')
+  await user.type(secondEditor, 'Other pane draft')
+  const sourceLog = within(primary).getByRole('log')
+  sourceLog.scrollTop = 137
+  fireEvent.scroll(sourceLog)
+  const identities = [primary.dataset.layoutId, second.dataset.layoutId]
+  const selected = await within(primary).findByText('Selected mission text')
+  const range = document.createRange()
+  range.selectNodeContents(selected.firstChild!)
+  const selection = window.getSelection()!
+  selection.removeAllRanges()
+  selection.addRange(range)
+  fireEvent.pointerUp(selected, { button: 0 })
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Start a separate mission' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(label) }))
+  const added = await screen.findByTestId('pane-c3')
+  const editor = await within(added).findByRole('textbox')
+  await waitFor(() => expect(editor).toHaveTextContent('Selected mission text'))
+  await waitFor(() => expect(editor).toHaveFocus())
+  expect(api.branchAgentConversation).toHaveBeenCalledExactlyOnceWith('c1', 'c1-message', mode)
+  expect(document.querySelector('[data-split-count]')).toHaveAttribute('data-split-count', '3')
+  expect(screen.getByTestId('pane-c1')).toBe(primary)
+  expect(screen.getByTestId('pane-c2')).toBe(second)
+  expect([primary.dataset.layoutId, second.dataset.layoutId]).toEqual(identities)
+  expect(within(primary).getByRole('textbox')).toBe(primaryEditor)
+  expect(within(primary).getByRole('log')).toBe(sourceLog)
+  expect(sourceLog.scrollTop).toBe(137)
+  expect(primaryEditor).toHaveTextContent('Unsent source draft')
+  expect(secondEditor).toHaveTextContent('Other pane draft')
+  await user.type(editor, ' edited')
+  expect(editor).toHaveTextContent('Selected mission text edited')
+  expect(api.sendAgentMessage).not.toHaveBeenCalled()
 })

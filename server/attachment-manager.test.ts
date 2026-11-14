@@ -429,7 +429,7 @@ describe('AttachmentManager', () => {
   })
 
   describe('copyAgentAttachments', () => {
-    it('copies only referenced attachments once and survives deletion of the source', async () => {
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] copies only referenced attachments once and survives deletion of the source', async () => {
       const att = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
       await manager.uploadAgent({ conversationId: 'source', file: makeFile({ originalname: 'later.txt' }) })
       expect(manager.copyAgentAttachments('source', 'fork', [att.id, att.id])).toEqual([att])
@@ -442,7 +442,7 @@ describe('AttachmentManager', () => {
       })
     })
 
-    it('rejects a missing source file before writing any destination files', async () => {
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] rejects a missing source file before writing any destination files', async () => {
       const att = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
       const missing = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
       fs.unlinkSync(manager.getAgentFilePath('source', missing.id)!)
@@ -451,7 +451,7 @@ describe('AttachmentManager', () => {
       expect(fs.existsSync(path.join(homeDir, '.specrails', 'agent', 'fork'))).toBe(false)
     })
 
-    it('removes partial copies if a later file fails without changing the source', async () => {
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] removes partial copies if a later file fails without changing the source', async () => {
       const first = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
       const second = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
       const copy = fs.copyFileSync.bind(fs)
@@ -468,7 +468,7 @@ describe('AttachmentManager', () => {
       } finally { spy.mockRestore() }
     })
 
-    it('refuses to overwrite existing attachments or copy onto the source', async () => {
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] refuses to overwrite existing attachments or copy onto the source', async () => {
       const att = await manager.uploadAgent({ conversationId: 'source', file: makeFile() })
       const existing = await manager.uploadAgent({ conversationId: 'fork', file: makeFile() })
       expect(() => manager.copyAgentAttachments('source', 'fork', [att.id])).toThrow(/already has an attachment directory/)
@@ -476,7 +476,7 @@ describe('AttachmentManager', () => {
       expect(manager.listAgent('fork')).toEqual([existing])
     })
 
-    it('rejects unsafe identifiers and sidecars without creating a destination', async () => {
+    it('[spec:mission-text-reuse/fork-attachments-are-copied-to-independent-storage] rejects unsafe identifiers and sidecars without creating a destination', async () => {
       expect(() => manager.copyAgentAttachments('../source', 'fork', [])).toThrow(/Invalid agent conversation id/)
       expect(() => manager.copyAgentAttachments('source', '../fork', [])).toThrow(/Invalid agent conversation id/)
       expect(() => manager.copyAgentAttachments('source', 'fork', ['../attachment'])).toThrow(/Invalid attachment id/)
