@@ -284,6 +284,119 @@ describe('CoreSessionTurnRunner', () => {
     expect((await run2).code).toBe(0)
   })
 
+  it('settles a stop that Core never confirms after the grace period (code null)', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId) => [
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] },
+    ]
+    let handle: TurnHandle | null = null
+    const handles: Array<TurnHandle | null> = []
+    const running = createCoreSessionRunner(context(core, { interruptGraceMs: 5, onHandle: (value) => { handles.push(value); if (value) handle = value } }))(hooks().value)
+    await tick()
+    await handle!.interrupt()
+    // Core swallows the interrupt: no turn.completed ever arrives.
+    expect((await running).code).toBeNull()
+    expect(handles.at(-1)).toBeNull()
+  })
+
+  it('a late completion inside the grace period still wins over the forced stop', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId) => [
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] },
+    ]
+    let handle: TurnHandle | null = null
+    const running = createCoreSessionRunner(context(core, { interruptGraceMs: 60_000, onHandle: (value) => { if (value) handle = value } }))(hooks().value)
+    await tick()
+    await handle!.interrupt()
+    core.push([{ type: 'turn.completed', turnId: 't1', status: 'completed', text: 'finished anyway', usage }])
+    expect(await running).toMatchObject({ code: 0, usage: { tokens_in: 100 } })
+  })
+
+  it('ends the turn when the session goes idle or background without completing it', async () => {
+    for (const phase of ['idle', 'background'] as const) {
+      const core = new FakeCore()
+      core.onInput = (inputId) => [
+        { type: 'input.state', inputId, state: 'started' },
+        { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] },
+        { type: 'turn.output', turnId: 't1', channel: 'text', delta: 'partial' },
+        // turn.completed for t1 is lost: Core moved on.
+        { type: 'session.phase', phase },
+      ]
+      const h = hooks()
+      const result = await createCoreSessionRunner(context(core))(h.value)
+      expect(result.code).toBe(0)
+      expect(h.events.filter((event) => event.kind === 'text-delta').map((event) => (event as { text: string }).text)).toEqual(['partial'])
+    }
+  })
+
+  it('ignores idle phases before its own input started', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId) => [
+      { type: 'session.phase', phase: 'idle' },
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] },
+      { type: 'session.phase', phase: 'turn' },
+      { type: 'turn.completed', turnId: 't1', status: 'completed', text: 'mine', usage },
+    ]
+    const result = await createCoreSessionRunner(context(core))(hooks().value)
+    expect(result).toMatchObject({ code: 0, coreTurnId: 't1', usage: { tokens_in: 100 } })
+  })
+
+  it('follows the turn Core reports on input.state and settles when the input completes', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId) => [
+      // Folded into a continuation turn whose turn.started did not list the input.
+      { type: 'turn.started', turnId: 'cont', origin: 'subagent', inputIds: [] },
+      { type: 'input.state', inputId, state: 'started', turnId: 'cont' },
+      { type: 'turn.output', turnId: 'cont', channel: 'text', delta: 'answer' },
+      { type: 'input.state', inputId, state: 'completed', turnId: 'cont' },
+    ]
+    const h = hooks()
+    const result = await createCoreSessionRunner(context(core))(h.value)
+    expect(result).toMatchObject({ code: 0, coreTurnId: 'cont' })
+    expect(h.events).toEqual([{ kind: 'text-delta', text: 'answer' }])
+  })
+
+  it('fails the turn when its session closes mid-turn, or reports a stop when one was requested', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId) => [
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] },
+      { type: 'session.closed', reason: 'retired' },
+    ]
+    const result = await createCoreSessionRunner(context(core))(hooks().value)
+    expect(result.code).toBe(1)
+    expect(result.events.at(-1)).toMatchObject({ kind: 'error', message: expect.stringContaining('retired') })
+
+    const stopping = new FakeCore()
+    stopping.onInput = (inputId) => [{ type: 'input.state', inputId, state: 'started' }, { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] }]
+    let handle: TurnHandle | null = null
+    const running = createCoreSessionRunner(context(stopping, { interruptGraceMs: 60_000, onHandle: (value) => { if (value) handle = value } }))(hooks().value)
+    await tick()
+    await handle!.interrupt()
+    stopping.push([{ type: 'session.closed', reason: 'paused' }])
+    expect((await running).code).toBeNull()
+  })
+
+  it('Intent: an idle phase while a correction is pending keeps waiting for it', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId, delivery) => delivery === 'interrupt'
+      ? [
+          { type: 'turn.completed', turnId: 't1', status: 'interrupted', text: '', usage },
+          { type: 'session.phase', phase: 'idle' },
+          { type: 'turn.started', turnId: 't2', origin: 'user', inputIds: [inputId] },
+          { type: 'turn.completed', turnId: 't2', status: 'completed', text: 'fixed', usage },
+        ]
+      : [{ type: 'input.state', inputId, state: 'started' }, { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] }]
+    const h = hooks()
+    const running = createCoreSessionRunner(context(core, { inputDelivery: 'interrupt' }))(h.value)
+    await tick()
+    await h.sink()!.send({ id: 'fix-5', text: 'redo' })
+    expect(await running).toMatchObject({ code: 0, coreTurnId: 't2' })
+  })
+
   it('adds per-turn usage keeping unknown values unknown and estimates flagged', () => {
     const unknown = { inputTokens: null, outputTokens: null, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: null, costUsd: null, costEstimated: false, model: null }
     expect(addUsage(null, null)).toBeNull()

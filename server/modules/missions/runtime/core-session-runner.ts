@@ -37,8 +37,13 @@ export interface CoreSessionTurnContext {
    * flowSessions) cuts the turn and runs the input next; the runner follows the
    * new turn and reports the summed usage of every turn it covered. */
   inputDelivery?: 'steer' | 'interrupt'
+  /** How long a stop waits for Core to complete the turn before the runner settles it itself. */
+  interruptGraceMs?: number
   onHandle?: (handle: TurnHandle | null) => void
 }
+
+/** A stop that Core never confirms must not leave the mission busy forever. */
+export const DEFAULT_INTERRUPT_GRACE_MS = 10_000
 
 /** The Core session cannot take this turn: opened by another driver, or closed. Nothing was sent. */
 export class SessionDriverMismatchError extends Error {
@@ -114,6 +119,11 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
     let streamed = ''
     let providerRef: string | null = null
     let initialAccepted = false
+    // Core started this turn's input: from here on, a session that leaves the
+    // `turn` phase (or closes) without completing our turn means it is over.
+    let inputStarted = false
+    let interruptRequested = false
+    let graceTimer: ReturnType<typeof setTimeout> | null = null
     let settled = false
     let lastSeq = 0
     // Interrupt delivery: inputs sent to cut the running turn, and whether the
@@ -127,6 +137,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
     const finish = (code: number | null, extra: { error?: string; errorCode?: string; usage?: Usage } = {}) => {
       if (settled) return
       settled = true
+      if (graceTimer) { clearTimeout(graceTimer); graceTimer = null }
       context.onHandle?.(null)
       for (const unsubscribe of unsubscribers.splice(0)) unsubscribe()
       if (extra.error) emit({ kind: 'error', message: extra.error })
@@ -155,10 +166,22 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
             initialAccepted = true
             hooks.onInitialInputAccepted?.()
           }
+          if (event.state === 'started' || event.state === 'completed') {
+            inputStarted = true
+            // Core may fold the input into a turn this runner did not see start (e.g. a continuation).
+            if (!turnId && !awaitingCorrection && event.turnId) turnId = event.turnId
+          }
           if ((event.state === 'rejected' || event.state === 'interrupted') && !turnId) finish(1, { error: `The agent did not start this turn (${event.reason ?? event.state}).` })
+          else if (event.state === 'completed') settleOrphaned()
+          return
+        case 'session.phase':
+          if (event.phase !== 'turn' && inputStarted) settleOrphaned()
+          return
+        case 'session.closed':
+          settleOrphaned({ closed: event.reason })
           return
         case 'turn.started':
-          if (event.inputIds.includes(inputId)) turnId = event.turnId
+          if (event.inputIds.includes(inputId)) { turnId = event.turnId; inputStarted = true }
           else if (awaitingCorrection && event.inputIds.some((id) => pendingInterrupts.has(id))) {
             // Follow the correction's turn: its output continues this user turn.
             for (const id of event.inputIds) pendingInterrupts.delete(id)
@@ -212,6 +235,25 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
       })().finally(() => { catchingUp = null })
       return catchingUp
     }
+
+    /**
+     * Core says the session is no longer running our turn (idle/background
+     * phase, input completed, session closed) or a stop went unconfirmed, yet
+     * no `turn.completed` settled it. Read the journal once more so a late
+     * completion still wins, then settle instead of holding the mission busy
+     * forever. A correction still on its way (Intent interrupt) keeps waiting.
+     */
+    function settleOrphaned(cause: { closed?: string; stopTimedOut?: boolean } = {}) {
+      if (settled) return
+      void catchUp().catch(() => undefined).then(() => {
+        if (settled) return
+        if (!cause.closed && !cause.stopTimedOut && pendingInterrupts.size > 0) return
+        if (interruptRequested) finish(null)
+        else if (cause.closed) finish(1, { error: `The agent session closed before the turn finished (${cause.closed}).` })
+        else finish(0)
+      })
+    }
+
     unsubscribers.push(
       client.onEvent((envelope) => {
         if (envelope.sessionId !== sessionId || settled) return
@@ -250,7 +292,16 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
       }
       lastSeq = snapshot.lastSeq ?? 0
 
-      context.onHandle?.({ interrupt: async () => { await client.request('session.interrupt', { sessionId }).catch(() => undefined) } })
+      context.onHandle?.({
+        interrupt: async () => {
+          if (settled) return
+          interruptRequested = true
+          await client.request('session.interrupt', { sessionId }).catch(() => undefined)
+          if (settled || graceTimer) return
+          graceTimer = setTimeout(() => { graceTimer = null; settleOrphaned({ stopTimedOut: true }) }, context.interruptGraceMs ?? DEFAULT_INTERRUPT_GRACE_MS)
+          graceTimer.unref?.()
+        },
+      })
       hooks.onInputReady?.(createSteerSink(client, sessionId, () => !settled && (turnId !== null || awaitingCorrection), context.inputDelivery ?? 'steer', pendingInterrupts))
       await client.request('session.send', {
         sessionId,
