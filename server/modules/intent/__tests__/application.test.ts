@@ -446,7 +446,7 @@ describe('handOffFlow', () => {
     await service.startFlow(startInput)
     const result = await service.handOffFlow({ flowId: 'flow-1', railIndex: 2, options: { loopId: 'factory:flow-spec' } })
     expect(agent.close).toHaveBeenCalled()
-    expect(worktrees.freeze).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7, worktreePath: '/wt/flow-1/ticket-7', baseSha: BASE, allowedChanges: [] })
+    expect(worktrees.freeze).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7, worktreePath: '/wt/flow-1/ticket-7', baseSha: BASE, allowedChanges: [], branch: 'feat/7-idea' })
     expect(rails.launch).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7, railIndex: 2, options: { loopId: 'factory:flow-spec' } })
     expect(result).toMatchObject({ loopRunIds: ['run-1'], deliveryId: 'delivery-1', flow: { state: 'handed_off', railIndex: 2, headSha: FROZEN, step: null } })
     expect(notifier.changed).toHaveBeenLastCalledWith(expect.objectContaining({ state: 'handed_off' }))

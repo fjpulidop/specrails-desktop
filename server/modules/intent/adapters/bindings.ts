@@ -477,6 +477,8 @@ export function createFlowWorktrees(
           throw new IntentConflictError('flow_freeze_failed', `This Intent has two open spec changes (${[...input.allowedChanges.filter((name) => fs.existsSync(path.join(input.worktreePath, 'openspec', 'changes', name))), unknown[0]].join(', ')}); keep one and archive or remove the other, then hand off again`, input.flowId)
         }
         const allowed = adoptedChange ? [...input.allowedChanges, adoptedChange] : input.allowedChanges
+        // The launch adopts the worktree by its branch: commit on it, never on a detached HEAD.
+        if (input.branch) await ensureIntentBranch(git, input.worktreePath, input.branch, input.flowId)
         const commit = await commitWorktreeAndVerify(git, input.worktreePath, `Intent #${input.ticketId}: ${title}`, excludes, input.baseSha ?? undefined, { allowedActiveChanges: allowed })
         if (!commit.clean) {
           throw new IntentConflictError('flow_freeze_failed', `The Intent worktree could not be committed: ${commit.error ?? commit.dirty.slice(0, 5).join(', ')}`, input.flowId)
@@ -1051,4 +1053,36 @@ async function unknownActiveChanges(git: GitRunner, worktreePath: string, baseSh
     if (listed?.code === 0) for (const name of listed.stdout.split('\n')) if (name.trim()) baseline.add(name.trim())
   }
   return names.filter((name) => !baseline.has(name) && !known.includes(name))
+}
+
+/**
+ * The hand-off commits on the Intent's own branch. An agent command can leave HEAD
+ * detached (observed: `git checkout -q HEAD~0` while comparing with the base); the
+ * commit then lands off the branch and the launch cannot adopt the worktree. When HEAD
+ * is detached at or ahead of the branch tip and no other worktree holds the branch, the
+ * branch is fast-forwarded to HEAD and HEAD reattached (refs only, no file changes).
+ * Anything else is refused with a reason the agent and the person can act on.
+ */
+export async function ensureIntentBranch(git: GitRunner, worktreePath: string, branch: string, flowId: string): Promise<void> {
+  const current = await git.run(['rev-parse', '--abbrev-ref', 'HEAD'], worktreePath)
+  const name = current.code === 0 ? current.stdout.trim() : ''
+  if (name === branch) return
+  const refuse = (detail: string): never => { throw new IntentConflictError('flow_freeze_failed', detail, flowId) }
+  if (name !== 'HEAD') refuse(`The Intent worktree is on ${name || 'an unverifiable ref'}, not its branch ${branch}; switch it back to ${branch} and hand off again`)
+  const [head, tip, list] = await Promise.all([
+    git.run(['rev-parse', '--verify', 'HEAD'], worktreePath),
+    git.run(['rev-parse', '--verify', `refs/heads/${branch}`], worktreePath),
+    git.run(['worktree', 'list', '--porcelain'], worktreePath),
+  ])
+  const headSha = head.code === 0 ? head.stdout.trim() : ''
+  const tipSha = tip.code === 0 ? tip.stdout.trim() : ''
+  if (!headSha || !tipSha) refuse(`The Intent worktree HEAD is detached and its branch ${branch} could not be verified; check out ${branch} and hand off again`)
+  if (list.code === 0 && list.stdout.split('\n').includes(`branch refs/heads/${branch}`)) refuse(`Another worktree holds the Intent branch ${branch}; free it and hand off again`)
+  const ancestor = await git.run(['merge-base', '--is-ancestor', tipSha, headSha], worktreePath)
+  if (ancestor.code !== 0) refuse(`The Intent worktree HEAD is detached at ${headSha.slice(0, 8)}, which does not contain its branch ${branch}; check out ${branch} and hand off again`)
+  // Compare-and-swap on the old tip, then point HEAD at the branch: no checkout, no file changes.
+  const moved = await git.run(['update-ref', `refs/heads/${branch}`, headSha, tipSha], worktreePath)
+  if (moved.code !== 0) refuse(`The Intent branch ${branch} moved while it was being reattached; hand off again`)
+  const attached = await git.run(['symbolic-ref', 'HEAD', `refs/heads/${branch}`], worktreePath)
+  if (attached.code !== 0) refuse(`HEAD could not be reattached to ${branch}; check out ${branch} and hand off again`)
 }

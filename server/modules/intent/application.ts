@@ -344,7 +344,7 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
     session = commit(derivedChanges.length ? { ...begun.session, derivedChanges } : begun.session)
     try {
       await settle(session, begun.effects.filter((effect) => effect.kind === 'stopProcesses' || effect.kind === 'closeAgentSession'))
-      const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha, allowedChanges: session.derivedChanges ?? [], ...repositoryOf(session) })
+      const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha, allowedChanges: session.derivedChanges ?? [], branch: session.branch, ...repositoryOf(session) })
       // A change the Intent's own earlier run left under another name is the
       // Intent's: the next run re-derives it instead of being blocked by it.
       if (frozen.adoptedChange) session = commit({ ...session, derivedChanges: withDerivedChange(session, frozen.adoptedChange) })

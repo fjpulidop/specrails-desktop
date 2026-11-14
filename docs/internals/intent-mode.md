@@ -375,7 +375,14 @@ placeholder spec. Discard after a hand-off is illegal.
 
 1. Stop the Intent's apps and close the session; step `handoff:freeze`.
 2. Commit the worktree (overlay and warm `node_modules` excluded) and record
-   the frozen HEAD; step `handoff:launch`.
+   the frozen HEAD; step `handoff:launch`. The commit lands on the Intent's
+   branch (`ensureIntentBranch`): a HEAD an agent command left detached at or
+   ahead of the branch tip is reattached by fast-forwarding the branch (refs
+   only, no file changes); a detached HEAD that does not contain the branch,
+   another branch, or a branch another worktree holds is refused
+   (`flow_freeze_failed`) instead of committing where the launch cannot adopt it.
+   The Intent agent is also told never to move HEAD (`checkout`, `switch`,
+   `reset`, `stash`, `commit`, `merge`, `rebase`).
 3. Assign the spec to the free rail and call the rails launch route over
    loopback with `flowId` (the single launch authority keeps every guard).
 4. The launch passes `requiredFlowWorktree` to `launchIsolatedRail`, which
