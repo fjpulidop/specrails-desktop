@@ -99,7 +99,7 @@ describe('missions: soft delete and Recently deleted', () => {
     expect((await request(app()).post('/api/agent/conversations/nope/restore')).status).toBe(404)
   })
 
-  it('keeps resources through trash/restore and removes them on permanent deletion across open projects', async () => {
+  it('[spec:mission-resources/resource-history-follows-permanent-mission-deletion] keeps resources through trash/restore and removes them on permanent deletion across open projects', async () => {
     const projectDbs = [initDb(':memory:'), initDb(':memory:')]
     const stores = projectDbs.map(projectDb => createMissionResourceHistoryStore(projectDb))
     const mission = createAgentConversation(db, { pinnedProjectId: 'p1' })
@@ -125,7 +125,7 @@ describe('missions: soft delete and Recently deleted', () => {
     } finally { for (const projectDb of projectDbs) projectDb.close() }
   })
 
-  it('notifies cleanup for expired trash and logs failures without undoing permanent removal', async () => {
+  it('[spec:mission-resources/resource-history-follows-permanent-mission-deletion] notifies cleanup for expired trash and logs failures without undoing permanent removal', async () => {
     const mission = createAgentConversation(db, { pinnedProjectId: 'p1' })
     db.prepare('UPDATE agent_conversations SET deleted_at = ? WHERE id = ?').run('2020-01-01T00:00:00.000Z', mission.id)
     const cleanup = vi.fn(() => { throw new Error('project busy') })

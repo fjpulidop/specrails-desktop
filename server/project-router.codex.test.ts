@@ -13,6 +13,7 @@ import request from 'supertest'
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
   execSync: vi.fn(),
+  execFile: vi.fn(),
 }))
 
 vi.mock('uuid', () => ({

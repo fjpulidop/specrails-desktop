@@ -19,7 +19,7 @@ beforeEach(() => {
 afterEach(() => { db.close() })
 
 describe('mission resource history store', () => {
-  it('appends, lists oldest first and returns the last sample', () => {
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] appends, lists oldest first and returns the last sample', () => {
     store.append('c1', sample(2)); store.append('c1', sample(1)); store.append('c2', sample(9))
     expect(store.list('c1').map((s) => s.at)).toEqual([1, 2])
     expect(store.last('c1')?.at).toBe(2)
@@ -27,14 +27,14 @@ describe('mission resource history store', () => {
     expect(store.list('c1', 1).map((s) => s.at)).toEqual([2])
   })
 
-  it('keeps only the newest samples per conversation and leaves others alone', () => {
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] keeps only the newest samples per conversation and leaves others alone', () => {
     for (let at = 1; at <= 8; at++) store.append('c1', sample(at))
     store.append('c2', sample(1))
     expect(store.list('c1').map((s) => s.at)).toEqual([4, 5, 6, 7, 8])
     expect(store.list('c2')).toHaveLength(1)
   })
 
-  it('upgrades migration 89 without losing samples and persists desktop missions across reopening', () => {
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] upgrades migration 89 without losing samples and persists desktop missions across reopening', () => {
     const dir = mkdtempSync(path.join(process.cwd(), '.resource-history-test-'))
     const file = path.join(dir, 'project.sqlite')
     let persisted = initDb(file)
@@ -70,14 +70,14 @@ describe('mission resource history store', () => {
     }
   })
 
-  it('deletes only the requested mission, idempotently', () => {
+  it('[spec:mission-resources/resource-history-follows-permanent-mission-deletion] deletes only the requested mission, idempotently', () => {
     store.append('c1', sample(1)); store.append('c2', sample(2))
     store.delete('c1'); store.delete('c1')
     expect(store.list('c1')).toEqual([])
     expect(store.list('c2')).toEqual([sample(2)])
   })
 
-  it('prunes missing conversations and preserves all samples if existence lookup fails', () => {
+  it('[spec:mission-resources/resource-history-follows-permanent-mission-deletion] prunes missing conversations and preserves all samples if existence lookup fails', () => {
     store.append('c1', sample(1)); store.append('c2', sample(2))
     expect(() => store.prune(id => {
       if (id === 'c2') throw new Error('desktop unavailable')
@@ -89,13 +89,13 @@ describe('mission resource history store', () => {
     expect(store.list('c2')).toEqual([sample(2)])
   })
 
-  it('replaces a sample taken at the same instant', () => {
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] replaces a sample taken at the same instant', () => {
     store.append('c1', sample(1)); store.append('c1', { ...sample(1), processCount: 4 })
     expect(store.list('c1')).toHaveLength(1)
     expect(store.last('c1')?.processCount).toBe(4)
   })
 
-  it('drops a project chat history with the chat and accepts desktop mission IDs', () => {
+  it('[spec:mission-resources/resource-history-follows-permanent-mission-deletion] drops a project chat history with the chat and accepts desktop mission IDs', () => {
     store.append('c1', sample(1))
     db.prepare("DELETE FROM chat_conversations WHERE id = 'c1'").run()
     expect(store.list('c1')).toEqual([])
@@ -119,20 +119,20 @@ describe('mission resource recorder', () => {
     return { recorder, measure }
   }
 
-  it('records while active, then one closing zero after the turn ends, then nothing', async () => {
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] records while active, then one closing zero after the turn ends, then nothing', async () => {
     const { recorder, measure } = setup([totals(3), totals(2), totals(0), totals(0)], [['c1'], [], [], []])
     await recorder.tick(); await recorder.tick(); await recorder.tick(); await recorder.tick()
     expect(store.list('c1').map((s) => s.processCount)).toEqual([3, 2, 0])
     expect(measure).toHaveBeenCalledTimes(3) // idle once it settled at zero
   })
 
-  it('records nothing for an active conversation that owns no process', async () => {
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] records nothing for an active conversation that owns no process', async () => {
     const { recorder } = setup([totals(0)], [['c1']])
     await recorder.tick()
     expect(store.list('c1')).toEqual([])
   })
 
-  it('skips ticks that overlap, survives a failing conversation and metering being unavailable', async () => {
+  it('[spec:mission-resources/recorder-lifecycle-prevents-stale-writes] skips ticks that overlap, survives a failing conversation and metering being unavailable', async () => {
     let release: (t: ReturnType<typeof totals>) => void = () => {}
     const measure = vi.fn()
       .mockImplementationOnce(() => new Promise((resolve) => { release = resolve }))
@@ -151,7 +151,7 @@ describe('mission resource recorder', () => {
     expect(store.list('c1')).toHaveLength(1)
   })
 
-  it('does not touch the store when stopped during an in-flight measurement', async () => {
+  it('[spec:mission-resources/recorder-lifecycle-prevents-stale-writes] does not touch the store when stopped during an in-flight measurement', async () => {
     let release!: (value: ReturnType<typeof totals>) => void
     const pending = new Promise<ReturnType<typeof totals>>((resolve) => { release = resolve })
     const last = vi.spyOn(store, 'last')
@@ -165,7 +165,7 @@ describe('mission resource recorder', () => {
     expect(append).not.toHaveBeenCalled()
   })
 
-  it('does not recreate history when permanently deleted during measurement or draining', async () => {
+  it('[spec:mission-resources/recorder-lifecycle-prevents-stale-writes] does not recreate history when permanently deleted during measurement or draining', async () => {
     store.append('c1', sample(1))
     let exists = true
     let release!: (value: ReturnType<typeof totals>) => void
@@ -183,7 +183,7 @@ describe('mission resource recorder', () => {
     expect(store.list('c1')).toEqual([])
   })
 
-  it('starts and stops its timer idempotently', () => {
+  it('[spec:mission-resources/recorder-lifecycle-prevents-stale-writes] starts and stops its timer idempotently', () => {
     vi.useFakeTimers()
     try {
       const measure = vi.fn(async () => totals(1))

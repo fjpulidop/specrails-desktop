@@ -162,6 +162,40 @@ describe('missions on Core agent sessions', () => {
   const doneCount = () => broadcasts.filter((message) => message.type === 'agent_done').length
   const capabilityOf = (call: number) => (mcp.spec.mock.calls[call]![0] as { capability: string }).capability
 
+  it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] isolates two missions sharing a Core host', async () => {
+    const first = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    const second = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    Object.assign(host, { pid: 100 })
+    host.script = (inputId, turnId) => [
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'turn.started', turnId, origin: 'user', inputIds: [inputId] },
+      { type: 'session.phase', phase: 'turn' },
+    ]
+    const turns = [manager.sendMessage(first.id, 'first'), manager.sendMessage(second.id, 'second')]
+    await waitFor(() => [first, second].every(c => host.journals.get(c.id)?.some(e => e.event.type === 'turn.started')))
+    const config = (id: string) => host.requests.find(r => r.method === 'session.open' && r.params.sessionId === id && !r.params.resume)!.params.policy as { mcp: { servers: Array<{ env: Record<string, string> }> } }
+    const marker = (id: string) => config(id).mcp.servers[0].env.SPECRAILS_AGENT_CAPABILITY_FILE
+    const table = [
+      { pid: 100, ppid: 1, command: 'node core host' },
+      { pid: 101, ppid: 100, command: `claude --mcp-config '{"path":"${marker(first.id)}"}'` },
+      { pid: 102, ppid: 101, command: 'node child' },
+      { pid: 201, ppid: 100, command: `claude --mcp-config '{"path":"${marker(second.id)}"}'` },
+      { pid: 202, ppid: 201, command: 'node other-child' },
+      { pid: 301, ppid: 100, command: `claude ${marker(first.id)}-other` },
+    ]
+    try {
+      expect(manager.getProcessPids(first.id, table)).toEqual([101])
+      expect(manager.getProcessPids(second.id, table)).toEqual([201])
+      expect(manager.getProcessPids(first.id, [table[0]])).toEqual([])
+    } finally {
+      for (const c of [first, second]) {
+        const started = host.journals.get(c.id)!.find(e => e.event.type === 'turn.started')!.event as Extract<SessionEvent, { type: 'turn.started' }>
+        host.emit(c.id, [{ type: 'turn.completed', turnId: started.turnId, status: 'completed', text: 'done', usage: usage(0) }])
+      }
+      await Promise.all(turns)
+    }
+  })
+
   it('runs user turns in one resident session, projects background work and keeps the capability alive for it', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     mcp.spec.mockClear()

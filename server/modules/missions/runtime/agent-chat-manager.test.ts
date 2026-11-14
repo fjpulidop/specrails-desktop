@@ -119,7 +119,7 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     mgr = new AgentChatManager(broadcast, db, 4200)
   })
 
-  it('filters live desktop and Core turns by pinned project for resource recording', () => {
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] filters live desktop and Core turns by pinned project for resource recording', () => {
     const first = createAgentConversation(db, { pinnedProjectId: 'p1' })
     const second = createAgentConversation(db, { pinnedProjectId: 'p2' })
     const unpinned = createAgentConversation(db)

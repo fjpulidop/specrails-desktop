@@ -29,15 +29,23 @@ export function deleteMissionResourceHistory(c: ProjectContext, conversationId: 
   historyStore(c.db).delete(conversationId)
 }
 
+/** Live attribution follows the current pin; retained history does not. */
+function ownsMission(c: ProjectContext, chatId: string): boolean {
+  const mission = c.desktopDb?.prepare('SELECT pinned_project_id FROM agent_conversations WHERE id = ?').get(chatId) as { pinned_project_id: string | null } | undefined
+  return !mission || mission.pinned_project_id === c.project.id
+}
+
 function worktreeOf(c: ProjectContext, chatId: string): string | null {
+  if (!ownsMission(c, chatId)) return null
   try { return c.flow?.getByConversation(chatId)?.worktreePath ?? null } catch { return null }
 }
 
 /** Everything the mission owns in `table`: its agent session, registered background processes and anything
  * launched in its worktree (sub-agents, jobs, tools). */
 function measureMission(c: ProjectContext, chatId: string, table: ProcessSample[]): { entries: MissionResourceEntry[]; totals: MissionResourceTotals; worktreePath: string | null } {
+  if (!ownsMission(c, chatId)) return { entries: [], totals: totalEntries([]), worktreePath: null }
   const roots: MissionResourceRoot[] = []
-  const agentPids = new Set([...c.chatManager.getProcessPids(chatId), ...(getAgentChatManager()?.getProcessPids(chatId) ?? [])])
+  const agentPids = new Set([...c.chatManager.getProcessPids(chatId), ...(getAgentChatManager()?.getProcessPids(chatId, table) ?? [])])
   for (const pid of agentPids) roots.push({ id: `agent-session:${pid}`, kind: 'agent-session', label: 'Agent session', pid })
   for (const p of listBackgroundProcesses({ projectId: c.project.id, chatId })) {
     roots.push({ id: `background-process:${p.processId}`, kind: 'background-process', label: p.command, pid: p.pid })
@@ -68,7 +76,7 @@ export function startMissionResourceRecording(c: ProjectContext): { stop(): void
     listActiveConversations: () => [...new Set([...c.chatManager.activeConversationIds(), ...(getAgentChatManager()?.activeConversationIds(c.project.id) ?? [])])],
     measure: async (conversationId) => {
       const table = await readProcessTable()
-      return table ? measureMission(c, conversationId, table).totals : null
+      return table && ownsMission(c, conversationId) ? measureMission(c, conversationId, table).totals : null
     },
   })
   recorder.start()

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import * as Dialog from '@radix-ui/react-dialog'
+import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Slot } from '@radix-ui/react-slot'
 import { cn } from '../../lib/utils'
 
 /**
@@ -20,9 +20,11 @@ export function HoverPopover({ trigger, label, description, children, className,
   onOpenChange?: (open: boolean) => void
   width?: number
 }) {
+  const panelId = useId()
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ left: 12, bottom: 32 })
   const trigger$ = useRef<HTMLButtonElement>(null)
+  const panel$ = useRef<HTMLDivElement>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const cancelClose = () => { clearTimeout(closeTimer.current) }
   useEffect(() => () => clearTimeout(closeTimer.current), [])
@@ -38,29 +40,53 @@ export function HoverPopover({ trigger, label, description, children, className,
   const scheduleClose = () => {
     cancelClose()
     closeTimer.current = setTimeout(() => {
-      if (document.activeElement === trigger$.current || document.activeElement?.closest('[data-hover-popover]')) return
+      if (document.activeElement === trigger$.current || panel$.current?.contains(document.activeElement)) return
       change(false)
     }, 180)
   }
 
-  return <Dialog.Root open={open} onOpenChange={change} modal={false}>
-    <Dialog.Trigger asChild ref={trigger$}
+  // The native top layer escapes composer clipping while preserving DOM tab order.
+  // DOM-only test environments may not implement the Popover API.
+  const supportsPopover = typeof HTMLElement !== 'undefined' && 'showPopover' in HTMLElement.prototype
+  useLayoutEffect(() => {
+    if (open && supportsPopover) panel$.current?.showPopover()
+  }, [open, supportsPopover])
+
+  useEffect(() => {
+    if (!open) return
+    const dismissOutside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!trigger$.current?.contains(target) && !panel$.current?.contains(target)) change(false)
+    }
+    const dismissEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') change(false)
+    }
+    document.addEventListener('pointerdown', dismissOutside)
+    document.addEventListener('keydown', dismissEscape)
+    return () => {
+      document.removeEventListener('pointerdown', dismissOutside)
+      document.removeEventListener('keydown', dismissEscape)
+    }
+  }, [open])
+
+  return <>
+    <Slot ref={trigger$} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? panelId : undefined}
       onPointerEnter={(event: React.PointerEvent) => { if (event.pointerType === 'mouse') change(true) }}
       onPointerLeave={scheduleClose} onFocus={() => change(true)} onBlur={scheduleClose}
+      onKeyDown={event => { if (event.key === 'Tab') event.stopPropagation() }}
       onClick={(event: React.MouseEvent) => { event.preventDefault(); change(true) }}>
       {trigger as React.ReactElement}
-    </Dialog.Trigger>
-    <Dialog.Portal>
-      <Dialog.Content data-hover-popover data-testid={testId}
+    </Slot>
+    {/* Keep the panel beside its trigger in DOM order so Tab can enter and leave naturally. */}
+    {open && <div ref={panel$} id={panelId} popover={supportsPopover ? "manual" : undefined} role="dialog" aria-labelledby={`${panelId}-title`} aria-describedby={`${panelId}-description`} data-hover-popover data-testid={testId}
         className={cn('font-sans fixed z-50 max-h-[calc(100dvh-48px)] rounded-xl border border-border bg-card p-3 shadow-xl outline-none', className)}
-        style={{ ...position, width: `min(${width}px, calc(100vw - 24px))` }}
+        style={{ ...position, top: "auto", right: "auto", margin: 0, width: `min(${width}px, calc(100vw - 24px))` }}
+        onKeyDown={event => { if (event.key === 'Tab') event.stopPropagation() }}
         onPointerEnter={cancelClose} onPointerLeave={scheduleClose}
-        onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null) && event.relatedTarget !== trigger$.current) scheduleClose() }}
-        onOpenAutoFocus={event => event.preventDefault()} onCloseAutoFocus={event => event.preventDefault()}>
-        <Dialog.Title className="sr-only">{label}</Dialog.Title>
-        <Dialog.Description className="sr-only">{description ?? label}</Dialog.Description>
+        onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null) && event.relatedTarget !== trigger$.current) scheduleClose() }}>
+        <div id={`${panelId}-title`} className="sr-only">{label}</div>
+        <div id={`${panelId}-description`} className="sr-only">{description ?? label}</div>
         <div className="max-h-[calc(100dvh-72px)] overflow-y-auto">{children}</div>
-      </Dialog.Content>
-    </Dialog.Portal>
-  </Dialog.Root>
+      </div>}
+  </>
 }

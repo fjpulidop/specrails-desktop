@@ -8,7 +8,7 @@ import { listBackgroundProcesses } from './transient-children'
 import type { ProcessTableReader } from './modules/terminals/runtime/resource-sampler'
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
-import { createAgentConversation, archiveAgentConversation, softDeleteAgentConversation } from './modules/agents/runtime/agent-store'
+import { createAgentConversation, archiveAgentConversation, softDeleteAgentConversation, updateAgentConversation } from './modules/agents/runtime/agent-store'
 import { createMissionResourceHistoryStore } from './modules/terminals/runtime/mission-resource-history'
 
 const tableReader = vi.hoisted(() => vi.fn())
@@ -49,7 +49,7 @@ beforeEach(() => {
 })
 
 describe('mission resources routes', () => {
-  it('lists only what the mission owns and reports disk as not scanned', async () => {
+  it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] lists only what the mission owns and reports disk as not scanned', async () => {
     const res = await request(app('/tmp/wt')).get('/api/projects/p1/missions/chat-1/resources')
     expect(res.status).toBe(200)
     expect(res.body.entries.map((e: { kind: string }) => e.kind)).toEqual(['agent-session', 'background-process'])
@@ -57,7 +57,31 @@ describe('mission resources routes', () => {
     expect(res.body.worktree).toEqual({ path: '/tmp/wt', disk: { status: 'not-scanned' } })
   })
 
-  it('returns the recorded history of the mission, oldest first, and nothing for others', async () => {
+  it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] excludes desktop mission PIDs through another project endpoint', async () => {
+    const desktopDb = initDesktopDb(':memory:')
+    const db = initDb(':memory:')
+    const mission = createAgentConversation(desktopDb, { pinnedProjectId: 'p1' })
+    agentManager.getProcessPids.mockReturnValue([10])
+    vi.mocked(listBackgroundProcesses).mockReturnValue([])
+    const a = express(); const router = Router()
+    registerMissionResourceRoutes({ router, ctx: (req: { params: { projectId: string } }) => ({
+      project: { id: req.params.projectId }, db, desktopDb,
+      chatManager: { getProcessPids: () => [] },
+    }) } as unknown as ProjectRoutesDeps)
+    a.use('/api/projects', router)
+    try {
+      const own = await request(a).get(`/api/projects/p1/missions/${mission.id}/resources`)
+      expect(own.body.totals.processCount).toBe(1)
+      const other = await request(a).get(`/api/projects/p2/missions/${mission.id}/resources`)
+      expect(other.body.entries).toEqual([])
+      expect(other.body.totals.processCount).toBe(0)
+      updateAgentConversation(desktopDb, mission.id, { pinned_project_id: 'p2' })
+      expect((await request(a).get(`/api/projects/p1/missions/${mission.id}/resources`)).body.entries).toEqual([])
+      expect((await request(a).get(`/api/projects/p2/missions/${mission.id}/resources`)).body.totals.processCount).toBe(1)
+    } finally { db.close(); desktopDb.close() }
+  })
+
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] returns the recorded history of the mission, oldest first, and nothing for others', async () => {
     const db = initDb(':memory:')
     db.prepare("INSERT INTO chat_conversations (id) VALUES ('chat-1'), ('chat-2')").run()
     const store = createMissionResourceHistoryStore(db)
@@ -69,14 +93,14 @@ describe('mission resources routes', () => {
     expect(res.body.history[1]).toEqual({ at: 2000, cpuPercent: 7, memoryBytes: 70, processCount: 2 })
   })
 
-  it('shows nothing for another mission', async () => {
+  it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] shows nothing for another mission', async () => {
     vi.mocked(listBackgroundProcesses).mockReturnValue([])
     const res = await request(app(null)).get('/api/projects/p1/missions/chat-2/resources')
     expect(res.body.entries).toEqual([])
     expect(res.body.worktree).toBeNull()
   })
 
-  it('scans the worktree on demand without blocking, and refuses without a worktree', async () => {
+  it('[spec:mission-resources/worktree-disk-measurement-is-explicit-and-asynchronous] scans the worktree on demand without blocking, and refuses without a worktree', async () => {
     const a = app('/tmp/wt')
     const started = await request(a).post('/api/projects/p1/missions/chat-1/resources/worktree-scan')
     expect(started.status).toBe(202)
@@ -89,7 +113,7 @@ describe('mission resources routes', () => {
 
 
 describe('project resource recording', () => {
-  it('sweeps orphan history on project open but keeps local chats, moved missions and restorable trash', () => {
+  it('[spec:mission-resources/resource-history-follows-permanent-mission-deletion] sweeps orphan history on project open but keeps local chats, moved missions and restorable trash', () => {
     const db = initDb(':memory:')
     const desktopDb = initDesktopDb(':memory:')
     const live = createAgentConversation(desktopDb, { pinnedProjectId: 'p1' })
@@ -113,7 +137,35 @@ describe('project resource recording', () => {
     } finally { recorder.stop(); db.close(); desktopDb.close() }
   })
 
-  it('records desktop missions in their pinned project without a local chat row, alongside local chats', async () => {
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] stops draining after repinning, including an in-flight measurement', async () => {
+    vi.useFakeTimers()
+    const db = initDb(':memory:'); const desktopDb = initDesktopDb(':memory:')
+    const mission = createAgentConversation(desktopDb, { pinnedProjectId: 'p1' })
+    agentManager.activeConversationIds.mockReturnValue([mission.id])
+    agentManager.getProcessPids.mockReturnValue([10])
+    vi.mocked(listBackgroundProcesses).mockReturnValue([])
+    const recorder = startMissionResourceRecording({
+      project: { id: 'p1' }, db, desktopDb,
+      chatManager: { activeConversationIds: () => [], getProcessPids: () => [] },
+    } as unknown as ProjectContext)
+    try {
+      await vi.advanceTimersByTimeAsync(3000)
+      const store = createMissionResourceHistoryStore(db)
+      expect(store.list(mission.id)).toHaveLength(1)
+      agentManager.activeConversationIds.mockReturnValue([])
+      let resolve!: (table: unknown) => void
+      tableReader.mockReturnValueOnce(new Promise(r => { resolve = r }))
+      await vi.advanceTimersByTimeAsync(3000)
+      updateAgentConversation(desktopDb, mission.id, { pinned_project_id: 'p2' })
+      resolve([{ pid: 10, ppid: 1, cpuPercent: 5, rssBytes: 1000, command: 'claude' }])
+      await vi.advanceTimersByTimeAsync(6000)
+      expect(store.list(mission.id)).toHaveLength(1)
+      // Retained history survives the move; live attribution and draining stop.
+      expect(tableReader).toHaveBeenCalledTimes(2)
+    } finally { recorder.stop(); vi.useRealTimers(); db.close(); desktopDb.close() }
+  })
+
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] records desktop missions in their pinned project without a local chat row, alongside local chats', async () => {
     vi.useFakeTimers()
     const db1 = initDb(':memory:')
     const db2 = initDb(':memory:')

@@ -267,10 +267,9 @@ export class AgentChatManager {
   }
 
   /** OS pid of this conversation's live provider child, if any (read-only, for resource metering). */
-  getProcessPids(conversationId: string): number[] {
+  getProcessPids(conversationId: string, table: ReadonlyArray<{ pid: number; command: string }> = []): number[] {
     const pids = [this._active.get(conversationId)?.pid]
-    // A Core-session turn runs inside the shared session host rather than a direct child.
-    if (this._coreSessions?.handle(conversationId)) pids.push(this._coreSessions.hostPid(conversationId) ?? undefined)
+    pids.push(...(this._coreSessions?.processPids(conversationId, table) ?? []))
     return pids.filter((pid): pid is number => typeof pid === 'number')
   }
 

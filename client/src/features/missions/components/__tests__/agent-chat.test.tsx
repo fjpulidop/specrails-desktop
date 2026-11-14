@@ -917,7 +917,7 @@ describe('AgentChatProvider', () => {
     await waitFor(() => expect(screen.getByTestId('stream')).toHaveTextContent('New approach'))
   })
 
-  it('opens empty process history without sending or replacing a saved mission draft', async () => {
+  it('[spec:mission-process-history/history-remains-discoverable-in-the-mission] opens empty process history without sending or replacing a saved mission draft', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
     await act(async () => { fireEvent.click(screen.getByText('go-c1')) })

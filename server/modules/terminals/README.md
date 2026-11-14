@@ -31,7 +31,7 @@ background processes and any process whose command line references the mission
 worktree), counting a shared descendant once. `runtime/resource-sampler.ts` reads the
 process table per platform and runs the worktree disk scan only on
 `POST .../resources/worktree-scan`, asynchronously, with the result cached per
-project and chat. Jobs are measured only when they descend from an owned process.
+project and chat. Jobs are measured when they descend from an owned process or their command lines reference the mission worktree. Core provider roots are matched through the mission-specific MCP capability file in their command line; the shared host itself is excluded.
 
 - **macOS/Linux:** one `ps -axo` call; CPU is `ps`'s own percent, disk is `du -sk`.
 - **Windows:** one PowerShell `Get-CimInstance Win32_Process` query (`powershell.exe`,
@@ -42,6 +42,14 @@ project and chat. Jobs are measured only when they descend from an owned process
   (no `du`) that does not follow symlinks. If PowerShell is unavailable the snapshot is
   reported as `supported: false`. Each router registration creates its own reader so
   CPU baselines are never shared across projects.
+
+The mission composer opens Resources and Processes as non-modal panels. Panels
+stay beside their triggers in DOM order: Tab enters their controls and continues
+into the composer, while Shift+Tab returns through the trigger. No focus scope
+loops keyboard users inside a panel; Escape and outside clicks dismiss it. The
+native Popover API places the panel in the browser top layer to escape composer
+clipping. Tab propagation is stopped so the ancestor tier shortcut cannot consume
+Shift+Tab while leaving these controls.
 
 ### History
 

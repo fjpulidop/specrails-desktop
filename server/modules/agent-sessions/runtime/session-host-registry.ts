@@ -71,12 +71,6 @@ export class SessionHostRegistry {
     return this.scopes.get(scope)?.state.status ?? 'absent'
   }
 
-  /** OS pid of the scope's live host process (read-only, for resource metering). */
-  hostPid(scope: string): number | null {
-    const pid = (this.scopes.get(scope)?.client as { pid?: number } | null | undefined)?.pid
-    return typeof pid === 'number' ? pid : null
-  }
-
   /** Every known scope with its status (operator view, UI notices). */
   hosts(): HostStatusView[] {
     return [...this.scopes].map(([scope, entry]) => ({ scope, status: entry.state.status, detail: entry.degradedReason, code: entry.degradedCode }))

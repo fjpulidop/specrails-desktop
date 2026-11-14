@@ -7,7 +7,7 @@ afterEach(cleanup)
 const proc = (patch: Partial<BackgroundProcess>): BackgroundProcess => ({ processId: 'a', projectId: 'p1', chatId: 'c1', pid: 42, command: 'npm run dev', cwd: '/x', startedAt: 10, status: 'running', ...patch })
 
 describe('BackgroundProcessesPanel', () => {
-  it('lists running processes first, opens a process and the full history', () => {
+  it('[spec:mission-process-history/history-remains-discoverable-in-the-mission] lists running processes first, opens a process and the full history', () => {
     const onSelect = vi.fn(); const onViewAll = vi.fn(); const onRefresh = vi.fn().mockResolvedValue(undefined)
     render(<BackgroundProcessesPanel loading={false} error={null} onRefresh={onRefresh} onSelect={onSelect} onViewAll={onViewAll}
       processes={[proc({ processId: 'old', command: 'npm test', status: 'exited', startedAt: 99 }), proc({})]} />)
@@ -20,7 +20,7 @@ describe('BackgroundProcessesPanel', () => {
     expect(onViewAll).toHaveBeenCalled()
   })
 
-  it('shows an empty state', () => {
+  it('[spec:mission-process-history/history-remains-discoverable-in-the-mission] shows an empty state', () => {
     render(<BackgroundProcessesPanel loading={false} error={null} onRefresh={vi.fn().mockResolvedValue(undefined)} onSelect={vi.fn()} onViewAll={vi.fn()} processes={[]} />)
     expect(screen.getByText(/No processes have been recorded/)).toBeTruthy()
   })

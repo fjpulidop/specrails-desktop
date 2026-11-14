@@ -10,18 +10,18 @@ garbage line
 `
 
 describe('mission resources model', () => {
-  it('parses ps output in bytes and skips malformed lines', () => {
+  it('[spec:mission-resources/platform-sampling-reports-available-measurements] parses ps output in bytes and skips malformed lines', () => {
     const samples = parsePsOutput(PS)
     expect(samples).toHaveLength(5)
     expect(samples[1]).toEqual({ pid: 10, ppid: 1, cpuPercent: 5.5, rssBytes: 2048 * 1024, command: 'claude --print' })
   })
 
-  it('measures a root with all descendants and never other trees', () => {
+  it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] measures a root with all descendants and never other trees', () => {
     const [agent] = measureRoots(parsePsOutput(PS), [{ id: 'a', kind: 'agent-session', label: 'Agent', pid: 10 }])
     expect(agent).toMatchObject({ running: true, processCount: 3, cpuPercent: 27, memoryBytes: (2048 + 4096 + 1024) * 1024 })
   })
 
-  it('counts a shared descendant once and flags vanished roots', () => {
+  it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] counts a shared descendant once and flags vanished roots', () => {
     const entries = measureRoots(parsePsOutput(PS), [
       { id: 'a', kind: 'agent-session', label: 'Agent', pid: 10 },
       { id: 'b', kind: 'background-process', label: 'dev', pid: 11 },
@@ -35,7 +35,7 @@ describe('mission resources model', () => {
 
 describe('findWorktreeRoots', () => {
   const ps = (pid: number, ppid: number, command: string) => ({ pid, ppid, cpuPercent: 1, rssBytes: 1024, command })
-  it('returns top-most processes referencing the worktree and ignores lookalike paths', () => {
+  it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] returns top-most processes referencing the worktree and ignores lookalike paths', () => {
     const samples = [
       ps(1, 0, 'init'),
       ps(10, 1, 'node /w/ticket-1/script.js'),
@@ -50,7 +50,7 @@ describe('Windows process table', () => {
   const row = (pid: number, ppid: number, kernel: number, user: number, command: string | null, ws = 1024 * 1024) =>
     ({ ProcessId: pid, ParentProcessId: ppid, WorkingSetSize: ws, KernelModeTime: kernel, UserModeTime: user, CommandLine: command })
 
-  it('parses an array, a single object, a BOM and skips malformed rows', () => {
+  it('[spec:mission-resources/platform-sampling-reports-available-measurements] parses an array, a single object, a BOM and skips malformed rows', () => {
     const json = JSON.stringify([row(10, 1, 10_000, 20_000, 'node a.js'), row(11, 10, 0, 0, null), { ProcessId: 'x' }, null])
     const rows = parseWindowsProcessJson(json)
     expect(rows.map((r) => r.pid)).toEqual([10, 11])
@@ -61,7 +61,7 @@ describe('Windows process table', () => {
     expect(parseWindowsProcessJson('not json')).toEqual([])
   })
 
-  it('derives cpu percent from cumulative time, 0 for new or reused pids and zero elapsed', () => {
+  it('[spec:mission-resources/platform-sampling-reports-available-measurements] derives cpu percent from cumulative time, 0 for new or reused pids and zero elapsed', () => {
     const rows = parseWindowsProcessJson(JSON.stringify([row(1, 0, 0, 5_000_000, 'a'), row(2, 1, 0, 1_000_000, 'b'), row(3, 1, 0, 0, 'c')]))
     // previous: pid 1 had 100 ms, pid 2 had 900 ms (> now: reused pid), pid 3 unseen is not in map
     const { samples, next } = applyCpuDeltas(new Map([[1, 100], [2, 900]]), rows, 1000)
@@ -72,7 +72,7 @@ describe('Windows process table', () => {
     expect(applyCpuDeltas(new Map([[1, 0]]), rows, 0).samples[0].cpuPercent).toBe(0)
   })
 
-  it('matches worktree paths on Windows with either separator, any case, and respects path boundaries', () => {
+  it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] matches worktree paths on Windows with either separator, any case, and respects path boundaries', () => {
     const samples = [
       { pid: 1, ppid: 0, cpuPercent: 0, rssBytes: 0, command: 'C:\\Windows\\explorer.exe' },
       { pid: 2, ppid: 1, cpuPercent: 0, rssBytes: 0, command: 'node.exe "c:/Users/Dev/.specrails/Worktrees/ticket-1/server.js"' },
@@ -87,7 +87,7 @@ describe('Windows process table', () => {
 })
 
 describe('shouldRecordSample', () => {
-  it('records while processes are live and once more when they drop to zero, never while idle', () => {
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] records while processes are live and once more when they drop to zero, never while idle', () => {
     expect(shouldRecordSample(null, { processCount: 0 })).toBe(false)
     expect(shouldRecordSample(null, { processCount: 3 })).toBe(true)
     expect(shouldRecordSample({ processCount: 3 }, { processCount: 0 })).toBe(true)

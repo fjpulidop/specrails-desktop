@@ -30,9 +30,9 @@ const renderPanel = (props: Partial<Parameters<typeof MissionResourcesPanel>[0]>
   render(<MissionResourcesPanel projectId="p1" chatId="c1" snapshot={snapshot()} samples={[sample(1, 17.5, 301e6, 6)]} {...props} />)
 
 describe('MissionResourcesPanel', () => {
-  it('formats bytes', () => { expect(formatBytes(512)).toBe('512 B'); expect(formatBytes(1536)).toBe('1.5 KB') })
+  it('[spec:mission-resources/mission-chat-exposes-read-only-resource-inspection] formats bytes', () => { expect(formatBytes(512)).toBe('512 B'); expect(formatBytes(1536)).toBe('1.5 KB') })
 
-  it('shows totals, per-entry load heaviest first and an explicit not-scanned worktree, with no destructive action and no refresh button', () => {
+  it('[spec:mission-resources/mission-chat-exposes-read-only-resource-inspection] shows totals, per-entry load heaviest first and an explicit not-scanned worktree, with no destructive action and no refresh button', () => {
     renderPanel()
     expect(screen.getByTestId('mission-resources-entries').querySelectorAll('li')[0].textContent).toContain('npm run dev')
     expect(screen.getByTestId('mission-resources-totals').textContent).toContain('17.5%')
@@ -41,7 +41,7 @@ describe('MissionResourcesPanel', () => {
     expect(screen.queryByTestId('mission-resources-finished')).toBeNull()
   })
 
-  it('keeps the last active figures and peak after the mission ends instead of showing zeros', () => {
+  it('[spec:mission-resources/resource-history-remains-readable-after-activity-ends] keeps the last active figures and peak after the mission ends instead of showing zeros', () => {
     const samples = [sample(1, 10, 100e6, 3), sample(2, 40, 500e6, 6), sample(3, 20, 300e6, 4), sample(4, 0, 0, 0)]
     renderPanel({ snapshot: idleSnapshot(), samples })
     expect(screen.getByTestId('mission-resources-finished').textContent).toMatch(/finished at/i)
@@ -54,13 +54,13 @@ describe('MissionResourcesPanel', () => {
     expect(screen.queryByText(/no processes are running/i)).toBeNull()
   })
 
-  it('says nothing is running when the mission never had activity', () => {
+  it('[spec:mission-resources/resource-history-remains-readable-after-activity-ends] says nothing is running when the mission never had activity', () => {
     renderPanel({ snapshot: idleSnapshot(), samples: [] })
     expect(screen.getByText(/no processes are running/i)).toBeTruthy()
     expect(screen.queryByTestId('mission-resources-history')).toBeNull()
   })
 
-  it('scans the worktree on demand and tells the owner to refresh', async () => {
+  it('[spec:mission-resources/worktree-disk-measurement-is-explicit-and-asynchronous] scans the worktree on demand and tells the owner to refresh', async () => {
     const onScanned = vi.fn()
     renderPanel({ onScanned })
     fireEvent.click(screen.getByRole('button', { name: 'Scan' }))
@@ -68,7 +68,7 @@ describe('MissionResourcesPanel', () => {
     await waitFor(() => expect(onScanned).toHaveBeenCalled())
   })
 
-  it('explains an unsupported platform', () => {
+  it('[spec:mission-resources/platform-sampling-reports-available-measurements] explains an unsupported platform', () => {
     renderPanel({ snapshot: snapshot({ supported: false, entries: [] }), samples: [] })
     expect(screen.getByTestId('mission-resources-unsupported')).toBeTruthy()
   })
