@@ -16,7 +16,8 @@ import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
  * no `approval`, `question`, `gate` or blocked-sentinel prompt. A blocker ends the
  * run with a clear reason; it never asks the person.
  *
- *   checks ─red→ refresh-base (merge the base when behind) ─merged→ local → push → checks · clean→ round budget → fixer
+ *   checks ─red→ refresh budget (once per run) → refresh-base (merge the base when behind) ─merged→ local → push → checks
+ *            · clean or budget spent → round budget → fixer
  *   init → base(update-base) ─clean→ checks ─green→ done
  *            │merged → local      │red → round budget → fixer → blocker? → progress? ─yes→ local
  *            │conflicts → conflict budget → resolver → local          │no, not the code (flaky,
@@ -33,6 +34,10 @@ import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
 export const PR_CI_LOOP_ID = 'factory:pr-ci'
 export const PR_CI_ROUND_LIMIT = 5
 export const PR_CI_CONFLICT_LIMIT = 3
+/** Base refreshes on red checks per run: "the base may already carry the fix"
+ * is tried once; after it a red PR goes to the fixer. Without the cap a base
+ * that keeps moving loops merge → push → red outside every round budget. */
+export const PR_CI_BASE_REFRESH_LIMIT = 1
 /** Cap of one CI wait (Core hint; the `pr.checks` handler enforces it). */
 export const PR_CI_CHECKS_TIMEOUT_MS = 60 * 60_000
 
@@ -85,7 +90,7 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
   }
   const E = PR_CI_ENDS
 
-  node('init', 'Initialize CI budgets', 'assign', { set: { rounds: 0, roundLimit: PR_CI_ROUND_LIMIT, conflictRounds: 0, conflictLimit: PR_CI_CONFLICT_LIMIT, baseReason: 'start', ciEvidence: 'No CI result yet.', localEvidence: 'Local verification has not failed in this run.', commitSummary: 'Update from the CI loop' } }, { next: 'base', failed: E.failed })
+  node('init', 'Initialize CI budgets', 'assign', { set: { rounds: 0, roundLimit: PR_CI_ROUND_LIMIT, conflictRounds: 0, conflictLimit: PR_CI_CONFLICT_LIMIT, baseRefreshes: 0, baseRefreshLimit: PR_CI_BASE_REFRESH_LIMIT, baseReason: 'start', ciEvidence: 'No CI result yet.', localEvidence: 'Local verification has not failed in this run.', commitSummary: 'Update from the CI loop' } }, { next: 'base', failed: E.failed })
   node('base', 'Sync with the base branch', 'host-task', { task: 'pr.update-base', input: { reason: '{{run.baseReason}}' }, outcomes: ['clean', 'merged', 'conflicts', 'closed'], effect: 'write' },
     { clean: 'checks', merged: 'local', conflicts: 'conflict-budget', closed: E.closed, failed: E.failed })
   node('conflict-budget', 'Check the conflict budget', 'condition', { expr: '$vars.conflictRounds < $vars.conflictLimit' }, { true: 'count-conflict', false: E.conflictsExhausted }, 360)
@@ -106,9 +111,12 @@ export function prCiGraph(capabilities?: Record<string, number>): LoopGraph {
   node('resolved', 'Check every conflict was resolved', 'condition', { expr: '$outputs.resolver.structured.unresolved.length == 0' }, { true: 'merge-summary', false: E.conflictsExhausted }, 360)
   node('merge-summary', 'Describe the merge commit', 'assign', { set: { commitSummary: 'Merge the base branch and resolve conflicts' } }, { next: 'local', failed: E.failed }, 360)
   node('checks', 'Wait for CI', 'host-task', { task: 'pr.checks', input: {}, outcomes: ['green', 'red', 'conflict', 'none', 'timeout', 'closed'], effect: 'read', timeoutMs: PR_CI_CHECKS_TIMEOUT_MS },
-    { green: E.green, red: 'refresh-base', conflict: 'conflict-reason', none: E.noCi, timeout: E.timeout, closed: E.closed, failed: E.failed })
+    { green: E.green, red: 'refresh-budget', conflict: 'conflict-reason', none: E.noCi, timeout: E.timeout, closed: E.closed, failed: E.failed })
   // Red checks: a PR behind its base first takes the base (it may already carry
   // the fix, e.g. a scanner allow-list); only a still-red PR reaches the fixer.
+  // Once per run: a base that keeps moving must not loop merge → push → red.
+  node('refresh-budget', 'Check the base refresh budget', 'condition', { expr: '$vars.baseRefreshes < $vars.baseRefreshLimit' }, { true: 'count-refresh', false: 'ci-evidence' }, 360)
+  node('count-refresh', 'Count base refresh', 'assign', { increment: { baseRefreshes: 1 } }, { next: 'refresh-base', failed: E.failed }, 360)
   node('refresh-base', 'Bring in the base branch', 'host-task', { task: 'pr.update-base', input: { reason: 'red' }, outcomes: ['clean', 'merged', 'conflicts', 'closed'], effect: 'write' },
     { clean: 'ci-evidence', merged: 'base-summary', conflicts: 'conflict-budget', closed: E.closed, failed: E.failed }, 360)
   node('base-summary', 'Describe the base merge', 'assign', { set: { commitSummary: 'Merge the base branch to pick up its fixes' } }, { next: 'local', failed: E.failed }, 360)
