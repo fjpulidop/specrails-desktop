@@ -77,6 +77,11 @@ export class MissionCoreSessions {
     return this.handles.get(conversationId)
   }
 
+  /** Conversations with a Core turn in flight (read-only, for resource metering). */
+  activeConversationIds(): string[] {
+    return [...this.handles.keys()]
+  }
+
   /**
    * The Core turn context for this mission turn, or null when the turn must use
    * the legacy runners (sessions disabled, scope degraded, provider not served).
@@ -358,6 +363,15 @@ export class MissionCoreSessions {
   /** The Core session the conversation's sub-agent tools act on: its Intent's while an Intent session turn ran last. */
   private sessionOf(conversationId: string): string {
     return this.current.get(conversationId) ?? this.missionSessionId(conversationId)
+  }
+
+  /**
+   * Pid of the Core host serving this mission's live session. The host is shared
+   * by the project scope, so its tree also covers sessions of other missions.
+   */
+  hostPid(conversationId: string): number | null {
+    const scope = this.contexts.get(this.sessionOf(conversationId))?.scope
+    return scope ? this.deps.registry.hostPid(scope) : null
   }
 
   /** True when this mission's sub-agents (or its Intent's, while in Intent) are launched by Core (another provider). */

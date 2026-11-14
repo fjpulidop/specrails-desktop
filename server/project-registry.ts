@@ -67,6 +67,7 @@ import { getProjectSettings } from './db'
 import { createProjectAgentAudit, type ProjectAgentAudit } from './modules/audit/adapters/runtime'
 import { LoopRunManager, recoverOrphanLoopStepAccounting } from './modules/loops/runtime/loop-run-manager'
 import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
+import { startMissionResourceRecording } from './project-router-mission-resources'
 import { healLegacyFlowReviews } from './modules/delivery/runtime/flow-review-legacy'
 import { probeDefinitionRuns, toDefinitionStates } from './modules/loops/runtime/loop-definition-recovery'
 import { reconcileRailWorktrees } from './modules/delivery/runtime/rail-isolated-launch'
@@ -214,6 +215,8 @@ export interface ProjectContext {
   flowHandOff?: IntentHandOffAuthority
   /** Periodic retry of due Intent settlement effects (stopped on teardown). */
   flowSettlement?: { stop(): void }
+  /** Samples working missions' resources into the project DB (see project-router-mission-resources). */
+  missionResourceRecorder?: { stop(): void }
   /** Spec triage (launch-triage): tapped from the bound broadcast; absent in bare test contexts. */
   specTriage?: SpecTriageService
   /** Recently-deleted specs: purges entries older than 30 days (stopped on teardown). */
@@ -497,6 +500,7 @@ export class ProjectRegistry {
       try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
       try { ctx.milestoneProgress?.dispose() } catch { /* ignore */ }
       try { ctx.flowSettlement?.stop() } catch { /* ignore */ }
+      try { ctx.missionResourceRecorder?.stop() } catch { /* ignore */ }
       // Kill any terminal sessions belonging to this project
       try { getTerminalManager().killAllForProject(id) } catch { /* ignore */ }
       // Close the ticket file watcher
@@ -706,6 +710,7 @@ export class ProjectRegistry {
       try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
       try { ctx.milestoneProgress?.dispose() } catch { /* ignore */ }
       try { ctx.flowSettlement?.stop() } catch { /* ignore */ }
+      try { ctx.missionResourceRecorder?.stop() } catch { /* ignore */ }
       // Release chokidar watchers + abort in-flight generations so a restart
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
@@ -1665,6 +1670,8 @@ export class ProjectRegistry {
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, dailyBudgetHeadroom, budgetCaps, runCapDefault, reviewWipGate, agentAudit }
     projectContext = ctx
     ctx.milestoneChains = milestoneChains
+    // Records each working mission's resource totals so the Resources popover keeps its history.
+    ctx.missionResourceRecorder = startMissionResourceRecording(ctx)
     // Spec triage (launch-triage): cheap per-spec loop recommendation. Seeded
     // now so the existing backlog is only triaged on edit or on demand.
     specTriage = new SpecTriageService({

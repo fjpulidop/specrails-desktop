@@ -13,7 +13,10 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/BackgroundProcessChip.tsx](components/BackgroundProcessChip.tsx)
 - [components/BackgroundProcessHistoryModal.tsx](components/BackgroundProcessHistoryModal.tsx)
 - [components/BackgroundProcessLogsModal.tsx](components/BackgroundProcessLogsModal.tsx)
+- [components/BackgroundProcessesPanel.tsx](components/BackgroundProcessesPanel.tsx)
+- [components/MissionResourcesPanel.tsx](components/MissionResourcesPanel.tsx)
 - [context/BackgroundProcessesContext.tsx](context/BackgroundProcessesContext.tsx)
+- [hooks/useMissionResourceHistory.ts](hooks/useMissionResourceHistory.ts)
 - [lib/background-processes-api.ts](lib/background-processes-api.ts)
 
 ## Feature dependencies
@@ -28,3 +31,11 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/background`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+## Mission resources history
+
+`useMissionResourceHistory` reads live totals and persisted `history` from the
+project-scoped resources endpoint while the popover is open. Sampling and SQLite
+retention belong to the server recorder, so closing the popover or reloading the
+client does not interrupt collection during an active mission turn. The hook
+ignores responses from a previously selected project or mission.

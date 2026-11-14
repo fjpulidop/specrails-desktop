@@ -1987,6 +1987,48 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
+  // Migration 89: per-mission resource history. A server-side recorder samples a
+  // mission's CPU/memory/process totals while it works so the Resources popover
+  // can show the whole run after a reload or restart. Rows belong to the
+  // conversation and go with it (ON DELETE CASCADE); the recorder caps each
+  // conversation's rows, so this table stays small.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS mission_resource_samples (
+        conversation_id TEXT    NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+        at              INTEGER NOT NULL,
+        cpu_percent     REAL    NOT NULL,
+        memory_bytes    INTEGER NOT NULL,
+        process_count   INTEGER NOT NULL,
+        PRIMARY KEY (conversation_id, at)
+      ) WITHOUT ROWID
+    `)
+  },
+
+  // Migration 90: Agent Mode conversations live in the desktop database, not in
+  // chat_conversations. Keep their samples in the owning project's database too,
+  // without a cross-database foreign key. Preserve cleanup for project chats.
+  (db) => {
+    db.exec(`
+      CREATE TABLE mission_resource_samples_v90 (
+        conversation_id TEXT NOT NULL,
+        at INTEGER NOT NULL,
+        cpu_percent REAL NOT NULL,
+        memory_bytes INTEGER NOT NULL,
+        process_count INTEGER NOT NULL,
+        PRIMARY KEY (conversation_id, at)
+      ) WITHOUT ROWID;
+      INSERT INTO mission_resource_samples_v90 SELECT * FROM mission_resource_samples;
+      DROP TABLE mission_resource_samples;
+      ALTER TABLE mission_resource_samples_v90 RENAME TO mission_resource_samples;
+      CREATE TRIGGER mission_resource_samples_chat_delete
+      AFTER DELETE ON chat_conversations
+      BEGIN
+        DELETE FROM mission_resource_samples WHERE conversation_id = OLD.id;
+      END;
+    `)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

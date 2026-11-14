@@ -704,7 +704,8 @@
       "noMatches": "Nessun processo corrispondente.",
       "loadFailed": "Impossibile caricare la cronologia. Le voci già caricate restano disponibili.",
       "showMore": "Mostra altri",
-      "count": "Processi: {{count}}"
+      "count": "Processi: {{count}}",
+      "viewAll": "Mostra tutti i processi"
     },
     "interruptedHint": "Specrails non supervisiona più questo processo. Il suo stato nel sistema operativo è sconosciuto; i log salvati restano disponibili.",
     "persistenceFailed": "Impossibile salvare la cronologia del processo. L’output disponibile resta visibile.",
@@ -1569,5 +1570,37 @@
     "dismissedMany": "Monitoraggio della CI delle PR {{pr}} non avviato.",
     "retry": "Correggi di nuovo CI / Conflitti",
     "openLog": "Apri il log"
+  },
+  "missionResources": {
+    "button": "Risorse",
+    "open": "Apri le risorse della missione",
+    "title": "Risorse della missione",
+    "description": "Ciò che questa missione sta usando ora, con una breve cronologia. Sola lettura.",
+    "loading": "Misurazione in corso…",
+    "unsupported": "La misurazione delle risorse non è disponibile su questa piattaforma.",
+    "empty": "Nessun processo in esecuzione per questa missione.",
+    "cpu": "CPU",
+    "memory": "Memoria",
+    "processes": "Processi",
+    "agentSession": "Sessione dell'agente",
+    "notRunning": "terminato",
+    "worktree": "Disco del worktree",
+    "notScanned": "Non analizzato",
+    "scanning": "Analisi in corso…",
+    "scanFailed": "Analisi non riuscita",
+    "scan": "Analizza",
+    "rescan": "Rianalizza",
+    "processCount_one": "{{count}} processo",
+    "processCount_other": "{{count}} processi",
+    "kind": {
+      "agent-session": "Agente",
+      "background-process": "Processo in background",
+      "mission-activity": "Attività della missione"
+    },
+    "finishedAt": "Terminata alle {{time}}",
+    "lastActive": "Ultima attività durante l'esecuzione",
+    "history": "Cronologia",
+    "peakValue": "Picco {{value}}",
+    "historyHint": "Un punto ogni 3 s mentre la missione lavorava. Passa il mouse su una linea per vedere ora e valore."
   }
 }

@@ -704,7 +704,8 @@
       "noMatches": "没有匹配的进程。",
       "loadFailed": "无法加载进程历史。已加载的记录仍然可用。",
       "showMore": "显示更多",
-      "count": "进程数：{{count}}"
+      "count": "进程数：{{count}}",
+      "viewAll": "查看所有进程"
     },
     "interruptedHint": "Specrails 已停止监控此进程。其在操作系统中的状态未知；已保存的日志仍然可用。",
     "persistenceFailed": "无法保存进程历史。现有输出仍然可见。",
@@ -1569,5 +1570,37 @@
     "dismissedMany": "未开始监控 PR {{pr}} 的 CI。",
     "retry": "再次修复 CI / 冲突",
     "openLog": "查看日志"
+  },
+  "missionResources": {
+    "button": "资源",
+    "open": "打开任务资源",
+    "title": "任务资源",
+    "description": "此任务当前使用的资源及简短历史。只读。",
+    "loading": "正在测量…",
+    "unsupported": "此平台不支持资源测量。",
+    "empty": "此任务没有正在运行的进程。",
+    "cpu": "CPU",
+    "memory": "内存",
+    "processes": "进程",
+    "agentSession": "智能体会话",
+    "notRunning": "已停止",
+    "worktree": "工作树磁盘",
+    "notScanned": "未扫描",
+    "scanning": "正在扫描…",
+    "scanFailed": "扫描失败",
+    "scan": "扫描",
+    "rescan": "重新扫描",
+    "processCount_one": "{{count}} 个进程",
+    "processCount_other": "{{count}} 个进程",
+    "kind": {
+      "agent-session": "智能体",
+      "background-process": "后台进程",
+      "mission-activity": "任务活动"
+    },
+    "finishedAt": "于 {{time}} 结束",
+    "lastActive": "运行期间的最后活动",
+    "history": "历史",
+    "peakValue": "峰值 {{value}}",
+    "historyHint": "任务工作期间每 3 秒一个点。将鼠标悬停在线条上可查看时间和数值。"
   }
 }
