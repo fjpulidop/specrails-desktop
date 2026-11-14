@@ -1,5 +1,32 @@
 # Changelog
 
+## [3.3.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.2.0...v3.3.0) (2026-11-14)
+
+
+### Features
+
+* accept any text or code file as an attachment in agent and Explore conv… (11) ([#874](https://github.com/fjpulidop/specrails-desktop/issues/874)) ([36f67ec](https://github.com/fjpulidop/specrails-desktop/commit/36f67ec7f5da13e125bc463bbe431801866080fc))
+* archive missions and filter the sidebar by active, archived or all (10) ([#857](https://github.com/fjpulidop/specrails-desktop/issues/857)) ([78b822f](https://github.com/fjpulidop/specrails-desktop/commit/78b822f87eb8fd177e8179d523aaf08eef5af3d7))
+* open a placeholder mission conversation when a blueprint is committed f… (5) ([#860](https://github.com/fjpulidop/specrails-desktop/issues/860)) ([f7fa9e2](https://github.com/fjpulidop/specrails-desktop/commit/f7fa9e265901de973e5e4110fc8a16840d59c0f2))
+* reuse selected mission text in the current mission or a separate mission (12) ([#875](https://github.com/fjpulidop/specrails-desktop/issues/875)) ([4042465](https://github.com/fjpulidop/specrails-desktop/commit/4042465436bc04f465e46f9430dd9048fcb33a80))
+* smarter Implement runs (fail reasons, host-confirmed blockers, baseline, Python venv, addenda lint) ([#870](https://github.com/fjpulidop/specrails-desktop/issues/870)) ([6adcf00](https://github.com/fjpulidop/specrails-desktop/commit/6adcf00b3505672f06b413cc14183657fd411d28))
+
+
+### Bug Fixes
+
+* **delivery:** hide repository actions on settled PR cards ([#862](https://github.com/fjpulidop/specrails-desktop/issues/862)) ([a45ec0b](https://github.com/fjpulidop/specrails-desktop/commit/a45ec0b28de02bddfc9b29ebfc2c87e9fd6ff382))
+* **delivery:** release worktrees holding only node_modules installs ([#863](https://github.com/fjpulidop/specrails-desktop/issues/863)) ([71f2387](https://github.com/fjpulidop/specrails-desktop/commit/71f2387957af839ce19c1a1e452b3d19e4926d77))
+* **delivery:** settle a run the person stopped as stopped on every path ([#866](https://github.com/fjpulidop/specrails-desktop/issues/866)) ([a4f02a6](https://github.com/fjpulidop/specrails-desktop/commit/a4f02a6b0f60cca2895da6c7cbf63c7174b14245))
+* **delivery:** unblock settlement of forked definition runs ([#859](https://github.com/fjpulidop/specrails-desktop/issues/859)) ([35bf622](https://github.com/fjpulidop/specrails-desktop/commit/35bf622b2321dbc7225ce68b7bbb7fe91f82bdff))
+* **intent:** CI watch offer for card-created PRs, multi-repo PR and merge watch ([#876](https://github.com/fjpulidop/specrails-desktop/issues/876)) ([09fe13d](https://github.com/fjpulidop/specrails-desktop/commit/09fe13d33e434b8e09dd3acce3bcc1fc1a81162c))
+* **intent:** commit the hand-off on the Intent branch, never a detached HEAD ([#872](https://github.com/fjpulidop/specrails-desktop/issues/872)) ([eceb4fd](https://github.com/fjpulidop/specrails-desktop/commit/eceb4fdbdf5cbdccd0d6794d39b60cf6e0241034))
+* **intent:** ready-for-review card, plan-included cost and background merge watch ([#873](https://github.com/fjpulidop/specrails-desktop/issues/873)) ([9855c8e](https://github.com/fjpulidop/specrails-desktop/commit/9855c8e02490faf436f76eb6d2753ffa1a1d37d6))
+* **loops:** bound plan repairs after a failed OpenSpec validation ([#865](https://github.com/fjpulidop/specrails-desktop/issues/865)) ([45ba489](https://github.com/fjpulidop/specrails-desktop/commit/45ba489576fbb78f8ca1ef5b3f5a68eec9e4b032))
+* **pr-ci:** fail fast on red checks and refresh the base at most once per run ([#877](https://github.com/fjpulidop/specrails-desktop/issues/877)) ([7d1dc4a](https://github.com/fjpulidop/specrails-desktop/commit/7d1dc4a05bfacd8459998e3caccbd5d14c397bc2))
+* **pr-ci:** freeze the ignored-path snapshot when a CI loop ends failed ([#864](https://github.com/fjpulidop/specrails-desktop/issues/864)) ([058ba67](https://github.com/fjpulidop/specrails-desktop/commit/058ba674c7e4c1be3d6939517be4f1fc9eecdf05))
+* **pr-ci:** recognize tooling drift instead of ending on a scope blocker ([#871](https://github.com/fjpulidop/specrails-desktop/issues/871)) ([d815e23](https://github.com/fjpulidop/specrails-desktop/commit/d815e23cbbbdd4aaa33fb8e605f64aa066bb3a17))
+* **pr-ci:** surface merge conflicts on ready PRs and rename Fix CI ([#861](https://github.com/fjpulidop/specrails-desktop/issues/861)) ([0aaa769](https://github.com/fjpulidop/specrails-desktop/commit/0aaa7698b4c6e704049f9661686cc08d72bc4993))
+
 ## [3.2.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.1.0...v3.2.0) (2026-11-12)
 
 
