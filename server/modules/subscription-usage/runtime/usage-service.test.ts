@@ -99,3 +99,15 @@ it('does not query a detected CLI which is disabled or incompatible', async () =
   expect(read).not.toHaveBeenCalled(); expect(context).not.toHaveBeenCalled()
   expect(service.snapshot().providers.every(p => p.installed === true && p.availability === 'unsupported-cli')).toBe(true)
 })
+describe('provider billing', () => {
+  it('resolves billing: waits for the first read it starts, never for longer than its bound', async () => {
+    const f = fixture()
+    expect(f.service.billing('claude', {})).toEqual({ billing: 'unknown', plan: null })
+    await f.service.settled()
+    await expect(f.service.resolveBilling('codex', 1_000, {})).resolves.toEqual({ billing: 'plan', plan: 'plus' })
+    await expect(f.service.resolveBilling('claude', 1_000, { ANTHROPIC_API_KEY: 'test' })).resolves.toEqual({ billing: 'api', plan: null })
+    const slow = fixture(); slow.read.mockReturnValue(new Promise(() => {}))
+    await expect(slow.service.resolveBilling('codex', 10, {})).resolves.toEqual({ billing: 'unknown', plan: null })
+    expect(slow.service.billing('gemini', {})).toEqual({ billing: 'unknown', plan: null })
+  })
+})

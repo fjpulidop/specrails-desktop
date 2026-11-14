@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { initialUsage, USAGE_PROVIDERS, type UsageProvider, type UsageSnapshot } from '../domain'
+import { initialUsage, providerBilling, USAGE_PROVIDERS, type ProviderBilling, type UsageProvider, type UsageSnapshot } from '../domain'
 import { backoff, withFreshness } from '../application'
 import type { UsageDependencies } from '../ports'
 import { UsageError } from '../adapters/errors'
@@ -73,6 +73,24 @@ export function createUsageService(deps: UsageDependencies) {
     return { snapshot: view, scheduled, retryAt: view.providers.filter(p => !providerId || p.providerId === providerId).map(p => p.retryAt).filter((s): s is string => !!s).sort()[0] ?? null }
   }
   async function dispose() { disposed = true; controllers.forEach(c => c.abort()); await Promise.allSettled(running.values()) }
-  return { snapshot, refresh, dispose, settled: () => Promise.allSettled(running.values()) }
+  /** How `providerId`'s turns are paid, from the last observation (never probes). */
+  function billing(providerId: string, env: Record<string, string | undefined> = process.env): ProviderBilling {
+    const result = providerBilling(snapshot(), providerId, env)
+    // Not observed yet: start an automatic read so the next ask knows.
+    if (result.billing === 'unknown' && (USAGE_PROVIDERS as readonly string[]).includes(providerId)) refresh(providerId as UsageProvider, true)
+    return result
+  }
+  /** Like `billing`, but when the provider was never observed it waits (bounded)
+   * for the read it starts, so a card posted right after startup is not left unknown. */
+  async function resolveBilling(providerId: string, timeoutMs = 8_000, env: Record<string, string | undefined> = process.env): Promise<ProviderBilling> {
+    const first = billing(providerId, env)
+    const task = running.get(providerId as UsageProvider)
+    if (first.billing !== 'unknown' || !task) return first
+    let timer: ReturnType<typeof setTimeout> | undefined
+    await Promise.race([task, new Promise<void>((resolve) => { timer = setTimeout(resolve, timeoutMs) })]).catch(() => {})
+    if (timer) clearTimeout(timer)
+    return providerBilling(snapshot(), providerId, env)
+  }
+  return { snapshot, refresh, dispose, billing, resolveBilling, settled: () => Promise.allSettled(running.values()) }
 }
 export type UsageService = ReturnType<typeof createUsageService>

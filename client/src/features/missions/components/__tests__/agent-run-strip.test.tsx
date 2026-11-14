@@ -732,7 +732,8 @@ describe('history lines focus the run', () => {
   it('a settled Intent → Spec run is one outcome line that expands its card in place', async () => {
     await renderPanelWithMessages([sysRow('s1', { decision: 'pr_ready', loopId: 'factory:flow-spec', loopName: 'Intent → Spec', prNumber: 812, prUrl: 'https://github.com/o/r/pull/812', prState: 'pr-created' })])
     const line = await screen.findByTestId('agent-settled-run-line')
-    expect(line).toHaveTextContent('Delivered: PR #812')
+    // An open PR is in review; only a merge reads as delivered.
+    expect(line).toHaveTextContent('In review: PR #812')
     expect(fullCards()).toHaveLength(0)
     fireEvent.click(line)
     expect(historyCards()).toHaveLength(1)

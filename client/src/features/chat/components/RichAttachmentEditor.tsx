@@ -50,6 +50,9 @@ interface RichAttachmentEditorProps {
   onAttachmentRemoved?: (attachment: Attachment) => void
   onUnsupportedFile?: (file: File) => void
   onUploadError?: (error: Error, file: File) => void
+  /** Accept any file: no picker `accept` filter and no client-side type gate.
+   *  The server decides (rich type or readable text) and explains a refusal. */
+  acceptAnyFile?: boolean
   onChange?: () => void
   onSubmit?: () => void // Cmd+Enter
   /** Extra action(s) rendered next to "Attach files" in the footer (e.g. the
@@ -140,6 +143,7 @@ export const RichAttachmentEditor = forwardRef<RichAttachmentEditorHandle, RichA
       onAttachmentRemoved,
       onUnsupportedFile,
       onUploadError,
+      acceptAnyFile = false,
       onChange,
       onSubmit,
       footerExtra,
@@ -264,14 +268,14 @@ export const RichAttachmentEditor = forwardRef<RichAttachmentEditorHandle, RichA
 
     const uploadFile = useCallback(
       async (file: File) => {
-        if (!isSupportedAttachmentFile(file)) {
+        if (!acceptAnyFile && !isSupportedAttachmentFile(file)) {
           onUnsupportedFile?.(file)
           return
         }
         const pendingId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
         setUploads((prev) => [...prev, { id: pendingId, name: file.name }])
         try {
-          const attachment = await uploadAttachment(ticketKey, file)
+          const attachment = await uploadAttachment(ticketKey, file, undefined, { readableText: acceptAnyFile })
           schedulePill(attachment)
           onAttachmentAdded?.(attachment)
         } catch (err) {
@@ -281,7 +285,7 @@ export const RichAttachmentEditor = forwardRef<RichAttachmentEditorHandle, RichA
           setUploads((prev) => prev.filter((u) => u.id !== pendingId))
         }
       },
-      [onAttachmentAdded, onUnsupportedFile, onUploadError, schedulePill, ticketKey],
+      [acceptAnyFile, onAttachmentAdded, onUnsupportedFile, onUploadError, schedulePill, ticketKey],
     )
 
     const uploadFiles = useCallback(
@@ -579,7 +583,7 @@ export const RichAttachmentEditor = forwardRef<RichAttachmentEditorHandle, RichA
           ref={fileInputRef}
           type="file"
           multiple
-          accept={ATTACHMENT_ACCEPT_MIME}
+          accept={acceptAnyFile ? undefined : ATTACHMENT_ACCEPT_MIME}
           className="hidden"
           onChange={handleBrowseChange}
         />

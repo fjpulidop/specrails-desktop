@@ -6,10 +6,12 @@ export async function uploadAttachment(
   ticketKey: string | number,
   file: File,
   signal?: AbortSignal,
+  options: { readableText?: boolean } = {},
 ): Promise<Attachment> {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch(`${getApiBase()}/tickets/${ticketKey}/attachments`, {
+  const query = options.readableText ? '?readableText=1' : ''
+  const res = await fetch(`${getApiBase()}/tickets/${ticketKey}/attachments${query}`, {
     method: 'POST',
     body: form,
     signal,

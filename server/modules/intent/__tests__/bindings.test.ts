@@ -418,7 +418,7 @@ describe('Intent in a workspace project (real git: a plain folder holding two re
 })
 
 describe('Intent port composition', () => {
-  function ports(overrides: { agentHost?: ReturnType<typeof vi.fn> | null; internal?: ReturnType<typeof vi.fn> } = {}) {
+  function ports(overrides: { agentHost?: ReturnType<typeof vi.fn> | null; internal?: ReturnType<typeof vi.fn>; providerBilling?: (provider: string) => Promise<{ billing: 'plan' | 'api' | 'unknown'; plan: string | null }> } = {}) {
     const ctx = context()
     const repository = createSqliteFlowRepository(ctx.db)
     const host = { assertFlowSupport: vi.fn(async () => {}), closeFlowSession: vi.fn(async () => {}) }
@@ -428,6 +428,7 @@ describe('Intent port composition', () => {
       agentHost: () => (overrides.agentHost === null ? null : host) as never,
       availability: async () => ({ available: true, reason: 'ok', missing: [] }),
       clock: { now: () => 'now' },
+      ...(overrides.providerBilling ? { providerBilling: overrides.providerBilling } : {}),
     })
     return { ctx, bound, host, call }
   }
@@ -486,10 +487,33 @@ describe('Intent port composition', () => {
     recordAgentInvocation(ctx.desktopDb, { ...base, id: 'b', surface: 'flow', started_at: '2026-10-21T10:02:00Z', total_cost_usd: 0.9, total_cost_usd_estimated: true, tokens_in: 1, tokens_out: 1 })
     recordAgentInvocation(ctx.desktopDb, { ...base, id: 'c', started_at: '2026-10-21T10:03:00Z', total_cost_usd: 5 })
     recordAgentInvocation(ctx.desktopDb, { ...base, id: 'd', surface: 'flow', started_at: '2026-10-21T09:00:00Z', total_cost_usd: 7 })
-    expect(bound.usage.costSoFar({ conversationId: 'conv-1', from: '2026-10-21T10:00:00Z', to: null })).toEqual({ costUsd: 0.4, turns: 2, unpricedTurns: 1, tokensIn: 11, tokensOut: 6 })
+    expect(bound.usage.costSoFar({ conversationId: 'conv-1', from: '2026-10-21T10:00:00Z', to: null })).toEqual({
+      costUsd: 0.4, turns: 2, unpricedTurns: 1, tokensIn: 11, tokensOut: 6,
+      providers: [{ provider: 'claude', turns: 2, costUsd: 0.4, estimatedUsd: 0.9, unpricedTurns: 1, billing: 'unknown', plan: null }],
+    })
     bound.notifier.changed({ id: 'flow-1', conversationId: 'conv-1' } as IntentSession)
     expect(ctx.broadcast).toHaveBeenCalledWith({ type: 'flow.state', projectId: 'proj-1', conversationId: 'conv-1', flowId: 'flow-1', flow: { id: 'flow-1', conversationId: 'conv-1' }, timestamp: 'now' })
     expect(bound.ids()).toMatch(/\w+/)
+  })
+
+  it('splits Intent usage per provider and resolves how each is paid (plan vs API)', async () => {
+    const billing = vi.fn(async (provider: string) => (provider === 'codex' ? { billing: 'plan' as const, plan: 'plus' } : { billing: 'api' as const, plan: null }))
+    const { ctx, bound } = ports({ providerBilling: billing })
+    const base = { conversation_id: 'conv-1', status: 'success' as const, finished_at: null, surface: 'flow' }
+    recordAgentInvocation(ctx.desktopDb, { ...base, provider: 'claude', id: 'a', started_at: '2026-10-21T10:01:00Z', total_cost_usd: 0.4 })
+    recordAgentInvocation(ctx.desktopDb, { ...base, provider: 'codex', id: 'b', started_at: '2026-10-21T10:02:00Z', total_cost_usd: 0.25, total_cost_usd_estimated: true })
+    recordAgentInvocation(ctx.desktopDb, { ...base, provider: 'codex', id: 'c', started_at: '2026-10-21T10:03:00Z' })
+    const usage = bound.usage.costSoFar({ conversationId: 'conv-1', from: '2026-10-21T10:00:00Z', to: null })
+    expect(usage).toMatchObject({ costUsd: 0.4, turns: 3, unpricedTurns: 2 })
+    expect(usage.providers).toEqual([
+      { provider: 'claude', turns: 1, costUsd: 0.4, estimatedUsd: 0, unpricedTurns: 0, billing: 'unknown', plan: null },
+      { provider: 'codex', turns: 2, costUsd: 0, estimatedUsd: 0.25, unpricedTurns: 2, billing: 'unknown', plan: null },
+    ])
+    await expect(bound.usage.billing!('codex')).resolves.toEqual({ billing: 'plan', plan: 'plus' })
+    await expect(bound.usage.billing!('claude')).resolves.toEqual({ billing: 'api', plan: null })
+    // A failing lookup (or none bound) never breaks the cost: unknown.
+    await expect(ports({ providerBilling: async () => { throw new Error('boom') } }).bound.usage.billing!('claude')).resolves.toEqual({ billing: 'unknown', plan: null })
+    await expect(ports().bound.usage.billing!('claude')).resolves.toEqual({ billing: 'unknown', plan: null })
   })
 })
 
@@ -799,7 +823,7 @@ describe('Intent closing summary binding', () => {
     expect(host.upsertSystemRow).toHaveBeenCalledWith('conv-1', {
       kind: 'flow-delivered', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId,
       specTitle: 'Board', branch: 'feat/1-board',
-      integration: { kind: 'pr', prUrl: 'https://github.com/o/r/pull/42', prNumber: 42, merged: false, baseBranch: 'main', sha: 'c'.repeat(40) },
+      integration: { kind: 'pr', prUrl: 'https://github.com/o/r/pull/42', prNumber: 42, merged: false, draft: false, baseBranch: 'main', sha: 'c'.repeat(40) },
       prUrl: 'https://github.com/o/r/pull/42', prNumber: 42, changeName: 'kanban-board', changeArchived: true,
       specRewrite: 'done', jiraCreate: 'skipped', jiraKey: null,
       diff: { files: 4, additions: 120, deletions: 8 }, cost: { costUsd: 1.25, turns: 3, unpricedTurns: 1 }, durationMs: 1_800_000, openQuestionsAnswered: 0,
@@ -812,7 +836,7 @@ describe('Intent closing summary binding', () => {
     ctx.db.prepare("UPDATE rail_pr_deliveries SET decision = 'merged', delivery_sha = ? WHERE id = ?").run('c'.repeat(40), 'delivery-1')
     bound.conversation!.postDeliveredSummary!({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId, settlement: { specRewrite: 'pending', jiraCreate: 'pending', jiraReview: 'pending' }, session: session({ ticketId }), cost: null, diff: null, durationMs: 0 })
     expect(host.upsertSystemRow).toHaveBeenCalledWith('conv-1', expect.objectContaining({
-      integration: { kind: 'local', prUrl: null, prNumber: null, merged: true, baseBranch: 'main', sha: 'c'.repeat(40) },
+      integration: { kind: 'local', prUrl: null, prNumber: null, merged: true, draft: false, baseBranch: 'main', sha: 'c'.repeat(40) },
       prUrl: null, specRewrite: 'pending', jiraCreate: 'pending', settled: false, diff: null, cost: null,
     }), 'flow-delivered:flow-1')
   })

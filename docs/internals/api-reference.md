@@ -246,6 +246,7 @@ These routes are available when a mission ran in a Core agent session (`SPECRAIL
 | `POST` | `/agent/conversations/:id/unarchive` | `{ conversation }`; clears only archive state, idempotent. 404 unknown/trashed. |
 | `POST` | `/agent/conversations/:id/branch` | `{ mode: 'empty' \| 'fork', throughMessageId }` → `201 { conversation }`. Inherits source settings without sending input. Fork copies committed history through the named source message, its attachments and provenance, with a new agent session. 400 invalid request; 404 unknown/trashed source or foreign/missing message; 409 `BRANCH_SNAPSHOT_FAILED` rolls back the new mission and files. |
 | `DELETE` | `/agent/conversations/:id` | Requires archive for non-trashed missions (both DELETE variants return 409 `NOT_ARCHIVED` before cleanup otherwise). Soft delete: stops the live turn, closes the Core session and hides the mission (`deleted_at`); `{ ok, restorable: true }`. `?permanent=1` removes the row, history and attachments for good (`404` unknown id). Deleted missions are `404` on `GET /agent/conversations/:id` and `/send`, and absent from the list, search and mobile listings |
+| `POST` | `/agent/conversations/:id/attachments` | Upload an attachment (multipart field `file`, 25 MB max; `{ attachment }`). Accepted: images, PDF and Excel by their reported type, or any file whose content is readable text (stored as `text/plain`, so `.md`, `.sql`, `.ts`, `.yaml`, `.log` all work). Anything else returns `400` `"<file>" is not a text file and cannot be attached` and stores nothing |
 | `GET` | `/agent/conversations/trash?projectId=` | Deleted missions pinned to the project (all when omitted), newest deletion first: `{ items: [{ conversation, deletedAt, purgeAt }], retentionDays: 30 }`. Purges missions deleted more than 30 days ago first |
 | `POST` | `/agent/conversations/:id/restore` | Undo a delete; idempotent. `{ ok, conversation }`, `404` when the mission no longer exists |
 | `GET` | `/agent/conversations/:id` | Includes `session`: `{ residentPhase, processAlive, liveSubagents, subagents }`, or `null` when the mission never ran in Core. |
@@ -458,7 +459,7 @@ fails the write that triggered it.
 | `DELETE` | `/tickets/:id/children` | Delete all children of an epic |
 | `POST` | `/tickets/:id/ai-edit` | Open an AI edit (Refine) session against the ticket |
 | `DELETE` | `/tickets/:id/ai-edit` | Cancel an AI edit session |
-| `POST` | `/tickets/:ticketId/attachments` | Upload an attachment (multipart) |
+| `POST` | `/tickets/:ticketId/attachments` | Upload an attachment (multipart). Tickets keep the fixed type allow-list (`400` `Unsupported file type: <mime>`). `?readableText=1` opts a pending Explore spec (UUID key) into the conversation rule (rich type or readable text, same `400` refusal message as the agent upload); it is ignored for numeric ticket ids |
 | `GET` | `/tickets/:ticketId/attachments` | List attachments |
 | `GET` | `/tickets/:ticketId/attachments/:attachmentId` | Download one |
 | `DELETE` | `/tickets/:ticketId/attachments/:attachmentId` | Delete one |

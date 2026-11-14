@@ -51,8 +51,12 @@ export function settledRunOutcome(
   }
   if (['pr_ready', 'pr_draft', 'on_review', 'completed', 'merged'].includes(envelope.decision)) {
     const pr = envelope.prNumber ? `#${envelope.prNumber}` : null
+    // Delivered once integrated (merged); an open PR is in review.
+    const integrated = envelope.decision === 'merged' || envelope.decision === 'completed'
     return {
-      text: pr ? t('runStrip.event.delivered', { pr }) : t('runStrip.event.deliveredNoPr', { run }),
+      text: integrated
+        ? (pr ? t('runStrip.event.delivered', { pr }) : t('runStrip.event.deliveredNoPr', { run }))
+        : (pr ? t('runStrip.event.inReview', { pr }) : t('runStrip.event.inReviewNoPr', { run })),
       tone: 'success',
       icon: envelope.prNumber || envelope.prUrl ? GitPullRequest : CheckCircle2,
     }

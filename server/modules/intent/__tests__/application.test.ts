@@ -689,6 +689,42 @@ describe('settlement (arch 4.6)', () => {
     // An Intent session with a delivery row never settles from a bare run completion.
     await expect(ctx.service.onRailRunCompleted({ flowId: 'flow-1', runId: 'run-1' })).resolves.toBeNull()
   })
+
+  it('resolves each provider billing into the closing card cost (plan turns kept apart)', async () => {
+    const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}), postDeliveredSummary: vi.fn() }
+    const ctx = await delivered({ conversation })
+    const providers = [
+      { provider: 'claude', turns: 2, costUsd: 1.25, estimatedUsd: 0, unpricedTurns: 0, billing: 'unknown' as const, plan: null },
+      { provider: 'codex', turns: 1, costUsd: 0, estimatedUsd: 0.3, unpricedTurns: 1, billing: 'unknown' as const, plan: null },
+    ]
+    ctx.ports.usage.costSoFar = vi.fn(() => ({ costUsd: 1.25, turns: 3, unpricedTurns: 1, tokensIn: 1, tokensOut: 1, providers }))
+    ctx.ports.usage.billing = vi.fn(async (provider: string) => provider === 'claude' ? { billing: 'plan' as const, plan: 'max' } : Promise.reject(new Error('down')))
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    expect(conversation.postDeliveredSummary.mock.calls[0]![0].cost).toEqual({
+      costUsd: 1.25, turns: 3, unpricedTurns: 1,
+      providers: [{ ...providers[0], billing: 'plan', plan: 'max' }, providers[1]],
+    })
+  })
+
+  it('re-posts the closing card of a delivered Intent on every PR change (published, merged), never re-settling', async () => {
+    const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}), postDeliveredSummary: vi.fn() }
+    const ctx = await delivered({ conversation })
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.runSettlement('flow-1')
+    const before = conversation.postDeliveredSummary.mock.calls.length
+    const effects = ctx.effects.rows.size
+    // The PR was published (or merged): the card is re-posted, in place, with
+    // the delivery-time duration — not the time since the Intent started.
+    await expect(ctx.service.observeDelivery('delivery-1')).resolves.toMatchObject({ state: 'delivered' })
+    expect(conversation.postDeliveredSummary.mock.calls.length).toBe(before + 1)
+    const last = conversation.postDeliveredSummary.mock.calls[before]![0]
+    expect(last).toMatchObject({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    expect(last.durationMs).toBe(Math.max(0, Date.parse(last.session.updatedAt) - Date.parse(last.session.createdAt)) || 0)
+    expect(ctx.effects.rows.size).toBe(effects)
+    // Another delivery of the same Intent never touches its card.
+    await expect(ctx.service.observeDelivery('unknown')).resolves.toBeNull()
+    expect(conversation.postDeliveredSummary.mock.calls.length).toBe(before + 1)
+  })
 })
 
 /** Rebuild the port bag of a setup() context (fresh service, same stores). */

@@ -75,6 +75,7 @@ import { clearOrphanedPrDeliveryOperations, getActivePrDeliveryByRail, getPrDeli
 import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
 import { replayRailPrTicketEffectsUntilSettled } from './modules/delivery/runtime/rail-pr-ticket-effects'
 import { recoverLocalStashes } from './modules/delivery/runtime/rail-pr-decision'
+import { startPrMergeWatch } from './modules/delivery/runtime/pr-merge-watch'
 import { defaultExec } from './modules/delivery/runtime/pr-publisher'
 import {
   getLoopTerminalRecovery,
@@ -217,6 +218,8 @@ export interface ProjectContext {
   specTriage?: SpecTriageService
   /** Recently-deleted specs: purges entries older than 30 days (stopped on teardown). */
   trashPurge?: { stop(): void }
+  /** Background merge watch: settles PRs merged or closed on GitHub (delivery). */
+  prMergeWatch?: { stop(): void }
 }
 
 /** Rehydrate both authoritative PR-decision surfaces after startup recovery.
@@ -255,6 +258,9 @@ const PROJECT_LOAD_RETRY_DELAYS_MS = [1000, 2000, 5000, 30000]
 export class ProjectRegistry {
   private _desktopDb: DbInstance
   private _contexts: Map<string, ProjectContext>
+  /** Machine-scope: how a provider's turns are paid (subscription plan vs API),
+   * late-bound from the usage service (created after the registry). */
+  private _providerBilling: ((provider: string) => Promise<{ billing: 'plan' | 'api' | 'unknown'; plan: string | null }>) | null = null
   private _broadcast: (msg: WsMessage) => void
   private _webhookManager: WebhookManager
   private _desktopPort: number
@@ -279,6 +285,11 @@ export class ProjectRegistry {
     this._desktopPort = desktopPort ?? 4200
     this._failedProjects = new Map()
     this._browserContextPool = new SharedBrowserContextPool()
+  }
+
+  /** Bind the machine's billing lookup (subscription vs API) for Intent cost. */
+  setProviderBilling(lookup: (provider: string) => Promise<{ billing: 'plan' | 'api' | 'unknown'; plan: string | null }>): void {
+    this._providerBilling = lookup
   }
 
   get desktopDb(): DbInstance {
@@ -496,6 +507,7 @@ export class ProjectRegistry {
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
       try { ctx.specTriage?.dispose() } catch { /* ignore */ }
       try { ctx.trashPurge?.stop() } catch { /* ignore */ }
+      try { ctx.prMergeWatch?.stop() } catch { /* ignore */ }
       // Drop the app-managed Explore Spec cwd (CLAUDE.md + symlink to project)
       try { removeExploreCwd(ctx.project.slug) } catch { /* ignore — non-fatal */ }
       // Drop this project's per-project phase-tracking scope (avoid a leak).
@@ -699,6 +711,7 @@ export class ProjectRegistry {
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
       try { ctx.specTriage?.dispose() } catch { /* ignore */ }
       try { ctx.trashPurge?.stop() } catch { /* ignore */ }
+      try { ctx.prMergeWatch?.stop() } catch { /* ignore */ }
       try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
       try { ctx.agentAudit?.dispose() } catch { /* ignore */ }
       ctx.ticketWatcher.close().catch(() => { /* ignore */ })
@@ -1670,12 +1683,20 @@ export class ProjectRegistry {
         chatManager?.forgetExploreLifecycle(conversationId)
       },
     })
+    // A PR merged (or closed) on GitHub settles on its own, as "Verify PR" would.
+    ctx.prMergeWatch = startPrMergeWatch({
+      db,
+      project: { id: project.id, slug: project.slug, path: project.path },
+      broadcast: boundBroadcast,
+      jiraSyncManager: ctx.jiraSyncManager,
+    })
     // Intent mode: use cases bound to THIS project's connection; the mission host
     // is app-global and late-bound (agent chat starts after the registry).
     const flowRepository = createSqliteFlowRepository(db)
     const flowPorts = createFlowPorts({
       ctx, repository: flowRepository, effects: createSqliteFlowEffectsStore(db), internalApi, availability: () => flowAvailability(),
       agentHost: () => getAgentChatManager(),
+      providerBilling: async (provider) => (await this._providerBilling?.(provider)) ?? { billing: 'unknown', plan: null },
       // Dev servers the Intent agent started in the worktree stop with the Intent.
       processes: {
         async stop({ flowId }) {

@@ -902,6 +902,7 @@
       "runtime/pr-ci/pr-ci-handlers.ts",
       "runtime/pr-ci/pr-ci-projection.ts",
       "runtime/pr-ci/pr-ci-target.ts",
+      "runtime/pr-merge-watch.ts",
       "runtime/pr-naming.ts",
       "runtime/pr-publisher.ts",
       "runtime/rail-isolated-launch.ts",
@@ -1344,6 +1345,17 @@
       ],
       "runtime/pr-lifecycle.ts": [
         "./pr-publisher"
+      ],
+      "runtime/pr-merge-watch.ts": [
+        "../../../db",
+        "../../../jira/jira-sync-manager",
+        "../../../process-admission",
+        "../../../repo-lock",
+        "../../../types",
+        "../../../worktree-manager",
+        "./pr-publisher",
+        "./rail-pr-decision",
+        "./rail-pr-store"
       ],
       "runtime/pr-naming.ts": [
         "../../../integration-branch"

@@ -1573,6 +1573,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [pr-follow-up-scope.ts](../../server/modules/delivery/runtime/pr-follow-up-scope.ts)
 - [pr-follow-up.ts](../../server/modules/delivery/runtime/pr-follow-up.ts) · [test](../../server/modules/delivery/runtime/pr-follow-up.test.ts)
 - [pr-lifecycle.ts](../../server/modules/delivery/runtime/pr-lifecycle.ts) · [test](../../server/modules/delivery/runtime/pr-lifecycle.test.ts)
+- [pr-merge-watch.ts](../../server/modules/delivery/runtime/pr-merge-watch.ts) · [test](../../server/modules/delivery/runtime/pr-merge-watch.test.ts)
 - [pr-naming.ts](../../server/modules/delivery/runtime/pr-naming.ts) · [test](../../server/modules/delivery/runtime/pr-naming.test.ts)
 - [pr-publisher.ts](../../server/modules/delivery/runtime/pr-publisher.ts) · [test](../../server/modules/delivery/runtime/pr-publisher.test.ts)
 - [rail-isolated-launch.ts](../../server/modules/delivery/runtime/rail-isolated-launch.ts) · [test](../../server/modules/delivery/runtime/rail-isolated-launch.test.ts)

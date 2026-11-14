@@ -185,12 +185,33 @@ export interface IntentDeliveredSummaryInput {
   ticketId: number
   settlement: IntentSettlementSummary
   session: IntentSession
-  /** Provider-billed cost of the Intent's turns (null when usage is unknown). */
-  cost: { costUsd: number; turns: number; unpricedTurns: number } | null
+  /** Provider-billed cost of the Intent's turns (null when usage is unknown),
+   * with its per-provider split and how each provider is paid. */
+  cost: { costUsd: number; turns: number; unpricedTurns: number; providers?: IntentProviderCost[] } | null
   /** Files changed between the Intent's base and its frozen head (null when not measurable). */
   diff: { files: number; additions: number; deletions: number } | null
-  /** Wall-clock time from the Intent's start to this post. */
+  /** Wall-clock time from the Intent's start to its delivery. */
   durationMs: number
+}
+
+/** How a provider's turns are paid. `plan`: a subscription (Claude Pro/Max,
+ * ChatGPT Plus/Pro) — no marginal cost per turn, the reported or estimated
+ * amount is only its API-price equivalent. `api`: billed per token.
+ * `unknown`: not determined (the card then keeps the plain billed sum). */
+export type IntentProviderBilling = 'plan' | 'api' | 'unknown'
+
+/** One provider's share of an Intent's turns. */
+export interface IntentProviderCost {
+  provider: string
+  turns: number
+  /** Provider-reported cost. */
+  costUsd: number
+  /** Our list-price estimate for the turns the provider did not price. */
+  estimatedUsd: number
+  unpricedTurns: number
+  billing: IntentProviderBilling
+  /** The subscription plan name when `billing === 'plan'` and known. */
+  plan: string | null
 }
 
 /** Real (provider-reported) usage of an Intent session's turns. Never estimates. */
@@ -202,7 +223,13 @@ export interface IntentUsage {
     unpricedTurns: number
     tokensIn: number
     tokensOut: number
+    /** Per-provider split (absent in old adapters); `billing` is `unknown`
+     * here — `billing()` resolves it. */
+    providers?: IntentProviderCost[]
   }
+  /** How a provider's turns are paid on this machine (may wait briefly for a
+   * first subscription read). Absent ⇒ unknown. Never rejects. */
+  billing?(provider: string): Promise<{ billing: IntentProviderBilling; plan: string | null }>
 }
 
 /** Observer for committed state changes (WebSocket fan-out). Never throws. */

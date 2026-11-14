@@ -988,6 +988,7 @@ export function ExploreSpecShell({
             <RichAttachmentEditor
               ref={composerRef}
               ticketKey={pendingSpecId}
+              acceptAnyFile
               placeholder={conversation?.isStreaming ? '' : t('shell.composerPlaceholder')}
               minHeight={72}
               ariaLabel={t('shell.composerAriaLabel')}

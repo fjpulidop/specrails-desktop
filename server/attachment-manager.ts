@@ -82,6 +82,93 @@ function sanitizeFilename(name: string): string {
   return name.replace(/[^\w.\-]+/g, '_').slice(0, 120)
 }
 
+const RICH_MIME_TYPES = new Set<string>([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  ...EXCEL_MIMES,
+])
+const READABLE_TEXT_PREFIX_BYTES = 8192
+const MAX_CONTROL_CHAR_RATIO = 0.01
+const MAX_UTF8_SEQUENCE_BYTES = 4
+const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf])
+const UTF16_LE_BOM = Buffer.from([0xff, 0xfe])
+const UTF16_BE_BOM = Buffer.from([0xfe, 0xff])
+// Whitespace controls and ESC (ANSI colours in logs) are normal in text files.
+const TEXT_CONTROL_CODES = new Set<number>([0x09, 0x0a, 0x0c, 0x0d, 0x1b])
+
+function startsWith(buffer: Buffer, prefix: Buffer): boolean {
+  return buffer.length >= prefix.length && buffer.subarray(0, prefix.length).equals(prefix)
+}
+
+function decodesAsUtf8(bytes: Buffer): boolean {
+  const decoder = new TextDecoder('utf-8', { fatal: true })
+  // A multibyte character may be cut by the prefix boundary; tolerate that by
+  // retrying without up to three trailing bytes.
+  for (let trim = 0; trim < MAX_UTF8_SEQUENCE_BYTES && trim <= bytes.length; trim++) {
+    try {
+      decoder.decode(bytes.subarray(0, bytes.length - trim))
+      return true
+    } catch {
+      // try a shorter prefix
+    }
+  }
+  return false
+}
+
+function controlCharacterRatio(bytes: Buffer): number {
+  let controls = 0
+  for (const byte of bytes) {
+    if ((byte < 0x20 && !TEXT_CONTROL_CODES.has(byte)) || byte === 0x7f) controls++
+  }
+  return bytes.length === 0 ? 0 : controls / bytes.length
+}
+
+/**
+ * Decide by content (never by extension) whether a buffer is human-readable text.
+ * Only a bounded prefix is inspected; line length is irrelevant.
+ */
+export function isReadableText(buffer: Buffer, maxPrefixBytes: number = READABLE_TEXT_PREFIX_BYTES): boolean {
+  if (buffer.length === 0) return true
+  if (startsWith(buffer, UTF16_LE_BOM) || startsWith(buffer, UTF16_BE_BOM)) return true
+  const prefix = buffer.subarray(0, maxPrefixBytes)
+  if (prefix.includes(0x00)) return false
+  if (!decodesAsUtf8(prefix)) return false
+  return controlCharacterRatio(prefix) < MAX_CONTROL_CHAR_RATIO
+}
+
+/**
+ * MIME to store for an upload that may be a rich type or readable text, or null
+ * when it is neither. Rich types keep today's classification (a PDF named
+ * `.png` stays a PDF); other readable content is stored as `text/plain`.
+ */
+function resolveConversationMimeType(file: Pick<UploadedFile, 'mimetype' | 'originalname' | 'buffer'>): string | null {
+  const normalized = normalizeUploadedMimeType(file.mimetype, file.originalname)
+  if (RICH_MIME_TYPES.has(normalized)) return normalized
+  return isReadableText(file.buffer) ? 'text/plain' : null
+}
+
+function requireConversationMimeType(file: UploadedFile): string {
+  const mimeType = resolveConversationMimeType(file)
+  if (mimeType) return mimeType
+  const err = new Error(
+    `"${sanitizeFilename(file.originalname)}" is not a text file and cannot be attached`,
+  ) as Error & { status?: number }
+  err.status = 400
+  throw err
+}
+
+function decodeTextBuffer(buffer: Buffer): string {
+  if (startsWith(buffer, UTF16_LE_BOM)) return buffer.subarray(UTF16_LE_BOM.length).toString('utf16le')
+  if (startsWith(buffer, UTF16_BE_BOM)) {
+    return Buffer.from(buffer.subarray(UTF16_BE_BOM.length)).swap16().toString('utf16le')
+  }
+  if (startsWith(buffer, UTF8_BOM)) return buffer.subarray(UTF8_BOM.length).toString('utf-8')
+  return buffer.toString('utf-8')
+}
+
 function escapeUserAttachmentTag(s: string): string {
   return s.replace(/<\/user-attachment>/gi, '<\\/user-attachment>')
 }
@@ -187,9 +274,14 @@ export class AttachmentManager {
      *  empty store in the repo. */
     ticketStorePath: string | null
     file: UploadedFile
+    /** Opt in to the conversation rule (rich type or readable text). Default
+     *  keeps the ticket allow-list. */
+    allowReadableText?: boolean
   }): Promise<Attachment> {
-    const normalizedMimeType = normalizeUploadedMimeType(opts.file.mimetype, opts.file.originalname)
-    if (!SUPPORTED_MIME_TYPES.has(normalizedMimeType)) {
+    const normalizedMimeType = opts.allowReadableText
+      ? requireConversationMimeType(opts.file)
+      : normalizeUploadedMimeType(opts.file.mimetype, opts.file.originalname)
+    if (!opts.allowReadableText && !SUPPORTED_MIME_TYPES.has(normalizedMimeType)) {
       const err = new Error(`Unsupported file type: ${opts.file.mimetype}`) as Error & { status?: number }
       err.status = 400
       throw err
@@ -420,12 +512,7 @@ export class AttachmentManager {
   }
 
   async uploadAgent(opts: { conversationId: string; file: UploadedFile }): Promise<Attachment> {
-    const normalizedMimeType = normalizeUploadedMimeType(opts.file.mimetype, opts.file.originalname)
-    if (!SUPPORTED_MIME_TYPES.has(normalizedMimeType)) {
-      const err = new Error(`Unsupported file type: ${opts.file.mimetype}`) as Error & { status?: number }
-      err.status = 400
-      throw err
-    }
+    const normalizedMimeType = requireConversationMimeType(opts.file)
     const id = newId()
     const storedName = `${id}-${sanitizeFilename(opts.file.originalname)}`
     const attachment: Attachment = {
@@ -574,8 +661,8 @@ async function extractText(absPath: string, mimeType: string): Promise<string> {
     const rows = await readXlsxFile(absPath)
     return rows.map((row) => row.map(csvCell).join(',')).join('\n')
   }
-  // csv, txt, json, sql -> utf-8 raw
-  return fs.readFileSync(absPath, 'utf-8')
+  // csv, txt, json, sql -> text, honouring UTF-16/UTF-8 BOMs
+  return decodeTextBuffer(fs.readFileSync(absPath))
 }
 
 function csvCell(value: unknown): string {

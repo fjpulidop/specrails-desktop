@@ -115,3 +115,27 @@ export function initialUsage(providerId: UsageProvider, generation: string): Pro
   return { providerId, installed: null, generation, availability: 'unavailable', refreshState: 'idle', freshness: 'unknown', plan: null,
     windows: [], spend: null, source: null, observedAt: null, attemptedAt: null, retryAt: null, issue: null }
 }
+
+/** How a provider's turns are paid on this machine (see `providerBilling`). */
+export interface ProviderBilling { billing: 'plan' | 'api' | 'unknown'; plan: string | null }
+
+/**
+ * How the turns of `providerId` are paid, from the machine's usage snapshot:
+ * - an API key in the environment wins (Claude Code bills `ANTHROPIC_API_KEY`
+ *   per token even when an OAuth login exists) → `api`;
+ * - a signed-in subscription (Claude Pro/Max, ChatGPT Plus/Pro) → `plan`: no
+ *   marginal cost per turn. Enterprise with a money spend limit is usage-billed
+ *   to the organization → `api`;
+ * - Codex signed in with an API key (`unsupported-auth`) → `api`;
+ * - anything not yet observed → `unknown` (callers keep the plain billed sum).
+ * Pure; never reads credentials.
+ */
+export function providerBilling(snapshot: UsageSnapshot | null, providerId: string, env: Record<string, string | undefined> = {}): ProviderBilling {
+  if (providerId === 'claude' && env.ANTHROPIC_API_KEY) return { billing: 'api', plan: null }
+  const row = snapshot?.providers.find((provider) => provider.providerId === providerId)
+  if (!row) return { billing: 'unknown', plan: null }
+  if (row.availability === 'unsupported-auth') return { billing: 'api', plan: null }
+  if (row.availability !== 'available') return { billing: 'unknown', plan: null }
+  if (row.spend) return { billing: 'api', plan: row.plan }
+  return { billing: 'plan', plan: row.plan }
+}

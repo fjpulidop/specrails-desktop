@@ -12,6 +12,11 @@ and chain settlement. These adapters preserve the existing Git/SQLite contracts,
 leases, transaction ownership and durable ticket effects. The workflow import
 graph is checked for cycles. The public policy remains independent of effects.
 
+[The background merge watch](runtime/pr-merge-watch.ts) settles a PR merged or
+closed on GitHub without anyone pressing Verify PR: per project, it reads the
+due open PRs of each repository in one GraphQL call (age back-off) and runs
+the same `poll-merge` decision only for a terminal PR.
+
 Run `npx vitest run server/modules/delivery server/modules/delivery/runtime/rail-pr-decision.test.ts server/multi-repo-delivery.test.ts`.
 [Pure policy tests](__tests__/decision-policy.test.ts) protect remote PR authority,
 degraded drafts and continuation recovery prerequisites.
@@ -94,6 +99,7 @@ finding anchors come from Core contract 5.9 (`readFindingLocations` in
 - [runtime/isolated-worktree.ts](runtime/isolated-worktree.ts)
 - [runtime/multi-repo-execution-store.ts](runtime/multi-repo-execution-store.ts)
 - [runtime/multi-repo-execution.ts](runtime/multi-repo-execution.ts)
+- [runtime/pr-merge-watch.ts](runtime/pr-merge-watch.ts)
 - [runtime/pr-publisher.ts](runtime/pr-publisher.ts)
 - [runtime/rail-isolated-launch.ts](runtime/rail-isolated-launch.ts)
 - [runtime/rail-isolation.ts](runtime/rail-isolation.ts)
