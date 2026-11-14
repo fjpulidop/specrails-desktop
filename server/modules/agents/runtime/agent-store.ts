@@ -17,7 +17,14 @@ export { foldSearchText }
 
 export type ArchiveScope = 'active' | 'archived' | 'all'
 
+export interface AgentForkSource {
+  conversationId: string
+  messageId: string
+  title: string | null
+}
+
 export interface AgentConversation {
+  forkSource?: AgentForkSource
   id: string
   title: string | null
   provider: string
@@ -40,6 +47,8 @@ export interface AgentConversation {
 export type AgentMessageRole = 'user' | 'assistant' | 'system'
 
 export interface AgentMessage {
+  source_message_id?: string
+  delivery_status?: 'delivered' | 'interrupted' | 'cancelled'
   id: string
   conversation_id: string
   role: AgentMessageRole
@@ -113,6 +122,8 @@ export interface AgentMessageContextRef {
 }
 
 interface AgentMessageRaw {
+  source_message_id?: string | null
+  source_delivery_status?: AgentMessage['delivery_status'] | null
   id: string
   conversation_id: string
   role: AgentMessageRole
@@ -149,6 +160,8 @@ function isContextRef(value: unknown): value is AgentMessageContextRef {
 function mapMessage(row: AgentMessageRaw): AgentMessage {
   const ids = parseJsonArray(row.attachment_ids, (x): x is string => typeof x === 'string')
   return {
+    ...(row.source_message_id ? { source_message_id: row.source_message_id } : {}),
+    ...(row.source_delivery_status ? { delivery_status: row.source_delivery_status } : {}),
     id: row.id,
     conversation_id: row.conversation_id,
     role: row.role,
@@ -202,6 +215,7 @@ export function setAgentMessageIntent(
 }
 
 interface AgentConversationRaw {
+  fork_source?: string | null
   id: string
   title: string | null
   provider: string
@@ -218,18 +232,18 @@ interface AgentConversationRaw {
 
 function mapConversation(row: AgentConversationRaw | undefined): AgentConversation | undefined {
   if (!row) return undefined
-  const { archived_at, ...fields } = row
-  return { ...fields, archivedAt: archived_at, tier_level: normalizeLevel(row.tier_level) }
+  const { archived_at, fork_source, ...fields } = row
+  return { ...fields, ...(fork_source ? { forkSource: JSON.parse(fork_source) as AgentForkSource } : {}), archivedAt: archived_at, tier_level: normalizeLevel(row.tier_level) }
 }
 
 export function createAgentConversation(
   db: DbInstance,
-  input: { provider?: string; model?: string | null; pinnedProjectId?: string | null; tierLevel?: AgentTierLevel; reasoningEffort?: string | null } = {},
+  input: { forkSource?: AgentForkSource; provider?: string; model?: string | null; pinnedProjectId?: string | null; tierLevel?: AgentTierLevel; reasoningEffort?: string | null } = {},
 ): AgentConversation {
   const id = randomUUID()
   db.prepare(
-    `INSERT INTO agent_conversations (id, provider, model, pinned_project_id, tier_level, reasoning_effort)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO agent_conversations (id, provider, model, pinned_project_id, tier_level, reasoning_effort, fork_source)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.provider ?? 'claude',
@@ -237,6 +251,7 @@ export function createAgentConversation(
     input.pinnedProjectId ?? null,
     input.tierLevel ?? 0,
     input.reasoningEffort ?? null,
+    input.forkSource ? JSON.stringify(input.forkSource) : null,
   )
   return getAgentConversation(db, id)!
 }
@@ -353,6 +368,19 @@ export function addAgentMessage(
   // Touch the parent so the list stays ordered by latest activity.
   db.prepare("UPDATE agent_conversations SET updated_at = datetime('now') WHERE id = ?").run(input.conversationId)
   return mapMessage(db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(id) as AgentMessageRaw)
+}
+
+/** Caller owns the snapshot transaction and attachment rollback. Never copy input
+ * admission rows or Core turn/session IDs: inherited history cannot replay work. */
+export function copyAgentHistory(db: DbInstance, targetId: string, messages: readonly AgentMessage[]): void {
+  const insert = db.prepare(`INSERT INTO agent_messages
+    (id, conversation_id, role, content, attachment_ids, context_refs, intent, created_at, source_message_id, source_delivery_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+  for (const message of messages) {
+    insert.run(randomUUID(), targetId, message.role, message.content,
+      JSON.stringify(message.attachment_ids), JSON.stringify(message.context_refs),
+      JSON.stringify(message.intents), message.created_at, message.id, message.delivery_status ?? null)
+  }
 }
 
 export function listAgentMessages(db: DbInstance, conversationId: string): AgentMessage[] {

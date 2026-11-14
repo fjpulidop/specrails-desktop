@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1380 source/build files. Nearby tests are linked where names
+Includes 1381 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -610,6 +610,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MissionConversationMenu.tsx](../../client/src/features/missions/components/MissionConversationMenu.tsx)
 - [MissionHomeHeader.tsx](../../client/src/features/missions/components/MissionHomeHeader.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionHomeHeader.test.tsx)
 - [MissionModeBadge.tsx](../../client/src/features/missions/components/MissionModeBadge.tsx)
+- [MissionSelectionMenu.tsx](../../client/src/features/missions/components/MissionSelectionMenu.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSelectionMenu.test.tsx)
 - [MissionSplitLayout.tsx](../../client/src/features/missions/components/MissionSplitLayout.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSplitLayout.test.tsx)
 - [MissionWindowAction.tsx](../../client/src/features/missions/components/MissionWindowAction.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionWindowAction.test.tsx)
 - [MissionWindowBindings.tsx](../../client/src/features/missions/components/MissionWindowBindings.tsx) · [test](../../client/src/features/missions/components/MissionWindowBindings.test.tsx)

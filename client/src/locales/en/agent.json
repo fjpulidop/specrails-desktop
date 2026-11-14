@@ -1,4 +1,17 @@
 {
+  "selection": {
+    "working": "Preparing…",
+    "menu": "Selected text",
+    "start": "Start a separate mission",
+    "empty": "From scratch",
+    "emptyHint": "Only the selected text",
+    "fork": "With context · Fork",
+    "forkHint": "History through the last selected message",
+    "add": "Add to mission",
+    "failed": "Could not prepare the mission. Try again.",
+    "origin": "Fork of {{title}}",
+    "inherited": "Inherited history · read only"
+  },
   "archive": {
     "action": "Archive",
     "restore": "Restore",

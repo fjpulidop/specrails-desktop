@@ -6,7 +6,8 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, type ReactNode } from 'react'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const wsHandlers = new Map<string, (msg: unknown) => void>()
 const wsHandler = (msg: unknown) => { for (const fn of [...wsHandlers.values()]) fn(msg) }
@@ -178,6 +179,22 @@ describe('end-of-turn hand-off', () => {
 })
 
 describe('interactive cards in older rows during a turn', () => {
+  it('keeps inherited cards read-only and refuses their option shortcuts in an idle fork', async () => {
+    const choose = vi.fn()
+    const Offer = () => <button data-testid="inherited-offer" onClick={choose}>choose</button>
+    const extensions = { fenceCards: { 'test-offer': Offer } } as unknown as MissionExtensions
+    state.transcripts.set('c1', [{ ...row('c1', 1, 'assistant', 'Earlier question\n\n```test-offer\n{}\n```\n\n```options\n["Repeat action"]\n```'), source_message_id: 'source-message' }])
+    await boot(<MissionExtensionsProvider value={extensions}><AgentConversationView variant="inline" /></MissionExtensionsProvider>)
+    await chatApi!.selectConversation('c1')
+    await until(() => document.querySelector('[data-testid="inherited-offer"]') !== null)
+    const button = document.querySelector<HTMLButtonElement>('[data-testid="inherited-offer"]')!
+    expect(button).toBeDisabled()
+    await userEvent.click(button)
+    expect(choose).not.toHaveBeenCalled()
+    fireEvent.keyDown(document.querySelector('[data-mission-surface]')!, { key: '1', code: 'Digit1', altKey: true })
+    expect(sendAgentMessage).not.toHaveBeenCalled()
+  })
+
   it('stay disabled while the conversation streams, even many rows from the end', async () => {
     const Offer = ({ isStreaming }: MissionFenceCardProps) => <button data-testid="old-offer" disabled={isStreaming}>choose</button>
     const extensions = { fenceCards: { 'test-offer': Offer } } as unknown as MissionExtensions

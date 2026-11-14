@@ -57,3 +57,12 @@ the mission to Archived. Legacy trash with no archive stamp can still be restore
 or hard-purged and expires at exactly 30 days. Hard-delete persistence remains
 unconditional for the existing purge owner. Unknown soft DELETE is idempotent;
 unknown permanent DELETE returns 404.
+
+## Mission history snapshots
+
+`createAgentConversation` accepts optional `forkSource` provenance.
+`copyAgentHistory` copies an explicit message snapshot to a new conversation with
+fresh IDs and original timestamps, content, attachment/reference IDs and card
+decisions. `source_message_id` marks inherited rows and their delivery status is
+retained. No input admission, provider session or Core turn ownership is copied.
+The calling missions route owns the database transaction and file cleanup.

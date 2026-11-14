@@ -1,4 +1,17 @@
 {
+  "selection": {
+    "working": "準備中…",
+    "menu": "選択したテキスト",
+    "start": "別のミッションを開始",
+    "empty": "最初から",
+    "emptyHint": "選択したテキストのみ",
+    "fork": "コンテキスト付き · Fork",
+    "forkHint": "選択した最後のメッセージまでの履歴",
+    "add": "ミッションに追加",
+    "failed": "ミッションを準備できませんでした。もう一度お試しください。",
+    "origin": "{{title}} からの Fork",
+    "inherited": "継承した履歴 · 読み取り専用"
+  },
   "archive": {
     "action": "アーカイブ",
     "restore": "復元",

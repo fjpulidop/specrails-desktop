@@ -475,6 +475,36 @@ export class AttachmentManager {
     return resolveManagedAttachmentPath(this.agentDir(conversationId), meta.storedName)
   }
 
+  /** Copy a history snapshot's attachments to a fresh conversation. IDs are
+   * conversation-scoped: keeping them preserves the snapshot's references.
+   * Never merge into existing attachments, and remove partial copies on failure.
+   * Synchronous so a caller can keep database snapshot creation in one transaction. */
+  copyAgentAttachments(sourceId: string, targetId: string, attachmentIds: string[]): Attachment[] {
+    this.agentDir(sourceId)
+    const targetDir = this.agentDir(targetId)
+    if (sourceId === targetId) throw new Error('Attachment copy requires a new conversation')
+    if (fs.existsSync(targetDir)) throw new Error('Target conversation already has an attachment directory')
+    const sources = [...new Set(attachmentIds)].map(id => {
+      const meta = this.readAgentMeta(sourceId, id)
+      const file = meta && this.getAgentFilePath(sourceId, id)
+      if (!meta || !file) throw new Error(`Missing source attachment: ${id}`)
+      return { meta: { ...meta, id }, file }
+    })
+    if (!sources.length) return []
+    fs.mkdirSync(path.dirname(targetDir), { recursive: true })
+    fs.mkdirSync(targetDir)
+    try {
+      for (const { meta, file } of sources) {
+        fs.copyFileSync(file, path.join(targetDir, meta.storedName), fs.constants.COPYFILE_EXCL)
+        fs.writeFileSync(this.agentSidecarPath(targetId, meta.id), JSON.stringify(meta, null, 2), { encoding: 'utf-8', flag: 'wx' })
+      }
+      return sources.map(({ meta }) => meta)
+    } catch (error) {
+      fs.rmSync(targetDir, { recursive: true, force: true })
+      throw error
+    }
+  }
+
   async deleteAgent(conversationId: string, attachmentId: string): Promise<boolean> {
     const meta = this.readAgentMeta(conversationId, attachmentId)
     if (!meta) return false

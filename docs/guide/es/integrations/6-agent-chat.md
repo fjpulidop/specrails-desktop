@@ -10,6 +10,25 @@ Hay una **burbuja** flotante en la parte inferior de la ventana: haz clic en ell
 
 Es **no modal a propósito**: el panel de detrás sigue vivo, así que cuando el agente lanza un raíl o crea una spec lo ves aparecer en tiempo real; no estás mirando una pantalla congelada.
 
+## Reutilizar texto seleccionado
+
+Selecciona texto de una conversación de misión para abrir su menú contextual.
+**Añadir a la misión** lo envía a esa misma misión, mediante su cola habitual si
+está ocupada, y conserva el borrador que tengas en el campo de escritura.
+
+**Empezar una misión aparte** ofrece **Desde cero** (solo la selección) y
+**Con contexto · Fork** (historial y sus adjuntos hasta el último mensaje abarcado
+por la selección, incluido). Ambas añaden un panel en vista dividida, conservan
+los paneles existentes y preparan el texto seleccionado para editarlo. Pulsa Enter
+cuando quieras enviarlo; abrir la misión no envía nada. El fork utiliza su propia
+sesión del agente y copias de los archivos, y muestra el título de la misión de
+origen. Las tarjetas heredadas son registros de lectura; sus acciones no se repiten.
+
+También puedes hacer clic derecho sobre la selección o pulsar **Shift+F10**.
+Usa las flechas para recorrer el menú y **Escape** para cerrarlo. Selecciona
+mensajes guardados: el texto que sigue llegando o espera en cola aún no está
+disponible.
+
 ## Requisito previo: el servidor MCP
 
 El Agent Chat maneja la app a través del **servidor MCP de Specrails** integrado, así que tiene que estar activo. Si no lo está, el panel se abre con un banner de **Activar Specrails MCP** de un solo clic: púlsalo y ya está listo (sin reiniciar). Consulta [Controla Specrails desde cualquier IA](./5-mcp-server.md) para los detalles; no se instala nada, todo es local en tu máquina.

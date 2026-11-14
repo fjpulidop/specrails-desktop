@@ -70,6 +70,35 @@ describe('agent-api', () => {
     expect(out.conversation.id).toBe('c1')
   })
 
+  it('starts from scratch through the existing API, preserving source settings without copying history', async () => {
+    const source = { ...conv, provider: 'codex', model: 'selected-model', pinned_project_id: 'project', tier_level: 3, reasoning_effort: 'high' }
+    const f = mockFetch({ conversation: source, messages: [{ id: 'selected' }] })
+    f.mockResolvedValueOnce({ ok: true, status: 200, text: async () => JSON.stringify({ conversation: source, messages: [{ id: 'selected' }] }) })
+    f.mockResolvedValueOnce({ ok: true, status: 201, text: async () => JSON.stringify({ conversation: { ...source, id: 'new' } }) })
+    expect((await api.branchAgentConversation('source/a', 'selected', 'empty')).id).toBe('new')
+    expect(f.mock.calls).toEqual([
+      [expect.stringContaining('/conversations/source%2Fa')],
+      [expect.stringMatching(/\/conversations$/), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: 'codex', model: 'selected-model', pinnedProjectId: 'project', tierLevel: 3, reasoningEffort: 'high' }),
+      }],
+    ])
+  })
+
+  it('does not create a fresh mission when the selected message is gone', async () => {
+    const f = mockFetch({ conversation: conv, messages: [] })
+    await expect(api.branchAgentConversation('c1', 'missing', 'empty')).rejects.toThrow('Unknown source message')
+    expect(f).toHaveBeenCalledTimes(1)
+  })
+
+  it('requires the snapshot endpoint for a fork and never falls back to an empty mission', async () => {
+    const f = mockFetch({ error: 'api_route_not_found' }, false, 404)
+    await expect(api.branchAgentConversation('c1', 'selected', 'fork')).rejects.toMatchObject({ code: 'endpointUnavailable' })
+    expect(f).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('/conversations/c1/branch'), {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ throughMessageId: 'selected', mode: 'fork' }),
+    })
+  })
+
   it('patches, deletes, sends, aborts', async () => {
     mockFetch({ conversation: { ...conv, title: 'X' } })
     expect((await api.patchAgentConversation('c1', { title: 'X' })).title).toBe('X')

@@ -10,6 +10,24 @@ There's a floating **bubble** at the bottom of the window — click it to open t
 
 It's **non-modal on purpose**: the dashboard behind it stays live, so when the agent launches a rail or creates a spec you see it appear in real time — you're not looking at a frozen screen.
 
+## Reuse selected text
+
+Select text in a mission conversation to open its context menu. **Add to mission**
+sends it to that same mission, using its normal queue if it is busy, and keeps
+your unfinished composer draft.
+
+**Start a separate mission** offers **From scratch** (only the selection) and
+**With context · Fork** (history and its attachments through the last message
+covered by the selection, included). Both add a split pane, keep the existing
+panes, and place the selected text in the new composer for editing. Press Enter
+when you are ready; opening the mission sends nothing. The fork uses its own
+agent session and copies of the files, and shows the original mission's title.
+Inherited cards are read-only records; their actions are not repeated.
+
+You can also right-click the selection or press **Shift+F10**. Use arrow keys to
+move through the menu and **Escape** to close it. Select committed messages;
+text still streaming or waiting in the queue is not available yet.
+
 ## Prerequisite: the MCP server
 
 The Agent Chat drives the app through the embedded **Specrails MCP server**, so that has to be on. If it isn't, the panel opens with a one-click **Enable Specrails MCP** banner — press it and you're ready (no restart). See [Control Specrails from any AI](./5-mcp-server.md) for the details; nothing is installed, it's all local to your machine.

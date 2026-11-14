@@ -1,4 +1,17 @@
 {
+  "selection": {
+    "working": "正在准备…",
+    "menu": "选中的文本",
+    "start": "开始独立任务",
+    "empty": "从头开始",
+    "emptyHint": "仅使用选中的文本",
+    "fork": "保留上下文 · Fork",
+    "forkHint": "保留到最后一条选中消息的历史",
+    "add": "添加到任务",
+    "failed": "无法准备任务，请重试。",
+    "origin": "分支自 {{title}}",
+    "inherited": "继承的历史 · 只读"
+  },
   "archive": {
     "action": "归档",
     "restore": "恢复",

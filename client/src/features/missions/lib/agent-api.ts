@@ -19,6 +19,7 @@ export type AgentTierName = (typeof AGENT_TIER_NAMES)[number]
 export type ArchiveScope = 'active' | 'archived' | 'all'
 
 export interface AgentConversation {
+  forkSource?: { conversationId: string; messageId: string; title: string | null }
   id: string
   title: string | null
   provider: string
@@ -36,6 +37,7 @@ export interface AgentConversation {
 export type AgentDeliveryReceipt = 'sent' | 'received' | 'read'
 
 export interface AgentMessage {
+  source_message_id?: string
   id: string
   conversation_id: string
   /** `system` rows are app-authored inline cards (e.g. the PR-decision card). */
@@ -295,10 +297,27 @@ export async function createAgentConversation(input: {
   return (await json<{ conversation: AgentConversation }>(res)).conversation
 }
 
+/** Materialise a separate mission without sending the selected prompt. */
+export async function branchAgentConversation(sourceId: string, throughMessageId: string, mode: 'empty' | 'fork'): Promise<AgentConversation> {
+  // A fresh mission needs no history-copy operation. Use the established API
+  // so a frontend preview also works against a server without fork support.
+  if (mode === 'empty') {
+    const { conversation: source, messages } = await getAgentConversation(sourceId)
+    if (!messages.some(message => message.id === throughMessageId)) throw new Error('Unknown source message')
+    return createAgentConversation({
+      provider: source.provider, model: source.model, pinnedProjectId: source.pinned_project_id,
+      tierLevel: source.tier_level, reasoningEffort: source.reasoning_effort,
+    })
+  }
+  return (await json<{ conversation: AgentConversation }>(await fetch(`${base}/conversations/${encodeURIComponent(sourceId)}/branch`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ throughMessageId, mode }),
+  }))).conversation
+}
+
 export async function getAgentConversation(
   id: string,
 ): Promise<AgentConversationSnapshot> {
-  return json(await fetch(`${base}/conversations/${id}`))
+  return json(await fetch(`${base}/conversations/${encodeURIComponent(id)}`))
 }
 
 export async function patchAgentConversation(

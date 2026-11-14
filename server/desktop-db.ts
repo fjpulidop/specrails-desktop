@@ -826,6 +826,14 @@ function applyDesktopMigrations(db: DbInstance): void {
       const cols = new Set((db.prepare('PRAGMA table_info(agent_conversations)').all() as Array<{ name: string }>).map((c) => c.name))
       if (!cols.has('archived_at')) db.exec(`ALTER TABLE agent_conversations ADD COLUMN archived_at TEXT;`)
     },
+    // 39: independent mission forks retain provenance without sharing sessions or inputs.
+    () => {
+      const conversations = new Set((db.prepare('PRAGMA table_info(agent_conversations)').all() as Array<{ name: string }>).map(c => c.name))
+      const messages = new Set((db.prepare('PRAGMA table_info(agent_messages)').all() as Array<{ name: string }>).map(c => c.name))
+      if (!conversations.has('fork_source')) db.exec('ALTER TABLE agent_conversations ADD COLUMN fork_source TEXT;')
+      if (!messages.has('source_message_id')) db.exec('ALTER TABLE agent_messages ADD COLUMN source_message_id TEXT;')
+      if (!messages.has('source_delivery_status')) db.exec('ALTER TABLE agent_messages ADD COLUMN source_delivery_status TEXT;')
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

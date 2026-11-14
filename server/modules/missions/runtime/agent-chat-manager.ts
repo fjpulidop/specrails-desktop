@@ -613,13 +613,22 @@ export class AgentChatManager {
     // Resolve attachments (conversation-keyed) into extracted text blocks +
     // absolute image paths. Extraction failure degrades to a text-only turn.
     const attachmentIds = options.attachmentIds ?? []
+    // A fork owns fresh copies of historical attachments. Seed their contents
+    // into its first provider session, alongside the bounded persisted history.
+    // They remain history, not new uploads attached to this user message.
+    const inheritedAttachmentIds = conversation.forkSource && !conversation.session_id
+      ? listAgentMessages(this._db, conversationId)
+        .filter(message => message.source_message_id && message.delivery_status !== 'cancelled' && message.delivery_status !== 'interrupted')
+        .flatMap(message => message.attachment_ids)
+      : []
+    const resolvedAttachmentIds = [...new Set([...attachmentIds, ...inheritedAttachmentIds])]
     let userWithAttachments = userText
     let imagePaths: string[] = []
     let hasAttachments = false
-    if (attachmentIds.length > 0) {
+    if (resolvedAttachmentIds.length > 0) {
       try {
         const attachmentResult = await this._awaitWhileLive(
-          attachmentManager.getClaudeArgsAgent(conversationId, attachmentIds),
+          attachmentManager.getClaudeArgsAgent(conversationId, resolvedAttachmentIds),
         )
         if (attachmentResult.disposed) return
         const resolved = attachmentResult.value
