@@ -92,7 +92,13 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
   })
 
   it('brings in the base before fixing red checks, and fixes only a PR still red after it', () => {
-    expect(graph.edges.find(edge => edge.source === 'checks' && edge.label === 'red')?.target).toBe('refresh-base')
+    expect(graph.edges.find(edge => edge.source === 'checks' && edge.label === 'red')?.target).toBe('refresh-budget')
+    // Once per run: the budget gates the refresh, a spent budget goes straight to the fixer's evidence.
+    expect(core.find(node => node.id === 'refresh-budget')!.data!.params).toMatchObject({ expr: '$vars.baseRefreshes < $vars.baseRefreshLimit' })
+    const budget = Object.fromEntries(graph.edges.filter(edge => edge.source === 'refresh-budget').map(edge => [edge.label, edge.target]))
+    expect(budget).toMatchObject({ true: 'count-refresh', false: 'ci-evidence' })
+    expect(graph.edges.find(edge => edge.source === 'count-refresh')?.target).toBe('refresh-base')
+    expect(core.find(node => node.id === 'init')!.data!.params).toMatchObject({ set: expect.objectContaining({ baseRefreshes: 0, baseRefreshLimit: 1 }) })
     const refresh = core.find(node => node.id === 'refresh-base')!.data!.params as Record<string, unknown>
     expect(refresh).toMatchObject({ task: 'pr.update-base', input: { reason: 'red' }, effect: 'write' })
     const routes = Object.fromEntries(graph.edges.filter(edge => edge.source === 'refresh-base').map(edge => [edge.label, edge.target]))

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { defaultGitRunner } from '../../../../worktree-manager'
 import type { HostTaskInvocation, HostTaskRequest } from '../../../agent-runtime/runtime/host-task-dispatcher'
 import type { Exec, ExecResult } from '../pr-publisher'
-import { boundLog, createPrCiHandlers, redactCiText, summarizeChecks, type PrCiTarget } from './pr-ci-handlers'
+import { boundLog, createPrCiHandlers, redactCiText, summarizeChecks, trimJobLog, type PrCiTarget } from './pr-ci-handlers'
 
 const GITHUB = 'https://github.com/acme/app.git'
 // Fake credentials are assembled at runtime so the repository holds no secret-shaped literal.
@@ -35,7 +35,7 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 
 /** Real git (remote URL mapped to the bare repo), scripted gh. */
-function fixture(gh: (args: string[]) => ExecResult = () => ({ code: 0, stdout: view({}), stderr: '' })) {
+function fixture(gh: (args: string[]) => ExecResult = () => ({ code: 0, stdout: view({}), stderr: '' }), timingOver: Record<string, number> = {}) {
   const calls: string[][] = []
   const exec: Exec = { async run(cmd, args, cwd) {
     calls.push([cmd, ...args])
@@ -48,7 +48,7 @@ function fixture(gh: (args: string[]) => ExecResult = () => ({ code: 0, stdout: 
   const target: PrCiTarget = { deliveryId: 'd1', runId: 'run-1', repositoryName: 'app', prUrl: PR_URL, prNumber: 7, branch: 'feature', baseBranch: 'main', worktreePath: work, repoDir: work, overlayExcludes: [] }
   let clock = 0
   const handlers = createPrCiHandlers({ exec, git: defaultGitRunner, resolveTargets: id => id === 'run-1' ? [target] : [], withRepositoryLock: (_dir, fn) => fn(),
-    timing: { initialDelayMs: 90_000, pollMinMs: 30_000, pollMaxMs: 120_000, timeoutMs: 600_000 }, now: () => clock, sleep: async ms => { clock += ms } })
+    timing: { initialDelayMs: 90_000, pollMinMs: 30_000, pollMaxMs: 120_000, timeoutMs: 600_000, ...timingOver }, now: () => clock, sleep: async ms => { clock += ms } })
   const invoke = (task: string, input: Record<string, unknown> = {}, extra: Partial<HostTaskRequest> = {}) => handlers[task]!({ projectId: 'p', runId: 'run-1', interruptId: 'i', signal: new AbortController().signal, log: () => {},
     request: { task, input, outcomes: [], effect: 'read', candidate: { hash: 'h', verified: true }, ...extra } } as HostTaskInvocation)
   return { invoke, calls, target, tick: () => clock }
@@ -208,6 +208,55 @@ describe('pr.checks', () => {
     expect(String(job.log)).not.toContain(FAKE_TOKEN)
     expect(external).toMatchObject({ name: 'ci/external', external: true, summary: 'boom' })
     expect(f.calls.find(call => call[1] === 'run')).toEqual(['gh', 'run', 'view', '111', '--job', '222', '--log-failed'])
+  })
+
+  it('fails fast: reports red once the grace after the first failure passed, without waiting for slow checks', async () => {
+    let calls = 0
+    const quick = 'https://github.com/acme/app/actions/runs/111/job/222'
+    const f = fixture(args => {
+      if (args[0] === 'run') return { code: 1, stdout: '', stderr: 'run 111 is still in progress; logs will be available when it is complete' }
+      if (args[0] === 'api') return { code: 0, stdout: 'lint: error in a.ts', stderr: '' }
+      calls++
+      return rollup([
+        { name: 'lint', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: quick },
+        { name: 'macos', status: 'IN_PROGRESS', conclusion: null },
+      ])
+    })
+    const result = await f.invoke('pr.checks') as { outcome: string; output: { stillRunning?: number; checks: number; failures: Array<Record<string, unknown>> } }
+    expect(result).toMatchObject({ outcome: 'red', output: { checks: 2, stillRunning: 1 } })
+    // First poll sees the failure; it reports once the 2 min grace closed, never waiting for macos.
+    expect(f.tick()).toBeGreaterThanOrEqual(120_000)
+    expect(f.tick()).toBeLessThan(600_000)
+    expect(calls).toBeGreaterThanOrEqual(2)
+    // The in-progress run refuses `gh run view`: the finished job's own log is read instead.
+    expect(result.output.failures[0]).toMatchObject({ name: 'lint', log: 'lint: error in a.ts' })
+    expect(f.calls).toContainEqual(['gh', 'api', 'repos/{owner}/{repo}/actions/jobs/222/logs'])
+  })
+
+  it('keeps a job log up to its last error, dropping the post-job cleanup', () => {
+    expect(trimJobLog('setup\n##[error]lint failed\nPost job cleanup\nCleaning up orphan processes')).toBe('setup\n##[error]lint failed')
+    expect(trimJobLog('no errors here')).toBe('no errors here')
+  })
+
+  it('collects the failures that finish inside the grace window, and a check that recovers inside it still reports green', async () => {
+    let calls = 0
+    const f = fixture(args => args[0] === 'pr' ? rollup(++calls < 2
+      ? [{ name: 'a', status: 'COMPLETED', conclusion: 'FAILURE' }, { name: 'b', status: 'IN_PROGRESS', conclusion: null }, { name: 'slow', status: 'QUEUED', conclusion: null }]
+      : [{ name: 'a', status: 'COMPLETED', conclusion: 'FAILURE' }, { name: 'b', status: 'COMPLETED', conclusion: 'FAILURE' }, { name: 'slow', status: 'QUEUED', conclusion: null }]) : { code: 1, stdout: '', stderr: '' })
+    const result = await f.invoke('pr.checks') as { outcome: string; output: { failures: Array<{ name: string }>; stillRunning: number } }
+    expect(result.outcome).toBe('red')
+    expect(result.output.failures.map(failure => failure.name)).toEqual(['a', 'b'])
+    expect(result.output.stillRunning).toBe(1)
+  })
+
+  it('with fail fast disabled (grace 0) it waits for every check, as before', async () => {
+    let calls = 0
+    const items = (done: boolean) => [{ name: 'a', status: 'COMPLETED', conclusion: 'FAILURE' }, { name: 'slow', status: done ? 'COMPLETED' : 'IN_PROGRESS', conclusion: done ? 'SUCCESS' : null }]
+    const f = fixture(args => args[0] === 'pr' ? rollup(items(++calls >= 6)) : { code: 1, stdout: '', stderr: '' }, { failFastGraceMs: 0 })
+    const result = await f.invoke('pr.checks') as { outcome: string; output: Record<string, unknown> }
+    expect(result.outcome).toBe('red')
+    expect(result.output.stillRunning).toBeUndefined()
+    expect(calls).toBe(6)
   })
 
   it('keeps waiting while GitHub still computes mergeability, so green checks never hide a conflict', async () => {
