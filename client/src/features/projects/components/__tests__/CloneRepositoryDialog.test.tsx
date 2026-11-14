@@ -14,7 +14,7 @@ async function fill() {
 }
 
 describe('CloneRepositoryDialog', () => {
-  it('shows the final destination and returns the completed path to the caller', async () => {
+  it('[spec:github-repository-clone/clone-a-github-repository-to-a-chosen-destination] shows the final destination and returns the completed path to the caller', async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ path: '/projects/repo' }) })
     vi.stubGlobal('fetch', fetch)
     const onCloned = vi.fn()

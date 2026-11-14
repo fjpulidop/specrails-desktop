@@ -41,7 +41,7 @@ describe('ProjectRightSidebar', () => {
     expect((container.querySelector('aside') as HTMLElement).style.width).toBe('208px')
   })
 
-  it('hides icons and reserves no space in unpinned default state', () => {
+  it('[spec:app-area-chrome/sidebars-can-be-fully-hidden] hides icons and reserves no space in unpinned default state', () => {
     render(<ProjectRightSidebar />)
     expect(screen.getByTestId('project-right-sidebar-panel')).toHaveAttribute('inert')
     expect(screen.queryByRole('link')).not.toBeInTheDocument()

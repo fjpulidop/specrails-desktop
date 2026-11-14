@@ -59,7 +59,7 @@ describe('AgentWorkspaceContext', () => {
     expect(screen.getByTestId('jobs-state')).toHaveTextContent('closed')
   })
 
-  it('keeps the Specs pane exclusive with the other side panes', () => {
+  it('[spec:mission-specs-pane/specs-pane-availability-and-exclusivity] keeps the Specs pane exclusive with the other side panes', () => {
     render(
       <AgentWorkspaceProvider>
         <WorkspaceStateProbe />

@@ -145,7 +145,7 @@ describe('desktop-router', () => {
   }
 
   describe('POST /api/repositories/clone', () => {
-    it('returns a checkout path without registering a project', async () => {
+    it('[spec:github-repository-clone/clone-a-github-repository-to-a-chosen-destination] returns a checkout path without registering a project', async () => {
       const clone = vi.spyOn(githubClone, 'cloneGithubRepository').mockResolvedValueOnce('/projects/cloned')
       try {
         const { app, registry } = createApp()

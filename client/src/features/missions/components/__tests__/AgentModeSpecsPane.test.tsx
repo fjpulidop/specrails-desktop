@@ -27,7 +27,7 @@ function spec(id: number, status: TicketStatus, title = `Spec ${id}`): LocalTick
 }
 
 describe('AgentModeSpecsPane', () => {
-  it('blocks native text selection during resize and restores it on completion or unmount', () => {
+  it('[spec:mission-specs-pane/pane-layout-behaviour] blocks native text selection during resize and restores it on completion or unmount', () => {
     vi.stubGlobal('PointerEvent', MouseEvent)
     const previousSelect = document.body.style.userSelect
     const previousCursor = document.body.style.cursor
@@ -86,7 +86,7 @@ describe('AgentModeSpecsPane', () => {
     state.newTicketIds = new Set()
   })
 
-  it('drags a spec into the mission draft, hides it, and restores it after removal or send', () => {
+  it('[spec:mission-specs-pane/spec-detail-and-chat-reference] drags a spec into the mission draft, hides it, and restores it after removal or send', () => {
     state.tickets = [spec(9, 'todo', 'Drag me')]
     render(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
     const data = new Map<string, string>()
@@ -132,7 +132,7 @@ describe('AgentModeSpecsPane', () => {
     expect(screen.getByRole('button', { name: /Existing/ }).parentElement).not.toHaveAttribute('data-spec-arriving')
   })
 
-  it('orders open specs by progress and separates closed ones', () => {
+  it('[spec:mission-specs-pane/specs-pane-lists-the-project-backlog-with-status] orders open specs by progress and separates closed ones', () => {
     const { open, closed } = groupSpecs([
       spec(1, 'done'), spec(2, 'todo'), spec(3, 'in_progress'), spec(4, 'cancelled'), spec(5, 'on_review'), spec(6, 'draft'), spec(7, 'todo'),
     ])
@@ -168,5 +168,14 @@ describe('AgentModeSpecsPane', () => {
     expect(screen.getByText('No specs yet — ask the agent to create one')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Close specs' }))
     expect(state.closeSpecsPane).toHaveBeenCalled()
+  })
+
+  it('[spec:mission-specs-pane/specs-pane-lists-the-project-backlog-with-status] re-renders with the new status when useTickets emits a status change', () => {
+    state.tickets = [spec(4, 'todo', 'Moving spec')]
+    const view = render(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
+    expect(within(screen.getByRole('button', { name: /Moving spec/ })).queryByText('In Progress')).not.toBeInTheDocument()
+    state.tickets = [spec(4, 'in_progress', 'Moving spec')]
+    view.rerender(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
+    expect(within(screen.getByRole('button', { name: /Moving spec/ })).getByText('In Progress')).toBeInTheDocument()
   })
 })

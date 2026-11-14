@@ -1,4 +1,0 @@
-
-> specrails-desktop@3.2.0 typecheck
-> tsc --noEmit && tsc -p tsconfig.cli.json --noEmit && tsc -p mcp-bridge/tsconfig.json --noEmit && tsc -p local-runner/tsconfig.json --noEmit && cd client && tsc --noEmit
-

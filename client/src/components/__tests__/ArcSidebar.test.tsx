@@ -212,7 +212,7 @@ describe('ArcSidebar', () => {
     expect((sidebarRoot(container) as HTMLElement).style.width).toBe('300px')
   })
 
-  it('hides all project tiles when explicitly hidden', () => {
+  it('[spec:app-area-chrome/sidebars-can-be-fully-hidden] hides all project tiles when explicitly hidden', () => {
     window.localStorage.setItem(LEFT_MODE_KEY, 'pinned-collapsed')
     render(<ArcSidebar {...defaultProps} />)
     expect(screen.getAllByTestId('project-monogram').map((el) => el.textContent)).toEqual(['PA', 'PB'])

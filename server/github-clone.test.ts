@@ -31,7 +31,7 @@ describe('GitHub clone', () => {
     expect(run).toHaveBeenCalledWith('git', expect.arrayContaining(['clone', '--', 'https://github.com/owner/repo.git', destination]), expect.objectContaining({ timeout: 300_000, env: expect.objectContaining({ GIT_TERMINAL_PROMPT: '0' }) }))
   })
 
-  it('never touches an existing destination and rejects concurrent reservations', async () => {
+  it('[spec:github-repository-clone/existing-folders-are-not-overwritten] never touches an existing destination and rejects concurrent reservations', async () => {
     const destination = await target()
     await fs.mkdir(destination)
     await fs.writeFile(path.join(destination, 'keep'), 'user data')
