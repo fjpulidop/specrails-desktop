@@ -12,7 +12,7 @@ import {
 import { defaultMachineProvider } from '../../../provider-selection'
 import { normalizeLevel } from './agent-tier'
 import { isMissionRailCardsEnabled } from '../../../feature-flags'
-import { attachmentManager, isSupportedUploadedFile } from '../../../attachment-manager'
+import { attachmentManager } from '../../../attachment-manager'
 import {
   archiveAgentConversation,
   unarchiveAgentConversation,
@@ -128,14 +128,6 @@ function sanitizeContextRefs(value: unknown): AgentContextReference[] {
 const attachmentUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (isSupportedUploadedFile({ mimetype: file.mimetype, originalname: file.originalname })) {
-      cb(null, true)
-    } else {
-      ;(req as unknown as { fileRejected?: string }).fileRejected = file.mimetype || file.originalname || 'unknown'
-      cb(null, false)
-    }
-  },
 })
 
 export function createAgentChatRouter(deps: AgentRouterDeps): Router {
@@ -505,8 +497,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       }
       const file = (req as unknown as { file?: { buffer: Buffer; originalname: string; mimetype: string; size: number } }).file
       if (!file) {
-        const rejected = (req as unknown as { fileRejected?: string }).fileRejected
-        res.status(400).json({ error: rejected ? `Unsupported file type: ${rejected}` : 'No file uploaded' })
+        res.status(400).json({ error: 'No file uploaded' })
         return
       }
       try {
