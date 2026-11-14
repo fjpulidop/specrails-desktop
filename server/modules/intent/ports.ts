@@ -115,7 +115,7 @@ export interface WorktreeReservation {
   /** Commit the worktree's deliverable changes (overlay excluded) and return HEAD. */
   /** `allowedChanges`: active OpenSpec changes this Intent's own Intent → Spec runs
    * derived; the delivery hygiene still blocks every other new active change. */
-  freeze(input: { flowId: string; conversationId: string; ticketId: number; worktreePath: string; baseSha: string | null; allowedChanges: string[]; repositoryId?: string | null }): Promise<{ headSha: string; adoptedChange?: string }>
+  freeze(input: { flowId: string; conversationId: string; ticketId: number; worktreePath: string; baseSha: string | null; allowedChanges: string[]; repositoryId?: string | null; branch?: string | null }): Promise<{ headSha: string; adoptedChange?: string }>
   exists(worktreePath: string): boolean
   diff(input: { worktreePath: string; baseSha: string | null; branch: string | null; repositoryId?: string | null }): Promise<IntentDiffSummary>
   /** Totals of the committed change between two commits of the Intent's
