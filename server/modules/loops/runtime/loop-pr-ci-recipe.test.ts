@@ -76,6 +76,21 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
     expect(String(core.find(node => node.id === 'fixer')!.data!.params!.prompt)).toMatch(/Never edit anything for flaky or infrastructure failures/)
   })
 
+  // deckdex-mtg: CI installed Ruff 0.17 (unpinned), which formats Markdown and failed on 29 docs
+  // the PR never touched; the fixer had no category for it and ended on a "scope" blocker.
+  it('handles tooling drift: pins the tool, never excludes files or edits outside the diff, never a blocker', () => {
+    const fixer = core.find(node => node.id === 'fixer')!.data!.params! as { prompt: string; structuredOutput: { properties: { cause: { enum: string[] } } } }
+    expect(fixer.structuredOutput.properties.cause.enum).toEqual(['code', 'flaky', 'infrastructure', 'tooling'])
+    expect(fixer.prompt).toContain('git diff --name-only origin/<base>...HEAD')
+    expect(fixer.prompt).toContain('Reproduce with the version CI used')
+    expect(fixer.prompt).toContain('pin the tool in the project\'s dependency manifest')
+    expect(fixer.prompt).toContain('Never exclude files from a check, change its rules or configuration, or edit files outside this pull request\'s diff')
+    expect(fixer.prompt).toContain('A failure this pull request did not cause is never a blocker')
+    // A pinned tool is a candidate change (verified and pushed); an unpinnable drift is reported, not retried.
+    expect(graph.edges.find(edge => edge.source === 'progress' && edge.label === 'true')?.target).toBe('local')
+    expect(core.find(node => node.id === 'cause')!.data!.params).toMatchObject({ expr: '$outputs.fixer.structured.cause == "code"' })
+  })
+
   it('brings in the base before fixing red checks, and fixes only a PR still red after it', () => {
     expect(graph.edges.find(edge => edge.source === 'checks' && edge.label === 'red')?.target).toBe('refresh-base')
     const refresh = core.find(node => node.id === 'refresh-base')!.data!.params as Record<string, unknown>
