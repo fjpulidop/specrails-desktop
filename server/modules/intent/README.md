@@ -129,7 +129,7 @@ completed run without a PR delivery row), `onFlowDelivered` records
 resume at startup (`replaySettlement`) and every 30 s, and never block or
 revert the delivery. Once the rewrite and the Jira create settled, the
 conversation gets ONE closing summary (`IntentConversation.postDeliveredSummary`
-→ `flow-delivered` row: PR, spec rewrite, archived change, Jira key). The Intent → Spec loop itself lives in `loops`
+→ `flow-delivered` row: PR, spec rewrite, archived change, Jira key). The row is re-posted in place on every later `rail.pr_state` of the delivery, so it follows the PR (created, published, merged); it says "Ready for review" until the merge. Its cost carries the per-provider split and each provider's billing (`plan`/`api`/`unknown`, injected as `providerBilling` from the subscription-usage snapshot). The Intent → Spec loop itself lives in `loops`
 (`factory:flow-spec`). Details: [Intent mode](../../../docs/internals/intent-mode.md#settlement).
 
 ## Verify a change

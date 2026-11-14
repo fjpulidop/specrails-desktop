@@ -1276,6 +1276,7 @@ export function sumFlowInvocations(db: DbInstance, input: { conversationId: stri
   unpricedTurns: number
   tokensIn: number
   tokensOut: number
+  byProvider: FlowProviderUsage[]
 } {
   const row = db.prepare(`
     SELECT
@@ -1287,5 +1288,31 @@ export function sumFlowInvocations(db: DbInstance, input: { conversationId: stri
     FROM agent_invocations
     WHERE conversation_id = ? AND surface = 'flow' AND started_at >= ? AND (? IS NULL OR started_at <= ?)
   `).get(input.conversationId, input.from, input.to, input.to) as { costUsd: number; turns: number; unpricedTurns: number; tokensIn: number; tokensOut: number }
-  return row
+  // Per provider, so the caller can tell plan-included turns (a subscription:
+  // no marginal cost) from API-billed ones. `estimatedUsd` is our list-price
+  // estimate of the unpriced turns, never summed into `costUsd`.
+  const byProvider = db.prepare(`
+    SELECT
+      COALESCE(provider, 'unknown') AS provider,
+      COUNT(*) AS turns,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 0 AND total_cost_usd IS NOT NULL THEN total_cost_usd ELSE 0 END), 0) AS costUsd,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND total_cost_usd IS NOT NULL THEN total_cost_usd ELSE 0 END), 0) AS estimatedUsd,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 OR total_cost_usd IS NULL THEN 1 ELSE 0 END), 0) AS unpricedTurns
+    FROM agent_invocations
+    WHERE conversation_id = ? AND surface = 'flow' AND started_at >= ? AND (? IS NULL OR started_at <= ?)
+    GROUP BY COALESCE(provider, 'unknown')
+    ORDER BY provider
+  `).all(input.conversationId, input.from, input.to, input.to) as FlowProviderUsage[]
+  return { ...row, byProvider }
+}
+
+/** One provider's share of an Intent's turns (see `sumFlowInvocations`). */
+export interface FlowProviderUsage {
+  provider: string
+  turns: number
+  /** Provider-billed (reported) cost. */
+  costUsd: number
+  /** Our estimate for the turns the provider did not price. */
+  estimatedUsd: number
+  unpricedTurns: number
 }

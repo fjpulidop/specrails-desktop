@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { claudePlan, initialUsage, normalizeClaude, normalizeClaudeSpend, normalizeCodex, timestamp } from './domain'
+import { claudePlan, initialUsage, normalizeClaude, normalizeClaudeSpend, normalizeCodex, providerBilling, timestamp, type UsageSnapshot } from './domain'
 import { withFreshness } from './application'
 describe('subscription window normalization', () => {
   it('preserves zero, missing fields and provider model windows', () => {
@@ -67,5 +67,26 @@ describe('Enterprise consumption observations', () => {
     const row = { ...initialUsage('claude', 'g'), spend, observedAt: '2026-10-03T05:54:00Z' }
     expect(withFreshness(row, now)).toMatchObject({ freshness: 'stale', spend: { usedAmount: 20.78 } })
     expect(normalizeClaudeSpend(payload, 'enterprise', Date.parse('2026-12-31T23:59:00Z'))?.resetsAt).toBe('2027-01-01T00:00:00.000Z')
+  })
+})
+
+describe('provider billing (Intent cost)', () => {
+  const snap = (rows: Array<Partial<ReturnType<typeof initialUsage>> & { providerId: 'claude' | 'codex' }>): UsageSnapshot => ({
+    scope: 'machine', instanceId: 'i', revision: 1,
+    providers: rows.map((row) => ({ ...initialUsage(row.providerId, 'g'), ...row })),
+  })
+  it('reads a signed-in subscription as plan, an API login as api, the rest as unknown', () => {
+    const snapshot = snap([{ providerId: 'claude', availability: 'available', plan: 'max' }, { providerId: 'codex', availability: 'unsupported-auth' }])
+    expect(providerBilling(snapshot, 'claude')).toEqual({ billing: 'plan', plan: 'max' })
+    expect(providerBilling(snapshot, 'codex')).toEqual({ billing: 'api', plan: null })
+    expect(providerBilling(snapshot, 'gemini')).toEqual({ billing: 'unknown', plan: null })
+    expect(providerBilling(null, 'claude')).toEqual({ billing: 'unknown', plan: null })
+    expect(providerBilling(snap([{ providerId: 'codex', availability: 'signed-out' }]), 'codex')).toEqual({ billing: 'unknown', plan: null })
+  })
+  it('bills Claude per token when an API key is in the environment, and Enterprise spend as api', () => {
+    const snapshot = snap([{ providerId: 'claude', availability: 'available', plan: 'max' }])
+    expect(providerBilling(snapshot, 'claude', { ANTHROPIC_API_KEY: 'test' })).toEqual({ billing: 'api', plan: null })
+    const enterprise = snap([{ providerId: 'claude', availability: 'available', plan: 'enterprise', spend: { usedAmount: 1, limitAmount: 10 } as never }])
+    expect(providerBilling(enterprise, 'claude')).toEqual({ billing: 'api', plan: 'enterprise' })
   })
 })

@@ -50,7 +50,7 @@ import {
   FLOW_SPEC_LOOP_ID, IntentConflictError, IntentLaunchRejectedError, IntentUnavailableError, IntentValidationError, buildFlowSummary, buildOriginalSpecComment, currentDerivedChange, firstErrorLine, isOpenSpecChangeId, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
   type DerivedChangeText, type IntentRunFailure, type IntentSession, type IntentSpecSnapshot,
 } from '../domain'
-import type { Clock, IntentDiffFile, IntentLaunchOptions, IntentEffectsStore, IntentPorts, IntentProcesses, IntentPublication, IntentRepository, IntentSpecBlocker, IntentTickets, WorktreeReservation } from '../ports'
+import type { Clock, IntentDiffFile, IntentLaunchOptions, IntentEffectsStore, IntentPorts, IntentProcesses, IntentProviderBilling, IntentProviderCost, IntentPublication, IntentRepository, IntentSpecBlocker, IntentTickets, WorktreeReservation } from '../ports'
 import type { IntentService } from '../application'
 
 /** What Intent needs from the mission agent host (implemented by AgentChatManager). */
@@ -574,6 +574,9 @@ export interface IntentBindingDeps {
   processes?: IntentProcesses
   clock?: Clock
   git?: GitRunner
+  /** How a provider's turns are paid on this machine (subscription plan vs
+   * API). Absent ⇒ unknown: the card keeps the plain billed sum. */
+  providerBilling?: (provider: string) => Promise<{ billing: IntentProviderBilling; plan: string | null }>
 }
 
 export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
@@ -736,9 +739,9 @@ export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
         const prUrl = row?.pr_url ?? null
         const integration = row
           ? prUrl
-            ? { kind: 'pr' as const, prUrl, prNumber: row.pr_number ?? null, merged: row.decision === 'merged', baseBranch: row.base_branch, sha: row.delivery_sha ?? session.headSha }
+            ? { kind: 'pr' as const, prUrl, prNumber: row.pr_number ?? null, merged: row.decision === 'merged', draft: row.decision === 'pr_draft', baseBranch: row.base_branch, sha: row.delivery_sha ?? session.headSha }
             : row.decision === 'merged'
-              ? { kind: 'local' as const, prUrl: null, prNumber: null, merged: true, baseBranch: row.base_branch, sha: row.delivery_sha ?? session.headSha }
+              ? { kind: 'local' as const, prUrl: null, prNumber: null, merged: true, draft: false, baseBranch: row.base_branch, sha: row.delivery_sha ?? session.headSha }
               : null
           : null
         const content = {
@@ -768,7 +771,16 @@ export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
     processes: deps.processes ?? { stop: async () => {} },
     effects: deps.effects,
     publication: createFlowPublication(ctx, { git: deps.git }),
-    usage: { costSoFar: (input) => sumFlowInvocations(ctx.desktopDb, input) },
+    usage: {
+      costSoFar: (input) => {
+        const { byProvider, ...totals } = sumFlowInvocations(ctx.desktopDb, input)
+        const providers: IntentProviderCost[] = byProvider.map((entry) => ({ ...entry, billing: 'unknown', plan: null }))
+        return { ...totals, providers }
+      },
+      async billing(provider) {
+        try { return (await deps.providerBilling?.(provider)) ?? { billing: 'unknown', plan: null } } catch { return { billing: 'unknown', plan: null } }
+      },
+    },
     notifier: {
       changed(session) {
         try {
