@@ -82,6 +82,8 @@ export interface IntentCost {
 
 export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'> = console) {
   const queues = new Map<string, Promise<unknown>>()
+  /** Intents whose closing card already scheduled its one billing retry. */
+  const billingRetried = new Set<string>()
   function serialized<T>(key: string, work: () => Promise<T>): Promise<T> {
     const previous = queues.get(key) ?? Promise.resolve()
     const run = previous.catch(() => undefined).then(work)
@@ -728,6 +730,17 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
           const billing = billingOf ? await billingOf(entry.provider).catch(() => null) : null
           return billing ? { ...entry, billing: billing.billing, plan: billing.plan } : entry
         }))
+      }
+      // A provider still unknown (its first subscription read was slow or
+      // backing off): re-post once, later, so the card does not keep it.
+      const retryMs = ports.usage.billingRetryMs ?? 60_000
+      if (retryMs > 0 && ports.usage.billing && cost?.providers?.some((entry) => entry.billing === 'unknown') && !billingRetried.has(session.id)) {
+        billingRetried.add(session.id)
+        const timer = setTimeout(() => {
+          const current = ports.repository.get(session.id)
+          if (current?.state === 'delivered') void announceDelivered(current, summarizeSettlement(ports.effects.list(current.id)))
+        }, retryMs)
+        ;(timer as { unref?: () => void }).unref?.()
       }
       // Measured to the delivery, not to this post: the card is re-posted when
       // the PR is published or merged, maybe days later.

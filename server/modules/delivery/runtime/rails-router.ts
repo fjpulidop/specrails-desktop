@@ -1883,6 +1883,10 @@ export function createRailsRouter(): Router {
       const result = action === 'merge-local' || !!getPrDelivery(c.db, prDeliveryId)?.execution_manifest
         ? await execute()
         : await withRepoLock(c.project.path, execute)
+      // pr-ci-loop: a PR created or published from the card (Intent → Spec
+      // stops at review, so its PR is born here, not at run settle) gets the
+      // optional "Watch and fix the CI" offer too. Advisory and idempotent.
+      refreshPrCiOffer(c, prDeliveryId)
       // The durable row is authoritative. Return its post-action snapshot even
       // when the WebSocket broadcast is dropped or another surface won the
       // race; clients can converge immediately without optimistic inference.

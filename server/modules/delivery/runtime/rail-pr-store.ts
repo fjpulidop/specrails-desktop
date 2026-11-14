@@ -590,6 +590,11 @@ export function hasRepositoryDeliveries(db: DbInstance, parentId: string): boole
   return Boolean(row)
 }
 
+/** The repository deliveries (child rows) of a multi-repository generation, oldest first. */
+export function listChildPrDeliveries(db: DbInstance, parentId: string): RailPrDeliveryRow[] {
+  return db.prepare('SELECT * FROM rail_pr_deliveries WHERE parent_delivery_id = ? ORDER BY rowid').all(parentId) as RailPrDeliveryRow[]
+}
+
 export function listActivePrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
   return db
     .prepare(
