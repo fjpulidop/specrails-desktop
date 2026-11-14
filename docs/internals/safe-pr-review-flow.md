@@ -463,6 +463,13 @@ attached and ready for Verify so that explicit decision can commit terminal tick
   MERGED/CLOSED PR is acted on, through the same `poll-merge` decision below (repo lock,
   process admission, CAS, full lifecycle evidence), so an open PR is never touched. This is
   what moves an Intent's closing card from "Ready for review" to "Intent delivered".
+  A multi-repository generation is watched through its repository deliveries' PRs; a
+  terminal one runs the generation's own `poll-merge` (no repository lock: the group
+  decision takes its own, as the router does).
+- **CI watch offer after a decision** — every `/pr-decision` re-projects the optional
+  "Watch and fix the CI" offer (`refreshPrCiOffer`, advisory and idempotent). Implement
+  runs create their PR at settle and were offered there; an Intent → Spec run stops at
+  review, so its PR is created or published from the card and is now offered too.
 - **poll-merge / Verify PR** — observes state, exact head/base/head OID, merge commit and PR commit
   set. `OPEN` remains delivery-verified only while its exact head is `delivery_sha`; a missing
   remote commit restores Retry push instead of merely saying “not merged”. `MERGED` becomes

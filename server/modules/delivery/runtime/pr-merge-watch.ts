@@ -9,7 +9,8 @@
 //   with none open a tick is one SQLite query and no GitHub call;
 // - each delivery is checked less often as its PR ages (3 min → 2 h);
 // - the due PRs of one repository are read in ONE GraphQL call (state only),
-//   chunked, instead of one `gh pr view` per PR.
+//   chunked, instead of one `gh pr view` per PR; a multi-repository
+//   generation is watched through its repository deliveries' PRs.
 // Only a terminal PR (MERGED or CLOSED) is acted on, and then through the very
 // same `poll-merge` decision the "Verify PR" button runs (same repository
 // lock, process admission and CAS, full lifecycle evidence), so an open PR —
@@ -23,7 +24,7 @@ import { withRepoLock } from '../../../repo-lock'
 import { defaultGitRunner } from '../../../worktree-manager'
 import { defaultExec, type Exec } from './pr-publisher'
 import { executePrDecision } from './rail-pr-decision'
-import { getPrDelivery, listActivePrDeliveries, type RailPrDeliveryRow } from './rail-pr-store'
+import { getPrDelivery, listActivePrDeliveries, listChildPrDeliveries, type RailPrDeliveryRow } from './rail-pr-store'
 
 /** Tick period; a delivery is only observed when its own back-off is due. */
 export const PR_MERGE_WATCH_INTERVAL_MS = 3 * 60_000
@@ -56,10 +57,20 @@ export interface PrMergeWatchDeps {
   log?: (message: string) => void
 }
 
-/** Deliveries whose PR is out for review and that no decision holds right now.
- * Multi-repository generations are left to their own Verify (one PR per member). */
+const inReview = (row: Pick<RailPrDeliveryRow, 'decision'>): boolean => row.decision === 'pr_ready' || row.decision === 'pr_draft'
+
+/** Deliveries out for review that no decision holds right now: a single
+ * repository one with its PR, or a multi-repository generation (its PRs live
+ * on its repository deliveries). */
 export function watchedDeliveries(rows: readonly RailPrDeliveryRow[]): RailPrDeliveryRow[] {
-  return rows.filter((row) => (row.decision === 'pr_ready' || row.decision === 'pr_draft') && Boolean(row.pr_url) && !row.operation_token && !row.execution_manifest)
+  return rows.filter((row) => inReview(row) && !row.operation_token && (Boolean(row.execution_manifest) || Boolean(row.pr_url)))
+}
+
+/** The PRs one watched delivery stands for: its own, or each repository
+ * delivery still under review with a PR. */
+export function watchedPrs(row: RailPrDeliveryRow, children: readonly RailPrDeliveryRow[]): Array<{ url: string; dir: string | null }> {
+  if (!row.execution_manifest) return row.pr_url ? [{ url: row.pr_url, dir: row.repository_path ?? null }] : []
+  return children.filter((child) => inReview(child) && child.pr_url && !child.operation_token).map((child) => ({ url: child.pr_url!, dir: child.repository_path ?? null }))
 }
 
 /** `https://github.com/<owner>/<repo>/pull/<n>` → its parts; null otherwise. */
@@ -110,52 +121,64 @@ export async function pollPrMerges(deps: PrMergeWatchDeps, state: PrMergeWatchSt
   const live = new Set(watched.map((row) => row.id))
   for (const id of state.checkedAt.keys()) if (!live.has(id)) state.checkedAt.delete(id)
 
-  const groups = new Map<string, { owner: string; repo: string; dir: string; rows: Array<{ row: RailPrDeliveryRow; number: number }> }>()
+  // Due PRs grouped by repository (one GraphQL call each); a delivery is
+  // terminal-ready when any of its PRs is MERGED or CLOSED.
+  const groups = new Map<string, { owner: string; repo: string; dir: string; entries: Array<{ row: RailPrDeliveryRow; number: number }> }>()
   for (const row of watched) {
-    const pr = parsePrUrl(row.pr_url!)
-    if (!pr) continue
     const since = Date.parse(row.published_at ?? row.decided_at ?? row.created_at ?? '') || now
     const last = state.checkedAt.get(row.id)
     if (last !== undefined && now - last < checkIntervalMs(now - since)) continue
-    const key = `${pr.owner}/${pr.repo}`.toLowerCase()
-    const group = groups.get(key) ?? { owner: pr.owner, repo: pr.repo, dir: row.repository_path || deps.project.path, rows: [] }
-    group.rows.push({ row, number: pr.number })
-    groups.set(key, group)
+    let prs: Array<{ url: string; dir: string | null }>
+    try { prs = watchedPrs(row, row.execution_manifest ? listChildPrDeliveries(deps.db, row.id) : []) } catch { continue }
+    for (const entry of prs) {
+      const pr = parsePrUrl(entry.url)
+      if (!pr) continue
+      const key = `${pr.owner}/${pr.repo}`.toLowerCase()
+      const group = groups.get(key) ?? { owner: pr.owner, repo: pr.repo, dir: entry.dir || deps.project.path, entries: [] }
+      group.entries.push({ row, number: pr.number })
+      groups.set(key, group)
+    }
   }
 
-  let settled = 0
+  const terminal = new Map<string, RailPrDeliveryRow>()
   for (const group of groups.values()) {
-    for (let index = 0; index < group.rows.length; index += CHUNK) {
-      const chunk = group.rows.slice(index, index + CHUNK)
+    for (let index = 0; index < group.entries.length; index += CHUNK) {
+      const chunk = group.entries.slice(index, index + CHUNK)
       let states: Map<number, string> | null = null
       try { states = await readStates(exec, group.dir, group.owner, group.repo, chunk.map((entry) => entry.number)) } catch { states = null }
       if (!states) continue // gh missing or offline: retry next tick, no back-off recorded
       for (const { row, number } of chunk) {
         state.checkedAt.set(row.id, now)
         const prState = states.get(number)
-        if (prState !== 'MERGED' && prState !== 'CLOSED') continue
-        try {
-          // Re-read: a decision may have started (or settled it) while gh ran.
-          const current = getPrDelivery(deps.db, row.id)
-          if (!current || current.decision !== row.decision || current.operation_token) continue
-          const admission = (deps.admission ?? (() => captureProcessAdmission(deps.project.id)))()
-          const result = await lock(deps.project.path, () => {
-            admission.assertCurrent()
-            return execute({
-              db: deps.db,
-              project: deps.project,
-              git: defaultGitRunner,
-              exec,
-              broadcast: deps.broadcast,
-              jiraSyncManager: deps.jiraSyncManager ?? undefined,
-              assertAdmission: () => admission.assertCurrent(),
-            } as Parameters<typeof executePrDecision>[0], { prDeliveryId: row.id, action: 'poll-merge', expectedDecision: row.decision })
-          })
-          if (result.status < 300) settled++
-        } catch (error) {
-          log(`[pr-merge-watch] ${deps.project.slug}: ${row.id} not settled: ${error instanceof Error ? error.message : String(error)}`)
-        }
+        if (prState === 'MERGED' || prState === 'CLOSED') terminal.set(row.id, row)
       }
+    }
+  }
+
+  let settled = 0
+  for (const row of terminal.values()) {
+    try {
+      // Re-read: a decision may have started (or settled it) while gh ran.
+      const current = getPrDelivery(deps.db, row.id)
+      if (!current || current.decision !== row.decision || current.operation_token) continue
+      const admission = (deps.admission ?? (() => captureProcessAdmission(deps.project.id)))()
+      // As the router: a multi-repository generation takes its own locks.
+      const guarded = <T,>(fn: () => Promise<T>): Promise<T> => (current.execution_manifest ? fn() : lock(deps.project.path, fn))
+      const result = await guarded(() => {
+        admission.assertCurrent()
+        return execute({
+          db: deps.db,
+          project: deps.project,
+          git: defaultGitRunner,
+          exec,
+          broadcast: deps.broadcast,
+          jiraSyncManager: deps.jiraSyncManager ?? undefined,
+          assertAdmission: () => admission.assertCurrent(),
+        } as Parameters<typeof executePrDecision>[0], { prDeliveryId: row.id, action: 'poll-merge', expectedDecision: row.decision })
+      })
+      if (result.status < 300) settled++
+    } catch (error) {
+      log(`[pr-merge-watch] ${deps.project.slug}: ${row.id} not settled: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
   return settled

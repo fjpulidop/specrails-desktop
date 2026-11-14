@@ -230,6 +230,9 @@ export interface IntentUsage {
   /** How a provider's turns are paid on this machine (may wait briefly for a
    * first subscription read). Absent ⇒ unknown. Never rejects. */
   billing?(provider: string): Promise<{ billing: IntentProviderBilling; plan: string | null }>
+  /** Delay before the closing card is re-posted once when a provider's billing
+   * was still unknown (default 60 s; 0 disables). */
+  billingRetryMs?: number
 }
 
 /** Observer for committed state changes (WebSocket fan-out). Never throws. */

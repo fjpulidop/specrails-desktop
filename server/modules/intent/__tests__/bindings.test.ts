@@ -841,6 +841,34 @@ describe('Intent closing summary binding', () => {
     }), 'flow-delivered:flow-1')
   })
 
+  it('a multi-repository generation shows the PR of its repository delivery (draft, then merged)', async () => {
+    const { ctx, ticketId, host, bound } = await seeded()
+    const { createPrDelivery } = await import('../../delivery/runtime/rail-pr-store')
+    ctx.db.prepare("UPDATE rail_pr_deliveries SET execution_manifest = '{}', decision = 'pr_draft' WHERE id = ?").run('delivery-1')
+    createPrDelivery(ctx.db, { id: 'child-1', railIndex: 0, loopId: 'factory:flow-spec', railKey: '0-factory:flow-spec', ticketIds: [ticketId], baseBranch: 'main', loopName: 'Intent → Spec', originSurface: 'agent-chat', launchConfig: { mode: 'loop' }, parentDeliveryId: 'delivery-1', repositoryId: 'repo-app' })
+    ctx.db.prepare("UPDATE rail_pr_deliveries SET pr_url = ?, pr_number = 875, delivery_sha = ?, decision = 'pr_draft' WHERE id = 'child-1'").run('https://github.com/o/app/pull/875', 'd'.repeat(40))
+    const post = () => bound.conversation!.postDeliveredSummary!({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId, settlement: summary, session: session({ ticketId }), cost: null, diff: null, durationMs: 0 })
+    post()
+    expect(host.upsertSystemRow).toHaveBeenLastCalledWith('conv-1', expect.objectContaining({
+      integration: { kind: 'pr', prUrl: 'https://github.com/o/app/pull/875', prNumber: 875, merged: false, draft: true, baseBranch: 'main', sha: 'd'.repeat(40) },
+      prUrl: 'https://github.com/o/app/pull/875', prNumber: 875,
+    }), 'flow-delivered:flow-1')
+    ctx.db.prepare("UPDATE rail_pr_deliveries SET decision = 'merged' WHERE id = 'delivery-1'").run()
+    post()
+    expect(host.upsertSystemRow).toHaveBeenLastCalledWith('conv-1', expect.objectContaining({ integration: expect.objectContaining({ merged: true, prNumber: 875 }) }), 'flow-delivered:flow-1')
+  })
+
+  it('a re-post never downgrades a known provider billing to unknown; a fresh known billing wins', async () => {
+    const { ticketId, host, bound } = await seeded()
+    const entry = (provider: string, billing: string, plan: string | null) => ({ provider, turns: 1, costUsd: 0.5, estimatedUsd: 0, unpricedTurns: 0, billing, plan })
+    Object.assign(host, { getSystemRow: vi.fn(() => ({ kind: 'flow-delivered', cost: { costUsd: 1, turns: 2, unpricedTurns: 0, providers: [entry('claude', 'plan', 'max'), entry('codex', 'plan', 'plus')] } })) })
+    bound.conversation!.postDeliveredSummary!({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId, settlement: summary, session: session({ ticketId }),
+      cost: { costUsd: 1, turns: 2, unpricedTurns: 0, providers: [entry('claude', 'unknown', null), entry('codex', 'api', null)] as never }, diff: null, durationMs: 0 })
+    expect(host.upsertSystemRow).toHaveBeenLastCalledWith('conv-1', expect.objectContaining({
+      cost: expect.objectContaining({ providers: [entry('claude', 'plan', 'max'), entry('codex', 'api', null)] }),
+    }), 'flow-delivered:flow-1')
+  })
+
   it('falls back to postSystemRow on a host without upsert', async () => {
     const { ticketId, host, bound } = await seeded()
     delete (host as { upsertSystemRow?: unknown }).upsertSystemRow

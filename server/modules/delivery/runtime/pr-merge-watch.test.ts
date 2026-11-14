@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { checkIntervalMs, parsePrUrl, pollPrMerges, startPrMergeWatch, watchedDeliveries, type PrMergeWatchState } from './pr-merge-watch'
 import type { RailPrDeliveryRow } from './rail-pr-store'
 
-const store = vi.hoisted(() => ({ rows: [] as RailPrDeliveryRow[] }))
+const store = vi.hoisted(() => ({ rows: [] as RailPrDeliveryRow[], children: [] as RailPrDeliveryRow[] }))
 vi.mock('./rail-pr-store', () => ({
   listActivePrDeliveries: () => store.rows,
+  listChildPrDeliveries: (_db: unknown, parentId: string) => store.children.filter((row) => row.parent_delivery_id === parentId),
   getPrDelivery: (_db: unknown, id: string) => store.rows.find((row) => row.id === id),
 }))
 
@@ -41,9 +42,9 @@ describe('background merge watch', () => {
   it('watches only open PRs out for review that no decision holds', () => {
     const rows = [
       row({ id: 'ready' }), row({ id: 'draft', decision: 'pr_draft' }), row({ id: 'review', decision: 'on_review' }),
-      row({ id: 'nopr', pr_url: null }), row({ id: 'busy', operation_token: 'tok' }), row({ id: 'multi', execution_manifest: '{}' }),
+      row({ id: 'nopr', pr_url: null }), row({ id: 'busy', operation_token: 'tok' }), row({ id: 'multi', execution_manifest: '{}', pr_url: null }),
     ]
-    expect(watchedDeliveries(rows).map((entry) => entry.id)).toEqual(['ready', 'draft'])
+    expect(watchedDeliveries(rows).map((entry) => entry.id)).toEqual(['ready', 'draft', 'multi'])
     expect(parsePrUrl('https://github.com/fjpulidop/deckdex_mtg/pull/154')).toEqual({ owner: 'fjpulidop', repo: 'deckdex_mtg', number: 154 })
     expect(parsePrUrl('https://gitlab.com/o/r/merge_requests/1')).toBeNull()
   })
@@ -114,6 +115,25 @@ describe('background merge watch', () => {
     f.execute.mockRejectedValueOnce(new Error('lock lost'))
     await expect(pollPrMerges(f.deps)).resolves.toBe(1)
     expect(f.deps.log).toHaveBeenCalledWith(expect.stringContaining('lock lost'))
+  })
+
+  it('watches a multi-repository generation through its repository PRs and settles the generation (no repo lock: it takes its own)', async () => {
+    store.rows = [row({ id: 'group', execution_manifest: '{}', pr_url: null })]
+    store.children = [
+      row({ id: 'c1', parent_delivery_id: 'group', pr_url: 'https://github.com/o/app/pull/875', repository_path: '/repo/app' }),
+      row({ id: 'c2', parent_delivery_id: 'group', decision: 'on_review', pr_url: null }),
+    ]
+    const f = deps({ 'o/app#875': 'MERGED' })
+    await expect(pollPrMerges(f.deps)).resolves.toBe(1)
+    expect(f.run).toHaveBeenCalledTimes(1)
+    expect(f.run.mock.calls[0]![2]).toBe('/repo/app')
+    expect(f.execute).toHaveBeenCalledWith(expect.anything(), { prDeliveryId: 'group', action: 'poll-merge', expectedDecision: 'pr_ready' })
+    expect(f.lock).not.toHaveBeenCalled()
+    // Still open: nothing happens.
+    const open = deps({})
+    await expect(pollPrMerges(open.deps)).resolves.toBe(0)
+    expect(open.execute).not.toHaveBeenCalled()
+    store.children = []
   })
 
   it('never overlaps ticks and stops cleanly', async () => {

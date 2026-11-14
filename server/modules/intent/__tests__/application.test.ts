@@ -706,6 +706,31 @@ describe('settlement (arch 4.6)', () => {
     })
   })
 
+  it('re-posts the closing card once, later, when a provider billing was still unknown', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    try {
+      const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}), postDeliveredSummary: vi.fn() }
+      const ctx = await delivered({ conversation })
+      const providers = [{ provider: 'claude', turns: 2, costUsd: 1.25, estimatedUsd: 0, unpricedTurns: 0, billing: 'unknown' as const, plan: null }]
+      ctx.ports.usage.costSoFar = vi.fn(() => ({ costUsd: 1.25, turns: 2, unpricedTurns: 0, tokensIn: 1, tokensOut: 1, providers }))
+      ctx.ports.usage.billing = vi.fn()
+        .mockResolvedValueOnce({ billing: 'unknown', plan: null })
+        .mockResolvedValue({ billing: 'plan', plan: 'max' })
+      ctx.ports.usage.billingRetryMs = 1_000
+      await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+      await ctx.service.runSettlement('flow-1')
+      const before = conversation.postDeliveredSummary.mock.calls.length
+      await vi.advanceTimersByTimeAsync(1_000)
+      await vi.waitFor(() => expect(conversation.postDeliveredSummary.mock.calls.length).toBeGreaterThan(before))
+      const last = conversation.postDeliveredSummary.mock.calls.at(-1)![0]
+      expect(last.cost.providers[0]).toMatchObject({ billing: 'plan', plan: 'max' })
+      // Only one retry per Intent, whatever happens next.
+      const after = conversation.postDeliveredSummary.mock.calls.length
+      await vi.advanceTimersByTimeAsync(5_000)
+      expect(conversation.postDeliveredSummary.mock.calls.length).toBe(after)
+    } finally { vi.useRealTimers() }
+  })
+
   it('re-posts the closing card of a delivered Intent on every PR change (published, merged), never re-settling', async () => {
     const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}), postDeliveredSummary: vi.fn() }
     const ctx = await delivered({ conversation })
