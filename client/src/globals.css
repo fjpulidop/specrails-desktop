@@ -1427,8 +1427,11 @@ select {
 [data-theme="galaxy"] [data-area="loops"], [data-theme="galaxy"] [data-area="rails"], [data-theme="galaxy"] [data-area="review"] { --area-accent: var(--color-accent-review); }
 [data-theme="specrails"] [data-area="files"], [data-theme="specrails"] [data-area="builder"] { --area-accent: var(--color-accent-review); }
 .area-surface[data-area] h1 { color: var(--area-accent, var(--color-foreground)); }
+/* No top border per panel: the title bar's 1px hairline is the one continuous
+   seam across left sidebar, centre and right sidebar. An accent rule here drew a
+   different weight and tone on each panel (and none on the right). Area identity
+   stays in the accent wash below, the h1 and the nav indicator. */
 .area-surface[data-area] {
-  border-top: 2px solid color-mix(in srgb, var(--area-accent, var(--color-border)) 55%, transparent);
   background-image: linear-gradient(color-mix(in srgb, var(--area-accent, transparent) 3%, transparent), transparent 240px);
 }
 .area-header {
