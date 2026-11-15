@@ -1054,7 +1054,11 @@ export function AgentComposer({
       {/* Git strip: current branch (switchable) + last commit of the mission's
           pinned project. Hidden without a project, outside a git repo, or when
           the conversation's extension shows its own branch (the Intent bar). */}
-      {gitProjectId && !conversationMode?.hideGitStrip && <AgentGitBar projectId={gitProjectId} branchOverride={conversationMode?.gitBranch ?? null} />}
+      {gitProjectId && !conversationMode?.hideGitStrip
+        ? <AgentGitBar projectId={gitProjectId} branchOverride={conversationMode?.gitBranch ?? null} />
+        // Split view: reserve the git bar's row so side-by-side composers line up
+        // (a mission without a project has none). Single view keeps its height.
+        : <div aria-hidden className="hidden h-[22px] mt-1.5 [[data-mission-split-layout]_&]:block" data-testid="agent-git-bar-spacer" />}
       {selectedProcess && selectedProcess.chatId === activeId && selectedProcess.projectId === backgroundProjectId && (
         <BackgroundProcessLogsModal
           process={backgroundProcessHistory.find(process => backgroundProcessKey(process) === backgroundProcessKey(selectedProcess)) ?? selectedProcess}
