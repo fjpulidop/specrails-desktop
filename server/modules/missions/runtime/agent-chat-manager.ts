@@ -73,7 +73,7 @@ import { recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
 import type { IntentTurn, IntentTurnContext } from './flow-turn-context'
 import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
-import { conversationSessionState, listActiveSessionCursors, listSubagents } from './agent-session-store'
+import { conversationSessionState, listActiveSessionCursors, listSubagents, settleOrphanedSessionCursors } from './agent-session-store'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -178,6 +178,9 @@ export class AgentChatManager {
     this._registry = registry ?? null
     // A sidecar restart must retain unsent input without replaying operations.
     recoverPendingAgentInputs(db)
+    // No Core host outlives the server that supervised it: a session still
+    // projected as running is stale and would block archiving its mission.
+    settleOrphanedSessionCursors(db)
   }
 
   /** Composition-time wiring of Core agent sessions (see agent-sessions module). */

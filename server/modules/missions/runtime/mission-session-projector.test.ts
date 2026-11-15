@@ -184,4 +184,16 @@ describe('MissionSessionProjector', () => {
     ])).not.toThrow()
     expect(getSessionCursor(db, conversationId)?.lastSeq).toBe(3)
   })
+
+  it('[spec:mission-archive/closed-session] settles a closed session to idle without ending the mission capability', () => {
+    feed([
+      { type: 'session.process', state: 'started', generation: 1 },
+      { type: 'session.phase', phase: 'turn' },
+      { type: 'session.closed', reason: 'flow_handed_off' },
+    ])
+
+    expect(getSessionCursor(db, conversationId)).toMatchObject({ lastSeq: 3, residentPhase: 'idle', processAlive: false, liveSubagents: 0 })
+    expect(broadcasts.filter((message) => message.type === 'agent_resident_state').at(-1)).toMatchObject({ phase: 'idle', processAlive: false, liveSubagents: 0 })
+    expect(ended).toEqual([])
+  })
 })

@@ -58,6 +58,7 @@ import {
 import type { DbInstance } from '../../../db'
 import { _resetAgentCapabilitiesForTest, verifyAgentCapability } from '../../../mcp/agent-capability'
 import { getAgentInput } from './agent-input-store'
+import { ensureSessionCursor, getSessionCursor, setResidentState } from './agent-session-store'
 
 beforeEach(() => {
   vi.spyOn(process, 'kill').mockImplementation(() => true)
@@ -748,5 +749,20 @@ describe('sanitizeAgentTitle', () => {
     const out = sanitizeAgentTitle('word '.repeat(30).trim())
     expect(out.length).toBeLessThanOrEqual(81)
     expect(out.endsWith('…')).toBe(true)
+  })
+})
+
+describe('AgentChatManager startup reconciliation', () => {
+  it('[spec:mission-archive/stale-session-state-after-a-restart] settles Core session state a previous run left live, so the mission can be archived', () => {
+    const db = initDesktopDb(':memory:')
+    const conv = createAgentConversation(db)
+    ensureSessionCursor(db, conv.id, `flow:${conv.id}`, 'global')
+    setResidentState(db, conv.id, 'turn', true, 2, `flow:${conv.id}`)
+
+    const mgr = new AgentChatManager(vi.fn(), db, 4200)
+
+    expect(getSessionCursor(db, conv.id, `flow:${conv.id}`)).toMatchObject({ residentPhase: 'idle', processAlive: false, liveSubagents: 0 })
+    expect(mgr.sessionState(conv.id)).toMatchObject({ residentPhase: 'idle', liveSubagents: 0 })
+    db.close()
   })
 })

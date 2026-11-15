@@ -103,6 +103,14 @@ subagents and starting/running background processes return 409 `MISSION_LIVE`
 without stopping work. An idle resident session alone does not block archive.
 Repeated archive keeps its original stamp and repeated unarchive is harmless.
 
+Projected Core session state cannot outlive the run that produced it: the
+`AgentChatManager` constructor calls `settleOrphanedSessionCursors`, which sets
+every cursor to idle with no live process or sub-agents and keeps `last_seq`.
+Desktop supervises the Core hosts as child processes, so none survives a server
+restart. A `session.closed` op also settles that session to idle. Without this,
+a host that died mid-turn left the mission refusing archive forever, because
+only tracked sessions receive events.
+
 Archived missions remain readable by ID. Send, queue edit and queue steer return
 409 `{ error, code: 'MISSION_ARCHIVED' }` before creating input/message rows or
 spawning work. Internal `sendMessage` also refuses archived admission
