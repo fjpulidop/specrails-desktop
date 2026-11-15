@@ -284,6 +284,69 @@ function AgentAttachmentDialog({
   )
 }
 
+/**
+ * Files the agent produced with its reply (e.g. images Codex generated): images
+ * render inline and open the lightbox; any other file falls back to a chip.
+ */
+export function AgentReplyAttachments({ conversationId, attachments }: { conversationId?: string; attachments?: AgentAttachment[] }) {
+  const [selected, setSelected] = useState<AgentAttachment | null>(null)
+  if (!conversationId || !attachments || attachments.length === 0) return null
+  const images = attachments.filter(isImageAttachment)
+  const files = attachments.filter((attachment) => !isImageAttachment(attachment))
+  return (
+    <>
+      {images.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-2" data-testid="agent-reply-images">
+          {images.map((image) => (
+            <AgentReplyImage key={image.id} conversationId={conversationId} image={image} onOpen={() => setSelected(image)} />
+          ))}
+        </div>
+      )}
+      {files.length > 0 && <AgentAttachmentChips conversationId={conversationId} attachments={files} />}
+      <AgentAttachmentDialog conversationId={conversationId} attachment={selected} onClose={() => setSelected(null)} />
+    </>
+  )
+}
+
+function AgentReplyImage({ conversationId, image, onOpen }: { conversationId: string; image: AgentAttachment; onOpen: () => void }) {
+  const { t } = useTranslation('agent')
+  const [src, setSrc] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let disposed = false
+    let url: string | null = null
+    setSrc(null)
+    setFailed(false)
+    fetchAgentAttachmentBlob(conversationId, image.id)
+      .then((blob) => {
+        if (disposed) return
+        url = URL.createObjectURL(blob)
+        setSrc(url)
+      })
+      .catch(() => { if (!disposed) setFailed(true) })
+    return () => {
+      disposed = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [conversationId, image.id])
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={t('attachment.openPreview', { name: image.filename })}
+      title={image.filename}
+      className="group/image relative block w-full max-w-[28rem] overflow-hidden rounded-xl border border-border/60 bg-foreground/[0.04] transition-colors hover:border-accent-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60"
+      data-agent-interactive
+    >
+      {src
+        ? <img src={src} alt={image.filename} className="block h-auto w-full" />
+        : <div className="flex aspect-square w-full items-center justify-center text-xs text-muted-foreground">
+            {failed ? t('attachment.loadFailed') : <ImageIcon className="h-6 w-6 animate-pulse text-muted-foreground/60" aria-hidden />}
+          </div>}
+    </button>
+  )
+}
+
 export function AgentAttachmentChips({
   conversationId,
   attachments,
@@ -648,6 +711,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
       <div className={cn('max-w-full', MD)}>
         <MessageMarkdown body={body} streaming={!!streaming} remarkPlugins={remarkPlugins} components={markdownComponents} />
       </div>
+      <AgentReplyAttachments conversationId={conversationId} attachments={attachments} />
       {intentDraft && (
         // Readings answer the discriminating question; a settled intent offers
         // Explore and Delegate with equal weight on the newest agreed card, never mid-turn.

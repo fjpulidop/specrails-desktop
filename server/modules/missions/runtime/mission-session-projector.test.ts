@@ -196,4 +196,23 @@ describe('MissionSessionProjector', () => {
     expect(broadcasts.filter((message) => message.type === 'agent_resident_state').at(-1)).toMatchObject({ phase: 'idle', processAlive: false, liveSubagents: 0 })
     expect(ended).toEqual([])
   })
+
+  it('attaches the images a background turn generated to its reply, skipping unusable files', () => {
+    const imported: string[] = []
+    projector = new MissionSessionProjector(conversationId, {
+      db, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
+      importGeneratedImage: (_conversation, path) => { imported.push(path); return path.endsWith('missing.png') ? null : `att:${path}` },
+    })
+    feed([
+      { type: 'turn.started', turnId: 't9', origin: 'subagent', inputIds: [] },
+      { type: 'turn.image', turnId: 't9', imageId: 'img-1', path: '/g/earth.png', mimeType: 'image/png' },
+      { type: 'turn.image', turnId: 't9', imageId: 'img-2', path: '/g/missing.png', mimeType: 'image/png' },
+      { type: 'turn.completed', turnId: 't9', status: 'completed', text: '', usage: usage(null) },
+    ])
+
+    expect(imported).toEqual(['/g/earth.png', '/g/missing.png'])
+    const [message] = listAgentMessages(db, conversationId)
+    expect(message).toMatchObject({ role: 'assistant', content: '', attachment_ids: ['att:/g/earth.png'], core_turn_id: 't9' })
+    expect(broadcasts.find((m) => m.type === 'agent_turn_done')).toMatchObject({ messageId: message!.id, attachmentIds: ['att:/g/earth.png'] })
+  })
 })

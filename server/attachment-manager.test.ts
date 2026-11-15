@@ -7,6 +7,8 @@ import {
   AttachmentManager,
   isReadableText,
   isSupportedUploadedFile,
+  MAX_GENERATED_IMAGE_BYTES,
+  sniffImageMimeType,
   normalizeUploadedMimeType,
   SUPPORTED_MIME_TYPES,
   USER_ATTACHMENT_SYSTEM_NOTE,
@@ -1031,5 +1033,58 @@ describe('AttachmentManager readable-text uploads', () => {
         }),
       ).rejects.toMatchObject({ status: 400, message: '"a.zip" is not a text file and cannot be attached' })
     })
+  })
+})
+
+describe('AttachmentManager.importAgentGeneratedImage', () => {
+  const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('rest-of-png')])
+  let tmpDir: string
+  let manager: AttachmentManager
+  beforeEach(() => {
+    tmpDir = makeTmpDir()
+    fs.mkdirSync(path.join(tmpDir, 'home'), { recursive: true })
+    manager = new AttachmentManager(path.join(tmpDir, 'home'))
+  })
+  afterEach(() => { fs.rmSync(tmpDir, { recursive: true, force: true }) })
+
+  it('copies a generated image into the conversation with its sniffed MIME type, independent of the source', () => {
+    const source = path.join(tmpDir, 'generated', 'exec-1.png')
+    fs.mkdirSync(path.dirname(source), { recursive: true })
+    fs.writeFileSync(source, PNG)
+
+    const attachment = manager.importAgentGeneratedImage('conv-1', source)
+
+    expect(attachment).toMatchObject({ filename: 'exec-1.png', mimeType: 'image/png', size: PNG.length })
+    expect(manager.listAgent('conv-1').map((item) => item.id)).toEqual([attachment!.id])
+    fs.rmSync(source)
+    expect(fs.readFileSync(manager.getAgentFilePath('conv-1', attachment!.id)!)).toEqual(PNG)
+  })
+
+  it('refuses relative paths, symlinks, missing, empty, oversized and non-image files', () => {
+    const dir = path.join(tmpDir, 'generated')
+    fs.mkdirSync(dir, { recursive: true })
+    const text = path.join(dir, 'notes.png')
+    fs.writeFileSync(text, 'not an image')
+    const empty = path.join(dir, 'empty.png')
+    fs.writeFileSync(empty, '')
+    const real = path.join(dir, 'real.png')
+    fs.writeFileSync(real, PNG)
+    const link = path.join(dir, 'link.png')
+    fs.symlinkSync(real, link)
+    const big = path.join(dir, 'big.png')
+    fs.writeFileSync(big, Buffer.concat([PNG, Buffer.alloc(MAX_GENERATED_IMAGE_BYTES)]))
+
+    for (const candidate of ['generated/real.png', text, empty, link, big, path.join(dir, 'missing.png')]) {
+      expect(manager.importAgentGeneratedImage('conv-1', candidate)).toBeNull()
+    }
+    expect(manager.listAgent('conv-1')).toEqual([])
+  })
+
+  it('sniffs PNG, JPEG, GIF and WebP signatures only', () => {
+    expect(sniffImageMimeType(PNG)).toBe('image/png')
+    expect(sniffImageMimeType(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg')
+    expect(sniffImageMimeType(Buffer.from('GIF89a...'))).toBe('image/gif')
+    expect(sniffImageMimeType(Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBPVP8 ')]))).toBe('image/webp')
+    expect(sniffImageMimeType(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'))).toBeNull()
   })
 })

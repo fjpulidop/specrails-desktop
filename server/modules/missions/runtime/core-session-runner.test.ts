@@ -118,6 +118,19 @@ describe('CoreSessionTurnRunner', () => {
     expect(handles.map((handle) => handle === null ? 'cleared' : 'set')).toEqual(['set', 'cleared'])
   })
 
+  it('maps an image generated in the user turn to an adapter image event', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId) => [
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] },
+      { type: 'turn.image', turnId: 't1', imageId: 'img-1', path: '/g/earth.png', mimeType: 'image/png', prompt: 'Earth' },
+      { type: 'turn.completed', turnId: 't1', status: 'completed', text: 'Here it is', usage },
+    ]
+    const h = hooks()
+    await createCoreSessionRunner(context(core))(h.value)
+    expect(h.events.filter((event) => event.kind === 'image')).toEqual([{ kind: 'image', imageId: 'img-1', path: '/g/earth.png', mimeType: 'image/png' }])
+  })
+
   it('resumes an existing session and realigns its configuration without a legacy reference', async () => {
     const core = new FakeCore()
     core.exists = true

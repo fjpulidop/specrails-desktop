@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_SUPERVISION, INITIAL_HOST_STATE, acceptsSessions, canTransition, onDemand, onFailure, onReady, onRestartDue, onRetry, onStop } from '../domain/host-state'
 import { initialProjection, liveSubagentCount, reduceEnvelope, type ProjectionOp, type ProjectionState } from '../domain/projection'
-import { KNOWN_EVENT_TYPES, checkSessionContract, hostSupportsFlowSessions, type SessionEvent, type Usage } from '../domain/protocol'
+import { KNOWN_EVENT_TYPES, OPTIONAL_EVENT_TYPES, checkSessionContract, hostSupportsFlowSessions, type SessionEvent, type Usage } from '../domain/protocol'
 import { resolveSubagentPolicy, resolveSubagentRuntime } from '../domain/subagent-policy'
 
 const usage = (costUsd: number | null): Usage => ({ inputTokens: null, outputTokens: 10, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: null, costUsd, costEstimated: false, model: 'm' })
@@ -84,6 +84,25 @@ describe('session contract check', () => {
   it('accepts the contract Core publishes and tolerates newer event types', () => {
     expect(checkSessionContract(block)).toEqual({ compatible: true, protocolVersion: 1, unknownEventTypes: [], missingEventTypes: [], flowSessions: false, reasons: [] })
     expect(checkSessionContract({ ...block, protocolVersions: [1, 2], eventTypes: [...KNOWN_EVENT_TYPES, 'session.new'] })).toMatchObject({ compatible: true, protocolVersion: 1, unknownEventTypes: ['session.new'] })
+  })
+
+  it('knows turn.image without requiring it, so Cores released before it stay compatible', () => {
+    expect(OPTIONAL_EVENT_TYPES).toContain('turn.image')
+    expect(KNOWN_EVENT_TYPES).not.toContain('turn.image')
+    expect(checkSessionContract(block)).toMatchObject({ compatible: true, missingEventTypes: [] })
+    expect(checkSessionContract({ ...block, eventTypes: [...KNOWN_EVENT_TYPES, 'turn.image'] })).toMatchObject({ compatible: true, unknownEventTypes: [] })
+  })
+
+  it('projects a generated image of a turn by path', () => {
+    const { ops } = run([
+      { type: 'turn.started', turnId: 't1', origin: 'subagent', inputIds: [] },
+      { type: 'turn.image', turnId: 't1', imageId: 'img-1', path: '/tmp/a.png', mimeType: 'image/png', prompt: 'Earth' },
+      { type: 'turn.image', turnId: 't1', imageId: 'img-2', path: '/tmp/b.png', mimeType: 'image/png' },
+    ])
+    expect(ops.filter((op) => op.kind === 'turn.image')).toEqual([
+      { kind: 'turn.image', turnId: 't1', imageId: 'img-1', path: '/tmp/a.png', mimeType: 'image/png', prompt: 'Earth' },
+      { kind: 'turn.image', turnId: 't1', imageId: 'img-2', path: '/tmp/b.png', mimeType: 'image/png', prompt: null },
+    ])
   })
 
   it('detects Intent sessions additively (contract 5.3: capabilities + interrupt delivery)', () => {

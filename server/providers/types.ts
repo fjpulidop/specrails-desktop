@@ -97,6 +97,9 @@ export type AdapterEvent =
   // is a bounded text projection for activity surfaces, never the full blob.
   | { kind: 'tool-result'; toolUseId?: string; outputPreview: string; isError?: boolean }
   | { kind: 'session-started'; sessionId: string }
+  // An image the provider generated in this turn, saved locally at `path`
+  // (Core `turn.image`). The host copies it into the conversation before use.
+  | { kind: 'image'; imageId: string; path: string; mimeType: string }
   // `isError`: the provider flagged the turn's result as an error (claude
   // `is_error: true` — e.g. a usage/rate limit notice returned AS the reply).
   | { kind: 'result'; payload: Record<string, unknown>; isError?: boolean }

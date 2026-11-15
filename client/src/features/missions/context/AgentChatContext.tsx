@@ -952,8 +952,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         if (msg.type === 'agent_stream') markUnread(convId)
       } else if (msg.type === 'agent_turn_done') {
         markUnread(convId)
-        if (msg.messageId && msg.fullText) {
-          appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: msg.fullText, created_at: msg.timestamp ?? new Date().toISOString(),
+        if (msg.messageId && (msg.fullText || msg.attachmentIds?.length)) {
+          appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: msg.fullText ?? '', created_at: msg.timestamp ?? new Date().toISOString(),
+            ...(msg.attachmentIds?.length ? { attachment_ids: msg.attachmentIds } : {}),
             ...(msg.turnId ? { core_turn_id: msg.turnId } : {}), ...(msg.origin ? { turn_origin: msg.origin } : {}) }])
         }
       } else if (msg.type === 'agent_stream') {
@@ -1002,9 +1003,10 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         localTurnStartedAtRef.current.delete(convId)
         markUnread(convId)
         const full = msg.fullText ?? ''
-        if (msg.messageId && full) {
+        if (msg.messageId && (full || msg.attachmentIds?.length)) {
           // `coreTurnId` anchors the sub-agents this turn launched under this reply.
           appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: full, created_at: msg.timestamp ?? new Date().toISOString(),
+            ...(msg.attachmentIds?.length ? { attachment_ids: msg.attachmentIds } : {}),
             ...(msg.coreTurnId ? { core_turn_id: msg.coreTurnId, turn_origin: 'user' as const } : {}) }])
         } else if (isActive && full) {
           setMessages((m) => {

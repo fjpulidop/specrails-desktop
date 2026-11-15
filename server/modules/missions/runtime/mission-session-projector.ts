@@ -1,4 +1,5 @@
 import type { DbInstance } from '../../../db'
+import { attachmentManager } from '../../../attachment-manager'
 import { recordAgentInvocation } from '../../../desktop-db'
 import type { ProviderAdapter } from '../../../providers/types'
 import { finaliseNormalisedResult } from '../../accounting/runtime/result-event'
@@ -17,6 +18,8 @@ export interface MissionSessionProjectorDeps {
   onProcessEnded?: (conversationId: string) => void
   /** Agent actions audit of the mission's project (null when it has none loaded). */
   agentAudit?: (projectId: string) => Pick<AgentAuditRecorder, 'record'> | null
+  /** Copy a generated image into the conversation's attachments; its id, or null when unusable. */
+  importGeneratedImage?: (conversationId: string, path: string) => string | null
 }
 
 /** Which Core session of the conversation this projector follows. */
@@ -34,6 +37,8 @@ interface BackgroundTurn {
   origin: Exclude<TurnOrigin, 'user'>
   triggeredBy: string[]
   startedAt: string
+  /** Generated images of the turn (Core `turn.image`), by image id. */
+  images: Map<string, string>
 }
 
 /**
@@ -73,6 +78,21 @@ export class MissionSessionProjector implements ProjectionSink {
     return !!before?.processAlive && !processAlive
   }
 
+  /** Generated images of a background turn → conversation attachment ids (unusable files are skipped). */
+  private importImages(paths: string[]): string[] {
+    const importImage = this.deps.importGeneratedImage ?? ((conversationId: string, path: string) => attachmentManager.importAgentGeneratedImage(conversationId, path)?.id ?? null)
+    const ids: string[] = []
+    for (const path of paths) {
+      try {
+        const id = importImage(this.conversationId, path)
+        if (id) ids.push(id)
+      } catch (error) {
+        console.warn(`[agent-chat] generated image not attached (${this.conversationId}): ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+    return ids
+  }
+
   apply(_sessionId: string, seq: number, ops: ProjectionOp[]): void {
     const conversationId = this.conversationId
     const outbox: Array<Record<string, unknown>> = []
@@ -87,7 +107,7 @@ export class MissionSessionProjector implements ProjectionSink {
             break
           case 'turn.opened':
             if (op.origin === 'user') break
-            this.background.set(op.turnId, { origin: op.origin, triggeredBy: op.triggeredBy, startedAt: op.at })
+            this.background.set(op.turnId, { origin: op.origin, triggeredBy: op.triggeredBy, startedAt: op.at, images: new Map() })
             outbox.push({ type: 'agent_turn_started', conversationId, turnId: op.turnId, origin: op.origin, triggeredBy: op.triggeredBy, ...this.tag, timestamp })
             break
           case 'turn.delta':
@@ -100,6 +120,10 @@ export class MissionSessionProjector implements ProjectionSink {
               ? { type: 'agent_tool', conversationId, turnId: op.turnId, tool: op.tool.name, toolId: op.tool.toolUseId, timestamp }
               : { type: 'agent_tool_result', conversationId, turnId: op.turnId, toolId: op.tool.toolUseId, output: (op.tool.output ?? '').slice(0, 4000), ...(op.tool.isError ? { isError: true } : {}), timestamp })
             break
+          case 'turn.image':
+            // A user turn's images are attached by the mission manager with its reply.
+            this.background.get(op.turnId)?.images.set(op.imageId, op.path)
+            break
           case 'turn.closed': {
             const turn = this.background.get(op.turnId)
             if (!turn) break
@@ -111,11 +135,12 @@ export class MissionSessionProjector implements ProjectionSink {
               outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, ...this.tag, timestamp })
               break
             }
-            const message = op.text.trim()
-              ? addAgentMessage(this.deps.db, { conversationId, role: 'assistant', content: op.text, turnOrigin: turn.origin, coreTurnId: op.turnId })
+            const attachmentIds = this.importImages([...turn.images.values()])
+            const message = op.text.trim() || attachmentIds.length
+              ? addAgentMessage(this.deps.db, { conversationId, role: 'assistant', content: op.text, attachmentIds, turnOrigin: turn.origin, coreTurnId: op.turnId })
               : null
             this.recordInvocation(conversation, { id: coreTurnInvocationId(conversation.id, op.turnId, this.coreSessionId), providerId: conversation.provider, model: null, usage: op.usage, status: op.status, origin: turn.origin, startedAt: turn.startedAt, finishedAt: op.at })
-            outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, fullText: op.text, ...(message ? { messageId: message.id } : {}), ...this.tag, timestamp })
+            outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, fullText: op.text, ...(message ? { messageId: message.id } : {}), ...(attachmentIds.length ? { attachmentIds } : {}), ...this.tag, timestamp })
             if (conversation.pinned_project_id) outbox.push({ type: 'spending.invalidated', projectId: conversation.pinned_project_id })
             break
           }

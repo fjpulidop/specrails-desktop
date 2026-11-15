@@ -1,4 +1,4 @@
-import { KNOWN_EVENT_TYPES, type SessionEventEnvelope, type SessionPhase, type SubagentPhase, type ToolActivity, type TurnOrigin, type TurnStatus, type Usage } from './protocol'
+import { KNOWN_EVENT_TYPES, OPTIONAL_EVENT_TYPES, type SessionEventEnvelope, type SessionPhase, type SubagentPhase, type ToolActivity, type TurnOrigin, type TurnStatus, type Usage } from './protocol'
 
 /**
  * Surface-neutral read model of one Core session. The reducer turns committed
@@ -42,6 +42,8 @@ export type ProjectionOp =
   | { kind: 'provider.ref'; providerSessionRef: string }
   | { kind: 'session.updated'; changes: Record<string, unknown>; outcome: 'applied' | 'deferred' }
   | { kind: 'session.closed'; reason: string }
+  /** A generated image of a turn, saved by the provider at `path` (local, absolute). */
+  | { kind: 'turn.image'; turnId: string; imageId: string; path: string; mimeType: string; prompt: string | null }
   | { kind: 'notice'; level: 'info' | 'warning'; code: string; message: string }
 
 export interface ProjectionState {
@@ -63,7 +65,7 @@ export type ReduceResult =
   | { status: 'duplicate'; state: ProjectionState; ops: [] }
   | { status: 'gap'; state: ProjectionState; ops: []; expected: number }
 
-const KNOWN: ReadonlySet<string> = new Set(KNOWN_EVENT_TYPES)
+const KNOWN: ReadonlySet<string> = new Set<string>([...KNOWN_EVENT_TYPES, ...OPTIONAL_EVENT_TYPES])
 
 function phaseOp(state: ProjectionState): ProjectionOp {
   return { kind: 'resident.phase', phase: state.phase, liveSubagents: state.liveSubagents, processAlive: state.processAlive }
@@ -104,6 +106,9 @@ export function reduceEnvelope(state: ProjectionState, envelope: SessionEventEnv
     case 'turn.started':
       next.openTurn = { turnId: event.turnId, origin: event.origin, startedAt: event.at }
       ops.push({ kind: 'turn.opened', turnId: event.turnId, origin: event.origin, inputIds: [...event.inputIds], triggeredBy: [...(event.trigger?.subagentIds ?? [])], at: event.at })
+      break
+    case 'turn.image':
+      ops.push({ kind: 'turn.image', turnId: event.turnId, imageId: event.imageId, path: event.path, mimeType: event.mimeType, prompt: event.prompt ?? null })
       break
     case 'turn.output':
       ops.push({ kind: 'turn.delta', turnId: event.turnId, channel: event.channel, delta: event.delta })
