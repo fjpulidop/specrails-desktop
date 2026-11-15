@@ -47,6 +47,8 @@ import { decorateAgentInputMessages, getAgentInput, AgentInputConflictError, Age
 export interface AgentRouterDeps {
   manager: AgentChatManager
   desktopDb: DbInstance
+  /** Best-effort cleanup in open projects; closed projects sweep on their next open. */
+  onPermanentlyDeleted?: (conversationId: string) => void
 }
 
 export function isAgentChatEnabled(): boolean {
@@ -458,6 +460,9 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     stopMission(id)
     purgeBackgroundProcessHistory({ chatId: id })
     deleteAgentConversation(desktopDb, id)
+    try { deps.onPermanentlyDeleted?.(id) } catch (error) {
+      console.error('[agent-chat] resource history cleanup failed; will retry on project open:', error)
+    }
     // Cascade-remove the conversation's attachment directory (best-effort).
     void attachmentManager.deleteAllAgent(id).catch((e) =>
       console.error('[agent-chat] attachment cleanup failed:', e),

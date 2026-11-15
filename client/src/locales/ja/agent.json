@@ -709,7 +709,8 @@
       "noMatches": "一致するプロセスはありません。",
       "loadFailed": "履歴を読み込めませんでした。読み込み済みの項目は引き続き確認できます。",
       "showMore": "さらに表示",
-      "count": "プロセス数：{{count}}"
+      "count": "プロセス数：{{count}}",
+      "viewAll": "すべてのプロセスを表示"
     },
     "interruptedHint": "Specrailsによるこのプロセスの監視は終了しました。OS上の状態は不明です。保存済みのログは引き続き確認できます。",
     "persistenceFailed": "プロセス履歴を保存できませんでした。取得済みの出力は引き続き表示されます。",
@@ -1575,5 +1576,37 @@
     "dismissedMany": "PR {{pr}} の CI 監視は開始されていません。",
     "retry": "もう一度 CI / コンフリクトを修正",
     "openLog": "ログを開く"
+  },
+  "missionResources": {
+    "button": "リソース",
+    "open": "ミッションのリソースを開く",
+    "title": "ミッションのリソース",
+    "description": "このミッションが現在使用しているリソースと短い履歴。読み取り専用。",
+    "loading": "計測中…",
+    "unsupported": "このプラットフォームではリソース計測を利用できません。",
+    "empty": "このミッションで実行中のプロセスはありません。",
+    "cpu": "CPU",
+    "memory": "メモリ",
+    "processes": "プロセス",
+    "agentSession": "エージェントセッション",
+    "notRunning": "停止中",
+    "worktree": "ワークツリーのディスク",
+    "notScanned": "未スキャン",
+    "scanning": "スキャン中…",
+    "scanFailed": "スキャンに失敗しました",
+    "scan": "スキャン",
+    "rescan": "再スキャン",
+    "processCount_one": "{{count}} 個のプロセス",
+    "processCount_other": "{{count}} 個のプロセス",
+    "kind": {
+      "agent-session": "エージェント",
+      "background-process": "バックグラウンドプロセス",
+      "mission-activity": "ミッションのアクティビティ"
+    },
+    "finishedAt": "{{time}} に終了",
+    "lastActive": "実行中の最後のアクティビティ",
+    "history": "履歴",
+    "peakValue": "ピーク {{value}}",
+    "historyHint": "ミッションの作業中は 3 秒ごとに 1 点。線にカーソルを合わせると時刻と値が表示されます。"
   }
 }

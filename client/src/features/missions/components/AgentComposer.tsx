@@ -2,7 +2,7 @@ import { SPEC_DRAG_TYPE, readSpecDrag, insertDroppedSpec } from '../lib/agent-sp
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { SendHorizontal, History, Square, X, Check, Pencil, ListTree, Zap, Paperclip } from 'lucide-react'
+import { SendHorizontal, History, Square, X, Check, Pencil, ListTree, Activity, Zap, Paperclip } from 'lucide-react'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useActiveQueued, useIsStreaming } from '../hooks/useAgentLive'
 import { useGuardedTierCycle } from '../hooks/useGuardedTierCycle'
@@ -61,6 +61,10 @@ import { AgentComposerEditor, type AgentComposerEditorHandle, type AgentInlineRe
 import { BackgroundProcessChip, isBackgroundProcessFinished, type BackgroundProcessAccent } from '../../background/components/BackgroundProcessChip'
 import { BackgroundProcessLogsModal } from '../../background/components/BackgroundProcessLogsModal'
 import { BackgroundProcessHistoryModal } from '../../background/components/BackgroundProcessHistoryModal'
+import { MissionResourcesPanel } from '../../background/components/MissionResourcesPanel'
+import { useMissionResourceHistory } from '../../background/hooks/useMissionResourceHistory'
+import { BackgroundProcessesPanel } from '../../background/components/BackgroundProcessesPanel'
+import { HoverPopover } from '../../../components/ui/hover-popover'
 import { backgroundProcessKey } from '../../background/lib/background-processes-api'
 import { useAvailableProviders } from '../../providers/hooks/useAvailableProviders'
 import { isPublicProvider, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
@@ -128,6 +132,7 @@ export function AgentComposer({
     editQueuedMessage, wasQueueConsumed,
   } = useAgentChat()
   const isStreaming = useIsStreaming()
+  const [resourcesOpen, setResourcesOpen] = useState(false)
   const allQueuedMessages = useActiveQueued()
   const queuedMessages = useMemo(() => allQueuedMessages.filter((item) => item.deliveryMode !== 'steer'), [allQueuedMessages])
   const cycleTier = useGuardedTierCycle()
@@ -141,6 +146,7 @@ export function AgentComposer({
   const compactProcesses = useMemo(() => [...backgroundProcesses].sort((a, b) => Number(isBackgroundProcessFinished(a)) - Number(isBackgroundProcessFinished(b)) || b.startedAt - a.startedAt).slice(0, 4), [backgroundProcesses])
   const { projects, activeProjectId } = useDesktop()
   const backgroundProjectId = active?.pinned_project_id ?? draftPinnedProjectId ?? activeProjectId
+  const missionResources = useMissionResourceHistory(backgroundProjectId ?? null, active?.id ?? null, resourcesOpen)
   const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
   // Keep the welcome stable while typing; choose again for another mission.
   const welcomeIndex = useMemo(() => Math.floor(Math.random() * 20), [draftKey])
@@ -926,22 +932,53 @@ export function AgentComposer({
           <AgentTierChip compact level={active?.tier_level ?? draftTierLevel} onCycle={cycleTier} />
           {composerMode && (active === null || showModeBadge) && <MissionModeBadge badge={composerMode.badge} variant="composer" testId="agent-composer-mode-chip" />}
           {activeId && backgroundProjectId && (
-            <button
-              type="button"
-              onClick={() => setProcessHistoryScope({ chatId: activeId, projectId: backgroundProjectId })}
-              aria-label={t('backgroundProcess.history.open')}
-              title={t('backgroundProcess.history.open')}
-              data-testid="agent-composer-processes"
-              className="relative inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-1.5 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+            <HoverPopover
+              label={t('backgroundProcess.history.title')}
+              description={t('backgroundProcess.history.description')}
+              testId="agent-composer-processes-popover"
+              trigger={
+                <button
+                  type="button"
+                  aria-label={t('backgroundProcess.history.open')}
+                  data-testid="agent-composer-processes"
+                  className="relative inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-1.5 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                >
+                  <ListTree className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="hidden @min-[640px]:inline">{t('backgroundProcess.history.button')}</span>
+                  {backgroundProcesses.length > 0 && (
+                    <span aria-hidden className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-info/15 px-1 text-caption font-medium tabular-nums text-accent-info">
+                      {backgroundProcesses.length}
+                    </span>
+                  )}
+                </button>
+              }
             >
-              <ListTree className="h-4 w-4 shrink-0" aria-hidden />
-              <span className="hidden @min-[640px]:inline">{t('backgroundProcess.history.button')}</span>
-              {backgroundProcesses.length > 0 && (
-                <span aria-hidden className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-info/15 px-1 text-caption font-medium tabular-nums text-accent-info">
-                  {backgroundProcesses.length}
-                </span>
-              )}
-            </button>
+              <BackgroundProcessesPanel processes={backgroundProcessHistory} loading={historyLoading} error={historyError}
+                onRefresh={refreshHistory ?? (async () => {})} onSelect={setSelectedProcess}
+                onViewAll={() => setProcessHistoryScope({ chatId: activeId, projectId: backgroundProjectId })} />
+            </HoverPopover>
+          )}
+          {activeId && backgroundProjectId && (
+            <HoverPopover
+              label={t('missionResources.title')}
+              description={t('missionResources.description')}
+              testId="agent-composer-resources-popover"
+              width={420}
+              onOpenChange={setResourcesOpen}
+              trigger={
+                <button
+                  type="button"
+                  aria-label={t('missionResources.open')}
+                  data-testid="agent-composer-resources"
+                  className="relative inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-1.5 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                >
+                  <Activity className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="hidden @min-[640px]:inline">{t('missionResources.button')}</span>
+                </button>
+              }
+            >
+              <MissionResourcesPanel projectId={backgroundProjectId} chatId={activeId} snapshot={missionResources.latest} samples={missionResources.samples} error={missionResources.error} onScanned={() => void missionResources.refresh()} />
+            </HoverPopover>
           )}
           {active === null && !hideProjectSelector && (
           <div className="flex min-w-0 items-center overflow-hidden [&_button]:h-8 [&_button]:text-sm [&_button_span]:max-w-20 @max-[640px]:[&_button_span]:hidden"><AgentProjectSelector

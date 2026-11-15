@@ -119,6 +119,25 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     mgr = new AgentChatManager(broadcast, db, 4200)
   })
 
+  it('[spec:mission-resources/server-recording-persists-bounded-mission-history] filters live desktop and Core turns by pinned project for resource recording', () => {
+    const first = createAgentConversation(db, { pinnedProjectId: 'p1' })
+    const second = createAgentConversation(db, { pinnedProjectId: 'p2' })
+    const unpinned = createAgentConversation(db)
+    const core = createAgentConversation(db, { pinnedProjectId: 'p1' })
+    const active = (mgr as any)._active as Map<string, unknown>
+    active.set(first.id, { pid: 10 })
+    active.set(second.id, { pid: 11 })
+    active.set(unpinned.id, { pid: 12 })
+    mgr.setCoreSessions({ activeConversationIds: () => [core.id, first.id] } as any)
+    expect(mgr.activeConversationIds('p1')).toEqual([first.id, core.id])
+    expect(mgr.activeConversationIds('p2')).toEqual([second.id])
+    expect(mgr.activeConversationIds('missing')).toEqual([])
+    expect(mgr.activeConversationIds()).toHaveLength(4)
+    updateAgentConversation(db, first.id, { pinned_project_id: 'p2' })
+    expect(mgr.activeConversationIds('p1')).toEqual([core.id])
+    expect(mgr.activeConversationIds('p2')).toEqual([first.id, second.id])
+  })
+
   function rows() {
     return db.prepare('SELECT * FROM agent_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
   }

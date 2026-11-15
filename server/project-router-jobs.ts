@@ -43,6 +43,7 @@ import {
   resolveTicketStoragePath,
 } from './modules/specs/runtime/ticket-store'
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
+import { registerMissionResourceRoutes } from './project-router-mission-resources'
 import { createAgentAuditService } from './modules/audit'
 import { readJobDiagnosis } from './modules/recovery/adapters/sqlite'
 import { registerAgentAuditHttp } from './modules/audit/adapters/http'
@@ -259,6 +260,7 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   })
 
   registerBackgroundProcessRoutes(deps)
+  registerMissionResourceRoutes(deps)
 
   // Returns the resolved default model for Add Spec + the full provider
   // allow-list so the modal can render its picker without maintaining its

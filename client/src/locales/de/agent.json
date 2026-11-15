@@ -709,7 +709,8 @@
       "noMatches": "Keine passenden Prozesse.",
       "loadFailed": "Der Prozessverlauf konnte nicht geladen werden. Bereits geladene Einträge bleiben verfügbar.",
       "showMore": "Mehr anzeigen",
-      "count": "Prozesse: {{count}}"
+      "count": "Prozesse: {{count}}",
+      "viewAll": "Alle Prozesse anzeigen"
     },
     "interruptedHint": "Specrails überwacht diesen Prozess nicht mehr. Sein Zustand im Betriebssystem ist unbekannt; gespeicherte Protokolle bleiben verfügbar.",
     "persistenceFailed": "Der Prozessverlauf konnte nicht gespeichert werden. Die verfügbare Ausgabe bleibt sichtbar.",
@@ -1575,5 +1576,37 @@
     "dismissedMany": "CI-Überwachung für die PRs {{pr}} nicht gestartet.",
     "retry": "CI / Konflikte erneut beheben",
     "openLog": "Log anzeigen"
+  },
+  "missionResources": {
+    "button": "Ressourcen",
+    "open": "Missionsressourcen öffnen",
+    "title": "Missionsressourcen",
+    "description": "Was diese Mission gerade verbraucht, mit kurzem Verlauf. Nur Lesezugriff.",
+    "loading": "Wird gemessen…",
+    "unsupported": "Die Ressourcenmessung ist auf dieser Plattform nicht verfügbar.",
+    "empty": "Für diese Mission laufen keine Prozesse.",
+    "cpu": "CPU",
+    "memory": "Speicher",
+    "processes": "Prozesse",
+    "agentSession": "Agent-Sitzung",
+    "notRunning": "beendet",
+    "worktree": "Worktree-Speicher",
+    "notScanned": "Nicht gescannt",
+    "scanning": "Wird gescannt…",
+    "scanFailed": "Scan fehlgeschlagen",
+    "scan": "Scannen",
+    "rescan": "Erneut scannen",
+    "processCount_one": "{{count}} Prozess",
+    "processCount_other": "{{count}} Prozesse",
+    "kind": {
+      "agent-session": "Agent",
+      "background-process": "Hintergrundprozess",
+      "mission-activity": "Missionsaktivität"
+    },
+    "finishedAt": "Beendet um {{time}}",
+    "lastActive": "Letzte Aktivität während der Ausführung",
+    "history": "Verlauf",
+    "peakValue": "Spitze {{value}}",
+    "historyHint": "Ein Punkt alle 3 s, solange die Mission gearbeitet hat. Fahren Sie über eine Linie, um Uhrzeit und Wert zu sehen."
   }
 }

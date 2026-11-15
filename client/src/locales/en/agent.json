@@ -709,7 +709,8 @@
       "noMatches": "No matching processes.",
       "loadFailed": "Process history could not be loaded. Previously loaded entries remain available.",
       "showMore": "Show more",
-      "count": "Processes: {{count}}"
+      "count": "Processes: {{count}}",
+      "viewAll": "View all processes"
     },
     "interruptedHint": "Specrails stopped supervising this process. Its operating system state is unknown; saved logs remain available.",
     "persistenceFailed": "The process history could not be saved. Available output remains visible.",
@@ -1575,5 +1576,37 @@
     "dismissedMany": "CI watch for PRs {{pr}} not started.",
     "retry": "Fix CI / Conflicts again",
     "openLog": "Open the log"
+  },
+  "missionResources": {
+    "button": "Resources",
+    "open": "Open mission resources",
+    "title": "Mission resources",
+    "description": "What this mission is using right now, with a short history. Read-only.",
+    "loading": "Measuring…",
+    "unsupported": "Resource metering is not available on this platform.",
+    "empty": "No processes are running for this mission.",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "processes": "Processes",
+    "agentSession": "Agent session",
+    "notRunning": "not running",
+    "worktree": "Worktree disk",
+    "notScanned": "Not scanned",
+    "scanning": "Scanning…",
+    "scanFailed": "Scan failed",
+    "scan": "Scan",
+    "rescan": "Rescan",
+    "processCount_one": "{{count}} process",
+    "processCount_other": "{{count}} processes",
+    "kind": {
+      "agent-session": "Agent",
+      "background-process": "Background process",
+      "mission-activity": "Mission activity"
+    },
+    "finishedAt": "Finished at {{time}}",
+    "lastActive": "Last activity while it was running",
+    "history": "History",
+    "peakValue": "Peak {{value}}",
+    "historyHint": "One point every 3 s while the mission worked. Hover a line to see the time and value."
   }
 }

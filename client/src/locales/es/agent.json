@@ -709,7 +709,8 @@
       "noMatches": "No hay procesos que coincidan.",
       "loadFailed": "No se pudo cargar el historial. Las entradas ya cargadas siguen disponibles.",
       "showMore": "Mostrar más",
-      "count": "Procesos: {{count}}"
+      "count": "Procesos: {{count}}",
+      "viewAll": "Ver todos los procesos"
     },
     "interruptedHint": "Specrails dejó de supervisar este proceso. Su estado en el sistema operativo es desconocido; los logs guardados siguen disponibles.",
     "persistenceFailed": "No se pudo guardar el historial del proceso. La salida disponible sigue visible.",
@@ -1575,5 +1576,37 @@
     "dismissedMany": "No se inició la vigilancia del CI de las PRs {{pr}}.",
     "retry": "Arreglar CI / Conflictos de nuevo",
     "openLog": "Ver el log"
+  },
+  "missionResources": {
+    "button": "Recursos",
+    "open": "Abrir recursos de la misión",
+    "title": "Recursos de la misión",
+    "description": "Lo que usa esta misión ahora, con un breve historial. Solo lectura.",
+    "loading": "Midiendo…",
+    "unsupported": "La medición de recursos no está disponible en esta plataforma.",
+    "empty": "No hay procesos en ejecución para esta misión.",
+    "cpu": "CPU",
+    "memory": "Memoria",
+    "processes": "Procesos",
+    "agentSession": "Sesión del agente",
+    "notRunning": "detenido",
+    "worktree": "Disco del worktree",
+    "notScanned": "Sin escanear",
+    "scanning": "Escaneando…",
+    "scanFailed": "Error al escanear",
+    "scan": "Escanear",
+    "rescan": "Reescanear",
+    "processCount_one": "{{count}} proceso",
+    "processCount_other": "{{count}} procesos",
+    "kind": {
+      "agent-session": "Agente",
+      "background-process": "Proceso en segundo plano",
+      "mission-activity": "Actividad de la misión"
+    },
+    "finishedAt": "Terminó a las {{time}}",
+    "lastActive": "Última actividad mientras estaba en marcha",
+    "history": "Historial",
+    "peakValue": "Pico {{value}}",
+    "historyHint": "Un punto cada 3 s mientras la misión trabajó. Pasa el ratón por una línea para ver la hora y el valor."
   }
 }

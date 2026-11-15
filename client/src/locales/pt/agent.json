@@ -709,7 +709,8 @@
       "noMatches": "Nenhum processo correspondente.",
       "loadFailed": "Não foi possível carregar o histórico. As entradas já carregadas continuam disponíveis.",
       "showMore": "Mostrar mais",
-      "count": "Processos: {{count}}"
+      "count": "Processos: {{count}}",
+      "viewAll": "Ver todos os processos"
     },
     "interruptedHint": "O Specrails deixou de monitorar este processo. Seu estado no sistema operacional é desconhecido; os logs salvos continuam disponíveis.",
     "persistenceFailed": "Não foi possível salvar o histórico do processo. A saída disponível continua visível.",
@@ -1575,5 +1576,37 @@
     "dismissedMany": "O acompanhamento do CI dos PRs {{pr}} não foi iniciado.",
     "retry": "Corrigir CI / Conflitos de novo",
     "openLog": "Ver o log"
+  },
+  "missionResources": {
+    "button": "Recursos",
+    "open": "Abrir recursos da missão",
+    "title": "Recursos da missão",
+    "description": "O que esta missão está usando agora, com um breve histórico. Somente leitura.",
+    "loading": "Medindo…",
+    "unsupported": "A medição de recursos não está disponível nesta plataforma.",
+    "empty": "Nenhum processo em execução para esta missão.",
+    "cpu": "CPU",
+    "memory": "Memória",
+    "processes": "Processos",
+    "agentSession": "Sessão do agente",
+    "notRunning": "parado",
+    "worktree": "Disco do worktree",
+    "notScanned": "Não verificado",
+    "scanning": "Verificando…",
+    "scanFailed": "Falha na verificação",
+    "scan": "Verificar",
+    "rescan": "Verificar novamente",
+    "processCount_one": "{{count}} processo",
+    "processCount_other": "{{count}} processos",
+    "kind": {
+      "agent-session": "Agente",
+      "background-process": "Processo em segundo plano",
+      "mission-activity": "Atividade da missão"
+    },
+    "finishedAt": "Terminou às {{time}}",
+    "lastActive": "Última atividade durante a execução",
+    "history": "Histórico",
+    "peakValue": "Pico {{value}}",
+    "historyHint": "Um ponto a cada 3 s enquanto a missão trabalhava. Passe o mouse sobre uma linha para ver a hora e o valor."
   }
 }

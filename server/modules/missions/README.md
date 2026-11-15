@@ -135,3 +135,12 @@ adds provenance and inherited-message fields without foreign keys to the source,
 so deleting it does not damage a fork. On its first provider turn, a fork seeds
 its copied historical attachments alongside the existing bounded history prompt;
 provider resume uses its own independent session thereafter.
+
+## Resource history cleanup
+
+The chat router calls its injected `onPermanentlyDeleted` callback only after a
+mission is permanently removed, including the expired-trash purge. Desktop
+composition uses it to remove that mission's resource history from every open
+project. Soft deletion and restoration preserve resource history. Cleanup failures
+are logged without undoing the mission deletion; each project sweeps orphan
+samples on its next open. Missions do not import the terminals persistence adapter.

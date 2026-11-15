@@ -266,6 +266,19 @@ export class AgentChatManager {
     return this._coreSessions.close(conversation)
   }
 
+  /** OS pid of this conversation's live provider child, if any (read-only, for resource metering). */
+  getProcessPids(conversationId: string, table: ReadonlyArray<{ pid: number; command: string }> = []): number[] {
+    const pids = [this._active.get(conversationId)?.pid]
+    pids.push(...(this._coreSessions?.processPids(conversationId, table) ?? []))
+    return pids.filter((pid): pid is number => typeof pid === 'number')
+  }
+
+  /** Conversations whose turn is live (provider child or Core turn), for resource metering. Read-only. */
+  activeConversationIds(projectId?: string): string[] {
+    const ids = [...new Set([...this._active.keys(), ...(this._coreSessions?.activeConversationIds() ?? [])])]
+    return projectId === undefined ? ids : ids.filter((id) => getAgentConversation(this._db, id)?.pinned_project_id === projectId)
+  }
+
   /** A turn is live while its provider child or its Core session turn is running. */
   private _isTurnLive(conversationId: string): boolean {
     return this._active.has(conversationId) || !!this._coreSessions?.handle(conversationId)

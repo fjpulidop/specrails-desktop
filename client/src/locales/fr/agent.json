@@ -709,7 +709,8 @@
       "noMatches": "Aucun processus correspondant.",
       "loadFailed": "Impossible de charger l’historique. Les entrées déjà chargées restent disponibles.",
       "showMore": "Afficher plus",
-      "count": "Processus : {{count}}"
+      "count": "Processus : {{count}}",
+      "viewAll": "Voir tous les processus"
     },
     "interruptedHint": "Specrails ne supervise plus ce processus. Son état dans le système d’exploitation est inconnu ; les journaux enregistrés restent disponibles.",
     "persistenceFailed": "L’historique du processus n’a pas pu être enregistré. La sortie disponible reste visible.",
@@ -1575,5 +1576,37 @@
     "dismissedMany": "Surveillance de la CI des PR {{pr}} non démarrée.",
     "retry": "Corriger CI / Conflits à nouveau",
     "openLog": "Voir le journal"
+  },
+  "missionResources": {
+    "button": "Ressources",
+    "open": "Ouvrir les ressources de la mission",
+    "title": "Ressources de la mission",
+    "description": "Ce que cette mission utilise en ce moment, avec un court historique. Lecture seule.",
+    "loading": "Mesure en cours…",
+    "unsupported": "La mesure des ressources n'est pas disponible sur cette plateforme.",
+    "empty": "Aucun processus en cours pour cette mission.",
+    "cpu": "CPU",
+    "memory": "Mémoire",
+    "processes": "Processus",
+    "agentSession": "Session de l'agent",
+    "notRunning": "arrêté",
+    "worktree": "Disque du worktree",
+    "notScanned": "Non analysé",
+    "scanning": "Analyse en cours…",
+    "scanFailed": "Échec de l'analyse",
+    "scan": "Analyser",
+    "rescan": "Réanalyser",
+    "processCount_one": "{{count}} processus",
+    "processCount_other": "{{count}} processus",
+    "kind": {
+      "agent-session": "Agent",
+      "background-process": "Processus en arrière-plan",
+      "mission-activity": "Activité de la mission"
+    },
+    "finishedAt": "Terminée à {{time}}",
+    "lastActive": "Dernière activité pendant l'exécution",
+    "history": "Historique",
+    "peakValue": "Pic {{value}}",
+    "historyHint": "Un point toutes les 3 s pendant que la mission travaillait. Survolez une ligne pour voir l'heure et la valeur."
   }
 }

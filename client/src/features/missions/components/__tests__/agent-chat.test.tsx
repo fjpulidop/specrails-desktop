@@ -918,13 +918,15 @@ describe('AgentChatProvider', () => {
     await waitFor(() => expect(screen.getByTestId('stream')).toHaveTextContent('New approach'))
   })
 
-  it('opens empty process history without sending or replacing a saved mission draft', async () => {
+  it('[spec:mission-process-history/history-remains-discoverable-in-the-mission] opens empty process history without sending or replacing a saved mission draft', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
     await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
     const box = screen.getByRole('textbox')
     inputEditor(box, 'Keep this unsent instruction')
+    // Processes opens a hover popover; the full history modal is one click further.
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'View process history' })) })
+    await act(async () => { fireEvent.click(await screen.findByRole('button', { name: 'View all processes' })) })
     const historyModal = screen.getByTestId('background-process-history-modal')
     // Modal standard: one header close button named "Close".
     await act(async () => { fireEvent.click(within(historyModal).getByRole('button', { name: 'Close' })) })

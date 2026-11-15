@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1386 source/build files. Nearby tests are linked where names
+Includes 1396 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -79,6 +79,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [dialog.tsx](../../client/src/components/ui/dialog.tsx)
 - [dropdown-menu.tsx](../../client/src/components/ui/dropdown-menu.tsx) · [test](../../client/src/components/ui/__tests__/dropdown-menu.test.tsx)
 - [empty-state.tsx](../../client/src/components/ui/empty-state.tsx)
+- [hover-popover.tsx](../../client/src/components/ui/hover-popover.tsx) · [test](../../client/src/components/ui/__tests__/hover-popover.test.tsx)
 - [input.tsx](../../client/src/components/ui/input.tsx)
 - [kbd.tsx](../../client/src/components/ui/kbd.tsx) · [test](../../client/src/components/ui/__tests__/kbd.test.tsx)
 - [live-dot.tsx](../../client/src/components/ui/live-dot.tsx)
@@ -191,14 +192,22 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [BackgroundProcessChip.tsx](../../client/src/features/background/components/BackgroundProcessChip.tsx)
 - [BackgroundProcessHistoryModal.tsx](../../client/src/features/background/components/BackgroundProcessHistoryModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessHistoryModal.test.tsx)
 - [BackgroundProcessLogsModal.tsx](../../client/src/features/background/components/BackgroundProcessLogsModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessLogsModal.test.tsx)
+- [BackgroundProcessesPanel.tsx](../../client/src/features/background/components/BackgroundProcessesPanel.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessesPanel.test.tsx)
+- [MissionResourcesPanel.tsx](../../client/src/features/background/components/MissionResourcesPanel.tsx) · [test](../../client/src/features/background/components/__tests__/MissionResourcesPanel.test.tsx)
 
 ## client/src/features/background/context
 
 - [BackgroundProcessesContext.tsx](../../client/src/features/background/context/BackgroundProcessesContext.tsx) · [test](../../client/src/features/background/context/__tests__/BackgroundProcessesContext.test.tsx)
 
+## client/src/features/background/hooks
+
+- [useMissionResourceHistory.ts](../../client/src/features/background/hooks/useMissionResourceHistory.ts) · [test](../../client/src/features/background/hooks/__tests__/useMissionResourceHistory.test.ts)
+
 ## client/src/features/background/lib
 
 - [background-processes-api.ts](../../client/src/features/background/lib/background-processes-api.ts) · [test](../../client/src/features/background/lib/__tests__/background-processes-api.test.ts)
+- [mission-resource-history.ts](../../client/src/features/background/lib/mission-resource-history.ts) · [test](../../client/src/features/background/lib/__tests__/mission-resource-history.test.ts)
+- [mission-resources-api.ts](../../client/src/features/background/lib/mission-resources-api.ts)
 
 ## client/src/features/browser/components/browser-capture
 
@@ -1260,6 +1269,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [project-router-helpers.ts](../../server/project-router-helpers.ts)
 - [project-router-jobs.ts](../../server/project-router-jobs.ts)
 - [project-router-loop-runs.ts](../../server/project-router-loop-runs.ts) · [test](../../server/project-router-loop-runs.test.ts)
+- [project-router-mission-resources.ts](../../server/project-router-mission-resources.ts) · [test](../../server/project-router-mission-resources.test.ts)
 - [project-router-rules.ts](../../server/project-router-rules.ts) · [test](../../server/project-router-rules.test.ts)
 - [project-router-search.ts](../../server/project-router-search.ts)
 - [project-router-settings.ts](../../server/project-router-settings.ts)
@@ -1841,6 +1851,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/terminals/domain
 
 - [app-urls.ts](../../server/modules/terminals/domain/app-urls.ts) · [test](../../server/modules/terminals/domain/app-urls.test.ts)
+- [mission-resources.ts](../../server/modules/terminals/domain/mission-resources.ts) · [test](../../server/modules/terminals/domain/mission-resources.test.ts)
 
 ## server/modules/terminals/runtime
 
@@ -1849,6 +1860,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [background-process-service.ts](../../server/modules/terminals/runtime/background-process-service.ts) · [test](../../server/modules/terminals/runtime/background-process-service.test.ts)
 - [background-process-store.ts](../../server/modules/terminals/runtime/background-process-store.ts) · [test](../../server/modules/terminals/runtime/background-process-store.test.ts)
 - [background-windows-bootstrap.ts](../../server/modules/terminals/runtime/background-windows-bootstrap.ts) · [test](../../server/modules/terminals/runtime/background-windows-bootstrap.test.ts)
+- [mission-resource-history.ts](../../server/modules/terminals/runtime/mission-resource-history.ts) · [test](../../server/modules/terminals/runtime/mission-resource-history.test.ts)
+- [resource-sampler.ts](../../server/modules/terminals/runtime/resource-sampler.ts) · [test](../../server/modules/terminals/runtime/resource-sampler.test.ts)
 - [terminal-manager.ts](../../server/modules/terminals/runtime/terminal-manager.ts) · [test](../../server/modules/terminals/runtime/terminal-manager.test.ts)
 - [terminal-marks-store.ts](../../server/modules/terminals/runtime/terminal-marks-store.ts) · [test](../../server/modules/terminals/runtime/terminal-marks-store.test.ts)
 - [terminal-osc-parser.ts](../../server/modules/terminals/runtime/terminal-osc-parser.ts) · [test](../../server/modules/terminals/runtime/terminal-osc-parser.test.ts)

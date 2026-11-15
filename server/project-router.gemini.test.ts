@@ -17,7 +17,7 @@ import request from 'supertest'
 import { mkdirSync, rmSync } from 'fs'
 import { join } from 'path'
 
-vi.mock('child_process', () => ({ spawn: vi.fn(), execSync: vi.fn() }))
+vi.mock('child_process', () => ({ spawn: vi.fn(), execSync: vi.fn(), execFile: vi.fn() }))
 vi.mock('uuid', () => ({ v4: vi.fn(() => 'gemini-req-uuid') }))
 
 import { spawn as mockSpawn } from 'child_process'

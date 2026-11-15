@@ -22,6 +22,7 @@ import { resolveSubagentPolicy } from './modules/agent-sessions'
 import { runLegacyMigrationSweep } from './legacy-migration'
 import { reseedStaleWorkspaces, isFrameworkAutoswapEnabled } from './framework-reseed'
 import { createProjectRouter } from './project-router'
+import { deleteMissionResourceHistory } from './project-router-mission-resources'
 import { createDocsRouter } from './docs-router'
 import {
   requireAuth,
@@ -803,7 +804,16 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   setAgentChatManager(isAgentChatEnabled() ? agentChatManager : null)
   // Before the agent router: `/api/agent/session-hosts` is not a conversation route.
   app.use('/api/agent/session-hosts', createSessionHostsRouter(sessionHosts))
-  app.use('/api/agent', createAgentChatRouter({ manager: agentChatManager, desktopDb: registry.desktopDb }))
+  app.use('/api/agent', createAgentChatRouter({
+    manager: agentChatManager, desktopDb: registry.desktopDb,
+    onPermanentlyDeleted: (id) => {
+      for (const context of registry.listContexts()) {
+        try { deleteMissionResourceHistory(context, id) } catch (error) {
+          console.error(`[mission-resources] cleanup failed for project ${context.project.id}; will retry on open:`, error)
+        }
+      }
+    },
+  }))
 
   // Project Builder day-0 chat + orchestrated commit (add-project-builder).
   // App-level like agent chat — a Builder conversation runs before any project

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 
+import { initDb } from '../../../db'
+import { createMissionResourceHistoryStore } from '../../terminals/runtime/mission-resource-history'
 import { initDesktopDb } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import {
@@ -19,10 +21,10 @@ describe('missions: soft delete and Recently deleted', () => {
   let db: DbInstance
   let manager: Record<string, ReturnType<typeof vi.fn>>
 
-  function app() {
+  function app(onPermanentlyDeleted?: (id: string) => void) {
     const server = express()
     server.use(express.json())
-    server.use('/api/agent', createAgentChatRouter({ manager: manager as unknown as AgentChatManager, desktopDb: db }))
+    server.use('/api/agent', createAgentChatRouter({ manager: manager as unknown as AgentChatManager, desktopDb: db, onPermanentlyDeleted }))
     return server
   }
 
@@ -95,6 +97,45 @@ describe('missions: soft delete and Recently deleted', () => {
     // Idempotent; unknown id is 404.
     expect((await request(app()).post(`/api/agent/conversations/${a.id}/restore`)).status).toBe(200)
     expect((await request(app()).post('/api/agent/conversations/nope/restore')).status).toBe(404)
+  })
+
+  it('[spec:mission-resources/resource-history-follows-permanent-mission-deletion] keeps resources through trash/restore and removes them on permanent deletion across open projects', async () => {
+    const projectDbs = [initDb(':memory:'), initDb(':memory:')]
+    const stores = projectDbs.map(projectDb => createMissionResourceHistoryStore(projectDb))
+    const mission = createAgentConversation(db, { pinnedProjectId: 'p1' })
+    const other = createAgentConversation(db, { pinnedProjectId: 'p2' })
+    for (const store of stores) {
+      for (const id of [mission.id, other.id]) store.append(id, { at: 1, cpuPercent: 1, memoryBytes: 10, processCount: 1 })
+    }
+    const cleanup = vi.fn((id: string) => { for (const store of stores) store.delete(id) })
+    const server = app(cleanup)
+    try {
+      archiveAgentConversation(db, mission.id)
+      expect((await request(server).delete(`/api/agent/conversations/${mission.id}`)).status).toBe(200)
+      expect(cleanup).not.toHaveBeenCalled()
+      for (const store of stores) expect(store.list(mission.id)).toHaveLength(1)
+      expect((await request(server).post(`/api/agent/conversations/${mission.id}/restore`)).status).toBe(200)
+      expect(cleanup).not.toHaveBeenCalled()
+      expect((await request(server).delete(`/api/agent/conversations/${mission.id}?permanent=1`)).status).toBe(200)
+      expect(cleanup).toHaveBeenCalledExactlyOnceWith(mission.id)
+      for (const store of stores) {
+        expect(store.list(mission.id)).toEqual([])
+        expect(store.list(other.id)).toHaveLength(1)
+      }
+    } finally { for (const projectDb of projectDbs) projectDb.close() }
+  })
+
+  it('[spec:mission-resources/resource-history-follows-permanent-mission-deletion] notifies cleanup for expired trash and logs failures without undoing permanent removal', async () => {
+    const mission = createAgentConversation(db, { pinnedProjectId: 'p1' })
+    db.prepare('UPDATE agent_conversations SET deleted_at = ? WHERE id = ?').run('2020-01-01T00:00:00.000Z', mission.id)
+    const cleanup = vi.fn(() => { throw new Error('project busy') })
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect((await request(app(cleanup)).get('/api/agent/conversations/trash')).status).toBe(200)
+      expect(cleanup).toHaveBeenCalledExactlyOnceWith(mission.id)
+      expect(getAgentConversation(db, mission.id)).toBeUndefined()
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('retry on project open'), expect.any(Error))
+    } finally { error.mockRestore() }
   })
 
   it('a repeat DELETE keeps the first deletion stamp', async () => {
