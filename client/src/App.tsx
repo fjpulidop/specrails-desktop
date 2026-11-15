@@ -965,7 +965,7 @@ function AppRoutes() {
                 <SmashTrackerProvider>
                 <SidebarPinProvider>
                   <InboxOwner enabled={!secondary}>
-                  <TitleBar />
+                  <TitleBar showSidebarToggles={!secondary} />
                   <TerminalsProviderWithDesktop>
                     <RailMetricsProviderWithDesktop>
                     <RailPrDecisionProviderWithDesktop>

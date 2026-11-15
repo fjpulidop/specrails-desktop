@@ -6,8 +6,8 @@ import type { ReactElement } from 'react'
 import { SidebarPinProvider } from '../../context/SidebarPinContext'
 import { TitleBar as TitleBarComponent } from '../TitleBar'
 
-function TitleBar({ path = '/' }: { path?: string } = {}): ReactElement {
-  return <MemoryRouter initialEntries={[path]}><TitleBarComponent /></MemoryRouter>
+function TitleBar({ path = '/', showSidebarToggles }: { path?: string; showSidebarToggles?: boolean } = {}): ReactElement {
+  return <MemoryRouter initialEntries={[path]}><TitleBarComponent showSidebarToggles={showSidebarToggles} /></MemoryRouter>
 }
 
 const mocks = vi.hoisted(() => ({
@@ -29,6 +29,10 @@ vi.mock('@tauri-apps/api/window', () => ({
   }),
 }))
 
+vi.mock('../PlaceNavButtons', () => ({
+  PlaceNavButtons: () => <div data-testid="place-nav" />,
+}))
+
 vi.mock('../../hooks/useDesktop', () => ({
   useDesktop: () => mocks.useDesktop(),
 }))
@@ -45,7 +49,7 @@ describe('TitleBar', () => {
     Object.defineProperty(window, '__TAURI_INTERNALS__', { value: {}, configurable: true })
   })
 
-  it('provides sidebar recovery controls outside Tauri', () => {
+  it('[spec:mission-window-titlebar/other-windows-keep-their-title-bar] provides sidebar recovery controls outside Tauri', () => {
     delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
     render(<TitleBar />)
     expect(screen.getByRole('button', { name: /left sidebar/i })).toBeInTheDocument()
@@ -148,5 +152,52 @@ describe('TitleBar', () => {
     expect(screen.getByLabelText('Minimize window')).toHaveStyle({
       color: 'var(--color-muted-foreground)',
     })
+  })
+
+  it('[spec:mission-window-titlebar/mission-window-hides-sidebar-toggles] [spec:mission-window-titlebar/mission-window-keeps-the-rest-of-the-title-bar] omits both sidebar buttons in the macOS mission window and keeps the rest of the bar', () => {
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+    render(<SidebarPinProvider><TitleBar showSidebarToggles={false} /></SidebarPinProvider>)
+    expect(screen.queryByRole('button', { name: /left sidebar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /right sidebar/i })).not.toBeInTheDocument()
+    const pill = screen.getByTitle('Search (⌘K)')
+    expect(pill).toBeInTheDocument()
+    const leftCluster = screen.getByTestId('place-nav').parentElement as HTMLElement
+    expect(leftCluster).toHaveClass('ml-[80px]')
+    expect(leftCluster.parentElement).toBe(pill.parentElement)
+  })
+
+  it('[spec:mission-window-titlebar/mission-window-hides-sidebar-toggles] [spec:mission-window-titlebar/mission-window-keeps-the-rest-of-the-title-bar] omits sidebar buttons in the Windows/Linux mission window and keeps window controls', () => {
+    Object.defineProperty(navigator, 'platform', { value: 'Linux x86_64', configurable: true })
+    render(<SidebarPinProvider><TitleBar showSidebarToggles={false} /></SidebarPinProvider>)
+    expect(screen.queryByRole('button', { name: /left sidebar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /right sidebar/i })).not.toBeInTheDocument()
+    const minimize = screen.getByLabelText('Minimize window')
+    fireEvent.click(minimize)
+    fireEvent.click(screen.getByLabelText('Maximize window'))
+    fireEvent.click(screen.getByLabelText('Close window'))
+    expect(mocks.minimize).toHaveBeenCalledTimes(1)
+    expect(mocks.toggleMaximize).toHaveBeenCalledTimes(1)
+    expect(mocks.close).toHaveBeenCalledTimes(1)
+    const controls = minimize.parentElement as HTMLElement
+    expect(controls.style.minWidth).toBe('116px')
+    expect(controls.style.justifyContent).toBe('flex-end')
+  })
+
+  it.each([['MacIntel'], ['Linux x86_64']])('[spec:mission-window-titlebar/other-windows-keep-their-title-bar] shows both sidebar buttons by default on %s', (platform) => {
+    localStorage.clear()
+    Object.defineProperty(navigator, 'platform', { value: platform, configurable: true })
+    render(<SidebarPinProvider><TitleBar /></SidebarPinProvider>)
+    expect(screen.getByRole('button', { name: 'Collapse left sidebar (keep pinned)' }).getAttribute('title')).toContain('B')
+    expect(screen.getByRole('button', { name: 'Pin right sidebar open' })).toBeInTheDocument()
+    localStorage.clear()
+  })
+
+  it('[spec:mission-window-titlebar/other-windows-keep-their-title-bar] titles the sidebar buttons with the ⌘B and ⌥⌘B shortcuts on macOS', () => {
+    localStorage.clear()
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+    render(<SidebarPinProvider><TitleBar /></SidebarPinProvider>)
+    expect(screen.getByRole('button', { name: 'Collapse left sidebar (keep pinned)' }).getAttribute('title')).toContain('⌘B')
+    expect(screen.getByRole('button', { name: 'Pin right sidebar open' }).getAttribute('title')).toContain('⌥⌘B')
+    localStorage.clear()
   })
 })
