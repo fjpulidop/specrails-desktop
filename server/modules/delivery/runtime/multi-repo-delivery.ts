@@ -39,7 +39,8 @@ export async function executeRepositoryGroupDecision(deps: PrDecisionDeps, input
     const action: PrDecisionOperation = row.decision === 'no_changes' &&
       ['merge-local', 'poll-merge', 'acknowledge-no-changes'].includes(input.action)
       ? 'acknowledge-no-changes' : input.action
-    return actionAllowed(action, row) ? [{ row, action }] : []
+    // A continuation group's children share its lineage (see withGroupContinuation).
+    return actionAllowed(action, parent.is_continuation === 1 ? { ...row, is_continuation: 1 } : row) ? [{ row, action }] : []
   })
   if (steps.length === 0) return { status: 409, body: { error: 'stale_decision', current: parent.decision, reason: 'illegal_action' } }
   const token = newId()

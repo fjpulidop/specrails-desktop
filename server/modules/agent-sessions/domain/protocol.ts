@@ -33,6 +33,13 @@ export const KNOWN_EVENT_TYPES = Object.freeze([
   'provider.diagnostic',
 ] as const)
 
+/**
+ * Event types this Desktop understands when a Core sends them, without
+ * requiring them: Cores released before they existed stay compatible.
+ * `turn.image` — an image the provider generated (Codex `imageGeneration`).
+ */
+export const OPTIONAL_EVENT_TYPES = Object.freeze(['turn.image'] as const)
+
 export type SessionPhase = 'idle' | 'turn' | 'background'
 /**
  * How `session.send` delivers an input. `interrupt` (Core flowSessions) cuts
@@ -76,6 +83,7 @@ export type SessionEvent = { at: string } & (
   | { type: 'turn.started'; turnId: string; origin: TurnOrigin; inputIds: string[]; trigger?: { subagentIds: string[] } }
   | { type: 'turn.output'; turnId: string; channel: 'text' | 'thinking'; delta: string }
   | ({ type: 'turn.tool'; turnId: string } & ToolActivity)
+  | { type: 'turn.image'; turnId: string; imageId: string; path: string; mimeType: string; prompt?: string }
   | { type: 'turn.completed'; turnId: string; status: TurnStatus; text: string; error?: string; usage: Usage }
   | { type: 'subagent.started'; subagentId: string; parentId: string | null; kind: 'foreground' | 'background'; agentType?: string; description: string; prompt?: string; delegated?: { driver: string; model: string } }
   | { type: 'subagent.phase'; subagentId: string; phase: SubagentPhase; reason?: string }
@@ -187,7 +195,7 @@ export function checkSessionContract(block: SessionContractBlock | undefined | n
   if (!block) return { compatible: false, protocolVersion: null, unknownEventTypes: [], missingEventTypes: [], flowSessions: false, reasons: ['Core does not declare agentRuntime.sessions'] }
   const common = block.protocolVersions.filter((version) => SUPPORTED_PROTOCOL_VERSIONS.includes(version))
   const declared = new Set(block.eventTypes)
-  const known = new Set<string>(KNOWN_EVENT_TYPES)
+  const known = new Set<string>([...KNOWN_EVENT_TYPES, ...OPTIONAL_EVENT_TYPES])
   const missingEventTypes = KNOWN_EVENT_TYPES.filter((type) => !declared.has(type))
   const reasons: string[] = []
   if (common.length === 0) reasons.push(`No common protocol version (Core ${block.protocolVersions.join(', ')}; Desktop ${SUPPORTED_PROTOCOL_VERSIONS.join(', ')})`)

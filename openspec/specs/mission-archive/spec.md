@@ -2,9 +2,7 @@
 
 ## Purpose
 Let people set missions aside indefinitely without losing their history, and find, restore or discard them through explicit sidebar scopes.
-
 ## Requirements
-
 ### Requirement: Persistent reversible archive
 The system SHALL persist a nullable archive timestamp independently of trash state. Archiving SHALL preserve history, attachments, sessions, project pin and favorite membership. Restoring SHALL clear only archive state. Existing missions SHALL start non-archived.
 
@@ -21,7 +19,7 @@ The system SHALL persist a nullable archive timestamp independently of trash sta
 - **THEN** the API returns not found and does not restore trash implicitly
 
 ### Requirement: Refuse archive while live
-The system SHALL reject archiving a streaming mission or one with background agents/work, using HTTP 409 with an explanatory error and code MISSION_LIVE. Refusal SHALL leave mission state and running work unchanged.
+The system SHALL reject archiving a streaming mission or one with background agents/work, using HTTP 409 with an explanatory error and code MISSION_LIVE. Refusal SHALL leave mission state and running work unchanged. Session state that cannot correspond to running work SHALL NOT keep a mission live: at server start every Core session's projected state is settled to idle with no live process or sub-agents, and a Core session reported closed is settled to idle.
 
 #### Scenario: Streaming or background activity
 - **WHEN** archive is requested during a streaming turn, reserved turn, background session or running background work
@@ -30,6 +28,15 @@ The system SHALL reject archiving a streaming mission or one with background age
 #### Scenario: Idle resident session
 - **WHEN** a mission has an idle resident session without running work
 - **THEN** that alone does not prevent archive
+
+#### Scenario: Stale session state after a restart
+- **WHEN** the server starts and a mission's Core session is still projected in a turn or background phase, with a live process or with live sub-agents
+- **THEN** that session is settled to idle with no live process or sub-agents, keeping its journal cursor
+- **AND** archiving the mission is no longer refused because of it
+
+#### Scenario: Closed session
+- **WHEN** a Core session reports it is closed while projected in a non-idle phase
+- **THEN** that session is settled to idle with no live process or sub-agents
 
 ### Requirement: Archive-scoped lists
 The desktop list API SHALL accept active, archived or all archive scope, defaulting to active and rejecting invalid scope. All scopes SHALL exclude trashed missions. The mobile mission list SHALL exclude archived missions without adding mobile archive operations.
@@ -108,3 +115,4 @@ The system SHALL reject deletion of a non-archived non-trashed mission with HTTP
 #### Scenario: Legacy trash expiry
 - **WHEN** an existing trashed mission without an archive timestamp expires or is permanently purged
 - **THEN** existing purge behavior still removes it without requiring a new archive operation
+

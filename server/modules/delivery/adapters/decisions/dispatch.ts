@@ -1,7 +1,7 @@
 import { actionAllowed } from '../..'
 import {
   claimPrDeliveryOperation, getPrDelivery,
-  releasePrDeliveryOperation, hasRepositoryDeliveries
+  releasePrDeliveryOperation, hasRepositoryDeliveries, withGroupContinuation
 } from '../../runtime/rail-pr-store'
 import { newId } from '../../../../ids'
 import { PrDecisionDeps, PrDecisionInput, PrDecisionResult } from './contracts'
@@ -14,8 +14,9 @@ import { runRecoverAndRetry } from './recovery'
 
 
 export async function executePrDecision(deps: PrDecisionDeps, input: PrDecisionInput): Promise<PrDecisionResult> {
-  const row = getPrDelivery(deps.db, input.prDeliveryId)
-  if (!row) return { status: 404, body: { error: 'Unknown prDeliveryId' } }
+  const stored = getPrDelivery(deps.db, input.prDeliveryId)
+  if (!stored) return { status: 404, body: { error: 'Unknown prDeliveryId' } }
+  const row = withGroupContinuation(deps.db, stored)
   if (row.parent_delivery_id && deps.repositoryChildOf !== row.parent_delivery_id) return { status: 409, body: { error: 'repository_delivery_requires_parent', parentDeliveryId: row.parent_delivery_id } }
   // A manifest alone does not make a repository GROUP: a launch that failed
   // before allocating a single repository delivery persists the parent with
@@ -47,7 +48,8 @@ export async function executePrDecision(deps: PrDecisionDeps, input: PrDecisionI
     }
   }
 
-  const claimedRow = getPrDelivery(deps.db, row.id)
+  const claimedStored = getPrDelivery(deps.db, row.id)
+  const claimedRow = claimedStored ? withGroupContinuation(deps.db, claimedStored) : undefined
   if (!claimedRow || claimedRow.operation_token !== operationToken) {
     return { status: 409, body: { error: 'operation_in_progress', current: claimedRow?.decision ?? row.decision } }
   }

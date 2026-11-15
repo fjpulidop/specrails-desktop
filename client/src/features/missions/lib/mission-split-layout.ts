@@ -14,3 +14,11 @@ export function missionSplitLayout(count: number, width: number) {
       return { gridColumn: column + 1, gridRow: `${Math.floor(index / columns) * span + 1} / span ${span}` }
     }) }
 }
+
+/** Which inner edges of a split pane need a divider: only the ones it shares
+ * with another pane. The outer edges already meet the title bar and the
+ * sidebars, so a border there would double their line (and push the pane down
+ * by 1px, misaligning its header with its neighbours'). */
+export function missionSplitPaneEdges(placement: { gridColumn: number; gridRow: string }): { left: boolean; top: boolean } {
+  return { left: placement.gridColumn > 1, top: !/^1\s*\//.test(placement.gridRow) }
+}

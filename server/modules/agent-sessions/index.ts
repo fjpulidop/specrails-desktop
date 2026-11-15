@@ -6,6 +6,7 @@
 export {
   SUPPORTED_PROTOCOL_VERSIONS,
   KNOWN_EVENT_TYPES,
+  OPTIONAL_EVENT_TYPES,
   checkSessionContract,
   hostSupportsFlowSessions,
   type DriverDescriptor,

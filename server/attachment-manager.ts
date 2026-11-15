@@ -21,6 +21,18 @@ export const SUPPORTED_MIME_TYPES = new Set<string>([
 ])
 
 const IMAGE_MIME_PREFIX = 'image/'
+
+/** Upper bound for a provider-generated image copied into a conversation. */
+export const MAX_GENERATED_IMAGE_BYTES = 25 * 1024 * 1024
+
+/** The image MIME type of `buffer` from its signature, or null. */
+export function sniffImageMimeType(buffer: Buffer): string | null {
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png'
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg'
+  if (buffer.length >= 6 && (buffer.subarray(0, 6).toString('ascii') === 'GIF87a' || buffer.subarray(0, 6).toString('ascii') === 'GIF89a')) return 'image/gif'
+  if (buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp'
+  return null
+}
 const SQL_MIME_TYPES = new Set<string>([
   'application/sql',
   'application/x-sql',
@@ -527,6 +539,41 @@ export class AttachmentManager {
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(path.join(dir, storedName), opts.file.buffer)
     fs.writeFileSync(this.agentSidecarPath(opts.conversationId, id), JSON.stringify(attachment, null, 2), 'utf-8')
+    return attachment
+  }
+
+  /**
+   * Copy an image a provider generated (Core `turn.image`) into the
+   * conversation's attachments. The path comes from the local session host, so
+   * it is still checked: an absolute regular file (not a symlink), at most
+   * {@link MAX_GENERATED_IMAGE_BYTES}, whose bytes are a PNG, JPEG, GIF or
+   * WebP. The MIME type comes from the bytes, never the extension. Returns
+   * null when the file is unusable. Synchronous so a projection can call it
+   * inside its transaction.
+   */
+  importAgentGeneratedImage(conversationId: string, sourcePath: string): Attachment | null {
+    if (!path.isAbsolute(sourcePath)) return null
+    let stat: fs.Stats
+    try { stat = fs.lstatSync(sourcePath) } catch { return null }
+    if (!stat.isFile() || stat.size === 0 || stat.size > MAX_GENERATED_IMAGE_BYTES) return null
+    let buffer: Buffer
+    try { buffer = fs.readFileSync(sourcePath) } catch { return null }
+    const mimeType = sniffImageMimeType(buffer)
+    if (!mimeType) return null
+    const id = newId()
+    const filename = path.basename(sourcePath)
+    const attachment: Attachment = {
+      id,
+      filename,
+      storedName: `${id}-${sanitizeFilename(filename)}`,
+      mimeType,
+      size: buffer.length,
+      addedAt: new Date().toISOString(),
+    }
+    const dir = this.agentDir(conversationId)
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, attachment.storedName), buffer)
+    fs.writeFileSync(this.agentSidecarPath(conversationId, id), JSON.stringify(attachment, null, 2), 'utf-8')
     return attachment
   }
 

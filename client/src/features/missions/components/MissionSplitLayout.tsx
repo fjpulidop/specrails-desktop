@@ -6,7 +6,8 @@ import { MissionSplitWindowScope } from '../context/MissionWindowsContext'
 import { MissionPaneControls, useMissionSplitViews } from '../context/MissionSplitViewsContext'
 import { AgentModeSurface } from './AgentModeSurface'
 import { AgentBrowserCaptureHost } from './AgentBrowserCaptureHost'
-import { missionSplitLayout } from '../lib/mission-split-layout'
+import { missionSplitLayout, missionSplitPaneEdges } from '../lib/mission-split-layout'
+import { cn } from '../../../lib/utils'
 
 function SplitConversation({ id, onClose }: { id: string; onClose(): void }) {
   const { t } = useTranslation('agent')
@@ -61,13 +62,17 @@ export function MissionSplitLayout({ children }: { children: ReactNode }) {
       <div key="primary" className="relative flex min-h-0 min-w-0 flex-col overflow-hidden" style={{ ...layout.placements[0], display: split.primaryVisible ? undefined : 'none' }}>
         <MissionPaneControls onClose={ids.length ? split.closePrimary : null}>{children}</MissionPaneControls>
       </div>
-      {ids.map((id, index) => <section key={id} data-split-id={id} tabIndex={-1} aria-label={conversations.find(conversation => conversation.id === id)?.title?.trim() || t('untitled')}
-        className="relative min-h-0 min-w-0 overflow-hidden border-l border-t border-border outline-none focus:ring-1 focus:ring-inset focus:ring-accent-primary"
-        style={layout.placements[index + (split.primaryVisible ? 1 : 0)]} onFocusCapture={() => split.focus(id)}>
+      {ids.map((id, index) => {
+        const placement = layout.placements[index + (split.primaryVisible ? 1 : 0)]!
+        const edges = missionSplitPaneEdges(placement)
+        return <section key={id} data-split-id={id} tabIndex={-1} aria-label={conversations.find(conversation => conversation.id === id)?.title?.trim() || t('untitled')}
+        className={cn('relative min-h-0 min-w-0 overflow-hidden border-border outline-none focus:ring-1 focus:ring-inset focus:ring-accent-primary', edges.left && 'border-l', edges.top && 'border-t')}
+        style={placement} onFocusCapture={() => split.focus(id)}>
         <MissionSplitWindowScope><AgentWorkspaceProvider><AgentChatProvider fixedConversationId={id}>
           <SplitConversation id={id} onClose={() => split.close(id)} />
         </AgentChatProvider></AgentWorkspaceProvider></MissionSplitWindowScope>
-      </section>)}
+      </section>
+      })}
     </div>
   </div>
 }

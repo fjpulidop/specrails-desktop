@@ -2388,6 +2388,7 @@
         "./agent-failure-briefing"
       ],
       "runtime/mission-session-projector.ts": [
+        "../../../attachment-manager",
         "../../../db",
         "../../../desktop-db",
         "../../../providers/types",

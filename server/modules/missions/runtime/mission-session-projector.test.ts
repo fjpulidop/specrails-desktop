@@ -184,4 +184,35 @@ describe('MissionSessionProjector', () => {
     ])).not.toThrow()
     expect(getSessionCursor(db, conversationId)?.lastSeq).toBe(3)
   })
+
+  it('[spec:mission-archive/closed-session] settles a closed session to idle without ending the mission capability', () => {
+    feed([
+      { type: 'session.process', state: 'started', generation: 1 },
+      { type: 'session.phase', phase: 'turn' },
+      { type: 'session.closed', reason: 'flow_handed_off' },
+    ])
+
+    expect(getSessionCursor(db, conversationId)).toMatchObject({ lastSeq: 3, residentPhase: 'idle', processAlive: false, liveSubagents: 0 })
+    expect(broadcasts.filter((message) => message.type === 'agent_resident_state').at(-1)).toMatchObject({ phase: 'idle', processAlive: false, liveSubagents: 0 })
+    expect(ended).toEqual([])
+  })
+
+  it('attaches the images a background turn generated to its reply, skipping unusable files', () => {
+    const imported: string[] = []
+    projector = new MissionSessionProjector(conversationId, {
+      db, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
+      importGeneratedImage: (_conversation, path) => { imported.push(path); return path.endsWith('missing.png') ? null : `att:${path}` },
+    })
+    feed([
+      { type: 'turn.started', turnId: 't9', origin: 'subagent', inputIds: [] },
+      { type: 'turn.image', turnId: 't9', imageId: 'img-1', path: '/g/earth.png', mimeType: 'image/png' },
+      { type: 'turn.image', turnId: 't9', imageId: 'img-2', path: '/g/missing.png', mimeType: 'image/png' },
+      { type: 'turn.completed', turnId: 't9', status: 'completed', text: '', usage: usage(null) },
+    ])
+
+    expect(imported).toEqual(['/g/earth.png', '/g/missing.png'])
+    const [message] = listAgentMessages(db, conversationId)
+    expect(message).toMatchObject({ role: 'assistant', content: '', attachment_ids: ['att:/g/earth.png'], core_turn_id: 't9' })
+    expect(broadcasts.find((m) => m.type === 'agent_turn_done')).toMatchObject({ messageId: message!.id, attachmentIds: ['att:/g/earth.png'] })
+  })
 })

@@ -95,6 +95,23 @@ export function setResidentState(db: DbInstance, conversationId: string, phase: 
 }
 
 /**
+ * Startup reconciliation: Desktop supervises the Core hosts as child processes
+ * (shutdown sends `host.shutdown` and tree-kills), so when the server starts no
+ * Core session can still be running. Any cursor left non-idle, with a live
+ * process or live sub-agents, is what a crash, a killed host or a journal that
+ * never reached idle left behind; without this it would keep the mission "live"
+ * (archive refused with MISSION_LIVE) forever, since only tracked sessions
+ * receive events. The cursor's `last_seq` is kept: a session tracked again
+ * replays only newer journal events, which overwrite this state if Core resumes it.
+ * Returns how many cursors were settled.
+ */
+export function settleOrphanedSessionCursors(db: DbInstance): number {
+  return db.prepare(`UPDATE agent_session_cursors
+    SET resident_phase = 'idle', process_alive = 0, live_subagents = 0, updated_at = datetime('now')
+    WHERE resident_phase != 'idle' OR process_alive != 0 OR live_subagents != 0`).run().changes
+}
+
+/**
  * Drop a mission's derived session rows so the journal can be replayed into
  * them. Messages and invocations stay: replay recognizes turns it already
  * recorded (see `coreTurnInvocationId`).

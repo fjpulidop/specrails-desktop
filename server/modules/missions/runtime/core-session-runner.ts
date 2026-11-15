@@ -200,6 +200,10 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
           if (event.phase === 'started') emit({ kind: 'tool-use', name: event.name, toolUseId: event.toolUseId, inputPreview: event.input === undefined ? '' : JSON.stringify(event.input).slice(0, 1000) })
           else emit({ kind: 'tool-result', toolUseId: event.toolUseId, outputPreview: (event.output ?? '').slice(0, 4000), ...(event.isError ? { isError: true } : {}) })
           return
+        case 'turn.image':
+          if (event.turnId !== turnId) return
+          emit({ kind: 'image', imageId: event.imageId, path: event.path, mimeType: event.mimeType })
+          return
         case 'turn.completed': {
           if (event.turnId !== turnId) return
           if (pendingInterrupts.size > 0) {

@@ -73,7 +73,7 @@ import { recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
 import type { IntentTurn, IntentTurnContext } from './flow-turn-context'
 import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
-import { conversationSessionState, listActiveSessionCursors, listSubagents } from './agent-session-store'
+import { conversationSessionState, listActiveSessionCursors, listSubagents, settleOrphanedSessionCursors } from './agent-session-store'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -178,6 +178,9 @@ export class AgentChatManager {
     this._registry = registry ?? null
     // A sidecar restart must retain unsent input without replaying operations.
     recoverPendingAgentInputs(db)
+    // No Core host outlives the server that supervised it: a session still
+    // projected as running is stale and would block archiving its mission.
+    settleOrphanedSessionCursors(db)
   }
 
   /** Composition-time wiring of Core agent sessions (see agent-sessions module). */
@@ -1188,14 +1191,15 @@ export class AgentChatManager {
           updateAgentConversation(this._db, conversationId, { session_id: sessionId })
         }
       }
-      const settleAborted = (r: { text: string; sessionId: string | null; coreTurnId?: string }): void => {
+      const settleAborted = (r: { text: string; sessionId: string | null; coreTurnId?: string; events?: readonly AdapterEvent[] }): void => {
         if (this._disposed) return
         // Deliberate user Stop: keep any partial text (it was already streamed to
         // the client), never auto-heal, never surface an error.
-        if (r.text && getAgentConversation(this._db, conversationId)) {
-          const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) })
+        const attachmentIds = this._importTurnImages(conversationId, r.events ?? [])
+        if ((r.text || attachmentIds.length) && getAgentConversation(this._db, conversationId)) {
+          const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, attachmentIds, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) })
           persistSession(r.sessionId)
-          this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, messageId: message.id, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
+          this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, messageId: message.id, ...(attachmentIds.length ? { attachmentIds } : {}), ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         }
       }
 
@@ -1329,11 +1333,13 @@ export class AgentChatManager {
         void this._flowTurns.briefingDelivered(conversationId, flowTurn.flowId).catch((error: unknown) =>
           console.warn(`[agent-chat] Intent return briefing not cleared (${conversationId}): ${error instanceof Error ? error.message : String(error)}`))
       }
-      if (r.text || r.checkpointed) {
-        const message = r.text ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) }) : undefined
+      // Images the provider generated in this turn (Core `turn.image`) attach to the reply.
+      const attachmentIds = this._importTurnImages(conversationId, r.events)
+      if (r.text || r.checkpointed || attachmentIds.length) {
+        const message = r.text || attachmentIds.length ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, attachmentIds, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) }) : undefined
         persistSession(r.sessionId)
         // The Core turn id anchors this turn's sub-agents under the reply in every client.
-        this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, ...(message ? { messageId: message.id } : {}), ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
+        this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, ...(message ? { messageId: message.id } : {}), ...(attachmentIds.length ? { attachmentIds } : {}), ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         record(r, 'success')
         // AI title after the FIRST completed turn (industry standard — ChatGPT /
         // Claude.ai), on the conversation's own provider. The deterministic title
@@ -1876,6 +1882,29 @@ export class AgentChatManager {
     this._queue.delete(conversationId)
     this._turnSnapshotVersion += 1
     this._broadcast({ type: 'agent_queue_cleared', conversationId, messages: [...uncertain, ...cancelled.map(({ message }) => message)], timestamp: new Date().toISOString() })
+  }
+
+  /**
+   * Copy the images a turn generated (adapter `image` events, from Core
+   * `turn.image`) into the conversation's attachments, once per image. A file
+   * that is missing or not an image is skipped with a warning: the reply text
+   * is never lost because of it.
+   */
+  private _importTurnImages(conversationId: string, events: readonly AdapterEvent[]): string[] {
+    const ids: string[] = []
+    const seen = new Set<string>()
+    for (const event of events) {
+      if (event.kind !== 'image' || seen.has(event.imageId)) continue
+      seen.add(event.imageId)
+      try {
+        const attachment = attachmentManager.importAgentGeneratedImage(conversationId, event.path)
+        if (attachment) ids.push(attachment.id)
+        else console.warn(`[agent-chat] generated image skipped (${conversationId}): ${event.path} is missing or not an image`)
+      } catch (error) {
+        console.warn(`[agent-chat] generated image not attached (${conversationId}): ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+    return ids
   }
 
   /** Kills all active turns (graceful shutdown). */
