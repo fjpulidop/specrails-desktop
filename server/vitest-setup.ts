@@ -30,58 +30,31 @@ if (!testPrototype[transportMarker]) {
 }
 
 /**
- * Test safety net: NEVER let a test write the relocation registry into the
- * developer's real `$HOME/.specrails/registry.json`.
+ * Hermetic env: a test run must NEVER inherit Specrails host configuration.
  *
- * `ProjectRegistry.loadAll()` runs `reconcileFromProjects`, and `addProject`
- * runs `mirrorProjectEntry`; both resolve the registry path from
- * `resolveHome()`, which falls back to `os.homedir()` when neither a `home`
- * arg nor `SPECRAILS_REGISTRY_HOME` is set. A test that constructs a
- * `ProjectRegistry` without pinning a tmp home would then pollute the real
- * registry. This setup file (run once per test file by vitest `setupFiles`)
- * points `SPECRAILS_REGISTRY_HOME` at a throwaway tmp dir unless the test has
- * already set its own, so the real home is unreachable from tests by
- * construction. Tests that need a specific home still override it per-test.
+ * When the suite runs as a rail's host verification, the command inherits the
+ * running Desktop's environment: `SPECRAILS_CORE_RUNTIME_PATH`, `SPECRAILS_PORT`,
+ * `SPECRAILS_HOST_CONTROL_TOKEN`, `SPECRAILS_REGISTRY_HOME=$HOME` and others.
+ * Core keeps `SPECRAILS_*` in verification on purpose (a checked application may
+ * read them), so this suite strips them itself. An allowlist of variables to
+ * delete went stale whenever the host added one (40 failures in core-compat,
+ * setup-manager, desktop-router and agent-runtime-bridge while the same suite
+ * passed in a plain shell), so every `SPECRAILS_*` is removed except the
+ * paired-Core source paths CI passes deliberately. `SPECRAILS_CORE_BIN` is
+ * removed too: CI's copy serves `scripts/check-core-compat.ts` outside vitest,
+ * and paired tests derive their own from `SPECRAILS_CORE_SOURCE_DIR`. Tests that
+ * need a variable set it per-case in `beforeEach`, which runs after this file.
  */
-if (!process.env.SPECRAILS_REGISTRY_HOME) {
-  process.env.SPECRAILS_REGISTRY_HOME = mkdtempSync(path.join(os.tmpdir(), 'specrails-desktop-test-home-'))
+const TEST_INPUTS = new Set(['SPECRAILS_CORE_SOURCE_DIR', 'SPECRAILS_EFFICIENCY_CORE_ROOT'])
+for (const key of Object.keys(process.env)) {
+  if (key.startsWith('SPECRAILS_') && !TEST_INPUTS.has(key)) delete process.env[key]
 }
 
 /**
- * Hermetic env: a test run must NEVER inherit relocation / desktop-mode env
- * vars from the host process. When the suite runs INSIDE a Specrails rail spawn
- * (e.g. a `/specrails:implement` job running the verification step), that parent
- * process exports `SPECRAILS_REPO_DIR` etc., which leak straight through the
- * legacy (non-relocated) spawn path — the managers spread `process.env` into the
- * child env — and break the "LEGACY: no relocation env" assertions in
- * chat-manager / queue-manager tests. No test relies on ambient inheritance: the
- * relocated-branch tests activate relocation via the registry + populated
- * workspace gate, and the path-resolver / setup-prerequisites tests set their
- * own vars per-case in `beforeEach` (which run AFTER this file), so a
- * blanket-delete here is safe and any per-case setter still wins. Only
- * `SPECRAILS_REPO_DIR` breaks a test today; the rest are defense-in-depth (they
- * would leak identically the moment a future test asserts on them). Do NOT
- * delete `SPECRAILS_REGISTRY_HOME` — the block above sets it intentionally.
+ * Test safety net: NEVER let a test write the relocation registry into the
+ * developer's real `$HOME/.specrails/registry.json`. `ProjectRegistry` resolves
+ * the registry from `SPECRAILS_REGISTRY_HOME`, falling back to `os.homedir()`,
+ * so it always points at a throwaway tmp dir here (an inherited value is the
+ * host's real home). Tests that need a specific home override it per-test.
  */
-for (const k of [
-  'SPECRAILS_REPO_DIR',
-  'SPECRAILS_IS_DESKTOP',
-  'SPECRAILS_BUNDLED_RUNTIMES_PATH',
-  // Set by the Tauri host. Without this, a suite run from the packaged app reads
-  // its bundled Core instead of each test's fixture (core-compat, loops-router).
-  'SPECRAILS_BUNDLED_CORE_PATH',
-  'SPECRAILS_BUNDLED_OPENSPEC_PATH',
-  'SPECRAILS_BUNDLED_DOCS_PATH',
-  'SPECRAILS_BUNDLED_MCP_BRIDGE_PATH',
-  'SPECRAILS_BUNDLED_LOCAL_RUNNER_PATH',
-  'SPECRAILS_HOST_CONTROL_TOKEN',
-  'SPECRAILS_TICKETS_PATH',
-  'SPECRAILS_BACKLOG_CONFIG_PATH',
-  'SPECRAILS_WORKSPACE_DIR',
-  'SPECRAILS_PROFILES_DIR',
-  'SPECRAILS_STATE_DIR',
-  'SPECRAILS_EXECUTION_CONTEXT',
-  'SPECRAILS_PIPELINE_RUNTIME',
-]) {
-  delete process.env[k]
-}
+process.env.SPECRAILS_REGISTRY_HOME = mkdtempSync(path.join(os.tmpdir(), 'specrails-desktop-test-home-'))
