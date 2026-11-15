@@ -5,7 +5,9 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { defaultGitRunner } from '../../../../worktree-manager'
 import type { Exec } from '../pr-publisher'
-import { preservePrCiWip, prCiKeptRef, prCiWipRef, settlePrCiGeneration } from './pr-ci-settlement'
+import { initDb, type DbInstance } from '../../../../db'
+import { claimPrCiAdmission, getPrCiAdmission, setPrCiAdmissionWorktree, upsertPrCiAdmission, type PrCiAdmissionRow } from './pr-ci-admission'
+import { preservePrCiWip, prCiKeptRef, prCiWipRef, replayPrCiAdmissions, settleAdmissionRun, settlePrCiGeneration } from './pr-ci-settlement'
 
 let root: string, work: string
 const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', ...args], { cwd: work, encoding: 'utf8' }).trim()
@@ -94,5 +96,93 @@ describe('settlePrCiGeneration', () => {
     expect(await settlePrCiGeneration(input(() => view({ state: 'CLOSED' }), null))).toBeNull()
     expect(await settlePrCiGeneration(input(() => view({ headRefOid: 'f'.repeat(40) }), null))).toBeNull()
     expect(await settlePrCiGeneration({ ...input(() => '', null), exec: { run: async () => ({ code: 1, stdout: '', stderr: 'gh: offline' }) } })).toBeNull()
+  })
+})
+
+describe('mission-origin admission settlement', () => {
+  let db: DbInstance
+  let announced: PrCiAdmissionRow[]
+  beforeEach(() => { db = initDb(':memory:'); announced = [] })
+  afterEach(() => db.close())
+
+  const startedAdmission = () => {
+    const row = upsertPrCiAdmission(db, { projectId: 'p1', repositoryId: 'r-api', repositoryPath: work, prNumber: 7, prUrl: 'https://github.com/acme/app/pull/7',
+      headBranch: 'feature', headSha: git('rev-parse', 'HEAD'), baseBranch: 'main', originConversationId: 'c1' })
+    claimPrCiAdmission(db, 'p1', row.id, 'run-1')
+    setPrCiAdmissionWorktree(db, row.id, work)
+    return getPrCiAdmission(db, 'p1', row.id)!
+  }
+  const task = (seq: number, name: string, outcome: string) => {
+    db.prepare("INSERT OR IGNORE INTO jobs (id, command, started_at) VALUES ('run-1', 'pr-ci', 't')").run()
+    return db.prepare("INSERT INTO events (job_id, seq, event_type, source, payload) VALUES ('run-1', ?, 'host_task_finished', 'stdout', ?)").run(seq, JSON.stringify({ task: name, outcome }))
+  }
+  const settlement = (completion: { ok: boolean; reasons: string[] } | null, stdout: () => string = () => view({})) => ({
+    db, git: defaultGitRunner, exec: exec(stdout), completionOf: async () => completion, announce: (row: PrCiAdmissionRow) => { announced.push(row) },
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] settles green with the pushes and rounds the run recorded, and shows it on the card', async () => {
+    const admission = startedAdmission()
+    task(1, 'pr.checks', 'red'); task(2, 'pr.sync', 'pushed'); task(3, 'pr.checks', 'green')
+    const settled = await settleAdmissionRun(settlement({ ok: true, reasons: [] }), admission)
+    expect(settled).toMatchObject({ state: 'green', pushes: 1, rounds: 1, reason: null })
+    expect(announced.at(-1)?.state).toBe('green')
+  })
+
+  it('[spec:mission-pr-ci-repair/ci-repair-never-merges-or-accepts-work] settling green never merges the PR and leaves the delivery table untouched', async () => {
+    const admission = startedAdmission()
+    const calls: string[][] = []
+    const recording: Exec = { run: async (_cmd, args) => { calls.push(args); return { code: 0, stdout: view({}), stderr: '' } } }
+    task(1, 'pr.checks', 'green')
+    const before = db.prepare('SELECT COUNT(*) AS n FROM rail_pr_deliveries').get()
+    const settled = await settleAdmissionRun({ ...settlement({ ok: true, reasons: [] }), exec: recording }, admission)
+    expect(settled).toMatchObject({ state: 'green' })
+    expect(calls.some(args => args.includes('merge'))).toBe(false)
+    expect(db.prepare('SELECT COUNT(*) AS n FROM rail_pr_deliveries').get()).toEqual(before)
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] reports a PR without checks as no checks, never green', async () => {
+    const admission = startedAdmission()
+    task(1, 'pr.checks', 'none')
+    expect(await settleAdmissionRun(settlement({ ok: true, reasons: [] }), admission)).toMatchObject({ state: 'no-ci' })
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] reports the concrete stop reason when the loop stops before green', async () => {
+    const admission = startedAdmission()
+    const settled = await settleAdmissionRun(settlement({ ok: false, reasons: ['Round budget exhausted'] }), admission)
+    expect(settled).toMatchObject({ state: 'needs-attention', reason: 'Round budget exhausted' })
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] says so when the PR could not be proven open at the end, instead of claiming a result silently', async () => {
+    const admission = startedAdmission()
+    const settled = await settleAdmissionRun(settlement({ ok: false, reasons: ['Stopped'] }, () => view({ state: 'CLOSED' })), admission)
+    expect(settled.state).toBe('needs-attention')
+    expect(settled.reason).toMatch(/could not be proven open/)
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] is idempotent: settling or replaying again returns the stored result', async () => {
+    const admission = startedAdmission()
+    const deps = settlement({ ok: true, reasons: [] })
+    const first = await settleAdmissionRun(deps, admission)
+    const again = await settleAdmissionRun(deps, admission)
+    expect(again).toMatchObject({ state: first.state })
+    await replayPrCiAdmissions(deps, 'p1')
+    expect(getPrCiAdmission(db, 'p1', admission.id)).toMatchObject({ state: 'green', run_id: 'run-1' })
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] replay settles an interrupted admission whose run finished and leaves a running one alone', async () => {
+    const admission = startedAdmission()
+    db.prepare("INSERT INTO loop_runs (id, project_id, loop_id, status, final_outcome, started_at) VALUES ('run-1', 'p1', 'factory:pr-ci', 'running', NULL, 't')").run()
+    await replayPrCiAdmissions(settlement({ ok: true, reasons: [] }), 'p1')
+    expect(getPrCiAdmission(db, 'p1', admission.id)?.state).toBe('started')
+    db.prepare("UPDATE loop_runs SET status = 'completed', final_outcome = 'success' WHERE id = 'run-1'").run()
+    await replayPrCiAdmissions(settlement({ ok: true, reasons: [] }), 'p1')
+    expect(getPrCiAdmission(db, 'p1', admission.id)?.state).toBe('green')
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] replay returns a claim whose run never existed to its offer with the reason', async () => {
+    const admission = startedAdmission()
+    await replayPrCiAdmissions(settlement(null), 'p1')
+    expect(getPrCiAdmission(db, 'p1', admission.id)).toMatchObject({ state: 'offered', run_id: null })
+    expect(getPrCiAdmission(db, 'p1', admission.id)?.reason).toMatch(/restarted/)
   })
 })

@@ -10,7 +10,7 @@ import { Suspense, lazy, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, ShieldCheck, Workflow } from 'lucide-react'
 import { cn } from '../../../lib/utils'
-import { postPrCiDismiss, postPrCiLaunch } from '../../delivery/lib/pr-ci'
+import { postPrCiAdmissionDismiss, postPrCiAdmissionStart, postPrCiDismiss, postPrCiLaunch } from '../../delivery/lib/pr-ci'
 import { focusPrCard } from './agent-run-failure'
 
 const JobDetailModal = lazy(() =>
@@ -21,12 +21,17 @@ export type PrCiOfferState = 'offered' | 'started' | 'dismissed' | 'green' | 'no
 export interface PrCiOfferRow {
   kind: 'pr-ci-offer'
   projectId: string
-  prDeliveryId: string
+  /** Delivery-backed rows; null for a mission-origin row. */
+  prDeliveryId: string | null
+  /** Mission-origin rows (a PR without a Specrails delivery): the host admission and its repository. */
+  admissionId: string | null
+  repositoryId: string | null
+  repository: string | null
   prNumber: number | null
   prUrl: string
   /** Multi-repository generations: one PR per repository. */
   prs: Array<{ repository: string; prNumber: number | null; prUrl: string }>
-  railIndex: number
+  railIndex: number | null
   state: PrCiOfferState
   runId: string | null
   runDeliveryId: string | null
@@ -46,13 +51,16 @@ export function parsePrCiOfferRow(content: string): PrCiOfferRow | null {
   try { o = JSON.parse(content) as Record<string, unknown> } catch { return null }
   if (!o || o.kind !== 'pr-ci-offer') return null
   const projectId = str(o.projectId), prDeliveryId = str(o.prDeliveryId), prUrl = str(o.prUrl), railIndex = int(o.railIndex)
-  if (!projectId || !prDeliveryId || !prUrl || !/^https?:\/\//i.test(prUrl) || railIndex === null || !STATES.includes(o.state as PrCiOfferState)) return null
+  const admissionId = str(o.admissionId), repositoryId = str(o.repositoryId)
+  // A delivery-backed row keeps its delivery and rail; a mission-origin one carries its admission and repository instead, never both.
+  const identified = prDeliveryId ? railIndex !== null : Boolean(admissionId && repositoryId)
+  if (!projectId || !prUrl || !identified || !/^https?:\/\//i.test(prUrl) || !STATES.includes(o.state as PrCiOfferState)) return null
   const prs = Array.isArray(o.prs) ? o.prs.flatMap((entry) => {
     const item = entry && typeof entry === 'object' ? entry as Record<string, unknown> : null
     const link = item ? str(item.prUrl) : null
     return item && link && /^https?:\/\//i.test(link) ? [{ repository: str(item.repository) ?? '', prNumber: int(item.prNumber), prUrl: link }] : []
   }).slice(0, 20) : []
-  return { kind: 'pr-ci-offer', projectId, prDeliveryId, prNumber: int(o.prNumber), prUrl, prs, railIndex, state: o.state as PrCiOfferState,
+  return { kind: 'pr-ci-offer', projectId, prDeliveryId, admissionId: prDeliveryId ? null : admissionId, repositoryId: prDeliveryId ? null : repositoryId, repository: prDeliveryId ? null : str(o.repository), prNumber: int(o.prNumber), prUrl, prs, railIndex: prDeliveryId ? railIndex : null, state: o.state as PrCiOfferState,
     runId: str(o.runId), runDeliveryId: str(o.runDeliveryId), reason: str(o.reason), pushes: int(o.pushes), rounds: int(o.rounds) }
 }
 
@@ -65,18 +73,23 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
   const [local, setLocal] = useState<PrCiOfferState | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const state = local && row.state === 'offered' ? local : row.state
+  const missionOrigin = row.prDeliveryId === null
   const many = row.prs.length > 1
   const prName = (entry: { repository: string; prNumber: number | null }) => [entry.repository, entry.prNumber !== null ? `#${entry.prNumber}` : ''].filter(Boolean).join(' ')
-  const pr = many ? row.prs.map(prName).join(', ') : row.prNumber !== null ? `#${row.prNumber}` : t('prCi.thisPr')
+  const pr = many ? row.prs.map(prName).join(', ')
+    : missionOrigin ? prName({ repository: row.repository ?? '', prNumber: row.prNumber })
+    : row.prNumber !== null ? `#${row.prNumber}` : t('prCi.thisPr')
   const links = many ? row.prs.map((entry) => ({ href: entry.prUrl, text: t('prCi.openPr', { pr: prName(entry) }) })) : [{ href: row.prUrl, text: t('prCi.openPr', { pr }) }]
   const k = (key: string) => many ? `${key}Many` : key
-  const rail = t('prCard.rail', { index: row.railIndex + 1 })
+  const rail = row.railIndex !== null ? t('prCard.rail', { index: row.railIndex + 1 }) : ''
 
   const start = async () => {
     if (inFlight.current) return
     inFlight.current = true
     setBusy('start'); setError(null)
-    const outcome = await postPrCiLaunch(row.projectId, row.railIndex, { prDeliveryId: row.prDeliveryId, originConversationId: conversationId })
+    const outcome = row.admissionId
+      ? await postPrCiAdmissionStart(row.projectId, row.admissionId)
+      : await postPrCiLaunch(row.projectId, row.railIndex!, { prDeliveryId: row.prDeliveryId!, originConversationId: conversationId })
     if (outcome.kind === 'started') setLocal('started')
     else { setError(outcome.detail || t('prCi.startFailed')); inFlight.current = false }
     setBusy(null)
@@ -85,12 +98,13 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
     if (inFlight.current) return
     inFlight.current = true
     setBusy('dismiss'); setError(null)
-    if (await postPrCiDismiss(row.projectId, row.prDeliveryId)) setLocal('dismissed')
+    const saved = row.admissionId ? await postPrCiAdmissionDismiss(row.projectId, row.admissionId) : await postPrCiDismiss(row.projectId, row.prDeliveryId!)
+    if (saved) setLocal('dismissed')
     else { setError(t('prCi.dismissFailed')); inFlight.current = false }
     setBusy(null)
   }
   // The run's log, directly; without a run id, the card that owns it.
-  const openRun = () => row.runId ? setLogOpen(true) : focusPrCard({ prDeliveryId: row.runDeliveryId ?? row.prDeliveryId, runIds: [], conversationId })
+  const openRun = () => row.runId ? setLogOpen(true) : focusPrCard({ prDeliveryId: row.runDeliveryId ?? row.prDeliveryId!, runIds: [], conversationId })
 
   if (state === 'dismissed') {
     return <p data-testid="agent-pr-ci-offer" data-state="dismissed" className="text-xs text-muted-foreground">{t(`prCi.${k('dismissed')}`, { pr })}</p>
@@ -104,7 +118,7 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
   ) : null
   // Once started, this row is history: one line with the run's log. The PR card
   // owns the current CI state, its reason and "Fix CI again" — no second copy here.
-  if (state !== 'offered') {
+  if (state !== 'offered' && !missionOrigin) {
     return (
       <div data-testid="agent-pr-ci-offer" data-state={state} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <Icon aria-hidden className={cn('h-3.5 w-3.5 shrink-0', tone === 'success' ? 'text-accent-success' : tone === 'warning' ? 'text-accent-warning' : 'text-accent-info')} />
@@ -132,14 +146,14 @@ export function AgentPrCiOfferCard({ row, conversationId = null }: { row: PrCiOf
         <div className="min-w-0 flex-1">
           <p className="font-medium text-foreground">
             {state === 'offered' ? t(`prCi.${k('title')}`, { pr })
-              : state === 'started' ? t(`prCi.${k('started')}`, { pr, rail })
+              : state === 'started' ? (missionOrigin ? t('prCi.startedMission', { pr }) : t(`prCi.${k('started')}`, { pr, rail }))
               : state === 'green' ? t(`prCi.${k('green')}`, { pr })
               : state === 'no-ci' ? t(`prCi.${k('noCi')}`, { pr })
-              : t(`prCi.${k('needsAttention')}`, { pr })}
+              : missionOrigin ? t('prCi.needsAttentionMission', { pr }) : t(`prCi.${k('needsAttention')}`, { pr })}
           </p>
           <p className="mt-1 whitespace-pre-line leading-4 text-muted-foreground">
             {state === 'offered' ? t('prCi.body')
-              : state === 'started' ? t('prCi.startedBody')
+              : state === 'started' ? t(missionOrigin ? 'prCi.startedMissionBody' : 'prCi.startedBody')
               : state === 'needs-attention' ? (row.reason ?? t('prCi.needsAttentionBody'))
               : state === 'green' ? t('prCi.greenBody', { pushes: row.pushes ?? 0, rounds: row.rounds ?? 0, count: row.pushes ?? 0 })
               : t('prCi.noCiBody')}

@@ -5,6 +5,9 @@ import { toPrDeliverySnapshot, transitionDecision, type DeliverBranchRecord, typ
 import type { PrDecision, PrDeliveryStatusCode } from '../../domain/state'
 import { isExactOpenPr, observePrLifecycle } from '../pr-lifecycle'
 import type { Exec } from '../pr-publisher'
+import { removeWorktree } from '../../../../worktree-manager'
+import { getPrCiAdmission, listStartedPrCiAdmissions, releasePrCiAdmission, settlePrCiAdmission, type PrCiAdmissionRow } from './pr-ci-admission'
+import { prCiTerminalState, readHostTaskOutcomes } from './pr-ci-offer'
 
 /**
  * Settlement of a `factory:pr-ci` generation (pr-ci-loop).
@@ -185,4 +188,68 @@ export async function clearPrCiWorktrees(db: DbInstance, git: GitRunner, rows: R
     }
   }
   return true
+}
+
+export interface PrCiAdmissionSettlementDeps {
+  db: DbInstance
+  git: GitRunner
+  exec: Exec
+  /** Core's completion of the run (`ok`: CI ended green or the PR has no checks); null when unavailable. */
+  completionOf(runId: string): Promise<{ ok: boolean; reasons: string[] } | null>
+  /** Re-project the card after the state changed. */
+  announce(admission: PrCiAdmissionRow): void
+  now?: () => number
+}
+
+const ADMISSION_STOPPED = 'The CI loop stopped before the checks turned green.'
+
+/**
+ * Settle a mission-origin CI run exactly like a delivery generation: the PR is
+ * re-proven OPEN at its exact head, unverified local work is kept on a ref (never
+ * dropped, never pushed), and the outcome is the card's state. Nothing here
+ * merges the PR or touches a spec or ticket. Idempotent: only a `started`
+ * admission settles, so a restart replay returns the stored result.
+ */
+export async function settleAdmissionRun(deps: PrCiAdmissionSettlementDeps, admission: PrCiAdmissionRow): Promise<PrCiAdmissionRow> {
+  if (admission.state !== 'started' || !admission.run_id) return admission
+  const runId = admission.run_id
+  const completion = await deps.completionOf(runId).catch(() => null)
+  const settlement = await settlePrCiGeneration({
+    git: deps.git, exec: deps.exec, baseRepo: admission.repository_path, deliveryId: `mission-${admission.id}`,
+    continuation: { prUrl: admission.pr_url, branch: admission.head_branch, baseBranch: admission.base_branch },
+    worktrees: admission.worktree_path ? [admission.worktree_path] : [], completion, branches: [],
+  }).catch(() => null)
+  const green = completion?.ok === true
+  const unverified = settlement ? null : `${(completion?.reasons ?? []).filter(Boolean).join(' ').trim() || ADMISSION_STOPPED} The pull request could not be proven open at its head when the run ended; its worktree was kept for inspection.`
+  const terminal = prCiTerminalState({
+    decision: 'pr_draft', implementation_outcome: 'succeeded',
+    status_code: settlement?.statusCode ?? (green ? 'ci_green' : 'ci_needs_attention'),
+    status_detail: settlement ? settlement.statusDetail : green ? null : unverified,
+  }, readHostTaskOutcomes(deps.db, runId))
+  settlePrCiAdmission(deps.db, admission.id, { state: terminal.state as 'green' | 'no-ci' | 'needs-attention', ...(terminal.reason ? { reason: terminal.reason } : {}), pushes: terminal.pushes ?? 0, rounds: terminal.rounds ?? 0 }, deps.now)
+  const settled = getPrCiAdmission(deps.db, admission.project_id, admission.id)!
+  deps.announce(settled)
+  if (settlement && admission.worktree_path) {
+    // Clean at the PR head by now; refuse (not force) so nothing unexpected is lost.
+    await removeWorktree(deps.git, { repoDir: admission.repository_path, worktreePath: admission.worktree_path, branch: admission.head_branch, deleteBranch: false, force: false })
+      .catch(error => console.warn(`[pr-ci] kept the worktree of ${admission.id}: ${error instanceof Error ? error.message : String(error)}`))
+  }
+  return settled
+}
+
+/**
+ * Startup pass: an admission left `started` whose run finished is settled; one
+ * whose run never existed (a restart between claim and launch) goes back to
+ * `offered` with the reason. A run still in flight is left to its own settlement.
+ */
+export async function replayPrCiAdmissions(deps: PrCiAdmissionSettlementDeps, projectId: string): Promise<void> {
+  for (const admission of listStartedPrCiAdmissions(deps.db, projectId)) {
+    const run = admission.run_id ? deps.db.prepare('SELECT final_outcome FROM loop_runs WHERE id = ?').get(admission.run_id) as { final_outcome: string | null } | undefined : undefined
+    if (!run) {
+      releasePrCiAdmission(deps.db, admission.id, 'The CI repair did not start before the app restarted; start it again.', deps.now)
+      deps.announce(getPrCiAdmission(deps.db, projectId, admission.id)!)
+    } else if (run.final_outcome !== null) {
+      await settleAdmissionRun(deps, admission)
+    }
+  }
 }

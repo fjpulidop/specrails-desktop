@@ -42,6 +42,7 @@ export function railsTools(): McpToolSpec[] {
         'launch and launch_all are refused with 409 daily_budget_exceeded (scope project|desktop, budgetUsd, spentUsd, resetsAt) while a daily budget is exhausted — nothing spawns; tell the user to raise the budget or wait for the reset, never retry in a loop. ' +
         'They are also refused with 409 review_wip_limit_reached (limit, pending[{ deliveryId, railIndex, ticketIds, since }]) when the project\'s review limit of deliveries waiting for review is reached — nothing spawns; continuations of an existing delivery (revision, relaunch, PR follow-up) are exempt. Tell the user which deliveries are waiting and that deciding one (Create PR, merge, discard) or raising the limit in Project settings frees a slot; never retry in a loop. list returns reviewWip { limit, pending, reached }. ' +
         'launch_all (ai-spawn — launches EVERY rail that has tickets and no active run/uncontinuable pending PR decision, in parallel, using each rail\'s stored mode/engine/profile; returns per-rail outcomes with skip reasons), ' +
+        'ci_fix (write — prepares the "Fix PR CI" card in this mission for ANY open same-repository PR of the project from its URL, with or without a Specrails delivery; it starts no agent, no worktree and no push: the user starts the repair from the card. Pass prUrl; the repository is resolved by the host. Refusals carry a code (pr_repository_not_in_project, pr_not_open, pr_fork_unsupported — fork branches are not writable —, target_pr_not_found, pr_github_unavailable, target_pr_invalid): relay the reason, never retry with another PR), ' +
         'stop (destructive — kills all active jobs and loop runs for the rail). ' +
         'For on_review tickets with an already-open GitHub PR (including a published pr_ready delivery), launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
         'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider. On that same provider, an omitted model inherits the conversation model; an explicit model wins (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
@@ -53,12 +54,12 @@ export function railsTools(): McpToolSpec[] {
         const action = a.action as string
         if (action === 'stop') return 'destructive'
         if (action === 'launch' || action === 'launch_all') return 'ai-spawn'
-        if (action === 'set_tickets' || action === 'set_profile' || action === 'set_engine' || action === 'set_name' || action === 'create_rail') return 'write'
+        if (action === 'ci_fix' || action === 'set_tickets' || action === 'set_profile' || action === 'set_engine' || action === 'set_name' || action === 'create_rail') return 'write'
         return 'read'
       },
       inputSchema: {
         action: z
-          .enum(['list', 'pr_candidates', 'review_packet', 'create_rail', 'set_tickets', 'set_profile', 'set_engine', 'set_name', 'launch', 'launch_all', 'stop'])
+          .enum(['list', 'pr_candidates', 'review_packet', 'ci_fix', 'create_rail', 'set_tickets', 'set_profile', 'set_engine', 'set_name', 'launch', 'launch_all', 'stop'])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
         repositoryIds: z.array(z.string().min(1)).min(1).max(50).optional().describe('launch only: explicit affected repository memberships for the coordinated run; must include every repository required by the assigned specs. Omission uses the assigned specs\' repository selections.'),
@@ -70,6 +71,7 @@ export function railsTools(): McpToolSpec[] {
           .min(0)
           .optional()
           .describe('Rail slot index, 0-BASED (required except list, create_rail, launch_all and review_packet). The dashboard labels rails 1-based: UI "Rail N" = railIndex N-1.'),
+        prUrl: z.string().url().max(512).optional().describe('ci_fix only: full URL of an open pull request of one of this project\'s repositories (https://github.com/owner/repo/pull/N).'),
         prDeliveryId: z.string().optional().describe('Delivery id returned by list/prDeliveries (required for review_packet)'),
         // set_tickets
         ticketIds: z
@@ -172,6 +174,14 @@ export function railsTools(): McpToolSpec[] {
 
           case 'pr_candidates':
             return apiCall(ctx, 'GET', `${base}/${requireRailIndex()}/pr-candidates`)
+
+          case 'ci_fix': {
+            if (typeof args.prUrl !== 'string' || !args.prUrl.trim()) throw new Error('ci_fix requires "prUrl" (the full pull request URL).')
+            return apiCall(ctx, 'POST', `${base}/pr-ci/admissions`, {
+              prUrl: args.prUrl,
+              ...(ctx.originConversationId ? { originConversationId: ctx.originConversationId } : {}),
+            })
+          }
 
           case 'review_packet': {
             if (typeof args.prDeliveryId !== 'string' || !args.prDeliveryId.trim()) {

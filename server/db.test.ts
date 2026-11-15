@@ -1490,6 +1490,45 @@ describe('project settings — freestyle pre-prompt', () => {
     })
   })
 
+  describe('pr_ci_admissions (migration 91)', () => {
+    const columns = (db: DbInstance) => (db.prepare('PRAGMA table_info(pr_ci_admissions)').all() as Array<{ name: string }>).map(c => c.name)
+    const insert = (db: DbInstance, id: string, repositoryId: string, prNumber: number) => db.prepare(
+      `INSERT INTO pr_ci_admissions (id, project_id, repository_id, repository_path, pr_number, pr_url, head_branch, base_branch, created_at, updated_at)
+       VALUES (?, 'p1', ?, '/repo', ?, 'https://github.com/a/b/pull/1', 'feat', 'main', 't', 't')`).run(id, repositoryId, prNumber)
+
+    it('exists on a fresh database', () => {
+      const db = initDb(':memory:')
+      expect(columns(db)).toEqual(expect.arrayContaining(['project_id', 'repository_id', 'pr_number', 'state', 'run_id']))
+      db.close()
+    })
+
+    it('is added to an upgraded database without touching its data', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-m91-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      try {
+        const first = initDb(dbPath)
+        createJob(first, { id: 'keep', command: 'c', started_at: new Date().toISOString() })
+        first.exec('DROP TABLE pr_ci_admissions')
+        first.prepare('DELETE FROM schema_migrations WHERE version = 91').run()
+        first.close()
+        const upgraded = initDb(dbPath)
+        expect(columns(upgraded)).toContain('repository_id')
+        expect(getJob(upgraded, 'keep')).toBeDefined()
+        upgraded.close()
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('allows one row per project, repository and PR number', () => {
+      const db = initDb(':memory:')
+      insert(db, 'a', 'repo-1', 5)
+      insert(db, 'b', 'repo-2', 5)
+      expect(() => insert(db, 'c', 'repo-1', 5)).toThrow(/UNIQUE/)
+      db.close()
+    })
+  })
+
   describe('migration runner idempotency (M8)', () => {
     it('re-initializing the same on-disk db does not throw', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-m8-'))

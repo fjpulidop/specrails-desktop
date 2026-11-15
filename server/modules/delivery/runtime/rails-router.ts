@@ -12,6 +12,8 @@ import { PR_CI_LOOP_ID, supportsPrCi } from '../../loops/runtime/loop-pr-ci-reci
 import { observePrLifecycle } from './pr-lifecycle'
 import { prCiCapable, refreshPrCiOffer } from './pr-ci/pr-ci-projection'
 import { dismissPrCiOffer, prCiOfferKey } from './pr-ci/pr-ci-offer'
+import { findActivePrCiAdmissionForPr } from './pr-ci/pr-ci-admission'
+import { createPrCiAdmissionRuntime, type PrCiAdmissionRuntime } from './pr-ci/pr-ci-admission-runtime'
 import { clearPrCiWorktrees, resettleFailedPrCiRows } from './pr-ci/pr-ci-settlement'
 import { createPrCiStatusCache, readPrCiStatus } from './pr-ci/pr-ci-status'
 import type { RailPrDeliveryRow } from './rail-pr-store'
@@ -1610,6 +1612,9 @@ export function createRailsRouter(): Router {
       if (!lifecycle.ok) { res.status(409).json({ error: 'pr_unverifiable', prUrl: pr.prUrl, detail: lifecycle.detail }); return }
       if (lifecycle.isCrossRepository !== false) { res.status(409).json({ error: 'pr_fork_unsupported', prUrl: pr.prUrl, detail: 'Pull requests from forks are not supported.' }); return }
       if (lifecycle.state !== 'OPEN') { res.status(409).json({ error: 'pr_not_open', prUrl: pr.prUrl, state: lifecycle.state, detail: `The pull request ${pr.prUrl} is ${lifecycle.state.toLowerCase()}.` }); return }
+      // One writer per PR: a mission-origin run on it blocks this start (and vice versa).
+      const missionRun = findActivePrCiAdmissionForPr(c.db, c.project.id, pr.prUrl)
+      if (missionRun) { res.status(409).json({ error: 'pr_ci_run_active', prUrl: pr.prUrl, runId: missionRun.run_id, detail: 'A CI repair started from a mission is already running on this pull request.' }); return }
     }
     // A stopped loop may have left uncommitted edits in the PR worktree: set them
     // aside on a delivery ref so the new loop starts clean at the PR head.
@@ -1637,6 +1642,40 @@ export function createRailsRouter(): Router {
     }
   }
   router.post('/:railIndex/pr-ci', startPrCi)
+
+  // Mission-origin CI repair: the PR has no delivery, so the offer is keyed by
+  // its host admission (project + repository + PR), never by a delivery or rail.
+  const prCiAdmissionRuntimes = new WeakMap<object, PrCiAdmissionRuntime>()
+  const admissionRuntime = (req: Request): PrCiAdmissionRuntime => {
+    const c = ctx(req)
+    let runtime = prCiAdmissionRuntimes.get(c)
+    if (!runtime) { runtime = createPrCiAdmissionRuntime(c); prCiAdmissionRuntimes.set(c, runtime) }
+    return runtime
+  }
+  const validAdmissionId = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(value)
+  router.post('/pr-ci/admissions', async (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as Record<string, unknown>
+    if (typeof body.prUrl !== 'string' || !body.prUrl.trim() || body.prUrl.length > 512) { res.status(400).json({ error: 'pr_url_invalid', detail: 'Provide the full pull request URL.' }); return }
+    const origin = typeof body.originConversationId === 'string' && body.originConversationId ? body.originConversationId : null
+    const result = await admissionRuntime(req).prepare(body.prUrl, origin)
+    if (!result.ok) { res.status(result.status).json({ error: result.error, detail: result.detail }); return }
+    const { admission } = result
+    res.json({ admissionId: admission.id, state: admission.state, repositoryId: admission.repository_id, prNumber: admission.pr_number, prUrl: admission.pr_url, headBranch: admission.head_branch, baseBranch: admission.base_branch })
+  })
+  router.post('/pr-ci/admissions/:admissionId/start', async (req: Request, res: Response) => {
+    const admissionId = req.params.admissionId
+    if (!validAdmissionId(admissionId)) { res.status(400).json({ error: 'invalid_pr_ci_admission_id' }); return }
+    const result = await admissionRuntime(req).start(admissionId)
+    if (!result.ok) { res.status(result.status).json({ error: result.error, detail: result.detail, ...(result.runId ? { runId: result.runId } : {}) }); return }
+    res.status(202).json({ admissionId, runId: result.runId, loopRunIds: [result.runId], state: result.admission.state })
+  })
+  router.post('/pr-ci/admissions/:admissionId/dismiss', (req: Request, res: Response) => {
+    const admissionId = req.params.admissionId
+    if (!validAdmissionId(admissionId)) { res.status(400).json({ error: 'invalid_pr_ci_admission_id' }); return }
+    const result = admissionRuntime(req).dismiss(admissionId)
+    if (!result.ok) { res.status(result.status).json({ error: result.error, detail: result.detail }); return }
+    res.json({ admissionId, state: result.admission.state })
+  })
 
   // "Not now" on the offer: persisted for this delivery generation only.
   router.post('/pr-ci-offer/dismiss', (req: Request, res: Response) => {
