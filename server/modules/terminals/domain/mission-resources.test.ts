@@ -35,6 +35,29 @@ describe('mission resources model', () => {
 
 describe('findWorktreeRoots', () => {
   const ps = (pid: number, ppid: number, command: string) => ({ pid, ppid, cpuPercent: 1, rssBytes: 1024, command })
+  it.each([
+    ['node /archive/w/ticket-1/script.js', '/w/ticket-1', false],
+    ['node --cwd=/archive/w/ticket-1', '/w/ticket-1', false],
+    ['node "prefix/w/ticket-1/script.js"', '/w/ticket-1', false],
+    ['node D:\\archive\\C:\\work\\ticket-1\\script.js', 'C:\\work\\ticket-1', true],
+  ])('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] excludes embedded worktree lookalike %s and its descendants', (command, worktree, windows) => {
+    const samples = [ps(10, 1, command), ps(11, 10, 'node child')]
+    const roots = findWorktreeRoots(samples, worktree, { windows })
+    expect(roots).toEqual([])
+    expect(totalEntries(measureRoots(samples, roots))).toEqual({ cpuPercent: 0, memoryBytes: 0, processCount: 0 })
+  })
+
+  it.each([
+    '/w/ticket-1/script.js',
+    'node "/w/ticket-1/script.js"',
+    "node '/w/ticket-1/script.js'",
+    'node --cwd=/w/ticket-1',
+    'node --cwd="/w/ticket-1"',
+    'node /archive/w/ticket-1/script.js --cwd=/w/ticket-1',
+  ])('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] preserves worktree argument boundaries in %s', (command) => {
+    expect(findWorktreeRoots([ps(10, 1, command)], '/w/ticket-1').map(r => r.pid)).toEqual([10])
+  })
+
   it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] returns top-most processes referencing the worktree and ignores lookalike paths', () => {
     const samples = [
       ps(1, 0, 'init'),

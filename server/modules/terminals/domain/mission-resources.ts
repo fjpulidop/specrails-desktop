@@ -187,8 +187,10 @@ export function findWorktreeRoots(samples: ProcessSample[], worktreePath: string
     for (;;) {
       const i = command.indexOf(base, from)
       if (i < 0) return false
+      const previous = command[i - 1]
       const next = command[i + base.length]
-      if (next === undefined || next === '/' || /\s|["':=]/.test(next)) return true
+      if ((previous === undefined || /\s|["'=]/.test(previous)) &&
+          (next === undefined || next === '/' || /\s|["':=]/.test(next))) return true
       from = i + 1
     }
   }

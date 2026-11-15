@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cloneElement, type ReactElement } from 'react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MissionResourcesPanel, formatBytes } from '../MissionResourcesPanel'
 import { startWorktreeScan, type MissionResourcesSnapshot } from '../../lib/mission-resources-api'
 import type { ResourceSample } from '../../lib/mission-resource-history'
 
 vi.mock('../../lib/mission-resources-api', () => ({ getMissionResources: vi.fn(), startWorktreeScan: vi.fn() }))
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: unknown }) => <div>{children as never}</div>,
-  LineChart: () => <svg />, Line: () => null, Tooltip: () => null, YAxis: () => null,
+vi.mock('recharts', async (importOriginal) => ({
+  ...await importOriginal<typeof import('recharts')>(),
+  // JSDOM has no layout: supply dimensions while exercising real lines and tooltips.
+  ResponsiveContainer: ({ children }: { children: ReactElement<{ width: number; height: number }> }) =>
+    cloneElement(children, { width: 480, height: 96 }),
 }))
 
 const snapshot = (patch: Partial<MissionResourcesSnapshot> = {}): MissionResourcesSnapshot => ({
@@ -58,6 +61,33 @@ describe('MissionResourcesPanel', () => {
     renderPanel({ snapshot: idleSnapshot(), samples: [] })
     expect(screen.getByText(/no processes are running/i)).toBeTruthy()
     expect(screen.queryByTestId('mission-resources-history')).toBeNull()
+  })
+
+  it('[spec:mission-resources/resource-history-remains-readable-after-activity-ends] plots retained CPU and memory samples with time/value tooltips after activity ends', async () => {
+    const samples = [sample(60_000, 10, 100 * 1024 ** 2, 3), sample(120_000, 40, 500 * 1024 ** 2, 6), sample(180_000, 0, 0, 0)]
+    renderPanel({ snapshot: idleSnapshot(), samples })
+    const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    expect(screen.getByTestId('mission-resources-range')).toHaveTextContent(`${clock(60_000)} → ${clock(180_000)}`)
+
+    for (const [metric, title, values] of [
+      ['cpu', 'CPU', ['10.0%', '40.0%', '0.0%']],
+      ['memory', 'Memory', ['100 MB', '500 MB', '0 B']],
+    ] as const) {
+      const chart = screen.getByTestId(`mission-resources-${metric}-chart`)
+      expect(within(chart).getByRole('img', { name: title })).toBeTruthy()
+      expect(chart.querySelector('.recharts-line-curve')?.getAttribute('d')).toBeTruthy()
+      const surface = within(chart).getByRole('application')
+      fireEvent.focus(surface)
+      for (let i = 0; i < samples.length; i++) {
+        if (i > 0) fireEvent.keyDown(surface, { key: 'ArrowRight' })
+        await waitFor(() => {
+          const tooltip = chart.querySelector('.recharts-tooltip-wrapper')
+          expect(tooltip).toBeVisible()
+          expect(tooltip).toHaveTextContent(clock(samples[i].at))
+          expect(tooltip).toHaveTextContent(`${title} : ${values[i]}`)
+        })
+      }
+    }
   })
 
   it('[spec:mission-resources/worktree-disk-measurement-is-explicit-and-asynchronous] scans the worktree on demand and tells the owner to refresh', async () => {

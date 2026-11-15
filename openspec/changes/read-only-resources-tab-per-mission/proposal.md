@@ -8,13 +8,14 @@ Mission chat did not expose the CPU, memory or worktree disk consumed by its wor
 
 - Add a read-only Resources popover beside Processes, with live totals, per-root process-tree load, on-demand worktree disk scans and persisted CPU/memory history charts.
 - Change Processes to an accessible hover/focus/click popover with a compact list, execution inspection and access to the existing full history modal.
-- Measure mission-specific provider roots, registered background processes and command lines referencing the mission worktree, deduplicating descendants within each measurement.
+- Measure mission-specific provider roots, registered background processes and command lines referencing the mission worktree, deduplicating descendants within each measurement and rejecting worktree paths embedded inside longer paths.
+- Bind resource refreshes, including refreshes after disk scans, to the open view so closing or unmounting cancels pending requests and suppresses late results.
 - Support POSIX process sampling and Windows PowerShell sampling, with explicit unavailable-metering states.
 - Record active mission totals every three seconds independently of the popover, keep the newest 600 samples in project SQLite and return the newest 300. Preserve samples across restart and trash/restore; clean up permanent deletions and orphan records.
 - Add resources and process-history entry labels in all eight locale files, boundary declarations and module/platform documentation.
 - Extend child-process test mocks in the ticket-cost, Codex and Gemini router suites with execFile so the newly imported resource sampler can initialize during those existing regression tests.
 
-- Add tagged regressions for two-mission Core isolation, cross-project reads and in-flight repinning, polling cancellation/recovery, keyboard panel access and disk scan sharing/retry.
+- Add tagged regressions for two-mission Core isolation, cross-project reads and in-flight repinning, polling cancellation/recovery, keyboard panel access, disk scan sharing/retry, worktree argument boundaries and real CPU/memory chart tooltips.
 
 ## Capabilities
 

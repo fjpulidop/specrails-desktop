@@ -10,13 +10,42 @@ const snapshot = (sampledAt: number): MissionResourcesSnapshot => ({
 })
 const deferred = () => {
   let resolve!: (value: MissionResourcesSnapshot) => void
-  const promise = new Promise<MissionResourcesSnapshot>(r => { resolve = r })
-  return { promise, resolve }
+  let reject!: (reason: Error) => void
+  const promise = new Promise<MissionResourcesSnapshot>((r, j) => { resolve = r; reject = j })
+  return { promise, resolve, reject }
 }
 beforeEach(() => { vi.useFakeTimers(); vi.mocked(getMissionResources).mockReset().mockResolvedValue(snapshot(1)) })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('useMissionResourceHistory', () => {
+  it.each(['close', 'unmount'] as const)('[spec:mission-resources/open-resource-views-refresh-within-their-mission-scope] cancels post-scan refreshes on %s and prevents later callbacks from fetching', async lifecycle => {
+    const { result, rerender, unmount } = renderHook(({ open }) => useMissionResourceHistory('p1', 'c1', open), { initialProps: { open: true } })
+    await act(async () => {})
+    const pending = deferred()
+    const failed = deferred()
+    vi.mocked(getMissionResources).mockReturnValueOnce(pending.promise).mockReturnValueOnce(failed.promise)
+    const onScanned = result.current.refresh
+    let refresh!: Promise<void>
+    let failedRefresh!: Promise<void>
+    act(() => { refresh = onScanned(); failedRefresh = onScanned() })
+    const signals = vi.mocked(getMissionResources).mock.calls.slice(1).map(call => call[2])
+    expect(signals).toEqual([expect.any(AbortSignal), expect.any(AbortSignal)])
+    if (lifecycle === 'close') rerender({ open: false })
+    else unmount()
+    expect(signals.every(signal => signal?.aborted)).toBe(true)
+    await act(async () => {
+      pending.resolve(snapshot(9))
+      failed.reject(new Error('late failure'))
+      await Promise.all([refresh, failedRefresh])
+      await onScanned()
+      await result.current.refresh()
+      await vi.advanceTimersByTimeAsync(6000)
+    })
+    expect(result.current.latest?.sampledAt).toBe(1)
+    expect(result.current.error).toBeNull()
+    expect(getMissionResources).toHaveBeenCalledTimes(3)
+  })
+
   it('[spec:mission-resources/open-resource-views-refresh-within-their-mission-scope] fetches on open and every three seconds, stops on close and refreshes on reopen', async () => {
     const { result, rerender } = renderHook(({ open }) => useMissionResourceHistory('p1', 'c1', open), { initialProps: { open: false } })
     expect(getMissionResources).not.toHaveBeenCalled()

@@ -19,6 +19,15 @@ A mission with a project context SHALL expose Resources beside Processes as a no
 - **THEN** the popover SHALL remain open
 - **AND** leaving both surfaces without focus inside SHALL close it after a short delay
 
+#### Scenario: Dismiss without trapping focus
+- **WHEN** the user presses Escape or interacts with a pointer outside the trigger and panel
+- **THEN** the popover SHALL close
+
+#### Scenario: Reverse keyboard traversal
+- **WHEN** the user presses Shift+Tab from a panel control and then from its trigger
+- **THEN** focus SHALL return through the trigger to the preceding control
+- **AND** the composer's tier shortcut SHALL not consume those Tab events
+
 #### Scenario: Keyboard access to panel controls
 - **WHEN** keyboard focus reaches the trigger and the user presses forward Tab while the panel is open
 - **THEN** focus SHALL move to the first available panel control
@@ -26,7 +35,7 @@ A mission with a project context SHALL expose Resources beside Processes as a no
 - **AND** moving focus outside both trigger and panel SHALL close the popover
 
 ### Requirement: Resource snapshots measure selected process trees
-The resources endpoint SHALL return entries and CPU, memory and process-count totals for provider roots, registered background roots scoped to the requested project/chat, and roots whose command lines reference the mission worktree. Descendants SHALL be attributed once per snapshot, under the first claiming root. A selected root missing from the process table SHALL report not running and zero load.
+The resources endpoint SHALL return entries and CPU, memory and process-count totals for provider roots, registered background roots scoped to the requested project/chat, and roots whose command lines reference the mission worktree. Descendants SHALL be attributed once per snapshot, under the first claiming root. A selected root missing from the process table SHALL report not running and zero load. Worktree matches SHALL respect leading argument and trailing path boundaries.
 
 #### Scenario: Overlapping and unrelated trees
 - **WHEN** a registered background root is a descendant of an agent root and another process belongs to neither tree
@@ -37,6 +46,17 @@ The resources endpoint SHALL return entries and CPU, memory and process-count to
 - **WHEN** a process command references the mission worktree and its parent is not a matching root
 - **THEN** the process SHALL appear as mission activity with its descendants
 - **AND** a similarly named worktree with a longer path segment SHALL not match
+
+#### Scenario: Embedded worktree lookalikes
+- **WHEN** the selected worktree is /w/ticket-1 and an otherwise unrelated process command references /archive/w/ticket-1/script.js, --cwd=/archive/w/ticket-1 or a quoted prefix/w/ticket-1/script.js
+- **THEN** that process SHALL not be selected as mission activity
+- **AND** neither it nor its descendants SHALL contribute to mission totals
+- **AND** the same leading-boundary check SHALL apply to normalized Windows paths
+
+#### Scenario: Valid worktree arguments
+- **WHEN** a command references the worktree at the start of the command, after whitespace or quotes, or as an argument assignment such as --cwd=/w/ticket-1 or --cwd="/w/ticket-1"
+- **THEN** that valid reference SHALL select the process as mission activity
+- **AND** an earlier embedded lookalike in the same command SHALL not prevent a later valid reference from matching
 
 #### Scenario: Core missions share a host
 - **WHEN** two missions run provider processes under the same Core host
@@ -72,7 +92,7 @@ Process measurement SHALL support macOS/Linux and Windows. CPU SHALL be a percen
 - **AND** the panel SHALL explain that resource metering is unavailable
 
 ### Requirement: Open resource views refresh within their mission scope
-The client SHALL fetch resources when the popover opens and every three seconds while open. Closing the view SHALL stop its polling. Responses from a previously selected project or chat SHALL not populate the current view.
+The client SHALL fetch resources on opening and every three seconds while open. All refreshes, including those following a disk scan, SHALL belong to the open view's cancellation lifecycle. Closing or unmounting SHALL stop polling, cancel pending refreshes and prevent further refresh requests while closed or unmounted. Late success or failure results and responses from a previously selected project or chat SHALL not update the view.
 
 #### Scenario: Switch mission during a request
 - **WHEN** a request for mission A completes after the selection changes to mission B
@@ -86,6 +106,16 @@ The client SHALL fetch resources when the popover opens and every three seconds 
 - **WHEN** the resource view closes or its owner unmounts while a request is pending
 - **THEN** its request signal SHALL be aborted and polling SHALL stop
 - **AND** a delayed response after close SHALL not populate the view
+
+#### Scenario: Close or unmount during a post-scan refresh
+- **WHEN** a disk-scan callback starts resource refreshes and Resources closes or its owner unmounts before they settle
+- **THEN** all pending resource refresh requests SHALL have their cancellation signals aborted
+- **AND** late successful snapshots and failed responses SHALL leave the retained snapshot and error unchanged
+
+#### Scenario: Disk-scan callback arrives after close or unmount
+- **WHEN** a retained disk-scan completion callback attempts to refresh resources while the view is closed or unmounted
+- **THEN** no resource fetch SHALL start
+- **AND** no polling SHALL resume
 
 #### Scenario: Request fails and polling recovers
 - **WHEN** a resource fetch fails and a subsequent three-second poll succeeds
@@ -112,7 +142,7 @@ A mission worktree SHALL initially show not scanned. A scan request SHALL return
 - **AND** another project's disk cache SHALL remain not scanned
 
 ### Requirement: Server recording persists bounded mission history
-Each open project SHALL record resource totals on a three-second cadence independently of popover visibility. Active local conversations and desktop/Core turns pinned to that project SHALL be candidates. After live processes are observed, recording SHALL continue until one closing zero sample; idle zero measurements SHALL add no samples. History SHALL survive database reopening, retain the newest 600 points per mission and return the newest 300 oldest first.
+Each open project SHALL record totals every three seconds independently of popover visibility for active local conversations and desktop/Core turns pinned there. After observing live processes, recording SHALL continue to one closing zero sample; idle zeros SHALL add nothing. History SHALL survive database reopening, retain the newest 600 points per mission and return the newest 300 oldest first.
 
 #### Scenario: Popover remains closed during a turn
 - **WHEN** a pinned desktop mission or local conversation owns processes during an active turn
@@ -142,6 +172,13 @@ For a supported snapshot without live processes, the Resources panel SHALL displ
 - **WHEN** history contains active samples followed by zero load
 - **THEN** the displayed summary SHALL retain the last active figures
 - **AND** charts SHALL show the retained CPU/memory history and its peaks instead of replacing the summary with zeros
+
+#### Scenario: Read each retained chart sample
+- **WHEN** a completed mission has retained active samples followed by a zero sample
+- **THEN** the CPU chart SHALL plot those CPU percentages and the memory chart SHALL plot those memory byte measurements in sample order
+- **AND** the displayed range SHALL identify the first and last retained sample times
+- **AND** focusing either chart and moving through its samples with ArrowRight SHALL display a tooltip naming the metric, that sample's local time and its formatted value
+- **AND** CPU values SHALL include percent units and memory values SHALL use the displayed byte-size units, including zero values
 
 ### Requirement: Resource history follows permanent mission deletion
 Trash and restoration SHALL preserve history without age-based expiry for existing missions. Permanent deletion, including expired-trash purge, SHALL request cleanup across open projects. On project open, history for IDs absent from both local chats and desktop missions SHALL be pruned; moved missions and restorable trash SHALL survive. An existence lookup failure SHALL leave the sweep's samples intact.

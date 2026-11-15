@@ -10,26 +10,30 @@ export function useMissionResourceHistory(projectId: string | null, chatId: stri
   const [state, setState] = useState<{ key: string | null; latest: MissionResourcesSnapshot | null; error: string | null }>({ key, latest: null, error: null })
   const keyRef = useRef(key)
   keyRef.current = key
+  const viewRef = useRef<{ key: string; controller: AbortController } | null>(null)
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
-    if (!projectId || !chatId) return
+  const refresh = useCallback(async () => {
+    const view = viewRef.current
+    if (!watching || !projectId || !chatId || !view || view.key !== key || view.controller.signal.aborted) return
+    const signal = view.controller.signal
     const forKey = `${projectId}:${chatId}`
     try {
       const latest = await getMissionResources(projectId, chatId, signal)
-      if (keyRef.current === forKey && !signal?.aborted) setState({ key: forKey, latest, error: null })
+      if (keyRef.current === forKey && !signal.aborted) setState({ key: forKey, latest, error: null })
     } catch (err) {
-      if (keyRef.current === forKey && !signal?.aborted) {
+      if (keyRef.current === forKey && !signal.aborted) {
         setState(prev => ({ key: forKey, latest: prev.key === forKey ? prev.latest : null, error: err instanceof Error ? err.message : String(err) }))
       }
     }
-  }, [projectId, chatId])
+  }, [projectId, chatId, watching, key])
 
   useEffect(() => {
     if (!watching || !key) return
     const controller = new AbortController()
-    void refresh(controller.signal)
-    const timer = window.setInterval(() => { void refresh(controller.signal) }, MISSION_RESOURCES_POLL_MS)
-    return () => { controller.abort(); window.clearInterval(timer) }
+    viewRef.current = { key, controller }
+    void refresh()
+    const timer = window.setInterval(() => { void refresh() }, MISSION_RESOURCES_POLL_MS)
+    return () => { controller.abort(); viewRef.current = null; window.clearInterval(timer) }
   }, [watching, key, refresh])
 
   const current = state.key === key
