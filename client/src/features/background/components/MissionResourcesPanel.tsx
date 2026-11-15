@@ -93,7 +93,7 @@ export function MissionResourcesPanel({ projectId, chatId, snapshot, samples, er
                 {t('missionResources.finishedAt', { time: new Date(samples[samples.length - 1].at).toLocaleTimeString() })} · {t('missionResources.lastActive')}
               </p>
             )}
-            <div className={`grid grid-cols-3 gap-2 text-sm ${live ? '' : 'opacity-70'}`} data-testid="mission-resources-totals">
+            <div className={`grid grid-cols-3 gap-2 text-sm ${live ? '' : 'text-muted-foreground'}`} data-testid="mission-resources-totals">
               <div><div className="text-xs text-muted-foreground">{t('missionResources.cpu')}</div><div className="tabular-nums font-medium">{(shown?.cpuPercent ?? 0).toFixed(1)}%</div></div>
               <div><div className="text-xs text-muted-foreground">{t('missionResources.memory')}</div><div className="tabular-nums font-medium">{formatBytes(shown?.memoryBytes ?? 0)}</div></div>
               <div><div className="text-xs text-muted-foreground">{t('missionResources.processes')}</div><div className="tabular-nums font-medium">{shown?.processCount ?? 0}</div></div>
