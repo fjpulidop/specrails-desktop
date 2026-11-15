@@ -560,6 +560,20 @@ export function failPrDeliveryAndRestoreSuperseded(
   })()
 }
 
+/**
+ * A repository delivery (group child) belongs to its group's lineage: when the
+ * group replaced an earlier generation (`is_continuation` on the parent), its
+ * children borrow the same PR/ticket lifecycle even though each was created as
+ * a fresh repository unit. Decision legality and effects read the child through
+ * this view, so "Dismiss follow-up" on a continuation group can act on every
+ * repository instead of being refused per child.
+ */
+export function withGroupContinuation(db: DbInstance, row: RailPrDeliveryRow): RailPrDeliveryRow {
+  if (!row.parent_delivery_id || row.is_continuation === 1) return row
+  const parent = getPrDelivery(db, row.parent_delivery_id)
+  return parent?.is_continuation === 1 ? { ...row, is_continuation: 1 } : row
+}
+
 export function getPrDelivery(db: DbInstance, id: string): RailPrDeliveryRow | undefined {
   return db.prepare('SELECT * FROM rail_pr_deliveries WHERE id = ?').get(id) as RailPrDeliveryRow | undefined
 }
