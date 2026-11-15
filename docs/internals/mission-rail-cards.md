@@ -137,6 +137,8 @@ WS messages: `agent_pr_decision` (existing, now carries the new fields), `agent_
 
 The PR CI offer (`pr-ci-offer` system row, pr-ci-loop) is informational: it never starts a run, never marks the conversation unread and adds no attention dot; see [safe PR flow](safe-pr-review-flow.md#pr-ci-loop-pr-ci-loop).
 
+A mission-origin `pr-ci-offer` row (a PR without a delivery) carries `origin: 'mission'`, `admissionId`, `repositoryId` and `repository` instead of `prDeliveryId`/`railIndex`, and is keyed `pr-ci-offer:ext:<projectId>:<repositoryId>:<prNumber>`. Because no PR decision card exists for it, the card itself shows the state, the stop reason, pushes/rounds and the run log after the run starts and after a reload. `started` means the repair was accepted, not finished.
+
 Migration 29 and the envelope fields are additive; persisted intents are inert when the feature is off.
 
 ## Deferred

@@ -2029,6 +2029,39 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
+  // Migration 91: PR CI admissions. A mission asks to repair the CI of a PR that
+  // has no Specrails delivery; the host freezes the validated target here (never
+  // in workflow text). One row per project + repository + PR number: preparing
+  // again refreshes the row, so repeated requests cannot duplicate offers or runs.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS pr_ci_admissions (
+        id                     TEXT PRIMARY KEY,
+        project_id             TEXT NOT NULL,
+        repository_id          TEXT NOT NULL,
+        repository_path        TEXT NOT NULL,
+        pr_number              INTEGER NOT NULL,
+        pr_url                 TEXT NOT NULL,
+        head_branch            TEXT NOT NULL,
+        head_sha               TEXT,
+        base_branch            TEXT NOT NULL,
+        origin_conversation_id TEXT,
+        state                  TEXT NOT NULL DEFAULT 'offered',
+        run_id                 TEXT,
+        reason                 TEXT,
+        pushes                 INTEGER,
+        rounds                 INTEGER,
+        worktree_path          TEXT,
+        created_at             TEXT NOT NULL,
+        updated_at             TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_pr_ci_admissions_target
+        ON pr_ci_admissions(project_id, repository_id, pr_number);
+      CREATE INDEX IF NOT EXISTS idx_pr_ci_admissions_run
+        ON pr_ci_admissions(project_id, run_id) WHERE run_id IS NOT NULL;
+    `)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

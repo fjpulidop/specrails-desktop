@@ -4,7 +4,7 @@ import i18n from '../../../../lib/i18n'
 import { AgentPrCiOfferCard, parsePrCiOfferRow, type PrCiOfferRow } from '../AgentPrCiOfferCard'
 import { describePrCiStep } from '../../lib/pr-ci-steps'
 
-const row = (over: Partial<PrCiOfferRow> = {}): PrCiOfferRow => ({ kind: 'pr-ci-offer', projectId: 'p1', prDeliveryId: 'd1', prNumber: 7, prUrl: 'https://github.com/acme/app/pull/7', prs: [], railIndex: 0,
+const row = (over: Partial<PrCiOfferRow> = {}): PrCiOfferRow => ({ kind: 'pr-ci-offer', projectId: 'p1', prDeliveryId: 'd1', admissionId: null, repositoryId: null, repository: null, prNumber: 7, prUrl: 'https://github.com/acme/app/pull/7', prs: [], railIndex: 0,
   state: 'offered', runId: null, runDeliveryId: null, reason: null, pushes: null, rounds: null, ...over })
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -19,7 +19,7 @@ describe('pr-ci-offer rows', () => {
 })
 
 describe('AgentPrCiOfferCard', () => {
-  it('offers Start and Not now, and starts exactly once on a double click', async () => {
+  it('[spec:mission-pr-ci-repair/delivery-backed-ci-repair-is-preserved] offers Start and Not now, and starts exactly once on a double click', async () => {
     let resolve!: (value: Response) => void
     const fetchMock = vi.fn(() => new Promise<Response>(r => { resolve = r }))
     vi.stubGlobal('fetch', fetchMock)
@@ -35,7 +35,7 @@ describe('AgentPrCiOfferCard', () => {
     await waitFor(() => expect(screen.getByTestId('agent-pr-ci-offer').getAttribute('data-state')).toBe('started'))
   })
 
-  it('once started it is one history line with the run log, never a second set of actions', () => {
+  it('[spec:mission-pr-ci-repair/delivery-backed-ci-repair-is-preserved] once started it is one history line with the run log, never a second set of actions', () => {
     render(<AgentPrCiOfferCard row={row({ state: 'needs-attention', reason: 'flaky', runId: 'r1', runDeliveryId: 'd2' })} conversationId="conv-1" />)
     const line = screen.getByTestId('agent-pr-ci-offer')
     expect(line).toHaveAttribute('data-state', 'needs-attention')
@@ -70,6 +70,70 @@ describe('AgentPrCiOfferCard', () => {
     render(<AgentPrCiOfferCard row={row(over)} />)
     expect(screen.getByTestId('agent-pr-ci-offer').textContent).toContain(text)
     expect(screen.queryByTestId('agent-pr-ci-start')).toBeNull()
+  })
+})
+
+describe('AgentPrCiOfferCard for a mission-origin PR without a delivery', () => {
+  const mission = (over: Partial<PrCiOfferRow> = {}) => row({ prDeliveryId: null, railIndex: null, admissionId: 'a1', repositoryId: 'r-api', repository: 'api', prNumber: 7, prUrl: 'https://github.com/acme/api/pull/7', ...over })
+
+  it('[spec:mission-pr-ci-repair/mission-prepares-a-ci-repair-offer-from-a-project-pr-url] parses a mission-origin row by its admission and repository, never a delivery or rail', () => {
+    const content = { kind: 'pr-ci-offer', projectId: 'p1', origin: 'mission', admissionId: 'a1', repositoryId: 'r-api', repository: 'api', prNumber: 7, prUrl: 'https://github.com/acme/api/pull/7', state: 'offered' }
+    expect(parsePrCiOfferRow(JSON.stringify(content))).toMatchObject({ prDeliveryId: null, railIndex: null, admissionId: 'a1', repositoryId: 'r-api', repository: 'api' })
+    expect(parsePrCiOfferRow(JSON.stringify({ ...content, repositoryId: undefined }))).toBeNull()
+    expect(parsePrCiOfferRow(JSON.stringify({ ...content, admissionId: undefined }))).toBeNull()
+  })
+
+  it('[spec:mission-pr-ci-repair/start-requires-explicit-user-action] names the repository and PR, and starts through the admission with only its id', async () => {
+    let resolve!: (value: Response) => void
+    const fetchMock = vi.fn(() => new Promise<Response>(r => { resolve = r }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<AgentPrCiOfferCard row={mission()} conversationId="conv-1" />)
+    expect(screen.getByTestId('agent-pr-ci-offer').textContent).toContain('Watch and fix the CI of PR api #7')
+    fireEvent.click(screen.getByTestId('agent-pr-ci-start'))
+    fireEvent.click(screen.getByTestId('agent-pr-ci-start'))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toMatch(/\/api\/projects\/p1\/rails\/pr-ci\/admissions\/a1\/start$/)
+    expect(init.body).toBeUndefined()
+    resolve(new Response(JSON.stringify({ runId: 'r1', loopRunIds: ['r1'] }), { status: 202 }))
+    await waitFor(() => expect(screen.getByTestId('agent-pr-ci-offer').getAttribute('data-state')).toBe('started'))
+  })
+
+  it('[spec:mission-pr-ci-repair/start-requires-explicit-user-action] dismisses through the admission', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<AgentPrCiOfferCard row={mission()} />)
+    fireEvent.click(screen.getByTestId('agent-pr-ci-dismiss'))
+    await waitFor(() => expect(screen.getByTestId('agent-pr-ci-offer').getAttribute('data-state')).toBe('dismissed'))
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toMatch(/\/rails\/pr-ci\/admissions\/a1\/dismiss$/)
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] shows a started repair as in progress, not as completed, with its log', () => {
+    render(<AgentPrCiOfferCard row={mission({ state: 'started', runId: 'r1' })} />)
+    const card = screen.getByTestId('agent-pr-ci-offer')
+    expect(card.textContent).toContain('repair started')
+    expect(card.textContent).not.toMatch(/green|no CI checks/)
+    expect(screen.getByTestId('agent-pr-ci-open-run')).toHaveTextContent('Open the log')
+  })
+
+  it.each([
+    ['green', { state: 'green' as const, pushes: 1, rounds: 1, runId: 'r1' }, 'PR api #7: all checks are green'],
+    ['no-ci', { state: 'no-ci' as const, runId: 'r1' }, 'PR api #7 has no CI checks'],
+    ['needs-attention', { state: 'needs-attention' as const, reason: 'Round budget exhausted', runId: 'r1' }, 'stopped before the checks turned green'],
+  ])('keeps the %s result, its reason and log on the mission card itself', (_label, over, text) => {
+    render(<AgentPrCiOfferCard row={mission(over)} />)
+    const card = screen.getByTestId('agent-pr-ci-offer')
+    expect(card.textContent).toContain(text)
+    if (over.state === 'needs-attention') expect(card.textContent).toContain('Round budget exhausted')
+    expect(screen.getByTestId('agent-pr-ci-open-run')).toBeInTheDocument()
+    expect(screen.queryByTestId('agent-pr-ci-start')).toBeNull()
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] shows the server\'s reason when the start is refused', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'pr_fork_unsupported', detail: 'fork branches are not writable' }), { status: 409 })))
+    render(<AgentPrCiOfferCard row={mission()} />)
+    fireEvent.click(screen.getByTestId('agent-pr-ci-start'))
+    expect((await screen.findByTestId('agent-pr-ci-offer-error')).textContent).toContain('fork branches are not writable')
   })
 })
 

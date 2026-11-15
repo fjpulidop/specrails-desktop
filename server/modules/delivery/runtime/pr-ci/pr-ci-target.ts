@@ -3,6 +3,7 @@ import type { DbInstance } from '../../../../db'
 import { getPrDelivery } from '../rail-pr-store'
 import type { IsolatedSettlementSnapshot } from '../isolated-settlement-store'
 import type { PrCiTarget } from './pr-ci-handlers'
+import { getPrCiAdmissionByRun } from './pr-ci-admission'
 
 /** The built-in loop that watches and fixes a PR's CI (`factory:pr-ci`). */
 export const PR_CI_LOOP_ID = 'factory:pr-ci'
@@ -12,7 +13,9 @@ export const PR_CI_LOOP_ID = 'factory:pr-ci'
  * (the isolated settlement snapshots of the continuation generation), never from
  * workflow input. A single-repository run has one; a multi-repository run has
  * one per repository delivery that continues an attached PR (all share the run
- * id). Repositories without a PR are not targets.
+ * id). Repositories without a PR are not targets. A run started from a mission
+ * for a PR without a delivery resolves from its persisted `pr_ci_admissions` row
+ * (repository, PR, head and base frozen by the host), under the same rule.
  */
 export function resolvePrCiTargets(db: DbInstance, projectId: string, runId: string): PrCiTarget[] {
   const rows = db.prepare('SELECT delivery_id, snapshot_json FROM definition_delivery_settlements WHERE project_id = ? AND run_id = ? AND superseded_by IS NULL ORDER BY created_at, delivery_id')
@@ -38,5 +41,24 @@ export function resolvePrCiTargets(db: DbInstance, projectId: string, runId: str
       overlayExcludes: [...(snapshot.run.overlayExcludes ?? [])],
     })
   }
+  if (!targets.length) targets.push(...admissionTargets(db, projectId, runId))
   return targets
+}
+
+function admissionTargets(db: DbInstance, projectId: string, runId: string): PrCiTarget[] {
+  const admission = getPrCiAdmissionByRun(db, projectId, runId)
+  if (!admission || admission.state !== 'started' || !admission.worktree_path) return []
+  return [{
+    admissionId: admission.id,
+    repositoryId: admission.repository_id,
+    runId,
+    repositoryName: path.basename(admission.repository_path),
+    prUrl: admission.pr_url,
+    prNumber: admission.pr_number,
+    branch: admission.head_branch,
+    baseBranch: admission.base_branch,
+    worktreePath: admission.worktree_path,
+    repoDir: admission.repository_path,
+    overlayExcludes: [],
+  }]
 }

@@ -3,6 +3,7 @@ import { getPrDelivery, type RailPrDeliveryRow } from '../rail-pr-store'
 import path from 'node:path'
 import { PR_CI_LOOP_ID } from './pr-ci-target'
 import { ciFixActiveRepositories, ciFixAllowed } from '../../domain/decision-policy'
+import type { PrCiAdmissionRow } from './pr-ci-admission'
 
 /**
  * The optional "Watch and fix the PR's CI" offer (pr-ci-loop): a system row in
@@ -17,12 +18,19 @@ export type PrCiOfferState = 'offered' | 'started' | 'dismissed' | 'green' | 'no
 export interface PrCiOfferRow {
   kind: 'pr-ci-offer'
   projectId: string
-  prDeliveryId: string
+  /** Delivery-backed rows only; a mission-origin row never carries one. */
+  prDeliveryId?: string
+  /** Mission-origin rows only: the host admission, and the repository it was resolved against. */
+  origin?: 'mission'
+  admissionId?: string
+  repositoryId?: string
+  /** Mission-origin rows: the repository's display name. */
+  repository?: string
   prNumber: number | null
   prUrl: string
   /** Multi-repository generations: every watched PR, one per repository (the first is `prUrl`). */
   prs?: Array<{ repository: string; prNumber: number | null; prUrl: string }>
-  railIndex: number
+  railIndex?: number
   state: PrCiOfferState
   /** The CI loop run (started and terminal states). */
   runId?: string
@@ -43,6 +51,8 @@ export interface PrCiOfferHost {
 }
 
 export const prCiOfferKey = (deliveryId: string): string => `pr-ci-offer:${deliveryId}`
+/** One card per project, repository and PR number: the PR number alone is not an identity. */
+export const prCiAdmissionOfferKey = (projectId: string, repositoryId: string, prNumber: number): string => `pr-ci-offer:ext:${projectId}:${repositoryId}:${prNumber}`
 
 type OfferRow = Pick<RailPrDeliveryRow, 'decision' | 'pr_url' | 'pr_number' | 'branch' | 'origin_conversation_id' | 'loop_id' | 'execution_manifest'>
 type RepositoryRow = Pick<RailPrDeliveryRow, 'decision' | 'pr_url' | 'pr_number' | 'branch' | 'delivery_sha' | 'operation' | 'repository_path'>
@@ -170,5 +180,31 @@ export function dismissPrCiOffer(db: DbInstance, host: PrCiOfferHost | null, del
   if (!previous || previous.state !== 'offered') return false
   const { dedupeKey: _dedupeKey, ...rest } = previous as Record<string, unknown>
   host.upsertSystemRow(row.origin_conversation_id, { ...rest, kind: 'pr-ci-offer', state: 'dismissed', at: new Date(now()).toISOString() }, key)
+  return true
+}
+
+/** The mission card of an admission: a pure projection of the persisted row. */
+export function admissionOfferRow(admission: PrCiAdmissionRow): PrCiOfferRow {
+  return {
+    kind: 'pr-ci-offer', origin: 'mission', projectId: admission.project_id, admissionId: admission.id, repositoryId: admission.repository_id,
+    repository: path.basename(admission.repository_path), prNumber: admission.pr_number, prUrl: admission.pr_url, state: admission.state,
+    ...(admission.run_id ? { runId: admission.run_id } : {}),
+    ...(admission.reason ? { reason: admission.reason } : {}),
+    ...(admission.pushes !== null ? { pushes: admission.pushes } : {}),
+    ...(admission.rounds !== null ? { rounds: admission.rounds } : {}),
+    at: admission.updated_at,
+  }
+}
+
+/**
+ * Show, or refresh, the card of a mission-origin admission in the conversation
+ * that asked for it. Idempotent by the project + repository + PR key: preparing
+ * twice, a transport retry and a settlement all update the same single row.
+ * Returns false when the admission has no mission to show it in.
+ */
+export function projectAdmissionOffer(host: PrCiOfferHost | null, admission: PrCiAdmissionRow): boolean {
+  if (!host || !admission.origin_conversation_id) return false
+  const key = prCiAdmissionOfferKey(admission.project_id, admission.repository_id, admission.pr_number)
+  host.upsertSystemRow(admission.origin_conversation_id, { ...admissionOfferRow(admission) }, key)
   return true
 }

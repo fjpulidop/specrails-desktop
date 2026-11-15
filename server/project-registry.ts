@@ -62,6 +62,7 @@ import { withRepoLock } from './repo-lock'
 import { isPrCiLoopEnabled } from './feature-flags'
 import { cancelDefinitionRun, resumeRetainedDefinitionRun } from './project-router-loop-runs'
 import { refreshPrCiOffer } from './modules/delivery/runtime/pr-ci/pr-ci-projection'
+import { createPrCiAdmissionRuntime } from './modules/delivery/runtime/pr-ci/pr-ci-admission-runtime'
 import { resolveIntegrationBranch } from './integration-branch'
 import { getProjectSettings } from './db'
 import { createProjectAgentAudit, type ProjectAgentAudit } from './modules/audit/adapters/runtime'
@@ -1747,6 +1748,8 @@ export class ProjectRegistry {
         void reconcileRailWorktrees(db, project.path)
           .then(async (n) => {
             if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
+            // Mission-origin CI repairs interrupted by the restart settle (or return to their offer) here.
+            await createPrCiAdmissionRuntime(ctx).replay().catch((error) => console.error(`[pr-ci] admission replay failed for ${project.slug}:`, error))
             // Intent sessions never survive a restart; unfinished sagas complete
             // or compensate before admission opens (never throws).
             if (this._contexts.get(project.id) === ctx && ctx.flow) {

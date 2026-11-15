@@ -899,6 +899,7 @@
       "runtime/isolated-worktree.ts",
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
+      "runtime/pr-ci/pr-ci-admission-runtime.ts",
       "runtime/pr-ci/pr-ci-handlers.ts",
       "runtime/pr-ci/pr-ci-projection.ts",
       "runtime/pr-ci/pr-ci-target.ts",
@@ -1294,6 +1295,45 @@
         "../../conversations/runtime/explore-contract-refine",
         "./pr-naming"
       ],
+      "runtime/pr-ci/pr-ci-admission-runtime.ts": [
+        "../../../../feature-flags",
+        "../../../../ids",
+        "../../../../process-admission",
+        "../../../../project-registry",
+        "../../../../providers",
+        "../../../../providers/runtime",
+        "../../../../providers/types",
+        "../../../../repo-lock",
+        "../../../../workspace-resolution",
+        "../../../../worktree-manager",
+        "../../../agent-runtime/runtime/agent-runtime-loader",
+        "../../../agents/runtime/agent-defaults",
+        "../../../loops/runtime/loop-constants",
+        "../../../loops/runtime/loop-definition-recovery",
+        "../../../loops/runtime/loop-pr-ci-recipe",
+        "../../../missions/runtime/agent-chat-registry",
+        "../isolated-worktree",
+        "../pr-publisher",
+        "../rail-isolation",
+        "./pr-ci-admission",
+        "./pr-ci-admission-start",
+        "./pr-ci-offer",
+        "./pr-ci-projection",
+        "./pr-ci-resolver",
+        "./pr-ci-settlement",
+        "node:path"
+      ],
+      "runtime/pr-ci/pr-ci-admission-start.ts": [
+        "../../../../db",
+        "../../../../project-repositories",
+        "../pr-publisher",
+        "./pr-ci-admission",
+        "./pr-ci-resolver"
+      ],
+      "runtime/pr-ci/pr-ci-admission.ts": [
+        "../../../../db",
+        "node:crypto"
+      ],
       "runtime/pr-ci/pr-ci-handlers.ts": [
         "../../../../worktree-manager",
         "../../../agent-runtime/runtime/host-task-dispatcher",
@@ -1305,6 +1345,7 @@
         "../../../../db",
         "../../domain/decision-policy",
         "../rail-pr-store",
+        "./pr-ci-admission",
         "./pr-ci-target",
         "node:path"
       ],
@@ -1317,6 +1358,13 @@
         "../rail-pr-store",
         "./pr-ci-offer"
       ],
+      "runtime/pr-ci/pr-ci-resolver.ts": [
+        "../../../../integration-branch",
+        "../../../../project-repositories",
+        "../pr-lifecycle",
+        "../pr-publisher",
+        "./pr-ci-admission"
+      ],
       "runtime/pr-ci/pr-ci-settlement.ts": [
         "../../../../db",
         "../../../../worktree-manager",
@@ -1324,6 +1372,8 @@
         "../pr-lifecycle",
         "../pr-publisher",
         "../rail-pr-store",
+        "./pr-ci-admission",
+        "./pr-ci-offer",
         "node:fs"
       ],
       "runtime/pr-ci/pr-ci-status.ts": [
@@ -1334,6 +1384,7 @@
         "../../../../db",
         "../isolated-settlement-store",
         "../rail-pr-store",
+        "./pr-ci-admission",
         "./pr-ci-handlers",
         "node:path"
       ],
@@ -1552,6 +1603,8 @@
         "./multi-repo-checkout",
         "./multi-repo-execution",
         "./multi-repo-execution-store",
+        "./pr-ci/pr-ci-admission",
+        "./pr-ci/pr-ci-admission-runtime",
         "./pr-ci/pr-ci-offer",
         "./pr-ci/pr-ci-projection",
         "./pr-ci/pr-ci-settlement",

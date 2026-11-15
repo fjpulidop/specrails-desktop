@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { initDb, type DbInstance } from '../../../../db'
 import { createPrDelivery } from '../rail-pr-store'
-import { dismissPrCiOffer, prCiOfferEligible, prCiOfferKey, prCiTerminalState, projectPrCiOffer, type PrCiOfferHost } from './pr-ci-offer'
+import { upsertPrCiAdmission, claimPrCiAdmission } from './pr-ci-admission'
+import { admissionOfferRow, dismissPrCiOffer, prCiAdmissionOfferKey, projectAdmissionOffer, prCiOfferEligible, prCiOfferKey, prCiTerminalState, projectPrCiOffer, type PrCiOfferHost } from './pr-ci-offer'
 import { PR_CI_LOOP_ID } from './pr-ci-target'
 
 let db: DbInstance
@@ -26,7 +27,7 @@ function delivery(over: Record<string, unknown> = {}, input: Partial<Parameters<
 const event = (runId: string, seq: number, task: string, outcome: string) => db.prepare("INSERT INTO events (job_id, seq, event_type, source, payload) VALUES (?, ?, 'host_task_finished', 'stdout', ?)").run(runId, seq, JSON.stringify({ task, outcome }))
 
 describe('PR CI offer', () => {
-  it('offers once per generation, only with the capability and only for an attached PR', () => {
+  it('[spec:mission-pr-ci-repair/delivery-backed-ci-repair-is-preserved] offers once per generation, only with the capability and only for an attached PR', () => {
     const h = host(), id = delivery()
     projectPrCiOffer(db, 'p1', h.value, id, { capable: false })
     expect(h.writes).toEqual([])
@@ -56,7 +57,7 @@ describe('PR CI offer', () => {
     expect(dismissPrCiOffer(db, h.value, id)).toBe(false)
   })
 
-  it('follows the CI loop generation: started, then its terminal state on the offered row', () => {
+  it('[spec:mission-pr-ci-repair/delivery-backed-ci-repair-is-preserved] follows the CI loop generation: started, then its terminal state on the offered row', () => {
     const h = host(), offered = delivery()
     projectPrCiOffer(db, 'p1', h.value, offered, { capable: true })
     db.prepare("UPDATE rail_pr_deliveries SET decision = 'superseded' WHERE id = ?").run(offered)
@@ -134,5 +135,47 @@ describe('PR CI offer terminal state from the recorded CI status', () => {
       { decision: 'pr_draft', implementation_outcome: 'succeeded', status_code: 'ci_needs_attention', status_detail: 'infrastructure: registry timeout', repository_path: '/r/lib' },
     ])).toMatchObject({ state: 'needs-attention', reason: 'lib: infrastructure: registry timeout' })
     expect(prCiTerminalState({ decision: 'pr_ready', implementation_outcome: 'succeeded', status_code: 'ci_green', status_detail: null }, [{ task: 'pr.checks', outcome: 'none' }])).toMatchObject({ state: 'no-ci' })
+  })
+})
+
+describe('mission-origin PR CI offer', () => {
+  const target = (over: Record<string, unknown> = {}) => ({ projectId: 'p1', repositoryId: 'r-api', repositoryPath: '/work/api', prNumber: 7, prUrl: 'https://github.com/a/api/pull/7',
+    headBranch: 'fix', headSha: 'a'.repeat(40), baseBranch: 'main', originConversationId: 'conv-1', ...over })
+
+  it('[spec:mission-pr-ci-repair/offers-and-active-runs-are-unique-per-project-repository-and-pr] [spec:mission-pr-ci-repair/mission-prepares-a-ci-repair-offer-from-a-project-pr-url] shows one card per project, repository and PR number however often it is prepared', () => {
+    const h = host()
+    const admission = upsertPrCiAdmission(db, target())
+    projectAdmissionOffer(h.value, admission)
+    projectAdmissionOffer(h.value, upsertPrCiAdmission(db, target()))
+    expect(h.rows.size).toBe(1)
+    expect(h.writes[0]).toMatchObject({ kind: 'pr-ci-offer', origin: 'mission', state: 'offered', admissionId: admission.id, repositoryId: 'r-api', repository: 'api', prNumber: 7, dedupeKey: prCiAdmissionOfferKey('p1', 'r-api', 7) })
+    expect(h.writes[0]).not.toHaveProperty('prDeliveryId')
+    expect(h.writes[0]).not.toHaveProperty('railIndex')
+  })
+
+  it('[spec:mission-pr-ci-repair/offers-and-active-runs-are-unique-per-project-repository-and-pr] [spec:mission-pr-ci-repair/mission-prepares-a-ci-repair-offer-from-a-project-pr-url] keeps cards of the same PR number in different repositories apart', () => {
+    const h = host()
+    projectAdmissionOffer(h.value, upsertPrCiAdmission(db, target()))
+    projectAdmissionOffer(h.value, upsertPrCiAdmission(db, target({ repositoryId: 'r-app', repositoryPath: '/work/app' })))
+    expect(h.rows.size).toBe(2)
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-shows-progress-logs-and-result-after-reload] projects the run and its terminal result from the persisted row', () => {
+    const admission = upsertPrCiAdmission(db, target())
+    claimPrCiAdmission(db, 'p1', admission.id, 'run-1')
+    expect(admissionOfferRow({ ...admission, state: 'started', run_id: 'run-1' })).toMatchObject({ state: 'started', runId: 'run-1' })
+    expect(admissionOfferRow({ ...admission, state: 'needs-attention', run_id: 'run-1', reason: 'flaky', pushes: 1, rounds: 2 })).toMatchObject({ reason: 'flaky', pushes: 1, rounds: 2 })
+  })
+
+  it('[spec:mission-pr-ci-repair/mission-prepares-a-ci-repair-offer-from-a-project-pr-url] shows nothing without a mission to show it in', () => {
+    const h = host()
+    expect(projectAdmissionOffer(h.value, upsertPrCiAdmission(db, target({ originConversationId: null })))).toBe(false)
+    expect(h.writes).toEqual([])
+  })
+
+  it('[spec:mission-pr-ci-repair/delivery-backed-ci-repair-is-preserved] leaves delivery-backed rows byte-identical', () => {
+    const h = host(), id = delivery()
+    projectPrCiOffer(db, 'p1', h.value, id, { capable: true, now: () => 0 })
+    expect(h.writes[0]).toEqual({ kind: 'pr-ci-offer', projectId: 'p1', prDeliveryId: id, prNumber: 7, prUrl: 'https://github.com/acme/app/pull/7', railIndex: 0, state: 'offered', at: new Date(0).toISOString(), dedupeKey: prCiOfferKey(id) })
   })
 })

@@ -25,6 +25,31 @@ export async function postPrCiLaunch(projectId: string, railIndex: number, body:
   }
 }
 
+/**
+ * Start the CI repair of a mission-origin offer (POST /rails/pr-ci/admissions/:id/start).
+ * The server resolves repository, PR, branch and base from the persisted admission:
+ * only its id travels. Never throws.
+ */
+export async function postPrCiAdmissionStart(projectId: string, admissionId: string): Promise<PrCiLaunchOutcome> {
+  try {
+    const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/rails/pr-ci/admissions/${encodeURIComponent(admissionId)}/start`, { method: 'POST' })
+    const data = await res.json().catch(() => ({})) as Record<string, unknown>
+    if (res.status === 202) return { kind: 'started', loopRunIds: Array.isArray(data.loopRunIds) ? data.loopRunIds.filter((id): id is string => typeof id === 'string') : [], prDeliveryId: null }
+    const code = typeof data.error === 'string' ? data.error : null
+    return { kind: 'failed', status: res.status, code, detail: typeof data.detail === 'string' ? data.detail : code ?? '' }
+  } catch (error) {
+    return { kind: 'failed', status: 0, code: null, detail: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/** "Not now" on a mission-origin CI offer. Never throws. */
+export async function postPrCiAdmissionDismiss(projectId: string, admissionId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/rails/pr-ci/admissions/${encodeURIComponent(admissionId)}/dismiss`, { method: 'POST' })
+    return res.ok
+  } catch { return false }
+}
+
 /** "Not now" on the CI offer of one delivery generation. Never throws. */
 export async function postPrCiDismiss(projectId: string, prDeliveryId: string): Promise<boolean> {
   try {

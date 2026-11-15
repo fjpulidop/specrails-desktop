@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1397 source/build files. Nearby tests are linked where names
+Includes 1401 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1613,12 +1613,16 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/delivery/runtime/pr-ci
 
+- [pr-ci-admission-runtime.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-admission-runtime.ts)
+- [pr-ci-admission-start.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-admission-start.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-admission-start.test.ts)
+- [pr-ci-admission.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-admission.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-admission.test.ts)
 - [pr-ci-handlers.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-handlers.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-handlers.test.ts)
 - [pr-ci-offer.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.test.ts)
 - [pr-ci-projection.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-projection.ts)
+- [pr-ci-resolver.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-resolver.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-resolver.test.ts)
 - [pr-ci-settlement.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.test.ts)
 - [pr-ci-status.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-status.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-status.test.ts)
-- [pr-ci-target.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-target.ts)
+- [pr-ci-target.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-target.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-target.test.ts)
 
 ## server/modules/execution
 

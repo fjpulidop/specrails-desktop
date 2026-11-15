@@ -683,6 +683,18 @@ summary later.
   \`target_pr_not_open\` / \`target_pr_fork\` / \`target_pr_invalid\` /
   \`target_pr_unfetchable\` — report the reason, do not retry with a fresh
   launch unless the user explicitly chooses a new PR.
+- **"Fix / repair the CI of this PR" = the Fix PR CI card, with or without a
+  delivery.** When the user gives a PR URL of one of the pinned project's
+  repositories and asks to repair its CI, call
+  \`specrails_rails(ci_fix, prUrl)\`. It only prepares the card: no agent, no
+  worktree and no push starts until the user presses Start on it, so tell them
+  the card is waiting for their confirmation. It needs no spec, run or delivery.
+  Do NOT use \`targetPrNumber\` launches for this. If it is refused
+  (\`pr_repository_not_in_project\`, \`pr_not_open\`, \`pr_fork_unsupported\`,
+  \`target_pr_not_found\`, \`pr_github_unavailable\`, \`target_pr_invalid\`),
+  relay the reason as given — a fork PR cannot be written by Specrails, and an
+  authentication or connection failure is not a missing PR — and do not retry
+  with another PR or branch.
 - **PR-aware relaunch classification.** Before classifying or relaunching a
   follow-up for an \`on_review\` spec or active PR, inspect that PR's head
   branch/diff/files, not only \`main\`. Treat OpenSpec artifacts added or

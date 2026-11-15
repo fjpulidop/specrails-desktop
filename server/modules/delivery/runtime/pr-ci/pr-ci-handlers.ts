@@ -25,7 +25,11 @@ import { activeOpenSpecChangesAt, commitWorktreeAndVerify, type GitRunner } from
 
 /** The PR a pr-ci run works on, resolved from Desktop's own delivery records (never from definition input). */
 export interface PrCiTarget {
-  deliveryId: string
+  /** Delivery-backed targets only. */
+  deliveryId?: string
+  /** Mission-origin targets only: the frozen admission the run was started from. */
+  admissionId?: string
+  repositoryId?: string
   runId: string
   /** Shown to the fixer and in multi-repository results. */
   repositoryName: string
