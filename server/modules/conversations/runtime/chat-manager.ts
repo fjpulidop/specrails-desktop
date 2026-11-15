@@ -765,6 +765,17 @@ export class ChatManager {
     return !this._disposed && this._activeProcesses.has(conversationId)
   }
 
+  /** Conversations with a live provider child (read-only, for resource metering). */
+  activeConversationIds(): string[] {
+    return this._disposed ? [] : [...new Set([...this._activeProcesses.keys(), ...this._persistentProcesses.keys()])]
+  }
+
+  /** OS pids of this conversation's provider children (read-only, for resource metering). */
+  getProcessPids(conversationId: string): number[] {
+    const pids = [this._activeProcesses.get(conversationId)?.pid, this._persistentProcesses.get(conversationId)?.pid]
+    return [...new Set(pids.filter((pid): pid is number => typeof pid === 'number'))]
+  }
+
   async sendMessage(conversationId: string, userText: string, options?: SendMessageOptions): Promise<void> {
     if (this._disposed) return
     if (this._activeProcesses.has(conversationId) || this._reservedTurns.has(conversationId)) {

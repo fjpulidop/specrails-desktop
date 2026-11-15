@@ -39,7 +39,10 @@
       "components/BackgroundProcessChip.tsx",
       "components/BackgroundProcessHistoryModal.tsx",
       "components/BackgroundProcessLogsModal.tsx",
+      "components/BackgroundProcessesPanel.tsx",
+      "components/MissionResourcesPanel.tsx",
       "context/BackgroundProcessesContext.tsx",
+      "hooks/useMissionResourceHistory.ts",
       "lib/background-processes-api.ts"
     ],
     "dependencies": [

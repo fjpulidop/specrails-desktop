@@ -77,6 +77,11 @@ export class MissionCoreSessions {
     return this.handles.get(conversationId)
   }
 
+  /** Conversations with a Core turn in flight (read-only, for resource metering). */
+  activeConversationIds(): string[] {
+    return [...this.handles.keys()]
+  }
+
   /**
    * The Core turn context for this mission turn, or null when the turn must use
    * the legacy runners (sessions disabled, scope degraded, provider not served).
@@ -358,6 +363,26 @@ export class MissionCoreSessions {
   /** The Core session the conversation's sub-agent tools act on: its Intent's while an Intent session turn ran last. */
   private sessionOf(conversationId: string): string {
     return this.current.get(conversationId) ?? this.missionSessionId(conversationId)
+  }
+
+  /** Resolve only this session's provider roots, never the shared host tree.
+   * Core's MCP configuration carries the mission-specific capability file path
+   * in the provider command line. A host without that evidence is not attributed.
+   */
+  processPids(conversationId: string, table: ReadonlyArray<{ pid: number; command: string }>): number[] {
+    const context = this.contexts.get(this.sessionOf(conversationId))
+    const marker = context?.mcpServers.find(server => server.name === 'specrails')?.env?.SPECRAILS_AGENT_CAPABILITY_FILE
+    if (!marker) return []
+    const normalize = (value: string) => process.platform === 'win32' ? value.replace(/\\+/g, '/').toLowerCase() : value
+    const path = normalize(marker)
+    return table.filter(row => {
+      const command = normalize(row.command)
+      const start = command.indexOf(path)
+      if (start < 0) return false
+      // Reject another capability whose filename merely starts with this one.
+      const end = command[start + path.length]
+      return end === undefined || /[\s"'\\,}]/.test(end)
+    }).map(row => row.pid)
   }
 
   /** True when this mission's sub-agents (or its Intent's, while in Intent) are launched by Core (another provider). */

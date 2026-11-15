@@ -19,6 +19,7 @@ import * as path from 'path'
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
   execSync: vi.fn(),
+  execFile: vi.fn(),
 }))
 
 import { spawn as mockSpawn } from 'child_process'

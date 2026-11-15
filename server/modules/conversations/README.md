@@ -14,7 +14,9 @@ is deterministic; it does not create a second provider transport abstraction.
 Run `npx vitest run server/modules/conversations server/modules/conversations/runtime/chat-manager.test.ts`.
 [Policy tests](__tests__/recovery-context.test.ts) cover Unicode boundaries,
 non-retryable failures and every two-chunk draft-fence split. The manager suite
-covers the actual one-time retry and persisted conversation lifecycle.
+covers the actual one-time retry and persisted conversation lifecycle. Tagged resource
+metering tests exercise active and parked persistent children, deduplicated IDs/PIDs,
+missing PIDs and shutdown through the real manager lifecycle.
 
 ## Reviewed public entry points
 

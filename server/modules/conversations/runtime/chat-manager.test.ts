@@ -119,6 +119,42 @@ describe('ChatManager', () => {
     return TEST_CONV_ID
   }
 
+  describe('resource metering', () => {
+    it.each([42000, undefined])('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] tracks active children with PID %s and removes finished activity', async (pid) => {
+      const id = setupConversation()
+      const child = createMockChildProcess()
+      child.pid = pid
+      vi.mocked(mockSpawn).mockReturnValue(child)
+      const turn = cm.sendMessage(id, 'hello')
+      await new Promise(resolve => setImmediate(resolve))
+      expect(cm.activeConversationIds()).toEqual([id])
+      expect(cm.getProcessPids(id)).toEqual(pid === undefined ? [] : [pid])
+      expect(cm.getProcessPids('missing-conversation')).toEqual([])
+      await finishProcess(child, 0)
+      await turn
+      expect(cm.activeConversationIds()).toEqual([])
+      expect(cm.getProcessPids(id)).toEqual([])
+      cm.shutdown()
+    })
+  })
+
+  it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] clears active child attribution on shutdown before the child exits', async () => {
+    const id = setupConversation()
+    const child = createMockChildProcess()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    const turn = cm.sendMessage(id, 'hello')
+    await new Promise(resolve => setImmediate(resolve))
+    expect(cm.activeConversationIds()).toEqual([id])
+    expect(cm.getProcessPids(id)).toEqual([child.pid])
+    cm.shutdown()
+    await turn
+    expect(cm.activeConversationIds()).toEqual([])
+    expect(cm.getProcessPids(id)).toEqual([])
+    child.emit('close', 0)
+    expect(cm.activeConversationIds()).toEqual([])
+    expect(cm.getProcessPids(id)).toEqual([])
+  })
+
   describe('grounded milestone rich-spec prompt', () => {
     let registryHome: string
     let projectPath: string
@@ -2003,6 +2039,32 @@ describe('ChatManager', () => {
       await new Promise((r) => setImmediate(r))
       for (const l of lines) pushLine(child, l)
     }
+
+    it.each([42000, undefined])('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] deduplicates active and persistent children with PID %s, retains parked activity and clears disposed activity', async (pid) => {
+      const id = 'resources-persistent'
+      createConversation(db, { id, model: 'sonnet', kind: 'explore' })
+      const child = createMockChildWithStdin()
+      child.pid = pid
+      vi.mocked(mockSpawn).mockReturnValue(child)
+      const turn = cm.sendMessage(id, 'hello', { lightweight: true })
+      await new Promise(resolve => setImmediate(resolve))
+      // During a turn this child appears in both active and persistent maps.
+      expect(cm.isActive(id)).toBe(true)
+      expect(cm.activeConversationIds()).toEqual([id])
+      expect(cm.getProcessPids(id)).toEqual(pid === undefined ? [] : [pid])
+      await driveTurn(child, [resultEvent('resources-session')])
+      await turn
+      expect(cm.isActive(id)).toBe(false)
+      expect(cm.activeConversationIds()).toEqual([id])
+      expect(cm.getProcessPids(id)).toEqual(pid === undefined ? [] : [pid])
+      cm.shutdown()
+      expect(cm.activeConversationIds()).toEqual([])
+      expect(cm.getProcessPids(id)).toEqual([])
+      // Late process settlement must not reintroduce disposed activity.
+      child.emit('close', 0)
+      expect(cm.activeConversationIds()).toEqual([])
+      expect(cm.getProcessPids(id)).toEqual([])
+    })
 
     it('reuses ONE child across turns and frames each turn to stdin', async () => {
       const cmP = new ChatManager(broadcast, db, undefined, undefined, 'claude', 'proj-pstdin')

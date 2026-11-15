@@ -2789,17 +2789,21 @@
   },
   "terminals": {
     "publicEntries": [
+      "domain/mission-resources.ts",
       "runtime/app-urls.ts",
       "runtime/background-process-control.ts",
       "runtime/background-process-service.ts",
       "runtime/background-process-store.ts",
       "runtime/background-windows-bootstrap.ts",
+      "runtime/mission-resource-history.ts",
+      "runtime/resource-sampler.ts",
       "runtime/terminal-manager.ts",
       "runtime/terminal-marks-store.ts",
       "runtime/terminal-settings.ts"
     ],
     "dependencies": {
       "domain/app-urls.ts": [],
+      "domain/mission-resources.ts": [],
       "runtime/app-urls.ts": [
         "../../../transient-children",
         "../domain/app-urls",
@@ -2838,6 +2842,17 @@
         "node:net",
         "node:os",
         "node:path"
+      ],
+      "runtime/mission-resource-history.ts": [
+        "../../../db",
+        "../domain/mission-resources"
+      ],
+      "runtime/resource-sampler.ts": [
+        "../domain/mission-resources",
+        "node:child_process",
+        "node:fs/promises",
+        "node:path",
+        "node:util"
       ],
       "runtime/terminal-manager.ts": [
         "../../../db",
