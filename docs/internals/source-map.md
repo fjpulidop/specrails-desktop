@@ -201,7 +201,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/background/hooks
 
-- [useMissionResourceHistory.ts](../../client/src/features/background/hooks/useMissionResourceHistory.ts)
+- [useMissionResourceHistory.ts](../../client/src/features/background/hooks/useMissionResourceHistory.ts) · [test](../../client/src/features/background/hooks/__tests__/useMissionResourceHistory.test.ts)
 
 ## client/src/features/background/lib
 
