@@ -278,7 +278,16 @@
     "closeSpecs": "Close specs",
     "resizeSpecs": "Resize specs pane",
     "noSpecs": "No specs yet — ask the agent to create one",
-    "specsClosed": "Closed"
+    "specsClosed": "Closed",
+    "specActivity": {
+      "running": "On Rail {{rail}}: in progress",
+      "waiting": "On Rail {{rail}}: waiting for you",
+      "failed": "On Rail {{rail}}: failed",
+      "intentRunning": "In Intent",
+      "intentPaused": "Intent paused",
+      "openMission": "Open mission",
+      "openRun": "Show run"
+    }
   },
   "attachFile": "Attach file",
   "deleteConversation": "Delete \"{{title}}\"",

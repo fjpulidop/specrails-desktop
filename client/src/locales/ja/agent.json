@@ -278,7 +278,16 @@
     "closeSpecs": "スペックを閉じる",
     "resizeSpecs": "スペックパネルのサイズ変更",
     "noSpecs": "まだスペックがありません — エージェントに作成を頼んでみましょう",
-    "specsClosed": "完了済み"
+    "specsClosed": "完了済み",
+    "specActivity": {
+      "running": "Rail {{rail}}：実行中",
+      "waiting": "Rail {{rail}}：あなたの対応待ち",
+      "failed": "Rail {{rail}}：失敗",
+      "intentRunning": "Intent 中",
+      "intentPaused": "Intent 一時停止中",
+      "openMission": "ミッションを開く",
+      "openRun": "実行を表示"
+    }
   },
   "attachFile": "ファイルを添付",
   "deleteConversation": "「{{title}}」を削除",

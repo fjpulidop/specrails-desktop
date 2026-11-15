@@ -34,6 +34,25 @@ Clicking a spec SHALL open the existing ticket detail modal. Dragging a spec int
 - **WHEN** the user drops a spec onto the composer
 - **THEN** a reference is added and the spec disappears from the pane until the reference is removed or the message is sent
 
+### Requirement: Specs pane shows live implementation
+A spec SHALL be marked as in progress while a rail delivery of the active project includes it and has not settled (building, waiting for review, or failed), or while a live Intent (active or paused) holds it; `ticket.status` alone SHALL NOT mark it. A building run SHALL show an animated rail track along the row (static under reduced motion), with the phase as a coloured dot and a screen-reader label naming the rail and phase. When several runs include the spec, the run strip's urgency order SHALL pick one (waiting › failed › running › paused), then a rail run over the Intent label, then the newest. The row SHALL offer one shortcut, aimed at the most recently created non-archived mission working on the spec (an archived mission only when every mission with the spec is archived; any mission over a dashboard launch): open that mission when it is another mission; focus the run card when it is the open mission; open the run log when a dashboard launch has no mission.
+
+#### Scenario: Implemented from another mission
+- **WHEN** spec #15 is building on Rail 5, launched from another mission
+- **THEN** its row animates, reads "On Rail 5: in progress", and its shortcut opens that mission
+
+#### Scenario: Two missions have the spec
+- **WHEN** two missions are working on the same spec
+- **THEN** the row's shortcut opens the most recently created of them
+
+#### Scenario: Archived missions
+- **WHEN** an active and an archived mission both have the spec
+- **THEN** the shortcut opens the active one, even if the archived one is newer; when only archived missions have it, it opens the newest archived one
+
+#### Scenario: Implemented by the open mission
+- **WHEN** the spec's run was launched from the mission being viewed
+- **THEN** the shortcut focuses that run's card instead of navigating
+
 ### Requirement: Pane layout behaviour
 The pane SHALL be resizable by a full-height handle, SHALL block text selection only during the drag, and newly created specs SHALL animate in unless reduced motion is requested.
 

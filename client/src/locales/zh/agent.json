@@ -278,7 +278,16 @@
     "closeSpecs": "关闭规格",
     "resizeSpecs": "调整规格面板大小",
     "noSpecs": "还没有规格——让智能体创建一个吧",
-    "specsClosed": "已关闭"
+    "specsClosed": "已关闭",
+    "specActivity": {
+      "running": "在 Rail {{rail}}：进行中",
+      "waiting": "在 Rail {{rail}}：等待你处理",
+      "failed": "在 Rail {{rail}}：失败",
+      "intentRunning": "在 Intent 中",
+      "intentPaused": "Intent 已暂停",
+      "openMission": "打开任务",
+      "openRun": "查看运行"
+    }
   },
   "attachFile": "附加文件",
   "deleteConversation": "删除「{{title}}」",

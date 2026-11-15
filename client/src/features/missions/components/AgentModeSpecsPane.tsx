@@ -3,9 +3,15 @@ import { useReducedMotion } from '../../../hooks/useReducedMotion'
 import { composerReferenceDrafts, useComposerDraftRevision } from '../lib/agent-composer-drafts'
 import { ticketChip } from '../lib/agent-context-palette'
 import { SPEC_DRAG_TYPE } from '../lib/agent-spec-drag'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, ListChecks, Maximize2, Minimize2, X } from 'lucide-react'
+import type { TFunction } from 'i18next'
+import { ArrowUpRight, ChevronRight, ListChecks, Maximize2, Minimize2, X } from 'lucide-react'
+import { useRailPrDecisions } from '../../delivery/context/RailPrDecisionContext'
+import { deriveSpecActivity, type SpecActivity, type MissionFacts, type SpecActivityEntry, type SpecActivityPhase } from '../lib/spec-activity'
+import { focusPrCard, requestMissionOpenRun } from './agent-run-failure'
+import { useAgentChat } from '../context/AgentChatContext'
+import { useOpenMission } from '../hooks/useOpenMission'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { cn } from '../../../lib/utils'
 import type { LocalTicket, TicketStatus } from '../../../types'
@@ -33,16 +39,66 @@ export function groupSpecs(tickets: readonly LocalTicket[]): { open: LocalTicket
   return { open, closed }
 }
 
-function SpecRow({ ticket, onOpen, projectId, draftKey, fresh }: {
+const ACTIVITY_FRAME: Record<SpecActivityPhase, string> = {
+  running: 'border-accent-primary/50 bg-accent-primary/[0.06]',
+  waiting: 'border-accent-warning/50 bg-accent-warning/[0.05]',
+  failed: 'border-destructive/50 bg-destructive/[0.05]',
+  paused: 'border-border bg-surface/30',
+}
+
+const ACTIVITY_DOT: Record<SpecActivityPhase, string> = {
+  running: 'bg-accent-primary motion-safe:animate-pulse',
+  waiting: 'bg-accent-warning motion-safe:animate-pulse',
+  failed: 'bg-destructive',
+  paused: 'bg-muted-foreground',
+}
+
+function activityLabel(t: TFunction<'agent'>, activity: SpecActivity): string {
+  const rail = activity.railIndex === null ? null : activity.railIndex + 1
+  if (rail === null) return t(activity.phase === 'paused' ? 'workspace.specActivity.intentPaused' : 'workspace.specActivity.intentRunning')
+  return t(`workspace.specActivity.${activity.phase === 'paused' ? 'running' : activity.phase}`, { rail })
+}
+
+/** The row's shortcut target: another mission, this mission's run card, or (dashboard launch) the run log. */
+type ActivityTarget = 'mission' | 'run-card' | 'run-log'
+
+function activityTarget(activity: SpecActivity, currentConversationId: string | null): ActivityTarget | null {
+  if (activity.conversationId && activity.conversationId !== currentConversationId) return 'mission'
+  if (activity.conversationId && activity.prDeliveryId) return 'run-card'
+  if (!activity.conversationId && activity.runIds.length > 0) return 'run-log'
+  return null
+}
+
+function SpecRow({ ticket, onOpen, projectId, draftKey, fresh, entry, currentConversationId, onOpenMission, onPrefetchMission }: {
   ticket: LocalTicket; onOpen: (id: number) => void; projectId: string; draftKey: string; fresh: boolean
+  entry?: SpecActivityEntry; currentConversationId: string | null
+  onOpenMission: (conversationId: string) => void; onPrefetchMission?: (conversationId: string) => void
 }) {
+  const { t } = useTranslation('agent')
   const reduceMotion = useReducedMotion()
   const dragged = useRef(false)
+  const activity = entry?.shown
+  const link = entry?.link
+  const label = activity ? activityLabel(t, activity) : null
+  const linkLabel = link ? activityLabel(t, link) : null
+  const target = link ? activityTarget(link, currentConversationId) : null
+  const goTo = () => {
+    if (!link || !target) return
+    if (target === 'mission' && link.conversationId) onOpenMission(link.conversationId)
+    else if (target === 'run-card') focusPrCard({ prDeliveryId: link.prDeliveryId, runIds: link.runIds, conversationId: link.conversationId })
+    else if (target === 'run-log') requestMissionOpenRun({ projectId, jobId: link.runIds[0] })
+  }
+  const goToLabel = target === 'mission' ? t('workspace.specActivity.openMission') : t('workspace.specActivity.openRun')
   return (
     <motion.li
       initial={false}
       data-spec-arriving={fresh || undefined}
-      className="rounded-lg"
+      data-spec-activity={activity?.phase}
+      className={cn(
+        'relative flex items-center overflow-hidden rounded-lg border transition-colors',
+        activity ? ACTIVITY_FRAME[activity.phase] : 'border-border/50 bg-surface/30',
+        'hover:border-accent-primary/40 hover:bg-surface/60',
+      )}
       animate={fresh && !reduceMotion ? {
         opacity: [0, 1, 1], x: [16, 0, 0],
         boxShadow: ['0 0 0 1px var(--color-accent-primary)', '0 0 18px 2px var(--color-accent-primary)', '0 0 0 0 transparent'],
@@ -59,15 +115,32 @@ function SpecRow({ ticket, onOpen, projectId, draftKey, fresh }: {
         }}
         onPointerDown={() => { dragged.current = false }}
         onClick={(event) => { if (!dragged.current || event.detail === 0) onOpen(ticket.id) }}
-        className={cn(
-          'flex w-full items-center gap-2 rounded-lg border border-border/50 bg-surface/30 px-2.5 py-2 text-left transition-colors',
-          'cursor-grab active:cursor-grabbing hover:border-accent-primary/40 hover:bg-surface/60',
-        )}
+        className="flex min-w-0 flex-1 cursor-grab items-center gap-2 px-2.5 py-2 text-left active:cursor-grabbing"
       >
+        {activity && label && (
+          <span aria-hidden title={label} className={cn('h-1.5 w-1.5 shrink-0 rounded-full', ACTIVITY_DOT[activity.phase])} />
+        )}
         <span className="shrink-0 font-mono text-caption text-muted-foreground">#{ticket.id}</span>
         <span className="min-w-0 flex-1 truncate text-xs text-foreground" title={ticket.title}>{ticket.title}</span>
+        {label && <span className="sr-only">{label}</span>}
         <TicketStatusBadge status={ticket.status} className="shrink-0" />
       </button>
+      {link && target && (
+        <button
+          type="button"
+          onClick={goTo}
+          onPointerEnter={() => { if (target === 'mission' && link.conversationId) onPrefetchMission?.(link.conversationId) }}
+          aria-label={`${goToLabel} — ${linkLabel}`}
+          title={`${goToLabel} · ${linkLabel}`}
+          data-spec-activity-link={target}
+          className="mr-1.5 shrink-0 rounded-md p-1 text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+        >
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {activity?.phase === 'running' && (
+        <RailTrack running className="pointer-events-none absolute inset-x-2 bottom-0 h-1.5 w-auto min-w-0" />
+      )}
     </motion.li>
   )
 }
@@ -95,6 +168,25 @@ export function AgentModeSpecsPane({ projectId, draftKey }: { projectId: string;
   const grouped = groupSpecs(tickets)
   const open = grouped.open.filter(ticket => !attachedIds.has(String(ticket.id)))
   const closed = grouped.closed.filter(ticket => !attachedIds.has(String(ticket.id)))
+  const { decisions } = useRailPrDecisions()
+  const { active, prefetchConversation, conversations, archiveScope } = useAgentChat()
+  const activity = useMemo(() => {
+    const known = new Map<string, MissionFacts>()
+    for (const mission of [...(conversations ?? []), ...(active ? [active] : [])]) {
+      const at = Date.parse(mission.created_at)
+      known.set(mission.id, { createdAt: Number.isFinite(at) ? at : null, archived: Boolean(mission.archivedAt) })
+    }
+    // The list holds only the scope the person picked: a mission missing from
+    // the "active" list is archived; one missing from the "archived" list is not.
+    const unlisted: MissionFacts = { createdAt: null, archived: archiveScope === 'active' }
+    return deriveSpecActivity(tickets, decisions.values(), (id) => known.get(id) ?? unlisted)
+  }, [tickets, decisions, conversations, active, archiveScope])
+  const openMission = useOpenMission()
+  const rowProps = (ticket: LocalTicket) => ({
+    ticket, onOpen: openTicketDetail, projectId, draftKey, fresh: newTicketIds.has(ticket.id),
+    entry: activity.get(ticket.id), currentConversationId: active?.id ?? null,
+    onOpenMission: openMission, onPrefetchMission: prefetchConversation,
+  })
 
 
   const beginResize = useCallback((e: React.PointerEvent) => {
@@ -197,7 +289,7 @@ export function AgentModeSpecsPane({ projectId, draftKey }: { projectId: string;
           <>
             {open.length > 0 && (
               <ul className="space-y-1">
-                {open.map((ticket) => <SpecRow key={ticket.id} ticket={ticket} onOpen={openTicketDetail} projectId={projectId} draftKey={draftKey} fresh={newTicketIds.has(ticket.id)} />)}
+                {open.map((ticket) => <SpecRow key={ticket.id} {...rowProps(ticket)} />)}
               </ul>
             )}
             {closed.length > 0 && (
@@ -214,7 +306,7 @@ export function AgentModeSpecsPane({ projectId, draftKey }: { projectId: string;
                 </button>
                 {closedExpanded && (
                   <ul className="mt-1 space-y-1">
-                    {closed.map((ticket) => <SpecRow key={ticket.id} ticket={ticket} onOpen={openTicketDetail} projectId={projectId} draftKey={draftKey} fresh={newTicketIds.has(ticket.id)} />)}
+                    {closed.map((ticket) => <SpecRow key={ticket.id} {...rowProps(ticket)} />)}
                   </ul>
                 )}
               </div>
