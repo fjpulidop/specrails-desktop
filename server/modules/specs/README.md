@@ -160,3 +160,36 @@ Tests: [`runtime/spec-timeline.test.ts`](runtime/spec-timeline.test.ts) (per-sou
 paging, project isolation, export content, redaction with fake secrets, cost separation, plan providers,
 8-locale headings, routes). That file is on the `.gitleaks.toml` allowlist because it holds fake
 credentials; keep it the only place for them in this capability.
+
+## Mission provider affinity
+
+A spec created from a mission keeps the mission's provider for every AI step
+it triggers. `POST /tickets/from-draft` captures the provider (`agentProvider`
+from first-party `commit_draft`, or the origin conversation's provider) at save
+time and, before the `ticket_created` broadcast, calls
+`SpecTriageService.pinProvider(ticketId, provider)`. The pin is an immutable
+per-ticket value, so concurrent missions and later selector changes cannot mix
+contexts; it is dropped once a terminal triage record is written. The same
+value reaches Contract Refine as `providerId`.
+
+`resolveTriageEngine(project, { provider })` lets the pinned provider win over
+the project primary and the `triage` role. The role model is reused only when
+it belongs to that provider, otherwise the cheapest priced model applies. There
+is no fallback: a provider that is not detected, not registered or without the
+pure-output tool policy yields an `unavailable` record in `metadata.triage`
+naming the reason, and no other provider runs. Contract Refine failures are
+reported as `explore.contract_refine_failed` with ticket, provider and reason.
+The saved spec, its content and `repositoryIds` are never touched by a failed
+step. Specs without mission context (external MCP clients, `from-prompt`,
+manual `/triage` retries) resolve as before.
+
+| Step | Requires | Claude | Codex | Gemini | Kimi |
+| --- | --- | --- | --- | --- | --- |
+| Triage | `pureOutputToolPolicy` | yes | yes | yes | no |
+| Contract Refine | `supportsContractRefine` | yes | yes | no | no |
+
+Support is read from the adapter capabilities in `server/providers/` (verified
+against the registered adapters when this was written); local engines follow
+their adapter. `generate-spec` and `ai-edit` validate the explicitly requested
+provider and do not substitute another. Why the Claude CLI exited with code 1 in
+the reported case is not addressed by this change.

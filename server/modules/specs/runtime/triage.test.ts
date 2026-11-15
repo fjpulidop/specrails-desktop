@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
 import { setDetectedProvidersSupplier } from '../../../provider-selection'
 import { TRIAGE_PROMPT_VERSION, triageTicketText, type TriageInputs, type TriageLoopOption } from '../domain/triage'
+import { loopRoleEnginesPath } from '../../loops/runtime/loop-role-engines'
 import { readStore } from './ticket-store'
 import { SpecTriageService, cheapestModelForProvider, hashTriageInputs, resolveTriageEngine, type SpecTriageDeps } from './triage'
 import { TriageModelError, type TriageModelResult } from './triage-runner'
@@ -205,5 +206,132 @@ describe('triage engine', () => {
     setDetectedProvidersSupplier(() => ['nonexistent-engine'])
     expect(resolveTriageEngine({ id: 'p', slug: 'p', path: dir, provider: 'nonexistent-engine', providers: [] }))
       .toMatchObject({ ok: false, reason: expect.stringMatching(/^provider_not_registered:/) })
+  })
+
+  describe('mission provider override', () => {
+    const project = () => ({ id: 'p', slug: 'p', path: dir, provider: 'claude', providers: ['claude', 'codex'] })
+    const storeTriageRole = (role: { provider: string; model?: string }) => {
+      const file = loopRoleEnginesPath(project())
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, JSON.stringify({ triage: role }))
+    }
+    beforeEach(() => setDetectedProvidersSupplier(() => ['claude', 'codex']))
+
+    it('[spec:spec-creation-provider-affinity/mission-provider-governs-derived-ai-steps] wins over a Claude primary and a Claude triage role, using the cheapest Codex model', () => {
+      storeTriageRole({ provider: 'claude', model: 'sonnet' })
+      expect(resolveTriageEngine(project(), { provider: 'codex' }))
+        .toEqual({ ok: true, engine: { provider: 'codex', model: cheapestModelForProvider('codex') } })
+    })
+
+    it('keeps the triage role model only when it belongs to the overriding provider', () => {
+      storeTriageRole({ provider: 'claude', model: 'sonnet' })
+      expect(resolveTriageEngine(project(), { provider: 'claude' })).toEqual({ ok: true, engine: { provider: 'claude', model: 'sonnet' } })
+    })
+
+    it('[spec:spec-creation-provider-affinity/no-silent-provider-fallback] does not fall back to another provider when the override is not detected', () => {
+      setDetectedProvidersSupplier(() => ['claude'])
+      expect(resolveTriageEngine(project(), { provider: 'codex' })).toEqual({ ok: false, reason: 'provider_not_detected:codex' })
+    })
+
+    it('reports an unregistered override instead of using the primary', () => {
+      setDetectedProvidersSupplier(() => ['claude', 'nonexistent-engine'])
+      expect(resolveTriageEngine(project(), { provider: 'nonexistent-engine' }))
+        .toEqual({ ok: false, reason: 'provider_not_registered:nonexistent-engine' })
+    })
+
+    it('[spec:spec-creation-provider-affinity/non-mission-creation-unchanged] is unchanged without an override', () => {
+      storeTriageRole({ provider: 'codex' })
+      expect(resolveTriageEngine(project())).toMatchObject({ ok: true, engine: { provider: 'codex' } })
+    })
+  })
+})
+
+describe('SpecTriageService mission provider pin', () => {
+  let dir: string
+  let file: string
+  let db: DbInstance
+  let runModel: ReturnType<typeof vi.fn>
+  const resolveEngine = vi.fn()
+
+  const writeTickets = (tickets: ReturnType<typeof ticket>[]) => {
+    fs.writeFileSync(file, JSON.stringify({
+      schema_version: '1.5', revision: 1, last_updated: new Date().toISOString(),
+      next_id: 100, tickets: Object.fromEntries(tickets.map((t) => [String(t.id), t])),
+    }))
+  }
+  const service = () => new SpecTriageService({
+    project: { id: 'p1', slug: 'p1', path: dir, provider: 'claude', providers: ['claude', 'codex'] },
+    db, ticketsPath: () => file, broadcast: vi.fn(), runModel, repoMap: () => null, loops: () => LOOPS,
+    autoEnabled: () => true, now: () => new Date('2026-10-22T10:00:00.000Z'),
+    resolveEngine: (opts) => resolveEngine(opts),
+  })
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-pin-'))
+    file = path.join(dir, 'local-tickets.json')
+    db = initDb(':memory:')
+    runModel = vi.fn(async (req: { provider: string; model: string }) => ({ ...result(), provider: req.provider, model: req.model }))
+    resolveEngine.mockReset()
+    resolveEngine.mockImplementation(({ provider }: { provider?: string }) =>
+      ({ ok: true, engine: { provider: provider ?? 'claude', model: `${provider ?? 'claude'}-model` } }))
+  })
+  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }))
+
+  it('[spec:spec-creation-provider-affinity/actual-provider-and-model-are-recorded] runs the pending job on the pinned provider and records the executed provider and model', async () => {
+    writeTickets([ticket(1)])
+    const svc = service()
+    svc.pinProvider(1, 'codex')
+    await svc.triageNow(1)
+    expect(resolveEngine).toHaveBeenCalledWith({ provider: 'codex' })
+    expect(runModel).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'codex-model' }))
+    expect(readStore(file).tickets['1'].metadata.triage).toMatchObject({ status: 'ready', model: 'codex-model' })
+    expect(db.prepare('SELECT provider, model, surface FROM ai_invocations').all())
+      .toEqual([{ provider: 'codex', model: 'codex-model', surface: 'triage' }])
+  })
+
+  it('[spec:spec-creation-provider-affinity/provider-fixed-at-operation-start] keeps separate contexts for interleaved tickets of different missions', async () => {
+    writeTickets([ticket(1), ticket(2)])
+    const svc = service()
+    svc.pinProvider(1, 'codex')
+    svc.pinProvider(2, 'claude')
+    await Promise.all([svc.triageNow(1), svc.triageNow(2)])
+    const byTicket = Object.fromEntries(db.prepare('SELECT ticket_id, provider FROM ai_invocations').all()
+      .map((r) => [(r as { ticket_id: number }).ticket_id, (r as { provider: string }).provider]))
+    expect(byTicket).toEqual({ 1: 'codex', 2: 'claude' })
+  })
+
+  it('[spec:spec-creation-provider-affinity/provider-fixed-at-operation-start] ignores a later pin for the same ticket and drops the pin after the terminal record', async () => {
+    writeTickets([ticket(1)])
+    const svc = service()
+    svc.pinProvider(1, 'codex')
+    svc.pinProvider(1, 'claude')
+    await svc.triageNow(1)
+    await svc.triageNow(1, { force: true })
+    expect(resolveEngine.mock.calls).toEqual([[{ provider: 'codex' }], [{}]])
+  })
+
+  it('[spec:spec-creation-provider-affinity/no-silent-provider-fallback] stores an unavailable record naming the reason and never calls another provider', async () => {
+    writeTickets([ticket(1, { description: 'Body', repositoryIds: ['r1'] })])
+    resolveEngine.mockReturnValue({ ok: false, reason: 'provider_tool_policy_unsupported:codex' })
+    const svc = service()
+    svc.pinProvider(1, 'codex')
+    await svc.triageNow(1)
+    expect(runModel).not.toHaveBeenCalled()
+    const stored = readStore(file).tickets['1'] as unknown as Record<string, unknown> & { metadata: { triage: unknown } }
+    expect(stored.metadata.triage).toMatchObject({ status: 'unavailable', reason: 'provider_tool_policy_unsupported:codex' })
+    expect(stored).toMatchObject({ title: 'Spec 1 rail selector', description: 'Body', repositoryIds: ['r1'] })
+  })
+
+  it('[spec:spec-creation-provider-affinity/saved-spec-survives-enrichment-failure] keeps the spec content and repositories when the pinned runner fails', async () => {
+    writeTickets([ticket(1, { repositoryIds: ['r1'] })])
+    runModel.mockRejectedValueOnce(new TriageModelError('codex exit code=1', { ...result(), provider: 'codex', model: 'codex-model' }))
+    const svc = service()
+    svc.pinProvider(1, 'codex')
+    await svc.triageNow(1)
+    const stored = readStore(file)
+    expect(Object.keys(stored.tickets)).toEqual(['1'])
+    expect(stored.tickets['1']).toMatchObject({ title: 'Spec 1 rail selector', repositoryIds: ['r1'], metadata: { triage: { status: 'failed', error: 'codex exit code=1' } } })
+    expect(db.prepare('SELECT provider, model, status FROM ai_invocations').all())
+      .toEqual([{ provider: 'codex', model: 'codex-model', status: 'failed' }])
   })
 })

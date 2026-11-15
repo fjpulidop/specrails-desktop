@@ -16,7 +16,7 @@ import { createProjectRouter } from './project-router'
 import { runContractRefine, runContractRefineForQuick } from './modules/specs/runtime/contract-refine-runner'
 import { initDb, createConversation, addMessage } from './db'
 import { initDesktopDb } from './desktop-db'
-import { resolveTicketStoragePath, mutateStore } from './modules/specs/runtime/ticket-store'
+import { resolveTicketStoragePath, mutateStore, readStore } from './modules/specs/runtime/ticket-store'
 import { CONTRACT_LAYER_SEPARATOR } from './modules/conversations/runtime/explore-contract-refine'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { DbInstance } from './db'
@@ -179,6 +179,107 @@ describe('from-draft agent-authored Contract Refine scheduling', () => {
   })
 })
 
+describe('from-draft mission provider propagation', () => {
+  let tmpDir: string
+  let db: DbInstance
+  let ctx: ProjectContext
+  let pinProvider: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fromdraft-pin-'))
+    db = initDb(':memory:')
+    ctx = makeContext(db, tmpDir, ['claude', 'codex', 'kimi'])
+    pinProvider = vi.fn()
+    ;(ctx as unknown as { specTriage: unknown }).specTriage = { pinProvider }
+    vi.mocked(runContractRefine).mockClear()
+    vi.mocked(runContractRefineForQuick).mockClear()
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  const ticketCount = () => Object.keys(readStore(resolveTicketStoragePath(tmpDir)).tickets).length
+
+  it('[spec:spec-creation-provider-affinity/mission-provider-governs-derived-ai-steps] pins the mission provider for triage before the ticket broadcast and refines with it, not the Claude primary', async () => {
+    const res = await request(createApp(ctx))
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({ title: 'Codex mission spec', description: 'Body', contractRefine: true, agentProvider: 'codex' })
+    expect(res.status).toBe(201)
+    await drainScheduling()
+
+    expect(pinProvider).toHaveBeenCalledWith(res.body.ticket.id, 'codex')
+    const created = vi.mocked(ctx.broadcast).mock.calls.findIndex(([m]) => (m as { type: string }).type === 'ticket_created')
+    expect(pinProvider.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(ctx.broadcast).mock.invocationCallOrder[created])
+    expect(runContractRefineForQuick).toHaveBeenCalledWith(
+      expect.objectContaining({ providerId: 'codex' }), res.body.ticket.id, 'Codex mission spec', 'Body', null,
+    )
+  })
+
+  it('[spec:spec-creation-provider-affinity/mission-provider-governs-derived-ai-steps] pins the origin conversation provider of an Explore commit', async () => {
+    createConversation(db, { id: 'conv-codex', model: 'gpt-5', kind: 'explore', provider: 'codex' })
+    const res = await request(createApp(ctx))
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({ title: 'Explore codex', description: 'Body', conversationId: 'conv-codex', contractRefine: true })
+    expect(res.status).toBe(201)
+    await drainScheduling()
+    expect(pinProvider).toHaveBeenCalledWith(res.body.ticket.id, 'codex')
+    expect(vi.mocked(runContractRefine).mock.calls[0][0]).toMatchObject({ providerId: 'codex' })
+  })
+
+  it('[spec:spec-creation-provider-affinity/non-mission-creation-unchanged] pins nothing without a mission context (external MCP client, no agentProvider)', async () => {
+    const res = await request(createApp(ctx))
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({ title: 'External', description: 'Body', contractRefine: true })
+    expect(res.status).toBe(201)
+    await drainScheduling()
+    expect(pinProvider).not.toHaveBeenCalled()
+    expect(runContractRefineForQuick).toHaveBeenCalledWith(
+      expect.objectContaining({ providerId: 'claude' }), res.body.ticket.id, 'External', 'Body', null,
+    )
+  })
+
+  it('[spec:spec-creation-provider-affinity/no-silent-provider-fallback] does not pin a provider that is not installed and runs no refine on another provider', async () => {
+    const res = await request(createApp(ctx))
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({ title: 'Ghost provider', description: 'Body', contractRefine: true, agentProvider: 'gemini' })
+    expect(res.status).toBe(201)
+    await drainScheduling()
+    expect(pinProvider).not.toHaveBeenCalled()
+    expect(runContractRefineForQuick).not.toHaveBeenCalled()
+    expect(ticketCount()).toBe(1)
+  })
+
+  it('[spec:spec-creation-provider-affinity/saved-spec-survives-enrichment-failure] keeps the single saved spec and reports the unsupported contract step with its provider', async () => {
+    const res = await request(createApp(ctx))
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({ title: 'Kimi mission spec', description: 'Body', contractRefine: true, agentProvider: 'kimi' })
+    expect(res.status).toBe(201)
+    await drainScheduling()
+
+    expect(pinProvider).toHaveBeenCalledWith(res.body.ticket.id, 'kimi')
+    expect(runContractRefineForQuick).not.toHaveBeenCalled()
+    expect(runContractRefine).not.toHaveBeenCalled()
+    expect(ticketCount()).toBe(1)
+    expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'explore.contract_refine_failed', provider: 'kimi', ticketId: res.body.ticket.id, reason: 'provider-unsupported',
+    }))
+  })
+
+  it('[spec:spec-creation-provider-affinity/provider-fixed-at-operation-start] keeps concurrent missions with different providers apart', async () => {
+    const app = createApp(ctx)
+    const [a, b] = await Promise.all([
+      request(app).post('/api/projects/proj-1/tickets/from-draft').send({ title: 'A', description: 'a', contractRefine: true, agentProvider: 'codex' }),
+      request(app).post('/api/projects/proj-1/tickets/from-draft').send({ title: 'B', description: 'b', contractRefine: true, agentProvider: 'claude' }),
+    ])
+    await drainScheduling()
+    expect(pinProvider).toHaveBeenCalledWith(a.body.ticket.id, 'codex')
+    expect(pinProvider).toHaveBeenCalledWith(b.body.ticket.id, 'claude')
+    const providerByTicket = Object.fromEntries(vi.mocked(runContractRefineForQuick).mock.calls.map(([deps, id]) => [id, deps.providerId]))
+    expect(providerByTicket).toEqual({ [a.body.ticket.id]: 'codex', [b.body.ticket.id]: 'claude' })
+  })
+})
+
 describe('contract-refine retry endpoint — quick fallback for origin-less tickets', () => {
   let tmpDir: string
   let db: DbInstance
@@ -247,6 +348,26 @@ describe('contract-refine retry endpoint — quick fallback for origin-less tick
     expect(seed).toBe(userBody)
     expect(seed).not.toContain('Naming Contract')
     expect(model).toBeNull()
+    expect(runContractRefine).not.toHaveBeenCalled()
+  })
+
+  it('[spec:spec-creation-provider-affinity/no-silent-provider-fallback] retry honours an explicit provider over the Claude primary and never runs another', async () => {
+    const id = seedTicket({ description: 'body' })
+    const app = createApp(makeContext(db, tmpDir, ['claude', 'codex']))
+    const res = await request(app).post(`/api/projects/proj-1/tickets/${id}/contract-refine`).send({ provider: 'codex' })
+    expect(res.status).toBe(202)
+    await drainScheduling()
+    expect(vi.mocked(runContractRefineForQuick).mock.calls.map(([deps]) => deps.providerId)).toEqual(['codex'])
+    expect(runContractRefine).not.toHaveBeenCalled()
+  })
+
+  it('[spec:spec-creation-provider-affinity/no-silent-provider-fallback] retry with an unsupported provider is rejected and schedules nothing', async () => {
+    const id = seedTicket({ description: 'body' })
+    const app = createApp(makeContext(db, tmpDir, ['claude', 'kimi']))
+    const res = await request(app).post(`/api/projects/proj-1/tickets/${id}/contract-refine`).send({ provider: 'kimi' })
+    expect(res.status).toBe(409)
+    await drainScheduling()
+    expect(runContractRefineForQuick).not.toHaveBeenCalled()
     expect(runContractRefine).not.toHaveBeenCalled()
   })
 
