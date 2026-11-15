@@ -21,6 +21,27 @@ vi.mock('../../../specs/context/TicketDetailModalContext', () => ({
 vi.mock('../../context/AgentWorkspaceContext', () => ({
   useAgentWorkspace: () => ({ closeSpecsPane: state.closeSpecsPane }),
 }))
+const live = vi.hoisted(() => ({
+  decisions: new Map<number, unknown>(),
+  activeId: 'mission-1' as string | null,
+  openMission: vi.fn(),
+  conversations: [] as Array<{ id: string; created_at: string; archivedAt?: string | null }>,
+  archiveScope: 'active' as 'active' | 'archived' | 'all',
+}))
+vi.mock('../../../delivery/context/RailPrDecisionContext', () => ({
+  useRailPrDecisions: () => ({ decisions: live.decisions }),
+}))
+vi.mock('../../context/AgentChatContext', () => ({
+  useAgentChat: () => ({ active: live.activeId ? { id: live.activeId } : null, prefetchConversation: vi.fn(), conversations: live.conversations, archiveScope: live.archiveScope }),
+}))
+vi.mock('../../hooks/useOpenMission', () => ({ useOpenMission: () => live.openMission }))
+
+function building(ticketIds: number[], railIndex: number, originConversationId: string | null) {
+  return {
+    prDeliveryId: `d-${railIndex}`, railIndex, railKey: 'r', ticketIds, baseBranch: 'main', branch: null, prUrl: null,
+    prNumber: null, prState: 'none', decision: 'building', runIds: [`run-${railIndex}`], originConversationId,
+  }
+}
 
 function spec(id: number, status: TicketStatus, title = `Spec ${id}`): LocalTicket {
   return { id, title, status } as LocalTicket
@@ -84,6 +105,101 @@ describe('AgentModeSpecsPane', () => {
     state.tickets = []
     state.isLoading = false
     state.newTicketIds = new Set()
+    live.decisions = new Map()
+    live.activeId = 'mission-1'
+    live.conversations = []
+    live.archiveScope = 'all'
+  })
+
+  it('skips an archived mission for the shortcut, but uses it when it is the only one', () => {
+    state.tickets = [spec(15, 'in_progress', 'Shared spec')]
+    live.archiveScope = 'active'
+    live.conversations = [{ id: 'mission-live', created_at: '2026-11-10T09:00:00Z' }]
+    // 'mission-archived' is newer but missing from the active list ⇒ archived.
+    live.decisions = new Map([
+      [0, building([15], 0, 'mission-live')],
+      [1, building([15], 1, 'mission-archived')],
+    ])
+    const view = render(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Open mission — On Rail 1/ }))
+    expect(live.openMission).toHaveBeenLastCalledWith('mission-live')
+
+    live.decisions = new Map([[1, building([15], 1, 'mission-archived')]])
+    view.rerender(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Open mission — On Rail 2/ }))
+    expect(live.openMission).toHaveBeenLastCalledWith('mission-archived')
+  })
+
+  it('[spec:mission-specs-pane/specs-pane-shows-live-implementation] opens the most recently created mission when two missions have the spec', () => {
+    state.tickets = [spec(15, 'in_progress', 'Shared spec')]
+    live.conversations = [
+      { id: 'mission-new', created_at: '2026-11-15T11:00:00Z' },
+      { id: 'mission-old', created_at: '2026-11-14T09:00:00Z' },
+    ]
+    live.decisions = new Map([
+      [0, { ...building([15], 0, 'mission-new'), updatedAt: '2026-11-15T11:05:00Z' }],
+      [1, { ...building([15], 1, 'mission-old'), updatedAt: '2026-11-15T12:00:00Z' }],
+    ])
+    render(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Open mission — On Rail 1/ }))
+    expect(live.openMission).toHaveBeenCalledWith('mission-new')
+  })
+
+  it('[spec:mission-specs-pane/specs-pane-shows-live-implementation] animates a spec being implemented and opens the mission implementing it', () => {
+    state.tickets = [spec(15, 'in_progress', 'Hide sidebar buttons'), spec(4, 'todo', 'Idle spec')]
+    live.decisions = new Map([[4, building([15], 4, 'mission-other')]])
+    const view = render(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
+    const row = screen.getByRole('button', { name: /Hide sidebar buttons/ }).parentElement as HTMLElement
+    expect(row).toHaveAttribute('data-spec-activity', 'running')
+    expect(within(row).getByTestId('rail-track')).toBeInTheDocument()
+    expect(within(row).getByText('On Rail 5: in progress')).toHaveClass('sr-only')
+    fireEvent.click(within(row).getByRole('button', { name: /Open mission/ }))
+    expect(live.openMission).toHaveBeenCalledWith('mission-other')
+
+    const idle = screen.getByRole('button', { name: /Idle spec/ }).parentElement as HTMLElement
+    expect(idle).not.toHaveAttribute('data-spec-activity')
+    expect(within(idle).queryByTestId('rail-track')).toBeNull()
+    expect(view.container.querySelectorAll('[data-spec-activity-link]')).toHaveLength(1)
+  })
+
+  it('focuses the run card when the spec is implemented by the open mission', () => {
+    state.tickets = [spec(15, 'in_progress', 'Here')]
+    live.decisions = new Map([[0, building([15], 0, 'mission-1')]])
+    const seen: unknown[] = []
+    const listener = (event: Event) => seen.push((event as CustomEvent).detail)
+    window.addEventListener('specrails:focus-pr-card', listener)
+    try {
+      render(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
+      fireEvent.click(screen.getByRole('button', { name: /Show run/ }))
+      expect(live.openMission).not.toHaveBeenCalled()
+      expect(seen).toEqual([{ prDeliveryId: 'd-0', runIds: ['run-0'], conversationId: 'mission-1' }])
+    } finally {
+      window.removeEventListener('specrails:focus-pr-card', listener)
+    }
+  })
+
+  it('opens the run log for a dashboard launch with no mission', () => {
+    state.tickets = [spec(15, 'in_progress', 'Dashboard run')]
+    live.decisions = new Map([[2, building([15], 2, null)]])
+    const seen: unknown[] = []
+    const listener = (event: Event) => seen.push((event as CustomEvent).detail)
+    window.addEventListener('specrails:mission-open-run', listener)
+    try {
+      render(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
+      fireEvent.click(screen.getByRole('button', { name: /Show run/ }))
+      expect(seen).toEqual([{ projectId: 'p1', jobId: 'run-2' }])
+    } finally {
+      window.removeEventListener('specrails:mission-open-run', listener)
+    }
+  })
+
+  it('marks a live Intent spec and links to its mission without a rail track', () => {
+    state.tickets = [{ ...spec(7, 'in_progress', 'Intent spec'), metadata: { flow: { state: 'active', conversationId: 'intent-mission' } } } as LocalTicket]
+    render(<AgentModeSpecsPane projectId="p1" draftKey="mission-1" />)
+    const row = screen.getByRole('button', { name: /Intent spec/ }).parentElement as HTMLElement
+    expect(row).toHaveAttribute('data-spec-activity', 'running')
+    fireEvent.click(within(row).getByRole('button', { name: /Open mission — In Intent/ }))
+    expect(live.openMission).toHaveBeenCalledWith('intent-mission')
   })
 
   it('[spec:mission-specs-pane/spec-detail-and-chat-reference] drags a spec into the mission draft, hides it, and restores it after removal or send', () => {

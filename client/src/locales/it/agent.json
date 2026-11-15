@@ -278,7 +278,16 @@
     "closeSpecs": "Chiudi specs",
     "resizeSpecs": "Ridimensiona pannello specs",
     "noSpecs": "Ancora nessuna spec — chiedi all'agente di crearne una",
-    "specsClosed": "Chiuse"
+    "specsClosed": "Chiuse",
+    "specActivity": {
+      "running": "Sul Rail {{rail}}: in corso",
+      "waiting": "Sul Rail {{rail}}: ti aspetta",
+      "failed": "Sul Rail {{rail}}: non riuscito",
+      "intentRunning": "In Intent",
+      "intentPaused": "Intent in pausa",
+      "openMission": "Apri la missione",
+      "openRun": "Vedi esecuzione"
+    }
   },
   "attachFile": "Allega file",
   "deleteConversation": "Elimina «{{title}}»",
